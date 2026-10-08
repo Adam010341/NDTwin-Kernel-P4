@@ -2226,7 +2226,15 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         "            fh.write('\\nEDITED_DURING_S0 = True\\n')\n"
         "        ident = sys.modules.get('p4_health.identity')\n"
         "        raise Reached(json.dumps({'loaded': sorted(m for m in sys.modules if m.startswith('p4_health')),\n"
+        "                                  'at_the_clean_check': at_check[0],\n"
         "                                  'identity_has_the_edit': hasattr(ident, 'EDITED_DURING_S0')}))\n"
+        "at_check = []\n"
+        "real_git = probe._git_run\n"
+        "def git(*args):\n"
+        "    if args[0] == 'status' and not at_check:\n"
+        "        at_check.append(sorted(m for m in sys.modules if m.startswith('p4_health')))\n"
+        "    return real_git(*args)\n"
+        "probe._git_run = git\n"
         "stub = types.ModuleType('p4_health.s0')\n"
         "stub.S0 = FakeS0\n"
         "sys.modules['p4_health.s0'] = stub\n"
@@ -2271,6 +2279,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         for name in ("identity", "vs_trial", "ctrl_trial", "round_b", "round_a", "lab", "lab_round",
                      "frozen", "attribution", "controller_ext", "observe_a", "throwaway"):
             self.assertIn("p4_health." + name, got["loaded"], name)
+            self.assertIn("p4_health." + name, got["at_the_clean_check"], name + " (at the clean check)")
         self.assertFalse(got["identity_has_the_edit"])
 
     def test_the_lab_path_list_covers_every_module_of_the_package(self):
