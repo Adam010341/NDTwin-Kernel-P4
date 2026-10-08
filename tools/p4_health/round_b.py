@@ -122,8 +122,9 @@ class BRound(object):
             self.failed = self.problems[-1]
             return self.finish(None, None)
         try:
-            # the marker is the run directory: the package path in the argv lies inside it
-            lab_round.register("controller", proc.pid, self.cfg.run_dir)
+            # the marker is the run directory, RESOLVED: the package path in the argv lies inside it
+            # and LabRound hands that path out with its links followed (round 4, F6)
+            lab_round.register("controller", proc.pid, os.path.realpath(self.cfg.run_dir))
         except ValueError as exc:
             self.problems.append("controller not recorded: %s" % exc)
         if not self._wait_file(self.path("controller.ready.json"), proc, self.ready_timeout_s):
