@@ -9,7 +9,9 @@
                                                                    S0, then bring-ups A and B (Cut 2)
 
 Exit: 0 COMPLETE, 1 PROBE-BROKEN (not publishable), 2 INCOMPLETE / refused. On `lab`, 1 is PROBE-BROKEN and nothing
-else (round 5): an S0 that is not whole, a run that cannot start and an exception are all 2.
+else (round 5): an S0 that is not whole, a run that cannot start and an exception are all 2, and so is
+SEE-RED-NOT-SEEN: a --mutant run (complete, clean) in which no cell is PROBE-BROKEN, i.e. the probe did not
+notice the mutant. The see-red run's pass is PROBE-BROKEN rc 1 with empty problems.
 Refuses to run as root (design 7.3). Wrap in run.sh (setsid, nice) for anything long.
 """
 from __future__ import annotations

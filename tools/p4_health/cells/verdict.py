@@ -362,7 +362,7 @@ def rollup(table, ctx, scope):
 
 
 def run_verdict(ctx, bringups_complete=True, stopped=False, see_red=False):
-    """COMPLETE | PROBE-BROKEN | INCOMPLETE, and the rc (0, 1, 2).
+    """COMPLETE | PROBE-BROKEN | INCOMPLETE | SEE-RED-NOT-SEEN, and the rc (0, 1, 2, 2).
 
     (Cut 2 round 4, F3) PROBE-BROKEN is looked at first, so two things must come before it:
     a run that was stopped (a record carries "aborted by signal", or the run itself was stopped)
@@ -377,6 +377,11 @@ def run_verdict(ctx, bringups_complete=True, stopped=False, see_red=False):
         return "PROBE-BROKEN", 1
     if not bringups_complete:
         return "INCOMPLETE", 2
+    if see_red:
+        # (round 5, #3) a see-red run's pass is PROBE-BROKEN. A complete, clean one in which no cell is
+        # PROBE-BROKEN means the mutant went unnoticed -- the probe cannot see red -- and that must not
+        # read COMPLETE rc 0, the status of success. Its own name, and rc 2 (not a verdict on the fabric).
+        return "SEE-RED-NOT-SEEN", 2
     return "COMPLETE", 0
 
 

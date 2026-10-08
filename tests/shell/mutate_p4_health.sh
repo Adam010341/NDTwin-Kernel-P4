@@ -2321,6 +2321,32 @@ add "C2R5-2h. probe.py lab lets an exception out as Python's status 1" \
             # (Cut 2 round 5, #2) Python' \
     'test_an_exception_out_of_the_lab_path_is_rc_2_not_pythons_status_1'
 
+add "C2R5-3a. a see-red run in which no cell is PROBE-BROKEN reads COMPLETE" \
+    "$VERDICT" \
+    '    if see_red:
+        # (round 5, #3)' \
+    '    if False:  # MUTANT
+        # (round 5, #3)' \
+    'test_a_see_red_run_whose_mutant_is_not_caught_is_not_a_pass'
+
+add "C2R5-3b. a see-red run that sees no red exits 0" \
+    "$VERDICT" \
+    '        return "SEE-RED-NOT-SEEN", 2' \
+    '        return "SEE-RED-NOT-SEEN", 0  # MUTANT' \
+    'test_a_see_red_run_that_sees_no_red_is_not_a_pass'
+
+add "C2R5-3c. an unfinished see-red run reads SEE-RED-NOT-SEEN instead of INCOMPLETE" \
+    "$VERDICT" \
+    '    if not bringups_complete:
+        return "INCOMPLETE", 2
+    if see_red:' \
+    '    if see_red:
+        return "SEE-RED-NOT-SEEN", 2  # MUTANT
+    if not bringups_complete:
+        return "INCOMPLETE", 2
+    if see_red:' \
+    'test_a_see_red_run_that_sees_no_red_is_not_a_pass'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

@@ -156,7 +156,7 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
 def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None, mutant=False,
             tutorials_utils=None, round_cls=LabRound, a_kwargs=None, b_kwargs=None,
             expected_tsv=None, log=print, identity=None, signals=True, frozen=None):
-    """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE.
+    """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE or SEE-RED-NOT-SEEN.
 
     (Cut 2 round 5, #2) Whatever ends the run early -- S0 not COMPLETE, a set-up that fails
     (load_model, expectations), a round that cannot start (LAB_STATE.json left by an unfinished
@@ -242,7 +242,9 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
         json.dump({"cells": observations, "self_checks": a.sc_observations if a else {}}, fh,
                   indent=2, sort_keys=True, default=_jsonable)
     log(R.render(rows, rollups))
-    log("verdict %s%s" % (verdict, "  -- NOT PUBLISHABLE" if verdict == "PROBE-BROKEN" else ""))
+    log("verdict %s%s" % (verdict, {"PROBE-BROKEN": "  -- NOT PUBLISHABLE",
+                                    "SEE-RED-NOT-SEEN": "  -- the mutant was not noticed: the probe cannot see red"
+                                    }.get(verdict, "")))
     return rc, doc
 
 
