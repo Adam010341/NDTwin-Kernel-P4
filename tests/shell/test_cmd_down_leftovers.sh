@@ -25,16 +25,23 @@
 #                and a component other than kernel)
 #   cannot tell  a udp row whose probe answers 2: named as not checked, never reported clear, and
 #                not a failure -- once through a stubbed probe, once with no ss on PATH for real
-#   ss form      every `( sport = ... )` filter stack.sh and ports.sh build uses ss(8)'s `:PORT`
+#   ss form      every `( sport = ... )` filter stack.sh and ports.sh build uses ss(8)'s `:PORT`,
+#                and stack.sh's own lookup (tagged by a wrapper) is among them
+#   stop_one, no usable pid   "abc", "1" and "": refused, both registry files removed, nothing
+#                signalled (kill is stubbed for these, so a broken guard cannot reach `kill -1`)
 #
 # 🔴 How "ours" is reached. port_owner_verdict applies stop_one's own tests (pidfile_vouches), and
 # stop_one removes every pidfile it accepts, so after a real stop_one the only pidfile left is one
 # it refused -- which the verdict now refuses too. "ours" is therefore reachable only when a pidfile
 # that passes those tests appears AFTER stop_one ran: an `up` racing this `down` (or a pidfile
 # stop_one could not delete). The ours and pgid variants build exactly that: stop_one runs for real,
-# and a wrapper then writes a fresh pidfile naming the holder, as a concurrent start_bg would. A
-# holder that stop_one accepts and yet fails to stop is not buildable -- it sends KILL and removes
-# the pidfile either way.
+# and a wrapper then writes a fresh pidfile naming the holder, as a concurrent start_bg would.
+#
+# A holder that stop_one accepts and yet fails to stop DOES exist, and it does not reach "ours":
+# stop_one signals nothing when the recorded leader is already gone, and sends KILL only if the
+# leader survives TERM; such a holder (a group member left behind) lands in the "did not start it"
+# branch, because stop_one removed the pidfile that named it. Not covered here; it is a stop_one
+# defect of its own, not this branch's.
 #
 # Isolation: PID_DIR/LOG_DIR/RUN_DIR are a temp dir, NDT_PORT_TABLE is overridden to 459xx ports
 # (set after sourcing, because ports.sh assigns the table unconditionally), so cmd_down never sees a
@@ -111,7 +118,14 @@ alive() {
     st="$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f1)"
     [[ -n "$st" && "$st" != Z ]] && echo alive || echo gone
 }
-trap 'stop_listener; stop_sleeper; rm -rf "$TMP"' EXIT
+PAUSE_PID=""   # the LEFTOVERS_PAUSE_AT_PGID sleep, if any
+stop_pause() {
+    [[ -n "$PAUSE_PID" && "$(ps -o comm= -p "$PAUSE_PID" 2>/dev/null)" == sleep ]] && kill "$PAUSE_PID" 2>/dev/null
+    PAUSE_PID=""
+}
+# On EXIT, which bash also runs for SIGINT and SIGTERM (measured: both run it while the script is in
+# `wait`; a foreground child defers it until that child returns).
+trap 'stop_pause; stop_listener; stop_sleeper; rm -rf "$TMP"' EXIT
 
 export PID_DIR="$TMP/pids" LOG_DIR="$TMP/logs" RUN_DIR="$TMP" NO_COLOR=1
 mkdir -p "$PID_DIR" "$LOG_DIR"
@@ -122,7 +136,9 @@ REAL_SS="$(command -v ss)"
 mkdir -p "$TMP/ssbin"
 export SS_LOG="$TMP/ss.calls" REAL_SS
 : >"$SS_LOG"
-printf '#!/bin/sh\nprintf "%%s\\n" "$*" >>"$SS_LOG"\nexec "$REAL_SS" "$@"\n' >"$TMP/ssbin/ss"
+# Each line is "<tag> <args>": the tag is "stack" while stack.sh's own port_listener_pids runs (the
+# wrapper below sets it), "other" for everything else (ports.sh's lookups, this test's own probes).
+printf '#!/bin/sh\nprintf "%%s %%s\\n" "${SS_TAG:-other}" "$*" >>"$SS_LOG"\nexec "$REAL_SS" "$@"\n' >"$TMP/ssbin/ss"
 chmod +x "$TMP/ssbin/ss"
 PATH="$TMP/ssbin:$PATH"
 
@@ -133,6 +149,8 @@ source "$STACK"
 # The real probe and the real stop_one, kept under other names so a case can wrap them.
 eval "real_ndt_port_open() $(declare -f ndt_port_open | tail -n +2)"
 eval "real_stop_one() $(declare -f stop_one | tail -n +2)"
+eval "real_port_listener_pids() $(declare -f port_listener_pids | tail -n +2)"
+port_listener_pids() { SS_TAG=stack real_port_listener_pids "$@"; }
 
 CANDIDATES=(45937 45938 45939 45940)
 UPORT=45943   # the udp row of the cannot-tell cases; never bound, its probe is what is varied
@@ -369,6 +387,13 @@ use_port "$PORT"
 stop_listener
 for _ in $(seq 1 30); do ndt_port_open "$PORT" tcp || break; sleep 0.1; done
 if start_group_listener; then
+    # A hook for the signal run in the evidence dir: hold here, with the group listener up, so a
+    # SIGINT/SIGTERM can be delivered while every kind of process this test starts is alive.
+    if [[ -n "${LEFTOVERS_PAUSE_AT_PGID:-}" ]]; then
+        : >"$TMP/paused"
+        sleep "$LEFTOVERS_PAUSE_AT_PGID" & PAUSE_PID=$!
+        wait "$PAUSE_PID"; PAUSE_PID=""
+    fi
     check "injection took effect: the listener is a child in the leader's process group" \
         "$LEADER_PID" "$(ps -o pgid= -p "$LISTENER_PID" 2>/dev/null | tr -d ' ')"
     check "  and its own pid is not the leader's" "different" \
@@ -405,7 +430,7 @@ check "cannot tell: injection took effect (the udp row was probed through the st
       "yes" "$(grep -qx "$UPORT udp" "$STUB_CALLS" && echo yes || echo "no: $(tr '\n' ';' <"$STUB_CALLS")")"
 check "cannot tell: it does not fail a down that found nothing listening" "0" "$rc"
 has   "cannot tell: it names the port as not checked, and why" \
-      ":$UPORT (udp) could NOT be checked: the probe could not tell -- not reported clear" "$out"
+      ":$UPORT (udp) could NOT be checked: ss is on PATH but its query failed -- not reported clear" "$out"
 has   "cannot tell: the closing line says the check was incomplete, naming the port" \
       "the port check is INCOMPLETE -- not checked: :$UPORT/udp" "$out"
 check "cannot tell: the closing line is not a plain 'done'" "no" \
@@ -430,11 +455,31 @@ check "no ss: the closing line is not a plain 'done'" "no" \
       "$(grep -qx 'done' <<<"$out" && echo "yes: $out" || echo no)"
 use_port "$PORT"
 
+# --- stop_one, a pidfile with no usable pid: refused, both files removed, nothing signalled ----
+# pidfile_vouches' code 3, through the real stop_one. `kill` is a function for these three, so a
+# guard that let "1" through would call the stub, never `kill -TERM -1` (every process this user
+# owns). Each runs in its own subshell; the stub dies with it.
+KILL_CALLS="$TMP/kill.calls"
+for content in abc 1 ""; do
+    rm -rf "$PID_DIR"; mkdir -p "$PID_DIR"; : >"$KILL_CALLS"
+    printf '%s\n' "$content" >"$PID_DIR/kernel.pid"
+    printf 'some command\n' >"$PID_DIR/kernel$CMD_SUFFIX"
+    out="$(kill() { echo "kill $*" >>"$KILL_CALLS"; return 1; }; stop_one kernel 2>&1)"; rc=$?
+    label="no usable pid (${content:-empty})"
+    check "$label: stop_one returns 1" "1" "$rc"
+    has   "$label: and says the pidfile holds no usable pid" \
+          "kernel.pid does not contain a usable pid (${content:-empty}); not killing anything" "$out"
+    check "$label: the pidfile is removed" "gone" "$([[ -e "$PID_DIR/kernel.pid" ]] && echo present || echo gone)"
+    check "$label: and its .cmd" "gone" "$([[ -e "$PID_DIR/kernel$CMD_SUFFIX" ]] && echo present || echo gone)"
+    check "$label: nothing was signalled" "" "$(tr '\n' ';' <"$KILL_CALLS")"
+done
+rm -rf "$PID_DIR"; mkdir -p "$PID_DIR"
+
 # --- ss form: every port filter built under this test uses ss(8)'s `:PORT` -------------------
 # Counted over the whole run; port_listener_pids (stack.sh) and ndt_port_listener_pids (ports.sh)
 # both ran above. The `-ltnp` count guards against a vacuous pass.
-n_lp="$(grep -c -- '^-ltnpH ( sport = ' "$SS_LOG")"
-check "ss form: stack.sh's listener lookup ran (at least one -ltnpH filter)" "yes" \
+n_lp="$(grep -c -- '^stack -ltnpH ( sport = ' "$SS_LOG")"
+check "ss form: stack.sh's own listener lookup ran (tagged, at least one)" "yes" \
       "$([[ "$n_lp" -gt 0 ]] && echo yes || echo "no: $n_lp")"
 check "ss form: no sport filter uses a bare port number" "" \
       "$(grep -- 'sport = ' "$SS_LOG" | grep -v -- 'sport = :' | sort -u | tr '\n' ';')"

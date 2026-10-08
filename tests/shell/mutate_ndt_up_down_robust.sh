@@ -1288,6 +1288,32 @@ m=$(mutant m92 "$NDT" \
 report "M92: ndt clean calls a port it could not probe a stranger's" "$m" \
        "🔴 clean: and it does not call it a stranger's"
 
+# M93: the line that makes a SILENT blind residue not clean. Redundant whenever the residue printed
+# its "could NOT be probed" line (that text alone makes cmd_clean red) -- so it is pinned by a case
+# whose residue prints nothing.
+m=$(mutant m93 "$NDT" \
+    '    (( prc == 2 )) && rc=1' \
+    '    :')
+report "M93: a silent 'cannot tell' residue is clean" "$m" \
+       "  clean (silent): a 'cannot tell' from the residue with no text is still not clean"
+
+# M94: "ports closed" for any reading that is not "held" -- i.e. for "cannot tell" too.
+m=$(mutant m94 "$NDT" \
+    '    (( prc == 0 )) && ok "ports closed: $(ndt_port_label all)"' \
+    '    (( prc != 1 )) && ok "ports closed: $(ndt_port_label all)"')
+report "M94: 'ports closed' is printed for a reading that could not look" "$m" \
+       "  clean: it does not say the ports are closed"
+
+# M95: ports.sh's residue stops naming a port it could not probe (the mutant dir carries its own
+# ports.sh, so this edits the copy).
+m=$(mutant m95 "$REPO/tools/test_workflow/ports.sh" \
+    '                   printf '"'"'residue: :%s (%s) could NOT be probed on this machine (%s) -- not a pass\n'"'"' \
+                          "$port" "$proto" "$(ndt_port_blind_why)"
+                   printf '"'"'         -> owner: %s\n'"'"' "$owner"' \
+    '                   :')
+report "M95: the residue's line for a port it could not probe is dropped" "$m" \
+       "  clean: the residue names it as not probed"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

@@ -1127,8 +1127,9 @@ has   "  and is still reported as the ending it is" "ENDING FROM AN EARLIER ROUN
 # not stop -- where forgiving the first half would forgive the whole status.
 reset_fix; rm -f "$DM"; rc_for stack_down 1
 out_for stack_down "  :30051 is still listening, held by a process this user cannot see (probably root-owned)
-  :8000 is still held by a process this script started (ndtwin_kernel pid 4242) -- stop_one did
-    not manage to stop it
+  :8000 is still held by a process this script started (ndtwin_kernel pid 4242) -- its pidfile
+    is current, so it was registered while this 'down' ran, or stop_one could
+    not remove it
   find and stop it, or the next 'up' will report on it:"
 OUT="$(drive 'cmd_down')"
 check "🔴 a port this stack STARTED still holds keeps the teardown red" "1" "$(rc_of_out "$OUT")"
@@ -1895,14 +1896,22 @@ has   "  and says its ownership is not checked"           "is NOT checked" "$OUT
 hasnt "  and never calls it foreign"                      "not part of this checkout" "$OUT"
 
 # --deep: named with a reason, and "nothing left" is not said; the sweep's rc stays 0.
+# deep_sweep SIGNALS whatever pid its listener lookup returns, and this suite's fixture pids are
+# made up (992261 and the like) -- so `kill` is a recording stub in this drive: one FX_HELD added
+# here must never TERM a real process.
 reset_fix
-OUT="$(FX_BLIND=6343 drive 'deep_sweep')"
+OUT="$(FX_BLIND=6343 drive 'kill() { echo "kill $*" >>"$FIX/kill.log"; return 1; }
+deep_sweep')"
 check "  deep_sweep: rc unchanged (the verdict is cmd_clean's)" "0" "$(rc_of_out "$OUT")"
 has   "  deep_sweep: the port is named, with a reason"   ":6343 (udp) could not be probed (" "$OUT"
 hasnt "  deep_sweep: and it does not say nothing is left" "nothing left holding the ports" "$OUT"
 
 # ndt down's ROLE-12 re-read: :6343 was "still listening" at [1/3]; the re-read cannot tell.
 # cmd_clean is stubbed green so that only the re-read decides (as in section 15).
+# NOTE: every cmd_down drive in this suite also reads the REAL link-telemetry manifest
+# (LINK_TELEMETRY_MANIFEST, /tmp/ndtwin_link_telemetry.json by default). Not destructive -- with
+# REPO=$FIX the row reads "unreadable", never "dead" -- but while a P4 lab with link telemetry is up
+# on this machine it sets down_rc=1, and the green control below would read red for that reason.
 reset_fix; rm -f "$DM"; rc_for stack_down 1
 out_for stack_down "  :6343 is still listening, held by a process this user cannot see (probably root-owned)
   find and stop it, or the next 'up' will report on it:"
@@ -1929,6 +1938,14 @@ check "  clean: a port that cannot be probed is not clean" "1" "$(rc_of_out "$OU
 has   "  clean: the residue names it as not probed"       ":6343 (udp) could NOT be probed" "$OUT"
 hasnt "  clean: it does not say the ports are closed"     "ports closed" "$OUT"
 hasnt "🔴 clean: and it does not call it a stranger's"    "held by nothing this stack registered" "$OUT"
+
+# ...and a blind reading that printed NOTHING is still not clean. Only `(( prc == 2 )) && rc=1`
+# says so: with no residue text, nothing else in cmd_clean sets rc -- once the switch manifest
+# reset_fix writes is gone too (it alone would make this not clean, for its own reason).
+reset_fix; rm -f "$DM"; rm -f "$FIX/manifest.json"
+OUT="$(drive 'ndt_port_residue() { return 2; }; cmd_clean')"
+check "  clean (silent): a 'cannot tell' from the residue with no text is still not clean" "1" "$(rc_of_out "$OUT")"
+hasnt "  clean (silent): and it does not say the ports are closed" "ports closed" "$OUT"
 
 # ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

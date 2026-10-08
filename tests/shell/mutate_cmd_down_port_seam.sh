@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for the cmd_down port seam: the probe guard in test_supervise_exit_status.sh and the
-# leftovers-branch test in test_cmd_down_leftovers.sh.
+# Mutation gate for the cmd_down port seam: the probe guard in test_supervise_exit_status.sh, the
+# leftovers-branch test in test_cmd_down_leftovers.sh, and the bring-up side of the shared pidfile
+# test in test_wait_for_port.sh.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -33,6 +34,15 @@
 #   M10 the verdict bypasses the shared start-time test (a reused number is "ours" again)
 #   M11 the verdict follows a symlinked pidfile again (stop_one refuses it; the verdict reads it)
 #   M12 the verdict's pgid branch is gone (a child of the recorded group leader is not "ours")
+#   M13 on the bring-up, a reused pidfile is "unknown" (liveness fallback: a recycled pid that is
+#       alive adopts whatever holds the port)
+#   M14 on the bring-up, a reused pidfile is "stray" (a clock step refuses a legitimate component)
+#   M15 a symlinked pidfile is "unknown" again (the bring-up falls back to is_running, which
+#       follows the symlink)
+#   M16 the bring-up's warning about a pidfile older than its process is gone
+#   M17 stack.sh down returns 1 when a port could not be checked (the decision is: it does not)
+#   M18 stop_one keeps a pidfile with no usable pid
+#   M19 the usable-pid guard is gone (with `kill` stubbed in the test, never the real one)
 #
 # Not covered, and said so: a probe added through another route (ss, /dev/tcp, curl) passes the guard.
 #
@@ -43,7 +53,8 @@
 #
 # 🔴 A mutation that does not apply (python fails, or the copy equals the original) is a HARNESS
 # error, exit 2 "did not apply" -- not a SURVIVOR, which would claim the guard is blind when nothing
-# was mutated.
+# was mutated. So is a mutant that is not valid bash (`bash -n`): it would redden every case for
+# one reason -- it cannot run -- which looks like sensitivity and measures nothing.
 #
 # Exit: 0 every mutation caught, 1 a mutation survived, 2 refused (baseline red / harness / a
 #       mutation did not apply / a tool or the temp dir is missing), 3 a file under test changed
@@ -55,6 +66,7 @@ STK="$REPO/tools/test_workflow/stack.sh"
 PRT="$REPO/tools/test_workflow/ports.sh"
 SUPT="$HERE/test_supervise_exit_status.sh"
 LFT="$HERE/test_cmd_down_leftovers.sh"
+WFP="$HERE/test_wait_for_port.sh"
 
 refuse() { echo "  REFUSED  $1"; echo "Ran 0 checks, 0 failed (refused)"; exit 2; }
 for tool in python3 cmp ss ps mktemp sha256sum; do
@@ -64,7 +76,7 @@ BK=$(mktemp -d "${TMPDIR:-/tmp}/cmd-down-seam-mutate-XXXXXX" 2>/dev/null)
 [[ -n "$BK" && -d "$BK" ]] || refuse "mktemp -d failed (TMPDIR unwritable?)"
 trap 'rm -rf "$BK"' EXIT
 
-sha_all() { sha256sum "$STK" "$PRT" "$SUPT" "$LFT" | cut -d' ' -f1 | tr '\n' ' '; }
+sha_all() { sha256sum "$STK" "$PRT" "$SUPT" "$LFT" "$WFP" | cut -d' ' -f1 | tr '\n' ' '; }
 BASE_SHA=$(sha_all)
 
 SURVIVORS=0
@@ -76,7 +88,7 @@ build_tree() {   # $1 = dir
     mkdir -p "$d/tools/test_workflow" "$d/tests/shell"
     cp "$tw/stack.sh" "$tw/ports.sh" "$tw/components.env" "$tw/supervise.sh" "$d/tools/test_workflow/"
     chmod +x "$d/tools/test_workflow/supervise.sh"
-    cp "$SUPT" "$LFT" "$d/tests/shell/"
+    cp "$SUPT" "$LFT" "$WFP" "$d/tests/shell/"
     ln -s "$REPO/tools/contract_test" "$d/tools/contract_test"
 }
 
@@ -115,6 +127,8 @@ open(p, "w").write(s.replace(a, b))
 PY
     # An edit that left the copy byte-identical to the original did not apply.
     cmp -s "$file" "$target" && return 2
+    # [Co-developed with claude code -- Adam] A mutant that does not parse measures nothing.
+    bash -n "$target" 2>/dev/null || return 2
     echo "$d"
 }
 harness_fail() {
@@ -124,7 +138,7 @@ harness_fail() {
 
 echo "baseline (must be green before any mutation):"
 base="$BK/base"; build_tree "$base"
-for t in test_supervise_exit_status.sh test_cmd_down_leftovers.sh; do
+for t in test_supervise_exit_status.sh test_cmd_down_leftovers.sh test_wait_for_port.sh; do
     out=$(run_test "$base" "$t"); rc=$?
     printf '  %-34s %s\n' "$t" "$(tail -1 <<<"$out")"
     if [[ $rc -ne 0 ]]; then
@@ -213,6 +227,49 @@ m=$(mutant m12 "$STK" \
     '        if false; then') || harness_fail m12
 report "M12: the verdict's pgid branch is gone" "$m" test_cmd_down_leftovers.sh \
        "pgid: it says a process this script started holds it, naming the child"
+
+V4='        4) if [[ "$mode" == up ]]; then ours="$PIDFILE_PID"; else echo stray; return; fi ;;'
+m=$(mutant m13 "$STK" "$V4" '        4) echo unknown; return ;;') || harness_fail m13
+report "M13: up: a reused pidfile is 'unknown' (liveness adopts)" "$m" test_wait_for_port.sh \
+       "reused, not the holder: refused although the recycled pid is alive"
+
+m=$(mutant m14 "$STK" "$V4" '        4) echo stray; return ;;') || harness_fail m14
+report "M14: up: a reused pidfile is 'stray' (a clock step refuses)" "$m" test_wait_for_port.sh \
+       "reused, holder: a pidfile older than the holder it names is not a refusal"
+
+m=$(mutant m15 "$STK" \
+    '        2) echo refused; return ;;' \
+    '        2) echo unknown; return ;;') || harness_fail m15
+report "M15: a symlinked pidfile is 'unknown' (the fallback follows it)" "$m" test_wait_for_port.sh \
+       "symlink: a symlinked pidfile is refused even when it names the holder"
+
+m=$(mutant m16 "$STK" \
+    '                if pidfile_vouches "$PID_DIR/$component.pid"; (( $? == 4 )); then' \
+    '                if false; then') || harness_fail m16
+report "M16: up: no warning for a pidfile older than its process" "$m" test_wait_for_port.sh \
+       "  but it is warned about, naming the pidfile"
+
+m=$(mutant m17 "$STK" \
+    '        warn "done, but the port check is INCOMPLETE -- not checked: $unchecked"
+        return 0' \
+    '        warn "done, but the port check is INCOMPLETE -- not checked: $unchecked"
+        return 1') || harness_fail m17
+report "M17: down fails when a port could not be checked" "$m" test_cmd_down_leftovers.sh \
+       "cannot tell: it does not fail a down that found nothing listening"
+
+m=$(mutant m18 "$STK" \
+    '            rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX"
+            return 1' \
+    '            :
+            return 1') || harness_fail m18
+report "M18: stop_one keeps a pidfile with no usable pid" "$m" test_cmd_down_leftovers.sh \
+       "no usable pid (abc): the pidfile is removed"
+
+m=$(mutant m19 "$STK" \
+    '    if [[ ! "$PIDFILE_PID" =~ ^[0-9]+$ ]] || [[ "$PIDFILE_PID" -lt 2 ]]; then' \
+    '    if false; then') || harness_fail m19
+report "M19: the usable-pid guard is gone" "$m" test_cmd_down_leftovers.sh \
+       "no usable pid (1): nothing was signalled"
 
 echo
 NOW_SHA=$(sha_all)

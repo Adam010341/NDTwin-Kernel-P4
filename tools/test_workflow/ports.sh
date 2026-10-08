@@ -90,11 +90,18 @@ ndt_port_expand() {
 # 2 is a real answer and callers must not fold it into "closed". UDP has no connect handshake
 # to borrow, so the only probe is `ss`; where `ss` is missing the honest report is "blind",
 # which is the same distinction read_ephemeral_range() already makes in grpc_ports.py.
+#
+# [Co-developed with claude code -- Adam]
+# And where `ss` is there but its query FAILS (a non-zero exit: a filter it rejects, netlink
+# denied), its empty output is not "nothing listens" either -- that was the same fold, one level
+# down. ss exits 0 with no output when nothing matches, so only a non-zero exit means blind.
 ndt_port_open() {
     local port="$1" proto="${2:-tcp}"
     if [[ "$proto" == udp ]]; then
         command -v ss >/dev/null 2>&1 || return 2
-        ss -lunH "( sport = :$port )" 2>/dev/null | grep -q . && return 0
+        local out
+        out="$(ss -lunH "( sport = :$port )" 2>/dev/null)" || return 2
+        [[ -n "$out" ]] && return 0
         return 1
     fi
     (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null && exec 3>&- && return 0
@@ -108,7 +115,7 @@ ndt_port_blind_why() {
     if ! command -v ss &>/dev/null; then
         echo "no ss on PATH, and UDP can only be probed through ss"
     else
-        echo "the probe could not tell"
+        echo "ss is on PATH but its query failed"
     fi
 }
 
@@ -153,8 +160,8 @@ ndt_port_residue() {
             case $? in
                 0) ;;
                 2) blind=1
-                   printf 'residue: :%s (%s) could NOT be probed on this machine (no ss) -- not a pass\n' \
-                          "$port" "$proto"
+                   printf 'residue: :%s (%s) could NOT be probed on this machine (%s) -- not a pass\n' \
+                          "$port" "$proto" "$(ndt_port_blind_why)"
                    printf '         -> owner: %s\n' "$owner"
                    continue ;;
                 *) continue ;;

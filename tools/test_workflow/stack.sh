@@ -441,6 +441,14 @@ report_exit() {
 # Field 22 of /proc/<pid>/stat is starttime in clock ticks since boot. comm (field 2) may
 # contain spaces and parentheses, so everything up to the last ')' is dropped first; the
 # remainder starts at field 3, which puts starttime at $20.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 KNOWN WEAKNESS, not fixed here: btime is read NOW, and the kernel moves it with every step of
+# the wall clock, while the pidfile's mtime was stamped under the clock as it was then. A forward
+# step of more than the 2 s slack after a component started (an NTP correction after a laptop
+# resume) makes that live, legitimate component look as if it started after its own pidfile --
+# i.e. "a recycled pid". stop_one then refuses to stop it, and wait_for_port warns (it does not
+# refuse; see there). A backward step hides a real recycled pid the same way.
 proc_start_epoch() {
     local pid="$1" btime hz ticks
     [[ "$pid" =~ ^[0-9]+$ ]] || return 1
@@ -675,7 +683,7 @@ pidfile_vouches() {
         return 2
     fi
 
-    PIDFILE_PID="$(cat "$pidfile" 2>/dev/null)"
+    PIDFILE_PID="$(cat "$pidfile")"
 
     # Validate before interpolating into kill. Two real hazards:
     #   * a pidfile containing "1" makes `kill -TERM -1` -- which signals EVERY process the
@@ -797,7 +805,7 @@ port_listener_description() {
     echo "$out"
 }
 
-# port_owner_verdict <port> <component> -> ours | stray | unknown
+# port_owner_verdict <port> <component> [down|up] -> ours | stray | unknown | refused
 #
 # [Co-developed with claude code -- Adam]
 # `ours` means the listening socket belongs to the process this script started, or to one of its
@@ -805,16 +813,26 @@ port_listener_description() {
 # shares that pgid -- which is the same assumption stop_one already makes when it signals `-$pid`.
 #
 # And "the process this script started" is decided by pidfile_vouches, the same tests stop_one
-# applies, so `ours` here is what stop_one would also call ours. A pidfile stop_one refused as a
-# reused number is `stray` (that pid is demonstrably not ours, so neither is a socket it holds);
-# one it refuses to read (a symlink) or that holds no usable pid vouches for nothing: `unknown`.
+# applies, so `ours` here is what stop_one would also call ours:
+#   symlink (2)     `refused` -- stop_one will not read it, so neither does this. Callers treat it
+#                   as not ours (wait_for_port fails closed on it).
+#   no file / no usable pid (1, 3)   `unknown`: the registry vouches for nothing.
+#   reused number (4)  depends on the caller, which is what the third argument is for:
+#     down (default)  `stray`. stop_one has just called that pid a different process, and the
+#                     teardown's verdict must not contradict it in the same output.
+#     up              compared like a current pidfile, as before this test was shared. The start
+#                     time is not trusted to REFUSE a bring-up: proc_start_epoch is fooled by a
+#                     wall-clock step, and a refusal there would leave a legitimate component that
+#                     stop_one also refuses to stop -- no way down and no way up. wait_for_port
+#                     says so out loud instead.
 port_owner_verdict() {
-    local port="$1" component="$2"
+    local port="$1" component="$2" mode="${3:-down}"
     local ours vrc
     pidfile_vouches "$PID_DIR/$component.pid"; vrc=$?
     case $vrc in
         0) ours="$PIDFILE_PID" ;;
-        4) echo stray; return ;;
+        4) if [[ "$mode" == up ]]; then ours="$PIDFILE_PID"; else echo stray; return; fi ;;
+        2) echo refused; return ;;
         *) echo unknown; return ;;
     esac
 
@@ -875,8 +893,26 @@ wait_for_port() {
             # Asking who owns the socket is the only way to answer the question the comment claims to
             # answer.
             if [[ -n "$component" ]]; then
-                case "$(port_owner_verdict "$port" "$component")" in
+                # [Co-developed with claude code -- Adam]
+                # A pidfile older than the process it names is a recycled pid OR a clock step
+                # since the component started (proc_start_epoch). The verdict below still decides
+                # by who holds the port, as it did before the start-time test was shared; this
+                # only makes sure the operator hears which of the two readings is in play.
+                if pidfile_vouches "$PID_DIR/$component.pid"; (( $? == 4 )); then
+                    warn "  $PID_DIR/$component.pid is older than the process it names (pid $PIDFILE_PID"
+                    warn "    started ${PIDFILE_LATE}s after the file was written): a recycled pid, or the clock"
+                    warn "    stepped since $component started. Deciding by who holds :$port."
+                fi
+                case "$(port_owner_verdict "$port" "$component" up)" in
                     ours)
+                        ;;
+                    refused)
+                        # A symlinked pidfile: stop_one refuses to read it, and is_running (the
+                        # fallback below) would follow it. Fail closed, as stop_one does.
+                        echo " ${R}not ours${N}"
+                        err "  $PID_DIR/$component.pid is a symlink; refusing to read it, so nothing"
+                        err "    says :$port is held by the $component this script started"
+                        return 1
                         ;;
                     stray)
                         echo " ${R}not ours${N}"
