@@ -513,6 +513,17 @@ class TestRuleD(unittest.TestCase):
         clean_ctx = V.judge_all(T.TABLE, *self.base_obs())
         self.assertEqual(V.run_verdict(clean_ctx, True, stopped=True), ("INCOMPLETE", 2))
 
+    def test_a_see_red_run_that_sees_no_red_is_not_a_pass(self):
+        """(Round 5, #3) A see-red run's pass is PROBE-BROKEN. One where no cell is PROBE-BROKEN (the
+        mutant went unnoticed: the probe cannot see red) is SEE-RED-NOT-SEEN, rc 2 -- not the
+        COMPLETE rc 0 that run.sh and anything reading rc takes for success."""
+        clean_ctx = V.judge_all(T.TABLE, *self.base_obs())
+        self.assertEqual(V.run_verdict(clean_ctx, True, see_red=True), ("SEE-RED-NOT-SEEN", 2))
+        # unchanged: an unfinished see-red run is INCOMPLETE, and a run that is not see-red is COMPLETE
+        self.assertEqual(V.run_verdict(clean_ctx, False, see_red=True), ("INCOMPLETE", 2))
+        self.assertEqual(V.run_verdict(clean_ctx, True), ("COMPLETE", 0))
+        self.assertEqual(V.run_verdict(clean_ctx, True, stopped=True, see_red=True), ("INCOMPLETE", 2))
+
     def test_t7_is_not_run_while_t4_is_red(self):
         cells, scs = self.base_obs()
         cells["T4"] = dict(copy.deepcopy(FIX["T4"][1]), attribution={"bmv2": True})

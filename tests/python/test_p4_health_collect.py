@@ -2861,6 +2861,18 @@ class TestTheLabRun(Cut2):
         self.assertEqual(cells["TTL1"]["verdict"], V.NOT_RUN)
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
 
+    def test_a_see_red_run_whose_mutant_is_not_caught_is_not_a_pass(self):
+        """(Round 5, #3) The mutant package is up but K1 and TTL1 read as on the plain one (the fake
+        fabric counts and decrements as it should): no cell is PROBE-BROKEN, the probe cannot see
+        red. The run was complete and clean, and still must not read COMPLETE rc 0."""
+        rc, doc, _r = self.run_lab(bringups=("A",), only=["K1", "TTL1"], mutant=True)
+        cells = {c["id"]: c for c in doc["cells"]}
+        self.assertEqual({c: cells[c]["verdict"] for c in ("K1", "TTL1")}, {"K1": V.GREEN, "TTL1": V.GREEN})
+        self.assertEqual(([b["complete"] for b in doc["bringups"]], doc["problems"]), ([True], []))
+        self.assertEqual((doc["verdict"], rc), ("SEE-RED-NOT-SEEN", 2))
+        with open(os.path.join(self.cfg.run_dir, "health.json")) as fh:
+            self.assertEqual(json.load(fh)["verdict"], "SEE-RED-NOT-SEEN")
+
     def test_a_recorded_stop_overrides_a_probe_broken_cell(self):
         """F3(a): any run whose record carries 'aborted by signal' is INCOMPLETE rc 2, whatever
         the cell verdicts say (a full run here, so the see-red rule has no part in it)."""
