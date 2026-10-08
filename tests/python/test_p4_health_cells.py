@@ -1630,6 +1630,31 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertTrue(any("S0 is PROBE-BROKEN" in p_ and "preflight A" in p_ for p_ in h["problems"]),
                         h["problems"])
 
+    def test_an_exception_out_of_the_lab_path_is_rc_2_not_pythons_status_1(self):
+        """(Round 5, #2) Anything `probe.py lab` does not foresee -- here S0 itself raising -- used
+        to leave the process as an uncaught exception: status 1, the see-red run's pass. It is rc 2,
+        with the traceback on stderr."""
+        import io
+        from unittest import mock
+        from p4_health import frozen as FZ
+        from p4_health import probe
+
+        class BrokenS0(object):
+            def __init__(self, *a, **kw):
+                pass
+
+            def run(self):
+                raise RuntimeError("S0 fell over")
+        err = io.StringIO()
+        with mock.patch.object(probe.subprocess, "run", self.git_answering(0)), \
+                mock.patch("p4_health.s0.S0", BrokenS0), \
+                mock.patch("p4_health.frozen.freeze", lambda run_dir, repo=None, git=None: FZ.Frozen(run_dir, {})), \
+                mock.patch("sys.stderr", err):
+            rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
+        self.assertEqual(rc, 2)
+        self.assertIn("RuntimeError", err.getvalue())
+        self.assertIn("S0 fell over", err.getvalue())
+
     # --- round 4, F8: an unreadable bmv2 override, with the REAL fingerprint ------------------
     def readable_machine(self, frozen=None):
         """Every part of the fingerprint except the fabric's bmv2 reads fine, so that part alone
