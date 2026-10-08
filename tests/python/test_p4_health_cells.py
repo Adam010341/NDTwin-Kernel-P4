@@ -41,23 +41,55 @@ CITED_RECORDS = ("doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p
                  "doc/audit/2026-10-03_p4-health-check/DESIGN.md")
 
 
-def _trunk_refs(repo):
-    """(refs, why_not): the trunk refs of the git checkout at repo (local trunk first, then
-    refs/remotes/*/trunk), or ([], reason) when repo is not a git checkout or git is missing."""
+class _NoGit(Exception):
+    """git cannot answer for this tree; the message says why, in git's own words where it has any."""
+
+
+def _git(repo, *args):
+    """git -C repo args: the CompletedProcess, or _NoGit when git is missing or times out."""
     try:
-        top = subprocess.run(["git", "-C", repo, "rev-parse", "--show-toplevel"], capture_output=True,
-                             text=True, timeout=60)
-        if top.returncode != 0 or os.path.realpath(top.stdout.strip()) != os.path.realpath(repo):
-            return [], "this tree is not a git checkout"
-        out = subprocess.run(["git", "-C", repo, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"],
-                             capture_output=True, text=True, timeout=60)
-    except (OSError, subprocess.SubprocessError):
-        return [], "git is not available"
+        return subprocess.run(["git", "-C", repo] + list(args), capture_output=True, text=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        raise _NoGit("git %s timed out after 60 s" % " ".join(args))
+    except OSError as e:
+        raise _NoGit("git is not available (%s)" % e)
+
+
+def _git_checkout_head(repo):
+    """Check that repo is itself a git checkout with a HEAD commit, else raise _NoGit with git's stderr.
+    The toplevel must be repo itself: a tree extracted inside some other repository is not a checkout."""
+    top = _git(repo, "rev-parse", "--show-toplevel")
+    if top.returncode != 0:
+        raise _NoGit("this tree is not a git checkout (git said: %s)" % (top.stderr.strip() or "nothing"))
+    if os.path.realpath(top.stdout.strip()) != os.path.realpath(repo):
+        raise _NoGit("this tree is inside another git repository (%s), not a checkout of its own" % top.stdout.strip())
+    head = _git(repo, "rev-parse", "--verify", "-q", "HEAD^{commit}")
+    if head.returncode != 0:
+        raise _NoGit("this checkout has no HEAD commit (git said: %s)" % (head.stderr.strip() or "nothing"))
+
+
+def _in_tree(repo, ref, rel):
+    """Whether ref's tree holds the path rel."""
+    return _git(repo, "cat-file", "-e", "%s:%s" % (ref, rel)).returncode == 0
+
+
+def _decisive_trunk_ref(repo):
+    """(ref, why_not): the ONE ref that decides what trunk holds. refs/heads/trunk when it exists, else the
+    only refs/remotes/<remote>/trunk; with none, or several of those and no local trunk, (None, reason
+    naming the refs found). Refs are never pooled: a stale remote must not vouch for a path trunk dropped."""
+    out = _git(repo, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
     if out.returncode != 0:
-        return [], "git could not list the refs of this tree"
+        raise _NoGit("git could not list the refs of this tree (git said: %s)" % (out.stderr.strip() or "nothing"))
     names = out.stdout.split()
-    return ([n for n in names if n == "refs/heads/trunk"]
-            + [n for n in names if re.fullmatch(r"refs/remotes/[^/]+/trunk", n)]), ""
+    if "refs/heads/trunk" in names:
+        return "refs/heads/trunk", ""
+    remote = [n for n in names if re.fullmatch(r"refs/remotes/[^/]+/trunk", n)]
+    if len(remote) == 1:
+        return remote[0], ""
+    if not remote:
+        return None, "this checkout has no trunk ref (refs found: %s)" % (", ".join(names) or "none")
+    return None, ("this checkout has no local trunk and several remote trunk refs, so none is decisive (%s)"
+                  % ", ".join(remote))
 
 
 ALL_ATTR = {"bmv2": True, "wire": True, "static": True}
@@ -1163,25 +1195,32 @@ class TestExpectedFile(unittest.TestCase):
             self.assertIn(os.path.basename(CITED_RECORDS[0]) + ", on the trunk branch", fh.read())
 
     def test_the_cited_records_exist_in_this_checkout_or_on_trunk(self):
-        """r6: "both live in this repository" is a fact the note states. PRs to main strip every
-        doc/audit/**/*.md, so on a PR tree the files are absent by design: then they must be on a
-        trunk ref of this checkout, and with no such ref nothing was checked and the test skips."""
+        """r6: "both live in this repository" is a fact the note states. For each cited path, in order:
+        (1) the file is in the working tree: pass. Otherwise git decides, and with no usable git (not a
+        checkout of its own, no HEAD commit, git missing or timing out) nothing was checked and the test
+        skips, with git's words as the reason. (2) HEAD's tree holds the path but the file is gone from the
+        working tree: FAIL, "deleted from the working tree". (3) HEAD's tree lacks it (PRs to main strip
+        doc/audit md; a squash on main; CI's checkout): ONE ref decides, refs/heads/trunk if it exists, else
+        the only refs/remotes/*/trunk, else (none, or several and no local trunk) skip naming the refs. That
+        ref must hold the path or the test FAILS; no other ref is consulted."""
         missing = [rel for rel in CITED_RECORDS if not os.path.isfile(os.path.join(REPO, rel))]
         if not missing:
             return
-        why = ("the cited records live only on the trunk branch (PRs to main strip doc/audit md) and %s"
-               " (missing here: %s)")
-        refs, nogit = _trunk_refs(REPO)
-        if nogit:
-            self.skipTest(why % (nogit, ", ".join(missing)))
-        if not refs:
-            self.skipTest(why % ("this checkout has no trunk ref", ", ".join(missing)))
-        for rel in missing:
-            found = [r for r in refs if subprocess.run(
-                ["git", "-C", REPO, "cat-file", "-e", "%s:%s" % (r, rel)],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60).returncode == 0]
-            self.assertTrue(found, "the header note names %s, which is neither here nor in any of %s"
-                            % (rel, ", ".join(refs)))
+        why = "the cited records are in the working tree or on trunk, and git cannot say: %s (missing here: %s)"
+        try:
+            _git_checkout_head(REPO)
+            deleted = [rel for rel in missing if _in_tree(REPO, "HEAD", rel)]
+            stripped = [rel for rel in missing if rel not in deleted]
+            if deleted:
+                self.fail("%s is in HEAD's tree but was deleted from the working tree" % ", ".join(deleted))
+            ref, nodecisive = _decisive_trunk_ref(REPO)
+            if ref is None:
+                self.skipTest(why % (nodecisive, ", ".join(stripped)))
+            absent = [rel for rel in stripped if not _in_tree(REPO, ref, rel)]
+        except _NoGit as e:
+            self.skipTest(why % (e, ", ".join(missing)))
+        self.assertEqual(absent, [], "the header note names these, which are neither in the working tree, "
+                         "nor in HEAD, nor in %s" % ref)
 
     def test_the_prediction_comes_from_the_file_not_from_the_run(self):
         exp = E.load(EXPECTED_TSV)
