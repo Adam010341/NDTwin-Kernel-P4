@@ -241,9 +241,27 @@ for st in 0 1 2 130 143; do
 done
 
 # Seam: this run has no stack of its own, and cmd_down's other failure mode is a port that is
-# still listening. Overriding port_open keeps the verdict below about the ENDINGS, which is what
-# these cases are for; the port guard has its own tests.
-port_open() { return 1; }
+# still listening. Overriding the probe keeps the verdict below about the ENDINGS, which is what
+# these cases are for; the port guard has its own tests (test_ports_that_block_restart.sh covers
+# the real ndt_port_open / ndt_port_residue, test_ndt_down_stops_only_ours.sh the cmd_down loop).
+#
+# [Co-developed with claude code -- Adam]
+# The probe cmd_down calls is ndt_port_open (ports.sh), not port_open, and has been since
+# 5c64d432. This seam used to stub only port_open, so any listener on a ports.sh port -- another
+# session's stack on :6653/:8000/:8080 -- made cmd_down report leftovers and fail five checks
+# here; GitHub CI has no stack, so it stayed green there. Every probe records its call in a
+# file (cmd_down runs in $(...), so a variable would not survive), and the check below asserts
+# cmd_down reached exactly the stubbed ndt_port_open and nothing else, so the seam cannot drift
+# again without this section going red.
+PROBE_CALLS="$TMP/port_probe.calls"
+PROBE_STRAY="$TMP/port_probe.stray"
+: >"$PROBE_CALLS"; : >"$PROBE_STRAY"
+ndt_port_open() { echo "$*" >>"$PROBE_CALLS"; return 1; }
+# Only reached for a port reported open, which the stub above never does; any call is a stray.
+port_open()               { echo "port_open $*" >>"$PROBE_STRAY"; return 1; }
+ndt_port_holder()         { echo "ndt_port_holder $*" >>"$PROBE_STRAY"; echo "stub"; }
+ndt_port_listener_pids()  { echo "ndt_port_listener_pids $*" >>"$PROBE_STRAY"; return 0; }
+port_listener_pids()      { echo "port_listener_pids $*" >>"$PROBE_STRAY"; return 0; }
 
 write_exit() { printf 'status=%s\nsignal=%s\nreason=%s\n' "$2" "${3:-none}" "injected by the test" \
     >"$PID_DIR/$1.exit"; }
@@ -254,6 +272,17 @@ out="$(cmd_down 2>&1)"; rc=$?
 check "an aborted kernel fails down" "1" "$rc"
 case "$out" in *kernel*134*) check "and down names it" "yes" "yes" ;;
                *) check "and down names it" "yes" "no: $out" ;; esac
+# The guard: one cmd_down probed every port in ports.sh's table through the stub, once each, and
+# nothing else answered. Counted rather than "non-empty", so a probe that silently stops covering
+# part of the table is also red.
+want_probes=0
+while IFS='|' read -r _spec _rest; do
+    [[ -z "$_spec" ]] && continue
+    want_probes=$((want_probes + $(ndt_port_expand "$_spec" | wc -l)))
+done < <(ndt_port_rows all)
+check "cmd_down probes the table only through the stubbed ndt_port_open" \
+    "$want_probes probes, 0 stray" \
+    "$(wc -l <"$PROBE_CALLS") probes, $(wc -l <"$PROBE_STRAY") stray"
 out="$(cmd_down 2>&1)"; rc=$?
 check "the same crash is not reported twice" "0" "$rc"
 
