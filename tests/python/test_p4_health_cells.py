@@ -1534,6 +1534,90 @@ class TestS0Cut2Checks(unittest.TestCase):
         self.assertFalse(x.out["checks"][-1]["ok"])
 
 
+    # --- round 5, #5: S0 runs the frozen copies, not the shared tree's files ----------------------
+    def frozen_copies(self):
+        import tempfile
+        from p4_health import frozen as FZ
+        d = tempfile.mkdtemp(prefix="p4h-s0-frozen-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        return FZ.Frozen(os.path.join(d, "frozen"), {})
+
+    def test_s0_takes_the_frozen_copies_it_is_given(self):
+        from p4_health import s0
+        from p4_health.collect.runner import RecordingRunner
+        fz = self.frozen_copies()
+        x = s0.S0("/nonexistent/s0", RecordingRunner([]), "py", log=lambda *a: None, frozen=fz)
+        self.assertIs(x.frozen, fz)
+
+    def test_the_adapter_dry_run_runs_the_frozen_adapter_with_the_frozen_controller(self):
+        from p4_health import round_b as RB
+        fz = self.frozen_copies()
+        x, r = self.s0([(lambda a: "--dry-run" in a, (0, self.DRY % fz.controller))])
+        x.frozen = fz
+        x.adapter_dry_run()
+        argv = r.calls[0]["argv"]
+        self.assertEqual((argv[1], argv[3]), (fz.adapter, fz.controller))
+        self.assertTrue(x.out["checks"][-1]["ok"], x.out["checks"])
+        # and a dry run that names the shared tree's controller is not the check passing
+        x, r = self.s0([(lambda a: "--dry-run" in a, (0, self.DRY % RB.CONTROLLER))])
+        x.frozen = fz
+        x.adapter_dry_run()
+        self.assertFalse(x.out["checks"][-1]["ok"])
+
+    def test_the_controller_trial_runs_the_frozen_controller(self):
+        from unittest import mock
+        fz = self.frozen_copies()
+        x, _r = self.s0([])
+        x.frozen = fz
+        got = []
+
+        def trial(*a, **kw):
+            got.append((a, kw))
+            return {"bmv2": "/x/bin/simple_switch_grpc", "confirmed": {}, "controller_rc": 0, "alive": True}
+        with mock.patch("p4_health.ctrl_trial.trial", trial), \
+                mock.patch("p4_health.vs_trial.fabric_binary", return_value="/y/bin/simple_switch_grpc"):
+            x.ctrl_trial()
+        self.assertEqual(len(got), 2)                       # the stock build and the fabric's
+        for _a, kw in got:
+            self.assertEqual(kw.get("controller"), fz.controller)
+
+    def test_the_controller_trial_starts_the_controller_it_is_given(self):
+        """ctrl_trial.trial's argv: [python, <controller>] -- a copy it is handed, else the tree's own."""
+        import tempfile
+        from unittest import mock
+        from p4_health import ctrl_trial as CT
+
+        class Stop(BaseException):
+            pass
+
+        class FakeSwitch(object):
+            def __init__(self, *a, **kw):
+                self.workdir, self.grpc_port, self.started_at = kw.get("workdir"), 29650, 0
+
+            def start(self):
+                pass
+
+            def stop(self):
+                return 0
+        argvs = []
+
+        def popen(argv, **kw):
+            argvs.append(argv)
+            raise Stop()
+        d = tempfile.mkdtemp(prefix="p4h-ctrltrial-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        for given, want in (("/run/frozen/p4_health/controller_ext.py", "/run/frozen/p4_health/controller_ext.py"),
+                            (None, os.path.join(CT.HERE, "controller_ext.py"))):
+            kw = {"controller": given} if given else {}
+            with mock.patch.object(CT.TW, "Throwaway", FakeSwitch), mock.patch.object(CT.subprocess, "Popen", popen):
+                try:
+                    CT.trial(os.path.join(d, "build"), "/x/bmv2", ["cli"], os.path.join(d, "work"), "py-ctrl",
+                             "/tutorials/utils", **kw)
+                except Stop:
+                    pass
+            self.assertEqual(argvs[-1], ["py-ctrl", want])
+
+
 class TestTheLiveRunsIdentity(unittest.TestCase):
     """m4: a lab run refuses a dirty probe, and records the Q6(a) fingerprint and the system
     under test."""
@@ -2095,6 +2179,122 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             with self.assertRaises(FZ.Refused):
                 self.freeze_in(repo, run_dir=run)
         self.assertEqual(os.listdir(elsewhere), [])
+
+    def test_probe_lab_hands_its_frozen_code_to_s0(self):
+        import contextlib
+        import tempfile
+        from unittest import mock
+        from p4_health import probe
+        from p4_health.collect.config import Config as RealConfig
+        seen = []
+        fz = FrozenStub()
+
+        class FakeS0(object):
+            def __init__(self, *a, **kw):
+                self.out = {"verdict": "PROBE-BROKEN", "checks": []}
+                seen.append(kw)
+
+            def run(self):
+                return 1
+        d = tempfile.mkdtemp(prefix="p4h-s0frozen-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, d, True)
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(probe.subprocess, "run", self.git_answering(0)))
+            stack.enter_context(mock.patch("p4_health.s0.S0", FakeS0))
+            stack.enter_context(mock.patch("p4_health.frozen.freeze", return_value=fz))
+            stack.enter_context(mock.patch("p4_health.lab.run_lab", return_value=(2, {})))
+            stack.enter_context(mock.patch("p4_health.collect.config.Config",
+                                           lambda run_dir, owner=None: RealConfig(run_dir, owner=owner,
+                                                                                  expected_tsv=EXPECTED_TSV)))
+            probe.main(["lab", "--run-dir", d, "--owner", "o"])
+        self.assertIs(seen[0].get("frozen"), fz)
+
+    # --- round 5, #5: every module the lab path loads is loaded before the clean check ----------
+    LAB_DRIVER = (
+        "import json, os, sys, types\n"
+        "tools, run = sys.argv[1], sys.argv[2]\n"
+        "sys.path.insert(0, tools)\n"
+        "from p4_health import probe\n"
+        "class Reached(BaseException):\n"
+        "    pass\n"
+        "class FakeS0(object):\n"
+        "    def __init__(self, *a, **kw):\n"
+        "        self.out = {'verdict': 'COMPLETE'}\n"
+        "    def run(self):\n"
+        "        # an edit that lands while S0 runs\n"
+        "        with open(os.path.join(tools, 'p4_health', 'identity.py'), 'a') as fh:\n"
+        "            fh.write('\\nEDITED_DURING_S0 = True\\n')\n"
+        "        ident = sys.modules.get('p4_health.identity')\n"
+        "        raise Reached(json.dumps({'loaded': sorted(m for m in sys.modules if m.startswith('p4_health')),\n"
+        "                                  'identity_has_the_edit': hasattr(ident, 'EDITED_DURING_S0')}))\n"
+        "stub = types.ModuleType('p4_health.s0')\n"
+        "stub.S0 = FakeS0\n"
+        "sys.modules['p4_health.s0'] = stub\n"
+        "try:\n"
+        "    probe.main(['lab', '--run-dir', run, '--owner', 'o'])\n"
+        "except Reached as r:\n"
+        "    print(r.args[0])\n")
+
+    def scratch_tools(self):
+        """A git repo holding a copy of the package under test and the three p4_exercise files, committed."""
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp(prefix="p4h-preload-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, d, True)
+        tools = os.path.dirname(os.path.dirname(PKG))
+        shutil.copytree(os.path.join(tools, "p4_health"), os.path.join(d, "tools", "p4_health"),
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        os.makedirs(os.path.join(d, "tools", "p4_exercise"))
+        for f in ("__init__.py", "common.py", "run_external_controller.py"):
+            shutil.copy(os.path.join(tools, "p4_exercise", f), os.path.join(d, "tools", "p4_exercise", f))
+        subprocess.run(["git", "-C", d, "init", "-q"], check=True)
+        self.git_in(d, "add", ".")
+        self.git_in(d, "commit", "-q", "-m", "tools")
+        return d
+
+    def test_an_edit_to_identity_during_s0_cannot_reach_the_probe_process(self):
+        """(#5) identity.py computes the gate fingerprint that becomes the standing authorization's
+        baseline, and used to be imported only after S0 (~2 minutes after the clean check). Run
+        `probe.py lab` in a scratch copy with S0 replaced by a stub that edits identity.py: the module
+        must already be loaded, so the edit is on disk and nowhere else. Likewise every other module
+        S0 and the identity step import lazily."""
+        import json
+        import tempfile
+        d = self.scratch_tools()
+        run = tempfile.mkdtemp(prefix="p4h-preload-run-%d-" % os.getpid())
+        self.addCleanup(__import__("shutil").rmtree, run, True)
+        res = subprocess.run([sys.executable, "-c", self.LAB_DRIVER, os.path.join(d, "tools"), run],
+                             capture_output=True, text=True, timeout=120, cwd=d,
+                             env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONPATH=""))
+        self.assertEqual(res.returncode, 0, res.stderr)
+        got = json.loads(res.stdout.strip().splitlines()[-1])
+        for name in ("identity", "vs_trial", "ctrl_trial", "round_b", "round_a", "lab", "lab_round",
+                     "frozen", "attribution", "controller_ext", "observe_a", "throwaway"):
+            self.assertIn("p4_health." + name, got["loaded"], name)
+        self.assertFalse(got["identity_has_the_edit"])
+
+    def test_the_lab_path_list_covers_every_module_of_the_package(self):
+        """The list `probe.py lab` loads up front is the package's whole module list, less the files that
+        only ever run as scripts; and none of those is imported by a module that is loaded."""
+        import re
+        from p4_health import probe
+        pkg = os.path.dirname(PKG)
+        scripts = {"probe", "hostside", "capture_thrift_fixtures", "openapi_probe"}
+        found = set()
+        for dirpath, dirs, files in os.walk(pkg):
+            dirs[:] = [d_ for d_ in dirs if d_ not in ("__pycache__", "exercise")]
+            for f in files:
+                if f.endswith(".py") and f != "__init__.py":
+                    rel = os.path.relpath(os.path.join(dirpath, f), pkg)[:-3].replace(os.sep, ".")
+                    found.add(rel)
+        self.assertEqual(sorted("p4_health." + m for m in found - scripts), sorted(probe.LAB_PATH_MODULES))
+        # a script-only module that a loaded one imports would be loaded lazily after the check
+        for rel in sorted(found - scripts):
+            with open(os.path.join(pkg, rel.replace(".", os.sep) + ".py"), encoding="utf-8") as fh:
+                text = fh.read()
+            for name in scripts - {"probe"}:
+                self.assertIsNone(re.search(r"^\s*(from|import)\s+(p4_health\.|\.)?(%s)\b" % name, text, re.M),
+                                  (rel, name))
 
     def test_the_run_gets_the_frozen_code_that_probe_froze(self):
         """cmd_lab hands run_lab the Frozen it froze before S0, not a second one."""
