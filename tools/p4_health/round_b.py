@@ -140,6 +140,12 @@ class BRound(object):
                 self.failed = self.problems[-1]
             return ""
         _out, rx = self.hosts.window([(SRC, ["P3"], P3_DPORT)], stimulate, seconds=180.0, until=5)
+        if not sent:
+            # (round 4, F2) hosts.window runs stimulate() only when every sniffer listens: without
+            # it nothing was sent and `go` was never written, so the controller waits for nothing
+            self.problems.append("B's sniffer on %s never listened: no marker was sent and the "
+                                 "controller was never told to go" % SRC)
+            self.failed = self.failed or self.problems[-1]
         if proc.poll() is None:
             try:
                 proc.wait(timeout=30)
@@ -156,6 +162,9 @@ class BRound(object):
         self.confirmed = AT.confirm(result, lambda cmd: reader.read(ATTR_DPID, cmd), p3, expect)
         if result is None:
             self.problems.append("no controller result: every attribution is unconfirmed")
+            # (round 4, F2) whatever the way here -- the exits above, a sniffer that never listened,
+            # a result file that cannot be read -- a B without a result is a failed B
+            self.failed = self.failed or self.problems[-1]
         doc = {"confirmed": self.confirmed, "sent": sent or {}, "p3_received": p3,
                "controller": result, "problems": self.problems + (self.hosts.problems if self.hosts else [])}
         with open(self.path("attributions.json"), "w", encoding="utf-8") as fh:
