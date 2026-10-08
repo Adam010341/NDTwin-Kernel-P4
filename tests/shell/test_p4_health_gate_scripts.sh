@@ -152,70 +152,76 @@ check "a single shard of the whole table (1/1) is the gate" \
     bash -c 'out="$(bash "$1" "$2"/s0.log 2>&1)"; rc=$?; [ "$rc" -eq 0 ] && [ "$out" == "GATE: 7 mutations, 0 survived, shards 1/1 ok" ]' _ "$SUM" "$WORK/good1"
 check "the order of the logs on the command line does not matter" \
     bash -c 'out="$(bash "$1" "$2"/s3.log "$2"/s1.log "$2"/s0.log "$2"/s2.log 2>&1)"; [ "$out" == "GATE: 10 mutations, 0 survived, shards 4/4 ok" ]' _ "$SUM" "$WORK/good"
-check "no logs at all is refused" bash -c '! bash "$1" > /dev/null 2>&1' _ "$SUM"
-check "a log that does not exist is refused" bash -c '! bash "$1" /no/such/log > /dev/null 2>&1' _ "$SUM"
 
-# each defect: a good set of four with ONE shard (s2) changed; the script must say no, and not print a GATE line
-refuses() {  # refuses <name> <mklog option>...  -- s2 is made with the options
-    local name="$1" d="$WORK/bad-$1"; shift
+# each defect: a good set of four with ONE shard (s2) changed; the script must say no, say why, and print no GATE line
+refuses() {  # refuses <name> <reason fragment> <mklog option>...  -- s2 is made with the options
+    local name="$1" frag="$2" d="$WORK/bad-$1"; shift 2
     good_set "$d" 4 10
     mklog "$d/s2.log" 2 4 10 2 "$@"
-    local out rc
-    out="$(bash "$SUM" "$d"/s*.log 2>&1)"; rc=$?
-    [[ "$rc" -ne 0 ]] && ! grep -q "^GATE:" <<<"$out"
+    refused_set "$d" "$frag" "$d"/s*.log
 }
-echo "--- ... and it refuses each of these"
-check "a shard of another commit (first line and HEAD line)" refuses othercommit sha=4444444444444444444444444444444444444444 head=4444444444444444444444444444444444444444
-check "a shard whose first line is not the commit HEAD says" refuses firstline sha=4444444444444444444444444444444444444444
-check "a shard of another tools/p4_health tree" refuses othertree tree=5555555555555555555555555555555555555555
-check "a shard of another subject sha" refuses othersubj subj=6666666666666666
-check "a shard of a tree with uncommitted changes" refuses uncommitted "extra= +UNCOMMITTED changes in the subject or its suites"
-check "a shard whose baseline is not green" refuses nobaseline baseline=0
-check "a shard whose negative control is not green" refuses nocontrol control=0
-check "a shard that does not say the original is byte-identical" refuses noident ident=0
-check "a shard whose after-check is not green" refuses noafter after=0
-check "a shard that survived a mutation, even with rc 0 written" refuses survivor survived=1
-check "a shard that ended rc=1" refuses rc1 last=rc=1
-check "a shard that ended rc=2" refuses rc2 last=rc=2
-check "a shard whose log does not end in an rc line" refuses norc last="82 mutations, 0 survived"
-check "a partial run" refuses partial partial=1
-check "a shard without the not-the-gate banner (not a log of this script)" refuses nobanner banner=0
+refused_set() {  # refused_set <name dir> <reason fragment> <logs>...
+    local frag="$2"; shift 2
+    local out rc
+    out="$(bash "$SUM" "$@" 2>&1)"; rc=$?
+    [[ "$rc" -ne 0 ]] && ! grep -q "^GATE:" <<<"$out" && grep -q "^NOT THE GATE:" <<<"$out" && grep -qF -- "$frag" <<<"$out"
+}
+echo "--- ... and it refuses each of these, with a reason"
+check "a shard of another commit (first line and HEAD line)" refuses othercommit "commits differ" sha=4444444444444444444444444444444444444444 head=4444444444444444444444444444444444444444
+check "a shard whose first line is not the commit HEAD says" refuses firstline "first line" sha=4444444444444444444444444444444444444444
+check "a shard of another tools/p4_health tree" refuses othertree "trees differ" tree=5555555555555555555555555555555555555555
+check "a shard of another subject sha" refuses othersubj "subject shas differ" subj=6666666666666666
+check "a shard of a tree with uncommitted changes" refuses uncommitted "UNCOMMITTED" "extra= +UNCOMMITTED changes in the subject or its suites"
+check "a shard whose baseline is not green" refuses nobaseline "baseline" baseline=0
+check "a shard whose negative control is not green" refuses nocontrol "negative control" control=0
+check "a shard that does not say the original is byte-identical" refuses noident "byte-identical" ident=0
+check "a shard whose after-check is not green" refuses noafter "suites green against the real files" after=0
+check "a shard that survived a mutation, even with rc 0 written" refuses survivor "survived" survived=1
+check "a shard that ended rc=1" refuses rc1 "rc=1" last=rc=1
+check "a shard that ended rc=2" refuses rc2 "rc=2" last=rc=2
+check "a shard whose log does not end in an rc line" refuses norc "does not end in rc=" last="82 mutations, 0 survived"
+check "a partial run" refuses partial "PARTIAL" partial=1
+check "a shard without the not-the-gate banner (not a log of this script)" refuses nobanner "NOT THE GATE BY ITSELF" banner=0
 refuses_count() {  # s2 reports 3 mutations where its share is 2
     local d="$WORK/bad-count"; good_set "$d" 4 10; mklog "$d/s2.log" 2 4 10 3
-    ! bash "$SUM" "$d"/s*.log > /dev/null 2>&1
+    refused_set "$d" "add up" "$d"/s*.log
 }
 check "a shard that ran more mutations than its share (the counts no longer add up)" refuses_count
 refuses_labels() {  # s2 thinks the table has 11 mutations
     local d="$WORK/bad-labels"; good_set "$d" 4 10; mklog "$d/s2.log" 2 4 11 3
-    ! bash "$SUM" "$d"/s*.log > /dev/null 2>&1
+    refused_set "$d" "size of the table" "$d"/s*.log
 }
 check "shards that disagree on the size of the table" refuses_labels
 refuses_missing() {
     local d="$WORK/bad-missing"; good_set "$d" 4 10; rm "$d/s3.log"
-    ! bash "$SUM" "$d"/s*.log > /dev/null 2>&1
+    refused_set "$d" "shards 0..3" "$d"/s*.log
 }
 check "three shards of four" refuses_missing
 refuses_dup() {
     local d="$WORK/bad-dup"; good_set "$d" 4 10; cp "$d/s1.log" "$d/s1b.log"; rm "$d/s3.log"
-    ! bash "$SUM" "$d"/s0.log "$d"/s1.log "$d"/s1b.log "$d"/s2.log > /dev/null 2>&1
+    refused_set "$d" "more than once" "$d"/s0.log "$d"/s1.log "$d"/s1b.log "$d"/s2.log
 }
 check "the same shard twice in place of another" refuses_dup
 refuses_mixed_n() {
     local d="$WORK/bad-n"; good_set "$d" 4 10; mklog "$d/s3.log" 3 5 10 2
-    ! bash "$SUM" "$d"/s*.log > /dev/null 2>&1
+    refused_set "$d" "different n" "$d"/s*.log
 }
 check "shards of different n" refuses_mixed_n
 refuses_zero() {  # an empty shard (a k beyond the table) is a result of nothing
     local d="$WORK/bad-zero"; good_set "$d" 12 10
-    ! bash "$SUM" "$d"/s*.log > /dev/null 2>&1
+    refused_set "$d" "larger than the table" "$d"/s*.log
 }
 check "n larger than the table (two shards would have run nothing)" refuses_zero
 refuses_refused_log() {  # a log of a run the gate script refused: no mutations section at all
     local d="$WORK/bad-refused"; good_set "$d" 4 10
     printf 'commit %s\nREFUSED: baseline is red: x\nrc=2\n' "$SHA" > "$d/s2.log"
-    ! bash "$SUM" "$d"/s*.log > /dev/null 2>&1
+    refused_set "$d" "REFUSED" "$d"/s*.log
 }
 check "a log of a refused run" refuses_refused_log
+no_logs() { out="$(bash "$SUM" 2>&1)"; rc=$?; [[ "$rc" -ne 0 ]] && grep -q "^NOT THE GATE:" <<<"$out"; }
+check "no logs at all is refused, with a reason" no_logs
+missing_log() { out="$(bash "$SUM" /no/such/log 2>&1)"; rc=$?; [[ "$rc" -ne 0 ]] && grep -q "^NOT THE GATE:" <<<"$out"; }
+check "a log that does not exist is refused, with a reason" missing_log
 
 echo
 echo "Ran $CHECKS checks, $FAILED failed"
