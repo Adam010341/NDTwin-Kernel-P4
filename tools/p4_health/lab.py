@@ -256,7 +256,10 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     doc["gate_fingerprint"] = (identity or {}).get("gate_fingerprint")
     R.dump(os.path.join(run_dir, "health.json"), doc)
     with open(os.path.join(run_dir, "observations.json"), "w", encoding="utf-8") as fh:
-        json.dump({"cells": observations, "self_checks": a.sc_observations if a else {}}, fh,
+        # (round 5, NIT 11) with what `probe.py judge` reads to give the headline this run got
+        json.dump({"cells": observations, "self_checks": a.sc_observations if a else {},
+                   "bringups_complete": complete, "stopped": stopped, "see_red": bool(mutant),
+                   "bringups": recs, "problems": problems}, fh,
                   indent=2, sort_keys=True, default=_jsonable)
     log(R.render(rows, rollups))
     log("verdict %s%s" % (verdict, {"PROBE-BROKEN": "  -- NOT PUBLISHABLE",

@@ -118,7 +118,14 @@ def cmd_judge(args):
     ann = E.annotate(ctx, expected)
     rollups = {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}
     # A recording that does not say its bring-ups completed did not complete (review MINOR 19).
-    verdict, rc = V.run_verdict(ctx, bringups_complete=doc.get("bringups_complete") is True)
+    # (round 5, NIT 11) a recording that carries a stop reads INCOMPLETE offline too, and a see-red
+    # recording (`mutant`/`see_red`) is judged by the see-red rule, exactly as lab.run_lab does it live
+    from p4_health.lab import signalled
+    stopped = (doc.get("stopped") is True or any(signalled(b) for b in doc.get("bringups") or [])
+               or any(str(p).startswith("stop signal") for p in doc.get("problems") or []))
+    see_red = doc.get("see_red") is True or doc.get("mutant") is True
+    verdict, rc = V.run_verdict(ctx, bringups_complete=doc.get("bringups_complete") is True,
+                                stopped=stopped, see_red=see_red)
     rows = R.table_rows(T.TABLE, ctx, ann)
     os.makedirs(args.run_dir, exist_ok=True)
     with open(os.path.join(args.run_dir, "00_table.tsv"), "w", encoding="utf-8") as fh:

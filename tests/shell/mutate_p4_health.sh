@@ -2506,6 +2506,42 @@ add "C2R5-13. a knob that was not put back does not make the round incomplete" \
     '                ):  # MUTANT' \
     'test_a_knob_that_does_not_go_back_makes_the_round_incomplete_even_when_the_release_succeeds'
 
+add "C2R5-11a. the offline judge ignores a stop" \
+    "$PROBEPY" \
+    '                                stopped=stopped, see_red=see_red)' \
+    '                                see_red=see_red)  # MUTANT' \
+    'test_a_stopped_recording_reads_incomplete_offline'
+
+add "C2R5-11b. the offline judge ignores a see-red recording" \
+    "$PROBEPY" \
+    '                                stopped=stopped, see_red=see_red)' \
+    '                                stopped=stopped)  # MUTANT' \
+    'test_a_see_red_recording_that_sees_no_red_reads_so_offline'
+
+add "C2R5-11c. the offline judge does not read the recording's stopped flag" \
+    "$PROBEPY" \
+    '    stopped = (doc.get("stopped") is True or any(signalled(b) for b in doc.get("bringups") or [])' \
+    '    stopped = (any(signalled(b) for b in doc.get("bringups") or [])  # MUTANT' \
+    'test_a_stopped_recording_reads_incomplete_offline'
+
+add "C2R5-11d. the offline judge does not read a stop recorded as a problem of the run" \
+    "$PROBEPY" \
+    '               or any(str(p).startswith("stop signal") for p in doc.get("problems") or []))' \
+    '               or False)  # MUTANT' \
+    'test_a_stopped_recording_reads_incomplete_offline'
+
+add "C2R5-11e. observations.json does not say whether the run was stopped" \
+    "$LABPY" \
+    '"bringups_complete": complete, "stopped": stopped, "see_red": bool(mutant),' \
+    '"bringups_complete": complete, "stopped": False, "see_red": bool(mutant),  # MUTANT' \
+    'test_the_observations_a_run_writes_carry_what_the_offline_judge_reads'
+
+add "C2R5-11f. observations.json does not carry the rounds' records" \
+    "$LABPY" \
+    '                   "bringups": recs, "problems": problems}, fh,' \
+    '                   "bringups": [], "problems": problems}, fh,  # MUTANT' \
+    'test_the_observations_a_run_writes_carry_what_the_offline_judge_reads'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
