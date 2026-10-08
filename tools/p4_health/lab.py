@@ -103,10 +103,6 @@ def signalled(rec):
     return any(str(p).startswith("aborted by signal") for p in (rec or {}).get("problems") or [])
 
 
-#: How a run-level problem begins when the run was stopped (tests read "stop signal 15" too).
-STOP_PREFIX = "stop signal"
-
-
 def _stop_on_signals():
     """(Cut 2 review N1) For the whole run, not only inside a round: a stop signal between A's
     teardown and B's claim raises SignalAbort here too, instead of killing the probe with its
@@ -131,7 +127,7 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
         log("  A: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
         if signalled(recs[-1]):
             # (Cut 2 review N1) a stop is a stop: no further claim, whatever A's teardown did
-            problems.append(STOP_PREFIX + " during bring-up A: the run ends here, B not brought up")
+            problems.append("stop signal during bring-up A: the run ends here, B not brought up")
             log("  " + problems[-1])
             return
         why = ended_clean(lr_a, recs[-1])
@@ -150,7 +146,7 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
         keep_state(cfg, "B")
         log("  B: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
         if signalled(recs[-1]):
-            problems.append(STOP_PREFIX + " during bring-up B")
+            problems.append("stop signal during bring-up B")
         elif b.failed:
             # (Cut 2 review N2) a B that claimed the lab but whose controller did nothing
             problems.append("B's controller did not do its part: %s" % b.failed)
@@ -167,7 +163,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     model = load_model(os.path.join(run_dir, "exercise"))
     pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
     packages = os.path.join(run_dir, "packages")
-    recs, problems, holder = [], [], {}
+    recs, problems, holder, run_stopped = [], [], {}, []
     root_code, frozen = HO.freeze_root_code(run_dir)
     a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))
     b_kwargs = dict({"hostside": frozen}, **(b_kwargs or {}))
@@ -178,8 +174,9 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
                 log, holder)
     except SignalAbort as exc:
         # (Cut 2 review N1) between rounds, or before a round's own handlers are in place
-        problems.append("%s %d outside a bring-up's body: the run ends here; finish with "
-                        "recover.sh %s if a round was under way" % (STOP_PREFIX, exc.signum, run_dir))
+        problems.append("stop signal %d outside a bring-up's body: the run ends here; finish with "
+                        "recover.sh %s if a round was under way" % (exc.signum, run_dir))
+        run_stopped.append(exc.signum)
         log("  " + problems[-1])
     finally:
         if old_handlers is not None:
@@ -194,7 +191,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     rollups = {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}
     complete = bool(recs) and all(r.get("complete") is True for r in recs) and not problems
     # (round 4, F3) a recorded stop overrides the headline; a see-red pass needs a complete, clean run
-    stopped = any(signalled(r) for r in recs) or any(p.startswith(STOP_PREFIX) for p in problems)
+    stopped = any(signalled(r) for r in recs) or bool(run_stopped)
     verdict, rc = V.run_verdict(ctx, bringups_complete=complete, stopped=stopped, see_red=bool(mutant))
     rows = R.table_rows(T.TABLE, ctx, ann)
     with open(os.path.join(run_dir, "00_table.tsv"), "w", encoding="utf-8") as fh:
