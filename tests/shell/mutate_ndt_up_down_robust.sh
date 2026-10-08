@@ -48,6 +48,8 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 NDT="$REPO/tools/test_workflow/ndt"
+# Named so check_gate_anchors.py can tell which file M95's anchor lives in. [Co-developed with claude code -- Adam]
+PORTS="$REPO/tools/test_workflow/ports.sh"
 TEST="$HERE/test_ndt_up_down_robust.sh"
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-updown-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
@@ -1306,7 +1308,7 @@ report "M94: 'ports closed' is printed for a reading that could not look" "$m" \
 
 # M95: ports.sh's residue stops naming a port it could not probe (the mutant dir carries its own
 # ports.sh, so this edits the copy).
-m=$(mutant m95 "$REPO/tools/test_workflow/ports.sh" \
+m=$(mutant m95 "$PORTS" \
     '                   printf '"'"'residue: :%s (%s) could NOT be probed on this machine (%s) -- not a pass\n'"'"' \
                           "$port" "$proto" "$(ndt_port_blind_why)"
                    printf '"'"'         -> owner: %s\n'"'"' "$owner"' \
