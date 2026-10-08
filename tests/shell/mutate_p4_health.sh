@@ -2369,8 +2369,18 @@ echo "  ok       baseline green"
 
 # ONLY_LABEL_PREFIX=C2R4-  runs only the mutations whose label starts so (baseline and control still
 # run). A PARTIAL run: it says so on its last line and is never the gate.
+# MUT_SHARD=k/n  runs only the mutations whose position in the table is k modulo n (k from 0): n shards
+# started side by side, with the same head, cover the table once between them. Each shard runs its
+# own baseline and negative control and says SHARD on its last line; the gate is the sum of all n.
+SHARD_K=""; SHARD_N=""
+if [[ -n "${MUT_SHARD:-}" ]]; then
+    SHARD_K="${MUT_SHARD%/*}"; SHARD_N="${MUT_SHARD#*/}"
+    [[ "$SHARD_K" =~ ^[0-9]+$ && "$SHARD_N" =~ ^[1-9][0-9]*$ && "$SHARD_K" -lt "$SHARD_N" ]] \
+        || { echo "REFUSED: MUT_SHARD=$MUT_SHARD is not k/n with 0 <= k < n"; exit 2; }
+fi
 for i in "${!MUT_LABEL[@]}"; do
     if [[ -n "${ONLY_LABEL_PREFIX:-}" && "${MUT_LABEL[$i]}" != "$ONLY_LABEL_PREFIX"* ]]; then continue; fi
+    if [[ -n "$SHARD_N" ]] && (( i % SHARD_N != SHARD_K )); then continue; fi
     mutate "${MUT_LABEL[$i]}" "${MUT_SRC[$i]}" "${MUT_ANCHOR[$i]}" "${MUT_REPL[$i]}" "${MUT_EXPECT[$i]}"
 done
 
@@ -2400,5 +2410,6 @@ after_red=$(red_tests)
 echo "  suites green against the real files"
 
 printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
+[[ -n "$SHARD_N" ]] && printf 'SHARD %s/%s of %s mutations in the table\n' "$SHARD_K" "$SHARD_N" "${#MUT_LABEL[@]}"
 [[ -n "${ONLY_LABEL_PREFIX:-}" ]] && printf 'PARTIAL RUN: only labels starting %s -- this is not the gate\n' "$ONLY_LABEL_PREFIX"
 [[ "$SURVIVORS" -eq 0 ]]
