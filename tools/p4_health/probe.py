@@ -109,8 +109,8 @@ def cmd_lab(args):
     if not owner:
         print("refused: --owner (or NDT_OWNER) is required for a lab run", file=sys.stderr)
         return 2
-    # (Cut 2 review m4) root runs hostside.py, frames.py and __init__.py from this working tree:
-    # a lab run is refused unless tools/p4_health is exactly what HEAD says (no edit, no new file)
+    # (Cut 2 review m4) a lab run runs probe code from this working tree (frozen below):
+    # it is refused unless tools/p4_health is exactly what HEAD says (no edit, no new file)
     git_rc, dirty = _git_run("status", "--porcelain", "--", "tools/p4_health")
     if git_rc != 0:
         # (Cut 2 review N3) no answer is not "clean"
@@ -123,6 +123,15 @@ def cmd_lab(args):
         return 2
     run_dir = os.path.abspath(args.run_dir)
     run_id = os.path.basename(run_dir.rstrip("/"))
+    # (Cut 2 round 4, F4) Freeze right after the clean check, before S0: every round runs these
+    # copies, and each is checked against HEAD's blob, so an edit made since the check is refused
+    # here, before any lab action (git that cannot answer is a refusal too)
+    from p4_health import frozen as FZ
+    try:
+        frozen = FZ.freeze(run_dir, repo=REPO, git=_git_run)
+    except FZ.Refused as exc:
+        print("refused: %s" % exc, file=sys.stderr)
+        return 2
     py = args.py_p4 or os.environ.get("P4_PROXY_PY") or os.path.join(REPO, "p4_proxy", "venv", "bin", "python")
     runner = Runner()
     ident = repo_identity()
@@ -159,7 +168,8 @@ def cmd_lab(args):
     bringups = tuple(b for b in (args.bringups or "A,B").split(",") if b)
     only = [c for c in (args.only or "").split(",") if c] or None
     rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
-                         mutant=args.mutant, identity={"gate_fingerprint": gate, "system_under_test": sut})
+                         mutant=args.mutant, identity={"gate_fingerprint": gate, "system_under_test": sut},
+                         frozen=frozen)
     return rc
 
 

@@ -42,15 +42,16 @@ D1_SPORT = 40041
 P3_DPORT = CX.PACKET_OUT_DPORT
 
 
-def adapter_argv(python, package_dir, tutorials_utils):
-    """How bring-up B starts its controller; S0 runs the same argv with --dry-run."""
-    return [python, ADAPTER, package_dir, CONTROLLER, "--tutorials-utils", tutorials_utils]
+def adapter_argv(python, package_dir, tutorials_utils, adapter=ADAPTER, controller=CONTROLLER):
+    """How bring-up B starts its controller; S0 runs the same argv with --dry-run. A lab run hands
+    the copies it froze (frozen.py); the defaults are the shared tree's own."""
+    return [python, adapter, package_dir, controller, "--tutorials-utils", tutorials_utils]
 
 
 class BRound(object):
     def __init__(self, cfg, runner, run_id, model, build_dir, runtimes, tutorials_utils,
                  out_dir=None, hosts=None, sleep=time.sleep, clock=time.monotonic,
-                 ready_timeout_s=120.0, exit_timeout_s=120.0, hostside=None):
+                 ready_timeout_s=120.0, exit_timeout_s=120.0, hostside=None, controller=None, adapter=None):
         self.cfg, self.runner, self.run_id, self.model = cfg, runner, run_id, model
         self.build_dir, self.runtimes = build_dir, runtimes
         self.tutorials_utils = tutorials_utils
@@ -59,6 +60,8 @@ class BRound(object):
         self.sleep, self.clock = sleep, clock
         self.ready_timeout_s, self.exit_timeout_s = ready_timeout_s, exit_timeout_s
         self.hostside = hostside            # the frozen copy root runs (lab.run_lab), or None
+        self.controller = controller or CONTROLLER      # (round 4, F4b) the frozen copies B runs, or the tree's
+        self.adapter = adapter or ADAPTER
         self.confirmed = None
         self.problems = []
         #: (Cut 2 review N2) why B's controller did not do its part, or None: the run is then
@@ -111,7 +114,8 @@ class BRound(object):
         conf_path = self.path("controller.conf.json")
         with open(conf_path, "w", encoding="utf-8") as fh:
             json.dump(self.config(), fh, indent=2, sort_keys=True)
-        argv = adapter_argv(self.cfg.p4dev_python, lab_round.package_dir, self.tutorials_utils)
+        argv = adapter_argv(self.cfg.p4dev_python, lab_round.package_dir, self.tutorials_utils,
+                            adapter=self.adapter, controller=self.controller)
         proc = self.runner.spawn(argv, self.path("controller.log"), env={"P4H_CTRL_CONFIG": conf_path})
         if proc is None:
             self.problems.append("B's controller could not be started")

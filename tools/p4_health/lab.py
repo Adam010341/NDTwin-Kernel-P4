@@ -25,7 +25,7 @@ from . import report as R
 from . import runtime_cli as RC
 from .cells import table as T
 from .cells import verdict as V
-from .collect import hosts as HO
+from . import frozen as FZ
 from .lab_round import LabRound, SignalAbort
 from .round_a import ARound
 from .round_b import BRound
@@ -155,8 +155,11 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
 
 def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None, mutant=False,
             tutorials_utils=None, round_cls=LabRound, a_kwargs=None, b_kwargs=None,
-            expected_tsv=None, log=print, identity=None, signals=True):
-    """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE."""
+            expected_tsv=None, log=print, identity=None, signals=True, frozen=None):
+    """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE.
+
+    `frozen`: the code copies `probe.py lab` froze before S0 and checked against HEAD
+    (frozen.freeze). Without it -- the offline tests -- the files are copied here, unchecked."""
     if s0_out.get("verdict") != "COMPLETE":
         log("S0 is %s: the lab is not touched" % s0_out.get("verdict"))
         return 1, None
@@ -164,9 +167,10 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
     packages = os.path.join(run_dir, "packages")
     recs, problems, holder, run_stopped = [], [], {}, []
-    root_code, frozen = HO.freeze_root_code(run_dir)
-    a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))
-    b_kwargs = dict({"hostside": frozen}, **(b_kwargs or {}))
+    frozen = frozen or FZ.freeze(run_dir)
+    a_kwargs = dict({"hostside": frozen.hostside}, **(a_kwargs or {}))
+    b_kwargs = dict({"hostside": frozen.hostside, "controller": frozen.controller,
+                     "adapter": frozen.adapter}, **(b_kwargs or {}))
     old_handlers = _stop_on_signals() if signals else None
     try:
         _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutant, bringups,
@@ -203,7 +207,8 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     doc["only"] = sorted(a.selected) if a else []
     doc["mutant"] = bool(mutant)
     doc["problems"] = problems
-    doc["root_code"] = root_code
+    doc["root_code"] = frozen.root_code            # what root ran: sha256 of the copies
+    doc["frozen_code"] = frozen.sums               # every file any round ran, as relative path -> sha256
     # (Cut 2 review m4) design 4.3's system_under_test and the Q6(a) gate fingerprint
     doc["system_under_test"] = (identity or {}).get("system_under_test")
     doc["gate_fingerprint"] = (identity or {}).get("gate_fingerprint")

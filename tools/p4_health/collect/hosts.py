@@ -22,28 +22,6 @@ from . import ps as PS
 HOSTSIDE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hostside.py")
 
 
-#: What root executes, relative to tools/p4_health: hostside.py and what it imports.
-ROOT_CODE = ("hostside.py", "frames.py", "__init__.py")
-
-
-def freeze_root_code(run_dir, src=None):
-    """(Cut 2 second review N8) Copy the files root executes into <run>/rootcode/p4_health/ and
-    return ({name: sha256}, the frozen hostside.py). Root then runs these copies for the whole
-    run, whatever the shared working tree does meanwhile, and health.json records exactly what
-    they were."""
-    import hashlib
-    import shutil
-    src = src or os.path.dirname(HOSTSIDE)
-    dst = os.path.join(run_dir, "rootcode", "p4_health")
-    os.makedirs(dst, exist_ok=True)
-    sums = {}
-    for name in ROOT_CODE:
-        shutil.copyfile(os.path.join(src, name), os.path.join(dst, name))
-        with open(os.path.join(dst, name), "rb") as fh:
-            sums[name] = hashlib.sha256(fh.read()).hexdigest()
-    return sums, os.path.join(dst, "hostside.py")
-
-
 def marker_token(run_id):
     """The 8 characters a marker carries for this run (frames.payload keeps 8 bytes)."""
     return hashlib.sha1(run_id.encode("utf-8")).hexdigest()[:8]
