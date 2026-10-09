@@ -441,6 +441,14 @@ report_exit() {
 # Field 22 of /proc/<pid>/stat is starttime in clock ticks since boot. comm (field 2) may
 # contain spaces and parentheses, so everything up to the last ')' is dropped first; the
 # remainder starts at field 3, which puts starttime at $20.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 KNOWN WEAKNESS, not fixed here: btime is read NOW, and the kernel moves it with every step of
+# the wall clock, while the pidfile's mtime was stamped under the clock as it was then. A forward
+# step of more than the 2 s slack after a component started (an NTP correction after a laptop
+# resume) makes that live, legitimate component look as if it started after its own pidfile --
+# i.e. "a recycled pid". stop_one then refuses to stop it, and wait_for_port warns (it does not
+# refuse; see there). A backward step hides a real recycled pid the same way.
 proc_start_epoch() {
     local pid="$1" btime hz ticks
     [[ "$pid" =~ ^[0-9]+$ ]] || return 1
@@ -532,14 +540,14 @@ start_bg() {
         want="$(printf '%s\n' "$@"; [[ -n "$START_BG_IDENTITY" ]] && printf '%s\n' "$START_BG_IDENTITY")"
         have="$(recorded_cmd "$name")"
         if [[ -n "$have" && "$have" == "$want" ]]; then
-            info "  $name already running (pid $(cat "$PID_DIR/$name.pid"), same command)"
+            info "  $name already running (pid $(pidfile_quote "$(cat "$PID_DIR/$name.pid")"), same command)"
             return 0
         fi
         if [[ -z "$have" ]]; then
-            warn "  $name is running (pid $(cat "$PID_DIR/$name.pid")) but was started before this"
+            warn "  $name is running (pid $(pidfile_quote "$(cat "$PID_DIR/$name.pid")")) but was started before this"
             warn "    check existed, so what it is serving cannot be verified; restarting it."
         else
-            warn "  $name is running (pid $(cat "$PID_DIR/$name.pid")) with a DIFFERENT command;"
+            warn "  $name is running (pid $(pidfile_quote "$(cat "$PID_DIR/$name.pid")")) with a DIFFERENT command;"
             warn "    restarting it, because reusing it would serve the previous run's topology."
             warn "    was:  $(printf '%s' "$have" | tr '\n' ' ')"
             warn "    want: $(printf '%s' "$want" | tr '\n' ' ')"
@@ -647,6 +655,78 @@ sweep_orphan_exits() {
     return 0
 }
 
+# pidfile_quote <text> [max] -- pidfile content as it may be printed: at most <max> bytes (32),
+# every byte that is not printable replaced by '?', and "..." when it was cut. A pidfile is a file
+# anyone with write access to $PID_DIR can fill: an escape sequence in it would be replayed on the
+# operator's terminal, and a large blob would land whole in every run log.
+# [Co-developed with claude code -- Adam]
+pidfile_quote() {
+    local LC_ALL=C max="${2:-32}" q
+    q="$(printf '%s' "$1" | head -c "$max" | tr -c '[:print:]' '?')"
+    (( ${#1} > max )) && q="$q..."
+    printf '%s' "$q"
+}
+
+# pidfile_vouches <pidfile> -- does this pidfile name a process this script started?
+#
+# [Co-developed with claude code -- Adam]
+# The tests stop_one applies before it signals anything, in one place, so that port_owner_verdict
+# asks the same question. They used to live inline in stop_one only, and the verdict read the same
+# file with `-f` and `cat`: it followed the symlink stop_one refuses and skipped the start-time
+# test, so one `down` could call a pid "a different process that reuses the number" and then, a
+# few lines later, "a process this script started".
+#
+#   0  yes: a plain file holding a usable pid whose process (if it is alive) did not start after
+#      the file was written       1  no pidfile       2  a symlink, refused
+#   3  not a usable pid           4  a different process that reuses the number
+#
+# Sets PIDFILE_PID (what the file holds, empty for 1 and 2) and, for 4, PIDFILE_LATE (how many
+# seconds after the file was written the process started). Globals rather than stdout, because
+# a $(...) would drop them.
+pidfile_vouches() {
+    local pidfile="$1" pf_mtime p_start
+    PIDFILE_PID=""
+    PIDFILE_LATE=""
+    [[ -f "$pidfile" ]] || return 1
+
+    # Refuse to follow a symlink: with a predictable path an attacker could point the
+    # pidfile at something else entirely.
+    if [[ -L "$pidfile" ]]; then
+        return 2
+    fi
+
+    PIDFILE_PID="$(cat "$pidfile")"
+
+    # Validate before interpolating into kill. Two real hazards:
+    #   * a pidfile containing "1" makes `kill -TERM -1` -- which signals EVERY process the
+    #     user is allowed to signal, i.e. their whole session, not just init
+    #   * anything non-numeric gets interpolated into the command as-is
+    # Require a plain integer of at least 2, since 0 and 1 both have special meanings for
+    # kill and no legitimate child of this script can have them.
+    # [Co-developed with claude code -- Adam] No leading zero: "0123456" passed `^[0-9]+$`, its
+    # /proc entry does not resolve (so the start-time test below was silently skipped), and kill
+    # reads it as 123456 -- a different process group, signalled unchecked. "089" also slipped
+    # past `-lt 2`, which errors on it as a bad octal number instead of answering.
+    if [[ ! "$PIDFILE_PID" =~ ^[1-9][0-9]*$ ]] || [[ "$PIDFILE_PID" -lt 2 ]]; then
+        return 3
+    fi
+
+    # Prove the pid is still ours before signalling it. Measured 2026-08-21: an unrelated pid
+    # written into kernel.pid was killed -- and it is `kill -TERM -$pid`, the whole process
+    # GROUP -- after which this reported "stopped kernel", the teardown assertion went five for
+    # five, and the exit code was 0. Three wrong answers, all silent.
+    #
+    # A stale pidfile is not hypothetical: one survives every abnormal exit, and one survived a
+    # reboot on this machine while `ndt clean` called the result clean.
+    pf_mtime="$(stat -c %Y "$pidfile" 2>/dev/null)"
+    p_start="$(proc_start_epoch "$PIDFILE_PID")"
+    if [[ -n "$pf_mtime" && -n "$p_start" ]] && (( p_start > pf_mtime + 2 )); then
+        PIDFILE_LATE=$(( p_start - pf_mtime ))
+        return 4
+    fi
+    return 0
+}
+
 stop_one() {
     # [Co-developed with claude code -- Adam]
     # Two statements, not one. `local name="$1" pidfile="$PID_DIR/$name.pid"` expands BOTH
@@ -659,47 +739,30 @@ stop_one() {
     # the one it was asked for.
     local name="$1"
     local pidfile="$PID_DIR/$name.pid"
-    [[ -f "$pidfile" ]] || return 0
-
-    # Refuse to follow a symlink: with a predictable path an attacker could point the
-    # pidfile at something else entirely.
-    if [[ -L "$pidfile" ]]; then
-        err "  $pidfile is a symlink; refusing to read it"
-        return 1
-    fi
-
-    local pid; pid="$(cat "$pidfile")"
-
-    # Validate before interpolating into kill. Two real hazards:
-    #   * a pidfile containing "1" makes `kill -TERM -1` -- which signals EVERY process the
-    #     user is allowed to signal, i.e. their whole session, not just init
-    #   * anything non-numeric gets interpolated into the command as-is
-    # Require a plain integer of at least 2, since 0 and 1 both have special meanings for
-    # kill and no legitimate child of this script can have them.
-    if [[ ! "$pid" =~ ^[0-9]+$ ]] || [[ "$pid" -lt 2 ]]; then
-        err "  $pidfile does not contain a usable pid (${pid:-empty}); not killing anything"
-        rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX"
-        return 1
-    fi
-
-    # [Co-developed with claude code -- Adam]
-    # Prove the pid is still ours before signalling it. Measured 2026-08-21: an unrelated pid
-    # written into kernel.pid was killed -- and it is `kill -TERM -$pid`, the whole process
-    # GROUP -- after which this reported "stopped kernel", the teardown assertion went five for
-    # five, and the exit code was 0. Three wrong answers, all silent.
-    #
-    # A stale pidfile is not hypothetical: one survives every abnormal exit, and one survived a
-    # reboot on this machine while `ndt clean` called the result clean.
-    local pf_mtime p_start
-    pf_mtime="$(stat -c %Y "$pidfile" 2>/dev/null)"
-    p_start="$(proc_start_epoch "$pid")"
-    if [[ -n "$pf_mtime" && -n "$p_start" ]] && (( p_start > pf_mtime + 2 )); then
-        err "  refusing to stop $name: pid $pid started $(( p_start - pf_mtime ))s AFTER"
-        err "    $pidfile was written, so it is a different process that reuses the number."
-        err "    Leaving it alone and keeping the pidfile. It is now $(cat "/proc/$pid/comm" 2>/dev/null || echo '?')."
-        err "    If the stack really is gone, delete the stale pidfile: rm $pidfile"
-        return 1
-    fi
+    # The tests themselves are in pidfile_vouches, shared with port_owner_verdict; what each
+    # refusal does (say so, keep or remove the file) stays here.
+    local pid vrc
+    pidfile_vouches "$pidfile"; vrc=$?
+    pid="$PIDFILE_PID"
+    case $vrc in
+        1) return 0 ;;
+        2)
+            err "  $pidfile is a symlink; refusing to read it"
+            return 1
+            ;;
+        3)
+            err "  $pidfile does not contain a usable pid ($( [[ -n "$pid" ]] && pidfile_quote "$pid" || echo empty)); not killing anything"
+            rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX"
+            return 1
+            ;;
+        4)
+            err "  refusing to stop $name: pid $pid started ${PIDFILE_LATE}s AFTER"
+            err "    $pidfile was written, so it is a different process that reuses the number."
+            err "    Leaving it alone and keeping the pidfile. It is now $(cat "/proc/$pid/comm" 2>/dev/null || echo '?')."
+            err "    If the stack really is gone, delete the stale pidfile: rm $pidfile"
+            return 1
+            ;;
+    esac
 
     if kill -0 "$pid" 2>/dev/null; then
         # Negative pid targets the whole process group (setsid above), so children die too.
@@ -737,7 +800,9 @@ port_open() {
 # [Co-developed with claude code -- Adam]
 port_listener_pids() {
     command -v ss >/dev/null 2>&1 || return 0
-    ss -ltnpH "( sport = $1 )" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u
+    # `:PORT`, the form ss(8) documents and ports.sh uses. A bare number is accepted by the
+    # iproute2 on this machine (6.1), but that is not what the man page promises.
+    ss -ltnpH "( sport = :$1 )" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u
 }
 
 # port_listener_description <port> -- "name (pid N)" for the log, or a plain statement when the
@@ -756,18 +821,40 @@ port_listener_description() {
     echo "$out"
 }
 
-# port_owner_verdict <port> <component> -> ours | stray | unknown
+# port_owner_verdict <port> <component> [down|up] -> ours | stray | unknown | refused
 #
 # [Co-developed with claude code -- Adam]
 # `ours` means the listening socket belongs to the process this script started, or to one of its
 # descendants: start_bg uses setsid, so the recorded pid is the process-group leader and every child
 # shares that pgid -- which is the same assumption stop_one already makes when it signals `-$pid`.
+#
+# And "the process this script started" is decided by pidfile_vouches, the same tests stop_one
+# applies, so `ours` here is what stop_one would also call ours:
+#   symlink (2)     `refused` -- stop_one will not read it, so neither does this. Callers treat it
+#                   as not ours (wait_for_port fails closed on it).
+#   no file (1)     `unknown`: the registry vouches for nothing.
+#   no usable pid (3)  down: `unknown`. up: `unusable`, and wait_for_port fails closed on it, as on
+#                   a symlink -- its liveness fallback is is_running, which accepts any content
+#                   `kill -0` takes ("0", "-1", " N"), so `unknown` there adopted any holder.
+#   reused number (4)  depends on the caller, which is what the third argument is for:
+#     down (default)  `stray`. stop_one has just called that pid a different process, and the
+#                     teardown's verdict must not contradict it in the same output.
+#     up              compared like a current pidfile, as before this test was shared. The start
+#                     time is not trusted to REFUSE a bring-up: proc_start_epoch is fooled by a
+#                     wall-clock step, and a refusal there would leave a legitimate component that
+#                     stop_one also refuses to stop -- no way down and no way up. wait_for_port
+#                     says so out loud instead.
 port_owner_verdict() {
-    local port="$1" component="$2"
-    local pidfile="$PID_DIR/$component.pid"
-    if [[ ! -f "$pidfile" ]]; then echo unknown; return; fi
-    local ours; ours="$(cat "$pidfile" 2>/dev/null)"
-    [[ -n "$ours" ]] || { echo unknown; return; }
+    local port="$1" component="$2" mode="${3:-down}"
+    local ours vrc
+    pidfile_vouches "$PID_DIR/$component.pid"; vrc=$?
+    case $vrc in
+        0) ours="$PIDFILE_PID" ;;
+        4) if [[ "$mode" == up ]]; then ours="$PIDFILE_PID"; else echo stray; return; fi ;;
+        2) echo refused; return ;;
+        3) if [[ "$mode" == up ]]; then echo unusable; else echo unknown; fi; return ;;
+        *) echo unknown; return ;;
+    esac
 
     local listeners; listeners="$(port_listener_pids "$port")"
     if [[ -z "$listeners" ]]; then
@@ -826,8 +913,47 @@ wait_for_port() {
             # Asking who owns the socket is the only way to answer the question the comment claims to
             # answer.
             if [[ -n "$component" ]]; then
-                case "$(port_owner_verdict "$port" "$component")" in
+                # [Co-developed with claude code -- Adam]
+                # A pidfile older than the process it names is a recycled pid OR a clock step
+                # since the component started (proc_start_epoch), and nothing here can tell which.
+                # The verdict below still decides by who holds the port, as it did before the
+                # start-time test was shared; this names both readings, and says what decides --
+                # the holder when ss can see it, the liveness fallback when it cannot.
+                if pidfile_vouches "$PID_DIR/$component.pid"; (( $? == 4 )); then
+                    warn "  $PID_DIR/$component.pid is older than the process it names (pid $PIDFILE_PID"
+                    warn "    started ${PIDFILE_LATE}s after the file was written): either that pid was"
+                    warn "    recycled, or the clock stepped since $component started."
+                    if [[ -n "$(port_listener_pids "$port")" ]]; then
+                        warn "    Deciding by who holds :$port."
+                    fi
+                fi
+                case "$(port_owner_verdict "$port" "$component" up)" in
                     ours)
+                        ;;
+                    refused)
+                        # A symlinked pidfile: stop_one refuses to read it, and is_running (the
+                        # fallback below) would follow it. Fail closed, as stop_one does. Only the
+                        # link's TARGET PATH is printed, never what that file holds: the link can
+                        # point at any file this user can read (a token, a key), and its content
+                        # would land on the terminal and in every run log. start_bg wrote its pid
+                        # through the link, so that process may still be running, and neither `down`
+                        # nor a rollback will stop it (stop_one refuses the link); the target path is
+                        # where the operator finds its pid.
+                        echo " ${R}not ours${N}"
+                        err "  $PID_DIR/$component.pid is a symlink (to $(pidfile_quote "$(readlink "$PID_DIR/$component.pid")" 256));"
+                        err "    refusing to read it, so nothing says :$port is held by the $component"
+                        err "    this script started. Whatever start_bg launched through it is not stopped by"
+                        err "    'down' either -- check the pid in the target file and stop it by hand if it is yours."
+                        return 1
+                        ;;
+                    unusable)
+                        # No usable pid (pidfile_vouches code 3). The fallback below would ask
+                        # is_running, which takes anything `kill -0` takes -- "0" (this process
+                        # group), "-1" (every process), " N" -- and so adopt whatever holds the port.
+                        echo " ${R}not ours${N}"
+                        err "  $PID_DIR/$component.pid holds no usable pid ('$(pidfile_quote "$(cat "$PID_DIR/$component.pid" 2>/dev/null)")'),"
+                        err "    so nothing says :$port is held by the $component this script started"
+                        return 1
                         ;;
                     stray)
                         echo " ${R}not ours${N}"
@@ -1187,11 +1313,29 @@ cmd_down() {
     # The set of ports is now ports.sh's table, not three literals here. The literals were the
     # ports that are easy to name; the table is the ports that block the next bring-up, and it
     # carries the consequence of each, which is what turns a leftover into an actionable line.
-    local leftovers=0 spec proto rowplane rowowner consequence port
+    local leftovers=0 unchecked="" spec proto rowplane rowowner consequence port
     while IFS='|' read -r spec proto rowplane rowowner consequence; do
       [[ -z "$spec" ]] && continue
       for port in $(ndt_port_expand "$spec"); do
-        ndt_port_open "$port" "$proto" || continue
+        # [Co-developed with claude code -- Adam]
+        # rc 2 is "cannot tell" (ports.sh: a UDP row on a machine with no ss), and it used to fall
+        # into `|| continue` with "closed", so `down` called :6343 clear without having looked.
+        # Now it is named, and the closing line says the check was incomplete instead of "done".
+        # It does not change the exit status: this command's non-zero means "something is still
+        # listening or crashed", and `ndt down` reads it that way (a status it cannot account for
+        # is blamed on the kernel/proxy/Ryu half). The machine-wide port verdict is cmd_clean's,
+        # which already fails on "cannot tell". Same choice as wait_for_port's `unknown`: warn,
+        # do not invent a failure.
+        ndt_port_open "$port" "$proto"
+        case $? in
+            0) ;;
+            2)
+                warn "  :$port ($proto) could NOT be checked: $(ndt_port_blind_why) -- not reported clear"
+                unchecked="${unchecked:+$unchecked }:$port/$proto"
+                continue
+                ;;
+            *) continue ;;
+        esac
         (( leftovers++ ))
         local owner; owner="$(ndt_port_holder "$port" "$proto")"
         # port_owner_verdict reads TCP listeners only, so a UDP row can never come back
@@ -1202,8 +1346,12 @@ cmd_down() {
         case "$(port_owner_verdict "$port" kernel)$(port_owner_verdict "$port" p4_proxy)$(port_owner_verdict "$port" ryu)" in
             *ours*)
                 # A component this script started is still holding the port: teardown really failed.
-                err "  :$port is still held by a process this script started ($owner) -- stop_one did"
-                err "    not manage to stop it"
+                # Its pidfile passes the same tests stop_one applies (pidfile_vouches), and stop_one
+                # removes every pidfile it accepts -- so this one was registered after stop_one
+                # ran (an `up` racing this `down`), or stop_one could not remove it.
+                err "  :$port is still held by a process this script started ($owner) -- its pidfile"
+                err "    is current, so it was registered while this 'down' ran, or stop_one could"
+                err "    not remove it"
                 ;;
             *)
                 err "  :$port is still listening, held by $owner"
@@ -1250,6 +1398,10 @@ cmd_down() {
         return 1
     fi
 
+    if [[ -n "$unchecked" ]]; then
+        warn "done, but the port check is INCOMPLETE -- not checked: $unchecked"
+        return 0
+    fi
     ok "done"
 }
 
