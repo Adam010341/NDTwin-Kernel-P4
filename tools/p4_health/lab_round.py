@@ -18,7 +18,7 @@ against the lab.
     recorded and does NOT stop the down, the restore or the release -- only recover.sh stops
     there (12-10). A failed `ndt down` DOES stop the release: a lab released with a fabric
     still up is a lab the next session tears down blind (12-10).
-  * `app_package_override` is never touched: `ndt down` clears it (ndt:1597-1601).
+  * `app_package_override` is never touched: `ndt down` clears it (ndt:1601-1605).
   * A claim that is refused makes the round INCOMPLETE; there is no --force.
   * (Cut 1 review, MAJ-6) A sniffer or controller is recorded as pid + start time
     (/proc/<pid>/stat field 22) + a marker its command line carries (the run id), and is signalled
