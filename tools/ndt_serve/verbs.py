@@ -216,10 +216,10 @@ RC_TABLE = {
     "status.check": {
         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
         # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
-        # problems[] is not empty (ndt:7210-7212) -- a claim held by somebody else (6853), a
-        # measurement process in flight (6811, in_flight's process scan -- a measuring= the claim
-        # only DECLARES, 6787-6789, is not a problem), a netem qdisc (7052), a refused sudo grant
-        # (7065) are all problems. A GUI that printed "a field does not match" would name the wrong
+        # problems[] is not empty (ndt:7251-7253) -- a claim held by somebody else (6894), a
+        # measurement process in flight (6852, in_flight's process scan -- a measuring= the claim
+        # only DECLARES, 6828-6830, is not a problem), a netem qdisc (7093), a refused sudo grant
+        # (7106) are all problems. A GUI that printed "a field does not match" would name the wrong
         # cause.
         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
@@ -274,6 +274,10 @@ RC_TABLE = {
 # 2026-10-02, external detect-only branch: the heartbeat drop check and the external-plane
 # rows put 99 lines above status --measuring's row, 117 above cmd_status's verdict and every
 # row below it; each row was re-read at its new line. The claim and release rows did not move.
+# 2026-10-09: the port-probe verdict change put 4 lines above the claim rows, 18 above the apps.start
+# and cmd_down area, 35 above cmd_clean and 41 above everything from status --measuring down; each
+# anchor was moved to the line that holds the same code, matched against the unchanged lines of the
+# earlier ndt (the text on it and the function it lies in are the same).
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -287,21 +291,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(7203, 3, "return 3", "cmd_status"), (7208, 0, "return 0", "cmd_status"),
-                              (7212, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(7214, 0, "return 0", "cmd_status")]},
+                     "code": [(7244, 3, "return 3", "cmd_status"), (7249, 0, "return 0", "cmd_status"),
+                              (7253, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(7255, 0, "return 0", "cmd_status")]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(6824, 0, "return 0", "cmd_status")]},
-    "claim": {"code": [(753, 2, "return 2", "cmd_claim"), (762, 2, "return 2", "cmd_claim"),
-                       (787, 1, "return 1", "claim_take"), (860, 1, "return 1", "claim_take"),
-                       (862, 0, 'ok "lab claimed by', "claim_take")]},
-    "release": {"code": [(866, 0, "return 0", "cmd_release"), (871, 1, "return 1", "cmd_release"),
-                         (899, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(9035, 0, "return 0", "app_start"), (9039, 1, "return 1", "app_start"),
-                            (9112, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(10589, 1, "return 1", "cmd_apps"), (10592, 2, "return 2", "cmd_apps"),
-                           (10595, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(10522, 0, "return 0", "cmd_apps")]},
+                         "code": [(6865, 0, "return 0", "cmd_status")]},
+    "claim": {"code": [(757, 2, "return 2", "cmd_claim"), (766, 2, "return 2", "cmd_claim"),
+                       (791, 1, "return 1", "claim_take"), (864, 1, "return 1", "claim_take"),
+                       (866, 0, 'ok "lab claimed by', "claim_take")]},
+    "release": {"code": [(870, 0, "return 0", "cmd_release"), (875, 1, "return 1", "cmd_release"),
+                         (903, 1, "return 1", "cmd_release")]},
+    "apps.start": {"code": [(9076, 0, "return 0", "app_start"), (9080, 1, "return 1", "app_start"),
+                            (9153, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(10630, 1, "return 1", "cmd_apps"), (10633, 2, "return 2", "cmd_apps"),
+                           (10636, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(10563, 0, "return 0", "cmd_apps")]},
 }
 
 

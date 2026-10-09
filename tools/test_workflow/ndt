@@ -2249,7 +2249,7 @@ rate_source() {
 #   rc 3  NDT_TOPO names a real file for a DIFFERENT network. TOPO_REFUSAL says which numbers.
 #
 # 🔴 Silent, with the reason in TOPO_REFUSAL rather than printed here, because cmd_status calls
-# this too (ndt:3138, for the P4 knob row) and a refusal belongs in a bring-up, not in a report.
+# this too (ndt:3156, for the P4 knob row) and a refusal belongs in a bring-up, not in a report.
 # Only the `up` builders print it.
 #
 # 🔴 Refuses only on a DEFINITE mismatch -- both counts read, and different. A model whose hosts
