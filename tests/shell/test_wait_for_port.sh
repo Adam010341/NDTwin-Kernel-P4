@@ -22,7 +22,9 @@
 #       the test was shared, and WARNED about -- the start time is fooled by a wall-clock step, so
 #       it is not allowed to refuse a bring-up (7: the holder -> up; 8: not the holder -> refused)
 #   symlink   refused, "not ours", as stop_one refuses it (9)
-#   no usable pid   "cannot tell" -- in practice the liveness check refuses it first (10)
+#   no usable pid   refused, "not ours" (11-13: "0", "-1", " <holder pid>", each of which `kill -0`
+#       accepts, so the liveness check passes and only the verdict can refuse). Content kill -0
+#       rejects ("abc") is refused earlier, by the liveness check (10).
 #
 # Isolation: PID_DIR/LOG_DIR/RUN_DIR are a temp dir exported BEFORE stack.sh is sourced, so not even
 # its source-time mkdir touches the checkout's .test_run. The holder and the sleepers carry a marker
@@ -150,7 +152,21 @@ touch -d '2 hours ago' "$PID_DIR/aged.pid"
 out="$(wait_for_port "$PORT" "test API" 2 aged 2>&1)"; rc=$?
 check "reused, holder: a pidfile older than the holder it names is not a refusal" "0" "$rc"
 has   "  but it is warned about, naming the pidfile" "aged.pid is older than the process it names" "$out"
-has   "  and both readings: a recycled pid or a clock step" "a recycled pid, or the clock" "$out"
+has   "  and both readings: a recycled pid or a clock step" "recycled, or the clock stepped" "$out"
+has   "  and, the holder being visible, that the holder decides" "Deciding by who holds :$PORT" "$out"
+
+# 7b. The same pidfile with the holder INVISIBLE (no ss on PATH): the warning must not claim the
+#     holder decides -- the liveness fallback does, and says so itself.
+NOSS="$TMP/noss"; mkdir -p "$NOSS"
+for t in stat awk sed getconf seq sleep cat tr; do ln -s "$(command -v "$t")" "$NOSS/$t"; done
+out="$( PATH="$NOSS"; wait_for_port "$PORT" "test API" 2 aged 2>&1 )"; rc=$?
+check "reused, holder invisible: still up (the fallback finds the component alive)" "0" "$rc"
+has   "  the warning is still given" "aged.pid is older than the process it names" "$out"
+case "$out" in *"Deciding by who holds"*) check "  but it does not say the holder decides" "yes" "no: $out" ;;
+               *) check "  but it does not say the holder decides" "yes" "yes" ;; esac
+has   "  the fallback says it cannot tell" "cannot tell who owns :$PORT" "$out"
+case "$out" in *"command not found"*) check "  (every tool it needs was on that PATH)" "yes" "no: $out" ;;
+               *) check "  (every tool it needs was on that PATH)" "yes" "yes" ;; esac
 
 # 8. Reused, and it is NOT the holder: a recycled number now running something unrelated. Still
 #    decided by who holds the port -- refused, as before the start-time test was shared.
@@ -168,6 +184,8 @@ ln -s "$TMP/elsewhere.pid" "$PID_DIR/linked.pid"
 out="$(wait_for_port "$PORT" "test API" 2 linked 2>&1)"; rc=$?
 check "symlink: a symlinked pidfile is refused even when it names the holder" "1" "$rc"
 has   "  as not ours, saying it is a symlink" "linked.pid is a symlink" "$out"
+has   "  naming the link's target" "is a symlink (to $TMP/elsewhere.pid)" "$out"
+has   "  and the pid it names, which 'down' will not stop" "The link names pid '$HOLDER_PID'" "$out"
 
 # 10. No usable pid ("abc"): the verdict would say "cannot tell", but the liveness check at the top
 #     of the loop gets there first -- is_running cannot kill -0 "abc" -- so it is refused as dead.
@@ -175,6 +193,20 @@ echo "abc" >"$PID_DIR/junk.pid"
 out="$(wait_for_port "$PORT" "test API" 2 junk 2>&1)"; rc=$?
 check "junk pidfile: not up" "1" "$rc"
 has   "  refused by the liveness check" "junk exited while starting" "$out"
+
+# 11-13. No usable pid, but content `kill -0` ACCEPTS, so is_running passes: "0" (this process
+#     group), "-1" (every process the user can signal -- signal 0, so nothing is sent), and the
+#     holder's own pid with a leading space. The holder is visible to ss. Each must be refused,
+#     naming the pidfile and its content; before, "cannot tell who owns" plus is_running adopted it.
+n=11
+for content in "0" "-1" " $HOLDER_PID"; do
+    printf '%s\n' "$content" >"$PID_DIR/unusable$n.pid"
+    out="$(wait_for_port "$PORT" "test API" 2 "unusable$n" 2>&1)"; rc=$?
+    check "no usable pid ('$content'): refused although kill -0 accepts it" "1" "$rc"
+    has   "  as not ours" "not ours" "$out"
+    has   "  naming the pidfile and quoting its content" "unusable$n.pid holds no usable pid ('$content')" "$out"
+    n=$((n + 1))
+done
 
 echo
 if (( FAIL > 0 )); then

@@ -143,6 +143,13 @@ m=$(mutant m10 "$PORTS" '        out="$(ss -lunH "( sport = :$port )" 2>/dev/nul
 report "M10: a failing ss query is read as closed again" "$m" \
        "ss present but exiting 1 with no output -> 2 (cannot tell), not 1"
 
+# M11: the other direction -- every empty answer is "cannot tell". Only the real-ss check sees it.
+m=$(mutant m11 "$PORTS" '        [[ -n "$out" ]] && return 0
+        return 1' '        [[ -n "$out" ]] && return 0
+        return 2')
+report "M11: a free udp port reads 'cannot tell'" "$m" \
+       "real ss: a free udp port reads 1 (closed), not 2"
+
 echo
 [[ "$(sha256sum "$PORTS" | cut -d' ' -f1)" == "$BASE_PORTS" ]] || { echo "🔴 baseline CHANGED -- ports.sh was written during the gate"; exit 3; }
 [[ "$(sha256sum "$NDT" | cut -d' ' -f1)" == "$BASE_NDT" ]] || { echo "🔴 baseline CHANGED -- ndt was written during the gate"; exit 3; }

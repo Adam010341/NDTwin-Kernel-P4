@@ -1931,8 +1931,10 @@ check "  and green when the re-read says closed"          "0" "$(rc_of_out "$OUT
 has   "  reporting it closed"                             "were closed by [3/3]: 6343" "$OUT"
 
 # ndt clean: unchanged, and pinned -- the residue names it, the rc is not clean, and the
-# ours/stranger split does not invent a holder for a port nobody could see.
-reset_fix; rm -f "$DM"
+# ours/stranger split does not invent a holder for a port nobody could see. The switch manifest
+# reset_fix writes is removed, or "not clean" would pass on the manifest alone: this way it rests
+# on the port, through either of its two rc sources (the residue text, and prc == 2).
+reset_fix; rm -f "$DM" "$FIX/manifest.json"
 OUT="$(drive 'FX_BLIND=6343; cmd_clean')"
 check "  clean: a port that cannot be probed is not clean" "1" "$(rc_of_out "$OUT")"
 has   "  clean: the residue names it as not probed"       ":6343 (udp) could NOT be probed" "$OUT"

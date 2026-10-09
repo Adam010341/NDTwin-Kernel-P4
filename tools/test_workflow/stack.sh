@@ -691,7 +691,11 @@ pidfile_vouches() {
     #   * anything non-numeric gets interpolated into the command as-is
     # Require a plain integer of at least 2, since 0 and 1 both have special meanings for
     # kill and no legitimate child of this script can have them.
-    if [[ ! "$PIDFILE_PID" =~ ^[0-9]+$ ]] || [[ "$PIDFILE_PID" -lt 2 ]]; then
+    # [Co-developed with claude code -- Adam] No leading zero: "0123456" passed `^[0-9]+$`, its
+    # /proc entry does not resolve (so the start-time test below was silently skipped), and kill
+    # reads it as 123456 -- a different process group, signalled unchecked. "089" also slipped
+    # past `-lt 2`, which errors on it as a bad octal number instead of answering.
+    if [[ ! "$PIDFILE_PID" =~ ^[1-9][0-9]*$ ]] || [[ "$PIDFILE_PID" -lt 2 ]]; then
         return 3
     fi
 
@@ -816,7 +820,10 @@ port_listener_description() {
 # applies, so `ours` here is what stop_one would also call ours:
 #   symlink (2)     `refused` -- stop_one will not read it, so neither does this. Callers treat it
 #                   as not ours (wait_for_port fails closed on it).
-#   no file / no usable pid (1, 3)   `unknown`: the registry vouches for nothing.
+#   no file (1)     `unknown`: the registry vouches for nothing.
+#   no usable pid (3)  down: `unknown`. up: `unusable`, and wait_for_port fails closed on it, as on
+#                   a symlink -- its liveness fallback is is_running, which accepts any content
+#                   `kill -0` takes ("0", "-1", " N"), so `unknown` there adopted any holder.
 #   reused number (4)  depends on the caller, which is what the third argument is for:
 #     down (default)  `stray`. stop_one has just called that pid a different process, and the
 #                     teardown's verdict must not contradict it in the same output.
@@ -833,6 +840,7 @@ port_owner_verdict() {
         0) ours="$PIDFILE_PID" ;;
         4) if [[ "$mode" == up ]]; then ours="$PIDFILE_PID"; else echo stray; return; fi ;;
         2) echo refused; return ;;
+        3) if [[ "$mode" == up ]]; then echo unusable; else echo unknown; fi; return ;;
         *) echo unknown; return ;;
     esac
 
@@ -895,23 +903,42 @@ wait_for_port() {
             if [[ -n "$component" ]]; then
                 # [Co-developed with claude code -- Adam]
                 # A pidfile older than the process it names is a recycled pid OR a clock step
-                # since the component started (proc_start_epoch). The verdict below still decides
-                # by who holds the port, as it did before the start-time test was shared; this
-                # only makes sure the operator hears which of the two readings is in play.
+                # since the component started (proc_start_epoch), and nothing here can tell which.
+                # The verdict below still decides by who holds the port, as it did before the
+                # start-time test was shared; this names both readings, and says what decides --
+                # the holder when ss can see it, the liveness fallback when it cannot.
                 if pidfile_vouches "$PID_DIR/$component.pid"; (( $? == 4 )); then
                     warn "  $PID_DIR/$component.pid is older than the process it names (pid $PIDFILE_PID"
-                    warn "    started ${PIDFILE_LATE}s after the file was written): a recycled pid, or the clock"
-                    warn "    stepped since $component started. Deciding by who holds :$port."
+                    warn "    started ${PIDFILE_LATE}s after the file was written): either that pid was"
+                    warn "    recycled, or the clock stepped since $component started."
+                    if [[ -n "$(port_listener_pids "$port")" ]]; then
+                        warn "    Deciding by who holds :$port."
+                    fi
                 fi
                 case "$(port_owner_verdict "$port" "$component" up)" in
                     ours)
                         ;;
                     refused)
                         # A symlinked pidfile: stop_one refuses to read it, and is_running (the
-                        # fallback below) would follow it. Fail closed, as stop_one does.
+                        # fallback below) would follow it. Fail closed, as stop_one does. The link
+                        # and what it names are read here for the message only: start_bg wrote its
+                        # pid THROUGH the link, so that process is still running, and neither
+                        # `down` nor a rollback will stop it (stop_one refuses the link) -- the
+                        # operator needs both to stop it by hand.
                         echo " ${R}not ours${N}"
-                        err "  $PID_DIR/$component.pid is a symlink; refusing to read it, so nothing"
-                        err "    says :$port is held by the $component this script started"
+                        err "  $PID_DIR/$component.pid is a symlink (to $(readlink "$PID_DIR/$component.pid"));"
+                        err "    refusing to read it, so nothing says :$port is held by the $component"
+                        err "    this script started. The link names pid '$(cat "$PID_DIR/$component.pid" 2>/dev/null)', which"
+                        err "    'down' will not stop either -- check it and stop it by hand if it is yours."
+                        return 1
+                        ;;
+                    unusable)
+                        # No usable pid (pidfile_vouches code 3). The fallback below would ask
+                        # is_running, which takes anything `kill -0` takes -- "0" (this process
+                        # group), "-1" (every process), " N" -- and so adopt whatever holds the port.
+                        echo " ${R}not ours${N}"
+                        err "  $PID_DIR/$component.pid holds no usable pid ('$(cat "$PID_DIR/$component.pid" 2>/dev/null)'),"
+                        err "    so nothing says :$port is held by the $component this script started"
                         return 1
                         ;;
                     stray)

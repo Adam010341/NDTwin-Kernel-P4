@@ -78,7 +78,13 @@ run_against() { NDT_UNDER_TEST="$1/ndt" timeout 600 bash "$TEST" 2>&1; }
 # a survivor for a defect that was in the GATE. Refuse instead: a gate that cannot say what it
 # measured must not print a verdict.
 syntax_ok() {   # $1 = mutant dir; prints the error when it is not
-    bash -n "$1/ndt" 2>&1
+    # [Co-developed with claude code -- Adam] Every file in the mutant dir, not ndt alone: M95
+    # mutates ports.sh, and an unparseable ports.sh would redden every cell and read as "caught".
+    local f
+    for f in "$1"/ndt "$1"/*.sh "$1"/*.env; do
+        [[ -f "$f" ]] && bash -n "$f" 2>&1
+    done
+    return 0
 }
 
 report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
@@ -1315,6 +1321,23 @@ m=$(mutant m95 "$PORTS" \
     '                   :')
 report "M95: the residue's line for a port it could not probe is dropped" "$m" \
        "  clean: the residue names it as not probed"
+
+# M96: BOTH of the port's rc sources in cmd_clean removed at once -- the residue branch's rc=1 and
+# `(( prc == 2 )) && rc=1`. Each alone is redundant with the other; together they are the whole of
+# "a port that cannot be probed is not clean", which this pins (the manifest is out of that case).
+m=$(mutant m96 "$NDT" \
+    '        rc=1
+    fi
+    # 2 is "could not look", not "nothing there". Treated as not-clean for the same reason
+    # grpc_ports.py refuses on an unreadable ip_local_port_range: unknown is not safe.
+    (( prc == 2 )) && rc=1' \
+    '        :
+    fi
+    # 2 is "could not look", not "nothing there". Treated as not-clean for the same reason
+    # grpc_ports.py refuses on an unreadable ip_local_port_range: unknown is not safe.
+    :')
+report "M96: neither the residue text nor prc == 2 makes ndt clean red" "$m" \
+       "  clean: a port that cannot be probed is not clean"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

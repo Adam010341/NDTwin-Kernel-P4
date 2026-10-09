@@ -27,8 +27,10 @@
 #                not a failure -- once through a stubbed probe, once with no ss on PATH for real
 #   ss form      every `( sport = ... )` filter stack.sh and ports.sh build uses ss(8)'s `:PORT`,
 #                and stack.sh's own lookup (tagged by a wrapper) is among them
-#   stop_one, no usable pid   "abc", "1" and "": refused, both registry files removed, nothing
-#                signalled (kill is stubbed for these, so a broken guard cannot reach `kill -1`)
+#   stop_one, no usable pid   "abc", "1", "", "0123456" and "089": refused, both registry files
+#                removed, nothing signalled (kill is stubbed for these, so a broken guard cannot
+#                reach `kill -1`, or kill 123456 for "0123456")
+#   leading zero the verdict on a pidfile naming the holder with a leading zero: not a usable pid
 #
 # 🔴 How "ours" is reached. port_owner_verdict applies stop_one's own tests (pidfile_vouches), and
 # stop_one removes every pidfile it accepts, so after a real stop_one the only pidfile left is one
@@ -331,6 +333,18 @@ check "symlink: the listener was left running" "alive" \
     "$(alive "$LISTENER_PID")"
 rm -f "$TMP/elsewhere.pid"
 
+# --- leading zero: "0<holder pid>" is not a usable pid, for the verdict as for stop_one ---------
+# Before, `^[0-9]+$` accepted it, /proc/0<pid> does not resolve (so the start-time test was
+# skipped), and the comparison then ran on the raw string. Asked directly, both modes; no
+# cmd_down here, so stop_one never sees this file.
+rm -rf "$PID_DIR"; mkdir -p "$PID_DIR"
+echo "0$LISTENER_PID" >"$PID_DIR/kernel.pid"
+check "leading zero: the teardown verdict calls it unknown (no usable pid)" "unknown" \
+      "$(port_owner_verdict "$PORT" kernel)"
+check "leading zero: the bring-up verdict refuses it as unusable" "unusable" \
+      "$(port_owner_verdict "$PORT" kernel up)"
+rm -rf "$PID_DIR"; mkdir -p "$PID_DIR"
+
 # --- ours: a current kernel.pid naming the holder, written after stop_one ran -----------------
 # See the header: the only state in which a pidfile stop_one would accept is still there.
 rm -rf "$PID_DIR"; mkdir -p "$PID_DIR"
@@ -460,7 +474,7 @@ use_port "$PORT"
 # guard that let "1" through would call the stub, never `kill -TERM -1` (every process this user
 # owns). Each runs in its own subshell; the stub dies with it.
 KILL_CALLS="$TMP/kill.calls"
-for content in abc 1 ""; do
+for content in abc 1 "" 0123456 089; do
     rm -rf "$PID_DIR"; mkdir -p "$PID_DIR"; : >"$KILL_CALLS"
     printf '%s\n' "$content" >"$PID_DIR/kernel.pid"
     printf 'some command\n' >"$PID_DIR/kernel$CMD_SUFFIX"

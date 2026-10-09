@@ -92,9 +92,12 @@ ndt_port_expand() {
 # which is the same distinction read_ephemeral_range() already makes in grpc_ports.py.
 #
 # [Co-developed with claude code -- Adam]
-# And where `ss` is there but its query FAILS (a non-zero exit: a filter it rejects, netlink
-# denied), its empty output is not "nothing listens" either -- that was the same fold, one level
-# down. ss exits 0 with no output when nothing matches, so only a non-zero exit means blind.
+# And where `ss` is there but exits non-zero, its empty output is not "nothing listens" either --
+# that was the same fold, one level down. A non-zero exit is the only failure ss reports: an
+# option or filter this ss rejects (an iproute2 too old for -H, say). When it cannot read the
+# socket tables at all it still exits 0 with no output, and that is still read as closed -- this
+# does not catch it. On a current iproute2 the query below does not fail, so this branch is inert
+# there; it is for an ss that does.
 ndt_port_open() {
     local port="$1" proto="${2:-tcp}"
     if [[ "$proto" == udp ]]; then

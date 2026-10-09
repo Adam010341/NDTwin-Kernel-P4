@@ -43,6 +43,8 @@
 #   M17 stack.sh down returns 1 when a port could not be checked (the decision is: it does not)
 #   M18 stop_one keeps a pidfile with no usable pid
 #   M19 the usable-pid guard is gone (with `kill` stubbed in the test, never the real one)
+#   M20 on the bring-up, a pidfile with no usable pid is "ours" (kill -0 accepts "0", "-1", " N")
+#   M21 the usable-pid test admits a leading zero again (`^[0-9]+$`: "0123456" is signalled as 123456)
 #
 # Not covered, and said so: a probe added through another route (ss, /dev/tcp, curl) passes the guard.
 #
@@ -266,10 +268,22 @@ report "M18: stop_one keeps a pidfile with no usable pid" "$m" test_cmd_down_lef
        "no usable pid (abc): the pidfile is removed"
 
 m=$(mutant m19 "$STK" \
-    '    if [[ ! "$PIDFILE_PID" =~ ^[0-9]+$ ]] || [[ "$PIDFILE_PID" -lt 2 ]]; then' \
+    '    if [[ ! "$PIDFILE_PID" =~ ^[1-9][0-9]*$ ]] || [[ "$PIDFILE_PID" -lt 2 ]]; then' \
     '    if false; then') || harness_fail m19
 report "M19: the usable-pid guard is gone" "$m" test_cmd_down_leftovers.sh \
        "no usable pid (1): nothing was signalled"
+
+m=$(mutant m20 "$STK" \
+    '        3) if [[ "$mode" == up ]]; then echo unusable; else echo unknown; fi; return ;;' \
+    '        3) echo ours; return ;;') || harness_fail m20
+report "M20: up: a pidfile with no usable pid is ours" "$m" test_wait_for_port.sh \
+       "no usable pid ('0'): refused although kill -0 accepts it"
+
+m=$(mutant m21 "$STK" \
+    '    if [[ ! "$PIDFILE_PID" =~ ^[1-9][0-9]*$ ]] || [[ "$PIDFILE_PID" -lt 2 ]]; then' \
+    '    if [[ ! "$PIDFILE_PID" =~ ^[0-9]+$ ]] || [[ "$PIDFILE_PID" -lt 2 ]]; then') || harness_fail m21
+report "M21: a pid with a leading zero is usable again" "$m" test_cmd_down_leftovers.sh \
+       "no usable pid (0123456): nothing was signalled"
 
 echo
 NOW_SHA=$(sha_all)
