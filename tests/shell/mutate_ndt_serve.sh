@@ -604,9 +604,10 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
 # [Co-developed with claude code -- Adam] 2026-09-28: M61, M64 and M65 re-anchored on the lines
 # ndt's one-clock residue change moved (apps.status 10346 -> 10382, lock_probe +13); on this
 # branch status --measuring adds 23 more above them (10405, lock_probe 9452-9467), and the
-# external detect-only changes 117 more (10522, lock_probe 9569-9584).
+# external detect-only changes 117 more (10522, lock_probe 9569-9584); the port-probe verdict
+# change adds 41 more (10563, lock_probe 9610-9625).
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(10522, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(10563, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -808,22 +809,22 @@ report "C28: a claim read stopped at its timeout is trusted (its partial yours r
        cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
 
 m=$(mutant m63 "$VERBS_PY" \
-    '(9039, 1, "return 1", "app_start")' \
-    '(8579, 1, "return 1", "app_start")')
-report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 8579 on this branch)" "$m" \
+    '(9080, 1, "return 1", "app_start")' \
+    '(8620, 1, "return 1", "app_start")')
+report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 8620 on this branch)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
 
 # [Co-developed with claude code -- Adam] The opus judge's N1-1 (09-27): the README's lock probe
 # citation was left at its pre-segment-W lines; the suite now holds every such citation to ndt.
 m=$(mutant m64 "$README_MD" \
-    'lock probes to the kernel (ndt:9569-9584)' \
+    'lock probes to the kernel (ndt:9610-9625)' \
     'lock probes to the kernel (ndt:9292-9307)')
 report "M64: the README cites the lock probes where they were before segment W (ndt:9292-9307)" "$m" \
        RcProvenance.test_lock_probe_citations_are_lock_probe
 m=$(mutant m65 "$SERVE_PY" \
-    'probes to the kernel (ndt:9569-9584)' \
-    'probes to the kernel (ndt:9569-9573)')
+    'probes to the kernel (ndt:9610-9625)' \
+    'probes to the kernel (ndt:9610-9614)')
 report "M65: serve.py's docstring cites lock_probe's comment but not its POST" "$m" \
        RcProvenance.test_lock_probe_citations_are_lock_probe
 
@@ -1578,8 +1579,8 @@ report "G62g: --measuring's rc 0 cites a phrase ndt help does not print" "$m" \
        RcProvenance.test_help_sourced_tables_are_in_ndt_help
 
 m=$(mutant g62h "$VERBS_PY" \
-    '                         "code": [(6824, 0, "return 0", "cmd_status")]},' \
-    '                         "code": [(6762, 0, "return 0", "cmd_status")]},')
+    '                         "code": [(6865, 0, "return 0", "cmd_status")]},' \
+    '                         "code": [(6803, 0, "return 0", "cmd_status")]},')
 report "G62h: --measuring's rc 0 cites a return 0 of another function (app_package_row)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 

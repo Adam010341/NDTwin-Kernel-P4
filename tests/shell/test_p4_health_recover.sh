@@ -8,7 +8,7 @@
 # drift, a failed down), section 12 item 11's re-claim and its limits (somebody else's expired
 # claim, a declared or running measurement), the pid identity rule (a recycled pid is left
 # alone), and that the knobs come back as bytes. The claim notes are the ones ndt itself writes
-# once `ndt up` has started (ndt:1207-1215) or `ndt down` has run (ndt:1245-1277).
+# once `ndt up` has started (ndt:1211-1219) or `ndt down` has run (ndt:1249-1281).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -25,7 +25,7 @@ check() {  # check <name> <condition...>
 UP_NOTE="in use: ndt up p4 6 at 2026-10-03 18:00:00 by p4h-test"
 
 # (r7) The knob exactly as ndt writes it -- a copy of the two printf lines of app_knob_write
-# (tools/test_workflow/ndt:1642-1643; the two-line shape is pinned by tests/shell/test_ndt_app_package.sh:334-335):
+# (tools/test_workflow/ndt:1646-1647; the two-line shape is pinned by tests/shell/test_ndt_app_package.sh:334-335):
 # a "# written by ..." comment line, THEN the directory. The fixture used to write the directory alone,
 # which ndt never does, and recover.sh read the first line of the file.
 write_knob() {  # write_knob <file> <package dir>
@@ -52,7 +52,7 @@ setup() {  # setup <case> -- a fresh run dir, knobs, claim, override, fake /proc
 #!/usr/bin/env bash
 # Every behaviour a recovery's outcome depends on follows the real tool; the lines are cited next to it.
 echo "$s $*" >> "$d/calls"
-host_count() {  # a copy of host_count_in, tools/test_workflow/ndt:1569-1578: the first line that is not blank, not a comment; 4 if none
+host_count() {  # a copy of host_count_in, tools/test_workflow/ndt:1573-1582: the first line that is not blank, not a comment; 4 if none
     local f="$d/knobs/host_count_override" line
     [[ -f "$f" ]] || { echo 4; return; }
     while read -r line; do
@@ -75,15 +75,15 @@ if [[ "$s" == ndt ]]; then
         [[ -f "$d/claim_noop" ]] && exit 0
         exec "$d/repo/tools/test_workflow/ndt" "$@" ;;       # the REAL claim_take, record_round_baseline, .prev
     down)
-        rm -f "$d/knobs/app_package_override"   # ndt clears the knob as down's last step, even when it exits non-zero (ndt:5233-5246, 5605)
-        # claim_note_down (ndt:1245-1277) rewrites the claim's note whatever the exit status: "verified clean" when the
+        rm -f "$d/knobs/app_package_override"   # ndt clears the knob as down's last step, even when it exits non-zero (ndt:5251-5264, 5640)
+        # claim_note_down (ndt:1249-1281) rewrites the claim's note whatever the exit status: "verified clean" when the
         # teardown had something to tear down, "nothing was up to tear down" when it did not; the claim's owner and
-        # expires stay (set_claim_note, ndt:1119-1131), and a note is written only into a live claim of the caller
+        # expires stay (set_claim_note, ndt:1123-1135), and a note is written only into a live claim of the caller
         drc=0; [[ -f "$rc_file" ]] && drc="$(cat "$rc_file")"
         also=""; [[ "$drc" != 0 && "$drc" != 3 ]] && also="; this teardown still exits $drc, for something other than residue"
         empty=0; grep -q 'bmv2 switches  0 ' "$d/status_full" && grep -q 'host/switch    0 ' "$d/status_full" && empty=1
         [[ -f "$d/down_ran" ]] && empty=1       # a second down finds the lab already down
-        if [[ -f "$d/down_unclean" ]]; then     # ndt:1276: what the teardown could not verify is in the note (the file holds the reason)
+        if [[ -f "$d/down_unclean" ]]; then     # ndt:1280: what the teardown could not verify is in the note (the file holds the reason)
             sentence="down at 2026-10-03 18:20:00 did NOT verify clean -- $(cat "$d/down_unclean"); claim kept -- read 'running' below, not this note"
         elif [[ "$empty" -eq 1 ]]; then
             sentence="down at 2026-10-03 18:20:00; nothing was up to tear down${also}; claim kept"
@@ -97,13 +97,13 @@ if [[ "$s" == ndt ]]; then
     release)
         # injected: a refusal for a reason this scratch setup cannot produce by itself
         if [[ -f "$rc_file" && "$(cat "$rc_file")" != 0 ]]; then echo "refusing: (a refusal injected for another reason)"; exit "$(cat "$rc_file")"; fi
-        exec "$d/repo/tools/test_workflow/ndt" "$@" ;;       # the REAL cmd_release: baseline check, --force, foreign claim, .prev (ndt:862-950)
+        exec "$d/repo/tools/test_workflow/ndt" "$@" ;;       # the REAL cmd_release: baseline check, --force, foreign claim, .prev (ndt:866-954)
     esac
 fi
 # qdisc_snapshot.sh diff compares `tc qdisc show` of every interface (qdisc_snapshot.sh:24, 37-44): once a down has
 # run, the fabric's interfaces are gone and it differs, exit 1
 if [[ "$s" == qdisc && "${1:-}" == diff && -f "$d/down_ran" ]]; then echo "QDISC STATE CHANGED since the snapshot" >&2; exit 1; fi
-if [[ "$s" == ndt && "${1:-}" == down && -f "$rc_file" && "$(cat "$rc_file")" == 3 && "$empty" != 1 ]]; then exit 0; fi   # ndt:5524-5537: rc 3 only when nothing was up when the down started
+if [[ "$s" == ndt && "${1:-}" == down && -f "$rc_file" && "$(cat "$rc_file")" == 3 && "$empty" != 1 ]]; then exit 0; fi   # ndt:5559-5572: rc 3 only when nothing was up when the down started
 [[ -f "$rc_file" ]] && exit "$(cat "$rc_file")"
 exit 0
 STUB
@@ -117,8 +117,8 @@ STUB
     printf 'python3\0controller_ext.py\0run-x\0' > "$d/proc/666/cmdline"
     sleep 0 & local dead=$!; wait "$dead"
     # The probe's own claim: the REAL `ndt claim`, taken while the knob still has its pre-round value (that is what the
-    # round baseline records, ndt:447-460, 849); then `ndt up` moves the knob (the package changed the host count) and
-    # rewrites the claim's note (ndt:3486) -- up is process-bound, so those two are written here.
+    # round baseline records, ndt:451-464, 853); then `ndt up` moves the knob (the package changed the host count) and
+    # rewrites the claim's note (ndt:3504) -- up is process-bound, so those two are written here.
     printf '4  # kept as bytes\n' > "$d/knobs/host_count_override"
     NDT_OWNER=p4h-test "$d/repo/tools/test_workflow/ndt" claim 10 "p4-health run-x A state=$d/run/LAB_STATE.json" > /dev/null 2>&1
     printf '6\n' > "$d/knobs/host_count_override"
@@ -163,7 +163,7 @@ expire() { local t; t="$(past)"; claim_set "$1" expires "$t"; state_set "$1" cla
 fabric_gone() { printf '  bmv2 switches  0       \n  host/switch    0       \n' > "$1/status_full"; }
 fabric_up() { printf '  bmv2 switches  4       \n  host/switch    10      \n' > "$1/status_full"; }
 to_down_done() {  # to_down_done <dir> [keep] -- what the probe leaves after a successful `ndt down`:
-    # phase down-done, the claim's note ndt down wrote, app_package_override REMOVED (ndt:1597-1601).
+    # phase down-done, the claim's note ndt down wrote, app_package_override REMOVED (ndt:1601-1605).
     # With `keep` the recorded sniffer and controller stay listed (a kill that failed).
     claim_set "$1" note "down at 2026-10-03 18:20:00; verified clean; claim kept"
     rm -f "$1/knobs/app_package_override"; fabric_gone "$1"
@@ -497,7 +497,7 @@ d="$(setup noovupdd)"; to_down_done "$d"; claim_set "$d" note "$UP_NOTE"; rc="$(
 check "down-done, knob absent, our live claim with an ndt up note: rc 3, no stub called" rc3_nocalls "$rc" "$d"
 
 echo "--- (r7) somebody forced an ndt up past this run's claim: .test_run/lab.claim.overrides names its expires"
-ovr_line() {  # ovr_line <expires> -- one line as ndt:1071 writes it (tab-separated key=value)
+ovr_line() {  # ovr_line <expires> -- one line as ndt:1075 writes it (tab-separated key=value)
     printf 'at=2026-10-03T18:10:00+0800\tby=p4h-test\tuser=adam\tpid=4242\tcommand=up p4 4 --force\tover=p4h-test\tclaim_expires=%s\tclaim_note=%s\tmeasuring=\trunning=\n' "$1" "p4-health run-x A state=x"
 }
 d="$(setup overridden)"; ovr_line "$(state_get "$d" claim_expires)" > "$d/test_run/lab.claim.overrides"; rc="$(run "$d")"
@@ -535,7 +535,7 @@ check "the probe is still running with no claim_expires recorded yet: rc 3 (stil
 
 echo "--- (r8) a down that already ran leaves no interfaces: the retry asks ndt status, not the qdisc diff"
 # The stubs follow ndt: after a down the fabric is gone (status shows 0) and `qdisc diff` exits 1 (qdisc_snapshot.sh:37-44);
-# ndt down can exit 1 after tearing everything down (ndt:5312-5318) and exits 3 on an empty lab (ndt:5524-5537).
+# ndt down can exit 1 after tearing everything down (ndt:5330-5336) and exits 3 on an empty lab (ndt:5559-5572).
 d="$(setup oneshotred)"; echo 1 > "$d/rc.ndt.down"; rc="$(run "$d")"
 check "ndt down exits 1 after tearing everything down: rc 5, down-failed" [ "$rc" -eq 5 ] 
 rm -f "$d/rc.ndt.down"; : > "$d/calls"; rc="$(run "$d")"
