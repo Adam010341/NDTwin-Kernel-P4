@@ -12,7 +12,7 @@ from proxy_agent import ryu_topology, ryu_flow_stats
 # p4_client imports boot_identity, rule_install_times and sflow_emitter, none of which reach
 # back here.
 from proxy_agent.p4_client import (ControlPlaneReadOnly, CounterNotFound, TableEntryInvalid,
-                                   TableEntryUnsupported)
+                                   TableEntryUnsupported, TableOwnedByNDTwin)
 # TICKET-P4-roles: the binding a route is written through, and the 501 when there is none.
 # [Co-developed with claude code -- Adam]
 from proxy_agent import route_binding
@@ -851,13 +851,18 @@ async def table_entry(request: Request):
     The existing `/stats/flowentry/*` endpoints speak OpenFlow and compile a match down to one of
     NDTwin's own two tables. This one speaks P4: it names a table, an action and their parameters
     out of the pipeline the switch is actually running, which is the only way to program a
-    package that brought its own program.
+    package that brought its own program. It does not write NDTwin's own tables: on a switch
+    running NDTwin's pipeline every table answers 409, and on a package pipeline so does the
+    `roles.ipv4_route` table when its owner is ndtwin (see the 409 row below).
 
-        {"dpid": 1, "op": "insert",
-         "table": "MyIngress.ipv4_lpm",
-         "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", 32]},
-         "action_name": "MyIngress.ipv4_forward",
-         "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1},
+    An entry for a package pipeline that has a table `PkgIngress.acl` (the names are the
+    package's own, not NDTwin's):
+
+        {"dpid": 2, "op": "insert",
+         "table": "PkgIngress.acl",
+         "match": {"hdr.ip4.src": ["10.0.1.1", 32]},
+         "action_name": "PkgIngress.permit",
+         "action_params": {"port": 1},
          "default_action": false, "priority": null}
 
     🔴 NOT JOURNALED, AND THE RESPONSE SAYS SO. `rule_journal` records what the kernel's routing
@@ -875,7 +880,10 @@ async def table_entry(request: Request):
              table with no priority column, an unknown `op`. NOTHING was written.
         404  an unknown dpid, or a table / field / action / parameter this switch's p4info does
              not describe. NOTHING was written.
-        409  this fabric's package declares an external control plane, so the proxy reads only.
+        409  this fabric's package declares an external control plane, so the proxy reads only
+             (`error: "external control plane"`); or the table belongs to NDTwin --
+             every table of NDTwin's own pipeline, and the package's `roles.ipv4_route` table
+             when its owner is ndtwin (`error: "owned by NDTwin"`, `outcome: "owned_by_ndtwin"`).
              NOTHING was written.
         501  the entry needs a ternary, range or optional match, which this phase does not
              build. NOTHING was written.
@@ -926,6 +934,15 @@ async def table_entry(request: Request):
             status_code=409,
             detail={"error": "external control plane", "dpid": raw_dpid,
                     "message": str(err)})
+    except TableOwnedByNDTwin as err:
+        # [Co-developed with claude code -- Adam] `remedy` before `message`: the body of a long
+        # answer gets cut, and the part that says what to do instead has to survive the cut.
+        # The remedy depends on whose pipeline it is, so it comes from the exception.
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "owned by NDTwin", "outcome": "owned_by_ndtwin",
+                    "remedy": err.remedy,
+                    "dpid": raw_dpid, "message": str(err)})
     except TableEntryUnsupported as err:
         raise HTTPException(
             status_code=501,

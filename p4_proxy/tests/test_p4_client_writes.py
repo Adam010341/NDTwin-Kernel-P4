@@ -1753,6 +1753,7 @@ class BuildTableEntryTest(unittest.TestCase):
         for table, value in (("Synthetic.range_table", [1024, 3000]),
                              ("Synthetic.optional_table", 7)):
             client = a_client()
+            client.bind_routes(None)  # a user table: see WriteTableEntryTest.setUp
             with self.assertRaises(p4_client_module.TableEntryUnsupported):
                 client.write_table_entry({"table": table, "match": {"meta.probe_key": value},
                                           "action_name": "MyIngress.send_to_cpu",
@@ -1836,6 +1837,13 @@ class WriteTableEntryTest(unittest.TestCase):
 
     def setUp(self):
         self.client = a_client()
+        # [Co-developed with claude code -- Adam]
+        # 🔴 These tests are about a USER write, so the double says so: no `roles`, no binding.
+        # `a_client` is built with `__new__` and inherits the class default `BASELINE`, under
+        # which every table is NDTwin's and the generic writer answers 409 `owned_by_ndtwin`
+        # (tests/test_table_entry_owner.py holds those refusals). Bound here, not in `a_client`:
+        # the route-write tests that share it NEED the baseline binding.
+        self.client.bind_routes(None)
 
     def spec(self, **overrides):
         spec = {"table": "MyIngress.ipv4_lpm",

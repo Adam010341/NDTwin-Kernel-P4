@@ -177,7 +177,7 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
         text_format.Merge(open(path).read(), p4info)
         return p4info
 
-    def test_a_ternary_table_in_a_real_compiled_p4info_answers_unsupported(self):
+    def test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_says_unsupported(self):
         # 🔴 The only REAL ternary table this repository has, and until round 3 nothing pointed
         # the writer at it. The 501 path was covered twice over -- by the in-file p4info subset
         # and by a synthetic descriptor -- and both of those are declarations this suite wrote
@@ -185,21 +185,42 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
         # fields it decided the numbering of. None of the tutorials fixtures has one (asserted
         # in test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match), so this is
         # where "a real compiler said TERNARY and the writer refused" gets checked.
+        #
+        # [Co-developed with claude code -- Adam]
+        # What changed: this client is a BASELINE client (the class default, which is what the
+        # proxy binds to NDTwin's own pipeline), so the owner check answers first. The write is
+        # refused as NDTwin's table (409 owned_by_ndtwin) before the match is looked at, and the
+        # TERNARY refusal is now checked where it still happens, at the builder. The client is
+        # deliberately NOT bound to None here: that would model a switch running NDTwin's
+        # p4info with no roles. A package that carries its own copy of NDTwin's compiled program
+        # is foreign (app_package.py compares resolved paths) and binds None, so such a switch
+        # can exist -- but the proxy's own pipeline is the common case, and binding None would
+        # hide the change in precedence that this test is here to show.
         client = a_client()
         client.p4info = self.real_ndtwin_p4info()
         table = client._table_by_name("MyIngress.flow_5tuple")
         self.assertEqual({client._match_type_name(f) for f in table.match_fields}, {"TERNARY"})
+        spec = {
+            "table": "MyIngress.flow_5tuple",
+            "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
+            "action_name": "MyIngress.ipv4_forward",
+            "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
+
+        # Looked up by name so that on a tree without the owner check this fails because the
+        # write was ACCEPTED, not because the attribute is missing.
+        owned = getattr(p4_client_module, "TableOwnedByNDTwin",
+                        type("TableOwnedByNDTwinIsNotDefinedYet", (Exception,), {}))
+        with self.assertRaises(owned):
+            client.write_table_entry(spec)
+        self.assertEqual(client.stub.requests, [],
+                         "a refusal this proxy makes itself must not reach the switch")
 
         with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
-            client.write_table_entry({
-                "table": "MyIngress.flow_5tuple",
-                "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
-                "action_name": "MyIngress.ipv4_forward",
-                "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}})
+            client.build_table_entry(spec)
         self.assertIn("TERNARY", str(caught.exception))
         self.assertIn("flow_5tuple", str(caught.exception))
         self.assertEqual(client.stub.requests, [],
-                         "a refusal this proxy makes itself must not reach the switch")
+                         "building an entry must not reach the switch")
 
     def test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables(self):
         # The negative half: the refusal above is about the match type, not about this being a
