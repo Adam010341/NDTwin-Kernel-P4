@@ -45,6 +45,8 @@
 #   M19 the usable-pid guard is gone (with `kill` stubbed in the test, never the real one)
 #   M20 on the bring-up, a pidfile with no usable pid is "ours" (kill -0 accepts "0", "-1", " N")
 #   M21 the usable-pid test admits a leading zero again (`^[0-9]+$`: "0123456" is signalled as 123456)
+#   M22 the symlink refusal prints what the link's target holds again (any readable file, on the log)
+#   M23 pidfile_quote stops bounding and sanitising (an ESC sequence or a 4 KB blob goes out whole)
 #
 # Not covered, and said so: a probe added through another route (ss, /dev/tcp, curl) passes the guard.
 #
@@ -284,6 +286,18 @@ m=$(mutant m21 "$STK" \
     '    if [[ ! "$PIDFILE_PID" =~ ^[0-9]+$ ]] || [[ "$PIDFILE_PID" -lt 2 ]]; then') || harness_fail m21
 report "M21: a pid with a leading zero is usable again" "$m" test_cmd_down_leftovers.sh \
        "no usable pid (0123456): nothing was signalled"
+
+m=$(mutant m22 "$STK" \
+    '                        err "    this script started. Whatever start_bg launched through it is not stopped by"' \
+    '                        err "    this script started. It names '"'"'$(cat "$PID_DIR/$component.pid" 2>/dev/null)'"'"'. Whatever start_bg launched through it is not stopped by"') || harness_fail m22
+report "M22: the symlink refusal prints the target's content" "$m" test_wait_for_port.sh \
+       "  and NOT printing what the target holds"
+
+m=$(mutant m23 "$STK" \
+    '    q="$(printf '"'"'%s'"'"' "$1" | head -c "$max" | tr -c '"'"'[:print:]'"'"' '"'"'?'"'"')"' \
+    '    q="$(printf '"'"'%s'"'"' "$1")"') || harness_fail m23
+report "M23: pidfile content is quoted unbounded and raw" "$m" test_cmd_down_leftovers.sh \
+       "hostile pidfile: no ESC byte reaches the output"
 
 echo
 NOW_SHA=$(sha_all)

@@ -185,7 +185,20 @@ out="$(wait_for_port "$PORT" "test API" 2 linked 2>&1)"; rc=$?
 check "symlink: a symlinked pidfile is refused even when it names the holder" "1" "$rc"
 has   "  as not ours, saying it is a symlink" "linked.pid is a symlink" "$out"
 has   "  naming the link's target" "is a symlink (to $TMP/elsewhere.pid)" "$out"
-has   "  and the pid it names, which 'down' will not stop" "The link names pid '$HOLDER_PID'" "$out"
+has   "  and that what it launched is not stopped by 'down' either" "not stopped by" "$out"
+
+# 9b. ...and never what the target HOLDS. The link can point at any file this user can read; its
+#     content must not reach the terminal or the log. is_running is stubbed alive for this one
+#     subshell, because a target holding a secret instead of a pid would otherwise be refused at the
+#     loop's liveness check before the refusal under test is reached.
+SECRET="SECRET-MARKER-$RANDOM-$RANDOM"
+printf '%s\n' "$SECRET" >"$TMP/secret.txt"
+ln -s "$TMP/secret.txt" "$PID_DIR/leaky.pid"
+out="$( is_running() { return 0; }; wait_for_port "$PORT" "test API" 2 leaky 2>&1 )"; rc=$?
+check "symlink to a non-pid file: refused" "1" "$rc"
+has   "  naming the target path" "is a symlink (to $TMP/secret.txt)" "$out"
+case "$out" in *"$SECRET"*) check "  and NOT printing what the target holds" "yes" "no: $out" ;;
+               *) check "  and NOT printing what the target holds" "yes" "yes" ;; esac
 
 # 10. No usable pid ("abc"): the verdict would say "cannot tell", but the liveness check at the top
 #     of the loop gets there first -- is_running cannot kill -0 "abc" -- so it is refused as dead.
@@ -207,6 +220,18 @@ for content in "0" "-1" " $HOLDER_PID"; do
     has   "  naming the pidfile and quoting its content" "unusable$n.pid holds no usable pid ('$content')" "$out"
     n=$((n + 1))
 done
+
+# 14. A pidfile whose content is hostile: an ESC sequence (it would recolour or rewrite the
+#     operator's terminal) followed by 4 KB. The message quotes at most 32 bytes, with every
+#     non-printable byte replaced. is_running is stubbed alive (such content never passes kill -0, so
+#     on the real path the liveness check refuses it first; the bound must hold regardless).
+{ printf '\033[2J\033]0;pwned\007'; head -c 4096 /dev/zero | tr '\0' 'A'; } >"$PID_DIR/hostile.pid"
+out="$( is_running() { return 0; }; wait_for_port "$PORT" "test API" 2 hostile 2>&1 )"; rc=$?
+check "hostile pidfile: refused" "1" "$rc"
+has   "  quoting it as no usable pid" "hostile.pid holds no usable pid ('" "$out"
+check "  with no ESC byte in the output" "0" "$(printf '%s' "$out" | LC_ALL=C grep -c $'\033')"
+check "  and no more than 32 bytes of it (no run of 40 A's)" "0" "$(printf '%s' "$out" | grep -c 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')"
+has   "  the cut marked" "...'" "$out"
 
 echo
 if (( FAIL > 0 )); then

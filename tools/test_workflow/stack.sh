@@ -540,14 +540,14 @@ start_bg() {
         want="$(printf '%s\n' "$@"; [[ -n "$START_BG_IDENTITY" ]] && printf '%s\n' "$START_BG_IDENTITY")"
         have="$(recorded_cmd "$name")"
         if [[ -n "$have" && "$have" == "$want" ]]; then
-            info "  $name already running (pid $(cat "$PID_DIR/$name.pid"), same command)"
+            info "  $name already running (pid $(pidfile_quote "$(cat "$PID_DIR/$name.pid")"), same command)"
             return 0
         fi
         if [[ -z "$have" ]]; then
-            warn "  $name is running (pid $(cat "$PID_DIR/$name.pid")) but was started before this"
+            warn "  $name is running (pid $(pidfile_quote "$(cat "$PID_DIR/$name.pid")")) but was started before this"
             warn "    check existed, so what it is serving cannot be verified; restarting it."
         else
-            warn "  $name is running (pid $(cat "$PID_DIR/$name.pid")) with a DIFFERENT command;"
+            warn "  $name is running (pid $(pidfile_quote "$(cat "$PID_DIR/$name.pid")")) with a DIFFERENT command;"
             warn "    restarting it, because reusing it would serve the previous run's topology."
             warn "    was:  $(printf '%s' "$have" | tr '\n' ' ')"
             warn "    want: $(printf '%s' "$want" | tr '\n' ' ')"
@@ -655,6 +655,18 @@ sweep_orphan_exits() {
     return 0
 }
 
+# pidfile_quote <text> [max] -- pidfile content as it may be printed: at most <max> bytes (32),
+# every byte that is not printable replaced by '?', and "..." when it was cut. A pidfile is a file
+# anyone with write access to $PID_DIR can fill: an escape sequence in it would be replayed on the
+# operator's terminal, and a large blob would land whole in every run log.
+# [Co-developed with claude code -- Adam]
+pidfile_quote() {
+    local LC_ALL=C max="${2:-32}" q
+    q="$(printf '%s' "$1" | head -c "$max" | tr -c '[:print:]' '?')"
+    (( ${#1} > max )) && q="$q..."
+    printf '%s' "$q"
+}
+
 # pidfile_vouches <pidfile> -- does this pidfile name a process this script started?
 #
 # [Co-developed with claude code -- Adam]
@@ -739,7 +751,7 @@ stop_one() {
             return 1
             ;;
         3)
-            err "  $pidfile does not contain a usable pid (${pid:-empty}); not killing anything"
+            err "  $pidfile does not contain a usable pid ($( [[ -n "$pid" ]] && pidfile_quote "$pid" || echo empty)); not killing anything"
             rm -f "$pidfile" "$PID_DIR/$name$CMD_SUFFIX"
             return 1
             ;;
@@ -920,16 +932,18 @@ wait_for_port() {
                         ;;
                     refused)
                         # A symlinked pidfile: stop_one refuses to read it, and is_running (the
-                        # fallback below) would follow it. Fail closed, as stop_one does. The link
-                        # and what it names are read here for the message only: start_bg wrote its
-                        # pid THROUGH the link, so that process is still running, and neither
-                        # `down` nor a rollback will stop it (stop_one refuses the link) -- the
-                        # operator needs both to stop it by hand.
+                        # fallback below) would follow it. Fail closed, as stop_one does. Only the
+                        # link's TARGET PATH is printed, never what that file holds: the link can
+                        # point at any file this user can read (a token, a key), and its content
+                        # would land on the terminal and in every run log. start_bg wrote its pid
+                        # through the link, so that process may still be running, and neither `down`
+                        # nor a rollback will stop it (stop_one refuses the link); the target path is
+                        # where the operator finds its pid.
                         echo " ${R}not ours${N}"
-                        err "  $PID_DIR/$component.pid is a symlink (to $(readlink "$PID_DIR/$component.pid"));"
+                        err "  $PID_DIR/$component.pid is a symlink (to $(pidfile_quote "$(readlink "$PID_DIR/$component.pid")" 256));"
                         err "    refusing to read it, so nothing says :$port is held by the $component"
-                        err "    this script started. The link names pid '$(cat "$PID_DIR/$component.pid" 2>/dev/null)', which"
-                        err "    'down' will not stop either -- check it and stop it by hand if it is yours."
+                        err "    this script started. Whatever start_bg launched through it is not stopped by"
+                        err "    'down' either -- check the pid in the target file and stop it by hand if it is yours."
                         return 1
                         ;;
                     unusable)
@@ -937,7 +951,7 @@ wait_for_port() {
                         # is_running, which takes anything `kill -0` takes -- "0" (this process
                         # group), "-1" (every process), " N" -- and so adopt whatever holds the port.
                         echo " ${R}not ours${N}"
-                        err "  $PID_DIR/$component.pid holds no usable pid ('$(cat "$PID_DIR/$component.pid" 2>/dev/null)'),"
+                        err "  $PID_DIR/$component.pid holds no usable pid ('$(pidfile_quote "$(cat "$PID_DIR/$component.pid" 2>/dev/null)")'),"
                         err "    so nothing says :$port is held by the $component this script started"
                         return 1
                         ;;

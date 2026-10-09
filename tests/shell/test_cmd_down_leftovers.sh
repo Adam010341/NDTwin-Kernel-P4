@@ -489,6 +489,21 @@ for content in abc 1 "" 0123456 089; do
 done
 rm -rf "$PID_DIR"; mkdir -p "$PID_DIR"
 
+# --- stop_one, a hostile pidfile: its content is quoted bounded and printable ----------------
+# An ESC sequence and 4 KB in kernel.pid. stop_one names the content in its refusal; it must quote
+# at most 32 bytes, with every non-printable byte replaced, or the pidfile writes on the operator's
+# terminal and fills the log. Real path (no stub but kill): stop_one prints this for ANY content.
+: >"$KILL_CALLS"
+{ printf '\033[2J\033]0;pwned\007'; head -c 4096 /dev/zero | tr '\0' 'A'; } >"$PID_DIR/kernel.pid"
+out="$(kill() { echo "kill $*" >>"$KILL_CALLS"; return 1; }; stop_one kernel 2>&1)"; rc=$?
+check "hostile pidfile: stop_one refuses it" "1" "$rc"
+has   "hostile pidfile: as no usable pid" "kernel.pid does not contain a usable pid (" "$out"
+check "hostile pidfile: no ESC byte reaches the output" "0" "$(printf '%s' "$out" | LC_ALL=C grep -c $'\033')"
+check "hostile pidfile: at most 32 bytes of it are quoted (no run of 40 A's)" "0" \
+      "$(printf '%s' "$out" | grep -c 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')"
+check "hostile pidfile: nothing was signalled" "" "$(tr '\n' ';' <"$KILL_CALLS")"
+rm -rf "$PID_DIR"; mkdir -p "$PID_DIR"
+
 # --- ss form: every port filter built under this test uses ss(8)'s `:PORT` -------------------
 # Counted over the whole run; port_listener_pids (stack.sh) and ndt_port_listener_pids (ports.sh)
 # both ran above. The `-ltnp` count guards against a vacuous pass.
