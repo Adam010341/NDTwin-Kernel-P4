@@ -1,3 +1,5 @@
+import contextlib
+import contextvars
 import logging
 import threading
 import queue
@@ -116,6 +118,67 @@ class TableEntryInvalid(ValueError):
     ValueError, so a caller that already funnels malformed input (AppPackageError is one too)
     keeps catching it.
     """
+
+
+class TableOwnedByNDTwin(RuntimeError):
+    """
+    The table this entry names belongs to NDTwin (see `table_owned_by_ndtwin`). -> HTTP 409.
+
+    [Co-developed with claude code -- Adam]
+    Raised BEFORE the entry is built and long before `stub.Write`. Not a malformed request and not
+    a switch fault: the entry may be perfectly good, and the answer is "not through this writer".
+    The reason is OWNERSHIP, not what the entry would do: every table of NDTwin's own pipeline is
+    NDTwin's (an empty match into `flow_5tuple` is a catch-all that matches every packet, and
+    NDTwin's own writers are the only ones that decide what is in it), and so is the one table a
+    package gives NDTwin with `roles.ipv4_route` owner `ndtwin`.
+
+    `remedy` is the sentence api_routes puts in the 409 body; it differs by binding source, so it
+    travels with the exception instead of being guessed again at the route.
+
+    RuntimeError, and not a subclass of ControlPlaneReadOnly, for ControlPlaneReadOnly's reason:
+    a bare `except grpc.RpcError` must not swallow it, and an `except Exception` in a background
+    loop still contains it. api_routes.table_entry is the only translator.
+    """
+
+    def __init__(self, message, remedy=""):
+        super().__init__(message)
+        self.remedy = remedy
+
+
+#: Who is asking `write_table_entry` to write. `api`: an operator's POST. `boot`: this proxy
+#: applying the app package's own runtime entries at startup or after a readopt. `replay`:
+#: RESERVED -- nothing passes it today (a POSTed entry is not journaled); it is treated as `api`
+#: and is named so that a future caller that puts stored entries back cannot be mistaken for
+#: `boot`. Anything else is a ValueError. [Co-developed with claude
+#: code -- Adam]
+ENTRY_SOURCE_API = "api"
+ENTRY_SOURCE_BOOT = "boot"
+ENTRY_SOURCE_REPLAY = "replay"
+ENTRY_SOURCES = (ENTRY_SOURCE_API, ENTRY_SOURCE_BOOT, ENTRY_SOURCE_REPLAY)
+
+#: The source a `write_table_entry` call that names none gets. A context variable rather than a
+#: client attribute so that `main.apply_package_entries` can say "this is boot" for every entry it
+#: writes without a keyword argument that each hand-built client double in the test suite would
+#: have to learn, and so that it is scoped to the `with` block and to the thread that entered it:
+#: a request handler running on the threadpool at the same time still sees `api`.
+#:
+#: 🔴 LATENT HAZARD: a task or thread created INSIDE an `entry_source("boot")` block inherits
+#: "boot" through the copied context. Nothing creates one today -- `apply_package_entries` makes
+#: one synchronous call per entry inside the block -- and a future change that does would let
+#: that task write an owner-ndtwin default as boot. Keep the block around the single call.
+_entry_source = contextvars.ContextVar("p4_table_entry_source", default=ENTRY_SOURCE_API)
+
+
+@contextlib.contextmanager
+def entry_source(source):
+    """Within this block, a `write_table_entry` that names no `source` is `source`."""
+    if source not in ENTRY_SOURCES:
+        raise ValueError(f"entry source must be one of {list(ENTRY_SOURCES)}, got {source!r}")
+    token = _entry_source.set(source)
+    try:
+        yield
+    finally:
+        _entry_source.reset(token)
 
 
 #: `op` as a caller spells it -> the P4Runtime Update type. A dict rather than an if/elif chain
@@ -1319,7 +1382,74 @@ class P4RuntimeClient:
                              "prefix_len": m.lpm.prefix_len}
         return out
 
-    def write_table_entry(self, spec, op="insert"):
+    def table_owned_by_ndtwin(self, table):
+        """
+        Whether `table` (a p4info Table) belongs to NDTwin on this switch.
+
+        [Co-developed with claude code -- Adam]
+        Three answers, decided by the binding `main.build_p4_client` resolved for this switch:
+
+          * NDTwin's own pipeline (`BASELINE`)   -> EVERY table is NDTwin's;
+          * a foreign pipeline whose package binds `roles.ipv4_route` with owner `ndtwin`
+                                                  -> exactly that table;
+          * owner `package`, or no roles at all  -> none: the author owns what the author wrote.
+
+        The table is compared by its full name, which is what `route_binding.resolve` stores.
+        """
+        binding = self.route_binding
+        if binding is None:
+            return False
+        if binding.source == route_binding_module.SOURCE_BASELINE:
+            return True
+        return (binding.owner == route_binding_module.OWNER_NDTWIN
+                and binding.table in (table.preamble.name, table.preamble.alias))
+
+    def _refuse_owned_table(self, spec, op, source):
+        """Raise TableOwnedByNDTwin unless `spec` may be written into the table it names.
+
+        [Co-developed with claude code -- Adam]
+        Runs after `_refuse_write` (an external control plane's refusal keeps precedence) and
+        before anything is built: a table that cannot be resolved here is left for
+        `build_table_entry`, whose 404 / 400 it already owns.
+
+        ONE EXCEPTION, deliberately narrow (ruling 8-1, kept at runtime): the DEFAULT ACTION of
+        the table a package binds as `roles.ipv4_route` with owner `ndtwin`, written while this
+        proxy applies the package's own entries. `main.py` installs NDTwin's routes after the
+        package's entries "so the table's default action is in place first", and NDTwin's
+        writers never write a default, so the two never touch the same entry. A default written
+        through the API is refused, a baseline table's default is refused whatever the source,
+        and so is every match entry. Anything that is not exactly `{"default_action": true}` with
+        no match, on an insert or a modify, gets no exception.
+        """
+        if not isinstance(spec, dict) or not isinstance(spec.get("table"), str):
+            return
+        try:
+            table = self._table_by_name(spec["table"])
+        except KeyError:
+            return
+        if not self.table_owned_by_ndtwin(table):
+            return
+        binding = self.route_binding
+        if (source == ENTRY_SOURCE_BOOT
+                and binding.source == route_binding_module.SOURCE_PACKAGE
+                and spec.get("default_action") is True
+                and not spec.get("match")
+                and op in ("insert", "modify")):
+            return
+        if binding.source == route_binding_module.SOURCE_BASELINE:
+            why = "every table of NDTwin's own pipeline is NDTwin's"
+            remedy = ("NDTwin's own pipeline takes routes through /stats/flowentry/*; "
+                      "this endpoint writes a package pipeline's tables")
+        else:
+            why = "roles.ipv4_route gives this table to NDTwin"
+            remedy = ("roles.ipv4_route gives this table to NDTwin; "
+                      "write another table of the package's pipeline")
+        what = "default action" if spec.get("default_action") else "table entry"
+        raise TableOwnedByNDTwin(
+            f"{table.preamble.name} is owned by NDTwin ({why}); a {what} {op} through this "
+            f"writer is refused on switch {self.device_id}. Nothing was written.", remedy)
+
+    def write_table_entry(self, spec, op="insert", source=None):
         """
         Put one package- or API-supplied table entry on this switch. TICKET-P2 2.3.
 
@@ -1338,14 +1468,26 @@ class P4RuntimeClient:
         api_routes.table_entry turns it into a 502 naming that code.
 
         Every refusal happens before `stub.Write`: an unknown name, an unbuildable match type, a
-        value that does not fit, a priority the table cannot honour, and an external control
-        plane. tests/test_p4_client_writes.py asserts the stub recorded no request for each.
+        value that does not fit, a priority the table cannot honour, an external control plane,
+        and a table NDTwin owns (`TableOwnedByNDTwin`, see `_refuse_owned_table`).
+        tests/test_p4_client_writes.py asserts the stub recorded no request for each of the
+        first five, and tests/test_table_entry_owner.py asserts it for the owned-table refusal.
+
+        `source` says who is asking: "api" (the default), "boot" or "replay". A call that names
+        none gets `entry_source()`'s, which is how `main.apply_package_entries` marks the whole
+        of a package's entries as boot. Only a boot write of a package's own owner-ndtwin route
+        table's default action escapes the owned-table refusal.
         """
         op = str(op or "insert").strip().lower()
         if op not in TABLE_ENTRY_OPS:
             raise TableEntryInvalid(
                 f"op must be one of {sorted(TABLE_ENTRY_OPS)}, got {op!r}")
         self._refuse_write(f"a table entry {op}")
+        source = _entry_source.get() if source is None else source
+        if source not in ENTRY_SOURCES:
+            raise ValueError(
+                f"entry source must be one of {list(ENTRY_SOURCES)}, got {source!r}")
+        self._refuse_owned_table(spec, op, source)
 
         entry, match_types = self.build_table_entry(spec)
 
@@ -1379,8 +1521,11 @@ class P4RuntimeClient:
         else:
             self.rule_install_times.record(self.device_id, table_name, entry.priority,
                                            recorded_match)
-        print(f"[{self.device_id}] table entry {op}: {table_name} "
-              f"{sorted(match_types) or '(default action)'}")
+        # The label comes from the entry's own flag. An empty match is NOT a default action: it is
+        # the catch-all, and the log must not describe it as the table's default.
+        shown = (sorted(match_types) if match_types
+                 else "(default action)" if entry.is_default_action else "(no match fields)")
+        print(f"[{self.device_id}] table entry {op}: {table_name} {shown}")
         return {
             "dpid": self.device_id,
             "op": op,

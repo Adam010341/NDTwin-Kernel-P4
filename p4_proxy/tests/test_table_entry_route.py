@@ -172,6 +172,14 @@ def a_client(stub=None, device_id=1, arbitration=True):
     client._last_table_read = None
     client.election_id = (0, 1)
     client.arbitration = arbitration
+    # [Co-developed with claude code -- Adam]
+    # 🔴 EXPLICITLY A FOREIGN PIPELINE WITH NO `roles`, i.e. every table here is a USER table.
+    # This double used to be built with `__new__` and never bound, so it inherited the class
+    # default `route_binding.BASELINE` -- "NDTwin's own pipeline" -- and every table it writes
+    # became NDTwin's the moment the generic writer started refusing those (409
+    # `owned_by_ndtwin`). Its success-path tests are about a user write, so it says so. The
+    # refusal cases are in tests/test_table_entry_owner.py.
+    client.bind_routes(None)
     return client
 
 
