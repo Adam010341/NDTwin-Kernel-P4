@@ -316,10 +316,11 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # --- whose vocabulary, and what is left out. TICKET-P4-roles 2.5-1 ---------------------------
 # [Co-developed with claude code -- Adam]
 #
-# NDTwin's own pipeline renders exactly as it always did -- every action it declares is one this
-# module knows, and an unknown one still renders as an empty action list (the documented choice
-# for a future NDTwin action; tests/test_ryu_flow_stats.py pins that body against a capture taken
-# at 6291db35).
+# NDTwin's own pipeline renders its body exactly as it always did -- every action it declares is
+# one this module knows, and an unknown one still renders as an empty action list (the documented
+# choice for a future NDTwin action; tests/test_ryu_flow_stats.py pins that body against a capture
+# taken at 6291db35). What the ternary writer added there is the rows it leaves out and counts
+# (see the paragraph on the baseline count below).
 #
 # 🔴 A FOREIGN PIPELINE IS WHERE "UNKNOWN" STOPS MEANING DROP. On somebody else's program an
 # action this module does not know is the AUTHOR's semantics -- load_balance's set_ecmp_select,
@@ -328,12 +329,13 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # LISTED, and `GET /p4/switch_state` says how many were left out (`flow_stats.unrendered_entries`):
 # a rule the twin cannot describe is absent and counted, never described wrongly.
 #
-# 🔴 THE COUNT IS EVERY NON-DEFAULT ROW NOT LISTED (section 7 ruling 5, item 3): an unknown
-# action, OR a match this module cannot translate (reporting that row would be a match-everything
-# rule, so it is not listed on any pipeline). Round 1 counted only unknown-action rows whose match
-# it could translate -- and a foreign program's non-route tables match on the program's own
-# field names (renamed_route's proto_tags: `hdr.ip4.proto`), so its real rows were neither listed
-# nor counted. A default row is not a rule and is never counted.
+# 🔴 ON A FOREIGN PIPELINE THE COUNT IS EVERY NON-DEFAULT ROW NOT LISTED (section 7 ruling 5,
+# item 3): an unknown action, OR a match this module cannot translate (reporting that row would be
+# a match-everything rule, so it is not listed on any pipeline). Round 1 counted only
+# unknown-action rows whose match it could translate -- and a foreign program's non-route tables
+# match on the program's own field names (renamed_route's proto_tags: `hdr.ip4.proto`), so its
+# real rows were neither listed nor counted. A default row is not a rule and is never counted.
+# On NDTwin's own pipeline the count is narrower: see the paragraph on the baseline count.
 #
 # 🔴 A MATCH RYU CANNOT SAY IS THE SAME CASE, ON EVERY PIPELINE (the ternary writer, Adam's
 # ruling). A ternary field whose mask is a run of leading ones on an address renders as
@@ -351,6 +353,10 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # more (the owner check, V7, answers 409 owned_by_ndtwin for every table of NDTwin's own
 # pipeline). A row some other writer put there with a partial mask or a range is left out of the
 # body and counted, instead of being described wrongly.
+#
+# A row with no usable match at all (an empty match, or one on fields Ryu has no name for) is left
+# out of the body on every pipeline but counted only on a foreign one: NDTwin's own pipeline does
+# not count it. That is pinned, and whether it should be counted there is the owner's call.
 #
 # The route action is recognised through the switch's binding: a package's roles add its own
 # route action and match field to NDTwin's vocabulary. An UNBOUND foreign switch is rendered in

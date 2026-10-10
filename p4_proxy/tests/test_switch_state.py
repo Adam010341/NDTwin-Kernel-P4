@@ -1284,6 +1284,36 @@ class TheCountOnNdtwinsOwnPipelineTest(unittest.TestCase):
                          [{"nw_dst": "10.0.0.4", "dl_type": 2048}])
         self.assertEqual(self.counted(), {"unrendered_entries": 1})
 
+    def test_through_fastapi_it_is_a_json_null_before_a_render_and_the_count_after(self):
+        # [Co-developed with claude code -- Adam] The tests around this one call the route
+        # functions; this one goes through FastAPI's own serialisation, which is what the kernel
+        # parses: the null has to arrive as a JSON null, not as a missing key or a 0.
+        from fastapi import FastAPI
+
+        from tests.record_stats_flow_http_body import asgi_get
+        from tests.test_ryu_flow_stats import an_lpm_route
+
+        self.client._rows = [an_lpm_route(), self.a_partial_mask_row()]
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        status, _, body = asgi_get(app, "/p4/switch_state")
+        self.assertEqual(status, 200)
+        self.assertIn(b'"unrendered_entries":null', body)
+        self.assertEqual(json.loads(body)["switches"]["1"]["flow_stats"],
+                         {"unrendered_entries": None})
+
+        status, _, flow = asgi_get(app, "/stats/flow/1")
+        self.assertEqual(status, 200)
+        self.assertEqual([f["match"] for f in json.loads(flow)["1"]],
+                         [{"nw_dst": "10.0.0.4", "dl_type": 2048}])
+
+        status, _, body = asgi_get(app, "/p4/switch_state")
+        self.assertEqual(status, 200)
+        self.assertIn(b'"unrendered_entries":1', body)
+        self.assertEqual(json.loads(body)["switches"]["1"]["flow_stats"],
+                         {"unrendered_entries": 1})
+
     def test_the_count_follows_the_table_it_was_last_rendered_from(self):
         from tests.test_ryu_flow_stats import an_lpm_route
 

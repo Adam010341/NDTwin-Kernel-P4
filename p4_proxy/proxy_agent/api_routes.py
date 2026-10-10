@@ -777,6 +777,10 @@ async def switch_state():
     Additive in the sense the kernel cares about: it looks up "switches" by name and then named
     keys inside each entry (DeviceConfigurationAndPowerManager::p4LivenessFor), so an unknown
     top-level key and an unknown per-switch key are both inert to that parse.
+
+    Per switch, `flow_stats.unrendered_entries` is the number of rows the last `GET /stats/flow`
+    render of that switch left out. It is null until that switch's first /stats/flow render, on
+    every pipeline, and a readopt resets it to null.
     """
     if topology is None:
         raise HTTPException(status_code=503, detail="proxy has no topology yet")
@@ -848,7 +852,8 @@ async def switch_state():
     #                 verbatim onto get_graph_data's node in the third cut.
     #   flow_stats    `unrendered_entries`: how many non-default rows the last /stats/flow
     #                 render of this switch did not list -- an action it does not recognise, or
-    #                 a match it cannot translate (section 7 ruling 5, item 3).
+    #                 a match it cannot translate (section 7 ruling 5, item 3). null until that
+    #                 switch's first /stats/flow render, on every pipeline; a readopt resets it.
     if capabilities_report is not None:
         caps = capabilities_report()
         for dpid, entry in state.get("switches", {}).items():
@@ -1275,9 +1280,11 @@ def get_flow_stats(dpid: int):
         # one this renderer recognises are left out and counted rather than described as drops.
         # NDTwin's own pipeline goes through the same call with the baseline binding: its body is
         # the one its byte-identity capture and the rule-clock gate were written against, for
-        # every input, and the rows the renderer leaves out of it (a match Ryu cannot spell) are
-        # counted here exactly as a foreign switch's are, so `GET /p4/switch_state` can say how
-        # many `flow_stats.unrendered_entries` there are. Only the count is new on that pipeline.
+        # every input. A ternary mask or range Ryu cannot spell is left out of it and counted here,
+        # as on a foreign switch, so `GET /p4/switch_state` can say how many
+        # `flow_stats.unrendered_entries` there are; a row with no usable match (an empty-match
+        # catch-all, say) is left out of it too but is counted only on a foreign switch. Only the
+        # count is new on that pipeline.
         binding = getattr(client, "route_binding", route_binding.BASELINE)
         # [Co-developed with claude code -- Adam]
         # The client's OWN install record, not a fresh one and not a module global: it is the

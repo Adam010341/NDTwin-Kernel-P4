@@ -620,7 +620,7 @@ class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase
         body, left_out = rf.render_flow_stats_counted(1, [a_tag_row()], binding=None)
         self.assertEqual((body["1"], left_out), ([], 1))
 
-    def test_ndtwins_own_pipeline_leaves_nothing_out(self):
+    def test_ndtwins_own_pipeline_does_not_count_a_row_with_no_usable_match(self):
         body, left_out = rf.render_flow_stats_counted(1, ndtwin_pipeline_rows())
         self.assertEqual(left_out, 0)
         self.assertEqual(json.dumps(body, sort_keys=True), BASELINE_NDTWIN_RENDER)

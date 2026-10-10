@@ -1485,10 +1485,13 @@ def flow_stats_report():
     """{dpid as string: {"unrendered_entries": n or None}} from each client's last render.
 
     [Co-developed with claude code -- Adam] TICKET-P4-roles 2.5-1. The count is of the non-default
-    rows the most recent /stats/flow render of that switch did not list -- an action it does not
-    recognise (foreign pipelines only), or a match it cannot translate (section 7 ruling 5,
-    item 3; every pipeline, NDTwin's own included). None before the first render: "nobody rendered this switch" is not
-    "nothing was left out", and a table read for another purpose is not a render.
+    rows the most recent /stats/flow render of that switch did not list. On every pipeline,
+    NDTwin's own included, that counts a ternary mask or a range Ryu cannot spell (section 7
+    ruling 5, item 3). A foreign pipeline also counts an action the renderer does not recognise
+    and a row with no usable match (an empty-match catch-all, say); on NDTwin's own pipeline such
+    a row is left out of the body too, but it is not counted. None before the first render:
+    "nobody rendered this switch" is not "nothing was left out", and a table read for another
+    purpose is not a render.
     """
     out = {}
     for dpid, client in list(topo.switches.items()):

@@ -90,6 +90,7 @@ tests.test_ryu_flow_stats:TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTe
 tests.test_ryu_flow_stats:ARenamedBindingIsReadBackThroughItsOwnNamesTest \
 tests.test_ryu_flow_stats:OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest \
 tests.test_flow_stats_route:AForeignSwitchIsRenderedThroughItsBindingTest \
+tests.test_flow_stats_route:ARenderOnNdtwinsOwnPipelineIsCountedTooTest \
 tests.test_switch_state:CapabilitiesShapeTest tests.test_switch_state:CapabilitiesFromStartupTest \
 tests.test_switch_state:CapabilitiesOnTheEndpointTest tests.test_switch_state:TheUnrenderedCountTest \
 tests.test_switch_state:TheCountOnNdtwinsOwnPipelineTest \
@@ -881,6 +882,16 @@ m=$(mutant ar_storezero "$ROUTES" \
 report "AR5b: the endpoint keeps a zero whatever the render left out" "$m" \
        "test_the_count_follows_the_table_it_was_last_rendered_from"
 
+# [Co-developed with claude code -- Adam] AR6: named for the test that reads the serialised JSON
+# through FastAPI itself, where a null that is dropped or turned into a 0 on the way out shows as
+# the bytes the kernel parses.
+m=$(mutant ar_dropnull "$ROUTES" \
+    '            entry["flow_stats"] = rendered.get(str(dpid), {"unrendered_entries": None})' \
+    '            entry["flow_stats"] = {k: v for k, v in rendered.get(
+                str(dpid), {"unrendered_entries": None}).items() if v is not None}')
+report "AR6: the endpoint leaves a null count out of the JSON it serves" "$m" \
+       "test_through_fastapi_it_is_a_json_null_before_a_render_and_the_count_after"
+
 m=$(mutant fs_vocab "$STATS" \
     '    if binding is None or binding.source == route_binding.SOURCE_BASELINE:
         return FIELD_TO_RYU, FORWARDING_ACTIONS' \
@@ -913,8 +924,8 @@ report "FS3b: a default row is counted as left out" "$m" \
 m=$(mutant fs_countndtwin "$STATS" \
     '        counts = foreign and not entry.get("is_default")' \
     '        counts = not entry.get("is_default")')
-report "FS3c: NDTwin's own pipeline starts leaving rows out and counting them" "$m" \
-       "test_ndtwins_own_pipeline_leaves_nothing_out"
+report "FS3c: NDTwin's own pipeline starts counting a row with no usable match, as a foreign one does" "$m" \
+       "test_ndtwins_own_pipeline_does_not_count_a_row_with_no_usable_match"
 
 m=$(mutant fs_literal "$STATS" \
     '    route_binding.BASELINE.action: route_binding.BASELINE.port_param,' \
