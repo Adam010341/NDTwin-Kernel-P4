@@ -79,7 +79,7 @@ trap 'rm -rf "$BK"' EXIT
 # The topology models are an INPUT, never a subject: `proxy_agent.main` (imported by
 # test_switch_state) loads one at import time, from `<repo root>/setting`, and a mutant tree
 # under $BK has no such directory. Without this link the baseline is RED on a clean checkout --
-# measured at dd8022fa (2026-10-04) -- and the gate refuses to run, so it was not gating
+# measured at 5b2d36ef (2026-10-04) -- and the gate refuses to run, so it was not gating
 # anything. Linked rather than copied for the reason mutate_table_entry.sh gives.
 ln -s "$REPO/setting" "$BK/setting"
 BASE_TIMES=$(sha256sum "$TIMES" | cut -d' ' -f1)

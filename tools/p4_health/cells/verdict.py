@@ -195,6 +195,10 @@ def decide(spec, obs, ctx):
         attribution  {"bmv2": bool, "wire": bool, "static": bool}
         pre          {"ok": bool, "why": str} -- the cell's stated precondition
     """
+    # (Cut 2) a cell this run never observed -- a later Cut's cell, or one `--only` left out --
+    # is NOT RUN for that reason, not for an "unreadable" answer nobody asked for
+    if obs is None:
+        return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")
     obs = obs or {}
     # 0. NDTwin's answer unreadable (r2)
     if spec.needs_answer and obs.get("answer") is None:
@@ -302,9 +306,11 @@ def judge_all(table, observations, sc_observations):
     for spec in table.cells:
         if spec.alias_of is not None:
             src = ctx.cells[spec.alias_of]
+            # an alias of a cell this run did not observe is itself unobserved (review m1)
             ctx.cells[spec.id] = Verdict(src.verdict, "= %s: %s" % (spec.alias_of, src.reason),
                                          partial=src.partial, attribution=src.attribution,
-                                         phase="alias", evidence=src.evidence)
+                                         phase="unobserved" if src.phase == "unobserved" else "alias",
+                                         evidence=src.evidence)
     return ctx
 
 
@@ -355,13 +361,27 @@ def rollup(table, ctx, scope):
     return {"dimensions": per, "totals": totals, "alias_only": alias_only}
 
 
-def run_verdict(ctx, bringups_complete=True):
-    """COMPLETE | PROBE-BROKEN | INCOMPLETE, and the rc (0, 1, 2)."""
+def run_verdict(ctx, bringups_complete=True, stopped=False, see_red=False):
+    """COMPLETE | PROBE-BROKEN | INCOMPLETE | SEE-RED-NOT-SEEN, and the rc (0, 1, 2, 2).
+
+    (Cut 2 round 4, F3) PROBE-BROKEN is looked at first, so two things must come before it:
+    a run that was stopped (a record carries "aborted by signal", or the run itself was stopped)
+    is INCOMPLETE whatever the cells say, and a see-red run -- whose PROBE-BROKEN is the pass --
+    counts as that pass only if its bring-ups were complete and clean."""
+    if stopped:
+        return "INCOMPLETE", 2
     if any(v.verdict == PROBE_BROKEN for v in ctx.cells.values()) or \
             any(v.verdict == PROBE_BROKEN for v in ctx.self_checks.values()):
+        if see_red and not bringups_complete:
+            return "INCOMPLETE", 2
         return "PROBE-BROKEN", 1
     if not bringups_complete:
         return "INCOMPLETE", 2
+    if see_red:
+        # (round 5, #3) a see-red run's pass is PROBE-BROKEN. A complete, clean one in which no cell is
+        # PROBE-BROKEN means the mutant went unnoticed -- the probe cannot see red -- and that must not
+        # read COMPLETE rc 0, the status of success. Its own name, and rc 2 (not a verdict on the fabric).
+        return "SEE-RED-NOT-SEEN", 2
     return "COMPLETE", 0
 
 

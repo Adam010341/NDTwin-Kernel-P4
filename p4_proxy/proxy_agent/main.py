@@ -654,7 +654,12 @@ def apply_package_entries(client, entries_path):
         table = spec.get("table") if isinstance(spec, dict) else None
         op = spec.get("op", "insert") if isinstance(spec, dict) else "insert"
         try:
-            client.write_table_entry(spec, op)
+            # [Co-developed with claude code -- Adam] These are the package's own entries, so
+            # they are `boot` writes: the one owned-table exception (a package route table's
+            # default action) is for exactly this caller. Scoped by the `with`, not by a keyword,
+            # so a client that does not know the word keeps working.
+            with p4_client_module.entry_source(p4_client_module.ENTRY_SOURCE_BOOT):
+                client.write_table_entry(spec, op)
             out["applied"] += 1
         except Exception as exc:  # noqa: BLE001 -- one entry must not cost the other four
             out["failed"] += 1

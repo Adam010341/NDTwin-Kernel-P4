@@ -156,6 +156,60 @@ else
     t_bad "injection took effect: something really is holding udp :$UDP_PORT" "could not bind the fixture"
 fi
 
+echo "cannot tell: ss missing, or ss failing, is 2 -- never 'closed'"
+
+# --- 4b. the two ways the UDP probe is blind ---------------------------------------------------
+# [Co-developed with claude code -- Adam]
+# ndt_port_open answers 0 open, 1 closed, 2 cannot tell. With no ss on PATH it is blind; with an ss
+# that exits non-zero it is blind too -- its empty output says nothing about the port. Only an ss
+# that exits 0 with no output means "nothing listens". Port 45903 is never bound; only the probe is
+# varied. A shim dir holds a fake `ss`; PATH is changed only inside each $(...).
+SHIM="$(mktemp -d -t ndt_ports_shim.XXXXXX 2>/dev/null)"
+if [[ -z "$SHIM" || ! -d "$SHIM" ]]; then
+    t_bad "the shim dir for the blind-probe cases" "mktemp -d failed (TMPDIR unwritable?); refusing to write a fake ss anywhere else"
+    echo "Ran $((PASS+FAIL)) checks, $FAIL failed (refused)"
+    exit 2
+fi
+trap 'cleanup; rm -rf "$SHIM"' EXIT
+mkdir -p "$SHIM/fail" "$SHIM/empty" "$SHIM/none"
+printf '#!/bin/sh\nexit 1\n' >"$SHIM/fail/ss"
+printf '#!/bin/sh\nexit 0\n' >"$SHIM/empty/ss"
+chmod +x "$SHIM/fail/ss" "$SHIM/empty/ss"
+rc="$( PATH="$SHIM/fail:$PATH"; ndt_port_open 45903 udp; echo $? )"
+check "ss present but exiting 1 with no output -> 2 (cannot tell), not 1" "2" "$rc"
+why="$( PATH="$SHIM/fail:$PATH"; ndt_port_blind_why )"
+check "  and the reason says ss failed" "ss is on PATH but its query failed" "$why"
+rc="$( PATH="$SHIM/empty:$PATH"; ndt_port_open 45903 udp; echo $? )"
+check "control: ss exiting 0 with no output -> 1 (closed)" "1" "$rc"
+rc="$( PATH="$SHIM/none"; ndt_port_open 45903 udp; echo $? )"
+check "no ss on PATH -> 2" "2" "$rc"
+why="$( PATH="$SHIM/none"; ndt_port_blind_why )"
+check "  and the reason says ss is missing" "no ss on PATH, and UDP can only be probed through ss" "$why"
+# ...and the assumption the ss-exit mapping rests on, against the REAL ss: a UDP port nothing is
+# bound to answers 1 (closed) -- ss exits 0 with no output for "no match". The first candidate
+# the real ss shows as free is used; none free -> said, not skipped silently.
+FREE_UDP=""
+if command -v ss >/dev/null 2>&1; then
+    for cand in 45905 45906 45907 45908; do
+        [[ -z "$(ss -lunH "( sport = :$cand )" 2>/dev/null)" ]] && { FREE_UDP="$cand"; break; }
+    done
+fi
+if [[ -n "$FREE_UDP" ]]; then
+    ss -lunH "( sport = :$FREE_UDP )" >/dev/null 2>&1; ssrc=$?
+    check "real ss: a query for a free udp port exits 0 (udp :$FREE_UDP)" "0" "$ssrc"
+    rc="$( ndt_port_open "$FREE_UDP" udp; echo $? )"
+    check "real ss: a free udp port reads 1 (closed), not 2" "1" "$rc"
+else
+    t_bad "real ss: a free udp port reads 1 (closed), not 2" "no ss on PATH, or every candidate 45905-45908 is held"
+fi
+
+NDT_PORT_TABLE="45903|udp|both|the blind fixture|BLIND-CONSEQUENCE"
+out="$( PATH="$SHIM/fail:$PATH"; ndt_port_residue all; echo "rc=$?" )"
+check "a residue reading through a failing ss returns 2" "rc=2" "$(tail -1 <<<"$out")"
+grep -qF ':45903 (udp) could NOT be probed on this machine (ss is on PATH but its query failed)' <<<"$out" \
+    && t_ok "  and names the port with the reason" \
+    || t_bad "  and names the port with the reason" "$out"
+
 echo "cmd_clean reads the table"
 
 # --- 5. wiring ------------------------------------------------------------------------------

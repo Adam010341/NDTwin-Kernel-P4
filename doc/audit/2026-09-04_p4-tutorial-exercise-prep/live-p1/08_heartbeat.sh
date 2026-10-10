@@ -112,6 +112,9 @@
 # Run:        NDT_OWNER=<you> bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
 #             NDT_OWNER=<you> PART=h5 bash .../08_heartbeat.sh
 # Self-test:  bash .../08_heartbeat.sh --self-test
+#             Run directly it needs a tree that has p4_proxy/venv (the main checkout): the venv is
+#             git-excluded, so a linked worktree or a `git archive` copy has none and the `consts`
+#             case goes red. tests/shell/mutate_p4_heartbeat_w.sh links the venv into its own trees.
 # Exit: 0 PASS, 1 FAIL (the last line says which, STOP for ruling 4), 2 refused before anything
 #       was started.
 set -euo pipefail

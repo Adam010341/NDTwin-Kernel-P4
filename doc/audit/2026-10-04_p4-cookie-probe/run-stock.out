@@ -1,0 +1,42 @@
+# Paths: <repo> is the worktree root, <scratch> is the local scratch/overnight-2026-09-05 directory (absolute prefixes replaced).
+# cookie-probe -- bmv2 /usr/local/bin/simple_switch_grpc -- 2026-10-04 04:36:40
+# worktree <repo> ; LIVENESS_PROBE_TIMEOUT_S=1.5
+bmv2 up: pid 2485468 grpc 127.0.0.1:29650 thrift 29500 device_id 945455 argv=ndt-hc-cookieprobe-bmv2 --use-files 2 -i 1@p1 -i 2@p2 --thrift-port 29500 --device-id 945455 --notifications-addr ipc://notif.ipc --log-file bmv2 --log-level debug --log-flush <scratch>/logs/gates-0910/ternary-a0/build-ndtwin/ndtwin_switch.json -- --grpc-server-addr 127.0.0.1:29650 --cpu-port 510
+################ A. client started (stream + arbitration), NO pipeline pushed
+[945455] Received arbitration response: Mastership confirmed.
+  mastership_confirmed=True stream_alive=True
+  client.probe() -> {'ok': False, 'detail': 'FAILED_PRECONDITION: No forwarding pipeline config set for this device'}
+  switch_liveness[1] = {"last_lldp_age_s": null, "pipeline_commits": 0, "probe_age_s": 0.05, "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device", "probe_ok": false, "stream_alive": true, "table_generation": null}
+  connected_switch_dpids() = []
+################ B. pipeline pushed through the client
+[945455] Setting Forwarding Pipeline Config...
+  client.probe() -> {'ok': True, 'detail': 'answered GetForwardingPipelineConfig'}
+  switch_liveness[1] = {"last_lldp_age_s": null, "pipeline_commits": 1, "probe_age_s": 0.05, "probe_detail": "answered GetForwardingPipelineConfig", "probe_ok": true, "stream_alive": true, "table_generation": "529bb571f16f4b6599e98a548f81e037"}
+  connected_switch_dpids() = [1]
+################ C. bmv2 stopped by pid (power off)
+[945455] Stream receiver error: Stream removed (Socket closed)
+  pid 2485468 stopped, exit status -15
+  client.probe() -> {'ok': False, 'detail': 'UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:29650: Failed to connect to remote host: Connection refused'}
+  switch_liveness[1] = {"last_lldp_age_s": null, "pipeline_commits": 1, "probe_age_s": 0.05, "probe_detail": "UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:29650: Failed to connect to remote host: Connection refused", "probe_ok": false, "stream_alive": false, "table_generation": "529bb571f16f4b6599e98a548f81e037"}
+  connected_switch_dpids() = []
+################ D. bmv2 restarted on the same ports + device id; OLD client kept
+bmv2 up: pid 2486432 grpc 127.0.0.1:29650 thrift 29500 device_id 945455 argv=ndt-hc-cookieprobe-bmv2 --use-files 2 -i 1@p1 -i 2@p2 --thrift-port 29500 --device-id 945455 --notifications-addr ipc://notif.ipc --log-file bmv2 --log-level debug --log-flush <scratch>/logs/gates-0910/ternary-a0/build-ndtwin/ndtwin_switch.json -- --grpc-server-addr 127.0.0.1:29650 --cpu-port 510
+  t+ 0.00s old client.probe() -> {'ok': False, 'detail': 'UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:29650: Failed to connect to remote host: Connection refused'}
+  t+ 0.50s old client.probe() -> {'ok': False, 'detail': 'UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:29650: Failed to connect to remote host: Connection refused'}
+  t+ 1.00s old client.probe() -> {'ok': False, 'detail': 'FAILED_PRECONDITION: No forwarding pipeline config set for this device'}
+  old client stream_alive=False
+  switch_liveness[1] = {"last_lldp_age_s": null, "pipeline_commits": 1, "probe_age_s": 0.05, "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device", "probe_ok": false, "stream_alive": false, "table_generation": "529bb571f16f4b6599e98a548f81e037"}
+  connected_switch_dpids() = []
+  => probe_ok=False with no fresh LLDP (last_lldp_age_s=None)
+################ E. readopt_switch (install_routes=False), then probe
+[945455] Received arbitration response: Mastership confirmed.
+[945455] Setting Forwarding Pipeline Config...
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+  readopt_switch -> {"clone_session": true, "dpid": 1, "routes_attempted": 0, "routes_installed": 0, "status": "success"}
+  topo.switches[1] is the new client: True
+  new client.probe() -> {'ok': True, 'detail': 'answered GetForwardingPipelineConfig'}
+  switch_liveness[1] = {"last_lldp_age_s": null, "pipeline_commits": 1, "probe_age_s": 0.05, "probe_detail": "answered GetForwardingPipelineConfig", "probe_ok": true, "stream_alive": true, "table_generation": "613ab814aec14aaab17653951843d062"}
+  connected_switch_dpids() = [1]
+  stopping bmv2 pid 2486432 -> exit -15
+# done; no throwaway left alive: True
+exit=0

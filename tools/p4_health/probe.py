@@ -5,9 +5,13 @@
 
     probe.py s0 --run-dir <dir> [--py-p4 PY]      S0, no lab (Cut 1)
     probe.py judge --observations OBS.json --run-dir DIR           verdicts from recorded readings
-    probe.py lab ...                                               refused: Cut 2 builds it
+    probe.py lab --run-dir DIR --owner O [--bringups A,B] [--only K1,TTL1] [--mutant]
+                                                                   S0, then bring-ups A and B (Cut 2)
 
-Exit: 0 COMPLETE, 1 PROBE-BROKEN (not publishable), 2 INCOMPLETE / refused.
+Exit: 0 COMPLETE, 1 PROBE-BROKEN (not publishable), 2 INCOMPLETE / refused. On `lab`, 1 is PROBE-BROKEN and nothing
+else (round 5): an S0 that is not whole, a run that cannot start and an exception are all 2, and so is
+SEE-RED-NOT-SEEN: a --mutant run (complete, clean) in which no cell is PROBE-BROKEN, i.e. the probe did not
+notice the mutant. The see-red run's pass is PROBE-BROKEN rc 1 with empty problems.
 Refuses to run as root (design 7.3). Wrap in run.sh (setsid, nice) for anything long.
 """
 from __future__ import annotations
@@ -31,25 +35,64 @@ from p4_health.collect.runner import Runner  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+#: (Cut 2 round 5, #5) Every module of the package that the probe process can load on a lab run. `cmd_lab`
+#: imports them all BEFORE its clean check, so that no probe code is read from the shared tree after the
+#: check: identity.py (the gate fingerprint, the standing authorization's baseline) and the modules S0
+#: imports lazily (vs_trial, ctrl_trial, round_b, ...) used to be first imported ~2 minutes later, from
+#: whatever the tree held then. Chosen over re-verifying each loaded module's file against HEAD just before
+#: run_lab because the check would compare the FILE, not the code the process loaded (an edit made and
+#: undone in between passes it), and because it could not cover a module loaded after it. What stays
+#: outside: the files run as scripts (probe.py itself, hostside.py -- root runs the frozen copy --,
+#: openapi_probe.py, capture_thrift_fixtures.py), and the window between the process's start and the check,
+#: in which the package's top-level imports (cells, collect.config, expected, report, runner) were read.
+#: tests: the list is the package's module list, less those script-only files.
+LAB_PATH_MODULES = (
+    "p4_health.attribution", "p4_health.cells.table", "p4_health.cells.verdict", "p4_health.collect.config",
+    "p4_health.collect.fabric", "p4_health.collect.hosts", "p4_health.collect.kernel",
+    "p4_health.collect.proxy", "p4_health.collect.ps", "p4_health.collect.runner", "p4_health.collect.sniff",
+    "p4_health.collect.tc", "p4_health.collect.thrift", "p4_health.controller_ext", "p4_health.ctrl_trial",
+    "p4_health.expected", "p4_health.frames", "p4_health.frozen", "p4_health.identity", "p4_health.lab",
+    "p4_health.lab_round", "p4_health.observe", "p4_health.observe_a", "p4_health.report",
+    "p4_health.round_a", "p4_health.round_b", "p4_health.runtime_cli", "p4_health.s0",
+    "p4_health.throwaway", "p4_health.vs_trial")
+
+
+def load_lab_path():
+    import importlib
+    for name in LAB_PATH_MODULES:
+        importlib.import_module(name)
+
+
+def _git_run(*args):
+    """(rc, stdout) of one git call; rc None when git could not run at all (missing, timeout)."""
+    try:
+        res = subprocess.run(["git", "-C", REPO] + list(args), stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, universal_newlines=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None, ""
+    return res.returncode, (res.stdout or "").strip()
+
 
 def _git(*args):
-    try:
-        return subprocess.run(["git", "-C", REPO] + list(args), stdout=subprocess.PIPE,
-                              stderr=subprocess.DEVNULL, universal_newlines=True, timeout=10).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        return ""
+    """stdout of a git call that only labels a record; "" when git could not answer. A decision
+    must not rest on this -- use _git_run and its rc (Cut 2 review N3)."""
+    rc, out = _git_run(*args)
+    return out if rc == 0 else ""
 
 
-def probe_version():
-    """The git tree sha of tools/p4_health at HEAD, plus whether the working copy differs."""
-    tree = _git("rev-parse", "HEAD:tools/p4_health") or "unknown"
+def probe_version(head=None):
+    """The git tree sha of tools/p4_health at HEAD (or at `head`, a sha the freeze pinned), plus whether
+    the working copy differs."""
+    tree = _git("rev-parse", "%s:tools/p4_health" % (head or "HEAD")) or "unknown"
     dirty = _git("status", "--porcelain", "--", "tools/p4_health")
     return tree + ("+uncommitted" if dirty else "")
 
 
-def repo_identity():
-    """HEAD (a commit sha), the probe's tree, and whether either is dirty (review MINOR 14)."""
-    return {"head": _git("rev-parse", "HEAD") or "unknown", "probe_tree": probe_version(),
+def repo_identity(head=None):
+    """HEAD (a commit sha), the probe's tree, and whether either is dirty (review MINOR 14). A lab run
+    passes the sha its freeze pinned (round 5, NIT 7): the identity names the commit the copies were
+    checked against, not whatever HEAD is by the time this is written."""
+    return {"head": head or _git("rev-parse", "HEAD") or "unknown", "probe_tree": probe_version(head),
             "dirty_paths": len([l for l in _git("status", "--porcelain").splitlines() if l.strip()])}
 
 
@@ -75,7 +118,14 @@ def cmd_judge(args):
     ann = E.annotate(ctx, expected)
     rollups = {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}
     # A recording that does not say its bring-ups completed did not complete (review MINOR 19).
-    verdict, rc = V.run_verdict(ctx, bringups_complete=doc.get("bringups_complete") is True)
+    # (round 5, NIT 11) a recording that carries a stop reads INCOMPLETE offline too, and a see-red
+    # recording (`mutant`/`see_red`) is judged by the see-red rule, exactly as lab.run_lab does it live
+    from p4_health.lab import signalled
+    stopped = (doc.get("stopped") is True or any(signalled(b) for b in doc.get("bringups") or [])
+               or any(str(p).startswith("stop signal") for p in doc.get("problems") or []))
+    see_red = doc.get("see_red") is True or doc.get("mutant") is True
+    verdict, rc = V.run_verdict(ctx, bringups_complete=doc.get("bringups_complete") is True,
+                                stopped=stopped, see_red=see_red)
     rows = R.table_rows(T.TABLE, ctx, ann)
     os.makedirs(args.run_dir, exist_ok=True)
     with open(os.path.join(args.run_dir, "00_table.tsv"), "w", encoding="utf-8") as fh:
@@ -86,6 +136,85 @@ def cmd_judge(args):
                     verdict))
     print(R.render(rows, rollups))
     print("verdict %s%s" % (verdict, "  -- NOT PUBLISHABLE" if verdict == "PROBE-BROKEN" else ""))
+    return rc
+
+
+def cmd_lab(args):
+    """S0 in the run directory, then the lab (lab.run_lab). The owner is required: every ndt
+    call carries it (CLAUDE.md), and claims are made in its name."""
+    load_lab_path()
+    from p4_health import lab as L
+    from p4_health.collect.config import Config
+    from p4_health.s0 import S0
+    owner = args.owner or os.environ.get("NDT_OWNER")
+    if not owner:
+        print("refused: --owner (or NDT_OWNER) is required for a lab run", file=sys.stderr)
+        return 2
+    # (Cut 2 review m4) a lab run runs probe code from this working tree (frozen below):
+    # it is refused unless tools/p4_health is exactly what HEAD says (no edit, no new file)
+    git_rc, dirty = _git_run("status", "--porcelain", "--", "tools/p4_health")
+    if git_rc != 0:
+        # (Cut 2 review N3) no answer is not "clean"
+        print("refused: git status could not tell whether tools/p4_health is clean (rc %s)" % (git_rc,),
+              file=sys.stderr)
+        return 2
+    if dirty:
+        print("refused: tools/p4_health has uncommitted changes; a lab run runs only committed "
+              "code:\n%s" % dirty, file=sys.stderr)
+        return 2
+    run_dir = os.path.abspath(args.run_dir)
+    run_id = os.path.basename(run_dir.rstrip("/"))
+    # (Cut 2 round 4, F4) Freeze right after the clean check, before S0: every round runs these
+    # copies, and each is checked against HEAD's blob, so an edit made since the check is refused
+    # here, before any lab action (git that cannot answer is a refusal too)
+    from p4_health import frozen as FZ
+    try:
+        frozen = FZ.freeze(run_dir, repo=REPO, git=_git_run)
+    except FZ.Refused as exc:
+        print("refused: %s" % exc, file=sys.stderr)
+        return 2
+    py = args.py_p4 or os.environ.get("P4_PROXY_PY") or os.path.join(REPO, "p4_proxy", "venv", "bin", "python")
+    runner = Runner()
+    ident = repo_identity(head=frozen.head)
+    print("lab run %s -> %s  (HEAD %s, probe tree %s)" % (run_id, run_dir, ident["head"], ident["probe_tree"]))
+    s0 = S0(run_dir, runner, py, frozen=frozen)
+    s0.out["repo"] = ident
+    s0.run()
+    print("S0 %s" % s0.out["verdict"])
+    cfg = Config(run_dir, owner=owner)
+    bringups = tuple(b for b in (args.bringups or "A,B").split(",") if b)
+    only = [c for c in (args.only or "").split(",") if c] or None
+    if s0.out["verdict"] != "COMPLETE":
+        # (Cut 2 round 5, #2) rc 1 is PROBE-BROKEN, the see-red run's pass: an S0 that is not whole is
+        # INCOMPLETE rc 2, and run_lab writes the health.json that says which check failed. No identity
+        # work, no lab.
+        rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
+                             mutant=args.mutant, frozen=frozen)
+        return rc
+    # (Cut 2 review m4) DESIGN 4.3 and Q6(a): what this run ran, recorded before the lab
+    from p4_health import identity as ID
+    from p4_health.vs_trial import fabric_binary
+    live = os.path.join(REPO, "doc", "audit", "2026-09-04_p4-tutorial-exercise-prep", "live-p1")
+    sut = ID.system_under_test(runner, REPO, run_dir, py, os.path.join(live, "code_identity.py"))
+    try:
+        fabric = fabric_binary()
+    except OSError:
+        fabric = None                   # unreadable override: the fingerprint says incomplete
+    gate = ID.fingerprint(runner, REPO, run_dir,
+                          [py, cfg.p4dev_python, os.path.join(os.path.expanduser("~"), "miniconda3", "envs",
+                                                              "ntg-env", "bin", "python")],
+                          fabric_bmv2=fabric, fp_script=os.path.join(live, "venv_fingerprint.sh"))
+    ID.dump(os.path.join(run_dir, "gate_fingerprint.json"), gate)
+    print("gate fingerprint %s; system under test %s" % (gate["sha256"], sut))
+    if sut is None or gate.get("sha256") in (None, "incomplete"):
+        # (Cut 2 review N3) the first authorized run's record is the standing authorization's
+        # baseline: without it the run cannot be what it is meant to be, so the lab is not touched
+        print("refused: the identity record is incomplete (system under test %s, fingerprint %s); "
+              "see %s/gate_fingerprint.json" % (sut, gate.get("sha256"), run_dir), file=sys.stderr)
+        return 2
+    rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
+                         mutant=args.mutant, identity={"gate_fingerprint": gate, "system_under_test": sut},
+                         frozen=frozen)
     return rc
 
 
@@ -102,15 +231,29 @@ def main(argv=None):
     j.add_argument("--observations", required=True)
     j.add_argument("--run-dir", required=True)
     j.add_argument("--expected", default=None)
-    sub.add_parser("lab")
+    lab = sub.add_parser("lab")
+    lab.add_argument("--run-dir", required=True)
+    lab.add_argument("--owner", default=None)
+    lab.add_argument("--bringups", default="A,B")
+    lab.add_argument("--only", default=None)
+    lab.add_argument("--mutant", action="store_true")
+    lab.add_argument("--py-p4", default=None)
     args = ap.parse_args(argv)
     if args.cmd == "s0":
         return cmd_s0(args)
     if args.cmd == "judge":
         return cmd_judge(args)
     if args.cmd == "lab":
-        print("refused: the lab half of the health check is Cut 2 and is not built", file=sys.stderr)
-        return 2
+        try:
+            return cmd_lab(args)
+        except Exception:  # noqa: BLE001
+            # (Cut 2 round 5, #2) Python's status for an uncaught exception is 1 -- PROBE-BROKEN, which on
+            # the see-red run is the pass. Whatever the lab path did not foresee is INCOMPLETE rc 2.
+            import traceback
+            traceback.print_exc()
+            print("refused: the lab run ended on an exception (above); it is INCOMPLETE, not a verdict. "
+                  "If a round was under way, finish with recover.sh on the run dir.", file=sys.stderr)
+            return 2
     ap.print_help()
     return 2
 

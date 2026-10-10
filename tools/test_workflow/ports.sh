@@ -90,15 +90,36 @@ ndt_port_expand() {
 # 2 is a real answer and callers must not fold it into "closed". UDP has no connect handshake
 # to borrow, so the only probe is `ss`; where `ss` is missing the honest report is "blind",
 # which is the same distinction read_ephemeral_range() already makes in grpc_ports.py.
+#
+# [Co-developed with claude code -- Adam]
+# And where `ss` is there but exits non-zero, its empty output is not "nothing listens" either --
+# that was the same fold, one level down. A non-zero exit is the only failure ss reports: an
+# option or filter this ss rejects (an iproute2 too old for -H, say). When it cannot read the
+# socket tables at all it still exits 0 with no output, and that is still read as closed -- this
+# does not catch it. On a current iproute2 the query below does not fail, so this branch is inert
+# there; it is for an ss that does.
 ndt_port_open() {
     local port="$1" proto="${2:-tcp}"
     if [[ "$proto" == udp ]]; then
         command -v ss >/dev/null 2>&1 || return 2
-        ss -lunH "( sport = :$port )" 2>/dev/null | grep -q . && return 0
+        local out
+        out="$(ss -lunH "( sport = :$port )" 2>/dev/null)" || return 2
+        [[ -n "$out" ]] && return 0
         return 1
     fi
     (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null && exec 3>&- && return 0
     return 1
+}
+
+# ndt_port_blind_why -- why ndt_port_open answered 2, for the line that names the port
+# a caller could not check. One place for the reason, so no caller has to guess it.
+# [Co-developed with claude code -- Adam]
+ndt_port_blind_why() {
+    if ! command -v ss &>/dev/null; then
+        echo "no ss on PATH, and UDP can only be probed through ss"
+    else
+        echo "ss is on PATH but its query failed"
+    fi
 }
 
 # ndt_port_listener_pids <port> [proto] -- pids holding it, one per line. Empty when the
@@ -142,8 +163,8 @@ ndt_port_residue() {
             case $? in
                 0) ;;
                 2) blind=1
-                   printf 'residue: :%s (%s) could NOT be probed on this machine (no ss) -- not a pass\n' \
-                          "$port" "$proto"
+                   printf 'residue: :%s (%s) could NOT be probed on this machine (%s) -- not a pass\n' \
+                          "$port" "$proto" "$(ndt_port_blind_why)"
                    printf '         -> owner: %s\n' "$owner"
                    continue ;;
                 *) continue ;;

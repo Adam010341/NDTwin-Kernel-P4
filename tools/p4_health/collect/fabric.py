@@ -22,14 +22,25 @@ def host_pid(ps_lines, host):
 
 
 def veth_peers(ip_link_text):
-    """{iface: peer ifindex} from `ip -o link show` (lines `N: s1-eth1@if7: ...`)."""
+    """{iface: its veth peer} from `ip -o link show`. iproute2 prints the peer two ways
+    (Cut 2 review MAJOR-1; seen with iproute2-6.1.0, the gate log r2/veth_format.log):
+
+        3: s1-eth4@s2-eth2: ...    the peer is in the SAME namespace -> its NAME (a str)
+        5: s1-eth1@if2: ...        the peer is in ANOTHER namespace -> its ifindex THERE (an int)
+
+    A Mininet fabric's switches live in the root namespace, so every switch-to-switch link is the
+    first kind and every host-facing port the second. An interface printed with no `@` is not in
+    the map. None when there is no text."""
     out = {}
     if ip_link_text is None:
         return None
     for line in ip_link_text.splitlines():
-        m = re.match(r"^(\d+):\s+([^@:\s]+)@if(\d+):", line)
-        if m:
-            out[m.group(2)] = int(m.group(3))
+        m = re.match(r"^(\d+):\s+([^@:\s]+)@([^:\s]+):", line)
+        if not m:
+            continue
+        peer = m.group(3)
+        idx = re.match(r"^if(\d+)$", peer)
+        out[m.group(2)] = int(idx.group(1)) if idx else peer
     return out
 
 

@@ -150,6 +150,26 @@ m14=$(mutant m14 '    pos = apos + 2
 report "M14: a declared hit count is ignored (an invented DUP)" "$m14" \
        "test_a_declared_count_is_read_once_by_both_rules"
 
+# [Co-developed with claude code -- Adam]
+# The temp directory's removal. M15 swaps rmtree for os.rmdir (errors ignored): an EMPTY directory
+# still goes, so only the variants that populate it (--merge-with-base) can see it. M16 moves the
+# removal out of `finally`: a normal return still removes it, so only the exception variant can.
+m15=$(mutant m15 '        shutil.rmtree(tmpdir, ignore_errors=True)'$'\x1f''        try:
+            os.rmdir(tmpdir)
+        except OSError:
+            pass')
+report "M15: the temp dir is removed with os.rmdir (empty only)" "$m15" \
+       "test_a_populated_directory_is_removed"
+
+m16=$(mutant m16 '    try:
+        return _check_and_print(a, src, revs, names, tmpdir)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)'$'\x1f''    rc = _check_and_print(a, src, revs, names, tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=True)
+    return rc')
+report "M16: the temp dir is removed only on a normal return" "$m16" \
+       "test_an_exception_after_the_files_were_written_still_removes_it"
+
 echo
 if [[ "$(sha256sum "$CHECKER" | cut -d' ' -f1)" == "$BASE_SHA" ]]; then
     echo "baseline byte-identical: yes (check_gate_anchors.py was never written)"

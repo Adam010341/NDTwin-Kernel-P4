@@ -110,7 +110,10 @@ ltree() {   # ltree <dir>
     cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
     mkdir -p "$d/p4_proxy"   # a real directory: its mininet/ (the knobs) is simply not there
     ln -s "$REPO/p4_proxy/proxy_agent" "$d/p4_proxy/proxy_agent"
-    ln -s "$REPO/p4_proxy/venv" "$d/p4_proxy/venv"
+    # [Co-developed with claude code -- Adam] The venv is git-excluded, so a linked worktree has none.
+    # Link the one the interpreter this gate chose ($PY, which honours PROXY_PY and falls back to the
+    # main worktree's) lives in, so 08 runs on the same interpreter as the rest of the gate.
+    ln -s "$(dirname "$(dirname "$PY")")" "$d/p4_proxy/venv"
 }
 ltree_leaks() {   # ltree_leaks <dir> -> one line per way out of the tree; nothing when sealed
     local d="$1" k l

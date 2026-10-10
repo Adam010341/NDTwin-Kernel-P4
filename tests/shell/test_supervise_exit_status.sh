@@ -241,9 +241,35 @@ for st in 0 1 2 130 143; do
 done
 
 # Seam: this run has no stack of its own, and cmd_down's other failure mode is a port that is
-# still listening. Overriding port_open keeps the verdict below about the ENDINGS, which is what
-# these cases are for; the port guard has its own tests.
-port_open() { return 1; }
+# still listening. Overriding the probe keeps the verdict below about the ENDINGS, which is what
+# these cases are for; the port guard has its own tests: test_ports_that_block_restart.sh covers
+# the real ndt_port_open / ndt_port_residue, and test_cmd_down_leftovers.sh runs the real
+# stack.sh cmd_down leftovers branch against a listener it owns. (test_ndt_down_stops_only_ours.sh
+# does NOT cover that branch -- it replaces stack.sh with a fake.)
+#
+# [Co-developed with claude code -- Adam]
+# The probe cmd_down calls is ndt_port_open (ports.sh), not port_open. This seam used to stub only
+# port_open, so a listener on a port ports.sh probes (TCP rows at 127.0.0.1, plus the udp row) --
+# another session's stack on :6653/:8000/:8080, say -- made cmd_down report leftovers: five checks
+# went red and two more passed for the wrong reason (their rc 1 came from the leftovers return,
+# not from the ending they name). GitHub CI has no stack, so it stayed green there. Every probe
+# records its call in a
+# file (cmd_down runs in $(...), so a variable would not survive), and the check below asserts
+# that cmd_down probed the table's (port, proto) pairs through the stubbed ndt_port_open and that
+# none of the four tripwired helpers below (port_open, ndt_port_holder, ndt_port_listener_pids,
+# port_listener_pids) was called. It does NOT catch a probe through any other route (ss,
+# /dev/tcp, curl): a new real probe of that kind would still pass here, and on a machine with a
+# listener the ending checks would go red again.
+PROBE_CALLS="$TMP/port_probe.calls"
+PROBE_STRAY="$TMP/port_probe.stray"
+: >"$PROBE_CALLS"; : >"$PROBE_STRAY"
+ndt_port_open() { echo "$1 ${2:-tcp}" >>"$PROBE_CALLS"; return 1; }
+# The three holder helpers are reached only for a port reported open, which the stub above never
+# does; cmd_down never calls port_open at all. Any call to any of the four is a stray.
+port_open()               { echo "port_open $*" >>"$PROBE_STRAY"; return 1; }
+ndt_port_holder()         { echo "ndt_port_holder $*" >>"$PROBE_STRAY"; echo "stub"; }
+ndt_port_listener_pids()  { echo "ndt_port_listener_pids $*" >>"$PROBE_STRAY"; return 0; }
+port_listener_pids()      { echo "port_listener_pids $*" >>"$PROBE_STRAY"; return 0; }
 
 write_exit() { printf 'status=%s\nsignal=%s\nreason=%s\n' "$2" "${3:-none}" "injected by the test" \
     >"$PID_DIR/$1.exit"; }
@@ -254,6 +280,36 @@ out="$(cmd_down 2>&1)"; rc=$?
 check "an aborted kernel fails down" "1" "$rc"
 case "$out" in *kernel*134*) check "and down names it" "yes" "yes" ;;
                *) check "and down names it" "yes" "no: $out" ;; esac
+# The guard: one cmd_down probed every (port, proto) pair of ports.sh's table through the stub,
+# once each, and none of the four tripwires answered. The pairs are compared, not just counted:
+# a count stays green when the proto argument is dropped (the TCP-only probe that hid :6343) and
+# when the table expands to nothing (0 == 0), so want_probes > 0 is asserted on its own.
+want_pairs="$TMP/port_probe.want"
+: >"$want_pairs"
+while IFS='|' read -r _spec _proto _rest; do
+    [[ -z "$_spec" ]] && continue
+    for _p in $(ndt_port_expand "$_spec"); do echo "$_p ${_proto:-tcp}" >>"$want_pairs"; done
+done < <(ndt_port_rows all)
+want_probes=$(wc -l <"$want_pairs")
+LC_ALL=C sort -o "$want_pairs" "$want_pairs"
+
+# One line: "N probes, M stray, pairs match" or "... pairs differ (missing: ..., extra: ...)".
+probe_verdict() {
+    local got="$TMP/port_probe.got" miss extra pairs
+    LC_ALL=C sort "$PROBE_CALLS" >"$got"
+    if cmp -s "$got" "$want_pairs"; then
+        pairs="pairs match"
+    else
+        miss="$(LC_ALL=C comm -23 "$want_pairs" "$got" | head -3 | tr '\n' ',')"
+        extra="$(LC_ALL=C comm -13 "$want_pairs" "$got" | head -3 | tr '\n' ',')"
+        pairs="pairs differ (missing: ${miss:-none} extra: ${extra:-none})"
+    fi
+    echo "$(wc -l <"$PROBE_CALLS") probes, $(wc -l <"$PROBE_STRAY") stray, $pairs"
+}
+check "the table expands to at least one probe" "yes" \
+    "$([[ "$want_probes" -gt 0 ]] && echo yes || echo "no: $want_probes")"
+check "cmd_down probes every (port, proto) of the table only through the stubbed ndt_port_open" \
+    "$want_probes probes, 0 stray, pairs match" "$(probe_verdict)"
 out="$(cmd_down 2>&1)"; rc=$?
 check "the same crash is not reported twice" "0" "$rc"
 
@@ -372,10 +428,17 @@ check "🔴 an ending stop_one already reported is not reported again" "1" \
 rm -f "$PID_DIR"/*
 STACK_FATAL_ENDINGS=""; STACK_EXITS_REPORTED=""
 write_exit ryu 7
+# This section runs on the ndt_port_open stub and the four tripwires defined in the section
+# above; reset their records so the check after the call speaks about this cmd_down only. First
+# check that nothing fired in the cmd_down calls in between, which the reset would discard.
+check "no tripwire fired in the earlier cmd_down calls" "0" "$(wc -l <"$PROBE_STRAY")"
+: >"$PROBE_CALLS"; : >"$PROBE_STRAY"
 out="$(cmd_down 2>&1)"; rc=$?
 check "🔴 cmd_down names the orphaned ending" "yes" \
     "$(case "$out" in *"ryu exit status 7"*) echo yes ;; *) echo "no: $out" ;; esac)"
 check "  and a non-fatal one does not fail the teardown" "0" "$rc"
+check "  and this cmd_down also probed only through the stub" \
+    "$want_probes probes, 0 stray, pairs match" "$(probe_verdict)"
 rm -f "$PID_DIR"/*
 
 # --- the log gate must recognise the message the kernel actually printed ----------------------

@@ -282,7 +282,7 @@ add "16. an unreadable switch_state is rendered as an ordinary (empty) report" \
 #
 # 🔴 17 IS THE ONE THAT WAS ACTUALLY BROKEN. `ndt up p4 --app` writes the model's host count
 # into p4_proxy/mininet/host_count_override, `ndt down` does not put it back, and `ndt release`
-# REFUSES while it differs from what the round started at (ndt:885-898). So before the restore
+# REFUSES while it differs from what the round started at (ndt:889-902). So before the restore
 # existed, `--fabric ndtwin source_routing` (three hosts) ended with the lab still claimed and
 # the driver exiting 0.
 add "17. the host knob is never put back, so the release is refused" \

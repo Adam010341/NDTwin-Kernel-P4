@@ -116,6 +116,10 @@ def a_client(stub=None):
         client.packet_in_ids = None
         client.packet_in_ids_error = str(exc)
     client.packet_out_ids = packet_out_metadata_ids(client.p4info)
+    # A foreign pipeline with no `roles`, as main.route_binding_for binds it: every table here is
+    # the author's. Left to the class default this double would be a BASELINE client, and the
+    # generic writer refuses every table of NDTwin's own pipeline (409 owned_by_ndtwin).
+    client.bind_routes(None)
     return client
 
 

@@ -1328,9 +1328,20 @@ def main():
 
     if a.merge_with_base and not a.gates_from:
         ap.error("--merge-with-base only means something together with --gates-from")
+    import shutil
     import tempfile
+    # [Co-developed with claude code -- Adam]
+    # merged_body() writes its three merge inputs here. Removed on every way out, including an
+    # exception: before this, every run left a gate_anchors_* directory behind in $TMPDIR.
     tmpdir = tempfile.mkdtemp(prefix="gate_anchors_")
+    try:
+        return _check_and_print(a, src, revs, names, tmpdir)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
+
+def _check_and_print(a, src, revs, names, tmpdir):
+    """Count every anchor, print the grid and the details, and return the exit status."""
     grid, unparsed, details = {}, [], []
     delegation = {}
     for gate in names:

@@ -177,32 +177,59 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
         text_format.Merge(open(path).read(), p4info)
         return p4info
 
-    def test_a_ternary_table_in_a_real_compiled_p4info_is_built(self):
+    def test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_builds_it(self):
         # 🔴 The only REAL ternary table this repository has, and until round 3 nothing pointed
         # the writer at it. `MyIngress.flow_5tuple` is p4c's output from ndtwin_switch.p4: six
         # TERNARY fields it decided the numbering of. None of the tutorials fixtures has one
         # (asserted in test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match), so
         # this is where "a real compiler said TERNARY and the writer built it" gets checked.
         # It used to be where the writer REFUSED it (501); the ternary writer reversed that.
+        #
         # [Co-developed with claude code -- Adam]
+        # Two halves, because two things decide this entry. This client is a BASELINE client
+        # (the class default, which is what the proxy binds to NDTwin's own pipeline), so the
+        # owner check answers first: the write is refused as NDTwin's table (409
+        # owned_by_ndtwin) before the match is looked at, and nothing reaches the switch. The
+        # encoding -- a real compiler's TERNARY field built as value and mask, with its
+        # priority -- is checked where it still happens on this pipeline, at the builder. The
+        # client is deliberately NOT bound to None: that would model a switch running NDTwin's
+        # p4info with no roles. A package that carries its own copy of NDTwin's compiled
+        # program is foreign (app_package.py compares resolved paths) and binds None, so such a
+        # switch can exist -- but the proxy's own pipeline is the common case, and binding None
+        # would hide the change in precedence that this test is here to show.
         client = a_client()
         client.p4info = self.real_ndtwin_p4info()
         table = client._table_by_name("MyIngress.flow_5tuple")
         self.assertEqual({client._match_type_name(f) for f in table.match_fields}, {"TERNARY"})
-
-        client.write_table_entry({
+        # A priority, so the entry is one the writer would otherwise accept: on a tree without
+        # the owner check this fails because the write went out, not because a shape rule
+        # refused it.
+        spec = {
             "table": "MyIngress.flow_5tuple",
             "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
             "action_name": "MyIngress.ipv4_forward",
             "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1},
-            "priority": 10})
-        self.assertEqual(len(client.stub.requests), 1)
-        sent = client.stub.requests[0].updates[0].entity.table_entry
-        field = sent.match[0]
+            "priority": 10}
+
+        # Looked up by name so that on a tree without the owner check this fails because the
+        # write was ACCEPTED, not because the attribute is missing.
+        owned = getattr(p4_client_module, "TableOwnedByNDTwin",
+                        type("TableOwnedByNDTwinIsNotDefinedYet", (Exception,), {}))
+        with self.assertRaises(owned):
+            client.write_table_entry(spec)
+        self.assertEqual(client.stub.requests, [],
+                         "a refusal this proxy makes itself must not reach the switch")
+
+        entry, kinds = client.build_table_entry(spec)
+        self.assertEqual(kinds, {"hdr.ipv4.dstAddr": "TERNARY"})
+        self.assertEqual(len(entry.match), 1)
+        field = entry.match[0]
         self.assertEqual(field.WhichOneof("field_match_type"), "ternary")
         self.assertEqual(field.ternary.value, bytes([10, 0, 1, 1]))
         self.assertEqual(field.ternary.mask, b"\xff\xff\xff\xff")
-        self.assertEqual(sent.priority, 10)
+        self.assertEqual(entry.priority, 10)
+        self.assertEqual(client.stub.requests, [],
+                         "building an entry must not reach the switch")
 
     def test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables(self):
         # The control for the test above: the ternary table builds, and the exact and lpm tables

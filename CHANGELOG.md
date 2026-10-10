@@ -87,6 +87,12 @@ What is still open: `doc/2026-07-29_HANDOFF.md`.
 12. **P4 declares its limits**: group/meter operations return `501 unsupported` rather than
     silently redirecting to Ryu.
 
+12a. **`POST /p4/table_entry` refuses the tables NDTwin owns** with `409`
+    (`error: "owned by NDTwin"`, `outcome: "owned_by_ndtwin"`). On a switch running NDTwin's own
+    pipeline that is every table (`ipv4_lpm`, `l2_forward`, `flow_5tuple`); on a package
+    pipeline it is the `roles.ipv4_route` table when its owner is `ndtwin`. A package's own
+    runtime entries may still set that table's default action at startup.
+
 ### Added (test tooling)
 
 13. **Layered test harness** (`tools/test_workflow/`): L0 build check, L1 unit tests

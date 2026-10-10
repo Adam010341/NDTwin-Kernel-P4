@@ -136,6 +136,20 @@ m=$(mutant m9 "$NDT" 'residue="$(ndt_port_residue all)"; local prc=$?' 'residue=
 report "M9: cmd_clean stops reading the table (its own list again)" "$m" \
        "cmd_clean's port residue comes from the shared table function"
 
+# --- cannot tell: an ss that FAILS is blind, not "nothing listens" --------------------------
+# [Co-developed with claude code -- Adam]
+m=$(mutant m10 "$PORTS" '        out="$(ss -lunH "( sport = :$port )" 2>/dev/null)" || return 2' \
+    '        out="$(ss -lunH "( sport = :$port )" 2>/dev/null)"')
+report "M10: a failing ss query is read as closed again" "$m" \
+       "ss present but exiting 1 with no output -> 2 (cannot tell), not 1"
+
+# M11: the other direction -- every empty answer is "cannot tell". Only the real-ss check sees it.
+m=$(mutant m11 "$PORTS" '        [[ -n "$out" ]] && return 0
+        return 1' '        [[ -n "$out" ]] && return 0
+        return 2')
+report "M11: a free udp port reads 'cannot tell'" "$m" \
+       "real ss: a free udp port reads 1 (closed), not 2"
+
 echo
 [[ "$(sha256sum "$PORTS" | cut -d' ' -f1)" == "$BASE_PORTS" ]] || { echo "🔴 baseline CHANGED -- ports.sh was written during the gate"; exit 3; }
 [[ "$(sha256sum "$NDT" | cut -d' ' -f1)" == "$BASE_NDT" ]] || { echo "🔴 baseline CHANGED -- ndt was written during the gate"; exit 3; }
