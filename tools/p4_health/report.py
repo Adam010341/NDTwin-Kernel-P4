@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 from .cells import verdict as V
 
@@ -72,7 +73,24 @@ def health(run_id, probe_version, lab_surface, s0, bringups, table, ctx, annotat
     }
 
 
+def write_json_atomic(path, doc, default=sorted):
+    """(round 6, finding 5) `doc` as JSON at `path` through a temp file and os.replace: the file is either
+    the whole new one or what was there before, never half of one, and a failed write leaves no temp file."""
+    tmp = "%s.tmp-%d" % (path, os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(doc, fh, indent=2, sort_keys=True, default=default)
+            fh.write("\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def dump(path, doc):
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(doc, fh, indent=2, sort_keys=True, default=sorted)
-        fh.write("\n")
+    write_json_atomic(path, doc)

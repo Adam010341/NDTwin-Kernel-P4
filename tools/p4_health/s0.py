@@ -13,13 +13,16 @@ the Runner does not wrap (a long-lived child stopped by its pid): see throwaway.
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
 import re
 import shutil
+import signal
 
 from . import frames as F
+from . import frozen as FZ
 from . import runtime_cli as RC
 from . import throwaway as TW
 from .cells import table as T
@@ -140,6 +143,32 @@ def _delta(before, after):
     return after[1] - before[1]
 
 
+def show_ports_ok(parsed, data_ports=(1, 2, 3), cpu_port=510):
+    """show_ports of a switch given `data_ports` as -i and `cpu_port` as --cpu-port: exactly the
+    data ports, with the CPU port allowed beside them (fabric_view skips it)."""
+    return parsed is not None and set(parsed) - {cpu_port} == set(data_ports)
+
+
+#: The signals a stop arrives as (lab_round.LabRound.SIGS, lab.STOP_SIGNALS).
+STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+
+
+@contextlib.contextmanager
+def stops_held():
+    """(Cut 2 round 7, finding 1) SIGTERM, SIGINT and SIGHUP blocked in the calling thread for the body of the `with`,
+    and the mask that was there put back afterwards, an exception included. A thread inherits the mask of the thread
+    that starts it, so every thread gRPC starts inside the body blocks the three for good; a lab round's own mask
+    (lab_round.LabRound._masked) covers the calling thread only, and `lab.run_lab` refuses to start the lab while a
+    thread of this process can take a stop. A stop that arrives meanwhile stays pending and is delivered, to
+    whatever handler is in place, when the mask is put back (S0 has none of its own: the default action ends the
+    process, as before, after the trial rather than in the middle of it)."""
+    held = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
+    try:
+        yield
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, held)
+
+
 def preflight_rows(stdout):
     """(FAIL rows, the problem lines under them) out of preflight.py's table."""
     return [line for line in (stdout or "").splitlines() if line.startswith("  FAIL")]
@@ -148,7 +177,10 @@ def preflight_rows(stdout):
 class S0(object):
     def __init__(self, run_dir, runner, py_p4, bmv2=TW.DEFAULT_BMV2,
                  thrift_cli=None,
-                 p4c="p4c-bm2-ss", hb_cache=None, log=print):
+                 p4c="p4c-bm2-ss", hb_cache=None, log=print, frozen=None):
+        #: (Cut 2 round 5, #5) the copies `probe.py lab` froze and checked against HEAD: the controller trial
+        #: and the adapter dry-run run those, not the shared tree's files. None (S0 on its own): the tree's.
+        self.frozen = frozen
         self.run_dir = os.path.abspath(run_dir)
         self.runner = runner
         self.py = py_p4
@@ -176,7 +208,7 @@ class S0(object):
     def compile_all(self):
         if os.path.exists(self.ex):
             shutil.rmtree(self.ex)
-        shutil.copytree(EXERCISE, self.ex, ignore=shutil.ignore_patterns("__pycache__", "build*"))
+        shutil.copytree(EXERCISE, self.ex, ignore=shutil.ignore_patterns(*FZ.COPY_IGNORE))
         src = os.path.join(self.ex, SRC_REL)
         for outdir, stem, defines in BUILDS:
             d = os.path.join(self.ex, outdir)
@@ -192,6 +224,15 @@ class S0(object):
             self.check("compile %s %s" % (key, " ".join(defines)), ok,
                        "p4info %s" % (self.out["builds"][key]["p4info_sha16"],))
         return all(b["rc"] == 0 for b in self.out["builds"].values())
+
+    def check_exercise_copy(self):
+        """(Cut 2 round 6, finding 2) The copy of exercise/ made at the start of compile_all is the model every
+        later step goes by (this class, lab.load_model, the controller trial). A lab run froze its code
+        against one pinned commit: the copy is checked against that commit as the frozen files are, and a
+        mismatch raises frozen.Refused -- `probe.py lab` answers rc 2 before any lab action. S0 on its own
+        (no frozen) has no commit to check against."""
+        if self.frozen is not None and getattr(self.frozen, "head", None):
+            self.frozen.check_exercise(self.ex)
 
     def p4info_identity(self):
         b = self.out["builds"]
@@ -246,17 +287,25 @@ class S0(object):
             shutil.rmtree(fwd_ex)
         shutil.copytree(self.ex, fwd_ex, ignore=shutil.ignore_patterns("build", "build-mutant"))
         os.rename(os.path.join(fwd_ex, "build-fwd"), os.path.join(fwd_ex, "build"))
+        # (Cut 2) A with the mutant artefact, for the live see-red run (design 5.2-④: --only
+        # K1,TTL1 must give PROBE-BROKEN by SC-count and SC-ttl). Its p4info is the plain one.
+        mut_ex = os.path.join(self.run_dir, "exercise-mutant")
+        if os.path.exists(mut_ex):
+            shutil.rmtree(mut_ex)
+        shutil.copytree(self.ex, mut_ex, ignore=shutil.ignore_patterns("build", "build-fwd"))
+        os.rename(os.path.join(mut_ex, "build-mutant"), os.path.join(mut_ex, "build"))
         self.pkgs = {
             "A": self.convert("A", "topology.json", "ndtwin"),
             "B": self.convert("B", "topology-b.json", "external"),
             "C": self.convert("C", "topology.json", "ndtwin", role=ROLE_C),
             "PF-T": self.convert("PF-T", "topology-pft.json", "ndtwin"),
             "FWD": self.convert("FWD", "topology.json", "ndtwin", exercise=fwd_ex),
+            "A-MUT": self.convert("A-MUT", "topology.json", "ndtwin", exercise=mut_ex),
         }
 
     def preflight(self):
         script = os.path.join(REPO, "tools", "p4_exercise", "preflight.py")
-        for name in ("A", "B", "C", "PF-T"):
+        for name in ("A", "B", "C", "PF-T", "A-MUT"):
             pkg = self.pkgs.get(name)
             if pkg is None:
                 self.check("pre-flight %s" % name, False, "no package")
@@ -280,7 +329,7 @@ class S0(object):
         script = os.path.join(REPO, "tools", "test_workflow", "heartbeat_drop_check.py")
         os.makedirs(self.hb_cache, exist_ok=True)
         env = {"NDT_HB_CHECK_CACHE": self.hb_cache}
-        want = {"A": 0, "B": 0, "C": 0, "FWD": 1}
+        want = {"A": 0, "B": 0, "C": 0, "FWD": 1, "A-MUT": 0}
         for name, rc_want in sorted(want.items()):
             pkg = self.pkgs.get(name)
             if pkg is None:
@@ -543,9 +592,12 @@ class S0(object):
         """VS1's Cut 2 safety question (review MAJ-8), asked of throwaway simple_switch_grpc."""
         try:
             from . import vs_trial as VT
-            results = [VT.trial(os.path.join(self.ex, "build"), b, self.thrift_cli,
-                                os.path.join(self.run_dir, "vs_trial_work"))
-                       for b in ("/usr/local/bin/simple_switch_grpc", VT.fabric_binary())]
+            # (round 7, finding 1) the trial runs gRPC in this process, and the threads gRPC starts must not be
+            # able to take a stop: see stops_held
+            with stops_held():
+                results = [VT.trial(os.path.join(self.ex, "build"), b, self.thrift_cli,
+                                    os.path.join(self.run_dir, "vs_trial_work"))
+                           for b in ("/usr/local/bin/simple_switch_grpc", VT.fabric_binary())]
         except Exception as exc:  # noqa: BLE001
             self.check("ValueSetEntry trial on throwaway simple_switch_grpc", False,
                        "%s: %s" % (type(exc).__name__, exc))
@@ -559,6 +611,88 @@ class S0(object):
                    "; ".join("%s: %s alive=%s" % (os.path.basename(os.path.dirname(os.path.dirname(r["bmv2"]))),
                                                    (r.get("write_errors") or [{}])[0].get("message"),
                                                    r.get("alive_after_write")) for r in results))
+
+    def ctrl_trial(self):
+        """(Cut 2) B's controller and attribution.confirm on throwaway simple_switch_grpc
+        switches, stock and fabric build: every attribution confirmed except the RegisterEntry
+        write, which bmv2's P4Runtime refuses ("Register writes are not supported yet", seen in
+        Cut 2) -- R3's bmv2 half therefore cannot be established and R3 reads UNATTRIBUTED."""
+        want_false = {"register"}
+        try:
+            from . import ctrl_trial as CT
+            from .vs_trial import fabric_binary
+            utils = os.path.join(os.path.expanduser("~"), "tutorials", "utils")
+            ctrl = {"controller": self.frozen.controller} if self.frozen else {}
+            results = [CT.trial(os.path.join(self.ex, "build"), b, self.thrift_cli,
+                                os.path.join(self.run_dir, "ctrl_trial_work", "%d" % i),
+                                default_p4dev_python(), utils, exercise=self.ex, **ctrl)
+                       for i, b in enumerate(("/usr/local/bin/simple_switch_grpc", fabric_binary()))]
+        except Exception as exc:  # noqa: BLE001
+            self.check("B's controller on throwaway simple_switch_grpc", False,
+                       "%s: %s" % (type(exc).__name__, exc))
+            return
+        self.out["ctrl_trial"] = results
+        for r in results:
+            failed = {k for k, v in r["confirmed"].items() if not v["ok"]}
+            self.check("B's controller on throwaway %s: 11 attributions" % os.path.basename(
+                           os.path.dirname(os.path.dirname(r["bmv2"]))),
+                       failed == want_false and r.get("controller_rc") == 0 and r.get("alive"),
+                       "unconfirmed %s (expected %s), controller rc %s"
+                       % (sorted(failed), sorted(want_false), r.get("controller_rc")))
+
+    def show_ports_trial(self):
+        """(Cut 2 second review N4, r1's test 10) What show_ports lists on a simple_switch_grpc
+        started the way BMv2Switch starts a fabric switch -- data ports as -i, then
+        `-- --grpc-server-addr ... --cpu-port 510` -- on throwaway switches, stock and fabric
+        build. TP1's oracle must place every port listed, so a listed CPU port would matter;
+        observe_a.fabric_view skips port 510 either way, and this records which it is."""
+        try:
+            from .vs_trial import fabric_binary
+            got = {}
+            for i, b in enumerate(("/usr/local/bin/simple_switch_grpc", fabric_binary())):
+                work = os.path.join(self.run_dir, "show_ports_trial", "%d" % i)
+                os.makedirs(work, exist_ok=True)
+                sw = TW.Throwaway(os.path.join(self.ex, "build", "hc_main.json"), {1: [], 2: [], 3: []},
+                                  510, self.thrift_cli, wait_s=2, bmv2=b, workdir=work,
+                                  argv0="ndt-hc-ports-bmv2", grpc=True, runner=self.runner)
+                sw.start()
+                try:
+                    from .collect import thrift as TH
+                    got[b] = TH.parse_show_ports(TH.body(sw.cli(["show_ports"])))
+                finally:
+                    sw.stop()
+        except Exception as exc:  # noqa: BLE001
+            self.check("show_ports on throwaway simple_switch_grpc with --cpu-port 510", False,
+                       "%s: %s" % (type(exc).__name__, exc))
+            return
+        self.out["show_ports_trial"] = {b: sorted(p) if p else None for b, p in got.items()}
+        self.check("show_ports with --cpu-port 510 lists the -i data ports (510 only if at all)",
+                   all(show_ports_ok(p) for p in got.values()),
+                   "; ".join("%s: %s" % (os.path.basename(os.path.dirname(os.path.dirname(b))),
+                                         sorted(p) if p else p) for b, p in got.items()))
+
+    def adapter_dry_run(self):
+        """(Cut 2 review m5) The live B path through the adapter, without running anything: the
+        same argv bring-up B spawns, with --dry-run. It must name controller_ext.py and rewrite
+        s1-s4 onto the fabric's ports 30051-30054 with device id = dpid."""
+        from . import round_b as RB
+        pkg = (getattr(self, "pkgs", None) or {}).get("B")
+        if pkg is None:
+            self.check("adapter --dry-run on package B", False, "no package")
+            return
+        utils = os.path.join(os.path.expanduser("~"), "tutorials", "utils")
+        fz = self.frozen
+        adapter, controller = (fz.adapter, fz.controller) if fz else (RB.ADAPTER, RB.CONTROLLER)
+        res = self.run_cmd(RB.adapter_argv(default_p4dev_python(), pkg, utils, adapter=adapter,
+                                           controller=controller) + ["--dry-run"], timeout=60)
+        out = res.stdout or ""
+        want = ["localhost:%d device_id=%d" % (30050 + d, d) for d in (1, 2, 3, 4)]
+        rewrites = [l for l in out.splitlines() if "  ->  " in l]
+        ok = (res.rc == 0 and ("controller: %s" % controller) in out
+              and sorted(l.split("  ->  ")[1].strip() for l in rewrites) == want
+              and all(l.strip().startswith("s%d:" % d) for l, d in zip(rewrites, (1, 2, 3, 4))))
+        self.check("adapter --dry-run on package B: controller_ext.py, s1-s4 onto 30051-30054", ok,
+                   "rc %s, %d rewrite(s)" % (res.rc, len(rewrites)))
 
     def openapi(self):
         res = self.run_cmd([self.py, os.path.join(HERE, "openapi_probe.py"), "--repo", REPO], timeout=120)
@@ -584,7 +718,9 @@ class S0(object):
 
     def run(self):
         os.makedirs(self.run_dir, exist_ok=True)
-        if self.compile_all():
+        built = self.compile_all()
+        self.check_exercise_copy()
+        if built:
             self.p4info_identity()
             self.take_inventory()
             self.packages()
@@ -592,6 +728,9 @@ class S0(object):
             self.drop_check()
             self.self_checks()
             self.vs_trial()
+            self.ctrl_trial()
+            self.adapter_dry_run()
+            self.show_ports_trial()
         self.identity()
         self.openapi()
         self.pft_verdict()

@@ -416,6 +416,10 @@ _TUTORIALS_ADAPTER = (
 _TUTORIALS_ADAPTER_TEST = (
     "the adapter's test feeds it the addresses a tutorials controller dials and checks where "
     "they land")
+_HEALTH_CONTROLLER = (
+    "the health probe's controller trial (tools/p4_health/controller_ext.py) is written as a tutorials "
+    "controller that dials 127.0.0.1:50050+i, which the adapter (or the trial's own connect map) "
+    "rewrites; the constant is the number it dials from")
 _TUTORIALS_VERBATIM = (
     "a verbatim copy of exercises/p4runtime/mycontroller.py; the fixture is only useful unedited")
 _TUTORIALS_REFUSAL = (
@@ -424,6 +428,7 @@ _TUTORIALS_REFUSAL = (
 _OLD_BASE_IS_REFUSED = (
     "asserts that a package declaring the old base 50050 is refused by the pre-flight")
 _RUN_EXT = os.path.join("tools", "p4_exercise", "run_external_controller.py")
+_HEALTH_CONTROLLER_PY = os.path.join("tools", "p4_health", "controller_ext.py")
 _RUN_EXT_TEST = os.path.join("tools", "p4_exercise", "tests", "test_run_external_controller.py")
 _MYCONTROLLER = os.path.join("tools", "p4_exercise", "tests", "fixtures", "p4runtime",
                              "mycontroller.py")
@@ -438,6 +443,7 @@ ALLOWED_LINES_NAMING_THE_OLD_BLOCK = {
     (_RUN_EXT, "#: tutorials puts switch i at 50050+i (utils/run_exercise.py and every "
                "mycontroller.py)."): _TUTORIALS_ADAPTER,
     (_RUN_EXT, "TUTORIALS_PORT_BASE = 50050"): _TUTORIALS_ADAPTER,
+    (_HEALTH_CONTROLLER_PY, "TUTORIALS_PORT_BASE = 50050"): _HEALTH_CONTROLLER,
     (_RUN_EXT, "def patched(self, name=None, address=\"127.0.0.1:50051\", device_id=0, *args, "
                "**kwargs):"): _TUTORIALS_ADAPTER,
     (_RUN_EXT_TEST, "def __init__(self, name=None, address=\"127.0.0.1:50051\", "

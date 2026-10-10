@@ -47,6 +47,31 @@ PROBEPY="$PKG/probe.py"
 CELLS_TEST="$REPO/tests/python/test_p4_health_cells.py"
 COLLECT_TEST="$REPO/tests/python/test_p4_health_collect.py"
 RECOVER_TEST="$REPO/tests/shell/test_p4_health_recover.sh"
+GATE_TEST="$HERE/test_p4_health_gate_scripts.sh"
+GATEPY="$HERE/mutate_p4_health.sh"
+SUMPY="$HERE/sum_p4_health_gate_shards.sh"
+
+# (round 6, finding 7) A hash of the CONTENTS of the gate's own three scripts. `sha256sum a b c | sha256sum` hashes
+# sha256sum's output, which carries the scripts' paths: the same scripts at another path gave another hash, so two logs
+# could not be compared. Each file goes through stdin here, which has no name.
+gates_sum() {
+    local f
+    for f in "$GATEPY" "$SUMPY" "$GATE_TEST"; do sha256sum < "$f"; done | sha256sum | cut -c1-64
+}
+
+# (round 6) Everything an uncommitted change to which would make the log lie about the commit it names: the subject,
+# its suites, the gate's own three scripts (mutation subjects now), and the files fresh_copy puts under test.
+WATCHED=(
+    tools/p4_health
+    tests/python/test_p4_health_cells.py
+    tests/python/test_p4_health_collect.py
+    tests/shell/test_p4_health_recover.sh
+    tests/shell/mutate_p4_health.sh
+    tests/shell/sum_p4_health_gate_shards.sh
+    tests/shell/test_p4_health_gate_scripts.sh
+    tools/p4_exercise
+    p4_proxy/mininet/grpc_ports.py
+)
 
 printf 'gate       : %s\n' "${BASH_SOURCE[0]}"
 printf 'cwd        : %s\n' "$PWD"
@@ -55,8 +80,9 @@ printf 'interpreter: %s (%s)\n' "$(realpath "$PYTHON" 2>/dev/null || echo "MISSI
 printf 'subject    : %s\n' "$PKG"
 printf 'HEAD       : %s (commit)\n' "$(git -C "$REPO" rev-parse HEAD 2>/dev/null)"
 printf 'tree       : %s (git tree of tools/p4_health at HEAD)%s\n' "$(git -C "$REPO" rev-parse HEAD:tools/p4_health 2>/dev/null)" \
-    "$([[ -n "$(git -C "$REPO" status --porcelain -- tools/p4_health tests/python/test_p4_health_cells.py tests/python/test_p4_health_collect.py tests/shell/test_p4_health_recover.sh 2>/dev/null)" ]] && echo ' +UNCOMMITTED changes in the subject or its suites')"
+    "$([[ -n "$(git -C "$REPO" status --porcelain -- "${WATCHED[@]}" 2>/dev/null)" ]] && echo ' +UNCOMMITTED changes in the subject or its suites')"
 printf 'subject sha: %s\n' "$(cd "$PKG" && find . -name '*.py' -o -name '*.sh' | sort | xargs sha256sum | sha256sum | cut -c1-16)"
+printf 'gates sum  : %s\n' "$(gates_sum | cut -c1-16)"
 echo
 
 ANCHOR_CHECK="${ANCHOR_CHECK:-0}"
@@ -450,7 +476,7 @@ add "C5. health.json drops the controls" \
 # Review MAJ-4: every branch listed, decided on its own.
 add "B1. T1 never compares the dump" \
     "$TABLE" \
-    '        if set(got) != set(expect[dpid]):' \
+    '        if as_set(got) != as_set(expect[dpid]):' \
     '        if False:  # MUTANT' \
     'test_t1s_dump_half_decides_on_its_own'
 
@@ -726,8 +752,8 @@ add "m12. the inventory counts a declared field as used" \
 
 add "m19. probe judge assumes the bring-ups completed" \
     "$PROBEPY" \
-    'bringups_complete=doc.get("bringups_complete") is True)' \
-    'bringups_complete=doc.get("bringups_complete", True))  # MUTANT' \
+    'bringups_complete=doc.get("bringups_complete") is True,' \
+    'bringups_complete=doc.get("bringups_complete", True),  # MUTANT' \
     'test_a_recording_that_does_not_say_it_completed_is_incomplete'
 
 add "m2. a PF-T with no observation is decided" \
@@ -1483,6 +1509,1795 @@ add "R9-5. the second look at the claim reads only the expires" \
     "another owner takes the claim during ndt down (the expires stays): rc 3, nothing released, the knob not written"
 
 
+# --- Cut 2: bring-up A's observers, B's attributions, the lab run ----------------------------------
+OBSA="$PKG/observe_a.py"
+ROUNDA="$PKG/round_a.py"
+ROUNDB="$PKG/round_b.py"
+ATTR="$PKG/attribution.py"
+LABPY="$PKG/lab.py"
+HOSTSPY="$PKG/collect/hosts.py"
+FROZENPY="$PKG/frozen.py"
+
+add "C2-V1. a cell never observed reads as an unreadable answer" \
+    "$VERDICT" \
+    '    if obs is None:
+        return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")' \
+    '    if False:  # MUTANT
+        return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")' \
+    'test_a_cell_never_observed_is_not_run_for_that_reason'
+
+add "C2-RA1. --only forgets the cells that produce a self-check's readings" \
+    "$ROUNDA" \
+    '            todo.append(SC_PRODUCER[cid])' \
+    '            pass  # MUTANT' \
+    'test_only_expands_to_the_gates_controls_and_self_check_producers'
+
+add "C2-RA2. --only forgets the controls" \
+    "$ROUNDA" \
+    '        todo += list(spec.gates) + list(getattr(spec, "controls", ())) + list(spec.self_checks)' \
+    '        todo += list(spec.gates) + list(spec.self_checks)  # MUTANT' \
+    'test_only_expands_to_the_gates_controls_and_self_check_producers'
+
+add "C2-RA3. the pingall counts every other host as reached" \
+    "$ROUNDA" \
+    '            got += len(srcs - {self.hosts.ip(dst)})' \
+    '            got += len(HOSTS) - 1  # MUTANT' \
+    'test_a_host_the_pingall_cannot_reach_is_sc_fwd_probe_broken'
+
+add "C2-RA4. SC-count takes the sender's count for what arrived" \
+    "$ROUNDA" \
+    '        received = None if rx.get("text") is None else len(S.received(rx["text"], "K1"))' \
+    '        received = obs.get("sent")  # MUTANT' \
+    'test_k1_markers_lost_on_the_path_leave_sc_count_undecided'
+
+add "C2-OA1. a write cell's negative read is taken after the write" \
+    "$OBSA" \
+    '    negative = None if before is None else {"absent": not find(before),' \
+    '    negative = None if before is None else {"absent": not find(after),  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "C2-OA2. thrift's priority is read as the P4Runtime number" \
+    "$OBSA" \
+    '    return BMV2_PRIORITY_TOP - int(p4rt_priority)' \
+    '    return int(p4rt_priority)  # MUTANT' \
+    'test_a_proxy_that_writes_ternary_turns_t4_to_t7_green'
+
+add "C2-OA3. T7's order is read the P4Runtime way round" \
+    "$OBSA" \
+    'n[0]["priority"] < w[0]["priority"]}' \
+    'n[0]["priority"] > w[0]["priority"]}  # MUTANT' \
+    'test_a_proxy_that_writes_ternary_turns_t4_to_t7_green'
+
+add "C2-OA4. T1's negative read ignores a foreign sentinel" \
+    "$OBSA" \
+    '        negative = {"absent": not foreign,' \
+    '        negative = {"absent": True,  # MUTANT' \
+    'test_a_foreign_sentinel_fails_t1s_negative_read'
+
+add "C2-OA5. an unreadable table dump is an empty one" \
+    "$OBSA" \
+    '                got = None
+                break' \
+    '                continue  # MUTANT' \
+    'test_an_unreachable_switch_leaves_t1_not_run'
+
+add "C2-OA6. T2 takes s2's runtime default as applied whatever the counts say" \
+    "$OBSA" \
+    '            answer = {"applied": bool(te.get("failed") == 0 and te.get("recorded", 0) > 0' \
+    '            answer = {"applied": True or bool(te.get("failed") == 0 and te.get("recorded", 0) > 0  # MUTANT' \
+    'test_a_failed_entry_on_s2_is_t2_red'
+
+add "C2-OA7. T2's negative read passes whatever s3 shows" \
+    "$OBSA" \
+    '        negative = {"absent": got == ("HcIngress.stamp", (0,)),' \
+    '        negative = {"absent": True,  # MUTANT' \
+    'test_s3_not_on_the_compiled_default_fails_t2s_negative_read'
+
+add "C2-OA8. C1's negative read ignores a session on another switch" \
+    "$OBSA" \
+    'else {"absent": not any(o[0] for o in others)}' \
+    'else {"absent": True}  # MUTANT' \
+    'test_a_missing_clone_session_is_c1_red_and_a_stray_one_fails_the_negative'
+
+add "C2-OA9. a missing clone session is an unread oracle" \
+    "$OBSA" \
+    '    if s2 is not None and not s2[0]:
+        oracle = {"ports": frozenset()}' \
+    '    if False:  # MUTANT
+        oracle = {"ports": frozenset()}' \
+    'test_a_missing_clone_session_is_c1_red_and_a_stray_one_fails_the_negative'
+
+add "C2-OA10. M2's negative read passes with group 2 already there" \
+    "$OBSA" \
+    '{"absent": 2 not in before}' \
+    '{"absent": True}  # MUTANT' \
+    'test_group_2_there_before_the_write_fails_m2s_negative_read'
+
+add "C2-OA11. one host's unreadable ethtool still yields an oracle" \
+    "$OBSA" \
+    '    if any(v is None for v in got.values()):
+        return {"oracle": None}' \
+    '    if False:  # MUTANT
+        return {"oracle": None}' \
+    'test_checksum_unreadable_on_one_host_is_not_run'
+
+add "C2-OA12. an unreadable openapi means no digest / packet-in exit" \
+    "$OBSA" \
+    '    if route is None:
+        return None' \
+    '    if route is None:
+        route = False  # MUTANT' \
+    'test_an_unreadable_openapi_is_not_a_missing_route'
+
+add "C2-OA13. an exit the probe cannot read is taken for no exit" \
+    "$OBSA" \
+    'exit=route, fields=None)' \
+    'exit=False, fields=None)  # MUTANT' \
+    'test_an_exit_the_probe_has_no_client_for_is_not_run'
+
+add "C2-OA14. K2's thrift oracle reads the indirect counter" \
+    "$OBSA" \
+    '    th0 = None if handle is None else reader.read(dpid, "counter_read %s %d" % (full, handle))' \
+    '    th0 = None if handle is None else reader.read(dpid, "counter_read HcIngress.c_in 0")  # MUTANT' \
+    'test_a_proxy_that_reads_direct_counters_turns_k2_green'
+
+add "C2-OA15. the meter cells' negative read passes with the rates already set" \
+    "$OBSA" \
+    '{"absent": before != METER_TARGET}' \
+    '{"absent": True}  # MUTANT' \
+    'test_a_kernel_that_installs_meters_turns_mt1_green_and_needs_the_before_read'
+
+add "C2-OA16. the kernel's MAC integer is read little-endian" \
+    "$OBSA" \
+    'to_bytes(6, "big"))' \
+    'to_bytes(6, "little"))  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "C2-OA17. the kernel's IPv4 integer is read big-endian" \
+    "$OBSA" \
+    'to_bytes(4, "little"))' \
+    'to_bytes(4, "big"))  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "C2-OA18. SC-ttl's links point back at the switch itself" \
+    "$OBSA" \
+    '            out[(a[1], a[2])] = b[1]' \
+    '            out[(a[1], a[2])] = a[1]  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "C2-HO1. the stimulus runs although a sniffer never listened" \
+    "$HOSTSPY" \
+    '        out = stimulate() if all(ready) else ""' \
+    '        out = stimulate()  # MUTANT' \
+    'test_a_sniffer_that_never_listens_sends_nothing'
+
+add "C2-HO2. a sniffer is not recorded in LAB_STATE" \
+    "$HOSTSPY" \
+    '                self.register("sniffer", proc.pid, self.token)' \
+    '                pass  # MUTANT' \
+    'test_every_reading_goes_through_the_one_runner'
+
+add "C2-AT1. a table attribution stands on thrift alone" \
+    "$ATTR" \
+    '        if not ok:
+            return put(item, False, "controller: %s" % err)
+        found = _entries(read(cmd), key, params)' \
+    '        found = _entries(read(cmd), key, params)  # MUTANT' \
+    'test_a_failed_call_fails_its_item_whatever_thrift_shows'
+
+add "C2-AT2. a table attribution ignores the priority thrift shows" \
+    "$ATTR" \
+    '        if found[0]["priority"] != thrift_priority(priority):' \
+    '        if False:  # MUTANT' \
+    'test_thrift_that_does_not_show_the_effect_fails_the_item'
+
+add "C2-AT3. the priority attribution wants the P4Runtime order in thrift's numbers" \
+    "$ATTR" \
+    'and a[0]["priority"] < b[0]["priority"]):' \
+    'and a[0]["priority"] > b[0]["priority"]):  # MUTANT' \
+    'test_every_item_confirmed'
+
+add "C2-AT4. a meter attribution holds whenever thrift answered" \
+    "$ATTR" \
+    '        if rates != METER_RATES:' \
+    '        if rates is None:  # MUTANT' \
+    'test_thrift_that_does_not_show_the_effect_fails_the_item'
+
+add "C2-AT5. any DigestList confirms the digest" \
+    "$ATTR" \
+    '    elif want not in got:' \
+    '    elif not got:  # MUTANT' \
+    'test_the_stream_messages_must_carry_what_the_probe_sent'
+
+add "C2-AT6. a clone session to any port confirms the clone" \
+    "$ATTR" \
+    '        if ports != frozenset([CX.CLONE["port"]]):' \
+    '        if not ports:  # MUTANT' \
+    'test_thrift_that_does_not_show_the_effect_fails_the_item'
+
+add "C2-AT7. the register attribution does not read the register" \
+    "$ATTR" \
+    '        put("register", v == CX.REGISTER["value"],' \
+    '        put("register", True,' \
+    'test_thrift_that_does_not_show_the_effect_fails_the_item'
+
+add "C2-AT8. the direct counter attribution takes the controller's own number" \
+    "$ATTR" \
+    '    elif not mine or mine != th[1]:' \
+    '    elif not mine:  # MUTANT' \
+    'test_thrift_that_does_not_show_the_effect_fails_the_item'
+
+add "C2-AT9. a packet-in from any port confirms" \
+    "$ATTR" \
+    '    elif any(p.get("ingress_port") != expect.get("packet_in_port") for p in ours):' \
+    '    elif False:  # MUTANT' \
+    'test_the_stream_messages_must_carry_what_the_probe_sent'
+
+add "C2-AT10. any packet-in confirms, marker or not" \
+    "$ATTR" \
+    '    ours = [p for p in pins if (p.get("marker") or [None, None])[:2] == [expect.get("token"), expect.get("packet_in_cell", "P2")]]' \
+    '    ours = list(pins)  # MUTANT' \
+    'test_the_stream_messages_must_carry_what_the_probe_sent'
+
+add "C2-AT11. a packet-out nobody received confirms" \
+    "$ATTR" \
+    '    elif not p3_received:' \
+    '    elif p3_received is None:  # MUTANT' \
+    'test_the_packet_out_needs_the_receiving_host'
+
+add "C2-AT12. every cell gets a bmv2 attribution" \
+    "$ATTR" \
+    '    return {cell: {"bmv2": bool((confirmed or {}).get(item, {}).get("ok"))}' \
+    '    return {cell: {"bmv2": True}  # MUTANT' \
+    'test_each_cell_gets_its_items_attribution'
+
+add "C2-RB1. B never tells its controller the stimuli are done" \
+    "$ROUNDB" \
+    '            open(self.path("controller.go"), "w").close()' \
+    '            pass  # MUTANT' \
+    'test_the_eleven_attributions_confirmed_from_thrift_and_the_receiver'
+
+add "C2-RB2. B's controller is not recorded in LAB_STATE" \
+    "$ROUNDB" \
+    '            lab_round.register("controller", proc.pid, os.path.realpath(self.cfg.run_dir))' \
+    '            pass  # MUTANT' \
+    'test_the_eleven_attributions_confirmed_from_thrift_and_the_receiver'
+
+add "C2-LAB1. B's attributions never reach A's cells" \
+    "$LABPY" \
+    '            out[cell] = dict(out[cell], attribution=dict(out[cell].get("attribution") or {}, **attr))' \
+    '            pass  # MUTANT' \
+    'test_a_then_b_then_the_verdicts'
+
+add "C2-LAB2. the lab runs after an incomplete S0" \
+    "$LABPY" \
+    '    if s0_out.get("verdict") != "COMPLETE":' \
+    '    if False:  # MUTANT' \
+    'test_an_incomplete_s0_touches_nothing'
+
+add "C2-LAB3. the see-red run brings up the plain package" \
+    "$LABPY" \
+    '"A-MUT" if mutant else "A")' \
+    '"A")  # MUTANT' \
+    'test_the_see_red_run_uses_the_mutant_package_and_only_its_cells'
+
+add "C2-LAB4. a run with an incomplete bring-up reads as complete" \
+    "$LABPY" \
+    '    complete = bool(recs) and all(r.get("complete") is True for r in recs)' \
+    '    complete = True  # MUTANT' \
+    'test_a_refused_claim_makes_the_run_incomplete'
+
+# --- Cut 2 review fixes (r2) -----------------------------------------------------------------------
+FABRIC="$PKG/collect/fabric.py"
+HOSTSIDE="$PKG/hostside.py"
+
+add "R2-M1a. a veth peer printed by name is dropped (MAJOR-1)" \
+    "$FABRIC" \
+    '        out[m.group(2)] = int(idx.group(1)) if idx else peer' \
+    '        if idx:  # MUTANT: only the @ifK form
+            out[m.group(2)] = int(idx.group(1))' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "R2-M1b. a switch port nobody could place is not an unread oracle (MAJOR-1's mirror)" \
+    "$OBSA" \
+    '    if d_["unplaced"]:
+        return fail(' \
+    '    if False:  # MUTANT
+        return fail(' \
+    'test_switch_links_lost_on_both_sides_are_not_a_green'
+
+add "R2-M2a. the sniffer takes any frame that quotes a marker (MAJOR-2)" \
+    "$HOSTSIDE" \
+    '    if p.get("proto") != F.PROTO_UDP or p.get("dport") != dport or p.get("ip_dst") != ip:
+        return None' \
+    '    if False:  # MUTANT
+        return None' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "R2-M2b. the sniffer checks only the destination address, not that it is UDP to the cell's port" \
+    "$HOSTSIDE" \
+    '    if p.get("proto") != F.PROTO_UDP or p.get("dport") != dport or p.get("ip_dst") != ip:' \
+    '    if p.get("ip_dst") != ip:  # MUTANT' \
+    'test_an_icmp_error_quoting_a_marker_is_not_a_received_marker'
+
+add "R2-M2c. the sniffer ignores the destination address" \
+    "$HOSTSIDE" \
+    '    if p.get("proto") != F.PROTO_UDP or p.get("dport") != dport or p.get("ip_dst") != ip:' \
+    '    if p.get("proto") != F.PROTO_UDP or p.get("dport") != dport:  # MUTANT' \
+    'test_record_filters_on_every_field'
+
+add "R2-M2d. the sniffer on a host is not told its own address" \
+    "$HOSTSPY" \
+    '                                                      "--ip", self.ip(host)])' \
+    '                                                      "--ip", self.ip("h1")])  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "R2-m3a. the sniffer counts the host's own outgoing frames" \
+    "$HOSTSIDE" \
+    '    return len(addr) > 2 and addr[2] == PACKET_OUTGOING' \
+    '    return False  # MUTANT' \
+    'test_the_sniff_loop_skips_outgoing_frames_and_stops_at_until'
+
+add "R2-m3b. the sniffer never stops early" \
+    "$HOSTSIDE" \
+    '            if until and n >= until:
+                break' \
+    '            if False:  # MUTANT
+                break' \
+    'test_the_sniff_loop_skips_outgoing_frames_and_stops_at_until'
+
+add "R2-m3c. the SENT line reports what was asked for" \
+    "$HOSTSIDE" \
+    '    return "SENT cell=%s n=%d ident=%d requested=%d" % (cell, n, ident, requested)' \
+    '    return "SENT cell=%s n=%d ident=%d requested=%d" % (cell, requested, ident, requested)  # MUTANT' \
+    'test_its_lines_are_the_ones_collect_sniff_reads'
+
+add "R2-m3d. pick_iface guesses among several interfaces" \
+    "$HOSTSIDE" \
+    '    if len(names) != 1:' \
+    '    if not names:  # MUTANT' \
+    'test_pick_iface'
+
+add "R2-w1. the root python writes .pyc beside the sources" \
+    "$HOSTSPY" \
+    '        return [self.cfg.p4dev_python, "-B", "-X",' \
+    '        return [self.cfg.p4dev_python, "-X",  # MUTANT' \
+    'test_the_root_python_writes_nothing_beside_the_sources'
+
+add "R2-M3a. B is brought up whatever A's teardown left (MAJOR-3)" \
+    "$LABPY" \
+    '        if why and "B" in bringups:' \
+    '        if False:  # MUTANT' \
+    'test_a_failed_down_in_a_keeps_b_out'
+
+add "R2-M3b. ended_clean looks at the phase only" \
+    "$LABPY" \
+    '    if any("could not stop" in p for p in rec.get("problems") or []):
+        why.append("a process it could not stop")
+    left = [k for k in ("sniffers", "controllers", "netem") if st.get(k)]
+    if left:' \
+    '    left = []  # MUTANT
+    if left:' \
+    'test_a_failed_kill_in_a_keeps_b_out'
+
+add "R2-M3c. a round overwrites a state file recover.sh still needs" \
+    "$LABROUND" \
+    '        in_use = state_in_use(cfg.lab_state_path)' \
+    '        in_use = None  # MUTANT' \
+    'test_an_unfinished_round_refuses_the_next'
+
+add "R2-M3d. a released round that left a process counts as finished" \
+    "$LABROUND" \
+    '    left = [k for k in ("sniffers", "controllers", "netem") if st.get(k)]
+    if left:
+        return "bring-up' \
+    '    left = []  # MUTANT
+    if left:
+        return "bring-up' \
+    'test_an_unfinished_round_refuses_the_next'
+
+add "R2-M3e. B starts its controller on a fabric that is not external" \
+    "$ROUNDB" \
+    '        if mode != "external":' \
+    '        if False:  # MUTANT' \
+    'test_b_spawns_no_controller_on_a_fabric_that_is_not_external'
+
+add "R2-m4f. only the last bring-up's state file is kept" \
+    "$LABPY" \
+    '        keep_state(cfg, "A")' \
+    '        pass  # MUTANT' \
+    'test_each_bring_ups_last_state_is_kept'
+
+add "R2-m1. an unobserved cell reads as a flip of its prediction" \
+    "$EXPECTEDPY" \
+    '    if phase == "unobserved":
+        return NOT_OBSERVED' \
+    '    if False:  # MUTANT
+        return NOT_OBSERVED' \
+    'test_a_cell_this_run_did_not_observe_has_no_delta'
+
+add "R2-m1b. an alias of an unobserved cell reads as a flip" \
+    "$VERDICT" \
+    '                                         phase="unobserved" if src.phase == "unobserved" else "alias",' \
+    '                                         phase="alias",  # MUTANT' \
+    'test_a_then_b_then_the_verdicts'
+
+add "R2-m2a. one observer raising ends the round's observing" \
+    "$ROUNDA" \
+    '        except Exception as exc:  # noqa: BLE001 -- recorded in problems and in the observation' \
+    '        except ZeroDivisionError as exc:  # MUTANT' \
+    'test_the_rest_of_the_round_is_still_observed'
+
+add "R2-m2b. the step guard swallows a signal" \
+    "$ROUNDA" \
+    '        except SignalAbort:
+            raise                                   # a signal still ends the round (lab_round)
+        except Exception as exc:' \
+    '        except BaseException as exc:  # MUTANT: catches the signal too' \
+    'test_a_signal_still_ends_the_round'
+
+add "R2-m7. VS1's negative read reads after the write" \
+    "$OBSA" \
+    '            "negative": None if before is None else {"absent": VS1_VALUE not in before}}' \
+    '            "negative": None if before is None else {"absent": VS1_VALUE in before}}  # MUTANT' \
+    'test_bring_up_a_reads_as_predicted'
+
+add "R2-m5a. the see-red run's package is not drop-checked" \
+    "$S0PY" \
+    '        want = {"A": 0, "B": 0, "C": 0, "FWD": 1, "A-MUT": 0}' \
+    '        want = {"A": 0, "B": 0, "C": 0, "FWD": 1}  # MUTANT' \
+    'test_the_mutant_package_is_drop_checked'
+
+add "R2-m5b. the adapter dry run passes whatever controller it names" \
+    "$S0PY" \
+    '        ok = (res.rc == 0 and ("controller: %s" % controller) in out' \
+    '        ok = (res.rc == 0  # MUTANT' \
+    'test_the_adapter_dry_run_names_our_controller_and_four_rewrites'
+
+add "R2-m5c. the adapter dry run passes any rewrite" \
+    "$S0PY" \
+    '              and sorted(l.split("  ->  ")[1].strip() for l in rewrites) == want' \
+    '              and len(rewrites) == 4  # MUTANT' \
+    'test_the_adapter_dry_run_names_our_controller_and_four_rewrites'
+
+IDPY="$PKG/identity.py"
+
+add "R2-m4a. a lab run starts on a dirty probe tree" \
+    "$PROBEPY" \
+    '    if dirty:
+        print("refused: tools/p4_health has uncommitted changes' \
+    '    if False:  # MUTANT
+        print("refused: tools/p4_health has uncommitted changes' \
+    'test_a_dirty_probe_tree_is_refused_before_anything_runs'
+
+add "R2-m4b. the root-run sflow_emitter.py may differ" \
+    "$IDPY" \
+    'MAY_DIFFER = (re.compile(r"^p4_proxy/proxy_agent/(?!sflow_emitter\.py$)"),' \
+    'MAY_DIFFER = (re.compile(r"^p4_proxy/proxy_agent/"),  # MUTANT' \
+    'test_the_may_differ_classes_are_the_designs'
+
+add "R2-m4c. an unread part of the fingerprint still gives a digest" \
+    "$IDPY" \
+    '    total = UNREAD if any(v == UNREAD for v in parts.values()) else digest(parts.items())' \
+    '    total = digest(parts.items())  # MUTANT' \
+    'test_the_fingerprint_moves_with_what_must_be_the_same_only'
+
+add "R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of the file)" \
+    "$IDPY" \
+    '    return {"repo_tracked": digest((p, file_sha(os.path.join(repo, p)) or "absent") for p in keep_t),' \
+    '    return {"repo_tracked": digest((p, "x") for p in keep_t),  # MUTANT' \
+    'test_the_fingerprint_moves_with_what_must_be_the_same_only'
+
+
+# --- Cut 2 second review (labels C2R3-) ------------------------------------------------------------------------
+
+add "C2R3-N1a. a round stopped by a signal lets B claim the lab" \
+    "$LABPY" \
+    '        if signalled(recs[-1]):
+            # (Cut 2 review N1) a stop is a stop' \
+    '        if False:  # MUTANT
+            # (Cut 2 review N1) a stop is a stop' \
+    'test_a_signal_in_an_observer_ends_the_run'
+
+add "C2R3-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
+    "$LABROUND" \
+    'class SignalAbort(BaseException):' \
+    'class SignalAbort(Exception):  # MUTANT' \
+    'test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there'
+
+add "C2R3-N1c. no handler between the rounds" \
+    "$LABPY" \
+    '    old_handlers = _stop_on_signals(noted) if signals else None' \
+    '    old_handlers = None  # MUTANT' \
+    'test_a_signal_between_the_rounds_ends_the_run'
+
+add "C2R3-N2. a B whose controller did nothing leaves the run complete" \
+    "$LABPY" \
+    '        elif b.failed:' \
+    '        elif False:  # MUTANT' \
+    'test_b_on_a_fabric_that_is_not_external_is_incomplete'
+
+add "C2R3-N3a. a git that could not answer reads as a clean tree" \
+    "$PROBEPY" \
+    '    if git_rc != 0:
+        # (Cut 2 review N3) no answer is not "clean"' \
+    '    if False:  # MUTANT
+        # (Cut 2 review N3) no answer is not "clean"' \
+    'test_a_git_status_that_cannot_answer_is_refused_before_s0'
+
+add "C2R3-N3b. the lab starts without a system-under-test record" \
+    "$PROBEPY" \
+    '    if sut is None or gate.get("sha256") in (None, "incomplete"):' \
+    '    if gate.get("sha256") in (None, "incomplete"):  # MUTANT' \
+    'test_a_missing_identity_record_stops_the_run_before_the_lab'
+
+add "C2R3-N3c. the lab starts on an incomplete fingerprint" \
+    "$PROBEPY" \
+    '    if sut is None or gate.get("sha256") in (None, "incomplete"):' \
+    '    if sut is None:  # MUTANT' \
+    'test_a_missing_identity_record_stops_the_run_before_the_lab'
+
+add "C2R3-N4a. a listed CPU port is taken for a fabric port" \
+    "$OBSA" \
+    '            if port == CPU_PORT:' \
+    '            if False:  # MUTANT' \
+    'test_a_listed_cpu_port_is_not_a_fabric_port'
+
+add "C2R3-N4b. TP1 keeps no raw ip link text" \
+    "$OBSA" \
+    '    d_["ip_link"] = res.stdout' \
+    '    d_["ip_link"] = None  # MUTANT' \
+    'test_an_unplaced_port_is_not_run_and_tp1_keeps_what_it_read'
+
+add "C2R3-N4c. TP1 does not say which read failed" \
+    "$OBSA" \
+    '            return fail("show_ports on s%d unreadable" % d)' \
+    '            return None  # MUTANT' \
+    'test_a_read_that_failed_is_named'
+
+add "C2R3-N4d. S0's show_ports check rejects a listed CPU port" \
+    "$S0PY" \
+    '    return parsed is not None and set(parsed) - {cpu_port} == set(data_ports)' \
+    '    return parsed is not None and set(parsed) == set(data_ports)  # MUTANT' \
+    'test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports'
+
+add "C2R3-N7. an unobserved control reads as a flip" \
+    "$TABLE" \
+    '        if obs is None:
+            # (Cut 2 second review N7)' \
+    '        if False:  # MUTANT
+            # (Cut 2 second review N7)' \
+    'test_a_cell_this_run_did_not_observe_has_no_delta'
+
+add "C2R3-N8a. root runs the shared tree's hostside.py, not the run's frozen copy" \
+    "$LABPY" \
+    '    a_kwargs = dict({"hostside": frozen.hostside}, **(a_kwargs or {}))' \
+    '    a_kwargs = dict(a_kwargs or {})  # MUTANT' \
+    'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
+
+add "C2R3-N8b. the frozen copy's record is not of the copy root runs" \
+    "$FROZENPY" \
+    '            with open(dst, "rb") as fh:
+                sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
+    '            sums[rel] = "not recorded"  # MUTANT' \
+    'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
+
+
+# --- Cut 2, round 4 -----------------------------------------------------------------------------
+
+add "C2R4-F1a. a stop signal during the teardown is not kept" \
+    "$LABROUND" \
+    '        if self.teardown_signal is None:
+            self.teardown_signal = signum' \
+    '        pass  # MUTANT' \
+    'test_a_stop_during_a_teardown_ends_the_run_before_b_claims'
+
+add "C2R4-F1b. the last stop signal of a teardown is kept, not the first" \
+    "$LABROUND" \
+    '        if self.teardown_signal is None:' \
+    '        if True:  # MUTANT' \
+    'test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded'
+
+add "C2R4-F1c. the round does not record a stop that came during its teardown" \
+    "$LABROUND" \
+    '            rec["problems"].append("aborted by signal %d (during the teardown)" % self.teardown_signal)' \
+    '            pass  # MUTANT' \
+    'test_a_stop_during_b_teardown_is_not_complete'
+
+add "C2R4-F1d. a round stopped during its teardown still reads complete" \
+    "$LABROUND" \
+    '% self.teardown_signal)
+            rec["complete"] = False' \
+    '% self.teardown_signal)
+            pass  # MUTANT' \
+    'test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded'
+
+add "C2R4-F2a. a B whose result file cannot be read is not a failed B" \
+    "$ROUNDB" \
+    '            # a result file that cannot be read -- a B without a result is a failed B
+            self.failed = self.failed or self.problems[-1]' \
+    '            # a result file that cannot be read -- a B without a result is a failed B
+            pass  # MUTANT' \
+    'test_b_whose_result_file_is_unreadable_is_a_failed_b'
+
+add "C2R4-F2b. a B whose sniffer never listened gives no reason of its own" \
+    "$ROUNDB" \
+    '                                 "controller was never told to go" % SRC)
+            self.failed = self.failed or self.problems[-1]' \
+    '                                 "controller was never told to go" % SRC)
+            pass  # MUTANT' \
+    'test_b_whose_sniffer_is_not_ready_is_a_failed_b'
+
+add "C2R4-F2c. a controller that could not be started gives no reason of its own" \
+    "$ROUNDB" \
+    '            self.problems.append("B'"'"'s controller could not be started")
+            self.failed = self.problems[-1]' \
+    '            self.problems.append("B'"'"'s controller could not be started")  # MUTANT' \
+    'test_b_whose_controller_cannot_be_started_is_a_failed_b'
+
+add "C2R4-F2d. a controller that wrote no result gives no reason of its own" \
+    "$ROUNDB" \
+    '                self.problems.append("B'"'"'s controller wrote no result")
+                self.failed = self.problems[-1]' \
+    '                self.problems.append("B'"'"'s controller wrote no result")  # MUTANT' \
+    'test_b_whose_controller_writes_no_result_is_a_failed_b'
+
+add "C2R4-F2e. a controller that never got ready gives no reason of its own" \
+    "$ROUNDB" \
+    '            self.problems.append("B'"'"'s controller never wrote its ready file (rc %s)" % proc.poll())
+            self.failed = self.problems[-1]' \
+    '            self.problems.append("B'"'"'s controller never wrote its ready file (rc %s)" % proc.poll())  # MUTANT' \
+    'test_b_whose_controller_never_gets_ready_is_a_failed_b'
+
+add "C2R4-F2f. a fabric that is not external gives no reason of its own" \
+    "$ROUNDB" \
+    '                                 "not started" % (mode,))
+            self.failed = self.problems[-1]' \
+    '                                 "not started" % (mode,))  # MUTANT' \
+    'test_b_whose_fabric_is_not_external_is_a_failed_b'
+
+add "C2R4-F3a. a recorded stop does not override PROBE-BROKEN" \
+    "$VERDICT" \
+    '    if stopped:
+        return "INCOMPLETE", 2' \
+    '    if False:  # MUTANT
+        return "INCOMPLETE", 2' \
+    'test_a_recorded_stop_overrides_a_probe_broken_cell'
+
+add "C2R4-F3b. the run ignores a stop that no round carries" \
+    "$LABPY" \
+    '    stopped = any(signalled(r) for r in recs) or bool(run_stopped)' \
+    '    stopped = any(signalled(r) for r in recs)  # MUTANT' \
+    'test_a_stop_between_the_rounds_overrides_a_probe_broken_cell'
+
+add "C2R4-F3c. the run ignores a stop that a round carries" \
+    "$LABPY" \
+    '    stopped = any(signalled(r) for r in recs) or bool(run_stopped)' \
+    '    stopped = bool(run_stopped)  # MUTANT' \
+    'test_a_recorded_stop_overrides_a_probe_broken_cell'
+
+add "C2R4-F3d. a see-red run that was not complete still passes on PROBE-BROKEN" \
+    "$VERDICT" \
+    '        if see_red and not bringups_complete:
+            return "INCOMPLETE", 2' \
+    '        if False:  # MUTANT
+            return "INCOMPLETE", 2' \
+    'test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete'
+
+add "C2R4-F3e. the run does not tell run_verdict that it is a see-red run" \
+    "$LABPY" \
+    'stopped=stopped, see_red=bool(mutant))' \
+    'stopped=stopped, see_red=False)  # MUTANT' \
+    'test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete'
+
+add "C2R4-F3f. a see-red pass ignores the run's own problems" \
+    "$LABPY" \
+    '    complete = bool(recs) and all(r.get("complete") is True for r in recs) and not problems' \
+    '    complete = bool(recs) and all(r.get("complete") is True for r in recs)  # MUTANT' \
+    'test_a_see_red_run_with_a_problem_of_the_run_is_incomplete'
+
+add "C2R4-F4a. the freeze does not compare a copy with HEAD's blob" \
+    "$FROZENPY" \
+    '            if h != blob:' \
+    '            if False:  # MUTANT' \
+    'test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0'
+
+add "C2R4-F4b. two empty answers from git count as equal hashes" \
+    "$FROZENPY" \
+    '            if h_rc != 0 or b_rc != 0 or not h or not blob:' \
+    '            if h_rc != 0 or b_rc != 0:  # MUTANT' \
+    'test_a_git_that_cannot_confirm_a_copy_refuses_the_freeze'
+
+add "C2R4-F4c. probe.py freezes without asking git" \
+    "$PROBEPY" \
+    '        frozen = FZ.freeze(run_dir, repo=REPO, git=git_at_pinned_head)' \
+    '        frozen = FZ.freeze(run_dir, repo=REPO, git=None)  # MUTANT' \
+    'test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0'
+
+add "C2R4-F4d. a refused freeze does not stop the run" \
+    "$PROBEPY" \
+    '        print("refused: %s" % exc, file=sys.stderr)
+        return 2
+    py = args.py_p4' \
+    '        print("refused: %s" % exc, file=sys.stderr)
+        frozen = None  # MUTANT
+    py = args.py_p4' \
+    'test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0'
+
+add "C2R4-F4e. the freeze leaves out B's controller and the adapter" \
+    "$FROZENPY" \
+    '    for rel in ROOT_FILES + B_FILES:' \
+    '    for rel in ROOT_FILES:  # MUTANT' \
+    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
+
+add "C2R4-F4f. B's controller runs from the shared tree" \
+    "$LABPY" \
+    '    b_kwargs = dict({"hostside": frozen.hostside, "controller": frozen.controller,' \
+    '    b_kwargs = dict({"hostside": frozen.hostside,  # MUTANT' \
+    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
+
+add "C2R4-F4g. the adapter runs from the shared tree" \
+    "$LABPY" \
+    '                     "adapter": frozen.adapter}, **(b_kwargs or {}))' \
+    '                     }, **(b_kwargs or {}))  # MUTANT' \
+    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
+
+add "C2R4-F4h. run_lab freezes a second set instead of running the one it is given" \
+    "$LABPY" \
+    '    frozen = frozen or FZ.freeze(run_dir)' \
+    '    frozen = FZ.freeze(run_dir)  # MUTANT' \
+    'test_run_lab_runs_the_frozen_code_it_is_given'
+
+add "C2R4-F4i. probe.py does not hand its frozen code to run_lab" \
+    "$PROBEPY" \
+    '                         frozen=frozen)' \
+    '                         )  # MUTANT' \
+    'test_the_run_gets_the_frozen_code_that_probe_froze'
+
+add "C2R4-F4j. health.json does not record the hashes of B's files" \
+    "$LABPY" \
+    '    doc["frozen_code"] = frozen.sums ' \
+    '    doc["frozen_code"] = {}  # MUTANT ' \
+    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
+
+add "C2R4-F6. B's controller is registered by the unresolved run dir" \
+    "$ROUNDB" \
+    '            lab_round.register("controller", proc.pid, os.path.realpath(self.cfg.run_dir))' \
+    '            lab_round.register("controller", proc.pid, self.cfg.run_dir)  # MUTANT' \
+    'test_b_controller_is_recorded_when_the_run_dir_path_has_a_link'
+
+add "C2R4-F8a. an unreadable bmv2 override is not caught" \
+    "$PROBEPY" \
+    '    except OSError:
+        fabric = None' \
+    '    except ZeroDivisionError:  # MUTANT
+        fabric = None' \
+    'test_an_unreadable_bmv2_override_is_an_incomplete_fingerprint_and_stops_the_run'
+
+add "C2R4-F8b. an unreadable bmv2 override reads as a binary" \
+    "$PROBEPY" \
+    '        fabric = None                   # unreadable override: the fingerprint says incomplete' \
+    '        fabric = "/bin/sh"  # MUTANT' \
+    'test_an_unreadable_bmv2_override_is_an_incomplete_fingerprint_and_stops_the_run'
+
+add "C2R4-F9. C2R3-N8b tightened: the record is of the source, not of the copy" \
+    "$FROZENPY" \
+    '            with open(dst, "rb") as fh:
+                sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
+    '            with open(os.path.join(repo, "tools", rel), "rb") as fh:  # MUTANT
+                sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
+    'test_the_recorded_hash_is_of_the_copy_not_of_the_source'
+
+# --- round 5 (C2R5-): the second review of the fourth round's fixes ------------------------------------
+add "C2R5-2a. probe.py lab answers rc 1 for an S0 that is not complete" \
+    "$PROBEPY" \
+    '                             mutant=args.mutant, frozen=frozen)
+        return rc' \
+    '                             mutant=args.mutant, frozen=frozen)
+        return 1  # MUTANT' \
+    'test_an_s0_with_a_failing_check_is_rc_2_with_a_health_json_and_no_identity_work'
+
+add "C2R5-2b. probe.py lab does the identity work after an S0 that is not complete" \
+    "$PROBEPY" \
+    '    if s0.out["verdict"] != "COMPLETE":
+        # (Cut 2 round 5' \
+    '    if False:  # MUTANT
+        # (Cut 2 round 5' \
+    'test_an_s0_with_a_failing_check_is_rc_2_with_a_health_json_and_no_identity_work'
+
+add "C2R5-2c. run_lab does not say why S0 is not complete" \
+    "$LABPY" \
+    '        bad = [c.get("name") for c in s0_out.get("checks") or [] if not c.get("ok")]' \
+    '        bad = []  # MUTANT' \
+    'test_an_incomplete_s0_touches_nothing'
+
+add "C2R5-2d. an exception out of a round (StateInUse) leaves run_lab" \
+    "$LABPY" \
+    '        except Exception as exc:  # noqa: BLE001 -- (round 5, #2) StateInUse' \
+    '        except ZeroDivisionError as exc:  # MUTANT: (round 5, #2) StateInUse' \
+    'test_a_leftover_lab_state_is_incomplete_rc_2_and_stays_for_recover'
+
+add "C2R5-2e. a run that ended on an exception reads PROBE-BROKEN when a cell is" \
+    "$LABPY" \
+    '    stopped = any(signalled(r) for r in recs) or bool(run_stopped) or ended_early' \
+    '    stopped = any(signalled(r) for r in recs) or bool(run_stopped)  # MUTANT' \
+    'test_a_round_that_cannot_be_built_ends_the_run_incomplete_with_the_earlier_rounds_kept'
+
+add "C2R5-2f. a load_model failure leaves run_lab" \
+    "$LABPY" \
+    '        except Exception as exc:  # noqa: BLE001 -- a run that cannot be set up' \
+    '        except ZeroDivisionError as exc:  # MUTANT: a run that cannot be set up' \
+    'test_a_load_model_failure_is_incomplete_rc_2'
+
+add "C2R5-2g. an expectations failure leaves run_lab" \
+    "$LABPY" \
+    '            pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
+            prepared = (model, pipelines, runtimes, orders)
+        except Exception' \
+    '            pipelines, runtimes, orders = (None, None, None)  # MUTANT: expectations not asked for
+            prepared = (model, pipelines, runtimes, orders)
+        except Exception' \
+    'test_an_expectations_failure_is_incomplete_rc_2'
+
+add "C2R5-2h. probe.py lab lets an exception out as Python's status 1" \
+    "$PROBEPY" \
+    '        except Exception:  # noqa: BLE001
+            # (Cut 2 round 5, #2) Python' \
+    '        except ZeroDivisionError:  # noqa: BLE001  MUTANT
+            # (Cut 2 round 5, #2) Python' \
+    'test_an_exception_out_of_the_lab_path_is_rc_2_not_pythons_status_1'
+
+add "C2R5-3a. a see-red run in which no cell is PROBE-BROKEN reads COMPLETE" \
+    "$VERDICT" \
+    '    if see_red:
+        # (round 5, #3)' \
+    '    if False:  # MUTANT
+        # (round 5, #3)' \
+    'test_a_see_red_run_whose_mutant_is_not_caught_is_not_a_pass'
+
+add "C2R5-3b. a see-red run that sees no red exits 0" \
+    "$VERDICT" \
+    '        return "SEE-RED-NOT-SEEN", 2' \
+    '        return "SEE-RED-NOT-SEEN", 0  # MUTANT' \
+    'test_a_see_red_run_that_sees_no_red_is_not_a_pass'
+
+add "C2R5-3c. an unfinished see-red run reads SEE-RED-NOT-SEEN instead of INCOMPLETE" \
+    "$VERDICT" \
+    '    if not bringups_complete:
+        return "INCOMPLETE", 2
+    if see_red:' \
+    '    if see_red:
+        return "SEE-RED-NOT-SEEN", 2  # MUTANT
+    if not bringups_complete:
+        return "INCOMPLETE", 2
+    if see_red:' \
+    'test_a_see_red_run_that_sees_no_red_is_not_a_pass'
+
+add "C2R5-4a. a B that confirmed nothing but register is not a failed B" \
+    "$ROUNDB" \
+    '        if not [k for k, v in (confirmed or {}).items() if v.get("ok") and k != "register"]:' \
+    '        if False:  # MUTANT' \
+    'test_b_whose_controller_reached_no_switch_is_a_failed_b'
+
+add "C2R5-4b. register counts as an attribution B confirmed" \
+    "$ROUNDB" \
+    'if v.get("ok") and k != "register"]:' \
+    'if v.get("ok")]:  # MUTANT' \
+    'test_b_that_confirmed_only_register_is_a_failed_b'
+
+add "C2R5-4c. a B that is not primary on s2 is not a failed B" \
+    "$ROUNDB" \
+    '        if s2 and "connect_error" not in s2 and s2.get("primary") is not True:' \
+    '        if False:  # MUTANT' \
+    'test_b_whose_controller_is_not_primary_on_s2_is_a_failed_b'
+
+add "C2R5-4d. run_lab-level: finish() does not ask whether B did its part" \
+    "$ROUNDB" \
+    '            for why in self.did_nothing(result, self.confirmed):' \
+    '            for why in []:  # MUTANT' \
+    'test_b_whose_controller_reached_no_switch_is_a_failed_b'
+
+add "C2R5-7a. the blobs are asked for by HEAD at that moment, not by the pinned sha" \
+    "$FROZENPY" \
+    '            b_rc, blob = git("rev-parse", "%s:tools/%s" % (head, rel))' \
+    '            b_rc, blob = git("rev-parse", "HEAD:tools/%s" % rel)  # MUTANT' \
+    'test_a_commit_that_lands_mid_freeze_cannot_give_a_set_that_matches_no_commit'
+
+add "C2R5-7b. the Frozen does not carry the sha it was checked against" \
+    "$FROZENPY" \
+    '    return Frozen(base, sums, head, git)' \
+    '    return Frozen(base, sums, git=git)  # MUTANT' \
+    'test_head_is_resolved_once_and_every_blob_is_asked_for_by_that_sha'
+
+add "C2R5-7c. probe.py writes the identity of HEAD as it is now, not of the frozen commit" \
+    "$PROBEPY" \
+    '    ident = repo_identity(head=frozen.head)' \
+    '    ident = repo_identity()  # MUTANT' \
+    'test_probe_lab_records_the_frozen_head_in_the_identity_and_in_health_json'
+
+add "C2R5-7d. repo_identity ignores the sha it is given" \
+    "$PROBEPY" \
+    '    return {"head": head or _git("rev-parse", "HEAD") or "unknown", "probe_tree": probe_version(head),' \
+    '    return {"head": _git("rev-parse", "HEAD") or "unknown", "probe_tree": probe_version(head),  # MUTANT' \
+    'test_the_identity_of_a_run_names_the_head_the_freeze_pinned'
+
+add "C2R5-7e. health.json does not record the commit the copies were checked against" \
+    "$LABPY" \
+    '    doc["frozen_head"] = frozen.head ' \
+    '    doc["frozen_head"] = None  # MUTANT ' \
+    'test_probe_lab_records_the_frozen_head_in_the_identity_and_in_health_json'
+
+add "C2R5-8. the copy is hashed through git's input filters" \
+    "$FROZENPY" \
+    '            h_rc, h = git("hash-object", "--no-filters", dst)' \
+    '            h_rc, h = git("hash-object", dst)  # MUTANT' \
+    'test_a_copy_is_hashed_as_its_bytes_not_as_a_filter_would_see_them'
+
+add "C2R5-9a. an existing <run>/frozen is overwritten" \
+    "$FROZENPY" \
+    '    if os.path.lexists(base):' \
+    '    if False:  # MUTANT' \
+    'test_a_frozen_directory_that_is_already_there_is_refused_and_left_alone'
+
+add "C2R5-9b. a copy is written through a link planted at its destination" \
+    "$FROZENPY" \
+    '    fd = os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o644)' \
+    '    fd = os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)  # MUTANT' \
+    'test_a_symlink_planted_at_a_destination_is_not_written_through'
+
+add "C2R5-9c. a link planted for a subdirectory is followed" \
+    "$FROZENPY" \
+    '                os.mkdir(sub)' \
+    '                os.makedirs(sub, exist_ok=True)  # MUTANT' \
+    'test_a_symlink_planted_for_a_subdirectory_is_not_followed'
+
+CTRLTRIAL="$PKG/ctrl_trial.py"
+add "C2R5-5a. probe.py lab does not load the lab path's modules up front" \
+    "$PROBEPY" \
+    '    load_lab_path()
+    from p4_health import lab as L' \
+    '    from p4_health import lab as L  # MUTANT' \
+    'test_an_edit_to_identity_during_s0_cannot_reach_the_probe_process'
+
+add "C2R5-5b. identity.py is left out of the modules loaded up front" \
+    "$PROBEPY" \
+    '"p4_health.frames", "p4_health.frozen", "p4_health.identity", "p4_health.lab",' \
+    '"p4_health.frames", "p4_health.frozen", "p4_health.lab",  # MUTANT' \
+    'test_an_edit_to_identity_during_s0_cannot_reach_the_probe_process'
+
+add "C2R5-5c. probe.py lab does not hand its frozen copies to S0" \
+    "$PROBEPY" \
+    '    s0 = S0(run_dir, runner, py, frozen=frozen)' \
+    '    s0 = S0(run_dir, runner, py)  # MUTANT' \
+    'test_probe_lab_hands_its_frozen_code_to_s0'
+
+add "C2R5-5d. S0's adapter dry-run runs the shared tree's adapter" \
+    "$S0PY" \
+    '        adapter, controller = (fz.adapter, fz.controller) if fz else (RB.ADAPTER, RB.CONTROLLER)' \
+    '        adapter, controller = (RB.ADAPTER, RB.CONTROLLER)  # MUTANT' \
+    'test_the_adapter_dry_run_runs_the_frozen_adapter_with_the_frozen_controller'
+
+add "C2R5-5e. S0's controller trial runs the shared tree's controller" \
+    "$S0PY" \
+    '            ctrl = {"controller": self.frozen.controller} if self.frozen else {}' \
+    '            ctrl = {}  # MUTANT' \
+    'test_the_controller_trial_runs_the_frozen_controller'
+
+add "C2R5-5f. the controller trial ignores the controller it is given" \
+    "$CTRLTRIAL" \
+    'controller or os.path.join(HERE, "controller_ext.py")], env=env,' \
+    'os.path.join(HERE, "controller_ext.py")], env=env,  # MUTANT' \
+    'test_the_controller_trial_starts_the_controller_it_is_given'
+
+add "C2R5-5g. the dry-run check accepts a controller that is not the one it was handed" \
+    "$S0PY" \
+    '        ok = (res.rc == 0 and ("controller: %s" % controller) in out' \
+    '        ok = (res.rc == 0 and ("controller: %s" % RB.CONTROLLER) in out  # MUTANT' \
+    'test_the_adapter_dry_run_runs_the_frozen_adapter_with_the_frozen_controller'
+
+add "C2R5-10a. the body's stop handler does not put the teardown's handler in before it raises" \
+    "$LABROUND" \
+    '                self._swap_handlers({s: self._noter for s in self.SIGS})
+                raise SignalAbort(signum)' \
+    '                raise SignalAbort(signum)  # MUTANT' \
+    'test_a_second_stop_before_the_teardown_handler_is_in_place_does_not_skip_the_teardown'
+
+add "C2R5-10b. the record is finished after the run-level handlers are back" \
+    "$LABROUND" \
+    '                    self._finish(rec, t0)
+                    self._restore_handlers()' \
+    '                    self._restore_handlers()
+                    self._finish(rec, t0)  # MUTANT' \
+    'test_an_exception_after_a_rounds_record_is_final_keeps_that_rounds_record'
+
+add "C2R5-10c. a stop between a round and its record being appended loses the record" \
+    "$LABPY" \
+    '        except SignalAbort as exc:
+            take_unrecorded(cfg, holder, recs)' \
+    '        except SignalAbort as exc:
+            pass  # MUTANT' \
+    'test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record'
+
+add "C2R5-10d. an exception between a round and its record being appended loses the record" \
+    "$LABPY" \
+    '        except Exception as exc:  # noqa: BLE001 -- (round 5, #2) StateInUse, a package outside the run dir, ...
+            take_unrecorded(cfg, holder, recs)' \
+    '        except Exception as exc:  # noqa: BLE001 -- (round 5, #2) StateInUse, a package outside the run dir, ...
+            pass  # MUTANT' \
+    'test_an_exception_after_a_rounds_record_is_final_keeps_that_rounds_record'
+
+add "C2R5-13. a knob that was not put back does not make the round incomplete" \
+    "$LABROUND" \
+    '                or rec["knobs_restored"] is not True):' \
+    '                ):  # MUTANT' \
+    'test_a_knob_that_does_not_go_back_makes_the_round_incomplete_even_when_the_release_succeeds'
+
+add "C2R5-11a. the offline judge ignores a stop" \
+    "$PROBEPY" \
+    '                                stopped=stopped, see_red=see_red)' \
+    '                                see_red=see_red)  # MUTANT' \
+    'test_a_stopped_recording_reads_incomplete_offline'
+
+add "C2R5-11b. the offline judge ignores a see-red recording" \
+    "$PROBEPY" \
+    '                                stopped=stopped, see_red=see_red)' \
+    '                                stopped=stopped)  # MUTANT' \
+    'test_a_see_red_recording_that_sees_no_red_reads_so_offline'
+
+add "C2R5-11c. the offline judge does not read the recording's stopped flag" \
+    "$PROBEPY" \
+    '    stopped = (doc.get("stopped") is True or any(signalled(b) for b in doc.get("bringups") or [])' \
+    '    stopped = (any(signalled(b) for b in doc.get("bringups") or [])  # MUTANT' \
+    'test_a_stopped_recording_reads_incomplete_offline'
+
+add "C2R5-11d. the offline judge does not read a stop recorded as a problem of the run" \
+    "$PROBEPY" \
+    '               or any(str(p).startswith("stop signal") for p in doc.get("problems") or []))' \
+    '               or False)  # MUTANT' \
+    'test_a_stopped_recording_reads_incomplete_offline'
+
+add "C2R5-11e. observations.json does not say whether the run was stopped" \
+    "$LABPY" \
+    '"bringups_complete": complete, "stopped": stopped, "see_red": bool(mutant),' \
+    '"bringups_complete": complete, "stopped": False, "see_red": bool(mutant),  # MUTANT' \
+    'test_the_observations_a_run_writes_carry_what_the_offline_judge_reads'
+
+add "C2R5-11f. observations.json does not carry the rounds' records" \
+    "$LABPY" \
+    '                         "bringups": recs, "problems": problems}, default=_jsonable)' \
+    '                         "bringups": [], "problems": problems}, default=_jsonable)  # MUTANT' \
+    'test_the_observations_a_run_writes_carry_what_the_offline_judge_reads'
+
+add "C2R5-12. the frozen set leaves out the adapter's common.py" \
+    "$FROZENPY" \
+    '"p4_exercise/run_external_controller.py", "p4_exercise/common.py", "p4_exercise/__init__.py")' \
+    '"p4_exercise/run_external_controller.py", "p4_exercise/__init__.py")  # MUTANT' \
+    'test_the_frozen_adapter_and_controller_launched_as_b_launches_them_load_nothing_from_the_shared_tree'
+
+# --- #6: the gate script and the shard-sum script, mutated as copies and tested by test_p4_health_gate_scripts.sh
+# (its check names, in brackets, are what must go red). The banner printed at the END of a real shard log is
+# not reached by any check that does not run a whole shard: it is the banner at the top, and the synthetic logs
+# the shard-sum tests read, that are pinned.
+add "C2R5-6a. the gate script lets k reach n" \
+    "$GATEPY" \
+    '    (( SHARD_K ''< SHARD_N )) || refuse_config' \
+    '    (( 1 )) || refuse_config  # MUTANT' \
+    '[MUT_SHARD with k equal to n is refused]'
+
+add "C2R5-6b. the gate script lets n exceed the table" \
+    "$GATEPY" \
+    '    (( SHARD_N ''<= ${#MUT_LABEL[@]} )) \' \
+    '    (( 1 )) \' \
+    '[MUT_SHARD with n just above the table size is refused too]'
+
+add "C2R5-6c. the gate script runs when no mutation is selected" \
+    "$GATEPY" \
+    '(( SELECTED ''> 0 )) \' \
+    '(( 1 )) \' \
+    '[an ONLY_LABEL_PREFIX that matches nothing is refused (no mutation is selected)]'
+
+add "C2R5-6d. the gate script takes a shard with a leading zero" \
+    "$GATEPY" \
+    '=~ ^(0|[1-9]''[0-9]*)/([1-9][0-9]*)$ ]]' \
+    '=~ ^([0-9]+)/([1-9][0-9]*)$ ]]' \
+    '[MUT_SHARD with a leading zero is refused]'
+
+add "C2R5-6e. the gate script does not say a shard is not the gate" \
+    "$GATEPY" \
+    'NOT THE GATE BY ITSELF: shard %s/''%s (%s of %s mutations;' \
+    'a shard: %s/%s (%s of %s mutations;' \
+    '[a shard log opens with NOT THE GATE BY ITSELF: shard k/n]'
+
+add "C2R5-6f. the gate script announces a banner for the whole gate" \
+    "$GATEPY" \
+    'if [[ -n "$SHARD_N" '']]; then
+    printf ' \
+    'if true; then
+    printf ' \
+    '[the whole gate does not]'
+
+add "C2R5-6g. the shard-sum script takes shards of different commits" \
+    "$SUMPY" \
+    '        if len({f[key] for f in facts}) != 1:' \
+    '        if False:  # MUTANT' \
+    '[a shard of another commit (first line and HEAD line)]'
+
+add "C2R5-6h. the shard-sum script lets n exceed the table" \
+    "$SUMPY" \
+    '        if n > labels:' \
+    '        if False:  # MUTANT' \
+    '[n larger than the table (two shards would have run nothing)]'
+
+add "C2R5-6i. the shard-sum script does not compare the first line with the HEAD line" \
+    "$SUMPY" \
+    '    elif first and first.group(1) != head[0]:' \
+    '    elif False:  # MUTANT' \
+    '[a shard whose first line is not the commit HEAD says]'
+
+add "C2R5-6j. the shard-sum script accepts uncommitted changes" \
+    "$SUMPY" \
+    '    elif tree[1].strip():' \
+    '    elif False:  # MUTANT' \
+    '[a shard of a tree with uncommitted changes]'
+
+add "C2R5-6k. the shard-sum script does not look at the rc line" \
+    "$SUMPY" \
+    '    if last != "rc=0":' \
+    '    if False:  # MUTANT' \
+    '[a shard that ended rc=1]'
+
+add "C2R5-6l. the shard-sum script accepts a survivor" \
+    "$SUMPY" \
+    '    if m_s is not None and int(m_s[1]) != 0:' \
+    '    if False:  # MUTANT' \
+    '[a shard that survived a mutation, even with rc 0 written]'
+
+add "C2R5-6m. the shard-sum script accepts a partial run" \
+    "$SUMPY" \
+    '    if "PARTIAL RUN" in "\n".join(lines):' \
+    '    if False:  # MUTANT' \
+    '[a partial run]'
+
+add "C2R5-6n. the shard-sum script does not look for the banner" \
+    "$SUMPY" \
+    '    elif not (len([l for l in lines if l ==' \
+    '    elif False and not (len([l for l in lines if l ==' \
+    '[a shard without the not-the-gate banner (not a log of this script)]'
+
+add "C2R5-6o. the shard-sum script does not look at the baseline" \
+    "$SUMPY" \
+    '    if len(bi) != 1 or lines[bi[0] + 1:bi[0] + 2] != ["  ok       baseline green"]:' \
+    '    if False:' \
+    '[a shard whose baseline is not green]'
+
+add "C2R5-6p. the shard-sum script does not look at the negative control" \
+    "$SUMPY" \
+    '    if text.count("  ✅ green: the suites do not react to a comment") != 1:' \
+    '    if False:  # MUTANT' \
+    '[a shard whose negative control is not green]'
+
+add "C2R5-6q. the shard-sum script does not look at the byte-identical line" \
+    "$SUMPY" \
+    '    if len(re.findall(r"^  byte-identical  tools/p4_health  ", text, re.M)) != 1:' \
+    '    if False:  # MUTANT' \
+    '[a shard that does not say the original is byte-identical]'
+
+add "C2R5-6r. the shard-sum script does not look at the after-check" \
+    "$SUMPY" \
+    '    if text.count("  suites green against the real files") != 1:' \
+    '    if False:  # MUTANT' \
+    '[a shard whose after-check is not green]'
+
+add "C2R5-6s. the shard-sum script lets a shard be given twice" \
+    "$SUMPY" \
+    '        if k in shards:' \
+    '        if False:  # MUTANT' \
+    '[the same shard twice in place of another]'
+
+add "C2R5-6t. the shard-sum script does not check that the shards are 0..n-1" \
+    "$SUMPY" \
+    '        if sorted(shards) != list(range(n)):' \
+    '        if False:  # MUTANT' \
+    '[three shards of four]'
+
+add "C2R5-6u. the shard-sum script does not check each shard's share" \
+    "$SUMPY" \
+    '            if f["m"] != share:' \
+    '            if False:  # MUTANT' \
+    '[a shard that ran more mutations than its share (the counts no longer add up)]'
+
+add "C2R5-6v. the shard-sum script lets n differ between the logs" \
+    "$SUMPY" \
+    '    if len(ns) != 1:' \
+    '    if False:  # MUTANT' \
+    '[shards of different n]'
+
+add "C2R5-6w. the shard-sum script lets the size of the table differ" \
+    "$SUMPY" \
+    '    if len(ls) != 1:' \
+    '    if False:  # MUTANT' \
+    '[shards that disagree on the size of the table]'
+
+add "C2R5-6x. the shard-sum script takes no logs" \
+    "$SUMPY" \
+    'if not logs:' \
+    'if False:' \
+    '[no logs at all is refused, with a reason]'
+
+add "C2R5-6y. the shard-sum script takes a refused run's log" \
+    "$SUMPY" \
+    '        if "REFUSED" in l or "\U0001f534" in l:' \
+    '        if False:  # MUTANT' \
+    '[a log of a refused run]'
+
+add "C2R5-6z. the shard-sum script prints another line when all is well" \
+    "$SUMPY" \
+    'print("GATE: %d mutations, %d survived, shards %d/%d ok, commit %s, tree %s, subject sha %s"' \
+    'print("GATE ok: %d mutations, %d survived, shards %d/%d, commit %s, tree %s, subject sha %s"' \
+    '[four good shards of ten: the one GATE line, rc 0]'
+
+
+# --- round 6 (C2R6-): the fifth round's open items ----------------------------------------------------------
+# finding 2: S0's copy of exercise/ is checked against the pinned commit, and the controller trial loads the copy
+add "C2R6-2a. S0 does not check its exercise copy against the pinned commit" \
+    "$S0PY" \
+    '        if self.frozen is not None and getattr(self.frozen, "head", None):
+            self.frozen.check_exercise(self.ex)' \
+    '        if False:  # MUTANT
+            self.frozen.check_exercise(self.ex)' \
+    'test_an_exercise_file_edited_after_the_clean_check_is_refused_before_any_lab_action'
+
+add "C2R6-2b. the exercise copy check is skipped when the compile failed" \
+    "$S0PY" \
+    '        built = self.compile_all()
+        self.check_exercise_copy()' \
+    '        built = self.compile_all()
+        if built:  # MUTANT
+            self.check_exercise_copy()' \
+    'test_an_exercise_file_edited_after_the_clean_check_is_refused_before_any_lab_action'
+
+add "C2R6-2c. the exercise copy check does not compare the bytes" \
+    "$FROZENPY" \
+    '        if h != committed[rel]:' \
+    '        if False:  # MUTANT' \
+    'test_the_exercise_copy_check_names_the_file_that_differs'
+
+add "C2R6-2d. a file the commit does not have is accepted in the exercise copy" \
+    "$FROZENPY" \
+    '    if extra or missing:' \
+    '    if missing:  # MUTANT' \
+    'test_the_exercise_copy_check_refuses_a_file_the_commit_does_not_have_and_one_it_lacks'
+
+add "C2R6-2e. a file the commit has may be missing from the exercise copy" \
+    "$FROZENPY" \
+    '    if extra or missing:' \
+    '    if extra:  # MUTANT' \
+    'test_the_exercise_copy_check_refuses_a_file_the_commit_does_not_have_and_one_it_lacks'
+
+add "C2R6-2f. a link in the exercise copy is followed" \
+    "$FROZENPY" \
+    '        if os.path.islink(found[rel]):' \
+    '        if False:  # MUTANT' \
+    'test_the_exercise_copy_check_refuses_a_link_in_the_copy'
+
+add "C2R6-2g. the exercise copy check passes without a commit or git to check against" \
+    "$FROZENPY" \
+    '    if git is None or not head:' \
+    '    if False:  # MUTANT' \
+    'test_the_exercise_copy_check_is_a_refusal_when_git_cannot_answer'
+
+add "C2R6-2h. the check does not leave out what the copy leaves out" \
+    "$FROZENPY" \
+    'COPY_IGNORE = ("__pycache__", "build*")' \
+    'COPY_IGNORE = ("__pycache__",)  # MUTANT' \
+    'test_the_exercise_copy_check_passes_for_the_tree_the_commit_has_and_ignores_build_output'
+
+add "C2R6-2i. probe.py lab lets a refused exercise copy out as a crash" \
+    "$PROBEPY" \
+    '    except FZ.Refused as exc:
+        # (round 6, finding 2)' \
+    '    except ZeroDivisionError as exc:  # MUTANT
+        # (round 6, finding 2)' \
+    'test_an_exercise_file_edited_after_the_clean_check_is_refused_before_any_lab_action'
+
+add "C2R6-2j. the controller trial ignores the exercise directory it is given" \
+    "$CTRLTRIAL" \
+    '"hc_gen", os.path.join(exercise or os.path.join(HERE, "exercise"), "gen_runtime.py"))' \
+    '"hc_gen", os.path.join(os.path.join(HERE, "exercise"), "gen_runtime.py"))  # MUTANT' \
+    'test_the_controller_trial_loads_the_model_from_the_runs_exercise_copy_not_the_shared_tree'
+
+add "C2R6-2k. S0 does not hand its exercise copy to the controller trial" \
+    "$S0PY" \
+    'default_p4dev_python(), utils, exercise=self.ex, **ctrl)' \
+    'default_p4dev_python(), utils, **ctrl)  # MUTANT' \
+    'test_the_controller_trial_loads_the_model_from_the_runs_exercise_copy_not_the_shared_tree'
+
+
+# finding 3: a stop that reaches the run level a second time, or outside run_lab's try, ends rc 2
+add "C2R6-3a. the run-level stop handler stays installed after the first stop" \
+    "$LABPY" \
+    '        _swap_handlers({s: noter for s in STOP_SIGNALS})
+        raise SignalAbort(signum)' \
+    '        raise SignalAbort(signum)  # MUTANT' \
+    'test_a_second_stop_while_run_lab_handles_the_first_gives_rc_2_not_pythons_status_1'
+
+add "C2R6-3b. the run level's noter drops a stop" \
+    "$LABPY" \
+    '        noted.append(signum)' \
+    '        pass  # MUTANT' \
+    'test_a_second_stop_while_run_lab_handles_the_first_gives_rc_2_not_pythons_status_1'
+
+add "C2R6-3c. the run level's first stop does not note-only afterwards (the noter raises too)" \
+    "$LABPY" \
+    '    def noter(signum, _frame):
+        noted.append(signum)' \
+    '    def noter(signum, _frame):
+        noted.append(signum)
+        raise SignalAbort(signum)  # MUTANT' \
+    'test_the_run_levels_first_stop_puts_a_noter_in_before_it_raises'
+
+add "C2R6-3d. probe.py lab lets a stop out of main() as an uncaught exception" \
+    "$PROBEPY" \
+    '        except SignalAbort as exc:
+            # (round 6, finding 3)' \
+    '        except ZeroDivisionError as exc:  # MUTANT
+            # (round 6, finding 3)' \
+    'test_a_stop_that_gets_out_of_the_lab_path_is_rc_2_stopped_not_pythons_status_1'
+
+add "C2R6-3e. probe.py lab answers a stop that got out with status 1" \
+    "$PROBEPY" \
+    '                  % (exc.signum, set_verdict_aside(args.run_dir)), file=sys.stderr)
+            return 2' \
+    '                  % (exc.signum, set_verdict_aside(args.run_dir)), file=sys.stderr)
+            return 1  # MUTANT' \
+    'test_a_stop_that_gets_out_of_the_lab_path_is_rc_2_stopped_not_pythons_status_1'
+
+
+# finding 4: _finish and the handler restore under one signal mask; a record cut off before _finish is not complete
+add "C2R6-4a. _finish and the handler restore are not under one signal mask" \
+    "$LABROUND" \
+    '                with self._masked():
+                    self._finish(rec, t0)' \
+    '                if True:  # MUTANT
+                    self._finish(rec, t0)' \
+    'test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed'
+
+add "C2R6-4b. the mask lets the stop signals through" \
+    "$LABROUND" \
+    '        held = signal.pthread_sigmask(signal.SIG_BLOCK, self.SIGS)' \
+    '        held = signal.pthread_sigmask(signal.SIG_BLOCK, ())  # MUTANT' \
+    'test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed'
+
+add "C2R6-4c. the mask is never lifted" \
+    "$LABROUND" \
+    '            signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
+    '            pass  # MUTANT' \
+    'test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed'
+
+add "C2R6-4d. a round cut off before its record was finished keeps the complete the body set" \
+    "$LABPY" \
+    '                rec["complete"] = False
+                rec["problems"].append("the round was cut off' \
+    '                rec["problems"].append("the round was cut off' \
+    'test_a_round_cut_off_before_its_record_was_finished_is_not_complete_in_health_json'
+
+add "C2R6-4e. a round cut off before its record was finished says nothing about it" \
+    "$LABPY" \
+    '            if rec.get("seconds") is None:' \
+    '            if False:  # MUTANT' \
+    'test_a_round_cut_off_before_its_record_was_finished_is_not_complete_in_health_json'
+
+
+# finding 5: observations.json first, health.json last, through tmp + replace; the catch-all sets a verdict aside
+add "C2R6-5a. health.json is written before observations.json" \
+    "$LABPY" \
+    '    R.write_json_atomic(os.path.join(run_dir, "observations.json"),' \
+    '    R.dump(os.path.join(run_dir, "health.json"), doc)  # MUTANT
+    R.write_json_atomic(os.path.join(run_dir, "observations.json"),' \
+    'test_an_error_writing_observations_json_leaves_no_health_json_and_exits_2'
+
+add "C2R6-5b. the temp file is not put in place with os.replace" \
+    "$REPORTPY" \
+    '        os.replace(tmp, path)' \
+    '        os.rename(tmp, path)  # MUTANT' \
+    'test_an_error_putting_observations_json_in_place_leaves_no_health_json_and_exits_2'
+
+add "C2R6-5c. report.dump writes in place" \
+    "$REPORTPY" \
+    '    tmp = "%s.tmp-%d" % (path, os.getpid())' \
+    '    tmp = path  # MUTANT' \
+    'test_a_write_that_fails_half_way_leaves_the_earlier_file_whole'
+
+add "C2R6-5d. a failed write leaves its temp file behind" \
+    "$REPORTPY" \
+    '        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise' \
+    '        raise  # MUTANT' \
+    'test_a_write_that_fails_half_way_leaves_the_earlier_file_whole'
+
+add "C2R6-5e. the catch-all leaves an existing health.json as it is" \
+    "$PROBEPY" \
+    '    try:
+        os.replace(path, aside)' \
+    '    try:
+        return ""  # MUTANT
+        os.replace(path, aside)' \
+    'test_an_error_after_health_json_was_written_sets_it_aside_as_not_a_verdict'
+
+add "C2R6-5f. the catch-all message starts with refused:" \
+    "$PROBEPY" \
+    '            print("ERROR: the lab run ended on an exception' \
+    '            print("refused: the lab run ended on an exception' \
+    'test_the_catch_all_does_not_look_like_a_deliberate_refusal'
+
+
+# finding 10: the offline verdict command reads back what run_lab wrote
+add "C2R6-10a. T1 compares the thrift dump as a set of lists" \
+    "$TABLE" \
+    '        if as_set(got) != as_set(expect[dpid]):' \
+    '        if set(got) != set(expect[dpid]):  # MUTANT' \
+    'test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells'
+
+add "C2R6-10b. M1 compares the group's ports with a frozenset directly" \
+    "$TABLE" \
+    '    if as_set(o["s1_group1"]) != frozenset({1, 2}):' \
+    '    if o["s1_group1"] != frozenset({1, 2}):  # MUTANT' \
+    'test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells'
+
+add "C2R6-10c. M2 compares the group's ports with a frozenset directly" \
+    "$TABLE" \
+    '    if as_set(o["group2_after"]) != as_set(o["declared"]):' \
+    '    if o["group2_after"] != frozenset(o["declared"]):  # MUTANT' \
+    'test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells'
+
+add "C2R6-10d. C1 compares the mirror's ports with a frozenset directly" \
+    "$TABLE" \
+    '    if as_set(o["ports"]) != frozenset({1}):' \
+    '    if o["ports"] != frozenset({1}):  # MUTANT' \
+    'test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells'
+
+add "C2R6-10e. as_set does not turn a nested list into a tuple" \
+    "$TABLE" \
+    '        return tuple(hashable(i) for i in x) if isinstance(x, (list, tuple)) else x' \
+    '        return x  # MUTANT' \
+    'test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells'
+
+
+# the pin-HEAD NIT: HEAD is pinned first; the clean check, the freeze and the identity use that sha
+add "C2R6-pin-a. probe.py lab goes on when HEAD cannot be named" \
+    "$PROBEPY" \
+    '    if h_rc != 0 or not pinned:' \
+    '    if False:  # MUTANT' \
+    'test_a_head_that_cannot_be_named_is_refused_before_the_clean_check'
+
+add "C2R6-pin-b. probe.py lab does not look at HEAD again after the clean check" \
+    "$PROBEPY" \
+    '    if h_rc != 0 or now != pinned:' \
+    '    if False:  # MUTANT' \
+    'test_a_commit_that_lands_after_head_was_pinned_and_before_the_clean_check_is_refused'
+
+add "C2R6-pin-c. the freeze resolves HEAD again instead of taking the pinned sha" \
+    "$PROBEPY" \
+    '        frozen = FZ.freeze(run_dir, repo=REPO, git=git_at_pinned_head)' \
+    '        frozen = FZ.freeze(run_dir, repo=REPO, git=_git_run)  # MUTANT' \
+    'test_the_freeze_and_the_identity_use_the_sha_pinned_at_the_start'
+
+add "C2R6-pin-d. the pin is not the first thing asked of git" \
+    "$PROBEPY" \
+    '    h_rc, pinned = _git_run("rev-parse", "--verify", "HEAD")' \
+    '    _git_run("status", "--porcelain", "--", "tools/p4_health")  # MUTANT
+    h_rc, pinned = _git_run("rev-parse", "--verify", "HEAD")' \
+    'test_a_clean_run_pins_head_once_before_anything_else_is_asked'
+
+
+# finding 6: the GATE line names what it certifies and refuses logs of another commit or tree; the gate marks
+# an uncommitted change to its own scripts and to what it copies
+add "C2R6-6a. the shard-sum script accepts logs of a commit that is not the checkout's HEAD" \
+    "$SUMPY" \
+    '        if commit != want:' \
+    '        if False:  # MUTANT' \
+    '[logs that agree with each other, of a commit that is not the checkout'"'"'s HEAD]'
+
+add "C2R6-6b. the shard-sum script accepts a tools/p4_health tree that is not the commit's" \
+    "$SUMPY" \
+    '        elif tree != want_tree:' \
+    '        elif False:  # MUTANT' \
+    "[logs of the checkout's HEAD that name another tools/p4_health tree]"
+
+add "C2R6-6c. the shard-sum script ignores --commit" \
+    "$SUMPY" \
+    '    if commit_arg is not None:' \
+    '    if False:  # MUTANT' \
+    "[--commit naming the logs' commit is accepted, and the GATE line names that commit]"
+
+add "C2R6-6d. the shard-sum script goes on when git cannot name HEAD" \
+    "$SUMPY" \
+    '    if h_rc != 0 or not head:' \
+    '    if False:  # MUTANT' \
+    '[a checkout git cannot read refuses the logs]'
+
+add "C2R6-6e. the GATE line does not carry the subject sha" \
+    "$SUMPY" \
+    'facts[0]["commit"], facts[0]["tree"], facts[0]["subj"]))' \
+    'facts[0]["commit"], facts[0]["tree"], "-"))  # MUTANT' \
+    '[four good shards of ten: the one GATE line, rc 0]'
+
+add "C2R6-6f. the GATE line does not carry the tree" \
+    "$SUMPY" \
+    'facts[0]["commit"], facts[0]["tree"], facts[0]["subj"]))' \
+    'facts[0]["commit"], facts[0]["commit"], facts[0]["subj"]))  # MUTANT' \
+    '[four good shards of ten: the one GATE line, rc 0]'
+
+add "C2R6-6g. the shard-sum script takes an option it does not know for a log" \
+    "$SUMPY" \
+    '    elif a.startswith("--"):
+        problems.append("unknown option %s" % a)' \
+    '    elif a.startswith("--"):
+        logs.append(a)  # MUTANT' \
+    '[an unknown option is refused]'
+
+add "C2R6-6h. --commit needs no value" \
+    "$SUMPY" \
+    '        if not args:
+            problems.append("--commit needs a commit")' \
+    '        if False:  # MUTANT
+            problems.append("--commit needs a commit")' \
+    '[--commit with nothing after it is refused]'
+
+add "C2R6-6i. the gate does not mark an uncommitted edit to its own mutation script" \
+    "$GATEPY" \
+    '    tests/shell/test_p4_health_rec''over.sh
+    tests/shell/mutate_p4_health.sh
+' \
+    '    tests/shell/test_p4_health_recover.sh
+' \
+    "[an uncommitted edit to the gate's own script tests/shell/mutate_p4_health.sh is marked]"
+
+add "C2R6-6j. the gate does not mark an uncommitted edit to the shard-sum script" \
+    "$GATEPY" \
+    '    tests/shell/mutate_p4_h''ealth.sh
+    tests/shell/sum_p4_health_gate_shards.sh
+' \
+    '    tests/shell/mutate_p4_health.sh
+' \
+    "[an uncommitted edit to the gate's own script tests/shell/sum_p4_health_gate_shards.sh is marked]"
+
+add "C2R6-6k. the gate does not mark an uncommitted edit to the gate-script tests" \
+    "$GATEPY" \
+    '    tests/shell/sum_p4_health_gate_sh''ards.sh
+    tests/shell/test_p4_health_gate_scripts.sh
+' \
+    '    tests/shell/sum_p4_health_gate_shards.sh
+' \
+    "[an uncommitted edit to the gate's own script tests/shell/test_p4_health_gate_scripts.sh is marked]"
+
+add "C2R6-6l. the gate does not mark an uncommitted edit to tools/p4_exercise" \
+    "$GATEPY" \
+    '    tests/shell/test_p4_health_gate_scr''ipts.sh
+    tools/p4_exercise
+' \
+    '    tests/shell/test_p4_health_gate_scripts.sh
+' \
+    '[an uncommitted edit to tools/p4_exercise/common.py is marked]'
+
+add "C2R6-6m. the gate does not mark an uncommitted edit to grpc_ports.py" \
+    "$GATEPY" \
+    '    tools/p4_exe''rcise
+    p4_proxy/mininet/grpc_ports.py
+' \
+    '    tools/p4_exercise
+' \
+    '[an uncommitted edit to p4_proxy/mininet/grpc_ports.py is marked]'
+
+
+# finding 7: the hash of the gate's own scripts depends on their contents only
+add "C2R6-7a. the hash of the gate's scripts is of sha256sum's output, which carries their paths" \
+    "$GATEPY" \
+    '    for f in "$GATEPY"'' "$SUMPY" "$GATE_TEST"; do sha256sum < "$f"; done | sha256sum | cut -c1-64' \
+    '    for f in "$GATEPY" "$SUMPY" "$GATE_TEST"; do sha256sum "$f"; done | sha256sum | cut -c1-64  # MUTANT' \
+    '[the same scripts in another directory give the same hash]'
+
+add "C2R6-7b. the hash of the gate's scripts leaves out the gate-script tests" \
+    "$GATEPY" \
+    '    for f in "$GATEPY"'' "$SUMPY" "$GATE_TEST"; do sha256sum < "$f"; done' \
+    '    for f in "$GATEPY" "$SUMPY"; do sha256sum < "$f"; done  # MUTANT' \
+    '[an edit to test_p4_health_gate_scripts.sh changes the hash]'
+
+add "C2R6-7c. the hash of the gate's scripts leaves out the shard-sum script" \
+    "$GATEPY" \
+    '    for f in "$GATEPY"'' "$SUMPY" "$GATE_TEST"; do sha256sum < "$f"; done | sha256sum | cut -c1-64' \
+    '    for f in "$GATEPY" "$GATE_TEST"; do sha256sum < "$f"; done | sha256sum | cut -c1-64  # MUTANT' \
+    '[an edit to sum_p4_health_gate_shards.sh changes the hash]'
+
+add "C2R6-7d. the hash of the gate's scripts leaves out the gate script itself" \
+    "$GATEPY" \
+    '    for f in "$GATEPY"'' "$SUMPY" "$GATE_TEST"; do sha256sum < "$f"; done | sha256sum | cut -c1-64' \
+    '    for f in "$SUMPY" "$GATE_TEST"; do sha256sum < "$f"; done | sha256sum | cut -c1-64  # MUTANT' \
+    '[an edit to mutate_p4_health.sh changes the hash]'
+
+
+# --- round 7 (C2R7-): the sixth round's review ---------------------------------------------------------------
+# finding 1: no thread of the process may be able to take a stop while a round's mask is up (lab.run_lab refuses),
+# and the ValueSet trial, which starts gRPC threads in this process, runs with the three signals blocked
+add "C2R7-1a. run_lab does not look at the process's threads" \
+    "$LABPY" \
+    '    if prepared is not None and signals:
+        # (round 7, finding 1)' \
+    '    if False:  # MUTANT
+        # (round 7, finding 1)' \
+    'test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim'
+
+add "C2R7-1b. the thread check leaves SIGHUP out" \
+    "$LABPY" \
+    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS}' \
+    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS if s != signal.SIGHUP}  # MUTANT' \
+    'test_a_running_thread_that_does_not_block_sighup_is_refused_too'
+
+add "C2R7-1c. the thread check leaves SIGINT out" \
+    "$LABPY" \
+    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS}' \
+    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS if s != signal.SIGINT}  # MUTANT' \
+    'test_a_running_thread_that_does_not_block_sigint_is_refused_too'
+
+add "C2R7-1d. the thread check leaves SIGTERM out" \
+    "$LABPY" \
+    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS}' \
+    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS if s != signal.SIGTERM}  # MUTANT' \
+    'test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim'
+
+add "C2R7-1e. the calling thread is judged like the others" \
+    "$LABPY" \
+    '        if tid == me:' \
+    '        if False:  # MUTANT' \
+    'test_the_calling_thread_is_not_judged_and_threads_that_block_all_three_signals_pass'
+
+add "C2R7-1f. a /proc that cannot be listed passes" \
+    "$LABPY" \
+    '    except OSError as exc:
+        return ("refused: cannot tell whether' \
+    '    except OSError as exc:
+        return ""  # MUTANT
+        return ("refused: cannot tell whether' \
+    'test_a_proc_that_cannot_be_read_is_a_refusal_not_a_pass'
+
+add "C2R7-1g. a thread whose mask cannot be read passes" \
+    "$LABPY" \
+    '            unreadable.append("thread %s (%s: %s)" % (tid, type(exc).__name__, exc))' \
+    '            pass  # MUTANT' \
+    'test_a_thread_whose_status_cannot_be_read_or_has_no_sigblk_line_is_a_refusal'
+
+add "C2R7-1h. only the first thread that can take a stop is named" \
+    "$LABPY" \
+    '        if missing:
+            bad.append(' \
+    '        if missing and not bad:  # MUTANT
+            bad.append(' \
+    'test_every_thread_that_does_not_block_them_is_named'
+
+add "C2R7-1i. a thread that blocks only part of the three passes when it blocks any of them" \
+    "$LABPY" \
+    '        missing = [s.name for s, bit in _STOP_BITS.items() if not blk & bit]' \
+    '        missing = [] if blk & sum(_STOP_BITS.values()) else [s.name for s, bit in _STOP_BITS.items()]  # MUTANT' \
+    'test_a_thread_with_only_two_of_the_three_bits_set_is_named_in_the_refusal'
+
+add "C2R7-1j. the refusal is written down and the run goes on" \
+    "$LABPY" \
+    '            log("  " + refusal)
+            prepared = None' \
+    '            log("  " + refusal)  # MUTANT' \
+    'test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim'
+
+add "C2R7-1k. the ValueSet trial runs without the stops blocked" \
+    "$S0PY" \
+    '            with stops_held():
+                results = [VT.trial(' \
+    '            if True:  # MUTANT
+                results = [VT.trial(' \
+    'test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back'
+
+add "C2R7-1l. the trial block does not block" \
+    "$S0PY" \
+    '    held = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)' \
+    '    held = signal.pthread_sigmask(signal.SIG_BLOCK, ())  # MUTANT' \
+    'test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back'
+
+add "C2R7-1m. the trial block leaves SIGHUP out" \
+    "$S0PY" \
+    'STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)' \
+    'STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT)  # MUTANT' \
+    'test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back'
+
+add "C2R7-1n. the trial block is never lifted" \
+    "$S0PY" \
+    '        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
+    '        pass  # MUTANT' \
+    'test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back'
+
+add "C2R7-1o. the trial block is lifted only when the trial does not raise" \
+    "$S0PY" \
+    '    try:
+        yield
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
+    '    yield  # MUTANT
+    signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
+    'test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded'
+
+add "C2R7-1p. a throwaway switch keeps the blocked stops" \
+    "$THROWAWAY" \
+    '    signal.pthread_sigmask(signal.SIG_UNBLOCK, (signal.SIGTERM, signal.SIGINT, signal.SIGHUP))' \
+    '    pass  # MUTANT' \
+    'test_a_throwaway_switch_does_not_inherit_the_blocked_stops'
+
+add "C2R7-1q. a throwaway switch is given back only SIGHUP and SIGINT" \
+    "$THROWAWAY" \
+    '    signal.pthread_sigmask(signal.SIG_UNBLOCK, (signal.SIGTERM, signal.SIGINT, signal.SIGHUP))' \
+    '    signal.pthread_sigmask(signal.SIG_UNBLOCK, (signal.SIGINT, signal.SIGHUP))  # MUTANT' \
+    'test_a_throwaway_switch_does_not_inherit_the_blocked_stops'
+
+add "C2R7-1r. a stop during the trial is dropped, not held" \
+    "$S0PY" \
+    '    held = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
+    try:
+        yield
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
+    '    held = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
+    try:
+        yield
+    finally:
+        for sig in STOP_SIGNALS:  # MUTANT
+            signal.sigtimedwait([sig], 0)
+        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
+    'test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back'
+
+
+# finding 4: the exercise copy is checked again right before lab.load_model runs it
+add "C2R7-3a. run_lab does not check the exercise copy again before loading the model" \
+    "$LABPY" \
+    '            if getattr(frozen, "head", None):
+                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
+    '            if False:  # MUTANT
+                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
+    'test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_load_model_runs_it'
+
+add "C2R7-3b. the exercise copy is checked after the model was loaded from it" \
+    "$LABPY" \
+    '            if getattr(frozen, "head", None):
+                frozen.check_exercise(os.path.join(run_dir, "exercise"))
+            model = load_model(os.path.join(run_dir, "exercise"))' \
+    '            model = load_model(os.path.join(run_dir, "exercise"))  # MUTANT
+            if getattr(frozen, "head", None):
+                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
+    'test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_load_model_runs_it'
+
+add "C2R7-3c. the re-check is made without a pinned commit to check against" \
+    "$LABPY" \
+    '            if getattr(frozen, "head", None):
+                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
+    '            if True:  # MUTANT
+                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
+    'test_a_then_b_then_the_verdicts'
+
+add "C2R7-3d. the re-check looks at the run directory, not the exercise copy" \
+    "$LABPY" \
+    '                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
+    '                frozen.check_exercise(run_dir)  # MUTANT' \
+    'test_a_convert_that_leaves_the_exercise_copy_alone_goes_on_to_the_rounds'
+
+add "C2R7-3e. a refused exercise copy is let through" \
+    "$LABPY" \
+    '                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
+    '                try:
+                    frozen.check_exercise(os.path.join(run_dir, "exercise"))
+                except FZ.Refused:  # MUTANT
+                    pass' \
+    'test_a_convert_that_adds_a_file_to_the_exercise_copy_is_refused_before_load_model_too'
+
+
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -1499,22 +3314,58 @@ if [[ "$ANCHOR_CHECK" == 1 ]]; then
     exit 2
 fi
 
+# --- refusing what cannot be the gate, or a shard of it, BEFORE the baseline (round 5, #6) -------------
+
+# MUT_SHARD=k/n  runs only the mutations whose position in the table is k modulo n (k from 0): n shards
+# started side by side, with the same head, cover the table once between them. Each shard runs its own
+# baseline and negative control. A shard is never the gate by itself: the gate is the sum of all n, and
+# tests/shell/sum_p4_health_gate_shards.sh adds them up (one commit, tree and subject sha; every
+# baseline, control and after-check green; every rc 0; the counts adding up to the table).
+# ONLY_LABEL_PREFIX=C2R5-  runs only the mutations whose label starts so: a PARTIAL run, never the gate.
+refuse_config() { echo "REFUSED: $1"; exit 2; }
+SHARD_K=""; SHARD_N=""
+if [[ -n "${MUT_SHARD:-}" ]]; then
+    [[ "$MUT_SHARD" =~ ^(0|[1-9][0-9]*)/([1-9][0-9]*)$ ]] \
+        || refuse_config "MUT_SHARD=$MUT_SHARD is not k/n (whole numbers, n >= 1, no leading zeros)"
+    SHARD_K="${BASH_REMATCH[1]}"; SHARD_N="${BASH_REMATCH[2]}"
+    (( SHARD_K < SHARD_N )) || refuse_config "MUT_SHARD=$MUT_SHARD: k must be below n (shards are numbered from 0)"
+    (( SHARD_N <= ${#MUT_LABEL[@]} )) \
+        || refuse_config "MUT_SHARD=$MUT_SHARD: n is larger than the ${#MUT_LABEL[@]} mutations in the table, so a shard would run nothing"
+fi
+selected() {    # selected <index>: is mutation <index> in this run?
+    if [[ -n "${ONLY_LABEL_PREFIX:-}" && "${MUT_LABEL[$1]}" != "$ONLY_LABEL_PREFIX"* ]]; then return 1; fi
+    if [[ -n "$SHARD_N" ]] && (( $1 % SHARD_N != SHARD_K )); then return 1; fi
+    return 0
+}
+SELECTED=0
+for i in "${!MUT_LABEL[@]}"; do selected "$i" && SELECTED=$((SELECTED + 1)); done
+(( SELECTED > 0 )) \
+    || refuse_config "no mutation is selected (MUT_SHARD=${MUT_SHARD:-}, ONLY_LABEL_PREFIX=${ONLY_LABEL_PREFIX:-}): a run of none is not a result"
+if [[ -n "$SHARD_N" ]]; then
+    printf 'NOT THE GATE BY ITSELF: shard %s/%s (%s of %s mutations; the gate is the sum of all %s shards)\n\n' \
+        "$SHARD_K" "$SHARD_N" "$SELECTED" "${#MUT_LABEL[@]}" "$SHARD_N"
+fi
+[[ -n "${ONLY_LABEL_PREFIX:-}" ]] && printf 'NOT THE GATE: only labels starting %s (%s mutations)\n\n' "$ONLY_LABEL_PREFIX" "$SELECTED"
+
 # --- running --------------------------------------------------------------------------------------
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/p4-health-mutate-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 SURVIVORS=0; MUTATIONS=0
 BASE_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | sort | xargs sha256sum | sha256sum)"
+GATES_SUM="$(gates_sum)"
 
 fresh_copy() {
     rm -rf "$WORK/tools"; mkdir -p "$WORK/tools"
     cp -r "$PKG" "$WORK/tools/p4_health"
     # the one repo file the package reads by its own path (throwaway.py's lab port list)
     mkdir -p "$WORK/p4_proxy/mininet" && cp "$REPO/p4_proxy/mininet/grpc_ports.py" "$WORK/p4_proxy/mininet/"
+    # (round 4, F4) the three p4_exercise files a lab run freezes next to its own (frozen.py)
+    mkdir -p "$WORK/tools/p4_exercise" && cp "$REPO/tools/p4_exercise/"{__init__,common,run_external_controller}.py "$WORK/tools/p4_exercise/"
     find "$WORK/tools" -name __pycache__ -prune -exec rm -rf {} +
 }
 
-# red_tests [package root] [recover.sh] -- names of the tests that went red, space-separated;
+# red_tests [package root] [recover.sh] [dir of the gate scripts] -- names of the tests that went red, space-separated;
 # NO-SUITE when a python suite printed no `Ran N tests`; HUNG on a timeout.
 red_tests() {
     local root="${1:-$REPO/tools}" rec="${2:-$RECOVER}" out rc names="" f
@@ -1525,6 +3376,11 @@ red_tests() {
         [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_][A-Za-z0-9_]*\) .*/\2/p' <<<"$out" | sort -u | tr '\n' ' ')"
     done
     out=$(P4_HEALTH_RECOVER_UNDER_TEST="$rec" timeout 300 bash "$RECOVER_TEST" 2>&1); rc=$?
+    [[ $rc -eq 124 ]] && { echo "HUNG"; return; }
+    /usr/bin/grep -qE '^Ran [0-9]+ checks' <<<"$out" || { echo "NO-SUITE"; return; }
+    [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^  FAIL  \(.*\)$/[\1]/p' <<<"$out" | tr '\n' ' ')"
+    # (round 5, #6) the gate's own refusals and the shard-sum script, run against the scripts in "$3"
+    out=$(P4_HEALTH_GATE_UNDER_TEST="${3:-$HERE}" timeout 300 bash "$GATE_TEST" 2>&1); rc=$?
     [[ $rc -eq 124 ]] && { echo "HUNG"; return; }
     /usr/bin/grep -qE '^Ran [0-9]+ checks' <<<"$out" || { echo "NO-SUITE"; return; }
     [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^  FAIL  \(.*\)$/[\1]/p' <<<"$out" | tr '\n' ' ')"
@@ -1544,7 +3400,14 @@ mutate() {
         echo "  🔴 ANCHOR IS NOT UNIQUE ($n matches) -- SURVIVOR"; SURVIVORS=$((SURVIVORS + 1)); return
     fi
     fresh_copy
-    local target="$WORK/tools/p4_health/${src#"$PKG"/}"
+    local target="$WORK/tools/p4_health/${src#"$PKG"/}" gates=""
+    if [[ "$src" == "$HERE/"* ]]; then
+        # (round 5, #6) a mutation of one of the gate's own scripts: all three are copied, the one is mutated,
+        # and the suite that tests them is pointed at the copies
+        gates="$WORK/tests/shell"; mkdir -p "$gates"
+        cp "$GATEPY" "$SUMPY" "$GATE_TEST" "$gates/"
+        target="$gates/$(basename "$src")"
+    fi
     if ! ANCHOR="$anchor" REPL="$repl" "$PYTHON" - "$target" <<'PY'
 import os, pathlib, sys
 p = pathlib.Path(sys.argv[1]); s = p.read_text()
@@ -1560,7 +3423,8 @@ PY
         bash -n "$target" || { echo "  🔴 MUTANT DOES NOT PARSE -- SURVIVOR"; SURVIVORS=$((SURVIVORS + 1)); return; }
     fi
     local failed
-    if [[ "$target" == *.sh ]]; then failed=$(red_tests "$REPO/tools" "$target")
+    if [[ -n "$gates" ]]; then failed=$(red_tests "$REPO/tools" "$RECOVER" "$gates")
+    elif [[ "$target" == *.sh ]]; then failed=$(red_tests "$REPO/tools" "$target")
     else failed=$(red_tests "$WORK/tools"); fi
     if [[ "$failed" == "NO-SUITE" ]]; then
         echo "🔴 REFUSED: a suite did not run at all while measuring: $label. No verdict."; exit 2
@@ -1586,6 +3450,7 @@ BASE_RED=$(red_tests)
 echo "  ok       baseline green"
 
 for i in "${!MUT_LABEL[@]}"; do
+    selected "$i" || continue
     mutate "${MUT_LABEL[$i]}" "${MUT_SRC[$i]}" "${MUT_ANCHOR[$i]}" "${MUT_REPL[$i]}" "${MUT_EXPECT[$i]}"
 done
 
@@ -1610,9 +3475,18 @@ printf '\n--- was the original written? ---\n'
 NOW_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | sort | xargs sha256sum | sha256sum)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then echo "  🔴 tools/p4_health CHANGED DURING THE GATE"; exit 2; fi
 echo "  byte-identical  tools/p4_health  ${BASE_SUM:0:16}"
+if [[ "$(gates_sum)" != "$GATES_SUM" ]]; then
+    echo "  🔴 THE GATE'S OWN SCRIPTS CHANGED DURING THE GATE"; exit 2; fi
+echo "  byte-identical  the gate's own scripts  ${GATES_SUM:0:16}"
 after_red=$(red_tests)
 [[ -n "$after_red" ]] && { echo "🔴 a suite is red against the real files: $after_red"; exit 2; }
 echo "  suites green against the real files"
 
+# (round 6, finding 7) There was a `(( MUTATIONS == SELECTED ))` guard here that could not fail: MUTATIONS is
+# incremented at the top of every mutate(), and the loop calls mutate() once per selected index. What really
+# checks that a shard ran its share is the shard-sum script (the "add up" check, against positions k, k+n, ...).
 printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
+[[ -n "$SHARD_N" ]] && printf 'SHARD %s/%s of %s mutations in the table\nNOT THE GATE BY ITSELF: shard %s/%s\n' \
+    "$SHARD_K" "$SHARD_N" "${#MUT_LABEL[@]}" "$SHARD_K" "$SHARD_N"
+[[ -n "${ONLY_LABEL_PREFIX:-}" ]] && printf 'PARTIAL RUN: only labels starting %s -- this is not the gate\n' "$ONLY_LABEL_PREFIX"
 [[ "$SURVIVORS" -eq 0 ]]

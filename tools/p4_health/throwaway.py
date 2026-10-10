@@ -103,6 +103,10 @@ def _die_with_parent():
         rc = -1
     if rc != 0:
         os._exit(127)
+    # (Cut 2 round 7, finding 1) A signal mask is inherited across fork and exec. The ValueSet trial starts its
+    # switches with SIGTERM, SIGINT and SIGHUP blocked in this process (s0.stops_held); a switch that kept the block
+    # would ignore Throwaway.stop()'s terminate() and be ended only by the kill after its 3 s timeout.
+    signal.pthread_sigmask(signal.SIG_UNBLOCK, (signal.SIGTERM, signal.SIGINT, signal.SIGHUP))
 
 
 def _wait_port(port, deadline):
