@@ -188,17 +188,6 @@ class EntriesRedCells(PackageCase):
                 "action_params", {"dstAddr": "08:00:00:00:01:11", "port": 512}))
         self.assert_red("entries match p4info", "512")
 
-    def test_a_ternary_match_fails_with_g5_not_done(self):
-        # basic.p4 has no ternary table, so the p4info is edited instead of the entry: the
-        # point is that pre-flight refuses a match kind stage one cannot install, whatever
-        # program brings it.
-        path = os.path.join(self.pkg, "build", "basic.p4.p4info.txtpb")
-        with open(path, encoding="utf-8") as fh:
-            text = fh.read().replace("match_type: LPM", "match_type: TERNARY")
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        self.assert_red("entries match p4info", "G5 not done")
-
     def test_a_default_action_entry_with_a_match_fails(self):
         self.edit_entries(
             "pod-topo/s1-runtime.json",
@@ -344,13 +333,168 @@ class PipelineCells(PackageCase):
         self.assertIn("does not parse", rows["switches pipeline"][1])
         self.assertIn("s1", rows["switches pipeline"][1])
 
-    def test_a_ternary_match_says_the_endpoint_answers_501(self):
+    def test_a_ternary_field_given_a_bare_value_says_it_wants_value_and_mask(self):
+        # Was "says the endpoint answers 501". The endpoint builds ternary entries now, so the
+        # sentence is the one the endpoint's own 400 gives: a TERNARY field takes [value, mask].
+        # [Co-developed with claude code -- Adam]
         path = os.path.join(self.pkg, "build", "firewall.p4.p4info.txtpb")
         with open(path, encoding="utf-8") as fh:
             text = fh.read().replace("match_type: EXACT", "match_type: TERNARY", 1)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(text)
-        self.assert_red("entries match p4info", "501")
+        self.assert_red("entries match p4info", "[value, mask]")
+        joined = " ".join(r[2] for r in self.report().rows if r[0] == preflight.FAIL)
+        self.assertNotIn("501", joined)
+        self.assertNotIn("G5 not done", joined)
+
+
+class TernaryEntryCells(PackageCase):
+    """
+    G5: a package that declares ternary entries is checked with the proxy's own `match_shape`.
+
+    [Co-developed with claude code -- Adam]
+    The converted `basic` package has one table, `MyIngress.ipv4_lpm`, with one LPM field. These
+    tests turn that field into a TERNARY one in the p4info and rewrite every entry that names it
+    as `[address, mask]` with a priority, which is the shape a ternary package ships in. The
+    pre-flight used to refuse every ternary field with "G5 not done"; now it refuses exactly what
+    the writer's 400 refuses, in the writer's own words.
+    """
+
+    MASK = "255.255.255.255"
+
+    def ternarize(self, mask=None, priority="series", only_matches=True):
+        build = os.path.join(self.pkg, "build")
+        for name in os.listdir(build):
+            if name.endswith(".p4info.txtpb"):
+                path = os.path.join(build, name)
+                with open(path, encoding="utf-8") as fh:
+                    text = fh.read().replace("match_type: LPM", "match_type: TERNARY")
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+
+        def rewrite(data):
+            for index, entry in enumerate(data["table_entries"]):
+                match = entry.get("match")
+                if not match:
+                    continue
+                for name, value in list(match.items()):
+                    match[name] = [value[0], mask or self.MASK]
+                if priority == "series":
+                    entry["priority"] = 10 + index
+                elif priority is not None:
+                    entry["priority"] = priority
+
+        for name in sorted(os.listdir(os.path.join(self.pkg, "pod-topo"))):
+            if name.endswith("-runtime.json"):
+                self.edit_entries(os.path.join("pod-topo", name), rewrite)
+
+    def detail(self):
+        return " ".join(r[2] for r in self.report().rows if r[0] == preflight.FAIL)
+
+    def test_ternary_entries_with_a_mask_and_a_priority_pass(self):
+        self.ternarize()
+        self.assert_green()
+
+    def test_the_old_g5_sentence_is_gone_from_a_ternary_package(self):
+        self.ternarize()
+        self.assertNotIn("G5 not done", self.report().render())
+
+    def test_a_ternary_entry_with_no_priority_fails_saying_it_needs_one(self):
+        self.ternarize(priority=None)
+        self.assert_red("entries match p4info", "names a priority in 1..2147483647")
+
+    def test_a_ternary_entry_at_priority_zero_fails_the_same_way(self):
+        self.ternarize(priority=0)
+        self.assert_red("entries match p4info", "names a priority in 1..2147483647")
+
+    def test_a_priority_above_the_int32_ceiling_fails(self):
+        self.ternarize(priority=2 ** 31)
+        self.assert_red("entries match p4info", "names a priority in 1..2147483647")
+
+    def test_a_ternary_value_with_a_bit_outside_its_mask_fails(self):
+        # R18. The entries are 10.0.1.1 and 10.0.2.2; a /24 mask leaves the last octet outside.
+        self.ternarize(mask="255.255.255.0")
+        self.assert_red("entries match p4info", "bits set outside its mask")
+
+    def test_a_ternary_mask_of_zero_fails_saying_to_omit_the_field(self):
+        self.ternarize(mask="0.0.0.0")
+        self.assert_red("entries match p4info", "omit the field")
+
+    def test_a_ternary_entry_with_no_match_at_all_passes_when_it_has_a_priority(self):
+        # Every field omitted is "any value": a legal catch-all on a table with a priority
+        # column. It used to be a FAIL for every table ("neither a match nor default_action").
+        self.ternarize()
+
+        def blank(data):
+            data["table_entries"][1].pop("match")
+        self.edit_entries("pod-topo/s1-runtime.json", blank)
+        self.assert_green()
+
+    def test_an_entry_with_no_match_at_all_on_a_table_without_a_priority_column_still_fails(self):
+        def blank(data):
+            data["table_entries"][1].pop("match")
+        self.edit_entries("pod-topo/s1-runtime.json", blank)
+        self.assert_red("entries match p4info", "neither a match nor default_action")
+
+
+class OtherEntryRulesCells(PackageCase):
+    """V5, V6, V8 and V9 on the exact and lpm tables, which keep this file's own encoder."""
+
+    def test_an_lpm_prefix_of_zero_fails_saying_to_omit_the_field(self):
+        self.edit_entries("pod-topo/s1-runtime.json", lambda d: d["table_entries"][1]["match"]
+                          .__setitem__("hdr.ipv4.dstAddr", ["0.0.0.0", 0]))
+        self.assert_red("entries match p4info", "omit the field")
+
+    def test_an_lpm_value_with_host_bits_fails(self):
+        self.edit_entries("pod-topo/s1-runtime.json", lambda d: d["table_entries"][1]["match"]
+                          .__setitem__("hdr.ipv4.dstAddr", ["10.0.1.1", 24]))
+        self.assert_red("entries match p4info", "beyond its /24 prefix")
+
+    def test_a_network_address_with_its_prefix_passes(self):
+        self.edit_entries("pod-topo/s1-runtime.json", lambda d: d["table_entries"][1]["match"]
+                          .__setitem__("hdr.ipv4.dstAddr", ["10.0.1.0", 24]))
+        self.assert_green()
+
+    def test_a_non_zero_priority_on_a_table_with_no_priority_column_fails(self):
+        self.edit_entries("pod-topo/s1-runtime.json",
+                          lambda d: d["table_entries"][1].__setitem__("priority", 5))
+        self.assert_red("entries match p4info", "priority not honourable")
+
+    def test_a_default_entry_with_a_priority_fails_on_a_table_with_a_priority_column(self):
+        # The default entry of a ternary table takes none (the switch refuses a non-zero one).
+        build = os.path.join(self.pkg, "build")
+        for name in os.listdir(build):
+            if name.endswith(".p4info.txtpb"):
+                path = os.path.join(build, name)
+                with open(path, encoding="utf-8") as fh:
+                    text = fh.read().replace("match_type: LPM", "match_type: TERNARY")
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+
+        def rewrite(data):
+            for index, entry in enumerate(data["table_entries"]):
+                if entry.get("match"):
+                    for name, value in list(entry["match"].items()):
+                        entry["match"][name] = [value[0], "255.255.255.255"]
+                    entry["priority"] = 10 + index
+            data["table_entries"][0]["priority"] = 5
+        for name in sorted(os.listdir(os.path.join(self.pkg, "pod-topo"))):
+            if name.endswith("-runtime.json"):
+                self.edit_entries(os.path.join("pod-topo", name), rewrite)
+        self.assert_red("entries match p4info", "a default entry takes no priority")
+
+
+class ExactFieldOmittedCells(PackageCase):
+    """V8: an EXACT field cannot be left out. The firewall's check_ports has two."""
+
+    exercise = FIREWALL
+    p4 = "basic.p4"
+
+    def test_an_exact_field_left_out_of_a_match_fails(self):
+        def drop_one(data):
+            del data["table_entries"][0]["match"]["standard_metadata.egress_spec"]
+        self.edit_entries("pod-topo/s1-runtime.json", drop_one)
+        self.assert_red("entries match p4info", "is an EXACT field and an entry cannot leave one out")
 
 
 class NdtwinPipelinePackage(PackageCase):
