@@ -1273,15 +1273,12 @@ def get_flow_stats(dpid: int):
         # TICKET-P4-roles 2.5-1. A switch that is not on NDTwin's own pipeline is rendered
         # through ITS binding (a package's roles, or none), and the rows whose action is not
         # one this renderer recognises are left out and counted rather than described as drops.
-        # NDTwin's own pipeline takes the unchanged call below -- the one its byte-identity
-        # capture and the rule-clock gate were written against.
+        # NDTwin's own pipeline goes through the same call with the baseline binding: its body is
+        # the one its byte-identity capture and the rule-clock gate were written against, for
+        # every input, and the rows the renderer leaves out of it (a match Ryu cannot spell) are
+        # counted here exactly as a foreign switch's are, so `GET /p4/switch_state` can say how
+        # many `flow_stats.unrendered_entries` there are. Only the count is new on that pipeline.
         binding = getattr(client, "route_binding", route_binding.BASELINE)
-        if binding is None or binding.source != route_binding.SOURCE_BASELINE:
-            body, unrendered = ryu_flow_stats.render_flow_stats_counted(
-                dpid, client.read_table_entries(), install_times=client.rule_install_times,
-                binding=binding)
-            client.last_flow_render = (unrendered, time.monotonic())
-            return body
         # [Co-developed with claude code -- Adam]
         # The client's OWN install record, not a fresh one and not a module global: it is the
         # object the write paths on this same client stamped, and the switch it describes is the
@@ -1292,8 +1289,11 @@ def get_flow_stats(dpid: int):
         # had 33 green tests and no caller because every one of them injected the journal itself.
         # If a client cannot answer this, the endpoint must fail loudly here rather than serve
         # duration 0/0 forever and let the silence read as "P4 has no clock".
-        return ryu_flow_stats.render_flow_stats(dpid, client.read_table_entries(),
-                                                install_times=client.rule_install_times)
+        body, unrendered = ryu_flow_stats.render_flow_stats_counted(
+            dpid, client.read_table_entries(), install_times=client.rule_install_times,
+            binding=binding)
+        client.last_flow_render = (unrendered, time.monotonic())
+        return body
     except Exception as e:
         # [Co-developed with claude code -- Adam]
         # The gRPC status name, not the Python class name. A deadline against a stopped switch

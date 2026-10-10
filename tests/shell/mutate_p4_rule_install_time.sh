@@ -184,9 +184,12 @@ report "M4: the key drops the match, so one table is one rule" "$m" \
        "test_two_rules_in_one_table_at_one_priority_do_not_share_an_age"
 
 m=$(mutant m5 "$ROUTES" \
-    '        return ryu_flow_stats.render_flow_stats(dpid, client.read_table_entries(),
-                                                install_times=client.rule_install_times)' \
-    '        return ryu_flow_stats.render_flow_stats(dpid, client.read_table_entries())')
+    '        body, unrendered = ryu_flow_stats.render_flow_stats_counted(
+            dpid, client.read_table_entries(), install_times=client.rule_install_times,
+            binding=binding)' \
+    '        body, unrendered = ryu_flow_stats.render_flow_stats_counted(
+            dpid, client.read_table_entries(),
+            binding=binding)')
 report "M5: the endpoint stops passing the record (finding #71 again)" "$m" \
        "test_a_rule_the_client_installed_comes_back_with_its_age"
 

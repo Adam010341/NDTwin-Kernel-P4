@@ -92,6 +92,7 @@ tests.test_ryu_flow_stats:OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTe
 tests.test_flow_stats_route:AForeignSwitchIsRenderedThroughItsBindingTest \
 tests.test_switch_state:CapabilitiesShapeTest tests.test_switch_state:CapabilitiesFromStartupTest \
 tests.test_switch_state:CapabilitiesOnTheEndpointTest tests.test_switch_state:TheUnrenderedCountTest \
+tests.test_switch_state:TheCountOnNdtwinsOwnPipelineTest \
 tests.test_switch_state:TheDeclaredLinksReportOnTheEndpointTest \
 tests.test_flow_stats_route:TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest \
 tests.test_readopt:ReadoptOnAFabricThatSkipsItsRoutesTest tests.test_readopt:OnlyTheAttachedHostsTest \
@@ -710,12 +711,12 @@ report "MN11: a switch nobody rendered reports zero left out" "$m" \
        "test_before_any_render_it_is_null_not_zero"
 
 m=$(mutant mn_ndtwincount "$MAIN" \
-    '            # as the empty list), so after its first table read nothing has been left out.
-            count = 0' \
-    '            # as the empty list), so after its first table read nothing has been left out.
-            count = None')
-report "MN12: NDTwin's own pipeline never says it left nothing out" "$m" \
-       "test_ndtwins_own_pipeline_leaves_nothing_out_once_its_table_was_read"
+    '        if seen is not None:
+            count = seen[0]' \
+    '        if seen is not None:
+            count = seen[0] if getattr(client, "route_binding", None) is None else 0')
+report "MN12: NDTwin's own pipeline's count is reported as zero whatever its render left out" "$m" \
+       "test_ndtwins_own_pipeline_serves_its_last_renders_count_like_any_other"
 
 m=$(mutant mn_readoptroutes "$MAIN" \
     '    if (_fabric_installs_routes() and binding is not None
@@ -843,20 +844,42 @@ m=$(mutant ar_flowkey "$ROUTES" \
 report "AR2: switch_state never carries flow_stats" "$m" \
        "test_each_switch_carries_its_capabilities_and_its_flow_stats"
 
+# [Co-developed with claude code -- Adam] AR3 used to send NDTwin's own pipeline down the foreign
+# branch; there is one path now (the baseline binding is passed like any other), so the same
+# mistake is to render NDTwin's own switch as an unbound foreign one: an unknown action would be
+# left out and counted instead of listed as the empty action list.
 m=$(mutant ar_allforeign "$ROUTES" \
-    '        if binding is None or binding.source != route_binding.SOURCE_BASELINE:
-            body, unrendered = ryu_flow_stats.render_flow_stats_counted(' \
-    '        if True:
-            body, unrendered = ryu_flow_stats.render_flow_stats_counted(')
-report "AR3: NDTwin's own pipeline is sent down the foreign render path" "$m" \
-       "test_a_client_on_ndtwins_pipeline_takes_the_unchanged_path"
+    '            dpid, client.read_table_entries(), install_times=client.rule_install_times,
+            binding=binding)' \
+    '            dpid, client.read_table_entries(), install_times=client.rule_install_times,
+            binding=None)')
+report "AR3: NDTwin's own pipeline is rendered as an unbound foreign switch" "$m" \
+       "test_an_unknown_action_is_still_listed_and_not_counted_on_ndtwins_own_pipeline"
 
 m=$(mutant ar_early "$ROUTES" \
-    '            body, unrendered = ryu_flow_stats.render_flow_stats_counted(' \
-    '            client.last_flow_render = (0, time.monotonic())
-            body, unrendered = ryu_flow_stats.render_flow_stats_counted(')
+    '        body, unrendered = ryu_flow_stats.render_flow_stats_counted(' \
+    '        client.last_flow_render = (0, time.monotonic())
+        body, unrendered = ryu_flow_stats.render_flow_stats_counted(')
 report "AR4: a render is recorded before the read that may fail" "$m" \
        "test_a_failed_read_records_no_render"
+
+# [Co-developed with claude code -- Adam] AR5/AR5b: the count the render leaves must reach
+# switch_state for NDTwin's own pipeline, which it did not until the route stopped throwing it
+# away. Named for the endpoint-level tests, not the renderer's.
+m=$(mutant ar_nostore "$ROUTES" \
+    '        client.last_flow_render = (unrendered, time.monotonic())
+        return body' \
+    '        return body')
+report "AR5: the endpoint does not keep the count of what it left out" "$m" \
+       "test_a_partial_mask_row_is_omitted_from_stats_flow_and_counted_on_switch_state"
+
+m=$(mutant ar_storezero "$ROUTES" \
+    '        client.last_flow_render = (unrendered, time.monotonic())
+        return body' \
+    '        client.last_flow_render = (0, time.monotonic())
+        return body')
+report "AR5b: the endpoint keeps a zero whatever the render left out" "$m" \
+       "test_the_count_follows_the_table_it_was_last_rendered_from"
 
 m=$(mutant fs_vocab "$STATS" \
     '    if binding is None or binding.source == route_binding.SOURCE_BASELINE:
@@ -968,13 +991,25 @@ m=$(mutant fs_countbase "$STATS" \
     '        if not entry.get("is_default") and match_is_untranslatable(entry, field_to_ryu):' \
     '        if foreign and not entry.get("is_default") and match_is_untranslatable(entry, field_to_ryu):')
 report "FS11: NDTwin's own pipeline leaves an untranslatable row out without counting it" "$m" \
-       "test_a_non_cidr_mask_on_an_address_is_absent_and_counted"
+       "test_a_partial_mask_row_is_omitted_from_stats_flow_and_counted_on_switch_state"
 
 m=$(mutant fs_countdef2 "$STATS" \
     '        if not entry.get("is_default") and match_is_untranslatable(entry, field_to_ryu):' \
     '        if match_is_untranslatable(entry, field_to_ryu):')
 report "FS11b: a default row holding a range is counted as left out" "$m" \
        "test_a_default_row_is_not_counted_whatever_it_holds"
+
+# [Co-developed with claude code -- Adam] FS13: the row with an unknown action AND an untranslatable
+# match is counted once. The unknown action's `continue` is what keeps it from being counted by the
+# match check as well.
+m=$(mutant fs_double "$STATS" \
+    '        if counts and not recognises_action(entry.get("action"), forwarding_actions):
+            unrendered += 1
+            continue' \
+    '        if counts and not recognises_action(entry.get("action"), forwarding_actions):
+            unrendered += 1')
+report "FS13: a row with an unknown action and an untranslatable match is counted twice" "$m" \
+       "test_on_a_foreign_switch_a_row_with_an_unknown_action_and_a_range_is_counted_once"
 
 m=$(mutant fs_entryrefuse "$STATS" \
     '    if untranslatable:

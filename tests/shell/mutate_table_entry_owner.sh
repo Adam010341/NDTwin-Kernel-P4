@@ -386,6 +386,18 @@ m=$(mutant m24 "$MAIN" \
 report "M24: startup and readopt no longer mark the package entries as boot" "$m" \
        "test_startup_applies_the_packages_default_and_fails_nothing"
 
+# [Co-developed with claude code -- Adam] The order, not the presence, of the check: with the
+# owner answer after the build, a malformed write into an owned table is told it is malformed,
+# not that the table is NDTwin's, and the shape rules (which belong to user tables) speak first.
+m=$(mutant m25 "$CLIENT" \
+    '        self._refuse_owned_table(spec, op, source)
+
+        entry, match_types = self.build_table_entry(spec)' \
+    '        entry, match_types = self.build_table_entry(spec)
+        self._refuse_owned_table(spec, op, source)')
+report "M25: the owner is asked after the entry is built, not before" "$m" \
+       "test_on_ndtwins_pipeline_the_owner_answers_before_the_shape_rules"
+
 echo
 [[ "$(sha256sum "$CLIENT" | cut -d' ' -f1)" == "$BASE_CLIENT" ]] || { echo "🔴 baseline CHANGED -- p4_client.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$MAIN" | cut -d' ' -f1)" == "$BASE_MAIN" ]] || { echo "🔴 baseline CHANGED -- main.py was written during the gate"; exit 3; }

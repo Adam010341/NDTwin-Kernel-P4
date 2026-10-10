@@ -341,13 +341,16 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # field, has no Ryu spelling, so the row is NOT LISTED and IS COUNTED. Listing it with the value
 # alone would describe a rule matching one address where the switch matches a pattern.
 #
-# NDTwin's own pipeline is not counted for unknown ACTIONS or unmapped matches: its body is the
-# base's, byte for byte, and for the rows NDTwin writes itself its count stays 0. That holds only
-# while NDTwin is the only writer of the baseline tables -- NDTwin's own 5-tuple writer always
-# uses full masks. The generic `POST /p4/table_entry` cannot write into them any more: the owner
-# check (V7) answers 409 owned_by_ndtwin for every table of NDTwin's own pipeline, which makes
-# the contract true again for the writers this proxy has. A row some other writer put there with
-# a partial mask or a range is still counted here instead of being described wrongly.
+# NDTwin's own pipeline is not counted for unknown ACTIONS: its body is the base's, byte for byte,
+# so a row whose action is unknown still lists, with the empty action list, as it always did. It
+# IS counted for a match Ryu cannot say (the paragraph above), and `get_flow_stats` records that
+# count for it exactly as for a foreign switch, so `flow_stats.unrendered_entries` is the number
+# of such rows on NDTwin's own pipeline too. For the rows NDTwin writes itself that count stays 0:
+# that holds only while NDTwin is the only writer of the baseline tables -- NDTwin's own 5-tuple
+# writer always uses full masks, and the generic `POST /p4/table_entry` cannot write into them any
+# more (the owner check, V7, answers 409 owned_by_ndtwin for every table of NDTwin's own
+# pipeline). A row some other writer put there with a partial mask or a range is left out of the
+# body and counted, instead of being described wrongly.
 #
 # The route action is recognised through the switch's binding: a package's roles add its own
 # route action and match field to NDTwin's vocabulary. An UNBOUND foreign switch is rendered in
@@ -387,8 +390,9 @@ def render_flow_stats_counted(dpid: int, entries, install_times=None,
     """
     `(render_flow_stats(...), how many rows were left out as unrecognised)`.
 
-    `binding` is the switch's route binding: BASELINE (NDTwin's own pipeline -- nothing is ever
-    left out, the count is 0), a package binding, or None (a foreign switch with no roles).
+    `binding` is the switch's route binding: BASELINE (NDTwin's own pipeline -- only a row whose
+    match Ryu cannot say is left out and counted; an unknown action still lists), a package
+    binding, or None (a foreign switch with no roles: an unknown action is left out too).
     """
     foreign = binding is None or binding.source != route_binding.SOURCE_BASELINE
     field_to_ryu, forwarding_actions = _vocabulary(binding)
@@ -399,7 +403,8 @@ def render_flow_stats_counted(dpid: int, entries, install_times=None,
             unrendered += 1
             continue
         if not entry.get("is_default") and match_is_untranslatable(entry, field_to_ryu):
-            # On EVERY pipeline, NDTwin's own included: see the paragraph on the baseline count.
+            # On EVERY pipeline, NDTwin's own included (and `get_flow_stats` keeps the count for
+            # all of them): see the paragraph on the baseline count.
             unrendered += 1
             continue
         age = None

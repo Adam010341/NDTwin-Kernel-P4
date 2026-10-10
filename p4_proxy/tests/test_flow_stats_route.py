@@ -100,11 +100,14 @@ class AForeignSwitchIsRenderedThroughItsBindingTest(unittest.TestCase):
         self.assertEqual([f["actions"] for f in body["7"]], [["OUTPUT:1"]])
         self.assertEqual(client.last_flow_render[0], 1)
 
-    def test_a_client_on_ndtwins_pipeline_takes_the_unchanged_path(self):
+    def test_a_client_on_ndtwins_pipeline_is_rendered_unchanged_and_its_count_is_kept_too(self):
+        # [Co-developed with claude code -- Adam] The body is the unchanged one (the byte-identity
+        # tests below pin it); what is new is that the render is counted here as it is for a
+        # foreign switch, so switch_state can say what /stats/flow left out. Nothing was.
         client = HealthyClient()
         api_routes.topology = FakeTopology(switches={7: client})
         self.assertEqual(call(7), {"7": []})
-        self.assertFalse(hasattr(client, "last_flow_render"))
+        self.assertEqual(client.last_flow_render[0], 0)
 
     def test_a_failed_read_records_no_render(self):
         class FailingForeign(ForeignClient):

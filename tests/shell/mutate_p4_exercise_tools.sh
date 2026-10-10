@@ -407,6 +407,15 @@ add "36. pre-flight holds a default entry to the non-default priority rule" \
     '        match_shape.shape_priority(table_name, kinds, entry.get("priority"), False)  # MUTANT' \
     'test_a_default_entry_with_a_priority_fails_on_a_table_with_a_priority_column'
 
+# [Co-developed with claude code -- Adam] 37: the refusal that G5 removed, put back. Test 398 of
+# test_preflight.py asserts the sentence is gone, and no earlier mutation ever brought it back, so
+# that test had never been seen red.
+add "37. pre-flight refuses a ternary, range or optional field again with the old 'G5 not done' sentence" \
+    "$PREFLIGHT" \
+    '                match_shape.shape_field(f"{table_name}.{field_name}", kind, field.bitwidth, value)' \
+    '                problems.append(f"{where}: {kind} match is not supported (G5 not done)")  # MUTANT' \
+    'test_the_old_g5_sentence_is_gone_from_a_ternary_package'
+
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.

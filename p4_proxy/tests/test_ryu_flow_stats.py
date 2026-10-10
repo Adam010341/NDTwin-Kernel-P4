@@ -635,8 +635,10 @@ class AMatchRyuCannotSayIsLeftOutAndCountedOnEveryPipelineTest(unittest.TestCase
     A ternary field whose mask is a run of leading ones on an address renders as value/prefix; a
     full mask is an exact value; any other mask, and any range, has no Ryu spelling. Before this
     the renderer printed a ternary field's VALUE and dropped its mask (a /16 pattern became one
-    address) and printed a range as 0, on NDTwin's own pipeline too, where the generic writer can
-    now put such rows.
+    address) and printed a range as 0, on NDTwin's own pipeline too. The generic writer cannot
+    put such rows into NDTwin's tables (the owner check answers 409), but another writer could,
+    and what is left out must not depend on who wrote it; tests/test_switch_state.py
+    TheCountOnNdtwinsOwnPipelineTest runs the same rows through both endpoints.
     """
 
     def row(self, **fields):

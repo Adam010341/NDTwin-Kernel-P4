@@ -808,6 +808,26 @@ m=$(mutant j9c "$SHAPE" \
 report "M-S9: an lpm value with host bits goes on the wire" "$m" \
        "test_an_lpm_value_with_host_bits_is_refused_on_insert_and_on_delete"
 
+# [Co-developed with claude code -- Adam] Tests that no mutation above reddened: the lpm field
+# that may be left out, the lpm host route, and the type of the priority.
+m=$(mutant j8c "$SHAPE" \
+    '                   if kind == "EXACT" and name not in shaped]' \
+    '                   if kind in ("EXACT", "LPM") and name not in shaped]')
+report "M-S8c: an lpm field left out of an entry is refused like an exact one" "$m" \
+       "test_leaving_the_lpm_field_out_is_the_way_to_say_any_address"
+
+m=$(mutant j5d "$SHAPE" \
+    '    if prefix_len == 0:' \
+    '    if prefix_len in (0, int(bitwidth)):')
+report "M-S5d: an lpm host route (/32) is refused as if it were a catch-all" "$m" \
+       "test_a_network_address_and_a_host_route_are_both_accepted"
+
+m=$(mutant j6h "$SHAPE" \
+    '    if priority is not None and (isinstance(priority, bool) or not isinstance(priority, int)):' \
+    '    if False:')
+report "M-S6h: a priority that is not an integer reaches the comparison (a TypeError, a 500)" "$m" \
+       "test_a_priority_that_is_not_an_integer_is_refused"
+
 # The read side (M-J9 is the design's: an optional match is not read back).
 m=$(mutant j10 "$CLIENT" \
     '            elif m.HasField("optional"):' \
