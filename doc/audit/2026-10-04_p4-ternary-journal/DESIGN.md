@@ -28,6 +28,8 @@
 
 **generic writer 不寫 NDTwin 擁有的表**（Q2 建議）。這會順便修掉 trunk 今天的一個缺陷：對 baseline 的 `flow_5tuple` POST 一筆空 match 的 entry，會在 `ipv4_lpm` 前面裝上一條 catch-all，而且回 200（§1.5）。
 
+> 🆕 **2026-10-10 更新**：Q2 照 (a)＋(a-i) 實作為 **V7**，已在 trunk `6c1a78c8`／main `92c1c77a`（「p4 proxy: refuse table-entry writes into tables NDTwin owns」）。**這個 catch-all 現在在 NDTwin 的 pipeline 上被拒絕**：409 `owned_by_ndtwin`，在建 entry 之前，什麼都不送上交換機。Cut A 的分支已在 `02ce0232` 併入 V7。本稿其餘部分是 r3 當時的設計，沒有改寫；凡說「今天回 200」的，指的都是 V7 之前。
+
 開機 entry 和 API 走同一個 builder；pre-flight 和 writer 共用同一份形狀檢查。
 
 **只有 API 的寫入會進 journal**，設計如下：
@@ -182,6 +184,7 @@ PF-T fixture：
 - 把 priority 拿掉，同一條路會帶著 priority 0 上線。match 裡**有** ternary 欄位、priority 0 時，bmv2 回 per-update INVALID_ARGUMENT「Zero priority for ternary match」【A0 01、07】。**一個欄位都沒有、priority 0** 的情況沒有量過【推論：同樣被拒】，併入 Cut A 的補量（§7）。
   - 這個 proxy 會把它報成 **502 `grpc_status: UNKNOWN`**（§1.8）。
 - ⇒ r1 說「`flow_5tuple` 今天被 501 擋著」**是錯的**；說「priority 0 在有 priority 欄的表上今天走不到」**也是錯的**。
+- 🆕 **已修（2026-10-10）**：交換機接受這筆 catch-all 後來量到了【A0 13】；而 V7（trunk `6c1a78c8`／main `92c1c77a`）讓 proxy 先拒絕它：baseline 綁定的交換機上每一張表都回 409 `owned_by_ndtwin`，`stub.requests == []`（`p4_proxy/tests/test_table_entry_owner.py` 的 `test_an_empty_match_into_flow_5tuple_is_refused_and_nothing_is_written`）。
 
 ### 1.6 bmv2／PI／P4Runtime 要求什麼
 
@@ -689,6 +692,8 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 - 其他：
 
 **Q2　generic writer 能不能寫 NDTwin 擁有的表？**
+
+> 🆕 **已決並已實作**：(a)＋(a-i)，即 V7，trunk `6c1a78c8`／main `92c1c77a`。裁決日期【轉述 `p4_proxy/tests/test_table_entry_owner.py:6`：「Adam 2026-10-09」】。(a-iii)：V7 給 `test_table_entry_route.a_client`、`WriteTableEntryTest`、`test_exact_one_element_list` 的替身加上明確的 `bind_routes(None)`；Cut A 的形狀／priority 測試併入時照同一個做法（見 SUMMARY-cut-a.md 第三輪）。
 
 - **(a)【建議】不能。** 範圍：
   - baseline 綁定的交換機上的每一張表；
