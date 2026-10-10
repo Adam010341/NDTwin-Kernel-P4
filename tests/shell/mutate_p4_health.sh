@@ -378,11 +378,74 @@ add "D11. the netem is applied before it is recorded" \
         self.write_state(netem=self.state["netem"] + [iface])  # MUTANT: after' \
     'test_netem_is_recorded_before_it_is_applied'
 
-add "D12. PF-T counts every FAIL row as the G5 row" \
+add "D12. PF-T counts every FAIL row as the ternary row" \
     "$S0PY" \
     '    other = sum(1 for line in labelled if not line[8:].startswith("entries match p4info"))' \
     '    other = 0  # MUTANT' \
-    'test_pft_is_the_g5_answer_only_when_nothing_else_failed'
+    'test_pft_is_the_ternary_answer_only_when_nothing_else_failed'
+
+# Cut A + D: the ternary writer took "G5 not done" out of pre-flight, and PF-T must PASS now. A refusal of PF-T's
+# ternary entry is known by where pre-flight names the entry, never by its words; T4's probe body obeys the writer's
+# V3; T6 reads an optional key the way thrift prints it. [Co-developed with claude code -- Adam]
+add "AD1. PF-T's refusal is known only by the old G5 sentence" \
+    "$S0PY" \
+    '    ternary = sum(1 for line in lines if line.startswith("  FAIL") and any(n.search(line) for n in names))' \
+    '    ternary = sum(1 for line in lines if "G5 not done" in line)  # MUTANT' \
+    'test_pft_refused_in_any_words_is_red_and_never_green'
+
+add "AD2. every FAIL line is PF-T's ternary refusal, whatever entry it names" \
+    "$S0PY" \
+    '    ternary = sum(1 for line in lines if line.startswith("  FAIL") and any(n.search(line) for n in names))' \
+    '    ternary = sum(1 for line in lines if line.startswith("  FAIL"))  # MUTANT' \
+    'test_pft_is_the_ternary_answer_only_when_nothing_else_failed'
+
+add "AD3. PF-T's ternary entry is any boot entry of the package" \
+    "$S0PY" \
+    'for i, e in enumerate(entries) if e.get("table") == PFT_TABLE]' \
+    'for i, e in enumerate(entries)]  # MUTANT' \
+    'test_pft_must_pass_with_its_ternary_entry_in'
+
+add "AD4. S0 takes a PF-T pass whose package lost its ternary entry" \
+    "$S0PY" \
+    '                           res.rc == 0 and not fails and len(wheres) == 1,' \
+    '                           res.rc == 0 and not fails,  # MUTANT' \
+    'test_a_pft_pass_without_its_ternary_entry_proves_nothing'
+
+add "AD5. S0 does not need pre-flight to pass PF-T" \
+    "$S0PY" \
+    '                           res.rc == 0 and not fails and len(wheres) == 1,' \
+    '                           len(wheres) == 1,  # MUTANT' \
+    'test_pft_must_pass_with_its_ternary_entry_in'
+
+add "AD6. S0 still wants PF-T RED" \
+    "$S0PY" \
+    'v.verdict == V.GREEN,' \
+    'v.verdict == V.RED,  # MUTANT' \
+    'test_s0_wants_pft_green'
+
+add "AD7. the PF-T cell reads the refusal under its old key" \
+    "$TABLE" \
+    '(a.get("ternary_rows") or 0) >= 1' \
+    '(a.get("g5_rows") or 0) >= 1' \
+    'test_pft_refused_in_any_words_is_red_and_never_green'
+
+add "AD8. the lab reads S0's PF-T refusal under its old key" \
+    "$PKG/lab.py" \
+    '"ternary_rows": pf.get("ternary_rows", 0)' \
+    '"ternary_rows": pf.get("g5_rows", 0)' \
+    'test_an_s0_whose_pre_flight_refused_the_ternary_entry_is_pft_red_in_the_lab'
+
+add "AD9. T4 writes a value with bits outside its mask" \
+    "$PKG/observe_a.py" \
+    '"match": {"hdr.ipv4.srcAddr": ["10.0.4.0", "255.255.255.0"]},' \
+    '"match": {"hdr.ipv4.srcAddr": ["10.0.4.4", "255.255.255.0"]},  # MUTANT' \
+    'test_t4_to_t7s_bodies_are_ones_the_writer_takes'
+
+add "AD10. T6 looks for an optional key the P4Runtime way, not the way thrift prints it" \
+    "$PKG/observe_a.py" \
+    'entries_with((17, 0xFF))' \
+    'entries_with((17,))' \
+    'test_a_proxy_that_writes_ternary_turns_t4_to_t7_green'
 
 # Review MAJ-1: a missing or empty reading is never a pass.
 add "N1. a reading the row needs may be missing" \

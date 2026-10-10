@@ -1394,6 +1394,24 @@ HOST_PIDS = {"h%d" % h: 3100 + h for h in range(1, 7)}
 TOP = 2 ** 31 - 1
 
 
+def load_match_shape():
+    """(Cut A + D) The proxy writer's own shape rules, p4_proxy/proxy_agent/match_shape.py (no gRPC, no protobuf).
+    The fake proxy refuses, with a 400, what the real one refuses before the wire: a probe body only the fake
+    would take (a ternary value with bits outside its mask, for one) is a red test here, not a RED in the lab."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "p4h_test_match_shape", os.path.join(REPO, "p4_proxy", "proxy_agent", "match_shape.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+MS = load_match_shape()
+#: hc_main.p4's priority tables: their one key's match type and width.
+SHAPES = {"HcIngress.t_ternary": ("TERNARY", 32), "HcIngress.t_range": ("RANGE", 16),
+          "HcIngress.t_optional": ("OPTIONAL", 8)}
+
+
 def ival(v):
     if isinstance(v, int):
         return v
@@ -1452,8 +1470,9 @@ class FakeFabric(object):
         self.count_k1 = True
         self.proxy_k1_extra = 0
         self.thrift_down = set()          # dpids whose CLI cannot connect
-        self.ndtwin_writes_ternary = False
-        self.ndtwin_priority = None       # what the proxy's future writer would store, or None
+        # (Cut A + D) today's proxy writes ternary, range and optional entries; False is a proxy before that (501)
+        self.ndtwin_writes_ternary = True
+        self.ndtwin_priority = None       # a writer that stores some other number than PI does, or None
         self.tx_checksum = "off"
         self.graph_drop_edge = False
         self.graph_drop_switch_edges = False
@@ -1557,9 +1576,15 @@ class FakeFabric(object):
             if not self.ndtwin_writes_ternary:
                 return (501, {"detail": {"error": "match type not supported"}})
             (field, v), = body["match"].items()
+            kind, bits = SHAPES[table]
+            try:
+                MS.shape_field("%s.%s" % (table, field), kind, bits, v)
+                MS.shape_priority(table, [kind], body.get("priority"))
+            except MS.TableEntryInvalid as err:
+                return (400, {"detail": {"error": "invalid table entry", "message": str(err)}})
             prio = self.ndtwin_priority(body["priority"]) if self.ndtwin_priority else TOP - body["priority"]
             if table == "HcIngress.t_ternary":
-                key = ("TERNARY", ival(v[0]) & ival(v[1]), ival(v[1]))
+                key = ("TERNARY", ival(v[0]), ival(v[1]))
             elif table == "HcIngress.t_range":
                 key = ("RANGE", v[0], v[1])
             else:
@@ -2083,6 +2108,7 @@ class TestBringUpAOnTodaysFabric(Cut2):
             self.assertEqual(a.observations[cid]["negative"]["absent"], True, cid)
 
     def test_without_b_every_bmv2_red_is_unattributed(self):
+        self.fab.ndtwin_writes_ternary = False           # a proxy before the ternary writer: T4-T6 answer 501
         a, _r = self.a_round()
         ctx = self.judge(a, None)
         for cid in ("T4", "T5", "T6", "MT1", "MT2", "MT3", "D1", "C2", "R3", "K2", "P2", "P3"):
@@ -2333,6 +2359,25 @@ class TestBringUpARedPaths(Cut2):
         self.assertEqual({c: ctx.cells[c].verdict for c in ("T4", "T5", "T6", "T7")},
                          {c: V.GREEN for c in ("T4", "T5", "T6", "T7")})
 
+    def test_t4_to_t7s_bodies_are_ones_the_writer_takes(self):
+        """(Cut A + D) Every write T4-T7 sends passes the writer's own shape and priority rules, so a refusal in the
+        lab is the writer's and never the probe's. T4's first body (10.0.4.4 under a /24) did not: V3 refuses it."""
+        for body in (OA.T4_BODY, OA.T5_BODY, OA.T6_BODY) + tuple(OA.T7_BODIES):
+            (field, v), = body["match"].items()
+            kind, bits = SHAPES[body["table"]]
+            MS.shape_field("%s.%s" % (body["table"], field), kind, bits, v)
+            MS.shape_priority(body["table"], [kind], body["priority"])
+        with self.assertRaises(MS.TableEntryInvalid):
+            MS.shape_field("t.f", "TERNARY", 32, ["10.0.4.4", "255.255.255.0"])
+
+    def test_a_proxy_before_the_ternary_writer_is_t4_to_t6_red_and_t7_not_run(self):
+        self.fab.ndtwin_writes_ternary = False
+        a, _r = self.a_round(only=["T4", "T5", "T6", "T7"])
+        ctx = self.judge(a, self.all_confirmed())
+        self.assertEqual({c: ctx.cells[c].verdict for c in ("T4", "T5", "T6", "T7")},
+                         {"T4": V.RED, "T5": V.RED, "T6": V.RED, "T7": V.NOT_RUN})
+        self.assertIn("501", ctx.cells["T4"].reason)
+
     def test_a_ternary_writer_that_keeps_p4runtimes_numbers_is_red(self):
         """bmv2's thrift prints INT32_MAX - priority (observed on throwaway switches); a writer that
         stored the P4Runtime number as is would invert the order of every overlapping pair."""
@@ -2465,6 +2510,7 @@ class TestBringUpB(Cut2):
 
     def test_a_call_the_controller_lost_is_unattributed_in_a(self):
         self.fab.ctrl_fail = {"ternary", "meter"}
+        self.fab.ndtwin_writes_ternary = False           # a proxy before the ternary writer: T4 and T5 RED
         b, _r, _p = self.b_round()
         a, _r2 = self.a_round(only=["T4", "MT1", "MT2", "T5"])
         ctx = self.judge(a, b.confirmed)
@@ -2499,7 +2545,7 @@ class TestTheLabRun(Cut2):
                 fh.write(p4info_text())
         self.s0 = {"verdict": "COMPLETE", "builds": {"build/hc_alt": {"p4info_sha16": PIPES4["1"]},
                                                       "build/hc_main": {"p4info_sha16": PIPES4["2"]}},
-                   "preflight": {"PF-T": {"rc": 1, "g5_rows": 1, "other_fail_rows": 0}},
+                   "preflight": {"PF-T": {"rc": 0, "ternary_rows": 0, "other_fail_rows": 0}},
                    "self_checks": {"main": {"ternary_held": True}}}
         self.claim = self.cfg.claim_file
         self.expected = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
@@ -2572,6 +2618,15 @@ class TestTheLabRun(Cut2):
             h = json.load(fh)
         self.assertEqual((h["gate_fingerprint"]["sha256"], h["system_under_test"]), ("f" * 64, "/r/code_identity.json"))
 
+    def test_an_s0_whose_pre_flight_refused_the_ternary_entry_is_pft_red_in_the_lab(self):
+        """(Cut A + D) The lab reads PF-T from S0's record: a refusal of the ternary entry (any words; S0 counts the
+        lines that name it) is RED with the static attribution, a pass is GREEN."""
+        refused = {"preflight": {"PF-T": {"rc": 1, "ternary_rows": 1, "other_fail_rows": 0}},
+                   "self_checks": {"main": {"ternary_held": True}}}
+        decide = lambda s0_out: V.decide(T.TABLE.cell("PF-T"), LAB.pft_observation(s0_out), V.Context())
+        self.assertEqual(decide(refused).verdict, V.RED)
+        self.assertEqual(decide(self.s0).verdict, V.GREEN)
+
     def test_a_then_b_then_the_verdicts(self):
         rc, doc, r = self.run_lab()
         ndt = [(c["argv"][1], c["argv"][-1] if c["argv"][1] == "up" else "") for c in r.calls if c["argv"][0] == "ndt"]
@@ -2579,10 +2634,11 @@ class TestTheLabRun(Cut2):
         self.assertEqual(ups, ["packages/A", "packages/B"])
         self.assertEqual([v for v, _ in ndt], ["status", "claim", "up", "down", "release"] * 2)
         cells = {c["id"]: c for c in doc["cells"]}
-        self.assertEqual((cells["T4"]["verdict"], cells["T4"]["attribution"]["ok"]), (V.RED, True),
-                         cells["T4"])
+        self.assertEqual(cells["T4"]["verdict"], V.GREEN, cells["T4"])              # (Cut A + D)
+        self.assertEqual((cells["MT1"]["verdict"], cells["MT1"]["attribution"]["ok"]), (V.RED, True),
+                         cells["MT1"])
         self.assertEqual(cells["R3"]["verdict"], V.UNATTRIBUTED)
-        self.assertEqual(cells["PF-T"]["verdict"], V.RED)
+        self.assertEqual(cells["PF-T"]["verdict"], V.GREEN)
         self.assertEqual(cells["CH1"]["phase"], "unobserved")
         # m1: nothing this run did not observe reads as a flip -- an alias of such a cell neither
         deltas = {c["id"]: c["delta"] for c in doc["cells"]}
@@ -3045,7 +3101,7 @@ class TestTheLabRun(Cut2):
                               b_kwargs=self.fake_time(), log=lambda *a: None)
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
         cells = {c["id"]: c for c in doc["cells"]}
-        self.assertEqual(cells["T4"]["verdict"], V.UNATTRIBUTED)     # B never ran
+        self.assertEqual(cells["MT1"]["verdict"], V.UNATTRIBUTED)    # B never ran
 
     def test_the_see_red_run_uses_the_mutant_package_and_only_its_cells(self):
         self.fab.count_k1 = False

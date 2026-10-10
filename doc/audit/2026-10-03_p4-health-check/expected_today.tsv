@@ -3,6 +3,7 @@
 # expected = the verdict label predicted for today's trunk (995bdfd0). added: r6 = from the reviewed
 # design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md sections 13 and 14). Rows whose basis starts "r2 (Cut 1 review)", "r3 (Cut 1 review)" or "r4 (Cut 1 follow-ups)" changed in those review rounds (r4: the basis now cites code, not a relayed record).
 # Cut 2 review: R3 now predicts UNATTRIBUTED (the ctrl_trial observation, before any live run); AP1, AS1 and IT1 moved to cut 3.
+# Cut A + D (the ternary writer and the health check's half of it): T4, T5, T6, T7 and PF-T now predict GREEN; their basis starts "Cut A + D".
 # Cited records: GAP-2b = doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md and DESIGN.md = doc/audit/2026-10-03_p4-health-check/DESIGN.md; both live on the trunk branch of this repository, not on main.
 cell	dimension	scope	bringup	cut	expected	basis	added
 PL1	pipeline_load	core	A	2	GREEN	§5.1 pipeline_load always can: each switch gets its own program (main.py:2012-2016); p4info sha in switch_state (api_routes.py:758-761)	r6
@@ -10,12 +11,12 @@ PL2	pipeline_load	core	B	4	GREEN	external skips pipeline_push (main.py:337); the
 T1	tables	core	A	2	GREEN	package exact/lpm entries applied at boot (p4_client.py:133,1204-1208); recorded==applied	r6
 T2	tables	core	A	2	GREEN	runtime default of a keyless table is an ordinary default_action write	r6
 T3	tables	core	A	2	GREEN	POST /p4/table_entry writes EXACT (api_routes.py:841-957)	r6
-T4	tables	ext	A	2	RED	501 for ternary (api_routes.py:925-930); bmv2 holds ternary (B attribution, Cut 2)	r6
-T5	tables	ext	A	2	RED	501 for range (api_routes.py:925-930)	r6
-T6	tables	ext	A	2	RED	501 for optional (api_routes.py:925-930)	r6
-T7	tables	ext	A	2	NOT RUN	gate T4 is RED (DESIGN 7.6)	r6
+T4	tables	ext	A	2	GREEN	Cut A + D: POST /p4/table_entry builds ternary [value, mask] + priority (match_shape.py:239-319; 501 now only for UNSPECIFIED, api_routes.py:1006-1013); the probe's value is inside its mask (V3); thrift shows 2147483647 - priority (observe_a.py:222-223)	r6
+T5	tables	ext	A	2	GREEN	Cut A + D: range [low, high] + priority built (match_shape.py:321-335)	r6
+T6	tables	ext	A	2	GREEN	Cut A + D: optional built (match_shape.py:344); thrift dumps it as TERNARY v &&& ff (observe_a.py:269-274)	r6
+T7	tables	ext	A	2	GREEN	Cut A + D: gate T4 GREEN; the higher P4Runtime priority is the smaller thrift number (observe_a.py:277-301)	r6
 T8	tables	ext	A	2	RED	journaled is the constant false (api_routes.py:765-767,837-838,957)	r6
-PF-T	tables	ext	S0	1	RED	pre-flight refuses a boot ternary entry, G5 not done (preflight.py:218-234); static attribution from S0's throwaway bmv2	r6
+PF-T	tables	ext	S0	1	GREEN	Cut A + D: pre-flight checks a ternary entry with the writer's own match_shape and passes S0's (preflight.py:235-244)	r6
 M1	pre_multicast	core	A	2	GREEN	package multicast groups written at boot (main.py:1011-1075)	r6
 M2	pre_multicast	core	A	2	GREEN	POST /p4/multicast_group (api_routes.py:1035-1130)	r6
 C1	pre_clone	core	A	2	GREEN	first run; clone id from the package for a foreign pipeline (main.py:1057-1062), mgid 0x8000+7 (p4_client.py:780-786); GAP-2b:91 was (c)	r6

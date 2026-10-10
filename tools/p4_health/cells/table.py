@@ -401,10 +401,11 @@ def t8(obs):
 
 
 def pft_cannot(obs):
+    """(Cut A + D) Pre-flight refusing the ternary entry, in whatever words (s0.classify_pft counts the FAIL lines
+    that name the entry): the "G5 not done" sentence it used to be known by is gone from pre-flight."""
     a = A(obs)
-    if a.get("rc") not in (None, 0) and (a.get("g5_rows") or 0) >= 1 and a.get("other_fail_rows") == 0:
-        return red("pre-flight refuses a boot entry that names a TERNARY field (G5 not done)",
-                   "structural")
+    if a.get("rc") not in (None, 0) and (a.get("ternary_rows") or 0) >= 1 and a.get("other_fail_rows") == 0:
+        return red("pre-flight refuses the boot entry that names a TERNARY field", "structural")
     return None
 
 
@@ -413,7 +414,7 @@ def pft(obs):
     if a["rc"] == 0:
         return green("pre-flight accepts a boot ternary entry")
     return broken("pre-flight failed on something other than the ternary row (%s other FAIL "
-                  "row(s)): a path or format error, not the G5 answer" % a.get("other_fail_rows"))
+                  "row(s)): a path or format error, not the ternary answer" % a.get("other_fail_rows"))
 
 
 def m1(obs):
