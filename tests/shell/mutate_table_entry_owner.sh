@@ -306,8 +306,11 @@ report "M15: an external control plane is no longer refused first" "$m" \
 m=$(mutant m16 "$CLIENT" \
     '        self._refuse_owned_table(spec, op, source)' \
     '        pass')
+# [Co-developed with claude code -- Adam] The ternary writer builds this entry, so the test's
+# second half checks the encoding at the builder; the case still has to go red here because the
+# write went out.
 report "M16: the check is dropped (NDTwin's own flow_5tuple p4info, a baseline client)" "$m" \
-       "test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_says_unsupported"
+       "test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_builds_it"
 
 m=$(mutant m17 "$CLIENT" \
     '        if not self.table_owned_by_ndtwin(table):' \

@@ -2060,10 +2060,18 @@ class TheShapeRulesTest(unittest.TestCase):
     the reason this file states at WriteTableEntryTest: "nothing was written" is a claim about
     the wire. Each rule repeats a refusal bmv2 makes itself (measured, ternary-a0 items 03-05 and
     09 and 12) -- the point of making it here is a 400 with a sentence instead of a 502 UNKNOWN.
+
+    🔴 THESE ARE USER WRITES, so the double is bound as one (no `roles`, as WriteTableEntryTest
+    binds it). The table names are the fixture's, which are NDTwin's, but the subject is what a
+    match may look like, not who may write the table: on a switch bound to NDTwin's own pipeline
+    the owner check (V7, trunk 6c1a78c8) refuses every one of these as NDTwin's table before a
+    shape rule is looked at -- tests/test_table_entry_owner.py holds that refusal -- so left on
+    the class default every case here would test the 409 and none the shape rules.
     """
 
     def setUp(self):
         self.client = a_client()
+        self.client.bind_routes(None)  # a user pipeline: see the class docstring
 
     def ternary(self, **match):
         return {"table": "MyIngress.flow_5tuple", "match": match,
@@ -2144,7 +2152,7 @@ class TheShapeRulesTest(unittest.TestCase):
     def test_leaving_the_lpm_field_out_is_the_way_to_say_any_address(self):
         # The shape-rule property, on a table that is not NDTwin's and through the builder, so it
         # does not depend on who is allowed to WRITE a table (the owner check, V7, is a different
-        # layer and is not decided yet).
+        # layer, run before the builder).
         entry, kinds = self.client.build_table_entry(
             {"table": "Synthetic.lpm_table", "match": {},
              "action_name": "MyIngress.send_to_cpu", "action_params": {}})
@@ -2262,10 +2270,16 @@ class ThePriorityRulesTest(unittest.TestCase):
     nothing stopped `{"table": "MyIngress.flow_5tuple", "match": {}}` from going on the wire at
     priority 0 (bmv2 answers "Zero priority for ternary match", ternary-a0 item 14) or at any
     priority at all as a catch-all in front of ipv4_lpm (item 13: accepted).
+
+    On NDTwin's own pipeline that catch-all is now refused as NDTwin's table (V7, trunk
+    6c1a78c8: 409 owned_by_ndtwin, before anything is built; TheSection15CatchAllIsRefusedTest
+    below). The priority rules are about the table's priority column, not about its owner, so
+    this class runs them as a user write, bound the way WriteTableEntryTest binds it.
     """
 
     def setUp(self):
         self.client = a_client()
+        self.client.bind_routes(None)  # a user pipeline: see the class docstring
 
     def spec(self, **overrides):
         spec = {"table": "MyIngress.flow_5tuple", "match": {},
@@ -2358,33 +2372,68 @@ class ThePriorityRulesTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
-class TheSection15DefectIsPinnedPendingQ2Test(unittest.TestCase):
+class TheSection15CatchAllIsRefusedTest(unittest.TestCase):
     """
-    DESIGN 1.5, pinned as it stands at this head: the generic writer puts a catch-all in front of
-    NDTwin's own tables.
+    DESIGN 1.5: the generic writer used to put a catch-all in front of NDTwin's own tables. It
+    does not any more.
 
     [Co-developed with claude code -- Adam]
-    These tests assert a DEFECT, not a feature. An empty match on `MyIngress.flow_5tuple` at any
-    priority >= 1, or an omitted lpm field on `MyIngress.ipv4_lpm`, goes on the wire and is
-    accepted by the switch (ternary-a0 item 13 and 04) -- a rule that matches every packet, in
-    front of NDTwin's routes. The design's answer is the owner check (V7, Q2 (a)), which makes
-    both a 409; it is not implemented and Q2 is open. When V7 lands these two tests flip with
-    it, on purpose. The shape-rule property they used to carry ("every field omitted passes the
-    shape rules") is asserted on tables nobody owns, further up.
+    An empty match on `MyIngress.flow_5tuple` at any priority >= 1, or an omitted lpm field on
+    `MyIngress.ipv4_lpm`, is a rule that matches every packet, and the switch accepts both
+    (ternary-a0 item 13 and 04). Until the owner check these two tests pinned that as the
+    defect it was, and said they would flip when V7 landed. V7 (trunk 6c1a78c8 / main 92c1c77a,
+    "refuse table-entry writes into tables NDTwin owns") is that fix: on a switch bound to
+    NDTwin's own pipeline both are refused as NDTwin's tables before anything is built, and
+    nothing reaches the switch.
+
+    Each test carries its own control: the SAME entry, written by a client bound as a user
+    pipeline, goes on the wire. That is what says the refusal is about who owns the table and not
+    about the entry's shape -- the shape-rule property ("every field omitted passes the shape
+    rules") is asserted on tables nobody owns, further up.
     """
 
-    def test_an_empty_match_on_flow_5tuple_still_goes_on_the_wire(self):
-        client = a_client()
-        client.write_table_entry({"table": "MyIngress.flow_5tuple", "match": {}, "priority": 1,
-                                  "action_name": "MyIngress.send_to_cpu", "action_params": {}})
-        sent = only_update(client.stub.requests[0]).entity.table_entry
+    def assert_refused_as_ndtwins_and_sent_for_a_user(self, spec):
+        client = a_client()  # the class default: NDTwin's own pipeline
+        with self.assertRaises(p4_client_module.TableOwnedByNDTwin) as caught:
+            client.write_table_entry(spec)
+        self.assertIn(spec["table"], str(caught.exception))
+        self.assertEqual(client.stub.requests, [],
+                         "the catch-all reached the switch running NDTwin's pipeline")
+
+        user = a_client()
+        user.bind_routes(None)
+        user.write_table_entry(spec)
+        return only_update(user.stub.requests[0]).entity.table_entry
+
+    def test_an_empty_match_on_flow_5tuple_is_refused_as_ndtwins_table(self):
+        sent = self.assert_refused_as_ndtwins_and_sent_for_a_user(
+            {"table": "MyIngress.flow_5tuple", "match": {}, "priority": 1,
+             "action_name": "MyIngress.send_to_cpu", "action_params": {}})
         self.assertEqual((len(sent.match), sent.priority), (0, 1))
 
-    def test_an_omitted_lpm_field_on_ipv4_lpm_still_goes_on_the_wire(self):
+    def test_an_omitted_lpm_field_on_ipv4_lpm_is_refused_as_ndtwins_table(self):
+        sent = self.assert_refused_as_ndtwins_and_sent_for_a_user(
+            {"table": "MyIngress.ipv4_lpm", "match": {},
+             "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+        self.assertEqual(len(sent.match), 0)
+
+    def test_on_ndtwins_pipeline_the_owner_answers_before_the_shape_rules(self):
+        # The order the merge of the two produces: the owner check runs before the entry is
+        # built, so on NDTwin's own pipeline an entry that breaks a shape rule (a zero mask, V5)
+        # is a 409 owned_by_ndtwin, not a 400. The same entry on a user pipeline is the 400.
+        spec = {"table": "MyIngress.flow_5tuple", "match": {"hdr.ipv4.protocol": [0, 0]},
+                "priority": 10, "action_name": "MyIngress.send_to_cpu", "action_params": {}}
         client = a_client()
-        client.write_table_entry({"table": "MyIngress.ipv4_lpm", "match": {},
-                                  "action_name": "MyIngress.send_to_cpu", "action_params": {}})
-        self.assertEqual(len(only_update(client.stub.requests[0]).entity.table_entry.match), 0)
+        with self.assertRaises(p4_client_module.TableOwnedByNDTwin):
+            client.write_table_entry(spec)
+        self.assertEqual(client.stub.requests, [])
+
+        user = a_client()
+        user.bind_routes(None)
+        with self.assertRaises(p4_client_module.TableEntryInvalid) as caught:
+            user.write_table_entry(spec)
+        self.assertIn("omit the field", str(caught.exception))
+        self.assertEqual(user.stub.requests, [])
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
@@ -2454,7 +2503,11 @@ class TheReadSideKnowsEveryMatchTypeTest(unittest.TestCase):
              "action_name": "MyIngress.send_to_cpu", "action_params": {}, "priority": 7},
         ]
         for spec in specs:
+            # A user write (see TheShapeRulesTest): on NDTwin's own pipeline the generic writer
+            # refuses all three tables (V7), and NDTwin's own 5-tuple writer has its own
+            # findability test (test_rule_install_times / mutate_p4_rule_install_time.sh M10).
             client = a_client()
+            client.bind_routes(None)
             client.write_table_entry(spec)
             sent = only_update(client.stub.requests[0]).entity.table_entry
             read_client = a_client(stub=RecordingStub(read_responses=[a_read_response([sent])]))

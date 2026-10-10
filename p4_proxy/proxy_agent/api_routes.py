@@ -938,7 +938,8 @@ async def table_entry(request: Request):
              (`error: "external control plane"`); or the table belongs to NDTwin --
              every table of NDTwin's own pipeline, and the package's `roles.ipv4_route` table
              when its owner is ndtwin (`error: "owned by NDTwin"`, `outcome: "owned_by_ndtwin"`).
-             NOTHING was written.
+             The owner is checked before the entry is built, so on such a table this 409 comes
+             before any 400 above. NOTHING was written.
         501  a field of the table has a match type the P4Runtime enum names and no writer can
              build (UNSPECIFIED). TERNARY, RANGE and OPTIONAL are built. NOTHING was written.
         502  the switch itself refused it; the body carries the gRPC status name, and

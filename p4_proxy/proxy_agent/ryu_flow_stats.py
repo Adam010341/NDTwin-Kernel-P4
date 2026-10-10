@@ -344,9 +344,10 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # NDTwin's own pipeline is not counted for unknown ACTIONS or unmapped matches: its body is the
 # base's, byte for byte, and for the rows NDTwin writes itself its count stays 0. That holds only
 # while NDTwin is the only writer of the baseline tables -- NDTwin's own 5-tuple writer always
-# uses full masks. The generic `POST /p4/table_entry` can write a partial mask or a range into
-# them, and until the owner check keeps it out (Q2 (a), which makes the contract true again)
-# such a row is counted here instead of being described wrongly.
+# uses full masks. The generic `POST /p4/table_entry` cannot write into them any more: the owner
+# check (V7) answers 409 owned_by_ndtwin for every table of NDTwin's own pipeline, which makes
+# the contract true again for the writers this proxy has. A row some other writer put there with
+# a partial mask or a range is still counted here instead of being described wrongly.
 #
 # The route action is recognised through the switch's binding: a package's roles add its own
 # route action and match field to NDTwin's vocabulary. An UNBOUND foreign switch is rendered in

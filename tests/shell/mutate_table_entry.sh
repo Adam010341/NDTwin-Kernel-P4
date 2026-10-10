@@ -594,7 +594,7 @@ report "M-B35: a table entry carries no election id, so the switch answers PERMI
 # variant); the rest are M-S<rule>, "S" for shape, so they cannot be mistaken for the journal's
 # M-J1..M-J6 and M-J10..M-J29, which belong to a later cut.
 #
-# V7 (the owner check) is deliberately not here: it waits for an answer to the design's Q2.
+# V7 (the owner check) is not here: it has its own gate, tests/shell/mutate_table_entry_owner.sh.
 
 # V1: arity, one per type that has a shape of its own.
 m=$(mutant j1a "$SHAPE" \
