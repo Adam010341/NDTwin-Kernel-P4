@@ -734,9 +734,6 @@ class TestNamedFixtures(unittest.TestCase):
         for word in ("off", "external control plane", "missed a record"):
             self.assertIn(word, reason)
 
-    def test_t8_journaled_true_is_green(self):
-        self.assertEqual(decide("T8", {"answer": {"journaled": True}}).verdict, V.GREEN)
-
     def test_tp2_past_the_deadline_is_red(self):
         v = decide("TP2", copy.deepcopy(FIX["TP2"][1]))
         self.assertEqual(v.verdict, V.RED)

@@ -1053,6 +1053,12 @@ m=$(mutant g8 "$MAIN" \
 report 'M-J104: step 0 sets a journal aside without its lock' "$m" \
        'test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it'
 
+m=$(mutant g9 "$MAIN" \
+    '           "fabric_cookie": rule_journal.cookie_hex(_generation["cookie"])}' \
+    '           "fabric_cookie": None}')
+report 'M-J113: the headers main builds name no fabric generation, so no later start can confirm them' "$m" \
+       'test_the_headers_main_builds_name_this_boots_fabric_generation'
+
 # --- steps 1, 3-6: the replay ----------------------------------------------------------------
 
 m=$(mutant h1 "$MAIN" \
