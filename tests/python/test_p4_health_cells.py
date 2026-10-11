@@ -1186,7 +1186,8 @@ class TestRollup(unittest.TestCase):
 
     def test_the_predictions_give_the_three_rollups(self):
         """Design 5.1: core most likely 10 / 3 / 3 / 0, full 6 / 7 / 3 / 0; the q3b rollup
-        (design 14) 2 / 1 / 2 / 1."""
+        (design 14) 2 / 1 / 2 / 1. (Cut C) T8 predicts GREEN, the last cell of `tables` that did not, so in the full
+        scope `tables` is CAN and full reads 7 / 6 / 3 / 0."""
         exp = E.load(EXPECTED_TSV)
         verdicts = {cid: re.sub(r"\(.\)$", "", row["expected"]) for cid, row in exp.items()
                     if cid in {c.id for c in T.TABLE.cells}}
@@ -1195,7 +1196,7 @@ class TestRollup(unittest.TestCase):
         for scope in V.SCOPES:
             t = V.rollup(T.TABLE, ctx, scope)["totals"]
             got[scope] = (t[V.CAN], t[V.PART], t[V.CANNOT], t[V.UNDECIDED])
-        self.assertEqual(got, {"core": (10, 3, 3, 0), "full": (6, 7, 3, 0), "q3b": (2, 1, 2, 1)})
+        self.assertEqual(got, {"core": (10, 3, 3, 0), "full": (7, 6, 3, 0), "q3b": (2, 1, 2, 1)})
 
     def test_telemetry_none_needs_v1_ch1_ch7_red_and_no_link_usage(self):
         self.assertTrue(V.telemetry_none_check({"V1": V.RED, "CH1": V.RED, "CH7": V.RED}, True)[0])
@@ -1301,12 +1302,12 @@ class TestExpectedFile(unittest.TestCase):
 
     def test_the_prediction_comes_from_the_file_not_from_the_run(self):
         exp = E.load(EXPECTED_TSV)
-        self.assertEqual(exp["T8"]["expected"], "RED")      # (Cut A + D) T4 predicts GREEN now; T8 is still RED
+        self.assertEqual(exp["C2"]["expected"], "RED")      # (Cut C) T8 predicts GREEN now; C2 is still RED
         ctx = V.Context()
-        ctx.cells["T8"] = V.Verdict(V.GREEN, "fixed")
+        ctx.cells["C2"] = V.Verdict(V.GREEN, "fixed")
         ctx.cells["T1"] = V.Verdict(V.GREEN, "")
         ann = E.annotate(ctx, exp)
-        self.assertEqual(ann["T8"], ("RED", "flipped"))
+        self.assertEqual(ann["C2"], ("RED", "flipped"))
         self.assertEqual(ann["T1"], ("GREEN", "same"))
 
     def test_a_malformed_file_is_refused(self):

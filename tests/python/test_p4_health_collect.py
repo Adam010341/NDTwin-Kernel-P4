@@ -1472,6 +1472,9 @@ class FakeFabric(object):
         self.thrift_down = set()          # dpids whose CLI cannot connect
         # (Cut A + D) today's proxy writes ternary, range and optional entries; False is a proxy before that (501)
         self.ndtwin_writes_ternary = True
+        # (Cut C) today's proxy replays its table-entry journal, so switch_state's `journaled` is true; False is a
+        # proxy before that (journaled false everywhere)
+        self.journal_replays = True
         self.ndtwin_priority = None       # a writer that stores some other number than PI does, or None
         self.tx_checksum = "off"
         self.graph_drop_edge = False
@@ -1541,7 +1544,7 @@ class FakeFabric(object):
                 failed = 1 if self.fail_entry == d else 0
                 sw[str(d)] = {"pipeline": {"p4info_sha256": self.pipelines[str(d)]},
                               "table_entries": {"recorded": n, "applied": n - failed, "failed": failed,
-                                                "api_writes": 0, "journaled": False},
+                                                "api_writes": 0, "journaled": self.journal_replays},
                               "pre_entries": {"multicast": {"recorded": len(RUNTIMES[d].get("multicast_group_entries") or []),
                                                             "applied": len(RUNTIMES[d].get("multicast_group_entries") or []), "failed": 0},
                                               "clone": {"recorded": len(RUNTIMES[d].get("clone_session_entries") or []),
@@ -1590,10 +1593,10 @@ class FakeFabric(object):
             else:
                 key = ("TERNARY", v, 0xFF)
             s.add(table, [key], body["action_name"], prm, priority=prio)
-            return (200, {"status": "success", "journaled": False})
+            return (200, {"status": "success", "journaled": self.journal_replays})
         (field, v), = body["match"].items()
         s.add(table, [("EXACT", ival(v))], body["action_name"], prm)
-        return (200, {"status": "success", "journaled": False})
+        return (200, {"status": "success", "journaled": self.journal_replays})
 
     def post_mc(self, body):
         self.sw[body["dpid"]].mc[body["multicast_group_id"]] = frozenset(r["egress_port"] for r in body["replicas"])
@@ -2109,6 +2112,7 @@ class TestBringUpAOnTodaysFabric(Cut2):
 
     def test_without_b_every_bmv2_red_is_unattributed(self):
         self.fab.ndtwin_writes_ternary = False           # a proxy before the ternary writer: T4-T6 answer 501
+        self.fab.journal_replays = False                 # ... and before the journal replay: journaled false
         a, _r = self.a_round()
         ctx = self.judge(a, None)
         for cid in ("T4", "T5", "T6", "MT1", "MT2", "MT3", "D1", "C2", "R3", "K2", "P2", "P3"):
@@ -2169,7 +2173,7 @@ class TestOneObserverFailing(Cut2):
         self.assertIn("MT1", a.observations)                     # the last step still ran
         ctx = self.judge(a, self.all_confirmed())
         self.assertEqual(ctx.cells["TP1"].verdict, V.NOT_RUN)
-        self.assertEqual(ctx.cells["T8"].verdict, V.RED)
+        self.assertEqual(ctx.cells["T8"].verdict, V.GREEN)          # (Cut C) its own observer was not the one that raised
 
     def test_a_signal_still_ends_the_round(self):
         def sig(*a, **kw):
@@ -2369,6 +2373,15 @@ class TestBringUpARedPaths(Cut2):
             MS.shape_priority(body["table"], [kind], body["priority"])
         with self.assertRaises(MS.TableEntryInvalid):
             MS.shape_field("t.f", "TERNARY", 32, ["10.0.4.4", "255.255.255.0"])
+
+    def test_a_proxy_that_replays_its_journal_is_t8_green_and_one_that_does_not_is_red(self):
+        """(Cut C) T8 reads switch_state's `journaled` for switch 2: true since the proxy replays its table-entry
+        journal at startup and readopt, false before."""
+        a, _r = self.a_round(only=["T8"])
+        self.assertEqual(self.judge(a, None).cells["T8"].verdict, V.GREEN)
+        self.fab.journal_replays = False
+        a, _r = self.a_round(only=["T8"])
+        self.assertEqual(self.judge(a, None).cells["T8"].verdict, V.RED)
 
     def test_a_proxy_before_the_ternary_writer_is_t4_to_t6_red_and_t7_not_run(self):
         self.fab.ndtwin_writes_ternary = False

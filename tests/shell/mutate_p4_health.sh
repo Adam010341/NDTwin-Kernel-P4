@@ -184,6 +184,12 @@ add "C-T8. T8's RED still says journaled is the constant false" \
     '        return red("switch_state'"'"'s `journaled` is the constant false (api_routes.py:765-767) "' \
     'test_t8_red_says_why_journaled_can_be_false_now'
 
+add "C-T8b. observe_t8 says journaled whatever switch_state says" \
+    "$PKG/observe_a.py" \
+    '    return {"answer": {"journaled": te.get("journaled") if isinstance(te, dict) else None}}' \
+    '    return {"answer": {"journaled": True}}' \
+    'test_a_proxy_that_replays_its_journal_is_t8_green_and_one_that_does_not_is_red'
+
 add "M10. the link-down deadline is infinite" \
     "$TABLE" \
     'LINK_DOWN_DEADLINE_S = 20.0' \
