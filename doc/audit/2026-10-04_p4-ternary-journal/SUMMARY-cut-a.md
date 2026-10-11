@@ -29,7 +29,7 @@
 4. exact／lpm 表帶非 0 priority：insert、modify、delete 都被拒絕。
 沒有任何結果與設計的 V 規則矛盾。唯一補充：exact／lpm 表的 V6 對 modify、delete 也成立。
 
-**驗證**（🆕 這一段是第一輪的數字，只描述當時的 dd8022fa；HEAD 的數字見文末「第五輪」）
+**驗證**（🆕 這一段是第一輪的數字，只描述當時的 dd8022fa；HEAD 的數字見「第五輪」一節；它之後還有 D 一節，所以不是文末）
 - p4_proxy 測試 1734 → 1788；tools/p4_exercise 測試 196 → 210；全綠。
 - mutate_table_entry.sh：76 個 mutation，0 survivor（原本 41 個）。🆕 到第三輪是 78 個，第四輪 81 個。
 - mutate_p4_exercise_tools.sh（36 個）與 mutate_p4_rule_install_time.sh（27 個）都是 0 survivor。
@@ -147,7 +147,7 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 - **F5（過時的註解與名字）**：`ryu_flow_stats.py:319-323` 不再說「renders exactly as it always did」；`:332-338` 的「THE COUNT IS EVERY NON-DEFAULT ROW NOT LISTED」改成明說是 foreign pipeline 的規則；`:357-360` 新增一段講沒有可用 match 的列「兩邊都不列、只有 foreign 計入、要不要改是 owner 的決定」。`test_ryu_flow_stats.py:623` 改名 `test_ndtwins_own_pipeline_does_not_count_a_row_with_no_usable_match`，`mutate_roles_binding.sh` 的 FS3c 標籤跟著改（`mutate_roles_binding.sh:927-928`）。`test_flow_stats_route.py` 原本放在 `AForeignSwitch…Test` 裡的 BASELINE 測試搬到自己的類別 `ARenderOnNdtwinsOwnPipelineIsCountedTooTest`（`:114-129`），gate 的 NEW_CLASSES 同步（`mutate_roles_binding.sh:93`）。
 - **F6**：`main.py:1488-1494` 重新折行；這段 docstring 沒有超過 100 欄的行（檔內別處有 8 行超過，不是這次動的）。
 - **F7**：`r4/poll.log` 的時間戳早於它回答的審查，是另一個 worker 提早寫的 ALLDONE 標記留下的（`r4/poll.log.NOTE` 已說明），本檔從不引用它。這一輪的 anchors log 是工具的完整輸出（`check_gate_anchors.log`，含 rev header 與每個 gate 的列）。
-- **F8（HEAD 的數字）**：本檔上面「驗證」一節說「HEAD 的數字見文末」，現在給在這裡，全在 `a6ad886c`：
+- **F8（HEAD 的數字）**：本檔上面「驗證」一節說「HEAD 的數字見文末」（當時第五輪是最後一節，現在 D 一節接在它後面），現在給在這裡，全在 `a6ad886c`：
   - p4_proxy：`p4lane.log` 是 CI 的 L1 第 3 節原文（`tools/test_workflow/l1_unit_tests.sh` 的「3. P4 proxy Python tests」，由 `p4lane.sh` 用 sed 抽出照跑），48 個檔，**47 個 PASS，共 1867 個測試跑完且通過；1 個 SKIPPED**（`test_p4_client.py`，1 個測試，該檔自己宣告需要活的交換機 `NDTWIN_L1_OPT_IN`，`p4lane.log:30`）；`FAILURES=0`（`p4lane.log:52`），rc=0（`:53`）。相比第一輪的 1788（`dd8022fa`）多了 79 個。
   - `tools/p4_exercise` discover：`Ran 210 tests`、OK、rc=0（`unittest_discover_p4_exercise.log:222-224`）。
   - `check_test_tmpdirs.py`：422 個檔掃過、0 個固定暫存路徑（`check_test_tmpdirs.log:10`）。
@@ -156,7 +156,7 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 - **F10**：紅燈 log 的 header 現在帶測試檔的 sha256：`r5/red/new_asgi_test.red.log:1`，`7581de6155f3c14800a99a064e9ded228681f1acf1a9ab98eb8a09fe9b7815bc`，等於 `a6ad886c` 裡 `p4_proxy/tests/test_switch_state.py` 的 sha256（`git show a6ad886c:p4_proxy/tests/test_switch_state.py | sha256sum` 重算相符）。header 寫的是 `b2618b88+uncommitted`，因為紅燈跑在 code commit 之前的工作樹上。
 - **F11**（render 的時間戳存了卻沒送出；可加 `flow_stats.age_s`）：**不在這個 cut 的範圍**，沒有動。
 
-**新的 FastAPI 層測試**：`TheCountOnNdtwinsOwnPipelineTest.test_through_fastapi_it_is_a_json_null_before_a_render_and_the_count_after`（`test_switch_state.py:1287`，同類別 `:1232`）。它用 `asgi_get` 真的打 `GET /stats/flow/1` 與 `GET /p4/switch_state`，檢查序列化後的 JSON：render 之前是 `"unrendered_entries":null`，render 之後是 `"unrendered_entries":1`。這一輪行為不變，所以紅燈不是「改程式前」，而是把四個 mutant 套在 production 碼上看這顆測試紅不紅（`r5/red/new_asgi_test.red.log`，沒有 rc 行，是 mutant 輸出的原文）：MN11（null 被報成 0）時它因 `{'unrendered_entries': 0} != {'unrendered_entries': None}` 而紅（`:6-8`，該類別 5 個測試 2 個紅，`:9-10`）；AR5（不記計數）時它因找不到 `"unrendered_entries":1` 而紅（`:25-27`，5 個全紅，`:28-29`）；AR5b（記成 0）同樣（`:41-43`，`:44-45`）；AR6（null 計數從 JSON 被丟掉）時它因找不到 `"unrendered_entries":null` 而紅（`:50-51`，`:52-53`）。綠燈：`p4lane.log:44`（`test_switch_state.py`，77 個測試通過）與各 gate 的 baseline。Gate 新增 AR6（`mutate_roles_binding.log:303`，被這顆測試殺）。
+**新的 FastAPI 層測試**：`TheCountOnNdtwinsOwnPipelineTest.test_through_fastapi_it_is_a_json_null_before_a_render_and_the_count_after`（`test_switch_state.py:1287`，同類別 `:1232`）。它用 `asgi_get` 真的打 `GET /stats/flow/1` 與 `GET /p4/switch_state`，檢查序列化後的 JSON：render 之前是 `"unrendered_entries":null`，render 之後是 `"unrendered_entries":1`。這一輪行為不變，所以紅燈不是「改程式前」，而是把四個 mutant 套在 production 碼上看這顆測試紅不紅（`r5/red/new_asgi_test.red.log`，沒有 rc 行，是節錄，不是逐字原文：只留 mutant 輸出裡相關的區塊，長行在約 200 欄處被截斷，例如 `:48`、`:50-51` 的 AR6 區塊停在句子中間）：MN11（null 被報成 0）時它因 `{'unrendered_entries': 0} != {'unrendered_entries': None}` 而紅（`:6-8`，該類別 5 個測試 2 個紅，`:9-10`）；AR5（不記計數）時它因找不到 `"unrendered_entries":1` 而紅（`:25-27`，5 個全紅，`:28-29`）；AR5b（記成 0）同樣（`:41-43`，`:44-45`）；AR6（null 計數從 JSON 被丟掉）時它因找不到 `"unrendered_entries":null` 而紅（`:50-51`，`:52-53`）。綠燈：`p4lane.log:44`（`test_switch_state.py`，77 個測試通過）與各 gate 的 baseline。Gate 新增 AR6（`mutate_roles_binding.log:303`，被這顆測試殺）。
 
 **Gate 結果（`a6ad886c`，P4 build 與 venv 都在）**
 
@@ -197,7 +197,7 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 
 **S0**（`76e3b468`，離線，`setsid --wait`）：`S0 COMPLETE`，rc=0；57 項 ok、0 項 FAIL。
 - PF-T 的三行：`pre-flight PF-T PASSes with the ternary entry in rc 0, ternary FAIL lines 0, other FAIL rows 0`、`PF-T package carries one ternary boot entry`、`PF-T verdict GREEN`。
-- 🆕 第二輪更正（原句漏算）：S0 會起 10 個拋棄式 switch（4 個 selfcheck、vs_trial 2 個、ctrl_trial 2 個、show_ports 2 個，各為 stock 與 bmv2-fast）加 drop check 的 5 個。第一輪的取樣腳本每秒一輪、每個 /proc 項目都 fork，只記到 7 個：漏了 vs_trial 的 bmv2-fast、兩個 show_ports，以及 5 個 drop check（這 5 次呼叫只在 `s0.commands.log` 看得到）。「跑完之後沒有留下任何東西」靠的是事後掃描，那一句不變。第二輪改用一支 python 掃描（`r2/proc_scan.py`：跑之前、跑的過程中每 0.1 秒、跑之後），腳本與 log 都放在 log 目錄。跑完之後掃 /proc：沒有任何 simple_switch*／ndt-hc-*／ndt-hb* 留下，所以什麼都沒 kill。跑之前的掃描也是空的（`s0_prescan.log`）。
+- 🆕 第二輪更正（原句漏算）：S0 會起 10 個拋棄式 switch（4 個 selfcheck、vs_trial 2 個、ctrl_trial 2 個、show_ports 2 個，各為 stock 與 bmv2-fast）加 drop check 的 6 個 bmv2（drop check 呼叫 5 次：3 次真的檢查、各起 2 個 bmv2，另 2 次用快取結果、沒有起 switch；`s0.commands.log:373-391`），合計 16 個 switch 行程。第一輪的取樣腳本每秒一輪、每個 /proc 項目都 fork，只記到 7 個：漏了 vs_trial 的 bmv2-fast、兩個 show_ports，以及 drop check 的 6 個 bmv2（這 5 次呼叫只在 `s0.commands.log` 看得到）。🆕 第三輪更正（第二輪的「5 個」也算錯了）：`r2/s0_procs.log` 記到 16 個 switch 行程（10 個拋棄式 switch＋3 個父行程下的 6 個 drop check bmv2）；另有一個 `ndt-hc-version-` 行程（`exe None`），它不是 switch，`r2/driver.done` 把它算進「17 recorded」。「跑完之後沒有留下任何東西」靠的是事後掃描，那一句不變。第二輪改用一支 python 掃描（`r2/proc_scan.py`：跑之前、跑的過程中每 0.1 秒、跑之後），腳本與 log 都放在 log 目錄。跑完之後掃 /proc：沒有任何 simple_switch*／ndt-hc-*／ndt-hb* 留下，所以什麼都沒 kill。跑之前的掃描也是空的（`s0_prescan.log`）。
 
 **Gate**（都在 `76e3b468`）
 - `test_p4_health_cells.py` 183 個 OK（venv 3.13 與 ryu-env 3.8 各一次；trunk 是 179 個）。
@@ -211,7 +211,7 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 - `expected_today.tsv` 不在 gate 的 subject 裡，所以另外做了一次：把它退回 `95a8972b` 的版本，`test_bring_up_a_reads_as_predicted` 與 `test_a_then_b_then_the_verdicts` 兩顆紅（`red.tsv_reverted.collect.log`）。
 
 **留著的**
-- T4–T7 的 GREEN 只是預測，沒有 live run。其中「package A 沒有 roles，所以 V7 不擋 `HcIngress.t_ternary` 的寫入」是讀碼推論（`table_owned_by_ndtwin`：binding 為 None 就回 False），沒有量過。
+- T4–T7 的 GREEN 只是預測，沒有 live run。🆕 **已被下面「D 第二輪」取代**：T4–T7 之後在 `e17d39e5` 離線對兩台拋棄式 bmv2 觀測為 GREEN，三張表的 `table_owned_by_ndtwin` 也在手動 `bind_routes(None)` 之下量到是 False；仍然沒有 live `health.json`。下面是當時的原句：其中「package A 沒有 roles，所以 V7 不擋 `HcIngress.t_ternary` 的寫入」是讀碼推論（`table_owned_by_ndtwin`：binding 為 None 就回 False），沒有量過。
 - PF-T 遇到「用新的句子拒絕 ternary 那一列」時判 RED，不判 PROBE-BROKEN。依據是健檢 DESIGN 的 PF-T 列（`:293`）：這一格要量的是「pre-flight 通過」，不是某一句話。如果要的是 PROBE-BROKEN，改 `pft_cannot` 一行就好。
 - `runtime_cli.py:57` 還寫著「priority entries are not in the package format (G5)」。S0 的 throwaway 不灌 PF-T 那筆 entry，所以不影響結果，但這句話已經過時。
 
@@ -226,7 +226,7 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
     - 由真的 route handler `api_routes.table_entry` 回答 `observe_a.py` 原封不動的 T4_BODY、T5_BODY、T6_BODY、T7_BODIES；
     - 用 lab 的 thrift reader 做 `table_dump`，套 observer 自己的 find/check，最後 `judge_all`。
   - 結果：兩台都是 T4、T5、T6、T7 GREEN；五個 POST 都回 200；三張表都是 `table_owned_by_ndtwin` = False（`r2/t4t7.log`、`r2/t4t7.json`、原始 dump 在 `r2/t4t7_dumps.txt`）。
-  - 這支腳本起了 2 個 switch，pid 記在 `r2/t4t7_procs.log`。跑之前、跑之後的掃描都是空的，沒有 kill 任何東西。
+  - 這支腳本起了 2 個 switch，pid 記在 `r2/t4t7_procs.log`。🆕 第三輪補記：它跑在乾淨 clone 的 `e17d39e5`，不是 D 的 head `f9f28623`（`tools/p4_health` 的樹在兩者都是 `89e744c1`）；bmv2 兩個 binary 只以路徑識別。跑之前、跑之後的掃描都是空的，沒有 kill 任何東西。
   - `expected_today.tsv` 的 T4–T7 basis 改成「observed offline …; no live health.json yet」，保留程式行號。tsv 不能寫 `scratch/overnight…`（`test_no_rulings…` 會擋），所以只寫 `gates-0910/p4-health-ternary-d/r2/t4t7.json`。
 - **m1（沒有 match 的 t_ternary entry）**：`pft_entries` 現在只認「非 default、match 指名 `hdr.ipv4.srcAddr`」的 t_ternary entry（`s0.py:134-153`）。新測試 `test_a_ternary_table_entry_that_names_no_ternary_field_is_not_pfts` 涵蓋三種：沒有 match 的 priority entry、default entry、別張表上的 srcAddr；mutant AD3、AD11、AD17。
 - **m2**：`match_shape.py` 加進 gate 的 WATCHED（`mutate_p4_health.sh:74`）；`test_p4_health_gate_scripts.sh` 多一項檢查（68 → 69）；mutant AD16。
@@ -249,4 +249,13 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 
 - **anchor checker**：`check_gate_anchors.py` 在 `b735a518` 回報 `mutate_p4_health.sh` 有 4 個 anchor 讀不到（135/136）。原因是 AD8、AD9、AD10、AD13 的 subject 寫成 `"$PKG/lab.py"`、`"$PKG/observe_a.py"`，checker 解析不了；gate 本身照樣套得上（第一輪 gate 有殺到它們）。最後一顆 commit 把這四個搬到 Cut 2 那一節，改用 `$LABPY`、`$OBSA`，checker 變成 136/136。第一輪的 AD8–AD10 也有同樣的問題，當時沒有跑 checker。
 
-**Gate**：都在最後一顆 commit（D 的 head），跑在新的拋棄式 clone 裡，log 在 `scratch/overnight-2026-09-05/logs/gates-0910/p4-health-ternary-d/r2/`：四個 suite × 兩個直譯器、完整 mutation gate（4 個 shard 加總）、S0、p4lane／klane、`check_gate_anchors.py`。每份 log 第一行是 commit、最後一行是 rc。
+**Gate**：都在最後一顆 commit（D 的 head），跑在新的拋棄式 clone 裡，log 在 `scratch/overnight-2026-09-05/logs/gates-0910/p4-health-ternary-d/r2/`：cells 與 collect 兩個 suite 各跑兩個直譯器（3.13 與 3.8），recover 與 gate_scripts 是 bash suite、各跑一次；完整 mutation gate（4 個 shard 加總）、S0、p4lane／klane、`check_gate_anchors.py`。每份 log 第一行是 commit、最後一行是 rc。
+
+### D 第三輪（推 trunk 前的文字修正）
+
+只改註解、docstring、`expected_today.tsv` 的 basis／出處文字與本檔，沒有任何行為變動。
+
+- `api_routes.py` 的 `switch_state` docstring（會進 `/openapi.json`）與欄位註解、`ryu_flow_stats.py` 的 `render_flow_stats_counted` docstring：`flow_stats.unrendered_entries` 的說明改成與程式一致。它數的是最後一次 `GET /stats/flow` render 因為描述不了而漏列的非 default 列：所有 pipeline 上是 Ryu 拼不出來的 ternary mask 或 range；foreign pipeline 上再加不認得的 action、沒有可用 match 的列。null 到第一次 render 為止、readopt 歸 null 兩句照舊。
+- `test_ryu_flow_stats.py` 的一行註解不再把 NDTwin 自己的 5-tuple writer 與 bit<9> 欄位上的 0xffff 連在一起。`test_p4_client_writes.py` 的 n9 那句沒有動。
+- `expected_today.tsv`：PL1、T3、T8 的程式行號重新指到現在的 `api_routes.py` 與 `main.py`；T4–T7 的 basis 補上離線觀測跑在 `e17d39e5`。
+- 本檔：上面 S0 的 switch 行程數（16 個 switch 行程）、F10 紅燈 log 是節錄、試驗跑在 `e17d39e5`、「T4–T7 的 GREEN 只是預測」標為已被取代、兩處「文末」的指向、Gate 一段 suite 的直譯器次數。

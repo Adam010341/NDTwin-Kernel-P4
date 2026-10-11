@@ -396,9 +396,11 @@ def render_flow_stats_counted(dpid: int, entries, install_times=None,
     """
     `(render_flow_stats(...), how many rows were left out as unrecognised)`.
 
-    `binding` is the switch's route binding: BASELINE (NDTwin's own pipeline -- only a row whose
-    match Ryu cannot say is left out and counted; an unknown action still lists), a package
-    binding, or None (a foreign switch with no roles: an unknown action is left out too).
+    `binding` is the switch's route binding: BASELINE (NDTwin's own pipeline -- the rows counted
+    are the non-default ones with a ternary mask or range Ryu cannot spell; an unknown action
+    still lists, and a row with no usable match is left out but not counted), a package binding,
+    or None (a foreign switch with no roles). On a foreign switch an unknown action and a row with
+    no usable match are left out and counted too.
     """
     foreign = binding is None or binding.source != route_binding.SOURCE_BASELINE
     field_to_ryu, forwarding_actions = _vocabulary(binding)

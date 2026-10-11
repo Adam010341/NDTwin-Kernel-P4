@@ -665,7 +665,7 @@ class AMatchRyuCannotSayIsLeftOutAndCountedOnEveryPipelineTest(unittest.TestCase
         self.assertEqual(flows[0]["match"]["nw_src"], "128.0.0.0/1")
 
     def test_a_full_mask_is_still_an_exact_value_whatever_its_width_on_the_wire(self):
-        # 0xffff on a bit<9> field is how NDTwin's own 5-tuple writer spells "full".
+        # A full mask can be wider on the wire than its field (0xffff on a bit<9> field).
         flows, left_out = self.counted(self.row(**{
             "standard_metadata.ingress_port": self.ternary(b"\x03", b"\xff\xff"),
             "meta.l4_dst_port": self.ternary(b"\x00\x50", b"\xff\xff")}))

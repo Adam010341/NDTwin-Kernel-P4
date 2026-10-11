@@ -778,8 +778,10 @@ async def switch_state():
     keys inside each entry (DeviceConfigurationAndPowerManager::p4LivenessFor), so an unknown
     top-level key and an unknown per-switch key are both inert to that parse.
 
-    Per switch, `flow_stats.unrendered_entries` is the number of rows the last `GET /stats/flow`
-    render of that switch left out. It is null until that switch's first /stats/flow render, on
+    Per switch, `flow_stats.unrendered_entries` counts the non-default rows the last
+    `GET /stats/flow` render of that switch left out because it could not describe them: on every
+    pipeline a ternary mask or range Ryu cannot spell; on a foreign pipeline also an unknown action
+    or a row with no usable match. It is null until that switch's first /stats/flow render, on
     every pipeline, and a readopt resets it to null.
     """
     if topology is None:
@@ -851,9 +853,11 @@ async def switch_state():
     #                 binding_source. Appendix A of the ticket: the kernel will copy this object
     #                 verbatim onto get_graph_data's node in the third cut.
     #   flow_stats    `unrendered_entries`: how many non-default rows the last /stats/flow
-    #                 render of this switch did not list -- an action it does not recognise, or
-    #                 a match it cannot translate (section 7 ruling 5, item 3). null until that
-    #                 switch's first /stats/flow render, on every pipeline; a readopt resets it.
+    #                 render of this switch left out because it could not describe them -- on
+    #                 every pipeline a ternary mask or range Ryu cannot spell; on a foreign
+    #                 pipeline also an unknown action or a row with no usable match (section 7
+    #                 ruling 5, item 3). null until that switch's first /stats/flow render, on
+    #                 every pipeline; a readopt resets it.
     if capabilities_report is not None:
         caps = capabilities_report()
         for dpid, entry in state.get("switches", {}).items():
