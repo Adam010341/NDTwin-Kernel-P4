@@ -56,7 +56,7 @@
 7. **測試釘住了佔位字串（m12）**：TheClaimFlipsInOnePlace 釘 `replay == "implemented"`；Cut C 要改成「不是 Cut B 的字串」並換成真正的重放報告。
 8. **`.run/` 隔離只靠慣例（m13）**：Cut C 之前加防護（測試啟動時設 `NDTWIN_TABLE_JOURNAL_DIR`，或套件前後比對 `.run/table_entry_journal`）。
 9. **gate 的 `mutant()` 吞掉失敗的 anchor assert（m14）**：目前靠 check_gate_anchors 擋住；控制組的 anchor 消失時仍會印 green。
-10. **T8**：沒有任何 observer 產生 `a:journaled`，現在跑一輪會是 NOT RUN 而不是 RED；T8 的 RED 文字（cells/table.py:379）過時，屬健檢線。
+10. **T8**：~~沒有任何 observer 產生 `a:journaled`，現在跑一輪會是 NOT RUN 而不是 RED~~ **（2026-10-12 更正，第三輪審查 m7）這一句錯了**：`tools/p4_health/observe_a.py:306-311` 的 `observe_t8` 讀 switch 2 的 `table_entries.journaled`，產生的就是 `a:journaled`；所以只有 Cut B 時跑一輪，T8 是 RED（`cells/table.py:391-393` 的 `t8_cannot`），不是 NOT RUN。那句 RED 文字「the constant false (api_routes.py:765-767)」過時。Cut C 改了這句文字，並把 T8 預測成 GREEN（見 SUMMARY-cut-c.md）。
 11. 其他：`record_complete` 對沒有任何寫入的交換機是空洞的 true，也不代表檔案本身；header 的 sha 是檔案第一次建立時的；readopt 還沒取這把表鎖（Cut C 的 pending／503 要接上）；步驟 0 的隔離檔名要沿用 `.q<ns>`，否則 prune 掃不到；被刪掉的 REFUSE 記錄原始檔沒有保留。
 
 
