@@ -726,6 +726,17 @@ class TestNamedFixtures(unittest.TestCase):
     def test_t8_journaled_false_is_red(self):
         self.assertEqual(decide("T8", {"answer": {"journaled": False}}).verdict, V.RED)
 
+    def test_t8_red_says_why_journaled_can_be_false_now(self):
+        # (Cut C) Since the proxy replays its journal, `journaled` is no longer a constant: the RED names the three
+        # things that make it false, and no longer the constant that used to.
+        reason = decide("T8", {"answer": {"journaled": False}}).reason
+        self.assertNotIn("constant", reason)
+        for word in ("off", "external control plane", "missed a record"):
+            self.assertIn(word, reason)
+
+    def test_t8_journaled_true_is_green(self):
+        self.assertEqual(decide("T8", {"answer": {"journaled": True}}).verdict, V.GREEN)
+
     def test_tp2_past_the_deadline_is_red(self):
         v = decide("TP2", copy.deepcopy(FIX["TP2"][1]))
         self.assertEqual(v.verdict, V.RED)

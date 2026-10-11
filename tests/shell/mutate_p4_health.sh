@@ -176,6 +176,14 @@ add "M9. journaled is ignored" \
     '    if False:  # MUTANT: journaled ignored' \
     'test_t8_journaled_false_is_red'
 
+# (Cut C) [Co-developed with claude code -- Adam] `journaled` is computed since the proxy replays its journal; the RED
+# names why it can be false, not the constant it used to be.
+add "C-T8. T8's RED still says journaled is the constant false" \
+    "$TABLE" \
+    '        return red("switch_state'"'"'s `journaled` is false: this switch'"'"'s table-entry journal is off, is an external "' \
+    '        return red("switch_state'"'"'s `journaled` is the constant false (api_routes.py:765-767) "' \
+    'test_t8_red_says_why_journaled_can_be_false_now'
+
 add "M10. the link-down deadline is infinite" \
     "$TABLE" \
     'LINK_DOWN_DEADLINE_S = 20.0' \
