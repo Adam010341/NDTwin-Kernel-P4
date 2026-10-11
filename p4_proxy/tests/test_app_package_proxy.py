@@ -383,9 +383,11 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
         # Absent would be readable as "this proxy is too old to say", which is the shape the
         # whole disclosure exists to close. [Co-developed with claude code -- Adam] Since the
         # replay, that answer is `journaled: true` for a switch whose journal is on, ours to
-        # write and missing no record -- here, one nothing was written to and nothing replayed.
+        # write and missing no record -- here, one nothing was written to. Its `replay` is the
+        # process-wide journals' (another test's startup may have filled it), so only its key is
+        # pinned here; what it holds is test_table_entry_replay.py's.
         two = dict(body["switches"]["2"]["table_entries"])
-        self.assertIsNone(two.pop("journal")["replay"])
+        self.assertIn("replay", two.pop("journal"))
         self.assertEqual(two, {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
                                "journaled": True})
 
