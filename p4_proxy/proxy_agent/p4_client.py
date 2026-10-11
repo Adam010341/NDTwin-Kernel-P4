@@ -17,7 +17,7 @@ from proxy_agent import route_binding as route_binding_module
 from proxy_agent.match_shape import (BUILDABLE_MATCH_TYPES, TableEntryInvalid,  # noqa: F401 -- re-exported
                                      TableEntryUnsupported, encode_value)
 from proxy_agent.route_binding import RouteWriteUnsupported  # noqa: F401 -- re-exported
-from proxy_agent.rule_install_times import RuleInstallTimes
+from proxy_agent.rule_install_times import RuleInstallTimes, entry_key
 from proxy_agent.sflow_emitter import (TelemetryHeaderMissing, packet_in_metadata_ids,
                                        packet_out_metadata_ids, sample_from_packet_in)
 
@@ -121,7 +121,8 @@ class TableOwnedByNDTwin(RuntimeError):
 
 #: Who is asking `write_table_entry` to write. `api`: an operator's POST. `boot`: this proxy
 #: applying the app package's own runtime entries at startup or after a readopt. `replay`:
-#: RESERVED -- nothing passes it today (a POSTed entry is not journaled); it is treated as `api`
+#: RESERVED -- nothing passes it today (a POSTed entry is recorded, but nothing replays the
+#: table-entry journal yet); it is treated as `api`
 #: and is named so that a future caller that puts stored entries back cannot be mistaken for
 #: `boot`. Anything else is a ValueError. [Co-developed with claude
 #: code -- Adam]
@@ -1406,10 +1407,10 @@ class P4RuntimeClient:
         recorded_match = self._built_entry_match(entry)
         if op == "delete":
             self.rule_install_times.forget(self.device_id, table_name, entry.priority,
-                                           recorded_match)
+                                           recorded_match, entry.is_default_action)
         else:
             self.rule_install_times.record(self.device_id, table_name, entry.priority,
-                                           recorded_match)
+                                           recorded_match, entry.is_default_action)
         # The label comes from the entry's own flag. An empty match is NOT a default action: it is
         # the catch-all, and the log must not describe it as the table's default.
         shown = (sorted(match_types) if match_types
@@ -1425,7 +1426,33 @@ class P4RuntimeClient:
                 self._table_by_name(table_name)),
             "is_default_action": entry.is_default_action,
             "op_substituted": substituted,
+            # [Co-developed with claude code -- Adam] The entry's identity, in the one spelling
+            # the install-time record and the table-entry journal both use. Computed here
+            # because this is where the entry has been built: the caller holds a spec, and
+            # "10.0.1.1" and 167772417 are one entry whose key only the built form can say.
+            "entry_key": entry_key(
+                self.device_id, table_name, entry.priority, recorded_match,
+                entry.is_default_action),
         }
+
+    def table_entry_key(self, spec):
+        """
+        The identity a spec would have, or None if it does not build. Writes nothing.
+
+        [Co-developed with claude code -- Adam]
+        For the one caller that has no `write_table_entry` result to read the key from: a delete
+        the switch answered NOT_FOUND, which the table-entry journal still records (DESIGN 10-4)
+        and which therefore needs the key of an entry that was never written. Not called before
+        a write, so the order of the refusals `write_table_entry` makes is unchanged.
+        """
+        try:
+            entry, _types = self.build_table_entry(spec)
+        except Exception:  # noqa: BLE001 -- a spec that does not build has no identity
+            return None
+        table_name = self._table_name(entry.table_id)
+        return entry_key(
+            self.device_id, table_name, entry.priority, self._built_entry_match(entry),
+            entry.is_default_action)
 
     # --- Reading tables back -------------------------------------------------------
     # [Co-developed with claude code -- Adam]

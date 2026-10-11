@@ -129,9 +129,15 @@ class AnOwnerNdtwinRolesPackageEndToEndTest(unittest.TestCase):
         shutil.rmtree(cls.tmp, True)
 
     def setUp(self):
+        # [Co-developed with claude code -- Adam] `table_journals` is isolated as in
+        # tests/test_table_entry_route.py: this file imports `main`, so the route holds the REAL
+        # per-switch journals, and the accepted POSTs below would append to the checkout's own
+        # `.run/table_entry_journal/`. These tests are about the owner, not the journal.
         self.saved = (dict(main._pipelines), dict(main._table_entries), dict(main._api_writes),
-                      api_routes.topology, api_routes.note_api_table_entry_write)
+                      api_routes.topology, api_routes.note_api_table_entry_write,
+                      api_routes.table_journals)
         self.addCleanup(self.restore)
+        api_routes.table_journals = None
 
     def restore(self):
         for live, saved in ((main._pipelines, self.saved[0]),
@@ -139,7 +145,8 @@ class AnOwnerNdtwinRolesPackageEndToEndTest(unittest.TestCase):
                             (main._api_writes, self.saved[2])):
             live.clear()
             live.update(saved)
-        api_routes.topology, api_routes.note_api_table_entry_write = self.saved[3:]
+        (api_routes.topology, api_routes.note_api_table_entry_write,
+         api_routes.table_journals) = self.saved[3:]
 
     def real_client(self, dpid=1):
         """The client PRODUCTION builds for this switch, with a recording stub for the wire."""

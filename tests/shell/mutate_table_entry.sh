@@ -43,9 +43,11 @@
 # refused with 501" -- is gone; what replaces it is "a ternary or range match is built as what
 # the p4info says it is", and the 501 that is left is UNSPECIFIED, guarded by M-J21), and the
 # M-S / M-J7 / M-J8 / M-J9 / M-J21 / M-J24 block before the controls is the new shape rules, one
-# or two mutations per rule. The journal's mutations (the rest of DESIGN.md 6.3's M-J list)
-# belong to a later cut and are not here. M-B7, M-B14 and M-B20 stay as they are: they guard `journaled: false`, which is
-# still the truth until the journal lands, and they are retired THEN.
+# or two mutations per rule. The table-entry journal's mutations are in mutate_table_journal.sh
+# (Cut B). M-B7, M-B14 and M-B20 stay, RE-ANCHORED onto the lines that now compute `journaled`
+# (`table_journals.journaled(dpid)` in main.py, `journaled` in the POST response): what they guard
+# -- that nothing claims an entry survives a proxy restart -- is still the truth, because the
+# journal is recorded but not replayed. They are retired by the change that replays it.
 #
 # Usage:  tests/shell/mutate_table_entry.sh
 #         PROXY_PY=/path/to/python tests/shell/mutate_table_entry.sh
@@ -362,8 +364,8 @@ report "M-B7: switch_state stops saying what was written to each switch" "$m" \
        "test_every_switch_reports_what_was_written_and_that_none_of_it_is_journaled"
 
 m=$(mutant b14 "$MAIN" \
-    '                     "journaled": False}' \
-    '                     "journaled": True}')
+    '                     "journaled": table_journals.journaled(dpid),' \
+    '                     "journaled": True,')
 report "M-B14: switch_state claims these entries survive a proxy restart" "$m" \
        "test_the_count_reaches_the_endpoint_report_not_just_the_response"
 
@@ -372,9 +374,9 @@ report "M-B14: switch_state claims these entries survive a proxy restart" "$m" \
 # table-entry response has.
 m=$(mutant b20 "$ROUTES" \
     '            "priority_honoured": written["priority_honoured"],
-            "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}' \
+            "journaled": journaled, "journal": journal}' \
     '            "priority_honoured": written["priority_honoured"],
-            "journaled": True, "note": TABLE_ENTRY_NOT_JOURNALED}')
+            "journaled": True, "journal": journal}')
 report "M-B20: the response claims the entry survives a restart, next to a note saying it does not" "$m" \
        "test_every_success_says_the_entry_is_not_journaled_and_what_that_costs"
 
@@ -929,9 +931,9 @@ control "N2 (control): a comment-only edit inside the entry-applying loop" "$m" 
         "the whole suite stays green"
 
 m=$(mutant n3 "$ROUTES" \
-    '    op = data.get("op", "insert")
+    '    op = str(data.get("op", "insert") or "insert").strip().lower()
     spec = {key: data.get(key) for key in' \
-    '    op = data.get("op") if "op" in data else "insert"
+    '    op = str((data.get("op") if "op" in data else "insert") or "insert").strip().lower()
     spec = {key: data.get(key) for key in')
 control "N3 (control): the same default written the long way" "$m" "the whole suite stays green"
 

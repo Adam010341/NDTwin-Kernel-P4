@@ -365,15 +365,23 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
             {"mode": "ndtwin", "package": "/pkg", "skipped": []}, {},
             written={"1": {"recorded": 5, "applied": 4, "failed": 1, "api_writes": 2,
                            "journaled": False}})
-        self.assertEqual(body["switches"]["1"]["table_entries"],
-                         {"recorded": 5, "applied": 4, "failed": 1, "api_writes": 2,
-                          "journaled": False})
+        # [Co-developed with claude code -- Adam] `journal` is the table-entry journal's own
+        # block (what is RECORDED, which is not what is journaled); its content is asserted in
+        # test_table_entry_journal.py. Here it is only required to be there, and the rest of the
+        # object is still compared whole.
+        one = dict(body["switches"]["1"]["table_entries"])
+        self.assertEqual(one.pop("journal", None), None,
+                         "the report this test hands the endpoint has no journal block, and the "
+                         "endpoint must not invent one for a switch that report names")
+        self.assertEqual(one, {"recorded": 5, "applied": 4, "failed": 1, "api_writes": 2,
+                               "journaled": False})
         # A switch nobody reported on still answers, with zeroes and the same `journaled: false`.
         # Absent would be readable as "this proxy is too old to say", which is the shape the
         # whole disclosure exists to close.
-        self.assertEqual(body["switches"]["2"]["table_entries"],
-                         {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
-                          "journaled": False})
+        two = dict(body["switches"]["2"]["table_entries"])
+        self.assertEqual(two.pop("journal")["replay"], "not implemented")
+        self.assertEqual(two, {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
+                               "journaled": False})
 
     def test_the_per_switch_skipped_list_survives_the_trip_through_the_endpoint(self):
         # 🔴 Round 3. `pipeline.skipped` was asserted at `main.pipeline_report_for` and in what
