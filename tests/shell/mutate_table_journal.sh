@@ -858,6 +858,18 @@ m=$(mutant y5e "$JOURNAL" \
 report 'M-J89e: a lock that timed out is used anyway, so the write goes out unprotected' "$m" \
        'test_a_write_behind_a_write_that_does_not_return_is_SwitchBusy_and_writes_nothing'
 
+# --- the owner check runs inside the write the journal wraps (DESIGN 5.7) --------------------
+# [Co-developed with claude code -- Adam] Not a journal line: the owner check's own gate is
+# mutate_table_entry_owner.sh. Here it says that the journal sees nothing of a write into a table
+# NDTwin owns only because that refusal comes first -- without it the delete is answered
+# NOT_FOUND by the switch and recorded as `not_found`.
+
+m=$(mutant v7 "$CLIENT" \
+    '        self._refuse_owned_table(spec, op, source)' \
+    '        pass  # MUTANT: no owner check')
+report 'M-J90: the owner check is skipped, so a write into a table NDTwin owns reaches the switch and the journal' "$m" \
+       'test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record'
+
 # --- negative controls ------------------------------------------------------------
 #
 # Edits that change no behaviour these suites specify; each must leave the suite GREEN.
