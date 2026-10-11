@@ -197,7 +197,7 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 
 **S0**（`76e3b468`，離線，`setsid --wait`）：`S0 COMPLETE`，rc=0；57 項 ok、0 項 FAIL。
 - PF-T 的三行：`pre-flight PF-T PASSes with the ternary entry in rc 0, ternary FAIL lines 0, other FAIL rows 0`、`PF-T package carries one ternary boot entry`、`PF-T verdict GREEN`。
-- 每秒取樣記到 S0 自己起的 7 個 bmv2（4 個 selfcheck、1 個 vs_trial、2 個 ctrl_trial：stock 與 bmv2-fast 各一），在 `s0_procs.log`。drop check 的 5 次 bmv2 活得比取樣間隔短，沒記到 pid，只在 `s0.commands.log` 裡看得到那 5 次呼叫。跑完之後掃 /proc：沒有任何 simple_switch*／ndt-hc-*／ndt-hb* 留下，所以什麼都沒 kill。跑之前的掃描也是空的（`s0_prescan.log`）。
+- 🆕 第二輪更正（原句漏算）：S0 會起 10 個拋棄式 switch（4 個 selfcheck、vs_trial 2 個、ctrl_trial 2 個、show_ports 2 個，各為 stock 與 bmv2-fast）加 drop check 的 5 個。第一輪的取樣腳本每秒一輪、每個 /proc 項目都 fork，只記到 7 個：漏了 vs_trial 的 bmv2-fast、兩個 show_ports，以及 5 個 drop check（這 5 次呼叫只在 `s0.commands.log` 看得到）。「跑完之後沒有留下任何東西」靠的是事後掃描，那一句不變。第二輪改用一支 python 掃描（`r2/proc_scan.py`：跑之前、跑的過程中每 0.1 秒、跑之後），腳本與 log 都放在 log 目錄。跑完之後掃 /proc：沒有任何 simple_switch*／ndt-hc-*／ndt-hb* 留下，所以什麼都沒 kill。跑之前的掃描也是空的（`s0_prescan.log`）。
 
 **Gate**（都在 `76e3b468`）
 - `test_p4_health_cells.py` 183 個 OK（venv 3.13 與 ryu-env 3.8 各一次；trunk 是 179 個）。
@@ -214,3 +214,37 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 - T4–T7 的 GREEN 只是預測，沒有 live run。其中「package A 沒有 roles，所以 V7 不擋 `HcIngress.t_ternary` 的寫入」是讀碼推論（`table_owned_by_ndtwin`：binding 為 None 就回 False），沒有量過。
 - PF-T 遇到「用新的句子拒絕 ternary 那一列」時判 RED，不判 PROBE-BROKEN。依據是健檢 DESIGN 的 PF-T 列（`:293`）：這一格要量的是「pre-flight 通過」，不是某一句話。如果要的是 PROBE-BROKEN，改 `pft_cannot` 一行就好。
 - `runtime_cli.py:57` 還寫著「priority entries are not in the package format (G5)」。S0 的 throwaway 不灌 PF-T 那筆 entry，所以不影響結果，但這句話已經過時。
+
+### D 第二輪（審查之後；`e17d39e5` 程式、本 commit 是 tsv 與這一節）
+
+先把 Cut A 第五輪（`a4e67f6e`）併進來（`e1e5747e`；只有本檔衝突，兩邊各加一節，都保留）。併完之後，Cut A 的每個檔都與 `a4e67f6e` 相同（`git diff --name-only e1e5747e^2 e1e5747e` 不含 `p4_proxy/`、`tools/p4_exercise/`、Cut A 的 gate 腳本）。
+
+**各項處理**
+- **M1（T4–T7 翻成 GREEN 沒有 health.json）**：Adam 裁定先離線觀測，live 之後另行授權。
+  - 一次性腳本 `r2/t4t7_trial.py`，不在 `s0.py`、也不是任何 gate 的 subject。它在兩個拋棄式 `simple_switch_grpc`（stock 與 bmv2-fast，照 throwaway.py 的規則起）上做三件事：
+    - 用 package A 的 p4info 與 election id、`bind_routes(None)`，接上真的 `P4RuntimeClient`，推 hc_main；
+    - 由真的 route handler `api_routes.table_entry` 回答 `observe_a.py` 原封不動的 T4_BODY、T5_BODY、T6_BODY、T7_BODIES；
+    - 用 lab 的 thrift reader 做 `table_dump`，套 observer 自己的 find/check，最後 `judge_all`。
+  - 結果：兩台都是 T4、T5、T6、T7 GREEN；五個 POST 都回 200；三張表都是 `table_owned_by_ndtwin` = False（`r2/t4t7.log`、`r2/t4t7.json`、原始 dump 在 `r2/t4t7_dumps.txt`）。
+  - 這支腳本起了 2 個 switch，pid 記在 `r2/t4t7_procs.log`。跑之前、跑之後的掃描都是空的，沒有 kill 任何東西。
+  - `expected_today.tsv` 的 T4–T7 basis 改成「observed offline …; no live health.json yet」，保留程式行號。tsv 不能寫 `scratch/overnight…`（`test_no_rulings…` 會擋），所以只寫 `gates-0910/p4-health-ternary-d/r2/t4t7.json`。
+- **m1（沒有 match 的 t_ternary entry）**：`pft_entries` 現在只認「非 default、match 指名 `hdr.ipv4.srcAddr`」的 t_ternary entry（`s0.py:134-153`）。新測試 `test_a_ternary_table_entry_that_names_no_ternary_field_is_not_pfts` 涵蓋三種：沒有 match 的 priority entry、default entry、別張表上的 srcAddr；mutant AD3、AD11、AD17。
+- **m2**：`match_shape.py` 加進 gate 的 WATCHED（`mutate_p4_health.sh:74`）；`test_p4_health_gate_scripts.sh` 多一項檢查（68 → 69）；mutant AD16。
+- **m3（continuation 那一半）**：新增兩份真的擷取，都是在 `e1e5747e` 跑 pre-flight：
+  - `preflight_pft_other_first.txt`：第一個 problem 是 s2 entry 1，ternary 的拒絕在 continuation 列；
+  - `preflight_pft_ternary_two.txt`：entry 23 有兩個 problem。
+  - 依裁定：同一列裡還有別的 entry 被拒 → PROBE-BROKEN；RED 只代表 pre-flight 恰好只拒絕那筆 ternary entry。`classify_pft` 現在把 entries 列裡每一個不指名它的 problem 都算成 other，`... and N more` 算 N 個，沒有上層列的 continuation 也算（`s0.py:156-184`）。
+  - 新測試 `test_pft_a_ternary_refusal_beside_another_one_is_probe_broken`；mutant AD12（只認有標籤的列）、AD14（舊規則：不算同一列的其他 entry）、AD15（N 算成 1）。
+- **m4**：原本 collect 的那顆測試改名為 `test_pft_observation_reads_a_refusal_in_s0s_record_as_red`，docstring 寫明 run_lab 只讀 COMPLETE 的 S0。新增 `test_an_s0_that_refused_pft_is_incomplete_and_pft_not_run`：INCOMPLETE、rc 2、沒有任何 lab 動作、點名失敗的 check、PF-T NOT RUN；mutant AD13。
+- **m5**：健檢 DESIGN.md:293、:423 與 ternary DESIGN.md:647 各加一句「🆕 2026-10-11 Cut A + D」。
+- **NIT**：
+  - `runtime_cli.py:57` 的措辭改了；
+  - tsv 第 3、6 行改為說明預測對象與 T4–T7 的證據；
+  - 每份 suite log 第三行印出直譯器與版本（`r2/runlog.sh`）；
+  - 上面那句 process 的算法已更正；
+  - 掃描腳本放在 log 目錄。
+- 另外補了兩個 mutant：AD18（`s0.py` 的「carries」那一行）、AD19（讀不到的 package）；新測試 `test_pft_entries_reads_every_switch_and_an_unreadable_package_names_none`。
+
+**看過紅**：AD1–AD19 與 D12 先在 worktree 用 `ONLY_LABEL_PREFIX` 跑過，第一次 19 個裡有 1 個存活：AD8 點名的測試已改名，gate 判它 WRONG TEST。改了點名之後，AD8 被殺。正式的數字以 r2 的完整 gate 為準。
+
+**Gate**：都在本 commit，跑在新的拋棄式 clone 裡，log 在 `scratch/overnight-2026-09-05/logs/gates-0910/p4-health-ternary-d/r2/`：四個 suite × 兩個直譯器、完整 mutation gate（4 個 shard 加總）、S0、p4lane／klane、`check_gate_anchors.py`。每份 log 第一行是 commit、最後一行是 rc。
