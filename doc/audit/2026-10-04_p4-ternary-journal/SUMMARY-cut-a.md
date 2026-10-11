@@ -29,7 +29,7 @@
 4. exact／lpm 表帶非 0 priority：insert、modify、delete 都被拒絕。
 沒有任何結果與設計的 V 規則矛盾。唯一補充：exact／lpm 表的 V6 對 modify、delete 也成立。
 
-**驗證**（🆕 這一段是第一輪的數字，只描述當時的 dd8022fa；HEAD 的數字見文末「第四輪」）
+**驗證**（🆕 這一段是第一輪的數字，只描述當時的 dd8022fa；HEAD 的數字見文末「第五輪」）
 - p4_proxy 測試 1734 → 1788；tools/p4_exercise 測試 196 → 210；全綠。
 - mutate_table_entry.sh：76 個 mutation，0 survivor（原本 41 個）。🆕 到第三輪是 78 個，第四輪 81 個。
 - mutate_p4_exercise_tools.sh（36 個）與 mutate_p4_rule_install_time.sh（27 個）都是 0 survivor。
@@ -81,7 +81,7 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 - **M2（`/stats/flow` 的顯示）**：`ryu_flow_stats.py` 依「無法描述的規則就不列、只計數」處理新的 match 型別。
   - ternary 欄位的遮罩是 CIDR 形（開頭一串 1）：在位址欄位顯示成 `value/n`，與 lpm 相同；遮罩全滿：精確值。
   - 其他任何遮罩，以及任何 range 欄位：整列不列出，計入 `flow_stats.unrendered_entries`，**在所有 pipeline 上，NDTwin 自己的也一樣**。
-  - 🆕 第四輪更正：第二輪的程式只讓 foreign pipeline 的計數到得了 `switch_state`；NDTwin 自己的 pipeline 上，route 把計數丟掉，`flow_stats.unrendered_entries` 答 0（或 null）。第四輪起 `get_flow_stats` 對所有 pipeline 都用 `render_flow_stats_counted` 並記下 `last_flow_render`（`/stats/flow` 的 HTTP body 位元組不變），所以現在上面這句才成立。NDTwin 自己的 pipeline 上，未知 action 的列仍然照舊列出（action 為空）、不計入；只有 Ryu 說不出的 match 才不列、計入。
+  - 🆕 第四輪更正：第二輪的程式只讓 foreign pipeline 的計數到得了 `switch_state`；NDTwin 自己的 pipeline 上，route 把計數丟掉，`flow_stats.unrendered_entries` 答 0（或 null）。第四輪起 `get_flow_stats` 對所有 pipeline 都用 `render_flow_stats_counted` 並記下 `last_flow_render`（`/stats/flow` 的 HTTP body 位元組不變），所以現在上面這句才成立。NDTwin 自己的 pipeline 上，未知 action 的列仍然照舊列出（action 為空）、不計入；Ryu 說不出的 ternary 遮罩或 range 才不列、計入。🆕 第五輪更正：「沒有可用 match 的列」（空 match 的 catch-all、或只有 Ryu 沒有名字的欄位）在所有 pipeline 上都不列，但只有 foreign pipeline 會計入，NDTwin 自己的 pipeline 不計入；這是照舊的行為（有測試釘住）；owner 已裁定維持不計入，見第五輪。
   - 「baseline 的 count 恆為 0」只在 NDTwin 是 baseline 表唯一寫入者時成立（V7 之下為真），已寫進模組註解。
   - 為此把 `test_ryu_flow_stats.py` 的 `a_ternary_rule` 預設 `in_port_mask` 從 `b"\xff"`（bit<9> 欄位的低 8 位）改成真正的全滿遮罩 `b"\x01\xff"`；渲染出來的位元組與基準擷取相同。
 - **m1**：flow_5tuple 空 match、ipv4_lpm 省略欄位這兩個「今天會被接受」的測試改成「§1.5 缺陷，等 Q2 再翻」的 pin（🆕 第三輪已翻成 409，見下）；「欄位全省略、priority ≥ 1 通過 V1–V9」這個性質改在不屬於 NDTwin 的 Synthetic 表上、透過 `build_table_entry` 斷言（新增 `Synthetic.lpm_table`）。
@@ -122,7 +122,7 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 
 | gate | 結果 | log |
 |---|---|---|
-| mutate_table_entry_owner.sh | 27 mutations, 0 survived（26＋M25） | `mutate_table_entry_owner.log` |
+| mutate_table_entry_owner.sh | 27 mutations, 0 survived（26＋M25；🆕 這個 27 含控制組 C1，其他 gate 的數字都不含控制組） | `mutate_table_entry_owner.log` |
 | mutate_table_entry.sh | 81 mutations, 0 survived（78＋3） | `mutate_table_entry.log` |
 | mutate_p4_rule_install_time.sh | 27 mutations, 0 survived | `mutate_p4_rule_install_time.log` |
 | mutate_roles_binding.sh | 193 mutations, 0 survived；every new test seen red: 202 of 202 | `mutate_roles_binding.log` |
@@ -130,6 +130,49 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 
   `check_gate_anchors.py HEAD`：136/136 cells ok（`check_gate_anchors.log`）。per-file：`test_flow_stats_route` 16、`test_switch_state` 76、`test_ryu_flow_stats` 61、`test_p4_client_writes` 207，全 OK、無 skip。
 - **沒動**：`tools/p4_health/`（D 另案）。D 的檔案清單只更新了行號（上面「D 的完整檔案清單」）。
+
+---
+
+## 第五輪：把文件和註解講準，補 FastAPI 層的測試
+
+程式 commit `a6ad886c`（只動 `p4_proxy/`、`tests/shell/`，行為不變）。log 在 `scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-writer-a/r5/`（每份第一行 commit、最後一行 rc；gate 在拋棄式 clone `cuta-r5` 跑，HEAD 確認是 `a6ad886c`、乾淨，clone 已刪，沒有 symlink 進 worktree）。
+
+**Adam 對 F1 的裁定**：NDTwin 自己的 pipeline 上，「沒有可用 match 的列」（空 match 的 catch-all、或只有 Ryu 沒有名字的欄位）**維持不計入**（照舊、有測試釘住）；只把文件講準。foreign pipeline 照舊會計入。所以 `test_ndtwins_own_pipeline_does_not_count_a_row_with_no_usable_match` 與 FS3c 保留，沒有翻轉。
+
+**各項更正**
+
+- **F1（文件過度宣稱）**：`main.py:1488-1494`（`flow_stats_report` docstring）、`api_routes.py:1283-1287`（`get_flow_stats` 註解）、本檔上面 M2 一節（第五輪更正那句）都改成：遇到 Ryu 說不出的 ternary 遮罩或 range，所有 pipeline 都計入；沒有可用 match 的列，所有 pipeline 都不列，但只有 foreign pipeline 計入。
+- **F2（null 沒寫進欄位說明）**：`api_routes.py:781-783`（`switch_state` docstring，會進 `/openapi.json`）與 `api_routes.py:855-856`（欄位註解）新增「第一次 `/stats/flow` render 之前是 null，所有 pipeline 都一樣，readopt 會重置」。roles ticket 裡「NDTwin pipeline 恆為 0」那句已被 M2（真的計數）和 null-before-render 兩度取代；ticket 本身是 owner 保管的文件，這裡沒有改它。
+- **F3（P4 build 沒有身分）**：`r5/p4build.sha256`、`r5/p4build.compile.log`。`p4c-bm2-ss` 1.2.5.15（SHA 5b948b037a, Release），從 `a6ad886c` 編譯：`ndtwin_switch.json` `f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562`；`ndtwin_switch.p4info.txt` `d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67`；`ndtwin_switch.p4` `5786a63e9b31402ce40bc6401319a6408a1cf71f6dddaca0c023d450f3ae23d5`。同一份 header 也印在五份 `mutate_*.log` 與 `check_gate_anchors.log` 的開頭（例如 `mutate_roles_binding.log:2-6`、`mutate_table_entry_owner.log:2-6`）。
+- **F5（過時的註解與名字）**：`ryu_flow_stats.py:319-323` 不再說「renders exactly as it always did」；`:332-338` 的「THE COUNT IS EVERY NON-DEFAULT ROW NOT LISTED」改成明說是 foreign pipeline 的規則；`:357-360` 新增一段講沒有可用 match 的列「兩邊都不列、只有 foreign 計入、要不要改是 owner 的決定」。`test_ryu_flow_stats.py:623` 改名 `test_ndtwins_own_pipeline_does_not_count_a_row_with_no_usable_match`，`mutate_roles_binding.sh` 的 FS3c 標籤跟著改（`mutate_roles_binding.sh:927-928`）。`test_flow_stats_route.py` 原本放在 `AForeignSwitch…Test` 裡的 BASELINE 測試搬到自己的類別 `ARenderOnNdtwinsOwnPipelineIsCountedTooTest`（`:114-129`），gate 的 NEW_CLASSES 同步（`mutate_roles_binding.sh:93`）。
+- **F6**：`main.py:1488-1494` 重新折行；這段 docstring 沒有超過 100 欄的行（檔內別處有 8 行超過，不是這次動的）。
+- **F7**：`r4/poll.log` 的時間戳早於它回答的審查，是另一個 worker 提早寫的 ALLDONE 標記留下的（`r4/poll.log.NOTE` 已說明），本檔從不引用它。這一輪的 anchors log 是工具的完整輸出（`check_gate_anchors.log`，含 rev header 與每個 gate 的列）。
+- **F8（HEAD 的數字）**：本檔上面「驗證」一節說「HEAD 的數字見文末」，現在給在這裡，全在 `a6ad886c`：
+  - p4_proxy：`p4lane.log` 是 CI 的 L1 第 3 節原文（`tools/test_workflow/l1_unit_tests.sh` 的「3. P4 proxy Python tests」，由 `p4lane.sh` 用 sed 抽出照跑），48 個檔，**47 個 PASS，共 1867 個測試跑完且通過；1 個 SKIPPED**（`test_p4_client.py`，1 個測試，該檔自己宣告需要活的交換機 `NDTWIN_L1_OPT_IN`，`p4lane.log:30`）；`FAILURES=0`（`p4lane.log:52`），rc=0（`:53`）。相比第一輪的 1788（`dd8022fa`）多了 79 個。
+  - `tools/p4_exercise` discover：`Ran 210 tests`、OK、rc=0（`unittest_discover_p4_exercise.log:222-224`）。
+  - `check_test_tmpdirs.py`：422 個檔掃過、0 個固定暫存路徑（`check_test_tmpdirs.log:10`）。
+  - `test_l1_shell_scoring.sh`：`Ran 165 checks, 0 failed`（`test_l1_shell_scoring.log:196`）。
+- **F9**：owner gate 的 27 含控制組 C1（`mutate_table_entry_owner.log:15`，`held`）；其他 gate 的數字都不含控制組。上面第四輪的表已加註。
+- **F10**：紅燈 log 的 header 現在帶測試檔的 sha256：`r5/red/new_asgi_test.red.log:1`，`7581de6155f3c14800a99a064e9ded228681f1acf1a9ab98eb8a09fe9b7815bc`，等於 `a6ad886c` 裡 `p4_proxy/tests/test_switch_state.py` 的 sha256（`git show a6ad886c:p4_proxy/tests/test_switch_state.py | sha256sum` 重算相符）。header 寫的是 `b2618b88+uncommitted`，因為紅燈跑在 code commit 之前的工作樹上。
+- **F11**（render 的時間戳存了卻沒送出；可加 `flow_stats.age_s`）：**不在這個 cut 的範圍**，沒有動。
+
+**新的 FastAPI 層測試**：`TheCountOnNdtwinsOwnPipelineTest.test_through_fastapi_it_is_a_json_null_before_a_render_and_the_count_after`（`test_switch_state.py:1287`，同類別 `:1232`）。它用 `asgi_get` 真的打 `GET /stats/flow/1` 與 `GET /p4/switch_state`，檢查序列化後的 JSON：render 之前是 `"unrendered_entries":null`，render 之後是 `"unrendered_entries":1`。這一輪行為不變，所以紅燈不是「改程式前」，而是把四個 mutant 套在 production 碼上看這顆測試紅不紅（`r5/red/new_asgi_test.red.log`，沒有 rc 行，是 mutant 輸出的原文）：MN11（null 被報成 0）時它因 `{'unrendered_entries': 0} != {'unrendered_entries': None}` 而紅（`:6-8`，該類別 5 個測試 2 個紅，`:9-10`）；AR5（不記計數）時它因找不到 `"unrendered_entries":1` 而紅（`:25-27`，5 個全紅，`:28-29`）；AR5b（記成 0）同樣（`:41-43`，`:44-45`）；AR6（null 計數從 JSON 被丟掉）時它因找不到 `"unrendered_entries":null` 而紅（`:50-51`，`:52-53`）。綠燈：`p4lane.log:44`（`test_switch_state.py`，77 個測試通過）與各 gate 的 baseline。Gate 新增 AR6（`mutate_roles_binding.log:303`，被這顆測試殺）。
+
+**Gate 結果（`a6ad886c`，P4 build 與 venv 都在）**
+
+| gate | 結果 | log |
+|---|---|---|
+| mutate_table_entry_owner.sh | 27 mutations, 0 survived（含控制組 C1） | `mutate_table_entry_owner.log:44` |
+| mutate_table_entry.sh | 81 mutations, 0 survived | `mutate_table_entry.log:503` |
+| mutate_p4_rule_install_time.sh | 27 mutations, 0 survived | `mutate_p4_rule_install_time.log:44` |
+| mutate_roles_binding.sh | 194 mutations, 0 survived；every new test seen red: 203 of 203 | `mutate_roles_binding.log:704-707` |
+| mutate_p4_exercise_tools.sh | 37 mutations, 0 survived | `mutate_p4_exercise_tools.log:270` |
+
+`check_gate_anchors.py HEAD`：136/136 cells ok（`check_gate_anchors.log:152`）。
+
+**一件跑錯指令的事**：driver 在最後一步寫了 STOPPED，只因為它用 `unittest discover` 直接跑 `p4_proxy/tests`（沒有 `__init__.py`，回 "Start directory is not importable"，rc=1）。CI 的 L1 不是這樣跑的；正確的跑法是上面的 `p4lane.log`。錯誤的 log 保留為 `unittest_discover_p4_proxy.wrong-invocation.log`。
+
+**沒動**：`tools/p4_health/`（D 另案）。
 
 ---
 
