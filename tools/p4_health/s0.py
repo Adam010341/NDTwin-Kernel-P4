@@ -124,13 +124,18 @@ def inventory(json_path, p4info_path):
     return found
 
 
-#: The table of PF-T's one boot entry that names a TERNARY field (exercise/gen_runtime.py, `with_ternary`).
+#: PF-T's one boot entry that names a TERNARY field (exercise/gen_runtime.py, `with_ternary`): its table and field.
 PFT_TABLE = "HcIngress.t_ternary"
+PFT_FIELD = "hdr.ipv4.srcAddr"
+#: The line pre-flight ends the "entries match p4info" row with when it has more problems than it prints.
+_MORE = re.compile(r"\.\.\. and (\d+) more")
 
 
 def pft_entries(pkg):
-    """Where pre-flight names PF-T's ternary boot entries ("s2 entry 23"): every entry, on any switch of the package,
-    that writes PFT_TABLE. An unreadable package is []."""
+    """Where pre-flight names PF-T's ternary boot entries ("s2 entry 23"): every non-default entry, on any switch of
+    the package, that writes PFT_TABLE and whose match names PFT_FIELD. A match-less priority entry on that table is
+    a legal catch-all pre-flight passes (preflight.py:220-224), and it names no ternary field: it is not PF-T's
+    entry. An unreadable package is []."""
     try:
         with open(os.path.join(pkg, "package.json"), encoding="utf-8") as fh:
             switches = json.load(fh).get("switches") or {}
@@ -140,25 +145,42 @@ def pft_entries(pkg):
                 continue
             with open(os.path.join(pkg, spec["entries"]), encoding="utf-8") as fh:
                 entries = json.load(fh).get("table_entries") or []
-            out += ["s%s entry %d" % (dpid, i) for i, e in enumerate(entries) if e.get("table") == PFT_TABLE]
+            out += ["s%s entry %d" % (dpid, i) for i, e in enumerate(entries)
+                    if e.get("table") == PFT_TABLE and not e.get("default_action")
+                    and PFT_FIELD in (e.get("match") or {})]
         return out
     except (OSError, ValueError, AttributeError, TypeError):
         return []
 
 
 def classify_pft(stdout, wheres):
-    """(FAIL lines that refuse PF-T's ternary entry, FAIL rows that are about anything else) in pre-flight's table.
+    """(FAIL lines that refuse PF-T's ternary entry, refusals of anything else) in pre-flight's table.
 
     (Cut A + D) The ternary writer took the "G5 not done" sentence out of pre-flight, so a refusal is no longer
-    known by its words: it is any FAIL line -- the labelled row or a continuation under it -- that names the
-    ternary entry where pre-flight names it (`wheres`, from pft_entries: every problem of an entry is written
-    "<where>: ..."). A continuation row (`  FAIL        <detail>`, no label) belongs to the row above it, so only
-    labelled rows count as other rows, and "entries match p4info" is the ternary row's own (design 2.3 PF-T)."""
+    known by its words: it is any FAIL line -- a labelled row or a continuation under it -- that names the ternary
+    entry where pre-flight names it (`wheres`, from pft_entries: every problem of an entry is written
+    "<where>: ..."). Everything else refused counts as other: a labelled FAIL row that is not "entries match
+    p4info", and every problem of that row that does not name the entry -- its first one, a continuation row
+    (`  FAIL        <detail>`, no label), or the "... and N more" it ends with (N of them); a continuation row
+    with no labelled row above it is another refusal too. The cell is RED only when pre-flight
+    refused exactly the ternary entry and nothing else, as the G5 rule was ("FAIL with the G5 row and nothing
+    else", design 2.3 PF-T); a ternary refusal beside another one is PROBE-BROKEN."""
     names = [re.compile(r"(?<![\w])%s:" % re.escape(w)) for w in wheres]
-    lines = (stdout or "").splitlines()
-    ternary = sum(1 for line in lines if line.startswith("  FAIL") and any(n.search(line) for n in names))
-    labelled = [line for line in lines if line.startswith("  FAIL  ") and line[8:9] not in (" ", "")]
-    other = sum(1 for line in labelled if not line[8:].startswith("entries match p4info"))
+    ternary = other = 0
+    block = None                    # the labelled FAIL row the current line belongs to
+    for line in (stdout or "").splitlines():
+        if not line.startswith("  FAIL"):
+            block = None
+            continue
+        labelled = line.startswith("  FAIL  ") and line[8:9] not in (" ", "")
+        if labelled:
+            block = "entries" if line[8:].startswith("entries match p4info") else "other"
+            other += block == "other"
+        if any(n.search(line) for n in names):
+            ternary += 1
+        elif block != "other":      # a problem of the entries row, or a continuation with no row above it
+            more = _MORE.search(line)
+            other += int(more.group(1)) if more else 1
     return ternary, other
 
 
@@ -353,7 +375,7 @@ class S0(object):
                            "%s in %s" % (PFT_TABLE, wheres))
                 self.check("pre-flight PF-T PASSes with the ternary entry in",
                            res.rc == 0 and not fails and len(wheres) == 1,
-                           "rc %s, ternary FAIL lines %d, other FAIL rows %d" % (res.rc, tern, other))
+                           "rc %s, ternary FAIL lines %d, other refusals %d" % (res.rc, tern, other))
 
     def drop_check(self):
         script = os.path.join(REPO, "tools", "test_workflow", "heartbeat_drop_check.py")

@@ -38,10 +38,12 @@ check() {  # check <name> <condition...>
 GITC=(git -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false)
 mkrepo() {  # mkrepo <dir>: a git repo laid out as the gate and the shard-sum script expect, with the scripts under test in it
     local d="$1"
-    mkdir -p "$d/tools/p4_health" "$d/tools/p4_exercise" "$d/p4_proxy/mininet" "$d/tests/shell" "$d/tests/python"
+    mkdir -p "$d/tools/p4_health" "$d/tools/p4_exercise" "$d/p4_proxy/mininet" "$d/p4_proxy/proxy_agent" "$d/tests/shell" \
+        "$d/tests/python"
     echo '# a module' > "$d/tools/p4_health/a.py"
     echo '# common' > "$d/tools/p4_exercise/common.py"
     echo '# ports' > "$d/p4_proxy/mininet/grpc_ports.py"
+    echo '# shapes' > "$d/p4_proxy/proxy_agent/match_shape.py"
     : > "$d/tests/python/test_p4_health_cells.py"; : > "$d/tests/python/test_p4_health_collect.py"
     : > "$d/tests/shell/test_p4_health_recover.sh"
     cp "$GATE" "$SUM" "$DIR/test_p4_health_gate_scripts.sh" "$d/tests/shell/"
@@ -132,6 +134,8 @@ for f in tests/shell/mutate_p4_health.sh tests/shell/sum_p4_health_gate_shards.s
 done
 check "an uncommitted edit to tools/p4_exercise/common.py is marked" edit_is_marked tools/p4_exercise/common.py
 check "an uncommitted edit to p4_proxy/mininet/grpc_ports.py is marked" edit_is_marked p4_proxy/mininet/grpc_ports.py
+# (Cut A + D) the collect suite's fake proxy shapes entries with the writer's own match_shape.py
+check "an uncommitted edit to p4_proxy/proxy_agent/match_shape.py is marked" edit_is_marked p4_proxy/proxy_agent/match_shape.py
 new_file_is_marked() {
     echo "# new" > "$WORK/g1/tools/p4_exercise/new_helper.py"
     header "$WORK/g1"; local rc=1; tree_line_marked && rc=0

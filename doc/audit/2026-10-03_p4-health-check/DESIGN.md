@@ -290,7 +290,7 @@
 | | T6 optional | ext／active | 同 T4 | 今天 501 | 同上 |
 | | T7 priority | ext／active | 負讀：寫入前兩筆都不在。然後兩筆重疊的 entry，thrift 顯示的 priority 次序對 | T4 紅時判 NOT RUN | 同上 |
 | | T8 journal | ext／static | 一筆 POST 寫進去的 entry 帶 `journaled==true`；重啟後持久那一半**延後** | **今天**：恆為 false（`api_routes.py:765-767,837-838,957`）（`structural`） | — |
-| | PF-T | ext／static | 開機 entry 指名 ternary 欄位，pre-flight 通過 | **今天**：FAIL「G5 not done」（`preflight.py:218-234`）（`structural`＋同 T4 的 `bmv2`） | 不需要 lab |
+| | PF-T | ext／static | 開機 entry 指名 ternary 欄位，pre-flight 通過 | **今天**：FAIL「G5 not done」（`preflight.py:218-234`）（`structural`＋同 T4 的 `bmv2`）。🆕 2026-10-11 Cut A + D：「G5 not done」已從 pre-flight 刪掉；S0 現在要求 PF-T **PASS**。RED 改成「pre-flight 拒絕的恰好是那筆 ternary entry、其他什麼都沒拒絕」（不論措辭，認 pre-flight 指名那筆 entry 的位置）；同時還拒絕了別的 entry 或別的列 → PROBE-BROKEN | 不需要 lab |
 | `pre_multicast` | M1 | core／static | `pre_entries.multicast.applied==recorded`；s1 的 `mc_dump` 顯示 group 1＝{p1, p2}。負讀：s2–s4 的 `mc_dump` 沒有 group 1 | 不符 | thrift |
 | | M2 | core／active | 負讀：寫入前 `mc_dump` 沒有 group 2。然後 `POST` group 2 回 200，`mc_dump` 有它 | 不符 | thrift |
 | `pre_clone` | C1 | core／static | `pre_entries.clone.applied==1`；s2 上 `mirroring_get 7` 讀出 mgid（預期是 0x8000+7，`p4_client.py:780-786`），再 `mc_dump` 那個 group，結果是 {p1}。負讀：s1、s3、s4 上沒有 session 7【今天是 GAP-2b 的 (c)：GAP-2b:91】 | 不符 | thrift |
@@ -420,7 +420,7 @@
 ```
 run.sh = setsid nice -n 10 python probe.py … > runs/<run>/probe.log 2>&1
 S0（不用 lab，約 2 分鐘）
-   compile（3 份＋mutant）-> 清點 -> convert ×3 -> preflight ×3 ＋ PF-T 變體（必須 FAIL）
+   compile（3 份＋mutant）-> 清點 -> convert ×3 -> preflight ×3 ＋ PF-T 變體（必須 FAIL；🆕 2026-10-11 Cut A + D 起必須 PASS，且 package 帶著那筆 ternary entry）
    -> drop check：三個 package 必須 rc 0，FWD 變體必須 rc 1，其他任何結果 -> PROBE-BROKEN
    -> 讀 `ndt status --measuring` 與 claim 檔：有人在量 -> rc 2，什麼都不動
 每次 bring-up X（A、B、C；外加 telemetry-none 那一次）：

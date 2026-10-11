@@ -2618,9 +2618,10 @@ class TestTheLabRun(Cut2):
             h = json.load(fh)
         self.assertEqual((h["gate_fingerprint"]["sha256"], h["system_under_test"]), ("f" * 64, "/r/code_identity.json"))
 
-    def test_an_s0_whose_pre_flight_refused_the_ternary_entry_is_pft_red_in_the_lab(self):
-        """(Cut A + D) The lab reads PF-T from S0's record: a refusal of the ternary entry (any words; S0 counts the
-        lines that name it) is RED with the static attribution, a pass is GREEN."""
+    def test_pft_observation_reads_a_refusal_in_s0s_record_as_red(self):
+        """(Cut A + D) pft_observation on an S0 record: a refusal of the ternary entry alone (any words; S0 counts the
+        lines that name it) decides RED with the static attribution, a pass GREEN. run_lab itself reads it only from
+        a COMPLETE S0, which needs PF-T GREEN: the next test is what a refused PF-T does to a lab run."""
         refused = {"preflight": {"PF-T": {"rc": 1, "ternary_rows": 1, "other_fail_rows": 0}},
                    "self_checks": {"main": {"ternary_held": True}}}
         decide = lambda s0_out: V.decide(T.TABLE.cell("PF-T"), LAB.pft_observation(s0_out), V.Context())
@@ -3037,6 +3038,20 @@ class TestTheLabRun(Cut2):
         rc, doc, r = self.run_lab()
         self.assert_incomplete_with_reason(rc, doc, "S0 is PROBE-BROKEN", "preflight A")
         self.assertEqual(r.calls, [])
+
+    def test_an_s0_that_refused_pft_is_incomplete_and_pft_not_run(self):
+        """(Cut A + D, round 2) S0 PROBE-BROKEN because pre-flight refused PF-T's ternary entry: INCOMPLETE rc 2, no
+        lab action, the failed checks named, and PF-T NOT RUN -- S0's PF-T answer is not read from a broken S0."""
+        self.s0["verdict"] = "PROBE-BROKEN"
+        self.s0["preflight"]["PF-T"] = {"rc": 1, "ternary_rows": 1, "other_fail_rows": 0}
+        self.s0["checks"] = [{"name": "pre-flight PF-T PASSes with the ternary entry in", "ok": False, "detail": "rc 1"},
+                             {"name": "PF-T verdict GREEN (pre-flight accepts the boot ternary entry)", "ok": False,
+                              "detail": "RED"}]
+        rc, doc, r = self.run_lab()
+        self.assert_incomplete_with_reason(rc, doc, "S0 is PROBE-BROKEN", "pre-flight PF-T PASSes with the ternary entry in")
+        self.assertEqual(r.calls, [])
+        cells = {c["id"]: c for c in doc["cells"]}
+        self.assertEqual(cells["PF-T"]["verdict"], V.NOT_RUN, cells["PF-T"])
 
     def test_a_leftover_lab_state_is_incomplete_rc_2_and_stays_for_recover(self):
         """(Round 5, #2) --mutant --only K1,TTL1 --bringups A in a run dir whose LAB_STATE.json

@@ -1466,7 +1466,8 @@ class TestS0Pieces(unittest.TestCase):
     def test_pft_is_the_ternary_answer_only_when_nothing_else_failed(self):
         """(Cut A + D) A refusal of PF-T's ternary entry is any FAIL line that names the entry where pre-flight names
         it, whatever it says: the G5 sentence of the old pre-flight and the V3 one of today's both count, a PASS
-        counts nothing, and a FAIL line about another entry is not the ternary one."""
+        counts nothing, and a FAIL line about anything else -- another row, another entry, a continuation that does
+        not name it -- is another refusal."""
         from p4_health import s0
         fx = os.path.join(REPO, "tests", "python", "fixtures", "p4_health")
         where = ["s2 entry 23"]
@@ -1476,15 +1477,42 @@ class TestS0Pieces(unittest.TestCase):
             self.assertEqual(s0.classify_pft(text, where), (1, 0), name)
             more = text.replace("  PASS  p4c-bm2-ss", "  FAIL  p4c-bm2-ss")
             self.assertEqual(s0.classify_pft(more, where), (1, 1), name)
-            cont = text + "  FAIL                                    a second problem under the same row\n"
-            self.assertEqual(s0.classify_pft(cont, where), (1, 0), name)
-            self.assertEqual(s0.classify_pft(text, ["s2 entry 2"]), (0, 0), name)       # another entry
-            self.assertEqual(s0.classify_pft(text, []), (0, 0), name)
+            cont = text + "  FAIL                                    a problem under no labelled row\n"
+            self.assertEqual(s0.classify_pft(cont, where), (1, 1), name)
+            # named as another entry's, the same refusal is another refusal, never the ternary one
+            self.assertEqual(s0.classify_pft(text, ["s2 entry 2"]), (0, 1), name)
+            self.assertEqual(s0.classify_pft(text, []), (0, 1), name)
         with open(os.path.join(fx, "preflight_pft.txt")) as fh:
             passed = fh.read()
         self.assertIn("PASS -- every check passed", passed)
         self.assertEqual(s0.classify_pft(passed, where), (0, 0))
         self.assertEqual(s0.classify_pft(passed.replace("  PASS  p4c-bm2-ss", "  FAIL  p4c-bm2-ss"), where), (0, 1))
+
+    def test_pft_a_ternary_refusal_beside_another_one_is_probe_broken(self):
+        """(Cut A + D, round 2) RED is pre-flight refusing exactly the ternary entry and nothing else, as the G5 rule
+        was. Captured: the entries row's first problem is another entry and the ternary refusal is a continuation
+        row under it (both counted: PROBE-BROKEN); two problems, both of the ternary entry (RED). Pre-flight prints
+        at most six problems and then "... and N more": those N are other refusals."""
+        from p4_health import s0
+        fx = os.path.join(REPO, "tests", "python", "fixtures", "p4_health")
+        where = ["s2 entry 23"]
+
+        def read(name):
+            with open(os.path.join(fx, name)) as fh:
+                return fh.read()
+        both = read("preflight_pft_other_first.txt")
+        self.assertRegex(both, r"(?m)^  FAIL {10,}s2 entry 23: ")            # the ternary refusal is a continuation
+        self.assertEqual(s0.classify_pft(both, where), (1, 1))
+        two = read("preflight_pft_ternary_two.txt")
+        self.assertEqual(s0.classify_pft(two, where), (2, 0))
+        cell = lambda t, o: decide("PF-T", {"answer": {"rc": 1, "ternary_rows": t, "other_fail_rows": o},
+                                            "attribution": {"static": True}}).verdict
+        self.assertEqual(cell(*s0.classify_pft(both, where)), V.PROBE_BROKEN)
+        self.assertEqual(cell(*s0.classify_pft(two, where)), V.RED)
+        lines = two.splitlines()
+        at = next(i for i, l in enumerate(lines) if l.startswith("  FAIL        "))
+        many = "\n".join(lines[:at + 1] + ["  FAIL                                    ... and 3 more"] + lines[at + 1:])
+        self.assertEqual(s0.classify_pft(many, where), (2, 3))
 
     def test_runtime_entries_as_cli_commands(self):
         from p4_health import runtime_cli as RC
@@ -1582,23 +1610,27 @@ class TestS0Cut2Checks(unittest.TestCase):
         x.pkgs = {n: os.path.join(d, "packages", n) for n in ("A", "B", "C", "PF-T", "FWD", "A-MUT")}
         return x, r
 
-    def pft_package(self, x, table="HcIngress.t_ternary"):
-        """A PF-T package on disk the way convert writes one: s2's entries file, its 24th entry `table`."""
+    PFT_ENTRY = {"table": "HcIngress.t_ternary", "priority": 10,
+                 "match": {"hdr.ipv4.srcAddr": ["10.0.1.1", "255.255.255.255"]},
+                 "action_name": "HcIngress.set_mark", "action_params": {"v": 7}}
+
+    def pft_package(self, x, entry=None):
+        """A PF-T package on disk the way convert writes one: s2's entries file, its 24th entry `entry`."""
         import json
         pkg = x.pkgs["PF-T"]
         os.makedirs(os.path.join(pkg, "runtime"))
         with open(os.path.join(pkg, "package.json"), "w") as fh:
             json.dump({"switches": {"1": {"name": "s1"},
                                     "2": {"name": "s2", "entries": "runtime/s2-runtime-pft.json"}}}, fh)
-        entries = [{"table": "HcIngress.ipv4_lpm"}] * 23 + [{"table": table}]
+        entries = [{"table": "HcIngress.ipv4_lpm"}] * 23 + [entry or self.PFT_ENTRY]
         with open(os.path.join(pkg, "runtime", "s2-runtime-pft.json"), "w") as fh:
             json.dump({"table_entries": entries}, fh)
 
-    def pft_preflight(self, stdout_name, rc, table="HcIngress.t_ternary"):
+    def pft_preflight(self, stdout_name, rc, entry=None):
         with open(os.path.join(REPO, "tests", "python", "fixtures", "p4_health", stdout_name)) as fh:
             text = fh.read()
         x, _r = self.s0([(lambda a: a[-1].endswith("/PF-T"), (rc, text))])
-        self.pft_package(x, table)
+        self.pft_package(x, entry)
         x.pkgs = {"PF-T": x.pkgs["PF-T"]}
         x.preflight()
         return x, {c["name"]: c["ok"] for c in x.out["checks"] if "PF-T" in c["name"]}
@@ -1616,9 +1648,39 @@ class TestS0Cut2Checks(unittest.TestCase):
 
     def test_a_pft_pass_without_its_ternary_entry_proves_nothing(self):
         """A PF-T package that lost its ternary entry passes pre-flight for no reason of the writer's: S0 says so."""
-        x, checks = self.pft_preflight("preflight_pft.txt", 0, table="HcIngress.ipv4_lpm")
+        x, checks = self.pft_preflight("preflight_pft.txt", 0, entry={"table": "HcIngress.ipv4_lpm"})
         self.assertEqual(checks, {"PF-T package carries one ternary boot entry": False,
                                   "pre-flight PF-T PASSes with the ternary entry in": False})
+
+    def test_pft_entries_reads_every_switch_and_an_unreadable_package_names_none(self):
+        import json
+        from p4_health import s0
+        x, _r = self.s0([])
+        self.pft_package(x)
+        pkg = x.pkgs["PF-T"]
+        self.assertEqual(s0.pft_entries(pkg), ["s2 entry 23"])
+        with open(os.path.join(pkg, "package.json"), "w") as fh:
+            json.dump({"switches": {"1": {"name": "s1", "entries": "runtime/s2-runtime-pft.json"},
+                                    "2": {"name": "s2", "entries": "runtime/s2-runtime-pft.json"}}}, fh)
+        self.assertEqual(s0.pft_entries(pkg), ["s1 entry 23", "s2 entry 23"])
+        with open(os.path.join(pkg, "runtime", "s2-runtime-pft.json"), "w") as fh:
+            fh.write("{ not json")
+        self.assertEqual(s0.pft_entries(pkg), [])
+        self.assertEqual(s0.pft_entries(os.path.join(pkg, "no-such-dir")), [])
+
+    def test_a_ternary_table_entry_that_names_no_ternary_field_is_not_pfts(self):
+        """(Cut A + D, round 2) A match-less priority entry on t_ternary is a legal catch-all pre-flight passes, and a
+        default entry names no key: neither is "a boot entry that names a TERNARY field" (design 2.3 PF-T)."""
+        for entry in ({"table": "HcIngress.t_ternary", "priority": 10, "action_name": "HcIngress.set_mark",
+                       "action_params": {"v": 7}},
+                      {"table": "HcIngress.t_ternary", "default_action": True,
+                       "match": {"hdr.ipv4.srcAddr": ["10.0.1.1", "255.255.255.255"]},
+                       "action_name": "HcIngress.set_mark", "action_params": {"v": 7}},
+                      {"table": "HcIngress.ipv4_lpm", "match": {"hdr.ipv4.srcAddr": ["10.0.1.1", "255.255.255.255"]},
+                       "action_name": "HcIngress.set_mark", "action_params": {"v": 7}}):
+            _x, checks = self.pft_preflight("preflight_pft.txt", 0, entry=entry)
+            self.assertEqual(checks, {"PF-T package carries one ternary boot entry": False,
+                                      "pre-flight PF-T PASSes with the ternary entry in": False}, entry)
 
     def test_s0_wants_pft_green(self):
         x, _r = self.s0([])

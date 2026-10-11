@@ -644,7 +644,7 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 | T6 | GREEN | ⚠️ thrift 把 optional 顯示成 `TERNARY v &&& ff`【A0 10】，oracle 要接受這種顯示 |
 | T7 | GREEN（T4 綠才會跑） | 數字大的贏【A0 11，只在 stock 量到】。`order_ok` 必須比的是換算之後的 bm priority：bm 數字**小的**贏 |
 | T8 | GREEN（static） | 需要 Cut B。重啟那一半這一刀只做離線證明（R14） |
-| PF-T | GREEN（rc 0） | 合併之後，這一格**只會是 GREEN 或 PROBE-BROKEN**：它的 RED 路徑認的那句話被刪掉了（§1.7） |
+| PF-T | GREEN（rc 0） | 合併之後，這一格**只會是 GREEN 或 PROBE-BROKEN**：它的 RED 路徑認的那句話被刪掉了（§1.7）。🆕 2026-10-11 Cut A + D：D 把 RED 路徑改成認「pre-flight 恰好只拒絕那筆 ternary entry」（不論措辭）；同時還有別的拒絕 → PROBE-BROKEN。S0 要求 GREEN，所以任何拒絕都讓 S0 變成 PROBE-BROKEN |
 
 ## 7. 決定六：cut 計畫（行數都是【推論】估計）
 
