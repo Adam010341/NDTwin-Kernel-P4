@@ -193,6 +193,15 @@ def pipeline_carries_telemetry(p4info_path):
 class P4RuntimeClient:
     """Encapsulates P4Runtime gRPC connection to a single BMv2 switch"""
 
+    #: The fabric generation this client's pipeline pushes carry in `ForwardingPipelineConfig.cookie`
+    #: (DESIGN 5.2, ruling Q1 (a)), or None for a push with no cookie. `main.startup` sets it on
+    #: every client before its push loop and `main.readopt_switch` on the client its readopt
+    #: builds; a later startup reads it back with COOKIE_ONLY (`read_pipeline_cookie`) to tell a
+    #: switch this fabric programmed from one that was restarted since. 🔴 A push without it CLEARS
+    #: the cookie on the switch (measured, ternary-a0 08), so every push in this proxy carries it.
+    #: A class default for the reason `route_binding` is one. [Co-developed with claude code -- Adam]
+    pipeline_cookie = None
+
     #: Which table, match field, action and parameters this client writes a destination route
     #: with -- `route_binding.BASELINE` (NDTwin's own pipeline), a binding resolved from the app
     #: package's `roles.ipv4_route`, or None (a foreign pipeline with no roles: every route
@@ -206,15 +215,6 @@ class P4RuntimeClient:
     #: construction site, main.build_p4_client (startup AND readopt), always calls bind_routes(),
     #: and tests/test_route_binding.py asserts that it does for all three kinds of switch.
     route_binding = route_binding_module.BASELINE
-
-    #: The fabric generation this client's pipeline pushes carry in `ForwardingPipelineConfig.cookie`
-    #: (DESIGN 5.2, ruling Q1 (a)), or None for a push with no cookie. `main.startup` sets it on
-    #: every client before its push loop and `main.readopt_switch` on the client its readopt
-    #: builds; a later startup reads it back with COOKIE_ONLY (`read_pipeline_cookie`) to tell a
-    #: switch this fabric programmed from one that was restarted since. 🔴 A push without it CLEARS
-    #: the cookie on the switch (measured, ternary-a0 08), so every push in this proxy carries it.
-    #: A class default for the reason `route_binding` is one. [Co-developed with claude code -- Adam]
-    pipeline_cookie = None
 
     def __init__(self, device_id, grpc_addr, p4info_path, json_path=None,
                  election_id=DEFAULT_ELECTION_ID, arbitration=True):

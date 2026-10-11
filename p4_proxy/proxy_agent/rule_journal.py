@@ -664,8 +664,8 @@ class TableEntryJournal:
         try:
             with os.fdopen(fd, "wb") as fh:
                 fh.write(head)
-                for line in lines:
-                    fh.write(line)
+                for encoded in lines:
+                    fh.write(encoded)
                 fh.flush()
                 os.fsync(fh.fileno())
             # mkstemp makes the file 0600; the live journal keeps the mode a record() would

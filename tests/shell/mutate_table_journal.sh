@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for the table-entry journal: `rule_journal.TableEntryJournal` / `TableJournals` /
-# `fold_records`, what `POST /p4/table_entry` and `switch_state` say about it, and the identity a
-# default entry gets. DESIGN.md sections 5.1-5.3, 5.6 and 6.3 (Cut B: M-J1-M-J3, M-J12-M-J14).
+# `fold_records`, what `POST /p4/table_entry` and `switch_state` say about it, the identity a
+# default entry gets, and the replay: the pipeline cookie, step 0, startup's and readopt's callers,
+# pending/503. DESIGN.md sections 5 and 6.3 (Cut B: M-J1-M-J3, M-J12-M-J14; Cut C: M-J4-M-J6,
+# M-J10, M-J15-M-J20, M-J22, M-J25-M-J28).
 #
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 WHAT THE TESTS HERE HOLD THE CODE TO IS "RECORDED", NEVER "JOURNALED". Nothing replays the
-# journal yet, so the claim that an entry survives a restart is false and every surface says so:
-# `journaled` is False in the POST response and in switch_state, and `journal.recorded` says what
-# is true. M-J30 (the replay constant flipped), M-J30b (the claim ignoring whether this write was
-# recorded) and M-J30c (switch_state's claim ignoring the replay constant) are the mutations that
-# would turn the health check's T8 green on a record nothing reads back, and each has a killer.
+# 🔴 `journaled` IS A CLAIM THAT AN ENTRY SURVIVES A RESTART, and since Cut C it is true for a
+# recorded write: startup and readopt replay the journal (tests/test_table_entry_replay.py runs
+# the real startup and readopt against a stub that behaves like the bmv2 ternary-a0 measured).
+# M-J30 sets the constant back to False; M-J30b claims it for a write that was not recorded;
+# M-B14b and M-B20b claim it where a record was lost. Cut B's M-J30a, M-J30c and M-J30e are gone:
+# with the constant True each was the code it mutated, not a mutation of it.
 #
 # 🔴 THE MUTANT IS A COPY, as in mutate_table_entry.sh: every mutation is applied to a copy of
 # p4_proxy under a temp dir, nothing under p4_proxy/ is written, and all sources and test files are
@@ -41,9 +43,10 @@ TEST_ROUTE="$REPO/p4_proxy/tests/test_table_entry_route.py"
 TEST_WRITES="$REPO/p4_proxy/tests/test_p4_client_writes.py"
 TEST_INSTALL="$REPO/p4_proxy/tests/test_rule_install_times.py"
 TEST_PROXY="$REPO/p4_proxy/tests/test_app_package_proxy.py"
+TEST_REPLAY="$REPO/p4_proxy/tests/test_table_entry_replay.py"
 
 MODULES="tests.test_table_entry_journal tests.test_table_entry_route tests.test_p4_client_writes \
-tests.test_rule_install_times tests.test_app_package_proxy"
+tests.test_rule_install_times tests.test_app_package_proxy tests.test_table_entry_replay"
 
 MAIN_WT="$(git -C "$REPO" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
 PY=""
@@ -77,6 +80,7 @@ BASE_TEST_ROUTE=$(sha256sum "$TEST_ROUTE" | cut -d' ' -f1)
 BASE_TEST_WRITES=$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)
 BASE_TEST_INSTALL=$(sha256sum "$TEST_INSTALL" | cut -d' ' -f1)
 BASE_TEST_PROXY=$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)
+BASE_TEST_REPLAY=$(sha256sum "$TEST_REPLAY" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -135,6 +139,18 @@ open(p, "w").write(s.replace(a, b))
 PY
     echo "$d"
 }
+mutant2() {  # $1 = label, $2 = file, $3/$4 = first anchor and its replacement, $5/$6 = second
+    local d
+    d=$(mutant "$1" "$2" "$3" "$4") || return 1
+    python3 - "$d/${2#"$REPO/p4_proxy/"}" "$5" "$6" <<'PY'
+import sys
+p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
+s = open(p).read()
+assert s.count(a) == 1, "second anchor not unique (%d hits): %s" % (s.count(a), a[:70])
+open(p, "w").write(s.replace(a, b))
+PY
+    echo "$d"
+}
 
 
 echo "baseline (must be green before any mutation):"
@@ -170,8 +186,10 @@ report 'M-J1b: a refused write is swallowed instead of raised (the route would t
 
 m=$(mutant j2a "$JOURNAL" \
     '        with _held(journal.lock, lock_timeout, f"switch {dpid}"):
+            self._refuse_pending(dpid)
             client = get_client()' \
     '        if True:
+            self._refuse_pending(dpid)
             client = get_client()')
 report 'M-J2: no lock around the write and the record' "$m" \
        'test_two_writes_to_one_switch_never_interleave_with_each_others_record'
@@ -192,9 +210,11 @@ report 'M-J2b: the lock covers the switch write but not the record, so two write
 
 m=$(mutant j23 "$JOURNAL" \
     '        with _held(journal.lock, lock_timeout, f"switch {dpid}"):
+            self._refuse_pending(dpid)
             client = get_client()' \
     '        client = get_client()
-        with _held(journal.lock, lock_timeout, f"switch {dpid}"):')
+        with _held(journal.lock, lock_timeout, f"switch {dpid}"):
+            self._refuse_pending(dpid)')
 report 'M-J23: the client is looked up before the lock, so a readopt'\''s new client is missed' "$m" \
        'test_the_client_is_looked_up_inside_the_lock'
 
@@ -323,7 +343,7 @@ report 'M-J14: the fold returns nothing, so a snapshot would drop every entry' "
        'test_not_there_then_there_is_an_insert_of_the_last_spec'
 
 m=$(mutant f1 "$JOURNAL" \
-    '        before = f.get("op") != "insert"' \
+    '        before = f.get("op") != "insert" and not _was_absent(f)' \
     '        before = True')
 report 'M-J37a: an entry the API created is folded as though it was already there, so it is modified, not inserted' "$m" \
        'test_not_there_then_there_is_an_insert_of_the_last_spec'
@@ -414,8 +434,8 @@ report 'M-J41: a failed snapshot leaves its temp file behind' "$m" \
        'test_a_crash_before_the_replace_leaves_the_old_file_whole'
 
 m=$(mutant s7 "$JOURNAL" \
-    '                head.update({"v": 1, "header": True, "dpid": self.dpid})' \
-    '                head.update({"v": 1, "dpid": self.dpid})')
+    '        header = {"v": 1, "header": True, "dpid": self.dpid, "fabric_cookie": None,' \
+    '        header = {"v": 1, "dpid": self.dpid, "fabric_cookie": None,')
 report 'M-J42: the snapshot'\''s first line is not marked as a header' "$m" \
        'test_the_new_file_is_the_header_and_the_given_records'
 
@@ -423,19 +443,13 @@ report 'M-J42: the snapshot'\''s first line is not marked as a header' "$m" \
 
 m=$(mutant c1 "$JOURNAL" \
     '
-TABLE_JOURNAL_REPLAYS = False
+TABLE_JOURNAL_REPLAYS = True
 ' \
     '
-TABLE_JOURNAL_REPLAYS = True
+TABLE_JOURNAL_REPLAYS = False
 ')
-report 'M-J30: the replay constant is flipped with no replay behind it, so every `journaled` turns true' "$m" \
-       'test_the_constant_is_false_in_this_cut'
-
-m=$(mutant c2 "$JOURNAL" \
-    '    return bool(recorded) and TABLE_JOURNAL_REPLAYS' \
-    '    return bool(recorded)')
-report 'M-J30a: a recorded write claims to be journaled whether or not anything replays it' "$m" \
-       'test_with_replay_a_recorded_write_is_journaled_and_without_it_is_not'
+report 'M-J30: the replay constant is False, so nothing claims the entries the replay restores' "$m" \
+       'test_the_constant_is_true_now_that_startup_and_readopt_replay'
 
 m=$(mutant c3 "$JOURNAL" \
     '    return bool(recorded) and TABLE_JOURNAL_REPLAYS' \
@@ -445,15 +459,15 @@ report 'M-J30b: a write that was NOT recorded claims to be journaled once someth
 
 m=$(mutant c4 "$JOURNAL" \
     '        return self.record_complete(dpid) and TABLE_JOURNAL_REPLAYS' \
-    '        return self.record_complete(dpid)')
-report 'M-J30c: switch_state claims the switch is journaled because its records are complete' "$m" \
-       'test_a_recorded_write_shows_under_journal_and_journaled_stays_false'
+    '        return TABLE_JOURNAL_REPLAYS')
+report 'M-J30c: switch_state claims a switch is journaled whatever its records say' "$m" \
+       'test_a_failed_record_shows_on_the_switch_that_had_it'
 
 m=$(mutant c5 "$JOURNAL" \
-    '"replay": REPLAY_NOT_IMPLEMENTED if not TABLE_JOURNAL_REPLAYS else "implemented"}' \
-    '"replay": "implemented"}')
-report 'M-J30d: switch_state'\''s journal block says replay is implemented' "$m" \
-       'test_a_recorded_write_shows_under_journal_and_journaled_stays_false'
+    '"replay": (dict(self._replays[key]) if key in self._replays else None)}' \
+    '"replay": None}')
+report 'M-J30d: switch_state'\''s journal block never says what the replay put back' "$m" \
+       'test_switch_state_names_what_came_back'
 
 m=$(mutant c6 "$JOURNAL" \
     '    return str(env.get(TABLE_JOURNAL_ENV_VAR, "")).strip().lower() not in ("off", "0", "false", "no")' \
@@ -470,20 +484,14 @@ report 'M-J44: the key digest is eight characters' "$m" \
 m=$(mutant c8 "$ROUTES" \
     '            "journaled": journaled, "journal": journal}' \
     '            "journaled": True, "journal": journal}')
-report 'M-B20b: the response claims the entry is journaled, next to a journal block that says nothing replays it (also M-B20 in mutate_table_entry.sh)' "$m" \
-       'test_an_accepted_write_is_recorded_and_the_response_says_so_under_journal'
-
-m=$(mutant c9 "$ROUTES" \
-    '    journaled = rule_journal.journaled_claim(recorded)' \
-    '    journaled = bool(recorded)')
-report 'M-J30e: the response'\''s `journaled` ignores whether anything replays' "$m" \
-       'test_an_accepted_write_is_recorded_and_the_response_says_so_under_journal'
+report 'M-B20b: the response claims an entry the journal could not take is journaled (was M-B20 in mutate_table_entry.sh)' "$m" \
+       'test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so'
 
 m=$(mutant c10 "$MAIN" \
     '                     "journaled": table_journals.journaled(dpid),' \
     '                     "journaled": True,')
-report 'M-B14b: switch_state claims these entries survive a proxy restart (also M-B14 in mutate_table_entry.sh)' "$m" \
-       'test_a_recorded_write_shows_under_journal_and_journaled_stays_false'
+report 'M-B14b: switch_state claims a switch whose journal lost a record is journaled (was M-B14 in mutate_table_entry.sh)' "$m" \
+       'test_a_failed_record_shows_on_the_switch_that_had_it'
 
 # --- what the route says -----------------------------------------------------------------------
 
@@ -493,7 +501,7 @@ m=$(mutant r1 "$ROUTES" \
     '    if False:
         body["note"] = note')
 report 'M-J45: a response that is not journaled carries no note saying what that costs' "$m" \
-       'test_an_accepted_write_is_recorded_and_the_response_says_so_under_journal'
+       'test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so'
 
 m=$(mutant r2 "$ROUTES" \
     '        if table_journals is None:
@@ -504,10 +512,8 @@ report 'M-J46: the route never goes through the journal' "$m" \
        'test_an_accepted_write_is_recorded_and_the_response_says_so_under_journal'
 
 m=$(mutant r3 "$ROUTES" \
-    '    if recorded:
-        return journaled, journal, TABLE_ENTRY_RECORDED_NOT_REPLAYED' \
-    '    if True:
-        return journaled, journal, TABLE_ENTRY_RECORDED_NOT_REPLAYED')
+    '    journal = {"recorded": bool(recorded), "enabled": enabled,' \
+    '    journal = {"recorded": True, "enabled": enabled,')
 report 'M-J47: a write the journal could not take says it was recorded' "$m" \
        'test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so'
 
@@ -549,7 +555,7 @@ m=$(mutant r9 "$ROUTES" \
     '                                          if table_journals is not None else False),
                             "journal_gone": (table_journals.report(dpid)')
 report 'M-J53: switch_state'\''s entry for a switch nobody reported on has no journal block' "$m" \
-       'test_every_switch_reports_what_was_written_and_that_none_of_it_is_journaled'
+       'test_every_switch_reports_what_was_written_and_whether_it_is_journaled'
 
 # --- what main builds and reports --------------------------------------------------------------
 
@@ -591,8 +597,8 @@ report 'M-J59: an external control plane'\''s fabric is reported as one whose jo
        'test_the_journals_main_builds_ask_the_package_whether_the_fabric_is_external'
 
 m=$(mutant m7 "$MAIN" \
-    '    out = {"boot_id": boot_identity.BOOT_ID}' \
-    '    out = {"boot_id": None}')
+    '    out = {"boot_id": boot_identity.BOOT_ID,' \
+    '    out = {"boot_id": None,')
 report 'M-J60: the header does not say which boot wrote it' "$m" \
        'test_the_header_main_supplies_names_this_boot'
 
@@ -740,18 +746,17 @@ report 'M-J78: a switch'\''s file is named by its number alone' "$m" \
        'test_a_file_is_named_for_its_switch'
 
 m=$(mutant x7 "$ROUTES" \
-    'TABLE_ENTRY_RECORDED_NOT_REPLAYED = (
-    "recorded in the table-entry journal, but nothing replays the journal yet: this entry is "
-    "still lost when the proxy restarts")' \
-    'TABLE_ENTRY_RECORDED_NOT_REPLAYED = TABLE_ENTRY_NOT_JOURNALED')
-report 'M-J79: a recorded table entry carries the multicast group'\''s sentence' "$m" \
+    'TABLE_ENTRY_JOURNAL_WRITE_FAILED = (' \
+    'TABLE_ENTRY_JOURNAL_WRITE_FAILED = TABLE_ENTRY_NOT_JOURNALED
+_UNUSED = (')
+report 'M-J79: a table entry the journal could not take carries the multicast group'\''s sentence' "$m" \
        'test_the_constants_the_two_surfaces_disagree_on_are_split'
 
 m=$(mutant x8 "$MAIN" \
     '                     "journal": table_journals.report(dpid)}' \
     '                     "journal": dict(table_journals.report(dpid), replay="implemented")}')
-report 'M-J80: the real report says replay is implemented' "$m" \
-       'test_the_real_report_states_that_nothing_replays'
+report 'M-J80: the real report says a replay happened before any has run' "$m" \
+       'test_the_real_report_has_no_replay_before_one_has_run'
 
 m=$(mutant x9 "$JOURNAL" \
     'hashlib.sha256(repr(key).encode("utf-8"))' \
@@ -828,9 +833,9 @@ report 'M-J89: the lock wait has no timeout, so a write behind a hung switch wai
 
 m=$(mutant y5b "$ROUTES" \
     '                TABLE_ENTRY_LOCK_TIMEOUT_S)
-    except SwitchBusy as err:' \
+    except ReplayPending as err:' \
     '                None)
-    except SwitchBusy as err:')
+    except ReplayPending as err:')
 report 'M-J89b: the route does not pass the timeout, so every POST waits for ever for a busy switch' "$m" \
        'test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing'
 
@@ -870,6 +875,505 @@ m=$(mutant v7 "$CLIENT" \
 report 'M-J90: the owner check is skipped, so a write into a table NDTwin owns reaches the switch and the journal' "$m" \
        'test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record'
 
+# =============================================================================================
+# Cut C: the replay. [Co-developed with claude code -- Adam]
+# Killers are in tests/test_table_entry_replay.py (the real startup and readopt against a bmv2-like
+# stub) unless they name a test of test_table_entry_journal.py.
+# =============================================================================================
+
+# --- M1 (ruling 2026-10-12): a delete answered NOT_FOUND says the entry was absent ------------
+
+m=$(mutant k1 "$JOURNAL" \
+    '        before = f.get("op") != "insert" and not _was_absent(f)' \
+    '        before = f.get("op") != "insert"')
+report 'M-J91: a key that began with a NOT_FOUND delete folds as present, so its insert is replayed as a modify' "$m" \
+       'test_a_not_found_delete_then_an_insert_is_an_insert'
+
+m=$(mutant k1b "$JOURNAL" \
+    '    return rec.get("op") == "delete" and rec.get("outcome") == "not_found"' \
+    '    return rec.get("op") == "delete"')
+report 'M-J91b: an accepted first delete folds as absent too, so a deleted boot entry comes back' "$m" \
+       'test_a_delete_with_nothing_before_it_is_still_a_delete'
+
+m=$(mutant k1c "$JOURNAL" \
+    '"outcome": "ok"} for item in net]' \
+    '"outcome": "not_found" if item["op"] == "delete" else "ok"} for item in net]')
+report 'M-J91c: a snapshot writes a net delete as a NOT_FOUND one, so the next boot folds it away' "$m" \
+       'test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same'
+
+m=$(mutant k1d "$JOURNAL" \
+    '        before = f.get("op") != "insert" and not _was_absent(f)' \
+    '        before = f.get("op") != "insert" and not _was_absent(l)')
+report 'M-J91d: the LAST record decides what was there before' "$m" \
+       'test_only_the_first_record_decides_what_was_there_before'
+
+# --- m2 (round 3): the priority is part of the key on both paths -------------------------------
+
+m=$(mutant k2 "$CLIENT" \
+    '            "entry_key": entry_key(
+                self.device_id, table_name, entry.priority, recorded_match,' \
+    '            "entry_key": entry_key(
+                self.device_id, table_name, 0, recorded_match,')
+report 'M-J92: the key a write returns drops the priority, so two priorities of one match are one entry' "$m" \
+       'test_a_ternary_entry_is_recorded_under_its_priority'
+
+m=$(mutant k2b "$CLIENT" \
+    '            self.device_id, table_name, entry.priority, self._built_entry_match(entry),' \
+    '            self.device_id, table_name, 0, self._built_entry_match(entry),')
+report 'M-J92b: the key of a delete the switch answered NOT_FOUND drops the priority' "$m" \
+       'test_and_so_does_a_ternary_spec_with_its_priority'
+
+# --- the pipeline cookie and step 0 (ruling Q1 (a); DESIGN 5.4 step 0) -------------------------
+
+m=$(mutant g1 "$CLIENT" \
+    '        if self.pipeline_cookie is not None:
+            req.config.cookie.cookie = int(self.pipeline_cookie)' \
+    '        if False:
+            req.config.cookie.cookie = int(self.pipeline_cookie)')
+report 'M-J25: a push carries no cookie, so it clears the generation on the switch' "$m" \
+       'test_every_push_carries_this_boots_generation'
+
+m=$(mutant g1b "$MAIN" \
+    '        client.pipeline_cookie = generation' \
+    '        pass')
+report 'M-J25b: startup never gives its clients the generation it chose' "$m" \
+       'test_every_push_carries_this_boots_generation'
+
+m=$(mutant g2 "$MAIN" \
+    '    if not read_only:
+        confirm_fabric(clients, journals, package)' \
+    '    if False:
+        confirm_fabric(clients, journals, package)')
+report 'M-J95: startup never runs step 0, so a fresh bmv2 is given yesterday'\''s entries' "$m" \
+       'test_a_fresh_bmv2_is_a_fresh_fabric'
+
+m=$(mutant2 g2b "$MAIN" \
+    '    if not read_only:
+        confirm_fabric(clients, journals, package)
+
+' \
+    '' \
+    '    if broken:
+        # Loud and explicit about the consequence' \
+    '    if not read_only:
+        confirm_fabric(clients, journals, package)
+    if broken:
+        # Loud and explicit about the consequence')
+report 'M-J95b: step 0 runs after the push, so it reads back the cookie this boot just pushed' "$m" \
+       'test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch'
+
+m=$(mutant g3 "$JOURNAL" \
+    '    kind, value = seen
+    if kind != "cookie":' \
+    '    kind, value = seen
+    return {"confirmed": True, "cookie": value if kind == "cookie" else None, "reason": "confirmed"}
+    if kind != "cookie":')
+report 'M-J22: no cookie check: every switch confirms its journal' "$m" \
+       'test_a_fresh_bmv2_is_a_fresh_fabric'
+
+m=$(mutant g3b "$JOURNAL" \
+    '    elif cookie_value(header.get("fabric_cookie")) != switch:' \
+    '    elif False:')
+report 'M-J22b: another cookie confirms the journal' "$m" \
+       'test_another_cookie_is_a_fresh_fabric'
+
+m=$(mutant g3c "$JOURNAL" \
+    '    elif cookie_value(header.get("fabric_cookie")) is None:
+        reason = "the journal header names no fabric cookie"' \
+    '    elif cookie_value(header.get("fabric_cookie")) is None:
+        return {"confirmed": True, "cookie": switch, "reason": "confirmed"}')
+report 'M-J22c: a header with no cookie (a Cut B file) confirms the journal' "$m" \
+       'test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed'
+
+m=$(mutant g3d "$JOURNAL" \
+    '    if value is None:
+        return {"confirmed": False, "cookie": None,' \
+    '    if value is None:
+        return {"confirmed": True, "cookie": None,')
+report 'M-J22d: a pipeline with no cookie confirms the journal' "$m" \
+       'test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric'
+
+m=$(mutant g3e "$JOURNAL" \
+    '    if kind != "cookie":
+        return {"confirmed": False, "cookie": None,' \
+    '    if kind != "cookie":
+        return {"confirmed": True, "cookie": None,')
+report 'M-J22e: a switch that answered COOKIE_ONLY with an error (a fresh bmv2) confirms the journal' "$m" \
+       'test_a_fresh_bmv2_is_a_fresh_fabric'
+
+m=$(mutant g4 "$JOURNAL" \
+    '    if len(values) > 1:' \
+    '    if False:')
+report 'M-J97: confirmed switches that disagree on the cookie stay confirmed' "$m" \
+       'test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted'
+
+m=$(mutant g4b "$JOURNAL" \
+    '    if len(values) == 1:
+        return values.pop(), dict(verdicts)' \
+    '    if False:
+        return values.pop(), dict(verdicts)')
+report 'M-J97b: a confirmed fabric is given a new generation every start' "$m" \
+       'test_a_warm_switch_keeps_its_generation_across_restarts'
+
+m=$(mutant g5 "$MAIN" \
+    '        with journals.journal_for(dpid).lock:
+            journals.settle(dpid, verdict, table_journal_header(dpid, package))' \
+    '        if "UNAVAILABLE" in verdict["reason"]:
+            continue
+        with journals.journal_for(dpid).lock:
+            journals.settle(dpid, verdict, table_journal_header(dpid, package))')
+report 'M-J26: step 0 leaves a switch that does not answer alone (r2'\''s non-broken-only step)' "$m" \
+       'test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing'
+
+m=$(mutant g6 "$JOURNAL" \
+    '            return journal.write_snapshot(header_now, [])
+        except OSError as exc:' \
+    '            return journal.reheader(header_now)
+        except OSError as exc:')
+report 'M-J102: an unconfirmed journal keeps its records under this boot'\''s header' "$m" \
+       'test_a_fresh_bmv2_is_a_fresh_fabric'
+
+m=$(mutant g7 "$JOURNAL" \
+    '                return journal.reheader(kept)' \
+    '                return journal.write_snapshot(kept, journal.read()[1])')
+report 'M-J101: step 0 rewrites a confirmed journal from what it could parse, so a torn line stops counting' "$m" \
+       'test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete'
+
+m=$(mutant g7b "$JOURNAL" \
+    '                kept.update(boot_id=header_now.get("boot_id"),' \
+    '                kept.update(boot_id=kept.get("boot_id"),')
+report 'M-J101b: step 0 leaves a confirmed header naming the boot that wrote it, so the replay refuses it' "$m" \
+       'test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it'
+
+m=$(mutant g8 "$MAIN" \
+    '        with journals.journal_for(dpid).lock:
+            journals.settle(dpid, verdict, table_journal_header(dpid, package))' \
+    '        if True:
+            journals.settle(dpid, verdict, table_journal_header(dpid, package))')
+report 'M-J104: step 0 sets a journal aside without its lock' "$m" \
+       'test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it'
+
+# --- steps 1, 3-6: the replay ----------------------------------------------------------------
+
+m=$(mutant h1 "$MAIN" \
+    '            with journals.journal_for(i).lock:
+                replay_table_journal(client, i, journals, package, "startup")' \
+    '            pass')
+report 'M-J94: startup never replays (the startup caller of fold and snapshot is gone)' "$m" \
+       'test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it'
+
+m=$(mutant h1b "$MAIN" \
+    '            with journals.journal_for(i).lock:
+                replay_table_journal(client, i, journals, package, "startup")' \
+    '            replay_table_journal(client, i, journals, package, "startup")')
+report 'M-J94b: startup replays without the switch'\''s lock, so its snapshot is refused' "$m" \
+       'test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it'
+
+m=$(mutant h2 "$JOURNAL" \
+    '            try:
+                apply(item["spec"], item["op"])' \
+    '            try:
+                pass')
+report 'M-J15: the replay writes nothing back' "$m" \
+       'test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it'
+
+m=$(mutant h3 "$JOURNAL" \
+    '                continue
+            restored.append(item)
+        report["succeeded"] = len(restored)' \
+    '                continue
+            restored.append(item)
+            journal.record(item["op"], item["spec"], item["key"])
+        report["succeeded"] = len(restored)')
+report 'M-J4: the replay appends what it writes to the journal it is replaying' "$m" \
+       'test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it'
+
+m=$(mutant h4 "$JOURNAL" \
+    '        pipeline_changed = (header.get("p4info_sha256") is None
+                            or header.get("p4info_sha256") != header_now.get("p4info_sha256"))' \
+    '        pipeline_changed = False')
+report 'M-J5: the p4info digest is not checked' "$m" \
+       'test_a_changed_p4info_replays_nothing'
+
+m=$(mutant h5 "$JOURNAL" \
+    '        entries_changed = header.get("entries_sha256") != header_now.get("entries_sha256")' \
+    '        entries_changed = False')
+report 'M-J16: the entries-file digest is not checked' "$m" \
+       'test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries'
+
+m=$(mutant h5b "$JOURNAL" \
+    '            if entries_changed and item["op"] != "insert":' \
+    '            if entries_changed:')
+report 'M-J16b: a changed entries file stops the inserts too' "$m" \
+       'test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries'
+
+m=$(mutant h6 "$JOURNAL" \
+    '                if (item["op"] == "delete" and is_not_found is not None
+                        and is_not_found(exc)):' \
+    '                if False:')
+report 'M-J98: a net delete whose entry is already gone is counted as a failure and leaves the journal' "$m" \
+       'test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal'
+
+m=$(mutant h6b "$MAIN" \
+    '                             table_journal_header(dpid, package), api_routes._is_not_found,' \
+    '                             table_journal_header(dpid, package), None,')
+report 'M-J98b: main does not tell the replay how to recognise NOT_FOUND' "$m" \
+       'test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal'
+
+m=$(mutant h7 "$JOURNAL" \
+    '        self._snapshot(journal, key, header_now, records_from_net(restored), report)' \
+    '        self._snapshot(journal, key, header_now, records_from_net(net), report)')
+report 'M-J99: what did not go back stays in the live journal' "$m" \
+       'test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal'
+
+m=$(mutant h8 "$MAIN" \
+    '                             when, describe=_refusal_reason)' \
+    '                             when)')
+report 'M-J100: a refusal at replay is reported as the bare exception, not the switch'\''s reason' "$m" \
+       'test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal'
+
+m=$(mutant h9 "$JOURNAL" \
+    '            report["snapshot_error"] = f"{type(exc).__name__}: {exc}"
+            with self._registry_lock:' \
+    '            report["snapshot_error"] = f"{type(exc).__name__}: {exc}"
+            return
+            with self._registry_lock:')
+report 'M-J108: a snapshot that failed does not withdraw the claim' "$m" \
+       'test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled'
+
+m=$(mutant h10 "$MAIN" \
+    '    if not journals.enabled:
+        return journals.note_skipped(dpid, "the table-entry journal is off", when)' \
+    '    if False:
+        return journals.note_skipped(dpid, "the table-entry journal is off", when)')
+report 'M-J109: a journal that is off is replayed anyway' "$m" \
+       'test_a_journal_that_is_off_replays_nothing_and_says_so'
+
+m=$(mutant h11 "$MAIN" \
+    '        if read_only:
+            journals.note_skipped(i, "external control plane")' \
+    '        if False:
+            journals.note_skipped(i, "external control plane")')
+report 'M-J6: an external control plane'\''s journal is replayed' "$m" \
+       'test_nothing_is_read_replayed_or_written_on_an_external_fabric'
+
+m=$(mutant h11b "$MAIN" \
+    '    if not read_only:
+        confirm_fabric(clients, journals, package)' \
+    '    if True:
+        confirm_fabric(clients, journals, package)')
+report 'M-J6b: step 0 reads and rewrites an external control plane'\''s journal' "$m" \
+       'test_nothing_is_read_replayed_or_written_on_an_external_fabric'
+
+m=$(mutant h12 "$MAIN" \
+    '        elif i in broken:
+            journals.note_skipped(' \
+    '        elif False:
+            journals.note_skipped(')
+report 'M-J110: a switch whose push failed is replayed into' "$m" \
+       'test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing'
+
+m=$(mutant h13 "$JOURNAL" \
+    '        if header is None or header.get("boot_id") != header_now.get("boot_id"):' \
+    '        if header is None:')
+report 'M-J27: the replay does not check that this boot confirmed the file' "$m" \
+       'test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm'
+
+m=$(mutant h14 "$JOURNAL" \
+    '        header, records, unreadable = journal.read()
+        report["unreadable"] = unreadable' \
+    '        cache = self.__dict__.setdefault("_mutant_first_read", {})
+        if key not in cache:
+            cache[key] = journal.read()
+        header, records, unreadable = cache[key]
+        report["unreadable"] = unreadable')
+report 'M-J17: a readopt replays the list startup read, not the file' "$m" \
+       'test_an_entry_posted_after_startup_is_back_after_a_readopt'
+
+m=$(mutant h15 "$JOURNAL" \
+    '        report = dict(report, status=status)
+        self._replays[key] = report' \
+    '        report = dict(report, status=status)
+        prev = self._replays.get(key)
+        if prev:
+            report["attempted"] += prev["attempted"]
+            report["succeeded"] += prev["succeeded"]
+        self._replays[key] = report')
+report 'M-J10: a readopt adds its replay to the last one instead of replacing it' "$m" \
+       'test_two_readopts_report_the_same_replay'
+
+# --- readopt: pending, the lock, the caller, the cookie (DESIGN 5.5) ----------------------------
+
+m=$(mutant p1 "$JOURNAL" \
+    '    def _refuse_pending(self, dpid):
+        if self.pending(dpid):' \
+    '    def _refuse_pending(self, dpid):
+        if False:')
+report 'M-J18: no pending flag, so a POST during a readopt waits for the lock and is a busy 503 at best' "$m" \
+       'test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing'
+
+m=$(mutant p1b "$JOURNAL" \
+    '        journal = self.journal_for(dpid)
+        self._refuse_pending(dpid)
+        with _held(' \
+    '        journal = self.journal_for(dpid)
+        with _held(')
+report 'M-J18b: pending is only checked once the lock is held, so the POST queues behind the readopt' "$m" \
+       'test_on_a_switch_being_readopted_it_is_replay_pending_at_once'
+
+m=$(mutant p1c "$JOURNAL" \
+    '            self._refuse_pending(dpid)
+            client = get_client()' \
+    '            client = get_client()')
+report 'M-J18c: a write that got past the first check is not checked again inside the lock' "$m" \
+       'test_a_write_that_got_past_the_first_check_meets_the_second_inside_the_lock'
+
+m=$(mutant p1d "$ROUTES" \
+    '    except ReplayPending as err:' \
+    '    except KeyboardInterrupt as err:')
+report 'M-J18d: a switch being readopted is a 500, not a 503' "$m" \
+       'test_a_switch_being_readopted_is_503_replay_pending_and_writes_nothing'
+
+m=$(mutant p1e "$JOURNAL" \
+    '                try:
+                    yield journal
+                finally:
+                    with self._registry_lock:
+                        self._pending.discard(key)
+        finally:
+            with self._registry_lock:
+                self._pending.discard(key)' \
+    '                yield journal
+                with self._registry_lock:
+                    self._pending.discard(key)
+        finally:
+            pass')
+report 'M-J18e: a readopt that failed leaves the switch pending for ever' "$m" \
+       'test_the_pending_flag_comes_down_after_a_readopt_and_after_one_that_failed'
+
+m=$(mutant2 p2 "$MAIN" \
+    '    with journals.replaying(dpid):
+        return _readopt_switch_locked(topology, dpid, client_factory, sample_callback, package,
+                                      journals)' \
+    '    return _readopt_switch_locked(topology, dpid, client_factory, sample_callback, package,
+                                  journals)' \
+    '    result["table_entries"]["replay"] = replay_table_journal(
+        topology.switches.get(dpid), dpid, journals, package, "readopt")' \
+    '    with journals.replaying(dpid):
+        result["table_entries"]["replay"] = replay_table_journal(
+            topology.switches.get(dpid), dpid, journals, package, "readopt")')
+report 'M-J20: the lock is taken after the new client is swapped in, so a POST lands in between' "$m" \
+       'test_a_post_between_the_new_clients_swap_and_the_replay_is_503'
+
+m=$(mutant p2b "$MAIN" \
+    '    with journals.replaying(dpid):
+        return _readopt_switch_locked(' \
+    '    if True:
+        return _readopt_switch_locked(')
+report 'M-J20b: a readopt takes no lock at all, so its snapshot is refused' "$m" \
+       'test_an_entry_posted_after_startup_is_back_after_a_readopt'
+
+m=$(mutant p3 "$MAIN" \
+    '    result["table_entries"]["replay"] = replay_table_journal(
+        topology.switches.get(dpid), dpid, journals, package, "readopt")' \
+    '    result["table_entries"]["replay"] = None')
+report 'M-J93: a readopt never replays (the readopt caller of fold and snapshot is gone)' "$m" \
+       'test_an_entry_posted_after_startup_is_back_after_a_readopt'
+
+m=$(mutant p4 "$MAIN" \
+    '        client.pipeline_cookie = _generation["cookie"]' \
+    '        client.pipeline_cookie = rule_journal.cookie_value(
+            (table_journals.journal_for(dpid).read()[0] or {}).get("fabric_cookie"))')
+report 'M-J28: a readopt pushes the cookie its journal header names, not this boot'\''s' "$m" \
+       'test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names'
+
+m=$(mutant p4b "$MAIN" \
+    '        client.pipeline_cookie = _generation["cookie"]' \
+    '        pass')
+report 'M-J28b: a readopt pushes no cookie' "$m" \
+       'test_the_readopts_push_carries_this_boots_generation'
+
+m=$(mutant p5 "$JOURNAL" \
+    '                    os.path.join(self.directory, f"s{key}.jsonl"), dpid, header=header)' \
+    '                    os.path.join(self.directory, "all.jsonl"), dpid, header=header)')
+report 'M-J19: one file for every switch, each with its own lock: a readopt'\''s snapshot sets the others'\'' records aside' "$m" \
+       'test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file'
+
+# --- m6: the snapshot's lock, header shape, temp files and mode ---------------------------------
+
+m=$(mutant q1 "$JOURNAL" \
+    '        if not self.lock.locked():
+            raise RuntimeError(' \
+    '        if False:
+            raise RuntimeError(')
+report 'M-J103: a snapshot is taken with nobody holding the lock' "$m" \
+       'test_a_snapshot_nobody_holds_the_lock_for_is_refused'
+
+m=$(mutant q2 "$JOURNAL" \
+    '        self._sweep_temp(directory)
+        fd, tmp' \
+    '        fd, tmp')
+report 'M-J105: a temp file a dead snapshot left is never removed' "$m" \
+       'test_a_temp_file_a_dead_snapshot_left_is_removed_by_the_next'
+
+m=$(mutant q2b "$JOURNAL" \
+    '            names = [n for n in os.listdir(directory) if n.startswith(prefix)]
+        except OSError:
+            return
+        for name in names:' \
+    '            names = [n for n in os.listdir(directory) if ".tmp." in n]
+        except OSError:
+            return
+        for name in names:')
+report 'M-J105b: the sweep removes another switch'\''s temp file' "$m" \
+       'test_a_temp_file_a_dead_snapshot_left_is_removed_by_the_next'
+
+m=$(mutant q3 "$JOURNAL" \
+    '            os.chmod(tmp, _created_mode(self.path))' \
+    '            pass')
+report 'M-J106: a snapshot leaves the journal 0600' "$m" \
+       'test_the_live_file_keeps_its_mode_through_a_snapshot'
+
+m=$(mutant q4 "$JOURNAL" \
+    '        header.update({k: v for k, v in dict(fields or {}).items()
+                       if k in header and k not in ("v", "header", "dpid")})' \
+    '        header.update(dict(fields or {}))')
+report 'M-J107: a snapshot header takes whatever keys it is given, the dpid included' "$m" \
+       'test_a_snapshot_header_has_the_shape_a_recorded_header_has'
+
+m=$(mutant q5 "$JOURNAL" \
+    'QUARANTINE_KEEP = 10' \
+    'QUARANTINE_KEEP = 3')
+report 'M-J40c: fewer than ten set-aside generations are kept' "$m" \
+       'test_ten_generations_are_kept_by_default'
+
+# --- n3 (round 3): only the per-update reason says NOT_FOUND --------------------------------------
+
+m=$(mutant k3 "$ROUTES" \
+    '    return p4rt is not None and p4rt.get("code") == "NOT_FOUND"' \
+    '    return p4rt is None or p4rt.get("code") == "NOT_FOUND"')
+report 'M-J112: a refusal with no per-update reason is taken for NOT_FOUND and recorded' "$m" \
+       'test_a_top_level_not_found_with_no_per_update_reason_is_not_recorded'
+
+# --- m3 (round 3) ------------------------------------------------------------------------------
+
+m=$(mutant r10 "$JOURNAL" \
+    '        journal = self.journal_for(dpid)
+        self._refuse_pending(dpid)
+        with _held(journal.lock, lock_timeout, f"switch {dpid}"):
+            self._refuse_pending(dpid)
+            client = get_client()' \
+    '        journal = self.journal_for(dpid)
+        self._refuse_pending(dpid)
+        early = get_client()
+        if early is not None:
+            early._refuse_owned_table(spec, op, "api")
+        with _held(journal.lock, lock_timeout, f"switch {dpid}"):
+            self._refuse_pending(dpid)
+            client = get_client()')
+report 'M-J111: the owner check runs before the lock, so a write behind a busy switch is a 409 instead of a 503' "$m" \
+       'test_behind_a_held_lock_it_is_switch_busy_and_the_owner_check_never_ran'
+
 # --- negative controls ------------------------------------------------------------
 #
 # Edits that change no behaviour these suites specify; each must leave the suite GREEN.
@@ -906,9 +1410,9 @@ m=$(mutant n3 "$ROUTES" \
 control 'N3 (control): a comment-only edit in the response view' "$m" "the whole suite stays green"
 
 m=$(mutant n4 "$MAIN" \
-    '    out = {"boot_id": boot_identity.BOOT_ID}' \
+    '    out = {"boot_id": boot_identity.BOOT_ID,' \
     '    # MUTANT: a comment, and nothing else.
-    out = {"boot_id": boot_identity.BOOT_ID}')
+    out = {"boot_id": boot_identity.BOOT_ID,')
 control 'N4 (control): a comment-only edit in the header builder' "$m" "the whole suite stays green"
 
 m=$(mutant n5 "$CLIENT" \
@@ -918,6 +1422,20 @@ m=$(mutant n5 "$CLIENT" \
         table_name = self._table_name(entry.table_id)
         return entry_key(')
 control 'N5 (control): a comment-only edit in table_entry_key' "$m" "the whole suite stays green"
+
+m=$(mutant n7 "$JOURNAL" \
+    '        net = fold_records(records)
+        report["attempted"] = len(net)' \
+    '        # MUTANT: a comment, and nothing else.
+        net = fold_records(records)
+        report["attempted"] = len(net)')
+control 'N7 (control): a comment-only edit in the replay' "$m" "the whole suite stays green"
+
+m=$(mutant n8 "$MAIN" \
+    '    mint = mint_fabric_cookie if mint is None else mint' \
+    '    # MUTANT: a comment, and nothing else.
+    mint = mint_fabric_cookie if mint is None else mint')
+control 'N8 (control): a comment-only edit in step 0' "$m" "the whole suite stays green"
 
 m=$(mutant n6 "$INSTALL" \
     '    if default:
@@ -938,7 +1456,8 @@ echo
 [[ "$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)" == "$BASE_TEST_WRITES" ]] || { echo "🔴 baseline CHANGED -- test_p4_client_writes.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_INSTALL" | cut -d' ' -f1)" == "$BASE_TEST_INSTALL" ]] || { echo "🔴 baseline CHANGED -- test_rule_install_times.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)" == "$BASE_TEST_PROXY" ]] || { echo "🔴 baseline CHANGED -- test_app_package_proxy.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (5 sources, 5 test files)"
+[[ "$(sha256sum "$TEST_REPLAY" | cut -d' ' -f1)" == "$BASE_TEST_REPLAY" ]] || { echo "🔴 baseline CHANGED -- test_table_entry_replay.py was written during the gate"; exit 3; }
+echo "baseline byte-identical: yes (5 sources, 6 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else

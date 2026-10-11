@@ -99,8 +99,9 @@ def a_p4info():
     field.match_type = p4info_pb2.MatchField.LPM
     table.action_refs.add().id = FORWARD_ID
 
-    # A table that is not NDTwin's, with a priority column. Synthetic, so a later "NDTwin owns this
-    # table" rule has no opinion about it.
+    # A table with a priority column. Synthetic -- but it is a table NDTwin does not own only because
+    # `a_client` binds no routes (`bind_routes(None)`): on the class default, NDTwin's own pipeline,
+    # the owner check refuses every table here, this one included (n2, round 3).
     ternary = p4info.tables.add()
     ternary.preamble.id = TERNARY_ID
     ternary.preamble.name = "Synthetic.t_ternary"
@@ -319,6 +320,10 @@ class TheFoldTest(unittest.TestCase):
         net = fold_records([rec("modify", "A"), rec("delete", "A", outcome="not_found"),
                             rec("insert", "A")])
         self.assertEqual([n["op"] for n in net], ["modify"])
+        # And a not_found delete that is LAST says only "absent after": a boot entry modified and
+        # then deleted is still a delete.
+        net = fold_records([rec("modify", "B"), rec("delete", "B", outcome="not_found")])
+        self.assertEqual([n["op"] for n in net], ["delete"])
 
     def test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same(self):
         # records_from_net must not lose M1: the snapshot is what the next boot folds.
@@ -1168,6 +1173,14 @@ class TheRouteRecordsTest(TempDirCase):
         self.stub.write_error = FakeRpcError(grpc.StatusCode.UNKNOWN,
                                              per_update_trailer(code_pb2.NOT_FOUND, "gone"))
         self.assertEqual(self.refused(op="modify").status_code, 502)
+        self.assertEqual(os.listdir(self.dir), [])
+
+    def test_a_top_level_not_found_with_no_per_update_reason_is_not_recorded(self):
+        # n3 (round 3). Only the per-update reason (E1's p4rt_error) says NOT_FOUND here; bmv2 answers
+        # every refused Write UNKNOWN at the top. A top-level NOT_FOUND with no per-update detail is
+        # not taken as "the entry was absent": the record says only what the switch said per update.
+        self.stub.write_error = FakeRpcError(grpc.StatusCode.NOT_FOUND)
+        self.assertEqual(self.refused(op="delete").status_code, 502)
         self.assertEqual(os.listdir(self.dir), [])
 
     def test_a_delete_refused_for_another_reason_is_not_recorded(self):

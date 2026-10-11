@@ -838,6 +838,34 @@ class ASwitchThatIsDownAtStartupTest(ReplayCase):
         self.assertEqual(self.switches[1].pushed_cookies[-1], main._generation["cookie"])
         self.assertNotEqual(self.switches[1].pushed_cookies[-1], old_cookie)
 
+    def test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt(self):
+        # DESIGN 5.4 step 0: "even if its push then fails and it is broken, the file says this
+        # boot confirmed it". The journal is another process's (its header names another boot);
+        # the cookie confirms it; the push fails once; the readopt puts the entry back.
+        self.start_proxy()
+        self.ok(exact("10.0.0.1"))
+        lines = self.read_bytes(self.live()).decode().splitlines()
+        header = json.loads(lines[0])
+        header["boot_id"] = "the-proxy-process-before-this-one"
+        with open(self.live(), "w") as fh:
+            fh.write("\n".join([json.dumps(header)] + lines[1:]) + "\n")
+        original = FabricSwitch.SetForwardingPipelineConfig
+        calls = []
+
+        def fail_once(switch, request, timeout=None):
+            calls.append(1)
+            if len(calls) == 1:
+                raise FakeRpcError(grpc.StatusCode.UNAVAILABLE, details="push failed")
+            return original(switch, request, timeout)
+        with mock.patch.object(FabricSwitch, "SetForwardingPipelineConfig", fail_once):
+            self.start_proxy()
+            self.assertEqual(self.summary["broken"], [1])
+            self.assertIs(self.replay_report()["fresh_fabric"], False, "the cookie confirmed it")
+            self.assertEqual(self.lines(self.live())[0]["boot_id"], boot_identity.BOOT_ID)
+            result = self.readopt(1)
+        self.assertEqual(result["table_entries"]["replay"]["succeeded"], 1)
+        self.assertEqual(self.switches[1].holds(EXACT_ID), 1)
+
     def test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm(self):
         # M-J27. Step 0 makes this impossible in production; the check is there anyway.
         self.start_proxy()

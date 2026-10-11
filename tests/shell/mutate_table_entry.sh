@@ -44,10 +44,8 @@
 # the p4info says it is", and the 501 that is left is UNSPECIFIED, guarded by M-J21), and the
 # M-S / M-J7 / M-J8 / M-J9 / M-J21 / M-J24 block before the controls is the new shape rules, one
 # or two mutations per rule. The table-entry journal's mutations are in mutate_table_journal.sh
-# (Cut B). M-B7, M-B14 and M-B20 stay, RE-ANCHORED onto the lines that now compute `journaled`
-# (`table_journals.journaled(dpid)` in main.py, `journaled` in the POST response): what they guard
-# -- that nothing claims an entry survives a proxy restart -- is still the truth, because the
-# journal is recorded but not replayed. They are retired by the change that replays it.
+# (Cut B and C). M-B7 stays; M-B14 and M-B20, which guarded "nothing claims an entry survives a
+# proxy restart", were retired by Cut C, the change that replays the journal (see where they were).
 #
 # Usage:  tests/shell/mutate_table_entry.sh
 #         PROXY_PY=/path/to/python tests/shell/mutate_table_entry.sh
@@ -361,24 +359,12 @@ m=$(mutant b7 "$ROUTES" \
     '    if False:
         written = table_entries_report()')
 report "M-B7: switch_state stops saying what was written to each switch" "$m" \
-       "test_every_switch_reports_what_was_written_and_that_none_of_it_is_journaled"
+       "test_every_switch_reports_what_was_written_and_whether_it_is_journaled"
 
-m=$(mutant b14 "$MAIN" \
-    '                     "journaled": table_journals.journaled(dpid),' \
-    '                     "journaled": True,')
-report "M-B14: switch_state claims these entries survive a proxy restart" "$m" \
-       "test_the_count_reaches_the_endpoint_report_not_just_the_response"
-
-# TICKET-P3 2.6 gave POST /p4/multicast_group the same not-journaled warning, so the old
-# one-line anchor matched twice. Extended upwards to `priority_honoured`, which only the
-# table-entry response has.
-m=$(mutant b20 "$ROUTES" \
-    '            "priority_honoured": written["priority_honoured"],
-            "journaled": journaled, "journal": journal}' \
-    '            "priority_honoured": written["priority_honoured"],
-            "journaled": True, "journal": journal}')
-report "M-B20: the response claims the entry survives a restart, next to a note saying it does not" "$m" \
-       "test_every_success_says_the_entry_is_not_journaled_and_what_that_costs"
+# M-B14 and M-B20 are retired here (Cut C): the journal is replayed, so a recorded entry DOES survive a
+# restart and `journaled: true` is the truth this gate's suites cannot tell apart from the mutants. What
+# they guarded -- no claim for a record that was lost -- is M-B14b and M-B20b in mutate_table_journal.sh,
+# killed there by a journal that cannot be written. [Co-developed with claude code -- Adam]
 
 m=$(mutant b15 "$ROUTES" \
     '    if note_api_table_entry_write is not None:

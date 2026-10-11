@@ -295,9 +295,11 @@ class AnAcceptedEntryTest(TableEntryRouteTestBase):
         self.assertFalse(self.post()["priority_honoured"])
 
     def test_every_success_says_the_entry_is_not_journaled_and_what_that_costs(self):
-        # 🔴 Adam 2026-09-18, option a. The rule is on the switch and it is recorded nowhere: a
-        # proxy restart loses it and nothing replays it. This response is the only place a
-        # caller will ever be told.
+        # 🔴 Adam 2026-09-18, option a. This file's harness injects no journal, so here the rule is
+        # on the switch and recorded nowhere: a proxy restart loses it. This response is the only
+        # place a caller is told. (With a journal it is recorded and replayed:
+        # test_table_entry_journal.py and test_table_entry_replay.py.) [Co-developed with claude
+        # code -- Adam]
         body = self.post()
         self.assertIs(body["journaled"], False)
         self.assertIn("lost when the proxy restarts", body["note"])

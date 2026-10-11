@@ -1855,7 +1855,10 @@ def _readopt_switch_locked(topology, dpid, client_factory, sample_callback, pack
     cooperative = (telemetry_source == TELEMETRY_COOPERATIVE
                    and (ndtwin or pipeline_carries_telemetry(package, dpid)))
 
-    result = topology.readopt_switch(dpid, _with_generation(client_factory),
+    # The push inside carries this boot's fabric generation (DESIGN 5.5), whatever a journal
+    # header says. [Co-developed with claude code -- Adam]
+    client_factory = _with_generation(client_factory)
+    result = topology.readopt_switch(dpid, client_factory,
                                      sample_callback if cooperative else None,
                                      install_routes=ndtwin)
 
