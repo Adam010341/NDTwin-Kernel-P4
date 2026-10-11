@@ -54,7 +54,7 @@ def commands(runtime, key_orders, param_orders):
             lines.append(" ".join(["table_set_default", table, action] + pargs))
             continue
         if "priority" in entry:
-            raise Untranslatable("priority entries are not in the package format (G5)")
+            raise Untranslatable("this translator does not carry priority entries (S0's self-check runtimes have none)")
         margs = _match_args(entry, key_orders[table])
         lines.append(" ".join(["table_add", table, action] + margs + ["=>"] + pargs))
     handle = 0

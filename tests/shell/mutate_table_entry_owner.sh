@@ -306,8 +306,11 @@ report "M15: an external control plane is no longer refused first" "$m" \
 m=$(mutant m16 "$CLIENT" \
     '        self._refuse_owned_table(spec, op, source)' \
     '        pass')
+# [Co-developed with claude code -- Adam] The ternary writer builds this entry, so the test's
+# second half checks the encoding at the builder; the case still has to go red here because the
+# write went out.
 report "M16: the check is dropped (NDTwin's own flow_5tuple p4info, a baseline client)" "$m" \
-       "test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_says_unsupported"
+       "test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_builds_it"
 
 m=$(mutant m17 "$CLIENT" \
     '        if not self.table_owned_by_ndtwin(table):' \
@@ -382,6 +385,18 @@ m=$(mutant m24 "$MAIN" \
     '            if True:')
 report "M24: startup and readopt no longer mark the package entries as boot" "$m" \
        "test_startup_applies_the_packages_default_and_fails_nothing"
+
+# [Co-developed with claude code -- Adam] The order, not the presence, of the check: with the
+# owner answer after the build, a malformed write into an owned table is told it is malformed,
+# not that the table is NDTwin's, and the shape rules (which belong to user tables) speak first.
+m=$(mutant m25 "$CLIENT" \
+    '        self._refuse_owned_table(spec, op, source)
+
+        entry, match_types = self.build_table_entry(spec)' \
+    '        entry, match_types = self.build_table_entry(spec)
+        self._refuse_owned_table(spec, op, source)')
+report "M25: the owner is asked after the entry is built, not before" "$m" \
+       "test_on_ndtwins_pipeline_the_owner_answers_before_the_shape_rules"
 
 echo
 [[ "$(sha256sum "$CLIENT" | cut -d' ' -f1)" == "$BASE_CLIENT" ]] || { echo "🔴 baseline CHANGED -- p4_client.py was written during the gate"; exit 3; }

@@ -1485,23 +1485,19 @@ def flow_stats_report():
     """{dpid as string: {"unrendered_entries": n or None}} from each client's last render.
 
     [Co-developed with claude code -- Adam] TICKET-P4-roles 2.5-1. The count is of the non-default
-    rows the most recent /stats/flow render of that switch did not list -- an action it does not
-    recognise, or a match it cannot translate (section 7 ruling 5, item 3) -- on a foreign
-    pipeline only; NDTwin's own is 0 once read. None before the first render: "nobody rendered
-    this switch" is not "nothing was left out".
+    rows the most recent /stats/flow render of that switch did not list. On every pipeline,
+    NDTwin's own included, that counts a ternary mask or a range Ryu cannot spell (section 7
+    ruling 5, item 3). A foreign pipeline also counts an action the renderer does not recognise
+    and a row with no usable match (an empty-match catch-all, say); on NDTwin's own pipeline such
+    a row is left out of the body too, but it is not counted. None before the first render:
+    "nobody rendered this switch" is not "nothing was left out", and a table read for another
+    purpose is not a render.
     """
     out = {}
     for dpid, client in list(topo.switches.items()):
         seen = getattr(client, "last_flow_render", None)
-        binding = getattr(client, "route_binding", None)
         if seen is not None:
             count = seen[0]
-        elif (binding is not None and binding.source == route_binding.SOURCE_BASELINE
-              and callable(getattr(client, "last_table_read", None))
-              and client.last_table_read() is not None):
-            # NDTwin's own pipeline renders every row it reads (unknown actions still render,
-            # as the empty list), so after its first table read nothing has been left out.
-            count = 0
         else:
             count = None
         out[str(dpid)] = {"unrendered_entries": count}

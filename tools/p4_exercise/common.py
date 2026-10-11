@@ -95,6 +95,23 @@ def import_route_binding():
     return route_binding
 
 
+def import_match_shape():
+    """`p4_proxy/proxy_agent/match_shape`, imported by path.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE SAME CHECK THE PROXY WRITES WITH. `build_table_entry` runs `match_shape` on every
+    entry before it reaches the wire, and a pre-flight with a copy of it would be a second
+    opinion free to disagree -- the pre-flight used to refuse every ternary field with "G5 not
+    done" while the writer had its own 501 for the same field. The module imports no gRPC and no
+    protobuf: match types arrive as the p4info's names.
+    """
+    if PROXY_DIR not in sys.path:
+        sys.path.insert(0, PROXY_DIR)
+    from proxy_agent import match_shape  # noqa: E402
+
+    return match_shape
+
+
 def agent_ip(dpid):
     """The management address a switch with this dpid gets in the generated model."""
     last = AGENT_IP_OFFSET + int(dpid)

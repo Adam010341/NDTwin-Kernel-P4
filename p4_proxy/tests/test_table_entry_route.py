@@ -45,6 +45,7 @@ try:
     import grpc
     from fastapi import HTTPException
     from starlette.requests import Request
+    from google.rpc import code_pb2, status_pb2
     from p4.v1 import p4runtime_pb2
     from p4.config.v1 import p4info_pb2
 
@@ -54,17 +55,33 @@ try:
     from proxy_agent.rule_install_times import RuleInstallTimes
 
     class FakeRpcError(grpc.RpcError):
-        """Must derive from grpc.RpcError or the client's `except` would not catch it."""
+        """Must derive from grpc.RpcError or the client's `except` would not catch it.
 
-        def __init__(self, code, details="fake failure"):
+        `trailers` is what `trailing_metadata()` returns: a failed P4Runtime Write carries its
+        real reason there, in `grpc-status-details-bin`, and the top-level code is UNKNOWN."""
+
+        def __init__(self, code, details="fake failure", trailers=None):
             self._code = code
             self._details = details
+            self._trailers = trailers
 
         def code(self):
             return self._code
 
         def details(self):
             return self._details
+
+        def trailing_metadata(self):
+            return self._trailers
+
+
+    def per_update_trailer(*errors):
+        """The trailer a bmv2 sends: one google.rpc.Status whose details are p4.v1.Error."""
+        status = status_pb2.Status(code=code_pb2.UNKNOWN)
+        for canonical, message in errors:
+            error = p4runtime_pb2.Error(canonical_code=canonical, message=message)
+            status.details.add().Pack(error)
+        return (("grpc-status-details-bin", status.SerializeToString()),)
 
     HAVE_P4RUNTIME = True
 except ImportError:  # pragma: no cover -- depends on the interpreter L1 picks
@@ -110,9 +127,10 @@ def a_p4info():
 
     # 🔴 SYNTHETIC, and named so nobody mistakes them for ndtwin_switch.p4's. No pipeline in
     # this repository declares a RANGE or an OPTIONAL match -- ndtwin_switch has exact, lpm and
-    # ternary, and so do `basic` and `source_routing` -- so the only way to reach the 501 that
-    # TICKET-P2 2.3 (:63) promises for those two is a descriptor written here. Same fixture and
-    # same reasoning as test_p4_client_writes.a_p4info(). [Co-developed with claude code -- Adam]
+    # ternary, and so do `basic` and `source_routing` -- so the only way to exercise the range and
+    # optional branches (the 501 that TICKET-P2 2.3 (:63) promised for them, until the ternary
+    # writer built them) is a descriptor written here. Same fixture and same reasoning as
+    # test_p4_client_writes.a_p4info(). [Co-developed with claude code -- Adam]
     for table_id, table_name, kind in ((900000001, "Synthetic.range_table",
                                         p4info_pb2.MatchField.RANGE),
                                        (900000002, "Synthetic.optional_table",
@@ -126,6 +144,19 @@ def a_p4info():
         field.name = "meta.probe_key"
         field.bitwidth = 16
         field.match_type = kind
+
+    # [Co-developed with claude code -- Adam]
+    # UNSPECIFIED: the one match type left that this writer cannot build, so the only 501 left.
+    # Synthetic, like the two above.
+    table = p4info.tables.add()
+    table.preamble.id = 900000003
+    table.preamble.name = "Synthetic.unspecified_table"
+    table.preamble.alias = "unspecified_table"
+    field = table.match_fields.add()
+    field.id = 1
+    field.name = "meta.probe_key"
+    field.bitwidth = 16
+    field.match_type = p4info_pb2.MatchField.UNSPECIFIED
 
     forward = p4info.actions.add()
     forward.preamble.id = IPV4_FORWARD_ID
@@ -273,6 +304,34 @@ class AnAcceptedEntryTest(TableEntryRouteTestBase):
         self.assertEqual(body["table"], "MyIngress.ipv4_lpm")
         self.assertEqual(only_table_id(self.stub.requests[0]), IPV4_LPM_ID)
 
+    def test_a_ternary_entry_is_accepted_and_the_response_says_which_priority_went_out(self):
+        # R1 at the route. [Co-developed with claude code -- Adam]
+        body = self.post(table="MyIngress.flow_5tuple", match={"hdr.ipv4.protocol": [6, 255]},
+                         priority=10)
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["match_types"], {"hdr.ipv4.protocol": "TERNARY"})
+        self.assertEqual(body["priority"], 10)
+        self.assertTrue(body["priority_honoured"])
+        sent = self.stub.requests[0].updates[0].entity.table_entry
+        self.assertEqual((sent.match[0].ternary.value, sent.match[0].ternary.mask),
+                         (b"\x06", b"\xff"))
+        self.assertEqual(sent.priority, 10)
+
+    def test_a_range_entry_is_accepted(self):
+        body = self.post(table="Synthetic.range_table", match={"meta.probe_key": [1024, 3000]},
+                         action_name="MyIngress.ipv4_forward", priority=5)
+        self.assertEqual(body["match_types"], {"meta.probe_key": "RANGE"})
+        sent = self.stub.requests[0].updates[0].entity.table_entry
+        self.assertEqual((sent.match[0].range.low, sent.match[0].range.high),
+                         (b"\x04\x00", b"\x0b\xb8"))
+
+    def test_an_optional_entry_is_accepted(self):
+        body = self.post(table="Synthetic.optional_table", match={"meta.probe_key": 7},
+                         action_name="MyIngress.ipv4_forward", priority=5)
+        self.assertEqual(body["match_types"], {"meta.probe_key": "OPTIONAL"})
+        sent = self.stub.requests[0].updates[0].entity.table_entry
+        self.assertEqual(sent.match[0].optional.value, b"\x00\x07")
+
     def test_modify_and_delete_are_accepted_verbs(self):
         self.assertEqual(self.post(op="modify")["op"], "modify")
         self.assertEqual(self.post(op="delete")["op"], "delete")
@@ -348,34 +407,17 @@ class EveryRefusalIsItsOwnStatusCodeTest(TableEntryRouteTestBase):
         self.assertEqual(caught.exception.status_code, 400)
         self.assertEqual(self.stub.requests, [])
 
-    def test_a_ternary_match_is_501_and_names_the_match_type(self):
-        error = self.refused(table="MyIngress.flow_5tuple",
-                             match={"hdr.ipv4.protocol": [6, 255]})
-        self.assertEqual(error.status_code, 501)
-        self.assertIn("TERNARY", error.detail["message"])
-        self.assertEqual(error.detail["outcome"], "unsupported_on_p4")
-        self.assertEqual(self.stub.requests, [])
-
-    def test_a_range_match_is_501_and_names_RANGE(self):
-        # TICKET-P2 2.3 (:63) promises 501 for all three, and this one had no test until round 2.
-        # It matters more than the ternary case, not less: a range value is `[lo, hi]`, the same
-        # shape an lpm entry uses for `[value, prefix_len]`, so this is the one a writer that
-        # guessed from the value would build as a real rule instead of refusing.
-        error = self.refused(table="Synthetic.range_table",
-                             match={"meta.probe_key": [1024, 3000]},
-                             action_name="MyIngress.ipv4_forward")
-        self.assertEqual(error.status_code, 501)
-        self.assertIn("RANGE", error.detail["message"])
-        self.assertEqual(error.detail["outcome"], "unsupported_on_p4")
-        self.assertEqual(self.stub.requests, [])
-
-    def test_an_optional_match_is_501_and_names_OPTIONAL(self):
-        # An optional value is a plain value, indistinguishable by shape from an exact one.
-        error = self.refused(table="Synthetic.optional_table",
+    def test_a_match_type_no_writer_can_build_is_501_and_names_it(self):
+        # The only 501 left (R23). TERNARY, RANGE and OPTIONAL used to answer it here; they are
+        # built now (AnAcceptedEntryTest). UNSPECIFIED is a match type the P4Runtime enum names
+        # and nothing can write. [Co-developed with claude code -- Adam]
+        error = self.refused(table="Synthetic.unspecified_table",
                              match={"meta.probe_key": 7},
                              action_name="MyIngress.ipv4_forward")
         self.assertEqual(error.status_code, 501)
-        self.assertIn("OPTIONAL", error.detail["message"])
+        self.assertIn("UNSPECIFIED", error.detail["message"])
+        self.assertEqual(error.detail["outcome"], "unsupported_on_p4")
+        self.assertNotIn("wait for the ternary writer", error.detail["remedy"])
         self.assertEqual(self.stub.requests, [])
 
     def test_an_external_control_plane_is_409(self):
@@ -392,6 +434,77 @@ class EveryRefusalIsItsOwnStatusCodeTest(TableEntryRouteTestBase):
         error = self.refused()
         self.assertEqual(error.status_code, 502)
         self.assertEqual(error.detail["grpc_status"], "PERMISSION_DENIED")
+
+    def test_the_502_carries_the_switchs_own_reason_from_the_per_update_error(self):
+        # E1 / R25. A failed Write is UNKNOWN at the top whatever went wrong; the actual answer
+        # (NOT_FOUND, INVALID_ARGUMENT...) is one p4.v1.Error per update in the trailer. Seen
+        # on a throwaway bmv2 (ternary-a0 stock/01): a delete at the wrong priority is
+        # canonical_code 5 "Cannot find match entry".
+        trailers = per_update_trailer((code_pb2.NOT_FOUND, "Cannot find match entry"))
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.UNKNOWN, details="",
+                                                      trailers=trailers))
+        error = self.refused(op="delete")
+        self.assertEqual(error.status_code, 502)
+        self.assertEqual(error.detail["grpc_status"], "UNKNOWN", "the top-level name stays")
+        self.assertEqual(error.detail["p4rt_error"],
+                         {"code": "NOT_FOUND", "message": "Cannot find match entry"})
+        self.assertIn("NOT_FOUND", error.detail["message"])
+
+    def test_the_first_update_that_was_not_ok_is_the_one_reported(self):
+        trailers = per_update_trailer((code_pb2.OK, ""),
+                                      (code_pb2.INVALID_ARGUMENT, "Zero priority for ternary match"))
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.UNKNOWN, trailers=trailers))
+        self.assertEqual(self.refused().detail["p4rt_error"]["code"], "INVALID_ARGUMENT")
+
+    def test_a_502_with_no_trailer_or_a_broken_one_is_still_a_502_without_the_extra_key(self):
+        for trailers in (None, (), (("grpc-status-details-bin", b"\xff\xfe not a Status"),),
+                         (("other-key", b"x"),)):
+            self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.UNAVAILABLE,
+                                                          trailers=trailers))
+            error = self.refused()
+            self.assertEqual(error.status_code, 502)
+            self.assertEqual(error.detail["grpc_status"], "UNAVAILABLE")
+            self.assertNotIn("p4rt_error", error.detail)
+
+    def test_a_ternary_value_outside_its_mask_is_400_and_nothing_was_written(self):
+        error = self.refused(table="MyIngress.flow_5tuple",
+                             match={"hdr.ipv4.protocol": [7, 6]}, priority=10)
+        self.assertEqual(error.status_code, 400)
+        self.assertIn("bits set outside its mask", error.detail["message"])
+        self.assertEqual(self.stub.requests, [])
+
+    def test_an_empty_match_on_a_priority_table_without_a_priority_is_400(self):
+        # R4 at the route: the road that used to put a priority-0 catch-all on the wire.
+        error = self.refused(table="MyIngress.flow_5tuple", match={})
+        self.assertEqual(error.status_code, 400)
+        self.assertIn("names a priority", error.detail["message"])
+        self.assertEqual(self.stub.requests, [])
+
+    def test_a_priority_above_int32_is_400_and_nothing_was_written(self):
+        # It used to reach the protobuf, which raises a bare ValueError: a 500.
+        error = self.refused(table="MyIngress.flow_5tuple",
+                             match={"hdr.ipv4.protocol": [6, 255]}, priority=2 ** 31)
+        self.assertEqual(error.status_code, 400)
+        self.assertIn("1..2147483647", error.detail["message"])
+        self.assertEqual(self.stub.requests, [])
+
+    def test_a_default_entry_with_a_priority_is_400(self):
+        error = self.refused(table="MyIngress.flow_5tuple", match={}, default_action=True,
+                             priority=5)
+        self.assertEqual(error.status_code, 400)
+        self.assertEqual(self.stub.requests, [])
+
+    def test_a_zero_mask_is_400_saying_to_omit_the_field(self):
+        error = self.refused(table="MyIngress.flow_5tuple",
+                             match={"hdr.ipv4.protocol": [0, 0]}, priority=10)
+        self.assertEqual(error.status_code, 400)
+        self.assertIn("omit the field", error.detail["message"])
+        self.assertEqual(self.stub.requests, [])
+
+    def test_an_lpm_prefix_of_zero_is_400(self):
+        error = self.refused(match={"hdr.ipv4.dstAddr": ["0.0.0.0", 0]})
+        self.assertEqual(error.status_code, 400)
+        self.assertEqual(self.stub.requests, [])
 
     def test_a_refusal_is_not_counted_as_an_api_write(self):
         # `switch_state`'s api_writes says how many rules this endpoint put on the switch. A

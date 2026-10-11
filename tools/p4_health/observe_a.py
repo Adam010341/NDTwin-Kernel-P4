@@ -223,8 +223,11 @@ def thrift_priority(p4rt_priority):
     return BMV2_PRIORITY_TOP - int(p4rt_priority)
 
 
+#: (Cut A + D) T4's value is its own network address: the writer refuses a value with a bit outside its mask
+#: (match_shape V3, "the value is not masked for you"; 400 before the wire), so 10.0.4.4/255.255.255.0 would be a
+#: correct refusal read as T4 RED.
 T4_BODY = {"dpid": 2, "op": "insert", "table": "HcIngress.t_ternary",
-           "match": {"hdr.ipv4.srcAddr": ["10.0.4.4", "255.255.255.0"]},
+           "match": {"hdr.ipv4.srcAddr": ["10.0.4.0", "255.255.255.0"]},
            "action_name": "HcIngress.set_mark", "action_params": {"v": 4}, "priority": 10}
 T5_BODY = {"dpid": 2, "op": "insert", "table": "HcIngress.t_range",
            "match": {"hdr.udp.dstPort": [40100, 40110]},
@@ -241,7 +244,7 @@ T7_BODIES = ({"dpid": 2, "op": "insert", "table": "HcIngress.t_ternary",
 
 
 def observe_t4(cfg, runner):
-    v, m = to_int("10.0.4.4") & to_int("255.255.255.0"), to_int("255.255.255.0")
+    v, m = to_int(T4_BODY["match"]["hdr.ipv4.srcAddr"][0]), to_int(T4_BODY["match"]["hdr.ipv4.srcAddr"][1])
 
     def find(dump):
         return [e for e in (dump or {}).get("entries", [])

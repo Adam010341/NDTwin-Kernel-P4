@@ -310,9 +310,27 @@ class EntryKeyTest(unittest.TestCase):
     def test_a_match_type_nobody_models_keeps_two_entries_apart(self):
         # An unknown type is a reason to be more careful, not less: collapsing two entries onto
         # one key would hand one of them the other's age.
-        a = {"meta.future": {"type": "optional", "value": b"\x01"}}
-        b = {"meta.future": {"type": "optional", "value": b"\x02"}}
+        # ("optional" stood in for the unmodelled type here until the ternary writer modelled it.)
+        a = {"meta.future": {"type": "some_future_type", "value": b"\x01"}}
+        b = {"meta.future": {"type": "some_future_type", "value": b"\x02"}}
         self.assertNotEqual(self.key(match=a), self.key(match=b))
+
+    def test_an_optional_field_is_modelled_and_keyed_by_its_value_without_leading_zeros(self):
+        # [Co-developed with claude code -- Adam] The write side now builds optional entries and
+        # the read side reports them. bmv2 strips leading zero bytes on the way out (ternary-a0
+        # item 10), so b"\x00\x07" written and b"\x07" read are the same entry.
+        written = {"meta.probe_key": {"type": "optional", "value": b"\x00\x07"}}
+        read = {"meta.probe_key": {"type": "optional", "value": b"\x07"}}
+        other = {"meta.probe_key": {"type": "optional", "value": b"\x08"}}
+        self.assertEqual(self.key(match=written), self.key(match=read))
+        self.assertNotEqual(self.key(match=written), self.key(match=other))
+        self.assertEqual(normalise_match(written)[0][1][0], "optional",
+                         "an optional field fell through to the 'unknown' branch")
+
+    def test_an_optional_field_is_not_the_same_entry_as_a_ternary_one_with_the_same_value(self):
+        optional = {"meta.probe_key": {"type": "optional", "value": b"\x07"}}
+        ternary = {"meta.probe_key": {"type": "ternary", "value": b"\x07", "mask": b"\xff"}}
+        self.assertNotEqual(self.key(match=optional), self.key(match=ternary))
 
     def test_an_empty_match_is_a_key_rather_than_a_crash(self):
         # read_table_entries reports default actions with no match fields at all. The renderer

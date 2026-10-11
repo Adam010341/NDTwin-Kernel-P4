@@ -117,7 +117,8 @@ def runtime(dpid, with_ternary=False):
         entries.append({"table": "HcIngress.t_default_only", "default_action": True,
                         "action_name": "HcIngress.stamp", "action_params": {"v": T2_RUNTIME_DEFAULT}})
     if with_ternary:
-        # PF-T: a boot entry that names a TERNARY field. Pre-flight must refuse it (G5).
+        # PF-T: a boot entry that names a TERNARY field. Pre-flight must accept it: it checks the entry with the
+        # proxy writer's own match_shape (value inside its mask, a priority), as the writer will.
         entries.append({"table": "HcIngress.t_ternary", "priority": 10,
                         "match": {"hdr.ipv4.srcAddr": [host_ip(1), "255.255.255.255"]},
                         "action_name": "HcIngress.set_mark", "action_params": {"v": 7}})

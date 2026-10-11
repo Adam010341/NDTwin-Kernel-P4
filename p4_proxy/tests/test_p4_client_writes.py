@@ -193,14 +193,14 @@ def a_p4info():
 
     # 🔴 SYNTHETIC, and named so nobody mistakes them for ndtwin_switch.p4's.
     # [Co-developed with claude code -- Adam]
-    # TICKET-P2 2.3 (:63) says range and optional answer 501 too, and NO pipeline in this
-    # repository declares either match type -- ndtwin_switch has exact, lpm and ternary and
-    # nothing else, and neither does `basic` or `source_routing`. So the only way to exercise
-    # those two branches at all is a descriptor written here. The ids are deliberately outside
-    # p4c's range so a real id can never collide with one, and the only thing the code under
-    # test reads off them is `match_type` -- which it resolves through the generated enum, so
-    # what is being asserted is that MatchField.RANGE and MatchField.OPTIONAL reach the refusal,
-    # not that some number does.
+    # NO pipeline in this repository declares a RANGE or an OPTIONAL match -- ndtwin_switch has
+    # exact, lpm and ternary and nothing else, and neither does `basic` or `source_routing`. So
+    # the only way to exercise the writer's range and optional branches at all is a descriptor
+    # written here (they were the 501 branches before the ternary writer, and are built now).
+    # The ids are deliberately outside p4c's range so a real id can never collide with one, and
+    # the only thing the code under test reads off them is `match_type` -- which it resolves
+    # through the generated enum, so what is being asserted is that MatchField.RANGE and
+    # MatchField.OPTIONAL are built as range and optional, not that some number is.
     for table_id, table_name, kind in ((900000001, "Synthetic.range_table",
                                         p4info_pb2.MatchField.RANGE),
                                        (900000002, "Synthetic.optional_table",
@@ -212,6 +212,49 @@ def a_p4info():
         field = table.match_fields.add()
         field.id = 1
         field.name = "meta.probe_key"
+        field.bitwidth = 16
+        field.match_type = kind
+
+    # [Co-developed with claude code -- Adam]
+    # A match type the P4Runtime enum names and no writer can build: UNSPECIFIED (0), which is
+    # what a field carries when p4c wrote a target-specific `other` or nothing at all. Since the
+    # writer learned TERNARY, RANGE and OPTIONAL this is the only 501 left, so it needs a table
+    # of its own. Synthetic for the same reason as the two above.
+    table = p4info.tables.add()
+    table.preamble.id = 900000003
+    table.preamble.name = "Synthetic.unspecified_table"
+    table.preamble.alias = "unspecified_table"
+    field = table.match_fields.add()
+    field.id = 1
+    field.name = "meta.probe_key"
+    field.bitwidth = 16
+    field.match_type = p4info_pb2.MatchField.UNSPECIFIED
+
+    # [Co-developed with claude code -- Adam]
+    # An LPM table that is not NDTwin's `ipv4_lpm`, for the one shape property that has to hold
+    # on a table nobody owns: leaving the lpm field out is "any address".
+    table = p4info.tables.add()
+    table.preamble.id = 900000005
+    table.preamble.name = "Synthetic.lpm_table"
+    table.preamble.alias = "lpm_table"
+    field = table.match_fields.add()
+    field.id = 1
+    field.name = "meta.probe_addr"
+    field.bitwidth = 32
+    field.match_type = p4info_pb2.MatchField.LPM
+
+    # [Co-developed with claude code -- Adam]
+    # One EXACT and one TERNARY field in the same table, which no pipeline here has and V8 needs:
+    # the rule is "an EXACT field cannot be left out" and the ternary field beside it CAN be.
+    table = p4info.tables.add()
+    table.preamble.id = 900000004
+    table.preamble.name = "Synthetic.mixed_table"
+    table.preamble.alias = "mixed_table"
+    for field_id, name, kind in ((1, "meta.exact_key", p4info_pb2.MatchField.EXACT),
+                                 (2, "meta.ternary_key", p4info_pb2.MatchField.TERNARY)):
+        field = table.match_fields.add()
+        field.id = field_id
+        field.name = name
         field.bitwidth = 16
         field.match_type = kind
 
@@ -1720,45 +1763,75 @@ class BuildTableEntryTest(unittest.TestCase):
             self.build(**self.lpm_spec(action_params={"port": 1}))
         self.assertIn("dstAddr", str(caught.exception))
 
-    def test_a_ternary_field_is_unsupported_and_says_which_match_type_it_is(self):
-        with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
-            self.build(table="MyIngress.flow_5tuple",
-                       match={"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
-                       action_name="MyIngress.ipv4_forward",
-                       action_params={"dstAddr": "08:00:00:00:01:11", "port": 1})
-        self.assertIn("TERNARY", str(caught.exception))
+    def test_a_ternary_field_is_built_with_its_value_and_mask(self):
+        # R1. [Co-developed with claude code -- Adam]
+        entry, kinds = self.build(table="MyIngress.flow_5tuple",
+                                  match={"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
+                                  action_name="MyIngress.ipv4_forward",
+                                  action_params={"dstAddr": "08:00:00:00:01:11", "port": 1},
+                                  priority=10)
+        self.assertEqual(entry.table_id, FLOW_5TUPLE_ID)
+        self.assertEqual(len(entry.match), 1)
+        self.assertEqual(entry.match[0].field_id, 3, "dstAddr is flow_5tuple's third field")
+        self.assertEqual(entry.match[0].WhichOneof("field_match_type"), "ternary")
+        self.assertEqual(entry.match[0].ternary.value, socket.inet_aton("10.0.1.1"))
+        self.assertEqual(entry.match[0].ternary.mask, b"\xff\xff\xff\xff")
+        self.assertEqual(entry.priority, 10)
+        self.assertEqual(kinds, {"hdr.ipv4.dstAddr": "TERNARY"})
 
-    def test_a_range_field_is_unsupported_and_says_RANGE(self):
-        # 🔴 A range value is `[lo, hi]` -- the same two-element list an lpm entry uses for
-        # `[value, prefix_len]`. So a writer that decided the shape from the VALUE would build
-        # this as an lpm entry with a prefix length of `hi`, and 3000 is not a prefix length:
-        # it would either be rejected by bmv2 with an opaque status or truncated into a mask
-        # that matches traffic nobody asked about. The p4info is what says which it is.
-        with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
-            self.build(table="Synthetic.range_table",
-                       match={"meta.probe_key": [1024, 3000]},
-                       action_name="MyIngress.send_to_cpu", action_params={})
-        self.assertIn("RANGE", str(caught.exception))
+    def test_a_ternary_mask_is_kept_as_written_and_not_widened_to_the_whole_field(self):
+        entry, _ = self.build(table="MyIngress.flow_5tuple",
+                              match={"hdr.ipv4.dstAddr": ["10.0.0.0", "255.0.0.0"],
+                                     "hdr.ipv4.protocol": [6, 255]},
+                              action_name="MyIngress.send_to_cpu", action_params={}, priority=3)
+        by_id = {m.field_id: m.ternary for m in entry.match}
+        self.assertEqual(by_id[3].mask, b"\xff\x00\x00\x00")
+        self.assertEqual((by_id[4].value, by_id[4].mask), (b"\x06", b"\xff"))
 
-    def test_an_optional_field_is_unsupported_and_says_OPTIONAL(self):
-        # An optional value is a plain value -- indistinguishable from an exact one by shape.
-        # Same argument as RANGE, from the other direction.
+    def test_a_range_field_is_built_with_its_low_and_high(self):
+        # R2. A range value is `[lo, hi]` -- the same two-element list an lpm entry uses for
+        # `[value, prefix_len]`. The p4info is what says which it is, so 3000 here is a bound
+        # and not a prefix length. [Co-developed with claude code -- Adam]
+        entry, kinds = self.build(table="Synthetic.range_table",
+                                  match={"meta.probe_key": [1024, 3000]},
+                                  action_name="MyIngress.send_to_cpu", action_params={},
+                                  priority=5)
+        self.assertEqual(entry.match[0].WhichOneof("field_match_type"), "range")
+        self.assertEqual(entry.match[0].range.low, b"\x04\x00")
+        self.assertEqual(entry.match[0].range.high, b"\x0b\xb8")
+        self.assertEqual(entry.priority, 5)
+        self.assertEqual(kinds, {"meta.probe_key": "RANGE"})
+
+    def test_an_optional_field_is_built_from_a_plain_value_or_a_one_element_list(self):
+        # R3. An optional value is a plain value -- indistinguishable from an exact one by
+        # shape, which is why the p4info decides. [Co-developed with claude code -- Adam]
+        for raw in (7, [7]):
+            entry, kinds = self.build(table="Synthetic.optional_table",
+                                      match={"meta.probe_key": raw},
+                                      action_name="MyIngress.send_to_cpu", action_params={},
+                                      priority=5)
+            self.assertEqual(entry.match[0].WhichOneof("field_match_type"), "optional")
+            self.assertEqual(entry.match[0].optional.value, b"\x00\x07")
+            self.assertEqual(kinds, {"meta.probe_key": "OPTIONAL"})
+
+    def test_a_match_type_no_writer_can_build_is_unsupported_and_says_which_it_is(self):
+        # R23. The only 501 left: UNSPECIFIED. [Co-developed with claude code -- Adam]
         with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
-            self.build(table="Synthetic.optional_table",
+            self.build(table="Synthetic.unspecified_table",
                        match={"meta.probe_key": 7},
                        action_name="MyIngress.send_to_cpu", action_params={})
-        self.assertIn("OPTIONAL", str(caught.exception))
+        self.assertIn("UNSPECIFIED", str(caught.exception))
+        self.assertIn("unspecified_table", str(caught.exception))
 
-    def test_neither_range_nor_optional_reaches_the_switch(self):
-        for table, value in (("Synthetic.range_table", [1024, 3000]),
-                             ("Synthetic.optional_table", 7)):
-            client = a_client()
-            client.bind_routes(None)  # a user table: see WriteTableEntryTest.setUp
-            with self.assertRaises(p4_client_module.TableEntryUnsupported):
-                client.write_table_entry({"table": table, "match": {"meta.probe_key": value},
-                                          "action_name": "MyIngress.send_to_cpu",
-                                          "action_params": {}})
-            self.assertEqual(client.stub.requests, [], f"{table} put a request on the wire")
+    def test_an_unsupported_match_type_reaches_no_switch(self):
+        client = a_client()
+        client.bind_routes(None)  # a user table: see WriteTableEntryTest.setUp
+        with self.assertRaises(p4_client_module.TableEntryUnsupported):
+            client.write_table_entry({"table": "Synthetic.unspecified_table",
+                                      "match": {"meta.probe_key": 7},
+                                      "action_name": "MyIngress.send_to_cpu",
+                                      "action_params": {}})
+        self.assertEqual(client.stub.requests, [], "an unsupported table put a request on the wire")
 
     def test_the_match_type_name_comes_from_the_generated_enum(self):
         # 🔴 P4Runtime's MatchType skips 1: UNSPECIFIED=0, EXACT=2, LPM=3, TERNARY=4, RANGE=5,
@@ -1933,14 +2006,19 @@ class WriteTableEntryTest(unittest.TestCase):
             self.client.write_table_entry(self.spec())
         self.assertEqual(len(self.client.rule_install_times), 0)
 
-    def test_an_unsupported_match_reaches_no_switch(self):
-        with self.assertRaises(p4_client_module.TableEntryUnsupported):
-            self.client.write_table_entry(
-                {"table": "MyIngress.flow_5tuple",
-                 "match": {"hdr.ipv4.protocol": [6, 255]},
-                 "action_name": "MyIngress.ipv4_forward",
-                 "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}})
-        self.assertEqual(self.client.stub.requests, [])
+    def test_a_ternary_entry_goes_on_the_wire_with_its_mask_and_its_priority(self):
+        result = self.client.write_table_entry(
+            {"table": "MyIngress.flow_5tuple",
+             "match": {"hdr.ipv4.protocol": [6, 255]},
+             "action_name": "MyIngress.ipv4_forward",
+             "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1},
+             "priority": 100})
+        sent = only_update(self.client.stub.requests[0]).entity.table_entry
+        self.assertEqual(sent.match[0].ternary.value, b"\x06")
+        self.assertEqual(sent.match[0].ternary.mask, b"\xff")
+        self.assertEqual(sent.priority, 100)
+        self.assertEqual(result["priority"], 100)
+        self.assertTrue(result["priority_honoured"])
 
     def test_an_over_wide_value_reaches_no_switch(self):
         with self.assertRaises(p4_client_module.TableEntryInvalid):
@@ -1969,6 +2047,474 @@ class WriteTableEntryTest(unittest.TestCase):
             self.client.write_table_entry(self.spec())
         self.assertEqual(self.client.stub.requests, [])
         self.assertIn("external control plane", str(caught.exception))
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class TheShapeRulesTest(unittest.TestCase):
+    """
+    V1-V5, V8 and V9 of the ternary writer's design: what a match field may look like, and that
+    a refusal puts nothing on the wire.
+
+    [Co-developed with claude code -- Adam]
+    Every refusal here goes through `write_table_entry` and asserts `stub.requests == []`, for
+    the reason this file states at WriteTableEntryTest: "nothing was written" is a claim about
+    the wire. Each rule repeats a refusal bmv2 makes itself (measured, ternary-a0 items 03-05 and
+    09 and 12) -- the point of making it here is a 400 with a sentence instead of a 502 UNKNOWN.
+
+    🔴 THESE ARE USER WRITES, so the double is bound as one (no `roles`, as WriteTableEntryTest
+    binds it). The table names are the fixture's, which are NDTwin's, but the subject is what a
+    match may look like, not who may write the table: on a switch bound to NDTwin's own pipeline
+    the owner check (V7, trunk 6c1a78c8) refuses every one of these as NDTwin's table before a
+    shape rule is looked at -- tests/test_table_entry_owner.py holds that refusal -- so left on
+    the class default every case here would test the 409 and none the shape rules.
+    """
+
+    def setUp(self):
+        self.client = a_client()
+        self.client.bind_routes(None)  # a user pipeline: see the class docstring
+
+    def ternary(self, **match):
+        return {"table": "MyIngress.flow_5tuple", "match": match,
+                "action_name": "MyIngress.send_to_cpu", "action_params": {}, "priority": 10}
+
+    def refuse(self, spec, needle, op="insert"):
+        with self.assertRaises(p4_client_module.TableEntryInvalid) as caught:
+            self.client.write_table_entry(spec, op)
+        self.assertIn(needle, str(caught.exception))
+        self.assertEqual(self.client.stub.requests, [], "a refused entry put a request on the wire")
+
+    def accept(self, spec, op="insert"):
+        self.client.write_table_entry(spec, op)
+        return only_update(self.client.stub.requests[-1]).entity.table_entry
+
+    def range_spec(self, value, **extra):
+        spec = {"table": "Synthetic.range_table", "match": {"meta.probe_key": value},
+                "action_name": "MyIngress.send_to_cpu", "action_params": {}, "priority": 5}
+        spec.update(extra)
+        return spec
+
+    def optional_spec(self, value):
+        return {"table": "Synthetic.optional_table", "match": {"meta.probe_key": value},
+                "action_name": "MyIngress.send_to_cpu", "action_params": {}, "priority": 5}
+
+    # --- V3 ------------------------------------------------------------------------------------
+
+    def test_a_ternary_value_with_a_bit_outside_its_mask_is_refused(self):
+        self.refuse(self.ternary(**{"hdr.ipv4.dstAddr": ["10.0.0.1", "255.0.0.0"]}),
+                    "bits set outside its mask")
+
+    def test_the_same_holds_for_a_small_field_given_as_integers(self):
+        # 6 is 0b110 and the mask 4 is 0b100: bit 1 is outside it.
+        self.refuse(self.ternary(**{"hdr.ipv4.protocol": [6, 4]}), "bits set outside its mask")
+
+    def test_a_value_inside_its_mask_is_accepted_and_not_rewritten(self):
+        sent = self.accept(self.ternary(**{"hdr.ipv4.protocol": [4, 6]}))
+        self.assertEqual((sent.match[0].ternary.value, sent.match[0].ternary.mask),
+                         (b"\x04", b"\x06"))
+
+    # --- V4 ------------------------------------------------------------------------------------
+
+    def test_a_range_with_low_above_high_is_refused(self):
+        self.refuse(self.range_spec([3000, 1024]), "low above high")
+
+    def test_a_single_point_range_and_an_ordinary_range_are_accepted(self):
+        self.accept(self.range_spec([7, 7]))
+        self.accept(self.range_spec([1024, 3000]))
+        self.assertEqual(len(self.client.stub.requests), 2)
+
+    # --- V5, all three spellings ---------------------------------------------------------------
+
+    def test_a_ternary_mask_of_zero_is_refused_saying_to_omit_the_field(self):
+        self.refuse(self.ternary(**{"hdr.ipv4.dstAddr": ["0.0.0.0", "0.0.0.0"]}),
+                    "omit the field")
+
+    def test_a_zero_mask_with_a_non_zero_value_is_refused_the_same_way(self):
+        # bmv2 refuses this one as well (ternary-a0 item 05): value 10.0.0.1, mask 0.
+        self.refuse(self.ternary(**{"hdr.ipv4.dstAddr": ["10.0.0.1", "0.0.0.0"]}),
+                    "omit the field")
+
+    def test_the_whole_range_is_refused_saying_to_omit_the_field(self):
+        self.refuse(self.range_spec([0, 65535]), "omit the field")
+
+    def test_a_range_one_short_of_the_whole_is_accepted(self):
+        self.accept(self.range_spec([0, 65534]))
+        self.accept(self.range_spec([1, 65535]))
+        self.assertEqual(len(self.client.stub.requests), 2)
+
+    def test_an_lpm_prefix_of_zero_is_refused_saying_to_omit_the_field(self):
+        # R6a. Until now an lpm /0 built, went on the wire, and came back as 502 UNKNOWN.
+        for value in ("0.0.0.0", "10.0.0.0"):
+            self.refuse({"table": "MyIngress.ipv4_lpm",
+                         "match": {"hdr.ipv4.dstAddr": [value, 0]},
+                         "action_name": "MyIngress.send_to_cpu", "action_params": {}},
+                        "omit the field")
+
+    def test_leaving_the_lpm_field_out_is_the_way_to_say_any_address(self):
+        # The shape-rule property, on a table that is not NDTwin's and through the builder, so it
+        # does not depend on who is allowed to WRITE a table (the owner check, V7, is a different
+        # layer, run before the builder).
+        entry, kinds = self.client.build_table_entry(
+            {"table": "Synthetic.lpm_table", "match": {},
+             "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+        self.assertEqual((len(entry.match), kinds), (0, {}))
+
+    # --- V9 ------------------------------------------------------------------------------------
+
+    def test_an_lpm_value_with_host_bits_is_refused_on_insert_and_on_delete(self):
+        # R7b. bmv2 refuses both and does not canonicalise (ternary-a0 item 09).
+        for op in ("insert", "delete"):
+            self.client.stub.requests.clear()
+            self.refuse({"table": "MyIngress.ipv4_lpm",
+                         "match": {"hdr.ipv4.dstAddr": ["10.1.2.3", 8]},
+                         "action_name": "MyIngress.send_to_cpu", "action_params": {}},
+                        "beyond its /8 prefix", op)
+
+    def test_a_network_address_and_a_host_route_are_both_accepted(self):
+        for value, prefix in (("10.1.0.0", 16), ("10.1.2.3", 32)):
+            self.accept({"table": "MyIngress.ipv4_lpm",
+                         "match": {"hdr.ipv4.dstAddr": [value, prefix]},
+                         "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+        self.assertEqual(len(self.client.stub.requests), 2)
+
+    # --- V1 ------------------------------------------------------------------------------------
+
+    def test_a_ternary_field_wants_exactly_value_and_mask(self):
+        for raw in (["10.0.0.0", "255.0.0.0", "x"], ["10.0.0.0"], "10.0.0.0", 7, None):
+            self.client.stub.requests.clear()
+            self.refuse(self.ternary(**{"hdr.ipv4.dstAddr": raw}), "[value, mask]")
+
+    def test_a_range_field_wants_exactly_low_and_high(self):
+        for raw in ([1, 2, 3], [1], 5):
+            self.refuse(self.range_spec(raw), "[low, high]")
+
+    def test_an_optional_field_given_two_elements_is_refused(self):
+        # An optional value is ONE value. Two elements are the shape of lpm or ternary, and
+        # taking the first would match what its author did not write.
+        self.refuse(self.optional_spec([7, 255]), "OPTIONAL")
+        self.refuse(self.optional_spec([]), "OPTIONAL")
+
+    def test_an_optional_value_is_accepted_bare_or_as_a_one_element_list(self):
+        for raw in (7, [7]):
+            sent = self.accept(self.optional_spec(raw))
+            self.assertEqual(sent.match[0].optional.value, b"\x00\x07")
+
+    # --- V2, for the three new types -----------------------------------------------------------
+
+    def test_a_ternary_value_or_mask_that_does_not_fit_is_refused(self):
+        # Each case below is one that TRUNCATION would turn into an ACCEPTED entry (0x106 -> 6,
+        # 0x1ff -> 0xff), so a writer that narrowed instead of refusing would show up as an
+        # entry on the wire and not merely as a different sentence.
+        self.refuse(self.ternary(**{"hdr.ipv4.protocol": [256, 255]}), "does not fit")
+        self.refuse(self.ternary(**{"hdr.ipv4.protocol": [0x106, 255]}), "does not fit")
+        self.refuse(self.ternary(**{"hdr.ipv4.protocol": [6, 256]}), "does not fit")
+        self.refuse(self.ternary(**{"hdr.ipv4.protocol": [6, 0x1ff]}), "does not fit")
+
+    def test_a_range_bound_that_does_not_fit_is_refused(self):
+        # 70000 truncated to 16 bits is 4464: either bound narrowed would be an accepted range.
+        self.refuse(self.range_spec([1, 70000]), "does not fit")
+        self.refuse(self.range_spec([70000, 65535]), "does not fit")
+        self.refuse(self.range_spec([70000, 70001]), "does not fit")
+
+    def test_an_optional_value_that_does_not_fit_is_refused(self):
+        self.refuse(self.optional_spec(70000), "does not fit")
+
+    def test_a_mask_with_a_bit_above_the_field_width_is_refused(self):
+        # ingress_port is bit<9>: two bytes on the wire, 0x01ff the widest value. 0xffff is two
+        # bytes and fits the BYTE count -- `encode_value` takes bytes as already encoded -- so
+        # the field's own width has to be checked as well, or bmv2 reads a mask this proxy
+        # never meant.
+        self.refuse(self.ternary(**{"standard_metadata.ingress_port": [1, b"\xff\xff"]}),
+                    "does not fit")
+
+    def test_the_message_names_the_table_and_the_field(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid) as caught:
+            self.client.write_table_entry(
+                self.ternary(**{"hdr.ipv4.dstAddr": ["10.0.0.1", "255.0.0.0"]}))
+        self.assertIn("MyIngress.flow_5tuple.hdr.ipv4.dstAddr", str(caught.exception))
+
+    # --- V8 ------------------------------------------------------------------------------------
+
+    def test_an_exact_field_left_out_is_refused(self):
+        # R7. Today it builds, goes on the wire, and bmv2 answers "Missing non-ternary field in
+        # match key" -- reported as 502 UNKNOWN.
+        self.refuse({"table": "MyIngress.l2_forward", "match": {},
+                     "action_name": "MyIngress.forward_l2", "action_params": {"port": 1}},
+                    "EXACT field")
+
+    def test_the_ternary_field_beside_an_exact_one_may_be_left_out_but_not_the_exact(self):
+        self.refuse({"table": "Synthetic.mixed_table", "match": {"meta.ternary_key": [1, 255]},
+                     "action_name": "MyIngress.send_to_cpu", "action_params": {},
+                     "priority": 3}, "meta.exact_key")
+        sent = self.accept({"table": "Synthetic.mixed_table", "match": {"meta.exact_key": 9},
+                            "action_name": "MyIngress.send_to_cpu", "action_params": {},
+                            "priority": 3})
+        self.assertEqual([m.field_id for m in sent.match], [1])
+
+    def test_a_default_entry_names_no_exact_field_and_that_is_fine(self):
+        self.client.write_table_entry({"table": "MyIngress.l2_forward", "default_action": True,
+                                       "action_name": "MyIngress.send_to_cpu",
+                                       "action_params": {}})
+        self.assertEqual(len(self.client.stub.requests), 1)
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class ThePriorityRulesTest(unittest.TestCase):
+    """
+    V6: a table with a TERNARY, RANGE or OPTIONAL field has a priority column; every insert,
+    modify and delete names one in 1..2147483647; a default entry takes none; a table without
+    the column takes none.
+
+    [Co-developed with claude code -- Adam]
+    The cases that matter most here reach the check by the EMPTY-MATCH road. An entry with no
+    match field at all builds without looking at a single value, so on the code before this one
+    nothing stopped `{"table": "MyIngress.flow_5tuple", "match": {}}` from going on the wire at
+    priority 0 (bmv2 answers "Zero priority for ternary match", ternary-a0 item 14) or at any
+    priority at all as a catch-all in front of ipv4_lpm (item 13: accepted).
+
+    On NDTwin's own pipeline that catch-all is now refused as NDTwin's table (V7, trunk
+    6c1a78c8: 409 owned_by_ndtwin, before anything is built; TheSection15CatchAllIsRefusedTest
+    below). The priority rules are about the table's priority column, not about its owner, so
+    this class runs them as a user write, bound the way WriteTableEntryTest binds it.
+    """
+
+    def setUp(self):
+        self.client = a_client()
+        self.client.bind_routes(None)  # a user pipeline: see the class docstring
+
+    def spec(self, **overrides):
+        spec = {"table": "MyIngress.flow_5tuple", "match": {},
+                "action_name": "MyIngress.send_to_cpu", "action_params": {}}
+        spec.update(overrides)
+        return spec
+
+    def refuse(self, spec, needle, op="insert"):
+        with self.assertRaises(p4_client_module.TableEntryInvalid) as caught:
+            self.client.write_table_entry(spec, op)
+        self.assertIn(needle, str(caught.exception))
+        self.assertEqual(self.client.stub.requests, [], "a refused entry put a request on the wire")
+
+    def test_an_empty_match_with_no_priority_is_refused_on_a_table_that_has_a_priority_column(self):
+        # R4.
+        self.refuse(self.spec(), "names a priority")
+
+    def test_an_empty_match_at_priority_zero_is_refused_the_same_way(self):
+        self.refuse(self.spec(priority=0), "names a priority")
+
+    def test_modify_and_delete_need_the_priority_as_well(self):
+        # The priority is part of the entry's identity: a modify or delete at another one is
+        # NOT_FOUND on the switch, and with none it is INVALID_ARGUMENT (ternary-a0 items 01-02).
+        for op in ("modify", "delete"):
+            self.client.stub.requests.clear()
+            self.refuse(self.spec(match={"hdr.ipv4.protocol": [6, 255]}), "names a priority", op)
+
+    def test_every_field_omitted_with_a_priority_passes_the_shape_rules_on_any_table(self):
+        # Every field omitted is "any value" (bmv2 takes it: ternary-a0 item 13). Asserted on the
+        # synthetic tables, which belong to nobody, and through the builder, so the property
+        # stands whatever the owner check later decides about NDTwin's own tables.
+        for table in ("Synthetic.range_table", "Synthetic.optional_table"):
+            entry, kinds = self.client.build_table_entry(
+                {"table": table, "match": {}, "priority": 1,
+                 "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+            self.assertEqual((len(entry.match), entry.priority, kinds), (0, 1, {}), table)
+
+    def test_the_largest_int32_priority_is_accepted_and_one_past_it_is_not(self):
+        entry, _ = self.client.build_table_entry(self.spec(priority=2 ** 31 - 1))
+        self.assertEqual(entry.priority, 2 ** 31 - 1)
+        self.refuse(self.spec(priority=2 ** 31), "1..2147483647")
+
+    def test_a_negative_priority_is_refused(self):
+        self.refuse(self.spec(priority=-1), "1..2147483647")
+
+    def test_a_priority_that_is_not_an_integer_is_refused(self):
+        for bad in (True, "10", 1.5, [10]):
+            self.client.stub.requests.clear()
+            self.refuse(self.spec(priority=bad), "'priority' must be an integer")
+
+    def test_a_default_entry_with_a_priority_is_refused(self):
+        # R5. bmv2: "Non-zero priority for default entry" (ternary-a0 item 06).
+        self.refuse(self.spec(default_action=True, priority=5), "default entry takes no priority")
+
+    def test_a_default_entry_with_priority_zero_or_none_is_accepted(self):
+        for priority in (None, 0):
+            self.client.stub.requests.clear()
+            self.client.write_table_entry(self.spec(default_action=True, priority=priority))
+            sent = only_update(self.client.stub.requests[0]).entity.table_entry
+            self.assertTrue(sent.is_default_action)
+            self.assertEqual(sent.priority, 0)
+
+    def test_a_non_zero_priority_is_refused_on_an_exact_or_lpm_table_for_every_verb(self):
+        # ternary-a0 item 15: bmv2 refuses it on insert, modify AND delete. The modify and
+        # delete halves are why the check cannot live only on insert.
+        for op in ("insert", "modify", "delete"):
+            for table, match in (("MyIngress.ipv4_lpm", {"hdr.ipv4.dstAddr": ["10.0.0.0", 8]}),
+                                 ("MyIngress.l2_forward", {"hdr.ethernet.dstAddr": 5})):
+                self.client.stub.requests.clear()
+                self.refuse({"table": table, "match": match, "priority": 5,
+                             "action_name": "MyIngress.send_to_cpu", "action_params": {}},
+                            "priority not honourable", op)
+
+    def test_a_table_has_a_priority_column_iff_it_has_a_ternary_range_or_optional_field(self):
+        has = {name: self.client.table_honours_priority(self.client._table_by_name(name))
+               for name in ("MyIngress.flow_5tuple", "Synthetic.range_table",
+                            "Synthetic.optional_table", "Synthetic.mixed_table",
+                            "MyIngress.ipv4_lpm", "MyIngress.l2_forward")}
+        self.assertEqual(has, {"MyIngress.flow_5tuple": True, "Synthetic.range_table": True,
+                               "Synthetic.optional_table": True, "Synthetic.mixed_table": True,
+                               "MyIngress.ipv4_lpm": False, "MyIngress.l2_forward": False})
+
+    def test_a_ternary_delete_carries_the_priority_it_was_given(self):
+        spec = self.spec(match={"hdr.ipv4.protocol": [6, 255]}, priority=42)
+        del spec["action_name"], spec["action_params"]
+        self.client.write_table_entry(spec, "delete")
+        sent = only_update(self.client.stub.requests[0])
+        self.assertEqual(sent.type, p4runtime_pb2.Update.DELETE)
+        self.assertEqual(sent.entity.table_entry.priority, 42)
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class TheSection15CatchAllIsRefusedTest(unittest.TestCase):
+    """
+    DESIGN 1.5: the generic writer used to put a catch-all in front of NDTwin's own tables. It
+    does not any more.
+
+    [Co-developed with claude code -- Adam]
+    An empty match on `MyIngress.flow_5tuple` at any priority >= 1, or an omitted lpm field on
+    `MyIngress.ipv4_lpm`, is a rule that matches every packet, and the switch accepts both
+    (ternary-a0 item 13 and 04). Until the owner check these two tests pinned that as the
+    defect it was, and said they would flip when V7 landed. V7 (trunk 6c1a78c8 / main 92c1c77a,
+    "refuse table-entry writes into tables NDTwin owns") is that fix: on a switch bound to
+    NDTwin's own pipeline both are refused as NDTwin's tables before anything is built, and
+    nothing reaches the switch.
+
+    Each test carries its own control: the SAME entry, written by a client bound as a user
+    pipeline, goes on the wire. That is what says the refusal is about who owns the table and not
+    about the entry's shape -- the shape-rule property ("every field omitted passes the shape
+    rules") is asserted on tables nobody owns, further up.
+    """
+
+    def assert_refused_as_ndtwins_and_sent_for_a_user(self, spec):
+        client = a_client()  # the class default: NDTwin's own pipeline
+        with self.assertRaises(p4_client_module.TableOwnedByNDTwin) as caught:
+            client.write_table_entry(spec)
+        self.assertIn(spec["table"], str(caught.exception))
+        self.assertEqual(client.stub.requests, [],
+                         "the catch-all reached the switch running NDTwin's pipeline")
+
+        user = a_client()
+        user.bind_routes(None)
+        user.write_table_entry(spec)
+        return only_update(user.stub.requests[0]).entity.table_entry
+
+    def test_an_empty_match_on_flow_5tuple_is_refused_as_ndtwins_table(self):
+        sent = self.assert_refused_as_ndtwins_and_sent_for_a_user(
+            {"table": "MyIngress.flow_5tuple", "match": {}, "priority": 1,
+             "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+        self.assertEqual((len(sent.match), sent.priority), (0, 1))
+
+    def test_an_omitted_lpm_field_on_ipv4_lpm_is_refused_as_ndtwins_table(self):
+        sent = self.assert_refused_as_ndtwins_and_sent_for_a_user(
+            {"table": "MyIngress.ipv4_lpm", "match": {},
+             "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+        self.assertEqual(len(sent.match), 0)
+
+    def test_on_ndtwins_pipeline_the_owner_answers_before_the_shape_rules(self):
+        # The order the merge of the two produces: the owner check runs before the entry is
+        # built, so on NDTwin's own pipeline an entry that breaks a shape rule (a zero mask, V5)
+        # is a 409 owned_by_ndtwin, not a 400. The same entry on a user pipeline is the 400.
+        spec = {"table": "MyIngress.flow_5tuple", "match": {"hdr.ipv4.protocol": [0, 0]},
+                "priority": 10, "action_name": "MyIngress.send_to_cpu", "action_params": {}}
+        client = a_client()
+        with self.assertRaises(p4_client_module.TableOwnedByNDTwin):
+            client.write_table_entry(spec)
+        self.assertEqual(client.stub.requests, [])
+
+        user = a_client()
+        user.bind_routes(None)
+        with self.assertRaises(p4_client_module.TableEntryInvalid) as caught:
+            user.write_table_entry(spec)
+        self.assertIn("omit the field", str(caught.exception))
+        self.assertEqual(user.stub.requests, [])
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class TheReadSideKnowsEveryMatchTypeTest(unittest.TestCase):
+    """
+    R8 and R9. `read_table_entries` reports what the switch holds; `_built_entry_match` reports
+    what this client just wrote, and the install-time record is keyed by the second and looked up
+    by the first (the note above insert_5tuple_rule). They have to agree for EVERY match type, or
+    an entry's age is unfindable.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    def entry_for(self, table_id, field_id, kind, **fields):
+        entry = p4runtime_pb2.TableEntry()
+        entry.table_id = table_id
+        entry.priority = 7
+        m = entry.match.add()
+        m.field_id = field_id
+        getattr(m, kind).SetInParent()
+        for name, value in fields.items():
+            setattr(getattr(m, kind), name, value)
+        return entry
+
+    def cases(self):
+        return [
+            ("ternary", self.entry_for(FLOW_5TUPLE_ID, 3, "ternary",
+                                       value=b"\x0a\x00\x00\x00", mask=b"\xff\x00\x00\x00")),
+            ("range", self.entry_for(900000001, 1, "range", low=b"\x04\x00", high=b"\x0b\xb8")),
+            ("optional", self.entry_for(900000002, 1, "optional", value=b"\x00\x07")),
+            ("exact", self.entry_for(L2_FORWARD_ID, 1, "exact", value=b"\x00" * 5 + b"\x01")),
+            ("lpm", self.entry_for(IPV4_LPM_ID, 1, "lpm", value=b"\x0a\x00\x00\x00",
+                                   prefix_len=8)),
+        ]
+
+    def test_an_optional_match_is_read_back_as_optional(self):
+        # R9. It used to be dropped: the entry came back with an empty match, which the
+        # Classifier reads as a catch-all.
+        kind, entry = self.cases()[2]
+        client = a_client(stub=RecordingStub(read_responses=[a_read_response([entry])]))
+        match = client.read_table_entries()[0]["match"]
+        self.assertEqual(match, {"meta.probe_key": {"type": "optional", "value": b"\x00\x07"}})
+
+    def test_a_range_match_is_read_back_with_its_bounds(self):
+        kind, entry = self.cases()[1]
+        client = a_client(stub=RecordingStub(read_responses=[a_read_response([entry])]))
+        self.assertEqual(client.read_table_entries()[0]["match"],
+                         {"meta.probe_key": {"type": "range", "low": b"\x04\x00",
+                                             "high": b"\x0b\xb8"}})
+
+    def test_the_shape_of_a_built_entry_is_the_shape_that_is_read_back(self):
+        # R8, on an entry built DIRECTLY as a protobuf, so it does not depend on the builder.
+        for kind, entry in self.cases():
+            client = a_client(stub=RecordingStub(read_responses=[a_read_response([entry])]))
+            read = client.read_table_entries()[0]["match"]
+            self.assertTrue(read, f"{kind}: the read side dropped the match")
+            self.assertEqual(client._built_entry_match(entry), read, kind)
+
+    def test_a_written_entry_is_findable_by_its_read_back_key_for_every_match_type(self):
+        # The consequence that matters: write it, read it back, ask how old it is.
+        specs = [
+            {"table": "MyIngress.flow_5tuple", "match": {"hdr.ipv4.dstAddr": ["10.0.0.0", "255.0.0.0"]},
+             "action_name": "MyIngress.send_to_cpu", "action_params": {}, "priority": 7},
+            {"table": "Synthetic.range_table", "match": {"meta.probe_key": [1024, 3000]},
+             "action_name": "MyIngress.send_to_cpu", "action_params": {}, "priority": 7},
+            {"table": "Synthetic.optional_table", "match": {"meta.probe_key": 7},
+             "action_name": "MyIngress.send_to_cpu", "action_params": {}, "priority": 7},
+        ]
+        for spec in specs:
+            # A user write (see TheShapeRulesTest): on NDTwin's own pipeline the generic writer
+            # refuses all three tables (V7), and NDTwin's own 5-tuple writer has its own
+            # findability test (test_rule_install_times / mutate_p4_rule_install_time.sh M10).
+            client = a_client()
+            client.bind_routes(None)
+            client.write_table_entry(spec)
+            sent = only_update(client.stub.requests[0]).entity.table_entry
+            read_client = a_client(stub=RecordingStub(read_responses=[a_read_response([sent])]))
+            read = read_client.read_table_entries()[0]
+            age = client.rule_install_times.age_seconds(1, read["table"], read["priority"],
+                                                        read["match"])
+            self.assertIsNotNone(age, f"{spec['table']}: the install record is unfindable")
 
 
 # --- the NDTwin pipeline's writes, frozen in bytes (TICKET-P4-roles section 2.2-5) ------------
