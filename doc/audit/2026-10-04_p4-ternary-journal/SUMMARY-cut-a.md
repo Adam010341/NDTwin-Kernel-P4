@@ -130,3 +130,44 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 
   `check_gate_anchors.py HEAD`：136/136 cells ok（`check_gate_anchors.log`）。per-file：`test_flow_stats_route` 16、`test_switch_state` 76、`test_ryu_flow_stats` 61、`test_p4_client_writes` 207，全 OK、無 skip。
 - **沒動**：`tools/p4_health/`（D 另案）。D 的檔案清單只更新了行號（上面「D 的完整檔案清單」）。
+
+---
+
+## D：健檢那一半（分支 `feat/p4-health-ternary-d`，`trunk-cut2-merge`＋Cut A）
+
+`95a8972b` 把 Cut A（`b2618b88`）併進 trunk `18c81892`（無衝突，兩邊沒有共同檔案）；D 的程式在 `76e3b468`，只動 `tools/p4_health/`、它的測試、fixture、`mutate_p4_health.sh` 與 `expected_today.tsv`。Cut A 的檔案（`p4_proxy/`、`tools/p4_exercise/`）一個都沒碰。log 在 `scratch/overnight-2026-09-05/logs/gates-0910/p4-health-ternary-d/`（每份第一行 commit、最後一行 rc；gate 在拋棄式 clone 跑，venv 只 symlink 在 clone 裡）。
+
+**改了什麼**
+- `s0.py`：PF-T 的兩條自檢反過來。pre-flight 必須 PASS（rc 0、沒有 FAIL 列），而且先確認 PF-T package 真的帶著那一筆 ternary 開機 entry（新的一項 `PF-T package carries one ternary boot entry`）：以前的 FAIL 自己指名了那筆 entry，PASS 什麼都不指名，沒有這項的話，entry 掉了也會照樣 PASS。`PF-T verdict` 要求 GREEN。
+  - `classify_pft` 不再認「G5 not done」那句話，改認 pre-flight 指名那筆 entry 的位置（`s2 entry 23:`，由 `pft_entries` 從 package 讀出）。任何一行 FAIL，不論措辭，只要指名它，就算拒絕了 ternary 那一列。
+- `cells/table.py`：`pft_cannot` 讀 `ternary_rows`。拒絕 ternary 那一列（不論措辭）→ RED（structural，static 歸因照舊）；其他 FAIL 列 → PROBE-BROKEN；rc 0 → GREEN。`lab.py` 的 `pft_observation` 跟著改 key。
+- `observe_a.py`：T4 的探針值從 `10.0.4.4/255.255.255.0` 改成 `10.0.4.0/255.255.255.0`。Cut A 的 V3 拒絕「value 在遮罩外有位元」（`match_shape.py:314-319`；行程內呼叫 `shape_field` 觀測到 `TableEntryInvalid`）⇒ 原值到了 live 會拿到 400，T4 判 RED【推論：route 把 `TableEntryInvalid` 對到 400】。
+  - T4–T7 其餘的 oracle 不用改：Cut 2 已照 DESIGN §6.4 寫好（`thrift_priority` = 2147483647 − p；T6 認 `TERNARY v &&& ff`；T7 比換算後的值、小的贏）。這三點各有一個 mutant 守著：C2-OA2、AD10、C2-OA3。
+- `expected_today.tsv`：T4、T5、T6、T7、PF-T 的預測改成 GREEN（DESIGN §6.4；健檢 design 5.1「翻格的修正，同一個 PR 改這份檔」）。T8 照舊 RED（要等 Cut B）。
+- fixture：
+  - `preflight_pft.txt` 從真的 pre-flight 重新擷取（`95a8972b`：S0 的 compile＋convert 之後跑 `preflight.py`，PASS）；
+  - 原檔改名為 `preflight_pft_g5.txt` 保留；
+  - 新增 `preflight_pft_refused.txt`：同一份 package，把 s2 entry 23 的遮罩改成 /24，pre-flight 以 V3 拒絕，句子裡沒有 G5。
+  - 原 fixture 沒有標頭說明怎麼擷取，所以三份各加了一行 `#` 標頭。擷取腳本與原始輸出在 log 目錄的 `capture_pft.py`、`capture/`。
+- `test_p4_health_collect.py` 的 fake fabric 預設改成「今天的 trunk」：會寫 ternary，而且用 proxy 真正的 `match_shape` 判形狀（不合就 400），所以只有 fake 才收的探針 body 在測試裡就會紅。拿 T4 當「bmv2 歸因的 RED」範例的測試，改成明寫 `ndtwin_writes_ternary = False`（Cut A 之前的 proxy），或改用 MT1。
+- `gen_runtime.py:120` 的註解。
+
+**S0**（`76e3b468`，離線，`setsid --wait`）：`S0 COMPLETE`，rc=0；57 項 ok、0 項 FAIL。
+- PF-T 的三行：`pre-flight PF-T PASSes with the ternary entry in rc 0, ternary FAIL lines 0, other FAIL rows 0`、`PF-T package carries one ternary boot entry`、`PF-T verdict GREEN`。
+- 每秒取樣記到 S0 自己起的 7 個 bmv2（4 個 selfcheck、1 個 vs_trial、2 個 ctrl_trial：stock 與 bmv2-fast 各一），在 `s0_procs.log`。drop check 的 5 次 bmv2 活得比取樣間隔短，沒記到 pid，只在 `s0.commands.log` 裡看得到那 5 次呼叫。跑完之後掃 /proc：沒有任何 simple_switch*／ndt-hc-*／ndt-hb* 留下，所以什麼都沒 kill。跑之前的掃描也是空的（`s0_prescan.log`）。
+
+**Gate**（都在 `76e3b468`）
+- `test_p4_health_cells.py` 183 個 OK（venv 3.13 與 ryu-env 3.8 各一次；trunk 是 179 個）。
+- `test_p4_health_collect.py` 186 個 OK（兩個直譯器；trunk 是 183 個）。
+- `test_p4_health_recover.sh` 163 checks、0 failed；`test_p4_health_gate_scripts.sh` 68 checks、0 failed。
+- mutation gate 4 個 shard 依序在這台筆電上跑，locale 都是 en_US.UTF-8，再用 `sum_p4_health_gate_shards.sh` 加總：`GATE: 483 mutations, 0 survived, shards 4/4 ok, commit 76e3b468…, subject sha ea7e5536494a03ff`（trunk 473，加上這次的 AD1–AD10）。
+- Cut A 的五個 gate 沒有重跑：`git diff b2618b88 76e3b468` 沒有碰到它們讀的任何路徑（`p4_proxy/`、`tools/p4_exercise/`、`setting/`、`check_gate_anchors.py`、它們自己的腳本）。
+
+**看過紅**
+- AD1–AD10 各被自己點名的測試殺掉；D12 改名後，由新的分類測試殺掉。
+- `expected_today.tsv` 不在 gate 的 subject 裡，所以另外做了一次：把它退回 `95a8972b` 的版本，`test_bring_up_a_reads_as_predicted` 與 `test_a_then_b_then_the_verdicts` 兩顆紅（`red.tsv_reverted.collect.log`）。
+
+**留著的**
+- T4–T7 的 GREEN 只是預測，沒有 live run。其中「package A 沒有 roles，所以 V7 不擋 `HcIngress.t_ternary` 的寫入」是讀碼推論（`table_owned_by_ndtwin`：binding 為 None 就回 False），沒有量過。
+- PF-T 遇到「用新的句子拒絕 ternary 那一列」時判 RED，不判 PROBE-BROKEN。依據是健檢 DESIGN 的 PF-T 列（`:293`）：這一格要量的是「pre-flight 通過」，不是某一句話。如果要的是 PROBE-BROKEN，改 `pft_cannot` 一行就好。
+- `runtime_cli.py:57` 還寫著「priority entries are not in the package format (G5)」。S0 的 throwaway 不灌 PF-T 那筆 entry，所以不影響結果，但這句話已經過時。
