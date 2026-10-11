@@ -426,14 +426,6 @@ add "AD12. only a labelled FAIL row can be PF-T's ternary refusal" \
     '        if labelled and any(n.search(line) for n in names):  # MUTANT' \
     'test_pft_a_ternary_refusal_beside_another_one_is_probe_broken'
 
-add "AD13. the lab reads PF-T from an S0 that is not COMPLETE" \
-    "$PKG/lab.py" \
-    '    if s0_out.get("verdict") == "COMPLETE":
-        observations["PF-T"]' \
-    '    if True:  # MUTANT
-        observations["PF-T"]' \
-    'test_an_s0_that_refused_pft_is_incomplete_and_pft_not_run'
-
 add "AD14. another entry refused in the entries row leaves the ternary refusal RED" \
     "$S0PY" \
     '            other += int(more.group(1)) if more else 1' \
@@ -493,24 +485,6 @@ add "AD7. the PF-T cell reads the refusal under its old key" \
     '(a.get("ternary_rows") or 0) >= 1' \
     '(a.get("g5_rows") or 0) >= 1' \
     'test_pft_refused_in_any_words_is_red_and_never_green'
-
-add "AD8. the lab reads S0's PF-T refusal under its old key" \
-    "$PKG/lab.py" \
-    '"ternary_rows": pf.get("ternary_rows", 0)' \
-    '"ternary_rows": pf.get("g5_rows", 0)' \
-    'test_pft_observation_reads_a_refusal_in_s0s_record_as_red'
-
-add "AD9. T4 writes a value with bits outside its mask" \
-    "$PKG/observe_a.py" \
-    '"match": {"hdr.ipv4.srcAddr": ["10.0.4.0", "255.255.255.0"]},' \
-    '"match": {"hdr.ipv4.srcAddr": ["10.0.4.4", "255.255.255.0"]},  # MUTANT' \
-    'test_t4_to_t7s_bodies_are_ones_the_writer_takes'
-
-add "AD10. T6 looks for an optional key the P4Runtime way, not the way thrift prints it" \
-    "$PKG/observe_a.py" \
-    'entries_with((17, 0xFF))' \
-    'entries_with((17,))' \
-    'test_a_proxy_that_writes_ternary_turns_t4_to_t7_green'
 
 # Review MAJ-1: a missing or empty reading is never a pass.
 add "N1. a reading the row needs may be missing" \
@@ -1645,6 +1619,35 @@ ATTR="$PKG/attribution.py"
 LABPY="$PKG/lab.py"
 HOSTSPY="$PKG/collect/hosts.py"
 FROZENPY="$PKG/frozen.py"
+
+# (Cut A + D) the D mutants whose subjects are named in this section; their label says what each breaks.
+# [Co-developed with claude code -- Adam]
+add "AD8. the lab reads S0's PF-T refusal under its old key" \
+    "$LABPY" \
+    '"ternary_rows": pf.get("ternary_rows", 0)' \
+    '"ternary_rows": pf.get("g5_rows", 0)' \
+    'test_pft_observation_reads_a_refusal_in_s0s_record_as_red'
+
+add "AD9. T4 writes a value with bits outside its mask" \
+    "$OBSA" \
+    '"match": {"hdr.ipv4.srcAddr": ["10.0.4.0", "255.255.255.0"]},' \
+    '"match": {"hdr.ipv4.srcAddr": ["10.0.4.4", "255.255.255.0"]},  # MUTANT' \
+    'test_t4_to_t7s_bodies_are_ones_the_writer_takes'
+
+add "AD10. T6 looks for an optional key the P4Runtime way, not the way thrift prints it" \
+    "$OBSA" \
+    'entries_with((17, 0xFF))' \
+    'entries_with((17,))' \
+    'test_a_proxy_that_writes_ternary_turns_t4_to_t7_green'
+
+add "AD13. the lab reads PF-T from an S0 that is not COMPLETE" \
+    "$LABPY" \
+    '    if s0_out.get("verdict") == "COMPLETE":
+        observations["PF-T"]' \
+    '    if True:  # MUTANT
+        observations["PF-T"]' \
+    'test_an_s0_that_refused_pft_is_incomplete_and_pft_not_run'
+
 
 add "C2-V1. a cell never observed reads as an unreadable answer" \
     "$VERDICT" \

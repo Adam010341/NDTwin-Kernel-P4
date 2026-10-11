@@ -215,7 +215,7 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 - PF-T 遇到「用新的句子拒絕 ternary 那一列」時判 RED，不判 PROBE-BROKEN。依據是健檢 DESIGN 的 PF-T 列（`:293`）：這一格要量的是「pre-flight 通過」，不是某一句話。如果要的是 PROBE-BROKEN，改 `pft_cannot` 一行就好。
 - `runtime_cli.py:57` 還寫著「priority entries are not in the package format (G5)」。S0 的 throwaway 不灌 PF-T 那筆 entry，所以不影響結果，但這句話已經過時。
 
-### D 第二輪（審查之後；`e17d39e5` 程式、本 commit 是 tsv 與這一節）
+### D 第二輪（審查之後；`e17d39e5` 程式，`b735a518` tsv 與這一節，最後一顆 commit 把四個 mutant 搬到 anchor checker 讀得到的地方）
 
 先把 Cut A 第五輪（`a4e67f6e`）併進來（`e1e5747e`；只有本檔衝突，兩邊各加一節，都保留）。併完之後，Cut A 的每個檔都與 `a4e67f6e` 相同（`git diff --name-only e1e5747e^2 e1e5747e` 不含 `p4_proxy/`、`tools/p4_exercise/`、Cut A 的 gate 腳本）。
 
@@ -247,4 +247,6 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 
 **看過紅**：AD1–AD19 與 D12 先在 worktree 用 `ONLY_LABEL_PREFIX` 跑過，第一次 19 個裡有 1 個存活：AD8 點名的測試已改名，gate 判它 WRONG TEST。改了點名之後，AD8 被殺。正式的數字以 r2 的完整 gate 為準。
 
-**Gate**：都在本 commit，跑在新的拋棄式 clone 裡，log 在 `scratch/overnight-2026-09-05/logs/gates-0910/p4-health-ternary-d/r2/`：四個 suite × 兩個直譯器、完整 mutation gate（4 個 shard 加總）、S0、p4lane／klane、`check_gate_anchors.py`。每份 log 第一行是 commit、最後一行是 rc。
+- **anchor checker**：`check_gate_anchors.py` 在 `b735a518` 回報 `mutate_p4_health.sh` 有 4 個 anchor 讀不到（135/136）。原因是 AD8、AD9、AD10、AD13 的 subject 寫成 `"$PKG/lab.py"`、`"$PKG/observe_a.py"`，checker 解析不了；gate 本身照樣套得上（第一輪 gate 有殺到它們）。最後一顆 commit 把這四個搬到 Cut 2 那一節，改用 `$LABPY`、`$OBSA`，checker 變成 136/136。第一輪的 AD8–AD10 也有同樣的問題，當時沒有跑 checker。
+
+**Gate**：都在最後一顆 commit（D 的 head），跑在新的拋棄式 clone 裡，log 在 `scratch/overnight-2026-09-05/logs/gates-0910/p4-health-ternary-d/r2/`：四個 suite × 兩個直譯器、完整 mutation gate（4 個 shard 加總）、S0、p4lane／klane、`check_gate_anchors.py`。每份 log 第一行是 commit、最後一行是 rc。
