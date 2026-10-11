@@ -4,15 +4,11 @@ proxy is allowed to say about it. DESIGN.md sections 5.1-5.3 and 5.6, tests R10-
 
 [Co-developed with claude code -- Adam]
 
-🔴 NOTHING REPLAYS THIS JOURNAL YET, AND EVERY ASSERTION ABOUT `journaled` HERE IS ABOUT THAT. A
-journaled entry does not come back after a proxy restart: the pipeline push empties the table and
-the record stays in its file. So until the change that replays, the proxy says `journaled: false`
-everywhere -- the POST response, `switch_state.table_entries`, and through it the health check's
-T8 -- and says what IS true under a different name, `journal: {recorded, failures, ...,
-replay: "not implemented"}`. The design's R10 and R12b assert `journaled: true`; here they assert
-the `journal` block, and the tests under `TheClaimFlipsInOnePlace` pin what the SAME records say
-the moment `rule_journal.TABLE_JOURNAL_REPLAYS` is True -- those are the tests whose expected values
-the replay change does not edit, only its constant.
+What the replay does with these records -- startup, readopt, the pipeline cookie -- is
+tests/test_table_entry_replay.py. Here `journaled` is asserted where it is computed: true for a
+recorded write since the replay exists (`rule_journal.TABLE_JOURNAL_REPLAYS`), and the tests under
+`TheClaimFlipsInOnePlace` patch the constant back to False to show that it, and nothing else, is
+what decides the claim.
 
 This file is self-contained: `p4_proxy/tests` has no `__init__.py`, so importing another test
 file's fixtures works under `-m unittest tests.x` and is a coin flip under a per-file runner.
@@ -31,6 +27,10 @@ import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+# Before anything imports `main`: its table-entry journals go to a temp directory, never to the
+# checkout's .run/ (tests/journal_isolation.py). [Co-developed with claude code -- Adam]
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import journal_isolation  # noqa: E402,F401
 
 try:
     import grpc
@@ -111,6 +111,22 @@ def a_p4info():
     field.bitwidth = 32
     field.match_type = p4info_pb2.MatchField.TERNARY
     ternary.action_refs.add().id = FORWARD_ID
+
+    # [Co-developed with claude code -- Adam] A range table and an optional table, for the
+    # identity tests through the route (both have a priority column).
+    for table_id, name, kind in ((900000002, "Synthetic.t_range", p4info_pb2.MatchField.RANGE),
+                                 (900000003, "Synthetic.t_optional",
+                                  p4info_pb2.MatchField.OPTIONAL)):
+        extra = p4info.tables.add()
+        extra.preamble.id = table_id
+        extra.preamble.name = name
+        extra.preamble.alias = name.split(".")[-1]
+        field = extra.match_fields.add()
+        field.id = 1
+        field.name = "hdr.ipv4.srcAddr"
+        field.bitwidth = 32
+        field.match_type = kind
+        extra.action_refs.add().id = FORWARD_ID
 
     forward = p4info.actions.add()
     forward.preamble.id = FORWARD_ID
@@ -261,11 +277,60 @@ class TheFoldTest(unittest.TestCase):
         self.assertEqual([n["op"] for n in net], ["delete"])
 
     def test_a_delete_with_nothing_before_it_is_still_a_delete(self):
-        # A delete is only accepted -- or recorded as not_found -- for an entry the operator
-        # believed was there: a boot entry. Folding it away would resurrect that entry after a
-        # replay, which is the failure the journal exists to prevent.
+        # A delete the switch ACCEPTED removed something the API never wrote: a boot entry.
+        # Folding it away would resurrect that entry after a replay, which is the failure the
+        # journal exists to prevent.
         net = fold_records([rec("delete", "A")])
         self.assertEqual([n["op"] for n in net], ["delete"])
+
+    # --- M1 (ruling 2026-10-12): a delete answered NOT_FOUND says the entry was absent ------
+
+    def test_a_not_found_delete_then_an_insert_is_an_insert(self):
+        # The switch said the entry was not there, so it began absent and the insert created it.
+        # Folded as "there", it would be a modify -- refused after the push empties the table.
+        net = fold_records([rec("delete", "A", outcome="not_found"),
+                            rec("insert", "A", {"action_params": {"port": 4}})])
+        self.assertEqual([(n["op"], n["spec"]["action_params"]) for n in net],
+                         [("insert", {"port": 4})])
+
+    def test_an_insert_then_a_not_found_delete_is_nothing(self):
+        # The other order: it began absent (an insert) and the last word is a delete, whatever
+        # the switch answered it.
+        self.assertEqual(fold_records([rec("insert", "A"),
+                                       rec("delete", "A", outcome="not_found")]), [])
+
+    def test_a_lone_not_found_delete_is_nothing(self):
+        # Absent before (the switch said so), absent after: nothing to replay. This is what
+        # DESIGN 10-4 recorded it for -- "it only makes the key absent".
+        self.assertEqual(fold_records([rec("delete", "A", outcome="not_found")]), [])
+
+    def test_an_accepted_delete_then_an_insert_is_still_a_modify(self):
+        # The boot-entry case, unchanged: the accepted delete removed something, so the key began
+        # present and the insert put it back -- after the replay's push and boot entries, that
+        # is a modify of the boot entry.
+        net = fold_records([rec("delete", "A"),
+                            rec("insert", "A", {"action_params": {"port": 6}})])
+        self.assertEqual([(n["op"], n["spec"]["action_params"]) for n in net],
+                         [("modify", {"port": 6})])
+
+    def test_only_the_first_record_decides_what_was_there_before(self):
+        # A not_found delete that is NOT first says nothing about before: modify, then a delete
+        # nobody's switch could find, then an insert is still a boot entry put back.
+        net = fold_records([rec("modify", "A"), rec("delete", "A", outcome="not_found"),
+                            rec("insert", "A")])
+        self.assertEqual([n["op"] for n in net], ["modify"])
+
+    def test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same(self):
+        # records_from_net must not lose M1: the snapshot is what the next boot folds.
+        history = [rec("delete", "A", outcome="not_found"), rec("insert", "A"),
+                   rec("delete", "B"),
+                   rec("delete", "C", outcome="not_found"),
+                   rec("insert", "D"), rec("delete", "D", outcome="not_found")]
+        net = fold_records(history)
+        self.assertEqual([(n["key"], n["op"]) for n in net], [("A", "insert"), ("B", "delete")])
+        again = fold_records(records_from_net(net))
+        self.assertEqual([(n["key"], n["op"], n["spec"]) for n in again],
+                         [(n["key"], n["op"], n["spec"]) for n in net])
 
     def test_not_there_then_not_there_is_nothing(self):
         self.assertEqual(fold_records([rec("insert", "A"), rec("delete", "A")]), [])
@@ -349,7 +414,8 @@ class TheFileTest(TempDirCase):
         self.assertTrue(lines[0]["header"])
         self.assertEqual((lines[0]["dpid"], lines[0]["p4info_sha256"], lines[0]["boot_id"]),
                          (7, "abc", "boot1"))
-        # The cookie is the replay change's, and the header says plainly that nothing set it.
+        # This provider names no cookie, and the header says so rather than leaving the key out
+        # (main's provider names one: TheJournalIsWiredInMainTest).
         self.assertIsNone(lines[0]["fabric_cookie"])
         self.assertEqual([(x["op"], x["key"], x["outcome"]) for x in lines[1:]],
                          [("insert", "K1", "ok"), ("delete", "K1", "ok")])
@@ -411,10 +477,15 @@ class TheFileTest(TempDirCase):
 
 
 class TheSnapshotTest(TempDirCase):
+    """Every snapshot here is taken under the journal's lock, as every production caller takes it
+    (`test_a_snapshot_nobody_holds_the_lock_for_is_refused` is why)."""
+
     def a_journal(self):
         journal = TableEntryJournal(os.path.join(self.dir, "s7.jsonl"), 7)
         for n in range(3):
             journal.record("insert", {"table": "t", "n": n}, f"K{n}")
+        journal.lock.acquire()
+        self.addCleanup(lambda: journal.lock.locked() and journal.lock.release())
         return journal
 
     def read_bytes(self, path):
@@ -469,7 +540,70 @@ class TheSnapshotTest(TempDirCase):
 
     def test_a_first_snapshot_with_no_live_file_quarantines_nothing(self):
         journal = TableEntryJournal(os.path.join(self.dir, "s9.jsonl"), 9)
-        self.assertIsNone(journal.write_snapshot({}, []))
+        with journal.lock:
+            self.assertIsNone(journal.write_snapshot({}, []))
+
+    # --- m6 (round 3): the lock, one header shape, what a crash leaves -------------------
+
+    def test_a_snapshot_nobody_holds_the_lock_for_is_refused(self):
+        # DESIGN 5.2: one lock covers the append and the snapshot. A record appended between the
+        # snapshot's link and its replace would land in the set-aside inode and be lost.
+        journal = TableEntryJournal(os.path.join(self.dir, "s9.jsonl"), 9)
+        journal.record("insert", {}, "K")
+        before = self.read_bytes(journal.path)
+        with self.assertRaises(RuntimeError):
+            journal.write_snapshot({}, [])
+        with self.assertRaises(RuntimeError):
+            journal.reheader({})
+        self.assertEqual(self.read_bytes(journal.path), before)
+        self.assertEqual(sorted(os.listdir(self.dir)), ["s9.jsonl"])
+
+    def test_a_snapshot_header_has_the_shape_a_recorded_header_has(self):
+        journal = self.a_journal()
+        recorded_header = self.lines("s7.jsonl")[0]
+        journal.write_snapshot({"boot_id": "b2", "unknown_key": 1, "dpid": 99}, [])
+        header = self.lines("s7.jsonl")[0]
+        self.assertEqual(sorted(header), sorted(recorded_header))
+        self.assertEqual((header["dpid"], header["boot_id"], header["fabric_cookie"]),
+                         (7, "b2", None))
+
+    def test_reheader_keeps_every_other_line_byte_for_byte_torn_ones_too(self):
+        journal = self.a_journal()
+        with open(journal.path, "ab") as fh:
+            fh.write(b"{torn\n")
+        body_before = self.read_bytes(journal.path).split(b"\n", 1)[1]
+        quarantined = journal.reheader({"boot_id": "b3", "fabric_cookie": "00000000000000ab"})
+        self.assertIsNotNone(quarantined)
+        head, body = self.read_bytes(journal.path).split(b"\n", 1)
+        self.assertEqual(body, body_before)
+        self.assertEqual(json.loads(head)["boot_id"], "b3")
+        self.assertEqual(journal.read()[2], 1, "the torn line is still counted")
+
+    def test_a_temp_file_a_dead_snapshot_left_is_removed_by_the_next(self):
+        journal = self.a_journal()
+        stale = os.path.join(self.dir, "s7.jsonl.tmp.leftover")
+        other = os.path.join(self.dir, "s8.jsonl.tmp.leftover")
+        for path in (stale, other):
+            with open(path, "w") as fh:
+                fh.write("half a snapshot")
+        journal.write_snapshot({}, [])
+        self.assertFalse(os.path.exists(stale))
+        self.assertTrue(os.path.exists(other), "another switch's temp file is not this one's")
+
+    def test_the_live_file_keeps_its_mode_through_a_snapshot(self):
+        journal = self.a_journal()
+        os.chmod(journal.path, 0o640)
+        journal.write_snapshot({}, [])
+        self.assertEqual(os.stat(journal.path).st_mode & 0o777, 0o640)
+
+    def test_ten_generations_are_kept_by_default(self):
+        journal = self.a_journal()
+        for _ in range(12):
+            journal.write_snapshot({}, [])
+            time.sleep(0.002)
+        self.assertEqual(len([n for n in os.listdir(self.dir) if ".q" in n]),
+                         rule_journal.QUARANTINE_KEEP)
+        self.assertEqual(rule_journal.QUARANTINE_KEEP, 10)
 
     def test_only_the_most_recent_generations_are_kept(self):
         journal = self.a_journal()
@@ -858,14 +992,11 @@ class TheRouteRecordsTest(TempDirCase):
     def test_an_accepted_write_is_recorded_and_the_response_says_so_under_journal(self):
         body = self.post()
         self.assertEqual(body["status"], "success")
-        # The new field says what is true: this write reached the file, and nothing replays it.
+        # R10: this write reached the file, and startup and readopt replay the file.
         self.assertEqual(body["journal"], {"recorded": True, "enabled": True,
-                                           "replay": "not implemented"})
-        # R10 asserts `journaled: true` in the design; it cannot be true while nothing restores
-        # the entry, so it stays False until TABLE_JOURNAL_REPLAYS flips (TheClaimFlipsInOnePlace).
-        self.assertIs(body["journaled"], False)
-        self.assertIn("lost when the proxy restarts", body["note"])
-        self.assertIn("nothing replays", body["note"])
+                                           "replay": rule_journal.REPLAYED_WHEN})
+        self.assertIs(body["journaled"], True)
+        self.assertNotIn("note", body, "a journaled entry has nothing to warn about")
 
     def test_the_file_gains_one_record_with_the_validated_spec(self):
         self.post()
@@ -909,6 +1040,50 @@ class TheRouteRecordsTest(TempDirCase):
         first, second = self.records()
         self.assertNotEqual(first["key"], second["key"],
                             "the same match at another priority is another entry")
+
+    def test_a_range_entry_is_recorded_under_its_priority_and_its_bounds(self):
+        body = {"dpid": 1, "table": "Synthetic.t_range", "priority": 10,
+                "match": {"hdr.ipv4.srcAddr": ["10.0.1.1", "10.0.1.9"]},
+                "action_name": "MyIngress.ipv4_forward",
+                "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
+        self.post(body)
+        self.post(body, priority=11)
+        self.post(body, match={"hdr.ipv4.srcAddr": ["10.0.1.1", "10.0.1.8"]})
+        keys = [r["key"] for r in self.records()]
+        self.assertEqual(len(set(keys)), 3)
+
+    def test_an_optional_entry_is_recorded_under_its_priority_and_its_value(self):
+        body = {"dpid": 1, "table": "Synthetic.t_optional", "priority": 10,
+                "match": {"hdr.ipv4.srcAddr": "10.0.1.1"},
+                "action_name": "MyIngress.ipv4_forward",
+                "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
+        self.post(body)
+        self.post(body, priority=11)
+        self.post(body, match={"hdr.ipv4.srcAddr": "10.0.1.2"})
+        self.post(body, op="delete", match={"hdr.ipv4.srcAddr": 167772417})
+        keys = [r["key"] for r in self.records()]
+        self.assertEqual(len(set(keys[:3])), 3)
+        self.assertEqual(keys[3], keys[0], "the same optional value in another spelling")
+
+    def test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority(self):
+        body = {"dpid": 1, "table": "Synthetic.t_ternary", "priority": 10,
+                "match": {"hdr.ipv4.srcAddr": ["10.0.1.1", "255.255.255.255"]},
+                "action_name": "MyIngress.ipv4_forward",
+                "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
+        self.post(body)
+        self.stub.write_error = FakeRpcError(grpc.StatusCode.UNKNOWN,
+                                             per_update_trailer(code_pb2.NOT_FOUND, "gone"))
+        error = self.refused(body, op="delete", priority=20)
+        self.assertEqual(error.status_code, 502)
+        self.assertEqual(error.detail["p4rt_error"]["code"], "NOT_FOUND")
+        inserted, missed = self.records()
+        self.assertEqual((missed["op"], missed["outcome"]), ("delete", "not_found"))
+        self.assertNotEqual(inserted["key"], missed["key"])
+        self.stub.write_error = None
+        self.post(body, priority=20)
+        net = self.journals.journal_for(1).fold()
+        self.assertEqual([n["op"] for n in net], ["insert", "insert"],
+                         "M1: priority 20 began absent, so its insert is an insert")
 
     def test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries(self):
         # DESIGN 10-2. Without a key of its own the default (no match, priority 0) and an LPM
@@ -1043,7 +1218,7 @@ class TheRouteRecordsTest(TempDirCase):
         body = self.post()
         self.assertEqual(len(self.stub.requests), 1)
         self.assertEqual(body["journal"], {"recorded": False, "enabled": False,
-                                           "replay": "not implemented"})
+                                           "replay": rule_journal.REPLAYED_WHEN})
         self.assertIs(body["journaled"], False)
         self.assertIn("lost when the proxy restarts", body["note"])
 
@@ -1089,35 +1264,35 @@ class SwitchStateSaysWhatIsTrueTest(TempDirCase):
     def write(self, dpid=1):
         self.journals.write_and_journal(lambda: AFakeSwitch(), dpid, {"table": "t"}, "insert")
 
-    def test_a_recorded_write_shows_under_journal_and_journaled_stays_false(self):
-        # T8 reads `journaled is True`. It must not turn green on a record nothing reads back.
+    def test_a_recorded_write_shows_under_journal_and_the_switch_is_journaled(self):
+        # T8 reads `journaled is True`: every accepted write of this boot is in the journal the
+        # next startup or readopt replays.
         self.write()
         entry = self.state()["1"]["table_entries"]
-        self.assertIs(entry["journaled"], False)
+        self.assertIs(entry["journaled"], True)
         self.assertEqual(entry["journal"]["recorded"], 1)
         self.assertEqual(entry["journal"]["failures"], 0)
         self.assertIs(entry["journal"]["record_complete"], True)
-        self.assertEqual(entry["journal"]["replay"], "not implemented")
+        self.assertIsNone(entry["journal"]["replay"], "no replay has run in this test")
 
     def test_a_switch_nobody_wrote_to_still_answers_with_a_journal_block(self):
         entry = self.state()["2"]["table_entries"]
-        self.assertIs(entry["journaled"], False)
+        self.assertIs(entry["journaled"], True)
         self.assertEqual(entry["journal"]["recorded"], 0)
-        self.assertEqual(entry["journal"]["replay"], "not implemented")
+        self.assertIsNone(entry["journal"]["replay"])
 
     def test_a_switch_the_report_does_not_list_gets_its_journaled_through_the_constant(self):
-        # The fallback in switch_state is a second place `journaled` is written. It must flip
-        # with rule_journal.TABLE_JOURNAL_REPLAYS like the first, or a switch nobody has written
-        # to would say false beside `record_complete: true` after the replay lands. Dpid 77: no
-        # other test gives it a counts entry, so it is always the fallback.
+        # The fallback in switch_state is a second place `journaled` is written. It must follow
+        # rule_journal.TABLE_JOURNAL_REPLAYS like the first. Dpid 77: no other test gives it a
+        # counts entry, so it is always the fallback.
         api_routes.topology = FakeTopology({77: a_client(device_id=77)})
-        self.assertIs(self.state()["77"]["table_entries"]["journaled"], False)
-        original = rule_journal.TABLE_JOURNAL_REPLAYS
-        self.addCleanup(setattr, rule_journal, "TABLE_JOURNAL_REPLAYS", original)
-        rule_journal.TABLE_JOURNAL_REPLAYS = True
         entry = self.state()["77"]["table_entries"]
         self.assertIs(entry["journal"]["record_complete"], True)
         self.assertIs(entry["journaled"], True)
+        original = rule_journal.TABLE_JOURNAL_REPLAYS
+        self.addCleanup(setattr, rule_journal, "TABLE_JOURNAL_REPLAYS", original)
+        rule_journal.TABLE_JOURNAL_REPLAYS = False
+        self.assertIs(self.state()["77"]["table_entries"]["journaled"], False)
 
     def test_the_fallback_still_says_false_when_there_are_no_journals_at_all(self):
         original = rule_journal.TABLE_JOURNAL_REPLAYS
@@ -1130,7 +1305,7 @@ class SwitchStateSaysWhatIsTrueTest(TempDirCase):
     def test_the_report_in_main_carries_the_same_two_fields(self):
         self.write(3)
         entry = main.table_entries_report()["3"]
-        self.assertIs(entry["journaled"], False)
+        self.assertIs(entry["journaled"], True)
         self.assertEqual(entry["journal"]["recorded"], 1)
 
     def test_a_failed_record_shows_on_the_switch_that_had_it(self):
@@ -1140,16 +1315,19 @@ class SwitchStateSaysWhatIsTrueTest(TempDirCase):
         states = self.state()
         self.assertEqual(states["1"]["table_entries"]["journal"]["failures"], 1)
         self.assertIs(states["1"]["table_entries"]["journal"]["record_complete"], False)
+        self.assertIs(states["1"]["table_entries"]["journaled"], False,
+                      "a switch whose journal missed a record is not journaled")
         self.assertIs(states["2"]["table_entries"]["journal"]["record_complete"], True)
+        self.assertIs(states["2"]["table_entries"]["journaled"], True)
 
 
 class TheClaimFlipsInOnePlace(TempDirCase):
     """
-    What the same records say once something replays them. `rule_journal.TABLE_JOURNAL_REPLAYS` is
-    the only switch: the replay change sets it, and these expected values are what it is held to.
-    Until then they run with the constant patched, so a reader can see exactly what will change --
-    the POST's `journaled`, `switch_state.table_entries.journaled`, the T8 cell -- and that
-    everything else (a failed record, an off journal, an external plane) still refuses to claim it.
+    `rule_journal.TABLE_JOURNAL_REPLAYS` is the one line that decides whether this proxy claims an
+    entry survives a restart. It is True since startup and readopt replay the journal
+    (tests/test_table_entry_replay.py); patched back to False, every claim goes with it -- the
+    POST's `journaled`, `switch_state.table_entries.journaled`, the T8 cell -- and with it True,
+    everything else (a failed record, an off journal, an external plane) still withholds it.
     """
 
     def setUp(self):
@@ -1157,15 +1335,15 @@ class TheClaimFlipsInOnePlace(TempDirCase):
         self.original = rule_journal.TABLE_JOURNAL_REPLAYS
         self.addCleanup(setattr, rule_journal, "TABLE_JOURNAL_REPLAYS", self.original)
 
-    def test_the_constant_is_false_in_this_cut(self):
-        self.assertIs(self.original, False,
-                      "something replays the journal, or somebody flipped the constant without "
-                      "writing the replay: either way every `journaled` in this proxy is a claim")
+    def test_the_constant_is_true_now_that_startup_and_readopt_replay(self):
+        self.assertIs(self.original, True,
+                      "the replay exists (main.replay_table_journal at startup and readopt); a "
+                      "False here withdraws every `journaled` this proxy says")
 
     def test_with_replay_a_recorded_write_is_journaled_and_without_it_is_not(self):
-        self.assertIs(rule_journal.journaled_claim(True), False)
-        rule_journal.TABLE_JOURNAL_REPLAYS = True
         self.assertIs(rule_journal.journaled_claim(True), True)
+        rule_journal.TABLE_JOURNAL_REPLAYS = False
+        self.assertIs(rule_journal.journaled_claim(True), False)
 
     def test_a_write_that_was_not_recorded_is_never_journaled_whatever_replays(self):
         rule_journal.TABLE_JOURNAL_REPLAYS = True
@@ -1174,10 +1352,12 @@ class TheClaimFlipsInOnePlace(TempDirCase):
     def test_the_switch_claim_needs_replay_and_all_three_conditions(self):
         journals = TableJournals(self.dir)
         journals.write_and_journal(lambda: AFakeSwitch(), 1, {"table": "t"}, "insert")
-        self.assertIs(journals.journaled(1), False)
-        rule_journal.TABLE_JOURNAL_REPLAYS = True
         self.assertIs(journals.journaled(1), True)
-        self.assertEqual(journals.report(1)["replay"], "implemented")
+        rule_journal.TABLE_JOURNAL_REPLAYS = False
+        self.assertIs(journals.journaled(1), False)
+        # m12 (round 2): no placeholder string any more; the block holds the last replay's report.
+        self.assertNotEqual(journals.report(1)["replay"], "not implemented")
+        self.assertIsNone(journals.report(1)["replay"])
 
     def test_with_replay_each_condition_still_withholds_the_claim(self):
         rule_journal.TABLE_JOURNAL_REPLAYS = True
@@ -1212,13 +1392,13 @@ class TheResponseFlipsToo(TempDirCase):
         return asyncio.run(api_routes.table_entry(a_request(dict(AN_LPM_ENTRY))))
 
     def test_with_replay_the_response_is_journaled_and_carries_no_note(self):
-        rule_journal.TABLE_JOURNAL_REPLAYS = True
         body = self.post()
         self.assertIs(body["journaled"], True)
         self.assertNotIn("note", body)
         self.assertEqual(body["journal"]["recorded"], True)
 
     def test_without_replay_the_same_post_is_not_journaled_and_says_why(self):
+        rule_journal.TABLE_JOURNAL_REPLAYS = False
         body = self.post()
         self.assertIs(body["journaled"], False)
         self.assertIn("note", body)
@@ -1309,6 +1489,104 @@ class TheLockIsBoundedTest(TempDirCase):
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class The503ComesBeforeAnyRefusalTest(TempDirCase):
+    """
+    m3 (round 3). The owner check -- like every refusal the writer makes -- runs INSIDE the
+    switch's lock, because the binding it reads belongs to the client looked up there (a readopt
+    may swap both). So a write queued behind a held lock, or addressed to a switch being
+    re-adopted, is a 503 before it is anything else: it never reaches the writer, the owner
+    check included.
+    """
+
+    SPEC = {k: v for k, v in AN_LPM_ENTRY.items() if k != "dpid"}
+
+    def owned_client(self):
+        stub = RecordingStub()
+        client = owned_by_ndtwin(a_client(stub))
+        calls = []
+        original = client.write_table_entry
+
+        def spy(spec, op="insert", source=None):
+            calls.append(op)
+            return original(spec, op, source)
+        client.write_table_entry = spy
+        return client, stub, calls
+
+    def in_thread(self, fn):
+        outcome = []
+
+        def go():
+            try:
+                outcome.append(fn())
+            except Exception as exc:  # noqa: BLE001
+                outcome.append(exc)
+        thread = threading.Thread(target=go, daemon=True)
+        thread.start()
+        thread.join(3)
+        self.assertFalse(thread.is_alive(), "the write is still waiting")
+        return outcome
+
+    def test_the_client_would_answer_409(self):
+        client, stub, calls = self.owned_client()
+        from proxy_agent.p4_client import TableOwnedByNDTwin
+        with self.assertRaises(TableOwnedByNDTwin):
+            TableJournals(self.dir).write_and_journal(lambda: client, 1, dict(self.SPEC),
+                                                      "insert")
+        self.assertEqual(stub.requests, [])
+
+    def test_behind_a_held_lock_it_is_switch_busy_and_the_owner_check_never_ran(self):
+        journals = TableJournals(self.dir)
+        client, stub, calls = self.owned_client()
+        journal = journals.journal_for(1)
+        journal.lock.acquire()
+        self.addCleanup(lambda: journal.lock.locked() and journal.lock.release())
+        outcome = self.in_thread(lambda: journals.write_and_journal(
+            lambda: client, 1, dict(self.SPEC), "insert", lock_timeout=0.05))
+        self.assertEqual([type(e) for e in outcome], [rule_journal.SwitchBusy])
+        self.assertEqual(calls, [], "the writer was never asked, so neither was its owner check")
+
+    def test_on_a_switch_being_readopted_it_is_replay_pending_at_once(self):
+        journals = TableJournals(self.dir)
+        client, stub, calls = self.owned_client()
+        with journals.replaying(1):
+            outcome = self.in_thread(lambda: journals.write_and_journal(
+                lambda: client, 1, dict(self.SPEC), "insert"))   # no timeout: must not wait
+        self.assertEqual([type(e) for e in outcome], [rule_journal.ReplayPending])
+        self.assertEqual(calls, [])
+        self.assertFalse(journals.pending(1))
+        self.assertEqual(os.listdir(self.dir), [])
+
+    def test_a_write_that_got_past_the_first_check_meets_the_second_inside_the_lock(self):
+        journals = TableJournals(self.dir)
+        slow = ABlockingSwitch()
+        first = threading.Thread(target=lambda: journals.write_and_journal(
+            lambda: slow, 1, {"table": "a"}, "insert"), daemon=True)
+        first.start()
+        self.addCleanup(first.join, 5)
+        self.addCleanup(slow.release.set)
+        self.assertTrue(slow.entered.wait(2))
+        second = AFakeSwitch()
+        outcome = []
+
+        def go():
+            try:
+                outcome.append(journals.write_and_journal(lambda: second, 1, {"table": "b"},
+                                                          "insert", lock_timeout=3))
+            except Exception as exc:  # noqa: BLE001
+                outcome.append(exc)
+        waiter = threading.Thread(target=go, daemon=True)
+        waiter.start()
+        time.sleep(0.1)                         # it is now waiting for the lock
+        with journals._registry_lock:
+            journals._pending.add("1")          # a readopt began meanwhile
+        self.addCleanup(journals._pending.discard, "1")
+        slow.release.set()
+        waiter.join(3)
+        self.assertEqual([type(e) for e in outcome], [rule_journal.ReplayPending])
+        self.assertEqual(second.calls, [])
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class TheRouteAnswers503WhenTheSwitchIsBusyTest(TempDirCase):
     def setUp(self):
         super().setUp()
@@ -1373,6 +1651,24 @@ class TheRouteAnswers503WhenTheSwitchIsBusyTest(TempDirCase):
     def test_the_wait_is_bounded_by_one_grpc_deadline(self):
         from proxy_agent import p4_client
         self.assertEqual(self.saved[3], p4_client.RPC_TIMEOUT_S)
+
+    def test_a_switch_being_readopted_is_503_replay_pending_and_writes_nothing(self):
+        with api_routes.table_journals.replaying(1):
+            result = []
+
+            def go():
+                try:
+                    self.post()
+                except HTTPException as err:
+                    result.append(err)
+            waiter = threading.Thread(target=go, daemon=True)
+            waiter.start()
+            waiter.join(3)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].status_code, 503)
+        self.assertEqual(result[0].detail["error"], "replay pending")
+        self.assertIn("nothing was written", result[0].detail["message"])
+        self.assertEqual(self.stub.requests, [])
 
 
 # =============================================================================================
@@ -1441,6 +1737,17 @@ class TheWriterKeepsTheTwoApartTest(unittest.TestCase):
         spec = {k: v for k, v in AN_LPM_ENTRY.items() if k != "dpid"}
         self.assertEqual(client.table_entry_key(spec),
                          client.write_table_entry(spec, "insert")["entry_key"])
+
+    def test_and_so_does_a_ternary_spec_with_its_priority(self):
+        # m2 (round 3): the priority is part of the key on both paths.
+        client = a_client()
+        spec = {"table": "Synthetic.t_ternary", "priority": 10,
+                "match": {"hdr.ipv4.srcAddr": ["10.0.1.1", "255.255.255.255"]},
+                "action_name": "MyIngress.ipv4_forward",
+                "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
+        key = client.table_entry_key(spec)
+        self.assertEqual(key, client.write_table_entry(spec, "insert")["entry_key"])
+        self.assertEqual(key[2], 10)
 
     def test_and_so_does_a_default_entry_spec(self):
         client = a_client()
@@ -1577,7 +1884,7 @@ class TheJournalIsWiredInMainTest(unittest.TestCase):
         self.assertNotEqual(header["p4info_sha256"], header["entries_sha256"])
         self.assertIsNone(bare["entries_sha256"], "a switch with no entries file has no digest")
 
-    def test_the_real_report_states_that_nothing_replays(self):
+    def test_the_real_report_has_no_replay_before_one_has_run(self):
         with tempfile.TemporaryDirectory(prefix="ndt-table-journal-") as directory:
             saved = main.table_journals
             main.table_journals = TableJournals(directory)
@@ -1587,20 +1894,27 @@ class TheJournalIsWiredInMainTest(unittest.TestCase):
                 journal = main.table_entries_report()["1"]["journal"]
             finally:
                 main.table_journals = saved
-        self.assertEqual(journal["replay"], "not implemented")
+        self.assertIsNone(journal["replay"])
         self.assertEqual(journal["recorded"], 1)
 
+    def test_the_headers_main_builds_name_this_boots_fabric_generation(self):
+        saved = dict(main._generation)
+        self.addCleanup(main._generation.update, saved)
+        main._generation["cookie"] = 0xABCDEF
+        self.assertEqual(main.table_journal_header(1)["fabric_cookie"], "0000000000abcdef")
+        main._generation["cookie"] = None
+        self.assertIsNone(main.table_journal_header(1)["fabric_cookie"])
+
     def test_the_constants_the_two_surfaces_disagree_on_are_split(self):
-        # The multicast response keeps its own sentence; a table entry's is its own. One
-        # sentence cannot be true of a thing that is recorded and a thing that is not.
+        # The multicast response keeps its own sentence (Q5 (a)); a table entry's are its own.
+        # One sentence cannot be true of a thing that is recorded and a thing that is not.
         self.assertNotEqual(api_routes.TABLE_ENTRY_NOT_JOURNALED,
-                            api_routes.TABLE_ENTRY_RECORDED_NOT_REPLAYED)
-        self.assertNotEqual(api_routes.TABLE_ENTRY_RECORDED_NOT_REPLAYED,
                             api_routes.TABLE_ENTRY_JOURNAL_WRITE_FAILED)
         for note in (api_routes.TABLE_ENTRY_NOT_JOURNALED,
-                     api_routes.TABLE_ENTRY_RECORDED_NOT_REPLAYED,
                      api_routes.TABLE_ENTRY_JOURNAL_WRITE_FAILED):
             self.assertIn("lost when the proxy restarts", note)
+        self.assertFalse(hasattr(api_routes, "TABLE_ENTRY_RECORDED_NOT_REPLAYED"),
+                         "a recorded entry is replayed: that sentence is no longer true")
 
 
 class TheKeyDigestTest(unittest.TestCase):

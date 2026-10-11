@@ -310,24 +310,29 @@ class RuleJournal:
 # `.run/table_entry_journal/s<dpid>.jsonl`, one per switch, which also means the lock that
 # serialises one switch's writes never has to be held over another's.
 #
-# 🔴 WHAT THIS CUT DOES NOT DO: REPLAY. Nothing here puts a journaled entry back on a switch. A
-# proxy restart (and a readopt) pushes the pipeline, the push empties the tables, and a journaled
-# entry stays in its file -- recorded, not restored. So this module deliberately never says
-# "journaled": it says `recorded`, and `journaled_claim()` below answers False until the one
-# constant `TABLE_JOURNAL_REPLAYS` is flipped by the change that actually replays. A writer with
-# no reader is this repository's most-repeated defect; the half-built version of it that must not
-# ship is a field that reads GREEN for a record nothing reads back.
+# THE REPLAY (DESIGN 5.4, 5.5). A proxy restart, and a readopt, push the pipeline, and the push
+# empties the tables. What puts the API's entries back is `TableJournals.replay`, called by
+# `main.startup` for every switch it pushed and by `main.readopt_switch` after the package's own
+# entries: it re-reads the file, folds it, writes the net entries back through the writer and
+# replaces the file by a snapshot of what went back.
+#
+# 🔴 ONLY ON A FABRIC THIS PROXY CAN RECOGNISE. Every push carries a fabric generation in the
+# pipeline cookie, and every journal header names it. Before the first push of a startup the
+# cookie each switch holds is read back (COOKIE_ONLY) and compared with its file's header; a
+# switch that cannot confirm it -- a freshly started bmv2 answers FAILED_PRECONDITION, an old
+# header names no cookie, the switch does not answer at all -- has its file set aside and gets
+# nothing back. Yesterday's entries are never written into today's fabric.
 # =============================================================================================
 
-#: Flipped to True by the change that replays the journal (startup and readopt) and by nothing
-#: else. Every claim that an entry "survives a restart" -- the POST response's `journaled`, the
-#: switch_state's `table_entries.journaled`, and through it the health check's T8 -- is computed
-#: through this constant, so there is exactly one line that decides whether this proxy says it.
-TABLE_JOURNAL_REPLAYS = False
+#: True since the replay exists. Every claim that an entry "survives a restart" -- the POST
+#: response's `journaled`, the switch_state's `table_entries.journaled`, and through it the health
+#: check's T8 -- is computed through this constant, so there is exactly one line that decides
+#: whether this proxy says it.
+TABLE_JOURNAL_REPLAYS = True
 
-#: What `journal.replay` says in a response and in switch_state while the constant above is False.
-#: A string rather than a boolean so the sentence a reader meets is the sentence that is true.
-REPLAY_NOT_IMPLEMENTED = "not implemented"
+#: What a POST response's `journal.replay` says: when, and on what condition, its entry comes back.
+REPLAYED_WHEN = ("at proxy startup and after a readopt, on a switch whose pipeline cookie "
+                 "confirms it is the fabric this journal was written on")
 
 #: Overrides the directory the per-switch files live in. Same reason as RULE_JOURNAL_PATH_ENV_VAR:
 #: a test has to be able to point the production construction at a temp directory.
@@ -369,8 +374,16 @@ def key_digest(key):
 
 class SwitchBusy(RuntimeError):
     """Another write to the same switch held its lock for longer than the caller was willing to
-    wait. Nothing was written. The route answers 503: the switch is not wrong, it is busy, and
-    the same request is worth sending again."""
+    wait. Nothing was written, and nothing was validated either: the request never reached the
+    writer, so sending it again may meet any answer the writer gives (a 400 or a 409 among
+    them). The route answers 503."""
+
+
+class ReplayPending(RuntimeError):
+    """The switch is being re-adopted: its pipeline is being pushed and its journal replayed
+    (DESIGN 5.5). Nothing was written and nothing was validated; the route answers 503 `replay
+    pending` at once rather than queueing the write behind the re-adoption, which holds the
+    switch's lock for the whole of it."""
 
 
 @contextlib.contextmanager
@@ -389,6 +402,11 @@ class SwitchGone(LookupError):
     the lock. The route answers it exactly as it answers an unknown dpid."""
 
 
+def _was_absent(rec):
+    """Whether a record says the switch did not have the entry: a delete answered NOT_FOUND."""
+    return rec.get("op") == "delete" and rec.get("outcome") == "not_found"
+
+
 def fold_records(records):
     """
     Collapse an ordered list of journal records to the net write each entry needs.
@@ -401,6 +419,13 @@ def fold_records(records):
         there     -> there      modify(last spec)
         there     -> not there  delete(last spec)
         not there -> not there  nothing
+
+    🔴 A DELETE THE SWITCH ANSWERED NOT_FOUND SAYS "NOT THERE". When the first record of an entry
+    is a `not_found` delete, the switch said at that moment that the entry was absent, so the
+    entry starts absent: [delete/not_found, insert] is an insert, not a modify (a modify of an
+    entry the push has just removed would be refused, and the entry would not come back). This
+    is DESIGN 10-4's own premise -- such a record "only makes the key absent". A first delete
+    the switch ACCEPTED still starts "there": it removed something, a boot entry for example.
 
     A table's default entry is never inserted and never deleted, so whatever its history it nets
     to one modify of its last spec (or to nothing if the last thing recorded was a delete,
@@ -431,7 +456,7 @@ def fold_records(records):
             if l.get("op") != "delete":
                 net.append({"key": key, "op": "modify", "spec": spec, "records": count[key]})
             continue
-        before = f.get("op") != "insert"
+        before = f.get("op") != "insert" and not _was_absent(f)
         after = l.get("op") != "delete"
         if not before and after:
             op = "insert"
@@ -465,6 +490,24 @@ def _jsonl(obj):
     return (json.dumps(obj, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-8")
 
 
+def _is_header_line(raw):
+    """Whether one raw journal line is a header."""
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return False
+    return isinstance(parsed, dict) and bool(parsed.get("header"))
+
+
+def _created_mode(path):
+    """The mode of the live file, or 0644 for a first one. (Not "0666 less the umask": reading
+    the umask means setting it, process-wide, from a threadpool thread.)"""
+    try:
+        return os.stat(path).st_mode & 0o777
+    except OSError:
+        return 0o644
+
+
 def _fsync_directory(directory):
     """Make a create or rename in `directory` durable. Best effort: a filesystem that cannot
     open a directory for fsync has no stronger guarantee to offer."""
@@ -495,9 +538,10 @@ class TableEntryJournal:
     one exception: a delete the switch answered NOT_FOUND is recorded as `not_found` (DESIGN
     10-4), because a delete whose answer was lost may have landed.
 
-    **The caller holds `lock` around the switch write AND the `record`.** The journal does not
-    take it itself: the lock has to cover the write that precedes the record, or two writes can
-    land in one order on the switch and be journaled in the other.
+    **The caller holds `lock` around the switch write AND the `record`, and around every
+    snapshot.** The journal does not take it itself: the lock has to cover the write that
+    precedes the record, or two writes can land in one order on the switch and be journaled in
+    the other; and a readopt holds it from before its push until after its snapshot.
     """
 
     def __init__(self, path, dpid, header=None):
@@ -511,6 +555,15 @@ class TableEntryJournal:
 
     # --- writing ------------------------------------------------------------------
 
+    def _header_bytes(self, fields):
+        """The header line, in ONE shape whoever writes it: every key present (None when not
+        given), nothing else, and always this journal's own dpid."""
+        header = {"v": 1, "header": True, "dpid": self.dpid, "fabric_cookie": None,
+                  "p4info_sha256": None, "entries_sha256": None, "boot_id": None}
+        header.update({k: v for k, v in dict(fields or {}).items()
+                       if k in header and k not in ("v", "header", "dpid")})
+        return _jsonl(header)
+
     def _header_line(self):
         fields = {}
         if self._header_fn is not None:
@@ -518,10 +571,7 @@ class TableEntryJournal:
                 fields = dict(self._header_fn() or {})
             except Exception:  # noqa: BLE001 -- a header that cannot be built must not lose the record
                 fields = {}
-        header = {"v": 1, "header": True, "dpid": self.dpid, "fabric_cookie": None,
-                  "p4info_sha256": None, "entries_sha256": None, "boot_id": None}
-        header.update({k: v for k, v in fields.items() if k in header and k not in ("v", "header")})
-        return _jsonl(header)
+        return self._header_bytes(fields)
 
     def record(self, op, spec, key, outcome="ok"):
         """
@@ -569,19 +619,58 @@ class TableEntryJournal:
         after -- and never none, which a rename-then-write would. Returns the quarantine path, or
         None when there was no live file. Raises OSError; the caller decides what a failed
         snapshot means.
+
+        🔴 THE CALLER HOLDS `self.lock`, and this raises RuntimeError when nobody does (DESIGN
+        5.2: one lock covers the append and the snapshot). A record appended while a snapshot is
+        between its link and its replace lands in the set-aside inode and is lost from the live
+        file. The snapshot does not take the lock itself because its one caller that races with
+        writes, a readopt, has to hold it from before the push until after the snapshot (DESIGN
+        5.5), and a `threading.Lock` taken twice by one thread deadlocks.
         """
+        lines = [_jsonl(rec) for rec in records]
+        return self._replace_with(self._header_bytes(header), lines, keep)
+
+    def reheader(self, header, keep=QUARANTINE_KEEP):
+        """
+        Replace the header line and keep every other line of the live file byte for byte -- the
+        torn ones too, so a later read still counts them. DESIGN 5.4 step 0's "rewrite the
+        header's boot_id, records as they are". Same order, same lock rule, same return value as
+        `write_snapshot`.
+        """
+        body = []
+        try:
+            with open(self.path, "rb") as fh:
+                raw = fh.read()
+        except FileNotFoundError:
+            raw = b""
+        dropped_header = False
+        for line in raw.splitlines(keepends=True):
+            if not dropped_header and _is_header_line(line):
+                dropped_header = True
+                continue
+            if not line.strip():
+                continue
+            body.append(line if line.endswith(b"\n") else line + b"\n")
+        return self._replace_with(self._header_bytes(header), body, keep)
+
+    def _replace_with(self, head, lines, keep):
+        if not self.lock.locked():
+            raise RuntimeError(f"{self.path}: a snapshot is taken under the switch's lock, and "
+                               f"nobody holds it")
         directory = os.path.dirname(self.path) or "."
         os.makedirs(directory, exist_ok=True)
+        self._sweep_temp(directory)
         fd, tmp = tempfile.mkstemp(prefix=os.path.basename(self.path) + ".tmp.", dir=directory)
         try:
             with os.fdopen(fd, "wb") as fh:
-                head = dict(header)
-                head.update({"v": 1, "header": True, "dpid": self.dpid})
-                fh.write(_jsonl(head))
-                for rec in records:
-                    fh.write(_jsonl(rec))
+                fh.write(head)
+                for line in lines:
+                    fh.write(line)
                 fh.flush()
                 os.fsync(fh.fileno())
+            # mkstemp makes the file 0600; the live journal keeps the mode a record() would
+            # have created it with, so a snapshot does not quietly change who can read it.
+            os.chmod(tmp, _created_mode(self.path))
             quarantined = None
             if os.path.exists(self.path):
                 quarantined = f"{self.path}.q{time.time_ns()}"
@@ -597,6 +686,22 @@ class TableEntryJournal:
                     pass
         self._prune_quarantine(keep)
         return quarantined
+
+    def _sweep_temp(self, directory):
+        """Remove the temp files an earlier snapshot of THIS journal left behind when its process
+        died between mkstemp and the replace. Safe because the caller holds the lock, so no
+        snapshot of this file is in flight in this process."""
+        prefix = os.path.basename(self.path) + ".tmp."
+        try:
+            names = [n for n in os.listdir(directory) if n.startswith(prefix)]
+        except OSError:
+            return
+        for name in names:
+            try:
+                os.unlink(os.path.join(directory, name))
+                print(f"[table journal] removed {name}, left by a snapshot that did not finish")
+            except OSError:
+                pass
 
     def _prune_quarantine(self, keep):
         directory = os.path.dirname(self.path) or "."
@@ -656,6 +761,82 @@ class TableEntryJournal:
         return fold_records(records)
 
 
+# --- the fabric generation: DESIGN 5.2's `fabric_cookie`, 5.4 step 0, ruling Q1 (a) ------------
+
+
+def cookie_hex(value):
+    """A pipeline cookie (a u64) as the header stores it: 16 lower-case hex digits, or None."""
+    return None if value is None else format(int(value) & 0xFFFFFFFFFFFFFFFF, "016x")
+
+
+def cookie_value(text):
+    """The header's `fabric_cookie` back as an int, or None when it names none (a Cut B file,
+    whose header always said null) or names something that is not one."""
+    if not isinstance(text, str):
+        return None
+    try:
+        return int(text, 16)
+    except ValueError:
+        return None
+
+
+def cookie_verdict(header, seen):
+    """
+    DESIGN 5.4 step 0 for one switch: can its pipeline cookie confirm its journal?
+
+    `header` is the switch's journal header, None when there is no file or no header line.
+    `seen` is what COOKIE_ONLY answered: `("cookie", <int, or None for has_cookie false>)`, or
+    `("error", "<what went wrong>")` -- a fresh bmv2's FAILED_PRECONDITION, a switch that does
+    not answer, anything. Returns `{"confirmed", "cookie", "reason"}`, `cookie` being the
+    switch's own (None when it has none or did not say).
+
+    Confirmed only when the switch holds a cookie AND the header names one AND they are equal.
+    Every other case is unconfirmed and says which it is, because "fresh fabric" is an
+    operator's answer to "where did my entries go" and the reason is the rest of the sentence.
+    """
+    kind, value = seen
+    if kind != "cookie":
+        return {"confirmed": False, "cookie": None,
+                "reason": f"the switch did not answer COOKIE_ONLY ({value})"}
+    if value is None:
+        return {"confirmed": False, "cookie": None,
+                "reason": "the switch's pipeline carries no cookie"}
+    switch = int(value)
+    if header is None:
+        reason = "this switch has no journal header to compare the cookie with"
+    elif cookie_value(header.get("fabric_cookie")) is None:
+        reason = "the journal header names no fabric cookie"
+    elif cookie_value(header.get("fabric_cookie")) != switch:
+        reason = (f"the switch's cookie {cookie_hex(switch)} is not the journal's "
+                  f"{header.get('fabric_cookie')}")
+    else:
+        return {"confirmed": True, "cookie": switch, "reason": "confirmed"}
+    return {"confirmed": False, "cookie": switch, "reason": reason}
+
+
+def fabric_generation(verdicts, mint):
+    """
+    The one fabric generation G for this boot, and the verdicts it leaves standing.
+
+    Every confirmed switch must hold the same cookie, and G is that cookie. When no switch
+    confirmed, or the confirmed ones disagree, G is `mint()` -- and on a disagreement every switch
+    becomes unconfirmed, because two generations on one fabric means at least one of them is
+    not this fabric's, and nothing says which.
+    """
+    values = {v["cookie"] for v in verdicts.values() if v["confirmed"]}
+    if len(values) == 1:
+        return values.pop(), dict(verdicts)
+    out = dict(verdicts)
+    if len(values) > 1:
+        shown = ", ".join(sorted(cookie_hex(v) for v in values))
+        for key, verdict in verdicts.items():
+            if verdict["confirmed"]:
+                out[key] = dict(verdict, confirmed=False,
+                                reason=f"the switches that confirmed disagree on the fabric "
+                                       f"cookie ({shown})")
+    return mint(), out
+
+
 class TableJournals:
     """
     Every switch's `TableEntryJournal`, the lock each one needs, and what to say about them.
@@ -673,6 +854,11 @@ class TableJournals:
         self._failures = {}
         self._recorded = {}
         self._not_found = {}
+        #: Switches being re-adopted right now (DESIGN 5.5): a POST to one is a 503.
+        self._pending = set()
+        #: {dpid: step 0's verdict for this boot} and {dpid: the last replay's report}.
+        self._fabric = {}
+        self._replays = {}
         self._registry_lock = threading.Lock()
 
     def journal_for(self, dpid):
@@ -714,9 +900,15 @@ class TableJournals:
         An exception from the write propagates untouched and nothing is recorded -- with the one
         exception DESIGN 10-4 makes: a DELETE the switch answered NOT_FOUND is recorded as
         `not_found` and then re-raised, so the caller still sees the 502.
+
+        A switch that is being re-adopted (`replaying`) raises ReplayPending, before the lock and
+        again once it is held -- the second for a write that got past the first check just as
+        the re-adoption began. Nothing is written either way.
         """
         journal = self.journal_for(dpid)
+        self._refuse_pending(dpid)
         with _held(journal.lock, lock_timeout, f"switch {dpid}"):
+            self._refuse_pending(dpid)
             client = get_client()
             if client is None:
                 raise SwitchGone(f"switch {dpid} is no longer connected")
@@ -734,6 +926,189 @@ class TableJournals:
             recorded = self._record(journal, written["op"], spec,
                                     key_digest(written["entry_key"]), "ok")
             return written, recorded
+
+    # --- re-adoption: pending, and the lock held across it (DESIGN 5.5) ---------------------
+
+    def pending(self, dpid):
+        """Whether `dpid` is being re-adopted right now."""
+        with self._registry_lock:
+            return str(dpid) in self._pending
+
+    def _refuse_pending(self, dpid):
+        if self.pending(dpid):
+            raise ReplayPending(f"switch {dpid} is being re-adopted: its pipeline is being "
+                                f"pushed and its journal replayed")
+
+    @contextlib.contextmanager
+    def replaying(self, dpid):
+        """
+        Hold `dpid`'s lock with `pending` set, for a readopt: yields the switch's journal.
+
+        `pending` goes up BEFORE the lock is waited for, so a POST that arrives while a write
+        ahead of the readopt finishes is answered 503 at once instead of queueing behind the
+        whole re-adoption; it comes down, in `finally`, before the lock is released, so a POST
+        that was already waiting goes through the new client. A readopt that fails still
+        clears it.
+        """
+        journal = self.journal_for(dpid)
+        key = str(dpid)
+        with self._registry_lock:
+            self._pending.add(key)
+        try:
+            with journal.lock:
+                try:
+                    yield journal
+                finally:
+                    with self._registry_lock:
+                        self._pending.discard(key)
+        finally:
+            with self._registry_lock:
+                self._pending.discard(key)
+
+    # --- step 0: confirm or set aside, under the lock (DESIGN 5.4 step 0) --------------------
+
+    def settle(self, dpid, verdict, header_now):
+        """
+        Act on one switch's step-0 verdict. The caller holds the switch's lock.
+
+        Confirmed: the header is rewritten to name this boot (and this generation, the same
+        value) and every record stays as it is -- so a switch whose push fails right after is
+        still marked "confirmed this boot", and a readopt later replays it. Unconfirmed: the
+        file is set aside and the live one becomes a header with nothing under it (`header_now`:
+        this boot, this generation, today's digests) -- and that is what any later readopt of
+        this switch will find. Returns the set-aside path, or None.
+        """
+        journal = self.journal_for(dpid)
+        key = str(dpid)
+        self._fabric[key] = {"fresh_fabric": not verdict["confirmed"],
+                             "cookie": verdict["reason"]}
+        try:
+            if verdict["confirmed"]:
+                old, _records, _unreadable = journal.read()
+                kept = dict(old or {})
+                kept.update(boot_id=header_now.get("boot_id"),
+                            fabric_cookie=header_now.get("fabric_cookie"))
+                return journal.reheader(kept)
+            return journal.write_snapshot(header_now, [])
+        except OSError as exc:
+            # The journal could not be kept for this boot. Counted like a record that did not
+            # reach the disk: `journaled` is false for this switch until the proxy restarts.
+            self._fabric[key]["error"] = f"{type(exc).__name__}: {exc}"
+            with self._registry_lock:
+                self._failures[key] = self._failures.get(key, 0) + 1
+            return None
+
+    # --- steps 1, 3-6: read, guard, fold, apply, snapshot ----------------------------------
+
+    def replay(self, dpid, apply, header_now, is_not_found=None, when="startup", describe=None):
+        """
+        Put this switch's journaled entries back and replace its file by what went back.
+
+        DESIGN 5.4 steps 1 and 3-6, for startup and readopt alike. The caller holds the lock.
+        `apply(spec, op)` is the writer (`main` passes `write_table_entry` under the `replay`
+        source, so V1-V9 and the owner check are met again); it is called directly, never
+        through `write_and_journal`, so nothing is appended. `describe(exc)`, when given, is
+        what the report says about a refusal. `header_now` is the header the new
+        file gets: this boot, this generation, today's p4info and entries digests.
+
+          1. read the file AGAIN -- a readopt replays what was POSTed after startup too;
+             a header that does not name THIS boot was not confirmed by this boot's step 0, so
+             the file is set aside and nothing is replayed (`unconfirmed_header`);
+          3. the p4info digest differs (or is unknown): nothing is replayed (`stale_pipeline`).
+             The entries file's digest differs: a net insert still goes back, a net modify or
+             delete -- which was aimed at a boot entry of the old file -- does not
+             (`stale_entries`);
+          4. fold (`fold_records`);
+          5. apply each net write in the order its entry first appeared; a net delete the switch
+             answers NOT_FOUND has reached its goal and counts as restored;
+          6. snapshot: the header and the records of what went back. What failed or was stale
+             stays in the set-aside file and in this report, not in the live file.
+
+        Returns the report, which is also what `report(dpid)["replay"]` serves until the next.
+        """
+        journal = self.journal_for(dpid)
+        key = str(dpid)
+        report = self._blank_replay(key, when)
+        header, records, unreadable = journal.read()
+        report["unreadable"] = unreadable
+        if header is None or header.get("boot_id") != header_now.get("boot_id"):
+            report["skipped_reason"] = "unconfirmed_header"
+            self._snapshot(journal, key, header_now, [], report)
+            return self._store(key, report)
+        net = fold_records(records)
+        report["attempted"] = len(net)
+        pipeline_changed = (header.get("p4info_sha256") is None
+                            or header.get("p4info_sha256") != header_now.get("p4info_sha256"))
+        entries_changed = header.get("entries_sha256") != header_now.get("entries_sha256")
+        restored = []
+        for item in net:
+            entry = {"key": item["key"], "op": item["op"], "spec": item["spec"]}
+            if pipeline_changed:
+                report["stale_pipeline"] += 1
+                report["failed"].append({"entry": entry, "reason": "stale_pipeline: the p4info "
+                                         "this journal was written against is not the one "
+                                         "loaded now"})
+                continue
+            if entries_changed and item["op"] != "insert":
+                report["stale_entries"] += 1
+                report["failed"].append({"entry": entry, "reason": "stale_entries: the package's "
+                                         "entries file changed, and this write was aimed at "
+                                         "one of its entries"})
+                continue
+            try:
+                apply(item["spec"], item["op"])
+            except Exception as exc:  # noqa: BLE001 -- one entry must not cost the others
+                if (item["op"] == "delete" and is_not_found is not None
+                        and is_not_found(exc)):
+                    # The entry the delete was for is not there: that IS the state the journal
+                    # describes. Kept in the snapshot, so a later boot deletes it again.
+                    restored.append(item)
+                    continue
+                reason = None
+                if describe is not None:
+                    try:
+                        reason = describe(exc)
+                    except Exception:  # noqa: BLE001 -- a report must not fail the replay
+                        reason = None
+                report["failed"].append({"entry": entry, "reason": reason
+                                         or f"{type(exc).__name__}: {exc}"})
+                continue
+            restored.append(item)
+        report["succeeded"] = len(restored)
+        report["restored"] = [{"key": i["key"], "op": i["op"], "spec": i["spec"]}
+                              for i in restored]
+        self._snapshot(journal, key, header_now, records_from_net(restored), report)
+        return self._store(key, report)
+
+    def note_skipped(self, dpid, reason, when="startup"):
+        """A switch whose replay did not run, and why: an external control plane, a journal
+        that is off, a pipeline push that failed. Nothing is read or written."""
+        key = str(dpid)
+        report = self._blank_replay(key, when)
+        report["skipped_reason"] = reason
+        return self._store(key, report)
+
+    def _blank_replay(self, key, when):
+        fabric = self._fabric.get(key, {})
+        return {"when": when, "attempted": 0, "succeeded": 0, "unreadable": 0, "failed": [],
+                "restored": [], "fresh_fabric": fabric.get("fresh_fabric"),
+                "cookie": fabric.get("cookie"), "stale_pipeline": 0, "stale_entries": 0,
+                "skipped_reason": None}
+
+    def _snapshot(self, journal, key, header, records, report):
+        try:
+            journal.write_snapshot(header, records)
+        except OSError as exc:
+            report["snapshot_error"] = f"{type(exc).__name__}: {exc}"
+            with self._registry_lock:
+                self._failures[key] = self._failures.get(key, 0) + 1
+
+    def _store(self, key, report):
+        status = ReplayReport(report["attempted"], report["succeeded"], report["failed"],
+                              report["unreadable"]).status
+        report = dict(report, status=status)
+        self._replays[key] = report
+        return report
 
     def _record(self, journal, op, spec, digest, outcome):
         ok = journal.record(op, spec, digest, outcome)
@@ -753,15 +1128,16 @@ class TableJournals:
     def record_complete(self, dpid):
         """
         True while every accepted API write of this boot is in the journal: recording is on, the
-        switch is ours to write (not an external control plane's), and no record failed. The
-        three conditions `journaled` will need once something replays them.
+        switch is ours to write (not an external control plane's), and no record -- nor a step-0
+        or replay snapshot -- failed. The three conditions of DESIGN 5.6's `journaled`.
         """
         key = str(dpid)
         return (self.enabled and not self._read_only()
                 and self._failures.get(key, 0) == 0)
 
     def journaled(self, dpid):
-        """What `switch_state.table_entries.journaled` says. False while nothing replays."""
+        """What `switch_state.table_entries.journaled` says: every accepted write of this boot is
+        in a journal that the next startup or readopt replays (on a fabric it can confirm)."""
         return self.record_complete(dpid) and TABLE_JOURNAL_REPLAYS
 
     def report(self, dpid):
@@ -776,7 +1152,17 @@ class TableJournals:
             failures         records of this boot that did NOT reach the file -- once this is
                              above zero `record_complete` stays false until the proxy restarts
             record_complete  every accepted write of this boot is in the file
-            replay           "not implemented": nothing puts a record back on the switch
+            replay           the last replay of this switch (startup's, or a readopt's), or None
+                             before one has run:
+                               status/attempted/succeeded/unreadable/failed  as ReplayReport
+                               restored        the net writes that went back, {key, op, spec}
+                               fresh_fabric    step 0 set this switch's file aside this boot
+                               cookie          step 0's reason ("confirmed", or why not)
+                               stale_pipeline  net writes not replayed: the p4info changed
+                               stale_entries   net modifies/deletes not replayed: the entries
+                                               file changed
+                               skipped_reason  why nothing was even read, or None
+                               when            "startup" or "readopt"
         """
         key = str(dpid)
         return {"enabled": self.enabled,
@@ -784,4 +1170,4 @@ class TableJournals:
                 "not_found": self._not_found.get(key, 0),
                 "failures": self._failures.get(key, 0),
                 "record_complete": self.record_complete(key),
-                "replay": REPLAY_NOT_IMPLEMENTED if not TABLE_JOURNAL_REPLAYS else "implemented"}
+                "replay": (dict(self._replays[key]) if key in self._replays else None)}

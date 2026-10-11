@@ -30,7 +30,13 @@ restart (topology_manager.readopt_switch). A process-level id cannot see that, s
 client also carries a per-switch `table_generation` token that changes on every commit.
 The reader's question is "(boot_id, table_generation) -- either one different from what I
 last saw?", and either difference means "assume everything you installed on that switch is
-gone".
+gone" -- EXCEPT the entries `GET /p4/switch_state`'s `table_entries.journal.replay.restored`
+lists for that switch: POST /p4/table_entry writes are journaled, and the push's startup or
+readopt put those back (on a switch whose pipeline cookie confirmed the journal; the report's
+`fresh_fabric`, `stale_*` and `failed` say what did not come back and why). An app that re-sends
+its own rules after either event reads that report first: re-inserting an entry the replay
+already restored is refused by bmv2 (a 502, UNKNOWN on the wire), not a no-op.
+[Co-developed with claude code -- Adam]
 """
 
 from __future__ import annotations

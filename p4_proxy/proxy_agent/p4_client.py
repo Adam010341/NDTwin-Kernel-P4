@@ -120,12 +120,11 @@ class TableOwnedByNDTwin(RuntimeError):
 
 
 #: Who is asking `write_table_entry` to write. `api`: an operator's POST. `boot`: this proxy
-#: applying the app package's own runtime entries at startup or after a readopt. `replay`:
-#: RESERVED -- nothing passes it today (a POSTed entry is recorded, but nothing replays the
-#: table-entry journal yet); it is treated as `api`
-#: and is named so that a future caller that puts stored entries back cannot be mistaken for
-#: `boot`. Anything else is a ValueError. [Co-developed with claude
-#: code -- Adam]
+#: applying the app package's own runtime entries at startup or after a readopt. `replay`: this
+#: proxy putting the table-entry journal's entries back (main.replay_table_journal). It is
+#: treated as `api` -- the owner check refuses it exactly where it refused the POST it
+#: replays -- and is named so that it cannot be mistaken for `boot`. Anything else is a
+#: ValueError. [Co-developed with claude code -- Adam]
 ENTRY_SOURCE_API = "api"
 ENTRY_SOURCE_BOOT = "boot"
 ENTRY_SOURCE_REPLAY = "replay"
@@ -207,6 +206,15 @@ class P4RuntimeClient:
     #: construction site, main.build_p4_client (startup AND readopt), always calls bind_routes(),
     #: and tests/test_route_binding.py asserts that it does for all three kinds of switch.
     route_binding = route_binding_module.BASELINE
+
+    #: The fabric generation this client's pipeline pushes carry in `ForwardingPipelineConfig.cookie`
+    #: (DESIGN 5.2, ruling Q1 (a)), or None for a push with no cookie. `main.startup` sets it on
+    #: every client before its push loop and `main.readopt_switch` on the client its readopt
+    #: builds; a later startup reads it back with COOKIE_ONLY (`read_pipeline_cookie`) to tell a
+    #: switch this fabric programmed from one that was restarted since. 🔴 A push without it CLEARS
+    #: the cookie on the switch (measured, ternary-a0 08), so every push in this proxy carries it.
+    #: A class default for the reason `route_binding` is one. [Co-developed with claude code -- Adam]
+    pipeline_cookie = None
 
     def __init__(self, device_id, grpc_addr, p4info_path, json_path=None,
                  election_id=DEFAULT_ELECTION_ID, arbitration=True):
@@ -675,6 +683,25 @@ class P4RuntimeClient:
         except Exception as e:  # noqa: BLE001 -- a probe must never take the caller down
             return {"ok": False, "detail": f"{type(e).__name__}: {e}"}
 
+    def read_pipeline_cookie(self, timeout_s: float = 2.0):
+        """
+        The cookie of the pipeline this switch runs, or None when its pipeline carries none.
+
+        [Co-developed with claude code -- Adam]
+        One GetForwardingPipelineConfig with COOKIE_ONLY, the RPC `probe` sends. Raises what the
+        RPC raises: a bmv2 that has been pushed no pipeline answers FAILED_PRECONDITION (a fresh
+        process, whether or not its command line named a JSON -- ternary-a0 08), and a switch
+        that is not there fails the RPC. `main.startup`'s step 0 reads either as "cannot confirm
+        this fabric". Works on an external client too: it is a read, and it needs no mastership.
+        """
+        req = p4runtime_pb2.GetForwardingPipelineConfigRequest()
+        req.device_id = self.device_id
+        req.response_type = p4runtime_pb2.GetForwardingPipelineConfigRequest.COOKIE_ONLY
+        reply = self.stub.GetForwardingPipelineConfig(req, timeout=timeout_s)
+        if not reply.config.HasField("cookie"):
+            return None
+        return int(reply.config.cookie.cookie)
+
     def set_forwarding_pipeline_config(self):
         # 🔴 The single most destructive call in this class: it empties every table on the switch
         # (KNOWN-ISSUES A-4c). Against a fabric whose controller is somebody else's, that would
@@ -689,6 +716,8 @@ class P4RuntimeClient:
         with open(self.json_path, "rb") as f:
             req.config.p4_device_config = f.read()
         req.config.p4info.CopyFrom(self.p4info)
+        if self.pipeline_cookie is not None:
+            req.config.cookie.cookie = int(self.pipeline_cookie)
         self.stub.SetForwardingPipelineConfig(req, timeout=RPC_TIMEOUT_S)
         # [Co-developed with claude code -- Adam]
         # AFTER the RPC, never before. This line is the only record that every table entry on

@@ -36,6 +36,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROXY_DIR = os.path.dirname(HERE)
 REPO = os.path.dirname(PROXY_DIR)
 sys.path.insert(0, PROXY_DIR)
+# Before anything imports `main`: its table-entry journals go to a temp directory, never to the
+# checkout's .run/ (tests/journal_isolation.py). [Co-developed with claude code -- Adam]
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import journal_isolation  # noqa: E402,F401
 sys.path.insert(0, os.path.join(PROXY_DIR, "mininet"))
 
 import app_package  # noqa: E402
@@ -360,7 +364,7 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
                          "9213871cee36bd93")
         self.assertTrue(body["switches"]["2"]["pipeline"]["ndtwin"])
 
-    def test_every_switch_reports_what_was_written_and_that_none_of_it_is_journaled(self):
+    def test_every_switch_reports_what_was_written_and_whether_it_is_journaled(self):
         body = self.state(
             {"mode": "ndtwin", "package": "/pkg", "skipped": []}, {},
             written={"1": {"recorded": 5, "applied": 4, "failed": 1, "api_writes": 2,
@@ -375,13 +379,15 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
                          "endpoint must not invent one for a switch that report names")
         self.assertEqual(one, {"recorded": 5, "applied": 4, "failed": 1, "api_writes": 2,
                                "journaled": False})
-        # A switch nobody reported on still answers, with zeroes and the same `journaled: false`.
+        # A switch nobody reported on still answers, with zeroes and the journals' own answer.
         # Absent would be readable as "this proxy is too old to say", which is the shape the
-        # whole disclosure exists to close.
+        # whole disclosure exists to close. [Co-developed with claude code -- Adam] Since the
+        # replay, that answer is `journaled: true` for a switch whose journal is on, ours to
+        # write and missing no record -- here, one nothing was written to and nothing replayed.
         two = dict(body["switches"]["2"]["table_entries"])
-        self.assertEqual(two.pop("journal")["replay"], "not implemented")
+        self.assertIsNone(two.pop("journal")["replay"])
         self.assertEqual(two, {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
-                               "journaled": False})
+                               "journaled": True})
 
     def test_the_per_switch_skipped_list_survives_the_trip_through_the_endpoint(self):
         # 🔴 Round 3. `pipeline.skipped` was asserted at `main.pipeline_report_for` and in what

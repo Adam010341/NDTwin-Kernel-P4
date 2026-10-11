@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
+import secrets
 import socket
 import sys
 import threading
@@ -16,6 +17,7 @@ from proxy_agent.sflow_emitter import SFlowEmitter, load_switch_agent_ips
 from proxy_agent.kernel_notifier import KernelNotifier
 from proxy_agent.rule_journal import (RuleJournal, TableJournals, TABLE_JOURNAL_DIR_ENV_VAR,
                                       table_journal_enabled)
+from proxy_agent import rule_journal
 from proxy_agent import boot_identity
 from proxy_agent import api_routes
 from proxy_agent import kernel_notifier
@@ -739,11 +741,10 @@ def entries_recorded_report():
 #   pipeline       {"ndtwin": bool, "p4info": <abs>, "p4info_sha256": <16 hex>}
 #   table_entries  {"recorded", "applied", "failed", "api_writes", "journaled"}
 #
-# `journaled` is False and is emitted anyway (Adam 2026-09-18, option a): nothing replays an entry
-# after a proxy restart, so it is gone. A field that says so is the difference between an operator
-# who knows to re-run `ndt up p4 --app` and one who finds an empty table with no explanation. It
-# is now COMPUTED (`table_journals.journaled`) rather than a literal, and stays False until the
-# journal is replayed; `journal` beside it says what is recorded.
+# `journaled` was False and emitted anyway (Adam 2026-09-18, option a) while nothing replayed an
+# entry after a proxy restart. It is COMPUTED (`table_journals.journaled`): true when every accepted
+# API write of this boot is in a journal that the next startup or readopt replays, and `journal`
+# beside it says what was recorded and what the last replay put back.
 
 #: Accepted `POST /p4/table_entry` writes, per switch, for the life of this process. Separate
 #: from `applied`, which counts only what the package's own entries file put on the switch: an
@@ -762,24 +763,35 @@ _api_writes_lock = threading.Lock()
 
 # --- the table-entry journal. [Co-developed with claude code -- Adam] -----------------------
 #
-# POST /p4/table_entry records every accepted write here, one file per switch. 🔴 NOTHING REPLAYS
-# IT YET, and `table_entries.journaled` stays False for that reason (rule_journal's
-# TABLE_JOURNAL_REPLAYS): this block builds the recorder and says what it holds, `journal` beside
-# `journaled` below. DESIGN.md section 5; the replay is the next cut.
+# POST /p4/table_entry records every accepted write here, one file per switch, and startup and
+# readopt replay it (DESIGN.md section 5): `confirm_fabric` before the first push, then
+# `replay_table_journal` for each switch after the package's own entries.
 
 #: Under `.run/` for the reason the routing journal is: per-machine state, gitignored there.
 DEFAULT_TABLE_JOURNAL_RELPATH = os.path.join(".run", "table_entry_journal")
 
 
-def table_journal_header(dpid):
+#: This boot's fabric generation G (DESIGN 5.2, ruling Q1 (a)): the one cookie every pipeline push
+#: of this process carries, and every journal header names. None until `confirm_fabric` has run.
+_generation = {"cookie": None}
+
+
+def mint_fabric_cookie():
+    """A new fabric generation: 64 random bits, never 0."""
+    return secrets.randbits(64) or 1
+
+
+def table_journal_header(dpid, package=None):
     """
-    What a switch's journal file says it was made against: its p4info and entries-file digests
-    and this boot. Allowed to come back thin -- a header that cannot be built must not lose the
-    record that triggered it -- so every field degrades to None on its own.
+    What a switch's journal file says it was made against: its p4info and entries-file digests,
+    this boot, and this boot's fabric generation. Allowed to come back thin -- a header that
+    cannot be built must not lose the record that triggered it -- so every field degrades to None
+    on its own.
     """
-    out = {"boot_id": boot_identity.BOOT_ID}
+    out = {"boot_id": boot_identity.BOOT_ID,
+           "fabric_cookie": rule_journal.cookie_hex(_generation["cookie"])}
     try:
-        package = profile.current()
+        package = profile.current() if package is None else package
         p4info_path, _json_path = package.pipeline_for(dpid, proxy_root())
         out["p4info_sha256"] = _p4info_fingerprint(p4info_path)
         entries = package_entries_path(package, dpid)
@@ -807,6 +819,91 @@ def build_table_journals(env=None):
 
 
 table_journals = build_table_journals()
+
+
+def _cookie_seen(client):
+    """What one switch's COOKIE_ONLY says: ("cookie", int | None) or ("error", text)."""
+    try:
+        return ("cookie", client.read_pipeline_cookie())
+    except Exception as exc:  # noqa: BLE001 -- every failure is "cannot confirm", and says which
+        code = getattr(exc, "code", None)
+        name = None
+        try:
+            name = code().name if callable(code) and code() is not None else None
+        except Exception:  # noqa: BLE001
+            name = None
+        details = getattr(exc, "details", None)
+        try:
+            text = details() if callable(details) else None
+        except Exception:  # noqa: BLE001
+            text = None
+        return ("error", f"{name}: {text}" if name else f"{type(exc).__name__}: {exc}")
+
+
+def confirm_fabric(clients, journals, package, mint=None):
+    """
+    DESIGN 5.4 step 0, ruling Q1 (a): which switches are still the fabric their journal was
+    written on, and this boot's fabric generation G. Run BEFORE the push loop, for EVERY client
+    -- one that will turn out broken, or does not answer at all, included -- and never on an
+    external control plane (that fabric is not ours to read a journal against, and its files
+    are not touched).
+
+    Per switch: COOKIE_ONLY's answer against its journal header (`rule_journal.cookie_verdict`);
+    then one G for the fabric (`rule_journal.fabric_generation`); then, under the switch's
+    lock, a confirmed switch's header is rewritten to name this boot and an unconfirmed one's
+    file is set aside for a header with nothing under it (`TableJournals.settle`). Every client
+    then pushes with G. Returns `(G, {dpid: verdict})`.
+    """
+    mint = mint_fabric_cookie if mint is None else mint
+    verdicts = {}
+    for dpid, client in clients.items():
+        header, _records, _unreadable = journals.journal_for(dpid).read()
+        verdicts[dpid] = rule_journal.cookie_verdict(header, _cookie_seen(client))
+    generation, verdicts = rule_journal.fabric_generation(verdicts, mint)
+    _generation["cookie"] = generation
+    for dpid, client in clients.items():
+        client.pipeline_cookie = generation
+        verdict = verdicts[dpid]
+        with journals.journal_for(dpid).lock:
+            journals.settle(dpid, verdict, table_journal_header(dpid, package))
+        print(f"[Proxy Agent] switch {dpid}: table-entry journal "
+              + ("confirmed by the pipeline cookie" if verdict["confirmed"]
+                 else f"set aside, nothing will be replayed ({verdict['reason']})"))
+    return generation, verdicts
+
+
+def _replay_write(client, spec, op):
+    """One journaled entry back onto the switch, through the writer, as a `replay` write."""
+    with p4_client_module.entry_source(p4_client_module.ENTRY_SOURCE_REPLAY):
+        return client.write_table_entry(spec, op)
+
+
+def _refusal_reason(exc):
+    """What a replay report says about a write the switch refused: the per-update reason when
+    the switch gave one (E1's `p4rt_error`), the gRPC status name otherwise."""
+    p4rt = api_routes._p4rt_error(exc)
+    if p4rt is not None:
+        return f"{p4rt['code']}: {p4rt['message']}"
+    name = api_routes._grpc_status_name(exc)
+    return name if name is not None else f"{type(exc).__name__}: {exc}"
+
+
+def replay_table_journal(client, dpid, journals, package, when):
+    """
+    DESIGN 5.4 steps 1 and 3-6 for one switch whose pipeline was just pushed: its journal's net
+    entries go back on (`TableJournals.replay`), after the package's own entries. The caller
+    holds the switch's lock. A journal that is off replays nothing and says so. Returns the
+    report.
+    """
+    if not journals.enabled:
+        return journals.note_skipped(dpid, "the table-entry journal is off", when)
+    report = journals.replay(dpid, lambda spec, op: _replay_write(client, spec, op),
+                             table_journal_header(dpid, package), api_routes._is_not_found,
+                             when, describe=_refusal_reason)
+    print(f"[Proxy Agent] switch {dpid}: table-entry journal replay {report['status']}, "
+          f"{report['succeeded']}/{report['attempted']} net entries back"
+          + (f" ({report['skipped_reason']})" if report.get("skipped_reason") else ""))
+    return report
 
 
 def _describe_pipelines(package, dpids):
@@ -1667,7 +1764,8 @@ def _install_owned_routes(topo):
 _capabilities.update(_capabilities_blank(profile.current(), DEFAULT_SWITCH_DPIDS))
 
 
-def readopt_switch(topology, dpid, client_factory, sample_callback, package=None):
+def readopt_switch(topology, dpid, client_factory, sample_callback, package=None,
+                   journals=None):
     """
     The package's half of `POST /p4/readopt/{dpid}`.
 
@@ -1707,7 +1805,33 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
     is simply not wired, but here it would tell an operator a session was programmed when the
     decision was that none should be. And `routes_installed: 0` with nothing beside it reads as
     a switch that refused its routes rather than one that was deliberately not offered any.
+
+    🔴 THE WHOLE RE-ADOPTION HOLDS THE SWITCH'S TABLE-JOURNAL LOCK WITH `pending` SET (DESIGN
+    5.5; `TableJournals.replaying`). A POST to this switch meanwhile is a 503 `replay pending`,
+    so nothing is written between the new client's swap and the replay -- an entry written there
+    would be on the switch AND in the file the replay is about to put back. The push carries
+    this boot's fabric generation (`_generation`), never a cookie read from a journal header;
+    and on a foreign pipeline the journal is replayed after the package's own entries, into
+    `result["table_entries"]["replay"]`. The flag comes down even when the readopt fails.
+    [Co-developed with claude code -- Adam]
     """
+    journals = table_journals if journals is None else journals
+    with journals.replaying(dpid):
+        return _readopt_switch_locked(topology, dpid, client_factory, sample_callback, package,
+                                      journals)
+
+
+def _with_generation(client_factory):
+    """`client_factory`, whose clients push this boot's fabric generation in their cookie."""
+    def build(dpid):
+        client = client_factory(dpid)
+        client.pipeline_cookie = _generation["cookie"]
+        return client
+    return build
+
+
+def _readopt_switch_locked(topology, dpid, client_factory, sample_callback, package, journals):
+    """`readopt_switch`'s body, run with the switch's journal lock held and `pending` set."""
     package = profile.current() if package is None else package
     ndtwin = _pipeline_is_ndtwin(package, dpid)
 
@@ -1731,7 +1855,7 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
     cooperative = (telemetry_source == TELEMETRY_COOPERATIVE
                    and (ndtwin or pipeline_carries_telemetry(package, dpid)))
 
-    result = topology.readopt_switch(dpid, client_factory,
+    result = topology.readopt_switch(dpid, _with_generation(client_factory),
                                      sample_callback if cooperative else None,
                                      install_routes=ndtwin)
 
@@ -1816,6 +1940,11 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
     _record_table_entries(dpid, _table_entries.get(str(dpid), {}).get("recorded", 0),
                           counts["applied"], counts["failed"])
     result["table_entries"] = dict(counts)
+    # The API's entries, after the package's own (DESIGN 5.5): re-read from the file -- what was
+    # POSTed since startup is in it -- and replayed only if this boot's step 0 confirmed it.
+    # [Co-developed with claude code -- Adam]
+    result["table_entries"]["replay"] = replay_table_journal(
+        topology.switches.get(dpid), dpid, journals, package, "readopt")
 
     # [Co-developed with claude code -- Adam]
     # TICKET-P4-roles 2.3-3, on the power-on path. When every foreign switch of this fabric --
@@ -1885,7 +2014,7 @@ api_routes.inject_heartbeat_reports(reroute_report, heartbeat_report)
 async def startup(clients_factory, sflow, kernel, topo,
                   *, settle_seconds=MASTERSHIP_SETTLE_S,
                   agent_ips_loader=load_switch_agent_ips,
-                  package=None):
+                  package=None, journals=None):
     """
     Bring the proxy up, and report what it actually claimed.
 
@@ -1937,6 +2066,7 @@ async def startup(clients_factory, sflow, kernel, topo,
 
     package = profile.current() if package is None else package
     read_only = package.read_only
+    journals = table_journals if journals is None else journals
     skipped = list(EXTERNAL_SKIPS) if read_only else []
     # What this startup does to the fabric as a whole, recorded as it happens (TICKET-P4-roles
     # 2.5-2). Reset first: a module global that kept the last run's answer would describe a
@@ -2016,6 +2146,18 @@ async def startup(clients_factory, sflow, kernel, topo,
     # here stalls every other startup task uvicorn has queued. [Co-developed with claude code -- Adam]
     await asyncio.sleep(settle_seconds)
 
+    # --- the table-entry journal, step 0 (DESIGN 5.4; ruling Q1 (a)). [Co-developed with claude
+    # code -- Adam]
+    #
+    # 🔴 BEFORE THE PUSH, because the push is what would overwrite the evidence: each switch's
+    # pipeline cookie says which fabric generation programmed it, and the push below replaces it
+    # with this boot's. For EVERY client, not only the ones whose push will succeed: a switch
+    # that does not answer now cannot confirm its journal, so its file is set aside here and a
+    # readopt later finds a header with nothing under it -- never yesterday's entries. Not on an
+    # external control plane: nothing is pushed there and its files are not touched (DESIGN 5.7).
+    if not read_only:
+        confirm_fabric(clients, journals, package)
+
     # Batch push pipeline config
     #
     # [Co-developed with claude code -- Adam]
@@ -2078,6 +2220,23 @@ async def startup(clients_factory, sflow, kernel, topo,
         _record_table_entries(i, recorded, counts["applied"], counts["failed"])
         if counts["errors"]:
             entry_errors[str(i)] = counts["errors"]
+
+        # --- the table-entry journal, steps 1 and 3-6 (DESIGN 5.4). [Co-developed with claude
+        # code -- Adam]
+        #
+        # After the package's own entries (a journaled modify or delete may be aimed at one of
+        # them), before the PRE, on every switch whose pipeline this startup pushed. Under the
+        # switch's lock although nothing else runs yet -- uvicorn serves only after startup --
+        # because the snapshot is taken under it wherever it is taken (rule_journal
+        # write_snapshot).
+        if read_only:
+            journals.note_skipped(i, "external control plane")
+        elif i in broken:
+            journals.note_skipped(i, "the pipeline push failed; a readopt of this switch "
+                                     "replays its journal")
+        else:
+            with journals.journal_for(i).lock:
+                replay_table_journal(client, i, journals, package, "startup")
 
         # --- the PRE half of the same file (G9a). [Co-developed with claude code -- Adam]
         #
