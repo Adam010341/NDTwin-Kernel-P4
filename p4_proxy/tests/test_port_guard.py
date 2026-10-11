@@ -31,6 +31,12 @@ import subprocess
 import sys
 import unittest
 
+# The proxy this file starts inherits this process's environment, and so its table-entry journal
+# directory: without this its startup writes a header for every switch into the checkout's
+# .run/table_entry_journal (tests/journal_isolation.py). [Co-developed with claude code -- Adam]
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import journal_isolation  # noqa: E402,F401
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROXY_DIR = os.path.join(HERE, "..")
 MAIN = os.path.join(PROXY_DIR, "proxy_agent", "main.py")
