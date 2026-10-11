@@ -349,6 +349,73 @@ add "28. a recorded command names a source the artifact was not compiled from" \
     '         _p4c(f"{_TUT}/basic/solution/basic.p4", f"{_TUT}/basic/build", "basic")),  # MUTANT' \
     'test_the_generated_fixtures_are_all_there_and_are_the_only_exemptions'
 
+# 29-35 are the ternary writer's pre-flight half (G5): the "G5 not done" refusal is gone, and in
+# its place pre-flight runs the PROXY'S OWN shape check (p4_proxy/proxy_agent/match_shape.py,
+# imported by path, never copied) on ternary, range and optional fields, plus the priority rule,
+# the omitted-exact-field rule and the lpm /0 and host-bit rules. The shape rules themselves are
+# mutated in tests/shell/mutate_table_entry.sh, where match_shape.py is the subject; what is
+# mutated HERE is that this file still ASKS. A pre-flight that stopped asking would be green in
+# front of a package the proxy refuses entry by entry after the fabric is up.
+# [Co-developed with claude code -- Adam]
+add "29. pre-flight treats a ternary, range or optional field as an exact one, and refuses the right shape" \
+    "$PREFLIGHT" \
+    '        if kind not in _EXACT_OR_LPM:' \
+    '        if False:  # MUTANT: every match type is checked as an exact one' \
+    'test_ternary_entries_with_a_mask_and_a_priority_pass'
+
+add "30. pre-flight swallows the shape check's refusal, so a value outside its mask passes" \
+    "$PREFLIGHT" \
+    '            except (match_shape.TableEntryInvalid, match_shape.TableEntryUnsupported) as exc:
+                problems.append(f"{where}: {exc}")' \
+    '            except (match_shape.TableEntryInvalid, match_shape.TableEntryUnsupported) as exc:
+                pass  # MUTANT: the refusal is dropped' \
+    'test_a_ternary_value_with_a_bit_outside_its_mask_fails'
+
+add "31. pre-flight stops asking for a priority on a table that has a priority column" \
+    "$PREFLIGHT" \
+    '        match_shape.shape_priority(table_name, kinds, entry.get("priority"), is_default)' \
+    '        pass  # MUTANT: the priority is never checked' \
+    'test_a_ternary_entry_with_no_priority_fails_saying_it_needs_one'
+
+add "32. pre-flight lets an exact field be left out of an entry" \
+    "$PREFLIGHT" \
+    '    if exact_missing and not is_default and (match or match_shape.table_has_priority_column(kinds)):' \
+    '    if False:  # MUTANT: an omitted exact field is fine' \
+    'test_an_exact_field_left_out_of_a_match_fails'
+
+add "33. pre-flight refuses an entry with no match even where that is a legal catch-all" \
+    "$PREFLIGHT" \
+    '    if not is_default and not match and not match_shape.table_has_priority_column(kinds):' \
+    '    if not is_default and not match:  # MUTANT: the priority column no longer excuses it' \
+    'test_a_ternary_entry_with_no_match_at_all_passes_when_it_has_a_priority'
+
+add "34. pre-flight drops the lpm host-bit and /0 refusals" \
+    "$PREFLIGHT" \
+    '                    if exc.rule in ("V5", "V9"):' \
+    '                    if False:  # MUTANT: the writer refuses these and pre-flight does not' \
+    'test_an_lpm_value_with_host_bits_fails'
+
+add "35. pre-flight accepts a non-zero priority on a table that has no priority column" \
+    "$PREFLIGHT" \
+    '        match_shape.shape_priority(table_name, kinds, entry.get("priority"), is_default)' \
+    '        match_shape.shape_priority(table_name, ["TERNARY"], entry.get("priority"), is_default)  # MUTANT' \
+    'test_a_non_zero_priority_on_a_table_with_no_priority_column_fails'
+
+add "36. pre-flight holds a default entry to the non-default priority rule" \
+    "$PREFLIGHT" \
+    '        match_shape.shape_priority(table_name, kinds, entry.get("priority"), is_default)' \
+    '        match_shape.shape_priority(table_name, kinds, entry.get("priority"), False)  # MUTANT' \
+    'test_a_default_entry_with_a_priority_fails_on_a_table_with_a_priority_column'
+
+# [Co-developed with claude code -- Adam] 37: the refusal that G5 removed, put back. Test 398 of
+# test_preflight.py asserts the sentence is gone, and no earlier mutation ever brought it back, so
+# that test had never been seen red.
+add "37. pre-flight refuses a ternary, range or optional field again with the old 'G5 not done' sentence" \
+    "$PREFLIGHT" \
+    '                match_shape.shape_field(f"{table_name}.{field_name}", kind, field.bitwidth, value)' \
+    '                problems.append(f"{where}: {kind} match is not supported (G5 not done)")  # MUTANT' \
+    'test_the_old_g5_sentence_is_gone_from_a_ternary_package'
+
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.

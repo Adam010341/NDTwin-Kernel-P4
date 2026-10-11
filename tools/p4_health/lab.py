@@ -57,7 +57,7 @@ def expectations(s0_out, run_dir, model):
 def pft_observation(s0_out):
     pf = (s0_out.get("preflight") or {}).get("PF-T") or {}
     main = (s0_out.get("self_checks") or {}).get("main") or {}
-    return {"answer": {"rc": pf.get("rc"), "g5_rows": pf.get("g5_rows", 0),
+    return {"answer": {"rc": pf.get("rc"), "ternary_rows": pf.get("ternary_rows", 0),
                        "other_fail_rows": pf.get("other_fail_rows", 0)},
             "attribution": {"static": bool(main.get("ternary_held"))}}
 

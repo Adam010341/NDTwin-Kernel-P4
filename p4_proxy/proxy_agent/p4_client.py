@@ -12,7 +12,10 @@ from p4.config.v1 import p4info_pb2
 from google.protobuf import text_format
 
 from proxy_agent import boot_identity
+from proxy_agent import match_shape
 from proxy_agent import route_binding as route_binding_module
+from proxy_agent.match_shape import (BUILDABLE_MATCH_TYPES, TableEntryInvalid,  # noqa: F401 -- re-exported
+                                     TableEntryUnsupported, encode_value)
 from proxy_agent.route_binding import RouteWriteUnsupported  # noqa: F401 -- re-exported
 from proxy_agent.rule_install_times import RuleInstallTimes
 from proxy_agent.sflow_emitter import (TelemetryHeaderMissing, packet_in_metadata_ids,
@@ -84,40 +87,11 @@ class CounterNotFound(LookupError):
 #
 # 🔴 THREE EXCEPTION TYPES, BECAUSE THE THREE FAILURES ARE NOT THE SAME FAILURE. A caller that
 # receives one boolean cannot tell "this pipeline has no such table" (the operator pointed at the
-# wrong package) from "this proxy cannot build a ternary entry yet" (true of every package, and
+# wrong package) from "this proxy cannot build that kind of match" (true of every package, and
 # nothing the operator did) from "the switch refused it" (retryable). TICKET-P2 2.3 maps them to
-# 404 / 501 / 502, and api_routes.table_entry is the only translator.
-
-
-class TableEntryUnsupported(NotImplementedError):
-    """
-    The p4info describes this entry and this proxy cannot build it yet. -> HTTP 501.
-
-    [Co-developed with claude code -- Adam]
-    Phase 2 builds `exact` and `lpm` matches only. A ternary, range or optional field is not a
-    malformed request and not a missing table -- it is a capability this writer does not have,
-    which is the same thing the six group/meter endpoints already mean by 501
-    (P4RoutingStrategy.cpp:11-23). The message carries the p4info's own match-type NAME so the
-    reader is told which of the three it hit rather than being left to guess from the field.
-
-    NotImplementedError so an `except Exception` still contains it while `except ValueError`
-    -- the shape errors below -- deliberately does not.
-    """
-
-
-class TableEntryInvalid(ValueError):
-    """
-    The request cannot be represented in this pipeline. -> HTTP 400.
-
-    [Co-developed with claude code -- Adam]
-    A value wider than its field, an lpm prefix outside 0..bitwidth, a default action carrying a
-    match, a priority on a table with no priority column. Every one of them is the client's
-    error, and every one of them is refused BEFORE anything reaches `stub.Write` -- a rule that
-    lands and is then reported as a 400 is the defect `modify_ipv4_route` used to have, inverted.
-
-    ValueError, so a caller that already funnels malformed input (AppPackageError is one too)
-    keeps catching it.
-    """
+# 404 / 501 / 502, and api_routes.table_entry is the only translator. The two this module raises
+# itself, TableEntryUnsupported and TableEntryInvalid, are defined in match_shape.py -- the
+# pre-flight raises and catches the same two -- and re-exported above under their old names.
 
 
 class TableOwnedByNDTwin(RuntimeError):
@@ -189,95 +163,6 @@ TABLE_ENTRY_OPS = {
     "modify": p4runtime_pb2.Update.MODIFY,
     "delete": p4runtime_pb2.Update.DELETE,
 }
-
-#: Match types this writer can put on the wire. Everything else in the p4info enum raises
-#: TableEntryUnsupported. Named rather than tested inline so the 501 message and the branch
-#: cannot drift apart.
-BUILDABLE_MATCH_TYPES = ("EXACT", "LPM")
-
-
-def encode_value(value, bitwidth) -> bytes:
-    """
-    One P4Runtime field value, in the ceil(bitwidth/8) bytes the target expects.
-
-    [Co-developed with claude code -- Adam]
-    The rules are tutorials' `p4runtime_lib/convert.encode` -- a dotted string is an IPv4
-    address, a colon-separated one is a MAC, anything else is an integer, and everything is
-    big-endian and exactly as wide as the field. They are re-stated here rather than imported:
-    `~/tutorials` is not a dependency of this proxy, it is a directory on one laptop, and a
-    writer that only works where somebody cloned a tutorial is not a writer this fabric can
-    ship. The agreement is asserted instead -- tests/test_p4_client_writes.py pins each rule
-    against the values from the exercises' own runtime files.
-
-    🔴 A VALUE THAT DOES NOT FIT IS REFUSED, NOT TRUNCATED. `int.to_bytes` raises OverflowError,
-    but `value & mask` would not, and a silently narrowed value installs a rule for an address
-    nobody asked about -- which forwards, and reports success. bmv2 also rejects a value of the
-    wrong width outright, so a short or long encoding here surfaces as an opaque UNKNOWN from
-    the switch rather than as the client error it is.
-
-    `True` is not 1 here. JSON has a boolean and P4 does not; a manifest that wrote `true` where
-    it meant `1` is a file somebody should fix, and accepting it would encode a type confusion.
-    """
-    try:
-        bitwidth = int(bitwidth)
-    except (TypeError, ValueError):
-        raise TableEntryInvalid(f"bitwidth must be an integer, got {bitwidth!r}")
-    if bitwidth <= 0:
-        raise TableEntryInvalid(
-            f"this pipeline's p4info gives the field a bitwidth of {bitwidth}; a field with no "
-            f"width has no encoding, so nothing is guessed here")
-    width = (bitwidth + 7) // 8
-
-    if isinstance(value, (bytes, bytearray)):
-        raw = bytes(value)
-        if len(raw) != width:
-            raise TableEntryInvalid(
-                f"a bit<{bitwidth}> field takes {width} byte(s), got {len(raw)}")
-        return raw
-
-    if isinstance(value, bool):
-        raise TableEntryInvalid(
-            f"{value!r} is a JSON boolean, not a value for a bit<{bitwidth}> field")
-
-    if isinstance(value, str):
-        text = value.strip()
-        if ":" in text:
-            if bitwidth != 48:
-                raise TableEntryInvalid(
-                    f"{text!r} is a MAC address (48 bits) and the field is bit<{bitwidth}>")
-            groups = text.split(":")
-            if len(groups) != 6 or any(len(g) != 2 for g in groups):
-                raise TableEntryInvalid(f"{text!r} is not a MAC address like 08:00:00:00:01:11")
-            try:
-                return bytes.fromhex("".join(groups))
-            except ValueError:
-                raise TableEntryInvalid(f"{text!r} is not a MAC address like 08:00:00:00:01:11")
-        if "." in text:
-            if bitwidth != 32:
-                raise TableEntryInvalid(
-                    f"{text!r} is an IPv4 address (32 bits) and the field is bit<{bitwidth}>")
-            try:
-                return socket.inet_aton(text)
-            except OSError:
-                raise TableEntryInvalid(f"{text!r} is not an IPv4 address")
-        try:
-            # base 0 so "0x0a" and "10" both work, which is what the runtime files contain.
-            value = int(text, 0)
-        except ValueError:
-            raise TableEntryInvalid(
-                f"{text!r} is neither an address, a MAC, nor an integer literal")
-
-    if not isinstance(value, int):
-        raise TableEntryInvalid(
-            f"{value!r} ({type(value).__name__}) is not a value for a bit<{bitwidth}> field")
-    if value < 0:
-        raise TableEntryInvalid(f"{value} is negative; P4 fields are unsigned")
-    if value >= (1 << bitwidth):
-        raise TableEntryInvalid(
-            f"{value} does not fit in bit<{bitwidth}> (max {(1 << bitwidth) - 1}); a value this "
-            f"wide would have to be truncated, and a truncated rule matches traffic nobody "
-            f"asked about")
-    return value.to_bytes(width, byteorder="big")
 
 
 def pipeline_carries_telemetry(p4info_path):
@@ -1207,9 +1092,14 @@ class P4RuntimeClient:
         the same distinction for the OpenFlow-shaped endpoints, and made it after a live
         measurement (2026-09-03): a modify at a priority that had never existed rewrote the
         entry that was there and answered 200.
+
+        Defined by what the table HAS (match_shape.table_has_priority_column), not by what this
+        writer cannot build: the earlier "any field outside BUILDABLE_MATCH_TYPES" answered True
+        only because ternary was unbuildable, and would have answered False for every table the
+        day the writer learned to build it.
         """
-        return any(self._match_type_name(f) not in BUILDABLE_MATCH_TYPES
-                   for f in table.match_fields)
+        return match_shape.table_has_priority_column(
+            self._match_type_name(f) for f in table.match_fields)
 
     def build_table_entry(self, spec):
         """
@@ -1229,6 +1119,18 @@ class P4RuntimeClient:
         the value is what tools/p4_exercise/preflight.py has to do -- it has the entries file and
         not necessarily the pipeline -- and it is a guess: `[v, 32]` is an lpm entry on one table
         and a ternary value/mask pair on another, and the two mean different traffic.
+
+        How each match type is written (match_shape.shape_field holds the rules):
+
+            EXACT     a plain value, or a one-element list
+            LPM       [value, prefix_len]
+            TERNARY   [value, mask]
+            RANGE     [low, high]
+            OPTIONAL  a plain value, or a one-element list
+
+        A TERNARY, RANGE, OPTIONAL or LPM field that is left out is "don't care". A table with a
+        TERNARY, RANGE or OPTIONAL field also has a priority, which every insert, modify and
+        delete must name.
 
         Puts nothing on the wire. Everything that can be refused is refused here, so that
         `write_table_entry` reaches `stub.Write` only for an entry this pipeline can represent.
@@ -1263,62 +1165,38 @@ class P4RuntimeClient:
         entry.table_id = table.preamble.id
         entry.is_default_action = default_action
 
-        match_types = {}
-        for field_name, raw in match.items():
+        # Resolve every name against the p4info first (a name this table does not have is a
+        # 404, and it is reported before any value is looked at), then hand the values to the
+        # one shape check that pre-flight shares (match_shape.py).
+        kinds = [self._match_type_name(f) for f in table.match_fields]
+        fields = [(f.name, kind, f.bitwidth) for f, kind in zip(table.match_fields, kinds)]
+        resolved = {}
+        for field_name in match:
             field = self._match_field_by_name(table, field_name)
-            kind = self._match_type_name(field)
+            resolved[field.name] = match[field_name]
+        shaped = match_shape.shape_match(table.preamble.name, fields, resolved,
+                                         is_default=default_action)
+
+        match_types = {}
+        for field_name, wire in shaped.items():
+            field = self._match_field_by_name(table, field_name)
+            kind = wire[0]
             match_types[field.name] = kind
-            if kind not in BUILDABLE_MATCH_TYPES:
-                raise TableEntryUnsupported(
-                    f"{table.preamble.name}.{field.name} is a {kind} match, and this proxy "
-                    f"builds {' and '.join(BUILDABLE_MATCH_TYPES)} entries only "
-                    f"(TICKET-P2 2.3). Nothing was written.")
             m = entry.match.add()
             m.field_id = field.id
             if kind == "EXACT":
-                # 🔴 ONE ELEMENT IS UNWRAPPED, TWO ARE STILL REFUSED (TICKET-P3 section 9
-                # ruling 23②). [Co-developed with claude code -- Adam]
-                #
-                # The upstream exercises write an exact value as a one-element list --
-                # `basic_tunnel/sX-runtime.json` has `"hdr.myTunnel.dst_id": [1]` -- and the
-                # reference controller they are written against unwraps it before inferring a
-                # type (~/tutorials/utils/p4runtime_lib/convert.py:71-75, `encode`). This
-                # writer refused it, so `basic_tunnel/solution` came up with three of its six
-                # entries missing on every switch and the exercise failed in both live passes
-                # (probe2-basic_tunnel-proxy.log). A proxy stricter than the reference
-                # implementation is a proxy the exercises cannot be brought up on.
-                #
-                # Two elements stay a refusal, and not for symmetry: `[value, prefix_len]` is
-                # the LPM shape and `[value, mask]` the ternary one. Taking either here would
-                # install a rule matching ONE address where the author wrote one matching a
-                # subnet -- it forwards, it blackholes the rest, and nothing errors.
-                #
-                # Before the type is inferred, exactly like upstream's, so a string inside the
-                # list is still read as a MAC or an address rather than as an integer literal.
-                if isinstance(raw, (list, tuple)):
-                    if len(raw) != 1:
-                        raise TableEntryInvalid(
-                            f"{table.preamble.name}.{field.name} is an EXACT match, so its "
-                            f"value is a plain value or a one-element list, not "
-                            f"{list(raw)!r}")
-                    raw = raw[0]
-                m.exact.value = encode_value(raw, field.bitwidth)
-            else:  # LPM
-                if not isinstance(raw, (list, tuple)) or len(raw) != 2:
-                    raise TableEntryInvalid(
-                        f"{table.preamble.name}.{field.name} is an LPM match, so its value is "
-                        f"[value, prefix_len]; got {raw!r}")
-                value, prefix_len = raw
-                if isinstance(prefix_len, bool) or not isinstance(prefix_len, int):
-                    raise TableEntryInvalid(
-                        f"{table.preamble.name}.{field.name}: the prefix length must be an "
-                        f"integer, got {prefix_len!r}")
-                if not 0 <= prefix_len <= field.bitwidth:
-                    raise TableEntryInvalid(
-                        f"{table.preamble.name}.{field.name}: prefix length {prefix_len} is "
-                        f"outside 0..{field.bitwidth}")
-                m.lpm.value = encode_value(value, field.bitwidth)
-                m.lpm.prefix_len = prefix_len
+                m.exact.value = wire[1]
+            elif kind == "LPM":
+                m.lpm.value = wire[1]
+                m.lpm.prefix_len = wire[2]
+            elif kind == "TERNARY":
+                m.ternary.value = wire[1]
+                m.ternary.mask = wire[2]
+            elif kind == "RANGE":
+                m.range.low = wire[1]
+                m.range.high = wire[2]
+            else:  # OPTIONAL
+                m.optional.value = wire[1]
 
         action_name = spec.get("action_name")
         if action_name is not None:
@@ -1348,21 +1226,39 @@ class P4RuntimeClient:
                 written.param_id = param.id
                 written.value = encode_value(params[name], param.bitwidth)
 
-        priority = spec.get("priority")
-        if priority is not None:
-            if isinstance(priority, bool) or not isinstance(priority, int):
-                raise TableEntryInvalid(
-                    f"{table_name}: 'priority' must be an integer or null, got {priority!r}")
-            if priority and not self.table_honours_priority(table):
-                raise TableEntryInvalid(
-                    f"priority not honourable on this table: {table.preamble.name} matches only "
-                    f"on {[self._match_type_name(f) for f in table.match_fields]} fields, which "
-                    f"have no priority column -- precedence there is the prefix length and the "
-                    f"table holds one entry per key, so priority {priority} cannot select an "
-                    f"entry. Omit it, or write to a table with a ternary field.")
+        priority = match_shape.shape_priority(table.preamble.name, kinds,
+                                              spec.get("priority"), is_default=default_action)
+        if priority:
             entry.priority = priority
 
         return entry, match_types
+
+    def _match_as_dict(self, table_id, match):
+        """A repeated FieldMatch as `{field name: {"type": ..., ...}}` -- the ONE place that
+        spells it.
+
+        [Co-developed with claude code -- Adam]
+        `read_table_entries` (what the switch holds) and `_built_entry_match` (what this client
+        just wrote) both call this. They used to carry a copy each, the write side's knew only
+        exact and lpm, and an entry with any other field was recorded under a key its own
+        flow-stats row never looked up.
+        """
+        out = {}
+        for m in match:
+            name = self._match_field_name(table_id, m.field_id)
+            if m.HasField("exact"):
+                out[name] = {"type": "exact", "value": m.exact.value}
+            elif m.HasField("lpm"):
+                out[name] = {"type": "lpm", "value": m.lpm.value,
+                             "prefix_len": m.lpm.prefix_len}
+            elif m.HasField("ternary"):
+                out[name] = {"type": "ternary", "value": m.ternary.value,
+                             "mask": m.ternary.mask}
+            elif m.HasField("range"):
+                out[name] = {"type": "range", "low": m.range.low, "high": m.range.high}
+            elif m.HasField("optional"):
+                out[name] = {"type": "optional", "value": m.optional.value}
+        return out
 
     def _built_entry_match(self, entry):
         """The match of an entry this client just built, in `read_table_entries`' shape.
@@ -1372,15 +1268,7 @@ class P4RuntimeClient:
         reports duration 0/0, and the result is indistinguishable from KNOWN-ISSUES G-13
         being unfixed. [Co-developed with claude code -- Adam]
         """
-        out = {}
-        for m in entry.match:
-            name = self._match_field_name(entry.table_id, m.field_id)
-            if m.HasField("exact"):
-                out[name] = {"type": "exact", "value": m.exact.value}
-            elif m.HasField("lpm"):
-                out[name] = {"type": "lpm", "value": m.lpm.value,
-                             "prefix_len": m.lpm.prefix_len}
-        return out
+        return self._match_as_dict(entry.table_id, entry.match)
 
     def table_owned_by_ndtwin(self, table):
         """
@@ -1456,7 +1344,8 @@ class P4RuntimeClient:
         [Co-developed with claude code -- Adam]
         Returns what went on the wire:
 
-            {"dpid", "op", "table", "match_types", "priority_honoured", "is_default_action"}
+            {"dpid", "op", "table", "match_types", "priority", "priority_honoured",
+             "is_default_action", "op_substituted"}
 
         🔴 NO MODIFY FALLBACK, deliberately, and this is the one place in this class that has
         none. `insert_ipv4_route` and `insert_5tuple_rule` retry an ALREADY_EXISTS/UNKNOWN as a
@@ -1531,6 +1420,7 @@ class P4RuntimeClient:
             "op": op,
             "table": table_name,
             "match_types": match_types,
+            "priority": entry.priority,
             "priority_honoured": self.table_honours_priority(
                 self._table_by_name(table_name)),
             "is_default_action": entry.is_default_action,
@@ -1624,23 +1514,7 @@ class P4RuntimeClient:
                     continue
                 te = entity.table_entry
 
-                match = {}
-                for m in te.match:
-                    name = self._match_field_name(te.table_id, m.field_id)
-                    if m.HasField("exact"):
-                        match[name] = {"type": "exact", "value": m.exact.value}
-                    elif m.HasField("lpm"):
-                        match[name] = {"type": "lpm",
-                                       "value": m.lpm.value,
-                                       "prefix_len": m.lpm.prefix_len}
-                    elif m.HasField("ternary"):
-                        match[name] = {"type": "ternary",
-                                       "value": m.ternary.value,
-                                       "mask": m.ternary.mask}
-                    elif m.HasField("range"):
-                        match[name] = {"type": "range",
-                                       "low": m.range.low,
-                                       "high": m.range.high}
+                match = self._match_as_dict(te.table_id, te.match)
 
                 action = None
                 if te.action.HasField("action"):
@@ -1994,9 +1868,13 @@ class P4RuntimeClient:
 
         [Co-developed with claude code -- Adam]
         The key set AND the priority must match the installed entry: on a ternary table the
-        priority is part of the entry's identity, so deleting with the wrong one removes nothing
-        and reports success. That is the same shape as the OVS-side defect where
-        modify_flow_entry ignored priority and edited a different rule.
+        priority is part of the entry's identity, so deleting with the wrong one removes nothing.
+        Measured on a throwaway simple_switch_grpc (2026-10-04, ternary-a0 item 01): the switch
+        answers NOT_FOUND "Cannot find match entry" for a priority that is not there and leaves
+        the entry alone, and this method returns False. (An earlier version of this note said it
+        "reports success"; that was another target's behaviour or an older one, not this one's.)
+        It is not the OVS-side defect where modify_flow_entry ignored priority and edited a
+        different rule.
         """
         self._refuse_write("a 5-tuple rule delete")
         self._writable_five_tuple_binding("a 5-tuple rule delete")

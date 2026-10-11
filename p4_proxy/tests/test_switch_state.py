@@ -1209,14 +1209,143 @@ class TheUnrenderedCountTest(unittest.TestCase):
         with mock.patch.object(main, "topo", self.Switches({1: foreign})):
             self.assertEqual(main.flow_stats_report(), {"1": {"unrendered_entries": None}})
 
-    def test_ndtwins_own_pipeline_leaves_nothing_out_once_its_table_was_read(self):
+    def test_ndtwins_own_pipeline_serves_its_last_renders_count_like_any_other(self):
+        # [Co-developed with claude code -- Adam] The count is the last render's on every
+        # pipeline. It used to be a constant 0 for a baseline client once its table had been read.
+        rendered = type("C", (), {"route_binding": main.route_binding.BASELINE,
+                                  "last_flow_render": (3, 0.1)})()
+        with mock.patch.object(main, "topo", self.Switches({1: rendered})):
+            self.assertEqual(main.flow_stats_report(), {"1": {"unrendered_entries": 3}})
+
+    def test_a_table_read_is_not_a_render_so_ndtwins_own_pipeline_is_null_until_one(self):
+        # Nobody has asked what /stats/flow leaves out until /stats/flow has been rendered; a
+        # table read for another purpose says nothing about it, so it must not read as zero.
         read = type("C", (), {"route_binding": main.route_binding.BASELINE,
                               "last_table_read": lambda self: (4, 0.1)})()
         unread = type("C", (), {"route_binding": main.route_binding.BASELINE,
                                 "last_table_read": lambda self: None})()
         with mock.patch.object(main, "topo", self.Switches({1: read, 2: unread})):
-            self.assertEqual(main.flow_stats_report(), {"1": {"unrendered_entries": 0},
+            self.assertEqual(main.flow_stats_report(), {"1": {"unrendered_entries": None},
                                                         "2": {"unrendered_entries": None}})
+
+
+class TheCountOnNdtwinsOwnPipelineTest(unittest.TestCase):
+    """
+    GET /stats/flow then GET /p4/switch_state for a client on NDTwin's own pipeline.
+
+    [Co-developed with claude code -- Adam]
+    The ternary writer's ruling is "a rule the twin cannot describe is absent and counted". The
+    renderer already counted on every pipeline, but the route threw the number away for NDTwin's
+    own, so `flow_stats.unrendered_entries` answered 0 (or null) however many rows /stats/flow
+    had left out. These run both endpoints end to end, on the double the byte-identity recorder
+    uses, so the body is checked in the same breath as the count.
+    """
+
+    class Topology(CapabilitiesOnTheEndpointTest.FakeTopology):
+        def __init__(self, switches):
+            self.switches = switches
+
+    def setUp(self):
+        from tests.record_stats_flow_http_body import NdtwinClient
+
+        self.client = NdtwinClient([])
+        self.client.route_binding = main.route_binding.BASELINE
+        self.topology = self.Topology({1: self.client})
+        self.saved = (api_routes.topology, api_routes.capabilities_report,
+                      api_routes.flow_stats_report)
+        self.addCleanup(self.restore)
+        api_routes.topology = self.topology
+        api_routes.inject_roles_reports(None, main.flow_stats_report)
+        patch = mock.patch.object(main, "topo", self.topology)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def restore(self):
+        (api_routes.topology, api_routes.capabilities_report,
+         api_routes.flow_stats_report) = self.saved
+
+    @staticmethod
+    def a_partial_mask_row():
+        return {"table": "MyIngress.flow_5tuple", "priority": 7, "is_default": False,
+                "match": {"hdr.ipv4.dstAddr": {"type": "ternary", "value": b"\x0a\x00\x00\x04",
+                                               "mask": b"\xff\x00\xff\x00"}},
+                "action": {"name": "MyIngress.ipv4_forward", "params": {"port": b"\x02"}}}
+
+    def counted(self):
+        return asyncio.run(api_routes.switch_state())["switches"]["1"]["flow_stats"]
+
+    def test_a_partial_mask_row_is_omitted_from_stats_flow_and_counted_on_switch_state(self):
+        from tests.test_ryu_flow_stats import an_lpm_route
+
+        self.client._rows = [an_lpm_route(), self.a_partial_mask_row()]
+        self.assertEqual(self.counted(), {"unrendered_entries": None})
+        body = api_routes.get_flow_stats(1)
+        self.assertEqual([f["match"] for f in body["1"]],
+                         [{"nw_dst": "10.0.0.4", "dl_type": 2048}])
+        self.assertEqual(self.counted(), {"unrendered_entries": 1})
+
+    def test_through_fastapi_it_is_a_json_null_before_a_render_and_the_count_after(self):
+        # [Co-developed with claude code -- Adam] The tests around this one call the route
+        # functions; this one goes through FastAPI's own serialisation, which is what the kernel
+        # parses: the null has to arrive as a JSON null, not as a missing key or a 0.
+        from fastapi import FastAPI
+
+        from tests.record_stats_flow_http_body import asgi_get
+        from tests.test_ryu_flow_stats import an_lpm_route
+
+        self.client._rows = [an_lpm_route(), self.a_partial_mask_row()]
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        status, _, body = asgi_get(app, "/p4/switch_state")
+        self.assertEqual(status, 200)
+        self.assertIn(b'"unrendered_entries":null', body)
+        self.assertEqual(json.loads(body)["switches"]["1"]["flow_stats"],
+                         {"unrendered_entries": None})
+
+        status, _, flow = asgi_get(app, "/stats/flow/1")
+        self.assertEqual(status, 200)
+        self.assertEqual([f["match"] for f in json.loads(flow)["1"]],
+                         [{"nw_dst": "10.0.0.4", "dl_type": 2048}])
+
+        status, _, body = asgi_get(app, "/p4/switch_state")
+        self.assertEqual(status, 200)
+        self.assertIn(b'"unrendered_entries":1', body)
+        self.assertEqual(json.loads(body)["switches"]["1"]["flow_stats"],
+                         {"unrendered_entries": 1})
+
+    def test_the_count_follows_the_table_it_was_last_rendered_from(self):
+        from tests.test_ryu_flow_stats import an_lpm_route
+
+        self.client._rows = [self.a_partial_mask_row(), self.a_partial_mask_row()]
+        api_routes.get_flow_stats(1)
+        self.assertEqual(self.counted(), {"unrendered_entries": 2})
+        self.client._rows = [an_lpm_route()]
+        api_routes.get_flow_stats(1)
+        self.assertEqual(self.counted(), {"unrendered_entries": 0})
+
+    def test_a_failed_read_leaves_the_previous_count_alone(self):
+        self.client._rows = [self.a_partial_mask_row()]
+        api_routes.get_flow_stats(1)
+
+        def broken():
+            raise RuntimeError("stream broken")
+
+        self.client.read_table_entries = broken
+        self.assertEqual(api_routes.get_flow_stats(1).status_code, 503)
+        self.assertEqual(self.counted(), {"unrendered_entries": 1})
+
+    def test_an_unknown_action_is_still_listed_and_not_counted_on_ndtwins_own_pipeline(self):
+        # What a foreign switch does with such a row (leave it out, count it) is NOT what NDTwin's
+        # own pipeline does: there it renders as the empty action list, byte for byte as before.
+        from tests.test_ryu_flow_stats import an_lpm_route
+
+        future = an_lpm_route()
+        future["action"] = {"name": "MyIngress.some_future_action", "params": {}}
+        self.client._rows = [future]
+        body = api_routes.get_flow_stats(1)
+        self.assertEqual([f["actions"] for f in body["1"]], [[]])
+        self.assertEqual(self.counted(), {"unrendered_entries": 0})
 
 
 if __name__ == "__main__":

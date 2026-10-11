@@ -30,8 +30,11 @@ What it does NOT check, said out loud:
     is none to compare (see _check_pipelines); what is checked is that every table and action
     the p4info names exists in the bmv2 json, and the p4info's sha256 is printed so the
     question can be settled between two files that both claim to be the same program.
-  * ternary / range / optional matches. Refused with "G5 not done" rather than accepted and
-    silently dropped later; `POST /p4/table_entry` answers 501 for the same three.
+  * that a ternary / range / optional entry would MATCH what its author meant. The shape of
+    each is checked with the proxy's own `match_shape` (the arity, the encoding, a value with a
+    bit outside its mask, a range with low above high, a don't-care written as a zero mask / the
+    whole range / an lpm /0, and the priority every such table needs); what the entry selects is
+    for the switch.
 """
 import argparse
 import math
@@ -56,8 +59,10 @@ INFO = "INFO"
 _MAC_RE = re.compile(r"^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$")
 _IPV4_RE = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
 
-#: Stage one installs exact and lpm only. TICKET-P1 §3; the rest is G5, stage two.
-_SUPPORTED_MATCH = ("EXACT", "LPM")
+#: The two match types this file checks with its own (looser) encoder. TERNARY, RANGE and
+#: OPTIONAL go to the proxy's `match_shape`, and anything else is refused with the proxy's
+#: own sentence. TICKET-P1 §3 was exact and lpm only; G5 added the rest.
+_EXACT_OR_LPM = ("EXACT", "LPM")
 
 
 def match_type_name(value):
@@ -206,11 +211,15 @@ def check_entry(entry, index, where):
         known = ", ".join(index.table_names()[:6]) or "(none)"
         return [f"{where}: table {table_name!r} is not in the p4info (it has: {known})"]
 
+    match_shape = common.import_match_shape()
+    kinds = [match_type_name(f.match_type) for f in table.match_fields]
     match = entry.get("match")
     is_default = bool(entry.get("default_action"))
     if is_default and match:
         problems.append(f"{where}: a default_action entry cannot also carry a match")
-    if not is_default and not match:
+    if not is_default and not match and not match_shape.table_has_priority_column(kinds):
+        # On a table with a priority column an entry with no match is a legal catch-all (every
+        # field omitted is "any value"); on any other table it names no entry.
         problems.append(f"{where}: neither a match nor default_action -- nothing says which "
                         f"entry of {table_name} this is")
 
@@ -223,15 +232,15 @@ def check_entry(entry, index, where):
                             f"(it has: {known})")
             continue
         kind = match_type_name(field.match_type)
-        if kind not in _SUPPORTED_MATCH:
-            # The writer's own contract, quoted rather than paraphrased: `POST /p4/table_entry`
-            # answers 501 for these three and names the match_type in the body (TICKET-P2
-            # section 2.3). Saying so here means the pre-flight and the endpoint give the
-            # operator one story instead of two, and that the refusal arrives before the
-            # fabric is up rather than one entry at a time after it.
-            problems.append(f"{where}: {field_name} is a {kind} match -- G5 not done; "
-                            f"POST /p4/table_entry answers 501 for {kind} in this stage "
-                            f"(exact and lpm only)")
+        if kind not in _EXACT_OR_LPM:
+            # The writer's own check, not a copy of it: the same function builds the entry on
+            # the proxy side, so this row and the endpoint's 400/501 say one thing instead of
+            # two, and the refusal arrives before the fabric is up rather than one entry at a
+            # time after it. [Co-developed with claude code -- Adam]
+            try:
+                match_shape.shape_field(f"{table_name}.{field_name}", kind, field.bitwidth, value)
+            except (match_shape.TableEntryInvalid, match_shape.TableEntryUnsupported) as exc:
+                problems.append(f"{where}: {exc}")
             continue
         if kind == "LPM":
             if not (isinstance(value, (list, tuple)) and len(value) == 2):
@@ -251,6 +260,19 @@ def check_entry(entry, index, where):
             bad = check_value(addr, field.bitwidth)
             if bad:
                 problems.append(f"{where}: {field_name} {bad}")
+            elif isinstance(prefix, int) and not isinstance(prefix, bool) \
+                    and 0 <= prefix <= field.bitwidth:
+                # V5 (a /0) and V9 (host bits) only. This file keeps its own looser encoder for
+                # exact and lpm values (an IPv6 address passes here and not at the proxy -- a
+                # known divergence), so the writer's encoding refusals are not repeated; the
+                # two rules below are the ones the writer adds that this file did not have.
+                try:
+                    match_shape.check_lpm(f"{table_name}.{field_name}",
+                                          match_shape.encode_value(addr, field.bitwidth),
+                                          prefix, field.bitwidth)
+                except match_shape.TableEntryInvalid as exc:
+                    if exc.rule in ("V5", "V9"):
+                        problems.append(f"{where}: {exc}")
         else:
             if isinstance(value, (list, tuple)) and len(value) != 1:
                 problems.append(f"{where}: {field_name} is an exact match but its value is a "
@@ -259,6 +281,18 @@ def check_entry(entry, index, where):
             bad = check_value(value, field.bitwidth)
             if bad:
                 problems.append(f"{where}: {field_name} {bad}")
+
+    # V8: an EXACT field cannot be left out of a match entry.
+    exact_missing = [f.name for f, kind in zip(table.match_fields, kinds)
+                     if kind == "EXACT" and f.name not in (match or {})]
+    if exact_missing and not is_default and (match or match_shape.table_has_priority_column(kinds)):
+        problems.append(f"{where}: {table_name}: {exact_missing} is an EXACT field and an entry "
+                        f"cannot leave one out")
+    # V6: the priority, from the same function the writer uses.
+    try:
+        match_shape.shape_priority(table_name, kinds, entry.get("priority"), is_default)
+    except match_shape.TableEntryInvalid as exc:
+        problems.append(f"{where}: {exc}")
 
     action_name = entry.get("action_name")
     action = index.action(action_name) if action_name else None
