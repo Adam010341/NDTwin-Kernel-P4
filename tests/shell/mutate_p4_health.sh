@@ -44,6 +44,7 @@ THROWAWAY="$PKG/throwaway.py"
 KERNEL="$PKG/collect/kernel.py"
 FRAMES="$PKG/frames.py"
 PROBEPY="$PKG/probe.py"
+OBSERVE_A="$PKG/observe_a.py"
 CELLS_TEST="$REPO/tests/python/test_p4_health_cells.py"
 COLLECT_TEST="$REPO/tests/python/test_p4_health_collect.py"
 RECOVER_TEST="$REPO/tests/shell/test_p4_health_recover.sh"
@@ -185,7 +186,7 @@ add "C-T8. T8's RED still says journaled is the constant false" \
     'test_t8_red_says_why_journaled_can_be_false_now'
 
 add "C-T8b. observe_t8 says journaled whatever switch_state says" \
-    "$PKG/observe_a.py" \
+    "$OBSERVE_A" \
     '    return {"answer": {"journaled": te.get("journaled") if isinstance(te, dict) else None}}' \
     '    return {"answer": {"journaled": True}}' \
     'test_a_proxy_that_replays_its_journal_is_t8_green_and_one_that_does_not_is_red'
