@@ -58,3 +58,42 @@
 9. **gate 的 `mutant()` 吞掉失敗的 anchor assert（m14）**：目前靠 check_gate_anchors 擋住；控制組的 anchor 消失時仍會印 green。
 10. **T8**：沒有任何 observer 產生 `a:journaled`，現在跑一輪會是 NOT RUN 而不是 RED；T8 的 RED 文字（cells/table.py:379）過時，屬健檢線。
 11. 其他：`record_complete` 對沒有任何寫入的交換機是空洞的 true，也不代表檔案本身；header 的 sha 是檔案第一次建立時的；readopt 還沒取這把表鎖（Cut C 的 pending／503 要接上）；步驟 0 的隔離檔名要沿用 `.q<ns>`，否則 prune 掃不到；被刪掉的 REFUSE 記錄原始檔沒有保留。
+
+
+---
+
+## 第三輪：搬到 Cut A 之上
+
+**結論**：分支 `feat/p4-ternary-journal-b-on-a`，從公開 trunk `3a47bdb7`（未認證 `ls-remote` 確認）開出，`git merge --no-ff feat/p4-ternary-journal-b`（`70995061`）＝ merge commit `cda9fea3`，再加一顆 gate 的 commit `143fb7b0`。兩邊的行為都保留；程式碼的行為沒有改，只改了測試的綁定、測試的隔離和一行註解。全部 gate 都在 `143fb7b0` 跑、全綠（下面）。未推送。逐條記錄在 gate log 目錄的 `CONFLICTS.md`。
+
+**文字衝突（三個）**
+1. `mutate_rule_journal_is_wired.sh`：兩邊加了同樣七行（`setting/` 連結），只有註解裡量紅的 sha 不同 ⇒ 用 trunk 的，檔案與 `3a47bdb7` 逐 byte 相同。
+2. `p4_client.py` 的 `write_table_entry`：Cut B 在 `record(...)` 加 `entry.is_default_action`，trunk 改了 log 的 `print`（空 match 標成 "(no match fields)"）⇒ 兩個都留。
+3. `api_routes.py` 的 import：Cut B 加 `RPC_TIMEOUT_S`，V7 加 `TableOwnedByNDTwin` ⇒ 取聯集。
+- 另外逐檔比對：Cut B 碰過的 13 個檔，merge 後對 trunk 的增刪行＝Cut B 自己的增刪行，對 Cut B 的增刪行＝trunk 自己的增刪行（只差上面 1、3 兩處）⇒ 自動合併的檔沒有掉任何一邊的行。
+
+**語意衝突（合得進去、跑起來才壞）**
+4. **Cut B 的 journal 測試寫進了 NDTwin 自己的表**：`a_client` 用 `__new__` 建、沒綁，繼承 `BASELINE`；V7 之下每張表都是 NDTwin 的 ⇒ 116 個測試裡 26 個紅（7 FAIL、19 ERROR），全部是 409 `owned_by_ndtwin`（`red_R1_*.log`）。照 trunk `42c22297` 處理 Cut A 測試的方式、也和 `test_table_entry_route.py` 的 double 一樣：`client.bind_routes(None)`（使用者 pipeline）。
+5. **沒有測試說「owner 拒絕不進 journal」**（DESIGN §5.7「owner ndtwin 的表除了 default，都會在 V7 被擋，journal 裡不會出現」）⇒ 新測試 `test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record`（insert 與 delete；stub 先設成回 NOT_FOUND，所以沒有 owner 檢查時 delete 會被記成 `not_found`）＋ gate 的 M-J90（把 owner 檢查換成 `pass`）。看紅：502 != 409（兩個 op）與 `['s1.jsonl'] != []`（`red_R2_*.log`）。
+6. **trunk 的 owner 測試會寫進 checkout 的 journal**：`test_table_entry_owner.py`（`ThePostAnswers409Test`）與 `test_table_entry_owner_package.py` 會 import `main`，merge 之後 route 拿到的是真的 `table_journals`，被接受的 POST 寫出 `p4_proxy/.run/table_entry_journal/s1.jsonl`；在共用 checkout 裡那就是 live 的 journal 目錄。看紅：trunk 版會留下檔案、修過的版本不留 `.run`（`red_R3_*.log`）。修法同 Cut B 的 `TableEntryRouteTestBase`（setUp 存起來、設 None、cleanup 還原），斷言不動。
+7. `p4_client.py` 的 `ENTRY_SOURCE_REPLAY` 註解「a POSTed entry is not journaled」merge 後不對了 ⇒ 改成「記下了、但還沒有東西重放」。只改註解。
+
+**兩個設計交會的地方，以及由哪一行決定**
+- **entry 的身分**：journal 的 key 是從**建好的 entry** 算的 `entry_key(dpid, table, entry.priority, normalise_match(...), default)` ⇒ 就是 Cut A 的身分規則（DESIGN §3.1「身分＝`(dpid, table, priority, 正規化後的 match)`」、「default entry 的 key 要另外造」）；ternary／range／optional 的分支在 merge base 上已經有。不用改；`test_a_ternary_entry_is_recorded_under_its_priority` 釘住 priority。
+- **owner 檢查與鎖的先後**：V7 在 `write_table_entry` 裡（DESIGN §4「V7 現在在 `write_table_entry` 裡」），而 §5.3 的 `_write_and_journal` 在每台的鎖裡才呼叫它 ⇒ 409 和其他拒絕一樣在鎖裡決定；排在一個佔住鎖超過 `TABLE_ENTRY_LOCK_TIMEOUT_S` 的寫入後面的 POST，會先拿到 503 而不是 409。V7 自己的「owner 在 build 之前」順序不變。照 §5.3 寫的做；沒有測試釘住 503 與 409 的先後。
+- **開機 entry**：`apply_package_entries` 在 `entry_source("boot")` 裡直接呼叫 writer、不經 `write_and_journal` ⇒ 不進 journal（§4），V7 的 boot default 例外不受影響。
+- **E1**：`_is_not_found` 讀的就是 502 body 用的 `_p4rt_error`，兩邊都沒改。
+- **沒有遇到兩份文件都沒決定的衝突**，所以沒有停下來。
+
+**Gate（全部在 `143fb7b0`、拋棄式 clone 裡、一次一個；p4c 1.2.5.15 (SHA 5b948b037a)；`ndtwin_switch.json` sha256 `f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562`、`ndtwin_switch.p4info.txt` `d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67`；log 在 `scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-journal-b-on-a/`）**
+- `mutate_table_journal.sh`：`mutation gate: 99 mutations, 0 survived`（98 個沿用＋M-J90），6 個控制組全綠，baseline byte-identical；`test_table_entry_journal` 的 117 個測試**117 個**都被至少一個 mutant 弄紅過（`journal_tests_seen_red.txt`）。
+- `mutate_table_entry.sh` 81/0；`mutate_table_entry_owner.sh` 27/0；`mutate_p4_rule_install_time.sh` 27/0；`mutate_roles_binding.sh` 194/0；`mutate_p4_exercise_tools.sh` 37/0；`mutate_rule_journal_is_wired.sh` 14/0。
+- `check_gate_anchors.py HEAD`：`137/137 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)`。
+- CI 形狀的兩條 lane（`ci-r2.sh` ＋ `p4lane.sh`／`klane.sh`）：兩條都 `FAILURES=0`。p4lane 裡 journal 117、owner 46、owner_package 5、route 36 全過；跑完 clone 的 `p4_proxy/` 底下沒有 `.run`。
+- p4_health 套件沒跑：merge 沒有碰 `mutate_p4_health.sh` 的 WATCHED 清單（`tools/p4_health`、`tools/p4_exercise`、`match_shape.py`、`grpc_ports.py` 與健檢的測試和 gate 腳本）裡的任何一個檔；`tools/p4_health` 唯一 import proxy 的是 `openapi_probe.py`（`api_routes`），這次沒有加或改任何 route 的路徑。
+
+**還開著的**
+- 第一、二輪列給 Cut C 的清單全部照舊（重放、cookie、pending／503、m6–m14）；`journaled` 仍然一律 false。
+- m13（`.run/` 隔離只靠慣例）這次又多了兩個實例（上面第 6 條），說明它不是假設的風險；防護仍留給 Cut C 之前。
+- 503 先於 409 是照 §5.3 推出來的，沒有測試釘住。
+- 這一輪的 /proc 掃描有一次抓到「其他行程」：其實是我自己等 gate 結束的 shell（指令字串裡含 gate 名），不在 driver 的祖先鏈上；driver 等了 60 秒、它們結束後才開跑下一個 gate（`driver.log`）。
