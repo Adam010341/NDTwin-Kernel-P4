@@ -3521,6 +3521,13 @@ add "C2R8-3d. a round does not put the handlers it replaced back" \
     '            pass  # MUTANT' \
     'test_a_round_puts_the_handlers_it_replaced_back'
 
+# round 8: T8's RED also names a failed step-0 or replay snapshot
+add "C2R8-T8. T8's RED leaves out a failed snapshot" \
+    "$TABLE" \
+    '                   "control plane'"'"'s, missed a record this boot, or had a step-0 or replay snapshot fail "' \
+    '                   "control plane'"'"'s, or missed a record this boot "  # MUTANT' \
+    'test_t8_red_says_why_journaled_can_be_false_now'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

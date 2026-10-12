@@ -733,6 +733,20 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertNotIn("constant", reason)
         for word in ("off", "external control plane", "missed a record"):
             self.assertIn(word, reason)
+        # (Cut 2 round 8) and a step-0 or replay snapshot that failed: rule_journal.py counts those as a failure too
+        # [Co-developed with claude code -- Adam]
+        self.assertIn("snapshot", reason)
+
+    def test_the_t8_row_of_the_predictions_names_every_way_journaled_is_false(self):
+        """The RED condition in expected_today.tsv's T8 row says the same as t8_cannot: the journal is off, the proxy
+        is external, a record was missed, or a snapshot failed. The expected value stays GREEN."""
+        with open(EXPECTED_TSV, encoding="utf-8") as fh:
+            rows = [l.rstrip("\n").split("\t") for l in fh if l.startswith("T8\t")]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][5], "GREEN")
+        red = rows[0][6].split("T8 is RED only when", 1)[1]
+        for word in ("off", "external", "record was missed", "snapshot"):
+            self.assertIn(word, red)
 
     def test_tp2_past_the_deadline_is_red(self):
         v = decide("TP2", copy.deepcopy(FIX["TP2"][1]))
