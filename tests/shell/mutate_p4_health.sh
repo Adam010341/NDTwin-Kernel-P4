@@ -3528,6 +3528,22 @@ add "C2R8-T8. T8's RED leaves out a failed snapshot" \
     '                   "control plane'"'"'s, or missed a record this boot "  # MUTANT' \
     'test_t8_red_says_why_journaled_can_be_false_now'
 
+# round 9: the exercise copy's build outputs are checked too, and its modules are compiled from their source
+add "C2R9-2a. the exercise copy's build outputs are not compared with what its first check recorded" \
+    "$FROZENPY" \
+    '        if first != outputs:' \
+    '        if False:  # MUTANT' \
+    'test_a_convert_that_rewrites_a_build_file_of_the_exercise_copy_is_refused_before_the_pre_flight'
+
+add "C2R9-2b. the exercise copy's modules are loaded through the import system's loader (a cached .pyc may run)" \
+    "$FROZENPY" \
+    '    exec(compile(source, path, "exec", dont_inherit=True), mod.__dict__)' \
+    '    import importlib.util  # MUTANT
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)' \
+    'test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

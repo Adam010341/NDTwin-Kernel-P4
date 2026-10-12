@@ -280,7 +280,9 @@ class S0(object):
         against one pinned commit: the copy is checked against that commit as the frozen files are, and a
         mismatch raises frozen.Refused -- `probe.py lab` answers rc 2 before any lab action. S0 on its own
         (no frozen) has no commit to check against. (Cut 2 round 8) Called twice by run(): right after the compile,
-        and again right after packages(), because convert.py gets the copy as its input and may write into it."""
+        and again right after packages(), because convert.py gets the copy as its input and may write into it. (round 9)
+        The first call is also when the copy's build outputs are recorded (Frozen.check_exercise), so it comes after
+        compile_all and before anything else touches the copy."""
         if self.frozen is not None and getattr(self.frozen, "head", None):
             self.frozen.check_exercise(self.ex)
 
@@ -396,11 +398,9 @@ class S0(object):
 
     # --- 3. the program on a throwaway switch ----------------------------------------------------
     def _switch_inputs(self, dpid):
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("hc_gen", os.path.join(self.ex, "gen_runtime.py"))
-        gen = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(gen)
-        return gen
+        """The model, the run's copy of gen_runtime.py, compiled from its source (frozen.load_source: never a cached
+        .pyc). [Co-developed with claude code -- Adam]"""
+        return FZ.load_source("hc_gen", os.path.join(self.ex, "gen_runtime.py"))
 
     def selfcheck_run(self, label, build_dir, dpid):
         """One throwaway switch: dpid's program and entries, markers in, outputs read."""
@@ -779,8 +779,9 @@ class S0(object):
             self.p4info_identity()
             self.take_inventory()
             self.packages()
-            # (Cut 2 round 8) convert.py was handed the copy as its input, and the controller trial execs the copy's
-            # gen_runtime.py: the copy is checked again before anything reads it, not only by lab.run_lab later.
+            # (Cut 2 round 8) convert.py was handed the copy as its input, and the self-checks are the first to exec the
+            # copy's gen_runtime.py (selfcheck_run -> _switch_inputs; the controller trial does so later): the copy is
+            # checked again before anything reads it, not only by lab.run_lab later.
             self.check_exercise_copy()  # [Co-developed with claude code -- Adam]
             self.preflight()
             self.drop_check()

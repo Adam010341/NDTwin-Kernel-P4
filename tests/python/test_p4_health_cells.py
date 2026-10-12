@@ -3102,6 +3102,141 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         with self.assertRaises(FZ.Refused):
             fz.check_exercise(copy)
 
+    # --- round 9: the copy's build outputs are checked too, and its modules are compiled from their source ----------
+    def copy_with_build_output(self):
+        """(Frozen, a checked copy of exercise/ with p4c-like outputs in build/ and build-mutant/, checked once)."""
+        fz, copy = self.freeze_with_exercise()
+        for rel, text in (("build/hc_main.json", "{}\n"), ("build/hc_main.p4.p4info.txtpb", "pkg_info {}\n"),
+                          ("build-mutant/hc_main.json", "{\"m\": 1}\n")):
+            os.makedirs(os.path.dirname(os.path.join(copy, rel)), exist_ok=True)
+            with open(os.path.join(copy, rel), "w") as fh:
+                fh.write(text)
+        fz.check_exercise(copy)                 # the first check: what compile_all left is recorded
+        return fz, copy
+
+    def test_the_exercise_copy_check_refuses_build_output_that_changed_since_the_first_check(self):
+        """(Round 9) A later check passes over the same outputs, and refuses one rewritten, one added (in a build*
+        directory of its own too) and one removed, and a __pycache__ file that was not there at the first check.
+        [Co-developed with claude code -- Adam]"""
+        import shutil
+        from p4_health import frozen as FZ
+        fz, copy = self.copy_with_build_output()
+        fz.check_exercise(copy)                 # unchanged: passes
+        saved = os.path.join(os.path.dirname(copy), "saved.json")
+        shutil.copyfile(os.path.join(copy, "build", "hc_main.json"), saved)
+
+        def refused_naming(rel):
+            with self.assertRaises(FZ.Refused) as ctx:
+                fz.check_exercise(copy)
+            self.assertIn(rel, str(ctx.exception))
+        with open(os.path.join(copy, "build", "hc_main.json"), "w") as fh:
+            fh.write('{"rewritten": true}\n')
+        refused_naming("build/hc_main.json")
+        shutil.copyfile(saved, os.path.join(copy, "build", "hc_main.json"))
+        fz.check_exercise(copy)                 # the first bytes back: passes again
+        os.makedirs(os.path.join(copy, "build-extra"))
+        with open(os.path.join(copy, "build-extra", "hc_main.json"), "w") as fh:
+            fh.write("{}\n")
+        refused_naming("build-extra/hc_main.json")
+        shutil.rmtree(os.path.join(copy, "build-extra"))
+        os.remove(os.path.join(copy, "build-mutant", "hc_main.json"))
+        refused_naming("build-mutant/hc_main.json")
+        with open(os.path.join(copy, "build-mutant", "hc_main.json"), "w") as fh:
+            fh.write('{"m": 1}\n')
+        fz.check_exercise(copy)
+        os.makedirs(os.path.join(copy, "__pycache__"))
+        with open(os.path.join(copy, "__pycache__", "gen_runtime.cpython-313.pyc"), "wb") as fh:
+            fh.write(b"x")
+        refused_naming("__pycache__/gen_runtime.cpython-313.pyc")
+
+    def test_the_exercise_copy_check_refuses_a_link_under_a_build_directory(self):
+        """(Round 9) The build*/ directories used to be skipped whole; a link in one is refused like one elsewhere,
+        at the first check as at a later one."""
+        from p4_health import frozen as FZ
+        fz, copy = self.copy_with_build_output()
+        target = os.path.join(copy, "build", "hc_main.json")
+        keep = os.path.join(os.path.dirname(copy), "same_bytes.json")
+        os.replace(target, keep)
+        os.symlink(keep, target)                # the very bytes recorded, behind a link
+        with self.assertRaises(FZ.Refused):
+            fz.check_exercise(copy)
+        import shutil
+        copy2 = os.path.join(os.path.dirname(copy), "second", "exercise")      # a copy not checked yet
+        shutil.copytree(copy, copy2, symlinks=True, ignore=shutil.ignore_patterns("build*"))
+        os.makedirs(os.path.join(copy2, "build"))
+        os.symlink(keep, os.path.join(copy2, "build", "hc_main.json"))
+        with self.assertRaises(FZ.Refused):
+            fz.check_exercise(copy2)
+
+    PLANTED = "PLANTED_FROM_A_PYC = True\n"
+
+    def copy_with_a_planted_pyc(self):
+        """(run dir, its exercise/ copy, the model's path) with a valid .pyc of OTHER source planted where the import
+        system looks for gen_runtime.py's cache: an unchecked hash-based .pyc, which that loader takes without
+        comparing it with the source."""
+        import importlib.util
+        import py_compile
+        import shutil
+        import tempfile
+        run_dir = tempfile.mkdtemp(prefix="p4h-pyc-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, run_dir, True)
+        copy = os.path.join(run_dir, "exercise")
+        shutil.copytree(os.path.join(os.path.dirname(PKG), "exercise"), copy,
+                        ignore=shutil.ignore_patterns("__pycache__", "build*"))
+        path = os.path.join(copy, "gen_runtime.py")
+        other = os.path.join(run_dir, "other.py")
+        with open(other, "w") as fh:
+            fh.write(self.PLANTED)
+        cfile = importlib.util.cache_from_source(path)
+        py_compile.compile(other, cfile=cfile, dfile=path, doraise=True,
+                           invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)
+        return run_dir, copy, path
+
+    def test_the_planted_pyc_is_what_the_import_systems_loader_runs(self):
+        """The control of the next test: the plant is valid, so a loader that takes the cache runs it."""
+        import importlib.util
+        _run, _copy, path = self.copy_with_a_planted_pyc()
+        spec = importlib.util.spec_from_file_location("hc_gen_ctl", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        self.assertTrue(getattr(mod, "PLANTED_FROM_A_PYC", False))
+        self.assertFalse(hasattr(mod, "runtime"))
+
+    def test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc(self):
+        """(Round 9) The copy's gen_runtime.py is checked as source, and it was exec'd through the import system's
+        loader, which runs a valid __pycache__/*.pyc in its place: S0's self-checks (_switch_inputs), the controller
+        trial (ctrl_trial.gen) and lab.load_model must each run the source. [Co-developed with claude code -- Adam]"""
+        from p4_health import ctrl_trial as CT
+        from p4_health import lab as LAB
+        from p4_health import s0 as S0M
+        from p4_health.collect.runner import RecordingRunner
+        run_dir, copy, _path = self.copy_with_a_planted_pyc()
+        x = S0M.S0(run_dir, RecordingRunner([]), "py", log=lambda *a: None)
+        self.assertEqual(x.ex, copy)
+        for who, load in (("S0._switch_inputs", lambda: x._switch_inputs(2)),
+                          ("ctrl_trial.gen", lambda: CT.gen(copy)),
+                          ("lab.load_model", lambda: LAB.load_model(copy))):
+            mod = load()
+            self.assertFalse(hasattr(mod, "PLANTED_FROM_A_PYC"), "%s ran the cached .pyc" % who)
+            self.assertEqual(mod.program(1), "hc_alt", who)          # the source's own model
+
+    def test_an_exec_of_the_exercise_copy_writes_no_bytecode_cache_into_it(self):
+        """(Round 9) A __pycache__ written into the copy after its first check would be refused by the next one."""
+        import shutil
+        import tempfile
+        from unittest import mock
+        from p4_health import ctrl_trial as CT
+        from p4_health import lab as LAB
+        run_dir = tempfile.mkdtemp(prefix="p4h-nopyc-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, run_dir, True)
+        copy = os.path.join(run_dir, "exercise")
+        shutil.copytree(os.path.join(os.path.dirname(PKG), "exercise"), copy,
+                        ignore=shutil.ignore_patterns("__pycache__", "build*"))
+        with mock.patch.object(sys, "dont_write_bytecode", False), mock.patch.object(sys, "pycache_prefix", None):
+            LAB.load_model(copy)
+            CT.gen(copy)
+        self.assertFalse(os.path.exists(os.path.join(copy, "__pycache__")))
+
 
     # --- round 7, finding 4: the exercise copy is checked again right before lab.load_model runs it ------------------
     FAKE_CONVERT = (
@@ -3115,14 +3250,17 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         "elif edit == 'add':\n"
         "    with open(os.path.join(exercise, 'extra_model.py'), 'w') as fh:\n"
         "        fh.write('# written by convert\\n')\n"
+        "elif edit == 'build' and os.path.isdir(os.path.join(exercise, 'build-mutant')):\n"
+        "    with open(os.path.join(exercise, 'build', 'hc_main.json'), 'w') as fh:\n"
+        "        fh.write('{\"rewritten by convert\": true}\\n')\n"
         "os.makedirs(out)\n"
         "with open(os.path.join(out, 'package.json'), 'w') as fh:\n"
         "    json.dump({}, fh)\n")
 
     def s0_with_a_convert_that(self, edit):
         """(S0 over the checked exercise copy, that copy's Frozen): the S0 runs its convert.py steps through a fake
-        convert.py that `edit`s ('append' to gen_runtime.py, 'add' a file, '' nothing) the directory it is given as
-        input. (Co-developed with claude code -- Adam)"""
+        convert.py that `edit`s ('append' to gen_runtime.py, 'add' a file, 'build' rewrite build/hc_main.json, ''
+        nothing) the directory it is given as input. [Co-developed with claude code -- Adam]"""
         from p4_health import s0 as S0M
         from p4_health.collect.runner import Runner
         fz, copy = self.freeze_with_exercise()
@@ -3208,8 +3346,10 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         from unittest import mock
         from p4_health import s0 as S0M
         x, _fz, copy = self.s0_with_a_convert_that(edit)
-        for stem in ("build-fwd", "build-mutant"):          # what packages() renames; the p4c builds make them
+        for stem in ("build-fwd", "build-mutant", "build"):  # what packages() renames; the p4c builds make them
             os.makedirs(os.path.join(copy, stem))
+        with open(os.path.join(copy, "build", "hc_main.json"), "w") as fh:
+            fh.write("{}\n")                                # a p4c output, there before S0's first check
         reached = []
 
         class Stop(BaseException):
@@ -3230,9 +3370,10 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
 
     def test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_the_pre_flight(self):
         """(Round 8, finding 2) S0 checks the copy right after the compile; convert.py then gets the copy as its
-        input, and the controller trial execs the copy's gen_runtime.py later. A run is refused only by lab.run_lab's
-        re-check, after S0 has run the edited file in its trial. S0.run() checks again right after packages():
-        the edit is refused there, before any step that reads the copy."""
+        input, and the self-checks are the first to exec the copy's gen_runtime.py (the controller trial does so
+        later). A run was refused only by lab.run_lab's re-check, after S0 had run the edited file. S0.run() checks
+        again right after packages(): an edited, added or removed committed file of the copy is refused there,
+        before any step that reads the copy."""
         from p4_health import frozen as FZ
         reached, exc = self.s0_run_after_a_convert_that("append")
         self.assertIsInstance(exc, FZ.Refused, "run() raised %r" % (exc,))
@@ -3245,6 +3386,17 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertIsInstance(exc, FZ.Refused, "run() raised %r" % (exc,))
         self.assertIn("extra_model.py", str(exc))
         self.assertEqual(reached, [])
+
+    def test_a_convert_that_rewrites_a_build_file_of_the_exercise_copy_is_refused_before_the_pre_flight(self):
+        """(Round 9) The p4c outputs under build*/ are not in the commit, and the check used to skip them: a
+        convert.py that rewrote exercise/build/hc_main.json passed every check, and S0's self-checks and trials and
+        B's round loaded the rewritten file. S0's first check records them, and the one after packages() refuses
+        the rewrite. [Co-developed with claude code -- Adam]"""
+        from p4_health import frozen as FZ
+        reached, exc = self.s0_run_after_a_convert_that("build")
+        self.assertIsInstance(exc, FZ.Refused, "run() raised %r" % (exc,))
+        self.assertIn("build/hc_main.json", str(exc))
+        self.assertEqual(reached, [], "S0 went on to %s with a rewritten build output" % reached)
 
     def test_a_convert_that_leaves_the_exercise_copy_alone_goes_on_to_the_pre_flight(self):
         """The control of the two tests above: the same run, no edit, reaches the pre-flight."""

@@ -13,7 +13,6 @@ see-red run of design 5.2-④ is `--mutant --only K1,TTL1 --bringups A`.
 """
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import shutil
@@ -33,10 +32,9 @@ from .round_b import BRound
 
 
 def load_model(exercise_dir):
-    spec = importlib.util.spec_from_file_location("hc_gen_lab", os.path.join(exercise_dir, "gen_runtime.py"))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    """The model, `exercise_dir`'s gen_runtime.py, compiled from its source (frozen.load_source: never a cached .pyc).
+    [Co-developed with claude code -- Adam]"""
+    return FZ.load_source("hc_gen_lab", os.path.join(exercise_dir, "gen_runtime.py"))
 
 
 def expectations(s0_out, run_dir, model):
