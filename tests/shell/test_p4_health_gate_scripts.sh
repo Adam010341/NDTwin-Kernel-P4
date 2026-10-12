@@ -69,8 +69,18 @@ check "MUT_SHARD with k above n is refused" \
     refused_before_baseline kgtn "k must be below n" MUT_SHARD=5/4
 check "MUT_SHARD with n larger than the table is refused (a shard that would run nothing)" \
     refused_before_baseline ntoobig "larger than the" MUT_SHARD=400/5000
+# (round 9) the table's size is read from the gate itself, the banner of a one-shard run ("0/1 (L of L mutations;"),
+# so the boundary is tested where it is: n = L+1 refused, n = L accepted (below, with the controls)
+table_size() {
+    gate "$WORK/size.out" MUT_SHARD=0/1 > /dev/null
+    sed -n 's|^NOT THE GATE BY ITSELF: shard 0/1 (\([0-9]*\) of \([0-9]*\) mutations;.*|\1 \2|p' "$WORK/size.out" \
+        | awk '$1 == $2 && $1 > 0 {print $1}'
+}
+TABLE_L="$(table_size)"
+table_size_read() { [[ "$TABLE_L" =~ ^[1-9][0-9]*$ ]]; }
+check "the table's size is read from the gate's own one-shard banner" table_size_read
 check "MUT_SHARD with n just above the table size is refused too" \
-    refused_before_baseline nplus1 "larger than the" MUT_SHARD=0/100000
+    refused_before_baseline nplus1 "larger than the" "MUT_SHARD=0/$(( ${TABLE_L:-0} + 1 ))"
 check "a malformed MUT_SHARD is refused (not k/n)" \
     refused_before_baseline malformed "is not k/n" MUT_SHARD=abc
 check "MUT_SHARD with n of zero is refused" \
@@ -93,6 +103,8 @@ echo "--- the control: a shard that fits goes on to its baseline"
 check "MUT_SHARD=0/4 is not refused by the validation" reaches_baseline ok04 MUT_SHARD=0/4
 check "MUT_SHARD=3/4 is not refused by the validation" reaches_baseline ok34 MUT_SHARD=3/4
 check "a prefix that selects mutations is not refused" reaches_baseline okprefix ONLY_LABEL_PREFIX=M1.
+check "MUT_SHARD with n equal to the table size is not refused by the validation" \
+    reaches_baseline neql "MUT_SHARD=$(( ${TABLE_L:-1} - 1 ))/${TABLE_L:-0}"
 check "no shard and no prefix (the whole gate) is not refused" reaches_baseline okall
 
 says_not_the_gate() {  # says_not_the_gate <name> <k/n>
@@ -178,11 +190,30 @@ shim_orders_differently() {  # the control: the shim, with no LC_ALL=C from the 
     [[ "$lc" == "ba" ]]
 }
 check "(control) the shim does order two files differently when LC_ALL is not C" shim_orders_differently
+# The lint sees only a `sort` that follows a `|`: `sort FILE`, `sort <<<...` and `$(sort ...)` are not looked at, and a
+# line holding both `LC_ALL=C sort` and a bare `| sort` is dropped by the grep -vF. The gate script has no such form.
 every_hashed_sort_is_c() {  # every sort in a pipe of the gate script, outside its mutation table, is told LC_ALL=C
     local bare; bare="$(grep -nE '[|] *sort( |$)' "$GATE" | grep -vF 'LC_ALL=C sort')"
     [[ -z "$bare" ]] || { echo "$bare"; return 1; }
 }
 check "every sort in a pipe of the gate script is told LC_ALL=C" every_hashed_sort_is_c
+
+# --- (round 9) the interpreter line names sys.prefix ----------------------------------------------------
+# realpath maps a venv onto its base interpreter: two venvs built on one python gave one line. The gate is run here
+# with each venv's python up to its baseline (the scratch checkout's suites are empty, so it stops there).
+interp_line_with() {  # interp_line_with <python>: the gate's interpreter line with that PYTHON
+    ( cd "$WORK/g1" && env -u MUT_SHARD -u ONLY_LABEL_PREFIX -u ANCHOR_CHECK PYTHON="$1" timeout 60 \
+        bash tests/shell/mutate_p4_health.sh 2>&1 | grep '^interpreter:' )
+}
+two_venvs_are_told_apart() {
+    local base a b; base="$(command -v python3)" || return 1
+    "$base" -m venv --without-pip "$WORK/venv-a" && "$base" -m venv --without-pip "$WORK/venv-b" || return 1
+    # the control: the two resolve to one file, so only the prefix can tell them apart
+    [[ "$(realpath "$WORK/venv-a/bin/python")" == "$(realpath "$WORK/venv-b/bin/python")" ]] || return 1
+    a="$(interp_line_with "$WORK/venv-a/bin/python")"; b="$(interp_line_with "$WORK/venv-b/bin/python")"
+    [[ -n "$a" && -n "$b" && "$a" != "$b" && "$a" == *", prefix $WORK/venv-a)" ]] || { echo "$a | $b"; return 1; }
+}
+check "the interpreter line tells two venvs on one base interpreter apart (it names sys.prefix)" two_venvs_are_told_apart
 
 gates_sum_of() { header "$1" && grep '^gates sum' "$WORK/hdr.out"; }
 echo "--- the hash of the gate's own scripts depends on their contents only"
@@ -215,7 +246,7 @@ GATE_TAIL=", commit $SHA, tree $TREE, subject sha $SUBJ"
 mklog() {  # mklog <file> <k> <n> <labels> <mutations> [name=value]...   -- a shard log as the gate script writes it
     local file="$1" k="$2" n="$3" labels="$4" m="$5" i; shift 5
     local sha="$SHA" head="$SHA" tree="$TREE" subj="$SUBJ" survived=0 rc=0 baseline=1 control=1 ident=1 after=1 \
-        partial=0 banner=1 last="rc=0" extra="" interp="/x/python3.8 (3.8.20)"
+        partial=0 banner=1 last="rc=0" extra="" interp="/x/python3.8 (3.8.20, prefix /x/venv-a)"
     local kv; for kv in "$@"; do
         case "$kv" in
             sha=*) sha="${kv#sha=}";; head=*) head="${kv#head=}";; tree=*) tree="${kv#tree=}";;
@@ -295,8 +326,9 @@ check "a shard of another commit (first line and HEAD line)" refuses othercommit
 check "a shard whose first line is not the commit HEAD says" refuses firstline "first line" sha=4444444444444444444444444444444444444444
 check "a shard of another tools/p4_health tree" refuses othertree "trees differ" tree=5555555555555555555555555555555555555555
 check "a shard of another subject sha" refuses othersubj "subject shas differ" subj=6666666666666666
-check "a shard run by another python version" refuses otherpyver "interpreters differ" "interp=/x/python3.8 (3.8.19)"
-check "a shard run by the same version of another python (another path, say another machine)" refuses otherpypath "interpreters differ" "interp=/usr/bin/python3.8 (3.8.20)"
+check "a shard run by another python version" refuses otherpyver "interpreters differ" "interp=/x/python3.8 (3.8.19, prefix /x/venv-a)"
+check "a shard run by the same version of another python (another path, say another machine)" refuses otherpypath "interpreters differ" "interp=/usr/bin/python3.8 (3.8.20, prefix /x/venv-a)"
+check "a shard run by another venv on the same base interpreter (another sys.prefix)" refuses otherprefix "interpreters differ" "interp=/x/python3.8 (3.8.20, prefix /x/venv-b)"
 check "a shard whose log has no interpreter line" refuses nointerp "no single \`interpreter:\` line" interp=
 check "a shard of a tree with uncommitted changes" refuses uncommitted "UNCOMMITTED" "extra= +UNCOMMITTED changes in the subject or its suites"
 check "a shard whose baseline is not green" refuses nobaseline "baseline" baseline=0

@@ -77,8 +77,10 @@ WATCHED=(
 
 printf 'gate       : %s\n' "${BASH_SOURCE[0]}"
 printf 'cwd        : %s\n' "$PWD"
+# (round 9) realpath maps a venv onto its base interpreter, so the line also names sys.prefix: two venvs on one base
+# give two lines. It names no host: two machines with the same path, version and prefix give the same line.
 printf 'interpreter: %s (%s)\n' "$(realpath "$PYTHON" 2>/dev/null || echo "MISSING: $PYTHON")" \
-    "$("$PYTHON" -c 'import sys; print(sys.version.split()[0])' 2>/dev/null)"
+    "$("$PYTHON" -c 'import sys; print(sys.version.split()[0] + ", prefix " + sys.prefix)' 2>/dev/null)"
 printf 'subject    : %s\n' "$PKG"
 printf 'HEAD       : %s (commit)\n' "$(git -C "$REPO" rev-parse HEAD 2>/dev/null)"
 printf 'tree       : %s (git tree of tools/p4_health at HEAD)%s\n' "$(git -C "$REPO" rev-parse HEAD:tools/p4_health 2>/dev/null)" \
@@ -3444,7 +3446,9 @@ add "C2R7-3e. a refused exercise copy is let through" \
     'test_a_convert_that_adds_a_file_to_the_exercise_copy_is_refused_before_load_model_too'
 
 # round 8, finding 5: the sorts that feed a hash carry LC_ALL=C, and the shard-sum script compares the interpreter line.
-# The anchors are split ('' inside the quotes) so that they are not found in this table as well.
+# The anchors are split ('' inside the quotes) so that they are not found in this table as well. 5b, 5c and 5d change
+# nothing a run can see: BASE_SUM and NOW_SUM are taken in one process under one locale and compared only with each
+# other, and the order of the red tests is never compared (the match below ignores order). Only the lint kills them.
 add "C2R8-5a. the subject sha is sorted by the locale's collation" \
     "$GATEPY" \
     '| LC_ALL=C s''ort | xargs sha256sum | sha256sum | cut -c1-16)"' \
@@ -3543,6 +3547,33 @@ add "C2R9-2b. the exercise copy's modules are loaded through the import system's
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)' \
     'test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc'
+
+# round 9: the interpreter line names sys.prefix, and the MUT_SHARD bound is tested at the table's own size
+add "C2R9-1a. the gate's interpreter line leaves sys.prefix out (two venvs on one base give one line)" \
+    "$GATEPY" \
+    'print(sys.version.split()[0] + ", prefix " + sys.pre''fix)' \
+    'print(sys.version.split()[0])  # MUTANT' \
+    '[the interpreter line tells two venvs on one base interpreter apart (it names sys.prefix)]'
+
+add "C2R9-5a. the gate script refuses n equal to the table size" \
+    "$GATEPY" \
+    '    (( SHARD_N ''<= ${#MUT_LABEL[@]} )) \' \
+    '    (( SHARD_N < ${#MUT_LABEL[@]} )) \' \
+    '[MUT_SHARD with n equal to the table size is not refused by the validation]'
+
+add "C2R9-5b. the gate script lets n be one more than the table size" \
+    "$GATEPY" \
+    '    (( SHARD_N ''<= ${#MUT_LABEL[@]} )) \' \
+    '    (( SHARD_N <= ${#MUT_LABEL[@]} + 1 )) \' \
+    '[MUT_SHARD with n just above the table size is refused too]'
+
+# round 9: the cells suite's end-of-test mask check is what sees a block the trial never lifted, in a test whose own
+# assertions do not look at the calling thread's mask (C2R7-1n is the same edit, seen by a test that does)
+add "C2R9-4a. the trial block is never lifted, seen by the cells suite's end-of-test mask check" \
+    "$S0PY" \
+    '        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
+    '        pass  # MUTANT' \
+    'test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals'
 
 
 CTRL_SRC="$TABLE"
