@@ -15,6 +15,10 @@
 #     never says REFUSED, and its last line is `rc=0`;
 #   * all of them share one commit (the first line, and the HEAD line), one tools/p4_health tree (and none says
 #     UNCOMMITTED) and one subject sha;
+#   * (round 8) all of them name the same interpreter, on their one `interpreter: <path> (<version>)` line: shards
+#     run by another python (another path or another version), which includes shards run on another machine, are
+#     not one run of the suites. The whole line is compared. Until the subject sha stopped depending on the locale,
+#     the locale was the only thing here that told such shards apart;
 #   * they agree on n and on L, n is not larger than L, the shards are exactly 0..n-1 once each, each ran its
 #     share of the table (the positions k, k+n, ... below L) and the shares add up to L;
 #   * (round 6) the commit they share is the checkout's HEAD -- or, with --commit, the commit named there -- and
@@ -96,6 +100,9 @@ for path in logs:
     subj = one(lines, r"subject sha: ([0-9a-f]{16})$")
     if subj is None:
         bad("%s: no single `subject sha` line" % tag)
+    interp = one(lines, r"interpreter: (.+)$")
+    if interp is None:
+        bad("%s: no single `interpreter:` line" % tag)
     for l in lines:
         if "REFUSED" in l or "\U0001f534" in l:
             bad("%s: the log says `%s` (REFUSED or a red mark)" % (tag, l.strip()[:80]))
@@ -127,12 +134,13 @@ for path in logs:
     last = lines[-1] if lines else ""
     if last != "rc=0":
         bad("%s: %s" % (tag, ("ended %s" % last) if re.match(r"rc=\d+$", last) else "the log does not end in rc="))
-    if first and head and tree and subj and m_s and sh:
+    if first and head and tree and subj and interp and m_s and sh:
         k, n, labels = int(sh[0]), int(sh[1]), int(sh[2])
         if k in shards:
             bad("%s: shard %d/%d given more than once (%s and %s)" % (tag, k, n, shards[k], path))
         shards[k] = path
         facts.append({"path": path, "commit": first.group(1), "tree": tree[0], "subj": subj[0],
+                      "interp": interp[0],
                       "k": k, "n": n, "labels": labels, "m": int(m_s[0]), "s": int(m_s[1])})
 
 if facts:
@@ -140,6 +148,8 @@ if facts:
                       ("subj", "subject shas differ")):
         if len({f[key] for f in facts}) != 1:
             bad("%s between the logs: %s" % (what, ", ".join(sorted({f[key][:12] for f in facts}))))
+    if len({f["interp"] for f in facts}) != 1:
+        bad("interpreters differ between the logs: %s" % "; ".join(sorted({f["interp"] for f in facts})))
     ns = {f["n"] for f in facts}
     ls = {f["labels"] for f in facts}
     if len(ns) != 1:

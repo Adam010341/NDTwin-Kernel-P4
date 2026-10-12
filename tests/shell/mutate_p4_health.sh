@@ -83,7 +83,7 @@ printf 'subject    : %s\n' "$PKG"
 printf 'HEAD       : %s (commit)\n' "$(git -C "$REPO" rev-parse HEAD 2>/dev/null)"
 printf 'tree       : %s (git tree of tools/p4_health at HEAD)%s\n' "$(git -C "$REPO" rev-parse HEAD:tools/p4_health 2>/dev/null)" \
     "$([[ -n "$(git -C "$REPO" status --porcelain -- "${WATCHED[@]}" 2>/dev/null)" ]] && echo ' +UNCOMMITTED changes in the subject or its suites')"
-printf 'subject sha: %s\n' "$(cd "$PKG" && find . -name '*.py' -o -name '*.sh' | sort | xargs sha256sum | sha256sum | cut -c1-16)"
+printf 'subject sha: %s\n' "$(cd "$PKG" && find . -name '*.py' -o -name '*.sh' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-16)"
 printf 'gates sum  : %s\n' "$(gates_sum | cut -c1-16)"
 echo
 
@@ -3443,6 +3443,50 @@ add "C2R7-3e. a refused exercise copy is let through" \
                     pass' \
     'test_a_convert_that_adds_a_file_to_the_exercise_copy_is_refused_before_load_model_too'
 
+# round 8, finding 5: the sorts that feed a hash carry LC_ALL=C, and the shard-sum script compares the interpreter line.
+# The anchors are split ('' inside the quotes) so that they are not found in this table as well.
+add "C2R8-5a. the subject sha is sorted by the locale's collation" \
+    "$GATEPY" \
+    '| LC_ALL=C s''ort | xargs sha256sum | sha256sum | cut -c1-16)"' \
+    '| so''rt | xargs sha256sum | sha256sum | cut -c1-16)"  # MUTANT' \
+    '[the subject sha is the same under a sort that collates as C and one that does not]'
+
+add "C2R8-5b. the tree sum taken before the mutations is sorted by the locale's collation" \
+    "$GATEPY" \
+    'BASE_SUM="$(cd "$PKG" && find . -type f \( -name '"'"'*.py'"'"' -o -name '"'"'*.sh'"'"' -o -name '"'"'*.p4'"'"' \) | LC_ALL=C s''ort' \
+    'BASE_SUM="$(cd "$PKG" && find . -type f \( -name '"'"'*.py'"'"' -o -name '"'"'*.sh'"'"' -o -name '"'"'*.p4'"'"' \) | so''rt' \
+    '[every sort in a pipe of the gate script is told LC_ALL=C]'
+
+add "C2R8-5c. the tree sum taken after the mutations is sorted by the locale's collation" \
+    "$GATEPY" \
+    'NOW_SUM="$(cd "$PKG" && find . -type f \( -name '"'"'*.py'"'"' -o -name '"'"'*.sh'"'"' -o -name '"'"'*.p4'"'"' \) | LC_ALL=C s''ort' \
+    'NOW_SUM="$(cd "$PKG" && find . -type f \( -name '"'"'*.py'"'"' -o -name '"'"'*.sh'"'"' -o -name '"'"'*.p4'"'"' \) | so''rt' \
+    '[every sort in a pipe of the gate script is told LC_ALL=C]'
+
+add "C2R8-5d. the list of red tests is sorted by the locale's collation" \
+    "$GATEPY" \
+    '<<<"$out" | LC_ALL=C s''ort -u | tr' \
+    '<<<"$out" | so''rt -u | tr' \
+    '[every sort in a pipe of the gate script is told LC_ALL=C]'
+
+add "C2R8-5e. the shard-sum script sums shards run by different interpreters" \
+    "$SUMPY" \
+    '    if len({f["interp"] for f in facts}) != 1:' \
+    '    if False:  # MUTANT' \
+    '[a shard run by another python version]'
+
+add "C2R8-5f. the shard-sum script takes a log with no interpreter line" \
+    "$SUMPY" \
+    '    if interp is None:' \
+    '    if False:  # MUTANT' \
+    '[a shard whose log has no interpreter line]'
+
+add "C2R8-5g. the shard-sum script compares only the interpreter's version, not its path" \
+    "$SUMPY" \
+    '    interp = one(lines, r"interpreter: (.+)$")' \
+    '    interp = one(lines, r"interpreter: .*(\([^()]*\))$")  # MUTANT' \
+    '[a shard run by the same version of another python (another path, say another machine)]'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
@@ -3498,7 +3542,7 @@ fi
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/p4-health-mutate-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 SURVIVORS=0; MUTATIONS=0
-BASE_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | sort | xargs sha256sum | sha256sum)"
+BASE_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | LC_ALL=C sort | xargs sha256sum | sha256sum)"
 GATES_SUM="$(gates_sum)"
 
 fresh_copy() {
@@ -3519,7 +3563,7 @@ red_tests() {
         out=$(P4_HEALTH_UNDER_TEST="$root" timeout 300 "$PYTHON" "$f" 2>&1); rc=$?
         [[ $rc -eq 124 ]] && { echo "HUNG"; return; }
         /usr/bin/grep -qE '^Ran [0-9]+ tests?' <<<"$out" || { echo "NO-SUITE"; return; }
-        [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_][A-Za-z0-9_]*\) .*/\2/p' <<<"$out" | sort -u | tr '\n' ' ')"
+        [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_][A-Za-z0-9_]*\) .*/\2/p' <<<"$out" | LC_ALL=C sort -u | tr '\n' ' ')"
     done
     out=$(P4_HEALTH_RECOVER_UNDER_TEST="$rec" timeout 300 bash "$RECOVER_TEST" 2>&1); rc=$?
     [[ $rc -eq 124 ]] && { echo "HUNG"; return; }
@@ -3618,7 +3662,7 @@ PY
 fi
 
 printf '\n--- was the original written? ---\n'
-NOW_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | sort | xargs sha256sum | sha256sum)"
+NOW_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | LC_ALL=C sort | xargs sha256sum | sha256sum)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then echo "  🔴 tools/p4_health CHANGED DURING THE GATE"; exit 2; fi
 echo "  byte-identical  tools/p4_health  ${BASE_SUM:0:16}"
 if [[ "$(gates_sum)" != "$GATES_SUM" ]]; then

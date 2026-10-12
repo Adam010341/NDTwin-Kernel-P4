@@ -68,7 +68,7 @@ check "MUT_SHARD with k equal to n is refused" \
 check "MUT_SHARD with k above n is refused" \
     refused_before_baseline kgtn "k must be below n" MUT_SHARD=5/4
 check "MUT_SHARD with n larger than the table is refused (a shard that would run nothing)" \
-    refused_before_baseline ntoobig "larger than the" MUT_SHARD=400/500
+    refused_before_baseline ntoobig "larger than the" MUT_SHARD=400/5000
 check "MUT_SHARD with n just above the table size is refused too" \
     refused_before_baseline nplus1 "larger than the" MUT_SHARD=0/100000
 check "a malformed MUT_SHARD is refused (not k/n)" \
@@ -151,6 +151,39 @@ doc_is_not_marked() {
 }
 check "a file outside what the gate runs or tests is not marked" doc_is_not_marked
 
+# --- (Cut 2 round 8) the subject sha does not depend on the locale -------------------------------------
+# The subject sha is a hash over a sorted file list, and a sort orders by the locale's collation unless it is told
+# otherwise: the same tools/p4_health gave two values on one machine (LC_ALL=C and en_US.UTF-8), so shards run on two
+# machines could not be told from shards of two trees. The gate script puts LC_ALL=C on the sorts that feed a hash. Here
+# `sort` is a shim that orders as C does when LC_ALL is C and in reverse otherwise: a collation that is not C's on
+# every machine, whatever locales it has installed. The scratch tree holds two files, so the two orders differ.
+REAL_SORT="$(command -v sort)"
+mkdir -p "$WORK/shim"
+{ echo '#!/bin/sh'
+  echo "if [ \"\${LC_ALL:-}\" = C ]; then exec $REAL_SORT \"\$@\"; fi"
+  echo "exec $REAL_SORT -r \"\$@\""; } > "$WORK/shim/sort"
+chmod +x "$WORK/shim/sort"
+mkrepo "$WORK/g3"; echo '# b' > "$WORK/g3/tools/p4_health/b.py"
+subject_sha_under() {  # subject_sha_under <PATH> <LC_ALL>: the gate's `subject sha` line, with that sort and locale
+    ( cd "$WORK/g3" && env -u MUT_SHARD -u ONLY_LABEL_PREFIX -u ANCHOR_CHECK PATH="$1" LC_ALL="$2" PYTHON=/bin/true \
+        timeout 60 bash tests/shell/mutate_p4_health.sh 2>&1 | grep '^subject sha:' )
+}
+subject_sha_is_locale_independent() {
+    local c d; c="$(subject_sha_under "$PATH" C)"; d="$(subject_sha_under "$WORK/shim:$PATH" en_US.UTF-8)"
+    [[ -n "$c" && "$c" == "$d" ]]
+}
+check "the subject sha is the same under a sort that collates as C and one that does not" subject_sha_is_locale_independent
+shim_orders_differently() {  # the control: the shim, with no LC_ALL=C from the gate, would have changed the value
+    local lc; lc="$(printf 'a\nb\n' | LC_ALL=en_US.UTF-8 PATH="$WORK/shim:$PATH" sort | tr -d '\n')"
+    [[ "$lc" == "ba" ]]
+}
+check "(control) the shim does order two files differently when LC_ALL is not C" shim_orders_differently
+every_hashed_sort_is_c() {  # every sort in a pipe of the gate script, outside its mutation table, is told LC_ALL=C
+    local bare; bare="$(grep -nE '[|] *sort( |$)' "$GATE" | grep -vF 'LC_ALL=C sort')"
+    [[ -z "$bare" ]] || { echo "$bare"; return 1; }
+}
+check "every sort in a pipe of the gate script is told LC_ALL=C" every_hashed_sort_is_c
+
 gates_sum_of() { header "$1" && grep '^gates sum' "$WORK/hdr.out"; }
 echo "--- the hash of the gate's own scripts depends on their contents only"
 mkrepo "$WORK/elsewhere/deeper/g2"
@@ -182,21 +215,21 @@ GATE_TAIL=", commit $SHA, tree $TREE, subject sha $SUBJ"
 mklog() {  # mklog <file> <k> <n> <labels> <mutations> [name=value]...   -- a shard log as the gate script writes it
     local file="$1" k="$2" n="$3" labels="$4" m="$5" i; shift 5
     local sha="$SHA" head="$SHA" tree="$TREE" subj="$SUBJ" survived=0 rc=0 baseline=1 control=1 ident=1 after=1 \
-        partial=0 banner=1 last="rc=0" extra=""
+        partial=0 banner=1 last="rc=0" extra="" interp="/x/python3.8 (3.8.20)"
     local kv; for kv in "$@"; do
         case "$kv" in
             sha=*) sha="${kv#sha=}";; head=*) head="${kv#head=}";; tree=*) tree="${kv#tree=}";;
             subj=*) subj="${kv#subj=}";; survived=*) survived="${kv#survived=}";; rc=*) rc="${kv#rc=}";;
             baseline=*) baseline="${kv#baseline=}";; control=*) control="${kv#control=}";;
             ident=*) ident="${kv#ident=}";; after=*) after="${kv#after=}";; partial=*) partial="${kv#partial=}";;
-            banner=*) banner="${kv#banner=}";; last=*) last="${kv#last=}";; extra=*) extra="${kv#extra=}";;
+            banner=*) banner="${kv#banner=}";; last=*) last="${kv#last=}";; extra=*) extra="${kv#extra=}";; interp=*) interp="${kv#interp=}";;
         esac
     done
     {
         echo "commit $sha"
         echo "gate       : tests/shell/mutate_p4_health.sh"
         echo "cwd        : /x"
-        echo "interpreter: /x/python3.8 (3.8.20)"
+        [[ -n "$interp" ]] && echo "interpreter: $interp"
         echo "subject    : /x/tools/p4_health"
         echo "HEAD       : $head (commit)"
         echo "tree       : $tree (git tree of tools/p4_health at HEAD)$extra"
@@ -262,6 +295,9 @@ check "a shard of another commit (first line and HEAD line)" refuses othercommit
 check "a shard whose first line is not the commit HEAD says" refuses firstline "first line" sha=4444444444444444444444444444444444444444
 check "a shard of another tools/p4_health tree" refuses othertree "trees differ" tree=5555555555555555555555555555555555555555
 check "a shard of another subject sha" refuses othersubj "subject shas differ" subj=6666666666666666
+check "a shard run by another python version" refuses otherpyver "interpreters differ" "interp=/x/python3.8 (3.8.19)"
+check "a shard run by the same version of another python (another path, say another machine)" refuses otherpypath "interpreters differ" "interp=/usr/bin/python3.8 (3.8.20)"
+check "a shard whose log has no interpreter line" refuses nointerp "no single \`interpreter:\` line" interp=
 check "a shard of a tree with uncommitted changes" refuses uncommitted "UNCOMMITTED" "extra= +UNCOMMITTED changes in the subject or its suites"
 check "a shard whose baseline is not green" refuses nobaseline "baseline" baseline=0
 check "a shard whose negative control is not green" refuses nocontrol "negative control" control=0
