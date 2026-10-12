@@ -544,8 +544,8 @@ else
     # tests/journal_isolation.py -- or starts the proxy as a subprocess without it -- writes
     # there. The loop above runs one file per process and cannot see the first kind of leak, so
     # this runs the directory once in one process and once more file by file, and fails if the
-    # directory changed. It runs the proxy suite twice more, so it costs about a minute and a
-    # half on the reference machine.
+    # directory changed. It runs the proxy suite twice more: 77 s on the reference laptop
+    # (2026-10-12, 2069 tests in one process, then 50 files one by one).
     printf '  %-30s ' "no stray table-entry journal"
     log="$LOG_DIR/l1_python_no_stray_table_journal.log"
     if [[ -z "$PY_P4" ]]; then
