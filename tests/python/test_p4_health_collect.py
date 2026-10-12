@@ -258,19 +258,26 @@ class Sealed(unittest.TestCase):
         # it left pending to a later test: they would be delivered at that test's next mask change, and a SIGINT then
         # ends the whole run with a KeyboardInterrupt -- no "Ran N tests" line, which the mutation gate refuses.
         # Whatever the mask was at the start of the test is put back, pending stops going to no-op handlers.
+        # (round 8) But a mask that is not the one the test began with is also a failure of that test, raised after
+        # the mask is put back: repairing it silently hid a restore that was never made.
         self._mask0 = signal.pthread_sigmask(signal.SIG_BLOCK, ())
-        self.addCleanup(self._put_the_signal_mask_back)
+        self.addCleanup(self._assert_the_signal_mask_is_unchanged_then_put_it_back)
 
-    def _put_the_signal_mask_back(self):
+    def _assert_the_signal_mask_is_unchanged_then_put_it_back(self):
+        # [Co-developed with claude code -- Adam]
         stops = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
         old = {s: signal.signal(s, lambda n, f: None) for s in stops}
         try:
+            now = signal.pthread_sigmask(signal.SIG_BLOCK, ())
             signal.pthread_sigmask(signal.SIG_SETMASK, self._mask0)
             for _ in range(2000):
                 pass                                    # a pending stop is delivered here, to a handler that does nothing
         finally:
             for s, h in old.items():
                 signal.signal(s, h)
+        if now != self._mask0:
+            raise AssertionError("the test ended with the signal mask changed: blocked now %s, at its start %s"
+                                 % (sorted(int(x) for x in now), sorted(int(x) for x in self._mask0)))
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -3314,6 +3321,49 @@ class TestTheLabRun(Cut2):
         finally:
             signal.signal(signal.SIGTERM, safety)
 
+
+    # --- round 8, finding 3: what the handler swaps and their restores put back -------------------------------
+    # [Co-developed with claude code -- Adam]
+    def a_round_stand_in(self):
+        """What LabRound._handlers, _restore_handlers and _swap_handlers read from `self`, and nothing else."""
+        ns = types.SimpleNamespace(install_signals=True, SIGS=LR.LabRound.SIGS, _noter=lambda n, f: None, _old=None)
+        ns._swap_handlers = types.MethodType(LR.LabRound._swap_handlers, ns)
+        return ns
+
+    def handlers_set_to_markers(self):
+        """The three stop signals' handlers set to markers of this test, put back (at the end of the test) as found."""
+        mine = {s: (lambda n, f: None) for s in LAB.STOP_SIGNALS}
+        old = {s: signal.signal(s, h) for s, h in mine.items()}
+        self.addCleanup(lambda: [signal.signal(s, h) for s, h in old.items()])
+        return mine
+
+    def test_lab_swap_handlers_puts_the_signal_mask_back(self):
+        """lab._swap_handlers blocks the three stops while it swaps and puts the mask it found back; the blocked
+        window is not to be left up."""
+        self.handlers_set_to_markers()
+        before = signal.pthread_sigmask(signal.SIG_BLOCK, ())
+        LAB._swap_handlers({s: (lambda n, f: None) for s in LAB.STOP_SIGNALS})
+        self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, ()), before)
+
+    def test_a_rounds_swap_handlers_puts_the_signal_mask_back(self):
+        self.handlers_set_to_markers()
+        before = signal.pthread_sigmask(signal.SIG_BLOCK, ())
+        LR.LabRound._swap_handlers(self.a_round_stand_in(), {s: (lambda n, f: None) for s in LAB.STOP_SIGNALS})
+        self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, ()), before)
+
+    def test_a_round_puts_the_handlers_it_replaced_back(self):
+        """_handlers(True) installs the round's raiser and keeps what it replaced; _restore_handlers puts those back."""
+        mine = self.handlers_set_to_markers()
+        rnd = self.a_round_stand_in()
+        LR.LabRound._handlers(rnd, True)
+        self.assertTrue(all(signal.getsignal(s) is not mine[s] for s in LAB.STOP_SIGNALS), "the raiser was not installed")
+        LR.LabRound._restore_handlers(rnd)
+        self.assertEqual({s: signal.getsignal(s) for s in LAB.STOP_SIGNALS}, mine)
+
+    def test_run_lab_puts_the_handlers_it_found_back_when_it_ends(self):
+        mine = self.handlers_set_to_markers()
+        self.run_lab(real_signals=True)
+        self.assertEqual({s: signal.getsignal(s) for s in LAB.STOP_SIGNALS}, mine)
 
     # --- round 6, finding 4: no stop falls between a round's record and its handler restore ----------------
     def test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed(self):

@@ -3494,6 +3494,33 @@ add "C2R8-2a. S0 does not check its exercise copy again after convert.py has had
     '            pass  # MUTANT' \
     'test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_the_pre_flight'
 
+# round 8, finding 3: the restores in the two _swap_handlers, in run_lab's cleanup and in a round's _restore_handlers
+add "C2R8-3a. lab._swap_handlers never puts the signal mask back" \
+    "$LABPY" \
+    '        signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)' \
+    '        pass  # MUTANT' \
+    'test_lab_swap_handlers_puts_the_signal_mask_back'
+
+add "C2R8-3b. a round's _swap_handlers never puts the signal mask back" \
+    "$LABROUND" \
+    '            signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)' \
+    '            pass  # MUTANT' \
+    'test_a_rounds_swap_handlers_puts_the_signal_mask_back'
+
+add "C2R8-3c. run_lab does not put the handlers it found back" \
+    "$LABPY" \
+    '            if old_handlers is not None:
+                for sig, h in old_handlers.items():' \
+    '            if False:  # MUTANT
+                for sig, h in old_handlers.items():' \
+    'test_run_lab_puts_the_handlers_it_found_back_when_it_ends'
+
+add "C2R8-3d. a round does not put the handlers it replaced back" \
+    "$LABROUND" \
+    '            self._swap_handlers(self._old)' \
+    '            pass  # MUTANT' \
+    'test_a_round_puts_the_handlers_it_replaced_back'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

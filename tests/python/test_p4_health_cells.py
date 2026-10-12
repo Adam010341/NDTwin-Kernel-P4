@@ -1583,19 +1583,27 @@ class TestS0Pieces(unittest.TestCase):
 
 # --- Cut 2 -----------------------------------------------------------------------------------------
 
-def _clear_the_stop_mask():
-    """The three stop signals unblocked, any that were pending going to handlers that do nothing; the handlers
-    that were in place are put back. Used at the start and at the end of a test that changes the mask."""
+def _assert_the_stop_mask_is_clear_then_clear(when):
+    """The three stop signals must be unblocked at this point: a test, or the code under it, that left one blocked
+    has leaked it, and that is raised (as an AssertionError naming `when`) -- after the mask has been cleared, any
+    signals that were pending going to handlers that do nothing, and the handlers that were in place put back, so
+    the leak ends in the test that made it. Used at the start and at the end of a test that changes the mask.
+    (Cut 2 round 8) It used to clear the mask silently, which hid a restore that was never made.
+    [Co-developed with claude code -- Adam]"""
     import signal
     stops = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
     old = {s: signal.signal(s, lambda n, f: None) for s in stops}
     try:
+        blocked = sorted(s.name for s in stops if s in signal.pthread_sigmask(signal.SIG_BLOCK, ()))
         signal.pthread_sigmask(signal.SIG_UNBLOCK, stops)
         for _ in range(2000):
             pass
     finally:
         for s, h in old.items():
             signal.signal(s, h)
+    if blocked:
+        raise AssertionError("%s the stop signals %s were still blocked: a mask was not put back"
+                             % (when, ", ".join(blocked)))
 
 
 class TestS0Cut2Checks(unittest.TestCase):
@@ -1605,8 +1613,8 @@ class TestS0Cut2Checks(unittest.TestCase):
         # (round 7) The tests of the ValueSet trial compare the signal mask before and after it. A mutant that never
         # lifts the trial's block leaves the mask blocked for every test after the first, and a test that starts
         # with the block already up cannot see it not being lifted: each starts, and ends, with the mask clear.
-        _clear_the_stop_mask()
-        self.addCleanup(_clear_the_stop_mask)
+        self.addCleanup(_assert_the_stop_mask_is_clear_then_clear, "at the end of the test")
+        _assert_the_stop_mask_is_clear_then_clear("at the start of the test")
 
     def s0(self, replies):
         import tempfile
