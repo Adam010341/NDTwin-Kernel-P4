@@ -745,7 +745,8 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0][5], "GREEN")
         red = rows[0][6].split("T8 is RED only when", 1)[1]
-        for word in ("off", "external", "record was missed", "snapshot"):
+        # the snapshot clause first: it is the one this row once left out [Co-developed with claude code -- Adam]
+        for word in ("snapshot", "off", "external", "record was missed"):
             self.assertIn(word, red)
 
     def test_tp2_past_the_deadline_is_red(self):
@@ -1597,27 +1598,33 @@ class TestS0Pieces(unittest.TestCase):
 
 # --- Cut 2 -----------------------------------------------------------------------------------------
 
-def _assert_the_stop_mask_is_clear_then_clear(when):
-    """The three stop signals must be unblocked at this point: a test, or the code under it, that left one blocked
-    has leaked it, and that is raised (as an AssertionError naming `when`) -- after the mask has been cleared, any
-    signals that were pending going to handlers that do nothing, and the handlers that were in place put back, so
-    the leak ends in the test that made it. Used at the start and at the end of a test that changes the mask.
-    (Cut 2 round 8) It used to clear the mask silently, which hid a restore that was never made.
-    [Co-developed with claude code -- Adam]"""
+def _sig_names(sigs):
+    return ", ".join(sorted(getattr(x, "name", str(x)) for x in sigs)) or "-"
+
+
+def _assert_the_signal_mask_is_unchanged_then_put_it_back(mask0, when):
+    """The signal mask must be `mask0`, the one recorded when the test started: a test, or the code under it, that
+    left it otherwise has leaked a block (or lifted one it did not make), and that is raised as an AssertionError
+    naming `when` -- after the mask has been put back to `mask0`, any stop that was pending going to a handler that
+    does nothing, and the handlers that were in place put back, so the leak ends in the test that made it.
+    (Cut 2 round 8) It used to clear the mask silently, which hid a restore that was never made. (round 9) It
+    compares with the mask the test started with, as collect's Sealed does, not with a clear one: a mask the suite
+    inherited (a parent that blocks SIGHUP) is not a leak. [Co-developed with claude code -- Adam]"""
     import signal
     stops = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
     old = {s: signal.signal(s, lambda n, f: None) for s in stops}
     try:
-        blocked = sorted(s.name for s in stops if s in signal.pthread_sigmask(signal.SIG_BLOCK, ()))
-        signal.pthread_sigmask(signal.SIG_UNBLOCK, stops)
+        now = signal.pthread_sigmask(signal.SIG_SETMASK, mask0)
         for _ in range(2000):
-            pass
+            pass                                    # a pending stop is delivered here, to a handler that does nothing
     finally:
         for s, h in old.items():
             signal.signal(s, h)
-    if blocked:
-        raise AssertionError("%s the stop signals %s were still blocked: a mask was not put back"
-                             % (when, ", ".join(blocked)))
+    if set(now) != set(mask0):
+        raise AssertionError("%s the signals %s were still blocked and %s no longer were (the test started with %s "
+                             "blocked): a mask was not put back" % (when, _sig_names(set(now) - set(mask0)),
+                                                                    _sig_names(set(mask0) - set(now)),
+                                                                    _sig_names(mask0)))
 
 
 class TestS0Cut2Checks(unittest.TestCase):
@@ -1626,9 +1633,11 @@ class TestS0Cut2Checks(unittest.TestCase):
     def setUp(self):
         # (round 7) The tests of the ValueSet trial compare the signal mask before and after it. A mutant that never
         # lifts the trial's block leaves the mask blocked for every test after the first, and a test that starts
-        # with the block already up cannot see it not being lifted: each starts, and ends, with the mask clear.
-        self.addCleanup(_assert_the_stop_mask_is_clear_then_clear, "at the end of the test")
-        _assert_the_stop_mask_is_clear_then_clear("at the start of the test")
+        # with the block already up cannot see it not being lifted: each test ends with the mask it started with put
+        # back, and (round 9) a test that ends with another mask fails.
+        import signal
+        self.addCleanup(_assert_the_signal_mask_is_unchanged_then_put_it_back,
+                        signal.pthread_sigmask(signal.SIG_BLOCK, ()), "at the end of the test")
 
     def s0(self, replies):
         import tempfile

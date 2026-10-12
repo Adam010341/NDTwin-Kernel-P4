@@ -3362,7 +3362,12 @@ class TestTheLabRun(Cut2):
 
     def test_run_lab_puts_the_handlers_it_found_back_when_it_ends(self):
         mine = self.handlers_set_to_markers()
-        self.run_lab(real_signals=True)
+        _rc, doc, _r = self.run_lab(real_signals=True)
+        # (round 9) run_lab swaps the handlers only when the rounds start: a run refused at set-up (a stray thread
+        # that can take a stop, say) would pass the last assertion without testing anything
+        # [Co-developed with claude code -- Adam]
+        self.assertEqual([b["id"] for b in doc["bringups"]], ["A", "B"], doc["problems"])
+        self.assertEqual(doc["problems"], [])
         self.assertEqual({s: signal.getsignal(s) for s in LAB.STOP_SIGNALS}, mine)
 
     # --- round 6, finding 4: no stop falls between a round's record and its handler restore ----------------
