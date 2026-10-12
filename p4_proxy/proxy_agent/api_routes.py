@@ -923,17 +923,21 @@ TABLE_ENTRY_NOT_JOURNALED = ("not journaled: this entry is lost when the proxy r
                              "(Adam 2026-09-18, option a)")
 
 
-#: [Co-developed with claude code -- Adam] What a table-entry response says when its entry is NOT
+#: [Co-developed with claude code -- Adam] What a table-entry response says when its write is NOT
 #: journaled. Split from `TABLE_ENTRY_NOT_JOURNALED` above, which POST /p4/multicast_group keeps
 #: verbatim (Q5 (a)): a multicast group is recorded nowhere; a table entry is recorded and
-#: replayed, and the two sentences below are the two ways one can still fail to be. The second
-#: names the cost DESIGN Q4 (a) accepts: a record missing from the middle of an entry's history
-#: can make a later replay of that entry fail (the replay report then says which).
+#: replayed, and the two sentences below are the two ways a write can still not be. Each says
+#: what happens to all three ops, because "lost" is true only of an insert: DESIGN Q4 (a)'s cost
+#: (5.3, 10-5) is that a modify reverts and a deleted entry comes back.
 TABLE_ENTRY_JOURNAL_WRITE_FAILED = (
-    "the entry is on the switch but the journal write failed: it is lost when the proxy "
-    "restarts, and this switch's journal is incomplete until then -- a later replay of this "
-    "entry, or of a later write to it, may fail and is reported under "
-    "switch_state.table_entries.journal.replay")
+    "the switch took this write but the journal did not record it: a later restart or readopt "
+    "puts this entry back as the journal last knew it -- an insert does not come back, a "
+    "modified entry reverts, a deleted entry returns -- and the replay will not flag it; this "
+    "switch's journal is incomplete until the proxy restarts")
+TABLE_ENTRY_JOURNAL_OFF = (
+    "not journaled: this proxy's table-entry journal is off, so after a restart or readopt "
+    "nothing puts this write back -- an inserted entry is gone, and a package entry that was "
+    "modified or deleted is back as the package declares it")
 
 
 #: How long a POST waits for the switch's lock before it answers 503 `switch busy`. One write holds
@@ -965,7 +969,8 @@ def _table_entry_journal_view(dpid, recorded):
     if journaled:
         return journaled, journal, None
     if not enabled:
-        return journaled, journal, TABLE_ENTRY_NOT_JOURNALED
+        # Off, or none injected at all (a degraded mode): either way nothing records the write.
+        return journaled, journal, TABLE_ENTRY_JOURNAL_OFF
     return journaled, journal, TABLE_ENTRY_JOURNAL_WRITE_FAILED
 
 
@@ -1019,16 +1024,22 @@ async def table_entry(request: Request):
         has changed;
       * a write that was never answered -- the connection dropped, the proxy died before this
         answer -- is not promised anything: it may be on the switch and not in the journal. A
-        confirmed write is always in the journal. A delete the switch answered NOT_FOUND is
-        recorded too (a delete whose answer was lost may have landed, and a retry meets
-        NOT_FOUND); it only ever makes its entry absent. A modify has no such record: one whose
-        answer was lost is undefined after a restart.
+        confirmed write is in the journal unless the 200 says otherwise (below). A delete the
+        switch answered NOT_FOUND is recorded too (a delete whose answer was lost may have
+        landed, and a retry meets NOT_FOUND): it leaves the entry's state before it unknown, so
+        if nothing later in the journal puts the entry back the replay deletes it again, and if
+        something does, the replay's insert falls back to a modify when the package already
+        put one there. A modify has no such record: one whose answer was lost is undefined
+        after a restart.
 
-    A write the journal could not take (disk full) is still a 200: the rule IS on the switch,
+    A write the journal could not take (disk full) is still a 200: the write IS on the switch,
     and an error would invite a retry that the switch answers with ALREADY_EXISTS. It says
     `journaled: false`, `journal.recorded: false`, carries a note, and counts a failure in
     switch_state, whose `journaled` is false for this switch until the proxy restarts.
-    `table_entries.api_writes` counts them either way. An app that re-sends its own entries
+    `table_entries.api_writes` counts them either way. With the journal off
+    (NDTWIN_TABLE_JOURNAL=off) nothing is recorded, every 200 says so, and the next start sets
+    every switch's journal aside (step 0): an off boot cannot vouch for what it leaves behind.
+    An app that re-sends its own entries
     after a restart reads the replay report first (boot_identity.py): an insert of an entry the
     replay already put back is the switch's 502, not a no-op.
 
@@ -1063,8 +1074,10 @@ async def table_entry(request: Request):
              gRPC deadline (`TABLE_ENTRY_LOCK_TIMEOUT_S`): the switch is busy or not answering.
              `replay pending`: the switch is being re-adopted (POST /p4/readopt), answered at
              once. Either way NOTHING was written and the request was NOT validated -- it never
-             reached the writer, so the 503 comes before any 400 or 409 above, and sending it
-             again may meet any other answer.
+             reached the writer, so the 503 comes before every refusal the writer makes (the
+             entry's 400s, the 404 for a name, the 409s), though after the body's own checks (a
+             malformed dpid is 400, an unknown one 404), and sending it again may meet any other
+             answer.
 
     The body of a 200 also carries `priority`, the number that went on the wire.
 

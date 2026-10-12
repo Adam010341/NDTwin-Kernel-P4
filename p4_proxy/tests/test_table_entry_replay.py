@@ -135,6 +135,11 @@ if HAVE_P4RUNTIME:
             self.rpcs = []            # ("get" | "set" | "write", detail), in order
             self.pushed_cookies = []  # the cookie each push carried (None for none)
             self.writes = []          # (op, table_id, priority) of every Write that went out
+            self.cookie_timeouts = []  # the timeout each COOKIE_ONLY read was given
+            #: (op) -> exception or None: raised AFTER the write took effect (an answer lost)
+            self.lose_answer = None
+            #: (op) -> exception or None: raised INSTEAD of the write (nothing happens)
+            self.refuse = None
 
         def restart(self):
             self.tables, self.pipeline, self.cookie = {}, False, None
@@ -152,6 +157,7 @@ if HAVE_P4RUNTIME:
 
         def GetForwardingPipelineConfig(self, request, timeout=None):
             self.rpcs.append(("get", request.response_type))
+            self.cookie_timeouts.append(timeout)
             self._check()
             if not self.pipeline:
                 raise FakeRpcError(grpc.StatusCode.FAILED_PRECONDITION,
@@ -176,6 +182,16 @@ if HAVE_P4RUNTIME:
             entry = update.entity.table_entry
             op = {p4runtime_pb2.Update.INSERT: "insert", p4runtime_pb2.Update.MODIFY: "modify",
                   p4runtime_pb2.Update.DELETE: "delete"}[update.type]
+            error = self.refuse(op) if self.refuse else None
+            if error is not None:
+                self.rpcs.append(("write", op))
+                raise error
+            self._write(entry, op)
+            error = self.lose_answer(op) if self.lose_answer else None
+            if error is not None:
+                raise error
+
+        def _write(self, entry, op):
             self.rpcs.append(("write", op))
             self.writes.append((op, entry.table_id, entry.priority))
             key = self.identity(entry)
@@ -1102,6 +1118,216 @@ class TheReportTest(ReplayCase):
         self.start_proxy()
         self.assertEqual(self.summary["table_entries"]["1"]["journal"]["replay"]["when"],
                          "startup")
+
+# =============================================================================================
+# Round 2 (2026-10-12). [Co-developed with claude code -- Adam]
+# =============================================================================================
+
+BOOT = [{"table": "Pkg.t_exact", "match": {"hdr.ipv4.dstAddr": "10.0.9.9"},
+         "action_name": "Pkg.forward", "action_params": {"port": 9}}]
+
+
+def deadline():
+    return FakeRpcError(grpc.StatusCode.DEADLINE_EXCEEDED, details="Deadline Exceeded")
+
+
+class ALostAnswerOnABootEntryTest(ReplayCase):
+    """M1 as amended: a first NOT_FOUND delete leaves the entry's start unknown."""
+
+    def setUp(self):
+        super().setUp()
+        self.with_entries(BOOT)
+
+    def lose_the_answer_to_one_delete(self):
+        """The DELETE lands on the switch, its answer is lost (DEADLINE_EXCEEDED, nothing
+        recorded), and the retry is answered NOT_FOUND (recorded as `not_found`)."""
+        self.switches[1].lose_answer = lambda op: deadline() if op == "delete" else None
+        status, answer = self.post(exact("10.0.9.9", op="delete"))
+        self.assertEqual((status, answer.get("grpc_status")), (502, "DEADLINE_EXCEEDED"))
+        self.switches[1].lose_answer = None
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=9), 0, "it did land")
+        status, answer = self.post(exact("10.0.9.9", op="delete"))
+        self.assertEqual(answer["p4rt_error"]["code"], "NOT_FOUND")
+        records = [x for x in self.lines(self.live()) if not x.get("header")]
+        self.assertEqual([(r["op"], r["outcome"]) for r in records], [("delete", "not_found")])
+
+    def test_the_boot_entry_whose_delete_lost_its_answer_is_deleted_again_after_a_restart(self):
+        self.start_proxy()
+        self.lose_the_answer_to_one_delete()
+        self.start_proxy()     # the push empties the switch and the package puts the entry back
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=9), 0,
+                         "the operator deleted it; a restart must not bring it back")
+        self.assertEqual([r["op"] for r in self.replay_report()["restored"]], ["delete"])
+
+    def test_a_boot_entry_deleted_with_a_lost_answer_then_inserted_ends_as_the_insert(self):
+        # [not_found, insert S] on a package entry: the replay's insert meets the entry the
+        # package put back (ALREADY_EXISTS) and is retried once as a modify to S.
+        self.start_proxy()
+        self.lose_the_answer_to_one_delete()
+        self.ok(exact("10.0.9.9", 5))
+        self.start_proxy()
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "S is on the switch")
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=9), 0)
+        report = self.replay_report()
+        self.assertEqual((report["status"], report["failed"]), ("complete", []))
+        self.assertEqual(len(report["retried_as_modify"]), 1)
+        live = [x for x in self.lines(self.live()) if not x.get("header")]
+        self.assertEqual([(r["op"], r["outcome"]) for r in live],
+                         [("delete", "not_found"), ("insert", "ok")], "S, and its unknown start")
+        self.assertEqual(live[1]["spec"]["action_params"], {"port": 5})
+        self.start_proxy()
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "and again a boot later")
+
+    def test_an_unknown_start_insert_refused_for_another_reason_is_not_retried(self):
+        # The fallback is for ALREADY_EXISTS alone: any other per-update refusal is the
+        # switch's answer about this write, and a modify would paper over it.
+        self.start_proxy()
+        self.lose_the_answer_to_one_delete()
+        self.ok(exact("10.0.9.9", 5))
+        original = FabricSwitch.Write
+
+        def refuse_the_replay(switch, request, timeout=None):
+            entry = request.updates[0].entity.table_entry
+            if (request.updates[0].type == p4runtime_pb2.Update.INSERT
+                    and int.from_bytes(entry.action.action.params[0].value, "big") == 5):
+                raise refused(code_pb2.INVALID_ARGUMENT, "no")
+            return original(switch, request, timeout)
+        with mock.patch.object(FabricSwitch, "Write", refuse_the_replay):
+            self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(report["retried_as_modify"], [])
+        self.assertEqual(len(report["failed"]), 1)
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=9), 1, "the boot entry, unmodified")
+
+    def test_an_ordinary_insert_that_meets_an_entry_is_not_retried_as_a_modify(self):
+        # Only an `unknown_before` key gets the fallback: an insert journalled as an insert that
+        # meets ALREADY_EXISTS is a failure the report names.
+        self.start_proxy()
+        self.ok(exact("10.0.0.1", 1))
+        # A push that empties nothing, so the journal's own insert meets its entry.
+        with mock.patch.object(FabricSwitch, "SetForwardingPipelineConfig",
+                               lambda sw, req, timeout=None: setattr(sw, "pipeline", True)):
+            self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(report["retried_as_modify"], [])
+        self.assertEqual(len(report["failed"]), 1)
+        self.assertIn("ALREADY_EXISTS", report["failed"][0]["reason"])
+
+
+class AJournalThatIsOffSetsEverythingAsideTest(ReplayCase):
+    """DESIGN 5.4 step 0 as amended (§7-1 (b)): a boot with the journal off cannot vouch for what
+    it leaves behind."""
+
+    def test_an_entry_deleted_while_the_journal_was_off_stays_deleted(self):
+        self.start_proxy()
+        self.ok(exact("10.0.0.1"))
+        self.start_proxy(enabled=False)           # the push empties it; nothing replays
+        report = self.replay_report()
+        self.assertIs(report["fresh_fabric"], True)
+        self.assertEqual(report["cookie"], "the table-entry journal is off")
+        self.start_proxy()
+        self.assertEqual(self.switches[1].holds(EXACT_ID), 0,
+                         "the journal of before the off boot is set aside, not replayed")
+
+    def test_the_off_boot_sets_the_file_aside_byte_for_byte(self):
+        self.start_proxy()
+        self.ok(exact("10.0.0.1"))
+        before = self.read_bytes(self.live())
+        self.start_proxy(enabled=False)
+        self.assertIn(before, [self.read_bytes(p) for p in self.set_aside()])
+        self.assertEqual([x for x in self.lines(self.live()) if not x.get("header")], [])
+
+
+class AClientWithNoProgramFileTest(ReplayCase):
+    """§7-2: no json_path, no push -- so no replay either (the push loop's own test)."""
+
+    def test_a_switch_that_was_not_pushed_is_not_replayed_into(self):
+        self.start_proxy()
+        self.ok(exact("10.0.0.1"))
+        self.switches[1].writes.clear()
+        original = a_client
+
+        def no_program(switch, workdir, device_id=1):
+            client = original(switch, workdir, device_id)
+            client.json_path = None
+            return client
+        with mock.patch(__name__ + ".a_client", no_program):
+            self.start_proxy()
+        self.assertEqual(self.switches[1].writes, [], "no replayed insert met the entry")
+        self.assertEqual(self.switches[1].holds(EXACT_ID), 1, "still there: nothing emptied it")
+        self.assertIn("no pipeline was pushed", self.replay_report()["skipped_reason"])
+
+
+class TheCookieReadWaitsOneWriteDeadlineTest(ReplayCase):
+    def test_cookie_only_is_given_rpc_timeout_s(self):
+        from proxy_agent.p4_client import RPC_TIMEOUT_S
+        self.start_proxy()
+        self.assertEqual(self.switches[1].cookie_timeouts, [RPC_TIMEOUT_S])
+
+
+class AFailedStep0IsReportedTest(ReplayCase):
+    def test_a_header_rewrite_that_fails_is_in_the_report_and_withdraws_the_claim(self):
+        # m-2 (round 2): a confirmed switch whose header rewrite fails keeps the old boot's
+        # header, so the replay sets it aside as unconfirmed_header -- and the report says why.
+        self.start_proxy()
+        self.ok(exact("10.0.0.1"))
+        lines = self.read_bytes(self.live()).decode().splitlines()
+        header = json.loads(lines[0])
+        header["boot_id"] = "the-proxy-process-before-this-one"
+        with open(self.live(), "w") as fh:
+            fh.write("\n".join([json.dumps(header)] + lines[1:]) + "\n")
+
+        def no_disk(journal, header, keep=10):
+            raise OSError("injected: the disk is full")
+        with mock.patch.object(rule_journal.TableEntryJournal, "reheader", no_disk):
+            self.start_proxy()
+        report = self.replay_report()
+        self.assertIn("disk is full", report["step0_error"])
+        self.assertEqual(report["cookie"], "confirmed")
+        self.assertEqual(report["skipped_reason"], "unconfirmed_header")
+        self.assertEqual(self.journals.report(1)["failures"], 1)
+        self.assertIs(self.journals.journaled(1), False)
+
+
+class AReplayWriteWithNoAnswerIsKeptTest(ReplayCase):
+    """m-5 (round 2): a replayed write that met a deadline may have landed."""
+
+    def test_an_insert_that_timed_out_stays_in_the_journal_and_comes_back_next_start(self):
+        self.start_proxy()
+        self.ok(exact("10.0.0.1", 3))
+        self.switches[1].refuse = lambda op: deadline() if op == "insert" else None
+        self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(report["succeeded"], 0)
+        self.assertIs(report["failed"][0]["kept"], True)
+        live = [x for x in self.lines(self.live()) if not x.get("header")]
+        self.assertEqual([r["op"] for r in live], ["insert"], "kept for the next start")
+        self.switches[1].refuse = None
+        self.start_proxy()
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=3), 1)
+
+    def test_a_write_the_switch_refused_per_update_is_still_dropped(self):
+        self.start_proxy()
+        self.ok(exact("10.0.0.1", 3))
+        self.switches[1].refuse = (lambda op: refused(code_pb2.INVALID_ARGUMENT, "no")
+                                   if op == "insert" else None)
+        self.start_proxy()
+        self.assertIs(self.replay_report()["failed"][0]["kept"], False)
+        self.assertEqual([x for x in self.lines(self.live()) if not x.get("header")], [])
+
+
+class AJournalWithABadByteTest(ReplayCase):
+    def test_one_invalid_utf8_byte_does_not_stop_startup(self):
+        # m-1 (round 2): the file is read as bytes and each line decoded inside the try.
+        self.start_proxy()
+        self.ok(exact("10.0.0.1"))
+        with open(self.live(), "ab") as fh:
+            fh.write(b'{"v":1,"op":"insert","key":"\xff"}\n')
+        self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual((report["succeeded"], report["unreadable"]), (1, 1))
+        self.assertEqual(self.switches[1].holds(EXACT_ID), 1)
+
 
 
 if __name__ == "__main__":

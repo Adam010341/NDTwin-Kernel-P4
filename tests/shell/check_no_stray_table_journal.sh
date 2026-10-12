@@ -57,6 +57,7 @@ out="$( cd "$PROXY" && env -u NDTWIN_TABLE_JOURNAL_DIR -u NDTWIN_TEST_JOURNAL_IS
         PYTHONDONTWRITEBYTECODE=1 timeout 1800 "$PY" -m unittest discover -s tests 2>&1 )"; rc=$?
 after="$(snapshot)"
 echo "after      : $(head -c 200 <<<"$after" | tr '\n' ' ')"
+single_after="$after"
 perfile_fail=0; perfile_files=0; perfile_stray=""
 for f in "$PROXY"/tests/test_*.py; do
     perfile_files=$((perfile_files + 1))
@@ -80,16 +81,18 @@ if [[ -z "$ran" || "$ran" -eq 0 ]]; then
 fi
 status=0
 if [[ -n "$perfile_stray" ]]; then
-    echo "🔴 STRAY (per file):$perfile_stray"
+    echo "🔴 STRAY (per file):$perfile_stray -- run on its own, this file changed the directory:"
+    echo "   it imports main without tests/journal_isolation.py, or starts the proxy as a subprocess"
+    echo "   without it"
     status=1
 fi
 if [[ "$perfile_fail" -ne 0 ]]; then
     echo "🔴 $perfile_fail test file(s) failed when run on their own"
     status=1
 fi
-if [[ "$before" != "$after" ]]; then
-    echo "🔴 STRAY: the suite changed $JDIR -- a test module imports main without tests/journal_isolation.py first"
-    diff <(echo "$before") <(echo "$after") | sed 's/^/    /' | head -40
+if [[ "$before" != "$single_after" ]]; then
+    echo "🔴 STRAY (one process): the suite changed $JDIR -- a test module imports main without tests/journal_isolation.py first"
+    diff <(echo "$before") <(echo "$single_after") | sed 's/^/    /' | head -40
     status=1
 fi
 if [[ "$rc" -ne 0 ]]; then

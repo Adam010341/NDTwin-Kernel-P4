@@ -537,6 +537,30 @@ else
         fi
     done
     shopt -u nullglob
+
+    # [Co-developed with claude code -- Adam]
+    # The proxy's table-entry journal lives in p4_proxy/.run/table_entry_journal, and a proxy on
+    # this machine replays it at its next start. A test that imports `main` without
+    # tests/journal_isolation.py -- or starts the proxy as a subprocess without it -- writes
+    # there. The loop above runs one file per process and cannot see the first kind of leak, so
+    # this runs the directory once in one process and once more file by file, and fails if the
+    # directory changed. It runs the proxy suite twice more, so it costs about a minute and a
+    # half on the reference machine.
+    printf '  %-30s ' "no stray table-entry journal"
+    log="$LOG_DIR/l1_python_no_stray_table_journal.log"
+    if [[ -z "$PY_P4" ]]; then
+        echo "${Y}SKIP${N} ${D}(no interpreter with the P4Runtime protobufs)${N}"
+    else
+        PROXY_PY="$PY_P4" bash "$KERNEL_DIR/tests/shell/check_no_stray_table_journal.sh" >"$log" 2>&1
+        rc=$?
+        if [[ $rc -eq 0 ]]; then
+            echo "${G}PASS${N}  ${D}$(grep -E '^ok:' "$log" | head -1)${N}"
+        else
+            echo "${R}FAIL${N} (exit $rc)"
+            grep -E "STRAY|REFUSE|failed|FAIL:|ERROR:" "$log" | head -8 | sed 's/^/      /'
+            FAILURES=$((FAILURES + 1))
+        fi
+    fi
 fi
 
 # --- 3b. kernel-side Python and shell tests --------------------------------------

@@ -455,6 +455,8 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
   - **步驟 0** 在 push 迴圈（`main.py:1977-1986`）**之前**，對**每一台** client 都做，不管它之後會不會變成 broken；
   - 步驟 1、3–6 在 entries 迴圈裡（`main.py:2009-2020`），每台在 `apply_package_entries` 之後、PRE 之前。
 - 步驟 1、3–6 的條件：`i not in broken and not read_only`，而且 journal 開著。步驟 0 只要求 `not read_only`（external 一個 byte 都不動，§5.7）。
+  - 🆕 **2026-10-12 修正（§7-1 改成 (b)）**：journal 關著時步驟 0 照跑，但**每一台都當作未確認**，檔案全部隔離。理由：Q1 (a) 就是為了讓「沒確認過的舊 entry 永遠不回來」；關著的那次開機什麼都不記，若照舊確認，關著期間做的 delete 會在下一次正常開機被重放復原。
+  - 🆕 **2026-10-12 補充（§7-2）**：步驟 1、3–6 另外要求這台這次真的 push 過（`client.json_path` 非空，和 push 迴圈同一個判斷）；沒 push 就沒清空，重放只會撞上還在的 entry。
 - startup 期間 uvicorn 還沒開始服務：startup 在 lifespan 裡被 await（`main.py:2441-2443`），uvicorn 是在 lifespan 完成之後才服務（`:2469-2511`）。**所以這裡不需要 503**（修正 r1）。
 - 步驟：
   0. **cookie 確認（Q1），在 push 迴圈之前、每一台都做**：用 COOKIE_ONLY 讀交換機上的 cookie，跟這台檔案 header 的 `fabric_cookie` 比。
@@ -473,7 +475,7 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
   2. （r2 的 cookie 判斷已經搬到步驟 0；這一步留空，只是為了保留步驟編號。）
   3. **sha 防護**：檢查 p4info 與 entries 的 sha（§5.2）。
   4. **折疊**：依 `key` 與檔案順序算淨效果。
-     - 第一個 op 決定「API 之前在不在」：insert ⇒ 不在；modify／delete ⇒ 在，例如開機 entry 或 default。
+     - 第一個 op 決定「API 之前在不在」：insert ⇒ 不在；modify／delete ⇒ 在，例如開機 entry 或 default。🆕 2026-10-12：回 NOT_FOUND 的 delete 在最前面時是「未知」，見 §10-4。
      - 最後一個 op 決定「之後在不在」，以及最終的 spec。
      - 四種組合：
        - 不在 → 在：insert(最終 spec)
@@ -800,7 +802,11 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
    - 寫一顆測試斷言「default」與「全省略的 LPM」是兩個 key。
 3. **`TableEntryJournal.replay` 自己寫。** `attempted` 是淨 op 的數量，不是原始行數。
 4. **沒被確認的 delete／modify**：
-   - 回 NOT_FOUND 的 delete 照樣回 502，**但會記成 `outcome: not_found`**。它在折疊裡只會讓那個 key「不在」，所以是安全的。
+   - 回 NOT_FOUND 的 delete 照樣回 502，**但會記成 `outcome: not_found`**。~~它在折疊裡只會讓那個 key「不在」，所以是安全的。~~
+   - 🆕 **2026-10-12 修正（M1 修訂）**：一個 key 的**第一筆**若是 not_found 的 delete，它之前的狀態是「**未知**」，不是「不在」——原因可能是一次答案遺失、沒記到的 delete，刪的是 package 的開機 entry，而 push 與 package 會把它放回來。所以由最後一筆決定：
+     - 最後是不在（delete）⇒ 淨效果 delete；重放遇到 NOT_FOUND 算已達目標。所以單獨一筆 `[not_found]` 又是 delete 了。
+     - 最後是在 ⇒ 淨效果 insert，標記 `unknown_before`；重放遇到 ALREADY_EXISTS（只可能是 push 與 package 放回的開機 entry）就改用 modify 重試一次，寫成 journal 記的 spec。**只有這種 key 會重試**，其他 insert 照舊。snapshot 把它寫成「not_found 的 delete＋insert」兩筆，下次開機折疊出同樣的標記。
+     - 第一筆是被接受的 delete 時，仍然是「在」（它刪掉了某個東西）。
    - 用來處理 DEADLINE_EXCEEDED 但實際已落地、重試又拿到 NOT_FOUND 的情況（`p4_client.py:27-28`）。
    - modify 沒有對應的安全做法，寫進 API 文件。
 5. **Q4(a) 的缺行風險**：寫進回應的 note 與 API 文件（Q4 的後果）。

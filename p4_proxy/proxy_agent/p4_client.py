@@ -683,7 +683,7 @@ class P4RuntimeClient:
         except Exception as e:  # noqa: BLE001 -- a probe must never take the caller down
             return {"ok": False, "detail": f"{type(e).__name__}: {e}"}
 
-    def read_pipeline_cookie(self, timeout_s: float = 2.0):
+    def read_pipeline_cookie(self, timeout_s: float = RPC_TIMEOUT_S):
         """
         The cookie of the pipeline this switch runs, or None when its pipeline carries none.
 
@@ -693,6 +693,8 @@ class P4RuntimeClient:
         process, whether or not its command line named a JSON -- ternary-a0 08), and a switch
         that is not there fails the RPC. `main.startup`'s step 0 reads either as "cannot confirm
         this fabric". Works on an external client too: it is a read, and it needs no mastership.
+        The timeout is one write's (`RPC_TIMEOUT_S`), not the probe's 2 s: a false "did not
+        answer" here sets the switch's journal aside for good, where a probe's is transient.
         """
         req = p4runtime_pb2.GetForwardingPipelineConfigRequest()
         req.device_id = self.device_id

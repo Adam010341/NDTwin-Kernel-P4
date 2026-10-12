@@ -859,6 +859,13 @@ def confirm_fabric(clients, journals, package, mint=None):
     for dpid, client in clients.items():
         header, _records, _unreadable = journals.journal_for(dpid).read()
         verdicts[dpid] = rule_journal.cookie_verdict(header, _cookie_seen(client))
+    if not journals.enabled:
+        # DESIGN 5.4 step 0 as amended 2026-10-12: a boot that records nothing cannot vouch for
+        # what it leaves behind -- a delete made now would be undone by the next start that
+        # replays -- so with the journal off every switch is unconfirmed and its file set aside.
+        # [Co-developed with claude code -- Adam]
+        verdicts = {dpid: dict(v, confirmed=False, reason="the table-entry journal is off")
+                    for dpid, v in verdicts.items()}
     generation, verdicts = rule_journal.fabric_generation(verdicts, mint)
     _generation["cookie"] = generation
     for dpid, client in clients.items():
@@ -888,6 +895,21 @@ def _refusal_reason(exc):
     return name if name is not None else f"{type(exc).__name__}: {exc}"
 
 
+def _already_exists(exc):
+    """Whether a refused write's per-update reason is ALREADY_EXISTS (bmv2's answer to an insert of
+    an entry that is there: ternary-a0 13)."""
+    p4rt = api_routes._p4rt_error(exc)
+    return p4rt is not None and p4rt.get("code") == "ALREADY_EXISTS"
+
+
+def _outcome_unknown(exc):
+    """Whether a failed write carries no answer about the entry: a gRPC status with no per-update
+    error (DEADLINE_EXCEEDED, UNAVAILABLE, ...). Such a write may have landed (p4_client's
+    RPC_TIMEOUT_S note), so the replay keeps its record. A refusal the writer made before the
+    wire is not a gRPC status, and the switch's own per-update refusal is an answer."""
+    return api_routes._grpc_status_name(exc) is not None and api_routes._p4rt_error(exc) is None
+
+
 def replay_table_journal(client, dpid, journals, package, when):
     """
     DESIGN 5.4 steps 1 and 3-6 for one switch whose pipeline was just pushed: its journal's net
@@ -899,7 +921,8 @@ def replay_table_journal(client, dpid, journals, package, when):
         return journals.note_skipped(dpid, "the table-entry journal is off", when)
     report = journals.replay(dpid, lambda spec, op: _replay_write(client, spec, op),
                              table_journal_header(dpid, package), api_routes._is_not_found,
-                             when, describe=_refusal_reason)
+                             when, describe=_refusal_reason, is_already_exists=_already_exists,
+                             outcome_unknown=_outcome_unknown)
     print(f"[Proxy Agent] switch {dpid}: table-entry journal replay {report['status']}, "
           f"{report['succeeded']}/{report['attempted']} net entries back"
           + (f" ({report['skipped_reason']})" if report.get("skipped_reason") else ""))
@@ -955,11 +978,11 @@ def table_entries_report():
                      "applied": counts.get("applied", 0),
                      "failed": counts.get("failed", 0),
                      "api_writes": _api_writes.get(dpid, 0),
-                     # `journaled` is a CLAIM that an entry survives a restart, and it is False
-                     # because nothing replays the journal: the answer comes from
-                     # `table_journals.journaled`, which is False until rule_journal's
-                     # TABLE_JOURNAL_REPLAYS is flipped by the change that replays. What IS true
-                     # today -- API writes are being recorded -- is `journal`, beside it.
+                     # `journaled` is a CLAIM that an entry survives a restart: true while every
+                     # accepted API write of this boot is in the journal that startup and readopt
+                     # replay (`table_journals.journaled`, through rule_journal's
+                     # TABLE_JOURNAL_REPLAYS). `journal`, beside it, says what was recorded and
+                     # what the last replay put back. [Co-developed with claude code -- Adam]
                      "journaled": table_journals.journaled(dpid),
                      "journal": table_journals.report(dpid)}
     return out
@@ -2237,6 +2260,12 @@ async def startup(clients_factory, sflow, kernel, topo,
         elif i in broken:
             journals.note_skipped(i, "the pipeline push failed; a readopt of this switch "
                                      "replays its journal")
+        elif not client.json_path:
+            # The push loop's own test: no pipeline was pushed, so nothing was emptied, and a
+            # replay would meet every journalled entry still there. [Co-developed with claude
+            # code -- Adam]
+            journals.note_skipped(i, "no pipeline was pushed to this switch (it has no "
+                                     "program file), so nothing was emptied to put back")
         else:
             with journals.journal_for(i).lock:
                 replay_table_journal(client, i, journals, package, "startup")

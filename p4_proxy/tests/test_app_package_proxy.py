@@ -414,9 +414,10 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
         self.assertNotIn("clone_session", body["control_plane"]["skipped"])
 
     def test_journaled_is_false_even_when_entries_were_applied(self):
-        # 🔴 The one number a reader could misread as reassurance. `applied: 4` says four rules
-        # are on the switch; `journaled: false` says all four are gone after a proxy restart and
-        # nothing replays them (Adam 2026-09-18, option a).
+        # 🔴 The one number a reader could misread as reassurance. `applied: 4` says four of the
+        # package's rules are on the switch; `journaled` is the table-entry journal's claim about
+        # API writes, and the endpoint passes the report's `false` through unchanged -- it does not
+        # derive the claim from `applied`. [Co-developed with claude code -- Adam]
         body = self.state({"mode": "ndtwin", "package": "/pkg", "skipped": []}, {},
                           written={"1": {"recorded": 4, "applied": 4, "failed": 0,
                                          "api_writes": 0, "journaled": False}})

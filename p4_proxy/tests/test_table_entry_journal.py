@@ -287,8 +287,9 @@ class TheFoldTest(unittest.TestCase):
     # --- M1 (ruling 2026-10-12): a delete answered NOT_FOUND says the entry was absent ------
 
     def test_a_not_found_delete_then_an_insert_is_an_insert(self):
-        # The switch said the entry was not there, so it began absent and the insert created it.
-        # Folded as "there", it would be a modify -- refused after the push empties the table.
+        # The switch said the entry was not there, so it began unknown and the insert's spec is
+        # what it should be: an insert (with a modify fallback). Folded as "there", it would be a
+        # plain modify -- refused after the push empties the table.
         net = fold_records([rec("delete", "A", outcome="not_found"),
                             rec("insert", "A", {"action_params": {"port": 4}})])
         self.assertEqual([(n["op"], n["spec"]["action_params"]) for n in net],
@@ -300,10 +301,21 @@ class TheFoldTest(unittest.TestCase):
         self.assertEqual(fold_records([rec("insert", "A"),
                                        rec("delete", "A", outcome="not_found")]), [])
 
-    def test_a_lone_not_found_delete_is_nothing(self):
-        # Absent before (the switch said so), absent after: nothing to replay. This is what
-        # DESIGN 10-4 recorded it for -- "it only makes the key absent".
-        self.assertEqual(fold_records([rec("delete", "A", outcome="not_found")]), [])
+    def test_a_lone_not_found_delete_is_a_net_delete(self):
+        # M1 as amended (2026-10-12): the first NOT_FOUND leaves "before" unknown -- the reason
+        # may be a lost-answer delete of a package boot entry the next push puts back -- and
+        # absent is the last word, so the replay deletes it; a NOT_FOUND then means done.
+        net = fold_records([rec("delete", "A", outcome="not_found")])
+        self.assertEqual([n["op"] for n in net], ["delete"])
+        self.assertNotIn("unknown_before", net[0], "a delete needs no insert fallback")
+
+    def test_a_not_found_delete_then_an_insert_is_an_insert_marked_unknown_before(self):
+        net = fold_records([rec("delete", "A", outcome="not_found"), rec("insert", "A")])
+        self.assertEqual([(n["op"], n.get("unknown_before")) for n in net], [("insert", True)])
+
+    def test_an_ordinary_insert_is_not_marked_unknown_before(self):
+        net = fold_records([rec("insert", "A")])
+        self.assertNotIn("unknown_before", net[0])
 
     def test_an_accepted_delete_then_an_insert_is_still_a_modify(self):
         # The boot-entry case, unchanged: the accepted delete removed something, so the key began
@@ -332,10 +344,13 @@ class TheFoldTest(unittest.TestCase):
                    rec("delete", "C", outcome="not_found"),
                    rec("insert", "D"), rec("delete", "D", outcome="not_found")]
         net = fold_records(history)
-        self.assertEqual([(n["key"], n["op"]) for n in net], [("A", "insert"), ("B", "delete")])
+        self.assertEqual([(n["key"], n["op"]) for n in net],
+                         [("A", "insert"), ("B", "delete"), ("C", "delete")])
         again = fold_records(records_from_net(net))
-        self.assertEqual([(n["key"], n["op"], n["spec"]) for n in again],
-                         [(n["key"], n["op"], n["spec"]) for n in net])
+        self.assertEqual([(n["key"], n["op"], n["spec"], n.get("unknown_before")) for n in again],
+                         [(n["key"], n["op"], n["spec"], n.get("unknown_before")) for n in net],
+                         "the snapshot keeps A's unknown start, so the next boot may still meet "
+                         "a boot entry there")
 
     def test_not_there_then_not_there_is_nothing(self):
         self.assertEqual(fold_records([rec("insert", "A"), rec("delete", "A")]), [])
@@ -449,6 +464,18 @@ class TheFileTest(TempDirCase):
         self.assertEqual(header["boot_id"], "b")
         self.assertEqual([r["op"] for r in records], ["insert", "modify"])
         self.assertEqual(unreadable, 2)
+
+    def test_a_line_that_is_not_utf8_is_one_unreadable_line_not_an_exception(self):
+        # m-1 (round 2). Startup reads every switch's file in step 0; one bad byte must not
+        # raise out of it.
+        journal = self.a_journal(lambda: {"boot_id": "b"})
+        journal.record("insert", {}, "K1")
+        with open(journal.path, "ab") as fh:
+            fh.write(b'{"v":1,"op":"insert","key":"\xff\xfe"}\n')
+        journal.record("insert", {}, "K2")
+        header, records, unreadable = journal.read()
+        self.assertEqual([r["key"] for r in records], ["K1", "K2"])
+        self.assertEqual(unreadable, 1)
 
     def test_a_missing_file_reads_as_empty_and_not_as_an_error(self):
         self.assertEqual(self.a_journal().read(), (None, [], 0))
@@ -1220,11 +1247,21 @@ class TheRouteRecordsTest(TempDirCase):
         api_routes.table_journals = TableJournals(os.path.join(blocker, "j"))
         body = self.post()
         self.assertEqual(body["status"], "success")
-        self.assertEqual(len(self.stub.requests), 1, "the rule IS on the switch")
+        self.assertEqual(len(self.stub.requests), 1, "the write IS on the switch")
         self.assertEqual(body["journal"]["recorded"], False)
         self.assertIs(body["journaled"], False)
-        self.assertIn("journal write failed", body["note"])
+        self.assertIn("the journal did not record it", body["note"])
         self.assertEqual(api_routes.table_journals.report(1)["failures"], 1)
+
+    def test_the_note_for_an_unrecorded_write_says_what_each_op_turns_into(self):
+        # M-2 (round 2). "Lost when the proxy restarts" is true of an insert only: the journal
+        # puts back what it last knew, so a modify reverts and a deleted entry returns, and the
+        # replay cannot flag it (DESIGN 5.3, 10-5).
+        note = api_routes.TABLE_ENTRY_JOURNAL_WRITE_FAILED
+        for words in ("an insert does not come back", "a modified entry reverts",
+                      "a deleted entry returns", "will not flag it"):
+            self.assertIn(words, note)
+        self.assertNotIn("lost when the proxy restarts", note)
 
     def test_a_proxy_with_no_journal_at_all_still_writes_and_says_the_journal_is_off(self):
         api_routes.table_journals = None
@@ -1233,14 +1270,21 @@ class TheRouteRecordsTest(TempDirCase):
         self.assertEqual(body["journal"], {"recorded": False, "enabled": False,
                                            "replay": rule_journal.REPLAYED_WHEN})
         self.assertIs(body["journaled"], False)
-        self.assertIn("lost when the proxy restarts", body["note"])
+        self.assertEqual(body["note"], api_routes.TABLE_ENTRY_JOURNAL_OFF)
+
+    def test_the_note_for_a_journal_that_is_off_says_what_each_op_turns_into(self):
+        # M-2 (round 2): an insert is gone, a modified or deleted package entry is back.
+        note = api_routes.TABLE_ENTRY_JOURNAL_OFF
+        for words in ("journal is off", "an inserted entry is gone",
+                      "modified or deleted is back as the package declares it"):
+            self.assertIn(words, note)
 
     def test_a_journal_that_is_switched_off_says_so_and_is_not_called_a_failure(self):
         api_routes.table_journals = TableJournals(self.dir, enabled=False)
         body = self.post()
         self.assertEqual(body["journal"]["enabled"], False)
         self.assertEqual(body["journal"]["recorded"], False)
-        self.assertNotIn("journal write failed", body["note"])
+        self.assertEqual(body["note"], api_routes.TABLE_ENTRY_JOURNAL_OFF)
         self.assertEqual(os.listdir(self.dir), [])
 
 
@@ -1569,6 +1613,42 @@ class The503ComesBeforeAnyRefusalTest(TempDirCase):
         self.assertFalse(journals.pending(1))
         self.assertEqual(os.listdir(self.dir), [])
 
+    def test_two_overlapping_readopts_keep_the_switch_pending_until_the_second_ends(self):
+        # nit (round 2): a count, not a set. The first readopt's end must not clear the flag the
+        # second one still holds, or a POST meanwhile queues for "switch busy".
+        journals = TableJournals(self.dir)
+        first_in = threading.Event()
+        first_go = threading.Event()
+        second_in = threading.Event()
+        second_go = threading.Event()
+
+        def first():
+            with journals.replaying(1):
+                first_in.set()
+                first_go.wait(3)
+
+        def second():
+            with journals.replaying(1):
+                second_in.set()
+                second_go.wait(3)
+        a = threading.Thread(target=first, daemon=True)
+        a.start()
+        self.assertTrue(first_in.wait(2))
+        b = threading.Thread(target=second, daemon=True)
+        b.start()                               # pending twice; waits for the lock
+        time.sleep(0.1)
+        first_go.set()
+        a.join(3)
+        self.assertTrue(second_in.wait(2))
+        self.addCleanup(second_go.set)
+        self.assertTrue(journals.pending(1), "the second readopt is still under way")
+        outcome = self.in_thread(lambda: journals.write_and_journal(
+            lambda: AFakeSwitch(), 1, {"table": "a"}, "insert", lock_timeout=0.05))
+        self.assertEqual([type(e) for e in outcome], [rule_journal.ReplayPending])
+        second_go.set()
+        b.join(3)
+        self.assertFalse(journals.pending(1))
+
     def test_a_write_that_got_past_the_first_check_meets_the_second_inside_the_lock(self):
         journals = TableJournals(self.dir)
         slow = ABlockingSwitch()
@@ -1591,8 +1671,8 @@ class The503ComesBeforeAnyRefusalTest(TempDirCase):
         waiter.start()
         time.sleep(0.1)                         # it is now waiting for the lock
         with journals._registry_lock:
-            journals._pending.add("1")          # a readopt began meanwhile
-        self.addCleanup(journals._pending.discard, "1")
+            journals._pending["1"] = 1          # a readopt began meanwhile
+        self.addCleanup(journals._pending.pop, "1", None)
         slow.release.set()
         waiter.join(3)
         self.assertEqual([type(e) for e in outcome], [rule_journal.ReplayPending])
@@ -1919,13 +1999,15 @@ class TheJournalIsWiredInMainTest(unittest.TestCase):
         self.assertIsNone(main.table_journal_header(1)["fabric_cookie"])
 
     def test_the_constants_the_two_surfaces_disagree_on_are_split(self):
-        # The multicast response keeps its own sentence (Q5 (a)); a table entry's are its own.
-        # One sentence cannot be true of a thing that is recorded and a thing that is not.
-        self.assertNotEqual(api_routes.TABLE_ENTRY_NOT_JOURNALED,
-                            api_routes.TABLE_ENTRY_JOURNAL_WRITE_FAILED)
-        for note in (api_routes.TABLE_ENTRY_NOT_JOURNALED,
-                     api_routes.TABLE_ENTRY_JOURNAL_WRITE_FAILED):
-            self.assertIn("lost when the proxy restarts", note)
+        # The multicast response keeps its own sentence, verbatim (Q5 (a)); a table entry's two
+        # are their own. One sentence cannot be true of a thing that is recorded and replayed
+        # and a thing that is recorded nowhere.
+        notes = (api_routes.TABLE_ENTRY_NOT_JOURNALED, api_routes.TABLE_ENTRY_JOURNAL_WRITE_FAILED,
+                 api_routes.TABLE_ENTRY_JOURNAL_OFF)
+        self.assertEqual(len(set(notes)), 3)
+        self.assertEqual(api_routes.TABLE_ENTRY_NOT_JOURNALED,
+                         "not journaled: this entry is lost when the proxy restarts "
+                         "(Adam 2026-09-18, option a)")
         self.assertFalse(hasattr(api_routes, "TABLE_ENTRY_RECORDED_NOT_REPLAYED"),
                          "a recorded entry is replayed: that sentence is no longer true")
 

@@ -331,8 +331,9 @@ class RuleJournal:
 TABLE_JOURNAL_REPLAYS = True
 
 #: What a POST response's `journal.replay` says: when, and on what condition, its entry comes back.
-REPLAYED_WHEN = ("at proxy startup and after a readopt, on a switch whose pipeline cookie "
-                 "confirms it is the fabric this journal was written on")
+REPLAYED_WHEN = ("at proxy startup, on a switch whose pipeline cookie confirms it is the fabric "
+                 "this journal was written on, and after a readopt later in the same proxy run "
+                 "(a readopt reads no cookie: this run's startup already decided)")
 
 #: Overrides the directory the per-switch files live in. Same reason as RULE_JOURNAL_PATH_ENV_VAR:
 #: a test has to be able to point the production construction at a temp directory.
@@ -341,7 +342,8 @@ TABLE_JOURNAL_DIR_ENV_VAR = "NDTWIN_TABLE_JOURNAL_DIR"
 #: "off" turns recording off. Read by `table_journal_enabled`, so the parsing is testable.
 TABLE_JOURNAL_ENV_VAR = "NDTWIN_TABLE_JOURNAL"
 
-#: How many set-aside generations a switch's journal keeps. DESIGN 10-11.
+#: How many set-aside generations a switch's journal keeps. DESIGN 10-11. A confirmed start uses two
+#: of them (step 0's header rewrite and the replay's snapshot), so ten is about five boots.
 QUARANTINE_KEEP = 10
 
 
@@ -420,12 +422,18 @@ def fold_records(records):
         there     -> not there  delete(last spec)
         not there -> not there  nothing
 
-    🔴 A DELETE THE SWITCH ANSWERED NOT_FOUND SAYS "NOT THERE". When the first record of an entry
-    is a `not_found` delete, the switch said at that moment that the entry was absent, so the
-    entry starts absent: [delete/not_found, insert] is an insert, not a modify (a modify of an
-    entry the push has just removed would be refused, and the entry would not come back). This
-    is DESIGN 10-4's own premise -- such a record "only makes the key absent". A first delete
-    the switch ACCEPTED still starts "there": it removed something, a boot entry for example.
+    🔴 A FIRST DELETE THE SWITCH ANSWERED NOT_FOUND SAYS "UNKNOWN" (M1, as amended 2026-10-12).
+    The switch said the entry was absent at that moment -- but the reason may be an earlier
+    delete whose answer was lost and which therefore was never recorded, of a package boot entry
+    that every push and package reload puts back. So such a key starts neither present nor
+    absent, and its LAST record decides:
+      * last absent (a delete): a net delete. Replayed after the boot entries, it removes the
+        boot entry again; a NOT_FOUND then means the goal is reached (DESIGN 10-4: "it only
+        makes the key absent").
+      * last present: a net insert, marked `unknown_before`. If the replay's insert meets
+        ALREADY_EXISTS -- only a boot entry the push and the package put back can be there --
+        it is retried once as a modify to the journalled spec. No other insert is retried.
+    A first delete the switch ACCEPTED still starts "there": it removed something.
 
     A table's default entry is never inserted and never deleted, so whatever its history it nets
     to one modify of its last spec (or to nothing if the last thing recorded was a delete,
@@ -456,8 +464,9 @@ def fold_records(records):
             if l.get("op") != "delete":
                 net.append({"key": key, "op": "modify", "spec": spec, "records": count[key]})
             continue
-        before = f.get("op") != "insert" and not _was_absent(f)
         after = l.get("op") != "delete"
+        unknown = _was_absent(f)
+        before = f.get("op") != "insert" and not (unknown and after)
         if not before and after:
             op = "insert"
         elif before and after:
@@ -466,7 +475,10 @@ def fold_records(records):
             op = "delete"
         else:
             continue
-        net.append({"key": key, "op": op, "spec": spec, "records": count[key]})
+        item = {"key": key, "op": op, "spec": spec, "records": count[key]}
+        if unknown and op == "insert":
+            item["unknown_before"] = True
+        net.append(item)
     return net
 
 
@@ -477,11 +489,19 @@ def records_from_net(net, now=None):
     What a snapshot is made of (DESIGN 5.4 step 6): the folded history, re-expressed as records,
     so that folding the new file again gives the same net -- `fold_records(records_from_net(n))`
     equals `n` in key, op and spec for every `n` a fold can produce (its `records` count is of
-    course 1 each, the history having been collapsed).
+    course 1 each, the history having been collapsed). An insert whose entry began unknown
+    (`unknown_before`) is written as the NOT_FOUND delete it began with and then the insert, so
+    the next fold marks it again and its replay may still meet a boot entry.
     """
     now = time.time() if now is None else now
-    return [{"v": 1, "t": now, "op": item["op"], "key": item["key"], "spec": item["spec"],
-             "outcome": "ok"} for item in net]
+    out = []
+    for item in net:
+        if item.get("unknown_before"):
+            out.append({"v": 1, "t": now, "op": "delete", "key": item["key"],
+                        "spec": item["spec"], "outcome": "not_found"})
+        out.append({"v": 1, "t": now, "op": item["op"], "key": item["key"],
+                    "spec": item["spec"], "outcome": "ok"})
+    return out
 
 
 def _jsonl(obj):
@@ -726,19 +746,21 @@ class TableEntryJournal:
 
         A torn line is skipped and counted, never raised; a missing file is empty. A header-less
         file is readable too (the records are still the records) and reports `header` None.
+        Read as bytes and decoded one line at a time, inside the per-line try: a line that is not
+        UTF-8 is one unreadable line, not an exception out of startup's step 0.
         """
         header = None
         records = []
         unreadable = 0
         try:
-            with open(self.path, "r", encoding="utf-8") as fh:
+            with open(self.path, "rb") as fh:
                 for raw in fh:
                     raw = raw.strip()
                     if not raw:
                         continue
                     try:
-                        parsed = json.loads(raw)
-                    except ValueError:
+                        parsed = json.loads(raw.decode("utf-8"))
+                    except ValueError:  # UnicodeDecodeError is one
                         unreadable += 1
                         continue
                     if not isinstance(parsed, dict):
@@ -854,8 +876,10 @@ class TableJournals:
         self._failures = {}
         self._recorded = {}
         self._not_found = {}
-        #: Switches being re-adopted right now (DESIGN 5.5): a POST to one is a 503.
-        self._pending = set()
+        #: {dpid: how many readopts of it are under way} (DESIGN 5.5): a POST to one is a 503. A
+        #: count, not a set: two overlapping readopts of one switch must not have the first one's
+        #: end clear the flag the second still holds.
+        self._pending = {}
         #: {dpid: step 0's verdict for this boot} and {dpid: the last replay's report}.
         self._fabric = {}
         self._replays = {}
@@ -932,7 +956,7 @@ class TableJournals:
     def pending(self, dpid):
         """Whether `dpid` is being re-adopted right now."""
         with self._registry_lock:
-            return str(dpid) in self._pending
+            return self._pending.get(str(dpid), 0) > 0
 
     def _refuse_pending(self, dpid):
         if self.pending(dpid):
@@ -948,22 +972,32 @@ class TableJournals:
         ahead of the readopt finishes is answered 503 at once instead of queueing behind the
         whole re-adoption; it comes down, in `finally`, before the lock is released, so a POST
         that was already waiting goes through the new client. A readopt that fails still
-        clears it.
+        clears it -- exactly once: the count goes down by one whether or not the lock was ever
+        taken.
         """
         journal = self.journal_for(dpid)
         key = str(dpid)
         with self._registry_lock:
-            self._pending.add(key)
+            self._pending[key] = self._pending.get(key, 0) + 1
+        dropped = []
+
+        def drop():
+            if not dropped:
+                dropped.append(True)
+                with self._registry_lock:
+                    left = self._pending.get(key, 0) - 1
+                    if left > 0:
+                        self._pending[key] = left
+                    else:
+                        self._pending.pop(key, None)
         try:
             with journal.lock:
                 try:
                     yield journal
                 finally:
-                    with self._registry_lock:
-                        self._pending.discard(key)
+                    drop()
         finally:
-            with self._registry_lock:
-                self._pending.discard(key)
+            drop()
 
     # --- step 0: confirm or set aside, under the lock (DESIGN 5.4 step 0) --------------------
 
@@ -1000,7 +1034,8 @@ class TableJournals:
 
     # --- steps 1, 3-6: read, guard, fold, apply, snapshot ----------------------------------
 
-    def replay(self, dpid, apply, header_now, is_not_found=None, when="startup", describe=None):
+    def replay(self, dpid, apply, header_now, is_not_found=None, when="startup", describe=None,
+               is_already_exists=None, outcome_unknown=None):
         """
         Put this switch's journaled entries back and replace its file by what went back.
 
@@ -1008,7 +1043,11 @@ class TableJournals:
         `apply(spec, op)` is the writer (`main` passes `write_table_entry` under the `replay`
         source, so V1-V9 and the owner check are met again); it is called directly, never
         through `write_and_journal`, so nothing is appended. `describe(exc)`, when given, is
-        what the report says about a refusal. `header_now` is the header the new
+        what the report says about a refusal. `is_already_exists(exc)` recognises the switch's
+        ALREADY_EXISTS, for the one retry an `unknown_before` insert gets (a modify, see
+        `fold_records`). `outcome_unknown(exc)` says a failure carries no per-update answer --
+        a deadline, an unavailable switch, any status without a per-update error: such a write
+        may have landed, so its record stays in the snapshot and the next start tries again. `header_now` is the header the new
         file gets: this boot, this generation, today's p4info and entries digests.
 
           1. read the file AGAIN -- a readopt replays what was POSTed after startup too;
@@ -1020,9 +1059,11 @@ class TableJournals:
              (`stale_entries`);
           4. fold (`fold_records`);
           5. apply each net write in the order its entry first appeared; a net delete the switch
-             answers NOT_FOUND has reached its goal and counts as restored;
-          6. snapshot: the header and the records of what went back. What failed or was stale
-             stays in the set-aside file and in this report, not in the live file.
+             answers NOT_FOUND has reached its goal and counts as restored; an `unknown_before`
+             insert answered ALREADY_EXISTS is retried once as a modify;
+          6. snapshot: the header and the records of what went back, and of every write whose
+             outcome is unknown. What the switch refused, or was stale, stays in the set-aside
+             file and in this report, not in the live file.
 
         Returns the report, which is also what `report(dpid)["replay"]` serves until the next.
         """
@@ -1041,6 +1082,7 @@ class TableJournals:
                             or header.get("p4info_sha256") != header_now.get("p4info_sha256"))
         entries_changed = header.get("entries_sha256") != header_now.get("entries_sha256")
         restored = []
+        kept_unknown = []
         for item in net:
             entry = {"key": item["key"], "op": item["op"], "spec": item["spec"]}
             if pipeline_changed:
@@ -1056,7 +1098,16 @@ class TableJournals:
                                          "one of its entries"})
                 continue
             try:
-                apply(item["spec"], item["op"])
+                try:
+                    apply(item["spec"], item["op"])
+                except Exception as exc:  # noqa: BLE001 -- inspected, maybe retried, re-raised
+                    if not (item.get("unknown_before") and is_already_exists is not None
+                            and is_already_exists(exc)):
+                        raise
+                    # The key began unknown and something is there already: a boot entry the
+                    # push and the package put back. The journal's spec is what it should be.
+                    apply(item["spec"], "modify")
+                    report["retried_as_modify"].append(item["key"])
             except Exception as exc:  # noqa: BLE001 -- one entry must not cost the others
                 if (item["op"] == "delete" and is_not_found is not None
                         and is_not_found(exc)):
@@ -1064,6 +1115,9 @@ class TableJournals:
                     # describes. Kept in the snapshot, so a later boot deletes it again.
                     restored.append(item)
                     continue
+                unknown_outcome = outcome_unknown is not None and outcome_unknown(exc)
+                if unknown_outcome:
+                    kept_unknown.append(item)
                 reason = None
                 if describe is not None:
                     try:
@@ -1071,13 +1125,16 @@ class TableJournals:
                     except Exception:  # noqa: BLE001 -- a report must not fail the replay
                         reason = None
                 report["failed"].append({"entry": entry, "reason": reason
-                                         or f"{type(exc).__name__}: {exc}"})
+                                         or f"{type(exc).__name__}: {exc}",
+                                         "kept": bool(unknown_outcome)})
                 continue
             restored.append(item)
         report["succeeded"] = len(restored)
         report["restored"] = [{"key": i["key"], "op": i["op"], "spec": i["spec"]}
                               for i in restored]
-        self._snapshot(journal, key, header_now, records_from_net(restored), report)
+        keep = {i["key"] for i in restored} | {i["key"] for i in kept_unknown}
+        kept = [i for i in net if i["key"] in keep]
+        self._snapshot(journal, key, header_now, records_from_net(kept), report)
         return self._store(key, report)
 
     def note_skipped(self, dpid, reason, when="startup"):
@@ -1091,9 +1148,10 @@ class TableJournals:
     def _blank_replay(self, key, when):
         fabric = self._fabric.get(key, {})
         return {"when": when, "attempted": 0, "succeeded": 0, "unreadable": 0, "failed": [],
-                "restored": [], "fresh_fabric": fabric.get("fresh_fabric"),
-                "cookie": fabric.get("cookie"), "stale_pipeline": 0, "stale_entries": 0,
-                "skipped_reason": None}
+                "restored": [], "retried_as_modify": [],
+                "fresh_fabric": fabric.get("fresh_fabric"),
+                "cookie": fabric.get("cookie"), "step0_error": fabric.get("error"),
+                "stale_pipeline": 0, "stale_entries": 0, "skipped_reason": None}
 
     def _snapshot(self, journal, key, header, records, report):
         try:
@@ -1155,9 +1213,15 @@ class TableJournals:
             replay           the last replay of this switch (startup's, or a readopt's), or None
                              before one has run:
                                status/attempted/succeeded/unreadable/failed  as ReplayReport
-                               restored        the net writes that went back, {key, op, spec}
+                               restored        the net writes that took effect, {key, op, spec}
+                                               -- deletes too: entries that are NOT there
+                               retried_as_modify  keys whose unknown-start insert met
+                                               ALREADY_EXISTS and went back as a modify
                                fresh_fabric    step 0 set this switch's file aside this boot
                                cookie          step 0's reason ("confirmed", or why not)
+                               step0_error     step 0's own write failure, or None
+                               failed[].kept   the write's outcome is unknown, so its record
+                                               stayed in the journal for the next start
                                stale_pipeline  net writes not replayed: the p4info changed
                                stale_entries   net modifies/deletes not replayed: the entries
                                                file changed
