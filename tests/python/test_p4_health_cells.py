@@ -1994,6 +1994,12 @@ class TestS0Cut2Checks(unittest.TestCase):
     def test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back(self):
         import signal
         in_trial, seen_inside, seen_after = [True], [], []
+        # (round 9) the premise: the three are not blocked when the trial starts. A suite started by a parent that
+        # blocks one (SIGHUP, say) would keep that one pending after the trial, rightly: stops_held puts back the
+        # mask it found. The mask this test found is put back at its end, with handlers that do nothing in place, so
+        # a stop a broken trial left pending is not delivered to the default action (which ends the suite).
+        # [Co-developed with claude code -- Adam]
+        found = signal.pthread_sigmask(signal.SIG_UNBLOCK, self.stops())
         old = {s: signal.signal(s, lambda n, f: (seen_inside if in_trial[0] else seen_after).append(n))
                for s in self.stops()}
 
@@ -2010,6 +2016,11 @@ class TestS0Cut2Checks(unittest.TestCase):
             for _ in range(2000):
                 pass
         finally:
+            for s in self.stops():
+                signal.signal(s, lambda n, f: None)
+            signal.pthread_sigmask(signal.SIG_SETMASK, found)
+            for _ in range(2000):
+                pass                                        # a stop still pending is delivered here, to nothing
             for s, h in old.items():
                 signal.signal(s, h)
         self.assertEqual(seen_inside, [])
