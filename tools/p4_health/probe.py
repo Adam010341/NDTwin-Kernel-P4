@@ -49,7 +49,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 #:     (frozen.check_tree: a mismatch is rc 2 before any lab action); lab.load_model, S0 and the controller trial
 #:     then load the COPY, never the shared tree's file. (round 7) S0 then hands the copy to the shared tree's
 #:     convert.py as input, so lab.run_lab checks it again, against the same commit, immediately before
-#:     lab.load_model runs gen_runtime.py from it (still before any claim).
+#:     lab.load_model runs gen_runtime.py from it (still before any claim). (round 8) S0 execs the copy's
+#:     gen_runtime.py itself, in the controller trial, after convert.py and before run_lab's check, so it checks the
+#:     copy once more right after packages() (S0.run); a convert.py that wrote into the copy is refused there,
+#:     before the trial runs it. run_lab's check stays: it is the one that covers lab.load_model.
 #:   * files run as scripts from the shared tree, read when they run and checked by nothing: probe.py itself,
 #:     openapi_probe.py, capture_thrift_fixtures.py, tools/p4_exercise/convert.py and preflight.py,
 #:     tools/test_workflow/heartbeat_drop_check.py, ndt and qdisc_snapshot.sh, and the live-p1 code_identity.py

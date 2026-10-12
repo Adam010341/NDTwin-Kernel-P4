@@ -3487,6 +3487,13 @@ add "C2R8-5g. the shard-sum script compares only the interpreter's version, not 
     '    interp = one(lines, r"interpreter: .*(\([^()]*\))$")  # MUTANT' \
     '[a shard run by the same version of another python (another path, say another machine)]'
 
+# round 8, finding 2: S0 checks its exercise copy again right after packages(), before the controller trial execs it
+add "C2R8-2a. S0 does not check its exercise copy again after convert.py has had it as input" \
+    "$S0PY" \
+    '            self.check_exercise_copy()  # [Co-developed with claude code -- Adam]' \
+    '            pass  # MUTANT' \
+    'test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_the_pre_flight'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

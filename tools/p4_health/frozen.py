@@ -28,6 +28,8 @@ a 15-minute run, and `probe.py lab` checked it clean only once, so:
     after S0's compile_all): a file that differs, is missing or is not in the commit is refused.
   * (round 7) and once more immediately before lab.load_model runs gen_runtime.py from it: in between, S0 hands the
     copy to convert.py as its input, and the check is what shows that convert.py did not write into it.
+  * (round 8) S0 execs that gen_runtime.py itself in its controller trial, between convert.py and that check, so
+    S0.run checks the copy a third time right after packages().
 """
 from __future__ import annotations
 

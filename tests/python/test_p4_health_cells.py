@@ -3097,20 +3097,12 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         "with open(os.path.join(out, 'package.json'), 'w') as fh:\n"
         "    json.dump({}, fh)\n")
 
-    def run_lab_after_a_convert_that(self, edit):
-        """S0.convert over the checked exercise copy, with a fake convert.py that `edit`s ('append' to gen_runtime.py,
-        'add' a file, '' nothing) the directory it is given as input; then lab.run_lab with that S0's Frozen. The
-        model is loaded by the real lab.load_model; `expectations` and the rounds are markers, and the lab runner
-        is a RecordingRunner that must stay empty. Returns (rc, doc, models `expectations` was handed, the number
-        of rounds started, the lab runner's calls)."""
-        import tempfile
-        from unittest import mock
-        from p4_health import lab as LAB
+    def s0_with_a_convert_that(self, edit):
+        """(S0 over the checked exercise copy, that copy's Frozen): the S0 runs its convert.py steps through a fake
+        convert.py that `edit`s ('append' to gen_runtime.py, 'add' a file, '' nothing) the directory it is given as
+        input. (Co-developed with claude code -- Adam)"""
         from p4_health import s0 as S0M
-        from p4_health.collect.config import Config
-        from p4_health.collect.runner import RecordingRunner, Runner
-        import builtins
-        self.addCleanup(lambda: hasattr(builtins, "EDITED_BY_CONVERT_RAN") and delattr(builtins, "EDITED_BY_CONVERT_RAN"))
+        from p4_health.collect.runner import Runner
         fz, copy = self.freeze_with_exercise()
         run_dir = os.path.dirname(copy)
         script = os.path.join(run_dir, "fake_convert.py")
@@ -3124,6 +3116,23 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                                   input_text=input_text)
         x = S0M.S0(run_dir, Redirect(), sys.executable, frozen=fz, log=lambda *a: None)
         self.assertEqual(x.ex, copy)
+        return x, fz, copy
+
+    def run_lab_after_a_convert_that(self, edit):
+        """S0.convert over the checked exercise copy, with a fake convert.py that `edit`s ('append' to gen_runtime.py,
+        'add' a file, '' nothing) the directory it is given as input; then lab.run_lab with that S0's Frozen. The
+        model is loaded by the real lab.load_model; `expectations` and the rounds are markers, and the lab runner
+        is a RecordingRunner that must stay empty. Returns (rc, doc, models `expectations` was handed, the number
+        of rounds started, the lab runner's calls)."""
+        import tempfile
+        from unittest import mock
+        from p4_health import lab as LAB
+        from p4_health.collect.config import Config
+        from p4_health.collect.runner import RecordingRunner
+        import builtins
+        self.addCleanup(lambda: hasattr(builtins, "EDITED_BY_CONVERT_RAN") and delattr(builtins, "EDITED_BY_CONVERT_RAN"))
+        x, fz, copy = self.s0_with_a_convert_that(edit)
+        run_dir = os.path.dirname(copy)
         self.assertIsNotNone(x.convert("A", "topology.json", "ndtwin"))
         models, rounds = [], []
 
@@ -3167,6 +3176,58 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertEqual(doc["problems"], [])
         self.assertEqual((len(models), rounds), (1, 1))
         self.assertFalse(hasattr(models[0], "EDITED_BY_CONVERT"))
+
+
+    def s0_run_after_a_convert_that(self, edit):
+        """(Cut 2 round 8, finding 2) The REAL S0.run(), with the compile and the steps from the pre-flight on as
+        markers, over the checked exercise copy, and the REAL S0.packages() with a fake convert.py that `edit`s the
+        copy it is given. Returns the steps run() reached, in order, and what it raised (None: nothing).
+        [Co-developed with claude code -- Adam]"""
+        from unittest import mock
+        from p4_health import s0 as S0M
+        x, _fz, copy = self.s0_with_a_convert_that(edit)
+        for stem in ("build-fwd", "build-mutant"):          # what packages() renames; the p4c builds make them
+            os.makedirs(os.path.join(copy, stem))
+        reached = []
+
+        class Stop(BaseException):
+            pass
+
+        def preflight(self_):
+            reached.append("preflight")
+            raise Stop()
+        with mock.patch.object(S0M.S0, "compile_all", lambda self_: True), \
+                mock.patch.object(S0M.S0, "p4info_identity", lambda self_: None), \
+                mock.patch.object(S0M.S0, "take_inventory", lambda self_: None), \
+                mock.patch.object(S0M.S0, "preflight", preflight):
+            try:
+                x.run()
+            except BaseException as exc:                    # noqa: BLE001 -- the test names what it was
+                return reached, exc
+        return reached, None
+
+    def test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_the_pre_flight(self):
+        """(Round 8, finding 2) S0 checks the copy right after the compile; convert.py then gets the copy as its
+        input, and the controller trial execs the copy's gen_runtime.py later. A run is refused only by lab.run_lab's
+        re-check, after S0 has run the edited file in its trial. S0.run() checks again right after packages():
+        the edit is refused there, before any step that reads the copy."""
+        from p4_health import frozen as FZ
+        reached, exc = self.s0_run_after_a_convert_that("append")
+        self.assertIsInstance(exc, FZ.Refused, "run() raised %r" % (exc,))
+        self.assertIn("gen_runtime.py", str(exc))
+        self.assertEqual(reached, [], "S0 went on to %s with an edited exercise copy" % reached)
+
+    def test_a_convert_that_adds_a_file_to_the_exercise_copy_is_refused_before_the_pre_flight(self):
+        from p4_health import frozen as FZ
+        reached, exc = self.s0_run_after_a_convert_that("add")
+        self.assertIsInstance(exc, FZ.Refused, "run() raised %r" % (exc,))
+        self.assertIn("extra_model.py", str(exc))
+        self.assertEqual(reached, [])
+
+    def test_a_convert_that_leaves_the_exercise_copy_alone_goes_on_to_the_pre_flight(self):
+        """The control of the two tests above: the same run, no edit, reaches the pre-flight."""
+        reached, exc = self.s0_run_after_a_convert_that("")
+        self.assertEqual(reached, ["preflight"], "run() raised %r" % (exc,))
 
 
     # --- round 6, the pin-HEAD NIT: HEAD is pinned first, and the clean check, the freeze and the identity use it --

@@ -278,7 +278,8 @@ class S0(object):
         later step goes by (this class, lab.load_model, the controller trial). A lab run froze its code
         against one pinned commit: the copy is checked against that commit as the frozen files are, and a
         mismatch raises frozen.Refused -- `probe.py lab` answers rc 2 before any lab action. S0 on its own
-        (no frozen) has no commit to check against."""
+        (no frozen) has no commit to check against. (Cut 2 round 8) Called twice by run(): right after the compile,
+        and again right after packages(), because convert.py gets the copy as its input and may write into it."""
         if self.frozen is not None and getattr(self.frozen, "head", None):
             self.frozen.check_exercise(self.ex)
 
@@ -777,6 +778,9 @@ class S0(object):
             self.p4info_identity()
             self.take_inventory()
             self.packages()
+            # (Cut 2 round 8) convert.py was handed the copy as its input, and the controller trial execs the copy's
+            # gen_runtime.py: the copy is checked again before anything reads it, not only by lab.run_lab later.
+            self.check_exercise_copy()  # [Co-developed with claude code -- Adam]
             self.preflight()
             self.drop_check()
             self.self_checks()
