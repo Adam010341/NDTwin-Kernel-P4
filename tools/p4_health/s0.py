@@ -209,7 +209,8 @@ def stops_held():
     (lab_round.LabRound._masked) covers the calling thread only, and `lab.run_lab` refuses to start the lab while a
     thread of this process can take a stop. A stop that arrives meanwhile stays pending and is delivered, to
     whatever handler is in place, when the mask is put back (S0 has none of its own: the default action ends the
-    process, as before, after the trial rather than in the middle of it)."""
+    process for SIGTERM and SIGHUP, and for SIGINT it is Python's own, a KeyboardInterrupt raised in the main
+    thread; either way after the trial rather than in the middle of it)."""
     held = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
     try:
         yield
