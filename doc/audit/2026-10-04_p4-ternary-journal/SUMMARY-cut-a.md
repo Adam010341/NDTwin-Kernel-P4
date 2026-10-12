@@ -256,6 +256,5 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己�
 只改註解、docstring、`expected_today.tsv` 的 basis／出處文字與本檔，沒有任何行為變動。
 
 - `api_routes.py` 的 `switch_state` docstring（會進 `/openapi.json`）與欄位註解、`ryu_flow_stats.py` 的 `render_flow_stats_counted` docstring：`flow_stats.unrendered_entries` 的說明改成與程式一致。它數的是最後一次 `GET /stats/flow` render 因為描述不了而漏列的非 default 列：所有 pipeline 上是 Ryu 拼不出來的 ternary mask 或 range；foreign pipeline 上再加不認得的 action、沒有可用 match 的列。null 到第一次 render 為止、readopt 歸 null 兩句照舊。
-- `test_ryu_flow_stats.py` 的一行註解不再把 NDTwin 自己的 5-tuple writer 與 bit<9> 欄位上的 0xffff 連在一起。`test_p4_client_writes.py` 的 n9 那句沒有動。
 - `expected_today.tsv`：PL1、T3、T8 的程式行號重新指到現在的 `api_routes.py` 與 `main.py`；T4–T7 的 basis 補上離線觀測跑在 `e17d39e5`。
 - 本檔：上面 S0 的 switch 行程數（16 個 switch 行程）、F10 紅燈 log 是節錄、試驗跑在 `e17d39e5`、「T4–T7 的 GREEN 只是預測」標為已被取代、兩處「文末」的指向、Gate 一段 suite 的直譯器次數。
