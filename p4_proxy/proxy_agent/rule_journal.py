@@ -383,8 +383,8 @@ class SwitchBusy(RuntimeError):
 
 # The report's reason for a write that is stale because the package's entries file changed.
 # [Co-developed with claude code -- Adam]
-_STALE_ENTRIES = ("stale_entries: the package's entries file changed, and this write was aimed "
-                  "at one of its entries")
+_STALE_ENTRIES = ("stale_entries: the package's entries file changed, and this write may have "
+                  "been aimed at one of its entries")
 
 
 class ReplayPending(RuntimeError):
@@ -498,11 +498,12 @@ def records_from_net(net, now=None):
 
     What a snapshot is made of (DESIGN 5.4 step 6): the folded history, re-expressed as records,
     so that folding the new file again gives the same net -- `fold_records(records_from_net(n))`
-    equals `n` in key, op and spec for every `n` a fold can produce (its `records` count is of
-    course 1 each, the history having been collapsed). A write whose entry began unknown
-    (`unknown_before`) is written as the NOT_FOUND delete it began with and then the write
-    itself, so the next fold marks it again: an insert may still meet a boot entry on its
-    replay, and a delete followed by a later insert of the key still folds to an insert.
+    equals `n` in key, op and spec for every `n` a fold can produce (its `records` count is not
+    kept: a snapshot has one record per write, two for one that began unknown). A write whose
+    entry began unknown (`unknown_before`) is written as the NOT_FOUND delete it began with and
+    then the write itself, so the next fold marks it again: an insert may still meet a boot
+    entry on its replay, and a delete followed by a later insert of the key still folds to an
+    insert.
     """
     now = time.time() if now is None else now
     out = []
@@ -1056,24 +1057,33 @@ class TableJournals:
         through `write_and_journal`, so nothing is appended. `describe(exc)`, when given, is
         what the report says about a refusal. `is_already_exists(exc)` recognises the switch's
         ALREADY_EXISTS, for the one retry an `unknown_before` insert gets (a modify, see
-        `fold_records`). `outcome_unknown(exc)` says a failure carries no per-update answer --
-        a deadline, an unavailable switch, any status without a per-update error: such a write
-        may have landed, so its record stays in the snapshot and the next start tries again. `header_now` is the header the new
-        file gets: this boot, this generation, today's p4info and entries digests.
+        `fold_records`); `is_not_found(exc)` its NOT_FOUND, for a net delete that has reached its
+        goal and for the one retry a net modify gets (an insert). `outcome_unknown(exc)` says a
+        failure carries no per-update answer -- a deadline, an unavailable switch, any status
+        without a per-update error: such a write may have landed, so its record stays in the
+        snapshot and the next start tries again. `header_now` is the header the new file gets:
+        this boot, this generation, today's p4info and entries digests.
 
           1. read the file AGAIN -- a readopt replays what was POSTed after startup too;
              a header that does not name THIS boot was not confirmed by this boot's step 0, so
              the file is set aside and nothing is replayed (`unconfirmed_header`);
           3. the p4info digest differs (or is unknown): nothing is replayed (`stale_pipeline`).
              The entries file's digest differs: a net insert still goes back, a net modify or
-             delete -- which was aimed at a boot entry of the old file -- does not
+             delete -- which may have been aimed at a boot entry of the old file -- does not
              (`stale_entries`);
           4. fold (`fold_records`);
           5. apply each net write in the order its entry first appeared; a net delete the switch
              answers NOT_FOUND has reached its goal and counts as restored; an `unknown_before`
              insert answered ALREADY_EXISTS is retried once as a modify -- unless the entries
              file changed, when what is there is the new package's and the write is stale
-             (`stale_entries`);
+             (`stale_entries`); a net modify of a non-default entry answered NOT_FOUND is
+             retried once as an insert, because after the push only the package's entries are on
+             the switch, so the key's earlier existence was wiped by it (or the package's own
+             entry did not go back on) and the journal's last word -- present with this spec --
+             is restored by inserting it. The key is named in `retried_as_modify` /
+             `retried_as_insert` BEFORE the retry is sent, and a retry that fails is in `failed`
+             with `"retried_as"` set; the entry there keeps the journal's op. The snapshot keeps
+             the journal's own op, so each boot repeats the fallback;
           6. snapshot: the header and the records of what went back, and of every write whose
              outcome is unknown. What the switch refused, or was stale, stays in the set-aside
              file and in this report, not in the live file.
@@ -1108,27 +1118,43 @@ class TableJournals:
                 report["stale_entries"] += 1
                 report["failed"].append({"entry": entry, "reason": _STALE_ENTRIES, "kept": False})
                 continue
+            retried_as = None
             try:
                 try:
                     apply(item["spec"], item["op"])
                 except Exception as exc:  # noqa: BLE001 -- inspected, maybe retried, re-raised
-                    if not (item.get("unknown_before") and is_already_exists is not None
-                            and is_already_exists(exc)):
-                        raise
-                    if entries_changed:
-                        # What is there is an entry of the package's NEW entries file, not the
-                        # one the journal's history was about: a modify would overwrite it.
-                        # Stale, like a modify or a delete aimed at that file.
+                    if (item["op"] == "insert" and item.get("unknown_before")
+                            and is_already_exists is not None and is_already_exists(exc)):
+                        if entries_changed:
+                            # What is there is an entry of the package's NEW entries file, not
+                            # the one the journal's history was about: a modify would overwrite
+                            # it. Stale, like a modify or a delete aimed at that file.
+                            # [Co-developed with claude code -- Adam]
+                            report["stale_entries"] += 1
+                            report["failed"].append({"entry": entry, "reason": _STALE_ENTRIES,
+                                                     "kept": False})
+                            continue
+                        # The key began unknown and something is there already: a boot entry
+                        # the push and the package put back. The journal's spec is what it
+                        # should be. Named before the modify is sent, so a modify that fails is
+                        # still visible.
+                        retried_as = "modify"
+                        report["retried_as_modify"].append(item["key"])
+                        apply(item["spec"], "modify")
+                    elif (item["op"] == "modify" and not item["spec"].get("default_action")
+                          and is_not_found is not None and is_not_found(exc)):
+                        # Nothing is there to modify. After the startup push only the package's
+                        # entries are on the switch, so the key's earlier existence was wiped by
+                        # it, or the package's own entry did not go back on; the journal's last
+                        # word is "present with this spec", and an insert of it restores exactly
+                        # that. Named before the insert is sent, so an insert that fails is
+                        # still visible.
                         # [Co-developed with claude code -- Adam]
-                        report["stale_entries"] += 1
-                        report["failed"].append({"entry": entry, "reason": _STALE_ENTRIES,
-                                                 "kept": False})
-                        continue
-                    # The key began unknown and something is there already: a boot entry the
-                    # push and the package put back. The journal's spec is what it should be.
-                    # Named before the modify is sent, so a modify that fails is still visible.
-                    report["retried_as_modify"].append(item["key"])
-                    apply(item["spec"], "modify")
+                        retried_as = "insert"
+                        report["retried_as_insert"].append(item["key"])
+                        apply(item["spec"], "insert")
+                    else:
+                        raise
             except Exception as exc:  # noqa: BLE001 -- one entry must not cost the others
                 if (item["op"] == "delete" and is_not_found is not None
                         and is_not_found(exc)):
@@ -1145,9 +1171,12 @@ class TableJournals:
                         reason = describe(exc)
                     except Exception:  # noqa: BLE001 -- a report must not fail the replay
                         reason = None
-                report["failed"].append({"entry": entry, "reason": reason
-                                         or f"{type(exc).__name__}: {exc}",
-                                         "kept": bool(unknown_outcome)})
+                failure = {"entry": entry, "reason": reason or f"{type(exc).__name__}: {exc}",
+                           "kept": bool(unknown_outcome)}
+                if retried_as is not None:
+                    # The write that failed is the retry, not the journal's op in `entry`.
+                    failure["retried_as"] = retried_as
+                report["failed"].append(failure)
                 continue
             restored.append(item)
         report["succeeded"] = len(restored)
@@ -1169,7 +1198,7 @@ class TableJournals:
     def _blank_replay(self, key, when):
         fabric = self._fabric.get(key, {})
         return {"when": when, "attempted": 0, "succeeded": 0, "unreadable": 0, "failed": [],
-                "restored": [], "retried_as_modify": [],
+                "restored": [], "retried_as_modify": [], "retried_as_insert": [],
                 "fresh_fabric": fabric.get("fresh_fabric"),
                 "cookie": fabric.get("cookie"), "step0_error": fabric.get("error"),
                 "stale_pipeline": 0, "stale_entries": 0, "skipped_reason": None}
@@ -1237,15 +1266,22 @@ class TableJournals:
                                restored        the net writes that took effect, {key, op, spec}
                                                -- deletes too: entries that are NOT there
                                retried_as_modify  keys whose unknown-start insert met
-                                               ALREADY_EXISTS and went back as a modify
+                                               ALREADY_EXISTS and were sent again as a modify
+                                               (which may have failed: the key is then also
+                                               in `failed`)
+                               retried_as_insert  keys whose modify met NOT_FOUND and were sent
+                                               again as an insert (likewise)
                                fresh_fabric    step 0 set this switch's file aside this boot
                                cookie          step 0's reason ("confirmed", or why not)
                                step0_error     step 0's own write failure, or None
                                failed[].kept   the write's outcome is unknown, so its record
                                                stayed in the journal for the next start
+                               failed[].retried_as  "modify" or "insert" when the write that
+                                               failed was the retry of the journal's op (the
+                                               entry there keeps the journal's op), else absent
                                stale_pipeline  net writes not replayed: the p4info changed
-                               stale_entries   net modifies/deletes not replayed: the entries
-                                               file changed
+                               stale_entries   net modifies/deletes -- and unknown-start inserts --
+                                               not replayed: the entries file changed
                                skipped_reason  why nothing was even read, or None
                                when            "startup" or "readopt"
         """

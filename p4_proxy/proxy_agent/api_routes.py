@@ -124,7 +124,7 @@ def inject_package_reports(pipelines, table_entries, note_api_write):
 # would be a worse outage than a missing record. What stops that from being how production runs
 # is tests/test_table_entry_journal.py, which imports `main` and asks what it injected -- the
 # same assertion test_journal_is_wired_in_main.py makes for the routing journal, for the same
-# reason (finding #71: fourteen tests green and no caller).
+# reason (the rule journal once had fourteen green tests and no caller).
 table_journals = None
 
 
@@ -1021,7 +1021,8 @@ async def table_entry(request: Request):
         answers a moment later;
       * an entry written against another p4info is not put back, and a modify or delete aimed
         at one of the package's own entries is not put back once the package's entries file
-        has changed;
+        has changed. An entry the replay restored by an insert stays a modify in the journal,
+        so the first start after any change to that switch's entries file drops it as stale;
       * a write that was never answered -- the connection dropped, the proxy died before this
         answer -- is not promised anything: it may be on the switch and not in the journal. A
         confirmed write is in the journal unless the 200 says otherwise (below). A delete the
@@ -1029,8 +1030,11 @@ async def table_entry(request: Request):
         landed, and a retry meets NOT_FOUND): it leaves the entry's state before it unknown, so
         if nothing later in the journal puts the entry back the replay deletes it again, and if
         something does, the replay's insert falls back to a modify when the package already
-        put one there. A modify has no such record: one whose answer was lost is undefined
-        after a restart.
+        put one there (unless the package's entries file has changed since). Separately, a
+        replayed modify that finds nothing there is sent as an insert, unless the entry is a
+        default entry or the package's entries file has changed since (the modify is then stale
+        first). A modify has no such record: one whose answer was lost is undefined after a
+        restart.
 
     A write the journal could not take (disk full) is still a 200: the write IS on the switch,
     and an error would invite a retry that the switch answers with ALREADY_EXISTS. It says

@@ -1873,7 +1873,7 @@ class TheWriterKeepsTheTwoApartTest(unittest.TestCase):
 
 
 # =============================================================================================
-# The wiring: what PRODUCTION built (finding #71).
+# The wiring: what PRODUCTION built, not what a test builds by hand.
 # =============================================================================================
 
 

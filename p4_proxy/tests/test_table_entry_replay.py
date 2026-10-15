@@ -1066,24 +1066,22 @@ class WhatDoesNotGoBackTest(ReplayCase):
         self.start_proxy()
         self.ok(exact("10.0.9.9", 5, op="modify"))
         self.ok(exact("10.0.0.1"))
-        # The package's boot entry does not go on at the next start (the switch refuses it), so
-        # the journal's modify of it finds nothing to modify.
+        # The switch refuses the journal's modify of the package's boot entry at the next start
+        # (not NOT_FOUND: that one is retried as an insert).
         original = FabricSwitch.Write
 
-        def refuse_the_boot_entry(switch, request, timeout=None):
-            entry = request.updates[0].entity.table_entry
-            if (request.updates[0].type == p4runtime_pb2.Update.INSERT
-                    and int.from_bytes(entry.action.action.params[0].value, "big") == 9):
+        def refuse_the_modify(switch, request, timeout=None):
+            if request.updates[0].type == p4runtime_pb2.Update.MODIFY:
                 raise refused(code_pb2.INVALID_ARGUMENT, "no")
             return original(switch, request, timeout)
-        with mock.patch.object(FabricSwitch, "Write", refuse_the_boot_entry):
+        with mock.patch.object(FabricSwitch, "Write", refuse_the_modify):
             self.start_proxy()
         report = self.replay_report()
         self.assertEqual((report["attempted"], report["succeeded"]), (2, 1))
         self.assertEqual(report["status"], "partial")
         (failed,) = report["failed"]
         self.assertEqual(failed["entry"]["op"], "modify")
-        self.assertIn("NOT_FOUND", failed["reason"], "the switch's own reason, not UNKNOWN")
+        self.assertIn("INVALID_ARGUMENT", failed["reason"], "the switch's own reason, not UNKNOWN")
         live = [x for x in self.lines(self.live()) if not x.get("header")]
         self.assertEqual([r["op"] for r in live], ["insert"], "only what went back stays")
 
@@ -1223,6 +1221,27 @@ class ALostAnswerOnABootEntryTest(ReplayCase):
         self.start_proxy()
         self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "and again a boot later")
 
+    def test_a_readopt_puts_back_a_boot_entry_deleted_with_a_lost_answer_then_inserted(self):
+        # [Co-developed with claude code -- Adam]
+        # [not_found, insert S] on a package entry, replayed by a readopt and not by a restart:
+        # the readopt's push puts the boot entry back, so the insert meets it, is retried as a
+        # modify, and S is what ends up on the switch.
+        self.start_proxy()
+        self.lose_the_answer_to_one_delete()
+        self.ok(exact("10.0.9.9", 5))
+        self.switches[1].writes.clear()
+        result = self.readopt(1)
+        self.assertEqual(result["status"], "success")
+        report = result["table_entries"]["replay"]
+        self.assertEqual(report["when"], "readopt")
+        self.assertEqual([op for op, _t, _p in self.switches[1].writes],
+                         ["insert", "insert", "modify"],
+                         "the package's entry, the journal's insert that met it, the modify")
+        self.assertEqual(len(report["retried_as_modify"]), 1)
+        self.assertEqual((report["status"], report["failed"]), ("complete", []))
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "S is on the switch")
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=9), 0)
+
     def test_an_unknown_start_insert_refused_for_another_reason_is_not_retried(self):
         # The fallback is for ALREADY_EXISTS alone: any other per-update refusal is the
         # switch's answer about this write, and a modify would paper over it.
@@ -1285,6 +1304,9 @@ class ALostAnswerOnABootEntryTest(ReplayCase):
         self.assertEqual(len(report["retried_as_modify"]), 1, "the retry was made, and failed")
         self.assertEqual(len(report["failed"]), 1)
         self.assertIs(report["failed"][0]["kept"], False)
+        self.assertEqual(report["failed"][0]["retried_as"], "modify",
+                         "the write that failed is the retry")
+        self.assertEqual(report["failed"][0]["entry"]["op"], "insert", "the journal's own op")
 
     def test_an_ordinary_insert_that_meets_an_entry_is_not_retried_as_a_modify(self):
         # Only an `unknown_before` key gets the fallback: an insert journalled as an insert that
@@ -1299,6 +1321,255 @@ class ALostAnswerOnABootEntryTest(ReplayCase):
         self.assertEqual(report["retried_as_modify"], [])
         self.assertEqual(len(report["failed"]), 1)
         self.assertIn("ALREADY_EXISTS", report["failed"][0]["reason"])
+
+
+class AModifyThatFindsNothingTest(ReplayCase):
+    """
+    A net modify whose entry is not on the switch after the push is retried once as an insert:
+    the journal's last word for the key is "present with this spec", and only the package's
+    entries survive a push. [Co-developed with claude code -- Adam]
+    """
+
+    K = "10.0.5.5"
+
+    def land_an_insert_whose_answer_is_lost(self):
+        """An insert at K that lands on the switch and is never recorded."""
+        self.switches[1].lose_answer = lambda op: deadline() if op == "insert" else None
+        status, answer = self.post(exact(self.K, 1))
+        self.assertEqual((status, answer.get("grpc_status")), (502, "DEADLINE_EXCEEDED"))
+        self.switches[1].lose_answer = None
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=1), 1, "it did land")
+        self.assertEqual(self.records(), [], "and nothing was recorded")
+
+    def records(self):
+        if not os.path.exists(self.live()):
+            return []
+        return [(r["op"], r["outcome"]) for r in self.lines(self.live()) if not r.get("header")]
+
+    def delete_then_insert(self):
+        """The journal `[delete/ok K, insert S]`: K was on the switch when it was deleted, and
+        the insert of K that put it there was never recorded."""
+        self.start_proxy()
+        self.land_an_insert_whose_answer_is_lost()
+        self.ok(exact(self.K, op="delete"))
+        self.ok(exact(self.K, 5))
+        self.assertEqual(self.records(), [("delete", "ok"), ("insert", "ok")])
+
+    def refusing(self, which, code, only=lambda entry: True):
+        """A Write that refuses every `which` update that satisfies `only`, and logs the ops it
+        was given in `self.sent`."""
+        original = FabricSwitch.Write
+        self.sent = []
+
+        def write(switch, request, timeout=None):
+            update = request.updates[0]
+            op = {p4runtime_pb2.Update.INSERT: "insert", p4runtime_pb2.Update.MODIFY: "modify",
+                  p4runtime_pb2.Update.DELETE: "delete"}[update.type]
+            self.sent.append(op)
+            if op == which and only(update.entity.table_entry):
+                raise refused(code, "no")
+            return original(switch, request, timeout)
+        return mock.patch.object(FabricSwitch, "Write", write)
+
+    def test_a_modify_that_finds_nothing_after_the_push_goes_back_as_an_insert(self):
+        self.delete_then_insert()
+        self.switches[1].writes.clear()
+        self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual([op for op, _t, _p in self.switches[1].writes], ["modify", "insert"])
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "S is on the switch")
+        (restored,) = report["restored"]
+        self.assertEqual(restored["op"], "modify", "the journal's own op")
+        self.assertEqual(report["retried_as_insert"], [restored["key"]])
+        self.assertEqual(report["retried_as_modify"], [])
+        self.assertEqual((report["status"], report["failed"]), ("complete", []))
+        self.assertEqual(self.records(), [("modify", "ok")],
+                         "the snapshot keeps the modify, so each boot repeats the fallback")
+        self.start_proxy()
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "and again a boot later")
+        self.assertEqual(len(self.replay_report()["retried_as_insert"]), 1)
+
+    def test_an_insert_made_after_a_restart_that_replayed_the_delete_comes_back(self):
+        # `[delete/ok K]` is replayed first: the push emptied the switch, the delete meets
+        # NOT_FOUND and is restored. The insert at K is made after that, so the next fold is
+        # `[delete/ok K, insert S]`: a modify of an entry the next push will not have put back.
+        self.start_proxy()
+        self.land_an_insert_whose_answer_is_lost()
+        self.ok(exact(self.K, op="delete"))
+        self.start_proxy()
+        self.assertEqual([r["op"] for r in self.replay_report()["restored"]], ["delete"])
+        self.ok(exact(self.K, 5))
+        self.assertEqual(self.records(), [("delete", "ok"), ("insert", "ok")])
+        self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "S is on the switch")
+        self.assertEqual(len(report["retried_as_insert"]), 1)
+        self.assertEqual((report["status"], report["failed"]), ("complete", []))
+
+    def test_a_modify_of_an_entry_that_is_there_sends_no_insert(self):
+        self.with_entries(BOOT)
+        self.start_proxy()
+        self.ok(exact("10.0.9.9", 5, op="modify"))
+        self.switches[1].writes.clear()
+        self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual([op for op, _t, _p in self.switches[1].writes], ["insert", "modify"],
+                         "the package's entry, then the journal's modify of it")
+        self.assertEqual(report["retried_as_insert"], [])
+        self.assertEqual((report["status"], report["failed"]), ("complete", []))
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1)
+
+    def test_a_modify_refused_for_another_reason_is_failed_and_sends_no_insert(self):
+        self.with_entries(BOOT)
+        self.start_proxy()
+        self.ok(exact("10.0.9.9", 5, op="modify"))
+        with self.refusing("modify", code_pb2.INVALID_ARGUMENT):
+            self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(self.sent, ["insert", "modify"], "no insert after the refused modify")
+        self.assertEqual(report["retried_as_insert"], [])
+        (failed,) = report["failed"]
+        self.assertIn("INVALID_ARGUMENT", failed["reason"])
+        self.assertNotIn("retried_as", failed)
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=9), 1, "the boot entry, unmodified")
+
+    def test_a_default_entry_modify_that_meets_not_found_sends_no_insert(self):
+        # A default entry is never inserted: the switch has one per table from the push on.
+        default = {"dpid": 1, "table": "Pkg.t_exact", "default_action": True,
+                   "action_name": "Pkg.forward", "action_params": {"port": 2}, "op": "modify"}
+        self.start_proxy()
+        self.ok(default)
+        self.assertEqual(self.records(), [("modify", "ok")])
+        with self.refusing("modify", code_pb2.NOT_FOUND, only=lambda e: e.is_default_action):
+            self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(self.sent, ["modify"], "the modify, and nothing after it")
+        self.assertEqual(report["retried_as_insert"], [])
+        (failed,) = report["failed"]
+        self.assertIn("NOT_FOUND", failed["reason"])
+        self.assertNotIn("retried_as", failed)
+
+    def test_an_insert_retry_that_fails_is_named_and_failed(self):
+        self.delete_then_insert()
+        with self.refusing("insert", code_pb2.INVALID_ARGUMENT):
+            self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(self.sent, ["modify", "insert"], "the modify, then the retry")
+        self.assertEqual(len(report["retried_as_insert"]), 1, "named although it failed")
+        (failed,) = report["failed"]
+        self.assertEqual(failed["retried_as"], "insert")
+        self.assertEqual(failed["entry"]["op"], "modify", "the journal's own op")
+        self.assertIn("INVALID_ARGUMENT", failed["reason"])
+        self.assertIs(failed["kept"], False)
+        self.assertEqual(report["retried_as_insert"], [failed["entry"]["key"]])
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0)
+        self.assertEqual(report["status"], "failed")
+
+    def journal_key_of_k(self):
+        """The key the journal gave K: its first record is the delete of it."""
+        return [r for r in self.lines(self.live()) if not r.get("header")][0]["key"]
+
+    def test_a_package_entry_that_did_not_go_back_on_leaves_its_modify_to_go_back_as_an_insert(self):
+        # [Co-developed with claude code -- Adam]
+        # The package declares B at K and the operator modified K to S, so the journal is
+        # `[modify/ok S]`. At the next start the switch refuses B's boot insert: the modify finds
+        # nothing, S is the journal's last word for K, and an insert cannot overwrite anything.
+        self.with_entries(BOOT)
+        self.start_proxy()
+        self.ok(exact("10.0.9.9", 5, op="modify"))
+        self.ok(exact("10.0.0.1"))
+        key = self.journal_key_of_k()
+        original = FabricSwitch.Write
+
+        def refuse_the_boot_entry(switch, request, timeout=None):
+            entry = request.updates[0].entity.table_entry
+            if (request.updates[0].type == p4runtime_pb2.Update.INSERT
+                    and int.from_bytes(entry.action.action.params[0].value, "big") == 9):
+                raise refused(code_pb2.INVALID_ARGUMENT, "no")
+            return original(switch, request, timeout)
+        self.switches[1].writes.clear()
+        with mock.patch.object(FabricSwitch, "Write", refuse_the_boot_entry):
+            self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "S is on the switch")
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=9), 0, "the boot entry is not")
+        self.assertEqual(report["retried_as_insert"], [key])
+        # The journal's two net writes, not the package's boot entry (which is not the journal's
+        # and never reached the switch): the modify of K, retried, and the insert at 10.0.0.1.
+        self.assertEqual((report["attempted"], report["succeeded"]), (2, 2))
+        self.assertEqual((report["status"], report["failed"]), ("complete", []))
+        self.assertEqual([op for op, _t, _p in self.switches[1].writes],
+                         ["modify", "insert", "insert"], "the modify, its retry, the other insert")
+        live = [x for x in self.lines(self.live()) if not x.get("header")]
+        self.assertEqual([r["op"] for r in live], ["modify", "insert"], "S stays a modify")
+
+    def test_a_failure_after_a_failed_insert_retry_does_not_say_it_was_a_retry(self):
+        # [Co-developed with claude code -- Adam]
+        # Two failed items. The first is K's modify, which meets NOT_FOUND and whose insert
+        # retry is refused; the second is a modify of the package's boot entry that the switch
+        # refuses outright. Only the first was a retry.
+        self.with_entries(BOOT)
+        self.start_proxy()
+        self.land_an_insert_whose_answer_is_lost()
+        self.ok(exact(self.K, op="delete"))
+        self.ok(exact(self.K, 5))
+        self.ok(exact("10.0.9.9", 6, op="modify"))
+        original = FabricSwitch.Write
+
+        def refuse_two(switch, request, timeout=None):
+            update = request.updates[0]
+            port = int.from_bytes(update.entity.table_entry.action.action.params[0].value, "big")
+            if ((update.type == p4runtime_pb2.Update.INSERT and port == 5)
+                    or (update.type == p4runtime_pb2.Update.MODIFY and port == 6)):
+                raise refused(code_pb2.INVALID_ARGUMENT, "no")
+            return original(switch, request, timeout)
+        with mock.patch.object(FabricSwitch, "Write", refuse_two):
+            self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual((report["attempted"], report["succeeded"]), (2, 0))
+        first, second = report["failed"]
+        self.assertEqual(first["retried_as"], "insert", "K's insert retry was refused")
+        self.assertEqual(second["entry"]["spec"]["action_params"], {"port": 6})
+        self.assertIn("INVALID_ARGUMENT", second["reason"])
+        self.assertNotIn("retried_as", second, "the second item was never retried")
+        self.assertEqual(len(report["retried_as_insert"]), 1)
+
+    def test_a_readopt_puts_back_an_entry_whose_modify_finds_nothing_as_an_insert(self):
+        # [Co-developed with claude code -- Adam]
+        # `[delete/ok K, insert S]` replayed by a readopt, whose push has emptied the switch.
+        self.delete_then_insert()
+        key = self.journal_key_of_k()
+        self.switches[1].writes.clear()
+        result = self.readopt(1)
+        self.assertEqual(result["status"], "success")
+        report = result["table_entries"]["replay"]
+        self.assertEqual(report["when"], "readopt")
+        self.assertEqual([op for op, _t, _p in self.switches[1].writes], ["modify", "insert"])
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "S is on the switch")
+        self.assertEqual(report["retried_as_insert"], [key])
+        self.assertEqual((report["status"], report["failed"]), ("complete", []))
+        self.assertEqual(self.records(), [("modify", "ok")])
+
+    def test_an_insert_retry_whose_answer_is_lost_stays_in_the_journal_for_the_next_start(self):
+        # [Co-developed with claude code -- Adam]
+        self.delete_then_insert()
+        key = self.journal_key_of_k()
+        self.switches[1].lose_answer = lambda op: deadline() if op == "insert" else None
+        self.start_proxy()
+        self.switches[1].lose_answer = None
+        report = self.replay_report()
+        self.assertEqual(report["retried_as_insert"], [key])
+        (failed,) = report["failed"]
+        self.assertIn("DEADLINE_EXCEEDED", failed["reason"])
+        self.assertEqual(failed["retried_as"], "insert")
+        self.assertEqual(failed["entry"]["op"], "modify", "the journal's own op")
+        self.assertIs(failed["kept"], True, "no answer: the insert may have landed")
+        self.assertEqual(self.records(), [("modify", "ok")], "so its record is in the snapshot")
+        self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "S is back at the next start")
+        self.assertEqual(report["retried_as_insert"], [key])
+        self.assertEqual((report["status"], report["failed"]), ("complete", []))
 
 
 class AJournalThatIsOffSetsEverythingAsideTest(ReplayCase):

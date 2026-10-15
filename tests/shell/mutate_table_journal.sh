@@ -113,7 +113,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
         # actually asks -- "which of these tests has ever been seen to fail?" -- for any test
         # that is not somebody's named killer. M-B24 reddens
         # test_the_default_action_row_every_runtime_file_carries_is_a_modify as well as its own
-        # named case, and round 2's log said nothing about it, so that test read as unproven
+        # named case, and the gate's log said nothing about it, so that test read as unproven
         # when it was not. Printed, not counted: the verdict is still the named one.
         /usr/bin/grep -E '^(FAIL|ERROR): ' <<<"$out" \
             | sed -E 's/^(FAIL|ERROR): [^(]*\(([^)]*)\).*/             also red: \2/' \
@@ -563,7 +563,7 @@ report 'M-J53: switch_state'\''s entry for a switch nobody reported on has no jo
 m=$(mutant m1 "$MAIN" \
     'api_routes.inject_table_journals(table_journals)' \
     'pass')
-report 'M-J54: main builds the journals and never hands them to the route (finding #71'\''s shape)' "$m" \
+report 'M-J54: main builds the journals and never hands them to the route (a test that builds its own cannot see it)' "$m" \
        'test_main_handed_the_route_the_journals_it_built'
 
 m=$(mutant m2 "$MAIN" \
@@ -779,7 +779,7 @@ m=$(mutant x11 "$JOURNAL" \
 report 'M-J83: a journal with no failures is not complete' "$m" \
        'test_all_three_true_is_complete'
 
-# --- review fixes: the fallback's claim, the op's spelling, the header's wiring, what recorded counts, the lock's bound ----
+# --- the fallback's claim, the op's spelling, the header's wiring, what recorded counts, the lock's bound ----
 
 m=$(mutant y1 "$ROUTES" \
     '"journaled": (table_journals.journaled(dpid)
@@ -897,18 +897,17 @@ report 'M-J91e (half 1): a first NOT_FOUND delete is "absent" again, so a lone o
        'test_a_lone_not_found_delete_is_a_net_delete'
 
 m=$(mutant m1f "$JOURNAL" \
-    '                    if not (item.get("unknown_before") and is_already_exists is not None
-                            and is_already_exists(exc)):
-                        raise' \
-    '                    raise')
+    '                    if (item["op"] == "insert" and item.get("unknown_before")
+                            and is_already_exists is not None and is_already_exists(exc)):' \
+    '                    if False:')
 report 'M-J91f (half 2): an unknown-start insert that meets the boot entry is not retried as a modify, so the user'\''s spec is lost' "$m" \
        'test_a_boot_entry_deleted_with_a_lost_answer_then_inserted_ends_as_the_insert'
 
 m=$(mutant m1g "$JOURNAL" \
-    '                    if not (item.get("unknown_before") and is_already_exists is not None
-                            and is_already_exists(exc)):' \
-    '                    if not (is_already_exists is not None
-                            and is_already_exists(exc)):')
+    '                    if (item["op"] == "insert" and item.get("unknown_before")
+                            and is_already_exists is not None and is_already_exists(exc)):' \
+    '                    if (item["op"] == "insert"
+                            and is_already_exists is not None and is_already_exists(exc)):')
 report 'M-J91g: every insert that meets ALREADY_EXISTS is retried as a modify, not only an unknown-start one' "$m" \
        'test_an_ordinary_insert_that_meets_an_entry_is_not_retried_as_a_modify'
 
@@ -944,15 +943,15 @@ m=$(mutant k1c "$JOURNAL" \
             item["unknown_before"] = True' \
     '        if unknown and op == "insert":
             item["unknown_before"] = True')
-report 'M-J91c: only a net insert is marked as having begun unknown, so a snapshot of an unknown-start delete forgets it and a later insert of the key is replayed as a modify and lost' "$m" \
+report 'M-J91c: only a net insert is marked as having begun unknown, so a snapshot of an unknown-start delete forgets it and a later insert of the key is replayed as a modify (which meets NOT_FOUND and is retried as an insert, so only the op assertions see it)' "$m" \
        'test_an_insert_after_a_restart_that_replayed_the_not_found_delete_still_comes_back'
 
 m=$(mutant k1k "$JOURNAL" \
     '        if unknown:
             item["unknown_before"] = True' \
-    '        if op == "insert":
+    '        if True:
             item["unknown_before"] = True')
-report 'M-J91k: every net insert is marked as having begun unknown, so an ordinary insert is retried as a modify too' "$m" \
+report 'M-J91k: every net write is marked as having begun unknown, so an ordinary insert is retried as a modify too' "$m" \
        'test_an_ordinary_insert_is_not_marked_unknown_before'
 
 m=$(mutant k1d "$JOURNAL" \
@@ -1226,10 +1225,8 @@ report 'M-J6b: step 0 reads and rewrites an external control plane'\''s journal'
        'test_nothing_is_read_replayed_or_written_on_an_external_fabric'
 
 m=$(mutant h12 "$MAIN" \
-    '        elif i in broken:
-            # With the journal off' \
-    '        elif False:
-            # With the journal off')
+    '        elif i in broken:' \
+    '        elif False:')
 report 'M-J110: a switch whose push failed is replayed into' "$m" \
        'test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing'
 
@@ -1501,12 +1498,136 @@ report 'M-J125: a journal that is off answers with the multicast sentence again'
 
 # [Co-developed with claude code -- Adam]
 m=$(mutant q18 "$JOURNAL" \
-    '                    if entries_changed:
-                        # What is there is an entry of the package'\''s NEW entries file, not the' \
-    '                    if False:
-                        # What is there is an entry of the package'\''s NEW entries file, not the')
+    '                        if entries_changed:' \
+    '                        if False:')
 report 'M-J126: an unknown-start insert that meets an entry of a changed package is retried as a modify, overwriting the new package'\''s entry' "$m" \
        'test_an_unknown_start_insert_is_not_a_modify_over_an_entry_of_a_changed_package'
+
+# --- the report of the replay's retries and of what it did not replay ---------------------------
+# [Co-developed with claude code -- Adam]
+
+m=$(mutant r127 "$JOURNAL" \
+    '                        retried_as = "modify"
+                        report["retried_as_modify"].append(item["key"])
+                        apply(item["spec"], "modify")' \
+    '                        retried_as = "modify"
+                        apply(item["spec"], "modify")
+                        report["retried_as_modify"].append(item["key"])')
+report 'M-J127: a key is named in retried_as_modify only after its modify succeeded, so a modify that fails is not named' "$m" \
+       'test_a_modify_fallback_that_fails_is_still_named_in_the_report'
+
+m=$(mutant r128a "$JOURNAL" \
+    '"loaded now", "kept": False})' \
+    '"loaded now", "kept": True})')
+report 'M-J128a: a write that is stale because the p4info changed says its record is kept' "$m" \
+       'test_a_changed_p4info_replays_nothing'
+
+m=$(mutant r128b "$JOURNAL" \
+    '                report["failed"].append({"entry": entry, "reason": _STALE_ENTRIES, "kept": False})' \
+    '                report["failed"].append({"entry": entry, "reason": _STALE_ENTRIES, "kept": True})')
+report 'M-J128b: a modify or delete that is stale because the entries file changed says its record is kept' "$m" \
+       'test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries'
+
+m=$(mutant r128c "$JOURNAL" \
+    '                                                     "kept": False})' \
+    '                                                     "kept": True})')
+report 'M-J128c: an unknown-start insert that is stale because the entries file changed says its record is kept' "$m" \
+       'test_an_unknown_start_insert_is_not_a_modify_over_an_entry_of_a_changed_package'
+
+m=$(mutant r129 "$MAIN" \
+    '"replays its journal" if journals.enabled else' \
+    '"replays its journal" if True else')
+report 'M-J129: a broken switch on a boot with the journal off is promised a replay' "$m" \
+       'test_its_report_says_the_journal_is_off_and_promises_no_replay'
+
+# --- a net modify that finds nothing is retried once as an insert -------------------------------
+
+m=$(mutant r130 "$JOURNAL" \
+    '                    elif (item["op"] == "modify" and not item["spec"].get("default_action")
+                          and is_not_found is not None and is_not_found(exc)):' \
+    '                    elif False:')
+report 'M-J130: a modify that finds nothing is not retried as an insert, so an entry whose pre-journal existence a push wiped is lost' "$m" \
+       'test_a_modify_that_finds_nothing_after_the_push_goes_back_as_an_insert'
+
+m=$(mutant r131 "$JOURNAL" \
+    '                    elif (item["op"] == "modify" and not item["spec"].get("default_action")
+                          and is_not_found is not None and is_not_found(exc)):' \
+    '                    elif (item["op"] == "modify" and not item["spec"].get("default_action")):')
+report 'M-J131: a modify refused for any reason is retried as an insert' "$m" \
+       'test_a_modify_refused_for_another_reason_is_failed_and_sends_no_insert'
+
+m=$(mutant r132 "$JOURNAL" \
+    '                    elif (item["op"] == "modify" and not item["spec"].get("default_action")
+                          and is_not_found is not None and is_not_found(exc)):' \
+    '                    elif (item["op"] == "modify"
+                          and is_not_found is not None and is_not_found(exc)):')
+report 'M-J132: a default entry'\''s modify that meets NOT_FOUND is retried as an insert too' "$m" \
+       'test_a_default_entry_modify_that_meets_not_found_sends_no_insert'
+
+m=$(mutant r133 "$JOURNAL" \
+    '                        retried_as = "insert"
+                        report["retried_as_insert"].append(item["key"])
+                        apply(item["spec"], "insert")' \
+    '                        retried_as = "insert"
+                        apply(item["spec"], "insert")
+                        report["retried_as_insert"].append(item["key"])')
+report 'M-J133: a key is named in retried_as_insert only after its insert succeeded, so an insert that fails is not named' "$m" \
+       'test_an_insert_retry_that_fails_is_named_and_failed'
+
+m=$(mutant r134 "$JOURNAL" \
+    '                    failure["retried_as"] = retried_as' \
+    '                    pass')
+report 'M-J134: a failed retry does not say it was a retry' "$m" \
+       'test_a_modify_fallback_that_fails_is_still_named_in_the_report'
+
+m=$(mutant r135 "$JOURNAL" \
+    '                    apply(item["spec"], item["op"])
+                except Exception as exc:  # noqa: BLE001 -- inspected, maybe retried, re-raised' \
+    '                    apply(item["spec"], item["op"])
+                    if item["op"] == "modify":
+                        apply(item["spec"], "insert")
+                except Exception as exc:  # noqa: BLE001 -- inspected, maybe retried, re-raised')
+report 'M-J135: an insert follows every modify, whether or not the modify found its entry' "$m" \
+       'test_a_modify_of_an_entry_that_is_there_sends_no_insert'
+
+m=$(mutant2 r136 "$JOURNAL" \
+    '        kept_unknown = []
+        for item in net:' \
+    '        kept_unknown = []
+        retried_as = None
+        for item in net:' \
+    '            retried_as = None
+            try:
+                try:' \
+    '            try:
+                try:')
+report 'M-J136: retried_as is set once before the loop, so a failure after a failed retry says it was a retry too' "$m" \
+       'test_a_failure_after_a_failed_insert_retry_does_not_say_it_was_a_retry'
+
+m=$(mutant r137 "$MAIN" \
+    '                             table_journal_header(dpid, package), api_routes._is_not_found,' \
+    '                             table_journal_header(dpid, package),
+                             api_routes._is_not_found if when == "startup" else None,')
+report 'M-J137: a readopt'\''s replay is not told how to recognise NOT_FOUND, so a modify that finds nothing is not retried as an insert' "$m" \
+       'test_a_readopt_puts_back_an_entry_whose_modify_finds_nothing_as_an_insert'
+
+m=$(mutant r138 "$JOURNAL" \
+    '                unknown_outcome = outcome_unknown is not None and outcome_unknown(exc)' \
+    '                unknown_outcome = (outcome_unknown is not None and retried_as is None
+                                   and outcome_unknown(exc))')
+report 'M-J138: an insert retry that gets no answer is taken for a refusal, so its record is dropped' "$m" \
+       'test_an_insert_retry_whose_answer_is_lost_stays_in_the_journal_for_the_next_start'
+
+m=$(mutant r139 "$JOURNAL" \
+    '                        retried_as = "insert"
+                        report["retried_as_insert"].append(item["key"])
+                        apply(item["spec"], "insert")' \
+    '                        retried_as = "insert"
+                        report["retried_as_insert"].append(item["key"])
+                        apply(item["spec"], "insert")
+                        item["op"] = "insert"')
+report 'M-J139: an entry restored by the insert retry is snapshot as an insert, not as the journal'\''s modify' "$m" \
+       'test_a_modify_that_finds_nothing_after_the_push_goes_back_as_an_insert'
 
 # --- only the per-update reason says NOT_FOUND ---------------------------------------------------
 
