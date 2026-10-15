@@ -247,8 +247,14 @@ AN_LPM_ENTRY = {"dpid": 1, "table": "MyIngress.ipv4_lpm",
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class TableEntryRouteTestBase(unittest.TestCase):
     def setUp(self):
-        self.saved = (api_routes.topology, api_routes.note_api_table_entry_write)
+        # [Co-developed with claude code -- Adam] `table_journals` is isolated too: once any
+        # test has imported `main`, the route holds the REAL per-switch journals, and a POST
+        # here would append to the checkout's own `.run/table_entry_journal/`. These tests are
+        # about status codes, not about the journal (tests/test_table_entry_journal.py is).
+        self.saved = (api_routes.topology, api_routes.note_api_table_entry_write,
+                      api_routes.table_journals)
         self.addCleanup(self.restore)
+        api_routes.table_journals = None
         self.stub = RecordingStub()
         self.client = a_client(self.stub)
         api_routes.topology = FakeTopology({1: self.client})
@@ -256,7 +262,8 @@ class TableEntryRouteTestBase(unittest.TestCase):
         api_routes.note_api_table_entry_write = self.counted.append
 
     def restore(self):
-        api_routes.topology, api_routes.note_api_table_entry_write = self.saved
+        (api_routes.topology, api_routes.note_api_table_entry_write,
+         api_routes.table_journals) = self.saved
 
     def post(self, body=None, **overrides):
         payload = dict(AN_LPM_ENTRY if body is None else body)
@@ -288,12 +295,14 @@ class AnAcceptedEntryTest(TableEntryRouteTestBase):
         self.assertFalse(self.post()["priority_honoured"])
 
     def test_every_success_says_the_entry_is_not_journaled_and_what_that_costs(self):
-        # 🔴 Adam 2026-09-18, option a. The rule is on the switch and it is recorded nowhere: a
-        # proxy restart loses it and nothing replays it. This response is the only place a
-        # caller will ever be told.
+        # 🔴 Adam 2026-09-18, option a. This file's harness injects no journal, so here the write is
+        # on the switch and recorded nowhere: a restart does not put it back. This response is the
+        # only place a caller is told. (With a journal it is recorded and replayed:
+        # test_table_entry_journal.py and test_table_entry_replay.py.) [Co-developed with claude
+        # code -- Adam]
         body = self.post()
         self.assertIs(body["journaled"], False)
-        self.assertIn("lost when the proxy restarts", body["note"])
+        self.assertIn("nothing puts this write back", body["note"])
 
     def test_an_accepted_write_is_counted_where_switch_state_can_report_it(self):
         self.post()

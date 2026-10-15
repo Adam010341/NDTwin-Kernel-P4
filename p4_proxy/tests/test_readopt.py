@@ -42,6 +42,10 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+# Before anything imports `main`: its table-entry journals go to a temp directory, never to the
+# checkout's .run/ (tests/journal_isolation.py). [Co-developed with claude code -- Adam]
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import journal_isolation  # noqa: E402,F401
 
 #: The two real compiled p4infos TICKET-P3 section 9 ruling 4's decision rests on: `basic`
 #: declares no controller header, `basic_telemetry` is the same solution with
@@ -683,11 +687,17 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
         self.saved_entries = dict(main._table_entries)
         self.tmp = tempfile.mkdtemp(prefix="ndtwin_readopt_entries_")
         self.addCleanup(shutil.rmtree, self.tmp, True)
+        # [Co-developed with claude code -- Adam] A readopt replays the switch's table-entry
+        # journal (DESIGN 5.5). Each test gets its own, empty one, so that what another test left
+        # in the process-wide journal cannot be replayed into this one's switch.
+        self.saved_journals = main.table_journals
+        main.table_journals = main.TableJournals(os.path.join(self.tmp, "journal"))
 
     def _restore(self):
         topology_manager.time.sleep = self._real_sleep
         main._table_entries.clear()
         main._table_entries.update(self.saved_entries)
+        main.table_journals = self.saved_journals
 
     def factory(self, **kwargs):
         def make(dpid):
@@ -838,7 +848,11 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
     def test_the_count_reaches_the_endpoint_report_not_just_the_response(self):
         self.readopt(self.package(entries=self.entries_file(2)))
         self.assertEqual(main.table_entries_report()["1"]["applied"], 2)
-        self.assertEqual(main.table_entries_report()["1"]["journaled"], False)
+        # [Co-developed with claude code -- Adam] `journaled` is about API writes, which the
+        # journal replays; the package's entries above come back from the package itself.
+        self.assertEqual(main.table_entries_report()["1"]["journaled"], True)
+        self.assertEqual(main.table_entries_report()["1"]["journal"]["replay"]["when"],
+                         "readopt")
 
     def test_ndtwins_own_pipeline_is_readopted_exactly_as_before(self):
         # The negative half. `pipeline: null` is every package phase 1 accepts, and this path

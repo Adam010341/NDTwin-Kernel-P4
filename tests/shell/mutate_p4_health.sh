@@ -44,6 +44,7 @@ THROWAWAY="$PKG/throwaway.py"
 KERNEL="$PKG/collect/kernel.py"
 FRAMES="$PKG/frames.py"
 PROBEPY="$PKG/probe.py"
+OBSERVE_A="$PKG/observe_a.py"
 CELLS_TEST="$REPO/tests/python/test_p4_health_cells.py"
 COLLECT_TEST="$REPO/tests/python/test_p4_health_collect.py"
 RECOVER_TEST="$REPO/tests/shell/test_p4_health_recover.sh"
@@ -175,6 +176,20 @@ add "M9. journaled is ignored" \
     '    if A(obs).get("journaled") is False:' \
     '    if False:  # MUTANT: journaled ignored' \
     'test_t8_journaled_false_is_red'
+
+# (Cut C) [Co-developed with claude code -- Adam] `journaled` is computed since the proxy replays its journal; the RED
+# names why it can be false, not the constant it used to be.
+add "C-T8. T8's RED still says journaled is the constant false" \
+    "$TABLE" \
+    '        return red("switch_state'"'"'s `journaled` is false: this switch'"'"'s table-entry journal is off, is an external "' \
+    '        return red("switch_state'"'"'s `journaled` is the constant false (api_routes.py:765-767) "' \
+    'test_t8_red_says_why_journaled_can_be_false_now'
+
+add "C-T8b. observe_t8 says journaled whatever switch_state says" \
+    "$OBSERVE_A" \
+    '    return {"answer": {"journaled": te.get("journaled") if isinstance(te, dict) else None}}' \
+    '    return {"answer": {"journaled": True}}' \
+    'test_a_proxy_that_replays_its_journal_is_t8_green_and_one_that_does_not_is_red'
 
 add "M10. the link-down deadline is infinite" \
     "$TABLE" \

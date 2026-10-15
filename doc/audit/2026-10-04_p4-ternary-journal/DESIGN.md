@@ -337,7 +337,9 @@ V7 不在這裡：它需要 binding，pre-flight 已經有自己的 8-1 檢查�
   - `_value_key` 已經把 bytes 轉成 int（`rule_install_times.py:72-87`），對前導零不敏感，符合這個要求。
   - optional 經 P4Runtime 讀回來仍是 optional【A0 10】，所以新加的 optional 分支，寫入側與讀取側的形狀一致。
 - **modify 不能改 priority**；改 priority 就是 delete 再 insert。
-- 照舊沒有 MODIFY fallback（`p4_client.py:1327-1335`），重放也沒有。
+- 照舊沒有 MODIFY fallback（`p4_client.py:1327-1335`）。重放有兩個例外（§5.4 步驟 5、§10-4）：
+  - 起點未知的 insert 撞上 ALREADY_EXISTS 時，改用 modify 重試一次；package 的 entries 檔變了則不重試，那筆算 `stale_entries`。
+  - 淨 modify（非 default entry）遇到 NOT_FOUND 時，改用 insert 重試一次：push 之後交換機上只剩 package 的開機 entry，所以找不到，表示這個 key 先前的存在被 push 清掉了，或是 package 自己的那筆沒有放回去。
 
 ### 3.2 replace-vs-add 從哪裡進來、怎麼擋
 
@@ -419,7 +421,7 @@ V7 不在這裡：它需要 binding，pre-flight 已經有自己的 8-1 檢查�
   - 理由是「名字相同不代表同意」（`route_binding.py:10-12`）。
 - **`entries_sha256`** 是這台 package entries 檔的 sha，回應審查的 MINOR。
   - 不符時：淨效果是 insert、而且原本不存在的 key 照常重放。
-  - 淨效果是 modify／delete（它碰的是開機 entry 或 default）的那些記為 `stale_entries`，不套用。
+  - 淨效果是 modify／delete（它可能碰的是開機 entry 或 default，也可能是 journal 看到之前就在交換機上的 entry）的那些記為 `stale_entries`，不套用。
   - 理由同 §4：package 檔改了，舊的 modify／delete 是針對已經不存在的開機狀態。
 - **`fabric_cookie`** 見 Q1。
 
@@ -455,6 +457,8 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
   - **步驟 0** 在 push 迴圈（`main.py:1977-1986`）**之前**，對**每一台** client 都做，不管它之後會不會變成 broken；
   - 步驟 1、3–6 在 entries 迴圈裡（`main.py:2009-2020`），每台在 `apply_package_entries` 之後、PRE 之前。
 - 步驟 1、3–6 的條件：`i not in broken and not read_only`，而且 journal 開著。步驟 0 只要求 `not read_only`（external 一個 byte 都不動，§5.7）。
+  - 🆕 **2026-10-12 修正（§7-1 改成 (b)）**：journal 關著時步驟 0 照跑，但**每一台都當作未確認**，檔案全部隔離。理由：Q1 (a) 就是為了讓「沒確認過的舊 entry 永遠不回來」；關著的那次開機什麼都不記，若照舊確認，關著期間做的 delete 會在下一次正常開機被重放復原。
+  - 🆕 **2026-10-12 補充（§7-2）**：步驟 1、3–6 另外要求這台這次真的 push 過（`client.json_path` 非空，和 push 迴圈同一個判斷）；沒 push 就沒清空，重放只會撞上還在的 entry。
 - startup 期間 uvicorn 還沒開始服務：startup 在 lifespan 裡被 await（`main.py:2441-2443`），uvicorn 是在 lifespan 完成之後才服務（`:2469-2511`）。**所以這裡不需要 503**（修正 r1）。
 - 步驟：
   0. **cookie 確認（Q1），在 push 迴圈之前、每一台都做**：用 COOKIE_ONLY 讀交換機上的 cookie，跟這台檔案 header 的 `fabric_cookie` 比。
@@ -473,7 +477,7 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
   2. （r2 的 cookie 判斷已經搬到步驟 0；這一步留空，只是為了保留步驟編號。）
   3. **sha 防護**：檢查 p4info 與 entries 的 sha（§5.2）。
   4. **折疊**：依 `key` 與檔案順序算淨效果。
-     - 第一個 op 決定「API 之前在不在」：insert ⇒ 不在；modify／delete ⇒ 在，例如開機 entry 或 default。
+     - 第一個 op 決定「API 之前在不在」：insert ⇒ 不在；modify／delete ⇒ 在，例如開機 entry 或 default。🆕 2026-10-12：回 NOT_FOUND 的 delete 在最前面時是「未知」，見 §10-4。
      - 最後一個 op 決定「之後在不在」，以及最終的 spec。
      - 四種組合：
        - 不在 → 在：insert(最終 spec)
@@ -482,10 +486,16 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
        - 不在 → 不在：什麼都不做
      - default entry 的 key 是 `"default"`，淨效果一律是 modify。
   5. **套用**：依 key 第一次出現的順序，逐筆呼叫 `write_table_entry`。
-     - 這是直接呼叫，不經 `_write_and_journal`，所以**不會追加紀錄**；也不做 MODIFY fallback。
-     - 失敗的那筆進 `failed`，附上理由，例如 bmv2 回的 UNKNOWN（`p4_client.py:1802-1804`）或 NOT_FOUND。
+     - 這是直接呼叫，不經 `_write_and_journal`，所以**不會追加紀錄**；也不做 MODIFY fallback，例外有兩個：
+       - 起點未知的 insert 撞上 ALREADY_EXISTS：改用 modify 重試一次（§10-4）。package 的 entries 檔變了的話，那筆改算 `stale_entries`，不重試。
+       - 淨 modify（非 default entry）遇到 NOT_FOUND：改用 insert 重試一次（§10-4）。entries 檔變了的話，淨 modify 本來就在套用之前被判 `stale_entries`，不會走到這裡。
+     - 兩種重試都在送出之前先把 key 記進報告（`retried_as_modify`／`retried_as_insert`）；重試失敗的那筆進 `failed`，帶 `retried_as`，`entry.op` 仍是 journal 的 op。
+     - 失敗的那筆進 `failed`，附上理由，例如 bmv2 回的 UNKNOWN（`p4_client.py:1802-1804`）。非 default entry 的 modify 回 NOT_FOUND 不算失敗的例子：那一筆會改用 insert 重試（見上面第二個例外）。
   6. **snapshot**：新檔＝header（G、本次 `boot_id`、sha）＋成功重放的淨紀錄。
-     - 失敗與 stale 的紀錄只留在隔離檔與報告裡，不進新檔。理由：它們不在交換機上，API 也刪不掉（§10-4 讓 NOT_FOUND 的 delete 也記，但記了也只是從折疊裡消掉）。
+     - 失敗與 stale 的紀錄只留在隔離檔與報告裡，不進新檔。理由：它們不在交換機上，API 也刪不掉。
+     - 例外一：沒有 per-update 理由的失敗（DEADLINE_EXCEEDED、UNAVAILABLE）那筆可能已經落地，**留在新檔**，下次開機再試（報告 `failed[].kept` 為 true）。
+     - 不是失敗的例外：**每一筆** net delete 重放時回 NOT_FOUND，都算已達目標（記入 `succeeded`），**留在新檔**；起點未知的那種寫成兩筆（§10-4）。
+     - 用 insert 重試成功的 modify，snapshot 裡仍寫 modify（不改 `records_from_net`），所以每次開機都重複這個 fallback。
      - 每台一檔，所以不必替其他交換機保留紀錄。
   - **步驟 6 中途當掉**：hard link 做了、replace 還沒做時當掉，live 檔就是完整的舊 log。下次重新折疊一次，結果相同。
 
@@ -800,7 +810,12 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
    - 寫一顆測試斷言「default」與「全省略的 LPM」是兩個 key。
 3. **`TableEntryJournal.replay` 自己寫。** `attempted` 是淨 op 的數量，不是原始行數。
 4. **沒被確認的 delete／modify**：
-   - 回 NOT_FOUND 的 delete 照樣回 502，**但會記成 `outcome: not_found`**。它在折疊裡只會讓那個 key「不在」，所以是安全的。
+   - 回 NOT_FOUND 的 delete 照樣回 502，**但會記成 `outcome: not_found`**。~~它在折疊裡只會讓那個 key「不在」，所以是安全的。~~
+   - 🆕 **2026-10-12 修正（M1 修訂）**：一個 key 的**第一筆**若是 not_found 的 delete，它之前的狀態是「**未知**」，不是「不在」——原因可能是一次答案遺失、沒記到的 delete，刪的是 package 的開機 entry，而 push 與 package 會把它放回來。所以由最後一筆決定：
+     - 最後是不在（delete）⇒ 淨效果 delete，同樣標記 `unknown_before`；重放遇到 NOT_FOUND 算已達目標。所以單獨一筆 `[not_found]` 又是 delete 了。snapshot 把這種 delete 寫成「not_found 的 delete＋delete」兩筆，下次開機折疊回同樣的標記 delete，所以 snapshot 之後才做的同 key insert 仍折疊成 insert，不會變成在已清空的交換機上撞 NOT_FOUND 的 modify。
+     - 最後是在 ⇒ 淨效果 insert，標記 `unknown_before`；重放遇到 ALREADY_EXISTS（只可能是 push 與 package 放回的開機 entry）就改用 modify 重試一次，寫成 journal 記的 spec。**只有這種 key 會重試**，其他 insert 照舊。例外：package 的 entries 檔變了，那裡的 entry 是新 package 的，modify 會蓋掉它，所以不重試，那筆算 `stale_entries`。snapshot 把它寫成「not_found 的 delete＋insert」兩筆，下次開機折疊出同樣的標記。
+     - 第一筆是被接受的 delete 時，仍然是「在」（它刪掉了某個東西）。
+     - 2026-10-15 補：這種「在」的 key 若最後是 modify，而 push 之後交換機上沒有它（它那個沒記到的 insert 被 push 清掉了），重放的 modify 回 NOT_FOUND。journal 的最後一句是「在，spec 是 S」，所以改用 insert 重試一次，寫成 S。只限非 default entry、只限 NOT_FOUND；其他原因的拒絕照舊算失敗。snapshot 裡這筆仍是 modify。不只這種，任何淨效果是 modify／delete、瞄準 journal 看到之前就在交換機上的 entry（package 的 entry、沒記到 insert 的 entry、或由 insert 還原的 entry）的寫入，只要 package 的 entries 檔有變動（任何一行），下一次開機或 readopt 就把它當 `stale_entries` 丟掉：不補回，也不留在新檔，只留在隔離檔與報告裡。
    - 用來處理 DEADLINE_EXCEEDED 但實際已落地、重試又拿到 NOT_FOUND 的情況（`p4_client.py:27-28`）。
    - modify 沒有對應的安全做法，寫進 API 文件。
 5. **Q4(a) 的缺行風險**：寫進回應的 note 與 API 文件（Q4 的後果）。

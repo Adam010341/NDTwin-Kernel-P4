@@ -388,8 +388,12 @@ def t7(obs):
 
 
 def t8_cannot(obs):
+    """(Cut C) `journaled` is computed since the proxy replays its table-entry journal: false means this switch's
+    journal is off, belongs to an external control plane, or lost a record this boot (rule_journal.py
+    TableJournals.journaled)."""
     if A(obs).get("journaled") is False:
-        return red("switch_state's `journaled` is the constant false (api_routes.py:765-767)",
+        return red("switch_state's `journaled` is false: this switch's table-entry journal is off, is an external "
+                   "control plane's, or missed a record this boot (rule_journal.py TableJournals.journaled)",
                    "structural")
     return None
 

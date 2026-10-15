@@ -17,7 +17,7 @@ from proxy_agent import route_binding as route_binding_module
 from proxy_agent.match_shape import (BUILDABLE_MATCH_TYPES, TableEntryInvalid,  # noqa: F401 -- re-exported
                                      TableEntryUnsupported, encode_value)
 from proxy_agent.route_binding import RouteWriteUnsupported  # noqa: F401 -- re-exported
-from proxy_agent.rule_install_times import RuleInstallTimes
+from proxy_agent.rule_install_times import RuleInstallTimes, entry_key
 from proxy_agent.sflow_emitter import (TelemetryHeaderMissing, packet_in_metadata_ids,
                                        packet_out_metadata_ids, sample_from_packet_in)
 
@@ -120,11 +120,11 @@ class TableOwnedByNDTwin(RuntimeError):
 
 
 #: Who is asking `write_table_entry` to write. `api`: an operator's POST. `boot`: this proxy
-#: applying the app package's own runtime entries at startup or after a readopt. `replay`:
-#: RESERVED -- nothing passes it today (a POSTed entry is not journaled); it is treated as `api`
-#: and is named so that a future caller that puts stored entries back cannot be mistaken for
-#: `boot`. Anything else is a ValueError. [Co-developed with claude
-#: code -- Adam]
+#: applying the app package's own runtime entries at startup or after a readopt. `replay`: this
+#: proxy putting the table-entry journal's entries back (main.replay_table_journal). It is
+#: treated as `api` -- the owner check refuses it exactly where it refused the POST it
+#: replays -- and is named so that it cannot be mistaken for `boot`. Anything else is a
+#: ValueError. [Co-developed with claude code -- Adam]
 ENTRY_SOURCE_API = "api"
 ENTRY_SOURCE_BOOT = "boot"
 ENTRY_SOURCE_REPLAY = "replay"
@@ -192,6 +192,15 @@ def pipeline_carries_telemetry(p4info_path):
 
 class P4RuntimeClient:
     """Encapsulates P4Runtime gRPC connection to a single BMv2 switch"""
+
+    #: The fabric generation this client's pipeline pushes carry in `ForwardingPipelineConfig.cookie`
+    #: (DESIGN 5.2, ruling Q1 (a)), or None for a push with no cookie. `main.startup` sets it on
+    #: every client before its push loop and `main.readopt_switch` on the client its readopt
+    #: builds; a later startup reads it back with COOKIE_ONLY (`read_pipeline_cookie`) to tell a
+    #: switch this fabric programmed from one that was restarted since. 🔴 A push without it CLEARS
+    #: the cookie on the switch (measured, ternary-a0 08), so every push in this proxy carries it.
+    #: A class default for the reason `route_binding` is one. [Co-developed with claude code -- Adam]
+    pipeline_cookie = None
 
     #: Which table, match field, action and parameters this client writes a destination route
     #: with -- `route_binding.BASELINE` (NDTwin's own pipeline), a binding resolved from the app
@@ -674,6 +683,27 @@ class P4RuntimeClient:
         except Exception as e:  # noqa: BLE001 -- a probe must never take the caller down
             return {"ok": False, "detail": f"{type(e).__name__}: {e}"}
 
+    def read_pipeline_cookie(self, timeout_s: float = RPC_TIMEOUT_S):
+        """
+        The cookie of the pipeline this switch runs, or None when its pipeline carries none.
+
+        [Co-developed with claude code -- Adam]
+        One GetForwardingPipelineConfig with COOKIE_ONLY, the RPC `probe` sends. Raises what the
+        RPC raises: a bmv2 that has been pushed no pipeline answers FAILED_PRECONDITION (a fresh
+        process, whether or not its command line named a JSON -- ternary-a0 08), and a switch
+        that is not there fails the RPC. `main.startup`'s step 0 reads either as "cannot confirm
+        this fabric". Works on an external client too: it is a read, and it needs no mastership.
+        The timeout is one write's (`RPC_TIMEOUT_S`), not the probe's 2 s: a false "did not
+        answer" here sets the switch's journal aside for good, where a probe's is transient.
+        """
+        req = p4runtime_pb2.GetForwardingPipelineConfigRequest()
+        req.device_id = self.device_id
+        req.response_type = p4runtime_pb2.GetForwardingPipelineConfigRequest.COOKIE_ONLY
+        reply = self.stub.GetForwardingPipelineConfig(req, timeout=timeout_s)
+        if not reply.config.HasField("cookie"):
+            return None
+        return int(reply.config.cookie.cookie)
+
     def set_forwarding_pipeline_config(self):
         # 🔴 The single most destructive call in this class: it empties every table on the switch
         # (KNOWN-ISSUES A-4c). Against a fabric whose controller is somebody else's, that would
@@ -688,6 +718,8 @@ class P4RuntimeClient:
         with open(self.json_path, "rb") as f:
             req.config.p4_device_config = f.read()
         req.config.p4info.CopyFrom(self.p4info)
+        if self.pipeline_cookie is not None:
+            req.config.cookie.cookie = int(self.pipeline_cookie)
         self.stub.SetForwardingPipelineConfig(req, timeout=RPC_TIMEOUT_S)
         # [Co-developed with claude code -- Adam]
         # AFTER the RPC, never before. This line is the only record that every table entry on
@@ -1406,10 +1438,10 @@ class P4RuntimeClient:
         recorded_match = self._built_entry_match(entry)
         if op == "delete":
             self.rule_install_times.forget(self.device_id, table_name, entry.priority,
-                                           recorded_match)
+                                           recorded_match, entry.is_default_action)
         else:
             self.rule_install_times.record(self.device_id, table_name, entry.priority,
-                                           recorded_match)
+                                           recorded_match, entry.is_default_action)
         # The label comes from the entry's own flag. An empty match is NOT a default action: it is
         # the catch-all, and the log must not describe it as the table's default.
         shown = (sorted(match_types) if match_types
@@ -1425,7 +1457,33 @@ class P4RuntimeClient:
                 self._table_by_name(table_name)),
             "is_default_action": entry.is_default_action,
             "op_substituted": substituted,
+            # [Co-developed with claude code -- Adam] The entry's identity, in the one spelling
+            # the install-time record and the table-entry journal both use. Computed here
+            # because this is where the entry has been built: the caller holds a spec, and
+            # "10.0.1.1" and 167772417 are one entry whose key only the built form can say.
+            "entry_key": entry_key(
+                self.device_id, table_name, entry.priority, recorded_match,
+                entry.is_default_action),
         }
+
+    def table_entry_key(self, spec):
+        """
+        The identity a spec would have, or None if it does not build. Writes nothing.
+
+        [Co-developed with claude code -- Adam]
+        For the one caller that has no `write_table_entry` result to read the key from: a delete
+        the switch answered NOT_FOUND, which the table-entry journal still records (DESIGN 10-4)
+        and which therefore needs the key of an entry that was never written. Not called before
+        a write, so the order of the refusals `write_table_entry` makes is unchanged.
+        """
+        try:
+            entry, _types = self.build_table_entry(spec)
+        except Exception:  # noqa: BLE001 -- a spec that does not build has no identity
+            return None
+        table_name = self._table_name(entry.table_id)
+        return entry_key(
+            self.device_id, table_name, entry.priority, self._built_entry_match(entry),
+            entry.is_default_action)
 
     # --- Reading tables back -------------------------------------------------------
     # [Co-developed with claude code -- Adam]
