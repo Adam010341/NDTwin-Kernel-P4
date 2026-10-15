@@ -663,4 +663,34 @@ mutant 的部分跑（`ONLY_LABEL_PREFIX=…`，**不是 gate**）：`mutate_p4_
   - **跨這個改動的 subject sha 不能互相比**：值不同不代表檔案不同，值相同也只在兩邊都是 C 排序（或剛好同一個 locale）時才有意義。merged head 的 gate 只和 `a33fbb73` 之後、同樣 C 排序的 log 比。
 - **interpreter 行**：從第 9 輪起是 `interpreter: <realpath> (<版本>, prefix <sys.prefix>)`，之前沒有 `prefix`。加總 script 比整行，所以新舊 log 的這一行不會相同，不能加總在一起（本來也不該：commit 不同）。這一行不含主機名：兩台機器上路徑、版本、prefix 都相同時，分不出來。
 
+### 11.10 `feat/p4-health-locale` 分支改了什麼，與 merged head 的 gate
+
+- **分支**：`feat/p4-health-locale`，頭 `4a4eb94e`（從 `c24a7d19` 之後開出，11 顆非 merge commit，13 個檔，+826／−77），在 `merge/trunk-1015` 裡併成 M2（`d92bf1a258cec2d1524652fcff17526926fbcefa`）。
+- **這個分支改了什麼**：
+  - **subject sha 與 locale**：`mutate_p4_health.sh` 的 subject sha 的檔名排序固定用 `LC_ALL=C`（`a33fbb73`），不再隨呼叫者的 locale 變；從這個 commit 起的 log 才能互相比，見 §11.9。
+  - **interpreter 行**：`interpreter: <realpath> (<版本>, prefix <sys.prefix>)`，加上 `sys.prefix`（`2e39cb0d`），也見 §11.9；同一個 commit 補了 shard 的上界在 table 的大小時的測試。
+  - **exercise 複本的檢查**：除了複本的檔案，也檢查它的 build 輸出，並且從原始碼載入複本裡的模組（`863ca045`）；`convert.py` 處理過之後再檢查一次（`bc9f79c3`）；複本的根目錄是 symlink 就拒絕，並且以呼叫者給的路徑（而不是它解析到的目錄）記錄 build 輸出，所以兩次檢查之間被改指到別處的連結會被比出來；複本裡任何地方有 `__pycache__`，每一次檢查都拒絕，第一次也一樣（`4a4eb94e`）。
+  - **訊號遮罩的測試**：洩漏的 stop 遮罩讓該測試失敗，而不是被修回去（`109f4c6c`）；cells 的每個測試和開始時的遮罩比較（`ebbc43d6`）；ValueSet delivery 測試在放開 stop 之前先裝好不做事的 handler，所以已經 pending 的 stop 不會結束整個套件（`8918d051`，`4a4eb94e`）。
+  - **其他**：T8 的 RED 原因多了「snapshot 失敗」（`a741e763`）；`s0.stops_held` 的 docstring 寫明 SIGINT 的行為（`02cf1b40`）；`SUMMARY` 註明 subject sha 在哪一個 commit 換了算法（`5fd954f6`）。
+- **merged head 的 GATE 行**（`gates-0910/merged-trunk-1015/GATE.log`）：
+  `GATE: 517 mutations, 0 survived, shards 4/4 ok, commit d92bf1a258cec2d1524652fcff17526926fbcefa, tree fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26, subject sha e69a74d976c1a022`
+  - 四個 shard 是 130／129／129／129 個，各 `rc=0`（22:50:49–06:33:01，7 小時 42 分）；interpreter 行四份相同：`interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20, prefix /home/adam/miniconda3/envs/ryu-env)`。
+  - tree `fd872b3d` ＝ M2 的 `tools/p4_health`。squash 之後還要記錄 squash commit 的 `tools/p4_health` tree 等於它。
+  - 完整的步驟表與 Cut C 那一半（Stage C）在 `scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/REPORT-merged-trunk-1015.md`，`SUMMARY-cut-c.md` 第 14 節有精簡版。
+- **預檢（REPORT 的 Stage B，20:28–20:39，11 分 36 秒，全綠）**：
+
+  | 步驟 | 結果 |
+  |---|---|
+  | `ANCHOR_CHECK=1 mutate_p4_health.sh` | 518 行計數（517 個 mutant＋負向對照），每個都是 1；rc 2 是設計如此 |
+  | `check_gate_anchors.py HEAD` | 137/137 cells ok；`mutate_p4_health.sh` 一列 ok(476) |
+  | 裸 `sort` 的檢查 | `bare (not LC_ALL=C) sorts in a pipe: 0` |
+  | cells／collect，py3.13 與 py3.8 | Ran 203／203／192／192，OK；再各跑一次在 SIGHUP 被擋住的 parent 底下，同樣 203／203／192／192 OK |
+  | `test_p4_health_recover.sh`／`test_p4_health_gate_scripts.sh` | 163 checks, 0 failed／79 checks, 0 failed |
+  | `ONLY_LABEL_PREFIX=C2R8-5g` 部分跑 | 1 mutation, 0 survived（baseline 綠、mutant 被抓、負向對照綠） |
+  | ValueSet delivery 測試，SIGHUP 在 exec 前就 pending；對照組沒有 pending | 兩個都 Ran 1 OK |
+  | S0（bytecode 寫入打開） | `S0 verdict: COMPLETE`，`S0 checks: 57, failed: 0`；結束後複本裡沒有 `__pycache__` |
+
+  - 預檢每一步的 log 在 `gates-0910/merged-trunk-1015/B_<n>_*.log`，判定取自各 log 自己的最後一行 `rc=`。
+- **啟動 shard 的訊號遮罩前提**：每個 shard 與每個預檢步驟起跑前，在**執行的行程自己**裡讀 `/proc/self/status` 的 `SigBlk`（不經命令替換；經命令替換讀到的是 bash 等待時自己的遮罩，會得到 `0x2` 的假值），要求 `SigBlk & 0x4203 == 0`（0x4203 是訊號 1、2、10、15 的位元），並把這一行記在 log 裡。四個 shard 都通過：子行程的 `SigBlk` 是 `0000000000000000`，exec 的行程是 `0000000000010000`（只有 SIGCHLD），兩者 `& 0x4203` 都是 0（`gates-0910/merged-trunk-1015/mutate_p4_health.shard{0..3}of4.log` 的第 3–9 行、`shard{0..3}.guard.log`、`shardwrap.sh`）。
+
 [Co-developed with claude code -- Adam]
