@@ -327,7 +327,7 @@ check "a shard whose first line is not the commit HEAD says" refuses firstline "
 check "a shard of another tools/p4_health tree" refuses othertree "trees differ" tree=5555555555555555555555555555555555555555
 check "a shard of another subject sha" refuses othersubj "subject shas differ" subj=6666666666666666
 check "a shard run by another python version" refuses otherpyver "interpreters differ" "interp=/x/python3.8 (3.8.19, prefix /x/venv-a)"
-check "a shard run by the same version of another python (another path, say another machine)" refuses otherpypath "interpreters differ" "interp=/usr/bin/python3.8 (3.8.20, prefix /x/venv-a)"
+check "a shard run by the same version of another python (another interpreter path)" refuses otherpypath "interpreters differ" "interp=/usr/bin/python3.8 (3.8.20, prefix /x/venv-a)"
 check "a shard run by another venv on the same base interpreter (another sys.prefix)" refuses otherprefix "interpreters differ" "interp=/x/python3.8 (3.8.20, prefix /x/venv-b)"
 check "a shard whose log has no interpreter line" refuses nointerp "no single \`interpreter:\` line" interp=
 check "a shard of a tree with uncommitted changes" refuses uncommitted "UNCOMMITTED" "extra= +UNCOMMITTED changes in the subject or its suites"

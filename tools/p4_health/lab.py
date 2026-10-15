@@ -265,10 +265,11 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
         log(problems[-1])
     else:
         try:
-            # (round 7, finding 4) S0 checked its copy of exercise/ once, right after compile_all, and then handed
-            # it to the shared tree's convert.py as its input: a convert.py that wrote into it would have its
-            # gen_runtime.py run here. Checked again, against the same pinned commit, immediately before it is
-            # loaded. This is before any claim: a refusal is this run's ordinary "could not be set up".
+            # (round 7, finding 4) S0 checks its copy of exercise/ twice, right after compile_all and again right after
+            # packages() (the shared tree's convert.py gets the copy as its input in between). Its self-checks and
+            # controller trial run after that second check, so the copy is checked here once more, against the same
+            # pinned commit, immediately before gen_runtime.py is loaded from it. This is before any claim: a refusal
+            # is this run's ordinary "could not be set up".
             if getattr(frozen, "head", None):
                 frozen.check_exercise(os.path.join(run_dir, "exercise"))
             model = load_model(os.path.join(run_dir, "exercise"))

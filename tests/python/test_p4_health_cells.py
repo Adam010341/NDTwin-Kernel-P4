@@ -1599,7 +1599,7 @@ class TestS0Pieces(unittest.TestCase):
 # --- Cut 2 -----------------------------------------------------------------------------------------
 
 def _sig_names(sigs):
-    return ", ".join(sorted(getattr(x, "name", str(x)) for x in sigs)) or "-"
+    return ", ".join(sorted(getattr(x, "name", str(x)) for x in sigs)) or "none"
 
 
 def _assert_the_signal_mask_is_unchanged_then_put_it_back(mask0, when):
@@ -1625,6 +1625,38 @@ def _assert_the_signal_mask_is_unchanged_then_put_it_back(mask0, when):
                              "blocked): a mask was not put back" % (when, _sig_names(set(now) - set(mask0)),
                                                                     _sig_names(set(mask0) - set(now)),
                                                                     _sig_names(mask0)))
+
+
+class TestSignalMaskHelper(unittest.TestCase):
+    """(round 10) The end-of-test mask check is what every Cut 2 test relies on to see a block never lifted (or one
+    lifted that the test did not make), so it is pinned itself. SIGUSR1 stands for the signal: nothing sends it.
+    [Co-developed with claude code -- Adam]"""
+
+    def setUp(self):
+        import signal
+        self.sig = signal.SIGUSR1
+        self.start = signal.pthread_sigmask(signal.SIG_BLOCK, ())
+        self.addCleanup(signal.pthread_sigmask, signal.SIG_SETMASK, self.start)
+        self.assertNotIn(self.sig, self.start, "the suite was started with SIGUSR1 blocked")
+
+    def test_the_signal_mask_helper_passes_a_mask_that_is_what_the_test_started_with(self):
+        _assert_the_signal_mask_is_unchanged_then_put_it_back(self.start, "at the end of the test")
+
+    def test_the_signal_mask_helper_names_a_block_the_test_left_up(self):
+        import signal
+        signal.pthread_sigmask(signal.SIG_BLOCK, [self.sig])
+        with self.assertRaises(AssertionError) as ctx:
+            _assert_the_signal_mask_is_unchanged_then_put_it_back(self.start, "at the end of the test")
+        self.assertIn("the signals SIGUSR1 were still blocked and none no longer were", str(ctx.exception))
+        self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, ()), self.start)       # put back, all the same
+
+    def test_the_signal_mask_helper_names_a_block_it_finds_lifted_that_the_test_did_not_make(self):
+        import signal
+        started_with = set(self.start) | {self.sig}                  # a test that began with the block up ...
+        with self.assertRaises(AssertionError) as ctx:              # ... and ends with it lifted
+            _assert_the_signal_mask_is_unchanged_then_put_it_back(started_with, "at the end of the test")
+        self.assertIn("the signals none were still blocked and SIGUSR1 no longer were", str(ctx.exception))
+        self.assertEqual(set(signal.pthread_sigmask(signal.SIG_BLOCK, ())), started_with)    # put back to the first
 
 
 class TestS0Cut2Checks(unittest.TestCase):
@@ -1999,9 +2031,15 @@ class TestS0Cut2Checks(unittest.TestCase):
         # mask it found. The mask this test found is put back at its end, with handlers that do nothing in place, so
         # a stop a broken trial left pending is not delivered to the default action (which ends the suite).
         # [Co-developed with claude code -- Adam]
+        # (round 10) Handlers that do nothing go in BEFORE the unblock: a stop already pending while the mask held it
+        # (sent by something outside the suite) is delivered by the unblock, and to the default action it would end
+        # the suite. The recording handlers go in once that is over.
+        old = {s: signal.signal(s, lambda n, f: None) for s in self.stops()}
         found = signal.pthread_sigmask(signal.SIG_UNBLOCK, self.stops())
-        old = {s: signal.signal(s, lambda n, f: (seen_inside if in_trial[0] else seen_after).append(n))
-               for s in self.stops()}
+        for _ in range(2000):
+            pass                                            # a stop pending from before is delivered here, to nothing
+        for s in self.stops():
+            signal.signal(s, lambda n, f: (seen_inside if in_trial[0] else seen_after).append(n))
 
         def trial(build, bmv2, cli, work):
             in_trial[0] = True
@@ -3066,15 +3104,12 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         shutil.copytree(os.path.join(repo, "tools", "p4_health", "exercise"), copy)
         return fz, copy
 
-    def test_the_exercise_copy_check_passes_for_the_tree_the_commit_has_and_ignores_build_output(self):
+    def test_the_exercise_copy_check_passes_for_the_tree_the_commit_has_with_build_output_beside_it(self):
         fz, copy = self.freeze_with_exercise()
         os.makedirs(os.path.join(copy, "build"))
         with open(os.path.join(copy, "build", "hc_main.json"), "w") as fh:
             fh.write("{}")
         os.makedirs(os.path.join(copy, "build-mutant"))
-        os.makedirs(os.path.join(copy, "__pycache__"))
-        with open(os.path.join(copy, "__pycache__", "gen_runtime.cpython-313.pyc"), "wb") as fh:
-            fh.write(b"x")
         fz.check_exercise(copy)
 
     def test_the_exercise_copy_check_names_the_file_that_differs(self):
@@ -3167,7 +3202,79 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         os.makedirs(os.path.join(copy, "__pycache__"))
         with open(os.path.join(copy, "__pycache__", "gen_runtime.cpython-313.pyc"), "wb") as fh:
             fh.write(b"x")
-        refused_naming("__pycache__/gen_runtime.cpython-313.pyc")
+        refused_naming("__pycache__")
+
+    def test_the_exercise_copy_check_refuses_a_pycache_at_its_first_check_too(self):
+        """(Round 10) Nothing writes a __pycache__ into the copy, so one is refused at every check, the first included
+        (it used to be recorded there and compared afterwards), wherever it sits and whether or not it holds a file.
+        [Co-developed with claude code -- Adam]"""
+        import shutil
+        from p4_health import frozen as FZ
+        fz, copy = self.freeze_with_exercise()
+
+        def refused():
+            with self.assertRaises(FZ.Refused) as ctx:
+                fz.check_exercise(copy)
+            self.assertIn("__pycache__", str(ctx.exception))
+        pyc = os.path.join(copy, "__pycache__")
+        os.makedirs(pyc)
+        with open(os.path.join(pyc, "x.pyc"), "wb") as fh:
+            fh.write(b"x")
+        refused()                                   # in the copy's own root, and it is the FIRST check
+        shutil.rmtree(pyc)
+        nested = os.path.join(copy, "build", "__pycache__")
+        os.makedirs(nested)
+        with open(os.path.join(nested, "x.pyc"), "wb") as fh:
+            fh.write(b"x")
+        refused()                                   # under a build directory
+        shutil.rmtree(os.path.join(copy, "build"))
+        os.makedirs(pyc)
+        refused()                                   # a directory with nothing in it
+        os.rmdir(pyc)
+        fz.check_exercise(copy)                     # the control: with none of them the first check passes
+
+    def test_the_exercise_copy_check_refuses_a_copy_root_that_is_a_link(self):
+        """(Round 10) The copy root itself may not be a link: the tree behind it is whatever the link points at now."""
+        from p4_health import frozen as FZ
+        fz, copy = self.freeze_with_exercise()
+        real = copy + "-real"
+        os.rename(copy, real)
+        fz.check_exercise(real)                     # the control: the same tree through no link passes
+        os.symlink(real, copy)
+        with self.assertRaises(FZ.Refused) as ctx:
+            fz.check_exercise(copy)
+        self.assertIn("link", str(ctx.exception))
+
+    def test_a_second_check_through_the_same_path_compares_with_the_first_when_a_parent_link_is_re_pointed(self):
+        """(Round 10) The first check of a path records what its copy holds beside the commit's files; the record is
+        kept under that path as given, not under the directory it resolved to, so the same path checked again after
+        a link in it was re-pointed at another tree is compared with that record and not recorded afresh."""
+        import shutil
+        from p4_health import frozen as FZ
+        fz, copy = self.freeze_with_exercise()
+        base = os.path.dirname(copy)
+        trees = []
+        for name, text in (("t1", "{}\n"), ("t2", "{\"other\": 1}\n")):
+            tree = os.path.join(base, name, "exercise")
+            shutil.copytree(copy, tree)
+            os.makedirs(os.path.join(tree, "build"))
+            with open(os.path.join(tree, "build", "hc_main.json"), "w") as fh:
+                fh.write(text)
+            trees.append(os.path.join(base, name))
+        fz.check_exercise(os.path.join(trees[1], "exercise"))       # the control: the second tree is clean on its own
+        link = os.path.join(base, "run")
+        os.symlink(trees[0], link)
+        via = os.path.join(link, "exercise")
+        fz.check_exercise(via)                      # the first check through this path
+        fz.check_exercise(via)                      # unchanged: passes
+        os.remove(link)
+        os.symlink(trees[1], link)                  # same committed files, other build output
+        with self.assertRaises(FZ.Refused) as ctx:
+            fz.check_exercise(via)
+        self.assertIn("build/hc_main.json", str(ctx.exception))
+        os.remove(link)
+        os.symlink(trees[0], link)
+        fz.check_exercise(via)                      # pointed back: passes
 
     def test_the_exercise_copy_check_refuses_a_link_under_a_build_directory(self):
         """(Round 9) The build*/ directories used to be skipped whole; a link in one is refused like one elsewhere,

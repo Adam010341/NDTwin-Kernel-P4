@@ -2938,7 +2938,7 @@ add "C2R6-2h. the check does not leave out what the copy leaves out" \
     "$FROZENPY" \
     'COPY_IGNORE = ("__pycache__", "build*")' \
     'COPY_IGNORE = ("__pycache__",)  # MUTANT' \
-    'test_the_exercise_copy_check_passes_for_the_tree_the_commit_has_and_ignores_build_output'
+    'test_the_exercise_copy_check_passes_for_the_tree_the_commit_has_with_build_output_beside_it'
 
 add "C2R6-2i. probe.py lab lets a refused exercise copy out as a crash" \
     "$PROBEPY" \
@@ -3489,9 +3489,10 @@ add "C2R8-5g. the shard-sum script compares only the interpreter's version, not 
     "$SUMPY" \
     '    interp = one(lines, r"interpreter: (.+)$")' \
     '    interp = one(lines, r"interpreter: .*(\([^()]*\))$")  # MUTANT' \
-    '[a shard run by the same version of another python (another path, say another machine)]'
+    '[a shard run by the same version of another python (another interpreter path)]'
 
-# round 8, finding 2: S0 checks its exercise copy again right after packages(), before the controller trial execs it
+# round 8, finding 2: S0 checks its exercise copy again right after packages(), before its self-checks, which are the
+# first to exec it (the controller trial does later)
 add "C2R8-2a. S0 does not check its exercise copy again after convert.py has had it as input" \
     "$S0PY" \
     '            self.check_exercise_copy()  # [Co-developed with claude code -- Adam]' \
@@ -3574,6 +3575,32 @@ add "C2R9-4a. the trial block is never lifted, seen by the cells suite's end-of-
     '        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
     '        pass  # MUTANT' \
     'test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals'
+
+# round 10: the exercise copy check refuses a copy root that is a link, keys its record by the path as given, refuses a
+# __pycache__ at every check, and refuses a link (or an entry that is not a plain file) among the copy's build outputs
+add "C2R10-1a. the exercise copy check takes a copy root that is a link" \
+    "$FROZENPY" \
+    '        if os.path.islink(copy_dir):' \
+    '        if False:  # MUTANT' \
+    'test_the_exercise_copy_check_refuses_a_copy_root_that_is_a_link'
+
+add "C2R10-1b. the exercise copy's record is keyed by the directory its path resolves to" \
+    "$FROZENPY" \
+    '        key = os.path.abspath(copy_dir)' \
+    '        key = os.path.realpath(copy_dir)  # MUTANT' \
+    'test_a_second_check_through_the_same_path_compares_with_the_first_when_a_parent_link_is_re_pointed'
+
+add "C2R10-2a. the exercise copy check takes a __pycache__ in the copy" \
+    "$FROZENPY" \
+    '            if name == "__pycache__":' \
+    '            if False:  # MUTANT' \
+    'test_the_exercise_copy_check_refuses_a_pycache_at_its_first_check_too'
+
+add "C2R10-3a. the exercise copy check reads a link among the build outputs as the file it points to" \
+    "$FROZENPY" \
+    '            if not stat.S_ISREG(mode):' \
+    '            if False:  # MUTANT' \
+    'test_the_exercise_copy_check_refuses_a_link_under_a_build_directory'
 
 
 CTRL_SRC="$TABLE"

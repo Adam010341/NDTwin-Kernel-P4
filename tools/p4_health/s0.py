@@ -281,8 +281,9 @@ class S0(object):
         mismatch raises frozen.Refused -- `probe.py lab` answers rc 2 before any lab action. S0 on its own
         (no frozen) has no commit to check against. (Cut 2 round 8) Called twice by run(): right after the compile,
         and again right after packages(), because convert.py gets the copy as its input and may write into it. (round 9)
-        The first call is also when the copy's build outputs are recorded (Frozen.check_exercise), so it comes after
-        compile_all and before anything else touches the copy."""
+        The first call is also when the build outputs of the copy are recorded (Frozen.check_exercise): what
+        compile_all's p4c runs wrote, and nothing else, so it comes after compile_all and before anything else touches
+        the copy. (round 10) A __pycache__ in the copy is refused at both calls, never recorded."""
         if self.frozen is not None and getattr(self.frozen, "head", None):
             self.frozen.check_exercise(self.ex)
 

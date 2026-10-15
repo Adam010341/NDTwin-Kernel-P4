@@ -53,8 +53,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 #:     gen_runtime.py itself, first in its self-checks (self_checks -> selfcheck_run -> _switch_inputs) and later in
 #:     the controller trial, after convert.py and before run_lab's check, so it checks the copy once more right
 #:     after packages() (S0.run); a convert.py that edited, added or removed a committed file of the copy is refused
-#:     there, before the self-checks run it. (round 9) The copy's build*/ and __pycache__ are recorded at the first
-#:     check and must be unchanged at the later ones, and every exec of the copy compiles its source itself
+#:     there, before the self-checks run it. (round 9) The copy's build*/ outputs, what compile_all's p4c runs wrote,
+#:     are recorded at the first check and must be unchanged at the later ones (round 10: a __pycache__ in the copy
+#:     is refused at every check), and every exec of the copy compiles its source itself
 #:     (frozen.load_source), so a cached .pyc is never what runs. run_lab's check stays: it is the one that covers
 #:     lab.load_model.
 #:   * files run as scripts from the shared tree, read when they run and checked by nothing: probe.py itself,
