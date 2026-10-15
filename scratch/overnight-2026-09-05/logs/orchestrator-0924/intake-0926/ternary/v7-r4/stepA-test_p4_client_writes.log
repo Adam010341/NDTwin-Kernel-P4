@@ -1,0 +1,264 @@
+commit f703d0ff19a563a9031e8870a79cd66a82d39961
+test_a_refusal_is_not_a_grpc_error_so_no_write_path_can_swallow_it_as_one (__main__.AReadOnlyClientTest.test_a_refusal_is_not_a_grpc_error_so_no_write_path_can_swallow_it_as_one) ... ok
+test_a_table_read_carries_no_election_id_at_all (__main__.AReadOnlyClientTest.test_a_table_read_carries_no_election_id_at_all) ... ok
+test_a_table_read_works_and_writes_nothing (__main__.AReadOnlyClientTest.test_a_table_read_works_and_writes_nothing) ... ok
+test_a_writing_client_is_unaffected (__main__.AReadOnlyClientTest.test_a_writing_client_is_unaffected) ... ok
+test_an_external_client_refuses_a_clone_session (__main__.AReadOnlyClientTest.test_an_external_client_refuses_a_clone_session) ... ok
+test_an_external_client_refuses_a_packet_out (__main__.AReadOnlyClientTest.test_an_external_client_refuses_a_packet_out) ... ok
+test_an_external_client_refuses_a_pipeline_push (__main__.AReadOnlyClientTest.test_an_external_client_refuses_a_pipeline_push) ... ok
+test_an_external_client_refuses_every_table_write (__main__.AReadOnlyClientTest.test_an_external_client_refuses_every_table_write) ... ok
+test_it_never_reports_a_live_stream (__main__.AReadOnlyClientTest.test_it_never_reports_a_live_stream) ... ok
+test_it_opens_no_stream_and_starts_no_receiver_thread (__main__.AReadOnlyClientTest.test_it_opens_no_stream_and_starts_no_receiver_thread) ... ok
+test_reads_are_untouched_because_they_need_no_election_id (__main__.AReadOnlyClientTest.test_reads_are_untouched_because_they_need_no_election_id) ... ok
+test_the_egress_counter_read_works (__main__.AReadOnlyClientTest.test_the_egress_counter_read_works) ... ok
+test_a_duplicate_insert_retries_as_a_modify_into_the_renamed_table (__main__.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_duplicate_insert_retries_as_a_modify_into_the_renamed_table) ... ok
+test_a_renamed_insert_goes_into_the_renamed_table_through_the_renamed_action (__main__.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_insert_goes_into_the_renamed_table_through_the_renamed_action) ... ok
+test_a_renamed_modify_and_delete_use_the_renamed_table_too (__main__.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_modify_and_delete_use_the_renamed_table_too) ... ok
+test_a_renamed_route_is_dated_under_the_table_name_the_read_back_reports (__main__.ARenamedBindingIsWhatGoesOnTheWireTest.test_a_renamed_route_is_dated_under_the_table_name_the_read_back_reports) ... ok
+test_the_delete_read_back_looks_in_the_renamed_table_under_the_renamed_field (__main__.ARenamedBindingIsWhatGoesOnTheWireTest.test_the_delete_read_back_looks_in_the_renamed_table_under_the_renamed_field) ... ok
+test_the_parameters_go_by_name_to_their_own_ids_and_the_port_is_one_byte (__main__.ARenamedBindingIsWhatGoesOnTheWireTest.test_the_parameters_go_by_name_to_their_own_ids_and_the_port_is_one_byte) ... ok
+test_a_default_action_is_marked_as_one_and_carries_no_match (__main__.BuildTableEntryTest.test_a_default_action_is_marked_as_one_and_carries_no_match) ... ok
+test_a_default_action_that_also_names_a_match_is_refused (__main__.BuildTableEntryTest.test_a_default_action_that_also_names_a_match_is_refused) ... ok
+test_a_match_field_this_table_does_not_have_is_a_keyerror (__main__.BuildTableEntryTest.test_a_match_field_this_table_does_not_have_is_a_keyerror) ... ok
+test_a_null_or_zero_priority_is_accepted_because_it_asks_for_nothing (__main__.BuildTableEntryTest.test_a_null_or_zero_priority_is_accepted_because_it_asks_for_nothing) ... ok
+test_a_prefix_length_outside_the_field_width_is_refused (__main__.BuildTableEntryTest.test_a_prefix_length_outside_the_field_width_is_refused) ... ok
+test_a_priority_on_a_table_with_no_priority_column_is_refused (__main__.BuildTableEntryTest.test_a_priority_on_a_table_with_no_priority_column_is_refused) ... ok
+test_a_range_field_is_unsupported_and_says_RANGE (__main__.BuildTableEntryTest.test_a_range_field_is_unsupported_and_says_RANGE) ... ok
+test_a_table_this_pipeline_does_not_have_is_a_keyerror_naming_it (__main__.BuildTableEntryTest.test_a_table_this_pipeline_does_not_have_is_a_keyerror_naming_it) ... ok
+test_a_ternary_field_is_unsupported_and_says_which_match_type_it_is (__main__.BuildTableEntryTest.test_a_ternary_field_is_unsupported_and_says_which_match_type_it_is) ... ok
+test_an_action_parameter_this_action_does_not_have_is_a_keyerror (__main__.BuildTableEntryTest.test_an_action_parameter_this_action_does_not_have_is_a_keyerror) ... ok
+test_an_exact_entry_carries_a_plain_value (__main__.BuildTableEntryTest.test_an_exact_entry_carries_a_plain_value) ... ok
+test_an_exact_field_given_a_pair_is_refused (__main__.BuildTableEntryTest.test_an_exact_field_given_a_pair_is_refused) ... ok
+test_an_lpm_entry_carries_the_value_and_the_prefix_length_it_was_given (__main__.BuildTableEntryTest.test_an_lpm_entry_carries_the_value_and_the_prefix_length_it_was_given) ... ok
+test_an_lpm_field_given_a_bare_value_is_refused_rather_than_assumed_to_be_a_host_route (__main__.BuildTableEntryTest.test_an_lpm_field_given_a_bare_value_is_refused_rather_than_assumed_to_be_a_host_route) ... ok
+test_an_omitted_action_parameter_is_refused_rather_than_written_as_zero (__main__.BuildTableEntryTest.test_an_omitted_action_parameter_is_refused_rather_than_written_as_zero) ... ok
+test_an_optional_field_is_unsupported_and_says_OPTIONAL (__main__.BuildTableEntryTest.test_an_optional_field_is_unsupported_and_says_OPTIONAL) ... ok
+test_an_ordinary_entry_is_not_marked_as_the_default (__main__.BuildTableEntryTest.test_an_ordinary_entry_is_not_marked_as_the_default) ... ok
+test_neither_range_nor_optional_reaches_the_switch (__main__.BuildTableEntryTest.test_neither_range_nor_optional_reaches_the_switch) ... ok
+test_the_action_parameters_go_in_by_name_with_the_widths_the_p4info_declares (__main__.BuildTableEntryTest.test_the_action_parameters_go_in_by_name_with_the_widths_the_p4info_declares) ... ok
+test_the_match_type_name_comes_from_the_generated_enum (__main__.BuildTableEntryTest.test_the_match_type_name_comes_from_the_generated_enum) ... ok
+test_the_names_may_be_aliases_because_the_tutorials_helper_accepts_both (__main__.BuildTableEntryTest.test_the_names_may_be_aliases_because_the_tutorials_helper_accepts_both) ... ok
+test_the_prefix_length_is_not_pinned_to_the_field_width (__main__.BuildTableEntryTest.test_the_prefix_length_is_not_pinned_to_the_field_width) ... ok
+test_the_channel_does_not_share_the_process_global_subchannel_pool (__main__.ChannelOptionsTest.test_the_channel_does_not_share_the_process_global_subchannel_pool) ... ok
+test_the_target_address_still_reaches_grpc (__main__.ChannelOptionsTest.test_the_target_address_still_reaches_grpc) ... ok
+test_two_clients_for_one_address_each_get_their_own_pool (__main__.ChannelOptionsTest.test_two_clients_for_one_address_each_get_their_own_pool) ... ok
+test_a_canonicalized_readback_still_matches_its_own_entry (__main__.DeleteDisambiguatesBmv2UnknownTest.test_a_canonicalized_readback_still_matches_its_own_entry) ... ok
+test_an_entry_with_another_prefix_length_does_not_block_the_success (__main__.DeleteDisambiguatesBmv2UnknownTest.test_an_entry_with_another_prefix_length_does_not_block_the_success) ... ok
+test_not_found_is_answered_without_a_read (__main__.DeleteDisambiguatesBmv2UnknownTest.test_not_found_is_answered_without_a_read) ... ok
+test_unknown_with_an_unreadable_table_stays_a_failure (__main__.DeleteDisambiguatesBmv2UnknownTest.test_unknown_with_an_unreadable_table_stays_a_failure) ... ok
+test_unknown_with_the_entry_gone_counts_as_success (__main__.DeleteDisambiguatesBmv2UnknownTest.test_unknown_with_the_entry_gone_counts_as_success) ... ok
+test_unknown_with_the_entry_still_present_stays_a_failure (__main__.DeleteDisambiguatesBmv2UnknownTest.test_unknown_with_the_entry_still_present_stays_a_failure) ... ok
+test_a_delete_is_not_retried_as_anything_else (__main__.DeleteRouteTest.test_a_delete_is_not_retried_as_anything_else) ... ok
+test_a_real_delete_failure_is_reported_instead_of_answering_success (__main__.DeleteRouteTest.test_a_real_delete_failure_is_reported_instead_of_answering_success) ... ok
+test_a_successful_delete_reports_true_rather_than_none (__main__.DeleteRouteTest.test_a_successful_delete_reports_true_rather_than_none) ... ok
+test_deleting_something_already_gone_counts_as_success (__main__.DeleteRouteTest.test_deleting_something_already_gone_counts_as_success) ... ok
+test_it_is_a_delete_update_matching_only_the_named_prefix (__main__.DeleteRouteTest.test_it_is_a_delete_update_matching_only_the_named_prefix) ... ok
+test_a_counter_whose_id_is_zero_is_found (__main__.EgressCounterTest.test_a_counter_whose_id_is_zero_is_found) ... ok
+test_a_genuine_zero_is_still_reported_as_zero (__main__.EgressCounterTest.test_a_genuine_zero_is_still_reported_as_zero) ... ok
+test_a_p4info_without_the_counter_raises_rather_than_reporting_zero (__main__.EgressCounterTest.test_a_p4info_without_the_counter_raises_rather_than_reporting_zero) ... ok
+test_a_read_failure_reports_no_sample_rather_than_zero (__main__.EgressCounterTest.test_a_read_failure_reports_no_sample_rather_than_zero) ... WARNING:root:egress counter read failed for port 1: StatusCode.UNAVAILABLE -- reporting no sample, not zero
+ok
+test_a_read_that_returns_no_entry_reports_no_sample (__main__.EgressCounterTest.test_a_read_that_returns_no_entry_reports_no_sample) ... WARNING:root:egress counter read for port 1 returned no counter_entry -- reporting no sample, not zero
+ok
+test_an_unknown_counter_name_raises_and_never_returns_zero (__main__.EgressCounterTest.test_an_unknown_counter_name_raises_and_never_returns_zero) ... ok
+test_bytes_come_back_before_packets (__main__.EgressCounterTest.test_bytes_come_back_before_packets) ... ok
+test_the_counter_is_read_at_the_index_of_the_port (__main__.EgressCounterTest.test_the_counter_is_read_at_the_index_of_the_port) ... ok
+test_a_decimal_or_hex_string_is_read_as_the_integer_it_spells (__main__.EncodeValueTest.test_a_decimal_or_hex_string_is_read_as_the_integer_it_spells) ... ok
+test_a_field_with_no_declared_width_is_refused_rather_than_guessed (__main__.EncodeValueTest.test_a_field_with_no_declared_width_is_refused_rather_than_guessed) ... ok
+test_a_json_boolean_is_not_a_value_for_a_bit_field (__main__.EncodeValueTest.test_a_json_boolean_is_not_a_value_for_a_bit_field) ... ok
+test_a_mac_in_a_field_that_is_not_48_bits_is_refused (__main__.EncodeValueTest.test_a_mac_in_a_field_that_is_not_48_bits_is_refused) ... ok
+test_a_mac_string_is_six_raw_bytes_in_the_order_it_was_written (__main__.EncodeValueTest.test_a_mac_string_is_six_raw_bytes_in_the_order_it_was_written) ... ok
+test_a_negative_value_is_refused_because_p4_fields_are_unsigned (__main__.EncodeValueTest.test_a_negative_value_is_refused_because_p4_fields_are_unsigned) ... ok
+test_a_value_wider_than_its_field_is_refused_rather_than_truncated (__main__.EncodeValueTest.test_a_value_wider_than_its_field_is_refused_rather_than_truncated) ... ok
+test_an_address_in_a_field_that_is_not_32_bits_is_refused (__main__.EncodeValueTest.test_an_address_in_a_field_that_is_not_32_bits_is_refused) ... ok
+test_an_integer_is_ceil_bitwidth_over_eight_bytes_big_endian (__main__.EncodeValueTest.test_an_integer_is_ceil_bitwidth_over_eight_bytes_big_endian) ... ok
+test_an_ipv4_string_is_four_raw_bytes (__main__.EncodeValueTest.test_an_ipv4_string_is_four_raw_bytes) ... ok
+test_a_status_that_cannot_mean_duplicate_is_not_retried (__main__.InsertRouteTest.test_a_status_that_cannot_mean_duplicate_is_not_retried) ... ok
+test_a_successful_insert_reports_true_rather_than_none (__main__.InsertRouteTest.test_a_successful_insert_reports_true_rather_than_none) ... ok
+test_an_already_exists_insert_is_retried_as_a_modify (__main__.InsertRouteTest.test_an_already_exists_insert_is_retried_as_a_modify) ... ok
+test_an_error_that_is_not_a_grpc_error_is_not_caught_and_reported_as_a_write_failure (__main__.InsertRouteTest.test_an_error_that_is_not_a_grpc_error_is_not_caught_and_reported_as_a_write_failure) ... ok
+test_an_insert_and_modify_that_both_fail_is_reported_as_failure (__main__.InsertRouteTest.test_an_insert_and_modify_that_both_fail_is_reported_as_failure) ... ok
+test_the_entry_is_an_insert_into_ipv4_lpm_addressed_to_this_device (__main__.InsertRouteTest.test_the_entry_is_an_insert_into_ipv4_lpm_addressed_to_this_device) ... ok
+test_the_next_hop_mac_goes_in_the_dstAddr_parameter_as_six_raw_bytes (__main__.InsertRouteTest.test_the_next_hop_mac_goes_in_the_dstAddr_parameter_as_six_raw_bytes) ... ok
+test_the_output_port_is_two_bytes_big_endian (__main__.InsertRouteTest.test_the_output_port_is_two_bytes_big_endian) ... ok
+test_the_prefix_length_the_caller_asked_for_is_the_one_sent (__main__.InsertRouteTest.test_the_prefix_length_the_caller_asked_for_is_the_one_sent) ... ok
+test_the_retry_carries_the_new_port_so_a_better_path_actually_takes_effect (__main__.InsertRouteTest.test_the_retry_carries_the_new_port_so_a_better_path_actually_takes_effect) ... ok
+test_the_unknown_status_bmv2_actually_returns_is_also_retried_as_a_modify (__main__.InsertRouteTest.test_the_unknown_status_bmv2_actually_returns_is_also_retried_as_a_modify) ... ok
+test_a_failed_modify_is_reported_as_failure (__main__.ModifyRouteTest.test_a_failed_modify_is_reported_as_failure) ... ok
+test_a_successful_modify_reports_true_rather_than_none (__main__.ModifyRouteTest.test_a_successful_modify_reports_true_rather_than_none) ... ok
+test_it_is_a_modify_update_and_not_an_insert (__main__.ModifyRouteTest.test_it_is_a_modify_update_and_not_an_insert) ... ok
+test_the_modify_carries_the_new_port_and_mac (__main__.ModifyRouteTest.test_the_modify_carries_the_new_port_and_mac) ... ok
+test_a_five_tuple_rule_on_any_foreign_binding_is_refused (__main__.NoBindingNoWriteTest.test_a_five_tuple_rule_on_any_foreign_binding_is_refused) ... ok
+test_a_package_owned_table_is_read_by_ndtwin_and_never_written (__main__.NoBindingNoWriteTest.test_a_package_owned_table_is_read_by_ndtwin_and_never_written) ... ok
+test_an_external_control_plane_refuses_before_the_binding_is_consulted (__main__.NoBindingNoWriteTest.test_an_external_control_plane_refuses_before_the_binding_is_consulted) ... ok
+test_an_unbound_switch_is_never_written_with_ndtwins_literals (__main__.NoBindingNoWriteTest.test_an_unbound_switch_is_never_written_with_ndtwins_literals) ... ok
+test_unbound_on_basics_own_names_is_still_refused (__main__.NoBindingNoWriteTest.test_unbound_on_basics_own_names_is_still_refused) ... ok
+test_a_match_field_is_not_found_on_the_wrong_table (__main__.P4InfoLookupTest.test_a_match_field_is_not_found_on_the_wrong_table) ... ok
+test_an_unknown_action_name_raises (__main__.P4InfoLookupTest.test_an_unknown_action_name_raises) ... ok
+test_an_unknown_action_parameter_raises (__main__.P4InfoLookupTest.test_an_unknown_action_parameter_raises) ... ok
+test_an_unknown_match_field_raises (__main__.P4InfoLookupTest.test_an_unknown_match_field_raises) ... ok
+test_an_unknown_table_name_raises (__main__.P4InfoLookupTest.test_an_unknown_table_name_raises) ... ok
+test_the_egress_port_is_two_bytes_big_endian_under_metadata_id_one (__main__.PacketOutTest.test_the_egress_port_is_two_bytes_big_endian_under_metadata_id_one) ... ok
+test_the_pad_field_the_controller_header_declares_is_present (__main__.PacketOutTest.test_the_pad_field_the_controller_header_declares_is_present) ... ok
+test_the_payload_is_sent_unchanged (__main__.PacketOutTest.test_the_payload_is_sent_unchanged) ... ok
+test_a_failure_carries_the_status_name_as_well_as_the_details (__main__.ProbeTest.test_a_failure_carries_the_status_name_as_well_as_the_details) ... ok
+test_a_non_grpc_exception_is_reported_rather_than_raised (__main__.ProbeTest.test_a_non_grpc_exception_is_reported_rather_than_raised) ... ok
+test_a_switch_that_answers_is_reported_as_ok (__main__.ProbeTest.test_a_switch_that_answers_is_reported_as_ok) ... ok
+test_a_switch_with_no_pipeline_is_not_ok_and_the_detail_says_why (__main__.ProbeTest.test_a_switch_with_no_pipeline_is_not_ok_and_the_detail_says_why) ... ok
+test_an_empty_details_string_still_produces_something_actionable (__main__.ProbeTest.test_an_empty_details_string_still_produces_something_actionable) ... ok
+test_an_error_with_no_status_code_does_not_raise_out_of_the_probe (__main__.ProbeTest.test_an_error_with_no_status_code_does_not_raise_out_of_the_probe) ... ok
+test_it_asks_only_for_the_cookie_so_the_probe_stays_cheap (__main__.ProbeTest.test_it_asks_only_for_the_cookie_so_the_probe_stays_cheap) ... ok
+test_the_deadline_reaches_grpc (__main__.ProbeTest.test_the_deadline_reaches_grpc) ... ok
+test_a_caller_can_tighten_the_deadline (__main__.ReadDeadlineTest.test_a_caller_can_tighten_the_deadline) ... ok
+test_a_table_read_carries_a_deadline (__main__.ReadDeadlineTest.test_a_table_read_carries_a_deadline) ... ok
+test_the_deadline_is_not_so_short_that_a_large_table_is_reported_as_unreadable (__main__.ReadDeadlineTest.test_the_deadline_is_not_so_short_that_a_large_table_is_reported_as_unreadable) ... ok
+test_a_client_that_has_never_read_its_tables_reports_no_count (__main__.ReadTableEntriesTest.test_a_client_that_has_never_read_its_tables_reports_no_count) ... ok
+test_a_default_action_is_flagged_so_it_is_not_read_as_a_match_everything_rule (__main__.ReadTableEntriesTest.test_a_default_action_is_flagged_so_it_is_not_read_as_a_match_everything_rule) ... ok
+test_a_table_read_records_how_many_rows_it_returned (__main__.ReadTableEntriesTest.test_a_table_read_records_how_many_rows_it_returned) ... ok
+test_a_ternary_match_carries_its_mask (__main__.ReadTableEntriesTest.test_a_ternary_match_carries_its_mask) ... ok
+test_action_parameters_are_keyed_by_name (__main__.ReadTableEntriesTest.test_action_parameters_are_keyed_by_name) ... ok
+test_an_empty_table_is_counted_as_zero_rather_than_left_unknown (__main__.ReadTableEntriesTest.test_an_empty_table_is_counted_as_zero_rather_than_left_unknown) ... ok
+test_an_entry_with_no_action_reports_none_rather_than_raising (__main__.ReadTableEntriesTest.test_an_entry_with_no_action_reports_none_rather_than_raising) ... ok
+test_an_id_this_p4info_does_not_describe_becomes_none_rather_than_an_exception (__main__.ReadTableEntriesTest.test_an_id_this_p4info_does_not_describe_becomes_none_rather_than_an_exception) ... ok
+test_an_lpm_match_is_reported_with_its_name_type_value_and_prefix_length (__main__.ReadTableEntriesTest.test_an_lpm_match_is_reported_with_its_name_type_value_and_prefix_length) ... ok
+test_an_ordinary_entry_is_not_flagged_as_default (__main__.ReadTableEntriesTest.test_an_ordinary_entry_is_not_flagged_as_default) ... ok
+test_entities_that_are_not_table_entries_are_skipped (__main__.ReadTableEntriesTest.test_entities_that_are_not_table_entries_are_skipped) ... ok
+test_exact_ternary_and_range_matches_each_report_their_own_type (__main__.ReadTableEntriesTest.test_exact_ternary_and_range_matches_each_report_their_own_type) ... ok
+test_it_asks_for_every_table_rather_than_one (__main__.ReadTableEntriesTest.test_it_asks_for_every_table_rather_than_one) ... ok
+test_priority_is_reported_as_sent (__main__.ReadTableEntriesTest.test_priority_is_reported_as_sent) ... ok
+test_the_age_of_the_count_advances_with_the_clock (__main__.ReadTableEntriesTest.test_the_age_of_the_count_advances_with_the_clock) ... ok
+test_the_table_and_action_ids_are_resolved_to_names (__main__.ReadTableEntriesTest.test_the_table_and_action_ids_are_resolved_to_names) ... ok
+test_a_client_that_was_never_started_is_not_alive (__main__.StreamAliveTest.test_a_client_that_was_never_started_is_not_alive) ... ok
+test_a_dead_receiver_thread_means_the_stream_is_broken (__main__.StreamAliveTest.test_a_dead_receiver_thread_means_the_stream_is_broken) ... ok
+test_a_running_client_with_a_live_receiver_thread_is_alive (__main__.StreamAliveTest.test_a_running_client_with_a_live_receiver_thread_is_alive) ... ok
+test_no_receiver_thread_at_all_is_not_alive_rather_than_an_attribute_error (__main__.StreamAliveTest.test_no_receiver_thread_at_all_is_not_alive_rather_than_an_attribute_error) ... ok
+test_a_clone_session_write_carries_this_clients_election_id (__main__.TheElectionIdOnEveryRequestTest.test_a_clone_session_write_carries_this_clients_election_id) ... ok
+test_a_five_tuple_delete_carries_this_clients_election_id (__main__.TheElectionIdOnEveryRequestTest.test_a_five_tuple_delete_carries_this_clients_election_id) ... ok
+test_a_five_tuple_insert_carries_this_clients_election_id (__main__.TheElectionIdOnEveryRequestTest.test_a_five_tuple_insert_carries_this_clients_election_id) ... ok
+test_a_five_tuple_modify_carries_this_clients_election_id (__main__.TheElectionIdOnEveryRequestTest.test_a_five_tuple_modify_carries_this_clients_election_id) ... ok
+test_a_pipeline_push_carries_this_clients_election_id (__main__.TheElectionIdOnEveryRequestTest.test_a_pipeline_push_carries_this_clients_election_id) ... ok
+test_an_ipv4_route_delete_carries_this_clients_election_id (__main__.TheElectionIdOnEveryRequestTest.test_an_ipv4_route_delete_carries_this_clients_election_id) ... ok
+test_an_ipv4_route_insert_carries_this_clients_election_id (__main__.TheElectionIdOnEveryRequestTest.test_an_ipv4_route_insert_carries_this_clients_election_id) ... ok
+test_an_ipv4_route_modify_carries_this_clients_election_id (__main__.TheElectionIdOnEveryRequestTest.test_an_ipv4_route_modify_carries_this_clients_election_id) ... ok
+test_the_arbitration_bid_carries_both_halves_of_this_clients_election_id (__main__.TheElectionIdOnEveryRequestTest.test_the_arbitration_bid_carries_both_halves_of_this_clients_election_id) ... ok
+test_the_default_is_still_the_literal_zero_one_the_fabric_has_always_bid (__main__.TheElectionIdOnEveryRequestTest.test_the_default_is_still_the_literal_zero_one_the_fabric_has_always_bid) ... ok
+test_every_case_was_captured_and_none_is_empty (__main__.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_case_was_captured_and_none_is_empty) ... ok
+test_every_request_is_byte_identical_to_the_one_the_base_sent (__main__.TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest.test_every_request_is_byte_identical_to_the_one_the_base_sent) ... ok
+test_a_delete_carries_a_deadline (__main__.WriteDeadlineTest.test_a_delete_carries_a_deadline) ... ok
+test_an_insert_carries_a_deadline (__main__.WriteDeadlineTest.test_an_insert_carries_a_deadline) ... ok
+test_the_deadline_is_not_so_short_that_a_slow_table_write_is_reported_as_failed (__main__.WriteDeadlineTest.test_the_deadline_is_not_so_short_that_a_slow_table_write_is_reported_as_failed) ... ok
+test_a_default_action_insert_is_sent_as_a_modify_and_says_so (__main__.WriteTableEntryTest.test_a_default_action_insert_is_sent_as_a_modify_and_says_so) ... ok
+test_a_delete_forgets_the_stamp_so_the_next_rule_does_not_inherit_its_age (__main__.WriteTableEntryTest.test_a_delete_forgets_the_stamp_so_the_next_rule_does_not_inherit_its_age) ... ok
+test_a_delete_may_omit_the_action_because_it_names_the_entry_not_what_it_did (__main__.WriteTableEntryTest.test_a_delete_may_omit_the_action_because_it_names_the_entry_not_what_it_did) ... ok
+test_a_grpc_refusal_is_raised_and_not_retried_as_a_modify (__main__.WriteTableEntryTest.test_a_grpc_refusal_is_raised_and_not_retried_as_a_modify) ... ok
+test_a_priority_this_table_cannot_honour_reaches_no_switch (__main__.WriteTableEntryTest.test_a_priority_this_table_cannot_honour_reaches_no_switch) ... ok
+test_a_read_only_client_writes_no_table_entry (__main__.WriteTableEntryTest.test_a_read_only_client_writes_no_table_entry) ... ok
+test_a_refused_write_dates_nothing (__main__.WriteTableEntryTest.test_a_refused_write_dates_nothing) ... ok
+test_an_accepted_write_is_dated_so_its_age_can_be_reported (__main__.WriteTableEntryTest.test_an_accepted_write_is_dated_so_its_age_can_be_reported) ... ok
+test_an_insert_is_an_insert_addressed_to_this_device_with_this_election_id (__main__.WriteTableEntryTest.test_an_insert_is_an_insert_addressed_to_this_device_with_this_election_id) ... ok
+test_an_insert_that_omits_the_action_is_refused_and_nothing_is_written (__main__.WriteTableEntryTest.test_an_insert_that_omits_the_action_is_refused_and_nothing_is_written) ... ok
+test_an_over_wide_value_reaches_no_switch (__main__.WriteTableEntryTest.test_an_over_wide_value_reaches_no_switch) ... ok
+test_an_unknown_op_is_refused_and_nothing_is_written (__main__.WriteTableEntryTest.test_an_unknown_op_is_refused_and_nothing_is_written) ... ok
+test_an_unknown_table_reaches_no_switch (__main__.WriteTableEntryTest.test_an_unknown_table_reaches_no_switch) ... ok
+test_an_unsupported_match_reaches_no_switch (__main__.WriteTableEntryTest.test_an_unsupported_match_reaches_no_switch) ... ok
+test_modify_and_delete_send_the_update_type_they_name (__main__.WriteTableEntryTest.test_modify_and_delete_send_the_update_type_they_name) ... ok
+
+----------------------------------------------------------------------
+Ran 161 tests in 0.140s
+
+OK
+[1] Added route: 10.0.0.5/32 -> port 4, mac 00:00:00:00:00:05
+[1] external control plane: no arbitration stream, no pipeline push, no writes. This client reads only.
+[1] external control plane: no arbitration stream, no pipeline push, no writes. This client reads only.
+[1] Modified route: 10.0.1.1/32 -> port 3, mac 08:00:00:00:01:11
+[1] Added route: 10.0.1.1/32 -> port 3, mac 08:00:00:00:01:11
+[1] Modified route: 10.0.1.1/32 -> port 4, mac 08:00:00:00:01:11
+[1] Deleted route: 10.0.1.1/32
+[1] Added route: 10.0.1.1/32 -> port 3, mac 08:00:00:00:01:11
+[1] Failed to delete route: StatusCode.UNKNOWN - fake failure
+[1] Added route: 10.0.1.1/32 -> port 3, mac 08:00:00:00:01:11
+[1] Failed to delete route: StatusCode.UNKNOWN - 
+[1] Failed to delete route: StatusCode.UNKNOWN - 
+[1] Failed to delete route: StatusCode.UNKNOWN - 
+[1] Failed to delete route: StatusCode.INTERNAL - fake failure
+[1] Failed to delete route: StatusCode.UNAVAILABLE - fake failure
+[1] Deleted route: 10.0.0.4/32
+[1] Deleted route: 10.0.0.4/32
+[1] Failed to add route: StatusCode.PERMISSION_DENIED - fake failure
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Failed to modify route: StatusCode.UNKNOWN - fake failure
+[1] Failed to add route: StatusCode.UNKNOWN - fake failure
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Added route: 10.0.0.4/32 -> port 3, mac de:ad:be:ef:00:04
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Added route: 10.0.0.0/24 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 7, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Failed to modify route: StatusCode.NOT_FOUND - fake failure
+[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 9, mac de:ad:be:ef:00:04
+[1] Clone session 250 -> port 255 installed
+[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.5'} -> port 4
+[1] Setting Forwarding Pipeline Config...
+[1] Deleted route: 10.0.0.5/32
+[1] Added route: 10.0.0.5/32 -> port 4, mac 00:00:00:00:00:05
+[1] Modified route: 10.0.0.5/32 -> port 4, mac 00:00:00:00:00:05
+[1] Added route: 10.0.0.5/32 -> port 4, mac 00:00:00:00:00:05
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 7, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.0/24 -> port 257, mac 0a:0b:0c:0d:0e:0f
+[1] Deleted route: 10.0.0.4/32
+[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 9 (MAC: 00:00:00:00:00:01)
+[1] Added route: 10.0.0.1/32 -> port 9, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[4] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 9 (MAC: 00:00:00:00:00:02)
+[4] Added route: 10.0.0.2/32 -> port 9, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 4 (MAC: 00:00:00:00:00:02)
+[3] Added route: 10.0.0.2/32 -> port 4, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[1] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 7, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.0/24 -> port 257, mac 0a:0b:0c:0d:0e:0f
+[1] Deleted route: 10.0.0.4/32
+[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 9 (MAC: 00:00:00:00:00:01)
+[1] Added route: 10.0.0.1/32 -> port 9, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[4] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 9 (MAC: 00:00:00:00:00:02)
+[4] Added route: 10.0.0.2/32 -> port 9, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 4 (MAC: 00:00:00:00:00:02)
+[3] Added route: 10.0.0.2/32 -> port 4, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[1] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[1] Deleted route: 10.0.0.4/32
+[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Added route: 10.0.0.5/32 -> port 4, mac 00:00:00:00:00:05
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry delete: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry delete: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry modify: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry delete: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+rc=0

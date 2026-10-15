@@ -1,0 +1,38 @@
+[19:54:49.987] [bmv2] [W] [thread 3443455] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[19:54:49.990] [bmv2] [I] [thread 3443455] Starting Thrift server on port 29500
+[19:54:49.990] [bmv2] [I] [thread 3443455] Thrift server was started
+[19:54:52.475] [bmv2] [D] [thread 3443513] simple_switch target has been notified of a config swap
+[19:54:52.522] [bmv2] [E] [thread 3443509] [P4Runtime] Clone session id does not exist
+[19:54:52.524] [bmv2] [D] [thread 3443513] mgrp node created for mgid 32775
+[19:54:52.525] [bmv2] [D] [thread 3443513] node created for rid 1
+[19:54:52.525] [bmv2] [D] [thread 3443513] node associated with mgid 32775
+[19:54:52.526] [bmv2] [D] [thread 3443509] node dissociated with mgid 32775
+[19:54:52.526] [bmv2] [D] [thread 3443509] node destroyed for rid 1
+[19:54:52.526] [bmv2] [D] [thread 3443509] mgrp node deleted for mgid 32775
+[19:54:52.527] [bmv2] [D] [thread 3443513] mgrp node created for mgid 32775
+[19:54:52.527] [bmv2] [D] [thread 3443513] node created for rid 1
+[19:54:52.527] [bmv2] [D] [thread 3443513] node associated with mgid 32775
+[19:54:56.085] [bmv2] [D] [thread 3443509] simple_switch target has been notified of a config swap
+[19:54:56.113] [bmv2] [E] [thread 3443509] [P4Runtime] Cannot find match entry
+[19:54:56.130] [bmv2] [E] [thread 3443509] [P4Runtime] Clone session id does not exist
+[19:54:56.132] [bmv2] [D] [thread 3443596] mgrp node created for mgid 32775
+[19:54:56.132] [bmv2] [D] [thread 3443596] node created for rid 1
+[19:54:56.132] [bmv2] [D] [thread 3443596] node associated with mgid 32775
+[19:54:56.133] [bmv2] [D] [thread 3443509] node dissociated with mgid 32775
+[19:54:56.133] [bmv2] [D] [thread 3443509] node destroyed for rid 1
+[19:54:56.133] [bmv2] [D] [thread 3443509] mgrp node deleted for mgid 32775
+[19:54:56.133] [bmv2] [D] [thread 3443596] mgrp node created for mgid 32775
+[19:54:56.133] [bmv2] [D] [thread 3443596] node created for rid 1
+[19:54:56.133] [bmv2] [D] [thread 3443596] node associated with mgid 32775
+[19:54:59.867] [bmv2] [D] [thread 3443509] simple_switch target has been notified of a config swap
+[19:54:59.898] [bmv2] [E] [thread 3443509] [P4Runtime] Cannot find match entry
+[19:54:59.914] [bmv2] [E] [thread 3443509] [P4Runtime] Clone session id does not exist
+[19:54:59.916] [bmv2] [D] [thread 3443745] mgrp node created for mgid 32775
+[19:54:59.916] [bmv2] [D] [thread 3443745] node created for rid 1
+[19:54:59.916] [bmv2] [D] [thread 3443745] node associated with mgid 32775
+[19:54:59.917] [bmv2] [D] [thread 3443509] node dissociated with mgid 32775
+[19:54:59.917] [bmv2] [D] [thread 3443509] node destroyed for rid 1
+[19:54:59.917] [bmv2] [D] [thread 3443509] mgrp node deleted for mgid 32775
+[19:54:59.918] [bmv2] [D] [thread 3443745] mgrp node created for mgid 32775
+[19:54:59.918] [bmv2] [D] [thread 3443745] node created for rid 1
+[19:54:59.918] [bmv2] [D] [thread 3443745] node associated with mgid 32775

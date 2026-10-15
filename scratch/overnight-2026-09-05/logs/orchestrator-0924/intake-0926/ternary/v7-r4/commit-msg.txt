@@ -1,0 +1,7 @@
+p4 proxy: refuse table-entry writes into tables NDTwin owns
+
+POST /p4/table_entry now answers 409 owned_by_ndtwin for a table NDTwin owns: every table on
+a switch running NDTwin's own pipeline, and the roles.ipv4_route table of a package pipeline
+when its owner is ndtwin. A package's own runtime entries may still set that table's default
+action at startup and after a readopt. The test doubles that model a foreign switch now bind it
+explicitly as one with no roles.

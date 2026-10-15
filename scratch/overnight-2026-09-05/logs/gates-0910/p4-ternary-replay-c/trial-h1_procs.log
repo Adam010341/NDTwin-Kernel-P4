@@ -1,0 +1,6 @@
+2026-10-12T02:58:45+0800 watching the parent chains under pid 3814250
+2026-10-12T02:58:48+0800 started pid 3814320 ppid 3814250 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-h1/switch-stock-1
+2026-10-12T02:58:52+0800 started pid 3814451 ppid 3814250 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-h1/switch-stock-2
+2026-10-12T02:58:55+0800 started pid 3814553 ppid 3814250 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-h1/switch-fast-1
+2026-10-12T02:58:59+0800 started pid 3814693 ppid 3814250 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-h1/switch-fast-2
+2026-10-12T02:59:01+0800 pid 3814250 ended; 4 recorded

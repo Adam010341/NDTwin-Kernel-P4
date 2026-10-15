@@ -1,0 +1,5 @@
+commit 4a4eb94eda029bb55337ee8dbde9065bfb9702ca
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final  tracked-dirty=0  df_free_mb=5380  mem_avail_mb=6827  LANG=en_US.UTF-8 LC_ALL=  command: bash -c grep -nE '[|] *sort( |$)' tests/shell/mutate_p4_health.sh | grep -vF 'LC_ALL=C sort'; echo "bare (not LC_ALL=C) sorts in a pipe: $(grep -nE '[|] *sort( |$)' tests/shell/mutate_p4_health.sh | grep -vcF 'LC_ALL=C sort')"; grep -nE '[|] *sort( |$)' tests/shell/mutate_p4_health.sh
+interpreter bash -> /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+bare (not LC_ALL=C) sorts in a pipe: 0
+rc=1

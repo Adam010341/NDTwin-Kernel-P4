@@ -1,0 +1,3 @@
+[08:35:53.998] [bmv2] [W] [thread 1087903] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[08:35:53.999] [bmv2] [I] [thread 1087903] Starting Thrift server on port 29500
+[08:35:53.999] [bmv2] [I] [thread 1087903] Thrift server was started

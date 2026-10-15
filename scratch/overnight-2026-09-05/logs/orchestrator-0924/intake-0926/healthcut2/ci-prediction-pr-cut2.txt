@@ -1,0 +1,29 @@
+P4 health Cut 2 CI prediction, written from the step 3 runs in healthcut2/pr-cut2/ (call it D). Every command is in D/cmds.log with its exit code; paths below are relative to D. Method as ternary/v7-r4/ci-prediction-pr-v7-r4.txt (same lane scripts, copies in D; env -i, own session via setsid --wait, p4_proxy/venv of the main checkout); disk floor 1700 MB (cmds.log [df] lines, lowest seen 8.4 GB, no waits); no mutate_ gate process at start (cmds.log "[mutate_ gate processes at 2026-10-11 00:16:09: 0]"); step 3 started after driver.done of the other run appeared (cmds.log polls 23:36:09 to 00:16:09, "driver.done present" at 00:16:09).
+
+Commits (D/commits.txt, D/verify-revparse.log, refs resolved with rev-parse --verify ^{commit}):
+  T  refs/heads/trunk-cut2-merge = 18c81892ccad6f98bc89fb208b33187b5fa6d617, tree 0babfed1bdfb9b08214988af8867ebf05888e750, parents 6c1a78c8 (public trunk) and bf6719bf (feat/p4-health-cut2).
+  P  refs/heads/pr/p4-health-cut2 = 9a7bf7d3a8bf1a553e482d6e10eeed3db4d6295a, tree bf230edb7a11a0694313cdadfdecf0fd250f42ec, parent 92c1c77a (public main). 32 files changed vs main (git diff --stat), the 32 non-md paths of 'git diff --name-only main T' (pr-decisions.txt); 'git diff --name-only P T' lists only 17 doc/audit/**/*.md paths (P-vs-T-names.txt, cmds.log).
+  Each clone had refs/remotes/origin/trunk = 6c1a78c8 (verify-revparse.log lines 2,4,6,8).
+
+Result per side (base main 92c1c77a -> P 9a7bf7d3, base trunk 6c1a78c8 -> T 18c81892):
+1. PR side: GREEN.
+   p4lane FAILURES=0 both (p4lane-basemain.log:53, p4lane-pr.log:53); logs identical apart from the commit line and the clone path in line 3. Rows test_table_entry_owner.py "PROVED LESS 46 ran, 1 skipped" and test_table_entry_owner_package.py "PASS 5" are at :46-47 on both (the v7 rows are already on main).
+   klane FAILURES=0 both (klane-basemain.log:128, klane-pr.log:129). Differences besides the commit line, all new or changed rows: test_p4_health_cells.py 99 -> 179 ran (:29), test_p4_health_collect.py 61 -> 183 ran (:30), test_l1_shell_scoring.sh 164 -> 165 ran (:70), new row test_p4_health_gate_scripts.sh PASS 68 (klane-pr.log:108). test_grpc_port_block.py PASS 32 on both (:18).
+   anchors 136/136 cells ok both; mutate_p4_health.sh ok(195) -> ok(438) (anchors-basemain.log:109, anchors-pr.log:109). tmpdirs 420 -> 422 files scanned, 0 fixed paths (tmpdirs-basemain.log:2, tmpdirs-pr.log:2). l1score 164 -> 165 checks, 0 failed, the extra check is "C test_p4_health_gate_scripts.sh prints a summary this scorer reads on its green path" (l1score-basemain.log:187 vs l1score-pr.log:168,188). bashn and pycompile rc=0 on both; the two new .sh files and ctrl_trial.py, frozen.py, lab.py are "missing" on the base side and 0 on the PR side (bashn-basemain.log:3-4, pycompile-basemain.log:6-8 vs bashn-pr.log, pycompile-pr.log). All five check logs end rc=0 on all four sides.
+   builtp4-pr.log (compiled p4info present, not what CI has): test_table_entry_owner 46 OK, test_foreign_pipeline 17 OK, test_table_entry_owner_package 5 OK, rc=0 each.
+2. Trunk side:
+   basetrunk (6c1a78c8): klane FAILURES=1 (klane-basetrunk.log:132), the single failure test_grpc_port_block.py NoLiveDocumentStillNamesTheOldPortBlock, naming tools/p4_health/controller_ext.py:42 (klane-basetrunk.log:18-21). As expected.
+   T (18c81892): klane FAILURES=0 (klane-trunk.log:129); test_grpc_port_block.py PASS 32 (klane-trunk.log:18) - the allowlist fix ae753c29 carried by Cut 2. As expected. Other differences basetrunk -> T, all counts: cells 153 -> 179, collect 162 -> 183, gate_scripts 43 -> 68 (klane-basetrunk.log:32,33,111 vs klane-trunk.log:29,30,108).
+   p4lane FAILURES=0 both (p4lane-basetrunk.log:53, p4lane-trunk.log:53). anchors/tmpdirs/bashn/pycompile/l1score identical between basetrunk and T except mutate_p4_health.sh ok(373) -> ok(438) (anchors-basetrunk.log:109 vs anchors-trunk.log:109) and the clone path in log text.
+   klane-pr.log and klane-trunk.log are identical apart from the commit line (diff empty), and so are the other check logs of pr vs trunk (anchors, tmpdirs, bashn, pycompile, l1score; all diff empty): P and T hold the same non-doc tree below doc/audit/*.md.
+3. The four health-check suites on T, interpreter as the laptop gate, P4_HEALTH_UNDER_TEST unset (cmds.log [p4health-*] lines; each log has `commit` first and rc= last):
+   p4health-cells-trunk.log: python of ryu-env, Ran 179 tests OK (:125,:127), rc=0 (:204)
+   p4health-collect-trunk.log: Ran 183 tests OK, rc=0
+   p4health-recover-trunk.log: bash, Ran 163 checks, 0 failed (:197), rc=0 (:198)
+   p4health-gate_scripts-trunk.log: bash, Ran 68 checks, 0 failed (:79), rc=0 (:80)
+   Counts equal the klane rows of the same side (klane-trunk.log:29,30,108,109).
+
+Observed, nothing else differed from the expectation. Things to know:
+ - D/chk-bashn.sh and D/chk-pycompile.sh list the Cut 2 files (3 .sh, 12 .py) instead of v7's owner files; a missing file prints "missing" and the script goes on (v7's returned 127 on the base side), so bashn-basemain.log is rc=0 with two "missing" lines.
+ - p4health-cells-trunk.log carries stdout of the tests' own subprocesses after the unittest summary (e.g. "S0 PROBE-BROKEN" at :132-135 after "OK" at :127) and a ResourceWarning at the top; rc=0 regardless.
+ - Not measured here: anything with a compiled p4info on the base sides, the gates (mutation, nslab), a Linux hosted runner (this is the laptop with env -i, python 3.13 venv).

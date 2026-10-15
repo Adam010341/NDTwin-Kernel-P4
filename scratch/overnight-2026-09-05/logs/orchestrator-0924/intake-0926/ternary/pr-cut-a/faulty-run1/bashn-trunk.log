@@ -1,0 +1,4 @@
+fatal: cannot change to '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/chk-bashn.sh': Not a directory
+commit 
+stepC.sh: line 22: cd: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/chk-bashn.sh: Not a directory
+rc=1

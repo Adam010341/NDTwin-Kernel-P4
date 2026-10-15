@@ -1,0 +1,25 @@
+built Fri Oct  9 03:32:39 PM CST 2026
+H (fix/p4-writer-owned-tables) 47e3c24bbb3ddc2b86c83dad8db2335267665544  tree 2f9a52e47364c7ddfd5abe3f80308ea7d4afa28f  parent 5cb61b05d95d0e53584424a0ba383871943c9543
+PR commit (branch pr/p4-writer-owned-tables-r2) 1ae607a6d37f5a19140585cccc0afe196c3ad4a9  tree ab9f0f53d1d43fc890d7dbe1e7c3c694d8147717  parent 37e6c79b2c6865e22baa01859a9771f86f7dc7ef (git merge-tree --write-tree 37e6c79b H, clean)
+Trunk squash (branch trunk-v7-squash) 073e758f756e9d437bd2cd51b0e8e27988d89ea6  tree 8a17bff86a6ce3eab2ead3a905c509cf7163ce31  parent d811f871f37d3a22caac214dc837f7223be5cbdb
+git diff --name-only d811f871 073e758f = exactly the 11 files (files11.txt); git diff --name-only 37e6c79b 1ae607a6 = 11 files; those 11 files are byte-equal to H's in both new commits.
+Trunk per-file decisions: all 11 files have d811f871 blob == 60d11501 blob (or absent on both: test_table_entry_owner.py, test_table_entry_owner_package.py, mutate_table_entry_owner.sh), so H's blob taken for all; no merge-file needed, no conflict.
+CHANGELOG.md  T==M (ea50467e094c25c51586bd66eac1aabf0b129214) -> take H blob 722ae9a3629743fb1ef09d5fd27138478451aca8
+p4_proxy/proxy_agent/api_routes.py  T==M (665d9d710604213ed5967a30eeb8d6fc9ae36302) -> take H blob d85bc7080116faf659e0ce7de12e6ba366b9d4b7
+p4_proxy/proxy_agent/main.py  T==M (20a9d6ef4b14a757a9fd811cacfd76f06121ae22) -> take H blob 4a6157e40bfc8cd91bd2e3974d4754a9bb4ed18a
+p4_proxy/proxy_agent/p4_client.py  T==M (6e4082d5d563b1444f0096d7791abfb9522672af) -> take H blob d1a3639bc69ae76ad8acd64835d7e131cf168cac
+p4_proxy/tests/test_exact_one_element_list.py  T==M (de20bd4294007d49a4315cff26441b8a266d4b2e) -> take H blob 8b94f6c11b44574fb338460f141d492bdbc06d7a
+p4_proxy/tests/test_foreign_pipeline.py  T==M (cdac30ceda7b9681a781c89d4104101787033db4) -> take H blob 999ce6d5403cd55b2f1f43cca1f1b4e9d7a78757
+p4_proxy/tests/test_p4_client_writes.py  T==M (d7e6e129242021cc8ef4eeaef13ad98e6ba86688) -> take H blob c62c60f0141d444aa425385492e36230b6dd4806
+p4_proxy/tests/test_table_entry_owner.py  T==M (ABSENT) -> take H blob 71be951e4f6cb50dda94484da69106b36286c044
+p4_proxy/tests/test_table_entry_owner_package.py  T==M (ABSENT) -> take H blob d56c4bc581745c5e7cd92d84471947ce02aac936
+p4_proxy/tests/test_table_entry_route.py  T==M (784a8c35d6063c2ac967690e9b3cf3d547b3bc89) -> take H blob 3de3cfd7a359062c5c889d37f9a32ab4425f8fe1
+tests/shell/mutate_table_entry_owner.sh  T==M (ABSENT) -> take H blob 960aabedeb83d29f517fb94292329a80d3c22359
+local trunk (09b95bb1) and main (37e6c79b) untouched.
+rc=0
+
+UPDATE (orchestrator, after hand-back): the TableOwnedByNDTwin docstring line given in the brief was 158 columns; shortened to 92 columns on the same line (line count unchanged) and the unpushed commit amended.
+  H   fix/p4-writer-owned-tables  = f703d0ff19a563a9031e8870a79cd66a82d39961 tree 9e94d419 parent 5cb61b05 (supersedes 47e3c24b)
+  PR  pr/p4-writer-owned-tables-r2 = 3b3c84eca358afae5c1fa505a5468c91c48b6df8 tree 1119c0f3 parent 37e6c79b (supersedes 1ae607a6; merge-tree clean)
+  TR  trunk-v7-squash             = 6c1a78c8fa80e687889ecb6a401300f2d432808f tree 35e60135 parent d811f871 (supersedes 073e758f; d811f871 blob == 60d11501 blob for all 11 files, re-checked; H's blobs taken)
+  Each differs from its superseded commit only in p4_client.py:125. stepA/stepC shas updated; lib.sh threshold 1700 (standing rule 1700-1800; earlier v7 prediction used 1700). Originals kept as *.orig-*.

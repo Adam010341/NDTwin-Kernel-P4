@@ -1,0 +1,129 @@
+DELIVERED a3c46bb07b795e55586141810c8ee776058f1534
+
+- **Commit**: a3c46bb0, on design/p4-ternary-journal (parent 521a95d1). Not pushed.
+  - I amended once, locally, to correct the commit message: readopt answers 503, it does not make new writes wait.
+- **File**: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-ternary-design/doc/audit/2026-10-04_p4-ternary-journal/DESIGN.md
+  - It is now 845 lines, well past the original ~500. The review's required additions and the A0 fold-in are what made it grow.
+- **Commit message**: a subject line and two sentences, no trailers. I grepped it for the banned words: none.
+- **Evidence archive** (OBSERVED by me; the first line of each file names the commit):
+  - Directory: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/ternary-design/
+  - Files: descriptor.log, pi_strings.log, readelf.log, grep_replay_quarantine.log
+- **A0** (OBSERVED by the other worker, run on throwaway simple_switch_grpc):
+  - Every 【待 A0】 mark is now replaced with 【A0 NN】 citing /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/ternary-a0/.
+  - What I read directly: INDEX.txt, stock/01, the optional part of stock/10, and ternary_a0.py:150-156. Everything else cites INDEX.
+- **Not done**: no code, tests or gates; no lab, sudo, bmv2 or C++.
+- **The flow_5tuple empty-match defect** is written up only in §1.5 of this note, on this unpushed branch, and nowhere else.
+
+## 10-line summary (Traditional Chinese)
+1. API 形狀不變（ternary `[v,m]`、range `[lo,hi]`、optional 單值、頂層 priority）；V4/V5/V6/V8/V9 都是 bmv2 自己就會拒的（A0 01-07、09 實測），本機先回 400，只有 V3（value&~mask）沒量。
+2. 新增 §1.8：bmv2 失敗的 Write 一律是頂層 UNKNOWN、訊息空白，真正的原因在 per-update p4.v1.Error 裡，proxy 從來沒讀 ⇒ 今天每種拒絕都被報成 502 UNKNOWN。新增 E1：502 body 加上 `p4rt_error`。
+3. priority 是身分的一部分：priority 錯的 delete／modify 回 NOT_FOUND、entry 不動（A0 01/02）⇒ 不需要「先讀再寫」；delete_5tuple_rule 的 docstring 和量測不符，記在 §10-14。
+4. PRIORITY_MAX 定為 2^31-1（A0 07，沒有 abort）；bm 內部 priority＝2147483647−p，T4／T7 的 oracle 要換算；thrift 把 optional 顯示成 ternary &&& ff（A0 10）。
+5. 現存缺陷（§1.5）：trunk 上對 flow_5tuple 用空 match POST，會在 ipv4_lpm 前面裝上 catch-all 並回 200；r1 說「501 擋著」是錯的，已更正。
+6. V7 放進 write_table_entry，帶 ruling 8-1 的 default-action 例外，所以 bring-up C 的 default 照常裝上。
+7. Journal 改成每台一個檔，寫交換機＋記錄＋snapshot 在同一把 threading.Lock 下、包成一個 threadpool callable，client 在鎖內查；startup 期間 uvicorn 還沒開始服務，所以不需要 503。
+8. readopt：push 之前設 pending（期間 POST 回 503）並持有鎖，push 之後重新讀檔、折疊、重放、寫 snapshot；push 一律帶 cookie。
+9. 測試：每條路徑都有為自己的理由紅的測試（空 match 路徑，或 A1 先建、A2 再驗）；補上折疊四種結果、「重啟後還在」、隔離檔斷言（殺 M-J4）、Q4／journaled、兩種並行危險、剩下的 501，共 25 顆 R、30 多個 mutant。
+10. Cut 計畫：A＋D（要和健檢線一起合，S0 有兩條 PF-T 檢查）→ B → C；程式約 900 行、測試約 1,300 行、gate 約 350 行。可以等到實作的 MINOR 全部收進 §10 的 1-14 條。
+
+## Revised questions for Adam (DESIGN.md §8)
+
+**Q1. How does the proxy tell a proxy restart on a running fabric from a brand-new fabric?**
+- (a) [recommended] Pipeline cookie. The proxy sets a cookie on every push and reads it with COOKIE_ONLY before the next push.
+  - A0 08 measured that this works: the cookie reads back; a push without a cookie clears it; a fresh bmv2 answers FAILED_PRECONDITION.
+  - Gains: proxy-only, no shell or root changes, decided per switch, and it covers both the ndt and stack.sh bring-up paths.
+  - Costs: every push must carry the cookie. A switch that was power-cycled but not yet readopted, at the moment the proxy restarts, is treated as a new fabric, so its API entries are quarantined and reported.
+- (b) The p4_testbed_topo.py bring_up step writes a fabric_id into the switch manifest.
+  - It covers both paths only if stack.sh's script is p4_testbed_topo.py (inferred).
+  - Unknown: whether the power helper keeps keys it does not know about.
+  - Cannot cover a fabric that has no manifest.
+  - Root must not write into .run/.
+- (c) `ndt up` quarantines the journal itself.
+  - The stack.sh path would not quarantine, so yesterday's rules would come back.
+  - Unlike what r1 claimed, this is not a call site for `quarantine()`.
+- (d) Record the bmv2 pid per entry. Breaks on power-cycle and when there is no manifest.
+- (e) No scoping at all. Not recommended.
+
+**Q2. May the generic writer write tables NDTwin owns?**
+- (a) [recommended] No: answer 409 owned_by_ndtwin, enforced in write_table_entry.
+  - This fixes the catch-all defect and keeps the journal and kernel routing on disjoint tables.
+  - Cost: POSTs that answer 200 today (baseline ipv4_lpm, empty-match flow_5tuple) would answer 409. Every success-path test in test_table_entry_route.py that posts AN_LPM_ENTRY flips, and so do the test doubles in test_p4_client_writes.py.
+  - Sub-choice (a-i) [recommended]: keep the 8-1 exception for default actions. Without it, bring-up C comes up with `failed = 1`.
+  - Sub-choice (a-ii): no exception.
+  - Sub-choice (a-iii): does the roles ticket's "do not edit existing fixtures" rule (p4_client.py:255-257) still hold? Recommended: lift it for those test doubles only, so they can call `bind_routes` explicitly.
+- (b) Block only flow_5tuple.
+  - Still a behaviour change.
+  - API entries in ipv4_lpm would be overwritten by the next link change.
+  - A baseline readopt replay must be added before main.py:1743.
+- (c) Allow everything and only disclose.
+  - The defect stays.
+  - insert_5tuple_rule's MODIFY fallback silently overwrites operator entries with the same key.
+  - Also needs the baseline readopt replay.
+
+**Q3. The second spelling of don't-care (mask 0, full range, lpm /0)?**
+- (a) [recommended] Refuse with 400 and "omit the field".
+  - bmv2 itself already refuses all three (A0 04/05). This only moves the refusal from 502 UNKNOWN to a clear local 400.
+  - As far as the evidence shows, no existing file needs changing.
+- (b) Normalise to omission.
+  - NDTwin would then accept what bmv2 refuses, and be looser than the tutorials' own controller.
+
+**Q4. What should the response be when the journal write fails?**
+- (a) [recommended] 200 with `journaled: false`, increment `failures`, and report the switch as `journaled: false` for the rest of the boot.
+  - Consequence: a missing line can make a later fold wrong, and the entry it covered would be lost.
+- (b) Roll back and answer 507. Infeasible: modify and delete cannot be rolled back.
+
+**Q5. Journal PRE/multicast writes too?**
+- (a) [recommended] Not in this cut.
+- (b) If done, a replay would silently overwrite a package group with the same id: the MODIFY fallback is at p4_client.py:932-946 and :1026-1046, and package PRE entries are applied on every switch. Needs that fixed first, about 150 extra lines.
+
+## Where each review item was addressed (§11 has the full table)
+
+MAJORs:
+- **M1 (Q1)** → §8 Q1 options (a) to (e), and §5.4 step 2.
+- **M2.1 (flow_5tuple facts)** → §1.5, §1.1, §0.
+- **M2.2 (8-1 default-action exception)** → Q2 (a-i)/(a-ii), and §2.2 V7.
+- **M2.3 (where V7 lives)** → §2.2 V7 (in write_table_entry), §4, and the effect on bring-up C.
+- **M2.4 (fixture cost and the roles rule)** → §1.5, Q2's cost, Q2 (a-iii).
+- **M2.5 (readopt replay for (b))** → §5.5, Q2 (b)/(c).
+- **M3 (concurrency)**:
+  - per-switch files → §5.2;
+  - one lock and one threadpool callable, client looked up inside the lock → §5.3;
+  - readopt's pending/lock window and fresh read → §5.5;
+  - no 503 needed at startup → §5.4;
+  - other switches' records survive because of per-switch files → §5.4 step 6.
+- **M4 (tests)**:
+  - every path red for its own reason → §6.1 principle, steps A1/A2, R4 via the empty-match path;
+  - added mutants → §6.3;
+  - fold outcomes → R13;
+  - present after restart, quarantine-file assertion → R14, §3.2-1;
+  - Q4 and `journaled` → R12/R12b;
+  - concurrency → R20 to R22;
+  - remaining 501 → R23;
+  - R18 now asserts the new sentence.
+
+MINORs to fix before the form:
+- Q3 → §8 Q3.
+- Q4(b) infeasible → §8 Q4.
+- Q5(b) hazard → §8 Q5.
+- S0 has two PF-T checks; A must land with D → §1.7, §6.4, §7.
+- boot_identity contract → §5.6.
+- entries-file sha → §5.2, R15.
+- evidence labels → legend at the top, §1.6, and the archive above.
+
+MINORs that can wait for implementation:
+- All of them → §10 items 1 to 12.
+- Two new ones from A0 → §10 items 13 and 14.
+
+Self-contradictions 1 to 8 → listed in §11; the edits are in §6.3, §7, §3.2-3, §5.5, §0/§3.2-1, §2.1, §1.1/§1.5.
+
+A0 fold-in:
+- Sections: legend, §1.5, §1.6, new §1.8, §2.1, §2.2, §3.1, §5.4.
+- Tests and plan: R7b, R24, R25, §6.4, §7.
+- Questions: Q1, Q3.
+- Fixed list: §10 items 6, 7, 13, 14.
+
+## New findings from A0 that this cut does not fix
+- **§10-13**: topology_manager.py:1373-1375 says bmv2 answers COOKIE_ONLY even with no pipeline loaded. A0 08 got FAILED_PRECONDITION instead. If A0 is right, `probe` reports ok False on a power-cycled switch before readopt, which changes how liveness reads it.
+  - This needs its own ticket. I only noted it in the design; I did not spawn a task.
+- **§1.8**: no code anywhere decodes the per-update error. Every switch refusal, across all write paths, is reported as UNKNOWN. In this cut, E1 fixes that only for POST /p4/table_entry.
+- **§10-14**: the delete_5tuple_rule docstring (p4_client.py:1847-1850) is about the kernel's OpenFlow 5-tuple delete path. Measured behaviour contradicts it: a wrong-priority delete there gets NOT_FOUND, and the method returns False.

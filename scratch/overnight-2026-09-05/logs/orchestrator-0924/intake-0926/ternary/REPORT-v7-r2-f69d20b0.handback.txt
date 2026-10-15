@@ -1,0 +1,53 @@
+DELIVERED f69d20b0d8cecfc4400ffcbe4d32a51980b99ed7 (not pushed, worktree clean, df -m / = 1947 MB). The two red suites are now green with your decision A+B applied. The red log for B on 60d11501's production code shows a different red than the brief asked for; see "B" below.
+
+Worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-writer-owned, branch fix/p4-writer-owned-tables.
+
+## Commits on top of 60d11501, in order
+1. `9fdf9cf6` tests: the table-entry writer refuses tables NDTwin owns (unchanged from before)
+2. `ff9147a0` p4 proxy: refuse table-entry writes into tables NDTwin owns (unchanged)
+3. `ab430cdb` tests: bind the basic_tunnel double as a foreign switch with no roles
+4. `6435f75a` tests: the real flow_5tuple p4info is refused as NDTwin's table before its match type — **its own commit, for Adam to confirm before the PR merges**
+5. `f69d20b0` tests: the owner mutation gate also runs the foreign-pipeline suites
+
+No forbidden words and no trailers in any message (grep count 0).
+
+## A (`ab430cdb`)
+- `p4_proxy/tests/test_exact_one_element_list.py`: one `client.bind_routes(None)` in its `a_client`.
+- The comment says a foreign pipeline with no `roles`, as `main.route_binding_for` binds it.
+
+## B (`6435f75a`)
+- Changes one test's expectation in `p4_proxy/tests/test_foreign_pipeline.py`; the shared `a_client` is untouched. The client stays BASELINE; it is not bound to None.
+- The old name became false, so it is now `test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_says_unsupported`.
+- The test now has three steps:
+  - `write_table_entry` of the same spec raises `TableOwnedByNDTwin`; the stub recorded nothing.
+  - `build_table_entry` on the same spec raises `TableEntryUnsupported` naming TERNARY and flow_5tuple.
+  - The stub still has no requests.
+- The comment explains that the owner check answers first on NDTwin's pipeline and the TERNARY refusal happens at the builder.
+- **Red on main's production code**, `L/11_red_foreign_test_on_main_production.log`:
+  - I ran the test commit with `p4_proxy/proxy_agent/` checked out from 60d11501 into the working tree, then restored it. The log header says so.
+  - It is red as an ERROR at test line 211: `write_table_entry` raised `TableEntryUnsupported` (the 501 path) instead of `TableOwnedByNDTwin`. The write is not accepted here, because the old spec carries a ternary match and the builder refuses it first.
+  - So the red is the precedence change itself: the owner check does not answer first on main. It is not a "not raised" failure.
+  - The headline "write accepted" red is the empty-match `flow_5tuple` test in the first commit.
+- **Mutant M1 turns it red.** I added M16 to the gate, which drops the same check as M1, and it names this test: "M16: ... went red".
+
+## Gate change (`f69d20b0`)
+- `tests/shell/mutate_table_entry_owner.sh` now also runs `test_foreign_pipeline` and `test_exact_one_element_list`.
+- It links `tools/` and `p4_proxy/` into the mutant tree and copies `p4_src/build`, as `mutate_table_entry.sh` does.
+- It prints a note if `p4_src/build` is absent. Without the build, M16 cannot be caught and the gate reports a survivor.
+- Hashes now cover five test files.
+
+## Final logs
+All in `/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-writer-owned/` (`L/`). Each starts with `commit f69d20b0...` and `tracked status: 0 modified/staged tracked files`, and ends with `rc=`. They were run with `p4_src/build` present, which I removed afterwards.
+- `L/12_final_touched5_f69d20b0.log`: test_table_entry_owner (40), test_table_entry_route (26), test_p4_client_writes (161), test_exact_one_element_list (14) and test_foreign_pipeline (17) are all OK, rc=0. The foreign suite ran with no skips, so the real-p4info test executed.
+- `L/13_final_full_p4proxy_f69d20b0.log`: all 43 modules rc=0.
+- `L/14_final_gate_owner_f69d20b0.log`: `18 mutations, 0 survived`, baseline byte-identical (five test files), rc=0.
+- `L/15_final_gate_existing_table_entry_f69d20b0.log`: the existing `mutate_table_entry.sh` baseline is now green, `41 mutations, 0 survived`, rc=0.
+- `L/16_final_check_gate_anchors_f69d20b0.log`: 135/135 cells ok, rc=0.
+- `L/17_final_check_test_tmpdirs_f69d20b0.log`: 0 fixed temp paths, rc=0.
+- The earlier logs 00 to 06, 08, 09 and 11 are kept as history. 07 and 10 stay as history of the withdrawn patch.
+- I deleted `optional-bind-unnamed-doubles.patch`.
+- I did not rerun the l1 lane, since you did not ask for it. Its earlier result (`L/08_lane_l1_ff9147a0.log`, 11 problem groups, 9 from the old lane interpreter and worktree, 2 from the unnamed doubles) is superseded by the new green runs for those two suites.
+
+## Flags carried over
+- Items 2 to 4 of my earlier handback (the two-way `source` plumbing, the stricter boot exception, and the refusal order) still stand.
+- Item 1 is resolved by your decision.

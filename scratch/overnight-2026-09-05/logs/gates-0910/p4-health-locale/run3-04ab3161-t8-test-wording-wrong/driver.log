@@ -1,0 +1,10 @@
+2026-10-12T16:00:22+08:00 driver start pid 1344187, clone HEAD 04ab31617354101aa49ab6f56c52838f5984962f, LANG=en_US.UTF-8 LC_ALL=
+2026-10-12T16:00:22+08:00 [p4h.cells] start (avail 4094 MB)
+2026-10-12T16:00:25+08:00 [p4h.cells] end rc=0 :: Ran 191 tests in 2.968s FAILED (failures=1) 
+2026-10-12T16:00:25+08:00 [p4h.cells.py38] start (avail 4010 MB)
+2026-10-12T16:00:29+08:00 [p4h.cells.py38] end rc=0 :: FAILED (failures=1) checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T16:00:29+08:00 [p4h.collect] start (avail 4002 MB)
+2026-10-12T16:00:32+08:00 [p4h.collect] end rc=0 :: Ran 192 tests in 3.606s OK 
+2026-10-12T16:00:32+08:00 [p4h.collect.py38] start (avail 4047 MB)
+2026-10-12T16:00:37+08:00 [p4h.collect.py38] end rc=0 :: Ran 192 tests in 3.931s OK 
+2026-10-12T16:00:37+08:00 [p4h.recover] start (avail 4092 MB)

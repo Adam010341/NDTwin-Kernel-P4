@@ -1,0 +1,137 @@
+commit 8918d051eed25427a49e2544ba84b52b7c6e6571
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate  tracked-dirty=0  df_free_mb=5390  mem_avail_mb=6684  LANG=en_US.UTF-8 LC_ALL=  command: env ONLY_LABEL_PREFIX=C2R7-1 bash tests/shell/mutate_p4_health.sh
+interpreter bash -> /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+gate       : tests/shell/mutate_p4_health.sh
+cwd        : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate
+interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20, prefix /home/adam/miniconda3/envs/ryu-env)
+subject    : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health
+HEAD       : 8918d051eed25427a49e2544ba84b52b7c6e6571 (commit)
+tree       : 2af03ea11cb1f69461eb2018db46c95838050f89 (git tree of tools/p4_health at HEAD)
+subject sha: af6202c51e92093e
+gates sum  : 0b630bee30eb5579
+
+NOT THE GATE: only labels starting C2R7-1 (18 mutations)
+
+=== BASELINE: every suite green against the real files ===
+  ok       baseline green
+
+=== C2R7-1a. run_lab does not look at the process's threads ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim
+     also red: test_a_proc_that_cannot_be_read_is_a_refusal_not_a_pass test_a_running_thread_that_does_not_block_sighup_is_refused_too test_a_running_thread_that_does_not_block_sigint_is_refused_too test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim test_a_thread_whose_status_cannot_be_read_or_has_no_sigblk_line_is_a_refusal test_a_thread_with_only_two_of_the_three_bits_set_is_named_in_the_refusal test_every_thread_that_does_not_block_them_is_named
+
+=== C2R7-1b. the thread check leaves SIGHUP out ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_running_thread_that_does_not_block_sighup_is_refused_too
+     also red: test_a_running_thread_that_does_not_block_sighup_is_refused_too test_every_thread_that_does_not_block_them_is_named
+
+=== C2R7-1c. the thread check leaves SIGINT out ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_running_thread_that_does_not_block_sigint_is_refused_too
+     also red: test_a_running_thread_that_does_not_block_sigint_is_refused_too
+
+=== C2R7-1d. the thread check leaves SIGTERM out ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim
+     also red: test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim test_a_thread_with_only_two_of_the_three_bits_set_is_named_in_the_refusal
+
+=== C2R7-1e. the calling thread is judged like the others ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_the_calling_thread_is_not_judged_and_threads_that_block_all_three_signals_pass
+     also red: test_a_b_that_confirmed_most_of_its_attributions_is_not_a_failed_b test_a_b_that_lost_two_calls_is_not_a_failed_b test_a_claim_lost_in_a_keeps_b_out test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_controller_that_never_gets_ready_is_incomplete test_a_failed_down_in_a_keeps_b_out test_a_failed_kill_in_a_keeps_b_out test_a_leftover_lab_state_is_incomplete_rc_2_and_stays_for_recover test_a_recorded_stop_overrides_a_probe_broken_cell test_a_refused_claim_makes_the_run_incomplete test_a_round_cut_off_before_its_record_was_finished_is_not_complete_in_health_json test_a_round_that_cannot_be_built_ends_the_run_incomplete_with_the_earlier_rounds_kept test_a_running_thread_started_with_the_three_signals_blocked_does_not_stop_the_run_or_lose_the_stop test_a_second_stop_while_run_lab_handles_the_first_gives_rc_2_not_pythons_status_1 test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass test_a_see_red_run_whose_mutant_is_not_caught_is_not_a_pass test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete test_a_see_red_run_with_a_problem_of_the_run_is_incomplete test_a_see_red_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_signal_between_the_rounds_ends_the_run test_a_signal_in_an_observer_ends_the_run test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there test_a_stop_between_the_rounds_overrides_a_probe_broken_cell test_a_stop_during_a_teardown_ends_the_run_before_b_claims test_a_stop_during_b_teardown_is_not_complete test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record test_a_then_b_then_the_verdicts test_an_exception_after_a_rounds_record_is_final_keeps_that_rounds_record test_b_controller_is_recorded_when_the_run_dir_path_has_a_link test_b_on_a_fabric_that_is_not_external_is_incomplete test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy test_b_whose_controller_cannot_be_started_is_a_failed_b test_b_whose_controller_is_not_primary_on_s2_is_a_failed_b test_b_whose_controller_never_gets_ready_is_a_failed_b test_b_whose_controller_reached_no_switch_is_a_failed_b test_b_whose_controller_writes_no_result_is_a_failed_b test_b_whose_fabric_is_not_external_is_a_failed_b test_b_whose_result_file_is_unreadable_is_a_failed_b test_b_whose_sniffer_is_not_ready_is_a_failed_b test_each_bring_ups_last_state_is_kept test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir test_run_lab_puts_the_handlers_it_found_back_when_it_ends test_run_lab_runs_the_frozen_code_it_is_given test_the_calling_thread_is_not_judged_and_threads_that_block_all_three_signals_pass test_the_observations_a_run_writes_carry_what_the_offline_judge_reads test_the_see_red_run_uses_the_mutant_package_and_only_its_cells
+
+=== C2R7-1f. a /proc that cannot be listed passes ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_proc_that_cannot_be_read_is_a_refusal_not_a_pass
+     also red: test_a_proc_that_cannot_be_read_is_a_refusal_not_a_pass
+
+=== C2R7-1g. a thread whose mask cannot be read passes ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_thread_whose_status_cannot_be_read_or_has_no_sigblk_line_is_a_refusal
+     also red: test_a_thread_whose_status_cannot_be_read_or_has_no_sigblk_line_is_a_refusal
+
+=== C2R7-1h. only the first thread that can take a stop is named ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_every_thread_that_does_not_block_them_is_named
+     also red: test_every_thread_that_does_not_block_them_is_named
+
+=== C2R7-1i. a thread that blocks only part of the three passes when it blocks any of them ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_thread_with_only_two_of_the_three_bits_set_is_named_in_the_refusal
+     also red: test_a_running_thread_that_does_not_block_sighup_is_refused_too test_a_running_thread_that_does_not_block_sigint_is_refused_too test_a_thread_with_only_two_of_the_three_bits_set_is_named_in_the_refusal test_every_thread_that_does_not_block_them_is_named
+
+=== C2R7-1j. the refusal is written down and the run goes on ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim
+     also red: test_a_proc_that_cannot_be_read_is_a_refusal_not_a_pass test_a_running_thread_that_does_not_block_sighup_is_refused_too test_a_running_thread_that_does_not_block_sigint_is_refused_too test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim test_a_thread_whose_status_cannot_be_read_or_has_no_sigblk_line_is_a_refusal test_a_thread_with_only_two_of_the_three_bits_set_is_named_in_the_refusal test_every_thread_that_does_not_block_them_is_named
+
+=== C2R7-1k. the ValueSet trial runs without the stops blocked ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+     also red: test_a_stop_during_the_trial_ends_an_unhandled_process_only_after_the_trial_is_over test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+
+=== C2R7-1l. the trial block does not block ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+     also red: test_a_stop_during_the_trial_ends_an_unhandled_process_only_after_the_trial_is_over test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+
+=== C2R7-1m. the trial block leaves SIGHUP out ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+     also red: test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+
+=== C2R7-1n. the trial block is never lifted ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+     also red: test_a_stop_during_the_trial_ends_an_unhandled_process_only_after_the_trial_is_over test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+
+=== C2R7-1o. the trial block is lifted only when the trial does not raise ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded
+     also red: test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded
+
+=== C2R7-1p. a throwaway switch keeps the blocked stops ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/throwaway.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_throwaway_switch_does_not_inherit_the_blocked_stops
+     also red: test_a_throwaway_switch_does_not_inherit_the_blocked_stops
+
+=== C2R7-1q. a throwaway switch is given back only SIGHUP and SIGINT ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/throwaway.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_throwaway_switch_does_not_inherit_the_blocked_stops
+     also red: test_a_throwaway_switch_does_not_inherit_the_blocked_stops
+
+=== C2R7-1r. a stop during the trial is dropped, not held ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-HT2W4A)
+  anchor occurrences: 1
+  ✅ caught by test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back
+     also red: test_a_stop_during_the_trial_ends_an_unhandled_process_only_after_the_trial_is_over test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back
+
+=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===
+  anchor occurrences: 1
+  ✅ green: the suites do not react to a comment
+
+--- was the original written? ---
+  byte-identical  tools/p4_health  681e4366217596c9
+  byte-identical  the gate's own scripts  0b630bee30eb5579
+  suites green against the real files
+
+18 mutations, 0 survived
+PARTIAL RUN: only labels starting C2R7-1 -- this is not the gate
+rc=0

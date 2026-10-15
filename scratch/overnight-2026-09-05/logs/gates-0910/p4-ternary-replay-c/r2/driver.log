@@ -1,0 +1,127 @@
+2026-10-12T16:38:38+08:00 driver start pid 1710911, clone HEAD f3db4dd1b74a4c5aa0f16f1c50a7254eca5b7986, LANG=en_US.UTF-8 LC_ALL=
+2026-10-12T16:38:38+08:00 [mutate_table_journal] df -m /: 6414 MB free
+2026-10-12T16:38:38+08:00 [mutate_table_journal] MemAvailable: 3792 MB
+2026-10-12T16:38:38+08:00 [mutate_table_journal] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T16:38:39+08:00 [mutate_table_journal] start
+2026-10-12T17:02:38+08:00 [mutate_table_journal] end rc=0 :: OK mutation gate: 175 mutations, 0 survived 
+2026-10-12T17:02:38+08:00 [mutate_table_entry] df -m /: 6055 MB free
+2026-10-12T17:02:38+08:00 [mutate_table_entry] MemAvailable: 4159 MB
+2026-10-12T17:02:38+08:00 [mutate_table_entry] /proc scan
+procscan: 2 other mutate_/probe.py process(es), 3 of this run's own skipped
+  other pid 1834226 ppid 1834210: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r2/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health
+  other pid 1834258 ppid 1834226: bash tests/shell/mutate_p4_health.sh
+  ours  pid 1793980 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1793982 ppid 1793980: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "mutate_table_journal\] end\|STOPPED" $R/driver.log 2>/dev/nul
+  ours  pid 1793983 ppid 1793982: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "mutate_table_journal\] end\|STOPPED" $R/driver.log 2>/dev/null; do sleep 
+2026-10-12T17:03:38+08:00 [mutate_table_entry] /proc scan
+procscan: 3 other mutate_/probe.py process(es), 0 of this run's own skipped
+  other pid 1842265 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842268 ppid 1842265: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842269 ppid 1842268: ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl --line-buffered -E end rc=[^0]|driver end|driver got|
+2026-10-12T17:04:38+08:00 [mutate_table_entry] /proc scan
+procscan: 3 other mutate_/probe.py process(es), 3 of this run's own skipped
+  other pid 1842265 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842268 ppid 1842265: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842269 ppid 1842268: ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl --line-buffered -E end rc=[^0]|driver end|driver got|
+  ours  pid 1850418 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1850420 ppid 1850418: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPE
+  ours  pid 1850421 ppid 1850420: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPED ]; do slee
+2026-10-12T17:05:38+08:00 [mutate_table_entry] /proc scan
+procscan: 3 other mutate_/probe.py process(es), 3 of this run's own skipped
+  other pid 1842265 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842268 ppid 1842265: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842269 ppid 1842268: ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl --line-buffered -E end rc=[^0]|driver end|driver got|
+  ours  pid 1850418 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1850420 ppid 1850418: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPE
+  ours  pid 1850421 ppid 1850420: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPED ]; do slee
+2026-10-12T17:06:38+08:00 [mutate_table_entry] /proc scan
+procscan: 7 other mutate_/probe.py process(es), 3 of this run's own skipped
+  other pid 1842265 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842268 ppid 1842265: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842269 ppid 1842268: ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl --line-buffered -E end rc=[^0]|driver end|driver got|
+  other pid 1881048 ppid 1834210: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r2/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health
+  other pid 1881073 ppid 1881048: bash tests/shell/mutate_p4_health.sh
+  other pid 1881132 ppid 1881073: bash tests/shell/mutate_p4_health.sh
+  other pid 1882410 ppid 1881132: bash tests/shell/mutate_p4_health.sh
+  ours  pid 1850418 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1850420 ppid 1850418: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPE
+  ours  pid 1850421 ppid 1850420: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPED ]; do slee
+2026-10-12T17:07:38+08:00 [mutate_table_entry] /proc scan
+procscan: 7 other mutate_/probe.py process(es), 3 of this run's own skipped
+  other pid 1842265 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842268 ppid 1842265: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842269 ppid 1842268: ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl --line-buffered -E end rc=[^0]|driver end|driver got|
+  other pid 1881048 ppid 1834210: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r2/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health
+  other pid 1881073 ppid 1881048: bash tests/shell/mutate_p4_health.sh
+  other pid 1897826 ppid 1881073: bash tests/shell/mutate_p4_health.sh
+  other pid 1898954 ppid 1897826: bash tests/shell/mutate_p4_health.sh
+  ours  pid 1850418 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1850420 ppid 1850418: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPE
+  ours  pid 1850421 ppid 1850420: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPED ]; do slee
+2026-10-12T17:08:38+08:00 [mutate_table_entry] /proc scan
+procscan: 7 other mutate_/probe.py process(es), 3 of this run's own skipped
+  other pid 1842265 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842268 ppid 1842265: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842269 ppid 1842268: ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl --line-buffered -E end rc=[^0]|driver end|driver got|
+  other pid 1881048 ppid 1834210: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r2/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health
+  other pid 1881073 ppid 1881048: bash tests/shell/mutate_p4_health.sh
+  other pid 1914449 ppid 1881073: bash tests/shell/mutate_p4_health.sh
+  other pid 1928420 ppid 1914449: bash tests/shell/mutate_p4_health.sh
+  ours  pid 1850418 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1850420 ppid 1850418: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPE
+  ours  pid 1850421 ppid 1850420: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPED ]; do slee
+2026-10-12T17:09:38+08:00 [mutate_table_entry] /proc scan
+procscan: 7 other mutate_/probe.py process(es), 3 of this run's own skipped
+  other pid 1842265 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842268 ppid 1842265: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842269 ppid 1842268: ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl --line-buffered -E end rc=[^0]|driver end|driver got|
+  other pid 1881048 ppid 1834210: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r2/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health
+  other pid 1881073 ppid 1881048: bash tests/shell/mutate_p4_health.sh
+  other pid 1947896 ppid 1881073: bash tests/shell/mutate_p4_health.sh
+  other pid 1949147 ppid 1947896: bash tests/shell/mutate_p4_health.sh
+  ours  pid 1850418 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1850420 ppid 1850418: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPE
+  ours  pid 1850421 ppid 1850420: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPED ]; do slee
+2026-10-12T17:10:38+08:00 [mutate_table_entry] /proc scan
+procscan: 7 other mutate_/probe.py process(es), 3 of this run's own skipped
+  other pid 1842265 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842268 ppid 1842265: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842269 ppid 1842268: ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl --line-buffered -E end rc=[^0]|driver end|driver got|
+  other pid 1881048 ppid 1834210: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r2/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health
+  other pid 1881073 ppid 1881048: bash tests/shell/mutate_p4_health.sh
+  other pid 1964655 ppid 1881073: bash tests/shell/mutate_p4_health.sh
+  other pid 1965915 ppid 1964655: bash tests/shell/mutate_p4_health.sh
+  ours  pid 1850418 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1850420 ppid 1850418: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPE
+  ours  pid 1850421 ppid 1850420: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPED ]; do slee
+2026-10-12T17:11:38+08:00 [mutate_table_entry] /proc scan
+procscan: 7 other mutate_/probe.py process(es), 3 of this run's own skipped
+  other pid 1842265 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842268 ppid 1842265: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842269 ppid 1842268: ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl --line-buffered -E end rc=[^0]|driver end|driver got|
+  other pid 1881048 ppid 1834210: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r2/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health
+  other pid 1881073 ppid 1881048: bash tests/shell/mutate_p4_health.sh
+  other pid 1981392 ppid 1881073: bash tests/shell/mutate_p4_health.sh
+  other pid 1982559 ppid 1981392: bash tests/shell/mutate_p4_health.sh
+  ours  pid 1850418 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1850420 ppid 1850418: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPE
+  ours  pid 1850421 ppid 1850420: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPED ]; do slee
+2026-10-12T17:12:38+08:00 [mutate_table_entry] /proc scan
+procscan: 7 other mutate_/probe.py process(es), 3 of this run's own skipped
+  other pid 1842265 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842268 ppid 1842265: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  other pid 1842269 ppid 1842268: ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl --line-buffered -E end rc=[^0]|driver end|driver got|
+  other pid 1881048 ppid 1834210: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r2/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health
+  other pid 1881073 ppid 1881048: bash tests/shell/mutate_p4_health.sh
+  other pid 1998112 ppid 1881073: bash tests/shell/mutate_p4_health.sh
+  other pid 1999346 ppid 1998112: bash tests/shell/mutate_p4_health.sh
+  ours  pid 1850418 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1850420 ppid 1850418: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPE
+  ours  pid 1850421 ppid 1850420: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPED ]; do slee
+2026-10-12T17:13:38+08:00 [mutate_table_entry] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 3 of this run's own skipped
+  ours  pid 1850418 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 1850420 ppid 1850418: timeout 590 bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPE
+  ours  pid 1850421 ppid 1850420: bash -c R=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r2; until grep -q "\[mutate_table_entry\] start" $R/driver.log || [ -f $R/STOPPED ]; do slee
+2026-10-12T17:13:38+08:00 [mutate_table_entry] start

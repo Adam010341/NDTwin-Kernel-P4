@@ -1,0 +1,4 @@
+p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead

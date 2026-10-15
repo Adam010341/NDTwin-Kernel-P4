@@ -1,0 +1,54 @@
+DELIVERED 521a95d14d1407aaedb4e66c6acf0a6effdfb4e7
+
+Commit: 521a95d14d1407aaedb4e66c6acf0a6effdfb4e7 on branch design/p4-ternary-journal (parent trunk 229ed30c). Not pushed.
+File: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-ternary-design/doc/audit/2026-10-04_p4-ternary-journal/DESIGN.md (519 lines, a little over the ~500 asked for). It is the only path in the commit; I checked that with `git show --stat`.
+Commit message: one subject line plus two sentences. No trailers. I grepped it for none of the banned words and it has none.
+
+Gates: this was design only. I changed no code and ran no tests or mutation gates. No lab, sudo, bmv2 or C++ build.
+What I ran myself: grep; protobuf descriptor reads in the p4_proxy venv (p4runtime 1.5.0); `strings` on /usr/local/lib/libpifeproto.so.0 and libbmpi.so.0; `readelf -d` on both simple_switch_grpc binaries. Nothing was executed against a switch.
+
+## 10-line summary (Traditional Chinese)
+
+1. API 形狀照 tutorials：ternary `[value, mask]`、range `[low, high]`、optional 一個值，`priority` 放頂層；不寫的欄位就是 don't-care，EXACT 欄位不能不寫。
+2. 驗證都在 stub.Write 之前回 400：要 priority 的表沒帶或帶 0、default entry 帶 priority、`value&~mask≠0`、low>high、用遮罩 0／整段 range／lpm /0 表示 don't-care。依據是 libpifeproto 裡 PI 前端的錯誤字串【觀測】，字串在不代表一定會觸發。
+3. priority 型別是 int32【觀測】。bmv2 內部會反轉，而且有 BM_MAX_PRIORITY 上限，值不知道【推論】⇒ Cut A0 先用拋棄式 bmv2 實測。「數字大的贏」是轉述 spec，碼裡註解也這麼寫。
+4. 身分＝(dpid, table, priority 若該表有 priority 欄, 正規化後的 match bytes)，沿用 rule_install_times.entry_key。modify／delete 一定要帶 priority，也不能改 priority。
+5. 開機 entry：pre-flight 和 writer 共用新的 match_shape.py，G5 解除；apply_package_entries 不用改，開機 entry 不進 journal（每次都從 package 檔重算）。
+6. Journal 只記 API 寫入，存在 `.run/table_entry_journal.jsonl`，紀錄帶 p4info sha。順序是先寫交換機、fsync 之後才回 200；每台交換機一把鎖，讓 journal 的順序等於交換機上實際的順序。
+7. 重放在 startup 套完 package entries 之後、以及 readopt 時跑：先依身分折疊成淨效果，sha 不符就不套用，套完寫 snapshot；重放的寫入不再追加，這就是 replace-vs-add 的防線。external 不重放，journal 一個 byte 都不動。
+8. 舊的 replay 沒有呼叫點，原因有兩個：記的是請求不是理由（TE 繞路會過期），而且「該不該重放」本身是一個決定；另外 quarantine 也沒有呼叫點，檔案跨所有世代。這一刀不接舊的。
+9. 預測（另外要等健檢 Cut 2 的收集器）：T4–T8、PF-T 全綠。風險是 T4–T7 的 oracle 要把 bmv2 的 priority 反轉算進去，而 S0 的「PF-T 必須 FAIL」那條自檢會轉紅，要和健檢線一起改。
+10. Cut 計畫：A0 實測、A writer＋pre-flight、B journal、C 重放，程式約 750 行，測試約 1,100 行，gate 約 300 行。mutate_table_entry.sh 的 M-B6、M-B7、M-B14、M-B20 和 RANGE 那個 mutant 要反轉。
+
+## Questions for Adam (each has a recommended option and consequences in DESIGN.md §8)
+
+- **Q1** When a fresh `ndt up` happens, what happens to the journal?
+  - Recommended: (a) `ndt up` quarantines it at the step that starts bmv2. This is quarantine's first call site, and it needs one shell change.
+  - (b) Use the bmv2 pid from the switch manifest. No shell change, but power-cycle and readopt then need their own handling.
+  - (c) No scoping. Not recommended: yesterday's operator rules would be written into today's new fabric.
+- **Q2** Can the generic writer write tables NDTwin owns?
+  - Recommended: (a) no. Every table on a baseline switch, and any table bound owner ndtwin, answers 409 `owned_by_ndtwin`. This extends Adam's ruling 8-1 to the runtime API.
+  - Cost of (a): a POST into baseline `ipv4_lpm` answers 200 today and would answer 409.
+  - (b) Block only `flow_5tuple`, which this cut newly makes writable.
+  - (c) Allow all, disclose only.
+- **Q3** How to treat the second spelling of don't-care (mask 0, full range, lpm /0)?
+  - Recommended: (a) 400 with "omit the field". int-v1's hand-written port mask 0x0000 entries would have to drop those fields.
+  - (b) Normalise to omission and disclose it in the response.
+- **Q4** What does the response say when the journal write fails (disk full)?
+  - Recommended: (a) 200 with `journaled:false`, a note, and a failure count.
+  - (b) Roll the write back and answer 507.
+- **Q5** Should multicast/PRE API writes be journaled too?
+  - Recommended: (a) not in this cut; keep api_routes.py:1130's not-journaled note.
+
+## Read vs inferred
+- **Read in code**: every code citation in the note (the line ranges are listed in §9).
+- **Observed**: the PI error strings, the priority int32 type, the MatchType numbering, and the binaries' NEEDED libraries.
+- **Inferred**: when those PI checks actually fire; bmv2's priority inversion and its max value; the insertion point for Q1(a); whether the power helper rewrites manifest pids; whether test_table_entry_route's fake client is bound to the baseline; all line-count estimates.
+- **Not read**: the P4Runtime spec text, PI source, `ndt up_p4`, and p4_power_helper's on path. Cuts A and C must read these before they start.
+
+## Things found that are outside this cut (also in the note)
+- The writer accepts lpm prefix_len 0 (p4_client.py:1249), which PI refuses, so it answers 502 today.
+- The writer accepts a priority on a default entry of a ternary table (p4_client.py:1289), which PI also refuses.
+- Pre-flight's `encoded_width` is looser than the writer's `encode_value`.
+- The generic writer never checks route_binding owner (p4_client.py:1344).
+- quarantine has no call site.

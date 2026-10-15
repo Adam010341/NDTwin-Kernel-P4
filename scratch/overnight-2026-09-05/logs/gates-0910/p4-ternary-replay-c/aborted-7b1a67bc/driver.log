@@ -1,0 +1,42 @@
+2026-10-12T03:23:56+08:00 driver start pid 3954331, clone HEAD 7b1a67bc61ab8efa62029db424fed3697ee23480, LANG=en_US.UTF-8 LC_ALL=
+2026-10-12T03:23:56+08:00 [mutate_table_journal] df -m /: 7210 MB free
+2026-10-12T03:23:56+08:00 [mutate_table_journal] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T03:23:57+08:00 [mutate_table_journal] start
+2026-10-12T03:41:35+08:00 [mutate_table_journal] end rc=0 :: OK mutation gate: 157 mutations, 0 survived 
+2026-10-12T03:41:35+08:00 [mutate_table_entry] df -m /: 7210 MB free
+2026-10-12T03:41:35+08:00 [mutate_table_entry] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 3 of this run's own skipped
+  ours  pid 3954780 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 3955045 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 3982742 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+2026-10-12T03:41:35+08:00 [mutate_table_entry] start
+2026-10-12T03:46:51+08:00 [mutate_table_entry] end rc=0 :: OK mutation gate: 79 mutations, 0 survived 
+2026-10-12T03:46:51+08:00 [mutate_table_entry_owner] df -m /: 7210 MB free
+2026-10-12T03:46:51+08:00 [mutate_table_entry_owner] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 6 of this run's own skipped
+  ours  pid 3954780 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 3955045 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 3982742 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 4017058 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 4017060 ppid 4017058: timeout 590 bash -c until grep -q '\[mutate_p4_exercise_tools\] end' /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/driver.log; do sleep 20; done
+  ours  pid 4017061 ppid 4017060: bash -c until grep -q '\[mutate_p4_exercise_tools\] end' /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/driver.log; do sleep 20; done
+2026-10-12T03:46:51+08:00 [mutate_table_entry_owner] start
+2026-10-12T03:48:09+08:00 [mutate_table_entry_owner] end rc=0 :: OK mutation gate: 27 mutations, 0 survived 
+2026-10-12T03:48:09+08:00 [mutate_p4_rule_install_time] df -m /: 7210 MB free
+2026-10-12T03:48:09+08:00 [mutate_p4_rule_install_time] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 4 of this run's own skipped
+  ours  pid 3954780 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 4017058 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 4017060 ppid 4017058: timeout 590 bash -c until grep -q '\[mutate_p4_exercise_tools\] end' /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/driver.log; do sleep 20; done
+  ours  pid 4017061 ppid 4017060: bash -c until grep -q '\[mutate_p4_exercise_tools\] end' /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/driver.log; do sleep 20; done
+2026-10-12T03:48:09+08:00 [mutate_p4_rule_install_time] start
+2026-10-12T03:48:26+08:00 [mutate_p4_rule_install_time] end rc=0 :: OK mutation gate: 27 mutations, 0 survived 
+2026-10-12T03:48:26+08:00 [mutate_roles_binding] df -m /: 7210 MB free
+2026-10-12T03:48:26+08:00 [mutate_roles_binding] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 4 of this run's own skipped
+  ours  pid 3954780 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 4017058 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 4017060 ppid 4017058: timeout 590 bash -c until grep -q '\[mutate_p4_exercise_tools\] end' /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/driver.log; do sleep 20; done
+  ours  pid 4017061 ppid 4017060: bash -c until grep -q '\[mutate_p4_exercise_tools\] end' /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/driver.log; do sleep 20; done
+2026-10-12T03:48:26+08:00 [mutate_roles_binding] start

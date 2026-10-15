@@ -1,0 +1,11 @@
+remote: 
+remote: GitHub found 11 vulnerabilities on ndtwin-lab/NDTwin-Kernel-P4's default branch (4 high, 5 moderate, 2 low). To find out more, visit:        
+remote:      https://github.com/ndtwin-lab/NDTwin-Kernel-P4/security/dependabot        
+remote: 
+To github.com:ndtwin-lab/NDTwin-Kernel-P4.git
+   cb29cb53..828cceb5  828cceb5784610e5517a2f701a41264361280898 -> main
+rc=0
+Adam010341 828cceb5784610e5517a2f701a41264361280898	refs/heads/main
+Adam010341 3a47bdb7612d2608a7feb17614c8d686032ef38f	refs/heads/trunk
+ndtwin-lab 828cceb5784610e5517a2f701a41264361280898	refs/heads/main
+ndtwin-lab 3a47bdb7612d2608a7feb17614c8d686032ef38f	refs/heads/trunk

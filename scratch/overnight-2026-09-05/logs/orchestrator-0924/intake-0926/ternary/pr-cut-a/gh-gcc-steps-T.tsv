@@ -1,0 +1,14 @@
+Set up job	success
+Run actions/checkout@v4	success
+Install dependencies	success
+Configure	success
+Build	success
+Unit tests (direct execution)	success
+Unit tests (ctest)	success
+Run actions/setup-python@v5	success
+Install Python test dependencies	success
+Create p4_proxy/venv	success
+Python unit tests	success
+Post Run actions/setup-python@v5	success
+Post Run actions/checkout@v4	success
+Complete job	success

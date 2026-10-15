@@ -1,0 +1,30 @@
+2026-10-12T17:00:13+08:00 driver start pid 1804289 pgid 1804289 sid 1804289, clone HEAD 8f6505d28ab9114a3aa627aafc4cfd309e331ee3, LANG=en_US.UTF-8 LC_ALL=
+2026-10-12T17:00:13+08:00 [anchor_check] start (avail 4280 MB)
+2026-10-12T17:00:22+08:00 [anchor_check] end rc=2 ::   1   R4-6i. CP4 reads gone before it checks how long it watched   1   R2-M2b. the sniffer checks only the destination address, not that it is UDP to the cell's port 
+2026-10-12T17:00:22+08:00 [check_gate_anchors] start (avail 4249 MB)
+2026-10-12T17:00:24+08:00 [check_gate_anchors] end rc=0 :: 
+2026-10-12T17:00:24+08:00 [bare_sort_grep] start (avail 4255 MB)
+2026-10-12T17:00:24+08:00 [bare_sort_grep] end rc=1 :: 
+2026-10-12T17:00:24+08:00 driver end
+2026-10-12T17:00:41+08:00 driver start pid 1807965 pgid 1807965 sid 1807965, clone HEAD 8f6505d28ab9114a3aa627aafc4cfd309e331ee3, LANG=en_US.UTF-8 LC_ALL=
+2026-10-12T17:00:41+08:00 [p4h.cells.r01] start (avail 4290 MB)
+2026-10-12T17:00:45+08:00 [p4h.cells.r01] end rc=0 :: Ran 197 tests in 3.146s OK 
+2026-10-12T17:00:45+08:00 [p4h.cells.py38.r01] start (avail 4261 MB)
+2026-10-12T17:00:49+08:00 [p4h.cells.py38.r01] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:00:49+08:00 [p4h.collect.r01] start (avail 4233 MB)
+2026-10-12T17:00:53+08:00 [p4h.collect.r01] end rc=0 :: Ran 192 tests in 4.254s OK 
+2026-10-12T17:00:53+08:00 [p4h.collect.py38.r01] start (avail 4200 MB)
+2026-10-12T17:00:58+08:00 [p4h.collect.py38.r01] end rc=0 :: Ran 192 tests in 4.611s OK 
+2026-10-12T17:00:58+08:00 [p4h.cells.r02] start (avail 4227 MB)
+2026-10-12T17:01:01+08:00 [p4h.cells.r02] end rc=0 :: Ran 197 tests in 3.167s OK 
+2026-10-12T17:01:01+08:00 [p4h.cells.py38.r02] start (avail 4281 MB)
+2026-10-12T17:01:06+08:00 [p4h.cells.py38.r02] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:01:06+08:00 [p4h.collect.r02] start (avail 4245 MB)
+2026-10-12T17:01:11+08:00 [p4h.collect.r02] end rc=0 :: Ran 192 tests in 4.976s OK 
+2026-10-12T17:01:11+08:00 [p4h.collect.py38.r02] start (avail 4273 MB)
+2026-10-12T17:01:16+08:00 [p4h.collect.py38.r02] end rc=0 :: Ran 192 tests in 4.906s OK 
+2026-10-12T17:01:16+08:00 [p4h.cells.r03] start (avail 4298 MB)
+2026-10-12T17:01:20+08:00 [p4h.cells.r03] end rc=0 :: Ran 197 tests in 3.565s OK 
+2026-10-12T17:01:20+08:00 [p4h.cells.py38.r03] start (avail 3541 MB)
+2026-10-12T17:01:26+08:00 driver got TERM: stopping step session 1817528
+2026-10-12T17:01:26+08:00 session 1817528 left: 

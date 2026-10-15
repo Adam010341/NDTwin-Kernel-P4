@@ -1,0 +1,35 @@
+commit d92bf1a258cec2d1524652fcff17526926fbcefa
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate  tracked-dirty=0  df_free_mb=5323  mem_avail_mb=6635  LANG=en_US.UTF-8 LC_ALL=  command: env ONLY_LABEL_PREFIX=C2R8-5g bash tests/shell/mutate_p4_health.sh
+interpreter bash -> /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+gate       : tests/shell/mutate_p4_health.sh
+cwd        : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate
+interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20, prefix /home/adam/miniconda3/envs/ryu-env)
+subject    : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health
+HEAD       : d92bf1a258cec2d1524652fcff17526926fbcefa (commit)
+tree       : fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26 (git tree of tools/p4_health at HEAD)
+subject sha: e69a74d976c1a022
+gates sum  : 06afbe70b5029f47
+
+NOT THE GATE: only labels starting C2R8-5g (1 mutations)
+
+=== BASELINE: every suite green against the real files ===
+  ok       baseline green
+
+=== C2R8-5g. the shard-sum script compares only the interpreter's version, not its path ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-5zFdm1)
+  anchor occurrences: 1
+  ✅ caught by [a shard run by the same version of another python (another interpreter path)]
+     also red: [a shard run by the same version of another python (another interpreter path)]
+
+=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===
+  anchor occurrences: 1
+  ✅ green: the suites do not react to a comment
+
+--- was the original written? ---
+  byte-identical  tools/p4_health  ab634b3cb71c84d5
+  byte-identical  the gate's own scripts  06afbe70b5029f47
+  suites green against the real files
+
+1 mutations, 0 survived
+PARTIAL RUN: only labels starting C2R8-5g -- this is not the gate
+rc=0

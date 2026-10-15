@@ -1,0 +1,90 @@
+Hand-back of the Cut 2 r6 worker (Sonnet), copied verbatim by the orchestrator on 2026-10-09 ~21:30. Claims, not evidence.
+
+DELIVERED b518b9fb (docs-only commit). The code and test head is b09cd060, and tools/p4_health there is tree 4acc71ea (unchanged since 520e6034). Nothing is pushed. No live run, no ndt against the real lab, no sudo, no pkill -f or pgrep -f.
+
+All commands I ran are logged in LOG6 = /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-cut2/r6/, except a few one-off read-only inspection commands (git status, ps, awk and similar). Each log has `commit <sha>` as line 1 and `rc=` as the last line. The exceptions are disk_watchdog.log (start/end records) and GATE.run1_c82a9f49.log (line 1 rewritten by me). The commit-message check (none of the banned substrings, no trailer) covers all 26 commits 257fd0e0..HEAD and found zero hits.
+
+## Commits (257fd0e0..b518b9fb, 26 in all)
+
+Each finding has a test commit, then a fix commit that also carries its mutants. A few small test-correction commits sit between them.
+
+| Finding | Test commits | Fix commit |
+|---|---|---|
+| 2 | c46bd337, cbbbcfeb, e85aab7a | 9cd81857 |
+| 3 | a62e71a7, 307b4e9b | 178f2160 |
+| 4 | 6c9bfd5e | 44bc182b |
+| 5 | 87848620 | 0f08f305 (+ 91562b8b re-points a mutant) |
+| 10 | 98c183df, 7121e9ef | 22b89749 |
+| pin-HEAD NIT | fab699e0, c1d29a7a | 1d605abb |
+| 6 and 7 | 1132aca4 | f8fb8979 (finding 6), 34507bea (finding 7) |
+| 8 | none (comments and docstrings only) | 520e6034 |
+
+- 18adf47c re-anchors old mutants.
+- c82a9f49 and b09cd060 fix test holes the gate found (see Gate below).
+- b518b9fb is the SUMMARY: new §10, with §1.3, §6, §8 and §9.2 updated. The "還沒修的缺陷" block in §6 shrank to two reading rules (rc and verdict must agree; the disk floor).
+
+## Per finding (red / green / mutants)
+
+- Finding 2. Red: n2.cells.RED.log (at e85aab7a, whose tools tree equals 257fd0e0's). 4 behavioural FAIL (the trial used CPU port 510 from the shared tree instead of the copy's 4242; the edited, extra and missing files were not refused) and 5 interface ERROR. Green: n2.cells.GREEN.log, n2.cells.full.GREEN.log, n2.collect.full.GREEN.log. Mutants: C2R6-2a to 2k (11). Fix: `frozen.check_tree` / `Frozen.check_exercise` runs after `compile_all`. It refuses a differing file, an extra file, a missing file, a link, or git failing. `probe.py` turns that into rc 2 before any lab action. `ctrl_trial.gen` and `ctrl_trial.trial` take `exercise=self.ex`. The probe.py comment is corrected.
+- Finding 3. Red: n3.collect.RED.log and n3.cells.RED.log. Green: n3.collect.GREEN.log and n3.cells.GREEN.log. Mutants: C2R6-3a to 3e (5). Fix: the run-level raiser is one-shot. It swaps in a noter under a signal mask before raising, and extra stops are noted as a problem. `main()` catches SignalAbort as rc 2, "stopped … INCOMPLETE".
+- Finding 4. Red: n4.collect.RED.log (`2 != 1: B was claimed over the stop`). Green: n4.collect.GREEN.log and n4.cells.GREEN.log. Mutants: C2R6-4a to 4e (5). Chosen: one `pthread_sigmask` block around `_finish` and the handler restore (`LabRound._masked`). Why: the window closes completely, the stop reaches the run-level handler instead of being folded into a record that is already final, and the probe has no threads. `take_unrecorded` marks a record whose `_finish` never ran (seconds is None) as incomplete and adds a problem.
+- Finding 5. Red: n5.collect.RED.log (5 tests). Green: n5.collect.GREEN.log and n5.cells.GREEN.log. Mutants: C2R6-5a to 5f (6). Fix: `report.write_json_atomic` (tmp, fsync, `os.replace`). observations.json is written first and health.json last. The catch-all renames an existing health.json to `health.json.not-a-verdict`, and its message starts with `ERROR:` rather than `refused:`.
+- Finding 6. Red: n67.gatescripts.RED.log (22 of 68 checks red). Green: n67.gatescripts.GREEN.log (68, 0 failed). Mutants: C2R6-6a to 6m (13). Fix: the aggregator takes `--commit`, prints commit, tree and subject sha, and refuses if the logs' commit or tree differ from HEAD (or from `--commit`). The subject sha is only compared between logs and printed. It hashes working files, so it cannot be compared with a commit. The `+UNCOMMITTED` pathspec is now a WATCHED array covering the gate's three scripts, `tools/p4_exercise` and `grpc_ports.py`.
+- Finding 7. Red and green: same logs as finding 6. Mutants: C2R6-7a to 7d (4). The unreachable `MUTATIONS == SELECTED` guard is removed. There is no mutant for the removal. GATES_SUM is now a content hash (each file through stdin) and is also printed in the header as `gates sum`. It reads 4851d9607830aed5 in all four final shard logs.
+- Finding 8. Labels only: the not-primary s2 shape is marked hypothetical (citing controller_ext.py:150-156), and the NIT 12 test docstring says `sys.executable`. No red or green, no mutant, because only comments changed.
+- Finding 10. Red: n10.collect.RED.log (3 ERROR, `TypeError: unhashable type: 'list'`). Green: n10.collect.GREEN.log and n10.cells.GREEN.log. Mutants: C2R6-10a to 10e (5). Fix: `table.as_set` is used in t1, M1, M2 and C1. Round-trip tests cover a full run, a see-red run and a stopped run: `run_lab`, then observations.json, then `probe.py judge` gives the same headline, rc, cells and rollup.
+- Pin-HEAD NIT. Red: npin.cells.RED.log (4). Green: npin.cells.GREEN.log and npin.collect.GREEN.log. Mutants: C2R6-pin-a to pin-d (4). Fix: HEAD is pinned first, then re-checked after the clean check. The freeze's git double answers HEAD with the pinned sha.
+
+53 new mutants in total (the table is 397 + 53 = 450). Partial mutation runs for each new prefix and for the diagnostic old prefixes are in mutate_p4_health.partial_*.log, all 0 survivors. The one exception was an early survivor in C2R6-5 (a wrong expected-test name for 5b), fixed in 91562b8b and shown caught in partial_C2R6-5b.
+
+## Gate (at b09cd060)
+
+GATE: 450 mutations, 0 survived, shards 4/4 ok, commit b09cd0600a0f44a8aa6a1d00989371af999d45ec, tree 4acc71ea869582232dca9c1d8a3f225e86d7c95b, subject sha 00baee280a968776
+
+- Log: GATE.log (rc=0). The aggregator was run with `--commit b09cd060`.
+- The four shards ran one at a time, 113/113/112/112 mutations, each rc=0. Their logs are `mutate_p4_health.shard{0,1,2,3}of4.log`.
+- Shard numbering deviates from the brief: the brief says 1/4 to 4/4, but the gate script requires k below n, so `4/4` is refused. I ran 0/4 to 3/4, the same as r5.
+- GATE.at_doc_head_without_commit.log shows the aggregator refusing at the docs commit without `--commit`. GATE.at_doc_head_with_commit.log shows the same GATE line with `--commit`.
+
+Two earlier gate runs failed. Both failures were test holes created by my own fixes:
+1. At 520e6034, C2R3-N3a survived. I killed that run at shard 0, about mutation 90 (aborted_520e6034_shard0of4.log).
+2. At c82a9f49, one shard-0 survivor remained, C2R5-10b (GATE.run1_c82a9f49.log, NOT THE GATE).
+Fixes: a new test for N3a (c82a9f49) and a re-pointed expected test for 10b (b09cd060). Details are in SUMMARY §10.3.
+
+Final checks, all at the docs commit b518b9fb, all rc=0: check_gate_anchors.py HEAD 133/133 cells ok, mutate_p4_health.sh ok(420); check_test_tmpdirs.py 416 files, 0 fixed temp paths; collect 174 OK; cells 170 OK; test_p4_health_recover.sh 163 checks, 0 failed; test_p4_health_gate_scripts.sh 68 checks, 0 failed.
+
+## Disk
+
+- disk_watchdog.log has 2152 samples, with start and end records. Minimum 1042 MB at 2026-10-09 20:10:50, inside the last gate's shard 3. Maximum 2624 MB.
+- I waited 9 times (about 45 minutes) before shard 1 of the last gate because free was under 1800 MB.
+- None of the four final shards has an ENOSPC, Errno 28, SURVIVED, WRONG TEST, HUNG, NO-SUITE or REFUSED line.
+- I did not prove that no individual "caught" was caused by low disk.
+- I manually deleted /tmp/p4-health-mutate-O5D0rp after killing the aborted run.
+
+## Observed oddity (cause unknown to the worker)
+
+Shard 3's processes were in state T (stopped) from about 19:43 to 20:00. I did not send the SIGSTOP and the system log has nothing. I sent SIGCONT; the mutation in flight, C5, was then caught. I added a watcher that sends SIGCONT whenever it finds a stopped process. It never fired again.
+
+## Not tested deterministically (SUMMARY §10.2)
+
+- The exact stop window in finding 4: the test sends the stop from a hook right after `_finish` reads `teardown_signal`.
+- The real ENOSPC in finding 5: OSError is injected at `open`, `os.replace` and a log call.
+- The edit and commit timing in finding 2 and the pin NIT: simulated by hooks after git calls.
+- "Pin before `load_lab_path`": no test distinguishes it, because `load_lab_path` makes no git calls. The re-check after the clean check is tested.
+- A first stop between the end of the body and the swap in `_handlers(False)`: it still raises in `finally` and skips the teardown (safe via recover.sh). The record is now marked incomplete and tested.
+- Read from code only: such a round leaves its noter installed until `run_lab`'s `finally`, so a stop in that gap is dropped.
+- Finding 8, and finding 7's guard removal: no mutant.
+- Not done: the optional `sys.modules` audit at the end of S0, the ndt-side fix for finding 1, and the `repo_untracked` decision (Adam's).
+
+SUMMARY: wt-p4-health-cut2/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md (new §10; §1.3, §6, §8 and §9.2 updated).
+
+---
+ORCHESTRATOR NOTE (21:2x, observed, not from the worker): the SIGSTOPs came from my own leftover r5 watchdog
+(scratchpad/watchdog.sh, pid 3047070, started 2026-10-08 23:40 by the r5 worker). It stopped every process group
+matching `timeout 21600 env MUT_SHARD=[0-3]/4 bash` when / had < 1500 MB and continued them only above 1800 MB;
+its exit condition needed r5/.shards_started, which never existed, so it outlived r5. r6's gate uses the same
+command shape. Its log gates-0910/p4-health-cut2/r5/disk_watchdog.log records, on 10-09:
+  06:29:38 free 1380 MB: STOPPED shards   / 06:30:39 free 2122 MB: CONTINUED shards
+  17:31:53 free 1496 MB: STOPPED shards   / 17:32:53 free 2077 MB: CONTINUED shards
+  19:39:23 free 1452 MB: STOPPED shards   (never continued by it; the worker sent SIGCONT ~20:00)
+Killed by process group at 21:2x.

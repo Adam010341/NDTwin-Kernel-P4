@@ -1,0 +1,26 @@
+[02:58:55.101] [bmv2] [W] [thread 3814553] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[02:58:55.102] [bmv2] [I] [thread 3814553] Starting Thrift server on port 29500
+[02:58:55.102] [bmv2] [I] [thread 3814553] Thrift server was started
+[02:58:56.751] [bmv2] [D] [thread 3814624] simple_switch target has been notified of a config swap
+[02:58:56.771] [bmv2] [E] [thread 3814615] [P4Runtime] Clone session id does not exist
+[02:58:56.771] [bmv2] [D] [thread 3814624] mgrp node created for mgid 32775
+[02:58:56.771] [bmv2] [D] [thread 3814624] node created for rid 1
+[02:58:56.771] [bmv2] [D] [thread 3814624] node associated with mgid 32775
+[02:58:56.772] [bmv2] [D] [thread 3814615] node dissociated with mgid 32775
+[02:58:56.772] [bmv2] [D] [thread 3814615] node destroyed for rid 1
+[02:58:56.772] [bmv2] [D] [thread 3814615] mgrp node deleted for mgid 32775
+[02:58:56.772] [bmv2] [D] [thread 3814624] mgrp node created for mgid 32775
+[02:58:56.772] [bmv2] [D] [thread 3814624] node created for rid 1
+[02:58:56.772] [bmv2] [D] [thread 3814624] node associated with mgid 32775
+[02:58:56.806] [bmv2] [E] [thread 3814615] [P4Runtime] Cannot find match entry
+[02:58:58.816] [bmv2] [D] [thread 3814615] simple_switch target has been notified of a config swap
+[02:58:58.841] [bmv2] [E] [thread 3814615] [P4Runtime] Clone session id does not exist
+[02:58:58.841] [bmv2] [D] [thread 3814680] mgrp node created for mgid 32775
+[02:58:58.842] [bmv2] [D] [thread 3814680] node created for rid 1
+[02:58:58.842] [bmv2] [D] [thread 3814680] node associated with mgid 32775
+[02:58:58.842] [bmv2] [D] [thread 3814615] node dissociated with mgid 32775
+[02:58:58.842] [bmv2] [D] [thread 3814615] node destroyed for rid 1
+[02:58:58.842] [bmv2] [D] [thread 3814615] mgrp node deleted for mgid 32775
+[02:58:58.842] [bmv2] [D] [thread 3814680] mgrp node created for mgid 32775
+[02:58:58.842] [bmv2] [D] [thread 3814680] node created for rid 1
+[02:58:58.842] [bmv2] [D] [thread 3814680] node associated with mgid 32775

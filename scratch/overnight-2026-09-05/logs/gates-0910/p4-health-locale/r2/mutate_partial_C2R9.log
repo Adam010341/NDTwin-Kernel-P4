@@ -1,0 +1,65 @@
+commit 8918d051eed25427a49e2544ba84b52b7c6e6571
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate  tracked-dirty=0  df_free_mb=6478  mem_avail_mb=5975  LANG=en_US.UTF-8 LC_ALL=  command: env ONLY_LABEL_PREFIX=C2R9- bash tests/shell/mutate_p4_health.sh
+interpreter bash -> /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+gate       : tests/shell/mutate_p4_health.sh
+cwd        : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate
+interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20, prefix /home/adam/miniconda3/envs/ryu-env)
+subject    : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health
+HEAD       : 8918d051eed25427a49e2544ba84b52b7c6e6571 (commit)
+tree       : 2af03ea11cb1f69461eb2018db46c95838050f89 (git tree of tools/p4_health at HEAD)
+subject sha: af6202c51e92093e
+gates sum  : 0b630bee30eb5579
+
+NOT THE GATE: only labels starting C2R9- (6 mutations)
+
+=== BASELINE: every suite green against the real files ===
+  ok       baseline green
+
+=== C2R9-2a. the exercise copy's build outputs are not compared with what its first check recorded ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/frozen.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-UbcYpw)
+  anchor occurrences: 1
+  ✅ caught by test_a_convert_that_rewrites_a_build_file_of_the_exercise_copy_is_refused_before_the_pre_flight
+     also red: test_a_convert_that_rewrites_a_build_file_of_the_exercise_copy_is_refused_before_the_pre_flight test_the_exercise_copy_check_refuses_build_output_that_changed_since_the_first_check
+
+=== C2R9-2b. the exercise copy's modules are loaded through the import system's loader (a cached .pyc may run) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/frozen.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-UbcYpw)
+  anchor occurrences: 1
+  ✅ caught by test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc
+     also red: test_an_exec_of_the_exercise_copy_writes_no_bytecode_cache_into_it test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc
+
+=== C2R9-1a. the gate's interpreter line leaves sys.prefix out (two venvs on one base give one line) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-UbcYpw)
+  anchor occurrences: 1
+  ✅ caught by [the interpreter line tells two venvs on one base interpreter apart (it names sys.prefix)]
+     also red: [the interpreter line tells two venvs on one base interpreter apart (it names sys.prefix)]
+
+=== C2R9-5a. the gate script refuses n equal to the table size ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-UbcYpw)
+  anchor occurrences: 1
+  ✅ caught by [MUT_SHARD with n equal to the table size is not refused by the validation]
+     also red: [MUT_SHARD with n equal to the table size is not refused by the validation]
+
+=== C2R9-5b. the gate script lets n be one more than the table size ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-UbcYpw)
+  anchor occurrences: 1
+  ✅ caught by [MUT_SHARD with n just above the table size is refused too]
+     also red: [MUT_SHARD with n just above the table size is refused too]
+
+=== C2R9-4a. the trial block is never lifted, seen by the cells suite's end-of-test mask check ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-UbcYpw)
+  anchor occurrences: 1
+  ✅ caught by test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals
+     also red: test_a_stop_during_the_trial_ends_an_unhandled_process_only_after_the_trial_is_over test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+
+=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===
+  anchor occurrences: 1
+  ✅ green: the suites do not react to a comment
+
+--- was the original written? ---
+  byte-identical  tools/p4_health  681e4366217596c9
+  byte-identical  the gate's own scripts  0b630bee30eb5579
+  suites green against the real files
+
+6 mutations, 0 survived
+PARTIAL RUN: only labels starting C2R9- -- this is not the gate
+rc=0

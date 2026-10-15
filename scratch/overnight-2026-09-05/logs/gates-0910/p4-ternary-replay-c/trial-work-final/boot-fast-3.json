@@ -1,0 +1,103 @@
+{
+  "boot_id": "86d7d8e1e4624843880a761cb60c6c18",
+  "generation": 6413107188459313918,
+  "journal_after": {
+    "files": [
+      "s2.jsonl",
+      "s2.jsonl.q1791765366158945863",
+      "s2.jsonl.q1791765368156444675",
+      "s2.jsonl.q1791765368180943277",
+      "s2.jsonl.q1791765370430548433",
+      "s2.jsonl.q1791765370461451487"
+    ],
+    "header": {
+      "boot_id": "86d7d8e1e4624843880a761cb60c6c18",
+      "dpid": 2,
+      "entries_sha256": "24f8521eb38173df",
+      "fabric_cookie": "58ffef02829f1afe",
+      "header": true,
+      "p4info_sha256": "5ce0a5595d5a65f1",
+      "v": 1
+    },
+    "records": [],
+    "unreadable": 0
+  },
+  "journal_dir": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-final/journal-fast",
+  "journal_dir_main_built": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-final/journal-fast",
+  "pid": 1088482,
+  "plan": "read",
+  "posts": [],
+  "startup": {
+    "broken": [],
+    "entry_errors": {},
+    "table_entries": {
+      "api_writes": 0,
+      "applied": 23,
+      "failed": 0,
+      "journal": {
+        "enabled": true,
+        "failures": 0,
+        "not_found": 0,
+        "record_complete": true,
+        "recorded": 0,
+        "replay": {
+          "attempted": 0,
+          "cookie": "the switch did not answer COOKIE_ONLY (FAILED_PRECONDITION: No forwarding pipeline config set for this device)",
+          "failed": [],
+          "fresh_fabric": true,
+          "restored": [],
+          "skipped_reason": null,
+          "stale_entries": 0,
+          "stale_pipeline": 0,
+          "status": "nothing-to-replay",
+          "succeeded": 0,
+          "unreadable": 0,
+          "when": "startup"
+        }
+      },
+      "journaled": true,
+      "recorded": 23
+    }
+  },
+  "switch_state_table_entries": {
+    "api_writes": 0,
+    "applied": 23,
+    "failed": 0,
+    "journal": {
+      "enabled": true,
+      "failures": 0,
+      "not_found": 0,
+      "record_complete": true,
+      "recorded": 0,
+      "replay": {
+        "attempted": 0,
+        "cookie": "the switch did not answer COOKIE_ONLY (FAILED_PRECONDITION: No forwarding pipeline config set for this device)",
+        "failed": [],
+        "fresh_fabric": true,
+        "restored": [],
+        "skipped_reason": null,
+        "stale_entries": 0,
+        "stale_pipeline": 0,
+        "status": "nothing-to-replay",
+        "succeeded": 0,
+        "unreadable": 0,
+        "when": "startup"
+      }
+    },
+    "journaled": true,
+    "recorded": 23
+  },
+  "t8": {
+    "attribution": null,
+    "label": "GREEN",
+    "partial": null,
+    "phase": "compare",
+    "reason": "journaled; the restart half is deferred (design 2.3)",
+    "verdict": "GREEN"
+  },
+  "t8_observation": {
+    "answer": {
+      "journaled": true
+    }
+  }
+}

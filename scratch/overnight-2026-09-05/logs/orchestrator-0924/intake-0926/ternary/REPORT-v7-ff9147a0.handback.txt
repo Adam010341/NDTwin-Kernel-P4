@@ -1,0 +1,128 @@
+DELIVERED ff9147a058c26457184ff93d2d17b205b3eea5ad, with one open point you must rule on: two suites outside my ownership go red (item 1 of "Flags"). I did not push. The worktree is clean: venv link, hard-linked gtest binaries, p4_src/build copy, .test_run and .hypothesis are all removed. df -m / = 1938 MB.
+
+Branch fix/p4-writer-owned-tables, worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-writer-owned, based on 60d11501.
+Logs: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-writer-owned/ (below `L/`). Each starts with `commit <sha>` and ends with `rc=`.
+
+## Commits
+1. `9fdf9cf6` "tests: the table-entry writer refuses tables NDTwin owns"
+   - New `p4_proxy/tests/test_table_entry_owner.py`.
+   - Explicit `bind_routes(None)` in the named doubles only.
+2. `ff9147a0` "p4 proxy: refuse table-entry writes into tables NDTwin owns"
+   - Fix: `p4_proxy/proxy_agent/{p4_client,api_routes,main}.py`.
+   - Gate: `tests/shell/mutate_table_entry_owner.sh`.
+   - One more test, `test_a_boot_entry_with_no_match_that_is_not_a_default_is_refused`, added to the owner test file. The gate's first run showed a surviving mutant (M7), and this test killed it.
+3. No docs commit. `doc/2026-01-02_ndt_api.md` does not document /p4/table_entry, and the CHANGELOG would have to describe the defect.
+
+Commit messages have one subject line plus short prose, no trailer, and none of the forbidden words.
+
+## Where the code is (OBSERVED, by reading)
+- **Binding and owner.**
+  - `route_binding` is a class default `BASELINE` at `p4_client.py:309`.
+  - `__init__` binds BASELINE at `:478`; `main.build_p4_client` (`main.py:230`) rebinds per switch.
+  - Owner and source live in `RouteBinding` (`route_binding.py`).
+- **The check.**
+  - `TableOwnedByNDTwin(RuntimeError)` is at `p4_client.py:123`.
+  - `table_owned_by_ndtwin` is at `:1371`. Rule: binding None means not owned; source `baseline` means every table; otherwise owner ndtwin and `binding.table` equal to the table's name or alias.
+  - `_refuse_owned_table` is at `:1393`.
+  - `write_table_entry(spec, op, source=None)` is at `:1433`, and the call is at `:1470`. It runs after `_refuse_write`, so an external control plane still answers its own 409 first. It runs before `build_table_entry`, so an unknown table is still a KeyError (404).
+- **Route.** `api_routes.py:932` maps the exception to 409 with `error: "owned by NDTwin"`, `outcome: "owned_by_ndtwin"`, and `remedy` placed before `message`, inside the first 200 bytes.
+- **Boot.**
+  - `main.apply_package_entries` (`main.py:661`) wraps each write in `p4_client.entry_source("boot")`.
+  - Startup and readopt both go through that function.
+  - The pre-flight 8-1 check (`preflight.py:470-517`) is unchanged and consistent: package match entries FAIL, a default is kept.
+
+## Done-check 1: red on main, green after
+- **Red, `L/01_red_tests_9fdf9cf6.log`.**
+  - Production code at that commit equals 60d11501.
+  - The owner module gives 35 failures and 9 errors.
+  - Headline `test_an_empty_match_into_flow_5tuple_is_refused_and_nothing_is_written` fails with "...not raised", i.e. the write is still accepted. It is a right-reason red because `OWNED` is looked up by `getattr` with a stand-in class.
+  - Also red for the right reason: named-field `ipv4_lpm` write, API default change on a baseline table, API default change on the package `roles.ipv4_route` table, API match entry into that table, and the route-level 409 tests.
+  - Red for a wrong reason: the tests that pass `source=` fail with `TypeError`, because the parameter does not exist on main. That is 6 tests in the module (`..._when_the_caller_says_boot`, `..._boot_delete_...`, `..._replayed_default_...`, `..._explicit_api_source_...`, `..._explicit_boot_source_...`, `..._unknown_source_...`) plus one `..._boot_default_that_also_names_a_match_...`. Two of the 9 errors are the real-p4info `ipv4_lpm`/`l2_forward` cases.
+  - The boot default succeeds on main, and the user-table writes succeed on main (controls).
+  - `test_a_boot_entry_with_no_match_that_is_not_a_default_is_refused` was added after this log. It was seen red through mutant M7.
+- **Green, `L/02_green_touched_ff9147a0.log`.** test_table_entry_owner, test_table_entry_route and test_p4_client_writes are all OK, rc=0. The success tests of the doubles pass unchanged with their new `bind_routes(None)`.
+- **Boot default still installs.** `test_the_boot_default_of_the_owned_route_table_still_installs`: applied 1, failed 0, MODIFY with `is_default_action`.
+- **Baseline before the change, `L/00_baseline_main_60d11501_full.log`.** All 43 p4_proxy modules rc=0. Skips there are due to the missing p4_src/build; I copied it in afterwards.
+
+## Done-check 2: mutation gate, `L/04_mutation_gate_ff9147a0.log`
+- Result: `17 mutations, 0 survived`, rc=0.
+- Baseline byte-identical afterwards for the three sources and the three test files.
+- The comment-only control (C1) stays green.
+- The four requested mutants:
+
+| Mutant | Caught by |
+|---|---|
+| M1, drop the check | `..._empty_match_into_flow_5tuple_is_refused_and_nothing_is_written` |
+| M2, invert the owner test | `..._api_match_entry_into_the_owned_route_table_is_refused` |
+| M3, widen the default exception to API writes | `..._api_default_action_change_on_the_owned_route_table_is_refused` |
+| M4, drop the baseline-switch branch | the same headline test as M1 |
+
+- Others in the gate:
+  - M5 replay treated as boot.
+  - M6 exception covers a baseline default.
+  - M7 and M7b: exception admits a non-default entry with no match, or a default that names a match.
+  - M8 exception covers delete.
+  - M9 boot marking not reset.
+  - M10 and M11: the author's tables over-refused (every table of a package switch owned, or a no-roles switch owning everything).
+  - M12 boot marking dropped.
+  - M13 and M14: 409 body wording and remedy placement.
+  - M15 external 409 precedence.
+- I made a separate small gate instead of adding to `mutate_table_entry.sh`; the design placed V7 mutants there.
+- `check_gate_anchors.py HEAD`: `L/05_check_gate_anchors_ff9147a0.log` shows 135/135 cells ok, rc=0 (`mutate_table_entry_owner.sh` ok(16)).
+- `check_test_tmpdirs.py`: `L/06_check_test_tmpdirs_ff9147a0.log` shows 0 fixed temp paths, rc=0.
+
+## Done-check 3: full suites, `L/03_full_p4proxy_ff9147a0.log`
+- 41 of 43 modules are rc=0.
+- Two are RED because of my change. They are the unnamed doubles in item 1 of "Flags".
+  - `tests.test_exact_one_element_list`: 22 items, i.e. 15 errors and 7 failures.
+  - `tests.test_foreign_pipeline`: 1 error, `AgainstARealTutorialsPipelineTest.test_a_ternary_table_in_a_real_compiled_p4info_answers_unsupported`. It only runs when p4_src/build exists, and it does in the main checkout.
+- With the optional patch (item 1 of "Flags") applied to the working tree only:
+  - `L/07_with_optional_patch_unnamed_doubles.log` is green for both modules, rc=0.
+  - `L/10_existing_gate_mutate_table_entry_with_optional_patch.log` shows the existing gate `mutate_table_entry.sh` at 41 mutations, 0 survived, rc=0.
+- Without the patch, `L/09_existing_gate_mutate_table_entry_ff9147a0.log` shows the existing `mutate_table_entry.sh` baseline RED (473 tests, 7 failures, 16 errors), so it refuses to run, rc=2.
+
+## Lane, `L/08_lane_l1_ff9147a0.log`
+- Run as `l1_unit_tests.sh --no-build`.
+  - I linked p4_proxy/venv and hard-linked the main checkout's prebuilt gtest binaries, so nothing was compiled.
+  - The p4info was copied. All of it was removed afterwards.
+- gate anchors ok, tmpdirs ok, ctest passed, direct gtest 1366/1366 and 4/4.
+- `L1 FAILED (11 problem group(s))`, rc=1.
+- Caused by my change (2):
+  - test_exact_one_element_list.py
+  - test_foreign_pipeline.py
+- Not caused by my change (9; INFERRED from the tracebacks in `.test_run/logs`, which I deleted, so I did not rerun them on main):
+  - test_chaos_c07_control, test_chaos_invariants_method, test_chaos_link_blackhole_attach, test_chaos_opt_in_all_actions and test_chaos_runner_wiring (ran=0): SyntaxError at `doc/audit/2026-08-28_chaos-harness/harness/actions.py:172`, an f-string that the lane's old interpreter rejects. Not read for the last three.
+  - test_l3_dispatch_drift: `str.removeprefix` missing in the lane interpreter (old Python).
+  - test_ovs4_sflow: `ast.unparse` missing (old Python).
+  - test_sflow_stats_endpoint: No module named fastapi in the lane interpreter.
+  - test_check_gate_anchors: two skips, "not a git checkout", because a worktree's `.git` is a file.
+  - None of them imports p4_client.
+- `test_supervise_exit_status.sh` was not among the FAIL lines.
+
+## Tests whose expectations changed
+- None. No assertion was changed. Fixtures only, all with `bind_routes(None)`, which makes every table a user table:
+  - `test_table_entry_route.py`: `a_client`. This covers all 26 tests; the success tests were `AN_LPM_ENTRY` into `MyIngress.ipv4_lpm`.
+  - `test_p4_client_writes.py`: `WriteTableEntryTest.setUp`, and the local client in `BuildTableEntryTest.test_neither_range_nor_optional_reaches_the_switch`. I did not change the shared `a_client` there, because the route-write tests need the BASELINE binding.
+
+## Flags: design points I could not settle from the text
+1. **Two unnamed suites go red, and I did not touch them as instructed.**
+   - Their `a_client` doubles are built with `__new__` and inherit the class default BASELINE. One holds the foreign basic_tunnel p4info, which has `MyIngress.ipv4_lpm` and `myTunnel_exact`. The other is the foreign-pipeline suite's.
+   - The design names only two doubles, so it missed these two.
+   - Ready fix: `L/optional-bind-unnamed-doubles.patch`, one line `client.bind_routes(None)` in each `a_client`. It is not committed. It turns both suites and the existing `mutate_table_entry.sh` green (logs 07 and 10 above).
+   - **Decision for you or Adam: extend (a-iii) to these two doubles, or choose another route.** A production-side workaround (treat only an explicitly bound client as baseline, via `'route_binding' in self.__dict__`) would keep them green without edits. I did not do it: it contradicts the design's "a_client is a baseline client" and hides a hole.
+2. **`source` is plumbed twice.**
+   - `write_table_entry(spec, op, source=None)` takes the parameter as designed.
+   - `None` resolves to a `contextvars` value set by `entry_source()`, which `apply_package_entries` uses.
+   - Reason: the fake clients in `test_startup.py:132` and `test_readopt.py:695,913` have the signature `(spec, op)`. A `source="boot"` keyword from `main` would have broken them, and they are fixtures I may not change.
+   - The context value is scoped to the `with` block and reset in `finally` (tested).
+3. **The exception is stricter than the design text.** It applies only to a boot write with exactly `default_action is True`, an empty match, and op insert or modify, on a table bound as package source with owner ndtwin.
+   - A boot delete of a default is refused.
+   - A truthy non-bool `default_action` is refused. The writer is stricter than preflight's truthy check.
+   - An unknown `source` raises ValueError.
+   - `replay` is treated as `api`.
+4. **Refusal precedence.** An owned table with a malformed shape answers 409, not 400, because V7 runs before the builder. An external control plane still wins with its own 409 words (tested).
+5. **Package ownership compares `binding.table` to the table's name or alias.** `route_binding.resolve` stores the full name.
+6. **Not covered:**
+   - nothing live (no lab, no ndt, no ssh);
+   - `outcome` appears only in the 409 body, as the design says;
+   - `switch_state` counters unchanged: a refused write is not counted (tested).

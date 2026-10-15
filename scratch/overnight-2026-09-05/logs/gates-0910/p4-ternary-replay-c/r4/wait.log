@@ -1,0 +1,34 @@
+16:17:51 busy: 4 process(es), first: 1871925 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+16:22:51 busy: 4 process(es), first: 1871925 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+16:27:51 busy: 4 process(es), first: 1871925 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+16:32:51 busy: 4 process(es), first: 1871925 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+16:37:51 busy: 5 process(es), first: 1871925 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+16:42:51 busy: 5 process(es), first: 1871925 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+16:47:51 busy: 4 process(es), first: 1871925 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+16:52:51 busy: 4 process(es), first: 1871925 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+16:57:51 busy: 4 process(es), first: 1871925 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:02:51 busy: 4 process(es), first: 1871925 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:07:51 busy: 4 process(es), first: 2796677 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:12:51 busy: 4 process(es), first: 2796677 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:17:51 busy: 4 process(es), first: 2796677 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:22:52 busy: 4 process(es), first: 2796677 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:27:52 busy: 4 process(es), first: 2796677 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:32:52 busy: 4 process(es), first: 2796677 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:37:52 busy: 4 process(es), first: 2796677 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:42:52 busy: 4 process(es), first: 2796677 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:47:52 busy: 4 process(es), first: 3148095 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:52:52 busy: 4 process(es), first: 3148095 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+17:57:52 busy: 4 process(es), first: 3148095 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratc
+18:02:58 quiet; launching mutate_table_journal
+mutate_table_journal: SigBlk:	0000000000010000
+0 matching processes at launch
+18:36:35 mutate_table_journal rc=0
+18:36:40 quiet; launching trial_final
+trial_final: SigBlk:	0000000000010000
+0 matching processes at launch
+18:38:04 trial_final rc=0
+18:38:09 quiet; launching trial_red_before_fix
+trial_red_before_fix: SigBlk:	0000000000010000
+0 matching processes at launch
+18:38:45 trial_red_before_fix rc=0
+18:38:45 all done

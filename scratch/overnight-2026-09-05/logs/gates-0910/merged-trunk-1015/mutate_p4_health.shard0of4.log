@@ -1,0 +1,817 @@
+commit d92bf1a258cec2d1524652fcff17526926fbcefa
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate  tracked-dirty=0  df_free_mb=4342  LANG=en_US.UTF-8  command: setsid --wait nice -n 19 timeout 21600 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/shardwrap.sh 0  (=> exec env MUT_SHARD=0/4 bash tests/shell/mutate_p4_health.sh)
+shardwrap: pid 237366 at 2026-10-15T22:50:49+08:00, shard 0/4, cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate
+shardwrap: child grep, SigBlk:	0000000000000000
+shardwrap: child grep, SigIgn:	0000000000000000
+shardwrap: the exec-ing process, SigBlk:	0000000000010000
+shardwrap: the exec-ing process, SigIgn:	0000000000000004
+shardwrap: env PYTHON*: PYTHONDONTWRITEBYTECODE=1 
+shardwrap: PYTHON is unset
+shardwrap: SigBlk 0000000000000000 & 0x4203 == 0; exec env MUT_SHARD=0/4 bash tests/shell/mutate_p4_health.sh
+gate       : tests/shell/mutate_p4_health.sh
+cwd        : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate
+interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20, prefix /home/adam/miniconda3/envs/ryu-env)
+subject    : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health
+HEAD       : d92bf1a258cec2d1524652fcff17526926fbcefa (commit)
+tree       : fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26 (git tree of tools/p4_health at HEAD)
+subject sha: e69a74d976c1a022
+gates sum  : 06afbe70b5029f47
+
+NOT THE GATE BY ITSELF: shard 0/4 (130 of 517 mutations; the gate is the sum of all 4 shards)
+
+=== BASELINE: every suite green against the real files ===
+  ok       baseline green
+
+=== M1. a 2xx answer is GREEN whatever it says ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_k1_thrift_n_ndtwin_n_plus_1_is_red
+     also red: test_k1_thrift_n_ndtwin_n_plus_1_is_red test_red_fixtures_are_red  test_k1_reads_one_more_than_thrift test_the_oracle_is_thrifts_and_never_the_proxys
+
+=== M5. a 503 counter read is a zero ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_k1_503_is_not_a_zero
+     also red: test_k1_503_is_not_a_zero
+
+=== M9. journaled is ignored ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_t8_journaled_false_is_red
+     also red: test_red_fixtures_are_red test_t8_journaled_false_is_red test_t8_red_says_why_journaled_can_be_false_now  test_a_proxy_that_replays_its_journal_is_t8_green_and_one_that_does_not_is_red test_without_b_every_bmv2_red_is_unattributed
+
+=== M11. the decision order is reversed: the oracle first ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/verdict.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_cannot_answer_with_the_oracle_unreadable_is_a_red_candidate_not_not_run
+     also red: test_a_cannot_answer_with_the_oracle_unreadable_is_a_red_candidate_not_not_run test_a_cell_never_observed_is_not_run_for_that_reason test_attribution_that_fails_is_unattributed_never_red  test_a_then_b_then_the_verdicts test_bring_up_a_reads_as_predicted test_without_b_every_bmv2_red_is_unattributed
+
+=== M15. the heartbeat only has to be there ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_tp4_with_a_heartbeat_that_is_there_but_not_usable_is_not_run
+     also red: test_cp4_without_a_usable_heartbeat_is_not_run test_tp4_with_a_heartbeat_that_is_there_but_not_usable_is_not_run
+
+=== M18. a failed self-check is RED ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/verdict.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_self_check_is_never_red
+     also red: test_a_see_red_recording_that_sees_no_red_reads_so_offline test_a_self_check_is_never_red test_a_stop_overrides_probe_broken_and_a_see_red_pass_needs_a_complete_run test_a_stopped_recording_reads_incomplete_offline test_every_gate_green_and_sc_fwd_failing_is_probe_broken  test_a_host_the_pingall_cannot_reach_is_sc_fwd_probe_broken test_a_recorded_stop_overrides_a_probe_broken_cell test_a_round_that_cannot_be_built_ends_the_run_incomplete_with_the_earlier_rounds_kept test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete test_a_see_red_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_stop_between_the_rounds_overrides_a_probe_broken_cell test_the_mutant_counter_is_probe_broken_by_sc_count test_the_mutant_ttl_is_probe_broken_by_sc_ttl test_the_see_red_run_uses_the_mutant_package_and_only_its_cells
+
+=== 12-4. SC-ttl hop count stops at the first switch ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_sc_ttl_counts_hops_from_the_lpm_path_not_the_topology
+     also red: test_sc_ttl_counts_hops_from_the_lpm_path_not_the_topology  test_a_b_that_confirmed_most_of_its_attributions_is_not_a_failed_b test_a_b_that_lost_two_calls_is_not_a_failed_b test_a_claim_lost_in_a_keeps_b_out test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_controller_that_never_gets_ready_is_incomplete test_a_failed_down_in_a_keeps_b_out test_a_failed_kill_in_a_keeps_b_out test_a_refused_claim_makes_the_run_incomplete test_a_see_red_run_whose_mutant_is_not_caught_is_not_a_pass test_a_then_b_then_the_verdicts test_b_on_a_fabric_that_is_not_external_is_incomplete test_b_whose_controller_cannot_be_started_is_a_failed_b test_b_whose_controller_is_not_primary_on_s2_is_a_failed_b test_b_whose_controller_never_gets_ready_is_a_failed_b test_b_whose_controller_reached_no_switch_is_a_failed_b test_b_whose_controller_writes_no_result_is_a_failed_b test_b_whose_fabric_is_not_external_is_a_failed_b test_b_whose_result_file_is_unreadable_is_a_failed_b test_b_whose_sniffer_is_not_ready_is_a_failed_b test_bring_up_a_reads_as_predicted test_the_calling_thread_is_not_judged_and_threads_that_block_all_three_signals_pass test_the_mutant_ttl_is_probe_broken_by_sc_ttl
+
+=== 12-10a. a failed ndt down is released anyway ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_failed_down_is_not_released
+     also red: test_a_failed_down_in_a_keeps_b_out test_a_failed_down_is_not_released
+
+=== D2. a GREEN without its negative read stands ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/verdict.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_no_negative_read_no_green
+     also red: test_no_negative_read_no_green  test_an_unreadable_negative_read_is_not_absent
+
+=== D6. the thrift reader lets a write through ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/collect/thrift.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_reader_runs_read_only_commands_on_the_switchs_port_through_the_runner
+     also red: test_the_reader_runs_read_only_commands_on_the_switchs_port_through_the_runner
+
+=== D9. a refused claim brings the fabric up anyway ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_refused_claim_is_incomplete_and_brings_nothing_up
+     also red: test_a_refused_claim_is_incomplete_and_brings_nothing_up
+
+=== AD1. PF-T's refusal is known only by the old G5 sentence ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_pft_refused_in_any_words_is_red_and_never_green
+     also red: test_pft_a_ternary_refusal_beside_another_one_is_probe_broken test_pft_is_the_ternary_answer_only_when_nothing_else_failed test_pft_must_pass_with_its_ternary_entry_in test_pft_refused_in_any_words_is_red_and_never_green
+
+=== AD11. PF-T's ternary entry need not name the ternary field ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_ternary_table_entry_that_names_no_ternary_field_is_not_pfts
+     also red: test_a_ternary_table_entry_that_names_no_ternary_field_is_not_pfts
+
+=== AD16. the gate does not mark an uncommitted edit to match_shape.py ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [an uncommitted edit to p4_proxy/proxy_agent/match_shape.py is marked]
+     also red: [an uncommitted edit to p4_proxy/proxy_agent/match_shape.py is marked]
+
+=== AD5. S0 does not need pre-flight to pass PF-T ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_pft_must_pass_with_its_ternary_entry_in
+     also red: test_pft_must_pass_with_its_ternary_entry_in
+
+=== N2. a write-then-read cell ignores the http answer ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_compare_branches_after_a_route_exists
+     also red: test_compare_branches_after_a_route_exists
+
+=== N6. CS1 with no host answer reads green ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_empty_fabric_or_ethtool_oracles_are_not_green
+     also red: test_empty_fabric_or_ethtool_oracles_are_not_green
+
+=== C1. a cell ignores its control ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/verdict.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_k1_and_t3_follow_their_controls
+     also red: test_a_missing_route_makes_the_cell_red_and_the_round_publishable test_k1_and_t3_follow_their_controls  test_a_missing_counter_route_is_red_no_route_through_the_observers
+
+=== C5. health.json drops the controls ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/report.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_controls_are_in_health_json
+     also red: test_a_recording_that_does_not_say_it_completed_is_incomplete test_controls_are_in_health_json
+
+=== B4. TP4 runs without the drop check ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_tp4_needs_the_drop_check_and_no_withheld_file
+     also red: test_tp4_needs_the_drop_check_and_no_withheld_file
+
+=== B8. the meter rates are never compared ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_compare_branches_after_a_route_exists
+     also red: test_compare_branches_after_a_route_exists
+
+=== B12. delivered without anything arriving ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_compare_branches_after_a_route_exists
+     also red: test_compare_branches_after_a_route_exists
+
+=== L1. a pid without the run marker is registered ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_pid_without_the_marker_is_not_registered
+     also red: test_a_pid_without_the_marker_is_not_registered
+
+=== L5. a failed netem add is deleted anyway (review MINOR 20) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_netem_whose_add_failed_is_not_deleted
+     also red: test_a_netem_whose_add_failed_is_not_deleted
+
+=== H3. a collector shells out with os.system ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/observe.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_counter_control_needs_the_endpoints_own_refusal
+     also red: test_a_b_that_confirmed_most_of_its_attributions_is_not_a_failed_b test_a_b_that_lost_two_calls_is_not_a_failed_b test_a_claim_lost_in_a_keeps_b_out test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_controller_that_never_gets_ready_is_incomplete test_a_failed_down_in_a_keeps_b_out test_a_failed_kill_in_a_keeps_b_out test_a_host_the_pingall_cannot_reach_is_sc_fwd_probe_broken test_a_missing_counter_route_is_red_no_route_through_the_observers test_a_recorded_stop_overrides_a_probe_broken_cell test_a_refused_claim_makes_the_run_incomplete test_a_round_cut_off_before_its_record_was_finished_is_not_complete_in_health_json test_a_round_that_cannot_be_built_ends_the_run_incomplete_with_the_earlier_rounds_kept test_a_running_thread_started_with_the_three_signals_blocked_does_not_stop_the_run_or_lose_the_stop test_a_second_stop_while_run_lab_handles_the_first_gives_rc_2_not_pythons_status_1 test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass test_a_see_red_run_whose_mutant_is_not_caught_is_not_a_pass test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete test_a_see_red_run_with_a_problem_of_the_run_is_incomplete test_a_see_red_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_signal_between_the_rounds_ends_the_run test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there test_a_sniffer_that_never_listens_sends_nothing test_a_stop_between_the_rounds_overrides_a_probe_broken_cell test_a_stop_during_a_teardown_ends_the_run_before_b_claims test_a_stop_during_b_teardown_is_not_complete test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record test_a_stopped_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_then_b_then_the_verdicts test_a_wrong_program_is_pl1_red_and_rule_d_keeps_the_round_publishable test_an_error_after_health_json_was_written_sets_it_aside_as_not_a_verdict test_an_error_putting_observations_json_in_place_leaves_no_health_json_and_exits_2 test_an_error_writing_observations_json_leaves_no_health_json_and_exits_2 test_an_exception_after_a_rounds_record_is_final_keeps_that_rounds_record test_b_controller_is_recorded_when_the_run_dir_path_has_a_link test_b_on_a_fabric_that_is_not_external_is_incomplete test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy test_b_whose_controller_cannot_be_started_is_a_failed_b test_b_whose_controller_is_not_primary_on_s2_is_a_failed_b test_b_whose_controller_never_gets_ready_is_a_failed_b test_b_whose_controller_reached_no_switch_is_a_failed_b test_b_whose_controller_writes_no_result_is_a_failed_b test_b_whose_fabric_is_not_external_is_a_failed_b test_b_whose_result_file_is_unreadable_is_a_failed_b test_b_whose_sniffer_is_not_ready_is_a_failed_b test_bring_up_a_reads_as_predicted test_each_bring_ups_last_state_is_kept test_every_reading_goes_through_the_one_runner test_k1_markers_lost_on_the_path_leave_sc_count_undecided test_k1_reads_one_more_than_thrift test_only_k1_ttl1_runs_their_gates_and_controls_and_nothing_else test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir test_run_lab_puts_the_handlers_it_found_back_when_it_ends test_run_lab_runs_the_frozen_code_it_is_given test_sent_is_the_senders_own_count test_the_calling_thread_is_not_judged_and_threads_that_block_all_three_signals_pass test_the_catch_all_does_not_look_like_a_deliberate_refusal test_the_counter_control_needs_the_endpoints_own_refusal test_the_identity_goes_into_health_json test_the_mutant_counter_is_probe_broken_by_sc_count test_the_observations_a_run_writes_carry_what_the_offline_judge_reads test_the_rest_of_the_round_is_still_observed test_the_see_red_run_uses_the_mutant_package_and_only_its_cells test_without_b_every_bmv2_red_is_unattributed
+
+=== Q3. HR1 runs on a flow that is not on exactly one uplink ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_hr1_needs_exactly_one_uplink_and_hr2_both
+     also red: test_hr1_needs_exactly_one_uplink_and_hr2_both
+
+=== Q7. HU1 never asks about the 0x1238 member ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_hu1_judges_both_members_and_the_side_table_cap
+     also red: test_hu1_judges_both_members_and_the_side_table_cap test_red_fixtures_are_red
+
+=== Q11. VB1 aliases the wrong cell ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_aliases_carry_their_sources_verdict
+     also red: test_alias_only_dimensions_are_marked test_aliases_carry_their_sources_verdict test_controls_are_in_health_json
+
+=== m10a. an unreadable flow document reads as no side rows ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/collect/kernel.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_side_rows_and_pcaps
+     also red: test_side_rows_and_pcaps
+
+=== m2. a PF-T with no observation is decided ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/verdict.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_pft_with_no_observation_is_not_run
+     also red: test_a_cell_never_observed_is_not_run_for_that_reason test_pft_with_no_observation_is_not_run
+
+=== R3. recover.sh takes over an expired claim of somebody else ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by an expired foreign claim: the claim stub was never called
+     also red: [an expired foreign claim: rc 3, no re-claim] [an expired foreign claim: the claim stub was never called] [  ... nothing run]
+
+=== R3-A1. the sample floor gates on NDTwin's emitter count again (NEW-A) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/verdict.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_telemetry_none_through_the_real_cells
+     also red: test_aliases_carry_their_sources_verdict test_attribution_that_fails_is_unattributed_never_red test_every_need_key_is_needed test_g1_needs_a_positive_integral_and_a_quiet_off_path test_green_fixtures_are_green test_hr1_is_pinned_to_the_unshaped_uplink test_hr1_needs_exactly_one_uplink_and_hr2_both test_hr_quiet_window_is_subtracted test_hu1_judges_both_members_and_the_side_table_cap test_hu1s_nested_readings_are_needed test_red_fixtures_are_red test_telemetry_none_through_the_real_cells test_the_sample_floor_comes_from_the_sender_not_the_emitter test_the_whole_table_reads_green_from_green_fixtures
+
+=== R3-B3. a route gone after the cut reads as not read ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_route_gone_after_the_cut_is_red
+     also red: test_a_route_gone_after_the_cut_is_red test_a_route_read_as_gone_during_a_short_watch_is_not_run
+
+=== R3-C3. recover.sh in down-done does not check that no fabric is up ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by down-done but ndt status shows a fabric: rc 4
+     also red: [down-done but ndt status shows a fabric: rc 4] [  ... no release, no knob write] [  ... knob untouched] [down-done with a fabric still up: rc 4, nothing signalled either] [  ... no kill, no release] [down-done, own claim expired, fabric up: rc 4 and the claim stub never called] [  ... nothing released, no down] [  ... knob untouched] [down-done and ndt status printed nothing: rc 4, nothing released (the fabric is not shown to be gone)]
+
+=== R3-m3a. a control with no route is PROBE-BROKEN (MINOR 3) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_missing_route_makes_the_cell_red_and_the_round_publishable
+     also red: test_a_missing_route_makes_the_cell_red_and_the_round_publishable  test_a_missing_counter_route_is_red_no_route_through_the_observers
+
+=== R3-m1b. an empty marker field list is a RED ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_empty_probe_side_inputs_are_probe_broken
+     also red: test_empty_probe_side_inputs_are_probe_broken
+
+=== R3-m6a. a failed kill drops the process from the state file (MINOR 6) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_failed_kill_keeps_the_process_for_recover
+     also red: test_a_failed_kill_in_a_keeps_b_out test_a_failed_kill_keeps_the_process_for_recover test_b_controller_is_recorded_when_the_run_dir_path_has_a_link
+
+=== R5-1a. an absent override is evidence in every phase, not only down-done (r5 follow-up 1) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by teardown, own claim expired, override absent: rc 3, no stub called
+     also red: [teardown, own claim expired, override absent: rc 3, no stub called] [claim-lost, own claim expired, override absent: rc 3, no stub called] [down-failed, own claim expired, override absent: rc 3, no stub called]
+
+=== R5-2b. a released run whose kill failed exits 0 ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by released with a kill that fails: rc 7, only the kills
+     also red: [released with a kill that fails: rc 7, only the kills]
+
+=== R4-2c. a failed kill is a problem but the round stays complete ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_failed_kill_is_a_problem_and_the_round_is_not_complete
+     also red: test_a_failed_kill_is_a_problem_and_the_round_is_not_complete
+
+=== R4-4a. K1's counter observer says nothing about the route (follow-up 4) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/observe.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_missing_counter_route_is_red_no_route_through_the_observers
+     also red: test_a_missing_counter_route_is_red_no_route_through_the_observers
+
+=== R4-6a. a negative time is a time (follow-up 6) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_malformed_timed_readings_are_probe_broken
+     also red: test_malformed_timed_readings_are_probe_broken
+
+=== R4-6e. deadline_met takes a negative time ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_malformed_timed_readings_are_probe_broken
+     also red: test_malformed_timed_readings_are_probe_broken
+
+=== R4-6i. CP4 reads gone before it checks how long it watched ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_route_read_as_gone_during_a_short_watch_is_not_run
+     also red: test_a_route_read_as_gone_during_a_short_watch_is_not_run
+
+=== R6-1b. recover.sh takes a sibling directory whose name starts with the run dir's ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by a package in a sibling dir whose name starts with the run dir's: rc 3, no stub called
+     also red: [a package in a sibling dir whose name starts with the run dir's: rc 3, no stub called] [the package is the run dir itself: rc 3, no stub called]
+
+=== R6-1f. LabRound does not follow links in the package path ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_package_outside_the_run_dir_is_refused_and_nothing_is_touched
+     also red: test_a_package_outside_the_run_dir_is_refused_and_nothing_is_touched test_b_controller_is_recorded_when_the_run_dir_path_has_a_link test_the_package_path_is_resolved_once_and_that_path_is_used_everywhere
+
+=== R6-2c. the claim is the same when it merely has some expires ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by an older down-done run dir under a later same-owner round's live claim: rc 3, no stub called
+     also red: [a live claim of our owner with another expires than the probe recorded: rc 3, no stub called] [an older down-done run dir under a later same-owner round's live claim: rc 3, no stub called] [an expired claim of our owner that is not the one the probe recorded: rc 3, no stub called] [down-done, an expired claim of our owner that is not the recorded one: rc 3, no stub called]
+
+=== R6-2g. LabRound brings the lab up on a claim the file does not show ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on
+     also red: test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on
+
+=== R6-3c. recover.sh does not ask for a package ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by LAB_STATE.json without package: rc 2, no stub called
+     also red: [LAB_STATE.json without package: rc 2, no stub called] [LAB_STATE.json with an empty package: rc 2, no stub called]
+
+=== R6-3h. recover.sh takes 0 for a time ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by LAB_STATE.json with a claim_expires of 0: rc 2, no stub called
+     also red: [LAB_STATE.json with a claim_expires of 0: rc 2, no stub called]
+
+=== R7-4a. recover.sh does not record down-done after its own ndt down ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by after its own ndt down the state says down-done
+     also red: [after its own ndt down the state says down-done] [  ... and it recorded down-done]
+
+=== R7-2c. a forced up past this run's claim is not looked at ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by a forced up past this run's live claim is on record: rc 3, no stub called
+     also red: [a forced up past this run's live claim is on record: rc 3, no stub called] [  ... the knob was not written] [a forced up past this run's claim, which has since expired: rc 3, no stub called]
+
+=== R7-5a. the gone claim file is not said to be gone ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by a claim file that is gone, its released copy kept as .prev: rc 3 and the output says which claim it was
+     also red: [a claim file that is gone, its released copy kept as .prev: rc 3 and the output says which claim it was] [a claim file that is gone and no .prev: rc 3 and the output says so]
+
+=== R7-L1. LabRound uses the path as given, not the resolved one ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_package_path_is_resolved_once_and_that_path_is_used_everywhere
+     also red: test_the_package_path_is_resolved_once_and_that_path_is_used_everywhere
+
+=== R8-1b. an absent knob does not ask ndt status: the qdisc diff runs against a fabric that is gone ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by   ... the retry finds no fabric and finishes: rc 0
+     also red: [  ... and the retry under that live claim finishes: rc 0] [  ... ndt status showed no fabric: it skipped tc and the qdisc diff, ran ndt down (idempotent) and released (--force: the re-claim's baseline)] [  ... the retry finds no fabric and finishes: rc 0] [  ... it asked ndt status, skipped tc and the qdisc diff, ran ndt down (exit 0 now), then released] [  ... and it recorded down-done] [  ... the host knob is its snapshot's bytes] [the probe's own down-failed after a down that left the lab verified clean: ndt down is run again (exit 0), then the knobs and the release: rc 0] [down-failed, knob absent, status 0/0, the probe's did-NOT-verify-clean note, the retry's ndt down exits 1: rc 5] [  ... the phase is down-failed and nothing was released] [  ... no tc and no qdisc diff (their interfaces are gone), and the knob was not written]
+
+=== R8-2b. recover.sh's own re-claim is released plainly ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by an expired claim, the package changed the host count: rc 0 and the host knob at its pre-round value
+     also red: [rc 0] [and then the whole recovery] [down-done, own claim expired, override absent: rc 0] [  ... checked no fabric first, asked what measures, re-claimed, restored the knobs, released] [an expired claim and only an orphaned row (leftovers, no fabric): rc 0, re-claimed] [  ... and the retry under that live claim finishes: rc 0] [  ... ndt status showed no fabric: it skipped tc and the qdisc diff, ran ndt down (idempotent) and released (--force: the re-claim's baseline)] [an expired claim, the package changed the host count: rc 0 and the host knob at its pre-round value] [  ... released with --force and the output says why]
+
+=== R8-3b. the unrecorded-claim hint never says nothing was brought up ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by no forced up on record over it: rc 2 and the output says nothing was brought up under it
+     also red: [no forced up on record over it: rc 2 and the output says nothing was brought up under it]
+
+=== R9-5. the second look at the claim reads only the expires ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/recover.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by another owner takes the claim during ndt down (the expires stays): rc 3, nothing released, the knob not written
+     also red: [another owner takes the claim during ndt down (the expires stays): rc 3, nothing released, the knob not written]
+
+=== AD13. the lab reads PF-T from an S0 that is not COMPLETE ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_an_s0_that_refused_pft_is_incomplete_and_pft_not_run
+     also red: test_an_s0_that_refused_pft_is_incomplete_and_pft_not_run
+
+=== C2-RA3. the pingall counts every other host as reached ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/round_a.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_host_the_pingall_cannot_reach_is_sc_fwd_probe_broken
+     also red: test_a_host_the_pingall_cannot_reach_is_sc_fwd_probe_broken
+
+=== C2-OA3. T7's order is read the P4Runtime way round ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/observe_a.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_proxy_that_writes_ternary_turns_t4_to_t7_green
+     also red: test_a_proxy_that_writes_ternary_turns_t4_to_t7_green test_a_ternary_writer_that_keeps_p4runtimes_numbers_is_red test_a_then_b_then_the_verdicts test_bring_up_a_reads_as_predicted
+
+=== C2-OA7. T2's negative read passes whatever s3 shows ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/observe_a.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_s3_not_on_the_compiled_default_fails_t2s_negative_read
+     also red: test_s3_not_on_the_compiled_default_fails_t2s_negative_read
+
+=== C2-OA11. one host's unreadable ethtool still yields an oracle ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/observe_a.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_checksum_unreadable_on_one_host_is_not_run
+     also red: test_checksum_unreadable_on_one_host_is_not_run
+
+=== C2-OA15. the meter cells' negative read passes with the rates already set ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/observe_a.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_kernel_that_installs_meters_turns_mt1_green_and_needs_the_before_read
+     also red: test_a_kernel_that_installs_meters_turns_mt1_green_and_needs_the_before_read
+
+=== C2-HO1. the stimulus runs although a sniffer never listened ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/collect/hosts.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_sniffer_that_never_listens_sends_nothing
+     also red: test_a_sniffer_that_never_listens_sends_nothing test_b_whose_sniffer_is_not_ready_is_a_failed_b
+
+=== C2-AT3. the priority attribution wants the P4Runtime order in thrift's numbers ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/attribution.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_every_item_confirmed
+     also red: test_a_failed_call_fails_its_item_whatever_thrift_shows test_every_item_confirmed  test_the_eleven_attributions_confirmed_from_thrift_and_the_receiver
+
+=== C2-AT7. the register attribution does not read the register ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/attribution.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_thrift_that_does_not_show_the_effect_fails_the_item
+     also red: test_thrift_that_does_not_show_the_effect_fails_the_item
+
+=== C2-AT11. a packet-out nobody received confirms ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/attribution.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_packet_out_needs_the_receiving_host
+     also red: test_the_packet_out_needs_the_receiving_host
+
+=== C2-LAB1. B's attributions never reach A's cells ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_then_b_then_the_verdicts
+     also red: test_a_call_the_controller_lost_is_unattributed_in_a test_a_proxy_before_the_ternary_writer_is_t4_to_t6_red_and_t7_not_run test_a_ternary_writer_that_keeps_p4runtimes_numbers_is_red test_a_then_b_then_the_verdicts test_bring_up_a_reads_as_predicted test_without_b_every_bmv2_red_is_unattributed
+
+=== R2-M1a. a veth peer printed by name is dropped (MAJOR-1) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/collect/fabric.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_bring_up_a_reads_as_predicted
+     also red: test_a_host_the_pingall_cannot_reach_is_sc_fwd_probe_broken test_a_listed_cpu_port_is_not_a_fabric_port test_a_missing_edge_is_tp1_red test_a_recorded_stop_overrides_a_probe_broken_cell test_a_round_that_cannot_be_built_ends_the_run_incomplete_with_the_earlier_rounds_kept test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass test_a_see_red_run_whose_mutant_is_not_caught_is_not_a_pass test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete test_a_see_red_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_stop_between_the_rounds_overrides_a_probe_broken_cell test_a_then_b_then_the_verdicts test_an_unplaced_port_is_not_run_and_tp1_keeps_what_it_read test_bring_up_a_reads_as_predicted test_k1_reads_one_more_than_thrift test_only_k1_ttl1_runs_their_gates_and_controls_and_nothing_else test_the_mutant_counter_is_probe_broken_by_sc_count test_the_mutant_ttl_is_probe_broken_by_sc_ttl test_the_see_red_run_uses_the_mutant_package_and_only_its_cells test_veth_peers_reads_both_iproute2_forms
+
+=== R2-M2c. the sniffer ignores the destination address ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/hostside.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_record_filters_on_every_field
+     also red: test_record_filters_on_every_field
+
+=== R2-m3c. the SENT line reports what was asked for ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/hostside.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_its_lines_are_the_ones_collect_sniff_reads
+     also red: test_its_lines_are_the_ones_collect_sniff_reads
+
+=== R2-M3b. ended_clean looks at the phase only ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_failed_kill_in_a_keeps_b_out
+     also red: test_a_failed_kill_in_a_keeps_b_out
+
+=== R2-m4f. only the last bring-up's state file is kept ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_each_bring_ups_last_state_is_kept
+     also red: test_a_second_stop_while_run_lab_handles_the_first_gives_rc_2_not_pythons_status_1 test_a_signal_between_the_rounds_ends_the_run test_a_stop_between_the_rounds_overrides_a_probe_broken_cell test_each_bring_ups_last_state_is_kept
+
+=== R2-m2b. the step guard swallows a signal ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/round_a.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_signal_still_ends_the_round
+     also red: test_a_recorded_stop_overrides_a_probe_broken_cell test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass test_a_signal_in_an_observer_ends_the_run test_a_signal_still_ends_the_round test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there test_a_stopped_runs_observations_judge_offline_to_the_same_headline_and_cells test_the_observations_a_run_writes_carry_what_the_offline_judge_reads
+
+=== R2-m5c. the adapter dry run passes any rewrite ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_adapter_dry_run_names_our_controller_and_four_rewrites
+     also red: test_the_adapter_dry_run_names_our_controller_and_four_rewrites
+
+=== R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of the file) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/identity.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_fingerprint_moves_with_what_must_be_the_same_only
+     also red: test_the_fingerprint_moves_with_what_must_be_the_same_only
+
+=== C2R3-N2. a B whose controller did nothing leaves the run complete ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_b_on_a_fabric_that_is_not_external_is_incomplete
+     also red: test_a_controller_that_never_gets_ready_is_incomplete test_b_on_a_fabric_that_is_not_external_is_incomplete test_b_whose_controller_cannot_be_started_is_a_failed_b test_b_whose_controller_is_not_primary_on_s2_is_a_failed_b test_b_whose_controller_never_gets_ready_is_a_failed_b test_b_whose_controller_reached_no_switch_is_a_failed_b test_b_whose_controller_writes_no_result_is_a_failed_b test_b_whose_fabric_is_not_external_is_a_failed_b test_b_whose_result_file_is_unreadable_is_a_failed_b test_b_whose_sniffer_is_not_ready_is_a_failed_b
+
+=== C2R3-N4a. a listed CPU port is taken for a fabric port ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/observe_a.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_listed_cpu_port_is_not_a_fabric_port
+     also red: test_a_listed_cpu_port_is_not_a_fabric_port
+
+=== C2R3-N7. an unobserved control reads as a flip ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_cell_this_run_did_not_observe_has_no_delta
+     also red: test_a_cell_this_run_did_not_observe_has_no_delta
+
+=== C2R4-F1b. the last stop signal of a teardown is kept, not the first ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded
+     also red: test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded
+
+=== C2R4-F2b. a B whose sniffer never listened gives no reason of its own ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/round_b.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_b_whose_sniffer_is_not_ready_is_a_failed_b
+     also red: test_b_whose_sniffer_is_not_ready_is_a_failed_b
+
+=== C2R4-F2f. a fabric that is not external gives no reason of its own ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/round_b.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_b_whose_fabric_is_not_external_is_a_failed_b
+     also red: test_b_whose_fabric_is_not_external_is_a_failed_b
+
+=== C2R4-F3d. a see-red run that was not complete still passes on PROBE-BROKEN ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/verdict.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete
+     also red: test_a_see_red_recording_that_sees_no_red_reads_so_offline test_a_stop_overrides_probe_broken_and_a_see_red_pass_needs_a_complete_run  test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete test_a_see_red_run_with_a_problem_of_the_run_is_incomplete
+
+=== C2R4-F4b. two empty answers from git count as equal hashes ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/frozen.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_git_that_cannot_confirm_a_copy_refuses_the_freeze
+     also red: test_a_git_that_cannot_confirm_a_copy_refuses_the_freeze
+
+=== C2R4-F4f. B's controller runs from the shared tree ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy
+     also red: test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy test_run_lab_runs_the_frozen_code_it_is_given
+
+=== C2R4-F4j. health.json does not record the hashes of B's files ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy
+     also red: test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy test_run_lab_runs_the_frozen_code_it_is_given
+
+=== C2R4-F9. C2R3-N8b tightened: the record is of the source, not of the copy ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/frozen.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_recorded_hash_is_of_the_copy_not_of_the_source
+     also red: test_the_recorded_hash_is_of_the_copy_not_of_the_source
+
+=== C2R5-2d. an exception out of a round (StateInUse) leaves run_lab ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_leftover_lab_state_is_incomplete_rc_2_and_stays_for_recover
+     also red: test_a_leftover_lab_state_is_incomplete_rc_2_and_stays_for_recover test_a_round_that_cannot_be_built_ends_the_run_incomplete_with_the_earlier_rounds_kept test_an_exception_after_a_rounds_record_is_final_keeps_that_rounds_record
+
+=== C2R5-2h. probe.py lab lets an exception out as Python's status 1 ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/probe.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_an_exception_out_of_the_lab_path_is_rc_2_not_pythons_status_1
+     also red: test_an_exception_out_of_the_lab_path_is_rc_2_not_pythons_status_1  test_an_error_after_health_json_was_written_sets_it_aside_as_not_a_verdict test_an_error_putting_observations_json_in_place_leaves_no_health_json_and_exits_2 test_an_error_writing_observations_json_leaves_no_health_json_and_exits_2 test_the_catch_all_does_not_look_like_a_deliberate_refusal
+
+=== C2R5-4a. a B that confirmed nothing but register is not a failed B ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/round_b.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_b_whose_controller_reached_no_switch_is_a_failed_b
+     also red: test_b_that_confirmed_only_register_is_a_failed_b test_b_whose_controller_reached_no_switch_is_a_failed_b
+
+=== C2R5-7a. the blobs are asked for by HEAD at that moment, not by the pinned sha ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/frozen.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_commit_that_lands_mid_freeze_cannot_give_a_set_that_matches_no_commit
+     also red: test_a_commit_that_lands_mid_freeze_cannot_give_a_set_that_matches_no_commit test_head_is_resolved_once_and_every_blob_is_asked_for_by_that_sha
+
+=== C2R5-7e. health.json does not record the commit the copies were checked against ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_probe_lab_records_the_frozen_head_in_the_identity_and_in_health_json
+     also red: test_probe_lab_records_the_frozen_head_in_the_identity_and_in_health_json
+
+=== C2R5-9c. a link planted for a subdirectory is followed ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/frozen.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_symlink_planted_for_a_subdirectory_is_not_followed
+     also red: test_a_symlink_planted_for_a_subdirectory_is_not_followed
+
+=== C2R5-5d. S0's adapter dry-run runs the shared tree's adapter ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_adapter_dry_run_runs_the_frozen_adapter_with_the_frozen_controller
+     also red: test_the_adapter_dry_run_runs_the_frozen_adapter_with_the_frozen_controller
+
+=== C2R5-10a. the body's stop handler does not put the teardown's handler in before it raises ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_second_stop_before_the_teardown_handler_is_in_place_does_not_skip_the_teardown
+     also red: test_a_second_stop_before_the_teardown_handler_is_in_place_does_not_skip_the_teardown
+
+=== C2R5-13. a knob that was not put back does not make the round incomplete ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_knob_that_does_not_go_back_makes_the_round_incomplete_even_when_the_release_succeeds
+     also red: test_a_knob_that_does_not_go_back_makes_the_round_incomplete_even_when_the_release_succeeds
+
+=== C2R5-11d. the offline judge does not read a stop recorded as a problem of the run ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/probe.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_stopped_recording_reads_incomplete_offline
+     also red: test_a_stopped_recording_reads_incomplete_offline
+
+=== C2R5-6a. the gate script lets k reach n ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [MUT_SHARD with k equal to n is refused]
+     also red: [MUT_SHARD with k equal to n is refused] [MUT_SHARD with k above n is refused]
+
+=== C2R5-6e. the gate script does not say a shard is not the gate ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [a shard log opens with NOT THE GATE BY ITSELF: shard k/n]
+     also red: [the table's size is read from the gate's own one-shard banner] [MUT_SHARD with n just above the table size is refused too] [MUT_SHARD with n equal to the table size is not refused by the validation] [a shard log opens with NOT THE GATE BY ITSELF: shard k/n]
+
+=== C2R5-6i. the shard-sum script does not compare the first line with the HEAD line ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [a shard whose first line is not the commit HEAD says]
+     also red: [a shard whose first line is not the commit HEAD says]
+
+=== C2R5-6m. the shard-sum script accepts a partial run ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [a partial run]
+     also red: [a partial run]
+
+=== C2R5-6q. the shard-sum script does not look at the byte-identical line ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [a shard that does not say the original is byte-identical]
+     also red: [a shard that does not say the original is byte-identical]
+
+=== C2R5-6u. the shard-sum script does not check each shard's share ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [a shard that ran more mutations than its share (the counts no longer add up)]
+     also red: [a shard that ran more mutations than its share (the counts no longer add up)]
+
+=== C2R5-6y. the shard-sum script takes a refused run's log ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [a log of a refused run]
+     also red: [a log of a refused run]
+
+=== C2R6-2c. the exercise copy check does not compare the bytes ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/frozen.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_exercise_copy_check_names_the_file_that_differs
+     also red: test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_load_model_runs_it test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_the_pre_flight test_an_exercise_file_edited_after_the_clean_check_is_refused_before_any_lab_action test_the_exercise_copy_check_names_the_file_that_differs
+
+=== C2R6-2g. the exercise copy check passes without a commit or git to check against ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/frozen.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_exercise_copy_check_is_a_refusal_when_git_cannot_answer
+     also red: test_the_exercise_copy_check_is_a_refusal_when_git_cannot_answer
+
+=== C2R6-2k. S0 does not hand its exercise copy to the controller trial ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_controller_trial_loads_the_model_from_the_runs_exercise_copy_not_the_shared_tree
+     also red: test_the_controller_trial_loads_the_model_from_the_runs_exercise_copy_not_the_shared_tree
+
+=== C2R6-3d. probe.py lab lets a stop out of main() as an uncaught exception ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/probe.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_stop_that_gets_out_of_the_lab_path_is_rc_2_stopped_not_pythons_status_1
+     also red: test_a_stop_that_gets_out_of_the_lab_path_is_rc_2_stopped_not_pythons_status_1
+
+=== C2R6-4c. the mask is never lifted ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed
+     also red: test_a_running_thread_started_with_the_three_signals_blocked_does_not_stop_the_run_or_lose_the_stop test_a_second_stop_before_the_teardown_handler_is_in_place_does_not_skip_the_teardown test_a_stop_during_a_teardown_ends_the_run_before_b_claims test_a_stop_during_b_teardown_is_not_complete test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record test_run_lab_puts_the_handlers_it_found_back_when_it_ends test_sigterm_takes_the_finally
+
+=== C2R6-5b. the temp file is not put in place with os.replace ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/report.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_an_error_putting_observations_json_in_place_leaves_no_health_json_and_exits_2
+     also red: test_an_error_putting_observations_json_in_place_leaves_no_health_json_and_exits_2
+
+=== C2R6-5f. the catch-all message starts with refused: ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/probe.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_catch_all_does_not_look_like_a_deliberate_refusal
+     also red: test_the_catch_all_does_not_look_like_a_deliberate_refusal
+
+=== C2R6-10d. C1 compares the mirror's ports with a frozenset directly ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells
+     also red: test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_stopped_runs_observations_judge_offline_to_the_same_headline_and_cells
+
+=== C2R6-pin-c. the freeze resolves HEAD again instead of taking the pinned sha ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/probe.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_freeze_and_the_identity_use_the_sha_pinned_at_the_start
+     also red: test_the_freeze_and_the_identity_use_the_sha_pinned_at_the_start
+
+=== C2R6-6c. the shard-sum script ignores --commit ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [--commit naming the logs' commit is accepted, and the GATE line names that commit]
+     also red: [--commit naming the logs' commit is accepted, and the GATE line names that commit] [--commit naming another commit than the logs' is refused] [--commit naming no commit of the checkout is refused]
+
+=== C2R6-6g. the shard-sum script takes an option it does not know for a log ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [an unknown option is refused]
+     also red: [an unknown option is refused]
+
+=== C2R6-6k. the gate does not mark an uncommitted edit to the gate-script tests ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [an uncommitted edit to the gate's own script tests/shell/test_p4_health_gate_scripts.sh is marked]
+     also red: [an uncommitted edit to the gate's own script tests/shell/test_p4_health_gate_scripts.sh is marked]
+
+=== C2R6-7b. the hash of the gate's scripts leaves out the gate-script tests ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [an edit to test_p4_health_gate_scripts.sh changes the hash]
+     also red: [an edit to sum_p4_health_gate_shards.sh changes the hash] [an edit to test_p4_health_gate_scripts.sh changes the hash]
+
+=== C2R7-1b. the thread check leaves SIGHUP out ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_running_thread_that_does_not_block_sighup_is_refused_too
+     also red: test_a_running_thread_that_does_not_block_sighup_is_refused_too test_every_thread_that_does_not_block_them_is_named
+
+=== C2R7-1f. a /proc that cannot be listed passes ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_proc_that_cannot_be_read_is_a_refusal_not_a_pass
+     also red: test_a_proc_that_cannot_be_read_is_a_refusal_not_a_pass
+
+=== C2R7-1j. the refusal is written down and the run goes on ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim
+     also red: test_a_proc_that_cannot_be_read_is_a_refusal_not_a_pass test_a_running_thread_that_does_not_block_sighup_is_refused_too test_a_running_thread_that_does_not_block_sigint_is_refused_too test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim test_a_thread_whose_status_cannot_be_read_or_has_no_sigblk_line_is_a_refusal test_a_thread_with_only_two_of_the_three_bits_set_is_named_in_the_refusal test_every_thread_that_does_not_block_them_is_named
+
+=== C2R7-1n. the trial block is never lifted ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+     also red: test_a_stop_during_the_trial_ends_an_unhandled_process_only_after_the_trial_is_over test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+
+=== C2R7-1r. a stop during the trial is dropped, not held ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back
+     also red: test_a_stop_during_the_trial_ends_an_unhandled_process_only_after_the_trial_is_over test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back
+
+=== C2R7-3d. the re-check looks at the run directory, not the exercise copy ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_convert_that_leaves_the_exercise_copy_alone_goes_on_to_the_rounds
+     also red: test_a_convert_that_leaves_the_exercise_copy_alone_goes_on_to_the_rounds
+
+=== C2R8-5c. the tree sum taken after the mutations is sorted by the locale's collation ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [every sort in a pipe of the gate script is told LC_ALL=C]
+     also red: [every sort in a pipe of the gate script is told LC_ALL=C]
+
+=== C2R8-5g. the shard-sum script compares only the interpreter's version, not its path ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by [a shard run by the same version of another python (another interpreter path)]
+     also red: [a shard run by the same version of another python (another interpreter path)]
+
+=== C2R8-3c. run_lab does not put the handlers it found back ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_run_lab_puts_the_handlers_it_found_back_when_it_ends
+     also red: test_run_lab_puts_the_handlers_it_found_back_when_it_ends
+
+=== C2R9-2b. the exercise copy's modules are loaded through the import system's loader (a cached .pyc may run) ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/frozen.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc
+     also red: test_an_exec_of_the_exercise_copy_writes_no_bytecode_cache_into_it test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc
+
+=== C2R9-4a. the trial block is never lifted, seen by the cells suite's end-of-test mask check ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals
+     also red: test_a_stop_during_the_trial_ends_an_unhandled_process_only_after_the_trial_is_over test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back
+
+=== C2R10-3a. the exercise copy check reads a link among the build outputs as the file it points to ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/tools/p4_health/frozen.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp/p4-health-mutate-76TM1a)
+  anchor occurrences: 1
+  ✅ caught by test_the_exercise_copy_check_refuses_a_link_under_a_build_directory
+     also red: test_the_exercise_copy_check_refuses_a_link_under_a_build_directory
+
+=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===
+  anchor occurrences: 1
+  ✅ green: the suites do not react to a comment
+
+--- was the original written? ---
+  byte-identical  tools/p4_health  ab634b3cb71c84d5
+  byte-identical  the gate's own scripts  06afbe70b5029f47
+  suites green against the real files
+
+130 mutations, 0 survived
+SHARD 0/4 of 517 mutations in the table
+NOT THE GATE BY ITSELF: shard 0/4
+rc=0

@@ -1,0 +1,206 @@
+commit 4a4eb94eda029bb55337ee8dbde9065bfb9702ca
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final  tracked-dirty=0  df_free_mb=5380  mem_avail_mb=6822  LANG=en_US.UTF-8 LC_ALL=  command: p4_proxy/venv/bin/python tests/python/test_p4_health_cells.py
+interpreter p4_proxy/venv/bin/python -> /home/adam/miniconda3/bin/python3.13: Python 3.13.13, prefix /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/p4_proxy/venv
+........................................................................................................................../tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tests/python/test_p4_health_cells.py:1573: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-inv-1586361-rd2gq209/x.p4info.txtpb' mode='w' encoding='UTF-8'>
+  open(info, "w").write("")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tests/python/test_p4_health_cells.py:1580: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-inv-1586361-rd2gq209/x.json' mode='w' encoding='UTF-8'>
+  open(js, "w").write(_json.dumps(prog))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tests/python/test_p4_health_cells.py:1591: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-inv-1586361-rd2gq209/x.json' mode='w' encoding='UTF-8'>
+  open(js, "w").write(_json.dumps(prog))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+............................refused: tools/p4_health has uncommitted changes; a lab run runs only committed code:
+M tools/p4_health/hostside.py
+..refused: git status could not tell whether tools/p4_health is clean (rc 128)
+refused: git status could not tell whether tools/p4_health is clean (rc None)
+refused: git status could not tell whether tools/p4_health is clean (rc None)
+.refused: git could not name HEAD (rev-parse rc 128)
+refused: git could not name HEAD (rev-parse rc None)
+refused: git could not name HEAD (rev-parse rc None)
+..refused: git could not name HEAD (rev-parse rc 128)
+.refused: the identity record is incomplete (system under test None, fingerprint aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa); see /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-ident-1586361-b7dxszqk/gate_fingerprint.json
+refused: the identity record is incomplete (system under test /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-ident-1586361-b7dxszqk/code_identity.json, fingerprint incomplete); see /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-ident-1586361-b7dxszqk/gate_fingerprint.json
+...............lab run p4h-pin-run-1586361-nxtsev10 -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-pin-run-1586361-nxtsev10  (HEAD 98e95d7a5ca6cbff901ab9028ba79baa0f43e071, probe tree 3524ef0c40eb7f477aa1c5ea1d387586a4c6c33d)
+lab run p4h-freeze-run-1586361-z27_ajxa -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-freeze-run-1586361-z27_ajxa  (HEAD 98e95d7a5ca6cbff901ab9028ba79baa0f43e071, probe tree 3524ef0c40eb7f477aa1c5ea1d387586a4c6c33d)
+lab run p4h-ident-1586361-b7dxszqk -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-ident-1586361-b7dxszqk  (HEAD unknown, probe tree unknown)
+S0 COMPLETE
+gate fingerprint aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; system under test None
+lab run p4h-ident-1586361-b7dxszqk -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-ident-1586361-b7dxszqk  (HEAD unknown, probe tree unknown)
+S0 COMPLETE
+gate fingerprint incomplete; system under test /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-ident-1586361-b7dxszqk/code_identity.json
+lab run p4h-f8-1586361-w5e9kdbf -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-f8-1586361-w5e9kdbf  (HEAD unknown, probe tree unknown)
+S0 COMPLETE
+gate fingerprint dce79aa5175078b22a80165f68e2cb3a8b8ffa8dbe9bb8939d490637c1f5320a; system under test /x/code_identity.json
+lab run run -> /nonexistent/run  (HEAD unknown, probe tree unknown)
+lab run p4h-s0bad-1586361-ifzp79zn -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-s0bad-1586361-ifzp79zn  (HEAD unknown, probe tree unknown)
+S0 PROBE-BROKEN
+S0 is PROBE-BROKEN: the lab is not touched (failed: preflight A)
+dimension           cell    scope  verdict  attribution   expected      delta         reason
+pipeline_load       PL1     core   NOT RUN                GREEN         not observed  not observed in this run
+pipeline_load       PL2     core   NOT RUN                GREEN         not observed  not observed in this run
+tables              T1      core   NOT RUN                GREEN         not observed  not observed in this run
+tables              T2      core   NOT RUN                GREEN         not observed  not observed in this run
+tables              T3      core   NOT RUN                GREEN         not observed  not observed in this run
+tables              T4      ext    NOT RUN                GREEN         not observed  not observed in this run
+tables              T5      ext    NOT RUN                GREEN         not observed  not observed in this run
+tables              T6      ext    NOT RUN                GREEN         not observed  not observed in this run
+tables              T7      ext    NOT RUN                GREEN         not observed  not observed in this run
+tables              T8      ext    NOT RUN                GREEN         not observed  not observed in this run
+tables              PF-T    ext    NOT RUN                GREEN         not observed  not observed in this run
+pre_multicast       M1      core   NOT RUN                GREEN         not observed  not observed in this run
+pre_multicast       M2      core   NOT RUN                GREEN         not observed  not observed in this run
+pre_clone           C1      core   NOT RUN                GREEN         not observed  not observed in this run
+pre_clone           C2      ext    NOT RUN                RED           not observed  not observed in this run
+counters            K1      core   NOT RUN                GREEN         not observed  not observed in this run
+counters            K2      ext    NOT RUN                RED           not observed  not observed in this run
+counters            K3      core   NOT RUN                GREEN         not observed  not observed in this run
+meters              MT1     core   NOT RUN                RED           not observed  not observed in this run
+meters              MT2     core   NOT RUN                RED           not observed  not observed in this run
+meters              MT3     ext    NOT RUN                RED           not observed  not observed in this run
+registers           R2      core   NOT RUN                RED           not observed  not observed in this run
+registers           R3      core   NOT RUN                UNATTRIBUTED  not observed  not observed in this run
+digest              D1      core   NOT RUN                RED           not observed  not observed in this run
+packet_io           P1      core   NOT RUN                GREEN         not observed  not observed in this run
+packet_io           P2      core   NOT RUN                RED           not observed  not observed in this run
+packet_io           P3      core   NOT RUN                RED           not observed  not observed in this run
+packet_io           P4      core   NOT RUN                PARTIAL(b)    not observed  not observed in this run
+custom_headers      CH1     core   NOT RUN                PARTIAL(a)    not observed  not observed in this run
+custom_headers      CH2     core   NOT RUN                PARTIAL(a)    not observed  not observed in this run
+custom_headers      CH3     core   NOT RUN                GREEN         not observed  not observed in this run
+custom_headers      CH4     ext    NOT RUN                RED           not observed  not observed in this run
+custom_headers      CH5     core   NOT RUN                GREEN         not observed  not observed in this run
+custom_headers      CH6     ext    NOT RUN                GREEN         not observed  not observed in this run
+custom_headers      CH7     core   NOT RUN                GREEN         not observed  not observed in this run
+custom_headers      CH8     ext    NOT RUN                PARTIAL(a)    not observed  not observed in this run
+custom_headers      VB1     ext    NOT RUN  ALIAS of CH3  GREEN         not observed  = CH3: not observed in this run
+queue_metadata      Q1      core   NOT RUN                GREEN         not observed  not observed in this run
+queue_metadata      Q2      ext    NOT RUN                RED           not observed  not observed in this run
+checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run
+ttl_or_hop          TTL1    core   NOT RUN                GREEN         not observed  not observed in this run
+topology            TP1     core   NOT RUN                GREEN         not observed  not observed in this run
+topology            TP2     core   NOT RUN                GREEN         not observed  not observed in this run
+topology            TP4     core   NOT RUN                GREEN         not observed  not observed in this run
+control_plane_mode  CP1     core   NOT RUN  ALIAS of T1   GREEN         not observed  = T1: not observed in this run
+control_plane_mode  CP2     core   NOT RUN                GREEN         not observed  not observed in this run
+control_plane_mode  CP4     core   NOT RUN                GREEN         not observed  not observed in this run
+verification        V1      core   NOT RUN                GREEN         not observed  not observed in this run
+verification        V2      core   NOT RUN                PARTIAL(a)    not observed  not observed in this run
+action_profile      AP1     ext    NOT RUN                RED           not observed  not observed in this run
+action_profile      AS1     ext    NOT RUN                RED           not observed  not observed in this run
+idle_timeout        IT1     ext    NOT RUN                RED           not observed  not observed in this run
+value_set           VS1     ext    NOT RUN                UNATTRIBUTED  not observed  not observed in this run
+recirculate         RC1     ext    NOT RUN                GREEN         not observed  not observed in this run
+hash_random         HR1     ext    NOT RUN                GREEN         not observed  not observed in this run
+hash_random         HR2     ext    NOT RUN                GREEN         not observed  not observed in this run
+header_union        HU1     ext    NOT RUN                PARTIAL(a)    not observed  not observed in this run
+control             K1-neg  -      NOT RUN  -             GREEN         not observed  not observed in this run
+control             T3-neg  -      NOT RUN  -             GREEN         not observed  not observed in this run
+rollup core  can 0  partial 0  cannot 0  undecided 16  (of 16 dimensions)
+rollup full  can 0  partial 0  cannot 0  undecided 16  (of 16 dimensions)
+rollup q3b   can 0  partial 0  cannot 0  undecided 6  (of 6 dimensions).refused: the identity record is incomplete (system under test /x/code_identity.json, fingerprint incomplete); see /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-f8-1586361-lxyouff5/gate_fingerprint.json
+.............../tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tests/python/test_p4_health_cells.py:2972: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-fp-1586361-8hlkkv_l/tools/p4_health/a.py' mode='w' encoding='UTF-8'>
+  open(os.path.join(d, rel), "w").write(text)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tests/python/test_p4_health_cells.py:2972: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-fp-1586361-8hlkkv_l/src/k.cpp' mode='w' encoding='UTF-8'>
+  open(os.path.join(d, rel), "w").write(text)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tests/python/test_p4_health_cells.py:2972: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-fp-1586361-8hlkkv_l/doc/n.md' mode='w' encoding='UTF-8'>
+  open(os.path.join(d, rel), "w").write(text)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tests/python/test_p4_health_cells.py:2972: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-fp-1586361-8hlkkv_l/p4_proxy/proxy_agent/sflow_emitter.py' mode='w' encoding='UTF-8'>
+  open(os.path.join(d, rel), "w").write(text)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tests/python/test_p4_health_cells.py:2981: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-fp-1586361-8hlkkv_l/src/k.cpp' mode='w' encoding='UTF-8'>
+  open(os.path.join(d, "src/k.cpp"), "w").write("changed")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tests/python/test_p4_health_cells.py:2982: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-fp-1586361-8hlkkv_l/doc/n.md' mode='w' encoding='UTF-8'>
+  open(os.path.join(d, "doc/n.md"), "w").write("changed")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tests/python/test_p4_health_cells.py:2984: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-fp-1586361-8hlkkv_l/p4_proxy/proxy_agent/sflow_emitter.py' mode='w' encoding='UTF-8'>
+  open(os.path.join(d, "p4_proxy/proxy_agent/sflow_emitter.py"), "w").write("changed")
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.........
+verdict INCOMPLETE
+lab run p4h-f8-1586361-lxyouff5 -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-f8-1586361-lxyouff5  (HEAD unknown, probe tree unknown)
+S0 COMPLETE
+gate fingerprint incomplete; system under test /x/code_identity.json
+lab run p4h-s0frozen-1586361-sxc3m6u_ -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-s0frozen-1586361-sxc3m6u_  (HEAD unknown, probe tree unknown)
+S0 PROBE-BROKEN
+lab run p4h-pinned-1586361-r_mi3rzu -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-pinned-1586361-r_mi3rzu  (HEAD abababababababababababababababababababab, probe tree unknown)
+S0 PROBE-BROKEN
+S0 is PROBE-BROKEN: the lab is not touched
+dimension           cell    scope  verdict  attribution   expected      delta         reason
+pipeline_load       PL1     core   NOT RUN                GREEN         not observed  not observed in this run
+pipeline_load       PL2     core   NOT RUN                GREEN         not observed  not observed in this run
+tables              T1      core   NOT RUN                GREEN         not observed  not observed in this run
+tables              T2      core   NOT RUN                GREEN         not observed  not observed in this run
+tables              T3      core   NOT RUN                GREEN         not observed  not observed in this run
+tables              T4      ext    NOT RUN                GREEN         not observed  not observed in this run
+tables              T5      ext    NOT RUN                GREEN         not observed  not observed in this run
+tables              T6      ext    NOT RUN                GREEN         not observed  not observed in this run
+tables              T7      ext    NOT RUN                GREEN         not observed  not observed in this run
+tables              T8      ext    NOT RUN                GREEN         not observed  not observed in this run
+tables              PF-T    ext    NOT RUN                GREEN         not observed  not observed in this run
+pre_multicast       M1      core   NOT RUN                GREEN         not observed  not observed in this run
+pre_multicast       M2      core   NOT RUN                GREEN         not observed  not observed in this run
+pre_clone           C1      core   NOT RUN                GREEN         not observed  not observed in this run
+pre_clone           C2      ext    NOT RUN                RED           not observed  not observed in this run
+counters            K1      core   NOT RUN                GREEN         not observed  not observed in this run
+counters            K2      ext    NOT RUN                RED           not observed  not observed in this run
+counters            K3      core   NOT RUN                GREEN         not observed  not observed in this run
+meters              MT1     core   NOT RUN                RED           not observed  not observed in this run
+meters              MT2     core   NOT RUN                RED           not observed  not observed in this run
+meters              MT3     ext    NOT RUN                RED           not observed  not observed in this run
+registers           R2      core   NOT RUN                RED           not observed  not observed in this run
+registers           R3      core   NOT RUN                UNATTRIBUTED  not observed  not observed in this run
+digest              D1      core   NOT RUN                RED           not observed  not observed in this run
+packet_io           P1      core   NOT RUN                GREEN         not observed  not observed in this run
+packet_io           P2      core   NOT RUN                RED           not observed  not observed in this run
+packet_io           P3      core   NOT RUN                RED           not observed  not observed in this run
+packet_io           P4      core   NOT RUN                PARTIAL(b)    not observed  not observed in this run
+custom_headers      CH1     core   NOT RUN                PARTIAL(a)    not observed  not observed in this run
+custom_headers      CH2     core   NOT RUN                PARTIAL(a)    not observed  not observed in this run
+custom_headers      CH3     core   NOT RUN                GREEN         not observed  not observed in this run
+custom_headers      CH4     ext    NOT RUN                RED           not observed  not observed in this run
+custom_headers      CH5     core   NOT RUN                GREEN         not observed  not observed in this run
+custom_headers      CH6     ext    NOT RUN                GREEN         not observed  not observed in this run
+custom_headers      CH7     core   NOT RUN                GREEN         not observed  not observed in this run
+custom_headers      CH8     ext    NOT RUN                PARTIAL(a)    not observed  not observed in this run
+custom_headers      VB1     ext    NOT RUN  ALIAS of CH3  GREEN         not observed  = CH3: not observed in this run
+queue_metadata      Q1      core   NOT RUN                GREEN         not observed  not observed in this run
+queue_metadata      Q2      ext    NOT RUN                RED           not observed  not observed in this run
+checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run
+ttl_or_hop          TTL1    core   NOT RUN                GREEN         not observed  not observed in this run
+topology            TP1     core   NOT RUN                GREEN         not observed  not observed in this run
+topology            TP2     core   NOT RUN                GREEN         not observed  not observed in this run
+topology            TP4     core   NOT RUN                GREEN         not observed  not observed in this run
+control_plane_mode  CP1     core   NOT RUN  ALIAS of T1   GREEN         not observed  = T1: not observed in this run
+control_plane_mode  CP2     core   NOT RUN                GREEN         not observed  not observed in this run
+control_plane_mode  CP4     core   NOT RUN                GREEN         not observed  not observed in this run
+verification        V1      core   NOT RUN                GREEN         not observed  not observed in this run
+verification        V2      core   NOT RUN                PARTIAL(a)    not observed  not observed in this run
+action_profile      AP1     ext    NOT RUN                RED           not observed  not observed in this run
+action_profile      AS1     ext    NOT RUN                RED           not observed  not observed in this run
+idle_timeout        IT1     ext    NOT RUN                RED           not observed  not observed in this run
+value_set           VS1     ext    NOT RUN                UNATTRIBUTED  not observed  not observed in this run
+recirculate         RC1     ext    NOT RUN                GREEN         not observed  not observed in this run
+hash_random         HR1     ext    NOT RUN                GREEN         not observed  not observed in this run
+hash_random         HR2     ext    NOT RUN                GREEN         not observed  not observed in this run
+header_union        HU1     ext    NOT RUN                PARTIAL(a)    not observed  not observed in this run
+control             K1-neg  -      NOT RUN  -             GREEN         not observed  not observed in this run
+control             T3-neg  -      NOT RUN  -             GREEN         not observed  not observed in this run
+rollup core  can 0  partial 0  cannot 0  undecided 16  (of 16 dimensions)
+rollup full  can 0  partial 0  cannot 0  undecided 16  (of 16 dimensions)
+rollup q3b   can 0  partial 0  cannot 0  undecided 6  (of 6 dimensions)
+verdict INCOMPLETE
+lab run p4h-pin-run-1586361-hebw74_4 -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-pin-run-1586361-hebw74_4  (HEAD 1307dc562650403d875b40a2698f247b613dc50e, probe tree 3524ef0c40eb7f477aa1c5ea1d387586a4c6c33d)
+lab run p4h-f8-1586361-itwfpr73 -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/tmp/p4h-f8-1586361-itwfpr73  (HEAD unknown, probe tree unknown).......
+----------------------------------------------------------------------
+Ran 203 tests in 3.344s
+
+OK
+
+S0 COMPLETE
+gate fingerprint dce79aa5175078b22a80165f68e2cb3a8b8ffa8dbe9bb8939d490637c1f5320a; system under test /x/code_identity.json
+rc=0

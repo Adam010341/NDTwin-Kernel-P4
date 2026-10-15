@@ -1,0 +1,3 @@
+commit e34fc89477282c743b6bb38df5e3be4efbe8110f
+command: seen_red.py <clone> mutate_table_journal.log tests.test_table_entry_journal tests.test_table_entry_replay
+tests: 183, seen red: 183, never seen red: 0

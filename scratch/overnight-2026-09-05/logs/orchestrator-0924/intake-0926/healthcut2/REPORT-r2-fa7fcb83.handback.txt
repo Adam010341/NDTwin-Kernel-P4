@@ -1,0 +1,392 @@
+DELIVERED fa7fcb83
+
+**Head:** `fa7fcb83` on `feat/p4-health-cut2`; not pushed. All gates were rerun at this head and passed.
+- **Outstanding:** you said a new head of fix/p4-health-run-identity is coming. When it lands, the final gates have to run once more after that merge.
+- **Limits kept:** no lab, sudo, Mininet, real mnexec, tc or pkill. I did not edit recover.sh. In lab_round.py I added only the LAB_STATE-overwrite refusal, placed next to the run-identity guard. I did not touch the app-package knob in the fake fabric or fixtures.
+- **Three things I added beyond the list:**
+  - **m1 follow-up:** VB1 is CH3's alias and still read "flipped" when CH3 was unobserved; fixed.
+  - **Anchor collision:** my MAJOR-3 variable `busy` doubled the old D8 mutant's anchor, and the gate would have scored that as a survivor; renamed.
+  - **H5 and H6:** two more deliberately non-hermetic copies, for the sender's and the sniffer's spawn paths.
+
+**Commits since d70370c0**
+| sha | subject |
+|---|---|
+| 1340729f | Merge branch 'fix/p4-health-run-identity' into feat/p4-health-cut2 |
+| eb95555a | p4_health: read both forms of a veth peer in the fabric oracle |
+| 3c2e7e0b | p4_health: count only UDP markers to the receiver in the sniffer |
+| cdd6153b | p4_health: bring up B only after A ended clean |
+| f0596efe | p4_health: no delta for unobserved cells, and one failing step costs one cell |
+| 5a1b287d | p4_health: predict R3 unattributed, observe VS1, move AP1, AS1 and IT1 to cut 3 |
+| 58293b47 | p4_health: dry-run the adapter on package B in S0 and pin the mutant's drop check |
+| da9176d9 | p4_health: refuse a dirty probe tree and record what a lab run ran |
+| 7a9b2880 | p4_health: say in frames.py that the live sender builds its frames here |
+| 91ec19c0 | p4_health: rename the state guard's variable so an older mutant stays unique |
+| fa7fcb83 | p4_health: an alias of an unobserved cell is unobserved too |
+
+**The merge.** `git merge --no-ff f721be78` had no conflicts. Before any fix, the merge alone was green: cells 110 OK, collect 100 OK, recover 108 checks with 0 failed (`r2/merge.suites.log`).
+
+LOG below = `scratch/overnight-2026-09-05/logs/gates-0910/p4-health-cut2/r2/`. Line 1 of each log is `commit <sha> tree <tree>`; the last line is `rc=`. Red logs were run on code before the fix, at the commit named in their line 1.
+
+## Per item: where the fix is, and the red and green logs
+
+### Format settled without root
+- `unshare -rn` (an unprivileged user and network namespace; no sudo, host network untouched), iproute2-6.1.0, `LOG/veth_format.log`.
+  - A peer in the same namespace is printed by name: `s2-eth2@s1-eth4:` (line 5).
+  - A peer in another namespace is printed by its index there: `s1-eth1@if2:` (line 10).
+
+### MAJOR-1: TP1's fabric oracle missed every switch-to-switch link
+- **Fix:**
+  - `tools/p4_health/collect/fabric.py:24-45`: `veth_peers` returns a name (str) for `@name` and an index (int) for `@ifK`.
+  - `tools/p4_health/observe_a.py:604-649`: `fabric_view` links switch ports by peer name. Every port show_ports lists must end up on a link, or the oracle is None (`:647`). That covers the mirror-image false GREEN.
+- **Fake fabric:** the root namespace now prints iproute2's real form, and `switch_peer_form="none"` gives a parser's blind spot.
+- **Red:** `LOG/major1.OLD_red.log` — 9 failures, including `test_bring_up_a_reads_as_predicted` (TP1 RED, line 2), the see-red run giving K1 and TTL1 NOT RUN (line 18), `test_switch_links_lost_on_both_sides_are_not_a_green` (line 10) and `test_veth_peers_reads_both_iproute2_forms` (line 16).
+- **Green:** `LOG/major1.NEW_green.log:2-4`.
+- **Mutants:** R2-M1a (name form dropped) is caught by `test_bring_up_a_reads_as_predicted`; R2-M1b (an unplaced port no longer makes the oracle unreadable) is caught by the mirror test.
+
+### MAJOR-2: the sniffer counted ICMP port-unreachable quotes
+- **Fix:**
+  - `tools/p4_health/hostside.py:106-124`: `record()` also requires IPv4 UDP to `--dport` with ip_dst equal to `--ip`; the filter line is `:117`.
+  - `collect/hosts.py:105-112`: `sniff_start` passes the cell's dport and the receiving host's own IP.
+  - round_a and round_b pass the dport (pingall 40001; packet-out `CX.PACKET_OUT_DPORT` 40051).
+- **Fake fabric:** frames are now real bytes. Every delivered marker also produces an ICMP type 3 code 3 back to the sender quoting the whole datagram. The fake sniffer applies hostside's own `record()` and stops at `--until`, as the real one does.
+- **Red, for its own reason** (old `record`, new fake):
+  - `LOG/major2.OLD_red.log` — SC-fwd PROBE-BROKEN on a healthy fabric (line 2), pingall `(20, 30)` (line 7);
+  - the ICMP unit test returns a record (lines 14-15).
+- **Coarser red:** `LOG/major2_m3.OLD_red.log` (interface errors against the old hostside and hosts).
+- **Green:** `LOG/major2_m3.NEW_green.log:2-4`.
+- **Mutants:**
+  - R2-M2a (whole filter off) → `test_bring_up_a_reads_as_predicted`;
+  - R2-M2b (only the ip check left) → the ICMP test;
+  - R2-M2c (ip check dropped) → `test_record_filters_on_every_field`;
+  - R2-M2d (the wrong host's IP passed) → the bring-up test.
+
+### MAJOR-3: B came up whatever A's teardown left
+- **Fix:**
+  - `tools/p4_health/lab.py:73-96`: `ended_clean` requires phase released, down_rc 0, release_rc 0, no "could not stop", and empty sniffers, controllers and netem. `keep_state` copies `LAB_STATE.<X>.json`.
+  - `lab.py:119`: the gate. If A is not clean, B is skipped, the problem is recorded, and the run is INCOMPLETE.
+  - `tools/p4_health/lab_round.py:60-90` (`StateInUse`, `TERMINAL_PHASES`, `state_in_use`) and the guard at `:162-167`: a round refuses a state file that is not terminal or still lists processes or netem.
+  - `tools/p4_health/round_b.py:98-104`: before spawning, `switch_state` must say `control_plane.mode == "external"`.
+- **Red:** `LOG/major3.OLD_red.log`.
+  - A failed down, a lost claim and a failed kill each still caused a second claim and up: `(2, 2) != (1, 1)` at lines 26-31.
+  - The refusal and per-bring-up state-copy tests error (lines 2-22).
+  - The external check fails (line 24).
+- **Green:** `LOG/major3.NEW_green.log:2-4`.
+- **Mutants:**
+  - R2-M3a (gate removed) → `test_a_failed_down_in_a_keeps_b_out`;
+  - R2-M3b (phase-only gate) → `test_a_failed_kill_in_a_keeps_b_out`;
+  - R2-M3c and R2-M3d (overwrite refusal) → `test_an_unfinished_round_refuses_the_next`;
+  - R2-M3e (no external check) → `test_b_spawns_no_controller_on_a_fabric_that_is_not_external`.
+- **Test helpers:** the helpers that build rounds without running them now clear the state file first.
+
+### m1: Δ for cells this run did not observe
+- **Fix:** `tools/p4_health/expected.py:38-49` (delta "not observed"). Alias follow-up in `tools/p4_health/cells/verdict.py:310-313`.
+- **Red:** `LOG/m1_m2.OLD_red.log:2-3`; alias case `LOG/m1_alias.OLD_red.log:2-3`.
+- **Green:** `LOG/m1_m2.NEW_green.log`, `LOG/m1_alias.NEW_green.log`.
+- **Mutants:** R2-m1, R2-m1b. The lab test now asserts that no cell reads "flipped".
+
+### m2: per-step guard in ARound.body
+- **Fix:** `tools/p4_health/round_a.py:150-163` (`run_step`). The step's exception goes into problems, its observation is left unreadable, and `SignalAbort` is re-raised.
+- **Red:** `LOG/m1_m2.OLD_red.log:6`. **Green:** `m1_m2.NEW_green.log`.
+- **Mutants:** R2-m2a, R2-m2b (a signal must still end the round).
+
+### m3: hostside.py tests and mutants
+- **Testable pieces in hostside.py:**
+  - `pick_iface(listdir=)` at `:43`;
+  - `sent_line`, `ready_line`, `rx_line`, `done_line` at `:65-77`;
+  - `outgoing` at `:127`;
+  - `sniff_loop` at `:132`.
+- **Tests:** class `TestHostside`. Its record-filter, sniff_loop outgoing-skip and `--until`, and pick_iface tests check behaviour; the line-format test checks against collect/sniff.py.
+- **Red:** `LOG/major2_m3.OLD_red.log`. This is coarse (interface errors), so the real evidence is the mutants R2-m3a to m3d.
+
+### m4: live procedure, plus code where it was needed
+- **(a) Dirty tree:** `tools/p4_health/probe.py:102-110`. `probe.py lab` refuses (rc 2) if `git status --porcelain -- tools/p4_health` is non-empty, before S0 runs.
+- **(b) What the run ran:** `tools/p4_health/identity.py` (new), wired in at `probe.py:120-135` and `lab.py` (doc keys `system_under_test`, `gate_fingerprint`).
+  - The system under test is recorded with the existing `code_identity.py`.
+  - The fingerprint has one digest per part of Q6(a)'s must-be-same set: tracked files on disk outside the may-differ classes, untracked files outside output dirs, the NTG repo (HEAD, tree, every file), the three interpreters via `venv_fingerprint.sh`, system Mininet, mnexec, the helper and its conf, the bmv2 builds and libs, p4c, and tmux/tc/ip/ethtool/sudo. An unreadable part makes the whole digest "incomplete".
+  - A read-only run on this worktree took about 5 s: `LOG/fingerprint_offline.log`.
+- **(c)–(e) and the see-red precondition:** these are steps in SUMMARY §6.
+- **(f) Each bring-up's record:** `LAB_STATE.A.json` and `LAB_STATE.B.json`, plus every bring-up's record in health.json; `test_each_bring_ups_last_state_is_kept` covers it.
+- **Red:** `LOG/m4.OLD_red.log:4-5` ("S0 must not start"). **Green:** `m4.NEW_green.log`.
+- **Mutants:** R2-m4a to m4d, and R2-m4f.
+
+### m5: adapter dry run and the A-MUT pin
+- **Fix:** `tools/p4_health/s0.py:598-619` (`adapter_dry_run`) runs `round_b.adapter_argv(...) + --dry-run` on `<run>/packages/B`.
+  - It must name controller_ext.py and rewrite s1–s4 onto 30051–30054 with device id = dpid.
+  - S0 now ends with 55 ok checks; the dry-run line is `LOG/s0-final/probe.log:53`.
+  - The A-MUT drop check is pinned by `test_the_mutant_package_is_drop_checked`.
+- **Red:** `LOG/m5.OLD_red.log:2`. **Green:** `m5.NEW_green.log`.
+- **Mutants:** R2-m5a (A-MUT dropped from the list), m5b, m5c.
+
+### m6: wording
+- `tools/p4_health/frames.py:7-10` docstring fixed; the SUMMARY is corrected below.
+
+### m7: your decisions on the predictions
+- **Prediction file:** `doc/audit/2026-10-03_p4-health-check/expected_today.tsv`:
+  - line 30: R3 → UNATTRIBUTED, citing the controller trial;
+  - lines 57-59: AP1, AS1, IT1 cut column → 3, with a one-line reason;
+  - one header comment line added.
+- **Table:** `cells/table.py` cut fields for AP1, AS1, IT1 → 3 (a test requires them to match the file).
+- **VS1 observer:** `tools/p4_health/observe_a.py:377-391`. No route; read-only `pvs_get` before and after; no B attribution, so it reads UNATTRIBUTED. Wired into `round_a.STATIC`.
+- **Red:** `LOG/m7.OLD_red.log:2,6-7` (`'RED' != 'UNATTRIBUTED'`). **Green:** `m7.NEW_green.log`.
+- **Mutant:** R2-m7.
+
+### w1: root python flags
+- `collect/hosts.py:69-75`: `-B -X pycache_prefix=<round out dir>/pycache -I`. Checked by hand that `hostside.py sniff --help` runs under p4dev python with `-B -I`.
+- **Mutant:** R2-w1.
+
+### 197 against 201
+- `check_gate_anchors.py:51-53`: `ok(n)` counts distinct (file, anchor) pairs plus the control anchor. Several mutants share one anchor.
+- 50c3379d: 201 mutations, 196 distinct + 1 = 197.
+- fa7fcb83: 252 mutations, 241 distinct + 1 = 242.
+- Every shared group is listed in `LOG/anchors_197_vs_201.log`.
+
+## Gates at fa7fcb83 (all under LOG)
+| gate | result | log : line |
+|---|---|---|
+| cells, Python 3.8.20 / 3.12.3 / 3.13.13 | 116 tests OK | `test_cells.py*.log:37,39`; rc=0 at :40 |
+| collect, sealed, same three | 118 tests OK; seal report: 118 checked; tripwire, network, spawn and real-file all 0 | `test_collect.hermetic.py*.log:5,7`; `seal_report.green.py*.json` |
+| recover, same three | 108 checks, 0 failed | `test_recover.py*.log:133` |
+| H1–H6 | all red, rc=1 | FAILED lines at H1:1607, H2:1260, H3:451, H4:423, H5:1271, H6:671 |
+| full mutation gate | 252 mutations, 0 survived; comment-only control green; original byte-identical | `mutate_p4_health.log:1528,1531,1534`; rc=0 at :1535 |
+| S0 via run.sh | rc 0, 55 ok, COMPLETE, 112 s | `s0.run.log:4-5`; `s0-final/probe.log:51-53,57` |
+| check_gate_anchors HEAD | mutate_p4_health ok(242); 133/133 | `check_gate_anchors.HEAD.log:109,142` |
+| check_test_tmpdirs | 414 files, 0 fixed temp paths | `check_test_tmpdirs.log:3` |
+| test_l1_shell_scoring | 163 checks, 0 failed | `test_l1_shell_scoring.log:187` |
+
+**Housekeeping:**
+- I stopped two interrupted gate runs by their task IDs and checked by pid listing that no children remained. One seal temp dir they left behind is deleted.
+- No leftover throwaway or mutate processes, and no `/tmp/p4-health-mutate-*` dirs.
+- Disk: 2987 MB free.
+
+========== SUMMARY-cut2-offline.md ==========
+# P4 健檢 Cut 2（離線那一半）：交付摘要（含第 1 次審查的修正）
+
+[Co-developed with claude code -- Adam]
+
+- **分支**：`feat/p4-health-cut2`，從 `0cd01656` 開；中途合併了 `fix/p4-health-run-identity`（`f721be78`）。
+- **head**：`fa7fcb83`。
+  - 第 1 輪：`118329f3`、`20a56fcb`、`e71dab93`、`50c3379d`。
+  - 審查之後：`1340729f`（合併）、`eb95555a`、`3c2e7e0b`、`cdd6153b`、`f0596efe`、`5a1b287d`、`58293b47`、`da9176d9`、`7a9b2880`、`91ec19c0`、`fa7fcb83`。
+- **LOG** 指 `scratch/overnight-2026-09-05/logs/gates-0910/p4-health-cut2/`。
+  - 第 1 輪的證據在 `LOG/e71dab93/` 與 LOG 根目錄；審查修正之後在 `LOG/r2/`。
+  - 每份 log 第 1 行是 `commit <sha> tree <tree>`，最後一行是 `rc=`。
+- **沒做**：
+  - lab：`ndt up/claim/down/release/clean`；
+  - sudo、Mininet、真的 mnexec、tc；
+  - C++ build、push。
+- **起過的 bmv2**：只有拋棄式的，pcap 模式、Thrift 29500 起、gRPC 29650 起。
+  - S0 原有的：`ndt-hc-selfcheck-bmv2`、`ndt-hc-vstrial-bmv2`；
+  - Cut 2 新增：`ndt-hc-ctrltrial-bmv2`。
+- **iproute2 的格式**：用 `unshare -rn`（非特權的 user＋net namespace，不碰主機網路）實測過一次。
+- **沒動的檔**：
+  - `recover.sh`；
+  - `DESIGN.md`；
+  - `lab_round.py`：只加了 MAJOR-3 那一段小的 LAB_STATE 覆寫拒絕，緊鄰 run-identity 的檢查。
+
+## 1. 做了什麼
+
+### 1.1 bring-up A（`observe_a.py`、`round_a.py`、`collect/hosts.py`、`hostside.py`）
+
+- **格**：
+  - PL1、T1（CP1 是它的 alias）；
+  - T2–T8、M1、M2、C1、C2；
+  - K1、K2、MT1–MT3、R2、R3；
+  - D1、P1、P2、P3、CS1、TTL1、TP1；
+  - VS1（Q3(b)，沒有 route）。
+- **對照**：K1-neg、T3-neg。
+- **自檢**：
+  - SC-fwd：30 對主機的 marker pingall，加上 T1 的 dump；
+  - SC-count、SC-reg、SC-ttl。
+- **順序**：先 static 再 active。
+  - 每一步各自包住：某一步拋出例外，只影響它自己那一格（讀數記成讀不到）；收到訊號仍然結束這一輪。
+- **`--only`**：會帶上該格的對照、gate 格，以及產生它所需自檢讀數的格。
+- **刺激**：`hostside.py` 在主機的 namespace 裡送、收 marker（`sudo -n mnexec -a <pid>`）。
+  - 以 root 跑的 p4dev 直譯器加上 `-B -X pycache_prefix=<run> -I`。
+  - 幀由 `frames.py` 組，和 S0 送進拋棄式 bmv2 的幀逐位元組相同。
+- **sniffer 只算**：這一輪的 token、這一格的 id、**IPv4 UDP、dport 是這一格的、ip_dst 是收端自己**的幀。
+  - 收端回送的 ICMP port unreachable 會引用整個 marker，有了這個條件就不會被算進去。
+- **TP1 的 fabric oracle**：兩種 veth 寫法都讀。
+  - 同一個 namespace 的對端寫名字：`s1-eth4@s2-eth2`，也就是每一條交換機之間的鏈路；
+  - 另一個 namespace 的對端寫 index：`s1-eth1@if2`，也就是每一個接主機的埠。
+  - show_ports 列出的每一個埠都必須落在某一條鏈路上，否則 oracle 讀不到（NOT RUN）。
+
+### 1.2 bring-up B（`controller_ext.py`、`attribution.py`、`round_b.py`、`ctrl_trial.py`）
+
+- **控制器**：tutorials `p4runtime_lib` 的形狀，經 `run_external_controller.py` 改寫連線。
+  - 仲裁成 primary、推 pipeline、寫四台的路由，然後在 s2 上做 11 項歸因。
+  - **起控制器之前**，先讀 `switch_state`，必須是 `control_plane.mode == "external"`。
+- **確認一項歸因要兩件事都成立**：
+  1. 控制器的呼叫成功；
+  2. 另一個讀數：
+     - thrift：table_dump、meter_get_rates、mirroring_get＋mc_dump、register_read、counter_read；
+     - h4 的 sniffer：packet-out。
+- **DigestList 與 packet-in 例外**：讀數是**控制器自己回報收到的內容**，拿來和探測器自己選、自己送的欄位與 ingress port 比對。
+  - 這是設計允許的做法；它不是一個繞過控制器的讀數。
+- **對應到 A 的格**：
+  - T4＝ternary，T5＝range，T6＝optional，T7＝priority；
+  - MT1、MT2＝MeterEntry，MT3＝DirectMeterEntry；
+  - D1＝digest，C2＝clone，R3＝register，K2＝direct counter；
+  - P2＝packet-in，P3＝packet-out。
+
+### 1.3 接線（`lab.py`、`probe.py lab`、`s0.py`、`identity.py`）
+
+- **前置**：`probe.py lab` 在 `tools/p4_health` 有任何未提交的改動時拒絕（rc 2）。
+- **S0**：在 run 目錄跑 S0，不是 COMPLETE 就停（rc 1）。
+- **記錄這一輪跑的是什麼**：
+  - `system_under_test`：用 `code_identity.py` 記錄；
+  - `gate_fingerprint`：Q6(a)「必須相同」那一側，每一部分一個 digest；
+  - 兩者都寫進 health.json。
+- **A**：A 一輪結束後把 `LAB_STATE.A.json` 留一份。
+- **B 有條件**：A 必須乾淨結束——phase `released`、down 與 release 都是 rc 0、沒有停不掉的行程、LAB_STATE 裡不再有行程或 netem——否則 B 不起，整輪 INCOMPLETE。
+  - LabRound 本身也拒絕覆寫一份還沒結束的 LAB_STATE.json。
+- **最後才判格**。
+- **每一輪的 package**：用它自己在 run 目錄裡的那一份（`<run>/packages/A`、`B`、`A-MUT`）。
+- **S0 新增的檢查**：
+  - A-MUT 的 convert、pre-flight、drop check；
+  - B 控制器在拋棄式 simple_switch_grpc 上的 trial；
+  - adapter 對 package B 的 `--dry-run`：必須指名 controller_ext.py，並把 s1–s4 改寫到 30051–30054、device id＝dpid。
+- **判定新增一步**：這一輪沒觀測的格判 NOT RUN，理由是「not observed in this run」。
+  - 它的 delta 寫「not observed」，不寫「flipped」；以這種格為來源的 alias 也一樣。
+
+## 2. 觀測到的（OBSERVED，都在 fa7fcb83）
+
+| 檢查 | 結果 | log（`LOG/r2/`） |
+|---|---|---|
+| cells（3.8.20、3.12.3、3.13.13） | 116 tests OK | `test_cells.py*.log:37,39` |
+| collect（封死，三版） | 118 tests OK；seal 報告：118 個測試都檢查過，tripwire／網路／spawn／真實檔案變動都是 0 | `test_collect.hermetic.py*.log:5,7` |
+| recover（三版） | 108 checks，0 failed | `test_recover.py*.log:133` |
+| H1–H6 | 全部紅 | `test_collect.nonhermetic.H*.log` 末行 |
+| mutation gate | 252 個突變，0 存活；負對照綠；原檔 byte-identical | `mutate_p4_health.log:1528,1531,1534` |
+| S0 | rc 0、55 個 ok、COMPLETE、112 s；adapter dry run 通過 | `s0.run.log:4-5`、`s0-final/probe.log:53,57` |
+| check_gate_anchors HEAD | ok(242)；133/133 | `check_gate_anchors.HEAD.log:109,142` |
+| check_test_tmpdirs／test_l1_shell_scoring | 414 個檔 0 個／163 checks 0 failed | 各自的 log |
+| veth 的兩種寫法 | 同一個 namespace 寫 `@名字`，跨 namespace 寫 `@if<index>`（iproute2-6.1.0） | `veth_format.log:5,10` |
+| gate fingerprint（離線、唯讀） | 約 5 s；各部分都讀得到 | `fingerprint_offline.log` |
+| ok(N) 與突變數為什麼不同 | `ok(n)` 數的是不同的 anchor 加上對照：197＝196＋1（50c3379d），242＝241＋1（fa7fcb83） | `anchors_197_vs_201.log` |
+
+- **審查三個 MAJOR 與 m1–m7，每一項**都有在舊碼上看到紅的 log（`r2/*.OLD_red.log`）與綠的 log（`*.NEW_green.log`），也都有 mutant。
+- **拋棄式 simple_switch_grpc 上的事實**（stock 與 bmv2-fast 兩支）：
+  - 11 項歸因有 10 項確認；
+  - RegisterEntry 寫入回 `canonical_code 12: Register writes are not supported yet`；
+  - thrift 的 priority 是 INT32_MAX 減去 P4Runtime 的 priority；
+  - optional 在 dump 裡顯示成 `TERNARY 11 &&& ff`。
+
+## 3. 推論的（INFERRED）
+
+1. **Mininet fabric 上 veth 的寫法**：交換機之間寫名字、接主機的埠寫 `@if`。這是從 `p4_testbed_topo.py` 的 Switch 子類別加上 §2 的實測推的，沒有在 fabric 上跑過。live 第一件事就是看 TP1（§6）。
+2. **收端回 ICMP**：會回、而且引用整個 marker，這是 Linux 的行為。sniffer 的條件讓它不會被誤算；沒有在 fabric 上量過。
+3. **TP1 對 `get_graph_data` 的正規化**：照碼與一份舊的 live 圖寫的。
+4. **時間**：§6 的時間都是推估。
+5. **主機介面名**：假定叫 `eth0`。
+
+## 4. 預測（`expected_today.tsv`）
+
+- **R3 改成 UNATTRIBUTED**：決定者的裁示，第一次 live 之前就改。依據是 controller trial 的觀測。
+- **AP1、AS1、IT1 的 cut 改成 3**：B 的 11 項歸因沒有涵蓋它們，Cut 2 歸因不了。`cells/table.py` 同步改。
+- **VS1 這一輪有觀測**：預測 UNATTRIBUTED（沒有 route；bmv2 的 P4Runtime 拒絕 value-set 寫入）。
+- **比對**：假 fabric 的端對端測試逐格拿 tsv 比，Cut 2 的格（含 VS1）全部一致，**沒有任何一格 flipped**。
+
+## 5. 設計沒寫、我選的
+
+1. **送收工具**：用 frames.py＋AF_PACKET，不用 scapy；以 root 跑的直譯器加 `-B -X pycache_prefix -I`。
+2. **sniffer 的條件**：只算 UDP、dport 是這一格的、ip_dst 是收端自己。
+3. **控制器的直譯器**：用 p4dev venv（p4runtime_lib 需要 `p4.tmp`）。
+   - 指令經 `$P4H_CTRL_CONFIG` 傳；
+   - 在 LAB_STATE 的 marker 是 run 目錄。
+4. **`sent`**：
+   - 寫入格＝發出且有回覆的寫入數；
+   - T1＝pingall 的幀數。
+5. **T2 的 NDTwin 那一半**＝s2 的 table_entries 計數；**T8**＝s2 的 `journaled`。
+6. **有端點、但探測器還沒有 client 的**，判 NOT RUN。
+7. **priority 的換算**：INT32_MAX 減法。
+8. **meter 的目標值**：0.125 B/µs、burst 12500。
+9. **刺激**：
+   - 路徑 h4 → h6，經 s2 → s4；
+   - K1、K2 各 200 幀；
+   - pingall 每對 3 幀，共 30 對。
+10. **B 的歸因**在 s2 上做；packet-out 送 5 幀到 s2 的 port 1（dport 40051）。
+11. **沒觀測的格**判 NOT RUN，delta 寫「not observed」；以這種格為來源的 alias 也一樣。
+12. **TP1**：
+    - 每一個埠都必須落在某一條鏈路上，否則 oracle 讀不到；
+    - 主機那一側的介面不看。
+13. **B 只在 A 乾淨結束之後才起**；每一輪的最後一份 LAB_STATE 留成 `LAB_STATE.<X>.json`。
+14. **gate fingerprint**：一個部分讀不到，整份就是 `incomplete`，不算相符。
+
+## 6. 第一次 live 的程序（沒跑）
+
+**前提**
+
+- Adam 對這一次逐次授權（§9 Q6(a)：第一次 live，含看過紅那一次）。
+- 建議併進 trunk 之後在主 checkout 跑。
+
+**命令**
+
+```
+cd <checkout>
+git status --porcelain -- tools/p4_health           # 必須是空的（不是空的，probe.py lab 會 rc 2 拒絕）
+NDT_OWNER=<owner> tools/test_workflow/ndt status --measuring   # 必須是 measuring nothing、沒有 claim、bmv2 switches 0
+df -m /                                             # > 2500 MB
+RUN=$PWD/.test_run/p4_health/$(date -u +%Y-%m-%dT%H%M%SZ)_p4_health
+P4_HEALTH_RUN_DIR=$RUN tools/p4_health/run.sh lab --owner <owner>        # S0 → identity → A → B → 判格
+# 當掉、被中斷：tools/p4_health/recover.sh $RUN   （人執行）
+```
+
+**看過紅那一次**：只在全輪 PL1、T1、TP1 都是 GREEN，而且 A、B 兩輪都乾淨結束之後才跑。
+
+```
+RUN2=$PWD/.test_run/p4_health/$(date -u +%Y-%m-%dT%H%M%SZ)_p4_health_seered
+P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A --only K1,TTL1 --mutant
+```
+
+**存檔**：把 `$RUN` 與 `$RUN2` 整個目錄抄進 audit-raw。
+
+**時間（推論）**
+
+- S0 約 2 分鐘；identity 不到 1 分鐘；
+- A 約 6–9 分鐘；B 約 4–6 分鐘；
+- 全輪約 13–18 分鐘；看過紅那一次另外約 6–8 分鐘。
+
+**全輪預測會看到的**
+
+- GREEN：PL1、T1（CP1）、T2、T3、M1、M2、C1、K1、P1、CS1、TTL1、TP1；
+- 對照：K1-neg、T3-neg 都是 GREEN；
+- 自檢：SC-fwd（pingall 30/30）、SC-count、SC-reg、SC-ttl 都是 ok；
+- RED（歸因成立）：T4、T5、T6、T8、C2、K2、MT1、MT2、MT3、R2、D1、P2、P3、PF-T；
+- T7：NOT RUN（gate T4 RED）；
+- UNATTRIBUTED：R3、VS1；
+- 其餘格：NOT RUN「not observed in this run」，delta 寫「not observed」；
+- delta：same 30、not observed 26、**flipped 0**；
+- rollup：
+  - core：can 9、partial 1、cannot 3、undecided 3；
+  - full：6、4、3、3；
+  - q3b：0、0、0、6；
+- 整輪：COMPLETE，rc 0。
+
+**看過紅那一次預測會看到的**
+
+- K1 是 PROBE-BROKEN，原因 SC-count；TTL1 是 PROBE-BROKEN，原因 SC-ttl；
+- PL1、T1、TP1 都是 GREEN；
+- PROBE-BROKEN，rc 1——這正是 §5.2-④ 要的。
+
+**先看什麼（照順序）**
+
+1. `probe.log`：
+   - 有「S0 COMPLETE」；
+   - 兩行 B controller trial 與 adapter dry run 都是 ok；
+   - 有「gate fingerprint <sha>」那一行，而且不是 `incomplete`。
+2. 收拾乾淨了沒有：
+   - `LAB_STATE.A.json`、`LAB_STATE.B.json` 的 phase 都是 `released`，sniffers／controllers／netem 都是空的；
+   - health.json 的 bringups 每一筆：complete、down_rc 0、release_rc 0、knobs_restored、frames_reached_hosts false；
+   - `ndt status`：沒有 claim、沒有 bmv2。
+3. **rc 2（INCOMPLETE）時**：先讀 health.json 的 `problems` 與 `bringups` 每一筆，以及每一份 `LAB_STATE.<X>.json`。
+   - 如果寫著「B not brought up」：先對 `$RUN` 跑 `recover.sh`，不要直接再跑一輪。
+4. **TP1**：`A/TP1.json` 的 answer 與 oracle 逐集合比。
+   - oracle 是 null，代表有一個交換機的埠落不到任何鏈路上：看 `ip -o link show` 的寫法。
+5. `A/SC-fwd.json` 的 pingall 是 (30, 30)；`A/problems.json` 是空的。
+6. B 那一輪：
+   - `B/attributions.json`：除了 register，其餘都是 ok；
+   - `B/controller.log` 有 adapter 改寫的那幾行；
+   - `controller.result.json` 的四台都是 primary、set_pipeline_ok。
+7. `00_table.tsv`：不應該有任何一格是 flipped。有的話，那一格就是這一輪要先解釋的。
+8. health.json 的 `gate_fingerprint` 與 `system_under_test`：這是第一次授權那一輪的紀錄，以後的常設授權要拿它來比，保存好。
+========== end SUMMARY ==========

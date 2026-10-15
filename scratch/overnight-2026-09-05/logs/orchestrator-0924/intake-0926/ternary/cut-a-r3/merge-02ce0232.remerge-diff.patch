@@ -1,0 +1,161 @@
+02ce0232317cfec52dd4ef54b428bbf1bc5be09a 526dd41c975dcc6d3ea36c3c90c8890c3b773914 6c1a78c8fa80e687889ecb6a401300f2d432808f
+Merge trunk 6c1a78c8 (refuse table-entry writes into tables NDTwin owns) into feat/p4-ternary-writer-a
+The real-p4info flow_5tuple test now checks both changes: the write is refused as NDTwin's
+table before it is built, and the builder still encodes the ternary field with its mask and
+priority. The UNSPECIFIED-table write test binds a user pipeline so it reaches the 501 it is
+about. The install-time gate keeps trunk's citation of the commit its baseline was red at.
+
+
+diff --git a/p4_proxy/tests/test_foreign_pipeline.py b/p4_proxy/tests/test_foreign_pipeline.py
+remerge CONFLICT (content): Merge conflict in p4_proxy/tests/test_foreign_pipeline.py
+index d951b1c2..3ad98bd7 100644
+--- a/p4_proxy/tests/test_foreign_pipeline.py
++++ b/p4_proxy/tests/test_foreign_pipeline.py
+@@ -177,45 +177,39 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
+         text_format.Merge(open(path).read(), p4info)
+         return p4info
+ 
+-<<<<<<< 526dd41c (doc: correct the first table-writer summary and record the second-round fixes)
+-    def test_a_ternary_table_in_a_real_compiled_p4info_is_built(self):
++    def test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_builds_it(self):
+         # 🔴 The only REAL ternary table this repository has, and until round 3 nothing pointed
+         # the writer at it. `MyIngress.flow_5tuple` is p4c's output from ndtwin_switch.p4: six
+         # TERNARY fields it decided the numbering of. None of the tutorials fixtures has one
+         # (asserted in test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match), so
+         # this is where "a real compiler said TERNARY and the writer built it" gets checked.
+         # It used to be where the writer REFUSED it (501); the ternary writer reversed that.
+-        # [Co-developed with claude code -- Adam]
+-=======
+-    def test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_says_unsupported(self):
+-        # 🔴 The only REAL ternary table this repository has, and until round 3 nothing pointed
+-        # the writer at it. The 501 path was covered twice over -- by the in-file p4info subset
+-        # and by a synthetic descriptor -- and both of those are declarations this suite wrote
+-        # itself. `MyIngress.flow_5tuple` is p4c's output from ndtwin_switch.p4: six TERNARY
+-        # fields it decided the numbering of. None of the tutorials fixtures has one (asserted
+-        # in test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match), so this is
+-        # where "a real compiler said TERNARY and the writer refused" gets checked.
+         #
+         # [Co-developed with claude code -- Adam]
+-        # What changed: this client is a BASELINE client (the class default, which is what the
+-        # proxy binds to NDTwin's own pipeline), so the owner check answers first. The write is
+-        # refused as NDTwin's table (409 owned_by_ndtwin) before the match is looked at, and the
+-        # TERNARY refusal is now checked where it still happens, at the builder. The client is
+-        # deliberately NOT bound to None here: that would model a switch running NDTwin's
+-        # p4info with no roles. A package that carries its own copy of NDTwin's compiled program
+-        # is foreign (app_package.py compares resolved paths) and binds None, so such a switch
+-        # can exist -- but the proxy's own pipeline is the common case, and binding None would
+-        # hide the change in precedence that this test is here to show.
+->>>>>>> 6c1a78c8 (p4 proxy: refuse table-entry writes into tables NDTwin owns)
++        # Two halves, because two things decide this entry. This client is a BASELINE client
++        # (the class default, which is what the proxy binds to NDTwin's own pipeline), so the
++        # owner check answers first: the write is refused as NDTwin's table (409
++        # owned_by_ndtwin) before the match is looked at, and nothing reaches the switch. The
++        # encoding -- a real compiler's TERNARY field built as value and mask, with its
++        # priority -- is checked where it still happens on this pipeline, at the builder. The
++        # client is deliberately NOT bound to None: that would model a switch running NDTwin's
++        # p4info with no roles. A package that carries its own copy of NDTwin's compiled
++        # program is foreign (app_package.py compares resolved paths) and binds None, so such a
++        # switch can exist -- but the proxy's own pipeline is the common case, and binding None
++        # would hide the change in precedence that this test is here to show.
+         client = a_client()
+         client.p4info = self.real_ndtwin_p4info()
+         table = client._table_by_name("MyIngress.flow_5tuple")
+         self.assertEqual({client._match_type_name(f) for f in table.match_fields}, {"TERNARY"})
++        # A priority, so the entry is one the writer would otherwise accept: on a tree without
++        # the owner check this fails because the write went out, not because a shape rule
++        # refused it.
+         spec = {
+             "table": "MyIngress.flow_5tuple",
+             "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
+             "action_name": "MyIngress.ipv4_forward",
+-            "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
++            "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1},
++            "priority": 10}
+ 
+         # Looked up by name so that on a tree without the owner check this fails because the
+         # write was ACCEPTED, not because the attribute is missing.
+@@ -226,28 +220,16 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
+         self.assertEqual(client.stub.requests, [],
+                          "a refusal this proxy makes itself must not reach the switch")
+ 
+-<<<<<<< 526dd41c (doc: correct the first table-writer summary and record the second-round fixes)
+-        client.write_table_entry({
+-            "table": "MyIngress.flow_5tuple",
+-            "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
+-            "action_name": "MyIngress.ipv4_forward",
+-            "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1},
+-            "priority": 10})
+-        self.assertEqual(len(client.stub.requests), 1)
+-        sent = client.stub.requests[0].updates[0].entity.table_entry
+-        field = sent.match[0]
++        entry, kinds = client.build_table_entry(spec)
++        self.assertEqual(kinds, {"hdr.ipv4.dstAddr": "TERNARY"})
++        self.assertEqual(len(entry.match), 1)
++        field = entry.match[0]
+         self.assertEqual(field.WhichOneof("field_match_type"), "ternary")
+         self.assertEqual(field.ternary.value, bytes([10, 0, 1, 1]))
+         self.assertEqual(field.ternary.mask, b"\xff\xff\xff\xff")
+-        self.assertEqual(sent.priority, 10)
+-=======
+-        with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
+-            client.build_table_entry(spec)
+-        self.assertIn("TERNARY", str(caught.exception))
+-        self.assertIn("flow_5tuple", str(caught.exception))
++        self.assertEqual(entry.priority, 10)
+         self.assertEqual(client.stub.requests, [],
+                          "building an entry must not reach the switch")
+->>>>>>> 6c1a78c8 (p4 proxy: refuse table-entry writes into tables NDTwin owns)
+ 
+     def test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables(self):
+         # The control for the test above: the ternary table builds, and the exact and lpm tables
+diff --git a/p4_proxy/tests/test_p4_client_writes.py b/p4_proxy/tests/test_p4_client_writes.py
+remerge CONFLICT (content): Merge conflict in p4_proxy/tests/test_p4_client_writes.py
+index 204ce341..9bf9c306 100644
+--- a/p4_proxy/tests/test_p4_client_writes.py
++++ b/p4_proxy/tests/test_p4_client_writes.py
+@@ -1823,27 +1823,15 @@ class BuildTableEntryTest(unittest.TestCase):
+         self.assertIn("UNSPECIFIED", str(caught.exception))
+         self.assertIn("unspecified_table", str(caught.exception))
+ 
+-<<<<<<< 526dd41c (doc: correct the first table-writer summary and record the second-round fixes)
+     def test_an_unsupported_match_type_reaches_no_switch(self):
+         client = a_client()
++        client.bind_routes(None)  # a user table: see WriteTableEntryTest.setUp
+         with self.assertRaises(p4_client_module.TableEntryUnsupported):
+             client.write_table_entry({"table": "Synthetic.unspecified_table",
+                                       "match": {"meta.probe_key": 7},
+                                       "action_name": "MyIngress.send_to_cpu",
+                                       "action_params": {}})
+         self.assertEqual(client.stub.requests, [], "an unsupported table put a request on the wire")
+-=======
+-    def test_neither_range_nor_optional_reaches_the_switch(self):
+-        for table, value in (("Synthetic.range_table", [1024, 3000]),
+-                             ("Synthetic.optional_table", 7)):
+-            client = a_client()
+-            client.bind_routes(None)  # a user table: see WriteTableEntryTest.setUp
+-            with self.assertRaises(p4_client_module.TableEntryUnsupported):
+-                client.write_table_entry({"table": table, "match": {"meta.probe_key": value},
+-                                          "action_name": "MyIngress.send_to_cpu",
+-                                          "action_params": {}})
+-            self.assertEqual(client.stub.requests, [], f"{table} put a request on the wire")
+->>>>>>> 6c1a78c8 (p4 proxy: refuse table-entry writes into tables NDTwin owns)
+ 
+     def test_the_match_type_name_comes_from_the_generated_enum(self):
+         # 🔴 P4Runtime's MatchType skips 1: UNSPECIFIED=0, EXACT=2, LPM=3, TERNARY=4, RANGE=5,
+diff --git a/tests/shell/mutate_p4_rule_install_time.sh b/tests/shell/mutate_p4_rule_install_time.sh
+remerge CONFLICT (content): Merge conflict in tests/shell/mutate_p4_rule_install_time.sh
+index d7176767..37a690c8 100755
+--- a/tests/shell/mutate_p4_rule_install_time.sh
++++ b/tests/shell/mutate_p4_rule_install_time.sh
+@@ -79,11 +79,7 @@ trap 'rm -rf "$BK"' EXIT
+ # The topology models are an INPUT, never a subject: `proxy_agent.main` (imported by
+ # test_switch_state) loads one at import time, from `<repo root>/setting`, and a mutant tree
+ # under $BK has no such directory. Without this link the baseline is RED on a clean checkout --
+-<<<<<<< 526dd41c (doc: correct the first table-writer summary and record the second-round fixes)
+-# measured at dd8022fa (2026-10-04) -- and the gate refuses to run, so it was not gating
+-=======
+ # measured at 5b2d36ef (2026-10-04) -- and the gate refuses to run, so it was not gating
+->>>>>>> 6c1a78c8 (p4 proxy: refuse table-entry writes into tables NDTwin owns)
+ # anything. Linked rather than copied for the reason mutate_table_entry.sh gives.
+ ln -s "$REPO/setting" "$BK/setting"
+ BASE_TIMES=$(sha256sum "$TIMES" | cut -d' ' -f1)

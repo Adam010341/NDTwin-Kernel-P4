@@ -1,0 +1,52 @@
+# red run: new/changed tests (r3) against the 8918d051 code (frozen.py unchanged), worktree head 8918d051eed25427a49e2544ba84b52b7c6e6571 + uncommitted test edits
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+test_the_signal_mask_helper_names_a_block_it_finds_lifted_that_the_test_did_not_make (__main__.TestSignalMaskHelper.test_the_signal_mask_helper_names_a_block_it_finds_lifted_that_the_test_did_not_make) ... ok
+test_the_signal_mask_helper_names_a_block_the_test_left_up (__main__.TestSignalMaskHelper.test_the_signal_mask_helper_names_a_block_the_test_left_up) ... ok
+test_the_signal_mask_helper_passes_a_mask_that_is_what_the_test_started_with (__main__.TestSignalMaskHelper.test_the_signal_mask_helper_passes_a_mask_that_is_what_the_test_started_with) ... ok
+test_a_second_check_through_the_same_path_compares_with_the_first_when_a_parent_link_is_re_pointed (__main__.TestTheLiveRunsIdentity.test_a_second_check_through_the_same_path_compares_with_the_first_when_a_parent_link_is_re_pointed)
+(Round 10) The first check of a path records what its copy holds beside the commit's files; the record is ... FAIL
+test_the_exercise_copy_check_refuses_a_copy_root_that_is_a_link (__main__.TestTheLiveRunsIdentity.test_the_exercise_copy_check_refuses_a_copy_root_that_is_a_link)
+(Round 10) The copy root itself may not be a link: the tree behind it is whatever the link points at now. ... FAIL
+test_the_exercise_copy_check_refuses_a_pycache_at_its_first_check_too (__main__.TestTheLiveRunsIdentity.test_the_exercise_copy_check_refuses_a_pycache_at_its_first_check_too)
+(Round 10) Nothing writes a __pycache__ into the copy, so one is refused at every check, the first included ... FAIL
+test_the_exercise_copy_check_refuses_build_output_that_changed_since_the_first_check (__main__.TestTheLiveRunsIdentity.test_the_exercise_copy_check_refuses_build_output_that_changed_since_the_first_check)
+(Round 9) A later check passes over the same outputs, and refuses one rewritten, one added (in a build* ... ok
+
+======================================================================
+FAIL: test_a_second_check_through_the_same_path_compares_with_the_first_when_a_parent_link_is_re_pointed (__main__.TestTheLiveRunsIdentity.test_a_second_check_through_the_same_path_compares_with_the_first_when_a_parent_link_is_re_pointed)
+(Round 10) The first check of a path records what its copy holds beside the commit's files; the record is
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-health-locale/tests/python/test_p4_health_cells.py", line 3272, in test_a_second_check_through_the_same_path_compares_with_the_first_when_a_parent_link_is_re_pointed
+    with self.assertRaises(FZ.Refused) as ctx:
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: Refused not raised
+
+======================================================================
+FAIL: test_the_exercise_copy_check_refuses_a_copy_root_that_is_a_link (__main__.TestTheLiveRunsIdentity.test_the_exercise_copy_check_refuses_a_copy_root_that_is_a_link)
+(Round 10) The copy root itself may not be a link: the tree behind it is whatever the link points at now.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-health-locale/tests/python/test_p4_health_cells.py", line 3244, in test_the_exercise_copy_check_refuses_a_copy_root_that_is_a_link
+    with self.assertRaises(FZ.Refused) as ctx:
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: Refused not raised
+
+======================================================================
+FAIL: test_the_exercise_copy_check_refuses_a_pycache_at_its_first_check_too (__main__.TestTheLiveRunsIdentity.test_the_exercise_copy_check_refuses_a_pycache_at_its_first_check_too)
+(Round 10) Nothing writes a __pycache__ into the copy, so one is refused at every check, the first included
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-health-locale/tests/python/test_p4_health_cells.py", line 3223, in test_the_exercise_copy_check_refuses_a_pycache_at_its_first_check_too
+    refused()                                   # in the copy's own root, and it is the FIRST check
+    ~~~~~~~^^
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-health-locale/tests/python/test_p4_health_cells.py", line 3216, in refused
+    with self.assertRaises(FZ.Refused) as ctx:
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: Refused not raised
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.415s
+
+FAILED (failures=3)
+rc=1

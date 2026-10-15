@@ -1,0 +1,532 @@
+commit 4a4eb94eda029bb55337ee8dbde9065bfb9702ca
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final  tracked-dirty=0  df_free_mb=5380  mem_avail_mb=6877  LANG=en_US.UTF-8 LC_ALL=  command: env ANCHOR_CHECK=1 bash tests/shell/mutate_p4_health.sh
+interpreter bash -> /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+gate       : tests/shell/mutate_p4_health.sh
+cwd        : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final
+interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20, prefix /home/adam/miniconda3/envs/ryu-env)
+subject    : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/final/tools/p4_health
+HEAD       : 4a4eb94eda029bb55337ee8dbde9065bfb9702ca (commit)
+tree       : fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26 (git tree of tools/p4_health at HEAD)
+subject sha: e69a74d976c1a022
+gates sum  : 06afbe70b5029f47
+
+=== ANCHOR CHECK (no verdict) ===
+  1   M1. a 2xx answer is GREEN whatever it says
+  1   M2. a route that does not exist reads as an object that is absent
+  1   M3. sent is what the sender was asked to send
+  1   M4. the oracle column reads the proxy
+  1   M5. a 503 counter read is a zero
+  1   M6. NOT RUN counts as green
+  1   M7. the rollup is best-of
+  1   M8. the side table is matched on its ethertype alone
+  1   M9. journaled is ignored
+  1   C-T8. T8's RED still says journaled is the constant false
+  1   C-T8b. observe_t8 says journaled whatever switch_state says
+  1   M10. the link-down deadline is infinite
+  1   M11. the decision order is reversed: the oracle first
+  1   M12. the prediction is made from this run
+  1   M13. a RED whose attribution failed is still RED
+  1   M14. the knobs are not put back
+  1   M15. the heartbeat only has to be there
+  1   M16. Q1 does not require the stamp flag
+  1   M17a. the finally skips the netem
+  1   M17b. the finally skips the sniffers
+  1   M18. a failed self-check is RED
+  1   12-1. SC-count passes over a lossy path
+  1   12-2. SC-reg accepts any non-zero value
+  1   12-3. SC-qstamp does not ask what identification the sender used
+  1   12-4. SC-ttl hop count stops at the first switch
+  1   12-4b. SC-union counts hops from the topology instead of v6_host (review MINOR 4)
+  1   12-7. K3 does not depend on SC-count
+  1   12-8. P4 received is GREEN
+  1   12-10a. a failed ndt down is released anyway
+  1   12-10b. a qdisc mismatch stops the teardown
+  1   12-12. the qdisc snapshot is taken before the up
+  1   D1. rule D ignores the gate cells
+  1   D2. a GREEN without its negative read stands
+  1   D3. a failed negative read is ignored
+  1   D4. CP2s 409 is a RED
+  1   D5. a known-answer control that misses is not PROBE-BROKEN
+  1   D6. the thrift reader lets a write through
+  1   D6b. the thrift reader lets a second command ride on a newline (review MINOR 8)
+  1   D7. a reply with no CLI prompt is parsed as one (review MINOR 17: the assertion, not a crash)
+  1   D8. a busy lab is claimed
+  1   D9. a refused claim brings the fabric up anyway
+  1   D10. ndt is called without NDT_OWNER
+  1   D11. the netem is applied before it is recorded
+  1   D12. PF-T does not count the other labelled FAIL rows
+  1   AD1. PF-T's refusal is known only by the old G5 sentence
+  1   AD2. every FAIL line is PF-T's ternary refusal, whatever entry it names
+  1   AD3. PF-T's ternary entry may be on any table
+  1   AD4. S0 takes a PF-T pass whose package lost its ternary entry
+  1   AD11. PF-T's ternary entry need not name the ternary field
+  1   AD12. only a labelled FAIL row can be PF-T's ternary refusal
+  1   AD14. another entry refused in the entries row leaves the ternary refusal RED
+  1   AD15. pre-flight's "... and N more" is one refusal
+  1   AD16. the gate does not mark an uncommitted edit to match_shape.py
+  1   AD17. a default entry on t_ternary is PF-T's ternary entry
+  1   AD18. S0 says the PF-T package carries its ternary entry whatever it carries
+  1   AD19. an unreadable PF-T package reads as one carrying the entry
+  1   AD5. S0 does not need pre-flight to pass PF-T
+  1   AD6. S0 still wants PF-T RED
+  1   AD7. the PF-T cell reads the refusal under its old key
+  1   N1. a reading the row needs may be missing
+  1   N2. a write-then-read cell ignores the http answer
+  1   N3. TP1 reads empty fabric lists as equal
+  1   N4. T1 runs on an expectation that does not cover s1-s4
+  1   N5. PL1 runs on an expectation that does not cover s1-s4
+  1   N6. CS1 with no host answer reads green
+  1   N7. T1 accepts a switch missing from switch_state
+  1   A1. an unreadable answer goes on to be decided
+  1   A2. an unreadable switch_state becomes an empty answer
+  1   C1. a cell ignores its control
+  1   C2. the controls are never judged
+  1   C3. K1 is not tied to K1-neg
+  1   C4. any 404 passes the control (review MINOR 21)
+  1   C5. health.json drops the controls
+  1   B1. T1 never compares the dump
+  1   B2. PL1 never reads the alt table
+  1   B3. G1 ignores the integral and the off-path links
+  1   B4. TP4 runs without the drop check
+  1   B5. TP4 runs with the heartbeat withheld
+  1   B6. CP4 loses its negative read
+  1   B7. HU1 loses its SC-union edge
+  1   B8. the meter rates are never compared
+  1   B9. R2 never compares the register value
+  1   B10. R3 never compares what it wrote
+  1   B11. D1 never compares the digest
+  1   B12. delivered without anything arriving
+  1   B13. IT1 green without a report
+  1   B14. an incomplete round is COMPLETE
+  1   B15. the throwaway CLI dials a lab port
+  1   L1. a pid without the run marker is registered
+  1   L2. a recycled pid is signalled
+  1   L3. a lost claim does not stop the teardown
+  1   L4. an expired claim of ours still counts as ours
+  1   L5. a failed netem add is deleted anyway (review MINOR 20)
+  1   L6. a stopped process stays in the state file
+  1   H1. a collector runs a real subprocess instead of the injected Runner
+  1   H2. a collector dials the proxy instead of using the Config client
+  1   H3. a collector shells out with os.system
+  1   H4. a collector dials 127.0.1.1
+  1   Q1. HR1 never compares the twin with netdev
+  1   Q2. HR1/HR2 read bytes without the quiet window
+  1   Q3. HR1 runs on a flow that is not on exactly one uplink
+  1   Q4. IT1 runs before the entry aged
+  1   Q5. IT1 ignores the timeout thrift shows
+  1   Q6. IT1 structural answer is not read
+  1   Q7. HU1 never asks about the 0x1238 member
+  1   Q8. HU1 ignores the side table cap
+  1   Q9. HU1 looks for the wrong ethertype
+  1   Q10. AS1 never checks the group
+  1   Q11. VB1 aliases the wrong cell
+  1   Q13. SC-recirc accepts a packet that was not resubmitted
+  1   Q14. SC-union accepts any hop limit
+  1   Q15. full silently grows to 22 dimensions (review MAJ-10)
+  1   m10a. an unreadable flow document reads as no side rows
+  1   m10b. a missing pcap reads as no frames
+  1   m12. the inventory counts a declared field as used
+  1   m19. probe judge assumes the bring-ups completed
+  1   m2. a PF-T with no observation is decided
+  1   m-hermetic. Config defaults are allowed under P4H_HERMETIC
+  1   R1. recover.sh does not check that the lab is this run
+  1   R2. recover.sh releases after a failed down
+  1   R3. recover.sh takes over an expired claim of somebody else
+  1   R4. recover.sh re-claims over a measurement
+  1   R5. recover.sh signals a recycled pid
+  1   R-upnote. recover.sh accepts an up note written for another owner
+  1   R3-A1. the sample floor gates on NDTwin's emitter count again (NEW-A)
+  1   R3-A2. the floor is one expected sample
+  1   R3-B1. a link that never went down meets the deadline (NEW-B)
+  1   R3-B2. never-went-down reads as not read
+  1   R3-B3. a route gone after the cut reads as not read
+  1   R3-B4. never-rerouted reads as not read
+  1   R3-C1. lab_round records no down-done (NEW-C)
+  1   R3-C2. recover.sh in down-done still compares qdiscs
+  1   R3-C3. recover.sh in down-done does not check that no fabric is up
+  1   R3-D1. RC1 loses its SC-recirc dependency
+  1   R3-D2. alias-only dimensions are not marked
+  1   R3-D3. an alias row does not say whose verdict it carries
+  1   R3-m3a. a control with no route is PROBE-BROKEN (MINOR 3)
+  1   R3-m3b. a cell may claim a route its control did not find
+  1   R3-m3c. K1 ignores a missing route
+  1   R3-m1a. empty target rates are a RED, not the probe's fault (MINOR 1)
+  1   R3-m1b. an empty marker field list is a RED
+  1   R3-m2. HU1 decides without its nested readings (MINOR 2)
+  1   R3-m4. HR stimulus too small to trust (MINOR 4)
+  1   R3-m5. IT1 accepts a report after its deadline (MINOR 5)
+  1   R3-m6a. a failed kill drops the process from the state file (MINOR 6)
+  1   R3-m6b. recover.sh takes a recycled pid for the probe
+  1   R3-m6c. recover.sh measuring check fails open
+  1   R4-1a. recover.sh re-claims only while the override names the package (follow-up 1)
+  1   R5-1a. an absent override is evidence in every phase, not only down-done (r5 follow-up 1)
+  1   R5-1b. a down-done claim file that names no owner is re-claimed
+  1   R5-1c. the fabric is checked after the re-claim, not before (r5 follow-up 1b)
+  1   R5-2a. a released run falls through to the claim branches (r5 follow-up 2)
+  1   R5-2b. a released run whose kill failed exits 0
+  1   R5-3. a failed kill ends the recovery as done (r5 follow-up 3)
+  1   R4-2a. recover.sh skips the process step in down-done (follow-up 2)
+  1   R4-2b. a failed kill is not a problem and the round stays complete (follow-up 2)
+  1   R4-2c. a failed kill is a problem but the round stays complete
+  1   R4-3a. HR stimulus back to 20000 frames, whose false-RED rate is 2e-5 (follow-up 3)
+  1   R4-3b. HR1 may go out the shaped uplink
+  1   R4-3c. HR1 is pinned to the shaped uplink
+  1   R4-4a. K1's counter observer says nothing about the route (follow-up 4)
+  1   R4-4b. K1-neg's observer says nothing about the route
+  1   R4-4c. an unreadable openapi reads as a missing route
+  1   R4-5. HU1 decides without the IPv6 member's flow_identity (follow-up 5)
+  1   R4-6a. a negative time is a time (follow-up 6)
+  1   R4-6b. Never in any case is NEVER
+  1   R4-6c. a time larger than its own watched_s is a time
+  1   R4-6d. watched_s is not validated
+  1   R4-6e. deadline_met takes a negative time
+  1   R4-6f. TP2 / TP4 do not validate the encoding
+  1   R4-6g. CP4 does not validate the encoding
+  1   R4-6h. IT1 does not validate the encoding
+  1   R4-6i. CP4 reads gone before it checks how long it watched
+  1   R4-8a. recover.sh takes an answer with no measuring or orphaned row for idle (follow-up 8)
+  1   R4-8b. recover.sh takes only a measuring row for evidence (an orphaned row alone is busy)
+  1   R6-1a. recover.sh does not ask that the package is inside the run dir
+  1   R6-1b. recover.sh takes a sibling directory whose name starts with the run dir's
+  1   R6-1c. recover.sh does not resolve the package path (.. and links)
+  1   R6-1d. LabRound takes a package outside its run dir
+  1   R6-1e. package_inside has no path boundary
+  1   R6-1f. LabRound does not follow links in the package path
+  1   R6-1g. package_inside accepts the run dir itself
+  1   R6-2a. recover.sh trusts a live claim of the owner whatever its expires
+  1   R6-2b. recover.sh re-claims over an expired claim of the owner whatever its expires
+  1   R6-2c. the claim is the same when it merely has some expires
+  1   R6-2d. recover.sh forgets the new expires after its own re-claim
+  1   R6-2e. LabRound records no expires after the claim
+  1   R6-2f. LabRound records the expires it computed, not the one the file shows
+  1   R6-2g. LabRound brings the lab up on a claim the file does not show
+  1   R6-2h. LabRound takes somebody else's claim for its own
+  1   R6-3a. recover.sh does not ask for an owner
+  1   R6-3b. recover.sh does not ask for a run id
+  1   R6-3c. recover.sh does not ask for a package
+  1   R6-3d. recover.sh does not ask for a claim file
+  1   R6-3e. recover.sh does not ask for the override path
+  1   R6-3g. recover.sh takes any claim_expires for a time
+  1   R6-3h. recover.sh takes 0 for a time
+  1   R7-1a. recover.sh reads the first line of the knob (head -1), a comment in real ndt
+  1   R7-1b. the knob reader does not skip blank lines
+  1   R7-1d. the knob reader keeps the CR of a CR-LF path
+  1   R7-4a. recover.sh does not record down-done after its own ndt down
+  1   R7-4b. recover.sh does not record down-failed after its own failed ndt down
+  1   R7-2a. an absent knob is backed by an ndt up note
+  1   R7-2b. the up-note rule leaves out down-done
+  1   R7-2c. a forced up past this run's claim is not looked at
+  1   R7-2d. any forced up on record counts, not only one past this run's claim
+  1   R7-3a. the claim is not looked at again after the down
+  1   R7-3b. the second look at the claim reads only the owner
+  1   R7-5a. the gone claim file is not said to be gone
+  1   R7-5b. the kept released claim is never said to be this run's
+  1   R7-5c. the unrecorded claim's release command is not printed
+  1   R7-5d. the release command is printed for any claim of the owner
+  1   R7-L1. LabRound uses the path as given, not the resolved one
+  1   R7-L2. LabRound takes expires 0 for a time
+  1   R7-L3. LabRound takes str.isdigit for a time
+  1   R8-1a. a down is taken for done without asking ndt status
+  1   R8-1b. an absent knob does not ask ndt status: the qdisc diff runs against a fabric that is gone
+  1   R8-1c. ndt down exiting 3 (measured nothing) is a failure
+  1   R9-1. the down-already-ran branch skips ndt down too, and releases without any down having succeeded
+  1   R8-2a. every recovery releases with --force
+  1   R8-2b. recover.sh's own re-claim is released plainly
+  1   R8-2c. recover.sh does not record which claim is its own re-claim
+  1   R8-2d. a refused release tells the person to do what ndt printed (write the baseline back)
+  1   R8-3a. the unrecorded-claim hint ignores the forced-up record
+  1   R8-3b. the unrecorded-claim hint never says nothing was brought up
+  1   R9-3a. a status with a missing row is read as 0 in the down-already-ran branch
+  1   R9-3b. a status with a missing row is read as 0 in the down-done fabric check
+  1   R9-4. a claim that is not live now is adopted as this script's own re-claim
+  1   R9-5. the second look at the claim reads only the expires
+  1   AD8. the lab reads S0's PF-T refusal under its old key
+  1   AD9. T4 writes a value with bits outside its mask
+  1   AD10. T6 looks for an optional key the P4Runtime way, not the way thrift prints it
+  1   AD13. the lab reads PF-T from an S0 that is not COMPLETE
+  1   C2-V1. a cell never observed reads as an unreadable answer
+  1   C2-RA1. --only forgets the cells that produce a self-check's readings
+  1   C2-RA2. --only forgets the controls
+  1   C2-RA3. the pingall counts every other host as reached
+  1   C2-RA4. SC-count takes the sender's count for what arrived
+  1   C2-OA1. a write cell's negative read is taken after the write
+  1   C2-OA2. thrift's priority is read as the P4Runtime number
+  1   C2-OA3. T7's order is read the P4Runtime way round
+  1   C2-OA4. T1's negative read ignores a foreign sentinel
+  1   C2-OA5. an unreadable table dump is an empty one
+  1   C2-OA6. T2 takes s2's runtime default as applied whatever the counts say
+  1   C2-OA7. T2's negative read passes whatever s3 shows
+  1   C2-OA8. C1's negative read ignores a session on another switch
+  1   C2-OA9. a missing clone session is an unread oracle
+  1   C2-OA10. M2's negative read passes with group 2 already there
+  1   C2-OA11. one host's unreadable ethtool still yields an oracle
+  1   C2-OA12. an unreadable openapi means no digest / packet-in exit
+  1   C2-OA13. an exit the probe cannot read is taken for no exit
+  1   C2-OA14. K2's thrift oracle reads the indirect counter
+  1   C2-OA15. the meter cells' negative read passes with the rates already set
+  1   C2-OA16. the kernel's MAC integer is read little-endian
+  1   C2-OA17. the kernel's IPv4 integer is read big-endian
+  1   C2-OA18. SC-ttl's links point back at the switch itself
+  1   C2-HO1. the stimulus runs although a sniffer never listened
+  1   C2-HO2. a sniffer is not recorded in LAB_STATE
+  1   C2-AT1. a table attribution stands on thrift alone
+  1   C2-AT2. a table attribution ignores the priority thrift shows
+  1   C2-AT3. the priority attribution wants the P4Runtime order in thrift's numbers
+  1   C2-AT4. a meter attribution holds whenever thrift answered
+  1   C2-AT5. any DigestList confirms the digest
+  1   C2-AT6. a clone session to any port confirms the clone
+  1   C2-AT7. the register attribution does not read the register
+  1   C2-AT8. the direct counter attribution takes the controller's own number
+  1   C2-AT9. a packet-in from any port confirms
+  1   C2-AT10. any packet-in confirms, marker or not
+  1   C2-AT11. a packet-out nobody received confirms
+  1   C2-AT12. every cell gets a bmv2 attribution
+  1   C2-RB1. B never tells its controller the stimuli are done
+  1   C2-RB2. B's controller is not recorded in LAB_STATE
+  1   C2-LAB1. B's attributions never reach A's cells
+  1   C2-LAB2. the lab runs after an incomplete S0
+  1   C2-LAB3. the see-red run brings up the plain package
+  1   C2-LAB4. a run with an incomplete bring-up reads as complete
+  1   R2-M1a. a veth peer printed by name is dropped (MAJOR-1)
+  1   R2-M1b. a switch port nobody could place is not an unread oracle (MAJOR-1's mirror)
+  1   R2-M2a. the sniffer takes any frame that quotes a marker (MAJOR-2)
+  1   R2-M2b. the sniffer checks only the destination address, not that it is UDP to the cell's port
+  1   R2-M2c. the sniffer ignores the destination address
+  1   R2-M2d. the sniffer on a host is not told its own address
+  1   R2-m3a. the sniffer counts the host's own outgoing frames
+  1   R2-m3b. the sniffer never stops early
+  1   R2-m3c. the SENT line reports what was asked for
+  1   R2-m3d. pick_iface guesses among several interfaces
+  1   R2-w1. the root python writes .pyc beside the sources
+  1   R2-M3a. B is brought up whatever A's teardown left (MAJOR-3)
+  1   R2-M3b. ended_clean looks at the phase only
+  1   R2-M3c. a round overwrites a state file recover.sh still needs
+  1   R2-M3d. a released round that left a process counts as finished
+  1   R2-M3e. B starts its controller on a fabric that is not external
+  1   R2-m4f. only the last bring-up's state file is kept
+  1   R2-m1. an unobserved cell reads as a flip of its prediction
+  1   R2-m1b. an alias of an unobserved cell reads as a flip
+  1   R2-m2a. one observer raising ends the round's observing
+  1   R2-m2b. the step guard swallows a signal
+  1   R2-m7. VS1's negative read reads after the write
+  1   R2-m5a. the see-red run's package is not drop-checked
+  1   R2-m5b. the adapter dry run passes whatever controller it names
+  1   R2-m5c. the adapter dry run passes any rewrite
+  1   R2-m4a. a lab run starts on a dirty probe tree
+  1   R2-m4b. the root-run sflow_emitter.py may differ
+  1   R2-m4c. an unread part of the fingerprint still gives a digest
+  1   R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of the file)
+  1   C2R3-N1a. a round stopped by a signal lets B claim the lab
+  1   C2R3-N1b. the stop signal is an Exception again (every except Exception swallows it)
+  1   C2R3-N1c. no handler between the rounds
+  1   C2R3-N2. a B whose controller did nothing leaves the run complete
+  1   C2R3-N3a. a git that could not answer reads as a clean tree
+  1   C2R3-N3b. the lab starts without a system-under-test record
+  1   C2R3-N3c. the lab starts on an incomplete fingerprint
+  1   C2R3-N4a. a listed CPU port is taken for a fabric port
+  1   C2R3-N4b. TP1 keeps no raw ip link text
+  1   C2R3-N4c. TP1 does not say which read failed
+  1   C2R3-N4d. S0's show_ports check rejects a listed CPU port
+  1   C2R3-N7. an unobserved control reads as a flip
+  1   C2R3-N8a. root runs the shared tree's hostside.py, not the run's frozen copy
+  1   C2R3-N8b. the frozen copy's record is not of the copy root runs
+  1   C2R4-F1a. a stop signal during the teardown is not kept
+  1   C2R4-F1b. the last stop signal of a teardown is kept, not the first
+  1   C2R4-F1c. the round does not record a stop that came during its teardown
+  1   C2R4-F1d. a round stopped during its teardown still reads complete
+  1   C2R4-F2a. a B whose result file cannot be read is not a failed B
+  1   C2R4-F2b. a B whose sniffer never listened gives no reason of its own
+  1   C2R4-F2c. a controller that could not be started gives no reason of its own
+  1   C2R4-F2d. a controller that wrote no result gives no reason of its own
+  1   C2R4-F2e. a controller that never got ready gives no reason of its own
+  1   C2R4-F2f. a fabric that is not external gives no reason of its own
+  1   C2R4-F3a. a recorded stop does not override PROBE-BROKEN
+  1   C2R4-F3b. the run ignores a stop that no round carries
+  1   C2R4-F3c. the run ignores a stop that a round carries
+  1   C2R4-F3d. a see-red run that was not complete still passes on PROBE-BROKEN
+  1   C2R4-F3e. the run does not tell run_verdict that it is a see-red run
+  1   C2R4-F3f. a see-red pass ignores the run's own problems
+  1   C2R4-F4a. the freeze does not compare a copy with HEAD's blob
+  1   C2R4-F4b. two empty answers from git count as equal hashes
+  1   C2R4-F4c. probe.py freezes without asking git
+  1   C2R4-F4d. a refused freeze does not stop the run
+  1   C2R4-F4e. the freeze leaves out B's controller and the adapter
+  1   C2R4-F4f. B's controller runs from the shared tree
+  1   C2R4-F4g. the adapter runs from the shared tree
+  1   C2R4-F4h. run_lab freezes a second set instead of running the one it is given
+  1   C2R4-F4i. probe.py does not hand its frozen code to run_lab
+  1   C2R4-F4j. health.json does not record the hashes of B's files
+  1   C2R4-F6. B's controller is registered by the unresolved run dir
+  1   C2R4-F8a. an unreadable bmv2 override is not caught
+  1   C2R4-F8b. an unreadable bmv2 override reads as a binary
+  1   C2R4-F9. C2R3-N8b tightened: the record is of the source, not of the copy
+  1   C2R5-2a. probe.py lab answers rc 1 for an S0 that is not complete
+  1   C2R5-2b. probe.py lab does the identity work after an S0 that is not complete
+  1   C2R5-2c. run_lab does not say why S0 is not complete
+  1   C2R5-2d. an exception out of a round (StateInUse) leaves run_lab
+  1   C2R5-2e. a run that ended on an exception reads PROBE-BROKEN when a cell is
+  1   C2R5-2f. a load_model failure leaves run_lab
+  1   C2R5-2g. an expectations failure leaves run_lab
+  1   C2R5-2h. probe.py lab lets an exception out as Python's status 1
+  1   C2R5-3a. a see-red run in which no cell is PROBE-BROKEN reads COMPLETE
+  1   C2R5-3b. a see-red run that sees no red exits 0
+  1   C2R5-3c. an unfinished see-red run reads SEE-RED-NOT-SEEN instead of INCOMPLETE
+  1   C2R5-4a. a B that confirmed nothing but register is not a failed B
+  1   C2R5-4b. register counts as an attribution B confirmed
+  1   C2R5-4c. a B that is not primary on s2 is not a failed B
+  1   C2R5-4d. run_lab-level: finish() does not ask whether B did its part
+  1   C2R5-7a. the blobs are asked for by HEAD at that moment, not by the pinned sha
+  1   C2R5-7b. the Frozen does not carry the sha it was checked against
+  1   C2R5-7c. probe.py writes the identity of HEAD as it is now, not of the frozen commit
+  1   C2R5-7d. repo_identity ignores the sha it is given
+  1   C2R5-7e. health.json does not record the commit the copies were checked against
+  1   C2R5-8. the copy is hashed through git's input filters
+  1   C2R5-9a. an existing <run>/frozen is overwritten
+  1   C2R5-9b. a copy is written through a link planted at its destination
+  1   C2R5-9c. a link planted for a subdirectory is followed
+  1   C2R5-5a. probe.py lab does not load the lab path's modules up front
+  1   C2R5-5b. identity.py is left out of the modules loaded up front
+  1   C2R5-5c. probe.py lab does not hand its frozen copies to S0
+  1   C2R5-5d. S0's adapter dry-run runs the shared tree's adapter
+  1   C2R5-5e. S0's controller trial runs the shared tree's controller
+  1   C2R5-5f. the controller trial ignores the controller it is given
+  1   C2R5-5g. the dry-run check accepts a controller that is not the one it was handed
+  1   C2R5-10a. the body's stop handler does not put the teardown's handler in before it raises
+  1   C2R5-10b. the record is finished after the run-level handlers are back
+  1   C2R5-10c. a stop between a round and its record being appended loses the record
+  1   C2R5-10d. an exception between a round and its record being appended loses the record
+  1   C2R5-13. a knob that was not put back does not make the round incomplete
+  1   C2R5-11a. the offline judge ignores a stop
+  1   C2R5-11b. the offline judge ignores a see-red recording
+  1   C2R5-11c. the offline judge does not read the recording's stopped flag
+  1   C2R5-11d. the offline judge does not read a stop recorded as a problem of the run
+  1   C2R5-11e. observations.json does not say whether the run was stopped
+  1   C2R5-11f. observations.json does not carry the rounds' records
+  1   C2R5-12. the frozen set leaves out the adapter's common.py
+  1   C2R5-6a. the gate script lets k reach n
+  1   C2R5-6b. the gate script lets n exceed the table
+  1   C2R5-6c. the gate script runs when no mutation is selected
+  1   C2R5-6d. the gate script takes a shard with a leading zero
+  1   C2R5-6e. the gate script does not say a shard is not the gate
+  1   C2R5-6f. the gate script announces a banner for the whole gate
+  1   C2R5-6g. the shard-sum script takes shards of different commits
+  1   C2R5-6h. the shard-sum script lets n exceed the table
+  1   C2R5-6i. the shard-sum script does not compare the first line with the HEAD line
+  1   C2R5-6j. the shard-sum script accepts uncommitted changes
+  1   C2R5-6k. the shard-sum script does not look at the rc line
+  1   C2R5-6l. the shard-sum script accepts a survivor
+  1   C2R5-6m. the shard-sum script accepts a partial run
+  1   C2R5-6n. the shard-sum script does not look for the banner
+  1   C2R5-6o. the shard-sum script does not look at the baseline
+  1   C2R5-6p. the shard-sum script does not look at the negative control
+  1   C2R5-6q. the shard-sum script does not look at the byte-identical line
+  1   C2R5-6r. the shard-sum script does not look at the after-check
+  1   C2R5-6s. the shard-sum script lets a shard be given twice
+  1   C2R5-6t. the shard-sum script does not check that the shards are 0..n-1
+  1   C2R5-6u. the shard-sum script does not check each shard's share
+  1   C2R5-6v. the shard-sum script lets n differ between the logs
+  1   C2R5-6w. the shard-sum script lets the size of the table differ
+  1   C2R5-6x. the shard-sum script takes no logs
+  1   C2R5-6y. the shard-sum script takes a refused run's log
+  1   C2R5-6z. the shard-sum script prints another line when all is well
+  1   C2R6-2a. S0 does not check its exercise copy against the pinned commit
+  1   C2R6-2b. the exercise copy check is skipped when the compile failed
+  1   C2R6-2c. the exercise copy check does not compare the bytes
+  1   C2R6-2d. a file the commit does not have is accepted in the exercise copy
+  1   C2R6-2e. a file the commit has may be missing from the exercise copy
+  1   C2R6-2f. a link in the exercise copy is followed
+  1   C2R6-2g. the exercise copy check passes without a commit or git to check against
+  1   C2R6-2h. the check does not leave out what the copy leaves out
+  1   C2R6-2i. probe.py lab lets a refused exercise copy out as a crash
+  1   C2R6-2j. the controller trial ignores the exercise directory it is given
+  1   C2R6-2k. S0 does not hand its exercise copy to the controller trial
+  1   C2R6-3a. the run-level stop handler stays installed after the first stop
+  1   C2R6-3b. the run level's noter drops a stop
+  1   C2R6-3c. the run level's first stop does not note-only afterwards (the noter raises too)
+  1   C2R6-3d. probe.py lab lets a stop out of main() as an uncaught exception
+  1   C2R6-3e. probe.py lab answers a stop that got out with status 1
+  1   C2R6-4a. _finish and the handler restore are not under one signal mask
+  1   C2R6-4b. the mask lets the stop signals through
+  1   C2R6-4c. the mask is never lifted
+  1   C2R6-4d. a round cut off before its record was finished keeps the complete the body set
+  1   C2R6-4e. a round cut off before its record was finished says nothing about it
+  1   C2R6-5a. health.json is written before observations.json
+  1   C2R6-5b. the temp file is not put in place with os.replace
+  1   C2R6-5c. report.dump writes in place
+  1   C2R6-5d. a failed write leaves its temp file behind
+  1   C2R6-5e. the catch-all leaves an existing health.json as it is
+  1   C2R6-5f. the catch-all message starts with refused:
+  1   C2R6-10a. T1 compares the thrift dump as a set of lists
+  1   C2R6-10b. M1 compares the group's ports with a frozenset directly
+  1   C2R6-10c. M2 compares the group's ports with a frozenset directly
+  1   C2R6-10d. C1 compares the mirror's ports with a frozenset directly
+  1   C2R6-10e. as_set does not turn a nested list into a tuple
+  1   C2R6-pin-a. probe.py lab goes on when HEAD cannot be named
+  1   C2R6-pin-b. probe.py lab does not look at HEAD again after the clean check
+  1   C2R6-pin-c. the freeze resolves HEAD again instead of taking the pinned sha
+  1   C2R6-pin-d. the pin is not the first thing asked of git
+  1   C2R6-6a. the shard-sum script accepts logs of a commit that is not the checkout's HEAD
+  1   C2R6-6b. the shard-sum script accepts a tools/p4_health tree that is not the commit's
+  1   C2R6-6c. the shard-sum script ignores --commit
+  1   C2R6-6d. the shard-sum script goes on when git cannot name HEAD
+  1   C2R6-6e. the GATE line does not carry the subject sha
+  1   C2R6-6f. the GATE line does not carry the tree
+  1   C2R6-6g. the shard-sum script takes an option it does not know for a log
+  1   C2R6-6h. --commit needs no value
+  1   C2R6-6i. the gate does not mark an uncommitted edit to its own mutation script
+  1   C2R6-6j. the gate does not mark an uncommitted edit to the shard-sum script
+  1   C2R6-6k. the gate does not mark an uncommitted edit to the gate-script tests
+  1   C2R6-6l. the gate does not mark an uncommitted edit to tools/p4_exercise
+  1   C2R6-6m. the gate does not mark an uncommitted edit to grpc_ports.py
+  1   C2R6-7a. the hash of the gate's scripts is of sha256sum's output, which carries their paths
+  1   C2R6-7b. the hash of the gate's scripts leaves out the gate-script tests
+  1   C2R6-7c. the hash of the gate's scripts leaves out the shard-sum script
+  1   C2R6-7d. the hash of the gate's scripts leaves out the gate script itself
+  1   C2R7-1a. run_lab does not look at the process's threads
+  1   C2R7-1b. the thread check leaves SIGHUP out
+  1   C2R7-1c. the thread check leaves SIGINT out
+  1   C2R7-1d. the thread check leaves SIGTERM out
+  1   C2R7-1e. the calling thread is judged like the others
+  1   C2R7-1f. a /proc that cannot be listed passes
+  1   C2R7-1g. a thread whose mask cannot be read passes
+  1   C2R7-1h. only the first thread that can take a stop is named
+  1   C2R7-1i. a thread that blocks only part of the three passes when it blocks any of them
+  1   C2R7-1j. the refusal is written down and the run goes on
+  1   C2R7-1k. the ValueSet trial runs without the stops blocked
+  1   C2R7-1l. the trial block does not block
+  1   C2R7-1m. the trial block leaves SIGHUP out
+  1   C2R7-1n. the trial block is never lifted
+  1   C2R7-1o. the trial block is lifted only when the trial does not raise
+  1   C2R7-1p. a throwaway switch keeps the blocked stops
+  1   C2R7-1q. a throwaway switch is given back only SIGHUP and SIGINT
+  1   C2R7-1r. a stop during the trial is dropped, not held
+  1   C2R7-3a. run_lab does not check the exercise copy again before loading the model
+  1   C2R7-3b. the exercise copy is checked after the model was loaded from it
+  1   C2R7-3c. the re-check is made without a pinned commit to check against
+  1   C2R7-3d. the re-check looks at the run directory, not the exercise copy
+  1   C2R7-3e. a refused exercise copy is let through
+  1   C2R8-5a. the subject sha is sorted by the locale's collation
+  1   C2R8-5b. the tree sum taken before the mutations is sorted by the locale's collation
+  1   C2R8-5c. the tree sum taken after the mutations is sorted by the locale's collation
+  1   C2R8-5d. the list of red tests is sorted by the locale's collation
+  1   C2R8-5e. the shard-sum script sums shards run by different interpreters
+  1   C2R8-5f. the shard-sum script takes a log with no interpreter line
+  1   C2R8-5g. the shard-sum script compares only the interpreter's version, not its path
+  1   C2R8-2a. S0 does not check its exercise copy again after convert.py has had it as input
+  1   C2R8-3a. lab._swap_handlers never puts the signal mask back
+  1   C2R8-3b. a round's _swap_handlers never puts the signal mask back
+  1   C2R8-3c. run_lab does not put the handlers it found back
+  1   C2R8-3d. a round does not put the handlers it replaced back
+  1   C2R8-T8. T8's RED leaves out a failed snapshot
+  1   C2R9-2a. the exercise copy's build outputs are not compared with what its first check recorded
+  1   C2R9-2b. the exercise copy's modules are loaded through the import system's loader (a cached .pyc may run)
+  1   C2R9-1a. the gate's interpreter line leaves sys.prefix out (two venvs on one base give one line)
+  1   C2R9-5a. the gate script refuses n equal to the table size
+  1   C2R9-5b. the gate script lets n be one more than the table size
+  1   C2R9-4a. the trial block is never lifted, seen by the cells suite's end-of-test mask check
+  1   C2R10-1a. the exercise copy check takes a copy root that is a link
+  1   C2R10-1b. the exercise copy's record is keyed by the directory its path resolves to
+  1   C2R10-2a. the exercise copy check takes a __pycache__ in the copy
+  1   C2R10-3a. the exercise copy check reads a link among the build outputs as the file it points to
+  1   negative control
+rc=2

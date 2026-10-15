@@ -1,0 +1,17 @@
+2026-10-12T08:36:11+08:00 chain start pid 1088583 locale LANG=en_US.UTF-8 LC_ALL= LC_COLLATE="en_US.UTF-8"
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T08:36:11+08:00 shard 0 start
+2026-10-12T10:14:09+08:00 shard 0 rc=0
+procscan: 0 other mutate_/probe.py process(es), 1 of this run's own skipped
+  ours  pid 2959074 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+2026-10-12T10:14:09+08:00 shard 1 start
+2026-10-12T11:52:29+08:00 shard 1 rc=0
+procscan: 0 other mutate_/probe.py process(es), 1 of this run's own skipped
+  ours  pid 750700 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+2026-10-12T11:52:29+08:00 shard 2 start
+2026-10-12T13:35:10+08:00 shard 2 rc=0
+procscan: 0 other mutate_/probe.py process(es), 1 of this run's own skipped
+  ours  pid 2920855 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+2026-10-12T13:35:10+08:00 shard 3 start
+2026-10-12T15:19:34+08:00 shard 3 rc=0
+2026-10-12T15:19:34+08:00 GATE sum rc=0

@@ -1,0 +1,25 @@
+6dc8b9a4692a4d135a80196188bb2efe837f8533
+doc: record the health-check half of the ternary writer
+
+What changed in tools/p4_health so the ternary writer and the health check
+can land together, the S0 and gate results at the code commit, and what is
+still open.
+
+----
+76e3b468b21411bd78f6edb242e77f4bafaa0252
+p4_health: expect the ternary writer in PF-T and T4-T7
+
+The proxy now builds ternary, range and optional entries and pre-flight
+checks them with the writer's own shape rules instead of refusing them, so
+PF-T has to pass. S0 now requires pre-flight to accept the PF-T package and
+checks that the package really carries its ternary entry; a refusal of that
+entry is recognised by where pre-flight names it, not by the old sentence.
+T4's probe value now sits inside its mask, which the writer insists on, and
+the predictions for T4-T7 and PF-T move to GREEN. The PF-T fixture is
+recaptured from a real pre-flight run, with a captured refusal beside it.
+
+----
+95a8972ba2ee340d665d11f17b07cbff2a80ab53
+Merge branch 'feat/p4-ternary-writer-a' into feat/p4-health-ternary-d
+
+----

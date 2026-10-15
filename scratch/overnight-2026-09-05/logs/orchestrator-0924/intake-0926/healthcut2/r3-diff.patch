@@ -1,0 +1,1315 @@
+=== commit 27672d83ba52116828e34e46b9d6d1eef01deaca
+p4_health: give the Cut 2 second review's mutants a prefix of their own
+The run-identity branch also numbers its mutants R7-, so the Cut 2 ones now read C2R3-.
+No mutation changes.
+
+
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index c61d17bb..e9ac2151 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1872,9 +1872,9 @@ add "R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of t
+     'test_the_fingerprint_moves_with_what_must_be_the_same_only'
+ 
+ 
+-# --- Cut 2 second review (labels R7-) ------------------------------------------------------------------------
++# --- Cut 2 second review (labels C2R3-) ------------------------------------------------------------------------
+ 
+-add "R7-N1a. a round stopped by a signal lets B claim the lab" \
++add "C2R3-N1a. a round stopped by a signal lets B claim the lab" \
+     "$LABPY" \
+     '        if signalled(recs[-1]):
+             # (Cut 2 review N1) a stop is a stop' \
+@@ -1882,25 +1882,25 @@ add "R7-N1a. a round stopped by a signal lets B claim the lab" \
+             # (Cut 2 review N1) a stop is a stop' \
+     'test_a_signal_in_an_observer_ends_the_run'
+ 
+-add "R7-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
++add "C2R3-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
+     "$LABROUND" \
+     'class SignalAbort(BaseException):' \
+     'class SignalAbort(Exception):  # MUTANT' \
+     'test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there'
+ 
+-add "R7-N1c. no handler between the rounds" \
++add "C2R3-N1c. no handler between the rounds" \
+     "$LABPY" \
+     '    old_handlers = _stop_on_signals() if signals else None' \
+     '    old_handlers = None  # MUTANT' \
+     'test_a_signal_between_the_rounds_ends_the_run'
+ 
+-add "R7-N2. a B whose controller did nothing leaves the run complete" \
++add "C2R3-N2. a B whose controller did nothing leaves the run complete" \
+     "$LABPY" \
+     '        elif b.failed:' \
+     '        elif False:  # MUTANT' \
+     'test_b_on_a_fabric_that_is_not_external_is_incomplete'
+ 
+-add "R7-N3a. a git that could not answer reads as a clean tree" \
++add "C2R3-N3a. a git that could not answer reads as a clean tree" \
+     "$PROBEPY" \
+     '    if git_rc != 0:
+         # (Cut 2 review N3) no answer is not "clean"' \
+@@ -1908,43 +1908,43 @@ add "R7-N3a. a git that could not answer reads as a clean tree" \
+         # (Cut 2 review N3) no answer is not "clean"' \
+     'test_a_git_that_cannot_answer_is_refused_before_s0'
+ 
+-add "R7-N3b. the lab starts without a system-under-test record" \
++add "C2R3-N3b. the lab starts without a system-under-test record" \
+     "$PROBEPY" \
+     '    if sut is None or gate.get("sha256") in (None, "incomplete"):' \
+     '    if gate.get("sha256") in (None, "incomplete"):  # MUTANT' \
+     'test_a_missing_identity_record_stops_the_run_before_the_lab'
+ 
+-add "R7-N3c. the lab starts on an incomplete fingerprint" \
++add "C2R3-N3c. the lab starts on an incomplete fingerprint" \
+     "$PROBEPY" \
+     '    if sut is None or gate.get("sha256") in (None, "incomplete"):' \
+     '    if sut is None:  # MUTANT' \
+     'test_a_missing_identity_record_stops_the_run_before_the_lab'
+ 
+-add "R7-N4a. a listed CPU port is taken for a fabric port" \
++add "C2R3-N4a. a listed CPU port is taken for a fabric port" \
+     "$OBSA" \
+     '            if port == CPU_PORT:' \
+     '            if False:  # MUTANT' \
+     'test_a_listed_cpu_port_is_not_a_fabric_port'
+ 
+-add "R7-N4b. TP1 keeps no raw ip link text" \
++add "C2R3-N4b. TP1 keeps no raw ip link text" \
+     "$OBSA" \
+     '    d_["ip_link"] = res.stdout' \
+     '    d_["ip_link"] = None  # MUTANT' \
+     'test_an_unplaced_port_is_not_run_and_tp1_keeps_what_it_read'
+ 
+-add "R7-N4c. TP1 does not say which read failed" \
++add "C2R3-N4c. TP1 does not say which read failed" \
+     "$OBSA" \
+     '            return fail("show_ports on s%d unreadable" % d)' \
+     '            return None  # MUTANT' \
+     'test_a_read_that_failed_is_named'
+ 
+-add "R7-N4d. S0's show_ports check rejects a listed CPU port" \
++add "C2R3-N4d. S0's show_ports check rejects a listed CPU port" \
+     "$S0PY" \
+     '    return parsed is not None and set(parsed) - {cpu_port} == set(data_ports)' \
+     '    return parsed is not None and set(parsed) == set(data_ports)  # MUTANT' \
+     'test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports'
+ 
+-add "R7-N7. an unobserved control reads as a flip" \
++add "C2R3-N7. an unobserved control reads as a flip" \
+     "$TABLE" \
+     '        if obs is None:
+             # (Cut 2 second review N7)' \
+@@ -1952,13 +1952,13 @@ add "R7-N7. an unobserved control reads as a flip" \
+             # (Cut 2 second review N7)' \
+     'test_a_cell_this_run_did_not_observe_has_no_delta'
+ 
+-add "R7-N8a. root runs the shared tree's hostside.py, not the run's frozen copy" \
++add "C2R3-N8a. root runs the shared tree's hostside.py, not the run's frozen copy" \
+     "$LABPY" \
+     '    a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))' \
+     '    a_kwargs = dict(a_kwargs or {})  # MUTANT' \
+     'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
+ 
+-add "R7-N8b. the frozen copy's record is not of the copy root runs" \
++add "C2R3-N8b. the frozen copy's record is not of the copy root runs" \
+     "$HOSTSPY" \
+     '        with open(os.path.join(dst, name), "rb") as fh:
+             sums[name] = hashlib.sha256(fh.read()).hexdigest()' \
+=== commit 3ab969c6b0c1b63b76737b1231ea3656f3d56dac
+p4_health: survive an unreadable bmv2 override in the lab command, and fix an equivalent mutant
+probe.py lab read the fabric binary's override without a guard; an unreadable one now yields
+an incomplete fingerprint, which already stops the run. The step-guard mutant swapped a clause
+that is redundant now that the stop signal is a BaseException; it now catches BaseException.
+
+
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index a1ad5d1c..3576cc03 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1697,9 +1697,9 @@ add "R2-m2a. one observer raising ends the round's observing" \
+ add "R2-m2b. the step guard swallows a signal" \
+     "$ROUNDA" \
+     '        except SignalAbort:
+-            raise                                   # a signal still ends the round (lab_round)' \
+-    '        except ZeroDivisionError:  # MUTANT
+-            raise' \
++            raise                                   # a signal still ends the round (lab_round)
++        except Exception as exc:' \
++    '        except BaseException as exc:  # MUTANT: catches the signal too' \
+     'test_a_signal_still_ends_the_round'
+ 
+ add "R2-m7. VS1's negative read reads after the write" \
+diff --git a/tools/p4_health/probe.py b/tools/p4_health/probe.py
+index 9ff42199..208e27e8 100755
+--- a/tools/p4_health/probe.py
++++ b/tools/p4_health/probe.py
+@@ -140,10 +140,14 @@ def cmd_lab(args):
+     from p4_health.vs_trial import fabric_binary
+     live = os.path.join(REPO, "doc", "audit", "2026-09-04_p4-tutorial-exercise-prep", "live-p1")
+     sut = ID.system_under_test(runner, REPO, run_dir, py, os.path.join(live, "code_identity.py"))
++    try:
++        fabric = fabric_binary()
++    except OSError:
++        fabric = None                   # unreadable override: the fingerprint says incomplete
+     gate = ID.fingerprint(runner, REPO, run_dir,
+                           [py, cfg.p4dev_python, os.path.join(os.path.expanduser("~"), "miniconda3", "envs",
+                                                               "ntg-env", "bin", "python")],
+-                          fabric_bmv2=fabric_binary(), fp_script=os.path.join(live, "venv_fingerprint.sh"))
++                          fabric_bmv2=fabric, fp_script=os.path.join(live, "venv_fingerprint.sh"))
+     ID.dump(os.path.join(run_dir, "gate_fingerprint.json"), gate)
+     print("gate fingerprint %s; system under test %s" % (gate["sha256"], sut))
+     if sut is None or gate.get("sha256") in (None, "incomplete"):
+=== commit 991c2b219d72599101fcfefbfe47abdaad9acd03
+p4_health: move the unplaced-port mutant to the oracle's new return
+The fabric oracle now reports why it is unreadable, so the mirror-image mutant anchors on that
+return instead of the old bare one. The mutation itself is the same.
+
+
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index 5d31875e..a1ad5d1c 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1566,10 +1566,10 @@ add "R2-M1a. a veth peer printed by name is dropped (MAJOR-1)" \
+ 
+ add "R2-M1b. a switch port nobody could place is not an unread oracle (MAJOR-1's mirror)" \
+     "$OBSA" \
+-    '    if set(port_of) - linked:
+-        return None' \
++    '    if d_["unplaced"]:
++        return fail(' \
+     '    if False:  # MUTANT
+-        return None' \
++        return fail(' \
+     'test_switch_links_lost_on_both_sides_are_not_a_green'
+ 
+ add "R2-M2a. the sniffer takes any frame that quotes a marker (MAJOR-2)" \
+=== commit b78584a57285ecbc13a716d5a86e835e3c8d34e1
+p4_health: root runs a copy of its code frozen into the run dir
+hostside.py, frames.py and the package's __init__.py are copied into the run directory when a
+lab run starts, root executes those copies, and health.json records their sha256. The shared
+tree can then change during a run without changing what root runs.
+
+
+diff --git a/tests/python/test_p4_health_collect.py b/tests/python/test_p4_health_collect.py
+index dc4e9d5e..fb7201c8 100644
+--- a/tests/python/test_p4_health_collect.py
++++ b/tests/python/test_p4_health_collect.py
+@@ -2501,6 +2501,25 @@ class TestTheLabRun(Cut2):
+         self.assertTrue(any("stop signal 15" in p_ for p_ in doc["problems"]), doc["problems"])
+         self.assertNotEqual(getattr(restored, "__name__", ""), "raiser")   # the caller's handler is back
+ 
++    def test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir(self):
++        """N8: root executes hostside.py, frames.py and __init__.py; it runs copies taken into the
++        run dir at the start, so the shared tree can change under a 15-minute run and root still
++        runs what was recorded."""
++        rc, doc, r = self.run_lab()
++        frozen = os.path.join(self.cfg.run_dir, "rootcode", "p4_health", "hostside.py")
++        root_argvs = [c["argv"] for c in r.calls if c["argv"][:4] == ["sudo", "-n", "mnexec", "-a"]
++                      and any(a.endswith("hostside.py") for a in c["argv"])]
++        self.assertTrue(root_argvs)
++        for argv in root_argvs:
++            self.assertIn(frozen, argv)
++        import hashlib
++        src = os.path.dirname(os.path.abspath(HS.__file__))
++        for name in ("hostside.py", "frames.py", "__init__.py"):
++            with open(os.path.join(src, name), "rb") as fh:
++                want = hashlib.sha256(fh.read()).hexdigest()
++            self.assertEqual(doc["root_code"][name], want, name)
++            self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "rootcode", "p4_health", name)))
++
+     def test_b_on_a_fabric_that_is_not_external_is_incomplete(self):
+         self.fab.force_mode = "ndtwin"
+         rc, doc, r = self.run_lab()
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index f16b2ee8..5d31875e 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1835,6 +1835,19 @@ add "R7-N7. an unobserved control reads as a flip" \
+             # (Cut 2 second review N7)' \
+     'test_a_cell_this_run_did_not_observe_has_no_delta'
+ 
++add "R7-N8a. root runs the shared tree's hostside.py, not the run's frozen copy" \
++    "$LABPY" \
++    '    a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))' \
++    '    a_kwargs = dict(a_kwargs or {})  # MUTANT' \
++    'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
++
++add "R7-N8b. the frozen copy's record is not of the copy root runs" \
++    "$HOSTSPY" \
++    '        with open(os.path.join(dst, name), "rb") as fh:
++            sums[name] = hashlib.sha256(fh.read()).hexdigest()' \
++    '        sums[name] = "not recorded"  # MUTANT' \
++    'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
++
+ 
+ CTRL_SRC="$TABLE"
+ CTRL_ANCHOR='def g1_holds(g1):'
+diff --git a/tools/p4_health/collect/hosts.py b/tools/p4_health/collect/hosts.py
+index aa41943c..1c3db886 100644
+--- a/tools/p4_health/collect/hosts.py
++++ b/tools/p4_health/collect/hosts.py
+@@ -22,6 +22,28 @@ from . import ps as PS
+ HOSTSIDE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hostside.py")
+ 
+ 
++#: What root executes, relative to tools/p4_health: hostside.py and what it imports.
++ROOT_CODE = ("hostside.py", "frames.py", "__init__.py")
++
++
++def freeze_root_code(run_dir, src=None):
++    """(Cut 2 second review N8) Copy the files root executes into <run>/rootcode/p4_health/ and
++    return ({name: sha256}, the frozen hostside.py). Root then runs these copies for the whole
++    run, whatever the shared working tree does meanwhile, and health.json records exactly what
++    they were."""
++    import hashlib
++    import shutil
++    src = src or os.path.dirname(HOSTSIDE)
++    dst = os.path.join(run_dir, "rootcode", "p4_health")
++    os.makedirs(dst, exist_ok=True)
++    sums = {}
++    for name in ROOT_CODE:
++        shutil.copyfile(os.path.join(src, name), os.path.join(dst, name))
++        with open(os.path.join(dst, name), "rb") as fh:
++            sums[name] = hashlib.sha256(fh.read()).hexdigest()
++    return sums, os.path.join(dst, "hostside.py")
++
++
+ def marker_token(run_id):
+     """The 8 characters a marker carries for this run (frames.payload keeps 8 bytes)."""
+     return hashlib.sha1(run_id.encode("utf-8")).hexdigest()[:8]
+diff --git a/tools/p4_health/lab.py b/tools/p4_health/lab.py
+index 97aa4574..c4e50d67 100644
+--- a/tools/p4_health/lab.py
++++ b/tools/p4_health/lab.py
+@@ -25,6 +25,7 @@ from . import report as R
+ from . import runtime_cli as RC
+ from .cells import table as T
+ from .cells import verdict as V
++from .collect import hosts as HO
+ from .lab_round import LabRound, SignalAbort
+ from .round_a import ARound
+ from .round_b import BRound
+@@ -163,6 +164,9 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
+     pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
+     packages = os.path.join(run_dir, "packages")
+     recs, problems, holder = [], [], {}
++    root_code, frozen = HO.freeze_root_code(run_dir)
++    a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))
++    b_kwargs = dict({"hostside": frozen}, **(b_kwargs or {}))
+     old_handlers = _stop_on_signals() if signals else None
+     try:
+         _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutant, bringups,
+@@ -196,6 +200,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
+     doc["only"] = sorted(a.selected) if a else []
+     doc["mutant"] = bool(mutant)
+     doc["problems"] = problems
++    doc["root_code"] = root_code
+     # (Cut 2 review m4) design 4.3's system_under_test and the Q6(a) gate fingerprint
+     doc["system_under_test"] = (identity or {}).get("system_under_test")
+     doc["gate_fingerprint"] = (identity or {}).get("gate_fingerprint")
+diff --git a/tools/p4_health/round_a.py b/tools/p4_health/round_a.py
+index c500295f..ffeb7531 100644
+--- a/tools/p4_health/round_a.py
++++ b/tools/p4_health/round_a.py
+@@ -77,13 +77,14 @@ def expand(only, table=T.TABLE):
+ 
+ class ARound(object):
+     def __init__(self, cfg, runner, run_id, model, expect_pipelines, runtimes, orders, only=None,
+-                 out_dir=None, hosts=None):
++                 out_dir=None, hosts=None, hostside=None):
+         self.cfg, self.runner, self.run_id, self.model = cfg, runner, run_id, model
+         self.expect_pipelines = expect_pipelines
+         self.runtimes, self.orders = runtimes, orders
+         self.selected = expand(only)
+         self.out_dir = out_dir or os.path.join(cfg.run_dir, "A")
+         self.hosts = hosts
++        self.hostside = hostside            # the frozen copy root runs (lab.run_lab), or None
+         self.observations, self.sc_observations = {}, {}
+         self.problems = []
+         self.fabric = None
+@@ -139,7 +140,8 @@ class ARound(object):
+         os.makedirs(self.out_dir, exist_ok=True)
+         if self.hosts is None:
+             self.hosts = Hosts(self.cfg, self.runner, self.run_id, self.out_dir, self.model,
+-                               register=lab_round.register)
++                               register=lab_round.register,
++                               **({"hostside": self.hostside} if self.hostside else {}))
+         for cid in STATIC + ACTIVE:
+             if cid in self.selected:
+                 self.run_step(cid)
+diff --git a/tools/p4_health/round_b.py b/tools/p4_health/round_b.py
+index 56165d64..848add6b 100644
+--- a/tools/p4_health/round_b.py
++++ b/tools/p4_health/round_b.py
+@@ -50,7 +50,7 @@ def adapter_argv(python, package_dir, tutorials_utils):
+ class BRound(object):
+     def __init__(self, cfg, runner, run_id, model, build_dir, runtimes, tutorials_utils,
+                  out_dir=None, hosts=None, sleep=time.sleep, clock=time.monotonic,
+-                 ready_timeout_s=120.0, exit_timeout_s=120.0):
++                 ready_timeout_s=120.0, exit_timeout_s=120.0, hostside=None):
+         self.cfg, self.runner, self.run_id, self.model = cfg, runner, run_id, model
+         self.build_dir, self.runtimes = build_dir, runtimes
+         self.tutorials_utils = tutorials_utils
+@@ -58,6 +58,7 @@ class BRound(object):
+         self.hosts = hosts
+         self.sleep, self.clock = sleep, clock
+         self.ready_timeout_s, self.exit_timeout_s = ready_timeout_s, exit_timeout_s
++        self.hostside = hostside            # the frozen copy root runs (lab.run_lab), or None
+         self.confirmed = None
+         self.problems = []
+         #: (Cut 2 review N2) why B's controller did not do its part, or None: the run is then
+@@ -97,7 +98,8 @@ class BRound(object):
+         os.makedirs(self.out_dir, exist_ok=True)
+         if self.hosts is None:
+             self.hosts = Hosts(self.cfg, self.runner, self.run_id, self.out_dir, self.model,
+-                               register=lab_round.register)
++                               register=lab_round.register,
++                               **({"hostside": self.hostside} if self.hostside else {}))
+         # (Cut 2 review MAJOR-3) the adapter checks the package FILE; the fabric that is up must
+         # itself say external, or this controller would be a second writer on NDTwin's tables
+         mode = (((P.switch_state(self.cfg) or {}).get("control_plane")) or {}).get("mode")
+=== commit 9d5bc6ae56dc1e93cc42547bf0bf596ddbbae5f3
+p4_health: an unobserved control reads not observed
+A control the run never observed read the control phase, so its delta said flipped in an --only
+run. It now takes the unobserved phase as a cell does; a control that was observed without an
+answer is unchanged.
+
+
+diff --git a/tests/python/test_p4_health_cells.py b/tests/python/test_p4_health_cells.py
+index 2c96d2af..902b57cc 100644
+--- a/tests/python/test_p4_health_cells.py
++++ b/tests/python/test_p4_health_cells.py
+@@ -1517,6 +1517,13 @@ class TestCut2Decisions(unittest.TestCase):
+         self.assertEqual(ann["CH1"], ("PARTIAL(a)", "not observed"))
+         self.assertEqual(ann["T8"], ("RED", "same"))
+         self.assertEqual(ann["PL1"], ("GREEN", "flipped"))
++        # N7: a control this run did not observe (T3-neg in --only K1,TTL1) is no flip either
++        t3neg = [c for c in T.TABLE.controls if c.id == "T3-neg"][0]
++        ctx.cells["T3-neg"] = t3neg.judge(None)
++        ctx.cells["K1-neg"] = T.TABLE.controls[0].judge({"answer": None})
++        ann = E.annotate(ctx, {"T3-neg": {"expected": "GREEN"}, "K1-neg": {"expected": "GREEN"}})
++        self.assertEqual(ann["T3-neg"], ("GREEN", "not observed"))
++        self.assertEqual(ann["K1-neg"], ("GREEN", "flipped"))      # observed, and no answer: a flip
+ 
+     def test_only_expands_to_the_gates_controls_and_self_check_producers(self):
+         self.assertEqual(RA.expand(["K1", "TTL1"]), {"PL1", "T1", "TP1", "K1-neg", "K1", "TTL1"})
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index 085277d2..f16b2ee8 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1827,6 +1827,14 @@ add "R7-N4d. S0's show_ports check rejects a listed CPU port" \
+     '    return parsed is not None and set(parsed) == set(data_ports)  # MUTANT' \
+     'test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports'
+ 
++add "R7-N7. an unobserved control reads as a flip" \
++    "$TABLE" \
++    '        if obs is None:
++            # (Cut 2 second review N7)' \
++    '        if False:  # MUTANT
++            # (Cut 2 second review N7)' \
++    'test_a_cell_this_run_did_not_observe_has_no_delta'
++
+ 
+ CTRL_SRC="$TABLE"
+ CTRL_ANCHOR='def g1_holds(g1):'
+diff --git a/tools/p4_health/cells/table.py b/tools/p4_health/cells/table.py
+index b510a4bf..66c33d69 100644
+--- a/tools/p4_health/cells/table.py
++++ b/tools/p4_health/cells/table.py
+@@ -132,6 +132,10 @@ class Control(object):
+         self.id, self.of, self.expect_http = id, of, expect_http
+ 
+     def judge(self, obs):
++        if obs is None:
++            # (Cut 2 second review N7) a control this run did not observe, as a cell is (verdict
++            # step "unobserved"): its delta then reads "not observed", not "flipped"
++            return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")
+         a = (obs or {}).get("answer")
+         if isinstance(a, dict) and a.get("route") is False:
+             # (r3, review MINOR 3) the endpoint itself is missing from openapi: there is nothing
+=== commit defc60178361e55efc4a7e44d7e0562124f89851
+p4_health: keep what TP1's fabric oracle read, and skip a listed CPU port
+TP1's observation now carries the raw ip link text, every show_ports, each host's link and
+address, the ports nothing placed and which read failed. A throwaway grpc switch started as the
+fabric starts one lists only its data ports; S0 now checks that, and the oracle skips port 510 if listed.
+
+
+diff --git a/tests/python/test_p4_health_cells.py b/tests/python/test_p4_health_cells.py
+index 354ce796..2c96d2af 100644
+--- a/tests/python/test_p4_health_cells.py
++++ b/tests/python/test_p4_health_cells.py
+@@ -1343,6 +1343,14 @@ class TestS0Cut2Checks(unittest.TestCase):
+         x.pkgs = {n: os.path.join(d, "packages", n) for n in ("A", "B", "C", "PF-T", "FWD", "A-MUT")}
+         return x, r
+ 
++    def test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports(self):
++        from p4_health import s0
++        self.assertTrue(s0.show_ports_ok({1: "p1", 2: "p2", 3: "p3"}))
++        self.assertTrue(s0.show_ports_ok({1: "p1", 2: "p2", 3: "p3", 510: "p510"}))
++        self.assertFalse(s0.show_ports_ok({1: "p1", 2: "p2"}))
++        self.assertFalse(s0.show_ports_ok({1: "p1", 2: "p2", 3: "p3", 4: "p4"}))
++        self.assertFalse(s0.show_ports_ok(None))
++
+     def test_the_mutant_package_is_drop_checked(self):
+         """The A-MUT package is the one the see-red run brings up: it must pass the drop check."""
+         x, r = self.s0([(lambda a: "heartbeat_drop_check.py" in " ".join(a),
+diff --git a/tests/python/test_p4_health_collect.py b/tests/python/test_p4_health_collect.py
+index 2aa9903f..dc4e9d5e 100644
+--- a/tests/python/test_p4_health_collect.py
++++ b/tests/python/test_p4_health_collect.py
+@@ -1351,6 +1351,8 @@ class FakeFabric(object):
+         self.signal_in_sniffer = None     # a cell: a SIGTERM arrives while its sniffer is waited for
+         self.force_mode = None            # control_plane.mode whatever package came up
+         self.ctrl_never_ready = False     # B's controller never writes its ready file
++        self.extra_ports = {}             # {dpid: [ports show_ports lists that no link uses]}
++        self.cpu_port_listed = False
+         self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
+         self.pipelines = dict(PIPES4)
+         self.ctrl_register_ok = False      # bmv2's P4Runtime refuses register writes today
+@@ -1571,8 +1573,11 @@ class FakeFabric(object):
+             return "\n".join("%s [implementation=None, mk=]" % n for n in names)
+         if word == "show_ports":
+             ports = sorted(p_ for (d, p_) in self.iface_list() if d == s.dpid)
+-            return "  port #  iface name  status  extra info\n" + "\n".join(
+-                "    %d   s%d-eth%d   UP   " % (p_, s.dpid, p_) for p_ in ports)
++            ports += self.extra_ports.get(s.dpid, [])
++            rows = ["    %d   s%d-eth%d   UP   " % (p_, s.dpid, p_) for p_ in ports]
++            if self.cpu_port_listed:                    # not what bmv2 does (r3/show_ports_cpu510.log)
++                rows.append("    510   s%d-cpu   UP   " % s.dpid)
++            return "  port #  iface name  status  extra info\n" + "\n".join(rows)
+         if word == "counter_read":
+             key = (cmd[1], int(cmd[2]))
+             if key not in s.counters:
+@@ -2112,6 +2117,32 @@ class TestBringUpARedPaths(Cut2):
+         self.assertIsNone(a.observations["TP1"]["oracle"])
+         self.assertEqual(v.verdict, V.NOT_RUN, v)
+ 
++    def test_an_unplaced_port_is_not_run_and_tp1_keeps_what_it_read(self):
++        """N4: TP1's NOT RUN must be diagnosable after `ndt down` has removed the fabric."""
++        self.fab.extra_ports = {2: [9]}
++        v, _c, a = self.verdict("TP1")
++        self.assertEqual(v.verdict, V.NOT_RUN, v)
++        d = a.observations["TP1"]["diagnostics"]
++        self.assertEqual(d["unplaced"], ["s2-eth9"])
++        self.assertIn("s1-eth4@s2-eth2", d["ip_link"])
++        self.assertEqual(sorted(d["show_ports"]), ["1", "2", "3", "4"])
++        self.assertIn("s2-eth9", d["show_ports"]["2"])
++        self.assertEqual(sorted(d["hosts"]), ["h%d" % i for i in range(1, 7)])
++        self.assertIn("inet 10.0.1.1/24", d["hosts"]["h1"]["addr"])
++        self.assertIn("unplaced", d["failed"])
++
++    def test_a_read_that_failed_is_named(self):
++        self.fab.thrift_down = {3}
++        _v, _c, a = self.verdict("TP1")
++        self.assertIsNone(a.observations["TP1"]["oracle"])
++        self.assertIn("show_ports on s3", a.observations["TP1"]["diagnostics"]["failed"])
++
++    def test_a_listed_cpu_port_is_not_a_fabric_port(self):
++        self.fab.cpu_port_listed = True
++        v, _c, a = self.verdict("TP1")
++        self.assertEqual(v.verdict, V.GREEN, v)
++        self.assertEqual(a.observations["TP1"]["diagnostics"]["cpu_port_listed"], [1, 2, 3, 4])
++
+     def test_a_missing_edge_is_tp1_red(self):
+         self.fab.graph_drop_edge = True
+         v, _c, _a = self.verdict("TP1")
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index 0bd7742a..085277d2 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1803,6 +1803,30 @@ add "R7-N3c. the lab starts on an incomplete fingerprint" \
+     '    if sut is None:  # MUTANT' \
+     'test_a_missing_identity_record_stops_the_run_before_the_lab'
+ 
++add "R7-N4a. a listed CPU port is taken for a fabric port" \
++    "$OBSA" \
++    '            if port == CPU_PORT:' \
++    '            if False:  # MUTANT' \
++    'test_a_listed_cpu_port_is_not_a_fabric_port'
++
++add "R7-N4b. TP1 keeps no raw ip link text" \
++    "$OBSA" \
++    '    d_["ip_link"] = res.stdout' \
++    '    d_["ip_link"] = None  # MUTANT' \
++    'test_an_unplaced_port_is_not_run_and_tp1_keeps_what_it_read'
++
++add "R7-N4c. TP1 does not say which read failed" \
++    "$OBSA" \
++    '            return fail("show_ports on s%d unreadable" % d)' \
++    '            return None  # MUTANT' \
++    'test_a_read_that_failed_is_named'
++
++add "R7-N4d. S0's show_ports check rejects a listed CPU port" \
++    "$S0PY" \
++    '    return parsed is not None and set(parsed) - {cpu_port} == set(data_ports)' \
++    '    return parsed is not None and set(parsed) == set(data_ports)  # MUTANT' \
++    'test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports'
++
+ 
+ CTRL_SRC="$TABLE"
+ CTRL_ANCHOR='def g1_holds(g1):'
+diff --git a/tools/p4_health/observe_a.py b/tools/p4_health/observe_a.py
+index ea9f245d..764e0cda 100644
+--- a/tools/p4_health/observe_a.py
++++ b/tools/p4_health/observe_a.py
+@@ -601,7 +601,10 @@ def graph_view(graph):
+     return {"switches": switches_, "hosts": hosts_, "edges": edges, "ports": ports}
+ 
+ 
+-def fabric_view(cfg, runner, hosts, names, dpids=DPIDS):
++CPU_PORT = 510
++
++
++def fabric_view(cfg, runner, hosts, names, dpids=DPIDS, diag=None):
+     """The fabric as the same four sets: thrift show_ports per switch, veth peers in the root
+     namespace, and each host's own interface (its address, MAC and peer) inside its namespace.
+ 
+@@ -610,19 +613,38 @@ def fabric_view(cfg, runner, hosts, names, dpids=DPIDS):
+     switch lists must end up on a link -- to another switch's port, or claimed by a host's eth0 --
+     or the oracle is unreadable (None): a peer this reader cannot place is a reading not taken,
+     never "no link there", so a parser blind to one form cannot agree with a graph that lacks the
+-    same links."""
++    same links.
++
++    (Cut 2 second review N4) `diag`, when given, keeps everything read -- the raw `ip -o link
++    show`, every show_ports, every host's link and address text -- plus the ports nothing placed,
++    the CPU ports a switch listed (not fabric ports; bmv2 started as BMv2Switch starts it lists
++    only its -i ports, r3/show_ports_cpu510.log, so this is a guard) and which read failed: a TP1
++    NOT RUN has to be diagnosable after `ndt down` removed the fabric."""
++    d_ = diag if diag is not None else {}
++    d_.update({"ip_link": None, "show_ports": {}, "hosts": {}, "unplaced": [], "cpu_port_listed": [],
++               "failed": None})
++
++    def fail(why):
++        d_["failed"] = why
++        return None
+     reader = TH.ThriftReader(cfg, runner)
+     res = runner.run(["ip", "-o", "link", "show"], timeout=10)
++    d_["ip_link"] = res.stdout
+     if res.rc != 0:
+-        return None
++        return fail("ip -o link show rc %s" % res.rc)
+     peers, index = FB.veth_peers(res.stdout), FB.ifindex(res.stdout)
+     by_index = {i: n for n, i in index.items()}
+     port_of = {}
+     for d in dpids:
+-        sp = reader.read(d, "show_ports")
++        raw = reader.raw(d, "show_ports")
++        d_["show_ports"][str(d)] = raw
++        sp = TH.parse_show_ports(TH.body(raw))
+         if sp is None:
+-            return None
++            return fail("show_ports on s%d unreadable" % d)
+         for port, iface in sp.items():
++            if port == CPU_PORT:
++                d_["cpu_port_listed"].append(d)
++                continue
+             port_of[iface] = (d, port)
+     edges, ports, hosts_ = set(), set(port_of.values()), set()
+     linked = set()
+@@ -634,25 +656,29 @@ def fabric_view(cfg, runner, hosts, names, dpids=DPIDS):
+     for h in names:
+         link = hosts.run_in(h, ["ip", "-o", "link", "show", "dev", "eth0"])
+         addr = hosts.run_in(h, ["ip", "-o", "addr", "show", "dev", "eth0"])
++        d_["hosts"][h] = {"link": link, "addr": addr}
+         got = FB.host_addr((addr or "") + "\n" + (link or "")) if link and addr else None
+         hpeer = FB.veth_peers(link or "")
+         if got is None or not hpeer:
+-            return None
++            return fail("%s: its eth0 link or address unreadable" % h)
+         hosts_.add(got)
+         sw_iface = by_index.get(list(hpeer.values())[0])
+         if sw_iface not in port_of:
+-            return None
++            return fail("%s: its eth0's peer (ifindex %s) is no switch port show_ports listed"
++                        % (h, list(hpeer.values())[0]))
+         edges.add(frozenset([("h", got[0], 0), ("s",) + port_of[sw_iface]]))
+         linked.add(sw_iface)
+-    if set(port_of) - linked:
+-        return None
++    d_["unplaced"] = sorted(set(port_of) - linked)
++    if d_["unplaced"]:
++        return fail("unplaced switch ports: %s" % ", ".join(d_["unplaced"]))
+     return {"switches": set(dpids), "hosts": hosts_, "edges": edges, "ports": ports}
+ 
+ 
+ def observe_tp1(cfg, runner, hosts, names):
+-    oracle = fabric_view(cfg, runner, hosts, names)
++    diag = {}
++    oracle = fabric_view(cfg, runner, hosts, names, diag=diag)
+     answer = graph_view(K.graph(cfg))
+-    return {"answer": answer, "oracle": oracle}
++    return {"answer": answer, "oracle": oracle, "diagnostics": diag}
+ 
+ 
+ def links_from(view):
+diff --git a/tools/p4_health/s0.py b/tools/p4_health/s0.py
+index 8c24fe28..36ec2631 100644
+--- a/tools/p4_health/s0.py
++++ b/tools/p4_health/s0.py
+@@ -140,6 +140,12 @@ def _delta(before, after):
+     return after[1] - before[1]
+ 
+ 
++def show_ports_ok(parsed, data_ports=(1, 2, 3), cpu_port=510):
++    """show_ports of a switch given `data_ports` as -i and `cpu_port` as --cpu-port: exactly the
++    data ports, with the CPU port allowed beside them (fabric_view skips it)."""
++    return parsed is not None and set(parsed) - {cpu_port} == set(data_ports)
++
++
+ def preflight_rows(stdout):
+     """(FAIL rows, the problem lines under them) out of preflight.py's table."""
+     return [line for line in (stdout or "").splitlines() if line.startswith("  FAIL")]
+@@ -595,6 +601,37 @@ class S0(object):
+                        "unconfirmed %s (expected %s), controller rc %s"
+                        % (sorted(failed), sorted(want_false), r.get("controller_rc")))
+ 
++    def show_ports_trial(self):
++        """(Cut 2 second review N4, r1's test 10) What show_ports lists on a simple_switch_grpc
++        started the way BMv2Switch starts a fabric switch -- data ports as -i, then
++        `-- --grpc-server-addr ... --cpu-port 510` -- on throwaway switches, stock and fabric
++        build. TP1's oracle must place every port listed, so a listed CPU port would matter;
++        observe_a.fabric_view skips port 510 either way, and this records which it is."""
++        try:
++            from .vs_trial import fabric_binary
++            got = {}
++            for i, b in enumerate(("/usr/local/bin/simple_switch_grpc", fabric_binary())):
++                work = os.path.join(self.run_dir, "show_ports_trial", "%d" % i)
++                os.makedirs(work, exist_ok=True)
++                sw = TW.Throwaway(os.path.join(self.ex, "build", "hc_main.json"), {1: [], 2: [], 3: []},
++                                  510, self.thrift_cli, wait_s=2, bmv2=b, workdir=work,
++                                  argv0="ndt-hc-ports-bmv2", grpc=True, runner=self.runner)
++                sw.start()
++                try:
++                    from .collect import thrift as TH
++                    got[b] = TH.parse_show_ports(TH.body(sw.cli(["show_ports"])))
++                finally:
++                    sw.stop()
++        except Exception as exc:  # noqa: BLE001
++            self.check("show_ports on throwaway simple_switch_grpc with --cpu-port 510", False,
++                       "%s: %s" % (type(exc).__name__, exc))
++            return
++        self.out["show_ports_trial"] = {b: sorted(p) if p else None for b, p in got.items()}
++        self.check("show_ports with --cpu-port 510 lists the -i data ports (510 only if at all)",
++                   all(show_ports_ok(p) for p in got.values()),
++                   "; ".join("%s: %s" % (os.path.basename(os.path.dirname(os.path.dirname(b))),
++                                         sorted(p) if p else p) for b, p in got.items()))
++
+     def adapter_dry_run(self):
+         """(Cut 2 review m5) The live B path through the adapter, without running anything: the
+         same argv bring-up B spawns, with --dry-run. It must name controller_ext.py and rewrite
+@@ -649,6 +686,7 @@ class S0(object):
+             self.vs_trial()
+             self.ctrl_trial()
+             self.adapter_dry_run()
++            self.show_ports_trial()
+         self.identity()
+         self.openapi()
+         self.pft_verdict()
+=== commit aacab54d6fd6e071ece6ae381f8400bc087e6222
+p4_health: refuse a lab run when git or the identity record cannot answer
+A git status that fails or times out no longer reads as a clean probe tree. A missing system
+under test or an incomplete fingerprint now stops the run before the lab is touched.
+
+
+diff --git a/tests/python/test_p4_health_cells.py b/tests/python/test_p4_health_cells.py
+index ac7737a1..354ce796 100644
+--- a/tests/python/test_p4_health_cells.py
++++ b/tests/python/test_p4_health_cells.py
+@@ -1386,15 +1386,69 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
+         from p4_health import probe
+         asked = []
+ 
+-        def git(*args):
+-            asked.append(args)
+-            return " M tools/p4_health/hostside.py" if args[0] == "status" else "x"
+-        with mock.patch.object(probe, "_git", git), \
++        import subprocess as sp
++
++        def git(argv, **kw):
++            asked.append(tuple(argv[3:]))
++            out = " M tools/p4_health/hostside.py\n" if argv[3] == "status" else "x\n"
++            return sp.CompletedProcess(argv, 0, stdout=out, stderr="")
++        with mock.patch.object(probe.subprocess, "run", git), \
+                 mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
+             rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
+         self.assertEqual(rc, 2)
+         self.assertIn(("status", "--porcelain", "--", "tools/p4_health"), asked)
+ 
++    @staticmethod
++    def git_answering(rc, out="", exc=None):
++        import subprocess as sp
++
++        def run(argv, **kw):
++            if argv[:1] != ["git"]:
++                raise AssertionError("unexpected spawn %r" % (argv,))
++            if exc is not None:
++                raise exc
++            return sp.CompletedProcess(argv, rc, stdout=out, stderr="")
++        return run
++
++    def test_a_git_that_cannot_answer_is_refused_before_s0(self):
++        """N3: a failed, timed-out or missing git is no answer about the tree -- not 'clean'."""
++        import subprocess as sp
++        from unittest import mock
++        from p4_health import probe
++        for kw in ({"rc": 128}, {"rc": 0, "exc": sp.TimeoutExpired("git", 10)},
++                   {"rc": 0, "exc": FileNotFoundError("git")}):
++            with self.subTest(kw=kw):
++                with mock.patch.object(probe.subprocess, "run", self.git_answering(**kw)), \
++                        mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
++                    rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
++                self.assertEqual(rc, 2)
++
++    def test_a_missing_identity_record_stops_the_run_before_the_lab(self):
++        """N3: the first authorized run's record is the baseline of the standing authorization;
++        without it, or with an incomplete fingerprint, the lab is not touched."""
++        import tempfile
++        from unittest import mock
++        from p4_health import probe
++        d = tempfile.mkdtemp(prefix="p4h-ident-%d-" % os.getpid())
++        self.addCleanup(__import__("shutil").rmtree, d, True)
++
++        class FakeS0(object):
++            def __init__(self, *a, **kw):
++                self.out = {"verdict": "COMPLETE"}
++
++            def run(self):
++                return 0
++        good = {"sha256": "a" * 64, "parts": {}}
++        for sut, gate in ((None, good), (os.path.join(d, "code_identity.json"), dict(good, sha256="incomplete"))):
++            with self.subTest(sut=sut, gate=gate["sha256"]):
++                with mock.patch.object(probe.subprocess, "run", self.git_answering(0)), \
++                        mock.patch("p4_health.s0.S0", FakeS0), \
++                        mock.patch("p4_health.identity.system_under_test", return_value=sut), \
++                        mock.patch("p4_health.identity.fingerprint", return_value=gate), \
++                        mock.patch("p4_health.lab.run_lab", side_effect=AssertionError("the lab must not start")):
++                    rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
++                self.assertEqual(rc, 2)
++
+     def test_the_may_differ_classes_are_the_designs(self):
+         from p4_health import identity as ID
+         for path in ("p4_proxy/proxy_agent/main.py", "src/ndt_core/x.cpp", "include/a.hpp", "libs/x",
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index c4c508a8..0bd7742a 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1783,6 +1783,26 @@ add "R7-N2. a B whose controller did nothing leaves the run complete" \
+     '        elif False:  # MUTANT' \
+     'test_b_on_a_fabric_that_is_not_external_is_incomplete'
+ 
++add "R7-N3a. a git that could not answer reads as a clean tree" \
++    "$PROBEPY" \
++    '    if git_rc != 0:
++        # (Cut 2 review N3) no answer is not "clean"' \
++    '    if False:  # MUTANT
++        # (Cut 2 review N3) no answer is not "clean"' \
++    'test_a_git_that_cannot_answer_is_refused_before_s0'
++
++add "R7-N3b. the lab starts without a system-under-test record" \
++    "$PROBEPY" \
++    '    if sut is None or gate.get("sha256") in (None, "incomplete"):' \
++    '    if gate.get("sha256") in (None, "incomplete"):  # MUTANT' \
++    'test_a_missing_identity_record_stops_the_run_before_the_lab'
++
++add "R7-N3c. the lab starts on an incomplete fingerprint" \
++    "$PROBEPY" \
++    '    if sut is None or gate.get("sha256") in (None, "incomplete"):' \
++    '    if sut is None:  # MUTANT' \
++    'test_a_missing_identity_record_stops_the_run_before_the_lab'
++
+ 
+ CTRL_SRC="$TABLE"
+ CTRL_ANCHOR='def g1_holds(g1):'
+diff --git a/tools/p4_health/probe.py b/tools/p4_health/probe.py
+index 33d82531..9ff42199 100755
+--- a/tools/p4_health/probe.py
++++ b/tools/p4_health/probe.py
+@@ -33,12 +33,21 @@ from p4_health.collect.runner import Runner  # noqa: E402
+ HERE = os.path.dirname(os.path.abspath(__file__))
+ 
+ 
+-def _git(*args):
++def _git_run(*args):
++    """(rc, stdout) of one git call; rc None when git could not run at all (missing, timeout)."""
+     try:
+-        return subprocess.run(["git", "-C", REPO] + list(args), stdout=subprocess.PIPE,
+-                              stderr=subprocess.DEVNULL, universal_newlines=True, timeout=10).stdout.strip()
++        res = subprocess.run(["git", "-C", REPO] + list(args), stdout=subprocess.PIPE,
++                             stderr=subprocess.DEVNULL, universal_newlines=True, timeout=10)
+     except (OSError, subprocess.SubprocessError):
+-        return ""
++        return None, ""
++    return res.returncode, (res.stdout or "").strip()
++
++
++def _git(*args):
++    """stdout of a git call that only labels a record; "" when git could not answer. A decision
++    must not rest on this -- use _git_run and its rc (Cut 2 review N3)."""
++    rc, out = _git_run(*args)
++    return out if rc == 0 else ""
+ 
+ 
+ def probe_version():
+@@ -102,7 +111,12 @@ def cmd_lab(args):
+         return 2
+     # (Cut 2 review m4) root runs hostside.py, frames.py and __init__.py from this working tree:
+     # a lab run is refused unless tools/p4_health is exactly what HEAD says (no edit, no new file)
+-    dirty = _git("status", "--porcelain", "--", "tools/p4_health")
++    git_rc, dirty = _git_run("status", "--porcelain", "--", "tools/p4_health")
++    if git_rc != 0:
++        # (Cut 2 review N3) no answer is not "clean"
++        print("refused: git status could not tell whether tools/p4_health is clean (rc %s)" % (git_rc,),
++              file=sys.stderr)
++        return 2
+     if dirty:
+         print("refused: tools/p4_health has uncommitted changes; a lab run runs only committed "
+               "code:\n%s" % dirty, file=sys.stderr)
+@@ -132,6 +146,12 @@ def cmd_lab(args):
+                           fabric_bmv2=fabric_binary(), fp_script=os.path.join(live, "venv_fingerprint.sh"))
+     ID.dump(os.path.join(run_dir, "gate_fingerprint.json"), gate)
+     print("gate fingerprint %s; system under test %s" % (gate["sha256"], sut))
++    if sut is None or gate.get("sha256") in (None, "incomplete"):
++        # (Cut 2 review N3) the first authorized run's record is the standing authorization's
++        # baseline: without it the run cannot be what it is meant to be, so the lab is not touched
++        print("refused: the identity record is incomplete (system under test %s, fingerprint %s); "
++              "see %s/gate_fingerprint.json" % (sut, gate.get("sha256"), run_dir), file=sys.stderr)
++        return 2
+     bringups = tuple(b for b in (args.bringups or "A,B").split(",") if b)
+     only = [c for c in (args.only or "").split(",") if c] or None
+     rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
+=== commit 965106b1c5cbe6c68bf3e916ce7981ece1194cd0
+p4_health: give the second review's mutants their own label prefix
+R3- was already the prefix of the Cut 1 review's third round, so the new mutants now read R7-.
+No mutation changes.
+
+
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index 5750f753..c4c508a8 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1755,9 +1755,9 @@ add "R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of t
+     'test_the_fingerprint_moves_with_what_must_be_the_same_only'
+ 
+ 
+-# --- Cut 2 second review (r3) ------------------------------------------------------------------------
++# --- Cut 2 second review (labels R7-) ------------------------------------------------------------------------
+ 
+-add "R3-N1a. a round stopped by a signal lets B claim the lab" \
++add "R7-N1a. a round stopped by a signal lets B claim the lab" \
+     "$LABPY" \
+     '        if signalled(recs[-1]):
+             # (Cut 2 review N1) a stop is a stop' \
+@@ -1765,19 +1765,19 @@ add "R3-N1a. a round stopped by a signal lets B claim the lab" \
+             # (Cut 2 review N1) a stop is a stop' \
+     'test_a_signal_in_an_observer_ends_the_run'
+ 
+-add "R3-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
++add "R7-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
+     "$LABROUND" \
+     'class SignalAbort(BaseException):' \
+     'class SignalAbort(Exception):  # MUTANT' \
+     'test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there'
+ 
+-add "R3-N1c. no handler between the rounds" \
++add "R7-N1c. no handler between the rounds" \
+     "$LABPY" \
+     '    old_handlers = _stop_on_signals() if signals else None' \
+     '    old_handlers = None  # MUTANT' \
+     'test_a_signal_between_the_rounds_ends_the_run'
+ 
+-add "R3-N2. a B whose controller did nothing leaves the run complete" \
++add "R7-N2. a B whose controller did nothing leaves the run complete" \
+     "$LABPY" \
+     '        elif b.failed:' \
+     '        elif False:  # MUTANT' \
+=== commit 6d9650ef241162671015ba6cf0e2c0a783c3bd57
+p4_health: a stop signal ends the run, and a B that did nothing is incomplete
+The stop signal is now a BaseException, so no except Exception on the round's path swallows it,
+and a run whose A was stopped does not claim the lab for B. run_lab holds a handler between the
+rounds, and a B whose controller was refused, never got ready or wrote no result reads incomplete.
+
+
+diff --git a/tests/python/test_p4_health_collect.py b/tests/python/test_p4_health_collect.py
+index 6baecb86..2aa9903f 100644
+--- a/tests/python/test_p4_health_collect.py
++++ b/tests/python/test_p4_health_collect.py
+@@ -1177,6 +1177,22 @@ class TestLabRound(Sealed):
+         self.assertIsNone(LR.proc_identity(889, self.proc))
+ 
+ 
++class TestASignalIsNeverSwallowed(Sealed):
++    """N1: the stop signal lab_round raises must get through every `except Exception`."""
++
++    def test_an_http_call_lets_a_signal_through(self):
++        from p4_health.collect import config as CF
++        with mock.patch.object(CF._urlreq, "urlopen", side_effect=LR.SignalAbort(15)):
++            with self.assertRaises(LR.SignalAbort):
++                CF.HttpClient("http://p4h.invalid").get("/p4/switch_state")
++        with mock.patch.object(CF._urlreq, "urlopen", side_effect=OSError("down")):
++            self.assertIsNone(CF.HttpClient("http://p4h.invalid").get("/x").status)
++
++    def test_it_is_not_an_exception(self):
++        self.assertFalse(issubclass(LR.SignalAbort, Exception))
++        self.assertTrue(issubclass(LR.SignalAbort, BaseException))
++
++
+ class TestTheStateFileIsNotOverwritten(Sealed):
+     """MAJOR-3: a round never overwrites a LAB_STATE.json recover.sh still needs."""
+ 
+@@ -1332,6 +1348,9 @@ class FakeFabric(object):
+         self.graph_drop_switch_edges = False
+         self.mode = "ndtwin"              # control_plane.mode in switch_state (B's fabric: external)
+         self.sniffer_hangs = None         # a cell: its sniffer never ends (its process stays)
++        self.signal_in_sniffer = None     # a cell: a SIGTERM arrives while its sniffer is waited for
++        self.force_mode = None            # control_plane.mode whatever package came up
++        self.ctrl_never_ready = False     # B's controller never writes its ready file
+         self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
+         self.pipelines = dict(PIPES4)
+         self.ctrl_register_ok = False      # bmv2's P4Runtime refuses register writes today
+@@ -1706,6 +1725,9 @@ class FakeSniffer(object):
+         return self.returncode
+ 
+     def wait(self, timeout=None):
++        if self.returncode is None and self.fab.signal_in_sniffer in self.cells:
++            self.fab.signal_in_sniffer = None
++            raise LR.SignalAbort(15)                        # what lab_round's handler raises
+         if self.returncode is None and self.fab.sniffer_hangs in self.cells:
+             self.fab.sniffer_hangs = None
+             raise RuntimeError("fake: this sniffer does not end")          # its /proc entry stays
+@@ -1770,8 +1792,9 @@ class FakeController(object):
+         else:
+             calls["register"] = {"ok": False, "error": "UNKNOWN:  [canonical_code 12: Register writes are not supported yet]"}
+         self.calls = calls
+-        with open(self.conf["ready"], "w") as fh:
+-            json.dump({"attributions": calls}, fh)
++        if not fab.ctrl_never_ready:
++            with open(self.conf["ready"], "w") as fh:
++                json.dump({"attributions": calls}, fh)
+ 
+     def poll(self):
+         if self.returncode is None and os.path.exists(self.conf["go"]):
+@@ -2287,7 +2310,8 @@ class TestTheLabRun(Cut2):
+             return (0, "")
+ 
+         def up(argv, env, inp):
+-            test.fab.mode = "external" if argv[-1].rstrip("/").endswith("/B") else "ndtwin"
++            test.fab.mode = test.fab.force_mode or (
++                "external" if argv[-1].rstrip("/").endswith("/B") else "ndtwin")
+             if expire_on_up:      # our own claim, expired under the round: the teardown stops early
+                 with open(test.claim, "w") as fh:
+                     fh.write("owner=p4h-test\nexpires=%d\nnote=x\n" % (int(__import__("time").time()) - 5))
+@@ -2304,6 +2328,11 @@ class TestTheLabRun(Cut2):
+         r.add(("ndt", "release"), release)
+         r.add(("qdisc_snapshot.sh",), (0, ""))
+         r.add(("sudo", "-n", "mnexec", "-a", "1", "kill"), (kill_rc, ""))
++
++        def kill(argv, env, inp):                       # B's controller, stopped by its pid
++            shutil.rmtree(os.path.join(test.proc, argv[-1]), ignore_errors=True)
++            return (0, "")
++        r.add(("kill",), kill)
+         return self.fab.runner(r)
+ 
+     def fake_time(self):
+@@ -2391,6 +2420,68 @@ class TestTheLabRun(Cut2):
+                 st = json.load(fh)
+             self.assertEqual((st["bring_up"], st["phase"]), (x, "released"))
+ 
++    # --- N1: a stop signal ends the run; N2: a B that did nothing is not COMPLETE -----------
++    def assert_signal_ended_the_run(self, r, rc, doc):
++        ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
++        self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        self.assertTrue(any("aborted by signal" in p_ for p_ in doc["bringups"][0]["problems"]), doc["bringups"])
++        self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
++        self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "health.json")))
++
++    def test_a_signal_in_an_observer_ends_the_run(self):
++        def sig(*a, **kw):
++            raise LR.SignalAbort(15)
++        with mock.patch.object(OA, "observe_t2", sig):
++            rc, doc, r = self.run_lab()
++        self.assert_signal_ended_the_run(r, rc, doc)
++
++    def test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there(self):
++        self.fab.signal_in_sniffer = "K1"
++        rc, doc, r = self.run_lab()
++        self.assert_signal_ended_the_run(r, rc, doc)
++        with open(os.path.join(self.cfg.run_dir, "observations.json")) as fh:
++            seen = set(json.load(fh)["cells"])
++        later = set(RA.ACTIVE[RA.ACTIVE.index("K1") + 1:])
++        self.assertEqual(seen & later, set(), "steps after the signal were still observed")
++        self.assertNotIn("K1", seen)
++
++    def test_a_signal_between_the_rounds_ends_the_run(self):
++        """N1's window: from A's teardown to B's claim no round's handler is in place. run_lab's
++        own handler turns a SIGTERM there into a stop too (a safety handler stands in for the
++        default action, so the test process survives on code without it)."""
++        seen = []
++        safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
++        real_keep = LAB.keep_state
++
++        def keep_then_kill(cfg, bringup):
++            real_keep(cfg, bringup)
++            if bringup == "A":
++                os.kill(os.getpid(), signal.SIGTERM)
++        try:
++            with mock.patch.object(LAB, "keep_state", keep_then_kill):
++                rc, doc, r = self.run_lab()
++        finally:
++            restored = signal.signal(signal.SIGTERM, safety)
++        ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
++        self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
++        self.assertEqual(seen, [])                       # run_lab's handler took it, not the safety one
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        self.assertTrue(any("stop signal 15" in p_ for p_ in doc["problems"]), doc["problems"])
++        self.assertNotEqual(getattr(restored, "__name__", ""), "raiser")   # the caller's handler is back
++
++    def test_b_on_a_fabric_that_is_not_external_is_incomplete(self):
++        self.fab.force_mode = "ndtwin"
++        rc, doc, r = self.run_lab()
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        self.assertTrue(any("B's controller" in p_ for p_ in doc["problems"]), doc["problems"])
++
++    def test_a_controller_that_never_gets_ready_is_incomplete(self):
++        self.fab.ctrl_never_ready = True
++        rc, doc, r = self.run_lab()
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        self.assertTrue(any("B's controller" in p_ for p_ in doc["problems"]), doc["problems"])
++
+     def test_an_incomplete_s0_touches_nothing(self):
+         self.s0["verdict"] = "PROBE-BROKEN"
+         rc, doc, r = self.run_lab()
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index ae92d63b..5750f753 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1755,6 +1755,35 @@ add "R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of t
+     'test_the_fingerprint_moves_with_what_must_be_the_same_only'
+ 
+ 
++# --- Cut 2 second review (r3) ------------------------------------------------------------------------
++
++add "R3-N1a. a round stopped by a signal lets B claim the lab" \
++    "$LABPY" \
++    '        if signalled(recs[-1]):
++            # (Cut 2 review N1) a stop is a stop' \
++    '        if False:  # MUTANT
++            # (Cut 2 review N1) a stop is a stop' \
++    'test_a_signal_in_an_observer_ends_the_run'
++
++add "R3-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
++    "$LABROUND" \
++    'class SignalAbort(BaseException):' \
++    'class SignalAbort(Exception):  # MUTANT' \
++    'test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there'
++
++add "R3-N1c. no handler between the rounds" \
++    "$LABPY" \
++    '    old_handlers = _stop_on_signals() if signals else None' \
++    '    old_handlers = None  # MUTANT' \
++    'test_a_signal_between_the_rounds_ends_the_run'
++
++add "R3-N2. a B whose controller did nothing leaves the run complete" \
++    "$LABPY" \
++    '        elif b.failed:' \
++    '        elif False:  # MUTANT' \
++    'test_b_on_a_fabric_that_is_not_external_is_incomplete'
++
++
+ CTRL_SRC="$TABLE"
+ CTRL_ANCHOR='def g1_holds(g1):'
+ CTRL_REPL='# MUTANT: a comment, and nothing else.
+diff --git a/tools/p4_health/lab.py b/tools/p4_health/lab.py
+index 46983f6c..97aa4574 100644
+--- a/tools/p4_health/lab.py
++++ b/tools/p4_health/lab.py
+@@ -17,6 +17,7 @@ import importlib.util
+ import json
+ import os
+ import shutil
++import signal
+ 
+ from . import attribution as AT
+ from . import expected as E
+@@ -24,7 +25,7 @@ from . import report as R
+ from . import runtime_cli as RC
+ from .cells import table as T
+ from .cells import verdict as V
+-from .lab_round import LabRound
++from .lab_round import LabRound, SignalAbort
+ from .round_a import ARound
+ from .round_b import BRound
+ 
+@@ -96,39 +97,87 @@ def keep_state(cfg, bringup):
+                                                          "LAB_STATE.%s.json" % bringup))
+ 
+ 
+-def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None, mutant=False,
+-            tutorials_utils=None, round_cls=LabRound, a_kwargs=None, b_kwargs=None,
+-            expected_tsv=None, log=print, identity=None):
+-    """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE."""
+-    if s0_out.get("verdict") != "COMPLETE":
+-        log("S0 is %s: the lab is not touched" % s0_out.get("verdict"))
+-        return 1, None
+-    model = load_model(os.path.join(run_dir, "exercise"))
+-    pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
+-    packages = os.path.join(run_dir, "packages")
+-    recs, a, b, problems = [], None, None, []
++def signalled(rec):
++    """The round was stopped by SIGTERM / SIGINT / SIGHUP (lab_round records it so)."""
++    return any(str(p).startswith("aborted by signal") for p in (rec or {}).get("problems") or [])
++
++
++def _stop_on_signals():
++    """(Cut 2 review N1) For the whole run, not only inside a round: a stop signal between A's
++    teardown and B's claim raises SignalAbort here too, instead of killing the probe with its
++    default action. Returns the handlers it replaced."""
++    def raiser(signum, _frame):
++        raise SignalAbort(signum)
++    return {s: signal.signal(s, raiser) for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
++
++
++def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutant, bringups,
++            packages, round_cls, a_kwargs, b_kwargs, tutorials_utils, run_dir, recs, problems,
++            log, holder):
++    """Bring-up A, then -- only if A ended clean and was not stopped -- bring-up B."""
+     if "A" in bringups:
+-        a = ARound(cfg, runner, run_id, model, pipelines, runtimes, orders, only=only, **(a_kwargs or {}))
++        a = holder["A"] = ARound(cfg, runner, run_id, model, pipelines, runtimes, orders, only=only,
++                                 **(a_kwargs or {}))
+         pkg = os.path.join(packages, "A-MUT" if mutant else "A")
+         log("bring-up A (%s): %d cell(s)" % (os.path.basename(pkg), len(a.selected)))
+         lr_a = round_cls(cfg, runner, "A", pkg, run_id)
+         recs.append(lr_a.run(a.body))
+         keep_state(cfg, "A")
+         log("  A: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
++        if signalled(recs[-1]):
++            # (Cut 2 review N1) a stop is a stop: no further claim, whatever A's teardown did
++            problems.append("stop signal during bring-up A: the run ends here, B not brought up")
++            log("  " + problems[-1])
++            return
+         why = ended_clean(lr_a, recs[-1])
+         if why and "B" in bringups:
+             problems.append("B not brought up: A did not end clean (%s); finish with recover.sh %s"
+                             % ("; ".join(why), run_dir))
+             log("  " + problems[-1])
+-            bringups = tuple(x for x in bringups if x != "B")
++            return
+     if "B" in bringups:
+-        b = BRound(cfg, runner, run_id, model, os.path.join(run_dir, "exercise", "build"), runtimes,
+-                   tutorials_utils or os.path.join(os.path.expanduser("~"), "tutorials", "utils"),
+-                   **(b_kwargs or {}))
++        b = holder["B"] = BRound(cfg, runner, run_id, model, os.path.join(run_dir, "exercise", "build"),
++                                 runtimes, tutorials_utils or os.path.join(os.path.expanduser("~"),
++                                                                           "tutorials", "utils"),
++                                 **(b_kwargs or {}))
+         log("bring-up B (external): the eleven attributions")
+         recs.append(round_cls(cfg, runner, "B", os.path.join(packages, "B"), run_id).run(b.body))
+         keep_state(cfg, "B")
+         log("  B: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
++        if signalled(recs[-1]):
++            problems.append("stop signal during bring-up B")
++        elif b.failed:
++            # (Cut 2 review N2) a B that claimed the lab but whose controller did nothing
++            problems.append("B's controller did not do its part: %s" % b.failed)
++            log("  " + problems[-1])
++
++
++def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None, mutant=False,
++            tutorials_utils=None, round_cls=LabRound, a_kwargs=None, b_kwargs=None,
++            expected_tsv=None, log=print, identity=None, signals=True):
++    """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE."""
++    if s0_out.get("verdict") != "COMPLETE":
++        log("S0 is %s: the lab is not touched" % s0_out.get("verdict"))
++        return 1, None
++    model = load_model(os.path.join(run_dir, "exercise"))
++    pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
++    packages = os.path.join(run_dir, "packages")
++    recs, problems, holder = [], [], {}
++    old_handlers = _stop_on_signals() if signals else None
++    try:
++        _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutant, bringups,
++                packages, round_cls, a_kwargs, b_kwargs, tutorials_utils, run_dir, recs, problems,
++                log, holder)
++    except SignalAbort as exc:
++        # (Cut 2 review N1) between rounds, or before a round's own handlers are in place
++        problems.append("stop signal %d outside a round's teardown: the run ends here; finish with "
++                        "recover.sh %s if a round was under way" % (exc.signum, run_dir))
++        log("  " + problems[-1])
++    finally:
++        if old_handlers is not None:
++            for sig, h in old_handlers.items():
++                signal.signal(sig, h)
++    a, b = holder.get("A"), holder.get("B")
+     observations = merge(a.observations if a else {}, b.confirmed if b else None)
+     observations["PF-T"] = pft_observation(s0_out)
+     ctx = V.judge_all(T.TABLE, observations, a.sc_observations if a else {})
+diff --git a/tools/p4_health/lab_round.py b/tools/p4_health/lab_round.py
+index e7cf7796..b266ef25 100644
+--- a/tools/p4_health/lab_round.py
++++ b/tools/p4_health/lab_round.py
+@@ -46,9 +46,13 @@ PHASES = ("pre-claim", "claiming", "up", "cells", "teardown", "released", "down-
+           "claim-refused", "lab-busy", "claim-unverified")
+ 
+ 
+-class SignalAbort(Exception):
++class SignalAbort(BaseException):
++    """SIGTERM / SIGINT / SIGHUP, raised where the probe was. A BaseException on purpose (Cut 2
++    review N1): the reading layer's `except Exception` blocks (an unreachable HTTP answer, a
++    sniffer that will not end) must not swallow a stop and let the round carry on."""
++
+     def __init__(self, signum):
+-        Exception.__init__(self, "signal %d" % signum)
++        BaseException.__init__(self, "signal %d" % signum)
+         self.signum = signum
+ 
+ 
+diff --git a/tools/p4_health/round_b.py b/tools/p4_health/round_b.py
+index 92414f69..56165d64 100644
+--- a/tools/p4_health/round_b.py
++++ b/tools/p4_health/round_b.py
+@@ -60,6 +60,9 @@ class BRound(object):
+         self.ready_timeout_s, self.exit_timeout_s = ready_timeout_s, exit_timeout_s
+         self.confirmed = None
+         self.problems = []
++        #: (Cut 2 review N2) why B's controller did not do its part, or None: the run is then
++        #: INCOMPLETE, not COMPLETE with every bmv2 attribution quietly missing
++        self.failed = None
+ 
+     def path(self, name):
+         return os.path.join(self.out_dir, name)
+@@ -101,6 +104,7 @@ class BRound(object):
+         if mode != "external":
+             self.problems.append("the fabric's control_plane.mode is %r, not external: B's controller "
+                                  "not started" % (mode,))
++            self.failed = self.problems[-1]
+             return self.finish(None, None)
+         conf_path = self.path("controller.conf.json")
+         with open(conf_path, "w", encoding="utf-8") as fh:
+@@ -109,6 +113,7 @@ class BRound(object):
+         proc = self.runner.spawn(argv, self.path("controller.log"), env={"P4H_CTRL_CONFIG": conf_path})
+         if proc is None:
+             self.problems.append("B's controller could not be started")
++            self.failed = self.problems[-1]
+             return self.finish(None, None)
+         try:
+             # the marker is the run directory: the package path in the argv lies inside it
+@@ -117,6 +122,7 @@ class BRound(object):
+             self.problems.append("controller not recorded: %s" % exc)
+         if not self._wait_file(self.path("controller.ready.json"), proc, self.ready_timeout_s):
+             self.problems.append("B's controller never wrote its ready file (rc %s)" % proc.poll())
++            self.failed = self.problems[-1]
+             return self.finish(None, None)
+         sent = {}
+ 
+@@ -129,6 +135,7 @@ class BRound(object):
+             open(self.path("controller.go"), "w").close()
+             if not self._wait_file(self.path("controller.result.json"), proc, self.exit_timeout_s):
+                 self.problems.append("B's controller wrote no result")
++                self.failed = self.problems[-1]
+             return ""
+         _out, rx = self.hosts.window([(SRC, ["P3"], P3_DPORT)], stimulate, seconds=180.0, until=5)
+         if proc.poll() is None:

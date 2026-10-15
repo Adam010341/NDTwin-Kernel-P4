@@ -1,0 +1,1896 @@
+=== commit 1aafcf09cb01399ab921a53068b193afc3823891
+p4_health: tests for a stop during a teardown, every exit of a failed B, and a stopped or unclean see-red run
+They fail on the current code: a SIGTERM during ndt down lets B claim the lab, a B whose sniffer never listens reads COMPLETE, and PROBE-BROKEN is checked before a recorded stop. The run_lab tests for the signals use the rounds' real handlers.
+
+
+diff --git a/tests/python/test_p4_health_cells.py b/tests/python/test_p4_health_cells.py
+index b8a9ec5e..cfad74aa 100644
+--- a/tests/python/test_p4_health_cells.py
++++ b/tests/python/test_p4_health_cells.py
+@@ -442,6 +442,23 @@ class TestRuleD(unittest.TestCase):
+         self.assertEqual(V.run_verdict(ctx, False), ("INCOMPLETE", 2))
+         self.assertEqual(V.run_verdict(ctx, True), ("COMPLETE", 0))
+ 
++    def test_a_stop_overrides_probe_broken_and_a_see_red_pass_needs_a_complete_run(self):
++        """(Cut 2 review, round 4 F3) PROBE-BROKEN is checked first, so it used to hide both a
++        recorded stop and a round that did not end clean."""
++        cells, scs = self.base_obs()
++        scs["SC-fwd"] = {"pingall": (29, 30), "dump_ok": True}
++        ctx = V.judge_all(T.TABLE, cells, scs)
++        self.assertEqual(V.run_verdict(ctx, True), ("PROBE-BROKEN", 1))
++        self.assertEqual(V.run_verdict(ctx, True, stopped=True), ("INCOMPLETE", 2))
++        self.assertEqual(V.run_verdict(ctx, False, stopped=True), ("INCOMPLETE", 2))
++        # a see-red run: PROBE-BROKEN is the pass only when the run was complete and clean
++        self.assertEqual(V.run_verdict(ctx, True, see_red=True), ("PROBE-BROKEN", 1))
++        self.assertEqual(V.run_verdict(ctx, False, see_red=True), ("INCOMPLETE", 2))
++        # and any other run keeps reporting what it found, complete or not
++        self.assertEqual(V.run_verdict(ctx, False), ("PROBE-BROKEN", 1))
++        clean_ctx = V.judge_all(T.TABLE, *self.base_obs())
++        self.assertEqual(V.run_verdict(clean_ctx, True, stopped=True), ("INCOMPLETE", 2))
++
+     def test_t7_is_not_run_while_t4_is_red(self):
+         cells, scs = self.base_obs()
+         cells["T4"] = dict(copy.deepcopy(FIX["T4"][1]), attribution={"bmv2": True})
+diff --git a/tests/python/test_p4_health_collect.py b/tests/python/test_p4_health_collect.py
+index 45906e67..32e475dc 100644
+--- a/tests/python/test_p4_health_collect.py
++++ b/tests/python/test_p4_health_collect.py
+@@ -1156,6 +1156,30 @@ class TestLabRound(Sealed):
+         self.assertIn("aborted by signal %d" % signal.SIGTERM, rec["problems"])
+         self.assertEqual(self.names(r)[-4:], ["tc del", "qdisc_snapshot.sh diff", "ndt down", "ndt release"])
+ 
++    def test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded(self):
++        """(Cut 2 review, round 4 F1) A stop that arrives while `ndt down` runs must not abort the
++        cleanup (the release still follows) and must not vanish: the record says the round was
++        stopped, because lab.py ends the run on exactly that sentence. Real handlers
++        (install_signals), a `ndt down` that sends SIGTERM to the probe -- this process -- as
++        `kill -TERM <pid>` from outside does while subprocess.run waits for it (the handler runs,
++        the wait resumes: PEP 475)."""
++        seen = []
++        safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
++        r = self.runner()
++
++        def down(argv, env, inp):
++            os.kill(os.getpid(), signal.SIGTERM)
++            return (0, "")
++        r.replies.insert(0, (("ndt", "down"), down))
++        try:
++            _lr, rec = self.round(r, signals=True)
++        finally:
++            signal.signal(signal.SIGTERM, safety)
++        self.assertEqual(seen, [])                          # LabRound's handler took it
++        self.assertEqual(self.names(r)[-2:], ["ndt down", "ndt release"])
++        self.assertIn("aborted by signal %d (during the teardown)" % signal.SIGTERM, rec["problems"])
++        self.assertFalse(rec["complete"])
++
+     def test_a_busy_lab_is_not_claimed(self):
+         r = self.runner(status="  measuring      iperf3 -c 10.0.0.3 -t 200\n")
+         _lr, rec = self.round(r)
+@@ -1370,6 +1394,8 @@ class FakeFabric(object):
+         self.signal_in_sniffer = None     # a cell: a SIGTERM arrives while its sniffer is waited for
+         self.force_mode = None            # control_plane.mode whatever package came up
+         self.ctrl_never_ready = False     # B's controller never writes its ready file
++        self.ctrl_spawn_fails = False     # the adapter cannot be started (Runner.spawn: OSError -> None, runner.py:62-65)
++        self.ctrl_garbage_result = False  # B's controller writes a result file that is not JSON
+         self.extra_ports = {}             # {dpid: [ports show_ports lists that no link uses]}
+         self.cpu_port_listed = False
+         self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
+@@ -1703,16 +1729,23 @@ class FakeFabric(object):
+             fh.write("\0".join(argv) + "\0")
+ 
+     def spawn(self, argv, out_path, env):
++        if self.ctrl_spawn_fails and is_adapter_argv(argv):
++            return None                                  # what Runner.spawn answers when Popen raises OSError
+         self.next_pid += 1
+         pid = self.next_pid
+         self.fake_proc(pid, argv)
+         if "sniff" in argv:
+             return FakeSniffer(self, pid, argv, out_path)
+-        if RB.ADAPTER in argv:
++        if is_adapter_argv(argv):
+             return FakeController(self, pid, argv, out_path, env)
+         return None
+ 
+ 
++def is_adapter_argv(argv):
++    """B's controller is started through tools/p4_exercise/run_external_controller.py, whichever copy of it."""
++    return any(os.path.basename(a) == "run_external_controller.py" for a in argv)
++
++
+ def transit_mac(host):
+     return "08:00:00:00:ff:%02x" % GEN.HOSTS[int(host[1:])]
+ 
+@@ -1831,7 +1864,10 @@ class FakeController(object):
+                     po["src_mac"], po["dst_mac"], po["src_ip"], po["dst_ip"], 40051,
+                     run_id=self.conf["token"], cell="P3", seq=seq))
+             self.calls["packet_out"] = {"ok": True, "detail": {"frames": po["count"]}}
+-            if not self.fab.ctrl_no_result:
++            if self.fab.ctrl_garbage_result:
++                with open(self.conf["out"], "w") as fh:
++                    fh.write("{\"attributions\": ")             # cut off mid-write
++            elif not self.fab.ctrl_no_result:
+                 with open(self.conf["out"], "w") as fh:
+                     json.dump({"attributions": self.calls, "digests": self.fab.digests,
+                                "packet_ins": self.fab.packet_ins, "switches": {}}, fh)
+@@ -2294,7 +2330,7 @@ class TestBringUpB(Cut2):
+         b, r, pkg = self.b_round()
+         self.assertEqual({k: v["ok"] for k, v in b.confirmed.items()},
+                          dict({i: True for i in AT.ITEMS}, register=False), b.confirmed)
+-        spawn = [c for c in r.calls if c.get("spawn") and RB.ADAPTER in c["argv"]][0]
++        spawn = [c for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])][0]
+         self.assertEqual(spawn["argv"], [self.cfg.p4dev_python, RB.ADAPTER, pkg, RB.CONTROLLER,
+                                          "--tutorials-utils", "/tutorials/utils"])
+         self.assertIn("P4H_CTRL_CONFIG", spawn["env"])
+@@ -2321,7 +2357,7 @@ class TestBringUpB(Cut2):
+     def test_b_spawns_no_controller_on_a_fabric_that_is_not_external(self):
+         """MAJOR-3: the adapter checks only the package file; what is UP must say external."""
+         b, r, _p = self.b_round(mode="ndtwin")
+-        self.assertEqual([c for c in r.calls if c.get("spawn") and RB.ADAPTER in c["argv"]], [])
++        self.assertEqual([c for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])], [])
+         self.assertFalse(any(v["ok"] for v in b.confirmed.values()))
+         self.assertTrue(any("external" in p_ for p_ in b.problems), b.problems)
+ 
+@@ -2389,16 +2425,21 @@ class TestTheLabRun(Cut2):
+         t = FakeTime()
+         return {"sleep": t.sleep, "clock": t.clock}
+ 
+-    def rounds(self):
++    def rounds(self, real_signals=False):
+         proc = self.proc
+ 
+         def make(cfg, runner, bringup, pkg, run_id):
+-            return LR.LabRound(cfg, runner, bringup, pkg, run_id, pid=4242, proc_root=proc, install_signals=False)
++            return LR.LabRound(cfg, runner, bringup, pkg, run_id, pid=4242, proc_root=proc,
++                               install_signals=real_signals)
+         return make
+ 
+-    def run_lab(self, runner=None, **kw):
++    def run_lab(self, runner=None, real_signals=False, **kw):
++        """`real_signals`: every round installs its own SIGTERM / SIGINT / SIGHUP handlers, as in
++        production. The default leaves them off (a test that signals itself from inside a body
++        has run_lab's own handler and the reading layer's, and nothing else)."""
+         r = runner or self.ndt_runner()
+-        rc, doc = LAB.run_lab(self.cfg, r, self.s0, self.cfg.run_dir, "run-x", round_cls=self.rounds(),
++        rc, doc = LAB.run_lab(self.cfg, r, self.s0, self.cfg.run_dir, "run-x",
++                              round_cls=self.rounds(real_signals),
+                               tutorials_utils="/tutorials/utils", expected_tsv=self.expected,
+                               a_kwargs={"hosts": None}, b_kwargs=self.fake_time(),
+                               log=lambda *a: None, **kw)
+@@ -2440,7 +2481,7 @@ class TestTheLabRun(Cut2):
+     def assert_b_kept_out(self, r, rc, doc, a_phase):
+         ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
+         self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
+-        self.assertEqual([c for c in r.calls if c.get("spawn") and RB.ADAPTER in c["argv"]], [])
++        self.assertEqual([c for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])], [])
+         with open(self.cfg.lab_state_path) as fh:
+             st = json.load(fh)
+         self.assertEqual((st["bring_up"], st["phase"]), ("A", a_phase))
+@@ -2520,6 +2561,54 @@ class TestTheLabRun(Cut2):
+         self.assertTrue(any("stop signal 15" in p_ for p_ in doc["problems"]), doc["problems"])
+         self.assertNotEqual(getattr(restored, "__name__", ""), "raiser")   # the caller's handler is back
+ 
++    # --- round 4, F1: a stop during a teardown ends the run too -------------------------------
++    def stop_in_down(self, nth):
++        """A runner whose `nth` `ndt down` sends SIGTERM to the probe (this process), as a
++        `kill -TERM <pid>` from outside does while subprocess.run waits for ndt: the handler
++        runs and the wait resumes (PEP 475). Returns (runner, what the safety handler got)."""
++        r = self.ndt_runner()
++        downs, seen = [], []
++
++        def down(argv, env, inp):
++            downs.append(argv)
++            if len(downs) == nth:
++                os.kill(os.getpid(), signal.SIGTERM)
++            return (0, "")
++        r.replies = [(m, down if m == ("ndt", "down") else rep) for m, rep in r.replies]
++        return r, seen
++
++    def run_with_a_stop_in_down(self, nth):
++        r, seen = self.stop_in_down(nth)
++        safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
++        try:
++            rc, doc, r = self.run_lab(runner=r, real_signals=True)
++        finally:
++            signal.signal(signal.SIGTERM, safety)
++        self.assertEqual(seen, [], "the signal reached the safety handler: no handler of the probe took it")
++        return rc, doc, r
++
++    def test_a_stop_during_a_teardown_ends_the_run_before_b_claims(self):
++        """The review's F1: with the teardown handler only noting the signal, B was claimed and
++        brought up after a stop. REAL LabRound handlers: the factory of the other run_lab tests
++        turns them off, which is why nothing saw this."""
++        rc, doc, r = self.run_with_a_stop_in_down(1)
++        ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
++        self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        self.assertTrue(any("aborted by signal 15 (during the teardown)" in p_
++                            for p_ in doc["bringups"][0]["problems"]), doc["bringups"])
++        self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
++        self.assertEqual(ndt[-2:], ["down", "release"])         # A's cleanup was finished, not cut short
++
++    def test_a_stop_during_b_teardown_is_not_complete(self):
++        rc, doc, r = self.run_with_a_stop_in_down(2)
++        ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
++        self.assertEqual((ndt.count("claim"), ndt.count("up"), ndt.count("release")), (2, 2, 2), ndt)
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        self.assertTrue(any("aborted by signal 15 (during the teardown)" in p_
++                            for p_ in doc["bringups"][1]["problems"]), doc["bringups"])
++        self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
++
+     def test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir(self):
+         """N8: root executes hostside.py, frames.py and __init__.py; it runs copies taken into the
+         run dir at the start, so the shared tree can change under a 15-minute run and root still
+@@ -2551,6 +2640,57 @@ class TestTheLabRun(Cut2):
+         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+         self.assertTrue(any("B's controller" in p_ for p_ in doc["problems"]), doc["problems"])
+ 
++    # --- round 4, F2: every exit of B without a controller result is a failed B --------------
++    def assert_b_failed(self, rc, doc, why):
++        """INCOMPLETE rc 2, and the run's problems say B's controller did not do its part, and why."""
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        self.assertTrue(any(p_.startswith("B's controller did not do its part") and why in p_
++                            for p_ in doc["problems"]), doc["problems"])
++        self.assertFalse(any(v["ok"] for v in doc["attributions"].values()), doc["attributions"])
++
++    def test_b_whose_fabric_is_not_external_is_a_failed_b(self):                    # exit 1 of 6
++        self.fab.force_mode = "ndtwin"
++        rc, doc, _r = self.run_lab()
++        self.assert_b_failed(rc, doc, "not external")
++
++    def test_b_whose_controller_never_gets_ready_is_a_failed_b(self):               # exit 2 of 6
++        self.fab.ctrl_never_ready = True
++        rc, doc, _r = self.run_lab()
++        self.assert_b_failed(rc, doc, "never wrote its ready file")
++
++    def test_b_whose_controller_cannot_be_started_is_a_failed_b(self):              # exit 3 of 6
++        self.fab.ctrl_spawn_fails = True
++        rc, doc, _r = self.run_lab()
++        self.assert_b_failed(rc, doc, "could not be started")
++
++    def test_b_whose_sniffer_is_not_ready_is_a_failed_b(self):                      # exit 4 of 6
++        """h4's P3 sniffer never prints READY: hosts.window runs no stimulate(), so no marker is
++        sent and controller.go is never written. The controller waits for `go` and the probe
++        gives up; the run used to read COMPLETE with every bmv2 attribution unconfirmed."""
++        orig = self.fab.spawn
++
++        def deaf(argv, out_path, env):
++            proc = orig(argv, out_path, env)
++            if "sniff" in argv and self.fab.opts(argv)["cells"] == "P3":
++                with open(out_path, "w") as fh:
++                    fh.write("")
++                proc.returncode = 1
++            return proc
++        self.fab.spawn = deaf
++        rc, doc, _r = self.run_lab()
++        self.assert_b_failed(rc, doc, "sniffer")
++        self.assertFalse(os.path.exists(os.path.join(self.cfg.run_dir, "B", "controller.go")))
++
++    def test_b_whose_controller_writes_no_result_is_a_failed_b(self):               # exit 5 of 6
++        self.fab.ctrl_no_result = True
++        rc, doc, _r = self.run_lab()
++        self.assert_b_failed(rc, doc, "wrote no result")
++
++    def test_b_whose_result_file_is_unreadable_is_a_failed_b(self):                 # exit 6 of 6
++        self.fab.ctrl_garbage_result = True
++        rc, doc, _r = self.run_lab()
++        self.assert_b_failed(rc, doc, "no controller result")
++
+     def test_an_incomplete_s0_touches_nothing(self):
+         self.s0["verdict"] = "PROBE-BROKEN"
+         rc, doc, r = self.run_lab()
+@@ -2588,8 +2728,79 @@ class TestTheLabRun(Cut2):
+                           "TP1": V.GREEN})
+         self.assertIn("SC-count", cells["K1"]["reason"])
+         self.assertIn("SC-ttl", cells["TTL1"]["reason"])
++        # the one run whose PROBE-BROKEN is the success: A came up, was read, went down clean
++        self.assertEqual(([b["complete"] for b in doc["bringups"]], doc["problems"]), ([True], []))
+         self.assertEqual((doc["verdict"], rc), ("PROBE-BROKEN", 1))
+ 
++    # --- round 4, F3: PROBE-BROKEN does not hide a stop or an unclean round ------------------
++    def test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass(self):
++        """The review's scenario: --mutant --only K1,TTL1 --bringups A, stopped while TTL1 is
++        read. K1 is PROBE-BROKEN by SC-count and TTL1 was never observed; the headline used to
++        read PROBE-BROKEN rc 1, which is what a see-red PASS reads."""
++        self.fab.count_k1 = False
++        self.fab.signal_in_sniffer = "TTL1"
++        rc, doc, _r = self.run_lab(bringups=("A",), only=["K1", "TTL1"], mutant=True)
++        cells = {c["id"]: c for c in doc["cells"]}
++        self.assertEqual(cells["K1"]["verdict"], V.PROBE_BROKEN)
++        self.assertEqual(cells["TTL1"]["verdict"], V.NOT_RUN)
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++
++    def test_a_recorded_stop_overrides_a_probe_broken_cell(self):
++        """F3(a): any run whose record carries 'aborted by signal' is INCOMPLETE rc 2, whatever
++        the cell verdicts say (a full run here, so the see-red rule has no part in it)."""
++        self.fab.count_k1 = False
++        self.fab.signal_in_sniffer = "TTL1"
++        rc, doc, _r = self.run_lab()
++        cells = {c["id"]: c for c in doc["cells"]}
++        self.assertEqual(cells["K1"]["verdict"], V.PROBE_BROKEN)
++        self.assertTrue(any("aborted by signal" in p_ for p_ in doc["bringups"][0]["problems"]))
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++
++    def test_a_stop_between_the_rounds_overrides_a_probe_broken_cell(self):
++        """The same for the run-level stop, which no round's record carries."""
++        self.fab.count_k1 = False
++        seen = []
++        safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
++        real_keep = LAB.keep_state
++
++        def keep_then_kill(cfg, bringup):
++            real_keep(cfg, bringup)
++            if bringup == "A":
++                os.kill(os.getpid(), signal.SIGTERM)
++        try:
++            with mock.patch.object(LAB, "keep_state", keep_then_kill):
++                rc, doc, _r = self.run_lab()
++        finally:
++            signal.signal(signal.SIGTERM, safety)
++        self.assertEqual(seen, [])
++        cells = {c["id"]: c for c in doc["cells"]}
++        self.assertEqual(cells["K1"]["verdict"], V.PROBE_BROKEN)
++        self.assertTrue(any("stop signal 15" in p_ for p_ in doc["problems"]), doc["problems"])
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++
++    def test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete(self):
++        """F3(b): the see-red pass needs a complete, clean run. A's `ndt down` failed here (the
++        lab was left up), and the headline used to be the same PROBE-BROKEN rc 1."""
++        self.fab.count_k1 = False
++        self.fab.ttl_decrements = False
++        rc, doc, _r = self.run_lab(runner=self.ndt_runner(down_rc=1), bringups=("A",), only=["K1", "TTL1"],
++                                   mutant=True)
++        cells = {c["id"]: c for c in doc["cells"]}
++        self.assertEqual((cells["K1"]["verdict"], cells["TTL1"]["verdict"]), (V.PROBE_BROKEN, V.PROBE_BROKEN))
++        self.assertFalse(doc["bringups"][0]["complete"])
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++
++    def test_a_see_red_run_with_a_problem_of_the_run_is_incomplete(self):
++        """F3(b), the other half: bringups[0] is complete, but the run has a problem of its own
++        (here B kept out because A left something behind)."""
++        self.fab.count_k1 = False
++        self.fab.ttl_decrements = False
++        with mock.patch.object(LAB, "ended_clean", lambda lr, rec: ["a leftover"]):
++            rc, doc, _r = self.run_lab(bringups=("A", "B"), only=["K1", "TTL1"], mutant=True)
++        self.assertTrue(doc["bringups"][0]["complete"])
++        self.assertTrue(any("B not brought up" in p_ for p_ in doc["problems"]), doc["problems"])
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+=== commit 5391a7f4466bef2c698e614f8e4ac96deecebd2c
+p4_health: the stop-in-teardown test sends a second stop and expects the first kept
+
+
+diff --git a/tests/python/test_p4_health_collect.py b/tests/python/test_p4_health_collect.py
+index 32e475dc..1245a636 100644
+--- a/tests/python/test_p4_health_collect.py
++++ b/tests/python/test_p4_health_collect.py
+@@ -1169,6 +1169,7 @@ class TestLabRound(Sealed):
+ 
+         def down(argv, env, inp):
+             os.kill(os.getpid(), signal.SIGTERM)
++            os.kill(os.getpid(), signal.SIGINT)             # a second stop: the first is the one kept
+             return (0, "")
+         r.replies.insert(0, (("ndt", "down"), down))
+         try:
+@@ -1177,7 +1178,8 @@ class TestLabRound(Sealed):
+             signal.signal(signal.SIGTERM, safety)
+         self.assertEqual(seen, [])                          # LabRound's handler took it
+         self.assertEqual(self.names(r)[-2:], ["ndt down", "ndt release"])
+-        self.assertIn("aborted by signal %d (during the teardown)" % signal.SIGTERM, rec["problems"])
++        self.assertEqual([p_ for p_ in rec["problems"] if "aborted by signal" in p_],
++                         ["aborted by signal %d (during the teardown)" % signal.SIGTERM])
+         self.assertFalse(rec["complete"])
+ 
+     def test_a_busy_lab_is_not_claimed(self):
+=== commit e3c38597f8b2c0aaf796b79a37d04fe29bf2cfbd
+p4_health: a stop signal during a teardown ends the run
+The teardown handler kept the cleanup going but threw the signal away, so a stop during ndt down let the next bring-up claim the lab. The first signal is now kept and recorded on the round once its cleanup is done, and the docstring says what the handler does.
+
+
+diff --git a/tools/p4_health/lab_round.py b/tools/p4_health/lab_round.py
+index 955ebdb8..8e7b18dc 100644
+--- a/tools/p4_health/lab_round.py
++++ b/tools/p4_health/lab_round.py
+@@ -12,7 +12,11 @@ against the lab.
+     can finish what a crash left. The claim note carries the file's path.
+   * The qdisc snapshot is taken AFTER `ndt up` and before any netem (12-12): before the up there
+     is no fabric to snapshot.
+-  * SIGTERM, SIGINT and SIGHUP become an exception, so they take the `finally`.
++  * SIGTERM, SIGINT and SIGHUP become an exception inside the round, so they take the `finally`
++    and the teardown runs. A signal that arrives DURING the teardown does not cut the cleanup
++    short: the first one is kept, and `run()` adds "aborted by signal N (during the teardown)" to
++    the record's problems once the cleanup is done, so the run ends there like any other stop
++    (lab.py reads that sentence) and no later bring-up claims the lab (Cut 2 round 4, F1).
+   * The teardown, in order: stop sniffers -> stop controllers -> remove netem -> compare qdisc
+     -> `ndt down` -> put the two knobs back as BYTES -> `ndt release`. A qdisc mismatch is
+     recorded and does NOT stop the down, the restore or the release -- only recover.sh stops
+@@ -189,6 +193,7 @@ class LabRound(object):
+                       "claim_file": cfg.claim_file, "claim_expires": None, "ndt": cfg.ndt}
+         self.knobs = {}
+         self.events = []
++        self.teardown_signal = None          # the first stop signal that arrived during the teardown
+ 
+     # --- LAB_STATE.json ---------------------------------------------------------------------------
+     def write_state(self, **changes):
+@@ -297,9 +302,12 @@ class LabRound(object):
+                 raise SignalAbort(signum)
+             self._old = {s: signal.signal(s, raiser) for s in sigs}
+         else:
+-            # During the teardown a second signal must not abort the cleanup: noted, ignored.
++            # During the teardown a signal must not abort the cleanup: the first is kept, and run()
++            # records it once the cleanup is over (it must still end the run).
+             def noter(signum, _frame):
+                 self.events.append(("signal-during-teardown", signum))
++                if self.teardown_signal is None:
++                    self.teardown_signal = signum
+             for s in sigs:
+                 signal.signal(s, noter)
+ 
+@@ -372,6 +380,9 @@ class LabRound(object):
+                 self.teardown(rec)
+             finally:
+                 self._restore_handlers()
++        if self.teardown_signal is not None:
++            rec["problems"].append("aborted by signal %d (during the teardown)" % self.teardown_signal)
++            rec["complete"] = False
+         rec["seconds"] = round(self.clock() - t0, 1)
+         if rec["frames_reached_hosts"] is True or rec["release_rc"] != 0 or rec["down_rc"] != 0:
+             rec["complete"] = False
+=== commit ee523cb9d2fa7a25d2805dd6228de0c188fc6da7
+p4_health: a B without a controller result is a failed B
+finish() now marks the run failed whenever there is no result, which covers a sniffer that never listened, an unreadable result file and the exits that already did. The sniffer case gets its own message.
+
+
+diff --git a/tools/p4_health/round_b.py b/tools/p4_health/round_b.py
+index 848add6b..2a9e0686 100644
+--- a/tools/p4_health/round_b.py
++++ b/tools/p4_health/round_b.py
+@@ -140,6 +140,12 @@ class BRound(object):
+                 self.failed = self.problems[-1]
+             return ""
+         _out, rx = self.hosts.window([(SRC, ["P3"], P3_DPORT)], stimulate, seconds=180.0, until=5)
++        if not sent:
++            # (round 4, F2) hosts.window runs stimulate() only when every sniffer listens: without
++            # it nothing was sent and `go` was never written, so the controller waits for nothing
++            self.problems.append("B's sniffer on %s never listened: no marker was sent and the "
++                                 "controller was never told to go" % SRC)
++            self.failed = self.failed or self.problems[-1]
+         if proc.poll() is None:
+             try:
+                 proc.wait(timeout=30)
+@@ -156,6 +162,9 @@ class BRound(object):
+         self.confirmed = AT.confirm(result, lambda cmd: reader.read(ATTR_DPID, cmd), p3, expect)
+         if result is None:
+             self.problems.append("no controller result: every attribution is unconfirmed")
++            # (round 4, F2) whatever the way here -- the exits above, a sniffer that never listened,
++            # a result file that cannot be read -- a B without a result is a failed B
++            self.failed = self.failed or self.problems[-1]
+         doc = {"confirmed": self.confirmed, "sent": sent or {}, "p3_received": p3,
+                "controller": result, "problems": self.problems + (self.hosts.problems if self.hosts else [])}
+         with open(self.path("attributions.json"), "w", encoding="utf-8") as fh:
+=== commit 0fa6902adaf7408429ad593b73ea21af93aa4c9e
+p4_health: a recorded stop overrides PROBE-BROKEN, and a see-red pass needs a complete run
+A run whose rounds or the run itself were stopped reads INCOMPLETE, and a see-red run counts as a pass only when its bring-ups were complete and the run has no problems.
+
+
+diff --git a/tools/p4_health/cells/verdict.py b/tools/p4_health/cells/verdict.py
+index fda3a626..64863f92 100644
+--- a/tools/p4_health/cells/verdict.py
++++ b/tools/p4_health/cells/verdict.py
+@@ -361,10 +361,19 @@ def rollup(table, ctx, scope):
+     return {"dimensions": per, "totals": totals, "alias_only": alias_only}
+ 
+ 
+-def run_verdict(ctx, bringups_complete=True):
+-    """COMPLETE | PROBE-BROKEN | INCOMPLETE, and the rc (0, 1, 2)."""
++def run_verdict(ctx, bringups_complete=True, stopped=False, see_red=False):
++    """COMPLETE | PROBE-BROKEN | INCOMPLETE, and the rc (0, 1, 2).
++
++    (Cut 2 round 4, F3) PROBE-BROKEN is looked at first, so two things must come before it:
++    a run that was stopped (a record carries "aborted by signal", or the run itself was stopped)
++    is INCOMPLETE whatever the cells say, and a see-red run -- whose PROBE-BROKEN is the pass --
++    counts as that pass only if its bring-ups were complete and clean."""
++    if stopped:
++        return "INCOMPLETE", 2
+     if any(v.verdict == PROBE_BROKEN for v in ctx.cells.values()) or \
+             any(v.verdict == PROBE_BROKEN for v in ctx.self_checks.values()):
++        if see_red and not bringups_complete:
++            return "INCOMPLETE", 2
+         return "PROBE-BROKEN", 1
+     if not bringups_complete:
+         return "INCOMPLETE", 2
+diff --git a/tools/p4_health/lab.py b/tools/p4_health/lab.py
+index c4e50d67..7895382d 100644
+--- a/tools/p4_health/lab.py
++++ b/tools/p4_health/lab.py
+@@ -103,6 +103,10 @@ def signalled(rec):
+     return any(str(p).startswith("aborted by signal") for p in (rec or {}).get("problems") or [])
+ 
+ 
++#: How a run-level problem begins when the run was stopped (tests read "stop signal 15" too).
++STOP_PREFIX = "stop signal"
++
++
+ def _stop_on_signals():
+     """(Cut 2 review N1) For the whole run, not only inside a round: a stop signal between A's
+     teardown and B's claim raises SignalAbort here too, instead of killing the probe with its
+@@ -127,7 +131,7 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
+         log("  A: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
+         if signalled(recs[-1]):
+             # (Cut 2 review N1) a stop is a stop: no further claim, whatever A's teardown did
+-            problems.append("stop signal during bring-up A: the run ends here, B not brought up")
++            problems.append(STOP_PREFIX + " during bring-up A: the run ends here, B not brought up")
+             log("  " + problems[-1])
+             return
+         why = ended_clean(lr_a, recs[-1])
+@@ -146,7 +150,7 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
+         keep_state(cfg, "B")
+         log("  B: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
+         if signalled(recs[-1]):
+-            problems.append("stop signal during bring-up B")
++            problems.append(STOP_PREFIX + " during bring-up B")
+         elif b.failed:
+             # (Cut 2 review N2) a B that claimed the lab but whose controller did nothing
+             problems.append("B's controller did not do its part: %s" % b.failed)
+@@ -174,8 +178,8 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
+                 log, holder)
+     except SignalAbort as exc:
+         # (Cut 2 review N1) between rounds, or before a round's own handlers are in place
+-        problems.append("stop signal %d outside a round's teardown: the run ends here; finish with "
+-                        "recover.sh %s if a round was under way" % (exc.signum, run_dir))
++        problems.append("%s %d outside a bring-up's body: the run ends here; finish with "
++                        "recover.sh %s if a round was under way" % (STOP_PREFIX, exc.signum, run_dir))
+         log("  " + problems[-1])
+     finally:
+         if old_handlers is not None:
+@@ -189,7 +193,9 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
+     ann = E.annotate(ctx, expected)
+     rollups = {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}
+     complete = bool(recs) and all(r.get("complete") is True for r in recs) and not problems
+-    verdict, rc = V.run_verdict(ctx, bringups_complete=complete)
++    # (round 4, F3) a recorded stop overrides the headline; a see-red pass needs a complete, clean run
++    stopped = any(signalled(r) for r in recs) or any(p.startswith(STOP_PREFIX) for p in problems)
++    verdict, rc = V.run_verdict(ctx, bringups_complete=complete, stopped=stopped, see_red=bool(mutant))
+     rows = R.table_rows(T.TABLE, ctx, ann)
+     with open(os.path.join(run_dir, "00_table.tsv"), "w", encoding="utf-8") as fh:
+         fh.write(R.tsv(rows))
+=== commit 3b283c4841bc369ecf446f90b4cd110c0d94a6af
+p4_health: the run notes its own stop as a flag instead of by the wording of a problem
+
+
+diff --git a/tools/p4_health/lab.py b/tools/p4_health/lab.py
+index 7895382d..fb487d61 100644
+--- a/tools/p4_health/lab.py
++++ b/tools/p4_health/lab.py
+@@ -103,10 +103,6 @@ def signalled(rec):
+     return any(str(p).startswith("aborted by signal") for p in (rec or {}).get("problems") or [])
+ 
+ 
+-#: How a run-level problem begins when the run was stopped (tests read "stop signal 15" too).
+-STOP_PREFIX = "stop signal"
+-
+-
+ def _stop_on_signals():
+     """(Cut 2 review N1) For the whole run, not only inside a round: a stop signal between A's
+     teardown and B's claim raises SignalAbort here too, instead of killing the probe with its
+@@ -131,7 +127,7 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
+         log("  A: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
+         if signalled(recs[-1]):
+             # (Cut 2 review N1) a stop is a stop: no further claim, whatever A's teardown did
+-            problems.append(STOP_PREFIX + " during bring-up A: the run ends here, B not brought up")
++            problems.append("stop signal during bring-up A: the run ends here, B not brought up")
+             log("  " + problems[-1])
+             return
+         why = ended_clean(lr_a, recs[-1])
+@@ -150,7 +146,7 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
+         keep_state(cfg, "B")
+         log("  B: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
+         if signalled(recs[-1]):
+-            problems.append(STOP_PREFIX + " during bring-up B")
++            problems.append("stop signal during bring-up B")
+         elif b.failed:
+             # (Cut 2 review N2) a B that claimed the lab but whose controller did nothing
+             problems.append("B's controller did not do its part: %s" % b.failed)
+@@ -167,7 +163,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
+     model = load_model(os.path.join(run_dir, "exercise"))
+     pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
+     packages = os.path.join(run_dir, "packages")
+-    recs, problems, holder = [], [], {}
++    recs, problems, holder, run_stopped = [], [], {}, []
+     root_code, frozen = HO.freeze_root_code(run_dir)
+     a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))
+     b_kwargs = dict({"hostside": frozen}, **(b_kwargs or {}))
+@@ -178,8 +174,9 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
+                 log, holder)
+     except SignalAbort as exc:
+         # (Cut 2 review N1) between rounds, or before a round's own handlers are in place
+-        problems.append("%s %d outside a bring-up's body: the run ends here; finish with "
+-                        "recover.sh %s if a round was under way" % (STOP_PREFIX, exc.signum, run_dir))
++        problems.append("stop signal %d outside a bring-up's body: the run ends here; finish with "
++                        "recover.sh %s if a round was under way" % (exc.signum, run_dir))
++        run_stopped.append(exc.signum)
+         log("  " + problems[-1])
+     finally:
+         if old_handlers is not None:
+@@ -194,7 +191,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
+     rollups = {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}
+     complete = bool(recs) and all(r.get("complete") is True for r in recs) and not problems
+     # (round 4, F3) a recorded stop overrides the headline; a see-red pass needs a complete, clean run
+-    stopped = any(signalled(r) for r in recs) or any(p.startswith(STOP_PREFIX) for p in problems)
++    stopped = any(signalled(r) for r in recs) or bool(run_stopped)
+     verdict, rc = V.run_verdict(ctx, bringups_complete=complete, stopped=stopped, see_red=bool(mutant))
+     rows = R.table_rows(T.TABLE, ctx, ann)
+     with open(os.path.join(run_dir, "00_table.tsv"), "w", encoding="utf-8") as fh:
+=== commit 551b2751d415099a65ef8c759bd27ecdb3025a0d
+p4_health: mutants for the stop-in-teardown, failed-B and see-red fixes
+The mutation script can run one label prefix on its own, for a quick look; the full gate is still the run without it.
+
+
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index 0baa74a2..2b1f2edd 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -2056,6 +2056,121 @@ add "C2R3-N8b. the frozen copy's record is not of the copy root runs" \
+     'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
+ 
+ 
++# --- Cut 2, round 4 -----------------------------------------------------------------------------
++ROUNDB="$PKG/round_b.py"
++
++add "C2R4-F1a. a stop signal during the teardown is not kept" \
++    "$LABROUND" \
++    '                if self.teardown_signal is None:
++                    self.teardown_signal = signum' \
++    '                pass  # MUTANT' \
++    'test_a_stop_during_a_teardown_ends_the_run_before_b_claims'
++
++add "C2R4-F1b. the last stop signal of a teardown is kept, not the first" \
++    "$LABROUND" \
++    '                if self.teardown_signal is None:' \
++    '                if True:  # MUTANT' \
++    'test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded'
++
++add "C2R4-F1c. the round does not record a stop that came during its teardown" \
++    "$LABROUND" \
++    '            rec["problems"].append("aborted by signal %d (during the teardown)" % self.teardown_signal)' \
++    '            pass  # MUTANT' \
++    'test_a_stop_during_b_teardown_is_not_complete'
++
++add "C2R4-F1d. a round stopped during its teardown still reads complete" \
++    "$LABROUND" \
++    '% self.teardown_signal)
++            rec["complete"] = False' \
++    '% self.teardown_signal)
++            pass  # MUTANT' \
++    'test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded'
++
++add "C2R4-F2a. a B whose result file cannot be read is not a failed B" \
++    "$ROUNDB" \
++    '            # a result file that cannot be read -- a B without a result is a failed B
++            self.failed = self.failed or self.problems[-1]' \
++    '            # a result file that cannot be read -- a B without a result is a failed B
++            pass  # MUTANT' \
++    'test_b_whose_result_file_is_unreadable_is_a_failed_b'
++
++add "C2R4-F2b. a B whose sniffer never listened gives no reason of its own" \
++    "$ROUNDB" \
++    '                                 "controller was never told to go" % SRC)
++            self.failed = self.failed or self.problems[-1]' \
++    '                                 "controller was never told to go" % SRC)
++            pass  # MUTANT' \
++    'test_b_whose_sniffer_is_not_ready_is_a_failed_b'
++
++add "C2R4-F2c. a controller that could not be started gives no reason of its own" \
++    "$ROUNDB" \
++    '            self.problems.append("B'"'"'s controller could not be started")
++            self.failed = self.problems[-1]' \
++    '            self.problems.append("B'"'"'s controller could not be started")  # MUTANT' \
++    'test_b_whose_controller_cannot_be_started_is_a_failed_b'
++
++add "C2R4-F2d. a controller that wrote no result gives no reason of its own" \
++    "$ROUNDB" \
++    '                self.problems.append("B'"'"'s controller wrote no result")
++                self.failed = self.problems[-1]' \
++    '                self.problems.append("B'"'"'s controller wrote no result")  # MUTANT' \
++    'test_b_whose_controller_writes_no_result_is_a_failed_b'
++
++add "C2R4-F2e. a controller that never got ready gives no reason of its own" \
++    "$ROUNDB" \
++    '            self.problems.append("B'"'"'s controller never wrote its ready file (rc %s)" % proc.poll())
++            self.failed = self.problems[-1]' \
++    '            self.problems.append("B'"'"'s controller never wrote its ready file (rc %s)" % proc.poll())  # MUTANT' \
++    'test_b_whose_controller_never_gets_ready_is_a_failed_b'
++
++add "C2R4-F2f. a fabric that is not external gives no reason of its own" \
++    "$ROUNDB" \
++    '                                 "not started" % (mode,))
++            self.failed = self.problems[-1]' \
++    '                                 "not started" % (mode,))  # MUTANT' \
++    'test_b_whose_fabric_is_not_external_is_a_failed_b'
++
++add "C2R4-F3a. a recorded stop does not override PROBE-BROKEN" \
++    "$VERDICT" \
++    '    if stopped:
++        return "INCOMPLETE", 2' \
++    '    if False:  # MUTANT
++        return "INCOMPLETE", 2' \
++    'test_a_recorded_stop_overrides_a_probe_broken_cell'
++
++add "C2R4-F3b. the run ignores a stop that no round carries" \
++    "$LABPY" \
++    '    stopped = any(signalled(r) for r in recs) or bool(run_stopped)' \
++    '    stopped = any(signalled(r) for r in recs)  # MUTANT' \
++    'test_a_stop_between_the_rounds_overrides_a_probe_broken_cell'
++
++add "C2R4-F3c. the run ignores a stop that a round carries" \
++    "$LABPY" \
++    '    stopped = any(signalled(r) for r in recs) or bool(run_stopped)' \
++    '    stopped = bool(run_stopped)  # MUTANT' \
++    'test_a_recorded_stop_overrides_a_probe_broken_cell'
++
++add "C2R4-F3d. a see-red run that was not complete still passes on PROBE-BROKEN" \
++    "$VERDICT" \
++    '        if see_red and not bringups_complete:
++            return "INCOMPLETE", 2' \
++    '        if False:  # MUTANT
++            return "INCOMPLETE", 2' \
++    'test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete'
++
++add "C2R4-F3e. the run does not tell run_verdict that it is a see-red run" \
++    "$LABPY" \
++    'stopped=stopped, see_red=bool(mutant))' \
++    'stopped=stopped, see_red=False)  # MUTANT' \
++    'test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass'
++
++add "C2R4-F3f. a see-red pass ignores the run's own problems" \
++    "$LABPY" \
++    '    complete = bool(recs) and all(r.get("complete") is True for r in recs) and not problems' \
++    '    complete = bool(recs) and all(r.get("complete") is True for r in recs)  # MUTANT' \
++    'test_a_see_red_run_with_a_problem_of_the_run_is_incomplete'
++
++
+ CTRL_SRC="$TABLE"
+ CTRL_ANCHOR='def g1_holds(g1):'
+ CTRL_REPL='# MUTANT: a comment, and nothing else.
+@@ -2158,7 +2273,10 @@ BASE_RED=$(red_tests)
+ [[ -n "$BASE_RED" ]] && { echo "🔴 REFUSED: baseline is red: $BASE_RED"; exit 2; }
+ echo "  ok       baseline green"
+ 
++# ONLY_LABEL_PREFIX=C2R4-  runs only the mutations whose label starts so (baseline and control still
++# run). A PARTIAL run: it says so on its last line and is never the gate.
+ for i in "${!MUT_LABEL[@]}"; do
++    if [[ -n "${ONLY_LABEL_PREFIX:-}" && "${MUT_LABEL[$i]}" != "$ONLY_LABEL_PREFIX"* ]]; then continue; fi
+     mutate "${MUT_LABEL[$i]}" "${MUT_SRC[$i]}" "${MUT_ANCHOR[$i]}" "${MUT_REPL[$i]}" "${MUT_EXPECT[$i]}"
+ done
+ 
+@@ -2188,4 +2306,5 @@ after_red=$(red_tests)
+ echo "  suites green against the real files"
+ 
+ printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
++[[ -n "${ONLY_LABEL_PREFIX:-}" ]] && printf 'PARTIAL RUN: only labels starting %s -- this is not the gate\n' "$ONLY_LABEL_PREFIX"
+ [[ "$SURVIVORS" -eq 0 ]]
+=== commit cbc475030ee34ef397e979523c187e9f712988d2
+p4_health: the see-red mutant names the test that really carries it
+
+
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index 2b1f2edd..c05c6267 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -2162,7 +2162,7 @@ add "C2R4-F3e. the run does not tell run_verdict that it is a see-red run" \
+     "$LABPY" \
+     'stopped=stopped, see_red=bool(mutant))' \
+     'stopped=stopped, see_red=False)  # MUTANT' \
+-    'test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass'
++    'test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete'
+ 
+ add "C2R4-F3f. a see-red pass ignores the run's own problems" \
+     "$LABPY" \
+=== commit 684bb0b7a2045c186cfedec9703b0bd364e21c6f
+p4_health: tests for freezing the run's code early and against HEAD, B from the copy, a linked run dir, and the unreadable override
+They fail on the current code: an edit made after the clean check still reaches S0, B starts its controller and the adapter from the shared tree, and a controller is not recorded when the run dir path has a link. The identity test no longer reads the real bmv2 override.
+
+
+diff --git a/tests/python/test_p4_health_cells.py b/tests/python/test_p4_health_cells.py
+index cfad74aa..104ac17c 100644
+--- a/tests/python/test_p4_health_cells.py
++++ b/tests/python/test_p4_health_cells.py
+@@ -1507,13 +1507,218 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
+         good = {"sha256": "a" * 64, "parts": {}}
+         for sut, gate in ((None, good), (os.path.join(d, "code_identity.json"), dict(good, sha256="incomplete"))):
+             with self.subTest(sut=sut, gate=gate["sha256"]):
++                # fabric_binary and the freeze are stubbed: this test must not read the real
++                # bmv2_binary_override (absent from a mutant's copy), nor stop at the freeze, whose git
++                # here answers nothing (round 4, F8)
+                 with mock.patch.object(probe.subprocess, "run", self.git_answering(0)), \
+                         mock.patch("p4_health.s0.S0", FakeS0), \
++                        mock.patch("p4_health.vs_trial.fabric_binary", return_value="/x/simple_switch_grpc"), \
++                        mock.patch("p4_health.frozen.freeze", return_value=object()), \
+                         mock.patch("p4_health.identity.system_under_test", return_value=sut), \
+-                        mock.patch("p4_health.identity.fingerprint", return_value=gate), \
++                        mock.patch("p4_health.identity.fingerprint", return_value=gate) as fp, \
+                         mock.patch("p4_health.lab.run_lab", side_effect=AssertionError("the lab must not start")):
+                     rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
+                 self.assertEqual(rc, 2)
++                fp.assert_called_once()                 # refused by the identity check, not by something before it
++
++    # --- round 4, F8: an unreadable bmv2 override, with the REAL fingerprint ------------------
++    def readable_machine(self, frozen=None):
++        """Every part of the fingerprint except the fabric's bmv2 reads fine, so that part alone
++        decides whether it says 'incomplete'. The real ID.fingerprint runs."""
++        from unittest import mock
++        from p4_health import identity as ID
++        from p4_health.collect.runner import RecordingRunner
++        return [mock.patch.object(ID, "git_lines", lambda runner, repo, *a: ["a b"]),
++                mock.patch.object(ID, "file_sha", lambda p: "f" * 64),
++                mock.patch.object(ID, "tree_digest", lambda *a, **k: "t" * 64),
++                mock.patch.object(ID, "_which", lambda tool: "/bin/" + tool),
++                mock.patch("os.path.isdir", lambda p: True),
++                mock.patch("p4_health.probe.Runner", lambda: RecordingRunner([(("bash",), (0, ""))])),
++                mock.patch("p4_health.identity.system_under_test", return_value="/x/code_identity.json"),
++                mock.patch("p4_health.frozen.freeze", return_value=frozen or object())]
++
++    def lab_with_the_real_fingerprint(self, fabric, frozen=None):
++        import contextlib
++        import json
++        import tempfile
++        from unittest import mock
++        from p4_health import probe
++
++        class FakeS0(object):
++            def __init__(self, *a, **kw):
++                self.out = {"verdict": "COMPLETE"}
++
++            def run(self):
++                return 0
++        d = tempfile.mkdtemp(prefix="p4h-f8-%d-" % os.getpid())
++        self.addCleanup(__import__("shutil").rmtree, d, True)
++        with contextlib.ExitStack() as stack:
++            for patch in self.readable_machine(frozen):
++                stack.enter_context(patch)
++            stack.enter_context(mock.patch.object(probe.subprocess, "run", self.git_answering(0)))
++            stack.enter_context(mock.patch("p4_health.s0.S0", FakeS0))
++            stack.enter_context(mock.patch("p4_health.vs_trial.fabric_binary", **fabric))
++            ran = stack.enter_context(mock.patch("p4_health.lab.run_lab", return_value=(0, {})))
++            rc = probe.main(["lab", "--run-dir", d, "--owner", "o"])
++        with open(os.path.join(d, "gate_fingerprint.json")) as fh:
++            return rc, ran, json.load(fh)
++
++    def test_a_readable_override_gives_a_complete_fingerprint_and_the_lab_runs(self):
++        """The control of the next test: with the override readable the same stubbed machine gives
++        a fingerprint, so the next test's 'incomplete' is the override's doing alone."""
++        rc, ran, gate = self.lab_with_the_real_fingerprint({"return_value": "/x/simple_switch_grpc"})
++        self.assertNotEqual(gate["sha256"], "incomplete", gate)
++        self.assertEqual(gate["parts"]["bmv2_fabric"], "f" * 64)
++        self.assertEqual(rc, 0)
++        ran.assert_called_once()
++
++    def test_an_unreadable_bmv2_override_is_an_incomplete_fingerprint_and_stops_the_run(self):
++        """probe.py's `except OSError: fabric = None`: not a traceback, and not a run either."""
++        rc, ran, gate = self.lab_with_the_real_fingerprint({"side_effect": PermissionError("bmv2_binary_override")})
++        self.assertEqual(gate["sha256"], "incomplete")
++        self.assertEqual(gate["parts"]["bmv2_fabric"], "unreadable")
++        self.assertEqual(rc, 2)
++        ran.assert_not_called()
++
++    # --- round 4, F4: the code a run executes is frozen early and checked against HEAD ---------
++    FROZEN = ("p4_health/hostside.py", "p4_health/frames.py", "p4_health/__init__.py",
++              "p4_health/controller_ext.py", "p4_exercise/run_external_controller.py",
++              "p4_exercise/common.py", "p4_exercise/__init__.py")
++
++    def scratch_repo(self):
++        """A git repo of its own holding the files a lab run executes, committed."""
++        import shutil
++        import tempfile
++        d = tempfile.mkdtemp(prefix="p4h-freeze-%d-" % os.getpid())
++        self.addCleanup(shutil.rmtree, d, True)
++        for rel in self.FROZEN:
++            os.makedirs(os.path.dirname(os.path.join(d, "tools", rel)), exist_ok=True)
++            with open(os.path.join(d, "tools", rel), "w") as fh:
++                fh.write("# %s, as committed\n" % rel)
++        git = ["git", "-C", d, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
++        subprocess.run(["git", "-C", d, "init", "-q"], check=True)
++        subprocess.run(git + ["add", "."], check=True)
++        subprocess.run(git + ["commit", "-q", "-m", "files"], check=True)
++        return d
++
++    def lab_in(self, repo, edit_after_status=None, edit_before_status=None):
++        """probe.py lab in `repo` with S0 replaced by a marker. Returns (rc, S0 started?, stderr).
++        `edit_after_status`: a callable run right after the clean check answered (the edit that
++        lands between the check and the freeze)."""
++        import io
++        import tempfile
++        from unittest import mock
++        from p4_health import probe
++
++        class Reached(Exception):
++            pass
++
++        def s0(*a, **kw):
++            raise Reached()
++        real = probe._git_run
++
++        def git(*args):
++            out = real(*args)
++            if args[0] == "status" and edit_after_status:
++                edit_after_status()
++            return out
++        run_dir = tempfile.mkdtemp(prefix="p4h-freeze-run-%d-" % os.getpid())
++        self.addCleanup(__import__("shutil").rmtree, run_dir, True)
++        err = io.StringIO()
++        reached = False
++        with mock.patch.object(probe, "REPO", repo), mock.patch.object(probe, "_git_run", git), \
++                mock.patch("p4_health.s0.S0", s0), mock.patch("sys.stderr", err):
++            try:
++                rc = probe.main(["lab", "--run-dir", run_dir, "--owner", "o"])
++            except Reached:
++                rc, reached = None, True
++        return rc, reached, err.getvalue()
++
++    def edit(self, repo, rel):
++        with open(os.path.join(repo, "tools", rel), "a") as fh:
++            fh.write("# an edit nobody committed\n")
++
++    def test_a_clean_tree_is_frozen_and_the_run_goes_on_to_s0(self):
++        """The control of the next tests: the same repo with no edit reaches S0."""
++        _rc, reached, _err = self.lab_in(self.scratch_repo())
++        self.assertTrue(reached)
++
++    def test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0(self):
++        repo = self.scratch_repo()
++        rc, reached, err = self.lab_in(repo, edit_after_status=lambda: self.edit(repo, "p4_health/hostside.py"))
++        self.assertEqual((rc, reached), (2, False))
++        self.assertIn("hostside.py", err)
++
++    def test_every_file_a_round_executes_is_checked_against_head(self):
++        for rel in self.FROZEN:
++            with self.subTest(file=rel):
++                repo = self.scratch_repo()
++                rc, reached, err = self.lab_in(repo, edit_after_status=lambda rel=rel, repo=repo: self.edit(repo, rel))
++                self.assertEqual((rc, reached), (2, False))
++                self.assertIn(os.path.basename(rel), err)
++
++    def test_a_git_that_cannot_confirm_a_copy_refuses_the_freeze(self):
++        """Two empty answers are not two equal hashes; a failed hash-object is no answer."""
++        from unittest import mock
++        from p4_health import probe
++        repo = self.scratch_repo()
++        real = probe._git_run
++        for what, answer in (("hash-object fails", {"hash-object": (128, "")}),
++                             ("rev-parse fails", {"rev-parse": (128, "")}),
++                             ("both answer nothing", {"hash-object": (0, ""), "rev-parse": (0, "")})):
++            with self.subTest(what=what):
++                def wrapped(*args, answer=answer):
++                    return answer.get(args[0]) or real(*args)
++                with mock.patch.object(probe, "_git_run", wrapped):
++                    rc, reached, _err = self.lab_in(repo)
++                self.assertEqual((rc, reached), (2, False))
++
++    def test_the_frozen_set_runs_by_itself_and_takes_frames_from_the_copy(self):
++        """Root's hostside.py, B's controller_ext.py (its `from p4_health import frames` inside a
++        method) and the adapter run from the copy with -I: nothing is read from the shared tree."""
++        import tempfile
++        from p4_health import frozen as FZ
++        run = tempfile.mkdtemp(prefix="p4h-freeze-self-%d-" % os.getpid())
++        self.addCleanup(__import__("shutil").rmtree, run, True)
++        fz = FZ.freeze(run)
++        probe_code = ("import importlib.util, sys; s = importlib.util.spec_from_file_location('cx', %r); "
++                      "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); "
++                      "from p4_health import frames; print(frames.__file__)" % fz.controller)
++        out = subprocess.run([sys.executable, "-I", "-c", probe_code], capture_output=True, text=True, timeout=60)
++        self.assertEqual(out.returncode, 0, out.stderr)
++        self.assertEqual(os.path.realpath(out.stdout.strip()), os.path.realpath(fz.path("p4_health/frames.py")))
++        for argv in ([fz.hostside, "--help"], [fz.adapter, "--help"]):
++            res = subprocess.run([sys.executable, "-I"] + argv, capture_output=True, text=True, timeout=60)
++            self.assertEqual(res.returncode, 0, (argv, res.stderr))
++
++    def test_the_recorded_hash_is_of_the_copy_not_of_the_source(self):
++        """(Round 4, F9) a copy that differs from its source (the case the HEAD check exists for)
++        is recorded as it is: the record is what root runs."""
++        import hashlib
++        import shutil
++        import tempfile
++        from unittest import mock
++        from p4_health import frozen as FZ
++        run = tempfile.mkdtemp(prefix="p4h-freeze-copy-%d-" % os.getpid())
++        self.addCleanup(shutil.rmtree, run, True)
++        real_copy = shutil.copyfile
++
++        def drifting_copy(src, dst, *a, **kw):
++            real_copy(src, dst, *a, **kw)
++            with open(dst, "a") as fh:
++                fh.write("# drifted after the copy\n")
++        with mock.patch.object(FZ.shutil, "copyfile", drifting_copy):
++            fz = FZ.freeze(run)
++        for rel, recorded in fz.sums.items():
++            with open(fz.path(rel), "rb") as fh:
++                self.assertEqual(recorded, hashlib.sha256(fh.read()).hexdigest(), rel)
++
++    def test_the_run_gets_the_frozen_code_that_probe_froze(self):
++        """cmd_lab hands run_lab the Frozen it froze before S0, not a second one."""
++        sentinel = object()
++        rc, ran, _gate = self.lab_with_the_real_fingerprint({"return_value": "/x/b"}, frozen=sentinel)
++        self.assertEqual(rc, 0)
++        self.assertIs(ran.call_args[1]["frozen"], sentinel)
+ 
+     def test_the_may_differ_classes_are_the_designs(self):
+         from p4_health import identity as ID
+diff --git a/tests/python/test_p4_health_collect.py b/tests/python/test_p4_health_collect.py
+index 1245a636..33af7c74 100644
+--- a/tests/python/test_p4_health_collect.py
++++ b/tests/python/test_p4_health_collect.py
+@@ -2613,22 +2613,57 @@ class TestTheLabRun(Cut2):
+ 
+     def test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir(self):
+         """N8: root executes hostside.py, frames.py and __init__.py; it runs copies taken into the
+-        run dir at the start, so the shared tree can change under a 15-minute run and root still
+-        runs what was recorded."""
++        run dir before S0, so the shared tree can change under a 15-minute run and root still
++        runs what was recorded. (Round 4, F9) The record is of the COPY's bytes."""
+         rc, doc, r = self.run_lab()
+-        frozen = os.path.join(self.cfg.run_dir, "rootcode", "p4_health", "hostside.py")
++        base = os.path.join(os.path.realpath(self.cfg.run_dir), "frozen", "p4_health")
+         root_argvs = [c["argv"] for c in r.calls if c["argv"][:4] == ["sudo", "-n", "mnexec", "-a"]
+                       and any(a.endswith("hostside.py") for a in c["argv"])]
+         self.assertTrue(root_argvs)
+         for argv in root_argvs:
+-            self.assertIn(frozen, argv)
++            self.assertIn(os.path.join(base, "hostside.py"), argv)
+         import hashlib
+-        src = os.path.dirname(os.path.abspath(HS.__file__))
+         for name in ("hostside.py", "frames.py", "__init__.py"):
+-            with open(os.path.join(src, name), "rb") as fh:
++            with open(os.path.join(base, name), "rb") as fh:
+                 want = hashlib.sha256(fh.read()).hexdigest()
+             self.assertEqual(doc["root_code"][name], want, name)
+-            self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "rootcode", "p4_health", name)))
++
++    def test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy(self):
++        """(Round 4, F4b) B's controller and the adapter run as the caller, but they write P4Runtime
++        state on the fabric: they too run the run dir's copies, not the shared tree, and the
++        record carries their hashes (of the copies' bytes)."""
++        rc, doc, r = self.run_lab()
++        base = os.path.join(os.path.realpath(self.cfg.run_dir), "frozen")
++        spawn = [c for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])]
++        self.assertEqual(len(spawn), 1)
++        self.assertEqual(spawn[0]["argv"], [
++            self.cfg.p4dev_python, os.path.join(base, "p4_exercise", "run_external_controller.py"),
++            os.path.join(os.path.realpath(self.cfg.run_dir), "packages", "B"),
++            os.path.join(base, "p4_health", "controller_ext.py"),
++            "--tutorials-utils", "/tutorials/utils"])
++        import hashlib
++        for rel in ("p4_health/controller_ext.py", "p4_exercise/run_external_controller.py",
++                    "p4_exercise/common.py", "p4_exercise/__init__.py", "p4_health/frames.py"):
++            with open(os.path.join(base, rel), "rb") as fh:
++                self.assertEqual(doc["frozen_code"][rel], hashlib.sha256(fh.read()).hexdigest(), rel)
++
++    def test_b_controller_is_recorded_when_the_run_dir_path_has_a_link(self):
++        """(Round 4, F6) LabRound hands out the RESOLVED package path, so the controller's argv
++        carries the resolved run dir. The marker it is registered by must be that path too, or
++        `register` refuses it: neither the teardown nor recover.sh could then stop it. The kill
++        fails here, so the entry stays in B's state file to be seen."""
++        real = self.cfg.run_dir
++        link = os.path.join(self.tmp, "runlink")
++        os.symlink(real, link)
++        self.cfg.run_dir = link
++        self.fab.ctrl_never_ready = True            # the controller is still running when B ends
++        r = self.ndt_runner()
++        r.replies.insert(0, (("kill",), (1, "")))      # ... and cannot be stopped
++        rc, doc, _r = self.run_lab(runner=r)
++        with open(os.path.join(link, "LAB_STATE.B.json")) as fh:
++            ctrls = json.load(fh)["controllers"]
++        self.assertEqual([c["marker"] for c in ctrls], [os.path.realpath(real)])
++        self.assertFalse(any("not recorded" in p_ for b in doc["bringups"] for p_ in b["problems"]), doc["bringups"])
+ 
+     def test_b_on_a_fabric_that_is_not_external_is_incomplete(self):
+         self.fab.force_mode = "ndtwin"
+=== commit 66043c7497f7a73543c0169e7af45b5a2e040e50
+p4_health: test that run_lab runs the frozen code it is handed
+
+
+diff --git a/tests/python/test_p4_health_collect.py b/tests/python/test_p4_health_collect.py
+index 33af7c74..14f64bcf 100644
+--- a/tests/python/test_p4_health_collect.py
++++ b/tests/python/test_p4_health_collect.py
+@@ -2647,6 +2647,23 @@ class TestTheLabRun(Cut2):
+             with open(os.path.join(base, rel), "rb") as fh:
+                 self.assertEqual(doc["frozen_code"][rel], hashlib.sha256(fh.read()).hexdigest(), rel)
+ 
++    def test_run_lab_runs_the_frozen_code_it_is_given(self):
++        """(Round 4, F4a) probe.py freezes and checks the code before S0 and hands it to run_lab;
++        run_lab must run exactly that, not freeze a second set unchecked."""
++        from p4_health import frozen as FZ
++        other = os.path.join(self.tmp, "elsewhere")
++        fz = FZ.freeze(other)
++        rc, doc, r = self.run_lab(frozen=fz)
++        root = [c["argv"] for c in r.calls if c["argv"][:4] == ["sudo", "-n", "mnexec", "-a"]
++                and any(a.endswith("hostside.py") for a in c["argv"])]
++        self.assertTrue(root)
++        for argv in root:
++            self.assertIn(fz.hostside, argv)
++        spawn = [c["argv"] for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])][0]
++        self.assertEqual((spawn[1], spawn[3]), (fz.adapter, fz.controller))
++        self.assertEqual(doc["frozen_code"], fz.sums)
++        self.assertFalse(os.path.exists(os.path.join(self.cfg.run_dir, "frozen")))
++
+     def test_b_controller_is_recorded_when_the_run_dir_path_has_a_link(self):
+         """(Round 4, F6) LabRound hands out the RESOLVED package path, so the controller's argv
+         carries the resolved run dir. The marker it is registered by must be that path too, or
+=== commit d56ac91d4e935c3ff8d2e8378955d21edd802465
+p4_health: freeze the code a lab run executes right after the clean check, check it against HEAD, and run B from the copy
+probe.py lab copies the files the rounds execute (root's hostside.py, B's controller and the adapter, and what they import) into the run dir before S0 and refuses unless each copy is the blob HEAD has. Both rounds run the copies, and health.json records their hashes.
+
+
+diff --git a/tools/p4_health/collect/hosts.py b/tools/p4_health/collect/hosts.py
+index 1c3db886..aa41943c 100644
+--- a/tools/p4_health/collect/hosts.py
++++ b/tools/p4_health/collect/hosts.py
+@@ -22,28 +22,6 @@ from . import ps as PS
+ HOSTSIDE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hostside.py")
+ 
+ 
+-#: What root executes, relative to tools/p4_health: hostside.py and what it imports.
+-ROOT_CODE = ("hostside.py", "frames.py", "__init__.py")
+-
+-
+-def freeze_root_code(run_dir, src=None):
+-    """(Cut 2 second review N8) Copy the files root executes into <run>/rootcode/p4_health/ and
+-    return ({name: sha256}, the frozen hostside.py). Root then runs these copies for the whole
+-    run, whatever the shared working tree does meanwhile, and health.json records exactly what
+-    they were."""
+-    import hashlib
+-    import shutil
+-    src = src or os.path.dirname(HOSTSIDE)
+-    dst = os.path.join(run_dir, "rootcode", "p4_health")
+-    os.makedirs(dst, exist_ok=True)
+-    sums = {}
+-    for name in ROOT_CODE:
+-        shutil.copyfile(os.path.join(src, name), os.path.join(dst, name))
+-        with open(os.path.join(dst, name), "rb") as fh:
+-            sums[name] = hashlib.sha256(fh.read()).hexdigest()
+-    return sums, os.path.join(dst, "hostside.py")
+-
+-
+ def marker_token(run_id):
+     """The 8 characters a marker carries for this run (frames.payload keeps 8 bytes)."""
+     return hashlib.sha1(run_id.encode("utf-8")).hexdigest()[:8]
+diff --git a/tools/p4_health/frozen.py b/tools/p4_health/frozen.py
+new file mode 100644
+index 00000000..51d2653f
+--- /dev/null
++++ b/tools/p4_health/frozen.py
+@@ -0,0 +1,88 @@
++"""The code a lab run executes, copied into the run dir and checked against HEAD. (Cut 2 reviews: N8, round 4 F4)
++
++[Co-developed with claude code -- Adam]
++
++A lab run runs probe code in three places: root, inside the hosts' namespaces (hostside.py and what it
++imports); the caller, as B's controller (controller_ext.py, which imports frames); and the caller again,
++through the adapter that rewrites the controller's addresses onto the fabric
++(tools/p4_exercise/run_external_controller.py, which imports common). The working tree can change under
++a 15-minute run, and `probe.py lab` checked it clean only once, so:
++
++  * `freeze` copies every one of those files into <run>/frozen/ right after the dirty check, BEFORE
++    S0, and every round then executes the copy, never the shared tree;
++  * each copy is checked against HEAD -- `git hash-object <copy>` must equal `git rev-parse
++    HEAD:<path>` -- so an edit made between the dirty check and the copy is refused (Refused), and
++    what runs is what the commit says, not merely what the tree held a moment ago;
++  * the sha256 of every copy goes into health.json, root's three files also as `root_code`.
++"""
++from __future__ import annotations
++
++import hashlib
++import os
++import shutil
++
++from .collect.config import REPO
++
++#: paths relative to <repo>/tools; the directory they are copied into, <run>/frozen/
++ROOT_FILES = ("p4_health/hostside.py", "p4_health/frames.py", "p4_health/__init__.py")
++B_FILES = ("p4_health/controller_ext.py",
++           "p4_exercise/run_external_controller.py", "p4_exercise/common.py", "p4_exercise/__init__.py")
++DIRNAME = "frozen"
++
++
++class Refused(RuntimeError):
++    """The code to be run cannot be shown to be what HEAD says; no lab action follows."""
++
++
++class Frozen(object):
++    def __init__(self, base, sums):
++        self.base = base                    # <run>/frozen
++        self.sums = sums                    # {"p4_health/hostside.py": sha256, ...}
++
++    def path(self, rel):
++        return os.path.join(self.base, rel)
++
++    @property
++    def hostside(self):
++        return self.path("p4_health/hostside.py")
++
++    @property
++    def controller(self):
++        return self.path("p4_health/controller_ext.py")
++
++    @property
++    def adapter(self):
++        return self.path("p4_exercise/run_external_controller.py")
++
++    @property
++    def root_code(self):
++        return {os.path.basename(r): self.sums[r] for r in ROOT_FILES}
++
++
++def freeze(run_dir, repo=None, git=None):
++    """Copy the files into <run>/frozen/ and return a Frozen. `git(*args) -> (rc, stdout)`, when
++    given, must confirm every copy against HEAD, else Refused (git that cannot answer is a
++    refusal, not a pass). With git=None nothing is compared: only the offline tests do that, and
++    `probe.py lab` always passes git."""
++    repo = repo or REPO
++    base = os.path.join(os.path.realpath(run_dir), DIRNAME)      # resolved, like the package path
++    sums = {}
++    for rel in ROOT_FILES + B_FILES:
++        dst = os.path.join(base, rel)
++        try:
++            os.makedirs(os.path.dirname(dst), exist_ok=True)
++            shutil.copyfile(os.path.join(repo, "tools", rel), dst)
++            with open(dst, "rb") as fh:
++                sums[rel] = hashlib.sha256(fh.read()).hexdigest()
++        except OSError as exc:
++            raise Refused("cannot copy tools/%s: %s" % (rel, exc))
++        if git is not None:
++            h_rc, h = git("hash-object", dst)
++            b_rc, blob = git("rev-parse", "HEAD:tools/%s" % rel)
++            if h_rc != 0 or b_rc != 0 or not h or not blob:
++                raise Refused("git could not say whether tools/%s is what HEAD has (hash-object rc %s, "
++                              "rev-parse rc %s)" % (rel, h_rc, b_rc))
++            if h != blob:
++                raise Refused("tools/%s is not what HEAD has: the copy hashes to %s, HEAD's blob is %s "
++                              "(edited since the clean check?)" % (rel, h, blob))
++    return Frozen(base, sums)
+diff --git a/tools/p4_health/lab.py b/tools/p4_health/lab.py
+index fb487d61..aea9797e 100644
+--- a/tools/p4_health/lab.py
++++ b/tools/p4_health/lab.py
+@@ -25,7 +25,7 @@ from . import report as R
+ from . import runtime_cli as RC
+ from .cells import table as T
+ from .cells import verdict as V
+-from .collect import hosts as HO
++from . import frozen as FZ
+ from .lab_round import LabRound, SignalAbort
+ from .round_a import ARound
+ from .round_b import BRound
+@@ -155,8 +155,11 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
+ 
+ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None, mutant=False,
+             tutorials_utils=None, round_cls=LabRound, a_kwargs=None, b_kwargs=None,
+-            expected_tsv=None, log=print, identity=None, signals=True):
+-    """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE."""
++            expected_tsv=None, log=print, identity=None, signals=True, frozen=None):
++    """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE.
++
++    `frozen`: the code copies `probe.py lab` froze before S0 and checked against HEAD
++    (frozen.freeze). Without it -- the offline tests -- the files are copied here, unchecked."""
+     if s0_out.get("verdict") != "COMPLETE":
+         log("S0 is %s: the lab is not touched" % s0_out.get("verdict"))
+         return 1, None
+@@ -164,9 +167,10 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
+     pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
+     packages = os.path.join(run_dir, "packages")
+     recs, problems, holder, run_stopped = [], [], {}, []
+-    root_code, frozen = HO.freeze_root_code(run_dir)
+-    a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))
+-    b_kwargs = dict({"hostside": frozen}, **(b_kwargs or {}))
++    frozen = frozen or FZ.freeze(run_dir)
++    a_kwargs = dict({"hostside": frozen.hostside}, **(a_kwargs or {}))
++    b_kwargs = dict({"hostside": frozen.hostside, "controller": frozen.controller,
++                     "adapter": frozen.adapter}, **(b_kwargs or {}))
+     old_handlers = _stop_on_signals() if signals else None
+     try:
+         _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutant, bringups,
+@@ -203,7 +207,8 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
+     doc["only"] = sorted(a.selected) if a else []
+     doc["mutant"] = bool(mutant)
+     doc["problems"] = problems
+-    doc["root_code"] = root_code
++    doc["root_code"] = frozen.root_code            # what root ran: sha256 of the copies
++    doc["frozen_code"] = frozen.sums               # every file any round ran, as relative path -> sha256
+     # (Cut 2 review m4) design 4.3's system_under_test and the Q6(a) gate fingerprint
+     doc["system_under_test"] = (identity or {}).get("system_under_test")
+     doc["gate_fingerprint"] = (identity or {}).get("gate_fingerprint")
+diff --git a/tools/p4_health/probe.py b/tools/p4_health/probe.py
+index 208e27e8..d82ecb25 100755
+--- a/tools/p4_health/probe.py
++++ b/tools/p4_health/probe.py
+@@ -109,8 +109,8 @@ def cmd_lab(args):
+     if not owner:
+         print("refused: --owner (or NDT_OWNER) is required for a lab run", file=sys.stderr)
+         return 2
+-    # (Cut 2 review m4) root runs hostside.py, frames.py and __init__.py from this working tree:
+-    # a lab run is refused unless tools/p4_health is exactly what HEAD says (no edit, no new file)
++    # (Cut 2 review m4) a lab run runs probe code from this working tree (frozen below):
++    # it is refused unless tools/p4_health is exactly what HEAD says (no edit, no new file)
+     git_rc, dirty = _git_run("status", "--porcelain", "--", "tools/p4_health")
+     if git_rc != 0:
+         # (Cut 2 review N3) no answer is not "clean"
+@@ -123,6 +123,15 @@ def cmd_lab(args):
+         return 2
+     run_dir = os.path.abspath(args.run_dir)
+     run_id = os.path.basename(run_dir.rstrip("/"))
++    # (Cut 2 round 4, F4) Freeze right after the clean check, before S0: every round runs these
++    # copies, and each is checked against HEAD's blob, so an edit made since the check is refused
++    # here, before any lab action (git that cannot answer is a refusal too)
++    from p4_health import frozen as FZ
++    try:
++        frozen = FZ.freeze(run_dir, repo=REPO, git=_git_run)
++    except FZ.Refused as exc:
++        print("refused: %s" % exc, file=sys.stderr)
++        return 2
+     py = args.py_p4 or os.environ.get("P4_PROXY_PY") or os.path.join(REPO, "p4_proxy", "venv", "bin", "python")
+     runner = Runner()
+     ident = repo_identity()
+@@ -159,7 +168,8 @@ def cmd_lab(args):
+     bringups = tuple(b for b in (args.bringups or "A,B").split(",") if b)
+     only = [c for c in (args.only or "").split(",") if c] or None
+     rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
+-                         mutant=args.mutant, identity={"gate_fingerprint": gate, "system_under_test": sut})
++                         mutant=args.mutant, identity={"gate_fingerprint": gate, "system_under_test": sut},
++                         frozen=frozen)
+     return rc
+ 
+ 
+diff --git a/tools/p4_health/round_b.py b/tools/p4_health/round_b.py
+index 2a9e0686..f5977858 100644
+--- a/tools/p4_health/round_b.py
++++ b/tools/p4_health/round_b.py
+@@ -42,15 +42,16 @@ D1_SPORT = 40041
+ P3_DPORT = CX.PACKET_OUT_DPORT
+ 
+ 
+-def adapter_argv(python, package_dir, tutorials_utils):
+-    """How bring-up B starts its controller; S0 runs the same argv with --dry-run."""
+-    return [python, ADAPTER, package_dir, CONTROLLER, "--tutorials-utils", tutorials_utils]
++def adapter_argv(python, package_dir, tutorials_utils, adapter=ADAPTER, controller=CONTROLLER):
++    """How bring-up B starts its controller; S0 runs the same argv with --dry-run. A lab run hands
++    the copies it froze (frozen.py); the defaults are the shared tree's own."""
++    return [python, adapter, package_dir, controller, "--tutorials-utils", tutorials_utils]
+ 
+ 
+ class BRound(object):
+     def __init__(self, cfg, runner, run_id, model, build_dir, runtimes, tutorials_utils,
+                  out_dir=None, hosts=None, sleep=time.sleep, clock=time.monotonic,
+-                 ready_timeout_s=120.0, exit_timeout_s=120.0, hostside=None):
++                 ready_timeout_s=120.0, exit_timeout_s=120.0, hostside=None, controller=None, adapter=None):
+         self.cfg, self.runner, self.run_id, self.model = cfg, runner, run_id, model
+         self.build_dir, self.runtimes = build_dir, runtimes
+         self.tutorials_utils = tutorials_utils
+@@ -59,6 +60,8 @@ class BRound(object):
+         self.sleep, self.clock = sleep, clock
+         self.ready_timeout_s, self.exit_timeout_s = ready_timeout_s, exit_timeout_s
+         self.hostside = hostside            # the frozen copy root runs (lab.run_lab), or None
++        self.controller = controller or CONTROLLER      # (round 4, F4b) the frozen copies B runs, or the tree's
++        self.adapter = adapter or ADAPTER
+         self.confirmed = None
+         self.problems = []
+         #: (Cut 2 review N2) why B's controller did not do its part, or None: the run is then
+@@ -111,7 +114,8 @@ class BRound(object):
+         conf_path = self.path("controller.conf.json")
+         with open(conf_path, "w", encoding="utf-8") as fh:
+             json.dump(self.config(), fh, indent=2, sort_keys=True)
+-        argv = adapter_argv(self.cfg.p4dev_python, lab_round.package_dir, self.tutorials_utils)
++        argv = adapter_argv(self.cfg.p4dev_python, lab_round.package_dir, self.tutorials_utils,
++                            adapter=self.adapter, controller=self.controller)
+         proc = self.runner.spawn(argv, self.path("controller.log"), env={"P4H_CTRL_CONFIG": conf_path})
+         if proc is None:
+             self.problems.append("B's controller could not be started")
+=== commit 6a7954e2539f6d409a3854c2a47e7c7cbaed8041
+p4_health: register B's controller by the resolved run dir
+The controller's argv carries the package path with its links followed, so a marker taken from an unresolved run dir was refused and the controller went unrecorded.
+
+
+diff --git a/tools/p4_health/round_b.py b/tools/p4_health/round_b.py
+index f5977858..84ef0fee 100644
+--- a/tools/p4_health/round_b.py
++++ b/tools/p4_health/round_b.py
+@@ -122,8 +122,9 @@ class BRound(object):
+             self.failed = self.problems[-1]
+             return self.finish(None, None)
+         try:
+-            # the marker is the run directory: the package path in the argv lies inside it
+-            lab_round.register("controller", proc.pid, self.cfg.run_dir)
++            # the marker is the run directory, RESOLVED: the package path in the argv lies inside it
++            # and LabRound hands that path out with its links followed (round 4, F6)
++            lab_round.register("controller", proc.pid, os.path.realpath(self.cfg.run_dir))
+         except ValueError as exc:
+             self.problems.append("controller not recorded: %s" % exc)
+         if not self._wait_file(self.path("controller.ready.json"), proc, self.ready_timeout_s):
+=== commit 4523e03861ef0f3d24d7ea53258bc8e35dba4218
+p4_health: mutants for the early freeze, B from the copy, the linked run dir, the unreadable override and the copy's hash
+The script's copy of the package now carries the p4_exercise files a lab run freezes, and the two mutants that pointed at the old freeze follow it.
+
+
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index c05c6267..bc11aec6 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1732,7 +1732,7 @@ add "C2-RB1. B never tells its controller the stimuli are done" \
+ 
+ add "C2-RB2. B's controller is not recorded in LAB_STATE" \
+     "$ROUNDB" \
+-    '            lab_round.register("controller", proc.pid, self.cfg.run_dir)' \
++    '            lab_round.register("controller", proc.pid, os.path.realpath(self.cfg.run_dir))' \
+     '            pass  # MUTANT' \
+     'test_the_eleven_attributions_confirmed_from_thrift_and_the_receiver'
+ 
+@@ -2044,20 +2044,19 @@ add "C2R3-N7. an unobserved control reads as a flip" \
+ 
+ add "C2R3-N8a. root runs the shared tree's hostside.py, not the run's frozen copy" \
+     "$LABPY" \
+-    '    a_kwargs = dict({"hostside": frozen}, **(a_kwargs or {}))' \
++    '    a_kwargs = dict({"hostside": frozen.hostside}, **(a_kwargs or {}))' \
+     '    a_kwargs = dict(a_kwargs or {})  # MUTANT' \
+     'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
+ 
+ add "C2R3-N8b. the frozen copy's record is not of the copy root runs" \
+-    "$HOSTSPY" \
+-    '        with open(os.path.join(dst, name), "rb") as fh:
+-            sums[name] = hashlib.sha256(fh.read()).hexdigest()' \
+-    '        sums[name] = "not recorded"  # MUTANT' \
++    "$PKG/frozen.py" \
++    '            with open(dst, "rb") as fh:
++                sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
++    '            sums[rel] = "not recorded"  # MUTANT' \
+     'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
+ 
+ 
+ # --- Cut 2, round 4 -----------------------------------------------------------------------------
+-ROUNDB="$PKG/round_b.py"
+ 
+ add "C2R4-F1a. a stop signal during the teardown is not kept" \
+     "$LABROUND" \
+@@ -2170,6 +2169,100 @@ add "C2R4-F3f. a see-red pass ignores the run's own problems" \
+     '    complete = bool(recs) and all(r.get("complete") is True for r in recs)  # MUTANT' \
+     'test_a_see_red_run_with_a_problem_of_the_run_is_incomplete'
+ 
++FROZENPY="$PKG/frozen.py"
++
++add "C2R4-F4a. the freeze does not compare a copy with HEAD's blob" \
++    "$FROZENPY" \
++    '            if h != blob:' \
++    '            if False:  # MUTANT' \
++    'test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0'
++
++add "C2R4-F4b. two empty answers from git count as equal hashes" \
++    "$FROZENPY" \
++    '            if h_rc != 0 or b_rc != 0 or not h or not blob:' \
++    '            if h_rc != 0 or b_rc != 0:  # MUTANT' \
++    'test_a_git_that_cannot_confirm_a_copy_refuses_the_freeze'
++
++add "C2R4-F4c. probe.py freezes without asking git" \
++    "$PROBEPY" \
++    '        frozen = FZ.freeze(run_dir, repo=REPO, git=_git_run)' \
++    '        frozen = FZ.freeze(run_dir, repo=REPO, git=None)  # MUTANT' \
++    'test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0'
++
++add "C2R4-F4d. a refused freeze does not stop the run" \
++    "$PROBEPY" \
++    '        print("refused: %s" % exc, file=sys.stderr)
++        return 2
++    py = args.py_p4' \
++    '        print("refused: %s" % exc, file=sys.stderr)
++        frozen = None  # MUTANT
++    py = args.py_p4' \
++    'test_an_edit_between_the_clean_check_and_the_freeze_is_refused_before_s0'
++
++add "C2R4-F4e. the freeze leaves out B's controller and the adapter" \
++    "$FROZENPY" \
++    '    for rel in ROOT_FILES + B_FILES:' \
++    '    for rel in ROOT_FILES:  # MUTANT' \
++    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
++
++add "C2R4-F4f. B's controller runs from the shared tree" \
++    "$LABPY" \
++    '    b_kwargs = dict({"hostside": frozen.hostside, "controller": frozen.controller,' \
++    '    b_kwargs = dict({"hostside": frozen.hostside,  # MUTANT' \
++    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
++
++add "C2R4-F4g. the adapter runs from the shared tree" \
++    "$LABPY" \
++    '                     "adapter": frozen.adapter}, **(b_kwargs or {}))' \
++    '                     }, **(b_kwargs or {}))  # MUTANT' \
++    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
++
++add "C2R4-F4h. run_lab freezes a second set instead of running the one it is given" \
++    "$LABPY" \
++    '    frozen = frozen or FZ.freeze(run_dir)' \
++    '    frozen = FZ.freeze(run_dir)  # MUTANT' \
++    'test_run_lab_runs_the_frozen_code_it_is_given'
++
++add "C2R4-F4i. probe.py does not hand its frozen code to run_lab" \
++    "$PROBEPY" \
++    '                         frozen=frozen)' \
++    '                         )  # MUTANT' \
++    'test_the_run_gets_the_frozen_code_that_probe_froze'
++
++add "C2R4-F4j. health.json does not record the hashes of B's files" \
++    "$LABPY" \
++    '    doc["frozen_code"] = frozen.sums ' \
++    '    doc["frozen_code"] = {}  # MUTANT ' \
++    'test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy'
++
++add "C2R4-F6. B's controller is registered by the unresolved run dir" \
++    "$ROUNDB" \
++    '            lab_round.register("controller", proc.pid, os.path.realpath(self.cfg.run_dir))' \
++    '            lab_round.register("controller", proc.pid, self.cfg.run_dir)  # MUTANT' \
++    'test_b_controller_is_recorded_when_the_run_dir_path_has_a_link'
++
++add "C2R4-F8a. an unreadable bmv2 override is not caught" \
++    "$PROBEPY" \
++    '    except OSError:
++        fabric = None' \
++    '    except ZeroDivisionError:  # MUTANT
++        fabric = None' \
++    'test_an_unreadable_bmv2_override_is_an_incomplete_fingerprint_and_stops_the_run'
++
++add "C2R4-F8b. an unreadable bmv2 override reads as a binary" \
++    "$PROBEPY" \
++    '        fabric = None                   # unreadable override: the fingerprint says incomplete' \
++    '        fabric = "/bin/sh"  # MUTANT' \
++    'test_an_unreadable_bmv2_override_is_an_incomplete_fingerprint_and_stops_the_run'
++
++add "C2R4-F9. C2R3-N8b tightened: the record is of the source, not of the copy" \
++    "$FROZENPY" \
++    '            with open(dst, "rb") as fh:
++                sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
++    '            with open(os.path.join(repo, "tools", rel), "rb") as fh:  # MUTANT
++                sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
++    'test_the_recorded_hash_is_of_the_copy_not_of_the_source'
++
+ 
+ CTRL_SRC="$TABLE"
+ CTRL_ANCHOR='def g1_holds(g1):'
+@@ -2199,6 +2292,8 @@ fresh_copy() {
+     cp -r "$PKG" "$WORK/tools/p4_health"
+     # the one repo file the package reads by its own path (throwaway.py's lab port list)
+     mkdir -p "$WORK/p4_proxy/mininet" && cp "$REPO/p4_proxy/mininet/grpc_ports.py" "$WORK/p4_proxy/mininet/"
++    # (round 4, F4) the three p4_exercise files a lab run freezes next to its own (frozen.py)
++    mkdir -p "$WORK/tools/p4_exercise" && cp "$REPO/tools/p4_exercise/"{__init__,common,run_external_controller}.py "$WORK/tools/p4_exercise/"
+     find "$WORK/tools" -name __pycache__ -prune -exec rm -rf {} +
+ }
+ 
+=== commit cecea49b041d1611f6e9b3c2579373c67231ad57
+p4_health: summary text follows the stop, failed-B, see-red and freeze changes
+The signal sentence, the first live run's premise (a clean worktree, plain ndt status, TP1 diagnostics, the see-red pass conditions), the delta counts and the observed-at commits are corrected.
+
+
+diff --git a/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md b/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
+index d4e10ec7..3d37bce3 100644
+--- a/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
++++ b/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
+@@ -37,7 +37,12 @@
+   - SC-fwd：30 對主機的 marker pingall，加上 T1 的 dump；
+   - SC-count、SC-reg、SC-ttl。
+ - **順序**：先 static 再 active。
+-  - 每一步各自包住：某一步拋出例外，只影響它自己那一格（讀數記成讀不到）；收到訊號仍然結束這一輪。
++  - 每一步各自包住：某一步拋出例外，只影響它自己那一格（讀數記成讀不到）。
++  - 停止訊號（SIGTERM、SIGINT、SIGHUP）的處理（第 3、4 輪修正後）：
++    - 在輪內：結束這一輪，收拾照跑；觀測的 `except Exception` 不會吞掉它（`SignalAbort` 是 `BaseException`）。
++    - 在收拾期間：收拾不中斷，第一個訊號被記下，收拾做完後寫進該輪的 problems（「aborted by signal N (during the teardown)」）。
++    - 兩輪之間：由 run 層的 handler 接。
++    - 任何一種都讓整個 run 結束：B 不起，整輪 INCOMPLETE、rc 2（見第 4 輪 F1、F3）。
+ - **`--only`**：會帶上該格的對照、gate 格，以及產生它所需自檢讀數的格。
+ - **刺激**：`hostside.py` 在主機的 namespace 裡送、收 marker（`sudo -n mnexec -a <pid>`）。
+   - 以 root 跑的 p4dev 直譯器加上 `-B -X pycache_prefix=<run> -I`。
+@@ -70,6 +75,8 @@
+ ### 1.3 接線（`lab.py`、`probe.py lab`、`s0.py`、`identity.py`）
+ 
+ - **前置**：`probe.py lab` 在 `tools/p4_health` 有任何未提交的改動時拒絕（rc 2）。
++  - 第 4 輪起，乾淨檢查之後、S0 之前，立刻把各輪會執行的檔案複製進 `<run>/frozen/`，並逐一比對 HEAD 的 blob（`git hash-object <副本>` 對 `git rev-parse HEAD:<路徑>`）；對不上就 rc 2，什麼 lab 動作都還沒做。
++  - root 的 `hostside.py`、B 的 controller 與 adapter 都執行副本，不執行共用的 working tree；各檔的 sha256 記在 health.json 的 `frozen_code`（root 那三個另外在 `root_code`）。
+ - **S0**：在 run 目錄跑 S0，不是 COMPLETE 就停（rc 1）。
+ - **記錄這一輪跑的是什麼**：
+   - `system_under_test`：用 `code_identity.py` 記錄；
+@@ -87,7 +94,7 @@
+ - **判定新增一步**：這一輪沒觀測的格判 NOT RUN，理由是「not observed in this run」。
+   - 它的 delta 寫「not observed」，不寫「flipped」；以這種格為來源的 alias 也一樣。
+ 
+-## 2. 觀測到的（OBSERVED，都在 fa7fcb83）
++## 2. 觀測到的（OBSERVED；除表中註明的 commit 外，都在 fa7fcb83）
+ 
+ | 檢查 | 結果 | log（`LOG/r2/`） |
+ |---|---|---|
+@@ -99,11 +106,13 @@
+ | S0 | rc 0、55 個 ok、COMPLETE、112 s；adapter dry run 通過 | `s0.run.log:4-5`、`s0-final/probe.log:53,57` |
+ | check_gate_anchors HEAD | ok(242)；133/133 | `check_gate_anchors.HEAD.log:109,142` |
+ | check_test_tmpdirs／test_l1_shell_scoring | 414 個檔 0 個／163 checks 0 failed | 各自的 log |
+-| veth 的兩種寫法 | 同一個 namespace 寫 `@名字`，跨 namespace 寫 `@if<index>`（iproute2-6.1.0） | `veth_format.log:5,10` |
+-| gate fingerprint（離線、唯讀） | 約 5 s；各部分都讀得到 | `fingerprint_offline.log` |
+-| ok(N) 與突變數為什麼不同 | `ok(n)` 數的是不同的 anchor 加上對照：197＝196＋1（50c3379d），242＝241＋1（fa7fcb83） | `anchors_197_vs_201.log` |
++| veth 的兩種寫法（在 1340729f） | 同一個 namespace 寫 `@名字`，跨 namespace 寫 `@if<index>`（iproute2-6.1.0） | `veth_format.log:5,10` |
++| gate fingerprint（離線、唯讀；在 91ec19c0，`identity.py` 在那之後沒有再改） | 約 5 s；各部分都讀得到 | `fingerprint_offline.log` |
++| ok(N) 與突變數為什麼不同（在 91ec19c0） | `ok(n)` 數的是不同的 anchor 加上對照：197＝196＋1（50c3379d），242＝241＋1（fa7fcb83） | `anchors_197_vs_201.log` |
+ 
+-- **審查三個 MAJOR 與 m1–m7，每一項**都有在舊碼上看到紅的 log（`r2/*.OLD_red.log`）與綠的 log（`*.NEW_green.log`），也都有 mutant。
++- **審查三個 MAJOR 與 m1–m7**：除了下面兩類，每一項都有在舊碼上看到紅的 log（`r2/*.OLD_red.log`）與綠的 log（`*.NEW_green.log`），也都有 mutant。
++  - m6 只改措辭，沒有紅 log，也沒有 mutant。
++  - m3 與 m5 的紅是介面錯誤（引數、import），不是行為上的紅；行為由它們的 mutant 承擔。
+ - **拋棄式 simple_switch_grpc 上的事實**（stock 與 bmv2-fast 兩支）：
+   - 11 項歸因有 10 項確認；
+   - RegisterEntry 寫入回 `canonical_code 12: Register writes are not supported yet`；
+@@ -156,14 +165,17 @@
+ **前提**
+ 
+ - Adam 對這一次逐次授權（§9 Q6(a)：第一次 live，含看過紅那一次）。
+-- 建議併進 trunk 之後在主 checkout 跑。
++- 在**專用的乾淨 worktree** 跑（建在併好的 trunk sha 上），**不要在主 checkout 跑**（第 4 輪 N8）。
++  - 原因一：乾淨檢查與 frozen 比對都只看 HEAD；主 checkout 常有別的 session 的未追蹤檔，而 gate fingerprint 會算進未追蹤檔（`identity.py` 的 `repo_untracked`），每一輪的指紋因此不同，第一輪的紀錄永遠換不成常設授權。
++  - 原因二：共用的 working tree 在 13–18 分鐘的 run 裡可能被別人改。現在 root 與 B 都執行複本，但 `repo_tracked`／`repo_untracked` 與 `system_under_test` 仍只記 run 開始時的狀態。
+ 
+ **命令**
+ 
+ ```
+ cd <checkout>
+ git status --porcelain -- tools/p4_health           # 必須是空的（不是空的，probe.py lab 會 rc 2 拒絕）
+-NDT_OWNER=<owner> tools/test_workflow/ndt status --measuring   # 必須是 measuring nothing、沒有 claim、bmv2 switches 0
++NDT_OWNER=<owner> tools/test_workflow/ndt status                # 必須是 claim none、measuring nothing、bmv2 switches 0（claim 列 ndt:6849-6850，bmv2 switches 列 ndt:6992）
++                                                                # 不要用 --measuring：它只印 declared／measuring 兩種列（ndt:6818-6824），看不到 claim 與 bmv2
+ df -m /                                             # > 2500 MB
+ RUN=$PWD/.test_run/p4_health/$(date -u +%Y-%m-%dT%H%M%SZ)_p4_health
+ P4_HEALTH_RUN_DIR=$RUN tools/p4_health/run.sh lab --owner <owner>        # S0 → identity → A → B → 判格
+@@ -194,33 +206,37 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A
+ - T7：NOT RUN（gate T4 RED）；
+ - UNATTRIBUTED：R3、VS1；
+ - 其餘格：NOT RUN「not observed in this run」，delta 寫「not observed」；
+-- delta：same 30、not observed 26、**flipped 0**；
++- delta：57 格裡 same 30、not observed 27、**flipped 0**（假 fabric 的端對端測試實測；兩列對照 K1-neg、T3-neg 另外各是 same）；
+ - rollup：
+   - core：can 9、partial 1、cannot 3、undecided 3；
+   - full：6、4、3、3；
+   - q3b：0、0、0、6；
+-- 整輪：COMPLETE，rc 0。
++- 整輪：COMPLETE，rc 0，**而且** health.json 的 `problems` 是空的、B 的 controller 有做完。
++  - 只看 COMPLETE rc 0 不夠：第 4 輪之前，B 的 sniffer 沒起來、或結果檔讀不了，整輪仍會是 COMPLETE（第 4 輪 F2 已修）。
+ 
+ **看過紅那一次預測會看到的**
+ 
+ - K1 是 PROBE-BROKEN，原因 SC-count；TTL1 是 PROBE-BROKEN，原因 SC-ttl；
+ - PL1、T1、TP1 都是 GREEN；
+-- PROBE-BROKEN，rc 1——這正是 §5.2-④ 要的。
++- PROBE-BROKEN，rc 1——這正是 §5.2-④ 要的，**但只在 A 完整、乾淨結束，而且 health.json 的 `problems` 是空的時候**才算數。
++  - 第 4 輪起程式自己強制這一點：see-red 這一輪沒完成、有 problem、或被停止訊號打斷，標題是 INCOMPLETE、rc 2，不是 PROBE-BROKEN（F3）。
++  - 這一輪的步驟 2 也要照做（見下）。
+ 
+ **先看什麼（照順序）**
+ 
+ 1. `probe.log`：
+-   - 有「S0 COMPLETE」；
++   - 有「S0 COMPLETE」；health.json 有 `frozen_code`；
+    - 兩行 B controller trial 與 adapter dry run 都是 ok；
+    - 有「gate fingerprint <sha>」那一行，而且不是 `incomplete`。
+-2. 收拾乾淨了沒有：
++2. 收拾乾淨了沒有（全輪與看過紅那一次都要做；看過紅那一次只有 A，沒有 `LAB_STATE.B.json`）：
+    - `LAB_STATE.A.json`、`LAB_STATE.B.json` 的 phase 都是 `released`，sniffers／controllers／netem 都是空的；
+    - health.json 的 bringups 每一筆：complete、down_rc 0、release_rc 0、knobs_restored、frames_reached_hosts false；
+    - `ndt status`：沒有 claim、沒有 bmv2。
+ 3. **rc 2（INCOMPLETE）時**：先讀 health.json 的 `problems` 與 `bringups` 每一筆，以及每一份 `LAB_STATE.<X>.json`。
+    - 如果寫著「B not brought up」：先對 `$RUN` 跑 `recover.sh`，不要直接再跑一輪。
+ 4. **TP1**：`A/TP1.json` 的 answer 與 oracle 逐集合比。
+-   - oracle 是 null，代表有一個交換機的埠落不到任何鏈路上：看 `ip -o link show` 的寫法。
++   - oracle 是 null，代表有一個交換機的埠落不到任何鏈路上，或某一個讀取失敗。
++   - 這時不要去跑 `ip -o link show`：`ndt down` 之後 fabric 已經不在了。看 `A/TP1.json` 的 `diagnostics`：它留著原始的 `ip -o link show` 文字、每一台的 show_ports、每個主機的 link 與位址、對不上的埠、列出的 CPU 埠，以及哪一個讀取失敗。
+ 5. `A/SC-fwd.json` 的 pingall 是 (30, 30)；`A/problems.json` 是空的。
+ 6. B 那一輪：
+    - `B/attributions.json`：除了 register，其餘都是 ok；
+=== commit 355c7ed6a71d5b6eea8081efe75632c6cb67f187
+p4_health: the mutation script names frozen.py through one variable, defined where the checker can see it
+
+
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index bc11aec6..16961183 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -1490,6 +1490,7 @@ ROUNDB="$PKG/round_b.py"
+ ATTR="$PKG/attribution.py"
+ LABPY="$PKG/lab.py"
+ HOSTSPY="$PKG/collect/hosts.py"
++FROZENPY="$PKG/frozen.py"
+ 
+ add "C2-V1. a cell never observed reads as an unreadable answer" \
+     "$VERDICT" \
+@@ -2049,7 +2050,7 @@ add "C2R3-N8a. root runs the shared tree's hostside.py, not the run's frozen cop
+     'test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir'
+ 
+ add "C2R3-N8b. the frozen copy's record is not of the copy root runs" \
+-    "$PKG/frozen.py" \
++    "$FROZENPY" \
+     '            with open(dst, "rb") as fh:
+                 sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
+     '            sums[rel] = "not recorded"  # MUTANT' \
+@@ -2169,8 +2170,6 @@ add "C2R4-F3f. a see-red pass ignores the run's own problems" \
+     '    complete = bool(recs) and all(r.get("complete") is True for r in recs)  # MUTANT' \
+     'test_a_see_red_run_with_a_problem_of_the_run_is_incomplete'
+ 
+-FROZENPY="$PKG/frozen.py"
+-
+ add "C2R4-F4a. the freeze does not compare a copy with HEAD's blob" \
+     "$FROZENPY" \
+     '            if h != blob:' \
+=== commit 56b27f60b4eb357ae865bc364dc868ad5a1c8a42
+p4_health: the mutation script can run as n shards side by side
+MUT_SHARD=k/n runs the mutations at positions k modulo n; the shards together cover the table once. The serial run takes about five hours on this machine.
+
+
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index 16961183..353b038c 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -2369,8 +2369,18 @@ echo "  ok       baseline green"
+ 
+ # ONLY_LABEL_PREFIX=C2R4-  runs only the mutations whose label starts so (baseline and control still
+ # run). A PARTIAL run: it says so on its last line and is never the gate.
++# MUT_SHARD=k/n  runs only the mutations whose position in the table is k modulo n (k from 0): n shards
++# started side by side, with the same head, cover the table once between them. Each shard runs its
++# own baseline and negative control and says SHARD on its last line; the gate is the sum of all n.
++SHARD_K=""; SHARD_N=""
++if [[ -n "${MUT_SHARD:-}" ]]; then
++    SHARD_K="${MUT_SHARD%/*}"; SHARD_N="${MUT_SHARD#*/}"
++    [[ "$SHARD_K" =~ ^[0-9]+$ && "$SHARD_N" =~ ^[1-9][0-9]*$ && "$SHARD_K" -lt "$SHARD_N" ]] \
++        || { echo "REFUSED: MUT_SHARD=$MUT_SHARD is not k/n with 0 <= k < n"; exit 2; }
++fi
+ for i in "${!MUT_LABEL[@]}"; do
+     if [[ -n "${ONLY_LABEL_PREFIX:-}" && "${MUT_LABEL[$i]}" != "$ONLY_LABEL_PREFIX"* ]]; then continue; fi
++    if [[ -n "$SHARD_N" ]] && (( i % SHARD_N != SHARD_K )); then continue; fi
+     mutate "${MUT_LABEL[$i]}" "${MUT_SRC[$i]}" "${MUT_ANCHOR[$i]}" "${MUT_REPL[$i]}" "${MUT_EXPECT[$i]}"
+ done
+ 
+@@ -2400,5 +2410,6 @@ after_red=$(red_tests)
+ echo "  suites green against the real files"
+ 
+ printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
++[[ -n "$SHARD_N" ]] && printf 'SHARD %s/%s of %s mutations in the table\n' "$SHARD_K" "$SHARD_N" "${#MUT_LABEL[@]}"
+ [[ -n "${ONLY_LABEL_PREFIX:-}" ]] && printf 'PARTIAL RUN: only labels starting %s -- this is not the gate\n' "$ONLY_LABEL_PREFIX"
+ [[ "$SURVIVORS" -eq 0 ]]
+=== commit 2e630d34218db3c4808471be26bdf4f6e81d18e6
+p4_health: the two tests of the clean check also see that the freeze is not reached
+With the freeze now right after the check, a run dir that does not exist is refused there too, so rc 2 alone no longer showed which check said no.
+
+
+diff --git a/tests/python/test_p4_health_cells.py b/tests/python/test_p4_health_cells.py
+index 64a0a6a8..ec7114ec 100644
+--- a/tests/python/test_p4_health_cells.py
++++ b/tests/python/test_p4_health_cells.py
+@@ -1523,7 +1523,10 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
+             asked.append(tuple(argv[3:]))
+             out = " M tools/p4_health/hostside.py\n" if argv[3] == "status" else "x\n"
+             return sp.CompletedProcess(argv, 0, stdout=out, stderr="")
++        # the freeze is stubbed to fail loudly: it would refuse this run dir too (round 4), and a
++        # test that only sees rc 2 could not tell which check said no
+         with mock.patch.object(probe.subprocess, "run", git), \
++                mock.patch("p4_health.frozen.freeze", side_effect=AssertionError("the freeze must not start")), \
+                 mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
+             rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
+         self.assertEqual(rc, 2)
+@@ -1550,6 +1553,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
+                    {"rc": 0, "exc": FileNotFoundError("git")}):
+             with self.subTest(kw=kw):
+                 with mock.patch.object(probe.subprocess, "run", self.git_answering(**kw)), \
++                        mock.patch("p4_health.frozen.freeze", side_effect=AssertionError("the freeze must not start")), \
+                         mock.patch("p4_health.s0.S0", side_effect=AssertionError("S0 must not start")):
+                     rc = probe.main(["lab", "--run-dir", "/nonexistent/run", "--owner", "o"])
+                 self.assertEqual(rc, 2)
+=== commit d8ce630b27a7d302e69dc6b3284a30985585c8cc
+p4_health: summary of the fourth round of fixes and where its logs are
+
+
+diff --git a/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md b/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
+index 3d37bce3..291ea2c9 100644
+--- a/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
++++ b/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
+@@ -244,3 +244,75 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A
+    - `controller.result.json` 的四台都是 primary、set_pipeline_ok。
+ 7. `00_table.tsv`：不應該有任何一格是 flipped。有的話，那一格就是這一輪要先解釋的。
+ 8. health.json 的 `gate_fingerprint` 與 `system_under_test`：這是第一次授權那一輪的紀錄，以後的常設授權要拿它來比，保存好。
++
++## 7. 第 4 輪（r3 審查的修正）
++
++- **基底**：`b1efe699`；中途合併了 `fix/p4-health-run-identity` 兩次：`79e13808`（在 `196c8340`）、`65491ceb`（在 `eac246cb`）。那個分支只動 `test_p4_health_cells.py`，兩次都合併乾淨。
++- **code 的 head**：`2e630d34`（`tools/p4_health` 的 tree＝`e42f47f9`）。之後只有這份文件的 commit，tools 與 tests 沒有再動。
++- **LOG4** 指 `LOG/r4/`；每份 log 第 1 行是 `commit <sha> tree <tree>`，最後一行是 `rc=`。
++  - 紅：F1–F3 跑在 `5391a7f4`，F4、F6、F8、F9 跑在 `66043c74`；兩者都是**先 commit 測試、再跑**，沒有未提交的測試文字。
++  - 綠：F1–F3 跑在 `0fa6902a`，F4、F6、F8、F9 跑在 `6a7954e2`；整份套件的綠與 gate 在 `2e630d34`。
++- **新 mutant 的前綴**：`C2R4-`（30 個，另有 `C2R3-N8a/b` 與 `C2-RB2` 跟著搬了位置的程式改了 anchor）。
++
++### 7.1 每一項
++
++| 項 | 改了什麼 | 紅（LOG4） | 綠（LOG4） | mutant |
++|---|---|---|---|---|
++| F1（MAJOR）收拾期間的停止訊號 | `lab_round.py`：收拾 handler 記下第一個訊號，收拾做完後 `run()` 把「aborted by signal N (during the teardown)」寫進該輪的 problems、`complete` 設 false；docstring 改成和程式一致 | `f1.RED.log`：3 個失敗，含審查預測的「2 次 claim、2 次 up」與「COMPLETE rc 0」 | `f1.GREEN.log` | `C2R4-F1a`–`F1d`（不記下訊號、留最後一個而非第一個、`run()` 不寫、`complete` 不清） |
++| F2 每一個沒有 controller 結果的 B 出口都是 failed | `round_b.py`：`finish()` 在結果是 None 時一律設 `failed`；sniffer 沒起來（沒有 stimulate、沒有 `go`）有自己的理由 | `f2.RED.log`：2 個失敗（sniffer 沒起來、結果檔讀不了）；其餘四個出口原本就對，補的是測試 | `f2.GREEN.log`（6 個出口各一個 run_lab 測試） | `C2R4-F2a`–`F2f`（六個出口各一個，各自的理由被拿掉） |
++| F3 停止訊號蓋過標題；see-red 要完整乾淨 | `cells/verdict.py` 的 `run_verdict(…, stopped, see_red)`；`lab.py` 依任何一輪的紀錄或 run 自己的停止（旗標，不是比字串）傳入 | `f3.RED.log`：5 個行為上的失敗；`f3.cells.RED.log` 是介面錯誤（`TypeError`，引數還不存在） | `f3.GREEN.log`、`f3.cells.GREEN.log` | `C2R4-F3a`–`F3f` |
++| F4 早凍結、對 HEAD 驗、B 也用副本 | 新的 `frozen.py`；`probe.py lab` 在乾淨檢查之後、S0 之前凍結；7 個檔（root 3 個、B 的 controller、adapter 與它 import 的 `common.py`、`__init__.py`）都比對 `git hash-object` 對 `git rev-parse HEAD:<路徑>`，對不上、git 答不出、兩個答案都是空的，都 rc 2；B 的 argv 用副本；health.json 多 `frozen_code` | `f4.RED.log`、`f4.collect.RED.log`：行為上的失敗（改動在檢查與凍結之間，S0 照樣起；B 的 argv 指向共用的 tree）；其中兩個測試因為 `frozen` 模組還不存在而是 import 錯誤 | `f4.GREEN.log`、`f4.collect.GREEN.log` | `C2R4-F4a`–`F4j`；`C2R3-N8a/b` 搬到新程式 |
++| F6 用真實路徑登記 controller | `round_b.py`：`os.path.realpath(self.cfg.run_dir)`；凍結的目錄也用解析後的路徑 | `f6.RED.log`（LAB_STATE.B.json 的 controllers 是空的） | `f6.GREEN.log` | `C2R4-F6`（`C2-RB2` 的 anchor 跟著改） |
++| F8 讀不了 override 的分支 | 測試：`fabric_binary` 被 mock；真的 `ID.fingerprint` 在「其他部分都讀得到」的機器上，對照組是可讀的 override（有指紋、lab 起）、OSError 組是 `incomplete`＋rc 2＋lab 不起；原本的「缺少 identity 記錄」測試不再讀真的 `bmv2_binary_override`，並斷言是 identity 檢查擋下的 | `f8.RED.log` 是 import 錯誤（測試要 patch 還不存在的 `frozen`）；這個分支的程式本來就對，**行為上的紅由 mutant 承擔** | `f8.GREEN.log` | `C2R4-F8a/b` |
++| F9 C2R3-N8b 收緊 | 測試比對的是**副本**的位元組；另一個測試讓副本和來源不同，紀錄必須是副本的 | `f9.RED.log` 是 import 錯誤；**行為上的紅由 mutant 承擔** | `f9.GREEN.log` | `C2R4-F9`（hash 來源而非副本）被 `test_the_recorded_hash_is_of_the_copy_not_of_the_source` 殺死（`mutate_p4_health.partial_F4-F9.log`） |
++
++- **紅 log 的限制**：F3 的 cells 測試、F4 的兩個、F8、F9 的紅是介面錯誤，不是行為紅；它們的行為由對應的 mutant 承擔。F1、F2、F3（collect）、F4（cells 的 5 個、collect 的 2 個）、F6 的紅是行為上的。
++- **模擬 stub 照真實工具**：
++  - F1 的假 `ndt down` 對自己（探測器）送 SIGTERM，等於 `kill -TERM <pid>` 在 `subprocess.run` 等 ndt 的時候到達；Python 的 handler 跑完，等待繼續（PEP 475）。這次用的是各輪**真實**的 handler（`install_signals=True`）。
++  - F2 的 spawn 失敗照 `Runner.spawn`：Popen 丟 OSError 就回 None（`collect/runner.py:62-65`）。
++  - F4 的 git 是真的 git（暫存的 repo）。
++
++### 7.2 沒有改、或只回報的
++
++- **審查項目 11（SIGTERM 落在 `ndt claim` 期間）：只查、沒修。**
++  - **claim 檔長什麼樣（實測，OBSERVED）**：暫存複本的 `tools/test_workflow`、真的 `ndt claim`，300 次隨機 0–90 ms 後 SIGKILL（`subprocess.run` 在例外時做的就是 `process.kill()`）：
++    - 187 次：ndt 還沒寫任何東西（沒有 claim 檔，沒有 baseline）；
++    - 39 次：claim 檔完整（5 行），`round.baseline` 也有；
++    - 18 次：claim 檔完整，**沒有 `round.baseline`**；
++    - 56 次：殺的時候已經結束；
++    - **空的或只寫一半的 claim 檔：0 次。**寫入是 `claim_write … > "$CLAIM"`（`ndt:824-826`）一次小的 printf，空檔的窗口只有截斷到寫入之間的幾個微秒，這 300 次沒碰到；我沒有證明它不可能。
++    - 每次殺完緊接著再 `ndt claim` 都成功（300/300），鎖不會卡住。
++  - **recover.sh 對 phase `claiming`（實測）**：四種狀態（完整＋baseline、完整無 baseline、沒有 claim 檔、**空檔——人工造的，沒有真的觀測到**）都是 rc 2，印「has claim_expires '', not a time -- the probe did not record its claim. Nothing done.」，不呼叫任何 stub。
++    - claim 檔完整、note 指名這一輪的 state 檔時，多印「The claim … is this run's」「Nothing was brought up under it」和 `NDT_OWNER=<owner> <ndt> release`；沒有 claim 或空檔時只有那一行 STOP，沒有 release 指令。
++    - 真的 `ndt release`：完整無 baseline 的 claim 可以放掉（rc 0，留 `.prev`）；空的 claim 檔也可以（rc 0）；空檔之後再 `ndt claim` 也成功。
++  - **探測器這一側（OBSERVED，假 runner、真 handler）**：claim 寫好之後 SIGTERM 到達：`ndt claim` 在 `LabRound.run` 的 try 之外（`lab_round.py` 的 claim 在 try 之前），所以沒有收拾；`run_lab` 的 `except SignalAbort` 記下「stop signal 15 outside a bring-up's body」，INCOMPLETE rc 2，`bringups` 是空的（這一輪沒有紀錄），LAB_STATE 停在 `claiming`、`claim_expires` 是 null。
++  - **結論**：這個窗口不會讓 B 起來，也不會留下 recover.sh 看不懂的狀態；人要照 recover.sh 印的指令（或 `ndt release`）放掉 claim。這不是新的缺口，我沒有改程式。
++- **F5**：不在這一輪的範圍；`test_p4_health_cells.py` 的「引用的記錄」檢查已經由 `fix/p4-health-run-identity` 的 `9cf3e0b7`、`79e13808` 改成只看文字與單一 trunk ref，合併進來了。
++- **F10**、**`show_ports_trial` 沒有單元測試**：沒有動。
++- **S0 的 adapter dry-run** 仍然執行共用 tree 的 adapter（它只印改寫，不是一輪；它在凍結之後跑，所以和 B 實際執行的副本是同一個 HEAD 的內容，但不是同一份檔）。
++- **see-red 那一輪如果沒有任何格 PROBE-BROKEN**（mutant 沒被抓到）仍然讀 COMPLETE、rc 0；這不在這一輪的要求內，沒有改。
++
++### 7.3 gate
++
++- **在 `2e630d34`（LOG4）**：
++  - 三版直譯器（3.13.13、3.12.3、3.8.20）：`test_p4_health_collect` 147 個 OK、`test_p4_health_cells` 130 個 OK（`test_collect.py*.log`、`test_cells.py*.log`）；`test_p4_health_recover.sh` 163 checks、0 failed（`test_recover.log`）。
++  - 封死的 collect：147 個測試都檢查過 seal，tripwire、網路、spawn、真實檔案變動都是 0（`seal_report.green.py3.13.13.json`、`test_collect.hermetic.py3.13.13.log`）。
++  - `check_gate_anchors.py HEAD`：133/133 cells ok，`mutate_p4_health.sh` 是 ok(306)（`check_gate_anchors.HEAD.log`）；`check_test_tmpdirs.py`：414 個檔，0 個固定暫存路徑。
++  - **mutation gate：328 個突變（r3 的 298＋這一輪的 30），0 存活；4 份負對照都是綠；原檔 byte-identical；之後套件對真檔仍綠**（`mutate_p4_health.shard{0,1,2,3}of4.log`，各 82 個，最後一行 `rc=0`）。
++- **gate 怎麼跑的（照實寫）**：
++  - 單一程序的 gate 在這台機器上約每個突變 1 分鐘（recover 測試最久），328 個要 5 小時以上，超過任務指定的 `timeout 10800`。
++  - 我停掉了前兩次（`mutate_p4_health.stopped_by_me_at_59_slow_machine.log`、`…_at_18_to_shard.log`，**不是結果**），給 `tests/shell/mutate_p4_health.sh` 加了 `MUT_SHARD=k/n`（位置對 n 取餘數），同一個 head 上並行跑 4 份，各自有基線與負對照，合起來剛好蓋過整張表一次；timeout 改成 21600。
++  - 第一輪 4 份（`mutate_p4_health.run1_56b27f60.shard*of4.log`，在 `56b27f60`）有 2 個存活：`R2-m4a`、`C2R3-N3a`。原因：早凍結放在乾淨檢查之後，這兩個測試用不存在的 run 目錄，突變讓檢查放行後，凍結照樣 rc 2，測試只看 rc 2，分不出是哪個檢查擋的。已修（`2e630d34`：測試把凍結換成一碰就失敗的 stub），單獨重跑兩個突變都被抓到，然後整張表在 `2e630d34` 重跑一遍，就是上面的結果。
++  - 起 gate 之前，兩次都查了 `fix/p4-health-run-identity` 的 head：第一次是 `79e13808`（不是 `9cf3e0b7`），合併後才跑；第二次是 `65491ceb`，也合併了（`eac246cb`），再跑。最後一次起跑前那個分支的 head 仍是 `65491ceb`。
++
++### 7.4 r2、r3 審查指為矛盾的句子，已改
++
++- §1.1 的「收到訊號仍然結束這一輪」：改成上面那一段完整的訊號說明（第 3、4 輪）。
++- §2 的「每一項都有紅 log 與 mutant」：改成除了 m6、m3、m5 之外（N6）。
++- §2 的「都在 fa7fcb83」：改成逐列註明 commit（N6）。
++- §6 的 delta 數字：27，不是 26（N6）。
++- §6 的前置命令：用 `ndt status`，不是 `--measuring`（N6）。
++- §6 的步驟 4：看 `A/TP1.json` 的 `diagnostics`，不是 `ip -o link show`（N4、N6）。
++- §6 的「在主 checkout 跑」：改成專用的乾淨 worktree（N8、F4(c)）。
++- §6 的「COMPLETE rc 0」：加上 problems 空、B 有做完（N2、F2）。
++- §6 的 see-red 判讀和步驟 2：延伸到 see-red 那一輪（N5、F3）。
+=== commit ed6dce9b61e0ce8269eb1b392ac5cfdc81d665e6
+p4_health: summary cites the archived claim-kill run
+
+
+diff --git a/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md b/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
+index 291ea2c9..df74cd1d 100644
+--- a/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
++++ b/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
+@@ -275,14 +275,13 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A
+ ### 7.2 沒有改、或只回報的
+ 
+ - **審查項目 11（SIGTERM 落在 `ndt claim` 期間）：只查、沒修。**
+-  - **claim 檔長什麼樣（實測，OBSERVED）**：暫存複本的 `tools/test_workflow`、真的 `ndt claim`，300 次隨機 0–90 ms 後 SIGKILL（`subprocess.run` 在例外時做的就是 `process.kill()`）：
+-    - 187 次：ndt 還沒寫任何東西（沒有 claim 檔，沒有 baseline）；
+-    - 39 次：claim 檔完整（5 行），`round.baseline` 也有；
+-    - 18 次：claim 檔完整，**沒有 `round.baseline`**；
+-    - 56 次：殺的時候已經結束；
+-    - **空的或只寫一半的 claim 檔：0 次。**寫入是 `claim_write … > "$CLAIM"`（`ndt:824-826`）一次小的 printf，空檔的窗口只有截斷到寫入之間的幾個微秒，這 300 次沒碰到；我沒有證明它不可能。
++  - **claim 檔長什麼樣（實測，OBSERVED；`LOG/r4/item11/claim_kill_300.log`）**：暫存複本的 `tools/test_workflow`、真的 `ndt claim`，300 次隨機 0–90 ms 後 SIGKILL（`subprocess.run` 在例外時做的就是 `process.kill()`）：
++    - 241 次：ndt 還沒寫任何東西（沒有 claim 檔，沒有 baseline）；
++    - 35 次：claim 檔完整（5 行），`round.baseline` 也有；
++    - 24 次：claim 檔完整，**沒有 `round.baseline`**；
++    - **空的或只寫一半的 claim 檔：0 次。**之前另跑過一次 300 次（187／39／18，另有 56 次殺的時候已經結束），同樣是 0 次，沒有存檔。寫入是 `claim_write … > "$CLAIM"`（`ndt:824-826`）一次小的 printf，空檔的窗口只有截斷到寫入之間的幾個微秒，沒碰到；我沒有證明它不可能。
+     - 每次殺完緊接著再 `ndt claim` 都成功（300/300），鎖不會卡住。
+-  - **recover.sh 對 phase `claiming`（實測）**：四種狀態（完整＋baseline、完整無 baseline、沒有 claim 檔、**空檔——人工造的，沒有真的觀測到**）都是 rc 2，印「has claim_expires '', not a time -- the probe did not record its claim. Nothing done.」，不呼叫任何 stub。
++  - **recover.sh 對 phase `claiming`（實測；`recover_claiming.log`、`release_states.log`）**：四種狀態（完整＋baseline、完整無 baseline、沒有 claim 檔、**空檔——人工造的，沒有真的觀測到**）都是 rc 2，印「has claim_expires '', not a time -- the probe did not record its claim. Nothing done.」，不呼叫任何 stub。
+     - claim 檔完整、note 指名這一輪的 state 檔時，多印「The claim … is this run's」「Nothing was brought up under it」和 `NDT_OWNER=<owner> <ndt> release`；沒有 claim 或空檔時只有那一行 STOP，沒有 release 指令。
+     - 真的 `ndt release`：完整無 baseline 的 claim 可以放掉（rc 0，留 `.prev`）；空的 claim 檔也可以（rc 0）；空檔之後再 `ndt claim` 也成功。
+   - **探測器這一側（OBSERVED，假 runner、真 handler）**：claim 寫好之後 SIGTERM 到達：`ndt claim` 在 `LabRound.run` 的 try 之外（`lab_round.py` 的 claim 在 try 之前），所以沒有收拾；`run_lab` 的 `except SignalAbort` 記下「stop signal 15 outside a bring-up's body」，INCOMPLETE rc 2，`bringups` 是空的（這一輪沒有紀錄），LAB_STATE 停在 `claiming`、`claim_expires` 是 null。

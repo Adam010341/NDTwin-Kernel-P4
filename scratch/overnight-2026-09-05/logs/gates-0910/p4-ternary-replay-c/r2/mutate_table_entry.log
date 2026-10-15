@@ -1,0 +1,110 @@
+commit f3db4dd1b74a4c5aa0f16f1c50a7254eca5b7986
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate  tracked-dirty=0  df_free_mb=6412  LANG=en_US.UTF-8 LC_ALL=  command: bash tests/shell/mutate_table_entry.sh
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+command's own program /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+interpreter: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 529 tests in 3.160s
+OK
+
+  caught   M-B1: a priority no table column can honour is accepted instead of refused (test_a_priority_on_a_table_with_no_priority_column_is_refused went red)
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_priority_on_a_table_with_no_priority_column_is_refused
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_a_non_zero_priority_is_refused_on_an_exact_or_lpm_table_for_every_verb
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_a_priority_this_table_cannot_honour_reaches_no_switch
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_priority_this_table_cannot_honour_is_400
+  caught   M-B2: an unknown table name resolves to some other table and the Write goes out (test_an_unknown_table_reaches_no_switch went red)
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_all_six_of_basic_tunnels_entries_go_on
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_a_one_element_list_holding_an_address_is_unwrapped_too
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_a_one_element_tuple_is_unwrapped_too
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_a_plain_value_is_unchanged
+             also red: tests.test_exact_one_element_list.TheProxyAcceptsWhatTheExerciseWritesTest.test_the_unwrapped_value_is_the_number_and_not_the_list
+             also red: tests.test_exact_one_element_list.TheProxyAndPreFlightAgreeTest.test_both_accept_every_entry_the_exercise_ships
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_an_empty_list_is_refused
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_a_nested_one_element_list_is_refused
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_a_three_element_list_is_refused
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_a_two_element_pair_on_an_exact_field_is_still_refused
+             also red: tests.test_exact_one_element_list.TheRefusalsThatStayTest.test_the_message_still_names_the_shape_it_wanted
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_a_table_basic_does_not_have_is_a_keyerror_even_though_ndtwin_has_it
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_firewalls_two_field_exact_table_builds
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_the_names_basic_p4_shares_with_ndtwin_switch
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_every_declared_entry_goes_onto_its_switch
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_firewalls_own_table_is_written_only_to_the_switch_that_runs_firewall
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_match_type_no_writer_can_build_is_unsupported_and_says_which_it_is
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_exact_entry_carries_a_plain_value
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_exact_field_given_a_pair_is_refused
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_optional_field_is_built_from_a_plain_value_or_a_one_element_list
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_unsupported_match_type_reaches_no_switch
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_range_field_is_built_with_its_low_and_high
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_table_this_pipeline_does_not_have_is_a_keyerror_naming_it
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_ternary_field_is_built_with_its_value_and_mask
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_ternary_mask_is_kept_as_written_and_not_widened_to_the_whole_field
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_a_default_entry_with_a_priority_is_refused
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_a_negative_priority_is_refused
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_an_empty_match_at_priority_zero_is_refused_the_same_way
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_an_empty_match_with_no_priority_is_refused_on_a_table_that_has_a_priority_column
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_a_non_zero_priority_is_refused_on_an_exact_or_lpm_table_for_every_verb
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_a_table_has_a_priority_column_iff_it_has_a_ternary_range_or_optional_field
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_a_ternary_delete_carries_the_priority_it_was_given
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_every_field_omitted_with_a_priority_passes_the_shape_rules_on_any_table
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_modify_and_delete_need_the_priority_as_well
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_the_largest_int32_priority_is_accepted_and_one_past_it_is_not
+             also red: tests.test_p4_client_writes.TheReadSideKnowsEveryMatchTypeTest.test_a_written_entry_is_findable_by_its_read_back_key_for_every_match_type
+             also red: tests.test_p4_client_writes.TheSection15CatchAllIsRefusedTest.test_an_empty_match_on_flow_5tuple_is_refused_as_ndtwins_table
+             also red: tests.test_p4_client_writes.TheSection15CatchAllIsRefusedTest.test_on_ndtwins_pipeline_the_owner_answers_before_the_shape_rules
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_mask_with_a_bit_above_the_field_width_is_refused
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_an_exact_field_left_out_is_refused
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_an_optional_field_given_two_elements_is_refused
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_an_optional_value_is_accepted_bare_or_as_a_one_element_list
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_an_optional_value_that_does_not_fit_is_refused
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_range_bound_that_does_not_fit_is_refused
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_range_field_wants_exactly_low_and_high
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_range_one_short_of_the_whole_is_accepted
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_range_with_low_above_high_is_refused
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_single_point_range_and_an_ordinary_range_are_accepted
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_ternary_field_wants_exactly_value_and_mask
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_ternary_mask_of_zero_is_refused_saying_to_omit_the_field
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_ternary_value_or_mask_that_does_not_fit_is_refused
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_ternary_value_with_a_bit_outside_its_mask_is_refused
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_value_inside_its_mask_is_accepted_and_not_rewritten
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_zero_mask_with_a_non_zero_value_is_refused_the_same_way
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_the_message_names_the_table_and_the_field
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_the_same_holds_for_a_small_field_given_as_integers
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_the_ternary_field_beside_an_exact_one_may_be_left_out_but_not_the_exact
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_the_whole_range_is_refused_saying_to_omit_the_field
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_an_unknown_table_reaches_no_switch
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_a_ternary_entry_goes_on_the_wire_with_its_mask_and_its_priority
+             also red: tests.test_table_entry_route.AnAcceptedEntryTest.test_an_optional_entry_is_accepted
+             also red: tests.test_table_entry_route.AnAcceptedEntryTest.test_a_range_entry_is_accepted
+             also red: tests.test_table_entry_route.AnAcceptedEntryTest.test_a_ternary_entry_is_accepted_and_the_response_says_which_priority_went_out
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_match_type_no_writer_can_build_is_501_and_names_it
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_an_empty_match_on_a_priority_table_without_a_priority_is_400
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_priority_above_int32_is_400_and_nothing_was_written
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_refusal_is_not_counted_as_an_api_write
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_table_this_pipeline_does_not_have_is_404
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_ternary_value_outside_its_mask_is_400_and_nothing_was_written
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_zero_mask_is_400_saying_to_omit_the_field
+  caught   M-B3: every lpm entry is a /32, so a subnet route blackholes all but one address (test_the_prefix_length_is_not_pinned_to_the_field_width went red)
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_an_lpm_entry_carries_the_value_and_the_prefix_length_it_was_given
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_the_prefix_length_is_not_pinned_to_the_field_width
+  caught   M-B4: a default action is written as an ordinary entry with no key       (test_a_default_action_is_marked_as_one_and_carries_no_match went red)
+             also red: tests.test_foreign_pipeline.ARealPackageWithRealPipelinesTest.test_the_default_action_row_every_runtime_file_carries_is_a_modify
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_default_action_is_marked_as_one_and_carries_no_match
+             also red: tests.test_p4_client_writes.ThePriorityRulesTest.test_a_default_entry_with_priority_zero_or_none_is_accepted
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_a_default_action_insert_is_sent_as_a_modify_and_says_so
+  caught   M-B5: a value wider than its field is truncated rather than refused      (test_a_value_wider_than_its_field_is_refused_rather_than_truncated went red)
+             also red: tests.test_p4_client_writes.EncodeValueTest.test_a_value_wider_than_its_field_is_refused_rather_than_truncated
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_an_optional_value_that_does_not_fit_is_refused
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_range_bound_that_does_not_fit_is_refused
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_ternary_value_or_mask_that_does_not_fit_is_refused
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_an_over_wide_value_reaches_no_switch
+             also red: tests.test_table_entry_route.EveryRefusalIsItsOwnStatusCodeTest.test_a_value_wider_than_its_field_is_400
+  caught   M-B6: a ternary match is built as an exact one, so a masked rule matches one address (test_a_ternary_field_is_built_with_its_value_and_mask went red)
+             also red: tests.test_foreign_pipeline.AgainstARealTutorialsPipelineTest.test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_builds_it
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_ternary_field_is_built_with_its_value_and_mask
+             also red: tests.test_p4_client_writes.BuildTableEntryTest.test_a_ternary_mask_is_kept_as_written_and_not_widened_to_the_whole_field
+             also red: tests.test_p4_client_writes.TheShapeRulesTest.test_a_value_inside_its_mask_is_accepted_and_not_rewritten
+             also red: tests.test_p4_client_writes.WriteTableEntryTest.test_a_ternary_entry_goes_on_the_wire_with_its_mask_and_its_priority
+             also red: tests.test_table_entry_route.AnAcceptedEntryTest.test_a_ternary_entry_is_accepted_and_the_response_says_which_priority_went_out

@@ -1,0 +1,95 @@
+commit 5fd954f61e525ad6db91f6f0e4ecaf2baad6c04e
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red  tracked-dirty=0  df_free_mb=5268  mem_avail_mb=3565  LANG=en_US.UTF-8 LC_ALL=  command: bash tests/shell/test_p4_health_gate_scripts.sh
+note: gate_scripts test of HEAD run against a741e763's mutate_p4_health.sh (P4_HEALTH_GATE_UNDER_TEST=oldgate)
+interpreter bash -> /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+--- the gate script refuses what cannot be the gate, before its baseline
+  FAIL  MUT_SHARD with k equal to n is refused
+  FAIL  MUT_SHARD with k above n is refused
+  FAIL  MUT_SHARD with n larger than the table is refused (a shard that would run nothing)
+  FAIL  the table's size is read from the gate's own one-shard banner
+  FAIL  MUT_SHARD with n just above the table size is refused too
+  FAIL  a malformed MUT_SHARD is refused (not k/n)
+  FAIL  MUT_SHARD with n of zero is refused
+  FAIL  MUT_SHARD with a leading zero is refused
+  FAIL  MUT_SHARD with a negative k is refused
+  FAIL  an ONLY_LABEL_PREFIX that matches nothing is refused (no mutation is selected)
+  FAIL  a shard and a prefix that together select nothing are refused
+--- the control: a shard that fits goes on to its baseline
+  FAIL  MUT_SHARD=0/4 is not refused by the validation
+  FAIL  MUT_SHARD=3/4 is not refused by the validation
+  FAIL  a prefix that selects mutations is not refused
+  FAIL  MUT_SHARD with n equal to the table size is not refused by the validation
+  FAIL  no shard and no prefix (the whole gate) is not refused
+--- every shard says it is not the gate by itself
+  FAIL  a shard log opens with NOT THE GATE BY ITSELF: shard k/n
+  ok    the whole gate does not
+--- the gate script marks an uncommitted change to anything it runs or tests
+  ok    a clean checkout's tree line carries no UNCOMMITTED mark
+  ok    an uncommitted edit to tools/p4_health/a.py is marked
+  ok    an uncommitted edit to tests/python/test_p4_health_cells.py is marked
+  ok    an uncommitted edit to tests/python/test_p4_health_collect.py is marked
+  ok    an uncommitted edit to tests/shell/test_p4_health_recover.sh is marked
+  ok    an uncommitted edit to the gate's own script tests/shell/mutate_p4_health.sh is marked
+  ok    an uncommitted edit to the gate's own script tests/shell/sum_p4_health_gate_shards.sh is marked
+  ok    an uncommitted edit to the gate's own script tests/shell/test_p4_health_gate_scripts.sh is marked
+  ok    an uncommitted edit to tools/p4_exercise/common.py is marked
+  ok    an uncommitted edit to p4_proxy/mininet/grpc_ports.py is marked
+  ok    an uncommitted edit to p4_proxy/proxy_agent/match_shape.py is marked
+  ok    a new file in tools/p4_exercise is marked
+  ok    a file outside what the gate runs or tests is not marked
+  ok    the subject sha is the same under a sort that collates as C and one that does not
+  ok    (control) the shim does order two files differently when LC_ALL is not C
+  ok    every sort in a pipe of the gate script is told LC_ALL=C
+interpreter: /home/adam/miniconda3/bin/python3.13 (3.13.13) | interpreter: /home/adam/miniconda3/bin/python3.13 (3.13.13)
+  FAIL  the interpreter line tells two venvs on one base interpreter apart (it names sys.prefix)
+--- the hash of the gate's own scripts depends on their contents only
+  ok    the same scripts in another directory give the same hash
+  ok    an edit to mutate_p4_health.sh changes the hash
+  ok    an edit to sum_p4_health_gate_shards.sh changes the hash
+  ok    an edit to test_p4_health_gate_scripts.sh changes the hash
+--- the shard-sum script
+  ok    four good shards of ten: the one GATE line, rc 0
+  ok    a single shard of the whole table (1/1) is the gate
+  ok    the order of the logs on the command line does not matter
+--- ... and it refuses each of these, with a reason
+  ok    a shard of another commit (first line and HEAD line)
+  ok    a shard whose first line is not the commit HEAD says
+  ok    a shard of another tools/p4_health tree
+  ok    a shard of another subject sha
+  ok    a shard run by another python version
+  ok    a shard run by the same version of another python (another path, say another machine)
+  ok    a shard run by another venv on the same base interpreter (another sys.prefix)
+  ok    a shard whose log has no interpreter line
+  ok    a shard of a tree with uncommitted changes
+  ok    a shard whose baseline is not green
+  ok    a shard whose negative control is not green
+  ok    a shard that does not say the original is byte-identical
+  ok    a shard whose after-check is not green
+  ok    a shard that survived a mutation, even with rc 0 written
+  ok    a shard that ended rc=1
+  ok    a shard that ended rc=2
+  ok    a shard whose log does not end in an rc line
+  ok    a partial run
+  ok    a shard without the not-the-gate banner (not a log of this script)
+  ok    a shard that ran more mutations than its share (the counts no longer add up)
+  ok    shards that disagree on the size of the table
+  ok    three shards of four
+  ok    the same shard twice in place of another
+  ok    shards of different n
+  ok    n larger than the table (two shards would have run nothing)
+  ok    a log of a refused run
+  ok    no logs at all is refused, with a reason
+  ok    a log that does not exist is refused, with a reason
+--- the logs must be of the checkout's HEAD and tools/p4_health tree, or of --commit
+  ok    logs that agree with each other, of a commit that is not the checkout's HEAD
+  ok    logs of the checkout's HEAD that name another tools/p4_health tree
+  ok    logs of an earlier commit than HEAD, with no --commit, are refused
+  ok    --commit naming the logs' commit is accepted, and the GATE line names that commit
+  ok    --commit naming another commit than the logs' is refused
+  ok    --commit naming no commit of the checkout is refused
+  ok    --commit with nothing after it is refused
+  ok    an unknown option is refused
+  ok    a checkout git cannot read refuses the logs
+
+Ran 79 checks, 18 failed
+rc=1

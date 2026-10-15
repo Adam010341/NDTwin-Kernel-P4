@@ -1,0 +1,2 @@
+{"boot_id":"3243d97878a24f6f8a8297092f4b1de1","dpid":2,"entries_sha256":"24f8521eb38173df","fabric_cookie":"86d876c4275d9892","header":true,"p4info_sha256":"5ce0a5595d5a65f1","v":1}
+{"key":"6b8d5e9ebf74f71dc0a565b83f2f9b24","op":"modify","outcome":"ok","spec":{"action_name":"HcIngress.set_mark","action_params":{"v":6},"match":{"hdr.ipv4.srcAddr":["10.0.77.1","255.255.255.255"]},"priority":10,"table":"HcIngress.t_ternary"},"t":1792063199.9890277,"v":1}

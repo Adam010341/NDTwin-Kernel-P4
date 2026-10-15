@@ -1,0 +1,9 @@
+commit 8918d051eed25427a49e2544ba84b52b7c6e6571
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/gate  tracked-dirty=0  df_free_mb=6047  mem_avail_mb=4439  LANG=en_US.UTF-8 LC_ALL=  command: p4_proxy/venv/bin/python tests/python/test_p4_health_collect.py
+interpreter p4_proxy/venv/bin/python -> /home/adam/miniconda3/bin/python3.13: Python 3.13.13, prefix /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/gate/p4_proxy/venv
+................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 192 tests in 3.554s
+
+OK
+rc=0

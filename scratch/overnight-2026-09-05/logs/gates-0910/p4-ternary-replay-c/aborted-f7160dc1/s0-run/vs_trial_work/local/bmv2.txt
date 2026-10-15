@@ -1,0 +1,72 @@
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main483': hc_main483 - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main489': hc_main489 - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.port_exact': NoAction - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.t_default_only': HcIngress.stamp - 0,
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main502': hc_main502 - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main504': hc_main504 - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main507': hc_main507 - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.tunnel_exact': HcIngress.drop - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.v6_host': HcIngress.drop - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.ipv4_lpm': HcIngress.drop - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.t_ternary': NoAction - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.t_range': NoAction - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.t_optional': NoAction - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.t_dcount': NoAction - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.t_dmeter': NoAction - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.t_idle': NoAction - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main529': hc_main529 - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main533': hc_main533 - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main537': hc_main537 - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main540': hc_main540 - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main543': hc_main543 - 
+[06:56:20.599] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main546': hc_main546 - 
+[06:56:20.600] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main549': hc_main549 - 
+[06:56:20.600] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main553': hc_main553 - 
+[06:56:20.600] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main557': hc_main557 - 
+[06:56:20.600] [bmv2] [D] [thread 639608] Set default default entry for table 'HcIngress.t_multipath': NoAction - 
+[06:56:20.600] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main563': hc_main563 - 
+[06:56:20.600] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main566': hc_main566 - 
+[06:56:20.600] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main597': hc_main597 - 
+[06:56:20.600] [bmv2] [D] [thread 639608] Set default default entry for table 'HcEgress.q_stamp': HcEgress.do_qstamp - 
+[06:56:20.600] [bmv2] [D] [thread 639608] Set default default entry for table 'tbl_hc_main606': hc_main606 - 
+[06:56:20.606] [bmv2] [D] [thread 639608] Adding interface p1 as port 1
+[06:56:20.606] [bmv2] [D] [thread 639608] Adding interface p2 as port 2
+[06:56:20.606] [bmv2] [W] [thread 639608] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[06:56:20.607] [bmv2] [I] [thread 639608] Starting Thrift server on port 29500
+[06:56:20.608] [bmv2] [I] [thread 639608] Thrift server was started
+[06:56:20.608] [bmv2] [D] [thread 639631] Pcap reader: starting PcapFilesReader 2
+[06:56:20.608] [bmv2] [D] [thread 639631] Pcap reader: waiting for 2 seconds
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main483': hc_main483 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main489': hc_main489 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.port_exact': NoAction - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.t_default_only': HcIngress.stamp - 0,
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main502': hc_main502 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main504': hc_main504 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main507': hc_main507 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.tunnel_exact': HcIngress.drop - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.v6_host': HcIngress.drop - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.ipv4_lpm': HcIngress.drop - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.t_ternary': NoAction - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.t_range': NoAction - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.t_optional': NoAction - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.t_dcount': NoAction - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.t_dmeter': NoAction - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.t_idle': NoAction - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main529': hc_main529 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main533': hc_main533 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main537': hc_main537 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main540': hc_main540 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main543': hc_main543 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main546': hc_main546 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main549': hc_main549 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main553': hc_main553 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main557': hc_main557 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcIngress.t_multipath': NoAction - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main563': hc_main563 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main566': hc_main566 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main597': hc_main597 - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'HcEgress.q_stamp': HcEgress.do_qstamp - 
+[06:56:20.857] [bmv2] [D] [thread 639660] Set default default entry for table 'tbl_hc_main606': hc_main606 - 
+[06:56:20.859] [bmv2] [D] [thread 639660] simple_switch target has been notified of a config swap
+[06:56:20.860] [bmv2] [E] [thread 639660] [P4Runtime] ValueSet writes are not supported yet
+[06:56:22.038] [bmv2] [E] [thread 639661] [P4Runtime] ValueSet reads are not supported yet

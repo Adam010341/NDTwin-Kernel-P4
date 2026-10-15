@@ -1,0 +1,36 @@
+## m-B evidence, run 2026-10-11T22:22:36+08:00 by the dispatching session
+
+$ git diff --stat a6ad886c a4e67f6e
+ .../2026-10-04_p4-ternary-journal/SUMMARY-cut-a.md | 49 ++++++++++++++++++++--
+ 1 file changed, 46 insertions(+), 3 deletions(-)
+
+$ git diff --name-only e1e5747e^2 e1e5747e
+doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
+doc/audit/2026-10-03_p4-health-check/expected_today.tsv
+doc/audit/2026-10-04_p4-ternary-journal/SUMMARY-cut-a.md
+tests/python/fixtures/p4_health/preflight_pft.txt
+tests/python/fixtures/p4_health/preflight_pft_g5.txt
+tests/python/fixtures/p4_health/preflight_pft_refused.txt
+tests/python/test_grpc_port_block.py
+tests/python/test_p4_health_cells.py
+tests/python/test_p4_health_collect.py
+tests/shell/mutate_p4_health.sh
+tests/shell/sum_p4_health_gate_shards.sh
+tests/shell/test_p4_health_gate_scripts.sh
+tools/p4_health/cells/table.py
+tools/p4_health/ctrl_trial.py
+tools/p4_health/exercise/gen_runtime.py
+tools/p4_health/frozen.py
+tools/p4_health/lab.py
+tools/p4_health/lab_round.py
+tools/p4_health/observe_a.py
+tools/p4_health/probe.py
+tools/p4_health/report.py
+tools/p4_health/s0.py
+tools/p4_health/throwaway.py
+
+$ git diff --stat a4e67f6e f9f28623 -- p4_proxy tools/p4_exercise tests/shell/mutate_table_entry.sh tests/shell/mutate_table_entry_owner.sh tests/shell/mutate_p4_rule_install_time.sh tests/shell/mutate_roles_binding.sh tests/shell/mutate_p4_exercise_tools.sh
+(end; empty above = identical)
+
+$ git rev-parse e1e5747e^2
+a4e67f6ed0629fc5e20bc56bb5d77ea79dba2e37

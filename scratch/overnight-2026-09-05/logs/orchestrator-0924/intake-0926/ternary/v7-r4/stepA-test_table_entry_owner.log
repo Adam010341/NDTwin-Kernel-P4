@@ -1,0 +1,74 @@
+commit f703d0ff19a563a9031e8870a79cd66a82d39961
+test_a_baseline_default_is_refused_inside_the_boot_block_too (__main__.ABaselineSwitchOwnsEveryTableTest.test_a_baseline_default_is_refused_inside_the_boot_block_too) ... ok
+test_a_baseline_default_is_refused_when_the_caller_says_boot (__main__.ABaselineSwitchOwnsEveryTableTest.test_a_baseline_default_is_refused_when_the_caller_says_boot) ... ok
+test_a_baseline_match_entry_is_refused_at_boot_too (__main__.ABaselineSwitchOwnsEveryTableTest.test_a_baseline_match_entry_is_refused_at_boot_too) ... ok
+test_a_default_action_change_on_a_baseline_table_is_refused (__main__.ABaselineSwitchOwnsEveryTableTest.test_a_default_action_change_on_a_baseline_table_is_refused) ... ok
+test_a_write_into_ipv4_lpm_naming_its_field_is_refused (__main__.ABaselineSwitchOwnsEveryTableTest.test_a_write_into_ipv4_lpm_naming_its_field_is_refused) ... ok
+test_an_empty_match_into_flow_5tuple_is_refused_and_nothing_is_written (__main__.ABaselineSwitchOwnsEveryTableTest.test_an_empty_match_into_flow_5tuple_is_refused_and_nothing_is_written) ... ok
+test_every_op_is_refused_not_only_insert (__main__.ABaselineSwitchOwnsEveryTableTest.test_every_op_is_refused_not_only_insert) ... ok
+test_every_table_in_the_pipeline_is_refused (__main__.ABaselineSwitchOwnsEveryTableTest.test_every_table_in_the_pipeline_is_refused) ... ok
+test_the_alias_is_refused_like_the_full_name (__main__.ABaselineSwitchOwnsEveryTableTest.test_the_alias_is_refused_like_the_full_name) ... ok
+test_the_real_compiled_pipelines_every_table_is_refused (__main__.ABaselineSwitchOwnsEveryTableTest.test_the_real_compiled_pipelines_every_table_is_refused) ... skipped '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt is not built'
+test_the_refusal_names_the_table_and_the_reason (__main__.ABaselineSwitchOwnsEveryTableTest.test_the_refusal_names_the_table_and_the_reason) ... ok
+test_a_boot_default_that_also_names_a_match_is_refused (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_a_boot_default_that_also_names_a_match_is_refused) ... ok
+test_a_boot_delete_of_the_default_is_refused (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_a_boot_delete_of_the_default_is_refused) ... ok
+test_a_boot_entry_with_no_match_that_is_not_a_default_is_refused (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_a_boot_entry_with_no_match_that_is_not_a_default_is_refused) ... ok
+test_a_boot_match_entry_into_the_owned_route_table_is_refused (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_a_boot_match_entry_into_the_owned_route_table_is_refused) ... ok
+test_a_replayed_default_is_refused_like_an_api_one (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_a_replayed_default_is_refused_like_an_api_one) ... ok
+test_a_user_table_default_action_through_the_api_is_still_accepted (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_a_user_table_default_action_through_the_api_is_still_accepted) ... ok
+test_a_user_table_that_borrows_a_baseline_name_is_still_accepted (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_a_user_table_that_borrows_a_baseline_name_is_still_accepted) ... ok
+test_a_write_into_the_packages_own_user_table_is_still_accepted (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_a_write_into_the_packages_own_user_table_is_still_accepted) ... ok
+test_an_api_default_action_change_on_the_owned_route_table_is_refused (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_an_api_default_action_change_on_the_owned_route_table_is_refused) ... ok
+test_an_api_match_entry_into_the_owned_route_table_is_refused (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_an_api_match_entry_into_the_owned_route_table_is_refused) ... ok
+test_an_explicit_api_source_is_refused (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_an_explicit_api_source_is_refused) ... ok
+test_an_explicit_boot_source_installs_the_default (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_an_explicit_boot_source_installs_the_default) ... ok
+test_an_unknown_source_is_a_valueerror_and_writes_nothing (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_an_unknown_source_is_a_valueerror_and_writes_nothing) ... ok
+test_every_op_on_the_owned_route_table_is_refused (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_every_op_on_the_owned_route_table_is_refused) ... ok
+test_the_alias_of_the_owned_route_table_is_refused (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_the_alias_of_the_owned_route_table_is_refused) ... ok
+test_the_boot_default_of_the_owned_route_table_still_installs (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_the_boot_default_of_the_owned_route_table_still_installs) ... ok
+test_the_boot_exception_does_not_outlive_the_boot_block (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_the_boot_exception_does_not_outlive_the_boot_block) ... ok
+test_the_boot_exception_does_not_survive_a_refused_boot_entry (__main__.APackageSwitchOwnsOnlyItsBoundRouteTableTest.test_the_boot_exception_does_not_survive_a_refused_boot_entry) ... ok
+test_a_foreign_switch_with_no_roles_owns_nothing (__main__.ATableTheAuthorOwnsIsTheAuthorsTest.test_a_foreign_switch_with_no_roles_owns_nothing) ... ok
+test_a_route_table_with_owner_package_takes_every_write_including_at_api (__main__.ATableTheAuthorOwnsIsTheAuthorsTest.test_a_route_table_with_owner_package_takes_every_write_including_at_api) ... ok
+test_an_api_write_is_refused_while_a_boot_write_is_blocked_on_the_wire (__main__.TheBootMarkBelongsToOneThreadTest.test_an_api_write_is_refused_while_a_boot_write_is_blocked_on_the_wire) ... ok
+test_a_default_action_is_labelled_default (__main__.TheLogLabelTest.test_a_default_action_is_labelled_default) ... ok
+test_a_named_field_entry_lists_its_fields (__main__.TheLogLabelTest.test_a_named_field_entry_lists_its_fields) ... ok
+test_an_empty_match_entry_that_is_not_a_default_is_not_labelled_default (__main__.TheLogLabelTest.test_an_empty_match_entry_that_is_not_a_default_is_not_labelled_default) ... ok
+test_a_malformed_spec_is_still_a_400_shaped_error_not_a_409 (__main__.TheOrderOfRefusalsTest.test_a_malformed_spec_is_still_a_400_shaped_error_not_a_409) ... ok
+test_a_table_this_pipeline_does_not_have_is_still_a_keyerror_not_a_409 (__main__.TheOrderOfRefusalsTest.test_a_table_this_pipeline_does_not_have_is_still_a_keyerror_not_a_409) ... ok
+test_an_external_control_plane_is_still_told_that_first (__main__.TheOrderOfRefusalsTest.test_an_external_control_plane_is_still_told_that_first) ... ok
+test_a_named_field_post_into_ipv4_lpm_is_409 (__main__.ThePostAnswers409Test.test_a_named_field_post_into_ipv4_lpm_is_409) ... ok
+test_a_post_into_the_packages_user_table_is_200 (__main__.ThePostAnswers409Test.test_a_post_into_the_packages_user_table_is_200) ... ok
+test_an_api_default_change_on_the_owned_package_route_table_is_409 (__main__.ThePostAnswers409Test.test_an_api_default_change_on_the_owned_package_route_table_is_409) ... ok
+test_an_external_control_plane_keeps_its_own_409_words (__main__.ThePostAnswers409Test.test_an_external_control_plane_keeps_its_own_409_words) ... ok
+test_on_a_package_pipeline_the_409_names_the_role_and_points_at_another_table (__main__.ThePostAnswers409Test.test_on_a_package_pipeline_the_409_names_the_role_and_points_at_another_table) ... ok
+test_on_ndtwins_own_pipeline_the_409_says_so_and_points_at_the_route_endpoints (__main__.ThePostAnswers409Test.test_on_ndtwins_own_pipeline_the_409_says_so_and_points_at_the_route_endpoints) ... ok
+test_the_headline_post_is_409_owned_by_ndtwin_and_writes_nothing (__main__.ThePostAnswers409Test.test_the_headline_post_is_409_owned_by_ndtwin_and_writes_nothing) ... ok
+test_the_remedy_and_where_it_ends_are_inside_the_first_200_bytes_of_the_body (__main__.ThePostAnswers409Test.test_the_remedy_and_where_it_ends_are_inside_the_first_200_bytes_of_the_body) ... ok
+
+----------------------------------------------------------------------
+Ran 46 tests in 0.025s
+
+OK (skipped=1)
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+[Proxy Agent] switch 1: table entry 0 into MyIngress.ipv4_lpm was NOT applied -- TableOwnedByNDTwin: MyIngress.ipv4_lpm is owned by NDTwin (every table of NDTwin's own pipeline is NDTwin's); a default action insert through this writer is refused on switch 1. Nothing was written.
+[Proxy Agent] switch 1: table entry 0 into MyIngress.ipv4_lpm was NOT applied -- TableOwnedByNDTwin: MyIngress.ipv4_lpm is owned by NDTwin (every table of NDTwin's own pipeline is NDTwin's); a table entry insert through this writer is refused on switch 1. Nothing was written.
+[Proxy Agent] switch 1: table entry 0 into PkgIngress.routes was NOT applied -- TableOwnedByNDTwin: PkgIngress.routes is owned by NDTwin (roles.ipv4_route gives this table to NDTwin); a table entry insert through this writer is refused on switch 1. Nothing was written.
+[1] table entry modify: PkgIngress.acl (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: PkgIngress.acl ['hdr.ip4.src']
+[1] table entry modify: PkgIngress.acl ['hdr.ip4.src']
+[1] table entry delete: PkgIngress.acl ['hdr.ip4.src']
+[1] table entry modify: PkgIngress.routes (default action)
+[1] table entry modify: PkgIngress.routes (default action)
+[1] table entry modify: PkgIngress.routes (default action)
+[Proxy Agent] switch 1: table entry 0 into PkgIngress.routes was NOT applied -- TableOwnedByNDTwin: PkgIngress.routes is owned by NDTwin (roles.ipv4_route gives this table to NDTwin); a table entry insert through this writer is refused on switch 1. Nothing was written.
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.flow_5tuple (no match fields)
+[1] table entry insert: PkgIngress.routes ['hdr.ip4.dst']
+[1] table entry modify: PkgIngress.routes (default action)
+[1] table entry insert: PkgIngress.routes ['hdr.ip4.dst']
+[1] table entry modify: PkgIngress.routes (default action)
+[1] table entry modify: PkgIngress.routes (default action)
+[1] table entry insert: PkgIngress.acl ['hdr.ip4.src']
+rc=0

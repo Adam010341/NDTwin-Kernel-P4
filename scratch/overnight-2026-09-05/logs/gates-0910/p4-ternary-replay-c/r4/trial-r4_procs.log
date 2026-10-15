@@ -1,0 +1,10 @@
+2026-10-15T18:36:40+0800 watching the parent chains under pid 3349464
+2026-10-15T18:36:46+0800 started pid 3349603 ppid 3349464 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4/switch-stock-1
+2026-10-15T18:37:03+0800 started pid 3349882 ppid 3349464 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4/switch-stock-2
+2026-10-15T18:37:06+0800 started pid 3349975 ppid 3349464 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4/switch-stock-3
+2026-10-15T18:37:10+0800 started pid 3350070 ppid 3349464 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4/switch-fast-1
+2026-10-15T18:37:27+0800 started pid 3350356 ppid 3349464 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4/switch-fast-2
+2026-10-15T18:37:30+0800 started pid 3350450 ppid 3349464 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4/switch-fast-3
+2026-10-15T18:37:34+0800 started pid 3350532 ppid 3349464 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4/switch-m1-stock-1
+2026-10-15T18:37:49+0800 started pid 3350773 ppid 3349464 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4/switch-m1-fast-1
+2026-10-15T18:38:03+0800 pid 3349464 ended; 8 recorded

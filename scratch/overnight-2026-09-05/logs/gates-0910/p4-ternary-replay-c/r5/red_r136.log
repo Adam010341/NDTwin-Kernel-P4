@@ -1,0 +1,11 @@
+commit 2621a34a0505e189ba22ec93278ad0b98594bbdb
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/old  tracked-dirty=2  df_free_mb=5255  LANG=en_US.UTF-8 LC_ALL=  command: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/old/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/quickmut.py /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/old /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/old/p4_proxy/venv/bin/python r136
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+command's own program /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+r136: M-J136: retried_as is set once before the loop, so a failure after a failed retry says it 
+   named test: test_a_failure_after_a_failed_insert_retry_does_not_say_it_was_a_retry  -> RED
+   ['Ran 218 tests in 8.226s', 'FAILED (failures=1)']
+   FAIL: test_a_failure_after_a_failed_insert_retry_does_not_say_it_was_a_retry (tests.test_table_entry_replay.AModifyThatFindsNothingTest.test_a_failure_after_a_failed_insert_retry_does_not_say_it_was_a_retry)
+rc=0

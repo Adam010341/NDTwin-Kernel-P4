@@ -1,0 +1,44 @@
+commit f703d0ff19a563a9031e8870a79cd66a82d39961
+test_another_table_of_the_same_package_is_written (__main__.AnOwnerNdtwinRolesPackageEndToEndTest.test_another_table_of_the_same_package_is_written) ... ok
+test_readopt_applies_the_packages_default_again (__main__.AnOwnerNdtwinRolesPackageEndToEndTest.test_readopt_applies_the_packages_default_again) ... ok
+test_startup_applies_the_packages_default_and_fails_nothing (__main__.AnOwnerNdtwinRolesPackageEndToEndTest.test_startup_applies_the_packages_default_and_fails_nothing) ... ok
+test_the_factory_binds_the_converted_role_as_owner_ndtwin (__main__.AnOwnerNdtwinRolesPackageEndToEndTest.test_the_factory_binds_the_converted_role_as_owner_ndtwin) ... ok
+test_the_full_name_and_the_alias_of_the_owned_table_are_both_409 (__main__.AnOwnerNdtwinRolesPackageEndToEndTest.test_the_full_name_and_the_alias_of_the_owned_table_are_both_409) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 1.053s
+
+OK
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+[1] table entry insert: RouteIngress.proto_tags ['hdr.ip4.proto']
+[1] table entry insert: RouteIngress.proto_tags ['hdr.ip4.proto']
+[TopologyManager] readopt 1: pipeline pushed, clone_session=True, 0 of 0 routes installed (the route refill was not run: this switch is not running NDTwin's own pipeline)
+[1] table entry modify: RouteIngress.dest_routes (default action)
+[1] table entry insert: RouteIngress.proto_tags ['hdr.ip4.proto']
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry modify: RouteIngress.dest_routes (default action)
+[1] table entry insert: RouteIngress.proto_tags ['hdr.ip4.proto']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 2 of 2 declared table entries applied, 0 refused
+[2] table entry modify: RouteIngress.dest_routes (default action)
+[2] table entry insert: RouteIngress.proto_tags ['hdr.ip4.proto']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 2 of 2 declared table entries applied, 0 refused
+[3] table entry modify: RouteIngress.dest_routes (default action)
+[3] table entry insert: RouteIngress.proto_tags ['hdr.ip4.proto']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 2 of 2 declared table entries applied, 0 refused
+[4] table entry modify: RouteIngress.dest_routes (default action)
+[4] table entry insert: RouteIngress.proto_tags ['hdr.ip4.proto']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 2 of 2 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] installing NDTwin's routes into the package's route tables failed: AttributeError: 'FakeTopo' object has no attribute 'install_initial_routes'
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+rc=0

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+. /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/v7-r4/lib.sh
+H=47e3c24bbb3ddc2b86c83dad8db2335267665544
+waitdisk stepA
+mkdir -p $SP
+x git clone --shared -q $K $SP/clA
+x git -C $SP/clA checkout -q --detach $H
+x ln -s $K/p4_proxy/venv $SP/clA/p4_proxy/venv
+cd $SP/clA/p4_proxy || exit 2
+for t in test_table_entry_owner test_table_entry_owner_package test_foreign_pipeline test_p4_client_writes; do
+  { echo "commit $(git -C $SP/clA rev-parse HEAD)"; env -i PATH=$K/p4_proxy/venv/bin:/usr/bin:/bin HOME=/tmp CI=true PYTHONPATH=. $K/p4_proxy/venv/bin/python3 tests/$t.py -v 2>&1; echo "rc=$?"; } > $OUT/stepA-$t.log 2>&1
+  tail -1 $OUT/stepA-$t.log | sed "s/^/[stepA] $t /" >> $OUT/cmds.log
+done
+rm -rf $SP/clA
+echo STEPA-DONE >> $OUT/cmds.log

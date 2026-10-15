@@ -1,0 +1,26 @@
+commit 5fd954f61e525ad6db91f6f0e4ecaf2baad6c04e
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red  tracked-dirty=1  df_free_mb=5255  mem_avail_mb=4045  LANG=en_US.UTF-8 LC_ALL=  command: p4_proxy/venv/bin/python -c import runpy, sys, threading; t = threading.Thread(target=threading.Event().wait, args=(120,), daemon=True); t.start(); sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name="__main__") tests/python/test_p4_health_collect.py -k test_run_lab_puts_the_handlers_it_found_back_when_it_ends
+note: C2R8-3c applied to lab.py; HEAD's collect test; a thread that does not block the stops started first
+interpreter p4_proxy/venv/bin/python -> /home/adam/miniconda3/bin/python3.13: Python 3.13.13, prefix /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red/p4_proxy/venv
+F
+======================================================================
+FAIL: test_run_lab_puts_the_handlers_it_found_back_when_it_ends (__main__.TestTheLabRun.test_run_lab_puts_the_handlers_it_found_back_when_it_ends)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/python/test_p4_health_collect.py", line 3369, in test_run_lab_puts_the_handlers_it_found_back_when_it_ends
+    self.assertEqual([b["id"] for b in doc["bringups"]], ["A", "B"], doc["problems"])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [] != ['A', 'B']
+
+Second list contains 2 additional elements.
+First extra element 0:
+'A'
+
+- []
++ ['A', 'B'] : ["refused: thread 1795727 does not block SIGTERM, SIGINT, SIGHUP. A stop signal could be delivered to such a thread while a round's mask is up and be lost, with the next bring-up claimed over it; the lab is not touched"]
+
+----------------------------------------------------------------------
+Ran 1 test in 0.029s
+
+FAILED (failures=1)
+rc=1

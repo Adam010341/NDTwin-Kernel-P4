@@ -1,0 +1,25 @@
+commit f7160dc19940cd193b13784ab9a25a9b2daaee83 + uncommitted: tests/shell/check_no_stray_table_journal.sh with its per-file pass (test_port_guard.py NOT isolated, as at this commit)
+ M tests/shell/check_no_stray_table_journal.sh
+interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+journal dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/find1/p4_proxy/.run/table_entry_journal
+before     : ABSENT 
+after      : ABSENT 
+per file   : 50 files, each in its own process; 0 exited non-zero; changed the directory: test_port_guard.py
+suite      : rc=0  Ran 2051 tests in 30.575s OK (skipped=1) 
+🔴 STRAY (per file): test_port_guard.py
+🔴 STRAY: the suite changed /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/find1/p4_proxy/.run/table_entry_journal -- a test module imports main without tests/journal_isolation.py first
+    1c1,11
+    < ABSENT
+    ---
+    > 2d269a7faf641f8efd3fe4f954cab7b8b393a3757292bf625f71426c1b44390c  ./s10.jsonl
+    > e6f50d3d6582f82b6d594d4ff1b78f6779767fd27271d5cde1c487e01ff22b60  ./s1.jsonl
+    > f14cccbfbf5ad19b978544f6df6cb098b140156df9bbc88df6c70eeb49796bb1  ./s2.jsonl
+    > 6585b934816e51ec065b874e5408360430cc60df6a345723f2d015932f78b531  ./s3.jsonl
+    > f46b9dfc0a1a17ebaf641a1285847736c67c97cdaaa5cfb2bb913697a63d3913  ./s4.jsonl
+    > 68e59e73c5f159444ca9f67369d3a316d51f1ceaee45157c10be4447363fedfd  ./s5.jsonl
+    > 87dd431e797523f7aa4126e86fae9d68bc8a8b690130857c9031e5b3a2c35091  ./s6.jsonl
+    > b56997b434d2990c75764a4aaff7a2345414cbfbe0e347a270b2900f249bfe0e  ./s7.jsonl
+    > 6086f8205dbfbd58129ecf2d6588a7ef64c47994777281b5403c33776ce65051  ./s8.jsonl
+    > 92e85daaeef31eb4bba886937bacdea4486db7019bed1cfd96c7e7c43af822ed  ./s9.jsonl
+    > dir present
+rc=1

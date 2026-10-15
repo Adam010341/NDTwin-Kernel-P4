@@ -1,0 +1,8 @@
+commit 02cf1b408d10d9a138aba49ed71926b7b8107c63 (+ uncommitted new T8 tests; table.py and the tsv not yet changed)
+FAIL: test_t8_red_says_why_journaled_can_be_false_now (__main__.TestNamedFixtures.test_t8_red_says_why_journaled_can_be_false_now)
+AssertionError: 'snapshot' not found in "switch_state's `journaled` is false: this switch's table-entry journal is off, is an external control plane's, or missed a record this boot (rule_journal.py TableJournals.journaled)"
+FAIL: test_the_t8_row_of_the_predictions_names_every_way_journaled_is_false (__main__.TestNamedFixtures.test_the_t8_row_of_the_predictions_names_every_way_journaled_is_false)
+AssertionError: 'snapshot' not found in ' the journal is off, external, or missed a record (cells/table.py t8_cannot)'
+Ran 3 tests in 0.001s
+FAILED (failures=2)
+rc=1

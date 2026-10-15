@@ -1,0 +1,116 @@
+DELIVERED adcb9081b04c7f64e497fd7d859ccba292bf0109 (branch feat/p4-ternary-journal-b, worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-ternary-journal-b, from 526dd41c, not pushed). One qualification: the owned runs below are all logged with commit on line 1 and rc on the last line, but my development-iteration unittest runs, git/ls/grep inspection commands, and two deleted REFUSE logs (see end) are not in log files.
+
+LOGS: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/ternary-cut-b/ (INDEX.txt lists every file). Below, "log" = that directory.
+
+## Assumptions
+Q1-Q5 unanswered. Built on Q4 (a) and Q5 (a). V7 is not implemented. No replay, cookie, pending/503, startup step 0, or boot_identity docstring (all Cut C).
+
+## Commits (no trailers; message-substring check done, grep rc=1 = none)
+- a76eb3ab p4_client: give a table's default entry its own identity
+- 5d67358a p4_proxy: record API table-entry writes in a per-switch journal
+- f444c9aa tests: add the table-entry journal mutation gate
+- fe0172b6 rule_journal: encode table-journal lines in one helper
+- 050ab324 tests: make the table-journal gate reach every test in its file
+- adcb9081 tests: link the topology models into the rule-journal wiring gate
+I rewrote the last two once, wording only, because an earlier message contained "report". Tree is identical: 82eeb67f. Some logs name the pre-rewrite shas 0050bdcd/fe0172b6; INDEX.txt maps them.
+
+## What was built
+- rule_journal.py: TableEntryJournal (header line; record, which never raises; read; fold; write_snapshot = tempfile, fsync, hard link old, os.replace, dir fsync, keep 10), fold_records, records_from_net, TableJournals (per-switch lock around write+record; client looked up inside the lock; write_and_journal; report), key_digest, SwitchGone. Files: .run/table_entry_journal/s<dpid>.jsonl; env NDTWIN_TABLE_JOURNAL_DIR / NDTWIN_TABLE_JOURNAL=off.
+- p4_client.py / rule_install_times.py: entry_key(..., default=True) gives (dpid, table, "default"); write_table_entry returns "entry_key"; new table_entry_key(spec).
+- api_routes.py: inject_table_journals; the route goes through write_and_journal; constants split (TABLE_ENTRY_NOT_JOURNALED unchanged for multicast; new RECORDED_NOT_REPLAYED and JOURNAL_WRITE_FAILED); a NOT_FOUND delete is recorded as outcome not_found and still answers 502 (DESIGN 10-4).
+- main.py: build_table_journals, table_journal_header (boot_id, p4info/entries sha), injection, report.
+
+## Disclosure decision (the point of the brief)
+- A single constant, rule_journal.TABLE_JOURNAL_REPLAYS = False. Every "journaled" is computed through it: journaled_claim(recorded) for the POST response and TableJournals.journaled(dpid) for switch_state.
+- POST 200 now carries `journaled: false` plus `journal: {recorded: bool, enabled: bool, replay: "not implemented"}`. The note says "recorded in the table-entry journal, but nothing replays the journal yet: this entry is still lost when the proxy restarts". If the write failed to record: "journal write failed" (still a 200, Q4 a). If the journal is off or none is injected: the old sentence.
+- switch_state.table_entries.journaled stays false. It gains `journal: {enabled, recorded, failures, record_complete, replay: "not implemented"}`. record_complete = enabled AND not read_only AND failures == 0 for the boot, i.e. what `journaled` will need besides replay (R12b's three conditions).
+- T8 (tools/p4_health/cells/table.py:378, reads `journaled is False` => RED) therefore stays RED on Cut B alone.
+- Flip when Cut C lands: set the constant to True in that commit. Then response journaled = recorded, the note disappears, switch_state journaled = record_complete, `journal.replay` must become the real replay report (today a string, so a type change for readers), and T8 goes GREEN. The tests under TheClaimFlipsInOnePlace / TheResponseFlipsToo (tests/test_table_entry_journal.py) already run with the constant patched True and pin those values. Cut C inverts test_the_constant_is_false_in_this_cut, flips the `journaled` assertions in TheRouteRecordsTest and SwitchStateSaysWhatIsTrueTest, and retires M-B7/M-B14/M-B20 (the latter two re-anchored this cut) and M-J30*.
+- R tests that assert `journaled: true` (R10, R12b) assert the new field now; the flip is noted in the test file docstring.
+
+## Test and gate counts
+| what | before (526dd41c) | after (adcb9081) | log lines |
+|---|---|---|---|
+| p4_proxy suite, worktree (no p4_src/build) | 1805 OK, skipped=99 (before-p4_proxy.log:2366-2368) | 1908 at fe0172b6-equivalent, see next row | |
+| p4_proxy suite, with p4_src/build | 1805 OK, skipped=1 (before-p4_proxy.with-build.log:2661-2663) | 1908 OK, skipped=1 (after-p4_proxy.log:2692-2694), +103 | rc=0 last line |
+| tools/p4_exercise suite | 210 OK (before-p4_exercise.log:8-10) | 210 OK (after-p4_exercise.log:8-10) | |
+| check_gate_anchors.py HEAD | 133/133 (Cut A) | 134/134 (check_gate_anchors_HEAD.log) | rc=0 |
+| check_test_tmpdirs.py | | 416 files, 0 fixed temp paths (check_test_tmpdirs.log:8) | rc=0 |
+| test_l1_shell_scoring.sh | | 163 checks, 0 failed (test_l1_shell_scoring.log:190) | rc=0 |
+| mutate_table_journal.sh (new) | | 85 mutations, 0 survived, 6 controls green, byte-identical (gate-mutate_table_journal.log:374-379, 381-382); same in clean archive with build: gate-mutate_table_journal.with-build.0050bdcd.log | rc=0 |
+| mutate_table_entry.sh | 78/0 (.with-build.526dd41c.log:457) | 78/0 (gate-mutate_table_entry.log:456-457); M-B14/M-B20 re-anchored | rc=0 |
+| mutate_p4_rule_install_time.sh | 27/0 | 27/0 (gate-mutate_p4_rule_install_time.log:39-40) | rc=0 |
+| mutate_rule_journal_is_wired.sh | baseline RED, rc=2 (12 errors, missing setting/ link; .with-build.526dd41c.log) | 14/0 after the link fix (gate-mutate_rule_journal_is_wired.log:26-27) | rc=0 |
+| mutate_app_package.sh | 48/0 (.with-build.526dd41c.log) | 48/0 (gate-mutate_app_package.log:63-64) | |
+| mutate_roles_binding.sh | | 190/0 at adcb9081 with build (gate-mutate_roles_binding.with-build.log); without build, fe0172b6, 2 survivors whose killers skip (gate-mutate_roles_binding.log:217, 644). No before-run (the gate needs git history; archives refuse). | |
+| mutate_p4_priority_refusal / telemetry_by_name / stack_await_convergence / ndt_app_package / p4_exercise_tools | | 9/0, 23/0, 9/0, rc=0, 36/0 | |
+| mutate_p4_heartbeat_w.sh | | rc=2: the shell `08_heartbeat.sh --self-test` baseline is RED, identical at 526dd41c (selftest-08_heartbeat.526dd41c.log rc=1, .adcb9081.log rc=1); the proxy half is green. Not this cut. | |
+| mutate_a7_dispatch_status.sh | | rc=2 REFUSE: C++ build not configured (not built, by rule) | |
+
+Control (byte-identical, comment-only) results: gate-mutate_table_journal.log:374-379 green.
+
+Test-seen-red coverage: all 103 tests in tests/test_table_entry_journal.py appear as red under at least one mutant in gate-mutate_table_journal.log. 11 had not at first (all positive controls and one vacuous test); I added mutants for them and fixed the vacuous test (test_the_real_report_states_that_nothing_replays used .get defaults).
+
+## Red evidence per R test
+On 526dd41c:
+- Module-level red (red-526dd41c.log:586-595): tests/test_table_entry_journal.py cannot be imported, "cannot import name 'TableEntryJournal'". This is "feature absent", not a per-test reason.
+- Per-test own-reason reds: the two edited existing assertions KeyError 'journal' (red-526dd41c.log:605, :614): test_app_package_proxy...journaled and test_startup...stay_recorded_and_unapplied.
+- R10 scenario, same POST on both trees (probe_r10.py): probe-r10-old.log:4-8 shows no `journal` key, journal dir empty. probe-r10-new.log shows the journal block, a file with header and one record.
+- R10 own-reason on mutants: M-J46 route bypasses the journal (gate log:239), M-J3 key from request spelling (:60), M-J30e/M-B20b response claims journaled (:226, :220), M-J54 main never injects (:268), M-J45 no note.
+- R11 (a refused write leaves no record): red only on mutants, as designed. M-J1 record before write (:11), M-J1b refusal swallowed (:41), M-J33/b/c/d for the not_found-delete rules (:69, :72, :75, :78).
+- R12 (Q4 a): M-J12 record failure answers True (:80), M-J12b failure not counted (:86), M-J47 failed record says "recorded" (:252).
+- R12b (the three conditions): M-J13a/b/c (:94, :97, :102); plus M-J30c/M-J30 (:207, :189) for the replay half.
+- R13 (fold, one per outcome + default + mixed): M-J14 fold returns nothing (:117), M-J37a-g (:130-167), M-J3 two spellings, M-J38 snapshot ops (:169), M-J11/M-J11b snapshot atomicity (:171, :175). Lock: M-J2 (:52), M-J2b (:56), M-J23 (:58).
+
+## Design points wrong or underspecified
+1. DESIGN 6.4 "T8 GREEN needs Cut B" is wrong: with replay absent T8 would be GREEN on a record nothing reads back. Only Cut C may flip it. The T8 RED text (cells/table.py:378-379) and expected_today.tsv:16 say "constant false (api_routes.py:765-767)"; it is now a computed false. Health line to reword (not my files).
+2. 5.3 pseudo-code has no `key`. It must come from the built entry, so write_table_entry returns it. A NOT_FOUND delete (10-4) needs the key of an entry never written, hence table_entry_key. Neither is in the design.
+3. The op to journal for a default insert is the wire op (modify), since the writer substitutes. Design silent; the fold's default rule works either way.
+4. 10-2 (default key) is needed by Cut B (it is the journal key) and touches the install-time stamps, not only the journal.
+5. 5.4 step 6 "snapshot = header + net records": a net op is not a record. I added records_from_net and the property fold(snapshot) == net, which is tested.
+6. In Cut B there is no startup step 0, so a journal file accumulates records across proxy boots and its header (boot_id, fabric_cookie null) is that of the first creation. Cut C step 0 must treat fabric_cookie null as "unconfirmed" and quarantine such files, which the design already implies.
+7. fold and write_snapshot have no production caller until Cut C (the repo's most-repeated defect); unit-tested only. Flagged on purpose.
+8. 5.3 holds a threading.Lock across the gRPC write. A hung bmv2 ties up one threadpool thread per queued POST to that switch (up to RPC_TIMEOUT_S each). The design says "milliseconds"; no cap or fail-fast.
+9. Test hazard, hit once: after any test imports main, api_routes holds the real journals, so a route test POST appends to p4_proxy/.run/table_entry_journal/ in the checkout. Fixed in TableEntryRouteTestBase (saves, sets None, restores). Every future POSTing test must do the same.
+10. Two existing tests pin table_entries by exact equality (test_startup, test_app_package_proxy) and had to be edited to ignore the new `journal` key.
+11. Gate environment problems seen (pre-existing): the wiring gate lacked the setting/ link (fixed in adcb9081); worktrees lack p4_src/build (gitignored), so 99 tests skip there and some gates (app_package, roles_binding) show survivors whose killers are skipped; mutate_p4_exercise_tools.sh mutates tools/ in place and transiently dirties the worktree (do not run it concurrently with other runs); `08_heartbeat.sh --self-test` RED at 526dd41c.
+12. Retention of 10 set-aside generations (10-11) is implemented in write_snapshot; the design lists it under implementation-time decisions, no cut owns it.
+Not done: V7, Q5(b), replay, cookie/sha checks, pending/503, M-J4-10, M-J15-22, M-J24-29.
+
+## Housekeeping
+- The worktree contains an untracked, git-excluded copy p4_proxy/p4_src/build (from the main checkout) so gates run with the compiled p4info; git status is clean.
+- The throwaway trees old-tern-b/full-526dd41c and full-head under scratch/overnight-2026-09-05/ are left in place (df -m / = 3494 MB).
+- Deleted logs: gate-mutate_roles_binding.with-build.{526dd41c,0050bdcd}.log (REFUSE: git archives have no history); the earlier first-run logs are kept in superseded-0050bdcd/.
+
+========== SUMMARY-ternary-cut-b.md ==========
+# Cut B 摘要：P4 table entry journal 的記錄、折疊、快照（不含重放）
+
+**結論**：Cut B 已完成並 commit，分支 `feat/p4-ternary-journal-b`，頭是 `adcb9081`，未推送。前提：Q1–Q5 尚未答覆，照建議答案 Q4 (a)、Q5 (a) 做；V7 沒做；重放（Cut C）沒做。
+
+🔴 **最重要的一條：重放不存在，所以 `journaled` 一律是 false。**
+- 沒有重放，proxy 重啟或 readopt 之後，journal 裡的 entry 還是不會回來。
+- 所以 POST 回應與 switch_state 的 `journaled` 全部維持 false，T8 不會在只有 Cut B 的時候變綠。
+- 真正為真的事（這筆寫入有沒有記進檔案）放在另一個欄位：回應多 `journal: {recorded, enabled, replay: "not implemented"}`，switch_state.table_entries 多 `journal: {enabled, recorded, failures, record_complete, replay: "not implemented"}`。
+- 所有 `journaled` 都經過同一個常數 `rule_journal.TABLE_JOURNAL_REPLAYS`（現在是 False）。**Cut C 把它改成 True 就翻**：回應的 journaled 等於「有記下」、note 消失、switch_state 的 journaled 等於 record_complete、T8 轉綠；`journal.replay` 那時要換成真正的重放報告（型別會從字串變物件）。翻轉後的值已經有測試先釘住（TheClaimFlipsInOnePlace、TheResponseFlipsToo，常數用補丁設成 True 跑）。
+- 設計 §6.4 寫「T8 綠，需要 Cut B」是錯的，要到 Cut C 才綠；健檢線的 T8 RED 訊息（cells/table.py:378）與 expected_today.tsv 裡「constant false」的字樣需要健檢線改。
+
+**做了什麼**
+- `TableEntryJournal`：每台一個檔 `.run/table_entry_journal/s<dpid>.jsonl`，第一行 header，之後一筆一行；撕裂行容忍；`record` 不丟例外、回 bool。
+- `fold_records`：依 entry 身分折疊成淨寫入（不在→在＝insert、在→在＝modify、在→不在＝delete、不在→不在＝無）；default entry 一律 modify；`records_from_net` 讓快照折疊後與原淨結果相同（有測試）。
+- `write_snapshot`：tempfile、fsync、hard link 舊檔、`os.replace`、fsync 目錄，只保留最近 10 份隔離檔；crash 在 replace 前舊檔完整（fault injection 測試）。
+- `TableJournals.write_and_journal`：先寫交換機、再記 journal、最後才回應；每台一把 `threading.Lock` 同時蓋住寫與記；client 在鎖內才查；journal 寫失敗仍回 200（Q4 a），`failures`+1，這一次開機剩下的時間 `record_complete` 都是 false；delete 被交換機回 NOT_FOUND 時記成 `outcome: not_found` 並照回 502（設計 10-4）。
+- default entry 有自己的 key `(dpid, table, "default")`，與「全部欄位省略」的 catch-all 分開（影響 install-time 紀錄與 journal 的 key）。
+- 常數拆開：multicast 的 `TABLE_ENTRY_NOT_JOURNALED` 原文不動，table entry 另有兩個。
+
+**驗證**
+- p4_proxy 測試 1805 → 1908（+103），含 p4_src/build 時 skipped 1，全綠；tools/p4_exercise 210 → 210。
+- 新 gate `mutate_table_journal.sh`：85 個 mutation、0 survivor、6 個控制組全綠、baseline byte-identical；103 個新測試每一個都被至少一個 mutant 弄紅過。
+- `mutate_table_entry.sh` 78/0（M-B14、M-B20 重新錨定）；install_time 27/0；rule_journal_is_wired 14/0（它的 baseline 在 526dd41c 本來就紅，缺 setting/ 連結，已修）；app_package 48/0、roles_binding 190/0（要有 p4_src/build）；check_gate_anchors 134/134；check_test_tmpdirs、test_l1_shell_scoring 全綠。
+- 與 Cut A 無關、且在 526dd41c 就紅的：p4_heartbeat_w 的 `08_heartbeat.sh --self-test`；a7_dispatch_status 需要 C++ build（依規定沒建）。
+- 紅燈證據：舊碼上新測試檔連匯入都失敗（功能不存在）；兩個被改的既有斷言為了「沒有 journal 區塊」而 KeyError；R10 的情境探針在舊樹上沒有 journal 欄位也沒有檔案、在新樹上有。R11、R12、R12b、R13 依設計只靠 mutant 看紅（M-J1、M-J12、M-J13a–c、M-J14、M-J3 等，行號在上面的報告）。
+
+**設計上錯的或沒講清楚的**（細節在報告）
+- §6.4 的 T8 預測；§5.3 的 key 來源與 NOT_FOUND delete 的 key；default insert 要記 wire 上的 op；snapshot 要有 records_from_net；Cut B 沒有 startup 的隔離步驟，journal 檔會跨開機累積，Cut C 的步驟 0 要把 `fabric_cookie: null` 當未確認；`fold`／`write_snapshot` 在 Cut C 之前沒有 production 呼叫點；鎖跨 gRPC 寫入，交換機卡住時會佔住 threadpool；任何 import 過 main 的測試之後，route 測試的 POST 會寫進 checkout 的 .run/（已在 TableEntryRouteTestBase 隔離）。
+
+**還沒做**：V7、Q5(b)、重放、cookie／sha 檢查、readopt 的 pending／503、M-J4–10、M-J15–22、M-J24–29。
+========== end SUMMARY ==========

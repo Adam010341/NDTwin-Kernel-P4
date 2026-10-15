@@ -1,0 +1,758 @@
+diff --git a/doc/audit/2026-10-03_p4-health-check/expected_today.tsv b/doc/audit/2026-10-03_p4-health-check/expected_today.tsv
+index 5885376e..62421b39 100644
+--- a/doc/audit/2026-10-03_p4-health-check/expected_today.tsv
++++ b/doc/audit/2026-10-03_p4-health-check/expected_today.tsv
+@@ -3,6 +3,7 @@
+ # expected = the verdict label predicted for today's trunk (995bdfd0). added: r6 = from the reviewed
+ # design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md sections 13 and 14). Rows whose basis starts "r2 (Cut 1 review)", "r3 (Cut 1 review)" or "r4 (Cut 1 follow-ups)" changed in those review rounds (r4: the basis now cites code, not a relayed record).
+ # Cut 2 review: R3 now predicts UNATTRIBUTED (the ctrl_trial observation, before any live run); AP1, AS1 and IT1 moved to cut 3.
++# Cut A + D (the ternary writer and the health check's half of it): T4, T5, T6, T7 and PF-T now predict GREEN; their basis starts "Cut A + D".
+ # Cited records: GAP-2b = doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md and DESIGN.md = doc/audit/2026-10-03_p4-health-check/DESIGN.md; both live on the trunk branch of this repository, not on main.
+ cell	dimension	scope	bringup	cut	expected	basis	added
+ PL1	pipeline_load	core	A	2	GREEN	§5.1 pipeline_load always can: each switch gets its own program (main.py:2012-2016); p4info sha in switch_state (api_routes.py:758-761)	r6
+@@ -10,12 +11,12 @@ PL2	pipeline_load	core	B	4	GREEN	external skips pipeline_push (main.py:337); the
+ T1	tables	core	A	2	GREEN	package exact/lpm entries applied at boot (p4_client.py:133,1204-1208); recorded==applied	r6
+ T2	tables	core	A	2	GREEN	runtime default of a keyless table is an ordinary default_action write	r6
+ T3	tables	core	A	2	GREEN	POST /p4/table_entry writes EXACT (api_routes.py:841-957)	r6
+-T4	tables	ext	A	2	RED	501 for ternary (api_routes.py:925-930); bmv2 holds ternary (B attribution, Cut 2)	r6
+-T5	tables	ext	A	2	RED	501 for range (api_routes.py:925-930)	r6
+-T6	tables	ext	A	2	RED	501 for optional (api_routes.py:925-930)	r6
+-T7	tables	ext	A	2	NOT RUN	gate T4 is RED (DESIGN 7.6)	r6
++T4	tables	ext	A	2	GREEN	Cut A + D: POST /p4/table_entry builds ternary [value, mask] + priority (match_shape.py:239-319; 501 now only for UNSPECIFIED, api_routes.py:1006-1013); the probe's value is inside its mask (V3); thrift shows 2147483647 - priority (observe_a.py:222-223)	r6
++T5	tables	ext	A	2	GREEN	Cut A + D: range [low, high] + priority built (match_shape.py:321-335)	r6
++T6	tables	ext	A	2	GREEN	Cut A + D: optional built (match_shape.py:344); thrift dumps it as TERNARY v &&& ff (observe_a.py:269-274)	r6
++T7	tables	ext	A	2	GREEN	Cut A + D: gate T4 GREEN; the higher P4Runtime priority is the smaller thrift number (observe_a.py:277-301)	r6
+ T8	tables	ext	A	2	RED	journaled is the constant false (api_routes.py:765-767,837-838,957)	r6
+-PF-T	tables	ext	S0	1	RED	pre-flight refuses a boot ternary entry, G5 not done (preflight.py:218-234); static attribution from S0's throwaway bmv2	r6
++PF-T	tables	ext	S0	1	GREEN	Cut A + D: pre-flight checks a ternary entry with the writer's own match_shape and passes S0's (preflight.py:235-244)	r6
+ M1	pre_multicast	core	A	2	GREEN	package multicast groups written at boot (main.py:1011-1075)	r6
+ M2	pre_multicast	core	A	2	GREEN	POST /p4/multicast_group (api_routes.py:1035-1130)	r6
+ C1	pre_clone	core	A	2	GREEN	first run; clone id from the package for a foreign pipeline (main.py:1057-1062), mgid 0x8000+7 (p4_client.py:780-786); GAP-2b:91 was (c)	r6
+diff --git a/doc/audit/2026-10-04_p4-ternary-journal/SUMMARY-cut-a.md b/doc/audit/2026-10-04_p4-ternary-journal/SUMMARY-cut-a.md
+index 7b9ba73e..3075c1d8 100644
+--- a/doc/audit/2026-10-04_p4-ternary-journal/SUMMARY-cut-a.md
++++ b/doc/audit/2026-10-04_p4-ternary-journal/SUMMARY-cut-a.md
+@@ -130,3 +130,44 @@ Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己
+ 
+   `check_gate_anchors.py HEAD`：136/136 cells ok（`check_gate_anchors.log`）。per-file：`test_flow_stats_route` 16、`test_switch_state` 76、`test_ryu_flow_stats` 61、`test_p4_client_writes` 207，全 OK、無 skip。
+ - **沒動**：`tools/p4_health/`（D 另案）。D 的檔案清單只更新了行號（上面「D 的完整檔案清單」）。
++
++---
++
++## D：健檢那一半（分支 `feat/p4-health-ternary-d`，`trunk-cut2-merge`＋Cut A）
++
++`95a8972b` 把 Cut A（`b2618b88`）併進 trunk `18c81892`（無衝突，兩邊沒有共同檔案）；D 的程式在 `76e3b468`，只動 `tools/p4_health/`、它的測試、fixture、`mutate_p4_health.sh` 與 `expected_today.tsv`。Cut A 的檔案（`p4_proxy/`、`tools/p4_exercise/`）一個都沒碰。log 在 `scratch/overnight-2026-09-05/logs/gates-0910/p4-health-ternary-d/`（每份第一行 commit、最後一行 rc；gate 在拋棄式 clone 跑，venv 只 symlink 在 clone 裡）。
++
++**改了什麼**
++- `s0.py`：PF-T 的兩條自檢反過來。pre-flight 必須 PASS（rc 0、沒有 FAIL 列），而且先確認 PF-T package 真的帶著那一筆 ternary 開機 entry（新的一項 `PF-T package carries one ternary boot entry`）：以前的 FAIL 自己指名了那筆 entry，PASS 什麼都不指名，沒有這項的話，entry 掉了也會照樣 PASS。`PF-T verdict` 要求 GREEN。
++  - `classify_pft` 不再認「G5 not done」那句話，改認 pre-flight 指名那筆 entry 的位置（`s2 entry 23:`，由 `pft_entries` 從 package 讀出）。任何一行 FAIL，不論措辭，只要指名它，就算拒絕了 ternary 那一列。
++- `cells/table.py`：`pft_cannot` 讀 `ternary_rows`。拒絕 ternary 那一列（不論措辭）→ RED（structural，static 歸因照舊）；其他 FAIL 列 → PROBE-BROKEN；rc 0 → GREEN。`lab.py` 的 `pft_observation` 跟著改 key。
++- `observe_a.py`：T4 的探針值從 `10.0.4.4/255.255.255.0` 改成 `10.0.4.0/255.255.255.0`。Cut A 的 V3 拒絕「value 在遮罩外有位元」（`match_shape.py:314-319`；行程內呼叫 `shape_field` 觀測到 `TableEntryInvalid`）⇒ 原值到了 live 會拿到 400，T4 判 RED【推論：route 把 `TableEntryInvalid` 對到 400】。
++  - T4–T7 其餘的 oracle 不用改：Cut 2 已照 DESIGN §6.4 寫好（`thrift_priority` = 2147483647 − p；T6 認 `TERNARY v &&& ff`；T7 比換算後的值、小的贏）。這三點各有一個 mutant 守著：C2-OA2、AD10、C2-OA3。
++- `expected_today.tsv`：T4、T5、T6、T7、PF-T 的預測改成 GREEN（DESIGN §6.4；健檢 design 5.1「翻格的修正，同一個 PR 改這份檔」）。T8 照舊 RED（要等 Cut B）。
++- fixture：
++  - `preflight_pft.txt` 從真的 pre-flight 重新擷取（`95a8972b`：S0 的 compile＋convert 之後跑 `preflight.py`，PASS）；
++  - 原檔改名為 `preflight_pft_g5.txt` 保留；
++  - 新增 `preflight_pft_refused.txt`：同一份 package，把 s2 entry 23 的遮罩改成 /24，pre-flight 以 V3 拒絕，句子裡沒有 G5。
++  - 原 fixture 沒有標頭說明怎麼擷取，所以三份各加了一行 `#` 標頭。擷取腳本與原始輸出在 log 目錄的 `capture_pft.py`、`capture/`。
++- `test_p4_health_collect.py` 的 fake fabric 預設改成「今天的 trunk」：會寫 ternary，而且用 proxy 真正的 `match_shape` 判形狀（不合就 400），所以只有 fake 才收的探針 body 在測試裡就會紅。拿 T4 當「bmv2 歸因的 RED」範例的測試，改成明寫 `ndtwin_writes_ternary = False`（Cut A 之前的 proxy），或改用 MT1。
++- `gen_runtime.py:120` 的註解。
++
++**S0**（`76e3b468`，離線，`setsid --wait`）：`S0 COMPLETE`，rc=0；57 項 ok、0 項 FAIL。
++- PF-T 的三行：`pre-flight PF-T PASSes with the ternary entry in rc 0, ternary FAIL lines 0, other FAIL rows 0`、`PF-T package carries one ternary boot entry`、`PF-T verdict GREEN`。
++- 每秒取樣記到 S0 自己起的 7 個 bmv2（4 個 selfcheck、1 個 vs_trial、2 個 ctrl_trial：stock 與 bmv2-fast 各一），在 `s0_procs.log`。drop check 的 5 次 bmv2 活得比取樣間隔短，沒記到 pid，只在 `s0.commands.log` 裡看得到那 5 次呼叫。跑完之後掃 /proc：沒有任何 simple_switch*／ndt-hc-*／ndt-hb* 留下，所以什麼都沒 kill。跑之前的掃描也是空的（`s0_prescan.log`）。
++
++**Gate**（都在 `76e3b468`）
++- `test_p4_health_cells.py` 183 個 OK（venv 3.13 與 ryu-env 3.8 各一次；trunk 是 179 個）。
++- `test_p4_health_collect.py` 186 個 OK（兩個直譯器；trunk 是 183 個）。
++- `test_p4_health_recover.sh` 163 checks、0 failed；`test_p4_health_gate_scripts.sh` 68 checks、0 failed。
++- mutation gate 4 個 shard 依序在這台筆電上跑，locale 都是 en_US.UTF-8，再用 `sum_p4_health_gate_shards.sh` 加總：`GATE: 483 mutations, 0 survived, shards 4/4 ok, commit 76e3b468…, subject sha ea7e5536494a03ff`（trunk 473，加上這次的 AD1–AD10）。
++- Cut A 的五個 gate 沒有重跑：`git diff b2618b88 76e3b468` 沒有碰到它們讀的任何路徑（`p4_proxy/`、`tools/p4_exercise/`、`setting/`、`check_gate_anchors.py`、它們自己的腳本）。
++
++**看過紅**
++- AD1–AD10 各被自己點名的測試殺掉；D12 改名後，由新的分類測試殺掉。
++- `expected_today.tsv` 不在 gate 的 subject 裡，所以另外做了一次：把它退回 `95a8972b` 的版本，`test_bring_up_a_reads_as_predicted` 與 `test_a_then_b_then_the_verdicts` 兩顆紅（`red.tsv_reverted.collect.log`）。
++
++**留著的**
++- T4–T7 的 GREEN 只是預測，沒有 live run。其中「package A 沒有 roles，所以 V7 不擋 `HcIngress.t_ternary` 的寫入」是讀碼推論（`table_owned_by_ndtwin`：binding 為 None 就回 False），沒有量過。
++- PF-T 遇到「用新的句子拒絕 ternary 那一列」時判 RED，不判 PROBE-BROKEN。依據是健檢 DESIGN 的 PF-T 列（`:293`）：這一格要量的是「pre-flight 通過」，不是某一句話。如果要的是 PROBE-BROKEN，改 `pft_cannot` 一行就好。
++- `runtime_cli.py:57` 還寫著「priority entries are not in the package format (G5)」。S0 的 throwaway 不灌 PF-T 那筆 entry，所以不影響結果，但這句話已經過時。
+diff --git a/tests/python/fixtures/p4_health/preflight_pft.txt b/tests/python/fixtures/p4_health/preflight_pft.txt
+index b2bb7613..07f900d1 100644
+--- a/tests/python/fixtures/p4_health/preflight_pft.txt
++++ b/tests/python/fixtures/p4_health/preflight_pft.txt
+@@ -1,3 +1,4 @@
++# pre-flight's stdout, captured 2026-10-11: tools/p4_exercise/preflight.py on S0's PF-T package (S0.compile_all + S0.packages) at 95a8972b, Cut A merged; run directory as <run>.
+ pre-flight: <run>/packages/PF-T
+   PASS  format                            1
+   INFO  name                              p4-health-PF-T
+@@ -23,12 +24,12 @@ pre-flight: <run>/packages/PF-T
+   INFO  s3 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
+   INFO  s4 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
+   PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+-  FAIL  entries match p4info              1 problem(s); first: s2 entry 23: hdr.ipv4.srcAddr is a TERNARY match -- G5 not done; POST /p4/table_entry answers 501 for TERNARY in this stage (exact and lpm only)
++  PASS  entries match p4info              92 entries across 4 switch(es); recorded, NOT applied in stage one
+   PASS  entries p4info is the pipeline's  4 switch(es); entries and pipeline name the same p4info
+   INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "HcIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "HcIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+   PASS  telemetry.source                  link
+   PASS  PRE entries                       1 multicast group(s) and 1 clone session(s); every replica names a port the model builds
+   PASS  gRPC port block                   30051-30054 safe on this machine
+-  PASS  p4c-bm2-ss                        rc=0  hc_main.json sha256:14cbe4829d7e58ee  hc_main.p4.p4info.txtpb sha256:5ce0a5595d5a65f1
++  PASS  p4c-bm2-ss                        rc=0  hc_main.json sha256:b6791872e0570149  hc_main.p4.p4info.txtpb sha256:5ce0a5595d5a65f1
+ 
+-FAIL -- 1 check(s) failed; do NOT bring this package up
++PASS -- every check passed
+diff --git a/tests/python/fixtures/p4_health/preflight_pft_g5.txt b/tests/python/fixtures/p4_health/preflight_pft_g5.txt
+new file mode 100644
+index 00000000..a88888a7
+--- /dev/null
++++ b/tests/python/fixtures/p4_health/preflight_pft_g5.txt
+@@ -0,0 +1,35 @@
++# pre-flight's stdout on S0's PF-T package before the ternary writer (fixture of cc805894): the G5 refusal; run directory as <run>.
++pre-flight: <run>/packages/PF-T
++  PASS  format                            1
++  INFO  name                              p4-health-PF-T
++  PASS  control_plane.mode                ndtwin
++  PASS  control_plane.grpc_base           30050
++  PASS  control_plane.device_id           dpid
++  PASS  control_plane.election_id         [0, 65535]
++  PASS  bmv2.cpu_port                     510
++  PASS  switches keys                     4 dpids: [1, 2, 3, 4]
++  PASS  switches name                     every sN has dpid N
++  PASS  referenced files                  9 present
++  PASS  topo_from_json.switches           4 entries
++  PASS  topo_from_json.hosts              6 entries
++  PASS  topo_from_json.switch_links       4 entries
++  PASS  topo_from_json.host_links         6 entries
++  PASS  switches agree                    model and package.json both say [1, 2, 3, 4]
++  PASS  links agree                       10 links in both
++  PASS  hosts named h<last octet>         6 hosts
++  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
++  PASS  switches pipeline                 4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
++  INFO  s1 pipeline                       build/hc_alt.json  p4info sha256:b7490e9eb9979888  program=<run>/exercise/src/hc_main.p4
++  INFO  s2 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
++  INFO  s3 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
++  INFO  s4 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
++  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
++  FAIL  entries match p4info              1 problem(s); first: s2 entry 23: hdr.ipv4.srcAddr is a TERNARY match -- G5 not done; POST /p4/table_entry answers 501 for TERNARY in this stage (exact and lpm only)
++  PASS  entries p4info is the pipeline's  4 switch(es); entries and pipeline name the same p4info
++  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "HcIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "HcIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
++  PASS  telemetry.source                  link
++  PASS  PRE entries                       1 multicast group(s) and 1 clone session(s); every replica names a port the model builds
++  PASS  gRPC port block                   30051-30054 safe on this machine
++  PASS  p4c-bm2-ss                        rc=0  hc_main.json sha256:14cbe4829d7e58ee  hc_main.p4.p4info.txtpb sha256:5ce0a5595d5a65f1
++
++FAIL -- 1 check(s) failed; do NOT bring this package up
+diff --git a/tests/python/fixtures/p4_health/preflight_pft_refused.txt b/tests/python/fixtures/p4_health/preflight_pft_refused.txt
+new file mode 100644
+index 00000000..dc4b4626
+--- /dev/null
++++ b/tests/python/fixtures/p4_health/preflight_pft_refused.txt
+@@ -0,0 +1,35 @@
++# pre-flight's stdout, captured 2026-10-11: tools/p4_exercise/preflight.py at 95a8972b on a copy of that PF-T package whose s2 entry 23 has the mask 255.255.255.0; run directory as <run>.
++pre-flight: <run>/packages/PF-T-refused
++  PASS  format                            1
++  INFO  name                              p4-health-PF-T
++  PASS  control_plane.mode                ndtwin
++  PASS  control_plane.grpc_base           30050
++  PASS  control_plane.device_id           dpid
++  PASS  control_plane.election_id         [0, 65535]
++  PASS  bmv2.cpu_port                     510
++  PASS  switches keys                     4 dpids: [1, 2, 3, 4]
++  PASS  switches name                     every sN has dpid N
++  PASS  referenced files                  9 present
++  PASS  topo_from_json.switches           4 entries
++  PASS  topo_from_json.hosts              6 entries
++  PASS  topo_from_json.switch_links       4 entries
++  PASS  topo_from_json.host_links         6 entries
++  PASS  switches agree                    model and package.json both say [1, 2, 3, 4]
++  PASS  links agree                       10 links in both
++  PASS  hosts named h<last octet>         6 hosts
++  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
++  PASS  switches pipeline                 4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
++  INFO  s1 pipeline                       build/hc_alt.json  p4info sha256:b7490e9eb9979888  program=<run>/exercise/src/hc_main.p4
++  INFO  s2 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
++  INFO  s3 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
++  INFO  s4 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=<run>/exercise/src/hc_main.p4
++  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
++  FAIL  entries match p4info              1 problem(s); first: s2 entry 23: HcIngress.t_ternary.hdr.ipv4.srcAddr: the value '10.0.1.1' has bits set outside its mask '255.255.255.0'; the entry would never match what its author meant, and the value is not masked for you
++  PASS  entries p4info is the pipeline's  4 switch(es); entries and pipeline name the same p4info
++  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "HcIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "HcIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
++  PASS  telemetry.source                  link
++  PASS  PRE entries                       1 multicast group(s) and 1 clone session(s); every replica names a port the model builds
++  PASS  gRPC port block                   30051-30054 safe on this machine
++  PASS  p4c-bm2-ss                        rc=0  hc_main.json sha256:40bc54ee90436117  hc_main.p4.p4info.txtpb sha256:5ce0a5595d5a65f1
++
++FAIL -- 1 check(s) failed; do NOT bring this package up
+diff --git a/tests/python/test_p4_health_cells.py b/tests/python/test_p4_health_cells.py
+index 70e50527..abd87cb9 100644
+--- a/tests/python/test_p4_health_cells.py
++++ b/tests/python/test_p4_health_cells.py
+@@ -202,7 +202,7 @@ FIX = {
+     "T7": ({"answer": {"http": 200}, "sent": 2, "oracle": {"order_ok": True}, "negative": NEG_OK},
+            {"answer": {"http": 200}, "sent": 2, "oracle": {"order_ok": False}, "attribution": {"bmv2": True}}),
+     "T8": ({"answer": {"journaled": True}}, {"answer": {"journaled": False}}),
+-    "PF-T": ({"answer": {"rc": 0}}, {"answer": {"rc": 1, "g5_rows": 1, "other_fail_rows": 0}, "attribution": {"static": True}}),
++    "PF-T": ({"answer": {"rc": 0}}, {"answer": {"rc": 1, "ternary_rows": 1, "other_fail_rows": 0}, "attribution": {"static": True}}),
+     "M1": ({"answer": {"applied": 1, "recorded": 1}, "oracle": {"s1_group1": frozenset({1, 2})}, "negative": NEG_OK},
+            {"answer": {"applied": 1, "recorded": 1}, "oracle": {"s1_group1": frozenset({1})}, "negative": NEG_OK}),
+     "M2": ({"answer": {"http": 200}, "sent": 1, "oracle": {"group2_after": frozenset({1, 3}), "declared": [1, 3]},
+@@ -849,11 +849,25 @@ class TestNamedFixtures(unittest.TestCase):
+ 
+     def test_pft_static_attribution_counts_for_bmv2(self):
+         self.assertEqual(decide("PF-T", copy.deepcopy(FIX["PF-T"][1])).verdict, V.RED)
+-        self.assertEqual(decide("PF-T", {"answer": {"rc": 1, "g5_rows": 1, "other_fail_rows": 0}}).verdict,
++        self.assertEqual(decide("PF-T", {"answer": {"rc": 1, "ternary_rows": 1, "other_fail_rows": 0}}).verdict,
+                          V.UNATTRIBUTED)
+-        self.assertEqual(decide("PF-T", {"answer": {"rc": 1, "g5_rows": 1, "other_fail_rows": 1}}).verdict,
++        self.assertEqual(decide("PF-T", {"answer": {"rc": 1, "ternary_rows": 1, "other_fail_rows": 1}}).verdict,
+                          V.PROBE_BROKEN)
+ 
++    def test_pft_refused_in_any_words_is_red_and_never_green(self):
++        """(Cut A + D) The writer took "G5 not done" out of pre-flight; a pre-flight that refuses the ternary entry
++        again, with a sentence of its own (here the V3 refusal, captured), is RED, not GREEN and not PROBE-BROKEN."""
++        from p4_health import s0
++        with open(os.path.join(REPO, "tests", "python", "fixtures", "p4_health", "preflight_pft_refused.txt")) as fh:
++            text = fh.read()
++        self.assertNotIn("G5", text)
++        tern, other = s0.classify_pft(text, ["s2 entry 23"])
++        v = decide("PF-T", {"answer": {"rc": 1, "ternary_rows": tern, "other_fail_rows": other},
++                            "attribution": {"static": True}})
++        self.assertEqual((v.verdict, v.label), (V.RED, "RED"), v.reason)
++        self.assertEqual(decide("PF-T", {"answer": {"rc": 0, "ternary_rows": 0, "other_fail_rows": 0}}).verdict,
++                         V.GREEN)
++
+     def test_pft_with_no_observation_is_not_run(self):
+         """Review MINOR 2."""
+         self.assertEqual(decide("PF-T", {}).verdict, V.NOT_RUN)
+@@ -1276,12 +1290,12 @@ class TestExpectedFile(unittest.TestCase):
+ 
+     def test_the_prediction_comes_from_the_file_not_from_the_run(self):
+         exp = E.load(EXPECTED_TSV)
+-        self.assertEqual(exp["T4"]["expected"], "RED")
++        self.assertEqual(exp["T8"]["expected"], "RED")      # (Cut A + D) T4 predicts GREEN now; T8 is still RED
+         ctx = V.Context()
+-        ctx.cells["T4"] = V.Verdict(V.GREEN, "fixed")
++        ctx.cells["T8"] = V.Verdict(V.GREEN, "fixed")
+         ctx.cells["T1"] = V.Verdict(V.GREEN, "")
+         ann = E.annotate(ctx, exp)
+-        self.assertEqual(ann["T4"], ("RED", "flipped"))
++        self.assertEqual(ann["T8"], ("RED", "flipped"))
+         self.assertEqual(ann["T1"], ("GREEN", "same"))
+ 
+     def test_a_malformed_file_is_refused(self):
+@@ -1449,15 +1463,28 @@ class TestNoMachineLiterals(unittest.TestCase):
+ class TestS0Pieces(unittest.TestCase):
+     """The parts of S0 that decide something from text (the rest is seen live, in the S0 log)."""
+ 
+-    def test_pft_is_the_g5_answer_only_when_nothing_else_failed(self):
++    def test_pft_is_the_ternary_answer_only_when_nothing_else_failed(self):
++        """(Cut A + D) A refusal of PF-T's ternary entry is any FAIL line that names the entry where pre-flight names
++        it, whatever it says: the G5 sentence of the old pre-flight and the V3 one of today's both count, a PASS
++        counts nothing, and a FAIL line about another entry is not the ternary one."""
+         from p4_health import s0
+-        with open(os.path.join(REPO, "tests", "python", "fixtures", "p4_health", "preflight_pft.txt")) as fh:
+-            text = fh.read()
+-        self.assertEqual(s0.classify_pft(text), (1, 0))
+-        more = text.replace("  PASS  p4c-bm2-ss", "  FAIL  p4c-bm2-ss")
+-        self.assertEqual(s0.classify_pft(more), (1, 1))
+-        cont = text + "  FAIL                                    a second problem under the same row\n"
+-        self.assertEqual(s0.classify_pft(cont), (1, 0))
++        fx = os.path.join(REPO, "tests", "python", "fixtures", "p4_health")
++        where = ["s2 entry 23"]
++        for name in ("preflight_pft_g5.txt", "preflight_pft_refused.txt"):
++            with open(os.path.join(fx, name)) as fh:
++                text = fh.read()
++            self.assertEqual(s0.classify_pft(text, where), (1, 0), name)
++            more = text.replace("  PASS  p4c-bm2-ss", "  FAIL  p4c-bm2-ss")
++            self.assertEqual(s0.classify_pft(more, where), (1, 1), name)
++            cont = text + "  FAIL                                    a second problem under the same row\n"
++            self.assertEqual(s0.classify_pft(cont, where), (1, 0), name)
++            self.assertEqual(s0.classify_pft(text, ["s2 entry 2"]), (0, 0), name)       # another entry
++            self.assertEqual(s0.classify_pft(text, []), (0, 0), name)
++        with open(os.path.join(fx, "preflight_pft.txt")) as fh:
++            passed = fh.read()
++        self.assertIn("PASS -- every check passed", passed)
++        self.assertEqual(s0.classify_pft(passed, where), (0, 0))
++        self.assertEqual(s0.classify_pft(passed.replace("  PASS  p4c-bm2-ss", "  FAIL  p4c-bm2-ss"), where), (0, 1))
+ 
+     def test_runtime_entries_as_cli_commands(self):
+         from p4_health import runtime_cli as RC
+@@ -1555,6 +1582,55 @@ class TestS0Cut2Checks(unittest.TestCase):
+         x.pkgs = {n: os.path.join(d, "packages", n) for n in ("A", "B", "C", "PF-T", "FWD", "A-MUT")}
+         return x, r
+ 
++    def pft_package(self, x, table="HcIngress.t_ternary"):
++        """A PF-T package on disk the way convert writes one: s2's entries file, its 24th entry `table`."""
++        import json
++        pkg = x.pkgs["PF-T"]
++        os.makedirs(os.path.join(pkg, "runtime"))
++        with open(os.path.join(pkg, "package.json"), "w") as fh:
++            json.dump({"switches": {"1": {"name": "s1"},
++                                    "2": {"name": "s2", "entries": "runtime/s2-runtime-pft.json"}}}, fh)
++        entries = [{"table": "HcIngress.ipv4_lpm"}] * 23 + [{"table": table}]
++        with open(os.path.join(pkg, "runtime", "s2-runtime-pft.json"), "w") as fh:
++            json.dump({"table_entries": entries}, fh)
++
++    def pft_preflight(self, stdout_name, rc, table="HcIngress.t_ternary"):
++        with open(os.path.join(REPO, "tests", "python", "fixtures", "p4_health", stdout_name)) as fh:
++            text = fh.read()
++        x, _r = self.s0([(lambda a: a[-1].endswith("/PF-T"), (rc, text))])
++        self.pft_package(x, table)
++        x.pkgs = {"PF-T": x.pkgs["PF-T"]}
++        x.preflight()
++        return x, {c["name"]: c["ok"] for c in x.out["checks"] if "PF-T" in c["name"]}
++
++    def test_pft_must_pass_with_its_ternary_entry_in(self):
++        """(Cut A + D) S0's PF-T checks: the package carries the one ternary boot entry, and pre-flight PASSes it."""
++        x, checks = self.pft_preflight("preflight_pft.txt", 0)
++        self.assertEqual(checks, {"PF-T package carries one ternary boot entry": True,
++                                  "pre-flight PF-T PASSes with the ternary entry in": True})
++        self.assertEqual(x.out["preflight"]["PF-T"]["ternary_entries"], ["s2 entry 23"])
++        x, checks = self.pft_preflight("preflight_pft_refused.txt", 1)
++        self.assertFalse(checks["pre-flight PF-T PASSes with the ternary entry in"])
++        self.assertEqual((x.out["preflight"]["PF-T"]["ternary_rows"], x.out["preflight"]["PF-T"]["other_fail_rows"]),
++                         (1, 0))
++
++    def test_a_pft_pass_without_its_ternary_entry_proves_nothing(self):
++        """A PF-T package that lost its ternary entry passes pre-flight for no reason of the writer's: S0 says so."""
++        x, checks = self.pft_preflight("preflight_pft.txt", 0, table="HcIngress.ipv4_lpm")
++        self.assertEqual(checks, {"PF-T package carries one ternary boot entry": False,
++                                  "pre-flight PF-T PASSes with the ternary entry in": False})
++
++    def test_s0_wants_pft_green(self):
++        x, _r = self.s0([])
++        x.out["preflight"]["PF-T"] = {"rc": 0, "ternary_rows": 0, "other_fail_rows": 0}
++        self.assertEqual(x.pft_verdict().verdict, V.GREEN)
++        self.assertTrue(x.out["checks"][-1]["ok"], x.out["checks"])
++        x, _r = self.s0([])
++        x.out["preflight"]["PF-T"] = {"rc": 1, "ternary_rows": 1, "other_fail_rows": 0}
++        x.out["self_checks"]["main"] = {"ternary_held": True}
++        self.assertEqual(x.pft_verdict().verdict, V.RED)
++        self.assertFalse(x.out["checks"][-1]["ok"], x.out["checks"])
++
+     def test_show_ports_with_a_cpu_port_is_judged_on_the_data_ports(self):
+         from p4_health import s0
+         self.assertTrue(s0.show_ports_ok({1: "p1", 2: "p2", 3: "p3"}))
+diff --git a/tests/python/test_p4_health_collect.py b/tests/python/test_p4_health_collect.py
+index 97e74970..fff54042 100644
+--- a/tests/python/test_p4_health_collect.py
++++ b/tests/python/test_p4_health_collect.py
+@@ -1394,6 +1394,24 @@ HOST_PIDS = {"h%d" % h: 3100 + h for h in range(1, 7)}
+ TOP = 2 ** 31 - 1
+ 
+ 
++def load_match_shape():
++    """(Cut A + D) The proxy writer's own shape rules, p4_proxy/proxy_agent/match_shape.py (no gRPC, no protobuf).
++    The fake proxy refuses, with a 400, what the real one refuses before the wire: a probe body only the fake
++    would take (a ternary value with bits outside its mask, for one) is a red test here, not a RED in the lab."""
++    import importlib.util
++    spec = importlib.util.spec_from_file_location(
++        "p4h_test_match_shape", os.path.join(REPO, "p4_proxy", "proxy_agent", "match_shape.py"))
++    mod = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(mod)
++    return mod
++
++
++MS = load_match_shape()
++#: hc_main.p4's priority tables: their one key's match type and width.
++SHAPES = {"HcIngress.t_ternary": ("TERNARY", 32), "HcIngress.t_range": ("RANGE", 16),
++          "HcIngress.t_optional": ("OPTIONAL", 8)}
++
++
+ def ival(v):
+     if isinstance(v, int):
+         return v
+@@ -1452,8 +1470,9 @@ class FakeFabric(object):
+         self.count_k1 = True
+         self.proxy_k1_extra = 0
+         self.thrift_down = set()          # dpids whose CLI cannot connect
+-        self.ndtwin_writes_ternary = False
+-        self.ndtwin_priority = None       # what the proxy's future writer would store, or None
++        # (Cut A + D) today's proxy writes ternary, range and optional entries; False is a proxy before that (501)
++        self.ndtwin_writes_ternary = True
++        self.ndtwin_priority = None       # a writer that stores some other number than PI does, or None
+         self.tx_checksum = "off"
+         self.graph_drop_edge = False
+         self.graph_drop_switch_edges = False
+@@ -1557,9 +1576,15 @@ class FakeFabric(object):
+             if not self.ndtwin_writes_ternary:
+                 return (501, {"detail": {"error": "match type not supported"}})
+             (field, v), = body["match"].items()
++            kind, bits = SHAPES[table]
++            try:
++                MS.shape_field("%s.%s" % (table, field), kind, bits, v)
++                MS.shape_priority(table, [kind], body.get("priority"))
++            except MS.TableEntryInvalid as err:
++                return (400, {"detail": {"error": "invalid table entry", "message": str(err)}})
+             prio = self.ndtwin_priority(body["priority"]) if self.ndtwin_priority else TOP - body["priority"]
+             if table == "HcIngress.t_ternary":
+-                key = ("TERNARY", ival(v[0]) & ival(v[1]), ival(v[1]))
++                key = ("TERNARY", ival(v[0]), ival(v[1]))
+             elif table == "HcIngress.t_range":
+                 key = ("RANGE", v[0], v[1])
+             else:
+@@ -2083,6 +2108,7 @@ class TestBringUpAOnTodaysFabric(Cut2):
+             self.assertEqual(a.observations[cid]["negative"]["absent"], True, cid)
+ 
+     def test_without_b_every_bmv2_red_is_unattributed(self):
++        self.fab.ndtwin_writes_ternary = False           # a proxy before the ternary writer: T4-T6 answer 501
+         a, _r = self.a_round()
+         ctx = self.judge(a, None)
+         for cid in ("T4", "T5", "T6", "MT1", "MT2", "MT3", "D1", "C2", "R3", "K2", "P2", "P3"):
+@@ -2333,6 +2359,25 @@ class TestBringUpARedPaths(Cut2):
+         self.assertEqual({c: ctx.cells[c].verdict for c in ("T4", "T5", "T6", "T7")},
+                          {c: V.GREEN for c in ("T4", "T5", "T6", "T7")})
+ 
++    def test_t4_to_t7s_bodies_are_ones_the_writer_takes(self):
++        """(Cut A + D) Every write T4-T7 sends passes the writer's own shape and priority rules, so a refusal in the
++        lab is the writer's and never the probe's. T4's first body (10.0.4.4 under a /24) did not: V3 refuses it."""
++        for body in (OA.T4_BODY, OA.T5_BODY, OA.T6_BODY) + tuple(OA.T7_BODIES):
++            (field, v), = body["match"].items()
++            kind, bits = SHAPES[body["table"]]
++            MS.shape_field("%s.%s" % (body["table"], field), kind, bits, v)
++            MS.shape_priority(body["table"], [kind], body["priority"])
++        with self.assertRaises(MS.TableEntryInvalid):
++            MS.shape_field("t.f", "TERNARY", 32, ["10.0.4.4", "255.255.255.0"])
++
++    def test_a_proxy_before_the_ternary_writer_is_t4_to_t6_red_and_t7_not_run(self):
++        self.fab.ndtwin_writes_ternary = False
++        a, _r = self.a_round(only=["T4", "T5", "T6", "T7"])
++        ctx = self.judge(a, self.all_confirmed())
++        self.assertEqual({c: ctx.cells[c].verdict for c in ("T4", "T5", "T6", "T7")},
++                         {"T4": V.RED, "T5": V.RED, "T6": V.RED, "T7": V.NOT_RUN})
++        self.assertIn("501", ctx.cells["T4"].reason)
++
+     def test_a_ternary_writer_that_keeps_p4runtimes_numbers_is_red(self):
+         """bmv2's thrift prints INT32_MAX - priority (observed on throwaway switches); a writer that
+         stored the P4Runtime number as is would invert the order of every overlapping pair."""
+@@ -2465,6 +2510,7 @@ class TestBringUpB(Cut2):
+ 
+     def test_a_call_the_controller_lost_is_unattributed_in_a(self):
+         self.fab.ctrl_fail = {"ternary", "meter"}
++        self.fab.ndtwin_writes_ternary = False           # a proxy before the ternary writer: T4 and T5 RED
+         b, _r, _p = self.b_round()
+         a, _r2 = self.a_round(only=["T4", "MT1", "MT2", "T5"])
+         ctx = self.judge(a, b.confirmed)
+@@ -2499,7 +2545,7 @@ class TestTheLabRun(Cut2):
+                 fh.write(p4info_text())
+         self.s0 = {"verdict": "COMPLETE", "builds": {"build/hc_alt": {"p4info_sha16": PIPES4["1"]},
+                                                       "build/hc_main": {"p4info_sha16": PIPES4["2"]}},
+-                   "preflight": {"PF-T": {"rc": 1, "g5_rows": 1, "other_fail_rows": 0}},
++                   "preflight": {"PF-T": {"rc": 0, "ternary_rows": 0, "other_fail_rows": 0}},
+                    "self_checks": {"main": {"ternary_held": True}}}
+         self.claim = self.cfg.claim_file
+         self.expected = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv")
+@@ -2572,6 +2618,15 @@ class TestTheLabRun(Cut2):
+             h = json.load(fh)
+         self.assertEqual((h["gate_fingerprint"]["sha256"], h["system_under_test"]), ("f" * 64, "/r/code_identity.json"))
+ 
++    def test_an_s0_whose_pre_flight_refused_the_ternary_entry_is_pft_red_in_the_lab(self):
++        """(Cut A + D) The lab reads PF-T from S0's record: a refusal of the ternary entry (any words; S0 counts the
++        lines that name it) is RED with the static attribution, a pass is GREEN."""
++        refused = {"preflight": {"PF-T": {"rc": 1, "ternary_rows": 1, "other_fail_rows": 0}},
++                   "self_checks": {"main": {"ternary_held": True}}}
++        decide = lambda s0_out: V.decide(T.TABLE.cell("PF-T"), LAB.pft_observation(s0_out), V.Context())
++        self.assertEqual(decide(refused).verdict, V.RED)
++        self.assertEqual(decide(self.s0).verdict, V.GREEN)
++
+     def test_a_then_b_then_the_verdicts(self):
+         rc, doc, r = self.run_lab()
+         ndt = [(c["argv"][1], c["argv"][-1] if c["argv"][1] == "up" else "") for c in r.calls if c["argv"][0] == "ndt"]
+@@ -2579,10 +2634,11 @@ class TestTheLabRun(Cut2):
+         self.assertEqual(ups, ["packages/A", "packages/B"])
+         self.assertEqual([v for v, _ in ndt], ["status", "claim", "up", "down", "release"] * 2)
+         cells = {c["id"]: c for c in doc["cells"]}
+-        self.assertEqual((cells["T4"]["verdict"], cells["T4"]["attribution"]["ok"]), (V.RED, True),
+-                         cells["T4"])
++        self.assertEqual(cells["T4"]["verdict"], V.GREEN, cells["T4"])              # (Cut A + D)
++        self.assertEqual((cells["MT1"]["verdict"], cells["MT1"]["attribution"]["ok"]), (V.RED, True),
++                         cells["MT1"])
+         self.assertEqual(cells["R3"]["verdict"], V.UNATTRIBUTED)
+-        self.assertEqual(cells["PF-T"]["verdict"], V.RED)
++        self.assertEqual(cells["PF-T"]["verdict"], V.GREEN)
+         self.assertEqual(cells["CH1"]["phase"], "unobserved")
+         # m1: nothing this run did not observe reads as a flip -- an alias of such a cell neither
+         deltas = {c["id"]: c["delta"] for c in doc["cells"]}
+@@ -3045,7 +3101,7 @@ class TestTheLabRun(Cut2):
+                               b_kwargs=self.fake_time(), log=lambda *a: None)
+         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+         cells = {c["id"]: c for c in doc["cells"]}
+-        self.assertEqual(cells["T4"]["verdict"], V.UNATTRIBUTED)     # B never ran
++        self.assertEqual(cells["MT1"]["verdict"], V.UNATTRIBUTED)    # B never ran
+ 
+     def test_the_see_red_run_uses_the_mutant_package_and_only_its_cells(self):
+         self.fab.count_k1 = False
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index 3e282f49..7b47e7b7 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -378,11 +378,74 @@ add "D11. the netem is applied before it is recorded" \
+         self.write_state(netem=self.state["netem"] + [iface])  # MUTANT: after' \
+     'test_netem_is_recorded_before_it_is_applied'
+ 
+-add "D12. PF-T counts every FAIL row as the G5 row" \
++add "D12. PF-T counts every FAIL row as the ternary row" \
+     "$S0PY" \
+     '    other = sum(1 for line in labelled if not line[8:].startswith("entries match p4info"))' \
+     '    other = 0  # MUTANT' \
+-    'test_pft_is_the_g5_answer_only_when_nothing_else_failed'
++    'test_pft_is_the_ternary_answer_only_when_nothing_else_failed'
++
++# Cut A + D: the ternary writer took "G5 not done" out of pre-flight, and PF-T must PASS now. A refusal of PF-T's
++# ternary entry is known by where pre-flight names the entry, never by its words; T4's probe body obeys the writer's
++# V3; T6 reads an optional key the way thrift prints it. [Co-developed with claude code -- Adam]
++add "AD1. PF-T's refusal is known only by the old G5 sentence" \
++    "$S0PY" \
++    '    ternary = sum(1 for line in lines if line.startswith("  FAIL") and any(n.search(line) for n in names))' \
++    '    ternary = sum(1 for line in lines if "G5 not done" in line)  # MUTANT' \
++    'test_pft_refused_in_any_words_is_red_and_never_green'
++
++add "AD2. every FAIL line is PF-T's ternary refusal, whatever entry it names" \
++    "$S0PY" \
++    '    ternary = sum(1 for line in lines if line.startswith("  FAIL") and any(n.search(line) for n in names))' \
++    '    ternary = sum(1 for line in lines if line.startswith("  FAIL"))  # MUTANT' \
++    'test_pft_is_the_ternary_answer_only_when_nothing_else_failed'
++
++add "AD3. PF-T's ternary entry is any boot entry of the package" \
++    "$S0PY" \
++    'for i, e in enumerate(entries) if e.get("table") == PFT_TABLE]' \
++    'for i, e in enumerate(entries)]  # MUTANT' \
++    'test_pft_must_pass_with_its_ternary_entry_in'
++
++add "AD4. S0 takes a PF-T pass whose package lost its ternary entry" \
++    "$S0PY" \
++    '                           res.rc == 0 and not fails and len(wheres) == 1,' \
++    '                           res.rc == 0 and not fails,  # MUTANT' \
++    'test_a_pft_pass_without_its_ternary_entry_proves_nothing'
++
++add "AD5. S0 does not need pre-flight to pass PF-T" \
++    "$S0PY" \
++    '                           res.rc == 0 and not fails and len(wheres) == 1,' \
++    '                           len(wheres) == 1,  # MUTANT' \
++    'test_pft_must_pass_with_its_ternary_entry_in'
++
++add "AD6. S0 still wants PF-T RED" \
++    "$S0PY" \
++    'v.verdict == V.GREEN,' \
++    'v.verdict == V.RED,  # MUTANT' \
++    'test_s0_wants_pft_green'
++
++add "AD7. the PF-T cell reads the refusal under its old key" \
++    "$TABLE" \
++    '(a.get("ternary_rows") or 0) >= 1' \
++    '(a.get("g5_rows") or 0) >= 1' \
++    'test_pft_refused_in_any_words_is_red_and_never_green'
++
++add "AD8. the lab reads S0's PF-T refusal under its old key" \
++    "$PKG/lab.py" \
++    '"ternary_rows": pf.get("ternary_rows", 0)' \
++    '"ternary_rows": pf.get("g5_rows", 0)' \
++    'test_an_s0_whose_pre_flight_refused_the_ternary_entry_is_pft_red_in_the_lab'
++
++add "AD9. T4 writes a value with bits outside its mask" \
++    "$PKG/observe_a.py" \
++    '"match": {"hdr.ipv4.srcAddr": ["10.0.4.0", "255.255.255.0"]},' \
++    '"match": {"hdr.ipv4.srcAddr": ["10.0.4.4", "255.255.255.0"]},  # MUTANT' \
++    'test_t4_to_t7s_bodies_are_ones_the_writer_takes'
++
++add "AD10. T6 looks for an optional key the P4Runtime way, not the way thrift prints it" \
++    "$PKG/observe_a.py" \
++    'entries_with((17, 0xFF))' \
++    'entries_with((17,))' \
++    'test_a_proxy_that_writes_ternary_turns_t4_to_t7_green'
+ 
+ # Review MAJ-1: a missing or empty reading is never a pass.
+ add "N1. a reading the row needs may be missing" \
+diff --git a/tools/p4_health/cells/table.py b/tools/p4_health/cells/table.py
+index 53634a7e..36e2e951 100644
+--- a/tools/p4_health/cells/table.py
++++ b/tools/p4_health/cells/table.py
+@@ -401,10 +401,11 @@ def t8(obs):
+ 
+ 
+ def pft_cannot(obs):
++    """(Cut A + D) Pre-flight refusing the ternary entry, in whatever words (s0.classify_pft counts the FAIL lines
++    that name the entry): the "G5 not done" sentence it used to be known by is gone from pre-flight."""
+     a = A(obs)
+-    if a.get("rc") not in (None, 0) and (a.get("g5_rows") or 0) >= 1 and a.get("other_fail_rows") == 0:
+-        return red("pre-flight refuses a boot entry that names a TERNARY field (G5 not done)",
+-                   "structural")
++    if a.get("rc") not in (None, 0) and (a.get("ternary_rows") or 0) >= 1 and a.get("other_fail_rows") == 0:
++        return red("pre-flight refuses the boot entry that names a TERNARY field", "structural")
+     return None
+ 
+ 
+@@ -413,7 +414,7 @@ def pft(obs):
+     if a["rc"] == 0:
+         return green("pre-flight accepts a boot ternary entry")
+     return broken("pre-flight failed on something other than the ternary row (%s other FAIL "
+-                  "row(s)): a path or format error, not the G5 answer" % a.get("other_fail_rows"))
++                  "row(s)): a path or format error, not the ternary answer" % a.get("other_fail_rows"))
+ 
+ 
+ def m1(obs):
+diff --git a/tools/p4_health/exercise/gen_runtime.py b/tools/p4_health/exercise/gen_runtime.py
+index 6e5485fd..ad9514f0 100644
+--- a/tools/p4_health/exercise/gen_runtime.py
++++ b/tools/p4_health/exercise/gen_runtime.py
+@@ -117,7 +117,8 @@ def runtime(dpid, with_ternary=False):
+         entries.append({"table": "HcIngress.t_default_only", "default_action": True,
+                         "action_name": "HcIngress.stamp", "action_params": {"v": T2_RUNTIME_DEFAULT}})
+     if with_ternary:
+-        # PF-T: a boot entry that names a TERNARY field. Pre-flight must refuse it (G5).
++        # PF-T: a boot entry that names a TERNARY field. Pre-flight must accept it: it checks the entry with the
++        # proxy writer's own match_shape (value inside its mask, a priority), as the writer will.
+         entries.append({"table": "HcIngress.t_ternary", "priority": 10,
+                         "match": {"hdr.ipv4.srcAddr": [host_ip(1), "255.255.255.255"]},
+                         "action_name": "HcIngress.set_mark", "action_params": {"v": 7}})
+diff --git a/tools/p4_health/lab.py b/tools/p4_health/lab.py
+index 587d4a52..4e999611 100644
+--- a/tools/p4_health/lab.py
++++ b/tools/p4_health/lab.py
+@@ -57,7 +57,7 @@ def expectations(s0_out, run_dir, model):
+ def pft_observation(s0_out):
+     pf = (s0_out.get("preflight") or {}).get("PF-T") or {}
+     main = (s0_out.get("self_checks") or {}).get("main") or {}
+-    return {"answer": {"rc": pf.get("rc"), "g5_rows": pf.get("g5_rows", 0),
++    return {"answer": {"rc": pf.get("rc"), "ternary_rows": pf.get("ternary_rows", 0),
+                        "other_fail_rows": pf.get("other_fail_rows", 0)},
+             "attribution": {"static": bool(main.get("ternary_held"))}}
+ 
+diff --git a/tools/p4_health/observe_a.py b/tools/p4_health/observe_a.py
+index 764e0cda..e1dc40d9 100644
+--- a/tools/p4_health/observe_a.py
++++ b/tools/p4_health/observe_a.py
+@@ -223,8 +223,11 @@ def thrift_priority(p4rt_priority):
+     return BMV2_PRIORITY_TOP - int(p4rt_priority)
+ 
+ 
++#: (Cut A + D) T4's value is its own network address: the writer refuses a value with a bit outside its mask
++#: (match_shape V3, "the value is not masked for you"; 400 before the wire), so 10.0.4.4/255.255.255.0 would be a
++#: correct refusal read as T4 RED.
+ T4_BODY = {"dpid": 2, "op": "insert", "table": "HcIngress.t_ternary",
+-           "match": {"hdr.ipv4.srcAddr": ["10.0.4.4", "255.255.255.0"]},
++           "match": {"hdr.ipv4.srcAddr": ["10.0.4.0", "255.255.255.0"]},
+            "action_name": "HcIngress.set_mark", "action_params": {"v": 4}, "priority": 10}
+ T5_BODY = {"dpid": 2, "op": "insert", "table": "HcIngress.t_range",
+            "match": {"hdr.udp.dstPort": [40100, 40110]},
+@@ -241,7 +244,7 @@ T7_BODIES = ({"dpid": 2, "op": "insert", "table": "HcIngress.t_ternary",
+ 
+ 
+ def observe_t4(cfg, runner):
+-    v, m = to_int("10.0.4.4") & to_int("255.255.255.0"), to_int("255.255.255.0")
++    v, m = to_int(T4_BODY["match"]["hdr.ipv4.srcAddr"][0]), to_int(T4_BODY["match"]["hdr.ipv4.srcAddr"][1])
+ 
+     def find(dump):
+         return [e for e in (dump or {}).get("entries", [])
+diff --git a/tools/p4_health/s0.py b/tools/p4_health/s0.py
+index 6347f55b..0dce8bfa 100644
+--- a/tools/p4_health/s0.py
++++ b/tools/p4_health/s0.py
+@@ -4,7 +4,7 @@
+ 
+     compile (six builds, one at a time, nice -n 19) -> p4info identity -> inventory
+     -> convert A, B, C (+ PF-T, + the FWD control) -> pre-flight A, B, C (must PASS), PF-T (must
+-    FAIL with the G5 row and nothing else) -> drop check A, B, C (rc 0), FWD (rc 1)
++    PASS with its one ternary boot entry in) -> drop check A, B, C (rc 0), FWD (rc 1)
+     -> the program self-checks on a throwaway bmv2 (main, alt, and the mutant build, which must
+     fail exactly SC-count, SC-ttl and SC-qstamp) -> openapi, read in-process -> PF-T's verdict.
+ 
+@@ -124,16 +124,42 @@ def inventory(json_path, p4info_path):
+     return found
+ 
+ 
+-def classify_pft(stdout):
+-    """(lines that are the G5 refusal, FAIL rows that are about anything else) in pre-flight's
+-    table. A continuation row (`  FAIL        <detail>`, no label) belongs to the row above it, so
+-    only labelled rows are classified; PF-T is the G5 answer only when the one labelled FAIL row
+-    is "entries match p4info" and it carries the G5 sentence (design 2.3 PF-T)."""
+-    g5 = sum(1 for line in (stdout or "").splitlines() if "G5 not done" in line)
+-    labelled = [line for line in (stdout or "").splitlines()
+-                if line.startswith("  FAIL  ") and line[8:9] not in (" ", "")]
++#: The table of PF-T's one boot entry that names a TERNARY field (exercise/gen_runtime.py, `with_ternary`).
++PFT_TABLE = "HcIngress.t_ternary"
++
++
++def pft_entries(pkg):
++    """Where pre-flight names PF-T's ternary boot entries ("s2 entry 23"): every entry, on any switch of the package,
++    that writes PFT_TABLE. An unreadable package is []."""
++    try:
++        with open(os.path.join(pkg, "package.json"), encoding="utf-8") as fh:
++            switches = json.load(fh).get("switches") or {}
++        out = []
++        for dpid, spec in sorted(switches.items(), key=lambda kv: int(kv[0])):
++            if not (spec or {}).get("entries"):
++                continue
++            with open(os.path.join(pkg, spec["entries"]), encoding="utf-8") as fh:
++                entries = json.load(fh).get("table_entries") or []
++            out += ["s%s entry %d" % (dpid, i) for i, e in enumerate(entries) if e.get("table") == PFT_TABLE]
++        return out
++    except (OSError, ValueError, AttributeError, TypeError):
++        return []
++
++
++def classify_pft(stdout, wheres):
++    """(FAIL lines that refuse PF-T's ternary entry, FAIL rows that are about anything else) in pre-flight's table.
++
++    (Cut A + D) The ternary writer took the "G5 not done" sentence out of pre-flight, so a refusal is no longer
++    known by its words: it is any FAIL line -- the labelled row or a continuation under it -- that names the
++    ternary entry where pre-flight names it (`wheres`, from pft_entries: every problem of an entry is written
++    "<where>: ..."). A continuation row (`  FAIL        <detail>`, no label) belongs to the row above it, so only
++    labelled rows count as other rows, and "entries match p4info" is the ternary row's own (design 2.3 PF-T)."""
++    names = [re.compile(r"(?<![\w])%s:" % re.escape(w)) for w in wheres]
++    lines = (stdout or "").splitlines()
++    ternary = sum(1 for line in lines if line.startswith("  FAIL") and any(n.search(line) for n in names))
++    labelled = [line for line in lines if line.startswith("  FAIL  ") and line[8:9] not in (" ", "")]
+     other = sum(1 for line in labelled if not line[8:].startswith("entries match p4info"))
+-    return g5, other
++    return ternary, other
+ 
+ 
+ def _delta(before, after):
+@@ -312,18 +338,22 @@ class S0(object):
+                 continue
+             res = self.run_cmd(["nice", "-n", "19", self.py, script, pkg])
+             fails = preflight_rows(res.stdout)
+-            g5 = [l for l in res.stdout.splitlines() if "G5 not done" in l]
+-            other = 0
+             self.out["preflight"][name] = {"rc": res.rc, "fail_rows": fails}
+             if name != "PF-T":
+                 self.check("pre-flight %s PASS" % name, res.rc == 0 and not fails,
+                            "rc %s, %d FAIL row(s)" % (res.rc, len(fails)))
+             else:
+-                g5n, other = classify_pft(res.stdout)
+-                self.out["preflight"][name].update({"g5_rows": g5n, "other_fail_rows": other})
+-                self.check("pre-flight PF-T FAILs on the ternary row only",
+-                           res.rc == 1 and g5n >= 1 and other == 0,
+-                           "rc %s, G5 lines %d, other FAIL rows %d" % (res.rc, g5n, other))
++                # (Cut A + D) PF-T must PASS now, and a PASS is about the ternary entry only if the package
++                # carries it: the old FAIL proved that by naming it, a PASS names nothing.
++                wheres = pft_entries(pkg)
++                tern, other = classify_pft(res.stdout, wheres)
++                self.out["preflight"][name].update({"ternary_entries": wheres, "ternary_rows": tern,
++                                                    "other_fail_rows": other})
++                self.check("PF-T package carries one ternary boot entry", len(wheres) == 1,
++                           "%s in %s" % (PFT_TABLE, wheres))
++                self.check("pre-flight PF-T PASSes with the ternary entry in",
++                           res.rc == 0 and not fails and len(wheres) == 1,
++                           "rc %s, ternary FAIL lines %d, other FAIL rows %d" % (res.rc, tern, other))
+ 
+     def drop_check(self):
+         script = os.path.join(REPO, "tools", "test_workflow", "heartbeat_drop_check.py")
+@@ -708,12 +738,13 @@ class S0(object):
+     def pft_verdict(self):
+         pf = self.out["preflight"].get("PF-T") or {}
+         main = self.out["self_checks"].get("main") or {}
+-        obs = {"answer": {"rc": pf.get("rc"), "g5_rows": pf.get("g5_rows", 0),
++        obs = {"answer": {"rc": pf.get("rc"), "ternary_rows": pf.get("ternary_rows", 0),
+                           "other_fail_rows": pf.get("other_fail_rows", 0)},
+                "attribution": {"static": bool(main.get("ternary_held"))}}
+         v = V.decide(T.TABLE.cell("PF-T"), obs, V.Context())
+         self.out["pft"] = v.as_dict()
+-        self.check("PF-T verdict RED (structural + static)", v.verdict == V.RED, v.label + ": " + v.reason)
++        self.check("PF-T verdict GREEN (pre-flight accepts the boot ternary entry)", v.verdict == V.GREEN,
++                   v.label + ": " + v.reason)
+         return v
+ 
+     def run(self):

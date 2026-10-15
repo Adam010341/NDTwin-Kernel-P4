@@ -1,0 +1,4 @@
+commit d811f871f37d3a22caac214dc837f7223be5cbdb
+bash: tests/shell/mutate_table_entry_owner.sh: No such file or directory
+bash -n tests/shell/mutate_table_entry_owner.sh -> 127
+rc=127

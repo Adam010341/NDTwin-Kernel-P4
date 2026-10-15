@@ -1,0 +1,42 @@
+commit d92bf1a258cec2d1524652fcff17526926fbcefa
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate  tracked-dirty=0  df_free_mb=5383  LANG=en_US.UTF-8 LC_ALL=  command: bash tests/shell/mutate_table_entry_owner.sh
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+command's own program /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+interpreter: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 325 tests in 2.257s
+OK
+
+  held     C1 (control): a docstring comma moves                              (comment-only edit, suite still green)
+  caught   M1: write_table_entry no longer asks whether the table is owned    (test_an_empty_match_into_flow_5tuple_is_refused_and_nothing_is_written went red)
+  caught   M2: the owner test is inverted (a package binding)                 (test_an_api_match_entry_into_the_owned_route_table_is_refused went red)
+  caught   M3: the default-action exception is widened to API writes          (test_an_api_default_action_change_on_the_owned_route_table_is_refused went red)
+  caught   M4: a baseline-bound switch no longer owns every table             (test_an_empty_match_into_flow_5tuple_is_refused_and_nothing_is_written went red)
+  caught   M5: a replayed default is treated as a boot one                    (test_a_replayed_default_is_refused_like_an_api_one went red)
+  caught   M6: the exception also covers the default of a baseline table      (test_a_baseline_default_is_refused_inside_the_boot_block_too went red)
+  caught   M7: the exception admits a non-default entry that has no match     (test_a_boot_entry_with_no_match_that_is_not_a_default_is_refused went red)
+  caught   M7b: the exception admits a default that also names a match        (test_a_boot_default_that_also_names_a_match_is_refused went red)
+  caught   M8: the exception also covers a boot delete                        (test_a_boot_delete_of_the_default_is_refused went red)
+  caught   M9: the boot marking is never taken back after the block           (test_the_boot_exception_does_not_outlive_the_boot_block went red)
+  caught   M10: every table of a package switch is owned, not just the bound one (test_a_write_into_the_packages_own_user_table_is_still_accepted went red)
+  caught   M11: a foreign switch with no roles owns every table               (test_a_foreign_switch_with_no_roles_owns_nothing went red)
+  caught   M12: package boot entries are no longer marked as boot writes      (test_the_boot_default_of_the_owned_route_table_still_installs went red)
+  caught   M13: the 409 body no longer says owned_by_ndtwin                   (test_the_headline_post_is_409_owned_by_ndtwin_and_writes_nothing went red)
+  caught   M14: the remedy is pushed past the first 200 bytes of the body     (test_the_remedy_and_where_it_ends_are_inside_the_first_200_bytes_of_the_body went red)
+  caught   M15: an external control plane is no longer refused first          (test_an_external_control_plane_is_still_told_that_first went red)
+  caught   M16: the check is dropped (NDTwin's own flow_5tuple p4info, a baseline client) (test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_builds_it went red)
+  caught   M17: the owner test compares the spelling in the request, not the resolved table (test_the_alias_of_the_owned_route_table_is_refused went red)
+  caught   M18: an explicit source argument is ignored                        (test_an_explicit_boot_source_installs_the_default went red)
+  caught   M19: an unknown source is no longer a ValueError                   (test_an_unknown_source_is_a_valueerror_and_writes_nothing went red)
+  caught   M20: the boot marking is reset outside a finally                   (test_the_boot_exception_does_not_survive_a_refused_boot_entry went red)
+  caught   M21: the boot marking is one process-wide value, not per thread    (test_an_api_write_is_refused_while_a_boot_write_is_blocked_on_the_wire went red)
+  caught   M22: the 409 remedy is NDTwin-pipeline text even for a package role (test_on_a_package_pipeline_the_409_names_the_role_and_points_at_another_table went red)
+  caught   M23: an empty match is labelled (default action) again             (test_an_empty_match_entry_that_is_not_a_default_is_not_labelled_default went red)
+  caught   M24: startup and readopt no longer mark the package entries as boot (test_startup_applies_the_packages_default_and_fails_nothing went red)
+  caught   M25: the owner is asked after the entry is built, not before       (test_on_ndtwins_pipeline_the_owner_answers_before_the_shape_rules went red)
+
+baseline byte-identical: yes (p4_client.py, main.py, api_routes.py, the six test files)
+mutation gate: 27 mutations, 0 survived
+rc=0

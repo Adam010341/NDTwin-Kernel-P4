@@ -1,0 +1,4 @@
+fatal: cannot change to 'rev-parse': No such file or directory
+commit 
+ln: failed to create symbolic link 'p4_proxy/p4_src/build': No such file or directory
+rc=3

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# py_compile of the .py files PR "Cut A + D" changes vs main (output to a throwaway pycache prefix)
+for f in p4_proxy/proxy_agent/api_routes.py p4_proxy/proxy_agent/main.py p4_proxy/proxy_agent/match_shape.py p4_proxy/proxy_agent/p4_client.py p4_proxy/proxy_agent/rule_install_times.py p4_proxy/proxy_agent/ryu_flow_stats.py p4_proxy/tests/test_flow_stats_route.py p4_proxy/tests/test_foreign_pipeline.py p4_proxy/tests/test_p4_client_writes.py p4_proxy/tests/test_rule_install_times.py p4_proxy/tests/test_ryu_flow_stats.py p4_proxy/tests/test_switch_state.py p4_proxy/tests/test_table_entry_route.py tests/python/test_p4_health_cells.py tests/python/test_p4_health_collect.py tools/p4_exercise/common.py tools/p4_exercise/preflight.py tools/p4_exercise/tests/test_preflight.py tools/p4_health/cells/table.py tools/p4_health/exercise/gen_runtime.py tools/p4_health/lab.py tools/p4_health/observe_a.py tools/p4_health/runtime_cli.py tools/p4_health/s0.py; do
+  [ -f "$f" ] || { echo "py_compile $f -> missing"; continue; }
+  PYTHONPYCACHEPREFIX=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/pyc /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python3 -m py_compile "$f"; r=$?; echo "py_compile $f -> $r"
+done

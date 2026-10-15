@@ -1,0 +1,124 @@
+{
+  "limits": "only the declared program's default (table-miss) behaviour was checked: no controller, no table entries, no clone session, no multicast group. Entries, sessions and groups the external controller installs later are not covered, and neither is a pipeline it pushes itself or a default action it changes at runtime.",
+  "programs": [
+    {
+      "argv": [
+        "ndt-hbdrop-bmv2",
+        "--use-files",
+        "0",
+        "-i",
+        "1@p1",
+        "-i",
+        "2@p2",
+        "-i",
+        "3@p3",
+        "-i",
+        "4@p4",
+        "-i",
+        "5@p5",
+        "-i",
+        "510@p510",
+        "--thrift-port",
+        "29400",
+        "--device-id",
+        "952453",
+        "--notifications-addr",
+        "ipc://notif.ipc",
+        "--log-file",
+        "bmv2",
+        "--log-level",
+        "debug",
+        "--log-flush",
+        "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/s0-run/packages/A/build/hc_alt.json"
+      ],
+      "binary": "/usr/local/bin/simple_switch",
+      "binary_version": "1.15.3-f0b7d201",
+      "check_version": 2,
+      "checked_at": 1792075629,
+      "cpu_port": 510,
+      "device_id": 952453,
+      "dpids": [
+        1
+      ],
+      "exit_status": -15,
+      "limits": "only the declared program's default (table-miss) behaviour was checked: no controller, no table entries, no clone session, no multicast group. Entries, sessions and groups the external controller installs later are not covered, and neither is a pipeline it pushes itself or a default action it changes at runtime.",
+      "per_port": {
+        "1": "dropped",
+        "2": "dropped",
+        "3": "dropped",
+        "4": "dropped",
+        "5": "dropped"
+      },
+      "pid": 232457,
+      "ports": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "program": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/s0-run/packages/A/build/hc_alt.json",
+      "program_sha256": "414453d18e3cd051912c30222998a6fe9bc867e3831aaf42b8b302de1ba8beaa",
+      "reason": "every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped; port 4: dropped; port 5: dropped",
+      "thrift_port": 29400,
+      "verdict": "dropped"
+    },
+    {
+      "argv": [
+        "ndt-hbdrop-bmv2",
+        "--use-files",
+        "0",
+        "-i",
+        "1@p1",
+        "-i",
+        "2@p2",
+        "-i",
+        "3@p3",
+        "-i",
+        "510@p510",
+        "--thrift-port",
+        "29400",
+        "--device-id",
+        "952453",
+        "--notifications-addr",
+        "ipc://notif.ipc",
+        "--log-file",
+        "bmv2",
+        "--log-level",
+        "debug",
+        "--log-flush",
+        "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/s0-run/packages/A/build/hc_main.json"
+      ],
+      "binary": "/usr/local/bin/simple_switch",
+      "binary_version": "1.15.3-f0b7d201",
+      "check_version": 2,
+      "checked_at": 1792075629,
+      "cpu_port": 510,
+      "device_id": 952453,
+      "dpids": [
+        2,
+        3,
+        4
+      ],
+      "exit_status": -15,
+      "limits": "only the declared program's default (table-miss) behaviour was checked: no controller, no table entries, no clone session, no multicast group. Entries, sessions and groups the external controller installs later are not covered, and neither is a pipeline it pushes itself or a default action it changes at runtime.",
+      "per_port": {
+        "1": "dropped",
+        "2": "dropped",
+        "3": "dropped"
+      },
+      "pid": 232471,
+      "ports": [
+        1,
+        2,
+        3
+      ],
+      "program": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/s0-run/packages/A/build/hc_main.json",
+      "program_sha256": "a90422ad15c57fa8f9afcf976c1e5cd26d2db20bed06bc44e3c1d49c4dd79328",
+      "reason": "every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped",
+      "thrift_port": 29400,
+      "verdict": "dropped"
+    }
+  ],
+  "rc": 0
+}

@@ -1,0 +1,200 @@
+commit 02cf1b408d10d9a138aba49ed71926b7b8107c63
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone  tracked-dirty=0  df_free_mb=6455  mem_avail_mb=4493  LANG=en_US.UTF-8 LC_ALL=  command: bash tests/shell/test_p4_health_recover.sh
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+subject: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tools/p4_health/recover.sh
+--- the whole recovery, in order, under the note ndt up wrote
+  ok    rc 0
+  ok    stop sniffer, stop controller, netem off, qdisc diff, down, release, status
+  ok    the host knob is its snapshot's bytes
+  ok    the telemetry knob that was absent is absent again
+  ok    after its own ndt down the state says down-done
+--- a crash after the probe's own ndt down (phase down-done; review NEW-C)
+  ok    down-done: rc 0
+  ok    down-done: asked ndt status, then released -- no qdisc, no netem, no second down
+  ok    down-done: the host knob is its snapshot's bytes
+  ok    down-done but ndt status shows a fabric: rc 4
+  ok      ... no release, no knob write
+  ok      ... knob untouched
+--- not our lab
+  ok    a live foreign claim: rc 3
+  ok    nothing was run
+  ok    the knob was not written
+  ok    another package in the override: rc 3, nothing run
+  ok      ... and nothing run
+  ok    an up note written for another owner: rc 3, nothing run
+  ok      ... and nothing run
+--- the probe is still alive
+  ok    rc 3 and nothing run
+  ok      ... and nothing run
+  ok    the probe's pid alive with its own start time: rc 3
+  ok      ... and nothing run
+--- the probe's pid alive but recycled (another start time) is not the probe
+  ok    rc 0: a live pid with another start time is a recycled pid
+--- section 12 item 11: an expired claim of ours, the override still ours
+  ok    rc 0
+  ok    asked ndt whether anything is measuring, then re-claimed as the same owner's run
+  ok    and then the whole recovery
+--- ... but never somebody else's expired claim, and never over a measurement
+  ok    an expired foreign claim: rc 3, no re-claim
+  ok    an expired foreign claim: the claim stub was never called
+  ok      ... nothing run
+  ok    an expired claim that declares a measurement: rc 3
+  ok      ... no claim, no down
+  ok    an expired claim and ndt status --measuring not answering: rc 3 (fails closed)
+  ok      ... no claim, no down
+  ok    an expired claim with a measurement in flight: rc 3
+  ok      ... no claim, no down
+--- (r4, Cut 1 follow-ups) down-done: our own claim expired while ndt down ran
+  ok    down-done, own claim expired, override absent: rc 0
+  ok      ... checked no fabric first, asked what measures, re-claimed, restored the knobs, released
+  ok      ... the host knob is its snapshot's bytes
+  ok    down-done, an expired claim of somebody else: rc 3, nothing run
+  ok      ... and nothing run
+  ok    down-done, an expired claim that declares a measurement: rc 3
+  ok      ... no claim, no release
+--- (r4) down-done: stopping a process needs no fabric
+  ok    down-done with a kept sniffer and controller: rc 0
+  ok    down-done with a kept sniffer and controller: ndt status, both signalled, release -- no qdisc, no netem, no down
+  ok    down-done with a fabric still up: rc 4, nothing signalled either
+  ok      ... no kill, no release
+--- (r4) an answer that says nothing about measuring is busy, not idle
+  ok    an expired claim and an empty ndt status --measuring answer: rc 3 (fails closed)
+  ok      ... no claim, no down
+  ok    an expired claim and only an orphaned row (leftovers, no fabric): rc 0, re-claimed
+  ok      ... the claim was taken
+--- (r5) an absent override is evidence only in down-done: anywhere else it may be somebody else's down
+  ok    teardown, own claim expired, override absent: rc 3, no stub called
+  ok    claim-lost, own claim expired, override absent: rc 3, no stub called
+  ok    down-failed, own claim expired, override absent: rc 3, no stub called
+  ok    down-done, no lab.claim: rc 3, nothing written
+  ok    down-done, an expired claim file that is the recorded one but names no owner: rc 3, nothing written
+  ok    down-done, own claim expired, fabric up: rc 4 and the claim stub never called
+  ok      ... nothing released, no down
+  ok      ... knob untouched
+--- (r5) phase released: only the identity-checked kills, never a claim, a knob, netem or ndt down
+  ok    released with recorded live processes: rc 0, only the two kills
+  ok      ... the knob is untouched
+  ok    released with nothing recorded: rc 0 and no stub called
+  ok    released while the same owner holds a later round's live claim: rc 0, only the kills
+  ok      ... no ndt down, no claim, no release, no qdisc, no netem
+  ok    released with a kill that fails: rc 7, only the kills
+--- (r5) a kill that failed is never a quiet "done"
+  ok    a controller kill fails in a live recovery: the recovery finishes, then rc 7
+  ok      ... it did finish: down, release, status
+  ok      ... and it did not say done
+--- a recycled pid is left alone
+  ok    rc 0
+  ok    no signal to the recycled sniffer pid or the vanished controller
+  ok      ... and the rest of the recovery ran
+--- the qdisc tree drifted
+  ok    rc 4
+  ok    no ndt down after the drift
+--- ndt down failed
+  ok    rc 5
+  ok    after its own failed ndt down the state says down-failed
+  ok    no release
+  ok    knob untouched
+--- (r6) the package is this run's own: a package outside the run dir is not evidence
+  ok    a package outside the run dir, every other thing matching (owner, live claim, override, expires): rc 3, no stub called
+  ok      ... the knob was not written
+  ok    an older run dir, the same owner and package path as a later round holding a live claim: rc 3, no tc, no ndt down
+  ok      ... the knob was not written
+  ok    a package that climbs out of the run dir with ..: rc 3, no stub called
+  ok    a package in a sibling dir whose name starts with the run dir's: rc 3, no stub called
+  ok    a package that is a link out of the run dir: rc 3, no stub called
+  ok    the package is the run dir itself: rc 3, no stub called
+--- (r6) the claim is the one the probe made: its expires, recorded right after `ndt claim`
+  ok    a live claim of our owner with another expires than the probe recorded: rc 3, no stub called
+  ok      ... the knob was not written
+  ok    an older down-done run dir under a later same-owner round's live claim: rc 3, no stub called
+  ok      ... that round's claim was not released, the knob not written
+  ok    an expired claim of our owner that is not the one the probe recorded: rc 3, no stub called
+  ok    down-done, an expired claim of our owner that is not the recorded one: rc 3, no stub called
+  ok    no claim file at all, override still ours, phase cells: rc 3 (nothing to identify), no stub called
+  ok    an expired claim of ours is re-taken, then ndt down fails: rc 5
+  ok    the failed ndt down cleared the knob (as real ndt does) and the state says down-failed
+  ok    after the re-claim the state records the new claim's expires
+  ok      ... and the retry under that live claim finishes: rc 0
+  ok      ... ndt status showed no fabric: it skipped tc and the qdisc diff, ran ndt down (idempotent) and released (--force: the re-claim's baseline)
+--- (r6) a state file that leaves out what the recovery trusts stops at rc 2
+  ok    LAB_STATE.json without owner: rc 2, no stub called
+  ok    LAB_STATE.json with an empty owner: rc 2, no stub called
+  ok    LAB_STATE.json without run: rc 2, no stub called
+  ok    LAB_STATE.json with an empty run: rc 2, no stub called
+  ok    LAB_STATE.json without package: rc 2, no stub called
+  ok    LAB_STATE.json with an empty package: rc 2, no stub called
+  ok    LAB_STATE.json without claim_file: rc 2, no stub called
+  ok    LAB_STATE.json with an empty claim_file: rc 2, no stub called
+  ok    LAB_STATE.json without app_package_override: rc 2, no stub called
+  ok    LAB_STATE.json with an empty app_package_override: rc 2, no stub called
+  ok    LAB_STATE.json without claim_expires: rc 2, no stub called
+  ok    LAB_STATE.json with an empty claim_expires: rc 2, no stub called
+  ok    LAB_STATE.json with a claim_expires that is not a number: rc 2, no stub called
+  ok    LAB_STATE.json with a claim_expires of 0: rc 2, no stub called
+  ok    a released run whose owner is missing: rc 2 and not even the kills
+  ok    LAB_STATE.json whose claim_expires is null (the probe died between ndt claim and writing it): rc 2
+--- (r7) the knob as ndt writes it: a comment line, THEN the directory
+  ok    the fixture's knob has ndt's two lines
+  ok    the knob in ndt's two-line format: the recovery reads the path, not the comment: rc 0
+  ok      ... and it ran the whole recovery (tc, down, release)
+  ok    a knob with blank lines, an indented comment and a CR-LF path (ndt's reader skips them): rc 0
+  ok    a knob with a comment and no directive line is no override: rc 3, no stub called
+--- (r7) an absent override outside down-done is evidence only for this run's own notes, never for an up
+  ok    teardown, knob absent, our live claim with the note of somebody's ndt up: rc 3, no stub called
+  ok    teardown, knob absent, our live claim with this run's own note: rc 0 (tc, down, release)
+  ok    down-failed, knob absent, our live claim with the note of somebody's ndt up: rc 3, no stub called
+  ok    down-failed, knob absent, our live claim with this run's own note: rc 0 (tc, down, release)
+  ok    claim-lost, knob absent, our live claim with the note of somebody's ndt up: rc 3, no stub called
+  ok    claim-lost, knob absent, our live claim with this run's own note: rc 0 (tc, down, release)
+  ok    down-failed, knob absent, our live claim with ndt down's note: rc 0
+  ok    down-done, knob absent, our live claim with an ndt up note: rc 3, no stub called
+--- (r7) somebody forced an ndt up past this run's claim: .test_run/lab.claim.overrides names its expires
+  ok    a forced up past this run's live claim is on record: rc 3, no stub called
+  ok      ... the knob was not written
+  ok    a forced up past ANOTHER claim is on record: no effect, rc 0
+  ok    a forced up past this run's claim, which has since expired: rc 3, no stub called
+--- (r7) the claim is looked at again after the down, before the knobs and the release
+  ok    a claim of the same owner taken while ndt down ran: rc 3
+  ok      ... the knob was not written and nothing was released
+--- (r7) the messages say what the state is
+  ok    a claim file that is gone, its released copy kept as .prev: rc 3 and the output says which claim it was
+  ok    a claim file that is gone and no .prev: rc 3 and the output says so
+  ok    no claim_expires and the claim's note names this run: rc 2 and the output prints the release command
+  ok    no claim_expires and a claim that is not this run's: rc 2 and no release command
+  ok    the probe is still running with no claim_expires recorded yet: rc 3 (still running), not rc 2
+--- (r8) a down that already ran leaves no interfaces: the retry asks ndt status, not the qdisc diff
+  ok    ndt down exits 1 after tearing everything down: rc 5, down-failed
+  ok      ... the retry finds no fabric and finishes: rc 0
+  ok      ... it asked ndt status, skipped tc and the qdisc diff, ran ndt down (exit 0 now), then released
+  ok      ... and it recorded down-done
+  ok      ... the host knob is its snapshot's bytes
+  ok    the probe's own down-failed after a down that left the lab verified clean: ndt down is run again (exit 0), then the knobs and the release: rc 0
+  ok    ndt down exits 3 (measured nothing, the lab was down): the down is done, rc 0
+  ok      ... it went on to the release
+  ok    knob absent but ndt status shows a fabric: steps 4-5 as before (qdisc drift stops at rc 4)
+  ok      ... no ndt down, no release
+--- (r8) recover.sh's own re-claim records the round's host count as the baseline: its release is --force
+  ok    an expired claim, the package changed the host count: rc 0 and the host knob at its pre-round value
+  ok      ... released with --force and the output says why
+  ok      ... the state records the claim recover.sh took
+  ok    a release refused for another reason: rc 6 and the output says what was restored, not to write the baseline back
+  ok      ... the host knob stays at its restored value
+  ok      ... and a plain release was tried (the claim is the probe's own)
+  ok    recover's own re-claim and a release refused for another reason: rc 6 with the same message
+--- (r8) the unrecorded-claim hint says nothing was brought up only when no forced up is on record for that claim
+  ok    a forced up on record over the unrecorded claim: rc 2, the output warns and does not say nothing was brought up
+  ok    no forced up on record over it: rc 2 and the output says nothing was brought up under it
+--- (r9) a down that already ran is run AGAIN: the two status rows are not all ndt down has to tear down
+  ok    down-failed, knob absent, status 0/0, the probe's did-NOT-verify-clean note, the retry's ndt down exits 1: rc 5
+  ok      ... the phase is down-failed and nothing was released
+  ok      ... no tc and no qdisc diff (their interfaces are gone), and the knob was not written
+--- (r9) a status that does not answer is not an empty lab
+  ok    knob absent and ndt status printed nothing: steps 4-5 as before (qdisc drift: rc 4), no release
+  ok    knob absent and ndt status printed no host/switch row: steps 4-5 as before (rc 4)
+  ok    down-done and ndt status printed nothing: rc 4, nothing released (the fabric is not shown to be gone)
+--- (r9) only a claim that is live now is taken for this script's own re-claim
+  ok    an expired claim, ndt claim exits 0 and writes nothing: the probe's old expires is not adopted, plain release, rc 0
+  ok    another owner takes the claim during ndt down (the expires stays): rc 3, nothing released, the knob not written
+
+Ran 163 checks, 0 failed
+rc=0

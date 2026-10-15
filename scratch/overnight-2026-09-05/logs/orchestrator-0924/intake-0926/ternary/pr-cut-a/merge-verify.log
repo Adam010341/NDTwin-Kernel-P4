@@ -1,0 +1,7 @@
+   cb29cb53..828cceb5  main       -> p4/main
+merge=828cceb5784610e5517a2f701a41264361280898
+parents=cb29cb53c55351fc987e0f332cd99124e8841581
+tree=231913181b0dc3b1d0489048a6068fb746fd7389
+subject=p4_proxy: write ternary, range and optional table entries (#38)
+PR tree: 231913181b0dc3b1d0489048a6068fb746fd7389
+0

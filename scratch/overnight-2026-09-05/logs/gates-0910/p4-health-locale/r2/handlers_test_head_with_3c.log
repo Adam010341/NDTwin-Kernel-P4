@@ -1,0 +1,25 @@
+commit 5fd954f61e525ad6db91f6f0e4ecaf2baad6c04e
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red  tracked-dirty=1  df_free_mb=5253  mem_avail_mb=4092  LANG=en_US.UTF-8 LC_ALL=  command: p4_proxy/venv/bin/python tests/python/test_p4_health_collect.py -k test_run_lab_puts_the_handlers_it_found_back_when_it_ends
+note: C2R8-3c applied to lab.py; HEAD's collect test; no stray thread
+interpreter p4_proxy/venv/bin/python -> /home/adam/miniconda3/bin/python3.13: Python 3.13.13, prefix /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red/p4_proxy/venv
+F
+======================================================================
+FAIL: test_run_lab_puts_the_handlers_it_found_back_when_it_ends (__main__.TestTheLabRun.test_run_lab_puts_the_handlers_it_found_back_when_it_ends)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red/tests/python/test_p4_health_collect.py", line 3371, in test_run_lab_puts_the_handlers_it_found_back_when_it_ends
+    self.assertEqual({s: signal.getsignal(s) for s in LAB.STOP_SIGNALS}, mine)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {<Sig[24 chars]tion _stop_on_signals.<locals>.raiser at 0x72d[174 chars]7c0>} != {<Sig[24 chars]tion TestTheLabRun.handlers_set_to_markers.<lo[243 chars]380>}
+- {<Signals.SIGHUP: 1>: <function _stop_on_signals.<locals>.raiser at 0x72d88e33c7c0>,
+-  <Signals.SIGINT: 2>: <function _stop_on_signals.<locals>.raiser at 0x72d88e33c7c0>,
+-  <Signals.SIGTERM: 15>: <function _stop_on_signals.<locals>.raiser at 0x72d88e33c7c0>}
++ {<Signals.SIGHUP: 1>: <function TestTheLabRun.handlers_set_to_markers.<locals>.<lambda> at 0x72d88e357380>,
++  <Signals.SIGINT: 2>: <function TestTheLabRun.handlers_set_to_markers.<locals>.<lambda> at 0x72d88e3572e0>,
++  <Signals.SIGTERM: 15>: <function TestTheLabRun.handlers_set_to_markers.<locals>.<lambda> at 0x72d88e3571a0>}
+
+----------------------------------------------------------------------
+Ran 1 test in 0.070s
+
+FAILED (failures=1)
+rc=1

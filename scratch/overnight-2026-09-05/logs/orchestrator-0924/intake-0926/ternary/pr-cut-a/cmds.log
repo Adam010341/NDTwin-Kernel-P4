@@ -1,0 +1,329 @@
+[cmd] 2026-10-11 22:45:51 $ bash step1.sh
+step1: T=3a47bdb7612d2608a7feb17614c8d686032ef38f MN=cb29cb53c55351fc987e0f332cd99124e8841581 BT=18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd] 2026-10-11 22:45:51 $ git read-tree cb29cb53c55351fc987e0f332cd99124e8841581
+[cmd]   exit 0
+[cmd] 2026-10-11 22:45:52 $ git commit-tree 231913181b0dc3b1d0489048a6068fb746fd7389 -p cb29cb53c55351fc987e0f332cd99124e8841581 -F commit-msg.txt -> 7891751861f0da03963d98b92face3be2b815b35
+[cmd] 2026-10-11 22:45:52 $ git update-ref refs/heads/pr/p4-ternary-writer 7891751861f0da03963d98b92face3be2b815b35 
+[cmd]   exit 0
+P-vs-T names: 19; non-doc-md/REPORT among them: 0
+[cmd]   exit 0
+[cmd] 2026-10-11 22:46:05 $ git cat-file commit pr/p4-ternary-writer | sed '1,/^$/d' | cmp - commit-msg.txt -> exit 0 (byte-identical); 'git diff --quiet P T -- . :(exclude,glob)doc/audit/**/*.md' -> exit 0
+[cmd] 2026-10-11 22:46:30 $ setsid bash stepC.sh > driver-step3.out (background)
+[df] 2026-10-11 22:46:30 before clone-basemain: 7468 MB avail
+[mutate_/probe.py processes before clone-basemain at 2026-10-11 22:46:30: 0]
+[cmd] 2026-10-11 22:46:30 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel
+[cmd]   exit 0
+[cmd] 2026-10-11 22:46:31 $ git -C checkout -q --detach cb29cb53c55351fc987e0f332cd99124e8841581
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:31 $ git -C update-ref refs/remotes/origin/trunk 18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:31 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /p4_proxy/venv
+[cmd]   exit 1
+[df] 2026-10-11 22:46:31 before p4lane-basemain: 7393 MB avail
+[mutate_/probe.py processes before p4lane-basemain at 2026-10-11 22:46:31: 0]
+[p4lane-basemain] 2026-10-11 22:46:31 $ setsid --wait nice -n 19 ci-r2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/p4lane.sh 
+[p4lane-basemain]   rc=1 wall .002934344s load=0.79 0.97 0.95 (4 lines)
+[df] 2026-10-11 22:46:31 before klane-basemain: 7393 MB avail
+[mutate_/probe.py processes before klane-basemain at 2026-10-11 22:46:32: 0]
+[klane-basemain] 2026-10-11 22:46:32 $ setsid --wait nice -n 19 ci-r2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/klane.sh 
+[klane-basemain]   rc=1 wall .002930111s load=0.79 0.97 0.95 (4 lines)
+[df] 2026-10-11 22:46:32 before anchors-basemain: 7393 MB avail
+[mutate_/probe.py processes before anchors-basemain at 2026-10-11 22:46:33: 0]
+[anchors-basemain]   rc=1
+[df] 2026-10-11 22:46:33 before tmpdirs-basemain: 7393 MB avail
+[mutate_/probe.py processes before tmpdirs-basemain at 2026-10-11 22:46:33: 0]
+[tmpdirs-basemain]   rc=1
+[df] 2026-10-11 22:46:33 before bashn-basemain: 7393 MB avail
+[mutate_/probe.py processes before bashn-basemain at 2026-10-11 22:46:34: 0]
+[bashn-basemain]   rc=1
+[df] 2026-10-11 22:46:34 before pycompile-basemain: 7393 MB avail
+[mutate_/probe.py processes before pycompile-basemain at 2026-10-11 22:46:34: 0]
+[pycompile-basemain]   rc=1
+[df] 2026-10-11 22:46:34 before l1score-basemain: 7393 MB avail
+[mutate_/probe.py processes before l1score-basemain at 2026-10-11 22:46:35: 0]
+[l1score-basemain]   rc=1
+[cmd] 2026-10-11 22:46:35 $ rm -rf
+[cmd]   exit 0
+[df] 2026-10-11 22:46:35 before clone-pr: 7393 MB avail
+[mutate_/probe.py processes before clone-pr at 2026-10-11 22:46:36: 0]
+[cmd] 2026-10-11 22:46:36 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:36 $ git -C checkout -q --detach 7891751861f0da03963d98b92face3be2b815b35
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:36 $ git -C update-ref refs/remotes/origin/trunk 18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:36 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /p4_proxy/venv
+[cmd]   exit 1
+[df] 2026-10-11 22:46:36 before p4lane-pr: 7393 MB avail
+[mutate_/probe.py processes before p4lane-pr at 2026-10-11 22:46:36: 0]
+[p4lane-pr] 2026-10-11 22:46:36 $ setsid --wait nice -n 19 ci-r2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/p4lane.sh 
+[p4lane-pr]   rc=1 wall .003216486s load=1.04 1.02 0.96 (4 lines)
+[df] 2026-10-11 22:46:36 before klane-pr: 7393 MB avail
+[mutate_/probe.py processes before klane-pr at 2026-10-11 22:46:37: 0]
+[klane-pr] 2026-10-11 22:46:37 $ setsid --wait nice -n 19 ci-r2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/klane.sh 
+[klane-pr]   rc=1 wall .003061717s load=1.04 1.02 0.96 (4 lines)
+[df] 2026-10-11 22:46:37 before anchors-pr: 7393 MB avail
+[mutate_/probe.py processes before anchors-pr at 2026-10-11 22:46:38: 0]
+[anchors-pr]   rc=1
+[df] 2026-10-11 22:46:38 before tmpdirs-pr: 7393 MB avail
+[mutate_/probe.py processes before tmpdirs-pr at 2026-10-11 22:46:38: 0]
+[tmpdirs-pr]   rc=1
+[df] 2026-10-11 22:46:38 before bashn-pr: 7393 MB avail
+[mutate_/probe.py processes before bashn-pr at 2026-10-11 22:46:39: 0]
+[bashn-pr]   rc=1
+[df] 2026-10-11 22:46:39 before pycompile-pr: 7393 MB avail
+[mutate_/probe.py processes before pycompile-pr at 2026-10-11 22:46:39: 0]
+[pycompile-pr]   rc=1
+[df] 2026-10-11 22:46:39 before l1score-pr: 7393 MB avail
+[mutate_/probe.py processes before l1score-pr at 2026-10-11 22:46:40: 0]
+[l1score-pr]   rc=1
+[df] 2026-10-11 22:46:40 before builtp4-pr: 7393 MB avail
+[mutate_/probe.py processes before builtp4-pr at 2026-10-11 22:46:41: 0]
+[builtp4-pr] rc=3
+[cmd] 2026-10-11 22:46:41 $ rm -rf
+[cmd]   exit 0
+[df] 2026-10-11 22:46:41 before clone-basetrunk: 7393 MB avail
+[mutate_/probe.py processes before clone-basetrunk at 2026-10-11 22:46:41: 0]
+[cmd] 2026-10-11 22:46:41 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:41 $ git -C checkout -q --detach 18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:41 $ git -C update-ref refs/remotes/origin/trunk 18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:41 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /p4_proxy/venv
+[cmd]   exit 1
+[df] 2026-10-11 22:46:41 before p4lane-basetrunk: 7393 MB avail
+[mutate_/probe.py processes before p4lane-basetrunk at 2026-10-11 22:46:42: 0]
+[p4lane-basetrunk] 2026-10-11 22:46:42 $ setsid --wait nice -n 19 ci-r2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/p4lane.sh 
+[p4lane-basetrunk]   rc=1 wall .003027082s load=1.28 1.07 0.98 (4 lines)
+[df] 2026-10-11 22:46:42 before klane-basetrunk: 7393 MB avail
+[mutate_/probe.py processes before klane-basetrunk at 2026-10-11 22:46:43: 0]
+[klane-basetrunk] 2026-10-11 22:46:43 $ setsid --wait nice -n 19 ci-r2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/klane.sh 
+[klane-basetrunk]   rc=1 wall .003269826s load=1.28 1.07 0.98 (4 lines)
+[df] 2026-10-11 22:46:43 before anchors-basetrunk: 7393 MB avail
+[mutate_/probe.py processes before anchors-basetrunk at 2026-10-11 22:46:43: 0]
+[anchors-basetrunk]   rc=1
+[df] 2026-10-11 22:46:43 before tmpdirs-basetrunk: 7393 MB avail
+[mutate_/probe.py processes before tmpdirs-basetrunk at 2026-10-11 22:46:44: 0]
+[tmpdirs-basetrunk]   rc=1
+[df] 2026-10-11 22:46:44 before bashn-basetrunk: 7393 MB avail
+[mutate_/probe.py processes before bashn-basetrunk at 2026-10-11 22:46:45: 0]
+[bashn-basetrunk]   rc=1
+[df] 2026-10-11 22:46:45 before pycompile-basetrunk: 7393 MB avail
+[mutate_/probe.py processes before pycompile-basetrunk at 2026-10-11 22:46:45: 0]
+[pycompile-basetrunk]   rc=1
+[df] 2026-10-11 22:46:45 before l1score-basetrunk: 7393 MB avail
+[mutate_/probe.py processes before l1score-basetrunk at 2026-10-11 22:46:46: 0]
+[l1score-basetrunk]   rc=1
+[cmd] 2026-10-11 22:46:46 $ rm -rf
+[cmd]   exit 0
+[df] 2026-10-11 22:46:46 before clone-trunk: 7393 MB avail
+[mutate_/probe.py processes before clone-trunk at 2026-10-11 22:46:46: 0]
+[cmd] 2026-10-11 22:46:46 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:47 $ git -C checkout -q --detach 3a47bdb7612d2608a7feb17614c8d686032ef38f
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:47 $ git -C update-ref refs/remotes/origin/trunk 18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd]   exit 128
+[cmd] 2026-10-11 22:46:47 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /p4_proxy/venv
+[cmd]   exit 1
+[df] 2026-10-11 22:46:47 before p4lane-trunk: 7393 MB avail
+[mutate_/probe.py processes before p4lane-trunk at 2026-10-11 22:46:47: 0]
+[p4lane-trunk] 2026-10-11 22:46:47 $ setsid --wait nice -n 19 ci-r2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/p4lane.sh 
+[p4lane-trunk]   rc=1 wall .003422387s load=1.34 1.09 0.99 (4 lines)
+[df] 2026-10-11 22:46:47 before klane-trunk: 7393 MB avail
+[mutate_/probe.py processes before klane-trunk at 2026-10-11 22:46:48: 0]
+[klane-trunk] 2026-10-11 22:46:48 $ setsid --wait nice -n 19 ci-r2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/klane.sh 
+[klane-trunk]   rc=1 wall .003014348s load=1.34 1.09 0.99 (4 lines)
+[df] 2026-10-11 22:46:48 before anchors-trunk: 7393 MB avail
+[mutate_/probe.py processes before anchors-trunk at 2026-10-11 22:46:48: 0]
+[anchors-trunk]   rc=1
+[df] 2026-10-11 22:46:48 before tmpdirs-trunk: 7393 MB avail
+[mutate_/probe.py processes before tmpdirs-trunk at 2026-10-11 22:46:49: 0]
+[tmpdirs-trunk]   rc=1
+[df] 2026-10-11 22:46:49 before bashn-trunk: 7393 MB avail
+[mutate_/probe.py processes before bashn-trunk at 2026-10-11 22:46:50: 0]
+[bashn-trunk]   rc=1
+[df] 2026-10-11 22:46:50 before pycompile-trunk: 7393 MB avail
+[mutate_/probe.py processes before pycompile-trunk at 2026-10-11 22:46:50: 0]
+[pycompile-trunk]   rc=1
+[df] 2026-10-11 22:46:50 before l1score-trunk: 7393 MB avail
+[mutate_/probe.py processes before l1score-trunk at 2026-10-11 22:46:51: 0]
+[l1score-trunk]   rc=1
+[df] 2026-10-11 22:46:51 before p4health-test_p4_health_cells.py: 7393 MB avail
+[mutate_/probe.py processes before p4health-test_p4_health_cells.py at 2026-10-11 22:46:52: 0]
+[p4health-test_p4_health_cells.py] 2026-10-11 22:46:52 $ (unset P4_HEALTH_UNDER_TEST; cd clone; /home/adam/miniconda3/envs/ryu-env/bin/python tests/python/test_p4_health_cells.py)
+[p4health-cells]   rc=2 (4 lines)
+[df] 2026-10-11 22:46:52 before p4health-test_p4_health_collect.py: 7393 MB avail
+[note] 2026-10-11 22:46:53 first stepC.sh run was faulty (waitgate clobbered global $c: empty clone path, stray clone dir NDTwin-Kernel/ created here); killed by PID; all its logs discarded, rerun after fix. Not a measurement.
+[cmd] 2026-10-11 22:46:59 $ setsid bash stepC.sh > driver-step3.out (rerun after lib.sh fix)
+[df] 2026-10-11 22:46:59 before clone-basemain: 7468 MB avail
+[mutate_/probe.py processes before clone-basemain at 2026-10-11 22:47:00: 0]
+[cmd] 2026-10-11 22:47:00 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basemain
+[cmd]   exit 0
+[cmd] 2026-10-11 22:47:00 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basemain checkout -q --detach cb29cb53c55351fc987e0f332cd99124e8841581
+[cmd]   exit 0
+[cmd] 2026-10-11 22:47:00 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basemain update-ref refs/remotes/origin/trunk 18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd]   exit 0
+[cmd] 2026-10-11 22:47:00 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basemain/p4_proxy/venv
+[cmd]   exit 0
+[df] 2026-10-11 22:47:00 before p4lane-basemain: 7394 MB avail
+[mutate_/probe.py processes before p4lane-basemain at 2026-10-11 22:47:01: 0]
+[p4lane-basemain] 2026-10-11 22:47:01 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basemain /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/p4lane.sh
+[cmd] 2026-10-11 22:47:23 $ gh run list --repo Adam010341/NDTwin-Kernel-P4 --limit 6 --json databaseId,headSha,event,headBranch,conclusion,status -> exit 0 (gh-run-list.json)
+[p4lane-basemain]   rc=0 wall 29.063326488s load=1.28 1.12 1.00 (54 lines)
+[df] 2026-10-11 22:47:30 before klane-basemain: 7391 MB avail
+[mutate_/probe.py processes before klane-basemain at 2026-10-11 22:47:31: 0]
+[klane-basemain] 2026-10-11 22:47:31 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basemain /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/klane.sh
+[klane-basemain]   rc=0 wall 811.348046879s load=1.36 1.26 1.12 (130 lines)
+[df] 2026-10-11 23:01:02 before anchors-basemain: 7391 MB avail
+[mutate_/probe.py processes before anchors-basemain at 2026-10-11 23:01:03: 0]
+[anchors-basemain]   rc=0
+[df] 2026-10-11 23:01:05 before tmpdirs-basemain: 7391 MB avail
+[mutate_/probe.py processes before tmpdirs-basemain at 2026-10-11 23:01:05: 0]
+[tmpdirs-basemain]   rc=0
+[df] 2026-10-11 23:01:07 before bashn-basemain: 7391 MB avail
+[mutate_/probe.py processes before bashn-basemain at 2026-10-11 23:01:07: 0]
+[bashn-basemain]   rc=0
+[df] 2026-10-11 23:01:07 before pycompile-basemain: 7391 MB avail
+[mutate_/probe.py processes before pycompile-basemain at 2026-10-11 23:01:08: 0]
+[pycompile-basemain]   rc=0
+[df] 2026-10-11 23:01:09 before l1score-basemain: 7388 MB avail
+[mutate_/probe.py processes before l1score-basemain at 2026-10-11 23:01:09: 0]
+[l1score-basemain]   rc=0
+[cmd] 2026-10-11 23:01:18 $ rm -rf /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basemain
+[cmd]   exit 0
+[df] 2026-10-11 23:01:18 before clone-pr: 7467 MB avail
+[mutate_/probe.py processes before clone-pr at 2026-10-11 23:01:19: 0]
+[cmd] 2026-10-11 23:01:19 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/pr
+[cmd]   exit 0
+[cmd] 2026-10-11 23:01:19 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/pr checkout -q --detach 7891751861f0da03963d98b92face3be2b815b35
+[cmd]   exit 0
+[cmd] 2026-10-11 23:01:19 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/pr update-ref refs/remotes/origin/trunk 18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd]   exit 0
+[cmd] 2026-10-11 23:01:19 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/pr/p4_proxy/venv
+[cmd]   exit 0
+[df] 2026-10-11 23:01:19 before p4lane-pr: 7393 MB avail
+[mutate_/probe.py processes before p4lane-pr at 2026-10-11 23:01:20: 0]
+[p4lane-pr] 2026-10-11 23:01:20 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/pr /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/p4lane.sh
+[p4lane-pr]   rc=0 wall 29.293002149s load=1.24 1.26 1.13 (54 lines)
+[df] 2026-10-11 23:01:49 before klane-pr: 7390 MB avail
+[mutate_/probe.py processes before klane-pr at 2026-10-11 23:01:50: 0]
+[klane-pr] 2026-10-11 23:01:50 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/pr /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/klane.sh
+[klane-pr]   rc=0 wall 810.337812807s load=1.78 1.53 1.24 (130 lines)
+[df] 2026-10-11 23:15:20 before anchors-pr: 7383 MB avail
+[mutate_/probe.py processes before anchors-pr at 2026-10-11 23:15:21: 0]
+[anchors-pr]   rc=0
+[df] 2026-10-11 23:15:23 before tmpdirs-pr: 7383 MB avail
+[mutate_/probe.py processes before tmpdirs-pr at 2026-10-11 23:15:23: 0]
+[tmpdirs-pr]   rc=0
+[df] 2026-10-11 23:15:25 before bashn-pr: 7383 MB avail
+[mutate_/probe.py processes before bashn-pr at 2026-10-11 23:15:25: 0]
+[bashn-pr]   rc=0
+[df] 2026-10-11 23:15:25 before pycompile-pr: 7383 MB avail
+[mutate_/probe.py processes before pycompile-pr at 2026-10-11 23:15:26: 0]
+[pycompile-pr]   rc=0
+[df] 2026-10-11 23:15:27 before l1score-pr: 7381 MB avail
+[mutate_/probe.py processes before l1score-pr at 2026-10-11 23:15:27: 0]
+[l1score-pr]   rc=0
+[df] 2026-10-11 23:15:36 before builtp4-pr: 7381 MB avail
+[mutate_/probe.py processes before builtp4-pr at 2026-10-11 23:15:37: 0]
+[builtp4-pr] rc=0
+[cmd] 2026-10-11 23:15:47 $ rm -rf /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/pr
+[cmd]   exit 0
+[df] 2026-10-11 23:15:47 before clone-basetrunk: 7461 MB avail
+[mutate_/probe.py processes before clone-basetrunk at 2026-10-11 23:15:47: 0]
+[cmd] 2026-10-11 23:15:47 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basetrunk
+[cmd]   exit 0
+[cmd] 2026-10-11 23:15:48 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basetrunk checkout -q --detach 18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd]   exit 0
+[cmd] 2026-10-11 23:15:48 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basetrunk update-ref refs/remotes/origin/trunk 18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd]   exit 0
+[cmd] 2026-10-11 23:15:48 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basetrunk/p4_proxy/venv
+[cmd]   exit 0
+[df] 2026-10-11 23:15:48 before p4lane-basetrunk: 7386 MB avail
+[mutate_/probe.py processes before p4lane-basetrunk at 2026-10-11 23:15:48: 0]
+[p4lane-basetrunk] 2026-10-11 23:15:48 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basetrunk /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/p4lane.sh
+[p4lane-basetrunk]   rc=0 wall 29.349390863s load=1.11 1.40 1.22 (54 lines)
+[df] 2026-10-11 23:16:18 before klane-basetrunk: 7383 MB avail
+[mutate_/probe.py processes before klane-basetrunk at 2026-10-11 23:16:18: 0]
+[klane-basetrunk] 2026-10-11 23:16:18 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basetrunk /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/klane.sh
+[klane-basetrunk]   rc=0 wall 811.768821520s load=1.63 1.40 1.24 (130 lines)
+[df] 2026-10-11 23:29:50 before anchors-basetrunk: 7375 MB avail
+[mutate_/probe.py processes before anchors-basetrunk at 2026-10-11 23:29:51: 0]
+[anchors-basetrunk]   rc=0
+[df] 2026-10-11 23:29:53 before tmpdirs-basetrunk: 7375 MB avail
+[mutate_/probe.py processes before tmpdirs-basetrunk at 2026-10-11 23:29:54: 0]
+[tmpdirs-basetrunk]   rc=0
+[df] 2026-10-11 23:29:55 before bashn-basetrunk: 7375 MB avail
+[mutate_/probe.py processes before bashn-basetrunk at 2026-10-11 23:29:55: 0]
+[bashn-basetrunk]   rc=0
+[df] 2026-10-11 23:29:55 before pycompile-basetrunk: 7375 MB avail
+[mutate_/probe.py processes before pycompile-basetrunk at 2026-10-11 23:29:56: 0]
+[pycompile-basetrunk]   rc=0
+[df] 2026-10-11 23:29:57 before l1score-basetrunk: 7373 MB avail
+[mutate_/probe.py processes before l1score-basetrunk at 2026-10-11 23:29:57: 0]
+[l1score-basetrunk]   rc=0
+[cmd] 2026-10-11 23:30:06 $ rm -rf /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/basetrunk
+[cmd]   exit 0
+[df] 2026-10-11 23:30:07 before clone-trunk: 7453 MB avail
+[mutate_/probe.py processes before clone-trunk at 2026-10-11 23:30:07: 0]
+[cmd] 2026-10-11 23:30:07 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/trunk
+[cmd]   exit 0
+[cmd] 2026-10-11 23:30:07 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/trunk checkout -q --detach 3a47bdb7612d2608a7feb17614c8d686032ef38f
+[cmd]   exit 0
+[cmd] 2026-10-11 23:30:08 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/trunk update-ref refs/remotes/origin/trunk 18c81892ccad6f98bc89fb208b33187b5fa6d617
+[cmd]   exit 0
+[cmd] 2026-10-11 23:30:08 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/trunk/p4_proxy/venv
+[cmd]   exit 0
+[df] 2026-10-11 23:30:08 before p4lane-trunk: 7378 MB avail
+[mutate_/probe.py processes before p4lane-trunk at 2026-10-11 23:30:08: 0]
+[p4lane-trunk] 2026-10-11 23:30:08 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/trunk /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/p4lane.sh
+[p4lane-trunk]   rc=0 wall 30.049863676s load=1.77 1.48 1.28 (54 lines)
+[df] 2026-10-11 23:30:38 before klane-trunk: 7375 MB avail
+[mutate_/probe.py processes before klane-trunk at 2026-10-11 23:30:39: 0]
+[klane-trunk] 2026-10-11 23:30:39 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/trunk /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/pr-cut-a/klane.sh
+[klane-trunk]   rc=0 wall 814.071464096s load=1.74 1.51 1.35 (130 lines)
+[df] 2026-10-11 23:44:13 before anchors-trunk: 7376 MB avail
+[mutate_/probe.py processes before anchors-trunk at 2026-10-11 23:44:14: 0]
+[anchors-trunk]   rc=0
+[df] 2026-10-11 23:44:16 before tmpdirs-trunk: 7376 MB avail
+[mutate_/probe.py processes before tmpdirs-trunk at 2026-10-11 23:44:16: 0]
+[tmpdirs-trunk]   rc=0
+[df] 2026-10-11 23:44:18 before bashn-trunk: 7376 MB avail
+[mutate_/probe.py processes before bashn-trunk at 2026-10-11 23:44:18: 0]
+[bashn-trunk]   rc=0
+[df] 2026-10-11 23:44:18 before pycompile-trunk: 7376 MB avail
+[mutate_/probe.py processes before pycompile-trunk at 2026-10-11 23:44:19: 0]
+[pycompile-trunk]   rc=0
+[df] 2026-10-11 23:44:20 before l1score-trunk: 7374 MB avail
+[mutate_/probe.py processes before l1score-trunk at 2026-10-11 23:44:20: 0]
+[l1score-trunk]   rc=0
+[df] 2026-10-11 23:44:29 before p4health-test_p4_health_cells.py: 7374 MB avail
+[mutate_/probe.py processes before p4health-test_p4_health_cells.py at 2026-10-11 23:44:30: 0]
+[p4health-test_p4_health_cells.py] 2026-10-11 23:44:30 $ (unset P4_HEALTH_UNDER_TEST; cd clone; /home/adam/miniconda3/envs/ryu-env/bin/python tests/python/test_p4_health_cells.py)
+[p4health-cells]   rc=0 (204 lines)
+[df] 2026-10-11 23:44:32 before p4health-test_p4_health_collect.py: 7374 MB avail
+[mutate_/probe.py processes before p4health-test_p4_health_collect.py at 2026-10-11 23:44:33: 0]
+[p4health-test_p4_health_collect.py] 2026-10-11 23:44:33 $ (unset P4_HEALTH_UNDER_TEST; cd clone; /home/adam/miniconda3/envs/ryu-env/bin/python tests/python/test_p4_health_collect.py)
+[p4health-collect]   rc=0 (7 lines)
+[df] 2026-10-11 23:44:38 before p4health-test_p4_health_recover.sh: 7373 MB avail
+[mutate_/probe.py processes before p4health-test_p4_health_recover.sh at 2026-10-11 23:44:38: 0]
+[p4health-test_p4_health_recover.sh] 2026-10-11 23:44:38 $ (unset P4_HEALTH_UNDER_TEST; cd clone; bash tests/shell/test_p4_health_recover.sh)
+[p4health-recover]   rc=0 (198 lines)
+[df] 2026-10-11 23:45:19 before p4health-test_p4_health_gate_scripts.sh: 7373 MB avail
+[mutate_/probe.py processes before p4health-test_p4_health_gate_scripts.sh at 2026-10-11 23:45:19: 0]
+[p4health-test_p4_health_gate_scripts.sh] 2026-10-11 23:45:19 $ (unset P4_HEALTH_UNDER_TEST; cd clone; bash tests/shell/test_p4_health_gate_scripts.sh)
+[p4health-gate_scripts]   rc=0 (81 lines)
+[df] 2026-10-11 23:45:22 before builtp4-trunk: 7373 MB avail
+[mutate_/probe.py processes before builtp4-trunk at 2026-10-11 23:45:23: 0]
+[builtp4-trunk] rc=0
+[cmd] 2026-10-11 23:45:33 $ rm -rf /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/pr-cuta/cl/trunk
+[cmd]   exit 0
+ALLSIDES-DONE
+[cmd] 2026-10-11 23:55:19 $ gh run list ... --limit 6 (second look) -> exit 0 (gh-run-list2.json)
+[cmd] 2026-10-11 23:55:21 $ gh run view 38148337136 --json jobs (read-only) -> exit 0
+[cmd] 2026-10-11 23:55:27 $ gh run view 38148337136 --json jobs (steps of the GCC job, read-only) -> gh-gcc-steps-T.tsv
+[cmd] 2026-10-11 23:55:38 $ rmdir scratchpad/pr-cuta/cl (clones themselves were removed by stepC.sh: 4x 'rm -rf .../cl/<side>' exit 0) -> exit 0
+[cmd] 2026-10-11 23:56:13 $ wrote ci-prediction-pr-cut-a.txt -> exit 0
+ALLDONE-PREDICTION

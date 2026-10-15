@@ -1,0 +1,16 @@
+0d0706257e6650c30e56c3d0bd5d47a3d2c504fd 42c222979ddafc3a8ba2456b28dffcab9b9727d8 doc: record that the owner check refuses the flow_5tuple catch-all
+42c222979ddafc3a8ba2456b28dffcab9b9727d8 02ce0232317cfec52dd4ef54b428bbf1bc5be09a tests: run the shape and priority rules as user writes now that NDTwin owns its tables
+02ce0232317cfec52dd4ef54b428bbf1bc5be09a 526dd41c975dcc6d3ea36c3c90c8890c3b773914 6c1a78c8fa80e687889ecb6a401300f2d432808f Merge trunk 6c1a78c8 (refuse table-entry writes into tables NDTwin owns) into feat/p4-ternary-writer-a
+526dd41c975dcc6d3ea36c3c90c8890c3b773914 3a90e63a5dabf29e0d296dadeca721de898075a1 doc: correct the first table-writer summary and record the second-round fixes
+3a90e63a5dabf29e0d296dadeca721de898075a1 92a623aeb9cbb0bb8ef8efea63d3be0f80c334ca tests: keep the shape-rule properties off NDTwin's own tables
+92a623aeb9cbb0bb8ef8efea63d3be0f80c334ca 28546dc1f9288ecf48b55f6c300ed2120a0bc65d ryu_flow_stats: leave out and count matches Ryu cannot express
+28546dc1f9288ecf48b55f6c300ed2120a0bc65d 1b16b0a06c73e7732972bb3347f706dc1c671d37 p4_proxy: add the summary of the first table-writer cut
+1b16b0a06c73e7732972bb3347f706dc1c671d37 9f474d2aec5a0d8f09fbeecbdf0502798cd446e5 p4_proxy: note that the proxy now imports google.rpc itself
+9f474d2aec5a0d8f09fbeecbdf0502798cd446e5 b75448cd7f67833ede91ffee196a37f4c23c2ca7 tests: link the topology models into the install-time mutation gate
+b75448cd7f67833ede91ffee196a37f4c23c2ca7 b822506ad8d480542311570d54688dda498e694a match_shape: one guard for the unsupported match type, and gates for the shape rules
+b822506ad8d480542311570d54688dda498e694a 07060fa2a4377bd2e2235737ca861052de4ad1d9 p4_client: check match fields and priorities before the write
+07060fa2a4377bd2e2235737ca861052de4ad1d9 5b07451d98fefe998ba9b2f389d6014d6d001e50 p4_client: build ternary, range and optional table entries
+5b07451d98fefe998ba9b2f389d6014d6d001e50 dd8022faa7f49df6f1392ac3bb5f5f2e6f0fe96d e5e79aea998995ff964d9e202e21a9a70fc481dc Merge branch 'design/p4-ternary-journal' into feat/p4-ternary-writer-a
+e5e79aea998995ff964d9e202e21a9a70fc481dc a3c46bb07b795e55586141810c8ee776058f1534 p4_proxy: narrow the default-action exception and confirm cookies before the push
+a3c46bb07b795e55586141810c8ee776058f1534 521a95d14d1407aaedb4e66c6acf0a6effdfb4e7 p4_proxy: revise the ternary writer and table-entry journal design
+521a95d14d1407aaedb4e66c6acf0a6effdfb4e7 229ed30cfc385c97c87d04237c97367b0ce4f86d p4_proxy: design for ternary/range/optional table writes and a table-entry journal

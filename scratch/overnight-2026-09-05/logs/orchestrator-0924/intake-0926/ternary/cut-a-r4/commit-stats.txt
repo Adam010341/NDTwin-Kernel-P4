@@ -1,0 +1,16 @@
+
+ p4_proxy/proxy_agent/api_routes.py         |  20 +++---
+ p4_proxy/proxy_agent/main.py               |  13 +---
+ p4_proxy/proxy_agent/ryu_flow_stats.py     |  25 ++++---
+ p4_proxy/tests/test_flow_stats_route.py    |   7 +-
+ p4_proxy/tests/test_ryu_flow_stats.py      |   6 +-
+ p4_proxy/tests/test_switch_state.py        | 103 ++++++++++++++++++++++++++++-
+ tests/shell/mutate_p4_exercise_tools.sh    |   9 +++
+ tests/shell/mutate_p4_rule_install_time.sh |   9 ++-
+ tests/shell/mutate_roles_binding.sh        |  67 ++++++++++++++-----
+ tests/shell/mutate_table_entry.sh          |  20 ++++++
+ tests/shell/mutate_table_entry_owner.sh    |  12 ++++
+ 11 files changed, 236 insertions(+), 55 deletions(-)
+
+ .../2026-10-04_p4-ternary-journal/SUMMARY-cut-a.md | 52 ++++++++++++++++------
+ 1 file changed, 39 insertions(+), 13 deletions(-)

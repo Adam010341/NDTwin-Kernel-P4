@@ -1,0 +1,5198 @@
+{
+  "results": [
+    {
+      "bmv2": "/usr/local/bin/simple_switch_grpc",
+      "boots": [
+        {
+          "after": {
+            "dumps": {
+              "HcIngress.ipv4_lpm": {
+                "entries": 7,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.port_exact": {
+                "entries": 0,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.t_ternary": {
+                "entries": 1,
+                "ours": 1,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a004d01 &&& ffffffff\nPriority: 2147483637\nAction entry: HcIngress.set_mark - 05\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              }
+            },
+            "journal": {
+              "files": [
+                "s2.jsonl",
+                "s2.jsonl.q1792060698703855685"
+              ],
+              "live": "{\"boot_id\":\"9460c96aa45f400fb9547138b5f1254e\",\"dpid\":2,\"entries_sha256\":\"24f8521eb38173df\",\"fabric_cookie\":\"a2d80c4e0b10e21c\",\"header\":true,\"p4info_sha256\":\"5ce0a5595d5a65f1\",\"v\":1}\n{\"key\":\"6b8d5e9ebf74f71dc0a565b83f2f9b24\",\"op\":\"insert\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":10,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060698.7491345,\"v\":1}\n{\"key\":\"28d55da9285128cc0324177a05a0522d\",\"op\":\"delete\",\"outcome\":\"not_found\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":20,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060698.7610712,\"v\":1}\n"
+            }
+          },
+          "boot_entries_used": {
+            "B": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.1.1",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "B2": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "S": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 3
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            }
+          },
+          "boot_id": "9460c96aa45f400fb9547138b5f1254e",
+          "generation": 11734142358446465564,
+          "journal_after": {
+            "files": [
+              "s2.jsonl",
+              "s2.jsonl.q1792060698703855685"
+            ],
+            "header": {
+              "boot_id": "9460c96aa45f400fb9547138b5f1254e",
+              "dpid": 2,
+              "entries_sha256": "24f8521eb38173df",
+              "fabric_cookie": "a2d80c4e0b10e21c",
+              "header": true,
+              "p4info_sha256": "5ce0a5595d5a65f1",
+              "v": 1
+            },
+            "records": [
+              {
+                "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                "op": "insert",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 10,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060698.7491345,
+                "v": 1
+              },
+              {
+                "key": "28d55da9285128cc0324177a05a0522d",
+                "op": "delete",
+                "outcome": "not_found",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 20,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060698.7610712,
+                "v": 1
+              }
+            ],
+            "unreadable": 0
+          },
+          "journal_dir": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-stock",
+          "journal_dir_main_built": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-stock",
+          "on_switch": [
+            {
+              "action": "HcIngress.dc_hit",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c4c"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dcount"
+            },
+            {
+              "action": "HcIngress.dm_read",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c57"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dmeter"
+            },
+            {
+              "action": "HcIngress.drop",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a006302"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000101"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000202"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000303"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000404"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000505"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000606"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.set_mark",
+              "match": {
+                "hdr.ipv4.srcAddr": {
+                  "mask": "ffffffff",
+                  "type": "ternary",
+                  "value": "0a004d01"
+                }
+              },
+              "params": {
+                "v": "05"
+              },
+              "priority": 10,
+              "table": "HcIngress.t_ternary"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            }
+          ],
+          "pid": 3351251,
+          "plan": "m1a",
+          "posts": [
+            {
+              "answer": {
+                "dpid": 2,
+                "journal": {
+                  "enabled": true,
+                  "recorded": true,
+                  "replay": "at proxy startup, on a switch whose pipeline cookie confirms it is the fabric this journal was written on, and after a readopt later in the same proxy run (a readopt reads no cookie: this run's startup already decided)"
+                },
+                "journaled": true,
+                "match_types": {
+                  "hdr.ipv4.srcAddr": "TERNARY"
+                },
+                "op": "insert",
+                "priority": 10,
+                "priority_honoured": true,
+                "status": "success",
+                "table": "HcIngress.t_ternary"
+              },
+              "body": {
+                "action_name": "HcIngress.set_mark",
+                "action_params": {
+                  "v": 5
+                },
+                "dpid": 2,
+                "match": {
+                  "hdr.ipv4.srcAddr": [
+                    "10.0.77.1",
+                    "255.255.255.255"
+                  ]
+                },
+                "priority": 10,
+                "table": "HcIngress.t_ternary"
+              },
+              "status": 200
+            },
+            {
+              "answer": {
+                "dpid": 2,
+                "error": "the switch refused the write",
+                "grpc_status": "UNKNOWN",
+                "message": "switch 2 refused this entry: UNKNOWN (NOT_FOUND: Cannot find match entry)",
+                "p4rt_error": {
+                  "code": "NOT_FOUND",
+                  "message": "Cannot find match entry"
+                }
+              },
+              "body": {
+                "action_name": "HcIngress.set_mark",
+                "action_params": {
+                  "v": 5
+                },
+                "dpid": 2,
+                "match": {
+                  "hdr.ipv4.srcAddr": [
+                    "10.0.77.1",
+                    "255.255.255.255"
+                  ]
+                },
+                "op": "delete",
+                "priority": 20,
+                "table": "HcIngress.t_ternary"
+              },
+              "status": 502
+            }
+          ],
+          "rc": 0,
+          "startup": {
+            "broken": [],
+            "entry_errors": {},
+            "table_entries": {
+              "api_writes": 0,
+              "applied": 23,
+              "failed": 0,
+              "journal": {
+                "enabled": true,
+                "failures": 0,
+                "not_found": 0,
+                "record_complete": true,
+                "recorded": 0,
+                "replay": {
+                  "attempted": 0,
+                  "cookie": "the switch did not answer COOKIE_ONLY (FAILED_PRECONDITION: No forwarding pipeline config set for this device)",
+                  "failed": [],
+                  "fresh_fabric": true,
+                  "restored": [],
+                  "retried_as_modify": [],
+                  "skipped_reason": null,
+                  "stale_entries": 0,
+                  "stale_pipeline": 0,
+                  "status": "nothing-to-replay",
+                  "step0_error": null,
+                  "succeeded": 0,
+                  "unreadable": 0,
+                  "when": "startup"
+                }
+              },
+              "journaled": true,
+              "recorded": 23
+            }
+          },
+          "switch_state_table_entries": {
+            "api_writes": 1,
+            "applied": 23,
+            "failed": 0,
+            "journal": {
+              "enabled": true,
+              "failures": 0,
+              "not_found": 1,
+              "record_complete": true,
+              "recorded": 1,
+              "replay": {
+                "attempted": 0,
+                "cookie": "the switch did not answer COOKIE_ONLY (FAILED_PRECONDITION: No forwarding pipeline config set for this device)",
+                "failed": [],
+                "fresh_fabric": true,
+                "restored": [],
+                "retried_as_modify": [],
+                "skipped_reason": null,
+                "stale_entries": 0,
+                "stale_pipeline": 0,
+                "status": "nothing-to-replay",
+                "step0_error": null,
+                "succeeded": 0,
+                "unreadable": 0,
+                "when": "startup"
+              }
+            },
+            "journaled": true,
+            "recorded": 23
+          },
+          "t8": {
+            "attribution": null,
+            "label": "GREEN",
+            "partial": null,
+            "phase": "compare",
+            "reason": "journaled; the restart half is deferred (design 2.3)",
+            "verdict": "GREEN"
+          },
+          "t8_observation": {
+            "answer": {
+              "journaled": true
+            }
+          }
+        },
+        {
+          "after": {
+            "dumps": {
+              "HcIngress.ipv4_lpm": {
+                "entries": 7,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.port_exact": {
+                "entries": 0,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.t_ternary": {
+                "entries": 1,
+                "ours": 1,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a004d01 &&& ffffffff\nPriority: 2147483637\nAction entry: HcIngress.set_mark - 05\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              }
+            },
+            "journal": {
+              "files": [
+                "s2.jsonl",
+                "s2.jsonl.q1792060698703855685",
+                "s2.jsonl.q1792060702322688902",
+                "s2.jsonl.q1792060702393491363"
+              ],
+              "live": "{\"boot_id\":\"a4136a043cc64a15a0acdfc0a4f0c68d\",\"dpid\":2,\"entries_sha256\":\"24f8521eb38173df\",\"fabric_cookie\":\"a2d80c4e0b10e21c\",\"header\":true,\"p4info_sha256\":\"5ce0a5595d5a65f1\",\"v\":1}\n{\"key\":\"6b8d5e9ebf74f71dc0a565b83f2f9b24\",\"op\":\"insert\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":10,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060702.3851817,\"v\":1}\n{\"key\":\"28d55da9285128cc0324177a05a0522d\",\"op\":\"delete\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":20,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060702.3851817,\"v\":1}\n"
+            }
+          },
+          "boot_entries_used": {
+            "B": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.1.1",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "B2": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "S": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 3
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            }
+          },
+          "boot_id": "a4136a043cc64a15a0acdfc0a4f0c68d",
+          "generation": 11734142358446465564,
+          "journal_after": {
+            "files": [
+              "s2.jsonl",
+              "s2.jsonl.q1792060698703855685",
+              "s2.jsonl.q1792060702322688902",
+              "s2.jsonl.q1792060702393491363"
+            ],
+            "header": {
+              "boot_id": "a4136a043cc64a15a0acdfc0a4f0c68d",
+              "dpid": 2,
+              "entries_sha256": "24f8521eb38173df",
+              "fabric_cookie": "a2d80c4e0b10e21c",
+              "header": true,
+              "p4info_sha256": "5ce0a5595d5a65f1",
+              "v": 1
+            },
+            "records": [
+              {
+                "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                "op": "insert",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 10,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060702.3851817,
+                "v": 1
+              },
+              {
+                "key": "28d55da9285128cc0324177a05a0522d",
+                "op": "delete",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 20,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060702.3851817,
+                "v": 1
+              }
+            ],
+            "unreadable": 0
+          },
+          "journal_dir": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-stock",
+          "journal_dir_main_built": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-stock",
+          "on_switch": [
+            {
+              "action": "HcIngress.dc_hit",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c4c"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dcount"
+            },
+            {
+              "action": "HcIngress.dm_read",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c57"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dmeter"
+            },
+            {
+              "action": "HcIngress.drop",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a006302"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000101"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000202"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000303"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000404"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000505"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000606"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.set_mark",
+              "match": {
+                "hdr.ipv4.srcAddr": {
+                  "mask": "ffffffff",
+                  "type": "ternary",
+                  "value": "0a004d01"
+                }
+              },
+              "params": {
+                "v": "05"
+              },
+              "priority": 10,
+              "table": "HcIngress.t_ternary"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            }
+          ],
+          "pid": 3351299,
+          "plan": "read",
+          "posts": [],
+          "rc": 0,
+          "startup": {
+            "broken": [],
+            "entry_errors": {},
+            "table_entries": {
+              "api_writes": 0,
+              "applied": 23,
+              "failed": 0,
+              "journal": {
+                "enabled": true,
+                "failures": 0,
+                "not_found": 0,
+                "record_complete": true,
+                "recorded": 0,
+                "replay": {
+                  "attempted": 2,
+                  "cookie": "confirmed",
+                  "failed": [],
+                  "fresh_fabric": false,
+                  "restored": [
+                    {
+                      "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                      "op": "insert",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 10,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    },
+                    {
+                      "key": "28d55da9285128cc0324177a05a0522d",
+                      "op": "delete",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 20,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    }
+                  ],
+                  "retried_as_modify": [],
+                  "skipped_reason": null,
+                  "stale_entries": 0,
+                  "stale_pipeline": 0,
+                  "status": "complete",
+                  "step0_error": null,
+                  "succeeded": 2,
+                  "unreadable": 0,
+                  "when": "startup"
+                }
+              },
+              "journaled": true,
+              "recorded": 23
+            }
+          },
+          "switch_state_table_entries": {
+            "api_writes": 0,
+            "applied": 23,
+            "failed": 0,
+            "journal": {
+              "enabled": true,
+              "failures": 0,
+              "not_found": 0,
+              "record_complete": true,
+              "recorded": 0,
+              "replay": {
+                "attempted": 2,
+                "cookie": "confirmed",
+                "failed": [],
+                "fresh_fabric": false,
+                "restored": [
+                  {
+                    "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                    "op": "insert",
+                    "spec": {
+                      "action_name": "HcIngress.set_mark",
+                      "action_params": {
+                        "v": 5
+                      },
+                      "match": {
+                        "hdr.ipv4.srcAddr": [
+                          "10.0.77.1",
+                          "255.255.255.255"
+                        ]
+                      },
+                      "priority": 10,
+                      "table": "HcIngress.t_ternary"
+                    }
+                  },
+                  {
+                    "key": "28d55da9285128cc0324177a05a0522d",
+                    "op": "delete",
+                    "spec": {
+                      "action_name": "HcIngress.set_mark",
+                      "action_params": {
+                        "v": 5
+                      },
+                      "match": {
+                        "hdr.ipv4.srcAddr": [
+                          "10.0.77.1",
+                          "255.255.255.255"
+                        ]
+                      },
+                      "priority": 20,
+                      "table": "HcIngress.t_ternary"
+                    }
+                  }
+                ],
+                "retried_as_modify": [],
+                "skipped_reason": null,
+                "stale_entries": 0,
+                "stale_pipeline": 0,
+                "status": "complete",
+                "step0_error": null,
+                "succeeded": 2,
+                "unreadable": 0,
+                "when": "startup"
+              }
+            },
+            "journaled": true,
+            "recorded": 23
+          },
+          "t8": {
+            "attribution": null,
+            "label": "GREEN",
+            "partial": null,
+            "phase": "compare",
+            "reason": "journaled; the restart half is deferred (design 2.3)",
+            "verdict": "GREEN"
+          },
+          "t8_observation": {
+            "answer": {
+              "journaled": true
+            }
+          }
+        },
+        {
+          "after": {
+            "dumps": {
+              "HcIngress.ipv4_lpm": {
+                "entries": 7,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.port_exact": {
+                "entries": 0,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.t_ternary": {
+                "entries": 2,
+                "ours": 2,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a004d01 &&& ffffffff\nPriority: 2147483637\nAction entry: HcIngress.set_mark - 05\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a004d01 &&& ffffffff\nPriority: 2147483627\nAction entry: HcIngress.set_mark - 05\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              }
+            },
+            "journal": {
+              "files": [
+                "s2.jsonl",
+                "s2.jsonl.q1792060698703855685",
+                "s2.jsonl.q1792060702322688902",
+                "s2.jsonl.q1792060702393491363",
+                "s2.jsonl.q1792060705723936323",
+                "s2.jsonl.q1792060705792939804"
+              ],
+              "live": "{\"boot_id\":\"811dfe9235b14570a6768bc5be4d65a4\",\"dpid\":2,\"entries_sha256\":\"24f8521eb38173df\",\"fabric_cookie\":\"a2d80c4e0b10e21c\",\"header\":true,\"p4info_sha256\":\"5ce0a5595d5a65f1\",\"v\":1}\n{\"key\":\"6b8d5e9ebf74f71dc0a565b83f2f9b24\",\"op\":\"insert\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":10,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060705.784798,\"v\":1}\n{\"key\":\"28d55da9285128cc0324177a05a0522d\",\"op\":\"delete\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":20,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060705.784798,\"v\":1}\n{\"key\":\"28d55da9285128cc0324177a05a0522d\",\"op\":\"insert\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":20,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060705.8284047,\"v\":1}\n"
+            }
+          },
+          "boot_entries_used": {
+            "B": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.1.1",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "B2": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "S": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 3
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            }
+          },
+          "boot_id": "811dfe9235b14570a6768bc5be4d65a4",
+          "generation": 11734142358446465564,
+          "journal_after": {
+            "files": [
+              "s2.jsonl",
+              "s2.jsonl.q1792060698703855685",
+              "s2.jsonl.q1792060702322688902",
+              "s2.jsonl.q1792060702393491363",
+              "s2.jsonl.q1792060705723936323",
+              "s2.jsonl.q1792060705792939804"
+            ],
+            "header": {
+              "boot_id": "811dfe9235b14570a6768bc5be4d65a4",
+              "dpid": 2,
+              "entries_sha256": "24f8521eb38173df",
+              "fabric_cookie": "a2d80c4e0b10e21c",
+              "header": true,
+              "p4info_sha256": "5ce0a5595d5a65f1",
+              "v": 1
+            },
+            "records": [
+              {
+                "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                "op": "insert",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 10,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060705.784798,
+                "v": 1
+              },
+              {
+                "key": "28d55da9285128cc0324177a05a0522d",
+                "op": "delete",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 20,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060705.784798,
+                "v": 1
+              },
+              {
+                "key": "28d55da9285128cc0324177a05a0522d",
+                "op": "insert",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 20,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060705.8284047,
+                "v": 1
+              }
+            ],
+            "unreadable": 0
+          },
+          "journal_dir": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-stock",
+          "journal_dir_main_built": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-stock",
+          "on_switch": [
+            {
+              "action": "HcIngress.dc_hit",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c4c"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dcount"
+            },
+            {
+              "action": "HcIngress.dm_read",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c57"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dmeter"
+            },
+            {
+              "action": "HcIngress.drop",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a006302"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000101"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000202"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000303"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000404"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000505"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000606"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.set_mark",
+              "match": {
+                "hdr.ipv4.srcAddr": {
+                  "mask": "ffffffff",
+                  "type": "ternary",
+                  "value": "0a004d01"
+                }
+              },
+              "params": {
+                "v": "05"
+              },
+              "priority": 10,
+              "table": "HcIngress.t_ternary"
+            },
+            {
+              "action": "HcIngress.set_mark",
+              "match": {
+                "hdr.ipv4.srcAddr": {
+                  "mask": "ffffffff",
+                  "type": "ternary",
+                  "value": "0a004d01"
+                }
+              },
+              "params": {
+                "v": "05"
+              },
+              "priority": 20,
+              "table": "HcIngress.t_ternary"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            }
+          ],
+          "pid": 3351360,
+          "plan": "m1b",
+          "posts": [
+            {
+              "answer": {
+                "dpid": 2,
+                "journal": {
+                  "enabled": true,
+                  "recorded": true,
+                  "replay": "at proxy startup, on a switch whose pipeline cookie confirms it is the fabric this journal was written on, and after a readopt later in the same proxy run (a readopt reads no cookie: this run's startup already decided)"
+                },
+                "journaled": true,
+                "match_types": {
+                  "hdr.ipv4.srcAddr": "TERNARY"
+                },
+                "op": "insert",
+                "priority": 20,
+                "priority_honoured": true,
+                "status": "success",
+                "table": "HcIngress.t_ternary"
+              },
+              "body": {
+                "action_name": "HcIngress.set_mark",
+                "action_params": {
+                  "v": 5
+                },
+                "dpid": 2,
+                "match": {
+                  "hdr.ipv4.srcAddr": [
+                    "10.0.77.1",
+                    "255.255.255.255"
+                  ]
+                },
+                "priority": 20,
+                "table": "HcIngress.t_ternary"
+              },
+              "status": 200
+            }
+          ],
+          "rc": 0,
+          "startup": {
+            "broken": [],
+            "entry_errors": {},
+            "table_entries": {
+              "api_writes": 0,
+              "applied": 23,
+              "failed": 0,
+              "journal": {
+                "enabled": true,
+                "failures": 0,
+                "not_found": 0,
+                "record_complete": true,
+                "recorded": 0,
+                "replay": {
+                  "attempted": 2,
+                  "cookie": "confirmed",
+                  "failed": [],
+                  "fresh_fabric": false,
+                  "restored": [
+                    {
+                      "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                      "op": "insert",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 10,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    },
+                    {
+                      "key": "28d55da9285128cc0324177a05a0522d",
+                      "op": "delete",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 20,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    }
+                  ],
+                  "retried_as_modify": [],
+                  "skipped_reason": null,
+                  "stale_entries": 0,
+                  "stale_pipeline": 0,
+                  "status": "complete",
+                  "step0_error": null,
+                  "succeeded": 2,
+                  "unreadable": 0,
+                  "when": "startup"
+                }
+              },
+              "journaled": true,
+              "recorded": 23
+            }
+          },
+          "switch_state_table_entries": {
+            "api_writes": 1,
+            "applied": 23,
+            "failed": 0,
+            "journal": {
+              "enabled": true,
+              "failures": 0,
+              "not_found": 0,
+              "record_complete": true,
+              "recorded": 1,
+              "replay": {
+                "attempted": 2,
+                "cookie": "confirmed",
+                "failed": [],
+                "fresh_fabric": false,
+                "restored": [
+                  {
+                    "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                    "op": "insert",
+                    "spec": {
+                      "action_name": "HcIngress.set_mark",
+                      "action_params": {
+                        "v": 5
+                      },
+                      "match": {
+                        "hdr.ipv4.srcAddr": [
+                          "10.0.77.1",
+                          "255.255.255.255"
+                        ]
+                      },
+                      "priority": 10,
+                      "table": "HcIngress.t_ternary"
+                    }
+                  },
+                  {
+                    "key": "28d55da9285128cc0324177a05a0522d",
+                    "op": "delete",
+                    "spec": {
+                      "action_name": "HcIngress.set_mark",
+                      "action_params": {
+                        "v": 5
+                      },
+                      "match": {
+                        "hdr.ipv4.srcAddr": [
+                          "10.0.77.1",
+                          "255.255.255.255"
+                        ]
+                      },
+                      "priority": 20,
+                      "table": "HcIngress.t_ternary"
+                    }
+                  }
+                ],
+                "retried_as_modify": [],
+                "skipped_reason": null,
+                "stale_entries": 0,
+                "stale_pipeline": 0,
+                "status": "complete",
+                "step0_error": null,
+                "succeeded": 2,
+                "unreadable": 0,
+                "when": "startup"
+              }
+            },
+            "journaled": true,
+            "recorded": 23
+          },
+          "t8": {
+            "attribution": null,
+            "label": "GREEN",
+            "partial": null,
+            "phase": "compare",
+            "reason": "journaled; the restart half is deferred (design 2.3)",
+            "verdict": "GREEN"
+          },
+          "t8_observation": {
+            "answer": {
+              "journaled": true
+            }
+          }
+        },
+        {
+          "after": {
+            "dumps": {
+              "HcIngress.ipv4_lpm": {
+                "entries": 7,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.port_exact": {
+                "entries": 0,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.t_ternary": {
+                "entries": 1,
+                "ours": 1,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a004d01 &&& ffffffff\nPriority: 2147483637\nAction entry: HcIngress.set_mark - 05\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              }
+            },
+            "journal": {
+              "files": [
+                "s2.jsonl",
+                "s2.jsonl.q1792060698703855685",
+                "s2.jsonl.q1792060702322688902",
+                "s2.jsonl.q1792060702393491363",
+                "s2.jsonl.q1792060705723936323",
+                "s2.jsonl.q1792060705792939804",
+                "s2.jsonl.q1792060709276994724",
+                "s2.jsonl.q1792060709352074609"
+              ],
+              "live": "{\"boot_id\":\"16b94fad445f47c3952d64bbc8639c54\",\"dpid\":2,\"entries_sha256\":\"24f8521eb38173df\",\"fabric_cookie\":\"a2d80c4e0b10e21c\",\"header\":true,\"p4info_sha256\":\"5ce0a5595d5a65f1\",\"v\":1}\n{\"key\":\"6b8d5e9ebf74f71dc0a565b83f2f9b24\",\"op\":\"insert\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":10,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060709.3406925,\"v\":1}\n"
+            }
+          },
+          "boot_entries_used": {
+            "B": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.1.1",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "B2": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "S": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 3
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            }
+          },
+          "boot_id": "16b94fad445f47c3952d64bbc8639c54",
+          "generation": 11734142358446465564,
+          "journal_after": {
+            "files": [
+              "s2.jsonl",
+              "s2.jsonl.q1792060698703855685",
+              "s2.jsonl.q1792060702322688902",
+              "s2.jsonl.q1792060702393491363",
+              "s2.jsonl.q1792060705723936323",
+              "s2.jsonl.q1792060705792939804",
+              "s2.jsonl.q1792060709276994724",
+              "s2.jsonl.q1792060709352074609"
+            ],
+            "header": {
+              "boot_id": "16b94fad445f47c3952d64bbc8639c54",
+              "dpid": 2,
+              "entries_sha256": "24f8521eb38173df",
+              "fabric_cookie": "a2d80c4e0b10e21c",
+              "header": true,
+              "p4info_sha256": "5ce0a5595d5a65f1",
+              "v": 1
+            },
+            "records": [
+              {
+                "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                "op": "insert",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 10,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060709.3406925,
+                "v": 1
+              }
+            ],
+            "unreadable": 0
+          },
+          "journal_dir": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-stock",
+          "journal_dir_main_built": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-stock",
+          "on_switch": [
+            {
+              "action": "HcIngress.dc_hit",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c4c"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dcount"
+            },
+            {
+              "action": "HcIngress.dm_read",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c57"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dmeter"
+            },
+            {
+              "action": "HcIngress.drop",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a006302"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000101"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000202"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000303"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000404"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000505"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000606"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.set_mark",
+              "match": {
+                "hdr.ipv4.srcAddr": {
+                  "mask": "ffffffff",
+                  "type": "ternary",
+                  "value": "0a004d01"
+                }
+              },
+              "params": {
+                "v": "05"
+              },
+              "priority": 10,
+              "table": "HcIngress.t_ternary"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            }
+          ],
+          "pid": 3351809,
+          "plan": "read",
+          "posts": [],
+          "rc": 0,
+          "startup": {
+            "broken": [],
+            "entry_errors": {},
+            "table_entries": {
+              "api_writes": 0,
+              "applied": 23,
+              "failed": 0,
+              "journal": {
+                "enabled": true,
+                "failures": 0,
+                "not_found": 0,
+                "record_complete": true,
+                "recorded": 0,
+                "replay": {
+                  "attempted": 2,
+                  "cookie": "confirmed",
+                  "failed": [
+                    {
+                      "entry": {
+                        "key": "28d55da9285128cc0324177a05a0522d",
+                        "op": "modify",
+                        "spec": {
+                          "action_name": "HcIngress.set_mark",
+                          "action_params": {
+                            "v": 5
+                          },
+                          "match": {
+                            "hdr.ipv4.srcAddr": [
+                              "10.0.77.1",
+                              "255.255.255.255"
+                            ]
+                          },
+                          "priority": 20,
+                          "table": "HcIngress.t_ternary"
+                        }
+                      },
+                      "kept": false,
+                      "reason": "NOT_FOUND: Cannot find match entry"
+                    }
+                  ],
+                  "fresh_fabric": false,
+                  "restored": [
+                    {
+                      "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                      "op": "insert",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 10,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    }
+                  ],
+                  "retried_as_modify": [],
+                  "skipped_reason": null,
+                  "stale_entries": 0,
+                  "stale_pipeline": 0,
+                  "status": "partial",
+                  "step0_error": null,
+                  "succeeded": 1,
+                  "unreadable": 0,
+                  "when": "startup"
+                }
+              },
+              "journaled": true,
+              "recorded": 23
+            }
+          },
+          "switch_state_table_entries": {
+            "api_writes": 0,
+            "applied": 23,
+            "failed": 0,
+            "journal": {
+              "enabled": true,
+              "failures": 0,
+              "not_found": 0,
+              "record_complete": true,
+              "recorded": 0,
+              "replay": {
+                "attempted": 2,
+                "cookie": "confirmed",
+                "failed": [
+                  {
+                    "entry": {
+                      "key": "28d55da9285128cc0324177a05a0522d",
+                      "op": "modify",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 20,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    },
+                    "kept": false,
+                    "reason": "NOT_FOUND: Cannot find match entry"
+                  }
+                ],
+                "fresh_fabric": false,
+                "restored": [
+                  {
+                    "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                    "op": "insert",
+                    "spec": {
+                      "action_name": "HcIngress.set_mark",
+                      "action_params": {
+                        "v": 5
+                      },
+                      "match": {
+                        "hdr.ipv4.srcAddr": [
+                          "10.0.77.1",
+                          "255.255.255.255"
+                        ]
+                      },
+                      "priority": 10,
+                      "table": "HcIngress.t_ternary"
+                    }
+                  }
+                ],
+                "retried_as_modify": [],
+                "skipped_reason": null,
+                "stale_entries": 0,
+                "stale_pipeline": 0,
+                "status": "partial",
+                "step0_error": null,
+                "succeeded": 1,
+                "unreadable": 0,
+                "when": "startup"
+              }
+            },
+            "journaled": true,
+            "recorded": 23
+          },
+          "t8": {
+            "attribution": null,
+            "label": "GREEN",
+            "partial": null,
+            "phase": "compare",
+            "reason": "journaled; the restart half is deferred (design 2.3)",
+            "verdict": "GREEN"
+          },
+          "t8_observation": {
+            "answer": {
+              "journaled": true
+            }
+          }
+        }
+      ],
+      "checks": {
+        "m1 every boot exited 0": true,
+        "m1 step 2: both are recorded (ok, not_found)": true,
+        "m1 step 2: the 502 is the switch's NOT_FOUND": true,
+        "m1 step 3 replay complete 2/2: the insert at 10, and the delete at 20 (NOT_FOUND = done)": true,
+        "m1 step 3 restart: a new proxy process, cookie confirmed": true,
+        "m1 step 3 thrift: the entry at 10 is back": true,
+        "m1 step 4 thrift: the entries at 10 and 20 are on the switch": true,
+        "m1 step 4: the insert at 20 is a 200 and says journaled": true,
+        "m1 step 5 replay complete 2/2, nothing failed, nothing retried": false,
+        "m1 step 5 restart: a new proxy process, cookie confirmed": true,
+        "m1 step 5 restored ops: two inserts (20 is an insert, not a modify)": false,
+        "m1 step 6 P4Runtime read: a ternary entry at priority 20 is on the switch, and the one at 10": false,
+        "m1 step 6 P4Runtime read: what is on the switch equals what it held after step 4": false,
+        "m1 step 6 journaled true": true,
+        "m1 step 6 the journal holds the insert at 20, recorded ok": false,
+        "m1 step 6 thrift: the entries at 10 and 20 are on the switch": false,
+        "m1 steps 1-2: insert at 10 is a 200, delete at 20 is a 502": true
+      },
+      "label": "m1-stock",
+      "stop": -15
+    },
+    {
+      "bmv2": "/usr/local/bmv2-fast/bin/simple_switch_grpc",
+      "boots": [
+        {
+          "after": {
+            "dumps": {
+              "HcIngress.ipv4_lpm": {
+                "entries": 7,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.port_exact": {
+                "entries": 0,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.t_ternary": {
+                "entries": 1,
+                "ours": 1,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a004d01 &&& ffffffff\nPriority: 2147483637\nAction entry: HcIngress.set_mark - 05\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              }
+            },
+            "journal": {
+              "files": [
+                "s2.jsonl",
+                "s2.jsonl.q1792060713401846664"
+              ],
+              "live": "{\"boot_id\":\"036f106b89b44341978fd434ff732ae8\",\"dpid\":2,\"entries_sha256\":\"24f8521eb38173df\",\"fabric_cookie\":\"44447b15f677ae4d\",\"header\":true,\"p4info_sha256\":\"5ce0a5595d5a65f1\",\"v\":1}\n{\"key\":\"6b8d5e9ebf74f71dc0a565b83f2f9b24\",\"op\":\"insert\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":10,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060713.4412258,\"v\":1}\n{\"key\":\"28d55da9285128cc0324177a05a0522d\",\"op\":\"delete\",\"outcome\":\"not_found\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":20,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060713.4544199,\"v\":1}\n"
+            }
+          },
+          "boot_entries_used": {
+            "B": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.1.1",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "B2": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "S": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 3
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            }
+          },
+          "boot_id": "036f106b89b44341978fd434ff732ae8",
+          "generation": 4919192027254992461,
+          "journal_after": {
+            "files": [
+              "s2.jsonl",
+              "s2.jsonl.q1792060713401846664"
+            ],
+            "header": {
+              "boot_id": "036f106b89b44341978fd434ff732ae8",
+              "dpid": 2,
+              "entries_sha256": "24f8521eb38173df",
+              "fabric_cookie": "44447b15f677ae4d",
+              "header": true,
+              "p4info_sha256": "5ce0a5595d5a65f1",
+              "v": 1
+            },
+            "records": [
+              {
+                "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                "op": "insert",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 10,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060713.4412258,
+                "v": 1
+              },
+              {
+                "key": "28d55da9285128cc0324177a05a0522d",
+                "op": "delete",
+                "outcome": "not_found",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 20,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060713.4544199,
+                "v": 1
+              }
+            ],
+            "unreadable": 0
+          },
+          "journal_dir": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-fast",
+          "journal_dir_main_built": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-fast",
+          "on_switch": [
+            {
+              "action": "HcIngress.dc_hit",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c4c"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dcount"
+            },
+            {
+              "action": "HcIngress.dm_read",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c57"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dmeter"
+            },
+            {
+              "action": "HcIngress.drop",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a006302"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000101"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000202"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000303"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000404"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000505"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000606"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.set_mark",
+              "match": {
+                "hdr.ipv4.srcAddr": {
+                  "mask": "ffffffff",
+                  "type": "ternary",
+                  "value": "0a004d01"
+                }
+              },
+              "params": {
+                "v": "05"
+              },
+              "priority": 10,
+              "table": "HcIngress.t_ternary"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            }
+          ],
+          "pid": 3351892,
+          "plan": "m1a",
+          "posts": [
+            {
+              "answer": {
+                "dpid": 2,
+                "journal": {
+                  "enabled": true,
+                  "recorded": true,
+                  "replay": "at proxy startup, on a switch whose pipeline cookie confirms it is the fabric this journal was written on, and after a readopt later in the same proxy run (a readopt reads no cookie: this run's startup already decided)"
+                },
+                "journaled": true,
+                "match_types": {
+                  "hdr.ipv4.srcAddr": "TERNARY"
+                },
+                "op": "insert",
+                "priority": 10,
+                "priority_honoured": true,
+                "status": "success",
+                "table": "HcIngress.t_ternary"
+              },
+              "body": {
+                "action_name": "HcIngress.set_mark",
+                "action_params": {
+                  "v": 5
+                },
+                "dpid": 2,
+                "match": {
+                  "hdr.ipv4.srcAddr": [
+                    "10.0.77.1",
+                    "255.255.255.255"
+                  ]
+                },
+                "priority": 10,
+                "table": "HcIngress.t_ternary"
+              },
+              "status": 200
+            },
+            {
+              "answer": {
+                "dpid": 2,
+                "error": "the switch refused the write",
+                "grpc_status": "UNKNOWN",
+                "message": "switch 2 refused this entry: UNKNOWN (NOT_FOUND: Cannot find match entry)",
+                "p4rt_error": {
+                  "code": "NOT_FOUND",
+                  "message": "Cannot find match entry"
+                }
+              },
+              "body": {
+                "action_name": "HcIngress.set_mark",
+                "action_params": {
+                  "v": 5
+                },
+                "dpid": 2,
+                "match": {
+                  "hdr.ipv4.srcAddr": [
+                    "10.0.77.1",
+                    "255.255.255.255"
+                  ]
+                },
+                "op": "delete",
+                "priority": 20,
+                "table": "HcIngress.t_ternary"
+              },
+              "status": 502
+            }
+          ],
+          "rc": 0,
+          "startup": {
+            "broken": [],
+            "entry_errors": {},
+            "table_entries": {
+              "api_writes": 0,
+              "applied": 23,
+              "failed": 0,
+              "journal": {
+                "enabled": true,
+                "failures": 0,
+                "not_found": 0,
+                "record_complete": true,
+                "recorded": 0,
+                "replay": {
+                  "attempted": 0,
+                  "cookie": "the switch did not answer COOKIE_ONLY (FAILED_PRECONDITION: No forwarding pipeline config set for this device)",
+                  "failed": [],
+                  "fresh_fabric": true,
+                  "restored": [],
+                  "retried_as_modify": [],
+                  "skipped_reason": null,
+                  "stale_entries": 0,
+                  "stale_pipeline": 0,
+                  "status": "nothing-to-replay",
+                  "step0_error": null,
+                  "succeeded": 0,
+                  "unreadable": 0,
+                  "when": "startup"
+                }
+              },
+              "journaled": true,
+              "recorded": 23
+            }
+          },
+          "switch_state_table_entries": {
+            "api_writes": 1,
+            "applied": 23,
+            "failed": 0,
+            "journal": {
+              "enabled": true,
+              "failures": 0,
+              "not_found": 1,
+              "record_complete": true,
+              "recorded": 1,
+              "replay": {
+                "attempted": 0,
+                "cookie": "the switch did not answer COOKIE_ONLY (FAILED_PRECONDITION: No forwarding pipeline config set for this device)",
+                "failed": [],
+                "fresh_fabric": true,
+                "restored": [],
+                "retried_as_modify": [],
+                "skipped_reason": null,
+                "stale_entries": 0,
+                "stale_pipeline": 0,
+                "status": "nothing-to-replay",
+                "step0_error": null,
+                "succeeded": 0,
+                "unreadable": 0,
+                "when": "startup"
+              }
+            },
+            "journaled": true,
+            "recorded": 23
+          },
+          "t8": {
+            "attribution": null,
+            "label": "GREEN",
+            "partial": null,
+            "phase": "compare",
+            "reason": "journaled; the restart half is deferred (design 2.3)",
+            "verdict": "GREEN"
+          },
+          "t8_observation": {
+            "answer": {
+              "journaled": true
+            }
+          }
+        },
+        {
+          "after": {
+            "dumps": {
+              "HcIngress.ipv4_lpm": {
+                "entries": 7,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.port_exact": {
+                "entries": 0,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.t_ternary": {
+                "entries": 1,
+                "ours": 1,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a004d01 &&& ffffffff\nPriority: 2147483637\nAction entry: HcIngress.set_mark - 05\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              }
+            },
+            "journal": {
+              "files": [
+                "s2.jsonl",
+                "s2.jsonl.q1792060713401846664",
+                "s2.jsonl.q1792060716926208928",
+                "s2.jsonl.q1792060716987708667"
+              ],
+              "live": "{\"boot_id\":\"3c01d4c6f01f459594be862bf22282be\",\"dpid\":2,\"entries_sha256\":\"24f8521eb38173df\",\"fabric_cookie\":\"44447b15f677ae4d\",\"header\":true,\"p4info_sha256\":\"5ce0a5595d5a65f1\",\"v\":1}\n{\"key\":\"6b8d5e9ebf74f71dc0a565b83f2f9b24\",\"op\":\"insert\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":10,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060716.9790156,\"v\":1}\n{\"key\":\"28d55da9285128cc0324177a05a0522d\",\"op\":\"delete\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":20,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060716.9790156,\"v\":1}\n"
+            }
+          },
+          "boot_entries_used": {
+            "B": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.1.1",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "B2": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "S": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 3
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            }
+          },
+          "boot_id": "3c01d4c6f01f459594be862bf22282be",
+          "generation": 4919192027254992461,
+          "journal_after": {
+            "files": [
+              "s2.jsonl",
+              "s2.jsonl.q1792060713401846664",
+              "s2.jsonl.q1792060716926208928",
+              "s2.jsonl.q1792060716987708667"
+            ],
+            "header": {
+              "boot_id": "3c01d4c6f01f459594be862bf22282be",
+              "dpid": 2,
+              "entries_sha256": "24f8521eb38173df",
+              "fabric_cookie": "44447b15f677ae4d",
+              "header": true,
+              "p4info_sha256": "5ce0a5595d5a65f1",
+              "v": 1
+            },
+            "records": [
+              {
+                "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                "op": "insert",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 10,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060716.9790156,
+                "v": 1
+              },
+              {
+                "key": "28d55da9285128cc0324177a05a0522d",
+                "op": "delete",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 20,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060716.9790156,
+                "v": 1
+              }
+            ],
+            "unreadable": 0
+          },
+          "journal_dir": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-fast",
+          "journal_dir_main_built": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-fast",
+          "on_switch": [
+            {
+              "action": "HcIngress.dc_hit",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c4c"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dcount"
+            },
+            {
+              "action": "HcIngress.dm_read",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c57"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dmeter"
+            },
+            {
+              "action": "HcIngress.drop",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a006302"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000101"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000202"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000303"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000404"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000505"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000606"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.set_mark",
+              "match": {
+                "hdr.ipv4.srcAddr": {
+                  "mask": "ffffffff",
+                  "type": "ternary",
+                  "value": "0a004d01"
+                }
+              },
+              "params": {
+                "v": "05"
+              },
+              "priority": 10,
+              "table": "HcIngress.t_ternary"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            }
+          ],
+          "pid": 3351969,
+          "plan": "read",
+          "posts": [],
+          "rc": 0,
+          "startup": {
+            "broken": [],
+            "entry_errors": {},
+            "table_entries": {
+              "api_writes": 0,
+              "applied": 23,
+              "failed": 0,
+              "journal": {
+                "enabled": true,
+                "failures": 0,
+                "not_found": 0,
+                "record_complete": true,
+                "recorded": 0,
+                "replay": {
+                  "attempted": 2,
+                  "cookie": "confirmed",
+                  "failed": [],
+                  "fresh_fabric": false,
+                  "restored": [
+                    {
+                      "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                      "op": "insert",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 10,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    },
+                    {
+                      "key": "28d55da9285128cc0324177a05a0522d",
+                      "op": "delete",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 20,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    }
+                  ],
+                  "retried_as_modify": [],
+                  "skipped_reason": null,
+                  "stale_entries": 0,
+                  "stale_pipeline": 0,
+                  "status": "complete",
+                  "step0_error": null,
+                  "succeeded": 2,
+                  "unreadable": 0,
+                  "when": "startup"
+                }
+              },
+              "journaled": true,
+              "recorded": 23
+            }
+          },
+          "switch_state_table_entries": {
+            "api_writes": 0,
+            "applied": 23,
+            "failed": 0,
+            "journal": {
+              "enabled": true,
+              "failures": 0,
+              "not_found": 0,
+              "record_complete": true,
+              "recorded": 0,
+              "replay": {
+                "attempted": 2,
+                "cookie": "confirmed",
+                "failed": [],
+                "fresh_fabric": false,
+                "restored": [
+                  {
+                    "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                    "op": "insert",
+                    "spec": {
+                      "action_name": "HcIngress.set_mark",
+                      "action_params": {
+                        "v": 5
+                      },
+                      "match": {
+                        "hdr.ipv4.srcAddr": [
+                          "10.0.77.1",
+                          "255.255.255.255"
+                        ]
+                      },
+                      "priority": 10,
+                      "table": "HcIngress.t_ternary"
+                    }
+                  },
+                  {
+                    "key": "28d55da9285128cc0324177a05a0522d",
+                    "op": "delete",
+                    "spec": {
+                      "action_name": "HcIngress.set_mark",
+                      "action_params": {
+                        "v": 5
+                      },
+                      "match": {
+                        "hdr.ipv4.srcAddr": [
+                          "10.0.77.1",
+                          "255.255.255.255"
+                        ]
+                      },
+                      "priority": 20,
+                      "table": "HcIngress.t_ternary"
+                    }
+                  }
+                ],
+                "retried_as_modify": [],
+                "skipped_reason": null,
+                "stale_entries": 0,
+                "stale_pipeline": 0,
+                "status": "complete",
+                "step0_error": null,
+                "succeeded": 2,
+                "unreadable": 0,
+                "when": "startup"
+              }
+            },
+            "journaled": true,
+            "recorded": 23
+          },
+          "t8": {
+            "attribution": null,
+            "label": "GREEN",
+            "partial": null,
+            "phase": "compare",
+            "reason": "journaled; the restart half is deferred (design 2.3)",
+            "verdict": "GREEN"
+          },
+          "t8_observation": {
+            "answer": {
+              "journaled": true
+            }
+          }
+        },
+        {
+          "after": {
+            "dumps": {
+              "HcIngress.ipv4_lpm": {
+                "entries": 7,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.port_exact": {
+                "entries": 0,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.t_ternary": {
+                "entries": 2,
+                "ours": 2,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a004d01 &&& ffffffff\nPriority: 2147483637\nAction entry: HcIngress.set_mark - 05\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a004d01 &&& ffffffff\nPriority: 2147483627\nAction entry: HcIngress.set_mark - 05\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              }
+            },
+            "journal": {
+              "files": [
+                "s2.jsonl",
+                "s2.jsonl.q1792060713401846664",
+                "s2.jsonl.q1792060716926208928",
+                "s2.jsonl.q1792060716987708667",
+                "s2.jsonl.q1792060720360318540",
+                "s2.jsonl.q1792060720419679050"
+              ],
+              "live": "{\"boot_id\":\"999226452dc847dda7d48eaf677f8d19\",\"dpid\":2,\"entries_sha256\":\"24f8521eb38173df\",\"fabric_cookie\":\"44447b15f677ae4d\",\"header\":true,\"p4info_sha256\":\"5ce0a5595d5a65f1\",\"v\":1}\n{\"key\":\"6b8d5e9ebf74f71dc0a565b83f2f9b24\",\"op\":\"insert\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":10,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060720.4112887,\"v\":1}\n{\"key\":\"28d55da9285128cc0324177a05a0522d\",\"op\":\"delete\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":20,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060720.4112887,\"v\":1}\n{\"key\":\"28d55da9285128cc0324177a05a0522d\",\"op\":\"insert\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":20,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060720.457229,\"v\":1}\n"
+            }
+          },
+          "boot_entries_used": {
+            "B": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.1.1",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "B2": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "S": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 3
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            }
+          },
+          "boot_id": "999226452dc847dda7d48eaf677f8d19",
+          "generation": 4919192027254992461,
+          "journal_after": {
+            "files": [
+              "s2.jsonl",
+              "s2.jsonl.q1792060713401846664",
+              "s2.jsonl.q1792060716926208928",
+              "s2.jsonl.q1792060716987708667",
+              "s2.jsonl.q1792060720360318540",
+              "s2.jsonl.q1792060720419679050"
+            ],
+            "header": {
+              "boot_id": "999226452dc847dda7d48eaf677f8d19",
+              "dpid": 2,
+              "entries_sha256": "24f8521eb38173df",
+              "fabric_cookie": "44447b15f677ae4d",
+              "header": true,
+              "p4info_sha256": "5ce0a5595d5a65f1",
+              "v": 1
+            },
+            "records": [
+              {
+                "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                "op": "insert",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 10,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060720.4112887,
+                "v": 1
+              },
+              {
+                "key": "28d55da9285128cc0324177a05a0522d",
+                "op": "delete",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 20,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060720.4112887,
+                "v": 1
+              },
+              {
+                "key": "28d55da9285128cc0324177a05a0522d",
+                "op": "insert",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 20,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060720.457229,
+                "v": 1
+              }
+            ],
+            "unreadable": 0
+          },
+          "journal_dir": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-fast",
+          "journal_dir_main_built": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-fast",
+          "on_switch": [
+            {
+              "action": "HcIngress.dc_hit",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c4c"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dcount"
+            },
+            {
+              "action": "HcIngress.dm_read",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c57"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dmeter"
+            },
+            {
+              "action": "HcIngress.drop",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a006302"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000101"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000202"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000303"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000404"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000505"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000606"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.set_mark",
+              "match": {
+                "hdr.ipv4.srcAddr": {
+                  "mask": "ffffffff",
+                  "type": "ternary",
+                  "value": "0a004d01"
+                }
+              },
+              "params": {
+                "v": "05"
+              },
+              "priority": 10,
+              "table": "HcIngress.t_ternary"
+            },
+            {
+              "action": "HcIngress.set_mark",
+              "match": {
+                "hdr.ipv4.srcAddr": {
+                  "mask": "ffffffff",
+                  "type": "ternary",
+                  "value": "0a004d01"
+                }
+              },
+              "params": {
+                "v": "05"
+              },
+              "priority": 20,
+              "table": "HcIngress.t_ternary"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            }
+          ],
+          "pid": 3352411,
+          "plan": "m1b",
+          "posts": [
+            {
+              "answer": {
+                "dpid": 2,
+                "journal": {
+                  "enabled": true,
+                  "recorded": true,
+                  "replay": "at proxy startup, on a switch whose pipeline cookie confirms it is the fabric this journal was written on, and after a readopt later in the same proxy run (a readopt reads no cookie: this run's startup already decided)"
+                },
+                "journaled": true,
+                "match_types": {
+                  "hdr.ipv4.srcAddr": "TERNARY"
+                },
+                "op": "insert",
+                "priority": 20,
+                "priority_honoured": true,
+                "status": "success",
+                "table": "HcIngress.t_ternary"
+              },
+              "body": {
+                "action_name": "HcIngress.set_mark",
+                "action_params": {
+                  "v": 5
+                },
+                "dpid": 2,
+                "match": {
+                  "hdr.ipv4.srcAddr": [
+                    "10.0.77.1",
+                    "255.255.255.255"
+                  ]
+                },
+                "priority": 20,
+                "table": "HcIngress.t_ternary"
+              },
+              "status": 200
+            }
+          ],
+          "rc": 0,
+          "startup": {
+            "broken": [],
+            "entry_errors": {},
+            "table_entries": {
+              "api_writes": 0,
+              "applied": 23,
+              "failed": 0,
+              "journal": {
+                "enabled": true,
+                "failures": 0,
+                "not_found": 0,
+                "record_complete": true,
+                "recorded": 0,
+                "replay": {
+                  "attempted": 2,
+                  "cookie": "confirmed",
+                  "failed": [],
+                  "fresh_fabric": false,
+                  "restored": [
+                    {
+                      "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                      "op": "insert",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 10,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    },
+                    {
+                      "key": "28d55da9285128cc0324177a05a0522d",
+                      "op": "delete",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 20,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    }
+                  ],
+                  "retried_as_modify": [],
+                  "skipped_reason": null,
+                  "stale_entries": 0,
+                  "stale_pipeline": 0,
+                  "status": "complete",
+                  "step0_error": null,
+                  "succeeded": 2,
+                  "unreadable": 0,
+                  "when": "startup"
+                }
+              },
+              "journaled": true,
+              "recorded": 23
+            }
+          },
+          "switch_state_table_entries": {
+            "api_writes": 1,
+            "applied": 23,
+            "failed": 0,
+            "journal": {
+              "enabled": true,
+              "failures": 0,
+              "not_found": 0,
+              "record_complete": true,
+              "recorded": 1,
+              "replay": {
+                "attempted": 2,
+                "cookie": "confirmed",
+                "failed": [],
+                "fresh_fabric": false,
+                "restored": [
+                  {
+                    "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                    "op": "insert",
+                    "spec": {
+                      "action_name": "HcIngress.set_mark",
+                      "action_params": {
+                        "v": 5
+                      },
+                      "match": {
+                        "hdr.ipv4.srcAddr": [
+                          "10.0.77.1",
+                          "255.255.255.255"
+                        ]
+                      },
+                      "priority": 10,
+                      "table": "HcIngress.t_ternary"
+                    }
+                  },
+                  {
+                    "key": "28d55da9285128cc0324177a05a0522d",
+                    "op": "delete",
+                    "spec": {
+                      "action_name": "HcIngress.set_mark",
+                      "action_params": {
+                        "v": 5
+                      },
+                      "match": {
+                        "hdr.ipv4.srcAddr": [
+                          "10.0.77.1",
+                          "255.255.255.255"
+                        ]
+                      },
+                      "priority": 20,
+                      "table": "HcIngress.t_ternary"
+                    }
+                  }
+                ],
+                "retried_as_modify": [],
+                "skipped_reason": null,
+                "stale_entries": 0,
+                "stale_pipeline": 0,
+                "status": "complete",
+                "step0_error": null,
+                "succeeded": 2,
+                "unreadable": 0,
+                "when": "startup"
+              }
+            },
+            "journaled": true,
+            "recorded": 23
+          },
+          "t8": {
+            "attribution": null,
+            "label": "GREEN",
+            "partial": null,
+            "phase": "compare",
+            "reason": "journaled; the restart half is deferred (design 2.3)",
+            "verdict": "GREEN"
+          },
+          "t8_observation": {
+            "answer": {
+              "journaled": true
+            }
+          }
+        },
+        {
+          "after": {
+            "dumps": {
+              "HcIngress.ipv4_lpm": {
+                "entries": 7,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.port_exact": {
+                "entries": 0,
+                "ours": 0,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              },
+              "HcIngress.t_ternary": {
+                "entries": 1,
+                "ours": 1,
+                "raw": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a004d01 &&& ffffffff\nPriority: 2147483637\nAction entry: HcIngress.set_mark - 05\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n"
+              }
+            },
+            "journal": {
+              "files": [
+                "s2.jsonl",
+                "s2.jsonl.q1792060713401846664",
+                "s2.jsonl.q1792060716926208928",
+                "s2.jsonl.q1792060716987708667",
+                "s2.jsonl.q1792060720360318540",
+                "s2.jsonl.q1792060720419679050",
+                "s2.jsonl.q1792060723800435628",
+                "s2.jsonl.q1792060723860795553"
+              ],
+              "live": "{\"boot_id\":\"5ec7e2ad00324ec1b5e8969e5c71275c\",\"dpid\":2,\"entries_sha256\":\"24f8521eb38173df\",\"fabric_cookie\":\"44447b15f677ae4d\",\"header\":true,\"p4info_sha256\":\"5ce0a5595d5a65f1\",\"v\":1}\n{\"key\":\"6b8d5e9ebf74f71dc0a565b83f2f9b24\",\"op\":\"insert\",\"outcome\":\"ok\",\"spec\":{\"action_name\":\"HcIngress.set_mark\",\"action_params\":{\"v\":5},\"match\":{\"hdr.ipv4.srcAddr\":[\"10.0.77.1\",\"255.255.255.255\"]},\"priority\":10,\"table\":\"HcIngress.t_ternary\"},\"t\":1792060723.8525987,\"v\":1}\n"
+            }
+          },
+          "boot_entries_used": {
+            "B": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.1.1",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "B2": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 2
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            },
+            "S": {
+              "action_name": "HcIngress.ipv4_forward",
+              "action_params": {
+                "dstAddr": "08:00:00:00:ff:01",
+                "port": 3
+              },
+              "dpid": 2,
+              "match": {
+                "hdr.ipv4.dstAddr": [
+                  "10.0.2.2",
+                  32
+                ]
+              },
+              "table": "HcIngress.ipv4_lpm"
+            }
+          },
+          "boot_id": "5ec7e2ad00324ec1b5e8969e5c71275c",
+          "generation": 4919192027254992461,
+          "journal_after": {
+            "files": [
+              "s2.jsonl",
+              "s2.jsonl.q1792060713401846664",
+              "s2.jsonl.q1792060716926208928",
+              "s2.jsonl.q1792060716987708667",
+              "s2.jsonl.q1792060720360318540",
+              "s2.jsonl.q1792060720419679050",
+              "s2.jsonl.q1792060723800435628",
+              "s2.jsonl.q1792060723860795553"
+            ],
+            "header": {
+              "boot_id": "5ec7e2ad00324ec1b5e8969e5c71275c",
+              "dpid": 2,
+              "entries_sha256": "24f8521eb38173df",
+              "fabric_cookie": "44447b15f677ae4d",
+              "header": true,
+              "p4info_sha256": "5ce0a5595d5a65f1",
+              "v": 1
+            },
+            "records": [
+              {
+                "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                "op": "insert",
+                "outcome": "ok",
+                "spec": {
+                  "action_name": "HcIngress.set_mark",
+                  "action_params": {
+                    "v": 5
+                  },
+                  "match": {
+                    "hdr.ipv4.srcAddr": [
+                      "10.0.77.1",
+                      "255.255.255.255"
+                    ]
+                  },
+                  "priority": 10,
+                  "table": "HcIngress.t_ternary"
+                },
+                "t": 1792060723.8525987,
+                "v": 1
+              }
+            ],
+            "unreadable": 0
+          },
+          "journal_dir": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-fast",
+          "journal_dir_main_built": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red/journal-m1-fast",
+          "on_switch": [
+            {
+              "action": "HcIngress.dc_hit",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c4c"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dcount"
+            },
+            {
+              "action": "HcIngress.dm_read",
+              "match": {
+                "hdr.udp.dstPort": {
+                  "type": "exact",
+                  "value": "9c57"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.t_dmeter"
+            },
+            {
+              "action": "HcIngress.drop",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a006302"
+                }
+              },
+              "params": {},
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000101"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000202"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000303"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000404"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000505"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.ipv4_forward",
+              "match": {
+                "hdr.ipv4.dstAddr": {
+                  "prefix_len": 32,
+                  "type": "lpm",
+                  "value": "0a000606"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.ipv4_lpm"
+            },
+            {
+              "action": "HcIngress.set_mark",
+              "match": {
+                "hdr.ipv4.srcAddr": {
+                  "mask": "ffffffff",
+                  "type": "ternary",
+                  "value": "0a004d01"
+                }
+              },
+              "params": {
+                "v": "05"
+              },
+              "priority": 10,
+              "table": "HcIngress.t_ternary"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.tunnel_forward",
+              "match": {
+                "meta.dst_id": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.tunnel_exact"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "01"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "02"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "03"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff01",
+                "port": "02"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "04"
+                }
+              },
+              "params": {
+                "dstAddr": "080000000444",
+                "port": "01"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "05"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            },
+            {
+              "action": "HcIngress.v6_forward",
+              "match": {
+                "meta.v6_lo": {
+                  "type": "exact",
+                  "value": "06"
+                }
+              },
+              "params": {
+                "dstAddr": "08000000ff04",
+                "port": "03"
+              },
+              "priority": 0,
+              "table": "HcIngress.v6_host"
+            }
+          ],
+          "pid": 3352454,
+          "plan": "read",
+          "posts": [],
+          "rc": 0,
+          "startup": {
+            "broken": [],
+            "entry_errors": {},
+            "table_entries": {
+              "api_writes": 0,
+              "applied": 23,
+              "failed": 0,
+              "journal": {
+                "enabled": true,
+                "failures": 0,
+                "not_found": 0,
+                "record_complete": true,
+                "recorded": 0,
+                "replay": {
+                  "attempted": 2,
+                  "cookie": "confirmed",
+                  "failed": [
+                    {
+                      "entry": {
+                        "key": "28d55da9285128cc0324177a05a0522d",
+                        "op": "modify",
+                        "spec": {
+                          "action_name": "HcIngress.set_mark",
+                          "action_params": {
+                            "v": 5
+                          },
+                          "match": {
+                            "hdr.ipv4.srcAddr": [
+                              "10.0.77.1",
+                              "255.255.255.255"
+                            ]
+                          },
+                          "priority": 20,
+                          "table": "HcIngress.t_ternary"
+                        }
+                      },
+                      "kept": false,
+                      "reason": "NOT_FOUND: Cannot find match entry"
+                    }
+                  ],
+                  "fresh_fabric": false,
+                  "restored": [
+                    {
+                      "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                      "op": "insert",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 10,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    }
+                  ],
+                  "retried_as_modify": [],
+                  "skipped_reason": null,
+                  "stale_entries": 0,
+                  "stale_pipeline": 0,
+                  "status": "partial",
+                  "step0_error": null,
+                  "succeeded": 1,
+                  "unreadable": 0,
+                  "when": "startup"
+                }
+              },
+              "journaled": true,
+              "recorded": 23
+            }
+          },
+          "switch_state_table_entries": {
+            "api_writes": 0,
+            "applied": 23,
+            "failed": 0,
+            "journal": {
+              "enabled": true,
+              "failures": 0,
+              "not_found": 0,
+              "record_complete": true,
+              "recorded": 0,
+              "replay": {
+                "attempted": 2,
+                "cookie": "confirmed",
+                "failed": [
+                  {
+                    "entry": {
+                      "key": "28d55da9285128cc0324177a05a0522d",
+                      "op": "modify",
+                      "spec": {
+                        "action_name": "HcIngress.set_mark",
+                        "action_params": {
+                          "v": 5
+                        },
+                        "match": {
+                          "hdr.ipv4.srcAddr": [
+                            "10.0.77.1",
+                            "255.255.255.255"
+                          ]
+                        },
+                        "priority": 20,
+                        "table": "HcIngress.t_ternary"
+                      }
+                    },
+                    "kept": false,
+                    "reason": "NOT_FOUND: Cannot find match entry"
+                  }
+                ],
+                "fresh_fabric": false,
+                "restored": [
+                  {
+                    "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+                    "op": "insert",
+                    "spec": {
+                      "action_name": "HcIngress.set_mark",
+                      "action_params": {
+                        "v": 5
+                      },
+                      "match": {
+                        "hdr.ipv4.srcAddr": [
+                          "10.0.77.1",
+                          "255.255.255.255"
+                        ]
+                      },
+                      "priority": 10,
+                      "table": "HcIngress.t_ternary"
+                    }
+                  }
+                ],
+                "retried_as_modify": [],
+                "skipped_reason": null,
+                "stale_entries": 0,
+                "stale_pipeline": 0,
+                "status": "partial",
+                "step0_error": null,
+                "succeeded": 1,
+                "unreadable": 0,
+                "when": "startup"
+              }
+            },
+            "journaled": true,
+            "recorded": 23
+          },
+          "t8": {
+            "attribution": null,
+            "label": "GREEN",
+            "partial": null,
+            "phase": "compare",
+            "reason": "journaled; the restart half is deferred (design 2.3)",
+            "verdict": "GREEN"
+          },
+          "t8_observation": {
+            "answer": {
+              "journaled": true
+            }
+          }
+        }
+      ],
+      "checks": {
+        "m1 every boot exited 0": true,
+        "m1 step 2: both are recorded (ok, not_found)": true,
+        "m1 step 2: the 502 is the switch's NOT_FOUND": true,
+        "m1 step 3 replay complete 2/2: the insert at 10, and the delete at 20 (NOT_FOUND = done)": true,
+        "m1 step 3 restart: a new proxy process, cookie confirmed": true,
+        "m1 step 3 thrift: the entry at 10 is back": true,
+        "m1 step 4 thrift: the entries at 10 and 20 are on the switch": true,
+        "m1 step 4: the insert at 20 is a 200 and says journaled": true,
+        "m1 step 5 replay complete 2/2, nothing failed, nothing retried": false,
+        "m1 step 5 restart: a new proxy process, cookie confirmed": true,
+        "m1 step 5 restored ops: two inserts (20 is an insert, not a modify)": false,
+        "m1 step 6 P4Runtime read: a ternary entry at priority 20 is on the switch, and the one at 10": false,
+        "m1 step 6 P4Runtime read: what is on the switch equals what it held after step 4": false,
+        "m1 step 6 journaled true": true,
+        "m1 step 6 the journal holds the insert at 20, recorded ok": false,
+        "m1 step 6 thrift: the entries at 10 and 20 are on the switch": false,
+        "m1 steps 1-2: insert at 10 is a 200, delete at 20 is a 502": true
+      },
+      "label": "m1-fast",
+      "stop": -15
+    }
+  ],
+  "started": [
+    {
+      "grpc": 29650,
+      "pid": 3351217,
+      "thrift": 29500,
+      "what": "simple_switch_grpc m1-stock #1"
+    },
+    {
+      "pid": 3351251,
+      "what": "proxy boot m1-stock #1 (m1a)"
+    },
+    {
+      "pid": 3351299,
+      "what": "proxy boot m1-stock #2 (read)"
+    },
+    {
+      "pid": 3351360,
+      "what": "proxy boot m1-stock #3 (m1b)"
+    },
+    {
+      "pid": 3351809,
+      "what": "proxy boot m1-stock #4 (read)"
+    },
+    {
+      "grpc": 29650,
+      "pid": 3351858,
+      "thrift": 29500,
+      "what": "simple_switch_grpc m1-fast #1"
+    },
+    {
+      "pid": 3351892,
+      "what": "proxy boot m1-fast #1 (m1a)"
+    },
+    {
+      "pid": 3351969,
+      "what": "proxy boot m1-fast #2 (read)"
+    },
+    {
+      "pid": 3352411,
+      "what": "proxy boot m1-fast #3 (m1b)"
+    },
+    {
+      "pid": 3352454,
+      "what": "proxy boot m1-fast #4 (read)"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+19:20:39 two_test_files_whole: launching
+19:20:48 two_test_files_whole: finished; last line of two_test_files_whole.log: rc=0
+19:20:48 health_cells: launching
+19:20:51 health_cells: finished; last line of p4_health_cells_tests.log: rc=0
+19:20:51 gate_anchors: launching
+19:20:53 gate_anchors: finished; last line of gate_anchors.log: rc=0
+19:20:53 mutate_table_journal: launching
+19:52:56 mutate_table_journal: finished; last line of mutate_table_journal.log: rc=0
+19:52:56 trial_final: launching
+19:55:20 trial_final: finished; last line of trial-r5.log: rc=0
+19:55:20 trial_m2_red_at_7f69609b: launching
+19:56:23 trial_m2_red_at_7f69609b: finished; last line of trial-r5red.log: rc=1
+19:56:23 all done

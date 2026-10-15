@@ -1,0 +1,16 @@
+ * branch              main       -> FETCH_HEAD
+   92c1c77a..cb29cb53  main       -> p4/main
+merge=cb29cb53c55351fc987e0f332cd99124e8841581
+parents=92c1c77ac16bcb5ade4a04b392bf3dc5f04ccd2f
+tree=bf230edb7a11a0694313cdadfdecf0fd250f42ec
+subject=p4_health: add the lab run and the verdict table (#37)
+The health check can now drive a packet-level bring-up on a Mininet fabric (A) and
+a bring-up with an external P4Runtime controller (B), read the results back, and
+decide each cell of the verdict table from the recording, also offline from a saved
+run. A lab run pins one commit, refuses a dirty probe tree, runs the code it
+froze into the run directory, and ends INCOMPLETE with a reason when a stop signal,
+an exception or an unclean teardown cuts a round short. It has not been run against
+a live lab yet. The tests and the mutation gate for all of it come with it, and the
+health probe's controller may name the tutorials port base.
+PR tree:
+bf230edb7a11a0694313cdadfdecf0fd250f42ec

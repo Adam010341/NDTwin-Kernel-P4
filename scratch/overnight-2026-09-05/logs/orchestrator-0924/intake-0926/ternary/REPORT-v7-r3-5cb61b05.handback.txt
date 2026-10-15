@@ -1,0 +1,108 @@
+DELIVERED 5cb61b05d95d0e53584424a0ba383871943c9543 (not pushed, no amend). Worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-writer-owned, branch fix/p4-writer-owned-tables, clean. No venv or build link is left in it. Logs: `/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-writer-owned/` (below `L/`), numbered 18 to 25, each with a `commit` header, a `tracked status: 0` line (the tip logs only; log 18 has it too) and `rc=` last.
+
+## Two things to know first
+1. **One forbidden word in my tip message.** `5cb61b05`'s body says "...is now reported instead of running...", and "report" is on the forbidden list. I did not amend, because you said no amend and the logs carry that sha. The tree would not change. If you want it fixed, reword it before the squash.
+2. **Disk.** `df -m /` read 1697 MB mid-run and 1694 MB after cleanup, below the 1800 floor and about the 1700 line. My worktree is cleaned and I added nothing since; I think other sessions are filling it. I stopped after the final runs.
+
+## New commits on top of f69d20b0 (no amend)
+| sha | content |
+|---|---|
+| `48f084c6` | tests: items 1, 3 and 5a/5b (messages, label, concurrency, end to end) |
+| `d2030b11` | fix: items 1, 2, 3 and 4 (wording, docstring, comments, label, CHANGELOG) |
+| `5cb61b05` | gate: item 5c and a safeguard for unapplied mutants |
+
+## Per item
+1. **409 text.**
+   - Message is now `<table> is owned by NDTwin (<reason>); a <what> <op> ... refused on switch N`.
+   - The reason is keyed by binding source:
+     - baseline: "every table of NDTwin's own pipeline is NDTwin's";
+     - package: "roles.ipv4_route gives this table to NDTwin".
+   - The remedy comes from the exception (`TableOwnedByNDTwin.remedy`) and is keyed by source, so the route no longer guesses:
+     - baseline: "NDTwin's own pipeline takes routes through /stats/flowentry/*; this endpoint writes a package pipeline's tables";
+     - package: "roles.ipv4_route gives this table to NDTwin; write another table of the package's pipeline".
+   - The remedy test now checks where the value ends: the whole remedy lies inside the first 200 bytes, for both bindings. It passes with margin.
+   - `api_routes.py` docstring: the example is now a package pipeline (`PkgIngress.acl`), and the text says NDTwin's own tables answer 409.
+   - Red: `L/18_red_tests_round3.log` at `48f084c6`. Two tests go red, `test_on_ndtwins_own_pipeline_the_409_says_so_and_points_at_the_route_endpoints` and `test_on_a_package_pipeline_the_409_names_the_role_and_points_at_another_table`.
+   - Green: `L/19_green_touched_round3_5cb61b05.log`.
+2. **Wording.**
+   - `p4_client.py`: replay marked "RESERVED, nothing passes it".
+   - The test credit now names `test_table_entry_owner.py`.
+   - The reason is ownership; the `ipv4_lpm` rewrite claim is dropped.
+   - The `test_foreign_pipeline.py` comment is reworded to say a package that carries its own copy of NDTwin's program is foreign and binds None.
+   - I checked the `app_package.py` claim: `pipeline_is_ndtwin` compares resolved paths (`app_package.py:337-344`).
+   - The latent hazard (a task created inside the boot block inherits "boot") is a comment above `_entry_source`.
+3. **Log label.**
+   - It comes from `entry.is_default_action`.
+   - An empty-match non-default entry prints `(no match fields)`.
+   - New tests in `TheLogLabelTest`.
+   - Red in `L/18`: `test_an_empty_match_entry_that_is_not_a_default_is_not_labelled_default`. Mutant M23 turns it red again.
+4. **CHANGELOG.** The file is `CHANGELOG.md`; the line is item 12a under "Added (P4 data plane)". It states the behaviour only.
+5. **Tests the review asked for.**
+   - **a. Concurrency**, `TheBootMarkBelongsToOneThreadTest`.
+     - Thread A is in `entry_source("boot")` with the first `Write` blocked, and thread B's API write of the owned default is refused.
+     - After release, A's default is applied and exactly one request reached the wire.
+     - It is green on the code. It is seen red by M21 (boot mark replaced by a process-wide value).
+   - **b. End to end**, new file `p4_proxy/tests/test_table_entry_owner_package.py`, 5 tests.
+     - It uses a package the converter writes (`convert.py` over `fixtures/renamed_route`, role owner=ndtwin on `RouteIngress.dest_routes`), driven through `main.build_p4_client`.
+     - Full name and alias are both 409, for a match entry and for a default.
+     - The other table `RouteIngress.proto_tags` writes fine (200).
+     - `run_startup` gives applied 2 per switch (equal to `entries_recorded()`), failed 0, with the default on the wire as MODIFY.
+     - `readopt_switch` gives applied 2, failed 0 and re-applies the default.
+     - Red by M17 (compares the requested spelling) and M24 (startup stops marking boot).
+   - **c. Mutants** (below). C1: the shell ignored the Python assert's exit code. `mutant()` now writes a `.applied` marker only when the Python succeeded, and `report()` and `control()` refuse a copy without it, printing "NOT APPLIED". This caught a stale M14 anchor on the first run (the old remedy text no longer existed), which I re-anchored. In the final run every control and mutant carries the marker; C1 is applied and "held".
+   - **d. Gate without `p4_src/build`**, `L/22_owner_gate_without_build_5cb61b05.log`. It prints the note and `SURVIVED M16 ... (test_a_ternary_table_in_a_real_compiled_p4info_... stayed green)`, then `26 mutations, 1 survived`, rc=1.
+6. **Read-only question (trunk `7247fd7c`): do T3-T7 write targets become NDTwin-owned? No.**
+   - T3-T7 are all in column "A" (`tools/p4_health/cells/table.py:982,985,988,990,992`).
+   - Package A is converted with no role (`tools/p4_health/s0.py:266`), so its pipeline is foreign with no roles, binding None, and it owns nothing.
+   - The write bodies, all on dpid 2:
+     - T3: `HcIngress.port_exact` (`observe_a.py:195-196`);
+     - T4 and T7: `HcIngress.t_ternary` (`observe_a.py:226`, `:235`, `:238`);
+     - T5: `HcIngress.t_range` (`:229`);
+     - T6: `HcIngress.t_optional` (`:232`).
+   - The only package with an owner-ndtwin route role is C (`ROLE_C` at `s0.py:50-51`, used at `:268`), binding `HcIngress.ipv4_lpm` (`hc_main.p4:330`). None of T3-T7 targets that table, and none uses package C.
+   - T4-T6 still hit the builder's 501 before any write, and are unaffected by this change either way.
+   - Not run live.
+7. **Module counts.** The new full run (`L/20`) has 48 modules (`grep -c '^=== tests'`), all rc=0. The earlier "43" was wrong. The 18 and 19 logs cover the touched modules.
+
+## Final runs at `5cb61b05`
+- `L/19`: owner (46), owner_package (5), route (26), writes (161), exact (14), foreign (17), all OK, rc=0. The foreign suite ran with `p4_src/build` present, which I copied in as a throwaway and removed afterwards.
+- `L/20`: full p4_proxy, 48 modules, all rc=0.
+- `L/21`: owner gate with build, `26 mutations, 0 survived`, baseline byte-identical (p4_client.py, main.py, api_routes.py, six test files), rc=0.
+- `L/23`: existing `mutate_table_entry.sh`, 41 mutations, 0 survived, rc=0.
+- `L/24`: `check_gate_anchors` 135/135 ok, rc=0 (`mutate_table_entry_owner.sh` ok(23)).
+- `L/25`: `check_test_tmpdirs` 418 files, 0 fixed temp paths, rc=0.
+
+## Gate table (the owner gate, `L/21`)
+| Mutant | Meaning | Caught by |
+|---|---|---|
+| C1 control | docstring comma | held (marker present) |
+| M1, M16 | check dropped | `test_an_empty_match_into_flow_5tuple_is_refused_and_nothing_is_written` (M1), `test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_says_unsupported` (M16) |
+| M2 | owner test inverted | `test_an_api_match_entry_into_the_owned_route_table_is_refused` |
+| M3 | default exception widened to API | `test_an_api_default_action_change_on_the_owned_route_table_is_refused` |
+| M4 | baseline branch dropped | headline test |
+| M5 | replay treated as boot | `test_a_replayed_default_is_refused_like_an_api_one` |
+| M6 | exception covers baseline default | `test_a_baseline_default_is_refused_inside_the_boot_block_too` |
+| M7 | exception admits non-default empty match | `test_a_boot_entry_with_no_match_that_is_not_a_default_is_refused` |
+| M7b | default plus match admitted | `test_a_boot_default_that_also_names_a_match_is_refused` |
+| M8 | boot delete admitted | `test_a_boot_delete_of_the_default_is_refused` |
+| M9 | boot mark not taken back | `test_the_boot_exception_does_not_outlive_the_boot_block` |
+| M10 | every table of a package switch owned | `test_a_write_into_the_packages_own_user_table_is_still_accepted` |
+| M11 | no-roles switch owns everything | `test_a_foreign_switch_with_no_roles_owns_nothing` |
+| M12 | package boot entries not marked boot | `test_the_boot_default_of_the_owned_route_table_still_installs` |
+| M13 | 409 outcome word changed | `test_the_headline_post_is_409_owned_by_ndtwin_and_writes_nothing` |
+| M14 | remedy pushed past 200 bytes | `test_the_remedy_and_where_it_ends_are_inside_the_first_200_bytes_of_the_body` |
+| M15 | external 409 precedence lost | `test_an_external_control_plane_is_still_told_that_first` |
+| M17 | requested spelling compared, not the resolved table | `test_the_alias_of_the_owned_route_table_is_refused` |
+| M18 | explicit source ignored | `test_an_explicit_boot_source_installs_the_default` |
+| M19 | unknown-source ValueError dropped | `test_an_unknown_source_is_a_valueerror_and_writes_nothing` |
+| M20 | reset outside finally | `test_the_boot_exception_does_not_survive_a_refused_boot_entry` |
+| M21 | process-wide boot mark | `test_an_api_write_is_refused_while_a_boot_write_is_blocked_on_the_wire` |
+| M22 | package remedy shows NDTwin-pipeline text | `test_on_a_package_pipeline_the_409_names_the_role_and_points_at_another_table` |
+| M23 | label from empty match again | `test_an_empty_match_entry_that_is_not_a_default_is_not_labelled_default` |
+| M24 | startup stops marking boot | `test_startup_applies_the_packages_default_and_fails_nothing` |
+
+The two tests you named, `test_an_explicit_boot_source_installs_the_default` and `test_an_unknown_source_is_a_valueerror_and_writes_nothing`, are now killed by M18 and M19. Both were only ever red for TypeError before. The ValueError test also covers the author's own table, so M19 is not caught merely by the owned-table error.
+
+## Not done
+- The l1 lane was not rerun this round (not requested).
+- The judge's items 3 (preflight versus proxy agreement), 6 (lane and the 9 non-caused failures on 60d11501), 7 (live bmv2) and 8 (OpenFlow path unit test) were not in this round's list.

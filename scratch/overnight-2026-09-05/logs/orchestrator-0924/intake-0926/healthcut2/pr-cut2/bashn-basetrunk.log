@@ -1,0 +1,5 @@
+commit 6c1a78c8fa80e687889ecb6a401300f2d432808f
+bash -n tests/shell/mutate_p4_health.sh -> 0
+bash -n tests/shell/sum_p4_health_gate_shards.sh -> 0
+bash -n tests/shell/test_p4_health_gate_scripts.sh -> 0
+rc=0

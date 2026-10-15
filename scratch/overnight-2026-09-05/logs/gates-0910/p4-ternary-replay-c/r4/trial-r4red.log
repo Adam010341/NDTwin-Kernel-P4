@@ -1,0 +1,56 @@
+commit f3db4dd1b74a4c5aa0f16f1c50a7254eca5b7986
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/pre  tracked-dirty=0  df_free_mb=4949  command: setsid --wait p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial.py /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/pre /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-work-r4red /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r4/trial-r4red.json
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+started m1-stock #1 pid 3351217 thrift 29500 grpc 29650
+boot m1a pid 3351251 BOOT_ID 9460c96aa45f400fb9547138b5f1254e: t8 GREEN
+boot read pid 3351299 BOOT_ID a4136a043cc64a15a0acdfc0a4f0c68d: t8 GREEN
+boot m1b pid 3351360 BOOT_ID 811dfe9235b14570a6768bc5be4d65a4: t8 GREEN
+boot read pid 3351809 BOOT_ID 16b94fad445f47c3952d64bbc8639c54: t8 GREEN
+stopped m1-stock pid 3351217 rc -15
+started m1-fast #1 pid 3351858 thrift 29500 grpc 29650
+boot m1a pid 3351892 BOOT_ID 036f106b89b44341978fd434ff732ae8: t8 GREEN
+boot read pid 3351969 BOOT_ID 3c01d4c6f01f459594be862bf22282be: t8 GREEN
+boot m1b pid 3352411 BOOT_ID 999226452dc847dda7d48eaf677f8d19: t8 GREEN
+boot read pid 3352454 BOOT_ID 5ec7e2ad00324ec1b5e8969e5c71275c: t8 GREEN
+stopped m1-fast pid 3351858 rc -15
+m1-stock /usr/local/bin/simple_switch_grpc
+      ok   m1 steps 1-2: insert at 10 is a 200, delete at 20 is a 502
+      ok   m1 step 2: the 502 is the switch's NOT_FOUND
+      ok   m1 step 2: both are recorded (ok, not_found)
+      ok   m1 step 3 restart: a new proxy process, cookie confirmed
+      ok   m1 step 3 replay complete 2/2: the insert at 10, and the delete at 20 (NOT_FOUND = done)
+      ok   m1 step 3 thrift: the entry at 10 is back
+      ok   m1 step 4: the insert at 20 is a 200 and says journaled
+      ok   m1 step 4 thrift: the entries at 10 and 20 are on the switch
+      ok   m1 step 5 restart: a new proxy process, cookie confirmed
+      FAIL m1 step 5 replay complete 2/2, nothing failed, nothing retried
+      FAIL m1 step 5 restored ops: two inserts (20 is an insert, not a modify)
+      FAIL m1 step 6 thrift: the entries at 10 and 20 are on the switch
+      FAIL m1 step 6 P4Runtime read: a ternary entry at priority 20 is on the switch, and the one at 10
+      FAIL m1 step 6 P4Runtime read: what is on the switch equals what it held after step 4
+      FAIL m1 step 6 the journal holds the insert at 20, recorded ok
+      ok   m1 step 6 journaled true
+      ok   m1 every boot exited 0
+m1-fast /usr/local/bmv2-fast/bin/simple_switch_grpc
+      ok   m1 steps 1-2: insert at 10 is a 200, delete at 20 is a 502
+      ok   m1 step 2: the 502 is the switch's NOT_FOUND
+      ok   m1 step 2: both are recorded (ok, not_found)
+      ok   m1 step 3 restart: a new proxy process, cookie confirmed
+      ok   m1 step 3 replay complete 2/2: the insert at 10, and the delete at 20 (NOT_FOUND = done)
+      ok   m1 step 3 thrift: the entry at 10 is back
+      ok   m1 step 4: the insert at 20 is a 200 and says journaled
+      ok   m1 step 4 thrift: the entries at 10 and 20 are on the switch
+      ok   m1 step 5 restart: a new proxy process, cookie confirmed
+      FAIL m1 step 5 replay complete 2/2, nothing failed, nothing retried
+      FAIL m1 step 5 restored ops: two inserts (20 is an insert, not a modify)
+      FAIL m1 step 6 thrift: the entries at 10 and 20 are on the switch
+      FAIL m1 step 6 P4Runtime read: a ternary entry at priority 20 is on the switch, and the one at 10
+      FAIL m1 step 6 P4Runtime read: what is on the switch equals what it held after step 4
+      FAIL m1 step 6 the journal holds the insert at 20, recorded ok
+      ok   m1 step 6 journaled true
+      ok   m1 every boot exited 0
+pids started: simple_switch_grpc m1-stock #1=3351217, proxy boot m1-stock #1 (m1a)=3351251, proxy boot m1-stock #2 (read)=3351299, proxy boot m1-stock #3 (m1b)=3351360, proxy boot m1-stock #4 (read)=3351809, simple_switch_grpc m1-fast #1=3351858, proxy boot m1-fast #1 (m1a)=3351892, proxy boot m1-fast #2 (read)=3351969, proxy boot m1-fast #3 (m1b)=3352411, proxy boot m1-fast #4 (read)=3352454
+NOT ALL CHECKS PASS
+rc=1

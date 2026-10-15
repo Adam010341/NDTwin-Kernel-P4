@@ -1,0 +1,1129 @@
+diff --git a/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md b/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
+index d5f7c624..422d80d8 100644
+--- a/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
++++ b/doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
+@@ -75,7 +75,7 @@
+ ### 1.3 接線（`lab.py`、`probe.py lab`、`s0.py`、`identity.py`）
+ 
+ - **前置**：`probe.py lab` 在 `tools/p4_health` 有任何未提交的改動時拒絕（rc 2）。
+-  - 凍結（第 4 輪起，第 5 輪改過）：乾淨檢查之後、S0 之前，立刻把各輪會執行的 7 個檔（root 3 個、B 4 個，`frozen.py:36-38`）複製進 `<run>/frozen/`。HEAD 只問一次（`git rev-parse --verify HEAD`），每個副本用 `git hash-object --no-filters <副本>` 對 `<那個 sha>:tools/<路徑>` 的 blob 逐一比對；對不上、git 答不出、HEAD 釘不住、`<run>/frozen` 已存在、mkdir 失敗，都是 rc 2，什麼 lab 動作都還沒做（`frozen.py:13-24`）。那個 sha 記在 health.json 的 `frozen_head`。（這一條原來寫的是第 4 輪的做法，`git hash-object <副本>` 對 `git rev-parse HEAD:<路徑>`，已過時；r5 審查 #9。）
++  - 凍結（第 4 輪起，第 5 輪改過）：乾淨檢查之後、S0 之前，立刻把各輪會執行的 7 個檔（root 3 個、B 4 個，`frozen.py:42-44`）複製進 `<run>/frozen/`。HEAD 只問一次（`git rev-parse --verify HEAD`），每個副本用 `git hash-object --no-filters <副本>` 對 `<那個 sha>:tools/<路徑>` 的 blob 逐一比對；對不上、git 答不出、HEAD 釘不住、`<run>/frozen` 已存在、mkdir 失敗，都是 rc 2，什麼 lab 動作都還沒做（`frozen.py:13-24`）。那個 sha 記在 health.json 的 `frozen_head`。（這一條原來寫的是第 4 輪的做法，`git hash-object <副本>` 對 `git rev-parse HEAD:<路徑>`，已過時；r5 審查 #9。）
+   - **第 6 輪起**：HEAD 在最前面釘一次（先於載入模組與乾淨檢查），乾淨檢查之後再問一次，不一樣就 rc 2（`probe.py cmd_lab`）；凍結拿這個 sha，不再自己問（§10，釘 HEAD 的 NIT）。S0 的 `exercise/` 副本在 `compile_all` 之後用同樣的 `git hash-object --no-filters` 對這個 sha 驗（`frozen.check_tree`），對不上、多一個檔、少一個檔、有連結、git 答不出，都是 rc 2，在任何 lab 動作之前（§10，finding 2）。
+   - **凍結只蓋這 7 個檔，不是「這一輪執行的所有東西」**；`exercise/` 另有上面那道檢查；其餘從共用 tree 執行或讀的，見 §6 前提 3。
+   - root 的 `hostside.py`、B 的 controller 與 adapter 都執行副本，不執行共用的 working tree；各檔的 sha256 記在 health.json 的 `frozen_code`（root 那三個另外在 `root_code`）。
+@@ -176,26 +176,26 @@
+     - 為什麼 claim 擋不住：探測器的 claim 在主 checkout 的 `.test_run/lab.claim`（`ndt:341`）；別的 checkout 的 `foreign_claim` 只讀它自己那一份（`ndt:686-696`），那邊的 `ndt status` 顯示 `claim none`，它的 `ndt down` 的三道檢查（`ndt:5141-5215`）全部通過，然後 `topo-stop`（`ndt:5356-5357`）停掉探測器正在 A 或 B 中間的 fabric。（r5 審查的情境，讀碼得來，沒有實測。）
+     - 這條只能靠人遵守與宣告，探測器和 ndt 都擋不住。ndt 的修法（讓 `cmd_down` 讀 `$(lab_kernel_dir)/.test_run/lab.claim`）在 ndt，不在這個分支。
+   - **前提 2（helper 的 tree，r5 審查 #1）：`/etc/ndtwin-lab.conf` 不存在，或它的 `KERNEL_DIR` 就是主 checkout `/home/adam/Desktop/NDTwin-Kernel`**（預設值 `ndt:1409`；設定檔可以改它，`ndt:1479-1494`）。檢查命令在下面「命令」的第 2 行。
+-    - 不是的話：A 的 `ndt up` 被拒絕（`lab_round.py:374-377`），而 `finally` 裡的 teardown 仍然跑 `ndt down`（`lab_round.py:394-397`），那會停掉 helper 那棵 tree 正在跑的東西（`ndt:5356-5357`）。這是 r4 #1 的原樣。
++    - 不是的話：A 的 `ndt up` 被拒絕（`lab_round.py:395-398`），而 `finally` 裡的 teardown 仍然跑 `ndt down`（`lab_round.py:416-419`），那會停掉 helper 那棵 tree 正在跑的東西（`ndt:5356-5357`）。這是 r4 #1 的原樣。
+     - 編輯本文時（10-09）`ls -l /etc/ndtwin-lab.conf` 是 No such file（OBSERVED，只代表那一刻；開跑前自己再查）。
+   - **前提 3（乾淨檢查與凍結實際蓋到什麼，r5 審查 #2；這一條更正第 4、5 輪的說法）**：
+-    - 乾淨檢查只蓋 `tools/p4_health`（`git status --porcelain -- tools/p4_health`，`probe.py:155`）。凍結只蓋 7 個檔（`frozen.py:36-38`）：root 的 `hostside.py`、`frames.py`、`__init__.py`，B 的 `controller_ext.py`、`run_external_controller.py`、`common.py`、`__init__.py`。探測器行程自己用到的 `p4_health` 模組，在乾淨檢查之前就載入（`probe.LAB_PATH_MODULES`，`probe.py:49-57`）。
++    - 乾淨檢查只蓋 `tools/p4_health`（`git status --porcelain -- tools/p4_health`，`probe.py:174`）。凍結只蓋 7 個檔（`frozen.py:42-44`）：root 的 `hostside.py`、`frames.py`、`__init__.py`，B 的 `controller_ext.py`、`run_external_controller.py`、`common.py`、`__init__.py`。探測器行程自己用到的 `p4_health` 模組，在乾淨檢查之前就載入（`probe.LAB_PATH_MODULES`，`probe.py:61-69`）。
+     - **乾淨檢查之後，這一輪還是從共用 tree 讀或執行下面這些；沒有任何一道檢查擋它們，改了就照用**：
+       - （第 6 輪起不在這張清單：`exercise/` 整個目錄——S0 複製的副本現在在 `compile_all` 之後對釘住的 commit 驗過，controller trial 也改讀那份副本，不再 exec 共用 tree 的 `gen_runtime.py`，見 §10 finding 2。）
+-      - `tools/p4_health/openapi_probe.py`（`s0.py:663`）；
+-      - `tools/p4_exercise/convert.py`、`preflight.py`（`s0.py:233`、`:275`）；
+-      - `tools/test_workflow/heartbeat_drop_check.py`（`s0.py:297`）；
++      - `tools/p4_health/openapi_probe.py`（`s0.py:698`）；
++      - `tools/p4_exercise/convert.py`、`preflight.py`（`s0.py:265`、`:307`）；
++      - `tools/test_workflow/heartbeat_drop_check.py`（`s0.py:329`）；
+       - `tools/test_workflow/ndt` 與 `qdisc_snapshot.sh`，整輪都用（`collect/config.py:114`、`:125-126`）；
+-      - live-p1 的 `code_identity.py` 與 `venv_fingerprint.sh`（`probe.py:197-206`；`identity.py:110-112`、`:146-148`）：它們產生 `system_under_test` 和基準指紋的 interpreters 部分。
++      - live-p1 的 `code_identity.py` 與 `venv_fingerprint.sh`（`probe.py:233-242`；`identity.py:110-112`、`:146-148`）：它們產生 `system_under_test` 和基準指紋的 interpreters 部分。
+     - 一個改動什麼時候被擋：
+       - 乾淨檢查**之前**、在 `tools/p4_health` 之下：rc 2 拒絕。
+       - 乾淨檢查**之後、凍結之前**：凍結的 7 個檔會因為副本對不上釘住的 commit 的 blob 而 rc 2（`frozen.py`）；**第 6 輪起，`exercise/` 的副本也一樣（在 S0 的 `compile_all` 之後驗）。`openapi_probe.py` 和上面清單的其他檔不會被拒絕，會被用。**（第 4、5 輪的文字寫成「檢查之後、凍結之前的改動都會被拒絕」，是錯的；r5 審查 #2。）
+       - 乾淨檢查之前、在 `tools/p4_health` 之外（`tools/p4_exercise`、`tools/test_workflow`、live-p1 那兩支）：探測器不查；只有「命令」第 3 行的 `git status` 由人查。
+       - 凍結**之後**：7 個檔、`exercise/` 的副本與已載入的模組，這一輪執行副本與已載入的碼，結果不受影響；清單裡的其他檔照樣被用，也不會被偵測。`gate_fingerprint` 的 tracked 部分（`repo_tracked`，約第 3 分鐘算）和 `system_under_test` 只記算的那一刻的狀態，之後的改動不在紀錄裡。
+     - **所以原來的兩句是錯的**，已刪：「主 checkout 其他地方別的 session 的未提交改動不影響這一輪」（探測器還執行 `tools/p4_exercise`、`tools/test_workflow`、live-p1 的檔），以及「之後不再從共用 tree 讀 probe 程式」（`gen_runtime.py` 與子行程執行的檔不在其內）。`probe.py` 的 `LAB_PATH_MODULES` 註解也寫了同樣的話，**那段註解對這些檔是錯的**；第 6 輪已改成逐項寫出沒蓋到的是什麼、由什麼蓋（§10 finding 2）。
+-    - **`exercise/` 的缺口在第 6 輪關了**（`ctrl_trial` 讀 `<run>/exercise`，S0 的副本對釘住的 commit 驗過）；清單裡剩下的檔仍然沒有程式在擋，靠「命令」第 3 行延伸過的 `git status`，和「跑的期間，這些檔沒有人動」（前提 1 的宣告要把這一點也寫進去）。
++    - **`exercise/` 的缺口在第 6 輪關了**（`ctrl_trial` 讀 `<run>/exercise`，S0 的副本對釘住的 commit 驗過）；**第 6 輪只在 `compile_all` 之後驗一次**，之後 S0 把這份副本當 input 交給共用 tree 的 `convert.py`（`s0.py:265`，沒有任何東西查它），`lab.load_model` 更晚才從副本執行 `gen_runtime.py`（`lab.py`），所以那個保證只在 `convert.py` 不寫它的 input 時成立（r6 審查 finding 4）。**第 7 輪起 `lab.run_lab` 在 `load_model` 之前再驗一次**（同一個釘住的 commit；claim 之前，所以被拒絕就是這一輪原本的「could not be set up」：INCOMPLETE、rc 2、什麼都沒 claim，health.json 的 `problems` 寫是哪個檔；§11 項目 3）。清單裡剩下的檔仍然沒有程式在擋，靠「命令」第 3 行延伸過的 `git status`，和「跑的期間，這些檔沒有人動」（前提 1 的宣告要把這一點也寫進去）。
+   - **已知的殘餘（第 5 輪不修）**：gate fingerprint 會算進主 checkout 的未追蹤檔（`identity.py:91-97` 的 `repo_untracked`，除了 `.test_run/`、`scratch/`、run 目錄和 may-differ 那幾類），而主 checkout 常有別的 session 的未追蹤檔，所以兩輪之間這一項可能不同。第一輪的紀錄換成常設授權前，要先把「`repo_untracked` 的變動算不算相符」定下來（Adam 另外決定）。
+-  - 這一輪的 HEAD 是凍結時 pin 住的那一個（health.json 的 `frozen_head`，也是 `repo_identity` 的 head）；主 checkout 上別的 session 之後再 commit，不改變凍結的 7 個檔與已載入的模組是什麼（commit 不改 working tree 的檔，所以清單裡的共用檔不因此被保護）。
++  - 這一輪的 HEAD 是 `cmd_lab` 一開始**先釘住**的那一個（`probe.py:160`；乾淨檢查之後再問一次，變了就 rc 2；凍結拿到的是那個 sha，不再自己問：第 6 輪的釘 HEAD NIT，原來寫「凍結時 pin 住」是第 5 輪的做法）（health.json 的 `frozen_head`，也是 `repo_identity` 的 head）；主 checkout 上別的 session 之後再 commit，不改變凍結的 7 個檔與已載入的模組是什麼（commit 不改 working tree 的檔，所以清單裡的共用檔不因此被保護）。
+ 
+ **命令**
+ 
+@@ -230,7 +230,7 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A
+    - 但規矩不變：**rc 與 verdict 對不上，這一輪作廢**。看過紅那一次，rc 1 而 `$RUN2/health.json` 不存在或 verdict 不是 PROBE-BROKEN ⇒ 不是過。health.json 不存在、或只有 `health.json.not-a-verdict`，就是沒有 verdict。
+    - 第 6 輪的修法是讀碼加注入測試（`OSError` 注入在 `observations.json` 的寫入與 `os.replace`、log 呼叫）；真的磁碟滿沒有重現過。
+ 2. **開跑前可用磁碟要高於下限**。下限是 §6 命令寫的 **> 2500 MB**；探測器與 `run.sh` 都不查（`tools/p4_health/*.py`、`run.sh` 沒有 `statvfs`／`df`），只有人查。**今天（10-09）不夠**：r5 審查寫 2485 MB，r6 起跑時 `df -m /` 是 2100 MB，gate 期間最低 1042 MB（別的專案在用磁碟，見 §10.4）；都低於 2500，所以今天不能開跑。
+-   - 停止之後先查 B 有沒有被 claim 這一條（r5 #4）：程式現在把 `_finish` 與 handler 還原放在同一個 signal mask 下，停止不再被吞掉（§10 finding 4），這條查法不再是程序的一部分；若仍想確認，`$RUN/LAB_STATE.B.json` 不存在、`probe.log` 沒有「bring-up B (external)」那一行、`ndt status` 沒有第二次 claim，就是 B 沒起。
++   - 停止之後先查 B 有沒有被 claim 這一條（r5 #4）：程式現在把 `_finish` 與 handler 還原放在同一個 signal mask 下，停止不再被吞掉（§10 finding 4）；**第 6 輪的這個說法以「行程只有一個 thread」為前提，那個前提不成立**（r6 審查 finding 1；`LOG/r7/obs.grpc_threads.log` 觀察到 gRPC 在行程裡留下 thread），第 7 輪起 `run_lab` 在第一次 claim 之前讀每個其他 thread 的 `SigBlk`，有任何一個不擋 SIGTERM、SIGINT、SIGHUP 就 rc 2、什麼都不碰，S0 的 ValueSet trial 在三個訊號擋住下跑（§11 項目 1），這條查法仍不是程序的一部分；若仍想確認，`$RUN/LAB_STATE.B.json` 不存在、`probe.log` 沒有「bring-up B (external)」那一行、`ndt status` 沒有第二次 claim，就是 B 沒起。
+ 
+ **時間（推論）**
+ 
+@@ -398,7 +398,7 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A
+ 
+ - **共用 tree 裡的碼，乾淨檢查和凍結都沒蓋到**（完整清單與行號在 §6 前提 3；r5 審查 #2 更正了原來較短的清單）：
+   - `exercise/gen_runtime.py`（controller trial 的模型）與 `exercise/` 的副本（T1／PL1 的預期）：**第 6 輪已關**，副本對釘住的 commit 驗過、trial 讀副本（§10 finding 2）；
+-  - `openapi_probe.py`（`s0.py:663`）；`tools/p4_exercise/convert.py`、`preflight.py`；`tools/test_workflow/heartbeat_drop_check.py`；
++  - `openapi_probe.py`（`s0.py:698`）；`tools/p4_exercise/convert.py`、`preflight.py`；`tools/test_workflow/heartbeat_drop_check.py`；
+   - `ndt` 與 `qdisc_snapshot.sh`，整輪都用；
+   - live-p1 的 `code_identity.py` 與 `venv_fingerprint.sh`（`system_under_test` 與指紋的 interpreters 部分）。
+   - 原來的清單漏了 gen_runtime 的行程內 exec、live-p1 的兩支、`ndt` 與 `qdisc_snapshot.sh`。#5 只涵蓋審查點名的 controller trial、adapter dry-run 與 identity 等模組；`LAB_PATH_MODULES` 看不到用路徑 exec 的檔（`hc_gen`、`hc_gen_lab` 不在 `sys.modules`）。
+@@ -472,7 +472,7 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A
+ ## 10. 第 6 輪（r5 審查的程式項目）
+ 
+ - **基底**：`257fd0e0`（r5 審查的對象 `269251f1` 之後的文件 commit；`tools/p4_health` 的 tree 與 `59d6b014` 相同，`fbf5a13c`）。**code 與測試的 head：`b09cd060`**（`tools/p4_health` 的 tree＝`4acc71ea`）；之後只有這份文件的 commit，tools 與 tests 沒有再動。
+-- **LOG6** 指 `LOG/r6/`。每份 log 第 1 行是 `commit <sha>`，第 2 行有 `tracked-dirty=<n>`，最後一行 `rc=`——**除了** `disk_watchdog.log`（有 `start`／`end` 記錄，沒有 commit 行與 `rc=`）。
++- **LOG6** 指 `LOG/r6/`。**log 的開頭與結尾**（r6 審查 finding 2 更正；原來寫「每份 log 第 2 行有 `tracked-dirty=<n>`」只對一部分成立）：第 1 行是 `commit <sha>`、最後一行 `rc=` 對**每一份** log 成立，**除了** `disk_watchdog.log`（有 `start`／`end` 記錄，沒有 commit 行與 `rc=`）；第 2 行則分三種：`n*.log`、`test_*.log`、`check_*.log` 是 `cwd … tracked-dirty=<n>  command: …`；`mutate_p4_health.*.log`（shard、partial、aborted、run1）是 gate script 自己的 `gate       : …` 那一行；`GATE*.log` 是 `GATE: …` 或 `NOT THE GATE: …` 那一行。第 1 行**另外帶註記**的不只 `GATE.run1`：`partial_*` 帶「(a partial run, not the gate)」，`GATE.at_doc_head_*` 帶「(the aggregator …)」，`GATE.run1_c82a9f49` 帶「NOT THE GATE: one survivor」。
+   - 紅：每一項都是**先 commit 測試、再跑**；紅 log 的 commit 是只有測試、還沒修的那一個，`tracked-dirty=0`。第一項（finding 2）的紅在 `e85aab7a`，它的 `tools/p4_health` tree 與 `257fd0e0` 的相同（`fbf5a13c`）；其後各項的紅，tools 裡含有前面各項的修，測試仍在它自己的修之前紅。
+   - 綠：修的 commit 之後跑整份 cells、collect（和 finding 6、7 的 `test_p4_health_gate_scripts.sh`）。
+   - 每一項各一個「測試」commit 與一個「修」commit（修的 commit 同時帶它的 mutant）；有幾個測試 commit 後面接著一個很小的測試修正 commit（測試自己的錯，紅 log 在修正之後重跑）。
+@@ -485,13 +485,13 @@ P4_HEALTH_RUN_DIR=$RUN2 tools/p4_health/run.sh lab --owner <owner> --bringups A
+ |---|---|---|---|---|
+ | 2（code） | `frozen.check_tree`／`Frozen.check_exercise`：S0 的 `exercise/` 副本必須恰好是釘住的 commit 在 `tools/p4_health/exercise` 下有的檔（扣掉副本本來就不含的 `__pycache__`、`build*`），每個檔 `git hash-object --no-filters` 等於 `git ls-tree` 的 blob；不同的、commit 沒有的、副本缺的、連結、git 答不出，都是 `Refused`。`S0.run` 在 `compile_all` 之後呼叫（不論 compile 成不成功），`probe.py cmd_lab` 把 `Refused` 變成 `refused:` rc 2，那時什麼 lab 動作都還沒做。`ctrl_trial.gen(exercise)`／`trial(exercise=)`：S0 傳 `self.ex`。`probe.py` 的 `LAB_PATH_MODULES` 註解改成實話（逐項寫沒蓋到什麼、由什麼蓋） | `n2.cells.RED.log`（11 個測試：4 FAIL 是行為——trial 用了共用 tree 的 CPU 埠 510 而不是副本的 4242、編輯過的／多的／少的檔都沒被拒絕，`(None, True) != (2, False)`；5 ERROR 是 `check_exercise` 還不存在；2 個控制組綠） | `n2.cells.GREEN.log`、`n2.cells.full.GREEN.log`、`n2.collect.full.GREEN.log` | `C2R6-2a`–`2k`（11 個） |
+ | 3 | `lab._stop_on_signals`：run 層的 raiser 只觸發一次——先換成 noter（`pthread_sigmask` 擋住三個訊號再換，和各輪的一樣）再 raise；之後的停止只記進 `problems`（「further stop signal(s)…」）。`probe.main`：`SignalAbort` 是 rc 2、`stopped: … INCOMPLETE`，不是 Python 的 status 1 | `n3.collect.RED.log`（第二個停止跑出 run_lab 與 main；一階段的 noter 測試 ERROR）、`n3.cells.RED.log`（`SignalAbort` 跑出 `main`） | `n3.collect.GREEN.log`、`n3.cells.GREEN.log` | `C2R6-3a`–`3e` |
+-| 4 | **選的是「`_finish` 與 handler 還原放在同一個 `pthread_sigmask` 下」**（`LabRound._masked`），不是「還原之後重讀 `teardown_signal`」。理由：窗口整個關掉，不用另外推理重讀之後的縫；停止會被送到 run 層的 handler（它結束整個 run），而不是被併進一份已經定稿的紀錄裡；探測器沒有 thread（`tools/p4_health` 沒有 `import threading`），擋主 thread 就是擋整個行程。`lab.take_unrecorded`：`_finish` 沒跑過（`seconds` 仍是 `None`）的紀錄標為不完整並加一條 problem | `n4.collect.RED.log`（`2 != 1 : B was claimed over the stop`；`True is not false`） | `n4.collect.GREEN.log`、`n4.cells.GREEN.log` | `C2R6-4a`–`4e` |
++| 4 | **選的是「`_finish` 與 handler 還原放在同一個 `pthread_sigmask` 下」**（`LabRound._masked`），不是「還原之後重讀 `teardown_signal`」。理由：窗口整個關掉，不用另外推理重讀之後的縫；停止會被送到 run 層的 handler（它結束整個 run），而不是被併進一份已經定稿的紀錄裡；探測器沒有 thread（`tools/p4_health` 沒有 `import threading`），擋主 thread 就是擋整個行程〔**這個前提只對 `tools/p4_health` 自己的碼成立，對行程不成立**：S0 的 ValueSet trial 在行程內跑 gRPC，結束後 thread 還在；r6 審查 finding 1，第 7 輪修，§11 項目 1〕。`lab.take_unrecorded`：`_finish` 沒跑過（`seconds` 仍是 `None`）的紀錄標為不完整並加一條 problem | `n4.collect.RED.log`（`2 != 1 : B was claimed over the stop`；`True is not false`） | `n4.collect.GREEN.log`、`n4.cells.GREEN.log` | `C2R6-4a`–`4e` |
+ | 5 | `report.write_json_atomic`（暫存檔、`fsync`、`os.replace`，失敗時刪暫存檔）；`report.dump` 用它。`run_lab` 先寫 `observations.json`、**最後**才寫 `health.json`。`probe.main` 的 catch-all：把已經在的 `health.json` 改名為 `health.json.not-a-verdict`（改名失敗也在訊息裡說），訊息以 `ERROR:` 開頭，不再是 `refused:`；漏出 `run_lab` 的 `SignalAbort` 同樣處理 | `n5.collect.RED.log`（5 個測試全紅：`['health.json'] != []`、`0 != 2`〔寫入沒經過 `os.replace`〕等） | `n5.collect.GREEN.log`、`n5.cells.GREEN.log` | `C2R6-5a`–`5f` |
+ | 6 | `sum_p4_health_gate_shards.sh [--commit <sha>] <log>…`：GATE 那一行印 `commit`、`tree`、`subject sha`；logs 的 commit 不是 checkout 的 HEAD（有 `--commit` 時是那個 commit）、tools/p4_health 的 tree 不是那個 commit 的 tree、git 答不出 HEAD、`--commit` 不是 commit、沒給值、不認得的選項，都是 `NOT THE GATE`。checkout 是 script 自己的 `../..`，或 `$P4_HEALTH_SUM_REPO`。**subject sha 是工作檔的雜湊，commit 並不決定它，所以只在 logs 之間比、並印出來**，沒有和 checkout 比。`mutate_p4_health.sh`：`+UNCOMMITTED` 的 pathspec 變成 `WATCHED` 陣列，加上 gate 自己的三支 script、`tools/p4_exercise`、`p4_proxy/mininet/grpc_ports.py` | `n67.gatescripts.RED.log`（68 個檢查，22 個紅） | `n67.gatescripts.GREEN.log`（68，0 failed） | `C2R6-6a`–`6m`（13 個） |
+ | 7 | 那個不可能失敗的 `(( MUTATIONS == SELECTED ))` **拿掉了**，換成一段註解指出真正的保險是加總 script 的份額檢查；**沒有為它寫 mutant**（沒有東西可以 mutate）。`GATES_SUM`：`gates_sum()` 對每個檔走 stdin（`sha256sum < "$f"`，輸出裡沒有路徑）再雜湊；也印在 header（`gates sum  :`），所以可以跨 log 比，並被測 | 同 finding 6 的紅（其中 4 個檢查是 finding 7 的） | 同上 | `C2R6-7a`–`7d`（4 個） |
+ | 8 | FakeController 的「s2 不是 primary」標為**假設**（真的 controller 會記 `set_pipeline_ok: False` 加 `set_pipeline_error`，`controller_ext.py:150-156`），註解、docstring 都改；NIT 12 的啟動測試的 docstring 寫明直譯器是 `sys.executable`，不是 B 用的 p4dev 直譯器（`round_b.py:119`） | 沒有——只改註解與 docstring | `n2.collect.full.GREEN.log` 之後的整份綠（最後的檢查） | 沒有 mutant（文字） |
+ | 10 | `cells/table.py` 的 `as_set`：t1 與 M1、M2、C1 比的是 `as_set(…)`，所以 set／tuple 變成 list 之後仍等。來回測試：`run_lab` → `observations.json` → `probe.py judge`，同樣的標題、rc、每一格的 verdict／reason／delta、rollup；三種 run：完整、看過紅（PROBE-BROKEN）、被停止（INCOMPLETE） | `n10.collect.RED.log`（3 個 ERROR：`TypeError: unhashable type: 'list'`，r5 審查寫的那一個） | `n10.collect.GREEN.log`、`n10.cells.GREEN.log` | `C2R6-10a`–`10e` |
+-| 釘 HEAD 的 NIT | `probe.py cmd_lab` 在載入模組之前先問一次 HEAD（答不出就 rc 2），乾淨檢查之後再問一次，不同就 `refused: HEAD moved…`；凍結的 git 把「HEAD 是什麼」答成那個 sha，不再自己問。`repo_identity(head=frozen.head)` 原來就用凍結的 sha | `npin.cells.RED.log`（4 個：一個 commit 在釘住之後落下沒被拒絕、`frozen.head` 是後來的 HEAD、釘住不是第一個 git 呼叫、HEAD 答不出沒被拒絕） | `npin.cells.GREEN.log`、`npin.collect.GREEN.log` | `C2R6-pin-a`–`pin-d`（4 個） |
++| 釘 HEAD 的 NIT | `probe.py cmd_lab` 在載入模組之前先問一次 HEAD（答不出就 rc 2），乾淨檢查之後再問一次，不同就 `refused: HEAD moved…`；凍結的 git 把「HEAD 是什麼」答成那個 sha，不再自己問。`repo_identity(head=frozen.head)` 原來就用凍結的 sha | `npin.cells.RED.log`（4 個；**r6 原來寫的四句有三句和 log 不符，r6 審查 finding 3 更正**：①「一個 commit 在釘住之後落下」——舊 code **其實拒絕了它**，用的是凍結的訊息，不是 `HEAD moved`（`npin.cells.RED.log:32`），所以這個測試在舊 code 只靠訊息紅；②「`frozen.head` 是後來的 HEAD」——hook 在舊 code 根本沒觸發，紅的是測試自己的前提 「HEAD did move」（`:40-42`）；③「釘住不是第一個 git 呼叫」——**這一個是行為上的紅**（`:52`）；④「HEAD 答不出沒被拒絕」——紅只顯示凍結在乾淨檢查**之後**才被走到（`:22`），不是「沒被拒絕」） | `npin.cells.GREEN.log`、`npin.collect.GREEN.log` | `C2R6-pin-a`–`pin-d`（4 個）；**pin-b 在 r6 只靠訊息 `assertIn("HEAD moved")` 抓到**（commit 落在 `frames.py`，凍結本來就會拒絕它，r6 審查 finding 3），第 7 輪把那個測試的 commit 移到 `lab.py` 後由行為斷言抓到（§11 項目 2） |
+ 
+ mutant 的部分跑（`ONLY_LABEL_PREFIX=…`，**不是 gate**）：`mutate_p4_health.partial_C2R6-{2,3,4,5,5b,10,pin,6,7}.log`，各自 0 存活；`partial_C2R6-5` 一開始有 1 個存活（5b 的預期測試名寫錯，WRONG TEST），改名後 `partial_C2R6-5b` 抓到。另有 `partial_C2R3-N3a`、`partial_C2R5-10b`（§10.3 的兩個修）與一批舊前綴的診斷跑（`partial_C2R3-N3`、`C2R4-F4`、`C2R4-F8`、`R2-m4a`、`C2R5-2`、`C2R5-7`、`C2R5-5`），都 0 存活。
+ 
+@@ -515,10 +515,17 @@ mutant 的部分跑（`ONLY_LABEL_PREFIX=…`，**不是 gate**）：`mutate_p4_
+     1. 在 `520e6034`，shard 0 跑到第 90 個左右我自己停掉（`mutate_p4_health.aborted_520e6034_shard0of4.log`，最後一行寫 `rc=killed by me`）：`C2R3-N3a`（git 答不出 `status` 當成乾淨）存活。原因是 finding 的釘 HEAD 讓 git 壞掉的情況在 `rev-parse` 就被拒絕，舊測試 `test_a_git_that_cannot_answer_is_refused_before_s0` 再也走不到 `status` 那一行；新增 `test_a_git_status_that_cannot_answer_is_refused_before_s0`（只讓 `status` 失敗），mutant 改指它（`c82a9f49`）。
+     2. 在 `c82a9f49`，四份 shard 跑完（`mutate_p4_health.run1_c82a9f49.shard*of4.log`，`GATE.run1_c82a9f49.log`＝`NOT THE GATE`）：shard 0 有 1 個存活 `C2R5-10b`（WRONG TEST，紅的是另一個測試）。原因是 finding 4 的 mask 之後，「`_finish` 在還原之後」與「在還原之前」對一個落在還原之後的停止沒有差別，原來指名的測試不再分辨它；順序現在只在還原裡丟例外時看得出，mutant 改指 `test_an_exception_after_a_rounds_record_is_final_keeps_that_rounds_record`（`b09cd060`）。shard 1–3 在那一次是 `rc=0`。
+     - 這兩個存活都是我自己的修造成的測試漏洞，在 gate 才發現，不是在各項的部分跑裡發現（部分跑只跑新 mutant 的前綴）；之後改在重跑 gate 之前，先把可能受影響的舊 mutant 前綴（`C2R3-N3`、`C2R4-F4`、`C2R4-F8`、`R2-m4a`、`C2R5-2`、`C2R5-5`、`C2R5-7`）部分跑過一遍（都 0 存活）。
+-  - **shard 3 的行程被停住了 17 分鐘**：19:43 到 20:00 之間，shard 3 的 `timeout`／bash 行程都在狀態 T（stopped），原因不明（我沒有送 SIGSTOP；系統日誌沒有相關行）。20:00 我送 SIGCONT，當時的突變（`C5`）之後 `✅ caught`，並放了一個每 30 秒檢查、有 T 就 SIGCONT 的看守（`disk_watchdog.log` 20:00:13 那一行）；之後沒有再停過（看守沒有記錄）。這 17 分鐘在 log 裡看不到，只在 `disk_watchdog.log` 與這裡。整個 shard 的 `timeout 21600` 沒有影響。
++  - **gate 的行程被停住過兩次；r6 原來只寫了一次，而且時間與原因都不對**（r6 審查 finding 2）。事實：r5 留下的一支磁碟看門狗（它在可用空間低時對 shard 行程送 SIGSTOP、回升時送 SIGCONT，用指令形狀比對行程；程式碼已不在）在 r6 的最後一次 gate 期間還活著，停了 gate 的 shard：
++    - **shard 3**：`LOG/r5/disk_watchdog.log:25` 記 `19:39:23 free 1452 MB: STOPPED shards`，沒有對應的 CONTINUED；free 的取樣從 19:41:17 起不動，到 19:58:19 才又動（`LOG/r6/disk_watchdog.log:1987-2021`）；我在 20:00 送 SIGCONT（同檔 2025 行的註記）。**原來寫的「19:43 到 20:00、17 分鐘、原因不明」更正為：19:39:23 起到約 20:00，約 21 分鐘，原因是 r5 的看門狗。**
++    - **shard 1**：`LOG/r5/disk_watchdog.log:23-24` 記 `17:31:53 STOPPED`、`17:32:53 CONTINUED`，一分鐘；free 取樣在 17:32:05–17:32:35 不動（`LOG/r6/disk_watchdog.log:1725-1726`）。**原來沒寫。**
++    - 06:29:38–06:30:39（`LOG/r5/disk_watchdog.log:21-22`）在第一次 gate 中止之後、run1 開始之前，沒有任何 shard 在跑，兩次 gate 都沒碰到。
++    - **為什麼這些停止沒有改變任何結果**：每一個 mutant 的紅綠由 `timeout 300` 內的一次套件執行決定，停住的套件只會變成 HUNG（計為存活）；沒有任何一份 shard 有 HUNG 行，外層 `timeout 21600` 也沒有走完（shard 3 共 1 小時 51 分）。更直接的證據是 **run1（`c82a9f49`）的對照**：它跑的是同樣的 450 個 mutant、同一棵 tools 與 subject sha、同樣的套件（run1 shard*:7-8；`c82a9f49` → `b09cd060` 只改了 `C2R5-10b` 指名的測試），**從頭到尾沒有被停過**（唯一的 STOP 事件是 06:29、17:31、19:39，run1 在 06:50–13:09 跑完）；最後的 shard 0、1、3 與 run1 逐項相同（指名的測試與完整的紅清單），shard 2 的每一行「caught by」相同；唯一的差別是 `C2R5-10b`（run1 是 WRONG TEST，最後一次由改指的測試抓到，是預期的）。
++    - **各次停止時在跑的 mutant（推算，不是記錄；shard log 沒有逐個 mutant 的時間，只能用看門狗的 START／END 與每輪約 48 秒估）**：shard 1 約第 89 輪（`C2R5-9a`、`C2R5-5b`，容差 5% 時 `C2R5-2f` 到 `C2R5-11f`）；shard 3 約 #14–#16（`C5`、`B4`、`B8`）。基線在 shard 的第一輪、負對照與之後的檢查在最後兩輪，都在停止之外。
++    - 沒有解釋的一件事：最後的 shard 0 花了 2 小時 22 分，run1 的同樣 113 個花 1 小時 37 分（`LOG/r6/disk_watchdog.log:424`、`:619`、`:1197`、`:1482`）；沒有記錄到任何停止，它的每一項仍與 run1 相同。
++    - **gate script 沒有逐個 mutant 的時間戳**，所以以上的對位是估計；若要確定，最小的重跑是在 `b09cd060` 對 `C2R5-9a`、`C2R5-5b`、`C2R5-5f`、`C1.`、`C5.`、`B4.`、`B8.` 各做一次部分跑（各約 3 分鐘）。這一輪沒有做，因為 run1 的對照已經夠。
+   - 分段的部分跑（`ONLY_LABEL_PREFIX=…`，不是 gate）：見 §10.1 與 `LOG/r6/mutate_p4_health.partial_*.log`。
+ - 最後的檢查（`p4_proxy/venv/bin/python`；都在文件 commit 之後的 HEAD 重跑過一次，log 第 1 行是那個 commit）：
+-  - `check_gate_anchors.py HEAD`：133/133 cells ok，`mutate_p4_health.sh` ok(420)（`check_gate_anchors.HEAD.log`）；
++  - `check_gate_anchors.py HEAD`：133/133 cells ok，`mutate_p4_health.sh` ok(420)（`check_gate_anchors.HEAD.log`）。**為什麼是 420 而不是 450**（r6 審查「數字對不起來」）：表有 450 列，但有 26 個 anchor 被不只一列用到（共 31 列是重複的，例如同一行被好幾個 mutant 以不同方式改），而 `check_gate_anchors` 數的是**不同的** `(檔, anchor)`（它自己的說明：「`ok(n)` counts DISTINCT anchors」）；450 列 → 419 個不同的 anchor，再加負對照的 anchor（`def g1_holds(g1):`，`anchor_count` 那一路）＝420。我用 `check_gate_anchors.extract` 的輸出和 gate 表逐一比對（表在 `b518b9fb`）：表裡的 anchor 沒有一個沒被檢查器讀到、檢查器也沒有讀到表裡沒有的 anchor（0 problems、0 delegates）。**沒有被藏起來的缺口**，檢查器不用改；每一列的 anchor 是否恰好一個，由 gate 執行時自己每一列數一次（`ANCHOR IS NOT UNIQUE` 就是存活）。
+   - `check_test_tmpdirs.py`：416 個檔，0 個固定暫存路徑（`check_test_tmpdirs.log`）；
+   - collect 174 個 OK（162＋12）、cells 170 個 OK（153＋17）、`test_p4_health_recover.sh` 163 checks 0 failed（沒變）、`test_p4_health_gate_scripts.sh` 68 checks 0 failed（43＋25）（`test_collect.log`、`test_cells.log`、`test_recover.log`、`test_gate_scripts.log`）。
+ 
+@@ -527,5 +534,97 @@ mutant 的部分跑（`ONLY_LABEL_PREFIX=…`，**不是 gate**）：`mutate_p4_
+ - 起跑時 `df -m /` 是 2100 MB（低於平常的 2500 下限），整個過程由別的專案在用磁碟；我沒有碰別人的檔，自己的突變複本與暫存目錄都由 gate 的 `trap` 清掉（我自己停掉那一次的 `/tmp/p4-health-mutate-*` 手動刪了）。
+ - 看門狗（`LOG/r6/disk_watchdog.log`）每 30 秒寫一行 `date`、`free_mb`，共 2152 筆，第 1 行 `start`、最後一行 `end 2026-10-09 21:18:09 free_mb=1375`。**最低 1042 MB（20:10:50，在最後那次 gate 的 shard 3 裡）**，最高 2624 MB。
+ - 每一份 shard 開跑前先查 `df`：低於 1800 就等（每 5 分鐘一次，記在看門狗 log）。**實際等過一次**：第二次 gate 的 shard 0 結束後（15:35），`free` 在 1695–1746 MB，等了 9 次（15:35–16:15，約 45 分鐘），到 16:20 回到 2563 MB 才開 shard 1。其餘的開跑點 free 在 1843–2616 MB。
+-- **跑的當中不會停**（brief 只要求開跑前查）：最後一次 gate 裡 free 曾低到 1042 MB，四份 shard 沒有 ENOSPC、Errno 28、No space、HUNG、NO-SUITE、WRONG TEST、SURVIVED 的行。機制上低磁碟的方向是假 caught，不是漏跑（§8.5）；這個 gate 的結果沒有因此受影響的跡象，但「沒有任何一個 caught 是 ENOSPC 造成的」我沒有逐個證明。
++- **跑的當中不會停**（brief 只要求開跑前查）：最後一次 gate 裡 free 曾低到 1042 MB，四份 shard 沒有 ENOSPC、Errno 28、No space、HUNG、NO-SUITE、WRONG TEST、SURVIVED 的行。機制上低磁碟的方向是假 caught，不是漏跑（§8.5）；這個 gate 的結果沒有因此受影響的跡象，但「沒有任何一個 caught 是 ENOSPC 造成的」我沒有逐個證明。**r6 審查 finding 2 補：上面「沒有 ENOSPC、Errno 28 的行」那個檢查看不到測試自己的錯誤**——shard log 只留紅測試的名字（`mutate_p4_health.sh` 的 red_tests），不留訊息。真正排除「低磁碟造成假 caught」的是 run1 的對照（§10.3）：run1 的磁碟是 2142–2291 MB，最後的 shard 3 在 1042–1506 MB 下跑，兩者逐項相同。
+ - 第一次 live 的下限仍是 > 2500 MB（§6）；今天（10-09）整天都低於它，所以今天不能開跑。
++
++## 11. 第 7 輪（r6 審查的程式項目與文字）
++
++- **基底**：`b518b9fb`（r6 審查的對象；code 在 `b09cd060`，`tools/p4_health` 的 tree＝`4acc71ea`）。**code 與測試的 head：`7a7a2577`**。`tools/p4_health` 的最後一次改動是 `af2b3490`（tree＝`349e5ab0a1fa635ddde98e046447e00607f3b84d`，之後沒有變）；`ae753c29`（項目 4）、`01ba2a41`、`7a7a2577` 只動測試。`ae753c29` 是**第一次** r7 gate 的 head，那次停在 shard 3，見 §11.7；之後的 gate 在 `7a7a2577`。這份文件的 commit 在它們之後。
++- **LOG7** 指 `LOG/r7/`。格式同 §10 開頭：每份 log 第 1 行 `commit <sha>`、最後一行 `rc=`。**例外**：`disk_watchdog.log`（只記錄，沒有 commit 行與 `rc=`）、`v7_polls.log`（等待的紀錄，每行自己有時間，沒有 commit 行與 `rc=`）。
++  - `n1.*.RED.log` 在 `aa526f97` 跑（測試已 commit、`tools/` 是 `b518b9fb` 的，`tracked-dirty=0`）；`dirty-pre-commit/` 是同一批紅的第一次跑（測試還沒 commit，`tracked-dirty=2`），**被取代，留著當紀錄**。
++  - `n1.collect.RED2.log`、`n3.cells.RED2.log`、`n4.grpc_port_block.RED.log` 是在 **`git archive` 出來的暫存目錄**跑的（log 第 2 行寫 cwd 和「old tools/, new tests」）；原因：測試 commit 之後又有一個很小的測試修正 commit，要在「舊 code＋新測試」的狀態重跑，而 worktree 的 `tools/` 已經是修過的。
++  - 這一輪起的輔助行程都只寫 log、不送訊號，列在 §11.4。
++- 順序：每一項都是**先 commit 測試、再 commit 修**（修的 commit 同時帶 mutant）；`C2R7-` 共 23 個（`1a`–`1r` 18 個、`3a`–`3e` 5 個），表現在 473 個＝450＋23。項目 2 只改測試，項目 4 只改測試（allowlist）。
++
++### 11.1 commit
++
++| commit | 內容 |
++|---|---|
++| `aa526f97` | 項目 1 的測試：collect 9 個（8 個紅、1 個對照）、cells 6 個 |
++| `4658e981` | 項目 1 的測試修正（迴圈測試在兩次 `run_lab` 之間要清掉 `frozen/`） |
++| `dcca2505` | 項目 1 的修與 `C2R7-1a`–`1r` |
++| `611630e3` | 項目 2：釘 HEAD 的測試的 commit 移到 `lab.py` |
++| `004f204f` | 項目 3 的測試（3 個） |
++| `c8c2cef8` | 項目 3 的測試補強（編輯過的 `gen_runtime.py` 不得被**執行**，不只是不被交給 `expectations`） |
++| `af2b3490` | 項目 3 的修與 `C2R7-3a`–`3e` |
++| `ae753c29` | 項目 4：`test_grpc_port_block.py` 的 allowlist 加一行 |
++| `01ba2a41` | gate 修（§11.7）：collect 的每個測試結束時把 signal mask 放回、pending 的停止送到不做事的 handler |
++| `7a7a2577` | gate 修（§11.7）：cells 的 `TestS0Cut2Checks` 每個測試開始與結束都清掉 signal mask |
++
++### 11.2 每一項
++
++| 項目（r6 審查） | 改了什麼 | 紅（LOG7） | 綠（LOG7） | mutant |
++|---|---|---|---|---|
++| **1**（finding 1，code） | **設計是 brief 決定的，照做。** (a) `s0.stops_held()`：用 `signal.pthread_sigmask(SIG_BLOCK, SIGTERM／SIGINT／SIGHUP)` 把 S0 的 ValueSet trial（`vs_trial`，行程內跑 gRPC）整個包起來，`finally` 還原先前的 mask（trial 丟例外也還原）；gRPC 在 trial 裡起的 thread 繼承這個 block。(b) `lab.stop_signal_threads_refusal()`：`run_lab` 在第一個 claim 之前讀 `/proc/self/task` 裡**除了呼叫者以外**每個 thread 的 `SigBlk`，任何一個沒有三個訊號全擋、讀不到某個 thread 的 status、或 `/proc/self/task` 讀不了，都是 `refused: …` 加進 `problems`，`run_lab` 走原來的「什麼都沒碰」路徑（INCOMPLETE、rc 2、沒有 claim、沒有 LAB_STATE），訊息點出 tid 和缺的訊號。`lab_round.py` 的註解與 §6／§10.1 的「探測器沒有 thread」更正。**(a) 的一個必然後果，brief 沒寫**：signal mask 跨 fork／exec 繼承，所以 trial 起的拋棄式 bmv2 如果沿用 block，`Throwaway.stop()` 的 `terminate()`（SIGTERM）就殺不掉它，要等 3 秒 timeout 再 `kill()`；所以 `throwaway._die_with_parent`（`preexec_fn`）在 exec 之前把三個訊號 `SIG_UNBLOCK`。 | `n1.collect.RED.log`（`aa526f97`；3 FAIL 是行為：延伸 finish-hook 測試，多一個沒擋 SIGTERM／SIGHUP／SIGINT 的 thread，舊 code 在 A 之後**又 claim 了 B**〔兩個 `ndt claim`〕，`n1.collect.RED2.log` 在 `4658e981`；5 ERROR 是 `lab.PROC_TASK` 還不存在，**只有介面的紅**）、`n1.cells.RED.log`（6 FAIL，全是行為：trial 沒擋訊號、gRPC 類的 thread 不擋、trial 丟例外後沒還原、停止在 trial 中途殺掉行程、拋棄式 switch 繼承 block） | `n1.collect.GREEN.log`（183）、`n1.cells.GREEN.log`（176）；python3.8 也綠（gate 用的直譯器） | `C2R7-1a`–`1r`（18 個） |
++| **2**（finding 3，測試） | `test_a_commit_that_lands_after_head_was_pinned_and_before_the_clean_check_is_refused` 的 commit 從 `frames.py`（凍結的 7 個檔之一，沒有重查凍結也會拒絕）移到 `lab.py`（已載入、不在凍結裡）；斷言順序是 `(rc, frozen) == (2, None)` 在前、訊息在後，訊息斷言保留 | 沒有紅 log 可以給——測試改的是「抓不抓得到 mutant」。**證據**：`n2.pinb_by_hand.RED.log`（`C2R6-pin-b` 手動套在暫存複本上：`(None, <Frozen>) != (2, None)`，行為斷言，S0 被走到、`frozen` 不是 None）；`mutate_p4_health.partial_C2R6-pin-b.log`（gate 的部分跑，抓到） | `n2.cells.GREEN.log` | 既有的 `C2R6-pin-b` |
++| **3**（finding 4，code） | `run_lab` 在 `load_model` 之前，對 `frozen.head` 再呼叫一次 `frozen.check_exercise(<run>/exercise)`（沒有 `head` 的離線 Frozen 不查，與 `S0.check_exercise_copy` 同一個條件）。**位置在 claim 之前**（`run_lab` 一開始、`_rounds` 之前），所以拒絕走的是這一階段原有的路徑：`the run could not be set up: Refused: …` → INCOMPLETE、rc 2、health.json 的 `problems` 點出檔名與 commit、沒有 claim。（claim 之後那條路徑——正常 teardown——這一項用不到。）`frozen.py`、`probe.py` 的註解同步 | `n3.cells.RED.log`（`004f204f`，2 FAIL，行為：舊 code `expectations` 拿到被編輯過的模型）、`n3.cells.RED2.log`（`c8c2cef8`：2 FAIL，`the edited gen_runtime.py was executed`） | `n3.cells.GREEN.log`（179）、`n3.collect.GREEN.log`（183）；對照組（沒被改的副本）綠 | `C2R7-3a`–`3e`（5 個） |
++| **4**（CI） | `tests/python/test_grpc_port_block.py`：`ALLOWED_LINES_NAMING_THE_OLD_BLOCK` 加 `(tools/p4_health/controller_ext.py, "TUTORIALS_PORT_BASE = 50050")`，理由 `_HEALTH_CONTROLLER`（p4lang tutorials 的慣例，controller trial 的 controller 照它撥號，再由 adapter 或 trial 自己的 connect 表改寫；`run_external_controller.py:41` 的同一行早已 allowlist） | `n4.grpc_port_block.RED.log`（`b09cd060` 的 `git archive`：32 個測試 1 FAIL，`NoLiveDocumentStillNamesTheOldPortBlock.test_no_live_doc_or_tool_names_the_old_block` 點名 `tools/p4_health/controller_ext.py:42`） | `n4.grpc_port_block.GREEN.log`（32 個 OK；allowlist 的過期檢查、拼字檢查、正對照三個一併綠） | 沒有（這一項本身就是測試；沒有東西可以 mutate，紅就是拿掉那一行） |
++
++- **項目 1 的觀察**（`obs.grpc_threads.log`，一個 channel 連到 `127.0.0.1:1`，沒有 switch、沒有 lab）：**不擋的話，gRPC 在行程裡留下 thread（第一次跑 16 個：`grpc_global_timer`、`event_engine`×14、`lifeguard`；第二次 3 個），全部不擋任何訊號；先擋的話它們全部繼承 `SigBlk 0x4003`。** 所以 r6 審查 finding 1 的疑慮是真的，r6 寫的「探測器沒有 thread」不成立，不是只有「沒被證明」。
++- **項目 1 的「確定性」**：舊 code 的 hook 測試原本是競爭——有 sleeping 的 thread 時，主 thread 常常在那個 thread 被排程跑 C 層 handler 之前就走完 `_finish` 與還原（我第一次寫的測試在舊 code 上 claim 只有 1 次〔B 沒被 claim〕，不紅）。現在 hook 在送訊號之後用 `signal.set_wakeup_fd` 等 C 層 handler 真的跑了才繼續（最多 0.5 秒；訊號被擋、沒有 handler 跑的對照組等滿 0.5 秒），所以舊 code 上穩定紅。
++- **這一輪的行為變化（要知道）**：S0 的 ValueSet trial 期間（每個 bmv2 約幾十秒），SIGTERM／SIGINT／SIGHUP 不再立刻殺行程，要等到 trial 結束、mask 放回才送達（再用預設動作結束行程，測試 `…ends_an_unhandled_process_only_after_the_trial_is_over`）；trial 本身卡住時，只有 SIGKILL 有用。拋棄式 bmv2 有 `prctl(PDEATHSIG)`，所以不會留下。
++
++### 11.3 gate 與最後的檢查
++
++- **mutation gate：這一輪還沒有 GATE 那一行。** 狀態：
++  - **第一次 gate（head `ae753c29`）不算數**：shard 0–2 `rc=0`，shard 3 在 `C2R6-4c` 被 REFUSED（沒有套件結果）；原因與修見 §11.7。logs 在 `LOG/r7/first_gate_ae753c29/`。
++  - **第二次 gate 在 `7a7a2577`**（`tools/p4_health` 的 tree＝`349e5ab0…`，與第一次相同）：**shard 0 完成，`rc=0`**——`mutate_p4_health.shard0of4.log`：第 1 行 `commit 7a7a2577…`，header 的 HEAD／tree 同，`subject sha: 4651b09cb90a1387`，`gates sum: e4082a69a7af6149`，基線、負對照、byte-identical（`tools/p4_health` 與 gate 的三支 script）與之後的檢查全綠，**119 mutations, 0 survived**（119 個 `✅ caught`，沒有 SURVIVED、WRONG TEST、REFUSED、HUNG 的行），`SHARD 0/4 of 473`，13:37:19–15:21:38。
++  - **shard 1–3 沒有跑**：15:21 起 `df -m /` Avail 只有 1427 MB，之後降到 1298 MB（`gate_disk_polls.log`、`disk_watchdog.r7b.log`），低於 gate 的 1800 MB，也低於 Adam 為這一次核准的 1700 MB 下限（orchestrator 13:37 的訊息：移除 V7 worktree 與 Cut A 的 scratch clone 之後曾回到 1820 MB，shard 0 就是那時起跑的）。16:42 我在 driver 的等待迴圈裡（沒有 shard 在跑）用 pid 停了它，原因記在 `gate_disk_polls.log` 最後一行。
++  - **所以：沒有 GATE 那一行，`C2R7-` 的 23 個 mutant 與 `C2R6-4c` 在 gate 裡的 verdict 還沒有（shard 0 的 119 個裡有 7 個 `C2R7-`／`C2R6-4` 的，都 caught）。** 有的證據（不是 gate）：§11.7 的部分跑；`dev.quickmut_C2R7.log`。
++  - **要補的**（在 `7a7a2577` 或之後只動文件的 HEAD 上，磁碟 ≥ 1700 MB）：`START=1 gate_driver1700.sh 7a7a257734eee3cd8966c783f77101b3cd56d863`（session scratchpad 裡的腳本；等價於：`MUT_SHARD=1/4`、`2/4`、`3/4` 一份一份跑，每份之前查 `df`，然後 `tests/shell/sum_p4_health_gate_shards.sh --commit 7a7a257734eee3cd8966c783f77101b3cd56d863` 加四份 log，shard 0 用上面那一份）。有存活就補測試、在新的 head 上四份重跑。
++- **最後的檢查**（`p4_proxy/venv/bin/python`；log 第 1 行是文件 commit，`LOG/r7/final.*.log`）：
++  - `check_gate_anchors.py HEAD`：133/133 cells ok，`mutate_p4_health.sh` **ok(438)**（`final.check_gate_anchors.log`）。438 的算法同 §10.3：473 列 → 437 個不同的 anchor，加負對照的 1 個；有 30 個 anchor 被不只一列用到（36 列重複）。
++  - `check_test_tmpdirs.py`：416 個檔，0 個固定暫存路徑（`final.check_test_tmpdirs.log`）；
++  - collect **183** 個 OK（174＋9）、cells **179** 個 OK（170＋9）、`test_p4_health_recover.sh` 163 checks（沒變）、`test_p4_health_gate_scripts.sh` 68 checks（沒變；gate script 的表加了列，這份測試不數列）、`test_grpc_port_block.py` **32** 個 OK（`final.collect.log`、`final.cells.log`、`final.recover.log`、`final.gate_scripts.log`、`final.grpc_port_block.log`）；collect、cells 在 python3.8（gate 用的直譯器）也綠（`final.collect.py38.log`、`final.cells.py38.log`）。
++
++### 11.4 磁碟與輔助行程
++
++- **磁碟**：第一階段（V7 還沒結束）22:07–00:42 在 1281–1300 MB（`disk_watchdog.log`：310 筆，最低 1177、最高 1300；`end` 1287）。第二階段（`disk_watchdog.r7b.log`，10-10 10:0x 起）：10:57 起 1676–1679 MB，13:37 回到 1820 MB（orchestrator 移除 V7 worktree 與 Cut A scratch clone 後），shard 0 在 13:37:19 起跑（`gate_disk_polls.log`）；15:21 shard 0 結束時 1427 MB，降到 1298 MB；取樣最低 1264 MB、最高 1817 MB。都低於 §6 第一次 live 的 2500 MB 下限；今天不能開 live。
++- **輔助行程**（都只寫 log、不送訊號）：
++  - 第一階段：磁碟取樣器 `watchdog.sh`（pid 858158／858160）、`waitv7.sh`（943308／943310／943311）、`pipeline.sh`（960107／960109）、兩個 `until grep` 迴圈（960765／960949）、一個 Monitor：結束情形見上一版（取樣器用停止檔，其餘 `kill <pid>`）。
++  - 第二階段：部分跑串接腳本 `partials.sh`／`partials2.sh`（pid 895241／895243 等，各自跑完自己結束）；磁碟取樣器 `watchdog.sh`（pid 2003882／2003884，停止檔，`end 2026-10-10 16:42:32`）；gate driver `gate_driver.sh`（pid 2003737／2003739，16:42 在等待迴圈裡用 `kill <pid>` 停掉；它啟動的 shard 0 已經正常結束）。
++  - **結束時的 `ps -eo pid,etime,args` 檢查**：沒有 `gate_driver`、`watchdog.sh`、`mutate_p4_health`、`partials`、`pipeline` 的行；
++  - r5 的看門狗：`ps` 沒有它；這一輪沒有任何 STOP／CONT／kill 的看守。
++
++### 11.5 還開著的
++
++- **第一次 live 之前**（r6 審查「Before the first live run」）：磁碟下限 > 2500 MB（§6）；§6 對每個 session 的宣告與 helper tree 的檢查（r5 #1，ndt 那邊還開著）；Adam 的逐次授權；`repo_untracked` 的決定。項目 1 的 code 修好了，是否採用要看這一輪的 gate 與對這個 diff 的審查。
++- **這一輪沒有做的**：
++  - r6 審查建議的「真的跑一次離線 S0（拋棄式 switch）再數 `/proc/self/task`」：沒有跑——離線 S0 要起 bmv2，brief 的範圍是離線 code 與測試。取代它的是 `obs.grpc_threads.log`（只用 gRPC channel，觀察 gRPC 本身會留下什麼 thread）與「`run_lab` 在 claim 前一定查」；真正的 S0 之後 `run_lab` 看到的 thread 集合沒有觀察過。
++  - r6 審查「我會跑的測試」第 4、5、7 項（claim 之後立刻 SIGTERM；重用的 run 目錄加 catch-all；gate 開始之後被改的測試檔）：沒有做，見 §11.6。
++  - `ERROR:` 前綴的解析 NIT：只在 §11.6 記，沒有改。
++
++### 11.6 §10.2 的補記（r6 審查 finding 1、3、5 的剩餘）
++
++- **finding 1 修了之後的殘餘**：(1) thread 檢查是 `run_lab` 開頭的一個時間點；那之後才起的 thread 不在內（`tools/p4_health` 自己的碼沒有起 thread 的地方，但沒有機制擋它）。(2) 只看 Linux 的 `/proc/self/task/<tid>/status` 的 `SigBlk`，不看 `SigIgn`、handler 或 thread 之後有沒有解除 block；非 Linux 或 `/proc` 讀不了就是拒絕（有測試）。(3) 「呼叫者」用 `threading.get_native_id()`（Python 3.8 起）。(4) 訊息裡的 tid 只在檢查的那一刻有意義。(5) 這個檢查測的是**設計決定的前提**（沒有 thread 能收到停止）；它沒有證明停止之後的流程在每個位元碼位置都對，那一半仍是 §10.2 第一條的取樣限制。
++- **finding 3 同類、較小**：`C2R6-5b` 把 `os.replace` 換成 `os.rename`——在 Linux 上做同一件事——只因為測試 patch 的是名字 `os.replace` 才抓到；`n5.collect.RED.log:60` 的 `0 != 2` 是同一種測試造成的紅（§10.1 已說）。這種 mutant 不證明行為。
++- **finding 5（都是安全失敗，讀碼得來，沒有測）**：
++  1. **`ndt claim` 之後、round 的 `try:` 之前的停止**（`lab_round.py:374-392`，包括 `_handlers(True)` 放開 mask 時送達的那一個）：停止從 `run()` 跑出去，claim 還在、沒有 teardown。這在 r6 之前就存在，安全失敗：`take_unrecorded` 把那份紀錄標為被切斷（`lab.py`），`recover.sh` 處理 `claim_expires` 為 null（`test_recover.log:134`、`:161`）。
++  2. **`set_verdict_aside` 會改名 run 目錄裡「任何」`health.json`**（`probe.py` 的 `set_verdict_aside`）：如果 run 目錄被重用，catch-all 又在凍結拒絕之前觸發（例如 `load_lab_path` 的 import 錯誤），上一輪的 verdict 會被改名。需要 `P4_HEALTH_RUN_DIR` 被重用；§6 的命令每次產生新的目錄。
++  3. **`ERROR:` 前綴與 gate 的解析**：`probe.py` 的 catch-all 印的行以 `ERROR:` 開頭，gate 的 `FAIL|ERROR: <name>` 解析（`mutate_p4_health.sh` 的 red_tests）把它讀成測試名字，在紅清單裡加一個假的「the」（r6 `shard1:500`、`:506`）。沒有任何指名的測試叫 `the`，所以沒有 verdict 改變。**沒有改**（brief：留成註記）。
++  4. gate script 沒有逐個 mutant 的時間戳，所以停止的分析是估計（§10.3）。
++  5. **看守**：r5 的磁碟看門狗（會對 shard 行程送 SIGSTOP）是 r6 最後一次 gate 被停的原因（§10.3）；這一輪沒有任何會送訊號的輔助行程，結束時用 `ps` 確認沒有任何一個留下（§11.4）。
++
++
++### 11.7 第一次 r7 gate 停在 shard 3：原因與修
++
++- **發生了什麼**：orchestrator 在 V7 結束之後跑了 `gate_driver.sh ae753c29`（四份 shard 一份一份跑；log 在 `LOG/r7/first_gate_ae753c29/`，log 第 1 行的 commit 是 `67af72b3`，即 `ae753c29` 加這份文件的第一版，`tools/` 與 `tests/` 與 `ae753c29` 相同）。shard 0、1、2 `rc=0`（119、118、118 個，0 存活）；**shard 3 在 09:59:12 `rc=2`**：`mutate_p4_health.shard3of4.log:638`「🔴 REFUSED: a suite did not run at all while measuring: C2R6-4c. the mask is never lifted. No verdict.」。`C2R6-4c` 在 r6 被抓到過。**這一次 gate 不算數**（shard 3 沒有 verdict，也沒有 GATE 那一行）。
++- **原因**（讀的是 gate script 丟掉的套件輸出：在暫存複本套上 `C2R6-4c`，直接跑兩個套件，python3.8、`timeout 300`；`LOG/r7/r7b/repro.4c.collect.log`、`repro.4c.cells.log`，HEAD 是 `67af72b3`）：
++  - cells 在 4c 下 `rc=0`（沒有測試抓到 4c；它的預期測試在 collect）。
++  - **collect 不是掛住，是被一個 `KeyboardInterrupt` 打斷**，沒有印 `Ran N tests`，gate 把「沒有結果」當作 `NO-SUITE`，也就是 REFUSED（`red_tests` 的 `grep -qE '^Ran [0-9]+ tests?'`）。trace 在 log 末端：`test_p4_health_collect.py:3338, in test_a_running_thread_that_does_not_block_sigint_is_refused_too` → `:3260, in background_thread`（`old = signal.pthread_sigmask(signal.SIG_SETMASK, set(blocked))`）→ `KeyboardInterrupt`。
++  - 機制：4c 讓每一輪結束後三個停止訊號**一直是擋住的**，所以前面的測試送出的訊號都留在 pending。我在 r7 加的 `background_thread` 為了讓新 thread 繼承某個 mask，用 `SETMASK` 把 SIGINT 解開（這個測試要的 mask 是 `{SIGTERM, SIGHUP}`）；pending 的 SIGINT 就在這一行送達，Python 預設的 SIGINT handler 丟 `KeyboardInterrupt`，unittest 不攔它，整個套件結束。r6 的測試沒有在一個會洩漏 mask 的 mutant 之後還改 mask，所以 r6 沒碰到。
++  - orchestrator 的猜測對了一半：是 r7 新加的 thread 測試的 helper；但不是 `set_wakeup_fd` 的等待（它有 0.5 秒上限），也不是「跑不完」。
++- **修一（`01ba2a41`，測試）**：`Sealed.setUp` 記下測試開始時的 mask，cleanup 把它放回，放回的當下 pending 的停止送到不做事的 handler（`_put_the_signal_mask_back`）。一個洩漏 mask 的 mutant 因此只影響會洩漏的那個測試。**4c 的預期測試不變**（`test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed`）。紅：`repro.4c.collect.log`（修之前）；修之後在同一個 4c 複本上套件跑完，4 個測試紅，包括預期的那個（`repro.4c.fixed.collect.log`，`repro.4c.fixed.cells.log` 綠）；gate 的部分跑 `mutate_p4_health.partial_r7b_C2R6-4c.log`：caught。
++- **修一之後的部分跑發現同類的第二個洞（`7a7a2577`，測試）**：`C2R7-1n`（S0 的 trial block 不放開）是 `WRONG TEST`（`mutate_p4_health.partial_r7b_C2R7-1.first_01ba2a41.log`）。cells 的 `TestS0Cut2Checks` 在 1n 下第一個測試之後 mask 一直是擋住的，後面那個「比較 trial 前後的 mask」的指名測試一開始就在擋住的狀態，看不到「沒放開」。1n 在 shard 3 的份裡（表的位置 463，463 mod 4＝3），所以第一次 gate 在同一處也會被它擋下。修：這個 class 的每個測試開始與結束都把 mask 清掉（`_clear_the_stop_mask`）；在 1n 的複本上整個 cells 套件：指名的測試與另外三個紅。
++- **修完之後的部分跑**（gate script 的 `ONLY_LABEL_PREFIX`，都不是 gate；`C2R6-4c`、`C2R7-3` 跑在 `01ba2a41`，`C2R6-4`、`C2R7-1` 重跑在 `7a7a2577`）：`mutate_p4_health.partial_r7b_C2R6-4c.log`（1 個，caught）、`…_C2R6-4.log`（`4a`–`4e` 5 個，0 存活）、`…_C2R7-1.log`（18 個，0 存活）、`…_C2R7-3.log`（5 個，0 存活；`7a7a2577` 沒有碰它的測試）。每份的第 1 行是它跑的 commit。
++- **沒有改的**：mutant、gate 的規則、`tools/`。
+diff --git a/tests/python/test_grpc_port_block.py b/tests/python/test_grpc_port_block.py
+index d9ae49ce..f4e9950b 100644
+--- a/tests/python/test_grpc_port_block.py
++++ b/tests/python/test_grpc_port_block.py
+@@ -416,6 +416,10 @@ _TUTORIALS_ADAPTER = (
+ _TUTORIALS_ADAPTER_TEST = (
+     "the adapter's test feeds it the addresses a tutorials controller dials and checks where "
+     "they land")
++_HEALTH_CONTROLLER = (
++    "the health probe's controller trial (tools/p4_health/controller_ext.py) is written as a tutorials "
++    "controller that dials 127.0.0.1:50050+i, which the adapter (or the trial's own connect map) "
++    "rewrites; the constant is the number it dials from")
+ _TUTORIALS_VERBATIM = (
+     "a verbatim copy of exercises/p4runtime/mycontroller.py; the fixture is only useful unedited")
+ _TUTORIALS_REFUSAL = (
+@@ -424,6 +428,7 @@ _TUTORIALS_REFUSAL = (
+ _OLD_BASE_IS_REFUSED = (
+     "asserts that a package declaring the old base 50050 is refused by the pre-flight")
+ _RUN_EXT = os.path.join("tools", "p4_exercise", "run_external_controller.py")
++_HEALTH_CONTROLLER_PY = os.path.join("tools", "p4_health", "controller_ext.py")
+ _RUN_EXT_TEST = os.path.join("tools", "p4_exercise", "tests", "test_run_external_controller.py")
+ _MYCONTROLLER = os.path.join("tools", "p4_exercise", "tests", "fixtures", "p4runtime",
+                              "mycontroller.py")
+@@ -438,6 +443,7 @@ ALLOWED_LINES_NAMING_THE_OLD_BLOCK = {
+     (_RUN_EXT, "#: tutorials puts switch i at 50050+i (utils/run_exercise.py and every "
+                "mycontroller.py)."): _TUTORIALS_ADAPTER,
+     (_RUN_EXT, "TUTORIALS_PORT_BASE = 50050"): _TUTORIALS_ADAPTER,
++    (_HEALTH_CONTROLLER_PY, "TUTORIALS_PORT_BASE = 50050"): _HEALTH_CONTROLLER,
+     (_RUN_EXT, "def patched(self, name=None, address=\"127.0.0.1:50051\", device_id=0, *args, "
+                "**kwargs):"): _TUTORIALS_ADAPTER,
+     (_RUN_EXT_TEST, "def __init__(self, name=None, address=\"127.0.0.1:50051\", "
+diff --git a/tests/python/test_p4_health_cells.py b/tests/python/test_p4_health_cells.py
+index 76ae07d0..70e50527 100644
+--- a/tests/python/test_p4_health_cells.py
++++ b/tests/python/test_p4_health_cells.py
+@@ -1519,9 +1519,31 @@ class TestS0Pieces(unittest.TestCase):
+ 
+ # --- Cut 2 -----------------------------------------------------------------------------------------
+ 
++def _clear_the_stop_mask():
++    """The three stop signals unblocked, any that were pending going to handlers that do nothing; the handlers
++    that were in place are put back. Used at the start and at the end of a test that changes the mask."""
++    import signal
++    stops = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
++    old = {s: signal.signal(s, lambda n, f: None) for s in stops}
++    try:
++        signal.pthread_sigmask(signal.SIG_UNBLOCK, stops)
++        for _ in range(2000):
++            pass
++    finally:
++        for s, h in old.items():
++            signal.signal(s, h)
++
++
+ class TestS0Cut2Checks(unittest.TestCase):
+     """m5: S0's two new safety checks decide something, so each is pinned."""
+ 
++    def setUp(self):
++        # (round 7) The tests of the ValueSet trial compare the signal mask before and after it. A mutant that never
++        # lifts the trial's block leaves the mask blocked for every test after the first, and a test that starts
++        # with the block already up cannot see it not being lifted: each starts, and ends, with the mask clear.
++        _clear_the_stop_mask()
++        self.addCleanup(_clear_the_stop_mask)
++
+     def s0(self, replies):
+         import tempfile
+         from p4_health import s0
+@@ -1729,6 +1751,143 @@ class TestS0Cut2Checks(unittest.TestCase):
+                          "/tutorials/utils")
+         self.assertEqual(seen, [510])
+ 
++    # --- round 7, finding 1: the ValueSet trial runs gRPC in this process; the threads it starts must block the stops --
++    def stops(self):
++        import signal
++        return (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
++
++    def run_vs_trial_with(self, trial):
++        """S0.vs_trial with VT.trial replaced by `trial`. Returns the S0."""
++        from unittest import mock
++        x, _r = self.s0([])
++        with mock.patch("p4_health.vs_trial.trial", trial), \
++                mock.patch("p4_health.vs_trial.fabric_binary", return_value="/y/bin/simple_switch_grpc"):
++            x.vs_trial()
++        return x
++
++    def test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back(self):
++        import signal
++        before = signal.pthread_sigmask(signal.SIG_BLOCK, ())
++        inside = []
++
++        def trial(build, bmv2, cli, work):
++            inside.append(signal.pthread_sigmask(signal.SIG_BLOCK, ()))
++            return {"bmv2": bmv2, "alive_after_write": True, "alive_after_read": True, "write_errors": [{"canonical_code": 12}]}
++        self.run_vs_trial_with(trial)
++        self.assertEqual(len(inside), 2)                    # the stock build and the fabric's
++        for mask in inside:
++            self.assertTrue(set(self.stops()) <= set(mask), mask)
++        self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, ()), before)
++
++    def test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded(self):
++        import signal
++        before = signal.pthread_sigmask(signal.SIG_BLOCK, ())
++        inside = []
++
++        def trial(build, bmv2, cli, work):
++            inside.append(signal.pthread_sigmask(signal.SIG_BLOCK, ()))
++            raise RuntimeError("the trial broke")
++        x = self.run_vs_trial_with(trial)
++        self.assertTrue(inside and set(self.stops()) <= set(inside[0]))
++        self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, ()), before)
++        self.assertFalse(x.out["checks"][-1]["ok"])
++        self.assertIn("the trial broke", x.out["checks"][-1]["detail"])
++
++    def test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals(self):
++        """What gRPC does inside the trial: starts threads that outlive it. A thread inherits the mask of the
++        thread that starts it, so it blocks the stops for good; one started outside the trial would not."""
++        import threading
++        kept, stop = [], threading.Event()
++        self.addCleanup(lambda: [stop.set()] + [t.join(10) for t in kept])
++
++        def trial(build, bmv2, cli, work):
++            t = threading.Thread(target=stop.wait, args=(120,), daemon=True)
++            t.start()
++            kept.append(t)
++            return {"bmv2": bmv2, "alive_after_write": True, "alive_after_read": True, "write_errors": [{"canonical_code": 12}]}
++        self.run_vs_trial_with(trial)
++        self.assertTrue(kept)
++        for t in kept:
++            with open("/proc/self/task/%d/status" % t.native_id) as fh:
++                blk = int([l for l in fh if l.startswith("SigBlk:")][0].split()[1], 16)
++            for s in self.stops():
++                self.assertTrue(blk & (1 << (s - 1)), "%s is not blocked in thread %d (SigBlk %x)" % (s.name, t.native_id, blk))
++
++    def test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back(self):
++        import signal
++        in_trial, seen_inside, seen_after = [True], [], []
++        old = {s: signal.signal(s, lambda n, f: (seen_inside if in_trial[0] else seen_after).append(n))
++               for s in self.stops()}
++
++        def trial(build, bmv2, cli, work):
++            in_trial[0] = True
++            for s in self.stops():
++                os.kill(os.getpid(), s)
++            for _ in range(2000):
++                pass                                        # the handlers would run here, if they could
++            in_trial[0] = False
++            return {"bmv2": bmv2, "alive_after_write": True, "alive_after_read": True, "write_errors": [{"canonical_code": 12}]}
++        try:
++            self.run_vs_trial_with(trial)
++            for _ in range(2000):
++                pass
++        finally:
++            for s, h in old.items():
++                signal.signal(s, h)
++        self.assertEqual(seen_inside, [])
++        # delivered once the trial is over (the first call's stops arrive when the mask is put back after both
++        # calls: the mask covers the whole trial), none lost
++        self.assertEqual(sorted(set(seen_after)), sorted(int(s) for s in self.stops()))
++
++    def test_a_stop_during_the_trial_ends_an_unhandled_process_only_after_the_trial_is_over(self):
++        """The S0 stage has no handler of its own: a SIGTERM kills the process. During the trial it must wait for the
++        trial to finish (a trial killed in the middle leaves its throwaway switch to the parent-death signal), and
++        then kill it all the same -- the stop is held, not dropped."""
++        import tempfile
++        d = tempfile.mkdtemp(prefix="p4h-vs-stop-%d-" % os.getpid())
++        self.addCleanup(__import__("shutil").rmtree, d, True)
++        tools = os.path.dirname(os.path.dirname(PKG))
++        code = (
++            "import os, signal, sys\n"
++            "from unittest import mock\n"
++            "sys.path.insert(0, %r)\n"
++            "from p4_health import s0 as S0M\n"
++            "from p4_health.collect.runner import RecordingRunner\n"
++            "def trial(build, bmv2, cli, work):\n"
++            "    os.kill(os.getpid(), signal.SIGTERM)\n"
++            "    for _ in range(200000):\n"
++            "        pass\n"
++            "    open(%r, 'w').write('the trial ran to its end')\n"
++            "    return {'bmv2': bmv2, 'alive_after_write': True, 'alive_after_read': True,\n"
++            "            'write_errors': [{'canonical_code': 12}]}\n"
++            "x = S0M.S0(%r, RecordingRunner([]), 'py', log=lambda *a: None)\n"
++            "with mock.patch('p4_health.vs_trial.trial', trial), \\\n"
++            "        mock.patch('p4_health.vs_trial.fabric_binary', return_value='/y/b'):\n"
++            "    x.vs_trial()\n"
++            "open(%r, 'w').write('the process outlived the stop')\n"
++            % (tools, os.path.join(d, "inside"), d, os.path.join(d, "after")))
++        res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
++        import signal
++        self.assertEqual(res.returncode, -signal.SIGTERM, res.stderr[-800:])
++        self.assertTrue(os.path.exists(os.path.join(d, "inside")), "the stop killed the trial in the middle")
++        self.assertFalse(os.path.exists(os.path.join(d, "after")))
++
++    def test_a_throwaway_switch_does_not_inherit_the_blocked_stops(self):
++        """The mask is inherited across exec: a switch started inside the trial with SIGTERM blocked would ignore
++        Throwaway.stop()'s terminate() and be killed only after its 3 s timeout. The child clears the three before exec."""
++        import signal
++        from p4_health import throwaway as TW
++        held = signal.pthread_sigmask(signal.SIG_BLOCK, self.stops())
++        try:
++            proc = subprocess.run([sys.executable, "-c", "print([l for l in open('/proc/self/status') if l.startswith('SigBlk')][0])"],
++                                  capture_output=True, text=True, timeout=60, preexec_fn=TW._die_with_parent)
++        finally:
++            signal.pthread_sigmask(signal.SIG_SETMASK, held)
++        self.assertEqual(proc.returncode, 0, proc.stderr)
++        blk = int(proc.stdout.split()[1], 16)
++        for s in self.stops():
++            self.assertFalse(blk & (1 << (s - 1)), "%s is still blocked in the child (SigBlk %x)" % (s.name, blk))
++
+ 
+ class TestTheLiveRunsIdentity(unittest.TestCase):
+     """m4: a lab run refuses a dirty probe, and records the Q6(a) fingerprint and the system
+@@ -2775,6 +2934,94 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
+             fz.check_exercise(copy)
+ 
+ 
++    # --- round 7, finding 4: the exercise copy is checked again right before lab.load_model runs it ------------------
++    FAKE_CONVERT = (
++        "import json, os, sys\n"
++        "exercise = sys.argv[1]\n"
++        "out = sys.argv[sys.argv.index('--out') + 1]\n"
++        "edit = os.environ.get('FAKE_CONVERT_EDIT', '')\n"
++        "if edit == 'append':\n"
++        "    with open(os.path.join(exercise, 'gen_runtime.py'), 'a') as fh:\n"
++        "        fh.write('\\nEDITED_BY_CONVERT = True\\nimport builtins\\nbuiltins.EDITED_BY_CONVERT_RAN = True\\n')\n"
++        "elif edit == 'add':\n"
++        "    with open(os.path.join(exercise, 'extra_model.py'), 'w') as fh:\n"
++        "        fh.write('# written by convert\\n')\n"
++        "os.makedirs(out)\n"
++        "with open(os.path.join(out, 'package.json'), 'w') as fh:\n"
++        "    json.dump({}, fh)\n")
++
++    def run_lab_after_a_convert_that(self, edit):
++        """S0.convert over the checked exercise copy, with a fake convert.py that `edit`s ('append' to gen_runtime.py,
++        'add' a file, '' nothing) the directory it is given as input; then lab.run_lab with that S0's Frozen. The
++        model is loaded by the real lab.load_model; `expectations` and the rounds are markers, and the lab runner
++        is a RecordingRunner that must stay empty. Returns (rc, doc, models `expectations` was handed, the number
++        of rounds started, the lab runner's calls)."""
++        import tempfile
++        from unittest import mock
++        from p4_health import lab as LAB
++        from p4_health import s0 as S0M
++        from p4_health.collect.config import Config
++        from p4_health.collect.runner import RecordingRunner, Runner
++        import builtins
++        self.addCleanup(lambda: hasattr(builtins, "EDITED_BY_CONVERT_RAN") and delattr(builtins, "EDITED_BY_CONVERT_RAN"))
++        fz, copy = self.freeze_with_exercise()
++        run_dir = os.path.dirname(copy)
++        script = os.path.join(run_dir, "fake_convert.py")
++        with open(script, "w") as fh:
++            fh.write(self.FAKE_CONVERT)
++
++        class Redirect(Runner):
++            def run(self, argv, env=None, timeout=120, cwd=None, input_text=None):
++                return Runner.run(self, [sys.executable, script] + list(argv[2:]),
++                                  env=dict(env or {}, FAKE_CONVERT_EDIT=edit), timeout=timeout, cwd=cwd,
++                                  input_text=input_text)
++        x = S0M.S0(run_dir, Redirect(), sys.executable, frozen=fz, log=lambda *a: None)
++        self.assertEqual(x.ex, copy)
++        self.assertIsNotNone(x.convert("A", "topology.json", "ndtwin"))
++        models, rounds = [], []
++
++        def expectations(s0_out, rd, model):
++            models.append(model)
++            return {}, {}, {}
++        lab_runner = RecordingRunner()
++        with mock.patch.object(LAB, "expectations", expectations), \
++                mock.patch.object(LAB, "_rounds", lambda *a, **kw: rounds.append(1)):
++            rc, doc = LAB.run_lab(Config(run_dir, owner="o"), lab_runner, {"verdict": "COMPLETE"}, run_dir, "run-x",
++                                  expected_tsv=EXPECTED_TSV, log=lambda *a: None, signals=False, frozen=fz)
++        return rc, doc, models, len(rounds), lab_runner.calls, fz
++
++    def test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_load_model_runs_it(self):
++        """(Finding 4) The copy is checked once, right after S0 compiles; S0 then hands it to the shared tree's
++        convert.py as its input, and lab.load_model runs gen_runtime.py from it much later. A convert.py that
++        wrote into its input was run, not refused. load_model is before any claim, so the refusal is the run's
++        ordinary 'could not be set up': INCOMPLETE, rc 2, nothing started, and the record says which file."""
++        import builtins
++        rc, doc, models, rounds, calls, fz = self.run_lab_after_a_convert_that("append")
++        # the edited file must not even have been executed: a check made after load_model came too late
++        self.assertFalse(hasattr(builtins, "EDITED_BY_CONVERT_RAN"), "the edited gen_runtime.py was executed")
++        self.assertEqual(models, [], "the edited gen_runtime.py was loaded: %r" % [
++            getattr(m, "EDITED_BY_CONVERT", None) for m in models])
++        self.assertEqual((rounds, calls), (0, []))
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        text = " | ".join(doc["problems"])
++        self.assertIn("could not be set up", text)
++        self.assertIn("gen_runtime.py", text)
++        self.assertIn(fz.head, text)
++
++    def test_a_convert_that_adds_a_file_to_the_exercise_copy_is_refused_before_load_model_too(self):
++        rc, doc, models, rounds, calls, _fz = self.run_lab_after_a_convert_that("add")
++        self.assertEqual((models, rounds, calls), ([], 0, []))
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        self.assertIn("extra_model.py", " | ".join(doc["problems"]))
++
++    def test_a_convert_that_leaves_the_exercise_copy_alone_goes_on_to_the_rounds(self):
++        """The control of the two tests above."""
++        rc, doc, models, rounds, calls, _fz = self.run_lab_after_a_convert_that("")
++        self.assertEqual(doc["problems"], [])
++        self.assertEqual((len(models), rounds), (1, 1))
++        self.assertFalse(hasattr(models[0], "EDITED_BY_CONVERT"))
++
++
+     # --- round 6, the pin-HEAD NIT: HEAD is pinned first, and the clean check, the freeze and the identity use it --
+     def lab_pinned(self, hook=None):
+         """probe.py lab in a scratch repo whose S0 is a marker that keeps the Frozen it was given. `hook(args)`
+@@ -2830,9 +3077,15 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
+         """The freeze pinned HEAD only after the modules were loaded and the tree checked: a commit to
+         tools/p4_health in that one second made frozen_head name a commit the preloaded modules were not read
+         from. HEAD is pinned first; if it has moved when the clean check is done, the run is refused."""
+-        hook = self.commit_once(lambda a: a[:3] == ("rev-parse", "--verify", "HEAD"))
++        # (round 7, finding 3) The commit is to lab.py: a module the run has loaded but does not freeze. frames.py,
++        # which this test used to commit, is one of the frozen files, so the freeze refused the change by itself
++        # and the re-check of HEAD was only seen in its message. Here, without the re-check, the run reaches S0 with
++        # frozen_head naming a commit its modules were not read from; the behavioural assertion is the first one.
++        hook = self.commit_once(lambda a: a[:3] == ("rev-parse", "--verify", "HEAD"),
++                                rel=("tools", "p4_health", "lab.py"))
+         rc, frozen, err, _start, _repo = self.lab_pinned(hook)
+-        self.assertEqual((rc, frozen), (2, None))
++        self.assertEqual((rc, frozen), (2, None), "the run went on to S0 on a HEAD that is not the one its modules "
++                                                  "were read from")
+         self.assertIn("refused:", err)
+         self.assertIn("HEAD moved", err)
+         self.assertNotIn("Traceback", err)
+diff --git a/tests/python/test_p4_health_collect.py b/tests/python/test_p4_health_collect.py
+index 739ab448..c4bb2729 100644
+--- a/tests/python/test_p4_health_collect.py
++++ b/tests/python/test_p4_health_collect.py
+@@ -254,6 +254,23 @@ class Sealed(unittest.TestCase):
+                           test_run_dir=os.path.join(self.tmp, "test_run"),
+                           thrift_cli=["simple_switch_CLI"], qdisc_snapshot="qdisc_snapshot.sh",
+                           expected_tsv=os.path.join(self.tmp, "none.tsv"))
++        # (round 7) A mutant (or a bug) that leaves the stop signals blocked after a test must not hand the signals
++        # it left pending to a later test: they would be delivered at that test's next mask change, and a SIGINT then
++        # ends the whole run with a KeyboardInterrupt -- no "Ran N tests" line, which the mutation gate refuses.
++        # Whatever the mask was at the start of the test is put back, pending stops going to no-op handlers.
++        self._mask0 = signal.pthread_sigmask(signal.SIG_BLOCK, ())
++        self.addCleanup(self._put_the_signal_mask_back)
++
++    def _put_the_signal_mask_back(self):
++        stops = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
++        old = {s: signal.signal(s, lambda n, f: None) for s in stops}
++        try:
++            signal.pthread_sigmask(signal.SIG_SETMASK, self._mask0)
++            for _ in range(2000):
++                pass                                    # a pending stop is delivered here, to a handler that does nothing
++        finally:
++            for s, h in old.items():
++                signal.signal(s, h)
+ 
+     def tearDown(self):
+         shutil.rmtree(self.tmp, ignore_errors=True)
+@@ -3246,6 +3263,162 @@ class TestTheLabRun(Cut2):
+         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
+         self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
+ 
++    # --- round 7, finding 1: the mask holds only in the calling thread, so no other thread may take a stop --------
++    def background_thread(self, blocked):
++        """A thread that stays up for the rest of the test, started with the signals in `blocked` blocked in it (a
++        thread inherits the mask of the thread that starts it); the caller's own mask is put back as soon as it is
++        up. Returns the Thread."""
++        import threading
++        up, stop = threading.Event(), threading.Event()
++
++        def work():
++            up.set()
++            stop.wait(120)
++        old = signal.pthread_sigmask(signal.SIG_SETMASK, set(blocked))
++        try:
++            t = threading.Thread(target=work, daemon=True)
++            t.start()
++            self.assertTrue(up.wait(10))
++        finally:
++            signal.pthread_sigmask(signal.SIG_SETMASK, old)
++        self.addCleanup(t.join, 10)
++        self.addCleanup(stop.set)
++        return t
++
++    def lab_with_a_stop_in_finish(self, signum):
++        """The finish-hook test's run, for any of the three stop signals: `signum` comes from a hook inside A's
++        `_finish`, after it read teardown_signal. Returns (rc, doc, runner, what the safety handlers saw)."""
++        import select
++        seen = []
++        safety = {s: signal.signal(s, lambda n, f: seen.append(n)) for s in LAB.STOP_SIGNALS}
++        proc = self.proc
++        # The C-level handler writes the signal's number to the wakeup fd when it runs, in whichever thread the
++        # kernel gave the signal to. Without waiting for it the main thread usually gets through the rest of
++        # `_finish` and the restore before a sleeping thread has been scheduled, and the old code is only
++        # sometimes wrong. A signal held pending (every thread blocks it) never writes: that wait times out.
++        rd, wr = os.pipe()
++        os.set_blocking(rd, False)
++        os.set_blocking(wr, False)
++        old_wakeup = signal.set_wakeup_fd(wr, warn_on_full_buffer=False)
++
++        def make(cfg, runner, bringup, pkg, run_id):
++            class Hooked(LR.LabRound):
++                def _finish(self, rec, t0):
++                    LR.LabRound._finish(self, rec, t0)
++                    if bringup == "A":
++                        os.kill(os.getpid(), signum)
++                        select.select([rd], [], [], 0.5)
++            return Hooked(cfg, runner, bringup, pkg, run_id, pid=4242, proc_root=proc, install_signals=True)
++        r = self.ndt_runner()
++        try:
++            rc, doc = LAB.run_lab(self.cfg, r, self.s0, self.cfg.run_dir, "run-x", round_cls=make,
++                                  tutorials_utils="/tutorials/utils", expected_tsv=self.expected,
++                                  b_kwargs=self.fake_time(), log=lambda *a: None)
++        finally:
++            signal.set_wakeup_fd(old_wakeup)
++            os.close(rd)
++            os.close(wr)
++            for s, h in safety.items():
++                signal.signal(s, h)
++        return rc, doc, r, seen
++
++    def assert_refused_before_any_lab_action(self, rc, doc, r, seen, *needles):
++        claims = [c for c in r.calls if c["argv"][:2] == ["ndt", "claim"]]
++        self.assertEqual(claims, [], "the lab was claimed %d time(s) (bring-ups %s; problems %s) although a thread "
++                                     "could take a stop" % (len(claims), [b["id"] for b in doc["bringups"]],
++                                                            doc["problems"]))
++        self.assertEqual([c["argv"] for c in r.calls if c["argv"][0] == "ndt"], [])
++        self.assertEqual(seen, [])
++        self.assertEqual(doc["bringups"], [])
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        self.assertFalse(os.path.exists(self.cfg.lab_state_path), "something was written for the lab")
++        text = " | ".join(doc["problems"])
++        for n in needles:
++            self.assertIn(n, text)
++
++    def test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim(self):
++        """(Finding 1) The round's mask blocks the three stop signals in the calling thread only. A stop sent to
++        the process while that mask is up goes to a thread that does not block it, and Python then runs the
++        handler in the main thread, inside the masked region, where it is still the teardown's noter: the stop
++        was read by nothing and B was claimed. The finish-hook test with one extra running thread: run_lab now
++        refuses before it claims, and names the thread."""
++        t = self.background_thread(blocked=())
++        rc, doc, r, seen = self.lab_with_a_stop_in_finish(signal.SIGTERM)
++        self.assert_refused_before_any_lab_action(rc, doc, r, seen, "thread %d" % t.native_id, "SIGTERM")
++
++    def test_a_running_thread_that_does_not_block_sighup_is_refused_too(self):
++        t = self.background_thread(blocked=(signal.SIGTERM, signal.SIGINT))
++        rc, doc, r, seen = self.lab_with_a_stop_in_finish(signal.SIGHUP)
++        self.assert_refused_before_any_lab_action(rc, doc, r, seen, "thread %d" % t.native_id, "SIGHUP")
++
++    def test_a_running_thread_that_does_not_block_sigint_is_refused_too(self):
++        t = self.background_thread(blocked=(signal.SIGTERM, signal.SIGHUP))
++        rc, doc, r, seen = self.lab_with_a_stop_in_finish(signal.SIGINT)
++        self.assert_refused_before_any_lab_action(rc, doc, r, seen, "thread %d" % t.native_id, "SIGINT")
++
++    def test_a_running_thread_started_with_the_three_signals_blocked_does_not_stop_the_run_or_lose_the_stop(self):
++        """The control of the tests above: the same thread, started while the three signals were blocked (as the
++        threads gRPC starts inside the ValueSet trial are). The lab is claimed for A, the stop from the hook is
++        delivered when the round's mask lifts, and B is not claimed over it."""
++        self.background_thread(blocked=LAB.STOP_SIGNALS)
++        rc, doc, r, seen = self.lab_with_a_stop_in_finish(signal.SIGTERM)
++        claims = [c for c in r.calls if c["argv"][:2] == ["ndt", "claim"]]
++        self.assertEqual(len(claims), 1, "B was claimed over the stop, or A was refused")
++        self.assertEqual(seen, [])
++        self.assertEqual([b["id"] for b in doc["bringups"]], ["A"])
++        self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
++        self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
++        self.assertFalse(any("refused" in p_ for p_ in doc["problems"]), doc["problems"])
++
++    def fake_tasks(self, threads):
++        """A stand-in for /proc/self/task: {tid: the status file's text, or None for a thread with no status file}."""
++        import threading
++        top = os.path.join(self.tmp, "fake-task")
++        shutil.rmtree(top, ignore_errors=True)
++        os.makedirs(top)
++        threads = dict(threads)
++        threads.setdefault(threading.get_native_id(), "Name:\tmain\nSigBlk:\t0000000000000000\n")
++        for tid, text in threads.items():
++            os.makedirs(os.path.join(top, str(tid)))
++            if text is not None:
++                with open(os.path.join(top, str(tid), "status"), "w") as fh:
++                    fh.write(text)
++        return top
++
++    ALL_THREE = "Name:\tw\nSigBlk:\t0000000000004003\n"
++
++    def test_the_calling_thread_is_not_judged_and_threads_that_block_all_three_signals_pass(self):
++        top = self.fake_tasks({910001: self.ALL_THREE, 910002: "Name:\tw\nSigBlk:\tffffffffffffffff\n"})
++        with mock.patch.object(LAB, "PROC_TASK", top):
++            rc, doc, r = self.run_lab()
++        self.assertEqual((doc["verdict"], rc), ("COMPLETE", 0))
++
++    def test_a_thread_with_only_two_of_the_three_bits_set_is_named_in_the_refusal(self):
++        top = self.fake_tasks({910001: self.ALL_THREE, 910002: "Name:\tw\nSigBlk:\t0000000000000003\n"})
++        with mock.patch.object(LAB, "PROC_TASK", top):
++            rc, doc, r = self.run_lab()
++        self.assert_refused_before_any_lab_action(rc, doc, r, [], "910002", "SIGTERM")
++        self.assertNotIn("910001", " ".join(doc["problems"]))
++
++    def test_every_thread_that_does_not_block_them_is_named(self):
++        top = self.fake_tasks({910001: "Name:\tw\nSigBlk:\t0000000000000000\n", 910002: "Name:\tw\nSigBlk:\t0000000000004002\n"})
++        with mock.patch.object(LAB, "PROC_TASK", top):
++            rc, doc, r = self.run_lab()
++        self.assert_refused_before_any_lab_action(rc, doc, r, [], "910001", "910002")
++
++    def test_a_proc_that_cannot_be_read_is_a_refusal_not_a_pass(self):
++        with mock.patch.object(LAB, "PROC_TASK", os.path.join(self.tmp, "no-such-proc", "task")):
++            rc, doc, r = self.run_lab()
++        self.assert_refused_before_any_lab_action(rc, doc, r, [], "no-such-proc")
++
++    def test_a_thread_whose_status_cannot_be_read_or_has_no_sigblk_line_is_a_refusal(self):
++        for text in (None, "Name:\tw\nState:\tS (sleeping)\n", "Name:\tw\nSigBlk:\tnot-hex\n"):
++            shutil.rmtree(os.path.join(self.cfg.run_dir, "frozen"), ignore_errors=True)     # a freeze writes only what is new
++            top = self.fake_tasks({910003: text})
++            with mock.patch.object(LAB, "PROC_TASK", top):
++                rc, doc, r = self.run_lab()
++            self.assert_refused_before_any_lab_action(rc, doc, r, [], "910003")
++
+     def test_a_round_cut_off_before_its_record_was_finished_is_not_complete_in_health_json(self):
+         """(Finding 4, the NIT) A first stop between the end of the body and the swap in `_handlers(False)`
+         raises inside the `finally`: the teardown and `_finish` never run, and the record lab.py takes still
+diff --git a/tests/shell/mutate_p4_health.sh b/tests/shell/mutate_p4_health.sh
+index 851cee96..3e282f49 100755
+--- a/tests/shell/mutate_p4_health.sh
++++ b/tests/shell/mutate_p4_health.sh
+@@ -3119,6 +3119,185 @@ add "C2R6-7d. the hash of the gate's scripts leaves out the gate script itself"
+     '[an edit to mutate_p4_health.sh changes the hash]'
+ 
+ 
++# --- round 7 (C2R7-): the sixth round's review ---------------------------------------------------------------
++# finding 1: no thread of the process may be able to take a stop while a round's mask is up (lab.run_lab refuses),
++# and the ValueSet trial, which starts gRPC threads in this process, runs with the three signals blocked
++add "C2R7-1a. run_lab does not look at the process's threads" \
++    "$LABPY" \
++    '    if prepared is not None and signals:
++        # (round 7, finding 1)' \
++    '    if False:  # MUTANT
++        # (round 7, finding 1)' \
++    'test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim'
++
++add "C2R7-1b. the thread check leaves SIGHUP out" \
++    "$LABPY" \
++    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS}' \
++    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS if s != signal.SIGHUP}  # MUTANT' \
++    'test_a_running_thread_that_does_not_block_sighup_is_refused_too'
++
++add "C2R7-1c. the thread check leaves SIGINT out" \
++    "$LABPY" \
++    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS}' \
++    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS if s != signal.SIGINT}  # MUTANT' \
++    'test_a_running_thread_that_does_not_block_sigint_is_refused_too'
++
++add "C2R7-1d. the thread check leaves SIGTERM out" \
++    "$LABPY" \
++    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS}' \
++    '_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS if s != signal.SIGTERM}  # MUTANT' \
++    'test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim'
++
++add "C2R7-1e. the calling thread is judged like the others" \
++    "$LABPY" \
++    '        if tid == me:' \
++    '        if False:  # MUTANT' \
++    'test_the_calling_thread_is_not_judged_and_threads_that_block_all_three_signals_pass'
++
++add "C2R7-1f. a /proc that cannot be listed passes" \
++    "$LABPY" \
++    '    except OSError as exc:
++        return ("refused: cannot tell whether' \
++    '    except OSError as exc:
++        return ""  # MUTANT
++        return ("refused: cannot tell whether' \
++    'test_a_proc_that_cannot_be_read_is_a_refusal_not_a_pass'
++
++add "C2R7-1g. a thread whose mask cannot be read passes" \
++    "$LABPY" \
++    '            unreadable.append("thread %s (%s: %s)" % (tid, type(exc).__name__, exc))' \
++    '            pass  # MUTANT' \
++    'test_a_thread_whose_status_cannot_be_read_or_has_no_sigblk_line_is_a_refusal'
++
++add "C2R7-1h. only the first thread that can take a stop is named" \
++    "$LABPY" \
++    '        if missing:
++            bad.append(' \
++    '        if missing and not bad:  # MUTANT
++            bad.append(' \
++    'test_every_thread_that_does_not_block_them_is_named'
++
++add "C2R7-1i. a thread that blocks only part of the three passes when it blocks any of them" \
++    "$LABPY" \
++    '        missing = [s.name for s, bit in _STOP_BITS.items() if not blk & bit]' \
++    '        missing = [] if blk & sum(_STOP_BITS.values()) else [s.name for s, bit in _STOP_BITS.items()]  # MUTANT' \
++    'test_a_thread_with_only_two_of_the_three_bits_set_is_named_in_the_refusal'
++
++add "C2R7-1j. the refusal is written down and the run goes on" \
++    "$LABPY" \
++    '            log("  " + refusal)
++            prepared = None' \
++    '            log("  " + refusal)  # MUTANT' \
++    'test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim'
++
++add "C2R7-1k. the ValueSet trial runs without the stops blocked" \
++    "$S0PY" \
++    '            with stops_held():
++                results = [VT.trial(' \
++    '            if True:  # MUTANT
++                results = [VT.trial(' \
++    'test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back'
++
++add "C2R7-1l. the trial block does not block" \
++    "$S0PY" \
++    '    held = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)' \
++    '    held = signal.pthread_sigmask(signal.SIG_BLOCK, ())  # MUTANT' \
++    'test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back'
++
++add "C2R7-1m. the trial block leaves SIGHUP out" \
++    "$S0PY" \
++    'STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)' \
++    'STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT)  # MUTANT' \
++    'test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back'
++
++add "C2R7-1n. the trial block is never lifted" \
++    "$S0PY" \
++    '        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
++    '        pass  # MUTANT' \
++    'test_the_valueset_trial_is_entered_with_the_three_stop_signals_blocked_and_the_mask_is_put_back'
++
++add "C2R7-1o. the trial block is lifted only when the trial does not raise" \
++    "$S0PY" \
++    '    try:
++        yield
++    finally:
++        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
++    '    yield  # MUTANT
++    signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
++    'test_the_mask_is_put_back_when_the_trial_raises_and_the_failure_is_still_recorded'
++
++add "C2R7-1p. a throwaway switch keeps the blocked stops" \
++    "$THROWAWAY" \
++    '    signal.pthread_sigmask(signal.SIG_UNBLOCK, (signal.SIGTERM, signal.SIGINT, signal.SIGHUP))' \
++    '    pass  # MUTANT' \
++    'test_a_throwaway_switch_does_not_inherit_the_blocked_stops'
++
++add "C2R7-1q. a throwaway switch is given back only SIGHUP and SIGINT" \
++    "$THROWAWAY" \
++    '    signal.pthread_sigmask(signal.SIG_UNBLOCK, (signal.SIGTERM, signal.SIGINT, signal.SIGHUP))' \
++    '    signal.pthread_sigmask(signal.SIG_UNBLOCK, (signal.SIGINT, signal.SIGHUP))  # MUTANT' \
++    'test_a_throwaway_switch_does_not_inherit_the_blocked_stops'
++
++add "C2R7-1r. a stop during the trial is dropped, not held" \
++    "$S0PY" \
++    '    held = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
++    try:
++        yield
++    finally:
++        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
++    '    held = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
++    try:
++        yield
++    finally:
++        for sig in STOP_SIGNALS:  # MUTANT
++            signal.sigtimedwait([sig], 0)
++        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
++    'test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back'
++
++
++# finding 4: the exercise copy is checked again right before lab.load_model runs it
++add "C2R7-3a. run_lab does not check the exercise copy again before loading the model" \
++    "$LABPY" \
++    '            if getattr(frozen, "head", None):
++                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
++    '            if False:  # MUTANT
++                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
++    'test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_load_model_runs_it'
++
++add "C2R7-3b. the exercise copy is checked after the model was loaded from it" \
++    "$LABPY" \
++    '            if getattr(frozen, "head", None):
++                frozen.check_exercise(os.path.join(run_dir, "exercise"))
++            model = load_model(os.path.join(run_dir, "exercise"))' \
++    '            model = load_model(os.path.join(run_dir, "exercise"))  # MUTANT
++            if getattr(frozen, "head", None):
++                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
++    'test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_load_model_runs_it'
++
++add "C2R7-3c. the re-check is made without a pinned commit to check against" \
++    "$LABPY" \
++    '            if getattr(frozen, "head", None):
++                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
++    '            if True:  # MUTANT
++                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
++    'test_a_then_b_then_the_verdicts'
++
++add "C2R7-3d. the re-check looks at the run directory, not the exercise copy" \
++    "$LABPY" \
++    '                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
++    '                frozen.check_exercise(run_dir)  # MUTANT' \
++    'test_a_convert_that_leaves_the_exercise_copy_alone_goes_on_to_the_rounds'
++
++add "C2R7-3e. a refused exercise copy is let through" \
++    "$LABPY" \
++    '                frozen.check_exercise(os.path.join(run_dir, "exercise"))' \
++    '                try:
++                    frozen.check_exercise(os.path.join(run_dir, "exercise"))
++                except FZ.Refused:  # MUTANT
++                    pass' \
++    'test_a_convert_that_adds_a_file_to_the_exercise_copy_is_refused_before_load_model_too'
++
++
+ CTRL_SRC="$TABLE"
+ CTRL_ANCHOR='def g1_holds(g1):'
+ CTRL_REPL='# MUTANT: a comment, and nothing else.
+diff --git a/tools/p4_health/frozen.py b/tools/p4_health/frozen.py
+index be72bdfd..84df5032 100644
+--- a/tools/p4_health/frozen.py
++++ b/tools/p4_health/frozen.py
+@@ -26,6 +26,8 @@ a 15-minute run, and `probe.py lab` checked it clean only once, so:
+   * (round 6) S0's copy of tools/p4_health/exercise/ -- the model every expectation, the controller trial and
+     lab.load_model go by -- is checked the same way against the pinned commit (Frozen.check_exercise, right
+     after S0's compile_all): a file that differs, is missing or is not in the commit is refused.
++  * (round 7) and once more immediately before lab.load_model runs gen_runtime.py from it: in between, S0 hands the
++    copy to convert.py as its input, and the check is what shows that convert.py did not write into it.
+ """
+ from __future__ import annotations
+ 
+diff --git a/tools/p4_health/lab.py b/tools/p4_health/lab.py
+index cee33aec..587d4a52 100644
+--- a/tools/p4_health/lab.py
++++ b/tools/p4_health/lab.py
+@@ -18,6 +18,7 @@ import json
+ import os
+ import shutil
+ import signal
++import threading
+ 
+ from . import attribution as AT
+ from . import expected as E
+@@ -123,6 +124,51 @@ def signalled(rec):
+ STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+ 
+ 
++#: Where this process lists its threads. Tests point it at a stand-in tree.
++PROC_TASK = "/proc/self/task"
++_STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS}
++
++
++def stop_signal_threads_refusal():
++    """(Cut 2 round 7, finding 1) "" when every thread of this process other than the calling one blocks SIGTERM, SIGINT
++    and SIGHUP, else the sentence that says why the lab must not be touched.
++
++    The round's mask (lab_round.LabRound._masked) blocks the three in the calling thread only. A stop sent to the
++    process meanwhile goes to a thread that does not block it, and Python then runs the handler in the main thread,
++    inside the masked region, where it is still the teardown's noter: nothing reads it again and the next bring-up is
++    claimed over it. So no other thread may be able to take one. Each thread's mask is read from
++    <PROC_TASK>/<tid>/status (SigBlk). A thread that cannot be read, or a /proc that cannot, is a refusal: this
++    cannot be shown, so it is not assumed."""
++    try:
++        tids = sorted(os.listdir(PROC_TASK), key=lambda t: (len(t), t))
++    except OSError as exc:
++        return ("refused: cannot tell whether a thread of this process can take a stop signal (%s: %s); the lab is "
++                "not touched" % (PROC_TASK, exc))
++    me = str(threading.get_native_id())
++    bad, unreadable = [], []
++    for tid in tids:
++        if tid == me:
++            continue
++        path = os.path.join(PROC_TASK, tid, "status")
++        try:
++            with open(path, encoding="ascii", errors="replace") as fh:
++                lines = fh.read().splitlines()
++            blk = int([l for l in lines if l.startswith("SigBlk:")][0].split()[1], 16)
++        except (OSError, IndexError, ValueError) as exc:
++            if not os.path.isdir(os.path.join(PROC_TASK, tid)):
++                continue                            # the thread ended while the list was being read
++            unreadable.append("thread %s (%s: %s)" % (tid, type(exc).__name__, exc))
++            continue
++        missing = [s.name for s, bit in _STOP_BITS.items() if not blk & bit]
++        if missing:
++            bad.append("thread %s does not block %s" % (tid, ", ".join(missing)))
++    if not (bad or unreadable):
++        return ""
++    why = "; ".join(bad + ["cannot read the signal mask of " + u for u in unreadable])
++    return ("refused: %s. A stop signal could be delivered to such a thread while a round's mask is up and be lost, "
++            "with the next bring-up claimed over it; the lab is not touched" % why)
++
++
+ def _swap_handlers(handlers):
+     """Install `handlers` ({signal: handler}) with the three stop signals blocked meanwhile (as
+     LabRound._swap_handlers does), so no stop arrives between two of the switches; one that came in while they
+@@ -221,12 +267,26 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
+         log(problems[-1])
+     else:
+         try:
++            # (round 7, finding 4) S0 checked its copy of exercise/ once, right after compile_all, and then handed
++            # it to the shared tree's convert.py as its input: a convert.py that wrote into it would have its
++            # gen_runtime.py run here. Checked again, against the same pinned commit, immediately before it is
++            # loaded. This is before any claim: a refusal is this run's ordinary "could not be set up".
++            if getattr(frozen, "head", None):
++                frozen.check_exercise(os.path.join(run_dir, "exercise"))
+             model = load_model(os.path.join(run_dir, "exercise"))
+             pipelines, runtimes, orders = expectations(s0_out, run_dir, model)
+             prepared = (model, pipelines, runtimes, orders)
+         except Exception as exc:  # noqa: BLE001 -- a run that cannot be set up is INCOMPLETE, with the reason
+             problems.append("the run could not be set up: %s: %s" % (type(exc).__name__, exc))
+             log("  " + problems[-1])
++    if prepared is not None and signals:
++        # (round 7, finding 1) before the first lab action: a thread that can take a stop makes the round's mask
++        # worth nothing, so the lab is not touched
++        refusal = stop_signal_threads_refusal()
++        if refusal:
++            problems.append(refusal)
++            log("  " + refusal)
++            prepared = None
+     if prepared is not None:
+         model, pipelines, runtimes, orders = prepared
+         packages = os.path.join(run_dir, "packages")
+diff --git a/tools/p4_health/lab_round.py b/tools/p4_health/lab_round.py
+index b2466dd5..0d22a2a4 100644
+--- a/tools/p4_health/lab_round.py
++++ b/tools/p4_health/lab_round.py
+@@ -321,9 +321,11 @@ class LabRound(object):
+         meanwhile stays pending and is delivered, when the mask is put back, to whatever handler is then
+         installed. Chosen over re-checking `teardown_signal` after the restore because it leaves no window to
+         reason about (a re-check has its own gap after the check) and the stop reaches the run-level handler,
+-        which ends the run, instead of being folded into a record that was already final. The probe has no
+-        threads (nothing under tools/p4_health imports threading), so masking the main thread masks the
+-        process."""
++        which ends the run, instead of being folded into a record that was already final. The probe's own code
++        starts no threads, but the process may have some: the ValueSet trial runs gRPC in it, and those threads
++        inherit a block from s0.stops_held. So lab.run_lab refuses to start the lab while any other thread of the
++        process can take one of the three (it reads every thread's SigBlk), and masking the calling thread is then
++        masking the process."""
+         if not self.install_signals:
+             yield
+             return
+diff --git a/tools/p4_health/probe.py b/tools/p4_health/probe.py
+index 0866a386..a750f1b4 100755
+--- a/tools/p4_health/probe.py
++++ b/tools/p4_health/probe.py
+@@ -47,7 +47,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
+ #:   * files exec'd by path, which are never in sys.modules: exercise/gen_runtime.py (the model). S0 copies
+ #:     exercise/ into the run dir and checks the copy against the pinned commit right after compile_all
+ #:     (frozen.check_tree: a mismatch is rc 2 before any lab action); lab.load_model, S0 and the controller trial
+-#:     then load the COPY, never the shared tree's file.
++#:     then load the COPY, never the shared tree's file. (round 7) S0 then hands the copy to the shared tree's
++#:     convert.py as input, so lab.run_lab checks it again, against the same commit, immediately before
++#:     lab.load_model runs gen_runtime.py from it (still before any claim).
+ #:   * files run as scripts from the shared tree, read when they run and checked by nothing: probe.py itself,
+ #:     openapi_probe.py, capture_thrift_fixtures.py, tools/p4_exercise/convert.py and preflight.py,
+ #:     tools/test_workflow/heartbeat_drop_check.py, ndt and qdisc_snapshot.sh, and the live-p1 code_identity.py
+diff --git a/tools/p4_health/s0.py b/tools/p4_health/s0.py
+index 66457d4b..6347f55b 100644
+--- a/tools/p4_health/s0.py
++++ b/tools/p4_health/s0.py
+@@ -13,11 +13,13 @@ the Runner does not wrap (a long-lived child stopped by its pid): see throwaway.
+ """
+ from __future__ import annotations
+ 
++import contextlib
+ import hashlib
+ import json
+ import os
+ import re
+ import shutil
++import signal
+ 
+ from . import frames as F
+ from . import frozen as FZ
+@@ -147,6 +149,26 @@ def show_ports_ok(parsed, data_ports=(1, 2, 3), cpu_port=510):
+     return parsed is not None and set(parsed) - {cpu_port} == set(data_ports)
+ 
+ 
++#: The signals a stop arrives as (lab_round.LabRound.SIGS, lab.STOP_SIGNALS).
++STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
++
++
++@contextlib.contextmanager
++def stops_held():
++    """(Cut 2 round 7, finding 1) SIGTERM, SIGINT and SIGHUP blocked in the calling thread for the body of the `with`,
++    and the mask that was there put back afterwards, an exception included. A thread inherits the mask of the thread
++    that starts it, so every thread gRPC starts inside the body blocks the three for good; a lab round's own mask
++    (lab_round.LabRound._masked) covers the calling thread only, and `lab.run_lab` refuses to start the lab while a
++    thread of this process can take a stop. A stop that arrives meanwhile stays pending and is delivered, to
++    whatever handler is in place, when the mask is put back (S0 has none of its own: the default action ends the
++    process, as before, after the trial rather than in the middle of it)."""
++    held = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
++    try:
++        yield
++    finally:
++        signal.pthread_sigmask(signal.SIG_SETMASK, held)
++
++
+ def preflight_rows(stdout):
+     """(FAIL rows, the problem lines under them) out of preflight.py's table."""
+     return [line for line in (stdout or "").splitlines() if line.startswith("  FAIL")]
+@@ -570,9 +592,12 @@ class S0(object):
+         """VS1's Cut 2 safety question (review MAJ-8), asked of throwaway simple_switch_grpc."""
+         try:
+             from . import vs_trial as VT
+-            results = [VT.trial(os.path.join(self.ex, "build"), b, self.thrift_cli,
+-                                os.path.join(self.run_dir, "vs_trial_work"))
+-                       for b in ("/usr/local/bin/simple_switch_grpc", VT.fabric_binary())]
++            # (round 7, finding 1) the trial runs gRPC in this process, and the threads gRPC starts must not be
++            # able to take a stop: see stops_held
++            with stops_held():
++                results = [VT.trial(os.path.join(self.ex, "build"), b, self.thrift_cli,
++                                    os.path.join(self.run_dir, "vs_trial_work"))
++                           for b in ("/usr/local/bin/simple_switch_grpc", VT.fabric_binary())]
+         except Exception as exc:  # noqa: BLE001
+             self.check("ValueSetEntry trial on throwaway simple_switch_grpc", False,
+                        "%s: %s" % (type(exc).__name__, exc))
+diff --git a/tools/p4_health/throwaway.py b/tools/p4_health/throwaway.py
+index 35c87bcd..9415190c 100644
+--- a/tools/p4_health/throwaway.py
++++ b/tools/p4_health/throwaway.py
+@@ -103,6 +103,10 @@ def _die_with_parent():
+         rc = -1
+     if rc != 0:
+         os._exit(127)
++    # (Cut 2 round 7, finding 1) A signal mask is inherited across fork and exec. The ValueSet trial starts its
++    # switches with SIGTERM, SIGINT and SIGHUP blocked in this process (s0.stops_held); a switch that kept the block
++    # would ignore Throwaway.stop()'s terminate() and be ended only by the kill after its 3 s timeout.
++    signal.pthread_sigmask(signal.SIG_UNBLOCK, (signal.SIGTERM, signal.SIGINT, signal.SIGHUP))
+ 
+ 
+ def _wait_port(port, deadline):

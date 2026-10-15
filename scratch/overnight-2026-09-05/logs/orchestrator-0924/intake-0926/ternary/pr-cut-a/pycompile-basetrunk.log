@@ -1,0 +1,26 @@
+commit 18c81892ccad6f98bc89fb208b33187b5fa6d617
+py_compile p4_proxy/proxy_agent/api_routes.py -> 0
+py_compile p4_proxy/proxy_agent/main.py -> 0
+py_compile p4_proxy/proxy_agent/match_shape.py -> missing
+py_compile p4_proxy/proxy_agent/p4_client.py -> 0
+py_compile p4_proxy/proxy_agent/rule_install_times.py -> 0
+py_compile p4_proxy/proxy_agent/ryu_flow_stats.py -> 0
+py_compile p4_proxy/tests/test_flow_stats_route.py -> 0
+py_compile p4_proxy/tests/test_foreign_pipeline.py -> 0
+py_compile p4_proxy/tests/test_p4_client_writes.py -> 0
+py_compile p4_proxy/tests/test_rule_install_times.py -> 0
+py_compile p4_proxy/tests/test_ryu_flow_stats.py -> 0
+py_compile p4_proxy/tests/test_switch_state.py -> 0
+py_compile p4_proxy/tests/test_table_entry_route.py -> 0
+py_compile tests/python/test_p4_health_cells.py -> 0
+py_compile tests/python/test_p4_health_collect.py -> 0
+py_compile tools/p4_exercise/common.py -> 0
+py_compile tools/p4_exercise/preflight.py -> 0
+py_compile tools/p4_exercise/tests/test_preflight.py -> 0
+py_compile tools/p4_health/cells/table.py -> 0
+py_compile tools/p4_health/exercise/gen_runtime.py -> 0
+py_compile tools/p4_health/lab.py -> 0
+py_compile tools/p4_health/observe_a.py -> 0
+py_compile tools/p4_health/runtime_cli.py -> 0
+py_compile tools/p4_health/s0.py -> 0
+rc=0

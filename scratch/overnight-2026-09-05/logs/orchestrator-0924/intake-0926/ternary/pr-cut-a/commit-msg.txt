@@ -1,0 +1,9 @@
+p4_proxy: write ternary, range and optional table entries
+
+POST /p4/table_entry now builds TERNARY ([value, mask]), RANGE ([low, high]) and OPTIONAL
+entries with a priority, and the exercise pre-flight accepts them too: both use one shape
+check, match_shape.py. A malformed entry gets a 400 naming the field before anything reaches
+the switch, and a switch refusal returns its P4Runtime error code in the 502 body.
+GET /stats/flow leaves out the rows it cannot describe, and /p4/switch_state counts them per
+switch. The P4 health check now expects the pre-flight to accept its ternary entry; its T4-T7
+probes were checked against throwaway bmv2 switches, not yet against a live lab.

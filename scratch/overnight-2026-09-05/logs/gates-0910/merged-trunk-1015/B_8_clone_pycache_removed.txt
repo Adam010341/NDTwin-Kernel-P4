@@ -1,0 +1,6 @@
+./p4_proxy/mininet/__pycache__
+./p4_proxy/proxy_agent/__pycache__
+./tools/p4_exercise/__pycache__
+./tools/p4_health/cells/__pycache__
+./tools/p4_health/collect/__pycache__
+./tools/p4_health/__pycache__

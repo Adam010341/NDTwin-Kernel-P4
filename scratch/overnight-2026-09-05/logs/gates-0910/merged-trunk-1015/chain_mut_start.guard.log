@@ -1,0 +1,6 @@
+2026-10-15T22:50:49+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 4342 MB; MemAvailable 7749 MB
+guard: shell 237291 SigBlk:	0000000000010000
+guard: shell 237291 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0

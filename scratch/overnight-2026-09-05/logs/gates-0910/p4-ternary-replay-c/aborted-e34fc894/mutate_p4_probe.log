@@ -1,0 +1,21 @@
+commit e34fc89477282c743b6bb38df5e3be4efbe8110f
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate  tracked-dirty=0  df_free_mb=7211  LANG=en_US.UTF-8 LC_ALL=  command: bash tests/shell/mutate_p4_probe.sh
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+interpreter: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate/p4_proxy/venv/bin/python
+HEAD: e34fc89477282c743b6bb38df5e3be4efbe8110f
+baseline (must be green before any mutation):
+Ran 12 tests in 0.003s
+OK
+
+  caught   M1: probe() reads FAILED_PRECONDITION (no pipeline) as ok              (4 case(s) went red)
+  caught   M2: connected_switch_dpids lists a switch whose probe failed           (1 case(s) went red)
+  caught   M3: the stalled-switch amnesty goes to any switch that was probed, answered or not (1 case(s) went red)
+  caught   M4: switch_liveness serves probe_ok true for every probed switch       (1 case(s) went red)
+  caught   M5: the poller records every probe as ok                               (3 case(s) went red)
+  green    C1 (control): a comment inside the probe's error branch                (as it must be)
+
+baseline byte-identical: yes (2 sources, 2 test files)
+mutation gate: 6 mutations, 0 survived
+rc=0

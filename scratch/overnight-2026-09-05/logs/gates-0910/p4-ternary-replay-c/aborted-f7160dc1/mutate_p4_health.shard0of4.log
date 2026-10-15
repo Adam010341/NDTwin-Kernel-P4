@@ -1,0 +1,25 @@
+commit f7160dc19940cd193b13784ab9a25a9b2daaee83
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate  tracked-dirty=0  df_free_mb=7196  LANG=en_US.UTF-8  command: MUT_SHARD=0/4 bash tests/shell/mutate_p4_health.sh
+gate       : tests/shell/mutate_p4_health.sh
+cwd        : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate
+interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20)
+subject    : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate/tools/p4_health
+HEAD       : f7160dc19940cd193b13784ab9a25a9b2daaee83 (commit)
+tree       : 65566a34df66fbd087cae389930ae04071926c71 (git tree of tools/p4_health at HEAD)
+subject sha: 7c5479134e91cf55
+gates sum  : 6fb9bcecf69bd5fb
+
+NOT THE GATE BY ITSELF: shard 0/4 (124 of 494 mutations; the gate is the sum of all 4 shards)
+
+=== BASELINE: every suite green against the real files ===
+  ok       baseline green
+
+=== M1. a 2xx answer is GREEN whatever it says ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/tmp/p4-health-mutate-3OrRHY)
+  anchor occurrences: 1
+  ✅ caught by test_k1_thrift_n_ndtwin_n_plus_1_is_red
+     also red: test_k1_thrift_n_ndtwin_n_plus_1_is_red test_red_fixtures_are_red  test_k1_reads_one_more_than_thrift test_the_oracle_is_thrifts_and_never_the_proxys
+
+=== M5. a 503 counter read is a zero ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/tmp/p4-health-mutate-3OrRHY)
+  anchor occurrences: 1

@@ -1,0 +1,395 @@
+commit f703d0ff19a563a9031e8870a79cd66a82d39961
+test_every_declared_entry_goes_onto_its_switch (__main__.ARealPackageWithRealPipelinesTest.test_every_declared_entry_goes_onto_its_switch) ... ok
+test_every_entry_that_went_out_carries_the_packages_election_id (__main__.ARealPackageWithRealPipelinesTest.test_every_entry_that_went_out_carries_the_packages_election_id) ... [Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabledok
+test_every_switch_is_reported_as_running_somebody_elses_program (__main__.ARealPackageWithRealPipelinesTest.test_every_switch_is_reported_as_running_somebody_elses_program) ... ok
+test_firewalls_own_table_is_written_only_to_the_switch_that_runs_firewall (__main__.ARealPackageWithRealPipelinesTest.test_firewalls_own_table_is_written_only_to_the_switch_that_runs_firewall) ... 
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)ok
+test_the_client_the_factory_built_took_its_identity_from_the_package (__main__.ARealPackageWithRealPipelinesTest.test_the_client_the_factory_built_took_its_identity_from_the_package) ... ok
+test_the_converter_writes_a_package_the_proxy_loads (__main__.ARealPackageWithRealPipelinesTest.test_the_converter_writes_a_package_the_proxy_loads) ... ok
+test_the_default_action_row_every_runtime_file_carries_is_a_modify (__main__.ARealPackageWithRealPipelinesTest.test_the_default_action_row_every_runtime_file_carries_is_a_modify) ... 
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)ok
+test_the_fabric_names_the_three_steps_it_lost_and_each_switch_names_its_two (__main__.ARealPackageWithRealPipelinesTest.test_the_fabric_names_the_three_steps_it_lost_and_each_switch_names_its_two) ... ok
+test_the_fingerprint_is_a_digest_because_the_file_is_really_there (__main__.ARealPackageWithRealPipelinesTest.test_the_fingerprint_is_a_digest_because_the_file_is_really_there) ... 
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[Proxy Agent] Starting up...
+[Proxy Agent] Connected to Switch 1
+[Proxy Agent] Connected to Switch 2
+[Proxy Agent] Connected to Switch 3
+[Proxy Agent] Connected to Switch 4
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry insert: MyIngress.check_ports ['standard_metadata.egress_spec', 'standard_metadata.ingress_port']
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 13 of 13 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 2 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[3] table entry modify: MyIngress.ipv4_lpm (default action)
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 3 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[4] table entry modify: MyIngress.ipv4_lpm (default action)
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']ok
+test_a_table_basic_does_not_have_is_a_keyerror_even_though_ndtwin_has_it (__main__.AgainstARealTutorialsPipelineTest.test_a_table_basic_does_not_have_is_a_keyerror_even_though_ndtwin_has_it) ... /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/p4_proxy/tests/test_foreign_pipeline.py:108: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/tools/p4_exercise/tests/fixtures/firewall/build/basic.p4.p4info.txtpb' mode='r' encoding='utf-8'>
+  text_format.Merge(open(path).read(), p4info)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_says_unsupported (__main__.AgainstARealTutorialsPipelineTest.test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_says_unsupported) ... skipped '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt is not built'
+test_an_entry_from_pod_topos_own_runtime_file_builds_against_basic (__main__.AgainstARealTutorialsPipelineTest.test_an_entry_from_pod_topos_own_runtime_file_builds_against_basic) ... ok
+test_calcs_single_switch_table_builds (__main__.AgainstARealTutorialsPipelineTest.test_calcs_single_switch_table_builds) ... /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/p4_proxy/tests/test_foreign_pipeline.py:108: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/tools/p4_exercise/tests/fixtures/calc/build/calc.p4.p4info.txtpb' mode='r' encoding='utf-8'>
+  text_format.Merge(open(path).read(), p4info)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_firewalls_two_field_exact_table_builds (__main__.AgainstARealTutorialsPipelineTest.test_firewalls_two_field_exact_table_builds) ... /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/p4_proxy/tests/test_foreign_pipeline.py:108: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/tools/p4_exercise/tests/fixtures/firewall/build/firewall.p4.p4info.txtpb' mode='r' encoding='utf-8'>
+  text_format.Merge(open(path).read(), p4info)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match (__main__.AgainstARealTutorialsPipelineTest.test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match) ... ok
+test_the_names_basic_p4_shares_with_ndtwin_switch (__main__.AgainstARealTutorialsPipelineTest.test_the_names_basic_p4_shares_with_ndtwin_switch) ... skipped '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt is not built'
+test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables (__main__.AgainstARealTutorialsPipelineTest.test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables) ... skipped '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt is not built'
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.066s
+
+OK (skipped=3)
+
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[4] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 4 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 4 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 4 usable switches
+[Proxy Agent] could not enter the package's declared links (AttributeError: 'FakeTopo' object has no attribute 'seed_declared_links'); the twin's inter-switch edges stay disabled
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+<sys>:0: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=2, proto=0, laddr=('0.0.0.0', 0)>
+rc=0

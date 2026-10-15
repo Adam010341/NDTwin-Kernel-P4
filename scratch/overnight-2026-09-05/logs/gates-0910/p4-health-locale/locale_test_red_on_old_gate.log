@@ -1,0 +1,9 @@
+commit c24a7d19929a6784087529d3ea2614e07550bb95 (+ uncommitted new test; old gate/sum scripts from c24a7d19 in a scratch dir laid out like the mutation gate's copies)
+  FAIL  the subject sha is the same under a sort that collates as C and one that does not
+86:printf 'subject sha: %s\n' "$(cd "$PKG" && find . -name '*.py' -o -name '*.sh' | sort | xargs sha256sum | sha256sum | cut -c1-16)"
+3501:BASE_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | sort | xargs sha256sum | sha256sum)"
+3522:        [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_][A-Za-z0-9_]*\) .*/\2/p' <<<"$out" | sort -u | tr '\n' ' ')"
+3621:NOW_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | sort | xargs sha256sum | sha256sum)"
+  FAIL  every sort in a pipe of the gate script is told LC_ALL=C
+Ran 72 checks, 2 failed
+rc=1

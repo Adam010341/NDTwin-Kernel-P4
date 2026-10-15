@@ -1,0 +1,5 @@
+commit 8918d051eed25427a49e2544ba84b52b7c6e6571
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/old  tracked-dirty=0  df_free_mb=5735  mem_avail_mb=6468  LANG=en_US.UTF-8 LC_ALL=  command: p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r3/pending_hup.py p4_proxy/venv/bin/python tests/python/test_p4_health_cells.py TestS0Cut2Checks.test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back
+note: SIGHUP pending at exec
+interpreter p4_proxy/venv/bin/python -> /home/adam/miniconda3/bin/python3.13: Python 3.13.13, prefix /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl3/old/p4_proxy/venv
+rc=129

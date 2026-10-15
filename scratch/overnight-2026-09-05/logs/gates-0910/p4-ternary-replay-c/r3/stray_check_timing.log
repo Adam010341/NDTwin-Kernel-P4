@@ -1,0 +1,39 @@
+commit e53ebb406ba0873b071c4b9a4e7cbbef407d8ebf
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/fin  tracked-dirty=0  df_free_mb=5705  LANG=en_US.UTF-8 LC_ALL=  command: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r3/stray_timed.sh
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+command's own program /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+nproc 14  loadavg before: 2.23 2.24 2.11 2/1855 887680
+interpreter: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/fin/p4_proxy/venv/bin/python
+journal dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/fin/p4_proxy/.run/table_entry_journal
+before     : ABSENT 
+after      : ABSENT 
+per file   : 50 files, each in its own process; 0 exited non-zero; changed the directory: none
+suite      : rc=0  Ran 2075 tests in 38.172s OK (skipped=1) 
+ok: one process (2075 tests) and 50 files one by one, and the checkout's table-entry journal is as it was
+	Command being timed: "bash tests/shell/check_no_stray_table_journal.sh"
+	User time (seconds): 26.09
+	System time (seconds): 2.94
+	Percent of CPU this job got: 31%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:31.50
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 115696
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 71
+	Minor (reclaiming a frame) page faults: 749969
+	Voluntary context switches: 31277
+	Involuntary context switches: 943
+	Swaps: 0
+	File system inputs: 20640
+	File system outputs: 65848
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+loadavg after: 2.48 2.32 2.15 2/1838 918127
+rc=0

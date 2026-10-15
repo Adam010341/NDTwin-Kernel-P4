@@ -1,0 +1,12 @@
+4a8cdf7bf1cd6649fd17e95438f1fb3b469d7ef5 p4_health: the cut 2 summary records why the first seventh-round gate stopped at shard 3, the two test fixes, and where the second gate stands
+7a7a257734eee3cd8966c783f77101b3cd56d863 p4_health: the ValueSet trial's mask tests start and end with the stop signals unblocked
+01ba2a411ee1fe4eb03bc98e98932e38afa2e95a p4_health: a test that leaves the stop signals blocked no longer hands its pending signals to the next test
+67af72b3359e8ebb3b068029ab509bcca89bcde0 p4_health: the cut 2 summary records the seventh round and corrects the sixth round's text
+ae753c29f00b9fef043faf0b0993e60e2744e0bd tests: allow the health probe's controller to name the tutorials port base
+af2b3490a571868794cc20625b331b17fc0c5b69 p4_health: check the exercise copy again right before the model is loaded from it
+c8c2cef856fd916a80d6b73492d4ac81f3bf2d5e p4_health: the convert.py test also asserts that the edited gen_runtime.py was not executed
+004f204fdff9fa9c2efef5725cc66007135f1a47 p4_health: tests that an exercise copy edited by convert.py is refused before gen_runtime.py is loaded from it
+611630e3595ebb557ccb9c0893ccd5741cf8ae2f p4_health: the test that HEAD moving after the pin is refused commits to a module the run loads but does not freeze
+dcca25058f1f2272ce9484bc90eb714885e1397e p4_health: refuse a lab run while a thread can take a stop signal, and run the ValueSet trial with the stops blocked
+4658e981d5f53f8ea024a3b53b1ffc83d64b8979 p4_health: the status-file refusal test clears the frozen copies between its runs
+aa526f973833a6923fc606530cf8627fa8cbd614 p4_health: tests for a lab run in a process with a thread that can take a stop, and for the ValueSet trial holding the stop signals

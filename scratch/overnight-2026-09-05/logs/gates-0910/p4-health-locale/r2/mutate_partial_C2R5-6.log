@@ -1,0 +1,185 @@
+commit 8918d051eed25427a49e2544ba84b52b7c6e6571
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate  tracked-dirty=0  df_free_mb=6454  mem_avail_mb=6330  LANG=en_US.UTF-8 LC_ALL=  command: env ONLY_LABEL_PREFIX=C2R5-6 bash tests/shell/mutate_p4_health.sh
+interpreter bash -> /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+gate       : tests/shell/mutate_p4_health.sh
+cwd        : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate
+interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20, prefix /home/adam/miniconda3/envs/ryu-env)
+subject    : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tools/p4_health
+HEAD       : 8918d051eed25427a49e2544ba84b52b7c6e6571 (commit)
+tree       : 2af03ea11cb1f69461eb2018db46c95838050f89 (git tree of tools/p4_health at HEAD)
+subject sha: af6202c51e92093e
+gates sum  : 0b630bee30eb5579
+
+NOT THE GATE: only labels starting C2R5-6 (26 mutations)
+
+=== BASELINE: every suite green against the real files ===
+  ok       baseline green
+
+=== C2R5-6a. the gate script lets k reach n ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [MUT_SHARD with k equal to n is refused]
+     also red: [MUT_SHARD with k equal to n is refused] [MUT_SHARD with k above n is refused]
+
+=== C2R5-6b. the gate script lets n exceed the table ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [MUT_SHARD with n just above the table size is refused too]
+     also red: [MUT_SHARD with n larger than the table is refused (a shard that would run nothing)] [MUT_SHARD with n just above the table size is refused too]
+
+=== C2R5-6c. the gate script runs when no mutation is selected ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [an ONLY_LABEL_PREFIX that matches nothing is refused (no mutation is selected)]
+     also red: [an ONLY_LABEL_PREFIX that matches nothing is refused (no mutation is selected)] [a shard and a prefix that together select nothing are refused]
+
+=== C2R5-6d. the gate script takes a shard with a leading zero ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [MUT_SHARD with a leading zero is refused]
+     also red: [MUT_SHARD with a leading zero is refused]
+
+=== C2R5-6e. the gate script does not say a shard is not the gate ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard log opens with NOT THE GATE BY ITSELF: shard k/n]
+     also red: [the table's size is read from the gate's own one-shard banner] [MUT_SHARD with n just above the table size is refused too] [MUT_SHARD with n equal to the table size is not refused by the validation] [a shard log opens with NOT THE GATE BY ITSELF: shard k/n]
+
+=== C2R5-6f. the gate script announces a banner for the whole gate ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [the whole gate does not]
+     also red: [the whole gate does not]
+
+=== C2R5-6g. the shard-sum script takes shards of different commits ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard of another commit (first line and HEAD line)]
+     also red: [a shard of another commit (first line and HEAD line)] [a shard of another tools/p4_health tree] [a shard of another subject sha]
+
+=== C2R5-6h. the shard-sum script lets n exceed the table ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [n larger than the table (two shards would have run nothing)]
+     also red: [n larger than the table (two shards would have run nothing)]
+
+=== C2R5-6i. the shard-sum script does not compare the first line with the HEAD line ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard whose first line is not the commit HEAD says]
+     also red: [a shard whose first line is not the commit HEAD says]
+
+=== C2R5-6j. the shard-sum script accepts uncommitted changes ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard of a tree with uncommitted changes]
+     also red: [a shard of a tree with uncommitted changes]
+
+=== C2R5-6k. the shard-sum script does not look at the rc line ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard that ended rc=1]
+     also red: [a shard that ended rc=1] [a shard that ended rc=2] [a shard whose log does not end in an rc line]
+
+=== C2R5-6l. the shard-sum script accepts a survivor ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard that survived a mutation, even with rc 0 written]
+     also red: [a shard that survived a mutation, even with rc 0 written]
+
+=== C2R5-6m. the shard-sum script accepts a partial run ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a partial run]
+     also red: [a partial run]
+
+=== C2R5-6n. the shard-sum script does not look for the banner ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard without the not-the-gate banner (not a log of this script)]
+     also red: [a shard without the not-the-gate banner (not a log of this script)]
+
+=== C2R5-6o. the shard-sum script does not look at the baseline ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard whose baseline is not green]
+     also red: [a shard whose baseline is not green]
+
+=== C2R5-6p. the shard-sum script does not look at the negative control ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard whose negative control is not green]
+     also red: [a shard whose negative control is not green]
+
+=== C2R5-6q. the shard-sum script does not look at the byte-identical line ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard that does not say the original is byte-identical]
+     also red: [a shard that does not say the original is byte-identical]
+
+=== C2R5-6r. the shard-sum script does not look at the after-check ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard whose after-check is not green]
+     also red: [a shard whose after-check is not green]
+
+=== C2R5-6s. the shard-sum script lets a shard be given twice ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [the same shard twice in place of another]
+     also red: [the same shard twice in place of another]
+
+=== C2R5-6t. the shard-sum script does not check that the shards are 0..n-1 ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [three shards of four]
+     also red: [three shards of four]
+
+=== C2R5-6u. the shard-sum script does not check each shard's share ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a shard that ran more mutations than its share (the counts no longer add up)]
+     also red: [a shard that ran more mutations than its share (the counts no longer add up)]
+
+=== C2R5-6v. the shard-sum script lets n differ between the logs ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [shards of different n]
+     also red: [shards of different n]
+
+=== C2R5-6w. the shard-sum script lets the size of the table differ ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [shards that disagree on the size of the table]
+     also red: [shards that disagree on the size of the table]
+
+=== C2R5-6x. the shard-sum script takes no logs ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [no logs at all is refused, with a reason]
+     also red: [no logs at all is refused, with a reason]
+
+=== C2R5-6y. the shard-sum script takes a refused run's log ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [a log of a refused run]
+     also red: [a log of a refused run]
+
+=== C2R5-6z. the shard-sum script prints another line when all is well ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/p4hl2/gate/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/tmp/p4-health-mutate-9NXzQA)
+  anchor occurrences: 1
+  ✅ caught by [four good shards of ten: the one GATE line, rc 0]
+     also red: [four good shards of ten: the one GATE line, rc 0] [a single shard of the whole table (1/1) is the gate] [the order of the logs on the command line does not matter] [--commit naming the logs' commit is accepted, and the GATE line names that commit]
+
+=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===
+  anchor occurrences: 1
+  ✅ green: the suites do not react to a comment
+
+--- was the original written? ---
+  byte-identical  tools/p4_health  681e4366217596c9
+  byte-identical  the gate's own scripts  0b630bee30eb5579
+  suites green against the real files
+
+26 mutations, 0 survived
+PARTIAL RUN: only labels starting C2R5-6 -- this is not the gate
+rc=0

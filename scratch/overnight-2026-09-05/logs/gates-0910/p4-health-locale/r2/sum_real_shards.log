@@ -1,0 +1,34 @@
+commit 8918d051eed25427a49e2544ba84b52b7c6e6571
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/gate  tracked-dirty=0  df_free_mb=6060  mem_avail_mb=4702  LANG=en_US.UTF-8 LC_ALL=  command: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-locale/r2/sumcheck.sh
+interpreter bash -> /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+line 5 of each real log:
+  shard0: interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20)
+  shard1: interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20)
+  shard2: interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20)
+  shard3: interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20)
+
+### the four real logs, no --commit (the checkout's HEAD is not fd208fbd)
+$ tests/shell/sum_p4_health_gate_shards.sh <real>/mutate_p4_health.shard0of4.log <real>/mutate_p4_health.shard1of4.log <real>/mutate_p4_health.shard2of4.log <real>/mutate_p4_health.shard3of4.log
+NOT THE GATE: the logs are of commit fd208fbd247381b4739bc194830ecd0845ce4fbe, which is not the checkout's HEAD (8918d051eed25427a49e2544ba84b52b7c6e6571)
+NOT THE GATE: the logs' tools/p4_health tree 65566a34df66fbd087cae389930ae04071926c71 is not the tree of 8918d051eed25427a49e2544ba84b52b7c6e6571 (2af03ea11cb1f69461eb2018db46c95838050f89)
+(sum rc=1)
+
+### the four real logs, --commit fd208fbd
+$ tests/shell/sum_p4_health_gate_shards.sh --commit fd208fbd <real>/mutate_p4_health.shard0of4.log <real>/mutate_p4_health.shard1of4.log <real>/mutate_p4_health.shard2of4.log <real>/mutate_p4_health.shard3of4.log
+GATE: 494 mutations, 0 survived, shards 4/4 ok, commit fd208fbd247381b4739bc194830ecd0845ce4fbe, tree 65566a34df66fbd087cae389930ae04071926c71, subject sha 7c5479134e91cf55
+(sum rc=0)
+
+copy, path: shard2 line 5 is now: interpreter: /usr/bin/python3.8 (3.8.20)
+
+### copies, shard 2's interpreter path changed, --commit fd208fbd
+$ tests/shell/sum_p4_health_gate_shards.sh --commit fd208fbd <copies>/path/mutate_p4_health.shard0of4.log <copies>/path/mutate_p4_health.shard1of4.log <copies>/path/mutate_p4_health.shard2of4.log <copies>/path/mutate_p4_health.shard3of4.log
+NOT THE GATE: interpreters differ between the logs: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20); /usr/bin/python3.8 (3.8.20)
+(sum rc=1)
+
+copy, version: shard2 line 5 is now: interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.19)
+
+### copies, shard 2's interpreter version changed, --commit fd208fbd
+$ tests/shell/sum_p4_health_gate_shards.sh --commit fd208fbd <copies>/version/mutate_p4_health.shard0of4.log <copies>/version/mutate_p4_health.shard1of4.log <copies>/version/mutate_p4_health.shard2of4.log <copies>/version/mutate_p4_health.shard3of4.log
+NOT THE GATE: interpreters differ between the logs: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.19); /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20)
+(sum rc=1)
+rc=0

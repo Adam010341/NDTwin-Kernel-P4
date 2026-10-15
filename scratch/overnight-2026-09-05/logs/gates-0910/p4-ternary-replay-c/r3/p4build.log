@@ -1,0 +1,11 @@
+commit 7f69609b637915fc543c529de5566737a4d4cb75
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/final  tracked-dirty=0  df_free_mb=5704  LANG=en_US.UTF-8 LC_ALL=  command: p4c-bm2-ss --arch v1model -o p4_proxy/p4_src/build/ndtwin_switch.json --p4runtime-files p4_proxy/p4_src/build/ndtwin_switch.p4info.txt p4_proxy/p4_src/ndtwin_switch.p4
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+command's own program /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build:  ndtwin_switch.json   ndtwin_switch.p4info.txt
+p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+rc=0

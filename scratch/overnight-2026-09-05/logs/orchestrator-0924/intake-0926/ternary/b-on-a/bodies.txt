@@ -1,0 +1,73 @@
+c7798953d4272cc13aa9fc3cc537b3f006552ec3
+p4_proxy: record how the table-entry journal moved onto the ternary writer
+
+The journal summary gains a section on the merge onto the ternary writer and the owner check:
+the conflicts and how each was settled, the test changes, and the gate results at 143fb7b0.
+----
+143fb7b029fb0a03092e218120f888a71accb4f2
+tests: kill the owner check in the table-journal gate
+
+A write into a table NDTwin owns leaves no journal record only because the owner check refuses it
+first. The new mutation drops that check and names the test that says the journal stays empty.
+----
+cda9fea3577f06cf2b3eee4cba4b890d05fd6cc1
+Merge the table-entry journal onto the ternary writer and the owner check
+
+The journal now wraps writes that have passed the owner check, so a write into a table NDTwin owns
+is refused before anything is recorded, and a test says so. The journal tests bind their client as
+a user pipeline, and the owner tests no longer append to the checkout's own journal directory.
+----
+709950617f509ce2a68e81e51bb5594bd75e8660
+p4_proxy: record the review fixes and the list for the next cut in the journal summary
+----
+357b23760f3eba4b2207e11f2b39e79328060a5b
+tests: add the unblocked-write mutation to the table-journal gate
+----
+ada0a5d018f86bc0703839e6894f97d3d4ee8964
+tests: keep the lock-bound tests from hanging when the bound is missing
+
+The waiting writes run on daemon threads with a join timeout, so code with no timeout fails the test instead of blocking it.
+----
+07d18e537b62416c992091d4310a6895efc501f1
+tests: cover the new journal paths in the table-journal gate
+
+Mutations for the fallback claim, the op spelling, the header provider's wiring, the not_found count and the lock bound; the lock mutations are re-anchored on the new acquire helper and a few labels are corrected. The op control in the table-entry gate follows the route's new spelling.
+----
+c426b1d4a76805b343015da6ab13273085d016a9
+p4_proxy: bound the per-switch lock wait and tidy the journal counters
+
+A POST waits at most one gRPC deadline for another write to the same switch, then answers 503 switch busy and writes nothing. The op is normalised once in the route so an upper-case DELETE answered NOT_FOUND is recorded; not_found deletes are counted apart from accepted writes; the switch_state fallback takes its journaled from the same constant as the rest.
+----
+166b11acca21fd709c03e213b7d138fe9f02e08c
+p4_proxy: add the summary of the table-entry journal cut
+----
+adcb9081b04c7f64e497fd7d859ccba292bf0109
+tests: link the topology models into the rule-journal wiring gate
+
+The gate's mutant tree had no setting/ directory, so importing main raised and the baseline was red before any mutation ran. The models are an input to the import, as in the other proxy gates.
+----
+050ab3247ae146eccca3d746e4daea34a89419e0
+tests: make the table-journal gate reach every test in its file
+
+Eleven tests in test_table_entry_journal.py had never been seen red; each now has a mutation it must catch. The test that reads the real status output now writes through the journal first, so it cannot pass on an empty result.
+----
+fe0172b69d98f9206d5a21dd751caa51b66fc895
+rule_journal: encode table-journal lines in one helper
+
+The table-entry journal repeated the json.dumps line the routing journal's gate anchors on, so that anchor was no longer unique. Lines are now built by one helper, and the new gate checks its baseline hashes inline like the others.
+----
+f444c9aa5b9206df855f8c678bf2d8fbe6e86791
+tests: add the table-entry journal mutation gate
+
+mutate_table_journal.sh mutates the journal, the route's journaled/journal fields, the main.py wiring and the default-entry key, and requires each change to turn a named test red. The two existing gate mutations that guard journaled:false in mutate_table_entry.sh are re-anchored onto the lines that now compute it.
+----
+5d67358ab4afbb41e356c1eba0bb6921917c51d7
+p4_proxy: record API table-entry writes in a per-switch journal
+
+POST /p4/table_entry now appends each accepted write to .run/table_entry_journal/s<dpid>.jsonl after the switch took it, under a per-switch lock, and the entries fold to a net write per identity. Nothing replays the journal yet, so journaled stays false in the response and in switch_state; a separate journal block says what is recorded, how many writes failed to record, and that replay is not implemented.
+----
+a76eb3ab6cc8f134f152e67c12a2538d9ae02b0f
+p4_client: give a table's default entry its own identity
+
+A default entry and a catch-all entry with every field omitted both keyed as (dpid, table, 0, ()), so the install-time record and anything keyed on the same identity could not tell them apart. The default now keys as (dpid, table, "default"), and write_table_entry returns the key it used, plus a table_entry_key helper for a spec that was never written.
+----

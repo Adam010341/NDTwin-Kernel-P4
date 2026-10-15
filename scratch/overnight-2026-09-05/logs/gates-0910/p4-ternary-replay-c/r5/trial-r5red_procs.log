@@ -1,0 +1,6 @@
+2026-10-15T19:55:20+0800 watching the parent chains under pid 3444235
+2026-10-15T19:55:26+0800 started pid 3444296 ppid 3444235 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5red/switch-m2-stock-1
+2026-10-15T19:55:37+0800 started pid 3444534 ppid 3444235 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5red/switch-m2b-stock-1
+2026-10-15T19:55:55+0800 started pid 3444851 ppid 3444235 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5red/switch-m2-fast-1
+2026-10-15T19:56:06+0800 started pid 3445029 ppid 3444235 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5red/switch-m2b-fast-1
+2026-10-15T19:56:23+0800 pid 3444235 ended; 4 recorded

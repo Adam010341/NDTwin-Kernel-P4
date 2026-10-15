@@ -1,0 +1,8 @@
+The health check can now drive a packet-level bring-up on a Mininet fabric (A) and
+a bring-up with an external P4Runtime controller (B), read the results back, and
+decide each cell of the verdict table from the recording, also offline from a saved
+run. A lab run pins one commit, refuses a dirty probe tree, runs the code it
+froze into the run directory, and ends INCOMPLETE with a reason when a stop signal,
+an exception or an unclean teardown cuts a round short. It has not been run against
+a live lab yet. The tests and the mutation gate for all of it come with it, and the
+health probe's controller may name the tutorials port base.

@@ -1,0 +1,27 @@
+f9f28623bdd38bff1d0ecd1eb5b1979a7e94cf56 tests: name the health-check mutants' subjects so the anchor checker can read them
+b735a5187c98109d2cf052849496deeb0d459e30 p4_health: record T4-T7 as observed offline
+e17d39e56b43e7a76bb2327eea6e19c50f51f385 p4_health: tighten what counts as PF-T's ternary entry and its refusal
+e1e5747e91782b33ca6d063deabcd9a1a576f2dc Merge branch 'feat/p4-ternary-writer-a' into feat/p4-health-ternary-d
+a4e67f6ed0629fc5e20bc56bb5d77ea79dba2e37 doc: record the fifth round of Cut A and its gate totals
+6dc8b9a4692a4d135a80196188bb2efe837f8533 doc: record the health-check half of the ternary writer
+76e3b468b21411bd78f6edb242e77f4bafaa0252 p4_health: expect the ternary writer in PF-T and T4-T7
+a6ad886c60881abfdad5bacf2159aebccb917d0a p4 proxy: say exactly which rows /stats/flow counts as left out
+95a8972ba2ee340d665d11f17b07cbff2a80ab53 Merge branch 'feat/p4-ternary-writer-a' into feat/p4-health-ternary-d
+b2618b883330b69eb0a69a7f2f084e77389cf7be doc: record the fourth round of Cut A (counted renders, new mutants, gate results)
+f81a608a8d9a07ea547d5546ae4cbf03843eb73e p4 proxy: count the rows /stats/flow leaves out on NDTwin's own pipeline too
+0d0706257e6650c30e56c3d0bd5d47a3d2c504fd doc: record that the owner check refuses the flow_5tuple catch-all
+42c222979ddafc3a8ba2456b28dffcab9b9727d8 tests: run the shape and priority rules as user writes now that NDTwin owns its tables
+02ce0232317cfec52dd4ef54b428bbf1bc5be09a Merge trunk 6c1a78c8 (refuse table-entry writes into tables NDTwin owns) into feat/p4-ternary-writer-a
+526dd41c975dcc6d3ea36c3c90c8890c3b773914 doc: correct the first table-writer summary and record the second-round fixes
+3a90e63a5dabf29e0d296dadeca721de898075a1 tests: keep the shape-rule properties off NDTwin's own tables
+92a623aeb9cbb0bb8ef8efea63d3be0f80c334ca ryu_flow_stats: leave out and count matches Ryu cannot express
+28546dc1f9288ecf48b55f6c300ed2120a0bc65d p4_proxy: add the summary of the first table-writer cut
+1b16b0a06c73e7732972bb3347f706dc1c671d37 p4_proxy: note that the proxy now imports google.rpc itself
+9f474d2aec5a0d8f09fbeecbdf0502798cd446e5 tests: link the topology models into the install-time mutation gate
+b75448cd7f67833ede91ffee196a37f4c23c2ca7 match_shape: one guard for the unsupported match type, and gates for the shape rules
+b822506ad8d480542311570d54688dda498e694a p4_client: check match fields and priorities before the write
+07060fa2a4377bd2e2235737ca861052de4ad1d9 p4_client: build ternary, range and optional table entries
+5b07451d98fefe998ba9b2f389d6014d6d001e50 Merge branch 'design/p4-ternary-journal' into feat/p4-ternary-writer-a
+e5e79aea998995ff964d9e202e21a9a70fc481dc p4_proxy: narrow the default-action exception and confirm cookies before the push
+a3c46bb07b795e55586141810c8ee776058f1534 p4_proxy: revise the ternary writer and table-entry journal design
+521a95d14d1407aaedb4e66c6acf0a6effdfb4e7 p4_proxy: design for ternary/range/optional table writes and a table-entry journal

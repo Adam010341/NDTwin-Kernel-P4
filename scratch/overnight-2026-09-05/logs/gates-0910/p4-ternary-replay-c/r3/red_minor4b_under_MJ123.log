@@ -1,0 +1,23 @@
+commit 7f69609b637915fc543c529de5566737a4d4cb75
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/m123  tracked-dirty=1  df_free_mb=5390  LANG=en_US.UTF-8 LC_ALL=  command: bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r3/unit.sh tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_two_overlapping_readopts_keep_the_switch_pending_until_the_second_ends
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+command's own program /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+test_two_overlapping_readopts_keep_the_switch_pending_until_the_second_ends (tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_two_overlapping_readopts_keep_the_switch_pending_until_the_second_ends) ... FAIL
+
+======================================================================
+FAIL: test_two_overlapping_readopts_keep_the_switch_pending_until_the_second_ends (tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_two_overlapping_readopts_keep_the_switch_pending_until_the_second_ends)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/m123/p4_proxy/tests/test_table_entry_journal.py", line 1665, in test_two_overlapping_readopts_keep_the_switch_pending_until_the_second_ends
+    self.assertTrue(journals.pending(1), "the second readopt is still under way")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : the second readopt is still under way
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+rc=1

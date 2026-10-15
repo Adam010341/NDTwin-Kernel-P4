@@ -1,0 +1,13 @@
+2026-10-09 15:34:14 END shard lines=4  mutate_p4_health procs=5  stepA_done=0
+2026-10-09 15:39:14 END shard lines=5  mutate_p4_health procs=1  stepA_done=0
+2026-10-09 15:44:14 END shard lines=5  mutate_p4_health procs=1  stepA_done=0
+note 2026-10-09 15:45:27: stepC restarted with a refined process test: the literal 'args contain mutate_p4_health' matched another session's shell wrapper (pid 3603299, a 'timeout 595 bash -c until grep -c END shard -ge 6' watcher quoting mutate_p4_health.shard1of4.log), not the gate. END shard lines=5, no process of the form [timeout/env MUT_SHARD] bash tests/shell/mutate_p4_health.sh.
+2026-10-09 15:45:43 END shard lines=5  mutate_p4_health procs=0  stepA_done=0
+2026-10-09 15:50:43 END shard lines=5  mutate_p4_health procs=0  stepA_done=0
+2026-10-09 15:55:43 END shard lines=5  mutate_p4_health procs=0  stepA_done=0
+2026-10-09 16:00:43 END shard lines=5  mutate_p4_health procs=0  stepA_done=0
+2026-10-09 16:05:43 END shard lines=5  mutate_p4_health procs=0  stepA_done=0
+2026-10-09 16:10:43 END shard lines=5  mutate_p4_health procs=0  stepA_done=0
+rc=0
+2026-10-10 02:57:51 END shard lines=8  mutate_p4_health procs=0  stepA_done=1
+rc=0

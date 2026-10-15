@@ -1,0 +1,63 @@
+commit a741e76324e4d88ac8129bd3c5a9c2db557d2b7d
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red  tracked-dirty=1  df_free_mb=5381  mem_avail_mb=4015  LANG=en_US.UTF-8 LC_ALL=  command: p4_proxy/venv/bin/python tests/python/test_p4_health_cells.py -k rewrites_a_build_file -k build_output_that_changed -k link_under_a_build -k planted_pyc -k every_exec_of -k writes_no_bytecode
+note: code at a741e763, tests/python/test_p4_health_cells.py from 863ca045 (the round-9 copy-check tests on the code before the fix)
+interpreter p4_proxy/venv/bin/python -> /home/adam/miniconda3/bin/python3.13: Python 3.13.13, prefix /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red/p4_proxy/venv
+FFFFF.
+======================================================================
+FAIL: test_a_convert_that_rewrites_a_build_file_of_the_exercise_copy_is_refused_before_the_pre_flight (__main__.TestTheLiveRunsIdentity.test_a_convert_that_rewrites_a_build_file_of_the_exercise_copy_is_refused_before_the_pre_flight)
+(Round 9) The p4c outputs under build*/ are not in the commit, and the check used to skip them: a
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red/tests/python/test_p4_health_cells.py", line 3397, in test_a_convert_that_rewrites_a_build_file_of_the_exercise_copy_is_refused_before_the_pre_flight
+    self.assertIsInstance(exc, FZ.Refused, "run() raised %r" % (exc,))
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Stop() is not an instance of <class 'p4_health.frozen.Refused'> : run() raised Stop()
+
+======================================================================
+FAIL: test_an_exec_of_the_exercise_copy_writes_no_bytecode_cache_into_it (__main__.TestTheLiveRunsIdentity.test_an_exec_of_the_exercise_copy_writes_no_bytecode_cache_into_it)
+(Round 9) A __pycache__ written into the copy after its first check would be refused by the next one.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red/tests/python/test_p4_health_cells.py", line 3238, in test_an_exec_of_the_exercise_copy_writes_no_bytecode_cache_into_it
+    self.assertFalse(os.path.exists(os.path.join(copy, "__pycache__")))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc (__main__.TestTheLiveRunsIdentity.test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc)
+(Round 9) The copy's gen_runtime.py is checked as source, and it was exec'd through the import system's
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red/tests/python/test_p4_health_cells.py", line 3220, in test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc
+    self.assertFalse(hasattr(mod, "PLANTED_FROM_A_PYC"), "%s ran the cached .pyc" % who)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false : S0._switch_inputs ran the cached .pyc
+
+======================================================================
+FAIL: test_the_exercise_copy_check_refuses_a_link_under_a_build_directory (__main__.TestTheLiveRunsIdentity.test_the_exercise_copy_check_refuses_a_link_under_a_build_directory)
+(Round 9) The build*/ directories used to be skipped whole; a link in one is refused like one elsewhere,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red/tests/python/test_p4_health_cells.py", line 3161, in test_the_exercise_copy_check_refuses_a_link_under_a_build_directory
+    with self.assertRaises(FZ.Refused):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: Refused not raised
+
+======================================================================
+FAIL: test_the_exercise_copy_check_refuses_build_output_that_changed_since_the_first_check (__main__.TestTheLiveRunsIdentity.test_the_exercise_copy_check_refuses_build_output_that_changed_since_the_first_check)
+(Round 9) A later check passes over the same outputs, and refuses one rewritten, one added (in a build*
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red/tests/python/test_p4_health_cells.py", line 3134, in test_the_exercise_copy_check_refuses_build_output_that_changed_since_the_first_check
+    refused_naming("build/hc_main.json")
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl2/red/tests/python/test_p4_health_cells.py", line 3129, in refused_naming
+    with self.assertRaises(FZ.Refused) as ctx:
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: Refused not raised
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.365s
+
+FAILED (failures=5)
+rc=1

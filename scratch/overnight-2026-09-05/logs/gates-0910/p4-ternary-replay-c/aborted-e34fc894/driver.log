@@ -1,0 +1,75 @@
+2026-10-12T03:55:31+08:00 driver start pid 4051156, clone HEAD e34fc89477282c743b6bb38df5e3be4efbe8110f, LANG=en_US.UTF-8 LC_ALL=
+2026-10-12T03:55:31+08:00 [mutate_table_journal] df -m /: 7210 MB free
+2026-10-12T03:55:31+08:00 [mutate_table_journal] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T03:55:31+08:00 [mutate_table_journal] start
+2026-10-12T04:13:27+08:00 [mutate_table_journal] end rc=0 :: OK mutation gate: 158 mutations, 0 survived 
+2026-10-12T04:13:27+08:00 [mutate_table_entry] df -m /: 7209 MB free
+2026-10-12T04:13:27+08:00 [mutate_table_entry] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T04:13:27+08:00 [mutate_table_entry] start
+2026-10-12T04:18:51+08:00 [mutate_table_entry] end rc=0 :: OK mutation gate: 79 mutations, 0 survived 
+2026-10-12T04:18:51+08:00 [mutate_table_entry_owner] df -m /: 7209 MB free
+2026-10-12T04:18:51+08:00 [mutate_table_entry_owner] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T04:18:51+08:00 [mutate_table_entry_owner] start
+2026-10-12T04:20:11+08:00 [mutate_table_entry_owner] end rc=0 :: OK mutation gate: 27 mutations, 0 survived 
+2026-10-12T04:20:11+08:00 [mutate_p4_rule_install_time] df -m /: 7209 MB free
+2026-10-12T04:20:11+08:00 [mutate_p4_rule_install_time] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T04:20:11+08:00 [mutate_p4_rule_install_time] start
+2026-10-12T04:20:28+08:00 [mutate_p4_rule_install_time] end rc=0 :: OK mutation gate: 27 mutations, 0 survived 
+2026-10-12T04:20:28+08:00 [mutate_roles_binding] df -m /: 7209 MB free
+2026-10-12T04:20:28+08:00 [mutate_roles_binding] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T04:20:28+08:00 [mutate_roles_binding] start
+2026-10-12T05:00:20+08:00 [mutate_roles_binding] end rc=0 :: mutation gate: 194 mutations, 0 survived 
+2026-10-12T05:00:20+08:00 [mutate_p4_exercise_tools] df -m /: 7211 MB free
+2026-10-12T05:00:20+08:00 [mutate_p4_exercise_tools] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T05:00:21+08:00 [mutate_p4_exercise_tools] start
+2026-10-12T05:01:41+08:00 [mutate_p4_exercise_tools] end rc=0 :: 37 mutations, 0 survived 
+2026-10-12T05:01:41+08:00 [mutate_rule_journal_is_wired] df -m /: 7211 MB free
+2026-10-12T05:01:41+08:00 [mutate_rule_journal_is_wired] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T05:01:41+08:00 [mutate_rule_journal_is_wired] start
+2026-10-12T05:01:52+08:00 [mutate_rule_journal_is_wired] end rc=0 :: OK mutation gate: 14 mutations, 0 survived 
+2026-10-12T05:01:52+08:00 [mutate_app_package] df -m /: 7211 MB free
+2026-10-12T05:01:52+08:00 [mutate_app_package] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T05:01:52+08:00 [mutate_app_package] start
+2026-10-12T05:05:34+08:00 [mutate_app_package] end rc=0 :: OK mutation gate: 48 mutations, 0 survived 
+2026-10-12T05:05:34+08:00 [mutate_telemetry_by_name] df -m /: 7211 MB free
+2026-10-12T05:05:34+08:00 [mutate_telemetry_by_name] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T05:05:34+08:00 [mutate_telemetry_by_name] start
+2026-10-12T05:10:08+08:00 [mutate_telemetry_by_name] end rc=0 :: OK mutation gate: 23 mutations, 0 survived 
+2026-10-12T05:10:08+08:00 [mutate_p4_priority_refusal] df -m /: 7211 MB free
+2026-10-12T05:10:08+08:00 [mutate_p4_priority_refusal] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T05:10:08+08:00 [mutate_p4_priority_refusal] start
+2026-10-12T05:10:12+08:00 [mutate_p4_priority_refusal] end rc=0 :: 9 mutations, 0 survived 
+2026-10-12T05:10:12+08:00 [mutate_p4_probe] df -m /: 7211 MB free
+2026-10-12T05:10:12+08:00 [mutate_p4_probe] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T05:10:12+08:00 [mutate_p4_probe] start
+2026-10-12T05:10:16+08:00 [mutate_p4_probe] end rc=0 :: OK mutation gate: 6 mutations, 0 survived 
+2026-10-12T05:10:16+08:00 [check_gate_anchors] df -m /: 7211 MB free
+2026-10-12T05:10:16+08:00 [check_gate_anchors] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T05:10:16+08:00 [check_gate_anchors] start
+2026-10-12T05:10:18+08:00 [check_gate_anchors] end rc=1 :: 136/137 cells ok  (1 not ok, of which 0 were NOT CHECKED AT ALL) 
+2026-10-12T05:10:18+08:00 [p4lane] df -m /: 7211 MB free
+2026-10-12T05:10:18+08:00 [p4lane] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T05:10:18+08:00 [p4lane] start
+2026-10-12T05:10:59+08:00 [p4lane] end rc=0 :: FAILURES=0 
+2026-10-12T05:10:59+08:00 [klane] df -m /: 7208 MB free
+2026-10-12T05:10:59+08:00 [klane] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T05:10:59+08:00 [klane] start
+2026-10-12T05:24:20+08:00 [klane] end rc=0 :: FAILURES=0 
+2026-10-12T05:24:20+08:00 [no_stray_table_journal] df -m /: 7205 MB free
+2026-10-12T05:24:20+08:00 [no_stray_table_journal] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T05:24:20+08:00 [no_stray_table_journal] start

@@ -1,0 +1,39 @@
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main483': hc_main483 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main489': hc_main489 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.port_exact': NoAction - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.t_default_only': HcIngress.stamp - 0,
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main502': hc_main502 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main504': hc_main504 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main507': hc_main507 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.tunnel_exact': HcIngress.drop - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.v6_host': HcIngress.drop - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.ipv4_lpm': HcIngress.drop - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.t_ternary': NoAction - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.t_range': NoAction - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.t_optional': NoAction - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.t_dcount': NoAction - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.t_dmeter': NoAction - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.t_idle': NoAction - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main529': hc_main529 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main533': hc_main533 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main537': hc_main537 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main540': hc_main540 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main543': hc_main543 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main546': hc_main546 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main549': hc_main549 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main553': hc_main553 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main557': hc_main557 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'HcIngress.t_multipath': NoAction - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main563': hc_main563 - 
+[22:48:54.965] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main566': hc_main566 - 
+[22:48:54.966] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main597': hc_main597 - 
+[22:48:54.966] [bmv2] [D] [thread 234379] Set default default entry for table 'HcEgress.q_stamp': HcEgress.do_qstamp - 
+[22:48:54.966] [bmv2] [D] [thread 234379] Set default default entry for table 'tbl_hc_main606': hc_main606 - 
+[22:48:54.975] [bmv2] [D] [thread 234379] Adding interface p1 as port 1
+[22:48:54.975] [bmv2] [D] [thread 234379] Adding interface p2 as port 2
+[22:48:54.975] [bmv2] [D] [thread 234379] Adding interface p3 as port 3
+[22:48:54.975] [bmv2] [W] [thread 234379] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[22:48:54.978] [bmv2] [I] [thread 234379] Starting Thrift server on port 29500
+[22:48:54.978] [bmv2] [I] [thread 234379] Thrift server was started
+[22:48:54.978] [bmv2] [D] [thread 234402] Pcap reader: starting PcapFilesReader 3
+[22:48:54.978] [bmv2] [D] [thread 234402] Pcap reader: waiting for 2 seconds

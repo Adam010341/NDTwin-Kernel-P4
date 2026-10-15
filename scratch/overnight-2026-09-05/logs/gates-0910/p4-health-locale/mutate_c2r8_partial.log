@@ -1,0 +1,107 @@
+commit a741e76324e4d88ac8129bd3c5a9c2db557d2b7d
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone  tracked-dirty=0  df_free_mb=6452  mem_avail_mb=3893  LANG=en_US.UTF-8 LC_ALL=  command: env ONLY_LABEL_PREFIX=C2R8- bash tests/shell/mutate_p4_health.sh
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+gate       : tests/shell/mutate_p4_health.sh
+cwd        : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone
+interpreter: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20)
+subject    : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tools/p4_health
+HEAD       : a741e76324e4d88ac8129bd3c5a9c2db557d2b7d (commit)
+tree       : 8781c8bf546627d7c3862f27e4e13162e7123def (git tree of tools/p4_health at HEAD)
+subject sha: a20e26f3136b35c8
+gates sum  : d925d19c24154a20
+
+NOT THE GATE: only labels starting C2R8- (13 mutations)
+
+=== BASELINE: every suite green against the real files ===
+  ok       baseline green
+
+=== C2R8-5a. the subject sha is sorted by the locale's collation ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by [the subject sha is the same under a sort that collates as C and one that does not]
+     also red: [the subject sha is the same under a sort that collates as C and one that does not] [every sort in a pipe of the gate script is told LC_ALL=C]
+
+=== C2R8-5b. the tree sum taken before the mutations is sorted by the locale's collation ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by [every sort in a pipe of the gate script is told LC_ALL=C]
+     also red: [every sort in a pipe of the gate script is told LC_ALL=C]
+
+=== C2R8-5c. the tree sum taken after the mutations is sorted by the locale's collation ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by [every sort in a pipe of the gate script is told LC_ALL=C]
+     also red: [every sort in a pipe of the gate script is told LC_ALL=C]
+
+=== C2R8-5d. the list of red tests is sorted by the locale's collation ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tests/shell/mutate_p4_health.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by [every sort in a pipe of the gate script is told LC_ALL=C]
+     also red: [every sort in a pipe of the gate script is told LC_ALL=C]
+
+=== C2R8-5e. the shard-sum script sums shards run by different interpreters ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by [a shard run by another python version]
+     also red: [a shard run by another python version] [a shard run by the same version of another python (another path, say another machine)]
+
+=== C2R8-5f. the shard-sum script takes a log with no interpreter line ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by [a shard whose log has no interpreter line]
+     also red: [a shard whose log has no interpreter line]
+
+=== C2R8-5g. the shard-sum script compares only the interpreter's version, not its path ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tests/shell/sum_p4_health_gate_shards.sh  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by [a shard run by the same version of another python (another path, say another machine)]
+     also red: [a shard run by the same version of another python (another path, say another machine)]
+
+=== C2R8-2a. S0 does not check its exercise copy again after convert.py has had it as input ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tools/p4_health/s0.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_the_pre_flight
+     also red: test_a_convert_that_adds_a_file_to_the_exercise_copy_is_refused_before_the_pre_flight test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_the_pre_flight
+
+=== C2R8-3a. lab._swap_handlers never puts the signal mask back ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by test_lab_swap_handlers_puts_the_signal_mask_back
+     also red: test_a_b_that_confirmed_most_of_its_attributions_is_not_a_failed_b test_a_b_that_lost_two_calls_is_not_a_failed_b test_a_claim_lost_in_a_keeps_b_out test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_controller_that_never_gets_ready_is_incomplete test_a_failed_down_in_a_keeps_b_out test_a_failed_kill_in_a_keeps_b_out test_a_leftover_lab_state_is_incomplete_rc_2_and_stays_for_recover test_a_recorded_stop_overrides_a_probe_broken_cell test_a_refused_claim_makes_the_run_incomplete test_a_round_cut_off_before_its_record_was_finished_is_not_complete_in_health_json test_a_round_that_cannot_be_built_ends_the_run_incomplete_with_the_earlier_rounds_kept test_a_running_thread_started_with_the_three_signals_blocked_does_not_stop_the_run_or_lose_the_stop test_a_second_stop_while_run_lab_handles_the_first_gives_rc_2_not_pythons_status_1 test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass test_a_see_red_run_whose_mutant_is_not_caught_is_not_a_pass test_a_see_red_run_whose_round_did_not_end_clean_is_incomplete test_a_see_red_run_with_a_problem_of_the_run_is_incomplete test_a_see_red_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_signal_between_the_rounds_ends_the_run test_a_signal_in_an_observer_ends_the_run test_a_signal_while_a_sniffer_is_waited_for_ends_the_round_there test_a_stop_between_the_rounds_overrides_a_probe_broken_cell test_a_stop_during_a_teardown_ends_the_run_before_b_claims test_a_stop_during_b_teardown_is_not_complete test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record test_a_stopped_runs_observations_judge_offline_to_the_same_headline_and_cells test_a_then_b_then_the_verdicts test_an_error_after_health_json_was_written_sets_it_aside_as_not_a_verdict test_an_error_putting_observations_json_in_place_leaves_no_health_json_and_exits_2 test_an_error_writing_observations_json_leaves_no_health_json_and_exits_2 test_an_exception_after_a_rounds_record_is_final_keeps_that_rounds_record test_b_controller_is_recorded_when_the_run_dir_path_has_a_link test_b_on_a_fabric_that_is_not_external_is_incomplete test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy test_b_whose_controller_cannot_be_started_is_a_failed_b test_b_whose_controller_is_not_primary_on_s2_is_a_failed_b test_b_whose_controller_never_gets_ready_is_a_failed_b test_b_whose_controller_reached_no_switch_is_a_failed_b test_b_whose_controller_writes_no_result_is_a_failed_b test_b_whose_fabric_is_not_external_is_a_failed_b test_b_whose_result_file_is_unreadable_is_a_failed_b test_b_whose_sniffer_is_not_ready_is_a_failed_b test_each_bring_ups_last_state_is_kept test_lab_swap_handlers_puts_the_signal_mask_back test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir test_run_lab_puts_the_handlers_it_found_back_when_it_ends test_run_lab_runs_the_frozen_code_it_is_given test_the_calling_thread_is_not_judged_and_threads_that_block_all_three_signals_pass test_the_catch_all_does_not_look_like_a_deliberate_refusal test_the_identity_goes_into_health_json test_the_observations_a_run_writes_carry_what_the_offline_judge_reads test_the_run_levels_first_stop_puts_a_noter_in_before_it_raises test_the_see_red_run_uses_the_mutant_package_and_only_its_cells
+
+=== C2R8-3b. a round's _swap_handlers never puts the signal mask back ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by test_a_rounds_swap_handlers_puts_the_signal_mask_back
+     also red: test_a_round_cut_off_before_its_record_was_finished_is_not_complete_in_health_json test_a_round_puts_the_handlers_it_replaced_back test_a_rounds_swap_handlers_puts_the_signal_mask_back test_a_running_thread_started_with_the_three_signals_blocked_does_not_stop_the_run_or_lose_the_stop test_a_second_stop_before_the_teardown_handler_is_in_place_does_not_skip_the_teardown test_a_stop_during_a_teardown_ends_the_run_before_b_claims test_a_stop_during_b_teardown_is_not_complete test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record test_run_lab_puts_the_handlers_it_found_back_when_it_ends test_sigterm_takes_the_finally
+
+=== C2R8-3c. run_lab does not put the handlers it found back ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tools/p4_health/lab.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by test_run_lab_puts_the_handlers_it_found_back_when_it_ends
+     also red: test_run_lab_puts_the_handlers_it_found_back_when_it_ends
+
+=== C2R8-3d. a round does not put the handlers it replaced back ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tools/p4_health/lab_round.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by test_a_round_puts_the_handlers_it_replaced_back
+     also red: test_a_round_puts_the_handlers_it_replaced_back test_a_running_thread_started_with_the_three_signals_blocked_does_not_stop_the_run_or_lose_the_stop test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record test_sigterm_takes_the_finally
+
+=== C2R8-T8. T8's RED leaves out a failed snapshot ===
+  subject           : /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/clone/tools/p4_health/cells/table.py  (mutated as a copy in /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/p4hl/tmp/p4-health-mutate-u1gErz)
+  anchor occurrences: 1
+  ✅ caught by test_t8_red_says_why_journaled_can_be_false_now
+     also red: test_t8_red_says_why_journaled_can_be_false_now
+
+=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===
+  anchor occurrences: 1
+  ✅ green: the suites do not react to a comment
+
+--- was the original written? ---
+  byte-identical  tools/p4_health  ede32369b6b68aba
+  byte-identical  the gate's own scripts  d925d19c24154a20
+  suites green against the real files
+
+13 mutations, 0 survived
+PARTIAL RUN: only labels starting C2R8- -- this is not the gate
+rc=0

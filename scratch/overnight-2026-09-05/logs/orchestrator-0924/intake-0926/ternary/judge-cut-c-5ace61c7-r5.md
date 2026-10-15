@@ -1,0 +1,16 @@
+# Judge: Cut C round 5, scoped (feat/p4-ternary-replay-c, 7f69609b..5ace61c7)
+
+(Opus judge, read-only, 2026-10-15 ~20:5x. Saved by the orchestrator: summary of the delivered review; full text in session c5aa4598's transcript. 🔴 Keep off public refs until the branch is public.)
+
+**Verdict: MERGE.** No BLOCKER, no MAJOR. Round 5 changes no control flow; the only non-comment code change is the `_STALE_ENTRIES` reason text (rj:386-387), pinned by no test beyond `startswith("stale_entries")`. New tests and mutants red for their own reasons; bmv2 m2/m2b and the red control hold up (48 = 4 sequences x 2 restarts x 6 A-dependent checks); the earlier trial series match r4 byte for byte.
+
+minor 1 (doc-only): the stale-drop disclosure (ar:1022-1025, D:818) is accurate but narrower than the behaviour:
+ (a) a READOPT after an on-disk entries-file edit drops the entry too (mn:1964-1965, mn:923 -> 797-798 hashes the file at that moment; rj:1106/1117-1120) [inferred];
+ (b) the same item is already a net modify BEFORE its first restoration ([delete/ok K, insert/ok S], or a modify of an entry whose insert the journal never saw, K not a package entry), so an entries-file change before the next start drops it too, though the user got journaled: true.
+ Not worse in kind than the ruling. Suggested text, ar:1022-1025: "…and a write the journal holds as a modify or delete — aimed at an entry that was on the switch before the journal saw it: a package entry, an entry whose insert was never recorded, or one the replay restored by an insert — is not put back by the first start or readopt after any change to that switch's entries file;" D:818: 下一次開機 -> 下一次開機或 readopt.
+nits: (1) M-J139's label names the snapshot, but its named test fails first at rp:1382 (restored.op); the snapshot is caught only by also-red rp:1504 / rp:1551 -> rename the killer or reword the label "…restored and snapshot as an insert". (2) check_gate_anchors does not check M-J136's second anchor (fails closed: a drifted anchor shows as SURVIVED) -- record only. (3) rp:1468-1470 `journal_key_of_k` docstring: "the key of the journal's first record". (4) ar:1033-1037: move "A modify has no such record…" before "Separately…". (5) D:424 still says a net modify/delete 碰的是開機 entry 或 default -- same premise fixed at rj:1072.
+Round-4 items: all FIXED except minor 2 (disclosure) PARTLY = minor 1 above; r4 "#3" (pin the disclosed drop) NOT DONE -- the disclosure replaced it.
+Claims: all SUPPORTED except four trivial contradictions (M-J91c also-red is four tests; (d) only the first boot asserts op/records; check_gate_anchors parses only M-J136's first anchor; restart timing).
+Public safety clean; pre-existing ar:1459 "finding #71" (older than the branch).
+Health: S0/openapi_probe unchanged; T8 reads `journaled`, rj:1249 and rj:331 cited correctly.
+Tests it would have run: pin the disclosed drop (start and readopt); entries edit before the first restart; ALREADY_EXISTS->modify retry with a lost answer (a `retried_as != "modify"` variant would survive M-J138's test) [inferred]; readopt net delete meeting NOT_FOUND reports complete (pre-existing gap); bmv2 readopt of A; log the failing assertion in quickmut and the gate.

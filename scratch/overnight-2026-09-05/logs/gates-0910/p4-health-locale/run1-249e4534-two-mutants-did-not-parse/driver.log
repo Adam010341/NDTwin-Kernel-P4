@@ -1,0 +1,18 @@
+2026-10-12T15:35:11+08:00 driver start pid 848730, clone HEAD 249e4534b0a208afe6905a5241246b58fb2cee38, LANG=en_US.UTF-8 LC_ALL=
+2026-10-12T15:35:11+08:00 [p4h.cells] start (avail 4878 MB)
+2026-10-12T15:35:13+08:00 [p4h.cells] end rc=0 :: Ran 190 tests in 2.580s OK 
+2026-10-12T15:35:13+08:00 [p4h.cells.py38] start (avail 4834 MB)
+2026-10-12T15:35:17+08:00 [p4h.cells.py38] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T15:35:17+08:00 [p4h.collect] start (avail 4803 MB)
+2026-10-12T15:35:21+08:00 [p4h.collect] end rc=0 :: Ran 192 tests in 3.624s OK 
+2026-10-12T15:35:21+08:00 [p4h.collect.py38] start (avail 4839 MB)
+2026-10-12T15:35:25+08:00 [p4h.collect.py38] end rc=0 :: Ran 192 tests in 4.043s OK 
+2026-10-12T15:35:25+08:00 [p4h.recover] start (avail 4834 MB)
+2026-10-12T15:36:02+08:00 [p4h.recover] end rc=0 :: Ran 163 checks, 0 failed 
+2026-10-12T15:36:02+08:00 [p4h.gate_scripts] start (avail 4759 MB)
+2026-10-12T15:36:05+08:00 [p4h.gate_scripts] end rc=0 :: Ran 75 checks, 0 failed 
+2026-10-12T15:36:05+08:00 [check_gate_anchors] start (avail 4702 MB)
+2026-10-12T15:36:07+08:00 [check_gate_anchors] end rc=0 :: 
+2026-10-12T15:36:07+08:00 [mutate_c2r8_partial] start (avail 4710 MB)
+2026-10-12T15:46:37+08:00 [mutate_c2r8_partial] end rc=0 :: 12 mutations, 2 survived 
+2026-10-12T15:46:37+08:00 driver end

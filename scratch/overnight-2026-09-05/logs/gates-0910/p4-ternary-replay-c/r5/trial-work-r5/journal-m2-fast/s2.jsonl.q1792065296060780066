@@ -1,0 +1,3 @@
+{"boot_id":"e4a20269ef9546e9966db5cb05d15af6","dpid":2,"entries_sha256":"24f8521eb38173df","fabric_cookie":"b2b5546536768d0f","header":true,"p4info_sha256":"5ce0a5595d5a65f1","v":1}
+{"key":"6b8d5e9ebf74f71dc0a565b83f2f9b24","op":"delete","outcome":"ok","spec":{"action_name":"HcIngress.set_mark","action_params":{"v":5},"match":{"hdr.ipv4.srcAddr":["10.0.77.1","255.255.255.255"]},"priority":10,"table":"HcIngress.t_ternary"},"t":1792065292.5596178,"v":1}
+{"key":"6b8d5e9ebf74f71dc0a565b83f2f9b24","op":"insert","outcome":"ok","spec":{"action_name":"HcIngress.set_mark","action_params":{"v":6},"match":{"hdr.ipv4.srcAddr":["10.0.77.1","255.255.255.255"]},"priority":10,"table":"HcIngress.t_ternary"},"t":1792065292.5699325,"v":1}

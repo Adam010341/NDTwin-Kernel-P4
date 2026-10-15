@@ -1,0 +1,18 @@
+commit c24a7d19929a6784087529d3ea2614e07550bb95
+old line: find . -name '*.py' -o -name '*.sh' | sort | xargs sha256sum | sha256sum | cut -c1-16
+LC_ALL=C: d26b009c0cd59412
+LC_ALL=en_US.UTF-8: 7c5479134e91cf55
+--- first lines where the two orders differ (diff of the sorted lists)
+1d0
+< ./__init__.py
+7d5
+< ./collect/__init__.py
+10a9
+> ./collect/__init__.py
+26a26
+> ./__init__.py
+29d28
+< ./observe.py
+30a30
+> ./observe.py
+rc=0

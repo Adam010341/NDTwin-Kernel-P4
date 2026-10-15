@@ -1,0 +1,276 @@
+[df] 2026-10-09 15:32:53 before stepA: 1644 MB avail
+[df] under 1800, waiting 300 s
+[df] 2026-10-09 15:37:53 before stepA: 1737 MB avail
+[df] under 1800, waiting 300 s
+[df] 2026-10-09 15:42:53 before stepA: 1734 MB avail
+[df] under 1800, waiting 300 s
+[df] 2026-10-09 15:47:53 before stepA: 1733 MB avail
+[df] under 1800, waiting 300 s
+[df] 2026-10-09 15:52:53 before stepA: 1732 MB avail
+[df] under 1800, waiting 300 s
+[df] 2026-10-09 15:57:53 before stepA: 1748 MB avail
+[df] under 1800, waiting 300 s
+[df] 2026-10-09 16:02:53 before stepA: 1710 MB avail
+[df] under 1800, waiting 300 s
+[df] 2026-10-09 16:07:53 before stepA: 1556 MB avail
+[df] under 1800, waiting 300 s
+[df] 2026-10-09 16:12:53 before stepA: 1690 MB avail
+[df] under 1800, waiting 300 s
+[halt] 2026-10-09 16:13:00 stepA.sh and stepC.sh killed by pid (3547098, 3614130): df stayed 1556-1748 MB, never >= 1800 from 15:32 to 16:12; nothing of step A tests or step C was run
+rc=0
+[orchestrator] 2026-10-09 22:02:48 launch stepA then stepC (H f703d0ff, PR 3b3c84ec, trunk 6c1a78c8, threshold 1700)
+[df] 2026-10-09 22:02:48 before stepA: 1285 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:07:48 before stepA: 1284 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:12:48 before stepA: 1283 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:17:48 before stepA: 1156 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:22:48 before stepA: 1281 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:27:48 before stepA: 1300 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:32:48 before stepA: 1300 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:37:48 before stepA: 1300 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:42:48 before stepA: 1300 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:47:48 before stepA: 1300 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:52:48 before stepA: 1298 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 22:57:48 before stepA: 1297 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:02:48 before stepA: 1297 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:07:48 before stepA: 1297 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:12:48 before stepA: 1297 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:17:48 before stepA: 1297 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:22:48 before stepA: 1297 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:27:48 before stepA: 1297 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:32:48 before stepA: 1296 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:37:48 before stepA: 1297 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:42:48 before stepA: 1295 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:47:48 before stepA: 1295 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:52:48 before stepA: 1287 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-09 23:57:48 before stepA: 1287 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:02:48 before stepA: 1287 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:07:48 before stepA: 1288 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:12:48 before stepA: 1288 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:17:48 before stepA: 1288 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:22:48 before stepA: 1288 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:27:48 before stepA: 1288 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:32:48 before stepA: 1288 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:37:48 before stepA: 1287 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:42:48 before stepA: 1287 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:47:48 before stepA: 1286 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:52:48 before stepA: 1286 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 00:57:48 before stepA: 1286 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:02:48 before stepA: 1286 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:07:48 before stepA: 1286 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:12:48 before stepA: 1286 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:17:48 before stepA: 1286 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:22:48 before stepA: 1286 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:27:48 before stepA: 1286 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:32:48 before stepA: 1285 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:37:48 before stepA: 1285 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:42:48 before stepA: 1285 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:47:48 before stepA: 1285 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:52:48 before stepA: 1283 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 01:57:48 before stepA: 1283 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:02:48 before stepA: 1283 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:07:48 before stepA: 1283 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:12:48 before stepA: 1283 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:17:48 before stepA: 1283 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:22:48 before stepA: 1283 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:27:48 before stepA: 1282 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:32:48 before stepA: 1285 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:37:48 before stepA: 1284 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:42:48 before stepA: 1284 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:47:48 before stepA: 1283 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:52:48 before stepA: 1272 MB avail
+[df] under 1700, waiting 300 s
+[df] 2026-10-10 02:57:48 before stepA: 2155 MB avail
+[cmd] 2026-10-10 02:57:48 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA
+[cmd]   exit 0
+[cmd] 2026-10-10 02:57:48 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA checkout -q --detach f703d0ff19a563a9031e8870a79cd66a82d39961
+[cmd]   exit 0
+[cmd] 2026-10-10 02:57:49 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/clA/p4_proxy/venv
+[cmd]   exit 0
+[stepA] test_table_entry_owner rc=0
+[stepA] test_table_entry_owner_package rc=0
+[stepA] test_foreign_pipeline rc=0
+[stepA] test_p4_client_writes rc=0
+STEPA-DONE
+[df] 2026-10-10 02:57:51 before mutate-owner: 2155 MB avail
+[cmd] 2026-10-10 02:57:51 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/mut
+[cmd]   exit 0
+[cmd] 2026-10-10 02:57:52 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/mut checkout -q --detach f703d0ff19a563a9031e8870a79cd66a82d39961
+[cmd]   exit 0
+[cmd] 2026-10-10 02:57:52 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/mut/p4_proxy/venv
+[cmd]   exit 0
+[cmd] 2026-10-10 02:57:52 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/mut/p4_proxy/p4_src/build
+[cmd]   exit 0
+[mutate-owner] rc=0
+[cmd] 2026-10-10 02:58:40 $ rm -rf /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/mut
+[cmd]   exit 0
+[df] 2026-10-10 02:58:40 before clone-basemain: 2155 MB avail
+[cmd] 2026-10-10 02:58:40 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basemain
+[cmd]   exit 0
+[cmd] 2026-10-10 02:58:40 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basemain checkout -q --detach 37e6c79b2c6865e22baa01859a9771f86f7dc7ef
+[cmd]   exit 0
+[cmd] 2026-10-10 02:58:40 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basemain update-ref refs/remotes/origin/trunk d811f871f37d3a22caac214dc837f7223be5cbdb
+[cmd]   exit 0
+[cmd] 2026-10-10 02:58:40 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basemain/p4_proxy/venv
+[cmd]   exit 0
+[df] 2026-10-10 02:58:40 before p4lane-basemain: 2081 MB avail
+[p4lane-basemain] 2026-10-10 02:58:40 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basemain /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/v7-r4/p4lane.sh
+[p4lane-basemain]   rc=0 wall 27.170048827s load=0.39 0.29 0.22 (52 lines)
+[df] 2026-10-10 02:59:08 before klane-basemain: 2078 MB avail
+[klane-basemain] 2026-10-10 02:59:08 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basemain /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/v7-r4/klane.sh
+[klane-basemain]   rc=0 wall 788.053019893s load=1.18 0.83 0.52 (129 lines)
+[df] 2026-10-10 03:12:16 before anchors-basemain: 2074 MB avail
+[anchors-basemain]   rc=0
+[df] 2026-10-10 03:12:18 before tmpdirs-basemain: 2074 MB avail
+[tmpdirs-basemain]   rc=0
+[df] 2026-10-10 03:12:19 before bashn-basemain: 2074 MB avail
+[bashn-basemain]   rc=127
+[df] 2026-10-10 03:12:19 before pycompile-basemain: 2074 MB avail
+[pycompile-basemain]   rc=0
+[df] 2026-10-10 03:12:19 before l1score-basemain: 2072 MB avail
+[l1score-basemain]   rc=0
+[cmd] 2026-10-10 03:12:27 $ rm -rf /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basemain
+[cmd]   exit 0
+[df] 2026-10-10 03:12:27 before clone-pr: 2150 MB avail
+[cmd] 2026-10-10 03:12:27 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/pr
+[cmd]   exit 0
+[cmd] 2026-10-10 03:12:28 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/pr checkout -q --detach 3b3c84eca358afae5c1fa505a5468c91c48b6df8
+[cmd]   exit 0
+[cmd] 2026-10-10 03:12:28 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/pr update-ref refs/remotes/origin/trunk d811f871f37d3a22caac214dc837f7223be5cbdb
+[cmd]   exit 0
+[cmd] 2026-10-10 03:12:28 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/pr/p4_proxy/venv
+[cmd]   exit 0
+[df] 2026-10-10 03:12:28 before p4lane-pr: 2077 MB avail
+[p4lane-pr] 2026-10-10 03:12:28 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/pr /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/v7-r4/p4lane.sh
+[p4lane-pr]   rc=0 wall 28.502766196s load=1.29 0.90 0.56 (54 lines)
+[df] 2026-10-10 03:12:56 before klane-pr: 2074 MB avail
+[klane-pr] 2026-10-10 03:12:56 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/pr /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/v7-r4/klane.sh
+[klane-pr]   rc=0 wall 786.332207222s load=1.17 0.89 0.68 (129 lines)
+[df] 2026-10-10 03:26:03 before anchors-pr: 2070 MB avail
+[anchors-pr]   rc=0
+[df] 2026-10-10 03:26:05 before tmpdirs-pr: 2070 MB avail
+[tmpdirs-pr]   rc=0
+[df] 2026-10-10 03:26:06 before bashn-pr: 2070 MB avail
+[bashn-pr]   rc=0
+[df] 2026-10-10 03:26:06 before pycompile-pr: 2070 MB avail
+[pycompile-pr]   rc=0
+[df] 2026-10-10 03:26:06 before l1score-pr: 2069 MB avail
+[l1score-pr]   rc=0
+[df] 2026-10-10 03:26:14 before builtp4-pr: 2069 MB avail
+[builtp4-pr] rc=0
+[cmd] 2026-10-10 03:26:17 $ rm -rf /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/pr
+[cmd]   exit 0
+[df] 2026-10-10 03:26:17 before clone-basetrunk: 2148 MB avail
+[cmd] 2026-10-10 03:26:17 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basetrunk
+[cmd]   exit 0
+[cmd] 2026-10-10 03:26:17 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basetrunk checkout -q --detach d811f871f37d3a22caac214dc837f7223be5cbdb
+[cmd]   exit 0
+[cmd] 2026-10-10 03:26:17 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basetrunk update-ref refs/remotes/origin/trunk d811f871f37d3a22caac214dc837f7223be5cbdb
+[cmd]   exit 0
+[cmd] 2026-10-10 03:26:17 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basetrunk/p4_proxy/venv
+[cmd]   exit 0
+[df] 2026-10-10 03:26:17 before p4lane-basetrunk: 2073 MB avail
+[p4lane-basetrunk] 2026-10-10 03:26:17 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basetrunk /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/v7-r4/p4lane.sh
+[p4lane-basetrunk]   rc=0 wall 27.437143183s load=1.03 0.90 0.70 (52 lines)
+[df] 2026-10-10 03:26:45 before klane-basetrunk: 2070 MB avail
+[klane-basetrunk] 2026-10-10 03:26:45 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basetrunk /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/v7-r4/klane.sh
+[klane-basetrunk]   rc=1 wall 788.140510791s load=1.10 0.99 0.79 (133 lines)
+[df] 2026-10-10 03:39:53 before anchors-basetrunk: 1991 MB avail
+[anchors-basetrunk]   rc=0
+[df] 2026-10-10 03:39:55 before tmpdirs-basetrunk: 1991 MB avail
+[tmpdirs-basetrunk]   rc=0
+[df] 2026-10-10 03:39:56 before bashn-basetrunk: 1991 MB avail
+[bashn-basetrunk]   rc=127
+[df] 2026-10-10 03:39:56 before pycompile-basetrunk: 1991 MB avail
+[pycompile-basetrunk]   rc=0
+[df] 2026-10-10 03:39:56 before l1score-basetrunk: 1991 MB avail
+[l1score-basetrunk]   rc=0
+[cmd] 2026-10-10 03:40:05 $ rm -rf /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/basetrunk
+[cmd]   exit 0
+[df] 2026-10-10 03:40:05 before clone-trunk: 2070 MB avail
+[cmd] 2026-10-10 03:40:05 $ git clone --shared -q /home/adam/Desktop/NDTwin-Kernel /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/trunk
+[cmd]   exit 0
+[cmd] 2026-10-10 03:40:05 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/trunk checkout -q --detach 6c1a78c8fa80e687889ecb6a401300f2d432808f
+[cmd]   exit 0
+[cmd] 2026-10-10 03:40:05 $ git -C /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/trunk update-ref refs/remotes/origin/trunk d811f871f37d3a22caac214dc837f7223be5cbdb
+[cmd]   exit 0
+[cmd] 2026-10-10 03:40:05 $ ln -s /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/trunk/p4_proxy/venv
+[cmd]   exit 0
+[df] 2026-10-10 03:40:05 before p4lane-trunk: 1996 MB avail
+[p4lane-trunk] 2026-10-10 03:40:05 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/trunk /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/v7-r4/p4lane.sh
+[p4lane-trunk]   rc=0 wall 27.897188929s load=1.05 0.99 0.80 (54 lines)
+[df] 2026-10-10 03:40:33 before klane-trunk: 1992 MB avail
+[klane-trunk] 2026-10-10 03:40:33 $ setsid --wait nice -n 19 ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/trunk /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/ternary/v7-r4/klane.sh
+[klane-trunk]   rc=1 wall 792.004502536s load=1.19 1.16 0.94 (133 lines)
+[df] 2026-10-10 03:53:45 before anchors-trunk: 1905 MB avail
+[anchors-trunk]   rc=0
+[df] 2026-10-10 03:53:47 before tmpdirs-trunk: 1905 MB avail
+[tmpdirs-trunk]   rc=0
+[df] 2026-10-10 03:53:48 before bashn-trunk: 1905 MB avail
+[bashn-trunk]   rc=0
+[df] 2026-10-10 03:53:48 before pycompile-trunk: 1905 MB avail
+[pycompile-trunk]   rc=0
+[df] 2026-10-10 03:53:48 before l1score-trunk: 1905 MB avail
+[l1score-trunk]   rc=0
+[df] 2026-10-10 03:53:57 before builtp4-trunk: 1905 MB avail
+[builtp4-trunk] rc=0
+[cmd] 2026-10-10 03:53:59 $ rm -rf /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/v7r4/cl/trunk
+[cmd]   exit 0
+ALLDONE

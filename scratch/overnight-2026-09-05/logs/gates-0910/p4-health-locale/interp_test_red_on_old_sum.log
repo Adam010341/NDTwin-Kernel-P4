@@ -1,0 +1,6 @@
+commit c24a7d19929a6784087529d3ea2614e07550bb95 (+ uncommitted new test and gate script; OLD shard-sum script from c24a7d19 in a scratch dir laid out like the mutation gate's copies)
+  FAIL  a shard run by another python version
+  FAIL  a shard run by the same version of another python (another path, say another machine)
+  FAIL  a shard whose log has no interpreter line
+Ran 75 checks, 3 failed
+rc=1

@@ -1,0 +1,1349 @@
+commit b3ac9fa2666be288967e0d34b054fefa5b9f4e44
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate  tracked-dirty=0  df_free_mb=7211  LANG=en_US.UTF-8 LC_ALL=  command: bash tests/shell/mutate_table_journal.sh
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+interpreter: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 506 tests in 5.527s
+OK
+
+  caught   M-J1: the journal is written BEFORE the switch, so a refused entry sits in it (test_a_write_the_switch_refuses_is_not_recorded went red)
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_each_failure_is_counted_and_a_success_does_not_hide_it
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_the_failure_is_permanent_for_the_boot_even_after_the_disk_recovers
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_failed_record_shows_on_the_switch_that_had_it
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_recorded_write_shows_under_journal_and_the_switch_is_journaled
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_the_report_in_main_carries_the_same_two_fields
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_real_report_has_no_replay_before_one_has_run
+             also red: tests.test_table_entry_journal.TheLockTest.test_the_journal_order_is_the_order_the_switch_saw
+             also red: tests.test_table_entry_journal.TheLockTest.test_two_writes_to_one_switch_never_interleave_with_each_others_record
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_an_accepted_write_and_a_not_found_delete_are_counted_apart
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_not_found_record_the_disk_would_not_take_is_a_failure_not_a_not_found
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_write_the_switch_refuses_is_not_recorded
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_each_switch_has_its_own_file_and_its_own_lock
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_no_other_refusal_is_recorded
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_the_op_recorded_is_the_one_on_the_wire_not_the_one_asked_for
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_the_record_is_made_after_the_switch_has_taken_the_write
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_what_is_recorded_is_the_op_the_switch_got_and_the_spec_that_was_validated
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_refused_for_another_reason_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_modify_the_switch_answers_NOT_FOUND_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_external_control_plane_is_409_and_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_optional_entry_is_recorded_under_its_priority_and_its_value
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_insert_is_recorded_under_the_normalised_op
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_prefix_length_is_part_of_the_identity
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_switch_refusal_is_a_502_and_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_entry_is_recorded_under_its_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_top_level_not_found_with_no_per_update_reason_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_every_refusal_made_before_the_wire_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_count_a_response_gives_and_the_report_gives_agree
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_file_gains_one_record_with_the_validated_spec
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_two_different_entries_have_two_keys
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file
+  caught   M-J1b: a refused write is swallowed instead of raised (the route would then fail with a 500 on the empty result) (test_a_write_the_switch_refuses_is_not_recorded went red)
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_the_client_would_answer_409
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_the_lock_is_free_again_after_a_write_that_raised
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_journal_that_is_off_does_not_record_a_not_found_delete_either
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_an_accepted_write_and_a_not_found_delete_are_counted_apart
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_not_found_record_the_disk_would_not_take_is_a_failure_not_a_not_found
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_write_the_switch_refuses_is_not_recorded
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_no_other_refusal_is_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_refused_for_another_reason_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_modify_the_switch_answers_NOT_FOUND_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_external_control_plane_is_409_and_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_switch_refusal_is_a_502_and_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_top_level_not_found_with_no_per_update_reason_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_every_refusal_made_before_the_wire_leaves_no_record
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+  caught   M-J2: no lock around the write and the record                            (test_two_writes_to_one_switch_never_interleave_with_each_others_record went red)
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_a_write_that_got_past_the_first_check_meets_the_second_inside_the_lock
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_behind_a_held_lock_it_is_switch_busy_and_the_owner_check_never_ran
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_a_write_behind_a_write_that_does_not_return_is_SwitchBusy_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_the_lock_is_free_again_after_a_write_that_gave_up_waiting
+             also red: tests.test_table_entry_journal.TheLockTest.test_two_writes_to_one_switch_never_interleave_with_each_others_record
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_the_client_is_looked_up_inside_the_lock
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+  caught   M-J2b: the lock covers the switch write but not the record, so two writes land in one order and are journaled in the other (test_two_writes_to_one_switch_never_interleave_with_each_others_record went red)
+             also red: tests.test_table_entry_journal.TheLockTest.test_two_writes_to_one_switch_never_interleave_with_each_others_record
+  caught   M-J23: the client is looked up before the lock, so a readopt's new client is missed (test_the_client_is_looked_up_inside_the_lock went red)
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_the_client_is_looked_up_inside_the_lock
+  caught   M-J3: the journal key is the spelling of the request, not the entry's identity (test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it went red)
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_what_is_recorded_is_the_op_the_switch_got_and_the_spec_that_was_validated
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_optional_entry_is_recorded_under_its_priority_and_its_value
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+  caught   M-J31: a switch that left the table is written through anyway (an AttributeError) (test_a_switch_that_is_gone_is_a_SwitchGone_and_nothing_is_recorded went red)
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_switch_that_is_gone_is_a_SwitchGone_and_nothing_is_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_switch_that_left_between_the_check_and_the_lock_is_a_404
+  caught   M-J32: a journal that is switched off records anyway                     (test_a_recording_that_is_switched_off_still_writes_and_records_nothing went red)
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_recording_that_is_switched_off_still_writes_and_records_nothing
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_is_switched_off_says_so_and_is_not_called_a_failure
+  caught   M-J33: a delete the switch answered NOT_FOUND is not recorded            (test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised went red)
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_an_accepted_write_and_a_not_found_delete_are_counted_apart
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_not_found_record_the_disk_would_not_take_is_a_failure_not_a_not_found
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+  caught   M-J33b: any refused delete is recorded as not_found, whatever the switch said (test_no_other_refusal_is_recorded went red)
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_no_other_refusal_is_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_refused_for_another_reason_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_top_level_not_found_with_no_per_update_reason_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record
+  caught   M-J33c: a modify the switch answered NOT_FOUND is recorded as well       (test_no_other_refusal_is_recorded went red)
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_no_other_refusal_is_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_modify_the_switch_answers_NOT_FOUND_is_not_recorded
+  caught   M-J33d: a NOT_FOUND delete is recorded even with the journal off         (test_a_journal_that_is_off_does_not_record_a_not_found_delete_either went red)
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_journal_that_is_off_does_not_record_a_not_found_delete_either
+  caught   M-J12: a record that never reached the disk still answers True           (test_record_never_raises_and_says_false_when_the_disk_will_not_take_it went red)
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_each_failure_is_counted_and_a_success_does_not_hide_it
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_the_write_still_succeeds_and_says_it_was_not_recorded
+             also red: tests.test_table_entry_journal.TheFileTest.test_record_never_raises_and_says_false_when_the_disk_will_not_take_it
+             also red: tests.test_table_entry_journal.TheFileTest.test_record_says_false_for_a_spec_that_is_not_json_instead_of_raising
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so
+  caught   M-J12b: a failed record is counted as a success, so `failures` never moves (test_each_failure_is_counted_and_a_success_does_not_hide_it went red)
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_another_switchs_failure_is_not_this_switchs
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_each_failure_is_counted_and_a_success_does_not_hide_it
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_the_failure_is_permanent_for_the_boot_even_after_the_disk_recovers
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_failed_record_shows_on_the_switch_that_had_it
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_with_replay_each_condition_still_withholds_the_claim
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_not_found_record_the_disk_would_not_take_is_a_failure_not_a_not_found
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_a_failed_record_is_not_complete
+  caught   M-J13a: a journal that is switched off still counts as complete          (test_recording_off_is_not_complete went red)
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_with_replay_each_condition_still_withholds_the_claim
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_recording_off_is_not_complete
+  caught   M-J13b: a switch on an external control plane still counts as complete   (test_an_external_control_plane_is_not_complete went red)
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_with_replay_each_condition_still_withholds_the_claim
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_journals_main_builds_ask_the_package_whether_the_fabric_is_external
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_an_external_control_plane_is_not_complete
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_read_only_is_asked_when_the_report_is_made_not_when_the_journals_are_built
+  caught   M-J13c: a journal that lost a record still counts as complete            (test_a_failed_record_is_not_complete went red)
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_another_switchs_failure_is_not_this_switchs
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_the_failure_is_permanent_for_the_boot_even_after_the_disk_recovers
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_failed_record_shows_on_the_switch_that_had_it
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_with_replay_each_condition_still_withholds_the_claim
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_a_failed_record_is_not_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+  caught   M-J34: the header is written before every record, not once               (test_the_header_is_written_once_not_per_record went red)
+             also red: tests.test_table_entry_journal.TheFileTest.test_the_first_line_is_a_header_and_then_one_record_per_line
+             also red: tests.test_table_entry_journal.TheFileTest.test_the_header_is_written_once_not_per_record
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+  caught   M-J35: a record appended after a torn last line is glued onto it and both are lost (test_a_torn_last_line_does_not_swallow_the_next_record went red)
+             also red: tests.test_table_entry_journal.TheFileTest.test_a_torn_last_line_does_not_swallow_the_next_record
+  caught   M-J36: the header line is read as a record                               (test_read_gives_the_header_the_records_and_the_count_of_lines_it_could_not_read went red)
+             also red: tests.test_table_entry_journal.TheFileTest.test_a_torn_last_line_does_not_swallow_the_next_record
+             also red: tests.test_table_entry_journal.TheFileTest.test_read_gives_the_header_the_records_and_the_count_of_lines_it_could_not_read
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_the_new_file_is_the_header_and_the_given_records
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_with_no_journal_file_gets_a_header_and_nothing_else
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J14: the fold returns nothing, so a snapshot would drop every entry    (test_not_there_then_there_is_an_insert_of_the_last_spec went red)
+             also red: tests.test_table_entry_journal.TheFileTest.test_fold_reads_the_file
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_default_entry_is_never_an_insert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_default_entry_nets_to_one_modify_of_its_last_spec
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_deleted_then_reinserted_entry_that_began_absent_is_an_insert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_delete_with_nothing_before_it_is_still_a_delete
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_folded_journal_folds_to_itself
+             also red: tests.test_table_entry_journal.TheFoldTest.test_an_accepted_delete_then_an_insert_is_still_a_modify
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_not_found_delete_then_an_insert_is_an_insert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same
+             also red: tests.test_table_entry_journal.TheFoldTest.test_each_entry_folds_on_its_own_and_in_the_order_it_first_appeared
+             also red: tests.test_table_entry_journal.TheFoldTest.test_gone_then_back_is_a_modify_of_the_reinsert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_not_there_then_there_is_an_insert_of_the_last_spec
+             also red: tests.test_table_entry_journal.TheFoldTest.test_only_the_first_record_decides_what_was_there_before
+             also red: tests.test_table_entry_journal.TheFoldTest.test_the_header_and_a_line_that_is_not_a_record_are_not_folded
+             also red: tests.test_table_entry_journal.TheFoldTest.test_there_then_gone_is_a_delete
+             also red: tests.test_table_entry_journal.TheFoldTest.test_there_then_there_is_a_modify_of_the_last_spec
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J37a: an entry the API created is folded as though it was already there, so it is modified, not inserted (test_not_there_then_there_is_an_insert_of_the_last_spec went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_deleted_then_reinserted_entry_that_began_absent_is_an_insert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_folded_journal_folds_to_itself
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_lone_not_found_delete_is_nothing
+             also red: tests.test_table_entry_journal.TheFoldTest.test_an_insert_then_a_not_found_delete_is_nothing
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_not_found_delete_then_an_insert_is_an_insert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same
+             also red: tests.test_table_entry_journal.TheFoldTest.test_each_entry_folds_on_its_own_and_in_the_order_it_first_appeared
+             also red: tests.test_table_entry_journal.TheFoldTest.test_not_there_then_not_there_is_nothing
+             also red: tests.test_table_entry_journal.TheFoldTest.test_not_there_then_there_is_an_insert_of_the_last_spec
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_an_entry_inserted_and_deleted_is_not_written_at_all
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J37b: a deleted entry is folded as still there, so a restart would resurrect it (test_there_then_gone_is_a_delete went red)
+             also red: tests.test_table_entry_journal.TheFileTest.test_fold_reads_the_file
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_delete_with_nothing_before_it_is_still_a_delete
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_folded_journal_folds_to_itself
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_lone_not_found_delete_is_nothing
+             also red: tests.test_table_entry_journal.TheFoldTest.test_an_insert_then_a_not_found_delete_is_nothing
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same
+             also red: tests.test_table_entry_journal.TheFoldTest.test_each_entry_folds_on_its_own_and_in_the_order_it_first_appeared
+             also red: tests.test_table_entry_journal.TheFoldTest.test_not_there_then_not_there_is_nothing
+             also red: tests.test_table_entry_journal.TheFoldTest.test_only_the_first_record_decides_what_was_there_before
+             also red: tests.test_table_entry_journal.TheFoldTest.test_there_then_gone_is_a_delete
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_an_entry_inserted_and_deleted_is_not_written_at_all
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+  caught   M-J37c: a default entry is folded like any other, so an insert of one would be replayed as an insert (test_a_default_entry_is_never_an_insert went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_default_entry_is_never_an_insert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_default_entry_whose_last_record_is_a_delete_nets_to_nothing
+  caught   M-J37d: a default whose last record is a delete is replayed as a modify  (test_a_default_entry_whose_last_record_is_a_delete_nets_to_nothing went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_default_entry_whose_last_record_is_a_delete_nets_to_nothing
+  caught   M-J37e: the fold keeps the FIRST spec of an entry, so a later modify is lost (test_there_then_there_is_a_modify_of_the_last_spec went red)
+             also red: tests.test_table_entry_journal.TheFileTest.test_fold_reads_the_file
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_default_entry_nets_to_one_modify_of_its_last_spec
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_default_entry_whose_last_record_is_a_delete_nets_to_nothing
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_deleted_then_reinserted_entry_that_began_absent_is_an_insert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_folded_journal_folds_to_itself
+             also red: tests.test_table_entry_journal.TheFoldTest.test_an_accepted_delete_then_an_insert_is_still_a_modify
+             also red: tests.test_table_entry_journal.TheFoldTest.test_an_insert_then_a_not_found_delete_is_nothing
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_not_found_delete_then_an_insert_is_an_insert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same
+             also red: tests.test_table_entry_journal.TheFoldTest.test_each_entry_folds_on_its_own_and_in_the_order_it_first_appeared
+             also red: tests.test_table_entry_journal.TheFoldTest.test_gone_then_back_is_a_modify_of_the_reinsert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_not_there_then_not_there_is_nothing
+             also red: tests.test_table_entry_journal.TheFoldTest.test_not_there_then_there_is_an_insert_of_the_last_spec
+             also red: tests.test_table_entry_journal.TheFoldTest.test_only_the_first_record_decides_what_was_there_before
+             also red: tests.test_table_entry_journal.TheFoldTest.test_there_then_gone_is_a_delete
+             also red: tests.test_table_entry_journal.TheFoldTest.test_there_then_there_is_a_modify_of_the_last_spec
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_an_entry_inserted_and_deleted_is_not_written_at_all
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+  caught   M-J37f: entries come out in reverse order of first appearance            (test_each_entry_folds_on_its_own_and_in_the_order_it_first_appeared went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_folded_journal_folds_to_itself
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same
+             also red: tests.test_table_entry_journal.TheFoldTest.test_each_entry_folds_on_its_own_and_in_the_order_it_first_appeared
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_the_snapshot_survives_a_read_back_through_the_fold
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+  caught   M-J37g: a line with no key is folded, so one torn record breaks the whole fold (test_the_header_and_a_line_that_is_not_a_record_are_not_folded went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_the_header_and_a_line_that_is_not_a_record_are_not_folded
+  caught   M-J38: a snapshot writes every net entry as an insert, so the next fold reads a modify as new (test_a_folded_journal_folds_to_itself went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_folded_journal_folds_to_itself
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+  caught   M-J11: the snapshot copies over the live file in place, so the os.replace fault hook never fires and the old content is gone (test_a_crash_before_the_replace_leaves_the_old_file_whole went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_a_crash_before_the_replace_leaves_the_old_file_whole
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_the_old_file_is_kept_byte_for_byte_under_another_name
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_the_set_aside_generation_is_the_old_file_itself_and_the_live_one_is_new
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+  caught   M-J11b: the old file is renamed away before the replace, so a crash between the two leaves no live journal (test_a_crash_before_the_replace_leaves_the_old_file_whole went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_a_crash_before_the_replace_leaves_the_old_file_whole
+  caught   M-J39: the old generation is not kept anywhere                           (test_the_old_file_is_kept_byte_for_byte_under_another_name went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_only_the_most_recent_generations_are_kept
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_ten_generations_are_kept_by_default
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_the_old_file_is_kept_byte_for_byte_under_another_name
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_the_set_aside_generation_is_the_old_file_itself_and_the_live_one_is_new
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+  caught   M-J40a: set-aside generations are never pruned                           (test_only_the_most_recent_generations_are_kept went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_only_the_most_recent_generations_are_kept
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_ten_generations_are_kept_by_default
+  caught   M-J40b: the pruning keeps the OLDEST generations                         (test_only_the_most_recent_generations_are_kept went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_only_the_most_recent_generations_are_kept
+  caught   M-J41: a failed snapshot leaves its temp file behind                     (test_a_crash_before_the_replace_leaves_the_old_file_whole went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_a_crash_before_the_replace_leaves_the_old_file_whole
+  caught   M-J42: the snapshot's first line is not marked as a header               (test_the_new_file_is_the_header_and_the_given_records went red)
+             also red: tests.test_table_entry_journal.TheFileTest.test_a_header_that_cannot_be_built_does_not_lose_the_record
+             also red: tests.test_table_entry_journal.TheFileTest.test_a_torn_last_line_does_not_swallow_the_next_record
+             also red: tests.test_table_entry_journal.TheFileTest.test_read_gives_the_header_the_records_and_the_count_of_lines_it_could_not_read
+             also red: tests.test_table_entry_journal.TheFileTest.test_the_first_line_is_a_header_and_then_one_record_per_line
+             also red: tests.test_table_entry_journal.TheFileTest.test_the_header_is_written_once_not_per_record
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest
+             also red: tests.test_table_entry_journal.TheLockTest.test_the_journal_order_is_the_order_the_switch_saw
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_each_switch_has_its_own_file_and_its_own_lock
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_the_op_recorded_is_the_one_on_the_wire_not_the_one_asked_for
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_what_is_recorded_is_the_op_the_switch_got_and_the_spec_that_was_validated
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_optional_entry_is_recorded_under_its_priority_and_its_value
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_insert_is_recorded_under_the_normalised_op
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_prefix_length_is_part_of_the_identity
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_range_entry_is_recorded_under_its_priority_and_its_bounds
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_entry_is_recorded_under_its_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_file_gains_one_record_with_the_validated_spec
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_two_different_entries_have_two_keys
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_reheader_keeps_every_other_line_byte_for_byte_torn_ones_too
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_the_new_file_is_the_header_and_the_given_records
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_with_no_journal_file_gets_a_header_and_nothing_else
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J30: the replay constant is False, so nothing claims the entries the replay restores (test_the_constant_is_true_now_that_startup_and_readopt_replay went red)
+             also red: tests.test_app_package_proxy.SwitchStateDisclosesTheControlPlaneTest.test_every_switch_reports_what_was_written_and_whether_it_is_journaled
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_failed_record_shows_on_the_switch_that_had_it
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_recorded_write_shows_under_journal_and_the_switch_is_journaled
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_switch_nobody_wrote_to_still_answers_with_a_journal_block
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_switch_the_report_does_not_list_gets_its_journaled_through_the_constant
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_the_report_in_main_carries_the_same_two_fields
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_the_constant_is_true_now_that_startup_and_readopt_replay
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_the_switch_claim_needs_replay_and_all_three_conditions
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_with_replay_a_recorded_write_is_journaled_and_without_it_is_not
+             also red: tests.test_table_entry_journal.TheResponseFlipsToo.test_with_replay_the_response_is_journaled_and_carries_no_note
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_accepted_write_is_recorded_and_the_response_says_so_under_journal
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+  caught   M-J30b: a write that was NOT recorded claims to be journaled once something replays (test_a_write_that_was_not_recorded_is_never_journaled_whatever_replays went red)
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_a_write_that_was_not_recorded_is_never_journaled_whatever_replays
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_is_switched_off_says_so_and_is_not_called_a_failure
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_proxy_with_no_journal_at_all_still_writes_and_says_the_journal_is_off
+             also red: tests.test_table_entry_route.AnAcceptedEntryTest.test_every_success_says_the_entry_is_not_journaled_and_what_that_costs
+  caught   M-J30c: switch_state claims a switch is journaled whatever its records say (test_a_failed_record_shows_on_the_switch_that_had_it went red)
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_failed_record_shows_on_the_switch_that_had_it
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_with_replay_each_condition_still_withholds_the_claim
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+  caught   M-J30d: switch_state's journal block never says what the replay put back (test_switch_state_names_what_came_back went red)
+             also red: tests.test_table_entry_replay.AnExternalControlPlaneTest.test_nothing_is_read_replayed_or_written_on_an_external_fabric
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_with_no_journal_file_gets_a_header_and_nothing_else
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_an_entry_inserted_and_deleted_is_not_written_at_all
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TheReportTest.test_the_startup_summary_carries_the_same_report
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_journal_that_is_off_replays_nothing_and_says_so
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J43: only the word `off` turns recording off, so `0` and `false` leave it on (test_only_off_switches_it_off went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_only_off_switches_it_off
+  caught   M-J44: the key digest is eight characters                                (test_the_digest_is_a_short_hex_string went red)
+             also red: tests.test_table_entry_journal.TheKeyDigestTest.test_the_digest_is_a_short_hex_string
+  caught   M-B20b: the response claims an entry the journal could not take is journaled (was M-B20 in mutate_table_entry.sh) (test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so went red)
+             also red: tests.test_table_entry_journal.TheResponseFlipsToo.test_without_replay_the_same_post_is_not_journaled_and_says_why
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_proxy_with_no_journal_at_all_still_writes_and_says_the_journal_is_off
+             also red: tests.test_table_entry_route.AnAcceptedEntryTest.test_every_success_says_the_entry_is_not_journaled_and_what_that_costs
+  caught   M-B14b: switch_state claims a switch whose journal lost a record is journaled (was M-B14 in mutate_table_entry.sh) (test_a_failed_record_shows_on_the_switch_that_had_it went red)
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_failed_record_shows_on_the_switch_that_had_it
+  caught   M-J45: a response that is not journaled carries no note saying what that costs (test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so went red)
+             also red: tests.test_table_entry_journal.TheResponseFlipsToo.test_without_replay_the_same_post_is_not_journaled_and_says_why
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_is_switched_off_says_so_and_is_not_called_a_failure
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_proxy_with_no_journal_at_all_still_writes_and_says_the_journal_is_off
+             also red: tests.test_table_entry_route.AnAcceptedEntryTest.test_every_success_says_the_entry_is_not_journaled_and_what_that_costs
+  caught   M-J46: the route never goes through the journal                          (test_an_accepted_write_is_recorded_and_the_response_says_so_under_journal went red)
+             also red: tests.test_table_entry_journal.TheResponseFlipsToo.test_with_replay_the_response_is_journaled_and_carries_no_note
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_a_switch_being_readopted_is_503_replay_pending_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_accepted_write_is_recorded_and_the_response_says_so_under_journal
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_optional_entry_is_recorded_under_its_priority_and_its_value
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_insert_is_recorded_under_the_normalised_op
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_prefix_length_is_part_of_the_identity
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_range_entry_is_recorded_under_its_priority_and_its_bounds
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_switch_that_left_between_the_check_and_the_lock_is_a_404
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_entry_is_recorded_under_its_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_count_a_response_gives_and_the_report_gives_agree
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_file_gains_one_record_with_the_validated_spec
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_two_different_entries_have_two_keys
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J47: a write the journal could not take says it was recorded           (test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so went red)
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_is_switched_off_says_so_and_is_not_called_a_failure
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_proxy_with_no_journal_at_all_still_writes_and_says_the_journal_is_off
+  caught   M-J48: a journal that is off is reported as a failed write               (test_a_journal_that_is_switched_off_says_so_and_is_not_called_a_failure went red)
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_is_switched_off_says_so_and_is_not_called_a_failure
+  caught   M-J49: a proxy with no journal at all says its journal is enabled        (test_a_proxy_with_no_journal_at_all_still_writes_and_says_the_journal_is_off went red)
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_is_switched_off_says_so_and_is_not_called_a_failure
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_proxy_with_no_journal_at_all_still_writes_and_says_the_journal_is_off
+  caught   M-J50: any per-update refusal of a delete is treated as NOT_FOUND        (test_a_delete_refused_for_another_reason_is_not_recorded went red)
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_refused_for_another_reason_is_not_recorded
+  caught   M-J51: the route does not tell the journal how to recognise NOT_FOUND    (test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record went red)
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+  caught   M-J52: a switch that left between the check and the lock is a 500        (test_a_switch_that_left_between_the_check_and_the_lock_is_a_404 went red)
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_switch_that_left_between_the_check_and_the_lock_is_a_404
+  caught   M-J53: switch_state's entry for a switch nobody reported on has no journal block (test_every_switch_reports_what_was_written_and_whether_it_is_journaled went red)
+             also red: tests.test_app_package_proxy.SwitchStateDisclosesTheControlPlaneTest.test_every_switch_reports_what_was_written_and_whether_it_is_journaled
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_switch_nobody_wrote_to_still_answers_with_a_journal_block
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_switch_the_report_does_not_list_gets_its_journaled_through_the_constant
+  caught   M-J54: main builds the journals and never hands them to the route (finding #71's shape) (test_main_handed_the_route_the_journals_it_built went red)
+             also red: tests.test_app_package_proxy.SwitchStateDisclosesTheControlPlaneTest.test_every_switch_reports_what_was_written_and_whether_it_is_journaled
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_main_handed_the_route_the_journals_it_built
+  caught   M-J55: the table-entries report carries no journal block                 (test_the_report_in_main_carries_the_same_two_fields went red)
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_failed_record_shows_on_the_switch_that_had_it
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_recorded_write_shows_under_journal_and_the_switch_is_journaled
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_the_report_in_main_carries_the_same_two_fields
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_real_report_has_no_replay_before_one_has_run
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TheReportTest.test_the_startup_summary_carries_the_same_report
+  caught   M-J56: a switch known only to the journals has no entry in the report (a guard of the union; an accepted write is also in api_writes) (test_the_report_in_main_carries_the_same_two_fields went red)
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_the_report_in_main_carries_the_same_two_fields
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_real_report_has_no_replay_before_one_has_run
+  caught   M-J57: the directory override is ignored                                 (test_the_directory_can_be_overridden_and_recording_can_be_switched_off went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_directory_can_be_overridden_and_recording_can_be_switched_off
+  caught   M-J58: the off switch is ignored                                         (test_the_directory_can_be_overridden_and_recording_can_be_switched_off went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_directory_can_be_overridden_and_recording_can_be_switched_off
+  caught   M-J59: an external control plane's fabric is reported as one whose journal is complete (test_the_journals_main_builds_ask_the_package_whether_the_fabric_is_external went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_journals_main_builds_ask_the_package_whether_the_fabric_is_external
+  caught   M-J60: the header does not say which boot wrote it                       (test_the_header_main_supplies_names_this_boot went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_header_main_supplies_names_this_boot
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+  caught   M-J61: the header does not say which p4info it was made against          (test_the_header_digests_are_those_of_the_files_the_package_names went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_header_digests_are_those_of_the_files_the_package_names
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J62: the header does not say which entries file it was made against    (test_the_header_digests_are_those_of_the_files_the_package_names went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_header_digests_are_those_of_the_files_the_package_names
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+  caught   M-J63: the journals are written beside the sources instead of under .run/ (test_the_default_directory_is_absolute_inside_this_checkout_and_stable went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_default_directory_is_absolute_inside_this_checkout_and_stable
+  caught   M-J64: a default entry is stamped under the key of a catch-all           (test_deleting_a_catch_all_does_not_forget_the_defaults_install_time went red)
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_deleting_a_catch_all_does_not_forget_the_defaults_install_time
+  caught   M-J65: deleting a default forgets a catch-all's install time             (test_deleting_the_default_does_not_forget_a_catch_alls_install_time went red)
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_deleting_the_default_does_not_forget_a_catch_alls_install_time
+  caught   M-J66: the writer reports no identity, so every journal record has the same key (test_two_different_entries_have_two_keys went red)
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_optional_entry_is_recorded_under_its_priority_and_its_value
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_prefix_length_is_part_of_the_identity
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_range_entry_is_recorded_under_its_priority_and_its_bounds
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_entry_is_recorded_under_its_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_two_different_entries_have_two_keys
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_and_so_does_a_default_entry_spec
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_and_so_does_a_ternary_spec_with_its_priority
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_a_spec_that_builds_has_the_key_the_write_would_have_returned
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_what_the_writer_returns_is_the_key_the_install_times_use
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J67: a delete the switch refused, whose spec does not build, raises out of the journal (test_a_spec_that_does_not_build_has_no_key_and_raises_nothing went red)
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_a_spec_that_does_not_build_has_no_key_and_raises_nothing
+  caught   M-J68: a default entry's spec has the key of a catch-all when asked for without writing (test_and_so_does_a_default_entry_spec went red)
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_and_so_does_a_default_entry_spec
+  caught   M-J69: the default entry has no key of its own                           (test_the_default_and_a_catch_all_are_two_keys went red)
+             also red: tests.test_table_entry_journal.TheDefaultEntryHasItsOwnKeyTest.test_a_default_has_one_key_whatever_priority_or_match_it_was_built_with
+             also red: tests.test_table_entry_journal.TheDefaultEntryHasItsOwnKeyTest.test_the_default_and_a_catch_all_are_two_keys
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_and_so_does_a_default_entry_spec
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_deleting_a_catch_all_does_not_forget_the_defaults_install_time
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_deleting_the_default_does_not_forget_a_catch_alls_install_time
+  caught   M-J70: the install-time record ignores that an entry is a default        (test_deleting_a_catch_all_does_not_forget_the_defaults_install_time went red)
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_deleting_a_catch_all_does_not_forget_the_defaults_install_time
+  caught   M-J71: forgetting ignores that an entry is a default                     (test_deleting_the_default_does_not_forget_a_catch_alls_install_time went red)
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_deleting_the_default_does_not_forget_a_catch_alls_install_time
+  caught   M-J72: an age lookup ignores that an entry is a default                  (test_deleting_a_catch_all_does_not_forget_the_defaults_install_time went red)
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_deleting_a_catch_all_does_not_forget_the_defaults_install_time
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_deleting_the_default_does_not_forget_a_catch_alls_install_time
+  caught   M-J73: a non-default entry's key is spelled differently from what it always was (test_a_non_default_entry_keeps_the_key_it_always_had went red)
+             also red: tests.test_rule_install_times.EntryKeyTest.test_a_dpid_given_as_text_names_the_same_switch_as_one_given_as_a_number
+             also red: tests.test_table_entry_journal.TheDefaultEntryHasItsOwnKeyTest.test_a_non_default_entry_keeps_the_key_it_always_had
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_what_the_writer_returns_is_the_key_the_install_times_use
+  caught   M-J74: every table's default entry has the same key                      (test_the_default_of_one_table_is_not_the_default_of_another went red)
+             also red: tests.test_table_entry_journal.TheDefaultEntryHasItsOwnKeyTest.test_the_default_of_one_table_is_not_the_default_of_another
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_and_so_does_a_default_entry_spec
+  caught   M-J75: a header that cannot be built loses the record that triggered it  (test_a_header_that_cannot_be_built_does_not_lose_the_record went red)
+             also red: tests.test_table_entry_journal.TheFileTest.test_a_header_that_cannot_be_built_does_not_lose_the_record
+  caught   M-J76: a switch with no journal file yet is reported as having an unreadable one (test_a_missing_file_reads_as_empty_and_not_as_an_error went red)
+             also red: tests.test_table_entry_journal.TheFileTest.test_a_missing_file_reads_as_empty_and_not_as_an_error
+  caught   M-J77: the fold writes into the records it was given                     (test_folding_does_not_change_its_input went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_folding_does_not_change_its_input
+  caught   M-J78: a switch's file is named by its number alone                      (test_a_file_is_named_for_its_switch went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_a_file_is_named_for_its_switch
+             also red: tests.test_table_entry_journal.TheLockTest.test_the_journal_order_is_the_order_the_switch_saw
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_each_switch_has_its_own_file_and_its_own_lock
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_the_op_recorded_is_the_one_on_the_wire_not_the_one_asked_for
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_what_is_recorded_is_the_op_the_switch_got_and_the_spec_that_was_validated
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_optional_entry_is_recorded_under_its_priority_and_its_value
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_insert_is_recorded_under_the_normalised_op
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_prefix_length_is_part_of_the_identity
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_range_entry_is_recorded_under_its_priority_and_its_bounds
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_entry_is_recorded_under_its_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_file_gains_one_record_with_the_validated_spec
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_two_different_entries_have_two_keys
+             also red: tests.test_table_entry_replay.AnExternalControlPlaneTest.test_nothing_is_read_replayed_or_written_on_an_external_fabric
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_with_no_journal_file_gets_a_header_and_nothing_else
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J79: a table entry the journal could not take carries the multicast group's sentence (test_the_constants_the_two_surfaces_disagree_on_are_split went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_constants_the_two_surfaces_disagree_on_are_split
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so
+  caught   M-J80: the real report says a replay happened before any has run         (test_the_real_report_has_no_replay_before_one_has_run went red)
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_recorded_write_shows_under_journal_and_the_switch_is_journaled
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_real_report_has_no_replay_before_one_has_run
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TheReportTest.test_the_startup_summary_carries_the_same_report
+  caught   M-J81: every entry has the same digest                                   (test_equal_keys_have_equal_digests_and_different_keys_do_not went red)
+             also red: tests.test_table_entry_journal.TheKeyDigestTest.test_equal_keys_have_equal_digests_and_different_keys_do_not
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_optional_entry_is_recorded_under_its_priority_and_its_value
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_prefix_length_is_part_of_the_identity
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_range_entry_is_recorded_under_its_priority_and_its_bounds
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_entry_is_recorded_under_its_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_two_different_entries_have_two_keys
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J82: a first snapshot tries to set aside a file that is not there      (test_a_first_snapshot_with_no_live_file_quarantines_nothing went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_a_first_snapshot_with_no_live_file_quarantines_nothing
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_with_no_journal_file_gets_a_header_and_nothing_else
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+  caught   M-J83: a journal with no failures is not complete                        (test_all_three_true_is_complete went red)
+             also red: tests.test_app_package_proxy.SwitchStateDisclosesTheControlPlaneTest.test_every_switch_reports_what_was_written_and_whether_it_is_journaled
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_another_switchs_failure_is_not_this_switchs
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_the_failure_is_permanent_for_the_boot_even_after_the_disk_recovers
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_failed_record_shows_on_the_switch_that_had_it
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_recorded_write_shows_under_journal_and_the_switch_is_journaled
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_switch_nobody_wrote_to_still_answers_with_a_journal_block
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_switch_the_report_does_not_list_gets_its_journaled_through_the_constant
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_the_report_in_main_carries_the_same_two_fields
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_the_switch_claim_needs_replay_and_all_three_conditions
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_with_replay_each_condition_still_withholds_the_claim
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_journals_main_builds_ask_the_package_whether_the_fabric_is_external
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_a_failed_record_is_not_complete
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_all_three_true_is_complete
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_read_only_is_asked_when_the_report_is_made_not_when_the_journals_are_built
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+  caught   M-J84: switch_state's fallback says journaled false whatever the replay constant is (test_a_switch_the_report_does_not_list_gets_its_journaled_through_the_constant went red)
+             also red: tests.test_app_package_proxy.SwitchStateDisclosesTheControlPlaneTest.test_every_switch_reports_what_was_written_and_whether_it_is_journaled
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_switch_nobody_wrote_to_still_answers_with_a_journal_block
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_switch_the_report_does_not_list_gets_its_journaled_through_the_constant
+  caught   M-J84b: the fallback asks journals that do not exist                     (test_the_fallback_still_says_false_when_there_are_no_journals_at_all went red)
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_the_fallback_still_says_false_when_there_are_no_journals_at_all
+  caught   M-J85: the route passes the op as the caller spelled it, so an upper-case DELETE answered NOT_FOUND is not recorded (test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too went red)
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too
+  caught   M-J86: main does not hand the journals a header provider, so every header is all null (test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest
+  caught   M-J87: TableJournals drops the header provider before the journal gets it (test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest
+  caught   M-J88: a not_found record is counted as an accepted write, so `recorded` disagrees with `api_writes` (test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised went red)
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_an_accepted_write_and_a_not_found_delete_are_counted_apart
+  caught   M-J88b: a not_found record is not counted anywhere                       (test_an_accepted_write_and_a_not_found_delete_are_counted_apart went red)
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_an_accepted_write_and_a_not_found_delete_are_counted_apart
+  caught   M-J89: the lock wait has no timeout, so a write behind a hung switch waits for ever (test_a_write_behind_a_write_that_does_not_return_is_SwitchBusy_and_writes_nothing went red)
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_behind_a_held_lock_it_is_switch_busy_and_the_owner_check_never_ran
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_a_write_behind_a_write_that_does_not_return_is_SwitchBusy_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_the_lock_is_free_again_after_a_write_that_gave_up_waiting
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+  caught   M-J89b: the route does not pass the timeout, so every POST waits for ever for a busy switch (test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing went red)
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+  caught   M-J89c: the wait is not one gRPC deadline                                (test_the_wait_is_bounded_by_one_grpc_deadline went red)
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_wait_is_bounded_by_one_grpc_deadline
+  caught   M-J89d: a busy switch is a 500, not a 503                                (test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing went red)
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+  caught   M-J89f: a write that names a timeout is refused even when the lock is free (test_a_write_that_is_not_blocked_ignores_the_timeout went red)
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_a_write_that_got_past_the_first_check_meets_the_second_inside_the_lock
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_a_write_that_is_not_blocked_ignores_the_timeout
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_the_lock_is_free_again_after_a_write_that_gave_up_waiting
+             also red: tests.test_table_entry_journal.TheResponseFlipsToo.test_without_replay_the_same_post_is_not_journaled_and_says_why
+             also red: tests.test_table_entry_journal.TheResponseFlipsToo.test_with_replay_the_response_is_journaled_and_carries_no_note
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_refused_for_another_reason_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_cannot_be_written_is_still_a_200_that_says_so
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_journal_that_is_switched_off_says_so_and_is_not_called_a_failure
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_modify_the_switch_answers_NOT_FOUND_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_accepted_write_is_recorded_and_the_response_says_so_under_journal
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_external_control_plane_is_409_and_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_optional_entry_is_recorded_under_its_priority_and_its_value
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_insert_is_recorded_under_the_normalised_op
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_prefix_length_is_part_of_the_identity
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_range_entry_is_recorded_under_its_priority_and_its_bounds
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_switch_refusal_is_a_502_and_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_switch_that_left_between_the_check_and_the_lock_is_a_404
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_entry_is_recorded_under_its_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_top_level_not_found_with_no_per_update_reason_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_every_refusal_made_before_the_wire_leaves_no_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_count_a_response_gives_and_the_report_gives_agree
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_file_gains_one_record_with_the_validated_spec
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_two_different_entries_have_two_keys
+             also red: tests.test_table_entry_replay.AnExternalControlPlaneTest.test_nothing_is_read_replayed_or_written_on_an_external_fabric
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_the_pending_flag_comes_down_after_a_readopt_and_after_one_that_failed
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_an_entry_inserted_and_deleted_is_not_written_at_all
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_journal_that_is_off_replays_nothing_and_says_so
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J89e: a lock that timed out is used anyway, so the write goes out unprotected (test_a_write_behind_a_write_that_does_not_return_is_SwitchBusy_and_writes_nothing went red)
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_behind_a_held_lock_it_is_switch_busy_and_the_owner_check_never_ran
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_a_write_behind_a_write_that_does_not_return_is_SwitchBusy_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_the_lock_is_free_again_after_a_write_that_gave_up_waiting
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+  caught   M-J90: the owner check is skipped, so a write into a table NDTwin owns reaches the switch and the journal (test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record went red)
+             also red: tests.test_p4_client_writes.TheSection15CatchAllIsRefusedTest.test_an_empty_match_on_flow_5tuple_is_refused_as_ndtwins_table
+             also red: tests.test_p4_client_writes.TheSection15CatchAllIsRefusedTest.test_an_omitted_lpm_field_on_ipv4_lpm_is_refused_as_ndtwins_table
+             also red: tests.test_p4_client_writes.TheSection15CatchAllIsRefusedTest.test_on_ndtwins_pipeline_the_owner_answers_before_the_shape_rules
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_the_client_would_answer_409
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record
+  caught   M-J91: a key that began with a NOT_FOUND delete folds as present, so its insert is replayed as a modify (test_a_not_found_delete_then_an_insert_is_an_insert went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_lone_not_found_delete_is_nothing
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_not_found_delete_then_an_insert_is_an_insert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+  caught   M-J91b: an accepted first delete folds as absent too, so a deleted boot entry comes back (test_a_delete_with_nothing_before_it_is_still_a_delete went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_delete_with_nothing_before_it_is_still_a_delete
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_folded_journal_folds_to_itself
+             also red: tests.test_table_entry_journal.TheFoldTest.test_an_accepted_delete_then_an_insert_is_still_a_modify
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+  caught   M-J91c: a snapshot writes a net delete as a NOT_FOUND one, so the next boot folds it away (test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_folded_journal_folds_to_itself
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same
+  caught   M-J91d: the LAST record decides what was there before                    (test_only_the_first_record_decides_what_was_there_before went red)
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_not_found_delete_then_an_insert_is_an_insert
+             also red: tests.test_table_entry_journal.TheFoldTest.test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same
+             also red: tests.test_table_entry_journal.TheFoldTest.test_only_the_first_record_decides_what_was_there_before
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+  caught   M-J92: the key a write returns drops the priority, so two priorities of one match are one entry (test_a_ternary_entry_is_recorded_under_its_priority went red)
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_optional_entry_is_recorded_under_its_priority_and_its_value
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_range_entry_is_recorded_under_its_priority_and_its_bounds
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_entry_is_recorded_under_its_priority
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_and_so_does_a_ternary_spec_with_its_priority
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+  caught   M-J92b: the key of a delete the switch answered NOT_FOUND drops the priority (test_and_so_does_a_ternary_spec_with_its_priority went red)
+             also red: tests.test_table_entry_journal.TheWriterKeepsTheTwoApartTest.test_and_so_does_a_ternary_spec_with_its_priority
+  caught   M-J25: a push carries no cookie, so it clears the generation on the switch (test_every_push_carries_this_boots_generation went red)
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_the_readopts_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J25b: startup never gives its clients the generation it chose          (test_every_push_carries_this_boots_generation went red)
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J95: startup never runs step 0, so a fresh bmv2 is given yesterday's entries (test_a_fresh_bmv2_is_a_fresh_fabric went red)
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_with_no_journal_file_gets_a_header_and_nothing_else
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+  caught   M-J95b: step 0 runs after the push, so it reads back the cookie this boot just pushed (test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch went red)
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J22: no cookie check: every switch confirms its journal                (test_a_fresh_bmv2_is_a_fresh_fabric went red)
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+  caught   M-J22b: another cookie confirms the journal                              (test_another_cookie_is_a_fresh_fabric went red)
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+  caught   M-J22c: a header with no cookie (a Cut B file) confirms the journal      (test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed went red)
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+  caught   M-J22d: a pipeline with no cookie confirms the journal                   (test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric went red)
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+  caught   M-J22e: a switch that answered COOKIE_ONLY with an error (a fresh bmv2) confirms the journal (test_a_fresh_bmv2_is_a_fresh_fabric went red)
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J97: confirmed switches that disagree on the cookie stay confirmed     (test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted went red)
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+  caught   M-J97b: a confirmed fabric is given a new generation every start         (test_a_warm_switch_keeps_its_generation_across_restarts went red)
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+  caught   M-J26: step 0 leaves a switch that does not answer alone (r2's non-broken-only step) (test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing went red)
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+  caught   M-J102: an unconfirmed journal keeps its records under this boot's header (test_a_fresh_bmv2_is_a_fresh_fabric went red)
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+  caught   M-J101: step 0 rewrites a confirmed journal from what it could parse, so a torn line stops counting (test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete went red)
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+  caught   M-J101b: step 0 leaves a confirmed header naming the boot that wrote it, so the replay refuses it (test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it went red)
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+  caught   M-J104: step 0 sets a journal aside without its lock                     (test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it went red)
+             also red: tests.test_table_entry_replay.AnExternalControlPlaneTest.test_nothing_is_read_replayed_or_written_on_an_external_fabric
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_the_pending_flag_comes_down_after_a_readopt_and_after_one_that_failed
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_the_readopts_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_with_no_journal_file_gets_a_header_and_nothing_else
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_an_entry_inserted_and_deleted_is_not_written_at_all
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TheReportTest.test_the_startup_summary_carries_the_same_report
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_journal_that_is_off_replays_nothing_and_says_so
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J94: startup never replays (the startup caller of fold and snapshot is gone) (test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it went red)
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_with_no_journal_file_gets_a_header_and_nothing_else
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_an_entry_inserted_and_deleted_is_not_written_at_all
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TheReportTest.test_the_startup_summary_carries_the_same_report
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_journal_that_is_off_replays_nothing_and_says_so
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J94b: startup replays without the switch's lock, so its snapshot is refused (test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it went red)
+             also red: tests.test_table_entry_replay.AnExternalControlPlaneTest.test_nothing_is_read_replayed_or_written_on_an_external_fabric
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_the_pending_flag_comes_down_after_a_readopt_and_after_one_that_failed
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_the_readopts_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_with_no_journal_file_gets_a_header_and_nothing_else
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_warm_switch_keeps_its_generation_across_restarts
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_journaled_is_true_in_the_response_and_in_switch_state
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_an_entry_inserted_and_deleted_is_not_written_at_all
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TheReportTest.test_switch_state_names_what_came_back
+             also red: tests.test_table_entry_replay.TheReportTest.test_the_startup_summary_carries_the_same_report
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_journal_that_is_off_replays_nothing_and_says_so
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J15: the replay writes nothing back                                    (test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it went red)
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_second_restart_restores_the_same_entries_again
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_entries_posted_before_a_restart_are_on_the_warm_switch_after_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_restored_entries_go_back_after_the_push_that_emptied_the_switch
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_deleted_boot_entry_is_deleted_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_a_modified_boot_entry_is_modified_again_after_the_restart
+             also red: tests.test_table_entry_replay.TheReplaySendsTheNetOfEachEntryTest.test_two_spellings_of_one_entry_fold_into_one_write
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J4: the replay appends what it writes to the journal it is replaying   (test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it went red)
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+  caught   M-J5: the p4info digest is not checked                                   (test_a_changed_p4info_replays_nothing went red)
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_p4info_replays_nothing
+  caught   M-J16: the entries-file digest is not checked                            (test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries went red)
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+  caught   M-J16b: a changed entries file stops the inserts too                     (test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries went red)
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+  caught   M-J98: a net delete whose entry is already gone is counted as a failure and leaves the journal (test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal went red)
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+  caught   M-J98b: main does not tell the replay how to recognise NOT_FOUND         (test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal went red)
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+  caught   M-J99: what did not go back stays in the live journal                    (test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal went red)
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J100: a refusal at replay is reported as the bare exception, not the switch's reason (test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal went red)
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J108: a snapshot that failed does not withdraw the claim               (test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled went red)
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_snapshot_that_fails_is_reported_and_the_switch_is_not_journaled
+  caught   M-J109: a journal that is off is replayed anyway                         (test_a_journal_that_is_off_replays_nothing_and_says_so went red)
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_journal_that_is_off_replays_nothing_and_says_so
+  caught   M-J6: an external control plane's journal is replayed                    (test_nothing_is_read_replayed_or_written_on_an_external_fabric went red)
+             also red: tests.test_table_entry_replay.AnExternalControlPlaneTest.test_nothing_is_read_replayed_or_written_on_an_external_fabric
+  caught   M-J6b: step 0 reads and rewrites an external control plane's journal     (test_nothing_is_read_replayed_or_written_on_an_external_fabric went red)
+             also red: tests.test_table_entry_replay.AnExternalControlPlaneTest.test_nothing_is_read_replayed_or_written_on_an_external_fabric
+  caught   M-J110: a switch whose push failed is replayed into                      (test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing went red)
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+  caught   M-J27: the replay does not check that this boot confirmed the file       (test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm went red)
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm
+  caught   M-J17: a readopt replays the list startup read, not the file             (test_an_entry_posted_after_startup_is_back_after_a_readopt went red)
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm
+  caught   M-J10: a readopt adds its replay to the last one instead of replacing it (test_two_readopts_report_the_same_replay went red)
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+  caught   M-J18: no pending flag, so a POST during a readopt waits for the lock and is a busy 503 at best (test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing went red)
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_a_write_that_got_past_the_first_check_meets_the_second_inside_the_lock
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_on_a_switch_being_readopted_it_is_replay_pending_at_once
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_a_switch_being_readopted_is_503_replay_pending_and_writes_nothing
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+  caught   M-J18b: pending is only checked once the lock is held, so the POST queues behind the readopt (test_on_a_switch_being_readopted_it_is_replay_pending_at_once went red)
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_on_a_switch_being_readopted_it_is_replay_pending_at_once
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_a_switch_being_readopted_is_503_replay_pending_and_writes_nothing
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+  caught   M-J18c: a write that got past the first check is not checked again inside the lock (test_a_write_that_got_past_the_first_check_meets_the_second_inside_the_lock went red)
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_a_write_that_got_past_the_first_check_meets_the_second_inside_the_lock
+  caught   M-J18d: a switch being readopted is a 500, not a 503                     (test_a_switch_being_readopted_is_503_replay_pending_and_writes_nothing went red)
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_a_switch_being_readopted_is_503_replay_pending_and_writes_nothing
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+  caught   M-J18e: a readopt that failed leaves the switch pending for ever         (test_the_pending_flag_comes_down_after_a_readopt_and_after_one_that_failed went red)
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_the_pending_flag_comes_down_after_a_readopt_and_after_one_that_failed
+  caught   M-J20: the lock is taken after the new client is swapped in, so a POST lands in between (test_a_post_between_the_new_clients_swap_and_the_replay_is_503 went red)
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+  caught   M-J20b: a readopt takes no lock at all, so its snapshot is refused       (test_an_entry_posted_after_startup_is_back_after_a_readopt went red)
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_the_pending_flag_comes_down_after_a_readopt_and_after_one_that_failed
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_the_readopts_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file
+  caught   M-J93: a readopt never replays (the readopt caller of fold and snapshot is gone) (test_an_entry_posted_after_startup_is_back_after_a_readopt went red)
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_an_entry_posted_after_startup_is_back_after_a_readopt
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_two_readopts_report_the_same_replay
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+  caught   M-J28: a readopt pushes the cookie its journal header names, not this boot's (test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names went red)
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names
+  caught   M-J28b: a readopt pushes no cookie                                       (test_the_readopts_push_carries_this_boots_generation went red)
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_the_readopts_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+  caught   M-J19: one file for every switch, each with its own lock: a readopt's snapshot sets the others' records aside (test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file went red)
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_a_file_is_named_for_its_switch
+             also red: tests.test_table_entry_journal.TheLockTest.test_the_journal_order_is_the_order_the_switch_saw
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_each_switch_has_its_own_file_and_its_own_lock
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_the_op_recorded_is_the_one_on_the_wire_not_the_one_asked_for
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_what_is_recorded_is_the_op_the_switch_got_and_the_spec_that_was_validated
+             also red: tests.test_table_entry_journal.TheRouteAnswers503WhenTheSwitchIsBusyTest.test_the_second_post_to_a_switch_that_does_not_answer_is_503_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_delete_that_the_switch_answers_NOT_FOUND_is_a_502_with_a_not_found_record
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_optional_entry_is_recorded_under_its_priority_and_its_value
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_delete_the_switch_answers_NOT_FOUND_is_recorded_too
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_an_upper_case_insert_is_recorded_under_the_normalised_op
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_prefix_length_is_part_of_the_identity
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_range_entry_is_recorded_under_its_priority_and_its_bounds
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_delete_at_another_priority_is_a_not_found_record_under_that_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_ternary_entry_is_recorded_under_its_priority
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_file_gains_one_record_with_the_validated_spec
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_the_key_is_the_normalised_identity_not_the_way_the_request_spelled_it
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_two_different_entries_have_two_keys
+             also red: tests.test_table_entry_replay.AnExternalControlPlaneTest.test_nothing_is_read_replayed_or_written_on_an_external_fabric
+             also red: tests.test_table_entry_replay.ANotFoundDeleteMeansAbsentTest.test_the_not_found_delete_is_recorded_under_the_priority_it_named
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_between_the_new_clients_swap_and_the_replay_is_503
+             also red: tests.test_table_entry_replay.AReadoptReplaysTest.test_a_post_while_the_switch_is_being_readopted_is_503_and_writes_nothing
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_pushes_this_boots_generation_not_the_one_a_header_names
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_a_readopt_replays_nothing_from_a_file_this_boot_did_not_confirm
+             also red: tests.test_table_entry_replay.ASwitchThatIsDownAtStartupTest.test_its_journal_is_set_aside_at_step_0_and_its_readopt_replays_nothing
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_fresh_bmv2_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_another_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_whose_pipeline_carries_no_cookie_is_a_fresh_fabric
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_a_switch_with_no_journal_file_gets_a_header_and_nothing_else
+             also red: tests.test_table_entry_replay.TheCookieDecidesTest.test_every_push_carries_this_boots_generation
+             also red: tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_after_a_restart_the_live_file_is_this_boots_header_and_the_net_entries
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_a_journal_another_proxy_process_wrote_is_replayed_when_the_cookie_confirms_it
+             also red: tests.test_table_entry_replay.TheEntriesSurviveARestartTest.test_the_set_aside_files_are_the_old_journal_and_nothing_was_appended_to_it
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_readopt_of_one_switch_leaves_the_others_record_in_its_own_file
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_a_switch_that_restarted_is_fresh_and_the_other_is_still_replayed
+             also red: tests.test_table_entry_replay.TwoSwitchesTest.test_confirmed_switches_that_disagree_are_all_unconfirmed_and_a_new_generation_is_minted
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_net_delete_the_switch_answers_not_found_has_reached_its_goal
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_torn_line_is_kept_through_step_0_and_keeps_the_replay_from_claiming_complete
+             also red: tests.test_table_entry_replay.WhatDoesNotGoBackTest.test_a_write_the_switch_refuses_at_replay_is_reported_and_leaves_the_journal
+  caught   M-J103: a snapshot is taken with nobody holding the lock                 (test_a_snapshot_nobody_holds_the_lock_for_is_refused went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_a_snapshot_nobody_holds_the_lock_for_is_refused
+  caught   M-J105: a temp file a dead snapshot left is never removed                (test_a_temp_file_a_dead_snapshot_left_is_removed_by_the_next went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_a_temp_file_a_dead_snapshot_left_is_removed_by_the_next
+  caught   M-J105b: the sweep removes another switch's temp file                    (test_a_temp_file_a_dead_snapshot_left_is_removed_by_the_next went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_a_temp_file_a_dead_snapshot_left_is_removed_by_the_next
+  caught   M-J106: a snapshot leaves the journal 0600                               (test_the_live_file_keeps_its_mode_through_a_snapshot went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_the_live_file_keeps_its_mode_through_a_snapshot
+  caught   M-J107: a snapshot header takes whatever keys it is given, the dpid included (test_a_snapshot_header_has_the_shape_a_recorded_header_has went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_a_snapshot_header_has_the_shape_a_recorded_header_has
+  caught   M-J40c: fewer than ten set-aside generations are kept                    (test_ten_generations_are_kept_by_default went red)
+             also red: tests.test_table_entry_journal.TheSnapshotTest.test_ten_generations_are_kept_by_default
+  caught   M-J112: a refusal with no per-update reason is taken for NOT_FOUND and recorded (test_a_top_level_not_found_with_no_per_update_reason_is_not_recorded went red)
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_top_level_not_found_with_no_per_update_reason_is_not_recorded
+             also red: tests.test_table_entry_journal.TheRouteRecordsTest.test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record
+  caught   M-J111: the owner check runs before the lock, so a write behind a busy switch is a 409 instead of a 503 (test_behind_a_held_lock_it_is_switch_busy_and_the_owner_check_never_ran went red)
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_another_switchs_failure_is_not_this_switchs
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_each_failure_is_counted_and_a_success_does_not_hide_it
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_the_failure_is_permanent_for_the_boot_even_after_the_disk_recovers
+             also red: tests.test_table_entry_journal.AJournalThatCannotBeWrittenTest.test_the_write_still_succeeds_and_says_it_was_not_recorded
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_failed_record_shows_on_the_switch_that_had_it
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_a_recorded_write_shows_under_journal_and_the_switch_is_journaled
+             also red: tests.test_table_entry_journal.SwitchStateSaysWhatIsTrueTest.test_the_report_in_main_carries_the_same_two_fields
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_a_write_that_got_past_the_first_check_meets_the_second_inside_the_lock
+             also red: tests.test_table_entry_journal.The503ComesBeforeAnyRefusalTest.test_behind_a_held_lock_it_is_switch_busy_and_the_owner_check_never_ran
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_the_switch_claim_needs_replay_and_all_three_conditions
+             also red: tests.test_table_entry_journal.TheClaimFlipsInOnePlace.test_with_replay_each_condition_still_withholds_the_claim
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_headers_main_builds_are_written_with_this_boot_and_the_p4info_digest
+             also red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_real_report_has_no_replay_before_one_has_run
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_a_write_behind_a_write_that_does_not_return_is_SwitchBusy_and_writes_nothing
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_a_write_that_is_not_blocked_ignores_the_timeout
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_the_lock_is_free_again_after_a_write_that_gave_up_waiting
+             also red: tests.test_table_entry_journal.TheLockIsBoundedTest.test_the_lock_is_free_again_after_a_write_that_raised
+             also red: tests.test_table_entry_journal.TheLockTest.test_the_journal_order_is_the_order_the_switch_saw
+             also red: tests.test_table_entry_journal.TheLockTest.test_two_writes_to_one_switch_never_interleave_with_each_others_record
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_journal_that_is_off_does_not_record_a_not_found_delete_either
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_an_accepted_write_and_a_not_found_delete_are_counted_apart
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_not_found_record_the_disk_would_not_take_is_a_failure_not_a_not_found
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_recording_that_is_switched_off_still_writes_and_records_nothing
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_a_write_the_switch_refuses_is_not_recorded
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_each_switch_has_its_own_file_and_its_own_lock
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_no_other_refusal_is_recorded
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_the_client_is_looked_up_inside_the_lock
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_the_op_recorded_is_the_one_on_the_wire_not_the_one_asked_for
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_the_record_is_made_after_the_switch_has_taken_the_write
+             also red: tests.test_table_entry_journal.TheOrderOfTheWriteTest.test_what_is_recorded_is_the_op_the_switch_got_and_the_spec_that_was_validated
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_a_failed_record_is_not_complete
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_all_three_true_is_complete
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_an_external_control_plane_is_not_complete
+             also red: tests.test_table_entry_journal.TheThreeConditionsTest.test_recording_off_is_not_complete
+  green    N1 (control): a comment-only edit in records_from_net                    (the whole suite stays green)
+  green    N2 (control): the same claim with its operands the other way round       (the whole suite stays green)
+  green    N3 (control): a comment-only edit in the response view                   (the whole suite stays green)
+  green    N4 (control): a comment-only edit in the header builder                  (the whole suite stays green)
+  green    N5 (control): a comment-only edit in table_entry_key                     (the whole suite stays green)
+  green    N7 (control): a comment-only edit in the replay                          (the whole suite stays green)
+  green    N8 (control): a comment-only edit in step 0                              (the whole suite stays green)
+  green    N6 (control): a comment-only edit beside the default key                 (the whole suite stays green)
+
+baseline byte-identical: yes (5 sources, 6 test files)
+mutation gate: 157 mutations, 0 survived
+rc=0

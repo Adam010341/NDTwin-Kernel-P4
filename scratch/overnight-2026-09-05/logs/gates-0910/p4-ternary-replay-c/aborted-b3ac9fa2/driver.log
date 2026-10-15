@@ -1,0 +1,19 @@
+2026-10-12T03:04:16+08:00 driver start pid 3898514, clone HEAD b3ac9fa2666be288967e0d34b054fefa5b9f4e44, LANG=en_US.UTF-8 LC_ALL=
+2026-10-12T03:04:16+08:00 [mutate_table_journal] df -m /: 7211 MB free
+2026-10-12T03:04:16+08:00 [mutate_table_journal] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-12T03:04:16+08:00 [mutate_table_journal] start
+2026-10-12T03:22:32+08:00 [mutate_table_journal] end rc=0 :: OK mutation gate: 157 mutations, 0 survived 
+2026-10-12T03:22:32+08:00 [mutate_table_entry] df -m /: 7211 MB free
+2026-10-12T03:22:32+08:00 [mutate_table_entry] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 2 of this run's own skipped
+  ours  pid 3900440 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 3927906 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+2026-10-12T03:22:32+08:00 [mutate_table_entry] start
+2026-10-12T03:22:40+08:00 [mutate_table_entry] end rc=2 :: Ran 529 tests in 3.411s FAILED (failures=1) 
+2026-10-12T03:22:40+08:00 [mutate_table_entry_owner] df -m /: 7211 MB free
+2026-10-12T03:22:40+08:00 [mutate_table_entry_owner] /proc scan
+procscan: 0 other mutate_/probe.py process(es), 2 of this run's own skipped
+  ours  pid 3900440 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+  ours  pid 3927906 ppid 399910: /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1791435103987-fl5j65.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin u
+2026-10-12T03:22:40+08:00 [mutate_table_entry_owner] start

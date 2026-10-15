@@ -1,0 +1,6 @@
+2026-10-12T06:57:11+0800 watching the parent chains under pid 640576
+2026-10-12T06:57:14+0800 started pid 640655 ppid 640576 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-final/switch-stock-1
+2026-10-12T06:57:18+0800 started pid 640812 ppid 640576 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-final/switch-stock-2
+2026-10-12T06:57:20+0800 started pid 640894 ppid 640576 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-final/switch-fast-1
+2026-10-12T06:57:25+0800 started pid 641046 ppid 640576 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-final/switch-fast-2
+2026-10-12T06:57:27+0800 pid 640576 ended; 4 recorded

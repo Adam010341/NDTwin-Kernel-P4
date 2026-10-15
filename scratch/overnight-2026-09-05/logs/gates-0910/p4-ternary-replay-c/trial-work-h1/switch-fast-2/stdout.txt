@@ -1,0 +1,5 @@
+You disabled logging macros when building this binary; however, the log level is currenty set to include 'debug' and possibly 'trace' messages; therefore the logs will be missing most messages
+Calling target program-options parser
+Adding interface p1 as port 1 (files)
+Adding interface p2 as port 2 (files)
+Adding interface p3 as port 3 (files)

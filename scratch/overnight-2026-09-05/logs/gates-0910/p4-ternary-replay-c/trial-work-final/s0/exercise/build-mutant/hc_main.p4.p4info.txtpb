@@ -1,0 +1,655 @@
+# proto-file: p4/config/v1/p4info.proto
+# proto-message: p4.config.v1.P4Info
+
+pkg_info {
+  arch: "v1model"
+}
+tables {
+  preamble {
+    id: 41254607
+    name: "HcIngress.ipv4_lpm"
+    alias: "ipv4_lpm"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.dstAddr"
+    bitwidth: 32
+    match_type: LPM
+  }
+  action_refs {
+    id: 28771140
+  }
+  action_refs {
+    id: 29326070
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 29326070
+  }
+  size: 1024
+}
+tables {
+  preamble {
+    id: 50266222
+    name: "HcIngress.t_multipath"
+    alias: "t_multipath"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.dstAddr"
+    bitwidth: 32
+    match_type: EXACT
+  }
+  match_fields {
+    id: 2
+    name: "meta.mp_choice"
+    bitwidth: 1
+    match_type: EXACT
+  }
+  action_refs {
+    id: 28771140
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  size: 64
+}
+tables {
+  preamble {
+    id: 45513906
+    name: "HcIngress.tunnel_exact"
+    alias: "tunnel_exact"
+  }
+  match_fields {
+    id: 1
+    name: "meta.dst_id"
+    bitwidth: 16
+    match_type: EXACT
+  }
+  action_refs {
+    id: 28731622
+  }
+  action_refs {
+    id: 29326070
+  }
+  initial_default_action {
+    action_id: 29326070
+  }
+  size: 64
+}
+tables {
+  preamble {
+    id: 40061032
+    name: "HcIngress.v6_host"
+    alias: "v6_host"
+  }
+  match_fields {
+    id: 1
+    name: "meta.v6_lo"
+    bitwidth: 32
+    match_type: EXACT
+  }
+  action_refs {
+    id: 25645619
+  }
+  action_refs {
+    id: 29326070
+  }
+  initial_default_action {
+    action_id: 29326070
+  }
+  size: 64
+}
+tables {
+  preamble {
+    id: 48879120
+    name: "HcIngress.port_exact"
+    alias: "port_exact"
+  }
+  match_fields {
+    id: 1
+    name: "standard_metadata.ingress_port"
+    bitwidth: 9
+    match_type: EXACT
+  }
+  action_refs {
+    id: 30669852
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  size: 64
+}
+tables {
+  preamble {
+    id: 34657741
+    name: "HcIngress.t_default_only"
+    alias: "t_default_only"
+  }
+  action_refs {
+    id: 23464384
+  }
+  initial_default_action {
+    action_id: 23464384
+    arguments {
+      param_id: 1
+      value: "\000"
+    }
+  }
+  size: 1024
+}
+tables {
+  preamble {
+    id: 40967663
+    name: "HcIngress.t_ternary"
+    alias: "t_ternary"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.srcAddr"
+    bitwidth: 32
+    match_type: TERNARY
+  }
+  action_refs {
+    id: 28540333
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  size: 64
+}
+tables {
+  preamble {
+    id: 43922963
+    name: "HcIngress.t_range"
+    alias: "t_range"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.udp.dstPort"
+    bitwidth: 16
+    match_type: RANGE
+  }
+  action_refs {
+    id: 28540333
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  size: 64
+}
+tables {
+  preamble {
+    id: 48134559
+    name: "HcIngress.t_optional"
+    alias: "t_optional"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.protocol"
+    bitwidth: 8
+    match_type: OPTIONAL
+  }
+  action_refs {
+    id: 28540333
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  size: 64
+}
+tables {
+  preamble {
+    id: 44315755
+    name: "HcIngress.t_dcount"
+    alias: "t_dcount"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.udp.dstPort"
+    bitwidth: 16
+    match_type: EXACT
+  }
+  action_refs {
+    id: 29345757
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  direct_resource_ids: 329684557
+  size: 16
+}
+tables {
+  preamble {
+    id: 44885884
+    name: "HcIngress.t_dmeter"
+    alias: "t_dmeter"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.udp.dstPort"
+    bitwidth: 16
+    match_type: EXACT
+  }
+  action_refs {
+    id: 28628611
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  direct_resource_ids: 365973403
+  size: 16
+}
+tables {
+  preamble {
+    id: 40473637
+    name: "HcIngress.t_ap"
+    alias: "t_ap"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.udp.dstPort"
+    bitwidth: 16
+    match_type: EXACT
+  }
+  action_refs {
+    id: 28540333
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  implementation_id: 289747412
+  size: 16
+}
+tables {
+  preamble {
+    id: 34823543
+    name: "HcIngress.t_as"
+    alias: "t_as"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.udp.dstPort"
+    bitwidth: 16
+    match_type: EXACT
+  }
+  action_refs {
+    id: 28540333
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  implementation_id: 289315078
+  size: 16
+}
+tables {
+  preamble {
+    id: 37380936
+    name: "HcIngress.t_idle"
+    alias: "t_idle"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.udp.dstPort"
+    bitwidth: 16
+    match_type: EXACT
+  }
+  action_refs {
+    id: 17321223
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  size: 16
+  idle_timeout_behavior: NOTIFY_CONTROL
+}
+tables {
+  preamble {
+    id: 42601044
+    name: "HcEgress.q_stamp"
+    alias: "q_stamp"
+  }
+  action_refs {
+    id: 18759371
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 18759371
+  }
+  size: 1024
+}
+actions {
+  preamble {
+    id: 21257015
+    name: "NoAction"
+    alias: "NoAction"
+    annotations: "@noWarn(\"unused\")"
+  }
+}
+actions {
+  preamble {
+    id: 29326070
+    name: "HcIngress.drop"
+    alias: "drop"
+  }
+}
+actions {
+  preamble {
+    id: 28771140
+    name: "HcIngress.ipv4_forward"
+    alias: "ipv4_forward"
+  }
+  params {
+    id: 1
+    name: "dstAddr"
+    bitwidth: 48
+  }
+  params {
+    id: 2
+    name: "port"
+    bitwidth: 9
+  }
+}
+actions {
+  preamble {
+    id: 28731622
+    name: "HcIngress.tunnel_forward"
+    alias: "tunnel_forward"
+  }
+  params {
+    id: 1
+    name: "port"
+    bitwidth: 9
+  }
+}
+actions {
+  preamble {
+    id: 25645619
+    name: "HcIngress.v6_forward"
+    alias: "v6_forward"
+  }
+  params {
+    id: 1
+    name: "dstAddr"
+    bitwidth: 48
+  }
+  params {
+    id: 2
+    name: "port"
+    bitwidth: 9
+  }
+}
+actions {
+  preamble {
+    id: 30669852
+    name: "HcIngress.set_port_tag"
+    alias: "set_port_tag"
+  }
+  params {
+    id: 1
+    name: "tag"
+    bitwidth: 8
+  }
+}
+actions {
+  preamble {
+    id: 23464384
+    name: "HcIngress.stamp"
+    alias: "stamp"
+  }
+  params {
+    id: 1
+    name: "v"
+    bitwidth: 8
+  }
+}
+actions {
+  preamble {
+    id: 28540333
+    name: "HcIngress.set_mark"
+    alias: "set_mark"
+  }
+  params {
+    id: 1
+    name: "v"
+    bitwidth: 8
+  }
+}
+actions {
+  preamble {
+    id: 29345757
+    name: "HcIngress.dc_hit"
+    alias: "dc_hit"
+  }
+}
+actions {
+  preamble {
+    id: 28628611
+    name: "HcIngress.dm_read"
+    alias: "dm_read"
+  }
+}
+actions {
+  preamble {
+    id: 17321223
+    name: "HcIngress.idle_hit"
+    alias: "idle_hit"
+  }
+}
+actions {
+  preamble {
+    id: 18759371
+    name: "HcEgress.do_qstamp"
+    alias: "do_qstamp"
+  }
+}
+action_profiles {
+  preamble {
+    id: 289747412
+    name: "HcIngress.ap_prof"
+    alias: "ap_prof"
+  }
+  table_ids: 40473637
+  size: 16
+}
+action_profiles {
+  preamble {
+    id: 289315078
+    name: "HcIngress.as_sel"
+    alias: "as_sel"
+  }
+  table_ids: 34823543
+  with_selector: true
+  size: 16
+}
+counters {
+  preamble {
+    id: 317599709
+    name: "HcIngress.c_in"
+    alias: "c_in"
+  }
+  spec {
+    unit: BOTH
+  }
+  size: 1024
+}
+direct_counters {
+  preamble {
+    id: 329684557
+    name: "HcIngress.dc_k2"
+    alias: "dc_k2"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 44315755
+}
+meters {
+  preamble {
+    id: 347870026
+    name: "HcIngress.m_in"
+    alias: "m_in"
+  }
+  spec {
+    unit: BYTES
+  }
+  size: 64
+}
+direct_meters {
+  preamble {
+    id: 365973403
+    name: "HcIngress.dm_mt3"
+    alias: "dm_mt3"
+  }
+  spec {
+    unit: BYTES
+  }
+  direct_table_id: 44885884
+}
+controller_packet_metadata {
+  preamble {
+    id: 80671331
+    name: "packet_in"
+    alias: "packet_in"
+    annotations: "@controller_header(\"packet_in\")"
+  }
+  metadata {
+    id: 1
+    name: "ingress_port"
+    bitwidth: 9
+  }
+  metadata {
+    id: 2
+    name: "_pad"
+    bitwidth: 7
+  }
+}
+controller_packet_metadata {
+  preamble {
+    id: 75327753
+    name: "packet_out"
+    alias: "packet_out"
+    annotations: "@controller_header(\"packet_out\")"
+  }
+  metadata {
+    id: 1
+    name: "egress_port"
+    bitwidth: 9
+  }
+  metadata {
+    id: 2
+    name: "_pad"
+    bitwidth: 7
+  }
+}
+value_sets {
+  preamble {
+    id: 62004654
+    name: "HcParser.vs_ports"
+    alias: "vs_ports"
+  }
+  match {
+    id: 1
+    bitwidth: 16
+    match_type: EXACT
+  }
+  size: 4
+}
+registers {
+  preamble {
+    id: 382518421
+    name: "HcIngress.r_mark"
+    alias: "r_mark"
+  }
+  type_spec {
+    bitstring {
+      bit {
+        bitwidth: 32
+      }
+    }
+  }
+  size: 16
+}
+digests {
+  preamble {
+    id: 389049336
+    name: "digest_t"
+    alias: "digest_t"
+  }
+  type_spec {
+    struct {
+      name: "digest_t"
+    }
+  }
+}
+type_info {
+  structs {
+    key: "digest_t"
+    value {
+      members {
+        name: "src"
+        type_spec {
+          bitstring {
+            bit {
+              bitwidth: 32
+            }
+          }
+        }
+      }
+      members {
+        name: "sport"
+        type_spec {
+          bitstring {
+            bit {
+              bitwidth: 16
+            }
+          }
+        }
+      }
+      members {
+        name: "dport"
+        type_spec {
+          bitstring {
+            bit {
+              bitwidth: 16
+            }
+          }
+        }
+      }
+    }
+  }
+}

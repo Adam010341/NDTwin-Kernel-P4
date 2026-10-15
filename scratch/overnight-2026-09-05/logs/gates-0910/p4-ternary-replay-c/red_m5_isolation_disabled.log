@@ -1,0 +1,72 @@
+commit 5025bb57a724fefae960ef2d1dc033f676b9fe7a + uncommitted: p4_proxy/tests/journal_isolation.py emptied (the isolation disabled)
+ p4_proxy/tests/journal_isolation.py | 45 +------------------------------------
+ 1 file changed, 1 insertion(+), 44 deletions(-)
+command: PROXY_PY=<main venv> bash tests/shell/check_no_stray_table_journal.sh
+interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+journal dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/redm5/p4_proxy/.run/table_entry_journal
+before     : ABSENT 
+after      : 110ce1740781738de0333f9ed6dfd7cdd08caec0e88c229799932256336f5816  ./s1.jsonl b8b5145778dd24910faf52735e734b884985565388cbb9d4d0a7d8d500763989  ./s1.jsonl.q1791744554236327060 5d4c157da719663e461f68f07
+suite      : rc=0  Ran 2049 tests in 32.217s OK (skipped=100) 
+🔴 STRAY: the suite changed /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/redm5/p4_proxy/.run/table_entry_journal -- a test module imports main without tests/journal_isolation.py first
+    1c1,47
+    < ABSENT
+    ---
+    > 110ce1740781738de0333f9ed6dfd7cdd08caec0e88c229799932256336f5816  ./s1.jsonl
+    > b8b5145778dd24910faf52735e734b884985565388cbb9d4d0a7d8d500763989  ./s1.jsonl.q1791744554236327060
+    > 5d4c157da719663e461f68f07ed12d61850337d8732a8f9dbc6a01b5c96f2ecf  ./s1.jsonl.q1791744554355755378
+    > 773e0aaa544b2c5bc23be960cfe5be32da7bc4d4465bf9c308c8832951b9db2d  ./s1.jsonl.q1791744554399780857
+    > 773e0aaa544b2c5bc23be960cfe5be32da7bc4d4465bf9c308c8832951b9db2d  ./s1.jsonl.q1791744554449631837
+    > 7e1b961deb89878abc886ab0f11603f543c27b1dd1b73319638eae28b5e3e40d  ./s1.jsonl.q1791744554474508949
+    > 7e1b961deb89878abc886ab0f11603f543c27b1dd1b73319638eae28b5e3e40d  ./s1.jsonl.q1791744554499813535
+    > 62cb1d362c2c55bd0d276271a7abdc3b02efb99a3099aec9ad613989266fd27c  ./s1.jsonl.q1791744554550029890
+    > 62cb1d362c2c55bd0d276271a7abdc3b02efb99a3099aec9ad613989266fd27c  ./s1.jsonl.q1791744564585655491
+    > 088746b21047f7fae8fcbf6559fa2557051d56b6b3829453b20ba30f5b4255ab  ./s1.jsonl.q1791744564611851869
+    > 110ce1740781738de0333f9ed6dfd7cdd08caec0e88c229799932256336f5816  ./s1.jsonl.q1791744564708850244
+    > 6c7b8e2ec3c368817f688479ad807099a5fcadd977aef9b2f17f024d8ed7ff85  ./s2.jsonl
+    > 5511abf75537d2db17259e81059d108eed790620912edfab100b0820d8e3feca  ./s2.jsonl.q1791744554029440573
+    > b66b0e526cf1aa7ba4aa1dba383d3f2a0cef1e96e50e2317154e85e3ab02881b  ./s2.jsonl.q1791744554136613109
+    > b66b0e526cf1aa7ba4aa1dba383d3f2a0cef1e96e50e2317154e85e3ab02881b  ./s2.jsonl.q1791744554261424803
+    > 20fa3d2513ec8c96416146a61551b7e35b7544734deace2ca456a63b548f9b64  ./s2.jsonl.q1791744554305207892
+    > 20fa3d2513ec8c96416146a61551b7e35b7544734deace2ca456a63b548f9b64  ./s2.jsonl.q1791744554374774335
+    > ab08981508f0b17d49e5eb551bf436a0c4b25cb367201c8376a29506fb450a8a  ./s2.jsonl.q1791744554425027310
+    > ab08981508f0b17d49e5eb551bf436a0c4b25cb367201c8376a29506fb450a8a  ./s2.jsonl.q1791744554524934343
+    > 65a430da776e8081a428fccba9199c6689c7ba88c21b33e6a01d2a797cf82a91  ./s2.jsonl.q1791744554574812777
+    > 65a430da776e8081a428fccba9199c6689c7ba88c21b33e6a01d2a797cf82a91  ./s2.jsonl.q1791744564637638345
+    > 6c7b8e2ec3c368817f688479ad807099a5fcadd977aef9b2f17f024d8ed7ff85  ./s2.jsonl.q1791744564734978447
+    > df1287b21b843b3593ff929cd7c1bbefea585e5ea4794c5756ca4ca6f3c76c3d  ./s3.jsonl
+    > be62f8a5d86eb7f31e18a58e2476cce9badd581948526cd6dff8ec33615626e9  ./s3.jsonl.q1791744541542874818
+    > 4f998b2389ffd08a9dc9e20bfa56e61f2e021634bcfa32b027eeea6fba5cd538  ./s3.jsonl.q1791744541596469787
+    > 4f998b2389ffd08a9dc9e20bfa56e61f2e021634bcfa32b027eeea6fba5cd538  ./s3.jsonl.q1791744541651781104
+    > 2eda33273059638fe69bf66eb0f077ad6f6b2de31967664d3794358c6cbdf9cb  ./s3.jsonl.q1791744541705785862
+    > 2eda33273059638fe69bf66eb0f077ad6f6b2de31967664d3794358c6cbdf9cb  ./s3.jsonl.q1791744554048369175
+    > 0e78a55a4686d9774ba9ae158eb6c0267bf64194d7c69d8cb488aeb0a7e8beb7  ./s3.jsonl.q1791744554161322934
+    > 0e78a55a4686d9774ba9ae158eb6c0267bf64194d7c69d8cb488aeb0a7e8beb7  ./s3.jsonl.q1791744554286223452
+    > bfcd0192d8bf2a1bf51e1839698260878aea1959d69b74201873fb74ae3c4526  ./s3.jsonl.q1791744554330155479
+    > bfcd0192d8bf2a1bf51e1839698260878aea1959d69b74201873fb74ae3c4526  ./s3.jsonl.q1791744564663561015
+    > df1287b21b843b3593ff929cd7c1bbefea585e5ea4794c5756ca4ca6f3c76c3d  ./s3.jsonl.q1791744564754641724
+    > d66077333363f18ff2f255461a1466735731731d17ca0a887039723fe00f6319  ./s4.jsonl
+    > 4b4e8639c49be2023988b368c81105911adcc5c35b2e76ab36d8b391257722da  ./s4.jsonl.q1791744541444936406
+    > 247014088a76cef9bee2d4b6370d3c6e1b6bfc2ea126145b3c90c2e22dba1805  ./s4.jsonl.q1791744541498968274
+    > 247014088a76cef9bee2d4b6370d3c6e1b6bfc2ea126145b3c90c2e22dba1805  ./s4.jsonl.q1791744541555770043
+rc=1
+--- p4_proxy/.run afterwards:
+p4_proxy/.run
+p4_proxy/.run/table_entry_journal
+p4_proxy/.run/table_entry_journal/s2.jsonl.q1791744554425027310
+p4_proxy/.run/table_entry_journal/s2.jsonl.q1791744554305207892
+p4_proxy/.run/table_entry_journal/s2.jsonl.q1791744554374774335
+p4_proxy/.run/table_entry_journal/s3.jsonl.q1791744564754641724
+p4_proxy/.run/table_entry_journal/s5.jsonl.q1791744554211418948
+p4_proxy/.run/table_entry_journal/s4.jsonl.q1791744564683064693
+p4_proxy/.run/table_entry_journal/s1.jsonl.q1791744564708850244
+p4_proxy/.run/table_entry_journal/s1.jsonl.q1791744554355755378
+p4_proxy/.run/table_entry_journal/s1.jsonl.q1791744554449631837
+p4_proxy/.run/table_entry_journal/s4.jsonl.q1791744554067319214
+p4_proxy/.run/table_entry_journal/s2.jsonl.q1791744554574812777
+p4_proxy/.run/table_entry_journal/s4.jsonl.q1791744541555770043
+p4_proxy/.run/table_entry_journal/s3.jsonl.q1791744554286223452
+p4_proxy/.run/table_entry_journal/s1.jsonl.q1791744554474508949
+p4_proxy/.run/table_entry_journal/s1.jsonl.q1791744554236327060
+p4_proxy/.run/table_entry_journal/s2.jsonl.q1791744554136613109
+p4_proxy/.run/table_entry_journal/s3.jsonl.q1791744554048369175
+p4_proxy/.run/table_entry_journal/s4.jsonl.q1791744541719799555

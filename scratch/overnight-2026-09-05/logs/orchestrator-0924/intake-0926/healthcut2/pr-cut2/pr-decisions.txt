@@ -1,0 +1,49 @@
+doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-09-04_p4-tutorial-exercise-prep/PAPER-APPS-CANDIDATES.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/README.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-09-25_p4-heartbeat/TICKET-P4-heartbeat.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-09-27_ndt-serve-gui/SCOPE-v2.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2-r2.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2-r3.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-09-27_ndt-serve-gui/SUMMARY-v2.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-10-03_p4-health-check/DESIGN.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-10-03_p4-health-check/SUMMARY-cut1-followups-r5.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-10-03_p4-health-check/SUMMARY-cut1-followups-r6.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-10-03_p4-health-check/SUMMARY-cut1-followups-r7.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-10-03_p4-health-check/SUMMARY-cut1-followups-r8.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-10-03_p4-health-check/SUMMARY-cut1-followups-r9.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-10-03_p4-health-check/SUMMARY-cut1-followups.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-10-03_p4-health-check/SUMMARY-cut1.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md  EXCLUDED (doc/audit md or REPORT*) -> not taken
+doc/audit/2026-10-03_p4-health-check/expected_today.tsv  main blob 4dd1d5dbb3a416fb83d8c01b289e26de2d870245 found at trunk commit 90c19693f12f0c56da5da4cf65533a4c192b9088 -> take T blob 5885376e47fae0b4a434209bfea0dd11bf847e4b
+tests/python/test_grpc_port_block.py  main blob d9ae49cec10b3a31b067b440a2d1d482a946a456 found at trunk commit 17ed2ff94f7d41ee41b810141dd10a008fd78c61 -> take T blob f4e9950b0968c9ba37ef2203eaf5c59fa0adfc5a
+tests/python/test_p4_health_cells.py  main blob 1463dd0d9f40bd32b1ec668fd15218f2be12e924 found at trunk commit 65491cebf993c96c3291da9809caddd1be3458d8 -> take T blob 70e505276da9ed8f7bf9c33d2cc7a27884d12fb2
+tests/python/test_p4_health_collect.py  main blob 5fd8c193d6a84422e9ef60690652bea9b4300fa6 found at trunk commit c9cfb09e5e1a14b22cfc82e58093b9fe0fe3abd9 -> take T blob 97e74970b57ac9f8555b1bf2ec0f4436fae21804
+tests/shell/mutate_p4_health.sh  main blob d51f38e098a0c71b0189da061ea867e157540cc8 found at trunk commit 35e3479dab992bce89c0779d45a085e6775fca7f -> take T blob 3e282f49f65c1358929dc85c569f7ba091a40dbd
+tests/shell/sum_p4_health_gate_shards.sh  absent on main -> take T blob 8eb06317383ea2ded7128e6c9f00b6e2efc95d13
+tests/shell/test_p4_health_gate_scripts.sh  absent on main -> take T blob 954ee4fd991cb47c25495b8e646d654e4bbca8a3
+tools/p4_health/__init__.py  main blob b6c400aa28b69a58f78ca7bdefad94db016a66c7 found at trunk commit 096d261ace70a8f81162ee94e732a55f001d135a -> take T blob 35768c9061369cf5137b52d6c2af36a8d3cf4ae4
+tools/p4_health/attribution.py  absent on main -> take T blob 05eaf71c4b1ed11a1cdacfa025c08862bc37a9a4
+tools/p4_health/cells/table.py  main blob b90d7dee080d5991ec09126ac52cf3e89587e2f7 found at trunk commit 90c19693f12f0c56da5da4cf65533a4c192b9088 -> take T blob 53634a7e6bd051aa2f94f39addad758020415015
+tools/p4_health/cells/verdict.py  main blob b814dd73dbaac08c29bbd90023ab921b32c02750 found at trunk commit 7e68dcf92bd73e85db56f1b3a232b08b05759c97 -> take T blob 62349044fba065b4aeab67ef513b6d6b5b79b403
+tools/p4_health/collect/fabric.py  main blob 573a454ed16f4c3026db4e6f3e18ccba29d066bc found at trunk commit a61ace9c74ab85d0902f922d05289596db91b2e5 -> take T blob bebd8adb5672694882f2e8c27fae59cea57ce262
+tools/p4_health/collect/hosts.py  absent on main -> take T blob aa41943c49c7c0076be03c667d67c94e3a74113f
+tools/p4_health/collect/runner.py  main blob ede729120741bcfefea67c563b972ea5f1dcb45a found at trunk commit 096d261ace70a8f81162ee94e732a55f001d135a -> take T blob eb222eb6223daf1d614e6aa53cdd431d097a323e
+tools/p4_health/controller_ext.py  absent on main -> take T blob eecfa54d0482911840252f206b28ef32416f8d4d
+tools/p4_health/ctrl_trial.py  absent on main -> take T blob 97c7d0bf0d7bb09ff4c8702db2acee34411d91f4
+tools/p4_health/exercise/mycontroller.py  main blob f7fe4f9c09f26a513004946ee9c5f929b39e6b16 found at trunk commit 8c845adbd64f21155242aa10e82130b593616bc8 -> take T blob 6260487bb4f3df6d99a02223b7cac40643159326
+tools/p4_health/expected.py  main blob b4f31de5b0ad2e288879b226dbea7dd369e38ee3 found at trunk commit 096d261ace70a8f81162ee94e732a55f001d135a -> take T blob 3f24265383a239e4fe835452fac41351f5e9f18c
+tools/p4_health/frames.py  main blob 8fd4710878adca1ffbb96d162bad79276e77f425 found at trunk commit 096d261ace70a8f81162ee94e732a55f001d135a -> take T blob d6350a75c6ba1f7c52a077489c1ee5d2eba56236
+tools/p4_health/frozen.py  absent on main -> take T blob 84df5032a42692a4f1a9bc7f6a65767ce0ad1b43
+tools/p4_health/hostside.py  absent on main -> take T blob 557bfd9f689dcb36b051f72e4ed6bd8eb6cd2c64
+tools/p4_health/identity.py  absent on main -> take T blob 5d0a3ae787b629e7ca02f92c6e4d2fe1ae7a4072
+tools/p4_health/lab.py  absent on main -> take T blob 587d4a523446e01c287d5b2216f0da020f613c9f
+tools/p4_health/lab_round.py  main blob af55013f6a26499f2acb75bc70200749b146516c found at trunk commit c9cfb09e5e1a14b22cfc82e58093b9fe0fe3abd9 -> take T blob d6516e594311d85c18a3f9d5e3b6301ffbb86c78
+tools/p4_health/observe.py  main blob aa8de1cc512f75416917fbe80bd490a7d607f37a found at trunk commit 7d85619b573f75d195ecb9e3910a440a653daf6c -> take T blob 79391f18f64ff5595131d197de2c320a05bf588c
+tools/p4_health/observe_a.py  absent on main -> take T blob 764e0cda54402b284a8fdb0b4a50f15950de5a50
+tools/p4_health/probe.py  main blob 4ab7bb54f498729770995bca63a2524cc86330be found at trunk commit 096d261ace70a8f81162ee94e732a55f001d135a -> take T blob a750f1b4e2241b3ba92ffb0ebbbcc97580107781
+tools/p4_health/report.py  main blob 447a6a074067812d1f9bba5416cc09476df159ab found at trunk commit 7e68dcf92bd73e85db56f1b3a232b08b05759c97 -> take T blob c517594d0af9e01773f2d96770feff771541a8a1
+tools/p4_health/round_a.py  absent on main -> take T blob ffeb753126dc3c9dbdd77e826bd22aa7aae5f212
+tools/p4_health/round_b.py  absent on main -> take T blob 1cc27ef326dfa604b9a2362ddba817897b1a0153
+tools/p4_health/s0.py  main blob c62c4d75d672b06d42ed1adebfb2d6d5bd748daa found at trunk commit 096d261ace70a8f81162ee94e732a55f001d135a -> take T blob 6347f55b38358c705d3f7b2e2859955ec0a33256
+tools/p4_health/throwaway.py  main blob 35c87bcd70dca7fd2c5ff78c136f5af9ea3df0dc found at trunk commit 096d261ace70a8f81162ee94e732a55f001d135a -> take T blob 9415190c1d215996cb393d4c3f07fd88a56333c0

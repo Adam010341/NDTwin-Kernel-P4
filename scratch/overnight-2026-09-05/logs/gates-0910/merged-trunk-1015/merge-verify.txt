@@ -1,0 +1,146 @@
+== git log --format='%H %P %s' -3 merge/trunk-1015
+d92bf1a258cec2d1524652fcff17526926fbcefa d83a78d9d71035c1fbb9fb71de11cbea403d9dc8 4a4eb94eda029bb55337ee8dbde9065bfb9702ca Merge branch 'feat/p4-health-locale' into trunk
+d83a78d9d71035c1fbb9fb71de11cbea403d9dc8 acb3c4b751426a7bf558be35fccc1509986f147b 392a574612b3c7c68ba36f6fabe93831f12236ca Merge branch 'feat/p4-ternary-replay-c' into trunk
+392a574612b3c7c68ba36f6fabe93831f12236ca 5ace61c74d8837e83533be0ecdf18c7d9d8895dd p4_proxy: say which journaled writes a changed entries file drops
+
+== M2 parents
+d83a78d9d71035c1fbb9fb71de11cbea403d9dc8
+4a4eb94eda029bb55337ee8dbde9065bfb9702ca
+== M1 parents
+acb3c4b751426a7bf558be35fccc1509986f147b
+392a574612b3c7c68ba36f6fabe93831f12236ca
+
+== per-path blob check (paths in git diff --name-only acb3c4b7 M2)
+= 4a4eb94e  doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md
+TSV(skip) doc/audit/2026-10-03_p4-health-check/expected_today.tsv
+= 392a5746  doc/audit/2026-10-04_p4-ternary-journal/DESIGN.md
+= 392a5746  doc/audit/2026-10-04_p4-ternary-journal/SUMMARY-cut-b.md
+= 392a5746  doc/audit/2026-10-04_p4-ternary-journal/SUMMARY-cut-c.md
+= 392a5746  p4_proxy/proxy_agent/api_routes.py
+= 392a5746  p4_proxy/proxy_agent/boot_identity.py
+= 392a5746  p4_proxy/proxy_agent/main.py
+= 392a5746  p4_proxy/proxy_agent/p4_client.py
+= 392a5746  p4_proxy/proxy_agent/rule_install_times.py
+= 392a5746  p4_proxy/proxy_agent/rule_journal.py
+= 392a5746  p4_proxy/tests/journal_isolation.py
+= 392a5746  p4_proxy/tests/test_app_package_proxy.py
+= 392a5746  p4_proxy/tests/test_declared_links.py
+= 392a5746  p4_proxy/tests/test_foreign_pipeline.py
+= 392a5746  p4_proxy/tests/test_heartbeat_fabric.py
+= 392a5746  p4_proxy/tests/test_journal_is_wired_in_main.py
+= 392a5746  p4_proxy/tests/test_multicast_group.py
+= 392a5746  p4_proxy/tests/test_port_guard.py
+= 392a5746  p4_proxy/tests/test_readopt.py
+= 392a5746  p4_proxy/tests/test_route_binding.py
+= 392a5746  p4_proxy/tests/test_startup.py
+= 392a5746  p4_proxy/tests/test_switch_state.py
+= 392a5746  p4_proxy/tests/test_table_entry_journal.py
+= 392a5746  p4_proxy/tests/test_table_entry_owner.py
+= 392a5746  p4_proxy/tests/test_table_entry_owner_package.py
+= 392a5746  p4_proxy/tests/test_table_entry_replay.py
+= 392a5746  p4_proxy/tests/test_table_entry_route.py
+= 4a4eb94e  tests/python/test_p4_health_cells.py
+= 4a4eb94e  tests/python/test_p4_health_collect.py
+= 392a5746  tests/shell/check_no_stray_table_journal.sh
+= 4a4eb94e  tests/shell/mutate_p4_health.sh
+= 392a5746  tests/shell/mutate_table_entry.sh
+= 392a5746  tests/shell/mutate_table_journal.sh
+= 4a4eb94e  tests/shell/sum_p4_health_gate_shards.sh
+= 4a4eb94e  tests/shell/test_p4_health_gate_scripts.sh
+= 4a4eb94e  tools/p4_health/cells/table.py
+= 4a4eb94e  tools/p4_health/ctrl_trial.py
+= 4a4eb94e  tools/p4_health/frozen.py
+= 4a4eb94e  tools/p4_health/lab.py
+= 4a4eb94e  tools/p4_health/probe.py
+= 4a4eb94e  tools/p4_health/s0.py
+= 392a5746  tools/test_workflow/l1_unit_tests.sh
+
+== tsv: git diff 392a5746 M2 -- tsv
+diff --git a/doc/audit/2026-10-03_p4-health-check/expected_today.tsv b/doc/audit/2026-10-03_p4-health-check/expected_today.tsv
+index 7c03507c..8152d652 100644
+--- a/doc/audit/2026-10-03_p4-health-check/expected_today.tsv
++++ b/doc/audit/2026-10-03_p4-health-check/expected_today.tsv
+@@ -16,7 +16,7 @@ T4	tables	ext	A	2	GREEN	Cut A + D: observed offline, at commit e17d39e5, on thro
+ T5	tables	ext	A	2	GREEN	Cut A + D: observed offline, at commit e17d39e5, on throwaway bmv2 stock and fast, the proxy's own POST /p4/table_entry handler and these observers (gates-0910/p4-health-ternary-d/r2/t4t7.json, an audit-raw log outside the repo); no live health.json yet; code: range [low, high] + priority, match_shape.py:321-335	r6
+ T6	tables	ext	A	2	GREEN	Cut A + D: observed offline, at commit e17d39e5, on throwaway bmv2 stock and fast, the proxy's own POST /p4/table_entry handler and these observers (gates-0910/p4-health-ternary-d/r2/t4t7.json, an audit-raw log outside the repo); no live health.json yet; code: optional, match_shape.py:344; thrift dumps it as TERNARY v &&& ff, observe_a.py:269-274	r6
+ T7	tables	ext	A	2	GREEN	Cut A + D: observed offline, at commit e17d39e5, on throwaway bmv2 stock and fast, the proxy's own POST /p4/table_entry handler and these observers (gates-0910/p4-health-ternary-d/r2/t4t7.json, an audit-raw log outside the repo); no live health.json yet; code: gate T4; the higher P4Runtime priority is the smaller thrift number, observe_a.py:277-301	r6
+-T8	tables	ext	A	2	GREEN	Cut C: observed offline, at commit e8d91655, on throwaway bmv2 stock and fast, three proxy processes each through the proxy's own main.startup (a write, a restart on the warm switch, a restart on a fresh one), POST /p4/table_entry and GET /p4/switch_state handlers, and observe_a.observe_t8 (gates-0910/p4-ternary-replay-c/trial-h1.json, an audit-raw log outside the repo); n
++T8	tables	ext	A	2	GREEN	Cut C: observed offline, at commit e8d91655, on throwaway bmv2 stock and fast, three proxy processes each through the proxy's own main.startup (a write, a restart on the warm switch, a restart on a fresh one), POST /p4/table_entry and GET /p4/switch_state handlers, and observe_a.observe_t8 (gates-0910/p4-ternary-replay-c/trial-h1.json, an audit-raw log outside the repo); n
+ PF-T	tables	ext	S0	1	GREEN	Cut A + D: S0 observes it (pre-flight checks a ternary entry with the writer's own match_shape, preflight.py:235-244; S0 COMPLETE needs PF-T GREEN)	r6
+ M1	pre_multicast	core	A	2	GREEN	package multicast groups written at boot (main.py:1011-1075)	r6
+ M2	pre_multicast	core	A	2	GREEN	POST /p4/multicast_group (api_routes.py:1035-1130)	r6
+
+== tsv: git diff 4a4eb94e M2 -- tsv
+diff --git a/doc/audit/2026-10-03_p4-health-check/expected_today.tsv b/doc/audit/2026-10-03_p4-health-check/expected_today.tsv
+index 2f6c08c9..8152d652 100644
+--- a/doc/audit/2026-10-03_p4-health-check/expected_today.tsv
++++ b/doc/audit/2026-10-03_p4-health-check/expected_today.tsv
+@@ -16,7 +16,7 @@ T4	tables	ext	A	2	GREEN	Cut A + D: observed offline, at commit e17d39e5, on thro
+ T5	tables	ext	A	2	GREEN	Cut A + D: observed offline, at commit e17d39e5, on throwaway bmv2 stock and fast, the proxy's own POST /p4/table_entry handler and these observers (gates-0910/p4-health-ternary-d/r2/t4t7.json, an audit-raw log outside the repo); no live health.json yet; code: range [low, high] + priority, match_shape.py:321-335	r6
+ T6	tables	ext	A	2	GREEN	Cut A + D: observed offline, at commit e17d39e5, on throwaway bmv2 stock and fast, the proxy's own POST /p4/table_entry handler and these observers (gates-0910/p4-health-ternary-d/r2/t4t7.json, an audit-raw log outside the repo); no live health.json yet; code: optional, match_shape.py:344; thrift dumps it as TERNARY v &&& ff, observe_a.py:269-274	r6
+ T7	tables	ext	A	2	GREEN	Cut A + D: observed offline, at commit e17d39e5, on throwaway bmv2 stock and fast, the proxy's own POST /p4/table_entry handler and these observers (gates-0910/p4-health-ternary-d/r2/t4t7.json, an audit-raw log outside the repo); no live health.json yet; code: gate T4; the higher P4Runtime priority is the smaller thrift number, observe_a.py:277-301	r6
+-T8	tables	ext	A	2	GREEN	Cut C: observed offline, at commit e8d91655, on throwaway bmv2 stock and fast, three proxy processes each through the proxy's own main.startup (a write, a restart on the warm switch, a restart on a fresh one), POST /p4/table_entry and GET /p4/switch_state handlers, and observe_a.observe_t8 (gates-0910/p4-ternary-replay-c/trial-h1.json, an audit-raw log outside the repo); n
++T8	tables	ext	A	2	GREEN	Cut C: observed offline, at commit e8d91655, on throwaway bmv2 stock and fast, three proxy processes each through the proxy's own main.startup (a write, a restart on the warm switch, a restart on a fresh one), POST /p4/table_entry and GET /p4/switch_state handlers, and observe_a.observe_t8 (gates-0910/p4-ternary-replay-c/trial-h1.json, an audit-raw log outside the repo); n
+ PF-T	tables	ext	S0	1	GREEN	Cut A + D: S0 observes it (pre-flight checks a ternary entry with the writer's own match_shape, preflight.py:235-244; S0 COMPLETE needs PF-T GREEN)	r6
+ M1	pre_multicast	core	A	2	GREEN	package multicast groups written at boot (main.py:1011-1075)	r6
+ M2	pre_multicast	core	A	2	GREEN	POST /p4/multicast_group (api_routes.py:1035-1130)	r6
+
+== SUMMARY-cut-a.md
+3cd024e48d163a63c9d3b256bf32a7aa99d47bfb
+3cd024e48d163a63c9d3b256bf32a7aa99d47bfb
+
+== intersection of files changed by the two branches vs merge-base
+merge-base(392a5746,4a4eb94e)=c24a7d19929a6784087529d3ea2614e07550bb95
+392a5746 files: 14  4a4eb94e files: 13
+doc/audit/2026-10-03_p4-health-check/expected_today.tsv
+-- same, relative to acb3c4b7 (what the merge adds to trunk)
+intersection:
+doc/audit/2026-10-03_p4-health-check/expected_today.tsv
+doc/audit/2026-10-04_p4-ternary-journal/SUMMARY-cut-a.md
+doc/audit/2026-10-04_p4-ternary-journal/SUMMARY-cut-b.md
+doc/audit/2026-10-04_p4-ternary-journal/SUMMARY-cut-c.md
+p4_proxy/proxy_agent/api_routes.py
+p4_proxy/proxy_agent/boot_identity.py
+p4_proxy/proxy_agent/main.py
+p4_proxy/proxy_agent/p4_client.py
+p4_proxy/proxy_agent/rule_install_times.py
+p4_proxy/proxy_agent/rule_journal.py
+p4_proxy/tests/journal_isolation.py
+p4_proxy/tests/test_app_package_proxy.py
+p4_proxy/tests/test_declared_links.py
+p4_proxy/tests/test_foreign_pipeline.py
+p4_proxy/tests/test_heartbeat_fabric.py
+p4_proxy/tests/test_journal_is_wired_in_main.py
+p4_proxy/tests/test_multicast_group.py
+p4_proxy/tests/test_port_guard.py
+p4_proxy/tests/test_readopt.py
+p4_proxy/tests/test_route_binding.py
+p4_proxy/tests/test_startup.py
+p4_proxy/tests/test_switch_state.py
+p4_proxy/tests/test_table_entry_journal.py
+p4_proxy/tests/test_table_entry_owner_package.py
+p4_proxy/tests/test_table_entry_owner.py
+p4_proxy/tests/test_table_entry_replay.py
+p4_proxy/tests/test_table_entry_route.py
+tests/python/test_p4_health_cells.py
+tests/python/test_p4_health_collect.py
+tests/shell/check_no_stray_table_journal.sh
+tests/shell/mutate_p4_health.sh
+tests/shell/mutate_table_entry.sh
+tests/shell/mutate_table_journal.sh
+tools/p4_health/cells/table.py
+
+== NOTE: the 'relative to acb3c4b7' intersection above is NOT the branches' overlap: both branches were cut from older trunk bases (merge-base c24a7d19), so files acb3c4b7 changed since then show up on both sides. The relevant list is the merge-base one: only the tsv.
+
+== row T8 exact check (word diff, whole line, M2 vs 4a4eb94e)
+T8 row in M2 == 4a4eb94e's row with only 'rule_journal.py:1141' -> ':1249' (identical)
+lines in tsv other than T8 identical to 4a4eb94e:
+yes
+lines in tsv other than T8 identical to 392a5746:
+yes
+T8 row contains rule_journal.py:331 and ends with t8_cannot clause:
+rule_journal.py:1249
+rule_journal.py:331
+a step-0 or replay snapshot failed (cells/table.py t8_cannot)
+trailers in M1/M2 messages:
+0

@@ -1,0 +1,11 @@
+commit 6c1a78c8fa80e687889ecb6a401300f2d432808f
+py_compile p4_proxy/proxy_agent/p4_client.py -> 0
+py_compile p4_proxy/proxy_agent/api_routes.py -> 0
+py_compile p4_proxy/proxy_agent/main.py -> 0
+py_compile p4_proxy/tests/test_table_entry_owner.py -> 0
+py_compile p4_proxy/tests/test_table_entry_owner_package.py -> 0
+py_compile p4_proxy/tests/test_table_entry_route.py -> 0
+py_compile p4_proxy/tests/test_p4_client_writes.py -> 0
+py_compile p4_proxy/tests/test_exact_one_element_list.py -> 0
+py_compile p4_proxy/tests/test_foreign_pipeline.py -> 0
+rc=0

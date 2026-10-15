@@ -1,0 +1,4 @@
+19:16:14 guard: 0 matching mutate_/probe.py/simple_switch process(es)
+guard: shell $$ SigBlk:	0000000000010000
+guard: child of the shell, SigBlk:	0000000000000000
+guard: SigBlk & 0x4003: shell 0, child 0

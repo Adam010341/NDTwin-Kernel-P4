@@ -1,0 +1,108 @@
+2026-10-12T17:02:32+08:00 driver start pid 1834210 pgid 1834210 sid 1834210, clone HEAD 8918d051eed25427a49e2544ba84b52b7c6e6571, LANG=en_US.UTF-8 LC_ALL=
+2026-10-12T17:02:32+08:00 [anchor_check] start (avail 4080 MB)
+2026-10-12T17:02:42+08:00 [anchor_check] end rc=2 ::   1   R4-6i. CP4 reads gone before it checks how long it watched   1   R2-M2b. the sniffer checks only the destination address, not that it is UDP to the cell's port 
+2026-10-12T17:02:42+08:00 [check_gate_anchors] start (avail 4148 MB)
+2026-10-12T17:02:44+08:00 [check_gate_anchors] end rc=0 :: 
+2026-10-12T17:02:44+08:00 [bare_sort_grep] start (avail 4120 MB)
+2026-10-12T17:02:44+08:00 [bare_sort_grep] end rc=1 :: 
+2026-10-12T17:02:44+08:00 [p4h.cells.r01] start (avail 4119 MB)
+2026-10-12T17:02:47+08:00 [p4h.cells.r01] end rc=0 :: Ran 197 tests in 2.990s OK 
+2026-10-12T17:02:47+08:00 [p4h.cells.py38.r01] start (avail 4107 MB)
+2026-10-12T17:02:51+08:00 [p4h.cells.py38.r01] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:02:51+08:00 [p4h.collect.r01] start (avail 4104 MB)
+2026-10-12T17:02:55+08:00 [p4h.collect.r01] end rc=0 :: Ran 192 tests in 3.558s OK 
+2026-10-12T17:02:55+08:00 [p4h.collect.py38.r01] start (avail 4131 MB)
+2026-10-12T17:02:59+08:00 [p4h.collect.py38.r01] end rc=0 :: Ran 192 tests in 3.973s OK 
+2026-10-12T17:02:59+08:00 [p4h.cells.r02] start (avail 4159 MB)
+2026-10-12T17:03:02+08:00 [p4h.cells.r02] end rc=0 :: Ran 197 tests in 3.092s OK 
+2026-10-12T17:03:02+08:00 [p4h.cells.py38.r02] start (avail 4172 MB)
+2026-10-12T17:03:07+08:00 [p4h.cells.py38.r02] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:03:07+08:00 [p4h.collect.r02] start (avail 4174 MB)
+2026-10-12T17:03:11+08:00 [p4h.collect.r02] end rc=0 :: Ran 192 tests in 3.851s OK 
+2026-10-12T17:03:11+08:00 [p4h.collect.py38.r02] start (avail 4566 MB)
+2026-10-12T17:03:16+08:00 [p4h.collect.py38.r02] end rc=0 :: Ran 192 tests in 5.516s OK 
+2026-10-12T17:03:16+08:00 [p4h.cells.r03] start (avail 4496 MB)
+2026-10-12T17:03:20+08:00 [p4h.cells.r03] end rc=0 :: Ran 197 tests in 3.079s OK 
+2026-10-12T17:03:20+08:00 [p4h.cells.py38.r03] start (avail 4434 MB)
+2026-10-12T17:03:24+08:00 [p4h.cells.py38.r03] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:03:24+08:00 [p4h.collect.r03] start (avail 4357 MB)
+2026-10-12T17:03:28+08:00 [p4h.collect.r03] end rc=0 :: Ran 192 tests in 3.856s OK 
+2026-10-12T17:03:28+08:00 [p4h.collect.py38.r03] start (avail 4357 MB)
+2026-10-12T17:03:32+08:00 [p4h.collect.py38.r03] end rc=0 :: Ran 192 tests in 4.257s OK 
+2026-10-12T17:03:32+08:00 [p4h.cells.r04] start (avail 4389 MB)
+2026-10-12T17:03:36+08:00 [p4h.cells.r04] end rc=0 :: Ran 197 tests in 3.035s OK 
+2026-10-12T17:03:36+08:00 [p4h.cells.py38.r04] start (avail 4391 MB)
+2026-10-12T17:03:40+08:00 [p4h.cells.py38.r04] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:03:40+08:00 [p4h.collect.r04] start (avail 4397 MB)
+2026-10-12T17:03:44+08:00 [p4h.collect.r04] end rc=0 :: Ran 192 tests in 3.806s OK 
+2026-10-12T17:03:44+08:00 [p4h.collect.py38.r04] start (avail 4395 MB)
+2026-10-12T17:03:48+08:00 [p4h.collect.py38.r04] end rc=0 :: Ran 192 tests in 4.305s OK 
+2026-10-12T17:03:48+08:00 [p4h.cells.r05] start (avail 4451 MB)
+2026-10-12T17:03:51+08:00 [p4h.cells.r05] end rc=0 :: Ran 197 tests in 3.115s OK 
+2026-10-12T17:03:52+08:00 [p4h.cells.py38.r05] start (avail 4448 MB)
+2026-10-12T17:03:56+08:00 [p4h.cells.py38.r05] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:03:56+08:00 [p4h.collect.r05] start (avail 4381 MB)
+2026-10-12T17:04:00+08:00 [p4h.collect.r05] end rc=0 :: Ran 192 tests in 4.000s OK 
+2026-10-12T17:04:00+08:00 [p4h.collect.py38.r05] start (avail 4427 MB)
+2026-10-12T17:04:04+08:00 [p4h.collect.py38.r05] end rc=0 :: Ran 192 tests in 4.087s OK 
+2026-10-12T17:04:04+08:00 [p4h.cells.r06] start (avail 4478 MB)
+2026-10-12T17:04:07+08:00 [p4h.cells.r06] end rc=0 :: Ran 197 tests in 3.064s OK 
+2026-10-12T17:04:07+08:00 [p4h.cells.py38.r06] start (avail 4458 MB)
+2026-10-12T17:04:12+08:00 [p4h.cells.py38.r06] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:04:12+08:00 [p4h.collect.r06] start (avail 4415 MB)
+2026-10-12T17:04:15+08:00 [p4h.collect.r06] end rc=0 :: Ran 192 tests in 3.668s OK 
+2026-10-12T17:04:15+08:00 [p4h.collect.py38.r06] start (avail 4449 MB)
+2026-10-12T17:04:20+08:00 [p4h.collect.py38.r06] end rc=0 :: Ran 192 tests in 3.984s OK 
+2026-10-12T17:04:20+08:00 [p4h.cells.r07] start (avail 4470 MB)
+2026-10-12T17:04:23+08:00 [p4h.cells.r07] end rc=0 :: Ran 197 tests in 2.958s OK 
+2026-10-12T17:04:23+08:00 [p4h.cells.py38.r07] start (avail 4483 MB)
+2026-10-12T17:04:27+08:00 [p4h.cells.py38.r07] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:04:27+08:00 [p4h.collect.r07] start (avail 4439 MB)
+2026-10-12T17:04:30+08:00 [p4h.collect.r07] end rc=0 :: Ran 192 tests in 3.554s OK 
+2026-10-12T17:04:30+08:00 [p4h.collect.py38.r07] start (avail 4486 MB)
+2026-10-12T17:04:35+08:00 [p4h.collect.py38.r07] end rc=0 :: Ran 192 tests in 4.056s OK 
+2026-10-12T17:04:35+08:00 [p4h.cells.r08] start (avail 4498 MB)
+2026-10-12T17:04:38+08:00 [p4h.cells.r08] end rc=0 :: Ran 197 tests in 3.177s OK 
+2026-10-12T17:04:38+08:00 [p4h.cells.py38.r08] start (avail 4473 MB)
+2026-10-12T17:04:42+08:00 [p4h.cells.py38.r08] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:04:42+08:00 [p4h.collect.r08] start (avail 4439 MB)
+2026-10-12T17:04:46+08:00 [p4h.collect.r08] end rc=0 :: Ran 192 tests in 3.893s OK 
+2026-10-12T17:04:46+08:00 [p4h.collect.py38.r08] start (avail 4485 MB)
+2026-10-12T17:04:51+08:00 [p4h.collect.py38.r08] end rc=0 :: Ran 192 tests in 4.240s OK 
+2026-10-12T17:04:51+08:00 [p4h.cells.r09] start (avail 4555 MB)
+2026-10-12T17:04:54+08:00 [p4h.cells.r09] end rc=0 :: Ran 197 tests in 3.078s OK 
+2026-10-12T17:04:54+08:00 [p4h.cells.py38.r09] start (avail 4519 MB)
+2026-10-12T17:04:58+08:00 [p4h.cells.py38.r09] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:04:58+08:00 [p4h.collect.r09] start (avail 4472 MB)
+2026-10-12T17:05:03+08:00 [p4h.collect.r09] end rc=0 :: Ran 192 tests in 4.620s OK 
+2026-10-12T17:05:03+08:00 [p4h.collect.py38.r09] start (avail 4143 MB)
+2026-10-12T17:05:08+08:00 [p4h.collect.py38.r09] end rc=0 :: Ran 192 tests in 4.596s OK 
+2026-10-12T17:05:08+08:00 [p4h.cells.r10] start (avail 4110 MB)
+2026-10-12T17:05:11+08:00 [p4h.cells.r10] end rc=0 :: Ran 197 tests in 3.533s OK 
+2026-10-12T17:05:11+08:00 [p4h.cells.py38.r10] start (avail 4003 MB)
+2026-10-12T17:05:16+08:00 [p4h.cells.py38.r10] end rc=0 :: OK checksum            CS1     core   NOT RUN                GREEN         not observed  not observed in this run 
+2026-10-12T17:05:16+08:00 [p4h.collect.r10] start (avail 3842 MB)
+2026-10-12T17:05:20+08:00 [p4h.collect.r10] end rc=0 :: Ran 192 tests in 4.130s OK 
+2026-10-12T17:05:20+08:00 [p4h.collect.py38.r10] start (avail 3472 MB)
+2026-10-12T17:05:25+08:00 [p4h.collect.py38.r10] end rc=0 :: Ran 192 tests in 4.067s OK 
+2026-10-12T17:05:25+08:00 [p4h.recover] start (avail 3869 MB)
+2026-10-12T17:06:02+08:00 [p4h.recover] end rc=0 :: Ran 163 checks, 0 failed 
+2026-10-12T17:06:02+08:00 [p4h.gate_scripts] start (avail 4742 MB)
+2026-10-12T17:06:06+08:00 [p4h.gate_scripts] end rc=0 :: Ran 79 checks, 0 failed 
+2026-10-12T17:06:06+08:00 [p4h.cells.sighup_blocked_parent] start (avail 4693 MB)
+2026-10-12T17:06:10+08:00 [p4h.cells.sighup_blocked_parent] end rc=0 :: Ran 197 tests in 2.964s OK 
+2026-10-12T17:06:10+08:00 [sum_real_shards] start (avail 4702 MB)
+2026-10-12T17:06:10+08:00 [sum_real_shards] end rc=0 :: NOT THE GATE: interpreters differ between the logs: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20); /usr/bin/python3.8 (3.8.20) NOT THE GATE: interpreters differ between the logs: /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.19); /home/adam/miniconda3/envs/ryu-env/bin/python3.8 (3.8.20) 
+2026-10-12T17:06:10+08:00 [mutate_partial_C2R9] start (avail 4694 MB)
+2026-10-12T17:13:06+08:00 driver got TERM: stopping step session 1881048
+2026-10-12T17:13:07+08:00 session 1881048 left: 
+2026-10-15T14:07:56+08:00 driver start pid 234160 pgid 234160 sid 234160, clone HEAD 8918d051eed25427a49e2544ba84b52b7c6e6571, LANG=en_US.UTF-8 LC_ALL=
+2026-10-15T14:07:56+08:00 [mutate_partial_C2R9] start (avail 5976 MB)
+2026-10-15T14:15:57+08:00 [mutate_partial_C2R9] end rc=0 :: NOT THE GATE: only labels starting C2R9- (6 mutations) 6 mutations, 0 survived 
+2026-10-15T14:15:57+08:00 [mutate_partial_C2R8] start (avail 5943 MB)
+2026-10-15T14:29:56+08:00 [mutate_partial_C2R8] end rc=0 :: NOT THE GATE: only labels starting C2R8- (13 mutations) 13 mutations, 0 survived 
+2026-10-15T14:29:56+08:00 [mutate_partial_C2R5-6] start (avail 6330 MB)
+2026-10-15T14:55:21+08:00 [mutate_partial_C2R5-6] end rc=0 :: NOT THE GATE: only labels starting C2R5-6 (26 mutations) 26 mutations, 0 survived 
+2026-10-15T14:55:21+08:00 [mutate_partial_C2R7-1] start (avail 6684 MB)
+2026-10-15T15:13:34+08:00 [mutate_partial_C2R7-1] end rc=0 :: NOT THE GATE: only labels starting C2R7-1 (18 mutations) 18 mutations, 0 survived 
+2026-10-15T15:13:34+08:00 driver end

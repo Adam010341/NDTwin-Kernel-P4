@@ -1,0 +1,244 @@
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main483': hc_main483 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main489': hc_main489 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.port_exact': NoAction - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.t_default_only': HcIngress.stamp - 0,
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main502': hc_main502 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main504': hc_main504 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main507': hc_main507 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.tunnel_exact': HcIngress.drop - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.v6_host': HcIngress.drop - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.ipv4_lpm': HcIngress.drop - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.t_ternary': NoAction - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.t_range': NoAction - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.t_optional': NoAction - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.t_dcount': NoAction - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.t_dmeter': NoAction - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.t_idle': NoAction - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main529': hc_main529 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main533': hc_main533 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main537': hc_main537 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main540': hc_main540 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main543': hc_main543 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main546': hc_main546 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main549': hc_main549 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main553': hc_main553 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main557': hc_main557 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcIngress.t_multipath': NoAction - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main563': hc_main563 - 
+[18:37:03.359] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main566': hc_main566 - 
+[18:37:03.360] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main597': hc_main597 - 
+[18:37:03.360] [bmv2] [D] [thread 3349882] Set default default entry for table 'HcEgress.q_stamp': HcEgress.do_qstamp - 
+[18:37:03.360] [bmv2] [D] [thread 3349882] Set default default entry for table 'tbl_hc_main606': hc_main606 - 
+[18:37:03.373] [bmv2] [D] [thread 3349882] Adding interface p1 as port 1
+[18:37:03.373] [bmv2] [D] [thread 3349882] Adding interface p2 as port 2
+[18:37:03.373] [bmv2] [D] [thread 3349882] Adding interface p3 as port 3
+[18:37:03.373] [bmv2] [W] [thread 3349882] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[18:37:03.376] [bmv2] [I] [thread 3349882] Starting Thrift server on port 29500
+[18:37:03.376] [bmv2] [I] [thread 3349882] Thrift server was started
+[18:37:03.376] [bmv2] [D] [thread 3349905] Pcap reader: starting PcapFilesReader 3
+[18:37:03.376] [bmv2] [D] [thread 3349905] Pcap reader: waiting for 2 seconds
+[18:37:04.927] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main483': hc_main483 - 
+[18:37:04.927] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main489': hc_main489 - 
+[18:37:04.927] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.port_exact': NoAction - 
+[18:37:04.927] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.t_default_only': HcIngress.stamp - 0,
+[18:37:04.927] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main502': hc_main502 - 
+[18:37:04.927] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main504': hc_main504 - 
+[18:37:04.927] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main507': hc_main507 - 
+[18:37:04.927] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.tunnel_exact': HcIngress.drop - 
+[18:37:04.927] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.v6_host': HcIngress.drop - 
+[18:37:04.927] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.ipv4_lpm': HcIngress.drop - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.t_ternary': NoAction - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.t_range': NoAction - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.t_optional': NoAction - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.t_dcount': NoAction - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.t_dmeter': NoAction - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.t_idle': NoAction - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main529': hc_main529 - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main533': hc_main533 - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main537': hc_main537 - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main540': hc_main540 - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main543': hc_main543 - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main546': hc_main546 - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main549': hc_main549 - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main553': hc_main553 - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main557': hc_main557 - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcIngress.t_multipath': NoAction - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main563': hc_main563 - 
+[18:37:04.928] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main566': hc_main566 - 
+[18:37:04.929] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main597': hc_main597 - 
+[18:37:04.929] [bmv2] [D] [thread 3349920] Set default default entry for table 'HcEgress.q_stamp': HcEgress.do_qstamp - 
+[18:37:04.929] [bmv2] [D] [thread 3349920] Set default default entry for table 'tbl_hc_main606': hc_main606 - 
+[18:37:04.935] [bmv2] [D] [thread 3349920] simple_switch target has been notified of a config swap
+[18:37:04.939] [bmv2] [E] [thread 3349930] [P4Runtime] Clone session id does not exist
+[18:37:04.942] [bmv2] [D] [thread 3349920] mgrp node created for mgid 32775
+[18:37:04.943] [bmv2] [D] [thread 3349920] node created for rid 1
+[18:37:04.943] [bmv2] [D] [thread 3349920] node associated with mgid 32775
+[18:37:04.944] [bmv2] [D] [thread 3349930] node dissociated with mgid 32775
+[18:37:04.944] [bmv2] [D] [thread 3349930] node destroyed for rid 1
+[18:37:04.944] [bmv2] [D] [thread 3349930] mgrp node deleted for mgid 32775
+[18:37:04.945] [bmv2] [D] [thread 3349920] mgrp node created for mgid 32775
+[18:37:04.945] [bmv2] [D] [thread 3349920] node created for rid 1
+[18:37:04.945] [bmv2] [D] [thread 3349920] node associated with mgid 32775
+[18:37:04.947] [bmv2] [D] [thread 3349930] Set default entry for table 'HcIngress.ipv4_lpm': HcIngress.drop - 
+[18:37:04.948] [bmv2] [D] [thread 3349920] Entry 0 added to table 'HcIngress.ipv4_lpm'
+[18:37:04.948] [bmv2] [D] [thread 3349920] Dumping entry 0
+Match key:
+* hdr.ipv4.dstAddr    : LPM       0a000101/32
+Action entry: HcIngress.ipv4_forward - 8000000ff01,2,
+
+[18:37:04.950] [bmv2] [D] [thread 3349930] Entry 1 added to table 'HcIngress.ipv4_lpm'
+[18:37:04.950] [bmv2] [D] [thread 3349930] Dumping entry 1
+Match key:
+* hdr.ipv4.dstAddr    : LPM       0a000202/32
+Action entry: HcIngress.ipv4_forward - 8000000ff01,2,
+
+[18:37:04.951] [bmv2] [D] [thread 3349920] Entry 2 added to table 'HcIngress.ipv4_lpm'
+[18:37:04.951] [bmv2] [D] [thread 3349920] Dumping entry 2
+Match key:
+* hdr.ipv4.dstAddr    : LPM       0a000303/32
+Action entry: HcIngress.ipv4_forward - 8000000ff01,2,
+
+[18:37:04.952] [bmv2] [D] [thread 3349930] Entry 3 added to table 'HcIngress.ipv4_lpm'
+[18:37:04.952] [bmv2] [D] [thread 3349930] Dumping entry 3
+Match key:
+* hdr.ipv4.dstAddr    : LPM       0a000404/32
+Action entry: HcIngress.ipv4_forward - 80000000444,1,
+
+[18:37:04.953] [bmv2] [D] [thread 3349920] Entry 4 added to table 'HcIngress.ipv4_lpm'
+[18:37:04.953] [bmv2] [D] [thread 3349920] Dumping entry 4
+Match key:
+* hdr.ipv4.dstAddr    : LPM       0a000505/32
+Action entry: HcIngress.ipv4_forward - 8000000ff04,3,
+
+[18:37:04.954] [bmv2] [D] [thread 3349930] Entry 5 added to table 'HcIngress.ipv4_lpm'
+[18:37:04.954] [bmv2] [D] [thread 3349930] Dumping entry 5
+Match key:
+* hdr.ipv4.dstAddr    : LPM       0a000606/32
+Action entry: HcIngress.ipv4_forward - 8000000ff04,3,
+
+[18:37:04.955] [bmv2] [D] [thread 3349920] Entry 6 added to table 'HcIngress.ipv4_lpm'
+[18:37:04.955] [bmv2] [D] [thread 3349920] Dumping entry 6
+Match key:
+* hdr.ipv4.dstAddr    : LPM       0a006302/32
+Action entry: HcIngress.drop - 
+
+[18:37:04.957] [bmv2] [D] [thread 3349930] Entry 0 added to table 'HcIngress.tunnel_exact'
+[18:37:04.957] [bmv2] [D] [thread 3349930] Dumping entry 0
+Match key:
+* meta.dst_id         : EXACT     0001
+Action entry: HcIngress.tunnel_forward - 2,
+
+[18:37:04.958] [bmv2] [D] [thread 3349920] Entry 1 added to table 'HcIngress.tunnel_exact'
+[18:37:04.958] [bmv2] [D] [thread 3349920] Dumping entry 1
+Match key:
+* meta.dst_id         : EXACT     0002
+Action entry: HcIngress.tunnel_forward - 2,
+
+[18:37:04.959] [bmv2] [D] [thread 3349930] Entry 2 added to table 'HcIngress.tunnel_exact'
+[18:37:04.959] [bmv2] [D] [thread 3349930] Dumping entry 2
+Match key:
+* meta.dst_id         : EXACT     0003
+Action entry: HcIngress.tunnel_forward - 2,
+
+[18:37:04.960] [bmv2] [D] [thread 3349930] Entry 3 added to table 'HcIngress.tunnel_exact'
+[18:37:04.960] [bmv2] [D] [thread 3349930] Dumping entry 3
+Match key:
+* meta.dst_id         : EXACT     0004
+Action entry: HcIngress.tunnel_forward - 1,
+
+[18:37:04.961] [bmv2] [D] [thread 3349920] Entry 4 added to table 'HcIngress.tunnel_exact'
+[18:37:04.961] [bmv2] [D] [thread 3349920] Dumping entry 4
+Match key:
+* meta.dst_id         : EXACT     0005
+Action entry: HcIngress.tunnel_forward - 3,
+
+[18:37:04.962] [bmv2] [D] [thread 3349930] Entry 5 added to table 'HcIngress.tunnel_exact'
+[18:37:04.963] [bmv2] [D] [thread 3349930] Dumping entry 5
+Match key:
+* meta.dst_id         : EXACT     0006
+Action entry: HcIngress.tunnel_forward - 3,
+
+[18:37:04.964] [bmv2] [D] [thread 3349920] Entry 0 added to table 'HcIngress.v6_host'
+[18:37:04.964] [bmv2] [D] [thread 3349920] Dumping entry 0
+Match key:
+* meta.v6_lo          : EXACT     00000001
+Action entry: HcIngress.v6_forward - 8000000ff01,2,
+
+[18:37:04.965] [bmv2] [D] [thread 3349930] Entry 1 added to table 'HcIngress.v6_host'
+[18:37:04.965] [bmv2] [D] [thread 3349930] Dumping entry 1
+Match key:
+* meta.v6_lo          : EXACT     00000002
+Action entry: HcIngress.v6_forward - 8000000ff01,2,
+
+[18:37:04.965] [bmv2] [D] [thread 3349920] Entry 2 added to table 'HcIngress.v6_host'
+[18:37:04.966] [bmv2] [D] [thread 3349920] Dumping entry 2
+Match key:
+* meta.v6_lo          : EXACT     00000003
+Action entry: HcIngress.v6_forward - 8000000ff01,2,
+
+[18:37:04.967] [bmv2] [D] [thread 3349930] Entry 3 added to table 'HcIngress.v6_host'
+[18:37:04.967] [bmv2] [D] [thread 3349930] Dumping entry 3
+Match key:
+* meta.v6_lo          : EXACT     00000004
+Action entry: HcIngress.v6_forward - 80000000444,1,
+
+[18:37:04.968] [bmv2] [D] [thread 3349920] Entry 4 added to table 'HcIngress.v6_host'
+[18:37:04.968] [bmv2] [D] [thread 3349920] Dumping entry 4
+Match key:
+* meta.v6_lo          : EXACT     00000005
+Action entry: HcIngress.v6_forward - 8000000ff04,3,
+
+[18:37:04.969] [bmv2] [D] [thread 3349930] Entry 5 added to table 'HcIngress.v6_host'
+[18:37:04.969] [bmv2] [D] [thread 3349930] Dumping entry 5
+Match key:
+* meta.v6_lo          : EXACT     00000006
+Action entry: HcIngress.v6_forward - 8000000ff04,3,
+
+[18:37:04.970] [bmv2] [D] [thread 3349920] Entry 0 added to table 'HcIngress.t_dcount'
+[18:37:04.970] [bmv2] [D] [thread 3349920] Dumping entry 0
+Match key:
+* hdr.udp.dstPort     : EXACT     9c4c
+Action entry: HcIngress.dc_hit - 
+
+[18:37:04.972] [bmv2] [D] [thread 3349930] Entry 0 added to table 'HcIngress.t_dmeter'
+[18:37:04.972] [bmv2] [D] [thread 3349930] Dumping entry 0
+Match key:
+* hdr.udp.dstPort     : EXACT     9c57
+Action entry: HcIngress.dm_read - 
+
+[18:37:04.973] [bmv2] [D] [thread 3349920] Set default entry for table 'HcIngress.t_default_only': HcIngress.stamp - 2a,
+[18:37:04.975] [bmv2] [D] [thread 3349930] Entry 0 added to table 'HcIngress.port_exact'
+[18:37:04.975] [bmv2] [D] [thread 3349930] Dumping entry 0
+Match key:
+* standard_metadata.ingress_port: EXACT     0007
+Action entry: HcIngress.set_port_tag - 4d,
+
+[18:37:04.976] [bmv2] [D] [thread 3349920] Entry 7 added to table 'HcIngress.ipv4_lpm'
+[18:37:04.976] [bmv2] [D] [thread 3349920] Dumping entry 7
+Match key:
+* hdr.ipv4.dstAddr    : LPM       0a004d00/24
+Action entry: HcIngress.ipv4_forward - 80000000777,2,
+
+[18:37:04.978] [bmv2] [D] [thread 3349930] Entry 0 added to table 'HcIngress.t_ternary'
+[18:37:04.978] [bmv2] [D] [thread 3349930] Dumping entry 0
+Match key:
+* hdr.ipv4.srcAddr    : TERNARY   0a004d01 &&& ffffffff
+Priority: 2147483637
+Action entry: HcIngress.set_mark - 5,
+
+[18:37:04.979] [bmv2] [D] [thread 3349920] Entry 1 added to table 'HcIngress.t_ternary'
+[18:37:04.979] [bmv2] [D] [thread 3349920] Dumping entry 1
+Match key:
+* hdr.ipv4.srcAddr    : TERNARY   0a004d01 &&& ffffffff
+Priority: 2147483627
+Action entry: HcIngress.set_mark - 5,
+
+[18:37:04.980] [bmv2] [D] [thread 3349930] Removed entry 0 from table 'HcIngress.ipv4_lpm'
+[18:37:04.982] [bmv2] [E] [thread 3349920] [P4Runtime] Match entry exists, use MODIFY if you wish to change action
+[18:37:04.983] [bmv2] [D] [thread 3349930] Modified entry 1 in table 'HcIngress.ipv4_lpm'
+[18:37:04.983] [bmv2] [D] [thread 3349930] Dumping entry 1
+Match key:
+* hdr.ipv4.dstAddr    : LPM       0a000202/32
+Action entry: HcIngress.ipv4_forward - 8000000ff01,3,
+
+[18:37:05.377] [bmv2] [D] [thread 3349905] Pcap reader: end of all input files

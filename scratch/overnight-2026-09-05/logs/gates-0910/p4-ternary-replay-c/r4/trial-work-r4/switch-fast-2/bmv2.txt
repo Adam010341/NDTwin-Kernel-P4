@@ -1,0 +1,15 @@
+[18:37:27.814] [bmv2] [W] [thread 3350356] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[18:37:27.818] [bmv2] [I] [thread 3350356] Starting Thrift server on port 29500
+[18:37:27.818] [bmv2] [I] [thread 3350356] Thrift server was started
+[18:37:29.343] [bmv2] [D] [thread 3350402] simple_switch target has been notified of a config swap
+[18:37:29.346] [bmv2] [E] [thread 3350407] [P4Runtime] Clone session id does not exist
+[18:37:29.349] [bmv2] [D] [thread 3350402] mgrp node created for mgid 32775
+[18:37:29.349] [bmv2] [D] [thread 3350402] node created for rid 1
+[18:37:29.349] [bmv2] [D] [thread 3350402] node associated with mgid 32775
+[18:37:29.350] [bmv2] [D] [thread 3350407] node dissociated with mgid 32775
+[18:37:29.350] [bmv2] [D] [thread 3350407] node destroyed for rid 1
+[18:37:29.350] [bmv2] [D] [thread 3350407] mgrp node deleted for mgid 32775
+[18:37:29.351] [bmv2] [D] [thread 3350402] mgrp node created for mgid 32775
+[18:37:29.351] [bmv2] [D] [thread 3350402] node created for rid 1
+[18:37:29.351] [bmv2] [D] [thread 3350402] node associated with mgid 32775
+[18:37:29.383] [bmv2] [E] [thread 3350402] [P4Runtime] Match entry exists, use MODIFY if you wish to change action

@@ -1,0 +1,70 @@
+commit e8d916555bdce5c8b865e9ff8e1b2526846aa7ca
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/h1  tracked-dirty=0  df_free_mb=7214  command: setsid --wait p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial.py /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/h1 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-h1 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-h1.json
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+started stock #1 pid 3814320 thrift 29500 grpc 29650
+boot write pid 3814355 BOOT_ID e1a42cec585f489ba44dc620079c364a: t8 GREEN
+boot read pid 3814409 BOOT_ID 41cde4df8ef94e1984a14106587c021d: t8 GREEN
+stopped stock #1 pid 3814320 rc -15
+started stock #2 pid 3814451 thrift 29500 grpc 29650
+boot read pid 3814499 BOOT_ID 88dd16f88afd44f8826097cb183ca025: t8 GREEN
+stopped stock #2 pid 3814451 rc -15
+started fast #1 pid 3814553 thrift 29500 grpc 29650
+boot write pid 3814595 BOOT_ID 41de772e5d7841ff94a75fabb1dd7fc8: t8 GREEN
+boot read pid 3814653 BOOT_ID de4069a416604f2695834972c50803e5: t8 GREEN
+stopped fast #1 pid 3814553 rc -15
+started fast #2 pid 3814693 thrift 29500 grpc 29650
+boot read pid 3814727 BOOT_ID 02877eab266340b7bbed36d0a7a60648: t8 GREEN
+stopped fast #2 pid 3814693 rc -15
+stock /usr/local/bin/simple_switch_grpc
+      ok   boot1 posts 200,200,200,502,200
+      ok   boot1 the 502 is the switch's NOT_FOUND
+      ok   boot1 every 200 says journaled true
+      ok   boot1 the not_found delete is recorded
+      ok   boot1 startup on a fresh switch: fresh_fabric, FAILED_PRECONDITION
+      ok   boot1 T8 GREEN
+      ok   boot2 a new proxy process
+      ok   boot2 cookie confirmed, not fresh
+      ok   boot2 the same generation
+      ok   boot2 replay complete 4/4
+      ok   boot2 restored ops: four inserts (M1: priority 20 is an insert)
+      ok   boot2 journaled true
+      ok   boot2 T8 GREEN
+      ok   boot2 thrift: exact, lpm and both ternary entries are on the switch
+      ok   boot2 thrift: the same entries as after boot 1
+      ok   boot2 header names boot 2
+      ok   boot3 fresh bmv2: fresh_fabric, FAILED_PRECONDITION
+      ok   boot3 nothing replayed
+      ok   boot3 thrift: none of the API's entries
+      ok   boot3 live journal: a header and nothing else
+      ok   boot3 the warm journal is set aside byte for byte
+      ok   boot3 a new generation
+      ok   every boot exited 0
+fast  /usr/local/bmv2-fast/bin/simple_switch_grpc
+      ok   boot1 posts 200,200,200,502,200
+      ok   boot1 the 502 is the switch's NOT_FOUND
+      ok   boot1 every 200 says journaled true
+      ok   boot1 the not_found delete is recorded
+      ok   boot1 startup on a fresh switch: fresh_fabric, FAILED_PRECONDITION
+      ok   boot1 T8 GREEN
+      ok   boot2 a new proxy process
+      ok   boot2 cookie confirmed, not fresh
+      ok   boot2 the same generation
+      ok   boot2 replay complete 4/4
+      ok   boot2 restored ops: four inserts (M1: priority 20 is an insert)
+      ok   boot2 journaled true
+      ok   boot2 T8 GREEN
+      ok   boot2 thrift: exact, lpm and both ternary entries are on the switch
+      ok   boot2 thrift: the same entries as after boot 1
+      ok   boot2 header names boot 2
+      ok   boot3 fresh bmv2: fresh_fabric, FAILED_PRECONDITION
+      ok   boot3 nothing replayed
+      ok   boot3 thrift: none of the API's entries
+      ok   boot3 live journal: a header and nothing else
+      ok   boot3 the warm journal is set aside byte for byte
+      ok   boot3 a new generation
+      ok   every boot exited 0
+pids started: simple_switch_grpc stock #1=3814320, proxy boot stock #1 (write)=3814355, proxy boot stock #2 (read)=3814409, simple_switch_grpc stock #2=3814451, proxy boot stock #3 (read)=3814499, simple_switch_grpc fast #1=3814553, proxy boot fast #1 (write)=3814595, proxy boot fast #2 (read)=3814653, simple_switch_grpc fast #2=3814693, proxy boot fast #3 (read)=3814727
+ALL CHECKS PASS
+rc=0

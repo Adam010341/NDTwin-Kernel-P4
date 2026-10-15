@@ -1,0 +1,14 @@
+commit 0d0706257e6650c30e56c3d0bd5d47a3d2c504fd
+Author: Adam010341 <adam010341@gmail.com>
+Date:   Sat Oct 10 10:44:45 2026 +0800
+
+    doc: record that the owner check refuses the flow_5tuple catch-all
+    
+    The design and the first table-writer summary said the empty-match catch-all on flow_5tuple
+    was accepted and that the branch was held for the owner check. That check is now merged from
+    trunk, so both documents say where it lives, what it changed in the tests, and that the
+    catch-all is refused on NDTwin's own pipeline.
+
+ doc/audit/2026-10-04_p4-ternary-journal/DESIGN.md  |  5 ++++
+ .../2026-10-04_p4-ternary-journal/SUMMARY-cut-a.md | 28 +++++++++++++++++++---
+ 2 files changed, 30 insertions(+), 3 deletions(-)

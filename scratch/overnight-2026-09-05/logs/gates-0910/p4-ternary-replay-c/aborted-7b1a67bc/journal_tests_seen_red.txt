@@ -1,0 +1,13 @@
+commit 7b1a67bc61ab8efa62029db424fed3697ee23480
+command: seen_red.py <clone> mutate_table_journal.log tests.test_table_entry_journal tests.test_table_entry_replay
+tests: 192, seen red: 182, never seen red: 10
+  never red: [Proxy
+  never red: Agent]
+  never red: app
+  never red: package:
+  never red: baseline
+  never red: (mode
+  never red: ndtwin,
+  never red: election_id
+  never red: 0,1)
+  never red: tests.test_table_entry_journal.TheJournalIsWiredInMainTest.test_the_headers_main_builds_name_this_boots_fabric_generation

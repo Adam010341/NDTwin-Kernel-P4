@@ -1,0 +1,12 @@
+commit e34fc89477282c743b6bb38df5e3be4efbe8110f
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate  tracked-dirty=0  df_free_mb=7205  LANG=en_US.UTF-8 LC_ALL=  command: bash tests/shell/check_no_stray_table_journal.sh
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+interpreter: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate/p4_proxy/venv/bin/python
+journal dir: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/6f189e52-cb92-4f95-9cbe-05c8b1405742/scratchpad/c-replay/gate/p4_proxy/.run/table_entry_journal
+before     : 328361b6c3641a69cb2d3f811cf08ae03b9ccd5de074db652b319163b794b5ed  ./s10.jsonl 7dcaa496b026adb6c79b81c8bc0643f8d7aa63a4d18fc4b1956030cab9136eb3  ./s1.jsonl bcc3943375d305c2f871d69206de7fa6c76ff76f11e0a
+after      : 328361b6c3641a69cb2d3f811cf08ae03b9ccd5de074db652b319163b794b5ed  ./s10.jsonl 7dcaa496b026adb6c79b81c8bc0643f8d7aa63a4d18fc4b1956030cab9136eb3  ./s1.jsonl bcc3943375d305c2f871d69206de7fa6c76ff76f11e0a
+suite      : rc=0  Ran 2051 tests in 29.213s OK (skipped=1) 
+ok: one process, 2051 tests, and the checkout's table-entry journal is as it was
+rc=0

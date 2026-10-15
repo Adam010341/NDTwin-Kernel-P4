@@ -1,0 +1,157 @@
+DELIVERED 1b16b0a06c73e7732972bb3347f706dc1c671d37 (branch feat/p4-ternary-writer-a, worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-ternary-writer-a; not pushed, working tree clean). V7 was not done, as instructed.
+
+Every test, gate, S0 and bmv2 command is logged with its rc under L = /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/ternary-cut-a/. L/INDEX.txt lists the files. The exploratory reads and greps are not logged.
+
+## Commits (on top of 5b07451d)
+- 07060fa2 (A1): the writer builds ternary, range and optional entries. New module p4_proxy/proxy_agent/match_shape.py. `_match_as_dict` is the one spelling shared by `read_table_entries` and `_built_entry_match`. The optional branch is added to `rule_install_times`. The old 501 tests are reversed.
+- b822506a (A2): V1–V6, V8 and V9. E1: the 502 body now carries `p4rt_error {code, message}`. The 200 body carries `priority`. Pre-flight runs the same `match_shape` code ("G5 not done" is gone). All new R tests.
+- b75448cd: one single guard for the 501, plus the Cut A mutants and the reversals.
+- 9f474d2a: the install-time gate had a baseline that was already red at dd8022fa (L/gate-mutate_p4_rule_install_time.BEFORE-dd8022fa.log, rc=2). I linked `setting/` into it.
+- 1b16b0a0: a corrected comment in p4_proxy/requirements.txt.
+- Commit messages carry no trailer and none of the forbidden words. Code carries the `[Co-developed with claude code -- Adam]` mark.
+
+## Gates (all rc=0)
+| Check | Result | Log:line |
+|---|---|---|
+| p4_proxy suite | before 1734 tests (skip 1) → after 1788 (skip 1) | before-p4_proxy.log:2637, after-p4_proxy.log:2662 |
+| tools/p4_exercise suite | before 196 → after 210 | before-p4_exercise.log:8, after-p4_exercise.log:8 |
+| mutate_table_entry.sh | 76 mutations, 0 survived (dd8022fa had 41, 0 survived) | gate-mutate_table_entry.log:446; BEFORE log:257 |
+| mutate_p4_exercise_tools.sh | 36 mutations, 0 survived (29–36 are new) | gate-mutate_p4_exercise_tools.log:260 |
+| mutate_p4_rule_install_time.sh | 27 mutations, 0 survived (M10b is new) | gate-mutate_p4_rule_install_time.log:40 |
+| check_gate_anchors.py HEAD | 133/133 ok | check_gate_anchors_HEAD.log:145 |
+| check_test_tmpdirs.py | 414 files, 0 fixed temp paths | check_test_tmpdirs.log:6 |
+| test_l1_shell_scoring.sh | 163 checks, 0 failed | test_l1_shell_scoring.log:190 |
+
+- Reversals in mutate_table_entry.sh:
+  - M-B6 and M-B25 are reversed.
+  - M-B1, M-B5, M-B16, M-B40 and M-B41 are re-anchored in match_shape.py.
+  - M-B3 and M-B20 are re-anchored.
+- New mutants:
+  - M-S1a–c, M-S2a–d, M-S4a/b, M-S5a/b/b2/c, M-S6a–g, M-S8a/b, M-S9 (M-S = shape rule).
+  - Design-numbered: M-J7/7b, M-J8/8b, M-J9/9b–d (read side), M-J21, M-J24/24b/24c.
+  - Controls N4 and N5.
+  - Examples: M-S2a at gate-mutate_table_entry.log:328, M-J7 at :336, M-J9 at :416, M-J21 at :428, M-J24 at :432.
+- M-B7, M-B14 and M-B20 are not retired. They guard `journaled:false`, which stays true until the journal lands (Cut B).
+- Baseline check: the new test files are unchanged since b822506a, the commit the red logs cite.
+
+## Red evidence
+Wrapper: L/run_red.sh. Per-test table: L/red-table.tsv.
+- red-dd8022fa.log: the new tests run against an OLD copy of dd8022fa's p4_proxy and tools/p4_exercise.
+  - Header has the git tree ids: commit 0d00e26bfc31dfa9730fd6680f5a9916e1173a5a, p4_proxy e8aa5ff8bb7c21b5bb82bdad31187997997d7183, tools/p4_exercise 6967ac16c56c206f78fdbc4026ec7fd9b3189a3c.
+  - Result: 50 red in the p4_proxy modules (line 1762) and 14 in the preflight suite (line 2580).
+- red-a1-07060fa2.log: the same tests against the A1 commit (p4_proxy tree 865d32134ceea4f52a920b0af6f3715c6a05222e).
+
+| R | Red on dd8022fa | Own reason |
+|---|---|---|
+| R1–R3 | yes | `TableEntryUnsupported` / HTTP 501 |
+| R4 | yes | "TableEntryInvalid not raised" on the empty-match road; red-table.tsv gives lines |
+| R5 | yes | "TableEntryInvalid not raised" |
+| R6a | yes | "TableEntryInvalid not raised" |
+| R7, R7b | yes | "TableEntryInvalid not raised" |
+| R8, R9 | yes | the match is dropped (`{}`) |
+| R18 | yes | the old "G5 not done" sentence |
+| R25 | yes | `KeyError: 'p4rt_error'` |
+| R6b–e (V3, V4, V5) | red on dd8022fa only through the 501 | red for its own reason at A1 ("TableEntryInvalid not raised") |
+| R6f (V1) | red on dd8022fa only through the 501 | red for its own reason at A1 |
+| R6g (V2) | red on dd8022fa only through the 501 | the three "does not fit" tests are green at A1, because `encode_value` already refuses; killed by M-S2a–c. The `test_a_mask_with_a_bit_above_the_field_width_is_refused` test is red at A1 ("TableEntryInvalid not raised") |
+| R23 | no, by §6.1 | green at dd8022fa except the route test's remedy wording; killed by M-J21 |
+
+- Side find: before this work, priority 2^31 raised a bare protobuf ValueError (HTTP 500). The test `test_the_largest_int32_priority_is_accepted_and_one_past_it_is_not` is red for that reason and now gets a 400.
+
+## A0: the four unmeasured cases
+Bmv2 1.15.3, stock and bmv2-fast give identical results. Raw output: L/../ternary-a0/stock/ and fast/ files 12–15, plus `run-12-15.out`. INDEX.txt is updated. `ternary_a0.py` was extended in place (old copy kept as `ternary_a0.py.before-items-12-15`). The six-field `flow_5tuple` was compiled from p4_proxy/p4_src/ndtwin_switch.p4 into `build-ndtwin/`.
+1. `value & ~mask != 0` is refused (INVALID_ARGUMENT, "make sure value & mask == value", nothing stored): stock/12-value-outside-mask.txt:40-41. The in-mask control is OK at :98.
+2. All match fields omitted at priority 10 is ACCEPTED on t_ternary, t_range, t_optional and the six-field flow_5tuple. The entry reads back with `match=[]`, and thrift shows every field as TERNARY 0 &&& 0, i.e. a catch-all (stock/13…txt:33, 488-500). A second insert gives ALREADY_EXISTS (:86-87); modify and delete of the empty-match entry are OK. This turns DESIGN §1.5's inference into a measurement.
+3. The same at priority 0 is refused for insert, modify and delete: "Zero priority for ternary match" (stock/14…txt:32-33).
+4. A non-zero priority on exact/lpm tables is refused for insert, modify AND delete: "Non-zero priority for non-ternary match" (stock/15…txt:36-37).
+- No result contradicts the V-rules. One addition: the V6 non-zero-priority refusal also covers modify and delete on exact/lpm tables. The writer and its tests do this.
+
+## Extra check: the new writer against a real bmv2
+Script L/agree_bmv2.py, header L/agree.header.txt, output L/agree-stock/agree.tsv and agree.txt, same for agree-fast/.
+- 52 cases through the real client code on a throwaway switch: 48 agree, 4 local-only, 0 disagree. Stock and bmv2-fast verdicts are identical.
+- A locally accepted entry was accepted by the switch. A locally refused entry, built with the A1 module (which has no V-rules), was refused by the switch.
+- The 4 local-only cases have no wire form: V1 ×2, V2 bytes above the field width, and priority 2^31.
+- E1 was checked against real trailers: delete or modify at the wrong priority gives `p4rt_error` NOT_FOUND, and a repeated insert gives ALREADY_EXISTS (agree.txt, E1 section).
+
+## S0 (tools/p4_health untouched)
+Run: `P4_PROXY_PY=<main venv> P4_HEALTH_RUN_DIR=L/s0-run tools/p4_health/run.sh s0` at b75448cd. Later commits touch only gates and a comment. Header L/s0.header.txt, stdout L/s0.stdout.txt (`rc=1`).
+- s0-run/probe.log:23 `FAIL pre-flight PF-T FAILs on the ternary row only — rc 0, G5 lines 0, other FAIL rows 0`. The PF-T pre-flight now passes with rc 0; "G5 not done" no longer appears.
+- probe.log:50 `FAIL PF-T verdict RED … GREEN: pre-flight accepts a boot ternary entry`.
+- probe.log:51 `S0 PROBE-BROKEN`.
+- Every other S0 row is ok, including the PF-T conversion and the pre-flights A, B and C. This matches §6.4: A cannot merge without D. D must flip s0.py:275-277, `pft_verdict` and expected_today.tsv.
+
+## Decisions to know
+- Q3 (a): the second spelling of don't-care (zero mask, whole range, lpm /0) is a 400 saying "omit the field". Stated in the module docstring and the tests.
+- Q2 stays open: no owner check, no fixture binding changed. Today's empty-match POST to `flow_5tuple` (200 for priority ≥ 1) is kept and asserted in `test_an_empty_match_with_a_priority_is_a_catch_all_and_is_accepted`.
+- Not done, belongs to Cut B (key use): the default-entry key from §10-2. The optional branch of `entry_key` is done (read side).
+- DESIGN §6.2's `test_ndt_app_package.sh:1001` has no G5 coupling (only an echo stub), so nothing was changed there.
+- `requirements.txt`: googleapis-common-protos is now named by api_routes (already pinned).
+- Pre-flight keeps its looser exact/lpm encoder (IPv6 passes). Only the V5 (lpm /0) and V9 (host bits) refusals are added for lpm.
+
+## V7 follow-up list (Q2 answer pending; not implemented)
+Code:
+- `write_table_entry(spec, op, source)` with source = "boot" / "api" / "replay"; `apply_package_entries` passes "boot".
+- 409 body: `error: "owned by NDTwin"`, `outcome: "owned_by_ndtwin"`, remedy within the first 200 bytes.
+- Default-action exception only for the `roles.ipv4_route` owner-ndtwin package table at boot. Baseline-table defaults are 409 for boot and API.
+Tests R19 and R19b:
+- R19: baseline empty match against `flow_5tuple` and `ipv4_lpm` → 409; owner-ndtwin package default still installs at boot (bring-up C, `failed == 0`); API modify of that table's default → 409.
+- R19b: API modify of the baseline `ipv4_lpm` default → 409 with `stub.requests == []`.
+Mutants: V7; the V7 default exception; M-J29 (exception widened to a baseline table or to the API).
+Existing tests that flip under Q2 (a) and need the Q2 (a-iii) fixture ruling:
+- Every POST of `AN_LPM_ENTRY` in test_table_entry_route.py (`a_client` is a baseline client).
+- My three route acceptance tests and the Synthetic-table writes in that file.
+- The success paths of WriteTableEntryTest, BuildTableEntryTest and ThePriorityRulesTest in test_p4_client_writes.py (`a_client` is a baseline client there too).
+- `test_an_empty_match_with_a_priority_is_a_catch_all_and_is_accepted`.
+- test_foreign_pipeline.py's real-pipeline ternary test.
+
+## Not done
+- The default-entry key (§10-2) — Cut B.
+- The journal (Cuts B and C), the D side, and all of V7 — as instructed.
+- No lab, ndt, sudo, Mininet, pkill or pgrep -f used. Throwaway bmv2s ran one at a time and were stopped by pid. Scratch copies are deleted. `df -m /` was 3077 MB at the end.
+
+========== SUMMARY-ternary-cut-a.md ==========
+# Cut A 摘要：P4 通用 table writer 支援 ternary／range／optional＋priority
+
+**結論**：Cut A（除 V7 外）已完成並 commit，head 為 `1b16b0a0`，在分支 `feat/p4-ternary-writer-a`，未推送。V7 依指示未做。
+
+**做了什麼**
+- 新增 `match_shape.py`：writer 與 pre-flight 共用同一份形狀檢查。
+- 三種新型別都能建：ternary `[value, mask]`、range `[low, high]`、optional 單一值；欄位省略代表 don't-care。
+- V1–V6、V8、V9 都在 `stub.Write` 之前回 400，什麼都不會寫到交換機。
+- 讀取側補上 optional；寫入側與讀取側共用同一個 `_match_as_dict`，所以安裝時間記錄找得到 ternary／range／optional 的 entry。
+- E1：502 的 body 多了 `p4rt_error {code, message}`，直接解出交換機的真正原因（例如 NOT_FOUND）；`grpc_status` 照舊保留。
+- 200 的 body 多了 `priority`。
+- Pre-flight 的「G5 not done」已刪除，改為呼叫同一份檢查。
+- 只剩 `UNSPECIFIED` 欄位型別還回 501。
+
+**量測（A0 補量的四項，stock 與 bmv2-fast 結果相同）**
+1. `value & ~mask != 0`：交換機拒絕。
+2. 六欄位全省略、priority 10：被接受，等於一條 catch-all；因此 §1.5 的缺陷從「推論」變成「已量到」。
+3. 同上但 priority 0：被拒絕。
+4. exact／lpm 表帶非 0 priority：insert、modify、delete 都被拒絕。
+沒有任何結果與設計的 V 規則矛盾。唯一補充：exact／lpm 表的 V6 對 modify、delete 也成立。
+
+**驗證**
+- p4_proxy 測試 1734 → 1788；tools/p4_exercise 測試 196 → 210；全綠。
+- mutate_table_entry.sh：76 個 mutation，0 survivor（原本 41 個）。
+- mutate_p4_exercise_tools.sh（36 個）與 mutate_p4_rule_install_time.sh（27 個）都是 0 survivor。
+- check_gate_anchors.py HEAD（133/133）、check_test_tmpdirs.py、test_l1_shell_scoring.sh 全綠。
+- 紅燈證據：R1–R3、R4、R5、R6a、R7、R7b、R8、R9、R18、R25 在舊的 dd8022fa 複本上為各自的理由而紅。
+  - R6b–R6f 在 dd8022fa 上只因 501 而紅，要到 A1 commit 才為自己的理由紅。
+  - R6g 靠 mutant 殺（M-S2a–c）。
+  - R23 依設計只靠 mutant M-J21 殺。
+- 對真的 bmv2 做了 52 個案例比對（本機 writer 的判斷 vs 交換機的判斷）：48 個一致、4 個只有本機有意義（沒有線上形式）、0 個不一致。E1 也用真的 trailer 驗過。
+
+**S0 對 PF-T 的反應**
+Pre-flight 的 PF-T 現在 rc 0，「G5 not done」不再出現。但 S0 自己有兩條檢查要求 PF-T 必須失敗，所以結果是 `PROBE-BROKEN`（rc=1），其餘所有項目皆 ok。這正是設計預測的結果：A 必須與 D 一起合併。
+
+**要注意的地方**
+- Q3 採 (a)：don't-care 的第二種寫法一律 400，訊息為「omit the field」。
+- Q2 未答：沒有 owner 檢查，沒有改任何既有 fixture，`flow_5tuple` 空 match 的現況行為照舊（測試明確寫成「今天接受」）。
+- 順帶發現：priority 超過 int32 時，舊碼會丟出沒接住的 protobuf ValueError（等於 500）；現在是 400。
+- 另一個既有問題：`mutate_p4_rule_install_time.sh` 在 dd8022fa 本來就會 baseline 紅（缺 `setting/`），已修。
+- `entry_key` 的 default key（§10-2 後半）留給 Cut B。
+- M-B7、M-B14、M-B20 沒有退役：它們守的 `journaled:false` 在 Cut B 之前仍然是事實。
+
+**V7 待辦**（等 Q2 答覆）：見上方 V7 follow-up list，包含 `source` 參數、409 body、R19／R19b、V7 與 M-J29 mutant，以及會翻轉的既有測試清單。
+========== end SUMMARY ==========

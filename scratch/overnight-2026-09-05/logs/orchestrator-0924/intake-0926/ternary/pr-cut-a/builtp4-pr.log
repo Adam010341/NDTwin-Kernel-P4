@@ -1,0 +1,35 @@
+commit 7891751861f0da03963d98b92face3be2b815b35
+Ran 46 tests in 0.023s
+OK
+test_table_entry_owner rc=0
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+Ran 17 tests in 0.071s
+OK
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+test_foreign_pipeline rc=0
+Ran 5 tests in 1.036s
+OK
+[Proxy Agent] 4 of 4 switches ([1, 2, 3, 4]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+test_table_entry_owner_package rc=0
+test_entities_that_are_not_table_entries_are_skipped (__main__.ReadTableEntriesTest.test_entities_that_are_not_table_entries_are_skipped) ... ok
+Ran 207 tests in 0.138s
+OK
+test_p4_client_writes rc=0
+Ran 36 tests in 0.036s
+OK
+test_table_entry_route rc=0
+Ran 77 tests in 6.108s
+OK
+[Proxy Agent] 1 of 2 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] 1 of 2 switches ([1]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons or run the LLDP beacon watchdog on ANY switch of this fabric. Skipped: link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+test_switch_state rc=0
+Ran 16 tests in 0.020s
+OK
+test_flow_stats_route rc=0
+rc=0

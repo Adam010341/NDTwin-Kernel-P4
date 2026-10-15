@@ -1,0 +1,135 @@
+commit d92bf1a258cec2d1524652fcff17526926fbcefa
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate  tracked-dirty=0  df_free_mb=4900  LANG=en_US.UTF-8 LC_ALL=  command: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/ci-r2.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/gate /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/healthcut2/pr-cut2/klane.sh
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+command's own program /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/ci-r2.sh: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/ci-r2.sh: line 7: cd: --: invalid option
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+
+--- kernel-side Python and shell tests ---
+  note no interpreter with networkx+ryu found; suites needing them will skip -- excused only on a hosted CI runner, and only where they declare it (NDTWIN_L1_NEEDS: ryu). Set RYU_PY to override.
+  test_app_residue_rules.py      PASS 41 ran and passed
+  test_chaos_c07_control.py      PASS 20 ran and passed
+  test_chaos_invariants_method.py PASS 27 ran and passed
+  test_chaos_link_blackhole_attach.py PASS 30 ran and passed
+  test_chaos_opt_in_all_actions.py PASS 27 ran and passed
+  test_chaos_runner_wiring.py    PASS 13 ran and passed
+  test_check_gate_anchors.py     PASS 47 ran and passed
+  test_check_logs_powered_off.py PASS 22 ran and passed
+  test_check_logs_startup_warnings.py PASS 5 ran and passed
+  test_check_test_tmpdirs.py     PASS 58 ran and passed
+  test_contract_spec.py          PASS 261 ran and passed
+  test_cpu_gate_lifetime.py      PASS 22 ran and passed
+  test_find_host_by_ip.py        PASS 5 ran and passed
+  test_grpc_port_block.py        PASS 32 ran and passed
+  test_host_discovery_gate.py    PASS 14 ran and passed
+  test_known_issues_references.py PASS 44 ran and passed
+  test_l3_dispatch_drift.py      PASS 12 ran and passed
+  test_lldp_backoff.py           PASS 5 ran and passed
+  test_make_topology.py          PASS 29 ran and passed
+  test_ndt_serve.py              PASS 75 ran and passed
+  test_ndt_serve_cells.py        PASS 35 ran and passed
+  test_ndt_serve_gui.py          PASS 39 ran and passed
+  test_ndt_serve_web.py          PASS 18 ran and passed
+  test_ovs4_sflow.py             PASS 20 ran and passed
+  test_p4_health_cells.py        PASS 203 ran and passed
+  test_p4_health_collect.py      PASS 192 ran and passed
+  test_p4_power_helper.py        PASS 23 ran and passed
+  test_route_install_gate.py     PASS 14 ran and passed
+  test_route_reinstall.py        PASS 11 ran and passed
+  test_ryu_rest_topology_bounded.py PASS 7 ran and passed
+  test_sflow_emitter_batching.py PASS 8 ran and passed
+  test_sflow_stats_endpoint.py   PASS 5 ran and passed
+  test_shell_command_construction.py PASS 7 ran and passed
+  test_t11_filter_is_wired.py    PASS 16 ran and passed
+  test_testbed_banner.py         PASS 45 ran and passed
+  test_topology_read_timeouts.py DECLARED SKIP 5 skip(s); needs ryu, which this machine lacks -- proved nothing here
+      Aborting must defer the batch, not lose it -- checked by letting the next round win. ... skipped 'needs the ryu conda env (ryu-env/bin/python); this interpreter has no ryu/networkx'
+      test_it_actually_takes_the_abort_and_says_so (__main__.GetLinkTimeoutTest.test_it_actually_takes_the_abort_and_says_so) ... skipped 'needs the ryu conda env (ryu-env/bin/python); this interpreter has no ryu/networkx'
+      The fidelity question I asserted in a comment and never measured. ... skipped 'needs the ryu conda env (ryu-env/bin/python); this interpreter has no ryu/networkx'
+  test_topology_worker_coalescing.py DECLARED SKIP 7 skip(s); needs ryu, which this machine lacks -- proved nothing here
+      A dead worker stops the twin silently -- the failure mode B introduces. ... skipped 'needs the ryu conda env (ryu-env/bin/python); this interpreter has no ryu'
+      THE property. This is the one the clear-after mutation breaks. ... skipped 'needs the ryu conda env (ryu-env/bin/python); this interpreter has no ryu'
+      The other half: five events while idle must NOT become five rebuilds. ... skipped 'needs the ryu conda env (ryu-env/bin/python); this interpreter has no ryu'
+  test_twin_audit.py             PASS 39 ran and passed
+  test_twin_audit_criteria.py    PASS 63 ran and passed
+  test_unavailable_metric_sentinel.py PASS 10 ran and passed
+  test_unidirectional_link_loss.py PASS 6 ran and passed
+  test_walk_instrumentation.py   PASS 10 ran and passed
+  test_warning_allowlist_entries.py PASS 9 ran and passed
+  test_apps_residue.sh           PASS 145 ran and passed
+  test_apps_stop_kills_the_group.sh PASS 73 ran and passed
+  test_build_guard.sh            PASS 37 ran and passed
+  test_cell_gate_suspect_wiring.sh PASS 14 ran and passed
+  test_check_logs_crash_patterns.sh PASS 32 ran and passed
+  test_cmd_down_leftovers.sh     PASS 90 ran and passed
+  test_e_restore_asserts_compiled_artifact.sh PASS 11 ran and passed
+  test_ep4_gate_and_abort_evidence.sh PASS 12 ran and passed
+  test_faults.sh                 PASS 60 ran and passed
+  test_faults_topo_pid.sh        PASS 73 ran and passed
+  test_fixture_suites_end_on_signal.sh PASS 284 ran and passed
+  test_gate_exit_code_not_tee.sh DECLARED SKIP 1 skip(s); needs py-plot, which this machine lacks -- proved nothing here
+      SKIP: PY_PLOT (/nonexistent/python) is not present; the gate cannot be invoked
+  test_guarded_build_reentrant.sh PASS 15 ran and passed
+  test_harness_instruments.sh    PASS 34 ran and passed
+  test_iperf3_guard.sh           PASS 12 ran and passed
+  test_l1_shell_scoring.sh       PASS 165 ran and passed
+  test_lab_handoff.sh            PASS 19 ran and passed
+  test_live_p1_common.sh         PASS 220 ran and passed
+  test_live_p1_external_evidence.sh PASS 232 ran and passed
+  test_live_p1_thirteen.sh       PASS 47 ran and passed
+  test_live_round_lab_tree.sh    PASS 93 ran and passed
+  test_local_ci.sh               PASS 9 ran and passed
+  test_log_suffix_idempotent.sh  PASS 30 ran and passed
+  test_make_topology_stdout_is_json.sh PASS 5 ran and passed
+  test_manual_no_stale_in_progress.sh PASS 19 ran and passed
+  test_manual_rc_table.sh        PASS 26 ran and passed
+  test_mutate_gate_dead_mutant.sh PASS 43 ran and passed
+  test_ndt_app_orphans.sh        PASS 111 ran and passed
+  test_ndt_app_package.sh        PASS 404 ran and passed
+  test_ndt_apps_liveness.sh      PASS 75 ran and passed
+  test_ndt_check_sample_rate.sh  PASS 39 ran and passed
+  test_ndt_down_claim_guard.sh   PASS 41 ran and passed
+  test_ndt_down_stops_only_ours.sh PASS 32 ran and passed
+  test_ndt_heartbeat.sh          PASS 91 ran and passed
+  test_ndt_helper_apps_window.sh PASS 179 ran and passed
+  test_ndt_honesty.sh            PASS 346 ran and passed
+  test_ndt_ovs_claim.sh          PASS 174 ran and passed
+  test_ndt_ovs_topo_script.sh    PASS 43 ran and passed
+  test_ndt_round_baseline.sh     PASS 117 ran and passed
+  test_ndt_sample_rate_reads_both_bounds.sh PASS 7 ran and passed
+  test_ndt_status_check_baseline.sh PASS 112 ran and passed
+  test_ndt_status_measuring.sh   PASS 102 ran and passed
+  test_ndt_status_residue_row.sh PASS 27 ran and passed
+  test_ndt_sudo_surface.sh       PASS 55 ran and passed
+  test_ndt_up_down_robust.sh     PASS 442 ran and passed
+  test_ndt_up_target.sh          PASS 23 ran and passed
+  test_ndtwin_lab_config.sh      PASS 66 ran and passed
+  test_ndtwin_lab_heartbeat.sh   PASS 194 ran and passed
+  test_ndtwin_lab_sweep.sh       PASS 33 ran and passed
+  test_orphans_verdict.sh        PASS 181 ran and passed
+  test_ovs4_sflow_verify.sh      PASS 48 ran and passed
+  test_p4_capabilities_wired.sh  PASS 3 ran and passed
+  test_p4_coverage_gate.sh       PASS 15 ran and passed
+  test_p4_health_gate_scripts.sh PASS 79 ran and passed
+  test_p4_health_recover.sh      PASS 163 ran and passed
+  test_ports_that_block_restart.sh PASS 27 ran and passed
+  test_preflight_instrument_self_failures.sh PASS 15 ran and passed
+  test_qdisc_snapshot.sh         PASS 9 ran and passed
+  test_readme_mentions_mnexec.sh PASS 10 ran and passed
+  test_redirection_order.sh      PASS 48 ran and passed
+  test_round_env_kernel_dir.sh   PASS 83 ran and passed
+  test_run_layers_asks_kernel.sh PASS 10 ran and passed
+  test_run_layers_topology_from_fabric.sh PASS 9 ran and passed
+  test_slim_client_json.sh       PASS 11 ran and passed
+  test_stack_await_convergence.sh PASS 35 ran and passed
+  test_stack_log_rotation.sh     PASS 23 ran and passed
+  test_start_bg_log_rotation.sh  PASS 5 ran and passed
+  test_stop_one_targets_its_argument.sh PASS 5 ran and passed
+  test_supervise_exit_status.sh  PASS 66 ran and passed
+  test_topk_no_recursive_shared_lock.sh PASS 7 ran and passed
+  test_up_ovs_wedge_guard.sh     PASS 10 ran and passed
+  test_wait_for_port.sh          PASS 40 ran and passed
+  test_heartbeat_drop_check.py   DECLARED SKIP 1 skip(s); needs bmv2-stock, which this machine lacks -- proved nothing here
+      SKIP: no stock simple_switch at /nonexistent/simple_switch -- every cell drives one for real; nothing was checked
+FAILURES=0
+rc=0

@@ -1,0 +1,76 @@
+$ nice -n 19 p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build/hc_main.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build/hc_main.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ nice -n 19 p4c-bm2-ss --p4v 16 -DHC_ALT --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build/hc_alt.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build/hc_alt.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ nice -n 19 p4c-bm2-ss --p4v 16 -DHC_MUTANT_NO_COUNT -DHC_MUTANT_NO_TTL -DHC_MUTANT_NO_QSTAMP --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build-mutant/hc_main.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build-mutant/hc_main.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ nice -n 19 p4c-bm2-ss --p4v 16 -DHC_ALT -DHC_MUTANT_NO_COUNT -DHC_MUTANT_NO_TTL -DHC_MUTANT_NO_QSTAMP --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build-mutant/hc_alt.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build-mutant/hc_alt.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ nice -n 19 p4c-bm2-ss --p4v 16 -DHC_MUTANT_FWD_88B5 --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build-fwd/hc_main.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build-fwd/hc_main.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ nice -n 19 p4c-bm2-ss --p4v 16 -DHC_ALT -DHC_MUTANT_FWD_88B5 --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build-fwd/hc_alt.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/build-fwd/hc_alt.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/final/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/c-replay/final/tools/p4_exercise/convert.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/exercise --topology topology.json --p4 src/hc_main.p4 --out /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/packages/A --mode ndtwin --name p4-health-A
+rc=0
+package 'p4-health-A' -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/packages/A
+  control plane : ndtwin
+  pipelines     : s1=build/hc_alt.json, s2=build/hc_main.json, s3=build/hc_main.json, s4=build/hc_main.json
+  model         : 4 switches, 6 hosts, 20 edges (10 links, both directions stored)
+  files         : 12
+                  build/hc_alt.json
+                  build/hc_alt.p4.p4info.txtpb
+                  build/hc_main.json
+                  build/hc_main.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  runtime/s1-runtime.json
+                  runtime/s2-runtime.json
+                  runtime/s3-runtime.json
+                  runtime/s4-runtime.json
+                  src/hc_main.p4
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/r5/trial-work-r5/s0/packages/A
+

@@ -1,0 +1,367 @@
+{
+  "boot_id": "0b9321efa08c4dce8350a90374c5e08f",
+  "generation": 15813110714982260663,
+  "journal_after": {
+    "files": [
+      "s2.jsonl",
+      "s2.jsonl.q1791759442487939132"
+    ],
+    "header": {
+      "boot_id": "0b9321efa08c4dce8350a90374c5e08f",
+      "dpid": 2,
+      "entries_sha256": "24f8521eb38173df",
+      "fabric_cookie": "db737469f070dfb7",
+      "header": true,
+      "p4info_sha256": "5ce0a5595d5a65f1",
+      "v": 1
+    },
+    "records": [
+      {
+        "key": "a7507373b9e8b663afa07701bb5e0fc0",
+        "op": "insert",
+        "outcome": "ok",
+        "spec": {
+          "action_name": "HcIngress.set_port_tag",
+          "action_params": {
+            "tag": 77
+          },
+          "match": {
+            "standard_metadata.ingress_port": 7
+          },
+          "table": "HcIngress.port_exact"
+        },
+        "t": 1791759442.5047448,
+        "v": 1
+      },
+      {
+        "key": "60381491974e11b761ff0ceabfdb542f",
+        "op": "insert",
+        "outcome": "ok",
+        "spec": {
+          "action_name": "HcIngress.ipv4_forward",
+          "action_params": {
+            "dstAddr": "08:00:00:00:07:77",
+            "port": 2
+          },
+          "match": {
+            "hdr.ipv4.dstAddr": [
+              "10.0.77.0",
+              24
+            ]
+          },
+          "table": "HcIngress.ipv4_lpm"
+        },
+        "t": 1791759442.512439,
+        "v": 1
+      },
+      {
+        "key": "6b8d5e9ebf74f71dc0a565b83f2f9b24",
+        "op": "insert",
+        "outcome": "ok",
+        "spec": {
+          "action_name": "HcIngress.set_mark",
+          "action_params": {
+            "v": 5
+          },
+          "match": {
+            "hdr.ipv4.srcAddr": [
+              "10.0.77.1",
+              "255.255.255.255"
+            ]
+          },
+          "priority": 10,
+          "table": "HcIngress.t_ternary"
+        },
+        "t": 1791759442.5198586,
+        "v": 1
+      },
+      {
+        "key": "28d55da9285128cc0324177a05a0522d",
+        "op": "delete",
+        "outcome": "not_found",
+        "spec": {
+          "action_name": "HcIngress.set_mark",
+          "action_params": {
+            "v": 5
+          },
+          "match": {
+            "hdr.ipv4.srcAddr": [
+              "10.0.77.1",
+              "255.255.255.255"
+            ]
+          },
+          "priority": 20,
+          "table": "HcIngress.t_ternary"
+        },
+        "t": 1791759442.5276484,
+        "v": 1
+      },
+      {
+        "key": "28d55da9285128cc0324177a05a0522d",
+        "op": "insert",
+        "outcome": "ok",
+        "spec": {
+          "action_name": "HcIngress.set_mark",
+          "action_params": {
+            "v": 5
+          },
+          "match": {
+            "hdr.ipv4.srcAddr": [
+              "10.0.77.1",
+              "255.255.255.255"
+            ]
+          },
+          "priority": 20,
+          "table": "HcIngress.t_ternary"
+        },
+        "t": 1791759442.5353277,
+        "v": 1
+      }
+    ],
+    "unreadable": 0
+  },
+  "journal_dir": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-final/journal-fast",
+  "journal_dir_main_built": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-ternary-replay-c/trial-work-final/journal-fast",
+  "pid": 640929,
+  "plan": "write",
+  "posts": [
+    {
+      "answer": {
+        "dpid": 2,
+        "journal": {
+          "enabled": true,
+          "recorded": true,
+          "replay": "at proxy startup and after a readopt, on a switch whose pipeline cookie confirms it is the fabric this journal was written on"
+        },
+        "journaled": true,
+        "match_types": {
+          "standard_metadata.ingress_port": "EXACT"
+        },
+        "op": "insert",
+        "priority": 0,
+        "priority_honoured": false,
+        "status": "success",
+        "table": "HcIngress.port_exact"
+      },
+      "body": {
+        "action_name": "HcIngress.set_port_tag",
+        "action_params": {
+          "tag": 77
+        },
+        "dpid": 2,
+        "match": {
+          "standard_metadata.ingress_port": 7
+        },
+        "table": "HcIngress.port_exact"
+      },
+      "status": 200
+    },
+    {
+      "answer": {
+        "dpid": 2,
+        "journal": {
+          "enabled": true,
+          "recorded": true,
+          "replay": "at proxy startup and after a readopt, on a switch whose pipeline cookie confirms it is the fabric this journal was written on"
+        },
+        "journaled": true,
+        "match_types": {
+          "hdr.ipv4.dstAddr": "LPM"
+        },
+        "op": "insert",
+        "priority": 0,
+        "priority_honoured": false,
+        "status": "success",
+        "table": "HcIngress.ipv4_lpm"
+      },
+      "body": {
+        "action_name": "HcIngress.ipv4_forward",
+        "action_params": {
+          "dstAddr": "08:00:00:00:07:77",
+          "port": 2
+        },
+        "dpid": 2,
+        "match": {
+          "hdr.ipv4.dstAddr": [
+            "10.0.77.0",
+            24
+          ]
+        },
+        "table": "HcIngress.ipv4_lpm"
+      },
+      "status": 200
+    },
+    {
+      "answer": {
+        "dpid": 2,
+        "journal": {
+          "enabled": true,
+          "recorded": true,
+          "replay": "at proxy startup and after a readopt, on a switch whose pipeline cookie confirms it is the fabric this journal was written on"
+        },
+        "journaled": true,
+        "match_types": {
+          "hdr.ipv4.srcAddr": "TERNARY"
+        },
+        "op": "insert",
+        "priority": 10,
+        "priority_honoured": true,
+        "status": "success",
+        "table": "HcIngress.t_ternary"
+      },
+      "body": {
+        "action_name": "HcIngress.set_mark",
+        "action_params": {
+          "v": 5
+        },
+        "dpid": 2,
+        "match": {
+          "hdr.ipv4.srcAddr": [
+            "10.0.77.1",
+            "255.255.255.255"
+          ]
+        },
+        "priority": 10,
+        "table": "HcIngress.t_ternary"
+      },
+      "status": 200
+    },
+    {
+      "answer": {
+        "dpid": 2,
+        "error": "the switch refused the write",
+        "grpc_status": "UNKNOWN",
+        "message": "switch 2 refused this entry: UNKNOWN (NOT_FOUND: Cannot find match entry)",
+        "p4rt_error": {
+          "code": "NOT_FOUND",
+          "message": "Cannot find match entry"
+        }
+      },
+      "body": {
+        "action_name": "HcIngress.set_mark",
+        "action_params": {
+          "v": 5
+        },
+        "dpid": 2,
+        "match": {
+          "hdr.ipv4.srcAddr": [
+            "10.0.77.1",
+            "255.255.255.255"
+          ]
+        },
+        "op": "delete",
+        "priority": 20,
+        "table": "HcIngress.t_ternary"
+      },
+      "status": 502
+    },
+    {
+      "answer": {
+        "dpid": 2,
+        "journal": {
+          "enabled": true,
+          "recorded": true,
+          "replay": "at proxy startup and after a readopt, on a switch whose pipeline cookie confirms it is the fabric this journal was written on"
+        },
+        "journaled": true,
+        "match_types": {
+          "hdr.ipv4.srcAddr": "TERNARY"
+        },
+        "op": "insert",
+        "priority": 20,
+        "priority_honoured": true,
+        "status": "success",
+        "table": "HcIngress.t_ternary"
+      },
+      "body": {
+        "action_name": "HcIngress.set_mark",
+        "action_params": {
+          "v": 5
+        },
+        "dpid": 2,
+        "match": {
+          "hdr.ipv4.srcAddr": [
+            "10.0.77.1",
+            "255.255.255.255"
+          ]
+        },
+        "priority": 20,
+        "table": "HcIngress.t_ternary"
+      },
+      "status": 200
+    }
+  ],
+  "startup": {
+    "broken": [],
+    "entry_errors": {},
+    "table_entries": {
+      "api_writes": 0,
+      "applied": 23,
+      "failed": 0,
+      "journal": {
+        "enabled": true,
+        "failures": 0,
+        "not_found": 0,
+        "record_complete": true,
+        "recorded": 0,
+        "replay": {
+          "attempted": 0,
+          "cookie": "the switch did not answer COOKIE_ONLY (FAILED_PRECONDITION: No forwarding pipeline config set for this device)",
+          "failed": [],
+          "fresh_fabric": true,
+          "restored": [],
+          "skipped_reason": null,
+          "stale_entries": 0,
+          "stale_pipeline": 0,
+          "status": "nothing-to-replay",
+          "succeeded": 0,
+          "unreadable": 0,
+          "when": "startup"
+        }
+      },
+      "journaled": true,
+      "recorded": 23
+    }
+  },
+  "switch_state_table_entries": {
+    "api_writes": 4,
+    "applied": 23,
+    "failed": 0,
+    "journal": {
+      "enabled": true,
+      "failures": 0,
+      "not_found": 1,
+      "record_complete": true,
+      "recorded": 4,
+      "replay": {
+        "attempted": 0,
+        "cookie": "the switch did not answer COOKIE_ONLY (FAILED_PRECONDITION: No forwarding pipeline config set for this device)",
+        "failed": [],
+        "fresh_fabric": true,
+        "restored": [],
+        "skipped_reason": null,
+        "stale_entries": 0,
+        "stale_pipeline": 0,
+        "status": "nothing-to-replay",
+        "succeeded": 0,
+        "unreadable": 0,
+        "when": "startup"
+      }
+    },
+    "journaled": true,
+    "recorded": 23
+  },
+  "t8": {
+    "attribution": null,
+    "label": "GREEN",
+    "partial": null,
+    "phase": "compare",
+    "reason": "journaled; the restart half is deferred (design 2.3)",
+    "verdict": "GREEN"
+  },
+  "t8_observation": {
+    "answer": {
+      "journaled": true
+    }
+  }
+}

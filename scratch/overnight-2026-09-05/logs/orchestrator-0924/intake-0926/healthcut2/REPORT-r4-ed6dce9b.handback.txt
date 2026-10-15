@@ -1,0 +1,50 @@
+DELIVERED ed6dce9b  (branch feat/p4-health-cut2, worktree wt-p4-health-cut2, NOT pushed; tracked-clean)
+
+Code head 2e630d34, tools/p4_health tree e42f47f9. Three doc-only commits follow it. Everything below is OBSERVED unless marked INFERRED. LOG4 = /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-health-cut2/r4/. Every log there starts with `commit <sha>` and ends with `rc=`. Tests were committed before the red runs.
+
+## Commits, in order (mine; 79e13808 and 65491ceb are the other branch's)
+1aafcf09 tests F1-F3 | 5391a7f4 F1 test tweak | e3c38597 F1 fix | ee523cb9 F2 fix | 0fa6902a F3 fix | 3b283c48 run-level stop as a flag | 551b2751 mutants F1-F3 | cbc47503 mutant expectation | 684bb0b7 tests F4/F6/F8/F9 | 66043c74 test run_lab uses the frozen code it is handed | d56ac91d F4 fix | 6a7954e2 F6 fix | 4523e038 mutants F4/F6/F8/F9 | cecea49b SUMMARY text | 196c8340 merge fix/p4-health-run-identity (79e13808) | 355c7ed6 anchor-variable fix | eac246cb merge (65491ceb) | 56b27f60 MUT_SHARD | 2e630d34 two identity tests strengthened | d8ce630b, ed6dce9b SUMMARY r4 section.
+Commit messages scanned for judge/intake/ruling/report/orchestrator/opus/ticket/Co-: no hits.
+
+## Per finding (red / green / mutants; LOG4/<file>)
+- **F1**: lab_round.py keeps the first teardown signal. run() then adds "aborted by signal N (during the teardown)" and sets complete=False. Docstring fixed. Tests use REAL handlers and a fake `ndt down` that SIGTERMs the probe. Red f1.RED.log (5391a7f4) shows the predicted `(2,2)!=(1,1)` and `('COMPLETE',0)`. Green f1.GREEN.log. Mutants C2R4-F1a-d.
+- **F2**: finish() sets `failed` on any None result, and the sniffer-not-ready exit has its own message. 6 run_lab tests, one per exit, plus a 6th exit (unreadable result file). Red f2.RED.log: 2 behavioural failures (sniffer not ready, unreadable result). The other four exits were already correct, so those tests are new coverage only. Green f2.GREEN.log. Mutants C2R4-F2a-f.
+- **F3**: run_verdict(…, stopped, see_red). A recorded stop (a record, or the run's own stop flag) gives INCOMPLETE rc 2. A see-red PROBE-BROKEN needs complete bringups and no problems. Red f3.RED.log: 5 behavioural failures, including the review's "stopped after K1" scenario reading PROBE-BROKEN rc 1. f3.cells.RED.log is only a TypeError, because the kwarg did not exist. Green f3.GREEN.log, f3.cells.GREEN.log. Mutants C2R4-F3a-f. The existing clean see-red test now also asserts bringups complete and problems empty.
+- **F4**: new tools/p4_health/frozen.py. probe.py lab freezes right after the dirty check, before S0, into <run>/frozen/ (path resolved). That is 7 files: root's 3, controller_ext.py, and the adapter plus common.py and __init__.py from tools/p4_exercise. Each copy is checked with `git hash-object` against `git rev-parse HEAD:<path>`. A mismatch, a failing git, or two empty answers gives rc 2 before S0. B's controller and adapter run from the copies. health.json gets `frozen_code`; `root_code` stays. run_lab(frozen=) runs exactly the Frozen it is given. Red f4.RED.log (11 failures + 2 import errors) and f4.collect.RED.log (66043c74); the edit-between-check-and-freeze case reaches S0 on old code. Green f4.GREEN.log, f4.collect.GREEN.log. Mutants C2R4-F4a-j; C2R3-N8a/b re-anchored.
+- **F6**: round_b.py registers with os.path.realpath(run_dir). Red f6.RED.log (controllers list empty in LAB_STATE.B.json, symlinked run dir). I confirmed it is still red after F4 alone, so F4 does not mask it. Green f6.GREEN.log. Mutant C2R4-F6; C2-RB2 re-anchored.
+- **F8**: fabric_binary is mocked in the identity test, which now also asserts the identity check (not the freeze) said no. Two new tests run the REAL ID.fingerprint with every other part stubbed readable. The readable-override control gives a sha256 and the lab runs; the OSError case gives "incomplete", rc 2 and no lab. Mutants C2R4-F8a/b are caught. f8.RED.log is only an import error (the tests need the new frozen module). The code was already right, so the behavioural red comes from the mutants. Green f8.GREEN.log.
+- **F9**: the lab test compares the recorded hash with the copy's bytes. A second test makes the copy differ from the source and requires the record to be the copy's. Mutant C2R4-F9 (hash the source) is caught by `test_the_recorded_hash_is_of_the_copy_not_of_the_source` (mutate_p4_health.partial_F4-F9.log). f9.RED.log is an import error; f9.GREEN.log.
+
+## Final checks at 2e630d34
+- check_gate_anchors.py HEAD: 133/133 ok, mutate_p4_health.sh ok(306). Two earlier failures on this script were fixed in 355c7ed6 (an anchor file name the checker could not resolve). check_test_tmpdirs: 414 files, 0 fixed paths.
+- collect 147 OK and cells 130 OK on py 3.13.13, 3.12.3 and 3.8.20. recover 163 checks, 0 failed. Hermetic seal on 147 tests: tripwire, network, spawn and real-file changes all 0.
+- **Mutation gate: 328 mutations (298 + 30 new), 0 survived. 4 negative controls green. Original byte-identical and suites green on the real files.** Logs: mutate_p4_health.shard{0..3}of4.log, 82 each, all rc=0.
+- Deviation from the brief, because of the machine speed: a serial run took about 1 min per mutation, so about 5 h against the 10800 s timeout.
+  - I stopped two serial attempts. Those logs are NOT results: mutate_p4_health.stopped_by_me_*.log.
+  - I added `MUT_SHARD=k/n` to the script and ran 4 shards side by side on the same head with timeout 21600. No single mutate_p4_health.log exists.
+  - Shard run 1 (56b27f60, run1_*.log) had 2 survivors: R2-m4a and C2R3-N3a. Cause: my early freeze also answers rc 2 on those tests' nonexistent run dir, so rc 2 alone could not tell which check refused. Fixed in 2e630d34 (the freeze is stubbed to fail loudly). Both mutants were then re-run alone and caught, and the whole table was re-run at 2e630d34, which is the result above.
+- Coordinator's merge instruction: `fix/p4-health-run-identity` had moved twice. I merged 79e13808 (196c8340) and 65491ceb (eac246cb), reran the cells tests and anchors at each, and checked the head again right before the final gate. It was still 65491ceb.
+
+## Item 11 (SIGTERM during `ndt claim`; checked, not fixed; LOG4/item11/)
+- Real `ndt claim`, SIGKILLed at a random 0-90 ms, 300 trials in a scratch copy (claim_kill_300.log): 241 killed before ndt wrote anything (no claim file); 35 with a complete 5-line claim plus round.baseline; 24 with a complete claim and NO round.baseline; 0 empty or partial claim files. An earlier unarchived 300-trial run also had 0. The write is a single small printf redirect (ndt:824-826), so the empty-file window is microseconds. I did not prove it impossible. A re-claim after each kill succeeded 300/300, so the lock does not stick.
+- recover.sh on phase "claiming" with claim_expires null (recover_claiming.log), four states (complete+baseline, complete without baseline, no claim, empty claim = synthetic): all rc 2 with "STOP … claim_expires '' … Nothing done", and no stub calls. When the claim note names this run (the first two states), it also prints "Nothing was brought up under it" and `NDT_OWNER=… <ndt> release`. With no claim or an empty claim it prints only the STOP line.
+- Real `ndt release` (release_states.log): rc 0 on a complete claim without baseline. rc 0 on an empty claim (kept as .prev). A new claim over an empty file also works.
+- Probe side (probe_side.log; fake runner, real handlers): a SIGTERM right after the claim is outside LabRound.run's try, so there is no teardown. run_lab records "stop signal 15 outside a bring-up's body", INCOMPLETE rc 2, bringups [], LAB_STATE phase claiming, claim_expires null. B does not start.
+- Conclusion: no new gap, but a human must release the claim by recover.sh's printed command.
+
+## SUMMARY (committed)
+doc/audit/2026-10-03_p4-health-check/SUMMARY-cut2-offline.md has the in-place fixes and a new §7 "第 4 輪":
+- N5: §6 step 2 now applies to the see-red run too.
+- N6: all four sub-items. Delta is 30 same / 27 not observed over 57 cells (checked on a fake run). Plain `ndt status` instead of `--measuring`. m3/m5/m6 wording. Per-row commit for the "observed at" column, including that identity.py did not change after 91ec19c0.
+- N8: run in a dedicated clean worktree, with the fingerprint reason. TP1 diagnostics for step 4. COMPLETE needs problems empty. The signal sentence in §1.1 is rewritten.
+- §7 itself: logs table, §7.2 not-fixed list, gate story, and the r2/r3 sentences that were corrected.
+
+## Surprises and caveats
+- The two gate survivors above: my change weakened two older tests, which the gate caught.
+- Disk dipped to 1995 MB while the gate ran (other sessions' /tmp data; my scratch is under 5 MB) and was back at about 3.3 GB at the end. My own mutant copies are cleaned up.
+- Not touched:
+  - F5 was already addressed on the other branch.
+  - F10 and the missing `show_ports_trial` unit test.
+  - S0's adapter dry-run still runs the shared tree's adapter (it is not a round).
+  - A see-red run where nothing is PROBE-BROKEN still reads COMPLETE rc 0.
+- Pre-existing and left as is: the mutate script's default interpreter is ryu-env py3.8.

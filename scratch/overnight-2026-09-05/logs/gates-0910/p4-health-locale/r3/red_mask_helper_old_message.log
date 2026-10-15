@@ -1,0 +1,29 @@
+# red run: mask helper tests against the old message (_sig_names prints "-" for an empty set), as at 8918d051
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+test_the_signal_mask_helper_names_a_block_it_finds_lifted_that_the_test_did_not_make (__main__.TestSignalMaskHelper.test_the_signal_mask_helper_names_a_block_it_finds_lifted_that_the_test_did_not_make) ... FAIL
+test_the_signal_mask_helper_names_a_block_the_test_left_up (__main__.TestSignalMaskHelper.test_the_signal_mask_helper_names_a_block_the_test_left_up) ... FAIL
+test_the_signal_mask_helper_passes_a_mask_that_is_what_the_test_started_with (__main__.TestSignalMaskHelper.test_the_signal_mask_helper_passes_a_mask_that_is_what_the_test_started_with) ... ok
+
+======================================================================
+FAIL: test_the_signal_mask_helper_names_a_block_it_finds_lifted_that_the_test_did_not_make (__main__.TestSignalMaskHelper.test_the_signal_mask_helper_names_a_block_it_finds_lifted_that_the_test_did_not_make)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-health-locale/tests/python/test_p4_health_cells.py", line 1658, in test_the_signal_mask_helper_names_a_block_it_finds_lifted_that_the_test_did_not_make
+    self.assertIn("the signals none were still blocked and SIGUSR1 no longer were", str(ctx.exception))
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'the signals none were still blocked and SIGUSR1 no longer were' not found in 'at the end of the test the signals - were still blocked and SIGUSR1 no longer were (the test started with SIGUSR1 blocked): a mask was not put back'
+
+======================================================================
+FAIL: test_the_signal_mask_helper_names_a_block_the_test_left_up (__main__.TestSignalMaskHelper.test_the_signal_mask_helper_names_a_block_the_test_left_up)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-health-locale/tests/python/test_p4_health_cells.py", line 1650, in test_the_signal_mask_helper_names_a_block_the_test_left_up
+    self.assertIn("the signals SIGUSR1 were still blocked and none no longer were", str(ctx.exception))
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'the signals SIGUSR1 were still blocked and none no longer were' not found in 'at the end of the test the signals SIGUSR1 were still blocked and - no longer were (the test started with - blocked): a mask was not put back'
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+FAILED (failures=2)
+rc=1
