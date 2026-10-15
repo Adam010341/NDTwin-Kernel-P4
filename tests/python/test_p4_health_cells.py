@@ -733,6 +733,21 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertNotIn("constant", reason)
         for word in ("off", "external control plane", "missed a record"):
             self.assertIn(word, reason)
+        # (Cut 2 round 8) and a step-0 or replay snapshot that failed: rule_journal.py counts those as a failure too
+        # [Co-developed with claude code -- Adam]
+        self.assertIn("snapshot", reason)
+
+    def test_the_t8_row_of_the_predictions_names_every_way_journaled_is_false(self):
+        """The RED condition in expected_today.tsv's T8 row says the same as t8_cannot: the journal is off, the proxy
+        is external, a record was missed, or a snapshot failed. The expected value stays GREEN."""
+        with open(EXPECTED_TSV, encoding="utf-8") as fh:
+            rows = [l.rstrip("\n").split("\t") for l in fh if l.startswith("T8\t")]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][5], "GREEN")
+        red = rows[0][6].split("T8 is RED only when", 1)[1]
+        # the snapshot clause first: it is the one this row once left out [Co-developed with claude code -- Adam]
+        for word in ("snapshot", "off", "external", "record was missed"):
+            self.assertIn(word, red)
 
     def test_tp2_past_the_deadline_is_red(self):
         v = decide("TP2", copy.deepcopy(FIX["TP2"][1]))
@@ -1583,19 +1598,65 @@ class TestS0Pieces(unittest.TestCase):
 
 # --- Cut 2 -----------------------------------------------------------------------------------------
 
-def _clear_the_stop_mask():
-    """The three stop signals unblocked, any that were pending going to handlers that do nothing; the handlers
-    that were in place are put back. Used at the start and at the end of a test that changes the mask."""
+def _sig_names(sigs):
+    return ", ".join(sorted(getattr(x, "name", str(x)) for x in sigs)) or "none"
+
+
+def _assert_the_signal_mask_is_unchanged_then_put_it_back(mask0, when):
+    """The signal mask must be `mask0`, the one recorded when the test started: a test, or the code under it, that
+    left it otherwise has leaked a block (or lifted one it did not make), and that is raised as an AssertionError
+    naming `when` -- after the mask has been put back to `mask0`, any stop that was pending going to a handler that
+    does nothing, and the handlers that were in place put back, so the leak ends in the test that made it.
+    (Cut 2 round 8) It used to clear the mask silently, which hid a restore that was never made. (round 9) It
+    compares with the mask the test started with, as collect's Sealed does, not with a clear one: a mask the suite
+    inherited (a parent that blocks SIGHUP) is not a leak. [Co-developed with claude code -- Adam]"""
     import signal
     stops = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
     old = {s: signal.signal(s, lambda n, f: None) for s in stops}
     try:
-        signal.pthread_sigmask(signal.SIG_UNBLOCK, stops)
+        now = signal.pthread_sigmask(signal.SIG_SETMASK, mask0)
         for _ in range(2000):
-            pass
+            pass                                    # a pending stop is delivered here, to a handler that does nothing
     finally:
         for s, h in old.items():
             signal.signal(s, h)
+    if set(now) != set(mask0):
+        raise AssertionError("%s the signals %s were still blocked and %s no longer were (the test started with %s "
+                             "blocked): a mask was not put back" % (when, _sig_names(set(now) - set(mask0)),
+                                                                    _sig_names(set(mask0) - set(now)),
+                                                                    _sig_names(mask0)))
+
+
+class TestSignalMaskHelper(unittest.TestCase):
+    """(round 10) The end-of-test mask check is what every Cut 2 test relies on to see a block never lifted (or one
+    lifted that the test did not make), so it is pinned itself. SIGUSR1 stands for the signal: nothing sends it.
+    [Co-developed with claude code -- Adam]"""
+
+    def setUp(self):
+        import signal
+        self.sig = signal.SIGUSR1
+        self.start = signal.pthread_sigmask(signal.SIG_BLOCK, ())
+        self.addCleanup(signal.pthread_sigmask, signal.SIG_SETMASK, self.start)
+        self.assertNotIn(self.sig, self.start, "the suite was started with SIGUSR1 blocked")
+
+    def test_the_signal_mask_helper_passes_a_mask_that_is_what_the_test_started_with(self):
+        _assert_the_signal_mask_is_unchanged_then_put_it_back(self.start, "at the end of the test")
+
+    def test_the_signal_mask_helper_names_a_block_the_test_left_up(self):
+        import signal
+        signal.pthread_sigmask(signal.SIG_BLOCK, [self.sig])
+        with self.assertRaises(AssertionError) as ctx:
+            _assert_the_signal_mask_is_unchanged_then_put_it_back(self.start, "at the end of the test")
+        self.assertIn("the signals SIGUSR1 were still blocked and none no longer were", str(ctx.exception))
+        self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, ()), self.start)       # put back, all the same
+
+    def test_the_signal_mask_helper_names_a_block_it_finds_lifted_that_the_test_did_not_make(self):
+        import signal
+        started_with = set(self.start) | {self.sig}                  # a test that began with the block up ...
+        with self.assertRaises(AssertionError) as ctx:              # ... and ends with it lifted
+            _assert_the_signal_mask_is_unchanged_then_put_it_back(started_with, "at the end of the test")
+        self.assertIn("the signals none were still blocked and SIGUSR1 no longer were", str(ctx.exception))
+        self.assertEqual(set(signal.pthread_sigmask(signal.SIG_BLOCK, ())), started_with)    # put back to the first
 
 
 class TestS0Cut2Checks(unittest.TestCase):
@@ -1604,9 +1665,11 @@ class TestS0Cut2Checks(unittest.TestCase):
     def setUp(self):
         # (round 7) The tests of the ValueSet trial compare the signal mask before and after it. A mutant that never
         # lifts the trial's block leaves the mask blocked for every test after the first, and a test that starts
-        # with the block already up cannot see it not being lifted: each starts, and ends, with the mask clear.
-        _clear_the_stop_mask()
-        self.addCleanup(_clear_the_stop_mask)
+        # with the block already up cannot see it not being lifted: each test ends with the mask it started with put
+        # back, and (round 9) a test that ends with another mask fails.
+        import signal
+        self.addCleanup(_assert_the_signal_mask_is_unchanged_then_put_it_back,
+                        signal.pthread_sigmask(signal.SIG_BLOCK, ()), "at the end of the test")
 
     def s0(self, replies):
         import tempfile
@@ -1963,8 +2026,20 @@ class TestS0Cut2Checks(unittest.TestCase):
     def test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back(self):
         import signal
         in_trial, seen_inside, seen_after = [True], [], []
-        old = {s: signal.signal(s, lambda n, f: (seen_inside if in_trial[0] else seen_after).append(n))
-               for s in self.stops()}
+        # (round 9) the premise: the three are not blocked when the trial starts. A suite started by a parent that
+        # blocks one (SIGHUP, say) would keep that one pending after the trial, rightly: stops_held puts back the
+        # mask it found. The mask this test found is put back at its end, with handlers that do nothing in place, so
+        # a stop a broken trial left pending is not delivered to the default action (which ends the suite).
+        # [Co-developed with claude code -- Adam]
+        # (round 10) Handlers that do nothing go in BEFORE the unblock: a stop already pending while the mask held it
+        # (sent by something outside the suite) is delivered by the unblock, and to the default action it would end
+        # the suite. The recording handlers go in once that is over.
+        old = {s: signal.signal(s, lambda n, f: None) for s in self.stops()}
+        found = signal.pthread_sigmask(signal.SIG_UNBLOCK, self.stops())
+        for _ in range(2000):
+            pass                                            # a stop pending from before is delivered here, to nothing
+        for s in self.stops():
+            signal.signal(s, lambda n, f: (seen_inside if in_trial[0] else seen_after).append(n))
 
         def trial(build, bmv2, cli, work):
             in_trial[0] = True
@@ -1979,6 +2054,11 @@ class TestS0Cut2Checks(unittest.TestCase):
             for _ in range(2000):
                 pass
         finally:
+            for s in self.stops():
+                signal.signal(s, lambda n, f: None)
+            signal.pthread_sigmask(signal.SIG_SETMASK, found)
+            for _ in range(2000):
+                pass                                        # a stop still pending is delivered here, to nothing
             for s, h in old.items():
                 signal.signal(s, h)
         self.assertEqual(seen_inside, [])
@@ -3024,15 +3104,12 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         shutil.copytree(os.path.join(repo, "tools", "p4_health", "exercise"), copy)
         return fz, copy
 
-    def test_the_exercise_copy_check_passes_for_the_tree_the_commit_has_and_ignores_build_output(self):
+    def test_the_exercise_copy_check_passes_for_the_tree_the_commit_has_with_build_output_beside_it(self):
         fz, copy = self.freeze_with_exercise()
         os.makedirs(os.path.join(copy, "build"))
         with open(os.path.join(copy, "build", "hc_main.json"), "w") as fh:
             fh.write("{}")
         os.makedirs(os.path.join(copy, "build-mutant"))
-        os.makedirs(os.path.join(copy, "__pycache__"))
-        with open(os.path.join(copy, "__pycache__", "gen_runtime.cpython-313.pyc"), "wb") as fh:
-            fh.write(b"x")
         fz.check_exercise(copy)
 
     def test_the_exercise_copy_check_names_the_file_that_differs(self):
@@ -3080,6 +3157,213 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         with self.assertRaises(FZ.Refused):
             fz.check_exercise(copy)
 
+    # --- round 9: the copy's build outputs are checked too, and its modules are compiled from their source ----------
+    def copy_with_build_output(self):
+        """(Frozen, a checked copy of exercise/ with p4c-like outputs in build/ and build-mutant/, checked once)."""
+        fz, copy = self.freeze_with_exercise()
+        for rel, text in (("build/hc_main.json", "{}\n"), ("build/hc_main.p4.p4info.txtpb", "pkg_info {}\n"),
+                          ("build-mutant/hc_main.json", "{\"m\": 1}\n")):
+            os.makedirs(os.path.dirname(os.path.join(copy, rel)), exist_ok=True)
+            with open(os.path.join(copy, rel), "w") as fh:
+                fh.write(text)
+        fz.check_exercise(copy)                 # the first check: what compile_all left is recorded
+        return fz, copy
+
+    def test_the_exercise_copy_check_refuses_build_output_that_changed_since_the_first_check(self):
+        """(Round 9) A later check passes over the same outputs, and refuses one rewritten, one added (in a build*
+        directory of its own too) and one removed, and a __pycache__ file that was not there at the first check.
+        [Co-developed with claude code -- Adam]"""
+        import shutil
+        from p4_health import frozen as FZ
+        fz, copy = self.copy_with_build_output()
+        fz.check_exercise(copy)                 # unchanged: passes
+        saved = os.path.join(os.path.dirname(copy), "saved.json")
+        shutil.copyfile(os.path.join(copy, "build", "hc_main.json"), saved)
+
+        def refused_naming(rel):
+            with self.assertRaises(FZ.Refused) as ctx:
+                fz.check_exercise(copy)
+            self.assertIn(rel, str(ctx.exception))
+        with open(os.path.join(copy, "build", "hc_main.json"), "w") as fh:
+            fh.write('{"rewritten": true}\n')
+        refused_naming("build/hc_main.json")
+        shutil.copyfile(saved, os.path.join(copy, "build", "hc_main.json"))
+        fz.check_exercise(copy)                 # the first bytes back: passes again
+        os.makedirs(os.path.join(copy, "build-extra"))
+        with open(os.path.join(copy, "build-extra", "hc_main.json"), "w") as fh:
+            fh.write("{}\n")
+        refused_naming("build-extra/hc_main.json")
+        shutil.rmtree(os.path.join(copy, "build-extra"))
+        os.remove(os.path.join(copy, "build-mutant", "hc_main.json"))
+        refused_naming("build-mutant/hc_main.json")
+        with open(os.path.join(copy, "build-mutant", "hc_main.json"), "w") as fh:
+            fh.write('{"m": 1}\n')
+        fz.check_exercise(copy)
+        os.makedirs(os.path.join(copy, "__pycache__"))
+        with open(os.path.join(copy, "__pycache__", "gen_runtime.cpython-313.pyc"), "wb") as fh:
+            fh.write(b"x")
+        refused_naming("__pycache__")
+
+    def test_the_exercise_copy_check_refuses_a_pycache_at_its_first_check_too(self):
+        """(Round 10) Nothing writes a __pycache__ into the copy, so one is refused at every check, the first included
+        (it used to be recorded there and compared afterwards), wherever it sits and whether or not it holds a file.
+        [Co-developed with claude code -- Adam]"""
+        import shutil
+        from p4_health import frozen as FZ
+        fz, copy = self.freeze_with_exercise()
+
+        def refused():
+            with self.assertRaises(FZ.Refused) as ctx:
+                fz.check_exercise(copy)
+            self.assertIn("__pycache__", str(ctx.exception))
+        pyc = os.path.join(copy, "__pycache__")
+        os.makedirs(pyc)
+        with open(os.path.join(pyc, "x.pyc"), "wb") as fh:
+            fh.write(b"x")
+        refused()                                   # in the copy's own root, and it is the FIRST check
+        shutil.rmtree(pyc)
+        nested = os.path.join(copy, "build", "__pycache__")
+        os.makedirs(nested)
+        with open(os.path.join(nested, "x.pyc"), "wb") as fh:
+            fh.write(b"x")
+        refused()                                   # under a build directory
+        shutil.rmtree(os.path.join(copy, "build"))
+        os.makedirs(pyc)
+        refused()                                   # a directory with nothing in it
+        os.rmdir(pyc)
+        fz.check_exercise(copy)                     # the control: with none of them the first check passes
+
+    def test_the_exercise_copy_check_refuses_a_copy_root_that_is_a_link(self):
+        """(Round 10) The copy root itself may not be a link: the tree behind it is whatever the link points at now."""
+        from p4_health import frozen as FZ
+        fz, copy = self.freeze_with_exercise()
+        real = copy + "-real"
+        os.rename(copy, real)
+        fz.check_exercise(real)                     # the control: the same tree through no link passes
+        os.symlink(real, copy)
+        with self.assertRaises(FZ.Refused) as ctx:
+            fz.check_exercise(copy)
+        self.assertIn("link", str(ctx.exception))
+
+    def test_a_second_check_through_the_same_path_compares_with_the_first_when_a_parent_link_is_re_pointed(self):
+        """(Round 10) The first check of a path records what its copy holds beside the commit's files; the record is
+        kept under that path as given, not under the directory it resolved to, so the same path checked again after
+        a link in it was re-pointed at another tree is compared with that record and not recorded afresh."""
+        import shutil
+        from p4_health import frozen as FZ
+        fz, copy = self.freeze_with_exercise()
+        base = os.path.dirname(copy)
+        trees = []
+        for name, text in (("t1", "{}\n"), ("t2", "{\"other\": 1}\n")):
+            tree = os.path.join(base, name, "exercise")
+            shutil.copytree(copy, tree)
+            os.makedirs(os.path.join(tree, "build"))
+            with open(os.path.join(tree, "build", "hc_main.json"), "w") as fh:
+                fh.write(text)
+            trees.append(os.path.join(base, name))
+        fz.check_exercise(os.path.join(trees[1], "exercise"))       # the control: the second tree is clean on its own
+        link = os.path.join(base, "run")
+        os.symlink(trees[0], link)
+        via = os.path.join(link, "exercise")
+        fz.check_exercise(via)                      # the first check through this path
+        fz.check_exercise(via)                      # unchanged: passes
+        os.remove(link)
+        os.symlink(trees[1], link)                  # same committed files, other build output
+        with self.assertRaises(FZ.Refused) as ctx:
+            fz.check_exercise(via)
+        self.assertIn("build/hc_main.json", str(ctx.exception))
+        os.remove(link)
+        os.symlink(trees[0], link)
+        fz.check_exercise(via)                      # pointed back: passes
+
+    def test_the_exercise_copy_check_refuses_a_link_under_a_build_directory(self):
+        """(Round 9) The build*/ directories used to be skipped whole; a link in one is refused like one elsewhere,
+        at the first check as at a later one."""
+        from p4_health import frozen as FZ
+        fz, copy = self.copy_with_build_output()
+        target = os.path.join(copy, "build", "hc_main.json")
+        keep = os.path.join(os.path.dirname(copy), "same_bytes.json")
+        os.replace(target, keep)
+        os.symlink(keep, target)                # the very bytes recorded, behind a link
+        with self.assertRaises(FZ.Refused):
+            fz.check_exercise(copy)
+        import shutil
+        copy2 = os.path.join(os.path.dirname(copy), "second", "exercise")      # a copy not checked yet
+        shutil.copytree(copy, copy2, symlinks=True, ignore=shutil.ignore_patterns("build*"))
+        os.makedirs(os.path.join(copy2, "build"))
+        os.symlink(keep, os.path.join(copy2, "build", "hc_main.json"))
+        with self.assertRaises(FZ.Refused):
+            fz.check_exercise(copy2)
+
+    PLANTED = "PLANTED_FROM_A_PYC = True\n"
+
+    def copy_with_a_planted_pyc(self):
+        """(run dir, its exercise/ copy, the model's path) with a valid .pyc of OTHER source planted where the import
+        system looks for gen_runtime.py's cache: an unchecked hash-based .pyc, which that loader takes without
+        comparing it with the source."""
+        import importlib.util
+        import py_compile
+        import shutil
+        import tempfile
+        run_dir = tempfile.mkdtemp(prefix="p4h-pyc-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, run_dir, True)
+        copy = os.path.join(run_dir, "exercise")
+        shutil.copytree(os.path.join(os.path.dirname(PKG), "exercise"), copy,
+                        ignore=shutil.ignore_patterns("__pycache__", "build*"))
+        path = os.path.join(copy, "gen_runtime.py")
+        other = os.path.join(run_dir, "other.py")
+        with open(other, "w") as fh:
+            fh.write(self.PLANTED)
+        cfile = importlib.util.cache_from_source(path)
+        py_compile.compile(other, cfile=cfile, dfile=path, doraise=True,
+                           invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)
+        return run_dir, copy, path
+
+    def test_the_planted_pyc_is_what_the_import_systems_loader_runs(self):
+        """The control of the next test: the plant is valid, so a loader that takes the cache runs it."""
+        import importlib.util
+        _run, _copy, path = self.copy_with_a_planted_pyc()
+        spec = importlib.util.spec_from_file_location("hc_gen_ctl", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        self.assertTrue(getattr(mod, "PLANTED_FROM_A_PYC", False))
+        self.assertFalse(hasattr(mod, "runtime"))
+
+    def test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc(self):
+        """(Round 9) The copy's gen_runtime.py is checked as source, and it was exec'd through the import system's
+        loader, which runs a valid __pycache__/*.pyc in its place: S0's self-checks (_switch_inputs), the controller
+        trial (ctrl_trial.gen) and lab.load_model must each run the source. [Co-developed with claude code -- Adam]"""
+        from p4_health import ctrl_trial as CT
+        from p4_health import lab as LAB
+        from p4_health import s0 as S0M
+        from p4_health.collect.runner import RecordingRunner
+        run_dir, copy, _path = self.copy_with_a_planted_pyc()
+        x = S0M.S0(run_dir, RecordingRunner([]), "py", log=lambda *a: None)
+        self.assertEqual(x.ex, copy)
+        for who, load in (("S0._switch_inputs", lambda: x._switch_inputs(2)),
+                          ("ctrl_trial.gen", lambda: CT.gen(copy)),
+                          ("lab.load_model", lambda: LAB.load_model(copy))):
+            mod = load()
+            self.assertFalse(hasattr(mod, "PLANTED_FROM_A_PYC"), "%s ran the cached .pyc" % who)
+            self.assertEqual(mod.program(1), "hc_alt", who)          # the source's own model
+
+    def test_an_exec_of_the_exercise_copy_writes_no_bytecode_cache_into_it(self):
+        """(Round 9) A __pycache__ written into the copy after its first check would be refused by the next one."""
+        import shutil
+        import tempfile
+        from unittest import mock
+        from p4_health import ctrl_trial as CT
+        from p4_health import lab as LAB
+        run_dir = tempfile.mkdtemp(prefix="p4h-nopyc-%d-" % os.getpid())
+        self.addCleanup(shutil.rmtree, run_dir, True)
+        copy = os.path.join(run_dir, "exercise")
+        shutil.copytree(os.path.join(os.path.dirname(PKG), "exercise"), copy,
+                        ignore=shutil.ignore_patterns("__pycache__", "build*"))
+        with mock.patch.object(sys, "dont_write_bytecode", False), mock.patch.object(sys, "pycache_prefix", None):
+            LAB.load_model(copy)
+            CT.gen(copy)
+        self.assertFalse(os.path.exists(os.path.join(copy, "__pycache__")))
+
 
     # --- round 7, finding 4: the exercise copy is checked again right before lab.load_model runs it ------------------
     FAKE_CONVERT = (
@@ -3093,24 +3377,19 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         "elif edit == 'add':\n"
         "    with open(os.path.join(exercise, 'extra_model.py'), 'w') as fh:\n"
         "        fh.write('# written by convert\\n')\n"
+        "elif edit == 'build' and os.path.isdir(os.path.join(exercise, 'build-mutant')):\n"
+        "    with open(os.path.join(exercise, 'build', 'hc_main.json'), 'w') as fh:\n"
+        "        fh.write('{\"rewritten by convert\": true}\\n')\n"
         "os.makedirs(out)\n"
         "with open(os.path.join(out, 'package.json'), 'w') as fh:\n"
         "    json.dump({}, fh)\n")
 
-    def run_lab_after_a_convert_that(self, edit):
-        """S0.convert over the checked exercise copy, with a fake convert.py that `edit`s ('append' to gen_runtime.py,
-        'add' a file, '' nothing) the directory it is given as input; then lab.run_lab with that S0's Frozen. The
-        model is loaded by the real lab.load_model; `expectations` and the rounds are markers, and the lab runner
-        is a RecordingRunner that must stay empty. Returns (rc, doc, models `expectations` was handed, the number
-        of rounds started, the lab runner's calls)."""
-        import tempfile
-        from unittest import mock
-        from p4_health import lab as LAB
+    def s0_with_a_convert_that(self, edit):
+        """(S0 over the checked exercise copy, that copy's Frozen): the S0 runs its convert.py steps through a fake
+        convert.py that `edit`s ('append' to gen_runtime.py, 'add' a file, 'build' rewrite build/hc_main.json, ''
+        nothing) the directory it is given as input. [Co-developed with claude code -- Adam]"""
         from p4_health import s0 as S0M
-        from p4_health.collect.config import Config
-        from p4_health.collect.runner import RecordingRunner, Runner
-        import builtins
-        self.addCleanup(lambda: hasattr(builtins, "EDITED_BY_CONVERT_RAN") and delattr(builtins, "EDITED_BY_CONVERT_RAN"))
+        from p4_health.collect.runner import Runner
         fz, copy = self.freeze_with_exercise()
         run_dir = os.path.dirname(copy)
         script = os.path.join(run_dir, "fake_convert.py")
@@ -3124,6 +3403,23 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                                   input_text=input_text)
         x = S0M.S0(run_dir, Redirect(), sys.executable, frozen=fz, log=lambda *a: None)
         self.assertEqual(x.ex, copy)
+        return x, fz, copy
+
+    def run_lab_after_a_convert_that(self, edit):
+        """S0.convert over the checked exercise copy, with a fake convert.py that `edit`s ('append' to gen_runtime.py,
+        'add' a file, '' nothing) the directory it is given as input; then lab.run_lab with that S0's Frozen. The
+        model is loaded by the real lab.load_model; `expectations` and the rounds are markers, and the lab runner
+        is a RecordingRunner that must stay empty. Returns (rc, doc, models `expectations` was handed, the number
+        of rounds started, the lab runner's calls)."""
+        import tempfile
+        from unittest import mock
+        from p4_health import lab as LAB
+        from p4_health.collect.config import Config
+        from p4_health.collect.runner import RecordingRunner
+        import builtins
+        self.addCleanup(lambda: hasattr(builtins, "EDITED_BY_CONVERT_RAN") and delattr(builtins, "EDITED_BY_CONVERT_RAN"))
+        x, fz, copy = self.s0_with_a_convert_that(edit)
+        run_dir = os.path.dirname(copy)
         self.assertIsNotNone(x.convert("A", "topology.json", "ndtwin"))
         models, rounds = [], []
 
@@ -3167,6 +3463,72 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertEqual(doc["problems"], [])
         self.assertEqual((len(models), rounds), (1, 1))
         self.assertFalse(hasattr(models[0], "EDITED_BY_CONVERT"))
+
+
+    def s0_run_after_a_convert_that(self, edit):
+        """(Cut 2 round 8, finding 2) The REAL S0.run(), with the compile and the steps from the pre-flight on as
+        markers, over the checked exercise copy, and the REAL S0.packages() with a fake convert.py that `edit`s the
+        copy it is given. Returns the steps run() reached, in order, and what it raised (None: nothing).
+        [Co-developed with claude code -- Adam]"""
+        from unittest import mock
+        from p4_health import s0 as S0M
+        x, _fz, copy = self.s0_with_a_convert_that(edit)
+        for stem in ("build-fwd", "build-mutant", "build"):  # what packages() renames; the p4c builds make them
+            os.makedirs(os.path.join(copy, stem))
+        with open(os.path.join(copy, "build", "hc_main.json"), "w") as fh:
+            fh.write("{}\n")                                # a p4c output, there before S0's first check
+        reached = []
+
+        class Stop(BaseException):
+            pass
+
+        def preflight(self_):
+            reached.append("preflight")
+            raise Stop()
+        with mock.patch.object(S0M.S0, "compile_all", lambda self_: True), \
+                mock.patch.object(S0M.S0, "p4info_identity", lambda self_: None), \
+                mock.patch.object(S0M.S0, "take_inventory", lambda self_: None), \
+                mock.patch.object(S0M.S0, "preflight", preflight):
+            try:
+                x.run()
+            except BaseException as exc:                    # noqa: BLE001 -- the test names what it was
+                return reached, exc
+        return reached, None
+
+    def test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_the_pre_flight(self):
+        """(Round 8, finding 2) S0 checks the copy right after the compile; convert.py then gets the copy as its
+        input, and the self-checks are the first to exec the copy's gen_runtime.py (the controller trial does so
+        later). A run was refused only by lab.run_lab's re-check, after S0 had run the edited file. S0.run() checks
+        again right after packages(): an edited, added or removed committed file of the copy is refused there,
+        before any step that reads the copy."""
+        from p4_health import frozen as FZ
+        reached, exc = self.s0_run_after_a_convert_that("append")
+        self.assertIsInstance(exc, FZ.Refused, "run() raised %r" % (exc,))
+        self.assertIn("gen_runtime.py", str(exc))
+        self.assertEqual(reached, [], "S0 went on to %s with an edited exercise copy" % reached)
+
+    def test_a_convert_that_adds_a_file_to_the_exercise_copy_is_refused_before_the_pre_flight(self):
+        from p4_health import frozen as FZ
+        reached, exc = self.s0_run_after_a_convert_that("add")
+        self.assertIsInstance(exc, FZ.Refused, "run() raised %r" % (exc,))
+        self.assertIn("extra_model.py", str(exc))
+        self.assertEqual(reached, [])
+
+    def test_a_convert_that_rewrites_a_build_file_of_the_exercise_copy_is_refused_before_the_pre_flight(self):
+        """(Round 9) The p4c outputs under build*/ are not in the commit, and the check used to skip them: a
+        convert.py that rewrote exercise/build/hc_main.json passed every check, and S0's self-checks and trials and
+        B's round loaded the rewritten file. S0's first check records them, and the one after packages() refuses
+        the rewrite. [Co-developed with claude code -- Adam]"""
+        from p4_health import frozen as FZ
+        reached, exc = self.s0_run_after_a_convert_that("build")
+        self.assertIsInstance(exc, FZ.Refused, "run() raised %r" % (exc,))
+        self.assertIn("build/hc_main.json", str(exc))
+        self.assertEqual(reached, [], "S0 went on to %s with a rewritten build output" % reached)
+
+    def test_a_convert_that_leaves_the_exercise_copy_alone_goes_on_to_the_pre_flight(self):
+        """The control of the two tests above: the same run, no edit, reaches the pre-flight."""
+        reached, exc = self.s0_run_after_a_convert_that("")
+        self.assertEqual(reached, ["preflight"], "run() raised %r" % (exc,))
 
 
     # --- round 6, the pin-HEAD NIT: HEAD is pinned first, and the clean check, the freeze and the identity use it --

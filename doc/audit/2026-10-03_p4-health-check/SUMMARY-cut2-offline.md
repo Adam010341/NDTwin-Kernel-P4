@@ -655,3 +655,12 @@ mutant 的部分跑（`ONLY_LABEL_PREFIX=…`，**不是 gate**）：`mutate_p4_
 4. **`gen_runtime.py` 與 S0 的 controller trial**（finding 2，只改文字）：見 §6 前提 3 與 §11.1 的 `c8c2cef8`。可選的 code 修法：`packages()` 之後再呼叫一次 `check_exercise_copy`；要一個新 mutant 與完整 gate。
 5. **`r7b/partials.log:1-4` 沒有真的結束碼**：`partials.sh:8` 在 `$(date)` 之後才讀 `$?`（讀到的是 `date` 的），所以 `:1-4` 的 `rc=0` 不是部分跑的結果；`partials2.sh` 修了（`:5` 起是真的）。**那一刻 C2R7-1 的真實結果**：`18 mutations, 1 survived`、`rc=1`（`partial_r7b_C2R7-1.first_01ba2a41.log:134-136`），也就是 §11.7 的 `1n`，不是 `:3` 寫的 `rc=0`。同樣的寫法也在 `gate_driver*.sh:22`（那兩支沒有走到這個路徑）。
 6. **還開著、下一輪 code 一起做**：finding 2 的 `probe.py:47-52` 註解（與可選的 code 修法）；finding 3（01ba2a41、7a7a2577 的清理靜靜修復 mask，與 `_swap_handlers` 的兩處還原，`lab.py:181`、`lab_round.py:316`，沒有 mutant）；finding 5 的 locale 修與直譯器檢查。第一次 live 之前的項目見 §11.5 與 §6。
+
+### 11.9 subject sha 與 interpreter 行在哪一個 commit 換了算法（gate 紀錄用）
+
+- **subject sha**：`a33fbb73` 之前，`mutate_p4_health.sh` 的 subject sha 用**呼叫者的 locale** 排序檔名；從 `a33fbb73` 起用 `LC_ALL=C`。
+  - 例：`fd208fbd` 的四份 shard（`gates-0910/p4-ternary-replay-c/mutate_p4_health.shard{0..3}of4.log:9`，`LANG=en_US.UTF-8`）都是 `7c5479134e91cf55`；同一棵 `tools/p4_health`（`c24a7d19`）在 C 排序下是 `d26b009c0cd59412`（`gates-0910/p4-health-locale/subject_sha_old.log:3-4`）。
+  - **跨這個改動的 subject sha 不能互相比**：值不同不代表檔案不同，值相同也只在兩邊都是 C 排序（或剛好同一個 locale）時才有意義。merged head 的 gate 只和 `a33fbb73` 之後、同樣 C 排序的 log 比。
+- **interpreter 行**：從第 9 輪起是 `interpreter: <realpath> (<版本>, prefix <sys.prefix>)`，之前沒有 `prefix`。加總 script 比整行，所以新舊 log 的這一行不會相同，不能加總在一起（本來也不該：commit 不同）。這一行不含主機名：兩台機器上路徑、版本、prefix 都相同時，分不出來。
+
+[Co-developed with claude code -- Adam]

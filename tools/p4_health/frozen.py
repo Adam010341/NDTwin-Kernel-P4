@@ -27,7 +27,21 @@ a 15-minute run, and `probe.py lab` checked it clean only once, so:
     lab.load_model go by -- is checked the same way against the pinned commit (Frozen.check_exercise, right
     after S0's compile_all): a file that differs, is missing or is not in the commit is refused.
   * (round 7) and once more immediately before lab.load_model runs gen_runtime.py from it: in between, S0 hands the
-    copy to convert.py as its input, and the check is what shows that convert.py did not write into it.
+    copy to convert.py as its input, and the check is what shows that convert.py did not edit, add or remove a
+    committed file of it.
+  * (round 8) S0 execs that gen_runtime.py itself, first in its self-checks (self_checks -> selfcheck_run ->
+    _switch_inputs) and later in the controller trial, both after convert.py and before run_lab's check, so S0.run
+    checks the copy a third time right after packages().
+  * (round 9) what the copy holds that the commit does not -- the p4c output directories compile_all writes
+    (build, build-mutant, build-fwd) -- was outside every check. What compile_all's p4c runs wrote is recorded at
+    the first check of the copy, which S0.run makes right after compile_all, and every later check refuses a file
+    there that changed, appeared or went away since (Frozen.check_exercise). Nothing writes into the copy after
+    compile_all. A __pycache__ is refused outright, at every check including the first: nothing writes one there,
+    and a cached .pyc is what could run in place of the source that was checked. The record is kept under the
+    copy's path as it was given (os.path.abspath), and a copy root that is itself a link is refused, so the same
+    path cannot be re-pointed at another tree and recorded afresh.
+  * (round 9) the copy's modules are compiled from the bytes of their source by load_source, never through the
+    import system's loader, which takes a cached __pycache__/*.pyc in place of the source it was checked as.
 """
 from __future__ import annotations
 
@@ -35,6 +49,8 @@ import fnmatch
 import hashlib
 import os
 import shutil
+import stat
+import types
 
 from .collect.config import REPO
 
@@ -59,11 +75,35 @@ class Frozen(object):
         self.sums = sums                    # {"p4_health/hostside.py": sha256, ...}
         self.head = head                    # the commit every copy was checked against, or None (unchecked)
         self.git = git                      # git(*args) -> (rc, stdout) that pinned it, for later checks
+        #: (round 9) the path of an exercise copy as it was given to check_exercise (os.path.abspath, links not
+        #: resolved) -> {path in it: sha256} of the build outputs it held beside the commit's files at its first check
+        self.outputs = {}
 
     def check_exercise(self, copy_dir):
         """Refused unless `copy_dir` -- S0's copy of tools/p4_health/exercise -- is exactly what the pinned
-        commit has there (see check_tree)."""
-        check_tree(copy_dir, EXERCISE_REL, self.head, self.git)
+        commit has there (see check_tree). (round 9) And what it holds outside the commit, the build outputs under
+        the COPY_IGNORE paths (what compile_all's p4c runs wrote), is recorded at the first check of `copy_dir` and
+        must be the same files with the same bytes at every later one: a file there that changed, appeared or went
+        away since is Refused. S0.run makes the first check right after compile_all, the only step that writes there.
+        (round 10) A __pycache__ is never recorded: it is Refused at every check, the first included. `copy_dir`
+        itself must not be a link, and the record is keyed by its path as given (os.path.abspath, not realpath), so
+        a link above it re-pointed at another tree between two checks is compared with the first check's record.
+        [Co-developed with claude code -- Adam]"""
+        if os.path.islink(copy_dir):
+            raise Refused("%s is a link: the tree behind it is not the copy S0 made, and not what %s has"
+                          % (copy_dir, self.head))
+        outputs = check_tree(copy_dir, EXERCISE_REL, self.head, self.git)
+        key = os.path.abspath(copy_dir)
+        if key not in self.outputs:
+            self.outputs[key] = outputs
+            return
+        first = self.outputs[key]
+        if first != outputs:
+            changed = sorted(r for r in set(first) & set(outputs) if first[r] != outputs[r])
+            new, gone = sorted(set(outputs) - set(first)), sorted(set(first) - set(outputs))
+            raise Refused("the copy of %s is not what it held outside %s at its first check (changed: %s; new: %s; "
+                          "gone: %s)" % (EXERCISE_REL, self.head, ", ".join(changed) or "-", ", ".join(new) or "-",
+                                         ", ".join(gone) or "-"))
 
     def path(self, rel):
         return os.path.join(self.base, rel)
@@ -98,12 +138,30 @@ def _ignored(rel):
     return any(fnmatch.fnmatch(part, pat) for part in rel.split("/") for pat in COPY_IGNORE)
 
 
+def load_source(name, path):
+    """(round 9) The module at `path`, named `name`, compiled from the bytes of that file and nothing else. The
+    import system's loader (spec_from_file_location + exec_module) takes a __pycache__/*.pyc beside the source in
+    its place when the .pyc's header says it may, so what ran need not be the source a check looked at. No
+    bytecode cache is read or written here. Like that loader's module, this one is not put in sys.modules.
+    [Co-developed with claude code -- Adam]"""
+    with open(path, "rb") as fh:
+        source = fh.read()
+    mod = types.ModuleType(name)
+    mod.__file__ = path
+    exec(compile(source, path, "exec", dont_inherit=True), mod.__dict__)
+    return mod
+
+
 def check_tree(copy_dir, rel_dir, head, git):
     """(round 6) The files under `copy_dir` must be exactly the files the commit `head` has under `rel_dir`
     (less what the copy leaves out, COPY_IGNORE), each byte-identical to the commit's blob: `git hash-object
     --no-filters <file>` against the blob `git ls-tree` names, the freeze's own comparison. A file that
     differs, one the commit does not have, one the commit has and the copy lacks, a link, an entry that is not a
-    plain file, and git that cannot answer are all Refused."""
+    plain file, and git that cannot answer are all Refused. (round 9) The COPY_IGNORE paths are walked too: a link
+    or an entry that is not a plain file there is Refused as well, and the plain files there (the build outputs)
+    are returned, {path in the copy: sha256}, for Frozen.check_exercise to compare with the first check's.
+    (round 10) A __pycache__ anywhere in the copy, a directory with nothing in it included, is Refused outright
+    rather than returned: it is never part of what compile_all's p4c runs wrote."""
     if git is None or not head:
         raise Refused("cannot check %s against the commit: no pinned commit (or no git) to check it with" % copy_dir)
     rc, listing = git("ls-tree", "-r", "-z", "--full-tree", head, "--", rel_dir)
@@ -123,14 +181,25 @@ def check_tree(copy_dir, rel_dir, head, git):
         if fields[0] not in ("100644", "100755") or fields[1] != "blob":
             raise Refused("%s/%s is not a plain file in %s (mode %s, %s)" % (rel_dir, rel, head, fields[0], fields[1]))
         committed[rel] = fields[2]
-    found = {}
+    found, outputs = {}, {}
     for dirpath, dirs, files in os.walk(copy_dir):
-        dirs[:] = [d for d in dirs if not _ignored(d)]
+        for name in dirs + files:
+            if name == "__pycache__":
+                raise Refused("%s is in the copy of %s: nothing writes a __pycache__ there, and a cached .pyc could "
+                              "run in place of the source that was checked"
+                              % (os.path.relpath(os.path.join(dirpath, name), copy_dir).replace(os.sep, "/"), rel_dir))
         for name in files:
-            if _ignored(name):
-                continue
             full = os.path.join(dirpath, name)
-            found[os.path.relpath(full, copy_dir).replace(os.sep, "/")] = full
+            rel = os.path.relpath(full, copy_dir).replace(os.sep, "/")
+            if not _ignored(rel):
+                found[rel] = full
+                continue
+            mode = os.lstat(full).st_mode
+            if not stat.S_ISREG(mode):
+                raise Refused("%s/%s is %s in the copy, outside what %s has: only plain files are written there"
+                              % (rel_dir, rel, "a link" if stat.S_ISLNK(mode) else "not a plain file", head))
+            with open(full, "rb") as fh:
+                outputs[rel] = hashlib.sha256(fh.read()).hexdigest()
         for d in dirs:
             if os.path.islink(os.path.join(dirpath, d)):
                 raise Refused("%s is a link: not what %s has" % (os.path.join(dirpath, d), head))
@@ -147,6 +216,7 @@ def check_tree(copy_dir, rel_dir, head, git):
         if h != committed[rel]:
             raise Refused("%s/%s is not what %s has: the copy hashes to %s, the commit's blob is %s "
                           "(edited since the clean check?)" % (rel_dir, rel, head, h, committed[rel]))
+    return outputs
 
 
 def freeze(run_dir, repo=None, git=None):
