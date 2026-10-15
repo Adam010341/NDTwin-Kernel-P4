@@ -101,7 +101,7 @@ def a_p4info():
 
     # A table with a priority column. Synthetic -- but it is a table NDTwin does not own only because
     # `a_client` binds no routes (`bind_routes(None)`): on the class default, NDTwin's own pipeline,
-    # the owner check refuses every table here, this one included (n2, round 3).
+    # the owner check refuses every table here, this one included.
     ternary = p4info.tables.add()
     ternary.preamble.id = TERNARY_ID
     ternary.preamble.name = "Synthetic.t_ternary"
@@ -284,7 +284,7 @@ class TheFoldTest(unittest.TestCase):
         net = fold_records([rec("delete", "A")])
         self.assertEqual([n["op"] for n in net], ["delete"])
 
-    # --- M1 (ruling 2026-10-12): a delete answered NOT_FOUND says the entry was absent ------
+    # --- a delete answered NOT_FOUND says nothing about whether the entry was there before --
 
     def test_a_not_found_delete_then_an_insert_is_an_insert(self):
         # The switch said the entry was not there, so it began unknown and the insert's spec is
@@ -302,12 +302,14 @@ class TheFoldTest(unittest.TestCase):
                                        rec("delete", "A", outcome="not_found")]), [])
 
     def test_a_lone_not_found_delete_is_a_net_delete(self):
-        # M1 as amended (2026-10-12): the first NOT_FOUND leaves "before" unknown -- the reason
-        # may be a lost-answer delete of a package boot entry the next push puts back -- and
-        # absent is the last word, so the replay deletes it; a NOT_FOUND then means done.
+        # The first NOT_FOUND leaves "before" unknown -- the reason may be a lost-answer delete
+        # of a package boot entry the next push puts back -- and absent is the last word, so the
+        # replay deletes it; a NOT_FOUND then means done. The mark is kept even though a delete
+        # has no insert to retry: a snapshot of it must fold back to a delete that began unknown,
+        # or an insert of the same key after the next start would fold to a modify.
         net = fold_records([rec("delete", "A", outcome="not_found")])
         self.assertEqual([n["op"] for n in net], ["delete"])
-        self.assertNotIn("unknown_before", net[0], "a delete needs no insert fallback")
+        self.assertIs(net[0].get("unknown_before"), True)
 
     def test_a_not_found_delete_then_an_insert_is_an_insert_marked_unknown_before(self):
         net = fold_records([rec("delete", "A", outcome="not_found"), rec("insert", "A")])
@@ -316,6 +318,16 @@ class TheFoldTest(unittest.TestCase):
     def test_an_ordinary_insert_is_not_marked_unknown_before(self):
         net = fold_records([rec("insert", "A")])
         self.assertNotIn("unknown_before", net[0])
+
+    def test_a_snapshot_of_an_unknown_start_delete_then_an_insert_is_an_insert_marked_unknown(self):
+        # [Co-developed with claude code -- Adam]
+        # The snapshot of a lone NOT_FOUND delete is what the next start reads. An insert of the
+        # same key made after that start must still fold to an insert that began unknown -- not
+        # to a modify, which the switch refuses once the push has emptied the table.
+        snapshot = records_from_net(fold_records([rec("delete", "K", outcome="not_found")]))
+        net = fold_records(snapshot + [rec("insert", "K", {"action_params": {"port": 4}})])
+        self.assertEqual([(n["op"], n.get("unknown_before"), n["spec"]["action_params"])
+                          for n in net], [("insert", True, {"port": 4})])
 
     def test_an_accepted_delete_then_an_insert_is_still_a_modify(self):
         # The boot-entry case, unchanged: the accepted delete removed something, so the key began
@@ -338,7 +350,8 @@ class TheFoldTest(unittest.TestCase):
         self.assertEqual([n["op"] for n in net], ["delete"])
 
     def test_a_snapshot_of_a_fold_with_not_found_deletes_folds_to_the_same(self):
-        # records_from_net must not lose M1: the snapshot is what the next boot folds.
+        # records_from_net must keep an entry's unknown start: the snapshot is what the next
+        # boot folds.
         history = [rec("delete", "A", outcome="not_found"), rec("insert", "A"),
                    rec("delete", "B"),
                    rec("delete", "C", outcome="not_found"),
@@ -466,8 +479,7 @@ class TheFileTest(TempDirCase):
         self.assertEqual(unreadable, 2)
 
     def test_a_line_that_is_not_utf8_is_one_unreadable_line_not_an_exception(self):
-        # m-1 (round 2). Startup reads every switch's file in step 0; one bad byte must not
-        # raise out of it.
+        # Startup reads every switch's file in step 0; one bad byte must not raise out of it.
         journal = self.a_journal(lambda: {"boot_id": "b"})
         journal.record("insert", {}, "K1")
         with open(journal.path, "ab") as fh:
@@ -575,7 +587,7 @@ class TheSnapshotTest(TempDirCase):
         with journal.lock:
             self.assertIsNone(journal.write_snapshot({}, []))
 
-    # --- m6 (round 3): the lock, one header shape, what a crash leaves -------------------
+    # --- the snapshot's lock, one header shape, what a crash leaves ----------------------
 
     def test_a_snapshot_nobody_holds_the_lock_for_is_refused(self):
         # DESIGN 5.2: one lock covers the append and the snapshot. A record appended between the
@@ -1115,7 +1127,7 @@ class TheRouteRecordsTest(TempDirCase):
         self.post(body, priority=20)
         net = self.journals.journal_for(1).fold()
         self.assertEqual([n["op"] for n in net], ["insert", "insert"],
-                         "M1: priority 20 began absent, so its insert is an insert")
+                         "priority 20 began unknown, so its insert is an insert")
 
     def test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries(self):
         # DESIGN 10-2. Without a key of its own the default (no match, priority 0) and an LPM
@@ -1203,7 +1215,7 @@ class TheRouteRecordsTest(TempDirCase):
         self.assertEqual(os.listdir(self.dir), [])
 
     def test_a_top_level_not_found_with_no_per_update_reason_is_not_recorded(self):
-        # n3 (round 3). Only the per-update reason (E1's p4rt_error) says NOT_FOUND here; bmv2 answers
+        # Only the per-update reason (E1's p4rt_error) says NOT_FOUND here; bmv2 answers
         # every refused Write UNKNOWN at the top. A top-level NOT_FOUND with no per-update detail is
         # not taken as "the entry was absent": the record says only what the switch said per update.
         self.stub.write_error = FakeRpcError(grpc.StatusCode.NOT_FOUND)
@@ -1254,7 +1266,7 @@ class TheRouteRecordsTest(TempDirCase):
         self.assertEqual(api_routes.table_journals.report(1)["failures"], 1)
 
     def test_the_note_for_an_unrecorded_write_says_what_each_op_turns_into(self):
-        # M-2 (round 2). "Lost when the proxy restarts" is true of an insert only: the journal
+        # "Lost when the proxy restarts" is true of an insert only: the journal
         # puts back what it last knew, so a modify reverts and a deleted entry returns, and the
         # replay cannot flag it (DESIGN 5.3, 10-5).
         note = api_routes.TABLE_ENTRY_JOURNAL_WRITE_FAILED
@@ -1273,7 +1285,7 @@ class TheRouteRecordsTest(TempDirCase):
         self.assertEqual(body["note"], api_routes.TABLE_ENTRY_JOURNAL_OFF)
 
     def test_the_note_for_a_journal_that_is_off_says_what_each_op_turns_into(self):
-        # M-2 (round 2): an insert is gone, a modified or deleted package entry is back.
+        # An insert is gone, a modified or deleted package entry is back.
         note = api_routes.TABLE_ENTRY_JOURNAL_OFF
         for words in ("journal is off", "an inserted entry is gone",
                       "modified or deleted is back as the package declares it"):
@@ -1412,7 +1424,7 @@ class TheClaimFlipsInOnePlace(TempDirCase):
         self.assertIs(journals.journaled(1), True)
         rule_journal.TABLE_JOURNAL_REPLAYS = False
         self.assertIs(journals.journaled(1), False)
-        # m12 (round 2): no placeholder string any more; the block holds the last replay's report.
+        # No placeholder string: the block holds the last replay's report.
         self.assertNotEqual(journals.report(1)["replay"], "not implemented")
         self.assertIsNone(journals.report(1)["replay"])
 
@@ -1548,7 +1560,7 @@ class TheLockIsBoundedTest(TempDirCase):
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class The503ComesBeforeAnyRefusalTest(TempDirCase):
     """
-    m3 (round 3). The owner check -- like every refusal the writer makes -- runs INSIDE the
+    The owner check -- like every refusal the writer makes -- runs INSIDE the
     switch's lock, because the binding it reads belongs to the client looked up there (a readopt
     may swap both). So a write queued behind a held lock, or addressed to a switch being
     re-adopted, is a 503 before it is anything else: it never reaches the writer, the owner
@@ -1614,7 +1626,7 @@ class The503ComesBeforeAnyRefusalTest(TempDirCase):
         self.assertEqual(os.listdir(self.dir), [])
 
     def test_two_overlapping_readopts_keep_the_switch_pending_until_the_second_ends(self):
-        # nit (round 2): a count, not a set. The first readopt's end must not clear the flag the
+        # A count, not a set. The first readopt's end must not clear the flag the
         # second one still holds, or a POST meanwhile queues for "switch busy".
         journals = TableJournals(self.dir)
         first_in = threading.Event()
@@ -1636,7 +1648,16 @@ class The503ComesBeforeAnyRefusalTest(TempDirCase):
         self.assertTrue(first_in.wait(2))
         b = threading.Thread(target=second, daemon=True)
         b.start()                               # pending twice; waits for the lock
-        time.sleep(0.1)
+        # Wait until the second readopt is counted, not for a fixed time. [Co-developed with
+        # claude code -- Adam]
+        give_up = time.monotonic() + 3
+        while True:
+            with journals._registry_lock:
+                if journals._pending.get("1") == 2:
+                    break
+            if time.monotonic() > give_up:
+                self.fail("the second readopt never registered as pending")
+            time.sleep(0.005)
         first_go.set()
         a.join(3)
         self.assertTrue(second_in.wait(2))
@@ -1832,7 +1853,7 @@ class TheWriterKeepsTheTwoApartTest(unittest.TestCase):
                          client.write_table_entry(spec, "insert")["entry_key"])
 
     def test_and_so_does_a_ternary_spec_with_its_priority(self):
-        # m2 (round 3): the priority is part of the key on both paths.
+        # The priority is part of the key on both paths.
         client = a_client()
         spec = {"table": "Synthetic.t_ternary", "priority": 10,
                 "match": {"hdr.ipv4.srcAddr": ["10.0.1.1", "255.255.255.255"]},

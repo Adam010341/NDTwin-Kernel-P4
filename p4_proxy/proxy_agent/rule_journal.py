@@ -381,6 +381,12 @@ class SwitchBusy(RuntimeError):
     them). The route answers 503."""
 
 
+# The report's reason for a write that is stale because the package's entries file changed.
+# [Co-developed with claude code -- Adam]
+_STALE_ENTRIES = ("stale_entries: the package's entries file changed, and this write was aimed "
+                  "at one of its entries")
+
+
 class ReplayPending(RuntimeError):
     """The switch is being re-adopted: its pipeline is being pushed and its journal replayed
     (DESIGN 5.5). Nothing was written and nothing was validated; the route answers 503 `replay
@@ -422,14 +428,17 @@ def fold_records(records):
         there     -> not there  delete(last spec)
         not there -> not there  nothing
 
-    🔴 A FIRST DELETE THE SWITCH ANSWERED NOT_FOUND SAYS "UNKNOWN" (M1, as amended 2026-10-12).
+    🔴 A FIRST DELETE THE SWITCH ANSWERED NOT_FOUND SAYS "UNKNOWN".
     The switch said the entry was absent at that moment -- but the reason may be an earlier
     delete whose answer was lost and which therefore was never recorded, of a package boot entry
     that every push and package reload puts back. So such a key starts neither present nor
     absent, and its LAST record decides:
-      * last absent (a delete): a net delete. Replayed after the boot entries, it removes the
-        boot entry again; a NOT_FOUND then means the goal is reached (DESIGN 10-4: "it only
-        makes the key absent").
+      * last absent (a delete): a net delete, marked `unknown_before`. Replayed after the boot
+        entries, it removes the boot entry again; a NOT_FOUND then means the goal is reached
+        (DESIGN 10-4: "it only makes the key absent"). The mark is what lets a snapshot of it
+        (`records_from_net`: a NOT_FOUND delete, then the delete) fold back to a delete that
+        began unknown, so an insert of the same key made after the next start still folds to an
+        insert and not to a modify the emptied switch would refuse.
       * last present: a net insert, marked `unknown_before`. If the replay's insert meets
         ALREADY_EXISTS -- only a boot entry the push and the package put back can be there --
         it is retried once as a modify to the journalled spec. No other insert is retried.
@@ -439,7 +448,8 @@ def fold_records(records):
     to one modify of its last spec (or to nothing if the last thing recorded was a delete,
     which a switch refuses and so cannot be in a journal).
 
-    Returns a list of `{"key", "op", "spec", "records"}` in the order each key first appeared.
+    Returns a list of `{"key", "op", "spec", "records"}` in the order each key first appeared;
+    an item whose key began unknown also has `"unknown_before": True`.
     Header lines and anything that is not a record are skipped. Pure: no I/O, so it is tested
     without a file.
     """
@@ -476,7 +486,7 @@ def fold_records(records):
         else:
             continue
         item = {"key": key, "op": op, "spec": spec, "records": count[key]}
-        if unknown and op == "insert":
+        if unknown:
             item["unknown_before"] = True
         net.append(item)
     return net
@@ -489,9 +499,10 @@ def records_from_net(net, now=None):
     What a snapshot is made of (DESIGN 5.4 step 6): the folded history, re-expressed as records,
     so that folding the new file again gives the same net -- `fold_records(records_from_net(n))`
     equals `n` in key, op and spec for every `n` a fold can produce (its `records` count is of
-    course 1 each, the history having been collapsed). An insert whose entry began unknown
-    (`unknown_before`) is written as the NOT_FOUND delete it began with and then the insert, so
-    the next fold marks it again and its replay may still meet a boot entry.
+    course 1 each, the history having been collapsed). A write whose entry began unknown
+    (`unknown_before`) is written as the NOT_FOUND delete it began with and then the write
+    itself, so the next fold marks it again: an insert may still meet a boot entry on its
+    replay, and a delete followed by a later insert of the key still folds to an insert.
     """
     now = time.time() if now is None else now
     out = []
@@ -598,7 +609,7 @@ class TableEntryJournal:
         Append one accepted write. Returns True if it reached the disk, False if it did not.
 
         Never raises, for the reason `RuleJournal.record` does not: a journal that cannot be
-        written must not turn an accepted write into an error, because the rule IS on the switch.
+        written must not turn an accepted write into an error, because the write IS on the switch.
         The caller counts the False and says so.
         """
         entry = {"v": 1, "t": time.time(), "op": op, "key": key, "spec": spec,
@@ -1060,7 +1071,9 @@ class TableJournals:
           4. fold (`fold_records`);
           5. apply each net write in the order its entry first appeared; a net delete the switch
              answers NOT_FOUND has reached its goal and counts as restored; an `unknown_before`
-             insert answered ALREADY_EXISTS is retried once as a modify;
+             insert answered ALREADY_EXISTS is retried once as a modify -- unless the entries
+             file changed, when what is there is the new package's and the write is stale
+             (`stale_entries`);
           6. snapshot: the header and the records of what went back, and of every write whose
              outcome is unknown. What the switch refused, or was stale, stays in the set-aside
              file and in this report, not in the live file.
@@ -1089,13 +1102,11 @@ class TableJournals:
                 report["stale_pipeline"] += 1
                 report["failed"].append({"entry": entry, "reason": "stale_pipeline: the p4info "
                                          "this journal was written against is not the one "
-                                         "loaded now"})
+                                         "loaded now", "kept": False})
                 continue
             if entries_changed and item["op"] != "insert":
                 report["stale_entries"] += 1
-                report["failed"].append({"entry": entry, "reason": "stale_entries: the package's "
-                                         "entries file changed, and this write was aimed at "
-                                         "one of its entries"})
+                report["failed"].append({"entry": entry, "reason": _STALE_ENTRIES, "kept": False})
                 continue
             try:
                 try:
@@ -1104,10 +1115,20 @@ class TableJournals:
                     if not (item.get("unknown_before") and is_already_exists is not None
                             and is_already_exists(exc)):
                         raise
+                    if entries_changed:
+                        # What is there is an entry of the package's NEW entries file, not the
+                        # one the journal's history was about: a modify would overwrite it.
+                        # Stale, like a modify or a delete aimed at that file.
+                        # [Co-developed with claude code -- Adam]
+                        report["stale_entries"] += 1
+                        report["failed"].append({"entry": entry, "reason": _STALE_ENTRIES,
+                                                 "kept": False})
+                        continue
                     # The key began unknown and something is there already: a boot entry the
                     # push and the package put back. The journal's spec is what it should be.
-                    apply(item["spec"], "modify")
+                    # Named before the modify is sent, so a modify that fails is still visible.
                     report["retried_as_modify"].append(item["key"])
+                    apply(item["spec"], "modify")
             except Exception as exc:  # noqa: BLE001 -- one entry must not cost the others
                 if (item["op"] == "delete" and is_not_found is not None
                         and is_not_found(exc)):

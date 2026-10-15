@@ -860,7 +860,7 @@ def confirm_fabric(clients, journals, package, mint=None):
         header, _records, _unreadable = journals.journal_for(dpid).read()
         verdicts[dpid] = rule_journal.cookie_verdict(header, _cookie_seen(client))
     if not journals.enabled:
-        # DESIGN 5.4 step 0 as amended 2026-10-12: a boot that records nothing cannot vouch for
+        # DESIGN 5.4 step 0: a boot that records nothing cannot vouch for
         # what it leaves behind -- a delete made now would be undone by the next start that
         # replays -- so with the journal off every switch is unconfirmed and its file set aside.
         # [Co-developed with claude code -- Adam]
@@ -2258,8 +2258,12 @@ async def startup(clients_factory, sflow, kernel, topo,
         if read_only:
             journals.note_skipped(i, "external control plane")
         elif i in broken:
+            # With the journal off a readopt replays nothing either, so it is not promised.
+            # [Co-developed with claude code -- Adam]
             journals.note_skipped(i, "the pipeline push failed; a readopt of this switch "
-                                     "replays its journal")
+                                     "replays its journal" if journals.enabled else
+                                     "the pipeline push failed, and the table-entry journal "
+                                     "is off")
         elif not client.json_path:
             # The push loop's own test: no pipeline was pushed, so nothing was emptied, and a
             # replay would meet every journalled entry still there. [Co-developed with claude

@@ -1037,8 +1037,9 @@ async def table_entry(request: Request):
     `journaled: false`, `journal.recorded: false`, carries a note, and counts a failure in
     switch_state, whose `journaled` is false for this switch until the proxy restarts.
     `table_entries.api_writes` counts them either way. With the journal off
-    (NDTWIN_TABLE_JOURNAL=off) nothing is recorded, every 200 says so, and the next start sets
-    every switch's journal aside (step 0): an off boot cannot vouch for what it leaves behind.
+    (NDTWIN_TABLE_JOURNAL=off) nothing is recorded, every 200 says so, and that boot's own start
+    sets every switch's journal aside (step 0): an off boot cannot vouch for what it leaves
+    behind.
     An app that re-sends its own entries
     after a restart reads the replay report first (boot_identity.py): an insert of an entry the
     replay already put back is the switch's 502, not a no-op.

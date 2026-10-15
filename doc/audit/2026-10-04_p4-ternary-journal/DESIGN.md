@@ -337,7 +337,7 @@ V7 不在這裡：它需要 binding，pre-flight 已經有自己的 8-1 檢查�
   - `_value_key` 已經把 bytes 轉成 int（`rule_install_times.py:72-87`），對前導零不敏感，符合這個要求。
   - optional 經 P4Runtime 讀回來仍是 optional【A0 10】，所以新加的 optional 分支，寫入側與讀取側的形狀一致。
 - **modify 不能改 priority**；改 priority 就是 delete 再 insert。
-- 照舊沒有 MODIFY fallback（`p4_client.py:1327-1335`），重放也沒有。
+- 照舊沒有 MODIFY fallback（`p4_client.py:1327-1335`）。重放只有一個例外：起點未知的 insert 撞上 ALREADY_EXISTS 時，改用 modify 重試一次（§5.4 步驟 5、§10-4）；package 的 entries 檔變了則不重試，那筆算 `stale_entries`。
 
 ### 3.2 replace-vs-add 從哪裡進來、怎麼擋
 
@@ -484,10 +484,12 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
        - 不在 → 不在：什麼都不做
      - default entry 的 key 是 `"default"`，淨效果一律是 modify。
   5. **套用**：依 key 第一次出現的順序，逐筆呼叫 `write_table_entry`。
-     - 這是直接呼叫，不經 `_write_and_journal`，所以**不會追加紀錄**；也不做 MODIFY fallback。
+     - 這是直接呼叫，不經 `_write_and_journal`，所以**不會追加紀錄**；也不做 MODIFY fallback，唯一的例外是起點未知的 insert 撞上 ALREADY_EXISTS：改用 modify 重試一次（§10-4）。package 的 entries 檔變了的話，那筆改算 `stale_entries`，不重試。
      - 失敗的那筆進 `failed`，附上理由，例如 bmv2 回的 UNKNOWN（`p4_client.py:1802-1804`）或 NOT_FOUND。
   6. **snapshot**：新檔＝header（G、本次 `boot_id`、sha）＋成功重放的淨紀錄。
-     - 失敗與 stale 的紀錄只留在隔離檔與報告裡，不進新檔。理由：它們不在交換機上，API 也刪不掉（§10-4 讓 NOT_FOUND 的 delete 也記，但記了也只是從折疊裡消掉）。
+     - 失敗與 stale 的紀錄只留在隔離檔與報告裡，不進新檔。理由：它們不在交換機上，API 也刪不掉。
+     - 例外一：沒有 per-update 理由的失敗（DEADLINE_EXCEEDED、UNAVAILABLE）那筆可能已經落地，**留在新檔**，下次開機再試（報告 `failed[].kept` 為 true）。
+     - 例外二：起點未知的 net delete 重放時回 NOT_FOUND，算已達目標，**留在新檔**，仍是標記過的 delete（§10-4）。
      - 每台一檔，所以不必替其他交換機保留紀錄。
   - **步驟 6 中途當掉**：hard link 做了、replace 還沒做時當掉，live 檔就是完整的舊 log。下次重新折疊一次，結果相同。
 
@@ -804,7 +806,7 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
 4. **沒被確認的 delete／modify**：
    - 回 NOT_FOUND 的 delete 照樣回 502，**但會記成 `outcome: not_found`**。~~它在折疊裡只會讓那個 key「不在」，所以是安全的。~~
    - 🆕 **2026-10-12 修正（M1 修訂）**：一個 key 的**第一筆**若是 not_found 的 delete，它之前的狀態是「**未知**」，不是「不在」——原因可能是一次答案遺失、沒記到的 delete，刪的是 package 的開機 entry，而 push 與 package 會把它放回來。所以由最後一筆決定：
-     - 最後是不在（delete）⇒ 淨效果 delete；重放遇到 NOT_FOUND 算已達目標。所以單獨一筆 `[not_found]` 又是 delete 了。
+     - 最後是不在（delete）⇒ 淨效果 delete，同樣標記 `unknown_before`；重放遇到 NOT_FOUND 算已達目標。所以單獨一筆 `[not_found]` 又是 delete 了。snapshot 把這種 delete 寫成「not_found 的 delete＋delete」兩筆，下次開機折疊回同樣的標記 delete，所以 snapshot 之後才做的同 key insert 仍折疊成 insert，不會變成在已清空的交換機上撞 NOT_FOUND 的 modify。
      - 最後是在 ⇒ 淨效果 insert，標記 `unknown_before`；重放遇到 ALREADY_EXISTS（只可能是 push 與 package 放回的開機 entry）就改用 modify 重試一次，寫成 journal 記的 spec。**只有這種 key 會重試**，其他 insert 照舊。snapshot 把它寫成「not_found 的 delete＋insert」兩筆，下次開機折疊出同樣的標記。
      - 第一筆是被接受的 delete 時，仍然是「在」（它刪掉了某個東西）。
    - 用來處理 DEADLINE_EXCEEDED 但實際已落地、重試又拿到 NOT_FOUND 的情況（`p4_client.py:27-28`）。

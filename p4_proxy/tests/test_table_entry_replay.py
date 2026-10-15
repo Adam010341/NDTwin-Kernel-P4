@@ -598,16 +598,15 @@ class TheReplaySendsTheNetOfEachEntryTest(ReplayCase):
 
 
 # =============================================================================================
-# M1 (ruling 2026-10-12): a delete the switch answered NOT_FOUND says the entry was absent.
+# A delete the switch answered NOT_FOUND leaves the entry's start unknown.
 # =============================================================================================
 
 
-class ANotFoundDeleteMeansAbsentTest(ReplayCase):
+class ANotFoundDeleteLeavesTheStartUnknownTest(ReplayCase):
     def test_a_delete_at_another_priority_then_an_insert_at_it_both_come_back(self):
-        # The review's sequence on a ternary table: insert at 10; delete at 20 -- the switch
-        # answers NOT_FOUND, the journal records it; insert at 20. Folded with the old first-op
-        # rule, 20 was a modify: after the push emptied the switch it met NOT_FOUND and the
-        # entry did not come back.
+        # A ternary sequence: insert at 10; delete at 20 -- the switch answers NOT_FOUND, the
+        # journal records it; insert at 20. Folded by the first op alone, 20 was a modify: after
+        # the push emptied the switch it met NOT_FOUND and the entry did not come back.
         self.start_proxy()
         self.ok(ternary("10.0.3.0", "255.255.255.0", 10))
         status, answer = self.post(ternary("10.0.3.0", "255.255.255.0", 20, op="delete"))
@@ -620,6 +619,48 @@ class ANotFoundDeleteMeansAbsentTest(ReplayCase):
         self.assertEqual([r["op"] for r in self.replay_report()["restored"]],
                          ["insert", "insert"])
         self.assertEqual(self.replay_report()["status"], "complete")
+
+    def test_an_insert_after_a_restart_that_replayed_the_not_found_delete_still_comes_back(self):
+        # [Co-developed with claude code -- Adam]
+        # The same sequence with a restart in the middle: the first restart replays the net
+        # delete at 20 (NOT_FOUND, so it is done) and snapshots it; the insert at 20 is made
+        # after that; the second restart must put it back and keep it in the journal. The
+        # snapshot of the delete has to remember that its start was unknown, or the insert folds
+        # to a modify that the emptied switch refuses.
+        self.start_proxy()
+        self.ok(ternary("10.0.3.0", "255.255.255.0", 10))
+        status, answer = self.post(ternary("10.0.3.0", "255.255.255.0", 20, op="delete"))
+        self.assertEqual((status, answer["p4rt_error"]["code"]), (502, "NOT_FOUND"))
+        self.start_proxy()
+        self.assertEqual(self.switches[1].holds(TERNARY_ID, 20), 0)
+        self.ok(ternary("10.0.3.0", "255.255.255.0", 20))
+        self.start_proxy()
+        self.assert_both_priorities_are_back_and_journalled()
+
+    def test_an_insert_after_a_readopt_that_replayed_the_not_found_delete_still_comes_back(self):
+        # The same through readopt, which replays and snapshots the same way.
+        # [Co-developed with claude code -- Adam]
+        self.start_proxy()
+        self.ok(ternary("10.0.3.0", "255.255.255.0", 10))
+        status, answer = self.post(ternary("10.0.3.0", "255.255.255.0", 20, op="delete"))
+        self.assertEqual((status, answer["p4rt_error"]["code"]), (502, "NOT_FOUND"))
+        self.assertEqual(self.readopt(1)["status"], "success")
+        self.assertEqual(self.switches[1].holds(TERNARY_ID, 20), 0)
+        self.ok(ternary("10.0.3.0", "255.255.255.0", 20))
+        result = self.readopt(1)
+        self.assertEqual(result["table_entries"]["replay"]["when"], "readopt")
+        self.assert_both_priorities_are_back_and_journalled()
+
+    def assert_both_priorities_are_back_and_journalled(self):
+        self.assertEqual(self.switches[1].holds(TERNARY_ID, 10), 1)
+        self.assertEqual(self.switches[1].holds(TERNARY_ID, 20), 1, "the entry inserted at 20")
+        report = self.replay_report()
+        self.assertEqual((report["status"], report["failed"]), ("complete", []))
+        live = [x for x in self.lines(self.live()) if not x.get("header")]
+        self.assertEqual(sorted((r["spec"]["priority"], r["op"], r["outcome"]) for r in live
+                                if r["outcome"] == "ok"),
+                         [(10, "insert", "ok"), (20, "insert", "ok")],
+                         "and both are in the journal for the start after this one")
 
     def test_the_not_found_delete_is_recorded_under_the_priority_it_named(self):
         self.start_proxy()
@@ -787,6 +828,8 @@ class TheDigestsGuardTheReplayTest(ReplayCase):
         self.start_proxy()
         report = self.replay_report()
         self.assertEqual(report["stale_pipeline"], 2)
+        self.assertEqual([f["kept"] for f in report["failed"]], [False, False],
+                         "a stale write is dropped from the journal, as the report says")
         self.assertEqual(report["succeeded"], 0)
         self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0)
         self.assertEqual(len(self.switches[1].tables), 1, "only the boot entry")
@@ -801,6 +844,7 @@ class TheDigestsGuardTheReplayTest(ReplayCase):
         self.start_proxy()
         report = self.replay_report()
         self.assertEqual(report["stale_entries"], 1)
+        self.assertEqual([f["kept"] for f in report["failed"]], [False])
         self.assertEqual(report["succeeded"], 1)
         self.assertEqual(self.switches[1].holds(EXACT_ID, port=1), 1, "the insert is back")
         self.assertEqual(self.switches[1].holds(EXACT_ID, port=8), 1,
@@ -1120,7 +1164,8 @@ class TheReportTest(ReplayCase):
                          "startup")
 
 # =============================================================================================
-# Round 2 (2026-10-12). [Co-developed with claude code -- Adam]
+# An entry that began unknown, a journal that is off, a bad byte, a write with no answer.
+# [Co-developed with claude code -- Adam]
 # =============================================================================================
 
 BOOT = [{"table": "Pkg.t_exact", "match": {"hdr.ipv4.dstAddr": "10.0.9.9"},
@@ -1132,7 +1177,7 @@ def deadline():
 
 
 class ALostAnswerOnABootEntryTest(ReplayCase):
-    """M1 as amended: a first NOT_FOUND delete leaves the entry's start unknown."""
+    """A first NOT_FOUND delete leaves the entry's start unknown."""
 
     def setUp(self):
         super().setUp()
@@ -1199,6 +1244,48 @@ class ALostAnswerOnABootEntryTest(ReplayCase):
         self.assertEqual(len(report["failed"]), 1)
         self.assertEqual(self.switches[1].holds(EXACT_ID, port=9), 1, "the boot entry, unmodified")
 
+    def test_an_unknown_start_insert_is_not_a_modify_over_an_entry_of_a_changed_package(self):
+        # [Co-developed with claude code -- Adam]
+        # The package's entries file changed since the journal was written, so the entry the
+        # insert meets is the new package's, not the one the operator deleted. Overwriting it
+        # with the old spec would undo the new package; the write is stale, as a modify or a
+        # delete aimed at the entries file would be.
+        self.start_proxy()
+        self.lose_the_answer_to_one_delete()
+        self.ok(exact("10.0.9.9", 5))
+        self.with_entries([{"table": "Pkg.t_exact", "match": {"hdr.ipv4.dstAddr": "10.0.9.9"},
+                            "action_name": "Pkg.forward", "action_params": {"port": 7}}])
+        self.switches[1].writes.clear()
+        self.start_proxy()
+        self.assertEqual([op for op, _t, _p in self.switches[1].writes], ["insert", "insert"],
+                         "the package's entry, then the journal's insert that was refused")
+        report = self.replay_report()
+        self.assertEqual(report["retried_as_modify"], [])
+        self.assertEqual(report["stale_entries"], 1)
+        self.assertEqual(len(report["failed"]), 1)
+        self.assertTrue(report["failed"][0]["reason"].startswith("stale_entries"))
+        self.assertIs(report["failed"][0]["kept"], False)
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=7), 1, "the new package's entry")
+        self.assertEqual([x for x in self.lines(self.live()) if not x.get("header")], [])
+
+    def test_a_modify_fallback_that_fails_is_still_named_in_the_report(self):
+        # [Co-developed with claude code -- Adam]
+        self.start_proxy()
+        self.lose_the_answer_to_one_delete()
+        self.ok(exact("10.0.9.9", 5))
+        original = FabricSwitch.Write
+
+        def refuse_the_modify(switch, request, timeout=None):
+            if request.updates[0].type == p4runtime_pb2.Update.MODIFY:
+                raise refused(code_pb2.INVALID_ARGUMENT, "no")
+            return original(switch, request, timeout)
+        with mock.patch.object(FabricSwitch, "Write", refuse_the_modify):
+            self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(len(report["retried_as_modify"]), 1, "the retry was made, and failed")
+        self.assertEqual(len(report["failed"]), 1)
+        self.assertIs(report["failed"][0]["kept"], False)
+
     def test_an_ordinary_insert_that_meets_an_entry_is_not_retried_as_a_modify(self):
         # Only an `unknown_before` key gets the fallback: an insert journalled as an insert that
         # meets ALREADY_EXISTS is a failure the report names.
@@ -1215,8 +1302,7 @@ class ALostAnswerOnABootEntryTest(ReplayCase):
 
 
 class AJournalThatIsOffSetsEverythingAsideTest(ReplayCase):
-    """DESIGN 5.4 step 0 as amended (§7-1 (b)): a boot with the journal off cannot vouch for what
-    it leaves behind."""
+    """DESIGN 5.4 step 0: a boot with the journal off cannot vouch for what it leaves behind."""
 
     def test_an_entry_deleted_while_the_journal_was_off_stays_deleted(self):
         self.start_proxy()
@@ -1238,8 +1324,19 @@ class AJournalThatIsOffSetsEverythingAsideTest(ReplayCase):
         self.assertEqual([x for x in self.lines(self.live()) if not x.get("header")], [])
 
 
+class ABrokenSwitchOnAnOffBootTest(ReplayCase):   # [Co-developed with claude code -- Adam]
+    def test_its_report_says_the_journal_is_off_and_promises_no_replay(self):
+        self.start_proxy()
+        self.switches[1].reachable = False
+        self.start_proxy(enabled=False)
+        self.assertEqual(self.summary["broken"], [1])
+        reason = self.replay_report()["skipped_reason"]
+        self.assertIn("journal is off", reason)
+        self.assertNotIn("replays its journal", reason)
+
+
 class AClientWithNoProgramFileTest(ReplayCase):
-    """§7-2: no json_path, no push -- so no replay either (the push loop's own test)."""
+    """No json_path, no push -- so no replay either (the push loop's own test)."""
 
     def test_a_switch_that_was_not_pushed_is_not_replayed_into(self):
         self.start_proxy()
@@ -1267,7 +1364,7 @@ class TheCookieReadWaitsOneWriteDeadlineTest(ReplayCase):
 
 class AFailedStep0IsReportedTest(ReplayCase):
     def test_a_header_rewrite_that_fails_is_in_the_report_and_withdraws_the_claim(self):
-        # m-2 (round 2): a confirmed switch whose header rewrite fails keeps the old boot's
+        # A confirmed switch whose header rewrite fails keeps the old boot's
         # header, so the replay sets it aside as unconfirmed_header -- and the report says why.
         self.start_proxy()
         self.ok(exact("10.0.0.1"))
@@ -1290,7 +1387,7 @@ class AFailedStep0IsReportedTest(ReplayCase):
 
 
 class AReplayWriteWithNoAnswerIsKeptTest(ReplayCase):
-    """m-5 (round 2): a replayed write that met a deadline may have landed."""
+    """A replayed write that met a deadline may have landed."""
 
     def test_an_insert_that_timed_out_stays_in_the_journal_and_comes_back_next_start(self):
         self.start_proxy()
@@ -1318,7 +1415,7 @@ class AReplayWriteWithNoAnswerIsKeptTest(ReplayCase):
 
 class AJournalWithABadByteTest(ReplayCase):
     def test_one_invalid_utf8_byte_does_not_stop_startup(self):
-        # m-1 (round 2): the file is read as bytes and each line decoded inside the try.
+        # The file is read as bytes and each line decoded inside the try.
         self.start_proxy()
         self.ok(exact("10.0.0.1"))
         with open(self.live(), "ab") as fh:
