@@ -1626,7 +1626,7 @@ m=$(mutant r139 "$JOURNAL" \
                         report["retried_as_insert"].append(item["key"])
                         apply(item["spec"], "insert")
                         item["op"] = "insert"')
-report 'M-J139: an entry restored by the insert retry is snapshot as an insert, not as the journal'\''s modify' "$m" \
+report 'M-J139: an entry restored by the insert retry is reported restored and snapshot as an insert, not as the journal'\''s modify' "$m" \
        'test_a_modify_that_finds_nothing_after_the_push_goes_back_as_an_insert'
 
 # --- only the per-update reason says NOT_FOUND ---------------------------------------------------

@@ -1466,7 +1466,7 @@ class AModifyThatFindsNothingTest(ReplayCase):
         self.assertEqual(report["status"], "failed")
 
     def journal_key_of_k(self):
-        """The key the journal gave K: its first record is the delete of it."""
+        """Return the key of the journal's first record: the key the journal gave K, whose first record is its delete."""
         return [r for r in self.lines(self.live()) if not r.get("header")][0]["key"]
 
     def test_a_package_entry_that_did_not_go_back_on_leaves_its_modify_to_go_back_as_an_insert(self):

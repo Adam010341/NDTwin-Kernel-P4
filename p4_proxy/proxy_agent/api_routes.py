@@ -1019,10 +1019,12 @@ async def table_entry(request: Request):
         a switch (a bmv2 started since, a switch that does not answer at that moment) sets that
         switch's journal aside and puts nothing back on it -- even if it is the same bmv2 and
         answers a moment later;
-      * an entry written against another p4info is not put back, and a modify or delete aimed
-        at one of the package's own entries is not put back once the package's entries file
-        has changed. An entry the replay restored by an insert stays a modify in the journal,
-        so the first start after any change to that switch's entries file drops it as stale;
+      * an entry written against another p4info is not put back, and neither is a write the
+        journal holds as a modify or delete aimed at an entry that was on the switch before
+        the journal saw it (one of the package's own entries, an entry whose insert was never
+        recorded, or one the replay restored by an insert, which stays a modify in the
+        journal): the first start or readopt after any change to that switch's entries file
+        drops it as stale;
       * a write that was never answered -- the connection dropped, the proxy died before this
         answer -- is not promised anything: it may be on the switch and not in the journal. A
         confirmed write is in the journal unless the 200 says otherwise (below). A delete the
@@ -1030,11 +1032,11 @@ async def table_entry(request: Request):
         landed, and a retry meets NOT_FOUND): it leaves the entry's state before it unknown, so
         if nothing later in the journal puts the entry back the replay deletes it again, and if
         something does, the replay's insert falls back to a modify when the package already
-        put one there (unless the package's entries file has changed since). Separately, a
+        put one there (unless the package's entries file has changed since). A modify has no
+        such record: one whose answer was lost is undefined after a restart. Separately, a
         replayed modify that finds nothing there is sent as an insert, unless the entry is a
         default entry or the package's entries file has changed since (the modify is then stale
-        first). A modify has no such record: one whose answer was lost is undefined after a
-        restart.
+        first).
 
     A write the journal could not take (disk full) is still a 200: the write IS on the switch,
     and an error would invite a retry that the switch answers with ALREADY_EXISTS. It says

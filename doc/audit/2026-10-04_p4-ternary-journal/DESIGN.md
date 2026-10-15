@@ -421,7 +421,7 @@ V7 不在這裡：它需要 binding，pre-flight 已經有自己的 8-1 檢查�
   - 理由是「名字相同不代表同意」（`route_binding.py:10-12`）。
 - **`entries_sha256`** 是這台 package entries 檔的 sha，回應審查的 MINOR。
   - 不符時：淨效果是 insert、而且原本不存在的 key 照常重放。
-  - 淨效果是 modify／delete（它碰的是開機 entry 或 default）的那些記為 `stale_entries`，不套用。
+  - 淨效果是 modify／delete（它可能碰的是開機 entry 或 default，也可能是 journal 看到之前就在交換機上的 entry）的那些記為 `stale_entries`，不套用。
   - 理由同 §4：package 檔改了，舊的 modify／delete 是針對已經不存在的開機狀態。
 - **`fabric_cookie`** 見 Q1。
 
@@ -815,7 +815,7 @@ def _write_and_journal(dpid, spec, op):            # route: await run_in_threadp
      - 最後是不在（delete）⇒ 淨效果 delete，同樣標記 `unknown_before`；重放遇到 NOT_FOUND 算已達目標。所以單獨一筆 `[not_found]` 又是 delete 了。snapshot 把這種 delete 寫成「not_found 的 delete＋delete」兩筆，下次開機折疊回同樣的標記 delete，所以 snapshot 之後才做的同 key insert 仍折疊成 insert，不會變成在已清空的交換機上撞 NOT_FOUND 的 modify。
      - 最後是在 ⇒ 淨效果 insert，標記 `unknown_before`；重放遇到 ALREADY_EXISTS（只可能是 push 與 package 放回的開機 entry）就改用 modify 重試一次，寫成 journal 記的 spec。**只有這種 key 會重試**，其他 insert 照舊。例外：package 的 entries 檔變了，那裡的 entry 是新 package 的，modify 會蓋掉它，所以不重試，那筆算 `stale_entries`。snapshot 把它寫成「not_found 的 delete＋insert」兩筆，下次開機折疊出同樣的標記。
      - 第一筆是被接受的 delete 時，仍然是「在」（它刪掉了某個東西）。
-     - 2026-10-15 補：這種「在」的 key 若最後是 modify，而 push 之後交換機上沒有它（它那個沒記到的 insert 被 push 清掉了），重放的 modify 回 NOT_FOUND。journal 的最後一句是「在，spec 是 S」，所以改用 insert 重試一次，寫成 S。只限非 default entry、只限 NOT_FOUND；其他原因的拒絕照舊算失敗。因為 snapshot 裡這筆仍是 modify，package 的 entries 檔一有變動（任何一行），下一次開機就把它當 `stale_entries` 丟掉：不補回，也不留在新檔，只留在隔離檔與報告裡。
+     - 2026-10-15 補：這種「在」的 key 若最後是 modify，而 push 之後交換機上沒有它（它那個沒記到的 insert 被 push 清掉了），重放的 modify 回 NOT_FOUND。journal 的最後一句是「在，spec 是 S」，所以改用 insert 重試一次，寫成 S。只限非 default entry、只限 NOT_FOUND；其他原因的拒絕照舊算失敗。snapshot 裡這筆仍是 modify。不只這種，任何淨效果是 modify／delete、瞄準 journal 看到之前就在交換機上的 entry（package 的 entry、沒記到 insert 的 entry、或由 insert 還原的 entry）的寫入，只要 package 的 entries 檔有變動（任何一行），下一次開機或 readopt 就把它當 `stale_entries` 丟掉：不補回，也不留在新檔，只留在隔離檔與報告裡。
    - 用來處理 DEADLINE_EXCEEDED 但實際已落地、重試又拿到 NOT_FOUND 的情況（`p4_client.py:27-28`）。
    - modify 沒有對應的安全做法，寫進 API 文件。
 5. **Q4(a) 的缺行風險**：寫進回應的 note 與 API 文件（Q4 的後果）。
