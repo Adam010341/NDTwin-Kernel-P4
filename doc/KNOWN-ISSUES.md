@@ -3000,6 +3000,12 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   之後 refill 重寫並記 10，**若那個逾時的 install 其實晚於 refill 才落地**，slot 裡是 app 的條目而記錄寫 10
   ⇒ 之後 modify at 10 會改到它。②記錄假設 proxy 是這些條目**唯一的寫入者**：用 `simple_switch_CLI`
   手寫、或另一個用同一 election id 的 P4Runtime client 寫的，proxy 看不到，記錄照舊。
+  ③**readopt 前後的舊記錄**（審查 r2，讀碼推論＋單元測試釘住）：新 client 推 pipeline 到換手之間、
+  推 pipeline 回逾時但其實已清表（readopt 失敗、留下舊 client）、bmv2 重啟到 readopt 之間——這三段
+  舊記錄仍算數，但 slot 已經空了。代價是**每個有記錄的 slot 最多一次失敗的 modify**（`modify_ipv4_route`
+  沒有 insert 後備，改不到空表；失敗即遺忘記錄，下一次 501），**不會改到錯的條目**。
+  `test_a_push_that_raised_after_landing_costs_one_failed_modify_and_no_insert`、
+  `test_a_refused_modify_is_not_retried_as_an_insert` 釘住。
   🔴 **本條（delete）狀態不變**：`delete_strict` 帶任何 priority 仍是 501。modify 這半邊**未經 live 驗證**
   （單元測試＋mutation gate＋離線 bmv2 試跑，紀錄在 `scratch/`）。
 
