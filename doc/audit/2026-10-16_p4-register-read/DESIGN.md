@@ -208,7 +208,10 @@ GET /p4/direct_counter/{name}?dpid=<n>
 
 - 單元測試：`p4_proxy/tests/test_direct_counter_route.py`（新）。
   - 第一輪的 21 個在沒有這個功能的程式碼上看過紅（`unit_red_before_feature.log`），但其中三個（unknown dpid、不是 direct counter、沒有 topology）紅的理由是「路由不存在」，不是它自己的理由。它們自己的紅由第二輪的三個 mutation 證明（unknown switch → 200 空表、不認得的 direct counter → 空表、沒有 topology → 404）。
-  - 第二輪加的測試在第一輪的 head（`bce1b6d3`）上看紅（`unit_red_r2_at_bce1b6d3.log`）；兩個 thread 測試在舊碼上本來就綠（舊碼本來就用 `run_in_threadpool`），它們的紅由拿掉 `run_in_threadpool` 的兩個 mutation 證明。
+  - 第二輪加的測試在第一輪的 head（`bce1b6d3`）上看紅（`unit_red_r2_at_bce1b6d3.log`：30 個裡 4 failures、3 errors，各是它自己的理由）。
+  - 在舊碼上本來就綠的有三個，它們的紅由 mutation 證明：
+    - 兩個 thread 測試：舊碼本來就用 `run_in_threadpool`；由拿掉它的兩個 mutation 證明。
+    - `test_another_switch_being_readopted_does_not_stop_this_read`：它守的是「不要擋太寬」，舊碼根本不擋；由把檢查放寬到每台交換機的 mutation 證明。
 - mutation gate：`tests/shell/mutate_p4_direct_counter.sh`（新），32 個 mutation，錨點給 `check_gate_anchors.py` 讀。有些 mutation 共用同一段錨點，所以 anchor 檢查數到的不重複錨點比 32 少（gate 開頭有說明）。
 - `tests/shell/mutate_telemetry_by_name.sh` 的 M-C6、M-C15 錨點改成從 `/p4/counter` 才有的那一行開始（§7.3）。
 - 離線 bmv2 trial：起真的 proxy 程式碼（`P4RuntimeClient` 與路由 handler），對 stock 與 fast 各一顆拋棄式交換機，讀到 0 再讀到送進去的數；hc_main 與 ndtwin_switch 各一組（§7.1、§7.2）。
@@ -229,6 +232,7 @@ GET /p4/direct_counter/{name}?dpid=<n>
   - thrift：`table_dump` 的 priority 是 PI 換算過的（2147483547 對 100、2147483447 對 200，即 2^31−1−p），`counter_read` 依 handle 是 `0/0`、`201/3`、`134/2`，與 P4Runtime 一致。
   - `TableEntry`＋`counter_data`（`read_table_entries` 的形狀）回同樣的 priority 與數字。
 - ⇒ 路由回的 priority 是交換機的，不是補的，不必另外說明。
+- 在最後的 head（`ff028f10`）重跑，路由的回答（兩顆一樣）：flow_5tuple `unit: both`，`(priority 100, 0 B, 0 pkt)`、`(200, 201, 3)`；ipv4_lpm `(0, 134, 2)`。與 thrift 依 handle 讀到的一致。
 
 ### 7.2 hc_main 上的路由（OBSERVED）
 
