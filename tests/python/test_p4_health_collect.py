@@ -658,8 +658,8 @@ class TestTheRegisterReadAgainstTheMarker(Sealed):
         self.with_read_route((501, {"detail": {"error": "register too wide"}}))
         obs, sc = self.observe(RA.R2_CHOSEN)
         v = self.judge(obs, sc)
-        self.assertEqual(v.verdict, V.RED, v)
-        self.assertIn("GET /p4/register answered 501", v.reason)
+        self.assertEqual((v.verdict, v.phase), (V.RED, "cannot"), v)
+        self.assertIn("GET /p4/register answered 501 (register too wide)", v.reason)
 
     def test_a_red_without_thrifts_reading_is_unattributed(self):
         self.with_read_route((404, {"detail": {"error": "not in this pipeline"}}))
@@ -671,8 +671,10 @@ class TestTheRegisterReadAgainstTheMarker(Sealed):
         self.with_read_route((404, {"detail": {"error": "not in this pipeline"}}))
         obs, sc = self.observe(RA.R2_CHOSEN)
         v = self.judge(obs, sc)
-        self.assertEqual(v.verdict, V.RED, v)
-        self.assertIn("GET /p4/register answered 404", v.reason)
+        self.assertEqual((v.verdict, v.phase), (V.RED, "cannot"), v)
+        # NDTwin's own refusal, decided at the "cannot" step (before gates and self-checks), with its
+        # error word -- not the compare step's "not a reading", which a 404 would also reach.
+        self.assertIn("GET /p4/register answered 404 (not in this pipeline)", v.reason)
 
     def test_without_the_read_route_r2_is_no_route_and_nothing_is_asked(self):
         self.proxy.routes[("GET", "/openapi.json")] = (200, {"paths": {"/p4/counter/{name}": {"get": {}}}})
