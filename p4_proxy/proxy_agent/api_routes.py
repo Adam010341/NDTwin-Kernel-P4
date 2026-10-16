@@ -587,7 +587,7 @@ def _slot_priority_not_held(err):
                f"{err.requested} would edit an entry other than the one it names.")
     else:
         remedy = ("match the full five-tuple; this destination's entry has no recorded "
-                  "priority (slot_priority null) until the proxy rewrites its route")
+                  "priority (slot_priority null) until its route is written again")
         why = ("This proxy holds no record of the priority this destination's entry was written "
                "at -- it did not write it, or a write it could not confirm or a pipeline push "
                "has since made the record unsafe -- so the priority cannot be matched to it.")
