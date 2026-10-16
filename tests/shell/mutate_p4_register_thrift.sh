@@ -16,8 +16,8 @@
 # the registration (a read route must stay GET-only: the health check's R3 looks for a WRITE).
 #
 # 🔴 SHARED ANCHORS. Some mutations start from exactly the anchor of an earlier one, each with its
-# own replacement (6=5, 11=10, 13=12, 29=28, 31=30, 34=33, 36=35, 45=44), and 47's is inside
-# 46's, so check_gate_anchors.py counts fewer distinct anchors than this table has mutations.
+# own replacement (28=27, 30=29, 38=37, 44=43, 46=45, 47=45, 49=48, 51=50, 58=57), and 60's is
+# inside 59's, so check_gate_anchors.py counts fewer distinct anchors than this table has mutations.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a
@@ -176,8 +176,8 @@ each_mutation() {
         'test_the_thrift_read_runs_on_a_worker_thread'
 
     "$m" "2. a range is read on the event loop" "$API" \
-        '            raw = (await run_in_threadpool(bm_thrift.read_register, REGISTER_THRIFT_HOST, port,' \
-        '            raw = (bm_thrift.read_register(REGISTER_THRIFT_HOST, port,' \
+        '            whole = await run_in_threadpool(bm_thrift.read_register, REGISTER_THRIFT_HOST, port,' \
+        '            whole = (bm_thrift.read_register)(REGISTER_THRIFT_HOST, port,' \
         'test_the_range_read_runs_on_a_worker_thread_too'
 
     "$m" "3. the route's read loses its deadline" "$API" \
@@ -185,24 +185,29 @@ each_mutation() {
         '                                           full, start, None)]' \
         'test_one_cell_is_one_bm_register_read_of_that_index_on_the_switchs_port'
 
-    "$m" "4. the socket loses its timeout" "$BMT" \
-        '    sock.setTimeout(int(timeout_s * 1000))' \
-        '    pass' \
-        'test_a_server_that_never_answers_costs_one_deadline'
+    # Round 2: one budget for the whole call, not a fresh timeout per receive.
+    "$m" "4. a receive gets a fresh timeout instead of what is left of the call's" "$BMT" \
+        '        def read(self, sz):
+            if self.handle is not None:
+                self.handle.settimeout(self._left())' \
+        '        def read(self, sz):
+            if self.handle is not None:
+                self.handle.settimeout(timeout_left_unused := 3.0)' \
+        'test_a_peer_trickling_a_byte_every_2_s_is_cut_at_the_calls_deadline'
 
-    "$m" "5. bmv2's signed i64 is passed on as the value" "$API" \
-        '            "values": [v & mask for v in raw], "source": "bmv2-thrift"}' \
-        '            "values": list(raw), "source": "bmv2-thrift"}' \
-        'test_a_64_bit_value_comes_back_unsigned'
+    "$m" "5. a value outside bit<W> is passed on" "$API" \
+        '    outside = [v for v in raw if not 0 <= v < (1 << width)]' \
+        '    outside = []' \
+        'test_a_value_outside_the_registers_width_is_502_not_truncated'
 
     "$m" "6. the answer stops saying it came from bmv2's thrift" "$API" \
-        '            "values": [v & mask for v in raw], "source": "bmv2-thrift"}' \
-        '            "values": [v & mask for v in raw]}' \
+        '            "values": list(raw), "source": "bmv2-thrift"}' \
+        '            "values": list(raw)}' \
         'test_one_cell_is_200_with_its_value_and_says_where_it_came_from'
 
     "$m" "7. a range is not sliced at its start" "$API" \
-        '                                           full, None, RPC_TIMEOUT_S))[start:start + count]' \
-        '                                           full, None, RPC_TIMEOUT_S))[:count]' \
+        '            raw = whole[start:start + count]' \
+        '            raw = whole[:count]' \
         'test_a_range_is_sliced_from_the_array'
 
     "$m" "8. a short answer is accepted" "$API" \
@@ -221,20 +226,20 @@ each_mutation() {
         '        raise _register_error(200, "register not read", dpid, full,' \
         'test_no_answer_is_503_and_not_a_zero'
 
-    "$m" "11. no answer is reported as a refusal" "$API" \
-        '        raise _register_error(503, "register not read", dpid, full,' \
-        '        raise _register_error(502, "register not read", dpid, full,' \
-        'test_no_answer_is_503_and_not_a_zero'
+    "$m" "11. a whole array of another size than p4info's is sliced anyway" "$API" \
+        '            if len(whole) != size:' \
+        '            if False:' \
+        'test_a_whole_array_longer_than_p4info_says_is_502_before_slicing'
 
     "$m" "12. bmv2's refusal is reported as no answer" "$API" \
         '        raise _register_error(502, "register refused", dpid, full, str(err),' \
         '        raise _register_error(503, "register refused", dpid, full, str(err),' \
         'test_bmv2_refusing_the_name_is_502_with_its_code'
 
-    "$m" "13. bmv2's refusal is answered 200" "$API" \
-        '        raise _register_error(502, "register refused", dpid, full, str(err),' \
-        '        raise _register_error(200, "register refused", dpid, full, str(err),' \
-        'test_bmv2_refusing_the_name_is_502_with_its_code'
+    "$m" "13. bytes that are not thrift are reported as an invalid answer" "$API" \
+        '        raise _register_error(502, "register answer not understood", dpid, full, str(err),' \
+        '        raise _register_error(502, "register answer invalid", dpid, full, str(err),' \
+        'test_bytes_that_are_not_thrift_are_502_not_understood'
 
     "$m" "14. the refusal's code loses its name" "$API" \
         '                              code=bm_thrift.ERROR_NAMES.get(err.code, err.code),' \
@@ -247,10 +252,8 @@ each_mutation() {
         'test_an_answer_that_is_not_the_answer_is_502'
 
     "$m" "16. the wire names another context id" "$BMT" \
-        '    proto.writeFieldBegin("cxt_id", TType.I32, 1)
-    proto.writeI32(0)' \
-        '    proto.writeFieldBegin("cxt_id", TType.I32, 1)
-    proto.writeI32(1)' \
+        '        proto.writeI32(0)' \
+        '        proto.writeI32(1)' \
         'test_one_cell_is_the_generated_clients_bytes'
 
     "$m" "17. the register name goes out under another field id" "$BMT" \
@@ -271,23 +274,23 @@ each_mutation() {
         'test_one_cell_is_the_generated_clients_bytes'
 
     "$m" "20. bmv2's refusal is ignored" "$BMT" \
-        '    if ouch is not None:
-        raise RegisterReadRefused(ouch)' \
+        '    if 1 in got:
+        raise RegisterReadRefused(got[1])' \
         '    if False:
-        raise RegisterReadRefused(ouch)' \
+        raise RegisterReadRefused(got[1])' \
         'test_bmv2s_refusal_carries_its_code'
 
     "$m" "21. no result reads as 0" "$BMT" \
-        '    if not have_success:
+        '    if 0 not in got:
         raise ThriftAnswerInvalid("%s answered with no result" % name)' \
-        '    if not have_success:
+        '    if 0 not in got:
         return 0' \
         'test_no_result_at_all_is_invalid_not_a_zero'
 
-    "$m" "22. a 0 reads as no result" "$BMT" \
-        '    if not have_success:' \
-        '    if not success:' \
-        'test_a_zero_is_a_zero_and_not_a_missing_result'
+    "$m" "22. the identity call reads the device id from another field" "$BMT" \
+        '    got = _read_struct(proto, {1: (TType.I64, lambda p: p.readI64()),' \
+        '    got = _read_struct(proto, {3: (TType.I64, lambda p: p.readI64()),' \
+        'test_the_identity_call_is_the_generated_clients_bytes_and_its_answer_is_read'
 
     "$m" "23. an answer to another call is taken" "$BMT" \
         '    if rname != name or mtype != TMessageType.REPLY:' \
@@ -295,13 +298,13 @@ each_mutation() {
         'test_an_answer_to_another_call_is_invalid'
 
     "$m" "24. a list of another type is decoded anyway" "$BMT" \
-        '            if etype != TType.I64:' \
-        '            if False:' \
+        '    if etype != TType.I64:' \
+        '    if False:' \
         'test_a_list_of_another_type_is_invalid'
 
     "$m" "25. an answer cut short escapes as EOFError" "$BMT" \
-        '    except (TTransport.TTransportException, OSError, EOFError) as exc:' \
-        '    except (TTransport.TTransportException, OSError) as exc:' \
+        '    except (OSError, EOFError) as exc:' \
+        '    except OSError as exc:' \
         'test_an_answer_cut_short_is_unreachable'
 
     "$m" "26. a refused connection escapes unwrapped" "$BMT" \
@@ -312,104 +315,178 @@ each_mutation() {
         'test_nothing_listening_is_unreachable'
 
     "$m" "27. the client is built without its switch's thrift port" "$MAIN" \
-        '    client.thrift_port = thrift_port_for(dpid)' \
+        '    client.thrift_port = thrift_port_for(dpid) if port_base == DEFAULT_GRPC_PORT_BASE else None' \
         '    client.thrift_port = None' \
         'test_the_client_carries_the_thrift_port_its_switch_listens_on'
 
+    "$m" "28. another gRPC numbering gets p4_testbed_topo's thrift port anyway" "$MAIN" \
+        '    client.thrift_port = thrift_port_for(dpid) if port_base == DEFAULT_GRPC_PORT_BASE else None' \
+        '    client.thrift_port = thrift_port_for(dpid)' \
+        'test_a_client_on_another_grpc_numbering_has_no_thrift_port'
+
+    # Round 2: the thrift port must be this switch's (measured: a swapped port answered 200 with
+    # the other switch's cells).
+    "$m" "29. the thrift port's identity is not checked" "$API" \
+        '        if (identity.get("device_id"), identity.get("thrift_port")) != (client.device_id, port):' \
+        '        if False:' \
+        'test_another_device_on_the_port_is_502_and_nothing_is_read'
+
+    "$m" "30. only the device id is checked, not the port" "$API" \
+        '        if (identity.get("device_id"), identity.get("thrift_port")) != (client.device_id, port):' \
+        '        if identity.get("device_id") != client.device_id:' \
+        'test_the_same_device_on_another_port_is_502'
+
+    "$m" "31. the identity is asked before every read" "$API" \
+        '        identity = getattr(client, "thrift_identity", None)' \
+        '        identity = None' \
+        'test_the_identity_is_asked_once_per_client'
+
+    "$m" "32. the identity is never kept on the client" "$API" \
+        '            client.thrift_identity = identity' \
+        '            pass' \
+        'test_the_identity_is_asked_once_per_client'
+
+    "$m" "33. bytes that cannot be decoded are reported as no answer" "$BMT" \
+        '    except (TProtocolException, UnicodeDecodeError, struct.error, ValueError, OverflowError) as exc:' \
+        '    except (TProtocolException, UnicodeDecodeError, struct.error, ValueError, OverflowError) as exc:
+        raise ThriftUnreachable(str(exc)) from exc' \
+        'test_a_version_that_is_not_thrifts_is_not_understood'
+
+    "$m" "34. a negative length is reported as no answer" "$BMT" \
+        '        if exc.type in (TTransport.TTransportException.NEGATIVE_SIZE,' \
+        '        if exc.type in (' \
+        'test_a_negative_list_size_is_not_understood_and_not_unreachable'
+
+    "$m" "35. thrift is imported when the module is" "$BMT" \
+        'import struct
+import time
+' \
+        'import struct
+import time
+import thrift.Thrift  # MUTANT: a hard import again
+' \
+        'test_the_proxy_imports_and_the_call_says_thrift_is_not_installed'
+
+    "$m" "36. no thrift package is reported as no answer" "$API" \
+        '        raise _register_error(503, "thrift not installed", dpid, full, str(err),' \
+        '        raise _register_error(503, "register not read", dpid, full, str(err),' \
+        'test_no_thrift_package_is_503_for_this_route_alone'
+
     # ---- half two: the bounds, the caps, the refusals before the switch ---------------
 
-    "$m" "28. the index bound lets one past the end through" "$API" \
+    "$m" "37. the index bound lets one past the end through" "$API" \
         '    if start + count > size:' \
         '    if start + count > size + 1:' \
         'test_an_index_past_the_end_is_400_and_says_the_size'
 
-    "$m" "29. the index bound refuses the last cell" "$API" \
+    "$m" "38. the index bound refuses the last cell" "$API" \
         '    if start + count > size:' \
         '    if start + count >= size:' \
         'test_the_last_index_is_read'
 
-    "$m" "30. a negative index is read" "$API" \
-        '    if start < 0 or count < 1:' \
-        '    if count < 1:' \
+    "$m" "39. a start past the end is called an empty range" "$API" \
+        '    if start >= size:' \
+        '    if False:' \
+        'test_a_start_past_the_end_is_400_index_out_of_range'
+
+    "$m" "40. a negative index is read" "$API" \
+        '    if start < 0:' \
+        '    if False:' \
         'test_a_negative_index_is_400'
 
-    "$m" "31. an empty range is read" "$API" \
-        '    if start < 0 or count < 1:' \
-        '    if start < 0:' \
+    "$m" "41. an empty range is read" "$API" \
+        '    if count < 1:' \
+        '    if False:' \
         'test_an_empty_range_is_400'
 
-    "$m" "32. index and a range together are taken" "$API" \
+    "$m" "42. index and a range together are taken" "$API" \
         '    if index is not None and (start is not None or count is not None):' \
         '    if False:' \
         'test_index_with_a_range_is_400'
 
-    "$m" "33. the cell cap is dropped" "$API" \
+    "$m" "43. the cell cap is dropped" "$API" \
         '    if count > REGISTER_CELLS_MAX:' \
         '    if False:' \
         'test_more_cells_than_the_cap_is_413'
 
-    "$m" "34. the cell cap refuses the cap itself" "$API" \
+    "$m" "44. the cell cap refuses the cap itself" "$API" \
         '    if count > REGISTER_CELLS_MAX:' \
         '    if count >= REGISTER_CELLS_MAX:' \
         'test_the_cap_itself_is_read'
 
-    "$m" "35. a range of a huge array is fetched whole" "$API" \
+    "$m" "45. a range of a huge array is fetched whole" "$API" \
         '    if count > 1 and size > REGISTER_READ_ALL_MAX:' \
         '    if False:' \
         'test_a_range_of_an_array_too_big_to_fetch_whole_is_413'
 
-    "$m" "36. one cell of a huge array is refused" "$API" \
+    "$m" "46. one cell of a huge array is refused" "$API" \
         '    if count > 1 and size > REGISTER_READ_ALL_MAX:' \
         '    if size > REGISTER_READ_ALL_MAX:' \
         'test_one_cell_of_an_array_too_big_to_fetch_whole_is_read'
 
-    "$m" "37. a register wider than 64 bits is read" "$API" \
-        '    if width > 64:' \
-        '    if False:' \
-        'test_a_register_wider_than_64_bits_is_501'
+    "$m" "47. the fetch-whole limit refuses the limit itself" "$API" \
+        '    if count > 1 and size > REGISTER_READ_ALL_MAX:' \
+        '    if count > 1 and size >= REGISTER_READ_ALL_MAX:' \
+        'test_the_fetch_whole_limit_itself_is_read_and_one_past_it_is_413'
 
-    "$m" "38. a register that is not bit<W> is read" "$API" \
+    # Round 2, measured on both builds: a bit<64> cell at or above 2^63 reads as 2^63 - 1.
+    "$m" "48. bit<64> is read again" "$API" \
+        '    if width > 63:' \
+        '    if width > 64:' \
+        'test_a_bit64_register_is_501_and_says_why'
+
+    "$m" "49. bit<63> is refused too" "$API" \
+        '    if width > 63:' \
+        '    if width > 62:' \
+        'test_a_bit63_register_is_read_up_to_its_top'
+
+    "$m" "50. an int<W> register is read as a bit<W> one" "$API" \
+        '    if not reg.type_spec.HasField("bitstring") or not reg.type_spec.bitstring.HasField("bit"):' \
+        '    if not reg.type_spec.HasField("bitstring"):' \
+        'test_an_int_w_register_is_501'
+
+    "$m" "51. a register that is not bit<W> is read" "$API" \
         '    if not reg.type_spec.HasField("bitstring") or not reg.type_spec.bitstring.HasField("bit"):' \
         '    if False:' \
         'test_a_register_that_is_not_bit_w_is_501'
 
-    "$m" "39. a client with no thrift port is asked anyway" "$API" \
+    "$m" "52. a client with no thrift port is asked anyway" "$API" \
         '    if port is None:' \
         '    if False:' \
         'test_a_client_with_no_thrift_port_is_503'
 
-    "$m" "40. a name that is no register is read as the first register" "$API" \
+    "$m" "53. a name that is no register is read as the first register" "$API" \
         '            return reg
     return None' \
         '            return reg
     return client.p4info.registers[0]' \
         'test_a_name_that_is_no_register_is_404'
 
-    "$m" "41. the alias is not accepted" "$API" \
+    "$m" "54. the alias is not accepted" "$API" \
         '        if name in (reg.preamble.name, reg.preamble.alias):' \
         '        if name == reg.preamble.name:' \
         'test_the_alias_names_the_same_register_and_the_full_name_is_asked'
 
-    "$m" "42. an unknown switch answers 200" "$API" \
+    "$m" "55. an unknown switch answers 200" "$API" \
         '        raise _register_error(404, "unknown switch", dpid, name,' \
         '        return {"values": []}
         raise _register_error(404, "unknown switch", dpid, name,' \
         'test_an_unknown_dpid_is_404'
 
-    "$m" "43. no topology is answered 404" "$API" \
+    "$m" "56. no topology is answered 404" "$API" \
         '        raise _register_error(503, "no topology", dpid, name, "proxy has no topology yet")' \
         '        raise _register_error(404, "no topology", dpid, name, "proxy has no topology yet")' \
         'test_no_topology_is_503'
 
     # Registers are reset by a readopt's pipeline push.
-    "$m" "44. a switch being re-adopted is read anyway" "$API" \
+    "$m" "57. a switch being re-adopted is read anyway" "$API" \
         '    if journals is not None and journals.pending(dpid):
         raise _register_error(503, "replay pending",' \
         '    if False:
         raise _register_error(503, "replay pending",' \
         'test_a_switch_being_readopted_is_503_replay_pending'
 
-    "$m" "45. every switch is refused while one is re-adopted" "$API" \
+    "$m" "58. every switch is refused while one is re-adopted" "$API" \
         '    if journals is not None and journals.pending(dpid):
         raise _register_error(503, "replay pending",' \
         '    if journals is not None:
@@ -418,14 +495,14 @@ each_mutation() {
 
     # ---- registration --------------------------------------------------------------------
 
-    "$m" "46. the route is not registered" "$API" \
+    "$m" "59. the route is not registered" "$API" \
         '@router.get("/p4/register/{name}")
 ' \
         '' \
         'test_the_path_and_method_are_on_the_router'
 
     # A write method on the read route would make the health check's R3 see a register WRITE.
-    "$m" "47. the read route also answers POST" "$API" \
+    "$m" "60. the read route also answers POST" "$API" \
         '@router.get("/p4/register/{name}")' \
         '@router.api_route("/p4/register/{name}", methods=["GET", "POST"])' \
         'test_the_path_and_method_are_on_the_router'

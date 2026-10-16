@@ -3603,6 +3603,87 @@ add "C2R10-3a. the exercise copy check reads a link among the build outputs as t
     'test_the_exercise_copy_check_refuses_a_link_under_a_build_directory'
 
 
+# C2 thrift cut, round 2: the register cell read through GET /p4/register and judged against the marker's value.
+# [Co-developed with claude code -- Adam]
+add "C2T-1. R3 takes any method on /p4/register for its write route" \
+    "$OBSERVE" \
+    'ROUTE_METHODS = {"R2": frozenset({"GET"}), "R3": frozenset({"POST", "PUT", "PATCH"})}' \
+    'ROUTE_METHODS = {"R2": frozenset({"GET"})}  # MUTANT' \
+    'test_a_read_route_is_not_taken_for_r3s_write'
+
+add "C2T-2. route_answer ignores the methods openapi lists" \
+    "$OBSERVE" \
+    '        if methods is None or not isinstance(paths, dict):
+            return True' \
+    '        return True  # MUTANT' \
+    'test_a_read_route_is_not_taken_for_r3s_write'
+
+add "C2T-3. a boolean in the register route's values is read as a number" \
+    "$PROXY" \
+    '            and isinstance(values[0], int) and not isinstance(values[0], bool)):' \
+    '            and isinstance(values[0], int)):  # MUTANT' \
+    'test_the_register_readers_answers'
+
+add "C2T-4. the register route's values are read off a non-200 answer" \
+    "$PROXY" \
+    '    if (reply.status == 200 and isinstance(values, list) and len(values) == 1' \
+    '    if (isinstance(values, list) and len(values) == 1  # MUTANT' \
+    'test_the_register_readers_answers'
+
+add "C2T-5. a register answer of several cells is read as its first" \
+    "$PROXY" \
+    'isinstance(values, list) and len(values) == 1' \
+    'isinstance(values, list) and len(values) >= 1' \
+    'test_the_register_readers_answers'
+
+add "C2T-6. R2's oracle is thrift's register_read again, not the marker's value" \
+    "$OBSERVE_A" \
+    '"oracle": {"value": chosen, "thrift": value}' \
+    '"oracle": {"value": value, "thrift": value}' \
+    'test_thrift_agreeing_with_ndtwin_does_not_make_it_green'
+
+add "C2T-7. R2 reads the register route whether or not openapi has it" \
+    "$OBSERVE_A" \
+    '    if isinstance(answer, dict) and answer.get("route") is True:' \
+    '    if isinstance(answer, dict):  # MUTANT' \
+    'test_without_the_read_route_r2_is_no_route_and_nothing_is_asked'
+
+add "C2T-8. the register route's own 404 is not a structural red" \
+    "$TABLE" \
+    '    if http in (404, 501):
+        return red("GET /p4/register answered %d (%s)"' \
+    '    if http in (501,):  # MUTANT
+        return red("GET /p4/register answered %d (%s)"' \
+    'test_the_routes_own_404_is_a_structural_red'
+
+add "C2T-9. the register route's own 501 is not a structural red" \
+    "$TABLE" \
+    '    if http in (404, 501):
+        return red("GET /p4/register answered %d (%s)"' \
+    '    if http in (404,):  # MUTANT
+        return red("GET /p4/register answered %d (%s)"' \
+    'test_the_routes_own_501_is_a_structural_red'
+
+add "C2T-10. R2's red claims thrift evidence when thrift read nothing" \
+    "$TABLE" \
+    '    return ("thrift",) if O(obs).get("thrift") is not None else ()' \
+    '    return ("thrift",)  # MUTANT' \
+    'test_r2s_red_claims_thrift_only_when_thrift_read_the_cell'
+
+add "C2T-11. a register route that answers without a value leaves R2 NOT RUN" \
+    "$TABLE" \
+    'need=("a:http", "o:value")' \
+    'need=("a:value", "o:value")' \
+    'test_a_read_that_did_not_happen_is_red_like_k1'
+
+add "C2T-12. R2 does not say an answer without a value is not a reading" \
+    "$TABLE" \
+    '    if a.get("value") is None:
+        return red("GET /p4/register answered %s, which is not a reading"' \
+    '    if False:  # MUTANT
+        return red("GET /p4/register answered %s, which is not a reading"' \
+    'test_a_read_that_did_not_happen_is_red_like_k1'
+
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
