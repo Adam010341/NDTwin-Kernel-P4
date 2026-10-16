@@ -1579,10 +1579,6 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
     except bm_thrift.ThriftAnswerInvalid as err:
         raise _register_error(502, "register answer invalid", dpid, full, str(err),
                               source="bmv2-thrift")
-    if len(raw) != count:
-        raise _register_error(502, "register answer invalid", dpid, full,
-                              f"bmv2 answered {len(raw)} cells for {count} asked",
-                              source="bmv2-thrift")
     outside = [v for v in raw if not 0 <= v < (1 << width)]
     if outside:
         raise _register_error(502, "register answer invalid", dpid, full,

@@ -210,10 +210,9 @@ each_mutation() {
         '            raw = whole[:count]' \
         'test_a_range_is_sliced_from_the_array'
 
-    "$m" "8. a short answer is accepted" "$API" \
-        '    if len(raw) != count:' \
-        '    if False:' \
-        'test_a_short_answer_is_502_not_a_short_list'
+    # (8, "a short answer is accepted", is gone with the check it mutated: since round 2 a whole
+    # array is checked against p4info's size before it is sliced (11), so a slice is always `count`
+    # long and the later length check could never fire.)
 
     "$m" "9. the alias, not the register's name, is sent to bmv2" "$API" \
         '    full, size = reg.preamble.name, reg.size' \
@@ -377,7 +376,7 @@ import thrift.Thrift  # MUTANT: a hard import again
     "$m" "37. the index bound lets one past the end through" "$API" \
         '    if start + count > size:' \
         '    if start + count > size + 1:' \
-        'test_an_index_past_the_end_is_400_and_says_the_size'
+        'test_a_range_past_the_end_is_400'
 
     "$m" "38. the index bound refuses the last cell" "$API" \
         '    if start + count > size:' \
