@@ -91,6 +91,35 @@ run_against() {
         "$PY" -m unittest $MODULES -v 2>&1 )
 }
 
+assertion_of() {   # $1 = a test name; stdin = unittest -v output. Prints where that test went red.
+    # [Co-developed with claude code -- Adam]
+    # A catch line says WHICH test reddened, not which of its assertions did; a test that goes
+    # red at its first line for an unrelated reason reads exactly like one that went red at the
+    # assertion the mutation is about. This names the deepest tests/ frame of the test's own
+    # FAIL/ERROR block (file:line and the line itself) and the exception's first line.
+    awk -v t="$1" '
+        function flush() {
+            if (cur) printf "             assertion: %s %s -> %s\n", (where != "" ? where : "?"),
+                            substr(src, 1, 110), substr((exc != "" ? exc : "?"), 1, 160)
+            cur = 0
+        }
+        /^(FAIL|ERROR): / { flush(); split($0, w, " "); cur = (w[2] == t)
+                            where = ""; src = ""; exc = ""; tb = 0; next }
+        !cur { next }
+        /^Traceback/ { tb = 1; next }
+        tb && /^(=+|-+)$/ { flush(); next }
+        /^  File "/ && /\/tests\/[^"]*\.py", line [0-9]+, in / {
+            line = $0; sub(/^  File "/, "", line)
+            path = line; sub(/".*/, "", path); sub(/.*\/tests\//, "tests/", path)
+            n = line; sub(/.*", line /, "", n); sub(/,.*/, "", n)
+            where = path ":" n; src = ""
+            if ((getline src) > 0) sub(/^ +/, "", src)
+            next
+        }
+        tb && /^[A-Za-z_][A-Za-z0-9_.]*(Error|Exception|Failure|Exit|Interrupt)(:|$)/ { exc = $0 }
+        END { flush() }'
+}
+
 report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must go red
     local out rc
     MUTATIONS=$((MUTATIONS+1))
@@ -107,6 +136,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
     fi
     if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qE "^(FAIL|ERROR): $3 " <<<"$out"; then
         printf '  caught   %-72s (%s went red)\n' "$1" "$3"
+        assertion_of "$3" <<<"$out"
         # 🔴 EVERY test that reddened, not only the one this mutation is named for.
         # [Co-developed with claude code -- Adam]
         # A gate that records one name per mutation cannot answer the question an auditor
@@ -1628,6 +1658,47 @@ m=$(mutant r139 "$JOURNAL" \
                         item["op"] = "insert"')
 report 'M-J139: an entry restored by the insert retry is reported restored and snapshot as an insert, not as the journal'\''s modify' "$m" \
        'test_a_modify_that_finds_nothing_after_the_push_goes_back_as_an_insert'
+
+# --- the disclosed stale drop, a lost answer to the modify fallback, a readopt's NOT_FOUND delete ---
+# [Co-developed with claude code -- Adam]
+
+m=$(mutant s140 "$JOURNAL" \
+    '                report["failed"].append({"entry": entry, "reason": _STALE_ENTRIES, "kept": False})' \
+    '                report["failed"].append({"entry": entry, "reason": "stale_pipeline: the p4info "
+                                         "this journal was written against is not the one "
+                                         "loaded now", "kept": False})')
+report 'M-J140: a modify or delete dropped because the entries file changed is reported with the p4info'\''s reason' "$m" \
+       'test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_start_after_an_entries_edit'
+
+m=$(mutant s141 "$MAIN" \
+    '                             table_journal_header(dpid, package), api_routes._is_not_found,' \
+    '                             (dict(table_journal_header(dpid, package), entries_sha256=(
+                                 journals.journal_for(dpid).read()[0] or {}).get("entries_sha256"))
+                              if when == "readopt" else table_journal_header(dpid, package)),
+                             api_routes._is_not_found,')
+report 'M-J141: a readopt takes the entries digest from the journal'\''s header, so an entries file edited since is not seen and a write aimed at it is replayed' "$m" \
+       'test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_readopt_after_an_entries_edit'
+
+m=$(mutant s142 "$JOURNAL" \
+    '            if entries_changed and item["op"] != "insert":' \
+    '            if entries_changed and item["op"] != "insert" and item["records"] == 1:')
+report 'M-J142: only a one-record modify or delete is stale after an entries edit, so a deleted and re-inserted entry the journal never saw inserted is put back' "$m" \
+       'test_an_entries_edit_before_the_first_restart_drops_a_net_modify_the_post_journaled'
+
+m=$(mutant s143 "$JOURNAL" \
+    '                unknown_outcome = outcome_unknown is not None and outcome_unknown(exc)' \
+    '                unknown_outcome = (outcome_unknown is not None and retried_as != "modify"
+                                   and outcome_unknown(exc))')
+report 'M-J143: a modify fallback that gets no answer is taken for a refusal, so its record is dropped' "$m" \
+       'test_a_modify_fallback_whose_answer_is_lost_stays_in_the_journal_for_the_next_start'
+
+m=$(mutant s144 "$JOURNAL" \
+    '                if (item["op"] == "delete" and is_not_found is not None
+                        and is_not_found(exc)):' \
+    '                if (item["op"] == "delete" and is_not_found is not None and when == "startup"
+                        and is_not_found(exc)):')
+report 'M-J144: a readopt'\''s net delete that meets NOT_FOUND is a failure, so the readopt reports partial and drops the delete' "$m" \
+       'test_a_readopts_net_delete_that_meets_not_found_is_restored_and_complete'
 
 # --- only the per-update reason says NOT_FOUND ---------------------------------------------------
 
