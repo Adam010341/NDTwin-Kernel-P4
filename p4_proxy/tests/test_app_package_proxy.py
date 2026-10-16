@@ -231,6 +231,11 @@ class TheClientTheProxyBuildsTest(unittest.TestCase):
         self.built = getattr(self, "built", []) + [client]
         return client
 
+    def test_the_client_carries_the_thrift_port_its_switch_listens_on(self):
+        # [Co-developed with claude code -- Adam] GET /p4/register reads through bmv2's thrift
+        # service; p4_testbed_topo starts switch N on grpc_ports.thrift_port(N), 9090 + N.
+        self.assertEqual(self.build(app_package.baseline()).thrift_port, 9093)
+
     def test_without_a_package_it_is_the_client_the_proxy_has_always_built(self):
         client = self.build(app_package.baseline())
         self.assertEqual(client.device_id, 3)

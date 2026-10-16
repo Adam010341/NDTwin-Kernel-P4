@@ -3,10 +3,13 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 import json
 import time
+from typing import Optional
 from google.rpc import code_pb2, status_pb2
 from p4.v1 import p4runtime_pb2
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError, needs_five_tuple
 from proxy_agent import ryu_topology, ryu_flow_stats
+# [Co-developed with claude code -- Adam] GET /p4/register's two bmv2 thrift calls.
+from proxy_agent import bm_thrift
 # [Co-developed with claude code -- Adam]
 # The three refusals POST /p4/table_entry has to turn into 409 / 501 / 400. Imported as types
 # rather than matched on a message, because a message is a string somebody will reword and a
@@ -1394,6 +1397,152 @@ async def direct_counter(name: str, dpid: int):
 
     # `counter` is the full name even when asked by alias, so two callers' answers agree.
     return dict(reading, dpid=dpid)
+
+
+# --- reading a register through bmv2's thrift service ------------------------------------------
+
+#: The most cells one GET /p4/register answers. [Co-developed with claude code -- Adam]
+REGISTER_CELLS_MAX = 4096
+#: The largest array a multi-cell read fetches whole (bm_register_read_all) to slice from; past
+#: it only one cell at a time (`index`) is read. 65536 i64 are 512 KiB on the wire.
+REGISTER_READ_ALL_MAX = 65536
+#: Where bmv2's thrift service listens, from the proxy's side of the host. The fabric's switches
+#: run on this host (p4_testbed_topo), as their gRPC ports do.
+REGISTER_THRIFT_HOST = "127.0.0.1"
+
+
+def _register_error(status, error, dpid, name, message, **extra):
+    """The HTTPException GET /p4/register raises. A helper rather than the inline blocks the two
+    counter routes use: the gates under tests/shell anchor on those blocks' exact text.
+    [Co-developed with claude code -- Adam]"""
+    return HTTPException(status_code=status, detail=dict(
+        {"error": error, "dpid": dpid, "register": name, "message": message}, **extra))
+
+
+def _register_by_name(client, name):
+    """The p4info Register named `name` (full name or alias), or None."""
+    for reg in client.p4info.registers:
+        if name in (reg.preamble.name, reg.preamble.alias):
+            return reg
+    return None
+
+
+@router.get("/p4/register/{name}")
+async def register(name: str, dpid: int, index: Optional[int] = None,
+                   start: Optional[int] = None, count: Optional[int] = None):
+    """
+    Cells of one register array: `GET /p4/register/<name>?dpid=<n>[&index=<i> | &start=<s>&count=<c>]`.
+
+    [Co-developed with claude code -- Adam]
+    🔴 BMV2 ONLY, THROUGH ITS THRIFT SERVICE. bmv2's P4Runtime answers every RegisterEntry read
+    UNIMPLEMENTED, and the PI installed with it has no register support in any layer
+    (doc/audit/2026-10-16_p4-register-read/DESIGN.md sections 1 and 5), so this route asks the
+    switch's own thrift service -- simple_switch_CLI's `register_read` -- on the port
+    p4_testbed_topo gives it (grpc_ports.thrift_port: 9090 + dpid). Every answer says so in
+    `source: "bmv2-thrift"`. A hardware target has no such service; there this route answers 503.
+
+        {"dpid": 2, "register": "HcIngress.r_mark", "bitwidth": 32, "size": 16, "start": 0,
+         "values": [4737], "source": "bmv2-thrift"}
+
+    `index=i` is one cell (`start=i`, one value). `start` / `count` is a range; with neither,
+    the whole array. At most REGISTER_CELLS_MAX cells per request. A value is the register's
+    unsigned bit<W> value: bmv2's thrift carries an i64, which is reduced to W bits here.
+
+        200  the read succeeded. A 0 is a 0: the cell holds it.
+        400  `index out of range` (the array's size is in p4info and is checked before the
+             switch is asked), a negative or empty range, or `index` given with `start`/`count`.
+        404  an unknown dpid, or a name that is not a register of this switch's p4info.
+        413  `too many cells`: more than REGISTER_CELLS_MAX asked for, or a range out of an array
+             larger than REGISTER_READ_ALL_MAX (read it cell by cell with `index`).
+        501  a register this route cannot represent: wider than 64 bits, or not a bit<W>.
+        502  bmv2 answered with a refusal or with something that is not these calls' answer:
+             it does not know a register p4info has (the program and the p4info disagree), or
+             the answer could not be read.
+        503  `register not read`: no thrift connection, or it broke or ran out of time
+             (RPC_TIMEOUT_S, connect and every receive). 🔴 NOT A ZERO. Also `replay pending`
+             while the switch is being re-adopted (its registers are reset by the pipeline push),
+             checked once, before the read; `no thrift port` when the client has none; and no
+             topology yet.
+
+    Every register can be read. A thrift read needs no mastership, so it works under an external
+    control plane too; and it does not touch the table state P4Runtime keeps, which a thrift
+    WRITE would put out of sync (measured, DESIGN-thrift.md). The read runs on a worker thread.
+    """
+    if topology is None:
+        raise _register_error(503, "no topology", dpid, name, "proxy has no topology yet")
+    client = topology.switches.get(dpid)
+    if client is None:
+        raise _register_error(404, "unknown switch", dpid, name,
+                              f"switch {dpid} is not connected to the proxy; nothing was read")
+    if table_journals is not None and table_journals.pending(dpid):
+        raise _register_error(503, "replay pending", dpid, name,
+                              f"switch {dpid} is being re-adopted, which resets its registers; "
+                              f"nothing was read. Ask again once the readopt has answered")
+    reg = _register_by_name(client, name)
+    if reg is None:
+        raise _register_error(404, "not in this pipeline", dpid, name,
+                              f"{name} is not a register of the pipeline switch {dpid} runs "
+                              f"({len(client.p4info.registers)} registers)")
+    full, size = reg.preamble.name, reg.size
+    if not reg.type_spec.HasField("bitstring") or not reg.type_spec.bitstring.HasField("bit"):
+        raise _register_error(501, "register type not readable", dpid, full,
+                              f"{full} is not a bit<W> register; only bit<W> is read here")
+    width = reg.type_spec.bitstring.bit.bitwidth
+    if width > 64:
+        raise _register_error(501, "register too wide", dpid, full,
+                              f"{full} is bit<{width}>; bmv2's thrift carries 64 bits")
+
+    if index is not None and (start is not None or count is not None):
+        raise _register_error(400, "invalid range", dpid, full,
+                              "give `index`, or `start` and `count`, not both")
+    if index is not None:
+        start, count = index, 1
+    start = 0 if start is None else start
+    count = (size - start) if count is None else count
+    if start < 0 or count < 1:
+        raise _register_error(400, "invalid range", dpid, full,
+                              f"start {start}, count {count}: start must be >= 0, count >= 1")
+    if start + count > size:
+        raise _register_error(400, "index out of range", dpid, full,
+                              f"cells {start}..{start + count - 1} asked of {full}[{size}]",
+                              size=size)
+    if count > REGISTER_CELLS_MAX:
+        raise _register_error(413, "too many cells", dpid, full,
+                              f"{count} cells asked; at most {REGISTER_CELLS_MAX} per request",
+                              size=size)
+    if count > 1 and size > REGISTER_READ_ALL_MAX:
+        raise _register_error(413, "too many cells", dpid, full,
+                              f"{full} has {size} cells, more than {REGISTER_READ_ALL_MAX}: read "
+                              f"it one cell at a time with `index`", size=size)
+    port = getattr(client, "thrift_port", None)
+    if port is None:
+        raise _register_error(503, "no thrift port", dpid, full,
+                              f"switch {dpid} has no thrift port known to the proxy")
+
+    try:
+        if count == 1:
+            raw = [await run_in_threadpool(bm_thrift.read_register, REGISTER_THRIFT_HOST, port,
+                                           full, start, RPC_TIMEOUT_S)]
+        else:
+            raw = (await run_in_threadpool(bm_thrift.read_register, REGISTER_THRIFT_HOST, port,
+                                           full, None, RPC_TIMEOUT_S))[start:start + count]
+    except bm_thrift.ThriftUnreachable as err:
+        raise _register_error(503, "register not read", dpid, full,
+                              f"{err}. This is NOT a reading of zero", source="bmv2-thrift")
+    except bm_thrift.RegisterReadRefused as err:
+        raise _register_error(502, "register refused", dpid, full, str(err),
+                              code=bm_thrift.ERROR_NAMES.get(err.code, err.code),
+                              source="bmv2-thrift")
+    except bm_thrift.ThriftAnswerInvalid as err:
+        raise _register_error(502, "register answer invalid", dpid, full, str(err),
+                              source="bmv2-thrift")
+    if len(raw) != count:
+        raise _register_error(502, "register answer invalid", dpid, full,
+                              f"bmv2 answered {len(raw)} cells for {count} asked",
+                              source="bmv2-thrift")
+    mask = (1 << width) - 1
+    return {"dpid": dpid, "register": full, "bitwidth": width, "size": size, "start": start,
+            "values": [v & mask for v in raw], "source": "bmv2-thrift"}
 
 
 # --- programming one multicast group (TICKET-P3 2.6, G8) --------------------------------------

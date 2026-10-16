@@ -227,6 +227,7 @@ DEFAULT_SWITCH_DPIDS = switch_dpids(MODEL)
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
 from grpc_ports import GRPC_PORT_BASE  # noqa: E402
+from grpc_ports import thrift_port as thrift_port_for  # noqa: E402
 
 DEFAULT_GRPC_PORT_BASE = GRPC_PORT_BASE
 
@@ -260,6 +261,10 @@ def build_p4_client(dpid, port_base=DEFAULT_GRPC_PORT_BASE, package=None):
         # what that switches off and where it is disclosed.
         arbitration=package.arbitration,
     )
+    # [Co-developed with claude code -- Adam]
+    # GET /p4/register reads through bmv2's thrift service. p4_testbed_topo starts switch N on
+    # grpc_ports.thrift_port(N), as it starts it on the gRPC port dialled above.
+    client.thrift_port = thrift_port_for(dpid)
     # [Co-developed with claude code -- Adam]
     # TICKET-P4-roles 2.2-2. Decided HERE, the one construction site -- startup builds every
     # client through this, and readopt's factory is this same function, so a power-cycled switch
