@@ -16,8 +16,9 @@
 # the registration (a read route must stay GET-only: the health check's R3 looks for a WRITE).
 #
 # 🔴 SHARED ANCHORS. Some mutations start from exactly the anchor of an earlier one, each with its
-# own replacement (28=27, 30=29, 38=37, 44=43, 46=45, 47=45, 49=48, 51=50, 58=57), and 60's is
-# inside 59's, so check_gate_anchors.py counts fewer distinct anchors than this table has mutations.
+# own replacement (28=27, 30=29, 38=37, 44=43, 46=45, 47=45, 49=48, 51=50, 58=57, 62 inside 61,
+# 64=63), and others overlap (1 inside 31, 60 inside 59, 29 inside 65), so check_gate_anchors.py
+# counts fewer distinct anchors than this table has mutations.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a
@@ -171,19 +172,21 @@ each_mutation() {
     # ---- half one: the read must say exactly what bmv2 said ---------------------------
 
     "$m" "1. one cell is read on the event loop" "$API" \
-        '            raw = [await run_in_threadpool(bm_thrift.read_register, REGISTER_THRIFT_HOST, port,' \
-        '            raw = [bm_thrift.read_register(REGISTER_THRIFT_HOST, port,' \
+        '            raw = [await run_in_threadpool(bm_thrift.read_register_as, REGISTER_THRIFT_HOST, port,' \
+        '            raw = [bm_thrift.read_register_as(REGISTER_THRIFT_HOST, port,' \
         'test_the_thrift_read_runs_on_a_worker_thread'
 
     "$m" "2. a range is read on the event loop" "$API" \
-        '            whole = await run_in_threadpool(bm_thrift.read_register, REGISTER_THRIFT_HOST, port,' \
-        '            whole = (bm_thrift.read_register)(REGISTER_THRIFT_HOST, port,' \
+        '            whole = await run_in_threadpool(bm_thrift.read_register_as, REGISTER_THRIFT_HOST, port,' \
+        '            whole = (bm_thrift.read_register_as)(REGISTER_THRIFT_HOST, port,' \
         'test_the_range_read_runs_on_a_worker_thread_too'
 
-    "$m" "3. the route's read loses its deadline" "$API" \
-        '                                           full, start, RPC_TIMEOUT_S)]' \
-        '                                           full, start, None)]' \
-        'test_one_cell_is_one_bm_register_read_of_that_index_on_the_switchs_port'
+    # Round 3 (T3): one budget per request; a fresh full budget for the thrift read is the old
+    # per-call deadline.
+    "$m" "3. the thrift read gets a fresh budget instead of what the request has left" "$API" \
+        '                                           full, start, expected, left())]' \
+        '                                           full, start, expected, RPC_TIMEOUT_S)]' \
+        'test_the_liveness_check_and_the_read_share_one_deadline'
 
     # Round 2: one budget for the whole call, not a fresh timeout per receive.
     "$m" "4. a receive gets a fresh timeout instead of what is left of the call's" "$BMT" \
@@ -325,25 +328,30 @@ each_mutation() {
 
     # Round 2: the thrift port must be this switch's (measured: a swapped port answered 200 with
     # the other switch's cells).
-    "$m" "29. the thrift port's identity is not checked" "$API" \
-        '        if (identity.get("device_id"), identity.get("thrift_port")) != (client.device_id, port):' \
-        '        if False:' \
+    # Round 3: the identity is asked on the read's own connection, on every read.
+    "$m" "29. the thrift port's identity is not checked" "$BMT" \
+        '    if (found.get("device_id"), found.get("thrift_port")) != tuple(expected):' \
+        '    if False:' \
+        'test_the_checked_read_sends_no_register_read_to_another_switch'
+
+    "$m" "30. only the device id is checked, not the port" "$BMT" \
+        '    if (found.get("device_id"), found.get("thrift_port")) != tuple(expected):' \
+        '    if found.get("device_id") != expected[0]:' \
+        'test_the_checked_read_sends_no_register_read_to_another_switch'
+
+    "$m" "31. the route reads without asking who the switch is" "$API" \
+        '            raw = [await run_in_threadpool(bm_thrift.read_register_as, REGISTER_THRIFT_HOST, port,
+                                           full, start, expected, left())]' \
+        '            raw = [await run_in_threadpool(bm_thrift.read_register, REGISTER_THRIFT_HOST, port,
+                                           full, start, left())]' \
         'test_another_device_on_the_port_is_502_and_nothing_is_read'
 
-    "$m" "30. only the device id is checked, not the port" "$API" \
-        '        if (identity.get("device_id"), identity.get("thrift_port")) != (client.device_id, port):' \
-        '        if identity.get("device_id") != client.device_id:' \
-        'test_the_same_device_on_another_port_is_502'
-
-    "$m" "31. the identity is asked before every read" "$API" \
-        '        identity = getattr(client, "thrift_identity", None)' \
-        '        identity = None' \
-        'test_the_identity_is_asked_once_per_client'
-
-    "$m" "32. the identity is never kept on the client" "$API" \
-        '            client.thrift_identity = identity' \
-        '            pass' \
-        'test_the_identity_is_asked_once_per_client'
+    "$m" "32. a device mismatch is answered as no answer" "$API" \
+        '    except bm_thrift.ThriftDeviceMismatch as err:
+        raise _register_error(502, "thrift device mismatch",' \
+        '    except bm_thrift.ThriftDeviceMismatch as err:
+        raise _register_error(503, "thrift device mismatch",' \
+        'test_another_device_on_the_port_is_502_and_nothing_is_read'
 
     "$m" "33. bytes that cannot be decoded are reported as no answer" "$BMT" \
         '    except (TProtocolException, UnicodeDecodeError, struct.error, ValueError, OverflowError) as exc:' \
@@ -351,9 +359,11 @@ each_mutation() {
         raise ThriftUnreachable(str(exc)) from exc' \
         'test_a_version_that_is_not_thrifts_is_not_understood'
 
+    # (round 3, F4) a one-element tuple, so the mutant stays well-formed and only NEGATIVE_SIZE is lost
     "$m" "34. a negative length is reported as no answer" "$BMT" \
-        '        if exc.type in (TTransport.TTransportException.NEGATIVE_SIZE,' \
-        '        if exc.type in (' \
+        '        if exc.type in (TTransport.TTransportException.NEGATIVE_SIZE,
+                        TTransport.TTransportException.SIZE_LIMIT):' \
+        '        if exc.type in (TTransport.TTransportException.SIZE_LIMIT,):' \
         'test_a_negative_list_size_is_not_understood_and_not_unreachable'
 
     "$m" "35. thrift is imported when the module is" "$BMT" \
@@ -491,6 +501,48 @@ import thrift.Thrift  # MUTANT: a hard import again
         '    if journals is not None:
         raise _register_error(503, "replay pending",' \
         'test_another_switch_being_readopted_does_not_stop_this_read'
+
+    # ---- round 3: the liveness gate and the identity on every read ----------------------
+
+    "$m" "61. the liveness gate is gone" "$API" \
+        '    alive = await run_in_threadpool(client.probe, left())
+    if not alive.get("ok"):' \
+        '    alive = {"ok": True}
+    if not alive.get("ok"):' \
+        'test_a_switch_that_does_not_answer_p4runtime_is_503_and_thrift_is_not_asked'
+
+    "$m" "62. the liveness answer is not looked at" "$API" \
+        '    if not alive.get("ok"):' \
+        '    if False:' \
+        'test_a_switch_that_does_not_answer_p4runtime_is_503_and_thrift_is_not_asked'
+
+    "$m" "63. the liveness check runs on the event loop" "$API" \
+        '    alive = await run_in_threadpool(client.probe, left())' \
+        '    alive = client.probe(left())' \
+        'test_the_liveness_check_runs_before_every_read_on_a_worker_thread'
+
+    "$m" "64. the liveness check gets a budget of its own" "$API" \
+        '    alive = await run_in_threadpool(client.probe, left())' \
+        '    alive = await run_in_threadpool(client.probe, RPC_TIMEOUT_S)' \
+        'test_the_liveness_check_runs_before_every_read_on_a_worker_thread'
+
+    "$m" "65. the register is read before the identity is looked at" "$BMT" \
+        '    found = call(transport, "bm_mgmt_get_info")
+    if (found.get("device_id"), found.get("thrift_port")) != tuple(expected):
+        raise ThriftDeviceMismatch(found, tuple(expected))
+    if index is None:' \
+        '    if index is not None:
+        call(transport, "bm_register_read", register, index)  # MUTANT: read first
+    found = call(transport, "bm_mgmt_get_info")
+    if (found.get("device_id"), found.get("thrift_port")) != tuple(expected):
+        raise ThriftDeviceMismatch(found, tuple(expected))
+    if index is None:' \
+        'test_the_checked_read_asks_who_the_switch_is_first_on_the_same_connection'
+
+    "$m" "66. the identity asked is not the client's" "$API" \
+        '    expected = (client.device_id, port)' \
+        '    expected = (dpid + 1, port)' \
+        'test_one_cell_is_one_bm_register_read_of_that_index_on_the_switchs_port'
 
     # ---- registration --------------------------------------------------------------------
 

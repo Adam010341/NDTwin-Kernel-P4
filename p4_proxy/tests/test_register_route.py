@@ -30,6 +30,7 @@ import asyncio
 import os
 import sys
 import threading
+import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -77,9 +78,11 @@ def a_p4info():
 
 
 class ThriftDouble:
-    """Stands in for bm_thrift.read_register: answers from `cells`, or raises `error`; records each
-    call and the thread it ran on. `info` stands in for bm_thrift.device_info: it answers
-    `identity`, or raises `info_error`, and records each call."""
+    """Stands in for bm_thrift.read_register_as. On each call it first plays bm_mgmt_get_info:
+    raises `info_error` if set, records the identity asked (`info_calls`), and raises
+    ThriftDeviceMismatch when `identity` is not the expected (device id, thrift port) -- before
+    any register is read. Then it answers from `cells`, or raises `error`, recording the read
+    (`calls`) and the thread it ran on."""
 
     def __init__(self, cells=None, error=None, identity=None):
         self.cells = dict(cells or {})
@@ -90,19 +93,36 @@ class ThriftDouble:
         self.info_error = None
         self.info_calls = []
 
-    def info(self, host, port, timeout_s=None):
-        self.info_calls.append((host, port, timeout_s))
+    def __call__(self, host, port, register, index, expected, timeout_s=None):
+        self.info_calls.append((host, port, tuple(expected), timeout_s))
         if self.info_error is not None:
             raise self.info_error
-        return dict(self.identity)
-
-    def __call__(self, host, port, register, index=None, timeout_s=None):
+        if (self.identity["device_id"], self.identity["thrift_port"]) != tuple(expected):
+            raise bm_thrift.ThriftDeviceMismatch(dict(self.identity), tuple(expected))
         self.calls.append((host, port, register, index, timeout_s))
         self.threads.append(threading.get_ident())
         if self.error is not None:
             raise self.error
         values = self.cells[register]
         return values[index] if index is not None else list(values)
+
+
+class ProbeDouble:
+    """Stands in for the client's P4Runtime liveness round trip (P4RuntimeClient.probe)."""
+
+    def __init__(self, ok=True, delay=0.0):
+        self.ok, self.delay = ok, delay
+        self.calls = []
+        self.threads = []
+
+    def __call__(self, timeout_s=2.0):
+        self.calls.append(timeout_s)
+        self.threads.append(threading.get_ident())
+        if self.delay:
+            time.sleep(self.delay)
+        if self.ok:
+            return {"ok": True, "detail": "answered GetForwardingPipelineConfig"}
+        return {"ok": False, "detail": "UNAVAILABLE: failed to connect to all addresses"}
 
 
 def a_client(thrift_port=9092):
@@ -112,6 +132,7 @@ def a_client(thrift_port=9092):
     client.stub = None
     client.arbitration = True
     client.thrift_port = thrift_port
+    client.probe = ProbeDouble()
     return client
 
 
@@ -133,8 +154,8 @@ class RegisterRouteTestBase(unittest.TestCase):
     def setUp(self):
         # getattr: so that on code without the identity check these tests still run, and the ones
         # about the check go red for their own reason instead of every setUp failing.
-        saved = (api_routes.topology, api_routes.table_journals, bm_thrift.read_register,
-                 getattr(bm_thrift, "device_info", None))
+        saved = (api_routes.topology, api_routes.table_journals,
+                 getattr(bm_thrift, "read_register_as", None))
         self.addCleanup(self.restore, saved)
         self.thrift = ThriftDouble({"HcIngress.r_mark": [4737] + [0] * 14 + [7],
                                     "HcIngress.r_wide": [2 ** 63 - 1, 1, 0, 2 ** 62],
@@ -143,16 +164,16 @@ class RegisterRouteTestBase(unittest.TestCase):
                                     "HcIngress.r_65537": list(range(65537)),
                                     "HcIngress.r_big": list(range(100000)),
                                     "HcIngress.r_mid": list(range(8192))})
-        bm_thrift.read_register = self.thrift
-        bm_thrift.device_info = self.thrift.info
+        bm_thrift.read_register_as = self.thrift
         self.client = a_client()
         api_routes.topology = FakeTopology({2: self.client})
         api_routes.table_journals = None
 
     @staticmethod
     def restore(saved):
-        (api_routes.topology, api_routes.table_journals, bm_thrift.read_register,
-         bm_thrift.device_info) = saved
+        api_routes.topology, api_routes.table_journals, read_register_as = saved
+        if read_register_as is not None:
+            bm_thrift.read_register_as = read_register_as
 
     def get(self, name="HcIngress.r_mark", dpid=2, **kw):
         return asyncio.run(api_routes.register(name, dpid=dpid, index=kw.get("index"),
@@ -172,7 +193,10 @@ class TheReadingItselfTest(RegisterRouteTestBase):
 
     def test_one_cell_is_one_bm_register_read_of_that_index_on_the_switchs_port(self):
         self.get(index=15)
-        self.assertEqual(self.thrift.calls, [("127.0.0.1", 9092, "HcIngress.r_mark", 15, RPC_TIMEOUT_S)])
+        (call,) = self.thrift.calls
+        self.assertEqual(call[:4], ("127.0.0.1", 9092, "HcIngress.r_mark", 15))
+        self.assertTrue(0 < call[4] <= RPC_TIMEOUT_S, call)
+        self.assertEqual(self.thrift.info_calls[0][2], (2, 9092), "the identity asked is the client's")
 
     def test_a_zero_is_a_200(self):
         self.assertEqual(self.get(index=3)["values"], [0])
@@ -180,7 +204,7 @@ class TheReadingItselfTest(RegisterRouteTestBase):
     def test_no_index_is_the_whole_array_from_one_read_all(self):
         body = self.get()
         self.assertEqual(body["values"], [4737] + [0] * 14 + [7])
-        self.assertEqual(self.thrift.calls, [("127.0.0.1", 9092, "HcIngress.r_mark", None, RPC_TIMEOUT_S)])
+        self.assertEqual([c[:4] for c in self.thrift.calls], [("127.0.0.1", 9092, "HcIngress.r_mark", None)])
 
     def test_a_range_is_sliced_from_the_array(self):
         body = self.get(start=14, count=2)
@@ -218,9 +242,13 @@ class TheReadingItselfTest(RegisterRouteTestBase):
 
 
 class TheThriftPortMustBeThisSwitchsTest(RegisterRouteTestBase):
-    """Before the first read through a client the route asks bm_mgmt_get_info who the thrift port
-    is. Measured 2026-10-16 (LOG/r4probe0.json): without that, a client whose thrift port is another
-    bmv2's answered 200 with the other switch's cells, on both builds."""
+    """(round 3) Two checks before a thrift read, on EVERY read:
+      * the dpid's own switch answers P4Runtime now (client.probe), inside the request's deadline --
+        else 503 and thrift is not asked; and
+      * on the thrift connection itself, bm_mgmt_get_info answers this client's (device id, port)
+        -- else 502 and no register is read (bm_thrift.read_register_as).
+    Measured 2026-10-17 (LOG/r5probe-before.json): a remembered identity let a replaced process and
+    an impostor holding the port answer 200 with their own cells."""
 
     def test_another_device_on_the_port_is_502_and_nothing_is_read(self):
         self.thrift.identity["device_id"] = 3
@@ -234,34 +262,50 @@ class TheThriftPortMustBeThisSwitchsTest(RegisterRouteTestBase):
         self.assertEqual(self.refused(index=0).detail["error"], "thrift device mismatch")
         self.assertEqual(self.thrift.calls, [])
 
-    def test_the_identity_is_asked_once_per_client(self):
+    def test_the_identity_is_asked_on_every_read(self):
         self.get(index=0)
         self.get(index=1)
-        self.assertEqual(self.thrift.info_calls, [("127.0.0.1", 9092, RPC_TIMEOUT_S)])
+        self.assertEqual([c[2] for c in self.thrift.info_calls], [(2, 9092), (2, 9092)])
         self.assertEqual(len(self.thrift.calls), 2)
 
-    def test_a_mismatch_is_remembered_for_that_client(self):
-        self.thrift.identity["device_id"] = 3
-        self.refused(index=0)
-        self.thrift.identity["device_id"] = 2           # the port's owner changed; this client's verdict did not
+    def test_a_process_that_replaced_the_switch_after_a_read_is_caught(self):
+        self.assertEqual(self.get(index=0)["values"], [4737])
+        self.thrift.identity["device_id"] = 3           # another process took the port since
         self.assertEqual(self.refused(index=0).detail["error"], "thrift device mismatch")
-        self.assertEqual(len(self.thrift.info_calls), 1)
+        self.thrift.identity["device_id"] = 2           # and nothing about the client is pinned
+        self.assertEqual(self.get(index=0)["values"], [4737])
 
-    def test_a_new_client_for_the_dpid_asks_again(self):
-        # A readopt builds a new client object: the switch behind the port may have changed.
-        self.get(index=0)
-        api_routes.topology = FakeTopology({2: a_client()})
-        self.get(index=0)
-        self.assertEqual(len(self.thrift.info_calls), 2)
-
-    def test_an_identity_that_cannot_be_asked_is_503_and_is_asked_again_next_time(self):
+    def test_an_identity_that_cannot_be_asked_is_503(self):
         self.thrift.info_error = bm_thrift.ThriftUnreachable("refused")
         error = self.refused(index=0)
         self.assertEqual((error.status_code, error.detail["error"]), (503, "register not read"))
         self.assertEqual(self.thrift.calls, [])
-        self.thrift.info_error = None
-        self.assertEqual(self.get(index=0)["values"], [4737])
-        self.assertEqual(len(self.thrift.info_calls), 2)
+
+    def test_a_switch_that_does_not_answer_p4runtime_is_503_and_thrift_is_not_asked(self):
+        self.client.probe.ok = False
+        error = self.refused(index=0)
+        self.assertEqual((error.status_code, error.detail["error"]), (503, "switch not reachable"))
+        self.assertIn("UNAVAILABLE", error.detail["message"])
+        self.assertEqual(self.thrift.info_calls, [], "thrift must not be asked for a switch that is gone")
+
+    def test_the_liveness_check_runs_before_every_read_on_a_worker_thread(self):
+        async def drive():
+            return threading.get_ident(), await api_routes.register(
+                "HcIngress.r_mark", dpid=2, index=0, start=None, count=None)
+        loop_thread, _b = asyncio.run(drive())
+        asyncio.run(drive())
+        self.assertEqual(len(self.client.probe.calls), 2)
+        self.assertNotEqual(self.client.probe.threads[0], loop_thread)
+        # drawn from the request's deadline, which started before it: strictly under a full budget
+        self.assertTrue(all(0 < t < RPC_TIMEOUT_S for t in self.client.probe.calls), self.client.probe.calls)
+
+    def test_the_liveness_check_and_the_read_share_one_deadline(self):
+        # (round 3, T3) one budget per request, not one per call: what the liveness check used is
+        # gone from what the thrift read may take.
+        self.client.probe.delay = 0.4
+        self.get(index=0)
+        read_budget = self.thrift.info_calls[0][3]
+        self.assertLessEqual(read_budget, RPC_TIMEOUT_S - 0.35, read_budget)
 
 
 class TheRefusalsTest(RegisterRouteTestBase):

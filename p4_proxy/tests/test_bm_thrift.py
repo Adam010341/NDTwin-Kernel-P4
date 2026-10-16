@@ -197,6 +197,25 @@ class OnTheWireTest(unittest.TestCase):
         self.assertEqual(B.call(pipe, "bm_mgmt_get_info"), {"device_id": 7, "thrift_port": 9097})
         self.assertEqual(pipe.written, GET_INFO)
 
+    def test_the_checked_read_asks_who_the_switch_is_first_on_the_same_connection(self):
+        # (round 3) bm_mgmt_get_info, then the read, in that order, on one transport.
+        pipe = Pipe(GET_INFO_REPLY + reply("bm_register_read", success_i64(4737)))
+        self.assertEqual(B.checked_read(pipe, "HcIngress.r_mark", 3, (7, 9097)), 4737)
+        self.assertEqual(pipe.written, GET_INFO + READ_3)
+
+    def test_the_checked_read_sends_no_register_read_to_another_switch(self):
+        for expected in ((8, 9097), (7, 9098)):
+            with self.subTest(expected=expected):
+                pipe = Pipe(GET_INFO_REPLY)
+                with self.assertRaises(B.ThriftDeviceMismatch):
+                    B.checked_read(pipe, "HcIngress.r_mark", 3, expected)
+                self.assertEqual(pipe.written, GET_INFO, "only the identity was asked")
+
+    def test_the_checked_whole_array_read_is_the_generated_clients_bytes(self):
+        pipe = Pipe(GET_INFO_REPLY + reply("bm_register_read_all", success_list([1, 2])))
+        self.assertEqual(B.checked_read(pipe, "HcIngress.r_mark", None, (7, 9097)), [1, 2])
+        self.assertEqual(pipe.written, GET_INFO + READ_ALL)
+
     def test_a_version_that_is_not_thrifts_is_not_understood(self):
         # 0x8002...: the strict-version marker with the wrong version -> TProtocolException.
         with self.assertRaises(B.ThriftAnswerNotUnderstood):

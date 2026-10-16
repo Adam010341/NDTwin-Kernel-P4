@@ -30,9 +30,11 @@ THE `thrift` PACKAGE IS IMPORTED ONLY WHEN A CALL IS MADE. A proxy whose interpr
 and serves everything else; only GET /p4/register answers 503 "thrift not installed"
 (ThriftNotInstalled below).
 
-Every call opens its own connection and closes it: no state is shared between the threads that
-GET /p4/register runs on. Its deadline is for the WHOLE call -- connect, send and every receive
-share one budget -- so a peer that trickles a byte at a time cannot hold a worker past it.
+Every read opens its own connection and closes it: no state is shared between the threads that
+GET /p4/register runs on, and nothing is remembered between reads -- the route's read
+(read_register_as) asks the switch who it is on that same connection, every time. Its deadline is
+for the WHOLE connection -- connect, send and every receive of both calls share one budget -- so a
+peer that trickles a byte at a time cannot hold a worker past it.
 """
 
 from __future__ import annotations
@@ -234,14 +236,20 @@ def _deadline_socket(host, port, deadline):
     return DeadlineSocket(host, port)
 
 
-def _one_call(host, port, name, register, index, timeout_s):
+def _open(host, port, timeout_s):
+    """An open buffered transport whose every step shares one `timeout_s` budget."""
     TTransport = _thrift()[7]
-    deadline = time.monotonic() + timeout_s
-    transport = TTransport.TBufferedTransport(_deadline_socket(host, port, deadline))
+    transport = TTransport.TBufferedTransport(_deadline_socket(host, port,
+                                                               time.monotonic() + timeout_s))
     try:
         transport.open()
     except (TTransport.TTransportException, OSError) as exc:
         raise ThriftUnreachable("no thrift connection to %s:%s: %s" % (host, port, exc)) from exc
+    return transport
+
+
+def _one_call(host, port, name, register, index, timeout_s):
+    transport = _open(host, port, timeout_s)
     try:
         return call(transport, name, register, index)
     finally:
@@ -250,7 +258,8 @@ def _one_call(host, port, name, register, index, timeout_s):
 
 def read_register(host, port, register, index=None, timeout_s=5.0):
     """bmv2's value of `register[index]` (an int, as bmv2's i64 carries it), or with `index` None
-    the whole array (a list). One connection, every step of it inside one `timeout_s` budget."""
+    the whole array (a list). One connection, every step of it inside one `timeout_s` budget.
+    Asks nobody who the switch is: GET /p4/register uses read_register_as."""
     if index is None:
         return _one_call(host, port, "bm_register_read_all", register, None, timeout_s)
     return _one_call(host, port, "bm_register_read", register, index, timeout_s)
@@ -260,3 +269,41 @@ def device_info(host, port, timeout_s=5.0):
     """{"device_id", "thrift_port"} of the bmv2 listening on `port` (bm_mgmt_get_info): which
     switch this thrift port actually is."""
     return _one_call(host, port, "bm_mgmt_get_info", None, None, timeout_s)
+
+
+class ThriftDeviceMismatch(RuntimeError):
+    """The thrift port answers as another switch: bm_mgmt_get_info's (device id, thrift port) is
+    not the one asked for. Nothing was read."""
+
+    def __init__(self, found, expected):
+        super().__init__("thrift port %s answers as device %s on port %s, not as device %s"
+                         % (expected[1], found.get("device_id"), found.get("thrift_port"),
+                            expected[0]))
+        self.found, self.expected = found, expected
+
+
+def read_register_as(host, port, register, index, expected, timeout_s=5.0):
+    """read_register, but only from the switch `expected` = (device id, thrift port) names.
+
+    [Co-developed with claude code -- Adam]
+    On ONE connection: bm_mgmt_get_info first, then -- only when it answers `expected` -- the
+    register read. The identity is asked on every read, never remembered, so a process that
+    replaced the switch since the last read is caught (a remembered answer was the round-2 hole:
+    a replaced process got 200 until the next readopt). Raises ThriftDeviceMismatch, and sends no
+    register read, when the answer is another switch's. One `timeout_s` budget for both calls."""
+    transport = _open(host, port, timeout_s)
+    try:
+        return checked_read(transport, register, index, expected)
+    finally:
+        transport.close()
+
+
+def checked_read(transport, register, index, expected):
+    """read_register_as's two calls on an OPEN transport: the identity, then -- only if it is
+    `expected` -- the register read."""
+    found = call(transport, "bm_mgmt_get_info")
+    if (found.get("device_id"), found.get("thrift_port")) != tuple(expected):
+        raise ThriftDeviceMismatch(found, tuple(expected))
+    if index is None:
+        return call(transport, "bm_register_read_all", register)
+    return call(transport, "bm_register_read", register, index)

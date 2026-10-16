@@ -1450,10 +1450,18 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
     comes back as 2^63 - 1 (measured on both builds, DESIGN-thrift.md), so a bit<64> register is
     refused rather than answered with a number that may be a different one.
 
-    🔴 THE THRIFT PORT MUST BE THIS SWITCH'S. Before the first read through a client, the route asks
-    the thrift service who it is (bm_mgmt_get_info) and compares its device id and thrift port
-    with the client's; the answer is kept on the client, so a readopt's new client asks again.
-    Another bmv2 listening on that port answers 502, never 200 with its cells.
+    🔴 THE THRIFT PORT MUST BE THIS SWITCH'S. Two checks, before EVERY read, nothing remembered:
+      1. the dpid's own switch answers one P4Runtime round trip (client.probe) -- else 503
+         `switch not reachable` and thrift is not asked;
+      2. on the read's own thrift connection, bm_mgmt_get_info answers this client's device id and
+         thrift port -- else 502 `thrift device mismatch` and no register is read.
+    Caught: a bmv2 on that port with another device id or port number, whenever it appears (also
+    after earlier reads); any bmv2 on that port while the dpid's switch is not answering
+    P4Runtime. NOT caught by these checks alone: a bmv2 with the SAME device id and port number
+    (a p4lang-tutorials switch numbers itself exactly as the fabric does) holding 9090 + dpid
+    while the dpid's own switch answers P4Runtime -- that rests on the premise that a switch the
+    fabric launched with --thrift-port 9090 + dpid holds that port while it runs
+    (doc/audit/2026-10-16_p4-register-read/DESIGN-thrift.md section 13 says what was measured).
 
         200  the read succeeded. A 0 is a 0: the cell holds it.
         400  `index out of range` (the array's size is in p4info and is checked before the
@@ -1468,8 +1476,12 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
              and the p4info disagree). `register answer invalid`: an answer that is not these
              calls' answer -- including a whole array of another size than p4info's, or a value
              outside bit<W>. `register answer not understood`: bytes that are not thrift at all.
-        503  `register not read`: no thrift connection, or it broke or ran out of time
-             (RPC_TIMEOUT_S for the whole call). 🔴 NOT A ZERO. `thrift not installed`: the
+        503  `switch not reachable`: the dpid's own switch does not answer P4Runtime (nothing
+             was read). `register not read`: no thrift connection, or it broke or ran out of time.
+             🔴 NOT A ZERO. The whole request -- the liveness round trip, then the identity and
+             the read on one thrift connection -- shares ONE RPC_TIMEOUT_S budget, so a request
+             takes at most about RPC_TIMEOUT_S (5 s), plus whatever its two hops to a worker
+             thread wait for a free one. `thrift not installed`: the
              proxy's interpreter has no `thrift` package (the rest of the proxy runs). Also
              `replay pending`
              while the switch is being re-adopted (its registers are reset by the pipeline push),
@@ -1539,30 +1551,37 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
         raise _register_error(503, "no thrift port", dpid, full,
                               f"switch {dpid} has no thrift port known to the proxy")
 
+    # One budget for the whole request: the liveness round trip and the thrift connection (the
+    # identity and the read on it) share RPC_TIMEOUT_S.
+    deadline = time.monotonic() + RPC_TIMEOUT_S
+
+    def left():
+        return max(0.001, deadline - time.monotonic())
+
+    # The dpid's own P4Runtime switch must answer NOW: p4_testbed_topo launched it with
+    # --thrift-port 9090 + dpid, so while it runs that port is its own (DESIGN-thrift.md 13).
+    alive = await run_in_threadpool(client.probe, left())
+    if not alive.get("ok"):
+        raise _register_error(503, "switch not reachable", dpid, full,
+                              f"switch {dpid} does not answer P4Runtime ({alive.get('detail')}), so "
+                              f"whatever holds its thrift port cannot be taken for it; nothing "
+                              f"was read")
+    expected = (client.device_id, port)
     try:
-        identity = getattr(client, "thrift_identity", None)
-        if identity is None:
-            identity = await run_in_threadpool(bm_thrift.device_info, REGISTER_THRIFT_HOST, port,
-                                               RPC_TIMEOUT_S)
-            client.thrift_identity = identity
-        if (identity.get("device_id"), identity.get("thrift_port")) != (client.device_id, port):
-            raise _register_error(502, "thrift device mismatch", dpid, full,
-                                  f"thrift port {port} answers as device "
-                                  f"{identity.get('device_id')} on port "
-                                  f"{identity.get('thrift_port')}, not as switch {dpid}'s device "
-                                  f"{client.device_id}; nothing was read",
-                                  source="bmv2-thrift")
         if count == 1:
-            raw = [await run_in_threadpool(bm_thrift.read_register, REGISTER_THRIFT_HOST, port,
-                                           full, start, RPC_TIMEOUT_S)]
+            raw = [await run_in_threadpool(bm_thrift.read_register_as, REGISTER_THRIFT_HOST, port,
+                                           full, start, expected, left())]
         else:
-            whole = await run_in_threadpool(bm_thrift.read_register, REGISTER_THRIFT_HOST, port,
-                                            full, None, RPC_TIMEOUT_S)
+            whole = await run_in_threadpool(bm_thrift.read_register_as, REGISTER_THRIFT_HOST, port,
+                                            full, None, expected, left())
             if len(whole) != size:
                 raise _register_error(502, "register answer invalid", dpid, full,
                                       f"bmv2 answered {len(whole)} cells for an array p4info "
                                       f"declares as {size}", source="bmv2-thrift")
             raw = whole[start:start + count]
+    except bm_thrift.ThriftDeviceMismatch as err:
+        raise _register_error(502, "thrift device mismatch", dpid, full,
+                              f"{err} (switch {dpid}); nothing was read", source="bmv2-thrift")
     except bm_thrift.ThriftNotInstalled as err:
         raise _register_error(503, "thrift not installed", dpid, full, str(err),
                               source="bmv2-thrift")
