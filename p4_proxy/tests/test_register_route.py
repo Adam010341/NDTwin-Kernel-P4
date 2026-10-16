@@ -48,12 +48,14 @@ if HAVE_P4RUNTIME:
 
 
 def a_p4info():
-    """hc_main's r_mark (bit<32>, 16 cells), a 64-bit register, a 128-bit one, a big one."""
+    """hc_main's r_mark (bit<32>, 16 cells), a 64-bit register, a 128-bit one, one larger than the cell cap
+    but small enough to fetch whole, and one too big to fetch whole."""
     p4info = p4info_pb2.P4Info()
     for rid, name, alias, width, size in ((382518421, "HcIngress.r_mark", "r_mark", 32, 16),
                                           (382518422, "HcIngress.r_wide", "r_wide", 64, 4),
                                           (382518423, "HcIngress.r_huge", "r_huge", 128, 4),
-                                          (382518424, "HcIngress.r_big", "r_big", 32, 100000)):
+                                          (382518424, "HcIngress.r_big", "r_big", 32, 100000),
+                                          (382518425, "HcIngress.r_mid", "r_mid", 32, 8192)):
         r = p4info.registers.add()
         r.preamble.id, r.preamble.name, r.preamble.alias = rid, name, alias
         r.type_spec.bitstring.bit.bitwidth = width
@@ -112,7 +114,8 @@ class RegisterRouteTestBase(unittest.TestCase):
         self.addCleanup(self.restore, saved)
         self.thrift = ThriftDouble({"HcIngress.r_mark": [4737] + [0] * 14 + [7],
                                     "HcIngress.r_wide": [-1, 1, 0, 2 ** 62],
-                                    "HcIngress.r_big": list(range(100000))})
+                                    "HcIngress.r_big": list(range(100000)),
+                                    "HcIngress.r_mid": list(range(8192))})
         bm_thrift.read_register = self.thrift
         self.client = a_client()
         api_routes.topology = FakeTopology({2: self.client})
@@ -218,7 +221,11 @@ class TheRefusalsTest(RegisterRouteTestBase):
         self.assert_refused_before_the_switch(400, "invalid range", index=1, count=2)
 
     def test_more_cells_than_the_cap_is_413(self):
-        self.assert_refused_before_the_switch(413, "too many cells", name="HcIngress.r_big",
+        # r_mid (8192 cells) is small enough to fetch whole, so only the cell cap refuses it: on r_big the
+        # fetch-whole limit would refuse the same request and hide a cap that is gone.
+        error = self.assert_refused_before_the_switch(413, "too many cells", name="HcIngress.r_mid")
+        self.assertIn("at most %d" % api_routes.REGISTER_CELLS_MAX, error.detail["message"])
+        self.assert_refused_before_the_switch(413, "too many cells", name="HcIngress.r_mid",
                                               start=0, count=api_routes.REGISTER_CELLS_MAX + 1)
 
     def test_the_cap_itself_is_read(self):
