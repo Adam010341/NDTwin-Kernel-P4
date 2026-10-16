@@ -26,10 +26,10 @@
 # the translated INT entries as it holds the app's CLI-written ones, Priority included (the CLI
 # masks 10.0.1.1 to 10.0.1.0 itself); frames out are byte-identical between the two; the INT frame
 # is int_source.p4's byte for byte; the ICMP echo request AND reply h1->h2 get the shim after IPv4.
-# And one thing NOT to do on the fabric: after a bmv2 CLI table_add into these direct-counter
-# tables, bmv2's P4Runtime Read fails (INTERNAL "Table state out-of-sync with target") -- the
-# measured scope is in doc/KNOWN-ISSUES.md -- so int-v1's own runtime_cmd.sh must never be run
-# against an NDTwin fabric; the proxy's flow-stats poll is an all-tables Read with counters.
+# And one thing NOT to do on the fabric: any bmv2 P4Runtime Read that covers a table the bmv2 CLI
+# wrote into fails (INTERNAL "Table state out-of-sync with target"; doc/KNOWN-ISSUES.md B-18 has
+# the measured table), so int-v1's own runtime_cmd.sh must never be run against an NDTwin fabric:
+# the proxy's flow-stats poll is an all-tables Read.
 #
 # WHAT EACH CELL SAYS, AND WHAT IT DOES NOT:
 #
