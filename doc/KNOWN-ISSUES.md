@@ -2996,6 +2996,10 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   `slot_priority`（記錄值或 `null`）。寫入沒確認（被拒、例外、逾時）、pipeline push、readopt 換 client
   之後記錄作廢，直到那條路由下一次被寫入（proxy 自己的 refill／restore 記 10，install 記它要求的值）。501 的 `remedy` 不再寫「省略 priority」：在 OVS 上
   省略＝kernel 送 priority 0 的 strict modify，什麼都改不到。
+  ⚠️ **已知殘留**（審查 r1 m5／m7，讀碼推論、未量測）：①一個 install 寫入逾時（記錄已作廢），
+  之後 refill 重寫並記 10，**若那個逾時的 install 其實晚於 refill 才落地**，slot 裡是 app 的條目而記錄寫 10
+  ⇒ 之後 modify at 10 會改到它。②記錄假設 proxy 是這些條目**唯一的寫入者**：用 `simple_switch_CLI`
+  手寫、或另一個用同一 election id 的 P4Runtime client 寫的，proxy 看不到，記錄照舊。
   🔴 **本條（delete）狀態不變**：`delete_strict` 帶任何 priority 仍是 501。modify 這半邊**未經 live 驗證**
   （單元測試＋mutation gate＋離線 bmv2 試跑，紀錄在 `scratch/`）。
 
