@@ -163,3 +163,38 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
   - 經真的路由讀回，與 marker 的值比；
   - 在讀之前與之後跑 P4Runtime 的讀取，看會不會失同步。
 - p4lane：在拋棄式 clone 上、拿著 lock 跑。
+
+## 11. 跑了什麼（OBSERVED，都在最後一個程式碼 commit `503eb109`）
+
+- 每一步都拿著共用的 lock（`heavy-step.lock`），guard.sh 在 lock 裡面跑。log 在 LOG 底下，每份第 2 行記了 commit 與 dirty 計數。
+- 先看紅：
+  - proxy 的三個測試檔放在沒有這個功能的程式碼上（`r3B_unit_red_*.log`）：`test_register_route`／`test_bm_thrift` 因為 `bm_thrift` 不存在而在 import 時就失敗；`test_app_package_proxy` 的新測試 `AttributeError: … no attribute 'thrift_port'`。
+    - 這些紅的理由是「功能不存在」，不是各測試自己的理由；各測試自己的紅由 gate 的 47 個 mutation 證明。
+  - 健檢的 8 個新測試放在沒有改的 tools/p4_health 上（`r3B_health_red.log`）：5 failures、2 errors。綠的那個是 `test_without_the_read_route_r2_is_no_route_and_nothing_is_asked`，它守的是不變的行為。
+- 🔴 gate 抓到一個測試的漏洞：第一次跑 `mutate_p4_register_thrift.sh`（在 `8407076d`，`r3B_gate_reg.at-8407076d.out`）時，「拿掉 cell 上限」的 mutation 存活了。
+  - 原因：上限的測試用的是一個大於「整包拿」上限的陣列，被另一條規則擋下，看不出 cell 上限不見了。
+  - `503eb109` 把測試換成一個 8192 格（可以整包拿）的陣列。
+- 結果：
+
+| 檢查 | log | 結果 |
+|---|---|---|
+| `mutate_p4_register_thrift.sh` | `r3B_gate_reg.out` | `47 mutations, 0 survived` |
+| `mutate_p4_direct_counter.sh` | `r3B_gate_dc.out` | `33 mutations, 0 survived` |
+| `mutate_telemetry_by_name.sh` | `r3B_gate_tbn.out` | `23 mutations, 0 survived` |
+| `mutate_p4_priority_refusal.sh` | `r3B_gate_ppr.out` | `9 mutations, 0 survived` |
+| `mutate_table_entry.sh` | `r3B_gate_te.out` | `79 mutations, 0 survived` |
+| `mutate_table_entry_owner.sh` | `r3B_gate_teo.out` | `27 mutations, 0 survived` |
+| `mutate_table_journal.sh` | `r3B_gate_tj.out` | `193 mutations, 0 survived` |
+| `check_gate_anchors.py HEAD` | `r3B_anchors.out` | `139/139 cells ok`（多了本 gate 一格） |
+| 健檢的測試 | `r3B_health_tests.out` | cells `Ran 203 … OK`；collect `Ran 200 … OK` |
+| `test_bm_thrift.py`（綁本機的臨時埠） | `r3B_unit_bmthrift.out`（在 `8407076d`；這個檔之後沒有改） | `Ran 14 … OK` |
+| p4lane（拋棄式 clone，`mkclone.sh`，跑完刪掉） | `r3B_p4lane.out` | `FAILURES=0`；跑之前 :8081 是空的（`r3B_p4lane.ss-before.txt`） |
+
+- bmv2 trial：LOG`/trial-reg.json`（腳本 `trial_reg.py`），兩顆一樣：
+  - 讀之前：`r_mark[0]` 0、整個陣列 16 個 0；index 16 → 400 `index out of range`。
+  - marker 寫完之後：`r_mark[0]` → `[4737]`，整個陣列 `[4737, 0, …]`，`start 0 count 2` → `[4737, 0]`，alias `r_mark` 一樣；每次讀 1–4 ms。
+  - P4Runtime 的讀取（`read_table_entries`、`GET /p4/direct_counter`）在 thrift 讀之前、之後、健檢 observer 之後、SIGCONT 之後都成功。
+  - 健檢的 `observe_r2` 原封不動地跑：R2 **GREEN**，「NDTwin's register read equals the value the marker wrote」；oracle `{"value": 4737}`；SC-reg `{"chosen": 4737, "register": 4737}` 通過；openapi 裡 `/p4/register` 只有 GET。
+    - R2 的 gate（PL1、T1、TP1）在拋棄式交換機上是手動設成 GREEN 的，不是量出來的。
+  - 交換機 SIGSTOP 時（只對自己起的 pid）：5.0 s 回 503 `register not read`。
+- 沒有驗的：live lab；硬體 target；一台慢慢吐 byte 的交換機（socket timeout 是每一步 5 s，不是整次）；大陣列的延遲；bit<64> 的值在真的 bmv2 上（只有單元測試）。
