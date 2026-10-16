@@ -1335,13 +1335,17 @@ async def direct_counter(name: str, dpid: int):
         404  an unknown dpid, or a name that is not a direct counter of this switch's p4info --
              `error: "indexed counter"`, pointing at GET /p4/counter, when it is an indexed one.
              Nothing was read.
-        502  `direct counter not rendered`: the switch answered, and its answer does not fit
-             this switch's p4info.
+        502  `direct counter not rendered`: the switch answered, and rendering its answer
+             raised. Only then: a match-field id this p4info does not know does not raise, it
+             comes back under a null field name, as read_table_entries does (two unknown ids
+             on one entry collide and one is lost).
         503  `direct counter not read`: the read failed, its deadline (RPC_TIMEOUT_S) included.
              🔴 NOT AN EMPTY TABLE AND NOT A ZERO. `replay pending`: the switch is being
              re-adopted (POST /p4/readopt) and its tables are being put back, so a read now
-             would report entries missing that are about to return; nothing was read. Also
-             503 before the proxy has a topology.
+             would report entries missing that are about to return; nothing was read. It is
+             checked once, before the read (POST /p4/table_entry checks again under the
+             journal's lock): a readopt that starts after the check can still meet this read
+             mid-push (DESIGN.md section 2.2). Also 503 before the proxy has a topology.
 
     Every direct counter can be read, NDTwin's own included: the owner rule (409 owned_by_ndtwin)
     is about writes, and GET /stats/flow already reports NDTwin's direct counters. Works under an

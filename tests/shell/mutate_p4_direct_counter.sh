@@ -17,13 +17,14 @@
 # switch refused while one is re-adopted (half two). A gate with only the first kind would pass
 # every one of the second. Then the 404 pointers, each both ways, and the registration.
 #
-# 🔴 SHARED ANCHORS. Some mutations start from the same text, each with its own replacement:
-# the byte and packet lines (bytes-as-packets and the uncounted unit), the indexed-counter
-# pointer (removed, and direct-first dropped), the replay check (removed, widened, and an
-# external refusal inserted before it), GET /p4/counter's pointer (removed, widened), the 503 of
-# a failed read (answered 200, and an empty table sent there too), the registration (removed,
-# made greedy), and the read line (moved onto the loop; an owner check inserted before it). So
-# check_gate_anchors.py counts fewer DISTINCT anchors than this table has mutations.
+# 🔴 SHARED ANCHORS. Five mutations start from exactly the anchor of an earlier one, each with its
+# own replacement: 15 repeats 10 (the byte line), 23 and 25 repeat 22 (the replay check), 28
+# repeats 27 (the indexed-counter pointer), 30 repeats 29 (GET /p4/counter's pointer). So
+# check_gate_anchors.py counts five fewer DISTINCT anchors than this table has mutations. Other
+# anchors overlap without being identical (3 inside 24, 21 inside 26, 32 inside 31). Mutation 32
+# gives the same signal as 31: the route's path changes, TheRouteIsRegisteredTest finds no
+# /p4/direct_counter/{name} and raises IndexError, so a greedy parameter's wrong answer is not
+# itself tested.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a

@@ -11,11 +11,15 @@ bmv2 answers a DirectCounterEntry read -- one entry or the whole table -- on bot
 and bmv2-fast (doc/audit/2026-10-16_p4-register-read/DESIGN.md section 1), so the route reads the
 whole table in ONE wildcard RPC and the app finds its entry by match.
 
-The three outcomes are GET /p4/counter's:
+The outcomes, GET /p4/counter's three and two more:
 
-    200  a real reading, INCLUDING a truthful (0, 0) and an empty table
+    200  a real reading, INCLUDING a truthful (0, 0) and an empty table; null, never 0, for a
+         unit the counter does not keep or an entry the switch sent no data for
     404  an unknown dpid, or a name this switch's p4info does not list as a direct counter
-    503  the read failed (a deadline included) -- NOT a zero
+         (`indexed counter`, pointing at GET /p4/counter, when it is an indexed one)
+    502  the switch answered and rendering the answer raised
+    503  the read failed (a deadline included) -- NOT a zero; or `replay pending` while the
+         switch is being re-adopted; or no topology yet
 
 The handler is called directly, as in test_counter_route.py and for its reason (starlette's
 TestClient does not import in this venv), and TheRouteIsRegisteredTest asserts the decorator.

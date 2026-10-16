@@ -13,7 +13,7 @@
 
 - 腳本：LOG`/measure.py`（一次性，不是 gate 的對象）。
   - 第一輪：LOG`/measure.json`（`measure.out` `rc=0`）。
-  - 第二輪在最後的 head 重跑一次：LOG`/measure-r2.json`，header 有 commit 與 p4c 版本。
+  - 第二輪在最後一個程式碼 commit（`ff028f10`）重跑一次：LOG`/measure-r2.json`，header 有 commit 與 p4c 版本。
 - 程式：`tools/p4_health/exercise/src/hc_main.p4`，用 `p4c-bm2-ss --p4v 16`（Version 1.2.5.15，SHA 5b948b037a）編，不帶 define，與 S0 的 `build/hc_main` 同樣的編法。
   - 它有 `register<bit<32>>(16) HcIngress.r_mark`、`direct_counter HcIngress.dc_k2`（掛在 `HcIngress.t_dcount`）、`counter(1024) HcIngress.c_in`（對照用）。
 - 交換機：`tools/p4_health/throwaway.py` 的規則。pcap 模式、不用 root、argv0 `ndt-hc-regread-bmv2`、thrift 29500、gRPC 29650（量之前檢查過是空的，且在 lab 的埠外面）、用自己的 pid 停。兩顆 binary：
@@ -107,11 +107,21 @@ GET /p4/direct_counter/{name}?dpid=<n>
 | 404 `unknown switch` | dpid 不認得 | 沒有 |
 | 404 `indexed counter` | 名字不是這台的 direct counter，而是 indexed counter；訊息指到 `GET /p4/counter/<name>?dpid=&index=` | 沒有 |
 | 404 `not in this pipeline` | 名字兩種都不是 | 沒有 |
-| 502 `direct counter not rendered` | 交換機回了，但回答對不上這台的 p4info（例如 match 欄位 id 不認得） | 有 |
+| 502 `direct counter not rendered` | 交換機回了，但把回答渲染成 body 時丟了例外。**只有渲染丟例外才是 502**（見表下） | 有 |
 | 503 `direct counter not read` | RPC 失敗（含 deadline 到了）。**明說不是 0、不是空表** | 有 |
-| 503 `replay pending` | 這台正在 readopt（`table_journals.pending(dpid)`），表還在放回去，與 `POST /p4/table_entry` 同一個窗 | 沒有 |
+| 503 `replay pending` | 這台正在 readopt（`table_journals.pending(dpid)`），表還在放回去。只在讀之前查一次（見表下） | 沒有 |
 | 503 `no topology` | proxy 還沒有 topology | 沒有 |
 
+- **502 不是「對不上 p4info」的總稱**：
+  - 一個 match 欄位 id 這台的 p4info 不認得時，不會丟例外：`_match_field_name` 回 None，`_match_as_dict` 把它放在 None 這個鍵底下。所以那一筆照樣 200 回來，欄位名是 null。這與 `read_table_entries` 的做法相同，是刻意的。
+  - 同一筆 entry 有兩個不認得的 id 時，兩個都放在同一個 None 鍵下，後一個蓋掉前一個，少一個欄位。
+  - 改成遇到不認得的 id 就丟例外（→ 502），是以後的程式碼改動，這次沒有做。
+  - 測試裡的 502 是用一個會丟例外的 `_match_as_dict` 替身造出來的（`test_an_answer_this_p4info_cannot_render_is_502_and_not_a_read_failure`）。
+- **`replay pending` 只在讀之前查一次**：
+  - `POST /p4/table_entry` 是在 journal 的 lock 底下再查一次（`rule_journal.write_and_journal`）。這條讀取路由沒有那個 lock，查完就讀。
+  - 留下的窗：查完之後讀取被拖延超過約 1 s 時，`POST /p4/readopt` 可能剛好設了 pending、等 1 s、推 pipeline（表清空）。這時這次讀取還拿著舊的 client，會讀到清空的表，回 200 `entries: []` 或 0/0，直到舊 client 被停掉為止。
+  - 發生的頻率沒有量。
+  - 以後的修法：讀完再查一次 pending；或給 readopt 一個 generation，讀之前與讀之後比對。
 - 一個名字同時是 direct counter 又是某個 indexed counter 的 alias 時，這條路由**先看 direct**，照讀；只有不是 direct counter 的名字才會被指去 `/p4/counter`。
 - `GET /p4/counter/<direct counter 的名字>` 仍是 404，但 `error` 改成 `direct counter`，訊息指到 `GET /p4/direct_counter/<name>`。
   - 今天它回 `not in this pipeline`，那是錯的：這個 counter 在 pipeline 裡，只是沒有 index。
@@ -207,8 +217,9 @@ GET /p4/direct_counter/{name}?dpid=<n>
 ## 6. 測試與 gate
 
 - 單元測試：`p4_proxy/tests/test_direct_counter_route.py`（新）。
-  - 第一輪的 21 個在沒有這個功能的程式碼上看過紅（`unit_red_before_feature.log`），但其中三個（unknown dpid、不是 direct counter、沒有 topology）紅的理由是「路由不存在」，不是它自己的理由。它們自己的紅由第二輪的三個 mutation 證明（unknown switch → 200 空表、不認得的 direct counter → 空表、沒有 topology → 404）。
-  - 第二輪加的測試在第一輪的 head（`bce1b6d3`）上看紅（`unit_red_r2_at_bce1b6d3.log`：30 個裡 4 failures、3 errors，各是它自己的理由）。
+  - 第一輪的 21 個裡有 20 個在沒有這個功能的程式碼上看過紅（`unit_red_before_feature.log`）。綠的那個是 `test_a_name_that_is_neither_keeps_the_old_404`：它守的是舊行為，由 mutation 29 證明它會紅。紅的 20 個裡，但其中三個（unknown dpid、不是 direct counter、沒有 topology）紅的理由是「路由不存在」，不是它自己的理由。它們自己的紅由第二輪的三個 mutation 證明（unknown switch → 200 空表、不認得的 direct counter → 空表、沒有 topology → 404）。
+  - 第二輪加的測試在第一輪的 head（`bce1b6d3`）上看紅（`unit_red_r2_at_bce1b6d3.log`：30 個裡 4 failures、3 errors）。
+    - packets-only 與 bytes-only 兩個測試紅的理由是 `KeyError: 'unit'`（舊碼沒有 `unit` 欄），不是 null 的規則本身；null 的規則由 mutation 10–12 證明。其餘的紅是各自的理由。
   - 在舊碼上本來就綠的有三個，它們的紅由 mutation 證明：
     - 兩個 thread 測試：舊碼本來就用 `run_in_threadpool`；由拿掉它的兩個 mutation 證明。
     - `test_another_switch_being_readopted_does_not_stop_this_read`：它守的是「不要擋太寬」，舊碼根本不擋；由把檢查放寬到每台交換機的 mutation 證明。
@@ -221,7 +232,7 @@ GET /p4/direct_counter/{name}?dpid=<n>
 
 ### 7.1 ndtwin_switch 上的 priority（OBSERVED）
 
-- LOG`/trial-ndt-r0.json`（在 `bce1b6d3`，腳本 `trial_ndt.py`）與 `trial-ndt-r2.json`（最後的 head）。
+- LOG`/trial-ndt-r0.json`（在 `bce1b6d3`，腳本 `trial_ndt.py`）與 `trial-ndt-r2.json`（最後一個程式碼 commit `ff028f10`）。
 - 真的 `P4RuntimeClient`，綁 BASELINE，推已經編好的 `ndtwin_switch.json`（sha256 `f1c6e096…`）：
   - `insert_5tuple_rule` 兩筆，match 一樣（dst 10.0.0.2、proto 17、l4 dport 40012），priority 100 與 200；
   - `insert_ipv4_route` 一筆 10.0.0.3/32；
@@ -232,7 +243,7 @@ GET /p4/direct_counter/{name}?dpid=<n>
   - thrift：`table_dump` 的 priority 是 PI 換算過的（2147483547 對 100、2147483447 對 200，即 2^31−1−p），`counter_read` 依 handle 是 `0/0`、`201/3`、`134/2`，與 P4Runtime 一致。
   - `TableEntry`＋`counter_data`（`read_table_entries` 的形狀）回同樣的 priority 與數字。
 - ⇒ 路由回的 priority 是交換機的，不是補的，不必另外說明。
-- 在最後的 head（`ff028f10`）重跑，路由的回答（兩顆一樣）：flow_5tuple `unit: both`，`(priority 100, 0 B, 0 pkt)`、`(200, 201, 3)`；ipv4_lpm `(0, 134, 2)`。與 thrift 依 handle 讀到的一致。
+- 在最後一個程式碼 commit（`ff028f10`）重跑，路由的回答（兩顆一樣）：flow_5tuple `unit: both`，`(priority 100, 0 B, 0 pkt)`、`(200, 201, 3)`；ipv4_lpm `(0, 134, 2)`。與 thrift 依 handle 讀到的一致。
 
 ### 7.2 hc_main 上的路由（OBSERVED）
 
@@ -246,7 +257,7 @@ GET /p4/direct_counter/{name}?dpid=<n>
 ### 7.4 記下、沒有做的
 
 - 一個在 proxy 重啟後還沒有連上的交換機，讀取回 404 `unknown switch`，不是 503；這是 `topology.switches` 的事，與 `/p4/counter` 一樣，沒有改。
-- mutation 32（`{name:path}`）是弱的：測試看的是 convertor 的類別名，釘的是 decorator 的寫法，不是一個會被答錯的請求。
+- mutation 32（`{name:path}`）是弱的：路徑變了，`TheRouteIsRegisteredTest` 找不到 `/p4/direct_counter/{name}`，在 `[0]` 上丟 `IndexError`。這與 mutation 31（拿掉 decorator）是同一個訊號，並沒有測到 greedy 參數會答錯的請求。
 - 第一輪 SUMMARY 說「19 個 mutation」而 anchor 檢查是 `ok(17)`：差的是共用錨點，不是漏了。
 - 本文與 code 裡引的檔案行號會隨後續修改漂移；第二輪改成盡量引函式名。
 - 沒有量：1024 筆的表讀一次要多久、gRPC 4 MB 接收上限在多大的表會碰到。
