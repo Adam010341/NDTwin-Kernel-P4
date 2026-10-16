@@ -8,7 +8,7 @@
 # pipeline). The header below was written for the first seven and still describes them.
 # Adam's ruling J (2026-09-27) appended 23-28, the fixture-provenance rule, and with them a
 # fourth subject: tools/p4_exercise/tests/test_convert.py, where that rule lives.
-# The paper-apps work (int-v1, 2026-10-16) appended 38-49 and a fifth subject,
+# The paper-apps work (int-v1, 2026-10-16) appended 38-65 and a fifth subject,
 # tools/p4_exercise/thrift_cli.py, the bmv2 CLI -> P4Runtime entry translator.
 # [Co-developed with claude code -- Adam]
 #
@@ -443,7 +443,7 @@ add "39. a zero-mask ternary field is written as a field instead of omitted" \
 
 add "40. the CLI priority keeps its own direction, so the order inside a table is reversed" \
     "$THRIFT" \
-    '        p4rt = largest[entry["table"]] + 1 - prio' \
+    '        p4rt = PRIORITY_MAX - prio' \
     '        p4rt = prio + 1  # MUTANT: lower CLI priority stays lower' \
     'test_the_lower_thrift_priority_is_the_higher_p4runtime_priority'
 
@@ -513,6 +513,116 @@ add "49. an include outside the app directory is carried instead of refused" \
     '            if not real.startswith(root + os.sep):' \
     '            if False:  # MUTANT: any file the program names is the app'"'"'s' \
     'test_an_include_that_leaves_the_app_directory_is_refused'
+
+# 50-65: round 2 of the paper-apps work (review r1 of e77e35c5). The translator's own refusals that
+# had been seen red only against an API stub, and the rules added in that round: one address per
+# script, shell metacharacters in a flag, runtime_CLI's decimal IPv4 parts, the CLI priority bound
+# of the exact inverse, an lpm /0 on a table with no priority column, a script outside the app, a
+# runtime file two switches share, and the include walk's resolved-path guard. Killed by
+# tools/p4_exercise/tests/test_thrift_cli.py. [Co-developed with claude code -- Adam]
+add "50. a script whose calls name two thrift addresses is put on one switch" \
+    "$THRIFT" \
+    '    if len(distinct) > 1:' \
+    '    if False:  # MUTANT: every call reaches the same switch' \
+    'test_two_cli_addresses_in_one_script_are_refused'
+
+add "51. an address variable assigned twice is accepted" \
+    "$THRIFT" \
+    '        if assigned.get(name, 0) > 1:' \
+    '        if False:  # MUTANT: the last assignment is the only one' \
+    'test_an_address_variable_assigned_twice_is_refused'
+
+add "52. a flag carrying a shell metacharacter is read as an address" \
+    "$THRIFT" \
+    '        if bad:
+            raise Untranslatable(' \
+    '        if False:  # MUTANT: 9090;true is a port
+            raise Untranslatable(' \
+    'test_a_flag_with_a_shell_metacharacter_is_refused'
+
+add "53. a command that needs the shell to expand it is translated as written" \
+    "$THRIFT" \
+    '        if "$" in command or "`" in command:' \
+    '        if False:  # MUTANT: $X is a value' \
+    'test_a_command_that_needs_the_shell_to_expand_it_is_refused'
+
+add "54. any CLI flag is skipped as if it named the address" \
+    "$THRIFT" \
+    '            if flags[i] in _ADDRESS_FLAGS and i + 1 < len(flags):' \
+    '            if i + 1 < len(flags):  # MUTANT: --json other.json is an address' \
+    'test_a_cli_flag_other_than_the_thrift_address_is_refused'
+
+add "55. a value wider than its field is passed on" \
+    "$THRIFT" \
+    '    if value >= (1 << bitwidth):' \
+    '    if False:  # MUTANT: the writer can sort it out' \
+    'test_a_value_too_wide_for_its_field_is_refused'
+
+add "56. an lpm value with host bits is passed on" \
+    "$THRIFT" \
+    '        if value & host:' \
+    '        if False:  # MUTANT: host bits are fine' \
+    'test_an_lpm_value_with_host_bits_is_refused_not_masked'
+
+add "57. a range that runs backwards is passed on" \
+    "$THRIFT" \
+    '        if low > high:' \
+    '        if False:  # MUTANT: 200->100 is a range' \
+    'test_a_range_running_backwards_is_refused'
+
+add "58. a CLI priority above 2^31-2 is accepted and maps outside P4Runtime" \
+    "$THRIFT" \
+    '        if not 0 <= priority <= PRIORITY_MAX - 1:' \
+    '        if priority < 0:  # MUTANT: no upper bound' \
+    'test_a_cli_priority_of_two_to_the_31_minus_one_or_more_is_refused'
+
+add "59. --thrift-commands on an external control plane is accepted" \
+    "$CONVERT" \
+    '    if package["control_plane"]["mode"] == "external":
+        raise ConversionError(
+            "--thrift-commands on an external control plane' \
+    '    if False:  # MUTANT: the app controller will not mind
+        raise ConversionError(
+            "--thrift-commands on an external control plane' \
+    'test_an_external_control_plane_is_refused'
+
+add "60. IPv4 parts are read as inet_aton reads them (010 is octal)" \
+    "$THRIFT" \
+    '            octets = [int(p) for p in parts]' \
+    '            octets = list(socket.inet_aton(text))  # MUTANT: not the CLI reading' \
+    'test_a_leading_zero_in_an_ipv4_part_is_decimal_as_in_the_cli'
+
+add "61. an lpm /0 on a table with no priority column becomes an empty match" \
+    "$THRIFT" \
+    '    if not match and not needs_priority:' \
+    '    if False:  # MUTANT: pre-flight can refuse it later' \
+    'test_an_lpm_slash_zero_on_a_table_with_no_priority_column_is_refused'
+
+add "62. a CLI script outside the app directory is carried" \
+    "$CONVERT" \
+    '        if os.path.isabs(rel) or not real.startswith(root + os.sep):' \
+    '        if os.path.isabs(rel):  # MUTANT: ../ is inside enough' \
+    'test_a_script_outside_the_app_directory_is_refused'
+
+add "63. entries translated for one switch go into a runtime file another switch reads" \
+    "$CONVERT" \
+    '        if len(sharing) > 1:' \
+    '        if False:  # MUTANT: one file, one switch' \
+    'test_a_runtime_file_two_switches_share_is_refused'
+
+add "64. the include walk keys what it has seen by the lexical path" \
+    "$CONVERT" \
+    '            if real in seen:' \
+    '            if cand in seen:  # MUTANT: a symlinked directory is a new place' \
+    'test_a_directory_symlink_to_an_ancestor_does_not_grow_the_walk'
+
+add "65. an include that cannot be read escapes as a raw OSError" \
+    "$CONVERT" \
+    '        except OSError as exc:
+            raise ConversionError(f"{rel} (an included file of' \
+    '        except FileNotFoundError as exc:  # MUTANT
+            raise ConversionError(f"{rel} (an included file of' \
+    'test_an_include_that_cannot_be_read_is_a_named_refusal'
 
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'

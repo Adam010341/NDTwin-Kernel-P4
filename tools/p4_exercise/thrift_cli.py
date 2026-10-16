@@ -24,18 +24,38 @@ The CLI and P4Runtime disagree in three places, and each is translated rather th
     The same goes for a whole range and an lpm /0. An lpm value with host bits is REFUSED,
     not masked: what the switch does with one was not measured.
   * PRIORITY. In bmv2 the LOWER number wins and 0 is allowed; in P4Runtime the HIGHER number
-    wins (spec 9.1) and a ternary/range table needs 1..2^31-1. Only the order inside one table
-    means anything, so the translation is p4rt = (largest CLI priority in that table + 1) - CLI
-    priority: thrift 0 alone becomes 1, and thrift (0, 5) becomes (6, 1).
+    wins (spec 9.1) and a ternary/range table needs 1..2^31-1. bmv2's P4Runtime server stores a
+    P4Runtime priority p as bmv2 priority 2^31-1-p (measured 2026-10-16 on both bmv2 builds,
+    doc/audit/2026-10-16_p4-paper-apps/offline_int_v1.py), so the translation is the exact
+    inverse: CLI priority c -> P4Runtime 2^31-1-c, and bmv2 then holds c itself -- the number
+    the app's own script would have left there. c must be 0..2^31-2 (2^31-1 would map to
+    P4Runtime 0, which a ternary table refuses). Because bmv2 holds the CLI's own numbers, CLI
+    entries keep their native standing against entries written over P4Runtime: an ordinary
+    P4Runtime priority p is held as 2^31-1-p, a large bmv2 number, so a CLI entry beats it
+    exactly as it would on a switch programmed both ways natively. That is why a runtime file
+    may already carry P4Runtime entries in the same table: no ordering rule has to be invented
+    between the two sets (an earlier (largest + 1) - c mapping needed a refusal for that case).
   * NAMES. The CLI resolves a name the way runtime_CLI does: the full name, or a dot-separated
     suffix that exactly one object has. The entry carries the full p4info name. A suffix two
     objects share is refused with both candidates named, never picked -- int-v1's program has
     two actions called `nop`.
 
-Values follow runtime_CLI's parser: a dotted quad only for a 32-bit field, a colon MAC only for
-a 48-bit one, anything else `int(token, 0)`. A value that does not fit its field is refused. In
-the entry, a dotted or MAC value stays a string and every other value is a JSON number (a hex
-string would be read by pre-flight's exact/lpm encoder as already-encoded bytes).
+Values follow runtime_CLI's parse_param (behavioral-model tools/runtime_CLI.py): on a 32-bit
+field a dotted value is four parts, each read with int() -- so "10.0.010.1" is 10.0.10.1, not
+the octal 10.0.8.1 inet_aton would make of it -- on a 48-bit field a colon value is six groups,
+each read with int(g, 16), and anything else is int(token, 0). This parser is STRICTER than
+runtime_CLI in four places, each a value the CLI would accept and silently change: a part above
+255, a negative number (runtime_CLI writes it as 0), a value at or above 2^bitwidth that still
+fits the field's bytes, and an IPv6 address on a 128-bit field (not translated). In the entry,
+a dotted or MAC value stays a string, re-spelled canonically (and the re-spelling is noted), and
+every other value is a JSON number (a hex string would be read by pre-flight's exact/lpm encoder
+as already-encoded bytes). tools/p4_exercise/tests/test_thrift_cli.py compares this parser with
+runtime_CLI's own over a corpus.
+
+ADDRESSES. A script's `--thrift-port` / `--thrift-ip` say which switch each call reaches, and the
+package appends every translated entry to the ONE switch the flag names. So a script whose calls
+name more than one address text, or whose address variable is assigned more than once, is
+refused: its commands were written for more than one switch. The address text is in the notes.
 """
 from __future__ import annotations
 
@@ -64,8 +84,19 @@ class Untranslatable(ValueError):
 
 # --- reading the commands ----------------------------------------------------------------------
 
+#: Shell metacharacters that would end the CLI call or start another command inside a flag.
+_FLAG_METACHARS = (";", "&", "|", "`")
+#: `$NAME` or `${NAME}` inside an address text.
+_VAR_REF = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?")
+
+
 def commands_from_text(text, source):
-    """[(line number, CLI command)] out of a commands file or a CLI shell script.
+    """[(line number, CLI command)] -- read_script's commands, for callers that need no notes."""
+    return read_script(text, source)[0]
+
+
+def read_script(text, source):
+    """([(line number, CLI command)], [notes]) out of a commands file or a CLI shell script.
 
     A path ending in `.sh` is a script: blank lines, comments, the shebang and plain
     `NAME=value` assignments are skipped, every `simple_switch_CLI ... <<< "cmd"` contributes
@@ -73,9 +104,13 @@ def commands_from_text(text, source):
     a loop, an `echo` or a `source` would be a command the switch got that nobody can see here.
     A command that needs the shell to expand it (`$X`) is refused for the same reason. Any other
     path is a plain commands file, one CLI command per line, `#` comments allowed.
+
+    Every CLI call of a script must name the same address text (`--thrift-port X` /
+    `--thrift-ip Y`, or none), and a variable that text uses must be assigned once: the package
+    appends every entry to one switch (module docstring, ADDRESSES).
     """
     shell = str(source).endswith(".sh")
-    out = []
+    out, addresses, assigned = [], [], {}
     for number, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -84,6 +119,8 @@ def commands_from_text(text, source):
             out.append((number, line))
             continue
         if _ASSIGNMENT.match(line):
+            name = line.split("=", 1)[0]
+            assigned[name] = assigned.get(name, 0) + 1
             continue
         m = _CLI_CALL.match(line)
         if m is None:
@@ -92,9 +129,17 @@ def commands_from_text(text, source):
                 f"\"command\"` call nor a variable assignment. This script is read, not run, "
                 f"so a line whose effect cannot be seen here is refused")
         flags = m.group(1).split()
+        bad = [f for f in flags if any(c in f for c in _FLAG_METACHARS)]
+        if bad:
+            raise Untranslatable(
+                f"{source} line {number}: simple_switch_CLI flag {bad[0]!r} carries a shell "
+                f"metacharacter ({' '.join(_FLAG_METACHARS)}): the shell would run something "
+                f"else there, and this script is read, not run")
+        address = []
         i = 0
         while i < len(flags):
             if flags[i] in _ADDRESS_FLAGS and i + 1 < len(flags):
+                address += flags[i:i + 2]
                 i += 2
                 continue
             raise Untranslatable(
@@ -107,7 +152,27 @@ def commands_from_text(text, source):
                 f"{source} line {number}: {command!r} needs the shell to expand it ($ or `), "
                 f"and this script is read, not run")
         out.append((number, command))
-    return out
+        addresses.append((number, " ".join(address) or "(no address flag: the CLI's default)"))
+    notes = []
+    distinct = sorted({a for _n, a in addresses})
+    if len(distinct) > 1:
+        raise Untranslatable(
+            f"{source}: its CLI calls name {len(distinct)} different addresses {distinct} -- "
+            f"commands written for more than one switch, and the package would put every one "
+            f"of them on the single switch this file is named for")
+    for name in sorted({v for a in distinct for v in _VAR_REF.findall(a)}):
+        if assigned.get(name, 0) > 1:
+            raise Untranslatable(
+                f"{source}: the address variable {name} is assigned {assigned[name]} times, so "
+                f"the calls may reach different switches; the package would put them on one")
+    if distinct:
+        notes.append(f"{source}: every CLI call addresses `{distinct[0]}`; the entries go to "
+                     f"the switch this file is named for")
+    elif shell:
+        notes.append(f"{source}: no CLI call in the script")
+    else:
+        notes.append(f"{source}: a plain commands file, which names no address")
+    return out, notes
 
 
 # --- the program's names ------------------------------------------------------------------------
@@ -174,24 +239,31 @@ def _parse(token, bitwidth, what):
     """(int value, JSON spelling) for one CLI value of a bit<bitwidth> field."""
     text = token.strip()
     if "." in text:
-        if bitwidth != 32:
-            raise Untranslatable(f"{what}: {text!r} is an IPv4 address and the field is "
-                                 f"bit<{bitwidth}>")
+        # runtime_CLI.ipv4Addr_to_bytes: exactly four parts, each int(part) -- decimal, so a
+        # leading zero is not octal. Only on a 32-bit field; elsewhere the CLI's int() fails.
+        parts = text.split(".")
+        if bitwidth != 32 or len(parts) != 4:
+            raise Untranslatable(f"{what}: {text!r} is not a dotted quad for a bit<{bitwidth}> "
+                                 f"field")
         try:
-            value = int.from_bytes(socket.inet_aton(text), "big")
-        except OSError:
+            octets = [int(p) for p in parts]
+        except ValueError:
             raise Untranslatable(f"{what}: {text!r} is not an IPv4 address")
-        if text.count(".") != 3:
-            raise Untranslatable(f"{what}: {text!r} is not a dotted quad")
-        return value, "ipv4"
+        if any(not 0 <= o <= 255 for o in octets):
+            raise Untranslatable(f"{what}: {text!r} has a part outside 0..255")
+        return int.from_bytes(bytes(octets), "big"), "ipv4"
     if ":" in text:
+        # runtime_CLI.macAddr_to_bytes: six groups, each int(group, 16). Only on a 48-bit field.
         groups = text.split(":")
-        if bitwidth != 48 or len(groups) != 6 or any(len(g) != 2 for g in groups):
+        if bitwidth != 48 or len(groups) != 6:
             raise Untranslatable(f"{what}: {text!r} is not a MAC for a bit<{bitwidth}> field")
         try:
-            return int("".join(groups), 16), "mac"
+            octets = [int(g, 16) for g in groups]
         except ValueError:
             raise Untranslatable(f"{what}: {text!r} is not a MAC")
+        if any(not 0 <= o <= 255 for o in octets):
+            raise Untranslatable(f"{what}: {text!r} has a group outside 00..ff")
+        return int.from_bytes(bytes(octets), "big"), "mac"
     try:
         value = int(text, 0)
     except ValueError:
@@ -208,6 +280,14 @@ def _fits(value, bitwidth, what):
     return value
 
 
+def _respelled(token, value, form, what, notes):
+    """The canonical JSON spelling, and a note when it is not the token as written."""
+    spelled = _spell(value, form)
+    if form != "int" and spelled != token.strip():
+        notes.append(f"{what}: {token} read as {spelled} (runtime_CLI's reading)")
+    return spelled
+
+
 def _spell(value, form):
     if form == "ipv4":
         return socket.inet_ntoa(value.to_bytes(4, "big"))
@@ -222,7 +302,7 @@ def _key(field, token, where, notes):
     what = f"{where} {name}"
     if kind == "EXACT":
         value, form = _parse(token, width, what)
-        return _spell(_fits(value, width, what), form)
+        return _respelled(token, _fits(value, width, what), form, what, notes)
     if kind == "LPM":
         if "/" not in token:
             raise Untranslatable(f"{what}: an lpm key is written value/prefix_len, got {token!r}")
@@ -245,7 +325,7 @@ def _key(field, token, where, notes):
             notes.append(f"{what}: {token} matches everything; omitted (P4Runtime spells "
                          f"\"don't care\" by leaving the field out, match_shape V5)")
             return None
-        return [_spell(value, form), plen]
+        return [_respelled(text, value, form, what, notes), plen]
     if kind == "TERNARY":
         if "&&&" not in token:
             raise Untranslatable(f"{what}: a ternary key is written value&&&mask, got {token!r}")
@@ -263,7 +343,8 @@ def _key(field, token, where, notes):
             notes.append(f"{what}: {token} -> {_spell(masked, form)} under mask {mask:#x}: "
                          f"value masked (the CLI's switch matches value & mask; P4Runtime "
                          f"refuses a value bit outside its mask, match_shape V3)")
-        return [_spell(masked, form), mask]
+        return [_respelled(vtext, masked, form, what, notes) if masked == value
+                else _spell(masked, form), mask]
     if kind == "RANGE":
         if "->" not in token:
             raise Untranslatable(f"{what}: a range key is written low->high, got {token!r}")
@@ -283,7 +364,7 @@ def _key(field, token, where, notes):
 
 # --- commands -------------------------------------------------------------------------------
 
-def _params(action_name, params, tokens, where):
+def _params(action_name, params, tokens, where, notes):
     if len(tokens) != len(params):
         raise Untranslatable(
             f"{where}: {action_name} takes {len(params)} parameter(s) "
@@ -292,7 +373,7 @@ def _params(action_name, params, tokens, where):
     for (pname, width), token in zip(params, tokens):
         what = f"{where} parameter {pname}"
         value, form = _parse(token, width, what)
-        out[pname] = _spell(_fits(value, width, what), form)
+        out[pname] = _respelled(token, _fits(value, width, what), form, what, notes)
     return out
 
 
@@ -326,20 +407,30 @@ def _table_add(words, schema, where, notes):
             priority = int(tail[-1])
         except ValueError:
             raise Untranslatable(f"{where}: priority {tail[-1]!r} is not an integer")
-        if priority < 0:
-            raise Untranslatable(f"{where}: priority {priority} is negative")
+        if not 0 <= priority <= PRIORITY_MAX - 1:
+            raise Untranslatable(
+                f"{where}: CLI priority {priority} is outside 0..{PRIORITY_MAX - 1}; it maps to "
+                f"P4Runtime {PRIORITY_MAX} - 1 - priority, which must be 1..{PRIORITY_MAX}")
         tail = tail[:-1]
     match = {}
     for field, token in zip(fields, keys):
         value = _key(field, token, where, notes)
         if value is not None:
             match[field[0]] = value
+    if not match and not needs_priority:
+        # P4Runtime has no spelling for "every packet" on a table without a priority column
+        # except the default action; pre-flight refuses an empty match there (preflight.py
+        # check_entry), and so does this, before a package is written around it.
+        raise Untranslatable(
+            f"{where}: every key of {table} is don't-care (an lpm /0), and on a table with no "
+            f"priority column P4Runtime can only say that as the default action -- write it as "
+            f"`table_set_default {head[0]} {head[1]} ...`")
     entry = {"table": table, "match": match, "action_name": action,
-             "action_params": _params(action, schema.actions[action], tail, where)}
+             "action_params": _params(action, schema.actions[action], tail, where, notes)}
     return entry, priority
 
 
-def _table_set_default(words, schema, where):
+def _table_set_default(words, schema, where, notes):
     if len(words) < 3:
         raise Untranslatable(f"{where}: table_set_default <table> <action> <params>")
     table = schema.table(words[1])
@@ -347,7 +438,8 @@ def _table_set_default(words, schema, where):
     if action not in schema.tables[table]["actions"]:
         raise Untranslatable(f"{where}: {table} does not take action {action}")
     return {"table": table, "default_action": True, "action_name": action,
-            "action_params": _params(action, schema.actions[action], words[3:], where)}
+            "action_params": _params(action, schema.actions[action], words[3:], where,
+                                     notes)}
 
 
 def translate(commands, schema):
@@ -368,7 +460,7 @@ def translate(commands, schema):
             if verb == "table_add":
                 entry, prio = _table_add(words, schema, where, notes)
             elif verb == "table_set_default":
-                entry, prio = _table_set_default(words, schema, where), None
+                entry, prio = _table_set_default(words, schema, where, notes), None
             else:
                 raise Untranslatable(
                     f"line {number}: {verb!r} is not translated -- only "
@@ -381,19 +473,12 @@ def translate(commands, schema):
         entries.append(entry)
         cli_priority.append(prio)
 
-    largest = {}
-    for entry, prio in zip(entries, cli_priority):
-        if prio is not None:
-            largest[entry["table"]] = max(prio, largest.get(entry["table"], prio))
     for entry, prio in zip(entries, cli_priority):
         if prio is None:
             continue
-        p4rt = largest[entry["table"]] + 1 - prio
-        if not 1 <= p4rt <= PRIORITY_MAX:
-            raise Untranslatable(f"{entry['table']}: priority {prio} maps to {p4rt}, outside "
-                                 f"P4Runtime's 1..{PRIORITY_MAX}")
+        p4rt = PRIORITY_MAX - prio
         entry["priority"] = p4rt
         notes.append(f"{entry['table']}: CLI priority {prio} -> P4Runtime priority {p4rt} "
-                     f"(bmv2's CLI: lower wins; P4Runtime: higher wins; order kept within the "
-                     f"table, largest CLI priority here {largest[entry['table']]})")
+                     f"(= 2^31-1-{prio}; bmv2 stores P4Runtime p as 2^31-1-p, so it holds "
+                     f"{prio}, the CLI's own number)")
     return entries, notes

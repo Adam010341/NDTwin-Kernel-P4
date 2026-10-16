@@ -615,11 +615,18 @@ def _local_includes(exercise_dir, p4_rel):
     Only `#include` lines count: a name in a comment is not an include.
     """
     root = os.path.realpath(exercise_dir)
-    out, seen, todo = [], {p4_rel}, [p4_rel]
+    # `seen` is keyed by the RESOLVED file: keyed by the lexical path, a directory symlink that
+    # points at an ancestor makes include/include/include/... a new name every round, until the
+    # path is too long to open.
+    out, seen, todo = [], {os.path.realpath(os.path.join(exercise_dir, p4_rel))}, [p4_rel]
     while todo:
         rel = todo.pop()
-        with open(os.path.join(exercise_dir, rel), encoding="utf-8", errors="replace") as fh:
-            text = fh.read()
+        try:
+            with open(os.path.join(exercise_dir, rel), encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError as exc:
+            raise ConversionError(f"{rel} (an included file of {p4_rel}) cannot be read: "
+                                  f"{type(exc).__name__}: {exc}") from exc
         for name in _QUOTED_INCLUDE.findall(text):
             cand = os.path.normpath(os.path.join(os.path.dirname(rel), name))
             real = os.path.realpath(os.path.join(exercise_dir, cand))
@@ -629,9 +636,9 @@ def _local_includes(exercise_dir, p4_rel):
                 raise ConversionError(
                     f"{rel} includes {name!r}, which resolves to {real}, outside {exercise_dir}. "
                     f"A package carries the app's own files only")
-            if cand in seen:
+            if real in seen:
                 continue
-            seen.add(cand)
+            seen.add(real)
             out.append((os.path.join(exercise_dir, cand), cand))
             todo.append(cand)
     return out
@@ -863,6 +870,7 @@ def apply_thrift_commands(exercise_dir, package, copies, mapping):
             "every table and NDTwin writes none, so translated entries would never be written")
     package = dict(package)
     package["source"] = dict(package["source"], thrift_commands=dict(sorted(mapping.items())))
+    root = os.path.realpath(exercise_dir)
     rewrites, report = {}, {}
     for name in sorted(mapping, key=lambda n: int(by_name[n])):
         dpid = by_name[name]
@@ -877,29 +885,40 @@ def apply_thrift_commands(exercise_dir, package, copies, mapping):
                 f"--thrift-commands {name}={rel}: {name} has no runtime_json to carry the "
                 f"translated entries; this flag appends to the app's own runtime file")
         source_abs = os.path.join(exercise_dir, rel)
-        if os.path.isabs(rel) or not os.path.isfile(source_abs):
+        real = os.path.realpath(source_abs)
+        if os.path.isabs(rel) or not real.startswith(root + os.sep):
+            # The script is copied into the package at this same relative path, so one that
+            # resolves outside the app would be written outside the package too.
+            raise ConversionError(f"--thrift-commands {name}={rel}: resolves to {real}, outside "
+                                  f"{exercise_dir}; the package carries the app's own files only")
+        if not os.path.isfile(real):
             raise ConversionError(f"--thrift-commands {name}={rel}: no such file under "
                                   f"{exercise_dir}")
-        with open(source_abs, encoding="utf-8") as fh:
+        sharing = sorted(package["switches"][d]["name"] for d in package["switches"]
+                         if package["switches"][d].get("entries") == spec["entries"])
+        if len(sharing) > 1:
+            # The smaller of the two fixes (refuse, rather than give each switch its own copy):
+            # the translated entries are for ONE switch, and appending them to a file several
+            # switches read would install them on all of them.
+            raise ConversionError(
+                f"--thrift-commands {name}={rel}: {spec['entries']} is the runtime file of "
+                f"{sharing}, so entries translated for {name} would be installed on every one of "
+                f"them. Give {name} its own runtime_json in the topology first")
+        with open(real, encoding="utf-8") as fh:
             text = fh.read()
         schema = thrift_cli.schema_from_p4info_path(
             os.path.join(exercise_dir, spec["pipeline"]["p4info"]))
         try:
-            entries, notes = thrift_cli.translate(thrift_cli.commands_from_text(text, rel),
-                                                  schema)
+            commands, script_notes = thrift_cli.read_script(text, rel)
+            entries, notes = thrift_cli.translate(commands, schema)
         except thrift_cli.Untranslatable as exc:
             raise ConversionError(f"--thrift-commands {name}={rel}: {exc}") from exc
+        notes = script_notes + notes
         doc = common.load_json(os.path.join(exercise_dir, spec["entries"]))
         existing = doc.get("table_entries") or []
-        prioritised = sorted({e["table"] for e in entries if "priority" in e})
-        clash = sorted({e.get("table") for e in existing
-                        if isinstance(e, dict) and e.get("table") in prioritised
-                        and not e.get("default_action")})
-        if clash:
-            raise ConversionError(
-                f"--thrift-commands {name}={rel}: {spec['entries']} already has entries in "
-                f"{clash}, and the CLI's priorities cannot be placed among P4Runtime ones "
-                f"without a rule nobody wrote. Translate them into one file by hand")
+        # No refusal for a table the file already writes over P4Runtime: the CLI priorities are
+        # translated to their exact inverse, so bmv2 holds the CLI's own numbers and the two
+        # sets rank against each other as they would natively (thrift_cli's PRIORITY note).
         doc["table_entries"] = list(existing) + entries
         rewrites[spec["entries"]] = json.dumps(doc, indent=2) + "\n"
         copies = list(copies) + [(source_abs, rel)]

@@ -8,10 +8,15 @@
 The subject is a published app that programs part of its fabric through the bmv2 CLI instead of
 a P4Runtime runtime file: niloysh/int-v1 @84a3ebe8 (MIT) installs its INT source rules with two
 `simple_switch_CLI <<< "table_add ..."` lines in runtime_cmds/s1.sh, one of them a ternary entry
-with priority 0 and two zero masks. NOTHING FROM THAT REPOSITORY IS COPIED HERE: the p4info
-below is written by hand with the shapes int-v1's compiled p4info has (the same table, field and
-action names, widths and match kinds -- facts about the program, not its text), the script is
-written in the same form with its own words, and the topology is a two-switch tree of our own.
+with priority 0 and two zero masks. No FILE from that repository is copied here. The p4info
+below is written by hand: for the three tables and the actions the app's runtime files and CLI
+lines use, it has the names, widths and match kinds int-v1's compiled p4info has (checked
+against the compile, logs gates-0910/p4-paper-apps/22_p4info_shapes.log), but it is a SUBSET --
+ipv4_lpm's NoAction ref and the tb_set_sink table are left out -- and two tables of our own are
+added for the range and mixed lpm/ternary rules. The two CLI command lines below, and the
+script lines `#!/bin/bash`, `SWITCH_NUM=1` and the THRIFT_PORT assignment, are int-v1's
+runtime_cmds/s1.sh lines verbatim (test vectors: what the translator must read); the rest of
+the script is ours. The topology is a two-switch tree of our own.
 
 What is pinned, and why each is a line of its own:
 
@@ -21,9 +26,9 @@ What is pinned, and why each is a line of its own:
   * a zero mask is "don't care" in the CLI and a refused second spelling of it in P4Runtime
     (match_shape V5) -- the field is omitted, and said;
   * the CLI's priority runs the other way: in bmv2 the LOWER number wins, in P4Runtime the
-    HIGHER one does (spec 9.1), and the CLI accepts 0 where P4Runtime needs 1..2^31-1. The
-    order inside a table is what has to survive, so p4rt = (largest CLI priority in that
-    table + 1) - CLI priority;
+    HIGHER one does (spec 9.1), and the CLI accepts 0 where P4Runtime needs 1..2^31-1. bmv2's
+    P4Runtime server stores p as 2^31-1-p, so the translation is CLI c -> 2^31-1-c and bmv2
+    holds c itself; c must be 0..2^31-2;
   * every name is resolved the way the CLI resolves it -- the full name, or a dotted suffix
     that only one object has -- and an ambiguous one is refused, never picked.
 """
@@ -148,6 +153,29 @@ tables {
   }
   size: 64
 }
+tables {
+  preamble {
+    id: 5
+    name: "MyIngress.acl.mixed"
+    alias: "mixed"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.dst_addr"
+    bitwidth: 32
+    match_type: LPM
+  }
+  match_fields {
+    id: 2
+    name: "local_metadata.l4_dst_port"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  action_refs {
+    id: 12
+  }
+  size: 64
+}
 actions {
   preamble {
     id: 11
@@ -244,6 +272,8 @@ simple_switch_CLI --thrift-port $THRIFT_PORT <<< "%s"
 """ % (SET_SOURCE, INT_SOURCE)
 
 MASK24 = 0xFFFFFF00
+#: CLI priority 0, as P4Runtime: 2^31-1 (bmv2 then holds 0).
+P0 = (1 << 31) - 1
 INT_TABLE = "MyIngress.process_int_source.tb_int_source"
 INT_ACTION = "MyIngress.process_int_source.int_source_dscp"
 
@@ -276,7 +306,7 @@ class TheIntV1Commands(unittest.TestCase):
             "action_name": INT_ACTION,
             "action_params": {"hop_metadata_len": 8, "remaining_hop_cnt": 4,
                               "ins_mask0003": 15, "ins_mask0407": 15},
-            "priority": 1,
+            "priority": P0,
         })
 
     def test_the_set_source_line_is_an_exact_entry_with_no_priority(self):
@@ -324,16 +354,40 @@ class Ternary(unittest.TestCase):
 
 
 class Priority(unittest.TestCase):
-    def test_a_single_priority_zero_becomes_one(self):
+    def test_cli_priority_zero_becomes_two_to_the_31_minus_one(self):
         entry, _notes = one(INT_SOURCE)
-        self.assertEqual(entry["priority"], 1)
+        self.assertEqual(entry["priority"], P0)
 
     def test_the_lower_thrift_priority_is_the_higher_p4runtime_priority(self):
         low = INT_SOURCE[:-1] + "0"
         high = (INT_SOURCE.replace("10.0.2.2&&&0xFFFFFF00", "10.0.3.3&&&0xFFFFFF00")[:-1]
                 + "5")
         entries, _notes = thrift_cli.translate([(1, low), (2, high)], schema())
-        self.assertEqual([e["priority"] for e in entries], [6, 1])
+        self.assertEqual([e["priority"] for e in entries], [P0, P0 - 5])
+
+    def test_the_mapping_is_per_entry_not_relative_to_the_others(self):
+        # The exact inverse: an entry's P4Runtime priority does not move when another CLI entry
+        # is added to the same file (the earlier (largest + 1) - c mapping did move it).
+        alone, _n = thrift_cli.translate([(1, INT_SOURCE[:-1] + "3")], schema())
+        other = INT_SOURCE.replace("10.0.2.2&&&", "10.0.3.3&&&")[:-1] + "9"
+        both, _n = thrift_cli.translate([(1, INT_SOURCE[:-1] + "3"), (2, other)], schema())
+        self.assertEqual(alone[0]["priority"], both[0]["priority"])
+        self.assertEqual(alone[0]["priority"], P0 - 3)
+
+    def test_the_largest_cli_priority_it_can_carry_is_two_to_the_31_minus_two(self):
+        entry, _notes = one(INT_SOURCE[:-1] + str(P0 - 1))
+        self.assertEqual(entry["priority"], 1)
+
+    def test_a_cli_priority_of_two_to_the_31_minus_one_or_more_is_refused(self):
+        for prio in (P0, P0 + 1, 1 << 40):
+            with self.subTest(prio=prio):
+                with self.assertRaises(thrift_cli.Untranslatable) as caught:
+                    one(INT_SOURCE[:-1] + str(prio))
+                self.assertIn(str(P0 - 1), str(caught.exception))
+
+    def test_a_negative_cli_priority_is_refused(self):
+        with self.assertRaises(thrift_cli.Untranslatable):
+            one(INT_SOURCE[:-1] + "-1")
 
     def test_equal_thrift_priorities_stay_equal(self):
         a = INT_SOURCE[:-1] + "3"
@@ -344,7 +398,7 @@ class Priority(unittest.TestCase):
     def test_priorities_are_mapped_per_table(self):
         other = "table_add port_range drop 100->200 => 7"
         entries, _notes = thrift_cli.translate([(1, INT_SOURCE), (2, other)], schema())
-        self.assertEqual([e["priority"] for e in entries], [1, 1])
+        self.assertEqual([e["priority"] for e in entries], [P0, P0 - 7])
 
     def test_a_ternary_table_entry_with_no_priority_token_is_refused(self):
         line = INT_SOURCE[: -len(" 0")]
@@ -377,15 +431,22 @@ class OtherMatchKinds(unittest.TestCase):
         with self.assertRaises(thrift_cli.Untranslatable):
             one("table_add ipv4_lpm ipv4_forward 10.0.2.2/24 => 08:00:00:00:02:00 2")
 
-    def test_an_lpm_slash_zero_is_omitted(self):
-        entry, notes = one("table_add ipv4_lpm ipv4_forward 0.0.0.0/0 => 08:00:00:00:02:00 2")
-        self.assertEqual(entry["match"], {})
+    def test_an_lpm_slash_zero_on_a_table_with_no_priority_column_is_refused(self):
+        # Everything don't-care on an exact/lpm table: P4Runtime can only say that as the default
+        # action, and pre-flight refuses the empty match (TheLpmSlashZeroEndToEnd below).
+        with self.assertRaises(thrift_cli.Untranslatable) as caught:
+            one("table_add ipv4_lpm ipv4_forward 0.0.0.0/0 => 08:00:00:00:02:00 2")
+        self.assertIn("table_set_default", str(caught.exception))
+
+    def test_an_lpm_slash_zero_beside_a_ternary_field_is_omitted(self):
+        entry, notes = one("table_add mixed drop 0.0.0.0/0 0x50&&&0xFFFF => 4")
+        self.assertEqual(entry["match"], {"local_metadata.l4_dst_port": [0x50, 0xFFFF]})
         self.assertTrue([n for n in notes if "omitted" in n], notes)
 
     def test_a_range_key(self):
         entry, _notes = one("table_add port_range drop 100->200 => 0")
         self.assertEqual(entry["match"], {"local_metadata.l4_dst_port": [100, 200]})
-        self.assertEqual(entry["priority"], 1)
+        self.assertEqual(entry["priority"], P0)
 
     def test_the_whole_range_is_omitted(self):
         entry, notes = one("table_add port_range drop 0->65535 => 0")
@@ -411,6 +472,90 @@ class OtherMatchKinds(unittest.TestCase):
                                  "default_action": True,
                                  "action_name": "MyIngress.FwdIngress.drop",
                                  "action_params": {}})
+
+
+class Values(unittest.TestCase):
+    def test_a_leading_zero_in_an_ipv4_part_is_decimal_as_in_the_cli(self):
+        entry, notes = one("table_add ipv4_lpm ipv4_forward 10.0.010.1/32 => 08:00:00:00:02:00 2")
+        self.assertEqual(entry["match"]["hdr.ipv4.dst_addr"], ["10.0.10.1", 32])
+        self.assertTrue([n for n in notes if "10.0.010.1" in n and "10.0.10.1" in n], notes)
+
+    def test_an_ipv4_part_in_hex_or_three_parts_is_refused(self):
+        for value in ("0x10.0.0.1", "10.0.1", "1.2.3.256"):
+            with self.subTest(value=value):
+                with self.assertRaises(thrift_cli.Untranslatable):
+                    one("table_add ipv4_lpm ipv4_forward %s/32 => 08:00:00:00:02:00 2" % value)
+
+    def test_a_short_mac_group_is_read_as_the_cli_reads_it(self):
+        entry, notes = one("table_add ipv4_lpm ipv4_forward 10.0.2.2/32 => 8:0:0:0:2:0 2")
+        self.assertEqual(entry["action_params"]["dst_addr"], "08:00:00:00:02:00")
+        self.assertTrue(notes)
+
+
+#: (token, bitwidth, relation). "agree": the translator and runtime_CLI.parse_param accept with
+#: the same value, or both refuse. "stricter": runtime_CLI accepts and this translator refuses --
+#: the documented four (a value it would silently change).
+PARSE_CORPUS = (
+    ("10.0.010.1", 32, "agree"), ("10.0.1.1", 32, "agree"), ("0.0.0.0", 32, "agree"),
+    ("255.255.255.255", 32, "agree"), ("10.0.1", 32, "agree"), ("0x10.0.0.1", 32, "agree"),
+    ("1.2.3.4.5", 32, "agree"), ("1.2.3.x", 32, "agree"), ("1.2.3.256", 32, "agree"),
+    ("08:00:00:00:02:22", 48, "agree"), ("8:0:0:0:2:0", 48, "agree"),
+    ("08:00:00:00:02", 48, "agree"), ("0x1F41", 16, "agree"), ("8001", 16, "agree"),
+    ("0", 9, "agree"), ("511", 9, "agree"), ("0b101", 9, "agree"), ("0o17", 9, "agree"),
+    ("abc", 16, "agree"), ("10.0.0.1", 16, "agree"), ("08:00:00:00:02:22", 32, "agree"),
+    ("-1", 16, "stricter"), ("512", 9, "stricter"), ("0x1FFFF", 16, "agree"),
+    ("0x200", 9, "stricter"),
+)
+
+
+def rcli_python():
+    """The p4dev venv interpreter and the directory its runtime_CLI.py lives in, or None."""
+    py = "/home/adam/p4dev-python-venv/bin/python"
+    site = "/home/adam/p4dev-python-venv/lib/python3.13/site-packages"
+    if os.access(py, os.X_OK) and os.path.isfile(os.path.join(site, "runtime_CLI.py")):
+        return py, site
+    return None
+
+
+class TheParserAgainstRuntimeCli(unittest.TestCase):
+    """runtime_CLI.parse_param, run in the p4dev venv it ships in (the way simple_switch_CLI's
+    own wrapper adds that directory), against _parse + _fits over PARSE_CORPUS."""
+
+    def test_the_value_parser_agrees_with_runtime_cli_except_where_it_says_it_is_stricter(self):
+        found = rcli_python()
+        if found is None:
+            self.skipTest("no /home/adam/p4dev-python-venv with runtime_CLI.py on this machine: "
+                          "the differential needs the CLI's own parser, nothing else stands in")
+        import subprocess
+        py, site = found
+        script = (
+            "import json, sys\n"
+            "sys.path.append(sys.argv[1])\n"
+            "import runtime_CLI as R\n"
+            "out = []\n"
+            "for token, width in json.loads(sys.argv[2]):\n"
+            "    try:\n"
+            "        out.append(int.from_bytes(bytes(R.parse_param(token, width)), 'big'))\n"
+            "    except Exception as exc:\n"
+            "        out.append(None)\n"
+            "print(json.dumps(out))\n")
+        corpus = [[t, w] for t, w, _r in PARSE_CORPUS]
+        res = subprocess.run([py, "-I", "-c", script, site, json.dumps(corpus)],
+                             capture_output=True, text=True, timeout=60, cwd=tempfile.gettempdir())
+        self.assertEqual(res.returncode, 0, res.stderr)
+        rcli = json.loads(res.stdout)
+        for (token, width, relation), theirs in zip(PARSE_CORPUS, rcli):
+            with self.subTest(token=token, width=width):
+                try:
+                    value, _form = thrift_cli._parse(token, width, "t")
+                    ours = thrift_cli._fits(value, width, "t")
+                except thrift_cli.Untranslatable:
+                    ours = None
+                if relation == "agree":
+                    self.assertEqual(ours, theirs)
+                else:
+                    self.assertIsNotNone(theirs, "runtime_CLI was expected to accept this")
+                    self.assertIsNone(ours, "the translator was expected to refuse this")
 
 
 class Refusals(unittest.TestCase):
@@ -491,6 +636,48 @@ class Extraction(unittest.TestCase):
         with self.assertRaises(thrift_cli.Untranslatable):
             thrift_cli.commands_from_text(text, "x.sh")
 
+    def test_two_cli_addresses_in_one_script_are_refused(self):
+        text = ("#!/bin/bash\n"
+                "simple_switch_CLI --thrift-port 9090 <<< \"%s\"\n"
+                "simple_switch_CLI --thrift-port 9091 <<< \"%s\"\n" % (SET_SOURCE, INT_SOURCE))
+        with self.assertRaises(thrift_cli.Untranslatable) as caught:
+            thrift_cli.read_script(text, "x.sh")
+        self.assertIn("9091", str(caught.exception))
+
+    def test_a_call_with_an_address_and_one_without_are_two_addresses(self):
+        text = ("#!/bin/bash\n"
+                "simple_switch_CLI --thrift-port 9090 <<< \"%s\"\n"
+                "simple_switch_CLI <<< \"%s\"\n" % (SET_SOURCE, INT_SOURCE))
+        with self.assertRaises(thrift_cli.Untranslatable):
+            thrift_cli.read_script(text, "x.sh")
+
+    def test_an_address_variable_assigned_twice_is_refused(self):
+        text = SCRIPT.replace("# make ingress port 1 an INT source",
+                              "THRIFT_PORT=9091")
+        with self.assertRaises(thrift_cli.Untranslatable) as caught:
+            thrift_cli.read_script(text, "x.sh")
+        self.assertIn("THRIFT_PORT", str(caught.exception))
+
+    def test_the_address_text_is_in_the_notes(self):
+        _commands, notes = thrift_cli.read_script(SCRIPT, "runtime_cmds/s1.sh")
+        self.assertTrue([n for n in notes if "--thrift-port $THRIFT_PORT" in n], notes)
+
+    def test_a_flag_with_a_shell_metacharacter_is_refused(self):
+        for flag in ("9090;true", "9090&", "9090|cat", "`id`"):
+            with self.subTest(flag=flag):
+                text = '#!/bin/bash\nsimple_switch_CLI --thrift-port %s <<< "%s"\n' % (
+                    flag, SET_SOURCE)
+                with self.assertRaises(thrift_cli.Untranslatable) as caught:
+                    thrift_cli.read_script(text, "x.sh")
+                self.assertIn("metacharacter", str(caught.exception))
+
+    def test_a_command_substitution_in_an_assignment_is_refused(self):
+        for line in ("PORT=$(cat port.txt)", "PORT=`cat port.txt`"):
+            with self.subTest(line=line):
+                with self.assertRaises(thrift_cli.Untranslatable) as caught:
+                    thrift_cli.read_script("#!/bin/bash\n%s\n" % line, "x.sh")
+                self.assertIn("line 2", str(caught.exception))
+
     def test_a_plain_commands_file_is_one_command_per_line(self):
         text = "# s1\n%s\n\n%s\n" % (SET_SOURCE, INT_SOURCE)
         got = thrift_cli.commands_from_text(text, "s1-commands.txt")
@@ -550,6 +737,30 @@ class AppTree:
         return package, out, written
 
 
+class TheLpmSlashZeroEndToEnd(AppTree, unittest.TestCase):
+    """translate -> convert -> pre-flight: the entry a /0 on an exact/lpm table would become is
+    one pre-flight refuses, and the translator refuses it first, so no package is written."""
+
+    def test_pre_flight_refuses_the_entry_the_translator_now_refuses(self):
+        from p4_exercise import preflight
+        info = os.path.join(self.app, "build/app.p4.p4info.txt")
+        index = preflight.P4InfoIndex.parse(info)
+        would_be = {"table": "MyIngress.FwdIngress.ipv4_lpm", "match": {},
+                    "action_name": "MyIngress.FwdIngress.ipv4_forward",
+                    "action_params": {"dst_addr": "08:00:00:00:02:00", "port": 2}}
+        problems = preflight.check_entry(would_be, index, "s1 entry 0")
+        self.assertTrue([p for p in problems if "neither a match nor default_action" in p],
+                        problems)
+
+    def test_convert_refuses_the_script_and_writes_no_package(self):
+        self.write("runtime_cmds/s1.sh", "#!/bin/bash\nsimple_switch_CLI <<< \"table_add ipv4_lpm "
+                   "ipv4_forward 0.0.0.0/0 => 08:00:00:00:02:00 2\"\n")
+        with self.assertRaises(convert.ConversionError) as caught:
+            self.convert(thrift_commands={"s1": "runtime_cmds/s1.sh"})
+        self.assertIn("table_set_default", str(caught.exception))
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "pkg", "package.json")))
+
+
 class TheP4infoSuffix(AppTree, unittest.TestCase):
     """tutorials wrote `<stem>.p4.p4info.txt` until ffd07f2 (2024-10-15) and `.txtpb` since;
     an app built on the older utils/Makefile (int-v1 is one) carries the older name."""
@@ -603,6 +814,22 @@ class TheProgramsOwnIncludes(AppTree, unittest.TestCase):
         self.assertNotIn("include/not_an_include.p4", written)
         self.assertFalse([w for w in written if w.endswith("core.p4")], written)
 
+    def test_a_directory_symlink_to_an_ancestor_does_not_grow_the_walk(self):
+        os.symlink("..", os.path.join(self.app, "include", "up"))
+        self.write("include/b.p4", '#include "up/include/b.p4"\n')
+        _package, _out, written = self.convert()
+        self.assertEqual([w for w in written if w.endswith(".p4")],
+                         ["app.p4", "include/a.p4", "include/b.p4"])
+
+    def test_an_include_that_cannot_be_read_is_a_named_refusal(self):
+        os.chmod(os.path.join(self.app, "include", "b.p4"), 0)
+        self.addCleanup(os.chmod, os.path.join(self.app, "include", "b.p4"), 0o644)
+        if os.access(os.path.join(self.app, "include", "b.p4"), os.R_OK):
+            self.skipTest("running as a user that reads mode-0 files (root)")
+        with self.assertRaises(convert.ConversionError) as caught:
+            self.convert()
+        self.assertIn("include/b.p4", str(caught.exception))
+
     def test_an_include_that_leaves_the_app_directory_is_refused(self):
         self.write("include/b.p4", '#include "../../outside.p4"\n')
         with open(os.path.join(self.tmp, "outside.p4"), "w") as fh:
@@ -627,7 +854,7 @@ class ConvertingWithThriftCommands(AppTree, unittest.TestCase):
         tables = [e["table"] for e in doc["table_entries"][2:]]
         self.assertEqual(tables, ["MyIngress.process_int_source_sink.tb_set_source",
                                   INT_TABLE])
-        self.assertEqual(doc["table_entries"][3]["priority"], 1)
+        self.assertEqual(doc["table_entries"][3]["priority"], P0)
         # Everything else in the file is the app's.
         self.assertEqual(doc["p4info"], "build/app.p4.p4info.txt")
 
@@ -669,16 +896,51 @@ class ConvertingWithThriftCommands(AppTree, unittest.TestCase):
         with self.assertRaises(convert.ConversionError):
             self.thrift({"s1": "runtime_cmds/nowhere.sh"})
 
-    def test_a_table_the_runtime_file_already_gives_priorities_in_is_refused(self):
+    def test_a_table_the_runtime_file_already_writes_takes_the_translated_entries_too(self):
+        # No ordering rule is invented between the two sets: bmv2 holds the CLI's own numbers
+        # (2^31-1-c), so a P4Runtime entry of priority 10 is bmv2 2^31-11, and the CLI's 0 beats
+        # it as it would natively. Both are kept, in file order.
         prior = {"table": INT_TABLE, "match": {"hdr.ipv4.src_addr": ["10.0.9.0", MASK24]},
                  "action_name": INT_ACTION,
                  "action_params": {"hop_metadata_len": 1, "remaining_hop_cnt": 1,
                                    "ins_mask0003": 1, "ins_mask0407": 1},
                  "priority": 10}
         self.write("topo/s1-runtime.json", json.dumps(runtime(extra=[prior]), indent=2))
+        _package, out, _written, _report = self.thrift()
+        doc = common.load_json(os.path.join(out, "topo/s1-runtime.json"))
+        self.assertEqual([e.get("priority") for e in doc["table_entries"]
+                          if e["table"] == INT_TABLE], [10, P0])
+
+    def test_a_script_outside_the_app_directory_is_refused(self):
+        with open(os.path.join(self.tmp, "elsewhere.sh"), "w") as fh:
+            fh.write(SCRIPT)
+        with self.assertRaises(convert.ConversionError) as caught:
+            self.thrift({"s1": "../elsewhere.sh"})
+        self.assertIn("outside", str(caught.exception))
+
+    def test_a_script_symlinked_out_of_the_app_directory_is_refused(self):
+        with open(os.path.join(self.tmp, "elsewhere.sh"), "w") as fh:
+            fh.write(SCRIPT)
+        os.symlink(os.path.join(self.tmp, "elsewhere.sh"), os.path.join(self.app, "link.sh"))
+        with self.assertRaises(convert.ConversionError) as caught:
+            self.thrift({"s1": "link.sh"})
+        self.assertIn("outside", str(caught.exception))
+
+    def test_a_runtime_file_two_switches_share_is_refused(self):
+        topo = json.loads(json.dumps(TOPOLOGY))
+        topo["switches"]["s2"]["runtime_json"] = "topo/s1-runtime.json"
+        self.write("topo/topology.json", json.dumps(topo, indent=2))
         with self.assertRaises(convert.ConversionError) as caught:
             self.thrift()
-        self.assertIn(INT_TABLE, str(caught.exception))
+        message = str(caught.exception)
+        self.assertIn("s1", message)
+        self.assertIn("s2", message)
+
+    def test_an_external_control_plane_is_refused(self):
+        self.write("mycontroller.py", "# an app's own controller\n")
+        with self.assertRaises(convert.ConversionError) as caught:
+            self.thrift()
+        self.assertIn("external", str(caught.exception))
 
     def test_an_untranslatable_command_is_a_conversion_refusal_naming_the_file(self):
         self.write("runtime_cmds/s1.sh", "#!/bin/bash\nsimple_switch_CLI <<< \"mirroring_add 1 2\"\n")
