@@ -173,19 +173,21 @@ class SlotPriorities:
         Record what a finished write left in the slot.
 
         `after` is the priority the entry now has, KEEP for "unchanged" (a modify), or None for
-        "nothing known" (a removal, or a priority that cannot be stated). Anything but a
-        confirmed write -- `accepted` false, or a push that began since `begun` -- forgets the
-        slot.
+        "nothing known" (a removal, or a priority that cannot be stated). A write that was not
+        confirmed (`accepted` false) forgets the slot.
+
+        The record is stamped with `begun`, the epoch from BEFORE the write, not with the epoch
+        now: a push that began while the write was in flight has moved the epoch since, so
+        `held` finds the stamp stale and the record counts as none. That is the whole of the
+        "a write that overlaps a push is not recorded" rule; stamping the current epoch here
+        would let such a write through.
         """
         key = (dpid, ipv4_dst)
         with self._guard:
-            if not accepted or after is None or _push_epoch(client) != begun:
+            if not accepted or after is None:
                 self._records.pop(key, None)
                 return
             if after is KEEP:
-                record = self._records.get(key)
-                if record is not None and not self._valid(record, client):
-                    del self._records[key]
                 return
             self._records[key] = (int(after), weakref.ref(client), begun)
 

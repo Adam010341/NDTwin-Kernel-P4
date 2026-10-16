@@ -375,13 +375,16 @@ each_mutation() {
         'test_a_modify_at_ten_on_a_read_only_switch_is_409'
 
     "$m" "21. a refused or failed write keeps the record" "$SLOT" \
-        '            if not accepted or after is None or _push_epoch(client) != begun:' \
-        '            if after is None or _push_epoch(client) != begun:' \
+        '            if not accepted or after is None:' \
+        '            if after is None:' \
         'test_a_failed_modify_forgets_the_slot'
 
-    "$m" "22. a write that overlapped a pipeline push is recorded" "$SLOT" \
-        '            if not accepted or after is None or _push_epoch(client) != begun:' \
-        '            if not accepted or after is None:' \
+    # The first run of this gate (2026-10-16) had 22 drop an epoch comparison in settle(); it
+    # survived because held() already rejects a stamp older than the last push, so that
+    # comparison was redundant and was removed. What carries the rule is the stamp itself.
+    "$m" "22. a write that overlapped a pipeline push is stamped with the epoch after it" "$SLOT" \
+        '            self._records[key] = (int(after), weakref.ref(client), begun)' \
+        '            self._records[key] = (int(after), weakref.ref(client), _push_epoch(client))' \
         'test_a_write_that_overlaps_a_push_is_not_recorded'
 
     "$m" "23. a record outlives a pipeline push" "$SLOT" \
