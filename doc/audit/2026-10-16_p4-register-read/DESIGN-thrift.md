@@ -50,7 +50,9 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
  "values": [4737], "source": "bmv2-thrift"}
 ```
 
-- 值是 bit<W> 的無號值。bmv2 的 thrift 回的是 i64（有號），bit<64> 的全 1 會變成 −1，所以這裡用 W 位元的遮罩還原成無號。
+- 值是 bit<W> 的值，W 最多 63（第二輪改，§12.2）。
+  - 第一輪寫的是「bit<64> 的全 1 會變成 −1，用遮罩還原」。那是推論，量了以後是錯的：bmv2 的 thrift 對 2^63 以上的 bit<64> 格一律回 2^63 − 1（飽和），兩個 build 都一樣。
+  - 所以 bit<64> 以上回 501；W < 64 時，值不在 [0, 2^W) 就是程式與 p4info 不一致 → 502，不截斷。
 - `register` 永遠是全名。thrift 用的名字就是 p4info 的 `preamble.name`。
   - 在 hc_main 上兩者一樣（`HcIngress.r_mark`，§0 的量測就是用這個名字讀的）。
   - 對不上時，bmv2 回 `INVALID_REGISTER_NAME` → 502。
@@ -87,8 +89,8 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
 ## 4. deadline 與 thread
 
 - 每次讀取開一條自己的連線、做一個呼叫、關掉。不同 thread 之間不共用連線。
-- socket timeout＝`RPC_TIMEOUT_S`（5 s），連線與每一次 receive 都受它限制。
-  - 注意：這是每一步 5 s，不是整次讀取 5 s；一台每 4.9 s 吐一個 byte 的交換機可以拖更久【推論：沒有量】。
+- deadline＝`RPC_TIMEOUT_S`（5 s），**整次呼叫共用一個預算**（第二輪改，§12.5）：連線、送出與每一次 receive 都只拿剩下的時間。
+  - 第一輪是每一步各 5 s，一台每 4.9 s 吐一個 byte 的對端可以把一條 worker 拖住很久。
 - 路由是 `async def`，thrift 呼叫用 `run_in_threadpool` 放到 worker thread，與 direct counter 路由同一條規則；有 thread identity 的測試與拿掉它的 mutation。
 
 ## 5. external 模式
@@ -101,15 +103,18 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
 | 碼 | error | 什麼時候 | 有沒有問交換機 |
 |---|---|---|---|
 | 200 | | 讀到了；0 就是 0 | 有 |
-| 400 | `index out of range` | index 或一段超過 p4info 的 `size`（帶 `size`） | 沒有 |
+| 400 | `index out of range` | index、`start` 或一段超過 p4info 的 `size`（帶 `size`） | 沒有 |
 | 400 | `invalid range` | 負的、空的、`index` 與 `start`／`count` 一起給 | 沒有 |
 | 404 | `unknown switch` | dpid 不認得 | 沒有 |
 | 404 | `not in this pipeline` | 不是這台 p4info 的 register | 沒有 |
 | 413 | `too many cells` | 超過 `REGISTER_CELLS_MAX`（4096）；或陣列大於 `REGISTER_READ_ALL_MAX`（65536）卻要一段 | 沒有 |
-| 501 | `register too wide`／`register type not readable` | 寬於 64 bit；不是 bit<W> | 沒有 |
+| 501 | `register too wide`／`register type not readable` | bit<64> 以上；不是 bit<W>（含 int<W>） | 沒有 |
+| 502 | `thrift device mismatch` | thrift 埠上的是另一台（bm_mgmt_get_info 的 device id 或 port 不對）；不讀 register | 只問了身分 |
 | 502 | `register refused` | bmv2 回 `InvalidRegisterOperation`（帶 `code`） | 有 |
-| 502 | `register answer invalid` | 回的不是這兩個呼叫的答案（application exception、沒有結果、型別不對、格數不對） | 有 |
+| 502 | `register answer invalid` | 回的不是這些呼叫的答案（application exception、沒有結果、型別不對、格數不對、整個陣列的長度與 p4info 的 `size` 不同、值超出 bit<W>） | 有 |
+| 502 | `register answer not understood` | 回的 bytes 根本不是 thrift（版本不對、名字不是 UTF-8、長度是負的或超限、值放不進去） | 有 |
 | 503 | `register not read` | 連不上、斷了、超時。**明說不是 0** | 有（或試過） |
+| 503 | `thrift not installed` | proxy 的直譯器沒有 `thrift`；proxy 其他部分照常 | 沒有 |
 | 503 | `replay pending` | 正在 readopt（推 pipeline 會把 register 歸零）；只在讀之前查一次，同 DESIGN.md §2.2 的窗 | 沒有 |
 | 503 | `no thrift port` | client 沒有 thrift 埠 | 沒有 |
 | 503 | `no topology` | proxy 還沒有 topology | 沒有 |
@@ -140,17 +145,24 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
   - 程式做 `r_mark.write(0, (bit<32>)hdr.udp.srcPort)`，marker 的 sport 就是這個值。
   - 這個數字是 probe 自己選、自己送的，不經過 thrift，也不經過 NDTwin。
 - thrift 的 `register_read` 不丟，留在 **SC-reg**（本來就在）：它檢查 marker 真的把 `chosen` 寫進去了，是 probe 對自己儀器的檢查。
-  - SC-reg 失敗 → R2 判不了（PROBE-BROKEN／NOT RUN），不會變成 NDTwin 的紅。
+  - SC-reg 失敗時 R2 不會是 GREEN。
+  - 🔴 第一輪這裡寫「不會變成 NDTwin 的紅」，那不對（第二輪更正）：cannot 那一步（沒有路由、404、501）在 gate 與 self-check **之前**就判（verdict.py 的順序），所以 SC-reg 失敗時 R2 仍可以是紅。
+  - 因此紅的歸因要看 thrift 有沒有真的讀到：第二輪起 observation 的 `oracle.thrift` 是 register_read 印出的值（讀不到是 None），R2 的紅只有在它不是 None 時才宣稱 thrift 證據（`cells/table.r2_thrift_ev`）。這是 K1 的規則：K1 的 `thrift_ev` 要 thrift 的 counter_read 有回答。
 - observer 的改法：
   - openapi 有 `GET /p4/register/...` 時，`answer` 改成真的去讀 `GET /p4/register/HcIngress.r_mark?dpid=2&index=0`（`collect/proxy.py` 加 `register()`）；
-  - `oracle` 改成 `{"value": chosen}`；
-  - `cells/table.py` 的 R2：紅的理由改成「NDTwin read X, the marker wrote Y」；cannot 另外把 404／501 判成結構性的紅（同 K1 的 `k1_cannot`）。503 仍是「沒有讀到」→ NOT RUN。
+  - `oracle` 改成 `{"value": chosen, "thrift": register_read 的值}`（`thrift` 是第二輪加的，只用來歸因）；
+  - `cells/table.py` 的 R2：紅的理由改成「NDTwin read X, the marker wrote Y」；cannot 另外把 404／501 判成結構性的紅（同 K1 的 `k1_cannot`）。
+  - 🔴 **設計規則改了（第二輪）**：路由回答了但沒有值（502、503）→ **紅**，「answered 503, which is not a reading」，與 K1 的 503 一樣。
+    - 第一輪是 NOT RUN（`need` 要 `a:value`），那樣一條每次都 503 的路由會讓 R2 永遠判不了。
+    - 現在 R2 的 `need` 是 `a:http`（同 K1）：完全沒有回答（`http` 是 None）才是 NOT RUN。
 - 🔴 **R3 要一起改**（DESIGN.md §3 寫過）：
   - `route_answer` 只看路徑前綴。一加上 `GET /p4/register/{name}`，R3（寫）就會以為有寫的路由。
   - 改法：`observe.ROUTE_METHODS` 讓 R2 只認 GET、R3 只認 POST／PUT／PATCH。openapi 本來就給 method（`collect/proxy.openapi_paths` 回 `{path: methods}`）。
-- **預期檔不改**：`expected_today.tsv` 的 R2 預測「no route」→ 紅。依健檢自己的規則（它的 DESIGN §5.1），翻格子要附 live 的 `health.json` 並在同一個 PR 改預期檔。本工單只有離線，所以留給下一次 live；到時 R2 預期會翻（在 Δ 欄看得到）。
+- **預期檔（第二輪改）**：第一輪沒有改，理由是「要 live 的 health.json」。那與工具自己的規則矛盾（`expected.py:5-8`：翻格子的修正在同一個 PR 改預期檔），也與先例不符（`expected_today.tsv:6-7`：T4–T7、PF-T、T8 都是用離線的拋棄式 bmv2 翻的）。
+  - 第二輪照那個先例把 R2 翻成 GREEN，basis 寫「C2 thrift cut: observed offline …」，並在檔頭加一行說明。
+  - 假 fabric 加了 `proxy_reads_registers` 這個開關（預設是今天的行為，與 Cut A + D、Cut C 的開關一樣），開著時假 openapi 有 `/p4/register/{name}`，`GET /p4/register/...` 由假 s2 的 r_mark 回答；`test_bring_up_a_reads_as_predicted` 因此檢查的是新的預測。
 - 改到的 tools/p4_health 檔：`collect/proxy.py`、`observe.py`、`observe_a.py`、`cells/table.py`。
-  - 它們的測試在 `tests/python/test_p4_health_collect.py` 與 `test_p4_health_cells.py`（先看紅）。
+  - 它們的測試：第一輪只在 `tests/python/test_p4_health_collect.py`（`TestTheRegisterReadAgainstTheMarker`）；`test_p4_health_cells.py` 是第二輪才改的（R2 的 fixture 與 `test_r2s_red_claims_thrift_only_when_thrift_read_the_cell`）。第一輪本段說兩個檔都有，是錯的。
   - `check_gate_anchors.py` 掃 `mutate_p4_health.sh` 的錨點。4-shard 的健檢 gate 不在本工單。
 
 ## 10. 測試與 gate
@@ -164,9 +176,13 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
   - 在讀之前與之後跑 P4Runtime 的讀取，看會不會失同步。
 - p4lane：在拋棄式 clone 上、拿著 lock 跑。
 
-## 11. 跑了什麼（OBSERVED，都在最後一個程式碼 commit `503eb109`）
+## 11. 跑了什麼（OBSERVED；第一輪）
 
-- 每一步都拿著共用的 lock（`heavy-step.lock`），guard.sh 在 lock 裡面跑。log 在 LOG 底下，每份第 2 行記了 commit 與 dirty 計數。
+- 🔴 第一輪的標題寫「都在最後一個程式碼 commit `503eb109`」，不完全對（第二輪更正）：
+  - 下表的 gate、健檢測試、trial 與 p4lane 在 `503eb109`；
+  - sync probe 在 `3bd635ce`；`test_bm_thrift.py` 的那次在 `8407076d`（那個檔之後沒有改）；線上 bytes 的比對是在草稿上做的（草稿的線上部分與 commit 的相同）；
+  - 寫草稿時有幾次輕量的測試沒有拿 lock；sync probe 第一次（`r3B_syncprobe.try1.out`）因為 PYTHONPATH 蓋掉 `google.protobuf` 而 rc=1，修好路徑後重跑才是 `r3B_syncprobe.out`。
+- 拿 lock 跑的步驟，guard.sh 都在 lock 裡面跑。log 在 LOG 底下，每份第 2 行記了 commit 與 dirty 計數。
 - 先看紅：
   - proxy 的三個測試檔放在沒有這個功能的程式碼上（`r3B_unit_red_*.log`）：`test_register_route`／`test_bm_thrift` 因為 `bm_thrift` 不存在而在 import 時就失敗；`test_app_package_proxy` 的新測試 `AttributeError: … no attribute 'thrift_port'`。
     - 這些紅的理由是「功能不存在」，不是各測試自己的理由；各測試自己的紅由 gate 的 47 個 mutation 證明。
@@ -198,3 +214,58 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
     - R2 的 gate（PL1、T1、TP1）在拋棄式交換機上是手動設成 GREEN 的，不是量出來的。
   - 交換機 SIGSTOP 時（只對自己起的 pid）：5.0 s 回 503 `register not read`。
 - 沒有驗的：live lab；硬體 target；一台慢慢吐 byte 的交換機（socket timeout 是每一步 5 s，不是整次）；大陣列的延遲；bit<64> 的值在真的 bmv2 上（只有單元測試）。
+
+## 12. 第二輪
+
+### 12.1 量測（OBSERVED，在 `f7ef3fa0`，動手改之前）
+
+- 腳本：LOG`/r4probe.py`；結果：LOG`/r4probe0.json`（header：commit `f7ef3fa0`，dirty 0）；執行紀錄：LOG`/r4_probe0.out` rc=0，拿著 lock。
+- 程式：LOG`/r4-p4/reg64.p4`（拋棄式，不進 repo），用 p4c-bm2-ss 1.2.5.15 編（`r4-p4/compile.log` rc=0）。
+  - `register<bit<64>>(4) RIngress.r64`：每個封包經資料面寫 `r64[1] = 2^64−1`、`r64[2] = 2^63+1`、`r64[3] = 2^63−1`；`r64[0]` 留給 CLI。
+  - `register<int<32>>(2) RIngress.rint`：p4info 的型別是 `bitstring.int`。
+- 交換機：拋棄式 `simple_switch_grpc`，stock 與 fast 各一顆。
+
+**bit<64>**，兩顆一樣：
+
+| 格 | 寫進去的 | CLI `register_read` | bm_thrift（一格／整個陣列） | bmv2 生成的 client | 路由 |
+|---|---|---|---|---|---|
+| r64[0] | CLI `register_write … -1`，之後 `… 18446744073709551615` | 9223372036854775807 | 同左 | 同左 | 200 `[9223372036854775807]` |
+| r64[1] | 資料面 2^64−1 | 9223372036854775807 | 同左 | 同左 | 200，同左 |
+| r64[2] | 資料面 2^63+1 | 9223372036854775807 | 同左 | 同左 | 200，同左 |
+| r64[3] | 資料面 2^63−1 | 9223372036854775807 | 同左 | 同左 | 200，同左 |
+| rint[1] | 資料面 −5 | — | — | — | 501 `register type not readable` |
+
+- ⇒ 2^63 以上一律**飽和成 2^63 − 1**，不是負的 i64。2^63 − 1 本身因此與 2^64 − 1 分不開。
+- 這是 bmv2 那一端的轉換：CLI 與生成的 client 讀到的一樣，不是 bm_thrift 的解碼。
+- 依工單：bit<64> 以上回 501，訊息寫明原因。bit<63> 的最大值 2^63 − 1 放得進 i64，照讀。
+- 測試的前提也改了：第一輪的測試以為 −1 會來、遮罩可以還原，現在改成 501 的測試，加上 bit<63> 讀到頂的測試。
+
+**裝置身分**，兩顆一樣：
+
+- 兩顆交換機 A（device 920011，thrift 29500）、B（device 920012，thrift 29501）；CLI 寫 `r64[0]`：A 111，B 222。
+- `bm_mgmt_get_info` 在 A 的埠回 `{device_id: 920011, thrift_port: 29500}`，在 B 的埠回 920012／29501。
+- 路由（改之前）：
+  - A 的 client、A 的埠 → 200 `[111]`；
+  - A 的 client、**B 的埠**（交換過）→ 200 `[222]`，也就是**另一台的資料**；
+  - B 的 client、A 的埠 → 200 `[111]`。
+
+### 12.2 改了什麼
+
+- 身分檢查（M3）：經某個 client 第一次讀之前，路由先問 `bm_mgmt_get_info`，比對 device id 與 thrift port。
+  - 不同 → 502 `thrift device mismatch`，不讀 register。
+  - 結果存在 client 物件上（`thrift_identity`）；readopt 建的新 client 會重新問。
+  - 問不到 → 503，不存，下次再問。
+- bit<64>（M1）：§1 與上面。
+- 預期檔與假 fabric（M2）：§9。
+- R2 的歸因與 503（m1、m6）：§9。
+- 健檢 gate 的 mutation（m2）：`mutate_p4_health.sh` 加 `C2T-1` 到 `C2T-12`，各有點名的 killer test；r2_cannot 的 501 分支加了測試。
+  - 沒有加的一個：「R2 拿 NDTwin 的值與 thrift 比，而不是與 marker 比」。在 SC-reg 通過（thrift == chosen）時兩者等價，SC-reg 不通過時 R2 本來就不會 GREEN，所以它是等價 mutant。
+- int<W>（m3）：測試與 mutation（把檢查放寬成只看 `HasField("bitstring")`）。
+- 解碼錯誤（m4）：`TProtocolException`、`UnicodeDecodeError`、`struct.error`、`ValueError`、`OverflowError`，以及負的或超限的長度 → 502 `register answer not understood`（以前負長度是 503，其他是 500）。
+- 整個陣列的長度（m5）：與 p4info 的 `size` 不同 → 502，在切片之前。
+- 整次呼叫的 deadline（m7）：§4。
+- thrift 延遲 import（m8）：沒有 `thrift` 時 proxy 照常啟動，只有這條路由回 503 `thrift not installed`；`requirements.txt` 那段註解改了。
+- n4：`build_p4_client` 用的不是預設的 gRPC 埠基準時，thrift 埠設成 None（路由回 503 `no thrift port`），不去猜另一套編號的 thrift 埠。
+  - 這是我選的做法：工單說「honour port_base」，沒有說要不要讓 thrift 埠跟著平移；照平移去猜，會猜到別人的交換機。
+- n7：`start` 超過結尾（沒有 `count`）回 400 `index out of range`，不再是 `invalid range`。
+- n10：「32 bit 的值被截斷」那個測試改成 502。
