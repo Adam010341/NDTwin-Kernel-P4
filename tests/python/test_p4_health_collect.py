@@ -591,6 +591,91 @@ class TestWhereTheNumbersComeFrom(Sealed):
         self.assertIs(ctl["answer"]["route"], True)
 
 
+class TestTheRegisterReadAgainstTheMarker(Sealed):
+    """(C2 thrift cut) R2 reads NDTwin's GET /p4/register -- itself a bmv2-thrift read -- and judges it against
+    the value the marker wrote (round_a.R2_CHOSEN), not against thrift: a thrift oracle would be thrift against
+    thrift. Thrift's register_read stays in SC-reg, the probe's check that the marker landed.
+    [Co-developed with claude code -- Adam]"""
+
+    ROUTE = ("GET", "/p4/register/HcIngress.r_mark?dpid=2&index=0")
+
+    def with_read_route(self, answer):
+        self.proxy.routes[("GET", "/openapi.json")] = (200, {"paths": {"/p4/register/{name}": {"get": {}}}})
+        self.proxy.routes[self.ROUTE] = answer
+
+    def observe(self, thrift_value):
+        out = fixture("register_r_mark").replace("r_mark[0]= 0", "r_mark[0]= %d" % thrift_value)
+        r = RecordingRunner().add(("simple_switch_CLI",), lambda a, e, i: (0, out))
+        return OA.observe_r2(self.cfg, r, lambda: "SENT cell=R2 n=1 ident=1 requested=1\n", RA.R2_CHOSEN)
+
+    def judge(self, obs, sc):
+        ok = [s for s in T.TABLE.self_checks if s.id == "SC-reg"][0].check(sc)[0]
+        ctx = V.Context()
+        ctx.self_checks["SC-reg"] = V.Verdict(V.GREEN if ok else V.PROBE_BROKEN, "SC-reg judged by its own check")
+        return V.decide(T.TABLE.cell("R2"), obs, ctx)
+
+    def test_the_oracle_is_the_value_the_marker_wrote(self):
+        self.with_read_route((200, {"values": [RA.R2_CHOSEN], "source": "bmv2-thrift"}))
+        obs, sc = self.observe(RA.R2_CHOSEN)
+        self.assertEqual(obs["oracle"], {"value": RA.R2_CHOSEN})
+        self.assertEqual(obs["answer"]["value"], RA.R2_CHOSEN)
+        self.assertEqual(sc, {"chosen": RA.R2_CHOSEN, "register": RA.R2_CHOSEN})
+        self.assertEqual(self.judge(obs, sc).verdict, V.GREEN)
+
+    def test_ndtwin_reading_another_value_is_red_against_the_marker(self):
+        self.with_read_route((200, {"values": [1]}))
+        obs, sc = self.observe(RA.R2_CHOSEN)
+        v = self.judge(obs, sc)
+        self.assertEqual(v.verdict, V.RED, v)
+        self.assertIn("NDTwin read 1, the marker wrote %d" % RA.R2_CHOSEN, v.reason)
+
+    def test_thrift_agreeing_with_ndtwin_does_not_make_it_green(self):
+        # The case a thrift oracle cannot see: the route and thrift both say 1, the marker wrote R2_CHOSEN.
+        self.with_read_route((200, {"values": [1]}))
+        obs, sc = self.observe(1)
+        self.assertEqual(obs["oracle"], {"value": RA.R2_CHOSEN})
+        self.assertNotEqual(self.judge(obs, sc).verdict, V.GREEN)
+
+    def test_a_read_that_did_not_happen_is_not_run(self):
+        self.with_read_route((503, {"detail": {"error": "register not read"}}))
+        obs, sc = self.observe(RA.R2_CHOSEN)
+        self.assertEqual(obs["answer"]["error"], "register not read")
+        self.assertEqual(self.judge(obs, sc).verdict, V.NOT_RUN)
+
+    def test_the_routes_own_404_is_a_structural_red(self):
+        self.with_read_route((404, {"detail": {"error": "not in this pipeline"}}))
+        obs, sc = self.observe(RA.R2_CHOSEN)
+        v = self.judge(obs, sc)
+        self.assertEqual(v.verdict, V.RED, v)
+        self.assertIn("GET /p4/register answered 404", v.reason)
+
+    def test_without_the_read_route_r2_is_no_route_and_nothing_is_asked(self):
+        self.proxy.routes[("GET", "/openapi.json")] = (200, {"paths": {"/p4/counter/{name}": {"get": {}}}})
+        obs, sc = self.observe(RA.R2_CHOSEN)
+        self.assertIs(obs["answer"]["route"], False)
+        self.assertNotIn(self.ROUTE, [(m, p) for m, p, _b in self.proxy.calls])
+        v = self.judge(obs, sc)
+        self.assertEqual(v.verdict, V.RED)
+        self.assertIn("no route", v.reason)
+
+    def test_a_read_route_is_not_taken_for_r3s_write(self):
+        paths = {"/p4/register/{name}": {"GET"}}
+        self.assertIs(OB.route_answer(paths, "R2"), True)
+        self.assertIs(OB.route_answer(paths, "R3"), False)
+        self.assertIs(OB.route_answer({"/p4/register/{name}": {"GET", "POST"}}, "R3"), True)
+        self.assertIs(OB.route_answer({"/p4/register/{name}": {"POST"}}, "R2"), False)
+
+    def test_the_register_readers_answers(self):
+        self.proxy.routes[self.ROUTE] = (200, {"values": [5]})
+        self.assertEqual(P.register(self.cfg, "HcIngress.r_mark", 2), (200, 5, None))
+        self.proxy.routes[self.ROUTE] = (200, {"values": [5, 6]})
+        self.assertEqual(P.register(self.cfg, "HcIngress.r_mark", 2), (200, None, None))
+        self.proxy.routes[self.ROUTE] = (200, {"values": [True]})
+        self.assertEqual(P.register(self.cfg, "HcIngress.r_mark", 2), (200, None, None))
+        self.proxy.routes[self.ROUTE] = (503, {"detail": {"error": "register not read"}})
+        self.assertEqual(P.register(self.cfg, "HcIngress.r_mark", 2), (503, None, "register not read"))
+
+
 class TestSmallOracles(Sealed):
 
     def test_ps_finds_the_switch_by_its_exact_thrift_port(self):

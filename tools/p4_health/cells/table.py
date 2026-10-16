@@ -494,11 +494,29 @@ def rates_written(obs):
     return green("the rates written are the rates thrift reads")
 
 
+def r2_cannot(obs):
+    """(C2 thrift cut) No read route, or the route's own structural refusal: 404 (not in this
+    pipeline) or 501 (a register it cannot represent). A 503 is not here: that is a read that
+    did not happen, and the missing value makes the cell NOT RUN. [Co-developed with claude code -- Adam]"""
+    out = no_route("register read")(obs)
+    if out is not None:
+        return out
+    http = A(obs).get("http")
+    if http in (404, 501):
+        return red("GET /p4/register answered %d (%s)" % (http, A(obs).get("error")), "structural",
+                   *thrift_ev(obs))
+    return None
+
+
 def r2(obs):
+    """(C2 thrift cut) Against the value the marker wrote, not against thrift (observe_r2)."""
     a, o = A(obs), O(obs)
     if a["value"] != o["value"]:
-        return red("NDTwin read %s, thrift %s" % (a["value"], o["value"]), "structural", "thrift")
-    return green("NDTwin's register read equals register_read")
+        # "thrift": the value the marker wrote is established by thrift, in SC-reg, which gates
+        # this cell -- thrift confirms the oracle, it is not what NDTwin is compared with.
+        return red("NDTwin read %s, the marker wrote %s" % (a["value"], o["value"]), "structural",
+                   "thrift")
+    return green("NDTwin's register read equals the value the marker wrote")
 
 
 def r3(obs):
@@ -1038,7 +1056,7 @@ CELLS = [
     Cell("MT3", "meters", "ext", "static", "A", 2, rates_written, cannot=no_route("direct-meter"),
          red_attribution=BM, need=("a:http", "o:rates_after", "o:target"), **NEG),
     # registers
-    Cell("R2", "registers", "core", "active", "A", 2, r2, cannot=no_route("register read"),
+    Cell("R2", "registers", "core", "active", "A", 2, r2, cannot=r2_cannot,
          self_checks=("SC-reg",), red_attribution=("structural", "thrift"), need=("a:value", "o:value")),
     Cell("R3", "registers", "core", "static", "A", 2, r3, cannot=no_route("register write"),
          red_attribution=BM, need=("a:http", "o:value_after", "o:target"), **NEG),

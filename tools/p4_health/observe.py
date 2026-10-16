@@ -33,11 +33,25 @@ ROUTE_PREFIXES = {
 }
 
 
+#: (C2 thrift cut) The methods a cell's endpoint must answer, where the path alone does not tell
+#: the read from the write: GET /p4/register is R2's read and must not count as R3's write.
+#: A cell not named here takes any method. [Co-developed with claude code -- Adam]
+ROUTE_METHODS = {"R2": frozenset({"GET"}), "R3": frozenset({"POST", "PUT", "PATCH"})}
+
+
 def route_answer(paths, cell):
-    """True / False for "the proxy has this cell's endpoint", None when openapi was unreadable."""
+    """True / False for "the proxy has this cell's endpoint", None when openapi was unreadable.
+    `paths` is openapi_paths' {path: methods}; a plain list of paths (no methods) matches by
+    path only."""
     if paths is None:
         return None
-    return any(p.startswith(prefix) for p in paths for prefix in ROUTE_PREFIXES[cell])
+    methods = ROUTE_METHODS.get(cell)
+
+    def answers(p):
+        if methods is None or not isinstance(paths, dict):
+            return True
+        return bool(set(paths[p] or ()) & methods)
+    return any(p.startswith(prefix) and answers(p) for p in paths for prefix in ROUTE_PREFIXES[cell])
 
 
 def answer_or_none(status, answer):
