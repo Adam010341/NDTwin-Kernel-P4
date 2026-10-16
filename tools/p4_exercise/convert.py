@@ -259,6 +259,81 @@ def package_cpu_port(switches):
     return values[0]
 
 
+# --- the 2018-06 .. 2019-08 tutorials topology format ----------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# Apps written against the P4 Developer Day 2018/2019 VMs (Princeton-Cabernet's ONTAS is one) carry
+# the topology.json of that era: `hosts` is a LIST of names, and a link names a switch with no port
+# (`["h1", "s1"]`). That harness gave every host its address and every link its ports itself, by
+# rules in its utils/run_exercise.py (p4lang/tutorials 948a890, ExerciseTopo.__init__ and
+# parse_links; replaced by the current format in 76a9067, 2019-08-14):
+#
+#   * each link's two ends are ordered alphabetically (so a host, `h...`, is always node1);
+#   * host links, then switch links, are each sorted by node1 + node2;
+#   * a switch's ports are numbered 1, 2, ... in that order -- every host link first, then every
+#     switch link, which takes a port on both of its switches;
+#   * host hN on switch sM is 10.0.M.N/24 with MAC 00:00:00:00:MM:NN (two hex digits each).
+#
+# This converts such a topology into the current form by those same rules, so the rest of convert
+# reads one format. What it cannot carry is said, not dropped: that harness also gave each host a
+# static ARP entry for a phony gateway 10.0.N.254 with the SWITCH PORT's MAC, which only exists in
+# the Mininet it built -- the package's hosts get no commands, and convert prints so.
+
+LEGACY_NOTE = ("a 2018-19 tutorials topology (hosts as a list, links without ports): ports and "
+               "addresses derived by that harness's rules (p4lang/tutorials 948a890 "
+               "utils/run_exercise.py ExerciseTopo); its per-host static ARP for a phony gateway "
+               "used the switch port's MAC and is not carried")
+
+
+def is_legacy_topology(topo):
+    return isinstance(topo.get("hosts"), list)
+
+
+def legacy_topology(topo):
+    """The current-format topology the 2018-19 harness would have built from `topo`."""
+    hosts = topo.get("hosts")
+    if not all(isinstance(h, str) and h for h in hosts):
+        raise ConversionError(f"legacy topology: hosts {hosts!r} is not a list of host names")
+    links = []
+    for raw in topo.get("links") or []:
+        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+            raise ConversionError(f"legacy topology: link {raw!r} needs two endpoints")
+        s, t = str(raw[0]), str(raw[1])
+        if "-" in s or "-" in t:
+            raise ConversionError(
+                f"legacy topology: link {raw!r} names a port, but this format has none -- a "
+                f"topology with `hosts` as a list and `sN-pM` endpoints is neither format")
+        if s > t:
+            s, t = t, s
+        links.append((s, t, list(raw[2:])))
+    host_links = sorted((l for l in links if l[0][0] == "h"), key=lambda l: l[0] + l[1])
+    switch_links = sorted((l for l in links if l[0][0] != "h"), key=lambda l: l[0] + l[1])
+    ports, out_links, out_hosts = {}, [], {}
+
+    def take(sw):
+        ports[sw] = ports.get(sw, 0) + 1
+        return ports[sw]
+
+    for host, sw, extra in host_links:
+        if sw[0] != "s" or not sw[1:].isdigit() or not host[1:].isdigit():
+            raise ConversionError(f"legacy topology: link {host}-{sw} is not hN to sM")
+        n, m = int(host[1:]), int(sw[1:])
+        if not (0 < m < 256 and 0 < n < 256):
+            raise ConversionError(f"legacy topology: {host} on {sw} has no 10.0.M.N address")
+        if host in out_hosts:
+            raise ConversionError(f"legacy topology: {host} is attached twice")
+        out_hosts[host] = {"ip": f"10.0.{m}.{n}/24", "mac": f"00:00:00:00:{m:02x}:{n:02x}",
+                           "commands": []}
+        out_links.append([host, f"{sw}-p{take(sw)}"] + extra)
+    for a, b, extra in switch_links:
+        out_links.append([f"{a}-p{take(a)}", f"{b}-p{take(b)}"] + extra)
+    missing = sorted(set(hosts) - set(out_hosts))
+    if missing:
+        raise ConversionError(f"legacy topology: hosts with no link: {missing}")
+    return {"hosts": out_hosts, "switches": topo.get("switches") or {}, "links": out_links}
+
+
 # --- writing the NDTwin side ---------------------------------------------------------------
 
 def switch_node(dpid, name):
@@ -480,6 +555,11 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto",
         raise ConversionError(f"no topology at {topo_path}")
 
     topo = common.load_json(topo_path)
+    # [Co-developed with claude code -- Adam] The 2018-19 tutorials format (`hosts` a list, links
+    # without ports) is converted into the current one by that harness's own rules, first.
+    legacy = isinstance(topo, dict) and is_legacy_topology(topo)
+    if legacy:
+        topo = legacy_topology(topo)
     hosts = parse_hosts(topo.get("hosts") or {})
     switches = parse_switches(topo.get("switches") or {})
     links = parse_links(topo.get("links") or [])
@@ -534,6 +614,9 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto",
         "bmv2_json": None,
         "controller": "mycontroller.py" if mode == "external" else None,
     }
+    if legacy:
+        # Only when it applies, so every current-format package is byte-for-byte what it was.
+        source["topology_format"] = "tutorials-2018 (hosts a list; ports and addresses derived)"
     if p4_rel:
         p4_abs = os.path.join(exercise_dir, p4_rel)
         if not os.path.isfile(p4_abs):
@@ -1050,6 +1133,12 @@ def main(argv=None):
     n_h = len([n for n in model["nodes"] if n["vertex_type"] == 1])
     print(f"package '{package['name']}' -> {os.path.abspath(args.out)}")
     print(f"  control plane : {package['control_plane']['mode']}")
+    if package["source"].get("topology_format"):
+        # [Co-developed with claude code -- Adam]
+        print(f"  topology      : {LEGACY_NOTE}")
+        for name in sorted(package["hosts"], key=_host_sort_key):
+            h = package["hosts"][name]
+            print(f"                  {name} {h['ip']}/{h['prefix_len']} {h['mac']}")
     # Per switch, and spelled out even when they are all the same: "which program does this
     # switch run" is the question a converted exercise exists to answer, and a summary that
     # only appeared when the answers differed would make the uniform case unreadable.

@@ -8,7 +8,7 @@
 # pipeline). The header below was written for the first seven and still describes them.
 # Adam's ruling J (2026-09-27) appended 23-28, the fixture-provenance rule, and with them a
 # fourth subject: tools/p4_exercise/tests/test_convert.py, where that rule lives.
-# The paper-apps work (int-v1, 2026-10-16) appended 38-65 and a fifth subject,
+# The paper-apps work (int-v1 and ONTAS, 2026-10-16) appended 38-70 and a fifth subject,
 # tools/p4_exercise/thrift_cli.py, the bmv2 CLI -> P4Runtime entry translator.
 # [Co-developed with claude code -- Adam]
 #
@@ -630,6 +630,45 @@ add "65. an include that cannot be read escapes as a raw OSError" \
     '        except FileNotFoundError as exc:  # MUTANT
             raise ConversionError(f"{rel} (an included file of' \
     'test_an_include_that_cannot_be_read_is_a_named_refusal'
+
+# 66-70: ONTAS (Princeton-Cabernet/p4-projects @e5c7cca1, Apache-2.0) carries the 2018-19 tutorials
+# topology format -- hosts a list, links with no port -- and its entries are keyed on the port
+# numbers that era's harness assigned (948a890 utils/run_exercise.py). A converter that numbered
+# them any other way builds a fabric where every one of its twenty port-keyed tables misses.
+# Killed by tools/p4_exercise/tests/test_legacy_topology.py. [Co-developed with claude code -- Adam]
+add "66. legacy host links take ports in file order instead of sorted, before switch links" \
+    "$CONVERT" \
+    '    host_links = sorted((l for l in links if l[0][0] == "h"), key=lambda l: l[0] + l[1])' \
+    '    host_links = [l for l in links if l[0][0] == "h"]  # MUTANT: file order' \
+    'test_host_links_take_the_first_ports_in_sorted_order'
+
+add "67. a legacy host's MAC swaps the switch and host numbers" \
+    "$CONVERT" \
+    '"mac": f"00:00:00:00:{m:02x}:{n:02x}",' \
+    '"mac": f"00:00:00:00:{n:02x}:{m:02x}",  # MUTANT' \
+    'test_hosts_get_10_0_switch_host_and_the_harness_mac'
+
+add "68. a legacy topology is read as if it were the current format" \
+    "$CONVERT" \
+    '    if legacy:
+        topo = legacy_topology(topo)' \
+    '    if False:  # MUTANT: one format only
+        topo = legacy_topology(topo)' \
+    'test_the_package_has_the_harness_hosts_and_ports'
+
+add "69. a legacy link that names a port is accepted" \
+    "$CONVERT" \
+    '        if "-" in s or "-" in t:' \
+    '        if False:  # MUTANT: a port is a port' \
+    'test_a_port_in_a_legacy_topology_is_refused'
+
+add "70. a legacy link's two ends are not ordered, so a switch-first host link is a switch link" \
+    "$CONVERT" \
+    '        if s > t:
+            s, t = t, s' \
+    '        if False:  # MUTANT: as written
+            s, t = t, s' \
+    'test_host_links_take_the_first_ports_in_sorted_order'
 
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
