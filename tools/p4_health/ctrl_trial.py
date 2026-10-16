@@ -15,7 +15,6 @@ and the port-1 output pcap.
 """
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import subprocess
@@ -27,6 +26,7 @@ if __package__ in (None, ""):
 
 from p4_health import attribution as AT  # noqa: E402
 from p4_health import frames as F  # noqa: E402
+from p4_health import frozen as FZ  # noqa: E402
 from p4_health import throwaway as TW  # noqa: E402
 from p4_health.collect import thrift as TH  # noqa: E402
 
@@ -36,12 +36,10 @@ TOKEN = "ctltrial"
 
 def gen(exercise=None):
     """The model (gen_runtime.py) of `exercise` -- the run's copy, which S0 checked against HEAD -- else the
-    shared tree's own."""
-    spec = importlib.util.spec_from_file_location(
+    shared tree's own. (round 9) Compiled from its source by frozen.load_source, never from a cached .pyc.
+    [Co-developed with claude code -- Adam]"""
+    return FZ.load_source(
         "hc_gen", os.path.join(exercise or os.path.join(HERE, "exercise"), "gen_runtime.py"))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
 
 
 def trial(build, bmv2, cli_argv, work, ctrl_python, tutorials_utils, wait_s=15, controller=None,

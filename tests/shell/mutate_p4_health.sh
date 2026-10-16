@@ -44,6 +44,7 @@ THROWAWAY="$PKG/throwaway.py"
 KERNEL="$PKG/collect/kernel.py"
 FRAMES="$PKG/frames.py"
 PROBEPY="$PKG/probe.py"
+OBSERVE_A="$PKG/observe_a.py"
 CELLS_TEST="$REPO/tests/python/test_p4_health_cells.py"
 COLLECT_TEST="$REPO/tests/python/test_p4_health_collect.py"
 RECOVER_TEST="$REPO/tests/shell/test_p4_health_recover.sh"
@@ -76,13 +77,15 @@ WATCHED=(
 
 printf 'gate       : %s\n' "${BASH_SOURCE[0]}"
 printf 'cwd        : %s\n' "$PWD"
+# (round 9) realpath maps a venv onto its base interpreter, so the line also names sys.prefix: two venvs on one base
+# give two lines. It names no host: two machines with the same path, version and prefix give the same line.
 printf 'interpreter: %s (%s)\n' "$(realpath "$PYTHON" 2>/dev/null || echo "MISSING: $PYTHON")" \
-    "$("$PYTHON" -c 'import sys; print(sys.version.split()[0])' 2>/dev/null)"
+    "$("$PYTHON" -c 'import sys; print(sys.version.split()[0] + ", prefix " + sys.prefix)' 2>/dev/null)"
 printf 'subject    : %s\n' "$PKG"
 printf 'HEAD       : %s (commit)\n' "$(git -C "$REPO" rev-parse HEAD 2>/dev/null)"
 printf 'tree       : %s (git tree of tools/p4_health at HEAD)%s\n' "$(git -C "$REPO" rev-parse HEAD:tools/p4_health 2>/dev/null)" \
     "$([[ -n "$(git -C "$REPO" status --porcelain -- "${WATCHED[@]}" 2>/dev/null)" ]] && echo ' +UNCOMMITTED changes in the subject or its suites')"
-printf 'subject sha: %s\n' "$(cd "$PKG" && find . -name '*.py' -o -name '*.sh' | sort | xargs sha256sum | sha256sum | cut -c1-16)"
+printf 'subject sha: %s\n' "$(cd "$PKG" && find . -name '*.py' -o -name '*.sh' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-16)"
 printf 'gates sum  : %s\n' "$(gates_sum | cut -c1-16)"
 echo
 
@@ -175,6 +178,20 @@ add "M9. journaled is ignored" \
     '    if A(obs).get("journaled") is False:' \
     '    if False:  # MUTANT: journaled ignored' \
     'test_t8_journaled_false_is_red'
+
+# (Cut C) [Co-developed with claude code -- Adam] `journaled` is computed since the proxy replays its journal; the RED
+# names why it can be false, not the constant it used to be.
+add "C-T8. T8's RED still says journaled is the constant false" \
+    "$TABLE" \
+    '        return red("switch_state'"'"'s `journaled` is false: this switch'"'"'s table-entry journal is off, is an external "' \
+    '        return red("switch_state'"'"'s `journaled` is the constant false (api_routes.py:765-767) "' \
+    'test_t8_red_says_why_journaled_can_be_false_now'
+
+add "C-T8b. observe_t8 says journaled whatever switch_state says" \
+    "$OBSERVE_A" \
+    '    return {"answer": {"journaled": te.get("journaled") if isinstance(te, dict) else None}}' \
+    '    return {"answer": {"journaled": True}}' \
+    'test_a_proxy_that_replays_its_journal_is_t8_green_and_one_that_does_not_is_red'
 
 add "M10. the link-down deadline is infinite" \
     "$TABLE" \
@@ -2921,7 +2938,7 @@ add "C2R6-2h. the check does not leave out what the copy leaves out" \
     "$FROZENPY" \
     'COPY_IGNORE = ("__pycache__", "build*")' \
     'COPY_IGNORE = ("__pycache__",)  # MUTANT' \
-    'test_the_exercise_copy_check_passes_for_the_tree_the_commit_has_and_ignores_build_output'
+    'test_the_exercise_copy_check_passes_for_the_tree_the_commit_has_with_build_output_beside_it'
 
 add "C2R6-2i. probe.py lab lets a refused exercise copy out as a crash" \
     "$PROBEPY" \
@@ -3428,6 +3445,163 @@ add "C2R7-3e. a refused exercise copy is let through" \
                     pass' \
     'test_a_convert_that_adds_a_file_to_the_exercise_copy_is_refused_before_load_model_too'
 
+# round 8, finding 5: the sorts that feed a hash carry LC_ALL=C, and the shard-sum script compares the interpreter line.
+# The anchors are split ('' inside the quotes) so that they are not found in this table as well. 5b, 5c and 5d change
+# nothing a run can see: BASE_SUM and NOW_SUM are taken in one process under one locale and compared only with each
+# other, and the order of the red tests is never compared (the match below ignores order). Only the lint kills them.
+add "C2R8-5a. the subject sha is sorted by the locale's collation" \
+    "$GATEPY" \
+    '| LC_ALL=C s''ort | xargs sha256sum | sha256sum | cut -c1-16)"' \
+    '| so''rt | xargs sha256sum | sha256sum | cut -c1-16)"  # MUTANT' \
+    '[the subject sha is the same under a sort that collates as C and one that does not]'
+
+add "C2R8-5b. the tree sum taken before the mutations is sorted by the locale's collation" \
+    "$GATEPY" \
+    'BASE_SUM="$(cd "$PKG" && find . -type f \( -name '"'"'*.py'"'"' -o -name '"'"'*.sh'"'"' -o -name '"'"'*.p4'"'"' \) | LC_ALL=C s''ort' \
+    'BASE_SUM="$(cd "$PKG" && find . -type f \( -name '"'"'*.py'"'"' -o -name '"'"'*.sh'"'"' -o -name '"'"'*.p4'"'"' \) | so''rt' \
+    '[every sort in a pipe of the gate script is told LC_ALL=C]'
+
+add "C2R8-5c. the tree sum taken after the mutations is sorted by the locale's collation" \
+    "$GATEPY" \
+    'NOW_SUM="$(cd "$PKG" && find . -type f \( -name '"'"'*.py'"'"' -o -name '"'"'*.sh'"'"' -o -name '"'"'*.p4'"'"' \) | LC_ALL=C s''ort' \
+    'NOW_SUM="$(cd "$PKG" && find . -type f \( -name '"'"'*.py'"'"' -o -name '"'"'*.sh'"'"' -o -name '"'"'*.p4'"'"' \) | so''rt' \
+    '[every sort in a pipe of the gate script is told LC_ALL=C]'
+
+add "C2R8-5d. the list of red tests is sorted by the locale's collation" \
+    "$GATEPY" \
+    '<<<"$out" | LC_ALL=C s''ort -u | tr' \
+    '<<<"$out" | so''rt -u | tr' \
+    '[every sort in a pipe of the gate script is told LC_ALL=C]'
+
+add "C2R8-5e. the shard-sum script sums shards run by different interpreters" \
+    "$SUMPY" \
+    '    if len({f["interp"] for f in facts}) != 1:' \
+    '    if False:  # MUTANT' \
+    '[a shard run by another python version]'
+
+add "C2R8-5f. the shard-sum script takes a log with no interpreter line" \
+    "$SUMPY" \
+    '    if interp is None:' \
+    '    if False:  # MUTANT' \
+    '[a shard whose log has no interpreter line]'
+
+add "C2R8-5g. the shard-sum script compares only the interpreter's version, not its path" \
+    "$SUMPY" \
+    '    interp = one(lines, r"interpreter: (.+)$")' \
+    '    interp = one(lines, r"interpreter: .*(\([^()]*\))$")  # MUTANT' \
+    '[a shard run by the same version of another python (another interpreter path)]'
+
+# round 8, finding 2: S0 checks its exercise copy again right after packages(), before its self-checks, which are the
+# first to exec it (the controller trial does later)
+add "C2R8-2a. S0 does not check its exercise copy again after convert.py has had it as input" \
+    "$S0PY" \
+    '            self.check_exercise_copy()  # [Co-developed with claude code -- Adam]' \
+    '            pass  # MUTANT' \
+    'test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_the_pre_flight'
+
+# round 8, finding 3: the restores in the two _swap_handlers, in run_lab's cleanup and in a round's _restore_handlers
+add "C2R8-3a. lab._swap_handlers never puts the signal mask back" \
+    "$LABPY" \
+    '        signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)' \
+    '        pass  # MUTANT' \
+    'test_lab_swap_handlers_puts_the_signal_mask_back'
+
+add "C2R8-3b. a round's _swap_handlers never puts the signal mask back" \
+    "$LABROUND" \
+    '            signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)' \
+    '            pass  # MUTANT' \
+    'test_a_rounds_swap_handlers_puts_the_signal_mask_back'
+
+add "C2R8-3c. run_lab does not put the handlers it found back" \
+    "$LABPY" \
+    '            if old_handlers is not None:
+                for sig, h in old_handlers.items():' \
+    '            if False:  # MUTANT
+                for sig, h in old_handlers.items():' \
+    'test_run_lab_puts_the_handlers_it_found_back_when_it_ends'
+
+add "C2R8-3d. a round does not put the handlers it replaced back" \
+    "$LABROUND" \
+    '            self._swap_handlers(self._old)' \
+    '            pass  # MUTANT' \
+    'test_a_round_puts_the_handlers_it_replaced_back'
+
+# round 8: T8's RED also names a failed step-0 or replay snapshot
+add "C2R8-T8. T8's RED leaves out a failed snapshot" \
+    "$TABLE" \
+    '                   "control plane'"'"'s, missed a record this boot, or had a step-0 or replay snapshot fail "' \
+    '                   "control plane'"'"'s, or missed a record this boot "  # MUTANT' \
+    'test_t8_red_says_why_journaled_can_be_false_now'
+
+# round 9: the exercise copy's build outputs are checked too, and its modules are compiled from their source
+add "C2R9-2a. the exercise copy's build outputs are not compared with what its first check recorded" \
+    "$FROZENPY" \
+    '        if first != outputs:' \
+    '        if False:  # MUTANT' \
+    'test_a_convert_that_rewrites_a_build_file_of_the_exercise_copy_is_refused_before_the_pre_flight'
+
+add "C2R9-2b. the exercise copy's modules are loaded through the import system's loader (a cached .pyc may run)" \
+    "$FROZENPY" \
+    '    exec(compile(source, path, "exec", dont_inherit=True), mod.__dict__)' \
+    '    import importlib.util  # MUTANT
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)' \
+    'test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc'
+
+# round 9: the interpreter line names sys.prefix, and the MUT_SHARD bound is tested at the table's own size
+add "C2R9-1a. the gate's interpreter line leaves sys.prefix out (two venvs on one base give one line)" \
+    "$GATEPY" \
+    'print(sys.version.split()[0] + ", prefix " + sys.pre''fix)' \
+    'print(sys.version.split()[0])  # MUTANT' \
+    '[the interpreter line tells two venvs on one base interpreter apart (it names sys.prefix)]'
+
+add "C2R9-5a. the gate script refuses n equal to the table size" \
+    "$GATEPY" \
+    '    (( SHARD_N ''<= ${#MUT_LABEL[@]} )) \' \
+    '    (( SHARD_N < ${#MUT_LABEL[@]} )) \' \
+    '[MUT_SHARD with n equal to the table size is not refused by the validation]'
+
+add "C2R9-5b. the gate script lets n be one more than the table size" \
+    "$GATEPY" \
+    '    (( SHARD_N ''<= ${#MUT_LABEL[@]} )) \' \
+    '    (( SHARD_N <= ${#MUT_LABEL[@]} + 1 )) \' \
+    '[MUT_SHARD with n just above the table size is refused too]'
+
+# round 9: the cells suite's end-of-test mask check is what sees a block the trial never lifted, in a test whose own
+# assertions do not look at the calling thread's mask (C2R7-1n is the same edit, seen by a test that does)
+add "C2R9-4a. the trial block is never lifted, seen by the cells suite's end-of-test mask check" \
+    "$S0PY" \
+    '        signal.pthread_sigmask(signal.SIG_SETMASK, held)' \
+    '        pass  # MUTANT' \
+    'test_a_thread_started_inside_the_trial_blocks_the_three_stop_signals'
+
+# round 10: the exercise copy check refuses a copy root that is a link, keys its record by the path as given, refuses a
+# __pycache__ at every check, and refuses a link (or an entry that is not a plain file) among the copy's build outputs
+add "C2R10-1a. the exercise copy check takes a copy root that is a link" \
+    "$FROZENPY" \
+    '        if os.path.islink(copy_dir):' \
+    '        if False:  # MUTANT' \
+    'test_the_exercise_copy_check_refuses_a_copy_root_that_is_a_link'
+
+add "C2R10-1b. the exercise copy's record is keyed by the directory its path resolves to" \
+    "$FROZENPY" \
+    '        key = os.path.abspath(copy_dir)' \
+    '        key = os.path.realpath(copy_dir)  # MUTANT' \
+    'test_a_second_check_through_the_same_path_compares_with_the_first_when_a_parent_link_is_re_pointed'
+
+add "C2R10-2a. the exercise copy check takes a __pycache__ in the copy" \
+    "$FROZENPY" \
+    '            if name == "__pycache__":' \
+    '            if False:  # MUTANT' \
+    'test_the_exercise_copy_check_refuses_a_pycache_at_its_first_check_too'
+
+add "C2R10-3a. the exercise copy check reads a link among the build outputs as the file it points to" \
+    "$FROZENPY" \
+    '            if not stat.S_ISREG(mode):' \
+    '            if False:  # MUTANT' \
+    'test_the_exercise_copy_check_refuses_a_link_under_a_build_directory'
+
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'
@@ -3483,7 +3657,7 @@ fi
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/p4-health-mutate-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 SURVIVORS=0; MUTATIONS=0
-BASE_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | sort | xargs sha256sum | sha256sum)"
+BASE_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | LC_ALL=C sort | xargs sha256sum | sha256sum)"
 GATES_SUM="$(gates_sum)"
 
 fresh_copy() {
@@ -3504,7 +3678,7 @@ red_tests() {
         out=$(P4_HEALTH_UNDER_TEST="$root" timeout 300 "$PYTHON" "$f" 2>&1); rc=$?
         [[ $rc -eq 124 ]] && { echo "HUNG"; return; }
         /usr/bin/grep -qE '^Ran [0-9]+ tests?' <<<"$out" || { echo "NO-SUITE"; return; }
-        [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_][A-Za-z0-9_]*\) .*/\2/p' <<<"$out" | sort -u | tr '\n' ' ')"
+        [[ $rc -ne 0 ]] && names+=" $(sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_][A-Za-z0-9_]*\) .*/\2/p' <<<"$out" | LC_ALL=C sort -u | tr '\n' ' ')"
     done
     out=$(P4_HEALTH_RECOVER_UNDER_TEST="$rec" timeout 300 bash "$RECOVER_TEST" 2>&1); rc=$?
     [[ $rc -eq 124 ]] && { echo "HUNG"; return; }
@@ -3603,7 +3777,7 @@ PY
 fi
 
 printf '\n--- was the original written? ---\n'
-NOW_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | sort | xargs sha256sum | sha256sum)"
+NOW_SUM="$(cd "$PKG" && find . -type f \( -name '*.py' -o -name '*.sh' -o -name '*.p4' \) | LC_ALL=C sort | xargs sha256sum | sha256sum)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then echo "  🔴 tools/p4_health CHANGED DURING THE GATE"; exit 2; fi
 echo "  byte-identical  tools/p4_health  ${BASE_SUM:0:16}"
 if [[ "$(gates_sum)" != "$GATES_SUM" ]]; then

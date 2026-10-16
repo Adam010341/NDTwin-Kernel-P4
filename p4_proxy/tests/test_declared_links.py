@@ -40,6 +40,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROXY_DIR = os.path.dirname(HERE)
 REPO = os.path.dirname(PROXY_DIR)
 sys.path.insert(0, PROXY_DIR)
+# Before anything imports `main`: its table-entry journals go to a temp directory, never to the
+# checkout's .run/ (tests/journal_isolation.py). [Co-developed with claude code -- Adam]
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import journal_isolation  # noqa: E402,F401
 sys.path.insert(0, os.path.join(PROXY_DIR, "mininet"))
 
 try:

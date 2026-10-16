@@ -13,7 +13,6 @@ see-red run of design 5.2-④ is `--mutant --only K1,TTL1 --bringups A`.
 """
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import shutil
@@ -33,10 +32,9 @@ from .round_b import BRound
 
 
 def load_model(exercise_dir):
-    spec = importlib.util.spec_from_file_location("hc_gen_lab", os.path.join(exercise_dir, "gen_runtime.py"))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    """The model, `exercise_dir`'s gen_runtime.py, compiled from its source (frozen.load_source: never a cached .pyc).
+    [Co-developed with claude code -- Adam]"""
+    return FZ.load_source("hc_gen_lab", os.path.join(exercise_dir, "gen_runtime.py"))
 
 
 def expectations(s0_out, run_dir, model):
@@ -267,10 +265,11 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
         log(problems[-1])
     else:
         try:
-            # (round 7, finding 4) S0 checked its copy of exercise/ once, right after compile_all, and then handed
-            # it to the shared tree's convert.py as its input: a convert.py that wrote into it would have its
-            # gen_runtime.py run here. Checked again, against the same pinned commit, immediately before it is
-            # loaded. This is before any claim: a refusal is this run's ordinary "could not be set up".
+            # (round 7, finding 4) S0 checks its copy of exercise/ twice, right after compile_all and again right after
+            # packages() (the shared tree's convert.py gets the copy as its input in between). Its self-checks and
+            # controller trial run after that second check, so the copy is checked here once more, against the same
+            # pinned commit, immediately before gen_runtime.py is loaded from it. This is before any claim: a refusal
+            # is this run's ordinary "could not be set up".
             if getattr(frozen, "head", None):
                 frozen.check_exercise(os.path.join(run_dir, "exercise"))
             model = load_model(os.path.join(run_dir, "exercise"))

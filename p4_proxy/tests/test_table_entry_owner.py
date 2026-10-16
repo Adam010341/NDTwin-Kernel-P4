@@ -44,6 +44,10 @@ import threading
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+# Before anything imports `main`: its table-entry journals go to a temp directory, never to the
+# checkout's .run/ (tests/journal_isolation.py). [Co-developed with claude code -- Adam]
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import journal_isolation  # noqa: E402,F401
 
 try:
     from fastapi import HTTPException
@@ -487,13 +491,21 @@ class TheOrderOfRefusalsTest(unittest.TestCase):
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class ThePostAnswers409Test(unittest.TestCase):
     def setUp(self):
-        self.saved = (api_routes.topology, api_routes.note_api_table_entry_write)
+        # [Co-developed with claude code -- Adam] `table_journals` is isolated as in
+        # tests/test_table_entry_route.py: this file imports `main`, so the route holds the REAL
+        # per-switch journals, and the accepted POST below would append to the checkout's own
+        # `.run/table_entry_journal/`. That an owner refusal records nothing is
+        # tests/test_table_entry_journal.py's to assert.
+        self.saved = (api_routes.topology, api_routes.note_api_table_entry_write,
+                      api_routes.table_journals)
         self.addCleanup(self.restore)
         self.counted = []
         api_routes.note_api_table_entry_write = self.counted.append
+        api_routes.table_journals = None
 
     def restore(self):
-        api_routes.topology, api_routes.note_api_table_entry_write = self.saved
+        (api_routes.topology, api_routes.note_api_table_entry_write,
+         api_routes.table_journals) = self.saved
 
     def post(self, client, body):
         api_routes.topology = FakeTopology({1: client})
