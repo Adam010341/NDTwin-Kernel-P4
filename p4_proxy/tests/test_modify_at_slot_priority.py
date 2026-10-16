@@ -208,7 +208,10 @@ class AModifyAtTheSlotsPriorityIsHonouredTest(SlotTestCase):
         self.assertEqual(writes(c1, "modify")[-1], ("modify", DST, 5))
 
     def test_a_modify_naming_no_priority_is_untouched_by_the_record(self):
-        # makeModifyJob's 0 is the non-strict route, as before: no record needed.
+        # makeModifyJob's 0 ("no priority named"): the proxy edits whatever entry the slot holds,
+        # as before, with no record needed. (On OVS the kernel sends this as a priority-0 STRICT
+        # modify, HttpRoutingStrategyBase.cpp:371-386, which is why the 501 remedy does not
+        # advise it.)
         _, c1, _ = self.fabric(refill=False)
         out = modify(body(priority=0))
         self.assertEqual(out["status"], "success")
@@ -569,8 +572,175 @@ class TheRemedyIsTrueOnBothPlanesTest(SlotTestCase):
         self.fabric()
         window = self.wire(refused(api_routes.modify_flow_entry,
                                    body(priority=777)))[:self.KERNEL_MESSAGE_WINDOW]
-        for needle in ("unsupported_on_p4", "remedy", "five-tuple", "requested_priority"):
+        for needle in ("unsupported_on_p4", "remedy", "five-tuple", "requested_priority",
+                       "slot_priority"):
             self.assertIn(needle, window)
+
+
+# --- round 2 (review r1) ---------------------------------------------------------------------
+# [Co-developed with claude code -- Adam]
+
+#: Another spelling of DST that check_match_values accepts and inet_aton encodes to the same
+#: four bytes, so the switch holds ONE entry for both (p4_client._lpm_match).
+DST_ALT = "10.0.0.02"
+
+
+def race(testcase, second, first=None):
+    """
+    Thread A runs `first` (default: a modify at 10 on DST) and is held mid-write; thread B runs
+    `second(topo)`. Returns the client calls B made while A still held the slot, and the client.
+    """
+    topo, c1, _ = testcase.fabric()
+    c1.hold = threading.Event()
+    c1.entered.clear()
+    a = threading.Thread(target=first or (lambda: modify(body(priority=10))))
+    a.start()
+    testcase.assertTrue(c1.entered.wait(5))
+    n = len(c1.calls)
+    b = threading.Thread(target=second, args=(topo,))
+    b.start()
+    time.sleep(0.5)
+    made = list(c1.calls[n:])
+    c1.hold.set()
+    a.join(5)
+    b.join(5)
+    c1.hold = None
+    return made, c1
+
+
+class OneSlotWhateverTheSpellingTest(SlotTestCase):
+    """MAJOR-1: the record and the lock are the switch's entry, not the string the caller sent."""
+
+    def test_an_install_under_another_spelling_is_the_same_slot(self):
+        # Refill records 10; an app installs at 100 spelling the address differently (same
+        # switch entry). A modify at 10 in the canonical spelling would edit the app's entry.
+        _, c1, _ = self.fabric()
+        self.assertEqual(post(api_routes.add_flow_entry,
+                              body(priority=100, port=4, dst=DST_ALT))["status"], "success")
+        err = refused(api_routes.modify_flow_entry, body(priority=10))
+        self.assertEqual((err.status_code, err.detail.get("slot_priority")), (501, 100))
+        self.assertEqual(writes(c1, "modify"), [], "the modify reached the app's entry")
+
+    def test_a_restore_under_another_spelling_is_the_same_slot(self):
+        # App installs at 100 as DST_ALT, the non-strict delete (canonical) restores the
+        # control plane's route at 10: a modify at 100 as DST_ALT names nothing that is there.
+        _, c1, _ = self.fabric()
+        post(api_routes.add_flow_entry, body(priority=100, port=4, dst=DST_ALT))
+        out = post(api_routes.delete_flow_entry, {"dpid": 1, "match": body()["match"]})
+        self.assertEqual(out["status"], "success")
+        self.assertEqual(c1.calls[-1], ("insert", DST, ROUTE_PORT[1]), "not the A-4d restore")
+        err = refused(api_routes.modify_flow_entry, body(priority=100, dst=DST_ALT))
+        self.assertEqual((err.status_code, err.detail.get("slot_priority")), (501, 10))
+        self.assertEqual(writes(c1, "modify"), [])
+
+    def test_two_spellings_wait_on_the_same_lock(self):
+        made, _ = race(self, lambda topo: post(api_routes.add_flow_entry,
+                                               body(priority=100, port=4, dst=DST_ALT)))
+        self.assertEqual(made, [], "an install spelled differently ran while the modify held "
+                                   "the slot")
+
+
+class EveryWriterTakesTheSlotLockTest(SlotTestCase):
+    """m1: built like the install-vs-modify race above, one per remaining writer."""
+
+    def test_a_restore_cannot_land_between_a_modifys_check_and_its_write(self):
+        made, c1 = race(self, lambda topo: post(api_routes.delete_flow_entry,
+                                                {"dpid": 1, "match": body()["match"]}))
+        self.assertEqual(made, [], "the A-4d restore ran while the modify held the slot")
+        self.assertEqual(c1.calls[-2:], [("modify", DST, DETOUR_PORT),
+                                         ("insert", DST, ROUTE_PORT[1])])
+
+    def test_a_refill_cannot_land_between_a_modifys_check_and_its_write(self):
+        made, c1 = race(self, lambda topo: topo.install_initial_routes(only_dpid=1))
+        self.assertEqual(made, [], "the refill ran while the modify held the slot")
+        self.assertEqual(c1.calls[-2:], [("modify", DST, DETOUR_PORT),
+                                         ("insert", DST, ROUTE_PORT[1])])
+
+
+class ReadoptClient(SlotClient):
+    """The part of P4RuntimeClient readopt_switch drives; the push bumps the epoch like the
+    real one (both sides), and can be told to raise after it 'landed'."""
+
+    def __init__(self, push_raises=False, **kw):
+        super().__init__(**kw)
+        self.arbitration = True
+        self.mastership_confirmed = True
+        self.packet_in_callback = None
+        self.push_raises = push_raises
+        self.pipeline_push_epoch = 0
+        self.stopped = False
+
+    def start(self, push_config=True):
+        pass
+
+    def set_forwarding_pipeline_config(self):
+        self.pipeline_push_epoch += 1
+        try:
+            if self.push_raises:
+                raise RuntimeError("deadline exceeded after the push landed")
+        finally:
+            self.pipeline_push_epoch += 1
+
+    def write_clone_session(self):
+        return True
+
+    def stop(self):
+        self.stopped = True
+
+
+class ReadoptEndToEndTest(SlotTestCase):
+    """m4: TopologyManager.readopt_switch driven with stub clients: push, swap, refill."""
+
+    def test_after_a_readopt_the_refilled_route_is_modified_at_ten(self):
+        topo, old, _ = self.fabric(client1=ReadoptClient())
+        new = ReadoptClient()
+        result = topo.readopt_switch(1, lambda dpid: new, settle_s=0)
+        self.assertEqual(result["status"], "success", result)
+        self.assertEqual(new.calls, [("insert", DST, ROUTE_PORT[1])])
+        self.assertEqual(modify(body(priority=10))["status"], "success")
+        self.assertEqual(writes(new, "modify"), [("modify", DST, DETOUR_PORT)])
+        self.assertEqual(writes(old, "modify"), [])
+
+    def test_after_a_readopt_with_no_refill_the_old_records_do_not_count(self):
+        topo, old, _ = self.fabric(client1=ReadoptClient())
+        new = ReadoptClient()
+        result = topo.readopt_switch(1, lambda dpid: new, settle_s=0, install_routes=False)
+        self.assertEqual(result["status"], "success", result)
+        err = refused(api_routes.modify_flow_entry, body(priority=10))
+        self.assertEqual((err.status_code, err.detail["slot_priority"]), (501, None))
+        self.assertEqual(new.calls, [])
+
+    def test_a_push_that_raised_after_landing_costs_one_failed_modify_and_no_insert(self):
+        # The new client's push emptied the tables and raised; readopt keeps the OLD client,
+        # whose records still count. Pinned residual (review r1 m4): the honoured modify reaches
+        # a slot that is empty, modify_ipv4_route has no insert fallback (pinned below on the
+        # real client), so it fails, the record is forgotten, and the next one is a 501.
+        topo, old, _ = self.fabric(client1=ReadoptClient())
+        new = ReadoptClient(push_raises=True)
+        result = topo.readopt_switch(1, lambda dpid: new, settle_s=0)
+        self.assertEqual((result["status"], result.get("step")), ("failed", "pipeline"))
+        self.assertIs(topo.switches[1], old)
+        old.verdict = False                  # the entry is gone: the modify is refused
+        with self.assertRaises(HTTPException):
+            modify(body(priority=10))
+        self.assertEqual([c[0] for c in old.calls[1:]], ["modify"], "anything but one modify")
+        old.verdict = True
+        err = refused(api_routes.modify_flow_entry, body(priority=10))
+        self.assertEqual((err.status_code, err.detail["slot_priority"]), (501, None))
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class AModifyNeverInsertsTest(unittest.TestCase):
+    """m4: the property the residual above rests on, on the real client."""
+
+    def test_a_refused_modify_is_not_retried_as_an_insert(self):
+        from p4.v1 import p4runtime_pb2
+        stub = RecordingStub(FakeRpcError(grpc.StatusCode.NOT_FOUND), always=True)
+        c = a_writes_client(stub=stub)
+        self.assertFalse(c.modify_ipv4_route(DST, 32, DST_MAC, DETOUR_PORT))
+        kinds = [u.type for r in stub.requests for u in r.updates]
+        self.assertEqual(kinds, [p4runtime_pb2.Update.MODIFY],
+                         "a modify on an absent entry must not create one")
 
 
 if __name__ == "__main__":

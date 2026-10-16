@@ -511,9 +511,11 @@ def _refuse_unhonourable_priority(data, match, verb):
     kernel's log line. Measured 2026-09-11 (hunt-0911/ROLE-5, 4312 POSTs, 2152 of 2152 deletes
     refused): this body is 838 bytes, the cut landed mid-word at "data plan", and so every
     reader of the failure record saw the diagnosis and not one of them saw what to do instead.
-    `remedy` is placed so that the one sentence a caller can act on starts inside the 200-byte
-    window -- p4_proxy/tests/test_flowentry_endpoints.py asserts that against FastAPI's own
-    serializer rather than against a hand-counted string.
+    `remedy` is placed so that the sentence a caller can act on is inside the 200-byte window:
+    the instruction and its OVS caveat ("on OVS a non-strict delete removes every rule"), for any
+    priority up to 65535; only the trailing parenthesis can be cut.
+    p4_proxy/tests/test_flowentry_endpoints.py asserts that against FastAPI's own serializer
+    rather than against a hand-counted string. [Co-developed with claude code -- Adam]
 
     🔴 The remedy used to read "omit priority, or match the full five-tuple". Only the second
     half is true on both planes. On OVS an omitted priority is not "whatever is there": the
@@ -531,8 +533,8 @@ def _refuse_unhonourable_priority(data, match, verb):
         status_code=501,
         detail=_priority_refusal_detail(
             priority,
-            remedy="match the full five-tuple; a non-strict delete here restores the "
-                   "route, on OVS it removes every rule for the destination",
+            remedy="match the full five-tuple; on OVS a non-strict delete removes every "
+                   "rule for it (here: restores the route)",
             message=(
                 f"this {verb} names priority {priority}, and on a P4/bmv2 data plane a match "
                 "of this shape compiles to the ipv4_lpm table, which has no priority column: "

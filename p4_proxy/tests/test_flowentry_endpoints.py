@@ -562,6 +562,10 @@ class TheRefusalReachesTheOnePlaceACallerCanReadItTest(unittest.TestCase):
                 self.assertIn("five-tuple", window,
                               "and it has to name the thing to do, not merely announce that a "
                               "remedy exists")
+                # [Co-developed with claude code -- Adam] Review r1 m2/n3: the caveat that makes
+                # the delete remedy true on OVS, and the modify's recorded priority, are what a
+                # caller acts on -- both inside the cut.
+                self.assertIn({"delete": "OVS", "modify": "slot_priority"}[verb], window)
 
     def test_the_outcome_and_the_requested_priority_are_still_inside_it(self):
         # Adding a field ahead of them must not push the two machine-readable ones out. This is

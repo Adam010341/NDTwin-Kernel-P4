@@ -32,6 +32,8 @@
 # (10, 11, 12, 14, 16, 26, 30, 31), forgotten after anything unconfirmed (18, 21, 22, 23, 24,
 # 28, 29), atomic per slot and per slot only (19, 25), and in the stated order behind the
 # switch's own refusals with a remedy true on OVS as well (20, 32, 33).
+# Round 2 (review r1): one slot whatever the address spelling (34), every writer's slot lock
+# (35-37), no insert fallback in a modify (38), the delete remedy's OVS caveat inside the cut (39).
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any
 # exit, byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD.
@@ -398,7 +400,7 @@ each_mutation() {
         'test_a_replaced_client_does_not_inherit_the_old_ones_records'
 
     "$m" "25. one lock for every slot" "$SLOT" \
-        '        key = (dpid, ipv4_dst)
+        '        key = slot_key(dpid, ipv4_dst)
         with self._guard:
             lock = self._locks.get(key)' \
         '        key = None
@@ -471,6 +473,55 @@ each_mutation() {
         "requested_priority": priority,
         **extra,' \
         'test_the_modify_501_keeps_its_machine_fields_inside_the_kernel_window'
+
+    # ---- round 2 (review r1, 2026-10-16) ---------------------------------------------
+    # [Co-developed with claude code -- Adam]
+    "$m" "34. the slot is keyed on the caller's spelling, not the switch's entry" "$SLOT" \
+        '    return dpid, socket.inet_ntoa(socket.inet_aton(ipv4_dst))' \
+        '    return dpid, ipv4_dst' \
+        'test_an_install_under_another_spelling_is_the_same_slot'
+
+    "$m" "35. an install writes without the slot's lock" "$TOPO" \
+        '        with self.slot_priorities().lock(dpid, ipv4_dst):
+            success = self._write_slot(' \
+        '        with threading.Lock():
+            success = self._write_slot(' \
+        'test_an_install_cannot_land_between_a_modifys_check_and_its_write'
+
+    "$m" "36. a delete or A-4d restore writes without the slot's lock" "$TOPO" \
+        '        with self.slot_priorities().lock(dpid, ipv4_dst):
+            restore_port = self._control_plane_port(dpid, ipv4_dst)' \
+        '        with threading.Lock():
+            restore_port = self._control_plane_port(dpid, ipv4_dst)' \
+        'test_a_restore_cannot_land_between_a_modifys_check_and_its_write'
+
+    "$m" "37. the refill writes without the slot's lock" "$TOPO" \
+        '                with self.slot_priorities().lock(src, ipv4_dst):' \
+        '                with threading.Lock():' \
+        'test_a_refill_cannot_land_between_a_modifys_check_and_its_write'
+
+    # The residual a stale record leaves (a push that raised after landing) is one failed
+    # modify, because modify_ipv4_route never creates an entry. An insert fallback there would
+    # turn it back into an edit of an entry nobody named.
+    "$m" "38. a refused modify is retried as an insert" "$CLIENT" \
+        '        except grpc.RpcError as e:
+            print(f"[{self.device_id}] Failed to modify route: {e.code()} - {e.details()}")
+            return False' \
+        '        except grpc.RpcError as e:
+            update.type = p4runtime_pb2.Update.INSERT
+            try:
+                self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+                return True
+            except grpc.RpcError:
+                pass
+            print(f"[{self.device_id}] Failed to modify route: {e.code()} - {e.details()}")
+            return False' \
+        'test_a_refused_modify_is_not_retried_as_an_insert'
+
+    "$m" "39. the delete remedy's OVS caveat moves past the kernel's cut" "$API" \
+        '            remedy="match the full five-tuple; on OVS a non-strict delete removes every "' \
+        '            remedy="match the full five-tuple; a non-strict delete here restores the route and, on OVS, removes every "' \
+        'test_the_remedy_is_inside_the_window_the_kernel_keeps'
 }
 
 # --- run ------------------------------------------------------------------------------------

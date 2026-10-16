@@ -30,12 +30,20 @@ Four rules keep the record from ever pointing at the wrong entry:
     The record is stamped with the client object and its `pipeline_push_epoch`, which the client
     bumps on both sides of every push attempt (a refused or timed-out push included); a record
     whose stamp no longer matches the switch's current client is no record. That covers startup
-    and readopt (a new client object) without either call site having to remember to clear it,
-    and a write that overlaps a push in any way is settled as forgotten.
+    and readopt (a new client object) without either call site having to remember to clear it.
+    A write that BEGAN before a push, or while one was in flight, never counts once that push
+    has returned: its stamp is an epoch the push's second bump has moved past. (A write that
+    began and ended wholly inside a push is recorded until the push returns, then stops
+    counting with everything else -- the window is the push's own RPC.)
+
+A slot is the switch's entry, not the caller's string: "10.0.0.2", "10.0.0.02" and "10.2" name
+the same ipv4_lpm entry once inet_aton has encoded them, so the record and the lock are keyed
+on that encoding (`slot_key`).
 """
 
 from __future__ import annotations
 
+import socket
 import threading
 import weakref
 
@@ -117,6 +125,23 @@ class SlotPriorityNotHeld(Exception):
                                  else "not written by this proxy at a known priority"))
 
 
+def slot_key(dpid, ipv4_dst):
+    """
+    The key of the ipv4_lpm entry `ipv4_dst` writes on `dpid`: the address as inet_aton encodes
+    it, written back canonically.
+
+    [Co-developed with claude code -- Adam] Review r1 MAJOR-1. The switch entry is built from
+    socket.inet_aton(dst) (p4_client._lpm_match), and check_match_values accepts every spelling
+    inet_aton does, so two spellings of one address are ONE entry -- and were two records and
+    two locks here, which let a modify at 10 in one spelling edit an install at 100 made in the
+    other. Same encoder as _lpm_match, so the key cannot disagree with the entry. A value
+    inet_aton refuses never reaches this: check_match_values runs first on every write path
+    (route_flow, unroute_flow, modify_flow), and install_initial_routes writes host addresses
+    from the graph.
+    """
+    return dpid, socket.inet_ntoa(socket.inet_aton(ipv4_dst))
+
+
 def _push_epoch(client):
     """The client's push epoch; 0 for a double that has none (and so never pushes)."""
     return getattr(client, "pipeline_push_epoch", 0)
@@ -124,7 +149,8 @@ def _push_epoch(client):
 
 class SlotPriorities:
     """
-    (dpid, ipv4_dst) -> the priority the entry in that ipv4_lpm slot was last written with.
+    slot_key(dpid, ipv4_dst) -> the priority the entry in that ipv4_lpm slot was last written
+    with. Every entry point (lock, held, settle) keys through slot_key.
 
     [Co-developed with claude code -- Adam]
     See the module docstring for the four rules. `lock(dpid, dst)` is the slot's own lock and
@@ -140,7 +166,7 @@ class SlotPriorities:
         self._records = {}
 
     def lock(self, dpid, ipv4_dst):
-        key = (dpid, ipv4_dst)
+        key = slot_key(dpid, ipv4_dst)
         with self._guard:
             lock = self._locks.get(key)
             if lock is None:
@@ -153,7 +179,7 @@ class SlotPriorities:
 
     def held(self, dpid, ipv4_dst, client):
         """The recorded priority if the record still describes `client`'s switch, else None."""
-        key = (dpid, ipv4_dst)
+        key = slot_key(dpid, ipv4_dst)
         with self._guard:
             record = self._records.get(key)
             if record is None:
@@ -182,7 +208,7 @@ class SlotPriorities:
         "a write that overlaps a push is not recorded" rule; stamping the current epoch here
         would let such a write through.
         """
-        key = (dpid, ipv4_dst)
+        key = slot_key(dpid, ipv4_dst)
         with self._guard:
             if not accepted or after is None:
                 self._records.pop(key, None)
