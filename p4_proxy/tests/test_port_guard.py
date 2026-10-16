@@ -204,6 +204,9 @@ def offline_proxy(*, python=None):
                NDTWIN_P4_BEACON_S="0.5",
                NDTWIN_RULE_JOURNAL_PATH=os.path.join(_temp_dir("ndt-test-rule-journal-"),
                                                      "rule_journal.jsonl"))
+    # The child is the proxy's real entry point, which reads NDTWIN_PROXY_HOST: a value left in the
+    # caller's shell must not decide what these tests see. [Co-developed with claude code -- Adam]
+    env.pop("NDTWIN_PROXY_HOST", None)
     return argv, env, base
 
 
@@ -220,6 +223,9 @@ P4INFO = os.path.join(PROXY_DIR, "p4_src", "build", "ndtwin_switch.p4info.txt")
 
 def dialed_ports(output: str) -> set:
     """Every port the proxy's output names as a place it tried to reach."""
+    # The "HTTP API listening on" line names where the proxy listens, not a place it dialled, so it
+    # is left out before _TARGET is applied. [Co-developed with claude code -- Adam]
+    output = "\n".join(line for line in output.splitlines() if "HTTP API listening on" not in line)
     return {int(a or b) for a, b in _TARGET.findall(output)}
 
 
@@ -452,6 +458,14 @@ class DialedPortsTest(unittest.TestCase):
                "last error: ipv6:[::1]:61156\n"
                "HTTPConnectionPool(host='127.0.0.1', port=61167): Max retries\n")
         self.assertEqual({61152, 61153, 61155, 61156, 61167}, dialed_ports(out))
+
+    def test_the_listen_line_is_not_a_dial(self):
+        # The line the proxy prints for the address it listens on carries 127.0.0.1:<port> too; it
+        # must not count as a dial. (A comment, not a docstring: see
+        # test_startup_event_never_runs_when_the_port_is_taken.) [Co-developed with claude code -- Adam]
+        out = ("[Proxy Agent] HTTP API listening on 127.0.0.1:8081\n"
+               "last error: UNKNOWN: ipv4:127.0.0.1:30051: Failed\n")
+        self.assertEqual({30051}, dialed_ports(out))
 
 
 if __name__ == "__main__":
