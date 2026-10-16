@@ -49,4 +49,27 @@ The proxy agent must be run using its dedicated virtual environment to ensure pr
 ```bash
 PYTHONPATH=. p4_proxy/venv/bin/python proxy_agent/main.py
 ```
-It listens on port `8081` by default.
+It listens on port `8081`, by default on `127.0.0.1` only. The HTTP API has no authentication, and
+some of its routes change the fabric (`POST /p4/readopt/{dpid}` re-pushes a switch's pipeline;
+`/p4/table_entry`, `/p4/multicast_group` and `/stats/flowentry/*` write rules), so it is not
+reachable from other machines unless you ask for that.
+
+| Environment variable | Default | Meaning |
+|---|---|---|
+| `NDTWIN_PROXY_HOST` | `127.0.0.1` | Address the HTTP API listens on: a numeric IPv4 or IPv6 address, or `0.0.0.0` / `::` for every interface. Surrounding whitespace is ignored. Anything that is not an address this machine can listen on (a hostname, a typo, an address it does not have) makes the proxy refuse to start, naming the variable. The chosen address is printed at startup, with a warning when it is not loopback. |
+
+The repo's own tools (the kernel with `AppConfig::P4_PROXY_IP_AND_PORT`, default
+`localhost:8081`; `stack.sh`, `ndt`, `ports.sh` and `tools/p4_health`) reach the proxy through
+`127.0.0.1` / `localhost`. The values that keep them working are `127.0.0.1` (the default),
+`0.0.0.0` and `::`. Any other value (`127.0.0.2`, one LAN address) leaves them unable to connect.
+`::1` is a half case: curl and urllib clients resolving `localhost` may connect to it, but the
+port checks in `stack.sh` and `ports.sh` look at `127.0.0.1` only and report the proxy as not up.
+`stack.sh` treats a changed `NDTWIN_PROXY_HOST` as a different proxy and restarts it.
+Put your own access control in front of any non-loopback listener.
+
+Two proxies are told apart by the port. Before it binds a specific (non-wildcard) address the
+proxy checks that nothing already accepts connections on `127.0.0.1` or `::1` at the port, and
+refuses to start if something does. The remaining limit: a proxy listening on any specific
+address other than `127.0.0.1` / `::1` (one LAN address, `127.0.0.2`) is not seen by a second
+proxy started on a different specific address, the default `127.0.0.1` included, and the two
+would both run. A wildcard (`0.0.0.0`, `::`) on either side does conflict.
