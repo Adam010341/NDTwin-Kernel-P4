@@ -321,6 +321,14 @@ class TheReadingItselfTest(DirectCounterRouteTestBase):
         self.assertEqual(body["unit"], "bytes")
         self.assertEqual((body["entries"][0]["bytes"], body["entries"][0]["packets"]), (670, None))
 
+    def test_a_counter_with_no_declared_unit_passes_both_numbers_on_and_says_so(self):
+        # p4info's UNSPECIFIED: which unit is kept cannot be told, so both numbers go out as
+        # the switch sent them and `unit` warns the caller.
+        self.client.p4info.direct_counters[0].spec.unit = p4info_pb2.CounterSpec.UNSPECIFIED
+        body = self.get()
+        self.assertEqual(body["unit"], "unspecified")
+        self.assertEqual((body["entries"][0]["bytes"], body["entries"][0]["packets"]), (335, 5))
+
     def test_a_name_that_is_both_kinds_is_read_as_the_direct_counter(self):
         # An indexed counter whose alias is the direct counter's: this route must not send the
         # caller to /p4/counter for a name it can read.

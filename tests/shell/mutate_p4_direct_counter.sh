@@ -244,6 +244,11 @@ each_mutation() {
         '    p4info_pb2.CounterSpec.PACKETS: ("both", True, True),' \
         'test_a_packets_only_counter_reports_no_bytes_and_says_its_unit'
 
+    "$m" "12b. a counter with no declared unit is reported as counting both" "$CLIENT" \
+        '            counter.spec.unit, ("unspecified", True, True))' \
+        '            counter.spec.unit, ("both", True, True))' \
+        'test_a_counter_with_no_declared_unit_passes_both_numbers_on_and_says_so'
+
     "$m" "13. match values stay bytes (not JSON)" "$CLIENT" \
         '    return {name: {k: (int.from_bytes(v, "big") if isinstance(v, bytes) else v)' \
         '    return {name: {k: v' \
