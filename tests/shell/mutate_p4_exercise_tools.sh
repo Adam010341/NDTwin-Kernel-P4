@@ -8,6 +8,9 @@
 # pipeline). The header below was written for the first seven and still describes them.
 # Adam's ruling J (2026-09-27) appended 23-28, the fixture-provenance rule, and with them a
 # fourth subject: tools/p4_exercise/tests/test_convert.py, where that rule lives.
+# The paper-apps work (int-v1, 2026-10-16) appended 38-49 and a fifth subject,
+# tools/p4_exercise/thrift_cli.py, the bmv2 CLI -> P4Runtime entry translator.
+# [Co-developed with claude code -- Adam]
 #
 # A test that has never been seen to fail is a decoration. This applies ten mutations to the
 # three tools, re-runs the whole suite after each, and records WHICH test went red -- not merely
@@ -75,6 +78,8 @@ ADAPTER="$PKG/run_external_controller.py"
 # decides which fixture is byte-compared and which carries a compile command -- so that file is
 # a subject too, snapshotted and restored with the three tools. [Co-developed with claude code -- Adam]
 TESTCONV="$PKG/tests/test_convert.py"
+# The bmv2 CLI translator (38-43). [Co-developed with claude code -- Adam]
+THRIFT="$PKG/thrift_cli.py"
 
 ANCHOR_CHECK="${ANCHOR_CHECK:-0}"
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -85,6 +90,7 @@ fi
 [[ -f "$PREFLIGHT" ]] || { echo "REFUSE: $PREFLIGHT not found -- run from the repo root." >&2; exit 2; }
 [[ -f "$ADAPTER" ]]   || { echo "REFUSE: $ADAPTER not found -- run from the repo root." >&2; exit 2; }
 [[ -f "$TESTCONV" ]]  || { echo "REFUSE: $TESTCONV not found -- run from the repo root." >&2; exit 2; }
+[[ -f "$THRIFT" ]]    || { echo "REFUSE: $THRIFT not found -- run from the repo root." >&2; exit 2; }
 [[ -d "$TESTS" ]]     || { echo "REFUSE: $TESTS not found -- run from the repo root." >&2; exit 2; }
 [[ -x "$PYTHON" ]]    || { echo "REFUSE: no interpreter at $PYTHON (override with PYTHON=)." >&2; exit 2; }
 
@@ -182,8 +188,8 @@ add "7. pre-flight stops enforcing the h<last octet> host naming rule" \
 # `program` override (s1 build/firewall.json, s2-s4 the Makefile's DEFAULT_PROG basic.p4).
 add "8. convert drops the per-switch 'program', so every switch runs the default" \
     "$CONVERT" \
-    '        p4info_rel, json_rel = (artefacts_for_program(declared[dpid]) if declared[dpid]
-                                else default)' \
+    '        p4info_rel, json_rel = (artefacts_for_program(declared[dpid], exercise_dir)
+                                if declared[dpid] else default)' \
     '        p4info_rel, json_rel = default  # MUTANT: the program override is ignored' \
     'test_the_switch_that_names_a_program_gets_it_and_the_others_get_the_default'
 
@@ -416,6 +422,98 @@ add "37. pre-flight refuses a ternary, range or optional field again with the ol
     '                problems.append(f"{where}: {kind} match is not supported (G5 not done)")  # MUTANT' \
     'test_the_old_g5_sentence_is_gone_from_a_ternary_package'
 
+# 38-47: the paper-apps work (int-v1 @84a3ebe8, MIT). int-v1 installs its INT source rules with
+# `simple_switch_CLI <<< "table_add ..."` and builds its p4info under the pre-2024 tutorials name,
+# so `--thrift-commands` translates CLI commands into the switch's runtime file and the converter
+# finds `<stem>.p4.p4info.txt` as well as `.txtpb`. Every one of these is a package that converts
+# and then installs a rule the app did not ask for, or misses one it did: the INT source table is
+# where the app's whole effect lives, and a fabric without it forwards everything and reports
+# healthy. Killed by tools/p4_exercise/tests/test_thrift_cli.py. [Co-developed with claude code -- Adam]
+add "38. a ternary value is copied as the CLI wrote it, and P4Runtime refuses it after bring-up" \
+    "$THRIFT" \
+    '        masked = value & mask' \
+    '        masked = value  # MUTANT: the CLI value is copied, not masked' \
+    'test_a_ternary_value_is_masked_the_way_thrift_masks_it'
+
+add "39. a zero-mask ternary field is written as a field instead of omitted" \
+    "$THRIFT" \
+    '        if mask == 0:' \
+    '        if False:  # MUTANT: a zero mask goes on the wire' \
+    'test_a_zero_mask_field_is_omitted_and_said'
+
+add "40. the CLI priority keeps its own direction, so the order inside a table is reversed" \
+    "$THRIFT" \
+    '        p4rt = largest[entry["table"]] + 1 - prio' \
+    '        p4rt = prio + 1  # MUTANT: lower CLI priority stays lower' \
+    'test_the_lower_thrift_priority_is_the_higher_p4runtime_priority'
+
+add "41. an ambiguous short name picks the first candidate" \
+    "$THRIFT" \
+    '        if len(hits) == 1:
+            return hits[0]' \
+    '        if hits:
+            return hits[0]  # MUTANT: the first one sorted wins' \
+    'test_an_ambiguous_short_name_is_refused_naming_both'
+
+add "42. a script line that is not a CLI call is skipped instead of refused" \
+    "$THRIFT" \
+    '        if m is None:
+            raise Untranslatable(' \
+    '        if m is None:
+            continue  # MUTANT: what cannot be read is not there
+            raise Untranslatable(' \
+    'test_a_shell_line_that_is_not_a_cli_call_is_refused'
+
+add "43. a CLI command that is not translated is skipped instead of refused" \
+    "$THRIFT" \
+    '            else:
+                raise Untranslatable(
+                    f"line {number}: {verb!r} is not translated -- only "' \
+    '            else:
+                continue  # MUTANT: an unknown command is dropped
+                raise Untranslatable(
+                    f"line {number}: {verb!r} is not translated -- only "' \
+    'test_an_unsupported_cli_command_is_refused_by_name'
+
+add "44. convert stops finding the pre-2024 tutorials p4info name (.p4.p4info.txt)" \
+    "$CONVERT" \
+    'P4INFO_SUFFIXES = (".p4.p4info.txtpb", ".p4.p4info.txt")' \
+    'P4INFO_SUFFIXES = (".p4.p4info.txtpb",)  # MUTANT: only the current name' \
+    'test_a_pre_2024_tutorials_p4info_named_txt_is_found'
+
+add "45. two p4infos for one program: the first name is taken instead of refused" \
+    "$CONVERT" \
+    '    if len(present) > 1:' \
+    '    if False:  # MUTANT: whichever suffix is listed first wins' \
+    'test_both_spellings_present_is_refused_naming_both'
+
+add "46. the translated entries are not written into the runtime file" \
+    "$CONVERT" \
+    '        doc["table_entries"] = list(existing) + entries' \
+    '        doc["table_entries"] = list(existing)  # MUTANT: translated, then dropped' \
+    'test_the_commands_are_appended_to_the_switchs_runtime_file'
+
+add "47. the route role re-reads the app file and loses the translated entries" \
+    "$CONVERT" \
+    '        doc = (json.loads(rewrites[rel]) if rel in rewrites
+               else common.load_json(os.path.join(exercise_dir, rel)))' \
+    '        doc = common.load_json(os.path.join(exercise_dir, rel))  # MUTANT' \
+    'test_the_route_role_keeps_the_translated_entries'
+
+# 48-49: found on int-v1 itself -- its int.p4 is five quoted includes, and a package carrying only
+# the top file fails pre-flight's recompile (p4c-bm2-ss rc=1), so `ndt up p4 --app` refuses it.
+add "48. convert carries the .p4 but not the files it includes" \
+    "$CONVERT" \
+    '        copies.extend(_local_includes(exercise_dir, p4_rel))' \
+    '        pass  # MUTANT: only the top file is carried' \
+    'test_a_p4_with_local_includes_carries_them_transitively'
+
+add "49. an include outside the app directory is carried instead of refused" \
+    "$CONVERT" \
+    '            if not real.startswith(root + os.sep):' \
+    '            if False:  # MUTANT: any file the program names is the app'"'"'s' \
+    'test_an_include_that_leaves_the_app_directory_is_refused'
+
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -470,11 +568,11 @@ fi
 # --- baseline snapshot --------------------------------------------------------------------------
 
 BK=$(mktemp -d)
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
     cp -p "$f" "$BK/$(basename "$f")"
 done
 restore() {
-    for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
+    for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
         cp -p "$BK/$(basename "$f")" "$f"
         # cp -p puts the ORIGINAL mtime back. Nothing here is compiled, so no build system can
         # be fooled -- but __pycache__ is keyed on mtime and size, and an unlucky pair would let
@@ -549,8 +647,9 @@ echo "  subjects    : $CONVERT"
 echo "                $PREFLIGHT"
 echo "                $ADAPTER"
 echo "                $TESTCONV (the fixture-provenance rule, ruling J)"
+echo "                $THRIFT (the bmv2 CLI translator, 38-43)"
 echo "  suite       : $TESTS"
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
     printf '  baseline    : %s %s\n' "$(sha256sum "$f" | cut -c1-16)" "$f"
 done
 echo
@@ -627,7 +726,7 @@ fi
 restore
 printf '\n--- baseline restored? ---\n'
 bad_restore=0
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
     if cmp -s "$BK/$(basename "$f")" "$f"; then
         printf '  byte-identical  %s\n' "$f"
     else

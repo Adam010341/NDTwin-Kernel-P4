@@ -42,6 +42,7 @@ What it deliberately does NOT do:
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -358,27 +359,59 @@ def _p4_stem(p4_rel):
     return os.path.splitext(os.path.basename(p4_rel))[0]
 
 
-def artefacts_for_p4(p4_rel):
+#: The two names tutorials' utils/Makefile has given a p4info: `.p4.p4info.txtpb` since
+#: ffd07f2 (2024-10-15, "Updates to use the suffix 'txtpb' instead of 'txt'"), `.p4.p4info.txt`
+#: before it. An app that vendored the older utils/ -- niloysh/int-v1 is one, and its own
+#: sX-runtime.json names `build/int.p4.p4info.txt` -- builds the older name. The current one is
+#: first: with neither on disk, the refusal names what `make` writes today.
+#: [Co-developed with claude code -- Adam]
+P4INFO_SUFFIXES = (".p4.p4info.txtpb", ".p4.p4info.txt")
+
+
+def _p4info_rel(exercise_dir, directory, stem):
+    """The p4info a build left beside `<directory>/<stem>.json`, by either Makefile's name.
+
+    [Co-developed with claude code -- Adam]
+    🔴 BOTH ON DISK IS REFUSED, NOT RESOLVED. Two p4infos for one stem are two compiles, and
+    which one the bmv2 json beside them came from is not something a file name can say; picking
+    one would be a package whose entries are checked against a program the switch may not run.
+    `exercise_dir` None (the naming rule asked in the abstract) answers with the current name.
+    """
+    names = [os.path.join(directory, stem + suffix) for suffix in P4INFO_SUFFIXES]
+    if exercise_dir is None:
+        return names[0]
+    present = [rel for rel in names if os.path.isfile(os.path.join(exercise_dir, rel))]
+    if len(present) > 1:
+        raise ConversionError(
+            f"{exercise_dir} holds both {present[0]!r} and {present[1]!r}: two p4infos for one "
+            f"program, i.e. two builds, and nothing says which one {stem}.json came from. Remove "
+            f"the stale one (or `make clean && make`)")
+    return present[0] if present else names[0]
+
+
+def artefacts_for_p4(p4_rel, exercise_dir=None):
     """`solution/basic.p4` -> ("build/basic.p4.p4info.txtpb", "build/basic.json").
 
     The exercises' shared Makefile compiles every `*.p4` into `$(BUILD_DIR)/<stem>.json` with
     `--p4runtime-files $(BUILD_DIR)/<stem>.p4.p4info.txtpb` (~/tutorials/utils/Makefile), which
     is why the .p4's own directory does not appear on the left: `solution/basic.p4` and
-    `basic.p4` are compiled to the same two files.
+    `basic.p4` are compiled to the same two files. Given the exercise directory, the p4info is
+    whichever of the two Makefile names it holds (P4INFO_SUFFIXES).
     """
     stem = _p4_stem(p4_rel)
-    return (f"build/{stem}.p4.p4info.txtpb", f"build/{stem}.json")
+    return (_p4info_rel(exercise_dir, "build", stem), f"build/{stem}.json")
 
 
-def artefacts_for_program(program_rel):
+def artefacts_for_program(program_rel, exercise_dir=None):
     """`build/firewall.json` -> ("build/firewall.p4.p4info.txtpb", "build/firewall.json").
 
     tutorials' `program` names the bmv2 json; the p4info that was emitted beside it is the same
-    stem with the Makefile's `.p4.p4info.txtpb` suffix, in the same directory.
+    stem with the Makefile's `.p4.p4info.txtpb` suffix, in the same directory (or the older
+    `.p4.p4info.txt`, given the exercise directory to look in).
     """
     directory, base = os.path.split(program_rel)
     stem = os.path.splitext(base)[0]
-    return (os.path.join(directory, f"{stem}.p4.p4info.txtpb"), program_rel)
+    return (_p4info_rel(exercise_dir, directory, stem), program_rel)
 
 
 def switch_pipelines(exercise_dir, switches, p4_rel, ndtwin_pipeline=False):
@@ -414,11 +447,11 @@ def switch_pipelines(exercise_dir, switches, p4_rel, ndtwin_pipeline=False):
                 f"NDTwin's")
         return {dpid: None for dpid in switches}, []
 
-    default = artefacts_for_p4(p4_rel)
+    default = artefacts_for_p4(p4_rel, exercise_dir)
     out, copies = {}, []
     for dpid in sorted(switches):
-        p4info_rel, json_rel = (artefacts_for_program(declared[dpid]) if declared[dpid]
-                                else default)
+        p4info_rel, json_rel = (artefacts_for_program(declared[dpid], exercise_dir)
+                                if declared[dpid] else default)
         for rel in (p4info_rel, json_rel):
             abs_path = os.path.join(exercise_dir, rel)
             if not os.path.isfile(abs_path):
@@ -506,9 +539,8 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto",
         if not os.path.isfile(p4_abs):
             raise ConversionError(f"--p4 {p4_rel!r} is not at {p4_abs}")
         copies.append((p4_abs, p4_rel))
-        stem = _p4_stem(p4_rel)
-        for key, rel in (("p4info", f"build/{stem}.p4.p4info.txtpb"),
-                         ("bmv2_json", f"build/{stem}.json")):
+        copies.extend(_local_includes(exercise_dir, p4_rel))
+        for key, rel in zip(("p4info", "bmv2_json"), artefacts_for_p4(p4_rel, exercise_dir)):
             abs_path = os.path.join(exercise_dir, rel)
             if os.path.isfile(abs_path):
                 source[key] = rel
@@ -562,6 +594,47 @@ def _package_link(a, b, latency, bandwidth):
     if latency:
         entry["delay_ms"] = latency
     return entry
+
+
+#: A quoted `#include` -- the preprocessor looks for it beside the including file first. An
+#: angle include (`<core.p4>`) is the compiler's own and is never carried.
+_QUOTED_INCLUDE = re.compile(r'^\s*#\s*include\s*"([^"]+)"', re.M)
+
+
+def _local_includes(exercise_dir, p4_rel):
+    """[(abs, package_rel)] for every file `p4_rel` pulls in by a quoted `#include`, transitively.
+
+    [Co-developed with claude code -- Adam]
+    A program in several files (niloysh/int-v1: int.p4 and five `include/*.p4`) is not carried by
+    copying the top file alone -- pre-flight recompiles `source.p4` INSIDE the package, and on
+    int-v1 that failed (`p4c-bm2-ss rc=1`), so `ndt up p4 --app` refused the package. Each include
+    is resolved beside the file that names it, the way the preprocessor resolves it first. One
+    that is not there is left to the compiler's own include path (a system header written with
+    quotes); one that resolves OUTSIDE the app directory is refused, because a package that
+    carried it would carry somebody else's file and one that did not would not compile.
+    Only `#include` lines count: a name in a comment is not an include.
+    """
+    root = os.path.realpath(exercise_dir)
+    out, seen, todo = [], {p4_rel}, [p4_rel]
+    while todo:
+        rel = todo.pop()
+        with open(os.path.join(exercise_dir, rel), encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+        for name in _QUOTED_INCLUDE.findall(text):
+            cand = os.path.normpath(os.path.join(os.path.dirname(rel), name))
+            real = os.path.realpath(os.path.join(exercise_dir, cand))
+            if not os.path.isfile(real):
+                continue
+            if not real.startswith(root + os.sep):
+                raise ConversionError(
+                    f"{rel} includes {name!r}, which resolves to {real}, outside {exercise_dir}. "
+                    f"A package carries the app's own files only")
+            if cand in seen:
+                continue
+            seen.add(cand)
+            out.append((os.path.join(exercise_dir, cand), cand))
+            todo.append(cand)
+    return out
 
 
 def _check_link_endpoints(hosts, switches, links):
@@ -694,12 +767,15 @@ def _table_names(p4info_path, table):
     return {found.preamble.name, found.preamble.alias} - {""}
 
 
-def apply_route_role(exercise_dir, package, copies, role):
+def apply_route_role(exercise_dir, package, copies, role, rewrites=None):
     """Put `roles.ipv4_route` in `package`; with owner ndtwin, take the owned table's match
     entries out of every switch that runs the package's own program.
 
     Returns (package, copies, rewrites, removed): `copies` without the rewritten runtime files,
     `rewrites` {package-relative path: new text}, `removed` {dpid as string: entries taken out}.
+    A `rewrites` passed in (the CLI translation's) is the starting text of those files, so the
+    entries it appended are still there after the owned table's are taken out.
+    [Co-developed with claude code -- Adam]
     """
     if package["control_plane"]["mode"] == "external":
         raise ConversionError(
@@ -714,7 +790,7 @@ def apply_route_role(exercise_dir, package, copies, role):
             "role would apply to no switch. Pass --p4 <the exercise's program>")
     package = dict(package)
     package["roles"] = {"ipv4_route": role}
-    rewrites, removed = {}, {}
+    rewrites, removed = dict(rewrites or {}), {}
     if role["owner"] != "ndtwin":
         return package, copies, rewrites, removed
     for dpid in sorted(own_program, key=int):
@@ -722,7 +798,8 @@ def apply_route_role(exercise_dir, package, copies, role):
         rel = spec.get("entries")
         if not rel:
             continue
-        doc = common.load_json(os.path.join(exercise_dir, rel))
+        doc = (json.loads(rewrites[rel]) if rel in rewrites
+               else common.load_json(os.path.join(exercise_dir, rel)))
         names = _table_names(os.path.join(exercise_dir, spec["pipeline"]["p4info"]),
                              role["table"])
         kept, gone = [], 0
@@ -738,6 +815,97 @@ def apply_route_role(exercise_dir, package, copies, role):
             rewrites[rel] = json.dumps(doc, indent=2) + "\n"
     copies = [(src, rel) for src, rel in copies if rel not in rewrites]
     return package, copies, rewrites, removed
+
+
+# --- `--thrift-commands` (bmv2 CLI table commands, translated) ------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# A published app may program part of its fabric through `simple_switch_CLI` rather than a
+# runtime file -- niloysh/int-v1's runtime_cmds/s1.sh installs its INT source rules that way. A
+# package carries P4Runtime entries only, so the commands are translated (thrift_cli.py, which
+# says where the CLI and P4Runtime disagree) and APPENDED to that switch's runtime file in the
+# package. The script itself is carried too, at its app-relative path, and named in
+# `source.thrift_commands`, so the package says which of its entries were not in the app's
+# runtime file. Without the flag nothing here runs and every file is what it was.
+
+def parse_thrift_flags(values):
+    """`["s1=runtime_cmds/s1.sh", ...]` -> {"s1": "runtime_cmds/s1.sh"}; each switch once."""
+    out = {}
+    for value in values or []:
+        name, sep, path = str(value).partition("=")
+        name, path = name.strip(), path.strip()
+        if not sep or not name or not path:
+            raise ConversionError(f"--thrift-commands {value!r}: write it sN=<path relative to "
+                                  f"the app directory>")
+        if name in out:
+            raise ConversionError(f"--thrift-commands names {name} twice")
+        out[name] = path
+    return out
+
+
+def apply_thrift_commands(exercise_dir, package, copies, mapping):
+    """Translate each named switch's CLI commands and append them to its runtime file.
+
+    Returns (package, copies, rewrites, report): `rewrites` {package-relative path: new text},
+    `report` {dpid as string: {"file", "translated", "notes"}}.
+    """
+    from p4_exercise import thrift_cli  # local: protobuf is only needed with the flag
+
+    by_name = {spec["name"]: dpid for dpid, spec in package["switches"].items()}
+    unknown = sorted(set(mapping) - set(by_name))
+    if unknown:
+        raise ConversionError(f"--thrift-commands names {unknown}, which the topology does not "
+                              f"declare (it has {sorted(by_name)})")
+    if package["control_plane"]["mode"] == "external":
+        raise ConversionError(
+            "--thrift-commands on an external control plane: the app's own controller owns "
+            "every table and NDTwin writes none, so translated entries would never be written")
+    package = dict(package)
+    package["source"] = dict(package["source"], thrift_commands=dict(sorted(mapping.items())))
+    rewrites, report = {}, {}
+    for name in sorted(mapping, key=lambda n: int(by_name[n])):
+        dpid = by_name[name]
+        spec = package["switches"][dpid]
+        rel = mapping[name]
+        if not spec.get("pipeline"):
+            raise ConversionError(
+                f"--thrift-commands {name}={rel}: {name} runs NDTwin's own pipeline (no --p4, or "
+                f"--ndtwin-pipeline), and the commands name tables of the app's program")
+        if not spec.get("entries"):
+            raise ConversionError(
+                f"--thrift-commands {name}={rel}: {name} has no runtime_json to carry the "
+                f"translated entries; this flag appends to the app's own runtime file")
+        source_abs = os.path.join(exercise_dir, rel)
+        if os.path.isabs(rel) or not os.path.isfile(source_abs):
+            raise ConversionError(f"--thrift-commands {name}={rel}: no such file under "
+                                  f"{exercise_dir}")
+        with open(source_abs, encoding="utf-8") as fh:
+            text = fh.read()
+        schema = thrift_cli.schema_from_p4info_path(
+            os.path.join(exercise_dir, spec["pipeline"]["p4info"]))
+        try:
+            entries, notes = thrift_cli.translate(thrift_cli.commands_from_text(text, rel),
+                                                  schema)
+        except thrift_cli.Untranslatable as exc:
+            raise ConversionError(f"--thrift-commands {name}={rel}: {exc}") from exc
+        doc = common.load_json(os.path.join(exercise_dir, spec["entries"]))
+        existing = doc.get("table_entries") or []
+        prioritised = sorted({e["table"] for e in entries if "priority" in e})
+        clash = sorted({e.get("table") for e in existing
+                        if isinstance(e, dict) and e.get("table") in prioritised
+                        and not e.get("default_action")})
+        if clash:
+            raise ConversionError(
+                f"--thrift-commands {name}={rel}: {spec['entries']} already has entries in "
+                f"{clash}, and the CLI's priorities cannot be placed among P4Runtime ones "
+                f"without a rule nobody wrote. Translate them into one file by hand")
+        doc["table_entries"] = list(existing) + entries
+        rewrites[spec["entries"]] = json.dumps(doc, indent=2) + "\n"
+        copies = list(copies) + [(source_abs, rel)]
+        report[dpid] = {"file": rel, "translated": len(entries), "notes": notes}
+    copies = [(src, r) for src, r in _dedup_copies(copies) if r not in rewrites]
+    return package, copies, rewrites, report
 
 
 def read_back(model):
@@ -791,16 +959,25 @@ def write(out_dir, package, model, copies, rewrites=None):
 
 
 def convert(exercise_dir, topology_rel, out_dir, p4_rel=None, name=None, mode="auto",
-            ndtwin_pipeline=False, role_ipv4_route=None, removed=None):
+            ndtwin_pipeline=False, role_ipv4_route=None, removed=None, thrift_commands=None,
+            thrift_report=None):
     """Plan, read back, write. `role_ipv4_route` is `parse_role_flag`'s object (or None); when
     given, `removed` (a dict, if passed) is filled with {dpid: owned-table entries taken out}.
-    [Co-developed with claude code -- Adam]"""
+    `thrift_commands` is `parse_thrift_flags`' {switch name: CLI file} (or None); when given,
+    `thrift_report` (a dict, if passed) is filled with apply_thrift_commands' report. The CLI
+    entries go in first, so an owner-ndtwin role takes the owned table's entries out of the
+    translated file too. [Co-developed with claude code -- Adam]"""
     package, model, copies = plan(exercise_dir, topology_rel, p4_rel=p4_rel, name=name,
                                   mode=mode, ndtwin_pipeline=ndtwin_pipeline)
     rewrites = None
+    if thrift_commands:
+        package, copies, rewrites, translated = apply_thrift_commands(
+            os.path.abspath(exercise_dir), package, copies, thrift_commands)
+        if thrift_report is not None:
+            thrift_report.update(translated)
     if role_ipv4_route is not None:
         package, copies, rewrites, taken = apply_route_role(
-            os.path.abspath(exercise_dir), package, copies, role_ipv4_route)
+            os.path.abspath(exercise_dir), package, copies, role_ipv4_route, rewrites)
         if removed is not None:
             removed.update(taken)
     read_back(model)
@@ -826,16 +1003,23 @@ def main(argv=None):
                     help="declare roles.ipv4_route (TICKET-P4-roles 2.1): every name written "
                          "out, none guessed. owner=ndtwin also takes the exercise's match "
                          "entries for that table out of every runtime file (counted below).")
+    ap.add_argument("--thrift-commands", action="append", default=[], metavar="sN=<file>",
+                    help="translate this switch's simple_switch_CLI table commands (a commands "
+                         "file, or a .sh of `simple_switch_CLI <<< \"...\"` lines) into "
+                         "P4Runtime entries appended to its runtime file; repeatable, one per "
+                         "switch. Every place an entry differs from the command is printed.")
     args = ap.parse_args(argv)
 
-    removed = {}
+    removed, translated = {}, {}
     try:
         role = (None if args.role_ipv4_route is None
                 else parse_role_flag(args.role_ipv4_route))
+        thrift = parse_thrift_flags(args.thrift_commands)
         package, model, written = convert(args.exercise_dir, args.topology, args.out,
                                           p4_rel=args.p4, name=args.name, mode=args.mode,
                                           ndtwin_pipeline=args.ndtwin_pipeline,
-                                          role_ipv4_route=role, removed=removed)
+                                          role_ipv4_route=role, removed=removed,
+                                          thrift_commands=thrift, thrift_report=translated)
     except ConversionError as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 1
@@ -866,6 +1050,13 @@ def main(argv=None):
                   f"{'y' if sum(removed.values()) == 1 else 'ies'} for {route['table']} taken "
                   f"out of the runtime files ({per or 'no switch had any'}); its default "
                   f"action stays")
+    for dpid in sorted(translated, key=int):
+        item = translated[dpid]
+        print(f"  CLI commands  : s{dpid}: {item['translated']} entr"
+              f"{'y' if item['translated'] == 1 else 'ies'} from {item['file']} appended to "
+              f"{package['switches'][dpid]['entries']}")
+        for note in item["notes"]:
+            print(f"                  {note}")
     print(f"  files         : {len(written)}")
     for rel in written:
         print(f"                  {rel}")
