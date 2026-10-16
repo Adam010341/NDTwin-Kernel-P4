@@ -3679,10 +3679,20 @@ add "C2T-11. a register route that answers without a value leaves R2 NOT RUN" \
 add "C2T-12. R2 does not say an answer without a value is not a reading" \
     "$TABLE" \
     '    if a.get("value") is None:
-        return red("GET /p4/register answered %s, which is not a reading"' \
+        return red("GET /p4/register answered %s (%s), which is not a reading"' \
     '    if False:  # MUTANT
-        return red("GET /p4/register answered %s, which is not a reading"' \
+        return red("GET /p4/register answered %s (%s), which is not a reading"' \
     'test_a_read_that_did_not_happen_is_red_like_k1'
+
+# round 3 (F9): R2 compares with the marker's value and leans on SC-reg for the rest; without SC-reg a
+# route that echoes the marker would be GREEN when the marker never landed.
+add "C2T-13. R2 no longer depends on SC-reg" \
+    "$TABLE" \
+    '    Cell("R2", "registers", "core", "active", "A", 2, r2, cannot=r2_cannot,
+         self_checks=("SC-reg",),' \
+    '    Cell("R2", "registers", "core", "active", "A", 2, r2, cannot=r2_cannot,
+         self_checks=(),  # MUTANT' \
+    'test_a_marker_that_did_not_land_keeps_r2_from_green'
 
 CTRL_SRC="$TABLE"
 CTRL_ANCHOR='def g1_holds(g1):'

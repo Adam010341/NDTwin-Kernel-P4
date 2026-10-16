@@ -522,8 +522,8 @@ def r2(obs):
     fails every read must be able to make R2 red, not leave it NOT RUN for ever."""
     a, o = A(obs), O(obs)
     if a.get("value") is None:
-        return red("GET /p4/register answered %s, which is not a reading" % a.get("http"),
-                   "structural", *r2_thrift_ev(obs))
+        return red("GET /p4/register answered %s (%s), which is not a reading"
+                   % (a.get("http"), a.get("error")), "structural", *r2_thrift_ev(obs))
     if a["value"] != o["value"]:
         return red("NDTwin read %s, the marker wrote %s" % (a["value"], o["value"]), "structural",
                    *r2_thrift_ev(obs))

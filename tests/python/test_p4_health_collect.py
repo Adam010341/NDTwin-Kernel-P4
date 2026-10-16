@@ -646,7 +646,15 @@ class TestTheRegisterReadAgainstTheMarker(Sealed):
         self.assertEqual(obs["answer"]["error"], "register not read")
         v = self.judge(obs, sc)
         self.assertEqual(v.verdict, V.RED, v)
-        self.assertIn("answered 503, which is not a reading", v.reason)
+        self.assertIn("answered 503 (register not read), which is not a reading", v.reason)
+
+    def test_a_marker_that_did_not_land_keeps_r2_from_green(self):
+        # (round 3) The route agrees with the marker, but thrift says the marker never wrote the cell:
+        # SC-reg fails, and R2 -- which compares with the marker's value, not with thrift -- must not
+        # be GREEN on its own word. This is what keeps that comparison honest.
+        self.with_read_route((200, {"values": [RA.R2_CHOSEN]}))
+        obs, sc = self.observe(1)
+        self.assertNotEqual(self.judge(obs, sc).verdict, V.GREEN)
 
     def test_no_answer_at_all_is_still_not_run(self):
         self.with_read_route(lambda b: (None, None))  # nothing answered: collect/proxy.py's status None
