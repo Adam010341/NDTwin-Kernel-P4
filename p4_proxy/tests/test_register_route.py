@@ -8,13 +8,16 @@ bmv2's P4Runtime answers every RegisterEntry read UNIMPLEMENTED, so this route a
 double -- what goes on the wire is tests/test_bm_thrift.py's subject, and a real switch is the
 offline trial's -- and every status code of the route's docstring is asserted one row at a time:
 
-    200  the cells, as unsigned bit<W> values; `source: "bmv2-thrift"`
+    200  the cells, as bit<W> values (W at most 63); `source: "bmv2-thrift"`
     400  index out of range (checked against p4info before the switch is asked), a bad range
     404  an unknown dpid, a name that is not a register
     413  too many cells
-    501  a register wider than 64 bits, or not bit<W>
-    502  bmv2 refused, or answered something that is not the answer
-    503  no answer (NOT a zero); replay pending; no thrift port; no topology
+    501  bit<64> or wider (bmv2's thrift saturates at 2^63 - 1, measured), or not bit<W>
+    502  the thrift port is another switch's; bmv2 refused; an answer that is not the answer
+    503  no answer (NOT a zero); thrift not installed; replay pending; no thrift port; no topology
+
+The double stands in for bm_thrift.device_info too: the route asks the thrift service who it is
+once per client before it reads.
 
 The handler is called directly, as in test_counter_route.py and for its reason.
 
@@ -48,18 +51,26 @@ if HAVE_P4RUNTIME:
 
 
 def a_p4info():
-    """hc_main's r_mark (bit<32>, 16 cells), a 64-bit register, a 128-bit one, one larger than the cell cap
-    but small enough to fetch whole, and one too big to fetch whole."""
+    """hc_main's r_mark (bit<32>, 16 cells); bit<63>, bit<64> and bit<128> ones; one larger than the cell
+    cap but small enough to fetch whole; the fetch-whole boundary on both sides; one too big to fetch
+    whole; and an int<32> one (p4info's bitstring.int)."""
     p4info = p4info_pb2.P4Info()
     for rid, name, alias, width, size in ((382518421, "HcIngress.r_mark", "r_mark", 32, 16),
                                           (382518422, "HcIngress.r_wide", "r_wide", 64, 4),
                                           (382518423, "HcIngress.r_huge", "r_huge", 128, 4),
                                           (382518424, "HcIngress.r_big", "r_big", 32, 100000),
-                                          (382518425, "HcIngress.r_mid", "r_mid", 32, 8192)):
+                                          (382518425, "HcIngress.r_mid", "r_mid", 32, 8192),
+                                          (382518426, "HcIngress.r_63", "r_63", 63, 2),
+                                          (382518427, "HcIngress.r_65536", "r_65536", 32, 65536),
+                                          (382518428, "HcIngress.r_65537", "r_65537", 32, 65537)):
         r = p4info.registers.add()
         r.preamble.id, r.preamble.name, r.preamble.alias = rid, name, alias
         r.type_spec.bitstring.bit.bitwidth = width
         r.size = size
+    i = p4info.registers.add()
+    i.preamble.id, i.preamble.name, i.preamble.alias = 382518429, "HcIngress.r_int", "r_int"
+    i.type_spec.bitstring.int.bitwidth = 32
+    i.size = 2
     c = p4info.counters.add()
     c.preamble.id, c.preamble.name = 317599709, "HcIngress.c_in"
     return p4info
@@ -67,13 +78,23 @@ def a_p4info():
 
 class ThriftDouble:
     """Stands in for bm_thrift.read_register: answers from `cells`, or raises `error`; records each
-    call and the thread it ran on."""
+    call and the thread it ran on. `info` stands in for bm_thrift.device_info: it answers
+    `identity`, or raises `info_error`, and records each call."""
 
-    def __init__(self, cells=None, error=None):
+    def __init__(self, cells=None, error=None, identity=None):
         self.cells = dict(cells or {})
         self.error = error
         self.calls = []
         self.threads = []
+        self.identity = dict(identity or {"device_id": 2, "thrift_port": 9092})
+        self.info_error = None
+        self.info_calls = []
+
+    def info(self, host, port, timeout_s=None):
+        self.info_calls.append((host, port, timeout_s))
+        if self.info_error is not None:
+            raise self.info_error
+        return dict(self.identity)
 
     def __call__(self, host, port, register, index=None, timeout_s=None):
         self.calls.append((host, port, register, index, timeout_s))
@@ -110,20 +131,28 @@ class FakeJournals:
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class RegisterRouteTestBase(unittest.TestCase):
     def setUp(self):
-        saved = api_routes.topology, api_routes.table_journals, bm_thrift.read_register
+        # getattr: so that on code without the identity check these tests still run, and the ones
+        # about the check go red for their own reason instead of every setUp failing.
+        saved = (api_routes.topology, api_routes.table_journals, bm_thrift.read_register,
+                 getattr(bm_thrift, "device_info", None))
         self.addCleanup(self.restore, saved)
         self.thrift = ThriftDouble({"HcIngress.r_mark": [4737] + [0] * 14 + [7],
-                                    "HcIngress.r_wide": [-1, 1, 0, 2 ** 62],
+                                    "HcIngress.r_wide": [2 ** 63 - 1, 1, 0, 2 ** 62],
+                                    "HcIngress.r_63": [2 ** 63 - 1, 0],
+                                    "HcIngress.r_65536": list(range(65536)),
+                                    "HcIngress.r_65537": list(range(65537)),
                                     "HcIngress.r_big": list(range(100000)),
                                     "HcIngress.r_mid": list(range(8192))})
         bm_thrift.read_register = self.thrift
+        bm_thrift.device_info = self.thrift.info
         self.client = a_client()
         api_routes.topology = FakeTopology({2: self.client})
         api_routes.table_journals = None
 
     @staticmethod
     def restore(saved):
-        api_routes.topology, api_routes.table_journals, bm_thrift.read_register = saved
+        (api_routes.topology, api_routes.table_journals, bm_thrift.read_register,
+         bm_thrift.device_info) = saved
 
     def get(self, name="HcIngress.r_mark", dpid=2, **kw):
         return asyncio.run(api_routes.register(name, dpid=dpid, index=kw.get("index"),
@@ -162,18 +191,77 @@ class TheReadingItselfTest(RegisterRouteTestBase):
         self.assertEqual(body["register"], "HcIngress.r_mark")
         self.assertEqual(self.thrift.calls[0][2], "HcIngress.r_mark")
 
-    def test_a_64_bit_value_comes_back_unsigned(self):
-        # bmv2's thrift carries a signed i64: an all-ones bit<64> arrives as -1.
-        self.assertEqual(self.get(name="HcIngress.r_wide")["values"], [2 ** 64 - 1, 1, 0, 2 ** 62])
+    def test_a_bit63_register_is_read_up_to_its_top(self):
+        self.assertEqual(self.get(name="HcIngress.r_63")["values"], [2 ** 63 - 1, 0])
 
-    def test_a_32_bit_value_is_reduced_to_its_width(self):
+    def test_a_value_outside_the_registers_width_is_502_not_truncated(self):
+        # bmv2 cannot send a negative value for a bit<32> cell, or one past 2^32: if one comes, the
+        # program and the p4info disagree, and reducing it to 32 bits would invent a reading.
         self.thrift.cells["HcIngress.r_mark"][0] = -1
-        self.assertEqual(self.get(index=0)["values"], [2 ** 32 - 1])
+        error = self.refused(index=0)
+        self.assertEqual((error.status_code, error.detail["error"]), (502, "register answer invalid"))
+        self.assertEqual(error.detail["source"], "bmv2-thrift")
+        self.thrift.cells["HcIngress.r_mark"][0] = 2 ** 32
+        self.assertEqual(self.refused(index=0).status_code, 502)
+
+    def test_a_whole_array_longer_than_p4info_says_is_502_before_slicing(self):
+        self.thrift.cells["HcIngress.r_mark"] = list(range(17))
+        error = self.refused(start=0, count=2)
+        self.assertEqual((error.status_code, error.detail["error"]), (502, "register answer invalid"))
+        self.assertIn("17 cells", error.detail["message"])
 
     def test_a_short_answer_is_502_not_a_short_list(self):
         self.thrift.cells["HcIngress.r_mark"] = [1, 2]
         error = self.refused(start=0, count=4)
         self.assertEqual((error.status_code, error.detail["error"]), (502, "register answer invalid"))
+        self.assertEqual(error.detail["source"], "bmv2-thrift")
+
+
+class TheThriftPortMustBeThisSwitchsTest(RegisterRouteTestBase):
+    """Before the first read through a client the route asks bm_mgmt_get_info who the thrift port
+    is. Measured 2026-10-16 (LOG/r4probe0.json): without that, a client whose thrift port is another
+    bmv2's answered 200 with the other switch's cells, on both builds."""
+
+    def test_another_device_on_the_port_is_502_and_nothing_is_read(self):
+        self.thrift.identity["device_id"] = 3
+        error = self.refused(index=0)
+        self.assertEqual((error.status_code, error.detail["error"]), (502, "thrift device mismatch"))
+        self.assertEqual(error.detail["source"], "bmv2-thrift")
+        self.assertEqual(self.thrift.calls, [], "a register of another switch must not be read")
+
+    def test_the_same_device_on_another_port_is_502(self):
+        self.thrift.identity["thrift_port"] = 9093
+        self.assertEqual(self.refused(index=0).detail["error"], "thrift device mismatch")
+        self.assertEqual(self.thrift.calls, [])
+
+    def test_the_identity_is_asked_once_per_client(self):
+        self.get(index=0)
+        self.get(index=1)
+        self.assertEqual(self.thrift.info_calls, [("127.0.0.1", 9092, RPC_TIMEOUT_S)])
+        self.assertEqual(len(self.thrift.calls), 2)
+
+    def test_a_mismatch_is_remembered_for_that_client(self):
+        self.thrift.identity["device_id"] = 3
+        self.refused(index=0)
+        self.thrift.identity["device_id"] = 2           # the port's owner changed; this client's verdict did not
+        self.assertEqual(self.refused(index=0).detail["error"], "thrift device mismatch")
+        self.assertEqual(len(self.thrift.info_calls), 1)
+
+    def test_a_new_client_for_the_dpid_asks_again(self):
+        # A readopt builds a new client object: the switch behind the port may have changed.
+        self.get(index=0)
+        api_routes.topology = FakeTopology({2: a_client()})
+        self.get(index=0)
+        self.assertEqual(len(self.thrift.info_calls), 2)
+
+    def test_an_identity_that_cannot_be_asked_is_503_and_is_asked_again_next_time(self):
+        self.thrift.info_error = bm_thrift.ThriftUnreachable("refused")
+        error = self.refused(index=0)
+        self.assertEqual((error.status_code, error.detail["error"]), (503, "register not read"))
+        self.assertEqual(self.thrift.calls, [])
+        self.thrift.info_error = None
+        self.assertEqual(self.get(index=0)["values"], [4737])
+        self.assertEqual(len(self.thrift.info_calls), 2)
 
 
 class TheRefusalsTest(RegisterRouteTestBase):
@@ -201,6 +289,10 @@ class TheRefusalsTest(RegisterRouteTestBase):
     def test_a_name_that_is_no_register_is_404(self):
         self.assert_refused_before_the_switch(404, "not in this pipeline", name="HcIngress.c_in")
 
+    def test_a_start_past_the_end_is_400_index_out_of_range(self):
+        error = self.assert_refused_before_the_switch(400, "index out of range", start=16)
+        self.assertEqual(error.detail["size"], 16)
+
     def test_an_index_past_the_end_is_400_and_says_the_size(self):
         error = self.assert_refused_before_the_switch(400, "index out of range", index=16)
         self.assertEqual(error.detail["size"], 16)
@@ -220,16 +312,25 @@ class TheRefusalsTest(RegisterRouteTestBase):
     def test_index_with_a_range_is_400(self):
         self.assert_refused_before_the_switch(400, "invalid range", index=1, count=2)
 
+    def test_the_fetch_whole_limit_itself_is_read_and_one_past_it_is_413(self):
+        self.assertEqual(self.get(name="HcIngress.r_65536", start=65534, count=2)["values"], [65534, 65535])
+        del self.thrift.calls[:]
+        error = self.assert_refused_before_the_switch(413, "too many cells", name="HcIngress.r_65537",
+                                                      start=0, count=2)
+        self.assertEqual(error.detail["size"], 65537)
+
     def test_more_cells_than_the_cap_is_413(self):
         # r_mid (8192 cells) is small enough to fetch whole, so only the cell cap refuses it: on r_big the
         # fetch-whole limit would refuse the same request and hide a cap that is gone.
         error = self.assert_refused_before_the_switch(413, "too many cells", name="HcIngress.r_mid")
         self.assertIn("at most %d" % api_routes.REGISTER_CELLS_MAX, error.detail["message"])
+        self.assertEqual(error.detail["size"], 8192)
         self.assert_refused_before_the_switch(413, "too many cells", name="HcIngress.r_mid",
                                               start=0, count=api_routes.REGISTER_CELLS_MAX + 1)
 
     def test_the_cap_itself_is_read(self):
         self.client.p4info.registers[3].size = api_routes.REGISTER_CELLS_MAX
+        self.thrift.cells["HcIngress.r_big"] = list(range(api_routes.REGISTER_CELLS_MAX))
         body = self.get(name="HcIngress.r_big")
         self.assertEqual(len(body["values"]), api_routes.REGISTER_CELLS_MAX)
 
@@ -242,6 +343,17 @@ class TheRefusalsTest(RegisterRouteTestBase):
 
     def test_a_register_wider_than_64_bits_is_501(self):
         self.assert_refused_before_the_switch(501, "register too wide", name="HcIngress.r_huge")
+
+    def test_a_bit64_register_is_501_and_says_why(self):
+        # Measured on both builds (LOG/r4probe0.json): every bit<64> cell at or above 2^63 reads as
+        # 2^63 - 1 through thrift, the CLI and bmv2's generated client alike -- so 2^63 - 1 itself
+        # cannot be told from 2^64 - 1, and no reading of a bit<64> cell can be vouched for.
+        error = self.assert_refused_before_the_switch(501, "register too wide", name="HcIngress.r_wide")
+        self.assertIn("2^63 - 1", error.detail["message"])
+
+    def test_an_int_w_register_is_501(self):
+        self.assert_refused_before_the_switch(501, "register type not readable", name="HcIngress.r_int",
+                                              index=0)
 
     def test_a_register_that_is_not_bit_w_is_501(self):
         self.client.p4info.registers[0].type_spec.Clear()
@@ -257,6 +369,19 @@ class TheRefusalsTest(RegisterRouteTestBase):
         error = self.refused(index=0)
         self.assertEqual((error.status_code, error.detail["error"]), (503, "register not read"))
         self.assertIn("NOT a reading of zero", error.detail["message"])
+        self.assertEqual(error.detail["source"], "bmv2-thrift")
+
+    def test_no_thrift_package_is_503_for_this_route_alone(self):
+        self.thrift.info_error = bm_thrift.ThriftNotInstalled("no module named thrift")
+        error = self.refused(index=0)
+        self.assertEqual((error.status_code, error.detail["error"]), (503, "thrift not installed"))
+        self.assertEqual(error.detail["source"], "bmv2-thrift")
+
+    def test_bytes_that_are_not_thrift_are_502_not_understood(self):
+        self.thrift.error = bm_thrift.ThriftAnswerNotUnderstood("bad version")
+        error = self.refused(index=0)
+        self.assertEqual((error.status_code, error.detail["error"]), (502, "register answer not understood"))
+        self.assertEqual(error.detail["source"], "bmv2-thrift")
 
     def test_bmv2_refusing_the_name_is_502_with_its_code(self):
         self.thrift.error = bm_thrift.RegisterReadRefused(bm_thrift.INVALID_REGISTER_NAME)
@@ -266,7 +391,9 @@ class TheRefusalsTest(RegisterRouteTestBase):
 
     def test_an_answer_that_is_not_the_answer_is_502(self):
         self.thrift.error = bm_thrift.ThriftAnswerInvalid("no result")
-        self.assertEqual(self.refused(index=0).status_code, 502)
+        error = self.refused(index=0)
+        self.assertEqual((error.status_code, error.detail["error"]), (502, "register answer invalid"))
+        self.assertEqual(error.detail["source"], "bmv2-thrift")
 
 
 class ExternalAndThreadTest(RegisterRouteTestBase):

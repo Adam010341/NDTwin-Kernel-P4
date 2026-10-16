@@ -1,5 +1,5 @@
 """
-bmv2's thrift register reads: the two RPCs GET /p4/register needs, and nothing else.
+bmv2's thrift service, for GET /p4/register: two register reads and the switch's identity. Nothing else.
 
 [Co-developed with claude code -- Adam]
 
@@ -10,30 +10,35 @@ are not supported yet"), and the PI installed with it has no register support in
 
 Why a client written here and not bmv2's generated `bm_runtime` package: that package lives in
 another virtualenv (p4dev-python-venv, built for a different interpreter -- the version trap
-p4_proxy/requirements.txt describes), and vendoring it would bring 18 000 generated lines for two
-calls. The wire format of the two calls is small and fixed, and it is written out below field by
-field from the generated code (bm_runtime/standard/Standard.py, Thrift 0.16.0):
+p4_proxy/requirements.txt describes), and vendoring it would bring 18 000 generated lines for three
+calls. The wire format of the three calls is small and fixed, and it is written out below field by
+field from the generated code (bm_runtime/standard/Standard.py and ttypes.py, Thrift 0.16.0):
 
     i64       bm_register_read(1: i32 cxt_id, 2: string register_array_name, 3: i32 idx)
     list<i64> bm_register_read_all(1: i32 cxt_id, 2: string register_array_name)
         throws (1: InvalidRegisterOperation ouch)       InvalidRegisterOperation {1: i32 code}
+    BmConfig  bm_mgmt_get_info()                        BmConfig {1: i64 device_id, 2: i32 thrift_port, ...}
 
 on TBinaryProtocol over a buffered socket, multiplexed under the service name "standard" (what
-bmpy_utils.thrift_connect does). The only dependency is the `thrift` package the venv pins.
+bmpy_utils.thrift_connect does).
 
-READ ONLY. There is no write here: a write through bmv2's CLI is what leaves P4Runtime's view of
-a switch "out-of-sync with target", and a register read was measured not to
-(DESIGN-thrift.md, the sync probe).
+READ ONLY. There is no write here. Measured (DESIGN-thrift.md section 0): a CLI `table_add` leaves
+P4Runtime's view of a switch "out-of-sync with target"; thrift register reads, CLI register reads,
+a CLI register write and a CLI counter read did not.
 
-Every call opens its own connection, with a socket timeout (connect and every receive), and
-closes it: no state is shared between the threads that GET /p4/register runs on.
+THE `thrift` PACKAGE IS IMPORTED ONLY WHEN A CALL IS MADE. A proxy whose interpreter lacks it starts
+and serves everything else; only GET /p4/register answers 503 "thrift not installed"
+(ThriftNotInstalled below).
+
+Every call opens its own connection and closes it: no state is shared between the threads that
+GET /p4/register runs on. Its deadline is for the WHOLE call -- connect, send and every receive
+share one budget -- so a peer that trickles a byte at a time cannot hold a worker past it.
 """
 
 from __future__ import annotations
 
-from thrift.Thrift import TApplicationException, TMessageType, TType
-from thrift.protocol import TBinaryProtocol, TMultiplexedProtocol
-from thrift.transport import TSocket, TTransport
+import struct
+import time
 
 SERVICE = "standard"
 #: bmv2's RegisterOperationErrorCode.
@@ -42,6 +47,10 @@ INVALID_INDEX = 2
 ERROR = 3
 ERROR_NAMES = {INVALID_REGISTER_NAME: "INVALID_REGISTER_NAME", INVALID_INDEX: "INVALID_INDEX",
                ERROR: "ERROR"}
+
+
+class ThriftNotInstalled(RuntimeError):
+    """The interpreter has no `thrift` package, so no thrift call can be made."""
 
 
 class ThriftUnreachable(RuntimeError):
@@ -58,19 +67,41 @@ class RegisterReadRefused(RuntimeError):
 
 
 class ThriftAnswerInvalid(RuntimeError):
-    """bmv2 answered, but not with what these two calls return (an application exception, a
-    missing result, a field of the wrong type)."""
+    """bmv2 answered, but not with what these calls return (an application exception, a missing
+    result, a field of the wrong type, an answer to another call)."""
+
+
+class ThriftAnswerNotUnderstood(ThriftAnswerInvalid):
+    """Something answered, and its bytes could not be decoded as thrift at all: a protocol error,
+    a string that is not UTF-8, a negative or oversized length, a value that does not fit. Not a
+    lost answer -- a peer that is not (this) bmv2's thrift service."""
+
+
+def _thrift():
+    """The thrift modules, imported on first use. ThriftNotInstalled when they cannot be."""
+    try:
+        from thrift.Thrift import TApplicationException, TMessageType, TType
+        from thrift.protocol import TBinaryProtocol, TMultiplexedProtocol
+        from thrift.protocol.TProtocol import TProtocolException
+        from thrift.transport import TSocket, TTransport
+    except ImportError as exc:
+        raise ThriftNotInstalled("the `thrift` package is not installed in the proxy's "
+                                 "interpreter: %s" % exc) from exc
+    return TApplicationException, TMessageType, TType, TBinaryProtocol, TMultiplexedProtocol, \
+        TProtocolException, TSocket, TTransport
 
 
 def _write_args(proto, name, register, index):
+    _A, TMessageType, TType = _thrift()[:3]
     proto.writeMessageBegin(name, TMessageType.CALL, 0)
     proto.writeStructBegin(name + "_args")
-    proto.writeFieldBegin("cxt_id", TType.I32, 1)
-    proto.writeI32(0)
-    proto.writeFieldEnd()
-    proto.writeFieldBegin("register_array_name", TType.STRING, 2)
-    proto.writeString(register)
-    proto.writeFieldEnd()
+    if register is not None:
+        proto.writeFieldBegin("cxt_id", TType.I32, 1)
+        proto.writeI32(0)
+        proto.writeFieldEnd()
+        proto.writeFieldBegin("register_array_name", TType.STRING, 2)
+        proto.writeString(register)
+        proto.writeFieldEnd()
     if index is not None:
         proto.writeFieldBegin("idx", TType.I32, 3)
         proto.writeI32(index)
@@ -80,23 +111,44 @@ def _write_args(proto, name, register, index):
     proto.writeMessageEnd()
 
 
-def _read_ouch(proto):
-    code = None
+def _read_struct(proto, fields):
+    """Read one struct; `fields` maps a field id to (type, reader). Others are skipped."""
+    TType = _thrift()[2]
+    out = {}
     proto.readStructBegin()
     while True:
         _n, ftype, fid = proto.readFieldBegin()
         if ftype == TType.STOP:
             break
-        if fid == 1 and ftype == TType.I32:
-            code = proto.readI32()
+        want = fields.get(fid)
+        if want is not None and ftype == want[0]:
+            out[fid] = want[1](proto)
         else:
             proto.skip(ftype)
         proto.readFieldEnd()
     proto.readStructEnd()
-    return code
+    return out
 
 
-def _read_result(proto, name, success_type):
+def _read_i64_list(proto, name):
+    TType = _thrift()[2]
+    etype, size = proto.readListBegin()
+    if etype != TType.I64:
+        raise ThriftAnswerInvalid("%s answered a list of type %s, not i64" % (name, etype))
+    values = [proto.readI64() for _ in range(size)]
+    proto.readListEnd()
+    return values
+
+
+def _read_bm_config(proto):
+    TType = _thrift()[2]
+    got = _read_struct(proto, {1: (TType.I64, lambda p: p.readI64()),
+                               2: (TType.I32, lambda p: p.readI32())})
+    return {"device_id": got.get(1), "thrift_port": got.get(2)}
+
+
+def _read_result(proto, name, success_type, success_reader):
+    TApplicationException, TMessageType, TType = _thrift()[:3]
     rname, mtype, _seq = proto.readMessageBegin()
     if mtype == TMessageType.EXCEPTION:
         exc = TApplicationException()
@@ -106,64 +158,105 @@ def _read_result(proto, name, success_type):
                                   % (name, exc))
     if rname != name or mtype != TMessageType.REPLY:
         raise ThriftAnswerInvalid("bmv2 answered %r (type %s) to %s" % (rname, mtype, name))
-    success = ouch = None
-    have_success = False
-    proto.readStructBegin()
-    while True:
-        _n, ftype, fid = proto.readFieldBegin()
-        if ftype == TType.STOP:
-            break
-        if fid == 0 and ftype == success_type == TType.I64:
-            success, have_success = proto.readI64(), True
-        elif fid == 0 and ftype == success_type == TType.LIST:
-            etype, size = proto.readListBegin()
-            if etype != TType.I64:
-                raise ThriftAnswerInvalid("%s answered a list of type %s, not i64" % (name, etype))
-            success, have_success = [proto.readI64() for _ in range(size)], True
-            proto.readListEnd()
-        elif fid == 1 and ftype == TType.STRUCT:
-            ouch = _read_ouch(proto)
-        else:
-            proto.skip(ftype)
-        proto.readFieldEnd()
-    proto.readStructEnd()
+    got = _read_struct(proto, {0: (success_type, success_reader),
+                               1: (TType.STRUCT, lambda p: _read_struct(
+                                   p, {1: (TType.I32, lambda q: q.readI32())}).get(1))})
     proto.readMessageEnd()
-    if ouch is not None:
-        raise RegisterReadRefused(ouch)
-    if not have_success:
+    if 1 in got:
+        raise RegisterReadRefused(got[1])
+    if 0 not in got:
         raise ThriftAnswerInvalid("%s answered with no result" % name)
-    return success
+    return got[0]
 
 
-def call(transport, name, register, index=None):
-    """One call on an OPEN transport: bm_register_read when `index` is given (returns an int),
-    else bm_register_read_all (returns a list). Raises the three errors above; a transport
-    failure surfaces as ThriftUnreachable."""
+def call(transport, name, register=None, index=None):
+    """One call on an OPEN transport.
+
+    `bm_register_read` (with `index`, returns an int), `bm_register_read_all` (returns a list) or
+    `bm_mgmt_get_info` (no register, returns {"device_id", "thrift_port"}). Raises the errors above:
+    a transport failure is ThriftUnreachable; bytes that cannot be decoded, a negative or oversized
+    length included, are ThriftAnswerNotUnderstood."""
+    (_A, _M, TType, TBinaryProtocol, TMultiplexedProtocol, TProtocolException, _S,
+     TTransport) = _thrift()
     proto = TMultiplexedProtocol.TMultiplexedProtocol(
         TBinaryProtocol.TBinaryProtocol(transport), SERVICE)
+    if name == "bm_mgmt_get_info":
+        kind = (TType.STRUCT, _read_bm_config)
+    elif index is not None:
+        kind = (TType.I64, lambda p: p.readI64())
+    else:
+        kind = (TType.LIST, lambda p: _read_i64_list(p, name))
     try:
         _write_args(proto, name, register, index)
         transport.flush()
-        return _read_result(proto, name, TType.I64 if index is not None else TType.LIST)
-    except (TTransport.TTransportException, OSError, EOFError) as exc:
+        return _read_result(proto, name, *kind)
+    except TTransport.TTransportException as exc:
+        if exc.type in (TTransport.TTransportException.NEGATIVE_SIZE,
+                        TTransport.TTransportException.SIZE_LIMIT):
+            raise ThriftAnswerNotUnderstood("the answer to %s carried a length that is not one: "
+                                            "%s" % (name, exc)) from exc
         raise ThriftUnreachable("the thrift call %s(%s) did not complete: %s"
                                 % (name, register, exc)) from exc
+    except (OSError, EOFError) as exc:
+        raise ThriftUnreachable("the thrift call %s(%s) did not complete: %s"
+                                % (name, register, exc)) from exc
+    except (TProtocolException, UnicodeDecodeError, struct.error, ValueError, OverflowError) as exc:
+        raise ThriftAnswerNotUnderstood("the answer to %s could not be decoded as thrift: %s: %s"
+                                        % (name, type(exc).__name__, exc)) from exc
 
 
-def read_register(host, port, register, index=None, timeout_s=5.0):
-    """bmv2's value of `register[index]` (an int, signed as bmv2's i64 carries it), or with
-    `index` None the whole array (a list). One connection, opened and closed here, every step of
-    it bounded by `timeout_s`."""
-    sock = TSocket.TSocket(host, port)
-    sock.setTimeout(int(timeout_s * 1000))
-    transport = TTransport.TBufferedTransport(sock)
+def _deadline_socket(host, port, deadline):
+    """A TSocket whose every connect and receive is bounded by what is left of ONE budget."""
+    TSocket, TTransport = _thrift()[6:8]
+
+    class DeadlineSocket(TSocket.TSocket):
+        def _left(self):
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise TTransport.TTransportException(TTransport.TTransportException.TIMED_OUT,
+                                                     "the call's deadline has passed")
+            return left
+
+        def open(self):
+            self.setTimeout(self._left() * 1000)
+            return super().open()
+
+        def read(self, sz):
+            if self.handle is not None:
+                self.handle.settimeout(self._left())
+            return super().read(sz)
+
+        def write(self, buff):
+            if self.handle is not None:
+                self.handle.settimeout(self._left())
+            return super().write(buff)
+
+    return DeadlineSocket(host, port)
+
+
+def _one_call(host, port, name, register, index, timeout_s):
+    TTransport = _thrift()[7]
+    deadline = time.monotonic() + timeout_s
+    transport = TTransport.TBufferedTransport(_deadline_socket(host, port, deadline))
     try:
         transport.open()
     except (TTransport.TTransportException, OSError) as exc:
         raise ThriftUnreachable("no thrift connection to %s:%s: %s" % (host, port, exc)) from exc
     try:
-        if index is None:
-            return call(transport, "bm_register_read_all", register)
-        return call(transport, "bm_register_read", register, index)
+        return call(transport, name, register, index)
     finally:
         transport.close()
+
+
+def read_register(host, port, register, index=None, timeout_s=5.0):
+    """bmv2's value of `register[index]` (an int, as bmv2's i64 carries it), or with `index` None
+    the whole array (a list). One connection, every step of it inside one `timeout_s` budget."""
+    if index is None:
+        return _one_call(host, port, "bm_register_read_all", register, None, timeout_s)
+    return _one_call(host, port, "bm_register_read", register, index, timeout_s)
+
+
+def device_info(host, port, timeout_s=5.0):
+    """{"device_id", "thrift_port"} of the bmv2 listening on `port` (bm_mgmt_get_info): which
+    switch this thrift port actually is."""
+    return _one_call(host, port, "bm_mgmt_get_info", None, None, timeout_s)

@@ -236,6 +236,14 @@ class TheClientTheProxyBuildsTest(unittest.TestCase):
         # service; p4_testbed_topo starts switch N on grpc_ports.thrift_port(N), 9090 + N.
         self.assertEqual(self.build(app_package.baseline()).thrift_port, 9093)
 
+    def test_a_client_on_another_grpc_numbering_has_no_thrift_port(self):
+        # [Co-developed with claude code -- Adam] Not p4_testbed_topo's numbering, so 9090 + dpid
+        # would be a guess about somebody else's switch: no port, and GET /p4/register says so.
+        client = main.build_p4_client(3, port_base=40000, package=app_package.baseline())
+        self.built = getattr(self, "built", []) + [client]
+        self.assertEqual(client.grpc_addr, "localhost:40003")
+        self.assertIsNone(client.thrift_port)
+
     def test_without_a_package_it_is_the_client_the_proxy_has_always_built(self):
         client = self.build(app_package.baseline())
         self.assertEqual(client.device_id, 3)

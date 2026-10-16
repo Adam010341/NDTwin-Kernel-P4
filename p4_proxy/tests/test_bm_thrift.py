@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -42,6 +43,14 @@ if HAVE_THRIFT:
 READ_3 = bytes.fromhex(
     "80010001000000197374616e646172643a626d5f72656769737465725f7265616400000000080001000000000b"
     "0002000000104863496e67726573732e725f6d61726b0800030000000300")
+#: Standard.Client(...).send_bm_mgmt_get_info() (LOG/r4-evidence/wire_bytes_r2.log).
+GET_INFO = bytes.fromhex(
+    "80010001000000197374616e646172643a626d5f6d676d745f6765745f696e666f0000000000")
+#: Standard.bm_mgmt_get_info_result(success=BmConfig(device_id=7, thrift_port=9097,
+#: notifications_socket="ipc://x")) as the generated server code writes it (the same log).
+GET_INFO_REPLY = bytes.fromhex(
+    "8001000200000010626d5f6d676d745f6765745f696e666f000000000c00000a00010000000000000007080002000023"
+    "890b0003000000076970633a2f2f780000")
 #: Standard.Client(...).send_bm_register_read_all(0, "HcIngress.r_mark").
 READ_ALL = bytes.fromhex(
     "800100010000001d7374616e646172643a626d5f72656769737465725f726561645f616c6c0000000008000100"
@@ -183,6 +192,33 @@ class OnTheWireTest(unittest.TestCase):
         with self.assertRaises(B.ThriftAnswerInvalid):
             B.call(pipe, "bm_register_read_all", "HcIngress.r_mark")
 
+    def test_the_identity_call_is_the_generated_clients_bytes_and_its_answer_is_read(self):
+        pipe = Pipe(GET_INFO_REPLY)
+        self.assertEqual(B.call(pipe, "bm_mgmt_get_info"), {"device_id": 7, "thrift_port": 9097})
+        self.assertEqual(pipe.written, GET_INFO)
+
+    def test_a_version_that_is_not_thrifts_is_not_understood(self):
+        # 0x8002...: the strict-version marker with the wrong version -> TProtocolException.
+        with self.assertRaises(B.ThriftAnswerNotUnderstood):
+            B.call(Pipe(bytes.fromhex("80020002") + b"\0" * 32), "bm_register_read", "HcIngress.r_mark", 0)
+
+    def test_a_method_name_that_is_not_utf8_is_not_understood(self):
+        answer = bytes.fromhex("80010002") + (2).to_bytes(4, "big") + b"\xff\xfe" + b"\0" * 16
+        with self.assertRaises(B.ThriftAnswerNotUnderstood):
+            B.call(Pipe(answer), "bm_register_read", "HcIngress.r_mark", 0)
+
+    def test_a_negative_list_size_is_not_understood_and_not_unreachable(self):
+        def body(p):
+            p.writeFieldBegin("success", TType.LIST, 0)
+            p.trans.write(bytes([TType.I64]) + (-1).to_bytes(4, "big", signed=True))
+        pipe = Pipe(reply("bm_register_read_all", body))
+        with self.assertRaises(B.ThriftAnswerNotUnderstood):
+            B.call(pipe, "bm_register_read_all", "HcIngress.r_mark")
+
+    def test_an_index_that_does_not_fit_an_i32_is_not_understood(self):
+        with self.assertRaises(B.ThriftAnswerNotUnderstood):
+            B.call(Pipe(b""), "bm_register_read", "HcIngress.r_mark", 2 ** 31)
+
     def test_an_answer_cut_short_is_unreachable(self):
         whole = reply("bm_register_read", success_i64(4737))
         with self.assertRaises(B.ThriftUnreachable):
@@ -218,6 +254,39 @@ class ARealSocketTest(unittest.TestCase):
             B.read_register("127.0.0.1", port, "HcIngress.r_mark", 0, timeout_s=0.5)
         self.assertLess(time.monotonic() - t0, 3.0)
 
+    def test_a_peer_trickling_a_byte_every_2_s_is_cut_at_the_calls_deadline(self):
+        # Each byte arrives inside the 3 s budget's per-receive share, so only a deadline for the
+        # WHOLE call stops it: before round 2 every receive got a fresh 3 s.
+        answer = reply("bm_register_read", success_i64(4737))
+
+        def handler(conn, stop):
+            conn.recv(4096)
+            for b in answer:
+                if stop.wait(2):
+                    return
+                try:
+                    conn.sendall(bytes([b]))
+                except OSError:
+                    return
+        port = self.serve(handler)
+        t0 = time.monotonic()
+        with self.assertRaises(B.ThriftUnreachable):
+            B.read_register("127.0.0.1", port, "HcIngress.r_mark", 3, timeout_s=3)
+        took = time.monotonic() - t0
+        self.assertLess(took, 4.5, "the call outlived its 3 s budget")
+        self.assertGreater(took, 2.5)
+
+    def test_a_peer_that_is_not_thrift_ends_inside_the_deadline_never_as_a_crash(self):
+        def handler(conn, stop):
+            conn.recv(4096)
+            conn.sendall(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
+            stop.wait(10)
+        port = self.serve(handler)
+        t0 = time.monotonic()
+        with self.assertRaises((B.ThriftUnreachable, B.ThriftAnswerNotUnderstood)):
+            B.read_register("127.0.0.1", port, "HcIngress.r_mark", 3, timeout_s=1.5)
+        self.assertLess(time.monotonic() - t0, 3.0)
+
     def test_nothing_listening_is_unreachable(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(("127.0.0.1", 0))
@@ -236,6 +305,44 @@ class ARealSocketTest(unittest.TestCase):
         port = self.serve(handler)
         self.assertEqual(B.read_register("127.0.0.1", port, "HcIngress.r_mark", 3, timeout_s=2), 4737)
         self.assertEqual(got["request"], READ_3)
+
+
+class WithoutThriftTest(unittest.TestCase):
+    """The proxy must start without the `thrift` package; only GET /p4/register is then refused.
+    Run in a fresh interpreter in which `import thrift` fails."""
+
+    def test_the_proxy_imports_and_the_call_says_thrift_is_not_installed(self):
+        code = (
+            "import sys; sys.modules['thrift'] = None\n"
+            "from proxy_agent import bm_thrift\n"
+            "try:\n"
+            "    from proxy_agent import api_routes  # noqa\n"
+            "    routes = 'imported'\n"
+            "except ImportError as e:\n"
+            "    routes = 'needs ' + str(e)\n"
+            "try:\n"
+            "    bm_thrift.read_register('127.0.0.1', 1, 'x', 0, 0.1)\n"
+            "    print('NO REFUSAL', routes)\n"
+            "except bm_thrift.ThriftNotInstalled:\n"
+            "    print('ThriftNotInstalled', routes)\n")
+        env = dict(os.environ, PYTHONPATH=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."),
+                   PYTHONDONTWRITEBYTECODE="1")
+        res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=60)
+        self.assertEqual(res.returncode, 0, res.stderr[-2000:])
+        out = res.stdout.strip()
+        self.assertTrue(out.startswith("ThriftNotInstalled"), out)
+        # api_routes needs fastapi and the P4Runtime protobufs, which this interpreter may lack; when
+        # they are there it must import without thrift.
+        if HAVE_DEPS:
+            self.assertTrue(out.endswith("imported"), out)
+
+
+try:
+    import fastapi  # noqa: F401
+    from p4.v1 import p4runtime_pb2  # noqa: F401
+    HAVE_DEPS = True
+except ImportError:  # pragma: no cover
+    HAVE_DEPS = False
 
 
 if __name__ == "__main__":
