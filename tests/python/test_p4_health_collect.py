@@ -604,8 +604,10 @@ class TestTheRegisterReadAgainstTheMarker(Sealed):
         self.proxy.routes[self.ROUTE] = answer
 
     def observe(self, thrift_value):
-        out = fixture("register_r_mark").replace("r_mark[0]= 0", "r_mark[0]= %d" % thrift_value)
-        r = RecordingRunner().add(("simple_switch_CLI",), lambda a, e, i: (0, out))
+        """thrift_value None: the CLI could not reach the switch (rc 1, nothing read)."""
+        out = fixture("register_r_mark").replace("r_mark[0]= 0", "r_mark[0]= %d" % (thrift_value or 0))
+        rc = 0 if thrift_value is not None else 1
+        r = RecordingRunner().add(("simple_switch_CLI",), lambda a, e, i: (rc, out if rc == 0 else ""))
         return OA.observe_r2(self.cfg, r, lambda: "SENT cell=R2 n=1 ident=1 requested=1\n", RA.R2_CHOSEN)
 
     def judge(self, obs, sc):
@@ -617,7 +619,7 @@ class TestTheRegisterReadAgainstTheMarker(Sealed):
     def test_the_oracle_is_the_value_the_marker_wrote(self):
         self.with_read_route((200, {"values": [RA.R2_CHOSEN], "source": "bmv2-thrift"}))
         obs, sc = self.observe(RA.R2_CHOSEN)
-        self.assertEqual(obs["oracle"], {"value": RA.R2_CHOSEN})
+        self.assertEqual(obs["oracle"], {"value": RA.R2_CHOSEN, "thrift": RA.R2_CHOSEN})
         self.assertEqual(obs["answer"]["value"], RA.R2_CHOSEN)
         self.assertEqual(sc, {"chosen": RA.R2_CHOSEN, "register": RA.R2_CHOSEN})
         self.assertEqual(self.judge(obs, sc).verdict, V.GREEN)
@@ -633,14 +635,37 @@ class TestTheRegisterReadAgainstTheMarker(Sealed):
         # The case a thrift oracle cannot see: the route and thrift both say 1, the marker wrote R2_CHOSEN.
         self.with_read_route((200, {"values": [1]}))
         obs, sc = self.observe(1)
-        self.assertEqual(obs["oracle"], {"value": RA.R2_CHOSEN})
+        self.assertEqual(obs["oracle"]["value"], RA.R2_CHOSEN)
         self.assertNotEqual(self.judge(obs, sc).verdict, V.GREEN)
 
-    def test_a_read_that_did_not_happen_is_not_run(self):
+    def test_a_read_that_did_not_happen_is_red_like_k1(self):
+        # (thrift cut round 2) A route that answers 503 to every read would otherwise keep R2 NOT RUN
+        # for ever; K1's 503 is a red ("not a reading"), and so is R2's.
         self.with_read_route((503, {"detail": {"error": "register not read"}}))
         obs, sc = self.observe(RA.R2_CHOSEN)
         self.assertEqual(obs["answer"]["error"], "register not read")
+        v = self.judge(obs, sc)
+        self.assertEqual(v.verdict, V.RED, v)
+        self.assertIn("answered 503, which is not a reading", v.reason)
+
+    def test_no_answer_at_all_is_still_not_run(self):
+        self.with_read_route(lambda b: (None, None))  # nothing answered: collect/proxy.py's status None
+        obs, sc = self.observe(RA.R2_CHOSEN)
+        self.assertIsNone(obs["answer"]["http"])
         self.assertEqual(self.judge(obs, sc).verdict, V.NOT_RUN)
+
+    def test_the_routes_own_501_is_a_structural_red(self):
+        self.with_read_route((501, {"detail": {"error": "register too wide"}}))
+        obs, sc = self.observe(RA.R2_CHOSEN)
+        v = self.judge(obs, sc)
+        self.assertEqual(v.verdict, V.RED, v)
+        self.assertIn("GET /p4/register answered 501", v.reason)
+
+    def test_a_red_without_thrifts_reading_is_unattributed(self):
+        self.with_read_route((404, {"detail": {"error": "not in this pipeline"}}))
+        obs, sc = self.observe(None)
+        self.assertIsNone(obs["oracle"]["thrift"])
+        self.assertEqual(self.judge(obs, sc).verdict, V.UNATTRIBUTED)
 
     def test_the_routes_own_404_is_a_structural_red(self):
         self.with_read_route((404, {"detail": {"error": "not in this pipeline"}}))
@@ -673,6 +698,8 @@ class TestTheRegisterReadAgainstTheMarker(Sealed):
         self.proxy.routes[self.ROUTE] = (200, {"values": [True]})
         self.assertEqual(P.register(self.cfg, "HcIngress.r_mark", 2), (200, None, None))
         self.proxy.routes[self.ROUTE] = (503, {"detail": {"error": "register not read"}})
+        self.assertEqual(P.register(self.cfg, "HcIngress.r_mark", 2), (503, None, "register not read"))
+        self.proxy.routes[self.ROUTE] = (503, {"values": [5], "detail": {"error": "register not read"}})
         self.assertEqual(P.register(self.cfg, "HcIngress.r_mark", 2), (503, None, "register not read"))
 
 
@@ -1567,6 +1594,9 @@ class FakeFabric(object):
         # (Cut C) today's proxy replays its table-entry journal, so switch_state's `journaled` is true; False is a
         # proxy before that (journaled false everywhere)
         self.journal_replays = True
+        # (C2 thrift cut) today's proxy reads registers (GET /p4/register, through bmv2's thrift): served from s2's
+        # r_mark; False is a proxy before that (no such route in its openapi)
+        self.proxy_reads_registers = True
         self.ndtwin_priority = None       # a writer that stores some other number than PI does, or None
         self.tx_checksum = "off"
         self.graph_drop_edge = False
@@ -1644,9 +1674,14 @@ class FakeFabric(object):
             return (200, {"switches": sw, "heartbeat": {"state": "usable", "frames_reached_hosts": False},
                           "control_plane": {"mode": self.mode, "package": None, "skipped": []}})
         pr[("GET", "/p4/switch_state")] = state
-        pr[("GET", "/openapi.json")] = (200, {"paths": {p_: {"get": {}} for p_ in (
+        self._openapi_paths = {p_: {"get": {}} for p_ in (
             "/p4/switch_state", "/p4/counter/{name}", "/p4/table_entry", "/p4/multicast_group",
-            "/p4/readopt/{dpid}", "/stats/flowentry/add")}})
+            "/p4/readopt/{dpid}", "/stats/flowentry/add")}
+        self.proxy_reads_registers = self.proxy_reads_registers      # puts /p4/register in, or not
+        pr[("GET", "/openapi.json")] = (200, {"paths": self._openapi_paths})
+        pr[("GET", "/p4/register/HcIngress.r_mark?dpid=2&index=0")] = lambda b: (
+            (200, {"values": [self.sw[2].registers[("HcIngress.r_mark", 0)]], "source": "bmv2-thrift"})
+            if self.proxy_reads_registers else (404, {"detail": "Not Found"}))
         def c_in(_b):
             self.k1_reads += 1
             return (200, {"packets": self.sw[2].counters[("HcIngress.c_in", 0)]
@@ -1660,6 +1695,22 @@ class FakeFabric(object):
         pr[("POST", "/p4/multicast_group")] = self.post_mc
         kr[("GET", "/ndt/get_graph_data")] = lambda b: (200, self.graph())
         kr[("POST", "/ndt/install_meter_entry")] = (501, {"status": "error", "error": "unsupported_on_p4"})
+
+    @property
+    def proxy_reads_registers(self):
+        return self._reads_registers
+
+    @proxy_reads_registers.setter
+    def proxy_reads_registers(self, on):
+        """(C2 thrift cut) The knob also edits the openapi document routes() published, so a test may turn
+        it after the fabric is up. [Co-developed with claude code -- Adam]"""
+        self._reads_registers = on
+        paths = getattr(self, "_openapi_paths", None)
+        if paths is not None:
+            if on:
+                paths["/p4/register/{name}"] = {"get": {}}
+            else:
+                paths.pop("/p4/register/{name}", None)
 
     def post_table_entry(self, body):
         table = body["table"]
@@ -2205,6 +2256,7 @@ class TestBringUpAOnTodaysFabric(Cut2):
     def test_without_b_every_bmv2_red_is_unattributed(self):
         self.fab.ndtwin_writes_ternary = False           # a proxy before the ternary writer: T4-T6 answer 501
         self.fab.journal_replays = False                 # ... and before the journal replay: journaled false
+        self.fab.proxy_reads_registers = False           # ... and before the register route: R2 has no route
         a, _r = self.a_round()
         ctx = self.judge(a, None)
         for cid in ("T4", "T5", "T6", "MT1", "MT2", "MT3", "D1", "C2", "R3", "K2", "P2", "P3"):

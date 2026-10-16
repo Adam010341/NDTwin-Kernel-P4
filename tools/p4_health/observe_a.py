@@ -485,7 +485,10 @@ def observe_r2(cfg, runner, stimulate, chosen):
     if isinstance(answer, dict) and answer.get("route") is True:
         status, mine, error = P.register(cfg, "HcIngress.r_mark", 2, 0)
         answer = dict(answer, http=status, value=mine, error=error)
-    return ({"answer": answer, "oracle": {"value": chosen}, "sent": S.sent(out, "R2")},
+    # (thrift cut round 2) `thrift` beside the oracle is what register_read printed, or None: it is
+    # the only thrift evidence an R2 red may claim (cells.table.r2_thrift_ev), as K1's red claims
+    # thrift only when thrift's counter_read answered.
+    return ({"answer": answer, "oracle": {"value": chosen, "thrift": value}, "sent": S.sent(out, "R2")},
             {"chosen": chosen, "register": value})
 
 

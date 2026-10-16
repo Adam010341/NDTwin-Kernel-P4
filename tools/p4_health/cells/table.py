@@ -494,28 +494,39 @@ def rates_written(obs):
     return green("the rates written are the rates thrift reads")
 
 
+def r2_thrift_ev(obs):
+    """(thrift cut round 2) R2's thrift evidence: thrift's register_read of the cell answered (the
+    observation's `oracle.thrift`). The oracle itself is the marker's value and is always there,
+    so `thrift_ev` -- "an oracle exists" -- would claim thrift for every R2 red; K1 claims it only
+    when thrift's counter_read answered. [Co-developed with claude code -- Adam]"""
+    return ("thrift",) if O(obs).get("thrift") is not None else ()
+
+
 def r2_cannot(obs):
     """(C2 thrift cut) No read route, or the route's own structural refusal: 404 (not in this
-    pipeline) or 501 (a register it cannot represent). A 503 is not here: that is a read that
-    did not happen, and the missing value makes the cell NOT RUN. [Co-developed with claude code -- Adam]"""
-    out = no_route("register read")(obs)
-    if out is not None:
-        return out
+    pipeline, or an unknown switch) or 501 (a register it cannot represent).
+    [Co-developed with claude code -- Adam]"""
+    if route_missing(obs):
+        return red("no route: the proxy's openapi has no register read endpoint", "structural",
+                   *r2_thrift_ev(obs))
     http = A(obs).get("http")
     if http in (404, 501):
         return red("GET /p4/register answered %d (%s)" % (http, A(obs).get("error")), "structural",
-                   *thrift_ev(obs))
+                   *r2_thrift_ev(obs))
     return None
 
 
 def r2(obs):
-    """(C2 thrift cut) Against the value the marker wrote, not against thrift (observe_r2)."""
+    """(C2 thrift cut) Against the value the marker wrote, not against thrift (observe_r2). A route
+    that answered but gave no value (a 502, a 503) is a red, as K1's 503 is: a register route that
+    fails every read must be able to make R2 red, not leave it NOT RUN for ever."""
     a, o = A(obs), O(obs)
+    if a.get("value") is None:
+        return red("GET /p4/register answered %s, which is not a reading" % a.get("http"),
+                   "structural", *r2_thrift_ev(obs))
     if a["value"] != o["value"]:
-        # "thrift": the value the marker wrote is established by thrift, in SC-reg, which gates
-        # this cell -- thrift confirms the oracle, it is not what NDTwin is compared with.
         return red("NDTwin read %s, the marker wrote %s" % (a["value"], o["value"]), "structural",
-                   "thrift")
+                   *r2_thrift_ev(obs))
     return green("NDTwin's register read equals the value the marker wrote")
 
 
@@ -1057,7 +1068,7 @@ CELLS = [
          red_attribution=BM, need=("a:http", "o:rates_after", "o:target"), **NEG),
     # registers
     Cell("R2", "registers", "core", "active", "A", 2, r2, cannot=r2_cannot,
-         self_checks=("SC-reg",), red_attribution=("structural", "thrift"), need=("a:value", "o:value")),
+         self_checks=("SC-reg",), red_attribution=("structural", "thrift"), need=("a:http", "o:value")),
     Cell("R3", "registers", "core", "static", "A", 2, r3, cannot=no_route("register write"),
          red_attribution=BM, need=("a:http", "o:value_after", "o:target"), **NEG),
     # digest

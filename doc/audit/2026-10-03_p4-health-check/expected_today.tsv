@@ -5,6 +5,7 @@
 # Cut 2 review: R3 now predicts UNATTRIBUTED (the ctrl_trial observation, before any live run); AP1, AS1 and IT1 moved to cut 3.
 # Cut A + D (2026-10-11; the ternary writer and the health check's half of it): the rows below predict trunk with Cut A + D. T4, T5, T6, T7 and PF-T now predict GREEN, their basis starting "Cut A + D": PF-T is observed by S0; T4-T7 were observed offline (the proxy's own route against throwaway bmv2 stock and fast, 2026-10-11) -- no live run and no health.json yet (DESIGN 5.1 asks for one).
 # Cut C (2026-10-12; the table-entry journal replayed at startup and readopt): T8 now predicts GREEN, its basis starting "Cut C": observed offline (the proxy's own startup, route and switch_state against throwaway bmv2 stock and fast) -- no live run and no health.json yet.
+# C2 thrift cut (2026-10-16; registers read through bmv2's thrift service): R2 now predicts GREEN, its basis starting "C2 thrift cut": observed offline (the proxy's own route and observe_r2 against throwaway bmv2 stock and fast; R2 is judged against the marker's value, thrift kept in SC-reg) -- no live run and no health.json yet. R3 is unchanged (no write route; route detection now looks at the method).
 # Cited records: GAP-2b = doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md and DESIGN.md = doc/audit/2026-10-03_p4-health-check/DESIGN.md; both live on the trunk branch of this repository, not on main.
 cell	dimension	scope	bringup	cut	expected	basis	added
 PL1	pipeline_load	core	A	2	GREEN	§5.1 pipeline_load always can: each switch gets its own program (main.py:2013-2017); p4info sha in switch_state (api_routes.py:809-812)	r6
@@ -28,7 +29,7 @@ K3	counters	core	B	4	GREEN	the counter read works under external (api_routes.py:
 MT1	meters	core	A	2	RED	501 unsupported_on_p4 (HttpSession.cpp:279-281,416-427,2019-2024; P4RoutingStrategy.cpp:10-33)	r6
 MT2	meters	core	A	2	RED	no meter route on the proxy	r6
 MT3	meters	ext	A	2	RED	no direct-meter route on the proxy	r6
-R2	registers	core	A	2	RED	no register read route (GAP-2b:94)	r6
+R2	registers	core	A	2	GREEN	C2 thrift cut: observed offline, at commit 503eb109, on throwaway bmv2 stock and fast, the proxy's own GET /p4/register handler (bmv2's thrift service) and observe_r2 judged against the marker's value (gates-0910/p4-register-read/trial-reg.json, an audit-raw log outside the repo); no live health.json yet; code: api_routes.register, bm_thrift	r6
 R3	registers	core	A	2	UNATTRIBUTED	Cut 2 review, before any live run: no register write route (structural), but bmv2's P4Runtime refuses RegisterEntry writes too (canonical_code 12 'Register writes are not supported yet', controller_ext.register in ctrl_trial on throwaway simple_switch_grpc, stock and bmv2-fast) -- the bmv2 half of the attribution cannot be established, so by DESIGN 2.3's R3 row it is UNATTRIBUTED	r6
 D1	digest	core	A	2	RED	the stream drops digests (p4_client.py:544-545)	r6
 P1	packet_io	core	A	2	GREEN	bmv2 started with the package cpu_port 510	r6
