@@ -1106,7 +1106,7 @@ cmd_up() {
     #        6633, 10/10 connected; the website's verbatim command (with singular
     #        --observe-link) -> 6633, 10 switches / 32 links, paths installed. An earlier
     #        version of this comment claimed the 6633 flag "breaks it silently". It does not.
-    #   P4:  bmv2 is the server -- simple_switch_grpc listens on 0.0.0.0:30051-30060 -- and the
+    #   P4:  bmv2 is the server -- simple_switch_grpc's gRPC server listens on 127.0.0.1:30051-30060 by default -- and the
     #        proxy is a gRPC *client* connecting to each one. So Mininet has to be up first, or
     #        the proxy's first real RPC gets ECONNREFUSED and uvicorn exits before opening :8081.
     #

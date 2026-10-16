@@ -118,7 +118,8 @@ topo.clear_switches_from_a_previous_run = lambda **kw: ([], [])
 topo.abort_if_grpc_ports_are_held = lambda held, **kw: None
 app_package.KNOB_PATH = os.path.join(TMP, "no_knob")
 if hasattr(topo, "build_net"):
-    topo.build_net = lambda package, model: Mininet(topo=topo.MultiSwitchTopo(package=package, model=model))
+    topo.build_net = lambda package, model, grpc_host=None: Mininet(
+        topo=topo.MultiSwitchTopo(package=package, model=model, grpc_host=grpc_host))
 if hasattr(topo, "reset_for_bring_up"):
     topo.reset_for_bring_up = lambda ports, settle_s=0.5: None
 
