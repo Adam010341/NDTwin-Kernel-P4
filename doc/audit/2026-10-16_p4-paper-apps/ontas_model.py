@@ -20,7 +20,8 @@ What the program does to a frame that comes in on port 1, with the app's runtime
     new destination id; sender/target protocol addresses are anonymised as IPv4 is.
   * IPv4 (ethertype 0x0800, or 0x0800 inside one 802.1Q tag): an address in 72.14.213.0/24
     keeps its first 24 bits and its last octet becomes crc16_custom(last octet as a 32-bit
-    value, 4 bytes) mod 8 (the 24-bit branch, `hashing_*24_tb`, max literal 8). Any other
+    value, 4 bytes) mod 8 (the 24-bit branch, `hashing_*24_tb`, max literal 8) -- in practice
+    0 or 1, see the crc16_custom note below. Any other
     address is left as it is. The IPv4 header checksum is recomputed over the 20-byte fixed
     header (options, if any, are not part of it -- the program's update_checksum list).
     TCP/UDP are parsed and re-emitted untouched: their checksums are NOT fixed.
@@ -30,8 +31,12 @@ What the program does to a frame that comes in on port 1, with the app's runtime
 
 crc16_custom is computed here as CRC-16/ARC (poly 0x8005 reflected, init 0, no final xor) --
 the same as `crc16`. That is an ASSUMPTION about bmv2's default parameters for the custom
-algorithm when nothing configures it (the app configures nothing, and P4Runtime cannot); the
-offline check is what confirms or refutes it.
+algorithm when nothing configures it (the app configures nothing, and P4Runtime cannot), and the
+offline check can only test a sliver of it: what reaches the wire is crc mod 8 of the four bytes
+00 00 00 XX, and for CRC-16/ARC that is exactly the parity of XX (checked over all 256 values) --
+one bit per input. So an anonymised last octet is 0 or 1, never 2..7, and "the switch agrees with
+the model" means "bmv2's unconfigured crc16_custom has the same low three bits as CRC-16/ARC on
+these inputs", not that the two are the same CRC.
 """
 import struct
 import zlib
