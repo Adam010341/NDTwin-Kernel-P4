@@ -2988,6 +2988,16 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   🔴 **全在 `scratch/`，不在版控。**
   ⚠️ **可信度**：數字是 ROLE-5 實測（🟢 對它）、**本條登記者未複驗（🟠 轉述）**；
   該報告自己指認了二進位與 4 台（不是 64／128）的規模邊界。
+- **modify 那一半**（2026-10-16 Adam 裁，`feat/p4-modify-at-slot-priority`）：同一個拒絕原本也套在
+  destination-only 的 modify 上，而 Traffic-Engineering 預設模式與 Energy-Saving 改路由送的正是
+  priority 10 的 modify ⇒ 在 P4 上**一律 501、呼叫端拿 `200 queued`**，兩個 app 都動不了任何一條流。
+  現在 proxy 記住每個目的地的 `ipv4_lpm` 條目最後是用哪個 priority 寫的（proxy 自己的路由＝**10**，
+  install＝它要求的值），**只有正好指名那個值的 modify 照做**；其他值照舊 501，body 多帶
+  `slot_priority`（記錄值或 `null`）。寫入沒確認（被拒、例外、逾時）、pipeline push、readopt 換 client
+  之後記錄作廢，直到那條路由下一次被寫入（proxy 自己的 refill／restore 記 10，install 記它要求的值）。501 的 `remedy` 不再寫「省略 priority」：在 OVS 上
+  省略＝kernel 送 priority 0 的 strict modify，什麼都改不到。
+  🔴 **本條（delete）狀態不變**：`delete_strict` 帶任何 priority 仍是 501。modify 這半邊**未經 live 驗證**
+  （單元測試＋mutation gate＋離線 bmv2 試跑，紀錄在 `scratch/`）。
 
 ### C-8 🔴 `last_sample_age_seconds` 在一個「秒」欄位裡回 −1.0 哨兵值
 
