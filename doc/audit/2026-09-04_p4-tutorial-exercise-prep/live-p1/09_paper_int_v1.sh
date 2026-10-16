@@ -154,6 +154,18 @@ a3_matrix() {
 # hpid <host> -- the host's namespace pid, or nothing (rc 1). Never aborts the caller under -e.
 hpid() { ( set +e; source "$NDT" >/dev/null 2>&1; host_pid "$1" ) || true; }
 
+# c0_check <p4info> <json> -- "OK" when both are the program the offline check ran, else "BAD ...".
+c0_check() {
+    local info json
+    info="$(sha256sum "$1" 2>/dev/null | cut -d' ' -f1)"
+    json="$(sha256sum "$2" 2>/dev/null | cut -d' ' -f1)"
+    if [[ "$info" == "$P4INFO_SHA" && "$json" == "$JSON_SHA" ]]; then
+        echo "OK p4info $info, json $json (the offline-tested program)"
+    else
+        echo "BAD the compile is not the program the offline check ran: p4info ${info:-unreadable} (want $P4INFO_SHA), json ${json:-unreadable} (want $JSON_SHA)"
+    fi
+}
+
 # in_host <pid> <timeout s> <stdout> <stderr> <args...> -- the p4dev Python, isolated (-I), from
 # a directory outside the repo, as root in that namespace, under an outer timeout. The two files
 # are created by THIS shell, so they are not root's.
@@ -188,11 +200,9 @@ mkdir -p "$STAGE/build"
 ( cd "$STAGE" && "$P4C" --p4v 16 --p4runtime-files build/int.p4.p4info.txt -o build/int.json int.p4 ) \
     > "$RUN/09_compile.txt" 2>&1 || { sed 's/^/   /' "$RUN/09_compile.txt"; die "p4c failed -- see $(basename "$RUN")/09_compile.txt"; }
 "$P4C" --version >> "$RUN/09_compile.txt" 2>&1 || true
-GOT_INFO="$(sha256sum "$STAGE/build/int.p4.p4info.txt" | cut -d' ' -f1)"
-GOT_JSON="$(sha256sum "$STAGE/build/int.json" | cut -d' ' -f1)"
-note "p4info $GOT_INFO   int.json $GOT_JSON"
-[[ "$GOT_INFO" == "$P4INFO_SHA" && "$GOT_JSON" == "$JSON_SHA" ]] \
-    || die "C0: the compile is not the program the offline check ran (want p4info $P4INFO_SHA, int.json $JSON_SHA) -- a different p4c or a different source; nothing was started"
+V="$(c0_check "$STAGE/build/int.p4.p4info.txt" "$STAGE/build/int.json")"
+note "C0: $V"
+[[ "$V" == OK* ]] || die "C0: ${V#BAD } -- a different p4c or a different source; nothing was started"
 
 say "converting -> $PKG  (--p4 int.p4, --thrift-commands s1=runtime_cmds/s1.sh)"
 rm -rf "$PKG"

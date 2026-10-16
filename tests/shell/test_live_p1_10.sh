@@ -13,6 +13,9 @@
 #       set, pipeline.ndtwin, the p4info sha, a failed entry, the recorded count).
 #   A3  a3_matrix with ping_loss stubbed: both directions dead is green; h1->h2 answering (the app
 #       forwarding both ways, i.e. not ONTAS) is red; an untested pair is red, never green.
+#   C0  c0_check: the tested shas read OK, another p4info or json reads BAD.
+#   N12 verify_stage on a fixture git repo: the right copy is OK; a missing commit, a non-checkout,
+#       an empty ls-tree, fewer files than expected and a changed copy are each BAD.
 #   m1  hpid against an `ndt` whose host_pid fails: an empty answer and rc 0, so the A2 NOT RUN
 #       branch is reachable under `set -e` instead of the script dying in an assignment.
 #
@@ -110,6 +113,42 @@ return 0 2>/dev/null || exit 0
 NDT
 OUT="$(lib "NDT='$FIX/ndt'; set -e; P=\"\$(hpid h1)\"; echo \"rc=\$? P=[\$P]\"")"
 check "a missing host is an empty answer, not an exit" "rc=0 P=[]" "$OUT"
+
+# --- C0 --------------------------------------------------------------------------------------------
+printf '\nC0: c0_check\n'
+printf 'p4info\n' > "$FIX/info"; printf 'json\n' > "$FIX/json"; printf 'other\n' > "$FIX/other"
+IS="$(sha256sum "$FIX/info" | cut -d' ' -f1)"; JS="$(sha256sum "$FIX/json" | cut -d' ' -f1)"
+OUT="$(lib "P4INFO_SHA=$IS; JSON_SHA=$JS; c0_check '$FIX/info' '$FIX/json'")"
+has "the tested program reads OK" "OK p4info $IS" "$OUT"
+OUT="$(lib "P4INFO_SHA=$IS; JSON_SHA=$JS; c0_check '$FIX/other' '$FIX/json'")"
+has "🔴 another p4info reads BAD" "BAD the compile is not the program" "$OUT"
+OUT="$(lib "P4INFO_SHA=$IS; JSON_SHA=$JS; c0_check '$FIX/info' '$FIX/other'")"
+has "🔴 another json reads BAD" "BAD the compile is not the program" "$OUT"
+OUT="$(lib "c0_check '$FIX/info' '$FIX/json'")"
+has "🔴 the script's own shas do not match these files: BAD" "BAD" "$OUT"
+
+# --- N12: verify_stage ------------------------------------------------------------------------------
+printf '\nN12: verify_stage\n'
+R="$FIX/clone"; ST="$FIX/stage"
+mkdir -p "$R/APP/sub" "$R/APP/utils"
+printf 'a\n' > "$R/APP/a.txt"; printf 'b\n' > "$R/APP/sub/b.txt"; printf 'u\n' > "$R/APP/utils/u.txt"
+git -C "$R" init -q && git -C "$R" add -A \
+    && git -C "$R" -c user.email=t@t -c user.name=t commit -q -m fixture
+C="$(git -C "$R" rev-parse HEAD)"
+mkdir -p "$ST/sub"; cp "$R/APP/a.txt" "$ST/"; cp "$R/APP/sub/b.txt" "$ST/sub/"
+OUT="$(lib "verify_stage '$R' '$C' APP '$ST' 2")"
+has "the right copy of the right commit reads OK, utils/ left out" "OK 2 files" "$OUT"
+OUT="$(lib "verify_stage '$R' 0000000000000000000000000000000000000000 APP '$ST' 2")"
+has "🔴 a commit the clone does not have reads BAD" "is not a git checkout that has commit" "$OUT"
+OUT="$(lib "verify_stage '$FIX/not-a-repo' '$C' APP '$ST' 2")"
+has "🔴 a directory that is not a checkout reads BAD" "is not a git checkout" "$OUT"
+OUT="$(lib "verify_stage '$R' '$C' NOWHERE '$ST' 2")"
+has "🔴 an empty ls-tree (zero comparisons) reads BAD" "BAD 0 comparisons" "$OUT"
+OUT="$(lib "verify_stage '$R' '$C' APP '$ST' 3")"
+has "🔴 fewer files than expected reads BAD" "BAD only 2 comparison(s), want 3" "$OUT"
+printf 'changed\n' > "$ST/sub/b.txt"
+OUT="$(lib "verify_stage '$R' '$C' APP '$ST' 2")"
+has "🔴 a copy that differs from the commit reads BAD" "BAD 1 of 2 staged file(s) differ" "$OUT"
 
 printf '\nRan %d checks, %d failed\n' "$((PASS + FAIL))" "$FAIL"
 (( FAIL == 0 ))

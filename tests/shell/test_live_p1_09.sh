@@ -13,6 +13,7 @@
 #       recorded count). Each wrong one must read BAD and name what is wrong.
 #   A3  a3_matrix with ping_loss stubbed from a table: the matrix int-v1 implies is green; h1->h2
 #       answering (the INT source not installed) is red; an untested pair is red, never green.
+#   C0  c0_check: the tested shas read OK, another p4info or json reads BAD.
 #   m1  hpid against an `ndt` whose host_pid fails: an empty answer and rc 0, so the A2 NOT RUN
 #       branch is reachable under `set -e` instead of the script dying in an assignment.
 #
@@ -112,6 +113,19 @@ return 0 2>/dev/null || exit 0
 NDT
 OUT="$(lib "NDT='$FIX/ndt'; set -e; P=\"\$(hpid h1)\"; echo \"rc=\$? P=[\$P]\"")"
 check "a missing host is an empty answer, not an exit" "rc=0 P=[]" "$OUT"
+
+# --- C0 --------------------------------------------------------------------------------------------
+printf '\nC0: c0_check\n'
+printf 'p4info\n' > "$FIX/info"; printf 'json\n' > "$FIX/json"; printf 'other\n' > "$FIX/other"
+IS="$(sha256sum "$FIX/info" | cut -d' ' -f1)"; JS="$(sha256sum "$FIX/json" | cut -d' ' -f1)"
+OUT="$(lib "P4INFO_SHA=$IS; JSON_SHA=$JS; c0_check '$FIX/info' '$FIX/json'")"
+has "the tested program reads OK" "OK p4info $IS" "$OUT"
+OUT="$(lib "P4INFO_SHA=$IS; JSON_SHA=$JS; c0_check '$FIX/other' '$FIX/json'")"
+has "🔴 another p4info reads BAD" "BAD the compile is not the program" "$OUT"
+OUT="$(lib "P4INFO_SHA=$IS; JSON_SHA=$JS; c0_check '$FIX/info' '$FIX/other'")"
+has "🔴 another json reads BAD" "BAD the compile is not the program" "$OUT"
+OUT="$(lib "c0_check '$FIX/info' '$FIX/json'")"
+has "🔴 the script's own shas do not match these files: BAD" "BAD" "$OUT"
 
 printf '\nRan %d checks, %d failed\n' "$((PASS + FAIL))" "$FAIL"
 (( FAIL == 0 ))

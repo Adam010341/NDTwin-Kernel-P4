@@ -18,8 +18,9 @@
 # machine's p4c, reads s1-runtime.json and topology.json as data and the pcap as data.
 #
 # ONTAS anonymises on line rate at s1: the id half of each MAC becomes crc32(id) mod 24, and an IPv4
-# address in 72.14.213.0/24 keeps its /24 and gets crc16(last octet) mod 8 (ontas_model.py says
-# exactly how, and why "mod 24" and "mod 8" -- the program passes those literals as hash maxima).
+# address in 72.14.213.0/24 keeps its /24 and gets crc16(last octet) mod 8 -- which for these inputs
+# is the octet's parity, so the anonymised last octet is 0 or 1 (ontas_model.py says how, and why
+# "mod 24" and "mod 8": the program passes those literals as hash maxima).
 # It forwards port 1 -> port 2 only. Its topology.json is the 2018-19 tutorials format (hosts a
 # list, links without ports); convert.py derives h1 10.0.1.1 / port 1 and h2 10.0.1.2 / port 2 by
 # that harness's rules and says so.
@@ -40,9 +41,11 @@
 #   A3  the other direction, the CONTROL: h1 sniffs while h2 sends the same frames -- forward_tb
 #       has no port-2 entry, so none may arrive, neither as sent nor rewritten. And the ping
 #       matrix this implies: h1->h2 and h2->h1 100% loss (h2's replies never come back).
-#   G1  the twin: a static ARP entry for h2 in h1 (the 2018 harness set static ARP too; ONTAS
-#       rewrites the MACs of h1's ARP, and h2's answer is dropped at port 2), then
-#       link_usage_round h1 -> h2: primary on-path > 0, off-path under the floor.
+#   G1  the twin: link_usage_round h1 -> h2 (primary on-path > 0, off-path under the floor),
+#       after the step sets a static ARP entry for h2 in h1 ITSELF. Without one h1 cannot send to
+#       h2 at all: its ARP request reaches h2 with ONTAS's rewritten MACs and h2's answer, in on
+#       port 2, is dropped (forward_tb has no port-2 entry). This is the step's own setup, not
+#       the app's: the 2018-19 harness set a static ARP entry only for a phony gateway, not for h2.
 #
 #   It does NOT show: that the twin understands the anonymisation (it does not parse it); any
 #   reverse path (the app has none); the Tofino version of ONTAS (not this code).
@@ -67,6 +70,8 @@ CTRL_PY="${CTRL_PY:-/home/adam/p4dev-python-venv/bin/python}"
 HOSTSIDE="$HERE/paper_ontas_hostside.py"
 MODEL_DIR="$REPO/doc/audit/2026-10-16_p4-paper-apps"
 REPLAY_N=60
+#: Files of $APP_PATH at $APP_COMMIT, utils/ excluded (b_02_stage_provenance.log: 11).
+WANT_FILES=11
 #: What the offline check ran (2026-10-16, gates-0910/p4-paper-apps/b_01_p4c_ontas.log).
 P4INFO_SHA="517074c9175dc3c9ac13595e827de9a81b985daf7655f995dc10373f58f28ec4"
 JSON_SHA="bb74da905adb7683e6949b723c7fdb30204a0e2403aea2f81b3027e369fb63f0"
@@ -131,6 +136,46 @@ a3_matrix() {
 
 hpid() { ( set +e; source "$NDT" >/dev/null 2>&1; host_pid "$1" ) || true; }
 
+# c0_check <p4info> <json> -- "OK" when both are the program the offline check ran, else "BAD ...".
+c0_check() {
+    local info json
+    info="$(sha256sum "$1" 2>/dev/null | cut -d' ' -f1)"
+    json="$(sha256sum "$2" 2>/dev/null | cut -d' ' -f1)"
+    if [[ "$info" == "$P4INFO_SHA" && "$json" == "$JSON_SHA" ]]; then
+        echo "OK p4info $info, json $json (the offline-tested program)"
+    else
+        echo "BAD the compile is not the program the offline check ran: p4info ${info:-unreadable} (want $P4INFO_SHA), json ${json:-unreadable} (want $JSON_SHA)"
+    fi
+}
+
+# verify_stage <clone> <commit> <path> <stage> <want> -- every staged file against the commit's
+# tree: "OK <n> files" or "BAD <why>". 🔴 GIT_NO_LAZY_FETCH=1 on every git command against the
+# clone: it is blob-less, and a git command that needs a blob it lacks would otherwise fetch it
+# from the remote (round 2 did exactly that once, through `git archive`). `cat-file -e` and
+# `ls-tree` need only commit and tree objects; `hash-object` hashes the local copy. A clone that
+# is not a git checkout, lacks the commit, or lists fewer files than expected is a refusal: a
+# loop over an empty listing would otherwise report "every file matches" about no file.
+verify_stage() {
+    local src="$1" commit="$2" path="$3" stage="$4" want="$5"
+    local n=0 badn=0 listing mode type id p f got
+    if ! GIT_NO_LAZY_FETCH=1 git -C "$src" cat-file -e "$commit^{commit}" 2>/dev/null; then
+        echo "BAD $src is not a git checkout that has commit $commit"; return 0
+    fi
+    listing="$(GIT_NO_LAZY_FETCH=1 git -C "$src" ls-tree -r "$commit" "$path" 2>/dev/null)" \
+        || { echo "BAD git ls-tree failed on $src"; return 0; }
+    while read -r mode type id p; do
+        [[ -z "$p" || "$p" == "$path/utils/"* ]] && continue
+        n=$((n+1))
+        f="$stage/${p#"$path"/}"
+        got="$(git hash-object "$f" 2>/dev/null || echo missing)"
+        [[ "$got" == "$id" ]] || badn=$((badn+1))
+    done <<<"$listing"
+    if (( n == 0 )); then echo "BAD 0 comparisons: $commit lists nothing under $path"
+    elif (( n < want )); then echo "BAD only $n comparison(s), want $want"
+    elif (( badn > 0 )); then echo "BAD $badn of $n staged file(s) differ from the commit's blobs"
+    else echo "OK $n files, each the commit's blob"; fi
+}
+
 in_host() {   # in_host <pid> <timeout s> <stdout> <stderr> <args...>
     local pid="$1" secs="$2" out="$3" err="$4"
     shift 4
@@ -174,26 +219,16 @@ say "staging ONTAS @$APP_COMMIT from $APP_SRC/$APP_PATH (copies of the checked-o
 rm -rf "$STAGE" && mkdir -p "$STAGE"
 cp -r "$APP_SRC/$APP_PATH/src" "$APP_SRC/$APP_PATH/LICENSE" "$APP_SRC/$APP_PATH/README.md" \
       "$APP_SRC/$APP_PATH/smallFlows.pcap" "$STAGE/"
-# Every copy against the commit's tree. `ls-tree` reads trees, which a blob-less clone has;
-# `hash-object` hashes the copy locally. Nothing here can make git fetch.
-BADCOPY=0
-while read -r _mode _type id path; do
-    f="$STAGE/${path#$APP_PATH/}"
-    [[ "$path" == "$APP_PATH/utils/"* ]] && continue
-    got="$(git hash-object "$f" 2>/dev/null || echo missing)"
-    if [[ "$got" != "$id" ]]; then bad "copy of $path is $got, the commit has $id"; BADCOPY=1; fi
-done < <(git -C "$APP_SRC" ls-tree -r "$APP_COMMIT" "$APP_PATH")
-(( BADCOPY == 0 )) || die "the staged copy is not ONTAS @$APP_COMMIT; nothing was started"
-note "every staged file is the commit's blob"
+V="$(verify_stage "$APP_SRC" "$APP_COMMIT" "$APP_PATH" "$STAGE" "$WANT_FILES")"
+note "staging: $V"
+[[ "$V" == OK* ]] || die "the staged copy is not ONTAS @$APP_COMMIT (${V#BAD }); nothing was started"
 mkdir -p "$STAGE/src/build"
 ( cd "$STAGE/src" && "$P4C" --p4v 16 --p4runtime-files build/p4anony.p4.p4info.txt -o build/p4anony.json p4anony.p4 ) \
     > "$RUN/09_compile.txt" 2>&1 || { sed 's/^/   /' "$RUN/09_compile.txt"; die "p4c failed -- see $(basename "$RUN")/09_compile.txt"; }
 "$P4C" --version >> "$RUN/09_compile.txt" 2>&1 || true
-GOT_INFO="$(sha256sum "$STAGE/src/build/p4anony.p4.p4info.txt" | cut -d' ' -f1)"
-GOT_JSON="$(sha256sum "$STAGE/src/build/p4anony.json" | cut -d' ' -f1)"
-note "p4info $GOT_INFO   p4anony.json $GOT_JSON"
-[[ "$GOT_INFO" == "$P4INFO_SHA" && "$GOT_JSON" == "$JSON_SHA" ]] \
-    || die "C0: the compile is not the program the offline check ran; nothing was started"
+V="$(c0_check "$STAGE/src/build/p4anony.p4.p4info.txt" "$STAGE/src/build/p4anony.json")"
+note "C0: $V"
+[[ "$V" == OK* ]] || die "C0: ${V#BAD }; nothing was started"
 
 say "converting -> $PKG"
 rm -rf "$PKG"
