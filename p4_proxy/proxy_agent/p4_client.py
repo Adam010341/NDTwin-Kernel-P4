@@ -78,6 +78,28 @@ class CounterNotFound(LookupError):
     """
 
 
+class DirectCounterUnrenderable(RuntimeError):
+    """The switch answered a direct-counter read, and this p4info cannot render the answer.
+    Not a read failure: the switch did answer. [Co-developed with claude code -- Adam]"""
+
+
+#: p4info CounterSpec.Unit -> (the word GET /p4/direct_counter reports, counts bytes, counts
+#: packets). [Co-developed with claude code -- Adam]
+_COUNTER_UNITS = {
+    p4info_pb2.CounterSpec.BYTES: ("bytes", True, False),
+    p4info_pb2.CounterSpec.PACKETS: ("packets", False, True),
+    p4info_pb2.CounterSpec.BOTH: ("both", True, True),
+}
+
+
+def _match_ints(match):
+    """`_match_as_dict`'s shape with every bytes value as a big-endian integer, for a JSON body.
+    [Co-developed with claude code -- Adam]"""
+    return {name: {k: (int.from_bytes(v, "big") if isinstance(v, bytes) else v)
+                   for k, v in field.items()}
+            for name, field in match.items()}
+
+
 # --- the generic table-entry writer (G5). [Co-developed with claude code -- Adam] -------------
 #
 # Everything above this line writes ONE of two tables, both of them NDTwin's own, both of them
@@ -1703,7 +1725,11 @@ class P4RuntimeClient:
         counter_entry.index.index = port
 
         try:
-            for response in self.stub.Read(req):
+            # [Co-developed with claude code -- Adam]
+            # With a deadline, as read_table_entries has: without one a SIGSTOPed bmv2 holds this
+            # Read, and the threadpool thread GET /p4/counter runs it on, forever. A deadline
+            # surfaces as grpc.RpcError and lands in the `except` below: no sample, not zero.
+            for response in self.stub.Read(req, timeout=RPC_TIMEOUT_S):
                 for entity in response.entities:
                     if entity.HasField("counter_entry"):
                         data = entity.counter_entry.data
@@ -1717,6 +1743,92 @@ class P4RuntimeClient:
         logging.warning("egress counter read for port %s returned no counter_entry -- reporting "
                         "no sample, not zero", port)
         return None
+
+    def direct_counter_by_name(self, name):
+        """The p4info DirectCounter named `name` (full name or alias), or None.
+        [Co-developed with claude code -- Adam]"""
+        for counter in self.p4info.direct_counters:
+            if name in (counter.preamble.name, counter.preamble.alias):
+                return counter
+        return None
+
+    def read_direct_counter(self, name, timeout_s=RPC_TIMEOUT_S):
+        """
+        One direct counter -- every entry of the table it is attached to -- as
+        `{"counter", "table", "unit", "entries"}`, each entry `{"match", "priority", "bytes",
+        "packets"}`; or None if the read failed.
+
+        [Co-developed with claude code -- Adam]
+        ONE wildcard RPC: a DirectCounterEntry naming only the table. bmv2 answers it on both
+        builds, stock and bmv2-fast, with each entry's match, its priority and its data (measured
+        2026-10-16 on hc_main's exact table and on ndtwin_switch's ternary flow_5tuple and lpm
+        ipv4_lpm, doc/audit/2026-10-16_p4-register-read/DESIGN.md). A one-entry read is not
+        offered: a GET cannot carry a ternary match and its priority, and for an entry that is
+        not there bmv2 answers INVALID_ARGUMENT, which a caller could not tell from a failure.
+
+        The outcomes, as `read_egress_counter`'s plus one:
+          not a direct counter in P4Info -> raises CounterNotFound (structural, permanent);
+          read failed (a deadline too)   -> None, never an empty list: "the table has no
+                                            entries" is a reading, "the switch did not answer"
+                                            is not;
+          an answer this p4info cannot   -> raises DirectCounterUnrenderable: the switch DID
+          be rendered by                    answer, so it is not "failed or ran out of time";
+          read succeeded                 -> the dict.
+
+        🔴 NO FABRICATED ZEROS. An entry whose DirectCounterEntry carries no `data` keeps its
+        place with `bytes` and `packets` null -- what read_table_entries does with an entry
+        whose counter_data is missing (counters None; only the OpenFlow renderer, whose kernel
+        shape needs integers, turns that into 0). And a counter declared PACKETS or BYTES counts
+        only one unit: the other is null, never the 0 the protobuf default would give, and
+        `unit` says which ("bytes", "packets", "both", or "unspecified", when p4info does not
+        say -- then both numbers are passed on as the switch sent them).
+
+        A match value is an integer (bytes are not JSON, and POST /p4/table_entry takes
+        integers), from `_match_as_dict`, the one place that spells a match.
+        """
+        counter = self.direct_counter_by_name(name)
+        if counter is None:
+            raise CounterNotFound(
+                "direct counter %r is not in this pipeline's P4Info (%d direct counters "
+                "present). This is a wiring or pipeline-version error, not a measurement of zero."
+                % (name, len(self.p4info.direct_counters)))
+        table_id = counter.direct_table_id
+        unit, counts_bytes, counts_packets = _COUNTER_UNITS.get(
+            counter.spec.unit, ("unspecified", True, True))
+
+        req = p4runtime_pb2.ReadRequest()
+        req.device_id = self.device_id
+        req.entities.add().direct_counter_entry.table_entry.table_id = table_id
+
+        answered = []
+        try:
+            for response in self.stub.Read(req, timeout=timeout_s):
+                for entity in response.entities:
+                    if entity.HasField("direct_counter_entry"):
+                        answered.append(entity.direct_counter_entry)
+        except Exception as e:
+            logging.warning("direct counter read of %s failed: %s -- reporting no sample, not "
+                            "zero", name, e)
+            return None
+
+        entries = []
+        try:
+            for dce in answered:
+                if dce.table_entry.table_id != table_id:
+                    continue
+                has_data = dce.HasField("data")
+                entries.append({
+                    "match": _match_ints(self._match_as_dict(table_id, dce.table_entry.match)),
+                    "priority": dce.table_entry.priority,
+                    "bytes": dce.data.byte_count if has_data and counts_bytes else None,
+                    "packets": dce.data.packet_count if has_data and counts_packets else None,
+                })
+        except Exception as e:
+            raise DirectCounterUnrenderable(
+                "switch %s answered the read of %s, but its answer could not be rendered with "
+                "this p4info: %s" % (self.device_id, name, e)) from e
+        return {"counter": counter.preamble.name, "table": self._table_name(table_id),
+                "unit": unit, "entries": entries}
 
     #: Byte width of each flow_5tuple key, from ndtwin_switch.p4. P4Runtime encodes a bit<N>
     #: field in ceil(N/8) bytes and bmv2 rejects a value of the wrong width outright, so these

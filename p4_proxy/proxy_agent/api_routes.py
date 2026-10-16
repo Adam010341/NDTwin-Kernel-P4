@@ -14,8 +14,8 @@ from proxy_agent import ryu_topology, ryu_flow_stats
 # p4_client imports boot_identity, rule_install_times and sflow_emitter, none of which reach
 # back here.
 from proxy_agent.p4_client import (ControlPlaneReadOnly, CounterNotFound, RPC_TIMEOUT_S,
-                                   TableEntryInvalid, TableEntryUnsupported,
-                                   TableOwnedByNDTwin)
+                                   DirectCounterUnrenderable, TableEntryInvalid,
+                                   TableEntryUnsupported, TableOwnedByNDTwin)
 # TICKET-P4-roles: the binding a route is written through, and the 501 when there is none.
 # [Co-developed with claude code -- Adam]
 from proxy_agent import route_binding
@@ -1267,6 +1267,15 @@ async def counter(name: str, dpid: int, index: int = 0):
             detail={"error": "invalid index", "dpid": dpid, "counter": name,
                     "message": f"index {index} is negative; counter indices are unsigned"})
 
+    if _counter_kind(client, name) == "direct":
+        # [Co-developed with claude code -- Adam]
+        # It IS in this pipeline, it just has no index: say so and where it is read, rather than
+        # "not in this pipeline", which sent the reader looking for a wiring error. Nothing is read.
+        raise HTTPException(status_code=404, detail={
+            "error": "direct counter", "dpid": dpid, "counter": name,
+            "message": f"{name} is a direct counter: it has one cell per entry of its table, not "
+                       f"an index. Read it at GET /p4/direct_counter/{name}?dpid={dpid}"})
+
     try:
         reading = await run_in_threadpool(client.read_egress_counter, index, name)
     except CounterNotFound as err:
@@ -1287,6 +1296,100 @@ async def counter(name: str, dpid: int, index: int = 0):
     byte_count, packet_count = reading
     return {"dpid": dpid, "counter": name, "index": index,
             "bytes": byte_count, "packets": packet_count}
+
+
+def _counter_kind(client, name):
+    """"indexed", "direct" or None: which list of this switch's p4info names `name` (full name or
+    alias). [Co-developed with claude code -- Adam]"""
+    for kind, counters in (("indexed", client.p4info.counters),
+                           ("direct", client.p4info.direct_counters)):
+        if any(name in (c.preamble.name, c.preamble.alias) for c in counters):
+            return kind
+    return None
+
+
+# --- reading one direct counter --------------------------------------------------------------
+
+
+@router.get("/p4/direct_counter/{name}")
+async def direct_counter(name: str, dpid: int):
+    """
+    Every entry of a direct counter's table with its counts: `GET /p4/direct_counter/<name>?dpid=<n>`.
+
+    [Co-developed with claude code -- Adam]
+    A direct counter has one cell per table entry and no index, so `GET /p4/counter` cannot
+    read it. The answer is the whole table, from ONE wildcard P4Runtime read:
+
+        {"dpid": 2, "counter": "HcIngress.dc_k2", "table": "HcIngress.t_dcount", "unit": "both",
+         "entries": [{"match": {"hdr.udp.dstPort": {"type": "exact", "value": 40012}},
+                      "priority": 0, "bytes": 335, "packets": 5}]}
+
+    A match field is `{"type", ...}` with integer values: `value` (exact, optional), `value` and
+    `prefix_len` (lpm), `value` and `mask` (ternary), `low` and `high` (range). `priority` is
+    the switch's own (0 on a table with no priority column, as P4Runtime defines it). The caller
+    finds its own entry by match; the size of the answer is bounded by the table's declared size.
+    `bytes` / `packets` is null, never 0, for a unit the counter does not count (`unit` says
+    which it counts) and for an entry the switch sent no data for.
+
+        200  the read succeeded, including entries at 0 / 0 and an empty table (`entries: []`).
+        404  an unknown dpid, or a name that is not a direct counter of this switch's p4info --
+             `error: "indexed counter"`, pointing at GET /p4/counter, when it is an indexed one.
+             Nothing was read.
+        502  `direct counter not rendered`: the switch answered, and its answer does not fit
+             this switch's p4info.
+        503  `direct counter not read`: the read failed, its deadline (RPC_TIMEOUT_S) included.
+             🔴 NOT AN EMPTY TABLE AND NOT A ZERO. `replay pending`: the switch is being
+             re-adopted (POST /p4/readopt) and its tables are being put back, so a read now
+             would report entries missing that are about to return; nothing was read. Also
+             503 before the proxy has a topology.
+
+    Every direct counter can be read, NDTwin's own included: the owner rule (409 owned_by_ndtwin)
+    is about writes, and GET /stats/flow already reports NDTwin's direct counters. Works under an
+    external control plane, for GET /p4/counter's reason: a ReadRequest has no election id.
+
+    The refusals below are laid out differently from GET /p4/counter's on purpose: the gates
+    under tests/shell mutate both routes by their exact text, and two copies of one block would
+    make an anchor match twice or, worse, match the other route.
+    """
+    if topology is None:
+        raise HTTPException(status_code=503, detail={
+            "error": "no topology", "message": "proxy has no topology yet"})
+    client = topology.switches.get(dpid)
+    if client is None:
+        raise HTTPException(status_code=404, detail={
+            "error": "unknown switch", "dpid": dpid,
+            "message": f"switch {dpid} is not connected to the proxy; nothing was read"})
+    if table_journals is not None and table_journals.pending(dpid):
+        raise HTTPException(status_code=503, detail={
+            "error": "replay pending", "dpid": dpid, "counter": name,
+            "message": f"switch {dpid} is being re-adopted and its entries put back; nothing was "
+                       f"read. Ask again once the readopt has answered"})
+    # Direct first: a name that is a direct counter here is read even if an indexed counter
+    # shares it (an alias may), so the pointer below is only for names that are not one.
+    if client.direct_counter_by_name(name) is None and _counter_kind(client, name) == "indexed":
+        raise HTTPException(status_code=404, detail={
+            "error": "indexed counter", "dpid": dpid, "counter": name,
+            "message": f"{name} is an indexed counter, not a direct one. Read a cell at "
+                       f"GET /p4/counter/{name}?dpid={dpid}&index=<i>"})
+
+    try:
+        reading = await run_in_threadpool(client.read_direct_counter, name)
+    except CounterNotFound as err:
+        raise HTTPException(status_code=404, detail={
+            "error": "not in this pipeline", "dpid": dpid, "counter": name, "message": str(err)})
+    except DirectCounterUnrenderable as err:
+        raise HTTPException(status_code=502, detail={
+            "error": "direct counter not rendered", "dpid": dpid, "counter": name,
+            "message": str(err)})
+
+    if reading is None:
+        raise HTTPException(status_code=503, detail={
+            "error": "direct counter not read", "dpid": dpid, "counter": name,
+            "message": f"the read of {name} on switch {dpid} failed or ran out of time. This is "
+                       f"NOT a reading of zero and NOT an empty table"})
+
+    # `counter` is the full name even when asked by alias, so two callers' answers agree.
+    return dict(reading, dpid=dpid)
 
 
 # --- programming one multicast group (TICKET-P3 2.6, G8) --------------------------------------
