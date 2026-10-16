@@ -578,7 +578,7 @@ add "58. a CLI priority above 2^31-2 is accepted and maps outside P4Runtime" \
 
 add "59. --thrift-commands on an external control plane is accepted" \
     "$CONVERT" \
-    '    if package["control_plane"]["mode"] == "external":
+    '    if mode == "external":
         raise ConversionError(
             "--thrift-commands on an external control plane' \
     '    if False:  # MUTANT: the app controller will not mind

@@ -864,7 +864,10 @@ def apply_thrift_commands(exercise_dir, package, copies, mapping):
     if unknown:
         raise ConversionError(f"--thrift-commands names {unknown}, which the topology does not "
                               f"declare (it has {sorted(by_name)})")
-    if package["control_plane"]["mode"] == "external":
+    # (Spelled through `mode`, not as apply_route_role's identical line: that line is another
+    # gate's mutation anchor, tests/shell/mutate_roles_binding.sh, and an anchor must be unique.)
+    mode = package["control_plane"]["mode"]
+    if mode == "external":
         raise ConversionError(
             "--thrift-commands on an external control plane: the app's own controller owns "
             "every table and NDTwin writes none, so translated entries would never be written")
