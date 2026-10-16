@@ -579,6 +579,28 @@ class TheClientDatesWhatTheSwitchAcceptedTest(unittest.TestCase):
 
         self.assertAlmostEqual(self.age_of(read_back), 4.0)
 
+    def test_an_accepted_in_port_install_is_found_by_what_bmv2_reads_back(self):
+        # [Co-developed with claude code -- Adam] The in_port key is bit<9>, so the write side
+        # keys the rule on mask 0x01ff and the switch reads back value 0x02 / mask 0x01ff (measured
+        # on a throwaway simple_switch_grpc). A write that kept the 0xffff mask would be dated
+        # under a key no read-back ever has, and the rule would report 0/0.
+        keys = {"standard_metadata.ingress_port": 2, "hdr.ipv4.dstAddr": "10.0.0.4"}
+        self.client.insert_5tuple_rule(keys, 101, "00:00:00:00:00:04", 3)
+        self.clock.advance(6)
+
+        read_back = {
+            "table": FIVE_TUPLE_TABLE, "priority": 101, "is_default": False,
+            "match": {"standard_metadata.ingress_port": {"type": "ternary", "value": b"\x02",
+                                                         "mask": b"\x01\xff"},
+                      "hdr.ipv4.dstAddr": {"type": "ternary", "value": b"\x0a\x00\x00\x04",
+                                           "mask": b"\xff\xff\xff\xff"}},
+            "action": None,
+        }
+
+        age = self.age_of(read_back)
+        self.assertIsNotNone(age, "the in_port rule is dated under a key the read-back lacks")
+        self.assertAlmostEqual(age, 6.0)
+
     def test_a_five_tuple_delete_takes_its_date_away(self):
         keys = {"hdr.ipv4.dstAddr": "10.0.0.4", "hdr.ipv4.protocol": 6}
         self.client.insert_5tuple_rule(keys, 101, "00:00:00:00:00:04", 3)

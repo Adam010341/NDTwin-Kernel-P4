@@ -137,8 +137,21 @@ class MalformedMatchValueError(UnsupportedMatchError):
     tells the model a CIDR prefix is a permitted answer.
     """
 
-    def __init__(self, field, value, action):
+    def __init__(self, field, value, action, expected=None):
         self.fields = [field]
+        if expected is not None:
+            # [Co-developed with claude code -- Adam] A field that is not an address (in_port):
+            # the default sentence below would call a port number "not an IPv4 address".
+            # A small integer is shown as itself: "a int" would not tell a caller which of
+            # 512 and 70000 it sent.
+            shown = (str(value) if isinstance(value, int) and not isinstance(value, bool)
+                     and abs(value) < 10 ** 12 else _describe_match_value(value))
+            ValueError.__init__(
+                self,
+                f"match field {field} carries {shown}, which is not {expected}. "
+                f"No rule was " + action
+            )
+            return
         # `action` is the past participle of what the caller asked for, so the sentence names
         # what did NOT happen. LockManager::describeError's shape, for its reason: the question
         # after a 400 is always "did it do it anyway?", and for this endpoint it used to be a
@@ -227,9 +240,36 @@ IPV4_VALUED_MATCH_FIELDS = frozenset(
 )
 
 
+#: The match spellings that land on flow_5tuple's ingress-port key (bit<9>). Derived from
+#: FIVE_TUPLE_FIELD_MAP, as IPV4_VALUED_MATCH_FIELDS is. [Co-developed with claude code -- Adam]
+IN_PORT_MATCH_FIELDS = frozenset(
+    field for field, p4_key in FIVE_TUPLE_FIELD_MAP.items()
+    if p4_key == "standard_metadata.ingress_port"
+)
+
+
+def _check_in_port_value(field, value, action):
+    """MalformedMatchValueError unless the 5-tuple encoder takes this in_port.
+
+    [Co-developed with claude code -- Adam]
+    The oracle is P4RuntimeClient._encode_5tuple_value itself, so the accepted set (0-511, or a
+    numeric string of one) cannot drift from what the writer puts on the wire. Imported here and
+    not at the top: p4_client is the heavy module (gRPC, protobuf) and only a match that names
+    in_port needs it.
+    """
+    from proxy_agent.p4_client import P4RuntimeClient
+    try:
+        P4RuntimeClient._encode_5tuple_value(FIVE_TUPLE_FIELD_MAP[field], value)
+    except (ValueError, OverflowError, TypeError, OSError):
+        raise MalformedMatchValueError(
+            field, value, action,
+            expected="a switch port number from 0 to 511 (the key is 9 bits wide)") from None
+
+
 def check_match_values(match_dict, action):
     """
-    Raises MalformedMatchValueError if an address field carries a value the encoders reject.
+    Raises MalformedMatchValueError if an address field or an in_port carries a value the
+    encoders reject.
 
     Closes KNOWN-ISSUES B-2c: `{"nw_dst": "10.0.0.5/32"}` used to pass field-name validation,
     reach socket.inet_aton() and raise OSError out of the handler as a 500.
@@ -242,21 +282,32 @@ def check_match_values(match_dict, action):
     client rather than merely letting something through. That is the same trade parse_eth_type
     was written for. Using the real encoder as the oracle also means this cannot drift from it.
 
-    Falsy values are skipped rather than refused, because every caller of this function already
+    Falsy ADDRESS values are skipped rather than refused, because every caller of this function already
     treats them as "no destination given" -- `match_dict.get("nw_dst") or match_dict.get(
     "ipv4_dst")` falls through an empty string to the other spelling, and the `if not ipv4_dst`
     guards below return False. Refusing them here would newly 400 a request that succeeds today.
 
-    ⚠️ Covers the inet_aton sinks ONLY. The numeric flow_5tuple keys (in_port, ip_proto,
+    ⚠️ Covers the inet_aton sinks and in_port ONLY. The other numeric flow_5tuple keys (ip_proto,
     tp_src/tp_dst and their spellings) reach `int(value).to_bytes(width)` in
     _encode_5tuple_value, where a non-numeric string still raises ValueError and an out-of-range
     number still raises OverflowError -- both still uncaught, both still 500s. Same family, not
     the adjudicated defect, and deliberately not fixed in the same change: see the evidence draft
     for 2026-08-30, which registers it rather than leaving it to look handled.
+
+    in_port is covered since the 5-tuple mask fix. The key is bit<9>, and the writer refuses 512
+    and up with an OverflowError raised while it builds the request, which no handler catches (a
+    500), so the encoder is called here, as it is for the addresses, ahead of the writer.
+    Nothing is skipped when falsy: a match naming in_port goes to flow_5tuple whatever its value,
+    and `None` and `""` were 500s before. Like the address check, this runs ahead of the
+    read-only (409) and foreign-pipeline (501) refusals and ahead of route_flow's no-OUTPUT early
+    return, so a bad in_port answers 400 there too.
     """
     if not isinstance(match_dict, dict):
         return
     for field in sorted(match_dict):
+        if field in IN_PORT_MATCH_FIELDS:
+            _check_in_port_value(field, match_dict[field], action)
+            continue
         if field not in IPV4_VALUED_MATCH_FIELDS:
             continue
         value = match_dict[field]

@@ -240,7 +240,7 @@ class TheLiteralsLiveOnlyInTheBaselineTest(unittest.TestCase):
         mutate_p4_rule_install_time.sh (not this ticket's file) anchors on that exact line; it
         is not a name any write uses (the writes use the binding), and it is asserted equal to
         BASELINE.table below.
-      * `P4RuntimeClient._FIVE_TUPLE_KEY_BYTES`, `FIVE_TUPLE_FIELD_MAP` and
+      * `P4RuntimeClient._FIVE_TUPLE_KEY_BITS`, `FIVE_TUPLE_FIELD_MAP` and
         `IPV4_VALUED_MATCH_FIELDS` -- "hdr.ipv4.dstAddr" as a key of `flow_5tuple`, a DIFFERENT
         table that happens to match on the same header field. Not the route role; this cut has
         no 5-tuple role (every foreign 5-tuple write is a 501).
@@ -253,7 +253,7 @@ class TheLiteralsLiveOnlyInTheBaselineTest(unittest.TestCase):
     #: (file, assignment) -> the one route name that constant may spell.
     NAMED_EXCEPTIONS = {
         ("p4_client.py", "IPV4_LPM_TABLE"): BASELINE.table,
-        ("p4_client.py", "_FIVE_TUPLE_KEY_BYTES"): BASELINE.match_field,
+        ("p4_client.py", "_FIVE_TUPLE_KEY_BITS"): BASELINE.match_field,
         ("topology_manager.py", "FIVE_TUPLE_FIELD_MAP"): BASELINE.match_field,
         ("topology_manager.py", "IPV4_VALUED_MATCH_FIELDS"): BASELINE.match_field,
     }
