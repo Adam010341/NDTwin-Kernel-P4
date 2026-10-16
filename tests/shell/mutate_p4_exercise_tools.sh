@@ -8,7 +8,7 @@
 # pipeline). The header below was written for the first seven and still describes them.
 # Adam's ruling J (2026-09-27) appended 23-28, the fixture-provenance rule, and with them a
 # fourth subject: tools/p4_exercise/tests/test_convert.py, where that rule lives.
-# The paper-apps work (int-v1 and ONTAS, 2026-10-16) appended 38-70 and a fifth subject,
+# The paper-apps work (int-v1 and ONTAS, 2026-10-16) appended 38-77 and a fifth subject,
 # tools/p4_exercise/thrift_cli.py, the bmv2 CLI -> P4Runtime entry translator.
 # [Co-developed with claude code -- Adam]
 #
@@ -528,7 +528,7 @@ add "50. a script whose calls name two thrift addresses is put on one switch" \
 
 add "51. an address variable assigned twice is accepted" \
     "$THRIFT" \
-    '        if assigned.get(name, 0) > 1:' \
+    '        if assigned.get(name, 0) != 1:' \
     '        if False:  # MUTANT: the last assignment is the only one' \
     'test_an_address_variable_assigned_twice_is_refused'
 
@@ -669,6 +669,56 @@ add "70. a legacy link's two ends are not ordered, so a switch-first host link i
     '        if False:  # MUTANT: as written
             s, t = t, s' \
     'test_host_links_take_the_first_ports_in_sorted_order'
+
+# 71-77: round 3 (review r2 of 244face4). A flag's expansions, the address variable assigned
+# exactly once, the package paths of a script and of an include taken from the RESOLVED file, a
+# shared runtime file found by realpath, and the two round-2 tests that had never been red.
+# [Co-developed with claude code -- Adam]
+add "71. an address expansion the reader does not evaluate is accepted" \
+    "$THRIFT" \
+    '        expanded = [f for f in flags if "$" in f and not _PLAIN_VAR.fullmatch(f)]' \
+    '        expanded = []  # MUTANT: $((9089+SW)) is an address' \
+    'test_an_address_whose_value_the_reader_cannot_know_is_refused'
+
+add "72. an address variable the script never assigns is accepted" \
+    "$THRIFT" \
+    '        if assigned.get(name, 0) != 1:' \
+    '        if assigned.get(name, 0) > 1:  # MUTANT: the environment will have it' \
+    'test_an_address_variable_never_assigned_is_refused'
+
+add "73. a script's package path is the flag's spelling, not the resolved file" \
+    "$CONVERT" \
+    '        dest = os.path.relpath(real, root)' \
+    '        dest = rel  # MUTANT: as typed' \
+    'test_a_script_named_through_dotdot_is_written_inside_the_package'
+
+add "74. an include's package path is the include's spelling, not the resolved file" \
+    "$CONVERT" \
+    '            out.append((real, os.path.relpath(real, root)))' \
+    '            out.append((real, cand))  # MUTANT: as spelled' \
+    'test_an_include_spelled_through_dotdot_is_written_inside_the_package'
+
+add "75. two switches' runtime files are compared by spelling" \
+    "$CONVERT" \
+    '                         if package["switches"][d].get("entries") and os.path.realpath(
+                             os.path.join(exercise_dir, package["switches"][d]["entries"]))
+                         == target)' \
+    '                         if package["switches"][d].get("entries") == spec["entries"])  # MUTANT' \
+    'test_a_runtime_file_two_switches_spell_differently_is_refused'
+
+add "76. a negative CLI priority is accepted" \
+    "$THRIFT" \
+    '        if not 0 <= priority <= PRIORITY_MAX - 1:' \
+    '        if priority > PRIORITY_MAX - 1:  # MUTANT: no lower bound' \
+    'test_a_negative_cli_priority_is_refused'
+
+add "77. an lpm /0 beside a ternary field is written as a /0 match" \
+    "$THRIFT" \
+    '        if plen == 0:
+            notes.append(f"{what}: {token} matches everything; omitted' \
+    '        if False:  # MUTANT: /0 goes on the wire
+            notes.append(f"{what}: {token} matches everything; omitted' \
+    'test_an_lpm_slash_zero_beside_a_ternary_field_is_omitted'
 
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'

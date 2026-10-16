@@ -678,6 +678,37 @@ class Extraction(unittest.TestCase):
                     thrift_cli.read_script("#!/bin/bash\n%s\n" % line, "x.sh")
                 self.assertIn("line 2", str(caught.exception))
 
+    def test_an_address_whose_value_the_reader_cannot_know_is_refused(self):
+        # The same text twice, two ports: bash evaluates $((9089+SW)) at each call.
+        changing = ("#!/bin/bash\nSW=1\n"
+                    "simple_switch_CLI --thrift-port $((9089+SW)) <<< \"%s\"\n"
+                    "SW=2\n"
+                    "simple_switch_CLI --thrift-port $((9089+SW)) <<< \"%s\"\n"
+                    % (SET_SOURCE, INT_SOURCE))
+        for text in (changing,
+                     '#!/bin/bash\nsimple_switch_CLI --thrift-port $(./p.sh) <<< "%s"\n'
+                     % SET_SOURCE,
+                     '#!/bin/bash\nsimple_switch_CLI --thrift-port $[9089+1] <<< "%s"\n'
+                     % SET_SOURCE,
+                     '#!/bin/bash\nP=1\nsimple_switch_CLI --thrift-port 90$P <<< "%s"\n'
+                     % SET_SOURCE):
+            with self.subTest(text=text.splitlines()[-1]):
+                with self.assertRaises(thrift_cli.Untranslatable) as caught:
+                    thrift_cli.read_script(text, "x.sh")
+                self.assertIn("expansion", str(caught.exception))
+
+    def test_a_plain_variable_assigned_once_is_an_address(self):
+        text = '#!/bin/bash\nP=9090\nsimple_switch_CLI --thrift-port ${P} <<< "%s"\n' % SET_SOURCE
+        commands, notes = thrift_cli.read_script(text, "x.sh")
+        self.assertEqual(commands, [(3, SET_SOURCE)])
+        self.assertTrue([n for n in notes if "${P}" in n], notes)
+
+    def test_an_address_variable_never_assigned_is_refused(self):
+        text = '#!/bin/bash\nsimple_switch_CLI --thrift-port $PORT <<< "%s"\n' % SET_SOURCE
+        with self.assertRaises(thrift_cli.Untranslatable) as caught:
+            thrift_cli.read_script(text, "x.sh")
+        self.assertIn("PORT", str(caught.exception))
+
     def test_a_plain_commands_file_is_one_command_per_line(self):
         text = "# s1\n%s\n\n%s\n" % (SET_SOURCE, INT_SOURCE)
         got = thrift_cli.commands_from_text(text, "s1-commands.txt")
@@ -830,6 +861,13 @@ class TheProgramsOwnIncludes(AppTree, unittest.TestCase):
             self.convert()
         self.assertIn("include/b.p4", str(caught.exception))
 
+    def test_an_include_spelled_through_dotdot_is_written_inside_the_package(self):
+        # The app directory is called `app`, so "../app/include/a.p4" comes back inside it.
+        self.write("app.p4", '#include "../app/include/a.p4"\n')
+        _package, out, written = self.convert()
+        self.assertIn("include/a.p4", written)
+        self.assertFalse([w for w in written if w.startswith("..")], written)
+
     def test_an_include_that_leaves_the_app_directory_is_refused(self):
         self.write("include/b.p4", '#include "../../outside.p4"\n')
         with open(os.path.join(self.tmp, "outside.p4"), "w") as fh:
@@ -925,6 +963,30 @@ class ConvertingWithThriftCommands(AppTree, unittest.TestCase):
         with self.assertRaises(convert.ConversionError) as caught:
             self.thrift({"s1": "link.sh"})
         self.assertIn("outside", str(caught.exception))
+
+    def test_a_script_named_through_dotdot_is_written_inside_the_package(self):
+        # app at <tmp>/src/app, package at <tmp>/pkgs/A: `../app/...` resolves inside the app,
+        # and the copy must land at the package path of that file, not at <tmp>/pkgs/app/...
+        src = os.path.join(self.tmp, "src")
+        os.makedirs(src)
+        shutil.move(self.app, os.path.join(src, "app"))
+        self.app = os.path.join(src, "app")
+        out = os.path.join(self.tmp, "pkgs", "A")
+        package, _model, written = convert.convert(
+            self.app, "topo/topology.json", out, p4_rel="app.p4",
+            thrift_commands={"s1": "../app/runtime_cmds/s1.sh"})
+        self.assertIn("runtime_cmds/s1.sh", written)
+        self.assertFalse([w for w in written if w.startswith("..")], written)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "pkgs", "app")))
+        self.assertEqual(package["source"]["thrift_commands"], {"s1": "runtime_cmds/s1.sh"})
+
+    def test_a_runtime_file_two_switches_spell_differently_is_refused(self):
+        topo = json.loads(json.dumps(TOPOLOGY))
+        topo["switches"]["s2"]["runtime_json"] = "./topo/s1-runtime.json"
+        self.write("topo/topology.json", json.dumps(topo, indent=2))
+        with self.assertRaises(convert.ConversionError) as caught:
+            self.thrift()
+        self.assertIn("s2", str(caught.exception))
 
     def test_a_runtime_file_two_switches_share_is_refused(self):
         topo = json.loads(json.dumps(TOPOLOGY))

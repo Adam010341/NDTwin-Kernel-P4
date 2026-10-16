@@ -277,13 +277,15 @@ def package_cpu_port(switches):
 #
 # This converts such a topology into the current form by those same rules, so the rest of convert
 # reads one format. What it cannot carry is said, not dropped: that harness also gave each host a
-# static ARP entry for a phony gateway 10.0.N.254 with the SWITCH PORT's MAC, which only exists in
-# the Mininet it built -- the package's hosts get no commands, and convert prints so.
+# static ARP entry for a phony gateway 10.0.N.254 with the SWITCH PORT's MAC, a route to it and a
+# default route via it (program_hosts), and that MAC only exists in the Mininet it built -- the
+# package's hosts get no commands, and convert prints so, with each host's derived port.
 
 LEGACY_NOTE = ("a 2018-19 tutorials topology (hosts as a list, links without ports): ports and "
                "addresses derived by that harness's rules (p4lang/tutorials 948a890 "
-               "utils/run_exercise.py ExerciseTopo); its per-host static ARP for a phony gateway "
-               "used the switch port's MAC and is not carried")
+               "utils/run_exercise.py ExerciseTopo); its per-host setup -- a static ARP entry "
+               "for a phony gateway 10.0.<host>.254 with the switch port's MAC, a route to it and "
+               "a default route via it -- used a MAC only that Mininet had, and is not carried")
 
 
 def is_legacy_topology(topo):
@@ -722,7 +724,10 @@ def _local_includes(exercise_dir, p4_rel):
             if real in seen:
                 continue
             seen.add(real)
-            out.append((os.path.join(exercise_dir, cand), cand))
+            # Written where the file IS, relative to the app (relpath of the resolved path), not
+            # where the include's text happened to spell it: an include spelled through `..`
+            # that comes back inside the app would otherwise be written outside the package.
+            out.append((real, os.path.relpath(real, root)))
             todo.append(cand)
     return out
 
@@ -955,9 +960,8 @@ def apply_thrift_commands(exercise_dir, package, copies, mapping):
             "--thrift-commands on an external control plane: the app's own controller owns "
             "every table and NDTwin writes none, so translated entries would never be written")
     package = dict(package)
-    package["source"] = dict(package["source"], thrift_commands=dict(sorted(mapping.items())))
     root = os.path.realpath(exercise_dir)
-    rewrites, report = {}, {}
+    rewrites, report, recorded = {}, {}, {}
     for name in sorted(mapping, key=lambda n: int(by_name[n])):
         dpid = by_name[name]
         spec = package["switches"][dpid]
@@ -980,8 +984,13 @@ def apply_thrift_commands(exercise_dir, package, copies, mapping):
         if not os.path.isfile(real):
             raise ConversionError(f"--thrift-commands {name}={rel}: no such file under "
                                   f"{exercise_dir}")
+        # Compared by the RESOLVED file: `./s1-runtime.json` and `s1-runtime.json` are one file,
+        # and comparing the spellings let two switches share it unnoticed.
+        target = os.path.realpath(os.path.join(exercise_dir, spec["entries"]))
         sharing = sorted(package["switches"][d]["name"] for d in package["switches"]
-                         if package["switches"][d].get("entries") == spec["entries"])
+                         if package["switches"][d].get("entries") and os.path.realpath(
+                             os.path.join(exercise_dir, package["switches"][d]["entries"]))
+                         == target)
         if len(sharing) > 1:
             # The smaller of the two fixes (refuse, rather than give each switch its own copy):
             # the translated entries are for ONE switch, and appending them to a file several
@@ -1007,9 +1016,15 @@ def apply_thrift_commands(exercise_dir, package, copies, mapping):
         # sets rank against each other as they would natively (thrift_cli's PRIORITY note).
         doc["table_entries"] = list(existing) + entries
         rewrites[spec["entries"]] = json.dumps(doc, indent=2) + "\n"
-        copies = list(copies) + [(source_abs, rel)]
-        report[dpid] = {"file": rel, "translated": len(entries), "notes": notes}
+        # The package path is where the script IS (relpath of the resolved file), not the
+        # spelling the flag was given: `../app/runtime_cmds/s1.sh` would otherwise be written
+        # outside the package directory.
+        dest = os.path.relpath(real, root)
+        copies = list(copies) + [(real, dest)]
+        recorded[name] = dest
+        report[dpid] = {"file": dest, "translated": len(entries), "notes": notes}
     copies = [(src, r) for src, r in _dedup_copies(copies) if r not in rewrites]
+    package["source"] = dict(package["source"], thrift_commands=dict(sorted(recorded.items())))
     return package, copies, rewrites, report
 
 
@@ -1138,7 +1153,10 @@ def main(argv=None):
         print(f"  topology      : {LEGACY_NOTE}")
         for name in sorted(package["hosts"], key=_host_sort_key):
             h = package["hosts"][name]
-            print(f"                  {name} {h['ip']}/{h['prefix_len']} {h['mac']}")
+            ports = [f"{l['b'][0]} port {l['b'][1]}" for l in package["links"]
+                     if l["a"][0] == name]
+            print(f"                  {name} {h['ip']}/{h['prefix_len']} {h['mac']} on "
+                  f"{', '.join(ports) or 'no switch'}")
     # Per switch, and spelled out even when they are all the same: "which program does this
     # switch run" is the question a converted exercise exists to answer, and a summary that
     # only appeared when the answers differed would make the uniform case unreadable.

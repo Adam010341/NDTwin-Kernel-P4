@@ -44,9 +44,10 @@ Values follow runtime_CLI's parse_param (behavioral-model tools/runtime_CLI.py):
 field a dotted value is four parts, each read with int() -- so "10.0.010.1" is 10.0.10.1, not
 the octal 10.0.8.1 inet_aton would make of it -- on a 48-bit field a colon value is six groups,
 each read with int(g, 16), and anything else is int(token, 0). This parser is STRICTER than
-runtime_CLI in four places, each a value the CLI would accept and silently change: a part above
-255, a negative number (runtime_CLI writes it as 0), a value at or above 2^bitwidth that still
-fits the field's bytes, and an IPv6 address on a 128-bit field (not translated). In the entry,
+runtime_CLI in three places, each a value the CLI would accept and silently change: a negative
+number (runtime_CLI writes it as 0), a value at or above 2^bitwidth that still fits the field's
+bytes, and an IPv6 address on a 128-bit field (not translated). (A dotted part above 255 is
+refused by both: runtime_CLI's list of octets cannot be packed into bytes.) In the entry,
 a dotted or MAC value stays a string, re-spelled canonically (and the re-spelling is noted), and
 every other value is a JSON number (a hex string would be read by pre-flight's exact/lpm encoder
 as already-encoded bytes). tools/p4_exercise/tests/test_thrift_cli.py compares this parser with
@@ -54,8 +55,14 @@ runtime_CLI's own over a corpus.
 
 ADDRESSES. A script's `--thrift-port` / `--thrift-ip` say which switch each call reaches, and the
 package appends every translated entry to the ONE switch the flag names. So a script whose calls
-name more than one address text, or whose address variable is assigned more than once, is
-refused: its commands were written for more than one switch. The address text is in the notes.
+name more than one address text is refused: its commands were written for more than one switch.
+An address may use a variable only as a plain `$NAME` / `${NAME}`, and that variable must be
+assigned exactly once in the script -- any other expansion in a flag (`$(...)`, `$((...))`,
+`$[...]`, a backtick) is refused outright, because its value depends on something this reader
+does not evaluate (a command, or other variables that can change between two calls: with
+`SW=1 ... $((9089+SW)) ... SW=2 ... $((9089+SW))` the text is the same and the ports are not).
+That is the simpler of the two fixes -- not evaluating arithmetic, refusing it in a flag. The
+address text is in the notes.
 """
 from __future__ import annotations
 
@@ -88,6 +95,8 @@ class Untranslatable(ValueError):
 _FLAG_METACHARS = (";", "&", "|", "`")
 #: `$NAME` or `${NAME}` inside an address text.
 _VAR_REF = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?")
+#: The only expansion a flag token may be: one plain variable reference, and nothing else.
+_PLAIN_VAR = re.compile(r"\$(?:[A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_][A-Za-z0-9_]*\})")
 
 
 def commands_from_text(text, source):
@@ -135,6 +144,12 @@ def read_script(text, source):
                 f"{source} line {number}: simple_switch_CLI flag {bad[0]!r} carries a shell "
                 f"metacharacter ({' '.join(_FLAG_METACHARS)}): the shell would run something "
                 f"else there, and this script is read, not run")
+        expanded = [f for f in flags if "$" in f and not _PLAIN_VAR.fullmatch(f)]
+        if expanded:
+            raise Untranslatable(
+                f"{source} line {number}: simple_switch_CLI flag {expanded[0]!r} is an expansion "
+                f"this reader does not evaluate ($(...), $((...)), $[...] or a mix); a flag may use "
+                f"one plain $NAME assigned once, so the switch it reaches is known")
         address = []
         i = 0
         while i < len(flags):
@@ -161,10 +176,11 @@ def read_script(text, source):
             f"commands written for more than one switch, and the package would put every one "
             f"of them on the single switch this file is named for")
     for name in sorted({v for a in distinct for v in _VAR_REF.findall(a)}):
-        if assigned.get(name, 0) > 1:
+        if assigned.get(name, 0) != 1:
             raise Untranslatable(
-                f"{source}: the address variable {name} is assigned {assigned[name]} times, so "
-                f"the calls may reach different switches; the package would put them on one")
+                f"{source}: the address variable {name} is assigned {assigned.get(name, 0)} "
+                f"time(s) in the script, so which switch the calls reach is not known here "
+                f"(twice: they may differ; never: it comes from the caller's environment)")
     if distinct:
         notes.append(f"{source}: every CLI call addresses `{distinct[0]}`; the entries go to "
                      f"the switch this file is named for")
@@ -410,7 +426,8 @@ def _table_add(words, schema, where, notes):
         if not 0 <= priority <= PRIORITY_MAX - 1:
             raise Untranslatable(
                 f"{where}: CLI priority {priority} is outside 0..{PRIORITY_MAX - 1}; it maps to "
-                f"P4Runtime {PRIORITY_MAX} - 1 - priority, which must be 1..{PRIORITY_MAX}")
+                f"P4Runtime {PRIORITY_MAX} - priority (2^31-1-c), which must be "
+                f"1..{PRIORITY_MAX}")
         tail = tail[:-1]
     match = {}
     for field, token in zip(fields, keys):
