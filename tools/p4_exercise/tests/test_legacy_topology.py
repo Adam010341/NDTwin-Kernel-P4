@@ -114,7 +114,8 @@ class ConvertingALegacyApp(unittest.TestCase):
                                "--out", os.path.join(self.tmp, "cli")])
         self.assertEqual(rc, 0)
         self.assertIn("948a890", out.getvalue())
-        self.assertIn("h2 10.0.1.2/24 00:00:00:00:01:02", out.getvalue())
+        self.assertIn("h2 10.0.1.2/24 00:00:00:00:01:02 on s1 port 2", out.getvalue())
+        self.assertIn("default route", out.getvalue())
         self.assertIn("not carried", out.getvalue())
 
 
