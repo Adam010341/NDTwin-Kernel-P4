@@ -213,6 +213,21 @@ def app_cli_lines():
         return re.findall(r'<<<\s*"([^"]*)"', fh.read())
 
 
+INT_TABLES = ("MyIngress.process_int_source_sink.tb_set_source",
+              "MyIngress.process_int_source.tb_int_source")
+
+
+def dump_entries(text):
+    """The entry blocks of one `table_dump`, without the CLI's banner and prompt lines."""
+    keep = []
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith(("*", "Dumping entry", "Match key", "Priority", "Action entry",
+                            "Default entry")) or "EXACT" in line or "TERNARY" in line:
+            keep.append(line)
+    return keep
+
+
 PROBE_Y = ("table_add tb_int_source int_source_dscp 10.0.0.0&&&0xFFFF0000 10.0.0.0&&&0xFFFF0000 "
            "0&&&0 0&&&0 => 2 4 0xF 0xF 2")
 PROBE_X = ("table_add tb_int_source int_source_dscp 10.0.1.0&&&0xFFFFFF00 10.0.2.0&&&0xFFFFFF00 "
@@ -262,8 +277,23 @@ def run_arm(label, p4rt_entries, cli_lines):
             for line in out.splitlines():
                 if "handle" in line.lower() or "error" in line.lower():
                     w("   cli: %s" % line.strip())
-        res["read"] = hexify(client.read_table_entries())
-        w("read back: %d entr(ies)" % len(res["read"]))
+        # 🔴 A P4Runtime read of a switch the CLI has written FAILS on bmv2 -- measured here on the
+        # first run, both builds: INTERNAL "Table state out-of-sync with target" (PI keeps its own
+        # copy of each table and a thrift write bypasses it). So the read is recorded, never
+        # assumed, and bmv2's own view -- the CLI's table_dump -- is taken on EVERY arm: that is
+        # the one representation a P4Runtime-written and a CLI-written entry can be compared in.
+        try:
+            res["read"] = hexify(client.read_table_entries())
+            res["read_error"] = None
+            w("P4Runtime read back: %d entr(ies)" % len(res["read"]))
+        except Exception as exc:  # noqa: BLE001 -- the error IS the reading
+            res["read"], res["read_error"] = [], "%s: %s" % (
+                type(exc).__name__, getattr(exc, "details", lambda: str(exc))())
+            w("P4Runtime read back FAILED: %s" % res["read_error"])
+        res["dump"] = {}
+        for table in INT_TABLES:
+            res["dump"][table] = sw.cli(["table_dump %s" % table])
+        w("table_dump taken for %s" % ", ".join(INT_TABLES))
         sw.wait_processed(settle_s=3.0)
         res["outputs"] = {str(p): [f.hex() for f in (frames or [])] if frames is not None
                           else None for p, frames in sw.outputs().items()}
@@ -332,16 +362,17 @@ def main():
     verdict("P2 every non-default package entry read back (A)",
             len(non_default) == len(want_non_default),
             "%d read, %d written" % (len(non_default), len(want_non_default)))
-    for t in ("MyIngress.process_int_source.tb_int_source",
-              "MyIngress.process_int_source_sink.tb_set_source"):
-        ra = sorted(readback_key(e) for e in a["read"] if e["table"] == t and not e["is_default"])
-        rb = sorted(readback_key(e) for e in arms["B"]["read"]
-                    if e["table"] == t and not e["is_default"])
-        pa = [e["priority"] for e in a["read"] if e["table"] == t and not e["is_default"]]
-        pb = [e["priority"] for e in arms["B"]["read"] if e["table"] == t and not e["is_default"]]
-        verdict("P3 %s: translated == thrift-installed (match, action, params)" % t,
-                bool(ra) and ra == rb,
-                "A %s | B %s | priority A %s B %s" % (ra, rb, pa, pb))
+    w("INFO P4Runtime read of the CLI-written arms: B %s | D %s"
+      % (arms["B"]["read_error"], arms["D"]["read_error"]))
+    for t in INT_TABLES:
+        da = dump_entries(a["dump"][t])
+        db = dump_entries(arms["B"]["dump"][t])
+        keys_a = [l for l in da if not l.startswith("Priority")]
+        keys_b = [l for l in db if not l.startswith("Priority")]
+        verdict("P3 %s: bmv2 holds the same entry, translated or CLI-written (key, mask, "
+                "action, params; table_dump)" % t,
+                bool(keys_a) and keys_a == keys_b,
+                "A %s | B %s" % (da, db))
     verdict("P4 A frames out == B frames out on every port",
             a["outputs"] == arms["B"]["outputs"],
             "A %s | B %s" % ({p: len(v or []) for p, v in a["outputs"].items()},
@@ -372,14 +403,9 @@ def main():
             arms["E"]["outputs"] == arms["D"]["outputs"],
             "E port 2: %s" % [int_fields(bytes.fromhex(x))
                               for x in arms["E"]["outputs"].get("2") or []])
-    dp = [(e["priority"], e["action"]["params"].get("hop_metadata_len"))
-          for e in arms["D"]["read"]
-          if e["table"] == "MyIngress.process_int_source.tb_int_source" and not e["is_default"]]
-    ep = [(e["priority"], e["action"]["params"].get("hop_metadata_len"))
-          for e in arms["E"]["read"]
-          if e["table"] == "MyIngress.process_int_source.tb_int_source" and not e["is_default"]]
-    w("INFO P4Runtime priority read back, (priority, hop_metadata_len): D thrift %s | E "
-      "translated %s" % (sorted(dp), sorted(ep)))
+    for k in ("D", "E"):
+        w("INFO %s table_dump tb_int_source: %s" % (
+            k, dump_entries(arms[k]["dump"]["MyIngress.process_int_source.tb_int_source"])))
     failed = [n for n, ok in verdicts if not ok]
     w("\n%s: %d verdict(s), %d failed%s" % (TAG, len(verdicts), len(failed),
                                              (": " + "; ".join(failed)) if failed else ""))
