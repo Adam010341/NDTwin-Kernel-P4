@@ -34,6 +34,8 @@
 # switch's own refusals with a remedy true on OVS as well (20, 32, 33).
 # Round 2 (review r1): one slot whatever the address spelling (34), every writer's slot lock
 # (35-37), no insert fallback in a modify (38), the delete remedy's OVS caveat inside the cut (39).
+# 25 was re-anchored in round 2 (its key line now goes through slot_key). Round 3 (review r2):
+# one spelling for every lookup in the three verbs (40-42), the slot_priority FIELD in the window (43).
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any
 # exit, byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD.
@@ -476,10 +478,12 @@ each_mutation() {
 
     # ---- round 2 (review r1, 2026-10-16) ---------------------------------------------
     # [Co-developed with claude code -- Adam]
+    # Re-anchored in round 3: slot_key now goes through canonical_ipv4, and since the verbs
+    # canonicalize first, the record's own contract test is what sees this.
     "$m" "34. the slot is keyed on the caller's spelling, not the switch's entry" "$SLOT" \
-        '    return dpid, socket.inet_ntoa(socket.inet_aton(ipv4_dst))' \
+        '    return dpid, canonical_ipv4(ipv4_dst)' \
         '    return dpid, ipv4_dst' \
-        'test_an_install_under_another_spelling_is_the_same_slot'
+        'test_two_spellings_are_one_lock_and_one_record'
 
     "$m" "35. an install writes without the slot's lock" "$TOPO" \
         '        with self.slot_priorities().lock(dpid, ipv4_dst):
@@ -522,6 +526,45 @@ each_mutation() {
         '            remedy="match the full five-tuple; on OVS a non-strict delete removes every "' \
         '            remedy="match the full five-tuple; a non-strict delete here restores the route and, on OVS, removes every "' \
         'test_the_remedy_is_inside_the_window_the_kernel_keeps'
+
+    # ---- round 3 (review r2, 2026-10-16) ---------------------------------------------
+    # [Co-developed with claude code -- Adam]
+    "$m" "40. modify_flow looks the destination up under the caller's spelling" "$TOPO" \
+        '        check_match_values(match_dict, "modified")
+        match_dict = canonical_destination(match_dict)
+' \
+        '        check_match_values(match_dict, "modified")
+' \
+        'test_an_aliased_modify_on_the_attachment_switch_writes_the_hosts_mac'
+
+    "$m" "41. unroute_flow looks the destination up under the caller's spelling" "$TOPO" \
+        '        check_match_values(match_dict, "deleted")
+        match_dict = canonical_destination(match_dict)
+' \
+        '        check_match_values(match_dict, "deleted")
+' \
+        'test_an_aliased_delete_after_an_aliased_install_restores_the_route'
+
+    "$m" "42. route_flow records the destination under the caller's spelling" "$TOPO" \
+        '        check_match_values(match_dict, "installed")
+        match_dict = canonical_destination(match_dict)
+' \
+        '        check_match_values(match_dict, "installed")
+' \
+        'test_installed_routes_holds_one_key_for_both_spellings'
+
+    # Review r2 NEW-4: survived against the bare-word needle, because the remedy's prose says
+    # "name slot_priority" -- the field itself left the window and nothing noticed.
+    "$m" "43. only slot_priority moves behind the prose" "$API" \
+        '        **extra,
+        "remedy": remedy,
+        "table": "ipv4_lpm",
+        "message": message,' \
+        '        "remedy": remedy,
+        "table": "ipv4_lpm",
+        "message": message,
+        **extra,' \
+        'test_the_modify_501_keeps_its_machine_fields_inside_the_kernel_window'
 }
 
 # --- run ------------------------------------------------------------------------------------

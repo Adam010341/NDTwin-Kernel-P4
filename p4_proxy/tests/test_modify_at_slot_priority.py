@@ -77,6 +77,7 @@ class SlotClient:
     def __init__(self, verdict=True):
         self.verdict = verdict
         self.calls = []
+        self.macs = []         # (verb, dst, next-hop MAC) per insert/modify, beside `calls`
         self.raise_on = None
         self.hold = None       # an Event a modify/insert waits on, to test the slot lock
         self.entered = threading.Event()
@@ -91,9 +92,11 @@ class SlotClient:
         return self.verdict
 
     def insert_ipv4_route(self, dst_ip, prefix_len, mac, port):
+        self.macs.append(("insert", dst_ip, mac))
         return self._write("insert", dst_ip, port)
 
     def modify_ipv4_route(self, dst_ip, prefix_len, mac, port):
+        self.macs.append(("modify", dst_ip, mac))
         return self._write("modify", dst_ip, port)
 
     def delete_ipv4_route(self, dst_ip, prefix_len):
@@ -569,12 +572,17 @@ class TheRemedyIsTrueOnBothPlanesTest(SlotTestCase):
         self.assertIn("slot_priority", err.detail["remedy"])
 
     def test_the_modify_501_keeps_its_machine_fields_inside_the_kernel_window(self):
+        # '"slot_priority":' -- the KEY, with its quote and colon: the remedy's prose also says
+        # "name slot_priority", so the bare word would pass with the field pushed out (review r2
+        # NEW-4). At the extremes of the priority range too (review r2 nit e).
         self.fabric()
-        window = self.wire(refused(api_routes.modify_flow_entry,
-                                   body(priority=777)))[:self.KERNEL_MESSAGE_WINDOW]
-        for needle in ("unsupported_on_p4", "remedy", "five-tuple", "requested_priority",
-                       "slot_priority"):
-            self.assertIn(needle, window)
+        for priority in (1, 99, 65535):
+            with self.subTest(priority=priority):
+                window = self.wire(refused(api_routes.modify_flow_entry,
+                                           body(priority=priority)))[:self.KERNEL_MESSAGE_WINDOW]
+                for needle in ("unsupported_on_p4", "remedy", "five-tuple",
+                               '"requested_priority":', '"slot_priority":'):
+                    self.assertIn(needle, window)
 
 
 # --- round 2 (review r1) ---------------------------------------------------------------------
@@ -702,7 +710,12 @@ class ReadoptEndToEndTest(SlotTestCase):
         self.assertEqual(writes(old, "modify"), [])
 
     def test_after_a_readopt_with_no_refill_the_old_records_do_not_count(self):
-        topo, old, _ = self.fabric(client1=ReadoptClient())
+        # The old client has pushed once too (as startup does), so its records carry the same
+        # epoch the new client reaches with its one push: only the client's identity tells them
+        # apart (review r2 nit a -- mutant 24 must bite here).
+        old = ReadoptClient()
+        old.set_forwarding_pipeline_config()
+        topo, _, _ = self.fabric(client1=old)
         new = ReadoptClient()
         result = topo.readopt_switch(1, lambda dpid: new, settle_s=0, install_routes=False)
         self.assertEqual(result["status"], "success", result)
@@ -741,6 +754,74 @@ class AModifyNeverInsertsTest(unittest.TestCase):
         kinds = [u.type for r in stub.requests for u in r.updates]
         self.assertEqual(kinds, [p4runtime_pb2.Update.MODIFY],
                          "a modify on an absent entry must not create one")
+
+
+# --- round 3 (review r2 NEW-2) ---------------------------------------------------------------
+# [Co-developed with claude code -- Adam]
+
+
+class EveryLookupSeesOneSpellingTest(SlotTestCase):
+    """route_flow / unroute_flow / modify_flow canonicalize the destination once, right after
+    check_match_values, so dest_paths, the MAC lookup, _installed_routes and the journal all see
+    the spelling the switch stores."""
+
+    def test_an_aliased_delete_after_an_aliased_install_restores_the_route(self):
+        # Spelled the same both times: dest_paths knows "10.0.0.2", so a raw "10.0.0.02" missed
+        # it and the delete REMOVED the destination's only entry (the A-4d black hole).
+        _, c1, _ = self.fabric()
+        post(api_routes.add_flow_entry, body(priority=100, port=4, dst=DST_ALT))
+        out = post(api_routes.delete_flow_entry, {"dpid": 1, "match": body(dst=DST_ALT)["match"]})
+        self.assertEqual(out["status"], "success")
+        self.assertEqual(c1.calls[-1], ("insert", DST, ROUTE_PORT[1]),
+                         "the aliased delete removed the entry instead of restoring the route")
+
+    def test_an_aliased_modify_on_the_attachment_switch_writes_the_hosts_mac(self):
+        # Switch 2 is DST's attachment switch: the next hop is the host, and its MAC comes from
+        # net.nodes[DST]. A raw "10.0.0.02" missed it and wrote 00:00:00:00:00:00.
+        _, _, c2 = self.fabric()
+        out = modify(body(dpid=2, priority=10, port=5, dst=DST_ALT))
+        self.assertEqual(out["status"], "success")
+        self.assertEqual(c2.macs[-1], ("modify", DST, DST_MAC))
+
+    def test_installed_routes_holds_one_key_for_both_spellings(self):
+        topo, _, _ = self.fabric()
+        post(api_routes.add_flow_entry, body(priority=100, port=4, dst=DST_ALT))
+        keys = [k for k in topo.installed_routes() if k[0] == 1]
+        self.assertEqual(keys, [(1, DST)])
+        self.assertEqual(topo.installed_routes()[(1, DST)], 4)
+
+    def test_the_journal_records_the_stored_spelling(self):
+        # The journal's record format is unchanged (same keys); an aliased request is now
+        # journalled under the canonical address, so a replay names the entry the switch has.
+        class Journal:
+            def __init__(self):
+                self.records = []
+
+            def record(self, **kw):
+                self.records.append(kw)
+                return True
+        topo, _, _ = self.fabric()
+        topo._journal = Journal()
+        post(api_routes.add_flow_entry, body(priority=100, port=4, dst=DST_ALT))
+        self.assertEqual(topo._journal.records[-1]["match"],
+                         {"eth_type": 2048, "ipv4_dst": DST})
+
+
+class SlotPrioritiesKeysOnTheEncodingTest(unittest.TestCase):
+    """
+    SlotPriorities' own contract, without the topology in front of it. [Co-developed with claude
+    code -- Adam] Since round 3 the three verbs canonicalize the destination before they reach
+    the record, so the end-to-end spelling tests above can no longer see whether slot_key itself
+    does; this one can (mutant 34).
+    """
+
+    def test_two_spellings_are_one_lock_and_one_record(self):
+        from proxy_agent.slot_priority import SlotPriorities
+        slots, client = SlotPriorities(), SlotClient()
+        self.assertIs(slots.lock(1, DST), slots.lock(1, DST_ALT))
+        slots.settle(1, DST_ALT, client, slots.begin(client), True, 100)
+        self.assertEqual(slots.held(1, DST, client), 100)
+        self.assertEqual(slots.snapshot(), {(1, DST): 100})
 
 
 if __name__ == "__main__":

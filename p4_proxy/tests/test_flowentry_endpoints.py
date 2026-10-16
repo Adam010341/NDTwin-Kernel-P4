@@ -553,19 +553,22 @@ class TheRefusalReachesTheOnePlaceACallerCanReadItTest(unittest.TestCase):
         return body[:self.KERNEL_MESSAGE_WINDOW], body
 
     def test_the_remedy_is_inside_the_window_the_kernel_keeps(self):
+        # [Co-developed with claude code -- Adam] At the extremes of the priority range as well
+        # (review r2 nit e): the number's width moves everything after it.
         for verb in ("delete", "modify"):
-            with self.subTest(verb=verb):
-                window, _ = self.window(verb)
-                self.assertIn("remedy", window,
-                              "the only actionable sentence must be readable in "
-                              "recent_failures[].message, not 640 bytes past its cut")
-                self.assertIn("five-tuple", window,
-                              "and it has to name the thing to do, not merely announce that a "
-                              "remedy exists")
-                # [Co-developed with claude code -- Adam] Review r1 m2/n3: the caveat that makes
-                # the delete remedy true on OVS, and the modify's recorded priority, are what a
-                # caller acts on -- both inside the cut.
-                self.assertIn({"delete": "OVS", "modify": "slot_priority"}[verb], window)
+            for priority in (1, 99, 65535):
+                with self.subTest(verb=verb, priority=priority):
+                    window, _ = self.window(verb, priority)
+                    self.assertIn("remedy", window,
+                                  "the only actionable sentence must be readable in "
+                                  "recent_failures[].message, not 640 bytes past its cut")
+                    self.assertIn("five-tuple", window,
+                                  "and it has to name the thing to do, not merely announce "
+                                  "that a remedy exists")
+                    # Review r1 m2/n3, r2 NEW-4: the caveat that makes the delete remedy true
+                    # on OVS, and the modify's recorded priority -- as the KEY, quote and colon
+                    # included, because the remedy's prose also contains the bare word.
+                    self.assertIn({"delete": "OVS", "modify": '"slot_priority":'}[verb], window)
 
     def test_the_outcome_and_the_requested_priority_are_still_inside_it(self):
         # Adding a field ahead of them must not push the two machine-readable ones out. This is

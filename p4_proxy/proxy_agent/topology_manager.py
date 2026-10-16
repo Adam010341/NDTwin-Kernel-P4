@@ -316,6 +316,34 @@ def unsupported_match_fields(match_dict):
     return sorted(bad)
 
 
+def canonical_destination(match_dict):
+    """
+    `match_dict` with its destination written the way the switch stores it.
+
+    [Co-developed with claude code -- Adam] Review r2 NEW-2. check_match_values accepts every
+    spelling inet_aton does ("10.0.0.02", "10.2", "0x0a000002"), and the entry is built from the
+    encoded bytes -- but every lookup keyed by the string (dest_paths in _control_plane_port,
+    net.nodes for the next-hop MAC, _installed_routes, the journal) missed an alias: an aliased
+    non-strict delete REMOVED the destination's only entry instead of restoring it, and an
+    aliased modify on the attachment switch wrote a zero MAC. Called once, right after
+    check_match_values, in route_flow, unroute_flow and modify_flow. A copy, not an edit: the
+    caller's dict is the request body. Non-string and empty values are left to the existing
+    guards (they never reach inet_aton here).
+    """
+    if not isinstance(match_dict, dict):
+        return match_dict
+    out = match_dict
+    for field in ("nw_dst", "ipv4_dst"):
+        value = match_dict.get(field)
+        if isinstance(value, str) and value:
+            canon = slot_priority.canonical_ipv4(value)
+            if canon != value:
+                if out is match_dict:
+                    out = dict(match_dict)
+                out[field] = canon
+    return out
+
+
 def p4_priority(openflow_priority):
     """
     OpenFlow priority -> P4Runtime priority for a ternary entry.
@@ -1056,6 +1084,7 @@ class TopologyManager:
         # Before this, a CIDR destination reached inet_aton and left as a 500 (B-2c).
         # [Co-developed with claude code -- Adam]
         check_match_values(match_dict, "installed")
+        match_dict = canonical_destination(match_dict)
 
         # Parse match (OpenFlow JSON)
         # NDTwin sends: {"dl_type": 2048, "nw_dst": "10.0.0.1"}
@@ -1219,6 +1248,7 @@ class TopologyManager:
         # [Co-developed with claude code -- Adam] As route_flow: delete_ipv4_route reaches the
         # same inet_aton, so the same value was the same 500 on the way out.
         check_match_values(match_dict, "deleted")
+        match_dict = canonical_destination(match_dict)
 
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
@@ -1311,6 +1341,7 @@ class TopologyManager:
 
         # [Co-developed with claude code -- Adam] As route_flow.
         check_match_values(match_dict, "modified")
+        match_dict = canonical_destination(match_dict)
 
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")

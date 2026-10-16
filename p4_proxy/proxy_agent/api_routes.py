@@ -511,9 +511,11 @@ def _refuse_unhonourable_priority(data, match, verb):
     kernel's log line. Measured 2026-09-11 (hunt-0911/ROLE-5, 4312 POSTs, 2152 of 2152 deletes
     refused): this body is 838 bytes, the cut landed mid-word at "data plan", and so every
     reader of the failure record saw the diagnosis and not one of them saw what to do instead.
-    `remedy` is placed so that the sentence a caller can act on is inside the 200-byte window:
-    the instruction and its OVS caveat ("on OVS a non-strict delete removes every rule"), for any
-    priority up to 65535; only the trailing parenthesis can be cut.
+    `remedy` is placed so that what a caller acts on is inside the 200-byte window. Measured on
+    FastAPI's serializer for priorities 1 to 65535: the window always keeps "match the full
+    five-tuple; on OVS a non-strict delete removes every rule" ("OVS" starts at byte 152-156). It
+    always cuts "it" and the parenthesis after it, and from a four-digit priority on it cuts
+    "for" as well.
     p4_proxy/tests/test_flowentry_endpoints.py asserts that against FastAPI's own serializer
     rather than against a hand-counted string. [Co-developed with claude code -- Adam]
 

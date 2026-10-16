@@ -125,6 +125,19 @@ class SlotPriorityNotHeld(Exception):
                                  else "not written by this proxy at a known priority"))
 
 
+def canonical_ipv4(value):
+    """
+    `value` as the switch stores it: inet_aton's four bytes written back as a dotted quad.
+
+    [Co-developed with claude code -- Adam] The one encoder for "which address is this": slot_key
+    keys the record with it, and TopologyManager.route_flow / unroute_flow / modify_flow rewrite
+    the request's destination with it right after check_match_values (review r2 NEW-2), so
+    dest_paths, the next-hop MAC lookup, _installed_routes and the journal see one spelling too.
+    Only called on values check_match_values has already accepted.
+    """
+    return socket.inet_ntoa(socket.inet_aton(value))
+
+
 def slot_key(dpid, ipv4_dst):
     """
     The key of the ipv4_lpm entry `ipv4_dst` writes on `dpid`: the address as inet_aton encodes
@@ -139,7 +152,7 @@ def slot_key(dpid, ipv4_dst):
     (route_flow, unroute_flow, modify_flow), and install_initial_routes writes host addresses
     from the graph.
     """
-    return dpid, socket.inet_ntoa(socket.inet_aton(ipv4_dst))
+    return dpid, canonical_ipv4(ipv4_dst)
 
 
 def _push_epoch(client):
