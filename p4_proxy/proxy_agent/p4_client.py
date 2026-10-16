@@ -202,6 +202,15 @@ class P4RuntimeClient:
     #: A class default for the reason `route_binding` is one. [Co-developed with claude code -- Adam]
     pipeline_cookie = None
 
+    #: Moved on BOTH sides of every pipeline push attempt -- before the RPC and, in a `finally`,
+    #: after it -- so it differs from any value read before a push began, whether the push was
+    #: accepted, refused or timed out (a timed-out push may still have emptied the tables).
+    #: topology_manager's slot-priority records are stamped with it and stop counting when it
+    #: moves: a pipeline push forgets every priority recorded for this switch (Adam, 2026-10-16).
+    #: A class default for the reason `route_binding` below is one: a double built with __new__
+    #: never pushes, and reads 0. [Co-developed with claude code -- Adam]
+    pipeline_push_epoch = 0
+
     #: Which table, match field, action and parameters this client writes a destination route
     #: with -- `route_binding.BASELINE` (NDTwin's own pipeline), a binding resolved from the app
     #: package's `roles.ipv4_route`, or None (a foreign pipeline with no roles: every route
@@ -215,15 +224,6 @@ class P4RuntimeClient:
     #: construction site, main.build_p4_client (startup AND readopt), always calls bind_routes(),
     #: and tests/test_route_binding.py asserts that it does for all three kinds of switch.
     route_binding = route_binding_module.BASELINE
-
-    #: Moved on BOTH sides of every pipeline push attempt -- before the RPC and, in a `finally`,
-    #: after it -- so it differs from any value read before a push began, whether the push was
-    #: accepted, refused or timed out (a timed-out push may still have emptied the tables).
-    #: topology_manager's slot-priority records are stamped with it and stop counting when it
-    #: moves: a pipeline push forgets every priority recorded for this switch (Adam, 2026-10-16).
-    #: A class default for the reason `route_binding` is one: a double built with __new__ never
-    #: pushes, and reads 0. [Co-developed with claude code -- Adam]
-    pipeline_push_epoch = 0
 
     def __init__(self, device_id, grpc_addr, p4info_path, json_path=None,
                  election_id=DEFAULT_ELECTION_ID, arbitration=True):
