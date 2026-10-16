@@ -403,16 +403,16 @@ each_mutation() {
 
     # Registers are reset by a readopt's pipeline push.
     "$m" "44. a switch being re-adopted is read anyway" "$API" \
-        '    if table_journals is not None and table_journals.pending(dpid):
+        '    if journals is not None and journals.pending(dpid):
         raise _register_error(503, "replay pending",' \
         '    if False:
         raise _register_error(503, "replay pending",' \
         'test_a_switch_being_readopted_is_503_replay_pending'
 
     "$m" "45. every switch is refused while one is re-adopted" "$API" \
-        '    if table_journals is not None and table_journals.pending(dpid):
+        '    if journals is not None and journals.pending(dpid):
         raise _register_error(503, "replay pending",' \
-        '    if table_journals is not None:
+        '    if journals is not None:
         raise _register_error(503, "replay pending",' \
         'test_another_switch_being_readopted_does_not_stop_this_read'
 

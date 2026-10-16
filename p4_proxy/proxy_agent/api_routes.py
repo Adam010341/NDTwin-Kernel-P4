@@ -1474,7 +1474,8 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
     if client is None:
         raise _register_error(404, "unknown switch", dpid, name,
                               f"switch {dpid} is not connected to the proxy; nothing was read")
-    if table_journals is not None and table_journals.pending(dpid):
+    journals = table_journals
+    if journals is not None and journals.pending(dpid):
         raise _register_error(503, "replay pending", dpid, name,
                               f"switch {dpid} is being re-adopted, which resets its registers; "
                               f"nothing was read. Ask again once the readopt has answered")
