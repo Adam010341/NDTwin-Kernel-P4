@@ -134,7 +134,7 @@ def normalise_match(match):
     return tuple(fields)
 
 
-def entry_key(dpid, table, priority, match):
+def entry_key(dpid, table, priority, match, default=False):
     """
     The identity of one table entry: switch, table, priority, match.
 
@@ -142,7 +142,17 @@ def entry_key(dpid, table, priority, match):
     `flow_5tuple` rules with the same keys at different priorities are two rules, and
     `delete_5tuple_rule`'s docstring records what happens when that is forgotten. `dpid` is
     stringified so an `int` from a write path and whatever a route handler was given agree.
+
+    [Co-developed with claude code -- Adam]
+    **A table's default entry has a key of its own**, `(dpid, table, "default")`. Without it the
+    default (no match, priority 0) and a real entry whose every field is left out -- a catch-all
+    on a ternary table, which is legal -- would both be `(dpid, table, 0, ())`: one stamp for two
+    entries, and in the table-entry journal one identity for two writes, so a `delete` of the
+    catch-all would fold away the default's modify. `default` is passed by the writer, which is
+    the only code that knows the entry it just built was the default action.
     """
+    if default:
+        return (str(dpid), str(table), "default")
     return (str(dpid), str(table), int(priority or 0), normalise_match(match))
 
 
@@ -171,7 +181,7 @@ class RuleInstallTimes:
 
     # --- writing ------------------------------------------------------------------
 
-    def record(self, dpid, table, priority, match):
+    def record(self, dpid, table, priority, match, default=False):
         """
         Note that the switch has just accepted a write of this entry. Returns its key.
 
@@ -184,13 +194,13 @@ class RuleInstallTimes:
         it, so a P4 rule now answers the same question an OVS rule does. A rule only gets a new
         stamp after `forget` or `clear` -- that is, after it has actually left the switch.
         """
-        key = entry_key(dpid, table, priority, match)
+        key = entry_key(dpid, table, priority, match, default)
         with self._lock:
             if key not in self._at:
                 self._at[key] = self._monotonic()
         return key
 
-    def forget(self, dpid, table, priority, match):
+    def forget(self, dpid, table, priority, match, default=False):
         """
         Drop this entry's record, because it is no longer on the switch. Returns whether one was
         held.
@@ -198,7 +208,7 @@ class RuleInstallTimes:
         A stamp outliving its entry is how a later rule at the same key would inherit an age it
         never had.
         """
-        key = entry_key(dpid, table, priority, match)
+        key = entry_key(dpid, table, priority, match, default)
         with self._lock:
             return self._at.pop(key, None) is not None
 
@@ -215,7 +225,7 @@ class RuleInstallTimes:
 
     # --- reading ------------------------------------------------------------------
 
-    def age_seconds(self, dpid, table, priority, match):
+    def age_seconds(self, dpid, table, priority, match, default=False):
         """
         How long ago this entry was FIRST installed, or **None** if this proxy did not install
         it. Later writes of the same entry do not move it; see `record`.
@@ -228,7 +238,7 @@ class RuleInstallTimes:
         negative duration in an unsigned OpenFlow field would be a very large positive one by
         the time the kernel parsed it.
         """
-        key = entry_key(dpid, table, priority, match)
+        key = entry_key(dpid, table, priority, match, default)
         with self._lock:
             installed_at = self._at.get(key)
         if installed_at is None:

@@ -28,6 +28,10 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+# Before anything imports `main`: its table-entry journals go to a temp directory, never to the
+# checkout's .run/ (tests/journal_isolation.py). [Co-developed with claude code -- Adam]
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import journal_isolation  # noqa: E402,F401
 
 import proxy_agent.main as main  # noqa: E402
 from proxy_agent.main import startup  # noqa: E402
@@ -680,9 +684,17 @@ class AForeignPipelineTest(unittest.TestCase):
         client = FakeClient(1)
         summary, _ = run_startup({1: client}, package=self.package(pipeline=None, entries=5))
         self.assertEqual(client.written, [])
-        self.assertEqual(summary["table_entries"]["1"],
+        # `journal` (what the table-entry journal has recorded, which is none of these package
+        # entries) is checked in test_table_entry_journal.py; the counts are what this one is
+        # about. [Co-developed with claude code -- Adam]
+        counts = dict(summary["table_entries"]["1"])
+        counts.pop("journal")
+        # `journaled` is the table-entry journal's claim about API writes (true: on, ours, no
+        # record missing), not about these package entries. [Co-developed with claude code --
+        # Adam]
+        self.assertEqual(counts,
                          {"recorded": 5, "applied": 0, "failed": 0, "api_writes": 0,
-                          "journaled": False})
+                          "journaled": True})
 
     def test_under_ndtwins_own_pipeline_nothing_is_skipped(self):
         summary, parts = run_startup({1: FakeClient(1)},

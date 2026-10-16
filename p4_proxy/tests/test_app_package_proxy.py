@@ -36,6 +36,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROXY_DIR = os.path.dirname(HERE)
 REPO = os.path.dirname(PROXY_DIR)
 sys.path.insert(0, PROXY_DIR)
+# Before anything imports `main`: its table-entry journals go to a temp directory, never to the
+# checkout's .run/ (tests/journal_isolation.py). [Co-developed with claude code -- Adam]
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import journal_isolation  # noqa: E402,F401
 sys.path.insert(0, os.path.join(PROXY_DIR, "mininet"))
 
 import app_package  # noqa: E402
@@ -360,20 +364,32 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
                          "9213871cee36bd93")
         self.assertTrue(body["switches"]["2"]["pipeline"]["ndtwin"])
 
-    def test_every_switch_reports_what_was_written_and_that_none_of_it_is_journaled(self):
+    def test_every_switch_reports_what_was_written_and_whether_it_is_journaled(self):
         body = self.state(
             {"mode": "ndtwin", "package": "/pkg", "skipped": []}, {},
             written={"1": {"recorded": 5, "applied": 4, "failed": 1, "api_writes": 2,
                            "journaled": False}})
-        self.assertEqual(body["switches"]["1"]["table_entries"],
-                         {"recorded": 5, "applied": 4, "failed": 1, "api_writes": 2,
-                          "journaled": False})
-        # A switch nobody reported on still answers, with zeroes and the same `journaled: false`.
+        # [Co-developed with claude code -- Adam] `journal` is the table-entry journal's own
+        # block (what is RECORDED, which is not what is journaled); its content is asserted in
+        # test_table_entry_journal.py. Here it is only required to be there, and the rest of the
+        # object is still compared whole.
+        one = dict(body["switches"]["1"]["table_entries"])
+        self.assertEqual(one.pop("journal", None), None,
+                         "the report this test hands the endpoint has no journal block, and the "
+                         "endpoint must not invent one for a switch that report names")
+        self.assertEqual(one, {"recorded": 5, "applied": 4, "failed": 1, "api_writes": 2,
+                               "journaled": False})
+        # A switch nobody reported on still answers, with zeroes and the journals' own answer.
         # Absent would be readable as "this proxy is too old to say", which is the shape the
-        # whole disclosure exists to close.
-        self.assertEqual(body["switches"]["2"]["table_entries"],
-                         {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
-                          "journaled": False})
+        # whole disclosure exists to close. [Co-developed with claude code -- Adam] Since the
+        # replay, that answer is `journaled: true` for a switch whose journal is on, ours to
+        # write and missing no record -- here, one nothing was written to. Its `replay` is the
+        # process-wide journals' (another test's startup may have filled it), so only its key is
+        # pinned here; what it holds is test_table_entry_replay.py's.
+        two = dict(body["switches"]["2"]["table_entries"])
+        self.assertIn("replay", two.pop("journal"))
+        self.assertEqual(two, {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
+                               "journaled": True})
 
     def test_the_per_switch_skipped_list_survives_the_trip_through_the_endpoint(self):
         # 🔴 Round 3. `pipeline.skipped` was asserted at `main.pipeline_report_for` and in what
@@ -398,9 +414,10 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
         self.assertNotIn("clone_session", body["control_plane"]["skipped"])
 
     def test_journaled_is_false_even_when_entries_were_applied(self):
-        # 🔴 The one number a reader could misread as reassurance. `applied: 4` says four rules
-        # are on the switch; `journaled: false` says all four are gone after a proxy restart and
-        # nothing replays them (Adam 2026-09-18, option a).
+        # 🔴 The one number a reader could misread as reassurance. `applied: 4` says four of the
+        # package's rules are on the switch; `journaled` is the table-entry journal's claim about
+        # API writes, and the endpoint passes the report's `false` through unchanged -- it does not
+        # derive the claim from `applied`. [Co-developed with claude code -- Adam]
         body = self.state({"mode": "ndtwin", "package": "/pkg", "skipped": []}, {},
                           written={"1": {"recorded": 4, "applied": 4, "failed": 0,
                                          "api_writes": 0, "journaled": False}})

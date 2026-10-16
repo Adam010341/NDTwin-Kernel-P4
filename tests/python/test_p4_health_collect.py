@@ -258,19 +258,26 @@ class Sealed(unittest.TestCase):
         # it left pending to a later test: they would be delivered at that test's next mask change, and a SIGINT then
         # ends the whole run with a KeyboardInterrupt -- no "Ran N tests" line, which the mutation gate refuses.
         # Whatever the mask was at the start of the test is put back, pending stops going to no-op handlers.
+        # (round 8) But a mask that is not the one the test began with is also a failure of that test, raised after
+        # the mask is put back: repairing it silently hid a restore that was never made.
         self._mask0 = signal.pthread_sigmask(signal.SIG_BLOCK, ())
-        self.addCleanup(self._put_the_signal_mask_back)
+        self.addCleanup(self._assert_the_signal_mask_is_unchanged_then_put_it_back)
 
-    def _put_the_signal_mask_back(self):
+    def _assert_the_signal_mask_is_unchanged_then_put_it_back(self):
+        # [Co-developed with claude code -- Adam]
         stops = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
         old = {s: signal.signal(s, lambda n, f: None) for s in stops}
         try:
+            now = signal.pthread_sigmask(signal.SIG_BLOCK, ())
             signal.pthread_sigmask(signal.SIG_SETMASK, self._mask0)
             for _ in range(2000):
                 pass                                    # a pending stop is delivered here, to a handler that does nothing
         finally:
             for s, h in old.items():
                 signal.signal(s, h)
+        if now != self._mask0:
+            raise AssertionError("the test ended with the signal mask changed: blocked now %s, at its start %s"
+                                 % (sorted(int(x) for x in now), sorted(int(x) for x in self._mask0)))
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -1472,6 +1479,9 @@ class FakeFabric(object):
         self.thrift_down = set()          # dpids whose CLI cannot connect
         # (Cut A + D) today's proxy writes ternary, range and optional entries; False is a proxy before that (501)
         self.ndtwin_writes_ternary = True
+        # (Cut C) today's proxy replays its table-entry journal, so switch_state's `journaled` is true; False is a
+        # proxy before that (journaled false everywhere)
+        self.journal_replays = True
         self.ndtwin_priority = None       # a writer that stores some other number than PI does, or None
         self.tx_checksum = "off"
         self.graph_drop_edge = False
@@ -1541,7 +1551,7 @@ class FakeFabric(object):
                 failed = 1 if self.fail_entry == d else 0
                 sw[str(d)] = {"pipeline": {"p4info_sha256": self.pipelines[str(d)]},
                               "table_entries": {"recorded": n, "applied": n - failed, "failed": failed,
-                                                "api_writes": 0, "journaled": False},
+                                                "api_writes": 0, "journaled": self.journal_replays},
                               "pre_entries": {"multicast": {"recorded": len(RUNTIMES[d].get("multicast_group_entries") or []),
                                                             "applied": len(RUNTIMES[d].get("multicast_group_entries") or []), "failed": 0},
                                               "clone": {"recorded": len(RUNTIMES[d].get("clone_session_entries") or []),
@@ -1590,10 +1600,10 @@ class FakeFabric(object):
             else:
                 key = ("TERNARY", v, 0xFF)
             s.add(table, [key], body["action_name"], prm, priority=prio)
-            return (200, {"status": "success", "journaled": False})
+            return (200, {"status": "success", "journaled": self.journal_replays})
         (field, v), = body["match"].items()
         s.add(table, [("EXACT", ival(v))], body["action_name"], prm)
-        return (200, {"status": "success", "journaled": False})
+        return (200, {"status": "success", "journaled": self.journal_replays})
 
     def post_mc(self, body):
         self.sw[body["dpid"]].mc[body["multicast_group_id"]] = frozenset(r["egress_port"] for r in body["replicas"])
@@ -2109,6 +2119,7 @@ class TestBringUpAOnTodaysFabric(Cut2):
 
     def test_without_b_every_bmv2_red_is_unattributed(self):
         self.fab.ndtwin_writes_ternary = False           # a proxy before the ternary writer: T4-T6 answer 501
+        self.fab.journal_replays = False                 # ... and before the journal replay: journaled false
         a, _r = self.a_round()
         ctx = self.judge(a, None)
         for cid in ("T4", "T5", "T6", "MT1", "MT2", "MT3", "D1", "C2", "R3", "K2", "P2", "P3"):
@@ -2169,7 +2180,7 @@ class TestOneObserverFailing(Cut2):
         self.assertIn("MT1", a.observations)                     # the last step still ran
         ctx = self.judge(a, self.all_confirmed())
         self.assertEqual(ctx.cells["TP1"].verdict, V.NOT_RUN)
-        self.assertEqual(ctx.cells["T8"].verdict, V.RED)
+        self.assertEqual(ctx.cells["T8"].verdict, V.GREEN)          # (Cut C) its own observer was not the one that raised
 
     def test_a_signal_still_ends_the_round(self):
         def sig(*a, **kw):
@@ -2369,6 +2380,15 @@ class TestBringUpARedPaths(Cut2):
             MS.shape_priority(body["table"], [kind], body["priority"])
         with self.assertRaises(MS.TableEntryInvalid):
             MS.shape_field("t.f", "TERNARY", 32, ["10.0.4.4", "255.255.255.0"])
+
+    def test_a_proxy_that_replays_its_journal_is_t8_green_and_one_that_does_not_is_red(self):
+        """(Cut C) T8 reads switch_state's `journaled` for switch 2: true since the proxy replays its table-entry
+        journal at startup and readopt, false before."""
+        a, _r = self.a_round(only=["T8"])
+        self.assertEqual(self.judge(a, None).cells["T8"].verdict, V.GREEN)
+        self.fab.journal_replays = False
+        a, _r = self.a_round(only=["T8"])
+        self.assertEqual(self.judge(a, None).cells["T8"].verdict, V.RED)
 
     def test_a_proxy_before_the_ternary_writer_is_t4_to_t6_red_and_t7_not_run(self):
         self.fab.ndtwin_writes_ternary = False
@@ -3301,6 +3321,54 @@ class TestTheLabRun(Cut2):
         finally:
             signal.signal(signal.SIGTERM, safety)
 
+
+    # --- round 8, finding 3: what the handler swaps and their restores put back -------------------------------
+    # [Co-developed with claude code -- Adam]
+    def a_round_stand_in(self):
+        """What LabRound._handlers, _restore_handlers and _swap_handlers read from `self`, and nothing else."""
+        ns = types.SimpleNamespace(install_signals=True, SIGS=LR.LabRound.SIGS, _noter=lambda n, f: None, _old=None)
+        ns._swap_handlers = types.MethodType(LR.LabRound._swap_handlers, ns)
+        return ns
+
+    def handlers_set_to_markers(self):
+        """The three stop signals' handlers set to markers of this test, put back (at the end of the test) as found."""
+        mine = {s: (lambda n, f: None) for s in LAB.STOP_SIGNALS}
+        old = {s: signal.signal(s, h) for s, h in mine.items()}
+        self.addCleanup(lambda: [signal.signal(s, h) for s, h in old.items()])
+        return mine
+
+    def test_lab_swap_handlers_puts_the_signal_mask_back(self):
+        """lab._swap_handlers blocks the three stops while it swaps and puts the mask it found back; the blocked
+        window is not to be left up."""
+        self.handlers_set_to_markers()
+        before = signal.pthread_sigmask(signal.SIG_BLOCK, ())
+        LAB._swap_handlers({s: (lambda n, f: None) for s in LAB.STOP_SIGNALS})
+        self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, ()), before)
+
+    def test_a_rounds_swap_handlers_puts_the_signal_mask_back(self):
+        self.handlers_set_to_markers()
+        before = signal.pthread_sigmask(signal.SIG_BLOCK, ())
+        LR.LabRound._swap_handlers(self.a_round_stand_in(), {s: (lambda n, f: None) for s in LAB.STOP_SIGNALS})
+        self.assertEqual(signal.pthread_sigmask(signal.SIG_BLOCK, ()), before)
+
+    def test_a_round_puts_the_handlers_it_replaced_back(self):
+        """_handlers(True) installs the round's raiser and keeps what it replaced; _restore_handlers puts those back."""
+        mine = self.handlers_set_to_markers()
+        rnd = self.a_round_stand_in()
+        LR.LabRound._handlers(rnd, True)
+        self.assertTrue(all(signal.getsignal(s) is not mine[s] for s in LAB.STOP_SIGNALS), "the raiser was not installed")
+        LR.LabRound._restore_handlers(rnd)
+        self.assertEqual({s: signal.getsignal(s) for s in LAB.STOP_SIGNALS}, mine)
+
+    def test_run_lab_puts_the_handlers_it_found_back_when_it_ends(self):
+        mine = self.handlers_set_to_markers()
+        _rc, doc, _r = self.run_lab(real_signals=True)
+        # (round 9) run_lab swaps the handlers only when the rounds start: a run refused at set-up (a stray thread
+        # that can take a stop, say) would pass the last assertion without testing anything
+        # [Co-developed with claude code -- Adam]
+        self.assertEqual([b["id"] for b in doc["bringups"]], ["A", "B"], doc["problems"])
+        self.assertEqual(doc["problems"], [])
+        self.assertEqual({s: signal.getsignal(s) for s in LAB.STOP_SIGNALS}, mine)
 
     # --- round 6, finding 4: no stop falls between a round's record and its handler restore ----------------
     def test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed(self):
