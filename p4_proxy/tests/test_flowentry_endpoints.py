@@ -96,6 +96,44 @@ class RaisingTopology:
         raise self.error
 
 
+class LpmClient:
+    """The ipv4_lpm writes of P4RuntimeClient, recorded. For a real TopologyManager.
+
+    [Co-developed with claude code -- Adam] Since Adam's 2026-10-16 ruling a destination-only
+    modify is judged against the priority its slot was written with, which only the topology
+    holds -- so the modify half of the refusal tests needs a real manager, not a recorder.
+    """
+
+    def __init__(self):
+        self.calls = []
+
+    def insert_ipv4_route(self, dst, prefix, mac, port):
+        self.calls.append(("insert", dst, port))
+        return True
+
+    def modify_ipv4_route(self, dst, prefix, mac, port):
+        self.calls.append(("modify", dst, port))
+        return True
+
+    def delete_ipv4_route(self, dst, prefix):
+        self.calls.append(("delete", dst))
+        return True
+
+
+def a_routed_topology(dst):
+    """A real TopologyManager whose switch 1 holds the proxy's own route to `dst` (priority 10).
+
+    [Co-developed with claude code -- Adam] 1 -- dst, refilled once, so the slot is recorded at
+    the control plane's priority exactly as at bring-up.
+    """
+    topo = TopologyManager()
+    client = LpmClient()
+    topo.add_switch(1, client)
+    topo.add_host(dst, "00:00:00:00:00:aa", 1, 2)
+    topo.install_initial_routes()
+    return topo, client
+
+
 HANDLERS = {
     "add": api_routes.add_flow_entry,
     "delete": api_routes.delete_flow_entry,
@@ -368,8 +406,18 @@ class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
         self.assertEqual(caught.exception.detail["requested_priority"], 999)
         self.assertIn("ipv4_lpm", caught.exception.detail["message"])
 
+    def routed(self):
+        """[Co-developed with claude code -- Adam] A real topology holding the proxy's route
+        to DEST_ONLY's destination at priority 10 (Adam, 2026-10-16: the modify is judged
+        against the slot, so it needs one)."""
+        topo, client = a_routed_topology(self.DEST_ONLY["nw_dst"])
+        api_routes.topology = topo
+        return client
+
     def test_a_modify_naming_a_priority_ipv4_lpm_cannot_honour_is_501(self):
-        # The measured call: modify at 777, a priority that never existed.
+        # The measured call: modify at 777, a priority that never existed -- here against the
+        # proxy's own route at 10, so it is also not the slot's.
+        self.routed()
         with self.assertRaises(HTTPException) as caught:
             call(api_routes.modify_flow_entry, self._body(self.DEST_ONLY, priority=777))
         self.assertEqual(caught.exception.status_code, 501)
@@ -378,14 +426,16 @@ class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
 
     def test_the_refused_write_never_reaches_the_switch(self):
         # A refusal that answers 501 *after* actuating is the same defect wearing a status
-        # code. Nothing may be handed to the topology on either verb.
-        for handler, raw in ((api_routes.delete_flow_entry,
-                              self._body(self.DEST_ONLY, priority=999)),
-                             (api_routes.modify_flow_entry,
-                              self._body(self.DEST_ONLY, priority=777))):
-            with self.assertRaises(HTTPException):
-                call(handler, raw)
+        # code. Nothing may be handed to the topology on a refused strict delete, and nothing
+        # may reach the switch on a refused modify (the modify's check now runs inside the
+        # topology, under the slot's lock, ahead of the write).
+        with self.assertRaises(HTTPException):
+            call(api_routes.delete_flow_entry, self._body(self.DEST_ONLY, priority=999))
         self.assertEqual(self.recorder.calls, [])
+        client = self.routed()
+        with self.assertRaises(HTTPException):
+            call(api_routes.modify_flow_entry, self._body(self.DEST_ONLY, priority=777))
+        self.assertEqual([c for c in client.calls if c[0] != "insert"], [])
 
     # --- and does not fire for anything else ---------------------------------------------
 
@@ -399,10 +449,13 @@ class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
 
     def test_the_kernels_own_modify_at_the_absent_priority_default_still_works(self):
         # HttpSession::makeModifyJob defaults an absent priority to 0, so 0 reaches here on
-        # every ordinary modify. Refusing 0 would refuse the whole modify path.
+        # every ordinary modify. Refusing 0 would refuse the whole modify path. Through the
+        # real topology, because that is where the modify's priority is now judged.
+        # [Co-developed with claude code -- Adam]
+        client = self.routed()
         out = call(api_routes.modify_flow_entry, self._body(self.DEST_ONLY, priority=0))
         self.assertEqual(out["status"], "success")
-        self.assertEqual(self.recorder.calls[-1][0], "modify")
+        self.assertEqual(client.calls[-1][0], "modify")
 
     def test_the_non_strict_delete_sentinel_is_not_a_named_priority(self):
         # -1 is "delete anything matching", not a request for precedence -1.
@@ -484,6 +537,10 @@ class TheRefusalReachesTheOnePlaceACallerCanReadItTest(unittest.TestCase):
     def window(self, verb, priority=99):
         """The leading bytes of the real response, which is all the kernel keeps."""
         from fastapi.responses import JSONResponse
+        if verb == "modify":
+            # [Co-developed with claude code -- Adam] The modify is judged against the slot
+            # (Adam, 2026-10-16), so it needs a topology that holds one.
+            api_routes.topology, _ = a_routed_topology("10.9.0.2")
         raw = json.dumps({"dpid": 1, "priority": priority,
                           "match": {"dl_type": 2048, "nw_dst": "10.9.0.2"},
                           "actions": [{"type": "OUTPUT", "port": 2}]}).encode()
@@ -522,16 +579,19 @@ class TheRefusalReachesTheOnePlaceACallerCanReadItTest(unittest.TestCase):
         self.assertIn("flow_5tuple", body)
 
     def test_the_remedy_names_both_ways_out_and_neither_is_the_priority(self):
-        # The two things a caller can actually do, per DECISION-P4-PRIORITY.md §2: drop the
-        # priority (the non-strict route, which is what every kernel-made delete already does),
-        # or write a match that compiles to the ternary table, where priority is honoured.
-        # There is deliberately no third option, because option B -- routing destination-only
-        # rules into flow_5tuple -- is not implemented and is Adam's call.
+        # The two things a caller can do on a strict delete: write a match that compiles to the
+        # ternary table, where priority is honoured on both planes, or take the non-strict route
+        # -- which the remedy names WITH its catch, because it is not the same request on OVS.
+        # [Co-developed with claude code -- Adam] It used to say "omit priority", which is
+        # P4-only advice: on OVS an omitted priority is a priority-0 strict modify that edits
+        # nothing, and -1 is a non-strict delete that removes every rule for the destination.
         remedy = self.window("delete")[1]
         import json as _json
         detail = _json.loads(remedy)["detail"]
-        self.assertIn("omit priority", detail["remedy"])
         self.assertIn("five-tuple", detail["remedy"])
+        self.assertIn("non-strict", detail["remedy"])
+        self.assertIn("OVS", detail["remedy"])
+        self.assertNotIn("omit", detail["remedy"])
 
 
 if __name__ == "__main__":

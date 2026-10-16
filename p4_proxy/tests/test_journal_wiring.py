@@ -97,6 +97,11 @@ OUTPUT_3 = [{"type": "OUTPUT", "port": 3}]
 LPM_MATCH = {"nw_dst": "10.0.0.4"}
 #: Anything beyond a destination compiles to the ternary flow_5tuple table.
 FIVE_TUPLE_MATCH = {"nw_dst": "10.0.0.4", "nw_src": "10.0.0.1", "tp_dst": 80}
+#: The priority a destination-only modify carries here: makeModifyJob's default for an absent
+#: one. A named priority on an ipv4_lpm modify is judged against the slot's recorded priority
+#: since Adam's 2026-10-16 ruling (test_modify_at_slot_priority.py), and these tests are about
+#: the journal, not about that. [Co-developed with claude code -- Adam]
+LPM_MODIFY_PRIORITY = 0
 
 
 class JournalWiringTestCase(unittest.TestCase):
@@ -185,7 +190,7 @@ class ModifyIsRecordedTest(JournalWiringTestCase):
     def test_an_accepted_lpm_modify_is_recorded(self):
         topo, journal = self.topology()
 
-        self.assertTrue(topo.modify_flow(1, LPM_MATCH, OUTPUT_3, 100))
+        self.assertTrue(topo.modify_flow(1, LPM_MATCH, OUTPUT_3, LPM_MODIFY_PRIORITY))
 
         self.assertEqual(journal.records[0]["op"], "modify")
         self.assertEqual(journal.records[0]["actions"], OUTPUT_3)
@@ -200,7 +205,7 @@ class ModifyIsRecordedTest(JournalWiringTestCase):
     def test_a_refused_modify_is_not_recorded(self):
         topo, journal = self.topology(verdict=False)
 
-        self.assertFalse(topo.modify_flow(1, LPM_MATCH, OUTPUT_3, 100))
+        self.assertFalse(topo.modify_flow(1, LPM_MATCH, OUTPUT_3, LPM_MODIFY_PRIORITY))
 
         self.assertEqual(journal.records, [])
 
@@ -230,7 +235,7 @@ class NoJournalIsNotAnErrorTest(unittest.TestCase):
         topo.switches[1] = FakeClient()
 
         self.assertTrue(topo.unroute_flow(1, LPM_MATCH, 100))
-        self.assertTrue(topo.modify_flow(1, LPM_MATCH, OUTPUT_3, 100))
+        self.assertTrue(topo.modify_flow(1, LPM_MATCH, OUTPUT_3, LPM_MODIFY_PRIORITY))
 
 
 class AJournalThatFailsMustNotBreakRoutingTest(JournalWiringTestCase):
