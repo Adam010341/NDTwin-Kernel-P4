@@ -17,7 +17,8 @@ program (include/int_source.p4:21-53, include/fwd.p4 ipv4_forward):
     on a frame from h3 (never through s1's port 1): DSCP 0, no shim, lengths as sent.
 
     send <dst_ip> <dst_mac> <count> <tag>        frames tagged <tag>-<seq>
-    sniff <seconds> <out.json>                   every UDP dport 8002 frame, raw hex
+    sniff <seconds>                              every UDP dport 8002 frame, raw hex, as JSON
+                                                 on stdout; READY on stderr once capturing
     verdict <capture.json> <tag> int|plain <count> <want_ttl>
     selftest                                     the verdict against frames built here
 
@@ -58,16 +59,18 @@ def cmd_send(dst_ip, dst_mac, count, tag):
     print("sent %d frame(s) tagged %s on %s to %s" % (int(count), tag, ifc, dst_ip))
 
 
-def cmd_sniff(seconds, out):
+def cmd_sniff(seconds):
+    """JSON on stdout and READY on stderr, never a file: this runs as root inside the host's
+    namespace, and the caller's shell (not root) creates the files both are redirected into."""
     from scapy.all import sniff
     ifc = iface()
     got = sniff(iface=ifc, timeout=float(seconds),
+                started_callback=lambda: print("READY", file=sys.stderr, flush=True),
                 lfilter=lambda p: bytes(p)[12:14] == b"\x08\x00" and bytes(p)[23] == 17
                 and struct.unpack("!H", bytes(p)[36:38])[0] == DPORT)
     frames = [bytes(p).hex() for p in got]
-    with open(out, "w") as fh:
-        json.dump({"iface": ifc, "seconds": float(seconds), "frames": frames}, fh, indent=1)
-    print("sniffed %d UDP dport %d frame(s) on %s" % (len(frames), DPORT, ifc))
+    json.dump({"iface": ifc, "seconds": float(seconds), "frames": frames}, sys.stdout, indent=1)
+    print("sniffed %d UDP dport %d frame(s) on %s" % (len(frames), DPORT, ifc), file=sys.stderr)
 
 
 def read_frame(raw):
