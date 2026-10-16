@@ -269,3 +269,29 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
   - 這是我選的做法：工單說「honour port_base」，沒有說要不要讓 thrift 埠跟著平移；照平移去猜，會猜到別人的交換機。
 - n7：`start` 超過結尾（沒有 `count`）回 400 `index out of range`，不再是 `invalid range`。
 - n10：「32 bit 的值被截斷」那個測試改成 502。
+
+### 12.3 跑了什麼（OBSERVED）
+
+- 每一步都拿著共用的 lock，guard.sh 在 lock 裡；每份 log 第 2 行記 commit 與 dirty 計數。
+- proxy 那半在 `a46c8614`，健檢那半在 `2aeae1a1`（之後只多改了 `tests/python/test_p4_health_collect.py` 的兩個斷言）。
+
+| 檢查 | log | 結果 |
+|---|---|---|
+| 量測，改之後 | `r4_probe1.out`、`r4probe1.json` | bit<64> → 501 `register too wide`（兩顆）；int<32> → 501；身分：右的埠 200 `[111]`，交換過的埠兩個方向都 502 `thrift device mismatch` |
+| `mutate_p4_register_thrift.sh` | `r4_gate_reg.out` | `59 mutations, 0 survived` |
+| `mutate_p4_direct_counter.sh` | `r4_gate_dc.out` | `33 mutations, 0 survived` |
+| `mutate_telemetry_by_name.sh` | `r4_gate_tbn.out` | `23 mutations, 0 survived` |
+| `check_gate_anchors.py HEAD` | `r4_anchors.out`（`2aeae1a1`） | `139/139 cells ok` |
+| `ANCHOR_CHECK=1 mutate_p4_health.sh` | `r4_health_anchorcheck.out`（`2aeae1a1`） | rc 2（設計如此），530 行每一行都是 1 |
+| 健檢 gate 的局部（`ONLY_LABEL_PREFIX=C2T-`，不是 gate） | `r4_health_partial.out`（`2aeae1a1`） | `12 mutations, 0 survived` |
+| 健檢測試，p4_proxy/venv（3.13） | `r4_health_venv.out` | cells 204 OK；collect 203 OK |
+| 健檢測試，ryu-env（3.8） | `r4_health_ryu.out` | cells 204 OK；collect 203 OK |
+| `test_bm_thrift.py` | `r4_unit_bmthrift.out` | 22 OK（含每 2 s 吐一個 byte 的對端在 3 s 預算內被切斷） |
+| `test_register_route.py` | `r4_unit_register.out` | 47 OK |
+| trial（hc_main） | `trial-reg-r4.json` | 兩顆：`[4737]`；P4Runtime 讀取全程成功；R2 GREEN；SIGSTOP 時 5.0 s 回 503 |
+| p4lane（拋棄式 clone `a46c8614`） | `r4_p4lane.out` | `FAILURES=0` |
+
+- 中途 gate 抓到的：
+  - `39b53f4c` 的 register gate 有兩個存活：一個是已經不可能觸發的長度檢查（`a46c8614` 刪掉，連同它的 mutation），一個是點錯了 killer test（改點到 `test_a_range_past_the_end_is_400`）。
+  - `a46c8614` 的健檢局部 gate 有兩個存活（C2T-8、C2T-9）：404／501 走不到 cannot 那一步時，compare 那一步也會給紅，而測試只看字樣。`2aeae1a1` 讓測試檢查 step 與錯誤字。
+- 沒有驗的：live lab；硬體 target；bmv2 在 external 模式下由別的 controller 起的情形；4-shard 的健檢 gate（排在合併 head 跑）。
