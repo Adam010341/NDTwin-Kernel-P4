@@ -2186,6 +2186,33 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   ——單元測試就夠，不必上 lab。
 - **證據**：`fix/FIX-DOORS-2-SUMMARY.md` §6／§7.3 逐字（讀碼，非實測）。
 
+### B-18 🟡 對 bmv2 用 `simple_switch_CLI` 寫過的表，P4Runtime 就讀不了它（bmv2／PI 的互通限制）
+
+[Co-developed with claude code -- Adam]
+
+- **狀態**：**OPEN，不是 NDTwin 的 bug、也不是安全問題**——bmv2 的 P4Runtime 伺服器（PI）自己保留每張表的
+  一份副本，thrift CLI 的寫入繞過它。2026-10-16 實測（下面的範圍是**量到的**，不是推的）。
+- **平面**：P4（bmv2）
+- **失效方向**：**悲觀**——switch 上規則在、照樣轉發，但 proxy 讀那台 switch 的表會失敗。
+- **會發生什麼**：論文 app 常用 `simple_switch_CLI <<< "table_add ..."` 裝規則（niloysh/int-v1 的
+  `runtime_cmds/s1.sh` 就是）。若有人把這種腳本**直接打到 NDTwin fabric 的 switch 上**，之後 proxy 對那台
+  switch 的 flow-stats 輪詢（`read_table_entries`：所有表＋counter_data 的 Read）回
+  `INTERNAL "Table state out-of-sync with target"`。
+- **量到的範圍**（拋棄式 `simple_switch_grpc`，stock `/usr/local/bin` 與 `/usr/local/bmv2-fast` 兩個 build，
+  int-v1 的 pipeline 由 P4Runtime 推入、routes 由 P4Runtime 寫入，再由 CLI `table_add` 進
+  `tb_set_source` 與 `tb_int_source`——兩張都掛 direct counter）：
+  - 所有表的 Read：**失敗**，帶不帶 counter_data 都一樣；
+  - 只讀 CLI 寫過的那張表（`tb_int_source`）：**失敗**，帶不帶 counter_data 都一樣；
+  - 只讀 CLI **沒碰過**的表（`ipv4_lpm`）：**成功**，帶不帶 counter_data 都一樣；
+  - 對照組（同樣的規則全由 P4Runtime 寫）：六種 Read 全部成功。
+  ⇒ 觸發條件是「讀到一張被 CLI 寫過的表」，與 counter_data 無關。**沒有量**：沒有 direct counter 的表、
+  `table_modify`／`table_delete`、其它 bmv2 版本。
+- **NDTwin 怎麼避開**：`tools/p4_exercise/convert.py --thrift-commands` 把 app 的 CLI 指令**翻成 P4Runtime
+  entries**放進 package，由 proxy 寫入；所以 fabric 上的 switch 從不被 CLI 寫。**不要**在 fabric 上跑 app 自己的
+  CLI 腳本。
+- **證據**：`doc/audit/2026-10-16_p4-paper-apps/offline_int_v1.py` 的 READ SCOPE 段；raw 在 audit-raw
+  `gates-0910/p4-paper-apps/r2/offline/offline_{stock,fast}.log`。
+
 ---
 
 ## B-x. `/ndt/get_detected_flow_data` 包含已經結束的流（churn 下約 92%）
