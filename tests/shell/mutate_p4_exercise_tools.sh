@@ -610,10 +610,17 @@ add "63. entries translated for one switch go into a runtime file another switch
     '        if False:  # MUTANT: one file, one switch' \
     'test_a_runtime_file_two_switches_share_is_refused'
 
+# 64 swaps BOTH halves (the check and the insert) to the lexical path. Swapping only the check
+# made a file that includes itself loop for ever (its realpath is in `seen`, its name never is),
+# and the gate hung on the first run of this mutant (round 2, 2026-10-16 21:11).
 add "64. the include walk keys what it has seen by the lexical path" \
     "$CONVERT" \
-    '            if real in seen:' \
-    '            if cand in seen:  # MUTANT: a symlinked directory is a new place' \
+    '            if real in seen:
+                continue
+            seen.add(real)' \
+    '            if cand in seen:  # MUTANT: a symlinked directory is a new place
+                continue
+            seen.add(cand)' \
     'test_a_directory_symlink_to_an_ancestor_does_not_grow_the_walk'
 
 add "65. an include that cannot be read escapes as a raw OSError" \
