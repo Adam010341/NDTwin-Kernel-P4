@@ -48,8 +48,15 @@ Verdicts (each printed with its evidence):
   P6  D's and D2's f1 == X's INT frame byte for byte (hop 1, masks 3/C): CLI priority 1 beat 2
       whichever was inserted first; E's / E2's frames out == D's / D2's
   P7  E's / E2's table_dump == D's / D2's, Priority lines included
-  READ SCOPE (recorded, not a verdict): on every arm, six Reads -- all tables, ipv4_lpm alone
-  (never written by the CLI) and tb_int_source alone, each with and without counter_data.
+  READ SCOPE (recorded, not a verdict): on every arm, eight Reads -- all tables, ipv4_lpm alone
+  (never written by the CLI), tb_set_source alone and tb_int_source alone, each with and without
+  counter_data. Two arms exist only for it (KNOWN-ISSUES B-18):
+  F   tb_set_source written over P4Runtime, ONLY tb_int_source by the CLI;
+  G   the reverse: tb_int_source over P4Runtime, ONLY tb_set_source by the CLI.
+  Both CLI-touched tables carry a direct counter and are ternary/exact, and ipv4_lpm (lpm, no
+  direct counter) was the only untouched table in round 2; F and G read an untouched direct-
+  counter table next to a CLI-written one, so "touched by the CLI" and "has a direct counter /
+  is not lpm" are no longer the same set.
 """
 import hashlib
 import json
@@ -261,7 +268,8 @@ def scoped_reads(client):
     from p4.v1 import p4runtime_pb2
 
     out = {}
-    for label, table in (("all", None), ("ipv4_lpm", LPM), ("tb_int_source", INT_SOURCE)):
+    for label, table in (("all", None), ("ipv4_lpm", LPM), ("tb_set_source", SET_SOURCE),
+                         ("tb_int_source", INT_SOURCE)):
         for counters in (True, False):
             req = p4runtime_pb2.ReadRequest()
             req.device_id = client.device_id
@@ -397,6 +405,8 @@ def main():
     d2_lines = [cli[0], PROBE_X, PROBE_Y]
     e_entries, e_notes = thrift_cli.translate(list(enumerate(d_lines, 1)), schema)
     e2_entries, _n = thrift_cli.translate(list(enumerate(d2_lines, 1)), schema)
+    set_source_p4rt, _n = thrift_cli.translate([(1, cli[0])], schema)
+    int_source_p4rt, _n = thrift_cli.translate([(2, cli[1])], schema)
     w("probe translation notes: %s" % e_notes)
 
     arms = {
@@ -406,6 +416,8 @@ def main():
         "D2": run_arm("D2_thrift_probe_X_first", app_entries, d2_lines),
         "E": run_arm("E_translated_probe_Y_first", app_entries + e_entries, []),
         "E2": run_arm("E2_translated_probe_X_first", app_entries + e2_entries, []),
+        "F": run_arm("F_p4rt_set_source_cli_int_source", app_entries + set_source_p4rt, [cli[1]]),
+        "G": run_arm("G_p4rt_int_source_cli_set_source", app_entries + int_source_p4rt, [cli[0]]),
     }
     with open(os.path.join(OUT, "offline_%s.json" % TAG), "w") as fh:
         json.dump(arms, fh, indent=1, sort_keys=True)
