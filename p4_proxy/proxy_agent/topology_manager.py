@@ -16,7 +16,7 @@ from proxy_agent import link_heartbeat
 # What priority each ipv4_lpm slot was last written with (Adam, 2026-10-16). No cycle:
 # slot_priority imports only the standard library. [Co-developed with claude code -- Adam]
 from proxy_agent import slot_priority
-from proxy_agent.slot_priority import (CONTROL_PLANE_ROUTE_PRIORITY, SlotPriorityNotHeld,  # noqa: F401 -- re-exported
+from proxy_agent.slot_priority import (CONTROL_PLANE_ROUTE_PRIORITY, SlotPriorityNotHeld,
                                        named_priority)
 from proxy_agent.sflow_emitter import DEFAULT_TOPO_FILE
 
