@@ -1718,18 +1718,19 @@ class P4RuntimeClient:
                         "no sample, not zero", port)
         return None
 
-    #: Byte width of each flow_5tuple key, from ndtwin_switch.p4. P4Runtime encodes a bit<N>
-    #: field in ceil(N/8) bytes and bmv2 rejects a value of the wrong width outright, so these
-    #: are not cosmetic. ingress_port is bit<9> -> 2 bytes, which is also why the existing
-    #: ipv4_forward `port` param is written as 2 bytes rather than 1.
+    #: Bit width of each flow_5tuple key, from ndtwin_switch.p4. P4Runtime encodes a bit<N> field
+    #: in ceil(N/8) bytes, and bmv2 refuses a value OR A MASK with a bit set above bit N-1
+    #: ("Bytestring provided does not fit within 9 bits", measured on a throwaway
+    #: simple_switch_grpc). ingress_port is bit<9>: two bytes on the wire, but a mask of 0x01ff,
+    #: not 0xffff -- so the table is in bits and the byte width is derived from it.
     #: [Co-developed with claude code -- Adam]
-    _FIVE_TUPLE_KEY_BYTES = {
-        "standard_metadata.ingress_port": 2,   # bit<9>
-        "hdr.ipv4.srcAddr": 4,                 # bit<32>
-        "hdr.ipv4.dstAddr": 4,                 # bit<32>
-        "hdr.ipv4.protocol": 1,                # bit<8>
-        "meta.l4_src_port": 2,                 # bit<16>
-        "meta.l4_dst_port": 2,                 # bit<16>
+    _FIVE_TUPLE_KEY_BITS = {
+        "standard_metadata.ingress_port": 9,   # bit<9>
+        "hdr.ipv4.srcAddr": 32,                # bit<32>
+        "hdr.ipv4.dstAddr": 32,                # bit<32>
+        "hdr.ipv4.protocol": 8,                # bit<8>
+        "meta.l4_src_port": 16,                # bit<16>
+        "meta.l4_dst_port": 16,                # bit<16>
     }
 
     @classmethod
@@ -1737,13 +1738,19 @@ class P4RuntimeClient:
         """
         (value_bytes, mask_bytes) for one ternary key.
 
-        The mask is all-ones: every key the caller named is matched exactly. A ternary table is
-        used here for its PRIORITY, not for wildcarding -- keys the caller did not name are
-        simply absent from the entry, which P4Runtime already treats as "don't care". Emitting a
-        partial mask would silently widen a rule the caller wrote precisely.
+        The mask is all-ones over the field's own bits: every key the caller named is matched
+        exactly. A ternary table is used here for its PRIORITY, not for wildcarding -- keys the
+        caller did not name are simply absent from the entry, which P4Runtime already treats as
+        "don't care". Emitting a partial mask would silently widen a rule the caller wrote
+        precisely. "All-ones" is (1 << bits) - 1, which for a field that is not a whole number
+        of bytes is NOT every bit of its bytes (bit<9> -> 0x01ff); match_shape.encode_value and
+        _encode_in_field hold the generic writer to the same width.
+        A value with a bit above the field's width is refused with OverflowError, as one too wide
+        for its bytes always was, rather than sent for the switch to refuse.
         [Co-developed with claude code -- Adam]
         """
-        width = cls._FIVE_TUPLE_KEY_BYTES[p4_field]
+        bits = cls._FIVE_TUPLE_KEY_BITS[p4_field]
+        width = (bits + 7) // 8
         if isinstance(value, str) and "." in value:
             raw = socket.inet_aton(value)
         else:
@@ -1751,7 +1758,9 @@ class P4RuntimeClient:
         if len(raw) != width:
             raise ValueError(
                 f"{p4_field} takes {width} byte(s), got {len(raw)} from {value!r}")
-        return raw, b"\xff" * width
+        if int.from_bytes(raw, "big") >> bits:
+            raise OverflowError(f"{value!r} does not fit in {p4_field}, which is bit<{bits}>")
+        return raw, ((1 << bits) - 1).to_bytes(width, byteorder="big")
 
     # --- the install-time record. KNOWN-ISSUES G-13. [Co-developed with claude code -- Adam]
     #
