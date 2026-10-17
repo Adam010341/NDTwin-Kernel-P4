@@ -98,7 +98,7 @@ OVS 模式                              P4 模式
 ```
 
 Ryu 是 server、switch 連進來，所以 Ryu 要先開；bmv2 才是 server（`simple_switch_grpc` 監聽
-`0.0.0.0:30051-30060`），proxy 是 gRPC **client**，所以 P4 模式要先開 Mininet。`stack.sh up`
+`127.0.0.1:30051-30060`（gRPC，預設）），proxy 是 gRPC **client**，所以 P4 模式要先開 Mininet。`stack.sh up`
 會依模式自動走對的順序。
 
 ```bash

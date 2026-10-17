@@ -279,8 +279,8 @@ class RecordingNet:
     Mininet.getNodeByName does.
     """
 
-    def __init__(self, package, model, healthy=True, outputs=None):
-        self.topo = testbed.MultiSwitchTopo(package=package, model=model)
+    def __init__(self, package, model, healthy=True, outputs=None, grpc_host=None):
+        self.topo = testbed.MultiSwitchTopo(package=package, model=model, grpc_host=grpc_host)
         self.switches = {}
         for name, kwargs in self.topo.switch_calls:
             self.switches[name] = RecordingSwitch(
@@ -696,8 +696,9 @@ class FabricFixture(unittest.TestCase):
         if verify_timeout is None:
             verify_timeout = 10.0 if healthy else 0.0
         plan, _said = self.plan()
-        net = RecordingNet(plan.package, plan.model, healthy=healthy, outputs=outputs)
-        result = testbed.bring_up(plan.package, plan.model, net=net,
+        net = RecordingNet(plan.package, plan.model, healthy=healthy, outputs=outputs,
+                           grpc_host=plan.bmv2_host)
+        result = testbed.bring_up(plan.package, plan.model, net=net, grpc_host=plan.bmv2_host,
                                   manifest_path=self.manifest,
                                   link_manifest_path=self.link_manifest,
                                   verify_timeout=verify_timeout,
@@ -736,7 +737,7 @@ class BaselineIsWhatItWasTest(FabricFixture):
             net.argv()["s1"],
             f"{FAKE_BINARY} -i 1@s1-eth1 -i 2@s1-eth2 -i 3@s1-eth3 "
             f"--thrift-port 9091 --device-id 1 {BASELINE_JSON} "
-            f"-- --grpc-server-addr 0.0.0.0:30051 --cpu-port 255")
+            f"-- --grpc-server-addr 127.0.0.1:30051 --cpu-port 255")
 
     def test_every_switch_gets_its_own_device_id_and_port_pair(self):
         _plan, net, _result = self.bring_up()
@@ -745,7 +746,7 @@ class BaselineIsWhatItWasTest(FabricFixture):
                 argv = net.argv()["s%d" % dpid]
                 self.assertIn(f"--thrift-port {9090 + dpid} ", argv)
                 self.assertIn(f"--device-id {dpid} ", argv)
-                self.assertIn(f"--grpc-server-addr 0.0.0.0:{30050 + dpid}", argv)
+                self.assertIn(f"--grpc-server-addr 127.0.0.1:{30050 + dpid}", argv)
                 self.assertTrue(argv.endswith("--cpu-port 255"), argv)
                 self.assertIn(BASELINE_JSON, argv)
 
@@ -800,6 +801,7 @@ class BaselineIsWhatItWasTest(FabricFixture):
         self.assertEqual(manifest["s1"], {
             "pid": 12345,
             "device_id": 1,
+            "grpc_host": "127.0.0.1",
             "grpc_port": 30051,
             "thrift_port": 9091,
             "log_file": "/tmp/s1_bmv2.log",
@@ -822,6 +824,118 @@ class BaselineIsWhatItWasTest(FabricFixture):
         # no entry, because ndtwin-p4-power would trust it.
         self.bring_up(healthy=False)
         self.assertEqual(self.manifest_contents(), {})
+
+
+@needs_compiled_baseline
+class TheGrpcListenAddressReachesTheSwitchesTest(FabricFixture):
+    """NDTWIN_BMV2_HOST, through the pre-flight, the topology and the manifest.
+
+    [Co-developed with claude code -- Adam]
+    The unit tests in test_bmv2_listen_host.py start one switch. What they cannot say is that
+    the address the pre-flight vouched for is the one every switch of the fabric is built with,
+    that the environment is not read a second time after the teardown, and that a bad value is
+    refused by both mains before anything is reset.
+    """
+
+    def test_the_default_plan_says_loopback_and_does_not_warn(self):
+        self.setenv("NDTWIN_BMV2_HOST", None)
+        plan, said = self.plan()
+        self.assertEqual("127.0.0.1", plan.bmv2_host)
+        self.assertIn("bmv2 gRPC listen address: 127.0.0.1", said)
+        self.assertFalse([line for line in said if line.startswith("WARNING")], said)
+
+    def test_all_interfaces_is_reported_with_the_warning(self):
+        # Both lines, not just the first: the address line alone says nothing about the risk.
+        self.setenv("NDTWIN_BMV2_HOST", "0.0.0.0")
+        plan, said = self.plan()
+        self.assertEqual("0.0.0.0", plan.bmv2_host)
+        self.assertIn("bmv2 gRPC listen address: 0.0.0.0", said)
+        warnings = [line for line in said if line.startswith("WARNING")]
+        self.assertEqual(1, len(warnings), said)
+        self.assertIn("NDTWIN_BMV2_HOST", warnings[0])
+        self.assertIn("no authentication", warnings[0])
+
+    def test_the_address_reaches_all_ten_argvs_and_the_manifest(self):
+        self.setenv("NDTWIN_BMV2_HOST", "0.0.0.0")
+        plan, net, _result = self.bring_up()
+        self.assertEqual("0.0.0.0", plan.bmv2_host)
+        manifest = self.manifest_contents()
+        for dpid in range(1, 11):
+            with self.subTest(dpid=dpid):
+                self.assertIn(f"--grpc-server-addr 0.0.0.0:{30050 + dpid} ",
+                              net.argv()["s%d" % dpid] + " ")
+                self.assertEqual("0.0.0.0", manifest["s%d" % dpid]["grpc_host"])
+
+    def test_a_bad_value_is_refused_by_the_preflight_naming_the_variable(self):
+        # In plan_fabric, i.e. before reset_for_bring_up has torn anything down.
+        self.setenv("NDTWIN_BMV2_HOST", "not-an-address")
+        with self.assertRaises(testbed.Bmv2HostError) as ctx:
+            self.plan()
+        self.assertIn("NDTWIN_BMV2_HOST", str(ctx.exception))
+
+    def test_a_specific_loopback_address_is_refused_by_the_preflight(self):
+        self.setenv("NDTWIN_BMV2_HOST", "127.0.0.2")
+        with self.assertRaises(testbed.Bmv2HostError) as ctx:
+            self.plan()
+        self.assertIn("NDTWIN_BMV2_HOST", str(ctx.exception))
+
+    def drive_a_main(self, main, **extra):
+        reset, built = [], []
+        self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: reset.append(ports))
+        self.patch(testbed, "build_net", lambda package, model, **_kw: built.append(1))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            with self.assertRaises(SystemExit) as ctx:
+                main(**extra)
+        return ctx.exception.code, out.getvalue(), reset, built
+
+    def test_both_mains_refuse_a_bad_value_before_anything_is_reset(self):
+        self.setenv("NDTWIN_BMV2_HOST", "not-an-address")
+        for label, main, extra in (("p4_testbed_topo.main", testbed.main, {}),
+                                   ("ntg_bmv2_topo.main", ntg.main,
+                                    {"enter_cli": lambda net: None})):
+            with self.subTest(main=label):
+                code, printed, reset, built = self.drive_a_main(main, **extra)
+                self.assertEqual(1, code)
+                self.assertIn("NDTWIN_BMV2_HOST", printed)
+                self.assertEqual([], reset, "the running fabric was reset before the value was read")
+                self.assertEqual([], built, "a net was built on a refused value")
+
+    def test_the_environment_is_not_read_again_after_the_teardown(self):
+        # plan_fabric vouched for 0.0.0.0. If the environment changes after that (here: during
+        # the reset), the fabric must still be built with what was vouched for, and must not
+        # re-read the variable and die in bring_up, outside both mains' handlers. Both mains.
+        for label, main, extra in (("p4_testbed_topo.main", testbed.main, {}),
+                                   ("ntg_bmv2_topo.main", ntg.main,
+                                    {"enter_cli": lambda net: None})):
+            with self.subTest(main=label):
+                self.setenv("NDTWIN_BMV2_HOST", "0.0.0.0")
+                nets, hosts = [], []
+
+                def reset(ports, settle_s=0.5):
+                    os.environ["NDTWIN_BMV2_HOST"] = "not-an-address"
+
+                def build(package, model, grpc_host=None):
+                    hosts.append(grpc_host)
+                    nets.append(RecordingNet(package, model, grpc_host=grpc_host))
+                    return nets[-1]
+
+                self.patch(testbed, "reset_for_bring_up", reset)
+                self.patch(testbed, "build_net", build)
+                self.patch(testbed, "CLI", lambda net: None)
+                main(**extra)
+                self.assertEqual(["0.0.0.0"], hosts)
+                for name, argv in nets[0].argv().items():
+                    self.assertIn("--grpc-server-addr 0.0.0.0:", argv, name)
+
+    def test_the_mininet_constructor_gets_the_vouched_for_address(self):
+        self.patch(testbed, "Mininet", RecordingMininet)
+        plan, _said = self.plan()
+        topo = testbed.build_net(plan.package, plan.model, grpc_host="0.0.0.0").kwargs["topo"]
+        self.assertTrue(topo.switch_calls)
+        for name, kwargs in topo.switch_calls:
+            with self.subTest(switch=name):
+                self.assertEqual("0.0.0.0", kwargs["grpc_host"])
 
 
 @needs_compiled_baseline
@@ -884,8 +998,8 @@ class TheTwoEntryPointsDoTheSameThingTest(FabricFixture):
                 captured["manifest"] = None
             return real_tear_down(net, manifest_path=manifest_path, report=report)
 
-        self.patch(testbed, "build_net", lambda package, model: nets.append(
-            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "build_net", lambda package, model, grpc_host=None: nets.append(
+            RecordingNet(package, model, grpc_host=grpc_host)) or nets[-1])
         self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
         self.patch(testbed, "CLI", lambda net: None)
         self.patch(testbed, "tear_down", tear_down)
@@ -1235,8 +1349,8 @@ class TheBridgeNeverAsksForASwitchTheModelDoesNotDeclareTest(FabricFixture):
 
     def test_the_bridges_main_never_asks_for_s5(self):
         nets = []
-        self.patch(testbed, "build_net", lambda package, model: nets.append(
-            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "build_net", lambda package, model, grpc_host=None: nets.append(
+            RecordingNet(package, model, grpc_host=grpc_host)) or nets[-1])
         self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
         ntg.main(enter_cli=lambda net: None)
         asked = nets[0].gets
@@ -1248,8 +1362,8 @@ class TheBridgeNeverAsksForASwitchTheModelDoesNotDeclareTest(FabricFixture):
 
     def test_the_same_is_true_of_the_other_main(self):
         nets = []
-        self.patch(testbed, "build_net", lambda package, model: nets.append(
-            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "build_net", lambda package, model, grpc_host=None: nets.append(
+            RecordingNet(package, model, grpc_host=grpc_host)) or nets[-1])
         self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
         self.patch(testbed, "CLI", lambda net: None)
         testbed.main()
@@ -1380,8 +1494,8 @@ class TheBridgeRecordsWhatKilledItTest(FabricFixture):
         self.use_package(load_package_fixture())
         tee = FakeTee()
         nets = []
-        self.patch(testbed, "build_net", lambda package, model: nets.append(
-            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "build_net", lambda package, model, grpc_host=None: nets.append(
+            RecordingNet(package, model, grpc_host=grpc_host)) or nets[-1])
         self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
         ntg.main(tee=tee, enter_cli=lambda net: tee.calls.append("NTG prompt"))
         self.assertEqual(tee.calls, ["note", "stop", "NTG prompt", "start"])
@@ -1391,8 +1505,8 @@ class TheBridgeRecordsWhatKilledItTest(FabricFixture):
         self.use_package(load_package_fixture())
         tee = FakeTee()
         nets = []
-        self.patch(testbed, "build_net", lambda package, model: nets.append(
-            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "build_net", lambda package, model, grpc_host=None: nets.append(
+            RecordingNet(package, model, grpc_host=grpc_host)) or nets[-1])
         self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
 
         def boom(net):
@@ -1450,7 +1564,7 @@ class PlanFabricRefusesBeforeAnythingIsTornDownTest(FabricFixture):
         reset = []
         self.patch(testbed, "reset_for_bring_up",
                    lambda ports, settle_s=0.5: reset.append(ports))
-        self.patch(testbed, "build_net", lambda package, model: self.fail("built a net"))
+        self.patch(testbed, "build_net", lambda package, model, **_kw: self.fail("built a net"))
         with self.assertRaises(SystemExit):
             testbed.main()
         self.assertEqual(reset, [], "the running fabric was destroyed before the knob was read")
@@ -2115,8 +2229,8 @@ class ARefusalInsideTheBringUpIsAVerdictAndNotATracebackTest(FabricFixture):
 
     def drive(self, main, **extra):
         nets = []
-        self.patch(testbed, "build_net", lambda package, model: nets.append(
-            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "build_net", lambda package, model, grpc_host=None: nets.append(
+            RecordingNet(package, model, grpc_host=grpc_host)) or nets[-1])
         self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
         self.patch(testbed, "CLI", lambda net: None)
         self.patch(link_telemetry, "process_is_the_emitter", lambda pid, **kw: False)
@@ -2280,8 +2394,8 @@ class BothMainsTearDownWhateverEndsTheCliTest(FabricFixture):
             return real_tear_down(net, manifest_path=manifest_path,
                                   report=lambda _line: None,
                                   link_manifest_path=link_manifest_path or self.link_manifest)
-        self.patch(testbed, "build_net", lambda package, model: nets.append(
-            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "build_net", lambda package, model, grpc_host=None: nets.append(
+            RecordingNet(package, model, grpc_host=grpc_host)) or nets[-1])
         self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
         self.patch(testbed, "CLI", cli)
         self.patch(testbed, "tear_down", tear_down)
@@ -2380,8 +2494,8 @@ class TheTwoEntryPointsBringLinkTelemetryUpTheSameWayTest(FabricFixture):
                                   link_manifest_path=link_manifest_path or self.link_manifest)
 
         nets = []
-        self.patch(testbed, "build_net", lambda package, model: nets.append(
-            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "build_net", lambda package, model, grpc_host=None: nets.append(
+            RecordingNet(package, model, grpc_host=grpc_host)) or nets[-1])
         self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
         self.patch(testbed, "CLI", lambda net: None)
         self.patch(testbed, "tear_down", tear_down)

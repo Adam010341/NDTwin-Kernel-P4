@@ -13,6 +13,11 @@ from proxy_agent import ryu_topology  # no cycle: ryu_topology imports nothing f
 # TICKET-P4-heartbeat segment W. No cycle: link_heartbeat imports only the stdlib, and is handed
 # this module's beacon interval rather than importing it. [Co-developed with claude code -- Adam]
 from proxy_agent import link_heartbeat
+# What priority each ipv4_lpm slot was last written with (Adam, 2026-10-16). No cycle:
+# slot_priority imports only the standard library. [Co-developed with claude code -- Adam]
+from proxy_agent import slot_priority
+from proxy_agent.slot_priority import (CONTROL_PLANE_ROUTE_PRIORITY, SlotPriorityNotHeld,
+                                       named_priority)
 from proxy_agent.sflow_emitter import DEFAULT_TOPO_FILE
 
 # [Co-developed with claude code -- Adam]
@@ -362,6 +367,34 @@ def unsupported_match_fields(match_dict):
     return sorted(bad)
 
 
+def canonical_destination(match_dict):
+    """
+    `match_dict` with its destination written the way the switch stores it.
+
+    [Co-developed with claude code -- Adam] Review r2 NEW-2. check_match_values accepts every
+    spelling inet_aton does ("10.0.0.02", "10.2", "0x0a000002"), and the entry is built from the
+    encoded bytes -- but every lookup keyed by the string (dest_paths in _control_plane_port,
+    net.nodes for the next-hop MAC, _installed_routes, the journal) missed an alias: an aliased
+    non-strict delete REMOVED the destination's only entry instead of restoring it, and an
+    aliased modify on the attachment switch wrote a zero MAC. Called once, right after
+    check_match_values, in route_flow, unroute_flow and modify_flow. A copy, not an edit: the
+    caller's dict is the request body. Non-string and empty values are left to the existing
+    guards (they never reach inet_aton here).
+    """
+    if not isinstance(match_dict, dict):
+        return match_dict
+    out = match_dict
+    for field in ("nw_dst", "ipv4_dst"):
+        value = match_dict.get(field)
+        if isinstance(value, str) and value:
+            canon = slot_priority.canonical_ipv4(value)
+            if canon != value:
+                if out is match_dict:
+                    out = dict(match_dict)
+                out[field] = canon
+    return out
+
+
 def p4_priority(openflow_priority):
     """
     OpenFlow priority -> P4Runtime priority for a ternary entry.
@@ -579,6 +612,11 @@ _NOTHING_TO_JUDGE = object()
 WATCHDOG_PASS_LOG = 12
 
 
+#: Guards the lazy creation in TopologyManager.slot_priorities. [Co-developed with claude code --
+#: Adam]
+_SLOTS_INIT_LOCK = threading.Lock()
+
+
 class TopologyManager:
     """Maintains the network state and computes shortest paths via BFS"""
 
@@ -657,6 +695,12 @@ class TopologyManager:
         # Separate from `_liveness_lock`, and the two are never held at once (see
         # `push_destination_paths`).
         self._net_lock = threading.RLock()
+
+        # --- the priority each ipv4_lpm slot was last written with. [Co-developed with claude
+        # code -- Adam] See slot_priority.py. Every ipv4_lpm write below holds its slot's lock
+        # across the write and the record; the slot lock is taken BEFORE _net_lock, never while
+        # holding it.
+        self._slots = slot_priority.SlotPriorities()
 
         # --- What we have actually written to the switches. [Co-developed with claude code -- Adam]
         #
@@ -780,6 +824,40 @@ class TopologyManager:
         # cannot interleave their build/swap/stop sequences and leave a stopped client in
         # the switches map. [Co-developed with claude code -- Adam]
         self._readopt_lock = threading.Lock()
+
+    def slot_priorities(self):
+        """The slot-priority record; created on first use for managers built with `__new__`.
+
+        [Co-developed with claude code -- Adam] For the reason the class attributes above give:
+        a test double built without __init__ must not turn every route write into an
+        AttributeError. Lazily, under a module lock, so two first writers share one record.
+        """
+        slots = self.__dict__.get("_slots")
+        if slots is None:
+            with _SLOTS_INIT_LOCK:
+                slots = self.__dict__.get("_slots")
+                if slots is None:
+                    slots = self._slots = slot_priority.SlotPriorities()
+        return slots
+
+    def _write_slot(self, dpid, ipv4_dst, client, write, after):
+        """
+        Run one ipv4_lpm write and settle the slot's record from its outcome. Caller holds the
+        slot's lock.
+
+        [Co-developed with claude code -- Adam]
+        `after` is what a confirmed write leaves in the slot (see SlotPriorities.settle). An
+        exception out of `write` forgets the slot too -- `finally`, not `except`, so no path
+        out of here leaves the old priority recorded against an entry that may have changed.
+        """
+        slots = self.slot_priorities()
+        begun = slots.begin(client)
+        accepted = False
+        try:
+            accepted = bool(write())
+        finally:
+            slots.settle(dpid, ipv4_dst, client, begun, accepted, after)
+        return accepted
 
     def add_switch(self, dpid, client):
         if dpid not in self.switches:
@@ -1057,6 +1135,7 @@ class TopologyManager:
         # Before this, a CIDR destination reached inet_aton and left as a 500 (B-2c).
         # [Co-developed with claude code -- Adam]
         check_match_values(match_dict, "installed")
+        match_dict = canonical_destination(match_dict)
 
         # Parse match (OpenFlow JSON)
         # NDTwin sends: {"dl_type": 2048, "nw_dst": "10.0.0.1"}
@@ -1115,17 +1194,24 @@ class TopologyManager:
         # Was `insert_ipv4_route(...)` followed by an unconditional `return True`, so the
         # REST layer answered {"status":"success"} even when the gRPC write was rejected or
         # the switch was unreachable. Return what actually happened.
-        success = bool(client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port))
-        if success:
-            # [Co-developed with claude code -- Adam]
-            # `_installed_routes` had exactly one writer before this: install_initial_routes.
-            # Traffic-Engineering and Energy-Saving both reroute through this endpoint --
-            # /stats/flowentry/add -- and every one of those rewrites was invisible to the map,
-            # so render_destination_paths kept reporting the *old* hop the switch no longer had.
-            # This is the same lie decision B (installed_routes existing at all) was written to
-            # stop, walking back in through the REST door instead of the watchdog.
-            with self._net_lock:
-                self._installed_routes[(dpid, ipv4_dst)] = out_port
+        # [Co-developed with claude code -- Adam] The slot now holds the application's entry,
+        # at the priority it asked for (Adam, 2026-10-16): a later modify must name that one.
+        with self.slot_priorities().lock(dpid, ipv4_dst):
+            success = self._write_slot(
+                dpid, ipv4_dst, client,
+                lambda: client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port),
+                slot_priority.install_priority(priority))
+            if success:
+                # [Co-developed with claude code -- Adam]
+                # `_installed_routes` had exactly one writer before this: install_initial_routes.
+                # Traffic-Engineering and Energy-Saving both reroute through this endpoint --
+                # /stats/flowentry/add -- and every one of those rewrites was invisible to the
+                # map, so render_destination_paths kept reporting the *old* hop the switch no
+                # longer had. This is the same lie decision B (installed_routes existing at all)
+                # was written to stop, walking back in through the REST door instead of the
+                # watchdog.
+                with self._net_lock:
+                    self._installed_routes[(dpid, ipv4_dst)] = out_port
         return self._note_in_journal("install", dpid, match_dict, actions_dict, priority,
                                      success)
 
@@ -1213,6 +1299,7 @@ class TopologyManager:
         # [Co-developed with claude code -- Adam] As route_flow: delete_ipv4_route reaches the
         # same inet_aton, so the same value was the same 500 on the way out.
         check_match_values(match_dict, "deleted")
+        match_dict = canonical_destination(match_dict)
 
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
@@ -1252,32 +1339,41 @@ class TopologyManager:
         # shortcut: the entry exists, so that call is refused as a duplicate and lands as an
         # in-place MODIFY. A DELETE followed by an INSERT reaches the same final state and
         # black-holes the destination for the width of the gap -- the same failure, briefly.
-        restore_port = self._control_plane_port(dpid, ipv4_dst)
-        if restore_port is not None:
-            next_hop_mac = "00:00:00:00:00:00"
-            if ipv4_dst in self.net.nodes:
-                next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
-            print(f"[TopologyManager] Withdrawing rule for {ipv4_dst} on DPID {dpid}: "
-                  f"restoring control-plane route -> port {restore_port}")
-            success = bool(client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, restore_port))
-            if success:
-                with self._net_lock:
-                    self._installed_routes[(dpid, ipv4_dst)] = restore_port
-            # A refused restore leaves the caller's own rule in the switch, so the delete did
-            # not happen and must not be reported as though it had.
-            return success
+        # [Co-developed with claude code -- Adam] One slot step: the restore puts a
+        # control-plane entry back (recorded at CONTROL_PLANE_ROUTE_PRIORITY, as the refill's),
+        # a removal leaves nothing to record.
+        with self.slot_priorities().lock(dpid, ipv4_dst):
+            restore_port = self._control_plane_port(dpid, ipv4_dst)
+            if restore_port is not None:
+                next_hop_mac = "00:00:00:00:00:00"
+                if ipv4_dst in self.net.nodes:
+                    next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
+                print(f"[TopologyManager] Withdrawing rule for {ipv4_dst} on DPID {dpid}: "
+                      f"restoring control-plane route -> port {restore_port}")
+                success = self._write_slot(
+                    dpid, ipv4_dst, client,
+                    lambda: client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, restore_port),
+                    CONTROL_PLANE_ROUTE_PRIORITY)
+                if success:
+                    with self._net_lock:
+                        self._installed_routes[(dpid, ipv4_dst)] = restore_port
+                # A refused restore leaves the caller's own rule in the switch, so the delete did
+                # not happen and must not be reported as though it had.
+                return success
 
-        # No control-plane route to hand the slot back to -- the destination is unreachable in
-        # the current graph, or was never one this fabric routes. Removal is the honest outcome.
-        # [Co-developed with claude code -- Adam] -- as above: report the real outcome.
-        success = bool(client.delete_ipv4_route(ipv4_dst, 32))
-        if success:
-            # Withdraw the record along with the rule. Left in place, the twin would keep
-            # advertising a route to a destination the switch no longer has one for at all --
-            # worse than the stale-port case route_flow's write closes, because there is nothing
-            # left on the switch for the packet to reach.
-            with self._net_lock:
-                self._installed_routes.pop((dpid, ipv4_dst), None)
+            # No control-plane route to hand the slot back to -- the destination is unreachable
+            # in the current graph, or was never one this fabric routes. Removal is the honest
+            # outcome. [Co-developed with claude code -- Adam] -- as above: report the real
+            # outcome.
+            success = self._write_slot(dpid, ipv4_dst, client,
+                                       lambda: client.delete_ipv4_route(ipv4_dst, 32), None)
+            if success:
+                # Withdraw the record along with the rule. Left in place, the twin would keep
+                # advertising a route to a destination the switch no longer has one for at all
+                # -- worse than the stale-port case route_flow's write closes, because there is
+                # nothing left on the switch for the packet to reach.
+                with self._net_lock:
+                    self._installed_routes.pop((dpid, ipv4_dst), None)
         # Journalled: without the delete, a replay resurrects a rule that was deliberately
         # removed -- which is one of the three things a restart already does today.
         # [Co-developed with claude code -- Adam]
@@ -1296,6 +1392,7 @@ class TopologyManager:
 
         # [Co-developed with claude code -- Adam] As route_flow.
         check_match_values(match_dict, "modified")
+        match_dict = canonical_destination(match_dict)
 
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
@@ -1327,12 +1424,38 @@ class TopologyManager:
         if ipv4_dst in self.net.nodes:
             next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
 
-        success = client.modify_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port)
-        if success:
-            # As route_flow: the port just changed, so the record has to move with it or a
-            # renderer reading _installed_routes sends packets down the pre-modify hop.
-            with self._net_lock:
-                self._installed_routes[(dpid, ipv4_dst)] = out_port
+        # ---- a named priority must be the one the slot holds -------------------------------
+        # [Co-developed with claude code -- Adam] Adam, 2026-10-16, amending
+        # DECISION-P4-PRIORITY.md §2 for one case. ipv4_lpm has no priority column, so a named
+        # priority can only name the entry in this slot if it is the priority that entry was
+        # written with: CONTROL_PLANE_ROUTE_PRIORITY for the proxy's own route (what TE and ESA
+        # modify, as they modify Ryu's priority-10 route on OVS), or an install's own. Anything
+        # else -- no record, a forgotten one, another value -- is SlotPriorityNotHeld (501) and
+        # nothing is written. The check and the write are one step under the slot's lock.
+        #
+        # Order: the request's own faults are already answered (400, above); then the switch's
+        # own refusals, which hold whatever priority is named -- read-only (409) and no route
+        # binding (501 with a `reason`) -- and only then the priority. A read-only or foreign
+        # switch never has a record, and "priority not held" would name the wrong fault there.
+        named = named_priority(priority)
+        slots = self.slot_priorities()
+        with slots.lock(dpid, ipv4_dst):
+            if named is not None:
+                check = getattr(client, "check_route_write", None)
+                if check is not None:
+                    check("an ipv4_lpm route modify")
+                held = slots.held(dpid, ipv4_dst, client)
+                if held != named:
+                    raise SlotPriorityNotHeld(dpid, ipv4_dst, named, held)
+            success = self._write_slot(
+                dpid, ipv4_dst, client,
+                lambda: client.modify_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port),
+                slot_priority.KEEP)
+            if success:
+                # As route_flow: the port just changed, so the record has to move with it or a
+                # renderer reading _installed_routes sends packets down the pre-modify hop.
+                with self._net_lock:
+                    self._installed_routes[(dpid, ipv4_dst)] = out_port
         return self._note_in_journal("modify", dpid, match_dict, actions_dict, priority,
                                      success)
 
@@ -1396,9 +1519,17 @@ class TopologyManager:
                 # failed write was indistinguishable from a successful one, and every consumer
                 # went on being told the route existed.
                 attempted += 1
-                if client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port):
-                    with self._net_lock:
-                        self._installed_routes[(src, ipv4_dst)] = out_port
+                # [Co-developed with claude code -- Adam] The proxy's own route: recorded at the
+                # control plane's priority, or forgotten if the switch did not confirm it.
+                with self.slot_priorities().lock(src, ipv4_dst):
+                    ok = self._write_slot(
+                        src, ipv4_dst, client,
+                        lambda: client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port),
+                        CONTROL_PLANE_ROUTE_PRIORITY)
+                    if ok:
+                        with self._net_lock:
+                            self._installed_routes[(src, ipv4_dst)] = out_port
+                if ok:
                     installed += 1
         return installed, attempted
 

@@ -280,11 +280,17 @@ report "M-C14: a knob word app_package refused is swallowed into a silent defaul
 
 # --- G7: the counter route ---------------------------------------------------------------------
 
+# The anchors of M-C6 and M-C15 start at a line only this route has (its read of
+# read_egress_counter, its "counter not read"), so another counter route written the same way
+# cannot take them: an anchor that still counts 1 after moving to the wrong route is worse than one
+# that counts 2, because the anchor check says ok. [Co-developed with claude code -- Adam]
 m=$(mutant c6 "$ROUTES" \
-    '    except CounterNotFound as err:
+    '        reading = await run_in_threadpool(client.read_egress_counter, index, name)
+    except CounterNotFound as err:
         raise HTTPException(
             status_code=404,' \
-    '    except CounterNotFound as err:
+    '        reading = await run_in_threadpool(client.read_egress_counter, index, name)
+    except CounterNotFound as err:
         return {"dpid": dpid, "counter": name, "index": index, "bytes": 0, "packets": 0}
     except ZeroDivisionError:
         raise HTTPException(
@@ -295,12 +301,14 @@ report "M-C6: a counter this pipeline does not have reads as a measurement of ze
 m=$(mutant c15 "$ROUTES" \
     '    if reading is None:
         raise HTTPException(
-            status_code=503,' \
+            status_code=503,
+            detail={"error": "counter not read",' \
     '    if reading is None:
         reading = (0, 0)
     if False:
         raise HTTPException(
-            status_code=503,')
+            status_code=503,
+            detail={"error": "counter not read",')
 report "M-C15: a failed read answers 200 with zeroes, which is the instrument's own finding" "$m" \
        "test_a_failed_read_is_503_rather_than_a_zero"
 

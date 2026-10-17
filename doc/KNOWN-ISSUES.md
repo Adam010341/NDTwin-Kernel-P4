@@ -2186,6 +2186,38 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   ——單元測試就夠，不必上 lab。
 - **證據**：`fix/FIX-DOORS-2-SUMMARY.md` §6／§7.3 逐字（讀碼，非實測）。
 
+### B-18 🟡 對 bmv2 用 `simple_switch_CLI` 寫過的表，P4Runtime 就讀不了它（bmv2／PI 的互通限制）
+
+[Co-developed with claude code -- Adam]
+
+- **狀態**：**OPEN，不是 NDTwin 的 bug、本身也不是安全問題**（bmv2 的 Thrift port 開放面見 testing manual §2.2「P4：用主機防火牆擋住 bmv2 的 Thrift port（建議）」）——bmv2 的 P4Runtime 伺服器與 thrift CLI 之間的限制。
+  下面的範圍是 2026-10-16 **量到的**；機制「PI 自己保留每張表的副本，CLI 的寫入繞過它」是**推論**
+  （錯誤字串 "Table state out-of-sync with target" 與下面的分布都與它相符，但沒有讀 PI 的碼）。
+- **平面**：P4（bmv2）
+- **失效方向**：**悲觀**——switch 上規則在、照樣轉發，但 proxy 讀那台 switch 的表會失敗。
+- **會發生什麼**：論文 app 常用 `simple_switch_CLI <<< "table_add ..."` 裝規則（niloysh/int-v1 的
+  `runtime_cmds/s1.sh` 就是）。若有人把這種腳本**直接打到 NDTwin fabric 的 switch 上**，proxy 對那台 switch 的
+  flow-stats 輪詢（`read_table_entries`：所有表＋counter_data 的 Read）回 `INTERNAL "Table state out-of-sync with target"`。
+- **量到的範圍**（拋棄式 `simple_switch_grpc`，stock `/usr/local/bin` 與 `/usr/local/bmv2-fast` 兩個 build 結果相同；
+  int-v1 的 pipeline 由 P4Runtime 推入、routes 由 P4Runtime 寫入；`tb_set_source`（exact）與 `tb_int_source`（ternary）
+  都掛 direct counter，`ipv4_lpm`（lpm）沒有）：
+
+  | 誰寫了哪張表 | 所有表 | `ipv4_lpm` 單獨 | `tb_set_source` 單獨 | `tb_int_source` 單獨 |
+  |---|---|---|---|---|
+  | CLI 寫兩張（`tb_set_source`、`tb_int_source`） | 失敗 | 成功 | 失敗 | 失敗 |
+  | `tb_set_source` 走 P4Runtime、CLI 只寫 `tb_int_source` | 失敗 | 成功 | **成功** | 失敗 |
+  | `tb_int_source` 走 P4Runtime、CLI 只寫 `tb_set_source` | 失敗 | 成功 | 失敗 | **成功** |
+  | 全部走 P4Runtime（對照） | 成功 | 成功 | 成功 | 成功 |
+
+  每一格帶與不帶 counter_data 結果都一樣。⇒ 觸發條件是「這次 Read 涵蓋到一張被 CLI 寫過的表」：
+  同樣掛 direct counter、但由 P4Runtime 寫的表照樣讀得到，所以不是 direct counter、也不是 match 種類造成的。
+  **沒有量**：`table_modify`／`table_delete`、沒有 direct counter 的表被 CLI 寫、其它 bmv2 版本。
+- **NDTwin 怎麼避開**：`tools/p4_exercise/convert.py --thrift-commands` 把 app 的 CLI 指令**翻成 P4Runtime
+  entries**放進 package，由 proxy 寫入；所以 fabric 上的 switch 從不被 CLI 寫。**不要**在 fabric 上跑 app 自己的
+  CLI 腳本。
+- **證據**：`doc/audit/2026-10-16_p4-paper-apps/offline_int_v1.py` 的 READ SCOPE 段（arm B、F、G 與對照 A）；raw 在
+  audit-raw `gates-0910/p4-paper-apps/r3/offline/offline_{stock,fast}.log`。
+
 ---
 
 ## B-x. `/ndt/get_detected_flow_data` 包含已經結束的流（churn 下約 92%）
@@ -2988,6 +3020,26 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   🔴 **全在 `scratch/`，不在版控。**
   ⚠️ **可信度**：數字是 ROLE-5 實測（🟢 對它）、**本條登記者未複驗（🟠 轉述）**；
   該報告自己指認了二進位與 4 台（不是 64／128）的規模邊界。
+- **modify 那一半**（2026-10-16 Adam 裁，`feat/p4-modify-at-slot-priority`）：同一個拒絕原本也套在
+  destination-only 的 modify 上，而 Traffic-Engineering 預設模式與 Energy-Saving 改路由送的正是
+  priority 10 的 modify ⇒ 在 P4 上**一律 501、呼叫端拿 `200 queued`**，兩個 app 都動不了任何一條流。
+  現在 proxy 記住每個目的地的 `ipv4_lpm` 條目最後是用哪個 priority 寫的（proxy 自己的路由＝**10**，
+  install＝它要求的值），**只有正好指名那個值的 modify 照做**；其他值照舊 501，body 多帶
+  `slot_priority`（記錄值或 `null`）。寫入沒確認（被拒、例外、逾時）、pipeline push、readopt 換 client
+  之後記錄作廢，直到那條路由下一次被寫入（proxy 自己的 refill／restore 記 10，install 記它要求的值）。501 的 `remedy` 不再寫「省略 priority」：在 OVS 上
+  省略＝kernel 送 priority 0 的 strict modify，什麼都改不到。
+  ⚠️ **已知殘留**（審查 r1 m5／m7，讀碼推論、未量測）：①一個 install 寫入逾時（記錄已作廢），
+  之後 refill 重寫並記 10，**若那個逾時的 install 其實晚於 refill 才落地**，slot 裡是 app 的條目而記錄寫 10
+  ⇒ 之後 modify at 10 會改到它。②記錄假設 proxy 是這些條目**唯一的寫入者**：用 `simple_switch_CLI`
+  手寫、或另一個用同一 election id 的 P4Runtime client 寫的，proxy 看不到，記錄照舊。
+  ③**readopt 前後的舊記錄**（審查 r2，讀碼推論＋單元測試釘住）：新 client 推 pipeline 到換手之間、
+  推 pipeline 回逾時但其實已清表（readopt 失敗、留下舊 client）、bmv2 重啟到 readopt 之間——這三段
+  舊記錄仍算數，但 slot 已經空了。代價是**每個有記錄的 slot 最多一次失敗的 modify**（`modify_ipv4_route`
+  沒有 insert 後備，改不到空表；失敗即遺忘記錄，下一次 501），**不會改到錯的條目**。
+  `test_a_push_that_raised_after_landing_costs_one_failed_modify_and_no_insert`、
+  `test_a_refused_modify_is_not_retried_as_an_insert` 釘住。
+  🔴 **本條（delete）狀態不變**：`delete_strict` 帶任何 priority 仍是 501。modify 這半邊**未經 live 驗證**
+  （單元測試＋mutation gate＋離線 bmv2 試跑，紀錄在 `scratch/`）。
 
 ### C-8 🔴 `last_sample_age_seconds` 在一個「秒」欄位裡回 −1.0 哨兵值
 

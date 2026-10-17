@@ -141,7 +141,7 @@ def main(tee=None, enter_cli=None) -> None:
     testbed.reset_for_bring_up(plan.ports)
 
     net, switches, fatal, report, _host_setup = testbed.bring_up(
-        plan.package, plan.model)
+        plan.package, plan.model, grpc_host=plan.bmv2_host)
     ports = plan.ports
 
     print("\n======================================================================")
