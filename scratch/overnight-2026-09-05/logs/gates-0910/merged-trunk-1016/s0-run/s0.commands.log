@@ -1,0 +1,471 @@
+$ nice -n 19 p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build/hc_main.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build/hc_main.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ nice -n 19 p4c-bm2-ss --p4v 16 -DHC_ALT --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build/hc_alt.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build/hc_alt.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ nice -n 19 p4c-bm2-ss --p4v 16 -DHC_MUTANT_NO_COUNT -DHC_MUTANT_NO_TTL -DHC_MUTANT_NO_QSTAMP --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build-mutant/hc_main.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build-mutant/hc_main.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ nice -n 19 p4c-bm2-ss --p4v 16 -DHC_ALT -DHC_MUTANT_NO_COUNT -DHC_MUTANT_NO_TTL -DHC_MUTANT_NO_QSTAMP --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build-mutant/hc_alt.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build-mutant/hc_alt.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ nice -n 19 p4c-bm2-ss --p4v 16 -DHC_MUTANT_FWD_88B5 --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build-fwd/hc_main.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build-fwd/hc_main.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ nice -n 19 p4c-bm2-ss --p4v 16 -DHC_ALT -DHC_MUTANT_FWD_88B5 --p4runtime-files /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build-fwd/hc_alt.p4.p4info.txtpb -o /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/build-fwd/hc_alt.json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+rc=0
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(451): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_ap (due to action profiles)
+    table t_ap { /* AP1 (Q3(b)) */
+          ^^^^
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4(458): [--Wwarn=unsupported] warning: Target does not support default_action for HcIngress.t_as (due to action profiles)
+    table t_as { /* AS1 (Q3(b)) */
+          ^^^^
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/convert.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise --topology topology.json --p4 src/hc_main.p4 --out /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A --mode ndtwin --name p4-health-A
+rc=0
+package 'p4-health-A' -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A
+  control plane : ndtwin
+  pipelines     : s1=build/hc_alt.json, s2=build/hc_main.json, s3=build/hc_main.json, s4=build/hc_main.json
+  model         : 4 switches, 6 hosts, 20 edges (10 links, both directions stored)
+  files         : 12
+                  build/hc_alt.json
+                  build/hc_alt.p4.p4info.txtpb
+                  build/hc_main.json
+                  build/hc_main.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  runtime/s1-runtime.json
+                  runtime/s2-runtime.json
+                  runtime/s3-runtime.json
+                  runtime/s4-runtime.json
+                  src/hc_main.p4
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/convert.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise --topology topology-b.json --p4 src/hc_main.p4 --out /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/B --mode external --name p4-health-B
+rc=0
+package 'p4-health-B' -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/B
+  control plane : external
+  pipelines     : s1=build/hc_alt.json, s2=build/hc_main.json, s3=build/hc_main.json, s4=build/hc_main.json
+  model         : 4 switches, 6 hosts, 20 edges (10 links, both directions stored)
+  files         : 8
+                  build/hc_alt.json
+                  build/hc_alt.p4.p4info.txtpb
+                  build/hc_main.json
+                  build/hc_main.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  src/hc_main.p4
+                  topology-b.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/B
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/convert.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise --topology topology.json --p4 src/hc_main.p4 --out /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/C --mode ndtwin --name p4-health-C --role-ipv4-route owner=ndtwin,table=HcIngress.ipv4_lpm,match_field=hdr.ipv4.dstAddr,action=HcIngress.ipv4_forward,dst_mac=dstAddr,port=port
+rc=0
+package 'p4-health-C' -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/C
+  control plane : ndtwin
+  pipelines     : s1=build/hc_alt.json, s2=build/hc_main.json, s3=build/hc_main.json, s4=build/hc_main.json
+  model         : 4 switches, 6 hosts, 20 edges (10 links, both directions stored)
+  roles         : ipv4_route owner=ndtwin table=HcIngress.ipv4_lpm match_field=hdr.ipv4.dstAddr action=HcIngress.ipv4_forward dst_mac=dstAddr port=port
+  owned table   : 28 match entries for HcIngress.ipv4_lpm taken out of the runtime files (s1: 7, s2: 7, s3: 7, s4: 7); its default action stays
+  files         : 12
+                  build/hc_alt.json
+                  build/hc_alt.p4.p4info.txtpb
+                  build/hc_main.json
+                  build/hc_main.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  runtime/s1-runtime.json
+                  runtime/s2-runtime.json
+                  runtime/s3-runtime.json
+                  runtime/s4-runtime.json
+                  src/hc_main.p4
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/C
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/convert.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise --topology topology-pft.json --p4 src/hc_main.p4 --out /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/PF-T --mode ndtwin --name p4-health-PF-T
+rc=0
+package 'p4-health-PF-T' -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/PF-T
+  control plane : ndtwin
+  pipelines     : s1=build/hc_alt.json, s2=build/hc_main.json, s3=build/hc_main.json, s4=build/hc_main.json
+  model         : 4 switches, 6 hosts, 20 edges (10 links, both directions stored)
+  files         : 12
+                  build/hc_alt.json
+                  build/hc_alt.p4.p4info.txtpb
+                  build/hc_main.json
+                  build/hc_main.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  runtime/s1-runtime.json
+                  runtime/s2-runtime-pft.json
+                  runtime/s3-runtime.json
+                  runtime/s4-runtime.json
+                  src/hc_main.p4
+                  topology-pft.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/PF-T
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/convert.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise-fwd --topology topology.json --p4 src/hc_main.p4 --out /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/FWD --mode ndtwin --name p4-health-FWD
+rc=0
+package 'p4-health-FWD' -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/FWD
+  control plane : ndtwin
+  pipelines     : s1=build/hc_alt.json, s2=build/hc_main.json, s3=build/hc_main.json, s4=build/hc_main.json
+  model         : 4 switches, 6 hosts, 20 edges (10 links, both directions stored)
+  files         : 12
+                  build/hc_alt.json
+                  build/hc_alt.p4.p4info.txtpb
+                  build/hc_main.json
+                  build/hc_main.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  runtime/s1-runtime.json
+                  runtime/s2-runtime.json
+                  runtime/s3-runtime.json
+                  runtime/s4-runtime.json
+                  src/hc_main.p4
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/FWD
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/convert.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise-mutant --topology topology.json --p4 src/hc_main.p4 --out /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A-MUT --mode ndtwin --name p4-health-A-MUT
+rc=0
+package 'p4-health-A-MUT' -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A-MUT
+  control plane : ndtwin
+  pipelines     : s1=build/hc_alt.json, s2=build/hc_main.json, s3=build/hc_main.json, s4=build/hc_main.json
+  model         : 4 switches, 6 hosts, 20 edges (10 links, both directions stored)
+  files         : 12
+                  build/hc_alt.json
+                  build/hc_alt.p4.p4info.txtpb
+                  build/hc_main.json
+                  build/hc_main.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  runtime/s1-runtime.json
+                  runtime/s2-runtime.json
+                  runtime/s3-runtime.json
+                  runtime/s4-runtime.json
+                  src/hc_main.p4
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A-MUT
+
+$ nice -n 19 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A
+rc=0
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A
+  PASS  format                            1
+  INFO  name                              p4-health-A
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     510
+  PASS  switches keys                     4 dpids: [1, 2, 3, 4]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  9 present
+  PASS  topo_from_json.switches           4 entries
+  PASS  topo_from_json.hosts              6 entries
+  PASS  topo_from_json.switch_links       4 entries
+  PASS  topo_from_json.host_links         6 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3, 4]
+  PASS  links agree                       10 links in both
+  PASS  hosts named h<last octet>         6 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+  PASS  switches pipeline                 4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/hc_alt.json  p4info sha256:b7490e9eb9979888  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s2 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s3 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s4 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              91 entries across 4 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  4 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "HcIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "HcIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  PASS  telemetry.source                  link
+  PASS  PRE entries                       1 multicast group(s) and 1 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                   30051-30054 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  hc_main.json sha256:1050fe13a4b7e37a  hc_main.p4.p4info.txtpb sha256:5ce0a5595d5a65f1
+
+PASS -- every check passed
+
+$ nice -n 19 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/B
+rc=0
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/B
+  PASS  format                       1
+  INFO  name                         p4-health-B
+  PASS  control_plane.mode           external
+  PASS  control_plane.grpc_base      30050
+  PASS  control_plane.device_id      dpid
+  PASS  control_plane.election_id    [0, 65535]
+  PASS  bmv2.cpu_port                510
+  PASS  switches keys                4 dpids: [1, 2, 3, 4]
+  PASS  switches name                every sN has dpid N
+  PASS  referenced files             5 present
+  PASS  topo_from_json.switches      4 entries
+  PASS  topo_from_json.hosts         6 entries
+  PASS  topo_from_json.switch_links  4 entries
+  PASS  topo_from_json.host_links    6 entries
+  PASS  switches agree               model and package.json both say [1, 2, 3, 4]
+  PASS  links agree                  10 links in both
+  PASS  hosts named h<last octet>    6 hosts
+  PASS  hosts agree                  model and package.json both say ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+  PASS  switches pipeline            4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                  build/hc_alt.json  p4info sha256:b7490e9eb9979888  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s2 pipeline                  build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s3 pipeline                  build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s4 pipeline                  build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  entries                      none (control plane 'external' brings its own)
+  PASS  p4info parses                build/hc_main.p4.p4info.txtpb: 15 table(s)
+  INFO  roles suggestion             no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "HcIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "HcIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  PASS  telemetry.source             link
+  INFO  PRE entries                  none declared (no multicast group, no clone session)
+  PASS  gRPC port block              30051-30054 safe on this machine
+  PASS  p4c-bm2-ss                   rc=0  hc_main.json sha256:f5a3946fd349b068  hc_main.p4.p4info.txtpb sha256:5ce0a5595d5a65f1
+
+PASS -- every check passed
+
+$ nice -n 19 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/C
+rc=0
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/C
+  PASS  format                              1
+  INFO  name                                p4-health-C
+  PASS  control_plane.mode                  ndtwin
+  PASS  control_plane.grpc_base             30050
+  PASS  control_plane.device_id             dpid
+  PASS  control_plane.election_id           [0, 65535]
+  PASS  bmv2.cpu_port                       510
+  PASS  switches keys                       4 dpids: [1, 2, 3, 4]
+  PASS  switches name                       every sN has dpid N
+  PASS  referenced files                    9 present
+  PASS  topo_from_json.switches             4 entries
+  PASS  topo_from_json.hosts                6 entries
+  PASS  topo_from_json.switch_links         4 entries
+  PASS  topo_from_json.host_links           6 entries
+  PASS  switches agree                      model and package.json both say [1, 2, 3, 4]
+  PASS  links agree                         10 links in both
+  PASS  hosts named h<last octet>           6 hosts
+  PASS  hosts agree                         model and package.json both say ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+  PASS  switches pipeline                   4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                         build/hc_alt.json  p4info sha256:b7490e9eb9979888  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s2 pipeline                         build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s3 pipeline                         build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s4 pipeline                         build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  PASS  p4info parses                       google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info                63 entries across 4 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's    4 switch(es); entries and pipeline name the same p4info
+  PASS  roles.ipv4_route resolves           4 switch(es): HcIngress.ipv4_lpm hdr.ipv4.dstAddr -> HcIngress.ipv4_forward(dstAddr, port bit<9>), owner ndtwin
+  PASS  owned table has no package entries  HcIngress.ipv4_lpm is NDTwin's on 4 switch(es)
+  INFO  owned table default action          kept on 4 switch(es) (a default is not a route): s1 entry 0: default action HcIngress.drop; s2 entry 0: default action HcIngress.drop; s3 entry 0: default action HcIngress.drop; s4 entry 0: default action HcIngress.drop
+  PASS  telemetry.source                    link
+  PASS  PRE entries                         1 multicast group(s) and 1 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                     30051-30054 safe on this machine
+  PASS  p4c-bm2-ss                          rc=0  hc_main.json sha256:f3bb725eb76bb3f6  hc_main.p4.p4info.txtpb sha256:5ce0a5595d5a65f1
+
+PASS -- every check passed
+
+$ nice -n 19 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/PF-T
+rc=0
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/PF-T
+  PASS  format                            1
+  INFO  name                              p4-health-PF-T
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     510
+  PASS  switches keys                     4 dpids: [1, 2, 3, 4]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  9 present
+  PASS  topo_from_json.switches           4 entries
+  PASS  topo_from_json.hosts              6 entries
+  PASS  topo_from_json.switch_links       4 entries
+  PASS  topo_from_json.host_links         6 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3, 4]
+  PASS  links agree                       10 links in both
+  PASS  hosts named h<last octet>         6 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+  PASS  switches pipeline                 4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/hc_alt.json  p4info sha256:b7490e9eb9979888  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s2 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s3 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s4 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              92 entries across 4 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  4 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "HcIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "HcIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  PASS  telemetry.source                  link
+  PASS  PRE entries                       1 multicast group(s) and 1 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                   30051-30054 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  hc_main.json sha256:92cbe24dade26dc7  hc_main.p4.p4info.txtpb sha256:5ce0a5595d5a65f1
+
+PASS -- every check passed
+
+$ nice -n 19 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A-MUT
+rc=0
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A-MUT
+  PASS  format                            1
+  INFO  name                              p4-health-A-MUT
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     510
+  PASS  switches keys                     4 dpids: [1, 2, 3, 4]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  9 present
+  PASS  topo_from_json.switches           4 entries
+  PASS  topo_from_json.hosts              6 entries
+  PASS  topo_from_json.switch_links       4 entries
+  PASS  topo_from_json.host_links         6 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3, 4]
+  PASS  links agree                       10 links in both
+  PASS  hosts named h<last octet>         6 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+  PASS  switches pipeline                 4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/hc_alt.json  p4info sha256:b7490e9eb9979888  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s2 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s3 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  INFO  s4 pipeline                       build/hc_main.json  p4info sha256:5ce0a5595d5a65f1  program=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise/src/hc_main.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              91 entries across 4 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  4 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "HcIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "HcIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  PASS  telemetry.source                  link
+  PASS  PRE entries                       1 multicast group(s) and 1 clone session(s); every replica names a port the model builds
+  PASS  gRPC port block                   30051-30054 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  hc_main.json sha256:1afcae66157d4761  hc_main.p4.p4info.txtpb sha256:5ce0a5595d5a65f1
+
+PASS -- every check passed
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/test_workflow/heartbeat_drop_check.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A --json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/dropcheck.A.json
+rc=0
+heartbeat drop check (checked): hc_alt.json (sha256 25d01359b212, dpid 1, ports 1,2,3,4,5, CPU port 510): DROPPED -- every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped; port 4: dropped; port 5: dropped
+heartbeat drop check (checked): hc_main.json (sha256 e9650de31fe9, dpid 2,3,4, ports 1,2,3, CPU port 510): DROPPED -- every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped
+  limit: only the declared program's default (table-miss) behaviour was checked: no controller, no table entries, no clone session, no multicast group. Entries, sessions and groups the external controller installs later are not covered, and neither is a pipeline it pushes itself or a default action it changes at runtime.
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/test_workflow/heartbeat_drop_check.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A-MUT --json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/dropcheck.A-MUT.json
+rc=0
+heartbeat drop check (checked): hc_alt.json (sha256 b69b18a18054, dpid 1, ports 1,2,3,4,5, CPU port 510): DROPPED -- every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped; port 4: dropped; port 5: dropped
+heartbeat drop check (checked): hc_main.json (sha256 4144a64f1e5c, dpid 2,3,4, ports 1,2,3, CPU port 510): DROPPED -- every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped
+  limit: only the declared program's default (table-miss) behaviour was checked: no controller, no table entries, no clone session, no multicast group. Entries, sessions and groups the external controller installs later are not covered, and neither is a pipeline it pushes itself or a default action it changes at runtime.
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/test_workflow/heartbeat_drop_check.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/B --json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/dropcheck.B.json
+rc=0
+heartbeat drop check (cached): hc_alt.json (sha256 25d01359b212, dpid 1, ports 1,2,3,4,5, CPU port 510): DROPPED -- every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped; port 4: dropped; port 5: dropped
+heartbeat drop check (cached): hc_main.json (sha256 e9650de31fe9, dpid 2,3,4, ports 1,2,3, CPU port 510): DROPPED -- every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped
+  limit: only the declared program's default (table-miss) behaviour was checked: no controller, no table entries, no clone session, no multicast group. Entries, sessions and groups the external controller installs later are not covered, and neither is a pipeline it pushes itself or a default action it changes at runtime.
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/test_workflow/heartbeat_drop_check.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/C --json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/dropcheck.C.json
+rc=0
+heartbeat drop check (cached): hc_alt.json (sha256 25d01359b212, dpid 1, ports 1,2,3,4,5, CPU port 510): DROPPED -- every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped; port 4: dropped; port 5: dropped
+heartbeat drop check (cached): hc_main.json (sha256 e9650de31fe9, dpid 2,3,4, ports 1,2,3, CPU port 510): DROPPED -- every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped
+  limit: only the declared program's default (table-miss) behaviour was checked: no controller, no table entries, no clone session, no multicast group. Entries, sessions and groups the external controller installs later are not covered, and neither is a pipeline it pushes itself or a default action it changes at runtime.
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/test_workflow/heartbeat_drop_check.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/FWD --json /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/dropcheck.FWD.json
+rc=1
+heartbeat drop check (checked): hc_alt.json (sha256 264f54b75f44, dpid 1, ports 1,2,3,4,5, CPU port 510): NOT_DROPPED -- port 1: FORWARDED out of fabric port 1; port 2: FORWARDED out of fabric port 1; port 3: FORWARDED out of fabric port 1; port 4: FORWARDED out of fabric port 1; port 5: FORWARDED out of fabric port 1; frames left the switch on attached port(s) 1 (5)
+heartbeat drop check (checked): hc_main.json (sha256 35df5aca4384, dpid 2,3,4, ports 1,2,3, CPU port 510): NOT_DROPPED -- port 1: FORWARDED out of fabric port 1; port 2: FORWARDED out of fabric port 1; port 3: FORWARDED out of fabric port 1; frames left the switch on attached port(s) 1 (3)
+  limit: only the declared program's default (table-miss) behaviour was checked: no controller, no table entries, no clone session, no multicast group. Entries, sessions and groups the external controller installs later are not covered, and neither is a pipeline it pushes itself or a default action it changes at runtime.
+
+$ /home/adam/p4dev-python-venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_exercise/run_external_controller.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/B /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_health/controller_ext.py --tutorials-utils /home/adam/tutorials/utils --dry-run
+rc=0
+package  : p4-health-B  (mode external, grpc_base 30050)
+controller: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_health/controller_ext.py
+cwd       : /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/exercise
+rewrites this package's switches would receive:
+  s1: 127.0.0.1:50051 device_id=0  ->  localhost:30051 device_id=1
+  s2: 127.0.0.1:50052 device_id=1  ->  localhost:30052 device_id=2
+  s3: 127.0.0.1:50053 device_id=2  ->  localhost:30053 device_id=3
+  s4: 127.0.0.1:50054 device_id=3  ->  localhost:30054 device_id=4
+(--dry-run: nothing was imported, patched or run)
+
+$ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/tools/p4_health/openapi_probe.py --repo /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate
+rc=0
+{
+  "constructor_kwargs": [
+    "description",
+    "title"
+  ],
+  "main_py_line": 44,
+  "openapi_url": "/openapi.json",
+  "paths": {
+    "/p4/counter/{name}": [
+      "GET"
+    ],
+    "/p4/multicast_group": [
+      "POST"
+    ],
+    "/p4/readopt/{dpid}": [
+      "POST"
+    ],
+    "/p4/switch_state": [
+      "GET"
+    ],
+    "/p4/table_entry": [
+      "POST"
+    ],
+    "/ryu_server/all_destination_paths": [
+      "GET"
+    ],
+    "/sflow/stats": [
+      "GET"
+    ],
+    "/stats/flow/{dpid}": [
+      "GET"
+    ],
+    "/stats/flowentry/add": [
+      "POST"
+    ],
+    "/stats/flowentry/delete": [
+      "POST"
+    ],
+    "/stats/flowentry/delete_strict": [
+      "POST"
+    ],
+    "/stats/flowentry/modify": [
+      "POST"
+    ],
+    "/v1.0/topology/hosts": [
+      "GET"
+    ],
+    "/v1.0/topology/links": [
+      "GET"
+    ],
+    "/v1.0/topology/switches": [
+      "GET"
+    ]
+  },
+  "status": 200
+}
+

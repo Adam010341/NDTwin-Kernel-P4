@@ -1,0 +1,322 @@
+commit 0b95d0b87df859c902bb8e9b976891dacef761f3
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/r5tests/gate  tracked-dirty=0  df_free_mb=3100  command: setsid --wait p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial.py /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/r5tests/gate /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-r5tests.json
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+started stock #1 pid 793872 thrift 29500 grpc 29650
+boot write pid 793906 BOOT_ID 9671bb903ef24f1f9ada03ee337aeafb: t8 GREEN
+boot read pid 793994 BOOT_ID 5d5a80e743c1405f8034d2bb8013f543: t8 GREEN
+boot lostanswer pid 794055 BOOT_ID 07a4e9304c994bd3ae976807c9ecdbb8: t8 GREEN
+boot read pid 794111 BOOT_ID d2483ab8c7ea432e93c80c66dd5ef4ba: t8 GREEN
+stopped stock #1 pid 793872 rc -15 (under a running proxy)
+started stock #2 pid 794220 thrift 29500 grpc 29650
+boot readopt pid 794184 BOOT_ID 9eda20d5f0dc4ece99b0b4e9cadb078e: t8 GREEN
+stopped stock pid 794220 rc -15
+started stock #3 pid 794311 thrift 29500 grpc 29650
+boot read pid 794345 BOOT_ID 73bdf6b3fd094c32a1bc8af68d56dee8: t8 GREEN
+stopped stock #3 pid 794311 rc -15
+started fast #1 pid 794401 thrift 29500 grpc 29650
+boot write pid 794435 BOOT_ID cb150ce7f62e475ba217bbddb84fb258: t8 GREEN
+boot read pid 794527 BOOT_ID 101d2204b92a44fa9567462cff230ea1: t8 GREEN
+boot lostanswer pid 794597 BOOT_ID 99d0302a787c4f358bcd917773e2ee50: t8 GREEN
+boot read pid 794670 BOOT_ID 57305a60492c4bec87eb64326e69aae7: t8 GREEN
+stopped fast #1 pid 794401 rc -15 (under a running proxy)
+started fast #2 pid 794783 thrift 29500 grpc 29650
+boot readopt pid 794745 BOOT_ID b31bc485e840405b8176a5fd9ac1ea4e: t8 GREEN
+stopped fast pid 794783 rc -15
+started fast #3 pid 794859 thrift 29500 grpc 29650
+boot read pid 794896 BOOT_ID 28dd339868d045e2864a3fda700be7d5: t8 GREEN
+stopped fast #3 pid 794859 rc -15
+started m1-stock #1 pid 794965 thrift 29500 grpc 29650
+boot m1a pid 795009 BOOT_ID 81b0a6e56aa2440e89458ab5a58e2792: t8 GREEN
+boot read pid 795052 BOOT_ID 7ce1dff243b840c688ca1329a20257ea: t8 GREEN
+boot m1b pid 795134 BOOT_ID 71bb6f8c1d1c45999b43e6c8106da953: t8 GREEN
+boot read pid 795193 BOOT_ID 3704648e3bcd4f91aae985c0d1a94290: t8 GREEN
+stopped m1-stock pid 794965 rc -15
+started m1-fast #1 pid 795236 thrift 29500 grpc 29650
+boot m1a pid 795270 BOOT_ID c49609fffe88467eba2b3206e2bcf5e5: t8 GREEN
+boot read pid 795375 BOOT_ID a060ea4f4d3443e49db48ae9fa4ee7b8: t8 GREEN
+boot m1b pid 795409 BOOT_ID 3b3917a288c8429b9b4692a6475c054c: t8 GREEN
+boot read pid 795451 BOOT_ID c5b2c01873534ba5b0936c92f39ed70e: t8 GREEN
+stopped m1-fast pid 795236 rc -15
+started m2-stock #1 pid 795487 thrift 29500 grpc 29650
+boot m2 pid 795521 BOOT_ID c00b3016941d475dacab2edb298756b8: t8 GREEN
+boot read pid 795578 BOOT_ID 89cefff562b34881bcc87343d2863fe5: t8 GREEN
+boot read pid 795658 BOOT_ID aa8ec5d0ae9a46d387708edea4acad3b: t8 GREEN
+stopped m2-stock pid 795487 rc -15
+started m2b-stock #1 pid 795771 thrift 29500 grpc 29650
+boot m2a pid 795805 BOOT_ID 90be958b4f8844c7a0f5f1c3c0ca9d8f: t8 GREEN
+boot read pid 795858 BOOT_ID 820fb136478b432ca8cebc54ebab8164: t8 GREEN
+boot m2c pid 795902 BOOT_ID 8c550f624b0146629c9084245318b647: t8 GREEN
+boot read pid 795962 BOOT_ID aeafc6cfda684acf9b1685934d31dfb0: t8 GREEN
+boot read pid 796036 BOOT_ID fa0978ed17494c95830e0e56a2222f70: t8 GREEN
+stopped m2b-stock pid 795771 rc -15
+started m2-fast #1 pid 796127 thrift 29500 grpc 29650
+boot m2 pid 796161 BOOT_ID 3200a48039a64e2b954453cc17d63c14: t8 GREEN
+boot read pid 796215 BOOT_ID 32ae0830e1ac4c65aaaeb3c35e06d053: t8 GREEN
+boot read pid 796271 BOOT_ID f5c37a9ffd1044e3a59e5cafcbfbea32: t8 GREEN
+stopped m2-fast pid 796127 rc -15
+started m2b-fast #1 pid 796319 thrift 29500 grpc 29650
+boot m2a pid 796357 BOOT_ID c43a590377aa48f983f9a6884d48789f: t8 GREEN
+boot read pid 796408 BOOT_ID b160dca46ed249c1b8dbbc202146883f: t8 GREEN
+boot m2c pid 796450 BOOT_ID b9af46a850564eb3abd2f881839037b1: t8 GREEN
+boot read pid 796501 BOOT_ID 4eb99c7db4814998aafb2361e0c45e47: t8 GREEN
+boot read pid 796563 BOOT_ID 29ff710904984f52b1bf65cc4460fd80: t8 GREEN
+stopped m2b-fast pid 796319 rc -15
+started m2r-stock #1 pid 796639 thrift 29500 grpc 29650
+stopped m2r-stock #1 pid 796639 rc -15 (under a running proxy)
+started m2r-stock #2 pid 796754 thrift 29500 grpc 29650
+boot m2r pid 796694 BOOT_ID a55d464c5964439789875a1aebe98094: t8 GREEN
+boot read pid 796858 BOOT_ID a92654ff0d024d6b8e6b93d812c24c09: t8 GREEN
+stopped m2r-stock pid 796754 rc -15
+started m2r-fast #1 pid 796925 thrift 29500 grpc 29650
+stopped m2r-fast #1 pid 796925 rc -15 (under a running proxy)
+started m2r-fast #2 pid 796996 thrift 29500 grpc 29650
+boot m2r pid 796959 BOOT_ID 3f5774efa73c4402b0bd90f13e7ab948: t8 GREEN
+boot read pid 797080 BOOT_ID e30e0cb23c284dd7b2fc0b4d12bf4b1e: t8 GREEN
+stopped m2r-fast pid 796996 rc -15
+stock /usr/local/bin/simple_switch_grpc
+      ok   boot1 posts 200,200,200,502,200
+      ok   boot1 the 502 is the switch's NOT_FOUND
+      ok   boot1 every 200 says journaled true
+      ok   boot1 the not_found delete is recorded
+      ok   boot1 startup on a fresh switch: fresh_fabric, FAILED_PRECONDITION
+      ok   boot1 T8 GREEN
+      ok   boot2 a new proxy process
+      ok   boot2 cookie confirmed, not fresh
+      ok   boot2 the same generation
+      ok   boot2 replay complete 4/4
+      ok   boot2 restored ops: four inserts (priority 20 is an insert)
+      ok   boot2 journaled true
+      ok   boot2 T8 GREEN
+      ok   boot2 thrift: exact, lpm and both ternary entries are on the switch
+      ok   boot2 thrift: the same entry counts as after boot 1
+      ok   boot2 P4Runtime read: every entry, match and action params, equal to boot 1's
+      ok   boot2 header names boot 2
+      ok   boot3 lost-answer deletes: the retries are NOT_FOUND, then S is a 200
+      ok   boot3 B and B2 are off the switch, S is on
+      ok   boot4 B, re-installed by the package, is deleted again
+      ok   boot4 B2 ends as S (the insert met ALREADY_EXISTS and was retried as a modify)
+      ok   boot4 replay complete, nothing failed
+      ok   boot4 snapshot: B's delete, and S with its unknown start
+      ok   boot5 readopt of the restarted bmv2 succeeded
+      ok   boot5 a POST while the readopt is pending is 503 replay pending
+      ok   boot5 the readopt's push carries G
+      ok   boot5 the readopt replayed (not fresh)
+      ok   boot5 after the readopt the switch holds exactly what it held after boot 4
+      ok   boot6 fresh bmv2: fresh_fabric, FAILED_PRECONDITION
+      ok   boot6 nothing replayed
+      ok   boot6 thrift: none of the API's entries
+      ok   boot6 live journal: a header and nothing else
+      ok   boot6 the warm journal is set aside byte for byte
+      ok   boot6 a new generation
+      ok   every boot exited 0
+fast  /usr/local/bmv2-fast/bin/simple_switch_grpc
+      ok   boot1 posts 200,200,200,502,200
+      ok   boot1 the 502 is the switch's NOT_FOUND
+      ok   boot1 every 200 says journaled true
+      ok   boot1 the not_found delete is recorded
+      ok   boot1 startup on a fresh switch: fresh_fabric, FAILED_PRECONDITION
+      ok   boot1 T8 GREEN
+      ok   boot2 a new proxy process
+      ok   boot2 cookie confirmed, not fresh
+      ok   boot2 the same generation
+      ok   boot2 replay complete 4/4
+      ok   boot2 restored ops: four inserts (priority 20 is an insert)
+      ok   boot2 journaled true
+      ok   boot2 T8 GREEN
+      ok   boot2 thrift: exact, lpm and both ternary entries are on the switch
+      ok   boot2 thrift: the same entry counts as after boot 1
+      ok   boot2 P4Runtime read: every entry, match and action params, equal to boot 1's
+      ok   boot2 header names boot 2
+      ok   boot3 lost-answer deletes: the retries are NOT_FOUND, then S is a 200
+      ok   boot3 B and B2 are off the switch, S is on
+      ok   boot4 B, re-installed by the package, is deleted again
+      ok   boot4 B2 ends as S (the insert met ALREADY_EXISTS and was retried as a modify)
+      ok   boot4 replay complete, nothing failed
+      ok   boot4 snapshot: B's delete, and S with its unknown start
+      ok   boot5 readopt of the restarted bmv2 succeeded
+      ok   boot5 a POST while the readopt is pending is 503 replay pending
+      ok   boot5 the readopt's push carries G
+      ok   boot5 the readopt replayed (not fresh)
+      ok   boot5 after the readopt the switch holds exactly what it held after boot 4
+      ok   boot6 fresh bmv2: fresh_fabric, FAILED_PRECONDITION
+      ok   boot6 nothing replayed
+      ok   boot6 thrift: none of the API's entries
+      ok   boot6 live journal: a header and nothing else
+      ok   boot6 the warm journal is set aside byte for byte
+      ok   boot6 a new generation
+      ok   every boot exited 0
+m1-stock /usr/local/bin/simple_switch_grpc
+      ok   m1 steps 1-2: insert at 10 is a 200, delete at 20 is a 502
+      ok   m1 step 2: the 502 is the switch's NOT_FOUND
+      ok   m1 step 2: both are recorded (ok, not_found)
+      ok   m1 step 3 restart: a new proxy process, cookie confirmed
+      ok   m1 step 3 replay complete 2/2: the insert at 10, and the delete at 20 (NOT_FOUND = done)
+      ok   m1 step 3 thrift: the entry at 10 is back
+      ok   m1 step 4: the insert at 20 is a 200 and says journaled
+      ok   m1 step 4 thrift: the entries at 10 and 20 are on the switch
+      ok   m1 step 5 restart: a new proxy process, cookie confirmed
+      ok   m1 step 5 replay complete 2/2, nothing failed, nothing retried
+      ok   m1 step 5 restored ops: two inserts (20 is an insert, not a modify)
+      ok   m1 step 6 thrift: the entries at 10 and 20 are on the switch
+      ok   m1 step 6 P4Runtime read: a ternary entry at priority 20 is on the switch, and the one at 10
+      ok   m1 step 6 P4Runtime read: what is on the switch equals what it held after step 4
+      ok   m1 step 6 the journal holds the insert at 20, recorded ok
+      ok   m1 step 6 journaled true
+      ok   m1 every boot exited 0
+m1-fast /usr/local/bmv2-fast/bin/simple_switch_grpc
+      ok   m1 steps 1-2: insert at 10 is a 200, delete at 20 is a 502
+      ok   m1 step 2: the 502 is the switch's NOT_FOUND
+      ok   m1 step 2: both are recorded (ok, not_found)
+      ok   m1 step 3 restart: a new proxy process, cookie confirmed
+      ok   m1 step 3 replay complete 2/2: the insert at 10, and the delete at 20 (NOT_FOUND = done)
+      ok   m1 step 3 thrift: the entry at 10 is back
+      ok   m1 step 4: the insert at 20 is a 200 and says journaled
+      ok   m1 step 4 thrift: the entries at 10 and 20 are on the switch
+      ok   m1 step 5 restart: a new proxy process, cookie confirmed
+      ok   m1 step 5 replay complete 2/2, nothing failed, nothing retried
+      ok   m1 step 5 restored ops: two inserts (20 is an insert, not a modify)
+      ok   m1 step 6 thrift: the entries at 10 and 20 are on the switch
+      ok   m1 step 6 P4Runtime read: a ternary entry at priority 20 is on the switch, and the one at 10
+      ok   m1 step 6 P4Runtime read: what is on the switch equals what it held after step 4
+      ok   m1 step 6 the journal holds the insert at 20, recorded ok
+      ok   m1 step 6 journaled true
+      ok   m1 every boot exited 0
+m2-stock /usr/local/bin/simple_switch_grpc
+      ok   m2 steps 1-3: delete K is a 200 (it was there), insert S is a 200 and says journaled
+      ok   m2 steps 1-3: the journal holds [delete/ok, insert/ok] and nothing for the insert that went through the client
+      ok   m2 step 3 thrift: S (v 6) is on the switch before any restart
+      ok   m2 step 4 restart: a new proxy process, cookie confirmed
+      ok   m2 step 4 replay complete 1/1, nothing failed
+      ok   m2 step 4 retried_as_insert == [K], retried_as_modify == []
+      ok   m2 step 4 restored op is the journal's modify
+      ok   m2 step 4 thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2 step 4 P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2 step 4 the live journal file ends as [modify/ok S]
+      ok   m2 step 4 journaled true
+      ok   m2 step 5 restart: a new proxy process, cookie confirmed
+      ok   m2 step 5 replay complete 1/1, nothing failed
+      ok   m2 step 5 retried_as_insert == [K], retried_as_modify == []
+      ok   m2 step 5 restored op is the journal's modify
+      ok   m2 step 5 thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2 step 5 P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2 step 5 the live journal file ends as [modify/ok S]
+      ok   m2 step 5 journaled true
+      ok   m2 every boot exited 0
+m2b-stock /usr/local/bin/simple_switch_grpc
+      ok   m2b steps 1-2: delete K is a 200 (it was there)
+      ok   m2b steps 1-2: the journal holds [delete/ok] and nothing for the insert that went through the client
+      ok   m2b restart after step 2: a new proxy process, cookie confirmed
+      ok   m2b restart after step 2: replay complete 1/1, the delete (NOT_FOUND = done), nothing retried
+      ok   m2b restart after step 2: K is not on the switch (thrift and P4Runtime)
+      ok   m2b step 3: insert S is a 200 and says journaled
+      ok   m2b step 3: the journal holds [delete/ok, insert/ok]
+      ok   m2b step 4 restart: a new proxy process, cookie confirmed
+      ok   m2b step 4 replay complete 1/1, nothing failed
+      ok   m2b step 4 retried_as_insert == [K], retried_as_modify == []
+      ok   m2b step 4 restored op is the journal's modify
+      ok   m2b step 4 thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2b step 4 P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2b step 4 the live journal file ends as [modify/ok S]
+      ok   m2b step 4 journaled true
+      ok   m2b step 5 restart: a new proxy process, cookie confirmed
+      ok   m2b step 5 replay complete 1/1, nothing failed
+      ok   m2b step 5 retried_as_insert == [K], retried_as_modify == []
+      ok   m2b step 5 restored op is the journal's modify
+      ok   m2b step 5 thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2b step 5 P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2b step 5 the live journal file ends as [modify/ok S]
+      ok   m2b step 5 journaled true
+      ok   m2b every boot exited 0
+m2-fast /usr/local/bmv2-fast/bin/simple_switch_grpc
+      ok   m2 steps 1-3: delete K is a 200 (it was there), insert S is a 200 and says journaled
+      ok   m2 steps 1-3: the journal holds [delete/ok, insert/ok] and nothing for the insert that went through the client
+      ok   m2 step 3 thrift: S (v 6) is on the switch before any restart
+      ok   m2 step 4 restart: a new proxy process, cookie confirmed
+      ok   m2 step 4 replay complete 1/1, nothing failed
+      ok   m2 step 4 retried_as_insert == [K], retried_as_modify == []
+      ok   m2 step 4 restored op is the journal's modify
+      ok   m2 step 4 thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2 step 4 P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2 step 4 the live journal file ends as [modify/ok S]
+      ok   m2 step 4 journaled true
+      ok   m2 step 5 restart: a new proxy process, cookie confirmed
+      ok   m2 step 5 replay complete 1/1, nothing failed
+      ok   m2 step 5 retried_as_insert == [K], retried_as_modify == []
+      ok   m2 step 5 restored op is the journal's modify
+      ok   m2 step 5 thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2 step 5 P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2 step 5 the live journal file ends as [modify/ok S]
+      ok   m2 step 5 journaled true
+      ok   m2 every boot exited 0
+m2b-fast /usr/local/bmv2-fast/bin/simple_switch_grpc
+      ok   m2b steps 1-2: delete K is a 200 (it was there)
+      ok   m2b steps 1-2: the journal holds [delete/ok] and nothing for the insert that went through the client
+      ok   m2b restart after step 2: a new proxy process, cookie confirmed
+      ok   m2b restart after step 2: replay complete 1/1, the delete (NOT_FOUND = done), nothing retried
+      ok   m2b restart after step 2: K is not on the switch (thrift and P4Runtime)
+      ok   m2b step 3: insert S is a 200 and says journaled
+      ok   m2b step 3: the journal holds [delete/ok, insert/ok]
+      ok   m2b step 4 restart: a new proxy process, cookie confirmed
+      ok   m2b step 4 replay complete 1/1, nothing failed
+      ok   m2b step 4 retried_as_insert == [K], retried_as_modify == []
+      ok   m2b step 4 restored op is the journal's modify
+      ok   m2b step 4 thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2b step 4 P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2b step 4 the live journal file ends as [modify/ok S]
+      ok   m2b step 4 journaled true
+      ok   m2b step 5 restart: a new proxy process, cookie confirmed
+      ok   m2b step 5 replay complete 1/1, nothing failed
+      ok   m2b step 5 retried_as_insert == [K], retried_as_modify == []
+      ok   m2b step 5 restored op is the journal's modify
+      ok   m2b step 5 thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2b step 5 P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2b step 5 the live journal file ends as [modify/ok S]
+      ok   m2b step 5 journaled true
+      ok   m2b every boot exited 0
+m2r-stock /usr/local/bin/simple_switch_grpc
+      ok   m2r steps 1-3: delete K is a 200 (it was there), insert S is a 200 and says journaled
+      ok   m2r steps 1-3: before the readopt the journal holds [delete/ok K, insert/ok S]
+      ok   m2r step 4: the readopt of the restarted bmv2 succeeded
+      ok   m2r step 4: a POST while the readopt is pending is 503 replay pending
+      ok   m2r step 4: the readopt's push carries this boot's generation
+      ok   m2r step 4: the readopt replayed: when readopt, complete 1/1, nothing failed
+      ok   m2r step 4: retried_as_insert == [K], retried_as_modify == []
+      ok   m2r step 4: restored op is the journal's modify
+      ok   m2r step 4: switch_state serves the readopt's replay
+      ok   m2r step 4 (after the readopt) thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2r step 4 (after the readopt) P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2r step 4 (after the readopt) the live journal file ends as [modify/ok S]
+      ok   m2r step 4 (after the readopt) journaled true
+      ok   m2r restart (new process) thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2r restart (new process) P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2r restart (new process) the live journal file ends as [modify/ok S]
+      ok   m2r restart (new process) journaled true
+      ok   m2r restart: a new proxy process, cookie confirmed (the readopt's push)
+      ok   m2r restart: replay complete 1/1, nothing failed, retried_as_insert == [K]
+      ok   m2r every boot exited 0
+m2r-fast /usr/local/bmv2-fast/bin/simple_switch_grpc
+      ok   m2r steps 1-3: delete K is a 200 (it was there), insert S is a 200 and says journaled
+      ok   m2r steps 1-3: before the readopt the journal holds [delete/ok K, insert/ok S]
+      ok   m2r step 4: the readopt of the restarted bmv2 succeeded
+      ok   m2r step 4: a POST while the readopt is pending is 503 replay pending
+      ok   m2r step 4: the readopt's push carries this boot's generation
+      ok   m2r step 4: the readopt replayed: when readopt, complete 1/1, nothing failed
+      ok   m2r step 4: retried_as_insert == [K], retried_as_modify == []
+      ok   m2r step 4: restored op is the journal's modify
+      ok   m2r step 4: switch_state serves the readopt's replay
+      ok   m2r step 4 (after the readopt) thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2r step 4 (after the readopt) P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2r step 4 (after the readopt) the live journal file ends as [modify/ok S]
+      ok   m2r step 4 (after the readopt) journaled true
+      ok   m2r restart (new process) thrift: S (v 6) is on the switch, once, and K's old action (v 5) is not
+      ok   m2r restart (new process) P4Runtime read: one ternary entry, priority 10, v 6
+      ok   m2r restart (new process) the live journal file ends as [modify/ok S]
+      ok   m2r restart (new process) journaled true
+      ok   m2r restart: a new proxy process, cookie confirmed (the readopt's push)
+      ok   m2r restart: replay complete 1/1, nothing failed, retried_as_insert == [K]
+      ok   m2r every boot exited 0
+pids started: simple_switch_grpc stock #1=793872, proxy boot stock #1 (write)=793906, proxy boot stock #2 (read)=793994, proxy boot stock #3 (lostanswer)=794055, proxy boot stock #4 (read)=794111, proxy boot stock #5 (readopt)=794184, simple_switch_grpc stock #2=794220, simple_switch_grpc stock #3=794311, proxy boot stock #6 (read)=794345, simple_switch_grpc fast #1=794401, proxy boot fast #1 (write)=794435, proxy boot fast #2 (read)=794527, proxy boot fast #3 (lostanswer)=794597, proxy boot fast #4 (read)=794670, proxy boot fast #5 (readopt)=794745, simple_switch_grpc fast #2=794783, simple_switch_grpc fast #3=794859, proxy boot fast #6 (read)=794896, simple_switch_grpc m1-stock #1=794965, proxy boot m1-stock #1 (m1a)=795009, proxy boot m1-stock #2 (read)=795052, proxy boot m1-stock #3 (m1b)=795134, proxy boot m1-stock #4 (read)=795193, simple_switch_grpc m1-fast #1=795236, proxy boot m1-fast #1 (m1a)=795270, proxy boot m1-fast #2 (read)=795375, proxy boot m1-fast #3 (m1b)=795409, proxy boot m1-fast #4 (read)=795451, simple_switch_grpc m2-stock #1=795487, proxy boot m2-stock #1 (m2)=795521, proxy boot m2-stock #2 (read)=795578, proxy boot m2-stock #3 (read)=795658, simple_switch_grpc m2b-stock #1=795771, proxy boot m2b-stock #1 (m2a)=795805, proxy boot m2b-stock #2 (read)=795858, proxy boot m2b-stock #3 (m2c)=795902, proxy boot m2b-stock #4 (read)=795962, proxy boot m2b-stock #5 (read)=796036, simple_switch_grpc m2-fast #1=796127, proxy boot m2-fast #1 (m2)=796161, proxy boot m2-fast #2 (read)=796215, proxy boot m2-fast #3 (read)=796271, simple_switch_grpc m2b-fast #1=796319, proxy boot m2b-fast #1 (m2a)=796357, proxy boot m2b-fast #2 (read)=796408, proxy boot m2b-fast #3 (m2c)=796450, proxy boot m2b-fast #4 (read)=796501, proxy boot m2b-fast #5 (read)=796563, simple_switch_grpc m2r-stock #1=796639, proxy boot m2r-stock #1 (m2r)=796694, simple_switch_grpc m2r-stock #2=796754, proxy boot m2r-stock #2 (read)=796858, simple_switch_grpc m2r-fast #1=796925, proxy boot m2r-fast #1 (m2r)=796959, simple_switch_grpc m2r-fast #2=796996, proxy boot m2r-fast #2 (read)=797080
+ALL CHECKS PASS
+rc=0

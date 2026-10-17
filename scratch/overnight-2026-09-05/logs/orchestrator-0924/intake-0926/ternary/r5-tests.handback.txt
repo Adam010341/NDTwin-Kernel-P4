@@ -1,0 +1,145 @@
+r5-tests handback (feat/p4-journal-r5-tests), 2026-10-16
+=========================================================
+
+Branch head: 0b95d0b87df859c902bb8e9b976891dacef761f3 (one commit on 39bdb614; worktree
+scratch/overnight-2026-09-05/wt-p4-journal-r5-tests, clean). Not pushed, not merged, no PR.
+Files: p4_proxy/tests/test_table_entry_replay.py (+151/-1), tests/shell/mutate_table_journal.sh (+71).
+No product code (p4_proxy/proxy_agent/*) changed. The commit message was scanned for the banned words,
+mutant IDs and trailers: none found.
+Logs: L = scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/
+
+DEFECTS FOUND: none. All six new tests went green on unchanged product code, and each one asserts the
+behaviour the ruled design specifies (SUMMARY-cut-c §13 rulings 6/7, the api_routes POST docstring,
+DESIGN:818).
+
+Per item (test file = p4_proxy/tests/test_table_entry_replay.py, line numbers at 0b95d0b8)
+-------------------------------------------------------------------------------------------
+1. Pin the disclosed stale drop, on start and on readopt.
+   - start:   AModifyThatFindsNothingTest.test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_start_after_an_entries_edit (:1686)
+   - readopt: AModifyThatFindsNothingTest.test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_readopt_after_an_entries_edit (:1698)
+   The journal holds [delete/ok K, insert S], with K's insert never recorded. The first restart puts S back
+   through the insert retry, and the journal keeps it as a modify. Then the entries file is edited (the
+   package entry's port goes from 9 to 8), and the next start or readopt runs. The shared helper
+   assert_s_was_dropped_as_stale (:1663) checks:
+   - S is not on the switch; the edited package entry is.
+   - The only write is the package's insert (no modify, no insert retry).
+   - attempted/succeeded/stale_entries = 1/0/1; retried_as_insert = [].
+   - failed has a single item {K, op modify, kept False, no retried_as}; status "failed".
+   - /p4/switch_state's journal.replay.failed[0].reason is exactly the stale_entries text (STALE_REASON, :1659).
+   - The live journal is empty, and S's record is in the newest set-aside file.
+   Red evidence:
+   - M-J140 (s140; anchor: the `report["failed"].append({"entry": entry, "reason": _STALE_ENTRIES, "kept": False})`
+     line of rule_journal.py) reports the stale drop with the stale_pipeline reason. The start test goes red at
+     :1679 (the reason assertion), and the readopt test and item 2's test go red with it.
+   - M-J141 (s141; anchor: main.py `table_journal_header(dpid, package), api_routes._is_not_found,`) makes a
+     readopt take its entries digest from the journal header. Only the readopt test goes red, at :1664
+     "S is not put back" (1 != 0).
+   - A behaviour variant, used on purpose and not added to the gate, made only net deletes stale. The start
+     test, the readopt test and item 2's test went red at :1664, along with the existing
+     test_a_changed_entries_file_... at :846. Log: L/red_item1_behaviour_variant.log
+   Red logs: L/red_new_tests_under_new_mutants.log and the gate log L/mutate_table_journal.log (each caught
+   line now has an assertion line under it).
+
+2. Entries-file edit before the FIRST restart.
+   AModifyThatFindsNothingTest.test_an_entries_edit_before_the_first_restart_drops_a_net_modify_the_post_journaled (:1712)
+   Same journal as item 1. The test asserts the POST of S answered journaled: true. The entries file is then
+   edited before any restart, and the first start drops S as stale (same helper).
+   Red: M-J142 (s142; anchor `            if entries_changed and item["op"] != "insert":`) makes only one-record
+   modifies/deletes stale. This test goes red at :1664 "S is not put back". It is the only test that does.
+
+3. ALREADY_EXISTS -> modify retry whose answer is lost.
+   Inference CONFIRMED (ran it). I applied the variant `unknown_outcome = (outcome_unknown is not None and
+   retried_as != "modify" and outcome_unknown(exc))` at 39bdb614 and ran the gate's six modules: Ran 541,
+   OK (the variant survives). M-J138 itself is red in the same run at :1566 (kept). Log:
+   L/item3_inference_at_39bdb614.log (variant JSON in L/item3_variant.json).
+   New test: ALostAnswerOnABootEntryTest.test_a_modify_fallback_whose_answer_is_lost_stays_in_the_journal_for_the_next_start (:1359)
+   It checks:
+   - The modify fallback is sent, lands, and gets DEADLINE_EXCEEDED.
+   - failed[0] has retried_as "modify", entry op "insert", kept True.
+   - The snapshot is [delete/not_found, insert/ok].
+   - At the next start S is back, port 9 is gone, and the replay is complete.
+   Red: M-J143 (s143 = that variant; anchor `                unknown_outcome = outcome_unknown is not None and outcome_unknown(exc)`).
+   This test goes red at :1375 (kept: False is not True). It is the only test that does.
+
+4. Readopt: a net delete that meets NOT_FOUND reports complete.
+   - AReadoptReplaysTest.test_a_readopts_net_delete_that_meets_not_found_is_restored_and_complete (:1001).
+     This is the readopt mirror of the existing startup test: the package entry was deleted by POST, and at
+     the readopt the package's insert of it is refused. It checks 2/2/[] and status complete, restored ops
+     [delete, insert], and switch_state status complete. The delete stays in the live file.
+   - AReadoptReplaysTest.test_a_readopts_lone_not_found_delete_is_restored_and_complete (:1028). This is the
+     unknown-start variant: insert at 10, then a NOT_FOUND delete at 20, then readopt. It checks complete,
+     failed [], and that the live file is [10 insert/ok, 20 delete/not_found, 20 delete/ok].
+   Red: M-J144 (s144; anchor: the two-line `if (item["op"] == "delete" and is_not_found is not None` /
+   `and is_not_found(exc)):` in rule_journal.py, given `and when == "startup"`). Both tests go red: :1018
+   (2,1,[...]) and :1035 (partial). No existing test goes red.
+
+   Unique kills: under each of M-J140..144 the other 541 tests of the gate's six modules stayed green. So
+   none of the five mutations is killed by the tests that existed before this branch
+   (L/red_new_tests_under_new_mutants.log, run on the worktree with the new tests, before the commit; test
+   file sha256 5038731b713225cf, the same content as committed).
+
+5. bmv2 readopt of A (the insert retry).
+   New trial sequence m2r, one per binary (stock and fast). Scripts are copied into L from
+   merged-trunk-1015/: trial.py gets one_m2r/judge_m2r and TRIAL_ONLY_M2R; trial_boot.py gets plan m2r and
+   the readopt block factored out unchanged; trial_run.sh has only L changed. The sequence:
+   - In one proxy process: K is inserted straight through the client, then POST delete K (200), then POST
+     insert S (200, journaled).
+   - The bmv2 is restarted under the proxy and re-adopted with main.readopt_switch and the real
+     TopologyManager. This readopt is the first replay of the modify.
+   - A new proxy process then starts on the re-adopted switch.
+   Twenty checks per binary, including:
+   - A POST while the readopt is pending gets 503.
+   - The push carries G.
+   - The readopt replay is complete 1/1 with retried_as_insert == [K] and the journal's op as the restored op.
+   - S (v 6) is read back by thrift and by P4Runtime after the readopt and after the restart.
+   - The live journal is [modify/ok S].
+   - journaled is true.
+   Runs (one clone, guard + mexec before each step):
+   - At head 0b95d0b8 (every sequence): L/trial-r5tests.log, ALL CHECKS PASS, rc=0, 232 ok (192 for the
+     earlier sequences plus 40 for m2r), 0 FAIL. The post-scan left no bmv2 behind.
+   - Red control at 7f69609b, the commit before the insert retry (TRIAL_ONLY_M2R=1):
+     L/trial-r5tests-red.log, NOT ALL CHECKS PASS, rc=1, 22 FAIL lines (11 per binary: the readopt replay,
+     the retry, S on the switch, the journal). The post-scan left no bmv2 behind.
+
+6. Name the failing assertion when a mutant is killed. Done; the harness change is small and contained.
+   - Gate: assertion_of() in tests/shell/mutate_table_journal.sh (:94; it is an awk over the unittest output,
+     called at :139 after each "caught" line). It prints the deepest tests/ frame of the named test's
+     FAIL/ERROR block (file:line and the source line) and the exception's first line. The verdict logic is
+     unchanged, and seen_red.py parses the gate log as before (224/224).
+     In the gate run it printed 200 assertion lines for 198 catches. M-J90's named method exists in more than
+     one class, so it got three blocks. The gate has always matched the named killer by method name only;
+     this change makes that visible.
+   - quickmut: L/quickmut2.py, a copy of r5/quickmut.py, which is left untouched. It prints the same
+     assertion for every FAIL/ERROR, takes ad-hoc variants (--adhoc JSON) and a module list. It is not in
+     the repo.
+   - check_gate_anchors at 0b95d0b8 and 39bdb614: 274/274 ok, mutate_table_journal.sh ok(174) at both
+     (L/gate_anchors.log). The count does not change because all five new anchors are already existing
+     anchors of this gate, which the tool deduplicates. L/gate_anchors_new_block_parsed.log shows the parser
+     does read all five new calls: I tagged their anchors in a copy, and extract() returned all five with
+     the right file and want=1.
+
+Gates run on the branch head (clone at 0b95d0b8, all in L; the verdict is the last rc= line of each log)
+-------------------------------------------------------------------------------------------------------
+- journal mutation gate: `mutation gate: 198 mutations, 0 survived`, rc=0 (L/mutate_table_journal.log, line 1
+  is `commit 0b95d0b8…`). 198 = 193 + M-J140..144; the 9 controls are green.
+- journal tests seen red: `tests: 224, seen red: 224, never seen red: 0` (L/journal_tests_seen_red.log).
+- two journal test files: Ran 224, OK (L/two_test_files_whole.log).
+- check_gate_anchors in the clone: 137/137 (L/gate_anchors_clone.log).
+- p4lane: FAILURES=0 (L/p4lane.log).
+- Trials: as in item 5.
+- Every step was preceded by merged-trunk-1015/guard.sh (all exit 0 at first try, df 3000-3460 MB) and
+  launched through mexec.sh: `mexec: SigBlk 0000000000010000 & 0x4203 == 0, exec` in every step's guard
+  log. driver.log line 1 records the driver shell's own SigBlk as 0x2. That value was read inside a command
+  substitution, which is the waiting-shell artefact guard.sh's comment describes; guard's own reading of
+  the shell and of the child was 0 every time.
+- Driver: L/r5t_run.sh (driver.log). The clone was in the scratchpad (r5tests/gate) and has been removed.
+
+What I ran vs only read
+-----------------------
+RAN: everything listed above under Gates and items 1-6, plus the base runs in quickmut2 (Ran 541 OK at
+39bdb614; Ran 547 OK with the new tests).
+READ ONLY, NOT RUN: test_readopt.py. Item 4's tests are in test_table_entry_replay.py so that the gate covers
+them; the gate's module list does not include test_readopt.py. I also did not run the health shards, the
+other mutate_*.sh gates, klane, or S0.
+
+[Co-developed with claude code -- Adam]

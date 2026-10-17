@@ -1,0 +1,4 @@
+commit cc0bca4bde02d6611935508ae49a3d3790d6ffbe
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate  command: bash tests/shell/sum_p4_health_gate_shards.sh --commit cc0bca4bde02d6611935508ae49a3d3790d6ffbe <4 shard logs>
+GATE: 517 mutations, 0 survived, shards 4/4 ok, commit cc0bca4bde02d6611935508ae49a3d3790d6ffbe, tree fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26, subject sha e69a74d976c1a022
+rc=0

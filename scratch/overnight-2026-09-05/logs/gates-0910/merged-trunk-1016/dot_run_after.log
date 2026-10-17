@@ -1,0 +1,8 @@
+commit cc0bca4bde02d6611935508ae49a3d3790d6ffbe
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate  tracked-dirty=0  df_free_mb=3480  LANG=en_US.UTF-8 LC_ALL=  command: bash -c cd p4_proxy && if [ -e .run ]; then echo "p4_proxy/.run EXISTS:"; find .run | head; exit 1; else echo "p4_proxy/.run does not exist"; fi
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+command's own program /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+p4_proxy/.run does not exist
+rc=0

@@ -1,0 +1,41 @@
+worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-journal-r5-tests at 39bdb614142eebf4506c8f883908dd8bfb0eefdd + uncommitted new tests/mutants (tracked-dirty=2); sha256 test_table_entry_replay.py 5038731b713225cf mutate_table_journal.sh 81e22512f1be3005
+command: quickmut2.py <worktree> <venv python> --modules <the gate's six> --build <main checkout p4_src/build> base s140 s141 s142 s143 s144
+base: the unmutated copy
+   rc=0 ['Ran 547 tests in 12.782s', 'OK']
+s140: M-J140: a modify or delete dropped because the entries file changed is reported with the p4info's reason
+   named test: test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_start_after_an_entries_edit  -> RED
+   assertion: tests/test_table_entry_replay.py:1679 self.assertEqual(served["failed"][0]["reason"], self.STALE_REASON, -> AssertionError: 'stale_pipeline: the p4info this journal [41 chars] now' != "stale_entries: the package's entries fil[63 chars]ries"
+   rc=1 ['Ran 547 tests in 24.172s', 'FAILED (failures=3)']
+   FAIL: test_an_entries_edit_before_the_first_restart_drops_a_net_modify_the_post_journaled (tests.test_table_entry_replay.AModifyThatFindsNothingTest.test_an_entries_edit_before_the_first_restart_drops_a_net_modify_the_post_journaled)
+        at tests/test_table_entry_replay.py:1679 self.assertEqual(served["failed"][0]["reason"], self.STALE_REASON, -> AssertionError: 'stale_pipeline: the p4info this journal [41 chars] now' != "stale_entries: the package's entries fil[63 chars]ries"
+   FAIL: test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_readopt_after_an_entries_edit (tests.test_table_entry_replay.AModifyThatFindsNothingTest.test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_readopt_after_an_entries_edit)
+        at tests/test_table_entry_replay.py:1679 self.assertEqual(served["failed"][0]["reason"], self.STALE_REASON, -> AssertionError: 'stale_pipeline: the p4info this journal [41 chars] now' != "stale_entries: the package's entries fil[63 chars]ries"
+   FAIL: test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_start_after_an_entries_edit (tests.test_table_entry_replay.AModifyThatFindsNothingTest.test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_start_after_an_entries_edit)
+        at tests/test_table_entry_replay.py:1679 self.assertEqual(served["failed"][0]["reason"], self.STALE_REASON, -> AssertionError: 'stale_pipeline: the p4info this journal [41 chars] now' != "stale_entries: the package's entries fil[63 chars]ries"
+s141: M-J141: a readopt takes the entries digest from the journal's header, so an entries file edited since is not s
+   named test: test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_readopt_after_an_entries_edit  -> RED
+   assertion: tests/test_table_entry_replay.py:1664 self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0, "S is not put back") -> AssertionError: 1 != 0 : S is not put back
+   rc=1 ['Ran 547 tests in 14.541s', 'FAILED (failures=1)']
+   FAIL: test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_readopt_after_an_entries_edit (tests.test_table_entry_replay.AModifyThatFindsNothingTest.test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_readopt_after_an_entries_edit)
+        at tests/test_table_entry_replay.py:1664 self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0, "S is not put back") -> AssertionError: 1 != 0 : S is not put back
+s142: M-J142: only a one-record modify or delete is stale after an entries edit, so a deleted and re-inserted entry 
+   named test: test_an_entries_edit_before_the_first_restart_drops_a_net_modify_the_post_journaled  -> RED
+   assertion: tests/test_table_entry_replay.py:1664 self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0, "S is not put back") -> AssertionError: 1 != 0 : S is not put back
+   rc=1 ['Ran 547 tests in 16.401s', 'FAILED (failures=1)']
+   FAIL: test_an_entries_edit_before_the_first_restart_drops_a_net_modify_the_post_journaled (tests.test_table_entry_replay.AModifyThatFindsNothingTest.test_an_entries_edit_before_the_first_restart_drops_a_net_modify_the_post_journaled)
+        at tests/test_table_entry_replay.py:1664 self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0, "S is not put back") -> AssertionError: 1 != 0 : S is not put back
+s143: M-J143: a modify fallback that gets no answer is taken for a refusal, so its record is dropped
+   named test: test_a_modify_fallback_whose_answer_is_lost_stays_in_the_journal_for_the_next_start  -> RED
+   assertion: tests/test_table_entry_replay.py:1375 self.assertIs(failed["kept"], True, "no answer: the modify may have landed") -> AssertionError: False is not True : no answer: the modify may have landed
+   rc=1 ['Ran 547 tests in 13.527s', 'FAILED (failures=1)']
+   FAIL: test_a_modify_fallback_whose_answer_is_lost_stays_in_the_journal_for_the_next_start (tests.test_table_entry_replay.ALostAnswerOnABootEntryTest.test_a_modify_fallback_whose_answer_is_lost_stays_in_the_journal_for_the_next_start)
+        at tests/test_table_entry_replay.py:1375 self.assertIs(failed["kept"], True, "no answer: the modify may have landed") -> AssertionError: False is not True : no answer: the modify may have landed
+s144: M-J144: a readopt's net delete that meets NOT_FOUND is a failure, so the readopt reports partial and drops the
+   named test: test_a_readopts_net_delete_that_meets_not_found_is_restored_and_complete  -> RED
+   assertion: tests/test_table_entry_replay.py:1018 self.assertEqual((report["attempted"], report["succeeded"], report["failed"]), (2, 2, [])) -> AssertionError: Tuples differ: (2, 1, [{'entry': {'key': 'cbee8d25556754f76c[230 chars]se}]) != (2, 2, [])
+   rc=1 ['Ran 547 tests in 13.791s', 'FAILED (failures=2)']
+   FAIL: test_a_readopts_lone_not_found_delete_is_restored_and_complete (tests.test_table_entry_replay.AReadoptReplaysTest.test_a_readopts_lone_not_found_delete_is_restored_and_complete)
+        at tests/test_table_entry_replay.py:1035 self.assertEqual((report["when"], report["status"], report["failed"]), -> AssertionError: Tuples differ: ('readopt', 'partial', [{'entry': {'key': '1c6c7e7d369[274 chars]se}]) != ('readopt', 'complete', [])
+   FAIL: test_a_readopts_net_delete_that_meets_not_found_is_restored_and_complete (tests.test_table_entry_replay.AReadoptReplaysTest.test_a_readopts_net_delete_that_meets_not_found_is_restored_and_complete)
+        at tests/test_table_entry_replay.py:1018 self.assertEqual((report["attempted"], report["succeeded"], report["failed"]), (2, 2, [])) -> AssertionError: Tuples differ: (2, 1, [{'entry': {'key': 'cbee8d25556754f76c[230 chars]se}]) != (2, 2, [])
+rc=0

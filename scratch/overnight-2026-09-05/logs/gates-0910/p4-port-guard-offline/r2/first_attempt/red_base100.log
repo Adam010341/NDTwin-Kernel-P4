@@ -1,0 +1,54 @@
+start 2026-10-16T16:55:59+08:00
+clone /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2 HEAD 383be526909be92e68fa565c40f78bba9ca5b46b
+status --porcelain:
+?? build
+?? p4_proxy/tests/test_pg_mut_base100.py
+?? p4_proxy/tests/test_pg_mut_nokernelurl.py
+?? p4_proxy/tests/test_pg_mut_oldversion.py
+?? p4_proxy/venv
+ss -ltn archived: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r2/red_base100.ss.txt (8000/3005x/3006x listeners: 0)
+cmd: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/venv/bin/python -m unittest -v tests.test_pg_mut_base100.PortFreeTest
+test_proxy_dials_only_the_offline_block (tests.test_pg_mut_base100.PortFreeTest.test_proxy_dials_only_the_offline_block)
+What this checks, and no more: with the pipeline built, every switch port and kernel ... FAIL
+test_startup_event_does_run_when_the_port_is_free (tests.test_pg_mut_base100.PortFreeTest.test_startup_event_does_run_when_the_port_is_free) ... skipped ':8081 is occupied by something else; cannot test the free case'
+
+======================================================================
+FAIL: test_proxy_dials_only_the_offline_block (tests.test_pg_mut_base100.PortFreeTest.test_proxy_dials_only_the_offline_block)
+What this checks, and no more: with the pipeline built, every switch port and kernel
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/tests/test_pg_mut_base100.py", line 357, in test_proxy_dials_only_the_offline_block
+    self.assertTrue(any(STARTUP_DONE in l for l in lines),
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "startup did not complete, so the dials were not seen:\n" + out[-2000:])
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : startup did not complete, so the dials were not seen:
+NDTWIN: LLDP_BEACON_INTERVAL_S overridden to 0.5s (default 5); timeout/watchdog/grace derive from it
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/proxy_agent/main.py:2694: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/proxy_agent/main.py:2699: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+[Proxy Agent] REFUSING to start: port 8081 is already in use (Address already in use).
+[Proxy Agent] Another proxy agent is almost certainly running. This process has
+[Proxy Agent] NOT connected to any switch and has NOT installed any rules --
+[Proxy Agent] two agents writing to the same BMv2 fabric corrupt each other's
+[Proxy Agent] forwarding state, and `curl :8081` would answer from the other one.
+[Proxy Agent] Stop the running agent first, or free port 8081.
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.427s
+
+FAILED (failures=1, skipped=1)
+rc=1

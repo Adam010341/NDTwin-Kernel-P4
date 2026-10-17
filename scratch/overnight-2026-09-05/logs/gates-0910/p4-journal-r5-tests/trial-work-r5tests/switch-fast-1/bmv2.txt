@@ -1,0 +1,63 @@
+[16:07:06.202] [bmv2] [W] [thread 794401] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[16:07:06.204] [bmv2] [I] [thread 794401] Starting Thrift server on port 29500
+[16:07:06.204] [bmv2] [I] [thread 794401] Thrift server was started
+[16:07:07.871] [bmv2] [D] [thread 794470] simple_switch target has been notified of a config swap
+[16:07:07.894] [bmv2] [E] [thread 794472] [P4Runtime] Clone session id does not exist
+[16:07:07.896] [bmv2] [D] [thread 794470] mgrp node created for mgid 32775
+[16:07:07.896] [bmv2] [D] [thread 794470] node created for rid 1
+[16:07:07.896] [bmv2] [D] [thread 794470] node associated with mgid 32775
+[16:07:07.896] [bmv2] [D] [thread 794472] node dissociated with mgid 32775
+[16:07:07.896] [bmv2] [D] [thread 794472] node destroyed for rid 1
+[16:07:07.896] [bmv2] [D] [thread 794472] mgrp node deleted for mgid 32775
+[16:07:07.897] [bmv2] [D] [thread 794470] mgrp node created for mgid 32775
+[16:07:07.897] [bmv2] [D] [thread 794470] node created for rid 1
+[16:07:07.897] [bmv2] [D] [thread 794470] node associated with mgid 32775
+[16:07:07.934] [bmv2] [E] [thread 794472] [P4Runtime] Cannot find match entry
+[16:07:10.032] [bmv2] [D] [thread 794572] simple_switch target has been notified of a config swap
+[16:07:10.062] [bmv2] [E] [thread 794470] [P4Runtime] Clone session id does not exist
+[16:07:10.063] [bmv2] [D] [thread 794572] mgrp node created for mgid 32775
+[16:07:10.063] [bmv2] [D] [thread 794572] node created for rid 1
+[16:07:10.063] [bmv2] [D] [thread 794572] node associated with mgid 32775
+[16:07:10.063] [bmv2] [D] [thread 794470] node dissociated with mgid 32775
+[16:07:10.063] [bmv2] [D] [thread 794470] node destroyed for rid 1
+[16:07:10.063] [bmv2] [D] [thread 794470] mgrp node deleted for mgid 32775
+[16:07:10.064] [bmv2] [D] [thread 794572] mgrp node created for mgid 32775
+[16:07:10.064] [bmv2] [D] [thread 794572] node created for rid 1
+[16:07:10.064] [bmv2] [D] [thread 794572] node associated with mgid 32775
+[16:07:12.120] [bmv2] [D] [thread 794572] simple_switch target has been notified of a config swap
+[16:07:12.150] [bmv2] [E] [thread 794572] [P4Runtime] Clone session id does not exist
+[16:07:12.150] [bmv2] [D] [thread 794630] mgrp node created for mgid 32775
+[16:07:12.150] [bmv2] [D] [thread 794630] node created for rid 1
+[16:07:12.150] [bmv2] [D] [thread 794630] node associated with mgid 32775
+[16:07:12.151] [bmv2] [D] [thread 794572] node dissociated with mgid 32775
+[16:07:12.151] [bmv2] [D] [thread 794572] node destroyed for rid 1
+[16:07:12.151] [bmv2] [D] [thread 794572] mgrp node deleted for mgid 32775
+[16:07:12.151] [bmv2] [D] [thread 794630] mgrp node created for mgid 32775
+[16:07:12.151] [bmv2] [D] [thread 794630] node created for rid 1
+[16:07:12.151] [bmv2] [D] [thread 794630] node associated with mgid 32775
+[16:07:12.167] [bmv2] [E] [thread 794572] [P4Runtime] Cannot find match entry
+[16:07:12.176] [bmv2] [E] [thread 794572] [P4Runtime] Cannot find match entry
+[16:07:14.236] [bmv2] [D] [thread 794630] simple_switch target has been notified of a config swap
+[16:07:14.247] [bmv2] [E] [thread 794630] [P4Runtime] Match entry exists, use MODIFY if you wish to change action
+[16:07:14.262] [bmv2] [E] [thread 794630] [P4Runtime] Clone session id does not exist
+[16:07:14.263] [bmv2] [D] [thread 794720] mgrp node created for mgid 32775
+[16:07:14.263] [bmv2] [D] [thread 794720] node created for rid 1
+[16:07:14.263] [bmv2] [D] [thread 794720] node associated with mgid 32775
+[16:07:14.263] [bmv2] [D] [thread 794630] node dissociated with mgid 32775
+[16:07:14.263] [bmv2] [D] [thread 794630] node destroyed for rid 1
+[16:07:14.263] [bmv2] [D] [thread 794630] mgrp node deleted for mgid 32775
+[16:07:14.264] [bmv2] [D] [thread 794720] mgrp node created for mgid 32775
+[16:07:14.264] [bmv2] [D] [thread 794720] node created for rid 1
+[16:07:14.264] [bmv2] [D] [thread 794720] node associated with mgid 32775
+[16:07:16.320] [bmv2] [D] [thread 794720] simple_switch target has been notified of a config swap
+[16:07:16.332] [bmv2] [E] [thread 794778] [P4Runtime] Match entry exists, use MODIFY if you wish to change action
+[16:07:16.347] [bmv2] [E] [thread 794778] [P4Runtime] Clone session id does not exist
+[16:07:16.347] [bmv2] [D] [thread 794720] mgrp node created for mgid 32775
+[16:07:16.347] [bmv2] [D] [thread 794720] node created for rid 1
+[16:07:16.347] [bmv2] [D] [thread 794720] node associated with mgid 32775
+[16:07:16.347] [bmv2] [D] [thread 794778] node dissociated with mgid 32775
+[16:07:16.347] [bmv2] [D] [thread 794778] node destroyed for rid 1
+[16:07:16.347] [bmv2] [D] [thread 794778] mgrp node deleted for mgid 32775
+[16:07:16.348] [bmv2] [D] [thread 794720] mgrp node created for mgid 32775
+[16:07:16.348] [bmv2] [D] [thread 794720] node created for rid 1
+[16:07:16.348] [bmv2] [D] [thread 794720] node associated with mgid 32775

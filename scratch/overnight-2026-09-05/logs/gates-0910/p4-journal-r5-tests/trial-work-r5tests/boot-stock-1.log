@@ -1,0 +1,45 @@
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+[Proxy Agent] Starting up...
+[2] Received arbitration response: Mastership confirmed.
+[Proxy Agent] switch 2: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (FAILED_PRECONDITION: No forwarding pipeline config set for this device))
+[2] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 2
+[2] table entry modify: HcIngress.ipv4_lpm (default action)
+[2] table entry insert: HcIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: HcIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: HcIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: HcIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: HcIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: HcIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: HcIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: HcIngress.tunnel_exact ['meta.dst_id']
+[2] table entry insert: HcIngress.tunnel_exact ['meta.dst_id']
+[2] table entry insert: HcIngress.tunnel_exact ['meta.dst_id']
+[2] table entry insert: HcIngress.tunnel_exact ['meta.dst_id']
+[2] table entry insert: HcIngress.tunnel_exact ['meta.dst_id']
+[2] table entry insert: HcIngress.tunnel_exact ['meta.dst_id']
+[2] table entry insert: HcIngress.v6_host ['meta.v6_lo']
+[2] table entry insert: HcIngress.v6_host ['meta.v6_lo']
+[2] table entry insert: HcIngress.v6_host ['meta.v6_lo']
+[2] table entry insert: HcIngress.v6_host ['meta.v6_lo']
+[2] table entry insert: HcIngress.v6_host ['meta.v6_lo']
+[2] table entry insert: HcIngress.v6_host ['meta.v6_lo']
+[2] table entry insert: HcIngress.t_dcount ['hdr.udp.dstPort']
+[2] table entry insert: HcIngress.t_dmeter ['hdr.udp.dstPort']
+[2] table entry modify: HcIngress.t_default_only (default action)
+[Proxy Agent] Switch 2 runs the package's own pipeline: 23 of 23 declared table entries applied, 0 refused
+[Proxy Agent] switch 2: table-entry journal replay nothing-to-replay, 0/0 net entries back
+[2] Clone session 7 -> port 1 installed
+[Proxy Agent] Switch 2: 0/0 multicast group(s) and 1/1 clone session(s) from the package programmed, 0 refused
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Kernel acknowledged all 1 usable switches
+[TopologyManager] 8 declared link direction(s) name a switch this proxy is not connected to and were not entered: [(1, 4, 2, 2), (1, 5, 3, 2), (2, 2, 1, 4), (2, 3, 4, 2)]
+[Proxy Agent] 0 declared inter-switch link direction(s) entered from the package topology. Their is_up is the DECLARATION until the root helper's heartbeat says otherwise: this fabric runs no LLDP, and a cut link is detected only while the heartbeat runs (switch_state `heartbeat`, `reroute`).
+[Proxy Agent] heartbeat watchdog started on the declared links, reading /run/ndtwin-lab/heartbeat.json (heartbeat_not_running); judged with the LLDP beacon rule and constants. The LLDP beacons stay skipped; the link watchdog runs, fed by the heartbeat.
+[Proxy Agent] 1 of 1 switches ([2]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, run the LLDP beacon watchdog or install routes on ANY switch of this fabric. Skipped: install_initial_routes, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+[2] table entry insert: HcIngress.port_exact ['standard_metadata.ingress_port']
+[2] table entry insert: HcIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: HcIngress.t_ternary ['hdr.ipv4.srcAddr']
+[2] table entry insert: HcIngress.t_ternary ['hdr.ipv4.srcAddr']
+boot write pid 793906 BOOT_ID 9671bb903ef24f1f9ada03ee337aeafb: t8 GREEN

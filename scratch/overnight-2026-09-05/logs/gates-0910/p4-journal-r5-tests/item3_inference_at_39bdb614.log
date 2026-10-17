@@ -1,0 +1,14 @@
+commit 39bdb614142eebf4506c8f883908dd8bfb0eefdd (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-journal-r5-tests, unmodified = 39bdb614)
+command: quickmut2.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-journal-r5-tests <venv python> --modules <the gate's six> --build <main checkout p4_src/build> --adhoc item3_variant.json base r138 r138v
+base: the unmutated copy
+   rc=0 ['Ran 541 tests in 15.747s', 'OK']
+r138: M-J138: an insert retry that gets no answer is taken for a refusal, so its record is dropped
+   named test: test_an_insert_retry_whose_answer_is_lost_stays_in_the_journal_for_the_next_start  -> RED
+   assertion: tests/test_table_entry_replay.py:1566 self.assertIs(failed["kept"], True, "no answer: the insert may have landed") -> AssertionError: False is not True : no answer: the insert may have landed
+   rc=1 ['Ran 541 tests in 14.834s', 'FAILED (failures=1)']
+   FAIL: test_an_insert_retry_whose_answer_is_lost_stays_in_the_journal_for_the_next_start (tests.test_table_entry_replay.AModifyThatFindsNothingTest.test_an_insert_retry_whose_answer_is_lost_stays_in_the_journal_for_the_next_start)
+        at tests/test_table_entry_replay.py:1566 self.assertIs(failed["kept"], True, "no answer: the insert may have landed") -> AssertionError: False is not True : no answer: the insert may have landed
+r138v: M-J138 variant: a MODIFY retry that gets no answer is taken for a refusal (an insert retry still kept)
+   named test: test_an_insert_retry_whose_answer_is_lost_stays_in_the_journal_for_the_next_start  -> GREEN (survived)
+   rc=0 ['Ran 541 tests in 16.325s', 'OK']
+rc=0

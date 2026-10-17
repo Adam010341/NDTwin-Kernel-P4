@@ -1,0 +1,9 @@
+[23:11:18.918] [bmv2] [W] [thread 2602204] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[23:11:18.920] [bmv2] [I] [thread 2602204] Starting Thrift server on port 29500
+[23:11:18.920] [bmv2] [I] [thread 2602204] Thrift server was started
+[23:11:19.280] [bmv2] [W] [thread 2602268] [P4Runtime] p4::tmp::P4DeviceConfig is deprecated
+[23:11:19.286] [bmv2] [D] [thread 2602268] simple_switch target has been notified of a config swap
+[23:11:19.296] [bmv2] [D] [thread 2602269] mgrp node created for mgid 32777
+[23:11:19.296] [bmv2] [D] [thread 2602269] node created for rid 1
+[23:11:19.296] [bmv2] [D] [thread 2602269] node associated with mgid 32777
+[23:11:19.297] [bmv2] [E] [thread 2602268] [P4Runtime] Register writes are not supported yet

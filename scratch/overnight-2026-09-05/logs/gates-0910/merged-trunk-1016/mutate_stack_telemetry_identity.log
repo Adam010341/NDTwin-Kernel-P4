@@ -1,0 +1,31 @@
+commit cc0bca4bde02d6611935508ae49a3d3790d6ffbe
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate  tracked-dirty=0  df_free_mb=3457  LANG=en_US.UTF-8 LC_ALL=  command: bash tests/shell/mutate_stack_telemetry_identity.sh
+interpreter /home/adam/miniconda3/bin/python3.13: Python 3.13.13
+command's own program /usr/bin/bash: GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+p4c /usr/local/bin/p4c-bm2-ss: p4c-bm2-ss Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) 
+p4 build: f1c6e09684a0ef57bf9df8e34a252c16287f76dc3f3ac51df991f80ff6d3d562 ndtwin_switch.json  d54ff55208340f3a6b4cf5434de6c278604a99c4fcab07f2e44b5b75e3f2ab67 ndtwin_switch.p4info.txt
+baseline (must be green before any mutation):
+  Ran 408 checks, 0 failed
+
+  caught   M1: the start_bg fingerprint drops the telemetry source  (1 named check(s) went red)
+             red: 🔴 the start_bg fingerprint carries the telemetry source
+             also red: 🔴 the start_bg fingerprint carries the telemetry source
+             also red:   an absent knob leaves the field empty, not missing
+  caught   M2: the fingerprint reads the knob's comment line        (1 named check(s) went red)
+             red: 🔴 the start_bg fingerprint carries the telemetry source
+             also red: 🔴 the start_bg fingerprint carries the telemetry source
+  caught   M3: the fingerprint drops the listen address             (3 named check(s) went red)
+             red: 🔴 the start_bg fingerprint carries the listen address
+             red:   an unset variable leaves the field empty, not missing
+             red: 🔴 a changed value is a different fingerprint, so start_bg restarts the proxy
+             also red: 🔴 the start_bg fingerprint carries the listen address
+             also red:   an unset variable leaves the field empty, not missing
+             also red: 🔴 a changed value is a different fingerprint, so start_bg restarts the proxy
+  caught   M4: the fingerprint keeps the variable's padding         (1 named check(s) went red)
+             red:   the value is stripped as the proxy strips it, so padding is not a restart
+             also red:   the value is stripped as the proxy strips it, so padding is not a restart
+  control  C1: a comment above the fingerprint                      (stayed green, as it must)
+
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 1ac0c408eecd14c66446689e669ced5a8eb4221bdccf0602e21dcf7e018a71a8
+mutation gate: 4 mutations, 0 survived; 1 control(s), 0 went red
+rc=0

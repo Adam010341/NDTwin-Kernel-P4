@@ -1,0 +1,1364 @@
+{
+  "builds": {
+    "build-fwd/hc_alt": {
+      "defines": [
+        "-DHC_ALT",
+        "-DHC_MUTANT_FWD_88B5"
+      ],
+      "json_sha16": "264f54b75f444881",
+      "p4info_sha16": "b7490e9eb9979888",
+      "rc": 0
+    },
+    "build-fwd/hc_main": {
+      "defines": [
+        "-DHC_MUTANT_FWD_88B5"
+      ],
+      "json_sha16": "35df5aca4384336d",
+      "p4info_sha16": "5ce0a5595d5a65f1",
+      "rc": 0
+    },
+    "build-mutant/hc_alt": {
+      "defines": [
+        "-DHC_ALT",
+        "-DHC_MUTANT_NO_COUNT",
+        "-DHC_MUTANT_NO_TTL",
+        "-DHC_MUTANT_NO_QSTAMP"
+      ],
+      "json_sha16": "b69b18a180549514",
+      "p4info_sha16": "b7490e9eb9979888",
+      "rc": 0
+    },
+    "build-mutant/hc_main": {
+      "defines": [
+        "-DHC_MUTANT_NO_COUNT",
+        "-DHC_MUTANT_NO_TTL",
+        "-DHC_MUTANT_NO_QSTAMP"
+      ],
+      "json_sha16": "4144a64f1e5c9108",
+      "p4info_sha16": "5ce0a5595d5a65f1",
+      "rc": 0
+    },
+    "build/hc_alt": {
+      "defines": [
+        "-DHC_ALT"
+      ],
+      "json_sha16": "25d01359b2121456",
+      "p4info_sha16": "b7490e9eb9979888",
+      "rc": 0
+    },
+    "build/hc_main": {
+      "defines": [],
+      "json_sha16": "e9650de31fe9197c",
+      "p4info_sha16": "5ce0a5595d5a65f1",
+      "rc": 0
+    }
+  },
+  "checks": [
+    {
+      "detail": "p4info 5ce0a5595d5a65f1",
+      "name": "compile build/hc_main ",
+      "ok": true
+    },
+    {
+      "detail": "p4info b7490e9eb9979888",
+      "name": "compile build/hc_alt -DHC_ALT",
+      "ok": true
+    },
+    {
+      "detail": "p4info 5ce0a5595d5a65f1",
+      "name": "compile build-mutant/hc_main -DHC_MUTANT_NO_COUNT -DHC_MUTANT_NO_TTL -DHC_MUTANT_NO_QSTAMP",
+      "ok": true
+    },
+    {
+      "detail": "p4info b7490e9eb9979888",
+      "name": "compile build-mutant/hc_alt -DHC_ALT -DHC_MUTANT_NO_COUNT -DHC_MUTANT_NO_TTL -DHC_MUTANT_NO_QSTAMP",
+      "ok": true
+    },
+    {
+      "detail": "p4info 5ce0a5595d5a65f1",
+      "name": "compile build-fwd/hc_main -DHC_MUTANT_FWD_88B5",
+      "ok": true
+    },
+    {
+      "detail": "p4info b7490e9eb9979888",
+      "name": "compile build-fwd/hc_alt -DHC_ALT -DHC_MUTANT_FWD_88B5",
+      "ok": true
+    },
+    {
+      "detail": "5ce0a5595d5a65f1 vs 5ce0a5595d5a65f1",
+      "name": "p4info build-mutant/hc_main == build/hc_main",
+      "ok": true
+    },
+    {
+      "detail": "5ce0a5595d5a65f1 vs 5ce0a5595d5a65f1",
+      "name": "p4info build-fwd/hc_main == build/hc_main",
+      "ok": true
+    },
+    {
+      "detail": "b7490e9eb9979888 vs b7490e9eb9979888",
+      "name": "p4info build-mutant/hc_alt == build/hc_alt",
+      "ok": true
+    },
+    {
+      "detail": "b7490e9eb9979888 vs b7490e9eb9979888",
+      "name": "p4info build-fwd/hc_alt == build/hc_alt",
+      "ok": true
+    },
+    {
+      "detail": "alt-only: ['HcIngress.alt_port_stamp']",
+      "name": "hc_alt has exactly one object hc_main lacks",
+      "ok": true
+    },
+    {
+      "detail": "29 constructs",
+      "name": "inventory hc_main: every construct compiled in",
+      "ok": true
+    },
+    {
+      "detail": "29 constructs",
+      "name": "inventory hc_alt: every construct compiled in",
+      "ok": true
+    },
+    {
+      "detail": "rc 0",
+      "name": "convert A (ndtwin)",
+      "ok": true
+    },
+    {
+      "detail": "rc 0",
+      "name": "convert B (external)",
+      "ok": true
+    },
+    {
+      "detail": "rc 0",
+      "name": "convert C (ndtwin)",
+      "ok": true
+    },
+    {
+      "detail": "rc 0",
+      "name": "convert PF-T (ndtwin)",
+      "ok": true
+    },
+    {
+      "detail": "rc 0",
+      "name": "convert FWD (ndtwin)",
+      "ok": true
+    },
+    {
+      "detail": "rc 0",
+      "name": "convert A-MUT (ndtwin)",
+      "ok": true
+    },
+    {
+      "detail": "rc 0, 0 FAIL row(s)",
+      "name": "pre-flight A PASS",
+      "ok": true
+    },
+    {
+      "detail": "rc 0, 0 FAIL row(s)",
+      "name": "pre-flight B PASS",
+      "ok": true
+    },
+    {
+      "detail": "rc 0, 0 FAIL row(s)",
+      "name": "pre-flight C PASS",
+      "ok": true
+    },
+    {
+      "detail": "HcIngress.t_ternary in ['s2 entry 23']",
+      "name": "PF-T package carries one ternary boot entry",
+      "ok": true
+    },
+    {
+      "detail": "rc 0, ternary FAIL lines 0, other refusals 0",
+      "name": "pre-flight PF-T PASSes with the ternary entry in",
+      "ok": true
+    },
+    {
+      "detail": "rc 0, 0 FAIL row(s)",
+      "name": "pre-flight A-MUT PASS",
+      "ok": true
+    },
+    {
+      "detail": "rc 0",
+      "name": "drop check A rc 0",
+      "ok": true
+    },
+    {
+      "detail": "rc 0",
+      "name": "drop check A-MUT rc 0",
+      "ok": true
+    },
+    {
+      "detail": "rc 0",
+      "name": "drop check B rc 0",
+      "ok": true
+    },
+    {
+      "detail": "rc 0",
+      "name": "drop check C rc 0",
+      "ok": true
+    },
+    {
+      "detail": "rc 1",
+      "name": "drop check FWD rc 1",
+      "ok": true
+    },
+    {
+      "detail": "failed [], expected []",
+      "name": "self-checks on the throwaway (alt, s1)",
+      "ok": true
+    },
+    {
+      "detail": "missing []",
+      "name": "  alt: every output pcap readable",
+      "ok": true
+    },
+    {
+      "detail": "0 heartbeat frame(s) left the switch",
+      "name": "  alt: 0x88B5 dropped with every entry installed",
+      "ok": true
+    },
+    {
+      "detail": "ports [1, 2]",
+      "name": "  alt: multicast group 1 replicates to p1, p2",
+      "ok": true
+    },
+    {
+      "detail": "hash [4, 5] random [4, 5]",
+      "name": "  alt: the hash and the coin each use both uplinks",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "  alt: show_tables lists the hc_alt-only table",
+      "ok": true
+    },
+    {
+      "detail": "failed [], expected []",
+      "name": "self-checks on the throwaway (fwd, s2)",
+      "ok": true
+    },
+    {
+      "detail": "missing []",
+      "name": "  fwd: every output pcap readable",
+      "ok": true
+    },
+    {
+      "detail": "3 heartbeat frame(s) left the switch",
+      "name": "  fwd: the 0x88B5 check goes red on the forwarding build",
+      "ok": true
+    },
+    {
+      "detail": "failed [], expected []",
+      "name": "self-checks on the throwaway (main, s2)",
+      "ok": true
+    },
+    {
+      "detail": "missing []",
+      "name": "  main: every output pcap readable",
+      "ok": true
+    },
+    {
+      "detail": "0 heartbeat frame(s) left the switch",
+      "name": "  main: 0x88B5 dropped with every entry installed",
+      "ok": true
+    },
+    {
+      "detail": "{\"tunnel_out\": [1], \"hcl2_out\": [1], \"alt6_out\": [1], \"srcroute_popped_to_ipv4\": [1], \"vlan_out\": [1], \"shim_out\": [1], \"varbit_out\": [1], \"l4shim_out\": [1]}",
+      "name": "  main: custom headers parsed and forwarded to the host port",
+      "ok": true
+    },
+    {
+      "detail": "punt True, clone copies on p1 2, id1 unstamped True",
+      "name": "  main: punt carries packet_in; clone mirrors to p1; Q1 id=1 unstamped",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "  main: IPv4 header checksums valid on every output",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "  main: bmv2 holds a ternary entry (PF-T's static attribution)",
+      "ok": true
+    },
+    {
+      "detail": "failed ['SC-count', 'SC-qstamp', 'SC-ttl'], expected ['SC-count', 'SC-qstamp', 'SC-ttl']",
+      "name": "self-checks on the throwaway (mutant, s2)",
+      "ok": true
+    },
+    {
+      "detail": "missing []",
+      "name": "  mutant: every output pcap readable",
+      "ok": true
+    },
+    {
+      "detail": "0 heartbeat frame(s) left the switch",
+      "name": "  mutant: 0x88B5 dropped with every entry installed",
+      "ok": true
+    },
+    {
+      "detail": "local: ValueSet writes are not supported yet alive=True; bmv2-fast: ValueSet writes are not supported yet alive=True",
+      "name": "ValueSetEntry write: switch survives, write UNIMPLEMENTED (both builds)",
+      "ok": true
+    },
+    {
+      "detail": "unconfirmed ['register'] (expected ['register']), controller rc 0",
+      "name": "B's controller on throwaway local: 11 attributions",
+      "ok": true
+    },
+    {
+      "detail": "unconfirmed ['register'] (expected ['register']), controller rc 0",
+      "name": "B's controller on throwaway bmv2-fast: 11 attributions",
+      "ok": true
+    },
+    {
+      "detail": "rc 0, 4 rewrite(s)",
+      "name": "adapter --dry-run on package B: controller_ext.py, s1-s4 onto 30051-30054",
+      "ok": true
+    },
+    {
+      "detail": "local: [1, 2, 3]; bmv2-fast: [1, 2, 3]",
+      "name": "show_ports with --cpu-port 510 lists the -i data ports (510 only if at all)",
+      "ok": true
+    },
+    {
+      "detail": "p4c=226f3f66df515c9e simple_switch=4c5e5ad31b0a8b4b simple_switch_CLI=590b4b32e0db8d98 simple_switch_grpc_fabric=3ff54b5c1901c9d3 simple_switch_grpc_stock=327fa7d172217397",
+      "name": "identity of p4c and the bmv2 binaries recorded",
+      "ok": true
+    },
+    {
+      "detail": "15 paths",
+      "name": "openapi.json served in-process (FastAPI default kept)",
+      "ok": true
+    },
+    {
+      "detail": "GREEN: pre-flight accepts a boot ternary entry",
+      "name": "PF-T verdict GREEN (pre-flight accepts the boot ternary entry)",
+      "ok": true
+    }
+  ],
+  "ctrl_trial": [
+    {
+      "alive": true,
+      "bmv2": "/usr/local/bin/simple_switch_grpc",
+      "confirmed": {
+        "clone": {
+          "ok": true,
+          "why": "thrift: the session replicates to the declared port"
+        },
+        "digest": {
+          "ok": true,
+          "why": "a DigestList carried the marker's fields"
+        },
+        "direct_counter": {
+          "ok": true,
+          "why": "the controller's read equals thrift's (5)"
+        },
+        "direct_meter": {
+          "ok": true,
+          "why": "thrift reads the configured rates"
+        },
+        "meter": {
+          "ok": true,
+          "why": "thrift reads the configured rates"
+        },
+        "optional": {
+          "ok": true,
+          "why": "thrift shows the entry, mask and priority"
+        },
+        "packet_in": {
+          "ok": true,
+          "why": "3 packet-in(s) carried the probe's marker"
+        },
+        "packet_out": {
+          "ok": true,
+          "why": "the receiving host got 3 packet-out marker(s)"
+        },
+        "priority": {
+          "ok": true,
+          "why": "thrift keeps the requested order"
+        },
+        "range": {
+          "ok": true,
+          "why": "thrift shows the entry, mask and priority"
+        },
+        "register": {
+          "ok": false,
+          "why": "controller: UNKNOWN:  [canonical_code 12: Register writes are not supported yet]"
+        },
+        "ternary": {
+          "ok": true,
+          "why": "thrift shows the entry, mask and priority"
+        }
+      },
+      "controller": {
+        "attributions": {
+          "clone": {
+            "detail": null,
+            "ok": true
+          },
+          "digest": {
+            "detail": null,
+            "ok": true
+          },
+          "direct_counter": {
+            "detail": {
+              "bytes": 335,
+              "packets": 5
+            },
+            "ok": true
+          },
+          "direct_meter": {
+            "detail": null,
+            "ok": true
+          },
+          "meter": {
+            "detail": null,
+            "ok": true
+          },
+          "optional": {
+            "detail": null,
+            "ok": true
+          },
+          "packet_out": {
+            "detail": {
+              "frames": 3,
+              "port": 1
+            },
+            "ok": true
+          },
+          "priority": {
+            "detail": null,
+            "ok": true
+          },
+          "range": {
+            "detail": null,
+            "ok": true
+          },
+          "register": {
+            "error": "UNKNOWN:  [canonical_code 12: Register writes are not supported yet]",
+            "ok": false
+          },
+          "ternary": {
+            "detail": null,
+            "ok": true
+          }
+        },
+        "digests": [
+          {
+            "digest_id": 389049336,
+            "members": [
+              167773188,
+              40041,
+              40041
+            ]
+          }
+        ],
+        "errors": [],
+        "go_seen": true,
+        "packet_ins": [
+          {
+            "dport": 40050,
+            "ingress_port": 1,
+            "marker": [
+              "ctltrial",
+              "P2",
+              0
+            ]
+          },
+          {
+            "dport": 40050,
+            "ingress_port": 1,
+            "marker": [
+              "ctltrial",
+              "P2",
+              1
+            ]
+          },
+          {
+            "dport": 40050,
+            "ingress_port": 1,
+            "marker": [
+              "ctltrial",
+              "P2",
+              2
+            ]
+          }
+        ],
+        "switches": {
+          "2": {
+            "address": "127.0.0.1:29650",
+            "arbitration_status": 0,
+            "device_id": 959770,
+            "primary": true,
+            "program": "hc_main",
+            "routes_failed": 0,
+            "routes_written": 23,
+            "set_pipeline_ok": true
+          }
+        }
+      },
+      "controller_rc": 0,
+      "ready_before_input_s": 14.5,
+      "stop_rc": -15
+    },
+    {
+      "alive": true,
+      "bmv2": "/usr/local/bmv2-fast/bin/simple_switch_grpc",
+      "confirmed": {
+        "clone": {
+          "ok": true,
+          "why": "thrift: the session replicates to the declared port"
+        },
+        "digest": {
+          "ok": true,
+          "why": "a DigestList carried the marker's fields"
+        },
+        "direct_counter": {
+          "ok": true,
+          "why": "the controller's read equals thrift's (5)"
+        },
+        "direct_meter": {
+          "ok": true,
+          "why": "thrift reads the configured rates"
+        },
+        "meter": {
+          "ok": true,
+          "why": "thrift reads the configured rates"
+        },
+        "optional": {
+          "ok": true,
+          "why": "thrift shows the entry, mask and priority"
+        },
+        "packet_in": {
+          "ok": true,
+          "why": "3 packet-in(s) carried the probe's marker"
+        },
+        "packet_out": {
+          "ok": true,
+          "why": "the receiving host got 3 packet-out marker(s)"
+        },
+        "priority": {
+          "ok": true,
+          "why": "thrift keeps the requested order"
+        },
+        "range": {
+          "ok": true,
+          "why": "thrift shows the entry, mask and priority"
+        },
+        "register": {
+          "ok": false,
+          "why": "controller: UNKNOWN:  [canonical_code 12: Register writes are not supported yet]"
+        },
+        "ternary": {
+          "ok": true,
+          "why": "thrift shows the entry, mask and priority"
+        }
+      },
+      "controller": {
+        "attributions": {
+          "clone": {
+            "detail": null,
+            "ok": true
+          },
+          "digest": {
+            "detail": null,
+            "ok": true
+          },
+          "direct_counter": {
+            "detail": {
+              "bytes": 335,
+              "packets": 5
+            },
+            "ok": true
+          },
+          "direct_meter": {
+            "detail": null,
+            "ok": true
+          },
+          "meter": {
+            "detail": null,
+            "ok": true
+          },
+          "optional": {
+            "detail": null,
+            "ok": true
+          },
+          "packet_out": {
+            "detail": {
+              "frames": 3,
+              "port": 1
+            },
+            "ok": true
+          },
+          "priority": {
+            "detail": null,
+            "ok": true
+          },
+          "range": {
+            "detail": null,
+            "ok": true
+          },
+          "register": {
+            "error": "UNKNOWN:  [canonical_code 12: Register writes are not supported yet]",
+            "ok": false
+          },
+          "ternary": {
+            "detail": null,
+            "ok": true
+          }
+        },
+        "digests": [
+          {
+            "digest_id": 389049336,
+            "members": [
+              167773188,
+              40041,
+              40041
+            ]
+          }
+        ],
+        "errors": [],
+        "go_seen": true,
+        "packet_ins": [
+          {
+            "dport": 40050,
+            "ingress_port": 1,
+            "marker": [
+              "ctltrial",
+              "P2",
+              0
+            ]
+          },
+          {
+            "dport": 40050,
+            "ingress_port": 1,
+            "marker": [
+              "ctltrial",
+              "P2",
+              1
+            ]
+          },
+          {
+            "dport": 40050,
+            "ingress_port": 1,
+            "marker": [
+              "ctltrial",
+              "P2",
+              2
+            ]
+          }
+        ],
+        "switches": {
+          "2": {
+            "address": "127.0.0.1:29650",
+            "arbitration_status": 0,
+            "device_id": 959770,
+            "primary": true,
+            "program": "hc_main",
+            "routes_failed": 0,
+            "routes_written": 23,
+            "set_pipeline_ok": true
+          }
+        }
+      },
+      "controller_rc": 0,
+      "ready_before_input_s": 14.5,
+      "stop_rc": -15
+    }
+  ],
+  "drop_check": {
+    "A": {
+      "rc": 0,
+      "want": 0
+    },
+    "A-MUT": {
+      "rc": 0,
+      "want": 0
+    },
+    "B": {
+      "rc": 0,
+      "want": 0
+    },
+    "C": {
+      "rc": 0,
+      "want": 0
+    },
+    "FWD": {
+      "rc": 1,
+      "want": 1
+    }
+  },
+  "identity": {
+    "p4c": {
+      "path": "/usr/local/bin/p4c-bm2-ss",
+      "sha16": "226f3f66df515c9e",
+      "version": "Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)"
+    },
+    "simple_switch": {
+      "path": "/usr/local/bin/simple_switch",
+      "sha16": "4c5e5ad31b0a8b4b",
+      "version": "1.15.3-f0b7d201"
+    },
+    "simple_switch_CLI": {
+      "path": "/usr/local/bin/simple_switch_CLI",
+      "sha16": "590b4b32e0db8d98",
+      "version": null
+    },
+    "simple_switch_grpc_fabric": {
+      "path": "/usr/local/bmv2-fast/bin/simple_switch_grpc",
+      "sha16": "3ff54b5c1901c9d3",
+      "version": "1.15.3-f0b7d201"
+    },
+    "simple_switch_grpc_stock": {
+      "path": "/usr/local/bin/simple_switch_grpc",
+      "sha16": "327fa7d172217397",
+      "version": "1.15.3-f0b7d201"
+    }
+  },
+  "inventory": {
+    "hc_alt": {
+      "action_profile": true,
+      "action_selector": true,
+      "clone_i2e": true,
+      "counter": true,
+      "digest": true,
+      "digest_op": true,
+      "direct_counter": true,
+      "direct_meter": true,
+      "enq_qdepth": true,
+      "hash": true,
+      "header_stack": true,
+      "header_union": true,
+      "idle_timeout": true,
+      "ipv4_checksum": true,
+      "match_exact": true,
+      "match_lpm": true,
+      "match_optional": true,
+      "match_range": true,
+      "match_ternary": true,
+      "mcast_grp": true,
+      "meter": true,
+      "packet_in": true,
+      "packet_out": true,
+      "random": true,
+      "recirculate": true,
+      "register": true,
+      "resubmit": true,
+      "value_set": true,
+      "varbit": true
+    },
+    "hc_main": {
+      "action_profile": true,
+      "action_selector": true,
+      "clone_i2e": true,
+      "counter": true,
+      "digest": true,
+      "digest_op": true,
+      "direct_counter": true,
+      "direct_meter": true,
+      "enq_qdepth": true,
+      "hash": true,
+      "header_stack": true,
+      "header_union": true,
+      "idle_timeout": true,
+      "ipv4_checksum": true,
+      "match_exact": true,
+      "match_lpm": true,
+      "match_optional": true,
+      "match_range": true,
+      "match_ternary": true,
+      "mcast_grp": true,
+      "meter": true,
+      "packet_in": true,
+      "packet_out": true,
+      "random": true,
+      "recirculate": true,
+      "register": true,
+      "resubmit": true,
+      "value_set": true,
+      "varbit": true
+    }
+  },
+  "openapi": {
+    "constructor_kwargs": [
+      "description",
+      "title"
+    ],
+    "main_py_line": 44,
+    "openapi_url": "/openapi.json",
+    "paths": {
+      "/p4/counter/{name}": [
+        "GET"
+      ],
+      "/p4/multicast_group": [
+        "POST"
+      ],
+      "/p4/readopt/{dpid}": [
+        "POST"
+      ],
+      "/p4/switch_state": [
+        "GET"
+      ],
+      "/p4/table_entry": [
+        "POST"
+      ],
+      "/ryu_server/all_destination_paths": [
+        "GET"
+      ],
+      "/sflow/stats": [
+        "GET"
+      ],
+      "/stats/flow/{dpid}": [
+        "GET"
+      ],
+      "/stats/flowentry/add": [
+        "POST"
+      ],
+      "/stats/flowentry/delete": [
+        "POST"
+      ],
+      "/stats/flowentry/delete_strict": [
+        "POST"
+      ],
+      "/stats/flowentry/modify": [
+        "POST"
+      ],
+      "/v1.0/topology/hosts": [
+        "GET"
+      ],
+      "/v1.0/topology/links": [
+        "GET"
+      ],
+      "/v1.0/topology/switches": [
+        "GET"
+      ]
+    },
+    "status": 200
+  },
+  "pft": {
+    "attribution": null,
+    "label": "GREEN",
+    "partial": null,
+    "phase": "compare",
+    "reason": "pre-flight accepts a boot ternary entry",
+    "verdict": "GREEN"
+  },
+  "preflight": {
+    "A": {
+      "fail_rows": [],
+      "rc": 0
+    },
+    "A-MUT": {
+      "fail_rows": [],
+      "rc": 0
+    },
+    "B": {
+      "fail_rows": [],
+      "rc": 0
+    },
+    "C": {
+      "fail_rows": [],
+      "rc": 0
+    },
+    "PF-T": {
+      "fail_rows": [],
+      "other_fail_rows": 0,
+      "rc": 0,
+      "ternary_entries": [
+        "s2 entry 23"
+      ],
+      "ternary_rows": 0
+    }
+  },
+  "program_probes": {},
+  "repo": {
+    "dirty_paths": 2,
+    "head": "cc0bca4bde02d6611935508ae49a3d3790d6ffbe",
+    "probe_tree": "fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26"
+  },
+  "self_checks": {
+    "alt": {
+      "c_in_before": [
+        0,
+        0
+      ],
+      "dpid": 1,
+      "install_out_tail": "ngress.ipv4_forward\nruntime data:        08:00:00:00:ff:03\t00:05\nEntry has been added with handle 1\nRuntimeCmd: Creating multicast group 1\nRuntimeCmd: Creating node with rid 1 , port map 110 and lag map \nnode was created with handle 0\nRuntimeCmd: Associating node 0 to multicast group 1\nRuntimeCmd: \n",
+      "installed_before_s": 0.47,
+      "label": "alt",
+      "local_port": 1,
+      "missing_outputs": [],
+      "outputs": {
+        "1": 24,
+        "2": 2,
+        "3": 1,
+        "4": 15,
+        "5": 20,
+        "510": 1
+      },
+      "probes": {
+        "alt6_out": [
+          1
+        ],
+        "alt_table_listed": true,
+        "clone_copies_on_p1": 1,
+        "hash_uplinks": [
+          4,
+          5
+        ],
+        "hcl2_out": [
+          1
+        ],
+        "heartbeat_frames_out_with_entries": 0,
+        "ip_checksums_ok": true,
+        "l4shim_out": [
+          1
+        ],
+        "mcast_ports": [
+          1,
+          2
+        ],
+        "punt_to_cpu_with_packet_in": true,
+        "q1_control_id1_unstamped": true,
+        "random_uplinks": [
+          4,
+          5
+        ],
+        "shim_out": [
+          1
+        ],
+        "srcroute_popped_to_ipv4": [
+          1
+        ],
+        "tunnel_out": [
+          1
+        ],
+        "varbit_out": [
+          1
+        ],
+        "vlan_out": [
+          1
+        ]
+      },
+      "program": "build/hc_alt",
+      "reads": {
+        "counter_read HcIngress.c_in 0": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcIngress.c_in[0]= (335 bytes, 5 packets)\nRuntimeCmd: \n",
+        "register_read HcIngress.r_mark 0": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcIngress.r_mark[0]= 4660\nRuntimeCmd: \n",
+        "show_tables": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcEgress.q_stamp               [implementation=None, mk=]\nHcIngress.alt_port_stamp       [implementation=None, mk=standard_metadata.ingress_port(exact, 9)]\nHcIngress.ipv4_lpm             [implementation=None, mk=ipv4.dstAddr(lpm, 32)]\nHcIngress.port_exact           [implementation=None, mk=standard_metadata.ingress_port(exact, 9)]\nHcIngress.t_ap                 [implementation=HcIngress.ap_prof, mk=udp.dstPort(exact, 16)]\nHcIngress.t_as                 [implementation=HcIngress.as_sel, mk=udp.dstPort(exact, 16)]\nHcIngress.t_dcount             [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_default_only       [implementation=None, mk=]\nHcIngress.t_dmeter             [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_idle               [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_multipath          [implementation=None, mk=ipv4.dstAddr(exact, 32),\tscalars.metadata.mp_choice(exact, 1)]\nHcIngress.t_optional           [implementation=None, mk=ipv4.protocol(ternary, 8)]\nHcIngress.t_range              [implementation=None, mk=udp.dstPort(range, 16)]\nHcIngress.t_ternary            [implementation=None, mk=ipv4.srcAddr(ternary, 32)]\nHcIngress.tunnel_exact         [implementation=None, mk=scalars.metadata.dst_id(exact, 16)]\nHcIngress.v6_host              [implementation=None, mk=scalars.metadata.v6_lo(exact, 32)]\ntbl_hc_main483                 [implementation=None, mk=]\ntbl_hc_main489                 [implementation=None, mk=]\ntbl_hc_main502                 [implementation=None, mk=]\ntbl_hc_main504                 [implementation=None, mk=]\ntbl_hc_main507                 [implementation=None, mk=]\ntbl_hc_main529                 [implementation=None, mk=]\ntbl_hc_main533                 [implementation=None, mk=]\ntbl_hc_main537                 [implementation=None, mk=]\ntbl_hc_main540                 [implementation=None, mk=]\ntbl_hc_main543                 [implementation=None, mk=]\ntbl_hc_main546                 [implementation=None, mk=]\ntbl_hc_main549                 [implementation=None, mk=]\ntbl_hc_main553                 [implementation=None, mk=]\ntbl_hc_main557                 [implementation=None, mk=]\ntbl_hc_main563                 [implementation=None, mk=]\ntbl_hc_main566                 [implementation=None, mk=]\ntbl_hc_main597                 [implementation=None, mk=]\ntbl_hc_main606                 [implementation=None, mk=]\nRuntimeCmd: \n",
+        "table_dump HcIngress.ipv4_lpm": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 080000000111, 01\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 080000000222, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 080000000333, 03\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 08000000ff02, 04\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff03, 05\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff02, 04\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006301/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n",
+        "table_dump HcIngress.t_ternary": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a000101 &&& ffffffff\nPriority: 10\nAction entry: HcIngress.set_mark - 07\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n",
+        "table_dump HcIngress.v6_host": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000001\nAction entry: HcIngress.v6_forward - 080000000111, 01\n**********\nDumping entry 0x1\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000002\nAction entry: HcIngress.v6_forward - 080000000222, 02\n**********\nDumping entry 0x2\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000003\nAction entry: HcIngress.v6_forward - 080000000333, 03\n**********\nDumping entry 0x3\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000004\nAction entry: HcIngress.v6_forward - 08000000ff02, 04\n**********\nDumping entry 0x4\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000005\nAction entry: HcIngress.v6_forward - 08000000ff03, 05\n**********\nDumping entry 0x5\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000006\nAction entry: HcIngress.v6_forward - 08000000ff02, 04\n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+      },
+      "self_checks": {
+        "SC-count": {
+          "ok": true,
+          "why": "c_in delta 5 == sent == received"
+        },
+        "SC-fwd": {
+          "ok": true,
+          "why": "pingall 6/6 and the T1 entries are in the dumps"
+        },
+        "SC-qstamp": {
+          "ok": true,
+          "why": "3 stamped packet(s)"
+        },
+        "SC-recirc": {
+          "ok": true,
+          "why": "resubmitted and recirculated"
+        },
+        "SC-reg": {
+          "ok": true,
+          "why": "register holds the marker's 4660"
+        },
+        "SC-ttl": {
+          "ok": true,
+          "why": "ttl 63 after 1 hops"
+        },
+        "SC-union": {
+          "ok": true,
+          "why": "the union's IPv6 member was forwarded and rewritten"
+        }
+      },
+      "stop_rc": -15,
+      "ternary_held": true
+    },
+    "fwd": {
+      "c_in_before": [
+        0,
+        0
+      ],
+      "dpid": 2,
+      "install_out_tail": "le HcIngress.t_dmeter\nmatch key:           EXACT-9c:57\naction:              HcIngress.dm_read\nruntime data:        \nEntry has been added with handle 0\nRuntimeCmd: Setting default action of HcIngress.t_default_only\naction:              HcIngress.stamp\nruntime data:        2a\nRuntimeCmd: RuntimeCmd: \n",
+      "installed_before_s": 0.51,
+      "label": "fwd",
+      "local_port": 1,
+      "missing_outputs": [],
+      "outputs": {
+        "1": 59,
+        "2": 3,
+        "3": 2,
+        "510": 1
+      },
+      "probes": {
+        "alt6_out": [
+          1
+        ],
+        "alt_table_listed": false,
+        "clone_copies_on_p1": 2,
+        "hash_uplinks": [
+          1
+        ],
+        "hcl2_out": [
+          1
+        ],
+        "heartbeat_frames_out_with_entries": 3,
+        "ip_checksums_ok": true,
+        "l4shim_out": [
+          1
+        ],
+        "mcast_ports": [],
+        "punt_to_cpu_with_packet_in": true,
+        "q1_control_id1_unstamped": true,
+        "random_uplinks": [
+          1
+        ],
+        "shim_out": [
+          1
+        ],
+        "srcroute_popped_to_ipv4": [
+          1
+        ],
+        "tunnel_out": [
+          1
+        ],
+        "varbit_out": [
+          1
+        ],
+        "vlan_out": [
+          1
+        ]
+      },
+      "program": "build-fwd/hc_main",
+      "reads": {
+        "counter_read HcIngress.c_in 0": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcIngress.c_in[0]= (335 bytes, 5 packets)\nRuntimeCmd: \n",
+        "register_read HcIngress.r_mark 0": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcIngress.r_mark[0]= 4660\nRuntimeCmd: \n",
+        "show_tables": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcEgress.q_stamp               [implementation=None, mk=]\nHcIngress.ipv4_lpm             [implementation=None, mk=ipv4.dstAddr(lpm, 32)]\nHcIngress.port_exact           [implementation=None, mk=standard_metadata.ingress_port(exact, 9)]\nHcIngress.t_ap                 [implementation=HcIngress.ap_prof, mk=udp.dstPort(exact, 16)]\nHcIngress.t_as                 [implementation=HcIngress.as_sel, mk=udp.dstPort(exact, 16)]\nHcIngress.t_dcount             [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_default_only       [implementation=None, mk=]\nHcIngress.t_dmeter             [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_idle               [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_multipath          [implementation=None, mk=ipv4.dstAddr(exact, 32),\tscalars.metadata.mp_choice(exact, 1)]\nHcIngress.t_optional           [implementation=None, mk=ipv4.protocol(ternary, 8)]\nHcIngress.t_range              [implementation=None, mk=udp.dstPort(range, 16)]\nHcIngress.t_ternary            [implementation=None, mk=ipv4.srcAddr(ternary, 32)]\nHcIngress.tunnel_exact         [implementation=None, mk=scalars.metadata.dst_id(exact, 16)]\nHcIngress.v6_host              [implementation=None, mk=scalars.metadata.v6_lo(exact, 32)]\ntbl_hc_main481                 [implementation=None, mk=]\ntbl_hc_main489                 [implementation=None, mk=]\ntbl_hc_main502                 [implementation=None, mk=]\ntbl_hc_main504                 [implementation=None, mk=]\ntbl_hc_main507                 [implementation=None, mk=]\ntbl_hc_main529                 [implementation=None, mk=]\ntbl_hc_main533                 [implementation=None, mk=]\ntbl_hc_main537                 [implementation=None, mk=]\ntbl_hc_main540                 [implementation=None, mk=]\ntbl_hc_main543                 [implementation=None, mk=]\ntbl_hc_main546                 [implementation=None, mk=]\ntbl_hc_main549                 [implementation=None, mk=]\ntbl_hc_main553                 [implementation=None, mk=]\ntbl_hc_main557                 [implementation=None, mk=]\ntbl_hc_main563                 [implementation=None, mk=]\ntbl_hc_main566                 [implementation=None, mk=]\ntbl_hc_main597                 [implementation=None, mk=]\ntbl_hc_main606                 [implementation=None, mk=]\nRuntimeCmd: \n",
+        "table_dump HcIngress.ipv4_lpm": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n",
+        "table_dump HcIngress.t_ternary": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a000101 &&& ffffffff\nPriority: 10\nAction entry: HcIngress.set_mark - 07\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n",
+        "table_dump HcIngress.v6_host": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000001\nAction entry: HcIngress.v6_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000002\nAction entry: HcIngress.v6_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000003\nAction entry: HcIngress.v6_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000004\nAction entry: HcIngress.v6_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000005\nAction entry: HcIngress.v6_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000006\nAction entry: HcIngress.v6_forward - 08000000ff04, 03\n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+      },
+      "self_checks": {
+        "SC-count": {
+          "ok": true,
+          "why": "c_in delta 5 == sent == received"
+        },
+        "SC-fwd": {
+          "ok": true,
+          "why": "pingall 6/6 and the T1 entries are in the dumps"
+        },
+        "SC-qstamp": {
+          "ok": true,
+          "why": "3 stamped packet(s)"
+        },
+        "SC-recirc": {
+          "ok": true,
+          "why": "resubmitted and recirculated"
+        },
+        "SC-reg": {
+          "ok": true,
+          "why": "register holds the marker's 4660"
+        },
+        "SC-ttl": {
+          "ok": true,
+          "why": "ttl 63 after 1 hops"
+        },
+        "SC-union": {
+          "ok": true,
+          "why": "the union's IPv6 member was forwarded and rewritten"
+        }
+      },
+      "stop_rc": -15,
+      "ternary_held": true
+    },
+    "main": {
+      "c_in_before": [
+        0,
+        0
+      ],
+      "dpid": 2,
+      "install_out_tail": "le HcIngress.t_dmeter\nmatch key:           EXACT-9c:57\naction:              HcIngress.dm_read\nruntime data:        \nEntry has been added with handle 0\nRuntimeCmd: Setting default action of HcIngress.t_default_only\naction:              HcIngress.stamp\nruntime data:        2a\nRuntimeCmd: RuntimeCmd: \n",
+      "installed_before_s": 0.47,
+      "label": "main",
+      "local_port": 1,
+      "missing_outputs": [],
+      "outputs": {
+        "1": 56,
+        "2": 3,
+        "3": 2,
+        "510": 1
+      },
+      "probes": {
+        "alt6_out": [
+          1
+        ],
+        "alt_table_listed": false,
+        "clone_copies_on_p1": 2,
+        "hash_uplinks": [
+          1
+        ],
+        "hcl2_out": [
+          1
+        ],
+        "heartbeat_frames_out_with_entries": 0,
+        "ip_checksums_ok": true,
+        "l4shim_out": [
+          1
+        ],
+        "mcast_ports": [],
+        "punt_to_cpu_with_packet_in": true,
+        "q1_control_id1_unstamped": true,
+        "random_uplinks": [
+          1
+        ],
+        "shim_out": [
+          1
+        ],
+        "srcroute_popped_to_ipv4": [
+          1
+        ],
+        "tunnel_out": [
+          1
+        ],
+        "varbit_out": [
+          1
+        ],
+        "vlan_out": [
+          1
+        ]
+      },
+      "program": "build/hc_main",
+      "reads": {
+        "counter_read HcIngress.c_in 0": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcIngress.c_in[0]= (335 bytes, 5 packets)\nRuntimeCmd: \n",
+        "register_read HcIngress.r_mark 0": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcIngress.r_mark[0]= 4660\nRuntimeCmd: \n",
+        "show_tables": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcEgress.q_stamp               [implementation=None, mk=]\nHcIngress.ipv4_lpm             [implementation=None, mk=ipv4.dstAddr(lpm, 32)]\nHcIngress.port_exact           [implementation=None, mk=standard_metadata.ingress_port(exact, 9)]\nHcIngress.t_ap                 [implementation=HcIngress.ap_prof, mk=udp.dstPort(exact, 16)]\nHcIngress.t_as                 [implementation=HcIngress.as_sel, mk=udp.dstPort(exact, 16)]\nHcIngress.t_dcount             [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_default_only       [implementation=None, mk=]\nHcIngress.t_dmeter             [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_idle               [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_multipath          [implementation=None, mk=ipv4.dstAddr(exact, 32),\tscalars.metadata.mp_choice(exact, 1)]\nHcIngress.t_optional           [implementation=None, mk=ipv4.protocol(ternary, 8)]\nHcIngress.t_range              [implementation=None, mk=udp.dstPort(range, 16)]\nHcIngress.t_ternary            [implementation=None, mk=ipv4.srcAddr(ternary, 32)]\nHcIngress.tunnel_exact         [implementation=None, mk=scalars.metadata.dst_id(exact, 16)]\nHcIngress.v6_host              [implementation=None, mk=scalars.metadata.v6_lo(exact, 32)]\ntbl_hc_main483                 [implementation=None, mk=]\ntbl_hc_main489                 [implementation=None, mk=]\ntbl_hc_main502                 [implementation=None, mk=]\ntbl_hc_main504                 [implementation=None, mk=]\ntbl_hc_main507                 [implementation=None, mk=]\ntbl_hc_main529                 [implementation=None, mk=]\ntbl_hc_main533                 [implementation=None, mk=]\ntbl_hc_main537                 [implementation=None, mk=]\ntbl_hc_main540                 [implementation=None, mk=]\ntbl_hc_main543                 [implementation=None, mk=]\ntbl_hc_main546                 [implementation=None, mk=]\ntbl_hc_main549                 [implementation=None, mk=]\ntbl_hc_main553                 [implementation=None, mk=]\ntbl_hc_main557                 [implementation=None, mk=]\ntbl_hc_main563                 [implementation=None, mk=]\ntbl_hc_main566                 [implementation=None, mk=]\ntbl_hc_main597                 [implementation=None, mk=]\ntbl_hc_main606                 [implementation=None, mk=]\nRuntimeCmd: \n",
+        "table_dump HcIngress.ipv4_lpm": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n",
+        "table_dump HcIngress.t_ternary": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a000101 &&& ffffffff\nPriority: 10\nAction entry: HcIngress.set_mark - 07\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n",
+        "table_dump HcIngress.v6_host": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000001\nAction entry: HcIngress.v6_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000002\nAction entry: HcIngress.v6_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000003\nAction entry: HcIngress.v6_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000004\nAction entry: HcIngress.v6_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000005\nAction entry: HcIngress.v6_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000006\nAction entry: HcIngress.v6_forward - 08000000ff04, 03\n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+      },
+      "self_checks": {
+        "SC-count": {
+          "ok": true,
+          "why": "c_in delta 5 == sent == received"
+        },
+        "SC-fwd": {
+          "ok": true,
+          "why": "pingall 6/6 and the T1 entries are in the dumps"
+        },
+        "SC-qstamp": {
+          "ok": true,
+          "why": "3 stamped packet(s)"
+        },
+        "SC-recirc": {
+          "ok": true,
+          "why": "resubmitted and recirculated"
+        },
+        "SC-reg": {
+          "ok": true,
+          "why": "register holds the marker's 4660"
+        },
+        "SC-ttl": {
+          "ok": true,
+          "why": "ttl 63 after 1 hops"
+        },
+        "SC-union": {
+          "ok": true,
+          "why": "the union's IPv6 member was forwarded and rewritten"
+        }
+      },
+      "stop_rc": -15,
+      "ternary_held": true
+    },
+    "mutant": {
+      "c_in_before": [
+        0,
+        0
+      ],
+      "dpid": 2,
+      "install_out_tail": "le HcIngress.t_dmeter\nmatch key:           EXACT-9c:57\naction:              HcIngress.dm_read\nruntime data:        \nEntry has been added with handle 0\nRuntimeCmd: Setting default action of HcIngress.t_default_only\naction:              HcIngress.stamp\nruntime data:        2a\nRuntimeCmd: RuntimeCmd: \n",
+      "installed_before_s": 0.47,
+      "label": "mutant",
+      "local_port": 1,
+      "missing_outputs": [],
+      "outputs": {
+        "1": 56,
+        "2": 3,
+        "3": 2,
+        "510": 1
+      },
+      "probes": {
+        "alt6_out": [
+          1
+        ],
+        "alt_table_listed": false,
+        "clone_copies_on_p1": 2,
+        "hash_uplinks": [
+          1
+        ],
+        "hcl2_out": [
+          1
+        ],
+        "heartbeat_frames_out_with_entries": 0,
+        "ip_checksums_ok": true,
+        "l4shim_out": [
+          1
+        ],
+        "mcast_ports": [],
+        "punt_to_cpu_with_packet_in": true,
+        "q1_control_id1_unstamped": true,
+        "random_uplinks": [
+          1
+        ],
+        "shim_out": [
+          1
+        ],
+        "srcroute_popped_to_ipv4": [
+          1
+        ],
+        "tunnel_out": [
+          1
+        ],
+        "varbit_out": [
+          1
+        ],
+        "vlan_out": [
+          1
+        ]
+      },
+      "program": "build-mutant/hc_main",
+      "reads": {
+        "counter_read HcIngress.c_in 0": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcIngress.c_in[0]= (0 bytes, 0 packets)\nRuntimeCmd: \n",
+        "register_read HcIngress.r_mark 0": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcIngress.r_mark[0]= 4660\nRuntimeCmd: \n",
+        "show_tables": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: HcEgress.q_stamp               [implementation=None, mk=]\nHcIngress.ipv4_lpm             [implementation=None, mk=ipv4.dstAddr(lpm, 32)]\nHcIngress.port_exact           [implementation=None, mk=standard_metadata.ingress_port(exact, 9)]\nHcIngress.t_ap                 [implementation=HcIngress.ap_prof, mk=udp.dstPort(exact, 16)]\nHcIngress.t_as                 [implementation=HcIngress.as_sel, mk=udp.dstPort(exact, 16)]\nHcIngress.t_dcount             [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_default_only       [implementation=None, mk=]\nHcIngress.t_dmeter             [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_idle               [implementation=None, mk=udp.dstPort(exact, 16)]\nHcIngress.t_multipath          [implementation=None, mk=ipv4.dstAddr(exact, 32),\tscalars.metadata.mp_choice(exact, 1)]\nHcIngress.t_optional           [implementation=None, mk=ipv4.protocol(ternary, 8)]\nHcIngress.t_range              [implementation=None, mk=udp.dstPort(range, 16)]\nHcIngress.t_ternary            [implementation=None, mk=ipv4.srcAddr(ternary, 32)]\nHcIngress.tunnel_exact         [implementation=None, mk=scalars.metadata.dst_id(exact, 16)]\nHcIngress.v6_host              [implementation=None, mk=scalars.metadata.v6_lo(exact, 32)]\ntbl_hc_main483                 [implementation=None, mk=]\ntbl_hc_main489                 [implementation=None, mk=]\ntbl_hc_main502                 [implementation=None, mk=]\ntbl_hc_main504                 [implementation=None, mk=]\ntbl_hc_main507                 [implementation=None, mk=]\ntbl_hc_main527                 [implementation=None, mk=]\ntbl_hc_main533                 [implementation=None, mk=]\ntbl_hc_main537                 [implementation=None, mk=]\ntbl_hc_main540                 [implementation=None, mk=]\ntbl_hc_main543                 [implementation=None, mk=]\ntbl_hc_main546                 [implementation=None, mk=]\ntbl_hc_main549                 [implementation=None, mk=]\ntbl_hc_main553                 [implementation=None, mk=]\ntbl_hc_main557                 [implementation=None, mk=]\ntbl_hc_main563                 [implementation=None, mk=]\ntbl_hc_main566                 [implementation=None, mk=]\ntbl_hc_main597                 [implementation=None, mk=]\ntbl_hc_main606                 [implementation=None, mk=]\nRuntimeCmd: \n",
+        "table_dump HcIngress.ipv4_lpm": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.dstAddr        : LPM       0a000101/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* ipv4.dstAddr        : LPM       0a000202/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* ipv4.dstAddr        : LPM       0a000303/32\nAction entry: HcIngress.ipv4_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* ipv4.dstAddr        : LPM       0a000404/32\nAction entry: HcIngress.ipv4_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* ipv4.dstAddr        : LPM       0a000505/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* ipv4.dstAddr        : LPM       0a000606/32\nAction entry: HcIngress.ipv4_forward - 08000000ff04, 03\n**********\nDumping entry 0x6\nMatch key:\n* ipv4.dstAddr        : LPM       0a006302/32\nAction entry: HcIngress.drop - \n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n",
+        "table_dump HcIngress.t_ternary": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* ipv4.srcAddr        : TERNARY   0a000101 &&& ffffffff\nPriority: 10\nAction entry: HcIngress.set_mark - 07\n==========\nDumping default entry\nAction entry: NoAction - \n==========\nRuntimeCmd: \n",
+        "table_dump HcIngress.v6_host": "Obtaining JSON from switch...\nDone\nControl utility for runtime P4 table manipulation\nRuntimeCmd: ==========\nTABLE ENTRIES\n**********\nDumping entry 0x0\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000001\nAction entry: HcIngress.v6_forward - 08000000ff01, 02\n**********\nDumping entry 0x1\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000002\nAction entry: HcIngress.v6_forward - 08000000ff01, 02\n**********\nDumping entry 0x2\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000003\nAction entry: HcIngress.v6_forward - 08000000ff01, 02\n**********\nDumping entry 0x3\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000004\nAction entry: HcIngress.v6_forward - 080000000444, 01\n**********\nDumping entry 0x4\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000005\nAction entry: HcIngress.v6_forward - 08000000ff04, 03\n**********\nDumping entry 0x5\nMatch key:\n* scalars.metadata.v6_lo: EXACT     00000006\nAction entry: HcIngress.v6_forward - 08000000ff04, 03\n==========\nDumping default entry\nAction entry: HcIngress.drop - \n==========\nRuntimeCmd: \n"
+      },
+      "self_checks": {
+        "SC-count": {
+          "ok": false,
+          "why": "c_in delta 0, sent and received 5"
+        },
+        "SC-fwd": {
+          "ok": true,
+          "why": "pingall 6/6 and the T1 entries are in the dumps"
+        },
+        "SC-qstamp": {
+          "ok": false,
+          "why": "no received packet carries the 0x8000 flag"
+        },
+        "SC-recirc": {
+          "ok": true,
+          "why": "resubmitted and recirculated"
+        },
+        "SC-reg": {
+          "ok": true,
+          "why": "register holds the marker's 4660"
+        },
+        "SC-ttl": {
+          "ok": false,
+          "why": "ttl [64], expected 63 (64 - 1 hops)"
+        },
+        "SC-union": {
+          "ok": true,
+          "why": "the union's IPv6 member was forwarded and rewritten"
+        }
+      },
+      "stop_rc": -15,
+      "ternary_held": true
+    }
+  },
+  "show_ports_trial": {
+    "/usr/local/bin/simple_switch_grpc": [
+      1,
+      2,
+      3
+    ],
+    "/usr/local/bmv2-fast/bin/simple_switch_grpc": [
+      1,
+      2,
+      3
+    ]
+  },
+  "verdict": "COMPLETE",
+  "vs_trial": [
+    {
+      "alive_after_read": true,
+      "alive_after_write": true,
+      "arbitration": "device_id: 959770 election_id { low: 1 } status { message: \"Is primary\" }",
+      "argv0": "ndt-hc-vstrial-bmv2",
+      "bmv2": "/usr/local/bin/simple_switch_grpc",
+      "device_id": 959770,
+      "exit_status": -15,
+      "grpc_port": 29650,
+      "pipeline": "OK",
+      "pvs_get_after_write": [
+        "Done",
+        "Control utility for runtime P4 table manipulation",
+        "RuntimeCmd: RuntimeCmd: "
+      ],
+      "read_back": "UNIMPLEMENTED: ValueSet reads are not supported yet",
+      "stdout_tail": [
+        "Calling target program-options parser",
+        "Adding interface p1 as port 1 (files)",
+        "Adding interface p2 as port 2 (files)"
+      ],
+      "thrift_port": 29500,
+      "write": "UNKNOWN: ",
+      "write_errors": [
+        {
+          "canonical_code": 12,
+          "code": 0,
+          "message": "ValueSet writes are not supported yet",
+          "space": "ALL-sswitch-p4org"
+        }
+      ]
+    },
+    {
+      "alive_after_read": true,
+      "alive_after_write": true,
+      "arbitration": "device_id: 959770 election_id { low: 1 } status { message: \"Is primary\" }",
+      "argv0": "ndt-hc-vstrial-bmv2",
+      "bmv2": "/usr/local/bmv2-fast/bin/simple_switch_grpc",
+      "device_id": 959770,
+      "exit_status": -15,
+      "grpc_port": 29650,
+      "pipeline": "OK",
+      "pvs_get_after_write": [
+        "Done",
+        "Control utility for runtime P4 table manipulation",
+        "RuntimeCmd: RuntimeCmd: "
+      ],
+      "read_back": "UNIMPLEMENTED: ValueSet reads are not supported yet",
+      "stdout_tail": [
+        "You disabled logging macros when building this binary; however, the log level is currenty set to include 'debug' and possibly 'trace' messages; therefore the logs will be missing most messages",
+        "Calling target program-options parser",
+        "Adding interface p1 as port 1 (files)",
+        "Adding interface p2 as port 2 (files)"
+      ],
+      "thrift_port": 29500,
+      "write": "UNKNOWN: ",
+      "write_errors": [
+        {
+          "canonical_code": 12,
+          "code": 0,
+          "message": "ValueSet writes are not supported yet",
+          "space": "ALL-sswitch-p4org"
+        }
+      ]
+    }
+  ]
+}

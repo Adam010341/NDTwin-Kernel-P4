@@ -1,0 +1,5 @@
+2026-10-16T19:06:08+08:00 pg: lock acquired after 0 s
+2026-10-16T19:06:12+08:00 pg: red_at_M4 rc=1
+2026-10-16T19:06:21+08:00 pg: green_at_M5 rc=1
+2026-10-16T19:06:31+08:00 pg: control_at_M5 rc=1
+2026-10-16T19:06:31+08:00 pg: done; HEAD 5b83c8994ecf4b439e2e8f616ba4ac0a2f34e3cf tracked-dirty=0

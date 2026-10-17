@@ -1,0 +1,177 @@
+2026-10-16T16:30:39+08:00 guard: 6 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2699 MB; MemAvailable 4256 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 798908 tail -n 0 -F /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log
+ 878440 bash tests/shell/mutate_table_journal.sh
+ 878441 bash tests/shell/mutate_table_journal.sh
+guard: shell 878459 SigBlk:	0000000000010000
+guard: shell 878459 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:32:25+08:00 guard: 6 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2666 MB; MemAvailable 4426 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 798908 tail -n 0 -F /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log
+ 883234 bash tests/shell/mutate_table_journal.sh
+ 883235 bash tests/shell/mutate_table_journal.sh
+guard: shell 883585 SigBlk:	0000000000010000
+guard: shell 883585 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:33:25+08:00 guard: 6 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2647 MB; MemAvailable 4407 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 798908 tail -n 0 -F /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log
+ 885979 bash tests/shell/mutate_table_journal.sh
+ 885980 bash tests/shell/mutate_table_journal.sh
+guard: shell 886099 SigBlk:	0000000000010000
+guard: shell 886099 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:34:25+08:00 guard: 6 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2620 MB; MemAvailable 4496 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 798908 tail -n 0 -F /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log
+ 889061 bash tests/shell/mutate_table_journal.sh
+ 889062 bash tests/shell/mutate_table_journal.sh
+guard: shell 889103 SigBlk:	0000000000010000
+guard: shell 889103 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:35:25+08:00 guard: 6 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2602 MB; MemAvailable 4496 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 798908 tail -n 0 -F /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log
+ 891927 bash tests/shell/mutate_table_journal.sh
+ 891928 bash tests/shell/mutate_table_journal.sh
+guard: shell 892156 SigBlk:	0000000000010000
+guard: shell 892156 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:36:25+08:00 guard: 6 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2584 MB; MemAvailable 4420 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 798908 tail -n 0 -F /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log
+ 894376 bash tests/shell/mutate_table_journal.sh
+ 894377 bash tests/shell/mutate_table_journal.sh
+guard: shell 894734 SigBlk:	0000000000010000
+guard: shell 894734 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:37:25+08:00 guard: 6 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2561 MB; MemAvailable 4419 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 798908 tail -n 0 -F /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log
+ 897386 bash tests/shell/mutate_table_journal.sh
+ 897387 bash tests/shell/mutate_table_journal.sh
+guard: shell 897473 SigBlk:	0000000000010000
+guard: shell 897473 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:38:25+08:00 guard: 6 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2543 MB; MemAvailable 4469 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 798908 tail -n 0 -F /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log
+ 899849 bash tests/shell/mutate_table_journal.sh
+ 899850 bash tests/shell/mutate_table_journal.sh
+guard: shell 900239 SigBlk:	0000000000010000
+guard: shell 900239 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:39:25+08:00 guard: 5 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2525 MB; MemAvailable 4524 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 902760 bash tests/shell/mutate_table_journal.sh
+ 902761 bash tests/shell/mutate_table_journal.sh
+guard: shell 902822 SigBlk:	0000000000010000
+guard: shell 902822 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:40:25+08:00 guard: 5 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2509 MB; MemAvailable 4609 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 905144 bash tests/shell/mutate_table_journal.sh
+ 905145 bash tests/shell/mutate_table_journal.sh
+guard: shell 905242 SigBlk:	0000000000010000
+guard: shell 905242 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:41:25+08:00 guard: 5 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2496 MB; MemAvailable 4556 MB
+ 797793 timeout -k 60 5400 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797818 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/mutate_table_journal.log bash tests/shell/mutate_table_journal.sh
+ 797866 bash tests/shell/mutate_table_journal.sh
+ 907728 bash tests/shell/mutate_table_journal.sh
+ 907729 bash tests/shell/mutate_table_journal.sh
+guard: shell 908044 SigBlk:	0000000000010000
+guard: shell 908044 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:42:26+08:00 guard: 1 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2728 MB; MemAvailable 4745 MB
+ 909629 bash r2driver.sh
+guard: shell 910638 SigBlk:	0000000000010000
+guard: shell 910638 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:43:26+08:00 guard: 1 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2725 MB; MemAvailable 4556 MB
+ 909629 bash r2driver.sh
+guard: shell 913159 SigBlk:	0000000000010000
+guard: shell 913159 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:44:26+08:00 guard: 1 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3085 MB; MemAvailable 4719 MB
+ 909629 bash r2driver.sh
+guard: shell 914825 SigBlk:	0000000000010000
+guard: shell 914825 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:45:26+08:00 guard: 1 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3084 MB; MemAvailable 4616 MB
+ 909629 bash r2driver.sh
+guard: shell 915533 SigBlk:	0000000000010000
+guard: shell 915533 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:46:26+08:00 guard: 1 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3083 MB; MemAvailable 4290 MB
+ 909629 bash r2driver.sh
+guard: shell 916665 SigBlk:	0000000000010000
+guard: shell 916665 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:47:26+08:00 guard: 1 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3078 MB; MemAvailable 4111 MB
+ 909629 bash r2driver.sh
+guard: shell 917492 SigBlk:	0000000000010000
+guard: shell 917492 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:48:26+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3036 MB; MemAvailable 4405 MB
+guard: shell 918792 SigBlk:	0000000000010000
+guard: shell 918792 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0

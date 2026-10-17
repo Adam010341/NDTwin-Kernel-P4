@@ -1,0 +1,19 @@
+scratch copy /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/ptest (M4 tree p4_proxy/tests + p4_proxy/mininet, test_port_guard.py from M5', filter line deleted)
+command: cd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/ptest/p4_proxy; /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/venv/bin/python -m unittest tests.test_port_guard.DialedPortsTest.test_the_listen_line_is_not_a_dial -v
+test_the_listen_line_is_not_a_dial (tests.test_port_guard.DialedPortsTest.test_the_listen_line_is_not_a_dial) ... FAIL
+
+======================================================================
+FAIL: test_the_listen_line_is_not_a_dial (tests.test_port_guard.DialedPortsTest.test_the_listen_line_is_not_a_dial)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/ptest/p4_proxy/tests/test_port_guard.py", line 467, in test_the_listen_line_is_not_a_dial
+    self.assertEqual({30051}, dialed_ports(out))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Items in the second set but not the first:
+8081
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)
+rc=1

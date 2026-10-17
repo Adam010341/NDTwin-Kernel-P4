@@ -1,0 +1,250 @@
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/mgrun.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/mgrun.sh
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/mgrun.sh	2026-10-15 20:28:02.884503080 +0800
++++ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/mgrun.sh	2026-10-16 19:11:17.534403063 +0800
+@@ -1,14 +1,15 @@
+ #!/usr/bin/env bash
+-# mgrun.sh <stage>... (B C D) : the merged-head gate for merge/trunk-1015 (M2), in the gate clone, every step behind guard.sh and
+-# mexec.sh (signal-mask exec wrapper), its verdict from the last line of its own log. Stage B = the locale pre-gate list (Q8),
+-# Stage C = the step list of p4-ternary-replay-c/r2/driver.sh (+ the two extras), Stage D = the four-shard health gate (chain_mut.sh).
++# mgrun.sh <stage>... (C D) : the merged-head gate for merge/trunk-1016 (M5'), in the gate clone, every step behind the shared lock,
++# guard.sh and mexec.sh (signal-mask exec wrapper), its verdict from the last line of its own log. Stage C = the 10-15 step list
++# (Stage B of 10-15 dropped) + three additions, Stage D = the four-shard health gate (chain_mut.sh).
+ # A step that exceeds its cap is stopped by its SESSION (pid list from ps -s), recorded, and the next step goes on.
+ # [Co-developed with claude code -- Adam]
+-E=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015
+-S=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg
++E=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016
++S=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16
+ CI=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/healthcut2/pr-cut2
+ C=$S/gate; D=$E/mgrun.log
+-M2=d92bf1a258cec2d1524652fcff17526926fbcefa
++M5=cc0bca4bde02d6611935508ae49a3d3790d6ffbe
++LOCK=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/heavy-step.lock
+ export TMPDIR=$S/tmp
+ mkdir -p "$TMPDIR"
+ cd "$C" || { echo "STOPPED: no clone at $C" > "$E/STOPPED"; exit 2; }
+@@ -18,8 +19,27 @@
+ RL=$E/runlog.sh
+ CAP=1800
+ echo "$(date -Is) mgrun start pid $$ stages: $* ; clone HEAD $(git rev-parse HEAD); LANG=${LANG:-} LC_ALL=${LC_ALL:-}; PYTHON=${PYTHON:-unset}" >> "$D"
+-[[ "$(git rev-parse HEAD)" == "$M2" ]] || { echo "STOPPED: clone HEAD is not M2" > "$E/STOPPED"; exit 2; }
++[[ "$(git rev-parse HEAD)" == "$M5" ]] || { echo "STOPPED: clone HEAD is not M5'" > "$E/STOPPED"; exit 2; }
+ stop() { echo "$*" > "$E/STOPPED"; echo "$(date -Is) STOPPED: $*" >> "$D"; exit 2; }
++take_lock() {   # $1 = step name : the shared lock on fd 9 of this shell (never flock <cmd>: guard.sh scans argv), then :8081 empty
++    local name="$1" t0 n=0
++    t0=$(date +%s)
++    exec 9>>"$LOCK"
++    echo "$(date -Is) [$name] lock wait begin" >> "$D"
++    flock 9
++    echo "$(date -Is) [$name] lock acquired after $(( $(date +%s) - t0 )) s" >> "$D"
++    while ss -ltn | awk '{print $4}' | grep -qE '[:.]8081$'; do
++        n=$((n+1)); [[ $n -gt 120 ]] && stop "a listener on :8081 for 2 h before $name"
++        echo "$(date -Is) [$name] :8081 has a listener (wait $n of 120)" >> "$D"
++        sleep 60
++    done
++    [[ $n -gt 0 ]] && echo "$(date -Is) [$name] :8081 empty after $n waits" >> "$D"
++}
++drop_lock() {   # $1 = step name : release, close, 30 s for the others
++    flock -u 9; exec 9>&-
++    echo "$(date -Is) [$1] lock released" >> "$D"
++    sleep 30
++}
+ wait_ok() {   # $1 = step name : guard (retry up to 2 h), then the old procscan
+     local name="$1" n=0 g
+     while :; do
+@@ -31,68 +51,34 @@
+         sleep 60
+     done
+     echo "$(date -Is) [$name] guard ok: $(grep -E 'guard: [0-9]+ matching|SigBlk &' "$E/$name.guard.log" | tail -2 | tr '\n' ' ')" >> "$D"
+-    python3 "$E/procscan.py" "$D" || stop "procscan: other mutate_/probe.py processes before $name"
++    python3 "$E/procscan.py" "$D" 9>&- || stop "procscan: other mutate_/probe.py processes before $name"
+ }
+ guarded() {   # guarded <name> <cap seconds> <logfile of the step> <cmd...> : mexec + watchdog; the step's own verdict is its log's last line
+     local name="$1" cap="$2" log="$3"; shift 3
+     local t0 t1 W rc p
++    take_lock "$name"
+     wait_ok "$name"
+     rm -f "$E/.sid.$name"
+     echo "$(date -Is) [$name] start (cap ${cap}s)" >> "$D"
+     t0=$(date +%s)
+     # the watchdog: its own session; after <cap> s it stops the step's session (the pid the step wrote to .sid.<name>)
+-    setsid bash -c 'sleep "$1"; sid=$(cat "$2" 2>/dev/null); [ -n "$sid" ] && bash "$3" "$sid" "$4" "$5" "$6"' _ "$cap" "$E/.sid.$name" "$E/stopsess.sh" "$name" "$D" "$log" &
++    setsid bash -c 'sleep "$1"; sid=$(cat "$2" 2>/dev/null); [ -n "$sid" ] && bash "$3" "$sid" "$4" "$5" "$6"' _ "$cap" "$E/.sid.$name" "$E/stopsess.sh" "$name" "$D" "$log" 9>&- &
+     W=$!
+-    setsid --wait nice -n 19 bash "$E/mexec.sh" "$E/$name.guard.log" bash -c 'echo $$ > "$1"; shift; exec "$@"' _ "$E/.sid.$name" "$@"
++    setsid --wait nice -n 19 bash "$E/mexec.sh" "$E/$name.guard.log" bash -c 'echo $$ > "$1"; shift; exec "$@"' _ "$E/.sid.$name" "$@" 9>&-
+     rc=$?
+     for p in $(ps -o pid= -s "$W" 2>/dev/null); do kill -TERM "$p" 2>/dev/null; done
+     wait "$W" 2>/dev/null
+     t1=$(date +%s)
+     echo "$(date -Is) [$name] end wall=$((t1-t0))s exit=$rc :: last line of $(basename "$log"): $(tail -1 "$log" 2>/dev/null | cut -c1-120) :: $(grep -E 'mutation gate:|mutations,|cells ok|FAILURES=|survived|^ok:|^Ran |^OK|^FAILED|ALL CHECKS|NOT ALL|S0 verdict|S0 checks|^GATE' "$log" 2>/dev/null | tail -2 | cut -c1-200 | tr '\n' ' ')" >> "$D"
++    drop_lock "$name"
+ }
+ run() {   # run <name> <cmd...> : through the runlog $RL, log $E/<name>.log
+     local name="$1"; shift
+     guarded "$name" "${CAPS[$name]:-$CAP}" "$E/$name.log" bash "$RL" "$E/$name.log" "$@"
+ }
+-declare -A CAPS=([B_6_mutate_partial_C2R8-5g]=3600 [mutate_table_journal]=5400 [mutate_roles_binding]=6000 [klane]=2400 [mutate_table_entry]=1800 )
++declare -A CAPS=([mutate_table_journal]=5400 [mutate_roles_binding]=6000 [klane]=2400 [mutate_table_entry]=3000 [mutate_stack_telemetry_identity]=3600 [test_ndt_app_package]=3600 )
+ stage_note() { echo "$(date -Is) ===== STAGE $1 $2 (epoch $(date +%s))" >> "$D"; }
+ 
+-stage_B() {
+-    stage_note B begin
+-    RL=$E/runlog_l3.sh
+-    local HUP=(-c 'import os, signal, sys; signal.pthread_sigmask(signal.SIG_BLOCK, [signal.SIGHUP]); os.execv(sys.argv[1], sys.argv[1:])')
+-    run B_1_anchor_check        env ANCHOR_CHECK=1 bash tests/shell/mutate_p4_health.sh
+-    run B_2_check_gate_anchors  $PY tests/shell/check_gate_anchors.py HEAD
+-    run B_3_bare_sort_grep      bash -c "grep -nE '[|] *sort( |\$)' tests/shell/mutate_p4_health.sh | grep -vF 'LC_ALL=C sort'; echo \"bare (not LC_ALL=C) sorts in a pipe: \$(grep -nE '[|] *sort( |\$)' tests/shell/mutate_p4_health.sh | grep -vcF 'LC_ALL=C sort')\"; grep -nE '[|] *sort( |\$)' tests/shell/mutate_p4_health.sh"
+-    run B_4_p4h.cells        $PY   tests/python/test_p4_health_cells.py
+-    run B_4_p4h.cells.py38   $PY38 tests/python/test_p4_health_cells.py
+-    run B_4_p4h.collect      $PY   tests/python/test_p4_health_collect.py
+-    run B_4_p4h.collect.py38 $PY38 tests/python/test_p4_health_collect.py
+-    run B_4_p4h.cells.sighup_blocked_parent        $PY   "${HUP[@]}" $PY   tests/python/test_p4_health_cells.py
+-    run B_4_p4h.cells.py38.sighup_blocked_parent   $PY38 "${HUP[@]}" $PY38 tests/python/test_p4_health_cells.py
+-    run B_4_p4h.collect.sighup_blocked_parent      $PY   "${HUP[@]}" $PY   tests/python/test_p4_health_collect.py
+-    run B_4_p4h.collect.py38.sighup_blocked_parent $PY38 "${HUP[@]}" $PY38 tests/python/test_p4_health_collect.py
+-    run B_5_p4h.recover      bash tests/shell/test_p4_health_recover.sh
+-    run B_5_p4h.gate_scripts bash tests/shell/test_p4_health_gate_scripts.sh
+-    run B_6_mutate_partial_C2R8-5g env ONLY_LABEL_PREFIX=C2R8-5g bash tests/shell/mutate_p4_health.sh
+-    local VS=TestS0Cut2Checks.test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back
+-    export NOTE="SIGHUP pending at exec"
+-    run B_7_valueset_delivery_pending_hup $PY "$E/pending_hup.py" $PY tests/python/test_p4_health_cells.py $VS
+-    export NOTE="control: no stop pending"
+-    run B_7_valueset_delivery_control_no_pending $PY tests/python/test_p4_health_cells.py $VS
+-    unset NOTE
+-    # 8: S0 with a Frozen, no bytecode suppression, not through runlog
+-    guarded B_8_s0_with_frozen 1800 "$E/B_8_s0_with_frozen.log" bash "$E/s0_frozen_run.sh" "$E/B_8_s0_with_frozen.log" "$S/s0frozen-rundir"
+-    {   echo "$(date -Is) [B_8] bytecode cleanup in the gate clone (the __pycache__ dirs this run's imports wrote; not the shared venv):"
+-        find . -name __pycache__ -not -path './p4_proxy/venv/*' -prune -print | sort | tee "$E/B_8_clone_pycache_removed.txt" | head -20
+-        find . -name __pycache__ -not -path './p4_proxy/venv/*' -prune -exec rm -rf {} + 2>&1
+-        echo "after: __pycache__ dirs in the clone: $(find . -name __pycache__ -not -path './p4_proxy/venv/*' | wc -l); tracked-dirty: $(git status --porcelain --untracked-files=no | wc -l); HEAD $(git rev-parse HEAD)"
+-        echo "git status --porcelain --ignored (clone):"; git status --porcelain --ignored | head -20
+-    } >> "$D" 2>&1
+-    rm -rf "$S/s0frozen-rundir"
+-    stage_note B end
+-}
+-
+ stage_C() {
+     stage_note C begin
+     RL=$E/runlog.sh
+@@ -126,17 +112,21 @@
+     guarded s0 1200 "$E/s0.log" bash "$E/s0_run.sh" "$C"
+     guarded trial-final 1800 "$E/trial-final.log" bash "$E/trial_run.sh" "$C" final
+     run journal_tests_seen_red   python3 "$E/seen_red.py" "$C" "$E/mutate_table_journal.log" tests.test_table_entry_journal tests.test_table_entry_replay
++    run mutate_stack_telemetry_identity bash tests/shell/mutate_stack_telemetry_identity.sh
++    run test_ndt_app_package            bash tests/shell/test_ndt_app_package.sh
++    { echo "commit $(git rev-parse HEAD)"; echo "command: git rev-parse $M5:tools/p4_health"; echo "$(git rev-parse "$M5:tools/p4_health")  (expected fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26)"; } > "$E/p4_health_tree.log"
++    echo "$(date -Is) [p4_health_tree] $(tail -1 "$E/p4_health_tree.log")" >> "$D"
+     stage_note C end
+ }
+ 
+ stage_D() {
+     stage_note D begin
+-    wait_ok chain_mut_start
+-    ( setsid --wait bash "$E/chain_mut.sh" "$C" ) >> "$E/chain_mut.stdout" 2>&1
++    # the lock, :8081 wait, guard and procscan are taken per shard inside chain_mut.sh
++    ( setsid --wait bash "$E/chain_mut.sh" "$C" ) >> "$E/chain_mut.stdout" 2>&1 9>&-
+     echo "$(date -Is) [chain_mut] exit $?; GATE.log last lines: $(tail -3 "$E/GATE.log" 2>/dev/null | cut -c1-300 | tr '\n' '|')" >> "$D"
+     stage_note D end
+ }
+ 
+-for s in "$@"; do case "$s" in B) stage_B;; C) stage_C;; D) stage_D;; esac; done
++for s in "$@"; do case "$s" in C) stage_C;; D) stage_D;; esac; done
+ echo "$(date -Is) mgrun end" >> "$D"
+ touch "$E/mgrun.done"
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/guard.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/guard.sh
+(identical)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/mexec.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/mexec.sh
+(identical)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/stopsess.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/stopsess.sh
+(identical)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/runlog.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/runlog.sh
+(identical)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/procscan.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/procscan.py
+(identical)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/proc_scan.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/proc_scan.py
+(identical)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/mkclone.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/mkclone.sh
+(identical)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/chain_mut.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/chain_mut.sh
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/chain_mut.sh	2026-10-15 20:24:33.404050486 +0800
++++ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/chain_mut.sh	2026-10-16 19:11:29.713044847 +0800
+@@ -2,12 +2,17 @@
+ # chain_mut.sh <clone> : the p4 health mutation gate's 4 shards, one at a time, in the gate clone, all in this one
+ # locale, then the shard sum (the way p4-health-ternary-d/r2 did). Each shard log: line 1 commit, line 2
+ # cwd/dirty/command, last line rc=N. Stops on low disk. [Co-developed with claude code -- Adam]
+-L=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015; W="$1"
+-export TMPDIR=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp
++L=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016; W="$1"
++LOCK=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/heavy-step.lock
++export TMPDIR=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/tmp
+ mkdir -p "$TMPDIR"
+ cd "$W" || exit 99
+ echo "$(date -Is) chain start pid $$ locale LANG=${LANG:-} LC_ALL=${LC_ALL:-} LC_COLLATE=$(locale 2>/dev/null | sed -n 's/^LC_COLLATE=//p')" >> "$L/mut_driver.log"
+ for k in 0 1 2 3; do
++  # the shared lock for this shard's whole run (fd 9 of this shell; never flock <cmd>), then :8081 empty
++  t0=$(date +%s); exec 9>>"$LOCK"; echo "$(date -Is) shard $k lock wait begin" >> "$L/mgrun.log"; flock 9
++  echo "$(date -Is) [shard$k] lock acquired after $(( $(date +%s) - t0 )) s" >> "$L/mgrun.log"
++  w=0; while ss -ltn | awk '{print $4}' | grep -qE '[:.]8081$'; do w=$((w+1)); [ "$w" -gt 120 ] && { echo "$(date -Is) shard $k NOT started: :8081 busy 2 h" >> "$L/mut_driver.log"; exit 7; }; echo "$(date -Is) [shard$k] :8081 has a listener (wait $w of 120)" >> "$L/mgrun.log"; sleep 60; done
+   free=$(df -m / | awk 'NR==2{print $4}')
+   if [ "$free" -lt 1800 ]; then echo "$(date -Is) shard $k NOT started: $free MB free" >> "$L/mut_driver.log"; exit 3; fi
+   python3 "$L/procscan.py" "$L/mut_driver.log" || { echo "$(date -Is) shard $k NOT started: other mutate_/probe.py processes" >> "$L/mut_driver.log"; exit 4; }
+@@ -20,8 +25,10 @@
+   log=$L/mutate_p4_health.shard${k}of4.log
+   { echo "commit $(git rev-parse HEAD)"; echo "cwd $W  tracked-dirty=$(git status --porcelain --untracked-files=no | wc -l)  df_free_mb=$free  LANG=${LANG:-}  command: setsid --wait nice -n 19 timeout 21600 bash $L/shardwrap.sh $k  (=> exec env MUT_SHARD=$k/4 bash tests/shell/mutate_p4_health.sh)"; } > "$log"
+   echo "$(date -Is) shard $k start" >> "$L/mut_driver.log"
+-  setsid --wait nice -n 19 timeout 21600 bash "$L/shardwrap.sh" "$k" >> "$log" 2>&1
++  setsid --wait nice -n 19 timeout 21600 bash "$L/shardwrap.sh" "$k" >> "$log" 2>&1 9>&-
+   rc=$?; echo "rc=$rc" >> "$log"; echo "$(date -Is) shard $k rc=$rc" >> "$L/mut_driver.log"
++  flock -u 9; exec 9>&-; echo "$(date -Is) [shard$k] lock released" >> "$L/mgrun.log"
++  sleep 30
+   [ "$rc" -eq 0 ] || { echo "$(date -Is) chain stops at shard $k" >> "$L/mut_driver.log"; exit 1; }
+ done
+ c=$(git rev-parse HEAD)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/shardwrap.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/shardwrap.sh
+(identical)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/ci-r2.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/ci-r2.sh
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/ci-r2.sh	2026-10-15 20:23:15.524463051 +0800
++++ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/ci-r2.sh	2026-10-16 19:05:51.410628331 +0800
+@@ -1,8 +1,8 @@
+ #!/usr/bin/env bash
+ # ci-r2.sh <dir> <suite.sh> : same shape as ci-prediction-pr32.raw/ci5.sh (env -i, own session via setsid --wait, suite shell neither leader nor its child);
+ # only the interpreter dir differs: the old PATH entry (scratchpad/pr31/venv312) no longer exists, so p4_proxy/venv/bin of the main checkout (python 3.13, has networkx) is used.
+-FH=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/fakehome
+-S_TMP=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg/tmp
++FH=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/fakehome
++S_TMP=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/tmp
+ mkdir -p "$FH" "$FH/_temp" "$S_TMP"
+ c="$1"; f="$2"; cd "$c" || exit 2
+ exec setsid --wait env -i PATH=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin:/usr/bin:/bin HOME=$FH TMPDIR=$S_TMP LANG=C.UTF-8 CI=true GITHUB_ACTIONS=true GITHUB_WORKSPACE="$c" RUNNER_TEMP=$FH/_temp USER=runner NDT_HB_CHECK_BMV2=/nonexistent/simple_switch PY_PLOT=/nonexistent/python \
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/s0_run.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0_run.sh
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/s0_run.sh	2026-10-15 20:23:04.938806205 +0800
++++ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0_run.sh	2026-10-16 19:05:51.407428469 +0800
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env bash
+ # s0_run.sh <clone> : one offline S0 at the clone's head under setsid --wait, with proc_scan.py before, during (its
+ # parent chains, every 0.1 s) and after. Kills nothing itself. [Co-developed with claude code -- Adam]
+-W="$1"; L=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015; RUN=$L/s0-run; S=$L/proc_scan.py
++W="$1"; L=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016; RUN=$L/s0-run; S=$L/proc_scan.py
+ cd "$W" || exit 99
+ out=$L/s0.log
+ rm -rf "$RUN"
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/trial_run.sh /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/trial_run.sh
+--- /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/trial_run.sh	2026-10-15 20:23:04.941521393 +0800
++++ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/trial_run.sh	2026-10-16 19:05:51.407901819 +0800
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env bash
+ # trial_run.sh <clone> <tag> : the Cut C trial under setsid --wait, with proc_scan.py before, during and after.
+ # Kills nothing itself; trial.py stops only the switches it started, by their pids. [Co-developed with claude code -- Adam]
+-W="$1"; T="$2"; L=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015; S=$L/proc_scan.py; WORK=$L/trial-work-$T
++W="$1"; T="$2"; L=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016; S=$L/proc_scan.py; WORK=$L/trial-work-$T
+ cd "$W" || exit 99
+ rm -rf "$WORK"
+ out=$L/trial-$T.log
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/trial.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/trial.py
+(identical)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/trial_boot.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/trial_boot.py
+(identical)
+=================== diff -u /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1015/seen_red.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/seen_red.py
+(identical)
+=================== new in this directory (not copies): pg.sh, pg2.sh (step 6 runners; pg.sh ran against the superseded M5)

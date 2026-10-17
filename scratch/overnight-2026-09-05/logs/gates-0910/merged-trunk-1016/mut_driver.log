@@ -1,0 +1,14 @@
+2026-10-16T23:33:11+08:00 chain start pid 2701317 locale LANG=en_US.UTF-8 LC_ALL= LC_COLLATE="en_US.UTF-8"
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:34:26+08:00 shard 0 start
+2026-10-17T01:30:44+08:00 shard 0 rc=0
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-17T01:47:18+08:00 shard 1 start
+2026-10-17T03:42:42+08:00 shard 1 rc=0
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-17T03:58:55+08:00 shard 2 start
+2026-10-17T05:54:35+08:00 shard 2 rc=0
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-17T06:11:26+08:00 shard 3 start
+2026-10-17T08:07:25+08:00 shard 3 rc=0
+2026-10-17T08:07:55+08:00 GATE sum rc=0

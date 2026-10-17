@@ -1,0 +1,5 @@
+[{"name": "r138v", "file": "proxy_agent/rule_journal.py",
+  "old": "                unknown_outcome = outcome_unknown is not None and outcome_unknown(exc)",
+  "new": "                unknown_outcome = (outcome_unknown is not None and retried_as != \"modify\"\n                                   and outcome_unknown(exc))",
+  "label": "M-J138 variant: a MODIFY retry that gets no answer is taken for a refusal (an insert retry still kept)",
+  "test": "test_an_insert_retry_whose_answer_is_lost_stays_in_the_journal_for_the_next_start"}]

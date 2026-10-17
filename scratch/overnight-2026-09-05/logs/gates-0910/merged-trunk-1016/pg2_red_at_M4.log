@@ -1,0 +1,97 @@
+commit a0805b84d6f5a14c0013cccd0c0608f9b81f8462  tracked-dirty=0
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy  NDTWIN_PROXY_HOST=<unset in runner env>  command: env NDTWIN_PROXY_HOST=not-an-address venv/bin/python -m unittest tests.test_port_guard -v
+ss :8081 listeners before: 0
+test_every_spelling_the_proxy_and_grpc_use (tests.test_port_guard.DialedPortsTest.test_every_spelling_the_proxy_and_grpc_use) ... ok
+test_a_listener_is_busy_on_either_family (tests.test_port_guard.NothingListensTest.test_a_listener_is_busy_on_either_family) ... ok
+test_an_unclear_answer_is_busy (tests.test_port_guard.NothingListensTest.test_an_unclear_answer_is_busy) ... ok
+test_both_refused_is_free (tests.test_port_guard.NothingListensTest.test_both_refused_is_free) ... ok
+test_no_ipv6_support_is_free (tests.test_port_guard.NothingListensTest.test_no_ipv6_support_is_free) ... ok
+test_no_loopback_v6_address_or_route_is_free (tests.test_port_guard.NothingListensTest.test_no_loopback_v6_address_or_route_is_free) ... ok
+test_it_exits_non_zero_and_says_why (tests.test_port_guard.PortAlreadyTakenTest.test_it_exits_non_zero_and_says_why) ... FAIL
+test_startup_event_never_runs_when_the_port_is_taken (tests.test_port_guard.PortAlreadyTakenTest.test_startup_event_never_runs_when_the_port_is_taken) ... ok
+test_proxy_dials_only_the_offline_block (tests.test_port_guard.PortFreeTest.test_proxy_dials_only_the_offline_block) ... FAIL
+test_startup_event_does_run_when_the_port_is_free (tests.test_port_guard.PortFreeTest.test_startup_event_does_run_when_the_port_is_free) ... FAIL
+
+======================================================================
+FAIL: test_it_exits_non_zero_and_says_why (tests.test_port_guard.PortAlreadyTakenTest.test_it_exits_non_zero_and_says_why)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/tests/test_port_guard.py", line 312, in test_it_exits_non_zero_and_says_why
+    self.assertRegex(
+    ~~~~~~~~~~~~~~~~^
+        out.lower(), r"8081.*(in use|unavailable|already)|already.*8081",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        "the refusal must name the port, so the operator is not left guessing",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+AssertionError: Regex didn't match: '8081.*(in use|unavailable|already)|already.*8081' not found in 'ndtwin: lldp_beacon_interval_s overridden to 0.5s (default 5); timeout/watchdog/grace derive from it\n[proxy agent] app package: baseline (mode ndtwin, election_id 0,1)\n/tmp/claude-1000/-home-adam-desktop-ndtwin-kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/proxy_agent/main.py:2696: deprecationwarning: \n        on_event is deprecated, use lifespan event handlers instead.\n\n        read more about it in the\n        [fastapi docs for lifespan events](https://fastapi.tiangolo.com/advanced/events/).\n        \n  @app.on_event("startup")\n/tmp/claude-1000/-home-adam-desktop-ndtwin-kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/proxy_agent/main.py:2701: deprecationwarning: \n        on_event is deprecated, use lifespan event handlers instead.\n\n        read more about it in the\n        [fastapi docs for lifespan events](https://fastapi.tiangolo.com/advanced/events/).\n        \n  @app.on_event("shutdown")\n[proxy agent] refusing to start: ndtwin_proxy_host=\'not-an-address\' is not an address this machine can listen on ([errno -2] name or service not known). use a numeric ipv4 or ipv6 address, or leave it unset for 127.0.0.1.\n' : the refusal must name the port, so the operator is not left guessing
+
+======================================================================
+FAIL: test_proxy_dials_only_the_offline_block (tests.test_port_guard.PortFreeTest.test_proxy_dials_only_the_offline_block)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/tests/test_port_guard.py", line 370, in test_proxy_dials_only_the_offline_block
+    self.assertTrue(any(STARTUP_DONE in l for l in lines),
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "startup did not complete, so the dials were not seen:\n" + out[-2000:])
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : startup did not complete, so the dials were not seen:
+NDTWIN: LLDP_BEACON_INTERVAL_S overridden to 0.5s (default 5); timeout/watchdog/grace derive from it
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/proxy_agent/main.py:2696: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/proxy_agent/main.py:2701: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+[Proxy Agent] REFUSING to start: NDTWIN_PROXY_HOST='not-an-address' is not an address this machine can listen on ([Errno -2] Name or service not known). Use a numeric IPv4 or IPv6 address, or leave it unset for 127.0.0.1.
+
+
+======================================================================
+FAIL: test_startup_event_does_run_when_the_port_is_free (tests.test_port_guard.PortFreeTest.test_startup_event_does_run_when_the_port_is_free)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/tests/test_port_guard.py", line 341, in test_startup_event_does_run_when_the_port_is_free
+    self.assertTrue(
+    ~~~~~~~~~~~~~~~^
+        any(STARTUP_MARKER in l for l in lines),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        + out[-2000:],
+        ^^^^^^^^^^^^^^
+    )
+    ^
+AssertionError: False is not true : with the port free the proxy must still start normally; a guard that blocks the good case too is worse than no guard. The child's output ended:
+NDTWIN: LLDP_BEACON_INTERVAL_S overridden to 0.5s (default 5); timeout/watchdog/grace derive from it
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/proxy_agent/main.py:2696: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/proxy_agent/main.py:2701: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+[Proxy Agent] REFUSING to start: NDTWIN_PROXY_HOST='not-an-address' is not an address this machine can listen on ([Errno -2] Name or service not known). Use a numeric IPv4 or IPv6 address, or leave it unset for 127.0.0.1.
+
+
+----------------------------------------------------------------------
+Ran 10 tests in 3.511s
+
+FAILED (failures=3)
+rc=1

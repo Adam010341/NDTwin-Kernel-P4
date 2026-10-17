@@ -1,0 +1,23 @@
+start 2026-10-16T17:23:23+08:00
+clone /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r3 HEAD 56371d1b5231aab24eeef5ea97fd1059f5745342
+status --porcelain:
+?? build
+?? p4_proxy/venv
+ss -ltn archived: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r3/green_new.ss.txt (listeners on 8000/8081/30051-30060: 0)
+cmd: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r3/p4_proxy/venv/bin/python -m unittest -v tests.test_port_guard
+test_every_spelling_the_proxy_and_grpc_use (tests.test_port_guard.DialedPortsTest.test_every_spelling_the_proxy_and_grpc_use) ... ok
+test_a_listener_is_busy_on_either_family (tests.test_port_guard.NothingListensTest.test_a_listener_is_busy_on_either_family) ... ok
+test_an_unclear_answer_is_busy (tests.test_port_guard.NothingListensTest.test_an_unclear_answer_is_busy) ... ok
+test_both_refused_is_free (tests.test_port_guard.NothingListensTest.test_both_refused_is_free) ... ok
+test_no_ipv6_support_is_free (tests.test_port_guard.NothingListensTest.test_no_ipv6_support_is_free) ... ok
+test_no_loopback_v6_address_or_route_is_free (tests.test_port_guard.NothingListensTest.test_no_loopback_v6_address_or_route_is_free) ... ok
+test_it_exits_non_zero_and_says_why (tests.test_port_guard.PortAlreadyTakenTest.test_it_exits_non_zero_and_says_why) ... ok
+test_startup_event_never_runs_when_the_port_is_taken (tests.test_port_guard.PortAlreadyTakenTest.test_startup_event_never_runs_when_the_port_is_taken) ... ok
+test_proxy_dials_only_the_offline_block (tests.test_port_guard.PortFreeTest.test_proxy_dials_only_the_offline_block) ... ok
+test_startup_event_does_run_when_the_port_is_free (tests.test_port_guard.PortFreeTest.test_startup_event_does_run_when_the_port_is_free) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 7.154s
+
+OK
+rc=0

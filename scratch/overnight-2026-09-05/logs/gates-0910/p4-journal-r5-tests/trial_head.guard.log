@@ -1,0 +1,12 @@
+2026-10-16T16:06:48+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3100 MB; MemAvailable 4962 MB
+guard: shell 793727 SigBlk:	0000000000010000
+guard: shell 793727 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:06:48+08:00 mexec pid 793756 (the process that execs: timeout -k 60 1800 bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial_run.sh /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad
+mexec: process SigBlk:	0000000000010000
+mexec: process SigIgn:	0000000000000004
+mexec: child grep SigBlk:	0000000000000000
+mexec: child grep SigIgn:	0000000000000000
+mexec: SigBlk 0000000000010000 & 0x4203 == 0, exec

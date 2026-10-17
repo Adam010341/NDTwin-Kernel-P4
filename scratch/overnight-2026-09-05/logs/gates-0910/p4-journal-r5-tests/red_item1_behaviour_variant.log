@@ -1,0 +1,15 @@
+worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-journal-r5-tests at 39bdb614142eebf4506c8f883908dd8bfb0eefdd + uncommitted new tests (sha256 test_table_entry_replay.py 5038731b713225cf)
+command: quickmut2.py <worktree> <venv python> --modules tests.test_table_entry_replay,tests.test_table_entry_journal --adhoc item1_behaviour_variant.json v_delete_only
+v_delete_only: broken on purpose (not in the gate): only a net delete is stale after an entries edit, so a net modify is repl
+   named test: test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_start_after_an_entries_edit  -> RED
+   assertion: tests/test_table_entry_replay.py:1664 self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0, "S is not put back") -> AssertionError: 1 != 0 : S is not put back
+   rc=1 ['Ran 224 tests in 14.561s', 'FAILED (failures=4)']
+   FAIL: test_an_entries_edit_before_the_first_restart_drops_a_net_modify_the_post_journaled (tests.test_table_entry_replay.AModifyThatFindsNothingTest.test_an_entries_edit_before_the_first_restart_drops_a_net_modify_the_post_journaled)
+        at tests/test_table_entry_replay.py:1664 self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0, "S is not put back") -> AssertionError: 1 != 0 : S is not put back
+   FAIL: test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_readopt_after_an_entries_edit (tests.test_table_entry_replay.AModifyThatFindsNothingTest.test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_readopt_after_an_entries_edit)
+        at tests/test_table_entry_replay.py:1664 self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0, "S is not put back") -> AssertionError: 1 != 0 : S is not put back
+   FAIL: test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_start_after_an_entries_edit (tests.test_table_entry_replay.AModifyThatFindsNothingTest.test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_start_after_an_entries_edit)
+        at tests/test_table_entry_replay.py:1664 self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0, "S is not put back") -> AssertionError: 1 != 0 : S is not put back
+   FAIL: test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries (tests.test_table_entry_replay.TheDigestsGuardTheReplayTest.test_a_changed_entries_file_replays_the_inserts_and_not_what_was_aimed_at_its_entries)
+        at tests/test_table_entry_replay.py:846 self.assertEqual(report["stale_entries"], 1) -> AssertionError: 0 != 1
+rc=0

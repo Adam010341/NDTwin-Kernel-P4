@@ -1,0 +1,6 @@
+[23:10:54.355] [bmv2] [W] [thread 2601887] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[23:10:54.359] [bmv2] [I] [thread 2601887] Starting Thrift server on port 29500
+[23:10:54.359] [bmv2] [I] [thread 2601887] Thrift server was started
+[23:10:54.625] [bmv2] [D] [thread 2601939] simple_switch target has been notified of a config swap
+[23:10:54.626] [bmv2] [E] [thread 2601939] [P4Runtime] ValueSet writes are not supported yet
+[23:10:55.808] [bmv2] [E] [thread 2601940] [P4Runtime] ValueSet reads are not supported yet

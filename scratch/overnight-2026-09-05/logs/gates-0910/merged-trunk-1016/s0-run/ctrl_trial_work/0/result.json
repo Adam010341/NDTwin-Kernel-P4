@@ -1,0 +1,107 @@
+{
+  "attributions": {
+    "clone": {
+      "detail": null,
+      "ok": true
+    },
+    "digest": {
+      "detail": null,
+      "ok": true
+    },
+    "direct_counter": {
+      "detail": {
+        "bytes": 335,
+        "packets": 5
+      },
+      "ok": true
+    },
+    "direct_meter": {
+      "detail": null,
+      "ok": true
+    },
+    "meter": {
+      "detail": null,
+      "ok": true
+    },
+    "optional": {
+      "detail": null,
+      "ok": true
+    },
+    "packet_out": {
+      "detail": {
+        "frames": 3,
+        "port": 1
+      },
+      "ok": true
+    },
+    "priority": {
+      "detail": null,
+      "ok": true
+    },
+    "range": {
+      "detail": null,
+      "ok": true
+    },
+    "register": {
+      "error": "UNKNOWN:  [canonical_code 12: Register writes are not supported yet]",
+      "ok": false
+    },
+    "ternary": {
+      "detail": null,
+      "ok": true
+    }
+  },
+  "digests": [
+    {
+      "digest_id": 389049336,
+      "members": [
+        167773188,
+        40041,
+        40041
+      ]
+    }
+  ],
+  "errors": [],
+  "go_seen": true,
+  "packet_ins": [
+    {
+      "dport": 40050,
+      "ingress_port": 1,
+      "marker": [
+        "ctltrial",
+        "P2",
+        0
+      ]
+    },
+    {
+      "dport": 40050,
+      "ingress_port": 1,
+      "marker": [
+        "ctltrial",
+        "P2",
+        1
+      ]
+    },
+    {
+      "dport": 40050,
+      "ingress_port": 1,
+      "marker": [
+        "ctltrial",
+        "P2",
+        2
+      ]
+    }
+  ],
+  "switches": {
+    "2": {
+      "address": "127.0.0.1:29650",
+      "arbitration_status": 0,
+      "device_id": 959770,
+      "primary": true,
+      "program": "hc_main",
+      "routes_failed": 0,
+      "routes_written": 23,
+      "set_pipeline_ok": true
+    }
+  }
+}

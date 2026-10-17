@@ -1,0 +1,27 @@
+2026-10-16T16:06:35+08:00 driver start pid 792665 head 0b95d0b87df859c902bb8e9b976891dacef761f3; SigBlk 0000000000000002
+2026-10-16T16:06:35+08:00 [mkclone] guard ok: 2026-10-16T16:06:35+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3463 MB; MemAvailable 4662 MB guard: SigBlk & 0x4203: shell 0, child 0 
+clone /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/r5tests/gate at 0b95d0b87df859c902bb8e9b976891dacef761f3
+2026-10-16T16:06:37+08:00 [two_test_files_whole] guard ok: 2026-10-16T16:06:37+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3100 MB; MemAvailable 4628 MB guard: SigBlk & 0x4203: shell 0, child 0 
+2026-10-16T16:06:37+08:00 [two_test_files_whole] start (cap 1200s)
+2026-10-16T16:06:46+08:00 [two_test_files_whole] end exit=0 :: last line of two_test_files_whole.log: rc=0 :: Ran 224 tests in 8.148s OK 
+2026-10-16T16:06:46+08:00 [gate_anchors_clone] guard ok: 2026-10-16T16:06:46+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3100 MB; MemAvailable 4926 MB guard: SigBlk & 0x4203: shell 0, child 0 
+2026-10-16T16:06:46+08:00 [gate_anchors_clone] start (cap 1200s)
+2026-10-16T16:06:48+08:00 [gate_anchors_clone] end exit=0 :: last line of gate_anchors_clone.log: rc=0 :: 137/137 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL) 
+2026-10-16T16:06:48+08:00 [trial_head] guard ok: 2026-10-16T16:06:48+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3100 MB; MemAvailable 4962 MB guard: SigBlk & 0x4203: shell 0, child 0 
+2026-10-16T16:06:48+08:00 [trial_head] start (cap 1800s)
+2026-10-16T16:08:25+08:00 [trial_head] end exit=0 :: last line of trial-r5tests.log: rc=0 :: ALL CHECKS PASS 
+2026-10-16T16:08:25+08:00 clone now at 7f69609b637915fc543c529de5566737a4d4cb75 for the red control
+2026-10-16T16:08:25+08:00 [trial_m2r_red] guard ok: 2026-10-16T16:08:25+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3006 MB; MemAvailable 4675 MB guard: SigBlk & 0x4203: shell 0, child 0 
+2026-10-16T16:08:25+08:00 [trial_m2r_red] start (cap 1800s)
+2026-10-16T16:08:41+08:00 [trial_m2r_red] end exit=0 :: last line of trial-r5tests-red.log: rc=1 :: NOT ALL CHECKS PASS 
+2026-10-16T16:08:41+08:00 clone back at 0b95d0b87df859c902bb8e9b976891dacef761f3, tracked-dirty 0
+2026-10-16T16:08:41+08:00 [mutate_table_journal] guard ok: 2026-10-16T16:08:41+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3005 MB; MemAvailable 5077 MB guard: SigBlk & 0x4203: shell 0, child 0 
+2026-10-16T16:08:41+08:00 [mutate_table_journal] start (cap 5400s)
+2026-10-16T16:41:49+08:00 [mutate_table_journal] end exit=0 :: last line of mutate_table_journal.log: rc=0 :: OK mutation gate: 198 mutations, 0 survived 
+2026-10-16T16:41:49+08:00 [journal_tests_seen_red] guard ok: 2026-10-16T16:41:49+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3095 MB; MemAvailable 4768 MB guard: SigBlk & 0x4203: shell 0, child 0 
+2026-10-16T16:41:49+08:00 [journal_tests_seen_red] start (cap 600s)
+2026-10-16T16:41:49+08:00 [journal_tests_seen_red] end exit=0 :: last line of journal_tests_seen_red.log: rc=0 :: tests: 224, seen red: 224, never seen red: 0 
+2026-10-16T16:41:49+08:00 [p4lane] guard ok: 2026-10-16T16:41:49+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3095 MB; MemAvailable 4759 MB guard: SigBlk & 0x4203: shell 0, child 0 
+2026-10-16T16:41:49+08:00 [p4lane] start (cap 2400s)
+2026-10-16T16:44:02+08:00 [p4lane] end exit=0 :: last line of p4lane.log: rc=0 :: FAILURES=0 
+2026-10-16T16:44:02+08:00 all done; clone removed: yes

@@ -1,0 +1,237 @@
+2026-10-16T19:11:34+08:00 mgrun start pid 1446949 stages: C D ; clone HEAD cc0bca4bde02d6611935508ae49a3d3790d6ffbe; LANG=en_US.UTF-8 LC_ALL=; PYTHON=unset
+2026-10-16T19:11:34+08:00 ===== STAGE C begin (epoch 1792149094)
+2026-10-16T19:11:34+08:00 [mutate_table_journal] lock wait begin
+2026-10-16T19:11:34+08:00 [mutate_table_journal] lock acquired after 0 s
+2026-10-16T19:11:34+08:00 [mutate_table_journal] guard ok: 2026-10-16T19:11:34+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3772 MB; MemAvailable 7302 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T19:11:34+08:00 [mutate_table_journal] start (cap 5400s)
+2026-10-16T19:44:32+08:00 [mutate_table_journal] end wall=1978s exit=0 :: last line of mutate_table_journal.log: rc=0 :: OK mutation gate: 198 mutations, 0 survived 
+2026-10-16T19:44:32+08:00 [mutate_table_journal] lock released
+2026-10-16T19:45:02+08:00 [mutate_table_entry] lock wait begin
+2026-10-16T19:45:02+08:00 [mutate_table_entry] lock acquired after 0 s
+2026-10-16T19:45:03+08:00 [mutate_table_entry] guard ok: 2026-10-16T19:45:02+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3746 MB; MemAvailable 7121 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T19:45:03+08:00 [mutate_table_entry] start (cap 3000s)
+2026-10-16T19:51:51+08:00 [mutate_table_entry] end wall=408s exit=0 :: last line of mutate_table_entry.log: rc=0 :: OK mutation gate: 84 mutations, 0 survived 
+2026-10-16T19:51:51+08:00 [mutate_table_entry] lock released
+2026-10-16T19:52:21+08:00 [mutate_table_entry_owner] lock wait begin
+2026-10-16T19:58:03+08:00 [mutate_table_entry_owner] lock acquired after 342 s
+2026-10-16T19:58:03+08:00 [mutate_table_entry_owner] guard ok: 2026-10-16T19:58:03+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3735 MB; MemAvailable 7094 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T19:58:03+08:00 [mutate_table_entry_owner] start (cap 1800s)
+2026-10-16T19:59:28+08:00 [mutate_table_entry_owner] end wall=85s exit=0 :: last line of mutate_table_entry_owner.log: rc=0 :: OK mutation gate: 27 mutations, 0 survived 
+2026-10-16T19:59:28+08:00 [mutate_table_entry_owner] lock released
+2026-10-16T19:59:58+08:00 [mutate_p4_rule_install_time] lock wait begin
+2026-10-16T20:03:26+08:00 [mutate_p4_rule_install_time] lock acquired after 208 s
+2026-10-16T20:03:26+08:00 [mutate_p4_rule_install_time] guard ok: 2026-10-16T20:03:26+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3398 MB; MemAvailable 7195 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T20:03:26+08:00 [mutate_p4_rule_install_time] start (cap 1800s)
+2026-10-16T20:03:44+08:00 [mutate_p4_rule_install_time] end wall=18s exit=0 :: last line of mutate_p4_rule_install_time.log: rc=0 :: OK (skipped=1) mutation gate: 27 mutations, 0 survived 
+2026-10-16T20:03:44+08:00 [mutate_p4_rule_install_time] lock released
+2026-10-16T20:04:14+08:00 [mutate_roles_binding] lock wait begin
+2026-10-16T20:07:16+08:00 [mutate_roles_binding] lock acquired after 182 s
+2026-10-16T20:07:16+08:00 [mutate_roles_binding] guard ok: 2026-10-16T20:07:16+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3740 MB; MemAvailable 7090 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T20:07:16+08:00 [mutate_roles_binding] start (cap 6000s)
+2026-10-16T20:48:35+08:00 [mutate_roles_binding] end wall=2479s exit=0 :: last line of mutate_roles_binding.log: rc=0 :: mutation gate: 194 mutations, 0 survived 
+2026-10-16T20:48:35+08:00 [mutate_roles_binding] lock released
+2026-10-16T20:49:05+08:00 [mutate_p4_exercise_tools] lock wait begin
+2026-10-16T20:57:26+08:00 [mutate_p4_exercise_tools] lock acquired after 501 s
+2026-10-16T20:57:26+08:00 [mutate_p4_exercise_tools] guard ok: 2026-10-16T20:57:26+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3669 MB; MemAvailable 7136 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T20:57:26+08:00 [mutate_p4_exercise_tools] start (cap 1800s)
+2026-10-16T20:58:47+08:00 [mutate_p4_exercise_tools] end wall=81s exit=0 :: last line of mutate_p4_exercise_tools.log: rc=0 :: 37 mutations, 0 survived 
+2026-10-16T20:58:47+08:00 [mutate_p4_exercise_tools] lock released
+2026-10-16T20:59:17+08:00 [mutate_rule_journal_is_wired] lock wait begin
+2026-10-16T21:11:20+08:00 [mutate_rule_journal_is_wired] lock acquired after 723 s
+2026-10-16T21:11:20+08:00 [mutate_rule_journal_is_wired] guard ok: 2026-10-16T21:11:20+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3665 MB; MemAvailable 7030 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T21:11:20+08:00 [mutate_rule_journal_is_wired] start (cap 1800s)
+2026-10-16T21:11:30+08:00 [mutate_rule_journal_is_wired] end wall=10s exit=0 :: last line of mutate_rule_journal_is_wired.log: rc=0 :: OK mutation gate: 14 mutations, 0 survived 
+2026-10-16T21:11:30+08:00 [mutate_rule_journal_is_wired] lock released
+2026-10-16T21:12:00+08:00 [mutate_app_package] lock wait begin
+2026-10-16T21:27:38+08:00 [mutate_app_package] lock acquired after 938 s
+2026-10-16T21:27:38+08:00 [mutate_app_package] guard ok: 2026-10-16T21:27:38+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3623 MB; MemAvailable 8415 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T21:27:38+08:00 [mutate_app_package] start (cap 1800s)
+2026-10-16T21:31:44+08:00 [mutate_app_package] end wall=246s exit=0 :: last line of mutate_app_package.log: rc=0 :: OK mutation gate: 48 mutations, 0 survived 
+2026-10-16T21:31:44+08:00 [mutate_app_package] lock released
+2026-10-16T21:32:14+08:00 [mutate_telemetry_by_name] lock wait begin
+2026-10-16T21:40:38+08:00 [mutate_telemetry_by_name] lock acquired after 504 s
+2026-10-16T21:40:38+08:00 [mutate_telemetry_by_name] guard ok: 2026-10-16T21:40:38+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3538 MB; MemAvailable 7971 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T21:40:39+08:00 [mutate_telemetry_by_name] start (cap 1800s)
+2026-10-16T21:45:18+08:00 [mutate_telemetry_by_name] end wall=279s exit=0 :: last line of mutate_telemetry_by_name.log: rc=0 :: OK mutation gate: 23 mutations, 0 survived 
+2026-10-16T21:45:18+08:00 [mutate_telemetry_by_name] lock released
+2026-10-16T21:45:48+08:00 [mutate_p4_priority_refusal] lock wait begin
+2026-10-16T22:17:25+08:00 [mutate_p4_priority_refusal] lock acquired after 1897 s
+2026-10-16T22:17:25+08:00 [mutate_p4_priority_refusal] guard ok: 2026-10-16T22:17:25+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3533 MB; MemAvailable 7929 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T22:17:25+08:00 [mutate_p4_priority_refusal] start (cap 1800s)
+2026-10-16T22:17:29+08:00 [mutate_p4_priority_refusal] end wall=4s exit=0 :: last line of mutate_p4_priority_refusal.log: rc=0 :: 9 mutations, 0 survived 
+2026-10-16T22:17:29+08:00 [mutate_p4_priority_refusal] lock released
+2026-10-16T22:17:59+08:00 [mutate_p4_probe] lock wait begin
+2026-10-16T22:28:57+08:00 [mutate_p4_probe] lock acquired after 658 s
+2026-10-16T22:28:57+08:00 [mutate_p4_probe] guard ok: 2026-10-16T22:28:57+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3495 MB; MemAvailable 7997 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T22:28:57+08:00 [mutate_p4_probe] start (cap 1800s)
+2026-10-16T22:29:02+08:00 [mutate_p4_probe] end wall=5s exit=0 :: last line of mutate_p4_probe.log: rc=0 :: OK mutation gate: 6 mutations, 0 survived 
+2026-10-16T22:29:02+08:00 [mutate_p4_probe] lock released
+2026-10-16T22:29:32+08:00 [mutate_l1_shell_scoring] lock wait begin
+2026-10-16T22:31:54+08:00 [mutate_l1_shell_scoring] lock acquired after 142 s
+2026-10-16T22:31:54+08:00 [mutate_l1_shell_scoring] guard ok: 2026-10-16T22:31:54+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3162 MB; MemAvailable 7999 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T22:31:54+08:00 [mutate_l1_shell_scoring] start (cap 1800s)
+2026-10-16T22:41:20+08:00 [mutate_l1_shell_scoring] end wall=566s exit=0 :: last line of mutate_l1_shell_scoring.log: rc=0 :: ===== 62 mutation(s): 62 killed, 0 survived ===== 
+2026-10-16T22:41:20+08:00 [mutate_l1_shell_scoring] lock released
+2026-10-16T22:41:50+08:00 [test_l1_shell_scoring] lock wait begin
+2026-10-16T22:44:06+08:00 [test_l1_shell_scoring] lock acquired after 136 s
+2026-10-16T22:44:06+08:00 [test_l1_shell_scoring] guard ok: 2026-10-16T22:44:06+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3492 MB; MemAvailable 7810 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T22:44:06+08:00 [test_l1_shell_scoring] start (cap 1800s)
+2026-10-16T22:44:16+08:00 [test_l1_shell_scoring] end wall=10s exit=0 :: last line of test_l1_shell_scoring.log: rc=0 :: Ran 165 checks, 0 failed 
+2026-10-16T22:44:16+08:00 [test_l1_shell_scoring] lock released
+2026-10-16T22:44:46+08:00 [check_test_tmpdirs] lock wait begin
+2026-10-16T22:44:46+08:00 [check_test_tmpdirs] lock acquired after 0 s
+2026-10-16T22:44:46+08:00 [check_test_tmpdirs] guard ok: 2026-10-16T22:44:46+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3491 MB; MemAvailable 7986 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T22:44:46+08:00 [check_test_tmpdirs] start (cap 1800s)
+2026-10-16T22:44:48+08:00 [check_test_tmpdirs] end wall=2s exit=0 :: last line of check_test_tmpdirs.log: rc=0 :: 
+2026-10-16T22:44:48+08:00 [check_test_tmpdirs] lock released
+2026-10-16T22:45:18+08:00 [check_gate_anchors] lock wait begin
+2026-10-16T22:45:18+08:00 [check_gate_anchors] lock acquired after 0 s
+2026-10-16T22:45:18+08:00 [check_gate_anchors] guard ok: 2026-10-16T22:45:18+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3491 MB; MemAvailable 7957 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T22:45:18+08:00 [check_gate_anchors] start (cap 1800s)
+2026-10-16T22:45:20+08:00 [check_gate_anchors] end wall=2s exit=0 :: last line of check_gate_anchors.log: rc=0 :: 137/137 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL) 
+2026-10-16T22:45:20+08:00 [check_gate_anchors] lock released
+2026-10-16T22:45:50+08:00 [p4lane] lock wait begin
+2026-10-16T22:45:50+08:00 [p4lane] lock acquired after 0 s
+2026-10-16T22:45:50+08:00 [p4lane] guard ok: 2026-10-16T22:45:50+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3491 MB; MemAvailable 7905 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T22:45:50+08:00 [p4lane] start (cap 1800s)
+2026-10-16T22:48:14+08:00 [p4lane] end wall=144s exit=0 :: last line of p4lane.log: rc=0 :: FAILURES=0 
+2026-10-16T22:48:14+08:00 [p4lane] lock released
+2026-10-16T22:48:44+08:00 [klane] lock wait begin
+2026-10-16T22:48:44+08:00 [klane] lock acquired after 0 s
+2026-10-16T22:48:44+08:00 [klane] guard ok: 2026-10-16T22:48:44+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3486 MB; MemAvailable 7962 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T22:48:44+08:00 [klane] start (cap 2400s)
+2026-10-16T23:02:18+08:00 [klane] end wall=814s exit=0 :: last line of klane.log: rc=0 :: FAILURES=0 
+2026-10-16T23:02:18+08:00 [klane] lock released
+2026-10-16T23:02:48+08:00 [no_stray_table_journal] lock wait begin
+2026-10-16T23:02:48+08:00 [no_stray_table_journal] lock acquired after 0 s
+2026-10-16T23:02:48+08:00 [no_stray_table_journal] guard ok: 2026-10-16T23:02:48+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3481 MB; MemAvailable 7898 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:02:48+08:00 [no_stray_table_journal] start (cap 1800s)
+2026-10-16T23:04:19+08:00 [no_stray_table_journal] end wall=91s exit=0 :: last line of no_stray_table_journal.log: rc=0 :: ok: one process (2135 tests) and 52 files one by one, and the checkout's table-entry journal is as it was 
+2026-10-16T23:04:19+08:00 [no_stray_table_journal] lock released
+2026-10-16T23:04:49+08:00 [dot_run_after] lock wait begin
+2026-10-16T23:04:49+08:00 [dot_run_after] lock acquired after 0 s
+2026-10-16T23:04:49+08:00 [dot_run_after] guard ok: 2026-10-16T23:04:49+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3480 MB; MemAvailable 7935 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:04:49+08:00 [dot_run_after] start (cap 1800s)
+2026-10-16T23:04:49+08:00 [dot_run_after] end wall=0s exit=0 :: last line of dot_run_after.log: rc=0 :: 
+2026-10-16T23:04:49+08:00 [dot_run_after] lock released
+2026-10-16T23:05:19+08:00 [p4h.cells.py312] lock wait begin
+2026-10-16T23:05:19+08:00 [p4h.cells.py312] lock acquired after 0 s
+2026-10-16T23:05:20+08:00 [p4h.cells.py312] guard ok: 2026-10-16T23:05:20+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3480 MB; MemAvailable 7901 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:05:20+08:00 [p4h.cells.py312] start (cap 1800s)
+2026-10-16T23:05:23+08:00 [p4h.cells.py312] end wall=3s exit=0 :: last line of p4h.cells.py312.log: rc=0 :: Ran 203 tests in 3.547s OK 
+2026-10-16T23:05:23+08:00 [p4h.cells.py312] lock released
+2026-10-16T23:05:53+08:00 [p4h.cells.py38] lock wait begin
+2026-10-16T23:05:53+08:00 [p4h.cells.py38] lock acquired after 0 s
+2026-10-16T23:05:53+08:00 [p4h.cells.py38] guard ok: 2026-10-16T23:05:53+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3480 MB; MemAvailable 7860 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:05:53+08:00 [p4h.cells.py38] start (cap 1800s)
+2026-10-16T23:05:58+08:00 [p4h.cells.py38] end wall=5s exit=0 :: last line of p4h.cells.py38.log: rc=0 :: Ran 203 tests in 4.622s OK 
+2026-10-16T23:05:58+08:00 [p4h.cells.py38] lock released
+2026-10-16T23:06:28+08:00 [p4h.collect.py312] lock wait begin
+2026-10-16T23:06:28+08:00 [p4h.collect.py312] lock acquired after 0 s
+2026-10-16T23:06:28+08:00 [p4h.collect.py312] guard ok: 2026-10-16T23:06:28+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3480 MB; MemAvailable 7863 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:06:28+08:00 [p4h.collect.py312] start (cap 1800s)
+2026-10-16T23:06:32+08:00 [p4h.collect.py312] end wall=4s exit=0 :: last line of p4h.collect.py312.log: rc=0 :: Ran 192 tests in 3.847s OK 
+2026-10-16T23:06:32+08:00 [p4h.collect.py312] lock released
+2026-10-16T23:07:02+08:00 [p4h.collect.py38] lock wait begin
+2026-10-16T23:07:02+08:00 [p4h.collect.py38] lock acquired after 0 s
+2026-10-16T23:07:03+08:00 [p4h.collect.py38] guard ok: 2026-10-16T23:07:02+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3480 MB; MemAvailable 7926 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:07:03+08:00 [p4h.collect.py38] start (cap 1800s)
+2026-10-16T23:07:07+08:00 [p4h.collect.py38] end wall=4s exit=0 :: last line of p4h.collect.py38.log: rc=0 :: Ran 192 tests in 4.053s OK 
+2026-10-16T23:07:07+08:00 [p4h.collect.py38] lock released
+2026-10-16T23:07:37+08:00 [p4h.recover] lock wait begin
+2026-10-16T23:07:37+08:00 [p4h.recover] lock acquired after 0 s
+2026-10-16T23:07:37+08:00 [p4h.recover] guard ok: 2026-10-16T23:07:37+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3480 MB; MemAvailable 7877 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:07:37+08:00 [p4h.recover] start (cap 1800s)
+2026-10-16T23:08:16+08:00 [p4h.recover] end wall=39s exit=0 :: last line of p4h.recover.log: rc=0 :: Ran 163 checks, 0 failed 
+2026-10-16T23:08:16+08:00 [p4h.recover] lock released
+2026-10-16T23:08:46+08:00 [p4h.gate_scripts] lock wait begin
+2026-10-16T23:08:46+08:00 [p4h.gate_scripts] lock acquired after 0 s
+2026-10-16T23:08:46+08:00 [p4h.gate_scripts] guard ok: 2026-10-16T23:08:46+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3476 MB; MemAvailable 7857 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:08:46+08:00 [p4h.gate_scripts] start (cap 1800s)
+2026-10-16T23:08:50+08:00 [p4h.gate_scripts] end wall=4s exit=0 :: last line of p4h.gate_scripts.log: rc=0 ::   ok    a shard that survived a mutation, even with rc 0 written Ran 79 checks, 0 failed 
+2026-10-16T23:08:50+08:00 [p4h.gate_scripts] lock released
+2026-10-16T23:09:20+08:00 [p4h.cells.unittest_root] lock wait begin
+2026-10-16T23:09:20+08:00 [p4h.cells.unittest_root] lock acquired after 0 s
+2026-10-16T23:09:20+08:00 [p4h.cells.unittest_root] guard ok: 2026-10-16T23:09:20+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3476 MB; MemAvailable 7906 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:09:20+08:00 [p4h.cells.unittest_root] start (cap 1800s)
+2026-10-16T23:09:24+08:00 [p4h.cells.unittest_root] end wall=4s exit=0 :: last line of p4h.cells.unittest_root.log: rc=0 :: Ran 203 tests in 3.346s OK 
+2026-10-16T23:09:24+08:00 [p4h.cells.unittest_root] lock released
+2026-10-16T23:09:54+08:00 [s0] lock wait begin
+2026-10-16T23:09:54+08:00 [s0] lock acquired after 0 s
+2026-10-16T23:09:54+08:00 [s0] guard ok: 2026-10-16T23:09:54+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3475 MB; MemAvailable 7913 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:09:54+08:00 [s0] start (cap 1200s)
+2026-10-16T23:11:43+08:00 [s0] end wall=109s exit=0 :: last line of s0.log: rc=0 :: S0 verdict (s0-run/s0.json): COMPLETE 
+2026-10-16T23:11:43+08:00 [s0] lock released
+2026-10-16T23:12:13+08:00 [trial-final] lock wait begin
+2026-10-16T23:12:13+08:00 [trial-final] lock acquired after 0 s
+2026-10-16T23:12:13+08:00 [trial-final] guard ok: 2026-10-16T23:12:13+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3466 MB; MemAvailable 7892 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:12:13+08:00 [trial-final] start (cap 1800s)
+2026-10-16T23:13:37+08:00 [trial-final] end wall=84s exit=0 :: last line of trial-final.log: rc=0 :: ALL CHECKS PASS 
+2026-10-16T23:13:37+08:00 [trial-final] lock released
+2026-10-16T23:14:07+08:00 [journal_tests_seen_red] lock wait begin
+2026-10-16T23:14:07+08:00 [journal_tests_seen_red] lock acquired after 0 s
+2026-10-16T23:14:07+08:00 [journal_tests_seen_red] guard ok: 2026-10-16T23:14:07+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3457 MB; MemAvailable 7849 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:14:07+08:00 [journal_tests_seen_red] start (cap 1800s)
+2026-10-16T23:14:07+08:00 [journal_tests_seen_red] end wall=0s exit=0 :: last line of journal_tests_seen_red.log: rc=0 :: 
+2026-10-16T23:14:07+08:00 [journal_tests_seen_red] lock released
+2026-10-16T23:14:37+08:00 [mutate_stack_telemetry_identity] lock wait begin
+2026-10-16T23:14:37+08:00 [mutate_stack_telemetry_identity] lock acquired after 0 s
+2026-10-16T23:14:37+08:00 [mutate_stack_telemetry_identity] guard ok: 2026-10-16T23:14:37+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3457 MB; MemAvailable 7891 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:14:37+08:00 [mutate_stack_telemetry_identity] start (cap 3600s)
+2026-10-16T23:16:59+08:00 [mutate_stack_telemetry_identity] end wall=142s exit=0 :: last line of mutate_stack_telemetry_identity.log: rc=0 :: mutation gate: 4 mutations, 0 survived; 1 control(s), 0 went red 
+2026-10-16T23:16:59+08:00 [mutate_stack_telemetry_identity] lock released
+2026-10-16T23:17:29+08:00 [test_ndt_app_package] lock wait begin
+2026-10-16T23:32:18+08:00 [test_ndt_app_package] lock acquired after 889 s
+2026-10-16T23:32:18+08:00 [test_ndt_app_package] guard ok: 2026-10-16T23:32:18+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3453 MB; MemAvailable 7803 MB guard: SigBlk & 0x4203: shell 0, child 0 
+procscan: 0 other mutate_/probe.py process(es), 0 of this run's own skipped
+2026-10-16T23:32:18+08:00 [test_ndt_app_package] start (cap 3600s)
+2026-10-16T23:32:41+08:00 [test_ndt_app_package] end wall=23s exit=0 :: last line of test_ndt_app_package.log: rc=0 :: Ran 408 checks, 0 failed 
+2026-10-16T23:32:41+08:00 [test_ndt_app_package] lock released
+2026-10-16T23:33:11+08:00 [p4_health_tree] fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26  (expected fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26)
+2026-10-16T23:33:11+08:00 ===== STAGE C end (epoch 1792164791)
+2026-10-16T23:33:11+08:00 ===== STAGE D begin (epoch 1792164791)
+2026-10-16T23:33:11+08:00 shard 0 lock wait begin
+2026-10-16T23:34:26+08:00 [shard0] lock acquired after 75 s
+2026-10-17T01:30:44+08:00 [shard0] lock released
+2026-10-17T01:31:14+08:00 shard 1 lock wait begin
+2026-10-17T01:47:18+08:00 [shard1] lock acquired after 964 s
+2026-10-17T03:42:42+08:00 [shard1] lock released
+2026-10-17T03:43:12+08:00 shard 2 lock wait begin
+2026-10-17T03:58:55+08:00 [shard2] lock acquired after 943 s
+2026-10-17T05:54:35+08:00 [shard2] lock released
+2026-10-17T05:55:05+08:00 shard 3 lock wait begin
+2026-10-17T06:11:26+08:00 [shard3] lock acquired after 981 s
+2026-10-17T08:07:25+08:00 [shard3] lock released
+2026-10-17T08:07:55+08:00 [chain_mut] exit 0; GATE.log last lines: cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate  command: bash tests/shell/sum_p4_health_gate_shards.sh --commit cc0bca4bde02d6611935508ae49a3d3790d6ffbe <4 shard logs>|GATE: 517 mutations, 0 survived, shards 4/4 ok, commit cc0bca4bde02d6611935508ae49a3d3790d6ffbe, tree fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26, subject sha e69a74d976c1a022|rc=0|
+2026-10-17T08:07:55+08:00 ===== STAGE D end (epoch 1792195675)
+2026-10-17T08:07:55+08:00 mgrun end

@@ -1,0 +1,15 @@
+start 2026-10-16T16:03:54+08:00 cwd=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-port-guard-offline/p4_proxy
+cmd: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-port-guard-offline/p4_proxy/venv/bin/python -m unittest -v tests.test_port_guard
+test_it_exits_non_zero_and_says_why (tests.test_port_guard.PortAlreadyTakenTest.test_it_exits_non_zero_and_says_why) ... ok
+test_startup_event_never_runs_when_the_port_is_taken (tests.test_port_guard.PortAlreadyTakenTest.test_startup_event_never_runs_when_the_port_is_taken)
+The assertion that matters: nothing that can reach a switch was executed. ... ok
+test_startup_event_does_run_when_the_port_is_free (tests.test_port_guard.PortFreeTest.test_startup_event_does_run_when_the_port_is_free) ... /home/adam/miniconda3/lib/python3.13/unittest/case.py:606: ResourceWarning: unclosed file <_io.TextIOWrapper name=3 encoding='UTF-8'>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 2.747s
+
+OK
+rc=0

@@ -1,0 +1,14 @@
+[16:07:18.484] [bmv2] [W] [thread 794859] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[16:07:18.487] [bmv2] [I] [thread 794859] Starting Thrift server on port 29500
+[16:07:18.487] [bmv2] [I] [thread 794859] Thrift server was started
+[16:07:20.144] [bmv2] [D] [thread 794930] simple_switch target has been notified of a config swap
+[16:07:20.175] [bmv2] [E] [thread 794916] [P4Runtime] Clone session id does not exist
+[16:07:20.177] [bmv2] [D] [thread 794930] mgrp node created for mgid 32775
+[16:07:20.177] [bmv2] [D] [thread 794930] node created for rid 1
+[16:07:20.177] [bmv2] [D] [thread 794930] node associated with mgid 32775
+[16:07:20.178] [bmv2] [D] [thread 794916] node dissociated with mgid 32775
+[16:07:20.178] [bmv2] [D] [thread 794916] node destroyed for rid 1
+[16:07:20.178] [bmv2] [D] [thread 794916] mgrp node deleted for mgid 32775
+[16:07:20.178] [bmv2] [D] [thread 794930] mgrp node created for mgid 32775
+[16:07:20.178] [bmv2] [D] [thread 794930] node created for rid 1
+[16:07:20.178] [bmv2] [D] [thread 794930] node associated with mgid 32775

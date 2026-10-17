@@ -1,0 +1,53 @@
+merge-verify for merge/trunk-1016 (2026-10-16T19:05:39+08:00)
+commit 9c44b20561d5033b893706022f86bc234ee5459f parents: 39bdb614142eebf4506c8f883908dd8bfb0eefdd 0b95d0b87df859c902bb8e9b976891dacef761f3 subject: Merge branch 'feat/p4-journal-r5-tests' into trunk
+commit 000828f5663b51d48184fdabe17e80528e4ad815 parents: 9c44b20561d5033b893706022f86bc234ee5459f 56371d1b5231aab24eeef5ea97fd1059f5745342 subject: Merge branch 'feat/p4-port-guard-offline' into trunk
+commit 5948fb6b2d8445fedc723f1faa598a5c47b8ebc3 parents: 000828f5663b51d48184fdabe17e80528e4ad815 34717da824dd25532855d55dcf24efdfad341c90 subject: Merge branch 'feat/p4-5tuple-mask' into trunk
+commit a0805b84d6f5a14c0013cccd0c0608f9b81f8462 parents: 5948fb6b2d8445fedc723f1faa598a5c47b8ebc3 7e0a1dd5c4a12c8a722ee8bff2806bb9487f9be6 subject: Merge branch 'feat/p4-proxy-listen-local' into trunk
+commit 5b83c8994ecf4b439e2e8f616ba4ac0a2f34e3cf parents: a0805b84d6f5a14c0013cccd0c0608f9b81f8462 subject: p4_proxy: keep NDTWIN_PROXY_HOST out of the port-guard test's proxy
+M4 tree: a8114b55318902d5d7299f4917e0414bd0a20841 (expected a8114b55318902d5d7299f4917e0414bd0a20841)
+M5 tree: 8d32e45a304baa3f13c64c3c4236dffa00788736
+--- git diff --name-only M4 M5:
+p4_proxy/tests/test_port_guard.py
+--- git diff M4 M5 (full):
+diff --git a/p4_proxy/tests/test_port_guard.py b/p4_proxy/tests/test_port_guard.py
+index b6dbb83c..663cc56b 100644
+--- a/p4_proxy/tests/test_port_guard.py
++++ b/p4_proxy/tests/test_port_guard.py
+@@ -204,6 +204,9 @@ def offline_proxy(*, python=None):
+                NDTWIN_P4_BEACON_S="0.5",
+                NDTWIN_RULE_JOURNAL_PATH=os.path.join(_temp_dir("ndt-test-rule-journal-"),
+                                                      "rule_journal.jsonl"))
++    # The child is the proxy's real entry point, which reads NDTWIN_PROXY_HOST: a value left in the
++    # caller's shell must not decide what these tests see. [Co-developed with claude code -- Adam]
++    env.pop("NDTWIN_PROXY_HOST", None)
+     return argv, env, base
+ 
+ 
+added lines: 3	0	p4_proxy/tests/test_port_guard.py
+--- per path in git diff --name-only 39bdb614 M4
+p4_proxy/proxy_agent/SPEC.md : feat/p4-proxy-listen-local(7e0a1dd5) : blob-equal
+p4_proxy/proxy_agent/main.py : feat/p4-proxy-listen-local(7e0a1dd5) : blob-equal
+p4_proxy/proxy_agent/p4_client.py : feat/p4-5tuple-mask(34717da8) : blob-equal
+p4_proxy/proxy_agent/topology_manager.py : feat/p4-5tuple-mask(34717da8) : blob-equal
+p4_proxy/tests/test_five_tuple_match.py : feat/p4-5tuple-mask(34717da8) : blob-equal
+p4_proxy/tests/test_in_port_value.py : feat/p4-5tuple-mask(34717da8) : blob-equal
+p4_proxy/tests/test_listen_host.py : feat/p4-proxy-listen-local(7e0a1dd5) : blob-equal
+p4_proxy/tests/test_p4_client_writes.py : feat/p4-5tuple-mask(34717da8) : blob-equal
+p4_proxy/tests/test_port_guard.py : feat/p4-port-guard-offline(56371d1b) : blob-equal
+p4_proxy/tests/test_route_binding.py : feat/p4-5tuple-mask(34717da8) : blob-equal
+p4_proxy/tests/test_rule_install_times.py : feat/p4-5tuple-mask(34717da8) : blob-equal
+p4_proxy/tests/test_ryu_flow_stats.py : feat/p4-5tuple-mask(34717da8) : blob-equal
+p4_proxy/tests/test_table_entry_replay.py : feat/p4-journal-r5-tests(0b95d0b8) : blob-equal
+tests/shell/mutate_stack_telemetry_identity.sh : feat/p4-proxy-listen-local(7e0a1dd5) : blob-equal
+tests/shell/mutate_table_entry.sh : feat/p4-5tuple-mask(34717da8) : blob-equal
+tests/shell/mutate_table_journal.sh : feat/p4-journal-r5-tests(0b95d0b8) : blob-equal
+tests/shell/test_ndt_app_package.sh : feat/p4-proxy-listen-local(7e0a1dd5) : blob-equal
+tools/test_workflow/stack.sh : feat/p4-proxy-listen-local(7e0a1dd5) : blob-equal
+paths: 18; MISMATCH: 0; paths changed by more than one tip: 0
+
+--- REPLACEMENT (coordinator course correction, 2026-10-16T19:09:10+08:00) ---
+M5 = 5b83c8994ecf4b439e2e8f616ba4ac0a2f34e3cf is SUPERSEDED (test_port_guard.PortFreeTest.test_proxy_dials_only_the_offline_block failed at M5 with and without NDTWIN_PROXY_HOST: E/pg_green_at_M5.log, E/pg_control_at_M5.log).
+M5' = cc0bca4bde02d6611935508ae49a3d3790d6ffbe  parent: a0805b84d6f5a14c0013cccd0c0608f9b81f8462  subject: p4_proxy: adapt the port-guard test to the proxy's listen address
+M5' tree: 6c03d96bb19183f332632e5ee767e1bb5df94127
+git diff --name-only M4 M5': p4_proxy/tests/test_port_guard.py   (numstat: 14	0	p4_proxy/tests/test_port_guard.py)
+branch merge/trunk-1016 now = M5' (local, never pushed).

@@ -1,0 +1,57 @@
+start 2026-10-16T16:55:59+08:00
+clone /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2 HEAD 383be526909be92e68fa565c40f78bba9ca5b46b
+status --porcelain:
+?? build
+?? p4_proxy/tests/test_pg_mut_base100.py
+?? p4_proxy/tests/test_pg_mut_nokernelurl.py
+?? p4_proxy/tests/test_pg_mut_oldlisten.py
+?? p4_proxy/tests/test_pg_mut_oldversion.py
+?? p4_proxy/venv
+ss -ltn archived: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r2/red_oldlisten.ss.txt (8000/3005x/3006x listeners: 0)
+cmd: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/venv/bin/python -m unittest -v tests.test_pg_mut_oldlisten.NothingListensTest
+test_a_listener_is_busy_on_either_family (tests.test_pg_mut_oldlisten.NothingListensTest.test_a_listener_is_busy_on_either_family) ... ok
+test_an_unclear_answer_is_busy (tests.test_pg_mut_oldlisten.NothingListensTest.test_an_unclear_answer_is_busy) ... ok
+test_both_refused_is_free (tests.test_pg_mut_oldlisten.NothingListensTest.test_both_refused_is_free) ... ok
+test_no_ipv6_support_is_free (tests.test_pg_mut_oldlisten.NothingListensTest.test_no_ipv6_support_is_free) ... ERROR
+test_no_loopback_v6_address_or_route_is_free (tests.test_pg_mut_oldlisten.NothingListensTest.test_no_loopback_v6_address_or_route_is_free) ... 
+  test_no_loopback_v6_address_or_route_is_free (tests.test_pg_mut_oldlisten.NothingListensTest.test_no_loopback_v6_address_or_route_is_free) (errno=99) ... FAIL
+  test_no_loopback_v6_address_or_route_is_free (tests.test_pg_mut_oldlisten.NothingListensTest.test_no_loopback_v6_address_or_route_is_free) (errno=101) ... FAIL
+
+======================================================================
+ERROR: test_no_ipv6_support_is_free (tests.test_pg_mut_oldlisten.NothingListensTest.test_no_ipv6_support_is_free)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/tests/test_pg_mut_oldlisten.py", line 409, in test_no_ipv6_support_is_free
+    self.assertTrue(self._with(errno.ECONNREFUSED, OSError(errno.EAFNOSUPPORT, "no ipv6")))
+                    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/tests/test_pg_mut_oldlisten.py", line 403, in _with
+    return _nothing_listens(40000)
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/tests/test_pg_mut_oldlisten.py", line 123, in _nothing_listens
+    s = socket.socket(family, socket.SOCK_STREAM)
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/tests/test_pg_mut_oldlisten.py", line 400, in factory
+    raise outcome
+OSError: [Errno 97] no ipv6
+
+======================================================================
+FAIL: test_no_loopback_v6_address_or_route_is_free (tests.test_pg_mut_oldlisten.NothingListensTest.test_no_loopback_v6_address_or_route_is_free) (errno=99)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/tests/test_pg_mut_oldlisten.py", line 414, in test_no_loopback_v6_address_or_route_is_free
+    self.assertTrue(self._with(errno.ECONNREFUSED, code))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_no_loopback_v6_address_or_route_is_free (tests.test_pg_mut_oldlisten.NothingListensTest.test_no_loopback_v6_address_or_route_is_free) (errno=101)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/tests/test_pg_mut_oldlisten.py", line 414, in test_no_loopback_v6_address_or_route_is_free
+    self.assertTrue(self._with(errno.ECONNREFUSED, code))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.001s
+
+FAILED (failures=2, errors=1)
+rc=1

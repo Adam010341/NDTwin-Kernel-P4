@@ -1,0 +1,5 @@
+[{"name": "v_delete_only", "file": "proxy_agent/rule_journal.py",
+  "old": "            if entries_changed and item[\"op\"] != \"insert\":",
+  "new": "            if entries_changed and item[\"op\"] == \"delete\":",
+  "label": "broken on purpose (not in the gate): only a net delete is stale after an entries edit, so a net modify is replayed",
+  "test": "test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_start_after_an_entries_edit"}]

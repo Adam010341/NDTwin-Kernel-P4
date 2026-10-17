@@ -1,0 +1,66 @@
+gate worker hand-back, merge/trunk-1016 (FINAL; supersedes the earlier stop report). Stages C and D ran to the end: every step rc=0, 0 survived / 0 failed, no watchdog stop, no STOPPED file.
+E = /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016 ; S = /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16
+
+COMMITS (branch merge/trunk-1016 = M5'; local, never pushed; trunk untouched at d7ab540c)
+M1 9c44b20561d5033b893706022f86bc234ee5459f Merge branch 'feat/p4-journal-r5-tests' into trunk
+M2 000828f5663b51d48184fdabe17e80528e4ad815 Merge branch 'feat/p4-port-guard-offline' into trunk
+M3 5948fb6b2d8445fedc723f1faa598a5c47b8ebc3 Merge branch 'feat/p4-5tuple-mask' into trunk
+M4 a0805b84d6f5a14c0013cccd0c0608f9b81f8462 Merge branch 'feat/p4-proxy-listen-local' into trunk   (tree a8114b55318902d5d7299f4917e0414bd0a20841 = expected)
+M5 5b83c8994ecf4b439e2e8f616ba4ac0a2f34e3cf p4_proxy: keep NDTWIN_PROXY_HOST out of the port-guard test's proxy   -- SUPERSEDED (its test_port_guard run failed, E/pg_green_at_M5.log)
+M5' cc0bca4bde02d6611935508ae49a3d3790d6ffbe p4_proxy: adapt the port-guard test to the proxy's listen address (parent M4, tree 6c03d96bb19183f332632e5ee767e1bb5df94127)
+The gate ran on M5'. merge-verify.txt: parents of M1..M4; M4 tree as expected; 18 paths, 0 MISMATCH, none changed by two tips; M5 recorded as superseded; git diff --name-only M4 M5' = p4_proxy/tests/test_port_guard.py only (+14 lines, 0 deleted). M5' adds the three env.pop lines, a filter in dialed_ports() that drops lines containing "HTTP API listening on" before _TARGET, and DialedPortsTest.test_the_listen_line_is_not_a_dial. No trailers.
+
+STEP 6 (pg2, command: cd S/gate/p4_proxy; venv/bin/python -m unittest tests.test_port_guard -v; lock held, :8081 empty, ss in E/pg2_*.ss.txt)
+pg2_red_at_M4.log      NDTWIN_PROXY_HOST=not-an-address at M4 : Ran 10, FAILED (failures=3), rc=1  (red, as expected)
+pg2_green_at_M5p.log   same variable at M5'                   : Ran 11, OK, rc=0
+pg2_control_at_M5p.log variable unset at M5'                  : Ran 11, OK, rc=0 (same counts as green)
+pg2_newtest_at_M4.log  scratch copy of M4's p4_proxy/tests+mininet with M5' 's test file over it (not in the clone), new test alone: Ran 1, OK, rc=0. NOTE: dialed_ports() lives in the test file, so this copy cannot be red; it only shows the new test passes on M4's tree.
+pg2_newtest_mutant_no_filter.log (extra, my addition): the same scratch copy with the filter line deleted: test_the_listen_line_is_not_a_dial FAIL, rc=1 (seen red).
+The earlier M5 runs (pg_*.log) are kept as evidence of the failure.
+
+STAGE C/D TABLE (log = E/<name>.log; last summary line; rc; wall seconds from mgrun.log)
+mutate_table_journal        198 mutations, 0 survived (was 193)               rc0 1978
+mutate_table_entry          84 mutations, 0 survived (was 79)                 rc0 408
+mutate_table_entry_owner    27, 0 survived                                    rc0 85
+mutate_p4_rule_install_time 27, 0 survived (OK skipped=1)                     rc0 18
+mutate_roles_binding        194, 0 survived                                   rc0 2479
+mutate_p4_exercise_tools    37, 0 survived                                    rc0 81
+mutate_rule_journal_is_wired 14, 0 survived                                   rc0 10
+mutate_app_package          48, 0 survived                                    rc0 246
+mutate_telemetry_by_name    23, 0 survived                                    rc0 279
+mutate_p4_priority_refusal  9, 0 survived                                     rc0 4
+mutate_p4_probe             6, 0 survived                                     rc0 5
+mutate_l1_shell_scoring     62 killed, 0 survived                             rc0 566
+test_l1_shell_scoring       Ran 165 checks, 0 failed                          rc0 10
+check_test_tmpdirs          (no output)                                       rc0 2
+check_gate_anchors          137/137 cells ok (0 not ok, 0 NOT CHECKED)        rc0 2   (same count as 10-15)
+p4lane                      FAILURES=0; test_listen_host.py PASS 22 ran, test_port_guard.py PASS 11 ran, test_in_port_value.py PASS 7 ran (p4lane.log lines 26, 34, 41)  rc0 144
+klane                       FAILURES=0                                        rc0 814
+no_stray_table_journal      ok: one process (2135 tests) and 52 files one by one (was 2086 / 50)  rc0 91
+dot_run_after               p4_proxy/.run does not exist                      rc0 0
+p4h.cells.py312 / py38      Ran 203 OK / Ran 203 OK                           rc0 3 / 5
+p4h.collect.py312 / py38    Ran 192 OK / Ran 192 OK                           rc0 4 / 4
+p4h.recover                 Ran 163 checks, 0 failed                          rc0 39
+p4h.gate_scripts            Ran 79 checks, 0 failed                           rc0 4
+p4h.cells.unittest_root     Ran 203 OK                                        rc0 4
+s0                          S0 verdict (s0-run/s0.json): COMPLETE             rc0 109
+trial-final                 ALL CHECKS PASS                                   rc0 84
+journal_tests_seen_red      tests: 224, seen red: 224, never seen red: 0      rc0 0
+mutate_stack_telemetry_identity  mutation gate: 4 mutations, 0 survived; 1 control(s), 0 went red   rc0 142
+test_ndt_app_package        Ran 408 checks, 0 failed                          rc0 23
+p4_health_tree (p4_health_tree.log) git rev-parse M5':tools/p4_health = fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26 (equal to the expected value)
+Stage D shards (mutate_p4_health.shard{0..3}of4.log, mut_driver.log): shard0 130 mutations 0 survived rc0 (23:34:26-01:30:44); shard1 129, 0 survived rc0 (01:47:18-03:42:42); shard2 129, 0 survived rc0 (03:58:55-05:54:35); shard3 129, 0 survived rc0 (06:11:26-08:07:25).
+GATE line (E/GATE.log, rc=0): GATE: 517 mutations, 0 survived, shards 4/4 ok, commit cc0bca4bde02d6611935508ae49a3d3790d6ffbe, tree fd872b3ddb9d6eaa87d264675c8aaabcbabf2c26, subject sha e69a74d976c1a022
+Stage C ran 19:11:34-23:33:11 (4 h 21 min 37 s); Stage D 23:33:11-08:07:55 (8 h 34 min 44 s), both including lock waits and the 30 s gaps.
+
+LOCK WAITS (E/mgrun.log, "lock acquired after"): 35 acquisitions (31 Stage C steps counting s0/trial-final, 4 shards) -- 16 had to wait; total wait 10083 s (2 h 48 min); longest 1897 s (mutate_p4_priority_refusal); shard waits 75, 964, 943, 981 s. The :8081 wait never triggered (0 log lines). Step 6 earlier: pg.sh 0 s, pg2.sh 20 s.
+
+DEVIATIONS FROM THE BRIEF
+1. M5 replaced by M5' on the coordinator's instruction (see above); branch merge/trunk-1016 was moved with branch -f to M5'.
+2. pg2_newtest_at_M4.log cannot be red (the function under test is in the test file); added pg2_newtest_mutant_no_filter.log as the seen-red evidence.
+3. Step-6 runs went through E/pg.sh and E/pg2.sh (lock via fd 9, step started with 9>&-).
+4. mgrun.sh edits: Stage B dropped; M2 constant -> M5'; per-step lock (exec 9>>LOCK; flock 9; step and the watchdog started with 9>&-; flock -u 9; exec 9>&-; sleep 30) plus the :8081 wait before guard.sh, logged in mgrun.log; the two new steps and the p4_health_tree record added; caps added for them (3600 s) and mutate_table_entry raised 1800 -> 3000 s (none fired). Stage D no longer runs the "chain_mut_start" guard before the chain (chain_mut.sh guards per shard, under the lock). chain_mut.sh: lock/:8081 wait/30 s sleep per shard. Full diffs against the 10-15 sources: E/copied-script-diffs.txt (guard, mexec, stopsess, runlog, procscan, proc_scan, mkclone, shardwrap, trial, trial_boot, seen_red identical to 10-15).
+5. mutate_table_entry cap change and the p4_health_tree step being outside the lock are as above; no step was hung or stopped.
+6. PYTHONDONTWRITEBYTECODE=1 was in the session environment, as at 10-15. The clone has ignored .test_run/ and __pycache__ dirs (ignored, tracked-clean).
+
+STATE AFTER THE RUN: clone S/gate kept at M5' (detached), tracked-clean (0 modified tracked files; untracked build and p4_proxy/venv are the two symlinks; ignored .test_run/ and __pycache__ present). S/tmp emptied (61 leftover ndtwin_link_pkg_* temp dirs removed). Merge worktrees removed. No mgrun/chain_mut process left. branch merge/trunk-1016 = cc0bca4b; trunk = d7ab540c untouched. Nothing pushed, no PR. Free space on / about 3.3 GB.

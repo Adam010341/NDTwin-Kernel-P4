@@ -1,0 +1,69 @@
+2026-10-16T16:48:58+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2309 MB; MemAvailable 4788 MB
+ 920110 timeout 120 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/inport-clone2/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/kjl/inport/bmv2_check.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/inport-clone2 unfixed_39bdb614_fast /usr/local/bmv2-fast/bin/simple_switch_grpc
+ 920111 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/inport-clone2/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0924/intake-0926/kjl/inport/bmv2_check.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/inport-clone2 unfixed_39bdb614_fast /usr/local/bmv2-fast/bin/simple_switch_grpc
+ 920168 /usr/local/bmv2-fast/bin/simple_switch_grpc --thrift-port 29590 --device-id 1 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/inport-clone2/p4_proxy/p4_src/build/ndtwin_switch.json -- --grpc-server-addr 127.0.0.1:29690 --cpu-port 255
+guard: shell 920248 SigBlk:	0000000000010000
+guard: shell 920248 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:49:58+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2279 MB; MemAvailable 4631 MB
+ 921493 bash tests/shell/mutate_table_entry.sh
+ 925320 bash tests/shell/mutate_table_entry.sh
+ 925321 bash tests/shell/mutate_table_entry.sh
+guard: shell 925415 SigBlk:	0000000000010000
+guard: shell 925415 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:50:58+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2245 MB; MemAvailable 4299 MB
+ 921493 bash tests/shell/mutate_table_entry.sh
+ 929813 bash tests/shell/mutate_table_entry.sh
+ 929814 bash tests/shell/mutate_table_entry.sh
+guard: shell 929906 SigBlk:	0000000000010000
+guard: shell 929906 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:51:58+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2198 MB; MemAvailable 4360 MB
+ 921493 bash tests/shell/mutate_table_entry.sh
+ 935457 bash tests/shell/mutate_table_entry.sh
+ 935458 bash tests/shell/mutate_table_entry.sh
+guard: shell 935507 SigBlk:	0000000000010000
+guard: shell 935507 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:52:58+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2150 MB; MemAvailable 3797 MB
+ 921493 bash tests/shell/mutate_table_entry.sh
+ 941018 bash tests/shell/mutate_table_entry.sh
+ 941019 bash tests/shell/mutate_table_entry.sh
+guard: shell 941218 SigBlk:	0000000000010000
+guard: shell 941218 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:53:58+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2105 MB; MemAvailable 4016 MB
+ 921493 bash tests/shell/mutate_table_entry.sh
+ 946570 bash tests/shell/mutate_table_entry.sh
+ 946571 bash tests/shell/mutate_table_entry.sh
+guard: shell 946766 SigBlk:	0000000000010000
+guard: shell 946766 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:54:59+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2053 MB; MemAvailable 4497 MB
+ 921493 bash tests/shell/mutate_table_entry.sh
+ 952744 bash tests/shell/mutate_table_entry.sh
+ 952745 bash tests/shell/mutate_table_entry.sh
+guard: shell 952795 SigBlk:	0000000000010000
+guard: shell 952795 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:55:59+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2284 MB; MemAvailable 3820 MB
+guard: shell 957511 SigBlk:	0000000000010000
+guard: shell 957511 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0

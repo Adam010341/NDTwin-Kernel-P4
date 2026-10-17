@@ -1,0 +1,27 @@
+start 2026-10-16T16:48:44+08:00
+clone /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2 HEAD 383be526909be92e68fa565c40f78bba9ca5b46b
+status --porcelain:
+?? build
+?? p4_proxy/tests/test_pg_mut_oldversion.py
+?? p4_proxy/venv
+ss -ltn archived: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r2/knob_new_version.ss.txt (8000/3005x/3006x listeners: 0)
+cmd: bash -c echo /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r2/pkg/firewall > /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/mininet/app_package_override; /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/venv/bin/python -m unittest -v tests.test_port_guard; rc=$?; echo knob-was: $(cat /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/mininet/app_package_override); rm -f /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/mininet/app_package_override; exit $rc
+test_every_spelling_the_proxy_and_grpc_use (tests.test_port_guard.DialedPortsTest.test_every_spelling_the_proxy_and_grpc_use) ... ok
+test_a_listener_is_busy_on_either_family (tests.test_port_guard.NothingListensTest.test_a_listener_is_busy_on_either_family) ... ok
+test_an_unclear_answer_is_busy (tests.test_port_guard.NothingListensTest.test_an_unclear_answer_is_busy) ... ok
+test_both_refused_is_free (tests.test_port_guard.NothingListensTest.test_both_refused_is_free) ... ok
+test_no_ipv6_support_is_free (tests.test_port_guard.NothingListensTest.test_no_ipv6_support_is_free) ... ok
+test_no_loopback_v6_address_or_route_is_free (tests.test_port_guard.NothingListensTest.test_no_loopback_v6_address_or_route_is_free) ... ok
+test_it_exits_non_zero_and_says_why (tests.test_port_guard.PortAlreadyTakenTest.test_it_exits_non_zero_and_says_why) ... ok
+test_startup_event_never_runs_when_the_port_is_taken (tests.test_port_guard.PortAlreadyTakenTest.test_startup_event_never_runs_when_the_port_is_taken)
+The assertion that matters: nothing that can reach a switch was executed. ... ok
+test_proxy_dials_only_the_offline_block (tests.test_port_guard.PortFreeTest.test_proxy_dials_only_the_offline_block)
+What this checks, and no more: with the pipeline built, every switch port and kernel ... ok
+test_startup_event_does_run_when_the_port_is_free (tests.test_port_guard.PortFreeTest.test_startup_event_does_run_when_the_port_is_free) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 7.283s
+
+OK
+knob-was: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r2/pkg/firewall
+rc=0

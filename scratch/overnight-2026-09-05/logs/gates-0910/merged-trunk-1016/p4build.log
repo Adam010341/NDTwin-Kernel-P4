@@ -1,0 +1,9 @@
+commit 5b83c8994ecf4b439e2e8f616ba4ac0a2f34e3cf
+command: p4c-bm2-ss --arch v1model -o p4_proxy/p4_src/build/ndtwin_switch.json --p4runtime-files p4_proxy/p4_src/build/ndtwin_switch.p4info.txt p4_proxy/p4_src/ndtwin_switch.p4
+p4c-bm2-ss
+Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+rc=0

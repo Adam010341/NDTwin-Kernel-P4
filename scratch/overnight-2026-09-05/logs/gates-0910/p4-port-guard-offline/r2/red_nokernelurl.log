@@ -1,0 +1,32 @@
+start 2026-10-16T16:48:52+08:00
+clone /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2 HEAD 383be526909be92e68fa565c40f78bba9ca5b46b
+status --porcelain:
+?? build
+?? p4_proxy/tests/test_pg_mut_nokernelurl.py
+?? p4_proxy/tests/test_pg_mut_oldversion.py
+?? p4_proxy/venv
+ss -ltn archived: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r2/red_nokernelurl.ss.txt (8000/3005x/3006x listeners: 0)
+cmd: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/venv/bin/python -m unittest -v tests.test_pg_mut_nokernelurl.PortFreeTest
+test_proxy_dials_only_the_offline_block (tests.test_pg_mut_nokernelurl.PortFreeTest.test_proxy_dials_only_the_offline_block)
+What this checks, and no more: with the pipeline built, every switch port and kernel ... FAIL
+test_startup_event_does_run_when_the_port_is_free (tests.test_pg_mut_nokernelurl.PortFreeTest.test_startup_event_does_run_when_the_port_is_free) ... ok
+
+======================================================================
+FAIL: test_proxy_dials_only_the_offline_block (tests.test_pg_mut_nokernelurl.PortFreeTest.test_proxy_dials_only_the_offline_block)
+What this checks, and no more: with the pipeline built, every switch port and kernel
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/tests/test_pg_mut_nokernelurl.py", line 370, in test_proxy_dials_only_the_offline_block
+    self.assertTrue(ports <= block,
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+                    "the proxy named ports outside the free block %d-%d: %s"
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    % (base, base + BLOCK_SIZE, sorted(ports - block)))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : the proxy named ports outside the free block 64525-64541: [8000]
+
+----------------------------------------------------------------------
+Ran 2 tests in 6.431s
+
+FAILED (failures=1)
+rc=1

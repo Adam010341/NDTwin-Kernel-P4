@@ -1,0 +1,5123 @@
+{
+  "header_types" : [
+    {
+      "name" : "scalars_0",
+      "id" : 0,
+      "fields" : [
+        ["tmp", 32, false],
+        ["tmp_0", 32, false],
+        ["tmp_1", 32, false],
+        ["tmp_2", 32, false],
+        ["tmp_3", 16, false],
+        ["tmp_4", 16, false],
+        ["tmp_5", 32, false],
+        ["tmp_6", 32, false],
+        ["tmp_7", 8, false],
+        ["tmp_8", 16, false],
+        ["tmp_9", 16, false],
+        ["metadata.dst_id", 16, false],
+        ["metadata.port_tag", 8, false],
+        ["metadata.stamp", 8, false],
+        ["metadata.t_mark", 8, false],
+        ["metadata.color", 32, false],
+        ["metadata.dcolor", 32, false],
+        ["metadata.vs_hit", 1, false],
+        ["metadata.from_host", 1, false],
+        ["metadata.mp_choice", 1, false],
+        ["metadata.v6_lo", 32, false],
+        ["metadata.resubmitted", 8, false],
+        ["_padding_0", 5, false]
+      ]
+    },
+    {
+      "name" : "standard_metadata",
+      "id" : 1,
+      "fields" : [
+        ["ingress_port", 9, false],
+        ["egress_spec", 9, false],
+        ["egress_port", 9, false],
+        ["instance_type", 32, false],
+        ["packet_length", 32, false],
+        ["enq_timestamp", 32, false],
+        ["enq_qdepth", 19, false],
+        ["deq_timedelta", 32, false],
+        ["deq_qdepth", 19, false],
+        ["ingress_global_timestamp", 48, false],
+        ["egress_global_timestamp", 48, false],
+        ["mcast_grp", 16, false],
+        ["egress_rid", 16, false],
+        ["checksum_error", 1, false],
+        ["parser_error", 32, false],
+        ["priority", 3, false],
+        ["_padding", 3, false]
+      ]
+    },
+    {
+      "name" : "packet_out_t",
+      "id" : 2,
+      "fields" : [
+        ["egress_port", 9, false],
+        ["_pad", 7, false]
+      ]
+    },
+    {
+      "name" : "packet_in_t",
+      "id" : 3,
+      "fields" : [
+        ["ingress_port", 9, false],
+        ["_pad", 7, false]
+      ]
+    },
+    {
+      "name" : "ethernet_t",
+      "id" : 4,
+      "fields" : [
+        ["dstAddr", 48, false],
+        ["srcAddr", 48, false],
+        ["etherType", 16, false]
+      ]
+    },
+    {
+      "name" : "vlan_t",
+      "id" : 5,
+      "fields" : [
+        ["pcp", 3, false],
+        ["dei", 1, false],
+        ["vid", 12, false],
+        ["etherType", 16, false]
+      ]
+    },
+    {
+      "name" : "myTunnel_t",
+      "id" : 6,
+      "fields" : [
+        ["proto_id", 16, false],
+        ["dst_id", 16, false]
+      ]
+    },
+    {
+      "name" : "hcl2_t",
+      "id" : 7,
+      "fields" : [
+        ["dst_id", 16, false],
+        ["proto", 16, false],
+        ["tag", 32, false]
+      ]
+    },
+    {
+      "name" : "ipv6_t",
+      "id" : 8,
+      "fields" : [
+        ["version", 4, false],
+        ["trafficClass", 8, false],
+        ["flowLabel", 20, false],
+        ["payloadLen", 16, false],
+        ["nextHdr", 8, false],
+        ["hopLimit", 8, false],
+        ["srcAddr", 128, false],
+        ["dstAddr", 128, false]
+      ]
+    },
+    {
+      "name" : "alt6_t",
+      "id" : 9,
+      "fields" : [
+        ["dst_id", 16, false],
+        ["kind", 16, false]
+      ]
+    },
+    {
+      "name" : "ipv4_t",
+      "id" : 10,
+      "fields" : [
+        ["version", 4, false],
+        ["ihl", 4, false],
+        ["diffserv", 8, false],
+        ["totalLen", 16, false],
+        ["identification", 16, false],
+        ["flags", 3, false],
+        ["fragOffset", 13, false],
+        ["ttl", 8, false],
+        ["protocol", 8, false],
+        ["hdrChecksum", 16, false],
+        ["srcAddr", 32, false],
+        ["dstAddr", 32, false]
+      ]
+    },
+    {
+      "name" : "ipv4_opt_t",
+      "id" : 11,
+      "fields" : [
+        ["options", "*"]
+      ],
+      "max_length" : 40
+    },
+    {
+      "name" : "shim_t",
+      "id" : 12,
+      "fields" : [
+        ["next_proto", 8, false],
+        ["len", 8, false],
+        ["tag", 16, false]
+      ]
+    },
+    {
+      "name" : "udp_t",
+      "id" : 13,
+      "fields" : [
+        ["srcPort", 16, false],
+        ["dstPort", 16, false],
+        ["length_", 16, false],
+        ["checksum", 16, false]
+      ]
+    },
+    {
+      "name" : "tcp_t",
+      "id" : 14,
+      "fields" : [
+        ["srcPort", 16, false],
+        ["dstPort", 16, false],
+        ["seqNo", 32, false],
+        ["ackNo", 32, false],
+        ["dataOffset", 4, false],
+        ["res", 4, false],
+        ["flags", 8, false],
+        ["window", 16, false],
+        ["checksum", 16, false],
+        ["urgentPtr", 16, false]
+      ]
+    },
+    {
+      "name" : "tail_len_t",
+      "id" : 15,
+      "fields" : [
+        ["len", 8, false]
+      ]
+    },
+    {
+      "name" : "tail_t",
+      "id" : 16,
+      "fields" : [
+        ["data", "*"]
+      ],
+      "max_length" : 255
+    },
+    {
+      "name" : "l4shim_t",
+      "id" : 17,
+      "fields" : [
+        ["tag", 32, false]
+      ]
+    },
+    {
+      "name" : "srcRoute_t",
+      "id" : 18,
+      "fields" : [
+        ["bos", 1, false],
+        ["port", 15, false]
+      ]
+    }
+  ],
+  "headers" : [
+    {
+      "name" : "scalars",
+      "id" : 0,
+      "header_type" : "scalars_0",
+      "metadata" : true,
+      "pi_omit" : true
+    },
+    {
+      "name" : "standard_metadata",
+      "id" : 1,
+      "header_type" : "standard_metadata",
+      "metadata" : true,
+      "pi_omit" : true
+    },
+    {
+      "name" : "packet_out",
+      "id" : 2,
+      "header_type" : "packet_out_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "packet_in",
+      "id" : 3,
+      "header_type" : "packet_in_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "ethernet",
+      "id" : 4,
+      "header_type" : "ethernet_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "vlan",
+      "id" : 5,
+      "header_type" : "vlan_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "myTunnel",
+      "id" : 6,
+      "header_type" : "myTunnel_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "hcl2",
+      "id" : 7,
+      "header_type" : "hcl2_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "l3alt.v6",
+      "id" : 8,
+      "header_type" : "ipv6_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "l3alt.x",
+      "id" : 9,
+      "header_type" : "alt6_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "ipv4",
+      "id" : 10,
+      "header_type" : "ipv4_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "ipv4_opt",
+      "id" : 11,
+      "header_type" : "ipv4_opt_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "shim",
+      "id" : 12,
+      "header_type" : "shim_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "udp",
+      "id" : 13,
+      "header_type" : "udp_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "tcp",
+      "id" : 14,
+      "header_type" : "tcp_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "tail_len",
+      "id" : 15,
+      "header_type" : "tail_len_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "tail",
+      "id" : 16,
+      "header_type" : "tail_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "l4shim",
+      "id" : 17,
+      "header_type" : "l4shim_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "srcRoutes[0]",
+      "id" : 18,
+      "header_type" : "srcRoute_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "srcRoutes[1]",
+      "id" : 19,
+      "header_type" : "srcRoute_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "srcRoutes[2]",
+      "id" : 20,
+      "header_type" : "srcRoute_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "srcRoutes[3]",
+      "id" : 21,
+      "header_type" : "srcRoute_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "srcRoutes[4]",
+      "id" : 22,
+      "header_type" : "srcRoute_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "srcRoutes[5]",
+      "id" : 23,
+      "header_type" : "srcRoute_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "srcRoutes[6]",
+      "id" : 24,
+      "header_type" : "srcRoute_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "srcRoutes[7]",
+      "id" : 25,
+      "header_type" : "srcRoute_t",
+      "metadata" : false,
+      "pi_omit" : true
+    }
+  ],
+  "header_stacks" : [
+    {
+      "name" : "srcRoutes",
+      "id" : 0,
+      "header_type" : "srcRoute_t",
+      "size" : 8,
+      "header_ids" : [18, 19, 20, 21, 22, 23, 24, 25]
+    }
+  ],
+  "header_union_types" : [
+    {
+      "name" : "l3alt_t",
+      "id" : 0,
+      "headers" : [
+        ["v6", "ipv6_t"],
+        ["x", "alt6_t"]
+      ]
+    }
+  ],
+  "header_unions" : [
+    {
+      "name" : "l3alt",
+      "id" : 0,
+      "union_type" : "l3alt_t",
+      "header_ids" : [8, 9],
+      "pi_omit" : true
+    }
+  ],
+  "header_union_stacks" : [],
+  "field_lists" : [
+    {
+      "id" : 1,
+      "name" : "field_list1",
+      "elements" : [
+        {
+          "type" : "field",
+          "value" : ["scalars", "metadata.resubmitted"]
+        }
+      ]
+    },
+    {
+      "id" : 2,
+      "name" : "fl",
+      "elements" : []
+    }
+  ],
+  "errors" : [
+    ["NoError", 0],
+    ["PacketTooShort", 1],
+    ["NoMatch", 2],
+    ["StackOutOfBounds", 3],
+    ["HeaderTooShort", 4],
+    ["ParserTimeout", 5],
+    ["ParserInvalidArgument", 6]
+  ],
+  "enums" : [],
+  "parsers" : [
+    {
+      "name" : "parser",
+      "id" : 0,
+      "init_state" : "start",
+      "parse_states" : [
+        {
+          "name" : "start",
+          "id" : 0,
+          "parser_ops" : [],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x01fe",
+              "mask" : null,
+              "next_state" : "parse_packet_out"
+            },
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : "parse_ethernet"
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "ingress_port"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_packet_out",
+          "id" : 1,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "packet_out"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : "parse_ethernet"
+            }
+          ],
+          "transition_key" : []
+        },
+        {
+          "name" : "parse_ethernet",
+          "id" : 2,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "ethernet"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x8100",
+              "mask" : null,
+              "next_state" : "parse_vlan"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x1212",
+              "mask" : null,
+              "next_state" : "parse_tunnel"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x1234",
+              "mask" : null,
+              "next_state" : "parse_srcroute"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x1236",
+              "mask" : null,
+              "next_state" : "parse_hcl2"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x86dd",
+              "mask" : null,
+              "next_state" : "parse_v6"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x1238",
+              "mask" : null,
+              "next_state" : "parse_alt6"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x0800",
+              "mask" : null,
+              "next_state" : "parse_ipv4"
+            },
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "etherType"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_vlan",
+          "id" : 3,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "vlan"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x0800",
+              "mask" : null,
+              "next_state" : "parse_ipv4"
+            },
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["vlan", "etherType"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_tunnel",
+          "id" : 4,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "myTunnel"
+                }
+              ],
+              "op" : "extract"
+            },
+            {
+              "parameters" : [
+                {
+                  "type" : "field",
+                  "value" : ["scalars", "metadata.dst_id"]
+                },
+                {
+                  "type" : "field",
+                  "value" : ["myTunnel", "dst_id"]
+                }
+              ],
+              "op" : "set"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x0800",
+              "mask" : null,
+              "next_state" : "parse_ipv4"
+            },
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["myTunnel", "proto_id"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_srcroute",
+          "id" : 5,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "stack",
+                  "value" : "srcRoutes"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x01",
+              "mask" : null,
+              "next_state" : "parse_ipv4"
+            },
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : "parse_srcroute"
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "stack_field",
+              "value" : ["srcRoutes", "bos"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_hcl2",
+          "id" : 6,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "hcl2"
+                }
+              ],
+              "op" : "extract"
+            },
+            {
+              "parameters" : [
+                {
+                  "type" : "field",
+                  "value" : ["scalars", "metadata.dst_id"]
+                },
+                {
+                  "type" : "field",
+                  "value" : ["hcl2", "dst_id"]
+                }
+              ],
+              "op" : "set"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : []
+        },
+        {
+          "name" : "parse_v6",
+          "id" : 7,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "l3alt.v6"
+                }
+              ],
+              "op" : "extract"
+            },
+            {
+              "parameters" : [
+                {
+                  "type" : "field",
+                  "value" : ["scalars", "metadata.v6_lo"]
+                },
+                {
+                  "type" : "expression",
+                  "value" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "&",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["l3alt.v6", "dstAddr"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xffffffff"
+                      }
+                    }
+                  }
+                }
+              ],
+              "op" : "set"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : []
+        },
+        {
+          "name" : "parse_alt6",
+          "id" : 8,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "l3alt.x"
+                }
+              ],
+              "op" : "extract"
+            },
+            {
+              "parameters" : [
+                {
+                  "type" : "field",
+                  "value" : ["scalars", "metadata.dst_id"]
+                },
+                {
+                  "type" : "field",
+                  "value" : ["l3alt.x", "dst_id"]
+                }
+              ],
+              "op" : "set"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : []
+        },
+        {
+          "name" : "parse_ipv4",
+          "id" : 9,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "ipv4"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x05",
+              "mask" : null,
+              "next_state" : "parse_l4"
+            },
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : "parse_ipv4_options"
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["ipv4", "ihl"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_ipv4_options",
+          "id" : 10,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "field",
+                  "value" : ["scalars", "tmp"]
+                },
+                {
+                  "type" : "expression",
+                  "value" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "&",
+                      "left" : {
+                        "type" : "expression",
+                        "value" : {
+                          "op" : "&",
+                          "left" : {
+                            "type" : "expression",
+                            "value" : {
+                              "op" : "<<",
+                              "left" : {
+                                "type" : "expression",
+                                "value" : {
+                                  "op" : "&",
+                                  "left" : {
+                                    "type" : "expression",
+                                    "value" : {
+                                      "op" : "+",
+                                      "left" : {
+                                        "type" : "expression",
+                                        "value" : {
+                                          "op" : "&",
+                                          "left" : {
+                                            "type" : "field",
+                                            "value" : ["ipv4", "ihl"]
+                                          },
+                                          "right" : {
+                                            "type" : "hexstr",
+                                            "value" : "0xffff"
+                                          }
+                                        }
+                                      },
+                                      "right" : {
+                                        "type" : "hexstr",
+                                        "value" : "0xfffb"
+                                      }
+                                    }
+                                  },
+                                  "right" : {
+                                    "type" : "hexstr",
+                                    "value" : "0xffff"
+                                  }
+                                }
+                              },
+                              "right" : {
+                                "type" : "hexstr",
+                                "value" : "0x5"
+                              }
+                            }
+                          },
+                          "right" : {
+                            "type" : "hexstr",
+                            "value" : "0xffff"
+                          }
+                        }
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xffffffff"
+                      }
+                    }
+                  }
+                }
+              ],
+              "op" : "set"
+            },
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "ipv4_opt"
+                },
+                {
+                  "type" : "expression",
+                  "value" : {
+                    "type" : "field",
+                    "value" : ["scalars", "tmp"]
+                  }
+                }
+              ],
+              "op" : "extract_VL"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : "parse_l4"
+            }
+          ],
+          "transition_key" : []
+        },
+        {
+          "name" : "parse_l4",
+          "id" : 11,
+          "parser_ops" : [],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x11",
+              "mask" : null,
+              "next_state" : "parse_udp"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x06",
+              "mask" : null,
+              "next_state" : "parse_tcp"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0xfd",
+              "mask" : null,
+              "next_state" : "parse_shim"
+            },
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["ipv4", "protocol"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_shim",
+          "id" : 12,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "shim"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x11",
+              "mask" : null,
+              "next_state" : "parse_udp"
+            },
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["shim", "next_proto"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_udp",
+          "id" : 13,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "udp"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "parse_vset",
+              "value" : "HcParser.vs_ports",
+              "mask" : null,
+              "next_state" : "parse_vs"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x9c9f",
+              "mask" : null,
+              "next_state" : "parse_tail"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x9ca0",
+              "mask" : null,
+              "next_state" : "parse_l4shim"
+            },
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : [
+            {
+              "type" : "field",
+              "value" : ["udp", "dstPort"]
+            }
+          ]
+        },
+        {
+          "name" : "parse_vs",
+          "id" : 14,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "field",
+                  "value" : ["scalars", "metadata.vs_hit"]
+                },
+                {
+                  "type" : "hexstr",
+                  "value" : "0x01"
+                }
+              ],
+              "op" : "set"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : []
+        },
+        {
+          "name" : "parse_tail",
+          "id" : 15,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "tail_len"
+                }
+              ],
+              "op" : "extract"
+            },
+            {
+              "parameters" : [
+                {
+                  "type" : "field",
+                  "value" : ["scalars", "tmp_0"]
+                },
+                {
+                  "type" : "expression",
+                  "value" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "&",
+                      "left" : {
+                        "type" : "expression",
+                        "value" : {
+                          "op" : "<<",
+                          "left" : {
+                            "type" : "expression",
+                            "value" : {
+                              "op" : "&",
+                              "left" : {
+                                "type" : "field",
+                                "value" : ["tail_len", "len"]
+                              },
+                              "right" : {
+                                "type" : "hexstr",
+                                "value" : "0xffffffff"
+                              }
+                            }
+                          },
+                          "right" : {
+                            "type" : "hexstr",
+                            "value" : "0x3"
+                          }
+                        }
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xffffffff"
+                      }
+                    }
+                  }
+                }
+              ],
+              "op" : "set"
+            },
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "tail"
+                },
+                {
+                  "type" : "expression",
+                  "value" : {
+                    "type" : "field",
+                    "value" : ["scalars", "tmp_0"]
+                  }
+                }
+              ],
+              "op" : "extract_VL"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : []
+        },
+        {
+          "name" : "parse_l4shim",
+          "id" : 16,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "l4shim"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : []
+        },
+        {
+          "name" : "parse_tcp",
+          "id" : 17,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "tcp"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : []
+        }
+      ]
+    }
+  ],
+  "parse_vsets" : [
+    {
+      "name" : "HcParser.vs_ports",
+      "id" : 0,
+      "compressed_bitwidth" : 16,
+      "max_size" : 4
+    }
+  ],
+  "deparsers" : [
+    {
+      "name" : "deparser",
+      "id" : 0,
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 631,
+        "column" : 8,
+        "source_fragment" : "HcDeparser"
+      },
+      "order" : ["packet_in", "ethernet", "vlan", "myTunnel", "srcRoutes[0]", "srcRoutes[1]", "srcRoutes[2]", "srcRoutes[3]", "srcRoutes[4]", "srcRoutes[5]", "srcRoutes[6]", "srcRoutes[7]", "hcl2", "l3alt.v6", "l3alt.x", "ipv4", "ipv4_opt", "shim", "udp", "tcp", "tail_len", "tail", "l4shim"],
+      "primitives" : []
+    }
+  ],
+  "meter_arrays" : [
+    {
+      "name" : "HcIngress.m_in",
+      "id" : 0,
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 309,
+        "column" : 31,
+        "source_fragment" : "m_in"
+      },
+      "is_direct" : false,
+      "size" : 64,
+      "rate_count" : 2,
+      "type" : "bytes"
+    },
+    {
+      "name" : "HcIngress.dm_mt3",
+      "id" : 1,
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 310,
+        "column" : 43,
+        "source_fragment" : "dm_mt3"
+      },
+      "is_direct" : true,
+      "rate_count" : 2,
+      "type" : "bytes",
+      "size" : 16,
+      "binding" : "HcIngress.t_dmeter",
+      "result_target" : ["scalars", "metadata.dcolor"]
+    }
+  ],
+  "counter_arrays" : [
+    {
+      "name" : "HcIngress.c_in",
+      "id" : 0,
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 307,
+        "column" : 49,
+        "source_fragment" : "c_in"
+      },
+      "size" : 1024,
+      "is_direct" : false
+    },
+    {
+      "name" : "HcIngress.dc_k2",
+      "id" : 1,
+      "is_direct" : true,
+      "binding" : "HcIngress.t_dcount",
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 308,
+        "column" : 50,
+        "source_fragment" : "dc_k2"
+      }
+    }
+  ],
+  "register_arrays" : [
+    {
+      "name" : "HcIngress.r_mark",
+      "id" : 0,
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 311,
+        "column" : 26,
+        "source_fragment" : "r_mark"
+      },
+      "size" : 16,
+      "bitwidth" : 32
+    }
+  ],
+  "calculations" : [
+    {
+      "name" : "calc",
+      "id" : 0,
+      "algo" : "crc16",
+      "input" : [
+        {
+          "type" : "field",
+          "value" : ["scalars", "tmp_5"]
+        },
+        {
+          "type" : "field",
+          "value" : ["scalars", "tmp_6"]
+        },
+        {
+          "type" : "field",
+          "value" : ["scalars", "tmp_7"]
+        },
+        {
+          "type" : "field",
+          "value" : ["scalars", "tmp_8"]
+        },
+        {
+          "type" : "field",
+          "value" : ["scalars", "tmp_9"]
+        }
+      ]
+    },
+    {
+      "name" : "calc_0",
+      "id" : 1,
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 618,
+        "column" : 8,
+        "source_fragment" : "update_checksum( ..."
+      },
+      "algo" : "csum16",
+      "input" : [
+        {
+          "type" : "field",
+          "value" : ["ipv4", "version"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4", "ihl"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4", "diffserv"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4", "totalLen"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4", "identification"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4", "flags"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4", "fragOffset"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4", "ttl"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4", "protocol"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4", "srcAddr"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4", "dstAddr"]
+        },
+        {
+          "type" : "field",
+          "value" : ["ipv4_opt", "options"]
+        }
+      ]
+    }
+  ],
+  "learn_lists" : [
+    {
+      "id" : 1,
+      "name" : "digest_t",
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 540,
+        "column" : 40,
+        "source_fragment" : "{hdr.ipv4.srcAddr, hdr.udp.srcPort, hdr.udp.dstPort}"
+      },
+      "elements" : [
+        {
+          "type" : "field",
+          "value" : ["scalars", "tmp_2"]
+        },
+        {
+          "type" : "field",
+          "value" : ["scalars", "tmp_3"]
+        },
+        {
+          "type" : "field",
+          "value" : ["scalars", "tmp_4"]
+        }
+      ]
+    }
+  ],
+  "actions" : [
+    {
+      "name" : "NoAction",
+      "id" : 0,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 1,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 2,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 3,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 4,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 5,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 6,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 7,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 8,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 9,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "NoAction",
+      "id" : 10,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "HcIngress.drop",
+      "id" : 11,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "mark_to_drop",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "standard_metadata"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 316,
+            "column" : 8,
+            "source_fragment" : "mark_to_drop(standard_metadata)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.drop",
+      "id" : 12,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "mark_to_drop",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "standard_metadata"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 316,
+            "column" : 8,
+            "source_fragment" : "mark_to_drop(standard_metadata)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.drop",
+      "id" : 13,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "mark_to_drop",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "standard_metadata"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 316,
+            "column" : 8,
+            "source_fragment" : "mark_to_drop(standard_metadata)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.ipv4_forward",
+      "id" : 14,
+      "runtime_data" : [
+        {
+          "name" : "dstAddr",
+          "bitwidth" : 48
+        },
+        {
+          "name" : "port",
+          "bitwidth" : 9
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 1
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 320,
+            "column" : 8,
+            "source_fragment" : "standard_metadata.egress_spec = port"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "srcAddr"]
+            },
+            {
+              "type" : "field",
+              "value" : ["ethernet", "dstAddr"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 321,
+            "column" : 8,
+            "source_fragment" : "hdr.ethernet.srcAddr = hdr.ethernet.dstAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "dstAddr"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 322,
+            "column" : 8,
+            "source_fragment" : "hdr.ethernet.dstAddr = dstAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ipv4", "ttl"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "+",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["ipv4", "ttl"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xff"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0xff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 326,
+            "column" : 8,
+            "source_fragment" : "hdr.ipv4.ttl = hdr.ipv4.ttl - 1"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.ipv4_forward",
+      "id" : 15,
+      "runtime_data" : [
+        {
+          "name" : "dstAddr",
+          "bitwidth" : 48
+        },
+        {
+          "name" : "port",
+          "bitwidth" : 9
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 1
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 320,
+            "column" : 8,
+            "source_fragment" : "standard_metadata.egress_spec = port"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "srcAddr"]
+            },
+            {
+              "type" : "field",
+              "value" : ["ethernet", "dstAddr"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 321,
+            "column" : 8,
+            "source_fragment" : "hdr.ethernet.srcAddr = hdr.ethernet.dstAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "dstAddr"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 322,
+            "column" : 8,
+            "source_fragment" : "hdr.ethernet.dstAddr = dstAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ipv4", "ttl"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "+",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["ipv4", "ttl"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xff"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0xff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 326,
+            "column" : 8,
+            "source_fragment" : "hdr.ipv4.ttl = hdr.ipv4.ttl - 1"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.tunnel_forward",
+      "id" : 16,
+      "runtime_data" : [
+        {
+          "name" : "port",
+          "bitwidth" : 9
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 346,
+            "column" : 8,
+            "source_fragment" : "standard_metadata.egress_spec = port"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.v6_forward",
+      "id" : 17,
+      "runtime_data" : [
+        {
+          "name" : "dstAddr",
+          "bitwidth" : 48
+        },
+        {
+          "name" : "port",
+          "bitwidth" : 9
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 1
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 357,
+            "column" : 8,
+            "source_fragment" : "standard_metadata.egress_spec = port"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "srcAddr"]
+            },
+            {
+              "type" : "field",
+              "value" : ["ethernet", "dstAddr"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 358,
+            "column" : 8,
+            "source_fragment" : "hdr.ethernet.srcAddr = hdr.ethernet.dstAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "dstAddr"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 359,
+            "column" : 8,
+            "source_fragment" : "hdr.ethernet.dstAddr = dstAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["l3alt.v6", "hopLimit"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "+",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["l3alt.v6", "hopLimit"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xff"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0xff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 360,
+            "column" : 8,
+            "source_fragment" : "hdr.l3alt.v6.hopLimit = hdr.l3alt.v6.hopLimit - 1"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.set_port_tag",
+      "id" : 18,
+      "runtime_data" : [
+        {
+          "name" : "tag",
+          "bitwidth" : 8
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.port_tag"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 371,
+            "column" : 8,
+            "source_fragment" : "meta.port_tag = tag"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.stamp",
+      "id" : 19,
+      "runtime_data" : [
+        {
+          "name" : "v",
+          "bitwidth" : 8
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.stamp"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 383,
+            "column" : 8,
+            "source_fragment" : "meta.stamp = v"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.set_mark",
+      "id" : 20,
+      "runtime_data" : [
+        {
+          "name" : "v",
+          "bitwidth" : 8
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.t_mark"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 403,
+            "column" : 8,
+            "source_fragment" : "meta.t_mark = v"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.set_mark",
+      "id" : 21,
+      "runtime_data" : [
+        {
+          "name" : "v",
+          "bitwidth" : 8
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.t_mark"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 403,
+            "column" : 8,
+            "source_fragment" : "meta.t_mark = v"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.set_mark",
+      "id" : 22,
+      "runtime_data" : [
+        {
+          "name" : "v",
+          "bitwidth" : 8
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.t_mark"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 403,
+            "column" : 8,
+            "source_fragment" : "meta.t_mark = v"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.set_mark",
+      "id" : 23,
+      "runtime_data" : [
+        {
+          "name" : "v",
+          "bitwidth" : 8
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.t_mark"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 403,
+            "column" : 8,
+            "source_fragment" : "meta.t_mark = v"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.set_mark",
+      "id" : 24,
+      "runtime_data" : [
+        {
+          "name" : "v",
+          "bitwidth" : 8
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.t_mark"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 403,
+            "column" : 8,
+            "source_fragment" : "meta.t_mark = v"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.dc_hit",
+      "id" : 25,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.t_mark"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x01"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 428,
+            "column" : 8,
+            "source_fragment" : "meta.t_mark = 1"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "HcIngress.dm_read",
+      "id" : 26,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "HcIngress.idle_hit",
+      "id" : 27,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.t_mark"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x02"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 466,
+            "column" : 8,
+            "source_fragment" : "meta.t_mark = 2"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main483",
+      "id" : 28,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "mark_to_drop",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "standard_metadata"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 483,
+            "column" : 12,
+            "source_fragment" : "mark_to_drop(standard_metadata)"
+          }
+        },
+        {
+          "op" : "exit",
+          "parameters" : [],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 485,
+            "column" : 12,
+            "source_fragment" : "exit"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main489",
+      "id" : 29,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "field",
+              "value" : ["packet_out", "egress_port"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 489,
+            "column" : 12,
+            "source_fragment" : "standard_metadata.egress_spec = hdr.packet_out.egress_port"
+          }
+        },
+        {
+          "op" : "remove_header",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "packet_out"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 490,
+            "column" : 12,
+            "source_fragment" : "hdr.packet_out.setInvalid()"
+          }
+        },
+        {
+          "op" : "exit",
+          "parameters" : [],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 491,
+            "column" : 12,
+            "source_fragment" : "exit"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main502",
+      "id" : 30,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "etherType"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x0800"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 35,
+            "column" : 26,
+            "source_fragment" : "0x0800; ..."
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main507",
+      "id" : 31,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ipv4", "ttl"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "+",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["ipv4", "ttl"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xff"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0xff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 507,
+            "column" : 16,
+            "source_fragment" : "hdr.ipv4.ttl = hdr.ipv4.ttl - 1"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main504",
+      "id" : 32,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "&",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["srcRoutes[0]", "port"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0x01ff"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x01ff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 504,
+            "column" : 12,
+            "source_fragment" : "standard_metadata.egress_spec = (bit<9>)hdr.srcRoutes[0].port"
+          }
+        },
+        {
+          "op" : "pop",
+          "parameters" : [
+            {
+              "type" : "header_stack",
+              "value" : "srcRoutes"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x1"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 505,
+            "column" : 12,
+            "source_fragment" : "hdr.srcRoutes.pop_front(1)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main529",
+      "id" : 33,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "count",
+          "parameters" : [
+            {
+              "type" : "counter_array",
+              "value" : "HcIngress.c_in"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x00000000"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 529,
+            "column" : 20,
+            "source_fragment" : "c_in.count(32w0)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main533",
+      "id" : 34,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "execute_meter",
+          "parameters" : [
+            {
+              "type" : "meter_array",
+              "value" : "HcIngress.m_in"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x00000000"
+            },
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.color"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 533,
+            "column" : 20,
+            "source_fragment" : "m_in.execute_meter<bit<32>>(32w0, meta.color)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main537",
+      "id" : 35,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_1"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["udp", "srcPort"]
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0xffffffff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 537,
+            "column" : 39,
+            "source_fragment" : "(bit<32>)hdr.udp.srcPort"
+          }
+        },
+        {
+          "op" : "register_write",
+          "parameters" : [
+            {
+              "type" : "register_array",
+              "value" : "HcIngress.r_mark"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x00000000"
+            },
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_1"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 537,
+            "column" : 20,
+            "source_fragment" : "r_mark.write(32w0, (bit<32>)hdr.udp.srcPort)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main540",
+      "id" : 36,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_2"]
+            },
+            {
+              "type" : "field",
+              "value" : ["ipv4", "srcAddr"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 540,
+            "column" : 41,
+            "source_fragment" : "hdr.ipv4.srcAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_3"]
+            },
+            {
+              "type" : "field",
+              "value" : ["udp", "srcPort"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 540,
+            "column" : 59,
+            "source_fragment" : "hdr.udp.srcPort"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_4"]
+            },
+            {
+              "type" : "field",
+              "value" : ["udp", "dstPort"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 540,
+            "column" : 76,
+            "source_fragment" : "hdr.udp.dstPort"
+          }
+        },
+        {
+          "op" : "generate_digest",
+          "parameters" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x00000001"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x1"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 540,
+            "column" : 20,
+            "source_fragment" : "digest<digest_t>(1, {hdr.ipv4.srcAddr, hdr.udp.srcPort, hdr.udp.dstPort})"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main543",
+      "id" : 37,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x01fe"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 45,
+            "column" : 24,
+            "source_fragment" : "510; ..."
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main546",
+      "id" : 38,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "clone_ingress_pkt_to_egress",
+          "parameters" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x00000007"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x2"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 546,
+            "column" : 20,
+            "source_fragment" : "clone(CloneType.I2E, CLONE_SESSION)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main549",
+      "id" : 39,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "mcast_grp"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x0001"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 549,
+            "column" : 20,
+            "source_fragment" : "standard_metadata.mcast_grp = 1"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main553",
+      "id" : 40,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_5"]
+            },
+            {
+              "type" : "field",
+              "value" : ["ipv4", "srcAddr"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 554,
+            "column" : 31,
+            "source_fragment" : "hdr.ipv4.srcAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_6"]
+            },
+            {
+              "type" : "field",
+              "value" : ["ipv4", "dstAddr"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 554,
+            "column" : 49,
+            "source_fragment" : "hdr.ipv4.dstAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_7"]
+            },
+            {
+              "type" : "field",
+              "value" : ["ipv4", "protocol"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 554,
+            "column" : 67,
+            "source_fragment" : "hdr.ipv4.protocol"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_8"]
+            },
+            {
+              "type" : "field",
+              "value" : ["udp", "srcPort"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 555,
+            "column" : 31,
+            "source_fragment" : "hdr.udp.srcPort"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_9"]
+            },
+            {
+              "type" : "field",
+              "value" : ["udp", "dstPort"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 555,
+            "column" : 48,
+            "source_fragment" : "hdr.udp.dstPort"
+          }
+        },
+        {
+          "op" : "modify_field_with_hash_based_offset",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.mp_choice"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x00"
+            },
+            {
+              "type" : "calculation",
+              "value" : "calc"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x02"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 553,
+            "column" : 24,
+            "source_fragment" : "hash(meta.mp_choice, HashAlgorithm.crc16, 1w0, ..."
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main557",
+      "id" : 41,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "modify_field_rng_uniform",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.mp_choice"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x00"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x01"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 557,
+            "column" : 24,
+            "source_fragment" : "random(meta.mp_choice, 1w0, 1w1)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main563",
+      "id" : 42,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "metadata.resubmitted"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x01"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 563,
+            "column" : 24,
+            "source_fragment" : "meta.resubmitted = 1"
+          }
+        },
+        {
+          "op" : "resubmit",
+          "parameters" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x1"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 564,
+            "column" : 24,
+            "source_fragment" : "resubmit_preserving_field_list(1)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main566",
+      "id" : 43,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ipv4", "diffserv"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "|",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["ipv4", "diffserv"]
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x04"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 566,
+            "column" : 24,
+            "source_fragment" : "hdr.ipv4.diffserv = hdr.ipv4.diffserv | FLAG_RESUB"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "NoAction",
+      "id" : 44,
+      "runtime_data" : [],
+      "primitives" : []
+    },
+    {
+      "name" : "HcEgress.do_qstamp",
+      "id" : 45,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ipv4", "identification"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "|",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "&",
+                      "left" : {
+                        "type" : "expression",
+                        "value" : {
+                          "op" : "&",
+                          "left" : {
+                            "type" : "field",
+                            "value" : ["standard_metadata", "enq_qdepth"]
+                          },
+                          "right" : {
+                            "type" : "hexstr",
+                            "value" : "0x7fff"
+                          }
+                        }
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xffff"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x8000"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 586,
+            "column" : 8,
+            "source_fragment" : "hdr.ipv4.identification = 16w0x8000 | (bit<16>)standard_metadata.enq_qdepth[14:0]"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main597",
+      "id" : 46,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "add_header",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "packet_in"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 597,
+            "column" : 12,
+            "source_fragment" : "hdr.packet_in.setValid()"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["packet_in", "ingress_port"]
+            },
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "ingress_port"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 598,
+            "column" : 12,
+            "source_fragment" : "hdr.packet_in.ingress_port = standard_metadata.ingress_port"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "hc_main606",
+      "id" : 47,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ipv4", "diffserv"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "|",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["ipv4", "diffserv"]
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x08"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 606,
+            "column" : 16,
+            "source_fragment" : "hdr.ipv4.diffserv = hdr.ipv4.diffserv | FLAG_RECIRC"
+          }
+        },
+        {
+          "op" : "recirculate",
+          "parameters" : [
+            {
+              "type" : "hexstr",
+              "value" : "0x1"
+            }
+          ],
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 607,
+            "column" : 16,
+            "source_fragment" : "recirculate_preserving_field_list(1)"
+          }
+        }
+      ]
+    }
+  ],
+  "pipelines" : [
+    {
+      "name" : "ingress",
+      "id" : 0,
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 304,
+        "column" : 8,
+        "source_fragment" : "HcIngress"
+      },
+      "init_table" : "node_2",
+      "tables" : [
+        {
+          "name" : "tbl_hc_main483",
+          "id" : 0,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 483,
+            "column" : 12,
+            "source_fragment" : "mark_to_drop(standard_metadata); ..."
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [28],
+          "actions" : ["hc_main483"],
+          "base_default_next" : null,
+          "next_tables" : {
+            "hc_main483" : null
+          },
+          "default_entry" : {
+            "action_id" : 28,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main489",
+          "id" : 1,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 489,
+            "column" : 42,
+            "source_fragment" : "= hdr.packet_out.egress_port; ..."
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [29],
+          "actions" : ["hc_main489"],
+          "base_default_next" : null,
+          "next_tables" : {
+            "hc_main489" : null
+          },
+          "default_entry" : {
+            "action_id" : 29,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "HcIngress.port_exact",
+          "id" : 2,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 375,
+            "column" : 10,
+            "source_fragment" : "port_exact"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "standard_metadata.ingress_port",
+              "target" : ["standard_metadata", "ingress_port"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 64,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [18, 2],
+          "actions" : ["HcIngress.set_port_tag", "NoAction"],
+          "base_default_next" : "HcIngress.t_default_only",
+          "next_tables" : {
+            "HcIngress.set_port_tag" : "HcIngress.t_default_only",
+            "NoAction" : "HcIngress.t_default_only"
+          },
+          "default_entry" : {
+            "action_id" : 2,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "HcIngress.t_default_only",
+          "id" : 3,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 387,
+            "column" : 10,
+            "source_fragment" : "t_default_only"
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [19],
+          "actions" : ["HcIngress.stamp"],
+          "base_default_next" : "node_8",
+          "next_tables" : {
+            "HcIngress.stamp" : "node_8"
+          },
+          "default_entry" : {
+            "action_id" : 19,
+            "action_const" : false,
+            "action_data" : ["0x0"],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "tbl_hc_main502",
+          "id" : 4,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 502,
+            "column" : 39,
+            "source_fragment" : "="
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [30],
+          "actions" : ["hc_main502"],
+          "base_default_next" : "tbl_hc_main504",
+          "next_tables" : {
+            "hc_main502" : "tbl_hc_main504"
+          },
+          "default_entry" : {
+            "action_id" : 30,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main504",
+          "id" : 5,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 504,
+            "column" : 42,
+            "source_fragment" : "= (bit<9>)hdr.srcRoutes[0].port; ..."
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [32],
+          "actions" : ["hc_main504"],
+          "base_default_next" : "node_12",
+          "next_tables" : {
+            "hc_main504" : "node_12"
+          },
+          "default_entry" : {
+            "action_id" : 32,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main507",
+          "id" : 6,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 507,
+            "column" : 29,
+            "source_fragment" : "="
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [31],
+          "actions" : ["hc_main507"],
+          "base_default_next" : null,
+          "next_tables" : {
+            "hc_main507" : null
+          },
+          "default_entry" : {
+            "action_id" : 31,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "HcIngress.tunnel_exact",
+          "id" : 7,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 349,
+            "column" : 10,
+            "source_fragment" : "tunnel_exact"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "meta.dst_id",
+              "target" : ["scalars", "metadata.dst_id"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 64,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [16, 12],
+          "actions" : ["HcIngress.tunnel_forward", "HcIngress.drop"],
+          "base_default_next" : null,
+          "next_tables" : {
+            "HcIngress.tunnel_forward" : null,
+            "HcIngress.drop" : null
+          },
+          "default_entry" : {
+            "action_id" : 12,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "HcIngress.v6_host",
+          "id" : 8,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 363,
+            "column" : 10,
+            "source_fragment" : "v6_host"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "meta.v6_lo",
+              "target" : ["scalars", "metadata.v6_lo"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 64,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [17, 13],
+          "actions" : ["HcIngress.v6_forward", "HcIngress.drop"],
+          "base_default_next" : null,
+          "next_tables" : {
+            "HcIngress.v6_forward" : null,
+            "HcIngress.drop" : null
+          },
+          "default_entry" : {
+            "action_id" : 13,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "HcIngress.ipv4_lpm",
+          "id" : 9,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 330,
+            "column" : 10,
+            "source_fragment" : "ipv4_lpm"
+          },
+          "key" : [
+            {
+              "match_type" : "lpm",
+              "name" : "hdr.ipv4.dstAddr",
+              "target" : ["ipv4", "dstAddr"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "lpm",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [14, 11, 0],
+          "actions" : ["HcIngress.ipv4_forward", "HcIngress.drop", "NoAction"],
+          "base_default_next" : "node_20",
+          "next_tables" : {
+            "HcIngress.ipv4_forward" : "node_20",
+            "HcIngress.drop" : "node_20",
+            "NoAction" : "node_20"
+          },
+          "default_entry" : {
+            "action_id" : 11,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "HcIngress.t_ternary",
+          "id" : 10,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 406,
+            "column" : 10,
+            "source_fragment" : "t_ternary"
+          },
+          "key" : [
+            {
+              "match_type" : "ternary",
+              "name" : "hdr.ipv4.srcAddr",
+              "target" : ["ipv4", "srcAddr"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "ternary",
+          "type" : "simple",
+          "max_size" : 64,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [20, 3],
+          "actions" : ["HcIngress.set_mark", "NoAction"],
+          "base_default_next" : "HcIngress.t_range",
+          "next_tables" : {
+            "HcIngress.set_mark" : "HcIngress.t_range",
+            "NoAction" : "HcIngress.t_range"
+          },
+          "default_entry" : {
+            "action_id" : 3,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "HcIngress.t_range",
+          "id" : 11,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 413,
+            "column" : 10,
+            "source_fragment" : "t_range"
+          },
+          "key" : [
+            {
+              "match_type" : "range",
+              "name" : "hdr.udp.dstPort",
+              "target" : ["udp", "dstPort"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "range",
+          "type" : "simple",
+          "max_size" : 64,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [21, 4],
+          "actions" : ["HcIngress.set_mark", "NoAction"],
+          "base_default_next" : "HcIngress.t_optional",
+          "next_tables" : {
+            "HcIngress.set_mark" : "HcIngress.t_optional",
+            "NoAction" : "HcIngress.t_optional"
+          },
+          "default_entry" : {
+            "action_id" : 4,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "HcIngress.t_optional",
+          "id" : 12,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 420,
+            "column" : 10,
+            "source_fragment" : "t_optional"
+          },
+          "key" : [
+            {
+              "match_type" : "ternary",
+              "name" : "hdr.ipv4.protocol",
+              "target" : ["ipv4", "protocol"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "ternary",
+          "type" : "simple",
+          "max_size" : 64,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [22, 5],
+          "actions" : ["HcIngress.set_mark", "NoAction"],
+          "base_default_next" : "HcIngress.t_dcount",
+          "next_tables" : {
+            "HcIngress.set_mark" : "HcIngress.t_dcount",
+            "NoAction" : "HcIngress.t_dcount"
+          },
+          "default_entry" : {
+            "action_id" : 5,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "HcIngress.t_dcount",
+          "id" : 13,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 431,
+            "column" : 10,
+            "source_fragment" : "t_dcount"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "hdr.udp.dstPort",
+              "target" : ["udp", "dstPort"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 16,
+          "with_counters" : true,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [25, 6],
+          "actions" : ["HcIngress.dc_hit", "NoAction"],
+          "base_default_next" : "HcIngress.t_dmeter",
+          "next_tables" : {
+            "HcIngress.dc_hit" : "HcIngress.t_dmeter",
+            "NoAction" : "HcIngress.t_dmeter"
+          },
+          "default_entry" : {
+            "action_id" : 6,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "HcIngress.t_dmeter",
+          "id" : 14,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 443,
+            "column" : 10,
+            "source_fragment" : "t_dmeter"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "hdr.udp.dstPort",
+              "target" : ["udp", "dstPort"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 16,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : "HcIngress.dm_mt3",
+          "action_ids" : [26, 7],
+          "actions" : ["HcIngress.dm_read", "NoAction"],
+          "base_default_next" : "HcIngress.t_ap",
+          "next_tables" : {
+            "HcIngress.dm_read" : "HcIngress.t_ap",
+            "NoAction" : "HcIngress.t_ap"
+          },
+          "default_entry" : {
+            "action_id" : 7,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "HcIngress.t_ap",
+          "id" : 15,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 451,
+            "column" : 10,
+            "source_fragment" : "t_ap"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "hdr.udp.dstPort",
+              "target" : ["udp", "dstPort"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "indirect",
+          "action_profile" : "HcIngress.ap_prof",
+          "max_size" : 16,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [23, 8],
+          "actions" : ["HcIngress.set_mark", "NoAction"],
+          "base_default_next" : "HcIngress.t_as",
+          "next_tables" : {
+            "HcIngress.set_mark" : "HcIngress.t_as",
+            "NoAction" : "HcIngress.t_as"
+          }
+        },
+        {
+          "name" : "HcIngress.t_as",
+          "id" : 16,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 458,
+            "column" : 10,
+            "source_fragment" : "t_as"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "hdr.udp.dstPort",
+              "target" : ["udp", "dstPort"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "indirect_ws",
+          "action_profile" : "HcIngress.as_sel",
+          "max_size" : 16,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [24, 9],
+          "actions" : ["HcIngress.set_mark", "NoAction"],
+          "base_default_next" : "HcIngress.t_idle",
+          "next_tables" : {
+            "HcIngress.set_mark" : "HcIngress.t_idle",
+            "NoAction" : "HcIngress.t_idle"
+          }
+        },
+        {
+          "name" : "HcIngress.t_idle",
+          "id" : 17,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 469,
+            "column" : 10,
+            "source_fragment" : "t_idle"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "hdr.udp.dstPort",
+              "target" : ["udp", "dstPort"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 16,
+          "with_counters" : false,
+          "support_timeout" : true,
+          "direct_meters" : null,
+          "action_ids" : [27, 10],
+          "actions" : ["HcIngress.idle_hit", "NoAction"],
+          "base_default_next" : "node_29",
+          "next_tables" : {
+            "HcIngress.idle_hit" : "node_29",
+            "NoAction" : "node_29"
+          },
+          "default_entry" : {
+            "action_id" : 10,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "tbl_hc_main529",
+          "id" : 18,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 529,
+            "column" : 20,
+            "source_fragment" : "c_in.count(32w0)"
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [33],
+          "actions" : ["hc_main529"],
+          "base_default_next" : "node_31",
+          "next_tables" : {
+            "hc_main529" : "node_31"
+          },
+          "default_entry" : {
+            "action_id" : 33,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main533",
+          "id" : 19,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 533,
+            "column" : 20,
+            "source_fragment" : "m_in.execute_meter<bit<32>>(32w0, meta.color)"
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [34],
+          "actions" : ["hc_main533"],
+          "base_default_next" : "node_33",
+          "next_tables" : {
+            "hc_main533" : "node_33"
+          },
+          "default_entry" : {
+            "action_id" : 34,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main537",
+          "id" : 20,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 537,
+            "column" : 20,
+            "source_fragment" : "r_mark.write(32w0, (bit<32>)hdr.udp.srcPort)"
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [35],
+          "actions" : ["hc_main537"],
+          "base_default_next" : "node_35",
+          "next_tables" : {
+            "hc_main537" : "node_35"
+          },
+          "default_entry" : {
+            "action_id" : 35,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main540",
+          "id" : 21,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 540,
+            "column" : 20,
+            "source_fragment" : "digest<digest_t>(1, {hdr.ipv4.srcAddr, hdr.udp.srcPort, hdr.udp.dstPort})"
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [36],
+          "actions" : ["hc_main540"],
+          "base_default_next" : "node_37",
+          "next_tables" : {
+            "hc_main540" : "node_37"
+          },
+          "default_entry" : {
+            "action_id" : 36,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main543",
+          "id" : 22,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 543,
+            "column" : 50,
+            "source_fragment" : "="
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [37],
+          "actions" : ["hc_main543"],
+          "base_default_next" : "node_39",
+          "next_tables" : {
+            "hc_main543" : "node_39"
+          },
+          "default_entry" : {
+            "action_id" : 37,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main546",
+          "id" : 23,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 546,
+            "column" : 20,
+            "source_fragment" : "clone(CloneType.I2E, CLONE_SESSION)"
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [38],
+          "actions" : ["hc_main546"],
+          "base_default_next" : "node_41",
+          "next_tables" : {
+            "hc_main546" : "node_41"
+          },
+          "default_entry" : {
+            "action_id" : 38,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main549",
+          "id" : 24,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 549,
+            "column" : 48,
+            "source_fragment" : "="
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [39],
+          "actions" : ["hc_main549"],
+          "base_default_next" : "node_43",
+          "next_tables" : {
+            "hc_main549" : "node_43"
+          },
+          "default_entry" : {
+            "action_id" : 39,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main553",
+          "id" : 25,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 553,
+            "column" : 24,
+            "source_fragment" : "hash(meta.mp_choice, HashAlgorithm.crc16, 1w0, ..."
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [40],
+          "actions" : ["hc_main553"],
+          "base_default_next" : "HcIngress.t_multipath",
+          "next_tables" : {
+            "hc_main553" : "HcIngress.t_multipath"
+          },
+          "default_entry" : {
+            "action_id" : 40,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main557",
+          "id" : 26,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 557,
+            "column" : 24,
+            "source_fragment" : "random(meta.mp_choice, 1w0, 1w1)"
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [41],
+          "actions" : ["hc_main557"],
+          "base_default_next" : "HcIngress.t_multipath",
+          "next_tables" : {
+            "hc_main557" : "HcIngress.t_multipath"
+          },
+          "default_entry" : {
+            "action_id" : 41,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "HcIngress.t_multipath",
+          "id" : 27,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 338,
+            "column" : 10,
+            "source_fragment" : "t_multipath"
+          },
+          "key" : [
+            {
+              "match_type" : "exact",
+              "name" : "hdr.ipv4.dstAddr",
+              "target" : ["ipv4", "dstAddr"],
+              "mask" : null
+            },
+            {
+              "match_type" : "exact",
+              "name" : "meta.mp_choice",
+              "target" : ["scalars", "metadata.mp_choice"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 64,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [15, 1],
+          "actions" : ["HcIngress.ipv4_forward", "NoAction"],
+          "base_default_next" : "node_48",
+          "next_tables" : {
+            "HcIngress.ipv4_forward" : "node_48",
+            "NoAction" : "node_48"
+          },
+          "default_entry" : {
+            "action_id" : 1,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "tbl_hc_main563",
+          "id" : 28,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 563,
+            "column" : 41,
+            "source_fragment" : "= 1; ..."
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [42],
+          "actions" : ["hc_main563"],
+          "base_default_next" : null,
+          "next_tables" : {
+            "hc_main563" : null
+          },
+          "default_entry" : {
+            "action_id" : 42,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "tbl_hc_main566",
+          "id" : 29,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 566,
+            "column" : 42,
+            "source_fragment" : "="
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [43],
+          "actions" : ["hc_main566"],
+          "base_default_next" : null,
+          "next_tables" : {
+            "hc_main566" : null
+          },
+          "default_entry" : {
+            "action_id" : 43,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        }
+      ],
+      "action_profiles" : [
+        {
+          "name" : "HcIngress.ap_prof",
+          "id" : 0,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 312,
+            "column" : 26,
+            "source_fragment" : "ap_prof"
+          },
+          "max_size" : 16
+        },
+        {
+          "name" : "HcIngress.as_sel",
+          "id" : 1,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 313,
+            "column" : 55,
+            "source_fragment" : "as_sel"
+          },
+          "max_size" : 16,
+          "selector" : {
+            "algo" : "crc16",
+            "input" : [
+              {
+                "type" : "field",
+                "value" : ["ipv4", "srcAddr"]
+              }
+            ]
+          }
+        }
+      ],
+      "conditionals" : [
+        {
+          "name" : "node_2",
+          "id" : 0,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 479,
+            "column" : 12,
+            "source_fragment" : "hdr.ethernet.etherType == TYPE_HB"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["ethernet", "etherType"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x88b5"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main483",
+          "false_next" : "node_4"
+        },
+        {
+          "name" : "node_4",
+          "id" : 1,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 488,
+            "column" : 12,
+            "source_fragment" : "hdr.packet_out.isValid()"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "d2b",
+              "left" : null,
+              "right" : {
+                "type" : "field",
+                "value" : ["packet_out", "$valid$"]
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main489",
+          "false_next" : "HcIngress.port_exact"
+        },
+        {
+          "name" : "node_8",
+          "id" : 2,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 500,
+            "column" : 12,
+            "source_fragment" : "hdr.srcRoutes[0].isValid()"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "d2b",
+              "left" : null,
+              "right" : {
+                "type" : "field",
+                "value" : ["srcRoutes[0]", "$valid$"]
+              }
+            }
+          },
+          "true_next" : "node_9",
+          "false_next" : "node_14"
+        },
+        {
+          "name" : "node_9",
+          "id" : 3,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 501,
+            "column" : 16,
+            "source_fragment" : "hdr.srcRoutes[0].bos == 1"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["srcRoutes[0]", "bos"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x01"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main502",
+          "false_next" : "tbl_hc_main504"
+        },
+        {
+          "name" : "node_12",
+          "id" : 4,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 506,
+            "column" : 16,
+            "source_fragment" : "hdr.ipv4.isValid()"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "d2b",
+              "left" : null,
+              "right" : {
+                "type" : "field",
+                "value" : ["ipv4", "$valid$"]
+              }
+            }
+          },
+          "false_next" : null,
+          "true_next" : "tbl_hc_main507"
+        },
+        {
+          "name" : "node_14",
+          "id" : 5,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 509,
+            "column" : 19,
+            "source_fragment" : "hdr.myTunnel.isValid() || hdr.hcl2.isValid() || hdr.l3alt.x.isValid()"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "or",
+              "left" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "or",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "d2b",
+                      "left" : null,
+                      "right" : {
+                        "type" : "field",
+                        "value" : ["myTunnel", "$valid$"]
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "d2b",
+                      "left" : null,
+                      "right" : {
+                        "type" : "field",
+                        "value" : ["hcl2", "$valid$"]
+                      }
+                    }
+                  }
+                }
+              },
+              "right" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "d2b",
+                  "left" : null,
+                  "right" : {
+                    "type" : "field",
+                    "value" : ["l3alt.x", "$valid$"]
+                  }
+                }
+              }
+            }
+          },
+          "true_next" : "HcIngress.tunnel_exact",
+          "false_next" : "node_16"
+        },
+        {
+          "name" : "node_16",
+          "id" : 6,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 511,
+            "column" : 19,
+            "source_fragment" : "hdr.l3alt.v6.isValid()"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "d2b",
+              "left" : null,
+              "right" : {
+                "type" : "field",
+                "value" : ["l3alt.v6", "$valid$"]
+              }
+            }
+          },
+          "true_next" : "HcIngress.v6_host",
+          "false_next" : "node_18"
+        },
+        {
+          "name" : "node_18",
+          "id" : 7,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 513,
+            "column" : 19,
+            "source_fragment" : "hdr.ipv4.isValid()"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "d2b",
+              "left" : null,
+              "right" : {
+                "type" : "field",
+                "value" : ["ipv4", "$valid$"]
+              }
+            }
+          },
+          "false_next" : null,
+          "true_next" : "HcIngress.ipv4_lpm"
+        },
+        {
+          "name" : "node_20",
+          "id" : 8,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 515,
+            "column" : 16,
+            "source_fragment" : "hdr.udp.isValid()"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "d2b",
+              "left" : null,
+              "right" : {
+                "type" : "field",
+                "value" : ["udp", "$valid$"]
+              }
+            }
+          },
+          "false_next" : null,
+          "true_next" : "HcIngress.t_ternary"
+        },
+        {
+          "name" : "node_29",
+          "id" : 9,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 525,
+            "column" : 20,
+            "source_fragment" : "hdr.udp.dstPort == 40011"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["udp", "dstPort"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x9c4b"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main529",
+          "false_next" : "node_31"
+        },
+        {
+          "name" : "node_31",
+          "id" : 10,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 532,
+            "column" : 20,
+            "source_fragment" : "hdr.udp.dstPort == 40021"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["udp", "dstPort"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x9c55"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main533",
+          "false_next" : "node_33"
+        },
+        {
+          "name" : "node_33",
+          "id" : 11,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 535,
+            "column" : 20,
+            "source_fragment" : "hdr.udp.dstPort == 40031"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["udp", "dstPort"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x9c5f"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main537",
+          "false_next" : "node_35"
+        },
+        {
+          "name" : "node_35",
+          "id" : 12,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 539,
+            "column" : 20,
+            "source_fragment" : "hdr.udp.dstPort == 40041"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["udp", "dstPort"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x9c69"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main540",
+          "false_next" : "node_37"
+        },
+        {
+          "name" : "node_37",
+          "id" : 13,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 542,
+            "column" : 20,
+            "source_fragment" : "hdr.udp.dstPort == 40050"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["udp", "dstPort"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x9c72"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main543",
+          "false_next" : "node_39"
+        },
+        {
+          "name" : "node_39",
+          "id" : 14,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 545,
+            "column" : 20,
+            "source_fragment" : "hdr.udp.dstPort == 40061"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["udp", "dstPort"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x9c7d"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main546",
+          "false_next" : "node_41"
+        },
+        {
+          "name" : "node_41",
+          "id" : 15,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 548,
+            "column" : 20,
+            "source_fragment" : "hdr.udp.dstPort == 40062"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["udp", "dstPort"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x9c7e"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main549",
+          "false_next" : "node_43"
+        },
+        {
+          "name" : "node_43",
+          "id" : 16,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 551,
+            "column" : 20,
+            "source_fragment" : "hdr.udp.dstPort == 40092 || hdr.udp.dstPort == 40093"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "or",
+              "left" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "==",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["udp", "dstPort"]
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x9c9c"
+                  }
+                }
+              },
+              "right" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "==",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["udp", "dstPort"]
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x9c9d"
+                  }
+                }
+              }
+            }
+          },
+          "true_next" : "node_44",
+          "false_next" : "node_48"
+        },
+        {
+          "name" : "node_44",
+          "id" : 17,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 552,
+            "column" : 24,
+            "source_fragment" : "hdr.udp.dstPort == 40092"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["udp", "dstPort"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x9c9c"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main553",
+          "false_next" : "tbl_hc_main557"
+        },
+        {
+          "name" : "node_48",
+          "id" : 18,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 561,
+            "column" : 20,
+            "source_fragment" : "hdr.udp.dstPort == 40091 && (hdr.ipv4.diffserv & FLAG_RESUB) == 0"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "and",
+              "left" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "==",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["udp", "dstPort"]
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x9c9b"
+                  }
+                }
+              },
+              "right" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "==",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "&",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["ipv4", "diffserv"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0x04"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x00"
+                  }
+                }
+              }
+            }
+          },
+          "false_next" : null,
+          "true_next" : "node_49"
+        },
+        {
+          "name" : "node_49",
+          "id" : 19,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 562,
+            "column" : 24,
+            "source_fragment" : "meta.resubmitted == 0"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["scalars", "metadata.resubmitted"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x00"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main563",
+          "false_next" : "tbl_hc_main566"
+        }
+      ]
+    },
+    {
+      "name" : "egress",
+      "id" : 1,
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 577,
+        "column" : 8,
+        "source_fragment" : "HcEgress"
+      },
+      "init_table" : "node_54",
+      "tables" : [
+        {
+          "name" : "tbl_hc_main597",
+          "id" : 30,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 597,
+            "column" : 12,
+            "source_fragment" : "hdr.packet_in.setValid(); ..."
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [46],
+          "actions" : ["hc_main597"],
+          "base_default_next" : "node_56",
+          "next_tables" : {
+            "hc_main597" : "node_56"
+          },
+          "default_entry" : {
+            "action_id" : 46,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        },
+        {
+          "name" : "HcEgress.q_stamp",
+          "id" : 31,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 590,
+            "column" : 10,
+            "source_fragment" : "q_stamp"
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [45, 44],
+          "actions" : ["HcEgress.do_qstamp", "NoAction"],
+          "base_default_next" : "node_59",
+          "next_tables" : {
+            "HcEgress.do_qstamp" : "node_59",
+            "NoAction" : "node_59"
+          },
+          "default_entry" : {
+            "action_id" : 45,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "tbl_hc_main606",
+          "id" : 32,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 606,
+            "column" : 34,
+            "source_fragment" : "= hdr.ipv4.diffserv | FLAG_RECIRC; ..."
+          },
+          "key" : [],
+          "match_type" : "exact",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [47],
+          "actions" : ["hc_main606"],
+          "base_default_next" : null,
+          "next_tables" : {
+            "hc_main606" : null
+          },
+          "default_entry" : {
+            "action_id" : 47,
+            "action_const" : true,
+            "action_data" : [],
+            "action_entry_const" : true
+          }
+        }
+      ],
+      "action_profiles" : [],
+      "conditionals" : [
+        {
+          "name" : "node_54",
+          "id" : 20,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 596,
+            "column" : 12,
+            "source_fragment" : "standard_metadata.egress_port == CPU_PORT"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "==",
+              "left" : {
+                "type" : "field",
+                "value" : ["standard_metadata", "egress_port"]
+              },
+              "right" : {
+                "type" : "hexstr",
+                "value" : "0x01fe"
+              }
+            }
+          },
+          "true_next" : "tbl_hc_main597",
+          "false_next" : "node_56"
+        },
+        {
+          "name" : "node_56",
+          "id" : 21,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 600,
+            "column" : 12,
+            "source_fragment" : "hdr.ipv4.isValid() && hdr.udp.isValid()"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "and",
+              "left" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "d2b",
+                  "left" : null,
+                  "right" : {
+                    "type" : "field",
+                    "value" : ["ipv4", "$valid$"]
+                  }
+                }
+              },
+              "right" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "d2b",
+                  "left" : null,
+                  "right" : {
+                    "type" : "field",
+                    "value" : ["udp", "$valid$"]
+                  }
+                }
+              }
+            }
+          },
+          "false_next" : null,
+          "true_next" : "node_57"
+        },
+        {
+          "name" : "node_57",
+          "id" : 22,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 601,
+            "column" : 16,
+            "source_fragment" : "hdr.udp.dstPort == 40071 && hdr.ipv4.identification == 0"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "and",
+              "left" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "==",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["udp", "dstPort"]
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x9c87"
+                  }
+                }
+              },
+              "right" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "==",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["ipv4", "identification"]
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x0000"
+                  }
+                }
+              }
+            }
+          },
+          "true_next" : "HcEgress.q_stamp",
+          "false_next" : "node_59"
+        },
+        {
+          "name" : "node_59",
+          "id" : 23,
+          "source_info" : {
+            "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+            "line" : 604,
+            "column" : 16,
+            "source_fragment" : "hdr.udp.dstPort == 40091 && (hdr.ipv4.diffserv & FLAG_RECIRC) == 0 ..."
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "and",
+              "left" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "and",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "==",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["udp", "dstPort"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0x9c9b"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "==",
+                      "left" : {
+                        "type" : "expression",
+                        "value" : {
+                          "op" : "&",
+                          "left" : {
+                            "type" : "field",
+                            "value" : ["ipv4", "diffserv"]
+                          },
+                          "right" : {
+                            "type" : "hexstr",
+                            "value" : "0x08"
+                          }
+                        }
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0x00"
+                      }
+                    }
+                  }
+                }
+              },
+              "right" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "!=",
+                  "left" : {
+                    "type" : "field",
+                    "value" : ["standard_metadata", "egress_port"]
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0x01fe"
+                  }
+                }
+              }
+            }
+          },
+          "false_next" : null,
+          "true_next" : "tbl_hc_main606"
+        }
+      ]
+    }
+  ],
+  "checksums" : [
+    {
+      "name" : "cksum",
+      "id" : 0,
+      "source_info" : {
+        "filename" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+        "line" : 618,
+        "column" : 8,
+        "source_fragment" : "update_checksum( ..."
+      },
+      "target" : ["ipv4", "hdrChecksum"],
+      "type" : "generic",
+      "calculation" : "calc_0",
+      "verify" : false,
+      "update" : true,
+      "if_cond" : {
+        "type" : "expression",
+        "value" : {
+          "op" : "d2b",
+          "left" : null,
+          "right" : {
+            "type" : "field",
+            "value" : ["ipv4", "$valid$"]
+          }
+        }
+      }
+    }
+  ],
+  "force_arith" : [],
+  "extern_instances" : [],
+  "field_aliases" : [
+    [
+      "queueing_metadata.enq_timestamp",
+      ["standard_metadata", "enq_timestamp"]
+    ],
+    [
+      "queueing_metadata.enq_qdepth",
+      ["standard_metadata", "enq_qdepth"]
+    ],
+    [
+      "queueing_metadata.deq_timedelta",
+      ["standard_metadata", "deq_timedelta"]
+    ],
+    [
+      "queueing_metadata.deq_qdepth",
+      ["standard_metadata", "deq_qdepth"]
+    ],
+    [
+      "intrinsic_metadata.ingress_global_timestamp",
+      ["standard_metadata", "ingress_global_timestamp"]
+    ],
+    [
+      "intrinsic_metadata.egress_global_timestamp",
+      ["standard_metadata", "egress_global_timestamp"]
+    ],
+    [
+      "intrinsic_metadata.mcast_grp",
+      ["standard_metadata", "mcast_grp"]
+    ],
+    [
+      "intrinsic_metadata.egress_rid",
+      ["standard_metadata", "egress_rid"]
+    ],
+    [
+      "intrinsic_metadata.priority",
+      ["standard_metadata", "priority"]
+    ]
+  ],
+  "program" : "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests/s0/exercise/src/hc_main.p4",
+  "__meta__" : {
+    "version" : [2, 23],
+    "compiler" : "https://github.com/p4lang/p4c"
+  }
+}

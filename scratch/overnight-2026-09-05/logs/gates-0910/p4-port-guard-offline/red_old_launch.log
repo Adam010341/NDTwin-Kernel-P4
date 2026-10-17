@@ -1,0 +1,30 @@
+start 2026-10-16T16:03:57+08:00 cwd=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-port-guard-offline/p4_proxy
+cmd: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-port-guard-offline/p4_proxy/venv/bin/python -m unittest -v tests.test_port_guard_old_launch
+test_it_exits_non_zero_and_says_why (tests.test_port_guard_old_launch.PortAlreadyTakenTest.test_it_exits_non_zero_and_says_why) ... ok
+test_startup_event_never_runs_when_the_port_is_taken (tests.test_port_guard_old_launch.PortAlreadyTakenTest.test_startup_event_never_runs_when_the_port_is_taken)
+The assertion that matters: nothing that can reach a switch was executed. ... ok
+test_startup_event_does_run_when_the_port_is_free (tests.test_port_guard_old_launch.PortFreeTest.test_startup_event_does_run_when_the_port_is_free) ... FAIL
+/home/adam/miniconda3/lib/python3.13/unittest/case.py:650: ResourceWarning: unclosed file <_io.TextIOWrapper name=3 encoding='UTF-8'>
+  with outcome.testPartExecutor(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+
+======================================================================
+FAIL: test_startup_event_does_run_when_the_port_is_free (tests.test_port_guard_old_launch.PortFreeTest.test_startup_event_does_run_when_the_port_is_free)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-port-guard-offline/p4_proxy/tests/test_port_guard_old_launch.py", line 284, in test_startup_event_does_run_when_the_port_is_free
+    self.assertFalse(
+    ~~~~~~~~~~~~~~~~^
+        ports & default_block,
+        ^^^^^^^^^^^^^^^^^^^^^^
+        "the proxy dialled the default switch ports %s, where a running bmv2 fabric "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        "listens; a test that starts it must point it at a free block" % sorted(ports & default_block))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {30051, 30052, 30053, 30054, 30055, 30056, 30057, 30058, 30059, 30060} is not false : the proxy dialled the default switch ports [30051, 30052, 30053, 30054, 30055, 30056, 30057, 30058, 30059, 30060], where a running bmv2 fabric listens; a test that starts it must point it at a free block
+
+----------------------------------------------------------------------
+Ran 3 tests in 2.573s
+
+FAILED (failures=1)
+rc=1

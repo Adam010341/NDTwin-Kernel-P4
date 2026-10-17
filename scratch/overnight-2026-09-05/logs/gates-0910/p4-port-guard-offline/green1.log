@@ -1,0 +1,35 @@
+cmd: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -m unittest -v tests.test_port_guard (cwd p4_proxy, worktree 39bdb614142eebf4506c8f883908dd8bfb0eefdd + uncommitted)
+test_it_exits_non_zero_and_says_why (tests.test_port_guard.PortAlreadyTakenTest.test_it_exits_non_zero_and_says_why) ... ok
+test_startup_event_never_runs_when_the_port_is_taken (tests.test_port_guard.PortAlreadyTakenTest.test_startup_event_never_runs_when_the_port_is_taken)
+The assertion that matters: nothing that can reach a switch was executed. ... ok
+test_startup_event_does_run_when_the_port_is_free (tests.test_port_guard.PortFreeTest.test_startup_event_does_run_when_the_port_is_free) ... FAIL
+/home/adam/miniconda3/lib/python3.13/unittest/case.py:650: ResourceWarning: unclosed file <_io.TextIOWrapper name=3 encoding='UTF-8'>
+  with outcome.testPartExecutor(self):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+
+======================================================================
+FAIL: test_startup_event_does_run_when_the_port_is_free (tests.test_port_guard.PortFreeTest.test_startup_event_does_run_when_the_port_is_free)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/tests/test_port_guard.py", line 259, in test_startup_event_does_run_when_the_port_is_free
+    self.assertTrue(
+    ~~~~~~~~~~~~~~~^
+        ports, "the child's output names no switch address at all, so this test cannot say "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+               "where the proxy dialled:\n" + out[-2000:])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: set() is not true : the child's output names no switch address at all, so this test cannot say where the proxy dialled:
+TPConnection(host='127.0.0.1', port=62529): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] link failure 6:4->10:2: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=62529): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=62529): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] link failure 10:2->6:4: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=62529): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=62529): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] link failure 7:4->10:3: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=62529): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=62529): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] link failure 10:3->7:4: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=62529): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=62529): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] link failure 8:4->10:4: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=62529): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=62529): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] link failure 10:4->8:4: FAILED ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=62529): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=62529): Failed to establish a new connection: [Errno 111] Connection refused"))
+
+
+----------------------------------------------------------------------
+Ran 3 tests in 46.666s
+
+FAILED (failures=1)
+rc=1

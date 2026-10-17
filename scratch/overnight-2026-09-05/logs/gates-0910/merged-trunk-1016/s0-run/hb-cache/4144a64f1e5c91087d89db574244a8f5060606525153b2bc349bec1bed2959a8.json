@@ -1,0 +1,51 @@
+{
+  "argv": [
+    "ndt-hbdrop-bmv2",
+    "--use-files",
+    "0",
+    "-i",
+    "1@p1",
+    "-i",
+    "2@p2",
+    "-i",
+    "3@p3",
+    "-i",
+    "510@p510",
+    "--thrift-port",
+    "29400",
+    "--device-id",
+    "979912",
+    "--notifications-addr",
+    "ipc://notif.ipc",
+    "--log-file",
+    "bmv2",
+    "--log-level",
+    "debug",
+    "--log-flush",
+    "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A-MUT/build/hc_main.json"
+  ],
+  "binary": "/usr/local/bin/simple_switch",
+  "binary_version": "1.15.3-f0b7d201",
+  "check_version": 2,
+  "checked_at": 1792163401,
+  "cpu_port": 510,
+  "device_id": 979912,
+  "exit_status": -15,
+  "limits": "only the declared program's default (table-miss) behaviour was checked: no controller, no table entries, no clone session, no multicast group. Entries, sessions and groups the external controller installs later are not covered, and neither is a pipeline it pushes itself or a default action it changes at runtime.",
+  "per_port": {
+    "1": "dropped",
+    "2": "dropped",
+    "3": "dropped"
+  },
+  "pid": 2599930,
+  "ports": [
+    1,
+    2,
+    3
+  ],
+  "program": "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/s0-run/packages/A-MUT/build/hc_main.json",
+  "program_sha256": "4144a64f1e5c91087d89db574244a8f5060606525153b2bc349bec1bed2959a8",
+  "reason": "every injected frame was dropped: port 1: dropped; port 2: dropped; port 3: dropped",
+  "thrift_port": 29400,
+  "verdict": "dropped"
+}

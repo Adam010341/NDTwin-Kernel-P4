@@ -1,0 +1,53 @@
+start 2026-10-16T16:03:26+08:00 cwd=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-port-guard-offline
+cmd: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-port-guard-offline/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/probe_clone.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-port-guard-offline 20
+block 61151 .. 61167
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-port-guard-offline/p4_proxy/proxy_agent/main.py:2694: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-port-guard-offline/p4_proxy/proxy_agent/main.py:2699: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [782163]
+INFO:     Waiting for application startup.
+[Proxy Agent] Starting up...
+[1] Stream receiver error: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61152: Failed to connect to remote host: Connection refused
+[2] Stream receiver error: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61153: Failed to connect to remote host: Connection refused
+[3] Stream receiver error: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61154: Failed to connect to remote host: Connection refused
+[4] Stream receiver error: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61155: Failed to connect to remote host: Connection refused
+[5] Stream receiver error: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61156: Failed to connect to remote host: Connection refused
+[6] Stream receiver error: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61157: Failed to connect to remote host: Connection refused
+[7] Stream receiver error: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61158: Failed to connect to remote host: Connection refused
+[8] Stream receiver error: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61159: Failed to connect to remote host: Connection refused
+[9] Stream receiver error: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61160: Failed to connect to remote host: Connection refused
+[10] Stream receiver error: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61161: Failed to connect to remote host: Connection refused
+[Proxy Agent] switch 1: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61152: Failed to connect to remote host: Connection refused))
+[Proxy Agent] switch 2: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61153: Failed to connect to remote host: Connection refused))
+[Proxy Agent] switch 3: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61154: Failed to connect to remote host: Connection refused))
+[Proxy Agent] switch 4: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv6:%5B::1%5D:61155: Failed to connect to remote host: Connection refused))
+[Proxy Agent] switch 5: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61156: Failed to connect to remote host: Connection refused))
+[Proxy Agent] switch 6: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61157: Failed to connect to remote host: Connection refused))
+[Proxy Agent] switch 7: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61158: Failed to connect to remote host: Connection refused))
+[Proxy Agent] switch 8: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61159: Failed to connect to remote host: Connection refused))
+[Proxy Agent] switch 9: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61160: Failed to connect to remote host: Connection refused))
+[Proxy Agent] switch 10: table-entry journal set aside, nothing will be replayed (the switch did not answer COOKIE_ONLY (UNAVAILABLE: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61161: Failed to connect to remote host: Connection refused))
+[1] Setting Forwarding Pipeline Config...
+[Proxy Agent] Switch 1: pipeline push failed, continuing without it: _InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.UNAVAILABLE
+	details = "failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61152: Failed to connect to remote host: Connection refused"
+	debug_error_string = "UNAVAILABLE:failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:61152: Failed to connect to remote host: Connection refused"
+>
+[2] Setting Forwarding Pipeline Config...
+[Proxy Agent] Switch 2: pipeline push failed, continuing without it: _InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+	status = StatusCode.UNAVAILABLE
+	details = "failed to connect to all addresses; last error: UNKNOWN: ip
+DIALED PORTS: [61152, 61153, 61154, 61155, 61156, 61157, 61158, 61159, 61160, 61161]
+rc=0

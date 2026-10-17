@@ -1,0 +1,32 @@
+commit 5b83c8994ecf4b439e2e8f616ba4ac0a2f34e3cf  tracked-dirty=0
+cwd /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy  NDTWIN_PROXY_HOST=<unset in runner env>  command: env NDTWIN_PROXY_HOST=not-an-address venv/bin/python -m unittest tests.test_port_guard -v
+ss :8081 listeners before: 0
+test_every_spelling_the_proxy_and_grpc_use (tests.test_port_guard.DialedPortsTest.test_every_spelling_the_proxy_and_grpc_use) ... ok
+test_a_listener_is_busy_on_either_family (tests.test_port_guard.NothingListensTest.test_a_listener_is_busy_on_either_family) ... ok
+test_an_unclear_answer_is_busy (tests.test_port_guard.NothingListensTest.test_an_unclear_answer_is_busy) ... ok
+test_both_refused_is_free (tests.test_port_guard.NothingListensTest.test_both_refused_is_free) ... ok
+test_no_ipv6_support_is_free (tests.test_port_guard.NothingListensTest.test_no_ipv6_support_is_free) ... ok
+test_no_loopback_v6_address_or_route_is_free (tests.test_port_guard.NothingListensTest.test_no_loopback_v6_address_or_route_is_free) ... ok
+test_it_exits_non_zero_and_says_why (tests.test_port_guard.PortAlreadyTakenTest.test_it_exits_non_zero_and_says_why) ... ok
+test_startup_event_never_runs_when_the_port_is_taken (tests.test_port_guard.PortAlreadyTakenTest.test_startup_event_never_runs_when_the_port_is_taken) ... ok
+test_proxy_dials_only_the_offline_block (tests.test_port_guard.PortFreeTest.test_proxy_dials_only_the_offline_block) ... FAIL
+test_startup_event_does_run_when_the_port_is_free (tests.test_port_guard.PortFreeTest.test_startup_event_does_run_when_the_port_is_free) ... ok
+
+======================================================================
+FAIL: test_proxy_dials_only_the_offline_block (tests.test_port_guard.PortFreeTest.test_proxy_dials_only_the_offline_block)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/c5aa4598-fe0a-45c1-9b2a-32bbb7b0496a/scratchpad/mg16/gate/p4_proxy/tests/test_port_guard.py", line 389, in test_proxy_dials_only_the_offline_block
+    self.assertTrue(ports <= block,
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+                    "the proxy named ports outside the free block %d-%d: %s"
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    % (base, base + BLOCK_SIZE, sorted(ports - block)))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : the proxy named ports outside the free block 62030-62046: [8081]
+
+----------------------------------------------------------------------
+Ran 10 tests in 9.133s
+
+FAILED (failures=1)
+rc=1

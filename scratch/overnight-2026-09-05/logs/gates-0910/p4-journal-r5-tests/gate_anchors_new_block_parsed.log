@@ -1,0 +1,7 @@
+extract signature: (gate_text, gate_name, gate_path=None, exists=None)
+anchors extracted: 179  of them from the five new mutant calls (tagged): 5
+  file=p4_proxy/proxy_agent/rule_journal.py want=1 anchor='ZZTAG                report["failed"].append({"entry": entry, "reason": _STALE_E'
+  file=p4_proxy/proxy_agent/main.py want=1 anchor='ZZTAG                             table_journal_header(dpid, package), api_route'
+  file=p4_proxy/proxy_agent/rule_journal.py want=1 anchor='ZZTAG            if entries_changed and item["op"] != "insert":'
+  file=p4_proxy/proxy_agent/rule_journal.py want=1 anchor='ZZTAG                unknown_outcome = outcome_unknown is not None and outcome_u'
+  file=p4_proxy/proxy_agent/rule_journal.py want=1 anchor='ZZTAG                if (item["op"] == "delete" and is_not_found is not None\n   '

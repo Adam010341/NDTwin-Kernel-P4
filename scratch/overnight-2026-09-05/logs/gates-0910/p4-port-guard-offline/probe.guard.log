@@ -1,0 +1,75 @@
+2026-10-16T15:53:30+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3170 MB; MemAvailable 5702 MB
+guard: shell 741440 SigBlk:	0000000000010000
+guard: shell 741440 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T15:56:26+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2743 MB; MemAvailable 4900 MB
+ 743128 bash tests/shell/mutate_table_entry.sh
+ 750510 bash tests/shell/mutate_table_entry.sh
+ 750511 bash tests/shell/mutate_table_entry.sh
+guard: shell 750686 SigBlk:	0000000000010000
+guard: shell 750686 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T15:57:26+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2713 MB; MemAvailable 4352 MB
+ 743128 bash tests/shell/mutate_table_entry.sh
+ 754995 bash tests/shell/mutate_table_entry.sh
+ 754996 bash tests/shell/mutate_table_entry.sh
+guard: shell 755073 SigBlk:	0000000000010000
+guard: shell 755073 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T15:58:26+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2671 MB; MemAvailable 4523 MB
+ 743128 bash tests/shell/mutate_table_entry.sh
+ 760034 bash tests/shell/mutate_table_entry.sh
+ 760035 bash tests/shell/mutate_table_entry.sh
+guard: shell 760219 SigBlk:	0000000000010000
+guard: shell 760219 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T15:59:26+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2632 MB; MemAvailable 4369 MB
+ 743128 bash tests/shell/mutate_table_entry.sh
+ 765257 bash tests/shell/mutate_table_entry.sh
+ 765258 bash tests/shell/mutate_table_entry.sh
+guard: shell 765262 SigBlk:	0000000000010000
+guard: shell 765262 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:00:26+08:00 guard: 2 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2578 MB; MemAvailable 4393 MB
+ 743128 bash tests/shell/mutate_table_entry.sh
+ 767057 /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1792044156734-fckgmn.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'L=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests; W=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-journal-r5-tests; PY=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python cd $L && { echo "worktree $W at $(git -C $W rev-parse HEAD) + uncommitted new tests/mutants (tracked-dirty=$(git -C $W status --porcelain --untracked-files=no | wc -l)); sha256 test_table_entry_replay.py $(sha256sum $W/p4_proxy/tests/test_table_entry_replay.py | cut -c1-16) mutate_table_journal.sh $(sha256sum $W/tests/shell/mutate_table_journal.sh | cut -c1-16)"; echo "command: quickmut2.py <worktree> <venv python> --modules <the gate'"'"'s six> --build <main checkout p4_src/build> base s140 s141 s142 s143 s144"; timeout 1800 $PY $L/quickmut2.py $W $PY --modules tests.test_table_entry_journal,tests.test_table_entry_route,tests.test_p4_client_writes,tests.test_rule_install_times,tests.test_app_package_proxy,tests.test_table_entry_replay --build /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build base s140 s141 s142 s143 s144; echo "rc=$?"; } > $L/red_new_tests_under_new_mutants.log 2>&1; cat $L/red_new_tests_under_new_mutants.log' && pwd -P >| /tmp/claude-5b9c-cwd
+guard: shell 769787 SigBlk:	0000000000010000
+guard: shell 769787 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:01:26+08:00 guard: 4 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2538 MB; MemAvailable 4229 MB
+ 743128 bash tests/shell/mutate_table_entry.sh
+ 767057 /bin/bash -c source /home/adam/.claude/shell-snapshots/snapshot-bash-1792044156734-fckgmn.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'L=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests; W=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-journal-r5-tests; PY=/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python cd $L && { echo "worktree $W at $(git -C $W rev-parse HEAD) + uncommitted new tests/mutants (tracked-dirty=$(git -C $W status --porcelain --untracked-files=no | wc -l)); sha256 test_table_entry_replay.py $(sha256sum $W/p4_proxy/tests/test_table_entry_replay.py | cut -c1-16) mutate_table_journal.sh $(sha256sum $W/tests/shell/mutate_table_journal.sh | cut -c1-16)"; echo "command: quickmut2.py <worktree> <venv python> --modules <the gate'"'"'s six> --build <main checkout p4_src/build> base s140 s141 s142 s143 s144"; timeout 1800 $PY $L/quickmut2.py $W $PY --modules tests.test_table_entry_journal,tests.test_table_entry_route,tests.test_p4_client_writes,tests.test_rule_install_times,tests.test_app_package_proxy,tests.test_table_entry_replay --build /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build base s140 s141 s142 s143 s144; echo "rc=$?"; } > $L/red_new_tests_under_new_mutants.log 2>&1; cat $L/red_new_tests_under_new_mutants.log' && pwd -P >| /tmp/claude-5b9c-cwd
+ 773985 bash tests/shell/mutate_table_entry.sh
+ 773986 bash tests/shell/mutate_table_entry.sh
+guard: shell 774439 SigBlk:	0000000000010000
+guard: shell 774439 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:02:26+08:00 guard: 3 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2495 MB; MemAvailable 4731 MB
+ 743128 bash tests/shell/mutate_table_entry.sh
+ 778430 bash tests/shell/mutate_table_entry.sh
+ 778431 bash tests/shell/mutate_table_entry.sh
+guard: shell 778448 SigBlk:	0000000000010000
+guard: shell 778448 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T16:03:26+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 2752 MB; MemAvailable 4967 MB
+guard: shell 782138 SigBlk:	0000000000010000
+guard: shell 782138 SigIgn:	0000000000000004
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000000
+guard: SigBlk & 0x4203: shell 0, child 0

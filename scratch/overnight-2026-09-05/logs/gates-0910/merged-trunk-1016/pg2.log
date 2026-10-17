@@ -1,0 +1,7 @@
+2026-10-16T19:09:54+08:00 pg: lock acquired after 20 s
+2026-10-16T19:09:58+08:00 pg: red_at_M4 rc=1
+2026-10-16T19:10:08+08:00 pg: green_at_M5p rc=0
+2026-10-16T19:10:17+08:00 pg: control_at_M5p rc=0
+2026-10-16T19:10:17+08:00 pg: done; HEAD cc0bca4bde02d6611935508ae49a3d3790d6ffbe tracked-dirty=0
+2026-10-16T19:10:17+08:00 pg: newtest_at_M4 rc=0
+2026-10-16T19:10:18+08:00 pg: newtest_mutant_no_filter rc=1

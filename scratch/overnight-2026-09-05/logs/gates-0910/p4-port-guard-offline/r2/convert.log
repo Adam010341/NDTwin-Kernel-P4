@@ -1,0 +1,20 @@
+package 'firewall' -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r2/pkg/firewall
+  control plane : ndtwin
+  pipelines     : s1=build/firewall.json, s2=build/basic.json, s3=build/basic.json, s4=build/basic.json
+  model         : 4 switches, 4 hosts, 16 edges (8 links, both directions stored)
+  files         : 12
+                  basic.p4
+                  build/basic.json
+                  build/basic.p4.p4info.txtpb
+                  build/firewall.json
+                  build/firewall.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  pod-topo/s1-runtime.json
+                  pod-topo/s2-runtime.json
+                  pod-topo/s3-runtime.json
+                  pod-topo/s4-runtime.json
+                  pod-topo/topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r2/pkg/firewall
+convert rc=0

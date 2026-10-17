@@ -1,0 +1,51 @@
+port-guard round 2: handback
+New head: 383be526909be92e68fa565c40f78bba9ca5b46b = ONE commit on 39bdb614 (amended; c7f17564 is gone from the branch). Branch feat/p4-port-guard-offline,
+worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline. File: p4_proxy/tests/test_port_guard.py only. Not pushed.
+R = /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r2   (every run log there has a header: clone HEAD
+383be526..., `git status --porcelain` (only the untracked symlinks build and p4_proxy/venv, plus the mutant file where one is run), and a pointer to <tag>.ss.txt = `ss -ltn`
+archived before that run, with the count of listeners on 8000/30051-30060 (gated3 runs: also 8081) = 0 in all of them). Every run went through R/gated2.sh or gated3.sh:
+guard.sh exit 0 required (sleep-60 loop on 1, stop on 2) plus no listener on 8000 / 30051-30060 (gated3 also :8081, see "first attempts").
+
+PER ITEM
+1 MAJOR-1 (knob). _CHILD now imports grpc, grpc_ports and app_package first, THEN sets app_package.KNOB_PATH to a nonexistent file in a temp dir and moves
+  grpc_ports.GRPC_PORT_BASE; BASELINE_GRPC_BASE stays 30050. Package built with tools/p4_exercise/convert.py (R/convert.log, rc=0) and named in the clone's
+  p4_proxy/mininet/app_package_override (clone only; removed after each run; the log prints "knob-was: <pkg>" to prove it was set).
+  RED: R/knob_old_version.log = the c7f17564 version of the test: 2 FAILs (test_it_exits_non_zero_and_says_why, test_startup_event_does_run_when_the_port_is_free), rc=1;
+       the traceback says "grpc_base must be 62504 in format 1, got 30050".
+  GREEN: R/knob_new_version.log = the new file, same knob: Ran 10 tests OK, rc=0.
+2 MAJOR-2 (kernel half), option A taken. env NDTWIN_P4_BEACON_S=0.5 (3 s grace). The dial test waits for "Application startup complete." and the first
+  "[Kernel] link failure" line, and asserts its port == base+BLOCK_SIZE; it also asserts no named port outside the block and none in 30051-30066.
+  GREEN: R/green_new.log (Ran 10 in 7.6 s, OK; the kernel line is seen within about 3 s, not flaky in the 3 full green runs: green_new, knob_new_version, p4lane;
+  3 runs is a small sample). RED: R/red_nokernelurl.log = NDT_URL dropped from offline_proxy: FAIL "the proxy named ports outside the free block 64525-64541: [8000]"; its ss
+  archive R/red_nokernelurl.ss.txt (0 listeners on 8000). The docstring of test_proxy_dials_only_the_offline_block says exactly what is checked.
+3 MINOR-3. _nothing_listens creates the socket inside the try; EAFNOSUPPORT, EADDRNOTAVAIL, ENETUNREACH on ::1 count as "nothing can listen"; class NothingListensTest has
+  5 mocked tests (green in green_new.log). RED: R/red_oldlisten.log = the old function vs the same tests: 1 ERROR (Errno 97 no ipv6) + 2 FAIL (errno 99, 101), rc=1.
+4 MINOR-4. The dial assertions are their own test with skipUnless(P4INFO exists). R/ci_shape.log (clone with p4_src/build moved away): that test shows
+  "skipped ... (PROVED LESS)", the rest OK, rc=0. (The first-attempt version of this run is in first_attempt/.)
+5 MINOR-5. The child wraps grpc.insecure_channel / secure_channel; a target outside [base, base+16] raises "OFFLINE-GUARD refused to dial ...", and the dial test fails if that
+  text is in the output. RED mutants, both in R: red_base100.log (child base+100: FAIL "'OFFLINE-GUARD refused to dial' unexpectedly found", rc=1) and red_mainport.log
+  (clone's main.py changed to dial through grpc_ports.grpc_port(dpid), diff in R/mut_main.diff.log: same FAIL, rc=1; main.py restored with git checkout afterwards).
+6 MINOR-6. Headers as above; ss archives R/*.ss.txt for every run that starts the proxy.
+7 NITs: _TARGET also matches ipv6:%5B::1%5D:PORT (DialedPortsTest); waits for "Application startup complete."; BLOCK_SIZE+1 instead of 17; proc.stdout closed and reader joined;
+  the rule journal has its own temp dir (and the knob path another).
+8 Commit: one commit on 39bdb614, plain message, no trailer, none of the listed words. It says what the child is pointed at (switch ports, kernel URL, routing journal, baseline
+  fabric regardless of the knob, dial guard) and what the new test checks (switch dials and the first link-failure post stay inside the block; skipped without the P4 build).
+9 Correction of the round-1 hand-back section 1: (a) "seen in green1.log before NDT_URL" was wrong: green1.log:22-28 shows port=62529, i.e. NDT_URL was already set in that run; I
+  never observed the default kernel URL being used. (b) "the old test would tell a live :8000 kernel that links failed" was not supported: the old test SIGTERMs the child within seconds,
+  and link-failure posts only start after the 30 s grace (topology_manager.py:432, LINK_STARTUP_GRACE_S = 6 * beacon interval 5 s). The old test's kernel exposure, AS READ (not
+  observed): kernel_notifier GET /ndt/inform_switch_entered per successfully pushed switch (main.py:2444 area, startup's `kernel.switch_entered`), which needs live switches to
+  answer. With the new env the link-failure path to the kernel URL is now observed (item 2), the inform path is not separately exercised.
+
+P4LANE (clone of 383be526): R/p4lane.log: "test_port_guard.py PASS 10 ran and passed" (line 40); "no stray table-entry journal PASS ok: one process (2093 tests) and 50 files one by one,
+and the checkout's table-entry journal is as it was" (line 60); "FAILURES=0" (61); rc=0. The clone was removed afterwards.
+
+FIRST ATTEMPTS (kept in R/first_attempt/, not cited): red_base100, red_mainport and ci_shape first ran while something else held :8081 (the tests reported "skipped: :8081 is occupied";
+red_base100 failed for that reason, not for the guard). Nothing of mine held it (no proxy of mine alive; ss afterwards showed it free). I added :8081 to the wait condition (gated3.sh)
+and re-ran those three; the cited logs are the re-runs. Because another worker's runs can hold :8081, the same overlap may have affected them in the other direction; I cannot tell.
+Also: the clone was made when df showed 3036 MB free (2496 MB at one guard check while waiting; 3036 MB at the last guard check before mkclone ran, 16:48).
+
+RAN vs ONLY READ
+ Ran: all logs named above (tests in the built clone; mutants only in the clone: test files generated by R/mk_mut.py, one main.py edit reverted; the knob file only in the clone);
+ convert.py (python, no lab); p4c-bm2-ss via mkclone.sh (R/p4build.log). No ndt, no Mininet, no sudo, no C++ build, no pkill. Never touched the knob or any file in the shared main checkout.
+ Only read: topology_manager.py (grace and beacon env), app_package.py (knob and grpc_base check), p4_client.py:371, kernel_notifier.py, the review file.
+ Not done: the judge's optional "throwaway bmv2 cookie unchanged before/after" test (needs a bmv2); grpc_ports.grpc_port default-argument latency is covered only by the red_mainport mutant.

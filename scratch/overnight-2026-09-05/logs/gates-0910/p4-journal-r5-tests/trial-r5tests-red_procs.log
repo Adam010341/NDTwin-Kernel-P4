@@ -1,0 +1,6 @@
+2026-10-16T16:08:25+0800 watching the parent chains under pid 797259
+2026-10-16T16:08:28+0800 started pid 797355 ppid 797259 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests-red/switch-m2r-stock-1
+2026-10-16T16:08:30+0800 started pid 797427 ppid 797259 comm ndt-hc-replayc exe /usr/local/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests-red/switch-m2r-stock-2
+2026-10-16T16:08:35+0800 started pid 797536 ppid 797259 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests-red/switch-m2r-fast-1
+2026-10-16T16:08:36+0800 started pid 797610 ppid 797259 comm ndt-hc-replayc exe /usr/local/bmv2-fast/bin/simple_switch_grpc cwd /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-journal-r5-tests/trial-work-r5tests-red/switch-m2r-fast-2
+2026-10-16T16:08:41+0800 pid 797259 ended; 4 recorded

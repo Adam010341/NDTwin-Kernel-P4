@@ -1,0 +1,27 @@
+start 2026-10-16T16:59:05+08:00
+clone /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2 HEAD 383be526909be92e68fa565c40f78bba9ca5b46b
+status --porcelain:
+?? build
+?? p4_proxy/tests/test_pg_mut_base100.py
+?? p4_proxy/venv
+ss -ltn archived: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r2/red_base100.ss.txt (8000/3005x/3006x listeners: 0)
+cmd: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/venv/bin/python -m unittest -v tests.test_pg_mut_base100.PortFreeTest
+test_proxy_dials_only_the_offline_block (tests.test_pg_mut_base100.PortFreeTest.test_proxy_dials_only_the_offline_block)
+What this checks, and no more: with the pipeline built, every switch port and kernel ... FAIL
+test_startup_event_does_run_when_the_port_is_free (tests.test_pg_mut_base100.PortFreeTest.test_startup_event_does_run_when_the_port_is_free) ... ok
+
+======================================================================
+FAIL: test_proxy_dials_only_the_offline_block (tests.test_pg_mut_base100.PortFreeTest.test_proxy_dials_only_the_offline_block)
+What this checks, and no more: with the pipeline built, every switch port and kernel
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/tests/test_pg_mut_base100.py", line 359, in test_proxy_dials_only_the_offline_block
+    self.assertNotIn(REFUSAL, out, "the proxy asked grpc for a target outside the block")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'OFFLINE-GUARD refused to dial' unexpectedly found in 'NDTWIN: LLDP_BEACON_INTERVAL_S overridden to 0.5s (default 5); timeout/watchdog/grace derive from it\n[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)\n/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/proxy_agent/main.py:2694: DeprecationWarning: \n        on_event is deprecated, use lifespan event handlers instead.\n\n        Read more about it in the\n        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n        \n  @app.on_event("startup")\n/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/clone-pg-r2/p4_proxy/proxy_agent/main.py:2699: DeprecationWarning: \n        on_event is deprecated, use lifespan event handlers instead.\n\n        Read more about it in the\n        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\n        \n  @app.on_event("shutdown")\nINFO:     Started server process [972416]\nINFO:     Waiting for application startup.\n[Proxy Agent] Starting up...\n[Proxy Agent] Failed to connect to Switch 1: OFFLINE-GUARD refused to dial localhost:62858 (the offline block is 62757-62773)\n[Proxy Agent] Failed to connect to Switch 2: OFFLINE-GUARD refused to dial localhost:62859 (the offline block is 62757-62773)\n[Proxy Agent] Failed to connect to Switch 3: OFFLINE-GUARD refused to dial localhost:62860 (the offline block is 62757-62773)\n[Proxy Agent] Failed to connect to Switch 4: OFFLINE-GUARD refused to dial localhost:62861 (the offline block is 62757-62773)\n[Proxy Agent] Failed to connect to Switch 5: OFFLINE-GUARD refused to dial localhost:62862 (the offline block is 62757-62773)\n[Proxy Agent] Failed to connect to Switch 6: OFFLINE-GUARD refused to dial localhost:62863 (the offline block is 62757-62773)\n[Proxy Agent] Failed to connect to Switch 7: OFFLINE-GUARD refused to dial localhost:62864 (the offline block is 62757-62773)\n[Proxy Agent] Failed to connect to Switch 8: OFFLINE-GUARD refused to dial localhost:62865 (the offline block is 62757-62773)\n[Proxy Agent] Failed to connect to Switch 9: OFFLINE-GUARD refused to dial localhost:62866 (the offline block is 62757-62773)\n[Proxy Agent] Failed to connect to Switch 10: OFFLINE-GUARD refused to dial localhost:62867 (the offline block is 62757-62773)\n[Proxy Agent] Kernel acknowledged all 0 usable switches\n[Proxy Agent] Started LLDP Discovery...\n[TopologyManager] link watchdog seeded with 32 declared links\n[Proxy Agent] Started LLDP link watchdog...\n[Proxy Agent] Started liveness polling...\nINFO:     Application startup complete.\n[Kernel] link failure 1:1->5:1: FAILED ConnectionError: HTTPConnectionPool(host=\'127.0.0.1\', port=62773): Max retries exceeded with url: /ndt/link_failure_detected (Caused by NewConnectionError("HTTPConnection(host=\'127.0.0.1\', port=62773): Failed to establish a new connection: [Errno 111] Connection refused"))\n' : the proxy asked grpc for a target outside the block
+
+----------------------------------------------------------------------
+Ran 2 tests in 6.025s
+
+FAILED (failures=1)
+rc=1

@@ -1,0 +1,31 @@
+port-guard round 3: handback
+New head: 56371d1b5231aab24eeef5ea97fd1059f5745342 = ONE commit on 39bdb614 (amended; 383be526 is gone from the branch). Branch feat/p4-port-guard-offline,
+worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline. File: p4_proxy/tests/test_port_guard.py only. Not pushed.
+Commit message: same as before with "posts to the kernel URL" -> "calls the kernel URL", and "knob files" for the baseline sentence.
+R3 = /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/p4-port-guard-offline/r3
+Every run went through R3/gated4.sh: guard.sh exit 0, and no listener on 8000, 8081 or 30051-30060 (the check loops with sleep 60); each log has the clone HEAD,
+`git status --porcelain` and a pointer to <tag>.ss.txt (ss -ltn archived before the run; listeners on 8000/8081/30051-30060 = 0 in all four). The clone was made by
+R3/mkc.sh only with df >= 2500 MB (3581 MB, R3/mkclone.log) and removed afterwards. p4build.log rc=0.
+
+CHANGES
+A. The docstrings of test_proxy_dials_only_the_offline_block and test_startup_event_never_runs_when_the_port_is_taken are now # comments; "(PROVED LESS)" is out of the skip reason.
+   Proof: R3/p4lane_nobuild.log (clone with p4_src/build moved away; the header's status shows p4_proxy/p4_src/build.away/) line 42:
+   "test_port_guard.py             PROVED LESS 10 ran, 1 skipped (no compiled p4info; run l0_build_check.sh p4)". The lane's end: FAILURES=0, rc=0 (lines 63-64). l1_unit_tests.sh not touched.
+C. The failure messages of the startup test and the kernel assertion now end with out[-2000:] of the child's output (the no-kernel-call case and the wrong-port case; the startup test too).
+D. _CHILD also sets app_package.TELEMETRY_KNOB_PATH and topo_from_json.HOST_COUNT_OVERRIDE_PATH (both names checked at the worktree: app_package.py:73, topo_from_json.py:38) to nonexistent temp paths.
+   Evidence: R3/knobs_all_set.log: in the clone app_package_override (converted package), host_count_override=128 and telemetry_override=none were all set ("knobs-were: ... 128 none"), and
+   tests.test_port_guard still passes: Ran 10, OK, rc=0 (files removed afterwards, host_count_override restored with git checkout). Not made red: I did not run the old file against those two knobs.
+E. Both the startup test and the dial test assert the child printed "[Proxy Agent] app package: baseline" (BASELINE_LINE; profile.py:41). Not mutation-tested separately (the knob red of round 2 is what makes the package line differ).
+Also: "calls" instead of "posts" in the comment text; gated4.sh's count label now says what it counts.
+
+RESULTS
+ green, the port-guard tests: R3/green_new.log: Ran 10 tests in 7.2 s, OK, rc=0 (the dial test and the startup test both "ok").
+ p4lane, normal, on a clone of 56371d1b: R3/p4lane.log: "test_port_guard.py PASS 10 ran and passed" (line 40); "no stray table-entry journal PASS ok: one process (2093 tests) and
+ 50 files one by one, and the checkout's table-entry journal is as it was" (line 60); FAILURES=0 (61); rc=0.
+ p4lane without p4_src/build: see A.
+
+RAN vs ONLY READ
+ Ran: the logs above, in a clone only (convert.py for the package, R3/convert.log). No ndt, no Mininet, no sudo, no C++ build, no pkill. The shared main checkout was not touched.
+ Only read: the review file, l1_unit_tests.sh:472, profile.py, topo_from_json.py, app_package.py.
+ Not done: red runs for D and E; the review's suggested mutants for the "kernel assertEqual never red on its own" nit (the NDT_URL-dropped red of round 2 still trips the block assertion first); the
+ future-import-bypass of the dial guard (from grpc import insecure_channel) is not covered.

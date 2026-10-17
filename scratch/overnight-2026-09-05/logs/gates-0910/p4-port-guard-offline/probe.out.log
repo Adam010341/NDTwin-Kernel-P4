@@ -1,0 +1,39 @@
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/proxy_agent/main.py:2694: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/proxy_agent/main.py:2699: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [741464]
+INFO:     Waiting for application startup.
+[Proxy Agent] Starting up...
+[Proxy Agent] Failed to connect to Switch 1: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt'
+[Proxy Agent] Failed to connect to Switch 2: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt'
+[Proxy Agent] Failed to connect to Switch 3: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt'
+[Proxy Agent] Failed to connect to Switch 4: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt'
+[Proxy Agent] Failed to connect to Switch 5: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt'
+[Proxy Agent] Failed to connect to Switch 6: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt'
+[Proxy Agent] Failed to connect to Switch 7: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt'
+[Proxy Agent] Failed to connect to Switch 8: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt'
+[Proxy Agent] Failed to connect to Switch 9: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt'
+[Proxy Agent] Failed to connect to Switch 10: [Errno 2] No such file or directory: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-port-guard-offline/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt'
+[Proxy Agent] Kernel acknowledged all 0 usable switches
+[Proxy Agent] Started LLDP Discovery...
+[TopologyManager] link watchdog seeded with 32 declared links
+[Proxy Agent] Started LLDP link watchdog...
+[Proxy Agent] Started liveness polling...
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+[Proxy Agent] Shutting down...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [741464]

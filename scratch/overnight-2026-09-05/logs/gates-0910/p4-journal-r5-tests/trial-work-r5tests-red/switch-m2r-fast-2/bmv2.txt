@@ -1,0 +1,26 @@
+[16:08:36.847] [bmv2] [W] [thread 797610] You provided --notifications-addr but this target captures all notifications and does not generate nanomsg messages
+[16:08:36.849] [bmv2] [I] [thread 797610] Starting Thrift server on port 29500
+[16:08:36.849] [bmv2] [I] [thread 797610] Thrift server was started
+[16:08:38.222] [bmv2] [D] [thread 797648] simple_switch target has been notified of a config swap
+[16:08:38.224] [bmv2] [E] [thread 797654] [P4Runtime] Clone session id does not exist
+[16:08:38.225] [bmv2] [D] [thread 797648] mgrp node created for mgid 32775
+[16:08:38.225] [bmv2] [D] [thread 797648] node created for rid 1
+[16:08:38.225] [bmv2] [D] [thread 797648] node associated with mgid 32775
+[16:08:38.225] [bmv2] [D] [thread 797654] node dissociated with mgid 32775
+[16:08:38.225] [bmv2] [D] [thread 797654] node destroyed for rid 1
+[16:08:38.225] [bmv2] [D] [thread 797654] mgrp node deleted for mgid 32775
+[16:08:38.225] [bmv2] [D] [thread 797648] mgrp node created for mgid 32775
+[16:08:38.225] [bmv2] [D] [thread 797648] node created for rid 1
+[16:08:38.225] [bmv2] [D] [thread 797648] node associated with mgid 32775
+[16:08:38.231] [bmv2] [E] [thread 797648] [P4Runtime] Cannot find match entry
+[16:08:40.361] [bmv2] [D] [thread 797654] simple_switch target has been notified of a config swap
+[16:08:40.379] [bmv2] [E] [thread 797654] [P4Runtime] Clone session id does not exist
+[16:08:40.379] [bmv2] [D] [thread 797699] mgrp node created for mgid 32775
+[16:08:40.379] [bmv2] [D] [thread 797699] node created for rid 1
+[16:08:40.379] [bmv2] [D] [thread 797699] node associated with mgid 32775
+[16:08:40.379] [bmv2] [D] [thread 797654] node dissociated with mgid 32775
+[16:08:40.379] [bmv2] [D] [thread 797654] node destroyed for rid 1
+[16:08:40.379] [bmv2] [D] [thread 797654] mgrp node deleted for mgid 32775
+[16:08:40.380] [bmv2] [D] [thread 797699] mgrp node created for mgid 32775
+[16:08:40.380] [bmv2] [D] [thread 797699] node created for rid 1
+[16:08:40.380] [bmv2] [D] [thread 797699] node associated with mgid 32775

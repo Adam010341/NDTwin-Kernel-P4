@@ -1,0 +1,12 @@
+2026-10-16T20:57:26+08:00 guard: 0 matching mutate_/probe.py/simple_switch/driver.sh process(es); df -m / free 3669 MB; MemAvailable 7136 MB
+guard: shell 1708658 SigBlk:	0000000000010000
+guard: shell 1708658 SigIgn:	0000000000000005
+guard: child of the shell, SigBlk:	0000000000000000
+guard: child of the shell, SigIgn:	0000000000000001
+guard: SigBlk & 0x4203: shell 0, child 0
+2026-10-16T20:57:26+08:00 mexec pid 1708691 (the process that execs: bash -c echo $$ > "$1"; shift; exec "$@" _ /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/merged-trunk-1016/.sid.mutate_p4_exercise_tools bash /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-0
+mexec: process SigBlk:	0000000000010000
+mexec: process SigIgn:	0000000000000005
+mexec: child grep SigBlk:	0000000000000000
+mexec: child grep SigIgn:	0000000000000001
+mexec: SigBlk 0000000000010000 & 0x4203 == 0, exec
