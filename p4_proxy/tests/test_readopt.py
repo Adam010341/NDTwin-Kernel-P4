@@ -1265,7 +1265,9 @@ class FakeBmv2Switch:
         self.grpc_port = grpc_port
         self.thrift_port = grpc_port + 500
         self.log_file = f"/tmp/{name}.log"
-        self.launch_argv = f"simple_switch_grpc --device-id 7 -- --grpc-server-addr 0.0.0.0:{grpc_port}"
+        self.grpc_host = "127.0.0.1"
+        self.launch_argv = (f"simple_switch_grpc --device-id 7 -- "
+                            f"--grpc-server-addr {self.grpc_host}:{grpc_port}")
         self._failure = failure
 
     def failure_reason(self):
@@ -1331,6 +1333,7 @@ class WriteManifestTest(unittest.TestCase):
         entry = self.read()["s3"]
         self.assertEqual(entry["pid"], 321)
         self.assertEqual(entry["device_id"], sw.device_id)
+        self.assertEqual(entry["grpc_host"], sw.grpc_host)
         self.assertEqual(entry["grpc_port"], 53207)
         self.assertEqual(entry["thrift_port"], sw.thrift_port)
         self.assertEqual(entry["log_file"], sw.log_file)

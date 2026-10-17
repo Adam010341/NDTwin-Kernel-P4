@@ -563,7 +563,7 @@ sudo mn -c
 ### 第 3 步：P4 stack 真的起得來（目前能做到的極限）
 
 ⚠️ **P4 模式的啟動順序跟 OVS 是相反的**：Ryu 是 server、switch 連進去，所以 OVS 要先開 Ryu；
-但 bmv2 才是 server（`simple_switch_grpc` 監聽 `0.0.0.0:30051-30060`），proxy 是 gRPC **client**，
+但 bmv2 才是 server（`simple_switch_grpc` 監聽 `127.0.0.1:30051-30060`（gRPC，預設）），proxy 是 gRPC **client**，
 所以 **P4 要先開 Mininet**，proxy 才連得上。`stack.sh up p4` 會自動走對的順序並提示你。
 
 先確認上一輪的 OVS Mininet 已經清掉（`sudo mn -c`），然後在**另一個 terminal** 開 bmv2 ——

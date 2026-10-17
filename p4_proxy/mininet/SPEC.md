@@ -18,7 +18,7 @@ This directory contains the Python scripts used to construct the emulated networ
 [Co-developed with claude code -- Adam]
 
 `start()` captures the launched PID (`echo $!`), and `verify_switches()` polls until every
-switch both exists as a process and accepts TCP on its gRPC port. Both signals are needed:
+switch both exists as a process and accepts TCP on 127.0.0.1 at its gRPC port. Both signals are needed:
 bmv2 stays up briefly before its gRPC server binds, and it reports a bind failure by exiting.
 Polling rather than sleeping a fixed amount avoids false failures on a slow machine.
 
@@ -42,8 +42,8 @@ processes, which `mn -c` does not touch.
 
 ### `/tmp/ndtwin_p4_switches.json`
 
-Written on startup, removed on exit. Maps switch name to `pid`, `device_id`, `grpc_port`,
-`thrift_port`, `log_file` and the launch `argv`.
+Written on startup, removed on exit. Maps switch name to `pid`, `device_id`, `grpc_host`,
+`grpc_port`, `thrift_port`, `log_file` and the launch `argv`.
 
 `P4PowerStrategy` needs this (Phase 7 of `doc/2026-07-27_p4_bmv2_support_plan.md`): Mininet switches
 share the root PID namespace, so powering one switch off by pattern-matching the process
@@ -51,12 +51,29 @@ name kills all ten — which is what the current implementation does. Only verif
 switches are listed; an entry for a dead switch would be worse than no entry, because a
 caller would trust it.
 
+### Where the switches' gRPC servers listen
+
+Each switch's gRPC (P4Runtime) server listens on `127.0.0.1:<grpc_port>` unless
+`NDTWIN_BMV2_HOST` says otherwise. Only three values are accepted: `127.0.0.1`, `0.0.0.0` (every
+interface) and `::`. Anything else is refused by name before the running fabric is torn down,
+including other loopback addresses and a specific LAN address: the startup check, the teardown,
+`ndtwin-p4-power` and the proxy all reach the switches at `127.0.0.1`/`localhost`, so a server
+bound anywhere else would be started and then reported as not listening. The address is printed
+in the bring-up (with a warning when it is not `127.0.0.1`) and recorded as `grpc_host` in the
+manifest.
+
+The variable is read from the topology process's own environment. `sudo ndtwin-lab topo-start`
+launches the topology under a fixed root environment, and sudo's `env_reset` is expected to drop
+the variable before it gets there, so through the wrapper the gRPC servers should always listen
+on `127.0.0.1` (expected, not run); to use another accepted value, run the topology directly
+(`sudo env NDTWIN_BMV2_HOST=0.0.0.0 python3 p4_testbed_topo.py`).
+
 ## Usage
 Must be run with `sudo` privileges to manipulate Linux network namespaces:
 ```bash
 sudo python3 p4_testbed_topo.py
 ```
 
-Expect `All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060`. A `WARNING:` line
+Expect `All 10 BMv2 switches verified listening on gRPC 30051 ~ 30060` (checked at `127.0.0.1`). A `WARNING:` line
 naming the failed switches means the topology is not usable — fix the cause and restart
 rather than continuing, since the proxy expects all ten.
