@@ -2190,7 +2190,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 [Co-developed with claude code -- Adam]
 
-- **狀態**：**OPEN，不是 NDTwin 的 bug、也不是安全問題**——bmv2 的 P4Runtime 伺服器與 thrift CLI 之間的限制。
+- **狀態**：**OPEN，不是 NDTwin 的 bug、本身也不是安全問題**（bmv2 的 Thrift port 開放面見 testing manual §2.2「P4：用主機防火牆擋住 bmv2 的 Thrift port（建議）」）——bmv2 的 P4Runtime 伺服器與 thrift CLI 之間的限制。
   下面的範圍是 2026-10-16 **量到的**；機制「PI 自己保留每張表的副本，CLI 的寫入繞過它」是**推論**
   （錯誤字串 "Table state out-of-sync with target" 與下面的分布都與它相符，但沒有讀 PI 的碼）。
 - **平面**：P4（bmv2）

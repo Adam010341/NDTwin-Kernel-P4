@@ -345,7 +345,8 @@ ndt up p4 128       # 128 hosts
 
 ##### P4：用主機防火牆擋住 bmv2 的 Thrift port（建議）
 
-- bmv2 的 Thrift runtime server（本 testbed 是 `9091-9100`，`simple_switch_CLI` 用的就是它）**聽在每一個網路介面**，
+- bmv2 的 Thrift runtime server（port ＝ `9090 + dpid`，`simple_switch_CLI` 用的就是它；`setting/` 裡隨附的拓樸 dpid 都是 1–10，
+  所以是 `9091-9100`）**聽在每一個網路介面**，
   bmv2 沒有任何選項可以改這個位址。實測：對一台暫時的 bmv2 跑 `simple_switch_CLI --thrift-port <N>`，
   指令直接得到回答，**沒有任何帳號、密碼之類的步驟**。
 - 用主機防火牆擋掉從其他介面進來的新連線。下面的範例用**自己的 table**，不會動到 Docker 或任何其他人的規則
@@ -355,6 +356,14 @@ ndt up p4 128       # 128 hosts
   sudo nft add table inet ndtwin_guard
   sudo nft add chain inet ndtwin_guard input '{ type filter hook input priority 0; policy accept; }'
   sudo nft add rule inet ndtwin_guard input iifname != "lo" tcp dport 9091-9100 ct state new drop
+  ```
+
+  ⚠️ `9091-9100` 只涵蓋隨附的 10 台拓樸。app package 可以宣告任何正整數 dpid（`p4_proxy/mininet/app_package.py`），
+  dpid ≥ 11 的 switch，Thrift port 是 9101 以上，上面的規則**不會擋到它們**。package 的最大 dpid 是 `D` 時，
+  範圍要放寬成 `9091-(9090 + D)`，例如最大 dpid 128 → `9091-9218`（nft 指令與下面的 `/etc/ndtwin-guard.nft` 兩處都要改）：
+
+  ```bash
+  sudo nft add rule inet ndtwin_guard input iifname != "lo" tcp dport 9091-9218 ct state new drop
   ```
 
   這個 table 存在的期間，這些 port 對**任何程式**都擋（例如 node_exporter 的 9100、Pushgateway 的 9091）。
