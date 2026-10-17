@@ -224,8 +224,8 @@ FIX = {
             {"answer": {"route": False}, "oracle": {}, "attribution": {"bmv2": True}}),
     "MT3": ({"answer": {"route": True, "http": 200}, "oracle": {"rates_after": [[1, 2]], "target": [[1, 2]]}, "negative": NEG_OK},
             {"answer": {"route": False}, "oracle": {}, "attribution": {"bmv2": True}}),
-    "R2": ({"answer": {"route": True, "value": 4660}, "sent": 1, "oracle": {"value": 4660}},
-           {"answer": {"route": False}, "sent": 1, "oracle": {"value": 4660}}),
+    "R2": ({"answer": {"route": True, "http": 200, "value": 4660}, "sent": 1, "oracle": {"value": 4660, "thrift": 4660}},
+           {"answer": {"route": False}, "sent": 1, "oracle": {"value": 4660, "thrift": 4660}}),
     "R3": ({"answer": {"route": True, "http": 200}, "oracle": {"value_after": 7, "target": 7}, "negative": NEG_OK},
            {"answer": {"route": False}, "oracle": {}, "attribution": {"bmv2": True}}),
     "D1": ({"answer": {"exit": True, "fields": [1, 2]}, "sent": 1, "oracle": {"fields": [1, 2]}},
@@ -661,9 +661,19 @@ class TestNamedFixtures(unittest.TestCase):
             self.assertEqual(decide("K2", obs).phase, "precondition", delta)
 
     def test_r2_with_no_route_is_a_structural_red_not_an_absent_value(self):
-        v = decide("R2", {"answer": {"route": False}, "sent": 1, "oracle": {"value": 4660}})
+        v = decide("R2", {"answer": {"route": False}, "sent": 1, "oracle": {"value": 4660, "thrift": 4660}})
         self.assertEqual((v.verdict, v.phase), (V.RED, "cannot"))
         self.assertIn("no route", v.reason)
+
+    def test_r2s_red_claims_thrift_only_when_thrift_read_the_cell(self):
+        # (thrift cut round 2) [Co-developed with claude code -- Adam] The oracle is the marker's value
+        # and always there; thrift's evidence is register_read's answer, `oracle.thrift`. Without it a
+        # red is not attributed -- K1's rule, where thrift_ev needs thrift's counter_read.
+        v = decide("R2", {"answer": {"route": False}, "sent": 1, "oracle": {"value": 4660, "thrift": None}})
+        self.assertEqual(v.verdict, V.UNATTRIBUTED)
+        v = decide("R2", {"answer": {"route": True, "http": 200, "value": 1}, "sent": 1,
+                          "oracle": {"value": 4660, "thrift": None}})
+        self.assertEqual(v.verdict, V.UNATTRIBUTED)
 
     def test_ch7_is_not_satisfied_by_another_ethertypes_row(self):
         for et in (0x1234, 0x0806, 0x86DD, 0x88B5):
@@ -1199,7 +1209,8 @@ class TestRollup(unittest.TestCase):
     def test_the_predictions_give_the_three_rollups(self):
         """Design 5.1: core most likely 10 / 3 / 3 / 0, full 6 / 7 / 3 / 0; the q3b rollup
         (design 14) 2 / 1 / 2 / 1. (Cut C) T8 predicts GREEN, the last cell of `tables` that did not, so in the full
-        scope `tables` is CAN and full reads 7 / 6 / 3 / 0."""
+        scope `tables` is CAN and full reads 7 / 6 / 3 / 0. (C2 thrift cut) R2 predicts GREEN and R3 stays UNATTRIBUTED,
+        which the rollup does not count, so `registers` is CAN: core 11 / 3 / 2 / 0, full 8 / 6 / 2 / 0."""
         exp = E.load(EXPECTED_TSV)
         verdicts = {cid: re.sub(r"\(.\)$", "", row["expected"]) for cid, row in exp.items()
                     if cid in {c.id for c in T.TABLE.cells}}
@@ -1208,7 +1219,7 @@ class TestRollup(unittest.TestCase):
         for scope in V.SCOPES:
             t = V.rollup(T.TABLE, ctx, scope)["totals"]
             got[scope] = (t[V.CAN], t[V.PART], t[V.CANNOT], t[V.UNDECIDED])
-        self.assertEqual(got, {"core": (10, 3, 3, 0), "full": (7, 6, 3, 0), "q3b": (2, 1, 2, 1)})
+        self.assertEqual(got, {"core": (11, 3, 2, 0), "full": (8, 6, 2, 0), "q3b": (2, 1, 2, 1)})
 
     def test_telemetry_none_needs_v1_ch1_ch7_red_and_no_link_usage(self):
         self.assertTrue(V.telemetry_none_check({"V1": V.RED, "CH1": V.RED, "CH7": V.RED}, True)[0])

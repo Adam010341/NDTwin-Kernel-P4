@@ -470,13 +470,25 @@ def observe_mt3(cfg, runner):
 # --- registers -----------------------------------------------------------------------------------
 
 def observe_r2(cfg, runner, stimulate, chosen):
-    """R2 and SC-reg: the marker writes `chosen` (its sport) into r_mark[0] on s2."""
+    """R2 and SC-reg: the marker writes `chosen` (its sport) into r_mark[0] on s2.
+
+    (C2 thrift cut) [Co-developed with claude code -- Adam] The ORACLE is `chosen` itself -- the
+    value this probe picked and put in the marker's sport -- and not thrift: NDTwin's
+    GET /p4/register reads through bmv2's thrift service, so a thrift oracle would compare thrift
+    with thrift. Thrift's register_read stays where it was, in SC-reg: the probe's own check that
+    the marker did write `chosen`, so a marker that never landed is PROBE-BROKEN, never NDTwin's
+    red. NDTwin's answer is read only when its openapi has the read route."""
     reader = TH.ThriftReader(cfg, runner)
     out = stimulate()
     value = reader.read(2, "register_read HcIngress.r_mark 0")
     answer = OB.with_route({"value": None}, cfg, "R2")
-    return ({"answer": answer, "oracle": None if value is None else {"value": value},
-             "sent": S.sent(out, "R2")},
+    if isinstance(answer, dict) and answer.get("route") is True:
+        status, mine, error = P.register(cfg, "HcIngress.r_mark", 2, 0)
+        answer = dict(answer, http=status, value=mine, error=error)
+    # (thrift cut round 2) `thrift` beside the oracle is what register_read printed, or None: it is
+    # the only thrift evidence an R2 red may claim (cells.table.r2_thrift_ev), as K1's red claims
+    # thrift only when thrift's counter_read answered.
+    return ({"answer": answer, "oracle": {"value": chosen, "thrift": value}, "sent": S.sent(out, "R2")},
             {"chosen": chosen, "register": value})
 
 
