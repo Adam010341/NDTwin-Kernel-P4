@@ -351,3 +351,22 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
 - F7：R2 的「not a reading」紅帶上路由的錯誤字（例如 `answered 503 (register not read)`）。
 - F9：加了 `C2T-13`（R2 不再依賴 SC-reg），killer 是新的 `test_a_marker_that_did_not_land_keeps_r2_from_green`；第二輪說「與 thrift 比較是等價 mutant」的理由，就是靠這一條成立。
 
+
+### 13.6 跑了什麼（OBSERVED，第三輪）
+
+- 每一步都拿著共用的 lock，guard.sh 在 lock 裡；每份 log 第 2 行記 commit 與 dirty 計數。
+- 程式碼與 gate 在 `0c14d762`；健檢的局部 gate 與兩個 anchor 檢查在 `936fc188`（多修了一個 C2T-13 的 mutation 寫法，第一次跑它無法解析，記為存活：`r5_health_partial.at-0c14d762.out`）。
+
+| 檢查 | log | 結果 |
+|---|---|---|
+| 量測，改之後 | `r5probe-after.json` | 冒充者：200 `[111]` → **503 `switch not reachable`**；換掉的程序：200 `[111]` → **503 `switch not reachable`**（兩顆）；thrift 埠被佔時 bmv2 仍然退出 |
+| `mutate_p4_register_thrift.sh` | `r5_gate_reg.out` | `65 mutations, 0 survived` |
+| `mutate_p4_direct_counter.sh` | `r5_gate_dc.out` | `33 mutations, 0 survived` |
+| `mutate_telemetry_by_name.sh` | `r5_gate_tbn.out` | `23 mutations, 0 survived` |
+| `check_gate_anchors.py HEAD` | `r5_anchors.out`（`936fc188`） | `139/139 cells ok` |
+| `ANCHOR_CHECK=1 mutate_p4_health.sh` | `r5_health_anchorcheck.out`（`936fc188`） | rc 2（設計如此），531 行每一行都是 1 |
+| 健檢 gate 的局部（`C2T-`） | `r5_health_partial.out`（`936fc188`） | `13 mutations, 0 survived` |
+| 健檢測試，venv 3.13／ryu-env 3.8 | `r5_health_venv.out`／`r5_health_ryu.out` | cells 204 OK、collect 204 OK（兩個都是） |
+| `test_bm_thrift.py`／`test_register_route.py` | `r5_unit_*.out` | 25 OK／49 OK |
+| trial | `trial-reg-r5.json` | 兩顆：`[4737]`；P4Runtime 讀取全程成功；R2 GREEN；SIGSTOP 時 5.0 s 回 503（現在是 `switch not reachable`） |
+| p4lane（拋棄式 clone `0c14d762`） | `r5_p4lane.out` | `FAILURES=0` |
