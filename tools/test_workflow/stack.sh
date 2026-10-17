@@ -1195,6 +1195,12 @@ cmd_up() {
         # $topo IS DEFAULT_TOPO_FILE at 4 hosts, and the 4- and 128-host models declare the
         # same ten agent addresses (192.168.123.11-20), checked.
         # [Co-developed with claude code -- Adam]
+        # 🔴 AND THE LISTEN ADDRESS (NDTWIN_PROXY_HOST, stripped the way the proxy strips it):
+        # it comes from this shell's environment, not from argv, so two proxies started with and
+        # without it have identical argv -- and `ndt up p4` after an opt-in to 0.0.0.0 would
+        # otherwise reuse the wide-open one ("already running, same command"), and the reverse.
+        # The field changes every proxy's recorded command once, so the first `up p4` after it
+        # was added restarts a proxy that was already running; later runs reuse it as before.
         # 🔴 AND THE TELEMETRY SOURCE, for exactly the reason the app package is here
         # (TICKET-P3 §2.1). p4_proxy/mininet/telemetry_override is a third file the proxy reads
         # at import and that is not on its command line: `ndt up p4 --telemetry cooperative`
@@ -1203,7 +1209,7 @@ cmd_up() {
         # start_bg would reuse the first, and every link-usage number afterwards would be
         # describing a proxy nobody asked for.
         START_BG_IDENTITY="hosts=$(sed -n 's/^[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
-            "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1) app=$(sed -n \
+            "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1) proxy_host=$(printf '%s' "${NDTWIN_PROXY_HOST:-}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//') app=$(sed -n \
             '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; p; q' \
             "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) telemetry=$(sed -n \
             '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]].*//; p; q' \

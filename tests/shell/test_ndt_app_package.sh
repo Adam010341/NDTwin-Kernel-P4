@@ -1567,6 +1567,19 @@ reset_fix; rm -f "$TELKNOB"
 IDENT="$(stack_identity "$FIX")"
 has   "  an absent knob leaves the field empty, not missing" "telemetry= topo=" "$IDENT"
 
+# 🔴 AND THE PROXY'S LISTEN ADDRESS. NDTWIN_PROXY_HOST reaches the proxy through the environment,
+# not argv, so two proxies started with and without it have identical argv: after an opt-in to
+# 0.0.0.0 a plain `ndt up p4` would reuse the wide-open one ("already running, same command"),
+# and the reverse. The fingerprint is what tells them apart. [Co-developed with claude code -- Adam]
+IDENT_DEFAULT="$(unset NDTWIN_PROXY_HOST; stack_identity "$FIX")"
+IDENT_WIDE="$(export NDTWIN_PROXY_HOST=0.0.0.0; stack_identity "$FIX")"
+IDENT_PAD="$(export NDTWIN_PROXY_HOST='  0.0.0.0 '; stack_identity "$FIX")"
+has   "🔴 the start_bg fingerprint carries the listen address"  "proxy_host=0.0.0.0 " "$IDENT_WIDE"
+has   "  an unset variable leaves the field empty, not missing" "proxy_host= app=" "$IDENT_DEFAULT"
+check "🔴 a changed value is a different fingerprint, so start_bg restarts the proxy" "differs" \
+      "$([[ "$IDENT_DEFAULT" != "$IDENT_WIDE" ]] && echo differs || echo SAME)"
+check "  the value is stripped as the proxy strips it, so padding is not a restart" "$IDENT_WIDE" "$IDENT_PAD"
+
 # --- the resolver ---------------------------------------------------------------------------
 # 🔴 THE KNOB WINS FOR "WHAT IS IN FORCE" AND LOSES FOR "WHAT SHOULD THIS BRING-UP WRITE", and
 # they are two functions on purpose. One function for both would make every round inherit the

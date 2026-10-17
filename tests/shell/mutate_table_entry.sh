@@ -76,10 +76,17 @@ TEST_FOREIGN="$REPO/p4_proxy/tests/test_foreign_pipeline.py"
 # exact value the upstream exercises actually ship. That suite's subject is the REAL
 # basic_tunnel runtime file, so it belongs to this gate's baseline.
 TEST_EXACT="$REPO/p4_proxy/tests/test_exact_one_element_list.py"
+# [Co-developed with claude code -- Adam] The 5-tuple key encoding pins (test_five_tuple_match)
+# and the in_port refusal at the three write endpoints (test_in_port_value).
+TEST_FIVE="$REPO/p4_proxy/tests/test_five_tuple_match.py"
+TEST_INPORT="$REPO/p4_proxy/tests/test_in_port_value.py"
+# [Co-developed with claude code -- Adam] The install-time record of an in_port rule (M-B42 turns
+# its test red as well: the record is keyed on the mask the writer sends).
+TEST_TIMES="$REPO/p4_proxy/tests/test_rule_install_times.py"
 
 MODULES="tests.test_p4_client_writes tests.test_table_entry_route tests.test_startup \
 tests.test_readopt tests.test_app_package_proxy tests.test_foreign_pipeline \
-tests.test_exact_one_element_list"
+tests.test_exact_one_element_list tests.test_five_tuple_match tests.test_in_port_value tests.test_rule_install_times"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -132,6 +139,9 @@ BASE_TEST_READOPT=$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)
 BASE_TEST_PROXY=$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)
 BASE_TEST_FOREIGN=$(sha256sum "$TEST_FOREIGN" | cut -d' ' -f1)
 BASE_TEST_EXACT=$(sha256sum "$TEST_EXACT" | cut -d' ' -f1)
+BASE_TEST_FIVE=$(sha256sum "$TEST_FIVE" | cut -d' ' -f1)
+BASE_TEST_INPORT=$(sha256sum "$TEST_INPORT" | cut -d' ' -f1)
+BASE_TEST_TIMES=$(sha256sum "$TEST_TIMES" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -157,11 +167,11 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
     # 2026-09-18 incident that put it there.)
     if [[ "$rc" -eq 124 ]]; then
         SURVIVORS=$((SURVIVORS+1))
-        printf '  🔴 HUNG   %-72s (the suite never finished -- never a catch)\n' "$1"
+        printf '  🔴 HUNG   %-72s (the suite never finished -- never a catch) [%s]\n' "$1" "$(date +%T)"
         return
     fi
     if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qE "^(FAIL|ERROR): $3 " <<<"$out"; then
-        printf '  caught   %-72s (%s went red)\n' "$1" "$3"
+        printf '  caught   %-72s (%s went red) [%s]\n' "$1" "$3" "$(date +%T)"
         # 🔴 EVERY test that reddened, not only the one this mutation is named for.
         # [Co-developed with claude code -- Adam]
         # A gate that records one name per mutation cannot answer the question an auditor
@@ -175,7 +185,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
             | sort -u
     else
         SURVIVORS=$((SURVIVORS+1))
-        printf '  SURVIVED %-72s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
+        printf '  SURVIVED %-72s (%s stayed green -- that case proves nothing) [%s]\n' "$1" "$3" "$(date +%T)"
         /usr/bin/grep -E '^(FAIL|ERROR|OK|Ran )' <<<"$out" | sed 's/^/             /'
     fi
 }
@@ -296,6 +306,54 @@ m=$(mutant b41 "$SHAPE" \
                     f"{where} is an EXACT match')
 report "M-B41: an lpm-shaped pair is taken on an EXACT field, so a subnet rule matches one host" "$m" \
        "test_a_two_element_pair_on_an_exact_field_is_still_refused"
+
+# The 5-tuple writer's ternary mask. flow_5tuple's in_port key is bit<9>: a mask of 0xffff is two
+# whole bytes and nine bits too wide, bmv2 answers UNKNOWN ("does not fit within 9 bits"), and
+# every rule that names in_port is refused while the same rule without it installs. The recording
+# stub takes any bytes, so only a test that computes the expected mask from the p4info fixture's
+# bitwidth can tell. M-B42 puts the byte-wise mask back; M-B43 stops refusing a value of 512 and up.
+# [Co-developed with claude code -- Adam]
+m=$(mutant b42 "$CLIENT" \
+    '        return raw, ((1 << bits) - 1).to_bytes(width, byteorder="big")' \
+    '        return raw, b"\xff" * width')
+report "M-B42: the 5-tuple mask is every bit of the field's bytes, so a bit<9> in_port gets 0xffff" "$m" \
+       "test_in_port_is_masked_with_nine_ones_not_sixteen"
+
+m=$(mutant b43 "$CLIENT" \
+    '        if int.from_bytes(raw, "big") >> bits:' \
+    '        if False:')
+report "M-B43: a 5-tuple value wider than its field goes to the switch to be refused" "$m" \
+       "test_an_in_port_wider_than_nine_bits_is_refused_before_the_wire"
+
+# [Co-developed with claude code -- Adam]
+# M-B44: the mask of a key whose width IS a whole number of bytes. M-B42 only moves bit<9>; a
+# table entry that is off by one bit on protocol (7, not 8) leaves the byte-wise mutant green.
+m=$(mutant b44 "$CLIENT" \
+    '"hdr.ipv4.protocol": 8,' \
+    '"hdr.ipv4.protocol": 7,')
+report "M-B44: the 5-tuple protocol key is seven bits wide, so its mask is 0x7f" "$m" \
+       "test_every_key_is_masked_with_exactly_its_own_bits"
+
+# [Co-developed with claude code -- Adam]
+# M-B45 / M-B46: the in_port refusal at the endpoints. The writer refuses 512 and up with an
+# OverflowError raised while the request is built, which no handler catches -- a 500 -- unless
+# check_match_values has run the encoder first. M-B45 skips that check; M-B46 lets the encoder's
+# OverflowError through it.
+m=$(mutant b45 "$TOPOMGR" \
+    '_check_in_port_value(field, match_dict[field], action)' \
+    'pass')
+report "M-B45: an in_port that does not fit nine bits is not checked before the writer" "$m" \
+       "test_every_write_verb_answers_400_for_an_in_port_that_does_not_fit_nine_bits"
+
+m=$(mutant b46 "$TOPOMGR" \
+    '    except (ValueError, OverflowError, TypeError, OSError):
+        raise MalformedMatchValueError(
+            field, value, action,' \
+    '    except (ValueError, TypeError, OSError):
+        raise MalformedMatchValueError(
+            field, value, action,')
+report "M-B46: the in_port check lets the encoder's OverflowError out, so 512 is a 500" "$m" \
+       "test_the_switch_is_not_written_for_any_of_them"
 
 m=$(mutant b16 "$SHAPE" \
     '                return bytes.fromhex("".join(groups))' \
@@ -880,10 +938,10 @@ control() {  # $1 = label, $2 = mutant dir, $3 = what must stay green
     local out rc
     out=$(run_against "$2"); rc=$?
     if [[ "$rc" -eq 0 ]]; then
-        printf '  green    %-72s (%s)\n' "$1" "$3"
+        printf '  green    %-72s (%s) [%s]\n' "$1" "$3" "$(date +%T)"
     else
         SURVIVORS=$((SURVIVORS+1))
-        printf '  🔴 RED   %-72s -- these suites are change detectors, not a specification\n' "$1"
+        printf '  🔴 RED   %-72s -- these suites are change detectors, not a specification [%s]\n' "$1" "$(date +%T)"
         /usr/bin/grep -E '^(FAIL|ERROR):' <<<"$out" | head -4 | sed 's/^/             /'
     fi
 }
@@ -936,7 +994,10 @@ echo
 [[ "$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)" == "$BASE_TEST_PROXY" ]] || { echo "🔴 baseline CHANGED -- test_app_package_proxy.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_FOREIGN" | cut -d' ' -f1)" == "$BASE_TEST_FOREIGN" ]] || { echo "🔴 baseline CHANGED -- test_foreign_pipeline.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_EXACT" | cut -d' ' -f1)" == "$BASE_TEST_EXACT" ]] || { echo "🔴 baseline CHANGED -- test_exact_one_element_list.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (5 sources, 7 test files)"
+[[ "$(sha256sum "$TEST_FIVE" | cut -d' ' -f1)" == "$BASE_TEST_FIVE" ]] || { echo "🔴 baseline CHANGED -- test_five_tuple_match.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_INPORT" | cut -d' ' -f1)" == "$BASE_TEST_INPORT" ]] || { echo "🔴 baseline CHANGED -- test_in_port_value.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_TIMES" | cut -d' ' -f1)" == "$BASE_TEST_TIMES" ]] || { echo "🔴 baseline CHANGED -- test_rule_install_times.py was written during the gate"; exit 3; }
+echo "baseline byte-identical: yes (5 sources, 10 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else

@@ -170,6 +170,33 @@ EOF
 check_fires "M2: the fingerprint reads the knob's comment line" m2 \
             "🔴 the start_bg fingerprint carries the telemetry source"
 
+# --- M3: the fingerprint drops the proxy's listen address ----------------------------------------
+# 🔴 NDTWIN_PROXY_HOST reaches the proxy through the environment, not argv, so without the field
+# `ndt up p4` after an opt-in to 0.0.0.0 reuses the wide-open proxy ("already running, same
+# command"), and the reverse.
+cat > "$A/m3.old" <<'EOF'
+            "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1) proxy_host=$(printf '%s' "${NDTWIN_PROXY_HOST:-}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//') app=$(sed -n \
+EOF
+cat > "$A/m3.new" <<'EOF'
+            "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1) app=$(sed -n \
+EOF
+check_fires "M3: the fingerprint drops the listen address" m3 \
+            "🔴 the start_bg fingerprint carries the listen address" \
+            "  an unset variable leaves the field empty, not missing" \
+            "🔴 a changed value is a different fingerprint, so start_bg restarts the proxy"
+
+# --- M4: the fingerprint reads the variable without stripping it ---------------------------------
+# The proxy strips surrounding whitespace before it binds, so '  0.0.0.0 ' and '0.0.0.0' are one
+# proxy; a fingerprint that kept the padding would restart it for nothing.
+cat > "$A/m4.old" <<'EOF'
+            "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1) proxy_host=$(printf '%s' "${NDTWIN_PROXY_HOST:-}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//') app=$(sed -n \
+EOF
+cat > "$A/m4.new" <<'EOF'
+            "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1) proxy_host=$(printf '%s' "${NDTWIN_PROXY_HOST:-}") app=$(sed -n \
+EOF
+check_fires "M4: the fingerprint keeps the variable's padding" m4 \
+            "  the value is stripped as the proxy strips it, so padding is not a restart"
+
 # --- the control ---------------------------------------------------------------------------------
 # 🔴 Without it the two lines above say nothing: a suite that reddened for ANY edit to stack.sh
 # would print the same table while catching neither.
