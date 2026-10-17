@@ -202,6 +202,15 @@ class P4RuntimeClient:
     #: A class default for the reason `route_binding` is one. [Co-developed with claude code -- Adam]
     pipeline_cookie = None
 
+    #: Moved on BOTH sides of every pipeline push attempt -- before the RPC and, in a `finally`,
+    #: after it -- so it differs from any value read before a push began, whether the push was
+    #: accepted, refused or timed out (a timed-out push may still have emptied the tables).
+    #: topology_manager's slot-priority records are stamped with it and stop counting when it
+    #: moves: a pipeline push forgets every priority recorded for this switch (Adam, 2026-10-16).
+    #: A class default for the reason `route_binding` below is one: a double built with __new__
+    #: never pushes, and reads 0. [Co-developed with claude code -- Adam]
+    pipeline_push_epoch = 0
+
     #: Which table, match field, action and parameters this client writes a destination route
     #: with -- `route_binding.BASELINE` (NDTwin's own pipeline), a binding resolved from the app
     #: package's `roles.ipv4_route`, or None (a foreign pipeline with no roles: every route
@@ -422,6 +431,18 @@ class P4RuntimeClient:
             raise RouteWriteUnsupported(route_binding_module.REASON_OWNED_BY_PACKAGE,
                                         self.device_id, what)
         return binding
+
+    def check_route_write(self, what):
+        """Raise what a destination-route write would raise before reaching the wire.
+
+        [Co-developed with claude code -- Adam] For topology_manager.modify_flow, which must
+        answer a read-only switch (ControlPlaneReadOnly -> 409) and an unbound or package-owned
+        route table (RouteWriteUnsupported -> 501 with a reason) BEFORE it judges the priority a
+        modify names: those refusals hold whatever priority is named. The same two calls, in
+        the same order, every route write makes first.
+        """
+        self._refuse_write(what)
+        self._writable_route_binding(what)
 
     def _writable_five_tuple_binding(self, what):
         """The 5-tuple writes' action names -- NDTwin's pipeline only (TICKET-P4-roles 2.2-3).
@@ -720,7 +741,12 @@ class P4RuntimeClient:
         req.config.p4info.CopyFrom(self.p4info)
         if self.pipeline_cookie is not None:
             req.config.cookie.cookie = int(self.pipeline_cookie)
-        self.stub.SetForwardingPipelineConfig(req, timeout=RPC_TIMEOUT_S)
+        # [Co-developed with claude code -- Adam] See `pipeline_push_epoch`.
+        self.pipeline_push_epoch += 1
+        try:
+            self.stub.SetForwardingPipelineConfig(req, timeout=RPC_TIMEOUT_S)
+        finally:
+            self.pipeline_push_epoch += 1
         # [Co-developed with claude code -- Adam]
         # AFTER the RPC, never before. This line is the only record that every table entry on
         # this switch just ceased to exist (KNOWN-ISSUES A-4c); stamping it ahead of the call
