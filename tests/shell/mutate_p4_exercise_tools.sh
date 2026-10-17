@@ -8,6 +8,9 @@
 # pipeline). The header below was written for the first seven and still describes them.
 # Adam's ruling J (2026-09-27) appended 23-28, the fixture-provenance rule, and with them a
 # fourth subject: tools/p4_exercise/tests/test_convert.py, where that rule lives.
+# The paper-apps work (int-v1 and ONTAS, 2026-10-16) appended 38-77 and a fifth subject,
+# tools/p4_exercise/thrift_cli.py, the bmv2 CLI -> P4Runtime entry translator.
+# [Co-developed with claude code -- Adam]
 #
 # A test that has never been seen to fail is a decoration. This applies ten mutations to the
 # three tools, re-runs the whole suite after each, and records WHICH test went red -- not merely
@@ -75,6 +78,8 @@ ADAPTER="$PKG/run_external_controller.py"
 # decides which fixture is byte-compared and which carries a compile command -- so that file is
 # a subject too, snapshotted and restored with the three tools. [Co-developed with claude code -- Adam]
 TESTCONV="$PKG/tests/test_convert.py"
+# The bmv2 CLI translator (38-43). [Co-developed with claude code -- Adam]
+THRIFT="$PKG/thrift_cli.py"
 
 ANCHOR_CHECK="${ANCHOR_CHECK:-0}"
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -85,6 +90,7 @@ fi
 [[ -f "$PREFLIGHT" ]] || { echo "REFUSE: $PREFLIGHT not found -- run from the repo root." >&2; exit 2; }
 [[ -f "$ADAPTER" ]]   || { echo "REFUSE: $ADAPTER not found -- run from the repo root." >&2; exit 2; }
 [[ -f "$TESTCONV" ]]  || { echo "REFUSE: $TESTCONV not found -- run from the repo root." >&2; exit 2; }
+[[ -f "$THRIFT" ]]    || { echo "REFUSE: $THRIFT not found -- run from the repo root." >&2; exit 2; }
 [[ -d "$TESTS" ]]     || { echo "REFUSE: $TESTS not found -- run from the repo root." >&2; exit 2; }
 [[ -x "$PYTHON" ]]    || { echo "REFUSE: no interpreter at $PYTHON (override with PYTHON=)." >&2; exit 2; }
 
@@ -182,8 +188,8 @@ add "7. pre-flight stops enforcing the h<last octet> host naming rule" \
 # `program` override (s1 build/firewall.json, s2-s4 the Makefile's DEFAULT_PROG basic.p4).
 add "8. convert drops the per-switch 'program', so every switch runs the default" \
     "$CONVERT" \
-    '        p4info_rel, json_rel = (artefacts_for_program(declared[dpid]) if declared[dpid]
-                                else default)' \
+    '        p4info_rel, json_rel = (artefacts_for_program(declared[dpid], exercise_dir)
+                                if declared[dpid] else default)' \
     '        p4info_rel, json_rel = default  # MUTANT: the program override is ignored' \
     'test_the_switch_that_names_a_program_gets_it_and_the_others_get_the_default'
 
@@ -416,6 +422,304 @@ add "37. pre-flight refuses a ternary, range or optional field again with the ol
     '                problems.append(f"{where}: {kind} match is not supported (G5 not done)")  # MUTANT' \
     'test_the_old_g5_sentence_is_gone_from_a_ternary_package'
 
+# 38-47: the paper-apps work (int-v1 @84a3ebe8, MIT). int-v1 installs its INT source rules with
+# `simple_switch_CLI <<< "table_add ..."` and builds its p4info under the pre-2024 tutorials name,
+# so `--thrift-commands` translates CLI commands into the switch's runtime file and the converter
+# finds `<stem>.p4.p4info.txt` as well as `.txtpb`. Every one of these is a package that converts
+# and then installs a rule the app did not ask for, or misses one it did: the INT source table is
+# where the app's whole effect lives, and a fabric without it forwards everything and reports
+# healthy. Killed by tools/p4_exercise/tests/test_thrift_cli.py. [Co-developed with claude code -- Adam]
+add "38. a ternary value is copied as the CLI wrote it, and P4Runtime refuses it after bring-up" \
+    "$THRIFT" \
+    '        masked = value & mask' \
+    '        masked = value  # MUTANT: the CLI value is copied, not masked' \
+    'test_a_ternary_value_is_masked_the_way_thrift_masks_it'
+
+add "39. a zero-mask ternary field is written as a field instead of omitted" \
+    "$THRIFT" \
+    '        if mask == 0:' \
+    '        if False:  # MUTANT: a zero mask goes on the wire' \
+    'test_a_zero_mask_field_is_omitted_and_said'
+
+add "40. the CLI priority keeps its own direction, so the order inside a table is reversed" \
+    "$THRIFT" \
+    '        p4rt = PRIORITY_MAX - prio' \
+    '        p4rt = prio + 1  # MUTANT: lower CLI priority stays lower' \
+    'test_the_lower_thrift_priority_is_the_higher_p4runtime_priority'
+
+add "41. an ambiguous short name picks the first candidate" \
+    "$THRIFT" \
+    '        if len(hits) == 1:
+            return hits[0]' \
+    '        if hits:
+            return hits[0]  # MUTANT: the first one sorted wins' \
+    'test_an_ambiguous_short_name_is_refused_naming_both'
+
+add "42. a script line that is not a CLI call is skipped instead of refused" \
+    "$THRIFT" \
+    '        if m is None:
+            raise Untranslatable(' \
+    '        if m is None:
+            continue  # MUTANT: what cannot be read is not there
+            raise Untranslatable(' \
+    'test_a_shell_line_that_is_not_a_cli_call_is_refused'
+
+add "43. a CLI command that is not translated is skipped instead of refused" \
+    "$THRIFT" \
+    '            else:
+                raise Untranslatable(
+                    f"line {number}: {verb!r} is not translated -- only "' \
+    '            else:
+                continue  # MUTANT: an unknown command is dropped
+                raise Untranslatable(
+                    f"line {number}: {verb!r} is not translated -- only "' \
+    'test_an_unsupported_cli_command_is_refused_by_name'
+
+add "44. convert stops finding the pre-2024 tutorials p4info name (.p4.p4info.txt)" \
+    "$CONVERT" \
+    'P4INFO_SUFFIXES = (".p4.p4info.txtpb", ".p4.p4info.txt")' \
+    'P4INFO_SUFFIXES = (".p4.p4info.txtpb",)  # MUTANT: only the current name' \
+    'test_a_pre_2024_tutorials_p4info_named_txt_is_found'
+
+add "45. two p4infos for one program: the first name is taken instead of refused" \
+    "$CONVERT" \
+    '    if len(present) > 1:' \
+    '    if False:  # MUTANT: whichever suffix is listed first wins' \
+    'test_both_spellings_present_is_refused_naming_both'
+
+add "46. the translated entries are not written into the runtime file" \
+    "$CONVERT" \
+    '        doc["table_entries"] = list(existing) + entries' \
+    '        doc["table_entries"] = list(existing)  # MUTANT: translated, then dropped' \
+    'test_the_commands_are_appended_to_the_switchs_runtime_file'
+
+add "47. the route role re-reads the app file and loses the translated entries" \
+    "$CONVERT" \
+    '        doc = (json.loads(rewrites[rel]) if rel in rewrites
+               else common.load_json(os.path.join(exercise_dir, rel)))' \
+    '        doc = common.load_json(os.path.join(exercise_dir, rel))  # MUTANT' \
+    'test_the_route_role_keeps_the_translated_entries'
+
+# 48-49: found on int-v1 itself -- its int.p4 is five quoted includes, and a package carrying only
+# the top file fails pre-flight's recompile (p4c-bm2-ss rc=1), so `ndt up p4 --app` refuses it.
+add "48. convert carries the .p4 but not the files it includes" \
+    "$CONVERT" \
+    '        copies.extend(_local_includes(exercise_dir, p4_rel))' \
+    '        pass  # MUTANT: only the top file is carried' \
+    'test_a_p4_with_local_includes_carries_them_transitively'
+
+add "49. an include outside the app directory is carried instead of refused" \
+    "$CONVERT" \
+    '            if not real.startswith(root + os.sep):' \
+    '            if False:  # MUTANT: any file the program names is the app'"'"'s' \
+    'test_an_include_that_leaves_the_app_directory_is_refused'
+
+# 50-65: round 2 of the paper-apps work (review r1 of e77e35c5). The translator's own refusals that
+# had been seen red only against an API stub, and the rules added in that round: one address per
+# script, shell metacharacters in a flag, runtime_CLI's decimal IPv4 parts, the CLI priority bound
+# of the exact inverse, an lpm /0 on a table with no priority column, a script outside the app, a
+# runtime file two switches share, and the include walk's resolved-path guard. Killed by
+# tools/p4_exercise/tests/test_thrift_cli.py. [Co-developed with claude code -- Adam]
+add "50. a script whose calls name two thrift addresses is put on one switch" \
+    "$THRIFT" \
+    '    if len(distinct) > 1:' \
+    '    if False:  # MUTANT: every call reaches the same switch' \
+    'test_two_cli_addresses_in_one_script_are_refused'
+
+add "51. an address variable assigned twice is accepted" \
+    "$THRIFT" \
+    '        if assigned.get(name, 0) != 1:' \
+    '        if False:  # MUTANT: the last assignment is the only one' \
+    'test_an_address_variable_assigned_twice_is_refused'
+
+add "52. a flag carrying a shell metacharacter is read as an address" \
+    "$THRIFT" \
+    '        if bad:
+            raise Untranslatable(' \
+    '        if False:  # MUTANT: 9090;true is a port
+            raise Untranslatable(' \
+    'test_a_flag_with_a_shell_metacharacter_is_refused'
+
+add "53. a command that needs the shell to expand it is translated as written" \
+    "$THRIFT" \
+    '        if "$" in command or "`" in command:' \
+    '        if False:  # MUTANT: $X is a value' \
+    'test_a_command_that_needs_the_shell_to_expand_it_is_refused'
+
+add "54. any CLI flag is skipped as if it named the address" \
+    "$THRIFT" \
+    '            if flags[i] in _ADDRESS_FLAGS and i + 1 < len(flags):' \
+    '            if i + 1 < len(flags):  # MUTANT: --json other.json is an address' \
+    'test_a_cli_flag_other_than_the_thrift_address_is_refused'
+
+add "55. a value wider than its field is passed on" \
+    "$THRIFT" \
+    '    if value >= (1 << bitwidth):' \
+    '    if False:  # MUTANT: the writer can sort it out' \
+    'test_a_value_too_wide_for_its_field_is_refused'
+
+add "56. an lpm value with host bits is passed on" \
+    "$THRIFT" \
+    '        if value & host:' \
+    '        if False:  # MUTANT: host bits are fine' \
+    'test_an_lpm_value_with_host_bits_is_refused_not_masked'
+
+add "57. a range that runs backwards is passed on" \
+    "$THRIFT" \
+    '        if low > high:' \
+    '        if False:  # MUTANT: 200->100 is a range' \
+    'test_a_range_running_backwards_is_refused'
+
+add "58. a CLI priority above 2^31-2 is accepted and maps outside P4Runtime" \
+    "$THRIFT" \
+    '        if not 0 <= priority <= PRIORITY_MAX - 1:' \
+    '        if priority < 0:  # MUTANT: no upper bound' \
+    'test_a_cli_priority_of_two_to_the_31_minus_one_or_more_is_refused'
+
+add "59. --thrift-commands on an external control plane is accepted" \
+    "$CONVERT" \
+    '    if mode == "external":
+        raise ConversionError(
+            "--thrift-commands on an external control plane' \
+    '    if False:  # MUTANT: the app controller will not mind
+        raise ConversionError(
+            "--thrift-commands on an external control plane' \
+    'test_an_external_control_plane_is_refused'
+
+add "60. IPv4 parts are read as inet_aton reads them (010 is octal)" \
+    "$THRIFT" \
+    '            octets = [int(p) for p in parts]' \
+    '            octets = list(socket.inet_aton(text))  # MUTANT: not the CLI reading' \
+    'test_a_leading_zero_in_an_ipv4_part_is_decimal_as_in_the_cli'
+
+add "61. an lpm /0 on a table with no priority column becomes an empty match" \
+    "$THRIFT" \
+    '    if not match and not needs_priority:' \
+    '    if False:  # MUTANT: pre-flight can refuse it later' \
+    'test_an_lpm_slash_zero_on_a_table_with_no_priority_column_is_refused'
+
+add "62. a CLI script outside the app directory is carried" \
+    "$CONVERT" \
+    '        if os.path.isabs(rel) or not real.startswith(root + os.sep):' \
+    '        if os.path.isabs(rel):  # MUTANT: ../ is inside enough' \
+    'test_a_script_outside_the_app_directory_is_refused'
+
+add "63. entries translated for one switch go into a runtime file another switch reads" \
+    "$CONVERT" \
+    '        if len(sharing) > 1:' \
+    '        if False:  # MUTANT: one file, one switch' \
+    'test_a_runtime_file_two_switches_share_is_refused'
+
+# 64 swaps BOTH halves (the check and the insert) to the lexical path. Swapping only the check
+# made a file that includes itself loop for ever (its realpath is in `seen`, its name never is),
+# and the gate hung on the first run of this mutant (round 2, 2026-10-16 21:11).
+add "64. the include walk keys what it has seen by the lexical path" \
+    "$CONVERT" \
+    '            if real in seen:
+                continue
+            seen.add(real)' \
+    '            if cand in seen:  # MUTANT: a symlinked directory is a new place
+                continue
+            seen.add(cand)' \
+    'test_a_directory_symlink_to_an_ancestor_does_not_grow_the_walk'
+
+add "65. an include that cannot be read escapes as a raw OSError" \
+    "$CONVERT" \
+    '        except OSError as exc:
+            raise ConversionError(f"{rel} (an included file of' \
+    '        except FileNotFoundError as exc:  # MUTANT
+            raise ConversionError(f"{rel} (an included file of' \
+    'test_an_include_that_cannot_be_read_is_a_named_refusal'
+
+# 66-70: ONTAS (Princeton-Cabernet/p4-projects @e5c7cca1, Apache-2.0) carries the 2018-19 tutorials
+# topology format -- hosts a list, links with no port -- and its entries are keyed on the port
+# numbers that era's harness assigned (948a890 utils/run_exercise.py). A converter that numbered
+# them any other way builds a fabric where every one of its twenty port-keyed tables misses.
+# Killed by tools/p4_exercise/tests/test_legacy_topology.py. [Co-developed with claude code -- Adam]
+add "66. legacy host links take ports in file order instead of sorted, before switch links" \
+    "$CONVERT" \
+    '    host_links = sorted((l for l in links if l[0][0] == "h"), key=lambda l: l[0] + l[1])' \
+    '    host_links = [l for l in links if l[0][0] == "h"]  # MUTANT: file order' \
+    'test_host_links_take_the_first_ports_in_sorted_order'
+
+add "67. a legacy host's MAC swaps the switch and host numbers" \
+    "$CONVERT" \
+    '"mac": f"00:00:00:00:{m:02x}:{n:02x}",' \
+    '"mac": f"00:00:00:00:{n:02x}:{m:02x}",  # MUTANT' \
+    'test_hosts_get_10_0_switch_host_and_the_harness_mac'
+
+add "68. a legacy topology is read as if it were the current format" \
+    "$CONVERT" \
+    '    if legacy:
+        topo = legacy_topology(topo)' \
+    '    if False:  # MUTANT: one format only
+        topo = legacy_topology(topo)' \
+    'test_the_package_has_the_harness_hosts_and_ports'
+
+add "69. a legacy link that names a port is accepted" \
+    "$CONVERT" \
+    '        if "-" in s or "-" in t:' \
+    '        if False:  # MUTANT: a port is a port' \
+    'test_a_port_in_a_legacy_topology_is_refused'
+
+add "70. a legacy link's two ends are not ordered, so a switch-first host link is a switch link" \
+    "$CONVERT" \
+    '        if s > t:
+            s, t = t, s' \
+    '        if False:  # MUTANT: as written
+            s, t = t, s' \
+    'test_host_links_take_the_first_ports_in_sorted_order'
+
+# 71-77: round 3 (review r2 of 244face4). A flag's expansions, the address variable assigned
+# exactly once, the package paths of a script and of an include taken from the RESOLVED file, a
+# shared runtime file found by realpath, and the two round-2 tests that had never been red.
+# [Co-developed with claude code -- Adam]
+add "71. an address expansion the reader does not evaluate is accepted" \
+    "$THRIFT" \
+    '        expanded = [f for f in flags if "$" in f and not _PLAIN_VAR.fullmatch(f)]' \
+    '        expanded = []  # MUTANT: $((9089+SW)) is an address' \
+    'test_an_address_whose_value_the_reader_cannot_know_is_refused'
+
+add "72. an address variable the script never assigns is accepted" \
+    "$THRIFT" \
+    '        if assigned.get(name, 0) != 1:' \
+    '        if assigned.get(name, 0) > 1:  # MUTANT: the environment will have it' \
+    'test_an_address_variable_never_assigned_is_refused'
+
+add "73. a script's package path is the flag's spelling, not the resolved file" \
+    "$CONVERT" \
+    '        dest = os.path.relpath(real, root)' \
+    '        dest = rel  # MUTANT: as typed' \
+    'test_a_script_named_through_dotdot_is_written_inside_the_package'
+
+add "74. an include's package path is the include's spelling, not the resolved file" \
+    "$CONVERT" \
+    '            out.append((real, os.path.relpath(real, root)))' \
+    '            out.append((real, cand))  # MUTANT: as spelled' \
+    'test_an_include_spelled_through_dotdot_is_written_inside_the_package'
+
+add "75. two switches' runtime files are compared by spelling" \
+    "$CONVERT" \
+    '                         if package["switches"][d].get("entries") and os.path.realpath(
+                             os.path.join(exercise_dir, package["switches"][d]["entries"]))
+                         == target)' \
+    '                         if package["switches"][d].get("entries") == spec["entries"])  # MUTANT' \
+    'test_a_runtime_file_two_switches_spell_differently_is_refused'
+
+add "76. a negative CLI priority is accepted" \
+    "$THRIFT" \
+    '        if not 0 <= priority <= PRIORITY_MAX - 1:' \
+    '        if priority > PRIORITY_MAX - 1:  # MUTANT: no lower bound' \
+    'test_a_negative_cli_priority_is_refused'
+
+add "77. an lpm /0 beside a ternary field is written as a /0 match" \
+    "$THRIFT" \
+    '        if plen == 0:
+            notes.append(f"{what}: {token} matches everything; omitted' \
+    '        if False:  # MUTANT: /0 goes on the wire
+            notes.append(f"{what}: {token} matches everything; omitted' \
+    'test_an_lpm_slash_zero_beside_a_ternary_field_is_omitted'
+
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -470,11 +774,11 @@ fi
 # --- baseline snapshot --------------------------------------------------------------------------
 
 BK=$(mktemp -d)
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
     cp -p "$f" "$BK/$(basename "$f")"
 done
 restore() {
-    for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
+    for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
         cp -p "$BK/$(basename "$f")" "$f"
         # cp -p puts the ORIGINAL mtime back. Nothing here is compiled, so no build system can
         # be fooled -- but __pycache__ is keyed on mtime and size, and an unlucky pair would let
@@ -549,8 +853,9 @@ echo "  subjects    : $CONVERT"
 echo "                $PREFLIGHT"
 echo "                $ADAPTER"
 echo "                $TESTCONV (the fixture-provenance rule, ruling J)"
+echo "                $THRIFT (the bmv2 CLI translator, 38-43)"
 echo "  suite       : $TESTS"
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
     printf '  baseline    : %s %s\n' "$(sha256sum "$f" | cut -c1-16)" "$f"
 done
 echo
@@ -627,7 +932,7 @@ fi
 restore
 printf '\n--- baseline restored? ---\n'
 bad_restore=0
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
     if cmp -s "$BK/$(basename "$f")" "$f"; then
         printf '  byte-identical  %s\n' "$f"
     else
