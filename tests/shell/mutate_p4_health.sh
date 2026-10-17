@@ -3691,7 +3691,7 @@ add "C2T-13. R2 no longer depends on SC-reg" \
     '    Cell("R2", "registers", "core", "active", "A", 2, r2, cannot=r2_cannot,
          self_checks=("SC-reg",),' \
     '    Cell("R2", "registers", "core", "active", "A", 2, r2, cannot=r2_cannot,
-         self_checks=(),  # MUTANT' \
+         self_checks=(),' \
     'test_a_marker_that_did_not_land_keeps_r2_from_green'
 
 CTRL_SRC="$TABLE"
