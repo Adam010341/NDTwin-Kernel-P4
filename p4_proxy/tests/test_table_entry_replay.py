@@ -994,6 +994,54 @@ class AReadoptReplaysTest(ReplayCase):
         self.readopt(1)
         self.assertEqual(self.switches[1].pushed_cookies[-1], main._generation["cookie"])
 
+    # [Co-developed with claude code -- Adam]
+    # A net delete that meets NOT_FOUND has reached its goal at a readopt as at a start: restored,
+    # nothing failed, the replay complete, and the delete kept for the next replay.
+
+    def test_a_readopts_net_delete_that_meets_not_found_is_restored_and_complete(self):
+        self.start_proxy()
+        self.ok(exact("10.0.9.9", op="delete"))
+        self.ok(exact("10.0.0.1"))
+        original = FabricSwitch.Write
+
+        def skip_the_boot_entry(switch, request, timeout=None):
+            entry = request.updates[0].entity.table_entry
+            if (request.updates[0].type == p4runtime_pb2.Update.INSERT
+                    and int.from_bytes(entry.action.action.params[0].value, "big") == 9):
+                raise refused(code_pb2.INVALID_ARGUMENT, "no")
+            return original(switch, request, timeout)
+        with mock.patch.object(FabricSwitch, "Write", skip_the_boot_entry):
+            result = self.readopt(1)
+        self.assertEqual(result["status"], "success")
+        report = result["table_entries"]["replay"]
+        self.assertEqual(report["when"], "readopt")
+        self.assertEqual((report["attempted"], report["succeeded"], report["failed"]), (2, 2, []))
+        self.assertEqual(report["status"], "complete")
+        self.assertEqual([r["op"] for r in report["restored"]], ["delete", "insert"])
+        served = asyncio.run(api_routes.switch_state())["switches"]["1"]["table_entries"]
+        self.assertEqual(served["journal"]["replay"]["status"], "complete")
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=9), 0)
+        live = [x for x in self.lines(self.live()) if not x.get("header")]
+        self.assertEqual([r["op"] for r in live], ["delete", "insert"],
+                         "the delete is kept, so the next replay deletes the boot entry again")
+
+    def test_a_readopts_lone_not_found_delete_is_restored_and_complete(self):
+        self.start_proxy()
+        self.ok(ternary("10.0.3.0", "255.255.255.0", 10))
+        status, answer = self.post(ternary("10.0.3.0", "255.255.255.0", 20, op="delete"))
+        self.assertEqual((status, answer["p4rt_error"]["code"]), (502, "NOT_FOUND"))
+        result = self.readopt(1)
+        report = result["table_entries"]["replay"]
+        self.assertEqual((report["when"], report["status"], report["failed"]),
+                         ("readopt", "complete", []))
+        self.assertEqual([r["op"] for r in report["restored"]], ["insert", "delete"])
+        self.assertEqual(self.switches[1].holds(TERNARY_ID, 10), 1)
+        self.assertEqual(self.switches[1].holds(TERNARY_ID, 20), 0)
+        live = [x for x in self.lines(self.live()) if not x.get("header")]
+        self.assertEqual([(r["spec"]["priority"], r["op"], r["outcome"]) for r in live],
+                         [(10, "insert", "ok"), (20, "delete", "not_found"), (20, "delete", "ok")],
+                         "the delete and its unknown start are kept")
+
     def post_during(self, stage):
         out = []
 
@@ -1308,6 +1356,34 @@ class ALostAnswerOnABootEntryTest(ReplayCase):
                          "the write that failed is the retry")
         self.assertEqual(report["failed"][0]["entry"]["op"], "insert", "the journal's own op")
 
+    def test_a_modify_fallback_whose_answer_is_lost_stays_in_the_journal_for_the_next_start(self):
+        # [Co-developed with claude code -- Adam]
+        # The modify the ALREADY_EXISTS retry sends lands, and its answer is lost: no per-update
+        # answer, so the record stays for the next start, as for an insert retry with no answer.
+        self.start_proxy()
+        self.lose_the_answer_to_one_delete()
+        self.ok(exact("10.0.9.9", 5))
+        self.switches[1].lose_answer = lambda op: deadline() if op == "modify" else None
+        self.start_proxy()
+        self.switches[1].lose_answer = None
+        report = self.replay_report()
+        self.assertEqual(len(report["retried_as_modify"]), 1)
+        (failed,) = report["failed"]
+        self.assertIn("DEADLINE_EXCEEDED", failed["reason"])
+        self.assertEqual(failed["retried_as"], "modify")
+        self.assertEqual(failed["entry"]["op"], "insert", "the journal's own op")
+        self.assertIs(failed["kept"], True, "no answer: the modify may have landed")
+        live = [x for x in self.lines(self.live()) if not x.get("header")]
+        self.assertEqual([(r["op"], r["outcome"]) for r in live],
+                         [("delete", "not_found"), ("insert", "ok")],
+                         "so S and its unknown start are in the snapshot")
+        self.start_proxy()
+        report = self.replay_report()
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "S is back at the next start")
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=9), 0)
+        self.assertEqual(len(report["retried_as_modify"]), 1)
+        self.assertEqual((report["status"], report["failed"]), ("complete", []))
+
     def test_an_ordinary_insert_that_meets_an_entry_is_not_retried_as_a_modify(self):
         # Only an `unknown_before` key gets the fallback: an insert journalled as an insert that
         # meets ALREADY_EXISTS is a failure the report names.
@@ -1352,8 +1428,9 @@ class AModifyThatFindsNothingTest(ReplayCase):
         self.start_proxy()
         self.land_an_insert_whose_answer_is_lost()
         self.ok(exact(self.K, op="delete"))
-        self.ok(exact(self.K, 5))
+        answer = self.ok(exact(self.K, 5))
         self.assertEqual(self.records(), [("delete", "ok"), ("insert", "ok")])
+        return answer
 
     def refusing(self, which, code, only=lambda entry: True):
         """A Write that refuses every `which` update that satisfies `only`, and logs the ops it
@@ -1570,6 +1647,79 @@ class AModifyThatFindsNothingTest(ReplayCase):
         self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 1, "S is back at the next start")
         self.assertEqual(report["retried_as_insert"], [key])
         self.assertEqual((report["status"], report["failed"]), ("complete", []))
+
+    # --- the disclosed stale drop (api_routes' POST docstring, DESIGN 10-4 2026-10-15) ----------
+    # [Co-developed with claude code -- Adam]
+    # A write the journal holds as a modify, aimed at an entry that was on the switch before the
+    # journal saw it (here K, whose insert was never recorded), is not put back by the first start
+    # or readopt after the switch's entries file changed: it is `stale_entries`, dropped from the
+    # live file, and switch_state says why. Behaviour by ruling, not a defect: putting it back
+    # would also re-insert keys the new entries file removed.
+
+    STALE_REASON = ("stale_entries: the package's entries file changed, and this write may have "
+                    "been aimed at one of its entries")
+    EDITED = [dict(BOOT[0], action_params={"port": 8})]
+
+    def assert_s_was_dropped_as_stale(self, report, key):
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=5), 0, "S is not put back")
+        self.assertEqual(self.switches[1].holds(EXACT_ID, port=8), 1, "the edited package's entry is")
+        self.assertEqual([op for op, _t, _p in self.switches[1].writes], ["insert"],
+                         "the package's entry only: no modify of K, no insert retry")
+        self.assertEqual((report["attempted"], report["succeeded"], report["stale_entries"]),
+                         (1, 0, 1))
+        self.assertEqual(report["retried_as_insert"], [])
+        (failed,) = report["failed"]
+        self.assertEqual((failed["entry"]["key"], failed["entry"]["op"]), (key, "modify"))
+        self.assertIs(failed["kept"], False)
+        self.assertNotIn("retried_as", failed)
+        self.assertEqual(report["status"], "failed")
+        served = asyncio.run(api_routes.switch_state())["switches"]["1"]["table_entries"]
+        served = served["journal"]["replay"]
+        self.assertEqual(served["stale_entries"], 1)
+        self.assertEqual(served["failed"][0]["reason"], self.STALE_REASON,
+                         "switch_state names the entries file as the reason")
+        self.assertEqual(self.records(), [], "and S is no longer in the live journal")
+        newest = [r for r in self.lines(self.set_aside()[-1]) if not r.get("header")]
+        self.assertIn({"port": 5}, [r["spec"].get("action_params") for r in newest],
+                      "it stays only in the set-aside file")
+
+    def test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_start_after_an_entries_edit(self):
+        self.with_entries(BOOT)
+        self.delete_then_insert()
+        key = self.journal_key_of_k()
+        self.start_proxy()
+        self.assertEqual(self.replay_report()["retried_as_insert"], [key], "S went back once")
+        self.assertEqual(self.records(), [("modify", "ok")], "and stays a modify in the journal")
+        self.with_entries(self.EDITED)
+        self.switches[1].writes.clear()
+        self.start_proxy()
+        self.assert_s_was_dropped_as_stale(self.replay_report(), key)
+
+    def test_an_entry_put_back_by_the_insert_retry_is_dropped_by_a_readopt_after_an_entries_edit(self):
+        self.with_entries(BOOT)
+        self.delete_then_insert()
+        key = self.journal_key_of_k()
+        self.start_proxy()
+        self.assertEqual(self.replay_report()["retried_as_insert"], [key], "S went back once")
+        self.with_entries(self.EDITED)
+        self.switches[1].writes.clear()
+        result = self.readopt(1)
+        self.assertEqual(result["status"], "success")
+        report = result["table_entries"]["replay"]
+        self.assertEqual(report["when"], "readopt")
+        self.assert_s_was_dropped_as_stale(report, key)
+
+    def test_an_entries_edit_before_the_first_restart_drops_a_net_modify_the_post_journaled(self):
+        # `[delete/ok K, insert S]` is already a net modify before anything restored it, so the
+        # first start after the edit drops it, although the POST of S answered journaled: true.
+        self.with_entries(BOOT)
+        answer = self.delete_then_insert()
+        self.assertIs(answer["journaled"], True)
+        key = self.journal_key_of_k()
+        self.with_entries(self.EDITED)
+        self.switches[1].writes.clear()
+        self.start_proxy()
+        self.assert_s_was_dropped_as_stale(self.replay_report(), key)
 
 
 class AJournalThatIsOffSetsEverythingAsideTest(ReplayCase):

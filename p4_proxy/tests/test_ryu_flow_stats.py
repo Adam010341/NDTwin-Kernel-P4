@@ -665,7 +665,9 @@ class AMatchRyuCannotSayIsLeftOutAndCountedOnEveryPipelineTest(unittest.TestCase
         self.assertEqual(flows[0]["match"]["nw_src"], "128.0.0.0/1")
 
     def test_a_full_mask_is_still_an_exact_value_whatever_its_width_on_the_wire(self):
-        # A full mask can be wider on the wire than its field (0xffff on a bit<9> field).
+        # A full mask read back may be wider than its field (0xffff on a bit<9> field). bmv2's
+        # P4Runtime server refuses to take one, so bmv2 does not report one; another target or
+        # the Thrift CLI might. The renderer masks with the field's width either way.
         flows, left_out = self.counted(self.row(**{
             "standard_metadata.ingress_port": self.ternary(b"\x03", b"\xff\xff"),
             "meta.l4_dst_port": self.ternary(b"\x00\x50", b"\xff\xff")}))

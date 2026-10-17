@@ -161,24 +161,29 @@ class EncodeTernaryValueTest(unittest.TestCase):
         self.assertEqual((v, m), (b"\x00\x50", b"\xff\xff"))
 
     def test_ingress_port_is_two_bytes_because_it_is_bit9(self):
+        # Two bytes, but the mask is the nine bits of the field (0x01ff); 0xffff has seven bits
+        # bmv2 refuses ("does not fit within 9 bits"). [Co-developed with claude code -- Adam]
         v, m = self.enc("standard_metadata.ingress_port", 2)
-        self.assertEqual((v, m), (b"\x00\x02", b"\xff\xff"))
+        self.assertEqual((v, m), (b"\x00\x02", b"\x01\xff"))
 
     def test_every_mask_is_all_ones(self):
         # THE load-bearing one. The ternary table is used for its priority, not for
         # wildcarding: keys the caller did not name are simply absent, which P4Runtime already
         # treats as don't-care. A partial mask here would silently widen a rule someone wrote
         # precisely -- and it would still install, and traffic would still flow.
+        # "All ones" means every bit of the FIELD: bit<9> is 0x01ff, which is why in_port is not
+        # in the byte-wise check below. [Co-developed with claude code -- Adam]
         for field, value in (("hdr.ipv4.srcAddr", "10.0.0.2"),
                              ("hdr.ipv4.dstAddr", "10.0.0.1"),
                              ("hdr.ipv4.protocol", 17),
                              ("meta.l4_src_port", 1234),
-                             ("meta.l4_dst_port", 53),
-                             ("standard_metadata.ingress_port", 3)):
+                             ("meta.l4_dst_port", 53)):
             with self.subTest(field=field):
                 _, mask = self.enc(field, value)
                 self.assertEqual(set(mask), {0xFF},
                                  f"{field} got a partial mask: {mask!r}")
+        _, mask = self.enc("standard_metadata.ingress_port", 3)
+        self.assertEqual(mask, b"\x01\xff")
 
     def test_a_value_too_wide_for_its_key_raises(self):
         # A protocol of 300 is a caller error; encoding it as 0x2C silently would install a rule

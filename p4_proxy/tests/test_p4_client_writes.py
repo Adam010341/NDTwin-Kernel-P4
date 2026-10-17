@@ -2838,5 +2838,86 @@ class NoBindingNoWriteTest(unittest.TestCase):
         self.assertEqual(client.stub.requests, [])
 
 
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class TheFiveTupleMaskIsTheFieldsWidthTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam]
+
+    The 5-tuple writer sent every ternary mask as all-ones across the field's BYTES. For a
+    field whose width is not a whole number of bytes that is wider than the field:
+    standard_metadata.ingress_port is bit<9>, so its mask went out as 0xffff, and a real
+    simple_switch_grpc answers "Bytestring provided does not fit within 9 bits" (UNKNOWN, no
+    details on the gRPC status) -- every rule that named in_port was refused, while the same rule
+    without it installed (measured on a throwaway switch running ndtwin_switch.json). The
+    recording stub below takes any bytes, which is how the old pins in test_five_tuple_match.py
+    kept asserting b"\\xff\\xff" for it.
+
+    So the expected mask here is computed from each key's bitwidth in the p4info FIXTURE of this
+    file (hand-written, with the widths and ids ndtwin_switch.p4info.txt has), not from the
+    writer's own table. That the writer's table also equals the COMPILED p4info is the last test
+    of this class, which skips when p4_src/build has not been made.
+    """
+
+    @staticmethod
+    def widths():
+        p4info = a_p4info()
+        table = next(t for t in p4info.tables if t.preamble.name == "MyIngress.flow_5tuple")
+        return {f.name: f.bitwidth for f in table.match_fields}
+
+    @staticmethod
+    def sent(field, value):
+        stub = RecordingStub()
+        a_client(stub).insert_5tuple_rule({field: value}, 101, "00:00:00:00:00:05", 4)
+        update = stub.requests[-1].updates[0]
+        (match,) = update.entity.table_entry.match
+        return match.ternary.value, match.ternary.mask
+
+    def test_every_key_is_masked_with_exactly_its_own_bits(self):
+        values = {"standard_metadata.ingress_port": 2, "hdr.ipv4.srcAddr": "10.0.0.2",
+                  "hdr.ipv4.dstAddr": "10.0.0.1", "hdr.ipv4.protocol": 6,
+                  "meta.l4_src_port": 1234, "meta.l4_dst_port": 80}
+        widths = self.widths()
+        self.assertEqual(set(widths), set(values), "the fixture and this test disagree on keys")
+        for field, bits in widths.items():
+            with self.subTest(field=field, bits=bits):
+                value, mask = self.sent(field, values[field])
+                self.assertEqual(int.from_bytes(mask, "big"), (1 << bits) - 1,
+                                 f"{field} is bit<{bits}>; the mask sent was {mask.hex()}")
+                self.assertEqual(len(mask), (bits + 7) // 8)
+                self.assertEqual(len(value), len(mask))
+
+    def test_the_writers_widths_are_the_compiled_p4infos(self):
+        # The widths live in two hand-kept places (the writer's table, this file's fixture); this
+        # is the one that reads the build. [Co-developed with claude code -- Adam]
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "p4_src", "build",
+                            "ndtwin_switch.p4info.txt")
+        if not os.path.exists(path):
+            self.skipTest("p4info not built; run tools/test_workflow/l0_build_check.sh p4")
+        built = p4info_pb2.P4Info()
+        with open(path) as fh:
+            text_format.Merge(fh.read(), built)
+        table = next(t for t in built.tables if t.preamble.name == "MyIngress.flow_5tuple")
+        compiled = {f.name: f.bitwidth for f in table.match_fields}
+        self.assertEqual(compiled, P4RuntimeClient._FIVE_TUPLE_KEY_BITS)
+        self.assertEqual(compiled, self.widths(), "the hand fixture drifted from the build")
+
+    def test_in_port_is_masked_with_nine_ones_not_sixteen(self):
+        value, mask = self.sent("standard_metadata.ingress_port", 2)
+        self.assertEqual((value, mask), (b"\x00\x02", b"\x01\xff"))
+
+    def test_the_widest_in_port_goes_out_whole(self):
+        value, mask = self.sent("standard_metadata.ingress_port", 511)
+        self.assertEqual((value, mask), (b"\x01\xff", b"\x01\xff"))
+
+    def test_an_in_port_wider_than_nine_bits_is_refused_before_the_wire(self):
+        stub = RecordingStub()
+        client = a_client(stub)
+        before = len(stub.requests)
+        with self.assertRaises(OverflowError):
+            client.insert_5tuple_rule({"standard_metadata.ingress_port": 512}, 101,
+                                      "00:00:00:00:00:05", 4)
+        self.assertEqual(len(stub.requests), before, "a value wider than bit<9> reached the wire")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
