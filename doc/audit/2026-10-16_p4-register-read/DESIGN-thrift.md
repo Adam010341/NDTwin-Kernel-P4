@@ -255,6 +255,7 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
   - 不同 → 502 `thrift device mismatch`，不讀 register。
   - 結果存在 client 物件上（`thrift_identity`）；readopt 建的新 client 會重新問。
   - 問不到 → 503，不存，下次再問。
+  - 🔴 第三輪更正：這一版**擋不住**兩種情形（judge r2 的 F1、F2），本段原本「另一台 bmv2 在那個埠上一律 502」的說法不成立。§13 是第三輪的做法與還剩下的前提。
 - bit<64>（M1）：§1 與上面。
 - 預期檔與假 fabric（M2）：§9。
 - R2 的歸因與 503（m1、m6）：§9。
@@ -295,3 +296,58 @@ GET /p4/register/{name}?dpid=<n>&start=<s>&count=<c> 一段
   - `39b53f4c` 的 register gate 有兩個存活：一個是已經不可能觸發的長度檢查（`a46c8614` 刪掉，連同它的 mutation），一個是點錯了 killer test（改點到 `test_a_range_past_the_end_is_400`）。
   - `a46c8614` 的健檢局部 gate 有兩個存活（C2T-8、C2T-9）：404／501 走不到 cannot 那一步時，compare 那一步也會給紅，而測試只看字樣。`2aeae1a1` 讓測試檢查 step 與錯誤字。
 - 沒有驗的：live lab；硬體 target；bmv2 在 external 模式下由別的 controller 起的情形；4-shard 的健檢 gate（排在合併 head 跑）。
+
+## 13. 第三輪：每次讀都查活著、查身分
+
+### 13.1 第二輪擋不住的（judge r2 的 F1、F2，量過）
+
+- 量測：LOG`/r5probe.py`，結果 LOG`/r5probe-before.json`。程式碼是 `f0e42646` 的 `git archive` 副本（`r5-before-f0e42646/`），拿著 lock 跑，執行紀錄 `r5_probe_before.out`。stock 與 fast 結果一樣。
+- **冒充者**（F1 的形狀）：
+  - 真的交換機 R：device 940001、thrift 29500、gRPC 29650，P4Runtime client 已連上並推了 pipeline；`r32[0] = 111`；路由第一次讀到 200 `[111]`。
+  - 停掉 R，起冒充者 I：**同樣的 device 940001、同樣的 thrift 29500**，gRPC 是另一個埠；`r32[0] = 333`。
+  - 路由第二次讀：**200 `[333]`**，也就是冒充者的資料。
+- **換掉的程序**（F2）：
+  - R 讀一次（200 `[111]`）後停掉，在**同一個 thrift 與 gRPC 埠**起 X，device 是 940002，並推 pipeline；`r32[0] = 333`。
+  - 路由第二次讀：**200 `[333]`**。第一次讀時記下的身分沒有再問。
+
+### 13.2 第三輪的做法
+
+- 每一次讀（都在同一個請求的 deadline 內）：
+  1. **活著**：對這個 dpid 的 client 做一次 P4Runtime round trip（`client.probe`，COOKIE_ONLY 的 GetForwardingPipelineConfig）。答不出來 → 503 `switch not reachable`，不碰 thrift。
+  2. **身分**：在這次讀自己的 thrift 連線上先問 `bm_mgmt_get_info`（`bm_thrift.read_register_as`），是這個 client 的 (device id, port) 才送 register 讀取；不是 → 502 `thrift device mismatch`，沒有送 register 讀取。
+- 不再記任何東西：第二輪的 `thrift_identity` 拿掉了。
+- **抓得到的**：
+  - 那個埠上 device id 或 port 不對的 bmv2，不論什麼時候出現的（包括讀過之後才換的）；
+  - 這個 dpid 自己的交換機不回 P4Runtime 時，那個埠上的任何 bmv2。
+- **抓不到的**：同 device id、同埠號的 bmv2（p4lang-tutorials 的交換機就是這樣編號的）佔著 9090＋N，**而**這個 dpid 自己的交換機同時還回 P4Runtime。
+  - 這要靠一個前提：fabric 以 `--thrift-port 9090+N` 起的交換機，在它活著的時候，那個埠是它自己的。
+
+### 13.3 這個前提查了什麼
+
+- **pre-flight 不擋**被佔住的 thrift 埠：
+  - `p4_testbed_topo.py` 的 pre-flight 只看 gRPC 埠：`grpc_ports.grpc_port_block(dpids)` 與 `assert_port_block_is_safe`（ephemeral 範圍）；`clear_switches_from_a_previous_run(ports=ports)` 與 `abort_if_grpc_ports_are_held` 也只看 gRPC 埠。
+  - `ndt` 的 preflight 讀 `tools/test_workflow/ports.sh`，那張表有 9091–9100（「the same line of code assigns both」）。但它只拒絕看得到、而且不是這個 checkout 的 `foreign` 持有者；root 擁有的 socket（bmv2 跑在 root 底下）是 `unknown`，**只警告、不拒絕**（`ndt` 的 preflight 段，以及 `port_owner_local` 的說明）。
+  - `test_ports_that_block_restart.sh` 測的是 ports.sh 那張表與 `ndt clean`／`deep_sweep`，不是 bring-up 的拒絕。
+  - ⇒ 照工單：**pre-flight 不拒絕，回報**，不做繞路的補丁。
+- **bmv2 在 thrift 埠被佔時的行為**（量的，`r5probe-before.json` 的 `busy`，兩顆一樣）：
+  - 埠被另一個 bmv2 佔著：新起的 bmv2 印 `Thrift returned an exception when trying to bind to port 29500 … Address already in use`，然後**退出**（rc 0）。6 s 後不在、gRPC 埠也沒有在聽；那個埠上回 `bm_mgmt_get_info` 的仍是原來那台。
+  - 埠被一個普通的 socket（0.0.0.0）佔著：同樣退出，rc 0。
+  - 退出前 stdout 已經印了 gRPC 的「Server listening on …」：gRPC 有一段短時間在聽，多久沒有量。
+- ⇒ **前提成立的那一半**：fabric 起的交換機，如果它的 thrift 埠被佔，它不會留著（`failure_reason` 會看到 process exited，`partial_fabric_verdict` 讓 bring-up 失敗，除非設了 `NDTWIN_P4_ALLOW_PARTIAL_FABRIC=1`；就算設了，那台不在，路由的活著檢查也回 503）。所以「自己的交換機回 P4Runtime ⇒ 它佔著自己的 thrift 埠」在 bmv2 上成立。
+- **前提沒有擋住的**：
+  - pre-flight 不會事先說「9090＋N 被佔了」，只在交換機起不來之後才知道。
+  - `failure_reason` 這時說的是「gRPC port … was already in use」，其實是 thrift 埠；字樣不對，這次沒改（不在範圍）。
+  - 交換機活著時，另一個程序**事後**拿不到那個埠（bind 會失敗）；但若交換機的 thrift server 自己掛了而程序還在，這次沒有量。
+
+### 13.4 deadline 與最壞情況（T3、F6）
+
+- 一個請求一個預算：`RPC_TIMEOUT_S`（5 s）由活著檢查與 thrift 連線（身分＋讀取）共用；thrift 連線的每一步拿的是剩下的時間。
+- 最壞情況：大約 5 s，加上兩次換到 worker thread 時等空的 worker 的時間。
+
+### 13.5 其他（第三輪）
+
+- T2：`expected_today.tsv` 的 R2 basis 改引 `trial-reg-r4.json`（`a46c8614`），並說會在最後的 head 用 `trial-reg-r5.json` 再跑一次。
+- F4：mutation 34 改成一個元素的 tuple，不再是會讓別的測試一起紅的壞 mutant。
+- F7：R2 的「not a reading」紅帶上路由的錯誤字（例如 `answered 503 (register not read)`）。
+- F9：加了 `C2T-13`（R2 不再依賴 SC-reg），killer 是新的 `test_a_marker_that_did_not_land_keeps_r2_from_green`；第二輪說「與 thrift 比較是等價 mutant」的理由，就是靠這一條成立。
+
