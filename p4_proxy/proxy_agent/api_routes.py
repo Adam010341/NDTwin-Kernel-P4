@@ -3,10 +3,17 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 import json
 import time
+from typing import Optional
 from google.rpc import code_pb2, status_pb2
 from p4.v1 import p4runtime_pb2
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError, needs_five_tuple
+# [Co-developed with claude code -- Adam] Adam, 2026-10-16: a destination-only modify is
+# honoured at the priority its slot holds, and refused (501) at any other.
+from proxy_agent.slot_priority import (CONTROL_PLANE_ROUTE_PRIORITY, SlotPriorityNotHeld,
+                                       named_priority)
 from proxy_agent import ryu_topology, ryu_flow_stats
+# [Co-developed with claude code -- Adam] GET /p4/register's two bmv2 thrift calls.
+from proxy_agent import bm_thrift
 # [Co-developed with claude code -- Adam]
 # The three refusals POST /p4/table_entry has to turn into 409 / 501 / 400. Imported as types
 # rather than matched on a message, because a message is a string somebody will reword and a
@@ -14,8 +21,8 @@ from proxy_agent import ryu_topology, ryu_flow_stats
 # p4_client imports boot_identity, rule_install_times and sflow_emitter, none of which reach
 # back here.
 from proxy_agent.p4_client import (ControlPlaneReadOnly, CounterNotFound, RPC_TIMEOUT_S,
-                                   TableEntryInvalid, TableEntryUnsupported,
-                                   TableOwnedByNDTwin)
+                                   DirectCounterUnrenderable, TableEntryInvalid,
+                                   TableEntryUnsupported, TableOwnedByNDTwin)
 # TICKET-P4-roles: the binding a route is written through, and the 501 when there is none.
 # [Co-developed with claude code -- Adam]
 from proxy_agent import route_binding
@@ -450,33 +457,15 @@ def _named_priority(data):
     The priority this caller actually asked for, or None if they asked for none.
 
     [Co-developed with claude code -- Adam]
-    Three values mean "no priority named", and telling them apart from a real request is the
-    whole difference between a refusal that protects the fabric and one that stops it:
-
-      * the key is absent -- HttpRoutingStrategyBase omits it entirely for the non-strict
-        routes, which is every delete the control plane and the IntentTranslator make;
-      * -1 -- FlowRoutingManager::deleteAnEntry's default, the "delete anything matching"
-        sentinel the kernel turns into the non-strict POST;
-      * 0 -- HttpSession::makeModifyJob's default for an ABSENT priority, so it arrives on
-        every ordinary modify. `p4_priority` reads 0 the same way, mapping it to the lowest
-        ternary band as the default for a caller who expressed no preference.
-
-    A non-integer is not diagnosed here. It is not this predicate's error to own, and guessing
-    would turn a value problem into a capability answer that names the wrong fault.
+    slot_priority.named_priority holds the rule (absent, -1 and 0 are "none named") so that the
+    strict-delete refusal here and the modify's slot check in topology_manager cannot drift apart.
     """
-    raw = data.get("priority")
-    if raw is None:
-        return None
-    try:
-        priority = int(raw)
-    except (TypeError, ValueError):
-        return None
-    return priority if priority > 0 else None
+    return named_priority(data.get("priority"))
 
 
 def _refuse_unhonourable_priority(data, match, verb):
     """
-    Refuse a delete or modify whose priority the destination table cannot honour.
+    Refuse a strict delete whose priority the destination table cannot honour.
 
     [Co-developed with claude code -- Adam]
     doc/audit/2026-09-03_night-rounds/DECISION-P4-PRIORITY.md. This is deliberately NOT applied
@@ -494,6 +483,15 @@ def _refuse_unhonourable_priority(data, match, verb):
         had never existed on this switch, rewrote the entry that was there, and a delete at
         priority 999 removed it; both answered 200. A disclosure field cannot repair that,
         because it is read after the rule the caller never named is already gone.
+
+    🔴 Since Adam's 2026-10-16 ruling this is the DELETE half only. A destination-only modify
+    naming the priority its slot's entry was written with does name that entry (10 for the
+    proxy's own route, an install's own priority), so modify_flow_entry no longer refuses
+    before the topology: TopologyManager.modify_flow checks the slot under its lock and raises
+    SlotPriorityNotHeld, answered by `_slot_priority_not_held` below. Every named priority on a
+    strict delete stays refused here, before the topology and so ahead of the read-only (409)
+    and route-binding (501) refusals: the ruling does not extend to deletes, and on P4 a strict
+    delete at 10 would mean A-4d's restore, not the removal OVS performs.
 
     501, not 400. The request is well-formed OpenFlow -- nothing about it is the client's
     mistake, and answering 400 makes the same misattribution OpResult::notSent was added to
@@ -516,9 +514,20 @@ def _refuse_unhonourable_priority(data, match, verb):
     kernel's log line. Measured 2026-09-11 (hunt-0911/ROLE-5, 4312 POSTs, 2152 of 2152 deletes
     refused): this body is 838 bytes, the cut landed mid-word at "data plan", and so every
     reader of the failure record saw the diagnosis and not one of them saw what to do instead.
-    `remedy` is placed ahead of `table` so that the one sentence a caller can act on is inside
-    the 200-byte window -- p4_proxy/tests/test_flowentry_endpoints.py asserts that against
-    FastAPI's own serializer rather than against a hand-counted string.
+    `remedy` is placed so that what a caller acts on is inside the 200-byte window. Measured on
+    FastAPI's serializer for priorities 1 to 65535: the window always keeps "match the full
+    five-tuple; on OVS a non-strict delete removes every rule" ("OVS" starts at byte 152-156). It
+    always cuts "it" and the parenthesis after it, and from a four-digit priority on it cuts
+    "for" as well.
+    p4_proxy/tests/test_flowentry_endpoints.py asserts that against FastAPI's own serializer
+    rather than against a hand-counted string. [Co-developed with claude code -- Adam]
+
+    🔴 The remedy used to read "omit priority, or match the full five-tuple". Only the second
+    half is true on both planes. On OVS an omitted priority is not "whatever is there": the
+    kernel sends a priority-0 strict modify, which edits nothing when the router's route sits at
+    10, and a delete without one (-1) is non-strict and removes every rule matching the
+    destination, the router's included. A remedy an application author follows has to hold
+    wherever the application runs.
 
     Raises HTTPException(501) or returns None.
     """
@@ -527,13 +536,11 @@ def _refuse_unhonourable_priority(data, match, verb):
         return
     raise HTTPException(
         status_code=501,
-        detail={
-            "error": "priority not honourable on this table",
-            "outcome": "unsupported_on_p4",
-            "remedy": "omit priority, or match the full five-tuple",
-            "table": "ipv4_lpm",
-            "requested_priority": priority,
-            "message": (
+        detail=_priority_refusal_detail(
+            priority,
+            remedy="match the full five-tuple; on OVS a non-strict delete removes every "
+                   "rule for it (here: restores the route)",
+            message=(
                 f"this {verb} names priority {priority}, and on a P4/bmv2 data plane a match "
                 "of this shape compiles to the ipv4_lpm table, which has no priority column: "
                 "precedence there is the prefix length, and the table holds one entry per "
@@ -541,10 +548,73 @@ def _refuse_unhonourable_priority(data, match, verb):
                 f"would {verb} whichever entry that destination has, at whatever priority it "
                 "was installed with, rather than the one named -- which is what this used to "
                 "do while answering 200. A match naming more than a destination compiles to "
-                "flow_5tuple, where priority is part of the entry's identity and is honoured; "
-                "a request that means \"whatever is there\" should omit the priority and take "
-                "the non-strict route."),
-        })
+                "flow_5tuple, where priority is part of the entry's identity and is honoured, "
+                "on OVS as here. The non-strict route (no priority) is not the same request on "
+                "the two planes: here it hands the destination back to the control plane's "
+                "route (KNOWN-ISSUES A-4d), on OVS it removes every rule matching the "
+                "destination, the router's own included.")))
+
+
+def _priority_refusal_detail(priority, remedy, message, **extra):
+    """
+    The body of a 501 for a priority ipv4_lpm cannot honour, for either verb.
+
+    [Co-developed with claude code -- Adam]
+    Key order is part of the contract: `requested_priority` (and, for a modify, `slot_priority`)
+    ahead of `remedy`, and `remedy` ahead of the prose, so the fields a program branches on and
+    the start of the instruction all land inside the 200 bytes the kernel keeps
+    (HttpRoutingStrategyBase.cpp:62-79). The tests measure it on FastAPI's own serializer.
+    """
+    return {
+        "error": "priority not honourable on this table",
+        "outcome": "unsupported_on_p4",
+        "requested_priority": priority,
+        **extra,
+        "remedy": remedy,
+        "table": "ipv4_lpm",
+        "message": message,
+    }
+
+
+def _slot_priority_not_held(err):
+    """
+    TopologyManager.modify_flow's SlotPriorityNotHeld, as the 501.
+
+    [Co-developed with claude code -- Adam]
+    Adam, 2026-10-16. `slot_priority` is what the slot's entry was written with, or null when
+    this proxy holds no record of it -- never written by it, or forgotten after a write it
+    could not confirm (a refusal, an exception, a deadline that may have hidden a landed write)
+    or after a pipeline push. Null is a real answer: it is why the priority names nothing.
+    """
+    held = err.held
+    if held is not None:
+        remedy = ("match the full five-tuple, or name slot_priority: the priority this "
+                  "destination's entry was written at")
+        why = (f"This destination's entry was last written at priority {held}, so a modify at "
+               f"{err.requested} would edit an entry other than the one it names.")
+    else:
+        remedy = ("match the full five-tuple; this destination's entry has no recorded "
+                  "priority (slot_priority null) until its route is written again")
+        why = ("This proxy holds no record of the priority this destination's entry was written "
+               "at -- it did not write it, or a write it could not confirm or a pipeline push "
+               "has since made the record unsafe -- so the priority cannot be matched to it.")
+    return HTTPException(
+        status_code=501,
+        detail=_priority_refusal_detail(
+            err.requested, remedy=remedy, slot_priority=held,
+            message=(
+                f"this modify names priority {err.requested}, and on a P4/bmv2 data plane a "
+                "destination-only match compiles to the ipv4_lpm table, which has no priority "
+                "column and holds one entry per destination. A named priority can only name "
+                "that entry if it is the priority the entry was last written with, and this "
+                "proxy records that per destination: "
+                f"{CONTROL_PLANE_ROUTE_PRIORITY} for its own route (the counterpart of the OVS "
+                "router's priority-10 route), or the priority an install asked for. " + why +
+                " A match naming more than a destination compiles to flow_5tuple, where "
+                "priority is part of the entry's identity and is honoured, on OVS as here. "
+                "Leaving the priority out is not the same request on the two planes: on OVS "
+                "the kernel then sends a priority-0 strict modify, which edits nothing when the "
+                "route is at 10.")))
 
 
 def _priority_disclosure(match):
@@ -692,9 +762,10 @@ async def modify_flow_entry(request: Request):
     match = data.get("match", {})
     actions = data.get("actions", [])
 
-    # [Co-developed with claude code -- Adam] As delete_flow_entry: before the write, because
-    # the harm this refuses is an edit to an entry the caller never named.
-    _refuse_unhonourable_priority(data, match, "modify")
+    # [Co-developed with claude code -- Adam] No refusal here any more (Adam, 2026-10-16): a
+    # named priority is honoured when it is the one the destination's slot holds, which only
+    # the topology knows, and the check has to be atomic with the write. modify_flow raises
+    # SlotPriorityNotHeld under the slot's lock and before the switch is touched.
 
     # [Co-developed with claude code -- Adam]
     # The two branches after the raise were unreachable. More importantly the raise itself
@@ -707,6 +778,9 @@ async def modify_flow_entry(request: Request):
         raise HTTPException(status_code=400,
                             detail={"error": "unsupported match", "fields": err.fields,
                                     "message": str(err)})
+    except SlotPriorityNotHeld as err:
+        # [Co-developed with claude code -- Adam] Adam, 2026-10-16.
+        raise _slot_priority_not_held(err)
     except RouteWriteUnsupported as err:
         # TICKET-P4-roles 2.2-3. [Co-developed with claude code -- Adam]
         raise _route_write_unsupported(err, dpid)
@@ -1267,6 +1341,15 @@ async def counter(name: str, dpid: int, index: int = 0):
             detail={"error": "invalid index", "dpid": dpid, "counter": name,
                     "message": f"index {index} is negative; counter indices are unsigned"})
 
+    if _counter_kind(client, name) == "direct":
+        # [Co-developed with claude code -- Adam]
+        # It IS in this pipeline, it just has no index: say so and where it is read, rather than
+        # "not in this pipeline", which sent the reader looking for a wiring error. Nothing is read.
+        raise HTTPException(status_code=404, detail={
+            "error": "direct counter", "dpid": dpid, "counter": name,
+            "message": f"{name} is a direct counter: it has one cell per entry of its table, not "
+                       f"an index. Read it at GET /p4/direct_counter/{name}?dpid={dpid}"})
+
     try:
         reading = await run_in_threadpool(client.read_egress_counter, index, name)
     except CounterNotFound as err:
@@ -1287,6 +1370,312 @@ async def counter(name: str, dpid: int, index: int = 0):
     byte_count, packet_count = reading
     return {"dpid": dpid, "counter": name, "index": index,
             "bytes": byte_count, "packets": packet_count}
+
+
+def _counter_kind(client, name):
+    """"indexed", "direct" or None: which list of this switch's p4info names `name` (full name or
+    alias). [Co-developed with claude code -- Adam]"""
+    for kind, counters in (("indexed", client.p4info.counters),
+                           ("direct", client.p4info.direct_counters)):
+        if any(name in (c.preamble.name, c.preamble.alias) for c in counters):
+            return kind
+    return None
+
+
+# --- reading one direct counter --------------------------------------------------------------
+
+
+@router.get("/p4/direct_counter/{name}")
+async def direct_counter(name: str, dpid: int):
+    """
+    Every entry of a direct counter's table with its counts: `GET /p4/direct_counter/<name>?dpid=<n>`.
+
+    [Co-developed with claude code -- Adam]
+    A direct counter has one cell per table entry and no index, so `GET /p4/counter` cannot
+    read it. The answer is the whole table, from ONE wildcard P4Runtime read:
+
+        {"dpid": 2, "counter": "HcIngress.dc_k2", "table": "HcIngress.t_dcount", "unit": "both",
+         "entries": [{"match": {"hdr.udp.dstPort": {"type": "exact", "value": 40012}},
+                      "priority": 0, "bytes": 335, "packets": 5}]}
+
+    A match field is `{"type", ...}` with integer values: `value` (exact, optional), `value` and
+    `prefix_len` (lpm), `value` and `mask` (ternary), `low` and `high` (range). `priority` is
+    the switch's own (0 on a table with no priority column, as P4Runtime defines it). The caller
+    finds its own entry by match; the size of the answer is bounded by the table's declared size.
+    `bytes` / `packets` is null, never 0, for a unit the counter does not count (`unit` says
+    which it counts) and for an entry the switch sent no data for.
+
+        200  the read succeeded, including entries at 0 / 0 and an empty table (`entries: []`).
+        404  an unknown dpid, or a name that is not a direct counter of this switch's p4info --
+             `error: "indexed counter"`, pointing at GET /p4/counter, when it is an indexed one.
+             Nothing was read.
+        502  `direct counter not rendered`: the switch answered, and rendering its answer
+             raised. Only then: a match-field id this p4info does not know does not raise, it
+             comes back under a null field name, as read_table_entries does (two unknown ids
+             on one entry collide and one is lost).
+        503  `direct counter not read`: the read failed, its deadline (RPC_TIMEOUT_S) included.
+             🔴 NOT AN EMPTY TABLE AND NOT A ZERO. `replay pending`: the switch is being
+             re-adopted (POST /p4/readopt) and its tables are being put back, so a read now
+             would report entries missing that are about to return; nothing was read. It is
+             checked once, before the read (POST /p4/table_entry checks again under the
+             journal's lock): a readopt that starts after the check can still meet this read
+             mid-push (DESIGN.md section 2.2). Also 503 before the proxy has a topology.
+
+    Every direct counter can be read, NDTwin's own included: the owner rule (409 owned_by_ndtwin)
+    is about writes, and GET /stats/flow already reports NDTwin's direct counters. Works under an
+    external control plane, for GET /p4/counter's reason: a ReadRequest has no election id.
+
+    The refusals below are laid out differently from GET /p4/counter's on purpose: the gates
+    under tests/shell mutate both routes by their exact text, and two copies of one block would
+    make an anchor match twice or, worse, match the other route.
+    """
+    if topology is None:
+        raise HTTPException(status_code=503, detail={
+            "error": "no topology", "message": "proxy has no topology yet"})
+    client = topology.switches.get(dpid)
+    if client is None:
+        raise HTTPException(status_code=404, detail={
+            "error": "unknown switch", "dpid": dpid,
+            "message": f"switch {dpid} is not connected to the proxy; nothing was read"})
+    if table_journals is not None and table_journals.pending(dpid):
+        raise HTTPException(status_code=503, detail={
+            "error": "replay pending", "dpid": dpid, "counter": name,
+            "message": f"switch {dpid} is being re-adopted and its entries put back; nothing was "
+                       f"read. Ask again once the readopt has answered"})
+    # Direct first: a name that is a direct counter here is read even if an indexed counter
+    # shares it (an alias may), so the pointer below is only for names that are not one.
+    if client.direct_counter_by_name(name) is None and _counter_kind(client, name) == "indexed":
+        raise HTTPException(status_code=404, detail={
+            "error": "indexed counter", "dpid": dpid, "counter": name,
+            "message": f"{name} is an indexed counter, not a direct one. Read a cell at "
+                       f"GET /p4/counter/{name}?dpid={dpid}&index=<i>"})
+
+    try:
+        reading = await run_in_threadpool(client.read_direct_counter, name)
+    except CounterNotFound as err:
+        raise HTTPException(status_code=404, detail={
+            "error": "not in this pipeline", "dpid": dpid, "counter": name, "message": str(err)})
+    except DirectCounterUnrenderable as err:
+        raise HTTPException(status_code=502, detail={
+            "error": "direct counter not rendered", "dpid": dpid, "counter": name,
+            "message": str(err)})
+
+    if reading is None:
+        raise HTTPException(status_code=503, detail={
+            "error": "direct counter not read", "dpid": dpid, "counter": name,
+            "message": f"the read of {name} on switch {dpid} failed or ran out of time. This is "
+                       f"NOT a reading of zero and NOT an empty table"})
+
+    # `counter` is the full name even when asked by alias, so two callers' answers agree.
+    return dict(reading, dpid=dpid)
+
+
+# --- reading a register through bmv2's thrift service ------------------------------------------
+
+#: The most cells one GET /p4/register answers. [Co-developed with claude code -- Adam]
+REGISTER_CELLS_MAX = 4096
+#: The largest array a multi-cell read fetches whole (bm_register_read_all) to slice from; past
+#: it only one cell at a time (`index`) is read. 65536 i64 are 512 KiB on the wire.
+REGISTER_READ_ALL_MAX = 65536
+#: Where bmv2's thrift service listens, from the proxy's side of the host. The fabric's switches
+#: run on this host (p4_testbed_topo), as their gRPC ports do.
+REGISTER_THRIFT_HOST = "127.0.0.1"
+
+
+def _register_error(status, error, dpid, name, message, **extra):
+    """The HTTPException GET /p4/register raises. A helper rather than the inline blocks the two
+    counter routes use: the gates under tests/shell anchor on those blocks' exact text.
+    [Co-developed with claude code -- Adam]"""
+    return HTTPException(status_code=status, detail=dict(
+        {"error": error, "dpid": dpid, "register": name, "message": message}, **extra))
+
+
+def _register_by_name(client, name):
+    """The p4info Register named `name` (full name or alias), or None."""
+    for reg in client.p4info.registers:
+        if name in (reg.preamble.name, reg.preamble.alias):
+            return reg
+    return None
+
+
+@router.get("/p4/register/{name}")
+async def register(name: str, dpid: int, index: Optional[int] = None,
+                   start: Optional[int] = None, count: Optional[int] = None):
+    """
+    Cells of one register array: `GET /p4/register/<name>?dpid=<n>[&index=<i> | &start=<s>&count=<c>]`.
+
+    [Co-developed with claude code -- Adam]
+    🔴 BMV2 ONLY, THROUGH ITS THRIFT SERVICE. bmv2's P4Runtime answers every RegisterEntry read
+    UNIMPLEMENTED, and the PI installed with it has no register support in any layer
+    (doc/audit/2026-10-16_p4-register-read/DESIGN.md sections 1 and 5), so this route asks the
+    switch's own thrift service -- simple_switch_CLI's `register_read` -- on the port
+    p4_testbed_topo gives it (grpc_ports.thrift_port: 9090 + dpid). Every answer says so in
+    `source: "bmv2-thrift"`. A hardware target has no such service; there this route answers 503.
+
+        {"dpid": 2, "register": "HcIngress.r_mark", "bitwidth": 32, "size": 16, "start": 0,
+         "values": [4737], "source": "bmv2-thrift"}
+
+    `index=i` is one cell (`start=i`, one value). `start` / `count` is a range; with neither,
+    the whole array. At most REGISTER_CELLS_MAX cells per request. A value is the register's
+    bit<W> value, W at most 63: bmv2's thrift carries an i64, and a bit<64> cell at or above 2^63
+    comes back as 2^63 - 1 (measured on both builds, DESIGN-thrift.md), so a bit<64> register is
+    refused rather than answered with a number that may be a different one.
+
+    🔴 THE THRIFT PORT MUST BE THIS SWITCH'S. Two checks, before EVERY read, nothing remembered:
+      1. the dpid's own switch answers one P4Runtime round trip (client.probe) -- else 503
+         `switch not reachable` and thrift is not asked;
+      2. on the read's own thrift connection, bm_mgmt_get_info answers this client's device id and
+         thrift port -- else 502 `thrift device mismatch` and no register is read.
+    Caught: a bmv2 on that port with another device id or port number, whenever it appears (also
+    after earlier reads); any bmv2 on that port while the dpid's switch is not answering
+    P4Runtime. NOT caught by these checks alone: a bmv2 with the SAME device id and port number
+    (a p4lang-tutorials switch numbers itself exactly as the fabric does) holding 9090 + dpid
+    while the dpid's own switch answers P4Runtime -- that rests on the premise that a switch the
+    fabric launched with --thrift-port 9090 + dpid holds that port while it runs
+    (doc/audit/2026-10-16_p4-register-read/DESIGN-thrift.md section 13 says what was measured).
+
+        200  the read succeeded. A 0 is a 0: the cell holds it.
+        400  `index out of range` (the array's size is in p4info and is checked before the
+             switch is asked; a `start` past the end is one too), a negative or empty range, or
+             `index` given with `start`/`count`.
+        404  an unknown dpid, or a name that is not a register of this switch's p4info.
+        413  `too many cells`: more than REGISTER_CELLS_MAX asked for, or a range out of an array
+             larger than REGISTER_READ_ALL_MAX (read it cell by cell with `index`).
+        501  a register this route cannot represent: bit<64> or wider, or not a bit<W>.
+        502  `thrift device mismatch`: the thrift port answers for another switch (nothing was
+             read). `register refused`: bmv2 does not know a register p4info has (the program
+             and the p4info disagree). `register answer invalid`: an answer that is not these
+             calls' answer -- including a whole array of another size than p4info's, or a value
+             outside bit<W>. `register answer not understood`: bytes that are not thrift at all.
+        503  `switch not reachable`: the dpid's own switch does not answer P4Runtime (nothing
+             was read). `register not read`: no thrift connection, or it broke or ran out of time.
+             🔴 NOT A ZERO. The whole request -- the liveness round trip, then the identity and
+             the read on one thrift connection -- shares ONE RPC_TIMEOUT_S budget, so a request
+             takes at most about RPC_TIMEOUT_S (5 s), plus whatever its two hops to a worker
+             thread wait for a free one. `thrift not installed`: the
+             proxy's interpreter has no `thrift` package (the rest of the proxy runs). Also
+             `replay pending`
+             while the switch is being re-adopted (its registers are reset by the pipeline push),
+             checked once, before the read; `no thrift port` when the client has none; and no
+             topology yet.
+
+    Every register can be read. A thrift read needs no mastership, so it works under an external
+    control plane too; and it was measured not to put P4Runtime's reads out of sync (only a CLI
+    table write did, DESIGN-thrift.md section 0). The reads run on a worker thread.
+    """
+    if topology is None:
+        raise _register_error(503, "no topology", dpid, name, "proxy has no topology yet")
+    client = topology.switches.get(dpid)
+    if client is None:
+        raise _register_error(404, "unknown switch", dpid, name,
+                              f"switch {dpid} is not connected to the proxy; nothing was read")
+    journals = table_journals
+    if journals is not None and journals.pending(dpid):
+        raise _register_error(503, "replay pending", dpid, name,
+                              f"switch {dpid} is being re-adopted, which resets its registers; "
+                              f"nothing was read. Ask again once the readopt has answered")
+    reg = _register_by_name(client, name)
+    if reg is None:
+        raise _register_error(404, "not in this pipeline", dpid, name,
+                              f"{name} is not a register of the pipeline switch {dpid} runs "
+                              f"({len(client.p4info.registers)} registers)")
+    full, size = reg.preamble.name, reg.size
+    if not reg.type_spec.HasField("bitstring") or not reg.type_spec.bitstring.HasField("bit"):
+        raise _register_error(501, "register type not readable", dpid, full,
+                              f"{full} is not a bit<W> register; only bit<W> is read here")
+    width = reg.type_spec.bitstring.bit.bitwidth
+    if width > 63:
+        raise _register_error(501, "register too wide", dpid, full,
+                              f"{full} is bit<{width}>; bmv2's thrift carries a signed 64-bit "
+                              f"value and answers 2^63 - 1 for every cell at or above 2^63, so "
+                              f"bit<64> and wider cannot be read truthfully here")
+
+    if index is not None and (start is not None or count is not None):
+        raise _register_error(400, "invalid range", dpid, full,
+                              "give `index`, or `start` and `count`, not both")
+    if index is not None:
+        start, count = index, 1
+    start = 0 if start is None else start
+    if start < 0:
+        raise _register_error(400, "invalid range", dpid, full,
+                              f"start {start}: start must be >= 0")
+    if start >= size:
+        raise _register_error(400, "index out of range", dpid, full,
+                              f"cell {start} asked of {full}[{size}]", size=size)
+    count = (size - start) if count is None else count
+    if count < 1:
+        raise _register_error(400, "invalid range", dpid, full, f"count {count}: count must be >= 1")
+    if start + count > size:
+        raise _register_error(400, "index out of range", dpid, full,
+                              f"cells {start}..{start + count - 1} asked of {full}[{size}]",
+                              size=size)
+    if count > REGISTER_CELLS_MAX:
+        raise _register_error(413, "too many cells", dpid, full,
+                              f"{count} cells asked; at most {REGISTER_CELLS_MAX} per request",
+                              size=size)
+    if count > 1 and size > REGISTER_READ_ALL_MAX:
+        raise _register_error(413, "too many cells", dpid, full,
+                              f"{full} has {size} cells, more than {REGISTER_READ_ALL_MAX}: read "
+                              f"it one cell at a time with `index`", size=size)
+    port = getattr(client, "thrift_port", None)
+    if port is None:
+        raise _register_error(503, "no thrift port", dpid, full,
+                              f"switch {dpid} has no thrift port known to the proxy")
+
+    # One budget for the whole request: the liveness round trip and the thrift connection (the
+    # identity and the read on it) share RPC_TIMEOUT_S.
+    deadline = time.monotonic() + RPC_TIMEOUT_S
+
+    def left():
+        return max(0.001, deadline - time.monotonic())
+
+    # The dpid's own P4Runtime switch must answer NOW: p4_testbed_topo launched it with
+    # --thrift-port 9090 + dpid, so while it runs that port is its own (DESIGN-thrift.md 13).
+    alive = await run_in_threadpool(client.probe, left())
+    if not alive.get("ok"):
+        raise _register_error(503, "switch not reachable", dpid, full,
+                              f"switch {dpid} does not answer P4Runtime ({alive.get('detail')}), so "
+                              f"whatever holds its thrift port cannot be taken for it; nothing "
+                              f"was read")
+    expected = (client.device_id, port)
+    try:
+        if count == 1:
+            raw = [await run_in_threadpool(bm_thrift.read_register_as, REGISTER_THRIFT_HOST, port,
+                                           full, start, expected, left())]
+        else:
+            whole = await run_in_threadpool(bm_thrift.read_register_as, REGISTER_THRIFT_HOST, port,
+                                            full, None, expected, left())
+            if len(whole) != size:
+                raise _register_error(502, "register answer invalid", dpid, full,
+                                      f"bmv2 answered {len(whole)} cells for an array p4info "
+                                      f"declares as {size}", source="bmv2-thrift")
+            raw = whole[start:start + count]
+    except bm_thrift.ThriftDeviceMismatch as err:
+        raise _register_error(502, "thrift device mismatch", dpid, full,
+                              f"{err} (switch {dpid}); nothing was read", source="bmv2-thrift")
+    except bm_thrift.ThriftNotInstalled as err:
+        raise _register_error(503, "thrift not installed", dpid, full, str(err),
+                              source="bmv2-thrift")
+    except bm_thrift.ThriftUnreachable as err:
+        raise _register_error(503, "register not read", dpid, full,
+                              f"{err}. This is NOT a reading of zero", source="bmv2-thrift")
+    except bm_thrift.RegisterReadRefused as err:
+        raise _register_error(502, "register refused", dpid, full, str(err),
+                              code=bm_thrift.ERROR_NAMES.get(err.code, err.code),
+                              source="bmv2-thrift")
+    except bm_thrift.ThriftAnswerNotUnderstood as err:
+        raise _register_error(502, "register answer not understood", dpid, full, str(err),
+                              source="bmv2-thrift")
+    except bm_thrift.ThriftAnswerInvalid as err:
+        raise _register_error(502, "register answer invalid", dpid, full, str(err),
+                              source="bmv2-thrift")
+    outside = [v for v in raw if not 0 <= v < (1 << width)]
+    if outside:
+        raise _register_error(502, "register answer invalid", dpid, full,
+                              f"bmv2 answered {outside[:3]} for a bit<{width}> register: the "
+                              f"program and the p4info disagree", source="bmv2-thrift")
+    return {"dpid": dpid, "register": full, "bitwidth": width, "size": size, "start": start,
+            "values": list(raw), "source": "bmv2-thrift"}
 
 
 # --- programming one multicast group (TICKET-P3 2.6, G8) --------------------------------------

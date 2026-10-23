@@ -48,6 +48,26 @@ def counter(cfg, name, dpid, index=0):
     return reply.status, packets, error
 
 
+def register(cfg, name, dpid, index=0):
+    """(status, value or None, error word or None) of GET /p4/register/<name>?dpid=&index=
+    (the proxy's bmv2-thrift register read: 200 {"values": [v], "source": "bmv2-thrift"}; 404
+    {"error": "not in this pipeline"} or "unknown switch"; 503 "register not read", NOT A ZERO).
+    status None: nothing answered. [Co-developed with claude code -- Adam]"""
+    reply = cfg.proxy.get("/p4/register/%s?dpid=%d&index=%d" % (name, int(dpid), int(index)))
+    value = error = None
+    body = reply.body if isinstance(reply.body, dict) else {}
+    values = body.get("values")
+    if (reply.status == 200 and isinstance(values, list) and len(values) == 1
+            and isinstance(values[0], int) and not isinstance(values[0], bool)):
+        value = values[0]
+    detail = body.get("detail")
+    if isinstance(detail, dict):
+        error = detail.get("error")
+    elif isinstance(detail, str):
+        error = detail
+    return reply.status, value, error
+
+
 def post_table_entry(cfg, entry):
     reply = cfg.proxy.post("/p4/table_entry", entry)
     return reply.status, reply.body

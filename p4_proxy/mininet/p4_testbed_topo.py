@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import collections
+import ipaddress
 import json
 import math
 import os
@@ -8,6 +9,7 @@ import signal
 import socket
 import subprocess
 import sys
+import shlex
 import tempfile
 import time
 from mininet.net import Mininet
@@ -26,11 +28,114 @@ import app_package  # noqa: E402
 import link_telemetry  # noqa: E402
 
 # [Co-developed with claude code -- Adam]
-# Where the switch manifest is written: name -> pid, grpc_port, thrift_port, device_id.
+# Where the switch manifest is written: name -> pid, grpc_host, grpc_port, thrift_port, device_id.
 # P4PowerStrategy needs this to power one switch off without killing the other nine
 # (Mininet switches share the root PID namespace, so `pkill -f simple_switch_grpc` kills
 # all of them). See Phase 7 of doc/2026-07-27_p4_bmv2_support_plan.md.
 MANIFEST_PATH = "/tmp/ndtwin_p4_switches.json"
+
+# [Co-developed with claude code -- Adam]
+# The address the switches' gRPC (P4Runtime) servers listen on. 127.0.0.1 unless the operator
+# says otherwise. The switches run in the root namespace and the server has no authentication,
+# so whatever can reach this machine at the port can write the switch's tables; the old
+# '0.0.0.0' served every interface. Every consumer in this repo -- the proxy (`localhost:<port>`),
+# ndtwin-p4-power, the health tools -- runs on this machine, so loopback costs them nothing. To
+# listen on every interface set NDTWIN_BMV2_HOST to `0.0.0.0` (every IPv4 address) or `::`,
+# as the proxy's NDTWIN_PROXY_HOST does for the proxy, and put your own access control in front.
+#
+# Only 127.0.0.1, 0.0.0.0 and :: are accepted, because everything that checks a switch is up
+# dials 127.0.0.1 (verify_switches, grpc_port_is_open, ndtwin-p4-power) and the proxy dials
+# localhost: a server bound to any other address (127.0.0.2, ::1, a LAN address) would be
+# started and then found "not listening" after the running fabric had been torn down.
+#
+# The variable is read from THIS process's environment. The lab wrapper (`sudo ndtwin-lab
+# topo-start`) launches the topology under a fixed root environment, and sudo's env_reset is
+# expected to drop the variable before it gets there, so through the wrapper the switches' gRPC
+# servers should always listen on 127.0.0.1 (expected, not run); the opt-in is for running the
+# topology directly (`sudo env NDTWIN_BMV2_HOST=... python3 p4_testbed_topo.py`).
+BMV2_HOST_ENV_VAR = "NDTWIN_BMV2_HOST"
+DEFAULT_BMV2_HOST = "127.0.0.1"
+#: What the variable may name (after canonicalisation: "127.1" is 127.0.0.1, "0" is 0.0.0.0).
+ACCEPTED_BMV2_HOSTS = ("127.0.0.1", "0.0.0.0", "::")
+
+
+class Bmv2HostError(ValueError):
+    """NDTWIN_BMV2_HOST names something this machine cannot listen on."""
+
+
+def _is_loopback(host):
+    """Whether `host` (a numeric address) is loopback; ::ffff:127.0.0.1 counts as 127.0.0.1."""
+    try:
+        ip = ipaddress.ip_address(host.split("%", 1)[0])
+    except ValueError:
+        return False
+    mapped = getattr(ip, "ipv4_mapped", None)
+    return (mapped or ip).is_loopback
+
+
+def _hostport(host, port):
+    return f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+
+
+def bmv2_host_lines(host):
+    """What the bring-up says about the gRPC listen address: the address, and a warning if it is
+    not loopback.
+
+    [Co-developed with claude code -- Adam]
+    The address is what decides who can write the switches' tables, so it is printed every
+    time, and anything but loopback is called out.
+    """
+    lines = [f"bmv2 gRPC listen address: {host}"]
+    if not _is_loopback(host):
+        lines.append(
+            f"WARNING: {host} is not loopback, and the switches' gRPC servers have no "
+            f"authentication: anything that can reach it can write their tables. Drop "
+            f"{BMV2_HOST_ENV_VAR} to listen on {DEFAULT_BMV2_HOST} only.")
+    return lines
+
+
+def bmv2_listen_host(env=None):
+    """The address the switches' gRPC servers listen on: NDTWIN_BMV2_HOST, else 127.0.0.1.
+
+    [Co-developed with claude code -- Adam]
+    Returns the canonical address ("127.1" comes back as "127.0.0.1"). Raises Bmv2HostError,
+    naming the variable, for anything that is not 127.0.0.1, 0.0.0.0 or ::. The value must be
+    numeric (AI_NUMERICHOST): a hostname would resolve to whichever address the resolver lists
+    first. Everything else is refused here, in the pre-flight plan_fabric runs, and not as ten
+    switches that fail their liveness probe after `mn -c` has torn the running fabric down.
+    "Can listen on" is asked of the kernel with a throwaway bind to port 0.
+    """
+    if env is None:
+        env = os.environ
+    value = (env.get(BMV2_HOST_ENV_VAR) or "").strip() or DEFAULT_BMV2_HOST
+    try:
+        family, _type, _proto, _canon, sockaddr = socket.getaddrinfo(
+            value, 0, type=socket.SOCK_STREAM,
+            flags=socket.AI_PASSIVE | socket.AI_NUMERICHOST)[0]
+    except (OSError, UnicodeError) as exc:
+        raise Bmv2HostError(
+            f"{BMV2_HOST_ENV_VAR}={value!r} is not a numeric address ({exc}). Use "
+            f"{', '.join(ACCEPTED_BMV2_HOSTS)}, or leave it unset for {DEFAULT_BMV2_HOST}.") from None
+    host = sockaddr[0]
+    if host not in ACCEPTED_BMV2_HOSTS:
+        raise Bmv2HostError(
+            f"{BMV2_HOST_ENV_VAR}={value!r} is not supported: only "
+            f"{', '.join(ACCEPTED_BMV2_HOSTS)} are accepted (or leave it unset for "
+            f"{DEFAULT_BMV2_HOST}). The liveness probes, ndtwin-p4-power and the proxy all "
+            f"reach the switches at 127.0.0.1, so a server on any other address would be "
+            f"started and then reported as not listening.")
+    try:
+        probe = socket.socket(family, socket.SOCK_STREAM)
+        try:
+            probe.bind(sockaddr)
+        finally:
+            probe.close()
+    except OSError as exc:
+        raise Bmv2HostError(
+            f"{BMV2_HOST_ENV_VAR}={value!r} is not an address this machine can listen on "
+            f"({exc}).") from None
+    return host
+
 
 # [Co-developed with claude code -- Adam]
 # The launcher default and its override. The override file exists because the lab wrapper
@@ -184,12 +289,18 @@ class BMv2Switch(Switch):
     def __init__(self, name, json_path=None, device_id=1,
                  grpc_port=grpc_ports.grpc_port(1), thrift_port=grpc_ports.THRIFT_PORT_BASE,
                  cpu_port=app_package.BASELINE_CPU_PORT,
+                 grpc_host=None,
                  **kwargs):
         Switch.__init__(self, name, **kwargs)
         self.json_path = json_path
         self.device_id = device_id
         self.grpc_port = grpc_port
         self.thrift_port = thrift_port
+        # [Co-developed with claude code -- Adam]
+        # The address the gRPC server binds; the manifest records it. None asks the environment
+        # (NDTWIN_BMV2_HOST, else loopback) -- MultiSwitchTopo asks once and hands every switch
+        # the same answer.
+        self.grpc_host = bmv2_listen_host() if grpc_host is None else grpc_host
         # [Co-developed with claude code -- Adam]
         # Was the literal 255 written into the argv below, one of three copies of that number
         # (the other two are p4_client.CPU_PORT and ndtwin_switch.p4). The default here is that
@@ -221,13 +332,15 @@ class BMv2Switch(Switch):
 
         args.append('--')
         args.append('--grpc-server-addr')
-        args.append(f'0.0.0.0:{self.grpc_port}')
+        # Quoted: the line goes to a shell, and "[::]:N" is a bracket glob there.
+        args.append(shlex.quote(_hostport(self.grpc_host, self.grpc_port)))
         args.append('--cpu-port')
         args.append(str(self.cpu_port))
 
         cmd = ' '.join(args)
         self.launch_argv = cmd
-        info(f"Starting {self.name} (gRPC: {self.grpc_port}, Thrift: {self.thrift_port}, "
+        info(f"Starting {self.name} (gRPC: {_hostport(self.grpc_host, self.grpc_port)}, "
+             f"Thrift: {self.thrift_port}, "
              f"bin: {binary})\n")
         # `echo $!` yields the background PID; cmd() returns the shell's output. Without this
         # there is no handle on the process at all, which is why stop() used a job spec.
@@ -306,8 +419,12 @@ class BMv2Switch(Switch):
         Switch.stop(self, deleteIntfs)
 
 class MultiSwitchTopo(Topo):
-    def __init__(self, package=None, model=None, **opts):
+    def __init__(self, package=None, model=None, grpc_host=None, **opts):
         Topo.__init__(self, **opts)
+        # [Co-developed with claude code -- Adam]
+        # Asked once for the whole fabric, so every switch listens where the pre-flight said.
+        if grpc_host is None:
+            grpc_host = bmv2_listen_host()
 
         # Which model to build from, and under which app package. The host count still selects
         # the model when no package names one -- that is the one knob the lab wrapper can
@@ -355,7 +472,7 @@ class MultiSwitchTopo(Topo):
                                json_path=package.pipeline_for(dpid, proxy_root)[1],
                                device_id=dpid, grpc_port=grpc_ports.grpc_port(dpid),
                                thrift_port=grpc_ports.thrift_port(dpid),
-                               cpu_port=package.cpu_port)
+                               cpu_port=package.cpu_port, grpc_host=grpc_host)
             switches[dpid] = s
 
         # Links, hosts and host attachment all come from the kernel's own topology model.
@@ -510,6 +627,7 @@ def write_manifest(switches, path=MANIFEST_PATH):
         sw.name: {
             "pid": sw.bmv2_pid,
             "device_id": sw.device_id,
+            "grpc_host": sw.grpc_host,
             "grpc_port": sw.grpc_port,
             "thrift_port": sw.thrift_port,
             "log_file": sw.log_file,
@@ -875,7 +993,7 @@ def abort_if_grpc_ports_are_held(held, owner_of=None, report=print, exit_=sys.ex
 FabricPlan = collections.namedtuple(
     "FabricPlan",
     "package model_path model dpids json_paths binary lib_dir ports port_warning "
-    "telemetry_knob telemetry_sources")
+    "telemetry_knob telemetry_sources bmv2_host", defaults=(DEFAULT_BMV2_HOST,))
 
 
 class FabricPlanError(ValueError):
@@ -970,10 +1088,19 @@ def plan_fabric(package=None, report=print):
     if warning:
         report(warning)
 
+    # [Co-developed with claude code -- Adam]
+    # Where the switches' gRPC servers will listen, refused here if NDTWIN_BMV2_HOST is not one
+    # of the accepted addresses (or one this machine cannot bind) -- before
+    # `reset_for_bring_up`, not as ten dead switches after it. Said out loud, with a warning for anything but loopback, because the address
+    # is what decides who can write the switches' tables.
+    bmv2_host = bmv2_listen_host()
+    for line in bmv2_host_lines(bmv2_host):
+        report(line)
+
     return FabricPlan(package=package, model_path=model_path, model=model, dpids=dpids,
                       json_paths=json_paths, binary=binary, lib_dir=lib_dir, ports=ports,
                       port_warning=warning, telemetry_knob=telemetry_knob,
-                      telemetry_sources=telemetry_sources)
+                      telemetry_sources=telemetry_sources, bmv2_host=bmv2_host)
 
 
 def reset_for_bring_up(ports, settle_s=0.5):
@@ -1005,8 +1132,12 @@ def reset_for_bring_up(ports, settle_s=0.5):
     time.sleep(settle_s)  # let the ports actually be released before anything tries to bind
 
 
-def build_net(package, model):
+def build_net(package, model, grpc_host=None):
     """The Mininet this fabric is. A function so a test can put a recorder in its place.
+
+    [Co-developed with claude code -- Adam]
+    `grpc_host` is the address plan_fabric vouched for, handed down so that nothing reads the
+    environment again after the running fabric has been torn down.
 
     [Co-developed with claude code -- Adam]
     🔴 `link=TCLink` IS PASSED ONLY WHEN THE PACKAGE SHAPED SOMETHING, and the call below it is
@@ -1023,9 +1154,9 @@ def build_net(package, model):
     """
     if app_package.shaped_links(package):
         from mininet.link import TCLink
-        return Mininet(topo=MultiSwitchTopo(package=package, model=model),
+        return Mininet(topo=MultiSwitchTopo(package=package, model=model, grpc_host=grpc_host),
                        controller=None, autoSetMacs=True, link=TCLink)
-    return Mininet(topo=MultiSwitchTopo(package=package, model=model),
+    return Mininet(topo=MultiSwitchTopo(package=package, model=model, grpc_host=grpc_host),
                    controller=None, autoSetMacs=True)
 
 
@@ -1256,7 +1387,7 @@ def _start_link_telemetry(package, model, switches, manifest_path=None, report=p
 
 
 def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
-             report=print, link_manifest_path=None):
+             report=print, link_manifest_path=None, grpc_host=None):
     """Build the fabric, set the hosts up, verify the switches, write the manifest, judge it.
 
     Returns (net, switches, fatal, report) -- `report` being partial_fabric_verdict's message,
@@ -1273,11 +1404,14 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
 
     `net` and `manifest_path` are seams for the offline tests, not options: a fabric this
     function builds itself is the only one either main passes.
+
+    [Co-developed with claude code -- Adam]
+    `grpc_host` is plan.bmv2_host: the gRPC listen address the pre-flight vouched for.
     """
     if manifest_path is None:
         manifest_path = MANIFEST_PATH
     if net is None:
-        net = build_net(package, model)
+        net = build_net(package, model, grpc_host=grpc_host)
     net.start()
 
     # 🔴 FROM THE MODEL, AND BEFORE THE HOSTS. This was `[net.get(f's{i}') for i in range(1,
@@ -1467,7 +1601,8 @@ def main():
 
     reset_for_bring_up(plan.ports)
 
-    net, switches, fatal, report, _host_setup = bring_up(plan.package, plan.model)
+    net, switches, fatal, report, _host_setup = bring_up(plan.package, plan.model,
+                                                         grpc_host=plan.bmv2_host)
     ports = plan.ports
 
     print("\n======================================================================")

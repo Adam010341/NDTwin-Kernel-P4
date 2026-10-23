@@ -129,8 +129,11 @@ requests==2.34.2
 # widely-used name (mcp 2.0.0 vendoring a fake httpx), so nothing here floats.
 hypothesis==6.165.5
 
-# Not imported by the proxy. bmv2's counter/register CLI needs the thrift binding, and the
-# recipe took two tries to get right (verified live 2026-08-13, HANDOFF section 4):
+# Imported by the proxy only lazily: proxy_agent/bm_thrift.py loads it on the first
+# GET /p4/register, and without it that one route answers 503 "thrift not installed" while the
+# rest of the proxy runs. [Co-developed with claude code -- Adam] It is also what bmv2's
+# counter/register CLI needs, and that recipe took two tries to get right (verified live
+# 2026-08-13, HANDOFF section 4):
 #
 #   SP=/home/adam/p4dev-python-venv/lib/python3.13/site-packages
 #   PYTHONPATH="$SP" p4_proxy/venv/bin/python "$SP/sswitch_CLI.py" --thrift-port <9090+dpid>

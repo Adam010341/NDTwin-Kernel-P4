@@ -343,6 +343,50 @@ ndt up p4 128       # 128 hosts
 
 三步：`[1/3] bmv2 fabric` → `[2/3] proxy + kernel` → `[3/3] verify`。
 
+##### P4：用主機防火牆擋住 bmv2 的 Thrift port（建議）
+
+- bmv2 的 Thrift runtime server（port ＝ `9090 + dpid`，`simple_switch_CLI` 用的就是它；`setting/` 裡隨附的拓樸 dpid 都是 1–10，
+  所以是 `9091-9100`）**聽在每一個網路介面**，
+  bmv2 沒有任何選項可以改這個位址。實測：對一台暫時的 bmv2 跑 `simple_switch_CLI --thrift-port <N>`，
+  指令直接得到回答，**沒有任何帳號、密碼之類的步驟**。
+- 用主機防火牆擋掉從其他介面進來的新連線。下面的範例用**自己的 table**，不會動到 Docker 或任何其他人的規則
+  （`lo` 不受影響，localhost 的 client 照常連線）：
+
+  ```bash
+  sudo nft add table inet ndtwin_guard
+  sudo nft add chain inet ndtwin_guard input '{ type filter hook input priority 0; policy accept; }'
+  sudo nft add rule inet ndtwin_guard input iifname != "lo" tcp dport 9091-9100 ct state new drop
+  ```
+
+  ⚠️ `9091-9100` 只涵蓋隨附的 10 台拓樸。app package 可以宣告任何正整數 dpid（`p4_proxy/mininet/app_package.py`），
+  dpid ≥ 11 的 switch，Thrift port 是 9101 以上，上面的規則**不會擋到它們**。package 的最大 dpid 是 `D` 時，
+  範圍要放寬成 `9091-(9090 + D)`，例如最大 dpid 128 → `9091-9218`（nft 指令與下面的 `/etc/ndtwin-guard.nft` 兩處都要改）：
+
+  ```bash
+  sudo nft add rule inet ndtwin_guard input iifname != "lo" tcp dport 9091-9218 ct state new drop
+  ```
+
+  這個 table 存在的期間，這些 port 對**任何程式**都擋（例如 node_exporter 的 9100、Pushgateway 的 9091）。
+  檢查：`sudo nft list table inet ndtwin_guard`（只證明規則存在；擋不擋得住只能從另一台機器連連看，
+  本機連自己的 LAN 位址走的是 `lo`，測不出來）
+  移除：`sudo nft delete table inet ndtwin_guard`
+  這樣加的規則**重開機後不會留下來**。
+- ⚠️ 要常駐：**不要**把這個 table 加進 `/etc/nftables.conf` 再重載——那個檔案常以 `flush ruleset` 開頭，
+  重載會把 Docker、Tailscale 的規則一起清掉。改成只放這個 table 的獨立檔，例如 `/etc/ndtwin-guard.nft`
+  （放在 `/etc` 底下、不在任何會被別的設定 `include` 的目錄，才不會被別人載到）：
+
+  ```
+  table inet ndtwin_guard {
+      chain input {
+          type filter hook input priority 0; policy accept;
+          iifname != "lo" tcp dport 9091-9100 ct state new drop
+      }
+  }
+  ```
+
+  開機時由 systemd unit 執行 `sudo nft -f /etc/ndtwin-guard.nft` 載入；重載前先 `sudo nft delete table inet ndtwin_guard`，不然規則會疊兩份。
+- gRPC 的 `30051-30060` 預設只聽 `127.0.0.1`（`NDTWIN_BMV2_HOST`，見 `p4_proxy/mininet/SPEC.md`），**不需要**防火牆規則。
+
 #### OVS／Ryu　（實測 24.1 秒 @128 hosts，`52cba51`）
 
 ```bash
@@ -367,7 +411,7 @@ ndt up 4            # ＝ ndt up ovs4　🔴 它不是 P4
 **南向連線的方向相反：**
 
 - **OVS**：Ryu 是 server，switch 撥出去找它 ⇒ **Ryu 必須先聽好**，Mininet 才能起。
-- **P4**：bmv2 是 server（`simple_switch_grpc` 聽 `0.0.0.0:30051-30060`），proxy 是
+- **P4**：bmv2 是 server（`simple_switch_grpc` 聽 `127.0.0.1:30051-30060`（gRPC，預設）），proxy 是
   gRPC **client** ⇒ **Mininet 必須先起**，否則 proxy 第一個 RPC 就 ECONNREFUSED，
   uvicorn 在開 :8081 之前就退出。
 
