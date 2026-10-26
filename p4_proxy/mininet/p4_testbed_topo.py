@@ -157,10 +157,10 @@ def bmv2_listen_host(env=None):
 # resolve_bmv2_launcher raises when the file is absent or carries no directive, and the binary
 # in use is always something a human wrote down.
 #
-# The promotion is licensed by doc/audit/2026-08-22_stock-control-ladder/: the same ladder, same
-# invocation, back to back on both binaries, with each arm verifying from /proc which binary the
-# live switches actually run. Both arms: L0/L1/L2/L3/capture/L4 pass, log allowlist fails
-# identically. "The fast build introduces zero new failures" is now a measurement.
+# The promotion rests on a measurement: the same ladder, same invocation, back to back on both
+# binaries, with each arm verifying from /proc which binary the live switches actually run.
+# Both arms: L0/L1/L2/L3/capture/L4 pass, log allowlist fails identically. "The fast build
+# introduces zero new failures" is now a measurement.
 DEFAULT_BMV2_BINARY = "/usr/local/bmv2-fast/bin/simple_switch_grpc"
 BINARY_OVERRIDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "bmv2_binary_override")
@@ -212,12 +212,13 @@ def resolve_bmv2_launcher(override_path=None):
     Which simple_switch_grpc this fabric runs: (binary, lib_dir).
 
     [Co-developed with claude code -- Adam]
-    Default is the bare name -- PATH lookup, byte-identical to the pre-override behavior.
-    With an override file, the binary comes from its first directive line, and lib_dir is
+    There is no fallback: the binary comes from the override file's first directive line
+    (an absent file, or one with no directive, raises -- see below), and lib_dir is
     the install prefix's ../lib when that directory exists: the fast build's libraries
     must accompany its binary or the run silently mixes stock libs into a "fast"
-    measurement (the performance report's trap #3), which is why the derivation is
-    automatic rather than a second line someone can forget.
+    measurement (the shared-library trap that build_bmv2_fast.sh's decision point 3 warns
+    about), which is why the derivation is automatic rather than a second line someone can
+    forget.
 
     A present-but-broken override raises instead of falling back: a fallback would
     benchmark the stock build under a filename that claims otherwise, and a corrupted
@@ -489,7 +490,7 @@ class MultiSwitchTopo(Topo):
         # arrives -- the same reason host_count_override is a file. NDTWIN_P4_TOPO_FILE still
         # wins when the topology is run directly, which is how it gets tested.
         # [Co-developed with claude code -- Adam]
-        # G2-C (TICKET-P3 section 2.4). `shaping_index` is empty for the baseline and for every
+        # `shaping_index` is empty for the baseline and for every
         # package that shapes nothing, and `link_shaping_kwargs` then answers `{}` -- so those
         # addLink calls are the calls this file has always made, argument for argument. What a
         # shaped link gets is `bw=<Mbps>` / `delay="<ms>ms"` on THAT cable only: ecn's and mri's
@@ -826,8 +827,8 @@ def clear_switches_from_a_previous_run(manifest_path=MANIFEST_PATH, ports=(), re
 
     [Co-developed with claude code -- Adam]
     This was `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')`, here and in
-    ntg_bmv2_topo.py, as root, on every bring-up. CLAUDE.md's engineering discipline names that
-    exact form as forbidden and KNOWN-ISSUES G-9 and G-inst-2 are the two times the reason was
+    ntg_bmv2_topo.py, as root, on every bring-up. That exact form is forbidden in
+    this project, and KNOWN-ISSUES G-9 and G-inst-2 are the two times the reason was
     learned the expensive way: `-f` matches the whole command line, so it takes any process
     whose argv merely mentions the string -- a sibling session's fabric, a tail of a log path,
     an editor with the file open -- and Mininet switches share the root PID namespace, so there
@@ -839,8 +840,8 @@ def clear_switches_from_a_previous_run(manifest_path=MANIFEST_PATH, ports=(), re
     The pid was never missing information. write_manifest has recorded name -> pid for every
     verified switch since Phase 7; reap_manifest_switches signals exactly those pids and
     re-reads /proc/<pid>/cmdline first, so a number recycled BEFORE the check is not signalled
-    (a reuse between the check and the signal remains possible -- the carried pidfd ticket);
-    and teardown has called it since the A-4 bookkeeping fix. Startup was simply not using any
+    (a reuse between the check and the signal remains possible until signalling moves to pidfds);
+    and teardown has called it since the bookkeeping fix. Startup was simply not using any
     of it.
 
     What a name match did that a pid cannot: reach a switch with no manifest entry -- a manifest
@@ -862,7 +863,7 @@ def clear_switches_from_a_previous_run(manifest_path=MANIFEST_PATH, ports=(), re
     which both mains call on the second half of this function's return value.
 
     2026-09-12: that decision used to be "warn and go on", and it was written here, in this
-    docstring, as a reason rather than as a choice. It is a choice, Adam ruled it, and it is now
+    docstring, as a reason rather than as a choice. It is a choice, and it is now
     "refuse" -- see abort_if_grpc_ports_are_held for what the warn-and-continue path cost. The
     split is kept because the two halves fail differently: reporting must never raise (teardown
     and tests call it), and refusing must never happen anywhere except a main.
@@ -936,7 +937,7 @@ def _run_read_only(argv, timeout=3.0):
 
 def abort_if_grpc_ports_are_held(held, owner_of=None, report=print, exit_=sys.exit):
     """
-    Refuse to build the fabric when a gRPC port this run needs is still held. Adam, 2026-09-12.
+    Refuse to build the fabric when a gRPC port this run needs is still held.
 
     [Co-developed with claude code -- Adam]
     The previous policy was to warn and go on, and the warning was accurate: BMv2Switch
@@ -1051,8 +1052,8 @@ def plan_fabric(package=None, report=print):
                + ", ".join(f"s{d}={os.path.basename(json_paths[d])}" for d in foreign))
 
     # 🔴 THE TELEMETRY KNOB, READ HERE, FOR THE SAME REASON EVERYTHING ELSE IN THIS FUNCTION IS
-    # READ HERE. `read_telemetry_knob` refuses a word outside the domain, and TICKET-P3 §2.1
-    # says that refusal is "拒絕啟動" -- refuse to start. Read for the first time inside
+    # READ HERE. `read_telemetry_knob` refuses a word outside the domain, and that refusal
+    # means "refuse to start". Read for the first time inside
     # `bring_up`, it would refuse AFTER `reset_for_bring_up` had already destroyed the fabric
     # that was running and AFTER `net.start()` had built its replacement: "refuse to start"
     # would have degraded into "die halfway up", which is the failure mode the whole of this
@@ -1116,8 +1117,7 @@ def reset_for_bring_up(ports, settle_s=0.5):
     `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')` -- see
     clear_switches_from_a_previous_run for why that was the wrong instrument and why the pid
     was available the whole time. A port the reap could not free stops the run here, before
-    Mininet is built; Adam ruled that on 2026-09-12 and the reasons are in
-    abort_if_grpc_ports_are_held.
+    Mininet is built; the reasons are in abort_if_grpc_ports_are_held.
     """
     # Last run's link telemetry first, and by the same reasoning the switch reap below stands
     # on: an emitter orphaned by a closed terminal is a process holding a psample group and
@@ -1240,8 +1240,7 @@ def configure_hosts(package, hosts, report=info):
         # 🔴 AND NOTHING IS RENAMED HERE. The baseline fabric's hosts are `h1-eth0` and every
         # other reader of this fabric -- the ARP fan-out above, disable_host_offloads, NTG's
         # MininetCommunicator -- has always seen that name. Renaming under the baseline would
-        # be a change nobody asked for, on the one path this whole ticket promises not to
-        # change.
+        # be a change nobody asked for, on the one path that must not change.
         for src in hosts:
             peers = [dst for dst in hosts if dst is not src]
             for i in range(0, len(peers), 32):
@@ -1290,7 +1289,7 @@ def start_link_telemetry(package, model, switches, manifest_path=None, report=pr
     """Plan, attach, start the emitter, record it -- or say in one line why there is none.
 
     [Co-developed with claude code -- Adam]
-    TICKET-P3 section 2.5. The order is load-bearing in both directions: the filters go on
+    The order is load-bearing in both directions: the filters go on
     BEFORE the emitter so that no sample is generated with nobody listening to blame for it,
     and the manifest is written AFTER the emitter because the manifest is what carries its pid
     -- which is the only handle anything downstream (`ndt status`, `verify_p4`, teardown, the
@@ -1340,10 +1339,10 @@ def _start_link_telemetry(package, model, switches, manifest_path=None, report=p
     try:
         link_telemetry.attach(plan, run=tc_run)
         proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)
-        # 🔴 THE IDENTITY IS TAKEN HERE, BEFORE ANYTHING POLLS `proc` (Adam 2026-09-27, ruling
-        # K). Until it is waited on, the emitter is an unreaped child of this process, so its
-        # pid cannot belong to anything else -- and this is the one read of its start time no
-        # pid reuse can race. Every later reader compares against what is recorded here.
+        # 🔴 THE IDENTITY IS TAKEN HERE, BEFORE ANYTHING POLLS `proc`. Until it is waited on,
+        # the emitter is an unreaped child of this process, so its pid cannot belong to anything
+        # else -- and this is the one read of its start time no pid reuse can race. Every later
+        # reader compares against what is recorded here.
         # [Co-developed with claude code -- Adam]
         link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path,
                                       identity=link_telemetry.emitter_identity(proc))
@@ -1364,7 +1363,7 @@ def _start_link_telemetry(package, model, switches, manifest_path=None, report=p
         raise
     report(link_telemetry.describe(plan, getattr(proc, "pid", None)))
 
-    # Give it the grace period section 2.5 names, asking each step. `poll()` is the process's
+    # Give it the grace period, asking each step. `poll()` is the process's
     # own exit status, not a scan for a name.
     #
     # A whole number of steps rather than `while deadline > 0: deadline -= 0.1`, because that
@@ -1394,7 +1393,7 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
     None when every switch came up.
 
     [Co-developed with claude code -- Adam]
-    🔴 THIS IS THE FUNCTION THE TICKET IS ABOUT. There were two of these, and the one that ran
+    🔴 BOTH ENTRY POINTS CALL THIS ONE. There were two of these, and the one that ran
     on every `ndt up p4` was the one nothing tested: ntg_bmv2_topo.py's copy still read
     `range(1, 11)` for its switch list after the package work landed here, so a four-switch
     package died at `net.get('s5')` with a KeyError, before write_manifest, with no try/finally
@@ -1416,7 +1415,7 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
 
     # 🔴 FROM THE MODEL, AND BEFORE THE HOSTS. This was `[net.get(f's{i}') for i in range(1,
     # 11)]` in the bridge, and the fifth copy of "this fabric has ten switches". It moved ahead
-    # of the host set-up when link telemetry landed: section 2.5 puts the sampling filters on
+    # of the host set-up when link telemetry landed: the sampling filters have to go on
     # between `net.start()` and `configure_hosts`, so that the very first packet a host command
     # sends is already being sampled, and planning them needs these objects.
     switches = [net.get(name) for _dpid, name in topo_from_json.switches(model)]
@@ -1483,7 +1482,7 @@ def tear_down(net, manifest_path=None, report=print, link_manifest_path=None):
     #     to remember. Reading the manifest means the NEXT bring-up can also clean up after a
     #     process that died without one.
     # The emitter is stopped by the pid the manifest names, after `/proc/<pid>/cmdline` says it
-    # is still that process -- never by pattern (section 0 item 1).
+    # is still that process -- never by pattern.
     link_telemetry.shut_down(link_manifest_path, report=report)
     net.stop()
     reaped = reap_manifest_switches(manifest_path)
@@ -1497,7 +1496,7 @@ def tear_down(net, manifest_path=None, report=print, link_manifest_path=None):
     return reaped
 
 
-#: What "shut this fabric down" arrives as. TICKET-P3 section 9 ruling 19(1).
+#: What "shut this fabric down" arrives as.
 #:
 #: [Co-developed with claude code -- Adam]
 #: `ndtwin-lab topo-stop` sends C-c to the tmux pane, waits up to ten seconds, then
@@ -1511,8 +1510,7 @@ def install_teardown_signal_handlers(report=print, signals=None, install=None):
     """Make a shutdown signal raise SystemExit, so a `finally` gets to tear the fabric down.
 
     [Co-developed with claude code -- Adam]
-    🔴 WHAT THIS IS FOR, measured live on 2026-09-19 (ruling 19(1); raw in
-    live-p1/runs/2026-09-19T051758Z_02_app_basic/90_down.txt). `ndt down` reported
+    🔴 WHAT THIS IS FOR, measured live on 2026-09-19. `ndt down` reported
     "residue: /tmp/ndtwin_link_telemetry.json is still there and the pid it names (2386073) is
     gone" after every single run. The chain:
 
@@ -1619,12 +1617,12 @@ def main():
         print(f"Switch manifest: {MANIFEST_PATH}")
     print("======================================================================\n")
 
-    # 🔴 ARMED HERE, AND THE TEARDOWN IS A `finally`. Ruling 19(1): this used to be a bare
+    # 🔴 ARMED HERE, AND THE TEARDOWN IS A `finally`. This used to be a bare
     # `CLI(net)` followed by `tear_down(net)`, and `topo-stop`'s SIGHUP landed between the two
     # on every single live run -- so `link_telemetry.shut_down` never ran and the manifest
     # outlived the emitter it names. The handlers cover exactly the window in which there is a
     # net to tear down; a signal during `bring_up` itself is still the abrupt death it always
-    # was (see the SUMMARY -- closing that would mean a `finally` inside `bring_up`, which owns
+    # was (closing that would mean a `finally` inside `bring_up`, which owns
     # the net it has not returned yet).
     install_teardown_signal_handlers()
     try:

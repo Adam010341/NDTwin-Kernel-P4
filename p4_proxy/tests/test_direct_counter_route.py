@@ -8,7 +8,7 @@ A direct counter has no index: it is one cell per table entry. `GET /p4/counter`
 looked in `p4info.counters`, so a sketch or measurement app that counts with a direct counter
 (the health check's K2) got 404 "not in this pipeline" for a counter that IS in the pipeline.
 bmv2 answers a DirectCounterEntry read -- one entry or the whole table -- on both builds, stock
-and bmv2-fast (doc/audit/2026-10-16_p4-register-read/DESIGN.md section 1), so the route reads the
+and bmv2-fast, so the route reads the
 whole table in ONE wildcard RPC and the app finds its entry by match.
 
 The outcomes, GET /p4/counter's three and two more:

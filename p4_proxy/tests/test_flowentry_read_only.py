@@ -1,15 +1,13 @@
 """
-`/stats/flowentry/*` on an external control plane answers 409, not 500 -- ruling 5(a).
+`/stats/flowentry/*` on an external control plane answers 409, not 500.
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P4-heartbeat segment W, the ticket's ruling 5(a) ("`/stats/flowentry/*` 500→409"), which
-the first cut recorded as its own open item (TICKET-P4-roles section 7 ruling 5 (a)): under
-`control_plane.mode: external` every write is refused by `P4RuntimeClient._refuse_write`, which
-RAISES `ControlPlaneReadOnly` -- raised, never returned False, precisely so no retry loop spins on
-it. `POST /p4/table_entry` already turned that into a 409; the three OpenFlow-shaped flowentry
-endpoints did not catch it, so FastAPI answered 500 -- the proxy looking broken over a request
-that was refused on purpose, with nothing sent to the switch.
+Under `control_plane.mode: external` every write is refused by `P4RuntimeClient._refuse_write`,
+which RAISES `ControlPlaneReadOnly` -- raised, never returned False, precisely so no retry loop
+spins on it. `POST /p4/table_entry` already turned that into a 409; the three OpenFlow-shaped
+flowentry endpoints did not catch it, so FastAPI answered 500 -- the proxy looking broken over a
+request that was refused on purpose, with nothing sent to the switch.
 
 The 409 body is `/p4/table_entry`'s own: one refusal, one shape. And "nothing was sent" is a
 claim about the wire, so the real-path cases check the stub's requests, as

@@ -3,7 +3,7 @@ The three startup WARNs the residue/exemption work added, against the shipped al
 
 [Co-developed with claude code -- Adam]
 
-F-OFFLINE-1 G6 (hunt-0911/F-OFFLINE-1-REPORT.md 1.6) measured `check_logs.py` exit 1 on a
+An earlier offline run (G6) measured `check_logs.py` exit 1 on a
 synthetic log carrying all three of them, and read that as three missing allowlist entries.
 One of the three is a missing entry. The other two are the checker working, and this file
 is what stops the next reader from "finishing" G6 by silencing them.

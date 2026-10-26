@@ -4,7 +4,7 @@
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "utils/Logger.hpp"
-// [Co-developed with claude code -- Adam] FINDINGS #47: cloexecSocket() and the /proc lookup that
+// [Co-developed with claude code -- Adam] cloexecSocket() and the /proc lookup that
 // says who is actually holding the sFlow port.
 #include "utils/FdHygiene.hpp"
 #include "utils/KeyedFailureLog.hpp"
@@ -667,10 +667,10 @@ int
 FlowLinkUsageCollector::openSflowSocket(uint16_t port)
 {
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #47: SOCK_CLOEXEC, and it must be here rather than an fcntl() on the next line.
+    // SOCK_CLOEXEC, and it must be here rather than an fcntl() on the next line.
     // This process runs curl through popen() from its poll threads, and popen() is fork()+exec();
     // a descriptor created without SOCK_CLOEXEC and marked a moment later is inherited by any
-    // child that happens to be forked in between. Measured 2026-09-03 (round3 step 03): the sFlow
+    // child that happens to be forked in between. Measured 2026-09-03: the sFlow
     // socket was still held by orphaned `sh`/`curl` for 2.01-2.22 s after the kernel's pid was
     // gone, and the six restarts attempted inside that window all failed.
     int sockfd = utils::cloexecSocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -707,7 +707,7 @@ FlowLinkUsageCollector::openSflowSocket(uint16_t port)
     {
         const int err = errno;
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #47, the other half. This used to read "Another NDTwin kernel is almost
+        // The other half. This used to read "Another NDTwin kernel is almost
         // certainly still running and holding it" -- an assertion, printed without looking. In
         // the 6 measured failures there was no other kernel: the holder was this kernel's own
         // orphaned curl, which had inherited the socket across popen()'s exec. An operator who
@@ -958,7 +958,7 @@ namespace
 /**
  * @brief Lifts a sampled Ethernet frame out of the datagram's 32-bit words into bytes.
  *
- * [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+ * [Co-developed with claude code -- Adam]
  *
  * The parser around this reads the frame through fixed *word* offsets, which is why it could only
  * ever answer questions whose answer sat at a constant offset -- and why an IPv4 option (mri) or a
@@ -1012,7 +1012,7 @@ readSampledHeader(const sflow::BoundedWords& data,
 
 } // namespace
 
-// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+// [Co-developed with claude code -- Adam] Frame identity, per family.
 void
 FlowLinkUsageCollector::noteFrameIdentity(const FrameIdentity& identity,
                                           uint32_t frameLength,
@@ -1053,7 +1053,7 @@ FlowLinkUsageCollector::noteFrameIdentity(const FrameIdentity& identity,
 
     // Two clocks, on purpose, and the header says which is which: the steady one decides who
     // leaves when the table is full, the wall one is what a reader outside this process can
-    // compare with anything. [Co-developed with claude code -- Adam] Round 3, ruling 11c.
+    // compare with anything. [Co-developed with claude code -- Adam]
     const int64_t nowSteadyMs = utils::getCurrentTimeMillisSteadyClock();
     const int64_t nowWallMs = utils::getCurrentTimeMillisSystemClock();
 
@@ -1063,7 +1063,7 @@ FlowLinkUsageCollector::noteFrameIdentity(const FrameIdentity& identity,
     {
         if (m_nonIpv4Observations.size() >= kMaxNonIpv4Observations)
         {
-            // [Co-developed with claude code -- Adam] Round 2, fable-judge F5.
+            // [Co-developed with claude code -- Adam]
             // 🔴 EVICT THE OLDEST RATHER THAN REFUSE THE NEWEST. The first draft refused, which
             // reads fine for a cap on distinct *ethertypes* and is wrong for what these keys
             // actually are: an IPv6 key carries the L4 ports, so one run of ordinary traffic
@@ -1095,7 +1095,7 @@ FlowLinkUsageCollector::noteFrameIdentity(const FrameIdentity& identity,
     it->second.estimatedBytes += uint64_t(frameLength) * samplingRate;
     // Written on every hit, not only on the insert: a hit is what makes an identity recently
     // seen, and without this line the table would evict in insertion order no matter how busy
-    // an identity is. [Co-developed with claude code -- Adam] Round 3, ruling 11c/11e(1).
+    // an identity is. [Co-developed with claude code -- Adam]
     it->second.lastSeenSteadyMs = nowSteadyMs;
     it->second.lastSeenWallMs = nowWallMs;
 }
@@ -1140,7 +1140,7 @@ FlowLinkUsageCollector::frameFamilyStatsJson() const
         row["samples"] = observation.samples;
         row["estimated_bytes"] = observation.estimatedBytes;
         // The wall clock, deliberately: the steady one beside it orders the evictions and means
-        // nothing outside this process. [Co-developed with claude code -- Adam] Round 3, 11c.
+        // nothing outside this process. [Co-developed with claude code -- Adam]
         row["last_seen_ms"] = observation.lastSeenWallMs;
         observed.push_back(row);
     }
@@ -1154,7 +1154,7 @@ FlowLinkUsageCollector::frameFamilyStatsJson() const
          {{"tracked", table.size()},
           // Non-zero means this list is a window over the most recently seen identities rather
           // than everything since startup. [Co-developed with claude code -- Adam]
-          // Round 3, ruling 11b: `dropped_over_capacity` used to sit here and could only ever
+          // `dropped_over_capacity` used to sit here and could only ever
           // read 0 once the table started evicting instead of refusing. See the header.
           {"evicted_least_recently_seen",
            m_nonIpv4ObservationsEvicted.load(std::memory_order_relaxed)},
@@ -1436,7 +1436,7 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
 
             // 1. Extract the sample's own fields. The offsets differ by vendor; the *frame* is no
             //    longer read here at all -- readSampledHeader lifts it into bytes and
-            //    identifyFrame says what it is. Before TICKET-P3 this block read the ethertype,
+            //    identifyFrame says what it is. This block used to read the ethertype,
             //    the IPv4 header and the L4 ports from fixed word offsets three times over, and a
             //    sample that was not IPv4 was discarded whole -- bytes and all.
             //    [Co-developed with claude code -- Adam]
@@ -1555,19 +1555,19 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
 
             // =====================================================================================
             // 🔴 LINK BYTES FIRST, FLOW IDENTITY SECOND. [Co-developed with claude code -- Adam]
-            // TICKET-P3 §2.2. This block used to sit *inside* `if (protocol == 6 || 17 || 1)`,
+            // This block used to sit *inside* `if (protocol == 6 || 17 || 1)`,
             // downstream of an ethertype test that `continue`d the whole sample -- so a link
             // carrying source-routed frames (0x1234), ARP, LLDP, IPv6 or a non-first fragment
             // reported 0 bps while the bytes demonstrably moved. How many bytes crossed a link is
-            // not a question about what the bytes were, and PLAN §8.3's first claim -- "link
-            // utilisation is independent of the application" -- is exactly this ordering.
+            // not a question about what the bytes were, and the design principle that "link
+            // utilisation is independent of the application" is exactly this ordering.
             //
-            // The direction split is the second half of §2.2. A sample with inputPort == 0 (the
-            // egress-only shape B's tc filters produce on host-facing ports) used to be banked in
+            // The direction split is the second half of that fix. A sample with inputPort == 0 (the
+            // egress-only shape the tc filters produce on host-facing ports) used to be banked in
             // m_counterReports keyed by its *output* port, which the drain then reads as "bytes
             // arriving on that port" and credits to the edge pointing the other way. Such samples
             // did not exist before -- every P4-clone and OVS sample carries an ingress port -- so
-            // the branch was dead rather than wrong in production; B makes it live.
+            // the branch was dead rather than wrong in production; those filters make it live.
             // =====================================================================================
             if (m_mode == utils::MININET)
             {
@@ -1635,9 +1635,8 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
             noteFrameIdentity(identity, frameLength, samplingRate);
 
             // The flow table is IPv4-only -- see FlowLinkUsageCollector.hpp for the two frozen
-            // contract tests that fix that, and doc/audit/2026-09-04_p4-tutorial-exercise-prep/TICKET-P3-observation.md
-            // section 9, ruling 8 item 1, for the decision to observe non-IPv4 identities in a
-            // side table instead. A non-first fragment carries no ports, so it is banked above and
+            // contract tests that fix that, and for the decision to observe non-IPv4 identities in
+            // a side table instead. A non-first fragment carries no ports, so it is banked above and
             // identified above but is not a flow. [Co-developed with claude code -- Adam]
             const bool isClassifiableIpv4 =
                 identity.identified && identity.key.family == FlowKeyFamily::IPv4 &&
@@ -1880,7 +1879,7 @@ FlowLinkUsageCollector::sampledByteCreditFor(uint32_t agentIp, uint32_t port) co
     return it == m_counterReports.end() ? 0u : it->second.inputByteCountOnALinkMultiplySampingRate;
 }
 
-// [Co-developed with claude code -- Adam] TICKET-P3 §2.2.
+// [Co-developed with claude code -- Adam]
 uint64_t
 FlowLinkUsageCollector::egressByteCreditFor(uint32_t agentIp, uint32_t port) const
 {
@@ -1925,7 +1924,7 @@ FlowLinkUsageCollector::telemetryStatusFor(uint32_t agentIp,
 }
 
 // [Co-developed with claude code -- Adam]
-// Round 4 lead 5(b). The verdict on the ingest, with no clock, no socket and no collector --
+// The verdict on the ingest, with no clock, no socket and no collector --
 // see the header for why it is split out and why it must stay that way.
 FlowLinkUsageCollector::IngestHealth
 FlowLinkUsageCollector::classifyIngestHealth(bool windowClosed,
@@ -1982,7 +1981,7 @@ FlowLinkUsageCollector::classifyIngestHealth(bool windowClosed,
     }
     else
     {
-        // Loss below the "lossy" threshold is still loss. Round 4's 150 000/s cell lost 0.34% and
+        // Loss below the "lossy" threshold is still loss. The 150 000/s cell of the 2026-09-03 sweep lost 0.34% and
         // that under-reports; the honest report is "lossy", not "ok" with a footnote.
         out.status = "lossy";
     }
@@ -2175,13 +2174,13 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
     //
     // 🔴 THE PARAGRAPH ABOVE IS HISTORY, NOT CURRENT BEHAVIOUR, and the two sentences that used
     // to stand here were worse than stale -- they were wrong when written and they misled a
-    // reviewer into writing a gate that a correct fix would have failed (PREREG Qb-1). Deleted
+    // reviewer into writing a gate that a correct fix would have failed. Deleted
     // rather than corrected: "once the accumulator is divided by the measured interval this line
     // must read ~1000 ms forever" is false, because dividing by the measured interval fixes the
     // arithmetic without making an iteration any shorter.
     //
     // Both denominators now exist. The link accumulator is divided by drainElapsedSeconds
-    // (f5e35561, ticket Q), and the per-flow rates by the interval runFlowRatePass measures.
+    // (f5e35561), and the per-flow rates by the interval runFlowRatePass measures.
     // The period below is therefore a health signal, not a correctness one: it says how long the
     // body takes, which still matters -- it bounds sample freshness and it is what
     // kFlowActiveWindowMs was sized against -- but no published rate assumes it is 1000 ms any
@@ -2268,9 +2267,9 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
         }
 
         // [Co-developed with claude code -- Adam]
-        // Ticket Q's other half. This walk used to compute each hop's rate inline as
+        // This walk used to compute each hop's rate inline as
         // `delta * 8 * samplingRate` -- bits per LOOP PERIOD, published under a bits-per-second
-        // name -- because Q enumerated its targets by grepping `MultiplySampingRate` and the
+        // name -- because the original fix enumerated its targets by grepping `MultiplySampingRate` and the
         // per-flow counters are not spelled that way. runFlowRatePass measures the interval and
         // sflow::updateFlowRatesForInterval divides by it; both are seams the suite can reach,
         // which the inline version was not.
@@ -2281,8 +2280,8 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
         // loop's start-to-start period measured at the top of the body -- the accumulators are
         // zeroed down here, so bytes bank from one drain to the next, and the two intervals
         // differ by however much the work above this point jitters. They agree on average, which
-        // is exactly why using the wrong one would survive an eyeball check and then miss ticket
-        // Q's 1% gate.
+        // is exactly why using the wrong one would survive an eyeball check and then miss the
+        // 1% gate.
         const auto nowDrain = std::chrono::steady_clock::now();
         const double drainElapsedSeconds =
             std::chrono::duration<double>(nowDrain - lastDrainAt).count();
@@ -2329,7 +2328,7 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
         creditHostBoundEgressEdges(drainElapsedSeconds);
 
         // [Co-developed with claude code -- Adam]
-        // Ticket Q's acceptance gate, made observable. The criterion is that the value actually
+        // The rate-divisor acceptance gate, made observable. The criterion is that the value actually
         // used as the divisor equals the interval measured for the same iteration -- and the
         // getter that holds it is C++, unreachable from a live kernel. Logging both, from the
         // same iteration, is what lets the gate run against a running process.
@@ -2688,7 +2687,7 @@ FlowLinkUsageCollector::getFlowInfoJson(sflow::FlowLivenessFilter filter)
     // Built once for the whole pass, then copied into every row: the health is a property of the
     // ingest window all these rates came out of, not of any one flow, and two rows in one body
     // must not be able to disagree about it. Beside the data on purpose -- an endpoint nobody
-    // calls is the shape that let round 4's 2.76x under-report be invisible to every consumer.
+    // calls is the shape that let a 2.76x under-report (2026-09-03) be invisible to every consumer.
     const nlohmann::json health = ingestHealthJson();
 
     for (const auto& [flowKey, flowInfo] : m_flowInfoTable)
@@ -2725,7 +2724,7 @@ FlowLinkUsageCollector::getFlowInfoJson(sflow::FlowLivenessFilter filter)
         j["src_port"] = flowKey.srcPort;
         j["dst_port"] = flowKey.dstPort;
         j["protocol_id"] = flowKey.protocol;
-        // [Co-developed with claude code -- Adam] TICKET-P3 §2.3. Every existing key above is
+        // [Co-developed with claude code -- Adam] Every existing key above is
         // untouched; this one says which family the four above are to be read as. It is "ipv4" on
         // every row this table can hold today -- and that is the point of publishing it: a
         // consumer that branches on it keeps working if the table ever carries another family,
@@ -3158,7 +3157,7 @@ FlowLinkUsageCollector::getPathBetweenHostsJson(const std::string& srcHostName,
     // 3. Get the IP addresses
     auto graph = m_topologyAndFlowMonitor->getGraph();
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #88, W14. Both subscripts were unguarded, and `VertexProperties::ip` is a
+    // Both subscripts were unguarded, and `VertexProperties::ip` is a
     // std::vector that starts empty: libstdc++'s operator[] is `*(_M_start + n)` and a
     // default-constructed vector has _M_start == nullptr, so `ip[0]` on a host with no address
     // binds a reference to a null pointer -- the same undefined behaviour as `.front()`, spelled
@@ -3443,7 +3442,7 @@ FlowLinkUsageCollector::calFlowPathByQueried()
         }
 
         // [Co-developed with claude code -- Adam]
-        // Ticket M: was microseconds(1000), i.e. this loop re-derived every tracked flow's path
+        // Was microseconds(1000), i.e. this loop re-derived every tracked flow's path
         // a thousand times a second. Profiling attributed 46.31% of the kernel's CPU to this one
         // function, on a single thread, and that cost was paid in full at the LOWEST sampling
         // rate -- it is a fixed cost, not a per-sample one.
@@ -3457,7 +3456,7 @@ FlowLinkUsageCollector::calFlowPathByQueried()
         // pass, its `path` is empty: 0.5 s on average, 1 s worst case. FLOW_IDLE_TIMEOUT is
         // 15 s (include/.../FlowLinkUsageCollector.hpp:34), so a flow shorter than one pass can
         // live and die without ever having a path. A steady 300-second-flow workload would show
-        // this as 0.5/300 = 0.17% and report green, which is why ticket M's churn arm exists --
+        // this as 0.5/300 = 0.17% and report green, which is why a churn test of short flows exists --
         // this project has already shipped a speedup that measured CPU and connectivity green
         // while what broke was model fidelity.
         //

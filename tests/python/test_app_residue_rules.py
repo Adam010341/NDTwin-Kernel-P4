@@ -7,7 +7,7 @@ KNOWN-ISSUES G-12, measured 2026-09-05 (R6, 1/1, OVS). An app that took a lock, 
 rule and was then killed by pid left both behind, and every cleanliness verb went green over
 them: `ndt apps orphans` answered `ok  no untracked app processes` rc 0 and `ndt status
 --check` answered rc 0. Neither was broken -- they look at PROCESSES. Nothing looked at what a
-process had changed and left. Adam's decision (09-05 grill round 5): list it, do not delete it.
+process had changed and left. The decision: list it, do not delete it.
 
 The subject here is `suspect_rules`, the pure half of `residue_rule_lines` in
 tools/test_workflow/ndt, extracted verbatim from between its BEGIN/END markers and driven with
@@ -251,7 +251,7 @@ class SuspectRules(unittest.TestCase):
 class ThePlaneWithNoClock(unittest.TestCase):
     """W16-3: on P4 the flow stats are synthesised and every rule reports duration 0/0.
 
-    🔴 MEASURED, 2026-09-07 (DECISIONS 09-07 01:0x; P4 4 hosts, trunk 862c4bf8, logs/w163-*).
+    🔴 MEASURED, 2026-09-07 (P4 4 hosts, trunk 862c4bf8).
     A route to 10.0.0.3 was installed and /ndt/get_switch_openflow_table_entries read at +12 s
     and +32 s. That entry AND every pre-existing entry answered duration_sec 0, duration_nsec
     0, while packet_count and byte_count moved. p4_proxy/proxy_agent/ryu_flow_stats.py has no
@@ -259,7 +259,7 @@ class ThePlaneWithNoClock(unittest.TestCase):
 
     Read as an age, that 0 means "installed just now", which places EVERY rule on the plane
     inside EVERY window -- the widening failure M3 exists for, arriving through the data
-    instead of through the code. Adam's decision: age=UNKNOWN, list them all, say why.
+    instead of through the code. The decision: age=UNKNOWN, list them all, say why.
     """
 
     def setUp(self):
@@ -408,7 +408,7 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
                          .count("residue_report $APP_NAMES"))
 
     def test_the_exit_code_is_wired_to_both_verbs_that_can_carry_one(self):
-        """W16-1/W16-2. Adam ruled residue must make these red; a report nobody can fail is
+        """Residue must make these red; a report nobody can fail is
         one more green check, which is what G-12 is a finding about."""
         with open(NDT) as fh:
             text = fh.read()
@@ -422,7 +422,7 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
                          "`ndt status --check` does not feed the residue into its problems")
 
     def test_nothing_in_the_residue_path_deletes_anything(self):
-        """Adam's decision, 09-05 grill round 5: list it, do not delete it.
+        """The decision: list it, do not delete it.
 
         🔴 Checked per LINE, not by searching the body for a word. The body legitimately
         CONTAINS "delete_flow_entry" and "curl" -- inside the `info` lines that hand the
@@ -456,7 +456,7 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
 class TheWindowHasARightEdge(unittest.TestCase):
     """F3: a window read back from a stop's record is CLOSED, and the bound has to hold.
 
-    FIX-NDT-2 SUMMARY §7-2. `cmd_apps stop` could date the app it had just stopped and no
+    `cmd_apps stop` could date the app it had just stopped and no
     later process could, because RESIDUE_WINDOW dies with the shell that filled it. The
     window is now on disk -- which only stops being a lie about the rules if the right edge
     is honoured, since a start with no end attributes every rule installed since.

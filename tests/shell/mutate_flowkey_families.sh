@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for TICKET-P3 section 3.4: the FlowKey families, the ihl-derived L4 offset, and
+# Mutation gate for the FlowKey families, the ihl-derived L4 offset, and
 # which of the two byte banks a sample lands in.
 #
 # [Co-developed with claude code -- Adam]
@@ -12,7 +12,7 @@
 #
 # 🔴 EVERY BUILD GOES THROUGH tools/build_guard/guarded_build.sh WITH JOBS=1.
 # A bare `cmake --build` on this laptop is what systemd-oomd killed on 2026-09-02, taking the
-# user's own application with it (README and doc/audit/2026-09-02*). The guard is re-entrant, so
+# user's own application with it (see the README). The guard is re-entrant, so
 # running this script under an outer guard is safe and does not deadlock.
 #
 # ⏱  Five of the eight mutations, and one of the two controls, are in
@@ -92,7 +92,7 @@ MAC_HASH='        hashCombine(seed, key.srcMac);
 IPV4_CLEARS_L2='        out.key = FlowKey{};
         out.key.family = FlowKeyFamily::IPv4;'
 CHAIN_BOUND='        for (int hop = 0; hop <= kMaxIpv6ExtensionHeaders; ++hop)'
-CONTROL_CPP='// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+CONTROL_CPP='// [Co-developed with claude code -- Adam] Frame identity, per family.
 void
 FlowLinkUsageCollector::noteFrameIdentity'
 CONTROL_HDR='inline FrameIdentity
@@ -141,7 +141,7 @@ for f in "${FILES[@]}"; do
 done
 
 # 🔴 restore() IS IDEMPOTENT, AND THAT IS THE WHOLE POINT.
-# [Co-developed with claude code -- Adam] Round 3, ruling 11a.
+# [Co-developed with claude code -- Adam]
 #
 # `cp -p` puts the ORIGINAL mtime back, which is older than the object built from the mutant -- so
 # ninja sees nothing to do and the NEXT mutation would be measured against a binary that still
@@ -222,7 +222,7 @@ in_scope() {
 echo
 echo "=== baseline (unmutated working tree) must build and be green ==="
 # 🔴 A BINARY LEFT BY A PREVIOUS RUN CAN NEVER BE THE BASELINE. [Co-developed with claude code
-# -- Adam] Round 3, ruling 11a. The build below is what every verdict is measured against, so it
+# -- Adam] The build below is what every verdict is measured against, so it
 # has to be a build: if the last run (or the last interrupted run) left objects that are newer
 # than these two files, ninja does nothing here and "baseline green" is a statement about
 # somebody else's binary. One touch costs one rebuild of the 46 translation units SFlowType.hpp
@@ -322,7 +322,7 @@ mutate() {
     restore
 }
 
-# M-A1. 🔑 THE ONE THE TICKET IS ABOUT. The byte counter goes back under the frame's identity, so
+# M-A1. 🔑 THE ONE THIS GATE IS ABOUT. The byte counter goes back under the frame's identity, so
 # a link carrying ARP, LLDP, IPv6 or an exercise's own ethertype publishes 0 bps again -- which is
 # bit-identical, to every consumer, to an idle link. This is the pre-P3 behaviour: the counter sat
 # below an ethertype test that `continue`d the sample.
@@ -379,10 +379,10 @@ mutate "M-A6 the L2 hash ignores the MAC addresses" "$SFLOW" \
         (void)key.dstMac;' \
     FlowKeyFamiliesTest.TwoL2KeysDifferingOnlyInTheirMacsHashDifferently
 
-# M-A7. 🔑 ROUND 2, THE ONE THE JUDGE FOUND. The IPv4 branch stops clearing the L2 fields, so an
+# M-A7. 🔑 ADDED AFTER THE FIRST SIX. The IPv4 branch stops clearing the L2 fields, so an
 # IPv4 key carries the frame's MAC addresses again -- and this fabric rewrites both at every hop,
 # so one flow becomes one flow-table row per hop. Added rather than swapped in: the seventh
-# mutation costs one more rebuild of SFlowType.hpp, which the round-2 `restore` change (touch only
+# mutation costs one more rebuild of SFlowType.hpp, which the `restore` change (touch only
 # what was written) more than pays for.
 mutate "M-A7 the IPv4 branch keeps the MAC addresses of the frame" "$SFLOW" \
 "$IPV4_CLEARS_L2" \
@@ -390,8 +390,8 @@ mutate "M-A7 the IPv4 branch keeps the MAC addresses of the frame" "$SFLOW" \
     FlowKeyFamiliesTest.OneIpv4FlowStaysOneRowWhenTheMacsChangeAtEveryHop \
     FlowKeyFamiliesTest.TheParsersOwnIpv4KeyCarriesNoL2Fields
 
-# M-A8. ROUND 3, ruling 11e(6). The chain walk runs exactly the bound and then falls out with
-# `resolved` still true, which is the defect fable-judge F4 found: a chain longer than we are
+# M-A8. The chain walk runs exactly the bound and then falls out with
+# `resolved` still true, which is the defect: a chain longer than we are
 # willing to walk was reported as IPv6 whose protocol is an extension header number (0, 43, 44),
 # with the ports read from whatever bytes sat at the offset. The extra turn is the only thing that
 # makes exhaustion distinguishable from resolution, and `<` deletes it while leaving eight-hop
@@ -440,7 +440,7 @@ printf '\n=== CONTROL (comment in the collector -- MUST survive) ===\n'
 if apply "$COLL" \
 "$CONTROL_CPP" \
 '// mutation-gate negative control: text with no behaviour
-// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+// [Co-developed with claude code -- Adam] Frame identity, per family.
 void
 FlowLinkUsageCollector::noteFrameIdentity'; then
     classify_control
@@ -465,8 +465,8 @@ fi
 # pristine -- the same failure `touch` exists to prevent, one level up.
 #
 # 🔴 AND THE REBUILD IS CHECKED BY ITS OUTPUT, NOT BY ITS EXIT CODE. [Co-developed with claude
-# code -- Adam] Round 3, ruling 11a. A `build` that has nothing to do also exits 0, which is how
-# round 2 could print "rebuilt from the restored tree" over a no-op and leave the second control's
+# code -- Adam] A `build` that has nothing to do also exits 0, which is how
+# an earlier version could print "rebuilt from the restored tree" over a no-op and leave the second control's
 # binary on disk. The baseline binary and the final binary are built from byte-identical sources
 # through the same compiler in the same directory, so they must be the same file; if they are not,
 # either the rebuild did not happen or this build is not reproducible, and BOTH of those make

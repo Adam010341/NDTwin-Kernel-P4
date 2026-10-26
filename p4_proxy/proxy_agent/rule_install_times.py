@@ -40,8 +40,7 @@ switch accepted; every later write of the same entry -- an idempotent rewrite, o
 changes where the packets go -- leaves it alone. Only `forget` (a delete) and `clear` (a pipeline
 wipe) end it, and the next install after one of those is a new rule with a new stamp.
 
-Adam ruled this on 2026-09-08 00:1x (`DECISIONS.md`), against the recommendation in
-`scratch/overnight-2026-09-05/fix/R3-G13-SUMMARY.md` §7-1, and the reason is agreement with the
+The reason is agreement with the
 other plane: OVS reports the switch's own `duration`, which OpenFlow counts from the ADD and does
 not restart on a MODIFY. A P4 rule now answers the same question as an OVS rule, so a caller
 comparing the two planes is comparing the same quantity.

@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# 09-05 R7 finding I-3 (rounds/03-R7-reconciler.md), decided 09-07 (grill §4D round 10).
+# Found 09-05, decided 09-07.
 # `p4_proxy/mininet/host_count_override` was working tree 4 / HEAD 128 that night -- the
 # LAB-RULES red line, because restoring it means WRITING 4, and `git checkout --` gives 128.
 # R4 wrote 128 into it for a 128-host round, and BOTH restoration instruments went blind at
@@ -18,21 +18,20 @@
 #                       p4_proxy/mininet/host_count_override      <- this block DISAPPEARED
 #
 # Groups 8-12 are the 09-07 follow-up, after the row was watched working on a live fabric
-# (rounds/08-round2.md:146, arm lw16 step D, 04:36, OVS 4): it printed
+# (arm lw16 step D, 04:36, OVS 4): it printed
 #     knob baseline  8 -- this round started at 128 (at 04:36:41): NOT RESTORED
-# in red, and `ndt status --check` returned 0. Adam's decisions of that morning (grill §4E
-# round 3): E-9, that sentence is a --check problem and the rc goes red on it; E-11, `ndt
-# release` retires .test_run/round.baseline to .prev, so a round that has ended stops being
-# compared against. Both are about what the COMMAND does with this row's answer, so those
-# groups drive cmd_status/cmd_release whole rather than calling one row.
+# in red, and `ndt status --check` returned 0. The decisions of that morning: first, that sentence is
+# a --check problem and the rc goes red on it; second, `ndt release` retires .test_run/round.baseline
+# to .prev, so a round that has ended stops being compared against. Both are about what the
+# COMMAND does with this row's answer, so those groups drive cmd_status/cmd_release whole rather
+# than calling one row.
 #
-# Groups 13-16 are the correction Adam made that evening (18:1x, R3-NDT §7-1 and §7-2), once
-# E-9 was read against the standard P4 round: `ndt up p4 4` writes this knob through, so a
-# round claimed at 128 was NOT RESTORED from its own second command onward and every `--check`
-# in it exited 1. E-9b splits the row three ways -- back at the start, holding what `ndt up p4`
-# wrote (a warning), or holding something nobody announced (still red, still a problem) -- and
-# E-11b moves the deadline to `ndt release`, which now refuses while the knob is not back and
-# takes `--force` as the signature for releasing anyway.
+# Groups 13-16 are the correction made that evening (18:1x), once the first was read against the standard
+# P4 round: `ndt up p4 4` writes this knob through, so a round claimed at 128 was NOT RESTORED from
+# its own second command onward and every `--check` in it exited 1. The correction splits the row three ways
+# -- back at the start, holding what `ndt up p4` wrote (a warning), or holding something nobody
+# announced (still red, still a problem) -- and moves the deadline to `ndt release`, which now
+# refuses while the knob is not back and takes `--force` as the signature for releasing anyway.
 #
 # The value was still printed in the configuration section. What vanished was the WARNING, at
 # the moment the knob held the value that changes the most behaviour. Two guards, one flawed
@@ -151,7 +150,7 @@ OUT="$(drive 'record_round_baseline; knob_row')"
 has   "it says the value matches what the round started with" "128 == the value this round started with" "$OUT"
 hasnt "  and does not shout"                            "NOT RESTORED" "$OUT"
 
-section "4. no baseline: the unconditional fallback Adam named"
+section "4. no baseline: the unconditional fallback"
 no_baseline
 knob 128
 OUT="$(drive 'knob_row')"
@@ -302,7 +301,7 @@ section "8. 🔴 E-9: '--check' EXITS 1 on NOT RESTORED (on 09-07 it printed red
 #     knob baseline  8 -- this round started at 128 (at 04:36:41): NOT RESTORED
 # in red -- and returned 0. Red text with a green exit code is a report, not a gate, and the
 # end of a round is exactly where "have I put the knob back" has to bite.
-# Adam's decision 09-07 (grill §4E round 3, E-9).
+# Decided 09-07.
 git -C "$FIX" stash -q -u >/dev/null 2>&1 || true
 git -C "$FIX" checkout -q -- . 2>/dev/null
 knob 128
@@ -327,7 +326,7 @@ check "🔴 and rc is back to 0"                          "0" "$(rc_of "$OUT")"
 has   "  check: ok"                                     "check: ok" "$OUT"
 
 section "10. 🔴 scope: a changed SET is not a problem, only a changed VALUE is"
-# Adam's ruling names one sentence. Committing during a round moves files in and out of the
+# The rule names one sentence. Committing during a round moves files in and out of the
 # uncommitted set for entirely good reasons, so tree_vs_round_row stays out of the verdict --
 # a gate that fires on every commit is a gate nobody reads. (The row still prints.)
 printf 'edited during the round\n' > "$FIX/src/Thing.cpp"
@@ -337,7 +336,7 @@ hasnt "🔴 but a file that joined the set is NOT a problem" "$KNOB_PROBLEM" "$O
 check "🔴 and --check is still green"                   "0" "$(rc_of "$OUT")"
 git -C "$FIX" checkout -q -- src/Thing.cpp 2>/dev/null
 
-# ...and the two no-baseline outcomes, which Adam did not rule on: printed, never a verdict.
+# ...and the two no-baseline outcomes, which the rule does not cover: printed, never a verdict.
 # `!= 4 with no baseline` cannot tell a forgotten restore from a deliberate 128-host round
 # that never claimed, so folding it in would make --check red on every such round.
 no_baseline
@@ -364,9 +363,9 @@ write_up_target
 
 section "12. 🔴 E-11: 'ndt release' retires the round baseline to .prev"
 # R2-NDT left `.test_run/round.baseline` behind on purpose -- nothing deleted it, so a round
-# that ended kept being compared against. Adam's decision 09-07 (grill §4E round 3, E-11):
-# rename it, on the lab.handoff precedent. Renamed and not deleted, because the knob value and
-# the dirty set a round started from cannot be reconstructed from `git status` afterwards.
+# that ended kept being compared against. Decided 09-07: rename it, on the lab.handoff precedent.
+# Renamed and not deleted, because the knob value and the dirty set a round started from cannot be
+# reconstructed from `git status` afterwards.
 rm -f "$BASE_FILE" "$BASE_FILE.prev"
 knob 4
 OUT="$(bash -c "source '$NDT' >/dev/null 2>&1
@@ -423,10 +422,10 @@ check "🔴 and leaves the baseline where it is"          "yes" \
       "$( [[ -f "$BASE_FILE" && ! -f "$BASE_FILE.prev" ]] && echo yes || echo no)"
 
 # ==========================================================================================
-# Groups 13-16: E-9b and E-11b, Adam's decisions of 09-07 18:1x (R3-NDT §7-1 and §7-2), which
-# are about what happens BETWEEN the two things above. E-9 made "the knob is not what the round
-# started with" a --check problem; the next reading of the standard P4 round showed what that
-# costs, because `ndt up p4 4` writes the knob through set_host_count:
+# Groups 13-16: the two corrections decided 09-07 18:1x, which are about what happens BETWEEN the two
+# things above. The first decision made "the knob is not what the round started with" a --check problem; the next
+# reading of the standard P4 round showed what that costs, because `ndt up p4 4` writes the knob
+# through set_host_count:
 #
 #     ndt claim ...        round.baseline: host_count=128
 #     ndt up p4 4          the knob is now 4 -- written by ndt, on purpose

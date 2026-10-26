@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# WHAT CHANGED AT P2 (TICKET-P2 §5.4). In phase one a package's `pipeline` was null on every
+# WHAT CHANGED AT P2. In phase one a package's `pipeline` was null on every
 # switch and this step's own header said so: 0% loss proved the fabric forwarded between the
 # addresses the package declared, and NOT that NDTwin was running basic.p4. G4 and G5 are what
 # make that sentence testable, so the same command now says something stronger -- `convert.py
@@ -24,12 +24,12 @@
 #     disclosure that goes with that: LLDP rides on packet-in/packet-out, and a tutorials p4info
 #     declares no controller_packet_metadata at all (ndtwin_switch declares two, basic declares
 #     zero). [Co-developed with claude code -- Adam] `link_watchdog` is NOT in it: `ndt up p4
-#     --app` starts the heartbeat on this fabric and the watchdog runs, fed by it (Adam's ruling
-#     E, 09-27) -- so `heartbeat.watchdog` must be `running`, asserted outright (the opus judge's
-#     N1: the expectation is not picked from the proxy's own report). A short list here would be
+#     --app` starts the heartbeat on this fabric and the watchdog runs, fed by it
+#     -- so `heartbeat.watchdog` must be `running`, asserted outright (the expectation is not
+#     picked from the proxy's own report). A short list here would be
 #     a proxy that did half the work of a control plane while reporting that it did none.
 #   * The per-switch skips (clone_session, sflow_telemetry) are on each switch's own row and
-#     NOT in the fabric-wide list -- TICKET-P2 §7-7: in a mixed fabric a neighbouring NDTwin
+#     NOT in the fabric-wide list: in a mixed fabric a neighbouring NDTwin
 #     switch still has its clone session, and a fabric-wide `clone_session` would be saying
 #     something about the whole fabric that is true of only part of it.
 #   * NOT proven: that the firewall or the source-routing exercises behave. This is `basic`,
@@ -53,18 +53,18 @@ PKG="$PKG_ROOT/basic"
 P4C="${P4C:-/usr/local/bin/p4c-bm2-ss}"
 
 # The names below are proxy_agent/main.py's own constants, checked against the merged P2-B
-# tree (trunk 78067633) rather than against the ticket:
+# tree (trunk 78067633) rather than against the requirements text:
 #   FOREIGN_PIPELINE_FABRIC_SKIPS = (SKIP_LLDP, SKIP_WATCHDOG, SKIP_ROUTES)
 #                                 = lldp_discovery, link_watchdog, install_initial_routes
 #   FOREIGN_PIPELINE_SWITCH_SKIPS = (SKIP_CLONE, SKIP_TELEMETRY)
 #                                 = clone_session, sflow_telemetry   (per switch, not here)
 # Written out rather than read from that file: a check that derives its expectation from the
 # code under test agrees with it by construction.
-# [Co-developed with claude code -- Adam] Adam's ruling E (09-27): the heartbeat drives the watchdog
-# here (`ndt up p4 --app` starts it on a foreign, non-external fabric -- this one), so the proxy runs
-# the watchdog and does NOT name `link_watchdog` skipped. The opus judge's N1 (09-27): that the
-# heartbeat watchdog runs is ASSERTED (heartbeat_skips_verdict in _common.sh), not read off the
-# proxy to choose between this list and the three-name one it had before the ruling.
+# [Co-developed with claude code -- Adam] The heartbeat drives the watchdog here (`ndt up p4 --app`
+# starts it on a foreign, non-external fabric -- this one), so the proxy runs the watchdog and
+# does NOT name `link_watchdog` skipped. That the heartbeat watchdog runs is ASSERTED
+# (heartbeat_skips_verdict in _common.sh), not read off the proxy to choose between this list and
+# the three-name one it had before the heartbeat drove the watchdog.
 FABRIC_SKIPS_HB="['install_initial_routes', 'lldp_discovery']"                # sorted
 SWITCH_SKIPS="[\"('clone_session', 'sflow_telemetry')\"]"                      # per switch
 
@@ -181,9 +181,9 @@ if [[ -s "$SS" ]]; then
     [[ "$MODE" == ndtwin ]]   || fail "control_plane.mode is '$MODE', want ndtwin"
     [[ "$PKG_SAID" == "$PKG" ]] || fail "control_plane.package is '$PKG_SAID', want $PKG"
     [[ "$N_SW" == 4 ]]        || fail "switch_state names $N_SW switches, pod-topo declares 4"
-    # 🔴 THE FABRIC-WIDE LIST IS WHAT RIDES ON THE CPU PORT, and nothing else (TICKET-P2 §2.2,
-    # §7-7): lldp_discovery and install_initial_routes. [Co-developed with claude code -- Adam]
-    # link_watchdog was the third until Adam's ruling E (09-27); the heartbeat runs the watchdog
+    # 🔴 THE FABRIC-WIDE LIST IS WHAT RIDES ON THE CPU PORT, and nothing else:
+    # lldp_discovery and install_initial_routes. [Co-developed with claude code -- Adam]
+    # link_watchdog was the third until the heartbeat took over the watchdog; the heartbeat runs it
     # here, and heartbeat_skips_verdict asserts that before it compares the SET (sorted).
     V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"
     [[ "$V" == OK* ]] || fail "${V#BAD }"
@@ -214,7 +214,7 @@ fi
 
 # `ndt status` under a foreign pipeline: the sampling rate is NOT the built json's number.
 # Recorded and asserted here because this is the only place a live fabric can say it
-# (TICKET-P2 §5.5; tests/shell/test_ndt_app_package.sh section 14 drives the same two rows
+# (tests/shell/test_ndt_app_package.sh section 14 drives the same two rows
 # offline).
 if [[ -s "$RUN/31_status.txt" ]]; then
     /usr/bin/grep -E '^ +(sample rate|rate source|app package)' "$RUN/31_status.txt" | sed 's/^/   /' || true
@@ -224,7 +224,7 @@ fi
 
 # --- 4. forwarding ------------------------------------------------------------------------------
 #
-# 🔴 WHAT `ndt up` ITSELF SAID ABOUT THE PATH COUNT (TICKET-P2-D §3.2). At 365c60e1 this bring-up
+# 🔴 WHAT `ndt up` ITSELF SAID ABOUT THE PATH COUNT. At 365c60e1 this bring-up
 # FAILED here: verify_p4 waited the whole CONVERGE_WAIT for 12 destination paths, read 4, printed
 # `4/12 destination paths, never settled` and ended `up, but not verified` -- over this same
 # fabric, whose twelve ordered pairs all ping at 0% loss below. Four is not a shortfall: with no

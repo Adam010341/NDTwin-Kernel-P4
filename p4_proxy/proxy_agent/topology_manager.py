@@ -10,6 +10,8 @@ import networkx as nx
 # Shared so the two loaders cannot disagree about which topology file is authoritative.
 from proxy_agent import boot_identity  # no cycle: boot_identity imports only the stdlib
 from proxy_agent import ryu_topology  # no cycle: ryu_topology imports nothing from here
+# [Co-developed with claude code -- Adam] For the Ryu-path loss record (close_ryu_generation).
+from proxy_agent import rule_journal  # no cycle: rule_journal imports only the stdlib
 # TICKET-P4-heartbeat segment W. No cycle: link_heartbeat imports only the stdlib, and is handed
 # this module's beacon interval rather than importing it. [Co-developed with claude code -- Adam]
 from proxy_agent import link_heartbeat
@@ -100,10 +102,10 @@ def _describe_match_value(value):
 
     [Co-developed with claude code -- Adam]
     Quotes what the CALLER sent, never what this proxy would have substituted -- the rule
-    LockManager::describeError states, and it bites here specifically: route_flow forces prefix
-    /32 on every destination, so a message built from the address with the prefix stripped would
-    name a value the caller never sent and make that substitution invisible, which is the exact
-    failure that rule exists to stop.
+    LockManager::describeError states, and it bites here specifically: the proxy rewrites a
+    destination to its route key (canonical address, host bits cleared), so a message built
+    from the rewritten value would name a value the caller never sent and make that
+    substitution invisible, which is the exact failure that rule exists to stop.
 
     Bounded for MAX_REPORTED_VALUE_CHARS' reason. A non-string is described by type alone, as
     MalformedMatchError does: inet_aton rejects it for its type, and printing the object would
@@ -131,18 +133,21 @@ class MalformedMatchValueError(UnsupportedMatchError):
     UnsupportedMatchError, and this has to land in that catch to become a 400 rather than
     escaping to FastAPI as another 500.
 
-    CIDR is REFUSED, not accepted-and-stripped. route_flow installs every destination as a
-    hard-coded /32 host route, so "10.0.0.0/16" cannot be honoured at all, and accepting only
-    "/32" would advertise a prefix surface this proxy does not have -- a caller who saw /32 work
-    would reasonably send /24 next and get a host route for the network address. Refusing both
-    is the only answer that does not mislead.
+    A CIDR destination on a destination-only match is ACCEPTED and installed into ipv4_lpm as
+    that prefix, so the longest prefix wins; a /32 is the bare address and writes exactly what it
+    always wrote. What is refused here: an address that is not a full dotted quad (including the
+    short forms "10.1" and "10.0.1/24"), a malformed prefix (no digits, a length outside 1-32,
+    anything after the length), a prefix on a match that compiles to flow_5tuple (that writer
+    encodes exact addresses only), a prefix on a source address, an address field that is
+    present but empty or null, and the two spellings of one field (nw_dst / ipv4_dst,
+    nw_src / ipv4_src) carrying different addresses. [Co-developed with claude code -- Adam]
 
     Reachable from in-repo code, not just hand-written curl: IntentTranslator.cpp:359-362 copies
     the validation agent's `ipv4_dst` into `nw_dst` verbatim, and validation_agent_prompt.txt:113
     tells the model a CIDR prefix is a permitted answer.
     """
 
-    def __init__(self, field, value, action, expected=None):
+    def __init__(self, field, value, action, expected=None, prefix_allowed=False):
         self.fields = [field]
         if expected is not None:
             # [Co-developed with claude code -- Adam] A field that is not an address (in_port):
@@ -161,13 +166,80 @@ class MalformedMatchValueError(UnsupportedMatchError):
         # what did NOT happen. LockManager::describeError's shape, for its reason: the question
         # after a 400 is always "did it do it anyway?", and for this endpoint it used to be a
         # 500 that answered nothing at all.
+        if prefix_allowed:
+            # [Co-developed with claude code -- Adam] The destination of a destination-only
+            # match (ipv4_lpm), where a prefix is accepted.
+            ValueError.__init__(
+                self,
+                f"match field {field} carries {_describe_match_value(value)}, which is not an "
+                f"IPv4 address (e.g. 10.0.0.4) or an IPv4 prefix with a length from "
+                f"{slot_priority.MIN_PREFIX_LEN} to {slot_priority.MAX_PREFIX_LEN} (e.g. "
+                f"10.0.1.0/24). No rule was " + action
+            )
+            return
+        # [Co-developed with claude code -- Adam] Every other address field: one that compiles
+        # to an exact address (flow_5tuple, or a source), where a prefix is unrepresentable.
         ValueError.__init__(
             self,
             f"match field {field} carries {_describe_match_value(value)}, which is not an IPv4 "
-            f"address in dotted-quad form (e.g. 10.0.0.4). This proxy installs one /32 host "
-            f"route per destination, so a prefix length cannot be honoured and is refused "
+            f"address in dotted-quad form (e.g. 10.0.0.4). A prefix is accepted only as the "
+            f"destination of a destination-only match (ipv4_lpm); this match compiles to "
+            f"exact addresses, so a prefix length cannot be honoured here and is refused "
             f"rather than dropped. No rule was " + action
         )
+
+
+class FlowRequestUnusable(Exception):
+    """
+    A flow write refused before any switch was asked, with the HTTP status it is answered with.
+
+    [Co-developed with claude code -- Adam]
+    KNOWN-ISSUES C-6. route_flow, unroute_flow and modify_flow used to return False for these as
+    well as for a write the switch refused, and the endpoints answered every False alike (200
+    {"status":"error"} on add and delete, 400 on modify). Now that a write the switch refused is
+    a 502 on all three verbs, the causes that are not the switch's need their own codes, or a
+    caller would be sent to look at a switch that was never asked anything:
+
+      * 404 -- the dpid is not a switch connected to this proxy (POST /p4/table_entry's 404);
+      * 400 -- the match names no destination and nothing a 5-tuple rule could key on;
+      * 501 -- the actions are neither a forward nor, on flow_5tuple, a drop: this data plane
+        has no translation for them (outcome `unsupported_on_p4`, as the other 501s).
+    """
+
+    def __init__(self, status, error, message):
+        super().__init__(message)
+        self.status = status
+        self.error = error
+
+
+class ConflictingMatchValueError(MalformedMatchValueError):
+    """
+    Raised when the two spellings of one address field (nw_dst / ipv4_dst, nw_src / ipv4_src) are
+    both present and name different addresses.
+
+    [Co-developed with claude code -- Adam]
+    The proxy reads nw_dst first and the kernel's flow-table cache reads ipv4_dst first, so a
+    request carrying both with different values would be installed under one and recorded under
+    the other. Neither is "the" answer; the caller is asked to send one. The same address in
+    both spellings is accepted, and "the same" is judged after normalisation (host bits cleared,
+    /32 == bare address). A subclass of MalformedMatchValueError so it lands in the same 400.
+    """
+
+    def __init__(self, fields, values, action):
+        self.fields = sorted(fields)
+        shown = " and ".join(f"{f} {_describe_match_value(v)}" for f, v in zip(fields, values))
+        ValueError.__init__(
+            self,
+            f"match fields {shown} name different addresses; send one of them, or the same "
+            f"address in both. No rule was " + action
+        )
+
+
+#: The match spellings of the destination. [Co-developed with claude code -- Adam]
+DESTINATION_MATCH_FIELDS = frozenset({"nw_dst", "ipv4_dst"})
+
+#: The pairs of spellings of one address field. [Co-developed with claude code -- Adam]
+ADDRESS_SPELLING_PAIRS = (("nw_dst", "ipv4_dst"), ("nw_src", "ipv4_src"))
 
 
 def parse_eth_type(value):
@@ -280,17 +352,23 @@ def check_match_values(match_dict, action):
     reach socket.inet_aton() and raise OSError out of the handler as a 500.
 
     [Co-developed with claude code -- Adam]
-    Validated by CALLING socket.inet_aton -- the same function the encoders call -- rather than
-    by a stricter parser of our own. A hand-written dotted-quad check would newly refuse forms
-    inet_aton accepts today (it reads "10.1" as 10.0.0.1 and "0x0a000001" as 10.0.0.1), and
-    falsely rejecting a caller that works today is the worse direction: it breaks a working
-    client rather than merely letting something through. That is the same trade parse_eth_type
-    was written for. Using the real encoder as the oracle also means this cannot drift from it.
+    An address must be a full dotted quad, checked with socket.inet_pton: the call the kernel's
+    flow-batch check makes (FlowJob.hpp parseIpv4MatchValue), so a value one layer refuses the
+    other refuses too. This used to call socket.inet_aton, which also reads "10.1" as 10.0.0.1
+    and "0x0a000001" as 10.0.0.1; for a prefix that is a silent re-reading ("10.0.1/24" became
+    10.0.0.1/24), and the kernel had already refused those spellings before queueing them.
 
-    Falsy ADDRESS values are skipped rather than refused, because every caller of this function already
-    treats them as "no destination given" -- `match_dict.get("nw_dst") or match_dict.get(
-    "ipv4_dst")` falls through an empty string to the other spelling, and the `if not ipv4_dst`
-    guards below return False. Refusing them here would newly 400 a request that succeeds today.
+    An address field that is PRESENT must be a readable address: "", null, 0 and the like are
+    refused rather than read as "no destination given". An absent field is absent. The old
+    reading (`match_dict.get("nw_dst") or match_dict.get("ipv4_dst")` falling through an empty
+    string to the other spelling, or to nothing) meant a delete naming `"nw_dst": ""` could
+    drop to a broader match than the caller wrote. The kernel answers 400 for "" and null too; a
+    number (0 included) it reads as a host-order integer address, which this function still
+    refuses for being no dotted quad (the kernel's check passes it, so it fails here, after the
+    request was queued).
+
+    The two spellings of one field (nw_dst / ipv4_dst, nw_src / ipv4_src) may both be present
+    only if they name the same address once normalised; otherwise ConflictingMatchValueError.
 
     ⚠️ Covers the inet_aton sinks and in_port ONLY. The other numeric flow_5tuple keys (ip_proto,
     tp_src/tp_dst and their spellings) reach `int(value).to_bytes(width)` in
@@ -309,6 +387,10 @@ def check_match_values(match_dict, action):
     """
     if not isinstance(match_dict, dict):
         return
+    # [Co-developed with claude code -- Adam] The destination of a destination-only match may be
+    # a prefix (ipv4_lpm is an LPM table). slot_priority's parse_destination is the one parser,
+    # so what passes here is what the route key, the slot lock and the write are built from.
+    prefix_ok = not needs_five_tuple(match_dict)
     for field in sorted(match_dict):
         if field in IN_PORT_MATCH_FIELDS:
             _check_in_port_value(field, match_dict[field], action)
@@ -316,15 +398,36 @@ def check_match_values(match_dict, action):
         if field not in IPV4_VALUED_MATCH_FIELDS:
             continue
         value = match_dict[field]
-        if not value:
+        if prefix_ok and field in DESTINATION_MATCH_FIELDS:
+            try:
+                slot_priority.parse_destination(value)
+            except (ValueError, TypeError):
+                raise MalformedMatchValueError(field, value, action,
+                                               prefix_allowed=True) from None
             continue
-        try:
-            socket.inet_aton(value)
-        except (OSError, TypeError):
-            # `from None`: the OSError's own text is "illegal IP address string passed to
-            # inet_aton", which names a C function the caller has never heard of and not the
-            # field they sent.
-            raise MalformedMatchValueError(field, value, action) from None
+        if not (isinstance(value, str) and slot_priority.is_dotted_quad(value)):
+            # No `raise ... from` chain: the socket module's own text names a C function the
+            # caller has never heard of and not the field they sent.
+            raise MalformedMatchValueError(field, value, action)
+    # The two spellings of one field must agree. [Co-developed with claude code -- Adam]
+    for first, second in ADDRESS_SPELLING_PAIRS:
+        if first in match_dict and second in match_dict:
+            a, b = match_dict[first], match_dict[second]
+            if _normalised_address(a, prefix_ok and first in DESTINATION_MATCH_FIELDS) != \
+                    _normalised_address(b, prefix_ok and second in DESTINATION_MATCH_FIELDS):
+                raise ConflictingMatchValueError((first, second), (a, b), action)
+
+
+def _normalised_address(value, prefix_ok):
+    """
+    `value` (already accepted by check_match_values) as the thing the switch matches: the route
+    key for a destination that may be a prefix, else the four address bytes.
+
+    [Co-developed with claude code -- Adam]
+    """
+    if prefix_ok:
+        return slot_priority.canonical_route_key(value)
+    return socket.inet_pton(socket.AF_INET, value)
 
 #: Sent on essentially every IPv4 rule. Validated below, but not a key: ipv4_lpm is IPv4 by
 #: construction, so eth_type 0x0800 is a tautology and anything else is unrepresentable.
@@ -371,15 +474,15 @@ def canonical_destination(match_dict):
     """
     `match_dict` with its destination written the way the switch stores it.
 
-    [Co-developed with claude code -- Adam] Review r2 NEW-2. check_match_values accepts every
-    spelling inet_aton does ("10.0.0.02", "10.2", "0x0a000002"), and the entry is built from the
-    encoded bytes -- but every lookup keyed by the string (dest_paths in _control_plane_port,
-    net.nodes for the next-hop MAC, _installed_routes, the journal) missed an alias: an aliased
-    non-strict delete REMOVED the destination's only entry instead of restoring it, and an
-    aliased modify on the attachment switch wrote a zero MAC. Called once, right after
-    check_match_values, in route_flow, unroute_flow and modify_flow. A copy, not an edit: the
-    caller's dict is the request body. Non-string and empty values are left to the existing
-    guards (they never reach inet_aton here).
+    [Co-developed with claude code -- Adam] check_match_values accepts more than
+    one spelling of one entry ("10.0.0.2" and "10.0.0.2/32"; "10.0.1.5/24" and "10.0.1.0/24"),
+    and the entry is built from the encoded bytes -- but every lookup keyed by the string
+    (dest_paths in _control_plane_port, net.nodes for the next-hop MAC, _installed_routes, the
+    journal) missed an alias: an aliased non-strict delete REMOVED the destination's only entry
+    instead of restoring it, and an aliased modify on the attachment switch wrote a zero MAC.
+    Called once, right after check_match_values, in route_flow, unroute_flow and modify_flow.
+    A copy, not an edit: the caller's dict is the request body. Non-string values are left
+    alone (check_match_values has already refused them).
     """
     if not isinstance(match_dict, dict):
         return match_dict
@@ -387,7 +490,9 @@ def canonical_destination(match_dict):
     for field in ("nw_dst", "ipv4_dst"):
         value = match_dict.get(field)
         if isinstance(value, str) and value:
-            canon = slot_priority.canonical_ipv4(value)
+            # [Co-developed with claude code -- Adam] The route key: a /32 is the bare address
+            # it always was, a prefix is "network/len" with its host bits cleared.
+            canon = slot_priority.canonical_route_key(value)
             if canon != value:
                 if out is match_dict:
                     out = dict(match_dict)
@@ -415,6 +520,24 @@ def p4_priority(openflow_priority):
     except (TypeError, ValueError):
         of = 0
     return max(0, of) + 1
+
+
+def _journal_rule(match_dict, priority):
+    """
+    Which switch entry a Ryu-path write touched, as the journal records it for the loss fold.
+
+    [Co-developed with claude code -- Adam]
+    ipv4_lpm holds one entry per destination and has no priority column, so the destination
+    alone names it: an install at priority 100, a modify at the kernel's default 0 and a
+    non-strict delete with no priority all touch the same entry. flow_5tuple entries are named
+    by their match fields and the P4 priority the write used.
+    """
+    if needs_five_tuple(match_dict):
+        return ["flow_5tuple", json.dumps(five_tuple_keys(match_dict), sort_keys=True,
+                                          default=str), p4_priority(priority)]
+    dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst") if isinstance(match_dict, dict) \
+        else None
+    return ["ipv4_lpm", dst]
 
 
 def needs_five_tuple(match_dict):
@@ -731,6 +854,14 @@ class TopologyManager:
         # behaves exactly as before. See rule_journal.py for why replay is a separate decision
         # from recording.
         self._journal = journal
+        #: dpid -> the `ryu_rules_lost` record of the last pipeline push this proxy made to that
+        #: switch (`close_ryu_generation`). Served per switch on GET /p4/switch_state, which the
+        #: kernel reads once a second. [Co-developed with claude code -- Adam]
+        self._ryu_rules_lost = {}
+        #: dpid -> accepted writes since that switch's last pipeline push that the journal could
+        #: not record. They make the next loss record's count incomplete. [Co-developed with
+        #: claude code -- Adam]
+        self._journal_write_failures = {}
 
         # --- Liveness evidence. [Co-developed with claude code -- Adam]
         #
@@ -1112,14 +1243,21 @@ class TopologyManager:
         P4Runtime IdleTimeoutNotification here, because P4Runtime notifies the controller
         rather than deleting the entry the way OpenFlow does.
 
-        Either way a migration written through this method survives only until the next link
-        transition: install_initial_routes rewrites every (switch, host) entry on any
-        transition and on discovery. Anything built on top of "the rule stays until it ages
-        out" needs that fact first.
+        Either way a /32 migration written through this method survives only until the next link
+        transition or discovery that runs install_initial_routes, which rewrites every
+        (switch, host) /32 entry. On a routes_to_attached_hosts_only fabric a link transition does
+        not run it (the transition is reported and not rerouted), so the /32 stays until it is
+        written again. A prefix rule (a.b.c.d/len, len 1-31) is not rewritten by
+        that refill, which writes /32 host routes only: it stays until it is deleted or its
+        switch is re-pushed (readopt). Anything built on top of "the rule stays until it ages
+        out" needs both facts first.
         """
         if dpid not in self.switches:
             print(f"[TopologyManager] Switch {dpid} not found for routing!")
-            return False
+            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            raise FlowRequestUnusable(
+                404, "unknown switch",
+                f"switch {dpid} is not connected to the proxy; nothing was written")
             
         client = self.switches[dpid]
 
@@ -1149,8 +1287,29 @@ class TopologyManager:
                 out_port = action.get("port")
 
         if out_port is None:
+            # [Co-developed with claude code -- Adam]
+            # KNOWN-ISSUES A-4g. OpenFlow reads an empty action list as "drop", and BLOCK_HOST
+            # sends exactly that (match on ipv4_src, `actions: []`). This returned False for it,
+            # so the block never reached the switch. On flow_5tuple, which lists drop() among its
+            # actions and is applied before ipv4_lpm, it is now a drop rule. On ipv4_lpm it stays
+            # refused: a destination-only drop would replace the destination's route (its one
+            # entry), which is not what a drop rule means on OVS, where it layers over the route.
+            if not actions_dict and needs_five_tuple(match_dict):
+                keys = five_tuple_keys(match_dict)
+                prio = p4_priority(priority)
+                print(f"[TopologyManager] Pushing 5-tuple drop rule to DPID {dpid} "
+                      f"prio={prio} keys={sorted(keys)}")
+                return self._note_in_journal(
+                    "install", dpid, match_dict, actions_dict, priority,
+                    bool(client.insert_5tuple_drop(keys, prio)))
             print("[TopologyManager] No OUTPUT action found")
-            return False
+            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            raise FlowRequestUnusable(
+                501, "actions not supported",
+                "this install has no OUTPUT action. On a P4/bmv2 data plane an empty action "
+                "list (a drop) is honoured only on a match naming more than a destination "
+                "(flow_5tuple); a destination-only drop, or any action other than OUTPUT, has "
+                "no translation here. Nothing was written")
 
         # ---- the 5-tuple branch -----------------------------------------------------------
         # [Co-developed with claude code -- Adam]
@@ -1179,17 +1338,20 @@ class TopologyManager:
 
         if not ipv4_dst:
             print("[TopologyManager] Unsupported match criteria (needs nw_dst)")
-            return False
+            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            raise FlowRequestUnusable(
+                400, "unsupported match",
+                "the match names no destination (nw_dst / ipv4_dst) and no other field a "
+                "5-tuple rule keys on, so neither table can hold it. Nothing was written")
             
         # For a full implementation, we need to know the destination MAC if routing to a host.
         # NDTwin OF rules just output to a port. In P4 we require next_hop_mac.
-        # Let's find the MAC from our topology if the destination is a host
-        next_hop_mac = "00:00:00:00:00:00" # Default fallback
-        if ipv4_dst in self.net.nodes:
-            next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
-            
+        # [Co-developed with claude code -- Adam] `ipv4_dst` is now the route key (a bare
+        # address for /32, "network/len" otherwise); see _route_target for the MAC.
+        address, prefix_len, next_hop_mac = self._route_target(dpid, ipv4_dst, out_port)
+
         # Push rule via P4 client
-        print(f"[TopologyManager] Pushing P4 rule to DPID {dpid}: {ipv4_dst}/32 -> Port {out_port} (MAC: {next_hop_mac})")
+        print(f"[TopologyManager] Pushing P4 rule to DPID {dpid}: {address}/{prefix_len} -> Port {out_port} (MAC: {next_hop_mac})")
         # [Co-developed with claude code -- Adam]
         # Was `insert_ipv4_route(...)` followed by an unconditional `return True`, so the
         # REST layer answered {"status":"success"} even when the gRPC write was rejected or
@@ -1199,7 +1361,7 @@ class TopologyManager:
         with self.slot_priorities().lock(dpid, ipv4_dst):
             success = self._write_slot(
                 dpid, ipv4_dst, client,
-                lambda: client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port),
+                lambda: client.insert_ipv4_route(address, prefix_len, next_hop_mac, out_port),
                 slot_priority.install_priority(priority))
             if success:
                 # [Co-developed with claude code -- Adam]
@@ -1235,13 +1397,103 @@ class TopologyManager:
         if not accepted or self._journal is None:
             return accepted
         try:
-            self._journal.record(op=op, dpid=dpid, match=match_dict, actions=actions,
-                                 priority=priority)
+            # The cookie of the client that took the write: which fabric generation's tables
+            # the rule went into, so a later push can tell whether it wiped this rule. And the
+            # switch entry it touched, which is what the loss fold keys on.
+            # [Co-developed with claude code -- Adam]
+            recorded = self._journal.record(op=op, dpid=dpid, match=match_dict, actions=actions,
+                                 priority=priority,
+                                 cookie=getattr(self.switches.get(dpid), "pipeline_cookie",
+                                                None),
+                                 rule=_journal_rule(match_dict, priority))
+            detail = "the journal refused the write"
         except Exception as exc:  # noqa: BLE001 -- see the docstring
-            print(f"[TopologyManager] Could not journal the {op} on DPID {dpid} "
-                  f"({type(exc).__name__}: {exc}); the rule IS installed but will not survive "
-                  f"a proxy restart")
+            recorded = False
+            detail = f"{type(exc).__name__}: {exc}"
+        if recorded is False:
+            # Counted, so the next pipeline push's loss record says its count may be short.
+            # [Co-developed with claude code -- Adam]
+            self._journal_write_failures[dpid] = self._journal_write_failures.get(dpid, 0) + 1
+            print(f"[TopologyManager] WARN: could not journal the {op} on DPID {dpid} "
+                  f"({detail}); the rule IS on the switch, and the next pipeline push that "
+                  f"wipes it will report its count as incomplete")
         return accepted
+
+    def close_ryu_generation(self, dpid, wiped_cookie, cause, client, push_failed=False,
+                             cookie_unknown=None):
+        """
+        Record what a pipeline push of `dpid` just discarded of the Ryu-path rules, loudly.
+
+        [Co-developed with claude code -- Adam]
+        KNOWN-ISSUES A-4c. Called right after each pipeline push this proxy makes -- startup's
+        push loop and `readopt_switch` -- with the cookie the switch's tables were under BEFORE
+        the push. The journal folds that generation's writes (`RuleJournal.wiped`), and the
+        result becomes this switch's `ryu_rules_lost` on GET /p4/switch_state, which the kernel
+        reads once a second, logs, and copies onto its graph. Nothing is written back to the
+        switch: a journal holds requests and not their reasons, and a replayed
+        traffic-engineering detour is a path nobody wants any more.
+
+        The count is null (unknown) in two cases, each with its reason in `count_unknown`:
+        `push_failed` (the push raised, and a refused or interrupted push may still have emptied
+        the tables; the switch is not marked, so the next push counts these again), and
+        `cookie_unknown` (the switch could not say which generation it held before the push --
+        anything but a fresh bmv2's FAILED_PRECONDITION -- so which rules it held is unknown).
+
+        `id` is the client's `table_generation`, the token that changed with this very push.
+        Returns the record, or None when this manager has no journal to read.
+        """
+        if self._journal is None:
+            return None
+        lost, unreadable = self._journal.wiped(dpid, wiped_cookie, cause, mark=not push_failed)
+        failures = (self._journal_write_failures.get(dpid, 0) if push_failed
+                    else self._journal_write_failures.pop(dpid, 0))
+        reason = None
+        if push_failed:
+            reason = ("the pipeline push raised, and a push that fails may still have emptied "
+                      "the switch's tables; `rules` are the ones the journal says were on it")
+        elif cookie_unknown:
+            reason = (f"the switch did not say which fabric generation it held before the push "
+                      f"({cookie_unknown}), so which of the journal's rules it held is unknown")
+        record_id = (getattr(client, "table_generation", None)
+                     or boot_identity.new_table_generation())
+        record = rule_journal.loss_record(lost, unreadable, cause, record_id,
+                                          count_known=reason is None, unknown_reason=reason,
+                                          write_failures=failures)
+        self._ryu_rules_lost[dpid] = record
+        if record["count"] is None or record["count"] or unreadable or failures:
+            shown = "an unknown number of" if record["count"] is None else record["count"]
+            print(f"[TopologyManager] 🔴 DPID {dpid}: the pipeline push ({cause}) discarded "
+                  f"{shown} rule(s) installed through the Ryu-compatible API "
+                  f"({unreadable} journal line(s) unreadable, {failures} write(s) not "
+                  f"journaled). They were NOT replayed; the apps that installed them must "
+                  f"resend them. GET /p4/switch_state ryu_rules_lost {record_id}")
+        return record
+
+    def _route_target(self, dpid, route_key, out_port):
+        """
+        (address, prefix length, next-hop MAC) for an ipv4_lpm write of `route_key` out of
+        `out_port` on `dpid`.
+
+        [Co-developed with claude code -- Adam] A /32 is unchanged: the
+        destination host's MAC when the destination is a node, zero otherwise -- what every
+        write wrote before prefixes. A prefix names no single host, so it takes the MAC of the
+        host behind `out_port` on this switch when there is one (the one host that port
+        reaches) and zero otherwise; ipv4_forward rewrites the destination MAC, so a zero MAC
+        on a transit hop is replaced by the next switch's own entry, as for any non-host /32.
+        """
+        address, prefix_len = slot_priority.split_route_key(route_key)
+        zero = "00:00:00:00:00:00"
+        if prefix_len == slot_priority.MAX_PREFIX_LEN:
+            mac = zero
+            if route_key in self.net.nodes:
+                mac = self.net.nodes[route_key].get("mac", zero)
+            return address, prefix_len, mac
+        with self._net_lock:
+            for neighbour in self.net.successors(dpid) if dpid in self.net else ():
+                if (self.net.edges[dpid, neighbour].get("port") == out_port
+                        and self.net.nodes[neighbour].get("type") == "host"):
+                    return address, prefix_len, self.net.nodes[neighbour].get("mac", zero)
+        return address, prefix_len, zero
 
     def _control_plane_port(self, dpid, ipv4_dst):
         """
@@ -1285,7 +1537,10 @@ class TopologyManager:
 
     def unroute_flow(self, dpid, match_dict, priority=None):
         if dpid not in self.switches:
-            return False
+            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            raise FlowRequestUnusable(
+                404, "unknown switch",
+                f"switch {dpid} is not connected to the proxy; nothing was deleted")
 
         # [Co-developed with claude code -- Adam] As route_flow: a delete whose match names
         # fields we ignored would remove a broader rule than the caller asked to remove, which
@@ -1319,7 +1574,14 @@ class TopologyManager:
                                          bool(client.delete_5tuple_rule(keys, prio)))
 
         if not ipv4_dst:
-            return False
+            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: the wildcard half of a
+            # non-strict delete is refused on purpose (delete_flow_entry's docstring), and that is
+            # the request's shape, not the switch's verdict.
+            raise FlowRequestUnusable(
+                400, "unsupported match",
+                "the match names no destination (nw_dst / ipv4_dst) and no other field a "
+                "5-tuple rule keys on; a delete that would clear the table is refused. Nothing "
+                "was deleted")
             
         # ---- give the slot back to the control plane, do not empty it -----------------------
         # [Co-developed with claude code -- Adam]
@@ -1342,31 +1604,41 @@ class TopologyManager:
         # [Co-developed with claude code -- Adam] One slot step: the restore puts a
         # control-plane entry back (recorded at CONTROL_PLANE_ROUTE_PRIORITY, as the refill's),
         # a removal leaves nothing to record.
+        #
+        # [Co-developed with claude code -- Adam] A prefix route (2026-10-23) is never the
+        # control plane's -- install_initial_routes writes one /32 per host -- so its slot has
+        # nothing to hand back and the withdrawal is a removal. The host routes inside the
+        # prefix are separate entries and are not touched.
+        address, prefix_len = slot_priority.split_route_key(ipv4_dst)
         with self.slot_priorities().lock(dpid, ipv4_dst):
-            restore_port = self._control_plane_port(dpid, ipv4_dst)
+            restore_port = (self._control_plane_port(dpid, ipv4_dst)
+                            if prefix_len == slot_priority.MAX_PREFIX_LEN else None)
             if restore_port is not None:
-                next_hop_mac = "00:00:00:00:00:00"
-                if ipv4_dst in self.net.nodes:
-                    next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
+                _addr, _len, next_hop_mac = self._route_target(dpid, ipv4_dst, restore_port)
                 print(f"[TopologyManager] Withdrawing rule for {ipv4_dst} on DPID {dpid}: "
                       f"restoring control-plane route -> port {restore_port}")
                 success = self._write_slot(
                     dpid, ipv4_dst, client,
-                    lambda: client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, restore_port),
+                    lambda: client.insert_ipv4_route(address, prefix_len, next_hop_mac,
+                                                     restore_port),
                     CONTROL_PLANE_ROUTE_PRIORITY)
                 if success:
                     with self._net_lock:
                         self._installed_routes[(dpid, ipv4_dst)] = restore_port
                 # A refused restore leaves the caller's own rule in the switch, so the delete did
-                # not happen and must not be reported as though it had.
-                return success
+                # not happen and must not be reported as though it had. A restore that went in is
+                # journaled like the removal below: without it the install it undid would be
+                # reported as lost by the next pipeline push. [Co-developed with claude code --
+                # Adam]
+                return self._note_in_journal("delete", dpid, match_dict, [], priority, success)
 
             # No control-plane route to hand the slot back to -- the destination is unreachable
             # in the current graph, or was never one this fabric routes. Removal is the honest
             # outcome. [Co-developed with claude code -- Adam] -- as above: report the real
             # outcome.
             success = self._write_slot(dpid, ipv4_dst, client,
-                                       lambda: client.delete_ipv4_route(ipv4_dst, 32), None)
+                                       lambda: client.delete_ipv4_route(address, prefix_len),
+                                       None)
             if success:
                 # Withdraw the record along with the rule. Left in place, the twin would keep
                 # advertising a route to a destination the switch no longer has one for at all
@@ -1381,7 +1653,10 @@ class TopologyManager:
 
     def modify_flow(self, dpid, match_dict, actions_dict, priority=None):
         if dpid not in self.switches:
-            return False
+            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            raise FlowRequestUnusable(
+                404, "unknown switch",
+                f"switch {dpid} is not connected to the proxy; nothing was modified")
 
         # [Co-developed with claude code -- Adam] As route_flow.
         bad = unsupported_match_fields(match_dict)
@@ -1403,7 +1678,11 @@ class TopologyManager:
                 out_port = action.get("port")
 
         if out_port is None:
-            return False
+            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            raise FlowRequestUnusable(
+                501, "actions not supported",
+                "this modify has no OUTPUT action. On a P4/bmv2 data plane a modify can only "
+                "rewrite a forwarding entry's port; nothing was modified")
 
         # As unroute_flow: on a ternary table the priority identifies the entry. A modify with
         # the wrong one edits nothing and says it worked. [Co-developed with claude code -- Adam]
@@ -1418,11 +1697,14 @@ class TopologyManager:
                 bool(client.modify_5tuple_rule(keys, prio, next_hop_mac, out_port)))
 
         if not ipv4_dst:
-            return False
+            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            raise FlowRequestUnusable(
+                400, "unsupported match",
+                "the match names no destination (nw_dst / ipv4_dst) and no other field a "
+                "5-tuple rule keys on, so neither table can hold it. Nothing was modified")
 
-        next_hop_mac = "00:00:00:00:00:00"
-        if ipv4_dst in self.net.nodes:
-            next_hop_mac = self.net.nodes[ipv4_dst].get("mac", "00:00:00:00:00:00")
+        # [Co-developed with claude code -- Adam] The route key, as in route_flow.
+        address, prefix_len, next_hop_mac = self._route_target(dpid, ipv4_dst, out_port)
 
         # ---- a named priority must be the one the slot holds -------------------------------
         # [Co-developed with claude code -- Adam] Adam, 2026-10-16, amending
@@ -1449,7 +1731,7 @@ class TopologyManager:
                     raise SlotPriorityNotHeld(dpid, ipv4_dst, named, held)
             success = self._write_slot(
                 dpid, ipv4_dst, client,
-                lambda: client.modify_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port),
+                lambda: client.modify_ipv4_route(address, prefix_len, next_hop_mac, out_port),
                 slot_priority.KEEP)
             if success:
                 # As route_flow: the port just changed, so the record has to move with it or a
@@ -1640,6 +1922,7 @@ class TopologyManager:
             if sample_callback is not None:
                 new.sample_callback = sample_callback
 
+            pushing = False
             try:
                 new.start(push_config=False)
                 time.sleep(settle_s)
@@ -1672,6 +1955,7 @@ class TopologyManager:
                             "error": "arbitration was not granted within the settle window; "
                                      "the old client (or another controller) likely still "
                                      "holds mastership. The switch was not touched."}
+                pushing = True
                 new.set_forwarding_pipeline_config()
             except Exception as e:  # noqa: BLE001
                 try:
@@ -1680,8 +1964,22 @@ class TopologyManager:
                     pass
                 # The old client stays in place: it is just as dead, but the liveness poller
                 # keeps probing it, so the switch keeps reporting Down instead of vanishing.
-                return {"status": "failed", "step": "pipeline",
-                        "error": f"{type(e).__name__}: {e}"}
+                failed = {"status": "failed", "step": "pipeline",
+                          "error": f"{type(e).__name__}: {e}"}
+                if pushing:
+                    # A push that raised may still have emptied the tables: the count is
+                    # unknown, not zero. [Co-developed with claude code -- Adam]
+                    failed["ryu_rules_lost"] = self.close_ryu_generation(
+                        dpid, getattr(old, "pipeline_cookie", None), "readopt", new,
+                        push_failed=True)
+                return failed
+
+            # The push above emptied the switch: report what of the Ryu-path rules went with
+            # it, against the generation the OLD client wrote them under. Right after the push,
+            # before the clone session and the swap, so no write through the new client can
+            # land in the journal ahead of the mark. [Co-developed with claude code -- Adam]
+            ryu_lost = self.close_ryu_generation(dpid, getattr(old, "pipeline_cookie", None),
+                                                 "readopt", new)
 
             # Same policy as startup(): a failed clone session costs telemetry, not the
             # switch. It forwards fine; it just reports zero traffic, and the caller is told.
@@ -1691,6 +1989,16 @@ class TopologyManager:
             # does single-key lookups, which the GIL keeps atomic.
             with self._liveness_lock:
                 self.switches[dpid] = new
+
+            # [Co-developed with claude code -- Adam] The push above emptied this switch's
+            # tables, and the refill below writes /32 host routes only, so a prefix route
+            # recorded for it (2026-10-23) is gone from the switch; left in the record, the
+            # path view would follow a /24 the switch no longer has. Host-route records are
+            # left as they were (the refill rewrites them).
+            with self._net_lock:
+                for key in [k for k in self._installed_routes
+                            if k[0] == dpid and "/" in str(k[1])]:
+                    del self._installed_routes[key]
 
             if old is not None and old is not new:
                 try:
@@ -1716,7 +2024,7 @@ class TopologyManager:
         # 2026-08-13).
         if attempted > 0 and routes == 0:
             return {"status": "failed", "step": "routes", "dpid": dpid,
-                    "clone_session": clone_ok,
+                    "clone_session": clone_ok, "ryu_rules_lost": ryu_lost,
                     "error": f"the switch refused all {attempted} route writes after "
                              f"accepting the pipeline; its tables are empty until a proxy "
                              f"restart or a link-watchdog recovery reinstalls them"}
@@ -1726,7 +2034,8 @@ class TopologyManager:
         print(f"[TopologyManager] readopt {dpid}: pipeline pushed, clone_session={clone_ok}, "
               f"{routes} of {attempted} routes installed{why_no_routes}")
         result = {"status": "success", "dpid": dpid, "clone_session": clone_ok,
-                  "routes_installed": routes, "routes_attempted": attempted}
+                  "routes_installed": routes, "routes_attempted": attempted,
+                  "ryu_rules_lost": ryu_lost}
 
         # [Co-developed with claude code -- Adam]
         # Nothing was even attempted: this switch's links are still down, so no path in
@@ -2033,6 +2342,11 @@ class TopologyManager:
                     # the existing parse and no reader has to be updated in lockstep.
                     "table_generation": getattr(client, "table_generation", None),
                     "pipeline_commits": getattr(client, "pipeline_commits", 0),
+                    # [Co-developed with claude code -- Adam] What the last push of this switch
+                    # discarded of the rules written through /stats/flowentry/*, and that it
+                    # was not replayed (close_ryu_generation). null before this proxy has
+                    # pushed to the switch. The kernel logs it and copies it onto its graph.
+                    "ryu_rules_lost": self._ryu_rules_lost.get(dpid),
                     # [Co-developed with claude code -- Adam]
                     # KNOWN-ISSUES G-13, and the reason these four are here at all: on this
                     # plane `duration 0/0` means "this proxy has no record of installing that

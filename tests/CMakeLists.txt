@@ -48,6 +48,9 @@ add_executable(
   test_RelayResponse.cpp
   test_RequestDeadlines.cpp
   test_FlowTableCacheOptionalFields.cpp
+  # [Co-developed with claude code -- Adam] CIDR destinations (accepted on the P4 proxy's
+  # Ryu-compatible path since 2026-10-23): the table cache's row lookup and the pre-queue check.
+  test_FlowTableCacheCidr.cpp
   test_ReverseEdgeLookup.cpp
   test_LastHopAttribution.cpp
   test_AllDestinationPaths.cpp

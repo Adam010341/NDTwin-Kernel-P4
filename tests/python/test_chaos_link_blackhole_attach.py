@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-The defect, found while fixing B-6 (scratch/overnight-2026-09-05/fix/W8-SUMMARY.md §6, §7.8),
+The defect, found while fixing B-6,
 in `doc/audit/2026-08-28_chaos-harness/harness/actions.py`:
 
     apply : `sudo tc qdisc add dev <iface> root netem loss 100%`  -- unconditional `root`
@@ -13,9 +13,8 @@ in `doc/audit/2026-08-28_chaos-harness/harness/actions.py`:
 
 On a Mininet TCLink interface `add ... root netem` does not stack a layer -- it REPLACES htb,
 and `del ... root` then leaves the kernel default rather than htb. Captured verbatim on
-2026-08-13 in doc/audit/2026-08-12_overnight-review/C-live-ovs-runbook.md (P1), and the
-NOPASSWD grants on this machine cannot put htb back. `tools/test_workflow/faults.sh` and
-`include/utils/NetemLinkFault.hpp` both carry the rule that came out of that round; the harness
+2026-08-13 from a live OVS fabric, and netem-scoped tc sudoers rules cannot put htb back.
+`tools/test_workflow/faults.sh` and `include/utils/NetemLinkFault.hpp` both carry the rule that came out of that round; the harness
 did not.
 
 🔴 THE POINT OF THIS FILE IS THE SECOND HALF, NOT THE FIRST. Fixing only the attach point would
@@ -67,7 +66,7 @@ import probes  # noqa: E402
 FAULTS_SH = os.path.join(REPO, "tools", "test_workflow", "faults.sh")
 
 # --- the trees -------------------------------------------------------------------------------
-# 🔴 Verbatim from doc/audit/2026-08-12_overnight-review/C-live-ovs-runbook.md, P1 (2026-08-13,
+# 🔴 Verbatim from a live capture (2026-08-13,
 # `tc qdisc show dev s1-eth2` on a live OVS fabric). Note `default 0x1`: the class id is printed
 # in hex by this kernel, which is why the attach point is built by concatenating the token
 # rather than reformatting it.
@@ -221,8 +220,8 @@ class DeletePointTest(unittest.TestCase):
         self.assertEqual(actions.netem_delete_point(UNSHAPED_WITH_NETEM)[0], ["root"])
 
     def test_the_delete_carries_no_trailing_token_after_the_attach_point(self):
-        # The NOPASSWD grant is matched literally: `qdisc del dev s*-eth* root` and
-        # `... parent *`. One extra token and the revert dies with "a password is required",
+        # The sudoers rules these deletes need are matched literally: `qdisc del dev s*-eth*
+        # root` and `... parent *`. One extra token and the revert dies with "a password is required",
         # leaving the fault in place. Measured 2026-08-13.
         for tree in (UNSHAPED_WITH_NETEM, SHAPED_DEV_WITH_NETEM):
             where, _ = actions.netem_delete_point(tree)

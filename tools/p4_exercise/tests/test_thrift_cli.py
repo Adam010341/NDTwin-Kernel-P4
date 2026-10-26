@@ -33,6 +33,7 @@ What is pinned, and why each is a line of its own:
     that only one object has -- and an ambiguous one is refused, never picked.
 """
 import contextlib
+import glob
 import io
 import json
 import os
@@ -47,6 +48,10 @@ if TOOLS not in sys.path:
     sys.path.insert(0, TOOLS)
 
 from p4_exercise import common, convert, thrift_cli  # noqa: E402
+
+#: The p4dev venv that ships runtime_CLI.py: $NDTWIN_P4DEV_VENV, or ~/p4dev-python-venv when unset.
+#: Only TheParserAgainstRuntimeCli needs it, and it skips by name when it is not there.
+P4DEV_VENV = os.environ.get("NDTWIN_P4DEV_VENV") or os.path.expanduser("~/p4dev-python-venv")
 
 #: The shapes int-v1's compiled p4info has, written out by hand (see the module docstring), plus
 #: one range table of our own so the range rules have a subject. Ids are arbitrary but unique.
@@ -509,11 +514,18 @@ PARSE_CORPUS = (
 
 
 def rcli_python():
-    """The p4dev venv interpreter and the directory its runtime_CLI.py lives in, or None."""
-    py = "/home/adam/p4dev-python-venv/bin/python"
-    site = "/home/adam/p4dev-python-venv/lib/python3.13/site-packages"
-    if os.access(py, os.X_OK) and os.path.isfile(os.path.join(site, "runtime_CLI.py")):
-        return py, site
+    """The p4dev venv interpreter and the directory its runtime_CLI.py lives in, or None.
+
+    The venv is $NDTWIN_P4DEV_VENV, or ~/p4dev-python-venv when that is unset; runtime_CLI.py is
+    looked for in its lib/python3.*/site-packages, whichever minor version that is.
+    """
+    venv = P4DEV_VENV
+    py = os.path.join(venv, "bin", "python")
+    if not os.access(py, os.X_OK):
+        return None
+    for site in sorted(glob.glob(os.path.join(venv, "lib", "python3*", "site-packages"))):
+        if os.path.isfile(os.path.join(site, "runtime_CLI.py")):
+            return py, site
     return None
 
 
@@ -524,7 +536,7 @@ class TheParserAgainstRuntimeCli(unittest.TestCase):
     def test_the_value_parser_agrees_with_runtime_cli_except_where_it_says_it_is_stricter(self):
         found = rcli_python()
         if found is None:
-            self.skipTest("no /home/adam/p4dev-python-venv with runtime_CLI.py on this machine: "
+            self.skipTest(f"no p4dev venv with runtime_CLI.py at {P4DEV_VENV} (set NDTWIN_P4DEV_VENV): "
                           "the differential needs the CLI's own parser, nothing else stands in")
         import subprocess
         py, site = found

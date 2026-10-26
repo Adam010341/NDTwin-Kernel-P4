@@ -6,8 +6,8 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Measured on stock and bmv2-fast simple_switch_grpc (run-stock.out / run-fast.out, phase A, under
-# doc/audit/2026-10-04_p4-cookie-probe/): a bmv2 with no pipeline answers the
+# Measured on stock and bmv2-fast simple_switch_grpc (phase A of the 2026-10-04 cookie probe):
+# a bmv2 with no pipeline answers the
 # COOKIE_ONLY probe with FAILED_PRECONDITION. P4RuntimeClient.probe() turns that into ok False, so
 # switch_liveness() (which GET /p4/switch_state serves) shows probe_ok false and
 # connected_switch_dpids() leaves the switch out; reroutable_down_endpoints() grants no amnesty on

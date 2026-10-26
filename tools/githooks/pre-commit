@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Refuse to commit audit raw artifacts anywhere except the `audit-raw` orphan branch.
+# Refuse to commit audit raw artifacts: raw logs are not kept in this repository.
 #
 # WHY A HOOK AND NOT A .gitignore RULE. .gitignore already covers these paths, and has since
 # 2026-08-25. It was widened once (`raw/*` -> `raw*`) after a round wrote to raw_n/ and slipped
@@ -19,7 +19,7 @@
 # hooks/pre-commit)"`, not this file's existence.
 #
 # Linked worktrees share the common .git/hooks directory, so installing once covers every
-# worktree of this repo, including the disposable ones used to write to audit-raw.
+# worktree of this repo.
 #
 # [Co-developed with claude code -- Adam]
 set -uo pipefail
@@ -27,7 +27,7 @@ set -uo pipefail
 # The branch of the worktree doing the commit, not of the main checkout: hooks run with cwd
 # inside the committing worktree, so symbolic-ref answers for the right one. A detached HEAD has
 # no branch to compare and is refused rather than waved through -- an unknown branch is not
-# evidence of audit-raw.
+# evidence of being the one exempt branch.
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo '(detached)')"
 [[ "$branch" == "audit-raw" ]] && exit 0
 
@@ -51,8 +51,8 @@ branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo '(detached)'
 #                 today under 2026-08-19_failover-provenance/. It is also not the thing this
 #                 rule exists to stop: the complaint was 115k lines of diff, and a gz adds none.
 #                 Deliberate, and deliberately reversible -- if the goal becomes "no evidence on
-#                 a working branch at all" rather than "no diff noise", delete this line and move
-#                 those 17 files across.
+#                 a working branch at all" rather than "no diff noise", delete this line and take
+#                 those 17 files out of the repository.
 offenders="$(git diff --cached --name-only --diff-filter=d -z \
     -- 'doc/audit/*/raw*/*' \
     | tr '\0' '\n' \
@@ -69,13 +69,9 @@ n=$(printf '%s\n' "$offenders" | wc -l)
   printf '%s\n' "$offenders" | head -20 | sed 's/^/    /'
   [[ "$n" -gt 20 ]] && echo "    ... and $((n - 20)) more"
   echo
-  echo "Raw belongs on the audit-raw orphan branch. Working branches carry the round's"
-  echo "analysis and its README, not its evidence. To move these across:"
+  echo "Raw logs are not kept in this repository. A round's directory carries its analysis"
+  echo "and its README, not its evidence. Keep the files elsewhere and unstage them:"
   echo
-  echo "    git worktree add /tmp/rawwt audit-raw"
-  echo "    # copy the files in at the same paths, then:"
-  echo "    git -C /tmp/rawwt add -A doc && git -C /tmp/rawwt commit"
-  echo "    git worktree remove /tmp/rawwt"
   echo "    git restore --staged <the paths above>"
   echo
   echo "If this really is an exception, --no-verify skips this check. Say in the commit"

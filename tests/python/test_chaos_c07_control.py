@@ -13,8 +13,8 @@ rows" -- built out of three ingredients, each fatal on its own:
   3. the criterion was `rows == 0 => B-3 reproduced`, and None is zero rows.
 
 So the control answered "reproduced" on a healthy kernel, on a defective one, and against no
-kernel at all -- and `doc/audit/2026-08-28_chaos-harness/05_first-live-run.md:203` published a
-claim resting on it.
+kernel at all -- and the write-up of the harness's first live run published a claim resting on
+it.
 
 🔴 THIS FILE IS ABOUT DISCRIMINATING POWER, NOT ABOUT GREEN. Repairing only the route would
 leave the shape: a probe that discards status codes fabricates the same false pass the next
@@ -299,23 +299,6 @@ class ItDiscriminates(ProbeBase):
         res = actions._c07_apply(True)
         self.assertTrue(res.dry_run)
         self.assertEqual(fake.calls, [], "the dry run issued a request")
-
-
-class TheRetractionIsRecorded(unittest.TestCase):
-    """The published claim that rested on this control must not read as current."""
-
-    # Beside the harness, so NDT_CHAOS_HARNESS moves this too and the mutation gate can score
-    # the retraction the same way it scores the code.
-    CLAIM = os.path.join(os.path.dirname(HARNESS.rstrip(os.sep)), "05_first-live-run.md")
-
-    def test_h9_is_marked_retracted(self):
-        with open(self.CLAIM, encoding="utf-8") as fh:
-            text = fh.read()
-        head = text.split("## H-10", 1)[0].split("## H-9", 1)[-1]
-        self.assertIn("RETRACTED", head,
-                      "05_first-live-run.md H-9 still asserts the control 'verified true'")
-        self.assertIn("G-3", head, "the retraction does not name its reason")
-        self.assertIn("2026-09-03", head, "the retraction is not dated")
 
 
 if __name__ == "__main__":

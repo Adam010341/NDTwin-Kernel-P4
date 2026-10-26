@@ -7,7 +7,7 @@
 #
 # 🔴 THIS STEP HAD NO GATE AND NO TEST, AND ITS ONE DECISION WAS INVERTED. `expected_rc()`
 # wanted rc 1 from every skeleton arm, so a completely correct round of twenty-six would have
-# printed `FAIL 06_thirteen -- 11 of 26` (judge A2, TICKET-P3 §9 ruling 9). "Red" is a property
+# printed `FAIL 06_thirteen -- 11 of 26`. "Red" is a property
 # of the EXPECTATIONS -- the skeleton arm asserts "h2 received 0 packets", "every reported port
 # is 0", "the flow is NOT blocked" -- so a skeleton behaving as the exercise says meets all of
 # them and the driver exits 0; the 09-08 and 09-18 real runs are exactly that.
@@ -127,7 +127,7 @@ check_control() {   # <label> <name> -- behaviour-preserving; the suite must sta
         # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
         # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
         # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
-        # read by the orchestrator as the named check that stayed green. The line that names
+        # read as the named check that stayed green. The line that names
         # that check is the `still green:` one above; this one is context, and context that
         # shows passing cells as failures is worse than no context.
         /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
@@ -135,7 +135,7 @@ check_control() {   # <label> <name> -- behaviour-preserving; the suite must sta
     fi
 }
 
-# --- M1 (judge A2): a correct skeleton arm is expected to FAIL ------------------------------------
+# --- M1: a correct skeleton arm is expected to FAIL ------------------------------------
 # The defect itself, restored. Eleven of twenty-six arms red on a round in which every exercise
 # behaved exactly the way its own README says it does.
 cat > "$A/m1.old" <<'EOF'
@@ -247,8 +247,8 @@ check_fires "M7: the set -u local hazard comes back" m7 \
             "  a correct pair of arms passes" \
             "  the table names each arm"
 
-# --- M8 (round-3 ruling 2): rc 1 alone is accepted from the exception arms ------------------------
-# 🔴 THE DEFECT THE JUDGE FOUND IN ROUND 2'S FIX. The two exception arms are expected to exit 1
+# --- M8: rc 1 alone is accepted from the exception arms ------------------------
+# 🔴 THE DEFECT IN THE EARLIER FIX. The two exception arms are expected to exit 1
 # -- but an arm that FAILED an expectation exits 1 too. `flowcache/skeleton` that COMPILED
 # prints `FAIL (1/1): the skeleton COMPILED` and exits 1; comparing rc only, this step printed
 # PASS for exactly the finding it exists to report.
@@ -292,20 +292,19 @@ check_fires "M10: the by-design check becomes a substring match" m10 \
             "  and is named as one"
 
 # --- (no M12) the decoy's process-unique name is also in the TEST FILE ---------------------------
-# 🔴 §9 rulings 12e and 14a. `DECOY="$LIVE/runs/1970-01-01T000000Z.pid${$}_06_thirteen"` is in
+# 🔴 `DECOY="$LIVE/runs/1970-01-01T000000Z.pid${$}_06_thirteen"` is in
 # tests/shell/test_live_p1_thirteen.sh, not in `06_thirteen.sh`; this gate's subject is the
 # STEP, and an anchor in the test would be counted by check_gate_anchors.py against 06 and read
 # as MISSING.
 #
-# 🔴 AND ROUND 4'S VERSION OF THIS NOTE WAS WRONG, which is why the wording is different now.
-# It said the parallel run was the evidence. It was not: round 4 put the pid at the END
+# 🔴 AND AN EARLIER VERSION OF THIS NOTE WAS WRONG, which is why the wording is different now.
+# It said the parallel run was the evidence. It was not: that version put the pid at the END
 # (`..._06_thirteen.pid$$`), which falls OUTSIDE the suite's own glob `*_06_thirteen`, so the
 # decoy was invisible to BEFORE2/AFTER2 and the cell it was supposed to protect answered the
 # same for a difference and for a count. The parallel run passed because the fixture had been
 # made invisible -- the cheapest way there is to pass a test.
 #
-# The evidence now is a red one: `logs/gates-0910/test_live_p1_thirteen.seen-red-12e.log` is the
-# suite with `comm -13` replaced by a plain `AFTER2`, and the cell
+# The evidence now is a red one: the suite with `comm -13` replaced by a plain `AFTER2`, and the cell
 # "a PREVIOUS real run's directory is not counted as ours" FAILS there. Plus a cell in the
 # suite that asserts the decoy is visible to the glob at all, so this can never go vacuous
 # again without something going red.
@@ -319,7 +318,7 @@ check_fires "M10: the by-design check becomes a substring match" m10 \
 # run directory and asserts it is not counted ("a PREVIOUS real run's directory is not counted
 # as ours"), which fails if the difference is replaced by a count.
 
-# --- M11 (Adam's ruling G, 09-27): the default owner comes back ---------------------------------------
+# --- M11 (09-27): the default owner comes back ---------------------------------------
 # [Co-developed with claude code -- Adam] The line as it was: every round claimed by `live-p1`.
 cat > "$A/m11.old" <<'EOF'
 if [[ -z "${NDT_OWNER:-}" ]]; then
@@ -352,7 +351,7 @@ if true; then
 EOF
 check_fires "M12: 06 records no venv fingerprint" m12 \
             "🔴 the raw records the venv fingerprint of both interpreters"
-# [Co-developed with claude code -- Adam] M13 (the round-4 review's M-2): 06 records no code identity.
+# [Co-developed with claude code -- Adam] M13: 06 records no code identity.
 cat > "$A/m13.old" <<'EOF'
 record_identity before
 EOF

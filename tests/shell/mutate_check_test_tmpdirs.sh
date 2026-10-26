@@ -137,9 +137,9 @@ m8=$(mutant m8 '    code, unreadable = strip_cpp_comments(text)'$'\x1f''    code
 report "M8 (widening): C++ comments are read as code" "$m8" \
        "test_a_defect_quoted_in_a_c_comment"
 
-# --- family 4: the spellings, and the scope (B12 + D1/D2, 2026-09-11) ----------------------------
-# hunt-0911/F-B0-B12-REPORT.md §3.1 put five re-spellings of one fixed temp path through this tool
-# and got `0 fixed temp paths`, rc 0, out of every one; F-OFFLINE-1-REPORT.md §1.17 added a scope
+# --- family 4: the spellings, and the scope (2026-09-11) ----------------------------
+# A review pass put five re-spellings of one fixed temp path through this tool
+# and got `0 fixed temp paths`, rc 0, out of every one; a later one added a scope
 # that was three non-recursive globs and a KNOWN LIMIT scan_cpp did not honour. Each mutation below
 # puts one of those back, so that "the gate guards the property" is a thing that has been measured
 # rather than a thing the docstring says. Half of them are widenings: undoing a spelling test is

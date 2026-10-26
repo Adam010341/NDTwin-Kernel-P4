@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tools/p4_exercise (TICKET-P1 §3).
+# Mutation gate for tools/p4_exercise.
 #
 # [Co-developed with claude code -- Adam]
 #
-# TICKET-P2 section 3.7 appended M-A4, M-A5 and M-A6 as 8, 9 and 10 (G4, the per-switch
-# pipeline). The header below was written for the first seven and still describes them.
-# Adam's ruling J (2026-09-27) appended 23-28, the fixture-provenance rule, and with them a
+# G4 (the per-switch pipeline) appended M-A4, M-A5 and M-A6 as 8, 9 and 10.
+# The header below was written for the first seven and still describes them.
+# The fixture-provenance rule (2026-09-27) appended 23-28, and with it a
 # fourth subject: tools/p4_exercise/tests/test_convert.py, where that rule lives.
 # The paper-apps work (int-v1 and ONTAS, 2026-10-16) appended 38-77 and a fifth subject,
 # tools/p4_exercise/thrift_cli.py, the bmv2 CLI -> P4Runtime entry translator.
@@ -74,7 +74,7 @@ TESTS="$PKG/tests"
 CONVERT="$PKG/convert.py"
 PREFLIGHT="$PKG/preflight.py"
 ADAPTER="$PKG/run_external_controller.py"
-# Ruling J (2026-09-27): the fixture-provenance RULE lives in the suite's own file -- it is what
+# 2026-09-27: the fixture-provenance RULE lives in the suite's own file -- it is what
 # decides which fixture is byte-compared and which carries a compile command -- so that file is
 # a subject too, snapshotted and restored with the three tools. [Co-developed with claude code -- Adam]
 TESTCONV="$PKG/tests/test_convert.py"
@@ -156,7 +156,7 @@ add "5. pre-flight stops checking an lpm prefix length against the field width" 
     '            elif False:  # MUTANT: the prefix length is never out of range' \
     'test_an_lpm_prefix_longer_than_the_field_fails'
 
-# 6 and 7 are the two the judge asked for after the first delivery. Both are regressions of a
+# 6 and 7 are the two added after the first delivery. Both are regressions of a
 # defect that was actually made and actually shipped for the length of one run -- #6 is the
 # hand-typed enum table, verbatim, that made the first real pre-flight of exercises/basic report
 # every lpm entry as an unsupported TERNARY.
@@ -180,7 +180,7 @@ add "7. pre-flight stops enforcing the h<last octet> host naming rule" \
             wrong.append(f"{name} on {ip} would be built as {expected}")' \
     'test_a_host_whose_name_does_not_match_its_address_fails'
 
-# 8, 9 and 10 are TICKET-P2 section 3.7's M-A4, M-A5 and M-A6 -- the converter and pre-flight
+# 8, 9 and 10 are M-A4, M-A5 and M-A6 -- the converter and pre-flight
 # halves of G4, the per-switch pipeline. All three describe a package that pre-flights green and
 # brings a fabric up that runs the wrong program: nothing crashes, every switch forwards, and the
 # twin reports health throughout. `firewall` is the discriminating exercise and the only one
@@ -206,7 +206,7 @@ add "10. pre-flight accepts entries written against a program the switch does no
     '    wrong = []  # MUTANT: whichever p4info the entries name is fine' \
     'test_entries_written_for_another_program_fail'
 
-# 11-16 close the gaps the P2-A judge found: 53 new tests against 10 named mutations. Each of
+# 11-16 close gaps found in review: 53 new tests against 10 named mutations. Each of
 # these is a green pre-flight or a green conversion in front of a package that cannot be brought
 # up, or can be brought up running the wrong thing.
 add "11. --ndtwin-pipeline stops meaning anything, so the phase-1 cell runs the exercise's programs" \
@@ -222,7 +222,7 @@ add "12. a declared per-switch program with no --p4 is silently ignored instead 
     'test_a_program_without_p4_is_refused_rather_than_half_applied'
 
 # 13: the sha is the ONLY stable identifier either half of a pipeline has -- the bmv2 json's own
-# sha moves with the directory it was compiled in (TICKET-P1 B measured it). Without it printed,
+# sha moves with the directory it was compiled in. Without it printed,
 # "is this the program those entries were written for" has no answer an operator can quote.
 add "13. the per-switch INFO row stops printing the p4info sha256" \
     "$PREFLIGHT" \
@@ -255,10 +255,10 @@ add "16. a p4info that exists but does not parse is skipped instead of reported"
         except Exception as exc:  # unreachable once the mutant above catches everything' \
     'test_a_p4info_that_exists_but_does_not_parse_fails_by_name'
 
-# 17-22 are TICKET-P3 2.6's convert / pre-flight half: the exercise's own CPU port (G9b), the
+# 17-22 are the convert / pre-flight half of the telemetry work: the exercise's own CPU port (G9b), the
 # telemetry word, and the PRE entries a runtime file declares (G8/G9a). The proxy-side mutations
-# of the same ticket are in tests/shell/mutate_telemetry_by_name.sh -- split on the file that is
-# mutated rather than on the ticket, so each gate's baseline check still means something.
+# of the same work are in tests/shell/mutate_telemetry_by_name.sh -- split on the file that is
+# mutated rather than on the feature, so each gate's baseline check still means something.
 #
 # Every one of these is a package that pre-flights green and then produces a fabric where the
 # failure is a host that does not receive: a switch launched on the wrong CPU port drops every
@@ -311,7 +311,7 @@ add "22. the same (port, instance) twice is accepted, and the group is quietly s
     '                if False:  # MUTANT: the PRE holds both. It does not.' \
     'test_the_same_replica_twice_fails'
 
-# 23-28 are Adam's ruling J (2026-09-27), the P3-C precedent (c) made a rule: a build ARTIFACT
+# 23-28 are the fixture-provenance rule (2026-09-27), the P3-C precedent (c) made a rule: a build ARTIFACT
 # (a compiler output under build/) leaves byte provenance and carries the command that made it;
 # every SOURCE -- the .p4 files, the topology and runtime files, mycontroller.py -- stays
 # byte-compared with ~/tutorials. The live runs recompile ~/tutorials/*/build, so an artifact
@@ -514,7 +514,7 @@ add "49. an include outside the app directory is carried instead of refused" \
     '            if False:  # MUTANT: any file the program names is the app'"'"'s' \
     'test_an_include_that_leaves_the_app_directory_is_refused'
 
-# 50-65: round 2 of the paper-apps work (review r1 of e77e35c5). The translator's own refusals that
+# 50-65: round 2 of the paper-apps work (on e77e35c5). The translator's own refusals that
 # had been seen red only against an API stub, and the rules added in that round: one address per
 # script, shell metacharacters in a flag, runtime_CLI's decimal IPv4 parts, the CLI priority bound
 # of the exact inverse, an lpm /0 on a table with no priority column, a script outside the app, a
@@ -670,7 +670,7 @@ add "70. a legacy link's two ends are not ordered, so a switch-first host link i
             s, t = t, s' \
     'test_host_links_take_the_first_ports_in_sorted_order'
 
-# 71-77: round 3 (review r2 of 244face4). A flag's expansions, the address variable assigned
+# 71-77: round 3 (on 244face4). A flag's expansions, the address variable assigned
 # exactly once, the package paths of a script and of an include taken from the RESOLVED file, a
 # shared runtime file found by realpath, and the two round-2 tests that had never been red.
 # [Co-developed with claude code -- Adam]
@@ -724,7 +724,7 @@ CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
 def build_model(hosts, switches, links):'
-# The fourth subject gets its own control (judge K-N12): six mutants there go red, and without a
+# The fourth subject gets its own control: six mutants there go red, and without a
 # comment-only edit of the same file staying green, "test_convert.py reddens for anything" would
 # print the same six lines. [Co-developed with claude code -- Adam]
 CTRL2_SRC="$TESTCONV"
@@ -847,12 +847,12 @@ PY
 
 # --- baseline -----------------------------------------------------------------------------------
 
-echo "TICKET-P1 §3 p4_exercise tools mutation gate"
+echo "p4_exercise tools mutation gate"
 echo "  interpreter : $PYTHON"
 echo "  subjects    : $CONVERT"
 echo "                $PREFLIGHT"
 echo "                $ADAPTER"
-echo "                $TESTCONV (the fixture-provenance rule, ruling J)"
+echo "                $TESTCONV (the fixture-provenance rule)"
 echo "                $THRIFT (the bmv2 CLI translator, 38-43)"
 echo "  suite       : $TESTS"
 for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do

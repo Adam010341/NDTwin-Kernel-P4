@@ -115,7 +115,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     friend class HttpSessionGroupMeterTestPeer;
 
     // [Co-developed with claude code -- Adam]
-    // Fifth peer, for tests/test_OpenflowCapacityReport.cpp (W17). Separate for the same ODR
+    // Fifth peer, for tests/test_OpenflowCapacityReport.cpp. Separate for the same ODR
     // reason as the second, and it is the only one that writes a member rather than only reading
     // the response: get_openflow_capacity reads two files and the process table, so the test has
     // to be able to point it at a fixture tree. Without that, "does the endpoint report the
@@ -129,7 +129,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     // that file can prove the state is knowable, but not that the handler bothered to ask.
     friend class HistoricalLoggingEndpointTestPeer;
 
-    // [Co-developed with claude code -- Adam] -- E-2.
+    // [Co-developed with claude code -- Adam]
     // Fifth peer, for tests/test_TopologyLoadedModelReported.cpp, separate for the same ODR
     // reason as the second: each peer is a class DEFINED in its own translation unit, so two
     // test files cannot share one name. What it pins is that the three topology_* keys reach the
@@ -163,8 +163,8 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      */
     std::shared_ptr<http::response<http::string_body>> buildResponse();
 
-    // [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md G-32, Adam's ruling of
-    // 2026-09-11 (option C). The northbound writes report what the lab claim says and log the
+    // [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md G-32, decided
+    // 2026-09-11. The northbound writes report what the lab claim says and log the
     // moment it changes; they do NOT refuse anything. The measurement, the format of the file
     // and the reason the path comes from NDT_LAB_CLAIM_FILE are all in the anonymous namespace
     // above the routing table in HttpSession.cpp.
@@ -369,7 +369,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      *
      * [Co-developed with claude code -- Adam]
      *
-     * W11, from R6 K-4. The process-wide counters cannot be attributed: a caller reading them
+     * The process-wide counters cannot be attributed: a caller reading them
      * before and after its own POST is also measuring every other writer, and §27's lock is
      * advisory. `install_flow_entry` and its siblings now return a `request_id`, and this reads
      * back that one batch's share of both counter groups.
@@ -781,8 +781,8 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * (src/common/types.cpp:396) computed from the graph, which never reaches this handler. All
      * seven sibling repos listed in tools/test_workflow/components.env were swept, including
      * Traffic-Engineering-App, which builds its paths by concatenation and so needed its endpoint
-     * list read out rather than grepped; none reference this one. Evidence and the consumer
-     * inventory: doc/audit/2026-08-29_f17-fix-impact/FINDINGS.md.
+     * list read out rather than grepped; none reference this one. The consumer
+     * inventory was taken on 2026-08-29.
      *
      * The documentation fix itself stands on its own merits. And no in-repo caller is not a
      * licence to change the response body: /ndt/ is a cross-repo contract, and a written but
@@ -803,7 +803,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     /**
      * @brief GET /ndt/get_sflow_stats -- the sFlow ingest's own health, as `telemetry_health`.
      *
-     * [Co-developed with claude code -- Adam] Round 4 lead 5(b): this path was one of eleven
+     * [Co-developed with claude code -- Adam] Measured 2026-09-03: this path was one of eleven
      * that answered 404 while samples were being dropped at 72.5%.
      */
     void handleGetSflowStats(http::response<http::string_body>& res);

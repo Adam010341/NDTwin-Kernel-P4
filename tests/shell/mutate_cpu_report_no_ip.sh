@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/test_CpuReportNoIpSwitch.cpp (FINDINGS #85: a SWITCH vertex with no
+# Mutation gate for tests/test_CpuReportNoIpSwitch.cpp (a SWITCH vertex with no
 # management address made the status worker's four reports call front() on an empty vector).
 #
 # [Co-developed with claude code -- Adam]
@@ -86,8 +86,7 @@ apply() {   # $1 = file, $2 = exact anchor, $3 = replacement
 # hides the problem: grep splits an -F pattern on newlines and treats the pieces as alternatives,
 # then counts LINES matching any of them.
 #
-# Measured on trunk 6c4000eb, 2026-09-11 (scratch/overnight-2026-09-05/hunt-0911/
-# F-B0-B12-REPORT.md §1-2 and §2.2): C2's five-line anchor counted **549** that way -- 2 for
+# Measured on trunk 6c4000eb, 2026-09-11: C2's five-line anchor counted **549** that way -- 2 for
 # `    if (vp.ip.empty())`, 267 for `    {`, 11 for `        return std::nullopt;`, 268 for
 # `    }`, 1 for the last line -- so `-ne 1` made C2 INVALID, the control was NEVER APPLIED, and
 # `:467` requires INVALID==0, which means this gate could not reach green on trunk at all. The

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for the ONE thing tools/test_workflow/stack.sh contributes to TICKET-P3 §2.1:
+# Mutation gate for the ONE thing tools/test_workflow/stack.sh contributes to telemetry identity:
 # the start_bg fingerprint that tells two proxies apart.
 #
 # [Co-developed with claude code -- Adam]
@@ -11,8 +11,7 @@
 # every `<name>.old` heredoc in that applier's subject, so a second subject inside one gate
 # is an anchor counted in the wrong file: `MISSING:2` against tools/test_workflow/ndt for a
 # string that was never supposed to be in it. Splitting the subject out is the fix that does
-# not require teaching that tool a second applier, which is not this ticket's file to change
-# (TICKET-P3 §0-7: check_gate_anchors.py is D's only for the §6.6 HEAD-literal item).
+# not require teaching that tool a second applier, which this gate does not own.
 #
 # 🔴 WHAT THE FINGERPRINT IS FOR. The proxy reads three files at import and none of them is on
 # its command line: host_count_override, app_package_override and now telemetry_override.
@@ -134,7 +133,7 @@ check_control() {   # <label> <name> -- behaviour-preserving; the suite must sta
         # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
         # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
         # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
-        # read by the orchestrator as the named check that stayed green. The line that names
+        # read as the named check that stayed green. The line that names
         # that check is the `still green:` one above; this one is context, and context that
         # shows passing cells as failures is worse than no context.
         /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
@@ -142,7 +141,7 @@ check_control() {   # <label> <name> -- behaviour-preserving; the suite must sta
     fi
 }
 
-# --- M1 (TICKET-P3 M-D4): the fingerprint drops the telemetry source -----------------------------
+# --- M1 (M-D4): the fingerprint drops the telemetry source -----------------------------
 cat > "$A/m1.old" <<'EOF'
             "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) telemetry=$(sed -n \
             '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]].*//; p; q' \

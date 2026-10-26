@@ -45,7 +45,8 @@ jobs:
   build-and-test:
     name: Build and unit tests (GCC)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # A normal run takes 25-28 minutes (28m24s on one PR), so 30 left no margin; 45 allows for a slow runner.
+    timeout-minutes: 45
     steps:
       # Full history, not the default depth 1: tests/shell/test_manual_no_stale_in_progress.sh asks
       # git whether a merge is an ancestor of HEAD, and a depth-1 clone has no merges at all -- six of
@@ -54,10 +55,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Acquire::http::Timeout is apt's connect/idle timeout (https downloads inherit it), not a limit
+      # on one file or on the whole install; Acquire::Retries=3 is written out so it does not depend
+      # on the image's default. The step limit is above the longest apt stall seen (11 minutes), so a
+      # slow mirror still finishes, and -q (not -qq) on update and install prints the Hit/Get/Setting up
+      # lines that show which step a stalled run was waiting on.
       - name: Install dependencies
+        timeout-minutes: 15
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ${{ env.APT_PACKAGES }}
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q ${{ env.APT_PACKAGES }}
 
       # setting/AppConfig.hpp is gitignored, but no step is needed to create it: the top-level
       # CMakeLists copies it from AppConfig.hpp.example during configure (CMakeLists.txt:18-31).
@@ -136,6 +143,13 @@ jobs:
         #     Only because this is a hosted runner (CI / GITHUB_ACTIONS): on the lab the same skip
         #     fails and names the missing need.
         # Any other skip, and any of these on a machine that has what they need, is a failure.
+        #
+        # tools/p4_exercise/tests is judged differently, by the skip reason rather than by the machine:
+        # a few of its tests skip when a local P4 tutorial tool is missing (a p4lang-tutorials checkout,
+        # p4c-bm2-ss, the p4dev venv; none is on this runner) and each such skip names the variable that
+        # points at the tool. The lane reports those files PROVED LESS only while every skip names one of
+        # NDTWIN_TUTORIALS_DIR, NDTWIN_P4C or NDTWIN_P4DEV_VENV; a skip with another reason, a file in
+        # which nothing passed, and a file that ran nothing all fail.
 
   # ===========================================================================
   # ASan + UBSan. Same tests, different instrumentation.
@@ -148,9 +162,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
+        timeout-minutes: 15
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ${{ env.APT_PACKAGES }}
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q ${{ env.APT_PACKAGES }}
 
       # DISCOVERY_MODE PRE_TEST: gtest_discover_tests runs the binary during the build to enumerate
       # cases, and under a sanitizer that run can fail for reasons unrelated to the code -- which
@@ -183,9 +198,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
+        timeout-minutes: 15
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ${{ env.APT_PACKAGES }} util-linux
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q ${{ env.APT_PACKAGES }} util-linux
 
       - name: Configure (tsan)
         run: >
@@ -214,9 +230,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
+        timeout-minutes: 15
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ${{ env.APT_PACKAGES }} clang
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q ${{ env.APT_PACKAGES }} clang
 
       # This job exists because of a specific event. libFuzzer only exists for clang, and when that
       # became relevant the codebase did not compile under clang at all: a unique_ptr to an

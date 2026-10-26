@@ -33,7 +33,7 @@ The fix has three wiring points. Cut any of them and all eight gtest cases stay 
         entries and must not touch them, and the phantom returns in full.
 
 The only thing that ever exercised the wiring was the live acceptance
-(`doc/audit/2026-08-31_live-acceptance-batch/`), which needs a fabric and therefore cannot
+batch, which needs a fabric and therefore cannot
 run in CI. This file is the CI-runnable half.
 
 ## Why this file parses instead of grepping -- and how it learned to

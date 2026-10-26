@@ -4,13 +4,12 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# What went wrong, measured twice. 2026-09-02 (ADDENDUM-01-viz-orphan-contamination.md): the viz
-# launcher was sent SIGTERM, `ndt apps stop viz` printed `ok viz stopped` with rc 0, and the two
-# JVMs under it ran for another 1h54m at 111% of a core while app_viz.log grew to 875,463,322
-# bytes on a filesystem at 85%. 2026-09-03 round 3 (round3-restart-concurrency/14_viz_process_
-# chain.log) reproduced it deliberately: STOP_RC=0, `pid 1320231 gone`, `SURVIVOR pid 1320234`,
-# `SURVIVOR pid 1320294`, and then `ndt apps orphans` -> `ok no untracked app processes`, rc 0.
-# The same afternoon Adam hit it by hand and maven ran for another 43 minutes.
+# What went wrong, measured twice. 2026-09-02: the viz launcher was sent SIGTERM, `ndt apps stop
+# viz` printed `ok viz stopped` with rc 0, and the two JVMs under it ran for another 1h54m at 111%
+# of a core while app_viz.log grew to 875,463,322 bytes on a filesystem at 85%. 2026-09-03 a second
+# round reproduced it deliberately: STOP_RC=0, `pid 1320231 gone`, `SURVIVOR pid 1320234`, `SURVIVOR
+# pid 1320294`, and then `ndt apps orphans` -> `ok no untracked app processes`, rc 0. The same
+# afternoon it was hit by hand and maven ran for another 43 minutes.
 #
 # Two mechanisms, and this suite is about both:
 #

@@ -174,8 +174,8 @@ gate "no consumer app is already running" "$( [[ "$APPS_LINE" == "none running" 
 # -------------------------------------------------------------------------------------------------
 say "the five apps exist where components.env says they do"
 # The seven sibling repos are at $WORKSPACE_ROOT, discovered by probing upward for
-# Energy-Saving-App (components.env:19-28). Measured 2026-08-30: they are under /home/adam,
-# NOT under /home/adam/Desktop next to the kernel.
+# Energy-Saving-App (components.env:19-28). Measured 2026-08-30: they are under $HOME,
+# NOT under $HOME/Desktop next to the kernel.
 # shellcheck source=/dev/null
 . "$REPO/tools/test_workflow/components.env"
 info "WORKSPACE_ROOT=$WORKSPACE_ROOT"

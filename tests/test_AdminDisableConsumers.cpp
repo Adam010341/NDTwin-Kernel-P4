@@ -483,8 +483,8 @@ TEST(AdminDisableConsumersTest, BfsShortestPathDoesNotUseAdminDisabledEdge)
         // at the *destination* and walks out_edges outward, so the edge it validates is
         // `current -> neighbour` while the traffic it is planning for flows
         // `neighbour -> current`. It therefore checks the reverse of the direction the packets
-        // take. Symmetric writers hide that today. See the note in doc/audit/ -- do not "fix"
-        // this test by dropping back to one direction.
+        // take. Symmetric writers hide that today. Do not "fix" this test by dropping back to one
+        // direction.
         const auto reverse = boost::edge(boost::target(disabledEdge, *fix.graph),
                                          boost::source(disabledEdge, *fix.graph),
                                          *fix.graph);

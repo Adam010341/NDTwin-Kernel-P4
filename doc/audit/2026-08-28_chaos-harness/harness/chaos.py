@@ -170,7 +170,7 @@ def gate_g1_controls(dry_run: bool, iface: str | None = None,
         #
         # Asked BEFORE the dry branch, not after it: the previous order let a dry run preview a
         # gated action without its flag. `--controls` (dry_run=False) reads exactly as it did
-        # -- NOT-RUN, same detail, all_ok False -- so the ruling's "keep that path" holds.
+        # -- NOT-RUN, same detail, all_ok False -- so that path is kept.
         refusal = A.opt_in_refusal(ctl, opt_ins)
         if refusal:
             rows.append({"control": ctl.id, "targets": ctl.targets, "verdict": "NOT-RUN",
@@ -537,10 +537,10 @@ def main() -> int:
     ap.add_argument("--allow-link-blackhole", action="store_true",
                     help="permit T-netem, which drops 100%% of the traffic on one link. The DRY "
                          "RUN is behind this flag too: it is the only path that reaches this "
-                         "action (it is not in CHAOS_ACTIONS, and stays out by ruling), so a "
+                         "action (it is not in CHAOS_ACTIONS, and stays out on purpose), so a "
                          "gate that let the dry run through would gate nothing. The netem hangs "
                          "under the interface's shaper, never over it -- over it replaces "
-                         "TCLink's htb, which this machine's sudo grants cannot put back")
+                         "TCLink's htb, which netem-scoped tc sudoers rules cannot put back")
     ap.add_argument("--out", help="write the JSON report here")
     args = ap.parse_args()
     if not any([args.gates, args.dry_run, args.null, args.controls, args.full]):

@@ -115,7 +115,7 @@ check_fires() {   # <label> <name> <check text that MUST go red> [<more>...]
         # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
         # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
         # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
-        # read by the orchestrator as the named check that stayed green. The line that names
+        # read as the named check that stayed green. The line that names
         # that check is the `still green:` one above; this one is context, and context that
         # shows passing cells as failures is worse than no context.
         /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
@@ -226,7 +226,7 @@ check_control() {   # <label> <name> -- behaviour-preserving; the suite must sta
         # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
         # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
         # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
-        # read by the orchestrator as the named check that stayed green. The line that names
+        # read as the named check that stayed green. The line that names
         # that check is the `still green:` one above; this one is context, and context that
         # shows passing cells as failures is worse than no context.
         /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
@@ -356,7 +356,7 @@ check_fires "M8: the probe universe is hardcoded again" m8 \
 # --- M9: only the programmed half is checked -----------------------------------------------------
 # The switches the controller touched answer, and nothing asks about the ones it did not. A twin
 # reporting a switch alive that nobody ever loaded a program onto is exactly the evidence-free
-# liveness this whole ticket replaced, and this is the proxy-side half of it.
+# liveness this whole fix replaced, and this is the proxy-side half of it.
 cat > "$A/m9.old" <<'EOF'
             note "$label: switch $d probe_ok $pok   (no controller ever loaded a program onto it)"
             [[ "$pok" == False ]] || { fail "$label: switch $d never got a program and its probe_ok is '$pok', want False"; rc=1; }
@@ -428,7 +428,7 @@ check_control "C2: the parameters unpacked one per line" c2
 
 
 # =================================================================================================
-# TICKET-P3 §2.7: the generic cell -- link usage follows the iperf path.
+# The generic cell -- link usage follows the iperf path.
 #
 # 🔴 THIS CELL'S FAILURE MODE IS A GREEN RUN. Every mutation below leaves the step printing the
 # same sentences over the same fabric; what changes is that a twin reporting nothing, a twin
@@ -465,7 +465,7 @@ check_fires "M13 (M-D5): links OFF the path are not checked at all" m13 \
 # --- M14: an on-path interface the twin does not model is skipped ----------------------------------
 # 🔴 THE MOST IMPORTANT THING THIS CELL CAN FIND, turned into silence. "The twin has no edge for a
 # link that carried the flow" reported as a clean run is the gap reporting itself as its own fix.
-# 🔴 THE ANCHOR MOVED WITH THE CLASSES (§9 ruling 20①): an unmodelled link is now red only
+# 🔴 THE ANCHOR MOVED WITH THE CLASSES: an unmodelled link is now red only
 # when it is PRIMARY -- a MINOR one is printed, because a side branch the sampler cannot see is
 # not evidence that the twin is missing an edge.
 cat > "$A/m14.old" <<'EOF'
@@ -526,7 +526,7 @@ check_fires "M16 (M-D6): the positive control accepts a twin that still reports"
             "  because the cell above would then prove nothing"
 
 # --- M17 (widening): the floor becomes the flow itself -------------------------------------------------
-# 🔴 THE FLOOR IS A BOUND, NOT A BLANK CHEQUE (TICKET-P3 §9 ruling 9, R4). At 2% of the smallest
+# 🔴 THE FLOOR IS A BOUND, NOT A BLANK CHEQUE. At 2% of the smallest
 # on-path integral it sits two orders of magnitude above a sampled LLDP beacon and two below the
 # flow; at 100% it is the flow, and an off-path link carrying the WHOLE flow passes.
 cat > "$A/m17.old" <<'EOF'
@@ -585,7 +585,7 @@ check_fires "M20: host-facing edges are classified as inter-switch" m20 \
 # --- M21: an interface present in only one reading is treated as starting at zero ------------------------
 # "The interface went away mid-window" and "it moved 2 MB" are different facts, and the second one
 # is manufactured from the first.
-# 🔴 RE-ANCHORED ON THE CLASSIFYING LOOP (§9 ruling 20①): the old one-name-per-line loop is
+# 🔴 RE-ANCHORED ON THE CLASSIFYING LOOP: the old one-name-per-line loop is
 # gone, but the mutation is the same one -- an interface present in only the AFTER reading is
 # measured from zero, so "the interface appeared mid-window" is silently turned into "it moved
 # all of those bytes".
@@ -645,7 +645,7 @@ check_fires "M24: the floor loses its relative term" m24 \
             "🔴 above 153.6 Mbit the 2% term decides again"
 
 # --- (no M25) the absolute constant is gone, so there is nothing to remove ---------------------
-# 🔴 §9 ruling 26① replaced `max(LINK_USAGE_NOISE_BITS, ...)` with ONE SAMPLE, and
+# 🔴 `max(LINK_USAGE_NOISE_BITS, ...)` was replaced with ONE SAMPLE, and
 # `max(5000, 3072000)` is always 3072000 -- the old constant was a term no input could reach.
 # Keeping a mutation that deletes dead arithmetic would be a mutation nothing can observe, so
 # the constant is gone from the floor and M25 with it. M35 is the mutation that matters now:
@@ -689,7 +689,7 @@ check_fires "M28: the floor the verdict used is not in the raw" m28 \
             "  and the floor it was judged against is in the raw"
 
 # --- (no mutation) the `local` hazard scanner is in the TEST FILE -------------------------------
-# 🔴 §9 ruling 12d is a change to tests/shell/test_live_p1_common.sh (the scanner now fails when
+# 🔴 The scanner fix is a change to tests/shell/test_live_p1_common.sh (the scanner now fails when
 # its INTERPRETER fails, instead of printing nothing and being read as a clean scan). This
 # gate's subject is `live-p1/_common.sh`; an anchor in the test file would be counted against
 # _common.sh by check_gate_anchors.py and read as MISSING. The scanner is covered inside the
@@ -697,7 +697,7 @@ check_fires "M28: the floor the verdict used is not in the raw" m28 \
 # interpreter that exits 1 => rc 3, a working interpreter => rc 0 and no SCANNER-FAILED, and
 # the positive/negative shape controls that were already there.
 
-# --- M29 (§9 ruling 19②): finish() loses its `set +e` --------------------------------------------
+# --- M29: finish() loses its `set +e` --------------------------------------------
 # 🔴 THE LIVE DEFECT, RESTORED. Under `set -euo pipefail` a non-zero `ndt down` ends the EXIT
 # trap half way: live 02's log stops at `== teardown`, live 03's at "stopping the exercise
 # controller" -- no `ndt down rc=`, no `ndt release`, and no verdict line, while the README
@@ -725,7 +725,7 @@ EOF
 check_fires "M30: a non-zero 'ndt down' is not folded into the verdict" m30 \
             "🔴 its rc is folded into the verdict"
 
-# --- M31 (§9 ruling 20①): every interface over 10 kB is PRIMARY again ------------------------
+# --- M31: every interface over 10 kB is PRIMARY again ------------------------
 # 🔴 THE LIVE DEFECT, RESTORED. With the share at 0 the 15,120 B side branch is primary again
 # and the cell demands a non-zero twin integral on it -- while a 1/256 sampler is expected to
 # catch 0.04 samples from ten packets. That is qos/solution's real reading going red on a twin
@@ -767,7 +767,7 @@ check_fires "M33: a failed 'ndt release' only warns" m33 \
             "🔴 a failing 'ndt release' fails the round" \
             "🔴 and the LAST line is FAIL, not PASS"
 
-# --- M34 (§9 ruling 26①): the window ignores the path's bottleneck ------------------------------
+# --- M34: the window ignores the path's bottleneck ------------------------------
 # 🔴 THE LIVE DEFECT. With min_bw fixed at the unshaped default, ecn's 500 kbit/s bottleneck is
 # invisible and the window stays 8 s -- ~1.3 expected samples per primary link from the shaped
 # rate (e^-1.3 = 27% chance of zero), or ~1.8 from the bytes ecn actually delivered
@@ -783,7 +783,7 @@ check_fires "M34: the window ignores the path's slowest link" m34 \
             "🔴 the slowest declared link is the 500 kbit/s bottleneck" \
             "🔴 so the window grows to 62 s"
 
-# --- M35 (§9 ruling 26①): the off-path floor drops below one sample ------------------------------
+# --- M35: the off-path floor drops below one sample ------------------------------
 # 🔴 A single sampled 170-byte frame is 348 kbit and a 1500-byte one is 3.07 Mbit; a floor of
 # 5 kbit reds the smallest thing the sampler can possibly report.
 cat > "$A/m35.old" <<'EOF'
@@ -798,7 +798,7 @@ check_fires "M35: the off-path floor falls back below one sample" m35 \
             "🔴 the floor is at least ONE sample's worth of bits" \
             "  the floor is one sample even for a small on-path integral"
 
-# --- M36 (§9 ruling 26②): the iperf datagram goes back to the default --------------------------
+# --- M36: the iperf datagram goes back to the default --------------------------
 # 1470 + 28 + a 4-byte tunnel header exceeds 1500: p4runtime and flowcache read 273 B on every
 # interface because the fabric dropped every datagram.
 cat > "$A/m36.old" <<'EOF'
@@ -810,7 +810,7 @@ EOF
 check_fires "M36: the iperf datagram is the 1470-byte default again" m36 \
             "🔴 and NAMING the datagram size it chose"
 
-# --- M37 (§9 ruling 26②): a dead exercise controller is measured anyway -------------------------
+# --- M37: a dead exercise controller is measured anyway -------------------------
 # 🔴 flowcache's first packet needs the controller's packet-in. Measuring without it measures
 # the controller's absence and reports it as "usage does not follow the path".
 cat > "$A/m37.old" <<'EOF'
@@ -823,7 +823,7 @@ check_fires "M37: G1 runs with the exercise controller dead" m37 \
             "🔴 a dead exercise controller makes G1 NOT RUN" \
             "  and the summary line says NOT-RUN"
 
-# --- M38 (§9 ruling 28①): NOT RUN goes back to rc 0 -----------------------------------------
+# --- M38: NOT RUN goes back to rc 0 -----------------------------------------
 # 🔴 THE DEFECT THAT MADE THE WHOLE BRANCH DECORATIVE. `link_usage_cell` reads rc == 0 as
 # ok=True, so a NOT RUN that returned 0 became a PASS G1 over a dead controller.
 cat > "$A/m38.old" <<'EOF'
@@ -835,7 +835,7 @@ EOF
 check_fires "M38: NOT RUN returns 0 again, which callers read as a pass" m38 \
             "🔴 NOT RUN has its own rc, not 0 and not 2"
 
-# --- M39 (§9 ruling 28①): the caller's CTRL_PID is thrown away again -------------------------
+# --- M39: the caller's CTRL_PID is thrown away again -------------------------
 # 🔴 `link_usage_cell` sources this file in a fresh shell; an unconditional reset there made
 # the liveness check unreachable from the driver no matter how the arm was written.
 cat > "$A/m39.old" <<'EOF'
@@ -848,7 +848,7 @@ check_fires "M39: sourcing the file discards the caller's controller pid" m39 \
             "🔴 a dead exercise controller makes G1 NOT RUN" \
             "🔴 NOT RUN has its own rc, not 0 and not 2"
 
-# --- M40 (§9 ruling 28⑤): the window ignores what iperf actually offers -----------------------
+# --- M40: the window ignores what iperf actually offers -----------------------
 # 🔴 A 1 Gbit/s link carries only the 2 Mbit/s the sender offers. Dividing by the LINK speed
 # reported 2604 expected samples for a window that delivers about five.
 cat > "$A/m40.old" <<'EOF'
@@ -861,7 +861,7 @@ check_fires "M40: the window uses the link speed, not the offered rate" m40 \
             "🔴 a 1 Gbit/s path gets 16 s, because iperf offers only 2 Mbit/s" \
             "  and the carried rate is the offered one, not the link's"
 
-# --- M41 (§9 rulings 28⑤ and 31⑤): a window longer than the caller can wait for is measured
+# --- M41: a window longer than the caller can wait for is measured
 # anyway. 🔴 THIS WAS CONTROL C5 UNTIL NOW, and a control is what you write when no fixture
 # reaches the branch -- i.e. when the refusal has never been seen red. §12b of the suite now
 # drives it with a package whose slowest link is 100,000 bit/s (308 s needed, 200 s allowed),
@@ -922,7 +922,7 @@ cat > "$A/c3.new" <<'EOF'
     (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"
     return $rc
 EOF
-# --- M44 (the judge, 09-27): what only the PATH guard can see -----------------------------------
+# --- M44 (09-27): what only the PATH guard can see -----------------------------------
 # [Co-developed with claude code -- Adam] rc 2 kept, and a `command sudo -n true` before it: the
 # namespace refusal still refuses, no cell reaches a stub (command skips functions), and only the
 # PATH guard's record says a sudo left the suite. M43 changed the rc too; this one changes nothing
@@ -939,7 +939,7 @@ EOF
 check_fires_only "M44: a sudo past every stub, the refusal otherwise intact" m44 \
             "🔴 NOTHING reached for sudo, mnexec or iperf past a stub"
 
-# --- M45-M49 (Adam's rulings A and G, 09-27) ------------------------------------------------------
+# --- M45-M49 (09-27) ------------------------------------------------------
 # [Co-developed with claude code -- Adam] A: a disclosure is printed right above the verdict --
 # M45 drops the printing, M46 drops the recording. G: no default owner -- M47 brings the default
 # back, M48 drops start_step's refusal, M49 makes the refusal come after the run directory.
@@ -1000,7 +1000,7 @@ cat > "$A/m49.new" <<'EOF'
 EOF
 check_fires_only "M49: the refusal comes after the run directory is made" m49 "🔴 and made no run directory"
 
-# --- M50-M53 (the opus judge's N1, 09-27): 02's fabric list asserts the heartbeat watchdog runs ------
+# --- M50-M53 (09-27): 02's fabric list asserts the heartbeat watchdog runs ------
 # [Co-developed with claude code -- Adam] heartbeat_skips_verdict: M50 accepts not_started (the old
 # pick-a-list behaviour, from the far side), M51 stops naming the proxy's error, M52 reads an absent
 # block as running, M53 stops comparing the list.
@@ -1028,7 +1028,7 @@ hb = d.get("heartbeat") or {"watchdog": "running"}
 EOF
 check_fires "M52: no heartbeat block reads as running" m52 \
             "🔴 no heartbeat block is a failure too" "🔴 no heartbeat block with the two names is still BAD"
-# [Co-developed with claude code -- Adam] The AEG judge's N-5 (09-28): M56 catches only a KeyError
+# [Co-developed with claude code -- Adam] (09-28) M56 catches only a KeyError
 # inside the program, so a top-level list falls through to the shell's fallback and its line no
 # longer names the cause.
 cat > "$A/m56.old" <<'EOF'
@@ -1068,7 +1068,7 @@ EOF
 check_fires "M55: a fingerprint that could not be taken is not disclosed" m55 \
             "🔴 and disclosed above the last line"
 
-# --- M57-M58 (the external judge's M3, 09-28): INT/TERM fail the step, with the signal's code ---------
+# --- M57-M58 (09-28): INT/TERM fail the step, with the signal's code ---------
 # [Co-developed with claude code -- Adam] M57 puts finish back as the INT/TERM trap (the PASS on a
 # TERM); M58 exits the verdict's rc instead of the signal's.
 cat > "$A/m57.old" <<'EOF'
@@ -1088,7 +1088,7 @@ EOF
 check_fires "M58: a signalled step exits 1, not the signal's code" m58 \
             "🔴 and the step exits 143" "🔴 and the step exits 130"
 
-# --- T1 (the judge, 09-27): the suite's 5e back on $PKG3 -- a TEST-side mutant --------------------
+# --- T1 (09-27): the suite's 5e back on $PKG3 -- a TEST-side mutant --------------------
 # [Co-developed with claude code -- Adam] The cells as they were before b2e656e5: h1..h3, the names
 # a live fabric has. Under the suite's fake fabric host_pid finds h1/h2/h3, link_usage_round goes on
 # to the flow, the shared stubs record it, and neither cell stops at the namespace refusal.

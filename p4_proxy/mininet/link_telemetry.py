@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P3 sections 2.1, 2.2 and 2.5. The cooperative path NDTwin has always used needs the
+The cooperative path NDTwin has always used needs the
 `.p4` program's cooperation -- a clone session, a CPU port, a `packet_in` header -- so an
 arbitrary user program produces no telemetry at all. This is the other path: the kernel samples
 on the switch-side veth with `tc ... action sample`, which needs nothing from the program, and
@@ -15,8 +15,7 @@ is handed, and it opens no socket at all. That is what lets the whole of it be t
 output is a list of argv the test reads word for word, and `write_manifest()` produces the file
 the emitter and `ndt status` both read.
 
-🔴 THE FOUR MEASURED FACTS THE SHAPE COMES FROM (doc/audit/2026-09-04_p4-tutorial-exercise-prep/
-spike-tc-sample/, run live 2026-09-17):
+🔴 THE FOUR MEASURED FACTS THE SHAPE COMES FROM (measured live, 2026-09-17):
 
   1. psample notifications are multicast to the netns that owns the group, so THE EMITTER MUST
      RUN IN THE SAME NETWORK NAMESPACE AS THE SAMPLED INTERFACE. Mininet switches are created
@@ -63,7 +62,7 @@ import topo_from_json  # noqa: E402
 LINK_TELEMETRY_MANIFEST = "/tmp/ndtwin_link_telemetry.json"
 
 #: 1-in-256, the rate compiled into `ndtwin_switch.json` for the cooperative path. The same
-#: number on both paths is what makes the three telemetry arms of the section 2.8 measurement
+#: number on both paths is what makes the three telemetry arms of the measurement
 #: comparable: a link arm sampling at a different rate would differ from the cooperative arm in
 #: two ways at once.
 LINK_SAMPLE_RATE = 256
@@ -87,7 +86,7 @@ IFINDEX_WIDTH_BITS = 16
 
 #: Where the synthesised sFlow goes, and who it says it is. The proxy's cooperative emitter is
 #: sub-agent 0; this one is 1, so a datagram's origin is readable when both are in play on one
-#: fabric (they never are on one SWITCH -- section 2.1's exclusivity -- but a mixed fabric runs
+#: fabric (they never are on one SWITCH -- the two sources are exclusive -- but a mixed fabric runs
 #: both at once).
 LINK_COLLECTOR = ("127.0.0.1", 6343)
 LINK_SUB_AGENT_ID = 1
@@ -108,7 +107,7 @@ EMITTER_PATH = os.path.join(_HERE, "psample_sflow_emitter.py")
 #: pump would never see EOF, `stop()` would burn its whole five-second join on every bring-up,
 #: and the emitter's statistics line would keep arriving on the operator's NTG prompt every ten
 #: seconds for the life of the fabric. So the emitter is launched the way bmv2 is, onto its own
-#: file -- which is also the file the orchestrator tails to read those statistics.
+#: file -- which is also the file an operator tails to read those statistics.
 LINK_TELEMETRY_LOG = "/tmp/ndtwin_link_telemetry.log"
 
 #: How long the emitter gets to fall over before the bring-up calls it fatal, and how long a
@@ -330,7 +329,7 @@ def _commands(planned):
     """The `tc` argv, in the order they must run: the qdisc, then that interface's filters.
 
     🔴 EVERY PORT GETS AN INGRESS FILTER; ONLY A HOST-FACING PORT GETS AN EGRESS ONE, and that
-    asymmetry is the whole of section 2.2. The kernel credits a link from the RECEIVING
+    asymmetry is the whole of the design. The kernel credits a link from the RECEIVING
     switch's ingress samples (FlowLinkUsageCollector's drain resolves `(agent, inputPort)` to
     the edge "other side -> here"), so switch->switch and host->switch links are already
     covered by ingress alone. The one direction with no receiving switch is switch->host, and
@@ -491,7 +490,7 @@ def manifest_distrust(st, euid):
     """Why a manifest with this stat must not be acted on, or None when it may be.
 
     [Co-developed with claude code -- Adam]
-    🔴 THE MANIFEST DECIDES WHAT ROOT SIGNALS (judge KJL B2, 2026-09-27). It lives in /tmp,
+    🔴 THE MANIFEST DECIDES WHAT ROOT SIGNALS. It lives in /tmp,
     which is world-writable and sticky, and the name is free whenever no fabric is up -- so any
     local user can create it before the next bring-up, and `reset_for_bring_up` reads it as
     root and SIGTERMs, then SIGKILLs, the pid it names (and runs `tc qdisc del` on every
@@ -523,7 +522,7 @@ def load_manifest(path=None):
     Absent is (None, None): no manifest is the ordinary state of a cooperative fabric. Every
     other None comes with a sentence -- a symlink, a file of the wrong owner or mode
     (`manifest_distrust`), one that does not parse -- and the caller that would have acted on
-    it says that sentence rather than acting (judge KJL B2).
+    it says that sentence rather than acting.
 
     Opened with O_NOFOLLOW, so a symlink planted at the name is refused rather than followed to
     whatever it points at; with O_NONBLOCK, so a FIFO planted there cannot hang a teardown on
@@ -619,7 +618,7 @@ def _is_a_signallable_pid(pid):
     """An int, not a bool, above 1. [Co-developed with claude code -- Adam]
 
     `True` is an int in Python and `int(True)` is 1 -- /proc/1, init -- so a manifest saying
-    `"pid": true` must not get as far as a lookup, let alone a signal (judge KJL B2). 1 is init,
+    `"pid": true` must not get as far as a lookup, let alone a signal. 1 is init,
     0 is "my process group" to kill(2) and a negative number is somebody's process group: none
     of them is ever an emitter this module launched.
     """
@@ -650,8 +649,8 @@ def process_is_the_emitter(pid, proc_root="/proc", argv=None, start_time=None):
     them unnecessary.
 
     [Co-developed with claude code -- Adam]
-    🔴 AND IT IS AN IDENTITY, NOT A RESEMBLANCE (Adam 2026-09-27, ruling K). Until then this
-    answered `b"psample_sflow_emitter.py" in <the whole cmdline>` -- so `vim` with that file
+    🔴 AND IT IS AN IDENTITY, NOT A RESEMBLANCE. This used to
+    answer `b"psample_sflow_emitter.py" in <the whole cmdline>` -- so `vim` with that file
     open, a `grep` or `tail` naming it, or a test runner with it among its arguments, holding a
     recycled pid, was "the emitter", and `stop_emitter` would SIGTERM and then SIGKILL it as
     root. Every answer of True now needs ALL of:
@@ -661,8 +660,8 @@ def process_is_the_emitter(pid, proc_root="/proc", argv=None, start_time=None):
         --manifest <path>` (`_is_the_launchers_shape`) -- ALWAYS, whatever the manifest recorded.
         The real emitter is never anything else, and this is what keeps a manifest someone else
         wrote from naming an arbitrary process by copying its argv and start time out of /proc
-        (judge KJL B2: when a recorded argv could stand in for the shape, a forged manifest could
-        make root signal an unrelated process);
+        (when a recorded argv could stand in for the shape, a forged manifest could make root
+        signal an unrelated process);
       * and, when the manifest recorded an identity (`emitter_identity`), BOTH halves of it: the
         cmdline equal to the recorded `argv` word for word -- a file of the same NAME run from
         another path is not it -- and `/proc/<pid>/stat` field 22 equal to the recorded
@@ -670,10 +669,10 @@ def process_is_the_emitter(pid, proc_root="/proc", argv=None, start_time=None):
         recorded: it started later, whatever its argv says. That is the answer at the moment
         of the check; a check-then-signal window remains until signalling moves to pidfds.
 
-    No identity at all (a manifest written before this ruling) is the shape alone. HALF an
-    identity -- an argv with no start time, or the reverse -- is never a match (judge K-N7):
-    the launcher records both or neither (`emitter_identity`), so half of one is a document
-    nobody here wrote, as is a recorded field of the wrong type.
+    No identity at all (a manifest written before identities were recorded) is the shape alone.
+    HALF an identity -- an argv with no start time, or the reverse -- is never a match: the
+    launcher records both or neither (`emitter_identity`), so half of one is a document nobody
+    here wrote, as is a recorded field of the wrong type.
     """
     if not _is_a_signallable_pid(pid):
         return False
@@ -698,15 +697,16 @@ def emitter_identity(proc, proc_root="/proc"):
     race: until `proc` is waited on, it is this process's unreaped child, so its pid cannot
     have been handed to anything else -- even if it has already exited, a zombie keeps its
     number and its stat. When either cannot be known BOTH are None, and the check is then the
-    launcher's shape alone, as for a manifest written before the ruling.
+    launcher's shape alone, as for a manifest written before identities were recorded.
     """
     args = getattr(proc, "args", None)
     pid = getattr(proc, "pid", None)
     argv = list(args) if _is_an_argv(args) else None
     started = process_start_time(pid, proc_root) if _is_a_signallable_pid(pid) else None
-    # 🔴 BOTH OR NEITHER (judge K-N7). Half an identity is a document `process_is_the_emitter`
+    # 🔴 BOTH OR NEITHER. Half an identity is a document `process_is_the_emitter`
     # refuses outright, so recording one would orphan the emitter this launch just started;
-    # neither falls back to the launcher's shape, exactly as a pre-ruling manifest does.
+    # neither falls back to the launcher's shape, exactly as a manifest from before identities
+    # were recorded does.
     if argv is None or started is None:
         return {"argv": None, "start_time": None}
     return {"argv": argv, "start_time": started}
@@ -720,7 +720,7 @@ def emitter_is_running(document, proc_root="/proc"):
     pid through. The teardown does not call this -- `shut_down` goes through `stop_emitter`,
     which asks `process_is_the_emitter` again on every step of its grace loop -- but both ask
     the same predicate with the same recorded identity, and `process_is_the_emitter` itself
-    refuses a pid that is not an int above 1 (judge K-N6). So no reader can call "alive" -- and
+    refuses a pid that is not an int above 1. So no reader can call "alive" -- and
     tell an operator to `kill` -- a process the teardown would refuse to signal.
     """
     if not isinstance(document, dict):
@@ -742,7 +742,7 @@ def stop_emitter(pid, kill=None, is_emitter=None, sleep=None, grace_s=EMITTER_ST
     is_emitter = is_emitter or process_is_the_emitter
     sleep = sleep or time.sleep
     identity = {"argv": argv, "start_time": start_time}
-    # 🔴 THE PID IS CHECKED HERE TOO, not only inside the predicate (judge KJL B2): `is_emitter`
+    # 🔴 THE PID IS CHECKED HERE TOO, not only inside the predicate: `is_emitter`
     # is injectable, and `kill(int(True), ...)` is a signal to init. [Co-developed with claude code -- Adam]
     if not _is_a_signallable_pid(pid) or not is_emitter(pid, **identity):
         return "absent"
@@ -781,7 +781,7 @@ def shut_down(path=None, run=None, kill=None, is_emitter=None, sleep=None, repor
     """
     path = path or LINK_TELEMETRY_MANIFEST
     remove = remove or os.remove
-    # 🔴 A MANIFEST THIS PROCESS MAY NOT TRUST IS NOT ACTED ON AT ALL (judge KJL B2): no signal,
+    # 🔴 A MANIFEST THIS PROCESS MAY NOT TRUST IS NOT ACTED ON AT ALL: no signal,
     # no `tc qdisc del` on the interfaces it lists, and the file left where it is. The next LINK
     # bring-up's `write_manifest` replaces the inode; a cooperative bring-up never writes one, so
     # on a cooperative fabric the refusal is repeated at every reset and teardown until someone
@@ -826,7 +826,7 @@ def start_emitter(manifest_path=None, popen=None, python=None, emitter=None, std
     """Launch the emitter against a manifest that is ALREADY on disk, onto its own log.
 
     Returns the Popen. The caller decides what a dead one means -- `bring_up` calls it fatal,
-    which section 2.5 requires: an emitter that exited is a fabric measuring nothing while
+    which is required: an emitter that exited is a fabric measuring nothing while
     every other line of the bring-up reads success.
 
     `stderr` is for a test that wants the stream itself; production takes the other branch and

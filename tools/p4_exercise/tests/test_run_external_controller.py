@@ -124,10 +124,14 @@ class Install(unittest.TestCase):
 
 class Locating(unittest.TestCase):
     def test_the_tutorials_utils_directory_is_found_by_walking_up(self):
-        real = "/home/adam/tutorials/exercises/p4runtime"
-        if not os.path.isdir(os.path.join("/home/adam/tutorials", "utils", "p4runtime_lib")):
-            self.skipTest("no ~/tutorials on this machine")
-        self.assertEqual(adapter.find_tutorials_utils(real), "/home/adam/tutorials/utils")
+        # The p4lang-tutorials checkout is $NDTWIN_TUTORIALS_DIR, or ~/tutorials when that is unset.
+        tutorials = os.path.abspath(
+            os.environ.get("NDTWIN_TUTORIALS_DIR") or os.path.expanduser("~/tutorials"))
+        real = os.path.join(tutorials, "exercises", "p4runtime")
+        if not os.path.isdir(os.path.join(tutorials, "utils", "p4runtime_lib")):
+            self.skipTest(f"no p4lang-tutorials checkout with utils/p4runtime_lib at {tutorials} "
+                          f"(set NDTWIN_TUTORIALS_DIR)")
+        self.assertEqual(adapter.find_tutorials_utils(real), os.path.join(tutorials, "utils"))
 
     def test_a_tree_without_p4runtime_lib_is_refused(self):
         with self.assertRaises(adapter.AdapterError):

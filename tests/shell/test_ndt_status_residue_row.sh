@@ -10,10 +10,9 @@
 #     ndt apps orphans      ok  no untracked app processes        rc 0
 #     ndt status --check                                          rc 0
 #
-# `--check` compares the running lab against the last `ndt up` target -- data plane, host
-# count, kernel graph, topology sha256. None of those is a flow table, so it was right and
-# silent. W16-2, Adam's decision 09-06 (grill §4D round 7, AGAINST the recommendation that
-# --check be left alone): it prints a residue row and residue makes it red.
+# `--check` compares the running lab against the last `ndt up` target -- data plane, host count,
+# kernel graph, topology sha256. None of those is a flow table, so it was right and silent. Decision
+# 09-06 (AGAINST leaving --check alone): it prints a residue row and residue makes it red.
 #
 # 🔴 FOUR DIRECTIONS, because "make --check see residue" has three wrong answers that look
 # like fixes:
@@ -108,13 +107,12 @@ PY
 mk_entries 9000
 
 # [Co-developed with claude code -- Adam]
-# 🔴 RESIDUE-1 (2026-09-12, Adam's ruling 12:3x). The window a dead pid's pidfile opens is now
-# CLOSED at the app's own log mtime, so the fixture leaves that log behind -- and windows with
-# te rather than energy, because energy is the one app of the five with no log channel on any
-# machine (`ndtwin-lab energy-start` is a bare tmux session, no `script -f`). An energy pidfile
-# therefore seals to a ZERO-LENGTH window, which is the right answer for it and the wrong
-# fixture for a suite about a rule that IS inside a window. Same move group 5L of
-# tests/shell/test_apps_residue.sh made on 2026-09-07, for the same reason.
+# 🔴 2026-09-12. The window a dead pid's pidfile opens is now CLOSED at the app's own log mtime, so
+# the fixture leaves that log behind -- and windows with te rather than energy, because energy is
+# the one app of the five with no log channel on any machine (`ndtwin-lab energy-start` is a bare
+# tmux session, no `script -f`). An energy pidfile therefore seals to a ZERO-LENGTH window, which is
+# the right answer for it and the wrong fixture for a suite about a rule that IS inside a window.
+# Same move group 5L of tests/shell/test_apps_residue.sh made on 2026-09-07, for the same reason.
 started_ago() { : > "$FIX/.test_run/pids/app_$1.pid"
                 touch -d "@$(( $(date +%s) - $2 ))" "$FIX/.test_run/pids/app_$1.pid"
                 printf 'the app wrote this\n' > "$FIX/.test_run/logs/app_$1.log"; }

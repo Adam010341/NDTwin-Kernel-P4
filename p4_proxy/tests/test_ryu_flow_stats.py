@@ -383,13 +383,13 @@ class DurationComesFromTheProxysOwnRecordTest(unittest.TestCase):
         self.assertEqual((flow["duration_sec"], flow["duration_nsec"]), (0, 0))
 
 
-# --- NDTwin's own pipeline, rendered, frozen in bytes (TICKET-P4-roles section 2.5-1) ---------
+# --- NDTwin's own pipeline, rendered, frozen in bytes ---------------------------
 #
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 CAPTURED AT THE BASE. The roles ticket makes this renderer read its names out of a binding
-# and stop listing actions it does not recognise -- and promises that the NDTwin pipeline's
-# /stats/flow body does not move by one byte. A table of every kind of row ndtwin_switch.p4 can
+# 🔴 CAPTURED AT THE BASE. The roles work makes this renderer read its names out of a binding
+# and stop listing actions it does not recognise -- and the NDTwin pipeline's /stats/flow body
+# must not move by one byte. A table of every kind of row ndtwin_switch.p4 can
 # hold (both route tables, the l2 table, the four actions it declares plus one it does not, a
 # default row, a row with no usable match, a row with no action), rendered and serialised with
 # sorted keys, is what "does not move" is compared against. The string below was produced by
@@ -464,7 +464,7 @@ BASELINE_NDTWIN_RENDER = (
 
 
 class TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest(unittest.TestCase):
-    """TICKET-P4-roles 2.5-1: NDTwin's own /stats/flow body does not move."""
+    """NDTwin's own /stats/flow body does not move."""
 
     def test_the_render_is_the_one_the_base_produced(self):
         self.assertTrue(BASELINE_NDTWIN_RENDER, "the base capture is missing")
@@ -473,7 +473,7 @@ class TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest(unittest.TestCase
 
 # --- a foreign pipeline: the binding's vocabulary, and unknown actions left out -----------------
 #
-# [Co-developed with claude code -- Adam] TICKET-P4-roles 2.5-1. fixtures/renamed_route's rows,
+# [Co-developed with claude code -- Adam] fixtures/renamed_route's rows,
 # as read_table_entries reports them: its route table and action under THEIR names, plus the
 # second table whose action (tag_proto) nothing here knows.
 
@@ -497,8 +497,8 @@ def a_renamed_route(dst=b"\x0a\x00\x03\x03", port=3):
 def a_tag_row():
     # fixtures/renamed_route/pod-topo/s1-runtime.json's last row, as read_table_entries reports
     # it: proto_tags matches on the program's OWN field name, hdr.ip4.proto (p4info :41), not
-    # ndtwin_switch's hdr.ipv4.protocol -- round 1 used the latter, a row the fixture never
-    # produces (section 7 ruling 5, item 3). [Co-developed with claude code -- Adam]
+    # ndtwin_switch's hdr.ipv4.protocol, which would be a row the fixture never
+    # produces. [Co-developed with claude code -- Adam]
     return {"table": "RouteIngress.proto_tags", "priority": 0, "is_default": False,
             "match": {"hdr.ip4.proto": {"type": "exact", "value": b"\x11"}},
             "action": {"name": "RouteIngress.tag_proto", "params": {"tag": b"\x04"}}}
@@ -515,7 +515,7 @@ def _canonical(value):
 
 def rows_as_read_back(runtime_json):
     """A runtime file's table_entries in read_table_entries' shape -- the rows that switch would
-    hold after the package's entries went on. Section 7 ruling 5, item 3: the unrendered count
+    hold after the package's entries went on. The unrendered count
     is tested on the fixture's REAL rows, not on a hand-made one. [Co-developed with claude
     code -- Adam]"""
     import socket
@@ -541,7 +541,7 @@ def rows_as_read_back(runtime_json):
 
 
 class ARenamedBindingIsReadBackThroughItsOwnNamesTest(unittest.TestCase):
-    """2.5-1: the reverse lookup is the binding's, so a renamed route renders as a route."""
+    """The reverse lookup is the binding's, so a renamed route renders as a route."""
 
     def test_the_renamed_route_renders_as_its_destination_and_output_port(self):
         flows = rf.render_flow_stats(1, [a_renamed_route(port=3)],
@@ -557,7 +557,7 @@ class ARenamedBindingIsReadBackThroughItsOwnNamesTest(unittest.TestCase):
 
 
 class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase):
-    """2.5-1: not rendered as a drop -- not listed, and counted for switch_state."""
+    """Not rendered as a drop -- not listed, and counted for switch_state."""
 
     def test_an_unknown_action_on_a_bound_foreign_switch_is_not_listed(self):
         body, left_out = rf.render_flow_stats_counted(
@@ -588,7 +588,7 @@ class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase
         self.assertEqual(left_out, 0)
 
     def test_the_renamed_fixtures_own_rows_list_its_four_routes_and_count_its_tag_row(self):
-        # Section 7 ruling 5, item 3: `unrendered_entries` is every non-default row a foreign
+        # `unrendered_entries` is every non-default row a foreign
         # switch holds that /stats/flow does not list. The fixture's s1 holds a default, four
         # routes and one proto_tags row whose action nothing here knows.
         rows = rows_as_read_back(RENAMED_S1_RUNTIME)
@@ -607,8 +607,8 @@ class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase
 
     def test_a_row_with_no_usable_match_is_counted_whatever_its_action(self):
         # A route the renderer knows the action of, on a match field it cannot translate: not
-        # listed (it would read as match-everything), so counted. Round 1 counted only rows
-        # whose match it could translate -- which left the fixture's own tag row uncounted.
+        # listed (it would read as match-everything), so counted. Counting only rows
+        # whose match it could translate would leave the fixture's own tag row uncounted.
         unusable = a_renamed_route()
         unusable["match"] = {"meta.nothing_ryu_knows": {"type": "exact", "value": b"\x01"}}
         body, left_out = rf.render_flow_stats_counted(1, [unusable, a_tag_row()],
@@ -628,7 +628,7 @@ class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase
 
 class AMatchRyuCannotSayIsLeftOutAndCountedOnEveryPipelineTest(unittest.TestCase):
     """
-    The ternary writer's ruling: "a rule the twin cannot describe is absent and counted, never
+    The ternary writer's rule: "a rule the twin cannot describe is absent and counted, never
     described wrongly" applies to the new match kinds as well.
 
     [Co-developed with claude code -- Adam]

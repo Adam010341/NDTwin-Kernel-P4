@@ -53,7 +53,7 @@ from proxy_agent.sflow_emitter import (  # noqa: E402
 
 #: The numbering ndtwin_switch.p4's `packet_in_header_t` produces, as a PacketInIds.
 #: [Co-developed with claude code -- Adam]
-#: TICKET-P3 2.6 made `sample_from_packet_in` take the numbering rather than assume it. These
+#: `sample_from_packet_in` takes the numbering rather than assuming it. These
 #: cases are about the DECODING, so they hand it this -- and `P4InfoAgreementTest` below is what
 #: says these five numbers are the ones the compiler actually produced.
 NDTWIN_PACKET_IN_IDS = PacketInIds(reason=PKTIN_META_REASON,

@@ -41,7 +41,7 @@ R-2 AND WHAT IT CAN ACTUALLY SHOW
     FASTER than 1 Hz.  The premise of the registered expectation does not hold.  This sampler
     therefore samples fast enough (default 0.5 s) to answer the question at every real cadence,
     and 35_... reports the registered 15 s figure AND the measured ones side by side.  It does
-    not choose between them: amending a pre-registration is the auditor's call.
+    not choose between them; the reader of the report does.
 
 H-CORRESPONDENCE
     H-17  no process signalling at all.  Liveness of the apps is read from artefacts and ports.

@@ -25,26 +25,26 @@
 #
 # No fabric, no lab claim: the gate is pointed at t008_poll, the 08-20 cell the live G7 uses.
 # [Co-developed with claude code -- Adam] 🔴 CORRECTED 2026-09-27: that cell is NOT in version
-# control. Its raw directory ignores itself (raw/.gitignore: `*`) and lives on the audit-raw
-# orphan branch, so in every worktree, clone and CI checkout the gate had no data -- UNRUNNABLE,
+# control. Its raw directory ignores itself (raw/.gitignore: `*`) and its data is kept outside the
+# repository's tree, so in every worktree, clone and CI checkout the gate had no data -- UNRUNNABLE,
 # rc 2 -- and case 2, which expects rc 2, passed for that wrong reason. The suite now brings a
 # MINIMAL SYNTHETIC t008_poll (tests/shell/fixtures/gate_exit_code_not_tee/, README there: the real
 # trace's shape, made-up readings, ratio 1.000) and points plot_figures.RAW at a copy of it; and
 # case 2 asserts the gate's verdict line as well as its rc, so an UNRUNNABLE can never pass it.
 # Case 1b asserts the gate read that fixture (its ratio, 1.0000), not a real trace left on disk.
 # [Co-developed with claude code -- Adam] (09-27) case 3 now asserts the gate's OWN rc and verdict
-# under the old construct -- it used to be green whatever the gate did (the judge's N2 on d2a9d641) --
-# and case 6 holds lib_e.sh's `unset NDT_SAMPLING_RAW_DIR` (NOTE C on 1d5180ce).
+# under the old construct -- it used to be green whatever the gate did -- and case 6 holds
+# lib_e.sh's `unset NDT_SAMPLING_RAW_DIR`.
 #
-# N7 (the opus judge's, on d2a9d641) is fixed in round.env itself: it hardcoded
-# KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel, so this suite -- which sources round.env, as
-# gates_e.sh does -- read and mkdir'ed the MAIN checkout's paths from any worktree or clone. It
-# now derives KERNEL_DIR from its own location (an exported KERNEL_DIR still overrides), so the
-# tree under test is the tree this suite runs in. tests/shell/test_round_env_kernel_dir.sh holds
-# that property; its gate is tests/shell/mutate_round_env_kernel_dir.sh.
+# round.env itself is fixed too: it hardcoded KERNEL_DIR to the main checkout's absolute path, so
+# this suite -- which sources round.env, as gates_e.sh does -- read and mkdir'ed the MAIN checkout's
+# paths from any worktree or clone. It now derives KERNEL_DIR from its own location (an exported
+# KERNEL_DIR still overrides), so the tree under test is the tree this suite runs in.
+# tests/shell/test_round_env_kernel_dir.sh holds that property; its gate is
+# tests/shell/mutate_round_env_kernel_dir.sh.
 
 set -uo pipefail
-# [Co-developed with claude code -- Adam] N7: a KERNEL_DIR inherited from a shell that once sourced
+# [Co-developed with claude code -- Adam] Note: a KERNEL_DIR inherited from a shell that once sourced
 # some round.env would win over round.env's own derivation and point this suite at THAT tree.
 unset KERNEL_DIR
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -89,11 +89,11 @@ mkdir -p "$T/raw"; cp "$FIXTURE_DIR"/t008_poll_* "$T/raw/" 2>/dev/null || true
 export NDT_SAMPLING_RAW_DIR="$T/raw"
 
 # --- case 6: an inherited NDT_SAMPLING_RAW_DIR never reaches the round's gates -----------------
-# [Co-developed with claude code -- Adam] (the opus judge's NOTE C on 1d5180ce, 09-27) round.env unsets
-# it, but gates_e.sh, run_e.sh and build_1khz_binary.sh skip round.env when ROUND is already set --
-# so lib_e.sh, which each of them sources unconditionally, must drop it as well. Asked in a child
-# shell with ROUND set and the variable exported: the operator's own sequence. It sits above the
-# PY_PLOT skip so that it runs wherever this suite runs.
+# [Co-developed with claude code -- Adam] (09-27) round.env unsets it, but gates_e.sh, run_e.sh and
+# build_1khz_binary.sh skip round.env when ROUND is already set -- so lib_e.sh, which each of them
+# sources unconditionally, must drop it as well. Asked in a child shell with ROUND set and the
+# variable exported: the operator's own sequence. It sits above the PY_PLOT skip so that it runs
+# wherever this suite runs.
 case6="$(env NDT_SAMPLING_RAW_DIR=/inherited/raw ROUND="$ROUND_DIR" LOG_BASE="$T/case6.log" \
          bash -c '. "$1/lib_e.sh" >/dev/null 2>&1; printf "%s" "${NDT_SAMPLING_RAW_DIR-unset}"' _ "$ROUND_DIR")"
 check "case 6  lib_e.sh drops an inherited NDT_SAMPLING_RAW_DIR (what skips round.env still sources it)" \
@@ -118,10 +118,10 @@ GATE=(env PYTHONDONTWRITEBYTECODE=1 "$PY_PLOT" "$ROUND_DIR/ratio_gate.py")
 # --- case 1: the accept path.  A green cell asked to be green passes. --------------------------
 run_gate "${GATE[@]}" --check "$GOODCELL" --expect green >/dev/null 2>&1
 check "case 1  --expect green on a green cell -> caller sees success" 0 "$?"
-# [Co-developed with claude code -- Adam] N2 (the opus judge on d2a9d641, 09-27): the gate read THIS
-# fixture -- not whatever raw/ the tree has on disk. The real t008_poll is GREEN too (ratio 0.9656),
-# so with a broken override every case here passed on a checkout that still has the real trace;
-# only the fixture's ratio, exactly 1.0000, tells the two apart.
+# [Co-developed with claude code -- Adam] (09-27) the gate read THIS fixture -- not whatever raw/
+# the tree has on disk. The real t008_poll is GREEN too (ratio 0.9656), so with a broken override
+# every case here passed on a checkout that still has the real trace; only the fixture's ratio,
+# exactly 1.0000, tells the two apart.
 out1b="$("${GATE[@]}" --check "$GOODCELL" --expect green 2>&1)"
 check "case 1b the gate read the synthetic fixture (ratio 1.0000), not a raw/ on disk" \
       "GATE ratio cell=$GOODCELL ratio=1.0000" \
@@ -147,11 +147,11 @@ check "case 2  --expect red on a green cell -> caller sees failure" \
 # A harness whose options differ from production's is the same family as a harness that cd's
 # somewhere production never goes: both hide a whole class of defect while looking green.
 #
-# [Co-developed with claude code -- Adam] 🔴 AND THE GATE'S OWN ANSWER (2026-09-27, the opus judge's N2 on
-# d2a9d641). "reported-success" alone is what tee says whatever the gate did: an UNRUNNABLE gate (no
-# data, rc 2) and a gate that PASSED (rc 0) both read reported-success, so case 3 was green with no
-# cell at all and would stay green on a gate that no longer fails. It witnesses "that same failure"
-# only if the gate, inside the pipeline, really failed and for the reason case 2 names.
+# [Co-developed with claude code -- Adam] 🔴 AND THE GATE'S OWN ANSWER (2026-09-27).
+# "reported-success" alone is what tee says whatever the gate did: an UNRUNNABLE gate (no data, rc
+# 2) and a gate that PASSED (rc 0) both read reported-success, so case 3 was green with no cell at
+# all and would stay green on a gate that no longer fails. It witnesses "that same failure" only if
+# the gate, inside the pipeline, really failed and for the reason case 2 names.
 set +o pipefail
 : > "$LOG"
 if "${GATE[@]}" --check "$GOODCELL" --expect red 2>&1 | tee -a "$LOG" >/dev/null; then

@@ -5,10 +5,10 @@
 # [Co-developed with claude code -- Adam]
 #
 # WHAT THIS IS. p4_proxy/mininet/app_package_override decides which fabric the next `ndt up
-# p4`, the next hand-run p4_testbed_topo.py and the next proxy build. `ndt` is its only writer
-# (TICKET-P1 §1), so every one of its states -- written, cleared, refused, and the
-# present-but-empty one that makes the proxy refuse to start -- is reachable only through this
-# command, and none of them can be measured on the night grid: they all need a lab.
+# p4`, the next hand-run p4_testbed_topo.py and the next proxy build. `ndt` is its only writer, so
+# every one of its states -- written, cleared, refused, and the present-but-empty one that makes the
+# proxy refuse to start -- is reachable only through this command, and none of them can be measured
+# on the night grid: they all need a lab.
 #
 # So the file is driven the way tests/shell/test_ndt_down_claim_guard.sh drives the teardown
 # guard: `ndt` returns early when sourced, the functions are then called directly, and every
@@ -21,7 +21,7 @@
 #     only the refusal had created) with a different file in it, so every refusal cell asserts
 #     the knob is byte-identical to what it was AND that stack.sh and sudo were never reached.
 #   * a knob must never be left PRESENT AND EMPTY. app_package.read_knob refuses that state
-#     outright (P1-A §4-3) -- it is a half-finished write, not a default -- so the write path
+#     outright -- it is a half-finished write, not a default -- so the write path
 #     is asserted to leave a directive line, and the clear path to leave no file.
 #
 # 🔴 THE CONTROL that keeps the two above from being sentences the harness always says: the
@@ -67,14 +67,13 @@ KNOB="$FIX/p4_proxy/mininet/app_package_override"
 # --- two package fixtures ---------------------------------------------------------------
 #
 # 🔴 SHAPED LIKE THE REAL ONES AND NOT COPIES OF THEM. The converter's output lives outside
-# version control (.test_run/packages/, TICKET-P1C §0), so a test that read it would be green
-# or absent depending on whether somebody had run convert.py that day. What `ndt` reads out of
-# a package is exactly three things -- ndtwin/topology.json's host and switch counts, its host
-# addresses, and package.json's control_plane.mode -- so those are what these carry, at the
-# two shapes that matter: FOUR hosts on FOUR switches under NDTwin's own control plane, and
-# THREE hosts on THREE switches under an external one. Three is not a multiple of four, which
-# is the number host_count_buildable refuses and the reason exercises/p4runtime needs the
-# package layout to be exempt from it.
+# version control (.test_run/packages/), so a test that read it would be green or absent depending
+# on whether somebody had run convert.py that day. What `ndt` reads out of a package is exactly
+# three things -- ndtwin/topology.json's host and switch counts, its host addresses, and
+# package.json's control_plane.mode -- so those are what these carry, at the two shapes that matter:
+# FOUR hosts on FOUR switches under NDTwin's own control plane, and THREE hosts on THREE switches
+# under an external one. Three is not a multiple of four, which is the number host_count_buildable
+# refuses and the reason exercises/p4runtime needs the package layout to be exempt from it.
 mkpkg() {   # mkpkg <dir> <mode> <n-hosts> <n-switches> [<pipeline stem for s1>]
     local d="$1" mode="$2" nh="$3" ns="$4" pipe="${5:-}"
     mkdir -p "$d/ndtwin"
@@ -123,8 +122,8 @@ PY
 PKG_OK="$FIX/packages/four"        ; mkpkg "$PKG_OK" ndtwin   4 4
 PKG_EXT="$FIX/packages/three-ext"  ; mkpkg "$PKG_EXT" external 3 3
 PKG_BAD="$FIX/packages/redflag"    ; mkpkg "$PKG_BAD" ndtwin   4 4
-# TICKET-P2 §5.5: a package that puts somebody else's program on s1 and leaves s2-s4 on
-# NDTwin's. exercises/firewall is the shipped shape of exactly this.
+# A package that puts somebody else's program on s1 and leaves s2-s4 on NDTwin's. exercises/firewall
+# is the shipped shape of exactly this.
 PKG_FOREIGN="$FIX/packages/foreign"; mkpkg "$PKG_FOREIGN" ndtwin 4 4 firewall
 # [Co-developed with claude code -- Adam] An external control plane on its OWN pipeline --
 # exercises/p4runtime's shape, the 3 external arms of live-p1/06.
@@ -136,12 +135,12 @@ PKG_UNREADABLE="$FIX/packages/unreadable"; mkdir -p "$PKG_UNREADABLE"
 printf 'this is not json\n' > "$PKG_UNREADABLE/package.json"
 
 # 🔴 THE REAL LOADER, over the fixture's paths. app_pipeline_kind answers with
-# Package.pipeline_is_ndtwin (TICKET-P2 §2.1) and imports it from $REPO/p4_proxy/mininet --
-# which under these stubs is $FIX -- so the three modules that answer the question are
-# symlinked in. A stand-in for them would be this suite deciding the answer it is checking.
-# link_telemetry.py joined the list in round 2: `ndt`'s link_emitter_row now asks B's own
-# read_manifest and process_is_the_emitter about the manifest's shape instead of guessing a key
-# (judge A1). It imports app_package and topo_from_json from beside itself, which are here.
+# Package.pipeline_is_ndtwin and imports it from $REPO/p4_proxy/mininet -- which under these stubs
+# is $FIX -- so the three modules that answer the question are symlinked in. A stand-in for them
+# would be this suite deciding the answer it is checking. link_telemetry.py is in the list because
+# `ndt`'s link_emitter_row asks its own read_manifest and process_is_the_emitter about the
+# manifest's shape instead of guessing a key. It imports app_package and topo_from_json from beside
+# itself, which are here.
 for m in app_package.py topo_from_json.py grpc_ports.py link_telemetry.py; do
     ln -sf "$REAL_REPO/p4_proxy/mininet/$m" "$FIX/p4_proxy/mininet/$m"
 done
@@ -212,9 +211,9 @@ MANIFEST="'"$FIX"'/manifest.json"
 CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
 LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
 LAB_DEFAULT_KERNEL_DIR="'"$FIX"'"
-# [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the heartbeat pidfile and
-# report are fixture paths (never present), so a heartbeat running on this machine cannot add a
-# `heartbeat stop` to a teardown cell or a row to a status cell.
+# [Co-developed with claude code -- Adam] The heartbeat pidfile and report are fixture paths (never
+# present), so a heartbeat running on this machine cannot add a `heartbeat stop` to a teardown cell
+# or a row to a status cell.
 HB_PIDFILE="'"$FIX"'/run/heartbeat.pid"; HB_REPORT="'"$FIX"'/run/heartbeat.json"
 export STACK_LOG="'"$FIX"'/stack.log"
 export P4_PROXY_PY="'"$FIX"'/fakepy"
@@ -253,10 +252,10 @@ curl() { return 1; }
 git_lines() { :; }
 port_open() { return 1; }
 # 🔴 THE LINK-TELEMETRY MANIFEST IS A FIXTURE PATH, NOT /tmp. It describes a RUNNING fabric
-# (TICKET-P3 §2.5), and a suite that read the real one would be green or red depending on
-# whether somebody had a fabric up on this laptop -- and the cmd_down cells would report a
-# live emitter belonging to somebody else as residue of the teardown under test.
-# (No apostrophes in this block: it lives inside a single-quoted stub set.)
+# and a suite that read the real one would be green or red depending on whether somebody had a
+# fabric up on this laptop -- and the cmd_down cells would report a live emitter belonging to
+# somebody else as residue of the teardown under test. (No apostrophes in this block: it lives
+# inside a single-quoted stub set.)
 LINK_TELEMETRY_MANIFEST="'"$FIX"'/ndtwin_link_telemetry.json"
 '
 
@@ -620,9 +619,8 @@ nodes += [{"vertex_type": 1} for _ in range(nh)]
 print(json.dumps({"nodes": nodes, "edges": [{} for _ in range(ns * 4)]}))
 PY
 }
-# TICKET-P2-F: the same graph with every switch DOWN, which is what an external fabric looks
-# like before its controller runs. mkgraph's switches are always up, and "0 up" is the whole
-# subject of section 17.
+# The same graph with every switch DOWN, which is what an external fabric looks like before its
+# controller runs. mkgraph's switches are always up, and "0 up" is the whole subject of section 17.
 mkgraph_down() {   # mkgraph_down <switches> <hosts>
     python3 - "$1" "$2" <<'PYD'
 import json, sys
@@ -659,10 +657,10 @@ has   "  and says the check did not run"                  "kernel: UNCHECKED" "$
 # verify_p4 under each mode. The proxy-side checks are driven through the real function with
 # the graph half stubbed, so what is measured here is which checks it runs and what it says
 # about the ones it does not.
-# TICKET-P2-F added a gate to the external branch -- every switch the model declares must be
-# in GET /p4/switch_state with its probe ANSWERED -- so the stub has to answer that endpoint.
-# The fixture is three switches, alive and carrying no program, which is what PKG_EXT's
-# fabric is; section 17 is where the probe states themselves are the subject.
+# The external branch has a gate -- every switch the model declares must be in GET /p4/switch_state
+# with its probe ANSWERED -- so the stub has to answer that endpoint. The fixture is three switches,
+# alive and carrying no program, which is what PKG_EXT's fabric is; section 17 is where the probe
+# states themselves are the subject.
 SS_EXT3="$FIX/ss_ext3.json"
 python3 -c '
 import json, sys
@@ -694,9 +692,9 @@ has   "  but the graph, model and fabric ARE checked"     "GRAPH CHECKED" "$OUT"
 # =============================================================================================
 section "11. 🔴 the proxy's own last words when it will not start"
 # =============================================================================================
-# P1-A §4-11 makes proxy_agent/main.py raise AT IMPORT when a package will not load. stack.sh
-# can only ever report `proxy did not open :8081`, which under a package is true of every
-# possible cause; the traceback naming the field is in the log.
+# proxy_agent/main.py raises AT IMPORT when a package will not load. stack.sh can only ever report
+# `proxy did not open :8081`, which under a package is true of every possible cause; the traceback
+# naming the field is in the log.
 printf 'line one\nAppPackageError: hosts h3 is not in the model\n' > "$FIX/.test_run/logs/p4_proxy.log"
 OUT="$(drive 'proxy_log_tail 2')"
 has   "the proxy log's tail is printed"                   "AppPackageError: hosts h3 is not in the model" "$OUT"
@@ -707,10 +705,10 @@ has   "  and its absence is said, not skipped"            "the proxy never got f
 # =============================================================================================
 section "12. 🔴 when stack.sh cannot bring the proxy up"
 # =============================================================================================
-# P1-A §4-11 makes proxy_agent/main.py raise AT IMPORT when a package will not load, and
-# stack.sh can then only say `proxy did not open :8081` -- true of every possible cause. The
-# traceback naming the field is in the proxy's log, and until this change nothing printed it.
-# The other half of the same path: the knob THIS run wrote must not outlive the rollback.
+# proxy_agent/main.py raises AT IMPORT when a package will not load, and stack.sh can then only say
+# `proxy did not open :8081` -- true of every possible cause. The traceback naming the field is in
+# the proxy's log, and until this change nothing printed it. The other half of the same path: the
+# knob THIS run wrote must not outlive the rollback.
 reset_fix
 : > "$STACK_FAIL"
 printf 'Traceback (most recent call last):\n  ...\nAppPackageError: hosts h3 is not in the model\n' \
@@ -733,11 +731,11 @@ rm -f "$STACK_FAIL"
 # =============================================================================================
 section "13. 🔴 when the FABRIC never comes up, the bridge's own last words"
 # =============================================================================================
-# TICKET-P1D. The 2026-09-18 live round is the whole argument: `ndt up p4 --app` printed
-# `fabric did not come up: 0/4 switches, manifest missing` and `look at the pane`, and by then
-# there was no pane -- ntg_bmv2_topo.py had died of a KeyError and tmux reaps the session when
-# the process goes, so `ndtwin-lab topo-out` answers "no topo session". The bridge now tees its
-# output to .test_run/logs/topo.log and this branch prints the tail of it.
+# The 2026-09-18 live round is the whole argument: `ndt up p4 --app` printed `fabric did not come
+# up: 0/4 switches, manifest missing` and `look at the pane`, and by then there was no pane --
+# ntg_bmv2_topo.py had died of a KeyError and tmux reaps the session when the process goes, so
+# `ndtwin-lab topo-out` answers "no topo session". The bridge now tees its output to
+# .test_run/logs/topo.log and this branch prints the tail of it.
 #
 # 🔴 BEFORE the rollback, not after: rollback_up runs `ndtwin-lab cleanup`, and a cause printed
 # underneath a screen of recovery is a cause nobody reads. The ordering has its own cell.
@@ -753,7 +751,7 @@ has   "  the pane is still offered for the live case"     "sudo -n $FIX/installe
 has   "  and the bring-up was rolled back"                "rollback" "$OUT"
 check "🔴 the knob THIS run wrote does not outlive it"    "absent" "$(knob_state)"
 # 🔴 THE ORDER. Read as line numbers rather than asserted as prose, because "it was printed"
-# and "it was printed where somebody sees it" are the two halves of this whole ticket.
+# and "it was printed where somebody sees it" are the two halves of this whole section.
 tail_at="$(/usr/bin/grep -n 'the last 30 line(s) of' <<<"$OUT" | head -1 | cut -d: -f1)"
 roll_at="$(/usr/bin/grep -n 'this bring-up started' <<<"$OUT" | head -1 | cut -d: -f1)"
 check "🔴 the cause is printed ABOVE the rollback"        "yes" \
@@ -793,13 +791,12 @@ rm -f "$TOPO_LOG"
 # =============================================================================================
 section "14. 🔴 a package pipeline has no sampling rate here, and the rate rows say so"
 # =============================================================================================
-# TICKET-P2 §5.5 / PLAN-0917 §3.1. `sample rate` is decoded from
-# p4_proxy/p4_src/build/ndtwin_switch.json, and a switch running the package's own program
-# never loaded that file. Printing 1/256 beside it is X-2 with a different plane in it: for
-# months `status` said `1/256` on an OVS fabric out of the same artefact, and the two numbers
-# had only ever agreed by coincidence (D-2 / X-2, 2026-09-06). So the row reads
-# `n/a (package pipeline)`, the source row says which dpids and why, and `stale_pipeline` --
-# a comparison of the manifest's mtime with THAT file's -- is not judged at all.
+# `sample rate` is decoded from p4_proxy/p4_src/build/ndtwin_switch.json, and a switch running the
+# package's own program never loaded that file. Printing 1/256 beside it is the wrong-plane defect
+# again: for months `status` said `1/256` on an OVS fabric out of the same artefact, and the two
+# numbers had only ever agreed by coincidence (2026-09-06). So the row reads `n/a (package
+# pipeline)`, the source row says which dpids and why, and `stale_pipeline` -- a comparison of the
+# manifest's mtime with THAT file's -- is not judged at all.
 #
 # 🔴 app_pipeline_kind's answer comes from Package.pipeline_is_ndtwin, the real loader,
 # symlinked in above. A second copy of "is this switch on NDTwin's pipeline" living in `ndt`
@@ -957,13 +954,12 @@ check "  so --check exits 1 on it"                        "1" "$(rc_of "$OUT")"
 # =============================================================================================
 section "16. 🔴 verify_p4 under a package pipeline -- paths NOT CHECKED, entries the gate"
 # =============================================================================================
-# TICKET-P2-D. The hole this section closes was found LIVE and could not be found here, because
-# §0-2 forbids a worker `ndt up` and `curl` in this file is a stub: on 2026-09-18
-# `ndt up p4 --app <exercises/basic>` waited the whole CONVERGE_WAIT for twelve destination
-# paths, read four, and ended `up, but not verified` over a fabric whose twelve ordered pairs
-# all pinged at 0% loss. Four was the DESIGNED answer -- the proxy skips lldp_discovery on a
-# foreign pipeline (proxy_agent/main.py FOREIGN_PIPELINE_FABRIC_SKIPS), so its graph has no
-# inter-switch links and the only pairs it can path are the ones sharing a switch.
+# The hole this section closes was found LIVE and could not be found here, because `curl` in this
+# file is a stub: on 2026-09-18 `ndt up p4 --app <exercises/basic>` waited the whole CONVERGE_WAIT
+# for twelve destination paths, read four, and ended `up, but not verified` over a fabric whose
+# twelve ordered pairs all pinged at 0% loss. Four was the DESIGNED answer -- the proxy skips
+# lldp_discovery on a foreign pipeline (proxy_agent/main.py FOREIGN_PIPELINE_FABRIC_SKIPS), so its
+# graph has no inter-switch links and the only pairs it can path are the ones sharing a switch.
 #
 # 🔴 THE THREE SEGMENTS ARE THREE DIFFERENT VERDICTS, and that is the whole design:
 #   * the path count is NOT CHECKED -- but only once the proxy has SAID it skipped discovery.
@@ -999,10 +995,10 @@ for i, spec in enumerate(sys.argv[3:], start=1):
         rec, app, fail = (int(x) for x in spec.split(":"))
         s["table_entries"] = {"recorded": rec, "applied": app, "failed": fail,
                               "api_writes": 0, "journaled": False}
-    # TICKET-P2-F: the default probe is the one every live capture of an external fabric shows
-    # -- the bmv2 is alive and talking P4Runtime and has no program. It is here rather than in
-    # each cell because it is what these fixtures always MEANT; the probe gate is simply a
-    # newer reader of the same fabric. Section 17 builds its own fixtures for the probe cases.
+    # The default probe is the one every live capture of an external fabric shows -- the bmv2 is
+    # alive and talking P4Runtime and has no program. It is here rather than in each cell because it
+    # is what these fixtures always MEANT; the probe gate is simply a newer reader of the same
+    # fabric. Section 17 builds its own fixtures for the probe cases.
     s["probe_ok"] = False
     s["probe_detail"] = "FAILED_PRECONDITION: No forwarding pipeline config set for this device"
     d["switches"][str(i)] = s
@@ -1054,7 +1050,7 @@ vp4() {   # vp4 <switch_state file> <mode> <pipe> [<extra shell before the call>
 verify_p4 '$PKG_OK/ndtwin/topology.json' 12 '$2' '$3'"
 }
 
-# --- §3.2-1: the path count, and the proxy's own word for why ---------------------------------
+# --- the path count, and the proxy's own word for why ---------------------------------
 OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4)"
 check "🔴 a package pipeline ends ready, not 'never settled'" "0" "$(rc_of "$OUT")"
 # 🔴 A NAME NO OTHER CELL IN THIS FILE HAS. The external section already says "and NAMES the
@@ -1092,7 +1088,7 @@ check "🔴 an unreadable switch_state is red, not quiet"   "1" "$(rc_of "$OUT")
 # about discovery altogether. The sentence is what says which question went unanswered.
 has   "  saying which question went unanswered"           "gave no control_plane.skipped" "$OUT"
 
-# --- §3.2-2: the entries are the gate ---------------------------------------------------------
+# --- the entries are the gate ---------------------------------------------------------
 OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4)"
 has   "🔴 the entries the proxy applied are reported"     "table entries: 5/5 applied on 4 switch(es), 0 failed" "$OUT"
 OUT="$(vp4 "$SS_FAILED" ndtwin foreign:1,2,3,4)"
@@ -1115,7 +1111,7 @@ OUT="$(vp4 "$SS_MIXED" ndtwin foreign:1,2)"
 check "  switches carrying different counts still pass"   "0" "$(rc_of "$OUT")"
 has   "🔴 and the totals say so in a different word"      "8/8 applied across 2 switch(es)" "$OUT"
 
-# --- §3.2-3: forwarding is a reading, not a verdict -------------------------------------------
+# --- forwarding is a reading, not a verdict -------------------------------------------
 OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4 'DP_RC=1')"
 check "🔴 a silent data plane does NOT fail a package fabric" "0" "$(rc_of "$OUT")"
 has   "  it is reported as a reading"                     "a READING, not a verdict" "$OUT"
@@ -1124,7 +1120,7 @@ has   "  and saying who judges it"                        "The exercise's driver
 hasnt "🔴 and NOT as a verdict about NDTwin's routing"    "fabric is up but not forwarding" "$OUT"
 has   "  the verdict is still ready"                      "up. ready" "$OUT"
 # 🔴 THE CONTROL. The same dead ping on NDTwin's own pipeline is still a failure -- this is the
-# one verdict TICKET-P2-D changes, and it changes it for exactly one fabric.
+# one verdict that changed, and it changed for exactly one fabric.
 # 🔴 The two reporters side by side over ONE dead ping, with nothing stubbed but the ping itself:
 # same input, same instrument, two verdicts, and the difference is whose program is running.
 DPSTUB='dataplane_ok() { NDT_DATAPLANE_WHY=""; return 1; }'
@@ -1138,7 +1134,7 @@ OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4 'DP_RC=2')"
 has   "  an unanswerable ping is still NOT tested"        "forwarding NOT tested" "$OUT"
 check "  and does not fail the bring-up either"           "0" "$(rc_of "$OUT")"
 
-# --- §3.1: every other kind takes today's path, to the byte -----------------------------------
+# --- every other kind takes today's path, to the byte -----------------------------------
 # 🔴 The discriminator: `PINGED` comes from the STUBBED verify_dataplane, so its presence proves
 # the old branch ran and its absence proves the reading branch did.
 for kind in '' none ndtwin unreadable; do
@@ -1153,7 +1149,7 @@ has   "  the external sentence, not the package one"     "this package declares 
 has   "  and the EMPTY caveat"                            "this fabric is up and EMPTY" "$OUT"
 hasnt "  no entries gate on a plane nothing was pushed to" "table entries:" "$OUT"
 
-# --- §3.1: up_p4 is what hands verify_p4 the answer -------------------------------------------
+# --- up_p4 is what hands verify_p4 the answer -------------------------------------------
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
 has   "🔴 up_p4 passes the package's pipeline kind on"    "mode=ndtwin pipe=foreign:1" "$OUT"
@@ -1164,7 +1160,7 @@ reset_fix
 OUT="$(drive "up_p4 4")"
 has   "🔴 and a baseline round passes no kind at all"     "mode=<none> pipe=<none>" "$OUT"
 
-# --- §3.3: 'ndt status' does not want paths it knows nobody installed -------------------------
+# --- 'ndt status' does not want paths it knows nobody installed -------------------------
 # The same rule as the sampling rate two sections up, on the other number this report gets out of
 # a package fabric. `hosts * (hosts - 1)` is what NDTwin's own control plane installs after LLDP;
 # on this fabric there was no LLDP, so the shortfall is about something never attempted.
@@ -1180,9 +1176,9 @@ has   "🔴 a package fabric is told the count is not a reading"    "4 destinati
 has   "  naming the dpid and the step the proxy skipped"  "the package's program on dpid 1, proxy skipped lldp_discovery" "$OUT"
 hasnt "🔴 and the shortfall is NOT a --check problem"     "proxy reports 4 destination paths, want" "$OUT"
 check "  so --check still exits 0"                        "0" "$(rc_of "$OUT")"
-# [Co-developed with claude code -- Adam] Adam's 09-28 ruling: an external control plane on its
-# own pipeline reports NO path (its forwarding is its controller's), so the row says none is
-# expected there -- and does not call the number the twin's guess, which it no longer is.
+# [Co-developed with claude code -- Adam] (09-28) An external control plane on its own pipeline
+# reports NO path (its forwarding is its controller's), so the row says none is expected there --
+# and does not call the number the twin's guess, which it no longer is.
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXT_OWN"); up_p4")"
 OUT="$(run_status --check "$PROXY_STUBS")"
@@ -1209,14 +1205,14 @@ check "  so --check exits 1 on it"                        "1" "$(rc_of "$OUT")"
 # =============================================================================================
 section "17. 🔴 external: the liveness numbers are a READING and the probe is the gate"
 # =============================================================================================
-# TICKET-P2-F / TICKET-P2 §7-12. Live 2026-09-18, live-p1/03 printed `kernel: 3 switches, 3 up`
-# and its OWN `ndt status` one second later read `0 up, 3 enabled`. Nothing about the fabric
-# changed in that second: under `mode: external` the proxy pushes no pipeline, the liveness
-# probe is a GetForwardingPipelineConfig, a bmv2 with no program answers FAILED_PRECONDITION,
-# and the twin's own policy calls such a switch Down. The only writer of isUp there is the
-# proxy's inform_switch_entered background retry (30 x 10 s, and it does not look at read_only),
-# which the kernel's 1 Hz pingWorker undoes a second later. `3 up` was one read landing between
-# two races -- so waiting longer (P2-D round 3) only buys another ticket in the same lottery.
+# Live 2026-09-18, live-p1/03 printed `kernel: 3 switches, 3 up` and its OWN `ndt status` one second
+# later read `0 up, 3 enabled`. Nothing about the fabric changed in that second: under `mode:
+# external` the proxy pushes no pipeline, the liveness probe is a GetForwardingPipelineConfig, a
+# bmv2 with no program answers FAILED_PRECONDITION, and the twin's own policy calls such a switch
+# Down. The only writer of isUp there is the proxy's inform_switch_entered background retry (30 x 10
+# s, and it does not look at read_only), which the kernel's 1 Hz pingWorker undoes a second later.
+# `3 up` was one read landing between two races -- so waiting longer only buys another ticket in the
+# same lottery.
 #
 # 🔴 SO THE GATE MOVES TO A QUESTION WITH A MECHANICAL ANSWER: is every switch the model
 # declares in the proxy's report, and did its probe get ANSWERED? FAILED_PRECONDITION is an
@@ -1390,7 +1386,7 @@ OUT="$(run_status --check "$DOWN_STUBS")"
 has   "  and so is the baseline fabric with no package"  "3 switch(es) are down" "$OUT"
 
 # =============================================================================================
-section "18. 🔴 TICKET-P3 §2.1: --telemetry, and the knob ndt is the only writer of"
+section "18. 🔴 --telemetry, and the knob ndt is the only writer of"
 # =============================================================================================
 # p4_proxy/mininet/telemetry_override carries one of `auto none cooperative link` and decides
 # where a bmv2 switch's sFlow samples come from. Three readers act on it -- the topology script,
@@ -1595,8 +1591,8 @@ check "  and to 'auto' when the package says nothing"     "auto" "$(one_of "tele
 
 # --- `auto` is PER SWITCH, and the split is app_pipeline_kind's ------------------------------
 # 🔴 NOT A SECOND READING OF package.json. `foreign:<dpids>` already names exactly the switches
-# running somebody else's program (Package.pipeline_is_ndtwin), which is the predicate §2.1
-# defines `auto` on. A second implementation here would be a second answer to one question.
+# running somebody else's program (Package.pipeline_is_ndtwin), which is the predicate `auto`
+# is defined on. A second implementation here would be a second answer to one question.
 check "  auto over NDTwin's own pipeline: all cooperative" "ALL cooperative" "$(one_of "telemetry_resolved_rows auto ndtwin")"
 check "  a named word applies to every switch"            "ALL link" "$(one_of "telemetry_resolved_rows link foreign:1,2")"
 reset_fix
@@ -1612,14 +1608,14 @@ section "19. 🔴 'ndt status' names the telemetry source, the emitter and the s
 # mkmanifest <pid> [<switches>] [<rate>] -- the link-telemetry manifest, AS B'S OWN WRITER
 # WRITES IT.
 #
-# 🔴 NOT A HAND-WRITTEN DICT (judge A1, TICKET-P3 §9 ruling 5). Round 1 wrote the key
-# `emitter_pid`; link_telemetry.manifest_document writes `pid` (link_telemetry.py:402-405), and
-# its switches are a LIST, not a dict. All 391 cells were green over an `ndt` reader that would
-# have answered `unreadable` for every real fabric: verify_p4_telemetry requires a `link`
-# switch's emitter to be alive, so [3/3] would have failed on every `--telemetry link` and on
-# `auto` over a foreign pipeline, `status --check` would have carried an extra problem and
-# `down` would have reported residue -- on all thirteen driver arms. A fixture nobody generates
-# from the writer is a fixture that agrees with whatever the reader guessed.
+# 🔴 NOT A HAND-WRITTEN DICT. An earlier version wrote the key `emitter_pid`;
+# link_telemetry.manifest_document writes `pid` (link_telemetry.py:402-405), and its switches are a
+# LIST, not a dict. All 391 cells were green over an `ndt` reader that would have answered
+# `unreadable` for every real fabric: verify_p4_telemetry requires a `link` switch's emitter to be
+# alive, so [3/3] would have failed on every `--telemetry link` and on `auto` over a foreign
+# pipeline, `status --check` would have carried an extra problem and `down` would have reported
+# residue -- on all thirteen driver arms. A fixture nobody generates from the writer is a fixture
+# that agrees with whatever the reader guessed.
 mkmanifest() {   # mkmanifest <pid> [<switches>] [<rate>] [<start-time skew>]
     python3 - "$FIX/ndtwin_link_telemetry.json" "$1" "${2:-2}" "${3:-256}" "$REAL_REPO" "${4:-0}" <<'PYM'
 import sys, os, json
@@ -1648,14 +1644,14 @@ class _Plan:
     switches = [_Switch(i) for i in range(1, nsw + 1)]
 
 
-# 🔴 AND THE IDENTITY THE BRING-UP RECORDS BESIDE THE PID (Adam 2026-09-27, ruling K): the
-# argv the emitter was started with and its start time, which `ndt` now reads the pid WITH
+# 🔴 AND THE IDENTITY THE BRING-UP RECORDS BESIDE THE PID (2026-09-27): the argv the emitter was
+# started with and its start time, which `ndt` now reads the pid WITH
 # (link_telemetry.emitter_is_running). Read off the live pid the way the launcher would have
-# recorded it; a pid that is not there gets none, as a manifest older than the ruling has none.
-# <start-time skew> is added to the start time recorded: a manifest naming this very pid, with
-# a start it never had, is what pid reuse looks like -- and the one thing the shape alone cannot
-# tell apart (judge KJL B2: the fixture emitter is now in the launcher's four-word shape, since
-# nothing else may ever read alive).
+# recorded it; a pid that is not there gets none, as a manifest older than that has none.
+# <start-time skew> is added to the start time recorded: a manifest naming this very pid, with a
+# start it never had, is what pid reuse looks like -- and the one thing the shape alone cannot tell
+# apart (the fixture emitter is in the launcher's four-word shape, since nothing else may ever read
+# alive).
 # 🔴 AND 0644, as B's write_manifest leaves it: this user's umask is 0002, and B's reader refuses
 # a group-writable manifest outright -- a fixture at the umask's mode would read `unreadable` for
 # a reason these cells are not about. [Co-developed with claude code -- Adam]
@@ -1687,20 +1683,21 @@ has   "  a knob that names one prints it"                 "telemetry      link  
 
 # 🔴 A LIVE EMITTER IS A ROW; A DEAD ONE IS A --check PROBLEM. `$$` is this shell, which is
 # alive by construction; pid 1 is init, so a pid that CANNOT be alive has to be manufactured.
-# 🔴 `alive` IS link_telemetry.process_is_the_emitter, NOT "/proc/<pid> exists" (§9 ruling 5):
-# a pid recorded at bring-up is not evidence that the same process holds it now, because Linux
-# recycles pids and this teardown runs as root. So the live fixture is a real process whose
-# cmdline really names the emitter -- a sleeping python started from a file called
-# psample_sflow_emitter.py -- and not merely some pid that happens to exist.
+# 🔴 `alive` IS link_telemetry.process_is_the_emitter, NOT "/proc/<pid> exists": a pid recorded at
+# bring-up is not evidence that the same process holds it now, because Linux recycles pids and this
+# teardown runs as root. So the live fixture is a real process whose cmdline really names the
+# emitter -- a sleeping python started from a file called psample_sflow_emitter.py -- and not merely
+# some pid that happens to exist.
 EMIT_DIR="$FIX/emitter"; mkdir -p "$EMIT_DIR"
 printf 'import time\ntime.sleep(600)\n' > "$EMIT_DIR/psample_sflow_emitter.py"
 # The launcher's own four-word shape, `<python> <.../psample_sflow_emitter.py> --manifest <path>`:
-# after judge KJL B2 no other process can ever read alive, whatever its manifest records.
+# once the emitter is in the launcher's shape no other process can ever read alive, whatever its
+# manifest records.
 python3 "$EMIT_DIR/psample_sflow_emitter.py" --manifest "$FIX/ndtwin_link_telemetry.json" & EMIT_PID=$!
 trap 'kill "$EMIT_PID" 2>/dev/null; rm -rf "$FIX"' EXIT INT TERM
 # 🔴 UNTIL ITS exec LANDS, THE CHILD IS A COPY OF THIS SHELL, with this shell's cmdline -- and
-# mkmanifest now records the cmdline it reads (ruling K, 2026-09-27). Wait for the emitter's own,
-# bounded, so the identity recorded is the python's and not bash's. [Co-developed with claude code -- Adam]
+# mkmanifest now records the cmdline it reads (2026-09-27). Wait for the emitter's own, bounded, so
+# the identity recorded is the python's and not bash's. [Co-developed with claude code -- Adam]
 for _ in $(seq 1 200); do
     tr '\0' ' ' < "/proc/$EMIT_PID/cmdline" 2>/dev/null | /usr/bin/grep -q 'psample_sflow_emitter\.py' && break
     sleep 0.05
@@ -1709,9 +1706,9 @@ mkmanifest "$EMIT_PID" 3 256
 OUT="$(run_status --check)"
 has   "  an emitter that is running is named with its pid" "link emitter: alive pid $EMIT_PID, 3 switch(es), rate 256" "$OUT"
 hasnt "  and is not a problem"                             "- the link-telemetry emitter" "$OUT"
-# 🔴 THE SAME LIVE, EMITTER-SHAPED PID, WITH A START TIME IT NEVER HAD (ruling K; judge KJL B2):
-# that is a manifest whose pid now belongs to some other process, and `ndt` must read it with the
-# identity recorded, as the root teardown does -- by the pid and the shape alone it is alive.
+# 🔴 THE SAME LIVE, EMITTER-SHAPED PID, WITH A START TIME IT NEVER HAD: that is a manifest whose pid
+# now belongs to some other process, and `ndt` must read it with the identity recorded, as the root
+# teardown does -- by the pid and the shape alone it is alive.
 mkmanifest "$EMIT_PID" 3 256 1
 OUT="$(run_status --check)"
 has   "🔴 its own pid with a start it never had is DEAD, not alive" "link emitter: DEAD" "$OUT"
@@ -1767,10 +1764,10 @@ has   "  a fabric with no package says shaping is off"    "link shaping   off" "
 # =============================================================================================
 section "20. 🔴 verify_p4_telemetry: the proxy has to agree, switch by switch"
 # =============================================================================================
-# TICKET-P3 §2.7. `ndt` resolves each switch's source from the knob, the package and
-# app_pipeline_kind; the proxy resolves it again from the same three inputs and DISCLOSES the
-# result (§2.6). The useful thing is not either answer -- it is that they agree, because one of
-# them built the fabric and the other is sampling it.
+# `ndt` resolves each switch's source from the knob, the package and app_pipeline_kind; the proxy
+# resolves it again from the same three inputs and DISCLOSES the result. The useful thing is not
+# either answer -- it is that they agree, because one of them built the fabric and the other is
+# sampling it.
 #
 # 🔴 A PROXY THAT DISCLOSES NOTHING IS RED. `telemetry` absent from a switch's report is not
 # "cooperative, as usual": it is a proxy that cannot say what it is doing.
@@ -1860,11 +1857,10 @@ has   "  under the unverified verdict"                    "but not verified" "$O
 # =============================================================================================
 section "21. 🔴 'ndt down' REPORTS the link-telemetry emitter and does not kill it"
 # =============================================================================================
-# TICKET-P3 §2.5 gives the emitter's lifetime to p4_testbed_topo.tear_down, which SIGTERMs the
-# pid its own manifest names and then removes the manifest. So an emitter still alive after a
-# teardown means that path did not run or did not finish -- a python process holding a psample
-# netlink group while the fabric under it is gone, invisible to every other row `ndt down`
-# prints.
+# The emitter's lifetime belongs to p4_testbed_topo.tear_down, which SIGTERMs the pid its own
+# manifest names and then removes the manifest. So an emitter still alive after a teardown means
+# that path did not run or did not finish -- a python process holding a psample netlink group while
+# the fabric under it is gone, invisible to every other row `ndt down` prints.
 #
 # 🔴 NAMED, NOT SWEPT. The only safe way to stop it is by the pid its manifest names, and that
 # is the other command's job; a teardown that started killing processes it did not start is how
@@ -1891,11 +1887,11 @@ check "  the manifest is left exactly where it was"       "1" "$([[ -e "$FIX/ndt
 check "🔴 and a LIVE emitter still makes 'ndt down' non-zero" "1" "$([[ "$DOWN_RC" -ne 0 ]] && echo 1 || echo 0)"
 
 # 🔴 A DEAD PID IS A FILE THIS COMMAND CAN PROVE IS STALE, SO IT REMOVES IT -- AND THAT IS NOT
-# A FAILED TEARDOWN (TICKET-P3 §9 ruling 19①(b), from the first live run). Live 02/03/05 all
-# ended here: `topo-stop`'s SIGHUP killed the pane's process group before tear_down could run,
-# so the fabric was down, the emitter was gone, and the only thing wrong was a file whose next
-# reader would be told about an emitter that does not exist. Reporting that as residue and
-# exiting non-zero did the reporting half of a teardown and skipped the doing.
+# A FAILED TEARDOWN (found by the first live run). Live 02/03/05 all ended here: `topo-stop`'s
+# SIGHUP killed the pane's process group before tear_down could run, so the fabric was down, the
+# emitter was gone, and the only thing wrong was a file whose next reader would be told about an
+# emitter that does not exist. Reporting that as residue and exiting non-zero did the reporting half
+# of a teardown and skipped the doing.
 # 🔴 THE ONLY RESIDUE IN THIS CELL IS THE ONE UNDER TEST. The fixture also carries a switch
 # manifest, which `cmd_down` reports separately and which would make the rc 1 for a reason that
 # has nothing to do with the link manifest -- and then "rc 0 after the removal" could never be

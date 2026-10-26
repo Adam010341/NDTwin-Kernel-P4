@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_known_issues_references.py (R3-KIREF, DECISIONS 09-07 21:0x #3).
+# Mutation gate for tests/python/test_known_issues_references.py.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -24,12 +24,12 @@
 # control cannot tell "the suite is sensitive" from "the suite is stuck red".
 #
 # M13-M14 are the bare-code half (2026-09-11, E1): `<the document> <CODE>` with no line number
-# is the form the ruling asks for, and until that night nothing checked that the code existed.
+# is the preferred citation form, and until that night nothing checked that the code existed.
 #
-# M1 is applied to the DATA, not the scanner: a copy of the tree gets its stale citation back
-# (`FINDINGS.md` cited a line that is inside B-12 while talking about the `commit=UNKNOWN` gap
-# in the bmv2 provenance) and the repository case has to notice. M2-M9 are applied to the
-# scanner. The two are different failures and this gate is the only place that separates them.
+# M1 is applied to the DATA, not the scanner: a copy of the tree gets a fixture document whose
+# citation by heading is then turned back into a stale line-number citation, and the repository
+# case has to notice. M2-M9 are applied to the scanner. The two are different failures and this
+# gate is the only place that separates them.
 #
 # 🔴 Guards its own baseline. Every mutation is applied to a COPY of the test file in a temp
 # dir, and the tree M1 mutates is a COPY made with `git ls-files | tar`. Neither
@@ -131,10 +131,11 @@ if ! run_against "$TEST" "$REPO" >/dev/null 2>&1; then
 fi
 echo
 
-# --- M1: the DATA. One citation goes back to the stale form it had on 1a284f75 -------------
-# `doc/audit/2026-08-28_flow-count-capacity/FINDINGS.md` cited a line number that has pointed
-# into B-12 since B-12 was inserted, while the sentence around it is about the kernel binary's
-# `commit=UNKNOWN` gap. Putting it back is the whole defect in one line.
+# --- M1: the DATA. A citation goes back to the stale line-number form --------------------
+# The tree copy gets one fixture document that cites an entry by its heading, which is a
+# correct citation. The copy must be green with it; then the heading is replaced by a line
+# number that lands nowhere near that entry, which is the whole defect in one line.
+# [Co-developed with claude code -- Adam]
 T1="$BK/tree.m1"
 snapshot_tree "$T1"
 # `git ls-files --cached` copies what the INDEX knows about. A file that exists only in the
@@ -145,7 +146,16 @@ if [[ ! -f "$T1/tests/python/test_known_issues_references.py" ]]; then
     exit 2
 fi
 STALE="doc/$KI:1679"
-if ! apply_exact "$T1/doc/audit/2026-08-28_flow-count-capacity/FINDINGS.md" \
+M1_FIX="$T1/doc/m1-citation-fixture.md"
+printf '%s\n' '# M1 fixture' '' \
+    'The rebuild recipe of the kernel in production is tracked in KNOWN-ISSUES〈生產線在跑的那顆 kernel 的重建配方〉.' \
+    > "$M1_FIX"
+if ! run_against "$TEST" "$T1" >/dev/null 2>&1; then
+    echo "🔴 the tree copy is RED with the M1 fixture before any mutation -- M1 would prove nothing" >&2
+    run_against "$TEST" "$T1" | grep -E '^(FAIL|ERROR): ' | sed 's/^/    /' >&2
+    exit 2
+fi
+if ! apply_exact "$M1_FIX" \
         'KNOWN-ISSUES〈生產線在跑的那顆 kernel 的重建配方〉'$'\x1f'"\`$STALE\`"; then
     echo "  🔴 M1 could not be applied -- the citation it puts back is not where it was" >&2
     SURVIVORS=$((SURVIVORS + 1)); MUTATIONS=$((MUTATIONS + 1))

@@ -3,31 +3,30 @@ Which fabric gets the heartbeat watchdog, what `reroute` then says, and what swi
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P4-heartbeat segment W, section 1:
+What this pins:
 
   * the watchdog on a foreign fabric is fed by the heartbeat, and ONLY there -- NDTwin's own
-    pipeline keeps LLDP (段 W: "NDTwin 自己的 pipeline（LLDP）不啟動心跳"). [Co-developed with
-    claude code -- Adam] Since 09-27 that includes an external control plane on its own pipeline,
+    pipeline keeps LLDP and does not start the heartbeat. [Co-developed with claude code --
+    Adam] Since 09-27 that includes an external control plane on its own pipeline,
     DETECT ONLY: its links are declared and judged like any foreign fabric's, a cut is told to the
     kernel, and nothing is written to a switch -- `reroute` stays false with the reason
     `external_control_plane` whatever the heartbeat says. An external control plane on NDTwin's
     own pipeline is left as it was (no declared links, no heartbeat);
   * the LLDP beacons stay off on a foreign fabric and `lldp_discovery` stays named in
-    `control_plane.skipped` -- they ride a controller header those programs do not have
-    (TICKET-P4-roles M-R10). The heartbeat watchdog is a different evidence source through the
-    same pass, and it is disclosed on its own. [Co-developed with claude code -- Adam] Adam's
-    ruling E (09-27): while the heartbeat drives the watchdog, `link_watchdog` is NOT in
-    `control_plane.skipped` -- it runs; it is named there only when the heartbeat watchdog did not
-    start;
+    `control_plane.skipped` -- they ride a controller header those programs do not have. The
+    heartbeat watchdog is a different evidence source through the same pass, and it is disclosed
+    on its own. [Co-developed with claude code -- Adam] While the heartbeat drives the watchdog,
+    `link_watchdog` is NOT in `control_plane.skipped` -- it runs; it is named there only when the
+    heartbeat watchdog did not start;
   * `capabilities.reroute` is true only when the heartbeat is usable AND every foreign switch
     binds its route table with owner ndtwin; otherwise false, and the reason is served, in the
     first cut's words (`unbound`, `owned_by_package`) where the tables are the cause;
   * `link_discovery` says `heartbeat` while the heartbeat is usable, `declared` otherwise;
-  * the heartbeat's side effects -- the live counters and segment S's census -- are on
-    switch_state (段 W bullet 6), and a frame that reached a host is named, not averaged away.
+  * the heartbeat's side effects -- the live counters and the census -- are on
+    switch_state, and a frame that reached a host is named, not averaged away.
 
 🔴 THE CAPABILITIES OBJECT KEEPS ITS FIVE KEYS. It is the contract the GUI draft and the third
-cut's kernel read (TICKET-P4-roles appendix A, asserted word for word in test_switch_state.py);
+cut's kernel read (asserted word for word in test_switch_state.py);
 the reason is a FABRIC fact, like `reroute` itself, and is served at the top level as `reroute`.
 
 unittest rather than pytest because tools/test_workflow/l1_unit_tests.sh executes each of these
@@ -49,7 +48,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import journal_isolation  # noqa: E402,F401
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "mininet"))
 
-# Only the THIRD-PARTY dependencies decide a skip; this ticket's own modules failing to import is
+# Only the THIRD-PARTY dependencies decide a skip; this suite's own modules failing to import is
 # a failure (the red-first run must be red, not skipped).
 try:
     import fastapi  # noqa: F401
@@ -170,7 +169,7 @@ class WhichFabricGetsTheHeartbeatWatchdogTest(unittest.TestCase):
         self.assertEqual(len(topo.heartbeat_calls), 1)
 
     def test_the_lldp_beacons_stay_off_and_named_skipped_but_the_watchdog_runs(self):
-        # [Co-developed with claude code -- Adam] Adam's ruling E (09-27): the heartbeat drives the
+        # [Co-developed with claude code -- Adam] The heartbeat drives the
         # watchdog, so the watchdog is not skipped -- only the beacons are. (This test used to
         # assert link_watchdog IN the list.)
         topo = HeartbeatTopo()
@@ -185,7 +184,7 @@ class WhichFabricGetsTheHeartbeatWatchdogTest(unittest.TestCase):
                          "switch_state serves the same list")
 
     def test_an_unbound_fabric_reports_its_watchdog_running_too(self):
-        # [Co-developed with claude code -- Adam] Ruling E: detecting without rerouting is still
+        # [Co-developed with claude code -- Adam] Detecting without rerouting is still
         # the watchdog running -- 07's unbound expectation, [install_initial_routes, lldp_discovery].
         topo = HeartbeatTopo()
         summary, _ = run_startup(clients_bound(None, None), topo=topo, package=a_foreign_package())
@@ -193,7 +192,7 @@ class WhichFabricGetsTheHeartbeatWatchdogTest(unittest.TestCase):
                          sorted([main.SKIP_LLDP, main.SKIP_ROUTES]))
 
     def test_a_heartbeat_watchdog_that_did_not_start_leaves_the_watchdog_named_skipped(self):
-        # [Co-developed with claude code -- Adam] Ruling E's other half: when the heartbeat watchdog
+        # [Co-developed with claude code -- Adam] When the heartbeat watchdog
         # did not start, nothing watches the links, and the list must still say so.
         for topo in (HeartbeatTopo(raises=OSError("the report cannot be read")), SeedingTopo()):
             with self.subTest(topo=type(topo).__name__):
@@ -204,7 +203,7 @@ class WhichFabricGetsTheHeartbeatWatchdogTest(unittest.TestCase):
                 self.assertIn(main.SKIP_LLDP, summary["control_plane"]["skipped"])
 
     def test_the_startup_log_names_the_same_skipped_list_switch_state_serves(self):
-        # [Co-developed with claude code -- Adam] The opus judge's F2 (09-27): the foreign fabric's
+        # [Co-developed with claude code -- Adam] The foreign fabric's
         # startup line was printed before the heartbeat decision, so it named link_watchdog skipped
         # on every fabric the heartbeat drives. Both halves: started (not named), not started
         # (named).
@@ -347,7 +346,7 @@ class AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest(unittest.TestCase):
     """
     [Co-developed with claude code -- Adam] 09-27: an external control plane on its own pipeline
     (live-p1/06's p4runtime x2 and flowcache/solution) runs the heartbeat watchdog DETECT ONLY.
-    Adam's standing condition (09-25) is that the heartbeat must not change what a user's own
+    The standing condition is that the heartbeat must not change what a user's own
     forwarding does, so what is asserted here is first what does NOT happen: no client is asked
     to write, the route writer is left skipping, and `reroute` stays false with the reason
     `external_control_plane` even when every table is bound to NDTwin and the heartbeat is usable.
@@ -412,7 +411,7 @@ class AnExternalControlPlaneOnItsOwnPipelineDetectsOnlyTest(unittest.TestCase):
         self.assertEqual(main.heartbeat_report()["state"], hb.REASON_NOT_RUNNING)
 
     def test_link_watchdog_leaves_the_list_while_the_heartbeat_drives_it(self):
-        # Adam's ruling E, on this fabric too: every other EXTERNAL_SKIPS step stays named.
+        # On this fabric too: every other EXTERNAL_SKIPS step stays named.
         summary, _topo, _ = self.start()
         self.assertEqual(sorted(summary["control_plane"]["skipped"]),
                          sorted(set(main.EXTERNAL_SKIPS) - {main.SKIP_WATCHDOG}))
@@ -484,7 +483,7 @@ class AnExternalFabricsCutIsToldAndRewritesNothingTest(unittest.TestCase):
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class AnExternalFabricReportsNoGuessedPathsTest(unittest.TestCase):
     """
-    [Co-developed with claude code -- Adam] Adam's ruling, 09-28: on an external control plane
+    [Co-developed with claude code -- Adam] On an external control plane
     running its own pipeline the forwarding is the exercise's controller's and nothing installed
     is known to the proxy, so `/ryu_server/all_destination_paths` reports NO path -- "unknown",
     not a shortest path over the declared links (what it served from 09-27). The declared links
@@ -583,8 +582,8 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
         self.assertEqual(report["frame"]["ethertype"], "0x88B5")
 
     def test_the_census_says_which_of_its_arms_ndt_up_starts_the_heartbeat_on(self):
-        # [Co-developed with claude code -- Adam] The fable judge's 2.1 on 1a3ebd7f: the census's
-        # 20 arms were started BY HAND (segment S), and the text says which of them `ndt up p4
+        # [Co-developed with claude code -- Adam] The census's
+        # 20 arms were started BY HAND, and the text says which of them `ndt up p4
         # --app` starts it on. 17 until 09-27; all 20 since -- the 3 external control planes
         # (p4runtime x2, flowcache solution) detect only.
         self.start()
@@ -594,7 +593,7 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
         self.assertIn("external control plane", text)
         self.assertIn("EXPECTED to start it on all 20 too", text)
         self.assertIn("not yet measured under ndt", text)
-        # [Co-developed with claude code -- Adam] Adam's 09-28 ruling: on an external control plane
+        # [Co-developed with claude code -- Adam] On an external control plane
         # only after the offline drop check proves the program drops the frame.
         self.assertIn("only after ndt's offline drop check proves the program drops the frame", text)
         self.assertIn("detect only", text)
@@ -602,10 +601,10 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
         self.assertIn("ndt up", text)
 
     def test_the_census_names_the_punt_blind_spot_on_external_control_planes(self):
-        # [Co-developed with claude code -- Adam] The external judge's F3 (09-28): a heartbeat frame
+        # [Co-developed with claude code -- Adam] A heartbeat frame
         # an external program punts to its own controller is invisible to the proxy and the daemon;
         # served beside the census, with the P4-level reason the 3 programs' source drops it (read
-        # from the source, not measured with the programs loaded -- S1, round 2).
+        # from the source, not measured with the programs loaded).
         self.start()
         text = main.heartbeat_report()["census"]["summary"]
         self.assertIn("punts to ITS OWN controller", text)
@@ -615,14 +614,14 @@ class TheHeartbeatIsDisclosedOnSwitchStateTest(unittest.TestCase):
                       text)
         self.assertIn("the drop check agrees on a throwaway bmv2", text)
         self.assertIn("flowcache drops every non-IPv4 frame at ingress", text)
-        # [Co-developed with claude code -- Adam] The external judge's S1 (09-28): a reading of the
-        # P4 source, not a measurement -- segment S ran these arms with no controller.
+        # [Co-developed with claude code -- Adam] A reading of the
+        # P4 source, not a measurement -- the census ran these arms with no controller.
         self.assertIn("The P4 SOURCE of these 3 programs drops it", text)
         self.assertIn("is the first measurement with these programs loaded by their controllers", text)
         self.assertIn("inferred from bmv2", text)
-        # [Co-developed with claude code -- Adam] Round 5 (S-3): what segment S's raw shows -- the
+        # [Co-developed with claude code -- Adam] What the census run's raw output shows -- the
         # package's program on every switch, no entry, P4Runtime's FAILED_PRECONDITION -- not "no
-        # pipeline was loaded", which its own 30_report.json contradicts.
+        # pipeline was loaded", which the run's own report contradicts.
         self.assertIn("each switch ran the package's compiled program", text)
         self.assertIn("P4Runtime had no pipeline config pushed", text)
         self.assertNotIn("so no pipeline was loaded", text)

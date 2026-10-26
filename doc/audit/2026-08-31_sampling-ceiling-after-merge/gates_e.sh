@@ -4,9 +4,9 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 THE RULE THIS FILE EXISTS TO OBEY.  PREREG §2.3: "as many checks as the pre-registration
+# 🔴 THE RULE THIS FILE EXISTS TO OBEY.  PREREG §2.3: "as many checks as the registration
 # names, that many calls in the script".  The D round listed three checks and gate_d.sh called
-# two; the review found it by grep.  So every check below is numbered with the §2 item it
+# two; a grep finds it.  So every check below is numbered with the §2 item it
 # implements, and the run ends by printing the map, so the two greps can be laid side by side
 # without reading either file.
 #
@@ -173,7 +173,7 @@ g1_generate_load() {          # sets G1_PKTS, G1_IFACE_DELTA
 # attribution table later.  awk is on nobody's allow list, which is the point.
 #
 # Started plainly and its PID captured immediately -- never `$!` from inside a subshell or a
-# pipeline, where it names something else (memory/process-liveness-checks-lie-in-two-ways) -- and
+# pipeline, where it names something else -- and
 # the capture is then CHECKED against /proc/<pid>/comm before anything is concluded from it.
 # Stopped by that PID.  Never `pkill -f`.
 BURNER_PID=""
@@ -469,8 +469,8 @@ main() {
     #    about the injected data rather than about a path that reads nothing.
     # -- G0 §2 (v0.5): the calibration objects are the SOURCE OF THE THRESHOLDS.  If they change,
     #    the thresholds changed and nobody would notice.  raw*/ is git-ignored on working
-    #    branches, so the local copy is unprotected -- the authority is the audit-raw orphan
-    #    branch, and both are checked against the values pinned in PREREG §0-bis.
+    #    branches, so the local copy is unprotected -- the authority is the archived copy in git
+    #    (an orphan branch), and both are checked against the values pinned in PREREG §0-bis.
     #
     # 🔴 THE CELLS BELONG TO THE 08-20 ROUND, NOT THE 08-25 ONE.  The 08-25 round owns the READER
     # (cell_verdict.py); it has no t008/t004 files at all, and its raw directories are named

@@ -20,9 +20,8 @@
  *
  * Why it matters here rather than in the abstract: KNOWN-ISSUES A-9. The Energy-Saving-App takes
  * `routing_lock` with `ttl=300` (Energy-Saving-App/src/app/http.cpp:425) and reaches its two
- * `release_lock()` calls only on paths that need a Simulation-Platform-Manager round trip, so on
- * the TR-5 arms it never released at all -- 0 switches powered off, three arms
- * (doc/audit/2026-08-30_live-traffic-round/FINDING-08_energy-app-locks-itself-out.md).
+ * `release_lock()` calls only on paths that need a Simulation-Platform-Manager round trip, so in
+ * the live traffic runs it never released at all -- 0 switches powered off, three arms.
  *
  * 🔴 WHAT THESE TESTS DO NOT CLAIM. They do not claim ownership is fixed. Two requests --
  * a late one from a dead lease's holder, and a legitimate one from the current holder -- are

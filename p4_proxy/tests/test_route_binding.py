@@ -3,8 +3,8 @@ The route binding: which table a destination route is written into, and when the
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P4-roles section 2.2 (and 2.1-4, whose one function both pre-flight and the proxy run).
-Four things are asserted here, each one a way the ticket can be quietly not done:
+The route binding, and `resolve`, the one function both pre-flight and the proxy run.
+Four things are asserted here, each one a way the work can be quietly not done:
 
   * `BASELINE` IS THE LITERALS, and the literals live nowhere else. The five names are
     ndtwin_switch.p4's; every route write spelled them before this module existed, and a
@@ -12,10 +12,10 @@ Four things are asserted here, each one a way the ticket can be quietly not done
     while ignoring the binding. So the values are asserted, and the production modules are
     walked (AST, not grep -- a docstring quoting the name is not a use of it) for any other
     spelling.
-  * `resolve` REFUSES EVERYTHING SECTION 2.1-4 LISTS, each rule by its own test, against the
+  * `resolve` REFUSES EVERYTHING IT IS MEANT TO, each rule by its own test, against the
     real p4infos of tutorials' basic and of `fixtures/renamed_route` -- the fixture in which
     every name differs from NDTwin's. basic spells NDTwin's five names character for character,
-    so a test run only on basic cannot tell binding code from literal code (2.2-6).
+    so a test run only on basic cannot tell binding code from literal code.
   * `build_p4_client` DECIDES the binding for all three kinds of switch, and it is the factory
     readopt uses, so a power-cycled switch is re-resolved.
   * AN UNBOUND OR PACKAGE-OWNED ROUTE WRITE IS A 501 with the existing body shape, all the way
@@ -135,7 +135,7 @@ def renamed_client(binding=RESOLVE, stub=None, device_id=1):
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class TheBaselineIsTheLiteralsTest(unittest.TestCase):
-    """TICKET-P4-roles 2.2-1: BASELINE's values ARE what every route write used to spell."""
+    """BASELINE's values ARE what every route write used to spell."""
 
     def test_the_baseline_binding_is_ndtwin_switchs_own_five_names(self):
         self.assertEqual(
@@ -227,17 +227,17 @@ def _assignment_targets(tree):
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class TheLiteralsLiveOnlyInTheBaselineTest(unittest.TestCase):
-    """TICKET-P4-roles 2.2-1: after the refactor the literals appear only in BASELINE.
+    """After the refactor the literals appear only in BASELINE.
 
     [Co-developed with claude code -- Adam]
-    Round 2 (section 7 ruling 5, item 2) widened this from two names to four: the route table,
-    the route action, the route MATCH FIELD and the MAC parameter. Round 1 checked the first two
-    only, and `ryu_flow_stats.FIELD_TO_RYU` still spelled "hdr.ipv4.dstAddr" -- the read-back of
-    NDTwin's own route rows, next to an action that already came from BASELINE.
+    This covers four names: the route table, the route action, the route MATCH FIELD and the
+    MAC parameter. Checking only the first two would miss `ryu_flow_stats.FIELD_TO_RYU` still
+    spelling "hdr.ipv4.dstAddr" -- the read-back of NDTwin's own route rows, next to an action
+    that already came from BASELINE.
 
     🔴 NAMED EXCEPTIONS, each by the constant it belongs to (NAMED_EXCEPTIONS below):
       * `P4RuntimeClient.IPV4_LPM_TABLE` -- the table name. tests/shell/
-        mutate_p4_rule_install_time.sh (not this ticket's file) anchors on that exact line; it
+        mutate_p4_rule_install_time.sh (not part of this module) anchors on that exact line; it
         is not a name any write uses (the writes use the binding), and it is asserted equal to
         BASELINE.table below.
       * `P4RuntimeClient._FIVE_TUPLE_KEY_BITS`, `FIVE_TUPLE_FIELD_MAP` and
@@ -324,7 +324,7 @@ class TheLiteralsLiveOnlyInTheBaselineTest(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class ResolvingTheRenamedFixtureTest(unittest.TestCase):
-    """2.2-6: every name differs from NDTwin's, so these can only pass by reading the role."""
+    """Every name differs from NDTwin's, so these can only pass by reading the role."""
 
     def setUp(self):
         self.p4info = a_p4info(RENAMED_P4INFO)
@@ -371,7 +371,7 @@ class ResolvingBasicTest(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class ResolveRefusesOnTheRenamedFixtureTest(unittest.TestCase):
-    """Every rule of section 2.1-4, one test each, on the renamed fixture's real p4info."""
+    """Every rule of `resolve`, one test each, on the renamed fixture's real p4info."""
 
     def setUp(self):
         self.p4info = a_p4info(RENAMED_P4INFO)
@@ -475,7 +475,7 @@ RENAMED_FLAG = ("owner=ndtwin,table=RouteIngress.dest_routes,match_field=hdr.ip4
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class TheFactoryBindsEveryClientTest(unittest.TestCase):
-    """2.2-2: startup and readopt build clients through one factory, and it decides."""
+    """Startup and readopt build clients through one factory, and it decides."""
 
     @classmethod
     def setUpClass(cls):
@@ -584,7 +584,7 @@ class FakeRequest:
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class AWriteWithNoBindingIs501OnTheRenamedFixtureTest(unittest.TestCase):
-    """2.2-3: unbound / owner package / a 5-tuple on a foreign switch -> 501 unsupported_on_p4."""
+    """Unbound / owner package / a 5-tuple on a foreign switch -> 501 unsupported_on_p4."""
 
     def setUp(self):
         self.saved = api_routes.topology
@@ -639,8 +639,8 @@ class AWriteWithNoBindingIs501OnTheRenamedFixtureTest(unittest.TestCase):
                                                   "ip_proto": 6, "nw_src": "10.0.2.2"})
 
     def five_tuple_refused(self, handler):
-        """Section 7 ruling 5, item 5: round 1 tested add over HTTP and insert on the client;
-        delete and modify reach the switch through their own client calls."""
+        """Add is tested over HTTP and insert on the client; delete and modify reach the switch
+        through their own client calls."""
         client = self.switch(route_binding.resolve(RENAMED_ROLE, a_p4info(RENAMED_P4INFO)))
         err = self.post(handler, dict(self.FIVE_TUPLE))
         self.assertEqual((err.status_code, err.detail["outcome"], err.detail["reason"]),
@@ -662,12 +662,12 @@ class AWriteWithNoBindingIs501OnTheRenamedFixtureTest(unittest.TestCase):
         self.assertLess(wire.index(err.detail["remedy"]) + len(err.detail["remedy"]), 200)
 
     def test_an_external_control_plane_refuses_first_as_it_always_did(self):
-        # 2.2-4: _refuse_write keeps precedence over the binding -- the external refusal, not
-        # the binding's 501. [Co-developed with claude code -- Adam] TICKET-P4-heartbeat
-        # ruling 5(a) changed what that refusal LOOKS LIKE over HTTP, not whether it comes
-        # first: it was the raw ControlPlaneReadOnly, i.e. FastAPI's 500, and is now the 409
-        # POST /p4/table_entry answers. This assertion was `assertRaises(ControlPlaneReadOnly)`
-        # until segment W; the precedence and the empty wire are asserted exactly as before.
+        # _refuse_write keeps precedence over the binding -- the external refusal, not
+        # the binding's 501. [Co-developed with claude code -- Adam] What that refusal LOOKS
+        # LIKE over HTTP changed, not whether it comes first: it was the raw ControlPlaneReadOnly,
+        # i.e. FastAPI's 500, and is now the 409 POST /p4/table_entry answers. This
+        # assertion was `assertRaises(ControlPlaneReadOnly)` before that; the precedence and the
+        # empty wire are asserted exactly as before.
         client = self.switch(None, arbitration=False)
         with self.assertRaises(HTTPException) as caught:
             asyncio.run(api_routes.add_flow_entry(FakeRequest(dict(self.ROUTE))))

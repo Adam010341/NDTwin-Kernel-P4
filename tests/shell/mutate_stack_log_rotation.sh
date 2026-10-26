@@ -5,7 +5,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # Each mutation puts back one piece of O-4 -- two generations of kernel.log, one `ndt up` away
-# from erasing the evidence five fix tickets were judged on -- or one of the wrong answers that
+# from erasing the evidence five fixes were judged on -- or one of the wrong answers that
 # "keep more generations" invites, and must turn its NAMED case red.
 #
 # 🔴 Two directions. M2 and M6 are the wrong fixes: one prunes by the clock rather than by the

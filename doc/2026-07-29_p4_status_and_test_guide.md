@@ -3,7 +3,7 @@
 > 📍 **歷史文件（2026-08-17 標記）**：現役入口是
 > [2026-08-17_testing-manual.md](2026-08-17_testing-manual.md)。這一份的「目前進度」是
 > **2026-07-30 的**現況，Phase 7/8 之後已大幅過時；保留是為了追溯 P4 支援怎麼演進。
-> 要現在的狀態看 `2026-07-27_p4_bmv2_support_plan.md` 與 `2026-07-29_HANDOFF.md`。
+> 要現在的狀態看 `2026-07-27_p4_bmv2_support_plan.md`。
 
 對應計畫：[2026-07-27_p4_bmv2_support_plan.md](2026-07-27_p4_bmv2_support_plan.md)　測試分層定義：[2026-07-27_testing_workflow.md](2026-07-27_testing_workflow.md)
 環境陷阱（sudo 設定、`pgrep` 數錯、清理殘留、啟動順序）：[2026-07-29_environment_gotchas.md](2026-07-29_environment_gotchas.md)
@@ -108,7 +108,7 @@
 | Phase | 缺什麼 | 對你測試的影響 |
 |---|---|---|
 | ~~**6**~~ | ✅ **已完成（2026-08-10 更正）** —— 北向三個通知、`/stats/flow/{dpid}`、真存活偵測都做了。只剩兩件**實機驗證**：`seed_expected_links` 接收側的 port 假設、失效鏈路在 kernel 圖裡維持 down | 圖是活的。原本這格寫「整張圖是死的」 |
-| **3**（proxy 那半） | 少 `POST /stats/flowentry/delete`（非 strict，這是所有 `priority == -1` 刪除的預設路徑，包含 Intent Translator 的）；prefix 還是硬寫 `/32`；沒有 idle_timeout 模擬；dpid→grpc_addr 還是硬寫 `range(1,11)`；`TopologyManager` 沒加鎖 | 刪規則和聚合路由會不如預期 |
+| **3**（proxy 那半） | 少 `POST /stats/flowentry/delete`（非 strict，這是所有 `priority == -1` 刪除的預設路徑，包含 Intent Translator 的）；沒有 idle_timeout 模擬；dpid→grpc_addr 還是硬寫 `range(1,11)`；`TopologyManager` 沒加鎖。（prefix 已不再硬寫 `/32`：2026-10-23 起只有目的地的 match 可帶 CIDR，照 prefix 寫入；點分 netmask 與來源 prefix 仍不支援，見 KNOWN-ISSUES B-2c） | 刪規則和聚合路由會不如預期 |
 | **4**（漏掉的） | `p4_testbed_topo.py` 的 **TCLink 頻寬沒補回來**（OVS 那邊是 1000/10000 Mbps，`GraphTypes.hpp` 和兩份拓撲 JSON 都假設 1 Gbps）；ECMP 的 ActionSelector 也還沒做 | 頻寬相關的計算會用預設值，不是 1 Gbps |
 | **7** | 電源管理還是壞的 | 別測關機 |
 | **8** | 清理 | — |
@@ -125,7 +125,7 @@
 
 ### 進 Phase 6 之前的完整測試清單
 
-要做「完整一輪」就照這個順序跑完。**⚙️ = 我可以代跑，🔒 = 需要你自己執行**（要 root 或要在
+要做「完整一輪」就照這個順序跑完。**⚙️ = 不需要 root、可以由腳本代跑，🔒 = 需要你自己執行**（要 root 或要在
 互動式 CLI 裡操作）。
 
 | # | 步驟 | 誰跑 | 大約時間 |
@@ -164,7 +164,7 @@ namespace／bridge 會讓下一個模式起不來或測出假結果。
 ⚠️ `tests/python/` 那 101 個**沒有**被 ctest 註冊，要另外跑。）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./run_layers.sh quick
 ```
 
@@ -202,7 +202,7 @@ P4 pipeline 的編譯要另外跑：
 sFlow parser 是對外輸入面，改到它就值得跑一次：
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel
+cd <repo>
 cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g" \
   -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
@@ -239,7 +239,7 @@ cd tools/test_workflow && ./stack.sh status   # kernel 應該顯示 "-" 而不�
 **開一個 terminal 跑 kernel：**
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/build
+cd <repo>/build
 ./bin/ndtwin_kernel --mode mininet \
   --topology ../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json --no-ai
 ```
@@ -254,7 +254,7 @@ which does not know about bmv2 interfaces.
 **另一個 terminal 把 fixture 打進去**（這些就是 emitter 真的產出的位元組）：
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel
+cd <repo>
 python3 -c "
 import socket, glob
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -394,7 +394,7 @@ if self.port is None:          # 兩個都探不到
 （順帶：說明書的 `--observe-link` 單數也可以用，oslo.config 接受不歧義的前綴。）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./stack.sh up ovs
 ```
 
@@ -404,7 +404,7 @@ cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
 #### 2b. 開 OVS Mininet（terminal B）
 
 ```bash
-sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
+sudo python3 <repo>/testbed_topo.py
 ```
 
 ✅ 看到 `mininet>` 就成功。然後回 terminal A 按 Enter。
@@ -570,7 +570,7 @@ sudo mn -c
 **注意是不同的腳本**：
 
 ```bash
-sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+sudo python3 <repo>/p4_proxy/mininet/p4_testbed_topo.py
 ```
 
 啟動時應該看到 `10 BMv2 Switches listening on gRPC ports 30051 ~ 30060`。然後：
@@ -583,7 +583,7 @@ cd tools/test_workflow
 **通過標準**（看 proxy 的 log；`.test_run` 在 repo 根目錄，不在 `tools/test_workflow` 底下）：
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel
+cd <repo>
 grep -c "Clone session 250 -> port 255 installed" .test_run/logs/p4_proxy.log   # 要是 10
 grep -c "sampling to sFlow as"                    .test_run/logs/p4_proxy.log   # 要是 10
 grep -c "clone session failed\|NO telemetry"       .test_run/logs/p4_proxy.log   # 要是 0
@@ -689,7 +689,7 @@ bmv2 fabric 本身也證實能端到端轉發（`ping` 0% loss、`ttl=59` 證實
 真存活偵測、失效鏈路雙邊排除、路徑轉換時推送都在。**圖是活的。**
 
 現在還不能相信的是**別的東西**：Phase 6 剩下的兩件實機驗證（`seed_expected_links` 接收側的
-port 假設、失效鏈路在 kernel 圖裡是否真的維持 down）、Phase 3／7／8，以及 HANDOFF §2c 那個
+port 假設、失效鏈路在 kernel 圖裡是否真的維持 down）、Phase 3／7／8，以及那個
 「Ryu 在錯的啟動順序下永久回空表」——**那一個會讓所有健康指標全綠而 flow table 全錯。**
 
 [Co-developed with claude code -- Adam]

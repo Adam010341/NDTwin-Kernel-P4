@@ -1,10 +1,10 @@
-"""Tests for the per-dpid datagram batching in sflow_emitter.py (ticket R).
+"""Tests for the per-dpid datagram batching in sflow_emitter.py.
 
 [Co-developed with claude code -- Adam]
-Implementation by `8/25 mainDev`; these tests are the rescue, not the feature.
+The implementation predates these tests; they are the rescue, not the feature.
 
 WHY THIS FILE EXISTS. The batching lived in the working tree, uncommitted, with zero Python
-tests, while tickets D, E, F and G were all measured against it. Four rounds of results were
+tests, while measurement rounds D, E, F and G were all run against it. Four rounds of results were
 therefore anchored to a file that a single `git checkout` would have erased. Two of the tests
 below are load-bearing for those results rather than for the feature:
 
@@ -162,7 +162,7 @@ class BatchingFlushPaths(unittest.TestCase):
 
 
 class QuietFabricTailIsPinnedNotFixed(unittest.TestCase):
-    """Ticket R records this defect rather than repairing it -- a fix is a behaviour change.
+    """This test records the defect rather than repairing it -- a fix is a behaviour change.
 
     The ageing sweep only runs when a sample arrives. If the WHOLE fabric goes quiet, nothing
     arrives, so every switch's last partial batch sits in memory until close(). flush()'s own

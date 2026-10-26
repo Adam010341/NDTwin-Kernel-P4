@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #88: unguarded `ip.front()` on vectors that start empty.
+# Mutation gate for unguarded `ip.front()` on vectors that start empty.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -330,7 +330,7 @@ mutate_must_die \
 
 # --- M5: the fabricated address -----------------------------------------------------------------
 # 0.0.0.0 instead of a skip. Nothing crashes, the ranking is full, and one of its rows names a
-# link that does not exist. This is the failure mode FIX-CPU-REPORT-NO-IP.md §5 records twice.
+# link that does not exist. The same substituted-address failure mode as in the CPU report.
 #
 # 🔴 The anchor MUST swallow the skip block as well, and the first version of this gate did not.
 # Replacing only the two assignments left the `continue` standing above them, so the 0.0.0.0

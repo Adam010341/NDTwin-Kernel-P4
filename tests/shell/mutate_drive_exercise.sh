@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
-# and its offline suite (TICKET-P2 section 5, worker C).
+# and its offline suite.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -15,7 +15,7 @@
 #
 # 🔴 THE MUTANT IS A COPY, AND THE ORIGINAL IS NEVER WRITTEN. `mutate_p4_exercise_tools.sh`
 # edits its subjects in place and restores them, which is safe there and is not safe here:
-# this worktree's drive_exercise.py is also the file the orchestrator's LIVE round runs, and
+# this worktree's drive_exercise.py is also the file the LIVE round runs, and
 # a gate interrupted mid-mutation would leave a mutant on disk for it. So the copy goes to a
 # temp directory and the suite is pointed at it through DRIVE_EXERCISE_UNDER_TEST; the sha256
 # of the real file is taken before the first mutation and again at the end, and the run says
@@ -45,7 +45,7 @@ set -uo pipefail
 export PYTHONDONTWRITEBYTECODE=1
 
 # [Co-developed with claude code -- Adam]
-# 🔴 ABSOLUTE, DERIVED FROM THIS SCRIPT'S OWN LOCATION (TICKET-P3 §9 ruling 14d) -- the way
+# 🔴 ABSOLUTE, DERIVED FROM THIS SCRIPT'S OWN LOCATION -- the way
 # every other gate in this directory already does it.
 #
 # These four were RELATIVE, so "which files this gate measured" depended on the caller's cwd.
@@ -53,7 +53,7 @@ export PYTHONDONTWRITEBYTECODE=1
 # anchors genuinely were not in the file the gate read, and it reported
 # `ANCHOR IS NOT UNIQUE (0 matches) -- Fix the anchor.` -- a true statement about the wrong
 # file, and indistinguishable from an anchor that had really gone stale. That is exactly the
-# failure §9 ruling 12a named for `bash -n`, in a second place: A TOOL THAT MEASURED THE WRONG
+# failure the `bash -n` guard exists for, in a second place: A TOOL THAT MEASURED THE WRONG
 # THING, OR COULD NOT MEASURE AT ALL, MUST SAY SO ABOUT ITSELF -- never about its subject.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && cd .. && pwd)"
@@ -62,7 +62,7 @@ PREP="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep"
 DRIVER="$PREP/drive_exercise.py"
 TESTS="$PREP/tests"
 
-# 🔴 THE LOG SAYS WHAT THIS RUN READ (§9 ruling 14d). Round 4's bad run was only diagnosable
+# 🔴 THE LOG SAYS WHAT THIS RUN READ. An earlier bad run was only diagnosable
 # by re-deriving it afterwards; a log that names the cwd, the resolved interpreter, the resolved
 # subject and its sha cannot be mistaken for a run against a different checkout.
 printf 'gate       : %s\n' "${BASH_SOURCE[0]}"
@@ -89,19 +89,19 @@ fi
 #
 # python, not `grep -c -F`: grep splits a multi-line -F pattern into several patterns and
 # counts matching LINES, so a multi-line anchor would report the wrong number.
-# 🔴 IT REFUSES INSTEAD OF ANSWERING A NUMBER IT DOES NOT HAVE (§9 ruling 14d). When the
+# 🔴 IT REFUSES INSTEAD OF ANSWERING A NUMBER IT DOES NOT HAVE. When the
 # interpreter could not run, this printed nothing, `n` became the empty string, and the caller's
 # arithmetic turned that into 0 -- reported as `ANCHOR IS NOT UNIQUE (0 matches)`, i.e. a claim
 # about the anchor. There is no number to report: the gate stops, rc 2, no verdict line, the
 # same refusal a dead mutant gets in mutate_ndt_up_down_robust.sh.
-# 🔴 THE REFUSAL, REACHED FROM THE PARENT SHELL (§9 ruling 15①). `anchor_count` cannot end the
+# 🔴 THE REFUSAL, REACHED FROM THE PARENT SHELL. `anchor_count` cannot end the
 # gate from inside `$(...)`, so it returns 2 and every call site funnels here. This is the only
 # place that ends the process, and it ends it the way a refusal must: rc 2, no verdict line.
 #: How many times the suite failed to RUN (no `Ran N tests` line). 🔴 SEPARATE FROM SURVIVORS
-#: AND IT REFUSES EVERYWHERE (TICKET-P3 §9 ruling 16②). Round 6 made NO-SUITE a refusal at the
+#: AND IT REFUSES EVERYWHERE. NO-SUITE was first a refusal at the
 #: baseline only: inside `mutate` it was SURVIVORS++ and the gate carried on to print
 #: `N mutations, M survived` -- a verdict about a comparison that never happened, the exact
-#: shape ruling 12a forbids; at the negative control it printed "A COMMENT TURNED THE SUITE
+#: shape a refusal exists to prevent; at the negative control it printed "A COMMENT TURNED THE SUITE
 #: RED: NO-SUITE" (it did not -- the suite never ran); and the closing check called it
 #: "THE SUITE IS RED". A suite that did not execute is not red, not green and not a survivor.
 NOSUITE=0
@@ -138,7 +138,7 @@ PY
         echo "   subject     : $1" >&2
         echo "   it printed  : ${out:-<nothing>}" >&2
         echo "   This is NOT 'the anchor is stale' -- the gate could not look. No verdict." >&2
-        # 🔴 `return 2`, NOT `exit 2` (TICKET-P3 §9 ruling 15①). Every call site is
+        # 🔴 `return 2`, NOT `exit 2`. Every call site is
         # `n=$(anchor_count ...)`, and `exit` inside a command substitution ends only THAT
         # subshell: the parent read `n=""`, `[[ "" -ne 1 ]]` was true, and the gate printed
         # `ANCHOR IS NOT UNIQUE ( matches)`, counted a survivor, and still printed
@@ -277,7 +277,7 @@ add "16. an unreadable switch_state is rendered as an ordinary (empty) report" \
     '    if False:  # MUTANT: whatever came back is a report' \
     'test_an_unreadable_switch_state_says_so_instead_of_printing_zeros'
 
-# 17-21: the lab comes back, and the binary is named. Round 2, after the judge read the code:
+# 17-21: the lab comes back, and the binary is named:
 # every one of these is a round that ends looking successful and leaves something behind.
 #
 # 🔴 17 IS THE ONE THAT WAS ACTUALLY BROKEN. `ndt up p4 --app` writes the model's host count
@@ -330,7 +330,7 @@ add "23. the package records the skeleton as its source whatever was compiled" \
     '    if False:  # MUTANT: source.p4 names a file this run did not build' \
     'test_a_solution_run_names_the_solution_file_it_compiled'
 
-# 24-30: the cells the judge found unguarded -- each of these is a test that had never been
+# 24-30: cells that were unguarded -- each of these is a test that had never been
 # seen to fail, which is the same as not having it.
 add "24. the firewall SOLUTION arm accepts the external flow getting through" \
     "$DRIVER" \
@@ -469,7 +469,7 @@ add "43. the receiver is started buffered, so its output dies with the SIGTERM" 
     'test_every_receive_py_is_started_unbuffered_with_u_before_the_script'
 
 # ---------------------------------------------------------------------------------------------
-# TICKET-P3 §6.2: the other nine exercises, the `--telemetry` flag and the generic cell.
+# The other nine exercises, the `--telemetry` flag and the generic cell.
 #
 # 🔴 EVERY ONE OF THESE AIMS AT A DECISION THE DRIVER MAKES, not at a reading the stub could
 # have answered for it. The nine new arms are the shape most at risk of being decoration: none
@@ -512,7 +512,7 @@ add "47. calc.py is never told to quit" \
 # 48: 🔴 ecn WITHOUT THE QUEUE. ecn.p4:9's ECN_THRESHOLD is 10 enqueued packets; nothing else in
 # the exercise builds a queue, so the solution arm would be red for a reason that is not ecn.p4
 # and the report would say "no congestion mark" about a fabric that was never congested.
-# (P4-D'', TICKET-P4-roles §7 ruling 7: the anchor now carries the ecn background's own -t.)
+# (The anchor carries the ecn background's own -t.)
 add "48. ecn stops running the background flow that builds the queue" \
     "$DRIVER" \
     '        srv, cli, fh = self._background_udp(
@@ -616,7 +616,7 @@ add "58. multicast disables IPv6 on the machine instead of in the namespaces" \
 
 # 59: 🔴 THE CONTROLLER'\''S HARD-CODED PORTS ON THE WRONG FABRIC. exercises/p4runtime'\''s
 # mycontroller.py dials 127.0.0.1:5005N and device_id N-1; on NDTwin those are not the truth and
-# tools/p4_exercise/run_external_controller.py is what rewrites them (TICKET-P1D). Without the
+# tools/p4_exercise/run_external_controller.py is what rewrites them. Without the
 # adapter the controller connects to nothing and every arm reads as "the exercise does not work
 # on NDTwin".
 add "59. the ndtwin arm runs the exercise controller without the adapter" \
@@ -694,9 +694,9 @@ add "66. the generic link-usage cell stops going through live-p1/_common.sh" \
 # 67: a cell that could not run is reported as a cell that passed. rc 2 from link_usage_round
 # is "no namespace / no sudo" -- a permission answer, and the greenest possible way to publish
 # one.
-# 🔴 THE ANCHOR MOVED WITH RULING 33, AND THE ANCHOR CHECK IS WHAT SAID SO. 67 and 93 shared
+# 🔴 THE ANCHOR MOVED WITH THE FOUR-ANSWER MAP, AND THE ANCHOR CHECK IS WHAT SAID SO. 67 and 93 shared
 # the one-line `return ("not-run" if ...)`, which the four-answer map replaced; 93 was
-# repointed with the ruling and this one was not, so `ANCHOR_CHECK=1` reported `0 matches`
+# repointed with the map and this one was not, so `ANCHOR_CHECK=1` reported `0 matches`
 # before any verdict was produced. It now names the last line of that map -- the one that
 # still decides true/false -- which is the same mutation it always was.
 add "67. any rc from the generic cell counts as a pass" \
@@ -801,7 +801,7 @@ add "78. the destination never reaches the shell helper" \
 
 # 79: A6 half-done again -- the verdict asks which fabric it was, so `basic_tunnel`'s skeleton
 # goes back to reading `PASS (1/1)` / exit 0 on tutorials and `RED ARM (1/1)` / exit 1 on NDTwin.
-# ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS (round-3 ruling 1).
+# ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS.
 add "79. the designed-refusal verdict is restricted to one fabric again" \
     "$DRIVER" \
     '    designed = DESIGNED_REFUSAL["hit"]' \
@@ -865,7 +865,7 @@ add "85. the generic cell claims an off-path bound that is not the one applied" 
     '                    "on-path > 0, off-path == 0",  # MUTANT' \
     'test_the_generic_cell_states_the_bound_it_actually_applies'
 
-# 86: THE FLUSH MOVES TO AFTER THE WALK (TICKET-P3 §9 ruling 12c). Two flushes still happen, so
+# 86: THE FLUSH MOVES TO AFTER THE WALK. Two flushes still happen, so
 # a cell that COUNTS them is satisfied -- and the measurement is taken from whatever ARP state
 # the fabric was already in, which is the state the expectation is not true in. This is the
 # mutation round 3's cell could not see.
@@ -883,7 +883,7 @@ add "86. multicast flushes the ARP caches AFTER the pingall instead of before" \
                            "ip neigh flush all (each host)", ", ".join(flushed) or "none"))' \
     'test_the_first_flush_happens_BEFORE_the_pingall'
 
-# 87: THE SECOND FLUSH MOVES TO AFTER THE RE-MEASURE (TICKET-P3 §9 ruling 15⑤). Two flushes
+# 87: THE SECOND FLUSH MOVES TO AFTER THE RE-MEASURE. Two flushes
 # still happen and both still sit after the walk, so the arithmetic round 5 asserted is
 # satisfied -- while the three hX -> h4 pairs are re-measured with h4's MAC still cached from
 # the pairs above them, which is the one state in which their expectation is not true.
@@ -899,9 +899,9 @@ add "87. the cold-cache re-measure runs BEFORE its own flush" \
                 % (", ".join(reflushed) or "none"))' \
     'test_the_second_flush_happens_after_the_pingall'
 
-# 88: THE FLUSH LANDS IN THE MIDDLE OF THE RE-MEASURE (TICKET-P3 §9 ruling 16①). One ping on
+# 88: THE FLUSH LANDS IN THE MIDDLE OF THE RE-MEASURE. One ping on
 # warm caches, then the flush, then the other two -- so two flushes still happen, both still
-# follow the walk, and the LAST ping still follows the LAST flush. Round 6's cell passed this
+# follow the walk, and the LAST ping still follows the LAST flush. The earlier cell passed this
 # exactly as written; it is the arm that cell's own comment claimed to block.
 add "88. the second flush lands between the first and second re-measure ping" \
     "$DRIVER" \
@@ -916,7 +916,7 @@ add "88. the second flush lands between the first and second re-measure ping" \
             again += [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group[1:]]' \
     'test_the_second_flush_happens_after_the_pingall'
 
-# 89: THE LAST IP HEADER INSTEAD OF THE FIRST (§9 ruling 20②). h2's ICMP port-unreachable
+# 89: THE LAST IP HEADER INSTEAD OF THE FIRST. h2's ICMP port-unreachable
 # embeds the original datagram, so the block has an outer header (h2 -> h1, tos 0xc0) and an
 # inner one (h1 -> h2, tos 0x1). Reading the last one makes the filter and the value disagree
 # again -- which is how `UDP tos stays 0x1` came back `got ['0x1', '0xc0']` on the live run.
@@ -931,7 +931,7 @@ add "89. _tos_from reads the LAST IP header of a block, not the first" \
             return None' \
     'test_h2s_icmp_error_is_not_read_as_one_of_h1s_frames'
 
-# 90: THE NESTING PREFIX IS NOT STRIPPED (§9 ruling 23①). scapy prints an IP option as a nested
+# 90: THE NESTING PREFIX IS NOT STRIPPED. scapy prints an IP option as a nested
 # layer with `|` on every line; anchoring on `^\s*` reads the MRI count as 0 and the swids as
 # [], which is what both mri arms reported while the transcript showed the option in full.
 add "90. _field_values goes back to anchoring at line start" \
@@ -940,7 +940,7 @@ add "90. _field_values goes back to anchoring at line start" \
     '        return re.findall(r"^\s*%s\s*=\s*(\S+)\s*$" % re.escape(field), text, re.M)  # MUTANT' \
     'test_the_mri_count_is_read_through_the_nesting_prefix'
 
-# 91: flowcache measures loss without warming the cache (§9 ruling 28②). Its FIRST packet is
+# 91: flowcache measures loss without warming the cache. Its FIRST packet is
 # punted to the controller, so a single ping measures the install latency as loss.
 add "91. flowcache stops warming the cache before it measures loss" \
     "$DRIVER" \
@@ -949,7 +949,7 @@ add "91. flowcache stops warming the cache before it measures loss" \
     'test_flowcache_warms_the_cache_before_it_measures_loss'
 
 # 92: the cell no longer carries the controller pid, so the NOT RUN branch is unreachable from
-# the driver again (§9 ruling 28①). 🔴 REPOINTED (§9 ruling 31①): the cell that used to catch
+# the driver again. 🔴 REPOINTED: the cell that used to catch
 # this was `assertIn("ctrl_pid=ctrl", open(DRIVER_PATH).read())` -- a grep for this very line,
 # which was green while `run_on_ndtwin.ctrl_pid` was an attribute nothing ever assigned. The
 # cell that catches it now starts a real process and reads the pid the cell was handed.
@@ -959,8 +959,8 @@ add "92. the generic cell is called without the arm's controller pid" \
     '                                                dst=usage_dst)  # MUTANT' \
     'test_the_cell_is_handed_the_pid_of_the_process_the_round_started'
 
-# 93: NOT RUN stops being an answer of its own and folds back into true/false (§9 ruling 28①).
-# The anchor moved with ruling 33, which turned the one-line return into the four-answer map;
+# 93: NOT RUN stops being an answer of its own and folds back into true/false.
+# The anchor moved when the one-line return became the four-answer map;
 # the mutation is the same one -- rc 3 falls through to `bool(rc == 0)`.
 add "93. a NOT RUN generic cell is folded back into true/false" \
     "$DRIVER" \
@@ -968,17 +968,17 @@ add "93. a NOT RUN generic cell is folded back into true/false" \
     '    if False:  # MUTANT' \
     'test_a_not_run_generic_cell_is_never_a_pass'
 
-# 96 (§9 ruling 33): the window refusal falls through to `bool(rc == 0)` again, so an NDTwin
+# 96: the window refusal falls through to `bool(rc == 0)` again, so an NDTwin
 # arm records "the caller would have had to wait 308 s" under the twin's own sentence -- the
-# misattribution ruling 31③ removed from live-p1/05 and this file did not follow.
+# misattribution that live-p1/05 already dropped and this file did not follow.
 add "96. the over-long-window refusal is reported as a reading about the twin" \
     "$DRIVER" \
     '    if rc == LINK_USAGE_WINDOW_RC:' \
     '    if False:  # MUTANT' \
     'test_the_round_names_the_window_and_never_the_twin_sentence'
 
-# 97 (§9 ruling 33): the two files stop agreeing on the protocol. rc 4 is _common.sh's, and a
-# driver that spells it 5 maps nothing -- which is precisely the state ruling 33 found, one
+# 97: the two files stop agreeing on the protocol. rc 4 is _common.sh's, and a
+# driver that spells it 5 maps nothing -- which is precisely the state found at the time, one
 # round after the shell side gained the code.
 add "97. the driver's window rc drifts from the shell file's" \
     "$DRIVER" \
@@ -987,7 +987,7 @@ add "97. the driver's window rc drifts from the shell file's" \
     'test_the_two_refusal_codes_are_the_shell_files_own'
 
 # 94: the arm's controller is stopped BEFORE the generic cell again -- the order the driver had
-# until §9 ruling 31①, in which every G1 on p4runtime and flowcache measured a fabric whose
+# until then, in which every G1 on p4runtime and flowcache measured a fabric whose
 # controller had already exited. The mutation restores it in one line, at the top of the branch
 # that runs the cell.
 add "94. the controller is stopped before the generic cell measures" \
@@ -997,7 +997,7 @@ add "94. the controller is stopped before the generic cell measures" \
     'test_the_controller_is_alive_while_the_cell_measures_and_stopped_after'
 
 # 95: the channel loses its source -- Steps publishes no pid, so the cell is handed None and the
-# liveness check has nothing to check again (§9 ruling 31①). 92 kills the sink; this kills the
+# liveness check has nothing to check again. 92 kills the sink; this kills the
 # spring, which is the half that was missing at f87580cb.
 add "95. _start_controller publishes no pid for the process it started" \
     "$DRIVER" \
@@ -1005,15 +1005,15 @@ add "95. _start_controller publishes no pid for the process it started" \
     '        self.ctrl_pid = None  # MUTANT' \
     'test_start_controller_publishes_the_pid_of_the_process_it_started'
 
-# 98-104 (P4-D', 2026-09-24): the tutorials SOLUTION arms of flowcache and p4runtime ran
+# 98-104 (2026-09-24): the tutorials SOLUTION arms of flowcache and p4runtime ran
 # <exdir>/solution/mycontroller.py in place, whose own '../../utils/' is relative to __file__
 # and so names <tutorials>/exercises/utils -- and both died at `import p4runtime_lib.bmv2`
-# (logs/orchestrator-0924/tutorials-18/{flowcache,p4runtime}_solution.log). The fix hands that
+# (seen on the 09-24 tutorials run). The fix hands that
 # arm, and only that arm, the exercise's own utils/ on PYTHONPATH.
 # [Co-developed with claude code -- Adam]
 #
 # 98 IS THE FIX REVERTED: the arm goes back to running the controller with nothing on its path,
-# which is the exact state the orchestrator's round measured. The killer RUNS the command the
+# which is the exact state the failing round measured. The killer RUNS the command the
 # driver would have run, against a tree whose controller opens with the tutorials' own lines.
 add "98. the tutorials solution arm runs its controller in place with no utils/ (the 09-24 fix reverted)" \
     "$DRIVER" \
@@ -1021,7 +1021,7 @@ add "98. the tutorials solution arm runs its controller in place with no utils/ 
     '        if False:  # MUTANT: the 2026-09-24 fix reverted' \
     'test_the_tutorials_solution_controller_imports_the_exercises_p4runtime_lib'
 
-# 99-100: the fix leaks into the two arms the ticket says it must not change.
+# 99-100: the fix leaks into the two arms it must not change.
 add "99. the skeleton arm is handed utils/ on PYTHONPATH too" \
     "$DRIVER" \
     '        if self.fabric != "ndtwin" and os.path.dirname(ctrl):' \
@@ -1063,7 +1063,7 @@ add "104. the report records the controller command without the PYTHONPATH it ra
     '            pass  # MUTANT' \
     'test_the_command_the_report_records_reproduces_the_run'
 
-# 105-106 (P4-D' round 2, judge's items 1-2). Both SURVIVED the round-1 suite (da0fa021's test
+# 105-106: both SURVIVED the first suite (da0fa021's test
 # file): its guards ran with no PYTHONPATH in the process at all, so an arm that LOST an
 # inherited value had nothing to lose; and nothing read the printed `$ ...` start line.
 # 105 takes the caller's PYTHONPATH out for EVERY arm before the solution-only branch -- the
@@ -1082,13 +1082,13 @@ add "106. the printed start line drops the PYTHONPATH the controller runs with" 
     '        say("$ %s   (> %s)" % (" ".join(argv), path))  # MUTANT' \
     'test_the_printed_start_line_carries_the_prefix_on_the_solution_arm_only'
 
-# 107-125 (P4-D'', TICKET-P4-roles §7 ruling 7): the ecn solution arm's mark check had 2-4
+# 107-125: the ecn solution arm's mark check had 2-4
 # probes to look at. [Co-developed with claude code -- Adam]
 # Every one of these is a way back to an instrument that cannot tell a marking data plane from
 # a silent one -- or to one that cannot fail at all. 107-111 are the train (its count, and a
 # sender that is killed before its tail); 112-115 the background that has to outlast it;
 # 116-118 the two arms' claims, exactly as strict as before with ten times the probes; 119 the
-# injection row the ruling keeps; 120-121 mri/qos's shared constants; 122-125 the delivered
+# injection row kept; 120-121 mri/qos's shared constants; 122-125 the delivered
 # count, which is disclosed as a step and must stay out of the verdict table.
 add "107. ecn goes back to the shared six-probe train" \
     "$DRIVER" \
@@ -1276,7 +1276,7 @@ red_tests() {
     out=$(DRIVE_EXERCISE_UNDER_TEST="$drv" timeout 600 \
           "$PYTHON" -m unittest discover -s "$TESTS" -t "$TESTS" 2>&1); rc=$?
     if [[ $rc -eq 124 ]]; then echo "HUNG"; return; fi
-    # 🔴 A SUITE THAT NEVER RAN IS NOT A SUITE WITH NO RED CELLS (§9 ruling 15①). unittest
+    # 🔴 A SUITE THAT NEVER RAN IS NOT A SUITE WITH NO RED CELLS. unittest
     # always prints `Ran N tests`; an interpreter that died prints no such line, and rc != 0
     # with nothing parsable came back as the empty string -- which the caller reads as "nothing
     # went red". At the baseline that printed `ok baseline green` over a suite that never
@@ -1335,7 +1335,7 @@ PY
         SURVIVORS=$((SURVIVORS + 1))
     elif /usr/bin/grep -q -- "$expected" <<<"$failed"; then
         # 🔴 EVERY test that went red is printed, not only the expected one: that list is what
-        # the SUMMARY's "which mutation was this test ever red for" table is built from, and a
+        # the run summary's "which mutation was this test ever red for" table is built from, and a
         # cell that only ever names the expected test cannot tell a well-aimed mutation from a
         # blunt one. (B's gate prints the same thing for the same reason.)
         local also; also=$(tr ' ' '\n' <<<"$failed" | /usr/bin/grep -v -x -- "$expected" | tr '\n' ' ')
@@ -1349,7 +1349,7 @@ PY
 
 # --- baseline -----------------------------------------------------------------------------------
 
-echo "TICKET-P2 §5 drive_exercise.py mutation gate"
+echo "drive_exercise.py mutation gate"
 echo "  interpreter : $PYTHON"
 echo "  subject     : $DRIVER"
 echo "  suite       : $TESTS"
@@ -1442,8 +1442,8 @@ echo "  suite green against the real file"
 # all fifty-one have been red for at least one mutation here, which is the claim "no test in
 # this suite is a decoration" and is the only form of it worth making. Mutations 31-42 exist
 # for exactly that: each was added because some cell had never been seen to fail, and the
-# P2-C SUMMARY carries the cell-by-cell table this run produces. Mutation 43 is the fifty-
-# first cell, added with it by P2-E.
+# cell-by-cell table is what this gate prints when it runs. Mutation 43 is the fifty-
+# first cell, added with it.
 printf '\nevery cell in the suite has been red for at least one mutation above; the `also red:`\n'
 printf 'lines are what that claim is built from. (The 09-08 fixture comparison IS reddened --\n'
 printf 'by mutation 1 -- and this footer used to say it was not.)\n'

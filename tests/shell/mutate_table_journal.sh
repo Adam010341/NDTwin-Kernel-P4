@@ -139,7 +139,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
         assertion_of "$3" <<<"$out"
         # 🔴 EVERY test that reddened, not only the one this mutation is named for.
         # [Co-developed with claude code -- Adam]
-        # A gate that records one name per mutation cannot answer the question an auditor
+        # A gate that records one name per mutation cannot answer the question a maintainer
         # actually asks -- "which of these tests has ever been seen to fail?" -- for any test
         # that is not somebody's named killer. M-B24 reddens
         # test_the_default_action_row_every_runtime_file_carries_is_a_modify as well as its own
@@ -1006,7 +1006,7 @@ m=$(mutant k2b "$CLIENT" \
 report 'M-J92b: the key of a delete the switch answered NOT_FOUND drops the priority' "$m" \
        'test_and_so_does_a_ternary_spec_with_its_priority'
 
-# --- the pipeline cookie and step 0 (ruling Q1 (a); DESIGN 5.4 step 0) -------------------------
+# --- the pipeline cookie and step 0 -------------------------
 
 m=$(mutant g1 "$CLIENT" \
     '        if self.pipeline_cookie is not None:

@@ -1,14 +1,13 @@
 """
 The table-entry journal's replay: what a proxy restart and a readopt put back, and on which fabric.
-DESIGN.md sections 5.4-5.6, tests R13-R17, R20-R22, R24, R26, and ruling Q1 (a).
 
 [Co-developed with claude code -- Adam]
 
 Everything here runs the REAL `main.startup` and `main.readopt_switch` with REAL
-`P4RuntimeClient`s, in front of a stub that behaves like the bmv2 the A0 round measured
-(ternary-a0): a push empties every table and replaces the pipeline cookie (with none when the push
-carries none); COOKIE_ONLY on a switch that has been pushed nothing is FAILED_PRECONDITION; an
-insert of an entry that is there, and a modify or delete of one that is not, are per-update
+`P4RuntimeClient`s, in front of a stub that behaves like the bmv2 as measured on a throwaway
+simple_switch_grpc: a push empties every table and replaces the pipeline cookie (with none when
+the push carries none); COOKIE_ONLY on a switch that has been pushed nothing is FAILED_PRECONDITION;
+an insert of an entry that is there, and a modify or delete of one that is not, are per-update
 refusals under a top-level UNKNOWN. Restarting the proxy is a new set of clients and a new
 `TableJournals` on the same directory; restarting the bmv2 is `FabricSwitch.restart()`.
 
@@ -674,7 +673,7 @@ class ANotFoundDeleteLeavesTheStartUnknownTest(ReplayCase):
 
 
 # =============================================================================================
-# R24 and Q1 (a): the cookie decides.
+# R24: the cookie decides.
 # =============================================================================================
 
 
@@ -899,8 +898,8 @@ class ASwitchThatIsDownAtStartupTest(ReplayCase):
         self.assertNotEqual(self.switches[1].pushed_cookies[-1], old_cookie)
 
     def test_a_confirmed_switch_whose_push_fails_is_replayed_by_its_readopt(self):
-        # DESIGN 5.4 step 0: "even if its push then fails and it is broken, the file says this
-        # boot confirmed it". The journal is another process's (its header names another boot);
+        # Even if its push then fails and it is broken, the file says this
+        # boot confirmed it. The journal is another process's (its header names another boot);
         # the cookie confirms it; the push fails once; the readopt puts the entry back.
         self.start_proxy()
         self.ok(exact("10.0.0.1"))
@@ -1186,7 +1185,7 @@ class WhatDoesNotGoBackTest(ReplayCase):
 
 
 # =============================================================================================
-# The disclosure (DESIGN 5.6).
+# The disclosure.
 # =============================================================================================
 
 
@@ -1648,12 +1647,12 @@ class AModifyThatFindsNothingTest(ReplayCase):
         self.assertEqual(report["retried_as_insert"], [key])
         self.assertEqual((report["status"], report["failed"]), ("complete", []))
 
-    # --- the disclosed stale drop (api_routes' POST docstring, DESIGN 10-4 2026-10-15) ----------
+    # --- the disclosed stale drop (api_routes' POST docstring) ----------------------------------
     # [Co-developed with claude code -- Adam]
     # A write the journal holds as a modify, aimed at an entry that was on the switch before the
     # journal saw it (here K, whose insert was never recorded), is not put back by the first start
     # or readopt after the switch's entries file changed: it is `stale_entries`, dropped from the
-    # live file, and switch_state says why. Behaviour by ruling, not a defect: putting it back
+    # live file, and switch_state says why. Behaviour by design, not a defect: putting it back
     # would also re-insert keys the new entries file removed.
 
     STALE_REASON = ("stale_entries: the package's entries file changed, and this write may have "
@@ -1723,7 +1722,7 @@ class AModifyThatFindsNothingTest(ReplayCase):
 
 
 class AJournalThatIsOffSetsEverythingAsideTest(ReplayCase):
-    """DESIGN 5.4 step 0: a boot with the journal off cannot vouch for what it leaves behind."""
+    """Step 0 of the replay: a boot with the journal off cannot vouch for what it leaves behind."""
 
     def test_an_entry_deleted_while_the_journal_was_off_stays_deleted(self):
         self.start_proxy()

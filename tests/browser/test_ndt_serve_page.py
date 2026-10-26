@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """ndt serve's page (v2: React, built into tools/ndt_serve/static) in a real headless Chrome:
-SCOPE-v2 section 5, one named case per guarantee (doc/audit/2026-09-27_ndt-serve-gui/SCOPE-v2.md).
+one named case per guarantee the page makes.
 
 [Co-developed with claude code -- Adam]
 
@@ -44,7 +44,7 @@ suite that skips; CI has no Chrome, so every case here would skip there.
 
 WHEN IT SKIPS (every case, with the reason): google-chrome is not installed; or it is not running
 inside tools/build_guard/guarded_build.sh (NDTWIN_GUARD_HELD unset) -- systemd-oomd on this laptop
-has killed Adam's own application under memory pressure, and a browser can make some. A skipped
+has killed other applications under memory pressure, and a browser can make some. A skipped
 case proves nothing, which is why the mutation gate refuses a baseline with a skip in it.
 
 HOW A CASE RUNS: ONE Chrome per test class (cdp_pipe.Chrome: its own session and process group, a
@@ -127,8 +127,8 @@ REFRESH_S = 10            # web/src/hooks/useAutoRefresh.ts REFRESH_INTERVAL_MS
 JOB_LOG_S = 2             # web/src/hooks/useJobLog.ts JOB_LOG_INTERVAL_MS
 QUIET_S = REFRESH_S + 2   # "nothing was read": one interval and a margin
 LOG_QUIET_S = 2 * JOB_LOG_S + 1.5
-READING_S = 25            # SCOPE-v2 section 5: >= 2 reads in about 25 s
-PROBE_S = 60              # useAutoRefresh.ts PROBE_INTERVAL_MS: /measuring alone, during a measuring pause (Q6)
+READING_S = 25            # >= 2 reads in about 25 s
+PROBE_S = 60              # useAutoRefresh.ts PROBE_INTERVAL_MS: /measuring alone, during a measuring pause
 
 REQUEST_RE = re.compile(r'"([A-Z]+) (\S+) HTTP/[0-9.]+" (\d{3})')
 TICK_RE = re.compile(r"/api/v1/(lab|apps|health|jobs|measuring)")   # what a tick reads, and the probe
@@ -533,7 +533,7 @@ class Confirm(PageCase):
         self.assertTrue(self.settle(p)["go_disabled"], "Confirm is on under somebody else's claim")
 
     def test_no_claim_puts_claim_first(self):
-        # Adam 09-28: no claim at all is not yours either. `claim none` is what plain ndt status prints
+        # No claim at all is not yours either. `claim none` is what plain ndt status prints
         # without a claim file (claim_line); a status with no claim row at all reads as claim null.
         p = self.load()
         for status, what in ((CLAIM_NONE, "`claim none`"), (NO_CLAIM_ROW, "no claim row")):
@@ -695,7 +695,7 @@ class Refresh(PageCase):
             self.assertEqual((self.tick_reads(), hook(p, "refresh")), (want, "paused-measuring"),
                              "立即更新 while still measuring brought the 10 s tick back")
         # back to the 10 s tick: 立即更新 (here) or the probe (test_a_measuring_pause_probes_measuring_alone),
-        # and only once nothing measures (SCOPE-v2 section 6, Adam's Q6)
+        # and only once nothing measures
         self.stub(status=IDLE)
         n = self.tick_reads()["lab"]
         p.click("refresh-now")
@@ -714,7 +714,7 @@ class Refresh(PageCase):
         return argvs.count(["status", "--measuring"]), argvs.count(["status"])
 
     def test_a_measuring_pause_probes_measuring_alone(self):
-        # Adam's Q6 (09-28): during a measuring pause, one probe every 60 s; 10-01: it asks only "is
+        # During a measuring pause, one probe every 60 s; it asks only "is
         # anyone measuring" -- /measuring, `ndt status --measuring`, never /lab's plain status. The
         # probe changes nothing the tabs show, and one that reads nothing measuring brings the tick back.
         self.stub(status=MEASURING)

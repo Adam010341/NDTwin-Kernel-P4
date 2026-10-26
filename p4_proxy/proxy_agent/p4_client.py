@@ -2067,6 +2067,68 @@ class P4RuntimeClient:
             print(f"[{self.device_id}] Failed to modify 5-tuple rule: {e.code()} - {e.details()}")
             return False
 
+    #: [Co-developed with claude code -- Adam]
+    #: The flow_5tuple action an OpenFlow empty action list compiles to. ndtwin_switch.p4 lists
+    #: `drop` among flow_5tuple's actions; 5-tuple writes are refused on any other pipeline
+    #: (`_writable_five_tuple_binding`), so this name is only ever looked up in that p4info.
+    FIVE_TUPLE_DROP_ACTION = "MyIngress.drop"
+
+    def _write_5tuple_drop(self, update_type, keys, priority):
+        """One flow_5tuple Update whose action is drop(); raises what stub.Write raises.
+        [Co-developed with claude code -- Adam]"""
+        req = p4runtime_pb2.WriteRequest()
+        req.device_id = self.device_id
+        self._bid(req)
+        update = req.updates.add()
+        update.type = update_type
+        entry = update.entity.table_entry
+        self._build_5tuple_entry(entry, keys, priority)
+        entry.action.action.action_id = self._get_action_id(self.FIVE_TUPLE_DROP_ACTION)
+        self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+        self.rule_install_times.record(
+            self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys))
+
+    def insert_5tuple_drop(self, keys, priority):
+        """
+        Inserts a flow_5tuple rule that drops what it matches.
+
+        [Co-developed with claude code -- Adam]
+        KNOWN-ISSUES A-4g. OpenFlow reads an empty action list as "drop", and that is what the
+        kernel's BLOCK_HOST sends (match on ipv4_src, `actions: []`). This client only had a
+        forwarding writer, so the request never reached the switch while the reply said it had.
+        The pipeline applies flow_5tuple before ipv4_lpm and falls through only on a miss, so a
+        hit here drops the packet whatever route the destination has.
+
+        Same INSERT-then-MODIFY retry as insert_5tuple_rule, for the same reason: bmv2 answers
+        UNKNOWN for "already exists" as well as for real refusals.
+        """
+        self._refuse_write("a 5-tuple drop rule insert")
+        self._writable_five_tuple_binding("a 5-tuple drop rule insert")
+        try:
+            self._write_5tuple_drop(p4runtime_pb2.Update.INSERT, keys, priority)
+            print(f"[{self.device_id}] Added 5-tuple drop rule prio={priority} "
+                  f"{ {k.split('.')[-1]: v for k, v in keys.items()} }")
+            return True
+        except grpc.RpcError as e:
+            if e.code() in (grpc.StatusCode.ALREADY_EXISTS, grpc.StatusCode.UNKNOWN):
+                if self.modify_5tuple_drop(keys, priority):
+                    return True
+            print(f"[{self.device_id}] Failed to add 5-tuple drop rule: {e.code()} - "
+                  f"{e.details()}")
+            return False
+
+    def modify_5tuple_drop(self, keys, priority):
+        """Turns an existing flow_5tuple rule into a drop. [Co-developed with claude code -- Adam]"""
+        self._refuse_write("a 5-tuple drop rule modify")
+        self._writable_five_tuple_binding("a 5-tuple drop rule modify")
+        try:
+            self._write_5tuple_drop(p4runtime_pb2.Update.MODIFY, keys, priority)
+            return True
+        except grpc.RpcError as e:
+            print(f"[{self.device_id}] Failed to modify 5-tuple drop rule: {e.code()} - "
+                  f"{e.details()}")
+            return False
+
     def delete_5tuple_rule(self, keys, priority):
         """
         Deletes a MyIngress.flow_5tuple rule.

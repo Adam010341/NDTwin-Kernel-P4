@@ -19,8 +19,9 @@
 #
 # 🔴 Guards its own baseline: every mutation is applied to a COPY of lib_e.sh in a temp dir and
 # the test is pointed at the copy with LIB_E_UNDER_TEST. The E round's own lib_e.sh is never
-# written -- it belongs to a pre-registered round, in a worktree several sessions share, and
-# another session may be sourcing it right now. Byte-identity is asserted at the end anyway.
+# written -- it belongs to a round whose protocol is fixed in advance, in a worktree several
+# sessions share, and another session may be sourcing it right now. Byte-identity is asserted
+# at the end anyway.
 #
 # No process is ever killed: the hazard is reproduced by RECORDING argv, never by pkill.
 set -uo pipefail

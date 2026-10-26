@@ -18,9 +18,8 @@
 #
 #   Route 1 (power-on) reports its own failure correctly. It used to say here that P4 power-on
 #   is a kernel-side stub so the switches do not come back.
-#   🔴 THAT IS NO LONGER TRUE, MEASURED 2026-09-02 (L-12): raw/C42 of
-#   doc/audit/2026-09-02_live-round -- three POSTs to /ndt/set_switches_power_state action=on
-#   returned {"...":"Success"} HTTP=200, bmv2 processes went 7 -> 10 within 15 s, :30055/:30057/
+#   🔴 THAT IS NO LONGER TRUE, MEASURED 2026-09-02 (L-12, run C42): three POSTs to
+#   /ndt/set_switches_power_state action=on returned {"...":"Success"} HTTP=200, bmv2 processes went 7 -> 10 within 15 s, :30055/:30057/
 #   :30059 each had a listener again, and get_switches_power_state read ON on all ten.
 #   ⚠️ What C42 did NOT measure is forwarding: the kernel's own reply said "adopted, but no route
 #   was installable yet ... the link watchdog installs them when the beacons resume", so
@@ -167,8 +166,8 @@ power-on)
     # was never located in src/ or p4_proxy/, so the attribution was the allowlist's claim
     # corroborated by behaviour, not a line of code anyone had read.
     # 🔴 RE-MEASURED 2026-09-02 AND THE ATTRIBUTION IS DEAD (L-12): three POSTs returned Success,
-    # bmv2 went 7 -> 10, the three gRPC ports had listeners again and all ten read ON -- see
-    # doc/audit/2026-09-02_live-round/raw/C42. So this route is NOT a stub any more, and telling
+    # bmv2 went 7 -> 10, the three gRPC ports had listeners again and all ten read ON (run C42).
+    # So this route is NOT a stub any more, and telling
     # the operator it is would send them to the slow route for no reason.
     # ⚠️ Still unmeasured on this route: whether traffic FORWARDS after the switches come back.
     #    C42's own reply said routes were pending on the link watchdog. Route 2 (--rebuild) is

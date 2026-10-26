@@ -68,7 +68,7 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
                   // job.token != 0 as well as the two result bits: only an install mints a
                   // token, so a modify or a delete withholds nothing from the view and must not
                   // be counted here. Saying "these rows are withheld" about entries that have no
-                  // cache row is the same kind of over-claim the ticket is about, pointed the
+                  // cache row is the same kind of over-claim the withheld-rows count exists to avoid, pointed the
                   // other way.
                   if (job.token != 0 && result.ok && !result.confirmsProgramming)
                   {

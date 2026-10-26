@@ -42,8 +42,8 @@
 #   $ sudo -n -l -- ovs-ofctl dump-flows s1   -> rc 0, prints /usr/bin/ovs-ofctl dump-flows s1
 #   $ sudo -n    ovs-ofctl --version          -> rc 1, "sudo: a password is required"
 #
-# `-l` answers "may this user run it", and Adam's account carries a blanket `(ALL : ALL) ALL`
-# alongside the narrow NOPASSWD rules, so `-l` says yes to everything -- including the commands
+# `-l` answers "may this user run it", and an account that also carries a blanket
+# `(ALL : ALL) ALL` beside the narrow NOPASSWD rules gets yes to everything -- including the commands
 # that in fact need a password this script cannot supply. A probe built on it would have had
 # exactly zero discriminating power on the machine it was written for, which is the same defect
 # it was meant to detect, one level up.
@@ -69,7 +69,7 @@
 # at all means the program's own failure, granted (0). Its answer is
 # ndt_sudo_report's row and return code, i.e. the "sudo grants" line of `ndt status` and whether
 # `ndt status --check` lists a missing grant as a problem (ndt cmd_status). So there the wording IS
-# the verdict. Until fix/sudo-probe-unknown-0927 (09-27) a refusal worded some other way --
+# the verdict. Until 2026-09-27 a refusal worded some other way --
 # another sudo's, a PAM or requiretty refusal, a test harness's shim -- was reported as a live
 # grant; it was seen: the nolab shim of the 09-27 gates ("sudo: refused by the nolab shim (a lab
 # command)") made `ndt status` print "all 3 granted" (tests/shell/lib_probe_stub.sh, "WHAT THE
@@ -77,8 +77,8 @@
 #
 # Not covered here: tools/test_workflow/faults.sh keeps its own privileged surface in
 # FAULTS_TC / FAULTS_KILL (bare `tc` and bare `kill`), documented in its header and in
-# doc/2026-08-17_testing-manual.md. It is a second surface with the same shape and is listed in
-# doc/audit/2026-09-03_night-rounds/FIX-NDT-SUDO-SURFACE.md; it is not wired to this table.
+# doc/2026-08-17_testing-manual.md. It is a second surface with the same shape; it is not wired
+# to this table.
 #
 # Defines functions and data only -- no side effects, so sourcing it from a test is safe.
 
@@ -174,10 +174,10 @@ ndt_sudo_refused() {
     esac
 }
 
-# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927)
+# [Co-developed with claude code -- Adam] (2026-09-27)
 # sudo's own NON-FATAL warnings. sudo prints these on stderr and then RUNS the command, so a
 # "sudo:" line that is one of them says nothing about whether the grant is live. An explicit list,
-# not a pattern (the orchestrator's ruling, 09-27): a pattern broad enough to catch the next warning
+# not a pattern: a pattern broad enough to catch the next warning
 # is broad enough to swallow the next refusal.
 #   unable to resolve host   the machine's own hostname is missing from /etc/hosts
 #   setrlimit(RLIMIT_CORE)   containers, and hosts whose core-dump rlimit sudo may not raise
@@ -226,7 +226,7 @@ ndt_sudo_explain() {
 #   1 sudo refused it
 #   2 could not tell: no sudo, the program is not installed on this machine, or sudo said
 #     something on its own account that ndt_sudo_refused cannot read (NDT_SUDO_UNREAD holds it)
-# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927) A probe that
+# [Co-developed with claude code -- Adam] (2026-09-27) A probe that
 # exits non-zero is ambiguous -- sudo refused, or sudo ran it and it failed (ovs-vsctl with no ovsdb
 # to talk to) -- and until this date every wording ndt_sudo_refused did not know was read as the
 # second, i.e. as GRANTED: requiretty, PAM, secure_path's "command not found", and the gates'

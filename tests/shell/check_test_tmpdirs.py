@@ -38,13 +38,13 @@ needs all three of:
                           operation that makes or destroys a filesystem entry;
   (3) NO PER-PROCESS MARKER anywhere in that statement/command -- see PER_PROCESS_MARKERS.
 
-🔴 Each of (1) and (3) is about a PROPERTY, and each of them was once a test on a SPELLING. B12
-(2026-09-11, hunt-0911/F-B0-B12-REPORT.md §3.1) put five re-spellings of the same fixed temp path
-through this scanner and got `0 fixed temp paths`, rc 0, out of every one: a variable merely NAMED
-`mkdtemp_root`, `std::tmpnam`, `os.environ["TMPDIR"]`, `os.path.join("/tmp", name)`, and `$TMP`.
-None of them differs from a reported case in the property; they differ in how it is written. Every
-widening that closed one is paired here with the control that keeps it from becoming a nuisance,
-because a gate people switch off reports nothing at all.
+🔴 Each of (1) and (3) is about a PROPERTY, and each of them was once a test on a SPELLING. Five
+re-spellings of the same fixed temp path (2026-09-11) went through this scanner and got `0 fixed
+temp paths`, rc 0, out of every one: a variable merely NAMED `mkdtemp_root`, `std::tmpnam`,
+`os.environ["TMPDIR"]`, `os.path.join("/tmp", name)`, and `$TMP`. None of them differs from a
+reported case in the property; they differ in how it is written. Every widening that closed one is
+paired here with the control that keeps it from becoming a nuisance, because a gate people switch
+off reports nothing at all.
 
 Worked examples of (2), all real lines in this tree that this gate deliberately does NOT report:
 
@@ -89,13 +89,13 @@ KNOWN LIMITS (documented rather than papered over -- a lint, not a proof)
  * Variables are followed one hop, within one file, in all three languages: `NAME=<fixed temp
    path>` is reported when `$NAME` later reaches something that writes. An indirection through a
    function's argument, or across files, is not followed. (Until 2026-09-11 this said "all three"
-   and meant two: scan_cpp did not do it, which is F-OFFLINE-1-REPORT.md §1.17 D2.)
+   and meant two: scan_cpp did not do it.)
  * A path assembled from pieces that are individually not temp roots (`os.path.join("/" + "tmp",
    name)`) is not recognised, and stays a limit on purpose. Recognising it means constant-folding
    arbitrary expressions, and the spelling after `"/" + "tmp"` is `"/tm" + "p"`, then `os.sep +
    "tmp"`, then `chr(47) + "tmp"` -- one pattern per spelling and none of them the property, which
-   is the trap B12 is about. A lint does not stop an author taking the path apart to get past it.
-   Nothing in this tree does it; test_check_test_tmpdirs.py pins the decision.
+   is the trap this rule is about. A lint does not stop an author taking the path apart to get past
+   it. Nothing in this tree does it; test_check_test_tmpdirs.py pins the decision.
  * SCOPE is every test in the tree: `tests/` and `p4_proxy/tests/` recursively, plus the `test_*`
    files under tools/. Harness and driver code is NOT scanned even when it lives in a directory
    with "test" in the name -- tools/test_workflow/build_bmv2_fast.sh's `BUILD=/tmp/bmv2-fast-src`
@@ -131,10 +131,10 @@ PER_PROCESS_MARKERS = (
 )
 
 # 🔴 Which of the markers above are IDENTIFIERS, i.e. must appear as a name of their own rather
-# than as a run of letters inside a longer one. B12 (2026-09-11): the marker test was a plain
-# substring test, so a variable CALLED `mkdtemp_root` disarmed the rule for every statement it
-# appeared in -- `mkdtemp_root = "/tmp/ndt-kiref-fixture"` plus `os.makedirs(mkdtemp_root)` scanned
-# clean, and nothing per-process ran anywhere in that file. A name is not a call.
+# than as a run of letters inside a longer one. 2026-09-11: the marker test was a plain substring
+# test, so a variable CALLED `mkdtemp_root` disarmed the rule for every statement it appeared in --
+# `mkdtemp_root = "/tmp/ndt-kiref-fixture"` plus `os.makedirs(mkdtemp_root)` scanned clean, and
+# nothing per-process ran anywhere in that file. A name is not a call.
 #
 # `XXXXXX`, `$$` and `$BASHPID` are deliberately NOT in here: they are not identifiers, and a
 # seven-X template `XXXXXXX` would fail an identifier-boundary test on both sides.
@@ -184,21 +184,21 @@ LITERAL_TEMP_ROOT = re.compile(r"/(?:var/)?tmp/[^\s\"'`)\];,]+")
 # alternative, leaving a gate that only knows the spelling C++ fixtures do not use.
 CPP_TEMP_ROOT = re.compile(r"(?:\btemp_directory_path\s*\(\s*\))|(?:/(?:var/)?tmp/)")
 
-# 🔴 The calls that hand back a temp NAME without creating anything at it. B12 (2026-09-11) row
-# (2)e: `char* p = std::tmpnam(nullptr); std::fopen(p, "w");` had no /tmp literal and no
-# temp_directory_path(), so the scanner saw no temp root at all and the file read clean. tmpnam(3)
-# and tempnam(3) never reserve the name they return, so between the name and the create any other
-# process may take it -- which is the same hazard by a different mechanism, and why both man pages
-# say never to use them. There is no per-process marker that rescues these: the answer is
-# mkstemp/mkdtemp, or tmpfile() (which creates and unlinks in one step and is NOT listed here).
+# 🔴 The calls that hand back a temp NAME without creating anything at it. (2)e: `char* p =
+# std::tmpnam(nullptr); std::fopen(p, "w");` had no /tmp literal and no temp_directory_path(), so
+# the scanner saw no temp root at all and the file read clean. tmpnam(3) and tempnam(3) never
+# reserve the name they return, so between the name and the create any other process may take it --
+# which is the same hazard by a different mechanism, and why both man pages say never to use them.
+# There is no per-process marker that rescues these: the answer is mkstemp/mkdtemp, or tmpfile()
+# (which creates and unlinks in one step and is NOT listed here).
 CPP_NAME_WITHOUT_RESERVING = re.compile(r"\b(?:std::)?(?:tmpnam|tempnam)\s*\(")
 
 # A C++ name bound to a fixed temp path, so that a create through it one statement later is still
-# attributable to the line that chose it. F-OFFLINE-1-REPORT.md §1.17 D2: the module docstring has
-# promised "variables are followed one hop, within one file" since the gate was written, and
-# scan_python and scan_shell did it -- scan_cpp did not, so
-# `const std::string root = "/tmp/x"; std::filesystem::create_directories(root);` scanned clean
-# next to a positive control on the same-statement spelling that was caught.
+# attributable to the line that chose it. The module docstring has promised "variables are followed
+# one hop, within one file" since the gate was written, and scan_python and scan_shell did it --
+# scan_cpp did not, so `const std::string root = "/tmp/x";
+# std::filesystem::create_directories(root);` scanned clean next to a positive control on the
+# same-statement spelling that was caught.
 #
 # The binding is recognised by the ASSIGNMENT, not by the declared type: `const std::string root =`
 # and `auto root =` and `m_root =` are one shape, and a gate that listed the types would be back to
@@ -353,8 +353,8 @@ def scan_cpp(text, path):
                          % m.group(0).rstrip("( "),
                          _one_line(stmt)))
 
-    # D2 (F-OFFLINE-1-REPORT.md §1.17): a name bound to a fixed temp path here, materialised
-    # through that name in a LATER statement. `fixed_names[name] = (line, shown)`.
+    # A name bound to a fixed temp path here, materialised through that name in a LATER statement.
+    # `fixed_names[name] = (line, shown)`.
     fixed_names = {}
     for m in CPP_TEMP_ROOT.finditer(code):
         if not m.group(0).startswith("/"):
@@ -418,8 +418,8 @@ def scan_cpp(text, path):
 # Python
 # =================================================================================================
 # The temp directory named some way other than by a `/tmp/...` literal. `tempfile.gettempdir()`
-# was here from the start; B12 (2026-09-11) added the two spellings rows (2)f and the bare-root
-# half of (2)g escaped through.
+# was here from the start; 2026-09-11 added the two spellings that (2)f and the bare-root half of
+# (2)g escaped through.
 #
 #   (2)f  os.environ["TMPDIR"] / os.environ.get("TMPDIR") / os.getenv("TMPDIR") -- ONE string for
 #         the whole ctest run, so `$TMPDIR/name` is as fixed as `/tmp/name`. scan_shell had known
@@ -722,9 +722,9 @@ def _sh_unquote(word):
 _SH_ASSIGN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.S)
 _SH_VAR_USE = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)")
 
-# The environment's temp directory, under any of the four names the same directory goes by. B12
-# (2026-09-11) row (2)h: the test was the substring `"$TMPDIR" in value`, so `$TMP/ndt-fixture` and
-# `${TEMP}/ndt-fixture` -- the same directory, the same fixed path -- walked past.
+# The environment's temp directory, under any of the four names the same directory goes by. (2)h:
+# the test was the substring `"$TMPDIR" in value`, so `$TMP/ndt-fixture` and `${TEMP}/ndt-fixture`
+# -- the same directory, the same fixed path -- walked past.
 #
 # 🔴 The name has to END where the reference ends. `$TMPROOT` and `$TMPFILE` begin with the letters
 # TMP and are ordinary local names, usually holding something mktemp chose; reading `$TMPROOT/` as
@@ -861,9 +861,9 @@ _BY_EXTENSION = {".c": scan_cpp, ".cpp": scan_cpp, ".cc": scan_cpp, ".h": scan_c
                  ".hpp": scan_cpp,
                  ".py": scan_python, ".sh": scan_shell, ".bash": scan_shell}
 
-# 🔴 D1 (F-OFFLINE-1-REPORT.md §1.17). Every SUITES row was one NON-RECURSIVE glob, so the tree
-# walk saw 261 files and the following were never opened at all -- while the scanner handled each
-# of them perfectly well when a path was named on the command line:
+# 🔴 Every SUITES row was one NON-RECURSIVE glob, so the tree walk saw 261 files and the following
+# were never opened at all -- while the scanner handled each of them perfectly well when a path was
+# named on the command line:
 #
 #   tests/fuzz/  tests/manual/  tests/shell/*.py (both checkers)  p4_proxy/tests/  and every
 #   .cc / .h / .hpp / .c under tests/

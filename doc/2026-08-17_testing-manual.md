@@ -7,8 +7,8 @@
 它被讀的速度快。§2 之所以是例外，是因為開機的失敗模式沒有一個長得像失敗，短寫等於不寫。
 **§2 裡「為什麼」一律收在摺疊區**，跳過摺疊區就能一路照著打完。
 
-**適用範圍**：本 repo（kernel + P4 proxy）。跨元件串接看
-`doc/2026-08-14_cross-component-integration-matrix.md`。
+**適用範圍**：本 repo（kernel + P4 proxy）。跨元件串接不在這份手冊的範圍。
+
 
 [Co-developed with claude code -- Adam]
 
@@ -46,7 +46,7 @@ switch，所以收集到的是 454）、`tests/python` **238**、`tests/shell/te
 量測只對產生它的那版程式成立，而程式會動；沒有 commit，讀的人分不出「現況」和「歷史」，
 於是過期的數字會被一直當成系統的性質引用。2026-08-17 同一天抓到兩個實例：上面那行活了
 幾小時，而「OVS 斷鏈黑洞 291 秒零自癒」在修好它的 `034da18` 落地之後**又被引用了四天、
-散進 11 個檔案**（重量結果與完整脈絡見 `doc/audit/2026-08-17_p4-vs-ovs-matched-topology/`）。
+散進 11 個檔案**。
 兩者寫下的當時都是正確的——標 commit 防不了數字過期，它防的是**下一個人看不出它過期了**。
 
 📌 **同一個道理的第二條：但書要自己帶到期日。** 分支併進 trunk 之後，規格裡「這個還沒好」的
@@ -78,7 +78,7 @@ switch，所以收集到的是 454）、`tests/python` **238**、`tests/shell/te
 **誰驗祖先：閘門，每一次跑都重驗。** 不是寫的人記得驗就算數。
 `tests/shell/test_manual_no_stale_in_progress.sh` 每次都重問 git：
 case 5a–5d 驗標記裡的 sha、case 6／6b 掃本檔、case 11／11b 掃 `doc/` 底下每一份文件
-（不含 `doc/audit/`——那裡是證據不是規格，改它讓 lint 過等於篡改證據），
+（不含 `doc/audit/`——那裡放的是測試與 lab 工具還在用的腳本與 fixture，不是規格），
 case 11c 確保它真的有東西可掃。sha 要過三關：解得開、是 merge commit（兩個以上的父）、
 是 HEAD 的祖先。變異閘門是 `tests/shell/mutate_manual_no_stale_in_progress.sh`。
 
@@ -94,7 +94,7 @@ case 11c 確保它真的有東西可掃。sha 要過三關：解得開、是 mer
 > ✅ **2026-08-21 從乾淨環境實跑驗證過**（`52cba51`）：P4 128 台與 OVS 128 台各一輪，
 > 含清空、三個承諾的拒絕、跨象限連通性、收尾與 `clean` 斷言。**實跑推翻了本節初稿的三條**，
 > 都已改正並標在原地（§2.1 的 veth、§2.2 的秒數、§2.3 的 `--check`）。
-> 逐字輸出：`doc/audit/2026-08-21_bringup-manual-verification/TRANSCRIPT.md`。
+
 
 **一切都走 `ndt`。** 它是 `tools/test_workflow/ndt`，`~/.local/bin/ndt` 有 symlink，
 所以任何目錄下都能打。底層的 `ndtwin-lab` + `stack.sh` 仍然可用（見 §2.9 的摺疊區），
@@ -103,9 +103,9 @@ case 11c 確保它真的有東西可掃。sha 要過三關：解得開、是 mer
 ⚠️ **`ndt help` 把完整 usage 印出來之後 `exit 2`。** 它不是失敗，是「你沒給我一個動詞」的
 rc（沒有動詞的 `ndt` 也一樣）。**放進 `set -e` 腳本的那一行會讓整支腳本停在那裡**，
 要印用法請自己接 `|| true`。手冊其餘各節的指令都回它們自己的 rc，只有這一個是這樣。
-<!-- 來源：ROLE-11 F11，log hunt-0911/logs/ROLE-11/01-ndt-help.log（末行 RC=2）；
+<!-- 來源：ROLE-11 F11 的 ndt-help log（末行 RC=2）；
      本單在主 checkout 自己再跑過一次，同樣 RC=2
-     （logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log）＝🟢 親自跑過。 -->
+     （log 不在本 repo）＝🟢 親自跑過。 -->
 
 ### 2.0 三十秒版
 
@@ -123,7 +123,7 @@ OVS（Adam），本節先前寫「`ndt up` 開 P4（預設）」是改之前的�
      的 resolve_up_target（`${1:-ovs}`／`4) up_ovs 4`）與其上方註解「THE DEFAULT PLANE IS OVS
      (Adam, 2026-09-03) ... It was p4 until then」；② 親自跑過：`ndt help` 逐字
      `ndt up  Ryu + OVS, 128 hosts  (the default plane is OVS)`，log
-     scratch/overnight-2026-09-05/logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log。
+     不在本 repo。
      裸 `ndt up` 本輪沒有人 live 跑過——這一句的證據是 help 與碼，不是 live。 -->
 
 **多人共用的機器，第一步永遠是 `ndt status`。** 擁有者在 `lab` 區塊的 **`claim` 那一行**
@@ -135,7 +135,7 @@ lab
 ```
 
 不必去問別的 session。
-<!-- 來源：ROLE-11 F12，log hunt-0911/logs/ROLE-11/02-ndt-status.log（🟠 轉述）。
+<!-- 來源：ROLE-11 F12 的 ndt-status log（🟠 轉述）。
      先前這裡寫「它第一行就告訴你實驗室現在屬於誰」，而第一行是區塊標題。 -->
 
 ---
@@ -212,7 +212,7 @@ listener `:6653`／`:6633`、kernel 的 sFlow collector `:6343`（UDP）、bmv2 
 正本是 `tools/test_workflow/ports.sh` 的 `NDT_PORT_TABLE`，`clean` 與 `--deep` 讀同一張表。
 ⇒ **不乾淨的時候輸出不是五行**：每個被佔的 port 各三行（residue／owner／後果），
 09-12 那次活著的 fabric 上共 **74 行 `XX`**。
-<!-- 來源：ROLE-11 F7，log hunt-0911/logs/ROLE-11/92-clean.log（ok 那行逐字）與 18-clean-live.log
+<!-- 來源：ROLE-11 F7 的 clean log（ok 那行逐字）與 clean-live log
      （74 行 XX）＝🟠 轉述；9 條規則／27 個 port 的展開＝本單親自讀 tools/test_workflow/ports.sh
      的 NDT_PORT_TABLE 數出來的（6 個單埠＋10＋10＋1）。 -->
 
@@ -251,7 +251,7 @@ XX  :8000 still listening -- this stack did not start it
 **那兩個數字是 `ndt` 自己從 `ports.sh` 算出來的，不是打進散文裡的**，所以它們不會再各自過期；
 手冊與 `ndt help` 現在講同一件事，要對數字看 `ndt help`。登記在 KNOWN-ISSUES G-46。
 <!-- 來源：`ndt help` 現在那兩行逐字＝本單自己跑 `ndt help` 讀到的
-     （logs/gates-0910/ndt-help-verbatim.doc4-0912-r1.log，rc 2）；deep_sweep 與 cmd_clean 讀
+     （log 不在本 repo，rc 2）；deep_sweep 與 cmd_clean 讀
      ports.sh 同一張表＝FIX-DOC-1 親讀、本單只對帳；merge 是不是 HEAD 的祖先＝本單親驗。 -->
 <!-- NDT-MERGED-CAVEAT:END help-deep-names-three-ports -->
 
@@ -276,8 +276,8 @@ switch manifest 兩個紀錄；答得出來的印在 `the fabric this stack star
 那一句刻意留著：一顆別人起的 kernel 佔著 :8000，正是一個 P4 session 量到 OVS kernel 的來源，
 把它拿掉會是同一個缺陷把號誌反過來。判「這是不是我的」現在看 `ndt clean` 自己印的那兩塊，
 `ndt status` 的 `pidfiles` 欄仍然可以對帳。
-<!-- 來源：ROLE-11 F5，log hunt-0911/logs/ROLE-11/18-clean-live.log（74 行 XX、末行的 --deep 建議）
-     與 16-check-p4.log（pidfiles 欄）。🟠 轉述（ROLE-11 log）。修法的兩塊輸出與「刻意留著」
+<!-- 來源：ROLE-11 F5 的 clean-live log（74 行 XX、末行的 --deep 建議）
+     與 check-p4 log（pidfiles 欄）。🟠 轉述（ROLE-11 log）。修法的兩塊輸出與「刻意留著」
      的理由＝本單親自讀 tools/test_workflow/ndt 的 cmd_clean；merge 是不是 HEAD 的祖先＝本單親驗。 -->
 <!-- NDT-MERGED-CAVEAT:END clean-advises-deep-on-your-own -->
 
@@ -328,18 +328,18 @@ ndt up p4 128       # 128 hosts
 📌 **4 台 P4 的唯一寫法就是 `ndt up p4 4`。** 09-12 之前本手冊沒有任何一行給得出它
 （`ndt up 4` 是 OVS），照手冊做的人做不出 4 台的 P4 twin。實跑 14 秒、rc 0，
 `[3/3]` 印 `model matches fabric: 4 hosts`。
-<!-- 來源：ROLE-11 F2（缺步驟）與其繞法，log hunt-0911/logs/ROLE-11/15-up-p4-4.log
+<!-- 來源：ROLE-11 F2（缺步驟）與其繞法，ROLE-11 的 up-p4-4 log
      （🟠 轉述：ROLE-11 的實跑輸出）。拼法出自 `ndt help` 的
      `ndt up p4 4       p4 at 4 hosts   (rewrites host_count_override)`，本單親自核對
-     （logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log）。 -->
+     （log 不在本 repo）。 -->
 
 🔴 **P4 一定要指名 `p4`。** 本節先前把 `ndt up`／`ndt up 4` 列在這個標題底下，**那兩個都是 OVS**
 （預設平面 2026-09-03 改成 OVS）：09-12 實跑 `ndt up 4`，工具第一行就回 `ndt up ovs4`、載
 `StaticNetworkTopologyOVS_10Switches_4Hosts.json`、走 OVS 的 `[1/4] control plane (Ryu)`。
 兩個平面的驗收判準是相反的（§2.3），所以拿錯平面的人下一步連紅綠都讀反。
-<!-- 來源：ROLE-11 F1，log hunt-0911/logs/ROLE-11/04-ndt-up-4.log（🟠 轉述：ROLE-11 的實跑輸出）。
+<!-- 來源：ROLE-11 F1 的實跑 log（🟠 轉述：ROLE-11 的實跑輸出；不在本 repo）。
      指令拼法另由本單在主 checkout 以 `ndt help` 親自核對，log
-     scratch/overnight-2026-09-05/logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log。 -->
+     不在本 repo。 -->
 
 三步：`[1/3] bmv2 fabric` → `[2/3] proxy + kernel` → `[3/3] verify`。
 
@@ -441,9 +441,8 @@ for port in 6653, 6633:
 探測全滅 → fallback 6653 → switch 對著死埠撥，**而且任何 log 都不會提到 port**，
 你只會看到拓撲永不收斂。
 
-🔴 同一條假警告還躺在另外兩個地方，都還沒改：`tools/test_workflow/stack.sh:660-669`
-的註解、以及 `doc/2026-08-16_delivery-package/docs-errata.md` 的第 1 條。
-**那份勘誤在轉交給 patty 之前必須把第 1 條刪掉**，否則會去「修」一份本來就對的官方文件。
+〔2026-10-25 補：同一條假警告原本還在另外兩個地方，兩處都已更正：`tools/test_workflow/stack.sh`
+的啟動順序註解 2026-08-21 改成「6633 旗標不會弄壞任何東西」，勘誤清單裡的那一條 2026-08-27 撤回。〕
 </details>
 
 ⚠️ **官方手冊（ndtwin.org/docs）仍有一處與本機不符**：`sudo ./testbed_topo.py` 會走到
@@ -490,9 +489,9 @@ check: 1 problem(s)
 `links 40 total, 0 down`，而那份模型裡有 **8 條** host 邊 ⇒ 4 台的 OVS 輪裡 host 邊是 up 的。
 **兩個量測的尺寸不同，機制（Ryu 的 `ipv4` 空不空）在 4 台上沒有重新量過**，
 所以不要拿下面那段解釋去推 4 台會怎樣，也不要拿 4 台的結果去推翻 128 台的紀錄。
-<!-- 來源：ROLE-11 F4，log hunt-0911/logs/ROLE-11/05-check-after-up.log（🟠 轉述）；
+<!-- 來源：ROLE-11 F4 的 check-after-up log（🟠 轉述）；
      8 條 host 邊＝本單親自讀 setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json 數出來的。
-     為什麼 4 台會 up、128 台不會，尚未查 ⇒ 已列進 FIX-DOC-1 SUMMARY §7。 -->
+     為什麼 4 台會 up、128 台不會，尚未查。 -->
 
 <details><summary>為什麼——不是設計決定，是資料對不上</summary>
 
@@ -571,10 +570,10 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   `app pidfile` 列、`ndt apps orphans` 會把窗的起迄印出來），不要先去找誰在網路上留了東西。
   本輪沒有在乾淨機器上觀測過 ovs4 的 `--check`，所以**不宣稱**它會回 rc 0：
   ovs4 的 `--check` 要自己看 problems 那幾行，不要拿 128 台那條規則套。
-<!-- 來源：links 那組數字＝ROLE-11 F4，log hunt-0911/logs/ROLE-11/05-check-after-up.log（ovs4，
-     🟠 轉述）、16-check-p4.log（p4 4，rc 0）；40 條邊裡 8 條是 host 邊＝親自讀
+<!-- 來源：links 那組數字＝ROLE-11 F4 的 check-after-up log（ovs4，
+     🟠 轉述）、check-p4 log（p4 4，rc 0）；40 條邊裡 8 條是 host 邊＝親自讀
      setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json 數出來的（dpid 0 兩端共 8 筆）。
-     🔴 那 60 條的來源＝RESIDUE-1 唯讀調查（hunt-0911/RESIDUE-1-REPORT.md §1 時間線、§2 機制）。
+     🔴 那 60 條的來源＝RESIDUE-1 唯讀調查（時間線與機制兩節；不在本 repo）。
      本段先前寫「那 60 條在該輪第一個 ndt up 之前就在了、來源未追 ⇒ 不是 ovs4 的性質」，那是錯的：
      它把基線那一列的 `residue NOT CHECKED -- :8000 is closed` 讀成了「查過沒事」。反證＝R7 的
      3 秒取樣器（第三方）量到 `list-br` 在 02:20:28 才 0→10，而 60 在 02:20:45 第一次被量到；
@@ -607,7 +606,7 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
 🔴 **那個 `none`／0 是「沒東西可定年」，不是「網路乾淨」：一條規則都沒被問過。**
 窗來自**這個 checkout** 的 app pidfile／log，所以別的 checkout（例如主 checkout）跑過的 app
 留下的規則，在這裡永遠沒有窗、永遠不會被查。
-〔實跑：`rounds/08-round2.md:157-172` 乾淨 P4 ⇒ 0；`:174-193` 在同一個 checkout 起過一次 app ⇒ 5。〕
+〔實跑（09-05 夜巡 round 2）：乾淨 P4 ⇒ 0；在同一個 checkout 起過一次 app ⇒ 5。〕
 🆕 **09-07 修好了（3-51／G-14）：`energy` 與 `sim` 現在跟其他三個 app 一樣有窗。**
 先前它們是 helper（`sudo ndtwin-lab <name>-start`）起的、`ndt` 不寫 pidfile ⇒ 永遠沒窗。
 現在 `ndt apps start energy|sim` 起完、**確認活行程之後**把那個 pid 寫進
@@ -664,7 +663,7 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
 - ⚠️ **把 `orphans` 的 rc 當閘門的呼叫者**：09-05 夜巡的 `arm_down.sh` 是已知的一個
   （restore check 2/3，`c2` 要 0 才印 `RESTORE-OK`，非 0 ⇒ `RESTORE-FAIL`）。
   **它碰不到這一格**：它在 `ndt down` 之後才跑，那時沒有 sim 在跑。
-  🔴 那支腳本在 `scratch/`，**不在版控**。**新寫的閘門一律要看得懂 0／1／2／4／5**——
+  🔴 那支腳本**不在版控**。**新寫的閘門一律要看得懂 0／1／2／4／5**——
   尤其**不要把「非 0」讀成「有殘留」**：2 是「沒問完」、5 是「窗掉了、沒問」。
   🆕 **09-10 Adam 裁：讀 tally 行，不要讀 rc。** rc 在一個合併視窗裡對同一個狀態位移了兩次
   （乾淨 OVS4 `0 → 5`、P4 起著 sim `5 → 2`，R4-LIVE §4-A7／§4-A9）。**閘門不要自己 parse**：
@@ -680,7 +679,7 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   **VERDICT 由行程那半決定**（它讀 pidfile／`/proc`／argv，不讀 `:8000`，down 之後仍然是答案；
   有 untracked 行程照樣 NOT CLEAN）。**沒有那句 ⇒ 照舊 UNUSABLE**：沒有 tally 還有另外兩個成因
   （殘留那半中途死掉、舊版 `ndt` 的 `orphans` 根本沒有網路那半），而**舊版那個一行形報告
-  kernel 開著關著長得一模一樣**（`logs/*-04-orphans.log` 8 份是開著的）⇒ 光看「沒有 tally」
+  kernel 開著關著長得一模一樣**（那一輪的 8 份 orphans log 是開著的）⇒ 光看「沒有 tally」
   分不出來，所以判準是**那句話**不是那個缺口。**網路那半要有答案就在 `ndt down` 之前問。**
   🆕 **09-11 另加一個 rc：3 `NOT CHECKED`。** 上面那句「前兩個數字是 0 就算乾淨」有一個地板，
   09-11 才補上（F-OFFLINE-1 §1.11 離線實測）：**kernel 開著、tally 有印、而三個 lock probe
@@ -741,8 +740,8 @@ ndt up p4 128       # 改回 128
 `ndt help` 逐字：`OVS has no such knob -- there the size is the verb`；09-12 實跑 `ndt up 4`
 之後 `ndt status --check` 仍印 `knob baseline  4 == the value this round started with`，
 一個字都沒寫進去。
-<!-- 來源：ROLE-11 F1，log hunt-0911/logs/ROLE-11/04-ndt-up-4.log、05-check-after-up.log:14
-     （🟠 轉述：ROLE-11 的實跑輸出）；`ndt help` 那句由本單親自核對（ndt-help-spelling.doc1-0912-r1.log）。 -->
+<!-- 來源：ROLE-11 F1 的 ndt-up-4 與 check-after-up 兩份 log（後者第 14 行）
+     （🟠 轉述：ROLE-11 的實跑輸出）；`ndt help` 那句由本單親自核對（log 不在本 repo）。 -->
 
 `host_count` 必須是 4 的倍數且 ≥ 4（hosts 分散在 s1–s4）。改動會印黃字警告，因為
 `host_count_override` 是**持久狀態**——下一輪繼承別人設的數字，就是量測描述錯網路的起點。
@@ -810,8 +809,8 @@ p4_proxy/p4_src/ndtwin_switch.p4:52:  const bit<16> SAMPLE_RATE = 256;
 ```
 
 要改就得改 source → `p4c-bm2-ss` 重編 → **重起 fabric**（bmv2 在 exec 時載入 JSON，
-之後永不重載）。零個環境變數、零個旗標。唯一自動化的是
-`doc/audit/2026-08-20_sampling-rate-and-cpu/matrix.sh`，那是實驗 driver 不是支援介面
+之後永不重載）。零個環境變數、零個旗標。
+唯一自動化過的是某一輪量測的實驗 driver，那不是支援介面
 （但它 `sed` 完會 `grep -q` 自證改成功，值得抄）。
 
 `ndt status` 的 `sample rate` 是**讀回來對帳的**，不是設定值。存在的理由就是 2026-08-20
@@ -825,7 +824,7 @@ p4_proxy/p4_src/ndtwin_switch.p4:52:  const bit<16> SAMPLE_RATE = 256;
 | **OVS** | `ovs-vsctl --columns=sampling list sflow`（OVSDB，`testbed_topo.py:160` 設的那個） |
 | 沒有 fabric | 上面那個 JSON，而且那一列會明講「這不是任何在跑的東西的讀數」 |
 
-🔴 **為什麼要分**：2026-09-06 實測（`logs/x1-22-status-blind-to-ovs-rate.log`），把十筆
+🔴 **為什麼要分**：2026-09-06 實測（夜巡 X1 的 log），把十筆
 OVS sflow record 全設成 64 之後 `ndt status` 照樣印 `sample rate 1/256`——它讀的是 bmv2
 的編譯產物，跟 OVS fabric 一點關係都沒有。**兩邊只是碰巧都是 256**，所以幾個月沒人發現。
 OVS 側另外三種答案都不會被印成分數：十筆不一致（`DISAGREE`）、一筆都沒有（**什麼都沒在取樣**）、
@@ -868,7 +867,7 @@ exit                  結束拓樸（＝關掉整個 fabric）
 ⚠️ **NTG 不支援中斷實驗**——中斷等於整個 NTG 關掉；要等所有非無限的 flow 自然結束。
 kernel 還沒起來時 NTG 會卡在 `Failed to get hosts, retrying`，那是**預期的中間態**。
 
-從外面不進 tmux 也能對 host 下指令：
+從外面不進 tmux 也能對 host 下指令（要一條 `mnexec` 的 NOPASSWD 規則，User Manual 沒有教，見 `doc/2026-07-29_environment_gotchas.md`）：
 
 ```bash
 sudo -n mnexec -a <host-pid> ping -c 2 10.0.0.2
@@ -954,8 +953,8 @@ ndt clean           # 驗收；怎麼讀它的 exit code 見 §2.1 那張表
 `VERDICT: CLEAN`；任何一項不過就 `RESTORE-FAIL`，5 還會印是誰擋的，然後停掉整輪）。
 
 <!-- NDT-RESTORE-CRITERION:END -->
-<!-- 來源：三件套的形狀出自 ROLE-11 F6，log hunt-0911/logs/ROLE-11/91-down.log（末六行）、
-     99-final-check.log（note 欄）、92-clean.log、93-orphans-after.log（VERDICT: CLEAN）＝🟠 轉述。
+<!-- 來源：三件套的形狀出自 ROLE-11 F6 的 down log（末六行）、
+     final-check log（note 欄）、clean log、orphans-after log（VERDICT: CLEAN）＝🟠 轉述。
      rc 值改口＝FIX-NDT-8（merge `af5efa4f`，2026-09-12，KNOWN-ISSUES G-53）：`ndt clean` 的
      0→{0,3}、1＝髒、5＝拒絕，與 `live_cells/run_cells.sh` 的 restore 硬判同一套（本單親自讀）。 -->
 
@@ -1033,7 +1032,7 @@ sudo -n /usr/local/sbin/ndtwin-lab ovs-topo-start    # 另一個終端
 | 把量測指令直接打在命令列 | 同上的偵測版：`pgrep -f` 會匹配到自己。**寫進 script 檔**，script 的 argv 天然免疫 |
 | `ifconfig <iface> down` 在 bmv2 上 | 🔴 **整台 switch 停止轉送**，不是斷一條鏈路。斷單鏈路一律 `tc netem loss 100%`，**兩端都要下** |
 | 在 h2 裡面 `pkill` | Mininet 只隔離網路 namespace，**PID 空間跟 host 共用** ⇒ 殺全場 |
-| 裸的 `sudo -n kill` 做訊號注入 | 本機 sudoers 沒授權 ⇒ **無聲失敗**，下游一切「正常」。用 `sudo -n mnexec -a 1 kill` |
+| 裸的 `sudo -n kill` 做訊號注入 | 照手冊設定的 sudoers 沒授權 ⇒ **無聲失敗**，下游一切「正常」。用 `sudo -n mnexec -a 1 kill`（它也要一條 User Manual 沒有教的 `mnexec` NOPASSWD 規則） |
 | 開著 fabric 重編 P4 pipeline | `status` 的取樣率會說謊（JSON 換了、switch 沒換） |
 | 混用 `ndt` 和裸 `ndtwin-lab` / `stack.sh` | `ndt` 記帳、裸指令不記帳 ⇒ `ndt down` 收不乾淨 |
 | 沒設 `NDT_OWNER` 就跑 `ndt claim` 之外的指令 | 🔴 **任何 claim 都會被當成別人的**（安全預設），包括你自己剛剛下的 |
@@ -1052,7 +1051,7 @@ sudo -n /usr/local/sbin/ndtwin-lab ovs-topo-start    # 另一個終端
 | kernel 開 :8000 | 第一次 poll 就開 | 修好之前是 167 秒＋回報失敗 |
 
 <!-- 來源：`ndt up p4 4` 與 `ndt up 4`(ovs4) 兩列的 09-12 數字＝ROLE-11 F2／F1，
-     log hunt-0911/logs/ROLE-11/15-up-p4-4.log（ELAPSED=14s）與 04-ndt-up-4.log（ELAPSED=8s），
+     ROLE-11 的 up-p4-4 log（ELAPSED=14s）與 ndt-up-4 log（ELAPSED=8s），
      🟠 轉述（ROLE-11 log）、各一次取樣不是分布。 -->
 
 <details><summary>OVS 開機為什麼從 73 秒降到 25 秒（2026-08-21）</summary>
@@ -1089,7 +1088,7 @@ lab
 | `measuring` | 有沒有 `iperf3 -c` 在跑。**不是 nothing 就不要拆** |
 | `code` | 現在這份 checkout 的 commit＋有沒有未提交的改動。**量測數字要跟這個 commit 一起記** |
 | `knob baseline` 🆕 | `p4_proxy/mininet/host_count_override` **現在的值**跟你 `ndt claim` 那一刻的值比。**不看 git 髒不髒**——2026-09-05 那次它被寫成 128（＝HEAD），git 因此說它乾淨，警告整段消失，而 `porcelain` 行數還從 22 掉到 21（I-3）。還原＝**寫回**那個值，不是 `git checkout --`。🔴 **三種答案，看下一列** |
-| `knob baseline` 的三種答案 🆕 | ① **`<n> == the value this round started with`**＝沒動過，綠。<br>② **`<n>, written by 'ndt up p4 <n>' at HH:MM:SS this round`**＝**你自己用 `ndt` 改的**，黃字警告、**不進 problems、`--check` 仍然 rc 0**。因為 `ndt up p4 4` 會把 4 寫穿這個旋鈕（`set_host_count`），所以「claim 在 128 → `up p4 4`」的標準 P4 輪，從第二個指令起整輪都會是紅的——**一個整輪都紅的閘門沒有人讀**。它還是要寫回去，只是那個期限改由 `ndt release` 收（見下面 `ndt release`）。<br>③ **`NOT RESTORED`**＝現值既不是開工值、也不是 `ndt up` 寫的值 ⇒ **有人手改過**，紅字＋problem ⇒ **`--check` rc 1**（2026-09-07，E-9；先前它印紅字卻回 rc 0——`rounds/08-round2.md:146` 04:36 實測）。<br>🔴 **只有 ③ 進 problems**：`4 (the default)` 與 `!= 4, and no round baseline exists` 兩句只印不紅（後者分不出「忘了還原」與「本來就要 128 但沒 claim」）；**沒有 `up_wrote` 欄位時 ② 不存在**，`≠` 開工值一律走 ③ |
+| `knob baseline` 的三種答案 🆕 | ① **`<n> == the value this round started with`**＝沒動過，綠。<br>② **`<n>, written by 'ndt up p4 <n>' at HH:MM:SS this round`**＝**你自己用 `ndt` 改的**，黃字警告、**不進 problems、`--check` 仍然 rc 0**。因為 `ndt up p4 4` 會把 4 寫穿這個旋鈕（`set_host_count`），所以「claim 在 128 → `up p4 4`」的標準 P4 輪，從第二個指令起整輪都會是紅的——**一個整輪都紅的閘門沒有人讀**。它還是要寫回去，只是那個期限改由 `ndt release` 收（見下面 `ndt release`）。<br>③ **`NOT RESTORED`**＝現值既不是開工值、也不是 `ndt up` 寫的值 ⇒ **有人手改過**，紅字＋problem ⇒ **`--check` rc 1**（2026-09-07，E-9；先前它印紅字卻回 rc 0——09-05 夜巡 round 2 04:36 實測）。<br>🔴 **只有 ③ 進 problems**：`4 (the default)` 與 `!= 4, and no round baseline exists` 兩句只印不紅（後者分不出「忘了還原」與「本來就要 128 但沒 claim」）；**沒有 `up_wrote` 欄位時 ② 不存在**，`≠` 開工值一律走 ③ |
 | `tree vs round` 🆕 | 從開工到現在，未提交清單**多了誰、少了誰**（列檔名，不是數量）。**少了誰**才是危險的方向：它代表那個檔現在跟 HEAD 一樣了，而那不等於還原。🔴 **這一列不進 `--check` 的 problems**：一輪中 commit 會合理地改變這個集合，每次 commit 都紅的閘門沒有人讀 |
 | `knob baseline`／`tree vs round` 的來源 | `.test_run/round.baseline`，由 `ndt claim` 寫，欄位是 `at=`／`by=`／`head=`／`host_count=`（開工時旋鈕的值）／每個未提交路徑一行 `dirty=`。🆕 **另有 `up_wrote=<n>`＋`up_wrote_at=<epoch>` 兩欄，由 `ndt up p4 <n>` 事後補寫**（2026-09-07，E-9b）——它是上面第 ② 種答案的唯一依據，**只保留最後一次**（不累積），**沒 claim 就不寫**（沒有 round 可以被赦免）。**`ndt release` 會把整個檔改名成 `.prev`**（2026-09-07，E-11，照 `lab.handoff` 的前例）⇒ release 之後兩列都會說「沒有 baseline」，**那是正確語意（round 結束了），不是資料掉了**；事後要查開工狀態看 `.test_run/round.baseline.prev`（沒有任何程式讀它，它是留給人的） |
 
@@ -1167,7 +1166,7 @@ NDT_OWNER=<你的名字> NDT_EXCLUSIVE_CPU=1 ndt claim 60 "六臂量測，不要
 **沒有碰 build、沒有碰 binary、沒有碰 fabric**——claim 涵蓋的東西一項都沒動——
 而污染在六個臂之間**不對稱**，正好是那個實驗設計唯一無法吸收的形狀。
 
-⚠️ **這件事當時記憶裡已經寫著了**（VM 不撞網路但搶 CPU/RAM/I-O，而沒有機制會通知別人）。
+⚠️ **這件事當時已經知道**（VM 不撞網路但搶 CPU/RAM/I-O，而沒有機制會通知別人）。
 **知道不等於有機制**，所以這個欄位**同時**做了兩件事：
 
 | | |
@@ -1220,7 +1219,7 @@ bash tools/test_workflow/run_layers.sh compare                  # P4 對 OVS 基
 
 🔴 **為什麼要改**：第 3 層是猜。`setting/` 裡不只一份模型是「10 switch／4 host／40 edge／
 同十個 dpid」，所以拿 A 的 fabric 對 B 的模型驗**本來就會全綠**——每一條 per-node 身分
-檢查都通過，因為數字本來就一樣。儀器不知道自己在測什麼（`fix/R2-PY-SUMMARY.md` §7-3、
+檢查都通過，因為數字本來就一樣。儀器不知道自己在測什麼（見
 `doc/KNOWN-ISSUES.md` **G-15**）。
 
 **兩種 rc 3（拒絕，不是失敗）**，兩種都會印該怎麼辦：
@@ -1305,13 +1304,13 @@ kernel 的序列化器會把 `edges` 排到 `nodes` 前面、鍵序也不同，�
 
 - **P4 stack 要 `export PATHS_URL=http://localhost:8081`**，否則 `criteria.py` 預設打 Ryu 的
   :8080，paths 通道整輪回 unknown，三通道法定人數**靜默**降成兩通道。
-- **訊號注入不要用裸 `sudo -n kill`**：本機 sudoers 沒有 bare `kill` 的 NOPASSWD，注入會
+- **訊號注入不要用裸 `sudo -n kill`**：照手冊設定的 sudoers 沒有 bare `kill` 的 NOPASSWD，注入會
   無聲失敗成 not-injected，而下游 capture 與 verdict 一切「正常」。用
-  `FAULTS_KILL="sudo -n mnexec -a 1 kill"`。注入後一律斷言它宣稱的狀態改變
+  `FAULTS_KILL="sudo -n mnexec -a 1 kill"`（要一條 `mnexec` 的 NOPASSWD 規則，User Manual 同樣沒有教）。注入後一律斷言它宣稱的狀態改變
   （訊號驗 `/proc/<pid>/status` 的 `State`，qdisc 驗 `tc qdisc show`）。
 
-**tc 的部分已經好了**：2026-08-15 Adam 補上兩條 `parent` 規則，`sudo -n -l`（08-17 複查）
-四條全在，所以 `faults.sh` 預設的安全形式現在直接可用，不必再繞 mnexec。
+**tc 的部分**：要另加 `root` 與 `parent` 兩種形式的 add／del 規則（共四條，User Manual 沒有教；`sudo -n -l` 可查）；
+四條都在時，`faults.sh` 預設的安全形式直接可用，不必再繞 mnexec。
 
 ---
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run an exercise's own P4Runtime controller against NDTwin's fabric (TICKET-P1 §3).
+"""Run an exercise's own P4Runtime controller against NDTwin's fabric.
 
 [Co-developed with claude code -- Adam]
 

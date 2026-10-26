@@ -120,13 +120,13 @@ if [[ -s "$SS0" ]]; then
     # clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry).
     # [Co-developed with claude code -- Adam] 09-27: `ndt up p4 --app` starts the heartbeat on this
     # fabric too (an external control plane on its own pipeline, detect only), so the heartbeat
-    # watchdog must RUN -- asserted, not read to choose a list (the opus judge's N1 on 02) -- and
-    # while it does `link_watchdog` is not skipped (Adam's ruling E); the other five are.
+    # watchdog must RUN -- asserted, not read to choose a list -- and
+    # while it does `link_watchdog` is not skipped; the other five are.
     V="$(heartbeat_skips_verdict "$SS0" "['clone_session', 'install_initial_routes', 'lldp_discovery', 'pipeline_push', 'sflow_telemetry']")"
     [[ "$V" == OK* ]] || fail "${V#BAD }"
 fi
 
-# --- TICKET-P2-F: the twin's liveness BEFORE any controller has run. RECORDED, NOT ASSERTED ---
+# --- the twin's liveness BEFORE any controller has run. RECORDED, NOT ASSERTED ---
 #
 # 🔴 THIS IS THE READING THE OLD ASSERTION SHOULD HAVE BEEN. On 2026-09-18 `ndt up` printed
 # `3 switches, 3 up` here and this script's own `31_status.txt`, one second later, read
@@ -144,7 +144,7 @@ sed 's/^/   /' "$RUN/32_kernel_graph_before.txt"
 say "starting the exercise controller under setsid"
 # 🔴 NOT $PY. The tutorials' p4runtime_lib imports p4.tmp.p4config_pb2, which the proxy venv does
 # not carry (checked 2026-09-18: p4_proxy/venv -> ModuleNotFoundError: No module named 'p4.tmp';
-# /home/adam/p4dev-python-venv -> imports ok). The import is proved here, in the interpreter
+# $HOME/p4dev-python-venv -> imports ok). The import is proved here, in the interpreter
 # that will run the controller, so a missing module is a named refusal and not "the controller
 # exited within 10s".
 CTRL_PY="${CTRL_PY:-/home/adam/p4dev-python-venv/bin/python}"
@@ -189,7 +189,7 @@ stop_controller() {
 # "the transit rule forwards", not "something forwards".
 start_controller mycontroller.py "$RUN/37_skeleton_controller.log"
 
-# --- 🔴 THE ASSERTION THIS SCRIPT CAN ACTUALLY MAKE (TICKET-P2-F §4.3) -------------------------
+# --- 🔴 THE ASSERTION THIS SCRIPT CAN ACTUALLY MAKE -------------------------
 #
 # The twin's liveness should follow the exercise's own pipeline pushes. Both controllers here
 # load s1 and s2 and leave s3 alone, so within a probe interval (2 s) plus a pingWorker tick
@@ -215,7 +215,7 @@ sed 's/^/   /' "$RUN/36_kernel_up_after_pipeline.txt"
 # 🔴 A READ THAT FAILED IS NOT A CHECK THAT PASSED. `get_json` reports its own failure with
 # `bad`, which prints and returns -- it does NOT set the verdict -- so the first draft's bare
 # `if get_json ...; then` skipped every assertion below it and left the step GREEN. The one
-# shape this whole ticket exists to remove, reproduced inside its own fix.
+# shape this whole check exists to remove, reproduced inside its own fix.
 SS1="$RUN/35_switch_state_after_pipeline.json"
 if get_json "$PROXY_URL/p4/switch_state" "$SS1"; then
     assert_probe_ok_follows_set "$SS1" "$PKG" "$SKEL_SET" "after the skeleton controller" || true
@@ -277,8 +277,8 @@ set -e
 (( AWAIT_RC != 0 )) && fail "the kernel's up set did not follow the solution controller's pipeline pushes (see 46_kernel_up_after_solution.txt)"
 sed 's/^/   /' "$RUN/46_kernel_up_after_solution.txt"
 # The proxy's side again, on the solution's own set -- the same helper, not a second copy of
-# it. TICKET-P2-F §4.3 asks for this on 45_ as well as 35_; the first draft only captured the
-# file and asserted nothing about it, so `45_` was raw with no reader.
+# it. The 45_ capture is checked as well as the 35_ one; capturing the
+# file without asserting anything about it would leave `45_` raw with no reader.
 SS2="$RUN/45_switch_state_after_solution.json"
 if get_json "$PROXY_URL/p4/switch_state" "$SS2"; then
     assert_probe_ok_follows_set "$SS2" "$PKG" "$SOLN_SET" "after the solution controller" || true

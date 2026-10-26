@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for doc/KNOWN-ISSUES.md B-6, SECOND ROUND (W8b) -- three rulings, one gate:
+# Mutation gate for doc/KNOWN-ISSUES.md B-6, second round -- three decisions, one gate:
 #
 #   W8-2 (b)  a withdrawal has to PAIR with a reported break. /ndt/link_recovery_detected may
 #             withdraw a declaration only when /ndt/link_failure_detected reported this link
@@ -9,7 +9,7 @@
 #             end of a host edge, which these endpoints do not address.
 #   W8-4      the kernel sweeps the qdisc tree at startup on MININET and WARNs about netem it
 #             finds. It does not clear it and does not turn it into a declaration.
-#   E-22      (added 2026-09-07, WAKEUP.md 3-52) /ndt/link_recovery_detected logs its OUTCOME,
+#   recovery  (added 2026-09-07) /ndt/link_recovery_detected logs its OUTCOME,
 #             after the outcome is known, and the three outcomes are three different sentences.
 #   E-20      (added 2026-09-07) that startup sweep reads the WHOLE root namespace in one bare
 #             `tc qdisc show` and classifies what it finds -- link end, host-facing port, or a
@@ -23,14 +23,13 @@
 # tests/test_NetemLinkFault.cpp (ResidualNetemSweepTest).
 #
 # WHAT THE DEFECT WAS -- and this one was MEASURED ON A LIVE FABRIC, not reasoned about
-#   Branch fix/w8-declared-link-failure-sticky made a declared link failure survive a topology
+#   The first fix made a declared link failure survive a topology
 #   poll. It did not make one survive the CONTROL PLANE RESTARTING. Arm lw8b, 2026-09-07 00:08,
-#   OVS 4 hosts, kernel 37d641fa9fd6fc14 built from 017c060f
-#   (scratch/overnight-2026-09-05/logs/live-round2-console.log):
+#   OVS 4 hosts, kernel 37d641fa9fd6fc14 built from 017c060f:
 #
 #     00:08:44  declare s1:1 -> s5:1                 is_up=False down_reason=declared
 #     00:08:47  Ryu killed by pid, :8080 closed      still is_up=False down_reason=declared
-#     00:08:54  Ryu restarted with the SAME argv     ryu2.log "Link added: ..." per link
+#     00:08:54  Ryu restarted with the SAME argv     Ryu logs "Link added: ..." per link
 #     00:08:53+ kernel.log                           one POST /ndt/link_recovery_detected per link
 #     00:09:04  t+10 s through t+90 s                is_up=True down_reason=none, 9 of 9 samples
 #
@@ -60,7 +59,7 @@
 #           outage a licence to withdraw a declaration;
 #         * a dpid guard that refuses everything passes every W8-7 case above;
 #         * a startup sweep that CLEARS what it finds destroys the fault campaign it started
-#           underneath, which is the exact thing Adam ruled against;
+#           underneath, which is the exact thing that was ruled out;
 #         * a sweep that reports every netem in the root namespace fires on the operator's own
 #           wifi and docker bridge, and a warning that fires on a laptop stops being read.
 #
@@ -168,7 +167,7 @@ add_anchor "inject-spend"  "$TFM" '    eprop.declaredDown = false;
     // Spent as well: an operator taking an injection back ends the episode, so a recovery report'
 add_anchor "inject-report" "$TFM" '    eprop.declaredDown = false;
     // Spent as well: an operator taking an injection back ends the episode, so a recovery report
-    // arriving afterwards must not find a report left over to pair with. W8b.
+    // arriving afterwards must not find a report left over to pair with.
     eprop.failureReported = false;'
 add_anchor "obs-down"      "$TFM" '    (*m_graph)[e].isUp = false;
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "setEdgeDown {}", (*m_graph)[e].isUp);'
@@ -182,7 +181,7 @@ add_anchor "sweep-warn"    "$TFM" '    if (!found.empty())'
 add_anchor "sweep-scope"   "$TFM" '        const auto dst = boost::target(ed, *m_graph);
         const auto& sp = (*m_graph)[src];
         // Both ends must be switches: a host edge has no Mininet switch interface at its far end,
-        // and since W8-7 no link endpoint can address one anyway.
+        // and no link endpoint can address one anyway.
         if (sp.vertexType != VertexType::SWITCH ||
             (*m_graph)[dst].vertexType != VertexType::SWITCH || sp.bridgeNameForMininet.empty())'
 add_anchor "sweep-comment" "$TFM" '    // Read once each: both walk the graph under a shared lock, and asking twice would be answering'
@@ -433,8 +432,8 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 # ================================================================================================
 
 # M1. 🔴 W8-2, THE DEFECT EXACTLY AS THE lw8b ARM MEASURED IT. The pairing rule is gone and every
-#     recovery report withdraws whatever it lands on -- which is what branch
-#     fix/w8-declared-link-failure-sticky does, so this mutant is that branch's behaviour.
+#     recovery report withdraws whatever it lands on -- which is what the first fix did, so
+#     this mutant is that fix's behaviour.
 mutate "the defect verbatim: any recovery report withdraws any declaration (= w8 branch)" \
     "$TFM" \
     '    if (!eprop.failureReported && eprop.declaredDown)' \
@@ -456,7 +455,7 @@ mutate "the notification path never records that the break was reported" \
 
 # M3. 🔴 The wire half of the same thing: /ndt/link_failure_detected calls the INJECTION writer, so
 #     a break Ryu reported is indistinguishable from an operator's injection and its own recovery
-#     can no longer withdraw it. This is the call HttpSession made before W8b.
+#     can no longer withdraw it. This is the call HttpSession made before the fix.
 mutate "the notification endpoint records an injection instead of a reported failure" \
     "$HS" \
     '    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());' \
@@ -478,7 +477,7 @@ mutate "the injection withdrawal leaves a report behind for the next episode" \
     "$TFM" \
     '    eprop.declaredDown = false;
     // Spent as well: an operator taking an injection back ends the episode, so a recovery report
-    // arriving afterwards must not find a report left over to pair with. W8b.
+    // arriving afterwards must not find a report left over to pair with.
     eprop.failureReported = false;' \
     '    eprop.declaredDown = false;
     // [mutant] the report outlives the episode it belonged to' \
@@ -529,7 +528,7 @@ mutate "the guard is missing from /ndt/inject_link_failure alone" \
     }' \
     DeclaredLinkFailureWireTest.EveryLinkEndpointRefusesAHostEdgeAddressedByDpidZero
 
-# M8. 🔴 W8-4, THE RULING'S OWN MUTATION: the WARN is removed. The sweep still runs and still
+# M8. 🔴 THE WARN DECISION'S OWN MUTATION: the WARN is removed. The sweep still runs and still
 #     returns what it found, so nothing but the log line changes -- which is the whole deliverable.
 mutate "the startup sweep finds the netem and says nothing" \
     "$TFM" \
@@ -622,7 +621,7 @@ mutate "the classifier calls a host-facing port a link end" \
     '        const auto dst = boost::target(ed, *m_graph);
         const auto& sp = (*m_graph)[src];
         // Both ends must be switches: a host edge has no Mininet switch interface at its far end,
-        // and since W8-7 no link endpoint can address one anyway.
+        // and no link endpoint can address one anyway.
         if (sp.vertexType != VertexType::SWITCH ||
             (*m_graph)[dst].vertexType != VertexType::SWITCH || sp.bridgeNameForMininet.empty())' \
     '        const auto& sp = (*m_graph)[src];
@@ -630,7 +629,7 @@ mutate "the classifier calls a host-facing port a link end" \
     ResidualNetemSweepTest.TheSweepCoversBothEndsOfEverySwitchToSwitchLinkAndNothingElse \
     ResidualNetemSweepTest.NetemOnAHostFacingPortIsFoundAndSaidToBeHostFacing
 
-# M17. 🔴 THE OVER-CORRECTION ADAM RULED AGAINST BY NAME: the sweep cleans up what it finds. A
+# M17. 🔴 THE OVER-CORRECTION THAT WAS RULED OUT BY NAME: the sweep cleans up what it finds. A
 #      kernel that removed netem at startup silently destroys the fault campaign it started
 #      underneath, and tools/test_workflow/faults.sh is entitled to have netem on an interface.
 #      🆕 Since E-20 the sweep also sees host-facing and unfamiliar interfaces, so this mutant
@@ -653,13 +652,12 @@ mutate "the startup sweep runs tc on a non-MININET deployment" \
     ResidualNetemSweepTest.ATestbedDeploymentRunsNoTcAtAll
 
 # ================================================================================================
-#   E-22 / WAKEUP.md 3-52: the recovery log has to carry the outcome. Direction 1, added
-#   2026-09-07 and numbered AFTER M18 on purpose, so M1..M18 keep meaning what RED-GREEN.md and
-#   the R2 summary already say they mean.
+#   The recovery log has to carry the outcome. Direction 1, added
+#   2026-09-07 and numbered AFTER M18 on purpose, so M1..M18 keep meaning what they have always meant.
 # ================================================================================================
 
-# M19. 🔴 3-52 VERBATIM. The line goes back in front of findEdgeBySrcAndDstDpid and in front of the
-#      pairing rule, which is where it sat until this ticket: a declined report, an applied one and
+# M19. 🔴 VERBATIM. The line goes back in front of findEdgeBySrcAndDstDpid and in front of the
+#      pairing rule, which is where it sat until this fix: a declined report, an applied one and
 #      one naming an edge the graph does not hold all log `link recovered on 1:1 -> 5:1` again.
 #      Measured on arm lw8b2 (2026-09-07): 04:33:37.198 DECLINED and 04:33:38.131 APPLIED are
 #      byte-identical lines. The outcome-carrying line at the bottom is left in place, because that
@@ -845,10 +843,10 @@ mutate "the classification calls every finding a link end" \
     ResidualNetemSweepTest.NetemOnAnInterfaceThisTopologyDoesNotNameIsReportedAsUnknown \
     ResidualNetemSweepTest.TheWarningSeparatesTheThreeKindsAndCountsThem
 
-# M24. 🔴 THE READ GOES BACK TO THE PER-DEVICE FORM, and this is the mutation the whole ticket
+# M24. 🔴 THE READ GOES BACK TO THE PER-DEVICE FORM, and this is the mutation the whole fix
 #      turns on: `tc qdisc show dev X` can only ask about a name the caller already has, so a sweep
 #      built on it cannot see an interface the graph does not name, no matter how it classifies.
-#      It is also the ONLY form the sudoers grant covers, so the pull back to it is real.
+#      It is also the ONLY form the tc sudoers rules name, so the pull back to it is real.
 #      Note the fake tc answers any `show` with the same tree, so the findings are IDENTICAL here
 #      -- only a case that reads the argv can tell this apart from the fix.
 mutate "the sweep reads one device at a time again" \
@@ -874,9 +872,8 @@ mutate "the sweep reports every netem on the machine, not just this fabric's" \
     ResidualNetemSweepTest.NetemOutsideThisFabricsInterfaceShapeIsNotReported
 
 # ================================================================================================
-#   doc/KNOWN-ISSUES.md B-16 (2026-09-11, branch fix/link-recovery-only-detaches-its-own-netem).
-#   MEASURED BY ROLE-1 ON A LIVE OVS FABRIC, 3 reproductions of 3 plus 2 of 2 for the second half
-#   (scratch/overnight-2026-09-05/hunt-0911/ROLE-1-A1-REPORT.md):
+#   doc/KNOWN-ISSUES.md B-16 (2026-09-11).
+#   MEASURED ON A LIVE OVS FABRIC, 3 reproductions of 3 plus 2 of 2 for the second half:
 #
 #     POST /ndt/inject_link_recovery, link never declared down, `netem 8021:` on s1-eth1 left by
 #     somebody else  ->  `qdisc del dev s1-eth1 root`, 200 {"ok":true,"detached_at":"root"}
@@ -889,7 +886,7 @@ mutate "the sweep reports every netem on the machine, not just this fabric's" \
 #   mutation below is a way of going back to treating one answer as the other.
 # ================================================================================================
 
-# M26. 🔴 THE FINDING VERBATIM, and the mutation the ticket named: the 409 never fires, so a
+# M26. 🔴 THE FINDING VERBATIM, and the mutation that was named: the 409 never fires, so a
 #      recovery for a link nobody declared down deletes whatever netem is on it and says ok.
 # 🔴 `if (false)` would leave `const bool declared` unread, and -Werror makes a mutant that does
 #      not compile a SURVIVOR here (it was, on the first run of these additions). The condition is

@@ -26,7 +26,7 @@ The CLI and P4Runtime disagree in three places, and each is translated rather th
   * PRIORITY. In bmv2 the LOWER number wins and 0 is allowed; in P4Runtime the HIGHER number
     wins (spec 9.1) and a ternary/range table needs 1..2^31-1. bmv2's P4Runtime server stores a
     P4Runtime priority p as bmv2 priority 2^31-1-p (measured 2026-10-16 on both bmv2 builds,
-    doc/audit/2026-10-16_p4-paper-apps/offline_int_v1.py), so the translation is the exact
+    with the offline INT app), so the translation is the exact
     inverse: CLI priority c -> P4Runtime 2^31-1-c, and bmv2 then holds c itself -- the number
     the app's own script would have left there. c must be 0..2^31-2 (2^31-1 would map to
     P4Runtime 0, which a ternary table refuses). Because bmv2 holds the CLI's own numbers, CLI

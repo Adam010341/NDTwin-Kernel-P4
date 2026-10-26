@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #61, #62, #89, #90 and #91 -- a topology file that names a switch it
+# Mutation gate for topology-file validation -- a topology file that names a switch it
 # does not contain, a port a switch cannot have, a node nothing can address, or a data plane this
 # build cannot drive, must be refused at load, and refused whole.
 #
@@ -33,16 +33,16 @@
 #
 # 🔴 E-26 (M31-M33, 2026-09-07) REVERSES A DECISION THIS GATE MADE THE SAME DAY. BUG-17 refused a
 # data-plane MIXTURE and deliberately left "no switches at all" loading, with M31 as the mutation
-# pinning that boundary. Adam ruled the other way hours later (grill Section 4E, E-26, against the
+# pinning that boundary. The decision went the other way hours later (2026-09-07, against the
 # recommendation), so M31 now mutates in the opposite direction and its case was renamed. Anyone
 # quoting an M31 result must check which side of 2026-09-07 it came from. E-26 is a two-layer fix
 # like #61's, so its restoration is a mutate2 -- see section 5f.
 #
-# 🔴 W15-2 (M25-M27, added 2026-09-07) REVERSES HALF OF #91 BY RULING, so this gate now measures
+# 🔴 M25-M27 (added 2026-09-07) REVERSE HALF OF THE BRAND CHECK BY DECISION, so this gate now measures
 # a door that is deliberately narrower than it was yesterday: an unrecognised brand is admitted
 # when the node declares an explicit, legal `switch_kind`, and the switch is marked
 # power_path/telemetry_path "none" in the graph. The mark is not a detail -- it is the condition
-# the ruling came with, it is what M27 exists for, and a gate that only measured "the file loads"
+# the decision came with, it is what M27 exists for, and a gate that only measured "the file loads"
 # would pass a fix that had quietly restored #91's silent fallback. See section 5e.
 #
 # 🔴 #91 (M21-M24, added 2026-09-06) IS THE SAME ROUND'S bad file `c`, and it WAS measured:
@@ -55,9 +55,9 @@
 #   #61  An edge whose dpid matched no switch node was dropped. One `[warning] Skipping edge:`
 #        line, and the graph went on to be served: measured on :8000 against the shipped P4
 #        4-host topology with one field changed, 40 edges in and **39** out, every endpoint 200
-#        (round5-topology-repro/03_mutant_m1_host_edge_ghost_dpid.log).
+#        (reproduced with mutant M1, a host edge naming a ghost dpid).
 #   #62  `src_interface` 0 and 999999 passed with no range check at all and were republished
-#        verbatim by get_graph_data (06_/07_mutant logs).
+#        verbatim by get_graph_data (reproduced by putting the defect back).
 #
 # 🔴 TWO DIRECTIONS, AND THE SECOND ONE IS WHY THIS GATE IS NOT JUST #61's AND #62's.
 #   1. RESTORING either defect must be caught             (M1-M7)
@@ -196,7 +196,7 @@ add_anchor "iface-floor"    "$TFM" '        if (dpid != 0 && ifIndex == 0)'
 add_anchor "max-constant"   "$TFM" 'constexpr std::uint32_t kMaxTopologyInterface = 65535;'
 add_anchor "builder-refuse" "$TFM" '        if (!srcVertexOpt.has_value() || !dstVertexOpt.has_value())'
 add_anchor "gate-comment"   "$TFM" '    // The endpoints, indexed exactly the way the edge loop below resolves them: switches by'
-# FINDINGS #89 / W-TOPO-THREE-DOORS. All five are in validateStaticTopologyJson and none of them
+# The node-side refusals. All five are in validateStaticTopologyJson and none of them
 # is in the builder loop, deliberately: the builder still carries its own copy of the three door-3
 # refusals as a backstop, and a gate that mutated THAT copy would be measuring the backstop.
 add_anchor "door3a-kind"    "$TFM" '            (void)switchKindFromString(nodeJson.at("switch_kind").get<std::string>());'
@@ -205,7 +205,7 @@ add_anchor "door3c-mode"    "$TFM" '        if (mode == utils::DeploymentMode::M
 add_anchor "door3c-bridge"  "$TFM" '            !(nodeJson.contains("bridge_name") && nodeJson.at("bridge_name").is_string()))'
 add_anchor "door2-range"    "$TFM" '                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))'
 
-# FINDINGS #90 door 3d -- the HOST half of door 3b. Four anchors: the door itself, and each of
+# Door 3d -- the HOST half of door 3b. Four anchors: the door itself, and each of
 # the three faults it names separately, because "refused" and "refused in a sentence" are two
 # different claims and only the second one is red before this fix for two of the three.
 add_anchor "door3d-host"    "$TFM" '        if (vertexType == VertexType::HOST)'
@@ -213,7 +213,7 @@ add_anchor "door3d-nokey"   "$TFM" '            if (!nodeJson.contains("ip"))'
 add_anchor "door3d-notarr"  "$TFM" '            else if (!nodeJson.at("ip").is_array())'
 add_anchor "door3d-empty"   "$TFM" '            else if (nodeJson.at("ip").empty())'
 
-# FINDINGS #91 door 3e -- an unknown switch brand_name.
+# Door 3e -- an unknown switch brand_name.
 add_anchor "door3e-switch"  "$TFM" '        if (vertexType == VertexType::SWITCH)
         {
             if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()))'
@@ -228,7 +228,7 @@ add_anchor "door3e-message" "$TFM" '                    ". An unrecognised brand
 # itself, the predicate that decides it, and the line that writes the mark onto the vertex. The
 # mark has its own anchor because "the file loads" and "and the twin admits it cannot drive this
 # switch" are two claims, and a fix that made only the first one true would be #91's silent
-# fallback wearing a ruling.
+# fallback dressed up as the exemption.
 add_anchor "w15b-exempt"    "$TFM" '                !declaresLegalSwitchKind(nodeJson))'
 add_anchor "w15b-presence"  "$TFM" '            if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()))'
 add_anchor "w15b-predicate" "$TFM" '    if (!(nodeJson.contains("switch_kind") && nodeJson.at("switch_kind").is_string()))'
@@ -611,7 +611,7 @@ mutate "the ceiling is narrowed to the fleet's observed maximum" \
     TopologyInputValidationTest.TheLargestInRangeInterfaceIsAccepted
 
 # ================================================================================================
-#    FINDINGS #89 / W-TOPO-THREE-DOORS -- the other input paths, added 2026-09-05
+#    the other input paths, added 2026-09-05
 #
 # 🔴 EVERY ONE OF THESE MUTATES ONLY THE VALIDATOR'S COPY, NEVER THE BUILDER'S. The builder still
 # throws on all three door-3 conditions and that is deliberate (two layers, same as M2's), so the
@@ -636,7 +636,7 @@ mutate "door 3a: a malformed switch_kind is refused by the builder again, not by
     '            (void)0;' \
     TopologyInputValidationTest.AMalformedSwitchKindLeavesNoPartiallyLoadedGraph
 
-# M11. Door 3b: FINDINGS #85's door back where it was. This is the sharpest case in the file --
+# M11. Door 3b: the old door back where it was. This is the sharpest case in the file --
 #      the refusal still happens, from TopologyAndFlowMonitor.cpp's builder loop, so a suite
 #      asserting only `threw` stays entirely green on it.
 mutate "door 3b: an addressless switch is refused by the builder again, not by the validator" \
@@ -697,7 +697,7 @@ mutate "door 2: the host side's port-0 exemption is transplanted onto ecmp membe
     TopologyInputValidationTest.AZeroEcmpPortIdIsRefusedAtLoad
 
 # ================================================================================================
-# 5c. FINDINGS #90 -- door 3d, the HOST half of door 3b (M17-M20, added 2026-09-06)
+# 5c. Door 3d, the HOST half of door 3b (M17-M20, added 2026-09-06)
 #
 # 🔴 THIS DOOR IS MEASURED DIFFERENTLY AGAIN, AND IN TWO DIFFERENT WAYS AT ONCE.
 #   - The EMPTY ARRAY was measured live: R0b (2026-09-05, kernel 862c4bf8) loaded a host with
@@ -730,13 +730,12 @@ mutate "door 2: the host side's port-0 exemption is transplanted onto ecmp membe
 #
 #      🔴 THE SIXTH CASE IS IN ANOTHER SUITE, AND UNTIL 2026-09-11 THIS GATE NEVER RAN IT.
 #      AddresslessHostLoadTest.AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad was FLIPPED when
-#      fix/w3-door3b-host-empty-ip was merged on 2026-09-10: it had asserted the OPPOSITE
+#      door 3b was merged on 2026-09-10: it had asserted the OPPOSITE
 #      ("...IsAcceptedAndReachesTheGraph"), because before this door an unattached address-less
 #      host really did reach the graph and was served as `('h9', [])` on :8000.
-#      doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 2.1.1 records
-#      the flip AND records that tests/shell/ then held no gate and no anchor naming that test --
-#      grep, zero hits, re-confirmed zero on 2026-09-11 before this line was added. R4-CPPGATES-2
-#      section 2.3b had to apply THIS MUTATION BY HAND to see the case red once. A test whose only
+#      The flip left tests/shell/ with no gate and no anchor naming that test -- grep, zero hits,
+#      re-confirmed zero on 2026-09-11 before this line was added -- so the case had only been seen
+#      red by applying THIS MUTATION BY HAND once. A test whose only
 #      red was a hand run is not wired (tests/shell/README.md, "Before you call a new gate wired"),
 #      so the name is now on the list below and the verdict is this gate's.
 #
@@ -786,7 +785,7 @@ mutate "door 3d demands exactly one address (the five _ipAlias4_ files give four
     TopologyInputValidationTest.AHostWithMoreThanOneAddressStillLoads
 
 # ================================================================================================
-# 5d. FINDINGS #91 / W15 -- door 3e, a brand_name this build has no data plane for (M21-M24,
+# 5d. Door 3e, a brand_name this build has no data plane for (M21-M24,
 #     added 2026-09-06)
 #
 # 🔴 THE DEFECT WAS NOT SILENCE, IT WAS A REFUSAL THAT DID NOT REFUSE. R0b measured an unknown
@@ -882,12 +881,12 @@ mutate "door 3e: the refusal suggests ALLOW_MIXED_DATAPLANE again" \
 # ================================================================================================
 # 5e. W15-2 -- the switch_kind exemption, and the mark it costs (M25-M27, added 2026-09-07)
 #
-# 🔴 THIS HALF REVERSES #91, SO IT HAS TO BE MEASURED IN BOTH DIRECTIONS AT ONCE. Adam ruled on
+# 🔴 THIS HALF REVERSES #91, SO IT HAS TO BE MEASURED IN BOTH DIRECTIONS AT ONCE. It was decided on
 # 2026-09-06 that a node declaring an explicit, legal `switch_kind` is admitted even when its
 # `brand_name` is one this build cannot drive -- and that such a machine must be marked in the
 # graph as one whose power and telemetry nobody manages. Two mutations for the two ways to get
 # that wrong, and they are opposites:
-#   - the exemption is gone      (M25) -- the ruling is not implemented, the Cisco operator is
+#   - the exemption is gone      (M25) -- the decision is not implemented, the Cisco operator is
 #                                         still editing C++
 #   - the exemption is unconditional (M26) -- #91 is undone: every unrecognised brand is admitted
 #                                         again, which is the measured defect verbatim
@@ -895,7 +894,7 @@ mutate "door 3e: the refusal suggests ALLOW_MIXED_DATAPLANE again" \
 #   - the switch is admitted but NOT marked (M27) -- the graph says a switch this build has no
 #                                         OID, no login and no plug logic for has a power path.
 #     🔴 M27 IS THE ONE THAT MATTERS. A reviewer reading "the file loads now" would call M25/M26
-#     the subject of this ruling; the half that is easy to lose is the half nobody sees fail,
+#     the subject of this decision; the half that is easy to lose is the half nobody sees fail,
 #     because a wrong mark on a switch that loads fine looks exactly like a right one.
 #
 # ⚠️ declaresLegalSwitchKind's OWN strictness (key present, a string, a value switchKindFromString
@@ -906,7 +905,7 @@ mutate "door 3e: the refusal suggests ALLOW_MIXED_DATAPLANE again" \
 # ================================================================================================
 
 # M25. The exemption is removed: an explicit switch_kind no longer admits an unrecognised brand.
-#      The ruling undone, back to #91's cost.
+#      The decision undone, back to #91's cost.
 mutate "W15-2: an explicit switch_kind no longer exempts an unrecognised brand" \
     "$TFM" \
     '                !declaresLegalSwitchKind(nodeJson))' \
@@ -917,7 +916,7 @@ mutate "W15-2: an explicit switch_kind no longer exempts an unrecognised brand" 
     TopologyInputValidationTest.TheStaticTopologyEndpointPublishesTheUnmanagedMark
 
 # M26. 🔴 THE EXEMPTION SPREADS TO THE OTHER HALF OF DOOR 3E: a node that declares a switch_kind
-#      is let past the `brand_name` PRESENCE check as well. It reads like the same ruling applied
+#      is let past the `brand_name` PRESENCE check as well. It reads like the same decision applied
 #      consistently, and it is not: the builder reads brand_name with at(), so a node without one
 #      throws a raw nlohmann exception from a line further down -- the "the message is an
 #      exception class, not a sentence" defect doors 3c/3d/3e were each written to remove.
@@ -955,18 +954,18 @@ mutate "W15-1(b): the power manager branches on a brand literal the loader refus
 # ================================================================================================
 # 5f. BUG-17 + E-26 -- how many data planes a topology file may declare (M29-M33, added 2026-09-07)
 #
-# 🔴 THE DEFECT WAS A DISCARDED RETURN VALUE, AND IT WAS MEASURED ON :8000. R6 (2026-09-05,
-# run-06-opus/BUGS.md) built a mixed model, got an ERROR line naming both dpid sets, and then
+# 🔴 THE DEFECT WAS A DISCARDED RETURN VALUE, AND IT WAS MEASURED ON :8000. R6 (2026-09-05)
+# built a mixed model, got an ERROR line naming both dpid sets, and then
 # `nodes 14 edges 40` off a live :8000. validateDataPlaneHomogeneity returned a bool;
 # parseStaticTopologyFile called it as a statement. Three shipped pages said the kernel "refuses
 # to load" such a file.
 #
-# 🔴 M31 WAS INVERTED ON 2026-09-07, HOURS AFTER IT WAS WRITTEN, BY RULING -- AND THE INVERSION IS
+# 🔴 M31 WAS INVERTED ON 2026-09-07, HOURS AFTER IT WAS WRITTEN, BY DECISION -- AND THE INVERSION IS
 # THE POINT OF READING THIS SECTION CAREFULLY. BUG-17 refused a MIXTURE and deliberately left "no
 # switches at all" as a log line, on the stated grounds that widening the refusal to cover it would
-# be a policy change nobody had ruled on; M31 was the mutation holding that line (`> 1` written as
-# `!= 1` had to go RED). Adam then ruled the other way (grill Section 4E, E-26,
-# scratch/overnight-2026-09-05/DECISIONS.md:266, explicitly against the recommendation): a
+# be a policy change nobody had decided; M31 was the mutation holding that line (`> 1` written as
+# `!= 1` had to go RED). The decision then went the other way (2026-09-07, explicitly against the
+# recommendation): a
 # switchless topology is refused too, through the same door. So M31 now mutates in the opposite
 # direction -- it takes E-26's door out and leaves BUG-17's `> 1` exactly as it shipped -- and the
 # case it names was renamed and reversed with it. W8 did not move: it still proves these cases
@@ -1015,7 +1014,7 @@ mutate "BUG-17: ALLOW_MIXED_DATAPLANE no longer admits a mixed topology" \
 #      TAKES TWO SITES -- the M2 situation again. E-26 refuses a switchless document in
 #      validateStaticTopologyJson AND widened the builder's backstop from `> 1` to `!= 1`. Removing
 #      only the first leaves the second still refusing (that is M32, below), so a one-site edit
-#      cannot restore `fix/bug17-mixed-dataplane-refused`@0f79d44f and reporting it as though it
+#      cannot restore 0f79d44f (the mixed-data-plane refusal) and reporting it as though it
 #      could would be the gate flattering its own subject. With both edits the mutant IS 0f79d44f:
 #      a document with hosts and no switch loads, and :8000 answers about a fabric of zero
 #      switches. The red is on `threw`.
@@ -1484,20 +1483,20 @@ printf '  %d widenings, %d wrongly caught\n' "$WIDENINGS" "$WIDENINGS_CAUGHT"
 
 if [[ "$ok" != 1 ]]; then exit 2; fi
 if (( SURVIVORS > 0 || WIDENINGS_CAUGHT > 0 )); then exit 1; fi
-echo "  FINDINGS #61/#62 gate: neither defect can be put back by any of seven routes -- including"
+echo "  switch-reference and port-range gate: neither defect can be put back by any of seven routes -- including"
 echo "  the two-layer restoration of the measured 40 -> 39 -- a range check that refuses the host"
 echo "  side's documented port 0 or the fleet's port 1 is caught, and three behaviour-preserving"
 echo "  edits were left alone."
-echo "  FINDINGS #89 gate: none of the three node-side refusals can be pushed back into the builder"
+echo "  node-side gate: none of the three refusals can be pushed back into the builder"
 echo "  loop without a case going red on vertices == 0 while threw stays true, moving the"
 echo "  bridge_name check to the wrong mode is caught by the shipped fleet, the ecmp port_id bound"
 echo "  cannot lose either end, and the host side's port-0 exemption cannot be transplanted onto"
 echo "  ecmp members -- while writing the same bound as a literal stays green."
-echo "  FINDINGS #90 gate: door 3d cannot be switched off, neither of its two plain-language arms"
+echo "  door 3d gate: it cannot be switched off, neither of its two plain-language arms"
 echo "  can quietly fall back to a raw nlohmann exception, and it cannot narrow to 'exactly one"
 echo "  address' without the five _ipAlias4_ files saying so -- while spelling the emptiness test"
 echo "  a different way stays green. Since 2026-09-11 M17 also reddens the case that flipped when"
-echo "  fix/w3-door3b-host-empty-ip was merged -- AddresslessHostLoadTest"
+echo "  door 3b was merged -- AddresslessHostLoadTest"
 echo "  .AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad, which no gate named before that date -- while"
 echo "  its two siblings in that suite stay green through the same edit."
 echo "  BUG-17 + E-26 gate: a mixed data plane cannot be reported-and-loaded again, the opt-in"
@@ -1521,7 +1520,7 @@ echo "  b5-loose.json needs both of them gone before it loads again; an edge's a
 echo "  stop being checked for spelling; and door 7 cannot be switched off, nor widened over door"
 echo "  3d -- while writing the bandwidth floor as < 1, the vertex_type range as a floor and a"
 echo "  ceiling, and the duplicate refusal in different words all stay green."
-echo "  FINDINGS #91 gate: an unknown brand_name cannot be admitted again, the refusal cannot"
+echo "  door 3e gate: an unknown brand_name cannot be admitted again, the refusal cannot"
 echo "  start suggesting ALLOW_MIXED_DATAPLANE, the accepted list cannot be applied to hosts, and"
 echo "  it cannot lose a hardware model without both the shipped fleet and the brand-drift"
 echo "  tripwire saying so -- while writing the membership test as none_of stays green."

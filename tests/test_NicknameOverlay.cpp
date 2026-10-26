@@ -1,12 +1,12 @@
 /**
- * W10: renaming a device must not write the model file at all, and the name must come back
- * after a restart.
+ * Renaming a device must not write the model file at all, and the name must come back after a
+ * restart.
  *
  * [Co-developed with claude code -- Adam]
  *
  * WHERE THIS CAME FROM, in two measurements a night apart.
  *
- * OV-1, 2026-09-04: one POST /ndt/modify_nickname produced a 3998-insertion /
+ * 2026-09-04: one POST /ndt/modify_nickname produced a 3998-insertion /
  * 3998-deletion diff on setting/StaticNetworkTopologyMininet_10Switches.json -- a file the
  * repository tracks -- with the JSON semantically identical, because the writer read the
  * document into an `nlohmann::json` (default ObjectType std::map) and wrote every object back
@@ -15,7 +15,7 @@
  * asserted exactly that: "changes one line, and one line only".
  *
  * 2026-09-05, on a live OVS fabric, that turned out not to be enough, and the reason is not a
- * bug in the OV-1 fix. `ndt status --check` compares the model file's sha256 against the one
+ * bug in that fix. `ndt status --check` compares the model file's sha256 against the one
  * recorded by the `ndt up` that loaded it (tools/test_workflow/ndt:2239-2255). A sha256 does
  * not count lines. One nickname change, a two-line diff, `--check` rc=1 and "the topology file
  * has been edited since the ndt up that loaded it". The same run carried two controls proving
@@ -24,7 +24,7 @@
  * "The rename touches one line" and "--check stays green" are not simultaneously reachable
  * while the kernel writes that file at all.
  *
- * Adam's decision, 2026-09-05 18:1x: an overlay outside setting/, `--check` does not look at
+ * The design (2026-09-05): an overlay outside setting/, `--check` does not look at
  * it, the kernel lays it back on at startup, and the model files become read-only to the
  * kernel. This suite is the kernel half of that. The `ndt status --check` half is
  * tests/shell/test_ndt_status_check_baseline.sh group 9.
@@ -396,7 +396,7 @@ TEST_F(NicknamePersistenceTest, AModifyNicknameLeavesTheTopologyFileByteIdentica
 
     // 🔴 The whole file, byte for byte -- not "one line differs". A sha256 is what
     // `ndt status --check` compares, and one byte is one byte to it. This assertion is the
-    // one the OV-1-era test could not make.
+    // one the earlier test could not make.
     EXPECT_EQ(firstDifference(files.original(), files.topologyNow()), "same")
         << "the kernel wrote the model file; W10 is that it must not touch it at all";
 }
@@ -417,7 +417,7 @@ TEST_F(NicknamePersistenceTest, AModifyDeviceNameLeavesTheTopologyFileByteIdenti
 
 TEST_F(NicknamePersistenceTest, TheMininetTopologyKeepsItsBytesToo)
 {
-    // The file OV-1 was first observed on, and the one that does NOT end in a newline -- the
+    // The file the rewrite was first observed on, and the one that does NOT end in a newline -- the
     // byte a line-by-line comparison cannot see and a sha256 can.
     TempFabricFiles files(kMininetTopology);
     LoadedFabric fabric(files.topologyPath());
@@ -429,10 +429,10 @@ TEST_F(NicknamePersistenceTest, TheMininetTopologyKeepsItsBytesToo)
 
 TEST_F(NicknamePersistenceTest, EveryShippedTopologySurvivesARenameByteForByte)
 {
-    // Before W10 this could only be asserted as "at most one line differs", and only nine of
-    // the thirteen shipped files could round-trip byte-identically at all: four legacy
-    // `_ipAlias4_*` testbed files carry hand-left blank lines inside their arrays, which no
-    // JSON serialiser reproduces. With the writer gone the exception is gone with it, so this
+    // Before the writer was removed this could only be asserted as "at most one line differs",
+    // and only nine of the thirteen shipped files could round-trip byte-identically at all: four
+    // legacy `_ipAlias4_*` testbed files carry hand-left blank lines inside their arrays, which
+    // no JSON serialiser reproduces. With the writer gone the exception is gone with it, so this
     // is now 13 of 13 rather than 9 of 13, and it is stated as an equality per file.
     int examined = 0;
     for (const auto& entry : std::filesystem::directory_iterator(settingDir()))
@@ -496,8 +496,8 @@ TEST_F(NicknamePersistenceTest, TheDeviceNameGoesToTheSameEntryAndDoesNotEvictTh
 
 TEST_F(NicknamePersistenceTest, AHostIsKeyedByItsMacAndNotByItsDpid)
 {
-    // 🔴 The reason the overlay is not the flat {"<dpid>": "<nickname>"} map the ticket
-    // sketched: EVERY host node in EVERY shipped topology has "dpid": 0, and hosts are
+    // 🔴 The reason the overlay is not a flat {"<dpid>": "<nickname>"} map:
+    // EVERY host node in EVERY shipped topology has "dpid": 0, and hosts are
     // reachable through modify_nickname's "mac" and "name" identifiers. A dpid-keyed overlay
     // collapses all four hosts of an ovs4 fabric onto the key "0", and renaming one would
     // rename all of them at the next start. This case fails on any such writer.
@@ -521,7 +521,7 @@ TEST_F(NicknamePersistenceTest, AHostIsKeyedByItsMacAndNotByItsDpid)
 
 TEST_F(NicknamePersistenceTest, AFreshLoadPicksTheNicknameBackUp)
 {
-    // 🔴 This is the case that separates W10 from "stop writing the file". Rename, throw the
+    // 🔴 This is the case that separates the overlay from "stop writing the file". Rename, throw the
     // whole monitor away, load the same untouched model file again: the name must come back.
     TempFabricFiles files(kP4Topology);
     uint64_t dpid = 0;
@@ -652,7 +652,7 @@ TEST_F(NicknamePersistenceTest, AnUnreadableOverlayDoesNotStopTheTopologyFromLoa
 
 TEST_F(NicknamePersistenceTest, AnOverlayEntryForAnAbsentDeviceIsIgnoredRatherThanMisapplied)
 {
-    // The case the ticket calls for by name: an entry whose dpid is not in this topology is
+    // The orphan case: an entry whose dpid is not in this topology is
     // one warning line and no throw. The second assertion is the one that matters -- the
     // orphan entry must not land on some other device.
     TempFabricFiles files(kP4Topology);

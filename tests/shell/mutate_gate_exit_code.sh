@@ -122,13 +122,13 @@ report "run_gate stops writing the gate output to the log" "case 4"
 perl -0pi -e 's/^set -u$/set -uo pipefail/m' "$GATES"
 report "gates_e.sh gains pipefail" "case 3b"
 
-# [Co-developed with claude code -- Adam] 5. (the opus judge's NOTE C on 1d5180ce, 09-27) lib_e.sh stops
+# [Co-developed with claude code -- Adam] 5. (09-27) lib_e.sh stops
 #    dropping an inherited NDT_SAMPLING_RAW_DIR: an operator who sourced round.env and then exported it
 #    would have gates_e.sh's gates judge another directory's cells.
 perl -0pi -e 's/^unset NDT_SAMPLING_RAW_DIR\n//m' "$LIB"
 report "lib_e.sh keeps an inherited NDT_SAMPLING_RAW_DIR" "case 6"
 
-# 6. (the judge's NOTE I on 1d5180ce) plot_figures.RAW stops honouring the override, so the gate reads
+# 6. plot_figures.RAW stops honouring the override, so the gate reads
 #    whatever raw/ the tree has -- nothing in a clone (UNRUNNABLE), the real trace here (0.9656):
 #    case 1b is the one check that tells the fixture from either.
 perl -0pi -e 's/RAW = os\.environ\.get\("NDT_SAMPLING_RAW_DIR"\) or os\.path\.join\(HERE, "raw"\)/RAW = os.path.join(HERE, "raw")/' "$PLOT"

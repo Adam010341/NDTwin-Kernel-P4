@@ -4,8 +4,8 @@
 
 WHY THIS FILE EXISTS AND WHAT IT CAN SAY.  The driver's whole job is to start a
 fabric and read what comes back, which is exactly what a test on this machine
-must not do: TICKET-P2 section 0-2 forbids sudo, `ndt up`, Mininet and bmv2 here,
-and live is the orchestrator's to run.  So every fabric is replaced -- the
+must not do: sudo, `ndt up`, Mininet and bmv2 are off limits here,
+and live is run separately.  So every fabric is replaced -- the
 process table, the host namespaces, `ndt`, convert.py and pre-flight are all
 stubs -- and what is left is the part that is a decision rather than a reading:
 
@@ -22,7 +22,7 @@ stubs -- and what is left is the part that is a decision rather than a reading:
 
 🔴 WHAT IT CANNOT SAY: nothing here has run a switch.  Every expectation about
 what bmv2 does with firewall.p4 or link_monitor.p4 is 【源碼推導，未執行】 until
-the orchestrator's live round, and these tests assert only that the driver ASKS
+the live round, and these tests assert only that the driver ASKS
 the question that way.
 
 Run:  p4_proxy/venv/bin/python -m unittest discover \
@@ -49,7 +49,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.join(HERE, "fixtures")
 DEFAULT_DRIVER = os.path.join(os.path.dirname(HERE), "drive_exercise.py")
 DRIVER_PATH = os.path.abspath(os.environ.get("DRIVE_EXERCISE_UNDER_TEST", DEFAULT_DRIVER))
-#: live-p1/_common.sh, the OTHER half of the two-file protocol the driver speaks (§9 ruling 33).
+#: live-p1/_common.sh, the OTHER half of the two-file protocol the driver speaks.
 #: 🔴 REACHED FROM THIS FILE, NEVER FROM `mod.LIVE_COMMON`. The driver computes that from its
 #: own `__file__`, and the mutation gate runs a COPY of the driver in a temp directory -- so
 #: `mod.LIVE_COMMON` there names a path that does not exist, every mutation would be "caught"
@@ -61,7 +61,7 @@ COMMON_SH = os.path.join(os.path.dirname(HERE), "live-p1", "_common.sh")
 def shell_rc(name):
     """The exit code `_common.sh` itself declares for `name`.
 
-    🔴 THE FIXTURE SPEAKS THE SHELL'S PROTOCOL, NOT THE DRIVER'S (§9 ruling 33). A stub that
+    🔴 THE FIXTURE SPEAKS THE SHELL'S PROTOCOL, NOT THE DRIVER'S. A stub that
     took this rc from the module under test would hand the round whatever that module already
     believes -- and "the two files stopped agreeing" is the entire defect this reads for. It
     also makes the red run meaningful against the code BEFORE the fix, where the driver has no
@@ -75,18 +75,18 @@ def shell_rc(name):
 
 #: Every temp dir THIS PROCESS handed out, in order. `TheSuiteLeavesNoLitter` asserts on these
 #: and on nothing else: two copies of this suite running at once (a mutation gate does exactly
-#: that) must not report each other's live directories as leaks (round-3 ruling 4).
+#: that) must not report each other's live directories as leaks.
 MADE_TEMP_DIRS = []
 
 
 def mkdtemp(case, prefix):
     """A temp dir this test OWNS and gives back, registered with the case that made it.
 
-    🔴 THE TESTS FILLED THE ROOT FILESYSTEM (TICKET-P3 section 9 ruling 9, R3). Every cell built
+    🔴 THE TESTS FILLED THE ROOT FILESYSTEM. Every cell built
     a tutorials tree of its own -- a ~50 KB package copy -- and none of them removed it; the
-    2026-09-19 mutation round was 78 mutants x 124 cells, and with the orchestrator's reruns
-    /tmp held 59,679 `drv-*` directories and `/` reached 0 bytes free, which killed worker A's
-    gate and two reruns. A test that leaves its own litter behind is a test that decides whether
+    2026-09-19 mutation round was 78 mutants x 124 cells, and with its reruns
+    /tmp held 59,679 `drv-*` directories and `/` reached 0 bytes free, which killed the gate
+    and two reruns. A test that leaves its own litter behind is a test that decides whether
     somebody else's round finishes.
 
     `addCleanup`, not `tearDown`: it runs even when setUp itself raises half way through, which
@@ -141,7 +141,7 @@ def build_tut_root(root):
                        extra=("basic.p4",))
     make_exercise_tree(root, "link_monitor", "pod-topo/topology.json", "link_monitor.p4",
                        ["h1", "h2", "h3", "h4"], ["s1", "s2", "s3", "s4"], POD_LINKS)
-    # TICKET-P3 §2.7's other nine, at the shapes their own Makefiles and topologies declare.
+    # The other nine exercises, at the shapes their own Makefiles and topologies declare.
     # Only what the driver READS out of a tree is reproduced: the topology the Makefile names,
     # the program the wildcard finds, and solution/.
     make_exercise_tree(root, "basic_tunnel", "topology.json", "basic_tunnel.p4",
@@ -213,7 +213,7 @@ class FakeProc(object):
     """
 
     #: Fake pids, far above /proc/sys/kernel/pid_max's usual 4194304 so that a test which
-    #: mistook one for a real process could never accidentally find one (§9 ruling 31①).
+    #: mistook one for a real process could never accidentally find one.
     _next_pid = 9000001
 
     def __init__(self, out=b"", fh=None, timeout_first=False):
@@ -222,7 +222,7 @@ class FakeProc(object):
         self.out, self.fh = out, fh
         self.fed = None
         #: What the caller passed to communicate(timeout=...): how long it lets this process
-        #: run before killing it (TICKET-P4-roles §7 ruling 7 -- a sender cut at its timeout
+        #: run before killing it (a sender cut at its timeout
         #: loses its tail silently). [Co-developed with claude code -- Adam]
         self.timeout = None
         self.terminated = self.killed = False
@@ -275,8 +275,8 @@ class StubHosts(object):
         self.cmds = []
         self.procs = []
         self.arp_flushes = 0
-        #: What the arm did, in order: "flush" / "pingall" / "ping". 🔴 THE ORDER IS THE POINT
-        #: (§9 ruling 12c): a flush after the pingall is not a flush at all for the pairs whose
+        #: What the arm did, in order: "flush" / "pingall" / "ping". 🔴 THE ORDER IS THE POINT:
+        #: a flush after the pingall is not a flush at all for the pairs whose
         #: expectation depends on cold caches, and a count cannot tell the two apart.
         self.events = []
 
@@ -284,7 +284,7 @@ class StubHosts(object):
         return sorted(self.ips)
 
     def flush_arp(self):
-        """🔴 RECORDED IN ORDER, NOT JUST COUNTED (TICKET-P3 §9 ruling 12c).
+        """🔴 RECORDED IN ORDER, NOT JUST COUNTED.
 
         Round 3's cell counted flushes and got 2 either way -- so an arm that flushed AFTER the
         pingall, which is the same as not flushing at all for the pairs that matter, passed it.
@@ -295,7 +295,7 @@ class StubHosts(object):
         return self.names()
 
     def ping(self, host, dst, count=5):
-        # 🔴 RECORDED TOO (TICKET-P3 §9 ruling 14e). The `events` comment claimed "ping" was one
+        # 🔴 RECORDED TOO. The `events` comment claimed "ping" was one
         # of the three, and it was not -- so "the re-measure happens AFTER the second flush",
         # which is the whole point of the second flush, was not pinned by anything.
         self.events.append("ping")
@@ -678,7 +678,7 @@ class TheNdtwinRound(unittest.TestCase):
 
         class NoSteps(object):
             raises = None
-            ctrl_pid = None                  # this arm starts no controller (§9 ruling 31①)
+            ctrl_pid = None                  # this arm starts no controller
 
             def __init__(self, *a, **kw):
                 self.expects, self.steps = [], []
@@ -1037,7 +1037,7 @@ class TheLabRefusal(unittest.TestCase):
 
 
 class TheReport(unittest.TestCase):
-    """What the raw has to carry (TICKET-P2 section 5.6)."""
+    """What the raw has to carry."""
 
     def setUp(self):
         self.mod = load_driver()
@@ -1063,7 +1063,7 @@ class TheReport(unittest.TestCase):
         self.assertNotIn("applied=", lines)
 
     def test_the_report_names_the_bmv2_binary_by_its_sha(self):
-        """CLAUDE.md: benchmark 必指認 binary（sha＋哪種識別碼）."""
+        """A benchmark names its binary: the sha plus which kind of identifier it is."""
         path = os.path.join(self.tmp, "r2.md")
         self.mod.write_report(path, {
             "utc": "now", "exercise": "basic", "which": "solution", "exdir": "/ex",
@@ -1097,7 +1097,7 @@ class TheReport(unittest.TestCase):
         self.assertIn("p4info_sha256=abc123", text)
 
 
-# ======================================================= TICKET-P3 §2.7: the other nine ==
+# ======================================================= the other nine exercises ===========
 #
 # 🔴 WHAT THESE CELLS CAN AND CANNOT SAY. Not one of the nine has ever been run on either
 # fabric by the session that wrote them. Every expectation in the driver is
@@ -1511,7 +1511,7 @@ class TheEcnAndQosArms(unittest.TestCase):
         self.assertTrue(v["RED ARM: TCP tos stays 0x1"].ok)
 
     def test_h2s_own_replies_do_not_enter_the_qos_reading(self):
-        """🔴 judge A5. qos/receive.py:22 has NO BPF filter, so the capture also holds what h2
+        """🔴 qos/receive.py:22 has NO BPF filter, so the capture also holds what h2
         sent back: nothing listens on UDP/4321 so the kernel answers ICMP port-unreachable
         (tos 0xc0), and the TCP round's SYN to port 80 gets a RST (tos 0x0). Reading every
         `tos` line makes the SKELETON arm's `set(tos) == {"0x1"}` red over a fabric doing
@@ -1569,7 +1569,7 @@ class TheEcnAndQosArms(unittest.TestCase):
 """
 
     def test_h2s_icmp_error_is_not_read_as_one_of_h1s_frames(self):
-        """🔴 TICKET-P3 §9 ruling 20②, on the real block from the live transcript.
+        """🔴 On the real block from the live transcript.
 
         The filter matched the INNER src (10.0.1.1 = h1, so the block was kept) and then took
         the FIRST tos, which is the OUTER 0xc0 -- h2's own error counted as one of h1's frames,
@@ -1614,7 +1614,7 @@ class NoSleep(object):
 
 
 class TheEcnProbeTrain(unittest.TestCase):
-    """🔴 THE ecn SOLUTION ARM WAS A TWO-PROBE TEST (TICKET-P4-roles §7 ruling 7).
+    """🔴 THE ecn SOLUTION ARM WAS A TWO-PROBE TEST.
 
     [Co-developed with claude code -- Adam]
 
@@ -1623,10 +1623,10 @@ class TheEcnProbeTrain(unittest.TestCase):
     that reached h2 -- and with SEND_SECONDS = 6 that was 2-4 of them. OBSERVED on 2026-09-24
     (the ten runs/2026-09-24T16*_ecn_solution_ndtwin.md): 60 probes sent, 22 reached h2, 6 of
     those were 0x3, and the five runs that failed each saw exactly two packets, both 0x1. The
-    interleaved A/B of ruling 7 failed the same way on the proxy code from before the roles
+    interleaved A/B failed the same way on the proxy code from before the roles
     change: too little power in the instrument, not a data plane that stopped marking.
 
-    These cells hold the fix to the ruling's terms: ecn gets its own probe count (sized below
+    These cells hold the fix: ecn gets its own probe count (sized below
     from those numbers) and its own background, which outlasts the whole train; mri and qos keep
     the shared constants; both arms assert exactly what they asserted before. The arithmetic is
     INFERRED -- probes behind one queue are not independent draws (DRIVER.md §6.2).
@@ -1635,7 +1635,8 @@ class TheEcnProbeTrain(unittest.TestCase):
     #: OBSERVED, the ten 09-24 ndtwin solution runs: probes sent, and how many reached h2 as 0x3.
     SENT_0924 = 60
     MARKED_0924 = 6
-    #: The false-fail rate ruling 7 asks to be "well under"; the floor below is for exactly this.
+    #: The false-fail rate the probe count has to stay "well under"; the floor below is for exactly
+    #: this.
     FALSE_FAIL = 0.01
     #: Seconds per probe of send.py (a sendp() and a sleep(1)). OBSERVED in the tutorials
     #: fabric's s1.log of 09-24 17:54: six probe ingress times 1.02-1.03 s apart. 1.05 is the
@@ -1700,7 +1701,7 @@ class TheEcnProbeTrain(unittest.TestCase):
                                                             100 * (1 - q) ** int(argv[-1])))
 
     def test_mri_and_qos_keep_the_shared_sender_and_background(self):
-        """Ruling 7: only ecn gets its own numbers. mri's and qos's arms passed the 09-24 06
+        """Only ecn gets its own numbers. mri's and qos's arms passed the 09-24 06
         with SEND_SECONDS = 6 / BG_SECONDS = 20 (the one FAIL there was ecn's solution arm),
         and neither reads a congestion mark -- a longer train there buys nothing."""
         self.assertEqual((6, 20), (self.shipped["SEND_SECONDS"], self.shipped["BG_SECONDS"]))
@@ -1780,7 +1781,7 @@ class TheEcnProbeTrain(unittest.TestCase):
         self.assertIn("0x1 0x1 0x3 0x3 0x1", text)
 
     def test_the_verdict_rows_are_the_ones_the_ruling_keeps(self):
-        """Ruling 7 keeps the rows as they were: the injection row (>= 1 packet reached h2), the
+        """The rows stay as they were: the injection row (>= 1 packet reached h2), the
         sender's own show2, and one claim per arm. The disclosure above is not one of them -- a
         row that always passed would add a PASS to every tally for a check that cannot fail."""
         want = {"solution": ["injection: packets reached h2",
@@ -1901,7 +1902,7 @@ class TheLoadBalanceArms(unittest.TestCase):
 
 
 class TheGenericCellsThirdAnswer(unittest.TestCase):
-    """🔴 NOT RUN is neither a pass nor a fabric failure (TICKET-P3 §9 ruling 28①).
+    """🔴 NOT RUN is neither a pass nor a fabric failure.
 
     The live run showed the branch was unreachable from the driver: `link_usage_cell` spawns a
     fresh shell that sources `_common.sh`, which reset CTRL_PID unconditionally, and NOT RUN
@@ -1955,9 +1956,9 @@ def alive(pid):
 
 
 class TheControllerOutlivesTheArmsOwnSteps(unittest.TestCase):
-    """🔴 THE PID IS A PROCESS'S, AND THE PROCESS IS STILL THERE (§9 ruling 31①).
+    """🔴 THE PID IS A PROCESS'S, AND THE PROCESS IS STILL THERE.
 
-    What the judge found at f87580cb: `link_usage_cell` was handed
+    `link_usage_cell` was once handed
     `getattr(run_on_ndtwin, "ctrl_pid", None)` -- an attribute NOTHING in the file ever
     assigned (`proc.pid` did not appear in it at all) -- so every G1 ran with CTRL_PID
     empty and the liveness check inside `link_usage_round` had nothing to check. And both
@@ -2008,7 +2009,7 @@ class TheControllerOutlivesTheArmsOwnSteps(unittest.TestCase):
         self.assertTrue(alive(s.ctrl_pid), "and that pid has to name something alive")
 
     def test_the_arms_own_steps_leave_the_controller_running(self):
-        """🔴 THE REORDER, AS A READING OF THE KERNEL'S (§9 ruling 31①).
+        """🔴 THE REORDER, AS A READING OF THE KERNEL'S.
 
         `steps_p4runtime` used to end `finally: self._stop_controller(...)`, three call
         frames before the round reaches G1. Here the whole arm runs -- its expectations go
@@ -2055,7 +2056,7 @@ class TheControllerOutlivesTheArmsOwnSteps(unittest.TestCase):
 
 
 class TheControllerPidReachesTheGenericCell(unittest.TestCase):
-    """🔴 THE WHOLE CHANNEL, WITH A REAL PROCESS AT ONE END (§9 ruling 31①).
+    """🔴 THE WHOLE CHANNEL, WITH A REAL PROCESS AT ONE END.
 
     Steps.ctrl_pid -> run_on_ndtwin.ctrl_pid -> link_usage_cell(ctrl_pid=...). The stub
     Steps starts a real `sleep` and publishes its pid the way `_start_controller` does; the
@@ -2105,7 +2106,7 @@ class TheControllerPidReachesTheGenericCell(unittest.TestCase):
                 self.ctrl_pid = self.proc.pid
                 case.order.append("steps")
                 if SleepSteps.stop_in_run:
-                    # The order the driver had until ruling 31①: the arm's own `finally`
+                    # The order the driver used to have: the arm's own `finally`
                     # ends the controller, and the generic cell runs over its absence.
                     self._end()
 
@@ -2161,7 +2162,7 @@ class TheControllerPidReachesTheGenericCell(unittest.TestCase):
 
     def test_a_controller_stopped_before_the_cell_makes_the_arm_red(self):
         """The reverse reading: with the OLD order the cell is handed a dead pid, answers
-        NOT RUN, and the round records a FAIL naming the controller (§9 ruling 31②) --
+        NOT RUN, and the round records a FAIL naming the controller --
         never a green G1 over a fabric nothing was driving."""
         self.SleepSteps.stop_in_run = True
         self.addCleanup(setattr, self.SleepSteps, "stop_in_run", False)
@@ -2175,7 +2176,7 @@ class TheControllerPidReachesTheGenericCell(unittest.TestCase):
 
 
 class TheNotRunCellIsAFailInTheVerdict(unittest.TestCase):
-    """🔴 NOT RUN IS A FAIL, AND THE SENTENCE SAYS WHOSE (§9 ruling 31②).
+    """🔴 NOT RUN IS A FAIL, AND THE SENTENCE SAYS WHOSE.
 
     It is not a pass -- nothing was measured -- and it is not scored as a twin defect: the
     expectation's NAME carries the controller, so a reader never files it under "NDTwin lost
@@ -2246,14 +2247,14 @@ class TheNotRunCellIsAFailInTheVerdict(unittest.TestCase):
 
 
 class TheOverLongWindowRefusalIsNotATwinDefect(unittest.TestCase):
-    """🔴 A LIMIT THIS CALLER SET IS NOT A READING ABOUT THE TWIN (§9 ruling 33).
+    """🔴 A LIMIT THIS CALLER SET IS NOT A READING ABOUT THE TWIN.
 
-    `_common.sh` gained `LINK_USAGE_WINDOW_RC=4` in ruling 31⑤ -- the window this path needs
+    `_common.sh` gained `LINK_USAGE_WINDOW_RC=4` -- the window this path needs
     is longer than the caller will wait for, refused with its arithmetic and before a single
     datagram is offered -- and `link_usage_cell` here still knew only rc 3. rc 4 fell through
     `bool(rc == 0)` to False, so an NDTwin arm would have recorded that refusal under
     `G1  link usage follows the iperf path`, whose want and got are sentences about the twin:
-    exactly the misattribution ruling 31③ had just taken out of live-p1/05, one file later.
+    exactly the misattribution already taken out of live-p1/05, one file later.
     """
 
     #: What `link_usage_round` really prints on that path: the derivation, then the refusal,
@@ -2381,7 +2382,7 @@ class TheOverLongWindowRefusalIsNotATwinDefect(unittest.TestCase):
 
 
 class TheFlowcacheWarmUp(unittest.TestCase):
-    """🔴 flowcache's FIRST packet is punted to the controller (§9 ruling 28②)."""
+    """🔴 flowcache's FIRST packet is punted to the controller."""
 
     def setUp(self):
         self.mod = load_driver()
@@ -2401,7 +2402,7 @@ class TheFlowcacheWarmUp(unittest.TestCase):
 class TheNestedLayerReader(unittest.TestCase):
     """🔴 scapy prints a NESTED layer with a `|` on every line, and the field is still the field.
 
-    TICKET-P3 §9 ruling 23①, from the second live 06. An IP option is a nested layer, so
+    Seen in the second live 06. An IP option is a nested layer, so
     mri/receive.py renders it with one or more `|` before each name. `_field_values` anchored on
     `^\s*`, which does not match those, so `count` came back empty and `swid` came back [] --
     and BOTH mri arms reported "injection: the MRI option survived to h2 got=0" while the
@@ -2479,7 +2480,7 @@ class TheMulticastArms(unittest.TestCase):
 
     @staticmethod
     def GROUP_ONLY(s, d):
-        """🔴 h4 IS UNREACHABLE IN ONE DIRECTION ONLY (judge A4).
+        """🔴 h4 IS UNREACHABLE IN ONE DIRECTION ONLY.
 
         sig-topo/s1-runtime.json:36-45 installs a mac_forward entry for h4's MAC to port 4 like
         every other host; it is only the multicast GROUP (:47-65) that leaves port 4 out. So an
@@ -2508,7 +2509,7 @@ class TheMulticastArms(unittest.TestCase):
         self.assertTrue(v["but h4 reaches them"].ok)
 
     def test_the_first_flush_happens_BEFORE_the_pingall(self):
-        """🔴 A FLUSH AFTER THE PINGALL IS NOT A FLUSH AT ALL (TICKET-P3 §9 ruling 12c).
+        """🔴 A FLUSH AFTER THE PINGALL IS NOT A FLUSH AT ALL.
 
         Round 3's cell counted flushes; it got 2 whether the first one ran before or after the
         walk, so an arm that measured from whatever ARP state the fabric was already in passed
@@ -2527,7 +2528,7 @@ class TheMulticastArms(unittest.TestCase):
         """The other half of the order: the re-measure is only independent of the first walk if
         its flush comes after that walk -- AND the re-measure's pings come after that flush.
 
-        🔴 THE SECOND HALF IS §9 ruling 14e. A flush placed after the walk but after the
+        🔴 THE SECOND HALF: a flush placed after the walk but after the
         re-measure too would satisfy the arithmetic below and measure nothing: the pings it was
         supposed to isolate would already have happened. `ping` is now an event, so the order
         that matters can actually be read.
@@ -2539,7 +2540,7 @@ class TheMulticastArms(unittest.TestCase):
         self.assertGreater(last_flush, ev.index("pingall"),
                            "the second flush must follow the pingall: %r" % (ev,))
         self.assertIn("ping", ev, ev)
-        # 🔴 EVERY PING, NOT "THE FIRST ONE AFTER" (TICKET-P3 §9 ruling 16①). Round 6 rewrote
+        # 🔴 EVERY PING, NOT "THE FIRST ONE AFTER". A later change rewrote
         # this cell's words and not its meaning: `after` being non-empty is the same statement
         # as "the LAST ping is after last_flush" (round 5's), and the equality that followed was
         # a tautology -- `ev[last_flush]` IS the flush, so the pings in `ev[last_flush:]` are
@@ -2560,7 +2561,7 @@ class TheMulticastArms(unittest.TestCase):
                          % (ev,))
 
     def test_the_arp_caches_are_emptied_before_and_between_the_passes(self):
-        """🔴 THE EXPECTATION IS ONLY TRUE FROM COLD CACHES (round-3 ruling 5).
+        """🔴 THE EXPECTATION IS ONLY TRUE FROM COLD CACHES.
 
         `hX -> h4 is 100%` describes a host that has not learned h4's MAC. h4's own ARP IS
         answered (the group reaches h1-h3, and their unicast replies hit h4's mac_forward
@@ -2596,7 +2597,7 @@ class TheMulticastArms(unittest.TestCase):
         self.assertEqual("h4", srcs[-1], "h4 must be the LAST source: %r" % (srcs,))
 
     def test_the_h4_expectation_is_directional(self):
-        """🔴 judge A4: round 1 asserted 100% on all six h4 pairs and would have gone red on
+        """🔴 A first version asserted 100% on all six h4 pairs and would have gone red on
         three of them over a fabric behaving exactly as the exercise describes. A fabric where
         h4 -> hX ALSO fails is a different fault (h4's mac_forward entry missing), and is red."""
         v = verdict(self.session("solution", lambda s, d: 100 if "h4" in (s, d) else 0))
@@ -2683,7 +2684,7 @@ class TheControllerArms(unittest.TestCase):
 
     def test_the_ndtwin_arm_goes_through_the_adapter_live_p1_03_uses(self):
         """🔴 On NDTwin the hard-coded ports and device ids are NOT the truth, and
-        tools/p4_exercise/run_external_controller.py is what rewrites them (TICKET-P1D).
+        tools/p4_exercise/run_external_controller.py is what rewrites them.
         Two launchers for one controller would make 'the exercise's controller ran' mean two
         different things on the two fabrics."""
         started = []
@@ -2773,23 +2774,22 @@ TUTORIALS_CONTROLLER_PROLOGUE = (
 
 
 class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
-    """🔴 THE TUTORIALS SOLUTION ARMS DIED AT IMPORT (orchestrator, 2026-09-24 17:53-18:00).
+    """🔴 THE TUTORIALS SOLUTION ARMS DIED AT IMPORT (2026-09-24 17:53-18:00).
 
     [Co-developed with claude code -- Adam]
 
     On `--fabric tutorials` the flowcache and p4runtime SOLUTION arms ran
     `<exdir>/solution/mycontroller.py` in place, and both logged
     `ModuleNotFoundError: No module named 'p4runtime_lib'` before doing anything
-    (logs/orchestrator-0924/tutorials-18/{flowcache,p4runtime}_solution.log, trunk 6291db35,
-    driver blob 99c862a9). The tutorials mean the solution to be COPIED over the exercise's own
-    mycontroller.py, one directory up, which is where its '../../utils/' works; the skeleton arms
-    passed because the skeleton already lives there.
+    (trunk 6291db35, driver blob 99c862a9). The tutorials mean the solution to be COPIED over the
+    exercise's own mycontroller.py, one directory up, which is where its '../../utils/' works; the
+    skeleton arms passed because the skeleton already lives there.
 
     These cells do not grep for PYTHONPATH. They capture the argv, cwd and env the driver hands
     `local_popen`, and RUN that command against a tutorials-shaped tree whose controller opens
     with the tutorials' own lines: what is asserted is that the import the live arm died on now
     succeeds, and from the exercise's own utils/. The ndtwin arm and the skeleton arm are pinned
-    to the environment they always had -- the ticket's "must not change" is a property, so it has
+    to the environment they always had -- "must not change" is a property, so it has
     cells of its own.
     """
 
@@ -2976,7 +2976,7 @@ class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
 
     @unittest.skipUnless(os.path.isdir("/home/adam/tutorials/exercises/p4runtime/solution")
                          and os.access("/home/adam/p4dev-python-venv/bin/python", os.X_OK),
-                         "needs Adam's ~/tutorials tree and the p4dev venv (read-only use)")
+                         "needs the ~/tutorials tree and the p4dev venv (read-only use)")
     def test_the_real_solution_controllers_get_past_their_imports(self):
         """🔴 THE REAL FILES, THE REAL INTERPRETER, NO SWITCH (and no root).
 
@@ -3051,7 +3051,7 @@ class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
         self.assertNotIn("RED ARM", text)
 
     def test_basic_tunnels_ndtwin_refusal_reads_like_flowcaches(self):
-        """🔴 ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS (judge A6).
+        """🔴 ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS.
 
         basic_tunnel's skeleton cannot install its own runtime entries -- README:41-43 -- and
         the round therefore ends non-zero having met every expectation it has. On the tutorials
@@ -3085,7 +3085,7 @@ class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
         self.assertNotIn(">>> ERROR", text)
 
     def test_the_tutorials_arm_reads_the_same_as_the_ndtwin_one(self):
-        """🔴 ONE EXERCISE, ONE VERDICT, ON BOTH FABRICS (round-3 ruling 1).
+        """🔴 ONE EXERCISE, ONE VERDICT, ON BOTH FABRICS.
 
         Round 2 fixed only the NDTwin half: the flag lived on `run_on_ndtwin` and the verdict
         asked `args.fabric == "ndtwin"`, so `basic_tunnel/skeleton` still printed `PASS (1/1)`
@@ -3265,8 +3265,8 @@ class TheTelemetryFlag(unittest.TestCase):
                 self.assertEqual(word, argv[argv.index("--telemetry") + 1])
 
     def test_the_telemetry_knob_is_put_back_by_the_teardown(self):
-        """🔴 `ndt down` does not touch it and `ndt release` does not check it (TICKET-P3
-        §2.1), so nothing refuses over a knob this round moved -- which is exactly why the
+        """🔴 `ndt down` does not touch it and `ndt release` does not check it,
+        so nothing refuses over a knob this round moved -- which is exactly why the
         round has to put it back itself. It decides the NEXT bring-up's telemetry."""
         with open(self.mod.TELEMETRY_KNOB, "wb") as f:
             f.write(b"# mine\nauto\n")
@@ -3330,7 +3330,7 @@ class TheGenericLinkUsageCell(unittest.TestCase):
     def test_three_solutions_forward_nothing_and_are_named(self):
         """source_routing's solution drops every frame without a 0x1234 stack, calc's drops
         everything that is not the calculator protocol, and load_balance's s1 forwards only
-        10.0.0.1/32 and drops the rest (judge A3). All three are properties of the EXERCISE;
+        10.0.0.1/32 and drops the rest. All three are properties of the EXERCISE;
         a cell that went red on them would be reporting the twin for it."""
         for ex, fragment in (("source_routing", "0x1234 source-route stack"),
                              ("calc", "calculator protocol"),
@@ -3345,18 +3345,18 @@ class TheGenericLinkUsageCell(unittest.TestCase):
 
         R4 replaced "off-path integrates to exactly 0" with a floor, because after the kernel
         merge a single sampled LLDP beacon (1/256, banked as 256x its frame length) would red a
-        correct fabric at random. The Expect's `want` string went on saying `off-path == 0`
-        (round-3 ruling 7), so a reader reconciling a GREEN cell against it would conclude the
+        correct fabric at random. The Expect's `want` string went on saying `off-path == 0`,
+        so a reader reconciling a GREEN cell against it would conclude the
         off-path edges carried nothing measurable -- which is not what was checked.
         """
         src = open(self.mod.__file__ if hasattr(self.mod, "__file__") else DRIVER).read()
         self.assertNotIn('"on-path > 0, off-path == 0"', src)
-        # 🔴 AND IT NAMES ALL THREE CLASSES (§9 ruling 20①). "off-path under ..." alone was true
+        # 🔴 AND IT NAMES ALL THREE CLASSES. "off-path under ..." alone was true
         # of the two-class world too; what a reader needs is which rows were asserted at all.
         self.assertIn("primary on-path > 0", src)
         self.assertIn("minor rows printed, not asserted", src)
-        # 🔴 AND THE FLOOR'S WORDS FOLLOW THE FLOOR (§9 ruling 28③, ruling 7's shape a third
-        # time): ruling 26① replaced the 5 kbit constant with one sample's worth, so a `want`
+        # 🔴 AND THE FLOOR'S WORDS FOLLOW THE FLOOR: the 5 kbit constant was replaced with one
+        # sample's worth, so a `want`
         # still naming 5 kbit describes a bound nobody applies.
         self.assertNotIn("max(5 kbit", src)
         # (the source splits it across two literals, so both halves are checked)
@@ -3367,7 +3367,7 @@ class TheGenericLinkUsageCell(unittest.TestCase):
     def test_every_other_solution_arm_runs_the_cell(self):
         runs = sorted(ex for ex in self.mod.EXERCISES
                       if self.mod.link_usage_applies(self.mod.EXERCISES[ex], "solution")[0])
-        # load_balance is out as of judge A3: s1-runtime.json:6-25 forwards 10.0.0.1/32 and
+        # load_balance is out: s1-runtime.json:6-25 forwards 10.0.0.1/32 and
         # drops the rest, so an iperf between two real host addresses crosses nothing.
         self.assertEqual(
             sorted(["basic", "basic_tunnel", "ecn", "firewall", "flowcache", "link_monitor",
@@ -3479,10 +3479,10 @@ class TheGenericLinkUsageCell(unittest.TestCase):
 class TheSuiteLeavesNoLitter(unittest.TestCase):
     """🔴 A TEST RUN THAT FILLS THE DISK DECIDES WHETHER SOMEBODY ELSE'S ROUND FINISHES.
 
-    TICKET-P3 section 9 ruling 9 (R3). Every cell here builds a tutorials tree of its own --
+    Every cell here builds a tutorials tree of its own --
     a ~50 KB package copy -- and until 2026-09-19 none of them removed it. 78 mutants x 124
-    cells, plus the orchestrator's reruns, left 59,679 `/tmp/drv-*` directories and took `/`
-    to 0 bytes free; worker A's gate and two reruns died of it. `mkdtemp()` above registers
+    cells, plus its reruns, left 59,679 `/tmp/drv-*` directories and took `/`
+    to 0 bytes free; the gate and two reruns died of it. `mkdtemp()` above registers
     every directory with the case that made it, and this cell is what says so out loud.
 
     It runs LAST by name (`TheSuiteLeavesNoLitter` sorts after every other class here), so the
@@ -3490,7 +3490,7 @@ class TheSuiteLeavesNoLitter(unittest.TestCase):
     """
 
     def test_no_drv_temp_directory_outlives_this_run(self):
-        """🔴 ONLY THE ONES THIS PROCESS MADE (round-3 ruling 4).
+        """🔴 ONLY THE ONES THIS PROCESS MADE.
 
         Round 2 asserted on every `/tmp/drv-*` on the machine. Two copies of this suite running
         at once -- which is exactly what a mutation gate does, and what the overnight fleet does

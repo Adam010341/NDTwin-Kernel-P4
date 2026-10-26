@@ -98,10 +98,10 @@ LLMAgent::callOpenAIApi(
     {
         // [Co-developed with claude code -- Adam]
         // 🔴 THIS LINE USED TO SAY "sending topology" AND NO TOPOLOGY WAS EVER SENT.
-        // doc/audit/2026-07-29_codebase-review/AUDIT_A_hallucinations.md:48-56 recorded it on
-        // 2026-07-29 -- "The only line that would send topology is commented out; `instructions`
-        // stays the bare system prompt" -- and it was still saying it on 2026-09-11, when the
-        // member it named was deleted as dead code. Corrected on Adam's ruling of 2026-09-11.
+        // A code review noted on 2026-07-29 that "the only line that would send topology is
+        // commented out; `instructions` stays the bare system prompt", and the line was still
+        // saying it on 2026-09-11, when the member it named was deleted as dead code. Corrected
+        // on 2026-09-11.
         //
         // The three facts behind the wording, all of them still true of the line below:
         //   1. `instructions += this->getCurrentTopology();` has been a comment since d6f7c014
@@ -244,9 +244,8 @@ LLMAgent::getSessionMsgs(const std::string &sessionId)
 // Both of its call sites were comments and had been since d6f7c014 (2025-12-15): the local
 // `currentFlowEntries` in callOpenAIApi and the `//+ this->getCurrentFlowEntries();` tail on the
 // `payload["instructions"]` line. It had no test, no mutation and no second caller anywhere in
-// the repository. doc/audit/2026-07-29_codebase-review/AUDIT_A_hallucinations.md:56 named it with
-// getCurrentTopology in July -- the pair were "dead code kept alive by the false log line" -- and
-// that log line was corrected in the same change, so nothing is keeping this one alive either.
+// the repository. A July code review named it together with getCurrentTopology -- the pair were
+// "dead code kept alive by the false log line" -- and that log line was corrected in the same change, so nothing is keeping this one alive either.
 //
 // What it did, for anyone bringing it back: it asked DeviceConfigurationAndPowerManager for
 // getOpenFlowTables() and flattened them into a "# Current Flow Entries" markdown block for the

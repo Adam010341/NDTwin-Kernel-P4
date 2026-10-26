@@ -40,7 +40,7 @@ struct LogConfig
  * @brief One command-line option, and how many argv tokens it consumes.
  *
  * [Co-developed with claude code -- Adam]
- * FINDINGS #70. `ndtwin_kernel --logfle /tmp/x.log` used to be ACCEPTED: it did nothing, printed
+ * `ndtwin_kernel --logfle /tmp/x.log` used to be ACCEPTED: it did nothing, printed
  * nothing, and exited 0. Neither of the two parsers could catch it on its own, and that is the
  * whole shape of the defect rather than an implementation accident:
  *
@@ -132,8 +132,8 @@ class Logger
      *
      * `--help`/`-h` are in here because parse_cli_args branches on them. In the kernel that branch
      * is unreachable -- src/main.cpp's parser answers --help first and returns 0 -- but a binary
-     * whose only options are logging options (see doc/audit/2026-09-01_esa-power-off-injection/
-     * driver.cpp) reaches it, and the union check must not refuse a flag this parser accepts.
+     * whose only options are logging options (a small injection driver, say)
+     * reaches it, and the union check must not refuse a flag this parser accepts.
      *
      * @return A table that outlives the call. Never empty.
      */
@@ -142,7 +142,7 @@ class Logger
      * @brief Refuse the first option-shaped argv token that no parser in this program owns.
      *
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #70, the half that is not about --help: BOTH parsers silently ignored anything they
+     * The half that is not about --help: BOTH parsers silently ignored anything they
      * did not recognise, so a typo was indistinguishable from a flag that had been honoured. The
      * operator's evidence that `--logfle /tmp/x.log` worked was the absence of an error message,
      * and the absence of an error message is what the defect produced.

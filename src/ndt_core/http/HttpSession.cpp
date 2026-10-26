@@ -12,6 +12,7 @@
 #include "ndt_core/lock_management/LockManager.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "ndt_core/power_management/P4Capabilities.hpp" // [Co-developed with claude code -- Adam]
+#include "ndt_core/power_management/P4RulesLost.hpp" // [Co-developed with claude code -- Adam]
 #include "ndt_core/routing_management/Controller.hpp"
 #include "ndt_core/routing_management/DispatchOutcomeLog.hpp"
 #include "ndt_core/routing_management/FlowJob.hpp"
@@ -1424,10 +1425,18 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
         m_deviceConfigurationAndPowerManager
             ? m_deviceConfigurationAndPowerManager->p4CapabilitiesSnapshot()
             : p4caps::CapabilitiesByDpid{};
+    // [Co-developed with claude code -- Adam] KNOWN-ISSUES A-4c: what the last pipeline push of
+    // each bmv2 switch wiped of the Ryu-path rules, verbatim, so an app polling this endpoint can
+    // resend. Same absence rules as `capabilities`. See P4RulesLost.hpp.
+    const p4loss::RecordsByDpid p4RulesLost =
+        m_deviceConfigurationAndPowerManager
+            ? m_deviceConfigurationAndPowerManager->p4RulesLostSnapshot()
+            : p4loss::RecordsByDpid{};
     for (auto vd : boost::make_iterator_range(boost::vertices(graph)))
     {
         json node = graph[vd];
         p4caps::attachToNode(node, graph[vd], p4Capabilities);
+        p4loss::attachToNode(node, graph[vd], p4RulesLost);
         result["nodes"].push_back(std::move(node));
     }
 
@@ -2255,9 +2264,52 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
         return;
     }
 
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md C-7. A strict delete naming a priority, on a bmv2 switch, against a
+    // match that compiles to ipv4_lpm, is refused by the P4 proxy whatever the switch holds (501,
+    // `priority not honourable on this table`) -- and it used to be queued first, so the caller was
+    // told 200 "queued" for a delete that could not happen (2152 of 2152 in the 2026-09-11 run).
+    // Known before the queue, so answered before it. Taken out of the raw entries, not the jobs:
+    // the flow-table cache below is fed the request body, and a delete the switch will never
+    // perform must not remove a row from the view either.
+    //
+    // Partial, like the unknown-dpid partition below and for its reason: both flow-writing apps
+    // discard the response, so refusing the whole batch for one entry would drop their good
+    // entries silently. Neither of them sends a priority on a delete today.
+    const P4DeleteRefusals p4Deletes = refusePriorityDeletesP4CannotHonour(dels, [this](uint64_t dpid) {
+        if (!m_topologyAndFlowMonitor)
+        {
+            return false;
+        }
+        const auto kind = m_topologyAndFlowMonitor->getSwitchKind(dpid);
+        return kind.has_value() && *kind == SwitchKind::BMV2;
+    });
+    const json& admittedDels = p4Deletes.admitted;
+    const size_t p4Refused = p4Deletes.refused.size();
+    if (p4Refused > 0)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "refusing {} of {} delete entries before queueing: each names a "
+                           "priority on a bmv2 switch for a destination-only match, which the P4 "
+                           "proxy refuses (ipv4_lpm has no priority column; KNOWN-ISSUES C-7)",
+                           p4Refused,
+                           dels.size());
+    }
+    const auto p4RefusalBody = [&](json body) {
+        body["refused_on_p4"] = p4Deletes.refused;
+        body["refused_on_p4_reason"] =
+            "priority not honourable on this table: on a P4/bmv2 data plane a destination-only "
+            "match compiles to ipv4_lpm, which has no priority column and one entry per "
+            "destination, so a priority cannot select the entry to delete. Remedy: match the full "
+            "five-tuple, or omit the priority (here that hands a /32 destination back to the "
+            "control plane's route, or removes it when the control plane has no route there, "
+            "and removes a prefix's entry outright; on OVS it removes every rule for it)";
+        return body;
+    };
+
     // Build jobs
     std::vector<FlowJob> jobs;
-    jobs.reserve(ins.size() + mods.size() + dels.size());
+    jobs.reserve(ins.size() + mods.size() + admittedDels.size());
 
     // [Co-developed with claude code -- Adam]
     // T-11. Below, `updateOpenFlowTables` writes every requested install into the table cache
@@ -2294,7 +2346,7 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
         {
             jobs.emplace_back(makeModifyJob(e));
         }
-        for (const auto& e : dels)
+        for (const auto& e : admittedDels)
         {
             jobs.emplace_back(makeDeleteJob(e));
         }
@@ -2343,6 +2395,22 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     const std::vector<uint64_t>& unknownDpids = partition.unknownDpids;
     const size_t rejectedEntries = partition.rejectedEntries;
 
+    // [Co-developed with claude code -- Adam] C-7: every entry was a delete refused above, so
+    // nothing is queued and nothing is touched. 501, the status the proxy answers the same request
+    // with and the one the kernel already uses for "this data plane cannot express it".
+    if (acceptedJobs.empty() && rejectedEntries == 0 && p4Refused > 0)
+    {
+        res.result(http::status::not_implemented);
+        res.body() = p4RefusalBody(json{{"status", "error"},
+                                        {"error", "priority not honourable on this table"},
+                                        {"outcome", "unsupported_on_p4"},
+                                        {"detail", "nothing was queued: every entry is a delete "
+                                                   "the P4 proxy refuses before it reaches the "
+                                                   "switch"}})
+                         .dump();
+        return;
+    }
+
     if (acceptedJobs.empty() && rejectedEntries > 0)
     {
         SPDLOG_LOGGER_WARN(Logger::instance(),
@@ -2351,13 +2419,14 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
                            rejectedEntries,
                            unknownDpids.size());
         res.result(http::status::not_found);
-        res.body() = json{{"status", "error"},
-                          {"error", "unknown dpid"},
-                          {"unknown_dpids", unknownDpids},
-                          {"detail", "these dpids are not switches in the loaded topology; check "
-                                     "the dpid, or that the topology file matches the running "
-                                     "network"}}
-                         .dump();
+        json notFound{{"status", "error"},
+                      {"error", "unknown dpid"},
+                      {"unknown_dpids", unknownDpids},
+                      {"detail", "these dpids are not switches in the loaded topology; check "
+                                 "the dpid, or that the topology file matches the running "
+                                 "network"}};
+        // [Co-developed with claude code -- Adam] C-7: named too, so no dropped entry goes unsaid.
+        res.body() = (p4Refused > 0 ? p4RefusalBody(std::move(notFound)) : notFound).dump();
         return;
     }
 
@@ -2407,6 +2476,11 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     if (!annotatedInstalls.empty())
     {
         annotated["install_flow_entries"] = annotatedInstalls;
+    }
+    if (p4Refused > 0)
+    {
+        // [Co-developed with claude code -- Adam] C-7: the refused deletes never reach the cache.
+        annotated["delete_flow_entries"] = admittedDels;
     }
     m_deviceConfigurationAndPowerManager->updateOpenFlowTables(annotated);
 
@@ -2467,6 +2541,13 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
                          "/ndt/get_flow_dispatch_status?request_id=" +
                          std::to_string(requestId) +
                          ". The dropped entries never became jobs and are in no counter there";
+    }
+
+    // [Co-developed with claude code -- Adam] C-7: present only when a delete was refused, like
+    // `rejected` above, so its absence still means "every entry was taken".
+    if (p4Refused > 0)
+    {
+        body = p4RefusalBody(std::move(body));
     }
 
     res.body() = body.dump();
@@ -3203,9 +3284,9 @@ HttpSession::handleGetPathSwitchCount(http::response<http::string_body>& res)
 // BrocadeICX7250 3072, HPE5520 65535, and not one word about bmv2 -- while the fabric under it
 // holds 1024 entries per switch in MyIngress.ipv4_lpm and hands the caller 896 of them once the
 // fabric's own host routes are counted (measured 2026-09-06). The smallest catalogue number was
-// 3.4x the truth, and past the real ceiling the write path answers HTTP 200 with
-// {"status":"error"} (KNOWN-ISSUES C-6), so planning against the catalogue ends in a wall with
-// no usable error at it.
+// 3.4x the truth, and past the real ceiling the write path answered HTTP 200 with
+// {"status":"error"} (KNOWN-ISSUES C-6; a 502 since that was fixed, still with no reason bmv2
+// would give), so planning against the catalogue ends in a wall.
 //
 // The numbers and their provenance are assembled in ofcapacity:: -- see
 // include/ndt_core/http/OpenflowCapacityReport.hpp for why each one is shaped the way it is.

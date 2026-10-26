@@ -324,7 +324,7 @@ each_mutation() {
         }' \
         'DispatchOutcomeLogTest.ReRegisteringAnIdDoesNotResetItsCounts' ''
 
-    # The 2026-09-05 ruling undone: back to a ring a single burst can overflow, so the evidence of
+    # The 2026-09-05 ring sizing undone: back to a ring a single burst can overflow, so the evidence of
     # a bad burst's first three quarters is replaced by an eviction count.
     "$m" "9. the failure ring shrinks below a dispatcher burst" cpp "$OUT" \
         '    static constexpr std::size_t kDefaultCapacity = 2000;' \
@@ -402,7 +402,7 @@ each_mutation() {
         '        job.requestId = requestId;' \
         '        (void)job; // MUTANT' \
         'DispatchStatusEndpointTest.ARequestIdAnswersForThatBatchAlone' \
-        "processFlowBatch is not reachable from this suite: it dereferences both TopologyAndFlowMonitor (getSwitchKind) and DeviceConfigurationAndPowerManager (updateOpenFlowTables), and no peer in tests/ builds the second. The stamping is covered live -- POST a flow batch, read request_id out of the 200 body, GET ...?request_id=<id> and check dispatched is the batch size -- see doc/audit/2026-09-06_fix-dispatch-status-honest/FIX-DISPATCH-STATUS-HONEST.md"
+        "processFlowBatch is not reachable from this suite: it dereferences both TopologyAndFlowMonitor (getSwitchKind) and DeviceConfigurationAndPowerManager (updateOpenFlowTables), and no peer in tests/ builds the second. The stamping is covered live -- POST a flow batch, read request_id out of the 200 body, GET ...?request_id=<id> and check dispatched is the batch size"
 
     "$m" "18. the HTTP layer stops registering the request before enqueueing" cpp "$SES" \
         '    m_controller->noteRequestEnqueued(requestId, acceptedJobs.size());' \

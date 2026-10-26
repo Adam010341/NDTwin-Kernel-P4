@@ -39,8 +39,8 @@
  * Every consumer asks the same question the same way -- walk the array, match on `dpid`:
  * `HttpSession.cpp:622` serves the array verbatim; `IntentTranslator.cpp:1069` and
  * `LLMAgent.cpp:275` read it whole; `tools/contract_test/spec.py:295` (`inv_tables_non_empty`),
- * `doc/audit/2026-08-28_chaos-harness/harness/invariants.py:147` and
- * `doc/audit/2026-08-31_live-acceptance-batch/probe.py:52` all iterate and skip non-matching
+ * `doc/audit/2026-08-28_chaos-harness/harness/invariants.py:147` and the live-acceptance probe
+ * all iterate and skip non-matching
  * dpids. For all of them a **missing** switch and a switch reporting **zero rules** produce the
  * identical answer.
  *
@@ -108,7 +108,7 @@ inline constexpr const char* kUnreadUnparseable = "unparseable";
 inline constexpr const char* kUnreadReportedFailure = "reported_failure";
 
 /// A body that parses, and whose per-switch value is still not a list of rules -- an object, a
-/// number, a string. Round 6 finding N2: this was the one unreadable shape of three that carried
+/// number, a string. This was once the one unreadable shape of three that carried
 /// no marker at all, so `{"dpid":3,"flows":{"3":{"unexpected":"object"}}}` was republished
 /// verbatim while its two neighbours were marked. Spelled the same in the topology path
 /// (TopologyAndFlowMonitor::kOutcomeWrongShape), which is one vocabulary on purpose.

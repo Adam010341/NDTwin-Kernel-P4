@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Say, item by item, whether a P4 app package could be brought up -- before it is (TICKET-P1 §3).
+"""Say, item by item, whether a P4 app package could be brought up -- before it is.
 
 [Co-developed with claude code -- Adam]
 
@@ -61,7 +61,7 @@ _IPV4_RE = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
 
 #: The two match types this file checks with its own (looser) encoder. TERNARY, RANGE and
 #: OPTIONAL go to the proxy's `match_shape`, and anything else is refused with the proxy's
-#: own sentence. TICKET-P1 §3 was exact and lpm only; G5 added the rest.
+#: own sentence. The first version was exact and lpm only; G5 added the rest.
 _EXACT_OR_LPM = ("EXACT", "LPM")
 
 
@@ -361,7 +361,7 @@ def run(package_dir, report=None, compile_p4=True):
     return report
 
 
-# --- roles.ipv4_route (TICKET-P4-roles section 2.1) ---------------------------------------------
+# --- roles.ipv4_route ---------------------------------------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -506,7 +506,7 @@ def _check_roles(report, package_dir, package, model, pipeline_p4info, reference
                     "package: the author owns the table; NDTwin reads and renders it and "
                     "writes nothing, so NDTwin's route writes to these switches answer 501")
         return
-    # 🔴 2.1-5 / Adam's ruling 8-1: NDTwin owns the table exclusively, so the package may not
+    # 🔴 2.1-5: NDTwin owns the table exclusively, so the package may not
     # declare match entries for it -- each one named. A default action is not a route and stays.
     owned, defaults = [], []
     for dpid, _binding in bound:
@@ -551,7 +551,7 @@ def _check_roles(report, package_dir, package, model, pipeline_p4info, reference
                     f"{'; '.join(defaults[:4])}")
 
 
-# --- telemetry (TICKET-P3 2.1) ----------------------------------------------------------------
+# --- telemetry ----------------------------------------------------------------------------
 
 #: The words a package may declare, and what each one resolves to per switch. Spelled here as
 #: well as in the proxy because pre-flight runs BEFORE the fabric exists and must refuse a
@@ -633,7 +633,7 @@ def _check_telemetry(report, package_dir, package, pipeline_p4info):
                   f"every switch's p4info declares the five packet_in fields")
 
 
-# --- the PRE entries a runtime file declares (TICKET-P3 2.6, G8/G9a) --------------------------
+# --- the PRE entries a runtime file declares (G8/G9a) --------------------------
 
 
 def _switch_ports(model):
@@ -830,16 +830,16 @@ def _check_pipelines(report, package_dir, package):
 
     There is no sha to compare them by: p4c writes no build id into either file, and the bmv2
     json's own sha is not even stable for one program (it embeds the absolute source path in
-    `program`, so the same .p4 compiled in two directories gives two shas -- measured in
-    TICKET-P1 B). What CAN be checked without running anything is containment: every table and
-    every action the p4info names must exist in the json, because the json is the full program
-    and the p4info is the externally-visible subset of it. A p4info from a different program
+    `program`, so the same .p4 compiled in two directories gives two shas -- measured earlier).
+    What CAN be checked without running anything is containment: every table and every action
+    the p4info names must exist in the json, because the json is the full program and the
+    p4info is the externally-visible subset of it. A p4info from a different program
     almost always names something the json does not.
 
     The p4info's OWN sha is stable, and it is printed: it is the identifier to quote when
-    asking "is this the program the entries were written for", and TICKET-P2 section 3.5 asks
-    for it for exactly that reason. The json's `program` field -- an absolute path into
-    whoever's home directory compiled it -- is printed as information, never compared.
+    asking "is this the program the entries were written for", and it is printed for exactly
+    that reason. The json's `program` field -- an absolute path into whoever's home directory
+    compiled it -- is printed as information, never compared.
     """
     switches = package.get("switches") or {}
     named = {k: (v or {}).get("pipeline") for k, v in switches.items()}

@@ -1,8 +1,8 @@
 // [Co-developed with claude code -- Adam]
 //
-// TICKET-P3 §2.2 / §2.3: what the collector does with a sampled frame that is not IPv4/TCP.
+// What the collector does with a sampled frame that is not IPv4/TCP.
 //
-// Before this ticket the answer was "nothing at all". The parser read the ethertype at a fixed
+// Before this support the answer was "nothing at all". The parser read the ethertype at a fixed
 // word offset and, if it was not 0x0800, executed `continue` -- discarding the sample whole. Two
 // consequences, and the second one is the expensive one:
 //
@@ -19,8 +19,8 @@
 // guarded against drift by test_sflow_emitter.py::CommittedFixtureTest), for the reason the
 // generator's docstring gives: a frame a C++ test invents proves nothing about the bytes the
 // Python emitter will send. The two contract suites -- test_GoldenFixture.cpp (real OVS capture)
-// and test_SFlowEmitterRoundtrip.cpp -- are untouched by this ticket and still green; this file
-// is additive.
+// and test_SFlowEmitterRoundtrip.cpp -- are untouched by it and still green; this file is
+// additive.
 //
 // 🔴 The topology below is not decoration. lookupOfport() maps every ifIndex to 0 unless the
 // loaded topology is all-bmv2, and with both ports 0 there is no ingress/egress distinction left
@@ -573,8 +573,8 @@ TEST_F(FlowKeyFamiliesTest, TheStatsObjectCarriesEveryFamilyAndTheNonIpv4Identit
 
     const auto& nonIpv4 = stats.at("non_ipv4_flows");
     EXPECT_EQ(nonIpv4.at("tracked").get<size_t>(), 3u) << "ARP, IPv6 and 0x1234";
-    // Round 3, ruling 11b: there is no `dropped_over_capacity` key any more. The table evicts,
-    // so that key could only ever have read 0, and asserting a constant is not a test.
+    // There is no `dropped_over_capacity` key any more. The table evicts, so that key could only
+    // ever have read 0, and asserting a constant is not a test.
     // [Co-developed with claude code -- Adam]
     EXPECT_FALSE(nonIpv4.contains("dropped_over_capacity"))
         << "a key that can only read 0 is a claim that something was measured";
@@ -625,17 +625,17 @@ TEST_F(FlowKeyFamiliesTest, RepeatedFramesOfOneIdentityAccumulateOnOneRow)
 }
 
 // =================================================================================================
-// ROUND 2 -- the fable-judge's findings on d3c65dd4
+// MAC-dependence of the flow key (found at d3c65dd4)
 //
 // [Co-developed with claude code -- Adam]
-// F1 is the one that mattered: identifyFrame wrote the frame's MAC addresses and ethertype into
+// The one that mattered: identifyFrame wrote the frame's MAC addresses and ethertype into
 // the key before it knew which family it was building, and the IPv4 branch never cleared them.
 // FlowKey::operator== is defaulted and the flow table is an unordered_map keyed on the whole
-// struct, so on the fabric this ticket exists for -- where ndtwin_switch.p4 rewrites both MACs at
+// struct, so on the fabric this code exists for -- where ndtwin_switch.p4 rewrites both MACs at
 // every hop and the sample is an I2E clone carrying the ingress-time addresses -- ONE FLOW WOULD
-// HAVE BECOME ONE ROW PER HOP. None of the round-1 tests could see it: they assert five fields at
-// a time, the hash case builds its key by hand with zero MACs, the golden capture is a single OVS
-// bridge that rewrites nothing, and the emitted fixtures all carry one fixed MAC pair.
+// HAVE BECOME ONE ROW PER HOP. None of the earlier tests could see it: they assert five fields
+// at a time, the hash case builds its key by hand with zero MACs, the golden capture is a single
+// OVS bridge that rewrites nothing, and the emitted fixtures all carry one fixed MAC pair.
 //
 // These cases are built rather than emitted for the same reason: the property is about two frames
 // that differ ONLY in their MACs, which no committed fixture can express.
@@ -722,7 +722,7 @@ std::vector<uint8_t> ipv4Frame(uint8_t dstMacByte,
 /// An L2-only frame whose source address is a function of @p index, so a test can mint as many
 /// distinct L2 identities as it needs. Six bytes of MAC, not one: the L2 key is (dst, src,
 /// ethertype), so varying a payload byte -- or only the low byte of the MAC -- mints far fewer
-/// identities than the loop appears to. [Co-developed with claude code -- Adam] Round 2.
+/// identities than the loop appears to. [Co-developed with claude code -- Adam]
 std::vector<uint8_t> l2FrameWithSourceIndex(uint32_t index)
 {
     std::vector<uint8_t> frame(6, 0x02); // one destination for all of them
@@ -796,15 +796,15 @@ std::vector<char> brocadeDatagram(const std::vector<SampleSpec>& samples)
 ///
 /// 🔴 What this pins is the branch, not a vendor. No capture of a real HPE agent exists in this
 /// repository and none ever has -- the type-3 branch has been uncovered since it was written, and
-/// TICKET-P3 did not change that. It is built here from the offsets the branch itself uses
-/// (sampling rate +5, input +9, output +11, frame length +16, frame at +20) so that the rewrite
+/// the non-IPv4 support did not change that. It is built here from the offsets the branch itself
+/// uses (sampling rate +5, input +9, output +11, frame length +16, frame at +20) so that the rewrite
 /// -- which now reads the frame through identifyFrame instead of through fixed word offsets --
 /// has at least one executable check that it reads the frame where it claims to.
 ///
 /// One consequence is visible and left alone: under MININET the advancement at the end of the
 /// branch subtracts the extended-switch record that a type-3 sample does not have, so the parser
 /// believes the sample ends two words before it does. The frame read is bounded by that, i.e. the
-/// last 8 bytes of the frame are invisible to it. That arithmetic predates this ticket; a
+/// last 8 bytes of the frame are invisible to it. That arithmetic predates the rewrite; a
 /// single-sample datagram is used here so it cannot desynchronise a sample chain.
 std::vector<char> hpeDatagram(const SampleSpec& spec)
 {
@@ -841,7 +841,7 @@ std::vector<char> hpeDatagram(const SampleSpec& spec)
 
 TEST_F(FlowKeyFamiliesTest, OneIpv4FlowStaysOneRowWhenTheMacsChangeAtEveryHop)
 {
-    // 🔴 F1. Two samples of the SAME five-tuple whose only difference is the Ethernet addresses
+    // 🔴 Two samples of the SAME five-tuple whose only difference is the Ethernet addresses
     // and the port they arrived on -- which is precisely what the twin sees for one flow crossing
     // two hops of an NDTwin fabric. One row, two per-agent stats entries.
     //
@@ -903,13 +903,13 @@ TEST_F(FlowKeyFamiliesTest, AnIpv6KeyCarriesNoL2FieldsEither)
 
 TEST_F(FlowKeyFamiliesTest, ANonFirstFragmentBanksItsBytesAndDoesNotEndTheDatagram)
 {
-    // Two samples in one datagram: a non-first fragment, then an ordinary packet. Before this
-    // ticket the fragment took `continue`, and every later sample in that datagram was lost --
+    // Two samples in one datagram: a non-first fragment, then an ordinary packet. Before the
+    // rewrite the fragment took `continue`, and every later sample in that datagram was lost --
     // a fragment on the wire cost the twin everything batched behind it.
     //
-    // 🔴 HOW it was lost is not what round 1 and round 2 said, and the difference matters because
-    // the wrong mechanism suggests the wrong fix. [Co-developed with claude code -- Adam]
-    // Round 3, ruling 11g. The loop's own "read position did not advance" guard did NOT fire: the
+    // 🔴 HOW it was lost is not the obvious mechanism, and the difference matters because the
+    // wrong mechanism suggests the wrong fix. [Co-developed with claude code -- Adam]
+    // The loop's own "read position did not advance" guard did NOT fire: the
     // MININET index shift (base FlowLinkUsageCollector.cpp:1259,
     // `index += flowDataLength / 4 + 2;`) runs BEFORE the `continue` at base :1455, so the read
     // position HAD advanced -- just into the middle of the sample rather than past it. The parser
@@ -990,11 +990,11 @@ TEST_F(FlowKeyFamiliesTest, TheSideTableEvictsItsOldestIdentityRatherThanRefusin
 
 TEST_F(FlowKeyFamiliesTest, AnArpOnlySwitchCountsAsASwitchThatIsSampling)
 {
-    // A behaviour change round 1 did not state: m_lastSampleFromAgentMillis and the per-port
+    // A behaviour change worth stating: m_lastSampleFromAgentMillis and the per-port
     // timestamp are now written for EVERY MININET flow sample, so a switch whose only traffic is
     // ARP or LLDP reads `live` on that port and `idle` (not `silent`) elsewhere. That is the
     // intended semantics -- A-4f's question is "is this switch sampling at all", and a switch
-    // sending us ARP samples demonstrably is -- but before this ticket a non-IPv4 sample updated
+    // sending us ARP samples demonstrably is -- but before this support a non-IPv4 sample updated
     // neither, so an all-ARP link was indistinguishable from a dead sampler.
     feed("emitted_arp.bin"); // ingress port 2
 
@@ -1011,13 +1011,13 @@ TEST_F(FlowKeyFamiliesTest, AnArpOnlySwitchCountsAsASwitchThatIsSampling)
 }
 
 // =================================================================================================
-// ROUND 3 -- the orchestrator's ruling 11e
+// Five further behaviours that were changed or introduced and not pinned
 //
 // [Co-developed with claude code -- Adam]
-// Five behaviours round 2 changed or introduced and did not pin. Four of them are cheap to state
-// and were simply not stated; the fifth -- which identity the side table evicts -- is the one that
-// was measured the wrong way round: round 2's case counted how many rows survived and never
-// asked WHICH, so a table that evicted the newest arrival every time would have passed it.
+// Four of them are cheap to state and were simply not stated; the fifth -- which identity the
+// side table evicts -- is the one that was measured the wrong way round: an earlier case counted
+// how many rows survived and never asked WHICH, so a table that evicted the newest arrival every
+// time would have passed it.
 // =================================================================================================
 
 namespace
@@ -1079,7 +1079,7 @@ std::vector<uint8_t> ipv6Frame(uint8_t dstMacByte,
 
 TEST_F(FlowKeyFamiliesTest, TheSideTableEvictsTheLeastRecentlySeenIdentityAndAHitCountsAsSeen)
 {
-    // 🔴 WHICH identity leaves, not how many. Round 2 asserted `tracked == 1024` and
+    // 🔴 WHICH identity leaves, not how many. An earlier version asserted `tracked == 1024` and
     // `evicted >= 1`, both of which a table that threw away its newest arrival would satisfy --
     // and that table is the exact failure the eviction policy exists to avoid, because the
     // identity an operator is looking for is the one happening now.
@@ -1133,7 +1133,7 @@ TEST_F(FlowKeyFamiliesTest, AnIcmpv6SampleCarriesItsTypeAndItsWholeCodeInThePort
 {
     // Type 1 (destination unreachable), code 0x1F. The code is the point: IPv4's ICMP code is
     // masked to four bits here because the pre-P3 parser did that and an IPv4 number may not
-    // move, and round 2 copied the mask onto the new family by reflex. 0x1F masked would read
+    // move, and the mask was once copied onto the new family by reflex. 0x1F masked would read
     // 0x0F -- a different code, silently.
     auto datagram = brocadeDatagram({{ipv6Frame(0x02, 0x01, 58, 0x011F, 0), 1, 2}});
     feedBytes(datagram);
@@ -1152,8 +1152,8 @@ TEST_F(FlowKeyFamiliesTest, AnIpv4SampleOfAnotherProtocolBanksItsBytesAndIsCount
 {
     // OSPF and IGMP: IPv4 frames with no five-tuple. §2.2's rule is that the link bytes are
     // recorded for every well-formed sample, and §2.3's is that the flow table stays TCP/UDP/ICMP
-    // -- so these three assertions have to hold together, which is the combination round 1 said
-    // only in prose ("non-IPv4 also banks") and round 2 left untested.
+    // -- so these three assertions have to hold together, which is the combination once said
+    // only in prose ("non-IPv4 also banks") and left untested.
     const std::vector<SampleSpec> samples{
         {ipv4Frame(0x02, 0x01, "10.0.0.1", "10.0.0.2", 89, 0, 0), 1, 2},
         {ipv4Frame(0x02, 0x01, "10.0.0.3", "10.0.0.4", 2, 0, 0), 1, 2}};

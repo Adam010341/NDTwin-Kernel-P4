@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for Q12 (Adam's ruling (a), 2026-09-03) with FINDINGS #80 and #81 -- `is_up`
+# Mutation gate for the is_up split (2026-09-03): `is_up`
 # answered two questions with one bit, and the two answers now have their own names.
 #
 # [Co-developed with claude code -- Adam]
@@ -322,7 +322,7 @@ mutate "admin_state is derived from isUp again (the conflation, verbatim)" \
     InformSwitchEnteredTest.TheResultingVertexReportsTheDisagreementRatherThanPickingOne
 
 # M2. The observed half loses its name and only the deprecated alias is left. A consumer written
-#     against the ruling reads a key that is not there.
+#     against the new key reads a key that is not there.
 mutate "the wire drops reachable and keeps only the alias" \
     "$GT" \
     '                       {"reachable", v.isUp},' \
@@ -360,7 +360,7 @@ mutate "from_json reads the alias and ignores reachable" \
     IsUpSplitTest.FromJsonReadsReachableAndAdminStateWhenBothArePresent
 
 # M6. The back-compatibility promise withdrawn: `reachable` becomes required, so every payload
-#     written before the ruling throws on load.
+#     written before the split throws on load.
 mutate "from_json requires reachable and rejects old payloads" \
     "$GT" \
     '    v.isUp = j.contains("reachable") ? j.at("reachable").get<bool>() : j.at("is_up").get<bool>();' \
@@ -398,7 +398,7 @@ mutate "the endpoint's admin_state is filled from the observation" \
     IsUpSplitTest.PowerStateEndpointReportsAdminStateAndReachableForEverySwitch
 
 # ================================================================================================
-#    FINDINGS #80 -- distrust bounded by evidence
+#    distrust bounded by evidence
 # ================================================================================================
 
 # M10. THE #80 DEFECT PUT BACK: the window closes on a clock. Written with the literal rather than
@@ -496,7 +496,7 @@ mutate "the window never closes on a probe, only on a power-on" \
     IsUpSplitTest.TheWorkerAcceptsAFreshUpAndItClosesTheWindow
 
 # ================================================================================================
-#    FINDINGS #81 -- the control-plane push
+#    the control-plane push
 # ================================================================================================
 
 # M17. The push clears the command. This is the second door #46 spent a whole branch closing: one

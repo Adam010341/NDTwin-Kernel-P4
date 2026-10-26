@@ -233,7 +233,7 @@ TELEMETRY_STATES = ("live", "idle", "silent", "unknown")
 #                         OPTIONAL key rather than a required field
 #
 # [Co-developed with claude code -- Adam]
-# 2026-09-07, branch fix/w8b-withdrawal-needs-observed-failure: WHICH recovery clears `declared`
+# 2026-09-07: WHICH recovery clears `declared`
 # narrowed, and the vocabulary did not. /ndt/link_recovery_detected now withdraws only a
 # declaration that /ndt/link_failure_detected reported broken; one reached through
 # /ndt/inject_link_failure clears only through /ndt/inject_link_recovery. No fourth value: a
@@ -262,7 +262,7 @@ DECLARED = "declared"
 assert DECLARED in DOWN_REASONS, "the declaration value must be part of the down_reason vocabulary"
 
 # [Co-developed with claude code -- Adam]
-# doc/KNOWN-ISSUES.md G-32, Adam's ruling of 2026-09-11 (option C). Every northbound write that
+# doc/KNOWN-ISSUES.md G-32 (option C, 2026-09-11). Every northbound write that
 # reaches the data plane now carries what the kernel could see of the lab claim when it answered.
 #
 # 🔴 OPTIONAL, and it has to stay optional: a kernel built before 2026-09-11 emits none of this,
@@ -306,15 +306,15 @@ FLOW_WRITE_OPTIONAL = {"detail": Str(), "lab_claim": LAB_CLAIM}
 
 # --- the four link endpoints ------------------------------------------------------
 # [Co-developed with claude code -- Adam]
-# Adam's ruling E-21, 2026-09-07: /ndt/link_failure_detected, /ndt/link_recovery_detected,
+# 2026-09-07: /ndt/link_failure_detected, /ndt/link_recovery_detected,
 # /ndt/inject_link_failure and /ndt/inject_link_recovery join the contract. They had none --
 # `declaration_retained` was documented in doc/2026-01-02_ndt_api.md §2 and named by no schema,
 # so the one field on the wire that says "this kernel deliberately left your link down" could
 # have vanished without a single check going red.
 #
 # 🔴 THIS FAMILY DESCRIBES A BRANCH, NOT trunk, and that is deliberate rather than an oversight.
-# fix/w8-declared-link-failure-sticky added §2b/§2c (a trunk kernel answers 404 to both paths)
-# and fix/w8b-withdrawal-needs-observed-failure added the pairing rule, the dpid-0 refusal and
+# One change added §2b/§2c (a trunk kernel answers 404 to both paths)
+# and a second added the pairing rule, the dpid-0 refusal and
 # `declaration_retained`. Against trunk these checks fail, the way get_num_of_flows__unknown_dpid
 # fails against a kernel from before OV-3. The alternative -- accepting 404 as well as 200 -- is a
 # contract that agrees with the kernel whichever answer comes back, which is what OV-3 was.
@@ -339,7 +339,7 @@ LINK_REQUEST = Obj({
 }, strict=True)
 
 #: A payload naming a HOST edge -- dpid 0 is the host end -- which all four endpoints refuse with
-#: 400 as of fix/w8b-withdrawal-needs-observed-failure (W8-7, four doors). Refused at the door,
+#: 400 since 2026-09-07 (four doors). Refused at the door,
 #: before any edge lookup and before any write, so this is safe on a live fabric.
 HOST_EDGE_PAYLOAD = {"src_dpid": 1, "src_interface": 1, "dst_dpid": 0, "dst_interface": 0}
 
@@ -434,7 +434,7 @@ GRAPH_NODE = Obj({
     "device_layer": Int(),
 }, optional={
     "nickname": Str(),
-    # [Co-developed with claude code -- Adam] -- Q12, Adam's ruling (a) of 2026-09-03.
+    # [Co-developed with claude code -- Adam] -- Q12, 2026-09-03.
     # `is_up` above answered two questions at once. These are the two answers; `is_up` stays
     # REQUIRED because it is now a deprecated alias of `reachable` that four external consumers
     # still read (one of them with a throwing j.at()).
@@ -452,7 +452,7 @@ GRAPH_NODE = Obj({
     # for the node as well rather than kept apart: the two objects have carried the same key with
     # the same meaning since F-14, and a split vocabulary would be a second thing to keep in step.
     "down_reason": Str(allowed=DOWN_REASONS),
-    # E-25 / E-30, Adam's ruling of 2026-09-07. Which mechanism this build has for reading this
+    # 2026-09-07. Which mechanism this build has for reading this
     # switch's power draw and its CPU/memory/temperature. `power_path == "none"` is the mark of a
     # switch admitted only because its topology node declared an explicit `switch_kind` -- this
     # build has no branch written for its brand, so nothing is asked of it over SNMP or SSH and
@@ -520,7 +520,7 @@ GRAPH_EDGE = Obj({
 })
 
 GRAPH_DATA = Obj({"nodes": List(GRAPH_NODE, min_len=1), "edges": List(GRAPH_EDGE)}, optional={
-    # [Co-developed with claude code -- Adam] -- E-2 (DECISIONS.md, grill §4E), KNOWN-ISSUES G-15.
+    # [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-15.
     # Which model the kernel loaded, so a consumer stops having to infer it. `run_layers.sh` used
     # to derive the model from (data plane, live host count) and `setting/` holds more than one
     # model with the same dpids and the same cardinality, so validating one fabric against
@@ -1188,10 +1188,9 @@ def inv_kernel_serves_the_model_under_test(data, ctx):
     """
     The kernel must be serving the model this run is validating it against.
 
-    [Co-developed with claude code -- Adam] -- E-2 (DECISIONS.md, grill §4E), KNOWN-ISSUES G-15.
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-15.
 
-    🔴 This is the check R2-PY §7-3 said could not exist, and it could not until the kernel
-    reported what it had loaded. `inv_graph_matches_topology` compares the graph against the
+    🔴 This check could not exist until the kernel reported what it had loaded. `inv_graph_matches_topology` compares the graph against the
     file it was HANDED, so when the runner is pointed at the wrong model the two agree by
     definition -- and `setting/` holds more than one model with the same ten dpids and the same
     10/4/40 cardinality, so "the wrong model" is not a hypothetical: it is one `--topology`
@@ -1231,7 +1230,7 @@ def inv_kernel_serves_the_model_under_test(data, ctx):
         out.append(f"the kernel loaded {said}, and this run is validating it against "
                    f"{ctx.topology_path}. Every count and dpid check below compares the graph "
                    f"with the file it was handed, so a wrong model is green by construction "
-                   f"(fix/R2-PY-SUMMARY.md §7-3)")
+                   f"-- point the run at the file the kernel reports it loaded")
         return out
 
     if isinstance(digest, str) and _SHA256_HEX.match(digest):
@@ -1582,7 +1581,7 @@ def inv_declared_failure_says_who_can_withdraw_it(data, ctx):
     """
     §1: a 200 must say the failure was DECLARED, and name what ends it.
 
-    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES B-6, Adam's ruling E-21.
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES B-6.
 
     The two keys are the whole of B-6 on the wire. Without them a caller cannot tell the fixed
     behaviour (the declaration stands until somebody withdraws it) from the defect (the next
@@ -1600,7 +1599,7 @@ def inv_declared_failure_says_who_can_withdraw_it(data, ctx):
             f"{sorted(data)} and not down_reason/until. A kernel built from trunk answers "
             '{"status": "link failure processed"} alone and its declaration is undone by the '
             "next topology poll within 30 s, silently -- which is indistinguishable from this "
-            "reply. The keys arrive with fix/w8-declared-link-failure-sticky "
+            "reply. The keys arrive with the declared-link-failure change "
             "(2026-01-02_ndt_api.md §1). Reported rather than passed"
         ]
     if data["until"] != "/ndt/link_recovery_detected":
@@ -1639,7 +1638,7 @@ def inv_recovery_was_declined_and_said_so(data, ctx):
     """
     §2 answering an INJECTION: it must decline, and the body must say so.
 
-    [Co-developed with claude code -- Adam] -- Adam's ruling E-21; the shape it names.
+    [Co-developed with claude code -- Adam]
 
     The check immediately before this one injected a failure through /ndt/inject_link_failure,
     which records no report, so nothing pairs with this recovery. Two ways for it to be wrong and
@@ -1717,7 +1716,7 @@ def inv_tc_half_is_reported_per_interface(data, ctx):
     covering one interface is not a weaker version of this injection, it is another one.
 
     A skipped or refused half is ACCOUNTED-FOR, not a failure: "the physical lab gets C only"
-    (Adam, 2026-09-05) and a machine without the NOPASSWD tc grants is a lab that is set up
+    and a machine without NOPASSWD sudoers rules for those tc forms is a lab that is set up
     differently, not a kernel that is broken. It is printed either way -- an explained deviation
     nobody sees is indistinguishable from no deviation at all.
     """
@@ -1777,7 +1776,7 @@ def inv_power_state_values(data, ctx):
 
 
 # --- the link the mutating link sequence acts on ----------------------------------
-# [Co-developed with claude code -- Adam] -- Adam's ruling E-21.
+# [Co-developed with claude code -- Adam]
 
 
 @functools.lru_cache(maxsize=8)
@@ -1917,17 +1916,16 @@ ENDPOINTS = [
     # Both branches now require a concrete shape.
     #
     # [Co-developed with claude code -- Adam]
-    # expect_status accepts 404 as of 2026-08-25 (P1-3 closeout, Adam's ruling relayed by the
-    # 08-24 audit session). Root-cause fix is deferred until after the 2026-09-03 report.
+    # expect_status accepts 404 as of 2026-08-25 (P1-3 closeout). Root-cause fix is deferred
+    # until after the 2026-09-03 report.
     #
-    # WHAT WAS MEASURED (doc/audit/2026-08-24_path-switch-count-404/): the 404 reproduces, and it
+    # WHAT WAS MEASURED (2026-08-24): the 404 reproduces, and it
     # is a first-query-after-boot transient -- 1x404 on sample 1, then 200 on all nine subsequent
     # samples at 12s intervals. The kernel fills its path map from a control-plane fetch on a
     # timer; immediately after boot that map is empty or partial, and the contract harness runs
     # right after bring-up, so it queries inside exactly that window.
     #
-    # STRENGTHENED 2026-08-25 by the audit session's seal run
-    # (scratch/review-2026-08-25/seal_404_transient.txt). On a boot that was CLEAN by every
+    # STRENGTHENED 2026-08-25 by a seal run. On a boot that was CLEAN by every
     # available check -- `ndt up` rc=0, "10 switches up+enabled", graph matching 128 hosts /
     # 288 edges, h1 -> 10.0.0.2 forwarding, no XX at all -- the same endpoint went:
     #
@@ -1935,7 +1933,7 @@ ENDPOINTS = [
     #
     # That is the recovery measured directly on one boot, not inferred from where a failure fell
     # in a series, and the clean-boot precondition rules out "the 404 came from a degraded fabric"
-    # -- which is exactly the objection the post-commit shadow review raised against the two-arm
+    # -- which is exactly the objection that was raised against the two-arm
     # acceptance below.
     #
     # 🔴 THE GAP THAT REMAINS, and it is still why this is an allowlist rather than a fix: what has
@@ -1985,17 +1983,17 @@ ENDPOINTS = [
 
     # ---------- read-only: device health ----------
     # [Co-developed with claude code -- Adam]
-    # R5, Adam's ruling of 2026-09-10. `power_path` on the report's own entries, the same key
+    # R5, 2026-09-10. `power_path` on the report's own entries, the same key
     # with the same four-word vocabulary GRAPH_NODE pins above -- measured 2026-09-10 on a live
     # OVS fabric, an exempted switch answered a figure here that no consumer could tell from a
-    # measured one (R4-LIVE-SUMMARY.md §7-1). OPTIONAL for the first of the two reasons
+    # measured one. OPTIONAL for the first of the two reasons
     # GRAPH_NODE gives: a kernel built before 2026-09-10 emits no such key and must still pass
     # the structural check. The second reason does not apply -- every entry in this list is a
     # switch, so on a current kernel the key is on all of them.
     # 🔴 min=-1, not 0, for the same reason get_cpu_utilization was relaxed below -- and this
     # endpoint was left behind when that one was fixed. -1 is `kHealthMetricUnavailable`, and
     # fetchPowerReportInternal has emitted it on the TESTBED branch since E-23 (2026-09-07) for a
-    # switch whose `power_path` is "none", and since FINDINGS #85 for one carrying no management
+    # switch whose `power_path` is "none", and later for one carrying no management
     # address. The API document says so in section 6's Note. `Num(min=0)` therefore rejected a
     # row a correct kernel emits -- found 2026-09-10 (F-OFFLINE-1) by validating that exact row
     # offline, which answered `[0].power_consumed: expected >= 0, got -1`.
@@ -2437,7 +2435,7 @@ ENDPOINTS = [
          note="guards the null-IntentTranslator crash fixed 2026-08-11; deliberately "
               "incomplete so no intent can execute even if the kernel has AI enabled"),
 
-    # ---------- the four link endpoints (Adam's ruling E-21, 2026-09-07) -------------
+    # ---------- the four link endpoints (2026-09-07) -------------------
     # [Co-developed with claude code -- Adam]
     #
     # LAST IN THE TABLE ON PURPOSE. endpoints_by_category preserves declaration order, so by the
@@ -2471,7 +2469,7 @@ ENDPOINTS = [
          request_schema=LINK_REQUEST,
          category=ERRORPATH, expect_status=[400],
          schema=Any_(),
-         note="W8-7, door 1 of 4. dpid 0 is a host end, and the edge lookup matches on the two "
+         note="Host-edge door 1 of 4. dpid 0 is a host end, and the edge lookup matches on the two "
               "dpids alone, so this used to resolve to whichever host edge of the other switch "
               "came first in the graph -- a link the caller never named"),
 
@@ -2480,7 +2478,7 @@ ENDPOINTS = [
          request_schema=LINK_REQUEST,
          category=ERRORPATH, expect_status=[400],
          schema=Any_(),
-         note="W8-7, door 2 of 4. The ruling named the failure endpoints; this one is refused "
+         note="Host-edge door 2 of 4. The failure endpoints are in the contract; this one is refused "
               "with them because a payload the recovery accepts and its failure sibling refuses "
               "is a link nobody could have injected"),
 
@@ -2489,7 +2487,7 @@ ENDPOINTS = [
          request_schema=LINK_REQUEST,
          category=ERRORPATH, expect_status=[400],
          schema=Any_(),
-         note="W8-7, door 3 of 4, and the one where it matters twice: this endpoint runs tc, so "
+         note="Host-edge door 3 of 4, and the one where it matters twice: this endpoint runs tc, so "
               "a dpid-0 payload would have attached netem to whichever host-facing interface the "
               "arbitrarily-chosen edge named"),
 
@@ -2498,7 +2496,7 @@ ENDPOINTS = [
          request_schema=LINK_REQUEST,
          category=ERRORPATH, expect_status=[400],
          schema=Any_(),
-         note="W8-7, door 4 of 4 -- this one would run `tc qdisc del` against the interface it "
+         note="Host-edge door 4 of 4 -- this one would run `tc qdisc del` against the interface it "
               "resolved to"),
 
     # A link the graph does not hold. Both dpids are non-zero, so these get past the door above

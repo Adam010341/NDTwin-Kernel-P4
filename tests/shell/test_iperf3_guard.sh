@@ -173,7 +173,7 @@ check "case 5  ps absent from PATH is REFUSED, not read as 'clean'" 1 "$rc5"
 
 # --- case 6: the dry-run contract is unchanged ---------------------------------------------------
 # The E round's transcripts are produced through these two branches; changing what they answer
-# would change what a pre-registered analysis measures, so they are pinned rather than touched.
+# would change what the analysis measures, so they are pinned rather than touched.
 check "case 6  DRY_RUN=1 synthesises a clean machine" 0 \
       "$( ( DRY_RUN=1 DRY_FAIL= foreign_iperf3_guard ) >/dev/null 2>&1; echo $? )"
 check "case 6b DRY_RUN=1 DRY_FAIL=iperf3 forces the refusal branch" 1 \

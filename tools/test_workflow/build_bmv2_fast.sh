@@ -8,10 +8,14 @@
 # Why this exists: the installed simple_switch_grpc was built -O0 with all debug logging
 # macros and the nanomsg event logger enabled (p4-guide's default; config.log:7 in the source
 # tree records the invocation verbatim). Literature puts simple_switch_grpc around ~170 Mbps
-# (SIGSIM-PADS '23; this machine's saturation point has never been measured -- step 1 below),
-# while upstream's own docs/performance.md prescribes exactly the flags below and reports
-# ~917 Mbps with them. Full analysis: doc/audit/2026-08-15_bmv2-source-analysis.md;
-# curated findings: doc/2026-08-15_bmv2-performance-report.md.
+# (SIGSIM-PADS '23; when this script was written this machine's saturation point had not been
+# measured), while upstream's own docs/performance.md prescribes 'CXXFLAGS=-g -O3'
+# 'CFLAGS=-g -O3' --disable-logging-macros --disable-elogger (the compiler flags below add
+# -DNDEBUG, -march=native and, for C++, -fno-semantic-interposition) and says that on an AWS
+# c4.2xlarge, for its simple_router.p4 benchmark, one simple_switch built that way should reach
+# around 1 Gbps, or 80,000 pps (its example run's median: 1047 Mbps). Measured
+# here 2026-08-15, stock vs this build over a 3-hop path: 1400 B UDP delivered ceiling ~40-42 vs
+# ~460-530 Mbps, TCP single flow 24.2 vs 431.0 Mbps, 64 B packets ~3,619 vs ~50,786 pps.
 #
 # ⚠️ Read before running (decision points, not folklore):
 #   1. Upstream warns this exact flag set "cannot be used to achieve passing results on all
@@ -34,7 +38,7 @@
 set -euo pipefail
 
 # $SRC used to be a bare constant. It is now overridable, because the tree it named
-# (/home/adam/P4_Source_Code, 3.5 GB) is scheduled for deletion and the documented way to
+# (the default below, 3.5 GB) is scheduled for deletion and the documented way to
 # rebuild after that is to clone f0b7d201 somewhere else and point SRC at it. The default is
 # unchanged, so nothing about an existing invocation moves.
 SRC="${SRC:-/home/adam/P4_Source_Code/behavioral-model}"
@@ -43,9 +47,9 @@ BUILD=/tmp/bmv2-fast-src
 VENV=/home/adam/p4dev-python-venv
 
 # The commit both installed simple_switch_grpc binaries were built from; see
-# doc/audit/bmv2-binary-provenance.md. Overridable, but only on purpose and by name.
+# tools/test_workflow/manifest_backfill.sh. Overridable, but only on purpose and by name.
 EXPECT_COMMIT="${BMV2_EXPECT_COMMIT:-f0b7d201570d088a056b7fe660802ca1a8bcb912}"
-RESIDUE_DOC="doc/audit/2026-08-31_p4-source-tree-residue/README.md"
+PROVENANCE_SRC="tools/test_workflow/manifest_backfill.sh"
 
 # ---------------------------------------------------------------------------------------
 # Two gates, before anything is built, cloned or installed.
@@ -70,7 +74,7 @@ REFUSING TO BUILD: the behavioral-model source tree is not there.
 
   SRC = $SRC   <-- no .git in it (missing, or not a git checkout)
 
-This tree was /home/adam/P4_Source_Code/behavioral-model and it has been deleted, or you
+This tree (the built-in default for SRC) has been deleted, or you
 pointed SRC somewhere that is not a checkout.
 
 NOT cloning a replacement, deliberately. A fresh clone lands on upstream HEAD, not on
@@ -84,9 +88,9 @@ How to rebuild, verbatim:
   git -C /some/path/behavioral-model checkout $EXPECT_COMMIT
   SRC=/some/path/behavioral-model bash tools/test_workflow/build_bmv2_fast.sh
 
-What was saved out of the deleted tree, and what it was evidence for:
-  $RESIDUE_DOC          (section 5.3)
-  doc/audit/bmv2-binary-provenance.md                     (which binary produced which number)
+Where the provenance of the installed builds is pinned:
+  $PROVENANCE_SRC  (sha256 of the stock and the fast binary)
+  $PREFIX/BUILD-MANIFEST                (which commit and flags produced the fast build)
 
 The result is functionally equivalent, NOT byte-identical: -march=native bakes in this
 machine's ISA. Treat the already-installed binary as the artifact of record.
@@ -109,7 +113,7 @@ REFUSING TO BUILD: \$SRC is a checkout, but not of the commit this project measu
 
 Building anyway would install a binary to $PREFIX whose BUILD-MANIFEST
 names a commit nobody's published number belongs to. Both installed simple_switch_grpc
-builds came from the expected commit -- see doc/audit/bmv2-binary-provenance.md.
+builds came from the expected commit -- see $PREFIX/BUILD-MANIFEST.
 
   git -C $SRC checkout $EXPECT_COMMIT
 
@@ -130,8 +134,8 @@ echo "source tree OK: $SRC @ $SRC_COMMIT"
 # Build inside a local git clone, not out-of-tree against $SRC: autoconf refuses an
 # out-of-tree configure while the source dir holds an in-tree configuration ("source
 # directory already configured"), and the fix it suggests -- make distclean in $SRC --
-# would destroy the original -O0 build's config.log, which is the provenance evidence the
-# performance report quotes. A clone reproduces HEAD exactly (the version string embeds the
+# would destroy the original -O0 build's config.log, the provenance evidence for how the -O0
+# build was configured. A clone reproduces HEAD exactly (the version string embeds the
 # commit) and leaves the original tree byte-for-byte untouched. Verified live 2026-08-15:
 # the out-of-tree form failed with exactly that error; the clone form built clean.
 #

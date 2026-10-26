@@ -4,7 +4,7 @@
 # Mininet is installed for the SYSTEM python, in /usr/lib/python3/dist-packages, and this file is
 # launched by two interpreters that do not have that directory on sys.path:
 #
-#   sudo /home/adam/miniconda3/envs/ntg-env/bin/python testbed_topo.py
+#   sudo <path to the conda env>/bin/python testbed_topo.py
 #       tools/test_workflow/ndtwin-lab `ovs-topo-start`, i.e. what `ndt up ovs` runs.
 #   sudo python3 testbed_topo.py
 #       what stack.sh prints for the operator -- `python3` on this machine is conda's.

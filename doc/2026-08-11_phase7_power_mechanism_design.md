@@ -53,10 +53,10 @@ helper 的硬規則（也是測試的斷言）：
 sudo cp tools/p4_power_helper.py /usr/local/sbin/ndtwin-p4-power
 sudo chown root:root /usr/local/sbin/ndtwin-p4-power && sudo chmod 755 /usr/local/sbin/ndtwin-p4-power
 # visudo 加一行：
-adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-p4-power
+<user> ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-p4-power
 ```
 
-sudoers 釘的是 root-owned 路徑。**不可**釘 repo 內的路徑——adam 可寫的檔案掛 NOPASSWD
+sudoers 釘的是 root-owned 路徑。**不可**釘 repo 內的路徑——使用者可寫的檔案掛 NOPASSWD
 等於整台機器的 root。
 
 ## 決定 2：powerOn = 重啟 process + proxy readopt，兩者缺一即失敗
@@ -78,8 +78,7 @@ probe 是 unary RPC，gRPC channel 自動重連，bmv2 沒有 pipeline 也答得
 消滅的那種謊，而且這次是 liveness 自己作的證。
 
 > **更正（2026-10-04）**：上一段「bmv2 沒有 pipeline 也答得出 COOKIE_ONLY」不成立。
-> **實測**（`doc/audit/2026-10-04_p4-cookie-probe/run-stock.out`、`run-fast.out`，phase A–E，
-> stock 與 bmv2-fast 兩種 `simple_switch_grpc`）：從未經 P4Runtime 推入 pipeline 的 bmv2
+> **實測**（phase A–E，stock 與 bmv2-fast 兩種 `simple_switch_grpc`）：從未經 P4Runtime 推入 pipeline 的 bmv2
 > 對 COOKIE_ONLY 回 `FAILED_PRECONDITION`（"No forwarding pipeline config set for this
 > device"）；proxy 的 `probe()` 把它讀成 `ok: false`，與 process 已死同值，
 > `connected_switch_dpids()` 也不列它；`switch_liveness` 同時服務 `stream_alive`（實測為
@@ -158,7 +157,7 @@ kernel 側 powerOn 順序：helper on（process 起來、port 開）→ curl rea
   > > 能再次抵達 readopt 的路徑、並警告那條不行的），不是釘當下那句話的字面。
   > > 這個殘餘本身在 `949fcba` 之後應該極少發生，但訊息還是要對。
   >
-  > **再更正（2026-10-04，證據在 `doc/audit/2026-10-04_p4-cookie-probe/`）**：上面
+  > **再更正（2026-10-04）**：上面
   > 兩段共同的前提「process 起來後 probe 一秒內就標 Up」只在 readopt 失敗於 pipeline
   > **已提交之後**才成立。分兩層標示：
   >

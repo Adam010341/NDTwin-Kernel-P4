@@ -77,22 +77,22 @@ mkdir -p "$T/a"
 expect "RED  -- unset owner is refused"     1 "NDT_OWNER is not set" \
     env -u NDT_OWNER VM_DIR="$T/a" bash "$VM" destroy
 expect "GREEN-- owner set, dir unclaimed"   1 "Type DESTROY" \
-    env NDT_OWNER=mainDev VM_DIR="$T/a" bash "$VM" destroy
+    env NDT_OWNER=sessionA VM_DIR="$T/a" bash "$VM" destroy
 
 echo "=== G2  claim_guard: foreign claim ==="
 mkdir -p "$T/b"
 printf 'owner: bmv2paper\nsince: 2026-08-31T14:00:00+08:00\nport:  2222\nnote:  lab\n' > "$T/b/OWNER"
 expect "RED  -- another session's VM is refused" 3 "belongs to another session" \
-    env NDT_OWNER=mainDev VM_DIR="$T/b" bash "$VM" destroy
+    env NDT_OWNER=sessionA VM_DIR="$T/b" bash "$VM" destroy
 expect "RED  -- and it names the real owner"     3 "owner: bmv2paper" \
-    env NDT_OWNER=mainDev VM_DIR="$T/b" bash "$VM" destroy
+    env NDT_OWNER=sessionA VM_DIR="$T/b" bash "$VM" destroy
 expect "GREEN-- the actual owner gets through"   1 "Type DESTROY" \
     env NDT_OWNER=bmv2paper VM_DIR="$T/b" bash "$VM" destroy
 
 echo "=== G3  the override is not silent ==="
 expect "GREEN-- NDTVM_FORCE=1 proceeds"          1 "recording the override" \
-    env NDT_OWNER=mainDev NDTVM_FORCE=1 VM_DIR="$T/b" bash "$VM" destroy
-if grep -q '^FORCED: mainDev took this from bmv2paper' "$T/b/OWNER"; then
+    env NDT_OWNER=sessionA NDTVM_FORCE=1 VM_DIR="$T/b" bash "$VM" destroy
+if grep -q '^FORCED: sessionA took this from bmv2paper' "$T/b/OWNER"; then
     echo "  ✅ RED-for-the-next-reader -- the override wrote itself into OWNER"; pass=$((pass+1))
 else
     echo "  🔴 override left no trace in OWNER"; fail=$((fail+1))
@@ -106,22 +106,22 @@ s.bind(("127.0.0.1",34567)); s.listen(1); time.sleep(60)' &
 HOLDER=$!
 for _ in $(seq 1 20); do ss -tlnH 'sport = :34567' | grep -q . && break; sleep 0.2; done
 expect "RED  -- a busy port is refused"      4 "is already listening" \
-    env NDT_OWNER=mainDev VM_DIR="$T/c" SSH_PORT=34567 bash "$VM" start
+    env NDT_OWNER=sessionA VM_DIR="$T/c" SSH_PORT=34567 bash "$VM" start
 expect "GREEN-- a free port gets past the guard" 1 "booting" \
-    env NDT_OWNER=mainDev VM_DIR="$T/c" SSH_PORT=34568 bash "$VM" start
+    env NDT_OWNER=sessionA VM_DIR="$T/c" SSH_PORT=34568 bash "$VM" start
 kill "$HOLDER" 2>/dev/null; wait "$HOLDER" 2>/dev/null
 
 echo "=== G5  generic snapshot tags (how the collision stayed invisible) ==="
 mkdir -p "$T/d"; : > "$T/d/disk.qcow2"
 expect "RED  -- 'fresh' is refused"          1 "too generic" \
-    env NDT_OWNER=mainDev VM_DIR="$T/d" bash "$VM" snap fresh
+    env NDT_OWNER=sessionA VM_DIR="$T/d" bash "$VM" snap fresh
 expect "GREEN-- a purpose+date tag is allowed" 1 "snapshot failed" \
-    env NDT_OWNER=mainDev VM_DIR="$T/d" bash "$VM" snap p4-toolchain-0831
+    env NDT_OWNER=sessionA VM_DIR="$T/d" bash "$VM" snap p4-toolchain-0831
 
 echo "=== G8  the working point survives a restart (2026-08-31 silent downgrade) ==="
 mkdir -p "$T/e"; : > "$T/e/disk.qcow2"; printf 'x' > "$T/e/disk.qcow2"
 expect "RED  -- existing VM, no CONFIG, warns before booting" 1 "工作點來自 built-in default" \
-    env NDT_OWNER=mainDev VM_DIR="$T/e" SSH_PORT=34570 bash "$VM" start
+    env NDT_OWNER=sessionA VM_DIR="$T/e" SSH_PORT=34570 bash "$VM" start
 if grep -q '^cpus=12' "$T/e/CONFIG" 2>/dev/null; then
     echo "  ✅ and it recorded what it actually used"; pass=$((pass+1))
 else
@@ -129,13 +129,13 @@ else
 fi
 printf 'cpus=16\nmem=16384\ndisk=120G\nport=34570\n' > "$T/e/CONFIG"
 expect "GREEN-- CONFIG is honoured with no env vars"  1 "16 vCPU, 16384MiB" \
-    env NDT_OWNER=mainDev VM_DIR="$T/e" SSH_PORT=34570 bash "$VM" start
+    env NDT_OWNER=sessionA VM_DIR="$T/e" SSH_PORT=34570 bash "$VM" start
 expect "GREEN-- and the warning is gone"              1 "CONFIG（這顆 VM 上次跑的工作點）" \
-    env NDT_OWNER=mainDev VM_DIR="$T/e" SSH_PORT=34570 bash "$VM" start
+    env NDT_OWNER=sessionA VM_DIR="$T/e" SSH_PORT=34570 bash "$VM" start
 expect "GREEN-- an explicit env var still overrides"  1 "8 vCPU, 4096MiB" \
-    env NDT_OWNER=mainDev VM_DIR="$T/e" SSH_PORT=34570 VM_CPUS=8 VM_MEM=4096 bash "$VM" start
+    env NDT_OWNER=sessionA VM_DIR="$T/e" SSH_PORT=34570 VM_CPUS=8 VM_MEM=4096 bash "$VM" start
 expect "RED  -- status names an unrecorded work point" 0 "next start falls back" \
-    env NDT_OWNER=mainDev VM_DIR="$T/a" bash "$VM" status
+    env NDT_OWNER=sessionA VM_DIR="$T/a" bash "$VM" status
 
 echo "=== G9  'cannot read' must never be printed as 'there are none' ==="
 # This is the defect that caused the duplicate `fresh` tag on 2026-08-31: the list
@@ -146,25 +146,25 @@ echo "=== G9  'cannot read' must never be printed as 'there are none' ==="
 # this test would have passed against the OLD broken code.
 mkdir -p "$T/f"; qemu-img create -q -f qcow2 "$T/f/disk.qcow2" 16M; chmod 000 "$T/f/disk.qcow2"
 expect "RED  -- unreadable list says so"      1 "COULD NOT READ" \
-    env NDT_OWNER=mainDev VM_DIR="$T/f" bash "$VM" snaps
+    env NDT_OWNER=sessionA VM_DIR="$T/f" bash "$VM" snaps
 expect "RED  -- and snap refuses to add blind" 1 "refusing to add one blind" \
-    env NDT_OWNER=mainDev VM_DIR="$T/f" bash "$VM" snap p4-toolchain-0831
+    env NDT_OWNER=sessionA VM_DIR="$T/f" bash "$VM" snap p4-toolchain-0831
 expect "RED  -- and restore refuses too"       1 "refusing to restore blind" \
-    env NDT_OWNER=mainDev VM_DIR="$T/f" bash "$VM" restore p4-toolchain-0831
+    env NDT_OWNER=sessionA VM_DIR="$T/f" bash "$VM" restore p4-toolchain-0831
 
 mkdir -p "$T/g"; qemu-img create -q -f qcow2 "$T/g/disk.qcow2" 16M
 expect "GREEN-- a genuinely empty disk says THAT instead" 0 "read successfully" \
-    env NDT_OWNER=mainDev VM_DIR="$T/g" bash "$VM" snaps
+    env NDT_OWNER=sessionA VM_DIR="$T/g" bash "$VM" snaps
 qemu-img snapshot -c dup-tag "$T/g/disk.qcow2"
 qemu-img snapshot -c dup-tag "$T/g/disk.qcow2"
 expect "RED  -- duplicate tags are called out at read time" 0 "DUPLICATE TAG 'dup-tag'" \
-    env NDT_OWNER=mainDev VM_DIR="$T/g" bash "$VM" snaps
+    env NDT_OWNER=sessionA VM_DIR="$T/g" bash "$VM" snaps
 expect "RED  -- restore refuses an ambiguous tag" 1 "matches 2 snapshots" \
-    env NDT_OWNER=mainDev VM_DIR="$T/g" bash "$VM" restore dup-tag
+    env NDT_OWNER=sessionA VM_DIR="$T/g" bash "$VM" restore dup-tag
 expect "RED  -- snap refuses to create a third one" 1 "already exists on this disk" \
-    env NDT_OWNER=mainDev VM_DIR="$T/g" bash "$VM" snap dup-tag
+    env NDT_OWNER=sessionA VM_DIR="$T/g" bash "$VM" snap dup-tag
 expect "GREEN-- a fresh unique tag is accepted"  0 "ACCEPTANCE" \
-    env NDT_OWNER=mainDev VM_DIR="$T/g" bash "$VM" snap p4-toolchain-0831
+    env NDT_OWNER=sessionA VM_DIR="$T/g" bash "$VM" snap p4-toolchain-0831
 
 echo "=== G6  vms is readable without owning anything ==="
 expect "GREEN-- no NDT_OWNER needed to look"  0 "OWNER" \
@@ -174,11 +174,11 @@ echo "=== G7  the suspension table: refuses the suspended, lets the unpaused pas
 # Asked through `rlab suspended`, which answers WITHOUT dialling. Finding out by trying
 # is exactly what a stop order forbids -- and a table observable only through its own
 # refusals cannot be tested in the direction that matters: that it lets the right
-# things past. 2026-08-31 exercised both directions for real: nslab was paused in the
-# afternoon and unpaused the same evening once its usage rules landed.
+# things past. 2026-08-31 exercised both directions for real: the VM host was paused in
+# the afternoon and unpaused the same evening once its usage rules landed.
 expect "RED  -- a suspended machine is refused"  4 "遠端機器先不要用" \
     env bash "$RLAB" suspended server8
-expect "RED  -- and it names who and when"       4 "學姐 via Adam" \
+expect "RED  -- and it names who and when"       4 "the lab maintainers, 2026-08-31" \
     env bash "$RLAB" suspended server8
 expect "GREEN-- an UNPAUSED machine is let past" 0 "not suspended" \
     env bash "$RLAB" suspended nslab
@@ -202,27 +202,27 @@ mkdir -p "$T/h"
 printf 'owner: bmv2paper\nsince: 2026-08-31T14:00:00+08:00\nport:  2222\nnote:  B round\n' > "$T/h/OWNER"
 
 expect "RED  -- stop refuses another session's VM"     3 "belongs to another session" \
-    env NDT_OWNER=mainDev VM_DIR="$T/h" bash "$VM" stop
+    env NDT_OWNER=sessionA VM_DIR="$T/h" bash "$VM" stop
 expect "RED  -- stop refuses when NDT_OWNER is unset"  1 "NDT_OWNER is not set" \
     env -u NDT_OWNER VM_DIR="$T/h" bash "$VM" stop
 expect "GREEN-- stop proceeds on your own VM"          0 "not running" \
     env NDT_OWNER=bmv2paper VM_DIR="$T/h" bash "$VM" stop
 expect "RED  -- ssh refuses another session's VM"      3 "belongs to another session" \
-    env NDT_OWNER=mainDev VM_DIR="$T/h" bash "$VM" ssh true
+    env NDT_OWNER=sessionA VM_DIR="$T/h" bash "$VM" ssh true
 expect "RED  -- ssh refuses when NDT_OWNER is unset"   1 "NDT_OWNER is not set" \
     env -u NDT_OWNER VM_DIR="$T/h" bash "$VM" ssh true
 
 # 🔑 The green direction that matters most for ssh is NOT "it connects" -- it is that
-# guarding it did not quietly turn it into a claim. §5b of the rules requires that an
+# guarding it did not quietly turn it into a claim. The VM usage rules require that an
 # UNOWNED VM pending retirement can still be inspected without anyone taking it, and
-# the 08-31 .git inventory depended on exactly that. claim_guard refuses; claim_write
+# inventorying such VMs depends on exactly that. claim_guard refuses; claim_write
 # records; only create/start call the latter. Prove the separation, do not trust it.
 mkdir -p "$T/i"
-env NDT_OWNER=mainDev VM_DIR="$T/i" SSH_PORT=34599 bash "$VM" ssh true >/dev/null 2>&1
+env NDT_OWNER=sessionA VM_DIR="$T/i" SSH_PORT=34599 bash "$VM" ssh true >/dev/null 2>&1
 if [ ! -f "$T/i/OWNER" ]; then
     echo "  ✅ GREEN-- ssh on an UNOWNED VM did not claim it (no OWNER written)"; pass=$((pass+1))
 else
-    echo "  🔴 ssh created an OWNER file -- inspecting a VM now takes it, which §5b forbids"
+    echo "  🔴 ssh created an OWNER file -- inspecting a VM now takes it, which the VM usage rules forbid"
     fail=$((fail+1))
 fi
 
@@ -295,16 +295,16 @@ fi
 
 
 echo
-echo "=== G11 destroy must take the registry entry with it (found by mainDev, 08-31) ==="
+echo "=== G11 destroy must take the registry entry with it ==="
 # `destroy` used to remove IMG/SEED/PIDF/MON and leave OWNER and CONFIG behind, so
 # `vms` went on listing a VM that no longer had a disk -- owner, port and all. The
 # next reader sees an occupancy and works around a ghost.
 mkdir -p "$T/j"
-printf 'owner: mainDev\nsince: x\nport:  2245\nnote:  E round\n' > "$T/j/OWNER"
+printf 'owner: sessionA\nsince: x\nport:  2245\nnote:  E round\n' > "$T/j/OWNER"
 printf 'cpus=12\nmem=8192\ndisk=120G\nport=2245\n' > "$T/j/CONFIG"
 : > "$T/j/noble-base.img"          # the deliberately-kept base image
 qemu-img create -q -f qcow2 "$T/j/disk.qcow2" 8M 2>/dev/null || : > "$T/j/disk.qcow2"
-DOUT=$(printf 'DESTROY\n' | env NDT_OWNER=mainDev VM_DIR="$T/j" SSH_PORT=2245 bash "$VM" destroy 2>&1)
+DOUT=$(printf 'DESTROY\n' | env NDT_OWNER=sessionA VM_DIR="$T/j" SSH_PORT=2245 bash "$VM" destroy 2>&1)
 
 for f in disk.qcow2 OWNER CONFIG; do
     if [ ! -e "$T/j/$f" ]; then
@@ -335,7 +335,7 @@ echo "=== G12 vms must not report a disk-less directory as an occupancy ==="
 # case set VM_DIR and asserted on the output, so its fixture was never scanned at
 # all: it went red for the wrong reason. Point HOME at the sandbox instead.
 mkdir -p "$T/home/ndtwin-vm-ghost"
-printf 'owner: mainDev\nsince: x\nport:  2245\nnote:  destroyed\n' > "$T/home/ndtwin-vm-ghost/OWNER"
+printf 'owner: sessionA\nsince: x\nport:  2245\nnote:  destroyed\n' > "$T/home/ndtwin-vm-ghost/OWNER"
 : > "$T/home/ndtwin-vm-ghost/noble-base.img"
 VOUT=$(env HOME="$T/home" bash "$VM" vms 2>&1)
 if printf '%s' "$VOUT" | grep -q 'no disk'; then
@@ -507,7 +507,7 @@ fi
 
 echo
 echo "=== G15 the population must come from /proc, not from my own naming convention ==="
-# Found within the hour by the session `adopt` was written for: their VM lived in
+# Found within the hour by the user `adopt` was written for: their VM lived in
 # ~/addtools/work.qcow2, so `vms` (which globs $HOME/ndtwin-vm*/) could not see it and
 # `adopt` (which only knew $VM_DIR/disk.qcow2) refused it. Same shape as G10a one layer
 # out: a survey that enumerates the author's convention only rediscovers the author's
@@ -588,7 +588,7 @@ fi
 # "(none -- every running qemu is already listed above)" line asserted that nothing was
 # missing. A gap in the parser became a completeness claim, which is the exact shape
 # this whole section exists to prevent, sitting one line downstream of the fix for it.
-# (Those lines came from the reviewer session; this case is the test they did not have.)
+# This case is the test that was missing for it.
 "$QEMU_BIN" -c 'sleep 30; :' qemu-system-x86_64 -m 512 -smp 1 \
     -cdrom "$T/home/nodisk.iso" -netdev user,id=n0 &
 NODK=$!
@@ -777,7 +777,7 @@ for a in 127.0.0.1 127.0.0.2 127.0.0.53%lo 127.0.0.54 ::1 '[::1]' '::1%lo' '[::1
     (source_fn() { :; }; . /dev/stdin <<< "$(sed -n '/^addr_is_loopback()/,/^}$/p' "$VM")"
      addr_is_loopback "$a") || { echo "     🔴 $a classified as exposed"; CLASSIFY_OK=0; }
 done
-for a in 0.0.0.0 '[::]' 10.10.10.1 172.25.197.100 192.168.1.5 '' ; do
+for a in 0.0.0.0 '[::]' 10.10.10.1 198.51.100.7 192.168.1.5 '' ; do
     (. /dev/stdin <<< "$(sed -n '/^addr_is_loopback()/,/^}$/p' "$VM")"
      addr_is_loopback "$a") && { echo "     🔴 $a classified as loopback"; CLASSIFY_OK=0; }
 done
@@ -857,7 +857,7 @@ G17REAL=$!
 bash -c 'sleep 30; :' qemu-system-x86_64 -smp 9 -m 9999 -drive "file=$T/g17/impostor.qcow2,if=virtio" &
 G17FAKE=$!
 for _ in $(seq 1 20); do [ -e "/proc/$G17REAL/exe" ] && [ -e "/proc/$G17FAKE/exe" ] && break; sleep 0.1; done
-G17OUT=$(env NDT_OWNER=mainDev VM_DIR="$T/g17" bash "$VM" vms 2>&1)
+G17OUT=$(env NDT_OWNER=sessionA VM_DIR="$T/g17" bash "$VM" vms 2>&1)
 # ⚠️ Scoped to these two pids. This laptop really does run an unrelated qemu, and a
 # bare grep over the section gets answered by it -- that happened here on 08-31.
 if printf '%s' "$G17OUT" | grep -q "pid $G17REAL"; then

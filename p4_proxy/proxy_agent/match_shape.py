@@ -9,7 +9,7 @@ twice, and the two answers were free to differ: the pre-flight refused every ter
 "G5 not done" while the writer refused the same field with a 501 of its own. The precedent is
 `route_binding.resolve` -- one function, two callers -- and this module follows it.
 
-The rules (design DESIGN.md 2.2, V1-V9; V7, the owner check, is not here because it needs a route
+The rules (V1-V9; V7, the owner check, is not here because it needs a route
 binding, which pre-flight reaches by its own road):
 
   V1  arity     TERNARY and RANGE take exactly two elements; OPTIONAL takes one value.
@@ -28,8 +28,8 @@ binding, which pre-flight reaches by its own road):
 
 Except V1, which refuses input that has no wire form at all (a ternary field given three
 elements), and a priority above int32, which the protobuf cannot hold, each of them repeats a
-refusal bmv2 already makes (measured on a throwaway simple_switch_grpc, 2026-10-04, ternary-a0
-items 01-15, and ternary-cut-a/agree-*: 52 cases, an over-wide mask included: "Bytestring
+refusal bmv2 already makes (measured on a throwaway simple_switch_grpc, 2026-10-04,
+52 cases, an over-wide mask included: "Bytestring
 provided does not fit within 9 bits"). They are made here so the answer is a 400 with a sentence
 instead of a 502 UNKNOWN, so nothing reaches the wire, and so pre-flight can say the same thing
 before the fabric exists.
@@ -257,7 +257,7 @@ def shape_field(where, kind, bitwidth, raw):
             f"entries only. Nothing was written.")
 
     if kind == "EXACT":
-        # 🔴 ONE ELEMENT IS UNWRAPPED, TWO ARE STILL REFUSED (TICKET-P3 section 9 ruling 23②).
+        # 🔴 ONE ELEMENT IS UNWRAPPED, TWO ARE STILL REFUSED.
         # [Co-developed with claude code -- Adam]
         #
         # The upstream exercises write an exact value as a one-element list --
@@ -265,7 +265,7 @@ def shape_field(where, kind, bitwidth, raw):
         # controller they are written against unwraps it before inferring a type
         # (~/tutorials/utils/p4runtime_lib/convert.py:71-75, `encode`). This writer refused it,
         # so `basic_tunnel/solution` came up with three of its six entries missing on every
-        # switch and the exercise failed in both live passes (probe2-basic_tunnel-proxy.log).
+        # switch and the exercise failed in both live passes.
         # A proxy stricter than the reference implementation is a proxy the exercises cannot
         # be brought up on.
         #

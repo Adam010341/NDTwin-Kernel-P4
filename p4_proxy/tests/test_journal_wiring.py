@@ -55,9 +55,12 @@ class RecordingJournal:
     def __init__(self):
         self.records = []
 
-    def record(self, op, dpid, match, actions, priority=None):
+    # `cookie` and `rule` since the Ryu-path loss record (KNOWN-ISSUES A-4c): TopologyManager
+    # passes the client's pipeline cookie and the switch entry it touched with every write.
+    # [Co-developed with claude code -- Adam]
+    def record(self, op, dpid, match, actions, priority=None, cookie=None, rule=None):
         self.records.append({"op": op, "dpid": dpid, "match": match, "actions": actions,
-                             "priority": priority})
+                             "priority": priority, "cookie": cookie, "rule": rule})
         return True
 
 

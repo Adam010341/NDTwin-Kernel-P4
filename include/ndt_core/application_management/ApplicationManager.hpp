@@ -138,7 +138,7 @@ class ApplicationManager
      * [Co-developed with claude code -- Adam]
      * Replaces chownRecursive(appDir, "nobody", "nogroup"), which required root and made
      * non-root kernels fail here on every registration (live 2026-08-15: the Energy app's
-     * squashed-to-nobody writes were then denied on the 775 adam-owned directory, its first
+     * squashed-to-nobody writes were then denied on the 775 directory owned by the kernel user, its first
      * simulation case never got written, and its decision loop wedged permanently). chmod by
      * the owner needs no privilege and reaches the same goal under BOTH deployments: squashed
      * anonymous clients can write the workspace. The directory is freshly created and empty,

@@ -42,21 +42,21 @@ p4_proxy/.run/
 
 # Investigation working area. 3.3 GB as of 2026-08-19 -- scratch/lab alone holds the
 # captured pcaps and switch logs from the live rounds, and none of it is reviewable in a
-# diff. Findings worth keeping get promoted to doc/audit/<date>_<topic>/ instead.
+# diff. Findings worth keeping are written up outside this working area instead.
 scratch/
 
 # [Co-developed with claude code -- Adam]
-# Measurement traces are committed gzipped -- the 08-19 round already did
-# (doc/audit/2026-08-19_p4-sflow-accuracy/*.jsonl.gz) and the 08-20 round broke that convention
-# by committing them plain. A single 300 s trace is 600-1200 JSON lines; a 12-cell matrix is
-# 33k lines and 89 MB that diff as pure noise. Commit the .gz, keep the plain file local.
+# Measurement traces are committed gzipped -- the 08-19 round already did, and the 08-20 round
+# broke that convention by committing them plain. A single 300 s trace is 600-1200 JSON lines;
+# a 12-cell matrix is 33k lines and 89 MB that diff as pure noise. Commit the .gz, keep the
+# plain file local.
 doc/audit/**/raw/*.jsonl
 doc/audit/**/raw/*_server.log
 
 # --- audit raw artifacts ------------------------------------------------------------------
 # [Co-developed with claude code -- Adam]
-# Raw logs and dumps live on the `audit-raw` orphan branch, not on a working branch: they were
-# 166k lines of every pull request diff and none of the review. Per-round raw/ directories carry
+# Raw logs and dumps are not kept in this repository: they were 166k lines of every pull
+# request diff and none of the review. Per-round raw/ directories carry
 # their own .gitignore too, but only after someone remembers to add one -- a round created on
 # 2026-08-25 did not, and 279k lines went into a commit before the amend.
 #
@@ -70,9 +70,9 @@ doc/audit/**/raw/*_server.log
 #
 # 🔴 2026-08-31, third instance of the same shape: `*` in a .gitignore pattern does NOT cross
 # `/`, so `doc/audit/*/raw*/*` reaches exactly one level. A round that groups its work into a
-# sub-directory -- 2026-08-31_completeness-experiments put raw under B-nslab-build/raw/ and
-# A-ovs-framesweep/raw_probe/ -- lands one level deeper and is not matched. Both directories
-# showed as untracked rather than ignored, which reads as ordinary new work.
+# sub-directory (raw under <group>/raw/ and <group>/raw_probe/) lands one level deeper and is
+# not matched. Both directories showed as untracked rather than ignored, which reads as
+# ordinary new work.
 # 🔑 The pre-commit gate was NOT blind to this (verified by staging a nested raw file and
 # running it: rc=1, refused) because a git PATHSPEC `*` does cross `/` while a gitignore `*`
 # does not. Two rules that look identical, written from the same intent, with different
@@ -85,11 +85,11 @@ doc/audit/**/raw*/*
 !doc/audit/**/raw*/.gitignore
 #
 # A pattern here is advice, not a gate: `git add -f` walks straight past it, and 44 commits did
-# exactly that. The gate is tools/githooks/pre-commit, which refuses raw on any branch but
-# audit-raw. Install it with tools/githooks/install.sh -- an uninstalled hook enforces nothing.
+# exactly that. The gate is tools/githooks/pre-commit, which refuses staged raw artifacts.
+# Install it with tools/githooks/install.sh -- an uninstalled hook enforces nothing.
 doc/audit/2026-08-25_sampling-rounds/ladder_ext.log
 doc/audit/2026-08-25_sampling-rounds/ladder_ext.out
-# Ticket G: 245 py-spy dumps, 15 MB uncompressed. The tarball beside it is committed.
+# 245 py-spy dumps, 15 MB uncompressed. The tarball beside it is committed.
 # These three used to be listed as directories (`raw_gil/`), which is redundant with the `raw*`
 # rule above and had one side effect: ignoring the directory stops git descending into it, so
 # the `!.gitignore` exception could never fire and these three rounds were the only ones whose
@@ -98,7 +98,7 @@ doc/audit/2026-08-25_sampling-rounds/gil_g.log
 doc/audit/2026-08-25_sampling-rounds/h_probe.log
 doc/audit/2026-08-25_sampling-rounds/*.log
 
-# Local agent instructions and settings; kept out of the repository (Adam 2026-10-01).
+# Local agent instructions and settings; kept out of the repository.
 CLAUDE.md
 .claude/
 

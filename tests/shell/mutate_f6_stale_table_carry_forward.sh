@@ -266,7 +266,7 @@ mutate "7. the T-11 filter rebuilds the switch object and drops the markers" \
 # 8. The merge reads the cache before taking the write lock. Semantically identical in a
 #    single-threaded test and detectable only by a concurrent writer, so no gtest here can catch
 #    it. Closing it needs ThreadSanitizer (-fsanitize=thread) with test_FlowTableConcurrency.cpp
-#    driving updateOpenFlowTables against applyFetchedTables, which is a separate ticket.
+#    driving updateOpenFlowTables against applyFetchedTables, which is separate work.
 #    The copy is actually USED as the merge's `previous`, so the mutant has no unused variable to
 #    trip -Werror on, and the change is the real semantic one: a concurrent updateOpenFlowTables
 #    write landing in the gap is read from the pre-lock copy and then overwritten.

@@ -93,6 +93,5 @@ qemu-img info <img> | grep -E 'virtual size|disk size'
 
 ## 相關
 
-- 佔用與暴露規定：[audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md](audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md)
-  §3 **R4**（共用帳號的暴露窗）與 **R4a**（`.git` 夾帶未簽出的歷史）。
+- 佔用與暴露規定（不在本 repo）§3 **R4**（共用帳號的暴露窗）與 **R4a**（`.git` 夾帶未簽出的歷史）。
   🔑 **R4 管「停留期間誰看得到」，本清單管「之後誰永久拿得到」——判準不同，通過前者不代表通過後者。**

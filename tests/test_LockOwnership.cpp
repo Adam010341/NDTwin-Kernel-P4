@@ -20,7 +20,7 @@
  * 🔴 IT IS OFF BY DEFAULT AND NOTHING TURNS IT ON, so B-2② IS STILL OPEN. Turning it on refuses
  * every release and renew sent by Energy-Saving-App, Traffic-Engineering-App, the chaos harness
  * and tools/contract_test/spec.py, none of which send a lease. That is a flag day across four
- * repos and it is Adam's decision, not this class's. The tests below therefore come in two
+ * repos and it is not this class's decision to make. The tests below therefore come in two
  * groups, and the first group asserts that the defect is still there:
  *
  *   - "still open" cases pin today's behaviour, so that a future reader cannot mistake the
@@ -60,8 +60,7 @@ TEST(LockOwnershipTest, AnyCallerCanStillReleaseAnyCallersLiveLockWhenNoLeaseIsN
 {
     // 🔴 THIS TEST ASSERTS A DEFECT. KNOWN-ISSUES B-2②, verbatim: A holds routing_lock, B has
     // never held anything, B releases, and it works. Measured live on 2026-08-30 as well -- a
-    // bare curl that never acquired released the Energy-Saving-App's lock and got 200
-    // (doc/audit/2026-08-30_live-traffic-round/FINDING-08, "Also observed, out of PREREG scope").
+    // bare curl that never acquired released the Energy-Saving-App's lock and got 200.
     //
     // The kernel cannot separate the two requests: `{"type":"routing_lock"}` from A and from B
     // are the same bytes. Closing this means making `lease` mandatory -- see group 2.
@@ -91,7 +90,7 @@ TEST(LockOwnershipTest, AnyCallerCanStillRenewAnyCallersLiveLease)
 TEST(LockOwnershipTest, AnUnattributableReleaseIsCountedEvenThoughItIsAllowed)
 {
     // The measurement B-2② has never had. The entry has said "any caller can release any caller's
-    // lock" since round 2 with no number attached, because nothing counted -- and a defect with
+    // lock" with no number attached, because nothing counted -- and a defect with
     // no counter cannot tell you when it is safe to close.
     LockManager mgr;
     LockManager::AcquireReport a;

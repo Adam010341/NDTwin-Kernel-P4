@@ -5,14 +5,12 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# TWO findings, both measured 2026-09-06 (rounds/06-X-experiments.md), both decided by Adam on
-# 09-06 (grill §4D round 9, D-2: "要，一起印").
+# TWO findings, both measured 2026-09-06.
 #
-# X-2 -- `ndt status` read the WRONG PLANE. sample_rate() decoded the rng bound out of
-# p4_proxy/p4_src/build/ndtwin_switch.json, a bmv2 compile artefact, and printed it on every
-# plane. On OVS the rate lives in OVSDB's `sflow` table (testbed_topo.py:160, sampling=256) and
-# has nothing to do with that file. Verbatim, logs/x1-22-status-blind-to-ovs-rate.log, after
-# setting all ten sflow records to 64:
+# First -- `ndt status` read the WRONG PLANE. sample_rate() decoded the rng bound out of
+# p4_proxy/p4_src/build/ndtwin_switch.json, a bmv2 compile artefact, and printed it on every plane.
+# On OVS the rate lives in OVSDB's `sflow` table (testbed_topo.py:160, sampling=256) and has nothing
+# to do with that file. Verbatim, after setting all ten sflow records to 64:
 #
 #     ovs now: 64
 #     --- ndt status says: ---
@@ -20,7 +18,7 @@
 #
 # The two numbers had agreed by coincidence since the fabric was built, so nobody noticed.
 #
-# X-1 -- and that rate is the thing that decides every bandwidth number. Against a ground
+# Second -- and that rate is the thing that decides every bandwidth number. Against a ground
 # truth stable to <=0.4%, the twin's ratio tracked the sampling rate monotonically over 19
 # runs, every one of them LOW, with zero telemetry loss in all three cells:
 #
@@ -29,7 +27,7 @@
 #     1/1024  mean ratio 0.753   (4 runs)      under-reports 24.8%
 #
 # `ndt check` printed `ok` for all of them, because the ok band is 0.5-1.5 -- it is a
-# double-count tripwire and Adam kept the band. What it now also prints is what the ratio is
+# double-count tripwire, and the band stays. What it now also prints is what the ratio is
 # EXPECTED to be at the rate in force, so `ok` cannot be read as "accurate".
 #
 # 🔴 THREE DIRECTIONS:
@@ -70,7 +68,7 @@ printf '4\n' > "$FIX/p4_proxy/mininet/host_count_override"
 
 # The compiled pipeline, exactly as p4c emits the primitive. 256 here THROUGHOUT, so that any
 # case below which answers 256 on the OVS plane is answering out of the wrong file -- which is
-# X-2, and is the only way these cases can tell the two sources apart.
+# the wrong-plane defect, and is the only way these cases can tell the two sources apart.
 cat > "$FIX/p4_proxy/p4_src/build/ndtwin_switch.json" <<'JSON'
 {"actions":[{"name":"sample","primitives":[{"op":"modify_field_rng_uniform","parameters":[{"type":"field","value":["scalars","metadata.sample_rand"]},{"type":"hexstr","value":"0x0000"},{"type":"hexstr","value":"0x00ff"}]}]}]}
 JSON
@@ -99,7 +97,7 @@ ten() { local i out=""; for i in $(seq 10); do out+="$1
 "; done; printf '%s' "$out"; }
 
 # ==========================================================================================
-section "1. 🔴 X-2: on the OVS plane the rate comes from OVSDB, not from the bmv2 artefact"
+section "1. 🔴 on the OVS plane the rate comes from OVSDB, not from the bmv2 artefact"
 OUT="$(FX_SFLOW="$(ten 64)" drive 'sample_rate ovs')"
 check "ten sflow records all saying 64 -> 64"           "64"  "$(val "$OUT")"
 hasnt "🔴 and NOT 256, which is what the compiled json says" "256" "$(val "$OUT")"
@@ -139,7 +137,7 @@ hasnt "🔴 and never a number"                           "64" "$(val "$OUT")"
 OUT="$(drive 'rate_label UNREADABLE:sudo -n ovs-vsctl would not answer')"
 has   "  and never 'the default'"                       "NOT a rate, and not 'the default'" "$(val "$OUT")"
 
-section "6. 🔴 X-1: what the ratio is EXPECTED to be at this rate, measured, never interpolated"
+section "6. 🔴 what the ratio is EXPECTED to be at this rate, measured, never interpolated"
 OUT="$(drive 'expected_shortfall 64')"
 check "1/64"    "0.977 2.3 6"   "$(val "$OUT")"
 OUT="$(drive 'expected_shortfall 256')"
@@ -204,7 +202,7 @@ echo \"RC=\$?\"" 2>&1
 }
 OUT="$(FX_SFLOW="$(ten 64)" run_status)"
 has   "🔴 ndt status on an OVS fabric prints 1/64"      "sample rate    1/64" "$OUT"
-hasnt "🔴 and not the 1/256 of X-2"                     "sample rate    1/256" "$OUT"
+hasnt "🔴 and not the 1/256 of the bmv2 artefact"       "sample rate    1/256" "$OUT"
 has   "  with a source row beside it"                   "rate source    OVS: ovs-vsctl" "$OUT"
 
 OUT="$(FX_SFLOW="" run_status --check)"

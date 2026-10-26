@@ -197,7 +197,7 @@ class SourceLint(unittest.TestCase):
         posts = where(r"(?<![\w.])post(?:<[^>]*>)?\s*\(", {k: v for k, v in self.src.items() if k != "api/client.ts"})
         self.assertEqual(sorted(posts), ["components/ConfirmDialog.tsx"], posts)
         self.assertEqual(sorted(where(r"[\"']POST[\"']", self.src)), ["api/client.ts", "api/session.ts"])
-        # the session module trades the key with exactly one POST, to /session (judge G-N10)
+        # the session module trades the key with exactly one POST, to /session
         self.assertEqual(re.findall(r"call\(\s*\"POST\"\s*,\s*\"([^\"]*)\"", self.src["api/session.ts"]),
                          ["/session"])
 
@@ -249,9 +249,9 @@ class SourceLint(unittest.TestCase):
                             r"if \(measuring\.current\) \{\s*arm\(\);\s*return;\s*\}\s*void tick\(\);")
 
     def test_a_measuring_pause_probes_measuring_alone_once_a_minute(self):
-        # Adam's Q6 (09-28): after a measuring pause, an automatic probe -- read-only and light; and
-        # 10-01: it asks only "is anyone measuring" -- GET /measuring, `ndt status --measuring`, no
-        # sudo and no request to the kernel under measurement. [Co-developed with claude code -- Adam]
+        # After a measuring pause, an automatic probe -- read-only and light; it asks only "is
+        # anyone measuring" -- GET /measuring, `ndt status --measuring`, no sudo and no request to the
+        # kernel under measurement. [Co-developed with claude code -- Adam]
         s = self.src["hooks/useAutoRefresh.ts"]
         self.assertRegex(s, r"export const PROBE_INTERVAL_MS = 60_000;")
         body = re.search(r"const arm = \(\) => \{(.*?)\n  \};", s, re.S).group(1)

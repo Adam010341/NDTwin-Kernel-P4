@@ -62,7 +62,7 @@ trap 'rm -rf "$FIX"' EXIT
 # [Co-developed with claude code -- Adam] 🔴 THIS SUITE'S OWN sudo (2026-09-27): every sudo that
 # goes through PATH is recorded and REFUSED rc 1 in sudo's own words, whatever this machine's grants
 # or lab -- the ANSWERS are fixed, and nothing it runs reaches root. Not recorded, and not through
-# the stub at all (the opus judge's NOTE a on f9c59a44): the fixtures below that define a shell
+# the stub at all: the fixtures below that define a shell
 # FUNCTION named sudo -- `sudo() { return 1; }` in three of them, and `sudo() { return 0; }` in the
 # one that needs a granted answer -- answer their own subshell's calls and never reach PATH. Its
 # PATH through ndt is not fixed either: ps, command -v, the lab ports, curl :8000 and the p4
@@ -177,17 +177,16 @@ lock_probe() { echo free; }
 netem_count() { echo 0; }
 ndt_sudo_report() { return 0; }
 ndt_sudo_rows() { echo one-row; }
-# 🔴 F9 (F-OFFLINE-1 §1.13, measured 2026-09-11). WITHOUT this line every `--check` group in
-# this file read a file in the MAIN checkout: app_evidence_log sim is
-# `$(lab_kernel_dir)/.test_run/logs/app_sim.log` (ndt:3938) and lab_kernel_dir’s built-in
-# default is LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel (ndt:940, ndtwin-lab:98) --
-# a 148717-byte root-owned log on this machine (uid 0, mtime 2026-09-10 16:48). Non-empty means
-# "the app ran here and its window is LOST", so every group scored a RESIDUE_BLIND and the
-# residue row said NOT CHECKED rather than "none". It stayed GREEN only because Adam’s E-7
-# ruling makes residue rc 5 not red -- the suite’s exit codes were being held up by a ruling
-# about a different question, and a `sudo truncate` of that file would have changed what this
-# suite prints. 3-51 added exactly this stub to test_apps_residue.sh:126 and
-# test_ndt_status_residue_row.sh:142 and did not reach the other two suites.
+# 🔴 Measured 2026-09-11. WITHOUT this line every `--check` group in this file read a file in the
+# MAIN checkout: app_evidence_log sim is `$(lab_kernel_dir)/.test_run/logs/app_sim.log` (ndt:3938)
+# and lab_kernel_dir’s built-in default is LAB_DEFAULT_KERNEL_DIR, the absolute path of the main
+# checkout (ndt, ndtwin-lab) -- a 148717-byte root-owned log on this machine (uid 0, mtime
+# 2026-09-10 16:48). Non-empty means "the app ran here and its window is LOST", so every group
+# scored a RESIDUE_BLIND and the residue row said NOT CHECKED rather than "none". It stayed GREEN
+# only because residue rc 5 is deliberately not red -- the suite’s exit codes were being held up by
+# a rule about a different question, and a `sudo truncate` of that file would have changed what this
+# suite prints. The same stub had been added to test_apps_residue.sh and
+# test_ndt_status_residue_row.sh and did not reach the other two suites.
 lab_kernel_dir() { echo "$REPO"; }
 app_probe() { APP_STATE=not-running; }
 lab_version_verdict() { echo "same fixture-sha fixture-sha"; }
@@ -581,8 +580,8 @@ check "🔴 and the window shape really reaches it"          "1" \
 check "  and the lines it returns exist nowhere else"      "1" \
       "$(grep -c 'double-count band; accuracy is NOT' "$NDT")"
 
-section "4F. 🔴 #17: a ratio over the band is not self-evidently a stack of clone replicas"
-# ROLE-5, 2026-09-11 (ROLE-5-TRAFFIC-REPORT.md section 5 L2; logs/ROLE-5/18-posctrl-L2-live.log).
+section "4F. 🔴 a ratio over the band is not self-evidently a stack of clone replicas"
+# Measured live 2026-09-11 (a link-failure positive control).
 # ONE `tc netem loss 100%` on s1-eth2, injected two seconds into the eight-second window, with
 # the injection asserted twice (the qdisc read back, and the interface moved 0.48 MB in the next
 # 2s against 85 MB/2s before) -- and the tripwire printed, verbatim:
@@ -598,7 +597,7 @@ section "4F. 🔴 #17: a ratio over the band is not self-evidently a stack of cl
 # accepted_by_switch=1) and the ratio did not move at all, so "install the same rule twice" is
 # not this tripwire's positive control either.
 #
-# Fed here with ROLE-5's own numbers, through the same extraction 4E uses.
+# Fed here with the measured numbers, through the same extraction 4E uses.
 VL2="$(python3 - "$NDT" <<'VLPY'
 import re, sys
 s = open(sys.argv[1]).read()
@@ -607,7 +606,7 @@ if not m:
     print("EXTRACT-FAILED"); sys.exit(0)
 ns = {}
 exec(m.group(1), ns)
-# ROLE-5 L2, the link failure: 3 of 8 sub-windows hot, ground truth fell 1346 -> 82 Mbit/s
+# The link failure: 3 of 8 sub-windows hot, ground truth fell 1346 -> 82 Mbit/s
 print("== LAG ==")
 for line in ns["verdict_lines"](438.5e6, 273.7e6,
                                 {"hot": 3, "subs": 8, "truth_lo": 82.0, "truth_hi": 1346.1}):
@@ -631,14 +630,14 @@ LAGBLK="$(sed -n '/^== LAG ==/,/^== STACK ==/p' <<<"$VL2")"
 STKBLK="$(sed -n '/^== STACK ==/,/^== NO SHAPE ==/p' <<<"$VL2")"
 NOSHAPE="$(sed -n '/^== NO SHAPE ==/,/^== OK ==/p' <<<"$VL2")"
 OKBLK="$(sed -n '/^== OK ==/,$p' <<<"$VL2")"
-has   "🔴 ROLE-5's 1.60 is still over the band"          "1.60   DOUBLE-COUNTING" "$LAGBLK"
+has   "🔴 the measured 1.60 is still over the band"      "1.60   DOUBLE-COUNTING" "$LAGBLK"
 hasnt "🔴 but it does NOT name clone replicas as the finding" \
       "DOUBLE-COUNTING -- clone replicas stacked" "$LAGBLK"
 has   "🔴 it names the twin lagging the truth as a cause" "lagging" "$LAGBLK"
 has   "  and stacking as the other one"                   "clone replicas" "$LAGBLK"
 has   "🔴 with the evidence that separates them"          "3 of the 8 sub-windows" "$LAGBLK"
 has   "  the ground truth range inside the window"        "1346" "$LAGBLK"
-has   "  and where that reading came from"                "ROLE-5" "$LAGBLK"
+has   "  and when that reading was taken"                 "2026-09-11" "$LAGBLK"
 # The other direction: the shape the tripwire was built for must still be CALLED that. A verdict
 # that only ever says "two things could have done this" is not a tripwire.
 has   "🔴 a constant factor over a steady truth IS the stack shape" "every" "$STKBLK"
@@ -649,15 +648,15 @@ has   "  while still saying what the lag would have looked like" \
 # And with no sub-window evidence at all, neither cause is named as the finding.
 has   "🔴 no shape: the two causes are printed side by side" "lagging" "$NOSHAPE"
 has   "  saying the window could not tell them apart"     "cannot" "$NOSHAPE"
+has   "  and when the second cause was measured"          "2026-09-11 measured the second one" "$NOSHAPE"
 # The band itself did not move, and a healthy ratio says nothing about either cause.
 has   "control: 1.00 is still ok"                         "1.00   ok" "$OKBLK"
 hasnt "  and prints no cause discussion"                  "lagging" "$OKBLK"
 
-section "4G. 🔴 #17: the verdict reaches the exit code"
-# ROLE-5-TRAFFIC-REPORT.md section 6, S1 附帶 2: `cmd_check` ended on `info`, so it exited 0
-# whatever it printed -- measured live at 02:22:24 with `DOUBLE-COUNTING` on the screen and
-# `check rc=0` in the same log. "It did not go red" was not observable to any script, and this
-# command's output is a screen of prose no driver can read.
+section "4G. 🔴 the verdict reaches the exit code"
+# `cmd_check` ended on `info`, so it exited 0 whatever it printed -- measured live at 02:22:24 with
+# `DOUBLE-COUNTING` on the screen and `check rc=0` in the same log. "It did not go red" was not
+# observable to any script, and this command's output is a screen of prose no driver can read.
 #
 # 🔴 The python block is the thing that decides, and it needs a kernel, a fabric and traffic;
 # what is driven here is the PROPAGATION, with the block replaced by a stub that exits with the
@@ -819,13 +818,13 @@ check "  the no-baseline branch still returns 3" "1" \
 check "  and the process answer still wins in cmd_apps orphans" "1" \
       "$(grep -c 'if (( orc != 0 )); then' "$NDT")"
 
-section "5D. A1-b: 'down' has an rc table, and it names the red that comes from an earlier round"
+section "5D. 'down' has an rc table, and it names the red that comes from an earlier round"
 # 🔴 The teardown gained an exit code it did not have (`stack.sh down` non-zero is now `ndt down`
-# non-zero, Adam's ruling 2026-09-12), and one of the three things behind it is read from a
-# `.exit` record ON DISK. So the first `ndt down` after a round in which something was SIGKILLed
-# -- systemd-oomd does that on this laptop -- exits 1 for an ending that already happened. An
-# operator who is not told that reads it as "this teardown failed" and goes looking for a fabric
-# that is gone; the one after it is green again, which makes it look intermittent as well.
+# non-zero, 2026-09-12), and one of the three things behind it is read from a `.exit` record ON
+# DISK. So the first `ndt down` after a round in which something was SIGKILLed -- systemd-oomd does
+# that on this laptop -- exits 1 for an ending that already happened. An operator who is not told
+# that reads it as "this teardown failed" and goes looking for a fabric that is gone; the one after
+# it is green again, which makes it look intermittent as well.
 has   "  🔴 down has an rc table at all"                 "exit 0 the teardown finished" "$HELP"
 has   "  naming the stack half as one cause of 1"        "stack.sh's half exited non-zero" "$HELP"
 has   "  🔴 and that rc 1 can be an ENDING FROM AN EARLIER ROUND" "ENDING FROM AN EARLIER ROUND" "$HELP"
@@ -833,22 +832,24 @@ has   "  naming the signals that produce it"             "SIGKILL" "$HELP"
 has   "  and the file it is read out of"                 ".test_run/pids/<name>.exit" "$HELP"
 has   "  🔴 and that it is delivered once, so the next down is green" "delivered once" "$HELP"
 has   "  with the two statements kept apart"             "are not the same statement" "$HELP"
+EARLIER="$(sed -n '/rc 1 CAN BE AN ENDING FROM AN EARLIER ROUND/,/A PORT HELD AT \[1\/3\]/p' <<<"$HELP")"
+has   "  dated, in that note itself, so it can be revisited" "(2026-09-12)" "$EARLIER"
 # 🔴 Checked against the code, not against itself: a text-only assertion would go on passing if
 # the rc stopped being carried.
 check "  the rc the table describes is really carried"   "1" \
       "$(grep -c 'the kernel/proxy/Ryu half did not end cleanly' "$NDT")"
 
-section "5E. A7: the help says what 'ndt check' rc 0 is worth when there was no traffic"
-# G-33's second zero-discrimination, Adam's ruling 2026-09-12 (A7): the rc STAYS 0 -- 3 would
-# make every `ndt check` on an idle lab non-zero -- and the help has to carry what that 0 is
-# worth. Under 1 Mbit/s of ground truth the command prints no ratio and no verdict at all and
-# exits 0, which is byte-identical, to a script, to "inside the band". A rule-frequency study
-# with no iperf3 running collects that answer for twenty minutes.
+section "5E. the help says what 'ndt check' rc 0 is worth when there was no traffic"
+# G-33's second zero-discrimination (2026-09-12): the rc STAYS 0 -- 3 would make every `ndt check`
+# on an idle lab non-zero -- and the help has to carry what that 0 is worth. Under 1 Mbit/s of
+# ground truth the command prints no ratio and no verdict at all and exits 0, which is
+# byte-identical, to a script, to "inside the band". A rule-frequency study with no iperf3 running
+# collects that answer for twenty minutes.
 has   "  🔴 rc 0 is named as 'nothing was compared'"     "rc 0 ALSO MEANS" "$HELP"
 has   "  with the floor that triggers it"                "under 1 Mbit/s of ground truth" "$HELP"
 has   "  🔴 and that it is not the fabric being healthy" "NOT the fabric being healthy" "$HELP"
 has   "  it says what to read instead of the code"       "read the ratio block" "$HELP"
-has   "  and that 0 is a ruling, not an oversight"       "kept at 0 deliberately" "$HELP"
+has   "  and that 0 is deliberate, not an oversight"     "kept at 0 deliberately" "$HELP"
 has   "  attributed, so it can be revisited"             "G-33" "$HELP"
 # 🔴 Against the code: the branch the sentence describes, and the fact that it does not exit.
 check "  the floor the help names is the floor the code uses" "1" \
@@ -856,7 +857,7 @@ check "  the floor the help names is the floor the code uses" "1" \
 check "  🔴 and that branch still reaches no sys.exit"   "1" \
       "$(grep -c 'sys.exit(4)' "$NDT")"
 
-section "5F. ROLE-12: the 'down' rc table says a port held at [1/3] is not by itself a failure"
+section "5F. the 'down' rc table says a port held at [1/3] is not by itself a failure"
 # The other side of the rc A1-b connected. ROLE-12 measured it 7 times out of 7 on 2026-09-12:
 # every `ndt down` over a LIVE P4 fabric exits 1 because stack.sh's port assertion runs in step
 # [1/3], before the bmv2 sweep in [3/3], and therefore names the twenty ports of the fabric this
@@ -876,7 +877,11 @@ has   "  with the measurement behind it"                   "7 of 7" "$HELP"
 has   "  🔴 and that those ports are RE-READ after the sweep" "re-read after 'verify clean'" "$HELP"
 has   "  naming both outcomes of that second reading"      "still held -> rc 1" "$HELP"
 has   "  🔴 and that the other two halves are unchanged"   "are red whatever the sweep does" "$HELP"
-has   "  attributed, so it can be revisited"               "ROLE-12" "$HELP"
+DOWNHELP="$(sed -n '/^  down \[--deep\]/,/^  status \[/p' <<<"$HELP")"
+has   "  dated, in the down table itself, so it can be revisited" "measured 7 of 7 on 2026-09-12" "$DOWNHELP"
+has   "  and the halves sentence keeps its date"       "are red whatever the sweep does. (2026-09-12)" "$DOWNHELP"
+STATUSHELP="$(sed -n '/^  status \[--check | --measuring\]/,/^  clean  /p' <<<"$HELP")"
+has   "  and the status table's --measuring note keeps its date" "measurement is running, 2026-10-01)" "$STATUSHELP"
 # 🔴 Against the code. A text-only cell here would go on passing after the re-read had been
 # deleted, which is the exact state the table would then be lying about.
 check "  the re-read the table describes is really taken"  "1" \
@@ -884,7 +889,7 @@ check "  the re-read the table describes is really taken"  "1" \
 check "  🔴 and it is pinned to stack.sh's return site, not to a word list" "1" \
       "$(grep -c '^STACK_DOWN_RETURNED_ON_PORTS=' "$NDT")"
 
-section "5G. ROLE-12 cell 3: the help says 'clean' refuses while a teardown is running"
+section "5G. the help says 'clean' refuses while a teardown is running"
 # `ndt clean` is the command the manual tells a first-time reader to run to verify a lab, and
 # on 2026-09-12 02:08:24 it answered a live teardown by listing that teardown's own fabric as
 # residue and advising `ndt down --deep`. The refusal is new behaviour on a documented command,
@@ -896,7 +901,8 @@ has   "  naming what it would otherwise have listed" "middle of killing" "$HELP"
 has   "  🔴 and whose processes the old advice would have taken" "the operator's own" "$HELP"
 has   "  with the pid to wait for named in the block" "names the pid to wait for" "$HELP"
 has   "  and a stale marker not refusing"            "removed and does not" "$HELP"
-has   "  attributed, so it can be revisited"         "ROLE-12 cell 3" "$HELP"
+CLEANHELP="$(sed -n '/^  clean  /,/^  check  /p' <<<"$HELP")"
+has   "  dated, in the clean table itself, so it can be revisited" "removed and does not refuse. (2026-09-12)" "$CLEANHELP"
 # 🔴 Against the code: the refusal is in cmd_clean, it goes through the one shared opening the
 # bring-up refusal uses, and it is scoped to somebody ELSE's teardown -- `ndt down` calls
 # cmd_clean as its own verify step, under its own marker.
@@ -905,7 +911,7 @@ check "  the refusal the help describes is in cmd_clean" "1" \
 check "  🔴 and it is scoped to another process's marker" "1" \
       "$(grep -c 'if tif="$(teardown_in_flight)" && \[\[ "${tif%% \*}" != "$\$" \]\]; then' "$NDT")"
 
-section "5H. ROLE-11 F7 / FIX-DOC-1: the help's --deep line quotes ports.sh's table, not three ports"
+section "5H. the help's --deep line quotes ports.sh's table, not three ports"
 # The help said `--deep also kills whatever still holds :8000/:8080/:8081`. deep_sweep has read
 # ports.sh's table since the table existed -- nine rules, 27 ports once the two per-device
 # ranges are expanded -- so the sentence understated by 24 the set of processes that verb can
@@ -919,7 +925,7 @@ has   "  it names the table instead"                  "ANY port in ports.sh's ta
 has   "  🔴 with the size read out of the table"      "9 rule(s), 27 port(s)" "$HELP"
 has   "  and the specs themselves, ranges and all"    "30051-30060/9091-9100" "$HELP"
 has   "  saying what it used to claim"                "used to name only the three ports" "$HELP"
-has   "  attributed"                                  "ROLE-11 F7" "$HELP"
+has   "  dated"                                       "corrected the same day. (2026-09-12)" "$HELP"
 # 🔴 Against the code, and this is the cell that matters: the two numbers above are printed by
 # a function reading NDT_PORT_TABLE. Typing `27` back into the prose passes every cell above
 # and puts the defect back the day somebody adds a row.
@@ -928,12 +934,12 @@ check "  the size in the help is computed, not typed" "1" \
 check "  and so is the list of specs"                 "1" \
       "$(grep -c 'the ports --deep sweeps, from the table' "$NDT")"
 
-section "5I. FIX-NDT-8: 'up' has an rc table, and it is the SAME three words as down and clean"
-# Adam, 2026-09-12 (form 1 Q1, form 5 Q15b). Until today `up` had no rc table at all: the three
-# commands an operator drives a round with answered with three private vocabularies, and the one
-# that never said anything was the one whose refusals an automated round most needs to tell from
-# its failures. A refused bring-up and a bring-up that found a stray on :8000 both exited 1, so
-# no script could tell "wait for the teardown" from "go and look at the machine".
+section "5I. 'up' has an rc table, and it is the SAME three words as down and clean"
+# 2026-09-12. Until today `up` had no rc table at all: the three commands an operator drives a round
+# with answered with three private vocabularies, and the one that never said anything was the one
+# whose refusals an automated round most needs to tell from its failures. A refused bring-up and a
+# bring-up that found a stray on :8000 both exited 1, so no script could tell "wait for the
+# teardown" from "go and look at the machine".
 has   "  🔴 up has an rc table at all"                   "exit 0 the fabric came up and verified" "$HELP"
 has   "  🔴 and 5 is named as a refusal that built nothing" "5 a GUARD REFUSED and nothing was built" "$HELP"
 has   "  naming the four things that refuse"             "claimed by somebody else" "$HELP"
@@ -944,7 +950,7 @@ has   "  🔴 and 1 is scoped to a reading, not to failure in general" "1 says t
 has   "  🔴 with the precedence when both are true"      "answer is 5, because the one action" "$HELP"
 has   "  and that the dirty reading is still printed"    "Both are still printed" "$HELP"
 has   "  🔴 and why 3 cannot appear under 'up'"          "cannot arise here" "$HELP"
-has   "  attributed, so it can be revisited"             "(Adam, 09-12)" "$HELP"
+has   "  dated, so it can be revisited"                  "whatever it found. (2026-09-12)" "$HELP"
 # 🔴 Against the code, not against itself. A table is prose; these three are the return sites it
 # describes. Without them the whole section goes on passing over an `ndt` that flattened every
 # refusal back to 1 -- which is the state this table would then be lying about.
@@ -955,12 +961,12 @@ check "  🔴 and up_p4 passes it out instead of flattening it"     "1" \
 check "  🔴 and up_ovs reads it BEFORE its own housekeeping"      "1" \
       "$(grep -c 'preflight ovs; pf_rc=\$?' "$NDT")"
 
-section "5J. FIX-NDT-8: the 'clean' table carries rc 3, and says what 3 is not"
-# Adam, 2026-09-12 (form 1 Q1, form 4 Q15). Two changes to a documented command, on the command
-# the manual sends a first-time reader to in order to VERIFY a lab: the refusal is 5 (5G reads
-# that half), and an assertion that measured NOTHING answers 3 instead of printing `clean`.
-# The second one is the contract change -- every script in this repo that reads this rc has to
-# know that 0 now means "there was something here and it is accounted for".
+section "5J. the 'clean' table carries rc 3, and says what 3 is not"
+# 2026-09-12. Two changes to a documented command, on the command the manual sends a first-time
+# reader to in order to VERIFY a lab: the refusal is 5 (5G reads that half), and an assertion that
+# measured NOTHING answers 3 instead of printing `clean`. The second one is the contract change --
+# every script in this repo that reads this rc has to know that 0 now means "there was something
+# here and it is accounted for".
 has   "  🔴 3 is in the clean table"                 "3 THERE WAS NOTHING TO JUDGE" "$HELP"
 has   "  naming the three populations"               "no port in ports.sh's table held" "$HELP"
 has   "  🔴 and 3 is not read as a clean bill"       "3 IS NOT A CLEAN BILL OF HEALTH" "$HELP"
@@ -968,7 +974,7 @@ has   "  with what it used to answer instead"        "answered 0 in that state" 
 has   "  🔴 and why a teardown still says clean"     "teardown measured BEFORE it acted" "$HELP"
 has   "  0 is scoped to having had a subject"        "it had something to be about" "$HELP"
 has   "  and 'could not read' is still not clean"    "unknown is never clean" "$HELP"
-has   "  attributed, so it can be revisited"         "(Adam, 2026-09-12)" "$HELP"
+has   "  dated, in the clean table itself, so it can be revisited" "not an absent subject. (2026-09-12)" "$CLEANHELP"
 # 🔴 Against the code. The seam the paragraph describes is a parameter, and the registry half is
 # one function used by both readers -- a text-only cell here would go on passing over a
 # cmd_clean that had gone back to printing `clean` at the end of every run.
@@ -979,16 +985,16 @@ check "  🔴 and it is gated on the caller's subject"   "1" \
 check "  🔴 and 'ndt down' supplies one it MEASURED"   "1" \
       "$(grep -c 'DOWN_SUBJECT="$(lab_subject)"' "$NDT")"
 
-section "5K. FIX-NDT-8: the 'down' table carries 3 and 5, so all three tables say one thing"
-# Adam, 2026-09-12 (form 1 Q1). The third of the three. `ndt down` on an already-down lab
-# printed its four steps, verified an empty machine and exited 0 -- and ROLE-12's own table has
-# the pair that costs: "two live OVS teardowns and one already-down lab" all reading 0.
+section "5K. the 'down' table carries 3 and 5, so all three tables say one thing"
+# 2026-09-12. The third of the three. `ndt down` on an already-down lab printed its four steps,
+# verified an empty machine and exited 0 -- and a measured table has the pair that costs: "two live
+# OVS teardowns and one already-down lab" all reading 0.
 has   "  🔴 3 is in the down table"                   "3 THERE WAS NOTHING TO TEAR DOWN" "$HELP"
 has   "  naming when the reading is taken"            "this command started" "$HELP"
 has   "  🔴 and that the steps ran anyway"            "Every step still ran" "$HELP"
 has   "  with the direction that would be worse"      "would be the reading" "$HELP"
 has   "  🔴 and the two statements kept apart"        "which is not the statement" "$HELP"
-has   "  with the ROLE-12 reading behind it"          "one already-down lab" "$HELP"
+has   "  with the measurement behind it"              "one already-down lab" "$HELP"
 has   "  🔴 5 is in the table, for the four refusals" "5 A GUARD REFUSED and nothing was torn down" "$HELP"
 has   "  naming the declared-measurement one"         "DECLARES a measurement in progress" "$HELP"
 has   "  🔴 and which of them --force answers"        "past the first three" "$HELP"
@@ -1001,13 +1007,12 @@ check "  🔴 and it is decided by the subject, not by the sweep" "1" \
 check "  🔴 and the claim note has its own sentence for it"     "1" \
       "$(grep -c 'if \[\[ -z "$unverified" && -z "$subject" \]\]; then' "$NDT")"
 
-section "5L. RESIDUE-1 §7-5: one word named two findings, and only one of them moved"
-# 🔴 Adam's ruling 2026-09-12 12:3x. `ndt clean` prints `XX residue: ndtwin_kernel pid 2511227
-# holding :8000` -- a PROCESS holding a port, which `ndt down` removes -- and `ndt status
-# --check` printed `residue N rule(s)` about FLOW RULES, which nothing in this tool deletes and
-# whose only remedy is a delete_flow_entry by hand. ROLE-11's report quoted both, one after the
-# other, and they read as one finding twice. The network half is renamed; the process half keeps
-# the word.
+section "5L. one word named two findings, and only one of them moved"
+# 🔴 2026-09-12. `ndt clean` prints `XX residue: ndtwin_kernel pid 2511227 holding :8000` -- a
+# PROCESS holding a port, which `ndt down` removes -- and `ndt status --check` printed `residue N
+# rule(s)` about FLOW RULES, which nothing in this tool deletes and whose only remedy is a
+# delete_flow_entry by hand. A report quoted both, one after the other, and they read as one finding
+# twice. The network half is renamed; the process half keeps the word.
 #
 # 🔴 THIS GROUP IS THE ONE THAT FAILS A BLANKET RENAME, in either direction: a
 # `s/residue/rules-in-window/g` passes every needle above and fails the second half here, and
@@ -1030,10 +1035,10 @@ check "🔴 and ports.sh still prints the process one" "1" \
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================
 # F-OFFLINE-1 §1.13. Two of the four `--check` suites had no lab_kernel_dir stub, so
-# app_evidence_log answered with a path in /home/adam/Desktop/NDTwin-Kernel -- a 148717-byte
-# root-owned file this suite cannot write, cannot trim and does not own. Asserted on the PATH
-# rather than on what the path happened to contain: "the residue row said none" would depend on
-# whether somebody had truncated that file, which is the hidden input the stub removes.
+# app_evidence_log answered with a path in the main checkout -- a 148717-byte root-owned file this
+# suite cannot write, cannot trim and does not own. Asserted on the PATH rather than on what the
+# path happened to contain: "the residue row said none" would depend on whether somebody had
+# truncated that file, which is the hidden input the stub removes.
 check "  lab_kernel_dir answers the fixture tree"        "$FIX" "$(_f9 'lab_kernel_dir')"
 check "  🔴 sim's evidence log is inside the fixture"    "$FIX/.test_run/logs/app_sim.log" \
       "$(_f9 'app_evidence_log sim')"
@@ -1048,8 +1053,8 @@ check "  energy still has no evidence log (rc 1)"        "1" \
 # ==========================================================================================
 # 6. T1: the claim is a check-then-write, and two sessions could both win it
 # ==========================================================================================
-# 🔴 ROLE-4, measured 2026-09-11 01:53:36 and 01:54:21 (hunt-0911/logs/ROLE-4/03-t1-race-sweep.log
-# off=0.00s, 04-t1-race-offset0-reps.log rep1). Two owners firing `ndt claim` in the same second
+# 🔴 Measured 2026-09-11 01:53:36 and 01:54:21 (a race sweep at offset 0.00 s, and its first
+# repetition). Two owners firing `ndt claim` in the same second
 # BOTH got rc 0 and both were told "ok lab claimed by <themselves>"; the file kept only the last
 # writer. 2 of 16 same-second pairs; every pair offset by 50 ms or more refused correctly, so this
 # is a window and not a missing check. The loser had no channel at all -- its own rc 0 was not
@@ -1201,7 +1206,7 @@ no_claim
 rm -f "$(claim_file).prev"
 
 section "6I. 🔴 R7 I-2 condition 2: 'ndt status' says the claim changed hands"
-# R7's own acceptance of the I-2 fix (R7-reconciler.md section 3b, 04:29:25): condition 1 PASSED
+# The acceptance run of this fix (2026-09-11 04:29:25): condition 1 PASSED
 # -- `.prev` really is the claim that was replaced, checked field by field against R7's own
 # independent 118-point sampling record -- and CONDITION 2 FAILED. R7 grepped the WHOLE of
 # `ndt status` for prev|changed hands|took|handover|previous|was held: 0 hits. So the evidence
@@ -1284,7 +1289,7 @@ rm -f "$(claim_file).prev"
 # 7. T2 / T2d: measuring= was a declaration nothing enforced, and the refusal printed a
 #    command that could not be pasted
 # ==========================================================================================
-# 🔴 T2d, measured 2026-09-11 01:57:27-01:57:54 (logs/ROLE-4/10-t3-down-by-owner.log). The claim
+# 🔴 T2d, measured 2026-09-11 01:57:27-01:57:54. The claim
 # said `measuring=ROLE-4 reader nsr, do not tear down`. The owner's own `ndt down` tore the
 # fabric out, printed `clean`, exited 0, killed the declared reader, and never mentioned the
 # field -- which then OUTLIVED the teardown that had killed the thing it described. cmd_down read
@@ -1292,7 +1297,7 @@ rm -f "$(claim_file).prev"
 # else, so the one channel a session has for "you cannot see what I am measuring" was read by
 # `ndt check` alone.
 #
-# 🔴 T2, measured 01:56:53 (08-t2-foreign-down.log). The refusal was right and its rescue line
+# 🔴 T2, measured 2026-09-11 01:56:53. The refusal was right and its rescue line
 # could not be used:
 #     NDT_OWNER=overnight-0905 (until 02:36:24, ROLE-4 T2/T3: reader running) ndt down
 # `$held` is a DESCRIPTION, and bash reads `(until ...)` as a subshell. The same message never
@@ -1405,8 +1410,8 @@ check "🔴 an owner name with spaces and parens still parses" "0" \
 # 8. T5: the note that failed silently, the declaration that outlived its teardown, and the
 #    field that moved to the end of the file
 # ==========================================================================================
-# 🔴 T5, measured 2026-09-11 01:55:07 against 01:59:53 (logs/ROLE-4/06-up-ovs4.log,
-# 17-claim-timeline.txt). The same `ndt up ovs 4`, twice: run by the owner it rewrote the note
+# 🔴 T5, measured 2026-09-11 01:55:07 against 01:59:53 (an `ndt up ovs 4` run and the
+# claim's timeline). The same `ndt up ovs 4`, twice: run by the owner it rewrote the note
 # to "in use: ..."; run with NDT_OWNER UNSET it changed nothing and said nothing, because
 # set_claim_note returns 1 for a claim that is not yours and claim_note_up threw that away
 # (`return 0`, no warn). So the note went on describing the previous round while a fabric was
@@ -1465,7 +1470,7 @@ section "9A. T3: 'these survive ndt down' was disproved by the same round's ndt 
 # ROLE-4 01:56:27-01:57:54. Two `ndt apps nsr` in the same second left two processes and two
 # pidfiles naming different ones; `ndt status` printed "these survive 'ndt down'", and the
 # `ndt down` in that SAME round printed "nsr is running untracked (pid 2666802 2666801) --
-# stopping it by pid" and killed both (`ps` counted 0 afterwards, 10-t3-down-by-owner.log).
+# stopping it by pid" and killed both (`ps` counted 0 afterwards).
 # cmd_down's [0/3] gate is app_probe, not app_running, so an untracked app is precisely the one
 # it does stop -- and that was a deliberate change (G-6).
 status_untracked() {
@@ -1487,18 +1492,18 @@ check "  cmd_down still stops an untracked app by pid"   "1" \
       "$(grep -c 'warn "\$a is running untracked' "$NDT")"
 
 section "9B. T4: the help says what a claim does NOT cover"
-# 🔴 NOT FIXED, and now said rather than implied. ROLE-4 T4, measured 02:01:16-02:02:45
-# (14-t4-expiry.log, 14b-write-loop.log): a loop calling install_flow_entry and
+# 🔴 NOT FIXED, and now said rather than implied. Measured 2026-09-11 02:01:16-02:02:45:
+# a loop calling install_flow_entry and
 # delete_flow_entry every 2 s got http 200 through its own claim's expiry (claim_left=-1s) and
 # through another owner taking the claim (owner=intruder-0911, claim_left=-3s), and stopped only
 # when that owner's `ndt down` SIGTERMed the kernel. The only signal that writer ever received
-# was curl printing 000. Whether the northbound API should read the claim is Adam's decision;
+# was curl printing 000. Whether the northbound API should read the claim is undecided;
 # what the help must not do is leave a reader believing it already does.
 has   "  the help scopes the claim to this tool's own verbs" "claim only blocks the 'ndt'" "$HELP"
 has   "  and names the API as outside it"                "not the northbound API" "$HELP"
 has   "🔴 and says expiry and loss are silent"           "no signal" "$HELP"
 # The manual carries the same fact. Asserted here rather than nowhere; note that the mutation
-# gate copies only ndt, so this cell is not mutation-protected and the SUMMARY says so.
+# gate copies only ndt, so this cell is not mutation-protected.
 MANUAL="$HERE/../../doc/2026-08-17_testing-manual.md"
 check "  the manual is readable from here"               "yes" \
       "$( [[ -r "$MANUAL" ]] && echo yes || echo no )"

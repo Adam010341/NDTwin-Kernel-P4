@@ -77,7 +77,7 @@ trap 'rm -rf "$BK"' EXIT
 # `<repo root>/setting`, and a mutant tree under $BK has no such directory. An input, never a
 # subject, so linked rather than copied.
 ln -s "$REPO/setting" "$BK/setting"
-# The foreign-pipeline suites read ticket A's compiled fixtures under tools/ and run its converter,
+# The foreign-pipeline suites read the compiled exercise fixtures under tools/ and run its converter,
 # which derives the model reader's path from its own __file__ (see mutate_table_entry.sh for why
 # p4_proxy/ is linked too). Inputs, never subjects.
 ln -s "$REPO/tools" "$BK/tools"

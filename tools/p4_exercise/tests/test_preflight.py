@@ -655,7 +655,7 @@ class ValueWidths(unittest.TestCase):
         self.assertEqual(preflight.match_type_name(4), "TERNARY")
 
 
-# --- TICKET-P3 2.6: the multicast exercise, its PRE entries, and the telemetry word ------------
+# --- the multicast exercise, its PRE entries, and the telemetry word ------------
 
 
 MULTICAST = os.path.join(FIXTURES, "multicast")
@@ -832,7 +832,7 @@ class TheCooperativeIncludeIsAccepted(PackageCase):
         self.assertEqual(rows["telemetry cooperative is possible"], preflight.PASS)
 
 
-# --- roles.ipv4_route (TICKET-P4-roles section 2.1) ---------------------------------------------
+# --- roles.ipv4_route ---------------------------------------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 # Pre-flight runs the proxy's own two functions -- app_package.parse_roles for the shape,
@@ -889,7 +889,7 @@ class BasicWithRolesTest(RolesCase):
         self.assertNotIn("roles suggestion", self.statuses())
 
     def test_the_owned_tables_match_entries_fail_and_each_one_is_named(self):
-        # 2.1-5 / ruling 8-1: put basic's own four routes back into s1 and s2.
+        # 2.1-5: put basic's own four routes back into s1 and s2.
         for n in (1, 2):
             original = common.load_json(os.path.join(BASIC, f"pod-topo/s{n}-runtime.json"))
             path = os.path.join(self.pkg, f"pod-topo/s{n}-runtime.json")
@@ -1014,7 +1014,7 @@ class NoSuggestionOnNdtwinsOwnPipelineTest(RolesCase):
 
 class ReverseControlsTest(RolesCase):
     """ANALYSIS section 3's four that cannot bind ipv4_lpm, from the fixtures that exist here:
-    a roles block naming ipv4_lpm must FAIL and say what is missing (TICKET 5-3)."""
+    a roles block naming ipv4_lpm must FAIL and say what is missing."""
 
     flag = None
 

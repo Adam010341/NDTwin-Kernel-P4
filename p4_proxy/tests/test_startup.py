@@ -45,7 +45,7 @@ import app_package  # noqa: E402
 # 🔴 EVERY PACKAGE IN THIS FILE IS A HAND-BUILT `Package` OBJECT, and the artefact paths its
 # switches name are files that do not exist. That is the right shape for asserting a branch and
 # it cannot see whether the writer survives a real foreign p4info -- which is a different
-# question, asked in tests/test_foreign_pipeline.py against ticket A's compiled fixtures. The
+# question, asked in tests/test_foreign_pipeline.py against the compiled exercise fixtures. The
 # two are separate files on purpose: this one must stay runnable from a tree that holds only
 # `p4_proxy/`, because tests/shell/mutate_app_package.sh runs it inside exactly such a tree.
 
@@ -61,8 +61,8 @@ _FIXTURES = os.path.join(
 #: `cooperative` is refused.
 PLAIN_FOREIGN_PIPELINE = (os.path.join(_FIXTURES, "basic", "build", "basic.p4.p4info.txtpb"),
                           os.path.join(_FIXTURES, "basic", "build", "basic.json"))
-#: the same program with `#include "ndtwin_telemetry.p4"` -- TICKET-P3 section 9 ruling 4's
-#: whole subject. Foreign pipeline, five packet_in fields, so `cooperative` works.
+#: the same program with `#include "ndtwin_telemetry.p4"` -- the whole point
+#: of that include. Foreign pipeline, five packet_in fields, so `cooperative` works.
 TELEMETRY_FOREIGN_PIPELINE = (
     os.path.join(_FIXTURES, "basic_telemetry", "build", "basic_telemetry.p4.p4info.txtpb"),
     os.path.join(_FIXTURES, "basic_telemetry", "build", "basic_telemetry.json"))
@@ -83,7 +83,7 @@ class FakeClient:
         self.dpid = dpid
         self.device_id = dpid
         # [Co-developed with claude code -- Adam]
-        # TICKET-P3 2.6 (G1): the real client resolves the five packet_in metadata ids out of
+        # The real client resolves the five packet_in metadata ids out of
         # its own p4info at construction, and `None` means "this program declares no controller
         # header". startup() refuses to give such a switch `cooperative` telemetry, so a double
         # that did not carry the attribute would make every test here take that refusal -- which
@@ -92,7 +92,7 @@ class FakeClient:
         self.packet_in_ids = packet_in_ids
         self.packet_in_ids_error = (None if packet_in_ids is not None
                                     else "no packet_in controller header in this p4info")
-        #: Whether this switch accepts a multicast group write (TICKET-P3 2.6, G8).
+        #: Whether this switch accepts a multicast group write.
         self.multicast_ok = multicast_ok
         #: Every (group_id, replicas, op) and (session_id, replicas) the PRE was asked for.
         self.multicast_groups = []
@@ -120,7 +120,7 @@ class FakeClient:
 
     def write_clone_session(self, session_id=None, egress_port=None, replicas=None):
         # [Co-developed with claude code -- Adam]
-        # The signature is the production one as of TICKET-P3 2.6: startup's telemetry loop
+        # The signature is the production one: startup's telemetry loop
         # still calls it with no arguments, and `apply_package_pre_entries` calls it with a
         # session id and a replica list out of the package's runtime file. A double that
         # accepted only the first would turn a correct G9a call into a TypeError.
@@ -243,13 +243,11 @@ def declaring_telemetry(package, word):
     """A copy of `package` that declares `telemetry.source`.
 
     [Co-developed with claude code -- Adam]
-    🔴 A REAL `Package`, AS OF ROUND 2 (TICKET-P3 section 9 ruling 5). Round 1 built a SUBCLASS
-    carrying the word as a class attribute, because `Package` is a frozen dataclass that B owned
-    and the field did not exist on this branch yet. B is merged and `telemetry_source` is a real
-    field -- and the subclass trick stopped working the moment it was, silently: an instance
-    attribute set by `__init__` shadows a class attribute, so every one of these cases quietly
-    read `auto` instead of the word it asked for. `dataclasses.replace` on the real type is what
-    a caller writes, so it is what these tests use.
+    🔴 A REAL `Package`. A SUBCLASS carrying the word as a class attribute would stop working
+    now that `telemetry_source` is a real field of the frozen dataclass, silently: an instance
+    attribute set by `__init__` shadows a class attribute, so every one of these cases would
+    quietly read `auto` instead of the word it asked for. `dataclasses.replace` on the real type
+    is what a caller writes, so it is what these tests use.
     """
     return dataclasses.replace(package, telemetry_source=word)
 
@@ -385,8 +383,8 @@ class AnExternalControlPlaneTest(unittest.TestCase):
     🔴 So this suite asserts two things that have to hold together: that the write steps do NOT
     happen, and that every one of them is NAMED in what startup returns. Skipping alone is not
     enough -- a fabric with no telemetry, no discovered links and no proxy-installed routes looks
-    exactly like a broken one, which is GAP-ANALYSIS section 5's "reports zero rather than
-    reports an error".
+    exactly like a broken one, which is the "reports zero rather than reports an
+    error" failure.
     """
 
     def test_an_external_control_plane_pushes_no_pipeline(self):
@@ -467,7 +465,7 @@ class AnExternalControlPlaneTest(unittest.TestCase):
 
 class AForeignPipelineTest(unittest.TestCase):
     """
-    TICKET-P2 2.2: what changes when a switch is running the app package's own program.
+    What changes when a switch is running the app package's own program.
 
     [Co-developed with claude code -- Adam]
 
@@ -528,7 +526,7 @@ class AForeignPipelineTest(unittest.TestCase):
     # --- the fabric-wide half ---------------------------------------------------------
 
     def test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off(self):
-        # 🔴 THREE NAMES, NOT FIVE (TICKET-P2 2.2 :48, and round 2's ruling). The clone session
+        # 🔴 THREE NAMES, NOT FIVE. The clone session
         # and the sFlow registration are per switch and are disclosed on that switch's own
         # `pipeline.skipped` -- see test_the_per_switch_skips_are_not_in_the_fabric_wide_list.
         summary, _ = run_startup({1: FakeClient(1)}, package=self.package())
@@ -536,7 +534,7 @@ class AForeignPipelineTest(unittest.TestCase):
                          sorted([main.SKIP_LLDP, main.SKIP_WATCHDOG, main.SKIP_ROUTES]))
 
     def test_the_per_switch_skips_are_not_in_the_fabric_wide_list(self):
-        # 🔴 The bug round 1 shipped and the judge caught. In a MIXED fabric the NDTwin switch
+        # 🔴 In a MIXED fabric the NDTwin switch
         # beside the package's still gets a clone session (asserted below in
         # test_an_ndtwin_switch_beside_a_foreign_one_keeps_its_clone_session) -- so
         # `clone_session` in the fabric-wide list is a sentence about one switch told about two.
@@ -586,11 +584,11 @@ class AForeignPipelineTest(unittest.TestCase):
                          sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY]))
 
     def test_a_foreign_pipeline_that_cannot_carry_the_header_still_gets_nothing(self):
-        # 🔴 THE GUARD'S DISCRIMINATING CASE, as of TICKET-P3 section 9 ruling 4. Under `auto` a
-        # foreign pipeline resolves to `link`, so the telemetry-source check below would skip
-        # this switch even with the foreign branch gone -- the two guards would mask each other
-        # exactly the way `read_only` and "no agent IP" once did, and
-        # tests/shell/mutate_table_entry.sh's M-B9 SURVIVED on precisely that in round 1.
+        # 🔴 THE GUARD'S DISCRIMINATING CASE. Under `auto` a foreign
+        # pipeline resolves to `link`, so the telemetry-source check below would skip this switch
+        # even with the foreign branch gone -- the two guards would mask each other exactly the way
+        # `read_only` and "no agent IP" once did, and tests/shell/mutate_table_entry.sh's M-B9
+        # survived on precisely that.
         #
         # What separates them is a switch asked for `cooperative` whose program has no
         # controller header: the source check would let it through, and the refusal in startup
@@ -801,7 +799,7 @@ class ShutdownStopsTheClientsTheTopologyManagerHoldsTest(unittest.TestCase):
         self.assertTrue(sflow.closed, "the emitter socket was never closed")
 
 
-# --- where each switch's samples come from. TICKET-P3 2.1 --------------------------------------
+# --- where each switch's samples come from ---------------------------------------------------
 
 
 class TelemetrySourceTest(unittest.TestCase):
@@ -844,11 +842,10 @@ class TelemetrySourceTest(unittest.TestCase):
 
         [Co-developed with claude code -- Adam]
         `pipeline` defaults to the REAL compiled `basic` artefacts (absolute paths, which
-        `Package.pipeline_for` passes through untouched). Round 1 named files that do not exist,
-        which was enough while the only question was "is this NDTwin's pipeline" -- section 9
-        ruling 4 made the p4info's CONTENT decide whether a foreign switch may have cooperative
-        telemetry, so the fixture has to be a program that really does, or really does not,
-        declare the header.
+        `Package.pipeline_for` passes through untouched). Naming files that do not exist
+        is enough while the only question is "is this NDTwin's pipeline" -- but the p4info's
+        CONTENT decides whether a foreign switch may have cooperative telemetry, so the fixture
+        has to be a program that really does, or really does not, declare the header.
         """
         pipeline = pipeline or PLAIN_FOREIGN_PIPELINE
         switches = tuple(
@@ -902,8 +899,8 @@ class TelemetrySourceTest(unittest.TestCase):
         self.assertIn("cooperatvie", str(cm.exception))
 
     def test_an_empty_knob_reads_as_nothing_rather_than_raising(self):
-        # 🔴 A BEHAVIOUR THAT CHANGED AT THE COLLAPSE (section 9 ruling 5), recorded rather than
-        # quietly adopted. Round 1's proxy-side reader REFUSED a knob file that exists and names
+        # 🔴 A BEHAVIOUR THAT CHANGED WHEN THE TWO READERS WERE COLLAPSED, recorded rather than
+        # quietly adopted. The proxy-side reader used to REFUSE a knob file that exists and names
         # nothing, on the app-package knob's precedent. `app_package.read_telemetry_knob` is the
         # one implementation now and answers None -- "the package decides" -- and `ndt`, the
         # only writer, deletes the file rather than emptying it.
@@ -913,7 +910,7 @@ class TelemetrySourceTest(unittest.TestCase):
         self.assertIsNone(main.read_telemetry_knob(os.path.join(self.tmp, "absent")))
 
     def test_a_refusal_from_the_package_reader_arrives_as_a_telemetry_refusal(self):
-        # 🔴 THE WRAPPING IS THE CONTRACT (section 9 ruling 5). The rule lives in app_package and
+        # 🔴 THE WRAPPING IS THE CONTRACT. The rule lives in app_package and
         # raises `AppPackageError`; startup's refusal path catches `TelemetryConfigError`. Let
         # the first through unwrapped and a fabric whose knob says `cooperatvie` dies with a
         # traceback nobody routes, instead of the named refusal this whole path exists to be.
@@ -930,7 +927,7 @@ class TelemetrySourceTest(unittest.TestCase):
 
         The double's `packet_in_ids` is set from the same fact the package's p4info states, so
         the client and the file cannot disagree about a switch -- which is the disagreement
-        section 9 ruling 4's decision now rests on.
+        the cooperative-telemetry decision rests on.
         """
         if include:
             package = self.include_package()
@@ -981,7 +978,7 @@ class TelemetrySourceTest(unittest.TestCase):
         self.assertNotIn("clone", client.events)
         self.assertEqual(parts["sflow"].registered, {})
         self.assertEqual(summary["telemetry_report"]["1"]["source"], "link")
-        # 🔴 TICKET-P2 7-7 froze this list and it stays frozen: those two steps really were
+        # 🔴 This list stays frozen: those two steps really were
         # skipped. What is new is the `telemetry` object saying WHY.
         self.assertEqual(summary["pipelines"]["1"]["skipped"],
                          sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY]))
@@ -991,15 +988,15 @@ class TelemetrySourceTest(unittest.TestCase):
         self.assertNotIn("clone", client.events)
         self.assertEqual(summary["telemetry_report"]["1"]["source"], "none")
 
-    # --- the case ndtwin_telemetry.p4 exists for. TICKET-P3 section 9 ruling 4 -----------
+    # --- the case ndtwin_telemetry.p4 exists for ------------------------------------------
 
     def test_a_foreign_program_that_included_the_header_gets_the_cooperative_path(self):
         # 🔴 THE WHOLE POINT OF THE INCLUDE. This switch runs the exercise's OWN program -- the
         # p4info is the compiled `basic_telemetry` fixture, which is the tutorials `basic`
         # solution plus `#include "ndtwin_telemetry.p4"` -- so `pipeline.ndtwin` is False. It
         # can nonetheless clone to the CPU port, so under `cooperative` it gets a clone session
-        # and an sFlow registration exactly like an NDTwin switch. Round 1 refused it (P2 2.2's
-        # frozen branch), which made the include decorative.
+        # and an sFlow registration exactly like an NDTwin switch. Refusing it would
+        # make the include decorative.
         summary, parts, client = self.cell("cooperative", foreign=True, include=True)
         self.assertFalse(summary["pipelines"]["1"]["ndtwin"],
                          "the fixture has to be a FOREIGN pipeline or this proves nothing")
@@ -1012,7 +1009,7 @@ class TelemetrySourceTest(unittest.TestCase):
         self.assertTrue(disclosure["sflow_registered"])
 
     def test_that_switch_says_it_skipped_nothing(self):
-        # P2 ruling 7 amended: `pipeline.skipped` is what was ACTUALLY skipped on this switch.
+        # `pipeline.skipped` is what was ACTUALLY skipped on this switch.
         # Saying `[clone_session, sflow_telemetry]` here would be false about a switch that has
         # both -- and a reader who acted on it would go looking for a telemetry fault.
         summary, _parts, _client = self.cell("cooperative", foreign=True, include=True)
@@ -1022,7 +1019,7 @@ class TelemetrySourceTest(unittest.TestCase):
         # 🔴 AND THE FABRIC-LEVEL THREE STAY. LLDP, the watchdog and the route refill are
         # skipped for ANY foreign pipeline: the refill writes `MyIngress.ipv4_lpm` by name into
         # a program that merely happens to spell it the same, and a beacon leaves one switch to
-        # arrive at another. Section 9 ruling 4 moved the per-switch pair only.
+        # arrive at another. Only the per-switch pair moves.
         summary, _parts, _client = self.cell("cooperative", foreign=True, include=True)
         self.assertEqual(summary["control_plane"]["skipped"],
                          sorted([main.SKIP_LLDP, main.SKIP_WATCHDOG, main.SKIP_ROUTES]))
@@ -1140,13 +1137,13 @@ class TheOneImplementationTest(unittest.TestCase):
     `main._telemetry_source` and `app_package.telemetry_source` answer the same thing. Always.
 
     [Co-developed with claude code -- Adam]
-    🔴 THIS TEST IS TRIVIALLY TRUE TODAY, AND THAT IS WHY IT EXISTS (TICKET-P3 section 9 ruling
-    5). Round 1 had two implementations of one rule -- section 2.1 required it, so that neither
-    ticket blocked on the other -- and the arrangement worked exactly as intended right up to
-    the moment nobody collapsed them. `main._telemetry_source` is one line of delegation now, so
-    every cell below passes by construction. What the grid catches is the DAY SOMEBODY RE-FORKS
-    IT: a branch added on the proxy side "just for this case" reddens here, which is the only
-    place that would notice. A one-off reconciliation done at merge time would not have been.
+    🔴 THIS TEST IS TRIVIALLY TRUE TODAY, AND THAT IS WHY IT EXISTS. There were two
+    implementations of one rule, kept apart so that neither side blocked on the other, and
+    that arrangement worked right up to the moment they were collapsed. `main._telemetry_source` is
+    one line of delegation now, so every cell below passes by construction. What the grid catches is
+    the DAY SOMEBODY RE-FORKS IT: a branch added on the proxy side "just for this case" reddens
+    here, which is the only place that would notice. A one-off reconciliation done at merge time
+    would not have been.
 
     🔴 AND IT IS A GRID, not one call. The rule has three layers and a per-switch tail, so a
     fork that agreed about the knob and disagreed about `auto` would pass a single comparison.
@@ -1224,7 +1221,7 @@ class TheOneImplementationTest(unittest.TestCase):
 
 
 class ThePackagesPreEntriesAtStartupTest(unittest.TestCase):
-    """TICKET-P3 2.6 (G9a): the multicast groups and clone sessions a package declares."""
+    """The multicast groups and clone sessions a package declares."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="ndtwin_pre_entries_")

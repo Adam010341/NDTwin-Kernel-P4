@@ -27,7 +27,7 @@ namespace sflow
  * @brief Which address family a FlowKey's identity fields describe.
  *
  * [Co-developed with claude code -- Adam]
- * TICKET-P3 §2.3. The parser used to understand one family and discard the rest: a sample whose
+ * The parser used to understand one family and discard the rest: a sample whose
  * ethertype was not 0x0800 was dropped whole, so an exercise that carries its own header --
  * source routing (0x1234), MRI, the tunnels -- was invisible to the twin, not merely
  * unclassified. The families are an enumeration rather than a bool because "not IPv4" is two
@@ -64,11 +64,11 @@ toString(FlowKeyFamily family)
  * optional ICMP type/code for finer classification.
  *
  * [Co-developed with claude code -- Adam]
- * TICKET-P3 §2.3 added the family fields below. 🔴 A KEY CARRIES EXACTLY THE FIELDS ITS FAMILY
+ * The family fields below were added later. 🔴 A KEY CARRIES EXACTLY THE FIELDS ITS FAMILY
  * NAMES, and nothing else: the IPv4 family is the five-tuple, the IPv6 family is the address
  * pair plus next header and ports, the L2 family is the two MACs plus the ethertype. Filling a
- * field the family does not name is not extra information, it is a different key -- round 2's
- * F1 was exactly that: IPv4 keys were carrying the frame's MAC addresses, which the fabric
+ * field the family does not name is not extra information, it is a different key -- an earlier
+ * version did exactly that: IPv4 keys carried the frame's MAC addresses, which the fabric
  * rewrites at every hop, so one flow became one flow-table row per hop. See identifyFrame.
  *
  * 🔴 THE IPv4 CALIBRE DOES NOT MOVE: for a key of the IPv4 family every added member is zero, so
@@ -118,7 +118,7 @@ struct FlowKey
 // Frame identity -- what family a sampled header belongs to, and its key
 //
 // [Co-developed with claude code -- Adam]
-// TICKET-P3 §2.3. Lives here, as a free function over plain bytes, rather than inside the
+// Lives here, as a free function over plain bytes, rather than inside the
 // collector's 300-line sample branch, for three reasons:
 //   1. it can be tested without a datagram, a collector, a topology or a clock;
 //   2. the collector's branch reads the frame through fixed *word* offsets into the datagram,
@@ -139,9 +139,8 @@ struct FlowKey
 //   b. the ICMP type of an HPE (sample type 3) sample. The deleted branch's shift made it the
 //      constant 0 for every ICMP frame; it is the frame's real type now. No capture from that
 //      vendor exists in this repository, so nothing measured has ever depended on the 0 --
-//      which is exactly why it went unnoticed. Accepted in
-//      doc/audit/2026-09-04_p4-tutorial-exercise-prep/TICKET-P3-observation.md section 9, ruling 10 item 5,
-//      and its offsets are reconciled against the sFlow v5 layout under ruling 11d there.
+//      which is exactly why it went unnoticed. Accepted as a deliberate correction; the offsets
+//      are reconciled against the sFlow v5 layout.
 // Neither moves a number any Brocade/emitter path ever reported.
 // =================================================================================================
 
@@ -281,10 +280,10 @@ identifyFrame(const uint8_t* frame, size_t length)
     out.ethernetHeaderPresent = true;
 
     // 🔴 THE MACs AND THE ETHERTYPE STAY IN LOCALS UNTIL A FAMILY CLAIMS THEM.
-    // [Co-developed with claude code -- Adam] Round 2, fable-judge F1. They used to be written
+    // [Co-developed with claude code -- Adam] They used to be written
     // straight into out.key here, and the IPv4 branch never cleared them -- so an IPv4 key
     // carried the frame's L2 addresses, `operator==` is defaulted, and the flow table is an
-    // unordered_map keyed on the whole struct. On the fabric this ticket exists for that splits
+    // unordered_map keyed on the whole struct. On the P4 fabric that splits
     // ONE FLOW INTO ONE ENTRY PER HOP: ndtwin_switch.p4 rewrites both MACs at every hop and the
     // sample is an I2E clone carrying the ingress-time addresses, so h1->h4 is (h1,h4) on the
     // first hop and (h4,h4) on the rest; the tutorials' basic pipeline does the same with each
@@ -421,7 +420,7 @@ identifyFrame(const uint8_t* frame, size_t length)
         bool resolved = true;
 
         // 🔴 `hop <= kMax`, and the extra turn is what makes exhaustion detectable.
-        // [Co-developed with claude code -- Adam] Round 2, fable-judge F4. The loop used to run
+        // [Co-developed with claude code -- Adam] The loop used to run
         // exactly kMax turns and then fall out with `resolved` still true, so a chain longer than
         // the bound was reported as IPv6 with protocol 0, 43 or 44 -- an extension header
         // presented as an upper-layer protocol, with whatever bytes sat at the port offset. The
@@ -496,7 +495,7 @@ identifyFrame(const uint8_t* frame, size_t length)
                     // NOT the same mask. IPv4's code is truncated to four bits because that is
                     // what the pre-P3 parser did and an IPv4 number is not allowed to move;
                     // there is no such history here, so the whole byte is kept.
-                    // [Co-developed with claude code -- Adam] Round 2, fable-judge F5.
+                    // [Co-developed with claude code -- Adam]
                     out.key.srcPort = frame[offset];
                     out.key.dstPort = frame[offset + 1];
                 }
@@ -1037,7 +1036,7 @@ computeEstimatedRates(uint64_t accumulatedFlowRate,
  * @brief Where a tracked flow sits between "sending now" and "swept from the table".
  *
  * Three states rather than a boolean, because the middle one is real and is the whole population
- * this ticket is about: a flow with no recent sample that the purge thread has not yet removed.
+ * at issue: a flow with no recent sample that the purge thread has not yet removed.
  * Collapsing it into either neighbour is what produced the defect -- the table calls it alive
  * because it is still present, the world calls it dead because it stopped.
  */
@@ -1107,7 +1106,7 @@ toString(FlowLiveness liveness)
  * mechanism behind the 291 s zombie record observed in the 2026-08-13 OVS overnight round -- 19x
  * past the 15 s ceiling this code can produce, which is how that observation was shown to be a
  * DIFFERENT defect and not this one. Agreeing with the purge keeps a zombie visible in the
- * default view instead of hiding it behind a filter; a separate ticket owns the clock itself. If
+ * default view instead of hiding it behind a filter; the clock itself is a separate matter. If
  * this returned Ended instead, the new filter would make that defect silent, and silencing a bug
  * is a worse outcome than displaying it.
  */
@@ -1159,7 +1158,7 @@ passesLivenessFilter(FlowLiveness liveness, FlowLivenessFilter filter)
  * @return false, leaving `out` untouched, for anything not on the list. Rejecting rather than
  * falling back matters here: a caller that types `?liveness=alive` and is quietly handed the
  * default gets a filtered list it believes is unfiltered, which is the same class of silent wrong
- * answer this whole ticket is about. An empty value means "not supplied" and is accepted, because
+ * answer this filter exists to avoid. An empty value means "not supplied" and is accepted, because
  * utils::queryParam cannot tell `?liveness=` from an absent key.
  */
 inline bool
@@ -1220,16 +1219,15 @@ struct FlowInfo
  *
  * [Co-developed with claude code -- Adam]
  *
- * TICKET Q, THE HALF THAT WAS NEVER IN SCOPE. Q's pre-registration
- * (doc/audit/2026-08-27_hardcoded-denominator/PREREG.md) enumerated the defect by grepping
- * `MultiplySampingRate`, which finds the two LINK accumulators and nothing else. The per-flow
- * rates are built from differently named members -- ingressByteCountCurrent and friends -- so
- * they fell outside the grep, and f5e35561 divided only the link path. The per-flow figure
- * stayed `delta * 8 * samplingRate`, published as
+ * THE HALF OF THE HARDCODED-DENOMINATOR FIX THAT WAS FIRST MISSED. The first pass enumerated
+ * the defect by grepping `MultiplySampingRate`, which finds the two LINK accumulators and
+ * nothing else. The per-flow rates are built from differently named members --
+ * ingressByteCountCurrent and friends -- so they fell outside the grep, and f5e35561 divided
+ * only the link path. The per-flow figure stayed `delta * 8 * samplingRate`, published as
  * `estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot`: bits per LOOP PERIOD
- * wearing a bits-per-second label. The mechanism sentence Q registered -- "the accumulator is
- * cleared every round, multiplied by 8 and sent as bps, and nothing on the path divides by the
- * real elapsed time" -- was true here word for word.
+ * wearing a bits-per-second label. The mechanism recorded for the link path -- "the accumulator
+ * is cleared every round, multiplied by 8 and sent as bps, and nothing on the path divides by
+ * the real elapsed time" -- was true here word for word.
  *
  * WHY IT IS A FUNCTION AND NOT TEN LINES IN THE LOOP. Same reason
  * FlowLinkUsageCollector::classifyTelemetry is one: inside the rate loop this arithmetic is
@@ -1281,7 +1279,7 @@ updateFlowRatesForInterval(FlowInfo& info, double elapsedSeconds, uint64_t eleph
             counterDelta(stats.ingresspacketCountCurrent + stats.egresspacketCountCurrent,
                          stats.ingresspacketCountPrevious + stats.egresspacketCountPrevious);
 
-        // The division ticket Q added to the link path and not to this one. In double, then
+        // The division the link path already had, and this one lacked. In double, then
         // truncated once: the delta times a 1024x sampling rate times 8 overflows nothing here,
         // but doing the divide in integers would quantise every rate to a multiple of the
         // period and silently zero a slow flow.
@@ -1324,7 +1322,7 @@ updateFlowRatesForInterval(FlowInfo& info, double elapsedSeconds, uint64_t eleph
     //   this field -- so a flow that stopped kept its last non-zero rate forever, stayed flagged
     //   an elephant, and never left top-k. Measured five and ten seconds after iperf3 ended:
     //   top-k still reported a bit-identical 20.3 Mbps / 10496 pps while `_in_the_last_sec` in
-    //   the same object read 0 (KNOWN-ISSUES A-3; doc/audit/2026-08-27_flow-table-idle-tail).
+    //   the same object read 0 (KNOWN-ISSUES A-3).
     //   Introduced by the divide-by-zero guard in 31b357a6, so it was ours to fix.
     //
     // ⚠️ Those two figures were read from THIS field before it had a denominator, so their
@@ -1356,7 +1354,7 @@ struct FlowKeyHash
         hashCombine(seed, key.protocol);
 
         // [Co-developed with claude code -- Adam]
-        // 🔴 TICKET-P3 §2.3. The early return is the contract: for the IPv4 family this function
+        // 🔴 The early return is the contract: for the IPv4 family this function
         // returns the integer it returned before the family fields existed, so the flow table's
         // bucket assignment for IPv4 traffic is bit-identical and no stored hash anywhere can go
         // stale. Folding the (all-zero) new members in unconditionally would have been tidier and

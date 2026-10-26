@@ -4,8 +4,7 @@ import time
 # [Co-developed with claude code -- Adam]
 # 8081, not 8080. This said 8080 from the day it was written while the proxy agent has always
 # bound 8081 (main.py's uvicorn port), so every run refused the connection and the script had
-# never once done what it claims to do. Recorded as M3 in
-# doc/audit/2026-08-08_commit-review/p4-proxy.md; fixed 2026-08-12.
+# never once done what it claims to do. Fixed 2026-08-12.
 PROXY_URL = "http://127.0.0.1:8081/stats/flowentry/add"
 
 def push_rule(dpid, ip_dst, out_port):

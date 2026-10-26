@@ -1,30 +1,30 @@
 """
-The veth heartbeat's report, as this proxy reads it -- TICKET-P4-heartbeat segment W.
+The veth heartbeat's report, as this proxy reads it.
 
 [Co-developed with claude code -- Adam]
 
-The root helper (`sudo ndtwin-lab heartbeat start`, segment H) sends one frame per inter-switch
+The root helper (`sudo ndtwin-lab heartbeat start`) sends one frame per inter-switch
 direction per period over a FOREIGN fabric's veths -- programs with no controller header, where
 LLDP cannot run -- and writes what it HEARD to /run/ndtwin-lab/heartbeat.json. It decides nothing:
-no up, no down, no reroute (ruling 3: this proxy does not get root; it reads what the root helper
+no up, no down, no reroute (this proxy does not get root; it reads what the root helper
 reports). What turns "last heard at t" into a verdict is this proxy's, with its own constants:
 
   * THE RULE IS THE BEACON RULE. This module only turns the report into beacon EVIDENCE -- "this
     direction was last heard at t", or "silent since t" -- which TopologyManager enters through
-    the first cut's reserved `report_external_link_state(..., at=)` (TICKET-P4-roles 2.4), and
+    the first cut's reserved `report_external_link_state(..., at=)`, and
     `check_link_beacons` then decides with LINK_BEACON_TIMEOUT_S / LINK_STARTUP_GRACE_S exactly as
-    it does for LLDP, and `_notify_link` tells the kernel (段 W: "常數與自家 fabric 共用、不另寫
-    一份"). There is no timeout in this file. The period is compared with the proxy's own
-    LLDP_BEACON_INTERVAL_S, handed in by TopologyManager rather than imported, because that
-    module imports this one.
-  * TRUSTED OR NOT EVIDENCE (segment H's H.7 item 1). A regular file, not a symlink, owned by
+    it does for LLDP, and `_notify_link` tells the kernel. There is no timeout in this file. The
+    period is compared with the proxy's own LLDP_BEACON_INTERVAL_S, handed in by TopologyManager
+    rather than imported, because that module imports this one.
+  * TRUSTED OR NOT EVIDENCE. A regular file, not a symlink, owned by
     root and not group/other writable, in a root-owned directory nobody else can write. A report
-    adam could write would let any local process cut a link in the twin -- or hide a real cut.
-  * ALIVE OR FROZEN (H.7 item 2). `status: running` and rewritten within two periods (the daemon
+    an ordinary user could write would let any local process cut a link in the twin -- or hide
+    a real cut.
+  * ALIVE OR FROZEN. `status: running` and rewritten within two periods (the daemon
     rewrites every period). A report that is not usable is NO evidence at all -- not "every
     direction silent" -- and the watchdog judges nothing on it while it lasts: the daemon's death
     is not the network's.
-  * THIS FABRIC, THIS PERIOD (H.7 items 3 and 6). Every direction the package declares must be in
+  * THIS FABRIC, THIS PERIOD. Every direction the package declares must be in
     the report; one missing makes it a report about something else. Directions the package does
     not declare are disclosed and ignored. A period other than the proxy's would make the
     3-period timeout the wrong multiple of it, so that is not usable either.
@@ -59,7 +59,7 @@ REPORT_SOURCE = "heartbeat"
 #: The daemon's report is a few KiB; anything past this is not one.
 MAX_REPORT_BYTES = 1 << 20
 #: A running daemon rewrites the report every period, so two periods without a write is a daemon
-#: that is gone or hung (H.7 item 2).
+#: that is gone or hung.
 ALIVE_PERIODS = 2
 #: How far in the future `written_mono` may lie before it is not this machine's clock.
 CLOCK_SLACK_S = 1.0
@@ -97,7 +97,7 @@ class Reading:
     #: Declared directions the report does not carry / carried directions nobody declared.
     missing: tuple = ()
     undeclared: tuple = ()
-    #: The daemon's own counters, verbatim: forwarded_to_hosts > 0 is ruling 4's stop condition.
+    #: The daemon's own counters, verbatim: forwarded_to_hosts > 0 is a stop condition.
     side_effects: Optional[dict] = None
 
 
@@ -153,7 +153,7 @@ def _number(value):
 
 
 def _link_of(record):
-    """(tx dpid, tx port, rx dpid, rx port) -- the key LLDP evidence uses (H.7 item 4)."""
+    """(tx dpid, tx port, rx dpid, rx port) -- the key LLDP evidence uses."""
     tx, rx = record["tx"], record["rx"]
     link = (tx["dpid"], tx["port"], rx["dpid"], rx["port"])
     if not all(isinstance(v, int) and not isinstance(v, bool) for v in link):

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Tests for `ndtwin-lab heartbeat` -- TICKET-P4-heartbeat, segment H.
+# Tests for `ndtwin-lab heartbeat`.
 #
 # [Co-developed with claude code -- Adam]
 #
-# The subject is a ROOT entry point: after `sudo install`, anything running as adam can type
-# `sudo ndtwin-lab heartbeat ...`. So most of what is tested here is what it REFUSES, and every
-# refusal is exercised for real where a non-root test can make the real thing:
+# The subject is a ROOT entry point: after `sudo install`, any user can type `sudo ndtwin-lab
+# heartbeat ...`. So most of what is tested here is what it REFUSES, and every refusal is exercised
+# for real where a non-root test can make the real thing:
 #
 #   * the command line (section 1): one sub-verb and nothing after it. Interfaces, paths and
 #     ethertypes cannot be passed in, and nothing typed is ever expanded;
@@ -252,9 +252,9 @@ sys.exit(1)")"
 check "a daemon that refuses at once: start fails"      1 "${r%%|*}"
 check "  and shows the daemon's own reason from its log" yes "$(has "stand-in reason" "$r")"
 
-# Two starts race (judge #9, round 2): this start found no daemon, launched one, and that daemon
-# lost the flock to the other start's (rc 2). By then hb_pid sees the WINNER. start must say so
-# and answer 0 -- one daemon is running, which is what `start` promises.
+# Two starts race: this start found no daemon, launched one, and that daemon lost the flock to the
+# other start's (rc 2). By then hb_pid sees the WINNER. start must say so and answer 0 -- one daemon
+# is running, which is what `start` promises.
 CNT="$TMPROOT/hbpid.count"; rm -f "$CNT"
 r="$( ( session_running() { return 0; }
         hb_install_program() { printf 'import sys\nsys.exit(2)\n' > "$HB_PROGRAM"; }
@@ -321,9 +321,9 @@ check "another program path with the same shape is not the daemon" 1 "$(hb_is_da
 r="$(hb_stop 2>&1)"
 check "stop leaves the one-word-off process alive"      yes "$(alive "$ONE_OFF")"
 
-# A daemon that ignores TERM (judge #9, round 2): stop falls back to KILL, and removes the pidfile
-# the killed daemon could not remove itself. The stand-in writes its own pid only AFTER ignoring
-# TERM, so the TERM that stop sends is certain to be ignored.
+# A daemon that ignores TERM: stop falls back to KILL, and removes the pidfile the killed daemon
+# could not remove itself. The stand-in writes its own pid only AFTER ignoring TERM, so the TERM
+# that stop sends is certain to be ignored.
 rm -f "$HB_PIDFILE"
 printf 'import os, signal, time\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\nopen(%s, "w").write(str(os.getpid()) + "\\n")\ntime.sleep(30)\n' \
     "'$HB_PIDFILE'" > "$HB_PROGRAM"
@@ -337,9 +337,9 @@ check "  and the KILL path removed the pidfile"         no "$( [[ -e "$HB_PIDFIL
 wait "$STUBBORN" 2>/dev/null
 cp "$TMPROOT/sleeper.py" "$HB_PROGRAM"
 
-# 🔴 ARITHMETIC IS CODE IN BASH (judge #7, round 2). `(( pid > 1 ))` on 'a[$(cmd)]' runs cmd --
-# measured on this machine before this check was written. hb_is_daemon validates BEFORE it does
-# arithmetic; asked directly, so the order inside it is what is tested, not the pidfile's guard.
+# 🔴 ARITHMETIC IS CODE IN BASH. `(( pid > 1 ))` on 'a[$(cmd)]' runs cmd -- measured on this machine
+# before this check was written. hb_is_daemon validates BEFORE it does arithmetic; asked directly,
+# so the order inside it is what is tested, not the pidfile's guard.
 r="$(hb_is_daemon "a[\$(touch $TMPROOT/pwned6)]"; echo $?)"
 check "hb_is_daemon refuses an arithmetic payload without evaluating it" "1 no" \
       "$r $( [[ -e "$TMPROOT/pwned6" ]] && echo yes || echo no )"
@@ -625,16 +625,16 @@ def section_interfaces():
     write_proc(impostor, PIDS.values(), argv0="/usr/bin/sleep")
     check("pids whose argv is not simple_switch_grpc are not a fabric", True,
           "no fabric is running" in refused(hb.plan, good, **dict(kw, proc_root=impostor)))
-    # Judge #6, round 2: the argv test alone is met by any process that names itself so; a
-    # switch the ROOT topology started runs as root. Same rule hb_is_daemon applies.
+    # The argv test alone is met by any process that names itself so; a switch the ROOT topology
+    # started runs as root. Same rule hb_is_daemon applies.
     stranger = os.path.join(tmp, "proc-other-uid")
     write_proc(stranger, PIDS.values(), owner=uid + 4242)
     check("bmv2 pids owned by another uid are not a fabric", True,
           "no fabric is running" in refused(hb.plan, good, **dict(kw, proc_root=stranger)))
 
-    # Adam 2026-09-25 ruling (a): the helper refuses NDTwin's OWN pipeline. It carries LLDP and
-    # punts unknown ethertypes to the CPU, so every heartbeat frame would be a packet-in that the
-    # proxy books as that switch's liveness. One switch of four is enough to refuse.
+    # 2026-09-25: the helper refuses NDTwin's OWN pipeline. It carries LLDP and punts unknown
+    # ethertypes to the CPU, so every heartbeat frame would be a packet-in that the proxy books as
+    # that switch's liveness. One switch of four is enough to refuse.
     ndt = write_manifest(manifest_doc(s2=entry(2, argv=argv_of(2).replace(
         "/x/build/basic.json", "/x/p4_proxy/p4_src/build/ndtwin_switch.json"))), "ndtwin")
     msg = refused(hb.plan, ndt, **kw)

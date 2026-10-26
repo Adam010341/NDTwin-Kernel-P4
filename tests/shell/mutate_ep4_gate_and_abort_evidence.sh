@@ -5,8 +5,8 @@
 # [Co-developed with claude code -- Adam]
 #
 # Mutation 1 is the one that matters: it restores the ORIGINAL fail-open, so case 1 has to go red
-# for the MISSING-PARTNER case specifically. 8/31 mainDev's warning to whoever took this ticket was
-# that the easy mistake is a fix whose force-red fires on some other case -- that would be a second
+# for the MISSING-PARTNER case specifically. The easy mistake is a fix whose force-red fires on
+# some other case -- that would be a second
 # hollow guard, indistinguishable from the first until the next round loses a comparison silently.
 #
 # 🔴 Guards its own baseline: files are snapshotted before the first mutation, an EXIT trap restores

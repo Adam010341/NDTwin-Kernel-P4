@@ -3,10 +3,9 @@
 
 [Co-developed with claude code -- Adam]
 
-Adam's rulings (09-27 13:2x): the page is served by ndt serve itself at / (Q2), and the token
-reaches it through a one-time URL #fragment, kept in memory only (Q3). The orchestrator's review
-of doc/audit/2026-09-27_ndt-serve-gui/SCOPE.md made the fragment a ONE-TIME KEY traded for the
-token. These cases pin the server's side of that, against the stub ndt of test_ndt_serve.Serve:
+The page is served by ndt serve itself at /, and the token reaches it through a one-time URL
+#fragment, kept in memory only. The fragment is a ONE-TIME KEY traded for the token. These
+cases pin the server's side of that, against the stub ndt of test_ndt_serve.Serve:
 
   * the page's four files need no token, run nothing, obey the Host check and carry a CSP that
     allows no inline script, no other origin and no frame;
@@ -462,7 +461,7 @@ class UrlCommand(unittest.TestCase):
             s.close()
 
     def test_url_refuses_a_serve_json_whose_pid_is_gone(self):
-        # judge G-N7 (fcd4f69a): the server died, serve.json stayed, somebody else holds its port
+        # the server died, serve.json stayed, somebody else holds its port
         s = GuiServe().start()
         port, got, stop = self.stranger()
         gone = subprocess.Popen([sys.executable, "-c", "pass"])
@@ -603,7 +602,7 @@ class Lab(unittest.TestCase):
             self.assertEqual((st, j["error"]), (403, "token"), path)
         self.assertEqual(self.s.calls(), [])
 
-    # [Co-developed with claude code -- Adam] the probe while a measurement runs (Adam, 2026-10-01):
+    # [Co-developed with claude code -- Adam] the probe while a measurement runs:
     # `ndt status --measuring`, read by /lab's own code -- the same rows give the same answer
     MEASURING_ROWS = (("  measuring      nothing\n", "nothing", None, True),
                       ("  measuring      iperf3 -c 10.0.0.2 -t 30\n", "iperf3 -c 10.0.0.2 -t 30", None, False),
@@ -668,14 +667,13 @@ class Lab(unittest.TestCase):
         self.assertEqual(self.s.wait(c["job"]["id"])["argv"][1:], ["claim", str(j["default_claim_minutes"])])
 
 
-# --- apps start / stop: the own-claim rule is this server's (judge B1, fcd4f69a) ------------------
+# --- apps start / stop: the own-claim rule is this server's ------------------------------
 
 class AppsNeedYourClaim(unittest.TestCase):
     """ndt's apps verbs check no claim -- cmd_apps and app_start ask neither foreign_claim nor
     in_flight, and ndtwin-lab's energy-start / sim-start ask nothing -- so the "claim first" the page
-    shows for them was the only guard there was (opus judge on fcd4f69a, B1). The orchestrator's
-    ruling (a): the server reads the claim inside the slot, as for a lab cell. [Co-developed with
-    claude code -- Adam]"""
+    shows for them was the only guard there was. So the server reads the claim inside the slot, as
+    for a lab cell. [Co-developed with claude code -- Adam]"""
 
     def setUp(self):
         self.s = GuiServe().start()

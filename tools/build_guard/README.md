@@ -98,7 +98,6 @@ wanted the same `flock`:
 - **2026-09-10**: nine minutes on the first gate of a round, `flock -w 10800 9` sitting at the
   bottom of the scope; the same shape turns **every mutation into `INVALID (mutant does not
   compile, rc=2)`**, which is the instrument failing and reads exactly like the code passing.
-  (`scratch/overnight-2026-09-05/fix/R4-CPPGATES-1-SUMMARY.md` §4.0.)
 
 The guard now exports **`NDTWIN_GUARD_HELD`** — a `:`-separated list of the locks held above it —
 after `flock` succeeds. A call whose `$LOCK` is already in that list takes **no second flock and

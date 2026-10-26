@@ -29,10 +29,10 @@
 #      question has no channel on any machine, and "no sign it ever ran here" was a claim
 #      nobody had checked.
 #
-# Adam's ruling (DECISIONS.md, grill §4E round 2, E-8): fix the counter, not the helper --
-# `ndt` writes the pidfile, falls back to the live process, and resolves the helper's KERNEL_DIR
-# READ-ONLY by the helper's own rule. /usr/local/sbin/ndtwin-lab, sudoers and
-# tools/test_workflow/ndtwin-lab are not touched by this branch.
+# The fix is in the counter, not the helper -- `ndt` writes the pidfile, falls back to the live
+# process, and resolves the helper's KERNEL_DIR READ-ONLY by the helper's own rule.
+# /usr/local/sbin/ndtwin-lab, sudoers and tools/test_workflow/ndtwin-lab are not touched by this
+# branch.
 #
 # 🔴 THE SUITE MUST NOT DEPEND ON THE MACHINE IT RUNS ON, in both directions:
 #   * LAB_CONF is redirected into a temp dir, so nothing reads /etc and no fixture needs root;
@@ -877,8 +877,8 @@ section "12C. RESIDUE-1: a pidfile whose process is gone does NOT window to now"
 # right edge OPEN, and the report says in as many words that "anything installed in that window
 # is listed, whoever installed it". A window with no right edge attributes the whole table.
 #
-# Adam's ruling 2026-09-12 12:3x, option (b) of RESIDUE-1 §7-2: give the window a right edge
-# from the app's own log. The pidfile is NOT removed here -- that is a different question.
+# 2026-09-12: give the window a right edge from the app's own log. The pidfile is NOT removed here
+# -- that is a different question.
 rm -f "$FIX/.test_run/pids"/app_*.pid; rm -rf "$FIX/.test_run/apps"
 rm -f "$FIX/.test_run/logs"/app_*.log
 # A pid that is really gone, checked rather than assumed -- the same construction as 9B.
@@ -924,10 +924,10 @@ if [[ "$DEAD_TE" =~ ^[0-9]+$ ]] && [[ ! -d "/proc/$DEAD_TE" ]]; then
     has   "🔴 control: a LIVE pid still windows to now"      "-> now" "$OUT"
     hasnt "  and nothing closed it"                          "window closed at" "$OUT"
     kill -KILL "$TEFIX" 2>/dev/null
-    # 🔴 An app with no log at all cannot have its end dated. Adam's ruling names this case:
-    # the right edge is the pidfile's own mtime, i.e. a zero-length window -- and the line has
-    # to say that nothing could be attributed, because "no flow entry arrived during that
-    # window" over a window of zero seconds is E-7's shape exactly.
+    # 🔴 An app with no log at all cannot have its end dated. For this case the right edge is the
+    # pidfile's own mtime, i.e. a zero-length window -- and the line has to say that nothing could
+    # be attributed, because "no flow entry arrived during that window" over a window of zero
+    # seconds is "did not look" reading as "looked, nothing there".
     echo "$DEAD_TE" > "$FIX/.test_run/pids/app_te.pid"
     touch -d "@$(( NOW12C - 43200 ))" "$FIX/.test_run/pids/app_te.pid"
     rm -f "$FIX/.test_run/logs/app_te.log"

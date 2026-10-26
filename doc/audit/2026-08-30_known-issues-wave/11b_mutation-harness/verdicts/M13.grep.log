@@ -1,1 +1,0 @@
-475:    return "curl -s -X GET --connect-timeout " + // MUTANT_M13

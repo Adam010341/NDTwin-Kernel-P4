@@ -59,17 +59,17 @@
  *
  * Only what the **southbound reported**. A rule the controller accepts (`ok`, HTTP 200) can still
  * fail to be what the caller asked for: measured 2026-08-30, every requested priority is
- * programmed as 0 (`doc/audit/2026-08-30_live-traffic-round/FINDING-07_*`). "Dispatched
+ * programmed as 0. "Dispatched
  * successfully" therefore means "the far end took it", not "the table now matches the request".
  * That is why the record keeps `requestedPriority` under a name that says *requested*.
  *
- * ### The second counter group (W11, 2026-09-06)
+ * ### The second counter group (2026-09-06)
  *
  * Everything above counts **dispatch**: did the far end take the request. That is the question
  * `succeeded` was named for and it is not the question it was read as. Measured 2026-09-05: the
  * same match installed 20 times moved it by +20 while the switch gained one row, and 15 deletes of
  * a match that had never existed moved it by a further +15 with nothing changing on any switch
- * (#54; R6 K-4). The number was never wrong -- it answered a different question from the one being
+ * The number was never wrong -- it answered a different question from the one being
  * asked, which is why the fix is a second group and a rename, not an arithmetic change.
  *
  * So `acceptedBySwitch`/`rejectedBySwitch`/`switchOutcomeUnknown` count what is known about the
@@ -82,15 +82,15 @@
  * than a gap in the instrument.** OpenFlow does not acknowledge a FLOW_MOD and Ryu answers before
  * any switch has adjudicated anything, so nothing in the reply is evidence about a switch. The
  * temptation is to let `dispatchedOk` stand in for it; that would report a healthy OVS fabric as a
- * confirmed one and put the endpoint back to making the claim this ticket exists to remove. The
+ * confirmed one and put the endpoint back to making the claim this counter group exists to remove. The
  * endpoint publishes the reason next to the number so a reader cannot mistake a permanent
  * `unknown` for "checked, nothing wrong" -- an always-unknown field that does not say why it is
  * unknown is the instrument-shaped-like-its-own-finding failure this repo keeps paying for.
  *
- * ### Per-request attribution (W11, 2026-09-06)
+ * ### Per-request attribution (2026-09-06)
  *
  * The counters above are process-wide, so a caller cannot tell its own POST's outcome from a
- * concurrent writer's (R6 K-4). `noteRequestEnqueued()` registers a batch before it is dispatched
+ * concurrent writer's. `noteRequestEnqueued()` registers a batch before it is dispatched
  * and `record()` attributes each outcome to it, so `tallyFor()` answers for one request. The map
  * is bounded like the failure ring and, like it, publishes how many entries it has forgotten:
  * a per-request answer that silently ages out reads exactly like a request that never existed.
@@ -107,7 +107,7 @@ class DispatchOutcomeLog
     /**
      * @brief What the plane's answer says about the switch, as opposed to about the dispatch.
      *
-     * [Co-developed with claude code -- Adam] W11.
+     * [Co-developed with claude code -- Adam]
      * Three states rather than two, because "no answer to this question" is the answer on the OVS
      * plane and it must be representable. Derived from OpResult alone, so the classification lives
      * next to the bits that carry it and no caller can reach a fourth conclusion.
@@ -122,7 +122,7 @@ class DispatchOutcomeLog
     /**
      * @brief One HTTP batch's own share of both counter groups.
      *
-     * [Co-developed with claude code -- Adam] W11.
+     * [Co-developed with claude code -- Adam]
      * `enqueued` is set when the batch is handed to the dispatcher and the rest as its jobs come
      * back, so `dispatched < enqueued` means the batch is still draining -- a distinction the
      * global counters cannot express and the one a caller polling for its own result needs.
@@ -155,9 +155,9 @@ class DispatchOutcomeLog
     /**
      * @brief Failure-ring size, in records.
      *
-     * [Co-developed with claude code -- Adam] W11.
-     * Was 256, "about 12 KB of JSON and a burst large enough to diagnose". 2026-09-05 ruling
-     * (fifth grill round, honesty item 4): the ring is sized to the batch. FlowDispatcher's burst
+     * [Co-developed with claude code -- Adam]
+     * Was 256, "about 12 KB of JSON and a burst large enough to diagnose". Since 2026-09-05 the
+     * ring is sized to the batch. FlowDispatcher's burst
      * is 2000 (FlowDispatcher.hpp: `burstSize = 2000`), so at 256 one bad burst could evict the
      * evidence of its own first three quarters, and `recent_failures_evicted` would be the only
      * trace -- a bounded buffer that drops its oldest entries reads to its consumer exactly like a
@@ -171,7 +171,7 @@ class DispatchOutcomeLog
     /**
      * @brief How many requests keep a per-request tally before the oldest is forgotten.
      *
-     * [Co-developed with claude code -- Adam] W11. One entry is ~56 bytes, so this is under 15 KB
+     * [Co-developed with claude code -- Adam] One entry is ~56 bytes, so this is under 15 KB
      * for the whole map. It bounds how far back a caller can ask about its own POST; the forgotten
      * count is published so "I have no record of that request" is never confused with "that
      * request had no outcomes".
@@ -196,7 +196,7 @@ class DispatchOutcomeLog
     {
         const uint64_t seq = dispatched_.fetch_add(1, std::memory_order_relaxed) + 1;
 
-        // [Co-developed with claude code -- Adam] W11.
+        // [Co-developed with claude code -- Adam]
         // Before the ok/not-ok split, and above the early return the ok branch takes: the second
         // group partitions EVERY dispatched job, and a bucket that is only reached on one of the
         // two paths would stop closing against `dispatched` exactly when a burst was failing.
@@ -246,7 +246,7 @@ class DispatchOutcomeLog
     /**
      * @brief Which of the three switch-side buckets this answer belongs in.
      *
-     * [Co-developed with claude code -- Adam] W11.
+     * [Co-developed with claude code -- Adam]
      * Static and total: every OpResult lands in exactly one bucket, so the group closes against
      * `dispatched` by construction rather than by three call sites agreeing. The two OpResult bits
      * are set on different code paths and can never both be true; if they somehow were,
@@ -272,8 +272,8 @@ class DispatchOutcomeLog
     /**
      * @brief Jobs the far end accepted the *request* for. Published as `dispatched_ok`.
      *
-     * [Co-developed with claude code -- Adam] W11 (#54). This is the counter that used to be
-     * called `succeeded` on the wire, and the rename is the whole of the A half: "succeeded" is
+     * [Co-developed with claude code -- Adam] This is the counter that used to be
+     * called `succeeded` on the wire, and the rename is the whole point of the rename: "succeeded" is
      * read as "the switch now has the rule" and it never meant that. It counts one thing well --
      * the request left this kernel and was not refused -- and it answers nothing about the
      * network. For that, read the switch-side group below.
@@ -283,14 +283,14 @@ class DispatchOutcomeLog
     /// Published as `dispatch_failed`.
     uint64_t dispatchFailed() const { return failed_.load(std::memory_order_relaxed); }
 
-    /// The pre-W11 spellings, kept because the atomics and the existing tests use them. Not on
+    /// The old spellings, kept because the atomics and the existing tests use them. Not on
     /// the wire any more; prefer dispatchedOk()/dispatchFailed(), whose names say what they count.
     uint64_t succeeded() const { return dispatchedOk(); }
     uint64_t failed() const { return dispatchFailed(); }
 
     /// The plane adjudicated and the switch holds the rule. Always 0 on OVS -- see the class note.
     uint64_t acceptedBySwitch() const { return acceptedBySwitch_.load(std::memory_order_relaxed); }
-    /// The plane adjudicated and the switch does not hold it. R6 K-4's no-op delete, on P4.
+    /// The plane adjudicated and the switch does not hold it. A no-op delete, on P4.
     uint64_t rejectedBySwitch() const { return rejectedBySwitch_.load(std::memory_order_relaxed); }
     /// Nothing in the answer was evidence about a switch. Every OVS dispatch lands here today.
     uint64_t switchOutcomeUnknown() const
@@ -304,7 +304,7 @@ class DispatchOutcomeLog
     /**
      * @brief Register a batch about to be dispatched, so its outcomes can be asked about later.
      *
-     * [Co-developed with claude code -- Adam] W11.
+     * [Co-developed with claude code -- Adam]
      *
      * Called from the HTTP thread at enqueue time, which is the only place the request id and the
      * job count are both in scope. **Registration is what makes "I have never heard of that
@@ -378,7 +378,7 @@ class DispatchOutcomeLog
      *
      * [Co-developed with claude code -- Adam]
      *
-     * KNOWN-ISSUES T-11's filter predicate. This is the index the A-7 note said a future ticket
+     * KNOWN-ISSUES T-11's filter predicate. This is the index the A-7 note said a future change
      * would add here; adding it needed no change to any call site, which was the point of routing
      * successes through record().
      *
@@ -394,7 +394,7 @@ class DispatchOutcomeLog
      *
      * Bounded, and the bound has a direction. Tokens age out oldest-first, and an aged-out token
      * reads as *unconfirmed*, so the failure mode is a real entry briefly hidden, never a phantom
-     * shown. That is the conservative direction and it is chosen deliberately: the whole ticket
+     * shown. That is the conservative direction and it is chosen deliberately: the whole filter
      * exists because the view was optimistic. The window is also self-limiting -- the periodic
      * poll replaces the entire cache roughly every 10.7 s, taking every pending entry with it, so
      * a token only has to survive that long to have done its job.
@@ -432,7 +432,7 @@ class DispatchOutcomeLog
     }
 
   private:
-    // [Co-developed with claude code -- Adam] W11.
+    // [Co-developed with claude code -- Adam]
     void countSwitchOutcome_(SwitchOutcome outcome)
     {
         switch (outcome)
@@ -452,7 +452,7 @@ class DispatchOutcomeLog
     /**
      * Add one outcome to its request's tally.
      *
-     * [Co-developed with claude code -- Adam] W11. An unregistered id is NOT created here. A
+     * [Co-developed with claude code -- Adam] An unregistered id is NOT created here. A
      * tally that appeared on first outcome would make "unknown request" mean "unknown, or known
      * and not yet drained", collapsing the distinction noteRequestEnqueued exists to draw. A job
      * whose request has aged out is counted in the global totals only, which is what
@@ -543,7 +543,7 @@ class DispatchOutcomeLog
     std::unordered_set<uint64_t> programmed_;
     std::deque<uint64_t> programmedOrder_;
 
-    // [Co-developed with claude code -- Adam] W11. Its own lock, never held together with mutex_:
+    // [Co-developed with claude code -- Adam] Its own lock, never held together with mutex_:
     // record() calls noteRequestOutcome_ and then, on the failure path, takes mutex_ for the ring.
     // One lock covering both would make that a nesting order to maintain for no benefit -- the two
     // structures share no data.
@@ -558,7 +558,7 @@ class DispatchOutcomeLog
     std::atomic<uint64_t> evicted_{0};
     std::atomic<uint64_t> forgotten_{0};
 
-    // [Co-developed with claude code -- Adam] W11. The second group. Disjoint from the three
+    // [Co-developed with claude code -- Adam] The second group. Disjoint from the three
     // above and summing to the same total: accepted + rejected + unknown == dispatched.
     std::atomic<uint64_t> acceptedBySwitch_{0};
     std::atomic<uint64_t> rejectedBySwitch_{0};

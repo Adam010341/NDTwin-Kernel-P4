@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P3 sections 2.2 and 2.5. `psample_sflow_emitter.py` is the process the bring-up starts
+`psample_sflow_emitter.py` is the process the bring-up starts
 as root; this file exercises everything in it except the two lines that open a socket, by
 ENCODING netlink messages here and feeding them to the decoder. The encoder below is written
 independently of the module's own `nla()` -- little-endian spelled out, lengths computed by
@@ -494,7 +494,7 @@ class TheStatisticsLineTest(unittest.TestCase):
 
 
 class StoppingIsAFlagAndNotARaiseTest(unittest.TestCase):
-    """TICKET-P3 section 9 ruling 19(1): SIGHUP is how this process actually dies."""
+    """SIGHUP is how this process actually dies."""
 
     def test_all_three_stop_signals_are_installed(self):
         # 🔴 SIGHUP ABOVE ALL. `ndtwin-lab topo-stop` ends with `kill-session`, which SIGHUPs
@@ -566,7 +566,7 @@ class TheBytesAreTheProxysBuilderTest(PortMapFixture):
         self.assertEqual(emitter.agent_for(2).agent_ip, "192.168.123.12")
 
     def test_an_egress_sample_carries_ingress_port_zero_onto_the_wire(self):
-        # The section 2.2 contract, asserted where it is actually spent: in the bytes the
+        # The direction contract, asserted where it is actually spent: in the bytes the
         # kernel parses, not only in the dataclass.
         _dpid, sample = self.made(a_sample(oifindex=1013, origsize=64, data=b"\xff" * 64))
         expected = sflow_emitter.build_datagram(

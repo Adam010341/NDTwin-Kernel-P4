@@ -31,10 +31,9 @@
  * create.
  *
  * Note this test can only fail probabilistically when the bug is present -- it needs two threads
- * to collide on the same new key. It was checked against the unfixed code before being committed
- * (see doc/audit/), and it detected the loss on every attempt with these thread and repeat counts.
- * If it ever starts passing against known-broken code, raise kThreads or kRepeats rather than
- * trusting it.
+ * to collide on the same new key. It was checked against the unfixed code before being committed,
+ * and it detected the loss on every attempt with these thread and repeat counts. If it ever
+ * starts passing against known-broken code, raise kThreads or kRepeats rather than trusting it.
  */
 
 #include <algorithm>

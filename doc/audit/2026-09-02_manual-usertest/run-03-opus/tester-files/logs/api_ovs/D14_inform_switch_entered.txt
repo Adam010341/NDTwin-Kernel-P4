@@ -1,1 +1,0 @@
-{"status":"Switch set to up"}

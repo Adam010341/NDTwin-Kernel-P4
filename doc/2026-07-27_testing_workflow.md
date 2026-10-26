@@ -65,7 +65,7 @@ Ryu 是 server、switch 連進來，所以 OVS 要先開 Ryu；bmv2 才是 serve
 > （`TopologyAndFlowMonitor.cpp:1793-1795`）。所以晚一點才出現的 host／link **會**被補上。
 >
 > 規則本身留著，因為它有**別的**理由：P4 模式下 bmv2 是 server、proxy 是 client；OVS 模式下
-> 「不要在 Mininet 還跑著的時候重啟 Ryu」（HANDOFF §2c）。**先開 kernel 現在只是收斂慢，不再是
+> 「不要在 Mininet 還跑著的時候重啟 Ryu」。**先開 kernel 現在只是收斂慢，不再是
 > 永久性缺料。**
 
 **OVS 模式的 Ryu 還要多載兩個 stock app**：`ryu.app.rest_topology`（提供 `/v1.0/topology/*`）和
@@ -94,8 +94,8 @@ Ryu 是 server、switch 連進來，所以 OVS 要先開 Ryu；bmv2 才是 serve
 | 元件 | 指令 | 判定 |
 |---|---|---|
 | NDTwin-Kernel | `cmake --build build -j$(nproc)` | exit 0，**0 個 warning**（本專案開了 `-Werror`） |
-| Energy-Saving-App | `make -C /home/adam/Energy-Saving-App` | exit 0 |
-| Simulation-Platform-Manager | `make -C /home/adam/Simulation-Platform-Manager` | exit 0 |
+| Energy-Saving-App | `make -C $HOME/Energy-Saving-App` | exit 0 |
+| Simulation-Platform-Manager | `make -C $HOME/Simulation-Platform-Manager` | exit 0 |
 | Network-Traffic-Visualizer | `./mvnw -q compile` | exit 0 |
 | Web-GUI | `pnpm install --frozen-lockfile && pnpm build` | exit 0 |
 | NTG / NSR / TE-App | `python -m py_compile <主程式>` | exit 0 |

@@ -26,7 +26,7 @@ public:
      *
      * @details
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #82. Split out of executeBridgeExists so the rule can be tested without running
+     * Split out of executeBridgeExists so the rule can be tested without running
      * anything: every double in tests/ replaces the seam, so the seam's own body would otherwise
      * be exercised by no test at all -- the same gap tests/test_OvsPowerStrategy.cpp's
      * `TheRealShellSeamRunsTheCommandAndReportsItsExitStatus` was written to close for
@@ -60,7 +60,7 @@ protected:
      *
      * The flag was introduced by the change that made these failures visible at all -- baseline kept
      * everything in locals and discarded the result, so it had the opposite bug and not this one.
-     * Found by a review of that change; see doc/audit/2026-08-08_commit-review/power.md H1.
+     * Found when that change was reviewed.
      */
     virtual bool executeSystemCommand(const std::string& cmd);
 
@@ -114,18 +114,18 @@ protected:
      *
      * @details
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #82. `powerOff` used to open with
+     * `powerOff` used to open with
      *
      *     if (!topoMonitor->getVertexIsUp(node)) { return OpResult::success(); }
      *
-     * -- the OVS twin of the P4 early return #35 names. It asked the graph, and the graph is a
+     * -- the OVS twin of the P4 strategy's early return. It asked the graph, and the graph is a
      * cache of somebody else's opinion about this bridge: `loadStaticTopologyFromFile` starts
      * every vertex at `isUp = false`, the 1 Hz liveness worker writes false the moment
-     * `ovs-vsctl list-br` stops naming the bridge or cannot be run at all, and after FINDINGS #46
-     * a commanded-off switch stays false until a power-on lifts it. A power-off arriving in any
-     * of those states returned 200 "Success" having deleted nothing -- and, since #46, without
-     * ever reaching `setVertexPoweredOffByCommand`, so on OVS the #46 fix held only when `isUp`
-     * happened to be true at power-off time.
+     * `ovs-vsctl list-br` stops naming the bridge or cannot be run at all, and a commanded-off
+     * switch stays false until a power-on lifts it. A power-off arriving in any
+     * of those states returned 200 "Success" having deleted nothing -- and, since the
+     * commanded-off flag exists, without ever reaching `setVertexPoweredOffByCommand`, so on OVS
+     * that flag was set only when `isUp` happened to be true at power-off time.
      *
      * The P4 side could simply delete its guard because its helper is idempotent FROM A
      * MEASUREMENT (`already-stopped`, read out of /proc). OVS has no such helper, and the reason
@@ -167,7 +167,7 @@ protected:
      *
      * @details
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #82. This is `powerOff`'s body as it stood, lifted out unchanged so that the
+     * This is `powerOff`'s body as it stood, lifted out unchanged so that the
      * bridge-absent path can skip it without duplicating the line that records the command.
      * There is exactly one `setVertexPoweredOffByCommand` call in this translation unit, in
      * `powerOff`, on both paths -- which is what makes "a redundant power-off is still a

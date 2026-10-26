@@ -5,16 +5,16 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# What went wrong, measured live 2026-09-02 (doc/audit/2026-09-02_live-round/raw/):
+# What went wrong, measured live 2026-09-02:
 #
-#   * C26_apps_stop_falseok.log -- `ndt apps stop` on apps that were NOT running answered rc 0.
-#     For nsr/viz/te the words were honest ("te not running") and only the exit code lied; for
-#     energy/sim both lied ("ok sim stopped").
-#   * the same file, on the start side -- `ok sim started (tmux: sim)` was printed by a check
-#     that "cannot tell": `<name>-start` is `tmux new-session -d ...; echo`, so its rc says a
-#     session was created, not that the program in it survived the second after.
-#   * D1_teardown.log -- APPS_STOP_ALL_RC=0 for a teardown in which two of five apps had never
-#     been started. A driver script reading that code cannot tell it from five-of-five.
+#   * `ndt apps stop` on apps that were NOT running answered rc 0. For nsr/viz/te the words were
+#     honest ("te not running") and only the exit code lied; for energy/sim both lied ("ok sim
+#     stopped").
+#   * on the start side -- `ok sim started (tmux: sim)` was printed by a check that "cannot tell":
+#     `<name>-start` is `tmux new-session -d ...; echo`, so its rc says a session was created, not
+#     that the program in it survived the second after.
+#   * in a teardown, APPS_STOP_ALL_RC=0 for a teardown in which two of five apps had never been
+#     started. A driver script reading that code cannot tell it from five-of-five.
 #
 # So the properties under test are:
 #     1. a lab session is not a running program, and a running program is not a lab session --
@@ -36,9 +36,9 @@
 #     cannot be mistaken for a real app by a human or by `ndt status`;
 #   * app_ps_snapshot is replaced everywhere a check could SIGNAL something, so the candidate
 #     list is bounded to this test's own fixtures; the verdict on each candidate is still /proc;
-#   * `sudo` and `lab_session` are replaced by shell functions, so this suite never reaches the
-#     real ndtwin-lab, never asks for root, and cannot disturb a running lab. The auditor's
-#     claim window (lab held by another session) is the reason that is not negotiable here.
+#   * `sudo` and `lab_session` are replaced by shell functions, so this suite never reaches the real
+#     ndtwin-lab, never asks for root, and cannot disturb a running lab. A lab claim held by another
+#     session is the reason that is not negotiable here.
 #
 # Run:  bash tests/shell/test_ndt_apps_liveness.sh
 # Env:  NDT_UNDER_TEST=<path>   (a mutation gate points this at a copy, so the gate never has

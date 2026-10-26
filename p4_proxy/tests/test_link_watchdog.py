@@ -696,7 +696,7 @@ class FailoverTest(WatchdogTestBase):
         self.assertEqual(self.clients[1].routes, {})
 
     def test_a_destination_with_no_route_left_keeps_the_rule_it_has(self):
-        # Adam's decision: leave the old rule so traffic resumes by itself on recovery, rather than
+        # Leave the old rule so traffic resumes by itself on recovery, rather than
         # deleting it and needing a reinstall. Nothing may be written for that destination.
         topo = TopologyManager(kernel_notifier=self.kernel, clock=self.clock)
         for dpid in (1, 5):
@@ -933,7 +933,7 @@ class ThePathSearchWalksASnapshotTest(WatchdogTestBase):
         #
         # [Co-developed with claude code -- Adam] The stand-in used to wrap `nx.shortest_path`.
         # calculate_all_paths no longer calls it -- the equal-length tie it broke by insertion
-        # order was round 5's non-reproducibility defect, so the search is now
+        # order was the non-reproducibility defect, so the search is now
         # ryu_topology.canonical_paths_to. The hook moved with it; the property under test
         # (a concurrent insert during the walk must not raise) is unchanged. The `fired`
         # assertion below is what caught the move rather than letting this pass vacuously.

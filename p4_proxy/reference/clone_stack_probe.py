@@ -18,8 +18,7 @@ The claim under test (the PRE-RUN hypothesis, phrased against bmv2/PI internals)
   surviving group. A DELETE issued after the commit is answered NOT_FOUND and never
   reaches the orphaned group, so the stacking is unreachable from the clone-session API.
 
-What the run actually recorded (2026-08-16; full output in
-doc/audit/2026-08-16_clone-stacking-raw-repro.md). The stacking half held; two details
+What the run actually recorded (2026-08-16). The stacking half held; two details
 of the paragraph above did NOT, and both were written into the fix:
   - the post-commit DELETE answers UNKNOWN with EMPTY DETAILS, not NOT_FOUND. The
     NOT_FOUND was an inference from a caller that never logged a code -- fourth instance
@@ -29,8 +28,8 @@ of the paragraph above did NOT, and both were written into the fix:
     while the bookkeeping still HOLDS the session destroys the whole backing group,
     accumulated replicas included. That is exactly what the settle pair in
     p4_client.write_clone_session (79e4f69) exploits to heal.
-Upstream status: material is upstream-grade but NOT filed -- archived by Adam's ruling
-of 2026-08-17. Keep this file as the reproduction of record.
+Upstream status: material is upstream-grade but NOT filed. Keep this file as the reproduction of
+record.
 
 Phases -- run one per invocation; each arbitrates (0,1) afresh, which is valid because
 every earlier client is gone by then (all-controllers-offline rebid, measured during C8):

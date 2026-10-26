@@ -12,9 +12,7 @@
 # invisible is also unkillable.
 #
 # The duration is the crash loop's, measured from the log's own timestamps before the 100 MB
-# file was deleted (doc/audit/2026-08-31_live-recipes/app_te_log_evidence.txt). The figure this
-# comment first carried, 20h32m, came from neither the log nor anything else in the repo and has
-# been withdrawn. That day's orphan installed no flow rules either -- every error in the file is
+# file was deleted. That day's orphan installed no flow rules either -- every error in the file is
 # ":8000 connection refused" -- so what makes it worth a test suite is that it was unstoppable,
 # not what it did.
 #
@@ -325,7 +323,7 @@ echo "stop"
 # 2026-09-02, G-6: this check asserted rc 0 and now asserts rc 2. It is not a test being
 # weakened -- it is the contract changing, and this line is where the old contract was written
 # down. app_stop's "there was nothing to stop" used to be indistinguishable from "it was
-# running and now is not", which is how D1_teardown.log recorded APPS_STOP_ALL_RC=0 for a
+# running and now is not", which is how a live teardown recorded APPS_STOP_ALL_RC=0 for a
 # teardown that stopped three of five apps. The prose here was already honest; only the exit
 # code was not, and a driver script reads the exit code.
 SNAPSHOT_LINES=""
@@ -334,7 +332,7 @@ out="$(app_stop te 2>&1)"; rc=$?
 check "nothing running -> rc 2 (was 0 before G-6)" 2 "$rc"
 check "  says not running"                        yes "$(has "not running" "$out")"
 # [Co-developed with claude code -- Adam]
-# 2026-09-03, fix/apps-stop-kills-the-group: this sentence grew from two witnesses to four, and
+# 2026-09-03, with the apps-stop fix: this sentence grew from two witnesses to four, and
 # it is pinned here because it IS the contract -- "not running" has to say what it looked at.
 # The old wording was true by its own lights and still wrong: "no live instance found by pid or
 # by scan" was printed on 09-02 while two JVMs ran for another 1h54m, because a pid and an argv

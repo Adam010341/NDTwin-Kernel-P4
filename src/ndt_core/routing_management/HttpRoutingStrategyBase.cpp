@@ -192,8 +192,11 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
         return result;
     }
 
-    // Some proxies answer 200 with {"status":"error"} in the body. Ryu does not, but the P4
-    // proxy agent does, so a 2xx alone is not proof of success.
+    // Some proxies answer 200 with {"status":"error"} in the body, and that is a failure too. Ryu
+    // never does; the P4 proxy agent did for every refused add and delete until KNOWN-ISSUES C-6
+    // made those a 502, and the check stays so an older proxy, or any proxy that still answers that
+    // way, is not read as a success. (The first words of this comment are a mutation-gate anchor:
+    // tests/shell/mutate_dispatch_status_honest.sh, mutation 5.) [Co-developed with claude code -- Adam]
     if (!responseBody.empty())
     {
         try
@@ -203,10 +206,10 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
                 parsed["status"].is_string() &&
                 parsed["status"].get<std::string>() == "error")
             {
-                // [Co-developed with claude code -- Adam] W11. The P4 proxy's per-entry refusal:
-                // it programs (or fails to find) the entry and then says so in a 200 body, which
-                // is the most switch-side verdict this kernel ever receives. R6 K-4's no-op
-                // delete arrives here on the P4 plane.
+                // [Co-developed with claude code -- Adam] W11. A P4 proxy's per-entry refusal in
+                // a 200 body: it programs (or fails to find) the entry and then says so. Since
+                // C-6 the current proxy sends that refusal as a 502 instead, which the non-2xx
+                // branch above books the same way; this branch is for a proxy that predates it.
                 auto result = OpResult::failure(
                                   status,
                                   std::string(describe()) + " reported an error in a " +

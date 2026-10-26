@@ -1,6 +1,5 @@
 """
 PRE multicast groups: the writer, the route, and the package entries startup programs.
-TICKET-P3 2.6 (G8, G9a).
 
 [Co-developed with claude code -- Adam]
 
@@ -187,7 +186,7 @@ class TheWriterTest(unittest.TestCase):
     def test_there_is_no_delete_first_settle_pair(self):
         # 🔴 DELIBERATELY UNLIKE write_clone_session. That method leads with a DELETE because a
         # clone session's backing multicast group survives a pipeline re-push and accumulates a
-        # replica per proxy restart (doc/audit/2026-08-16_clone-stacking-raw-repro.md). MODIFY
+        # replica per proxy restart. MODIFY
         # on a multicast group REPLACES its replica list, so the stacking shape cannot arise --
         # and a DELETE here would briefly leave the exercise with no group at all.
         self.client.write_multicast_group(1, [{"egress_port": 1}])

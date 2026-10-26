@@ -1,12 +1,11 @@
 /**
- * FINDINGS #38: a connection that was refused in 6 ms was reported as a 30-second timeout.
+ * A connection that was refused in 6 ms was reported as a 30-second timeout.
  *
  * [Co-developed with claude code -- Adam]
  *
  * WHAT WAS MEASURED
- *   Round 2 (`doc/audit/2026-09-03_night-rounds/round2-power-paths/05_sim502_claims_30s_timeout.log`)
- *   called POST /ndt/received_a_simulation_case five times with nothing listening on :9000. All
- *   five answered 502 in 6.0-9.0 ms with
+ *   A run on 2026-09-03 called POST /ndt/received_a_simulation_case five times with nothing
+ *   listening on :9000. All five answered 502 in 6.0-9.0 ms with
  *       {"details":"no response from the simulator server at http://127.0.0.1:9000/submit
  *                   within 30s", ...}
  *   The kernel's own log independently timed the same 502 at 9.9 ms. Nobody waited 30 seconds.

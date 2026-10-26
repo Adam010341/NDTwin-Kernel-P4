@@ -108,8 +108,8 @@ if [[ -s "$SS0" ]]; then
     # clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry).
     # [Co-developed with claude code -- Adam] 09-27: `ndt up p4 --app` starts the heartbeat on this
     # fabric too (an external control plane on its own pipeline, detect only), so the heartbeat
-    # watchdog must RUN -- asserted, not read to choose a list (the opus judge's N1 on 02) -- and
-    # while it does `link_watchdog` is not skipped (Adam's ruling E); the other five are.
+    # watchdog must RUN -- asserted, not read to choose a list -- and
+    # while it does `link_watchdog` is not skipped; the other five are.
     V="$(heartbeat_skips_verdict "$SS0" "['clone_session', 'install_initial_routes', 'lldp_discovery', 'pipeline_push', 'sflow_telemetry']")"
     [[ "$V" == OK* ]] || fail "${V#BAD }"
 fi
@@ -118,7 +118,7 @@ fi
 say "starting the exercise controller under setsid"
 # 🔴 NOT $PY. The tutorials' p4runtime_lib imports p4.tmp.p4config_pb2, which the proxy venv does
 # not carry (checked 2026-09-18: p4_proxy/venv -> ModuleNotFoundError: No module named 'p4.tmp';
-# /home/adam/p4dev-python-venv -> imports ok). The import is proved here, in the interpreter
+# $HOME/p4dev-python-venv -> imports ok). The import is proved here, in the interpreter
 # that will run the controller, so a missing module is a named refusal and not "the controller
 # exited within 10s".
 CTRL_PY="${CTRL_PY:-/home/adam/p4dev-python-venv/bin/python}"

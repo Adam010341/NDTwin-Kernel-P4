@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 #
 # Phase 4, second cut -- live acceptance H1-H5 of the veth heartbeat on a foreign P4 fabric
-# (TICKET-P4-heartbeat section 2, "live": detection + automatic reroute).
+# (live: detection + automatic reroute).
 #
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 WRITTEN AND SELF-TESTED OFFLINE; ITS AUTHOR NEVER RAN IT AGAINST A LAB. Segment W's worker
-# had no lab (the orchestrator runs H1-H5 after the merge). `--self-test` runs every verdict below
+# 🔴 WRITTEN AND SELF-TESTED OFFLINE; ITS AUTHOR NEVER RAN IT AGAINST A LAB. Its author
+# had no lab (H1-H5 are run live after the merge). `--self-test` runs every verdict below
 # against synthetic captures -- one that must pass and one that must fail per check -- walks the
 # teardown with a fake ndt, and reads the prelude's defaults back; it touches nothing else. That
 # proves the checks can tell the answers apart; it proves nothing about a fabric.
 #
-# What each step asserts (the ticket's words; the numbers are the ticket's, not re-derived):
+# What each step asserts (the numbers are the specified ones, not re-derived):
 #
 #   H1  exercises/basic on pod-topo with `roles.ipv4_route` owner ndtwin, and the heartbeat
 #       `ndt up p4 --app` starts: switch_state says reroute true / link_discovery heartbeat.
@@ -39,49 +39,48 @@
 #       out-of-band cut of s1-s2 is held down BY THE PROXY (switch_state `links`, both
 #       directions, source heartbeat) within about 20 s while reroute stays false for the
 #       external reason; restored, both directions up again, no netem left, no heartbeat frame
-#       counted leaving a host port. [Co-developed with claude code -- Adam] Since the external
-#       judge's F4/F9 (09-28): the kernel must have ACCEPTED both transitions on both directions
-#       (`reported_to_kernel: true`), every switch's pipeline_commits / rules_timed /
-#       table_generation is unchanged across the cut and the restore, and the restore is judged
-#       at the strict 20 s (the poll waits 35 s so a late one is still measured). 🔴 THE KERNEL'S GRAPH IS NOT THE READING HERE: no exercise
-#       controller runs in H4, so no pipeline is loaded and the twin holds these switches down
-#       (03's 2026-09-18 reading). What the exercise's own evidence does with the heartbeat
-#       running is H5's 06 against a same-session CONTROL without the heartbeat (README, "合併前的
-#       比對"), by external_evidence.py -- not against 074635Z, which ran other code
-#       (5dc7fc9a + 95 uncommitted files) and has no venv fingerprint.
+#       counted leaving a host port. [Co-developed with claude code -- Adam] The kernel must have
+#       ACCEPTED both transitions on both directions (`reported_to_kernel: true`), every switch's
+#       pipeline_commits / rules_timed / table_generation is unchanged across the cut and the
+#       restore, and the restore is judged at the strict 20 s (the poll waits 35 s so a late one is
+#       still measured). 🔴 THE KERNEL'S GRAPH IS NOT THE READING HERE: no exercise controller runs
+#       in H4, so no pipeline is loaded and the twin holds these switches down (03's 2026-09-18
+#       reading). What the exercise's own evidence does with the heartbeat running is H5's 06
+#       against a same-session CONTROL without the heartbeat (README, "合併前的比對"), by
+#       external_evidence.py -- not against 074635Z, which ran other code (5dc7fc9a + 95 uncommitted
+#       files) and has no venv fingerprint.
 #   H5  (PART=h5, separately: it runs 06 and 01, which claim the lab per step) live-p1/06 ONCE
 #       with the heartbeat on wherever `ndt up` starts it -> 26 arms, every one's rc and verdict
 #       what `2026-09-27T074635Z_06_thirteen` recorded (OLD_06; 185505Z until 09-27, the same rc
 #       and verdict arm for arm); a sampler of the heartbeat report proves which arms had one
 #       running -- 20 since 09-27, the 3 external ones included (HB_ARMS) -- and that no arm's
 #       daemon counted a frame leaving a host port; then 01 (NDTwin's own fabric) PASS, with no
-#       heartbeat session started under it. [Co-developed with claude code -- Adam] (the external
-#       judge's S2, 09-28) For the external comparison, run H5 with OLD_06 set to the control C1
+#       heartbeat session started under it. [Co-developed with claude code -- Adam]
+#       For the external comparison, run H5 with OLD_06 set to the control C1
 #       (`OLD_06=<C1> PART=h5 ...`): its rc/verdict check is then against a run of the same session
 #       and venv. The external arms' OWN evidence (tunnel counters, packet-ins, cache entries) is
 #       external_evidence.py's, against C1 and C2 with this run's 50_samples.tsv -- the sampler
 #       also records each report's written_wall, stop_reason and the daemon's four counters, and
 #       50_t06_end.txt holds 06's end, the last arm's window edge.
 #
-# 🔴 HOW H1 JUDGES "WITHIN 20 s" (the fable judge's F1 on 1a3ebd7f, 09-26; SUMMARY section 2).
+# 🔴 HOW H1 JUDGES "WITHIN 20 s".
 # Detection is (timeout - phi) + psi + the pass's read, _notify_link's HTTP and the kernel's graph
 # update: at phi -> 0 the report-level part alone is ~15 s and psi can be a whole watchdog
 # interval, so a strict 20 s has NO budget left for the rest. [Co-developed with claude code --
-# Adam] 🔴 ADAM'S RULING (09-27): the acceptance is AT MOST ABOUT 20 s -- the same class as NDTwin's
+# Adam] 🔴 THE ACCEPTANCE IS AT MOST ABOUT 20 s -- the same class as NDTwin's
 # own LLDP, which runs the same rule on the same constants. The strict bound is still measured and
 # kept (`strict_20s` in 30_cycles.tsv and the cycle's own line), but a cycle over it is a DISCLOSED
 # NOTE, not a FAIL: every such cycle's strict line is repeated verbatim, just above the run's last
 # line, and the run can PASS with it -- also when the run stops early: an exit before H1's (or H3's)
 # own conclusion has w_finish conclude the cycles measured so far, so their NOTE still stands above
-# the FAIL. (Before the ruling: a FAIL of that cycle, with "N of M cycle(s) OVER" at the head of the
-# last line -- the fable judge's F1.) [Co-developed with claude code -- Adam] Two limits the word
-# "about" does NOT stretch (the opus judge's N2, 09-27): detection still has a HARD CEILING of
+# the FAIL. (It used to be a FAIL of that cycle, with "N of M cycle(s) OVER" at the head of the
+# last line.) [Co-developed with claude code -- Adam] Two limits the word
+# "about" does NOT stretch: detection still has a HARD CEILING of
 # DETECT_BOUND_S + 15 = 35 s -- graph_until gives up there and the cycle is a FAIL, not a note --
-# and the RESTORE is still judged against the strict 20 s (RESTORE_BOUND_S, a FAIL over it): Adam's
-# ruling names detection only, and whether restore becomes "about 20 s" too is his to say. "20 s +
-# the time measured on
-# top of the design" (the reporting pass's lateness beyond one interval, pass-to-graph, the cut
-# window) is kept as a DIAGNOSTIC column and note, never as the verdict: the judge showed it is OK
+# and the RESTORE is still judged against the strict 20 s (RESTORE_BOUND_S, a FAIL over it): the
+# "about 20 s" rule covers detection only, and whether restore becomes "about 20 s" too is open.
+# "20 s + the time measured on top of the design" (the reporting pass's lateness beyond one interval, pass-to-graph, the cut
+# window) is kept as a DIAGNOSTIC column and note, never as the verdict: it is OK
 # whenever the design works as designed (it restates the design's upper bound). What it checked for
 # real -- a pass after the timeout that did not report the cut -- is v_cycle's own BAD. And one
 # run samples ONE psi (the watchdog's phase drifts by a pass's duration per pass): a PASS says
@@ -90,10 +89,11 @@
 # after a heard frame and a whole round was discarded, a false +5 s); frames heard inside a cut
 # or restore window are FLAGGED in the row, never dropped.
 #
-# 🔴 RULING 4 IS A STOP CONDITION HERE TOO: the daemon counting a heartbeat frame leaving a
-# host-facing port (`forwarded_to_hosts > 0`) fails the run with STOP at the head of the reason.
+# 🔴 A HEARTBEAT FRAME ON A HOST PORT IS A STOP CONDITION HERE TOO: the daemon counting a
+# heartbeat frame leaving a host-facing port (`forwarded_to_hosts > 0`) fails the run with STOP at
+# the head of the reason.
 #
-# 🔴 THE TEARDOWN LESSONS OF SEGMENT S, ROUND 7 (its first live run released over a live fabric):
+# 🔴 THE TEARDOWN LESSONS (an earlier live run released the lab over a live fabric):
 #   * this script NEVER declares `measuring=` (NDT_MEASURING is unset before anything else and
 #     every ndt call runs without it), so `ndt down` is never refused by the T2d guard and no
 #     retraction is needed before one. The claim alone keeps other owners' teardowns off;
@@ -103,11 +103,11 @@
 #   * a phase whose `ndt down` did not answer 0 stops the run: the next `ndt up p4 --app` over
 #     an intact fabric of the same size would reuse it ("already up ... reusing");
 #   * CLAIM_MINUTES is defaulted BEFORE _common.sh is sourced (whose `:=45` would shadow it);
-#   * INT and TERM are failures [Co-developed with claude code -- Adam] (the AEG judge's N-1,
-#     09-28): each has its own trap that records "interrupted by SIG..." and exits 130 / 143, so a
+#   * INT and TERM are failures [Co-developed with claude code -- Adam] (each has its own trap
+#     that records "interrupted by SIG..." and exits 130 / 143, so a
 #     run stopped by pid can never end PASS -- the EXIT trap then tears down as always;
-#   * NDT_OWNER must be given explicitly (`live-p1` is not an owner); since Adam's ruling G
-#     (09-27) _common.sh's start_step refuses without one too -- this check stays, earlier.
+#   * NDT_OWNER must be given explicitly (`live-p1` is not an owner); _common.sh's start_step
+#     refuses without one too -- this check stays, earlier.
 #
 # Run:        NDT_OWNER=<you> bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/08_heartbeat.sh
 #             NDT_OWNER=<you> PART=h5 bash .../08_heartbeat.sh
@@ -115,8 +115,8 @@
 #             Run directly it needs a tree that has p4_proxy/venv (the main checkout): the venv is
 #             git-excluded, so a linked worktree or a `git archive` copy has none and the `consts`
 #             case goes red. tests/shell/mutate_p4_heartbeat_w.sh links the venv into its own trees.
-# Exit: 0 PASS, 1 FAIL (the last line says which, STOP for ruling 4), 2 refused before anything
-#       was started.
+# Exit: 0 PASS, 1 FAIL (the last line says which, STOP for a frame on a host port), 2 refused
+#       before anything was started.
 set -euo pipefail
 
 # --- the prelude: every default and every refusal that must hold before _common.sh -------------
@@ -131,7 +131,7 @@ if [[ "${1:-}" != "--self-test" && -z "${NDT_OWNER:-}" ]]; then
 fi
 PART="${PART:-h1h4}"
 case "$PART" in h1h4|h5) ;; *) echo "REFUSED 08_heartbeat -- PART=$PART (want h1h4 or h5)"; exit 2 ;; esac
-# [Co-developed with claude code -- Adam] (the round-4 review's M-1) H5 reconciles a WHOLE 06 -- 26
+# [Co-developed with claude code -- Adam] H5 reconciles a WHOLE 06 -- 26
 # arms, rc and verdict each -- so its reference is a whole 06 too: refused here, before anything
 # runs, rather than ending every run on "the reference table has 4 arms, not 26" (an ONLY= 06).
 if [[ "$PART" == h5 ]]; then
@@ -173,7 +173,7 @@ ROLE="owner=ndtwin,table=MyIngress.ipv4_lpm,match_field=hdr.ipv4.dstAddr"
 ROLE="$ROLE,action=MyIngress.ipv4_forward,dst_mac=dstAddr,port=port"
 #: pod-topo's four cables, `a:ap:b:bp` -- exercises/basic/pod-topo/topology.json.
 CABLES="1:3:3:1 1:4:4:2 2:3:4:1 2:4:3:2"
-#: The ticket's bounds (section 2, H1): the kernel's graph, both directions, within 20 s.
+#: The bounds for H1: the kernel's graph, both directions, within 20 s.
 DETECT_BOUND_S=20
 RESTORE_BOUND_S=20
 #: H2: hold the cut this long with the heartbeat stopped.
@@ -182,7 +182,7 @@ H2_HOLD_S=30
 H1_CYCLES="${H1_CYCLES:-6}"
 H1_WORST="${H1_WORST:-3}"
 #: 20 ms after the predicted send: tc's own start-up (sudo, mnexec) puts the netem 10-30 ms after
-#: the call starts, i.e. 20-50 ms after the ACTUAL send (orchestrator 09-26); the attach points
+#: the call starts, i.e. 20-50 ms after the ACTUAL send; the attach points
 #: are read before the sleep, so nothing else sits between the planned instant and the call.
 PHI_WORST="${PHI_WORST:-0.02}"
 H1_SEED="${H1_SEED:-$(( $(date +%s) % 32768 ))}"
@@ -197,14 +197,14 @@ consts() {
 #: What 06 is reconciled against (H5). [Co-developed with claude code -- Adam] 09-27: the round on
 #: the protobuf 5 venv with no heartbeat on the external arms (its rc and verdict columns are
 #: 185505Z's, arm for arm). For the external detect-only comparison set it to the same session's
-#: control C1 instead (the external judge's S2, 09-28; README "合併前的比對"): 074635Z ran other
+#: control C1 instead (README "合併前的比對"): 074635Z ran other
 #: code (5dc7fc9a + 95 uncommitted files) and recorded no venv.
 OLD_06="${OLD_06:-$LIVE_DIR/runs/2026-09-27T074635Z_06_thirteen}"
 #: The 06 arms that bring up a foreign fabric with an inter-switch link, i.e. the ones `ndt up p4
-#: --app` starts the heartbeat on. Segment S's census: calc and multicast are one switch;
+#: --app` starts the heartbeat on. By census: calc and multicast are one switch;
 #: basic_tunnel and flowcache skeletons do not build. [Co-developed with claude code -- Adam] Since
 #: 09-27 the three external arms (p4runtime x2, flowcache/solution) are in it too, detect only --
-#: all 20 of segment S's running arms.
+#: all 20 of the running arms.
 HB_ARMS="basic/skeleton basic/solution source_routing/skeleton source_routing/solution
 basic_tunnel/solution load_balance/skeleton load_balance/solution qos/skeleton qos/solution
 link_monitor/skeleton link_monitor/solution firewall/skeleton firewall/solution ecn/skeleton
@@ -238,7 +238,8 @@ CYCLE_ROW=""; CYCLE_STRICT=""; RESTORE_ROW=""
 STRICT_CYCLES=0; STRICT_OVER=0; STRICT_OVER_LIST=""; STRICT_PHASE=""
 
 # --- the verdicts. One stdlib-only program, one entry per check; each prints `OK ...` or
-# `BAD ...` (`STOP ...` for ruling 4). The live path and --self-test call the same entries. ------
+# `BAD ...` (`STOP ...` for a frame on a host port). The live path and --self-test call the same
+# entries. ------
 verdict() {
     "$VPY" -I - "$@" <<'VERDICTS'
 import glob, json, os, re, sys
@@ -296,7 +297,7 @@ def v_links(state, want, *cut):
     """[Co-developed with claude code -- Adam] H4: both directions of the cut as the PROXY holds them
     (switch_state `links`) -- down or up, and from the heartbeat, not merely declared. `down-told` /
     `up-told` also require the kernel to have ACCEPTED the report on both directions
-    (`reported_to_kernel: true`) -- the external judge's F4 (09-28): "a cut is told to the twin" is
+    (`reported_to_kernel: true`): "a cut is told to the twin" is
     otherwise asserted nowhere live."""
     a, ap, b, bp = cut_args(cut)
     word, _, told = want.partition("-")
@@ -314,15 +315,15 @@ def v_links(state, want, *cut):
     return f"OK both directions of s{a}:{ap}<->s{b}:{bp} {word} at the proxy, source heartbeat ({said})"
 
 def v_restore_strict(elapsed, bound):
-    """[Co-developed with claude code -- Adam] H4's restore against the STRICT bound (the external
-    judge's F9, 09-28): Adam's "about 20 s" names detection only, so a restore over it is a FAIL."""
+    """[Co-developed with claude code -- Adam] H4's restore against the STRICT bound (the
+    "about 20 s" rule names detection only, so a restore over it is a FAIL)."""
     d, b = float(elapsed), float(bound)
     if d <= b:
         return f"OK recovery {d:.1f} s, within the strict {b:g} s"
     return f"BAD recovery {d:.1f} s, over the strict {b:g} s (restore is judged strictly)"
 
 def v_no_writes(before, after):
-    """[Co-developed with claude code -- Adam] H4, the external judge's F4 (09-28): nothing this proxy
+    """[Co-developed with claude code -- Adam] H4: nothing this proxy
     could write moved across the cut -- every switch's pipeline_commits, rules_timed and
     table_generation (switch_state) are what they were before it."""
     keys = ("pipeline_commits", "rules_timed", "table_generation")
@@ -361,7 +362,7 @@ def v_hosts_clean(path):
         return "BAD no side_effects counters to read"
     n = side.get("forwarded_to_hosts", 0) or 0
     if n:
-        return f"STOP ruling 4: the heartbeat daemon counted {n} frame(s) leaving a host-facing port"
+        return f"STOP host-port rule: the heartbeat daemon counted {n} frame(s) leaving a host-facing port"
     return (f"OK forwarded_to_hosts 0 (forwarded_between_switches {side.get('forwarded_between_switches', 0)}, "
             f"misdelivered {side.get('misdelivered', 0)}, foreign {side.get('foreign_frames', 0)})")
 
@@ -469,7 +470,7 @@ def v_conflict_409(code, body):
     c, d = open(code).read().strip(), detail_of(body)
     if c == "409" and d.get("error") == "external control plane":
         return "OK 409 external control plane"
-    return f"BAD HTTP {c}, error {d.get('error')!r} (ruling 5(a) wants 409)"
+    return f"BAD HTTP {c}, error {d.get('error')!r} (detect-only wants 409)"
 
 def v_held_up(polls, n):
     lines = [l for l in open(polls).read().splitlines() if l.strip()]
@@ -562,7 +563,7 @@ def v_cycle(state, a_s, a_e, b_s, b_e, off_pre, off_post, l_ab, l_ba, down_wall,
 DETECT_CEILING_EXTRA_S = 15.0
 
 def v_strict(row, bound):
-    """A cycle row (v_cycle) against the STRICT bound -- the verdict (the judge's F1). Detection runs
+    """A cycle row (v_cycle) against the STRICT bound -- the verdict. Detection runs
     from the FIRST end's tc call to the poll that saw both directions down: the longest it can be."""
     f = row.split("\t")
     if len(f) != 18:
@@ -570,14 +571,14 @@ def v_strict(row, bound):
     d, b = float(f[8]), float(bound)
     if d <= b:
         return f"OK detection {d:.3f} s, within the strict {b:g} s"
-    # [Co-developed with claude code -- Adam] The opus judge's N-4 (09-28): "about 20 s" stops at a
+    # [Co-developed with claude code -- Adam] "about 20 s" stops at a
     # hard ceiling of the strict bound + DETECT_CEILING_EXTRA_S. graph_until's own limit is the same
     # number but counts whole seconds from its own start, so a slow last poll could record a
     # detection past it -- that is a FAIL here, not a NOTE.
     if d > b + DETECT_CEILING_EXTRA_S:
         return (f"BAD detection {d:.3f} s is past the hard ceiling of {b + DETECT_CEILING_EXTRA_S:g} s "
                 f"(the strict {b:g} s + {DETECT_CEILING_EXTRA_S:g} s): a FAIL, not a disclosure")
-    # [Co-developed with claude code -- Adam] OVER, not BAD (Adam, 09-27: at most about 20 s): a
+    # [Co-developed with claude code -- Adam] OVER, not BAD (at most about 20 s): a
     # measurement to disclose, not a failure. A row that cannot be read is still BAD, above.
     return (f"OVER detection {d:.3f} s is OVER the strict {b:g} s by {d - b:.3f} s (from the first end's "
             f"tc call to the graph poll that saw both directions down)")
@@ -586,8 +587,8 @@ def v_budget(row, bound):
     """A cycle row (v_cycle) against the bound: OK within `bound`; OK but "OVER the strict" when
     over it by no more than what was measured on top of the design -- the reporting pass's
     lateness beyond one interval, the pass-to-graph time (read, HTTP, kernel, this script's poll)
-    and the test's own cut window; BAD beyond that. 🔴 A DIAGNOSTIC, NEVER THE VERDICT (the
-    judge's F1 and 4.6): it is OK whenever the design works as designed; v_strict decides."""
+    and the test's own cut window; BAD beyond that. 🔴 A DIAGNOSTIC, NEVER THE VERDICT: it is OK
+    whenever the design works as designed; v_strict decides."""
     f = row.split("\t")
     if len(f) != 18:
         return f"BAD the cycle row has {len(f)} fields, not 18"
@@ -607,8 +608,8 @@ def v_budget(row, bound):
 
 def v_restore_cycle(state, watch, ra_s, ra_e, rb_s, rb_e, off_pre, off_post, up_wall):
     """One restore on the monotonic clock. The watcher's FIRST new frame per direction is kept
-    wherever it falls: inside its own end's restore window it is FLAGGED (the segment-S judge's
-    artefact: a frame heard 12.7 ms before a forked t1 was dropped and the next round's taken, a
+    wherever it falls: inside its own end's restore window it is FLAGGED (an artefact seen
+    earlier: a frame heard 12.7 ms before a forked t1 was dropped and the next round's taken, a
     false +5 s); before its own end's restore started it is BAD (the cut leaked). Durations run
     from the FIRST end's call start, the longest they can be. OK carries the row (15 fields)."""
     off, off2 = float(off_pre), float(off_post)
@@ -681,7 +682,7 @@ MAX_SAMPLE_GAP_S = 10.0
 
 def sample_gaps(ss, t0, t1):
     """[(from, to)] of every stretch of [t0, t1) longer than MAX_SAMPLE_GAP_S without a sample --
-    the edges included (the opus judge's N2-1: a sampler that stopped reading part-way)."""
+    the edges included (a sampler that stopped reading part-way)."""
     ts = sorted(s["t"] for s in ss if t0 <= s["t"] < t1)
     marks = [t0] + ts + [t1]
     return [(a, b) for a, b in zip(marks, marks[1:]) if b - a > MAX_SAMPLE_GAP_S]
@@ -703,7 +704,7 @@ def v_h5_heartbeat(samples_path, tbl, end, expected):
         had += bool(new)
     leak = [s for s in ss if s["hosts"] not in ("0", "", "None")]
     if leak:
-        return f"STOP ruling 4: a sample counted forwarded_to_hosts {leak[0]['hosts']} at {leak[0]['t']:.0f}"
+        return f"STOP host-port rule: a sample counted forwarded_to_hosts {leak[0]['hosts']} at {leak[0]['t']:.0f}"
     if not ss:
         return "BAD the sampler recorded nothing"
     windows = arm_windows(tbl, end)
@@ -721,7 +722,7 @@ def v_no_session(samples_path, t0, t1):
     if new:
         return f"BAD a heartbeat ran during 01: {new}"
     # [Co-developed with claude code -- Adam] "no session seen" is only a reading where the sampler
-    # was reading (the opus judge's N2-1): no sample, or a stretch without one, is not measured.
+    # was reading: no sample, or a stretch without one, is not measured.
     gaps = sample_gaps(ss, float(t0), float(t1))
     if gaps:
         return (f"BAD 01's window was not sampled throughout: {gaps[0][1] - gaps[0][0]:.0f} s without a read "
@@ -736,11 +737,12 @@ except (OSError, ValueError, KeyError, TypeError) as exc:
 VERDICTS
 }
 
-# judge <verdict line> <what> -- OK is a note, STOP (ruling 4) fails at the head, BAD fails.
+# judge <verdict line> <what> -- OK is a note, STOP (a frame on a host port) fails at the head, BAD
+# fails.
 judge() {
     case "$1" in
         OK*)   note "$2: ${1#OK }" ;;
-        STOP*) VERDICT_RC=1; VERDICT_WHY="STOP (ruling 4) -- $2: ${1#STOP }${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
+        STOP*) VERDICT_RC=1; VERDICT_WHY="STOP (host-port rule) -- $2: ${1#STOP }${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
                bad "$2: $1" ;;
         *)     fail "$2: ${1#BAD }" ;;
     esac
@@ -809,11 +811,11 @@ w_finish() {
     fi
     restore_watch_stop
     sampler_stop
-    # [Co-developed with claude code -- Adam] The opus judge's F1 (09-27): an exit inside H1's loop
+    # [Co-developed with claude code -- Adam] An exit inside H1's loop
     # or H3 (a cut_cycle or restore_cycle that stopped the run, INT, TERM) comes here before that
     # phase's strict_conclude ran, and finish() prints only what is already disclosed -- so an
     # over-cycle measured before the exit would have stayed in the body. Concluded here, just
-    # before finish (the AEG judge's N-3, 09-28: after the netem is off, as the header says).
+    # before finish (after the netem is off, as the header says).
     if (( ${STRICT_CYCLES:-0} > 0 )); then
         strict_conclude "${STRICT_PHASE:-H1}, cut short"
     fi
@@ -822,9 +824,9 @@ w_finish() {
     finish
 }
 
-# [Co-developed with claude code -- Adam] The AEG judge's N-1 (09-28): INT and TERM get traps of
+# [Co-developed with claude code -- Adam] INT and TERM get traps of
 # their own -- _common.sh's `interrupted`, the same one start_step arms before this line runs (the
-# external judge's M3: the window between start_step and here used to print PASS on a TERM). A
+# window between start_step and here used to print PASS on a TERM). A
 # signal is recorded as the run's failure and the exit code is the signal's -- 130 / 143, carried
 # through finish (SIGNAL_RC); the EXIT trap then tears down as always.
 arm_traps() { trap w_finish EXIT; trap 'interrupted SIGINT 130' INT; trap 'interrupted SIGTERM 143' TERM; }
@@ -875,7 +877,7 @@ identity_gate() {
 # holds an expression with quotes in it, on any Python), its stderr is a file in $RUN, and
 # sampler_start waits for the header and a live pid or FAILS the run before 06 starts. The
 # self-test executes this text (st_sampler).
-# [Co-developed with claude code -- Adam] (the round-4 review's M-3) Since round 5 two more fields:
+# [Co-developed with claude code -- Adam] Since round 5 two more fields:
 # `heard` -- every direction of the report as "<tx dpid>:<port>><rx dpid>:<port>=<heard>", joined by
 # commas ("-" with no report) -- and `controllers`, the pids of every process alive at that read
 # whose argv runs tools/p4_exercise/run_external_controller.py (the exercises' controllers; "-"
@@ -993,7 +995,7 @@ sampler_start() {
     sampler_stop
     return 1
 }
-# [Co-developed with claude code -- Adam] The opus judge's N2-1 on f4f43a32: a sampler that died
+# [Co-developed with claude code -- Adam] A sampler that died
 # after a good start ends the run FAIL -- checked BEFORE the stop file is written (a sampler
 # killed by a signal leaves no stderr), by pid AND argv (a reaped pid can be reused) -- and so
 # does a sampler that wrote to its stderr (`fail`, not `bad`: `bad` only prints).
@@ -1066,7 +1068,7 @@ graph_until() {
     printf '%s\n' "$v"
 }
 
-# --- the cut's PHASE (orchestrator, 09-26, on segment S's judge report, Blocking 1) ------------
+# --- the cut's PHASE -----------------------------------------------------------------------------
 #
 # 🔴 A PHASE-LOCKED H1 PROVES NOTHING ABOUT THE WORST PHASE. The spike cut ~0.7 s after a heard
 # frame every time. Detection at the kernel is (timeout - phi) + psi + the report read, the
@@ -1167,7 +1169,7 @@ stats_flows() {   # stats_flows <dir> -- /stats/flow/<dpid> for s1-s4
 # attach point), end A first. Both attach points are read BEFORE the optional sleep until <target>,
 # so the first tc call starts at the planned instant with nothing in between. Each end's instants
 # are $EPOCHREALTIME just before and just after its call -- read in THIS shell, not by a forked
-# `date` that lands after tc has returned (orchestrator 09-26): tc took effect inside that window.
+# `date` that lands after tc has returned: tc took effect inside that window.
 # A cut refused on its second end comes off the first HERE, while the veth still exists.
 # [Co-developed with claude code -- Adam]
 cut_link() {
@@ -1312,10 +1314,10 @@ cut_cycle() {
     det="$(cat "$gout.elapsed")"
     if [[ "$row" == OK* ]]; then
         CYCLE_ROW="${row#OK }"
-        # [Co-developed with claude code -- Adam] The judge's F1: the strict bound is the one
-        # measured against; the budget is printed beside it and decides nothing. Adam's ruling
-        # (09-27): a cycle OVER it is disclosed, verbatim, not failed -- strict_conclude repeats
-        # this line above the run's last one. A row it cannot read is still a BAD.
+        # [Co-developed with claude code -- Adam] The strict bound is the one
+        # measured against; the budget is printed beside it and decides nothing. A cycle OVER it is
+        # disclosed, verbatim, not failed -- strict_conclude repeats this line above the run's last
+        # one. A row it cannot read is still a BAD.
         sv="$(verdict strict "$CYCLE_ROW" "$DETECT_BOUND_S")"
         if [[ "$sv" == OVER* ]]; then
             note "$label detection time (disclosed, not a failure): ${sv#OVER }"
@@ -1338,18 +1340,18 @@ cut_cycle() {
 }
 
 # strict_conclude <what> -- the strict bound over the cycles cut_cycle recorded since the last
-# conclusion. [Co-developed with claude code -- Adam] 🔴 ADAM'S RULING (09-27): at most ABOUT 20 s,
+# conclusion. [Co-developed with claude code -- Adam] 🔴 At most ABOUT 20 s,
 # the class of NDTwin's own LLDP. A cycle OVER the strict bound is DISCLOSED, not failed: the count
 # and every over-cycle's own strict line, verbatim, go to _common.sh's `disclose`, which prints them
-# just above the run's last line -- where a PASS, an earlier failure or a ruling-4 STOP stays the
-# last line itself. (It used to FAIL <what> with the count at the head of that line: the fable
-# judge's F1, 09-26, before the ruling.) The tally is reset.
+# just above the run's last line -- where a PASS, an earlier failure or a STOP (a frame on a host
+# port) stays the last line itself. (It used to FAIL <what> with the count at the head of that
+# line.) The tally is reset.
 strict_conclude() {
     local what="$1" n="$STRICT_CYCLES" over="$STRICT_OVER" list="$STRICT_OVER_LIST"
     local psi="one run samples one psi (watchdog_phase_s in 30_cycles.tsv): the worst psi is not guaranteed to have been sampled"
     STRICT_CYCLES=0; STRICT_OVER=0; STRICT_OVER_LIST=""; STRICT_PHASE=""
     if (( over > 0 )); then
-        disclose "$what: $over of $n cycle(s) over the strict ${DETECT_BOUND_S} s -- disclosed, not a failure (Adam, 09-27: at most about ${DETECT_BOUND_S} s, the class of NDTwin's own LLDP; strict_${DETECT_BOUND_S}s in 30_cycles.tsv) -- $list"
+        disclose "$what: $over of $n cycle(s) over the strict ${DETECT_BOUND_S} s -- disclosed, not a failure (accepted: at most about ${DETECT_BOUND_S} s, the class of NDTwin's own LLDP; strict_${DETECT_BOUND_S}s in 30_cycles.tsv) -- $list"
         note "$psi"
     else
         note "$what: all $n cycle(s) within the strict ${DETECT_BOUND_S} s -- $psi"
@@ -1603,9 +1605,9 @@ PY
     expect BAD  "H1 a proxy with no reroute block"                   "$(verdict reroute "$t/state_old_proxy.json" true null)"
     expect OK   "H1 heartbeat usable"                                "$(verdict hb_state "$t/state_owned.json" usable)"
     expect BAD  "H1 a stopped heartbeat is not usable"               "$(verdict hb_state "$t/state_stopped.json" usable)"
-    expect OK   "ruling 4: no frame left a host port (report)"       "$(verdict hosts_clean "$t/report_clean.json")"
-    expect STOP "ruling 4: the daemon counted one (report)"          "$(verdict hosts_clean "$t/report_leak.json")"
-    expect STOP "ruling 4: switch_state says it too"                 "$(verdict hosts_clean "$t/state_leak.json")"
+    expect OK   "host-port rule: no frame left a host port (report)"       "$(verdict hosts_clean "$t/report_clean.json")"
+    expect STOP "host-port rule: the daemon counted one (report)"          "$(verdict hosts_clean "$t/report_leak.json")"
+    expect STOP "host-port rule: switch_state says it too"                 "$(verdict hosts_clean "$t/state_leak.json")"
     expect OK   "H1 eight directions up"                             "$(verdict edges_up "$t/graph_up.json" "$t/model.json")"
     expect BAD  "H1 one direction down is not all up"                "$(verdict edges_up "$t/graph_half.json" "$t/model.json")"
     expect BAD  "H1 up but not enabled"                              "$(verdict edges_up "$t/graph_disabled.json" "$t/model.json")"
@@ -1659,7 +1661,7 @@ PY
     expect OK   "H4 nothing written across the cut"                  "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_cut_told.json")"
     expect BAD  "H4 a pipeline commit across the cut"                "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_wrote.json")"
     expect BAD  "H4 a timed rule across the cut"                     "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_rules.json")"
-    # [Co-developed with claude code -- Adam] The external judge's m3 (09-28): up at the proxy with
+    # [Co-developed with claude code -- Adam] Up at the proxy with
     # the kernel not having accepted it; table_generation moving on its own; the restore's bound.
     expect BAD  "H4 up at the proxy, not accepted by the kernel"     "$(verdict links "$t/state_ext.json" up-told 1 2 2 2)"
     expect BAD  "H4 only table_generation moved"                     "$(verdict no_writes "$t/state_ext.json" "$t/state_ext_gen.json")"
@@ -1675,10 +1677,10 @@ PY
     expect OK   "H5 heartbeat on exactly the expected arms"          "$(verdict h5_heartbeat "$t/samples_ok.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
     expect BAD  "H5 an expected arm had none"                        "$(verdict h5_heartbeat "$t/samples_missing.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
     expect BAD  "H5 an arm that should have none had one"            "$(verdict h5_heartbeat "$t/samples_extra.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
-    expect STOP "H5 ruling 4 in a sample"                            "$(verdict h5_heartbeat "$t/samples_leak.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
+    expect STOP "H5 host-port rule in a sample"                            "$(verdict h5_heartbeat "$t/samples_leak.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
     expect OK   "H5 no session during 01"                            "$(verdict no_session "$t/samples_ok.tsv" "$tend" "$((tend + 100))")"
     expect BAD  "H5 a session during 01"                             "$(verdict no_session "$t/samples_ok.tsv" 0 "$tend")"
-    # --- H5's sampler dying AFTER a good start (the opus judge's N2-1 on f4f43a32) -------------------
+    # --- H5's sampler dying AFTER a good start ------------------------------------------------------
     # [Co-developed with claude code -- Adam] sampler_start's check only covers the start. A sampler
     # killed later (a signal: no stderr at all) or one that complained on its stderr must still end
     # the WHOLE run FAIL -- read on the run's last line, through the real sampler_start /
@@ -1728,8 +1730,7 @@ $SAMPLER_PY"
     expect BAD  "H5 01 with no sample in its window"                  "$(verdict no_session "$t/samples_ok.tsv" "$((tend + 10000))" "$((tend + 10100))")"
     expect BAD  "H5 a sampler that stopped reading for 500 s mid-06"  "$(verdict h5_heartbeat "$t/samples_gap.tsv" "$t/table_same.tsv" "$tend" "$HB_ARMS")"
     expect BAD  "H5 01 where the sampler stopped half-way"            "$(verdict no_session "$t/samples_ok.tsv" "$((tend + 50))" "$((tend + 200))")"
-    # consts: the proxy's own constants, the one embedded program only the live path ran (the
-    # judge's N2-2)
+    # consts: the proxy's own constants, the one embedded program only the live path ran
     got="$(consts)" || true
     [[ "$got" == "5 15 5" ]] && ok "consts: the proxy's beacon interval, timeout and watchdog interval, imported (5 15 5)" \
                              || red "consts gave '$got'"
@@ -1762,7 +1763,7 @@ $SAMPLER_PY"
     else
         red "phase_for gave: $got"
     fi
-    # --- one cut and one restore on the monotonic clock (orchestrator 09-26 addenda) --------------
+    # --- one cut and one restore on the monotonic clock ------------------------------------------
     # [Co-developed with claude code -- Adam] Wall instants are 1000 s + x with an offset of -800,
     # so the monotonic ones read 200 + x; the report's frames and the proxy's passes are monotonic.
     printf '{"heartbeat": {"watchdog_passes": [{"start_mono": 200.5, "end_mono": 200.51, "down": 0, "up": 0},
@@ -1944,9 +1945,9 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
         CC_STATE=state_nopass.json; cut_cycle "U" "$t/cc_graph2.json" "$t/cc_state2.json" 0.02 1
         echo "STRICT $CYCLE_STRICT FIELDS $(awk -F'\t' '{print NF}' <<<"$CYCLE_ROW")"
     )" || got="the subshell died (rc $?)"
-    # [Co-developed with claude code -- Adam] The judge's F1 (09-26, on 1a3ebd7f): the cycle is
+    # [Co-developed with claude code -- Adam] The cycle is
     # measured against the strict bound, and "20 s + what was measured" is only a note beside it.
-    # Adam's ruling (09-27): 20.320 s is OVER, DISCLOSED -- a note naming it, the line kept for
+    # 20.320 s is OVER, DISCLOSED -- a note naming it, the line kept for
     # strict_conclude -- never judged OK and never a failure; an unreadable row is still BAD.
     if /usr/bin/grep -qF "N T detection time (disclosed, not a failure): detection 20.320 s is OVER the strict 20" <<<"$got" \
        && /usr/bin/grep -qF "N T budget, 20 s + what was measured (a diagnostic, never the verdict): OK detection 20.320 s -- OVER" <<<"$got" \
@@ -1986,7 +1987,7 @@ print(f["ab"]["heard"], f["ba"]["heard"], f["ab"]["written"], f["ba"]["written"]
     # sampler_stop against a fake report rewritten atomically the way the daemon rewrites it: missing,
     # running, running with a counter moved, stopped with final counters, missing again, a second
     # session. The rows must say so, in order, under the header; the stopped row's final counters
-    # must reach the ruling-4 check; the stop path must take one last sample.
+    # must reach the STOP check (a frame on a host port); the stop path must take one last sample.
     st_sampler() {   # st_sampler -> the samples file's path on stdout (and the helpers' notes on 3)
         local d="$t/h5s" rep i
         mkdir -p "$d/run"
@@ -2029,7 +2030,7 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" 
     # (every read below ends `|| true`: under this script's set -e a failing $( ) in an assignment
     # would end the self-test silently instead of printing its red line)
     d="$(st_sampler)" || true
-    # [Co-developed with claude code -- Adam] The external judge's M2 (09-28): the report's
+    # [Co-developed with claude code -- Adam] The report's
     # written_wall and stop_reason (a killed daemon's stale "running"; why a session stopped) and
     # the daemon's other two counters are on every row too -- ten fields.
     got="$(awk -F'\t' 'NR == 1 {next} {k = $2 " " $3 " " $5 " " $6 " " $7 " " $8 " " $11; if (k != last) {printf "%s|", k; last = k}}' "$d/samples.tsv" 2>/dev/null)" || true
@@ -2058,7 +2059,7 @@ open(p + ".tmp", "w").write(json.dumps(doc)); os.replace(p + ".tmp", p)' "$rep" 
         && ok "  sampler_start said it had started, and the stop path took a last sample of the report as it stood" \
         || red "  sampler start/stop: last row '$got', notes: $(tr '\n' ' ' < "$d/notes.txt" 2>/dev/null)"
     printf 'exercise\twhich\trc\tverdict\treport\n' > "$d/table_none.tsv"
-    expect STOP "H5 sampler: a stopped session's final forwarded_to_hosts reaches ruling 4" \
+    expect STOP "H5 sampler: a stopped session's final forwarded_to_hosts reaches the host-port rule" \
         "$(verdict h5_heartbeat "$d/samples.tsv" "$d/table_none.tsv" "$(date +%s)" "")"
     # a sampler that cannot start: sampler_start must say so and answer 1, its stderr kept
     got="$( d2="$t/h5s_broken"; mkdir -p "$d2"
@@ -2107,13 +2108,13 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
     else
         red "graph_until after a cut gave elapsed '$got'"
     fi
-    # --- H1's exit, read where Adam reads it: the run's LAST lines (the judge's F1 and 8.2) --------
+    # --- H1's exit, read where it is read: the run's LAST lines -----------------------------------
     # [Co-developed with claude code -- Adam] One stubbed cycle through the real cut_cycle, H1's
-    # strict conclusion and the real teardown (w_finish -> finish) with a fake ndt. 🔴 Adam's
-    # ruling (09-27, at most about 20 s): an OVER cycle ends the run in PASS, and the line right
+    # strict conclusion and the real teardown (w_finish -> finish) with a fake ndt. 🔴 At most
+    # about 20 s: an OVER cycle ends the run in PASS, and the line right
     # above the PASS repeats that cycle's own strict line VERBATIM, with the count; a cycle within
     # 20 s ends in PASS with no such line (the control); an earlier failure stays the last line with
-    # the disclosure above it, and a ruling-4 STOP still leads the last line.
+    # the disclosure above it, and a STOP (a frame on a host port) still leads the last line.
     st_h1() {   # st_h1 <state fixture> <kernel-down wall> <earlier failure or -> <stop 0|1> -> the run's output
         local d
         d="$(mktemp -d "$t/h1-XXXXXX")"
@@ -2131,14 +2132,14 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
           [[ "$3" == - ]] || fail "$3"
           cut_cycle "H1 cycle 1" "$RUN/31_graph_cut_1.json" "$RUN/32_switch_state_cut_1.json" 0.02 1
           strict_conclude H1
-          (( $4 == 1 )) && judge "STOP ruling 4: a stubbed host-port frame" "H1 ruling 4"
+          (( $4 == 1 )) && judge "STOP host-port rule: a stubbed host-port frame" "H1 host-port rule"
           ( exit 0 ); w_finish ) 2>&1
     }
     out="$(st_h1 state_late.json 1020.33 - 0)" || true
     got="$(tail -1 <<<"$out")"; above="$(tail -2 <<<"$out" | head -1)"
     cyc="$(sed -n 's/^ *H1 cycle 1 detection time (disclosed, not a failure): //p' <<<"$out" | head -1)"
     if [[ "$got" == "PASS 08_heartbeat" && "$cyc" == "detection 20.320 s is OVER the strict 20 s by 0.320 s"* \
-          && "$above" == "NOTE 08_heartbeat -- H1: 1 of 1 cycle(s) over the strict 20 s -- disclosed, not a failure (Adam, 09-27: at most about 20 s"* \
+          && "$above" == "NOTE 08_heartbeat -- H1: 1 of 1 cycle(s) over the strict 20 s -- disclosed, not a failure (accepted: at most about 20 s"* \
           && "$above" == *" -- H1 cycle 1: $cyc" && "$out" == *"one run samples one psi"* ]]; then
         ok "H1's last lines: one cycle at 20.320 s -- the run PASSes, and the line above the PASS repeats that cycle's strict line verbatim, with the count (the one-psi caveat above)"
     else
@@ -2162,13 +2163,13 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
     fi
     out="$(st_h1 state_late.json 1020.33 - 1)" || true
     got="$(tail -1 <<<"$out")"; above="$(tail -2 <<<"$out" | head -1)"
-    if [[ "$got" == "FAIL 08_heartbeat -- STOP (ruling 4)"* \
+    if [[ "$got" == "FAIL 08_heartbeat -- STOP (host-port rule)"* \
           && "$above" == "NOTE 08_heartbeat -- H1: 1 of 1 cycle(s) over the strict 20 s"* ]]; then
-        ok "  a ruling-4 STOP still leads the last line, the over-cycle disclosed above it"
+        ok "  a STOP (a frame on a host port) still leads the last line, the over-cycle disclosed above it"
     else
         red "  H1's last line with a STOP after an OVER cycle was: '$got' (above it: '$above')"
     fi
-    # [Co-developed with claude code -- Adam] The opus judge's F1 (09-27): the H1 loop's own early
+    # [Co-developed with claude code -- Adam] The H1 loop's own early
     # exit -- an OVER cycle, then a restore that could not remove the netem (`|| { fail ...; exit 1; }`)
     # -- through the real EXIT trap, before strict_conclude H1 ran.
     st_h1_exit() {   # -> the run's output
@@ -2196,10 +2197,10 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
     else
         red "  H1's last lines after an early exit following an OVER cycle were: '$got' (above it: '$above')"
     fi
-    # [Co-developed with claude code -- Adam] The AEG judge's 09-28 round: the same exit from H3 (a
+    # [Co-developed with claude code -- Adam] The same exit from H3 (a
     # w_finish that assumed H1 would name the wrong phase), an early exit whose cycles were all
     # within 20 s (concluded, nothing disclosed), a clean run (no "cut short" at all), and N-1 --
-    # TERM sent to the run's own shell mid-H1 with nothing failed before it.
+    # a TERM sent to the run's own shell mid-H1 with nothing failed before it.
     st_exit() {   # st_exit <cut_cycle label> <state fixture> <kernel-down wall> <exit|clean> -> output
         local d
         d="$(mktemp -d "$t/stx-XXXXXX")"
@@ -2243,7 +2244,7 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
     fi
     st_term() {   # st_term <send TERM: 1|0> [<arming: arm_traps|arm_step_traps>] -> output
         # (the H1 loop's own wait, a foreground sleep; arm_step_traps is what start_step arms, i.e.
-        # a TERM between start_step and arm_traps -- the external judge's M3)
+        # a TERM between start_step and arm_traps)
         local d
         d="$(mktemp -d "$t/term-XXXXXX")"
         printf '#!/usr/bin/env bash\nexit 0\n' > "$d/ndt"; chmod +x "$d/ndt"
@@ -2263,7 +2264,7 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
     else
         red "TERM mid-H1 with nothing failed before it ended: '$(tail -1 <<<"$out")' (rc $rc_t)"
     fi
-    # [Co-developed with claude code -- Adam] The external judge's M3 (09-28): the rc IS 143, carried
+    # [Co-developed with claude code -- Adam] The rc IS 143, carried
     # through finish -- and a TERM between start_step and arm_traps (start_step's own traps) is the
     # same FAIL with the same rc.
     [[ "$rc_t" == 143 ]] && ok "🔴 and the run exits 143, the signal's code" \
@@ -2302,7 +2303,7 @@ open(p + ".t", "w").write(json.dumps(doc)); os.replace(p + ".t", p)' "$HB_REPORT
                           || red "HB_ARMS names $n_arms arms, not 20"
     [[ " $(tr '\n' ' ' <<<"$HB_ARMS") " == *" p4runtime/skeleton p4runtime/solution flowcache/solution "* ]] \
         && ok "HB_ARMS names the 3 external arms" || red "HB_ARMS does not name p4runtime/skeleton, p4runtime/solution and flowcache/solution"
-    # [Co-developed with claude code -- Adam] Adam's ruling A (09-27): an OVER cycle reaches the
+    # [Co-developed with claude code -- Adam] An OVER cycle reaches the
     # last lines only through strict_conclude, so every cut_cycle on the LIVE path must be followed
     # by one before the next phase (H1 after its loop, H3 after its one cycle). Read from this file
     # -- the live path runs no self-test of its own.
@@ -2474,8 +2475,8 @@ esac
 if ! cmp -s "$LAB_HELPER" "$REPO/tools/test_workflow/ndtwin-lab"; then
     die "the installed $LAB_HELPER is not this checkout's tools/test_workflow/ndtwin-lab"
 fi
-# tc through the route this run cuts with, BEFORE the claim (segment S's precheck_tc): a show
-# that answers proves the grant without touching anything.
+# tc through the route this run cuts with, BEFORE the claim: a show that answers proves
+# that route works without touching anything.
 if ! run_tc qdisc show dev lo > "$RUN/03_tc_route.txt" 2>&1; then
     die "the tc route '$FAULTS_TC' does not run: $(head -1 "$RUN/03_tc_route.txt")"
 fi
@@ -2484,7 +2485,7 @@ if [[ "$PART" == h5 ]]; then
     # ============================== H5 (no claim: 06 and 01 claim per step) ======================
     say "H5 -- 06 once with the heartbeat wherever ndt up starts it, and a sampler of its report"
     [[ -s "$OLD_06/00_table.tsv" ]] || die "no reference table at $OLD_06/00_table.tsv (set OLD_06=)"
-    # [Co-developed with claude code -- Adam] (the round-4 review's M-2) The external comparison's
+    # [Co-developed with claude code -- Adam] The external comparison's
     # treatment must be the controls' code plus B: with C_IDENTITY (the controls' recorded identity)
     # and B_SHA, refused HERE, before 06 runs, unless this checkout's HEAD is a merge of B onto the
     # controls' HEAD with the same uncommitted files, kernel, bmv2, helper and venv.
@@ -2501,7 +2502,7 @@ if [[ "$PART" == h5 ]]; then
     R06=$?
     T06_END="$(date +%s)"
     # [Co-developed with claude code -- Adam] 06's end, the last arm's window edge for
-    # external_evidence.py --samples (the external judge's M2, 09-28).
+    # external_evidence.py --samples.
     printf '%s\n' "$T06_END" > "$RUN/50_t06_end.txt"
     set -e
     NEW_06="$(sed -n 's/^   raw : //p' "$RUN/51_06.txt" | head -1)"
@@ -2590,7 +2591,7 @@ note "the cut: s$CA-eth$CAP <-> s$CB-eth$CBP (an installed route uses it)"
 tc_ends "$RUN/26_tc_before" "$CA" "$CAP" "$CB" "$CBP"
 
 note "the proxy's constants: beacon interval $HB_PERIOD_S s, timeout $TIMEOUT_S s, watchdog every $WATCHDOG_S s"
-note "the design's worst case at the kernel (INFERRED): (timeout $TIMEOUT_S s - phi) + up to one watchdog interval $WATCHDOG_S s + pass time + report read, HTTP, kernel -- at phi -> 0 that is the ticket's $DETECT_BOUND_S s with nothing to spare. Each cycle is measured against the strict $DETECT_BOUND_S s and one over it is DISCLOSED, not failed (Adam, 09-27: at most about $DETECT_BOUND_S s); a detection not seen within $(( DETECT_BOUND_S + 15 )) s is a FAIL; '$DETECT_BOUND_S s + what was measured' is recorded beside it as a diagnostic"
+note "the design's worst case at the kernel (INFERRED): (timeout $TIMEOUT_S s - phi) + up to one watchdog interval $WATCHDOG_S s + pass time + report read, HTTP, kernel -- at phi -> 0 that is the whole $DETECT_BOUND_S s with nothing to spare. Each cycle is measured against the strict $DETECT_BOUND_S s and one over it is DISCLOSED, not failed (at most about $DETECT_BOUND_S s); a detection not seen within $(( DETECT_BOUND_S + 15 )) s is a FAIL; '$DETECT_BOUND_S s + what was measured' is recorded beside it as a diagnostic"
 RANDOM="$H1_SEED"
 note "random phases: seed $H1_SEED (H1_SEED= to repeat); worst-phase cycles at PHI_WORST=$PHI_WORST s"
 CYCLE_COLS="cut_a_start_mono\tcut_a_end_mono\tcut_b_start_mono\tcut_b_end_mono\tlast_heard_ab_mono\tlast_heard_ba_mono\tphi_s\tgraph_down_mono\tdetect_s\tpass_prev_start_mono\tpass_start_mono\tpass_end_mono\twatchdog_phase_s\tpass_lateness_s\tpass_to_graph_s\tcut_window_s\tclock_drift_ms\tcut_flags"
@@ -2621,14 +2622,14 @@ for (( CYC = 1; CYC <= H1_CYCLES; CYC++ )); do
     judge "$(no_netem "$RUN/36_tc_after_${CYC}_s$CA-eth$CAP.txt" "$RUN/36_tc_after_${CYC}_s$CB-eth$CBP.txt")" "H1 cycle $CYC netem"
     printf '%s\t%s\t%s\t%s\t%s\n' "$CYC" "$PHI" "$CYCLE_ROW" "$CYCLE_STRICT" "$RESTORE_ROW" >> "$RUN/30_cycles.tsv"
 done
-# 🔴 Adam's ruling A (09-27): the strict bound is measured, and every cycle over it is disclosed
+# 🔴 The strict bound is measured, and every cycle over it is disclosed
 # right above the run's last line -- here, or by w_finish when the loop above exited early.
 strict_conclude H1
 column -t -s $'\t' "$RUN/30_cycles.tsv" 2>/dev/null | sed 's/^/   /' || sed 's/^/   /' "$RUN/30_cycles.tsv"
 set +e; pingall_loss "$PKG_ROLES" 3 "$RUN/37_ping_raw.txt" > "$RUN/37_pingall_after.txt" 2>&1; set -e
 note "after the last restore (recorded): $(tail -1 "$RUN/37_pingall_after.txt")"
 cp "$HB_REPORT_FILE" "$RUN/38_report.json" 2>/dev/null || true
-judge "$(verdict hosts_clean "$RUN/38_report.json")" "H1 ruling 4"
+judge "$(verdict hosts_clean "$RUN/38_report.json")" "H1 host-port rule"
 [[ "$VERDICT_WHY" == STOP* ]] && exit 1
 
 say "H2 -- the heartbeat STOPPED, the same cut held ${H2_HOLD_S} s: nothing may go down"
@@ -2661,8 +2662,8 @@ judge "$(graph_until 90 1 edges_up "$RUN/62_graph.json" "$PKG_PLAIN/ndtwin/topol
 stats_flows "$RUN/63_before"
 cut_cycle "H3" "$RUN/64_graph_cut.json" "$RUN/64_switch_state_cut.json" "$PHI_WORST" 1 || exit 1
 printf "phi_target\t$CYCLE_COLS\tstrict_${DETECT_BOUND_S}s\n%s\t%s\t%s\n" "$PHI_WORST" "$CYCLE_ROW" "$CYCLE_STRICT" > "$RUN/64_cycle.tsv"
-# [Co-developed with claude code -- Adam] H3's one cycle is disclosed the same way (Adam, 09-27):
-# before the ruling its OVER was a per-cycle FAIL; now it is repeated above the last line.
+# [Co-developed with claude code -- Adam] H3's one cycle is disclosed the same way:
+# its OVER used to be a per-cycle FAIL; now it is repeated above the last line.
 strict_conclude H3
 sleep "$WATCHDOG_S"
 stats_flows "$RUN/65_after"
@@ -2676,7 +2677,7 @@ printf "$RESTORE_COLS\n%s\n" "$RESTORE_ROW" >> "$RUN/64_cycle.tsv"
 tc_ends "$RUN/68_tc_after" "$CA" "$CAP" "$CB" "$CBP"
 judge "$(no_netem "$RUN/68_tc_after_s$CA-eth$CAP.txt" "$RUN/68_tc_after_s$CB-eth$CBP.txt")" "H3 netem"
 cp "$HB_REPORT_FILE" "$RUN/69a_report.json" 2>/dev/null || true
-judge "$(verdict hosts_clean "$RUN/69a_report.json")" "H3 ruling 4"
+judge "$(verdict hosts_clean "$RUN/69a_report.json")" "H3 host-port rule"
 [[ "$VERDICT_WHY" == STOP* ]] && exit 1
 phase_down "$RUN/69_down_plain.txt" "phase B (H3)" || exit 1
 
@@ -2707,22 +2708,22 @@ V="$(verdict model_has "$PKG_EXT/ndtwin/topology.json" "$CA" "$CAP" "$CB" "$CBP"
 say "H4 -- cut s$CA-eth$CAP <-> s$CB-eth$CBP out of band: the proxy holds it down by the heartbeat, and reroutes nothing"
 tc_ends "$RUN/84_tc_before" "$CA" "$CAP" "$CB" "$CBP"
 cut_link "$CA" "$CAP" "$CB" "$CBP" || exit 1
-# [Co-developed with claude code -- Adam] The external judge's F4 (09-28): down at the proxy AND
+# [Co-developed with claude code -- Adam] Down at the proxy AND
 # accepted by the kernel (reported_to_kernel on both directions), and no write record moved.
 judge "$(state_until $(( DETECT_BOUND_S + 15 )) "$RUN/85_switch_state_cut.json" links down-told "$CA" "$CAP" "$CB" "$CBP")" "H4 detection at the proxy, told to the kernel"
 H4_DET="$(awk -v a="$EPOCHREALTIME" -v b="$T_CUT" 'BEGIN { printf "%.1f", a - b }')"
 if awk -v d="$H4_DET" -v b="$DETECT_BOUND_S" 'BEGIN { exit !(d <= b) }'; then
     note "H4 detection at the proxy within ${H4_DET} s of the cut (switch_state polled every 2 s)"
 else
-    disclose "H4: detection at the proxy read ${H4_DET} s after the cut, over the strict ${DETECT_BOUND_S} s -- disclosed, not a failure (Adam, 09-27: at most about ${DETECT_BOUND_S} s; switch_state polled every 2 s)"
+    disclose "H4: detection at the proxy read ${H4_DET} s after the cut, over the strict ${DETECT_BOUND_S} s -- disclosed, not a failure (at most about ${DETECT_BOUND_S} s; switch_state polled every 2 s)"
 fi
 judge "$(verdict reroute "$RUN/85_switch_state_cut.json" false external_control_plane)" "H4 reroute after the cut"
 judge "$(verdict caps "$RUN/85_switch_state_cut.json" false heartbeat)" "H4 capabilities after the cut"
 judge "$(verdict no_writes "$RUN/83_switch_state.json" "$RUN/85_switch_state_cut.json")" "H4 nothing written across the cut"
 restore_link || { fail "H4: could not remove the netem"; exit 1; }
-# [Co-developed with claude code -- Adam] The external judge's F9 (09-28): RESTORE_BOUND_S + 15 is how
+# [Co-developed with claude code -- Adam] RESTORE_BOUND_S + 15 is how
 # long the poll WAITS (so a late restore is measured); the restore is JUDGED at the strict
-# RESTORE_BOUND_S, like every restore in this file (Adam has not extended "about 20 s" to restores).
+# RESTORE_BOUND_S, like every restore in this file ("about 20 s" is not extended to restores).
 judge "$(state_until $(( RESTORE_BOUND_S + 15 )) "$RUN/86_switch_state_restored.json" links up-told "$CA" "$CAP" "$CB" "$CBP")" "H4 recovery at the proxy, told to the kernel"
 H4_REST="$(awk -v a="$EPOCHREALTIME" -v b="$T_CUT" 'BEGIN { printf "%.1f", a - b }')"
 judge "$(verdict restore_strict "$H4_REST" "$RESTORE_BOUND_S")" "H4 recovery time at the proxy (switch_state polled every 2 s)"
@@ -2730,7 +2731,7 @@ judge "$(verdict no_writes "$RUN/83_switch_state.json" "$RUN/86_switch_state_res
 tc_ends "$RUN/87_tc_after" "$CA" "$CAP" "$CB" "$CBP"
 judge "$(no_netem "$RUN/87_tc_after_s$CA-eth$CAP.txt" "$RUN/87_tc_after_s$CB-eth$CBP.txt")" "H4 netem"
 cp "$HB_REPORT_FILE" "$RUN/88_report.json" 2>/dev/null || true
-judge "$(verdict hosts_clean "$RUN/88_report.json")" "H4 ruling 4"
+judge "$(verdict hosts_clean "$RUN/88_report.json")" "H4 host-port rule"
 [[ "$VERDICT_WHY" == STOP* ]] && exit 1
 phase_down "$RUN/89_down_external.txt" "phase C (H4)" || exit 1
 

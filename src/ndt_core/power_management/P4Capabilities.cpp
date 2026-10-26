@@ -46,7 +46,13 @@ dpidFromKey(const std::string& key)
 CapabilitiesByDpid
 fromSwitchState(const std::optional<nlohmann::json>& payload)
 {
-    CapabilitiesByDpid out;
+    return objectsUnder(payload, "capabilities");
+}
+
+std::map<std::uint64_t, nlohmann::json>
+objectsUnder(const std::optional<nlohmann::json>& payload, const std::string& key)
+{
+    std::map<std::uint64_t, nlohmann::json> out;
     if (!payload.has_value() || !payload->is_object())
     {
         return out;
@@ -64,7 +70,7 @@ fromSwitchState(const std::optional<nlohmann::json>& payload)
         {
             continue;
         }
-        const auto capsIt = entry.find("capabilities");
+        const auto capsIt = entry.find(key);
         // Only an object is a description. `null` is what the proxy serves for a switch it has
         // recorded nothing for (api_routes.py: `caps.get(str(dpid))`), and it must read the same
         // as the key being absent -- "nobody said", never "supports nothing".

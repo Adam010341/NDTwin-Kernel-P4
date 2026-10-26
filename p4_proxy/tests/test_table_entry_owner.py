@@ -3,7 +3,7 @@ The generic table-entry writer refuses the tables NDTwin owns: 409 `owned_by_ndt
 
 [Co-developed with claude code -- Adam]
 
-Adam 2026-10-09, "V7" of the ternary-journal design, Q2 (a). `POST /p4/table_entry` and the
+`POST /p4/table_entry` and the
 package's own boot entries both end in `P4RuntimeClient.write_table_entry`, and until now that
 method looked at no binding at all. Two things it let through:
 
@@ -16,7 +16,7 @@ NDTwin-owned means: every table of a switch bound to NDTwin's own pipeline (`BAS
 a package switch, the one table the package binds as `roles.ipv4_route` with owner `ndtwin`.
 Everything else is the author's and stays writable.
 
-🔴 ONE EXCEPTION, and these tests pin its width from every side: ruling 8-1's default action. A
+🔴 ONE EXCEPTION, and these tests pin its width from every side: the default action. A
 package's BOOT entries may set the default action of its own owner-ndtwin route table, because
 main.py installs NDTwin's routes "after the package's entries, so the table's default action is in
 place first". That is all: not an API write, not a replay, not a baseline table, not a match entry,
@@ -371,8 +371,8 @@ class APackageSwitchOwnsOnlyItsBoundRouteTableTest(unittest.TestCase):
         self.refuse(pkg_route_entry(table="routes", action_name="send_via"))
 
     def test_the_boot_default_of_the_owned_route_table_still_installs(self):
-        # Ruling 8-1's exception: the package's default action is in place before NDTwin's
-        # routes go in. Without it bring-up C would report `failed = 1`.
+        # The exception: the package's default action is in place before NDTwin's
+        # routes go in. Without it the bring-up would report `failed = 1`.
         counts = apply_boot(self.client, [pkg_default_entry()])
         self.assertEqual((counts["applied"], counts["failed"]), (1, 0), counts)
         entry = self.client.stub.requests[0].updates[0].entity.table_entry

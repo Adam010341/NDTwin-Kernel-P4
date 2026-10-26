@@ -8,7 +8,7 @@
 # cell-for-cell what they were before this feature". This step takes that reading.
 #
 # 🔴 WHAT IT CANNOT DO, said here and in the README rather than discovered afterwards: THERE IS
-# NO SAVED "BEFORE". Nothing under scratch/overnight-2026-09-05/logs or hunt-0911/logs holds a
+# NO SAVED "BEFORE". No saved log holds a
 # capture of GET /p4/switch_state at all -- searched for `probe_ok`, `probe_age_s` and
 # `switch_state`, and every hit is a proxy log or a C++ source -- and the newest saved
 # get_graph_data from a BMv2 fabric is 2026-09-07 at 128 hosts, not the 4-host fabric this

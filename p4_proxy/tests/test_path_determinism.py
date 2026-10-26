@@ -3,7 +3,7 @@ The path chosen between two hosts must be a function of the topology, and nothin
 
 [Co-developed with claude code -- Adam]
 
-Round 5 (2026-09-03, `doc/audit/2026-09-03_night-rounds/round5-topology-repro/`) measured the
+A measurement on 2026-09-03 found the
 defect these tests exist for. Ten `ndt up p4 4` / `ndt down` cycles, the same command, the same
 topology file, each from a machine verified clean, produced **four different fabric-wide routing
 tables in eight fully captured bring-ups**; with identical h3 -> h1 traffic s3 left via s7 four

@@ -85,7 +85,7 @@ add() {
 }
 
 # 1. A round missing one endpoint reports itself Complete: the mixed-age graph is applied and the
-#    log says nothing, which is the state this whole ticket is about.
+#    log says nothing, which is the state this gate is about.
 add "1. two answers out of three count as a complete round" \
     "$SRC" \
     '    if (answered == 3)' \

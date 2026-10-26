@@ -1,1 +1,0 @@
-{"error":"Intent translator is disabled; the kernel was started with --no-ai."}

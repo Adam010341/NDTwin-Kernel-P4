@@ -14,7 +14,7 @@
 #
 # WHAT IS FROZEN HERE AND WHY IT IS HERE RATHER THAN IN A SHELL.
 #   The ladder, the arms, the interleave and the reps are read from round.env, which is committed.
-#   memory/put-measurement-commands-in-script-files: a bracket protects a pattern, not a command,
+#   A bracket protects a pattern, not a command,
 #   and a value typed at a prompt has no provenance.  Every number this round used is recoverable
 #   from the commit that ran it.
 #
@@ -79,7 +79,7 @@ plan() {
     say "           = $((n + nb)) x (DUR ${DUR}s + 42s overhead + ${CELL_BASELINE_WINDOW}s cell baseline)"
     say "             + $rungs x 40s recompile."
     say "           🔴 Lower bound: the 42s was measured on a warm fabric."
-    say "           🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  Adam schedules."
+    say "           🔴 PREREG §4 forbids overlapping the 9/03 preparation window.  The maintainer schedules."
     say "           Design options and what each one CANNOT answer: see COST-TABLE.md."
 }
 
@@ -248,8 +248,8 @@ ladder() {
 #     a3bb761^ p4_proxy/proxy_agent/sflow_emitter.py:257  def __init__(self, collector, ...,
 #                                                          started_at=None)      <- no batch_size
 # The wiring commit (9487643, 08-26) is an ancestor of a3bb761^, while the implementation was
-# only rescued into version control by a3bb761 itself ("written by 8/25 mainDev and never
-# committed" -- its own message).  So that tree raises TypeError at proxy start.
+# only rescued into version control by a3bb761 itself (its own message says it was
+# written on 8/25 and never committed).  So that tree raises TypeError at proxy start.
 #
 # PREREG §3a(c) already registers what happens then: "equivalence disproved, OR a3bb761^ cannot be
 # built => rewrite the claim scope".  This script therefore REFUSES to invent a substitute tree on

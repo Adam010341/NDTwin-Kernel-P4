@@ -8,7 +8,7 @@
 # the same flock: the inner one waits out the whole `LOCK_WAIT` and exits 2, which the gate
 # reads as "the mutant does not compile". Measured twice -- 3 hours on 2026-09-04
 # (tests/shell/README.md §3) and 9 minutes on 2026-09-10
-# (scratch/.../fix/R4-CPPGATES-1-SUMMARY.md §4.0, where every mutation came back INVALID).
+# (a run where every mutation came back INVALID).
 # The guard now recognises a lock this process tree already holds and nests without a second
 # flock and without a second cgroup scope.
 #
@@ -48,13 +48,13 @@ SHIM="$GUARD/shims"
 GB="$GUARD/guarded_build.sh"
 [[ -x "$GB" ]] || { echo "no guarded_build.sh at $GB"; exit 2; }
 
-# 🔴 The ambient environment must not decide the answer. If this file is itself run from inside
-# a guard (the gate may be), NDTWIN_GUARD_HELD arrives already set, and a case that means to be
-# the outermost layer would be testing something else.
-# [Co-developed with claude code -- Adam] NOTE-2 (the build_guard opus judge, 09-27): and not only
-# that one -- the same nine variables test_build_guard.sh clears, every one guarded_build.sh or its
-# shims read. An inherited NO_CGROUP=1 skips (g)'s fake systemd-run; an inherited TIMEOUT below
-# the holders' sleeps kills them under (b) and (d). A case that wants a value sets it itself.
+# 🔴 The ambient environment must not decide the answer. If this file is itself run from inside a
+# guard (the gate may be), NDTWIN_GUARD_HELD arrives already set, and a case that means to be the
+# outermost layer would be testing something else.
+# [Co-developed with claude code -- Adam] And not only that one -- the same nine variables
+# test_build_guard.sh clears, every one guarded_build.sh or its shims read. An inherited NO_CGROUP=1
+# skips (g)'s fake systemd-run; an inherited TIMEOUT below the holders' sleeps kills them under (b)
+# and (d). A case that wants a value sets it itself.
 unset JOBS SHIM_JOBS NDTWIN_GUARD_HELD LOCK LOCK_WAIT MEM_HIGH MEM_MAX TIMEOUT NO_CGROUP
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT

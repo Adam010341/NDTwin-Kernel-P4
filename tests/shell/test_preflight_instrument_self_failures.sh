@@ -6,15 +6,15 @@
 #
 # (a) The harness ran `ndt` with NDT_OWNER unset. `ndt status` renders the claim line RELATIVE to
 #     that name (ndt:1145), so with it unset EVERY claim -- including the round's own -- prints as
-#     a stranger's, and the §4.1/§4.2 gate reported "the lab is claimed by someone else: auditor"
-#     about a lab auditor had correctly claimed for this round. Measured in one second, both ways:
-#     raw/C29_preflight_triage.log (a): unset -> "claim auditor", NDT_OWNER=auditor -> "claim yours".
+#     a stranger's, and the §4.1/§4.2 gate reported "the lab is claimed by someone else: <owner>"
+#     about a lab the round's own owner had correctly claimed. Measured in one second, both ways:
+#     unset -> "claim <owner>", NDT_OWNER=<owner> -> "claim yours".
 #     Two directions matter here and case 3 is the second one: OWNER-UNSET must not become a
 #     blanket amnesty that also stops reporting a genuinely foreign claim.
 #
 # (b) `port_holder` took `head -1` of ss's users list. ss lists every process holding an fd for
 #     the socket, not the one that called listen(), and the kernel forks helpers while its
-#     listening fd is inheritable. Live, raw/C29 (d):
+#     listening fd is inheritable. Live:
 #       users:(("curl",pid=896662,fd=8),("curl",pid=896661,fd=8),("curl",pid=896660,fd=8),
 #              ("ndtwin_kernel",pid=845333,fd=8))
 #     The preflight reported ":8000 is held by pid 896662 (curl ...)". Case 5 uses that exact
@@ -60,19 +60,20 @@ declare -F listen_owner_pid >/dev/null || { echo "  FAILED   $LIB does not defin
 # =================================================================================================
 echo "=== (a) NDT_OWNER: the harness must not read its own claim as a stranger's ==="
 
-# The claim line exactly as `ndt status` printed it on 2026-09-02 at 21:45 (raw/C29 (a)).
-FOREIGN_NAME_LINE='auditor -- 246m left (until 01:51:28)'
+# The claim line in the shape `ndt status` printed it on 2026-09-02 at 21:45, with the owner's
+# name replaced by a neutral token.
+FOREIGN_NAME_LINE='session-b -- 246m left (until 01:51:28)'
 YOURS_LINE='yours -- 246m left (until 01:51:28)'
 
 check "case 1  claim 'yours ...' with NDT_OWNER set    -> YOURS" \
-      "YOURS" "$(claim_verdict "$YOURS_LINE" auditor)"
+      "YOURS" "$(claim_verdict "$YOURS_LINE" session-b)"
 check "case 2  a NAME with NDT_OWNER UNSET is OWNER-UNSET, not FOREIGN (the L-10 defect)" \
       "OWNER-UNSET" "$(claim_verdict "$FOREIGN_NAME_LINE" "")"
 check "case 3  a NAME with a DIFFERENT NDT_OWNER set is still FOREIGN (the check is not silenced)" \
       "FOREIGN" "$(claim_verdict "$FOREIGN_NAME_LINE" e-round-sampling-ceiling)"
 check "case 4a 'none' -> UNCLAIMED"  "UNCLAIMED" "$(claim_verdict none "")"
-check "case 4b 'EXPIRED 3m ago (was auditor) -- treated as free' -> EXPIRED" \
-      "EXPIRED" "$(claim_verdict 'EXPIRED 3m ago (was auditor) -- treated as free' "")"
+check "case 4b 'EXPIRED 3m ago (was session-b) -- treated as free' -> EXPIRED" \
+      "EXPIRED" "$(claim_verdict 'EXPIRED 3m ago (was session-b) -- treated as free' "")"
 
 # The verdict must be WIRED IN. A five-valued function that 00_preflight.sh does not call, or
 # calls while keeping its old catch-all, changes nothing about the FAIL that was observed.
@@ -90,7 +91,7 @@ check "case 4d sourcing lib.sh EXPORTS a set-but-unexported NDT_OWNER so ndt can
 # =================================================================================================
 echo "=== (b) :8000 -- the LISTEN owner, not whichever fd-holder ss happens to print first ==="
 
-# The line exactly as captured on 2026-09-02 (raw/C29_preflight_triage.log (d)).
+# The line exactly as captured on 2026-09-02.
 C29_LINE='LISTEN 0      4096   0.0.0.0:8000 0.0.0.0:* users:(("curl",pid=896662,fd=8),("curl",pid=896661,fd=8),("curl",pid=896660,fd=8),("ndtwin_kernel",pid=845333,fd=8))'
 
 # 🔴 INJECTION CHECK FIRST. If the fixture does not actually contain several holders with the

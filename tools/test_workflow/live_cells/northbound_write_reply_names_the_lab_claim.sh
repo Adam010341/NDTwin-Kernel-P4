@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #
-# CELL northbound_write_reply_names_the_lab_claim -- KNOWN-ISSUES G-32, Adam's option C
-# (DECISIONS-0912-NIGHT C1-6). A write that programs the fabric answers with the claim it was
-# made under, so a caller can tell "my claim" from "somebody else's" from the reply itself.
+# CELL northbound_write_reply_names_the_lab_claim -- KNOWN-ISSUES G-32. A write that programs
+# the fabric answers with the claim it was made under, so a caller can tell "my claim" from
+# "somebody else's" from the reply itself.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: ROLE-4 T4, live 2026-09-11 02:01:16-02:02:45 (FIX-NDT-3-SUMMARY §7-1). A loop firing
+# Source: live 2026-09-11 02:01:16-02:02:45. A loop firing
 # install_flow_entry and delete_flow_entry every two seconds got 200 through the second its own
 # claim expired, and went on getting 200 after a DIFFERENT owner took the claim -- with nothing
-# in the reply and nothing in the log to say the lab had changed hands underneath it. Adam ruled
-# option C: the kernel REPORTS and refuses nothing.
+# in the reply and nothing in the log to say the lab had changed hands underneath it. The
+# chosen behaviour: the kernel REPORTS and refuses nothing.
 # Fix: the `lab_claim` object attached at HttpSession::buildResponse's single exit
-# (`attachLabClaimIfWrite`), shipped by FIX-CPP-SMALL-1.
+# (`attachLabClaimIfWrite`).
 #
 # 🔴 WHY A LIVE CELL AT ALL -- tests/shell/mutate_lab_claim_on_writes.sh already mutates this
 # seam. Because that gate drives the C++ unit seam with a claim file it writes itself, and the
@@ -27,7 +27,7 @@
 # mutate_lab_claim_on_writes.sh calls M8, and the reason B-6 keeps Ryu's notification route
 # separate. A POST that is not one of the twelve must come back UNMARKED, and so must a GET.
 #
-# What this cell does to the lab: one declared link failure on the edge ROLE-1 used, withdrawn
+# What this cell does to the lab: one declared link failure on the s1-s5 edge, withdrawn
 # through the API immediately, and the machine's netem count recorded afterwards. The 400 and
 # the 404 touch nothing at all.
 set -uo pipefail

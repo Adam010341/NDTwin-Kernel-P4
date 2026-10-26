@@ -264,7 +264,7 @@ check_fires "M7: not waiting is reported as a failure" m7 \
 # --- M8: the decision stops quoting what it was made on ----------------------------------------
 # The line is the only record that this bring-up skipped a check, and the list is the only
 # evidence for why. Without it the log says a wait did not happen and nothing says what the
-# proxy actually reported -- a decision an auditor cannot reconstruct.
+# proxy actually reported -- a decision a reader cannot reconstruct.
 cat > "$A/m8.old" <<'EOF'
             info "  link discovery: NOT WAITED -- the proxy says it sends no LLDP on this fabric (control_plane.skipped: ${skipped//,/, })"
 EOF

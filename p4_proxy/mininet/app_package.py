@@ -21,7 +21,7 @@ What this module does NOT do, on purpose:
   * It does not apply anything. It parses, validates and refuses; the proxy and the topology
     script decide what to do with the result. That is what lets one reader serve a FastAPI
     process, a Mininet script running as root, and a unit test that has neither.
-  * It does not write the knob. `ndt` does (ticket C). A reader that also writes is a reader
+  * It does not write the knob. `ndt` does. A reader that also writes is a reader
     whose tests cannot tell a stale file from a fresh one.
   * It does not validate table entries against a p4info. `tools/p4_exercise/preflight.py` does,
     before the fabric is built. All this file counts is HOW MANY entries a package declares, so
@@ -63,7 +63,7 @@ FORMAT = 1
 #: non-blank, non-`#` line wins, a missing file means `auto`.
 #:
 #: [Co-developed with claude code -- Adam]
-#: TICKET-P3 section 2.1. One word, three readers -- this fabric (which ports get a `tc ...
+#: One word, three readers -- this fabric (which ports get a `tc ...
 #: action sample` filter), the proxy (whether it writes a clone session and registers an sFlow
 #: agent) and `ndt status`. A file rather than an environment variable for the same reason the
 #: three beside it are files: `ndtwin-lab topo-start` launches the topology through `tmux` under
@@ -135,7 +135,7 @@ BASELINE_DEVICE_ID = "dpid"
 PACKAGE_DEFAULT_ELECTION_ID: Tuple[int, int] = (0, 65535)
 
 
-#: `roles` (TICKET-P4-roles section 2.1). Additive -- `format` stays 1 -- and absent from every
+#: `roles`. Additive -- `format` stays 1 -- and absent from every
 #: package written before it, which then loads exactly as it did (tests/test_app_package.py
 #: compares the loaded object against a capture taken at 6291db35).
 #:
@@ -192,8 +192,8 @@ class SwitchSpec:
     #: `entries` is: the two readers of this object -- a proxy started from `p4_proxy/` and a
     #: Mininet script started from anywhere -- do not share a working directory, so a relative
     #: path stored here would name two different files depending on who asked.
-    #: G4 (phase 2) is what made this field able to be anything other than None; a phase-1
-    #: package, whose switches all say `null`, loads unchanged.
+    #: A package that carries its own program makes this something other than None; a package
+    #: whose switches all say `null` loads unchanged.
     pipeline: Optional[Tuple[str, str]]
     #: Absolute path of this switch's runtime entries file, or None.
     entries: Optional[str]
@@ -227,7 +227,7 @@ class RouteRole:
 
 @dataclass(frozen=True)
 class Roles:
-    """Every role a package declares. This cut knows one (TICKET-P4-roles section 2.1-1)."""
+    """Every role a package declares. This cut knows one."""
 
     ipv4_route: Optional[RouteRole] = None
 
@@ -256,19 +256,19 @@ class Package:
     hosts: Tuple[HostSpec, ...] = ()
     switches: Tuple[SwitchSpec, ...] = ()
     #: Recorded verbatim from the package. Read by `shaped_links()`, which is what turns the
-    #: ones an exercise actually shaped into `TCLink` arguments (G2-C, TICKET-P3 section 2.4).
+    #: ones an exercise actually shaped into `TCLink` arguments.
     links: Tuple[dict, ...] = field(default_factory=tuple)
     #: What this package asks for as its telemetry source: one of TELEMETRY_SOURCES. `auto`
-    #: -- the default, and what every package written before TICKET-P3 says by omission -- is
-    #: a RULE rather than an answer; `telemetry_source()` resolves it per switch.
+    #: -- the default, and what every package written before this field existed says by omission --
+    #: is a RULE rather than an answer; `telemetry_source()` resolves it per switch.
     #:
     #: [Co-developed with claude code -- Adam]
-    #: A declaration, not a decision: the knob outranks it (section 2.1), because the knob is
+    #: A declaration, not a decision: the knob outranks it, because the knob is
     #: what `ndt up p4 --telemetry <word>` writes and an operator who names a source on the
     #: command line has said something more recent than the package author did.
     telemetry_source: str = TELEMETRY_AUTO
     #: `roles`, or None when the package declares none -- which is every package written before
-    #: TICKET-P4-roles, and the baseline. None, not an empty Roles: "declared no roles" is the
+    #: `roles` existed, and the baseline. None, not an empty Roles: "declared no roles" is the
     #: state the byte-identity capture pins, and a default object here would be a new value in
     #: every loaded package. [Co-developed with claude code -- Adam]
     roles: Optional[Roles] = None
@@ -337,9 +337,9 @@ class Package:
 
         It is still a comparison of resolved paths rather than `spec.pipeline is not None`,
         for two reasons that are not cosmetic: it is defined for `baseline()` and for a Package
-        built by hand, which have no `switches` at all; and it is the same expression worker B
-        computes independently in `proxy_agent/main.py` (TICKET-P2 section 2.1 has B not import
-        this name), so writing it two ways would be two answers to one question.
+        built by hand, which have no `switches` at all; and it is the same expression
+        `proxy_agent/main.py` computes independently (it does not import this name), so writing it
+        two ways would be two answers to one question.
         """
         return self.pipeline_for(dpid, base_dir) == baseline().pipeline_for(dpid, base_dir)
 
@@ -427,7 +427,7 @@ def read_knob(path=None) -> Optional[str]:
         f"fabric -- an empty knob is a half-finished write, not a default")
 
 
-# --- telemetry: one word, three readers (TICKET-P3 section 2.1) ------------------------------
+# --- telemetry: one word, three readers ------------------------------
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -454,7 +454,7 @@ PROXY_ROOT = os.path.join(_HERE, "..")
 def read_telemetry_knob(path=None) -> Optional[str]:
     """The telemetry source this machine is configured for, or None for "the package decides".
 
-    The `host_count_override` shape, as TICKET-P3 section 2.1 specifies: first non-blank,
+    The `host_count_override` shape: first non-blank,
     non-`#` line wins; a file that is absent -- or present and carries no directive -- is None.
 
     🔴 A WORD OUTSIDE THE DOMAIN IS A REFUSAL, not a fallback to `auto`. `ndt` is the only
@@ -481,7 +481,7 @@ def read_telemetry_knob(path=None) -> Optional[str]:
 def telemetry_source(package, dpid, knob_path=None, base_dir=None) -> str:
     """Which telemetry source switch `dpid` runs under: "none", "cooperative" or "link".
 
-    Three layers, most recent first (TICKET-P3 section 2.1):
+    Three layers, most recent first:
 
       1. the knob, when it names something other than `auto` -- `ndt up p4 --telemetry <word>`;
       2. the package's own `telemetry.source`, when it names something other than `auto`;
@@ -491,9 +491,9 @@ def telemetry_source(package, dpid, knob_path=None, base_dir=None) -> str:
     `base_dir` exists because layer 3 has to ask `pipeline_is_ndtwin`, which resolves a pair of
     paths; it defaults to the p4_proxy root the fabric itself uses and no caller passes it
     except a test. The proxy computes the same three layers independently in
-    `proxy_agent/main.py` -- TICKET-P3 section 2.1 has worker C not import this name, the same
-    arrangement TICKET-P2 used for `pipeline_is_ndtwin` -- so the two are compared after the
-    merge rather than sharing an import that would hide a disagreement.
+    `proxy_agent/main.py`, which deliberately does not import this name (the same arrangement as
+    for `pipeline_is_ndtwin`), so that a disagreement between the two shows up instead of being
+    hidden by a shared import.
 
     Never answers "auto": `auto` is the rule, and a caller that received it back would have to
     implement the rule a second time.
@@ -510,7 +510,7 @@ def telemetry_source(package, dpid, knob_path=None, base_dir=None) -> str:
             else TELEMETRY_LINK)
 
 
-# --- G2-C: which links this package actually shaped (TICKET-P3 section 2.4) ------------------
+# --- which links this package actually shaped --------------------------------------------
 
 
 def _link_endpoint(entry, side, where):
@@ -606,7 +606,7 @@ def format_shaped_link(entry) -> str:
     """One `shaped_links()` entry as `ndt status` prints it: `s1:3<->s2:3 0.5 Mbit/s`.
 
     Here rather than in `ndt` so the fabric that installs the shaping and the status line that
-    claims it are reading one function. Worker D calls this; nothing in this file does.
+    claims it are reading one function. `ndt status` calls this; nothing in this file does.
     """
     (a_name, a_port), (b_name, b_port), bw_mbps, delay_ms = entry
     text = f"{a_name}:{a_port}<->{b_name}:{b_port}"
@@ -657,8 +657,8 @@ def _carried_by_the_package(package_dir, value, where):
 
     Symlinks are followed on both sides before comparing, so a link planted inside the package
     is not a way around it. An absolute path is refused outright rather than allowed when it
-    happens to point inside: the format's own rule for this field is "relative to package_dir"
-    (TICKET-P2 section 2.1), and a package that spells one of its own files absolutely is one
+    happens to point inside: the format's own rule for this field is "relative to package_dir",
+    and a package that spells one of its own files absolutely is one
     that stops working when the directory is moved.
     """
     if os.path.isabs(str(value)):
@@ -875,11 +875,11 @@ def parse_roles(raw, where) -> Optional[Roles]:
     """`roles` -> Roles, or None when the manifest declares none. Shape only; names every field.
 
     [Co-developed with claude code -- Adam]
-    TICKET-P4-roles section 2.1-1: this cut knows ONE role, `ipv4_route`, with exactly the keys
+    This cut knows ONE role, `ipv4_route`, with exactly the keys
     `owner`, `table`, `match_field`, `action`, `params` and `params` exactly `dst_mac`, `port`.
     Anything else -- another role name, a missing key, an extra key -- is refused naming it,
     because a misspelled key would leave the real one missing and the fabric running a binding
-    nobody declared. `owner` is `ndtwin` or `package` and nothing else (2.1-2).
+    nobody declared. `owner` is `ndtwin` or `package` and nothing else.
 
     tools/p4_exercise/preflight.py calls this same function, so pre-flight refuses exactly the
     shapes the loader refuses, with the same sentence.
@@ -954,7 +954,7 @@ def load(package_dir) -> Package:
 
     Everything refused here is refused BEFORE a switch is started, which is the whole point:
     the failure mode this replaces is a fabric that comes up, forwards nothing, and reports
-    zero rather than an error (GAP-ANALYSIS section 5).
+    zero rather than an error.
     """
     if not isinstance(package_dir, str) or not package_dir:
         raise AppPackageError(f"package_dir must be a path, got {package_dir!r}")
@@ -1033,7 +1033,7 @@ def load(package_dir) -> Package:
     if not isinstance(links, list):
         raise AppPackageError(f"{where}: 'links' must be a list")
 
-    # TICKET-P3 section 2.1: optional, additive, `format` stays 1. A package that says nothing
+    # Optional, additive, `format` stays 1. A package that says nothing
     # here means `auto`, which is what every package written before this field existed means.
     telemetry = doc.get("telemetry") or {}
     if not isinstance(telemetry, dict):
@@ -1048,7 +1048,7 @@ def load(package_dir) -> Package:
             f"{where}: telemetry.source must be one of {list(TELEMETRY_SOURCES)}, got "
             f"{telemetry_source!r}")
 
-    # TICKET-P4-roles section 2.1: optional, additive, `format` stays 1. Absent means None, and
+    # Optional, additive, `format` stays 1. Absent means None, and
     # a package without it loads into exactly the object it loaded into before the field existed.
     roles = parse_roles(doc.get("roles"), where)
 

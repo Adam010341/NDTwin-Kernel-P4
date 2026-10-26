@@ -10,8 +10,7 @@
 #     round said nothing and carried on -- silent in exactly the state where its input is gone.
 #     The clause added to make the comparison safe to evaluate is the clause that emptied it.
 #     🔑 Case 1 is the load-bearing one: the gate must go red for the MISSING-PARTNER case
-#     SPECIFICALLY. A fix whose force-red only fires on some other case is a second hollow guard,
-#     which is what 8/31 mainDev warned whoever picked this up about.
+#     SPECIFICALLY. A fix whose force-red only fires on some other case is a second hollow guard.
 #
 # (b) abort() ran restore_production -> teardown -> the topology's tmux session was gone, taking
 #     with it the only account of why leg 1 died at 02:10:58. Both actions were correct; the ORDER

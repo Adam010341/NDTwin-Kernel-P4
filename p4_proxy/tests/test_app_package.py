@@ -427,14 +427,14 @@ class RefusalTest(unittest.TestCase):
 # [Co-developed with claude code -- Adam]
 #
 # 🔴 THESE TWO MANIFESTS ARE TRANSCRIBED FROM WHAT `tools/p4_exercise/convert.py` ACTUALLY
-# WROTE, byte-for-byte in structure, not from TICKET-P1 section 1. The ticket is the agreement;
-# these are the artefact, and they differ from the ticket in three ways that would each have
-# been a refusal:
+# WROTE, byte-for-byte in structure, not from the format's written spec. The spec is the agreement;
+# these are the artefact, and they differ from the spec in three ways that would each have been
+# a refusal:
 #
 #   1. every referenced path is relative to the package directory, because convert.py now COPIES
 #      the exercise's files in (`<pkg>/pod-topo/s1-runtime.json`, `<pkg>/build/basic.p4.p4info.txtpb`)
 #      so a package no longer depends on ~/tutorials being present;
-#   2. `source` carries keys the ticket did not list -- `p4info`, `bmv2_json`, `controller`.
+#   2. `source` carries keys the spec did not list -- `p4info`, `bmv2_json`, `controller`.
 #      `controller` is EXERCISE-relative, not package-relative, and this reader must not resolve
 #      or check it;
 #   3. `links[]` entries may carry `delay_ms` beside `bandwidth_bps`.
@@ -446,12 +446,12 @@ class RefusalTest(unittest.TestCase):
 # scratch directory is a contract nobody can re-check.
 
 # 🔴 VERBATIM. Both dicts below are `json.load()` of the real package.json bytes, re-emitted with
-# `pprint`; nothing is paraphrased, trimmed or "tidied". The first version of this fixture was
-# hand-typed from a screenful of the real file and got p4runtime's host commands down to one
-# each and invented a `delay_ms: 0.5` that is in neither package -- so the suite asserted a
-# contract nobody had written, which is the exact failure a transcribed fixture exists to
-# prevent (found by the P1-A judge against c3ecf7f8). `delay_ms` is a real part of the FORMAT and
-# is exercised on its own, below, rather than smuggled into a copy of somebody's file.
+# `pprint`; nothing is paraphrased, trimmed or "tidied" (apart from the home directory in
+# `exercise_dir`). The first version of this fixture was hand-typed from a screenful of the real
+# file and got p4runtime's host commands down to one each and invented a `delay_ms: 0.5` that is
+# in neither package -- so the suite asserted a contract nobody had written, which is the exact
+# failure a transcribed fixture exists to prevent. `delay_ms` is a real part of the FORMAT and is
+# exercised on its own, below, rather than smuggled into a copy of somebody's file.
 
 CONVERTER_BASIC = {
     "bmv2": {"cpu_port": 255},
@@ -852,7 +852,7 @@ class TopologyPathDisagreementTest(unittest.TestCase):
 
 
 class PerSwitchPipelineTest(unittest.TestCase):
-    """A package that carries its own program, one per switch (TICKET-P2 section 2.1).
+    """A package that carries its own program, one per switch.
 
     [Co-developed with claude code -- Adam]
     Until G4 this field had to be null and `load` said so. What it is for is exercises/firewall:
@@ -1079,7 +1079,7 @@ class AOneSwitchFabricHasNoInterSwitchLinksTest(unittest.TestCase):
         self.assertEqual(topo_from_json.host_links(model), [("h1", 1, 1), ("h2", 1, 2)])
 
 
-# --- TICKET-P3 section 2.1: one word, three readers ------------------------------------------
+# --- one word, three readers -----------------------------------------------------------------
 
 
 class TelemetrySourceTest(unittest.TestCase):
@@ -1153,7 +1153,7 @@ class TelemetrySourceTest(unittest.TestCase):
             self.write_knob("# written by ndt\n\nlink\ncooperative\n")), "link")
 
     def test_a_knob_with_only_comments_is_not_an_opinion_either(self):
-        # `host_count_override`'s shape, which section 2.1 names: an empty directive file
+        # `host_count_override`'s shape: an empty directive file
         # falls back rather than refusing. The refusing case is the word, below.
         self.assertIsNone(app_package.read_telemetry_knob(self.write_knob("# nothing\n")))
 
@@ -1224,7 +1224,7 @@ class TelemetrySourceTest(unittest.TestCase):
                           app_package.TELEMETRY_RESOLVED)
 
 
-# --- TICKET-P3 section 2.4: which links this package actually shaped --------------------------
+# --- which links this package actually shaped ------------------------------------------------
 
 
 class ShapedLinksTest(unittest.TestCase):
@@ -1324,7 +1324,7 @@ class ShapedLinksTest(unittest.TestCase):
                          "s1:3<->s3:1 0.5 Mbit/s 5ms")
 
 
-# --- a package without `roles` loads byte-identically (TICKET-P4-roles section 2.1-1) -----------
+# --- a package without `roles` loads byte-identically ----------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -1433,7 +1433,7 @@ BASELINE_PACKAGE_LOADS = {
 
 
 class APackageWithoutRolesLoadsByteIdenticallyTest(unittest.TestCase):
-    """TICKET-P4-roles 2.1-1: no `roles` => the loader's answer has not moved."""
+    """No `roles` => the loader's answer has not moved."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="ndtwin_app_pkg_roles_base_")
@@ -1452,7 +1452,7 @@ class APackageWithoutRolesLoadsByteIdenticallyTest(unittest.TestCase):
                 now = json.loads(self.now[case]["json"])
                 added = sorted(set(now) - set(base["fields"]))
                 for name in added:
-                    # A field this ticket (or a later one) added: a package that does not
+                    # A field added after the baseline capture: a package that does not
                     # declare it must not be told anything by it.
                     self.assertIsNone(now[name], f"{case}: new field {name!r} is not None")
                 missing = sorted(set(base["fields"]) - set(now))
@@ -1463,7 +1463,7 @@ class APackageWithoutRolesLoadsByteIdenticallyTest(unittest.TestCase):
                                  f"{case}: the loaded package moved; it now reads {text[:600]}")
 
 
-# --- `roles`: the loader checks the shape and names every field (TICKET-P4-roles 2.1-1) ---------
+# --- `roles`: the loader checks the shape and names every field -----------------------------------
 #
 # [Co-developed with claude code -- Adam]
 # Shape only. Whether the names exist in a p4info is route_binding.resolve's question, asked by

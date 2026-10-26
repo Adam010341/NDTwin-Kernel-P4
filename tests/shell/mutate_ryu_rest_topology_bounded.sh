@@ -89,7 +89,7 @@ add() { MUT_LABEL+=("$1"); MUT_ANCHOR+=("$2"); MUT_REPL+=("$3"); MUT_EXPECT+=("$
 # 1-3. The ceiling is removed from one handler at a time. This is the tree as it was before the
 #      fix, one endpoint at a time -- the read goes straight through to send_request and the
 #      greenlet parks. Done three times rather than once because the observed wedge took out all
-#      three at the same moment, and a fix that bounded only the endpoint the ticket happened to
+#      three at the same moment, and a fix that bounded only the endpoint that happened to be
 #      name would leave two thirds of the same outage in place.
 add "1. the switches handler is unbounded again" \
     "        switches = self._bounded('switches', lambda: get_switch(self.topology_api_app, dpid))" \

@@ -4,9 +4,9 @@
  * [Co-developed with claude code -- Adam]
  *
  * doc/KNOWN-ISSUES.md A-2, the third of the three items that entry explicitly lists as uncovered,
- * and the question doc/audit/2026-08-30_known-issues-wave/11_behavior-evidence.md §6.3 left open:
- * a round where switches answers and links does not still applies the half it got, because
- * updateSwitches/updateHosts/updateLinks each return early on an empty body.
+ * and the question that entry leaves open: a round where switches answers and links does not still
+ * applies the half it got, because updateSwitches/updateHosts/updateLinks each return early on an
+ * empty body.
  *
  * The adjudication these tests pin is that applying the half is RIGHT and stays. All three writers
  * are monotone-up -- they set isUp/isEnabled true and never false -- so a partial round cannot
@@ -356,14 +356,13 @@ TEST(TopologyPollRoundWiring, ASilentRoundDoesNotWriteThePartialToken)
     EXPECT_EQ(capture.tokenCount(), 1u) << "capture rig is not recording:\n" << capture.text();
 }
 
-// --- round 6 N1: the status line, and the four shapes a round can arrive in ----------------------
+// --- the status line, and the four shapes a round can arrive in ----------------------------------
 //
 // [Co-developed with claude code -- Adam]
-// doc/audit/2026-09-03_night-rounds/round6-bug-shapes/{11_,12_,14_SUMMARY}.log. Everything above
-// this line passed before the fix as well: the only failure the old `!body.empty()` test could see
-// was an empty body, and an empty body is what every test above uses. These four are the ones that
-// were measured green-while-broken, so a gate that omits any of them is a gate that would have
-// passed on 2026-09-03 at 05:58.
+// Everything above this line passed before the fix as well: the only failure the old
+// `!body.empty()` test could see was an empty body, and an empty body is what every test above
+// uses. These four are the ones that were measured green-while-broken, so a gate that omits any
+// of them is a gate that would have passed on 2026-09-03 at 05:58.
 
 TEST(TopologyRoundReadsStatus, AnErrorStatusIsNotAnAnswer)
 {

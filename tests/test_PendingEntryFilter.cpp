@@ -17,7 +17,7 @@
  *     polled from an actual switch -- must appear untouched.
  *
  * The live half of the acceptance (post a real rule, watch it absent at t=0 and present after the
- * southbound confirms) needs a fabric and is recorded in the ticket, not here.
+ * southbound confirms) needs a fabric and is not covered here.
  */
 
 #include <gtest/gtest.h>
@@ -114,7 +114,7 @@ TEST(PendingEntryFilterTest, PolledEntriesAreNeverTouchedEvenWhenNothingIsConfir
 
 TEST(PendingEntryFilterTest, TheFilterIsKeyedOnProvenanceNotOnLookingLikeARequest)
 {
-    // The trap this ticket must not fall into. FINDING-03 detected the phantom by its shape --
+    // The trap to avoid. The phantom was first detected by its shape --
     // four fields, no counters, the caller's vocabulary -- and that signature is real. Keying the
     // *fix* on it would make the instrument the same shape as the thing it measures.
     //

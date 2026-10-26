@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mutation gate for tests/test_RateDenominator.cpp (ticket Q).
+# Mutation gate for tests/test_RateDenominator.cpp.
 #
 # A test that has never been seen to fail is a decoration. This applies each mutation named in
 # that file's header, rebuilds, and records WHICH test went red -- not merely that something did.
@@ -203,9 +203,9 @@ p.write_text(s.replace(guard, store+guard, 1))
 ' ZeroIntervalDoesNotRecordADivisor
 
 # --- NEGATIVE CONTROL: leave one of the two rate-publishing sites unfixed ------------------
-# The auditor's requirement: without having seen this red, "every site is asserted" is a claim
+# Without having seen this red, "every site is asserted" is a claim
 # with no evidence. This reverts creditHostBoundEgressEdges to ignore the interval it is handed,
-# which is exactly the partial fix Q-ter warned produces a wrong verdict rather than a visible
+# which is exactly the partial fix that produces a wrong verdict rather than a visible
 # failure.
 NEG_LABEL="NEGATIVE CONTROL: host-bound site ignores its interval"
 NEG_EXPECT=LastHopAttributionTest.TheHostBoundSiteDividesByTheIntervalItWasGiven

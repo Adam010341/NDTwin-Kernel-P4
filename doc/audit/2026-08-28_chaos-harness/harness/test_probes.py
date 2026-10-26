@@ -198,7 +198,7 @@ def main(path: str) -> int:
 
 
 if __name__ == "__main__":
-    # The fixture lives HERE, not in ../raw/, because raw/ is gitignored (it belongs on the
-    # audit-raw orphan branch). A self-test whose fixture is on a different branch is a test
+    # The fixture lives HERE, not in ../raw/, because raw/ is gitignored (raw artifacts are kept
+    # out of the working tree). A self-test whose fixture is not checked in is a test
     # nobody can run -- and this one exists precisely because the harness had no parser test.
     sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else "fixtures/graph_p4_138nodes.json"))

@@ -1,28 +1,28 @@
 /**
- * E-23 / E-25 / E-30 -- the `switch_kind` exemption stops being a note to itself.
+ * The `switch_kind` exemption stops being a note to itself.
  *
  * [Co-developed with claude code -- Adam]
  *
  * WHAT WAS MEASURED
  *
- * W15-2 (2026-09-06) let a topology declare a switch whose `brand_name` this build has no data
- * plane for, provided the node also declares an explicit `switch_kind`. The condition Adam
- * attached to that ruling was that such a machine be MARKED as one whose power and telemetry
- * nobody manages, so the exemption could not be mistaken for support. The mark was written --
+ * On 2026-09-06 a topology became able to declare a switch whose `brand_name` this build has no
+ * data plane for, provided the node also declares an explicit `switch_kind`. The condition on
+ * that exemption was that such a machine be MARKED as one whose power and telemetry nobody
+ * manages, so the exemption could not be mistaken for support. The mark was written --
  * `VertexProperties::powerPath` / `::telemetryPath`, both "none" -- and then two things were
  * true of it:
  *
- *   1. E-23. `DeviceConfigurationAndPowerManager` never read it. In TESTBED mode its six
+ *   1. `DeviceConfigurationAndPowerManager` never read it. In TESTBED mode its six
  *      brand-branching sites all fall into an `else` written for
  *      "Brocade / Others (Currently via SSH)", so a switch admitted only by its `switch_kind`
  *      was sent Brocade's power OID, Brocade's CPU OID, Brocade's memory OID and an SSH
  *      `show power` -- once every ten seconds, forever, to a machine that was never going to
  *      answer any of them.
  *
- *   2. E-25/E-30. Nothing outside the process could see the mark. Measured 2026-09-07, round-2
- *      log lw17c: a kernel carrying the exemption (branch binary 85822a97) was fed a topology
- *      whose dpid 7 has `brand_name: "NOT_A_REAL_KIND"` and `switch_kind: "ovs"`, accepted it,
- *      and served that node from /ndt/get_graph_data with `brand_name`, `admin_state` and
+ *   2. Nothing outside the process could see the mark. Measured 2026-09-07: a kernel carrying
+ *      the exemption (branch binary 85822a97) was fed a topology whose dpid 7 has
+ *      `brand_name: "NOT_A_REAL_KIND"` and `switch_kind: "ovs"`, accepted it, and served that
+ *      node from /ndt/get_graph_data with `brand_name`, `admin_state` and
  *      `is_up` -- no `power_path`, no `telemetry_path`, and no line anywhere in the log saying a
  *      switch had been admitted this way (grepped for unmanaged / power_path / admitted: 0
  *      hits). The mark existed only in memory.
@@ -44,12 +44,12 @@
  *   C. The two marks reach /ndt/get_graph_data, on switch nodes and not on hosts, and the load
  *      that admits an exempted switch says so once in the log.
  *
- *   D. R5 (Adam's ruling of 2026-09-10). `power_path` reaches /ndt/get_power_report as well, on
- *      every entry the report can emit. E-25 marked the switch on the topology endpoint and left
- *      the number it qualifies on another one: measured 2026-09-10 on a live OVS fabric, the
- *      exempted dpid 7 answered `power_consumed: 44487` there and the real OVS at dpid 1
- *      answered 92465, with nothing in that body to tell them apart. Section 10 holds these
- *      cases and the reasoning for asserting a key rather than a changed value.
+ *   D. `power_path` reaches /ndt/get_power_report as well, on every entry the report can emit.
+ *      The topology endpoint marked the switch and left the number it qualifies on another one:
+ *      measured 2026-09-10 on a live OVS fabric, the exempted dpid 7 answered `power_consumed:
+ *      44487` there and the real OVS at dpid 1 answered 92465, with nothing in that body to tell
+ *      them apart. Section 10 holds these cases and the reasoning for asserting a key rather than a
+ *      changed value.
  *
  * 🔴 WHY THE COUNTING DOUBLE MUST REPLACE ALL THREE SEAMS. The same warning OVSPowerStrategy.hpp
  * gives about executeArgvCommand. A double that overrode readFromDevice alone would still let
@@ -87,14 +87,14 @@ namespace
 using nlohmann::json;
 
 /// A brand no shipped topology file names and no branch in this build is written for. The same
-/// spelling the W15-2 suite uses, so the two files agree about what "unknown" means.
+/// spelling the topology-input suite uses, so the two files agree about what "unknown" means.
 constexpr const char* kUnknownBrand = "CiscoC9300";
 
 /// dpids. 7 is exempt; 8 is a Brocade, i.e. the control that must keep being dialled.
 constexpr std::uint64_t kExemptDpid = 7;
 constexpr std::uint64_t kBrocadeDpid = 8;
 
-/// [Co-developed with claude code -- Adam] (R5.) An OVS bridge, i.e. the control for the MININET
+/// [Co-developed with claude code -- Adam] An OVS bridge, i.e. the control for the MININET
 /// cases: same mode, same synthetic figure, `power_path` "synthetic" rather than "none". 6 and
 /// not 1 so it cannot be confused with the live fabric's dpid 1 in a failure message.
 constexpr std::uint64_t kOvsDpid = 6;
@@ -326,7 +326,7 @@ class ExemptSwitchTest : public ::testing::Test
 
     static constexpr const char* kExemptIp = "192.168.123.17";
     static constexpr const char* kBrocadeIp = "192.168.123.18";
-    /// [Co-developed with claude code -- Adam] (R5.) @see kOvsDpid.
+    /// [Co-developed with claude code -- Adam] @see kOvsDpid.
     static constexpr const char* kOvsIp = "192.168.123.16";
 
     std::shared_ptr<Graph> m_graph;
@@ -594,8 +594,8 @@ TEST_F(ExemptSwitchTest, GetGraphDataCarriesBothMarksOnASwitchAndNeitherOnAHost)
 {
     // /ndt/get_graph_data serialises its nodes with `result["nodes"].push_back(graph[vd])`
     // (HttpSession.cpp), which is to_json(VertexProperties). That is a DIFFERENT serialiser from
-    // getStaticTopologyJson's hand-written initialiser, which is where W15-2 put the marks -- so
-    // this is the endpoint the four external apps read and the one lw17c measured as unmarked.
+    // getStaticTopologyJson's hand-written initialiser, which is where the marks were first put --
+    // so this is the endpoint the four external apps read and the one measured as unmarked.
     buildManager(utils::TESTBED);
     addTheExemptSwitchAndItsControl();
 
@@ -678,8 +678,8 @@ class ExemptedTopologyFile
                     node.at("dpid").get<std::uint64_t>() == kExemptDpid)
                 {
                     node["brand_name"] = kUnknownBrand;
-                    // Without this the loader refuses the file outright (W15 door 3e). The
-                    // exemption IS this key.
+                    // Without this the loader refuses the file outright (its explicit-kind
+                    // check). The exemption IS this key.
                     node["switch_kind"] = "bmv2";
                 }
             }
@@ -777,22 +777,21 @@ TEST_F(ExemptSwitchTest, AFleetWithNoExemptSwitchSaysNothingAtAll)
 // [Co-developed with claude code -- Adam]
 //
 // WHAT WAS MEASURED. 2026-09-10, live four-host OVS fabric, kernel binary 433f48a6223c7ef7,
-// the exempted topology loaded through NDT_TOPO
-// (scratch/overnight-2026-09-05/fix/R4-LIVE-SUMMARY.md §4-A15 and §7-1): /ndt/get_power_report
-// answered `power_consumed: 44487` for dpid 7 -- whose `power_path` is "none" -- and `92465`
-// for the real OVS at dpid 1. Ten switches, ten different plausible figures, and nothing in the
-// body to say which of them came from a path this build has. The mark E-25 put on
-// /ndt/get_graph_data's nodes was one endpoint away from the number it qualifies, and a consumer
-// had to fetch a second endpoint and join on `dpid` to find it.
+// the exempted topology loaded through NDT_TOPO: /ndt/get_power_report answered
+// `power_consumed: 44487` for dpid 7 -- whose `power_path` is "none" -- and `92465` for the real
+// OVS at dpid 1. Ten switches, ten different plausible figures, and nothing in the body to say
+// which of them came from a path this build has. The mark on /ndt/get_graph_data's nodes was
+// one endpoint away from the number it qualifies, and a consumer had to fetch a second endpoint
+// and join on `dpid` to find it.
 //
-// 🔴 WHY THESE CASES ASSERT A KEY AND NOT A CHANGED VALUE. Section 7 above is the reason: E-23
-// ruled that MININET keeps the synthetic figure for an exempted switch, because that figure is
+// 🔴 WHY THESE CASES ASSERT A KEY AND NOT A CHANGED VALUE. Section 7 above is the reason: MININET
+// keeps the synthetic figure for an exempted switch, because that figure is
 // syntheticPowerMilliwattsFor(dpid) and was never a question asked of the machine, and M11 of
 // this suite's gate pins the widening that would take it away. So "44487 must not appear" is
-// not available here without reversing that ruling; what was actually missing is the field, and
-// E-25's own serialiser says how to add one -- "purely additive: no existing key changes type,
-// spelling or value" (GraphTypes.hpp, to_json). Same key, same four-word vocabulary, read from
-// the same vertex field, so the two endpoints cannot disagree.
+// not available here without reversing that behaviour; what was actually missing is the field,
+// and the topology serialiser says how to add one -- "purely additive: no existing key changes
+// type, spelling or value" (GraphTypes.hpp, to_json). Same key, same four-word vocabulary, read
+// from the same vertex field, so the two endpoints cannot disagree.
 //
 // The four exits are asserted separately (case 3) because the mark is emitted in one place
 // precisely so it cannot be on three of them: a key that appears and disappears is worse for a
@@ -907,24 +906,23 @@ TEST_F(ExemptSwitchTest, EveryExitOfThePowerReportCarriesThePath)
 //
 // [Co-developed with claude code -- Adam]
 //
-// WHY THIS EXISTS. Section 10 put the mark on fetchPowerReportInternal, and
-// scratch/overnight-2026-09-05/fix/R5-POWER-REPORT-SUMMARY.md registered what it had not
-// touched, verbatim: "🔴 getSingleSwitchPowerReport 沒有跟著加. 它已經有 E-23 的 exempt 鍵
-// (TESTBED), 但 MININET 下同樣回一個沒有記號的合成值." Adam's ruling of 2026-09-10 -- the one
-// section 10 quotes -- was that this family answers in get_graph_data's vocabulary, and this is
-// the second of the two power exits that answers a CALLER rather than filling a cache: its reader
-// is the Intent Translator (src/ndt_core/intent_translator/IntentTranslator.cpp:494), which turns
-// the figure into a sentence for a human.
+// WHY THIS EXISTS. Section 10 put the mark on fetchPowerReportInternal and left
+// getSingleSwitchPowerReport without it: that function already has the exempt key under TESTBED,
+// but under MININET it returned the same synthetic value with no mark. The family answers in
+// get_graph_data's vocabulary, and this is the second of the two power exits that answers a CALLER
+// rather than filling a cache: its reader is the Intent Translator
+// (src/ndt_core/intent_translator/IntentTranslator.cpp:494), which turns the figure into a sentence
+// for a human.
 //
-// 🔴 THE MARK, NOT THE VALUE, for the reason section 10 gives at length: E-23 deliberately left
-// the MININET figure alone because syntheticPowerMilliwattsFor(dpid) is a function of the dpid
+// 🔴 THE MARK, NOT THE VALUE, for the reason section 10 gives at length: the MININET figure is
+// deliberately left alone because syntheticPowerMilliwattsFor(dpid) is a function of the dpid
 // and was never a question asked of the machine, and M11 of this suite's gate pins the widening
 // that would take it away. Every number here is unchanged, and
 // MininetStillGivesTheExemptSwitchTheSameSyntheticFigureThroughBothPaths (section 7) is the case
 // that says so; these three add the key and the agreement between the two copies.
 //
 // 🔴 The two "no figure at all" exits are deliberately NOT marked: a switch this endpoint cannot
-// find, and one carrying no management address, both answer `{}` (FINDINGS #88 -- "this endpoint
+// find, and one carrying no management address, both answer `{}` ("this endpoint
 // is keyed by address and there is no address here to key it by"). There is no power_consumed on
 // those replies for a power_path to qualify, and inventing a body for them would be a contract
 // change rather than a mark.

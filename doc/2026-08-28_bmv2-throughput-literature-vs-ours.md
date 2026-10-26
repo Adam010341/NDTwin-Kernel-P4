@@ -1,7 +1,9 @@
 # bmv2 吞吐：文獻值與本機實測的對照
 
-**建立日 2026-08-28。** 四篇論文全文讀過（PDF 在 `~/Desktop/NDTwin slide material/paper/bmv2 performance/`），
-本機數字全部來自 repo 內已 commit 的量測。
+**建立日 2026-08-28。** 四篇論文全文讀過（PDF 在作者本機，不在本 repo）。
+§2 的 stock／fast 單流兩列、§3-1、§3-2 是 2026-08-15 的本機實測（10-switch fabric、
+三跳路徑 s1→s5→s2、全 stack），當時的量測紀錄不在本 repo；§2 的 16 流那列、§3-3 與 §4 是
+2026-08-28 那一輪的量測。
 
 ⚠️ **本檔的範圍限制先講**：這是**四篇論文**的對照，**不是文獻回顧**。
 它們來自兩次關鍵字搜尋，**沒有做系統性檢索**。
@@ -17,8 +19,7 @@
 ⚠️ **08-28 深夜更正**：上面的「零命中」是**關鍵詞 grep 的假陰性**。ICNCC '23 §4.2 有一句
 質性敘述——為改善效能，以「不產生 log 的模式」**編譯**——不含上列任何關鍵詞。
 正確版本：**四篇無一給 flags／optimization level、無一做對照；其中一篇（ICNCC）有一句
-質性 build-mode 敘述且載明版本 1.15**。完整 14 篇對照見
-`doc/audit/2026-08-28_bmv2-literature-review/RELATED-WORK.md`。
+質性 build-mode 敘述且載明版本 1.15**。
 
 **而這個變數有多大，論文自己寫了**（Chen/Hu/Jin, SIGSIM-PADS '23）：
 
@@ -35,13 +36,13 @@
 |---|---|---|
 | Mininet-P4 testbed（**TSSA 2023**；08-28 更正：先前誤記為「ICT 2023」，數字吻合同一篇） | 64 B 封包 | **~0.57–0.76 Mbps** |
 | 同上 | 128 B 封包 | ~1.03 Mbps |
-| **本機 stock build**（`-O0`＋logging） | UDP、1400 B | **~40–42 Mbps** |
+| **本機 stock build**（`-O0`＋logging） | UDP、1400 B、三跳、delivered 天花板（2026-08-15） | **~40–42 Mbps** |
 | Chen/Hu/Jin | **`simple_switch_grpc`**、線性 16 switch | **~170 Mbps** |
 | Chen/Hu/Jin | 線性拓樸飽和點 | 130 Mbps |
-| **本機 bmv2-fast**（`-O3`、無 logging） | UDP、1400 B、**單流** | **~460–530 Mbps** |
+| **本機 bmv2-fast**（`-O3`、無 logging） | UDP、1400 B、**單流**、三跳、delivered 天花板（2026-08-15） | **~460–530 Mbps** |
 | **本機 bmv2-fast** | UDP、**16 流合計** | 🔴 **~48 Mbps** |
 | Chen/Hu/Jin | **`simple_switch`（非 grpc）** | **up to 1 Gbps** |
-| p4lang 官方 `docs/performance.md` | c4.2xlarge、`simple_router.p4`、`-O3 --disable-logging-macros --disable-elogger` | **~1,047 Mbps 中位 / 80 kpps** |
+| p4lang 官方 `docs/performance.md` | c4.2xlarge、`simple_router.p4`、單一 `simple_switch`、`-O3 --disable-logging-macros --disable-elogger` | 範例那一輪中位 **1047 Mbps**；文件說預期 **約 1 Gbps、80,000 pps** |
 | BMv2 vs T4P4S（ICNCC '23） | UDP ramp | **1 Gbps 無損；上限 ~1.4 Gbps** |
 
 ⇒ **橫跨約三個數量級。** 在沒有 build 資訊的前提下，**這張表不能用來預測任何一台機器的行為**。
@@ -50,13 +51,13 @@
 
 ## 3. 本機量到、而文獻沒有量的三件
 
-### 3-1. 🔴 build 設定值 **12–18 倍**（`doc/2026-08-15_bmv2-performance-report.md`）
+### 3-1. 🔴 build 設定值 **12–18 倍**——沿三跳路徑（本機實測，2026-08-15）
 
 | 量 | stock | bmv2-fast | 倍率 |
 |---|---|---|---|
-| UDP delivered 天花板 | ~40–42 Mbps | ~460–530 Mbps | **12–13×** |
+| UDP delivered 天花板 | ~40–42 Mbps | ~460–530 Mbps | **~12–13×** |
 | TCP 單流 | 24.2 Mbps | 431.0 Mbps | **17.8×** |
-| 64 B 小包 | 3,619 pps | 50,786 pps | **14×** |
+| 64 B 小包 | ~3,619 pps | ~50,786 pps | **14×** |
 | 閒置 RTT（3 hops） | 9.1 ms | 2.8 ms | 3.3× |
 
 📌 **要和論文的 30.7% 分開**：Chen/Hu/Jin 說「turning on all tracing features」讓效能掉 **30.7%**
@@ -64,7 +65,7 @@
 
 ### 3-2. 🔴 天花板是 **pps 不是 bps**
 
-stock 在 1400 B 下平台 **~3.66k pps**，64 B 實測 **3.62k pps** ⇒ **與封包長度無關。**
+stock 在 1400 B 下平台 **~3.66k pps**，64 B 實測 **3.62k pps**（2026-08-15，三跳路徑）⇒ **與封包長度無關。**
 ⇒ 「多少 Mbps」是「pps × 封包大小」的假象，而文獻普遍以 Mbps 報告。
 
 ### 3-3. 🔴 多流會讓**總**吞吐下降，而且只有 bmv2 會
@@ -83,7 +84,7 @@ stock 在 1400 B 下平台 **~3.66k pps**，64 B 實測 **3.62k pps** ⇒ **與�
 >
 > ⇒ **換任何數字進去，這個病都還在**，所以是撤回不是重算。
 >
-> **證據（P1-3 pass A，`doc/audit/2026-08-28_flow-count-capacity/`）**：n=1 那格在自己梯子的
+> **證據（P1-3 pass A）**：n=1 那格在自己梯子的
 > **最高階 240 M/flow 送出 239.96、收到 238.12、loss 0.6091%**
 > ——**單流交出的 238 Mbit 比整個 16 流合計還高，也比 n=2 的乾淨合計 220 高**。
 > 梯子是**每流**速率、最高階 240 ⇒ **n=1 這格能提供的合計上限就是 240 Mbit**，
@@ -94,7 +95,6 @@ stock 在 1400 B 下平台 **~3.66k pps**，64 B 實測 **3.62k pps** ⇒ **與�
 > 而新口徑不需要它。
 >
 > 另外，48 那格的 16 條流**散在四個 path class**，與 160 那格（單一 path class）擺法不同。
-> 見 `doc/audit/2026-08-28_flow-count-capacity/PREREG.md` §2。
 >
 > **160 這個數字本身沒有錯，錯的是它的名字**：它是**單流的無損門檻**，不是交換機的天花板。
 >
@@ -157,8 +157,8 @@ OVS 的 datapath 在 kernel、隨核心數擴展。
 ## 5. 這份對照能支持與不能支持的宣稱
 
 **能**：
-- 這四篇沒有一篇給 build flags 或做過對照（一篇有質性「無 log 編譯」敘述——見 §1 更正），而該變數在本機值 12–18 倍
-- 本機兩顆 build 的數字都落在 Chen/Hu/Jin 自陳的「40 Mbps – 1 Gbps」區間內
+- 這四篇沒有一篇給 build flags 或做過對照（一篇有質性「無 log 編譯」敘述——見 §1 更正），而該變數在本機沿三跳路徑值 12–18 倍（單跳隔離對照的 R = 8.0，是兩顆 build 各自 loss ≤ 0.5% 的最高階之比，見 `KNOWN-ISSUES F-bmv2`）
+- 本機兩顆 build 的 1400 B UDP delivered 天花板（~40–42 與 ~460–530 Mbps）都落在 Chen/Hu/Jin 自陳的「40 Mbps – 1 Gbps」區間內（stock 的 TCP 單流 24.2 Mbps 則低於它）
   ⇒ **那個區間寬到無法否證任何東西**
 - 慢的是 bmv2 這個實作不是 P4 這個語言（T4P4S 同程式跑到 2.3–2.6 Gbps）
 

@@ -1,1 +1,0 @@
-{"status":"released","type":"routing_lock"}

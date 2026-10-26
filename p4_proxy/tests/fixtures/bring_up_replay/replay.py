@@ -2,7 +2,7 @@
 
 [Co-developed with claude code -- Adam]
 
-Why this is in the repo. TICKET-P1D's central claim is "with no package, both entry points
+Why this is in the repo. The central claim is "with no package, both entry points
 produce the argv, the ARP commands and the manifest they produced before the change" -- and a
 claim like that is worth exactly as much as the ability to re-run it. So this takes a
 mininet/ directory as an argument: point it at THIS tree and at a checkout of the pre-change

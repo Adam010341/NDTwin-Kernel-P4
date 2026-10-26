@@ -40,9 +40,12 @@ P4RUNTIME = os.path.join(FIXTURES, "p4runtime")
 FIREWALL = os.path.join(FIXTURES, "firewall")
 CALC = os.path.join(FIXTURES, "calc")
 
-#: Where the fixtures were copied from. Only FixtureProvenance reads it, and it skips loudly
-#: when it is not there -- nothing else in this file depends on the machine having tutorials.
-TUTORIALS_EXERCISES = os.path.expanduser("~/tutorials/exercises")
+#: Where the fixtures were copied from: `exercises/` of a p4lang-tutorials checkout, found at
+#: $NDTWIN_TUTORIALS_DIR or, when that is unset, ~/tutorials. Only FixtureProvenance reads it, and
+#: it skips loudly when it is not there -- nothing else in this file depends on the machine having
+#: tutorials.
+TUTORIALS_EXERCISES = os.path.join(
+    os.environ.get("NDTWIN_TUTORIALS_DIR") or os.path.expanduser("~/tutorials"), "exercises")
 
 #: 🔴 BUILD ARTIFACTS CARRY THE COMMAND THAT MADE THEM, NOT BYTE PROVENANCE (Adam 2026-09-27,
 #: ruling J, the P3-C precedent (c) made the rule rather than a list of exceptions).
@@ -71,6 +74,8 @@ TUTORIALS_EXERCISES = os.path.expanduser("~/tutorials/exercises")
 #: p4c-bm2-ss 1.2.5.15 (SHA 5b948b037a), /usr/local/bin/p4c-bm2-ss, throughout. A `cd <dir> &&`
 #: prefix is part of the command: a relative source is recorded in the json as given, which is
 #: how the json and the command are tied together. `<repo>` is this checkout.
+# The path inside the recorded commands, as text: the commands are compared as strings with what the
+# fixtures record, never run, so this does not follow NDTWIN_TUTORIALS_DIR.
 _TUT = "/home/adam/tutorials/exercises"
 _FIX = "tools/p4_exercise/tests/fixtures"
 
@@ -643,7 +648,8 @@ class FixtureProvenance(unittest.TestCase):
         if not os.path.isdir(TUTORIALS_EXERCISES):
             # Explicit, and never a silent pass: this machine simply cannot answer the question.
             self.skipTest(
-                f"no p4lang-tutorials checkout at {TUTORIALS_EXERCISES}, so the fixtures cannot "
+                f"no p4lang-tutorials checkout at {TUTORIALS_EXERCISES} (set NDTWIN_TUTORIALS_DIR), "
+                f"so the fixtures cannot "
                 f"be compared with the files they were copied from. This is NOT evidence that "
                 f"they match.")
         mismatched, orphaned, checked = fixture_provenance(FIXTURES, TUTORIALS_EXERCISES,
@@ -707,8 +713,9 @@ class TheProvenanceRule(TmpMixin, unittest.TestCase):
     [Co-developed with claude code -- Adam]
     These need no ~/tutorials: they build both trees here, so they run wherever this suite runs,
     including a machine without a p4lang-tutorials checkout, where FixtureProvenance skips. The
-    hosted CI does not run tools/p4_exercise/tests at all; mutate_roles_binding.sh and
-    mutate_p4_exercise_tools.sh do. They are what the mutation gate's J cells are killed by.
+    hosted CI runs this suite through tools/test_workflow/l1_unit_tests.sh, where such a skip is
+    reported as PROVED LESS; mutate_roles_binding.sh and mutate_p4_exercise_tools.sh run it too.
+    They are what the mutation gate's J cells are killed by.
     """
 
     def lay_out(self, files):

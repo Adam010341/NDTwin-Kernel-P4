@@ -12,16 +12,11 @@ for exactly as long as nobody edits the file above line n, which for this file m
 
 This is not a hypothetical. On `1a284f75`, BEFORE this fix, the repo held 62 such citations and
 this scanner could not trust 58 of them -- including four that were already wrong on the day
-they were written:
-
-    doc/audit/2026-09-02_fix-design-campaign/findings/IPERF3-CONFLICT.md  cited :1614
-    doc/audit/2026-09-03_fix-flow-visibility-units/FIX-FLOW-VISIBILITY-UNITS.md  cited :1429, :1475
-    doc/2026-08-29_bmv2-performance-study.md and
-    doc/audit/2026-08-28_flow-count-capacity/FINDINGS.md                  cited :1679
+they were written (they cited lines 1614, 1429, 1475 and 1679).
 
 An entry CODE (`A-1`, `B-2d`, `C-4b`, `G-13`) is stable under insertion: it survives every edit
-that does not renumber the entry itself. Adam's ruling (DECISIONS.md, 09-07 21:0x, item 3) is
-that citations use the code. This file is the gate that keeps them that way.
+that does not renumber the entry itself. The rule is that citations use the code. This file is
+the gate that keeps them that way.
 
 ## What it checks
 
@@ -41,14 +36,14 @@ A citation with no code anywhere near it, or one whose line lands in a DIFFERENT
 violation and the message says 改成條目代號.
 
 🔴 It does NOT enforce that a citation carries a line number, and it must not: the whole point
-of the ruling is that `KNOWN-ISSUES B-11` alone is the correct citation. What the scanner
+of the rule is that `KNOWN-ISSUES B-11` alone is the correct citation. What the scanner
 guards is the other direction -- if you DO write a line number, it has to be true, and it has
 to say which entry it means.
 
 🔴 The bare-code half (2026-09-11, E1). A code with no line number was invisible to this file
-until hunt-0911/F-OFFLINE-1-REPORT.md §1.1 ran THIS file's parser over four codes the repo
+until THIS file's parser was run over four codes the repo
 cites that way -- `T-11`, `L-3`, `L-5` and `I-3` -- and got None out of every one, with all 30
-cases green. So the ruling's own preferred form had nothing checking it, in a document whose
+cases green. So the preferred form had nothing checking it, in a document whose
 codes get renamed and whose citations outlive the rounds that coined them. The second half
 therefore checks the one thing that form can get wrong: the document must DEFINE the code it
 names. It still says nothing about the absence of a line number.
@@ -57,8 +52,8 @@ names. It still says nothing about the absence of a line number.
 
   * `*.log`, `*.diff`, `*.patch` -- verbatim records of bytes somebody else produced. They
     cannot be corrected without falsifying them, so checking them would be a permanent red
-    that the only available fix makes worse. (`*.log` is Adam's exclusion; the other two are
-    the same category and are called out in FIX-KIREF.md §5 as a widening of it.)
+    that the only available fix makes worse. (`*.log` is the original exclusion; the other two are
+    the same category, a widening of it.)
   * `scratch/`, `.git/`, `build*/`, `venv/`, `node_modules/`, `__pycache__/` -- not the repo's
     documentation, and `p4_proxy/venv` is a symlink into another checkout entirely.
 
@@ -70,7 +65,7 @@ from its own scan is an instrument whose scope nobody can check.
 
 ## Entry shapes it can resolve
 
-The ruling names `### <code>` headings, which is where 48 of the codes live. Three shapes exist
+The convention names `### <code>` headings, which is where 48 of the codes live. Three shapes exist
 in the file and all three are read, because "could not resolve" must never read as "fine":
 
     ### B-11 ...        span = that line to the line before the next `### `
@@ -107,7 +102,7 @@ REPO = os.environ.get("KIREF_REPO_UNDER_TEST", DEFAULT_REPO)
 KI_NAME = "KNOWN-ISSUES.md"
 KI_REL = os.path.join("doc", KI_NAME)
 
-#: Where a citation may live. Root-level `*.md` (NEXT.md, RATIONALE.md) is added separately
+#: Where a citation may live. Root-level `*.md` (README.md, CHANGELOG.md) is added separately
 #: because the repo root also holds build trees, scratch and the venv symlink.
 SCAN_DIRS = ("doc", "tests", "tools", "src", "include", "p4_proxy")
 
@@ -135,33 +130,33 @@ SKIP_DIR_NAMES = frozenset((
 #: Directory name prefixes never descended into: build/, build-fuzz/, build-telemetry/...
 SKIP_DIR_PREFIXES = ("build",)
 
-#: An entry code as the ruling defines it: one uppercase letter, a hyphen, digits, and an
+#: An entry code as the convention defines it: one uppercase letter, a hyphen, digits, and an
 #: optional lowercase suffix (`A-4c`, `B-2d`). `\b` on both sides so `UTF-8` is not `F-8` and
 #: `RFC-2119` is not `C-2119`.
 CODE_RE = re.compile(r"\b([A-Z]-\d+[a-z]?)\b")
 
 #: A citation by line number. `.md` is OPTIONAL -- the repo spells it both ways (20 of the 62
 #: sites on `1a284f75` dropped the suffix), and a scanner that reads only the longer spelling
-#: documents its own bypass. Widening of the ticket's regex; FIX-KIREF.md §5.
+#: documents its own bypass. A widening of the original regex.
 #: 🔴 No literal example here, on purpose: this file is inside the scanned tree, and the first
 #: run of this scanner reported THIS comment as a finding about itself. `<N>` below stands for
 #: the digits.
 #:
 #: 🔴 B12 (2026-09-11). This used to be `... ?: ?(\d+)` -- one colon, spelled one way, with
 #: at most one space each side, and the document name hyphenated one way.
-#: hunt-0911/F-B0-B12-REPORT.md §3.1 rows (5)b..(5)e put four re-spellings of ONE citation through
-#: it and got `violations=0` out of every one: the name with an UNDERSCORE, a GitHub blob anchor
+#: Four re-spellings of ONE citation put through
+#: it got `violations=0` out of every one: the name with an UNDERSCORE, a GitHub blob anchor
 #: `#L<N>`, the English word `line <N>`, and extra spaces around the colon. A citation is a claim
 #: about a line of that document whatever punctuation carries it, and the claim is what rots.
 #:
 #: The Chinese form is in for the same reason: this repo's documents are written in Chinese, and
-#: doc/audit/2026-09-02_fix-design-campaign/findings/NDT-HARNESS.md:52 has been citing two line
+#: a document in this repo has been citing two line
 #: numbers as `第<N>／<N>行` since 09-02. They went stale exactly the way the other 62 did -- the
 #: lines it names are now inside an entry about netem scanning.
 #:
 #: 🔴 `行<N>` -- the marker BEFORE the number -- is deliberately NOT a line citation, and the
 #: lookahead is what keeps them apart. §L of the document numbers its ROWS `| **02** |`,
-#: `| **05** |`, and doc/audit/2026-09-02_fix-design-campaign/LEDGER.md:69's `行 02/05` means those
+#: `| **05** |`, and a ledger's `行 02/05` means those
 #: rows: a correct entry citation. Reading it as "lines 2 and 5" would report a citation that is
 #: right, and the only way to get the tree green again would be to delete something true.
 _KI_DOC = r"KNOWN[-_]ISSUES(?:\.md)?"
@@ -218,11 +213,11 @@ UNRESOLVABLE_CODE = "UNRESOLVABLE-CODE"
 OUT_OF_RANGE = "OUT-OF-RANGE"
 UNDEFINED_CODE = "UNDEFINED-CODE"
 
-#: The sentence the ruling asks for. Kept in one place so the gate can mutate it and the tests
+#: The sentence the rule asks for. Kept in one place so the gate can mutate it and the tests
 #: can assert on it without two spellings drifting apart.
 FIX_ADVICE = "改成條目代號"
 
-#: The other advice: a bare code IS the ruled form, so the fix is never "drop the citation".
+#: The other advice: a bare code IS the accepted form, so the fix is never "drop the citation".
 #: Either the document is missing an entry it is being cited for, or the citation names the
 #: wrong code.
 FIX_ADVICE_UNDEFINED = "登記那個代號，或改引到真的條目"
@@ -634,7 +629,7 @@ class TheEntryIndex(unittest.TestCase):
         self.assertEqual([(5, 8)], self.spans.get("A-1"))
         self.assertEqual([(9, 21)], self.spans.get("A-4c"),
                          "A-4c runs to the line before the next `### `, crossing the `## F.` "
-                         "heading -- that is the ruling's rule, not an accident")
+                         "heading -- that is the rule, not an accident")
 
     # .get(), not [] : a missing code must read as a FAILURE with the reason attached, not as a
     # KeyError. A gate that greps for "FAIL:" scores an ERROR as a survivor, so an assertion
@@ -678,7 +673,7 @@ class WhatIsAViolation(unittest.TestCase):
         """🔴 THE CONTROL. Everything above is about firing; this is the only case that says
         the scanner can still hold its fire. A widening that reports a correct citation would
         satisfy every other test in this file and turn the gate into a ban on line numbers,
-        which is not what was ruled."""
+        which is not the intent."""
         t = TreeFixture(self, {"doc/x.md": "見 KNOWN-ISSUES A-4c（`doc/%s`）。\n" % cite(11)})
         self.assertEqual([], t.scan(), report(t.scan()))
 
@@ -752,9 +747,8 @@ class WhatIsAViolation(unittest.TestCase):
 class TheSpellingOfTheCitationIsNotThePoint(unittest.TestCase):
     """B12: the same claim about the same line, written the ways this tree actually writes it.
 
-    🔴 Every case below came back `violations=0` on trunk c81dabbb -- see
-    logs/gates-0910/b12-test_known_issues_references.BEFORE.log, which runs this class against
-    the old one-colon regex. Not one of them differs from
+    🔴 Every case below came back `violations=0` on trunk c81dabbb when this class was run
+    against the old one-colon regex (2026-09-10). Not one of them differs from
     WhatIsAViolation.test_a_line_in_another_entry_is_reported in what it CLAIMS; they differ in
     the punctuation that carries the claim. A citation rots because the document moved under it,
     and the document does not know which separator was used.
@@ -795,7 +789,7 @@ class TheWideningStillHoldsItsFire(unittest.TestCase):
     """🔴 The other direction, one control per spelling admitted above.
 
     A scanner that reported a CORRECT citation would satisfy every case in the class above and
-    turn the ruling into a ban on line numbers, which is not what was ruled -- and the only way
+    turn the rule into a ban on line numbers, which is not the intent -- and the only way
     to get the tree green again would be to delete something true.
     """
 
@@ -809,7 +803,7 @@ class TheWideningStillHoldsItsFire(unittest.TestCase):
     def test_a_row_label_is_not_a_line_number(self):
         """🔴 The case that pays for the Chinese spelling. §L of the document numbers its ROWS
         `| **02** |` and `| **05** |`, and
-        doc/audit/2026-09-02_fix-design-campaign/LEDGER.md:69 cites them as `行 02/05` -- the
+        a ledger cites them as `行 02/05` -- the
         marker BEFORE the number, which in this repo means the row and not the line. Reading it
         as "lines 2 and 5" reports a correct entry citation as a violation."""
         t = TreeFixture(self, {"doc/x.md": "NDT-HARNESS\uff1a%s \u5df2\u904e\u671f\u3002\n"
@@ -817,7 +811,7 @@ class TheWideningStillHoldsItsFire(unittest.TestCase):
         self.assertEqual([], t.scan(), report(t.scan()))
 
     def test_a_bare_entry_code_is_still_invisible(self):
-        """The ruling's whole point: `KNOWN-ISSUES B-11` with no line number is the CORRECT
+        """The whole point: `KNOWN-ISSUES B-11` with no line number is the CORRECT
         citation, and the line-number half must have nothing to say about it.
 
         The bare-code half added on 2026-09-11 asks only whether the code EXISTS, which A-4c
@@ -841,11 +835,11 @@ class TheWideningStillHoldsItsFire(unittest.TestCase):
 # --- a bare code has to name something ----------------------------------------------------
 
 class ABareCodeMustNameSomethingThisDocumentDefines(unittest.TestCase):
-    """2026-09-11, E1 (hunt-0911/F-OFFLINE-1-REPORT.md §1.1).
+    """2026-09-11, E1.
 
-    The shape the ruling asks for is the document's name followed by a bare code, and until
+    The shape the rule asks for is the document's name followed by a bare code, and until
     this class existed nothing asked whether the code was in the document. T-11 was not: it is
-    a TICKET number from doc/2026-08-30_manual-verification-report.md, cited in that shape from
+    a work-item number from the manual-verification table (not in this repository), cited in that shape from
     six product files. (The name and the code are kept apart in this sentence on purpose --
     tests/ is inside the scanned tree.)
     """
@@ -959,8 +953,8 @@ class TheRepositoryAsItStands(unittest.TestCase):
         # its line really lands in.
         self.assertEqual(
             0, len(violations),
-            "%d citation(s) of %s cannot be trusted. %s -- 見 doc/audit/"
-            "2026-09-07_fix-known-issues-references/FIX-KIREF.md：\n%s"
+            "%d citation(s) of %s cannot be trusted. %s："
+            "\n%s"
             % (len(violations), KI_NAME, FIX_ADVICE, report(violations)))
 
     def test_every_bare_code_citation_names_a_code_this_document_defines(self):

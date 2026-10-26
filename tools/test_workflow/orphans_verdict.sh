@@ -17,7 +17,7 @@
 #
 # and it says of itself: "Every gate that reads this rc has to be updated". It has been right to
 # say so. The same fabric, in the same state, has changed code twice inside one merge window --
-# measured live on `integrate-0910`, 2026-09-10 (`scratch/.../fix/R4-LIVE-SUMMARY.md` §4-A7, §4-A9):
+# measured live on the 09-10 integration tree, 2026-09-10:
 #
 #   * clean OVS4 fabric:   rc 0  ->  rc 5.  The tally gained `1 question(s) not answerable`,
 #     from an app whose log is non-empty but whose pidfile is gone -- "the window is LOST".
@@ -26,7 +26,7 @@
 #     so a liveness channel was blind and 2 outranks 5.
 #
 # Both moves are the tool becoming MORE honest, and both break every caller that spells its gate
-# `orphans && ok || fail`. Adam's ruling, 2026-09-10: **read the tally line, do not read the rc.**
+# `orphans && ok || fail`. The rule since 2026-09-10: **read the tally line, do not read the rc.**
 # `ndt`'s own rc table and the tests that pin it (tests/shell/test_ndt_app_orphans.sh,
 # tests/shell/test_apps_residue.sh) are the spec and are NOT changed. What changes is the reader.
 #
@@ -37,10 +37,10 @@
 #     network=<dated rule(s) in a window>/<lock(s) held>/<rule(s) that could not be dated>
 #     not_answerable=<n>
 #
-# 🔴 `network=` is NOT renamed by the 2026-09-12 rules-in-window ruling, and the reason is what it
+# 🔴 `network=` is NOT renamed by the 2026-09-12 rules-in-window rename, and the reason is what it
 # carries: two of its three numbers -- held locks, and rules nothing could date -- are not rules in
 # any window, so `rules-in-window=` would be a wrong label on a right reading. It names the HALF,
-# the way `processes=` does. FIX-NDT-9 §7 carries this back to Adam rather than deciding it.
+# the way `processes=` does. Whether to rename it is left open.
 #
 # CLEAN  ==  processes=clean  AND  dated-in-window == 0  AND  locks == 0
 #            AND the network half answered SOMETHING (see NOT CHECKED below).
@@ -56,7 +56,7 @@
 # NOT CHECKED (rc 3) -- SOME of the network half unanswered is a NOTE; ALL of it is not
 # =================================================================================================
 # 🔴 The NOTE rule above has a floor, and until 2026-09-11 it did not. Measured offline that day
-# (F-OFFLINE-1 §1.11, fixture from ndt:5442 + ndt:5561): a report with the kernel UP, a tally
+# (fixture from ndt:5442 + ndt:5561): a report with the kernel UP, a tally
 # PRESENT, and all three lock probes answering `NOT CHECKED (http 500)` reads
 #
 #     network=0/0/0   not_answerable=3   ->  VERDICT: CLEAN   rc 0
@@ -87,7 +87,7 @@
 # The remedy differs from both: ask again with a kernel that answers. What matters for every
 # caller is that it is NOT 0 and does NOT print the token `CLEAN`.
 #
-# 🔴 And why the kernel-DOWN case keeps its `CLEAN -- the process half only` (Adam 2026-09-10)
+# 🔴 And why the kernel-DOWN case keeps its `CLEAN -- the process half only`
 # while this one does not, when neither read a lock. `ndt down` closing :8000 is a state the
 # operator created on purpose, as the last step of the round whose restore this gate checks; the
 # network half is not merely unanswered, it is gone, and the only honest remedy -- "ask BEFORE the
@@ -97,7 +97,7 @@
 # by two cells of tests/shell/test_orphans_verdict.sh, one on each side of it.
 #
 # 🔴 `processes=unknown` IS a FAIL, and deliberately so: it is `ndt`'s rc 2, "a channel could not
-# look", and Adam's E-7 ruling is that a check which could not look must not look like a check that
+# look", and a check which could not look must not look like a check that
 # looked and found nothing. The verdict line says which of the two it was, because the remedies
 # differ.
 #
@@ -115,10 +115,9 @@
 #
 # So every report taken after `ndt down` -- which is where a round's restore check is taken -- had
 # no tally, and this reader answered UNUSABLE on a machine that six other instruments had just
-# called clean. Measured on the merge tree, 2026-09-10 23:59:
-# `scratch/overnight-2026-09-05/logs/lv-p4128-94-orphans.log`, written up in R5-P4-128 §5 and
-# raised as §7-2: "as an end-of-round restore gate this helper is structurally always UNUSABLE".
-# Adam took option (b) of that item: give the reader a legal kernel-down exit.
+# called clean. Measured on the merge tree, 2026-09-10 23:59: as an end-of-round restore gate
+# this helper was structurally always UNUSABLE. The fix is to give the reader a legal
+# kernel-down exit.
 #
 # 🔴 What makes it legal is that `ndt` SAID SO. The rule is not "a missing tally is fine after a
 # down"; it is "a missing tally is readable only when the report names the reason":
@@ -127,16 +126,16 @@
 #     no tally + nothing saying why                 ->  UNUSABLE, exactly as before
 #
 # The second line is the whole safety of the first. A report cut off mid-run, a report from an
-# older `ndt` whose `orphans` had no network half at all (every `*-94-orphans.log` before 09-10 is
+# older `ndt` whose `orphans` had no network half at all (every such log before 09-10 is
 # one line long), a report whose residue half died -- none of those explain themselves, and none of
 # them may pass. tests/shell/test_orphans_verdict.sh pins both lines, with the kernel-down fixture
-# copied verbatim from that live log and the negative control taken verbatim from
-# `logs/lv-a7-94-orphans.log`.
+# copied verbatim from a live run and the negative control taken verbatim from a live run of an
+# older `ndt`.
 #
 # 🔴 The missing half is named, never counted as zero: the fields print `network=n/a` and
 # `not_answerable=n/a` rather than `0/0/0` and `0`, and `NOTE: network half not checkable: kernel
-# down` is printed above the verdict with `ndt`'s own two sentences quoted under it. E-7 forbids a
-# check that could not look from looking like a check that looked; what it does not forbid is
+# down` is printed above the verdict with `ndt`'s own two sentences quoted under it. A
+# check that could not look must not look like a check that looked; what that does not forbid is
 # reporting the half that DID look. The process half does not read :8000 -- it reads pidfiles,
 # /proc and argv -- so after a down it is still a real answer, and it is the answer the verdict
 # comes from. A running orphan after `ndt down` is NOT CLEAN, kernel or no kernel.
@@ -172,11 +171,11 @@
 #                  be read as a pass)
 #     3  NOT CHECKED (the kernel was UP and the network half was asked, and not one of its
 #                  questions came back -- zeros that mean "nobody got an answer", not "nothing is
-#                  there". Added 2026-09-11 for F-OFFLINE-1 §1.11; also never a pass)
+#                  there". Added 2026-09-11; also never a pass)
 #
 # The report also carries a third field from 2026-09-11: `stack=whole-up|whole-down|HALF|
 # not-reported`, read from the `stack:` line `ndt apps orphans` prints. HALF is rc 1 -- see the
-# H2 note beside STACK below. `not-reported` is every older `ndt` and changes nothing.
+# note beside STACK below. `not-reported` is every older `ndt` and changes nothing.
 
 set -uo pipefail
 
@@ -239,7 +238,7 @@ TALLY="$(sed -n 's/.*tally: \([0-9][0-9]*\) dated rule(s) in a window, \([0-9][0
 # no rule and no lock was read: residue_report (ndt:5415) is the one that produces this report
 # shape, status_residue_row (ndt:5368) is the same statement from `ndt status --check`. Those two
 # FUNCTIONS keep the word `residue`; what they PRINT has said `rules-in-window` since 2026-09-12
-# (Adam, RESIDUE-1 §7-5), and neither needle below reads that word, so both spellings parse.
+# and neither needle below reads that word, so both spellings parse.
 KERNEL_DOWN=0
 if [[ -z "$TALLY" ]] \
    && { grep -qF -- 'the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked' <<<"$REPORT" \
@@ -267,13 +266,13 @@ else
 fi
 
 # --- the stack half: a reading this file used to have no access to ------------------------------
-# 🔴 H2, measured live by ROLE-2 on 2026-09-11 (ROLE-2-CYCLES-REPORT §4). This reader printed
+# 🔴 Measured live on 2026-09-11. This reader printed
 # CLEAN three times over a machine whose stack was half up:
 #
-#   cycle-07  10 bmv2 + 14 mininet processes + a live proxy, kernel down   -> CLEAN
-#   cycle-12  10 OVS bridges + 15 mininet processes + a topo session       -> CLEAN
-#   cycle-13  a kernel serving a 14-node graph on :8000 with 0 bmv2, 0 mininet, no topo
-#             session                                                      -> CLEAN
+#   (a)  10 bmv2 + 14 mininet processes + a live proxy, kernel down        -> CLEAN
+#   (b)  10 OVS bridges + 15 mininet processes + a topo session            -> CLEAN
+#   (c)  a kernel serving a 14-node graph on :8000 with 0 bmv2, 0 mininet, no topo
+#        session                                                           -> CLEAN
 #
 # and every one of those verdicts was correct about what it had been given. `ndt apps orphans`
 # answered about APP processes and about the NETWORK; nothing in its report mentioned the
@@ -292,11 +291,11 @@ fi
 STACK="$(sed -n 's/.*stack: .*verdict=\([A-Za-z-]*\).*/\1/p' <<<"$REPORT" | tail -1)"
 
 # --- the processes that belong to another checkout ----------------------------------------------
-# 🔴 C10-8, measured 2026-09-12 15:05:14. `ndt apps orphans` scans the whole machine, and this
+# 🔴 Measured 2026-09-12 15:05:14. `ndt apps orphans` scans the whole machine, and this
 # machine runs several checkouts of this repo at once. Until `ndt` learned to separate them, one
 # worktree running tests/shell/test_ndt_helper_apps_window.sh put its fixtures into every other
 # checkout's process half, and THIS file answered NOT CLEAN over a lab that was down and clean --
-# which stopped that night's regression grid.
+# which stopped a regression grid.
 #
 # `ndt` now prints them in a column of their own, with neither of the two sentences the process
 # half is read from, so a report carrying this line is already CLEAN by the rules above. What is
@@ -308,7 +307,7 @@ STACK="$(sed -n 's/.*stack: .*verdict=\([A-Za-z-]*\).*/\1/p' <<<"$REPORT" | tail
 ELSEWHERE="$(sed -n 's/.*seen elsewhere (not this checkout): \([0-9][0-9]*\) process(es).*/\1/p' <<<"$REPORT" | tail -1)"
 
 # --- did the network half answer ANYTHING? -------------------------------------------------------
-# 🔴 F-OFFLINE-1 §1.11. The tally cannot answer this on its own: `0 lock(s) held` is the same
+# 🔴 The tally cannot answer this on its own: `0 lock(s) held` is the same
 # number whether three probes said `free` or three said `NOT CHECKED (http 500)`, and only the
 # first of those is a measurement. So the positive answers are read from the report text, in
 # `ndt`'s own words, and matched as whole shapes rather than as bare words:
@@ -344,7 +343,7 @@ if [[ -n "$STACK" ]]; then
     echo "stack=$STACK"
 else
     # Named, not counted as clean: an `ndt apps orphans` from before 2026-09-11 answered nothing
-    # about the stack, and "no answer" must not read as "nothing was up". (E-7)
+    # about the stack, and "no answer" must not read as "nothing was up".
     echo "stack=not-reported"
 fi
 [[ -n "$NDT_RC" ]] && echo "ndt_rc=$NDT_RC (recorded, NOT used for the verdict)"
@@ -360,12 +359,12 @@ fi
 # --- the NOTEs: the things that are honest about not knowing, and are not failures ---------------
 if (( N_UNANSWERABLE > 0 )); then
     echo "NOTE: $N_UNANSWERABLE question(s) not answerable -- 'nobody asked', NOT 'the network is"
-    echo "      clean'. A NOTE and not a FAIL (Adam 2026-09-10)."
+    echo "      clean'. A NOTE and not a FAIL (2026-09-10)."
 fi
 if [[ -n "$ELSEWHERE" ]] && (( ELSEWHERE > 0 )); then
     echo "NOTE: $ELSEWHERE process(es) carrying an app signature belong to ANOTHER checkout on this"
     echo "      machine and are not in this verdict -- 'ndt' names them and their reason above."
-    echo "      They are real and somebody owns them; that somebody is not this lab. (C10-8)"
+    echo "      They are real and somebody owns them; that somebody is not this lab."
 fi
 # The pids `ndt` could not attribute either way. Quoted rather than counted, because the sentence
 # is the finding: they were counted as THIS checkout's, which is the fail-closed side.
@@ -373,7 +372,7 @@ grep -F -- 'who owns these could NOT be established' <<<"$REPORT" \
     | sed 's/^[[:space:]]*!![[:space:]]*/NOTE: /'
 if (( N_UNDATED > 0 )); then
     echo "NOTE: $N_UNDATED rule(s) could not be dated -- a rule this tool could not place, not a"
-    echo "      finding. On a P4 fabric this is EVERY rule (W16-3). A NOTE and not a FAIL."
+    echo "      finding. On a P4 fabric this is EVERY rule. A NOTE and not a FAIL."
 fi
 # Printed by residue_report on its own line, deliberately outside the tally: apps that have no
 # channel at all to be asked on (energy has no disk log, ever). Carried through for the same
@@ -397,9 +396,9 @@ grep -E -- 'CANNOT BE ASKED|CANNOT READ|CANNOT WINDOW|window is LOST|NOT CHECKED
 REASONS=()
 case "$PROCESSES" in
     running) REASONS+=("untracked app processes are running -- 'ndt apps stop <name>'") ;;
-    unknown) REASONS+=("a liveness channel was blind, so the process half was NOT answered (E-7: a check that could not look must not look like a clean check)") ;;
+    unknown) REASONS+=("a liveness channel was blind, so the process half was NOT answered (a check that could not look must not look like a clean check)") ;;
 esac
-# 🔴 H2. A stack the report itself calls HALF is a finding, and the remedy is `ndt down` --
+# 🔴 A stack the report itself calls HALF is a finding, and the remedy is `ndt down` --
 # different from every other reason here, which is why it says so rather than being folded in.
 [[ "$STACK" == HALF ]] && REASONS+=("the stack is HALF up -- one of the kernel and the data plane is there and the other is not; 'ndt apps orphans' does not answer about the stack and said CLEAN over exactly this on 09-11 (H2). remedy: 'ndt down'")
 (( N_RULES > 0 )) && REASONS+=("$N_RULES dated rule(s) in a window -- remove by hand, nothing here deletes them")
@@ -410,14 +409,14 @@ if (( ${#REASONS[@]} == 0 )); then
     # `VERDICT: CLEAN`, because the NOTE above is not guaranteed to reach the reader: the
     # print-only call sites are told to show `orphans_verdict.sh <log> <rc> | tail -1`, and
     # `tail -1` is THIS line. "CLEAN" with no qualifier, for a network half nobody read, is the
-    # exact shape E-7 forbids. The token `CLEAN` is unchanged, so both the rc and a
-    # `grep -F 'VERDICT: CLEAN'` gate (.claude/skills/overnight-hunt/SKILL.md:199) still match.
-    # That is Adam's 2026-09-10 ruling and it is NOT changed by the NOT CHECKED branch below.
+    # exact shape that rule forbids. The token `CLEAN` is unchanged, so both the rc and a
+    # `grep -F 'VERDICT: CLEAN'` gate still match.
+    # That is the 2026-09-10 decision and it is NOT changed by the NOT CHECKED branch below.
     if (( KERNEL_DOWN )); then
         echo "VERDICT: CLEAN -- the process half only; the network half was NOT checked (kernel down)"
         exit 0
     fi
-    # 🔴 F-OFFLINE-1 §1.11. Kernel UP, tally present, and not one of the network half's questions
+    # 🔴 Kernel UP, tally present, and not one of the network half's questions
     # came back. The three zeros in `network=0/0/0` are then not findings-of-nothing; they are the
     # initial values of counters nothing ever incremented, and the token `CLEAN` over them is the
     # one thing this file exists to prevent. `grep -F 'VERDICT: CLEAN'` gates DO NOT match this

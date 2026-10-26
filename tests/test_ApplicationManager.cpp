@@ -3,7 +3,7 @@
 //
 // [Co-developed with claude code -- Adam]
 //
-// First tests this class has ever had (HANDOFF 1i listed it as the last untested manager).
+// First tests this class has ever had (an early coverage review listed it as the last untested manager).
 // They stop at the command layer on purpose: everything past it needs root, an NFS server and
 // /etc/exports, which is why the builders exist as seams at all -- the same reasoning as
 // test_RequestDeadlines.cpp. The sed tests run the real sed against a temp file, because the

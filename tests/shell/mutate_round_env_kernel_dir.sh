@@ -5,7 +5,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# The defect (N7): both round.env files hard-coded KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel, so
+# The defect (N7): both round.env files hard-coded KERNEL_DIR to the main checkout's absolute path, so
 # every suite and gate that sources them from a worktree read the main checkout. M1 and M7 put that
 # line back; the rest are the near misses a fix is likely to make instead, in BOTH files -- the
 # caller's cwd or $0 instead of the file's own path, one directory short or long, an override that

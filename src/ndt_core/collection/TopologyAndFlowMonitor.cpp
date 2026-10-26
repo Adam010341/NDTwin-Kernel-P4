@@ -122,7 +122,7 @@ describeTopologyItem(const json& item, const char* kind, std::size_t index)
 /// [Co-developed with claude code -- Adam]
 /// A sanity bound, and it is worth being exact about which one, because the obvious story is
 /// wrong. This project speaks OpenFlow 1.3 (see Classifier.cpp), where port numbers are 32 bits
-/// and only 0xffffff00 and above are reserved -- so 999999, the value round 5 fed it, is a
+/// and only 0xffffff00 and above are reserved -- so 999999, a value once fed to it, is a
 /// perfectly legal OF 1.3 port number and no protocol rule rejects it. What rejects it is the
 /// fleet: across all thirteen shipped topology files the highest interface index is 67, and
 /// 65535 is the ceiling of the sixteen-bit port space OpenFlow 1.0 had, so it sits comfortably
@@ -134,26 +134,25 @@ describeTopologyItem(const json& item, const char* kind, std::size_t index)
 constexpr std::uint32_t kMaxTopologyInterface = 65535;
 
 // 🔴 kAcceptedSwitchBrands AND acceptedSwitchBrandList() USED TO LIVE HERE, AND MOVED TO
-// common_types/GraphTypes.hpp ON 2026-09-07 (W15-1(b), Adam's ruling of 2026-09-06). The list and
+// common_types/GraphTypes.hpp ON 2026-09-07. The list and
 // the mapping it has to agree with are one truth, and keeping them in two files cost a textual
 // tripwire to hold together; the header is where switchKindFromBrandName is, so that is where the
-// list belongs. The whole-tree rebuild that costs is the reason #91 did not do it. Everything
+// list belongs. The whole-tree rebuild that costs is the reason the list was not put there at first. Everything
 // below still refers to the same two names -- they are simply not defined here any more.
 
 /// Does this node carry an explicit `switch_kind` this build can actually dispatch on?
 ///
 /// [Co-developed with claude code -- Adam]
-/// FINDINGS #91 / W15-2, Adam's ruling of 2026-09-06 (grill §4D round 3, "有明確 `switch_kind`
-/// 就豁免"). #91 refused every unrecognised `brand_name`, and the cost written into its own §5
+/// Decided 2026-09-06. The brand check refused every unrecognised `brand_name`, and its cost
 /// was that an operator holding a switch this codebase has no power path for -- a Cisco, an
 /// Arista -- had to edit one line of C++ before the kernel would read their topology at all.
-/// The ruling reverses that for the case where the file has said, explicitly and in the key
+/// This reverses that for the case where the file has said, explicitly and in the key
 /// meant for it, which data plane the switch is to be driven as.
 ///
 /// 🔴 THREE THINGS MUST HOLD, AND THE THIRD IS THE ONE THAT IS EASY TO DROP. The key must be
 /// present, it must be a string, and its value must name a kind switchKindFromString accepts.
 /// A `"switch_kind": "cisco"` is not an escape hatch -- it is a second typo, and admitting a file
-/// on the strength of one would be exactly the silent fallback #91 exists to abolish.
+/// on the strength of one would be exactly the silent fallback the brand check exists to abolish.
 ///
 /// ⚠️ Written to stand on its own rather than to rely on door 3a running first. Door 3a does run
 /// first today and throws on a malformed value, so the false returns below are unreachable
@@ -181,7 +180,7 @@ declaresLegalSwitchKind(const json& nodeJson)
 /// "ovs=[1,2]; bmv2=[3]" -- the operator-facing rendering of a data-plane mixture.
 ///
 /// [Co-developed with claude code -- Adam]
-/// BUG-17. One function, because the sentence is now printed from two places -- the load-time
+/// One function, because the sentence is now printed from two places -- the load-time
 /// refusal below and validateDataPlaneHomogeneity's log line -- and an operator who saw two
 /// different renderings of the same fact would reasonably wonder whether they were the same fact.
 std::string
@@ -209,12 +208,12 @@ describeSwitchKindGroups(const std::map<SwitchKind, std::vector<std::uint64_t>>&
 /// The switch kinds a topology *document* declares, by the same rule the builder uses.
 ///
 /// [Co-developed with claude code -- Adam]
-/// BUG-17. 🔴 THE SAME RULE, DELIBERATELY DUPLICATED ONE LINE, AND THAT IS THE WHOLE RISK OF THIS
+/// 🔴 THE SAME RULE, DELIBERATELY DUPLICATED ONE LINE, AND THAT IS THE WHOLE RISK OF THIS
 /// FUNCTION: an explicit `switch_kind` wins, and `brand_name` decides otherwise (see the builder's
 /// copy in parseStaticTopologyFile). If the two ever disagree, this pass would refuse a file the
 /// builder would have built homogeneously, or -- worse -- admit one it would not. That is what the
 /// second layer at the end of parseStaticTopologyFile is for: it asks the built graph the same
-/// question and still refuses. Both are wanted, for the same reason #61's edge guard is written
+/// question and still refuses. Both are wanted, for the same reason the edge guard is written
 /// twice.
 ///
 /// The alternative -- reuse getSwitchKindGroups() -- cannot work here: it reads m_dpidToSwitchKind,
@@ -256,9 +255,9 @@ switchKindGroupsFromJson(const json& j)
 /** @brief Refuse an edge whose declared capacity is not a capacity.
  *
  * [Co-developed with claude code -- Adam]
- * B-13. `link_bandwidth_bps` is the one field of an edge no door looked at, and it is the
+ * KNOWN-ISSUES B-13. `link_bandwidth_bps` is the one field of an edge no door looked at, and it is the
  * divisor: updateLinkInfoLeftLinkBandwidth computes
- * `(1.0 - leftIn / edgeProps.linkBandwidth) * 100`. Measured 2026-09-11 (ROLE-3, two independent
+ * `(1.0 - leftIn / edgeProps.linkBandwidth) * 100`. Measured 2026-09-11 (two independent
  * repeats on one kernel): a copy of the shipped OVS 4-host model with 0 on every edge loaded
  * whole -- `ndt up ovs 4` reported all four verifications ok, including "kernel graph matches the
  * model file: 4 hosts, 40 edges" -- and after real traffic 8, then 16, of the 40 edges came back
@@ -344,14 +343,14 @@ nodeInWords(const json& nodeJson, std::size_t index)
 /** @brief Refuse an address the file does not spell the way the twin will read it back.
  *
  * [Co-developed with claude code -- Adam]
- * B-15, arm 6a. inet_aton accepts "10.1", "167772161" and "0x0a000001" for 10.0.0.1, and the
+ * KNOWN-ISSUES B-15. inet_aton accepts "10.1", "167772161" and "0x0a000001" for 10.0.0.1, and the
  * graph stores the parsed uint32 -- so /ndt/get_static_topology_json republishes a dotted quad
  * the operator never wrote, and two spellings of one address stop looking like a collision to
- * anyone reading the file. Measured 2026-09-11 (ROLE-3): `"ip": ["10.1"]` on one host of the
- * shipped OVS model put two hosts on 10.0.0.1 with zero warnings, and #61's "no node in this
+ * anyone reading the file. Measured 2026-09-11: `"ip": ["10.1"]` on one host of the
+ * shipped OVS model put two hosts on 10.0.0.1 with zero warnings, and the "no node in this
  * file carries that address" door passed, because after inet_aton the two spellings ARE one key.
  *
- * The same ruling has been made in this repo before, for the same reason: utils::tryParseUint64
+ * The same call has been made in this repo before, for the same reason: utils::tryParseUint64
  * exists over std::stoull because a mistyped dpid must be refused rather than silently
  * redirected to a different switch.
  *
@@ -388,16 +387,16 @@ requireCanonicalAddress(const std::string& text, const std::string& whose)
  *
  * @details
  * [Co-developed with claude code -- Adam]
- * FINDINGS #61 and #62, in one function because they are one defect seen from two sides: a file
+ * Two checks live in one function because they are one defect seen from two sides: a file
  * describing a fabric that does not exist, accepted.
  *
- *   #61 measured (round5-topology-repro/03_mutant_m1_host_edge_ghost_dpid.log): one host edge's
+ *   - Ghost endpoint, measured 2026-09-03: one host edge's
  *       dst_dpid changed 1 -> 99, a switch no node declares. The loader wrote a single
  *       `[warning] ... Skipping edge:` line and served 39 of 40 edges on :8000. Every endpoint
  *       answered 200. A fabric with one cable in the wrong socket looked healthy from outside.
  *
- *   #62 measured (06_/07_mutant logs): src_interface 0 and 999999 on a switch-side port both
- *       loaded, and get_graph_data republished them verbatim.
+ *   - Out-of-range interface, measured the same day: src_interface 0 and 999999 on a
+ *       switch-side port both loaded, and get_graph_data republished them verbatim.
  *
  * 🔴 THIS RUNS BEFORE THE FIRST add_vertex, AND THAT IS THE DESIGN. The old drop was a rejected
  * input partially applied -- 39/40 of a topology nobody wrote -- and moving the check ahead of
@@ -413,28 +412,28 @@ requireCanonicalAddress(const std::string& text, const std::string& whose)
  * and only to that side. A check written as "a port index is >= 1" would refuse five shipped
  * files: a wider outage than the defect it was meant to fix.
  *
- * FINDINGS #89 / W-TOPO-THREE-DOORS extends this function on the NODE side. #61/#62 made "the
+ * The function also covers the NODE side. The edge checks made "the
  * whole file is checked before the first add_vertex" the rule, but the coverage of the rule was
  * transcribed by hand -- edges were checked here, node addresses were parsed here, and three
  * refusals were left sitting inside the builder loop below, where they fire on node N with nodes
  * 0..N-1 already in the graph. That is the 39-of-40 shape this function exists to abolish,
  * reached through a different door. `ecmp_groups` was the fourth door: not looked at here at all,
- * so a `port_id` got none of the range checking its edge-interface sibling got from #62.
+ * so a `port_id` got none of the range checking its edge-interface sibling got.
  *
- * 🔴 THE BUILDER'S OWN THROWS ARE NOT REMOVED, DELIBERATELY -- same two-layer reasoning as #61's
+ * 🔴 THE BUILDER'S OWN THROWS ARE NOT REMOVED, DELIBERATELY -- same two-layer reasoning as the
  * edge guard. If this pass and the builder ever disagree the builder must still refuse rather
  * than add half a graph. What changes is that the refusal now happens here FIRST, so the graph
  * is untouched; the builder copy is the backstop, and the tests tell the two apart by asserting
  * num_vertices == 0 rather than merely that something threw.
  *
- * FINDINGS #90 adds door 3d: the HOST half of door 3b. #89 wrote door 3b as
- * `vertexType == SWITCH && addresses.empty()`, and R0b's live round then measured what the other
+ * Door 3d is the HOST half of door 3b. Door 3b was first written as
+ * `vertexType == SWITCH && addresses.empty()`, and a live run then measured what the other
  * half of that condition costs -- an extra host with `"ip": []` loaded into the shipped OVS model
  * with no diagnostic at all, and /ndt/get_graph_data served it as `('h9', [])`. Unlike doors 3a-3c
  * this one has NO copy in the builder loop, because there never was one: the builder's addressless
- * check is switch-only too. The second layer for door 3d is #88's runtime guards, which is a
+ * check is switch-only too. The second layer for door 3d is the runtime index-zero guards, which are a
  * different kind of layer -- "does not crash" rather than "refuses" -- and both are wanted, because
- * #88's own inventory left five production-reachable HOST `ip[0]` dereferences unguarded.
+ * the inventory of `ip[0]` sites found five production-reachable HOST dereferences unguarded.
  *
  * ⚠️ THE HOST DOOR IS ABOUT THE FILE, NOT ABOUT DISCOVERY. A host learned from Ryu at runtime is
  * a different object; this pass only ever sees the static topology document, and all thirteen
@@ -447,18 +446,19 @@ requireCanonicalAddress(const std::string& text, const std::string& whose)
  *               fix needed: `bridge_name` is read by the builder only under MININET, so checking
  *               it up here is impossible without knowing the mode, and a check that ran in every
  *               mode would refuse the five _ipAlias4_ TESTBED files, none of which declare one.
- * E-26 (Adam's ruling, 2026-09-07) adds the other end of BUG-17's question: a document that
- * declares NO switch is refused here too. BUG-17 shipped one day earlier having deliberately left
- * that case as a log line -- "a separate policy question nobody has ruled on" -- and the ruling
- * went the other way, against the recommendation. It is the same door and the same register: the
+ *
+ * Since 2026-09-07 a document that declares NO switch is refused here too, as the other end of
+ * the mixed-data-plane question. The mixed-plane refusal shipped one day earlier having
+ * deliberately left that case as a log line -- "a separate policy question" -- and the decision
+ * went the other way. It is the same door and the same register: the
  * file names a fabric this kernel cannot drive, so it does not load.
  *
- * @param allowMixed  the second signature change, and BUG-17's (2026-09-07). A mixed data plane
+ * @param allowMixed  the second signature change (2026-09-07). A mixed data plane
  *               is a supported opt-in, so the pass that refuses one has to be told whether it is
  *               refusing. Passed rather than read from AppConfig here for the reason
  *               setAllowMixedDataPlane exists: a constexpr flag is not something a test can vary,
  *               and this decision now settles whether a file loads at all. 🔴 It governs the
- *               MIXTURE only -- E-26's switchless refusal is not behind it, because opting in to
+ *               MIXTURE only -- the switchless refusal is not behind it, because opting in to
  *               two data planes is not opting in to none.
  */
 void
@@ -486,7 +486,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         // `vertexType == HOST` -- so a third value does not FAIL doors 3b, 3c, 3d and 3e, it is
         // not examined by any of them. One unchecked cast switches four doors off at once.
         //
-        // Measured 2026-09-11 (ROLE-3, values 2, -1 and 99, one run each): a node named by no
+        // Measured 2026-09-11 (values 2, -1 and 99, one run each): a node named by no
         // edge was accepted with ZERO diagnostic, took the shipped OVS 4-host model from 14 nodes
         // to 15, and was republished verbatim by /ndt/get_graph_data and by
         // /ndt/get_static_topology_json -- the latter down the HOST branch of the serialiser,
@@ -530,7 +530,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
             switchDpids.insert(nodeJson.at("dpid").get<std::uint64_t>());
         }
 
-        // ---- #90 door 3d: a HOST with no usable "ip" ----
+        // ---- door 3d: a HOST with no usable "ip" ----
         // [Co-developed with claude code -- Adam]
         // 🔴 Door 3b above is the same sentence for a switch, and stops at `SWITCH` deliberately;
         // this is the other half, and it is a separate door because the reason is different. A
@@ -538,22 +538,22 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         // therefore resolved ONLY by address -- by the edge loop below, by findVertexByIpNoLock,
         // and by everything downstream. An addressless host is a node nothing can name.
         //
-        // Measured, 2026-09-05 (scratch/.../rounds/05-R0b-postmerge2.md, file `a`): one extra host
+        // Measured, 2026-09-05: one extra host
         // with `"ip": []` in the shipped OVS 4-host model was accepted with ZERO diagnostic, the
         // kernel opened :8000, and /ndt/get_graph_data served the node as `('h9', [])`.
         //
-        // 🔴 THIS IS THE FILE LAYER, NOT THE RUNTIME LAYER, AND BOTH ARE NEEDED. #88 put guards on
-        // sixteen `ip.front()` sites so an addressless node cannot crash the process; its own
-        // inventory (§2.2) then found seven MORE unguarded dereferences written as `ip[0]`, five of
+        // 🔴 THIS IS THE FILE LAYER, NOT THE RUNTIME LAYER, AND BOTH ARE NEEDED. Runtime guards went onto
+        // sixteen `ip.front()` sites so an addressless node cannot crash the process; the
+        // inventory then found seven MORE unguarded dereferences written as `ip[0]`, five of
         // them on the HOST side and production-reachable (IntentTranslator.cpp:665,:702,
         // LLMAgent.cpp:243, FlowLinkUsageCollector.cpp:2986,:2987), and left them unfixed. So the
         // invariant those five assume is true only if the file never declares such a host: this
-        // check is what makes it true, and #88's guards stay as the layer that survives a bug here.
+        // check is what makes it true, and the runtime guards stay as the layer that survives a bug here.
         //
         // Missing key and wrong type are refused here too, and for one reason: without this the
         // diagnostic for them is nlohmann's `[json.exception.out_of_range.403] key 'ip' not found`
         // from the shared read below -- the same "the message is an exception class, not a
-        // sentence" defect R0b recorded against door 3c's `bridge_name` before #89 rewrote it.
+        // sentence" defect once recorded against door 3c's `bridge_name`, before it was rewritten.
         if (vertexType == VertexType::HOST)
         {
             const char* fault = nullptr;
@@ -589,11 +589,11 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         // Door 3d rewrote "missing key" and "not an array" into sentences for HOSTS, because the
         // alternative was `[json.exception.out_of_range.403] key 'ip' not found` from the read
         // just below. The read is shared: a SWITCH with no "ip" key got exactly that exception,
-        // and still did after #90 -- door 3b covers a switch's EMPTY array and nothing covered
+        // and still did after door 3d -- door 3b covers a switch's EMPTY array and nothing covered
         // the other two faults. Same defect, same sentence owed, one branch away.
         //
         // 🔴 AFTER DOOR 3d, AND SKIPPING HOSTS, DELIBERATELY -- AND IT IS THE POSITION, NOT THE
-        // CONDITION, THAT DOES THE WORK. Corrected 2026-09-11 after the gate's r2 round measured
+        // CONDITION, THAT DOES THE WORK. Corrected 2026-09-11 after a gate run measured
         // what the previous wording asserted: widening this `!=` to every node type changes
         // nothing at all, because door 3d is forty-nine lines above and has already thrown for a
         // host by the time control arrives here. The old comment said such a widening "would run
@@ -632,17 +632,17 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         const auto addresses = utils::ipStringVecToUint32Vec(addressText);
         nodeAddresses.insert(addresses.begin(), addresses.end());
 
-        // ---- B-15 door 6: one address, one node, one spelling ----
+        // ---- KNOWN-ISSUES B-15 door 6: one address, one node, one spelling ----
         // [Co-developed with claude code -- Adam]
         // 6b is the arm 6a cannot cover: the same dotted quad typed twice. `nodeAddresses` is a
-        // set and has been since #61, so a second claim on an address was not merely unrefused,
+        // set and has been since the edge guard, so a second claim on an address was not merely unrefused,
         // it was unrepresentable -- and findVertexByIpNoLock returns whichever node came first
         // with nothing anywhere able to say a second one exists. Every address-resolved path
         // downstream (the edge loop below, top-K, intent, last-hop attribution) then attributes
         // one node's traffic to another.
         //
         // Keyed on the PARSED address rather than on the string, which is the entire defect: the
-        // two nodes ROLE-3 measured shared 10.0.0.1 while their `ip` strings differed.
+        // two nodes measured on 2026-09-11 shared 10.0.0.1 while their `ip` strings differed.
         for (std::size_t addressIndex = 0; addressIndex < addresses.size(); ++addressIndex)
         {
             requireCanonicalAddress(addressText[addressIndex],
@@ -664,7 +664,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
             }
         }
 
-        // ---- #89 door 3a: a switch_kind no mapping accepts ----
+        // ---- door 3a: a switch_kind no mapping accepts ----
         // switchKindFromString throws std::invalid_argument on anything unmapped, and the builder
         // still calls it for the value it needs. Calling it here for its throw alone is what
         // moves the refusal in front of the first add_vertex.
@@ -673,7 +673,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
             (void)switchKindFromString(nodeJson.at("switch_kind").get<std::string>());
         }
 
-        // ---- #91 door 3e: a brand_name nothing in this build drives ----
+        // ---- door 3e: a brand_name nothing in this build drives ----
         // [Co-developed with claude code -- Adam]
         // The sibling of door 3a, and the reason it was not enough: `switch_kind` throws on an
         // unmapped value, but no shipped file declares `switch_kind` at all -- every one of the
@@ -700,9 +700,9 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
                     "through is read from it (accepted: " + acceptedSwitchBrandList() + ")");
             }
             const auto brandName = nodeJson.at("brand_name").get<std::string>();
-            // ---- W15-2: the switch_kind exemption ----
+            // ---- the switch_kind exemption ----
             // [Co-developed with claude code -- Adam]
-            // 🔴 THE ONE THING THIS EXEMPTION MUST NOT BECOME IS THE OLD FALLBACK. #91's defect
+            // 🔴 THE ONE THING THIS EXEMPTION MUST NOT BECOME IS THE OLD FALLBACK. The old defect
             // was that an unrecognised brand was mapped to HARDWARE **by default**, with nothing
             // said. What is admitted here is not a default: the file has named a data plane in
             // the key that exists for naming one, so the twin is doing what it was told rather
@@ -733,8 +733,8 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
             }
         }
 
-        // ---- #89 door 3b: a switch with no management address ----
-        // FINDINGS #85's door, hoisted. Ten sites call ip.front() on a switch unconditionally,
+        // ---- door 3b: a switch with no management address ----
+        // The older index-zero guard, hoisted. Ten sites call ip.front() on a switch unconditionally,
         // including findSwitchByIp() which does it for every switch while searching, so one
         // `"ip": []` switch is undefined behaviour for the whole graph's address lookup.
         if (vertexType == VertexType::SWITCH && addresses.empty())
@@ -745,7 +745,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
                 "because address lookup reads the first one unconditionally");
         }
 
-        // ---- #89 door 3c: MININET, and a switch with no bridge to attach to ----
+        // ---- door 3c: MININET, and a switch with no bridge to attach to ----
         // 🔴 MININET only. The five _ipAlias4_ TESTBED files declare no bridge_name on any switch
         // and must keep loading; the builder reads the field only on this branch, so the check
         // has to sit on the same branch or it takes those five files down.
@@ -758,10 +758,10 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
                 "bridge by that name");
         }
 
-        // ---- #89 door 2: ecmp_groups[].port_id, which had no range check at all ----
+        // ---- door 2: ecmp_groups[].port_id, which had no range check at all ----
         // Parsed here, through the same from_json the builder's `.value("ecmp_groups", ...)` will
         // use, so a malformed group is a refusal before the graph is touched rather than a throw
-        // from the middle of the node loop. Then the range: the identical bound #62 put on an
+        // from the middle of the node loop. Then the range: the identical bound put on an
         // edge's interface index, because it is the identical thing -- a switch port number.
         // Two of the thirteen shipped files carry no "ecmp_groups" key at all
         // (StaticNetworkTopology_ipAlias4_10Switches{,_all_1g_cable}.json), which is why this
@@ -790,11 +790,10 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         }
     }
 
-    // ---- BUG-17 + E-26: how many data planes does this file declare? ----
+    // ---- how many data planes does this file declare? ----
     // [Co-developed with claude code -- Adam]
-    // 🔴 THE DEFECT WAS A DISCARDED RETURN VALUE, AND IT WAS MEASURED. R6 (2026-09-05,
-    // doc/audit/2026-09-02_manual-usertest/run-06-opus/BUGS.md, BUG-17) copied the shipped P4
-    // model, changed one switch's brand_name from BMv2 to OVS, and got an ERROR line naming both
+    // 🔴 THE DEFECT WAS A DISCARDED RETURN VALUE, AND IT WAS MEASURED. A manual user
+    // test on 2026-09-05 copied the shipped P4 model, changed one switch's brand_name from BMv2 to OVS, and got an ERROR line naming both
     // dpid sets -- and then :8000 open and answering with the mixed model, 14 nodes and 40 edges.
     // `validateDataPlaneHomogeneity` returned a bool and parseStaticTopologyFile called it as a
     // statement, so "the kernel refuses to load a mixed topology" -- what architecture.md, the
@@ -811,14 +810,13 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
     // are the two ways of answering it wrongly: none, and more than one.
     const auto declaredKinds = switchKindGroupsFromJson(j);
 
-    // ---- E-26: the file declares no switch at all ----
+    // ---- the file declares no switch at all ----
     // [Co-developed with claude code -- Adam]
-    // 🔴 THIS REVERSES A DELIBERATE DECISION MADE ONE DAY EARLIER, AND THE REVERSAL IS THE RULING.
-    // BUG-17's first commit refused only a MIXTURE and left "no switches at all" as a logged
-    // error, on the grounds that whether a switchless document may load was a separate policy
-    // question nobody had ruled on. Adam ruled on it on 2026-09-07 (grill Section 4E, E-26,
-    // scratch/overnight-2026-09-05/DECISIONS.md:266): refuse it, through this same door, with the
-    // same register -- against the recommendation, which was to leave it and open a ticket.
+    // 🔴 THIS REVERSES A DELIBERATE DECISION MADE ONE DAY EARLIER. The mixed-data-plane refusal
+    // first shipped refusing only a MIXTURE and left "no switches at all" as a logged error, on
+    // the grounds that whether a switchless document may load was a separate policy question.
+    // It was decided on 2026-09-07: refuse it, through this same door, with the same register,
+    // rather than leave it as a known gap.
     //
     // The reason it is refusable at all is that there is no legitimate reading of it. Every
     // control this kernel has is addressed by dpid: the flow strategies dispatch per DPID, the
@@ -826,7 +824,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
     // validateDataPlaneHomogeneity has said "nothing can be controlled" about this case since it
     // was written. A kernel that starts on such a file answers /ndt/get_graph_data, /ndt/topology
     // and every status query about a fabric of zero switches in the same voice it uses for a real
-    // one -- which is the shape of #61 and of BUG-17 itself: a refusal that only ever reached the
+    // one -- which is the shape of the ghost-endpoint and mixed-plane defects: a refusal that only ever reached the
     // log while the process went on serving.
     //
     // ⚠️ NOT BEHIND allowMixed, AND THAT IS NOT AN OVERSIGHT. ALLOW_MIXED_DATAPLANE is an opt-in
@@ -845,7 +843,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
             "served a fabric of zero switches as though that were an observation of the network");
     }
 
-    // ---- BUG-17: the file declares more than one data plane ----
+    // ---- the file declares more than one data plane ----
     if (!allowMixed)
     {
         if (declaredKinds.size() > 1)
@@ -894,7 +892,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         const auto dpid = edgeJson.at(dpidKey).get<std::uint64_t>();
         const auto ifIndex = edgeJson.at(interfaceKey).get<std::uint32_t>();
 
-        // ---- #61: does this end name something this file contains? ----
+        // ---- ghost endpoint: does this end name something this file contains? ----
         if (dpid != 0)
         {
             if (switchDpids.count(dpid) == 0)
@@ -930,7 +928,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
             }
         }
 
-        // ---- #62: is this an interface index a switch in this fabric could have? ----
+        // ---- out-of-range interface: is this an interface index a switch in this fabric could have? ----
         if (ifIndex > kMaxTopologyInterface)
         {
             throw std::runtime_error(
@@ -999,7 +997,7 @@ TopologyAndFlowMonitor::TopologyAndFlowMonitor(std::shared_ptr<Graph> graph,
       m_eventBus(std::move(eventBus)),
       m_mode(static_cast<utils::DeploymentMode>(mode)),
       // [Co-developed with claude code -- Adam]
-      // BUG-17. Read once, here, instead of at the point of use. AppConfig::ALLOW_MIXED_DATAPLANE
+      // Read once, here, instead of at the point of use. AppConfig::ALLOW_MIXED_DATAPLANE
       // is a `static constexpr bool`, so a test cannot turn it on -- and now that the flag decides
       // whether a file LOADS rather than only what gets logged, "the flag lets a mixed topology
       // through" is a claim with no way to assert it. A member is the seam; see
@@ -1145,11 +1143,11 @@ TopologyAndFlowMonitor::start()
 {
     // Once, on the caller's thread, and reported. Two fixes met here:
     //
-    //   D15 (fix/d15-dataplane-kind-race) moved the load into start() so that it happens-before
+    //   D15 (the data-plane-kind race fix) moved the load into start() so that it happens-before
     //   every caller main.cpp sequences after start() -- the power manager's bmv2 verdict used
     //   to race it and lose on every shipped topology file.
     //
-    //   fix/topology-load-fails-before-listen made the load *report*: loadStaticTopology() is
+    //   A later fix made the load *report*: loadStaticTopology() is
     //   guarded to run once, catches what loadStaticTopologyFromFile throws, logs CRITICAL, and
     //   returns false so main.cpp can refuse to bind a port on a topology that did not load.
     //
@@ -1184,7 +1182,7 @@ TopologyAndFlowMonitor::stop()
     m_running.store(false);
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #76. main.cpp's bind-failure path prints its message and then calls this; without
+    // main.cpp's bind-failure path prints its message and then calls this; without
     // the line below, "this" is a join that waits out whichever of the three topology requests was
     // in flight -- up to 5 s each, and 8 s was measured. request() kills it.
     const std::size_t killed = m_stopSignal.request();
@@ -1283,7 +1281,7 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "Load Static Topology File");
 
-    // [Co-developed with claude code -- Adam] -- E-2.
+    // [Co-developed with claude code -- Adam]
     // Read once into a string and parse THAT, rather than streaming straight into the parser,
     // so the bytes that become the graph and the bytes that are hashed are the same bytes. A
     // second open to hash the file would be a second read of a file that can change between the
@@ -1296,12 +1294,12 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     json j = json::parse(bytes);
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #61/#62. The whole file is checked here, before the first add_vertex below, so a
+    // The whole file is checked here, before the first add_vertex below, so a
     // file that is going to be refused is refused without having partially applied. Placement is
     // the point: the same checks after the builder would still leave the 39-of-40 graph the
     // measurement found. See validateStaticTopologyJson for what it refuses and what it must not.
     //
-    // FINDINGS #89 adds the node-side doors and the mode argument: `bridge_name` is only read
+    // The node-side doors added the mode argument: `bridge_name` is only read
     // under MININET, so the pass cannot check it without being told which mode it is validating
     // for. That is the whole of the signature change.
     validateStaticTopologyJson(j, where, m_mode, m_allowMixedDataPlane);
@@ -1359,10 +1357,10 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
         }
 
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #91 / W15-2. Which power and health path this build has for this brand,
+        // Which power and health path this build has for this brand,
         // recorded on the vertex so the answer travels with the switch instead of being
         // re-derived by every reader. For a switch admitted only by the switch_kind exemption
-        // both are "none", which is the whole condition Adam attached to that ruling: the file
+        // both are "none", which is the whole condition attached to that exemption: the file
         // may model a machine this build cannot drive, and the graph must say that it cannot.
         //
         // Keyed on brand_name, NOT on switchKind, and the two disagree on purpose -- see
@@ -1394,21 +1392,21 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
         // sites already assume actually true, and failing at load with the offending dpid beats
         // undefined behaviour later. Same reasoning as the malformed-switch_kind throw above.
         //
-        // 🔴 FINDINGS #89 door 3: this throw, the switch_kind one above and the bridge_name one
+        // 🔴 Door 3: this throw, the switch_kind one above and the bridge_name one
         // below are all now ALSO made by validateStaticTopologyJson, before the first add_vertex.
         // These three copies are the backstop, not the check: reached on node N they leave nodes
-        // 0..N-1 in the graph, which is the partial application #61 exists to abolish. Do not
+        // 0..N-1 in the graph, which is the partial application the up-front validation exists to abolish. Do not
         // delete them -- if the two passes ever disagree, refusing here still beats building half
         // a graph -- and do not treat them as the guard either. TopologyInputValidationTest's
         // three *LeavesNoPartiallyLoadedGraph cases assert num_vertices == 0, not merely that
         // something threw, and that is what tells the two apart.
         //
-        // 🔴 FINDINGS #90: the HOST equivalent of this throw is NOT here, and that is not an
+        // 🔴 The HOST equivalent of this throw is NOT here, and that is not an
         // oversight either -- it lives only in validateStaticTopologyJson (door 3d). Adding a
         // second copy here would be a backstop that can only ever fire after nodes 0..N-1 are in
-        // the graph, i.e. the partial application #61 exists to abolish, for a condition that has
-        // no pre-existing builder copy to preserve. #88's runtime guards are door 3d's second
-        // layer instead.
+        // the graph, i.e. the partial application the up-front validation exists to abolish, for a
+        // condition that has no pre-existing builder copy to preserve. The runtime index-zero
+        // guards are door 3d's second layer instead.
         if (vp.vertexType == VertexType::SWITCH && vp.ip.empty())
         {
             throw std::runtime_error(
@@ -1511,7 +1509,7 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
         }
 
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #61, the second layer. validateStaticTopologyJson resolved every edge in this
+        // The second layer. validateStaticTopologyJson resolved every edge in this
         // file before the first vertex was added, so both ends are present by construction and
         // this branch is unreachable on any file that got this far. It is still written, and it
         // still refuses: the failure being fixed is a *silent* drop, and "the validator and the
@@ -1532,10 +1530,10 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     // Report the data plane, and refuse a topology that has no single one: none at all, or more
     // than one without the opt-in.
     //
-    // 🔴 BUG-17: THE RETURN VALUE IS NOW USED, AND THIS IS THE SECOND LAYER, NOT THE CHECK.
+    // 🔴 THE RETURN VALUE IS NOW USED, AND THIS IS THE SECOND LAYER, NOT THE CHECK.
     // Until 2026-09-07 this line was `validateDataPlaneHomogeneity(...)` with no `if` around it --
     // a bool computed, logged and dropped -- so a mixed topology produced an error-level sentence
-    // in the voice of a refusal and then loaded (measured, R6 2026-09-05). The decision moved into
+    // in the voice of a refusal and then loaded (measured 2026-09-05). The decision moved into
     // validateStaticTopologyJson, ahead of the first add_vertex, so that a refused file leaves the
     // graph untouched; by the time control reaches here the file has already been judged from the
     // document, and this call is asking the BUILT graph the same question. Same two-layer shape as
@@ -1544,7 +1542,7 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     //
     // ⚠️ EXACTLY ONE DATA PLANE, WHICH IS BOTH DOORS. validateDataPlaneHomogeneity returns false
     // for two different graphs -- one with no switches at all, and one with more than one kind
-    // when mixing was not opted in -- and since E-26 (2026-09-07) both of them are refusals rather
+    // when mixing was not opted in -- and since 2026-09-07 both of them are refusals rather
     // than log lines, so the backstop covers both. `!= 1` and not `> 1`: the switchless case has
     // ZERO groups, and the opt-in cannot reach here because the function returns true for a
     // mixture it was told to allow. See validateStaticTopologyJson for which door each belongs to.
@@ -1566,7 +1564,7 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     }
 
     // [Co-developed with claude code -- Adam]
-    // W10. The names an operator set, laid back over the graph -- LAST, and inside this
+    // The names an operator set, laid back over the graph -- LAST, and inside this
     // function rather than in loadStaticTopology() above it, for two reasons. Last, because a
     // topology that is about to be refused (a mixed data plane, a node this file's validator
     // rejects) must never have an overlay applied to it. Here, because "the topology is
@@ -1579,18 +1577,17 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
 }
 
 // [Co-developed with claude code -- Adam]
-// E-25 / E-30 (Adam's ruling of 2026-09-07). One line, at startup, naming every switch this
-// build has no power or telemetry path for.
+// One line, at startup, naming every switch this build has no power or telemetry path for.
 //
 // 🔴 WHY A LINE AT ALL, WHEN THE GRAPH ALREADY CARRIES THE MARK. Because the two answer different
 // questions. `power_path` on /ndt/get_graph_data answers "what is this switch?" for a program
 // that thought to ask; this line answers "what did I just agree to run?" for an operator who did
 // not. The exemption is granted at load time, silently, to a file that names a brand nobody wrote
 // a branch for -- and until 2026-09-07 the ONLY evidence it had happened was a field in a
-// serialiser nobody was reading (measured, round-2 log lw17c: no WARN, no key, nothing).
+// serialiser nobody was reading (measured 2026-09-07: no WARN, no key, nothing).
 //
 // WARN and not INFO: this is a machine in the model that the twin cannot read power or health
-// from. It is a supported configuration -- Adam's ruling of 2026-09-06 made it one -- and it is
+// from. It is a supported configuration -- decided 2026-09-06 -- and it is
 // still a fabric with a hole in it, which is a warning-shaped fact.
 //
 // Zero exempt switches prints nothing. A line that appears on every start is a line nobody reads;
@@ -1732,7 +1729,7 @@ TopologyAndFlowMonitor::buildTopologyFetchCommand(const std::string& url)
     // below. execCommand captures stdout only, so this costs the caller nothing.
     //
     // [Co-developed with claude code -- Adam]
-    // --write-out is the fix for round 6's N1. utils::execCommand is a popen() that returns
+    // --write-out is the fix for an HTTP 500 being indistinguishable from a 200. utils::execCommand is a popen() that returns
     // stdout and discards the exit status, so `curl -sS` alone makes an HTTP 500 and an HTTP 200
     // literally indistinguishable to this process -- which is why the completeness check tested
     // `!body.empty()`: it had nothing else to test. --write-out prints to the same stdout the
@@ -1795,7 +1792,7 @@ TopologyAndFlowMonitor::endpointOutcomeToken(EndpointOutcome outcome)
     return kOutcomeNoResponse;
 }
 
-/** @brief The rule round 6 found missing: what actually came back, and whether it can be read.
+/** @brief The rule that was missing: what actually came back, and whether it can be read.
  *
  * [Co-developed with claude code -- Adam]
  * Modelled on the flow-table path in DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal
@@ -1844,7 +1841,7 @@ TopologyAndFlowMonitor::classifyEndpointReply(const std::string& rawCurlOutput)
 
     if (reply.httpStatus != 0 && (reply.httpStatus < 200 || reply.httpStatus >= 300))
     {
-        // The control plane answered and said no. Round 6 measured this on all three endpoints:
+        // The control plane answered and said no. Measured on all three endpoints on 2026-09-03:
         // every one of them was recorded as "answered" and the round as Complete.
         reply.outcome = EndpointOutcome::ReportedFailure;
         return reply;
@@ -1882,7 +1879,7 @@ TopologyAndFlowMonitor::classifyPollRound(EndpointOutcome switches,
                                           EndpointOutcome links)
 {
     // [Co-developed with claude code -- Adam]
-    // Round 6 N1: this counted bodies, and every failure mode except a genuinely empty one
+    // This counted bodies, and every failure mode except a genuinely empty one
     // produces a body. It now counts READS -- Ok and nothing else -- so a 500, a JSON object
     // where an array belongs, and a page of HTML each subtract from the count the way an
     // unanswered request always did.
@@ -1922,9 +1919,9 @@ TopologyAndFlowMonitor::shouldAnnouncePartialRound(PollRoundKind previous, PollR
  *      so does updateLinks; neither removes a vertex or an edge. A partial round therefore cannot
  *      manufacture a "down" -- it can only fail to lift one. Discarding the half that answered
  *      would throw away the only evidence available that those switches are up.
- *      [Co-developed with claude code -- Adam] Still true after FINDINGS #46, and worth saying
- *      why rather than leaving the reader to check: updateSwitches now *declines* to lift `isUp`
- *      for a switch with a standing commanded power-off, but declining is not writing false. It
+ *      [Co-developed with claude code -- Adam] Still true now that a commanded power-off is
+ *      remembered, and worth saying why rather than leaving the reader to check: updateSwitches
+ *      now *declines* to lift `isUp` for a switch with a standing commanded power-off, but declining is not writing false. It
  *      leaves the vertex exactly as it found it, so the argument above -- a partial round cannot
  *      manufacture a down -- is unchanged. `isEnabled` is still written unconditionally.
  *   2. A-2's failure direction is pessimistic and silent: the twin showed 40 links down and 10
@@ -1947,7 +1944,7 @@ TopologyAndFlowMonitor::noteAndAnnouncePollRound(const EndpointReply& switches,
                                                  const EndpointReply& links)
 {
     // [Co-developed with claude code -- Adam]
-    // Round 6 N1. These three were `!body.empty()`, which is why a 500 counted as an answer. The
+    // These three were `!body.empty()`, which is why a 500 counted as an answer. The
     // emptiness rule has not gone away -- it moved into classifyEndpointReply, where "[]" is still
     // an answer and "" is still not; what is new is that four other ways of not answering now
     // reach this line as themselves instead of as a non-empty string.
@@ -2028,7 +2025,7 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
     const auto startedAt = std::chrono::steady_clock::now();
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #76. Three requests, and a stop used to be answered only after all three. The checks
+    // Three requests, and a stop used to be answered only after all three. The checks
     // below make the unit of shutdown latency one request instead of a whole round; returning early
     // leaves the graph exactly as a round that never ran would -- see the note above on all three
     // writers returning early on an empty body.
@@ -2049,7 +2046,7 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
     }
 
     // [Co-developed with claude code -- Adam]
-    // Round 6 N1, the half of the fix that is not a report. An unreadable reply now reaches the
+    // The half of the fix that is not a report. An unreadable reply now reaches the
     // writers as the empty string, which is the "did not answer" path they have always had: the
     // endpoints that were read are still applied, and the ones that were not still leave their
     // part of the graph untouched. Before this, a 500's error body was handed to updateLinks and
@@ -2132,7 +2129,7 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
 /** @brief The round's verdict, in the shape /ndt/get_graph_data serves it.
  *
  * [Co-developed with claude code -- Adam]
- * Round 6 N1 measured the gap this closes: with /links answering 500 the graph read 14/14 nodes
+ * The gap this closes, measured 2026-09-03: with /links answering 500 the graph read 14/14 nodes
  * and 40/40 edges up, and the response's top-level keys were exactly ["edges","nodes"] -- a
  * half-read round and a complete one were identical in every channel a consumer has. The log line
  * added by A-2 is edge-triggered and once per episode, so a consumer that connects mid-episode
@@ -2177,7 +2174,7 @@ TopologyAndFlowMonitor::pollRoundJson() const
 
 /** @brief sha256 of a byte string as lowercase hex -- byte for byte what `sha256sum` prints.
  *
- * [Co-developed with claude code -- Adam] -- E-2.
+ * [Co-developed with claude code -- Adam]
  * The hex form is the contract, not an implementation detail: the consumer this exists for is a
  * shell script comparing against `sha256sum <file> | cut -d' ' -f1`, and a digest served in any
  * other encoding would have to be converted by every reader. `hashDstIp` above uses the same
@@ -2202,7 +2199,7 @@ TopologyAndFlowMonitor::sha256Hex(const std::string& bytes)
 
 /** @brief Records the topology file that was just read, for loadedTopologyJson().
  *
- * [Co-developed with claude code -- Adam] -- E-2.
+ * [Co-developed with claude code -- Adam]
  * Called from parseStaticTopologyFile with the bytes it is about to parse, and from nowhere
  * else. The path is absolutised here rather than at the endpoint: `--topology setting/x.json`
  * and a kernel started from a different working directory name the same file, and a consumer
@@ -2245,9 +2242,9 @@ TopologyAndFlowMonitor::noteLoadedTopology(const std::string& path, const std::s
 
 /** @brief What this kernel loaded, in the shape /ndt/get_graph_data serves it.
  *
- * [Co-developed with claude code -- Adam] -- E-2.
+ * [Co-developed with claude code -- Adam]
  * An empty object when nothing has been recorded, so the three keys are simply absent from the
- * response -- the same thing a pre-E-2 kernel serves. That is deliberate: "absent" already has
+ * response -- the same thing a kernel without this record serves. That is deliberate: "absent" already has
  * to mean "the kernel did not say" for the baseline, and inventing a null or an empty string
  * here would give the same condition a second spelling that consumers would have to learn.
  */
@@ -2319,7 +2316,7 @@ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
                     auto& vprop = (*m_graph)[*vertexSwitchOpt];
 
                     // [Co-developed with claude code -- Adam]
-                    // FINDINGS #46, and the only line of this fix that changes what the twin
+                    // The only line of this fix that changes what the twin
                     // reports. This was an unconditional `isUp = true` with no else branch
                     // anywhere in the function, so the *only* thing a topology poll could ever
                     // say about a switch's power was "up" -- which made it not a liveness writer
@@ -2578,8 +2575,8 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
             if (vertexOpt2.has_value())
             {
                 // [Co-developed with claude code -- Adam]
-                // FINDINGS #88, W18: the eighth `ip[0]`, and the one both W2's inventory and W14's
-                // fix walked past. It is the same undefined behaviour as the sixteen `.front()`
+                // The eighth `ip[0]`, and the one both the earlier inventory and the first guard
+                // pass walked past. It is the same undefined behaviour as the sixteen `.front()`
                 // sites, only spelled differently -- libstdc++ defines both as `*(_M_start + n)`
                 // and a default-constructed std::vector has `_M_start == nullptr`, so this bound a
                 // reference to a null pointer and read through it.
@@ -2598,14 +2595,14 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
                 // operator to go and edit a file that cannot express this. An address the switch
                 // does not have is not an edge key any file could have written.
                 //
-                // R3-E29, Adam's ruling E-29. The address is COPIED OUT under a shared_lock whose
+                // The address is COPIED OUT under a shared_lock whose
                 // scope ends before the lookup below. It used to be read straight out of the
                 // graph, and that was the one graph access in this whole function with no lock
                 // held: findSwitchByDpid takes its shared_lock, finds the vertex and RELEASES it
                 // before returning, so the descriptor it hands back was being dereferenced
                 // outside every lock. ThreadSanitizer names this line against a writer that does
                 // hold the write lock -- both stacks, plus the effect it has without any
-                // sanitizer, are in doc/audit/2026-09-07_fix-e29-update-hosts-race/FIX-E29.md.
+                // sanitizer, were observed on 2026-09-07.
                 //
                 // Three things force exactly this shape, and none of them is style:
                 //
@@ -2624,12 +2621,11 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
                 //     readers still proceed together, so this costs an uncontended rwlock
                 //     acquisition per hosts entry that names an attachment dpid.
                 //
-                // Merged form (2026-09-10, integrate-0910; FIX-E29.md section 6): the read below is
-                // BOTH fixes at once. W18 / FINDINGS #88 (fix/w18-eighth-index-zero, 8a3746e3) put
-                // utils::firstAddressRaw on this same line so an empty address list is refused
-                // instead of indexed; this ruling put the read under the shared_lock. The optional is
-                // copied out inside the scope, and W18's WARN + `continue` sit OUTSIDE it, so the
-                // `continue` never leaves with the lock held. Both commits are kept (Adam, 2026-09-08).
+                // The read below is BOTH fixes at once. One put utils::firstAddressRaw on this same
+                // line so an empty address list is refused instead of indexed; the other put the
+                // read under the shared_lock. The optional is copied out inside the scope, and the
+                // WARN + `continue` sit OUTSIDE it, so the `continue` never leaves with the lock
+                // held.
                 std::optional<uint32_t> attachIpOpt;
                 {
                     std::shared_lock lock(*m_graphMutex);
@@ -2812,7 +2808,7 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                     // twin reports. This was an unconditional `isUp = true` with no else branch
                     // anywhere in the function, so the only thing a topology poll could ever say
                     // about a link was "up" -- a one-way ratchet, exactly as updateSwitches was
-                    // before FINDINGS #46.
+                    // before a commanded power-off was remembered.
                     //
                     // Being listed by Ryu is not evidence that a link is carrying traffic. The
                     // comment further down this file writes the invariant this loop depends on --
@@ -2844,12 +2840,12 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                             // [Co-developed with claude code -- Adam]
                             // 🔴 doc/KNOWN-ISSUES.md B-16, third half. The tail of this sentence
                             // used to be `POST /ndt/link_recovery_detected to clear this` for
-                            // BOTH kinds of declaration, and since W8b that is wrong for one of
+                            // BOTH kinds of declaration, and that is wrong for one of
                             // them: a declaration nothing ever reported broken -- an injection --
                             // makes that endpoint DECLINE, retain the declaration and log "link
                             // recovery declined". This is the only sentence about a standing
                             // declaration that a successor who did not restart the kernel ever
-                            // sees (E-20's advice is printed once, at startup, from
+                            // sees (the residue advice is printed once, at startup, from
                             // src/main.cpp), so it was sending him to the endpoint that would
                             // refuse him. `failureReported` is right here in the edge this poll
                             // is declining to raise, so the poll can tell the two apart.
@@ -3214,7 +3210,7 @@ TopologyAndFlowMonitor::updateLinkInfo(pair<uint32_t, uint32_t> agentIpAndPort,
     auto& edgeProps = (*m_graph)[edge];
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #88. EdgeProperties::dstIp is a vector that starts empty, and nothing on the
+    // EdgeProperties::dstIp is a vector that starts empty, and nothing on the
     // load path checks it -- validateStaticTopologyJson only looks at an edge end whose dpid
     // is 0. Without it there is no reverse-edge key to build.
     //
@@ -3284,7 +3280,7 @@ TopologyAndFlowMonitor::updateLinkInfoLeftLinkBandwidth(
     }
     m_lastRateDivisorSeconds.store(elapsedSeconds);
 
-    // The whole point of ticket Q: this division did not exist. The accumulator was handed on as
+    // The whole point of the rate-divisor fix: this division did not exist. The accumulator was handed on as
     // `bytes * 8` and consumed as bits-per-second, which is only correct when the interval is
     // exactly one second -- and the rate loop sleeps a full second and then runs its body.
     const uint64_t estimatedIn =
@@ -3384,7 +3380,7 @@ TopologyAndFlowMonitor::validateDataPlaneHomogeneity(bool allowMixed) const
     const auto groups = getSwitchKindGroups();
 
     // [Co-developed with claude code -- Adam]
-    // E-26 (2026-09-07): this verdict is no longer only a log line. A switchless DOCUMENT is
+    // Since 2026-09-07 this verdict is no longer only a log line. A switchless DOCUMENT is
     // refused by validateStaticTopologyJson before the first add_vertex, and the backstop at the
     // end of parseStaticTopologyFile turns this `false` into a throw, so the only way to reach
     // this branch in a running kernel is a graph that was never loaded from a file. The sentence
@@ -3408,7 +3404,7 @@ TopologyAndFlowMonitor::validateDataPlaneHomogeneity(bool allowMixed) const
     }
 
     // [Co-developed with claude code -- Adam]
-    // BUG-17: the rendering moved to describeSwitchKindGroups, because the load-time refusal in
+    // The rendering moved to describeSwitchKindGroups, because the load-time refusal in
     // validateStaticTopologyJson prints the same fact and two spellings of one sentence is how a
     // reader ends up wondering whether they are one fact.
     const std::string detail = describeSwitchKindGroups(groups);
@@ -3707,7 +3703,7 @@ TopologyAndFlowMonitor::getAgentKeyFromTheOtherSide(
         if (!props.dstIp.empty() and props.dstIp.front() == agentIpAndPort.first and
             props.dstInterface == agentIpAndPort.second)
         {
-            // FINDINGS #88. The far side asked for is this edge's, but this edge carries no
+            // The far side asked for is this edge's, but this edge carries no
             // source address to answer with. nullopt is what "no key" already means to
             // every caller here; a fabricated one would be used as an agent key.
             if (props.srcIp.empty())
@@ -3733,7 +3729,7 @@ TopologyAndFlowMonitor::getAgentKeyFromTheOtherSideNoLock(
         if (!props.dstIp.empty() and props.dstIp.front() == agentIpAndPort.first and
             props.dstInterface == agentIpAndPort.second)
         {
-            // FINDINGS #88. The far side asked for is this edge's, but this edge carries no
+            // The far side asked for is this edge's, but this edge carries no
             // source address to answer with. nullopt is what "no key" already means to
             // every caller here; a fabricated one would be used as an agent key.
             if (props.srcIp.empty())
@@ -4048,7 +4044,7 @@ TopologyAndFlowMonitor::setEdgeDownByReportedFailure(Graph::edge_descriptor e)
         std::unique_lock lock(*m_graphMutex);
         // The note this call adds, and the only thing that separates it from an injection: the
         // control plane says it SAW this break, so the recovery report that pairs with it is
-        // entitled to withdraw the declaration. W8b.
+        // entitled to withdraw the declaration.
         (*m_graph)[e].failureReported = true;
     }
     setEdgeDownByDeclaration(e);
@@ -4062,13 +4058,13 @@ TopologyAndFlowMonitor::applyReportedLinkRecovery(Graph::edge_descriptor e)
     auto& eprop = (*m_graph)[e];
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-6 (W8b). THE RULE, and it is one condition: a recovery report may only
+    // doc/KNOWN-ISSUES.md B-6. THE RULE, and it is one condition: a recovery report may only
     // withdraw a declaration it pairs with. `failureReported` is set by /ndt/link_failure_detected
     // and by nothing else, so an edge that carries a declaration without one was declared down by
     // an operator through /ndt/inject_link_failure -- and Ryu rediscovering the link says nothing
     // about that, because nothing on the fabric had to change for Ryu to list it again.
     //
-    // Measured 2026-09-07 00:08 (lw8b, OVS 4 hosts): Ryu restarted with the same argv POSTed
+    // Measured 2026-09-07 00:08 (OVS 4 hosts): Ryu restarted with the same argv POSTed
     // /ndt/link_recovery_detected for EVERY link within one second of coming back, and every
     // standing declaration was gone. Without this branch a control-plane restart silently ends
     // every injection in the fabric while the netem that accompanies one stays attached -- the
@@ -4109,7 +4105,7 @@ TopologyAndFlowMonitor::clearEdgeDeclaredDown(Graph::edge_descriptor e)
     auto& eprop = (*m_graph)[e];
     eprop.declaredDown = false;
     // Spent as well: an operator taking an injection back ends the episode, so a recovery report
-    // arriving afterwards must not find a report left over to pair with. W8b.
+    // arriving afterwards must not find a report left over to pair with.
     eprop.failureReported = false;
     // The episode is over, so the next decline for this edge is a new one and deserves its line.
     m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
@@ -4143,7 +4139,7 @@ TopologyAndFlowMonitor::mininetLinkInterfaces() const
         const auto dst = boost::target(ed, *m_graph);
         const auto& sp = (*m_graph)[src];
         // Both ends must be switches: a host edge has no Mininet switch interface at its far end,
-        // and since W8-7 no link endpoint can address one anyway.
+        // and no link endpoint can address one anyway.
         if (sp.vertexType != VertexType::SWITCH ||
             (*m_graph)[dst].vertexType != VertexType::SWITCH || sp.bridgeNameForMininet.empty())
         {
@@ -4194,7 +4190,7 @@ TopologyAndFlowMonitor::mininetHostFacingInterfaces() const
 namespace
 {
 
-/// The word the startup sweep prints next to an interface. E-20: the classification is the
+/// The word the startup sweep prints next to an interface. The classification is the
 /// deliverable, so it is one function and the three strings are not repeated anywhere.
 /// [Co-developed with claude code -- Adam]
 const char*
@@ -4227,8 +4223,8 @@ TopologyAndFlowMonitor::warnAboutResidualNetem(const utils::netem::TcRunner& run
         return found;
     }
 
-    // ONE read of the whole root namespace, not one per interface (E-20). Three reasons, and the
-    // first is the ticket: a per-interface loop can only ask about names the graph already knows,
+    // ONE read of the whole root namespace, not one per interface. Three reasons, and the
+    // first is the main one: a per-interface loop can only ask about names the graph already knows,
     // so residue on anything else -- a host-facing port, a switch this topology file does not
     // describe -- was invisible by construction. The other two: one subprocess instead of one per
     // link, and a single instant of the machine's state rather than a smear across N of them.
@@ -4258,7 +4254,7 @@ TopologyAndFlowMonitor::warnAboutResidualNetem(const utils::netem::TcRunner& run
     {
         // The machine's root namespace also carries `lo`, `docker0`, veths and the operator's
         // wifi. netem on those is somebody else's business, and reporting it would make this line
-        // noise on a laptop -- which is how a warning stops being read. E-20 widened the sweep to
+        // noise on a laptop -- which is how a warning stops being read. The sweep covers
         // this fabric's WHOLE shape, not to the whole machine.
         if (!utils::netem::isMininetInterfaceName(iface))
         {
@@ -4296,8 +4292,8 @@ TopologyAndFlowMonitor::warnAboutResidualNetem(const utils::netem::TcRunner& run
                 case SweptInterface::Unknown: ++unknownCount; break;
             }
         }
-        // ONE line, listing the interfaces and whose each one is. Adam's ruling of 2026-09-06:
-        // warn, do not clear, do not turn it into a declaration -- and E-20's: report host-facing
+        // ONE line, listing the interfaces and whose each one is. Decided 2026-09-06: warn, do
+        // not clear, do not turn it into a declaration -- and report host-facing
         // and unfamiliar interfaces too, saying which is which rather than dropping them.
         // A line per interface would be the same sentence ten times over on a fabric someone left
         // a whole round's faults on.
@@ -4378,12 +4374,12 @@ TopologyAndFlowMonitor::getGraph() const
 }
 
 // [Co-developed with claude code -- Adam]
-// W10, 2026-09-06. THE KERNEL DOES NOT WRITE THE MODEL FILE. Not "writes it tidily" -- does
+// Since 2026-09-06 THE KERNEL DOES NOT WRITE THE MODEL FILE. Not "writes it tidily" -- does
 // not write it. The names an operator sets go to an overlay outside setting/, and the overlay
 // is laid back over the graph at load. The two functions below are what used to write it, and
 // the history matters because it is the reason a smaller fix is not available:
 //
-//   OV-1, 2026-09-04. Both setters read setting/<model>.json into an `nlohmann::json`, changed
+//   2026-09-04. Both setters read setting/<model>.json into an `nlohmann::json`, changed
 //   one string, and wrote the whole document back. nlohmann::json's default ObjectType is
 //   std::map, so every object came back out in dictionary order and one POST
 //   /ndt/modify_nickname produced a 3998-insertion / 3998-deletion diff on a file the
@@ -4401,13 +4397,13 @@ TopologyAndFlowMonitor::getGraph() const
 //   an unrelated writer earned the identical sentence. So "the rename touches one line" and
 //   "--check stays green" were never both reachable while this process wrote that file at all.
 //
-// Adam's decision, 2026-09-05 18:1x: an overlay outside setting/, `--check` does not look at
+// Decided 2026-09-05: an overlay outside setting/, `--check` does not look at
 // it, the kernel lays it on at startup, and the model files are from now on read-only to this
-// process. That also ends the older complaint underneath OV-1 -- the kernel dirtying a tracked
+// process. That also ends the older complaint underneath the reordering --  the kernel dirtying a tracked
 // file in a worktree several sessions share.
 //
-// 🔴 What the overlay is keyed by, and why it is NOT the flat {"<dpid>": "<nickname>"} map the
-// ticket suggested. EVERY host node in EVERY shipped topology carries "dpid": 0 (checked
+// 🔴 What the overlay is keyed by, and why it is NOT the flat {"<dpid>": "<nickname>"} map that
+// first suggests itself. EVERY host node in EVERY shipped topology carries "dpid": 0 (checked
 // 2026-09-06 across setting/StaticNetworkTopology*.json), and hosts are reachable here:
 // modify_nickname takes identifier.type "mac" and "name" as well as "dpid". A flat dpid map
 // collapses all four hosts of an ovs4 fabric onto the key "0", so renaming one host would
@@ -4422,7 +4418,7 @@ TopologyAndFlowMonitor::getGraph() const
 /// The overlay's directory, relative to the working directory the kernel was started in --
 /// the same place `ndt` keeps up.target, lab.claim and the pid ledger. Three reasons it is
 /// here rather than beside the model: .gitignore already ignores `.test_run/` (line 21), so a
-/// rename can never dirty the repository again, which is the whole point of W10; it is
+/// rename can never dirty the repository again, which is the whole point of the overlay; it is
 /// per-checkout, exactly like the `ndt up` baseline the names are only meaningful against;
 /// and `ndt clean` asserts about processes, the tmux session, the switch manifest and ports,
 /// and does not enumerate .test_run/ at all, so a file that persists here is not debris to it
@@ -4462,7 +4458,7 @@ readJsonFile(const std::string& path)
 
 /// Writes to a temp file beside the target and renames, so no reader -- including the next
 /// start of this kernel -- ever sees a half-written overlay. Same construction the topology
-/// writer used before W10 removed it; the hazard is the same and the file is now smaller, not
+/// writer used before the overlay replaced it; the hazard is the same and the file is now smaller, not
 /// safer.
 static void
 writeJsonFileAtomically(const std::string& path, const nlohmann::json& doc)
@@ -5069,7 +5065,7 @@ TopologyAndFlowMonitor::setVertexUp(Graph::vertex_descriptor v)
     (*m_graph)[v].downReason = DownReason::None;
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #46. `adminPoweredOff` is deliberately NOT cleared here. This is the observation
+    // `adminPoweredOff` is deliberately NOT cleared here. This is the observation
     // writer -- the 1 Hz liveness worker calls it on every tick a probe answers Up -- and the
     // proxy's `probe_ok` is cached, so within a second of a confirmed kill this function is
     // called for a switch that is already dead (P4PowerStrategy.cpp documents that sequence from
@@ -5085,7 +5081,7 @@ TopologyAndFlowMonitor::getVertexIsUp(Graph::vertex_descriptor v)
     return (*m_graph)[v].isUp;
 }
 
-/** @brief See the header. FINDINGS #46. [Co-developed with claude code -- Adam] */
+/** @brief See the header. [Co-developed with claude code -- Adam] */
 void
 TopologyAndFlowMonitor::setVertexPoweredOffByCommand(Graph::vertex_descriptor v)
 {
@@ -5099,7 +5095,7 @@ TopologyAndFlowMonitor::setVertexPoweredOffByCommand(Graph::vertex_descriptor v)
     m_resurrectionDeclined.erase(vprop.dpid);
 }
 
-/** @brief See the header. FINDINGS #46. [Co-developed with claude code -- Adam] */
+/** @brief See the header. [Co-developed with claude code -- Adam] */
 void
 TopologyAndFlowMonitor::clearVertexAdminPowerOff(Graph::vertex_descriptor v)
 {
@@ -5541,7 +5537,7 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
                     // duplicate {"brand_name", v.brandName} that appeared twice in this
                     // initialiser is also gone; nlohmann just overwrote it, so it was dead.
                     //
-                    // `power_path` / `telemetry_path` (FINDINGS #91 / W15-2) are on the SWITCH
+                    // `power_path` / `telemetry_path` are on the SWITCH
                     // branches only, and on both of them: a host has no brand, no plug and no
                     // OID, so publishing "none" for one would invite the reading that some other
                     // host might have a path. Manual section 38 documents the vocabulary.
@@ -5642,8 +5638,7 @@ TopologyAndFlowMonitor::getAvgLinkUsage(const Graph& g) const
         // (src/common/types.cpp:396), computed from the graph, which never touches this function.
         // A sweep of all seven sibling repos named in tools/test_workflow/components.env found no
         // other caller. The change above is still right -- the reason given for it was not.
-        // Stated rather than deleted so the next reader does not re-derive the same wrong premise;
-        // see doc/audit/2026-08-29_f17-fix-impact/FINDINGS.md.
+        // Stated rather than deleted so the next reader does not re-derive the same wrong premise.
         // Zero in-repo callers is not a licence to change the response: /ndt/ is a cross-repo
         // contract and the client above is one line away from being live.
         if (!isUsable(g[e]))
@@ -5836,7 +5831,7 @@ TopologyAndFlowMonitor::getTopKCongestedLinksJson(int k)
     size_t links_to_return = std::min(static_cast<size_t>(k), all_links.size());
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #88. This loop walks boost::edges with NO vertexType filter, so v1/v2 can be
+    // This loop walks boost::edges with NO vertexType filter, so v1/v2 can be
     // hosts -- and the load-time gate that makes ip.front() safe (see :654) covers SWITCH
     // vertices only. Worse, the expression bound ipToString's VECTOR overload, which returns
     // a vector<string> by value: for an address-less vertex .front() was taken on a

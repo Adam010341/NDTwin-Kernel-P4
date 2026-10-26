@@ -4,7 +4,7 @@
 #include "common_types/GraphTypes.hpp" // for Graph
 #include "common_types/SFlowType.hpp"  // for FlowKey, Path
 #include "utils/NetemLinkFault.hpp"    // for netem::TcRunner (the startup residue sweep)
-#include "utils/StopSignal.hpp"        // for StopSignal (FINDINGS #76: a bounded stop)
+#include "utils/StopSignal.hpp"        // for StopSignal (a bounded stop)
 #include "utils/Utils.hpp"             // for DeploymentMode
 #include <chrono>                      // for milliseconds
 #include <array>                       // for array
@@ -40,7 +40,7 @@ class EventBus;
  * @brief What applying one control-plane recovery report to an edge did.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-6 (W8b). Returned rather than logged-and-forgotten because the HTTP
+ * doc/KNOWN-ISSUES.md B-6. Returned rather than logged-and-forgotten because the HTTP
  * handler has to say which of the two happened: a caller that reads `200 link recovery processed`
  * and finds the edge still down would otherwise be looking at the kernel disagreeing with itself.
  */
@@ -58,7 +58,7 @@ enum class LinkRecoveryOutcome
  * @brief How an interface the startup sweep found netem on relates to the fabric this twin holds.
  *
  * [Co-developed with claude code -- Adam]
- * E-20 (Adam, 2026-09-07). The sweep reports; the reader acts. These three are not severities --
+ * The sweep reports; the reader acts. These three are not severities --
  * they are three different answers to "whose is this?", and an operator needs the difference:
  * a Link end is something /ndt/inject_link_recovery can take back, a HostFacing port is something
  * only the tool that attached it can, and an Unknown name means the fabric on this machine is not
@@ -70,7 +70,7 @@ enum class SweptInterface
     Link,
 
     /// A switch port a HOST hangs off. tools/test_workflow/faults.sh and the chaos harness attach
-    /// netem here, and before E-20 the sweep could not see it at all.
+    /// netem here, and the first version of the sweep could not see it at all.
     HostFacing,
 
     /// `s<N>-eth<M>`-shaped, and this graph names no such port. Either the fabric running on this
@@ -78,7 +78,7 @@ enum class SweptInterface
     Unknown
 };
 
-/// One interface the startup sweep found carrying netem, and whose it is. E-20.
+/// One interface the startup sweep found carrying netem, and whose it is.
 /// [Co-developed with claude code -- Adam]
 struct ResidualNetem
 {
@@ -174,7 +174,7 @@ class TopologyAndFlowMonitor
     /** @brief How long stop() waits before saying what it is still waiting on. Default 2 s.
      *
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #76. See DeviceConfigurationAndPowerManager::setStopReportBound -- same seam, same
+     * See DeviceConfigurationAndPowerManager::setStopReportBound -- same seam, same
      * reason: a report that only fires when something is wrong cannot be tested without a way to
      * make it fire. Nothing in the kernel calls this.
      */
@@ -207,7 +207,7 @@ class TopologyAndFlowMonitor
     // (real period / 1 s).
     //
     // WHY THE SIGNATURE CHANGED RATHER THAN THE CALL SITES. There are two call sites, and a
-    // partial fix is worse than none: ticket Q's read-out table would show one edge class
+    // partial fix is worse than none: a read-out table would show one edge class
     // corrected and another not, which reads as "further from 1" or "a third mechanism is
     // acting" -- both wrong verdicts pointing at problems that do not exist. Taking an argument
     // that did not exist before makes a missed call site a compile error instead.
@@ -218,7 +218,7 @@ class TopologyAndFlowMonitor
                                          uint64_t accumulatedBytes,
                                          double elapsedSeconds);
 
-    // The divisor the most recent call actually used. Ticket Q's acceptance gate asserts this
+    // The divisor the most recent call actually used. The acceptance gate asserts this
     // equals the independently measured interval for the same iteration, which is a check the
     // code can fail -- unlike "the loop period should read ~1000 ms", which stays true whether
     // or not the division was ever added.
@@ -306,9 +306,9 @@ class TopologyAndFlowMonitor
      * indistinguishable from the control plane's own opinion, so the next `updateLinks` lifts
      * `isUp` straight back -- measured 5 times in 5, within 30 s, on 2026-09-04.
      *
-     * @warning The declaration is PERMANENT until it is withdrawn, and since W8b a topology poll
+     * @warning The declaration is PERMANENT until it is withdrawn, and a topology poll
      *          is no longer the only thing that cannot end it: a bare `EventLinkAdd` rediscovery
-     *          cannot either. That is the deliberate other half of B-6 -- the old failure mode was
+     *          cannot either. That is the deliberate other half of KNOWN-ISSUES B-6 -- the old failure mode was
      *          an injection that ended early and silently, and the new one is an injection that
      *          never ends. Both directions have to be asserted by anything that injects.
      */
@@ -318,7 +318,7 @@ class TopologyAndFlowMonitor
      * @brief Declares @p e failed AND records that the control plane reported the break.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-6 (W8b). /ndt/link_failure_detected, and nothing else, calls this:
+     * doc/KNOWN-ISSUES.md B-6. /ndt/link_failure_detected, and nothing else, calls this:
      * it is Ryu's notification endpoint, so a call to it is the twin being TOLD a link broke.
      * /ndt/inject_link_failure calls setEdgeDownByDeclaration instead -- an operator asking for a
      * link to be down is not the control plane observing that it is.
@@ -331,8 +331,8 @@ class TopologyAndFlowMonitor
      * @brief Applies a control-plane recovery report (/ndt/link_recovery_detected) to @p e.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-6 (W8b), and the whole of the rule Adam settled on 2026-09-07 after
-     * the lw8b live arm: **a withdrawal has to pair with a reported break.**
+     * doc/KNOWN-ISSUES.md B-6, and the whole of the rule settled on 2026-09-07 after a live
+     * run: **a withdrawal has to pair with a reported break.**
      *
      *   - `failureReported` set  -> the report pairs with it. Spend it, withdraw any declaration,
      *                               mark the edge up. Returns Applied.
@@ -373,7 +373,7 @@ class TopologyAndFlowMonitor
     /// [Co-developed with claude code -- Adam]
     bool getEdgeDeclaredDown(Graph::edge_descriptor e);
 
-    /// Whether an unspent control-plane failure report is standing for @p e. W8b.
+    /// Whether an unspent control-plane failure report is standing for @p e.
     /// [Co-developed with claude code -- Adam]
     bool getEdgeFailureReported(Graph::edge_descriptor e);
 
@@ -382,11 +382,11 @@ class TopologyAndFlowMonitor
      *        switch-to-switch link, deduplicated, in graph order.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-6 (W8-4). Exactly the set /ndt/inject_link_failure can reach and no
+     * doc/KNOWN-ISSUES.md B-6. Exactly the set /ndt/inject_link_failure can reach and no
      * wider: a switch with no `bridge_name` is skipped rather than guessed at, and host-facing
-     * edges are excluded because since W8-7 the link endpoints refuse dpid 0 outright.
+     * edges are excluded because the link endpoints refuse dpid 0 outright.
      *
-     * 🆕 E-20 changed what this is FOR, not what it contains. It was the startup sweep's scope;
+     * 🆕 The host-facing sweep changed what this is FOR, not what it contains. It was the startup sweep's scope;
      * it is now the sweep's Link classifier, and the sweep reads the whole machine.
      */
     std::vector<std::string> mininetLinkInterfaces() const;
@@ -395,7 +395,7 @@ class TopologyAndFlowMonitor
      * @brief Every `sN-ethM` a HOST hangs off: the switch-side port of each host attachment.
      *
      * [Co-developed with claude code -- Adam]
-     * E-20. Derived from the graph the same way as mininetLinkInterfaces(): the SWITCH end of an
+     * Derived from the graph the same way as mininetLinkInterfaces(): the SWITCH end of an
      * edge whose other end is a HOST. Deduplicated, in graph order, and a switch with no
      * `bridge_name` is skipped rather than guessed at.
      *
@@ -409,8 +409,8 @@ class TopologyAndFlowMonitor
      * @brief Startup sweep: does the machine already carry netem this kernel does not know about?
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-6 (W8-4), Adam's ruling of 2026-09-06: **WARN, do not clear, and do
-     * not turn it into a declaration.** Widened by E-20 (2026-09-07) from "both ends of every
+     * doc/KNOWN-ISSUES.md B-6. Decided 2026-09-06: **WARN, do not clear, and do
+     * not turn it into a declaration.** Widened on 2026-09-07 from "both ends of every
      * switch-to-switch link" to **every Mininet interface this machine's root namespace shows**.
      *
      * A declaration lives in this process and a netem lives in the machine's qdisc tree, so a
@@ -418,7 +418,7 @@ class TopologyAndFlowMonitor
      * (see EdgeProperties), which makes a fresh kernel's clean `down_reason` say nothing at all
      * about whether packets are flowing. This is the one line that stops that from being silent.
      *
-     * 🔴 WHY THE SCOPE HAD TO GROW (E-20). The old sweep read only the interfaces
+     * 🔴 WHY THE SCOPE HAD TO GROW. The first sweep read only the interfaces
      * /ndt/inject_link_failure can write to, on the reasoning that residue anywhere else has no
      * owner this kernel can name. But that is not where this repository's faults land:
      * testbed_topo.py attaches hosts to s1..s4 at ports 3 and up, and the chaos harness's DEFAULT
@@ -430,7 +430,7 @@ class TopologyAndFlowMonitor
      *
      * 🔴 AND WHAT IT STILL CANNOT SEE. `h<N>-eth0` lives inside the host's network namespace.
      * Reaching it needs `mnexec -a <pid>`, which is a different privilege and a different failure
-     * mode, so E-20 deliberately stops at the root namespace. **This sweep being quiet does not
+     * mode, so the sweep deliberately stops at the root namespace. **This sweep being quiet does not
      * mean the fabric is clean; it means the root namespace is.** Stated in the API manual §2b.
      *
      * It does NOT clear the netem: removing a fault this process did not create would destroy
@@ -441,8 +441,8 @@ class TopologyAndFlowMonitor
      * sees residue it could not possibly own.
      *
      * @param run the tc seam; production passes utils::netem::readOnlyTcRunner() -- **not**
-     *        realTcRunner(), because the bare `tc qdisc show` this issues is outside the sudoers
-     *        grant and needs no privilege anyway. See readOnlyTcRunner.
+     *        realTcRunner(), because the bare `tc qdisc show` this issues is outside the tc sudoers
+     *        rules NetemLinkFault.hpp lists and needs no privilege anyway. See readOnlyTcRunner.
      * @return what was found and whose it is, in the order the qdisc tree lists it. Empty on a
      *         clean root namespace, on an unreadable tree (a WARN says which), and on every
      *         non-MININET deployment (there is no Mininet interface to read).
@@ -457,7 +457,7 @@ class TopologyAndFlowMonitor
      * @brief Records that a commanded power-off for @p v was carried out, and takes it down.
      *
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #46. The two writers of vertex liveness answer different questions and must be
+     * The two writers of vertex liveness answer different questions and must be
      * different calls, because only one of them is allowed to survive a topology poll:
      *
      *   setVertexDown / setVertexUp        -- an OBSERVATION. The 1 Hz liveness worker, and the
@@ -541,7 +541,7 @@ class TopologyAndFlowMonitor
     /**
      * @brief Where the names the API set are kept -- NEVER inside setting/.
      *
-     * W10, 2026-09-06. The kernel no longer writes the model file at all; a rename lands
+     * Since 2026-09-06 the kernel no longer writes the model file at all; a rename lands
      * here instead and is laid back over the graph the next time the topology loads. The
      * path is derived from activeTopologyPath(), one overlay per model, because dpids 1-10
      * exist in BOTH the OVS and the P4 topology -- a single shared overlay would put OVS
@@ -617,8 +617,8 @@ class TopologyAndFlowMonitor
      * later means relaxing this check, not redesigning the dispatch.
      *
      * 🔴 IT ANSWERS FALSE FOR TWO DIFFERENT GRAPHS, AND SINCE 2026-09-07 BOTH ARE REFUSALS.
-     * A graph with more than one switch kind is BUG-17's case; a graph with NO switches is E-26's
-     * (Adam's ruling, grill Section 4E). Both are decided from the DOCUMENT in
+     * A graph with more than one switch kind is the mixed-fabric case; a graph with NO switches is the
+     * other. Both are decided from the DOCUMENT in
      * validateStaticTopologyJson, before the first add_vertex, so a file that reaches this
      * function has already passed both; the call at the end of parseStaticTopologyFile uses this
      * return value as the second layer. `allowMixed` relaxes only the mixture: a switchless
@@ -801,8 +801,8 @@ class TopologyAndFlowMonitor
      * @brief What the last poll round was, in the shape /ndt/get_graph_data serves it.
      *
      * [Co-developed with claude code -- Adam]
-     * The third channel of the A-2 fix, and the one the round-6 evidence
-     * (doc/audit/2026-09-03_night-rounds/round6-bug-shapes/11_, 12_) showed was missing entirely:
+     * The third channel of the A-2 fix, and the one the 2026-09-03 evidence
+     * showed was missing entirely:
      * with /links answering HTTP 500 the graph read 14/14 nodes and 40/40 edges up and the
      * response's top-level keys were exactly ["edges","nodes"] -- no field anywhere said the
      * round had been half-read. A log line only helps someone already reading the log; every
@@ -820,7 +820,7 @@ class TopologyAndFlowMonitor
      * @brief The model this kernel actually loaded: its path, the sha256 of its bytes at the
      *        moment they were read, and when that was. Empty object when nothing has loaded.
      *
-     * [Co-developed with claude code -- Adam] -- E-2 (DECISIONS.md, grill §4E).
+     * [Co-developed with claude code -- Adam]
      * `tools/test_workflow/run_layers.sh` chose the model to validate the graph against from
      * (data plane, live host count) and never asked the kernel which file it had opened.
      * `setting/` holds two models with the same ten dpids and the same 10/4/40 cardinality
@@ -871,7 +871,7 @@ class TopologyAndFlowMonitor
      * @brief One startup WARN naming every switch this build has no power/telemetry path for.
      *
      * [Co-developed with claude code -- Adam]
-     * E-25 / E-30 (Adam's ruling of 2026-09-07). The `switch_kind` exemption is granted silently
+     * The `switch_kind` exemption is granted silently
      * at load time; this is the line that says it happened. Prints nothing when no switch is
      * exempt. The full reasoning, including why this is WARN rather than INFO and why it is not
      * made redundant by `power_path` on the wire, is at the definition.
@@ -885,7 +885,7 @@ class TopologyAndFlowMonitor
      * @brief Let this monitor load a topology whose switches are not all one data plane.
      *
      * [Co-developed with claude code -- Adam]
-     * BUG-17. Defaults to AppConfig::ALLOW_MIXED_DATAPLANE, which is a `static constexpr bool`
+     * Defaults to AppConfig::ALLOW_MIXED_DATAPLANE, which is a `static constexpr bool`
      * and therefore not something a test can vary. That did not matter while the homogeneity
      * check only logged; it matters now that the check REFUSES, because "a mixed topology is
      * still accepted when the operator has opted in" became a claim about loading, and a claim
@@ -933,8 +933,7 @@ class TopologyAndFlowMonitor
      * @brief How one endpoint's reply turned out.
      *
      * [Co-developed with claude code -- Adam]
-     * Round 6 finding N1 (doc/audit/2026-09-03_night-rounds/round6-bug-shapes/14_SUMMARY.log):
-     * the test was `!body.empty()` and nothing else, so an HTTP 500 with a JSON error body, a 200
+     * Observed 2026-09-03: the test was `!body.empty()` and nothing else, so an HTTP 500 with a JSON error body, a 200
      * carrying a JSON object instead of an array, and a 200 carrying `<html>not json</html>` all
      * counted as answered and the round was recorded Complete. Measured, each arm held for at
      * least three poll intervals; only a genuinely empty body ever went red.
@@ -1043,7 +1042,7 @@ class TopologyAndFlowMonitor
         /// No round has finished yet. The initial value, and never a classification result --
         /// starting at Silent would report a wedge before the first request had been made.
         NotYetPolled,
-        /// All three endpoints were READ: 2xx, parsed, and the promised array. Until round 6
+        /// All three endpoints were READ: 2xx, parsed, and the promised array. Until 2026-09-03
         /// this said "produced a body", and that is the defect -- a 500 produces a body.
         Complete,
         Partial, ///< At least one endpoint was read and at least one was not.
@@ -1130,7 +1129,7 @@ class TopologyAndFlowMonitor
     std::atomic<bool> m_staticTopologyLoadOk{false};
 
     /// What loadedTopologyJson() serves. See that declaration for why each field is here.
-    /// [Co-developed with claude code -- Adam] -- E-2.
+    /// [Co-developed with claude code -- Adam]
     struct LoadedTopologyRecord
     {
         std::string path;          ///< absolute, resolved once at load time
@@ -1193,7 +1192,7 @@ class TopologyAndFlowMonitor
     /// power-off, so the WARN is written once per episode rather than once per poll.
     ///
     /// [Co-developed with claude code -- Adam]
-    /// FINDINGS #46. Edge-triggered for the same reason as m_topologyFetchFailures above: the
+    /// Edge-triggered for the same reason as m_topologyFetchFailures above: the
     /// control plane keeps listing a commanded-off switch for as long as it is configured to know
     /// about it -- which is for ever, in a Mininet fabric -- so a line per decline would be one
     /// line per switch every 30 s until someone powers it back on. Written under *m_graphMutex
@@ -1248,7 +1247,7 @@ class TopologyAndFlowMonitor
     std::thread m_flushEdgeFlowLoop;
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #76. m_running is read between rounds; this is read inside one, and it is what kills
+    // m_running is read between rounds; this is read inside one, and it is what kills
     // the `curl --max-time 5` the poll is blocked in when main.cpp prints `Exiting` and calls
     // stop(). See utils/StopSignal.hpp.
     utils::StopSignal m_stopSignal;
@@ -1259,7 +1258,7 @@ class TopologyAndFlowMonitor
     std::shared_ptr<EventBus> m_eventBus;
 
     // [Co-developed with claude code -- Adam]
-    // Written by updateLinkInfoLeftLinkBandwidth, read by ticket Q's acceptance gate. Starts at
+    // Written by updateLinkInfoLeftLinkBandwidth, read by the acceptance gate. Starts at
     // a negative sentinel rather than 0: zero is a legal-looking divisor and would let "nobody
     // has published a rate yet" pass a gate that is checking the divisor was correct.
     std::atomic<double> m_lastRateDivisorSeconds{-1.0};

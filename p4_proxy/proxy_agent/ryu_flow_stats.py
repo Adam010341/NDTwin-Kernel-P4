@@ -46,7 +46,7 @@ ETH_TYPE_IPV4 = 0x0800
 # listed is deliberately dropped, because the Classifier ignores unknown keys anyway and
 # passing them through would only make the payload look richer than it is.
 #
-# [Co-developed with claude code -- Adam] TICKET-P4-roles section 7 ruling 5, item 2: the route
+# [Co-developed with claude code -- Adam] The route
 # match field is BASELINE's, like the route action below -- `hdr.ipv4.dstAddr` is written once,
 # in route_binding.BASELINE. (flow_5tuple matches on the same header field and reads it back
 # under this same key, so this one entry serves both of NDTwin's tables.)
@@ -70,7 +70,7 @@ RYU_WIDTH = {
 
 # Actions that forward out of a port, and which parameter carries it.
 #
-# [Co-developed with claude code -- Adam] TICKET-P4-roles 2.2-1: the route action's name and its
+# [Co-developed with claude code -- Adam] The route action's name and its
 # port parameter are BASELINE's, not a second spelling of them -- this map used to carry the
 # literal, and route_binding.BASELINE is now the only place it is written. A switch bound to a
 # package's roles adds ITS action on top (`_vocabulary`).
@@ -313,7 +313,7 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
     }
 
 
-# --- whose vocabulary, and what is left out. TICKET-P4-roles 2.5-1 ---------------------------
+# --- whose vocabulary, and what is left out ---------------------------------------
 # [Co-developed with claude code -- Adam]
 #
 # NDTwin's own pipeline renders its body exactly as it always did -- every action it declares is
@@ -325,23 +325,23 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # 🔴 A FOREIGN PIPELINE IS WHERE "UNKNOWN" STOPS MEANING DROP. On somebody else's program an
 # action this module does not know is the AUTHOR's semantics -- load_balance's set_ecmp_select,
 # multicast's mac_forward -- and rendering it as `actions: []` told the kernel's Classifier "this
-# rule drops", which it does not (ANALYSIS section 6). So on a foreign switch such a row is NOT
+# rule drops", which it does not. So on a foreign switch such a row is NOT
 # LISTED, and `GET /p4/switch_state` says how many were left out (`flow_stats.unrendered_entries`):
 # a rule the twin cannot describe is absent and counted, never described wrongly.
 #
-# 🔴 ON A FOREIGN PIPELINE THE COUNT IS EVERY NON-DEFAULT ROW NOT LISTED (section 7 ruling 5,
-# item 3): an unknown action, OR a match this module cannot translate (reporting that row would be
-# a match-everything rule, so it is not listed on any pipeline). Round 1 counted only
-# unknown-action rows whose match it could translate -- and a foreign program's non-route tables
-# match on the program's own field names (renamed_route's proto_tags: `hdr.ip4.proto`), so its
-# real rows were neither listed nor counted. A default row is not a rule and is never counted.
+# 🔴 ON A FOREIGN PIPELINE THE COUNT IS EVERY NON-DEFAULT ROW NOT LISTED: an unknown action, OR a
+# match this module cannot translate (reporting that row would be a match-everything rule, so it
+# is not listed on any pipeline). Counting only unknown-action rows whose match it could
+# translate would miss a foreign program's non-route tables, which match on the program's own
+# field names (renamed_route's proto_tags: `hdr.ip4.proto`): their real rows would be neither
+# listed nor counted. A default row is not a rule and is never counted.
 # On NDTwin's own pipeline the count is narrower: see the paragraph on the baseline count.
 #
-# 🔴 A MATCH RYU CANNOT SAY IS THE SAME CASE, ON EVERY PIPELINE (the ternary writer, Adam's
-# ruling). A ternary field whose mask is a run of leading ones on an address renders as
-# value/prefix like an lpm field; a full mask is an exact value; any other mask, and any range
-# field, has no Ryu spelling, so the row is NOT LISTED and IS COUNTED. Listing it with the value
-# alone would describe a rule matching one address where the switch matches a pattern.
+# 🔴 A MATCH RYU CANNOT SAY IS THE SAME CASE, ON EVERY PIPELINE (the ternary writer). A ternary field
+# whose mask is a run of leading ones on an address renders as value/prefix like an lpm field; a
+# full mask is an exact value; any other mask, and any range field, has no Ryu spelling, so the row
+# is NOT LISTED and IS COUNTED. Listing it with the value alone would describe a rule matching one
+# address where the switch matches a pattern.
 #
 # NDTwin's own pipeline is not counted for unknown ACTIONS: its body is the base's, byte for byte,
 # so a row whose action is unknown still lists, with the empty action list, as it always did. It
@@ -444,7 +444,7 @@ def render_flow_stats(dpid: int, entries, install_times=None,
     `api_routes.get_flow_stats` passes the real one. The lookup is by
     `rule_install_times.entry_key`, the same key the write paths record under.
 
-    `binding` -- TICKET-P4-roles 2.5-1, see `render_flow_stats_counted`. The default is NDTwin's
+    `binding` -- see `render_flow_stats_counted`. The default is NDTwin's
     own pipeline, which is what every caller before roles meant.
     """
     return render_flow_stats_counted(dpid, entries, install_times=install_times,

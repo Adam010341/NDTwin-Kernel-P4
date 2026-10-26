@@ -80,13 +80,13 @@ has_handoff()  { lab_section | grep -qi "handoff" && echo yes || echo no; }
 
 # THE FIXTURE IS DELIBERATELY UNMISTAKABLE, and that is the load-bearing part of it.
 #
-# The first version of this check used by=8/25 sampling / at=<today> / note=ticket D done, safe
-# to tear down. The real handoff written by that session an hour later read "ticket D finished
-# 20:05. Fabric left up and freshly restored -- take it or tear it down". Near enough word for
-# word. When I leaked the fixture into the live workspace, the only thing distinguishing it from
+# The first version of this check used a real session's name for by=, today's date for at=, and
+# note=done, safe to tear down. The real handoff written by that session an hour later read
+# "finished 20:05. Fabric left up and freshly restored -- take it or tear it down". Near enough word
+# for word. When I leaked the fixture into the live workspace, the only thing distinguishing it from
 # a genuine handoff was the by= and at= fields, which nobody interrogates on a note that reads
-# perfectly plausibly -- and its instruction was "safe to tear down", i.e. it would have induced
-# a destructive action against a fabric someone was running on.
+# perfectly plausibly -- and its instruction was "safe to tear down", i.e. it would have induced a
+# destructive action against a fabric someone was running on.
 #
 # So the fixture now announces itself. An owner nobody has, an epoch timestamp, and a note whose
 # first words tell a human reading it in a live workspace that a test leaked. Suggested by the
@@ -136,10 +136,10 @@ printf 'owner=someone else\nexpires=%s\nnote=busy\n' "$(( $(date +%s) - 60 ))" \
     > "$SANDBOX/.test_run/lab.claim"
 check "an expired claim does not hide the handoff" "yes" "$(has_handoff)"
 
-# 6. Claiming invalidates the note. Adam's ruling, argued by the 8/25 sampling session: deletion
-#    must follow RESPONSIBILITY, not reading. A reader who merely looked and left would otherwise
-#    destroy the note for whoever actually takes the lab, two readers race, and it relies on
-#    someone remembering. The rename keeps an interrupted handover reconstructable.
+# 6. Claiming invalidates the note. Deletion must follow RESPONSIBILITY, not reading. A reader who
+#    merely looked and left would otherwise destroy the note for whoever actually takes the lab, two
+#    readers race, and it relies on someone remembering. The rename keeps an interrupted handover
+#    reconstructable.
 rm -f "$SANDBOX/.test_run/lab.claim" "$SANDBOX/.test_run/lab.handoff.prev"
 write_handoff
 NDT_OWNER="test-owner" bash "$NDT" claim 5 "unit test" >/dev/null 2>&1

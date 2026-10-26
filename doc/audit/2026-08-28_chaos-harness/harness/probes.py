@@ -546,8 +546,8 @@ def bmv2_process_count() -> int:
 # --------------------------------------------------------------------------------------------
 # Locks
 #
-# 🔴 THERE IS NO PRIVATE LOCK. Corrected 2026-08-29 by `8/29 auditor` reading the code, after
-# this harness reported a finding that was a misdiagnosis of its own bug.
+# 🔴 THERE IS NO PRIVATE LOCK. Corrected 2026-08-29 by reading the code, after this harness
+# reported a finding that was a misdiagnosis of its own bug.
 #
 # The harness sent `{"lockName": "chaos_probe"}`. The handler reads **`type`**
 # (`HttpSession.cpp:1925`, and the same in renew at `:1974` and release at `:2011`), so
@@ -612,9 +612,9 @@ def bmv2_provenance() -> dict:
 
     Provenance is one level below the strongest form, and says so: `/proc/<pid>/exe` is not
     readable as this uid, so this falls back to argv[0] cross-checked against the override file,
-    with a sha256 of the resolved path. Same compromise ticket ① settled on, for the same
-    reason. argv can be spoofed by whoever spawned the process; the sha256 pins the file that
-    path currently names, which is not the same as pinning what the running process mapped.
+    with a sha256 of the resolved path. argv can be spoofed by whoever spawned the process; the
+    sha256 pins the file that path currently names, which is not the same as pinning what the
+    running process mapped.
 
     2026-09-12: the argv now comes from /proc/<pid>/cmdline for the pids the manifest names,
     not from `pgrep -af`. Same compromise, one level better sourced -- the pid is taken from

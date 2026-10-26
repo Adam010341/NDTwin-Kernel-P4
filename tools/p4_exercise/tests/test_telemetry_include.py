@@ -45,7 +45,8 @@ BASIC_SOLUTION = os.path.join(FIXTURES, "basic", "solution", "basic.p4")
 P4_SRC = os.path.join(REPO, "p4_proxy", "p4_src")
 INCLUDE = os.path.join(P4_SRC, "ndtwin_telemetry.p4")
 NDTWIN_SWITCH = os.path.join(P4_SRC, "ndtwin_switch.p4")
-P4C = "/usr/local/bin/p4c-bm2-ss"
+#: The compiler: $NDTWIN_P4C if set, otherwise whatever p4c-bm2-ss is on PATH, otherwise None.
+P4C = os.environ.get("NDTWIN_P4C") or shutil.which("p4c-bm2-ss")
 
 #: The five the proxy resolves by name, plus the pad that makes the header a whole number of
 #: bytes. Widths included: a field that keeps its name and loses four bits is decoded without
@@ -251,9 +252,10 @@ class TheIncludeCompilesTest(unittest.TestCase):
     """The claim that needs a compiler. Skips loudly when there is none."""
 
     def setUp(self):
-        if not os.path.isfile(P4C) or not os.access(P4C, os.X_OK):
+        if not P4C or not os.path.isfile(P4C) or not os.access(P4C, os.X_OK):
             self.skipTest(
-                f"no p4c-bm2-ss at {P4C}, so this machine cannot compile the fixture. This is "
+                f"no p4c-bm2-ss ({'$NDTWIN_P4C=' + P4C if P4C else 'not on PATH, $NDTWIN_P4C unset'}), "
+                f"so this machine cannot compile the fixture. This is "
                 f"NOT evidence that it compiles -- the committed build products under "
                 f"fixtures/basic_telemetry/build/ were produced by p4c-bm2-ss 1.2.5.15.")
         self.tmp = tempfile.mkdtemp(prefix="p4_telemetry_include_")

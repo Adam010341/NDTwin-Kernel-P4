@@ -6,7 +6,7 @@
 #
 # A test that has never been seen red is not a test. Mutation 1 is the point of the whole file:
 # it puts back the pre-fix scorer VERBATIM -- the `grep -oE '^Ran [0-9]+'` that
-# doc/audit/2026-09-02_live-round/raw/B16 diagnosed at l1_unit_tests.sh:319 -- and asserts the
+# was diagnosed at l1_unit_tests.sh:319 in the 2026-09-02 live round -- and asserts the
 # suite goes red for it. If that one ever SURVIVES, the suite is not testing the defect it was
 # written for.
 #
@@ -286,7 +286,7 @@ mutate "a printf-summary suite prints it only on the failure path, followed by a
 s = s.replace("printf \x27\\nRan %d checks, %d failed\\n\x27 \"$((PASS+FAIL))\" \"$FAIL\"\n[[ \"$FAIL\" -eq 0 ]] || exit 1\n",
               "if [[ \"$FAIL\" -ne 0 ]]; then\n    printf \x27\\nRan %d checks, %d failed\\n\x27 \"$((PASS+FAIL))\" \"$FAIL\"\n    exit 1\nfi\n")
 ' "C  test_stack_log_rotation.sh prints" "followed by a bare exit at line"
-# [Co-developed with claude code -- Adam] rule (2a), the opus judge's B1 on d2a9d641 (09-27): the
+# [Co-developed with claude code -- Adam] rule (2a) (09-27): the
 # one-line failure branch and the `|| { ...; exit 1; }` summary. At d2a9d641 both SURVIVED (group C
 # saw a bare exit only at the start of a later line); each must now be caught by (2a) by name.
 mutate "a one-line-failure-branch suite stops printing its green summary" "$CORPUS_ONELINE_REL" '
@@ -296,14 +296,14 @@ s = s.replace("echo \"Ran $((PASS+FAIL)) checks, all passed${SKIP:+ ($SKIP skipp
 mutate "a suite whose other summaries are all \"|| { ...; exit 1; }\" loses its final one" "$CORPUS_GROUPED_REL" '
 s = s.replace("printf \x27\\n\x27\necho \"Ran $((PASS+FAIL)) checks, $FAIL failed\"\n", "printf \x27\\n\x27\n")
 ' "C  test_ndt_down_stops_only_ours.sh prints" "exit <non-zero> after it on the same line"
-# ... and the judge's N4: a $(( )) the renderer cannot evaluate is an instrument failure, red as
+# ... and a $(( )) the renderer cannot evaluate is an instrument failure, red as
 # such -- never read as "zero", or as the prints before it
 mutate "a summary whose \$(( )) the renderer cannot evaluate (09)" "$CORPUS_REL" '
 s = s.replace("echo \"Ran $((PASS + FAIL)) checks, all passed\"",
               "echo \"Ran $((PASS + 09)) checks, all passed\"")
 ' "C  test_faults.sh prints" "instrument failed"
 
-# [Co-developed with claude code -- Adam] rule (2a) read on a CALL's line -- the opus judge's NOTE A on
+# [Co-developed with claude code -- Adam] rule (2a) read on a CALL's line, on
 # 1d5180ce (09-27). test_ndt_ovs_topo_script.sh prints its summary from `summary() { printf ...; }`,
 # calls it as `summary; exit 1` when a section cannot run, and as a bare `summary` last. With the bare
 # call gone, 1d5180ce's group C read the function's print at its definition line, saw no exit there,
@@ -316,7 +316,7 @@ s = s.replace("\nsummary\n[[ $FAIL -eq 0 ]]\n", "\n[[ $FAIL -eq 0 ]]\n")
 echo
 echo "=== mutations: group C's readings, each broken in the suite's own reader (group R must see it) ==="
 
-# [Co-developed with claude code -- Adam] (09-27, the opus judge's NOTE I on 1d5180ce) each reading of
+# [Co-developed with claude code -- Adam] (09-27) each reading of
 # render_prints is broken once, in the suite's OWN copy of it, and the group R fixture that pins that
 # reading must go red for it -- by name, and with the verdict the broken reading gives.
 mutate "(2a) && after a print is no longer certain" "$SUITE_REL" '
@@ -376,7 +376,7 @@ s = s.replace("        if nest == 0 and (op == \";;\" or head in (\"else\", \"el
 
 echo
 echo "=== mutations: tests/shell's Python suites are collected, scored as shell suites, and declare their need (S-8) ==="
-# [Co-developed with claude code -- Adam] round 5 (the round-4 review's S-8)
+# [Co-developed with claude code -- Adam] round 5
 mutate "tests/shell/test_*.py is not collected" "$DRIVER_REL" '
 s = s.replace(" \"$KERNEL_DIR\"/tests/shell/test_*.py)", ")")
 ' "D27 🔴 the lane collects tests/shell/test_*.py"

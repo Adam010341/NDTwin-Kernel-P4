@@ -387,8 +387,8 @@ mark_log() {
 #   2  cannot tell, because /proc/<pid>/fd is unreadable by this user
 #
 # State 2 is the documented startup. `/proc/PID/fd` is mode 0500 owned by the process's uid, and the
-# manual teaches `sudo -E bin/ndtwin_kernel` (see doc/2026-07-29_HANDOFF.md 5, which also warns that a normal
-# `pkill` cannot kill it). Against a root-owned kernel the glob matched nothing, this returned 1, and
+# manual teaches `sudo -E bin/ndtwin_kernel`, and a kernel started that way cannot be killed by a normal
+# `pkill`. Against a root-owned kernel the glob matched nothing, this returned 1, and
 # the log layer hard-failed with "is not being written by any running kernel" -- while the kernel was
 # writing it live. A guard that fails on the recommended workflow gets worked around, which is how the
 # last generation of allowlist noise got where it did.
@@ -403,7 +403,7 @@ mark_log() {
 # are asked, because which of the two carries it depends on whether supervise.sh was available.
 #
 # 🔴 THE THIRD STATE MOVED, and it had to. `pgrep` could see a kernel somebody started by hand,
-# which the manual teaches (`sudo -E bin/ndtwin_kernel`, doc/2026-07-29_HANDOFF.md 5); the
+# which the manual teaches (`sudo -E bin/ndtwin_kernel`); the
 # registry cannot -- such a kernel records nothing. So "no pidfile at all" is now state 2,
 # CANNOT TELL, not state 1: this script has no record, which is not the same statement as "no
 # kernel is running", and reporting it as staleness would hard-fail the documented workflow.

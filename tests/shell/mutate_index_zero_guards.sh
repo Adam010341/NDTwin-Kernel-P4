@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #88 / W14: the `ip[0]` sites in the intent and flow subsystems --
+# Mutation gate for the `ip[0]` sites in the intent and flow subsystems --
 # `operator[]` on a std::vector that starts empty.
 #
 # [Co-developed with claude code -- Adam]
@@ -10,8 +10,7 @@
 # since d6f7c014 (2025-12-15) -- and mutations M3, M10 and C3, which were the three that mutated
 # LLMAgent.cpp, were removed with it. The surviving mutations keep their original labels so that
 # "M4 caught" still means the same edit it meant in the 2026-09-06 and 2026-09-10 runs; the totals
-# moved from `16 mutations` to `13 mutations`. See
-# doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 7.
+# moved from `16 mutations` to `13 mutations`.
 #
 # Structure, mechanics and wording are lifted from mutate_first_address_of.sh, which gates the
 # other sixteen sites of the same finding. Copied rather than shared for the reason that gate
@@ -442,7 +441,7 @@ ROUND_FILTER="$FILTER"
 echo "mutations:"
 
 # --- M8: the fabricated address -----------------------------------------------------------------
-# The failure mode FIX-CPU-REPORT-NO-IP.md §5 records twice: a plausible-looking substitute no
+# The failure mode of a plausible-looking substitute no
 # caller can tell apart from a measurement. Nothing crashes and the reply is full.
 mutate_must_die \
     "M8 fabricates-0.0.0.0-in-the-topology-reply" \

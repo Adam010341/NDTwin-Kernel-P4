@@ -9,7 +9,7 @@ WHY. Since 09-27 `ndt up p4 --app` starts the root helper's heartbeat on an exte
 running its own pipeline (detect only). Its frames (ethertype 0x88B5) enter that program. A program
 that punts an unknown ethertype to its controller, floods it, or reports it in a digest hands the
 frame to the exercise's own controller or hosts -- which NDTwin cannot see (the proxy has no stream
-on an external fabric; the daemon counts only frames leaving switch ports). Adam's ruling (09-28):
+on an external fabric; the daemon counts only frames leaving switch ports). The policy is
 default-safe, not default-on -- start the heartbeat there ONLY when this check proves the loaded
 program drops the frame.
 
@@ -20,7 +20,7 @@ HOW. For each distinct program the package's switches run (its compiled bmv2 JSO
     NO table entries, NO clone session and NO multicast group -- every table answers with its
     default action -- reading and writing pcap files (`--use-files`), so it needs no root and no
     interface;
-  * one real heartbeat frame (the daemon's layout, ruling-pinned by a test) is injected on every
+  * one real heartbeat frame (the daemon's layout, pinned by a test) is injected on every
     data port the package's model gives the switches running that program;
   * each frame's fate is read from bmv2's own per-packet log, and cross-checked against the pcap
     of every attached port (every data port, and the package's CPU port).
@@ -334,7 +334,7 @@ class Launch:
 
     def start(self):
         if os.geteuid() == 0:
-            # [Co-developed with claude code -- Adam] The orchestrator's first condition (09-28).
+            # [Co-developed with claude code -- Adam] The first launch condition.
             raise PermissionError("refusing to launch the throwaway switch as root")
         env = dict(os.environ, NDT_HB_CHECK_ARGV0=ARGV0)
         # [Co-developed with claude code -- Adam] Executed through a symlink named ARGV0 in its own
@@ -613,7 +613,7 @@ def run(package_dir, out=print):
         return 2, []
     version = binary_version(binary())
     # [Co-developed with claude code -- Adam] The same bmv2 as the fabric, or no answer: a verdict
-    # from another bmv2 version is about another switch (the round-4 review's S-4).
+    # from another bmv2 version is about another switch.
     fabric = fabric_binary()
     fabric_version = binary_version(fabric)
     mismatch = None
@@ -660,7 +660,7 @@ def _main(argv):
               f"({type(IMPORT_ERROR).__name__}: {IMPORT_ERROR})")
         return 2
     if os.geteuid() == 0:
-        # [Co-developed with claude code -- Adam] The orchestrator's first condition (09-28): the
+        # [Co-developed with claude code -- Adam] The first launch condition: the
         # throwaway switch runs as the caller, never as root -- refused, not obeyed under sudo.
         print("heartbeat drop check: could not tell -- refusing to run as root (euid 0); run it "
               "as the user who runs ndt")
@@ -682,7 +682,7 @@ def _main(argv):
 
 def main(argv):
     """_main, with every crash an rc 2 (could not tell) -- never Python's rc 1 for a traceback,
-    which ndt would read as "a program does NOT drop it" (the round-4 review's S-4). A signal's
+    which ndt would read as "a program does NOT drop it". A signal's
     SystemExit(128+N) passes through; the switch was stopped by check_program's `finally`."""
     try:
         return _main(argv)

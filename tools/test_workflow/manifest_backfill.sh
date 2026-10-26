@@ -6,8 +6,8 @@
 # 38e0c44 made build_bmv2_fast.sh sign its own work, but only for builds run after it. The fast
 # binary in /usr/local/bmv2-fast was installed 2026-08-15 and its build tree (/tmp/bmv2-fast-src)
 # is gone, so the installed artifact -- the one every -O3 number in this project came from -- has
-# no record beside it. This backfills that record from doc/audit/bmv2-binary-provenance.md, which
-# established each field by observation rather than inference.
+# no record beside it. This backfills that record from what was observed on 2026-08-21
+# (sha256sum, stat and --version of the installed binary), not from inference.
 #
 # ## Why this is a separate script and not a flag on the build script
 #
@@ -31,12 +31,12 @@
 # changes every run. The build's own fields are fixed. An earlier version of this comment
 # claimed byte-identical output, which its own `date -u` line contradicted.
 #
-# ## Installation (Adam runs these two lines; this script must not try to)
+# ## Installation (an administrator runs these two lines; this script must not try to)
 #
 #   sudo install -o root -g root -m 755 tools/test_workflow/manifest_backfill.sh \
 #        /usr/local/sbin/ndtwin-manifest-backfill
 #   sudo visudo -f /etc/sudoers.d/ndtwin-lab   # add:
-#        adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-manifest-backfill
+#        <user> ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-manifest-backfill
 #
 # The narrow-sudoers shape follows ndtwin-lab's existing pattern: one absolute path, no
 # arguments, root-owned and not writable by the invoking user -- so the NOPASSWD entry cannot be
@@ -47,7 +47,7 @@ PREFIX=/usr/local/bmv2-fast
 BIN="$PREFIX/bin/simple_switch_grpc"
 MANIFEST="$PREFIX/BUILD-MANIFEST"
 
-# From doc/audit/bmv2-binary-provenance.md, established by sha256sum on 2026-08-21.
+# Established by sha256sum of the installed binaries on 2026-08-21.
 EXPECT_SHA=3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a
 EXPECT_SIZE=92147960
 STOCK_SHA=327fa7d17221739747a15c6ced580b452b5c8981f29ba6a6998c1361d73cdef4
@@ -61,14 +61,14 @@ actual_size="$(stat -c %s "$BIN")"
 
 if [[ "$actual_sha" != "$EXPECT_SHA" ]]; then
     if [[ "$actual_sha" == "$STOCK_SHA" ]]; then
-        die "the binary at $BIN is the STOCK -O0 build (sha256 matches the stock row of
-  doc/audit/bmv2-binary-provenance.md). Refusing to label it as the fast build."
+        die "the binary at $BIN is the STOCK -O0 build (sha256 matches the pinned
+  STOCK_SHA). Refusing to label it as the fast build."
     fi
     die "the binary at $BIN is not the one the provenance record describes.
   expected sha256: $EXPECT_SHA
   actual   sha256: $actual_sha
   It was probably rebuilt in place. Do not backfill: run build_bmv2_fast.sh, which writes a
-  real manifest at build time, and correct bmv2-binary-provenance.md with the new hash."
+  real manifest at build time, and update EXPECT_SHA with the new hash."
 fi
 
 # --version is not an identifier (both builds answer identically) but it is the one field that
@@ -80,8 +80,8 @@ tee "$MANIFEST" >/dev/null <<EOF
 # RECONSTRUCTED MANIFEST -- not written at build time.
 #
 # The build tree for this binary (/tmp/bmv2-fast-src) no longer exists. Every field below was
-# recovered after the fact by tools/test_workflow/manifest_backfill.sh from
-# doc/audit/bmv2-binary-provenance.md, and the binary was verified by sha256 before this file
+# recovered after the fact by tools/test_workflow/manifest_backfill.sh from what
+# was observed on 2026-08-21, and the binary was verified by sha256 before this file
 # was written. Builds made after 38e0c44 write their own manifest at install time and do not
 # carry this header.
 #

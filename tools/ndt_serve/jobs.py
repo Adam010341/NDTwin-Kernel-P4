@@ -13,7 +13,7 @@ asked for, from the files in its directory and from /proc:
 "Alive" is (pid, starttime) from /proc and not a zombie -- a pid alone can be reused, and a
 zombie is a process that has already ended.
 
-🔴 `running` AND `orphaned` both hold the service's one mutation slot (TICKET 3.5). An `ndt up`
+🔴 `running` AND `orphaned` both hold the service's one mutation slot. An `ndt up`
 whose runner was killed is still building a fabric, and a second job started beside it would be
 exactly the overlap the slot exists to prevent. `ndt`'s own guards are still there behind this.
 """
@@ -221,7 +221,7 @@ class JobStore:
 
 
 class ReadLog:
-    """Every read-only ndt call's output, byte for byte, under an id (judge 09-24, finding 4).
+    """Every read-only ndt call's output, byte for byte, under an id.
 
     A status page polled every few seconds would fill a disk, so only the last KEEP are kept --
     the oldest go first, and an id that has gone answers 404 rather than something else."""

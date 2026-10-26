@@ -1,1 +1,0 @@
-391:    static constexpr int kTopologyRequestTimeoutSeconds = 15; // MUTANT_M12

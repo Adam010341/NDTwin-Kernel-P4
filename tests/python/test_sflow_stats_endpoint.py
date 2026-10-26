@@ -1,11 +1,11 @@
-"""GET /sflow/stats -- the reader the send-side counters never had (ticket P).
+"""GET /sflow/stats -- the reader the send-side counters never had.
 
 [Co-developed with claude code -- Adam]
 
 The counters datagrams_sent / samples_sent / send_errors have been incremented by
 sflow_emitter.py since it was written and read by nothing, which is this repository's largest
-live defect family. Ticket 1 needed them: it measured telemetry losing 34% of its bytes under CPU
-contention and could not say which stage lost them, because the send side had no observable.
+live defect family. A telemetry measurement needed them: it measured telemetry losing 34% of its bytes under
+CPU contention and could not say which stage lost them, because the send side had no observable.
 
 The test that matters here is not "the endpoint returns numbers". It is that an endpoint which is
 NOT wired must fail loudly rather than return zeros -- because zero samples sent and "nobody

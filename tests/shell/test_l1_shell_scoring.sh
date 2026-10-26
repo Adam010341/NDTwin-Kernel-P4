@@ -4,8 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# The defect these encode was recorded on 2026-09-02 in
-# doc/audit/2026-09-02_live-round/raw/B15_l1_six_problem_groups.log and B16_..._diagnosis.log.
+# The defect these encode was observed on 2026-09-02 in a live round's logs.
 # l1_unit_tests.sh counted every kernel-side test with unittest's line:
 #
 #     ran=$(grep -oE '^Ran [0-9]+' "$log" | tail -1 | grep -oE '[0-9]+')
@@ -351,10 +350,10 @@ check "D30 🔴 with no stock simple_switch the drop check's suite skips: rc 0, 
 hb_excuse="$(L1_NEED_MET=([bmv2-stock]=0); l1_skip_excuse "$SHELL_TESTS_DIR/test_heartbeat_drop_check.py" "$HBT/skip.log" sh "$hb_ran" "$hb_sk")"
 check "D31 🔴 ...which the lane scores DECLARED-SKIP on a hosted runner and FAIL-SKIP on the lab" "DECLARED-SKIP FAIL-SKIP" \
       "$(l1_lane_verdict "$hb_rc" "$hb_ran" "$hb_failed" "$hb_sk" "$hb_excuse" 1) $(l1_lane_verdict "$hb_rc" "$hb_ran" "$hb_failed" "$hb_sk" "$hb_excuse" 0)"
-# [Co-developed with claude code -- Adam] (the orchestrator's round-6 ruling on S-8) on the lab the suite adds
-# no throwaway switch while somebody else holds the lab or a measurement is declared: it skips, before
-# anything. Run with no simple_switch as well, so a claim rule that fails still starts no switch -- and so
-# a claim that does NOT hold the lab is told by the OTHER skip.
+# [Co-developed with claude code -- Adam] On the lab the suite adds no throwaway switch while
+# somebody else holds the lab or a measurement is declared: it skips, before anything. Run with no
+# simple_switch as well, so a claim rule that fails still starts no switch -- and so a claim that
+# does NOT hold the lab is told by the OTHER skip.
 hb_claim() {   # hb_claim <owner> <expires> <measuring> <me> -> the suite's first line
     printf 'owner=%s\nexpires=%s\nnote=x\nexclusive_cpu=no\nmeasuring=%s\n' "$1" "$2" "$3" > "$HBT/claim"
     NDT_OWNER="$4" NDT_LAB_CLAIM_FILE="$HBT/claim" NDT_HB_CHECK_BMV2="$HBT/no-such-simple_switch" \
@@ -405,19 +404,18 @@ echo "=== group C: the corpus -- every suite in tests/shell prints a form this s
 #            the green one), behind ||, inside an if/while/for/case opened after the print, or in
 #            another branch (else, elif, the next ;; pattern). A conditional exit that does not
 #            fail (`[[ $FAIL -eq 0 ]] && exit 0`) is a way to the end: not a failure path.
-#            For a print inside a function, (2a) is also read on the line of every CALL
-#            (`summary; exit 1` -- the opus judge's NOTE A on 1d5180ce) and in the function's own
-#            body (a later line of it that starts with `exit <non-zero>`): a function whose every
-#            call, or whose body, ends in a failure prints only on a failure path.
+#            For a print inside a function, (2a) is also read on the line of every CALL (`summary;
+#            exit 1`) and in the function's own body (a later line of it that starts with `exit
+#            <non-zero>`): a function whose every call, or whose body, ends in a failure prints only
+#            on a failure path.
 #            Such a print is on a failure path and is never "the last one"; if every scoring print
 #            is one, the suite is red for it.
 #       (2b) no bare `exit <non-zero>` at the start of any LATER line.
 #       Together they keep what the old last-echo check caught -- a suite that still prints its
 #       failure-path summary but lost its green one would read NO-TESTS-RAN at run time -- in both
-#       the multi-line and the one-line shape, without the old check's false alarms. (2a) came
-#       with the opus judge's B1 on d2a9d641 (09-27); its call-line, pipe, block-end, conditional
-#       and case readings with the same judge's NOTEs A, B, F, G and H on 1d5180ce (09-27). Group R
-#       holds each reading on a fixture of its own; mutate_l1_shell_scoring.sh breaks each one.
+#       the multi-line and the one-line shape, without the old check's false alarms. (2a) came in on
+#       09-27, and its call-line, pipe, block-end, conditional and case readings the same day. Group
+#       R holds each reading on a fixture of its own; mutate_l1_shell_scoring.sh breaks each one.
 # 🔴 KNOWN LIMITATIONS, not fixed -- each a shape the corpus does not have today (M0 is green):
 #   - a summary followed by a bare `exit` or `exit $FAIL` -- the SELFTEST_INNER branch of
 #     test_mutate_gate_dead_mutant.sh (`echo "Ran ..."`, then `(( FAIL == 0 )); exit`) -- is a
@@ -437,13 +435,12 @@ echo "=== group C: the corpus -- every suite in tests/shell prints a form this s
 #   - an `exit` inside a subshell, `( echo "Ran ..."; exit 1 )`, is read as the script's exit.
 #   - a call of the function that is not at the start of a line (`|| summary`, `trap summary EXIT`,
 #     a call from another function) is not seen: its prints count at the function's own line.
-# 🔴 FAIL CLOSED (the judge's N4): a $(( )) the renderer cannot evaluate (09, an empty $(( )), **)
-# stops render_prints with a message and a non-zero status, and so does a renderer that runs past
-# 30 s; group C then reports "instrument failed" for that suite, never a zero or half its prints.
-# A `/` is not in the renderer's alphabet at all: a $(( )) holding one renders as 9, silently, and is
-# never evaluated -- so a division by zero is NOT an instrument failure (the judge's NOTE E).
-# (A print whose quotes do not close on its own line -- a multi-line string -- is not a one-line
-# print and is skipped, as before.)
+# 🔴 FAIL CLOSED: a $(( )) the renderer cannot evaluate (09, an empty $(( )), **) stops render_prints
+# with a message and a non-zero status, and so does a renderer that runs past 30 s; group C then
+# reports "instrument failed" for that suite, never a zero or half its prints. A `/` is not in the
+# renderer's alphabet at all: a $(( )) holding one renders as 9, silently, and is never evaluated --
+# so a division by zero is NOT an instrument failure. (A print whose quotes do not close on its own
+# line -- a multi-line string -- is not a one-line print and is skipped, as before.)
 # Reading source, not running it: this file is in the corpus.
 render_prints() {   # render_prints <suite> -> "<effective line><TAB><0, or the failure rule><TAB><text>" per rendered line
     timeout 30 python3 - "$1" <<'PYR'
@@ -721,7 +718,7 @@ echo "=== group R: group C's readings, one fixture each (tests/shell/fixtures/l1
 # own, so the rule is pinned and not only the corpus it happens to meet today: each fixture is a
 # minimal suite text (read, never run; README.md there). The ones marked * were read the other way
 # by b005bf50's group C -- a false red (B, F) or a vacuous green (A, G, H) -- the rest pin a reading
-# that did not change, so that mutate_l1_shell_scoring.sh can break it by name (the judge's NOTE I).
+# that did not change, so that mutate_l1_shell_scoring.sh can break it by name.
 RFIX="$SHELL_TESTS_DIR/fixtures/l1_shell_scoring"   # not $HERE: sourcing the driver replaced it
 FP="only on a failure path:"
 SAME="every summary it prints has an exit <non-zero> after it on the same line"

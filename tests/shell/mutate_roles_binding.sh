@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for TICKET-P4-roles (phase 4, first cut): the roles manifest, the route binding,
+# Mutation gate for the P4 roles feature (phase 4, first cut): the roles manifest, the route binding,
 # the declared links, the external link-state entry, the flow-stats read-back and the
 # capabilities disclosure -- the proxy half (p4_proxy/) and the package-tool half
 # (tools/p4_exercise/) in ONE gate, because several of these behaviours are a single function
@@ -9,9 +9,9 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 EVERY NEW TEST HAS TO HAVE BEEN SEEN RED (TICKET-P4-roles section 0-6). Each mutation names
+# 🔴 EVERY NEW TEST HAS TO HAVE BEEN SEEN RED. Each mutation names
 # the one test that must go red, and the gate also records EVERY test each mutation reddened.
-# At the end the tests this ticket added (NEW_CLASSES below, enumerated by the unittest loader
+# At the end the tests added here (NEW_CLASSES below, enumerated by the unittest loader
 # from the unmutated copy, not typed out) are compared against everything that ever went red,
 # and a test that no mutation reddened FAILS THE GATE by name. A test nobody has seen fail is a
 # decoration; this is the list that would otherwise have to be trusted.
@@ -31,18 +31,18 @@
 # FixtureProvenance test compares the fixtures with ~/tutorials, which is a working copy other
 # sessions rebuild (on 2026-09-24 ~/tutorials/exercises/p4runtime/build/advanced_tunnel.json was
 # recompiled with absolute paths and that test went red at the base), and a gate whose baseline
-# depends on somebody else's build tree reports on that tree, not on this ticket. The test then
+# depends on somebody else's build tree reports on that tree, not on this change. The test then
 # skips, loudly, as it is written to.
 #
-# ROUND 3 (section 7 ruling 6) added R3-F1a..F4: the A-4d restore obeys the route scope, the
+# ROUND 3 added R3-F1a..F4: the A-4d restore obeys the route scope, the
 # watchdog promise is taken back where no watchdog runs, an owned switch left empty says why,
 # and the recorder's sha is pinned at every head.
 #
-# ROUND 2 (TICKET-P4-roles section 7 ruling 5) added: the mutations for items 1-8; the
+# ROUND 2 added: the mutations for items 1-8; the
 # 07_roles_basic.sh --self-test mutations (item 6), run on a copy of the script, each named for
 # the self-test case that must go red; and a check that NEW_CLASSES -- a typed list -- names
-# every TestCase class that exists now and did not exist at the ticket's base 6291db35, so a
-# class this ticket added cannot be left out of the "every new test seen red" check by omission.
+# every TestCase class that exists now and did not exist at the base 6291db35, so a
+# class added here cannot be left out of the "every new test seen red" check by omission.
 #
 # Usage:  tests/shell/mutate_roles_binding.sh
 #         PROXY_PY=/path/to/python tests/shell/mutate_roles_binding.sh
@@ -72,15 +72,15 @@ SOURCES=("$BINDING" "$CLIENT" "$MAIN" "$TOPOMGR" "$ROUTES" "$STATS" "$PKG" "$CON
 # four words as a mutation call.
 SOURCES+=("$LIVE07")
 SOURCES+=("$REPO/$LIVE_DIR_REL/_common.sh")
-#: The ticket's base: NEW_CLASSES must name every TestCase class added since.
-TICKET_BASE=6291db35
+#: The base commit: NEW_CLASSES must name every TestCase class added since.
+CLASSES_BASE=6291db35
 
 MODULES="tests.test_route_binding tests.test_declared_links tests.test_link_state_entry \
 tests.test_p4_client_writes tests.test_ryu_flow_stats tests.test_flow_stats_route \
 tests.test_switch_state tests.test_app_package tests.test_readopt tests.test_startup"
 
-#: The test classes this ticket added: every test in them must be seen red by some mutation.
-#: <module>:<Class>, or <module>:* for a module that is wholly this ticket's.
+#: The test classes added here: every test in them must be seen red by some mutation.
+#: <module>:<Class>, or <module>:* for a module that is wholly new here.
 NEW_CLASSES="tests.test_route_binding:* tests.test_declared_links:* \
 tests.test_link_state_entry:* \
 tests.test_p4_client_writes:TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest \
@@ -255,29 +255,28 @@ PY
 # and a print line counted as a test would be a "test" no mutation can ever redden.
 sed -n 's/^ID //p' "$NEW_IDS.raw" > "$NEW_IDS"
 echo "  new tests to be seen red: $(wc -l < "$NEW_IDS")"
-# 🔴 NEW_CLASSES IS TYPED; THIS IS WHAT KEEPS IT HONEST (round 2, the judge's finding 9). Every
+# 🔴 NEW_CLASSES IS TYPED; THIS IS WHAT KEEPS IT HONEST. Every
 # TestCase class in the modules this gate runs that is not in the base's version of its file must
 # be in NEW_CLASSES -- read by `git show <base>:<file>`, not remembered.
 #
-# [Co-developed with claude code -- Adam] 🔴 READ AT THIS TICKET'S OWN HEAD, NOT THE WORKING TREE
-# (TICKET-P4-heartbeat segment W, the fable judge's F3 on 1a3ebd7f; the orchestrator authorized
-# this change to this file, and only this one). Read from the working tree, "every class added
-# since 6291db35" is also every class any LATER ticket adds: at segment W's head this check listed
-# the 18 classes W added and counted them as its survivor, so on trunk this gate would be rc 1 for
-# good. CLASSES_AT is TICKET-P4-roles' last commit, 177b9f03 (round 3, the branch head merged as
-# 572d9462); a later round of THIS ticket that adds a class moves it, or runs with
+# [Co-developed with claude code -- Adam] 🔴 READ AT THIS WORK'S OWN HEAD, NOT THE WORKING TREE
+# (found when the heartbeat work added classes of its own). Read from the working tree, "every class added
+# since 6291db35" is also every class any LATER change adds: at the heartbeat work's head this check listed
+# the 18 classes it added and counted them as its survivor, so on trunk this gate would be rc 1 for
+# good. CLASSES_AT is this work's last commit, 177b9f03 (round 3, the branch head merged as
+# 572d9462); a later round of THIS work that adds a class moves it, or runs with
 # CLASSES_AT=worktree while uncommitted. It must be an ancestor of HEAD -- a history that lost it
 # (a squash-merge) is refused, not scanned as "no classes, none missing" -- and the scan carries
 # its own control: with one module left off the list it must name that module's classes.
 CLASSES_AT="${CLASSES_AT:-177b9f03}"
 if [[ "$CLASSES_AT" != worktree ]] && ! git -C "$REPO" merge-base --is-ancestor "$CLASSES_AT" HEAD 2>/dev/null; then
-    echo "REFUSE: CLASSES_AT $CLASSES_AT is not an ancestor of HEAD -- which classes this ticket added cannot be read"
+    echo "REFUSE: CLASSES_AT $CLASSES_AT is not an ancestor of HEAD -- which classes this change added cannot be read"
     exit 2
 fi
-# scan_classes <NEW_CLASSES> -- every module:class added between TICKET_BASE and CLASSES_AT that
+# scan_classes <NEW_CLASSES> -- every module:class added between CLASSES_BASE and CLASSES_AT that
 # the given list does not cover, one per line.
 scan_classes() {
-    "$PY" - "$REPO" "$TICKET_BASE" "$CLASSES_AT" "$1" <<'PY'
+    "$PY" - "$REPO" "$CLASSES_BASE" "$CLASSES_AT" "$1" <<'PY'
 import ast, glob, os, subprocess, sys
 repo, base, at, listed = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].split()
 wild = {s.split(":")[0] for s in listed if s.endswith(":*")}
@@ -311,8 +310,8 @@ for module, rel in files:
 PY
 }
 missing=$(scan_classes "$NEW_CLASSES") \
-    || { echo "REFUSE: could not compare the test classes with $TICKET_BASE"; exit 2; }
-# The scan's own control: with test_declared_links (a module wholly this ticket's) left off the
+    || { echo "REFUSE: could not compare the test classes with $CLASSES_BASE"; exit 2; }
+# The scan's own control: with test_declared_links (a module wholly new here) left off the
 # list it must name its classes. A scan that read nothing would otherwise pass as "none missing".
 probe=$(scan_classes "${NEW_CLASSES/tests.test_declared_links:\*/}") \
     || { echo "REFUSE: the class scan's control could not run"; exit 2; }
@@ -321,18 +320,18 @@ if ! /usr/bin/grep -q '^tests\.test_declared_links:' <<<"$probe"; then
     exit 2
 fi
 if [[ -n "$missing" ]]; then
-    echo "  🔴 NEW_CLASSES omits class(es) added between $TICKET_BASE and $CLASSES_AT -- their tests"
+    echo "  🔴 NEW_CLASSES omits class(es) added between $CLASSES_BASE and $CLASSES_AT -- their tests"
     echo "     would never be required to go red:"
     sed 's/^/       /' <<<"$missing"
     SURVIVORS=$((SURVIVORS+1))
 else
-    echo "  NEW_CLASSES names every TestCase class added between $TICKET_BASE and $CLASSES_AT" \
+    echo "  NEW_CLASSES names every TestCase class added between $CLASSES_BASE and $CLASSES_AT" \
          "(the scan's control, one module left off, named its classes)"
 fi
 rm -rf "$base"
 echo
 
-# --- the ticket's fifteen (section 3.3) ----------------------------------------------------------
+# --- the original fifteen ----------------------------------------------------------
 
 m=$(mutant r1 "$BINDING" \
     '    return RouteBinding(table=table.preamble.name, match_field=field.name,
@@ -428,7 +427,7 @@ m=$(mutant r10 "$MAIN" \
 report "M-R10: a foreign fabric starts LLDP and the watchdog" "$m" \
        "test_lldp_and_the_watchdog_stay_off_on_a_foreign_fabric_even_when_every_table_is_owned"
 
-# Round 2 (section 7 ruling 5, item 3): the killer is the renamed fixture's OWN rows. Round 1's
+# The killer is the renamed fixture's OWN rows. The first version's
 # killer used a tag row keyed `hdr.ipv4.protocol`, a shape the fixture never produces. On the
 # fixture's real rows an unknown action cannot be rendered as a drop at all -- proto_tags matches
 # `hdr.ip4.proto`, which no vocabulary translates -- so what this mutation (the base's foreign
@@ -474,9 +473,9 @@ m=$(mutant r15 "$CONVERT" \
 report "M-R15: convert without the flag writes a different package.json" "$m" \
        "test_every_file_of_every_conversion_is_the_one_the_base_wrote"
 
-# --- every other new test, each seen red by a named mutation (section 0-6) ----------------------
+# --- every other new test, each seen red by a named mutation ----------------------
 #
-# Beyond the ticket's fifteen: one mutation per behaviour a new test pins, so that no new test is
+# Beyond the original fifteen: one mutation per behaviour a new test pins, so that no new test is
 # a decoration. Grouped by file. Each is the plausible wrong version of that behaviour, not a
 # syntax break.
 
@@ -940,7 +939,7 @@ report "FS5: the renderer loses NDTwin's own route action" "$m" \
        "test_the_renderer_takes_the_route_action_from_the_baseline"
 
 # [Co-developed with claude code -- Adam]
-# The ternary writer's ruling: a match Ryu cannot say (a ternary mask that is neither full nor, on
+# The ternary writer's rule: a match Ryu cannot say (a ternary mask that is neither full nor, on
 # an address, a run of leading ones; any range) is NOT LISTED and IS COUNTED, on every pipeline.
 # Each branch of that rule has a mutation, and each is named for the single test that must see it.
 m=$(mutant fs_cidr "$STATS" \
@@ -1288,7 +1287,7 @@ m=$(mutant mn_predict "$MAIN" \
 report "MN17: the prediction applies a package's roles to an NDTwin-pipeline switch" "$m" \
        "test_roles_do_not_apply_to_an_ndtwin_switch_beside_a_foreign_one"
 
-# --- round 2 (TICKET-P4-roles section 7 ruling 5) -------------------------------------------------
+# --- round 2 -------------------------------------------------
 
 # item 1 -- readopt obeys the fabric's route skip
 m=$(mutant tm_attachedoff "$TOPOMGR" \
@@ -1480,7 +1479,7 @@ m=$(mutant mn_seedunwired "$MAIN" \
 report "R2-8i: the proxy never wires the seed reporter" "$m" \
        "test_the_proxy_wires_the_reporter_at_import"
 
-# --- round 3 (TICKET-P4-roles section 7 ruling 6) --------------------------------------------------
+# --- round 3 --------------------------------------------------
 
 # F1 -- the A-4d restore is the second writer on a fabric that skips its routes
 m=$(mutant tm_restorethrough "$TOPOMGR" \
@@ -1613,8 +1612,7 @@ l7_report "L7-6: skipped_is accepts any skipped list" "$m" "L6 routes still skip
 
 # [Co-developed with claude code -- Adam] L7-7's anchor moved with the code it mutates: 07's
 # declared_links_marked (8 entries, all `source: declared`) became links_heard (the declared
-# directions exactly, all fed by the heartbeat) -- TICKET-P4-heartbeat, the fable judge's R2 note
-# on ebdf365e. Same killer; L7-18..L7-22 below are that change's own.
+# directions exactly, all fed by the heartbeat) on ebdf365e. Same killer; L7-18..L7-22 below are that change's own.
 m=$(l7_mutant l7_declared 'missing = [k for k in want if k not in links]' 'missing = []')
 l7_report "L7-7: links_heard stops asking for every declared direction" "$m" "L1 no link entries"
 
@@ -1660,7 +1658,7 @@ m=$(l7_mutant l7_netem 'for f in "$@"; do' 'for f in "$1"; do')
 l7_report "L7-17: no_netem looks at one end only" "$m" "L4 netem left on one end"
 
 # [Co-developed with claude code -- Adam] 07's L1 on switch_state with the heartbeat running
-# (TICKET-P4-heartbeat, the fable judge's R2 note on ebdf365e).
+# (on ebdf365e).
 m=$(l7_mutant l7_extra 'extra = sorted(k for k in links if k not in want)' 'extra = []')
 l7_report "L7-18: links_heard accepts a link nobody declared" "$m" "L1 an extra link"
 
@@ -1681,7 +1679,7 @@ m=$(l7_mutant l7_either 'unfed = [k for k in want if k in links and got(k, "sour
 l7_report "L7-22: \"declared or heartbeat\" (the looser rule) is accepted" "$m" \
           "L1 the heartbeat never fed the proxy (all declared)"
 
-# [Co-developed with claude code -- Adam] Round 2b (the opus judge's N3-1 / N3-2 on e012a5a7): HEARD
+# [Co-developed with claude code -- Adam] (on e012a5a7) HEARD
 # means an age, and L6/L1 on switch_state -- state_until and the live path's two calls -- run in
 # the self-test through file://.
 m=$(l7_mutant l7_unheard 'unheard = [k for k in want if k in links and got(k, "source") == "heartbeat" and got(k, "down") is False
@@ -1720,7 +1718,7 @@ m=$(l7_mutant l7_shortpoll '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no sw
     '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-2}"')
 l7_report "L7-29: the live path's own poll is 2 s, not 30" "$m" \
           "  an inherited L1_POLL_S does not shorten the live poll"
-# [Co-developed with claude code -- Adam] R3-N4 (the r3 opus judge, 09-27): the unbound call's own
+# [Co-developed with claude code -- Adam] (09-27) the unbound call's own
 # default -- phase B's l6_plain runs on it -- and both defaults from the other side: 40 s passes
 # any "still polling at 6.5 s" check; only a poll run to its end on the self-test's clock sees it.
 m=$(l7_mutant l7_plainshort '        "$CAPS_UNBOUND" "$SKIPPED_UNBOUND" " (unbound)" "L6: no switch_state on the control fabric" "${1:-30}"' \
@@ -1735,9 +1733,9 @@ m=$(l7_mutant l7_roleslong '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no sw
     '        "$CAPS_OWNED" "$SKIPPED_OWNED" "" "L6: no switch_state" "${1:-40}"')
 l7_report "L7-32: the live path's own poll is 40 s, not 30" "$m" \
           "  the live call's own poll is 30 s (roles)"
-# [Co-developed with claude code -- Adam] Adam's ruling E (09-27): with the heartbeat driving the
-# watchdog, `link_watchdog` is not in control_plane.skipped -- each list as it was before the ruling
-# must be red on its own fabric's check. (Numbered L7-33/34: L7-30..32 are fix/followup-notes-0927's.)
+# [Co-developed with claude code -- Adam] (09-27) with the heartbeat driving the
+# watchdog, `link_watchdog` is not in control_plane.skipped -- each list as it was before the change
+# must be red on its own fabric's check. (Numbered L7-33/34: L7-30..32 belong to an earlier change.)
 m=$(l7_mutant l7_skipowned "SKIPPED_OWNED=\"['lldp_discovery']\"" \
     "SKIPPED_OWNED=\"['link_watchdog', 'lldp_discovery']\"")
 l7_report "L7-33: the owned fabric's list still names link_watchdog" "$m" "L6 skipped with every table owned"

@@ -8,7 +8,7 @@ fabric and instruments consuming CPU during a cell?
 WHY THIS GATE EXISTS.  PREREG §4 pins the round to NDT_EXCLUSIVE_CPU=1 because the readout is a
 CPU plateau: a sibling session's compile is not noise, it is a treatment, and on 2026-08-28 one
 contaminated a six-arm window asymmetrically without touching the fabric, the build or a binary
--- nothing the claim covers.  memory/vm-on-this-machine-is-invisible-to-ndt-status.
+-- nothing the claim covers.
 
 WHY IT COUNTS *FOREIGN* CORES AND NOT load1.
     load1 is a lagging composite and cannot be a threshold (same memory note).  What this round
@@ -19,7 +19,7 @@ WHY IT COUNTS *FOREIGN* CORES AND NOT load1.
 🔴 THE ALLOW LIST IS THE GATE'S WEAK POINT, AND §2's FORCE-GREEN (ii) IS AIMED AT IT.
     An allow list that is too wide cannot go red; one that is too narrow reports the experiment's
     own load as contamination and demands a re-run of exactly the arms carrying the headline --
-    which is how the ③ round's gate died (auditor-review E3b).  So the gate is forced in BOTH
+    which is how an earlier round's gate died.  So the gate is forced in BOTH
     directions before it is trusted:
         force-red    a burner known to eat one core must turn it RED
         force-green  (i) an idle fabric must be GREEN  -- proves it CAN be green
@@ -381,8 +381,8 @@ def main():
     # Measured on this machine 2026-08-31 with no fabric and no burner: 0.76 foreign cores, of
     # which claude-desktop ~0.37, the CLI sessions ~0.20 and gnome-shell ~0.11.  So an absolute
     # 0.5-core threshold is RED before the round starts, and the session that DRIVES the round is
-    # part of what makes it red -- memory/vm-on-this-machine-is-invisible-to-ndt-status already
-    # names "the claude session itself" as the third invisible load source.
+    # part of what makes it red: "the claude session itself" is the third invisible load
+    # source.
     #
     # Two wrong fixes, both of which this round has committed before in other forms:
     #   * raise the threshold until it passes  -- that is adjusting the instrument to the answer
@@ -397,10 +397,10 @@ def main():
                     help="measure now and WRITE the baseline file, then exit")
     # Named covariates, pulled out of the attribution table into their own field.
     #
-    # Adam ruled on 2026-08-31 that the desktop stays up during the window.  That makes
+    # The desktop stays up during the window (decided 2026-08-31).  That makes
     # claude-desktop and the CLI sessions a DECLARED covariate rather than an invisible one --
-    # memory/vm-on-this-machine-is-invisible-to-ndt-status already names "the claude session
-    # itself" as the third invisible load source, and this is what un-hides it.
+    # "the claude session itself" is the third load source `ndt status` cannot see, and this is
+    # what un-hides it.
     #
     # 🔑 They are OUR OWN processes, so their cost is attributable rather than inferred.  Without
     # this field the question "did that cell get worse because someone was using the desktop?"

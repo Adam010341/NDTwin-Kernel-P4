@@ -1,9 +1,8 @@
 """Render the slide figures for the 2026-08-20 sampling-rate / CPU round.
 
-Same discipline as doc/audit/2026-08-19_p4-sflow-accuracy/plot_figures.py: every number that
-appears on a figure is recomputed here from the archived JSONL under raw/, so a figure on a
-slide traces to the run that produced it. Nothing is copied out of REPORT.md -- the report is
-one of the things being checked, and checking it found two things (see FIGURES.md).
+Every number that appears on a figure is recomputed here from the archived JSONL under raw/,
+so a figure on a slide traces to the run that produced it. Nothing is copied out of the
+round's written report -- the report is one of the things being checked.
 
 THE 6 SECOND HEAD TRIM IS NOT OPTIONAL. measure.sh starts the two pollers, sleeps 2 s, then
 starts iperf3, so the head of every trace has no traffic in it. Those three or four zero
@@ -700,7 +699,7 @@ def fig_decomposition(fname):
     on = {r: cpu_stats(f"m{r}_poll")["groups"].get("kernel", 0.0) for r in rates}
     off = {r: cpu_stats(f"m{r}_nopoll")["groups"].get("kernel", 0.0) for r in rates}
     sr = {r: total_sample_rate(f"m{r}_poll") for r in rates}
-    # The zero is n=3 (2026-08-20 evening, Adam's ruling): three cold-fabric runs, each with
+    # The zero is n=3 (2026-08-20 evening): three cold-fabric runs, each with
     # the control verified before measuring. They landed at 2.84 / 2.92 / 2.92 -- a 0.07-point
     # range against the 0.7-point noise floor -- so the mean is used and quoting it as a
     # single number is honest. Replicates are averaged per-label first, then per-arm.

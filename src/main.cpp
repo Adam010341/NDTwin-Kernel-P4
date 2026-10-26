@@ -91,7 +91,7 @@ printUsage(const char* argv0)
 }
 
 // [Co-developed with claude code -- Adam]
-// FINDINGS #70. The deployment flags, with the argv each consumes -- the other half of the union
+// The deployment flags, with the argv each consumes -- the other half of the union
 // Logger::reject_unknown_flags decides over. It is a second statement of the branch chain below,
 // and the two must not drift: a flag missing here is refused even though parse() honours it, and
 // a flag listed here but not honoured is accepted and does nothing, which is the defect this
@@ -112,7 +112,7 @@ Options
 parse(int argc, char* argv[])
 {
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #70: `--logfle /tmp/x.log` used to be accepted, do nothing and print nothing.
+    // `--logfle /tmp/x.log` used to be accepted, do nothing and print nothing.
     // Neither parser could refuse it alone -- each ignores what the other owns -- so the decision
     // is made once here, over both tables, BEFORE anything acts on argv. It runs ahead of the
     // --help branch on purpose: a user who mistyped a flag is told which one, and the accepted
@@ -360,8 +360,7 @@ main(int argc, char* argv[])
     // read, and it is before anything in this process constructs an acceptor or binds a socket.
     //
     // The load used to happen on the thread TopologyAndFlowMonitor::start() spawns. Measured
-    // 2026-09-03 (doc/audit/2026-09-03_night-rounds/round5-topology-repro, step 09) with a
-    // 17 KB topology carrying one unparseable host address: :8000 was accepting at 0.50 s,
+    // 2026-09-03 with a 17 KB topology carrying one unparseable host address: :8000 was accepting at 0.50 s,
     // "Server Listening on port 8000" was in the log, and the process aborted at 1.50 s with
     // rc=134. For one full second this kernel told every health check, every guard script and
     // every human that it was up, and it was already doomed.
@@ -379,7 +378,7 @@ main(int argc, char* argv[])
     }
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-6 (W8-4), Adam's ruling of 2026-09-06: sweep the qdisc tree once at
+    // doc/KNOWN-ISSUES.md B-6: sweep the qdisc tree once at
     // startup and WARN about netem that is already there. Not a gate -- a kernel is entitled to
     // start on a fabric someone is deliberately running faults on -- so the return value is
     // ignored here on purpose and the process carries on either way.
@@ -390,9 +389,9 @@ main(int argc, char* argv[])
     // without running anything; the method owns that decision so that the seam a test drives is
     // the same one production uses.
     //
-    // 🆕 E-20 (2026-09-07): readOnlyTcRunner, NOT realTcRunner. The sweep now issues one bare
-    // `tc qdisc show` for the whole root namespace, which needs no privilege -- and which the
-    // sudoers grant on this machine does NOT cover (it grants the `dev s<N>-eth<M>` form only).
+    // 🆕 readOnlyTcRunner, NOT realTcRunner. The sweep issues one bare
+    // `tc qdisc show` for the whole root namespace, which needs no privilege -- and which a
+    // netem-scoped sudoers rule does NOT cover (such a rule names the `dev s<N>-eth<M>` form).
     // Through sudo it would be refused, and a refusal with stderr dropped reads exactly like a
     // clean fabric. See utils::netem::readOnlyTcRunner.
     topologyAndFlowMonitor->warnAboutResidualNetem(utils::netem::readOnlyTcRunner());
@@ -492,11 +491,11 @@ main(int argc, char* argv[])
     catch (const std::exception& e)
     {
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #76. This used to say "Exiting" and then call a stop() that blocked in the poll
+        // This used to say "Exiting" and then call a stop() that blocked in the poll
         // thread's in-flight curl; measured with the proxy wedged, the process was still alive 8 s
         // after the line was printed. A restart script that treats "Exiting" as "it has exited"
-        // then finds the port still held and blames the wrong thing -- which is #47's misleading
-        // message all over again, from the other end.
+        // then finds the port still held and blames the wrong thing -- which is the
+        // same misleading signal as a port that outlives its process, from the other end.
         //
         // Two changes, and the second one is the one that matters. The wording no longer claims
         // the exit has happened, and the line that does claim it is printed *after* the stop.

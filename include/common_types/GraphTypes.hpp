@@ -98,9 +98,9 @@ enum class SwitchKind
 /// @name The switch `brand_name` values this build knows how to drive.
 ///
 /// [Co-developed with claude code -- Adam]
-/// FINDINGS #91 / W15. `switchKindFromBrandName` below maps "BMv2" and "OVS" and returns HARDWARE
+/// `switchKindFromBrandName` below maps "BMv2" and "OVS" and returns HARDWARE
 /// for **everything else**, which is a default, not a decision: a typo in a topology file became
-/// a hardware switch silently. Measured 2026-09-05 (R0b, kernel 862c4bf8, bad file `c`):
+/// a hardware switch silently. Measured 2026-09-05 (kernel 862c4bf8):
 /// `brand_name = "NOT_A_REAL_KIND"` on one switch of an all-OVS fabric was ACCEPTED, and the only
 /// thing the operator saw was
 ///
@@ -124,10 +124,10 @@ enum class SwitchKind
 /// SSH branch by accident rather than by design, which is what makes accepting it a lie rather
 /// than a limitation.
 ///
-/// 🔴 HERE, NOT IN THE VALIDATOR, SINCE 2026-09-07 (W15-1(b), Adam's ruling of 2026-09-06). #91
-/// put the list in TopologyAndFlowMonitor.cpp's anonymous namespace for a scheduling reason --
-/// this header is included by 43 translation units, so touching it rebuilds the tree -- and paid
-/// for it with two copies of one truth: a list in the validator, a mapping here, and six string
+/// 🔴 HERE, NOT IN THE VALIDATOR, SINCE 2026-09-07. The list was first put in
+/// TopologyAndFlowMonitor.cpp's anonymous namespace for a scheduling reason -- this header is
+/// included by 43 translation units, so touching it rebuilds the tree -- and that paid for it
+/// with two copies of one truth: a list in the validator, a mapping here, and six string
 /// comparisons in the power manager, held together by a textual tripwire. The five names below
 /// are now the only place a brand is spelled, every comparison names one of them, and the
 /// tripwire's job has changed accordingly (see
@@ -157,11 +157,11 @@ inline constexpr std::array<std::string_view, 5> kAcceptedSwitchBrands{
  *        written for a switch's brand.
  *
  * [Co-developed with claude code -- Adam]
- * E-23 / E-25 (Adam's rulings of 2026-09-07). Named rather than spelled out at each site
- * because it is now load-bearing in four places -- the two path functions below write it, the
- * power manager short-circuits on it, the loader counts it for one startup WARN, and
- * `tools/contract_test/spec.py` lists it in the node schema's vocabulary. A fifth spelling of
- * this word in any one of them is a silent hole, not a compile error.
+ * Named rather than spelled out at each site because it is now load-bearing in four places --
+ * the two path functions below write it, the power manager short-circuits on it, the loader
+ * counts it for one startup WARN, and `tools/contract_test/spec.py` lists it in the node
+ * schema's vocabulary. A fifth spelling of this word in any one of them is a silent hole, not a
+ * compile error.
  */
 inline constexpr std::string_view kPathNone = "none";
 
@@ -194,7 +194,7 @@ acceptedSwitchBrandList()
  * typo is the loader (door 3e), not this function: a topology file naming a brand outside
  * kAcceptedSwitchBrands is refused unless the node also declares an explicit `switch_kind`.
  * Anything that builds a graph WITHOUT going through validateStaticTopologyJson gets the old
- * behaviour, which is why option (c) of W15-1 -- throwing from here -- was left on the table.
+ * behaviour, which is why throwing from here was left on the table.
  *
  * [Co-developed with claude code -- Adam]
  */
@@ -247,11 +247,11 @@ switchKindFromString(std::string s)
  * @brief Which power path this build has written for a switch of this `brand_name`.
  *
  * [Co-developed with claude code -- Adam]
- * FINDINGS #91 / W15-2. The topology validator admits a `brand_name` this build has no data
- * plane for **when the node also declares an explicit, legal `switch_kind`** (Adam's ruling,
- * 2026-09-06 grill §4D round 3): the alternative was that an operator with a Cisco or an Arista
- * had to edit one line of C++ before the kernel would read their topology at all. The ruling
- * came with a condition, and this is it -- such a machine must be marked in the graph as one
+ * The topology validator admits a `brand_name` this build has no data plane for **when the node
+ * also declares an explicit, legal `switch_kind`** (decided 2026-09-06): the alternative was
+ * that an operator with a Cisco or an Arista had to edit one line of C++ before the kernel
+ * would read their topology at all. The admission comes with a condition, and this is it --
+ * such a machine must be marked in the graph as one
  * whose power and telemetry **nobody manages**, so the exemption cannot be mistaken for support.
  *
  * 🔴 WHAT THESE TWO FIELDS MEAN, EXACTLY, BECAUSE A VAGUER READING WOULD BE A LIE. They name the
@@ -495,9 +495,9 @@ struct VertexProperties
      *         overrule it.
      *
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #46 (with #35 and #36, which are the same root). `isUp` carries two questions at
-     * once -- "did anyone command this off" and "is it reachable" -- and only the second one has
-     * a writer that re-derives it every poll. So the first one lost:
+     * `isUp` carries two questions at once -- "did anyone command this off" and "is it
+     * reachable" -- and only the second one has a writer that re-derives it every poll. So the
+     * first one lost:
      *
      *   updateSwitches sets `isUp = true` for every dpid the control plane lists, with no else
      *   branch that ever writes false. The proxy keeps listing a killed switch for about three
@@ -507,7 +507,7 @@ struct VertexProperties
      *   it. Measured on a live 10-switch bmv2 fabric: a power-off fired 1.5 s before the next
      *   poll was lost 8 times in 14, one fired 2 s after a poll 0 times in 4, and every loss put
      *   `is_up` back to 1 at t_off + 2.31 s -- the instant the poll that still listed the switch
-     *   was applied (round3 08_/09_/11_).
+     *   was applied.
      *
      * A fourth flag rather than a new meaning for an existing one, for exactly the reasons
      * `adminDisabled` is a third one:
@@ -525,11 +525,10 @@ struct VertexProperties
      * which is the same moment P4PowerStrategy already closes its distrust window and for the
      * same reason: the graph is once more backed by something real.
      *
-     * 🔴 SERIALISED AS `admin_state`, since Q12 was answered. Adam ruled option (a) on
-     * 2026-09-03 (doc/audit/2026-09-03_night-rounds/QUESTIONS-FOR-ADAM.md): split the wire field
-     * into `admin_state` ("on"/"off", this flag) and `reachable` (a bool, `isUp`), and keep
-     * `is_up` as a DEPRECATED ALIAS of `reachable` so external readers keep working. See
-     * doc/audit/2026-09-03_fix-is-up-split/FIX-IS-UP-SPLIT.md.
+     * 🔴 SERIALISED AS `admin_state`. Since 2026-09-03 the wire field is split into
+     * `admin_state` ("on"/"off", this flag) and `reachable` (a bool, `isUp`), and `is_up` stays as
+     * a DEPRECATED ALIAS of `reachable` so external readers keep working. The split is pinned by
+     * tests/shell/mutate_is_up_split.sh.
      *
      * A string, not a bool, and not `admin_powered_off`. "off" and "on" are the vocabulary the
      * power API already speaks (`?action=on|off`), so a caller does not have to remember which
@@ -556,7 +555,7 @@ struct VertexProperties
     /** @brief Which brand-specific power / health path this build has for this switch.
      *
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #91 / W15-2. Set by loadStaticTopologyFromFile from powerPathForBrandName /
+     * Set by loadStaticTopologyFromFile from powerPathForBrandName /
      * telemetryPathForBrandName -- one source, so the two words on the wire cannot drift from
      * the branches they describe. Emitted by /ndt/get_static_topology_json (manual section 38)
      * on SWITCH nodes only; a host has no data plane, no plug and no OID.
@@ -637,7 +636,7 @@ isUsable(const VertexProperties& v)
  * @brief Is this a switch whose brand this build has no power or telemetry path for?
  *
  * [Co-developed with claude code -- Adam]
- * E-23 (Adam's ruling of 2026-09-07). `power_path == "none"` is the ONE mark that is unique to a
+ * `power_path == "none"` is the ONE mark that is unique to a
  * switch admitted by the `switch_kind` exemption -- `telemetry_path` is "none" for OVS and BMv2
  * as well, because a software switch genuinely has no CPU or thermal telemetry (KNOWN-ISSUES
  * F-1), so it cannot carry this question. See powerPathForBrandName for the full contract.
@@ -645,7 +644,7 @@ isUsable(const VertexProperties& v)
  * One predicate rather than five copies of `v.powerPath == "none"`, because it is now asked at
  * six sites in DeviceConfigurationAndPowerManager.cpp and once more by the loader's startup
  * count, and a site that asked it a slightly different way would dial a machine nobody wrote a
- * branch for -- which is the whole defect E-23 names.
+ * branch for.
  *
  * The `vertexType` half is not decoration: `powerPath` defaults to "none" on every vertex, so a
  * HOST -- which has no brand, no plug and no OID and is skipped by every caller anyway -- would
@@ -707,7 +706,7 @@ from_json(const json& j, VertexProperties& v)
     v.mac = j.at("mac").get<uint64_t>();
     v.ip = j.at("ip").get<std::vector<uint32_t>>();
     v.dpid = j.at("dpid").get<uint64_t>();
-    // [Co-developed with claude code -- Adam] -- Q12.
+    // [Co-developed with claude code -- Adam]
     // `reachable` is the field; `is_up` is the deprecated alias to_json still emits. Read the
     // field where it exists and fall back to the alias, because a payload written by a kernel
     // that predates the split carries only `is_up` -- and those payloads outlive the release
@@ -736,8 +735,8 @@ to_json(nlohmann::json& j, const VertexProperties& v)
                        {"mac", v.mac},
                        {"ip", v.ip},
                        {"dpid", v.dpid},
-                       // [Co-developed with claude code -- Adam] -- Q12, Adam's ruling (a) of
-                       // 2026-09-03. `is_up` used to answer two questions with one bit:
+                       // [Co-developed with claude code -- Adam] Split on 2026-09-03.
+                       // `is_up` used to answer two questions with one bit:
                        // "did anybody command this off" and "can the twin reach it". They have
                        // different writers (the power strategies vs liveness probing), different
                        // lifetimes, and they can legitimately disagree -- a switch commanded off
@@ -778,15 +777,15 @@ to_json(nlohmann::json& j, const VertexProperties& v)
                        {"ecmp_groups", v.ecmpGroups}};
 
     // [Co-developed with claude code -- Adam]
-    // E-25 / E-30 (Adam's ruling of 2026-09-07). The two marks, on the wire at last.
+    // The two marks, on the wire (2026-09-07).
     //
-    // 🔴 WHY THIS IS HERE AND NOT ONLY IN getStaticTopologyJson. W15-2 wrote the marks onto the
-    // vertex and published them from TopologyAndFlowMonitor::getStaticTopologyJson, i.e. from
+    // 🔴 WHY THIS IS HERE AND NOT ONLY IN getStaticTopologyJson. The marks were first written onto
+    // the vertex and published from TopologyAndFlowMonitor::getStaticTopologyJson, i.e. from
     // /ndt/get_static_topology_json. That is a DIFFERENT serialiser from this one:
     // /ndt/get_graph_data builds its nodes with `result["nodes"].push_back(graph[vd])`
     // (HttpSession.cpp), which is this function -- so an exempted switch was marked in the
     // endpoint hardly anybody reads and unmarked in the one four external apps do. Measured
-    // 2026-09-07 (round-2 log lw17c): a kernel carrying the exemption served that node with
+    // 2026-09-07: a kernel carrying the exemption served that node with
     // brand_name, admin_state and is_up and no power_path at all. The mark existed only in
     // memory.
     //
@@ -798,8 +797,8 @@ to_json(nlohmann::json& j, const VertexProperties& v)
     // never heard of these two keeps parsing exactly what it parsed yesterday. The baseline this
     // is measured against is 28b8b13, which had no `switch_kind` at all -- there, brand_name was
     // just a string, anything that was neither HPE nor MININET went down the Brocade SSH branch,
-    // and NOTHING on the wire ever admitted that this build could not read the machine. W15-2 was
-    // the first build to admit it; this is the first one that says so out loud.
+    // and NOTHING on the wire ever admitted that this build could not read the machine. The marks
+    // were the first thing to admit it; this is where it is said out loud.
     if (v.vertexType == VertexType::SWITCH)
     {
         j["power_path"] = v.powerPath;
@@ -892,7 +891,7 @@ struct EdgeProperties
      * @brief An operator declared this link failed, and discovery may not overrule it.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md **B-6**, and the edge half of FINDINGS #46. A fifth flag rather than a
+     * doc/KNOWN-ISSUES.md **B-6**, and the edge half of the `adminPoweredOff` problem above. A fifth flag rather than a
      * new meaning for `isUp` or a third value written into `downReason`, for the reasons
      * `adminPoweredOff` is a fourth one on the vertex:
      *
@@ -912,10 +911,10 @@ struct EdgeProperties
      *
      * Before this existed, `POST /ndt/link_failure_detected` marked both directions down and the
      * next `updateLinks` set them straight back to `isUp = true` -- 5 times in 5, 0-30 s later,
-     * with no line in the log and `/ndt/link_recovery_detected` never called (09-04 night round,
-     * r2-20-linkfail-probe.log). The endpoint's 200 was true and its effect was not.
+     * with no line in the log and `/ndt/link_recovery_detected` never called (observed 2026-09-04). The
+     * endpoint's 200 was true and its effect was not.
      *
-     * @warning It is PERMANENT until it is withdrawn -- and, since W8b, only two things withdraw
+     * @warning It is PERMANENT until it is withdrawn -- and only two things withdraw
      *          it: `/ndt/inject_link_recovery`, or a `/ndt/link_recovery_detected` that PAIRS with
      *          a `failureReported` below. It survives Ryu reconverging and a switch restart, by
      *          design. That is why it is visible on the wire as `down_reason: "declared"` -- see
@@ -928,7 +927,7 @@ struct EdgeProperties
      *        it yet. The thing a `/ndt/link_recovery_detected` has to pair with.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md **B-6**, second round (W8b). A SIXTH flag, and the reason it is not a
+     * doc/KNOWN-ISSUES.md **B-6**, second half. A SIXTH flag, and the reason it is not a
      * reuse of `declaredDown` is that the two answer different questions:
      *
      *   - `declaredDown`    -- "the twin is holding this link down because it was told to."
@@ -939,8 +938,8 @@ struct EdgeProperties
      *                          declaration and NOT this: nobody observed anything, an operator
      *                          asked for it.
      *
-     * WHY IT EXISTS -- measured, 2026-09-07 00:08 (scratch .../logs/live-round2-console.log, arm
-     * lw8b, OVS 4 hosts): a link failure was declared, Ryu was killed and restarted with the same
+     * WHY IT EXISTS -- measured, 2026-09-07 00:08 (a live OVS run,
+     * 4 hosts): a link failure was declared, Ryu was killed and restarted with the same
      * argv, and within one second of Ryu coming back the kernel logged a
      * `POST /ndt/link_recovery_detected` for EVERY link in the fabric -- Ryu's topology module
      * raises `EventLinkAdd` when LLDP first discovers a link, and `intelligent_router.py`'s

@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P2 2.3 fixes a status code to each way this can fail, and the reason the map matters is
+Each way this can fail has its own status code, and the reason the map matters is
 that the kernel and an operator act differently on each one: a 502 is the switch's refusal and is
 worth retrying, a 404 means somebody named a table this pipeline does not have and retrying it
 forever is what the P4 plane already did once with `/stats/flowentry/delete` (live 2026-08-16,
@@ -24,7 +24,7 @@ therefore checks the status name and not the wire. (An earlier version of this p
 The handler is called directly rather than through a FastAPI TestClient -- the convention
 test_flow_stats_route.py and test_flowentry_endpoints.py both state, and here also a
 necessity: `starlette.testclient` in this venv refuses to import without `httpx2`, and
-installing into the shared venv is not this ticket's to do. What a TestClient would have added
+installing into the shared venv is not this suite's to do. What a TestClient would have added
 over this is the routing layer, so the routing layer is asserted directly instead
 (TheRouteIsRegisteredTest).
 """
@@ -128,7 +128,7 @@ def a_p4info():
     # 🔴 SYNTHETIC, and named so nobody mistakes them for ndtwin_switch.p4's. No pipeline in
     # this repository declares a RANGE or an OPTIONAL match -- ndtwin_switch has exact, lpm and
     # ternary, and so do `basic` and `source_routing` -- so the only way to exercise the range and
-    # optional branches (the 501 that TICKET-P2 2.3 (:63) promised for them, until the ternary
+    # optional branches (the 501 that was promised for them, until the ternary
     # writer built them) is a descriptor written here. Same fixture and same reasoning as
     # test_p4_client_writes.a_p4info(). [Co-developed with claude code -- Adam]
     for table_id, table_name, kind in ((900000001, "Synthetic.range_table",
@@ -295,7 +295,7 @@ class AnAcceptedEntryTest(TableEntryRouteTestBase):
         self.assertFalse(self.post()["priority_honoured"])
 
     def test_every_success_says_the_entry_is_not_journaled_and_what_that_costs(self):
-        # 🔴 Adam 2026-09-18, option a. This file's harness injects no journal, so here the write is
+        # 🔴 This file's harness injects no journal, so here the write is
         # on the switch and recorded nowhere: a restart does not put it back. This response is the
         # only place a caller is told. (With a journal it is recorded and replayed:
         # test_table_entry_journal.py and test_table_entry_replay.py.) [Co-developed with claude
@@ -353,7 +353,7 @@ def only_table_id(request):
 
 
 class EveryRefusalIsItsOwnStatusCodeTest(TableEntryRouteTestBase):
-    """One test per status code in TICKET-P2 2.3, and each asserts nothing was written."""
+    """One test per status code, and each asserts nothing was written."""
 
     def test_an_unknown_dpid_is_404(self):
         error = self.refused(dpid=9)
@@ -529,7 +529,7 @@ class EveryRefusalIsItsOwnStatusCodeTest(TableEntryRouteTestBase):
 
 class TheRouteIsRegisteredTest(unittest.TestCase):
     """
-    The handler above is reachable at the path and method the ticket names.
+    The handler above is reachable at the path and method the route is meant to have.
 
     [Co-developed with claude code -- Adam]
     This is what a TestClient would have added over calling the function, and it is worth

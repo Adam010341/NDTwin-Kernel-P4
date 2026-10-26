@@ -8,8 +8,8 @@
 # `intruder_down_is_refused_by_the_claim_before_the_marker` (12-4). It cannot run in the night
 # grid: the only honest way to measure it live is to bring a lab up under one owner and run a
 # teardown as another, and a cell that tears the lab down when the guard is BROKEN is a cell
-# that destroys the round it is part of. CELLS-2-SUMMARY §7-3 offered three ways out; Adam took
-# (c): drive the guard branch offline, where it costs nothing and therefore runs every night.
+# that destroys the round it is part of. So the guard branch is driven offline, where it costs
+# nothing and therefore runs every night.
 #
 # 🔴 FROM A CLAIM FILE, not from a stubbed foreign_claim(). tests/shell/test_ndt_up_down_robust.sh
 # already drives this branch with `foreign_claim() { echo other-owner; }`, which tests what
@@ -81,9 +81,9 @@ MANIFEST="'"$FIX"'/manifest.json"
 CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
 LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
 LAB_DEFAULT_KERNEL_DIR="'"$FIX"'"
-# [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the heartbeat pidfile and
-# report are fixture paths (never present), so a heartbeat running on this machine cannot add a
-# `heartbeat stop` to a teardown cell or a row to a status cell.
+# [Co-developed with claude code -- Adam] The heartbeat pidfile and report are fixture paths (never
+# present), so a heartbeat running on this machine cannot add a `heartbeat stop` to a teardown cell
+# or a row to a status cell.
 HB_PIDFILE="'"$FIX"'/run/heartbeat.pid"; HB_REPORT="'"$FIX"'/run/heartbeat.json"
 export STACK_LOG="'"$FIX"'/stack.log"
 sudo() { printf "sudo %s\n" "$*" >> "'"$FIX"'/sudo.log"; return 0; }
@@ -182,8 +182,8 @@ check "  and nothing was touched"                        "sudo=0 stack=0" "$(tou
 # 🔴 THE SECOND GUARD, AND UNTIL 2026-09-12 NOTHING HERE REACHED IT. Every case above has a
 # FOREIGN owner, so the claim guard answers first and returns 5 before `measuring=` is ever
 # looked at -- tests/shell/mutate_ndt_down_claim_guard.sh's M5 turned that branch into
-# `if false` and this file stayed green. The branch's own measurement is T2d, 2026-09-11
-# 01:57:27 (logs/ROLE-4/10-t3-down-by-owner.log): the claim said `measuring=ROLE-4 reader nsr,
+# `if false` and this file stayed green. The branch's own measurement is from 2026-09-11
+# 01:57:27: the claim said `measuring=<reader> nsr,
 # do not tear down`, and the OWNER's own `ndt down` tore the fabric out, printed clean, exited 0
 # and killed the declared reader. The owner is exactly who this guard is for.
 reset_fix

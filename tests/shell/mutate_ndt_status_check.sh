@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_ndt_status_check_baseline.sh (finding #8, decision N12 (a)).
+# Mutation gate for tests/shell/test_ndt_status_check_baseline.sh.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -70,7 +70,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
 # read this gate: it learns which argument is the anchor and which is the file from this
 # function's own `local ... file="$2" old="$3"` line. A gate it cannot read is a gate it is not
-# checking -- finding #28, and the shape this file was first written in (the
+# checking -- and the shape this file was first written in (the
 # mutate_ndt_up_target.sh style, anchors in heredoc files) is one it reports as NO-ANCHORS.
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"
@@ -236,7 +236,7 @@ report "M10: sim's evidence log is hard-coded to the main checkout (F9)" "$m" \
 
 # --- R7 I-3: .test_run/pids/ contradicting itself, and no interface saying so -----------------
 #
-# Measured 2026-09-11 02:52:03 and again 02:52:27 (R7-reconciler.md round 14): ryu.pid=20717 and
+# Measured 2026-09-11 02:52:03 and again 02:52:27: ryu.pid=20717 and
 # ryu.child.pid=20722 both naming pids that /proc did not have, ryu.exit in the same directory
 # already recording status=143 SIGTERM, ten OVS bridges up with no control-plane process, and
 # `ndt status` printing `fabric hosts 4 == 4 ok` and exiting 0 with not a word about any of it.

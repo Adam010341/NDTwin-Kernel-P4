@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for TICKET-P4-heartbeat segment W: the proxy's half (the report reader, the
+# Mutation gate for the heartbeat: the proxy's half (the report reader, the
 # evidence through the reserved entry, the freeze, detect-only, capabilities / reroute / heartbeat
 # on switch_state, the 409), ndt's half (start, stop, status), and 08_heartbeat.sh's self-test.
 #
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 EVERY NEW TEST HAS TO HAVE BEEN SEEN RED (the ticket's section 2, CLAUDE.md's mutation gate).
+# 🔴 EVERY NEW TEST HAS TO HAVE BEEN SEEN RED (the mutation gate rule).
 #   * proxy: every test in NEW_CLASSES / NEW_TESTS -- enumerated from the unmutated copy by the
 #     unittest loader, not typed -- must go red under some mutation, and a check against the base
-#     (TICKET_BASE) makes NEW_CLASSES name every TestCase class added since;
+#     (CLASSES_BASE) makes NEW_CLASSES name every TestCase class added since;
 #   * ndt: every check of tests/shell/test_ndt_heartbeat.sh must go red under some mutation,
 #     EXCEPT the named CONTROLS below -- checks that prove a cell reached the branch it is about
 #     (an rc of a bring-up or teardown that has nothing to do with the heartbeat). Each is listed
@@ -19,8 +19,8 @@
 #
 # 🔴 EVERY MUTANT IS A COPY. p4_proxy/ (proxy_agent, tests, mininet, p4_src) and tools/p4_exercise
 # are copied under a temp dir laid out like the repo; ndt is copied beside its siblings; 08 is
-# copied with _common.sh, faults.sh and census_prepare.py; the root helper, which this ticket
-# does NOT change, is only ever COPIED (for section 7's pins) -- and round 2's K mutants change
+# copied with _common.sh, faults.sh and census_prepare.py; the root helper, which this work
+# does NOT change, is only ever COPIED (for its pins) -- and the K mutants change
 # that COPY's embedded daemon, to show test_heartbeat_contract sees a rename in the writer. Every
 # source is re-hashed at the end, the helper among them. [Co-developed with claude code -- Adam]
 #
@@ -40,8 +40,8 @@ LIVE_DIR_REL="doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1"
 LIVE08="$REPO/$LIVE_DIR_REL/08_heartbeat.sh"
 NDT_TEST="$HERE/test_ndt_heartbeat.sh"
 SOURCES=("$HBMOD" "$TOPOMGR" "$MAIN" "$ROUTES" "$NDT" "$HELPER" "$LIVE08" "$NDT_TEST")
-#: The ticket's base (segment W's worktree was cut from it).
-TICKET_BASE=580767a8
+#: The base commit the new classes are counted from.
+CLASSES_BASE=580767a8
 
 MODULES="tests.test_link_heartbeat tests.test_heartbeat_watchdog tests.test_heartbeat_fabric \
 tests.test_heartbeat_contract tests.test_flowentry_read_only tests.test_link_state_entry tests.test_route_binding \
@@ -49,7 +49,7 @@ tests.test_link_watchdog tests.test_declared_links tests.test_switch_state tests
 
 NEW_CLASSES="tests.test_link_heartbeat:* tests.test_heartbeat_watchdog:* \
 tests.test_heartbeat_fabric:* tests.test_heartbeat_contract:* tests.test_flowentry_read_only:*"
-#: Two first-cut tests the ticket changed on purpose (6e246f2d), asserted as they are now.
+#: Two first-cut tests changed on purpose (6e246f2d), asserted as they are now.
 NEW_TESTS="tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_external_control_plane_refuses_first_as_it_always_did
 tests.test_link_state_entry.TheEntryIsNotWiredInThisCutTest.test_its_one_caller_is_the_watchdog_pass_ingesting_the_heartbeat"
 
@@ -87,7 +87,7 @@ for f in "${SOURCES[@]}"; do BASE_SHA["$f"]=$(sha256sum "$f" | cut -d' ' -f1); d
 SURVIVORS=0
 MUTATIONS=0
 
-# === 08's mutant tree, and what it may reach (the opus judge's R-N1, 09-27) ========================
+# === 08's mutant tree, and what it may reach (09-27) ========================
 # [Co-developed with claude code -- Adam] 08's self-test runs in a tree of COPIES (08, _common.sh,
 # faults.sh, ...) plus links to what it only READS: the proxy's constants (consts imports
 # proxy_agent) and the venv's interpreter. _common.sh names the lab-state knobs relative to that
@@ -96,7 +96,7 @@ MUTATIONS=0
 # a mutant that writes a knob writes the checkout's. ltree builds the tree; ltree_leaks names every
 # way out of it other than the two read-only links; the gate refuses before any mutation runs if
 # there is one, and checks that the leak check sees a whole-p4_proxy link (its control).
-# [Co-developed with claude code -- Adam] R3-N5 (the r3 opus judge, 09-27): the control used to ask
+# [Co-developed with claude code -- Adam] (09-27) the control used to ask
 # for "at least one line", and a whole-p4_proxy link gives two -- the knob it exposes and the link
 # itself -- so either branch of ltree_leaks alone kept the control green. ltree_control asks for
 # each line by name.
@@ -236,12 +236,12 @@ PY
 echo "  new proxy tests to be seen red: $(wc -l < "$NEW_IDS")"
 # [Co-developed with claude code -- Adam]
 # 🔴 THE SCAN READS THIS SEGMENT'S OWN HEAD, NOT THE WORKING TREE. Read from the working tree,
-# "every class added since TICKET_BASE" is also every class any LATER ticket adds, so this gate
+# "every class added since CLASSES_BASE" is also every class any LATER change adds, so this gate
 # would go red on trunk the first time somebody else adds a proxy test -- which is exactly what
 # the first cut's mutate_roles_binding.sh does at this segment's head (its NEW_CLASSES check,
 # pinned to 6291db35, lists the 18 classes added here and counts them as its survivor).
 # CLASSES_AT is the last commit of this segment that added a test class (round 2 moved it from
-# d57531d9 to f8309d02, test_heartbeat_contract). A later round of this ticket that adds one
+# d57531d9 to f8309d02, test_heartbeat_contract). A later round that adds one
 # moves it, or runs with CLASSES_AT=worktree while it is uncommitted. It
 # must be an ancestor of HEAD: a history that lost it (a squash-merge) is refused, not scanned
 # as "no classes, none missing".
@@ -250,10 +250,10 @@ if [[ "$CLASSES_AT" != worktree ]] && ! git -C "$REPO" merge-base --is-ancestor 
     echo "REFUSE: CLASSES_AT $CLASSES_AT is not an ancestor of HEAD -- which classes this segment added cannot be read"
     exit 2
 fi
-# scan_classes <NEW_CLASSES> -- every module:class added between TICKET_BASE and CLASSES_AT that
+# scan_classes <NEW_CLASSES> -- every module:class added between CLASSES_BASE and CLASSES_AT that
 # the given list does not cover, one per line.
 scan_classes() {
-    "$PY" - "$REPO" "$TICKET_BASE" "$CLASSES_AT" "$1" <<'PY'
+    "$PY" - "$REPO" "$CLASSES_BASE" "$CLASSES_AT" "$1" <<'PY'
 import ast, glob, os, subprocess, sys
 repo, base, at, listed = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].split()
 wild = {s.split(":")[0] for s in listed if s.endswith(":*")}
@@ -283,7 +283,7 @@ for rel in rels:
 PY
 }
 missing=$(scan_classes "$NEW_CLASSES") \
-    || { echo "REFUSE: could not compare the test classes with $TICKET_BASE"; exit 2; }
+    || { echo "REFUSE: could not compare the test classes with $CLASSES_BASE"; exit 2; }
 # The scan's own control: with one module left off the list it must name that module's classes. A
 # scan that read nothing (a wrong pin, an empty listing) would otherwise pass as "none missing".
 probe=$(scan_classes "${NEW_CLASSES/tests.test_flowentry_read_only:\*/}") \
@@ -293,11 +293,11 @@ if ! /usr/bin/grep -qx 'tests.test_flowentry_read_only:ARefusedWriteIsA409Test' 
     exit 2
 fi
 if [[ -n "$missing" ]]; then
-    echo "  🔴 NEW_CLASSES omits class(es) added between $TICKET_BASE and ${CLASSES_AT:0:8}:"
+    echo "  🔴 NEW_CLASSES omits class(es) added between $CLASSES_BASE and ${CLASSES_AT:0:8}:"
     sed 's/^/       /' <<<"$missing"
     SURVIVORS=$((SURVIVORS+1))
 else
-    echo "  NEW_CLASSES names every TestCase class added between $TICKET_BASE and ${CLASSES_AT:0:8}" \
+    echo "  NEW_CLASSES names every TestCase class added between $CLASSES_BASE and ${CLASSES_AT:0:8}" \
          "(the scan's control, one module left off, named its classes)"
 fi
 rm -rf "$base"
@@ -689,10 +689,10 @@ m=$(mutant m16 "$MAIN" \
     '    return {"reroute": bool(available),' \
     '    return {"reroute": bool(available), "reroute_reason": _reason,')
 report "M16: the capabilities grow a sixth key" "$m" "test_the_capabilities_keep_their_five_keys"
-# [Co-developed with claude code -- Adam] Adam's ruling E (09-27): link_watchdog leaves
+# [Co-developed with claude code -- Adam] (09-27) link_watchdog leaves
 # control_plane.skipped exactly when the heartbeat drives the watchdog. E1 is the list as it was
-# before the ruling; E2 takes it out whether or not the heartbeat watchdog started. E1b (the opus
-# judge's N4, 09-27: it used to be E1's own change again) takes it out only where the routes are
+# before the change; E2 takes it out whether or not the heartbeat watchdog started. E1b (it used to
+# be E1's own change again) takes it out only where the routes are
 # NDTwin's, so the owned fabric stays green and only the unbound one can catch it.
 m=$(mutant e1 "$MAIN" \
     '        if started and SKIP_WATCHDOG in skipped:
@@ -707,7 +707,7 @@ m=$(mutant e1b "$MAIN" \
             skipped.remove(SKIP_WATCHDOG)')
 report "E1b: link_watchdog leaves the list only where the routes are NDTwin's" "$m" \
        "test_an_unbound_fabric_reports_its_watchdog_running_too"
-# [Co-developed with claude code -- Adam] The opus judge's F2 (09-27): the startup line's Skipped
+# [Co-developed with claude code -- Adam] (09-27) the startup line's Skipped
 # list is the served one. F2 prints link_watchdog in it whatever the heartbeat decided -- what the
 # line said when it was printed before the decision.
 m=$(mutant f2 "$MAIN" \
@@ -784,7 +784,7 @@ m=$(mutant x10 "$MAIN" \
             skipped.remove(SKIP_WATCHDOG)')
 report "X10: link_watchdog stays named skipped on an external fabric the heartbeat watches" "$m" \
        "test_link_watchdog_leaves_the_list_while_the_heartbeat_drives_it"
-# [Co-developed with claude code -- Adam] Adam's 09-28 ruling: an external control plane on its
+# [Co-developed with claude code -- Adam] (09-28) an external control plane on its
 # own pipeline reports NO destination path. X11 never marks the fabric (the guess comes back
 # through startup); X12 the pull ignores the mark; X13 the push ignores it; X14 the pull
 # withholds the paths of every fabric (what the control cell is for).
@@ -875,7 +875,7 @@ m=$(mutant m27 "$MAIN" \
     '    _heartbeat["passes"] = None')
 report "M27: the passes are not read from the topology" "$m" "test_the_watchdogs_passes_are_served"
 
-echo "the endpoint and ruling 5(a)"
+echo "the endpoint"
 m=$(mutant a01 "$ROUTES" \
     '    if reroute_report is not None:
         state["reroute"] = reroute_report()' \
@@ -893,33 +893,33 @@ m=$(mutant a03 "$ROUTES" \
     except ControlPlaneReadOnly as err:
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
-
-    if not success:
-        return {"status": "error", "message": "Failed to add route"}' \
+    except FlowRequestUnusable as err:
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: refused before any switch' \
     '        raise _route_write_unsupported(err, dpid)
-
-    if not success:
-        return {"status": "error", "message": "Failed to add route"}')
+    except FlowRequestUnusable as err:
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: refused before any switch')
 report "A03: add on an external control plane is 500 again" "$m" "test_add_is_409"
 m=$(mutant a04 "$ROUTES" \
     '        raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
-    if success:' \
+    except FlowRequestUnusable as err:
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6, as on add.' \
     '        raise _route_write_unsupported(err, dpid)
-    if success:')
+    except FlowRequestUnusable as err:
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6, as on add.')
 report "A04: delete on an external control plane is 500 again" "$m" "test_delete_is_409"
 m=$(mutant a05 "$ROUTES" \
     '        raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
-    if not success:
-        raise HTTPException(status_code=400, detail="Failed to modify flow entry in P4 switch")' \
+    except FlowRequestUnusable as err:
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: this endpoint'"'"'s refusals are' \
     '        raise _route_write_unsupported(err, dpid)
-    if not success:
-        raise HTTPException(status_code=400, detail="Failed to modify flow entry in P4 switch")')
+    except FlowRequestUnusable as err:
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: this endpoint'"'"'s refusals are')
 report "A05: modify on an external control plane is 500 again" "$m" "test_modify_is_409"
 m=$(mutant a06 "$ROUTES" \
     '        detail={"error": "external control plane", "dpid": dpid, "message": str(err)})' \
@@ -930,8 +930,8 @@ m=$(mutant a07 "$ROUTES" \
     '@router.post("/stats/flowentry/delete_strict_x")')
 report "A07: delete_strict is not the delete handler" "$m" "test_both_delete_routes_are_that_handler"
 
-# [Co-developed with claude code -- Adam] Round 2 (the fable judge on 1a3ebd7f): the census text
-# (its 2.1) and the contract between the two writers (its 8.1). The K mutants change the ROOT
+# [Co-developed with claude code -- Adam] Second pass: the census text
+# and the contract between the two writers. The K mutants change the ROOT
 # HELPER's embedded daemon -- in the mutant's copy only; the helper itself is never written, and
 # the gate checks it byte-identical at the end -- because the contract test is what stands between
 # a rename in the writer and a proxy reading `heartbeat_report_unreadable` (or zero hosts) live.
@@ -971,7 +971,7 @@ m=$(mutant m28b "$MAIN" \
     '               "installs -- is not "')
 report "M28b: the census stops saying what the drop check does not cover" "$m" \
        "test_the_census_names_the_punt_blind_spot_on_external_control_planes"
-# [Co-developed with claude code -- Adam] Round 5 (S-3): the sentence about segment S's raw goes back
+# [Co-developed with claude code -- Adam] The sentence about the earlier raw goes back
 # to "no pipeline was loaded", which that raw contradicts.
 m=$(mutant m28d "$MAIN" \
     '               "switch of the fabric has). Segment S'"'"'s census ran them with no controller: each "
@@ -998,7 +998,7 @@ report "K03: the writer renames period_s" "$m" \
 m=$(mutant k04 "$HELPER" \
     '                "forwarded_to_hosts": hosts,' \
     '                "to_hosts": hosts,')
-report "K04: the writer renames forwarded_to_hosts (ruling 4 would read zero)" "$m" \
+report "K04: the writer renames forwarded_to_hosts (the proxy would read zero)" "$m" \
        "test_a_frame_leaving_a_host_port_reaches_the_proxy_as_forwarded_to_hosts"
 m=$(mutant k05 "$HELPER" \
     '            "stop_reason": stop_reason,' \
@@ -1096,7 +1096,7 @@ m=$(nmutant n03d "$NDT" \
                warn "  the fabric itself is up; the proxy reports reroute.reason external_control_plane')
 nreport "N03d: a failed start on an external plane names the foreign reason" "$m" \
         "🔴 a failed start on an external plane names external_control_plane"
-# [Co-developed with claude code -- Adam] Adam's 09-28 ruling: on an external control plane the
+# [Co-developed with claude code -- Adam] (09-28) on an external control plane the
 # heartbeat starts only when the drop check proved the program drops its frame. N40 ignores the
 # check; N41 takes could-not-tell as proof; N42 never runs it; N43 withholds it everywhere external;
 # N44 hides the check's own lines; N45 fails the bring-up over it; N46 parses no reason out of it;
@@ -1135,7 +1135,7 @@ m=$(nmutant n44b "$NDT" \
     '    :')
 nreport "N44b: the whole answer is not kept" "$m" \
         "  and the whole of it is kept, in the log the line names"
-# [Co-developed with claude code -- Adam] S-5 (round-4 review): one log per bring-up.
+# [Co-developed with claude code -- Adam] One log per bring-up.
 m=$(nmutant n44c "$NDT" \
     '    log="$REPO/.test_run/logs/heartbeat_drop_check.$(date -u +%Y%m%dT%H%M%SZ).$$.log"' \
     '    log="$REPO/.test_run/logs/heartbeat_drop_check.0.0.log"')
@@ -1303,7 +1303,7 @@ m=$(nmutant n14 "$NDT" \
     out="$(sudo -n "$LAB" heartbeat start 2>&1)"; rc=$?')
 nreport "N14: a rollback stops the heartbeat after the fabric" "$m" "🔴 before it stopped the topology"
 m=$(nmutant n15 "$NDT" \
-    '    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W.
+    '    # [Co-developed with claude code -- Adam] The heartbeat row.
     heartbeat_row' \
     '    :')
 nreport "N15: ndt status has no heartbeat row" "$m" "🔴 cmd_status prints the heartbeat row"
@@ -1443,7 +1443,7 @@ open(p, "w").write(s.replace(a, b))
 PY
     echo "$d"
 }
-# [Co-developed with claude code -- Adam] R3-N7 (the r3 opus judge, 09-27): no byte-code either. The
+# [Co-developed with claude code -- Adam] (09-27) no byte-code either. The
 # tree's p4_proxy/proxy_agent and p4_proxy/venv are LINKS to the checkout's, so a python that 08
 # (or its _common.sh) starts would write __pycache__ into them.
 lrun() { ( cd "$1" && TMPDIR="$1/tmp" PYTHONDONTWRITEBYTECODE=1 timeout 300 bash "$LIVE_DIR_REL/08_heartbeat.sh" --self-test 2>&1 ); }
@@ -1485,7 +1485,7 @@ lreport "L03: hb_state accepts any state" "$m" "H1 a stopped heartbeat is not us
 m=$(lmutant l04 "$LIVE08" \
     '    n = side.get("forwarded_to_hosts", 0) or 0' \
     '    n = 0')
-lreport "L04: ruling 4 is never a STOP" "$m" "ruling 4: the daemon counted one (report)"
+lreport "L04: the host-port rule is never a STOP" "$m" "host-port rule: the daemon counted one (report)"
 m=$(lmutant l05 "$LIVE08" \
     '    if f is not None and r is not None and f[1] is False and r[1] is False:' \
     '    if f is not None and r is not None and (f[1] is False or r[1] is False):')
@@ -1539,13 +1539,13 @@ lreport "L16: H5 misses a heartbeat on an arm that should have none" "$m" "H5 an
 m=$(lmutant l17 "$LIVE08" \
     '    leak = [s for s in ss if s["hosts"] not in ("0", "", "None")]' \
     '    leak = []')
-lreport "L17: H5 never STOPs for ruling 4" "$m" "H5 ruling 4 in a sample"
+lreport "L17: H5 never STOPs for the host-port rule" "$m" "H5 host-port rule in a sample"
 m=$(lmutant l18 "$LIVE08" \
     '        if [[ "$TEARDOWN_DOWN_RC" != 0 && "$TEARDOWN_DOWN_RC" != 3 ]]; then
             keep_claim' \
     '        if false; then
             keep_claim')
-lreport "L18: a refused down is released anyway (segment S round 7)" "$m" \
+lreport "L18: a refused down is released anyway" "$m" \
         "🔴 a refused down ended"
 m=$(lmutant l19 "$LIVE08" \
     '    env -u NDT_MEASURING "$REAL_NDT" down > "$1" 2>&1 && rc=0 || rc=$?' \
@@ -1598,7 +1598,7 @@ m=$(lmutant l28 "$LIVE08" \
     '    rep = passes or [{"start_mono": 0.0}]')
 lreport "L28: any pass is taken as the one that reported" "$m" "cycle: no reporting pass served"
 
-# [Co-developed with claude code -- Adam] The orchestrator's 09-26 addenda: the in-process instants,
+# [Co-developed with claude code -- Adam] (09-26) the in-process instants,
 # frames inside a window flagged not dropped, "20 s + what was measured", the restore's record.
 m=$(lmutant l29 "$LIVE08" \
     '    budget = b + extra + overhead + window' \
@@ -1668,18 +1668,18 @@ m=$(lmutant l42 "$LIVE08" \
     '        res="$(cat "$gout.elapsed")"')
 lreport "L42: the recovery time is the poll's, not the record's" "$m" "restore_cycle gave"
 
-# [Co-developed with claude code -- Adam] Round 2, the fable judge's F1 on 1a3ebd7f: H1 is measured
-# against the strict 20 s. 🔴 Adam's ruling A (09-27): at most ABOUT 20 s -- a cycle over it is
-# DISCLOSED, verbatim, above the run's last line, and the run PASSes. L43 is the pre-ruling F1 path
+# [Co-developed with claude code -- Adam] H1 is measured
+# against the strict 20 s. 🔴 (09-27) at most ABOUT 20 s -- a cycle over it is
+# DISCLOSED, verbatim, above the run's last line, and the run PASSes. L43 is the earlier F1 path
 # put back (an OVER cycle fails H1); L44 judges the cycle's strict line again; L45 stops counting it;
 # L46 carries the cycle's name but not its own line; L61 discloses only when nothing failed; L62
 # drops H3's conclusion. (L50/L51 are H5's sampler mutants.)
 m=$(lmutant l43 "$LIVE08" \
-    '        disclose "$what: $over of $n cycle(s) over the strict ${DETECT_BOUND_S} s -- disclosed, not a failure (Adam, 09-27: at most about ${DETECT_BOUND_S} s, the class of NDTwin'"'"'s own LLDP; strict_${DETECT_BOUND_S}s in 30_cycles.tsv) -- $list"' \
+    '        disclose "$what: $over of $n cycle(s) over the strict ${DETECT_BOUND_S} s -- disclosed, not a failure (accepted: at most about ${DETECT_BOUND_S} s, the class of NDTwin'"'"'s own LLDP; strict_${DETECT_BOUND_S}s in 30_cycles.tsv) -- $list"' \
     '        VERDICT_RC=1
         VERDICT_WHY="$what: $over of $n cycle(s) OVER the strict ${DETECT_BOUND_S} s${VERDICT_WHY:+ (first failure before it: $VERDICT_WHY)}"
         bad "$VERDICT_WHY"')
-lreport "L43: an OVER cycle FAILS H1 again (the pre-ruling F1 path)" "$m" \
+lreport "L43: an OVER cycle FAILS H1 again (the earlier F1 path)" "$m" \
         "H1's last line with an OVER cycle was"
 m=$(lmutant l44 "$LIVE08" \
     '            note "$label detection time (disclosed, not a failure): ${sv#OVER }"' \
@@ -1702,13 +1702,13 @@ m=$(lmutant l61 "$LIVE08" \
 lreport "L61: an over-cycle is disclosed only when nothing else failed" "$m" \
         "  H1's last line after an earlier failure was"
 m=$(lmutant l62 "$LIVE08" \
-    '# before the ruling its OVER was a per-cycle FAIL; now it is repeated above the last line.
+    '# its OVER used to be a per-cycle FAIL; now it is repeated above the last line.
 strict_conclude H3' \
-    '# before the ruling its OVER was a per-cycle FAIL; now it is repeated above the last line.
+    '# its OVER used to be a per-cycle FAIL; now it is repeated above the last line.
 :')
 lreport "L62: H3's one cycle is never concluded (its OVER never reaches the last lines)" "$m" \
         "  a live cut_cycle with no strict_conclude after it"
-# [Co-developed with claude code -- Adam] The opus judge's F1 (09-27): an exit before the phase's own
+# [Co-developed with claude code -- Adam] (09-27) an exit before the phase's own
 # conclusion (H1's loop, H3) is concluded by w_finish. L63 takes that away.
 m=$(lmutant l63 "$LIVE08" \
     '    if (( ${STRICT_CYCLES:-0} > 0 )); then
@@ -1737,7 +1737,7 @@ m=$(lmutant l67 "$LIVE08" \
     'ecn/solution mri/skeleton mri/solution"')
 lreport "L67: HB_ARMS without the external arms (17, as before)" "$m" \
         "HB_ARMS names 17 arms, not 20"
-# [Co-developed with claude code -- Adam] The AEG judge's 09-28 round. L68: INT and TERM back on
+# [Co-developed with claude code -- Adam] (09-28) L68: INT and TERM back on
 # w_finish (N-1: a TERM'd run ends PASS). L69: w_finish names every cut-short phase H1. L70: it
 # concludes even with nothing pending. L71: no hard ceiling (N-4). L72: an all-within tally is
 # disclosed anyway.
@@ -1770,7 +1770,7 @@ m=$(lmutant l72 "$LIVE08" \
         disclose')
 lreport "L72: a tally with every cycle within 20 s is disclosed anyway" "$m" \
         "  an early exit with every cycle within 20 s ended"
-# [Co-developed with claude code -- Adam] The external judge's F4 (09-28): L73 never asks whether the
+# [Co-developed with claude code -- Adam] (09-28) L73 never asks whether the
 # kernel accepted the report; L74 does not look at pipeline_commits.
 m=$(lmutant l73 "$LIVE08" \
     '    if told == "told" and untold:' \
@@ -1787,7 +1787,7 @@ m=$(lmutant l75 "$LIVE08" \
     '    untold = list(got)')
 lreport "L75: H4 never believes the kernel accepted anything" "$m" \
         "H4 restored and the kernel accepted it"
-# [Co-developed with claude code -- Adam] The external judge's m3 and M2 (09-28, round 2): L73b is
+# [Co-developed with claude code -- Adam] (09-28) L73b is
 # L73 seen on the up side; L76 lets the restore run to the poll's 35 s (F9); L77 does not look at
 # table_generation; L78 is the sampler without the report's written_wall.
 m=$(lmutant l73b "$LIVE08" \
@@ -1814,7 +1814,7 @@ m=$(lmutant l78 "$LIVE08" \
     '                  "-", d.get("stop_reason") or "",')
 lreport "L78: the sampler records no written_wall" "$m" \
         "H5 sampler rows"
-# [Co-developed with claude code -- Adam] Round 5 (the round-4 review's M-1, M-2, M-3). L79: H5 takes a
+# [Co-developed with claude code -- Adam] L79: H5 takes a
 # reference that is not a whole 06; L79b: H5 judges rc/verdict on the report path too (a C1 from
 # another run is then never the same); L80: the sampler records no heard; L81: no controllers;
 # L82: the identity gate records and never verifies; L83: it lets an unnamed B through.
@@ -1860,7 +1860,7 @@ m=$(lmutant l85 "$REPO/$LIVE_DIR_REL/code_identity.py" \
     '        ident["parents"] = []')
 lreport "L85: the identity records no parents" "$m" \
         "  identity gate, the good case"
-# [Co-developed with claude code -- Adam] Round 6 (the round-5 re-review's M-3): the sampler's ctrl_logs
+# [Co-developed with claude code -- Adam] The sampler's ctrl_logs
 # column, which places the controller's pipeline push among the samples. L86: no sizes; L87: rounds
 # from before the sampler started are listed; L88: the runs directory is not handed to it.
 m=$(lmutant l86 "$LIVE08" \
@@ -1918,7 +1918,7 @@ m=$(lmutant l54 "$LIVE08" \
     'BEGIN{printf "%.2f\n", a-b}')
 lreport "L54: graph_until's elapsed counts backwards" "$m" "graph_until after a cut gave"
 
-# [Co-developed with claude code -- Adam] Round 2b (the opus judge's N2-1 / N2-2 on f4f43a32): a
+# [Co-developed with claude code -- Adam] (on f4f43a32) a
 # sampler that dies after a good start or complains ends the run FAIL; the verdicts need reads
 # throughout; consts runs in the self-test.
 m=$(lmutant l55 "$LIVE08" \

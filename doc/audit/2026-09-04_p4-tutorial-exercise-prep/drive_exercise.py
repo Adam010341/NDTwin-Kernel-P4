@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Non-interactive driver for one p4lang/tutorials exercise, on either fabric.
 
-Run it as ONE command from Adam's own terminal (interactive sudo lives there):
+Run it as ONE command from your own terminal (interactive sudo lives there):
 
-    sudo /home/adam/p4dev-python-venv/bin/python
+    sudo <VENV_PY>
         doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
         source_routing --which solution
+
+(VENV_PY and TUT are the constants below; the tool prints the exact command it wants.)
 
 It brings the exercise up exactly the way ``utils/run_exercise.py`` does, then
 -- instead of dropping into the Mininet CLI -- runs a scripted set of steps,
@@ -35,7 +37,7 @@ not guessed):
     but every file written into it is *.pcap, which is (line 18 of .gitignore),
     so `git status --short` stays unchanged either way.
 
-TWO FABRICS (TICKET-P2 section 5.1).  ``--fabric tutorials`` is everything above
+TWO FABRICS.  ``--fabric tutorials`` is everything above
 and is the default: the exercise's own Mininet harness, started by this process,
 which is why it needs root.  ``--fabric ndtwin`` runs the SAME steps against a
 fabric NDTwin brings up from an app package --
@@ -43,9 +45,10 @@ fabric NDTwin brings up from an app package --
     convert.py -> preflight.py -> ndt claim -> ndt up p4 --app -> steps
                                             -> ndt down -> ndt release
 
--- and needs NO root: `ndt` is designed to be run as the operator with the two
-passwordless sudoers grants (ndtwin-lab, mnexec) that tools/test_workflow/
-sudo_surface.sh prints.  The steps reach a host through a HostRunner rather than
+-- and needs NO root: `ndt` is designed to be run as the operator with the
+NOPASSWD sudoers rules tools/test_workflow/sudo_surface.sh lists -- three of
+them (ndtwin-lab, ovs-vsctl, mnexec), of which the User Manual sets up only
+ndtwin-lab.  The steps reach a host through a HostRunner rather than
 through ``self.net``, because on that fabric there is no Mininet object in this
 process at all: the hosts belong to a Mininet started in a root tmux session and
 are entered with ``sudo -n mnexec -a <pid>``, the same seam `ndt`'s own
@@ -102,7 +105,7 @@ HOST_KNOB = os.path.join(REPO, "p4_proxy", "mininet", "host_count_override")
 PROXY_URL = "http://localhost:8081"
 
 #: `ndt` refuses to run without an owner, and every call this file makes carries
-#: the same one (CLAUDE.md: `ndt` 指令都帶 NDT_OWNER).
+#: the same one (every `ndt` command carries NDT_OWNER).
 NDT_OWNER = os.environ.get("NDT_OWNER") or "drive-exercise"
 
 CLAIM_MINUTES = "45"
@@ -117,7 +120,7 @@ CLAIM_MINUTES = "45"
 # firewall.json (pod-topo/topology.json's per-switch "program").  It is also the
 # stem convert.py's --p4 must name, because a package whose default pipeline were
 # firewall would hand s2-s4 a p4info their sX-runtime.json entries were not
-# written against, which pre-flight refuses by design (TICKET-P2 section 3.5).
+# written against, which pre-flight refuses by design.
 EXERCISES = {
     "source_routing": {
         "topo": "topology.json",
@@ -127,8 +130,8 @@ EXERCISES = {
         # 🔴 NO GENERIC CELL HERE. solution/source_routing.p4:127-138 is
         # `if (hdr.srcRoutes[0].isValid()) { ... } else { drop(); }` -- the SOLUTION drops
         # every frame that does not carry the 0x1234 source-route stack, which is why
-        # audit-raw 7af2f352 measured this exercise with send.py/receive.py and a ttl rather
-        # than with a ping (TICKET-P2 §7-10 says the same). An iperf between two hosts here
+        # an earlier measurement (2026-09-08) used send.py/receive.py and a ttl rather
+        # than a ping. An iperf between two hosts here
         # moves nothing, so "link usage follows the iperf path" has no path to follow.
         "link_usage": False,
         "link_usage_why": ("solution/source_routing.p4:127-138 drops every frame without a "
@@ -158,7 +161,7 @@ EXERCISES = {
         "plan_steps": "h1 receive.py + h1 send.py probes; assert swid and port fields",
     },
     # ---------------------------------------------------------------------------------
-    # TICKET-P3 §2.7, the other NINE. Everything above this line shipped on 2026-09-08 and
+    # The other NINE. Everything above this line shipped on 2026-09-08 and
     # 2026-09-18 and its plan block is FROZEN; everything below is new and has never been
     # run on either fabric by the session that wrote it.
     #
@@ -170,14 +173,14 @@ EXERCISES = {
     #
     # Three optional keys appear here and nowhere above:
     #   `red_arm`     how the SKELETON is red when it is not red in the data plane:
-    #                 "compile"  -- p4c refuses it (flowcache; TICKET-P3 §2.7)
+    #                 "compile"  -- p4c refuses it (flowcache)
     #                 "entries"  -- it compiles, and the runtime json the harness installs
     #                               names a table it does not declare (basic_tunnel)
     #   `controller`  the exercise's own external controller, relative to the exercise dir.
     #                 The skeleton arm runs that path and the solution arm runs
     #                 solution/<basename>, which is how live-p1/03 already drives p4runtime.
     #   `needs`       a property of the FABRIC this exercise's expectations depend on, named
-    #                 so a red run can be read. "shaped_links" is TICKET-P3 §2.4's G2-C.
+    #                 so a red run can be read. "shaped_links" is G2-C.
     "basic_tunnel": {
         "topo": "topology.json",
         "prog": "basic_tunnel.p4",
@@ -248,7 +251,7 @@ EXERCISES = {
         "prog": "load_balance.p4",
         "default_prog": "load_balance.p4",
         "hosts": 3, "switches": 3,
-        # 🔴 NO GENERIC CELL HERE (judge A3). s1-runtime.json:6-25 gives ecmp_group ONE lpm
+        # 🔴 NO GENERIC CELL HERE. s1-runtime.json:6-25 gives ecmp_group ONE lpm
         # entry -- 10.0.0.1/32, the load-balanced service address -- and a default action of
         # drop. An iperf from h1 to any real host address is dropped at s1, so the on-path set
         # would be empty and the cell would refuse: correctly, and about the wrong thing.
@@ -322,18 +325,18 @@ IPERF_SECONDS = 3     # `iperf -c ... -t 3`, the README's own flow length
 IPERF_TIMEOUT = 25    # s of wall clock before a client that never connected is killed
 IPERF_WARMUP = 1.0    # s to let `iperf -s` bind before the client is started
 PROBE_SECONDS = 8     # s of link_monitor send.py, which emits one probe per second
-#: How long to wait for flowcache's controller to install the punted flow (§9 ruling 28②).
+#: How long to wait for flowcache's controller to install the punted flow.
 FLOWCACHE_WARM_SECONDS = 10.0
 
 SEND_SECONDS = 6      # s of the mri/qos senders, whose argv carries a packet count (ecn: ECN_PROBES)
 BG_SECONDS = 20       # s of the mri background iperf -u (must outlast SEND_SECONDS; ecn: below)
 
 # [Co-developed with claude code -- Adam]
-# 🔴 ecn HAS ITS OWN PROBE TRAIN (TICKET-P4-roles §7 ruling 7). Its solution check is "0x3
+# 🔴 ecn HAS ITS OWN PROBE TRAIN. Its solution check is "0x3
 # among the tos values of the probes h2 received", and solution/ecn.p4:135-137 marks a probe
 # only when enq_qdepth >= 10 at the moment THAT probe is enqueued -- the probes that arrive
 # are the whole sample. At SEND_SECONDS = 6 the sample was 2-4 packets, and on 2026-09-24 the
-# arm passed 5 times in 10 on a data plane that was marking (ruling 7's interleaved A/B).
+# arm passed 5 times in 10 on a data plane that was marking (an interleaved A/B).
 # Why so few, OBSERVED once in the tutorials fabric's s1.log of 09-24 17:54, where bmv2 logs
 # each probe's enq_qdepth condition with a timestamp: the queue only starts to build ~4 s after
 # the background does, so the first probe goes out unmarked; about half of the later ones are
@@ -374,13 +377,13 @@ CTRL_LOG_STEP = {"p4runtime": "P9  controller log after the round",
                  "flowcache": "W9  controller log after the round"}
 CTRL_PY = VENV_PY     # the only interpreter with grpc + the tutorials' p4runtime_lib
 
-#: live-p1/_common.sh, whose link_usage_round IS the generic cell (TICKET-P3 §2.7).
+#: live-p1/_common.sh, whose link_usage_round IS the generic cell.
 #: 🔴 NOT A SECOND COPY OF THE RULE. live-p1/05 runs the same function three times and this
 #: driver runs it once per exercise; a Python re-implementation here would make "the same cell
 #: over thirteen exercises" a comparison between two instruments that were meant to agree.
 LIVE_COMMON = os.path.join(HERE, "live-p1", "_common.sh")
 
-#: The telemetry knob (TICKET-P3 §2.1). `ndt up p4 --telemetry <word>` writes it and `ndt down`
+#: The telemetry knob. `ndt up p4 --telemetry <word>` writes it and `ndt down`
 #: does not put it back, so a round that moved it restores it itself -- the same discipline
 #: HOST_KNOB gets, and for the same reason: it decides the NEXT bring-up.
 TELEMETRY_KNOB = os.path.join(REPO, "p4_proxy", "mininet", "telemetry_override")
@@ -489,7 +492,7 @@ def tutorials_utils_of(exdir):
     solution/mycontroller.py is one directory deeper, because the tutorials mean it to be
     COPIED over the exercise's own file; run in place, its '../../utils/' is
     <tutorials>/exercises/utils, which does not exist, and the controller dies at import
-    (orchestrator 2026-09-24, both solution arms: `No module named 'p4runtime_lib'`).
+    (2026-09-24, both solution arms: `No module named 'p4runtime_lib'`).
 
     So this is exactly the directory the file would have appended had it been copied where the
     tutorials put it: <exdir>/../../utils. Derived from the exercise, not from TUT/UTILS, so a
@@ -751,7 +754,7 @@ def pick_source(exdir, spec, which):
     the exercise IS the controller, and both arms run the same pipeline. Without
     spec["variant"] == "controller" this function returns None there and `main()` stops
     with "no .p4 source for p4runtime/solution" -- measured 2026-09-19 by reading the real
-    tree, before the orchestrator's live round rather than during it.
+    tree, before the live round rather than during it.
 
     The flag is explicit rather than "fall back to the skeleton when solution/ has no .p4",
     because for every other exercise a missing solution/*.p4 IS the error this returns None
@@ -941,7 +944,7 @@ class HostRunner(object):
     def flush_arp(self):
         """Empty every host's ARP cache. Returns the hosts it actually flushed.
 
-        🔴 A CACHED MAC MAKES AN UNREACHABLE HOST REACHABLE (round-3 ruling 5). multicast's
+        🔴 A CACHED MAC MAKES AN UNREACHABLE HOST REACHABLE. multicast's
         expectation is that hX -> h4 is 100% because the ARP request for h4 floods to ports
         1,2,3 and h4 never sees it -- but that is a statement about a host that has NOT already
         learned h4's MAC. Once h4 has sent its own ARP (which IS answered, because the group
@@ -996,7 +999,7 @@ class MininetHosts(HostRunner):
     def native_pingall(self, timeout=1):
         """mininet's own pingAll, RECORDED beside the -c 5 measurement.
 
-        Kept because the 2026-09-08 rows (audit-raw 7af2f352) are this number and
+        Kept because the 2026-09-08 measurement's rows are this number and
         the two have to be reconcilable; it is not what anything asserts, because
         it sends one packet per pair and cannot express a rate.
         """
@@ -1067,7 +1070,7 @@ class Steps(object):
         self.ips = ips if ips is not None else hosts.ips
         self.expects = []
         self.steps = []          # (label, command-string, raw-output)
-        #: 🔴 THE ARM'S CONTROLLER, AND ITS REAL PID (§9 ruling 31①).  `_start_controller`
+        #: 🔴 THE ARM'S CONTROLLER, AND ITS REAL PID.  `_start_controller`
         #: puts `proc.pid` here -- the pid of the process it actually launched -- and
         #: `run_on_ndtwin` hands it to the generic link-usage cell, which checks that that
         #: pid is alive at the moment it measures.  It is deliberately NOT cleared when the
@@ -1079,7 +1082,7 @@ class Steps(object):
         #: `ndtwin`. Only the two external-controller exercises read them: the exercise's own
         #: controller has 127.0.0.1:5005N and device_id N-1 written into it, which is the
         #: truth on the tutorials harness and is not on NDTwin's, where
-        #: tools/p4_exercise/run_external_controller.py rewrites both (TICKET-P1D).
+        #: tools/p4_exercise/run_external_controller.py rewrites both.
         self.fabric, self.package = fabric, package
         self.exercise_spec = EXERCISES.get(exercise) or {}
 
@@ -1515,10 +1518,10 @@ class Steps(object):
 
         self._log_sizes()
 
-    # ================================================ TICKET-P3 §2.7: the other nine ==
+    # ================================================ the other nine exercises =========
     #
     # 🔴 EVERY EXPECTATION BELOW IS 【源碼推導，未執行】 OR 【README 宣稱】 UNTIL THE
-    # ORCHESTRATOR'S LIVE ROUND. None of the nine has been run on either fabric by the session
+    # LIVE ROUND. None of the nine has been run on either fabric by the session
     # that wrote them; what the offline suite asserts is that the driver ASKS the question this
     # way and that the two arms are distinguishable. DRIVER.md §6 carries the grade per cell.
 
@@ -1534,7 +1537,7 @@ class Steps(object):
         prints.
         """
         # 🔴 SCAPY INDENTS NESTED LAYERS WITH `|`, AND THE FIELD IS STILL THE FIELD
-        # (TICKET-P3 §9 ruling 23①, from the second live 06). An IP OPTION is a nested layer,
+        # (seen in the second live 06). An IP OPTION is a nested layer,
         # so receive.py prints it as
         #       |###[ MRI ]###
         #       |  count     = 2
@@ -1598,10 +1601,10 @@ class Steps(object):
         🔴 TWO PATHS, ONE DECISION. On the tutorials fabric the controller's hard-coded
         127.0.0.1:5005N / device_id N-1 are exactly what the harness built, so it is run as
         itself. On the NDTwin fabric they are not, and tools/p4_exercise/
-        run_external_controller.py is the adapter that rewrites them (TICKET-P1D) -- the same
+        run_external_controller.py is the adapter that rewrites them -- the same
         launcher live-p1/03 uses, so "the exercise's controller ran" means one thing on both.
 
-        🔴 THE PROCESS IS NOT STOPPED WHEN THE STEPS END (§9 ruling 31①). It is stopped by
+        🔴 THE PROCESS IS NOT STOPPED WHEN THE STEPS END. It is stopped by
         stop_controller(), which the round calls AFTER the generic link-usage cell has
         measured a flow across the fabric -- flowcache's first packet of a flow needs its
         packet-in and p4runtime's entries are its own, so a cell measured after it exited
@@ -1638,11 +1641,10 @@ class Steps(object):
         say("$ %s   (> %s)" % (shown, path))
         proc = local_popen(argv, cwd=self.exdir, stdout=fh, stderr=subprocess.STDOUT,
                            stdin=subprocess.DEVNULL, env=env)
-        # 🔴 THE PID OF THE PROCESS THIS LINE JUST STARTED, not a word about one (§9 ruling
-        # 31①). Until now `link_usage_cell` was handed `getattr(run_on_ndtwin, "ctrl_pid")`
-        # of an attribute nothing ever assigned: every G1 ran with CTRL_PID empty, the
-        # liveness check had nothing to check, and the test that said otherwise was a grep
-        # for the call site's own text.
+        # 🔴 THE PID OF THE PROCESS THIS LINE JUST STARTED, not a word about one. Until now
+        # `link_usage_cell` was handed `getattr(run_on_ndtwin, "ctrl_pid")` of an attribute nothing
+        # ever assigned: every G1 ran with CTRL_PID empty, the liveness check had nothing to check,
+        # and the test that said otherwise was a grep for the call site's own text.
         self._ctrl = (proc, fh, path, CTRL_LOG_STEP.get(tag, "C9  controller log after the round"))
         self.ctrl_pid = proc.pid
         say("   controller pid %d (handed to the generic cell; stopped after it)" % proc.pid)
@@ -1667,7 +1669,7 @@ class Steps(object):
             return f.read()
 
     def _controller_log(self):
-        """What the controller has written so far, WITHOUT stopping it (§9 ruling 31①).
+        """What the controller has written so far, WITHOUT stopping it.
 
         The child writes to this fd itself under PYTHONUNBUFFERED=1, so there is nothing in
         this process to flush and no reason to end the process to read it -- which is what
@@ -1689,10 +1691,10 @@ class Steps(object):
     def stop_controller(self):
         """Stop the arm's controller, if it started one.  -> the log step(s) to record.
 
-        🔴 CALLED BY THE ROUND, AFTER THE GENERIC CELL, not by the steps that started it
-        (§9 ruling 31①).  Idempotent: a second call returns [] and stops nothing, so the
-        round's teardown can call it on the path where the steps raised before G1.
-        self.ctrl_pid survives, because the cell's reading is about THIS pid.
+        🔴 CALLED BY THE ROUND, AFTER THE GENERIC CELL, not by the steps that started it.
+        Idempotent: a second call returns [] and stops nothing, so the round's teardown can call it
+        on the path where the steps raised before G1. self.ctrl_pid survives, because the cell's
+        reading is about THIS pid.
         """
         if self._ctrl is None:
             return []
@@ -1811,11 +1813,11 @@ class Steps(object):
         topology.json:65-69's `[ "s1-p3", "s2-p3", "0", 0.5 ]` -- a 0.5 Mbit/s link. On a
         fabric that does not shape that link the queue is empty, `tos` never leaves 0x1, and
         the SOLUTION arm is red for a reason that is not about ecn.p4. spec["needs"] says so
-        and DRIVER.md §6 repeats it; TICKET-P3 §2.4 keeps this exercise out of the gate until
+        and DRIVER.md §6 repeats it; this exercise stays out of the gate until
         G2-C lands.
 
         🔴 THE PROBES THAT REACH h2 ARE THE SAMPLE, SO THERE ARE ECN_PROBES OF THEM, NOT
-        SEND_SECONDS (TICKET-P4-roles §7 ruling 7; the why is at ECN_PROBES). The background's
+        SEND_SECONDS (the why is at ECN_PROBES). The background's
         `-t` comes from ecn_background_seconds() so it outlasts the whole train, the sniffer and
         a sender that runs to its timeout; the arm still stops it by its handle.
 
@@ -1848,7 +1850,7 @@ class Steps(object):
         pkts = self._packets(rtext)
         tos = self._field_values(rtext, "tos")
         # [Co-developed with claude code -- Adam]
-        # 🔴 A DISCLOSURE, NOT A VERDICT ROW (ruling 7). "['0x1']" from 2 of 60 probes and from
+        # 🔴 A DISCLOSURE, NOT A VERDICT ROW. "['0x1']" from 2 of 60 probes and from
         # 58 of 60 are different findings, and no row below can tell them apart; a row that
         # always passed would add a PASS to every tally for a check that cannot fail. The
         # count is "before the sniffer was stopped": a probe enqueued behind a full queue can
@@ -2022,7 +2024,7 @@ class Steps(object):
                            "sysctl -w net.ipv6.conf.{all,default}.disable_ipv6=1 in each host",
                            "exercises/multicast/disable_ipv6.sh's two lines, per namespace"))
 
-        # 🔴 FROM A KNOWN CACHE STATE (round-3 ruling 5). See HostRunner.flush_arp.
+        # 🔴 FROM A KNOWN CACHE STATE. See HostRunner.flush_arp.
         flushed = self.h.flush_arp()
         say("$ ip neigh flush all, in each host namespace -> %s" % (", ".join(flushed) or "none"))
         self.steps.append(("ARP caches emptied before the measurement",
@@ -2030,7 +2032,7 @@ class Steps(object):
         pa = self._pingall()
         group = ("h1", "h2", "h3")
         inside = [pa.results.get((s, d)) for s in group for d in group if s != d]
-        # 🔴 h4 IS UNREACHABLE IN ONE DIRECTION ONLY (judge A4). sig-topo/s1-runtime.json:36-45
+        # 🔴 h4 IS UNREACHABLE IN ONE DIRECTION ONLY. sig-topo/s1-runtime.json:36-45
         # installs a mac_forward entry for h4's MAC to port 4 like every other host -- it is
         # only the MULTICAST GROUP (:47-65) that leaves port 4 out. So an ARP request from hX
         # floods to ports 1,2,3 and never reaches h4 (hX -> h4 is 100% loss), while h4's own
@@ -2068,7 +2070,7 @@ class Steps(object):
                       "sig-topo/s1-runtime.json:36-45 DOES give h4's MAC a mac_forward entry "
                       "to port 4; only the group leaves 4 out. h4's own ARP floods to 1,2,3, "
                       "is answered, and the unicast reply hits that entry.")
-            # 🔴 AND IT IS NOT AN ARTEFACT OF THE PING ORDER (round-3 ruling 5). The pass above
+            # 🔴 AND IT IS NOT AN ARTEFACT OF THE PING ORDER. The pass above
             # got hX -> h4 right because h4 is last as a source, so nobody had learned its MAC
             # yet. That is true of THIS walk; it would not be true of a dst-major one, nor of a
             # second pingall on the same fabric -- by now h1-h3 DO hold h4's MAC, from the
@@ -2101,7 +2103,7 @@ class Steps(object):
     def _tos_from(self, text, src):
         """The tos of every sniffed packet whose IP src is `src` -- and of nothing else.
 
-        🔴 qos/receive.py:22 HAS NO BPF FILTER (judge A5). It prints every frame on h2's eth0,
+        🔴 qos/receive.py:22 HAS NO BPF FILTER. It prints every frame on h2's eth0,
         h2's OWN replies included -- and h2 replies: nothing is listening on UDP/4321, so the
         kernel answers ICMP port-unreachable (tos 0xc0), and the TCP round's SYN to port 80
         gets a RST (tos 0x0). Reading every `tos` line in the capture therefore makes the
@@ -2128,7 +2130,7 @@ class Steps(object):
         """The text of a block's FIRST `###[ IP ]###` layer, up to the next layer header.
 
         🔴 AN ICMP ERROR CARRIES A SECOND IP HEADER, AND IT IS THE ONE THAT MATCHED
-        (TICKET-P3 §9 ruling 20②, from the first live 06). h2 answers the UDP probe with a port
+        (from the first live 06). h2 answers the UDP probe with a port
         unreachable whose OUTER header is `src = 10.0.2.2, tos = 0xc0` and whose payload embeds
         the original datagram as `###[ IP in ICMP ]###` with `src = 10.0.1.1, tos = 0x1`. One
         `got a packet` block therefore has two `src =` lines and two `tos =` lines: the old
@@ -2257,7 +2259,7 @@ class Steps(object):
                           "README step 1.3: only s1's ingress counter moves; the packets die "
                           "inside s1 for want of the transit rule")
         finally:
-            # 🔴 THE CONTROLLER IS STILL RUNNING WHEN THESE STEPS END (§9 ruling 31①): the
+            # 🔴 THE CONTROLLER IS STILL RUNNING WHEN THESE STEPS END: the
             # round stops it after the generic link-usage cell, and files its log then.
             self._log_sizes()
 
@@ -2288,8 +2290,8 @@ class Steps(object):
             self._add("switches the controller programmed", "[1, 2, 3]", str(loaded),
                       loaded == [1, 2, 3], G_SRC,
                       "mycontroller.py:457-472 connects to s1, s2 and s3")
-            # 🔴 THE CACHE HAS TO BE WARM BEFORE LOSS IS A READING ABOUT FORWARDING
-            # (§9 ruling 28②). flowcache's FIRST packet of a flow is punted to the controller,
+            # 🔴 THE CACHE HAS TO BE WARM BEFORE LOSS IS A READING ABOUT FORWARDING.
+            # flowcache's FIRST packet of a flow is punted to the controller,
             # which then installs the entry -- so a single `ping -c5` measures the install
             # latency as loss and calls a working exercise red. Three probes first, then a wait
             # for the controller's own "added table entry" line, and only then the measurement.
@@ -2318,7 +2320,7 @@ class Steps(object):
             say("$ h1: ping -c5 %s -> %s" % (self.ips["h2"], ping.label()))
             self.steps.append(("W1  h1 ping h2 with the controller running",
                                "ping -c 5 -W 2 %s" % self.ips["h2"], ping.raw or ping.label()))
-            # 🔴 READ, NOT STOPPED (§9 ruling 31①). Ending the controller to read its log
+            # 🔴 READ, NOT STOPPED. Ending the controller to read its log
             # left the fabric without the one process the generic cell below needs alive --
             # flowcache punts the first packet of every flow to it.
             text = self._controller_log()
@@ -2331,9 +2333,9 @@ class Steps(object):
                       ping.tested and ping.loss == 0, G_BOTH,
                       "README step 3: 'You should start to see ICMP replies'. Measured AFTER "
                       "three probe datagrams and a wait for the controller's own install line, "
-                      "so this is forwarding and not the install latency (§9 ruling 28②)")
+                      "so this is forwarding and not the install latency")
         finally:
-            # 🔴 STILL RUNNING HERE TOO (§9 ruling 31①); stop_controller() files W9.
+            # 🔴 STILL RUNNING HERE TOO; stop_controller() records it.
             self._log_sizes()
 
     # ---------------------------------------------------------------------
@@ -2365,7 +2367,7 @@ def make_driver(base_cls, exercise, which, exdir, spec, args, ips):
                 self.net.start()
                 time.sleep(1)
                 self.program_hosts()
-                # 🔴 THE ARM WHOSE RED IS HERE AND NOT IN THE DATA PLANE (TICKET-P3 §2.7).
+                # 🔴 THE ARM WHOSE RED IS HERE AND NOT IN THE DATA PLANE.
                 # exercises/basic_tunnel's README:41-43 says the starter code's `make run`
                 # does not work, because sX-runtime.json names MyIngress.myTunnel_exact and
                 # the skeleton declares no such table. That refusal IS the arm, so it is
@@ -2406,7 +2408,7 @@ def make_driver(base_cls, exercise, which, exdir, spec, args, ips):
                     "will not work with the starter code'")]
                 self.steps = [("T0  program_switches (the exercise's own sX-runtime.json)",
                                "ExerciseRunner.program_switches()", traceback.format_exc())]
-                # 🔴 THE SAME VERDICT THE NDTwin ARM GETS (round-3 ruling 1). The refusal lands
+                # 🔴 THE SAME VERDICT THE NDTwin ARM GETS. The refusal lands
                 # here as a harness exception instead of a pre-flight rc, but it is the refusal
                 # README:41-43 describes and the arm met every expectation it has. Reporting it
                 # as `PASS (1/1)` / exit 0 here while the other fabric says `RED ARM (1/1)` /
@@ -2442,7 +2444,7 @@ def make_driver(base_cls, exercise, which, exdir, spec, args, ips):
             finally:
                 # 🔴 THIS FABRIC HAS NO GENERIC CELL, so "after the steps" is the whole of
                 # "after G1" here -- but the controller is still stopped by the same call
-                # the NDTwin round makes, not by the steps themselves (§9 ruling 31①).
+                # the NDTwin round makes, not by the steps themselves.
                 tail = session.stop_controller()
                 self.expects = session.expects
                 self.steps = list(session.steps) + tail
@@ -2459,7 +2461,7 @@ def switch_state(url=PROXY_URL):
     Disclosure, not a result: what goes in the report is every switch's
     `pipeline.p4info_sha256` and `table_entries` counters, which is how a reader
     of the raw can tell which program each switch was running and how many of the
-    package's entries actually went in (TICKET-P2 section 5.6).
+    package's entries actually went in.
     """
     import urllib.request
     try:
@@ -2504,7 +2506,7 @@ def ndt(argv, cwd=None, timeout=900):
 def bmv2_identity(status_text):
     """(sha256[:16], label) for the bmv2 binary `ndt status` says this fabric runs.
 
-    🔴 A BENCHMARK NAMES ITS BINARY BY A sha, NOT BY A VERSION STRING (CLAUDE.md; README
+    🔴 A BENCHMARK NAMES ITS BINARY BY A sha, NOT BY A VERSION STRING (README
     section 3). There are two builds of `simple_switch_grpc` on this laptop and `--version`
     does not tell them apart -- only the hash does, and on the NDTwin fabric this driver does
     not choose which one runs: `ndt up p4` does, through p4_proxy/mininet/bmv2_binary_override.
@@ -2585,7 +2587,7 @@ def link_usage_applies(spec, which):
     🔴 AND "NOT RUN" IS NOT "PASSED". Neither case produces an expectation: the round records
     a named reading saying the cell did not run and why, the way `ndt`'s own NOT CHECKED
     branches do. Inventing a green cell for a fabric that moved no packet is the exact shape
-    this whole ticket keeps refusing.
+    this whole check keeps refusing.
     """
     if which != "solution":
         return False, None, ("the skeleton arm is a fabric the exercise says should not "
@@ -2597,16 +2599,16 @@ def link_usage_applies(spec, which):
 
 
 #: `link_usage_round`'s "the exercise controller is gone, so this measures its absence" code.
-#: 🔴 NOT 0 AND NOT 2 (§9 ruling 28①). 0 came back here as `ok=True` -- a PASS G1 over a dead
+#: 🔴 NOT 0 AND NOT 2. 0 came back here as `ok=True` -- a PASS G1 over a dead
 #: controller, the exact thing that branch exists to prevent -- and 2 already means "no
 #: namespace / no sudo".
 LINK_USAGE_NOT_RUN_RC = 3
 
 #: `link_usage_round`'s "the window this path needs is longer than this caller will wait" code.
-#: 🔴 AND IT IS NOT 1 EITHER (§9 ruling 33). _common.sh gained this code in ruling 31⑤ and this
+#: 🔴 AND IT IS NOT 1 EITHER. _common.sh gained this code and this
 #: file did not follow it, so rc 4 fell through `bool(rc == 0)` to False and a refusal about
 #: THIS CALLER'S PATIENCE was recorded under `G1  link usage follows the iperf path` with a
-#: want/got about the twin -- the same misattribution ruling 31③ had just removed from
+#: want/got about the twin -- the same misattribution already removed from
 #: live-p1/05. Both constants are asserted against the shell file's own text by
 #: test_drive_exercise.py: two files spelling one protocol is how the last one drifted.
 LINK_USAGE_WINDOW_RC = 4
@@ -2614,7 +2616,7 @@ LINK_USAGE_WINDOW_RC = 4
 
 def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=None,
                     ctrl_pid=None):
-    """The generic cell of TICKET-P3 §2.7, run through live-p1/_common.sh's own helper.
+    """The generic cell, run through live-p1/_common.sh's own helper.
 
     -> (ok, transcript).  `expect` is "follows" (the cell) or "absent" (the control).
 
@@ -2630,14 +2632,14 @@ def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=
     "no namespace / no sudo" -- a permission answer -- and it comes back as a FAILED
     expectation naming that, never as a quiet skip and never as link usage.
 
-    🔴 FOUR ANSWERS (§9 rulings 28① and 33): True, False, "not-run" (the arm's controller was
+    🔴 FOUR ANSWERS: True, False, "not-run" (the arm's controller was
     not alive) and "window" (the window this path needs is longer than this caller will wait).
     The last two are refusals, and each carries its own sentence into the verdict: a reader
     must never have to decide from a red G1 whether the twin lost a flow, a process died or
     this round's own limit was reached.
     """
     runner = runner or run
-    # 🔴 THE CONTROLLER'S PID CROSSES THE SHELL BOUNDARY (§9 ruling 28①). This spawns a FRESH
+    # 🔴 THE CONTROLLER'S PID CROSSES THE SHELL BOUNDARY. This spawns a FRESH
     # bash that sources _common.sh, and that file used to reset CTRL_PID unconditionally -- so
     # the liveness check inside `link_usage_round` could never see a pid and the whole
     # "controller dead => NOT RUN" branch was unreachable from the driver. Setting it in the
@@ -2653,8 +2655,8 @@ def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=
     say(trim(out, 4000).rstrip())
     # 🔴 THE TWO REFUSALS ARE ANSWERS OF THEIR OWN, NOT SHADES OF FALSE. Neither is ok and
     # neither is a failure of the fabric; the round records each as a FAIL with a sentence
-    # naming what actually stopped it -- the controller (§9 ruling 31②) or the window this
-    # caller would have had to wait for (§9 ruling 33) -- rather than as a twin defect or as
+    # naming what actually stopped it -- the controller or the window this
+    # caller would have had to wait for -- rather than as a twin defect or as
     # a quiet skip.
     if rc == LINK_USAGE_NOT_RUN_RC:
         return "not-run", out
@@ -2707,7 +2709,7 @@ def ndtwin_teardown(knob_before, steps_out=None, telemetry_before=None):
         problems.append(why)
     # 🔴 THE TELEMETRY KNOB TOO, and for the reason the host knob is put back rather than the
     # reason `ndt release` gives. `ndt down` does not touch p4_proxy/mininet/telemetry_override
-    # (TICKET-P3 §2.1) and `ndt release` does not check it, so nothing refuses over it -- which
+    # and `ndt release` does not check it, so nothing refuses over it -- which
     # is exactly why a round that moved it and walked away would decide the NEXT bring-up's
     # telemetry source with nothing on screen saying so. Bytes, not the word, for the same
     # reason as the host knob: the file may be annotated.
@@ -2753,8 +2755,8 @@ def convert_p4_arg(exdir, spec, which):
     return default
 
 
-#: Whether this round ended on the refusal its arm is SUPPOSED to end on (judge A6, and the
-#: round-3 ruling that it must read the same on both fabrics). It is neither an error nor a
+#: Whether this round ended on the refusal its arm is SUPPOSED to end on (and it must read the
+#: same on both fabrics). It is neither an error nor a
 #: pass: the verdict is `RED ARM (n/n): ... by design` and the exit code is 1 -- the pair
 #: `flowcache`'s compile arm has always reported.
 #:
@@ -2816,7 +2818,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
     say(trim(out, 4000).rstrip())
     steps_out.append(("N2  preflight.py", " ".join(cmd), out))
     if rc != 0:
-        # 🔴 THE ONE ARM WHOSE RED IS A REFUSAL (TICKET-P3 §2.7). basic_tunnel's skeleton
+        # 🔴 THE ONE ARM WHOSE RED IS A REFUSAL. basic_tunnel's skeleton
         # declares no myTunnel_exact and its own sX-runtime.json writes three entries into it
         # (README:41-43), so pre-flight's entries-match-p4info check is where that arm is
         # supposed to stop. Reported as the expectation it is, not as rc 2 "nothing was
@@ -2827,7 +2829,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                 "pre-flight refuses them", "pre-flight rc=%d" % rc, True, G_BOTH,
                 "README:41-43; tools/p4_exercise/preflight.py checks every entry against the "
                 "p4info the package carries, and the skeleton's does not declare that table")]
-            # 🔴 THE VERDICT IS THE DESIGNED-REFUSAL ONE, NOT `ERROR` (judge A6). Returning a
+            # 🔴 THE VERDICT IS THE DESIGNED-REFUSAL ONE, NOT `ERROR`. Returning a
             # bare non-zero rc made main() print `ERROR`, because that is what a non-zero round
             # means everywhere else -- while the SAME arm on the tutorials fabric printed
             # `PASS (1/1)`. One exercise reading two different ways on two fabrics is the thing
@@ -2867,7 +2869,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
     run_on_ndtwin.teardown_problem = ""
     try:
         rule("ndt up p4 --app")
-        # 🔴 `--telemetry` IS PASSED ONLY WHEN IT WAS ASKED FOR (TICKET-P3 §2.1). Not giving
+        # 🔴 `--telemetry` IS PASSED ONLY WHEN IT WAS ASKED FOR. Not giving
         # the flag is not the same as giving `auto`: without it `ndt` writes what the PACKAGE
         # declares, and a driver that always spelled a word out would silently overrule every
         # package's own telemetry.source and then report the result as the package's.
@@ -2918,7 +2920,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
             finally:
                 steps_out.extend(session.steps)
                 run_on_ndtwin.expects = session.expects
-                # 🔴 THE CHANNEL, AND IT CARRIES A PID (§9 ruling 31①). `session.ctrl_pid` is
+                # 🔴 THE CHANNEL, AND IT CARRIES A PID. `session.ctrl_pid` is
                 # `proc.pid` of the process _start_controller launched; the arm that starts no
                 # controller publishes None and the cell runs without one. Read as an attribute
                 # and not with getattr(..., None): a rename must break the round, not silently
@@ -2933,7 +2935,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                         "solution's tunnel delivery is not evidence about the tunnel table."
                     )] + list(session.expects)
 
-            # 🔴 THE GENERIC CELL, LAST AND ON EVERY EXERCISE (TICKET-P3 §2.7). Everything
+            # 🔴 THE GENERIC CELL, LAST AND ON EVERY EXERCISE. Everything
             # above is a claim about ONE exercise's program; this one is a claim about
             # NDTwin -- while a flow crosses the fabric the twin's link usage must be
             # non-zero exactly on the interfaces that carried it. It is run after the
@@ -2949,8 +2951,8 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                                   "NOT RUN: %s" % why))
             else:
                 usage_dir = os.path.join(log_dir, "link_usage")
-                # 🔴 THE ARM'S CONTROLLER, BY THE PID IT ACTUALLY HAS (§9 rulings 28① and
-                # 31①). flowcache's first packet of a flow needs its packet-in and p4runtime's
+                # 🔴 THE ARM'S CONTROLLER, BY THE PID IT ACTUALLY HAS.
+                # flowcache's first packet of a flow needs its packet-in and p4runtime's
                 # entries are its too; a G1 measured after it exited measures its absence. The
                 # arm is still running it here -- the round stops it in the teardown below.
                 ctrl = run_on_ndtwin.ctrl_pid
@@ -2960,8 +2962,8 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                                   "live-p1/_common.sh link_usage_round %s (to %s)"
                                   % (pkg, usage_dst or "the model's last host"), usage_out))
                 if ok == "not-run":
-                    # 🔴 NOT RUN IS RECORDED AS A FAIL, NOT SCORED AS A TWIN DEFECT (§9
-                    # ruling 31②). It is never a pass -- nothing was measured -- and the round
+                    # 🔴 NOT RUN IS RECORDED AS A FAIL, NOT SCORED AS A TWIN DEFECT.
+                    # It is never a pass -- nothing was measured -- and the round
                     # ends non-zero over it, because a round that could not make the reading
                     # it promised has not made it. What it is NOT is evidence against the
                     # twin: the sentence names the controller, so a reader never files it
@@ -2979,7 +2981,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                         "absence, so it is recorded as a FAIL naming the controller -- never "
                         "as a pass, and never scored as a twin defect")]
                 elif ok == "window":
-                    # 🔴 THIS ONE IS ABOUT THE CALLER, NOT THE FABRIC (§9 ruling 33). The
+                    # 🔴 THIS ONE IS ABOUT THE CALLER, NOT THE FABRIC. The
                     # window `link_usage_round` computed for this path is longer than it will
                     # wait for, so it refused before offering a single datagram: nothing was
                     # measured, and the twin is not what stopped it. Recorded as a FAIL -- the
@@ -2999,25 +3001,25 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                         "fault. No iperf was started, so this is not a reading about the twin")]
                 else:
                     run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
-                        # 🔴 THE STRING SAYS WHAT THE CELL ACTUALLY ASSERTS (round-3 ruling 7).
+                        # 🔴 THE STRING SAYS WHAT THE CELL ACTUALLY ASSERTS.
                         # It said `off-path == 0` -- which is the rule R4 REMOVED, because a single
                         # sampled LLDP beacon (1/256, banked as 256x its frame length) would red a
                         # correct fabric at random. An expectation line that names a bound nobody
                         # applies is worse than none: a reader reconciling a green cell against it
                         # concludes the off-path edges integrated to zero, which they did not.
                         "G1  link usage follows the iperf path",
-                        # 🔴 THE WORDS NAME THE THREE CLASSES (§9 ruling 20① + round-3 ruling 7's
-                        # principle): a reader reconciling a green cell has to know which rows were
-                        # asserted, which were only printed, and which the floor covered.
+                        # 🔴 THE WORDS NAME THE THREE CLASSES: a reader reconciling a green cell
+                        # has to know which rows were asserted, which were only printed, and
+                        # which the floor covered.
                         "primary on-path > 0; minor rows printed, not asserted; "
                         "off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the "
                         "smallest PRIMARY on-path, whichever is larger",
                         "PASS" if ok else "see the transcript", ok, G_SRC,
-                        "TICKET-P3 §2.7's program-independent cell, through live-p1/_common.sh's "
+                        "The program-independent cell, through live-p1/_common.sh's "
                         "link_usage_round -- the same function live-p1/05 runs. The floor and "
                         "every off-path edge's raw integral are in that transcript.")]
     finally:
-        # 🔴 THE CONTROLLER IS STOPPED HERE -- AFTER G1, NOT BEFORE IT (§9 ruling 31①). The
+        # 🔴 THE CONTROLLER IS STOPPED HERE -- AFTER G1, NOT BEFORE IT. The
         # arms used to stop it in their own `finally`, which runs BEFORE the generic cell:
         # every G1 on p4runtime and flowcache measured a fabric whose controller had already
         # exited. This is the one call site, so the ordering is a property of the round and
@@ -3038,7 +3040,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
 run_on_ndtwin.expects = []
 run_on_ndtwin.teardown_problem = ""
 #: The pid of the arm's own controller for the round that is running, or None when the arm
-#: starts none.  Assigned from `Steps.ctrl_pid` every round (§9 ruling 31①).
+#: starts none.  Assigned from `Steps.ctrl_pid` every round.
 run_on_ndtwin.ctrl_pid = None
 
 
@@ -3163,7 +3165,7 @@ def write_report(path, ctx):
     a("```")
     with open(path, "w") as f:
         f.write("\n".join(L) + "\n")
-    # do not leave a root-owned file in Adam's repo
+    # do not leave a root-owned file in the user's repo
     try:
         if euid() == 0 and os.environ.get("SUDO_UID"):
             os.chown(path, int(os.environ["SUDO_UID"]), int(os.environ["SUDO_GID"]))
@@ -3182,7 +3184,7 @@ def sudo_line(exercise, which):
 
 
 def ndtwin_line(exercise, which):
-    """The same run on the NDTwin fabric.  No sudo: `ndt` holds the grants."""
+    """The same run on the NDTwin fabric.  No sudo: `ndt` uses the sudoers rules sudo_surface.sh lists."""
     return "%s %s %s --which %s --fabric ndtwin" % (
         VENV_PY, os.path.abspath(__file__), exercise, which)
 
@@ -3203,7 +3205,7 @@ def main():
                          "ndtwin: convert to an app package and run it on `ndt up p4 --app`.")
     ap.add_argument("--dry-run", action="store_true",
                     help="pre-flight + compile + plan only; no root needed")
-    # 🔴 NO DEFAULT, AND THE DEFAULT IS NOT `auto` (TICKET-P3 §2.1). Omitting the flag makes
+    # 🔴 NO DEFAULT, AND THE DEFAULT IS NOT `auto`. Omitting the flag makes
     # `ndt up p4 --app` write the telemetry source the PACKAGE declares; spelling `auto` out
     # would overrule a package that declared `link` and then report its numbers as the
     # package's. Only meaningful on --fabric ndtwin: the tutorials harness has no NDTwin
@@ -3231,8 +3233,9 @@ def main():
         return 2
 
     # 🔴 THE NDTWIN FABRIC IS NOT RUN AS ROOT, and this is a refusal rather than a warning.
-    # `ndt` is designed to be run as the operator with passwordless grants for ndtwin-lab and
-    # mnexec (tools/test_workflow/sudo_surface.sh); under sudo every file this round writes --
+    # `ndt` is designed to be run as the operator with the NOPASSWD sudoers rules
+    # tools/test_workflow/sudo_surface.sh lists (three; the User Manual sets up only ndtwin-lab);
+    # under sudo every file this round writes --
     # .test_run/, the package directory, runs/ -- comes out root-owned, and the operator's next
     # unprivileged `ndt` then cannot read its own state (live-p1/_common.sh:64-71 says the same
     # thing about the same files). Refused before the compile, so nothing has been written yet.
@@ -3248,9 +3251,10 @@ def main():
     if args.fabric == "ndtwin" and euid() == 0:
         say("")
         say("!! refusing: --fabric ndtwin must NOT be run as root (euid 0).")
-        say("   `ndt` needs only the two sudoers grants tools/test_workflow/sudo_surface.sh")
-        say("   prints; under sudo this round would leave root-owned files in .test_run/ and")
-        say("   in runs/, and the operator's next unprivileged `ndt` would fail on them.")
+        say("   `ndt` needs only the sudoers rules tools/test_workflow/sudo_surface.sh lists")
+        say("   (three; the User Manual sets up only ndtwin-lab); under sudo this round would")
+        say("   leave root-owned files in .test_run/ and in runs/, and the operator's next")
+        say("   unprivileged `ndt` would fail on them.")
         say("   Run it as yourself:")
         say("   " + ndtwin_line(ex, which))
         return 2
@@ -3267,7 +3271,7 @@ def main():
         say("!! no .p4 source for %s/%s" % (ex, which))
         return 2
 
-    # 🔴 WHICH DESIGNED REFUSAL THIS ARM IS SUPPOSED TO HIT (TICKET-P3 §2.7). Only the skeleton
+    # 🔴 WHICH DESIGNED REFUSAL THIS ARM IS SUPPOSED TO HIT. Only the skeleton
     # has one; `None` is every other arm, whose red is a data-plane difference.
     red_stage = spec.get("red_arm") if which == "skeleton" else None
 
@@ -3333,7 +3337,7 @@ def main():
         say("telemetry: %s" % (args.telemetry if args.telemetry
                                else "whatever the package declares (no --telemetry given)"))
 
-    # 🔴 THE ARM THAT ENDS AT THE COMPILER (TICKET-P3 §2.7). exercises/flowcache's skeleton is
+    # 🔴 THE ARM THAT ENDS AT THE COMPILER. exercises/flowcache's skeleton is
     # supposed not to compile, so there is no fabric to bring up either way: with the refusal
     # the arm is red BY DESIGN, and without it the arm is red because the red arm is not red.
     # Both are exit 1 and both write a report; neither is exit 2, which means "nothing to look
@@ -3388,8 +3392,8 @@ def main():
 
     if args.fabric == "ndtwin":
         # 🔴 NO ROOT, AND NOT BY OVERSIGHT.  `ndt` is designed to be run as the
-        # operator with passwordless grants for ndtwin-lab and mnexec
-        # (tools/test_workflow/sudo_surface.sh); running this as root would leave
+        # operator with the NOPASSWD sudoers rules tools/test_workflow/sudo_surface.sh
+        # lists (three; the User Manual sets up only ndtwin-lab); running this as root would leave
         # root-owned files in .test_run/ and in runs/, which break the operator's
         # next unprivileged `ndt` (live-p1/_common.sh's require_root note).
         log_dir = os.path.join(RUNS, "%s_%s_%s_ndtwin" % (stamp, ex, which))
@@ -3453,12 +3457,12 @@ def main():
     for e in expects:
         say("   " + e.line() + "   " + e.grade)
     failed = [e for e in expects if not e.ok]
-    # 🔴 THE DESIGNED REFUSAL HAS ITS OWN VERDICT, and it is the same sentence on both fabrics
-    # (judge A6). `basic_tunnel`'s skeleton cannot install its own runtime entries -- README:41-43
+    # 🔴 THE DESIGNED REFUSAL HAS ITS OWN VERDICT, and it is the same sentence on both fabrics.
+    # `basic_tunnel`'s skeleton cannot install its own runtime entries -- README:41-43
     # says so -- and the round therefore ends non-zero having met every expectation it has. On
     # the tutorials fabric the refusal lands as a harness exception and on NDTwin as a pre-flight
     # rc; BOTH set DESIGNED_REFUSAL, and this branch does not ask which fabric it was. Round 2
-    # asked, and `basic_tunnel`'s skeleton went on reading two ways (round-3 ruling 1).
+    # asked, and `basic_tunnel`'s skeleton went on reading two ways.
     designed = DESIGNED_REFUSAL["hit"]
     if designed and expects and not failed:
         verdict, exit_code = ("RED ARM (%d/%d): the skeleton does not get past the control "

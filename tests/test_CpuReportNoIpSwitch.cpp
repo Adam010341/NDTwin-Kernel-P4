@@ -1,5 +1,5 @@
 /**
- * FINDINGS #85: a SWITCH vertex carrying no management address killed the kernel.
+ * A SWITCH vertex carrying no management address killed the kernel.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -11,8 +11,7 @@
  * vector is undefined behaviour; in practice it faulted, on the status worker's thread, and an
  * unhandled SIGSEGV on any thread ends the process -- so one switch with no address took the whole
  * kernel down. gdb caught it doing exactly that (thread 4, fetchCpuReportInternal <-
- * statusUpdateWorker); the stack is in audit-raw under
- * doc/audit/2026-09-03_fix-kernel-stop-bounded/raw/logs/gdb_segfault_no_ip.log.
+ * statusUpdateWorker).
  *
  * THE REACHABILITY QUESTION, AND ITS ANSWER
  *
@@ -568,7 +567,7 @@ TEST_F(NoIpSwitchTest, MininetPowerStillReportsARealFigureForAnAddresslessSwitch
 }
 
 // ---------------------------------------------------------------------------------------------
-// FINDINGS #88: the same defect shape, at the sites the #85 gate does NOT cover.
+// The same defect shape, at the sites the gate for the cases above does NOT cover.
 //
 // [Co-developed with claude code -- Adam]
 //
@@ -583,14 +582,13 @@ TEST_F(NoIpSwitchTest, MininetPowerStillReportsARealFigureForAnAddresslessSwitch
 //   * it looks only at a *vertex*'s `vp.ip`. An edge's `srcIp`/`dstIp` are separate vectors, also
 //     default-empty, and nothing on the load path checks either (group D).
 //
-// 🔴 These tests are green on the default build even against the unfixed code, because this
-// project defines neither _GLIBCXX_ASSERTIONS nor _GLIBCXX_DEBUG and the sanitizer is opt-in
-// (-DSANITIZER=asan) -- the same fact test_SimulatedDeviceMetrics.cpp:215-243 records about
-// itself. front() on an empty vector reads off the end and usually returns a plausible number
-// rather than faulting. The undefined behaviour is REAL and is demonstrated under ASan in
-// doc/audit/2026-09-05_fix-ip-front-guards/; what these tests pin on the default build is the
-// second half of the fix, which is the half a sanitizer cannot check: that the code reports what
-// it skipped instead of silently dropping it or inventing an address for it.
+// 🔴 These tests are green on the default build even against the unfixed code, because this project
+// defines neither _GLIBCXX_ASSERTIONS nor _GLIBCXX_DEBUG and the sanitizer is opt-in
+// (-DSANITIZER=asan) -- the same fact test_SimulatedDeviceMetrics.cpp:215-243 records about itself.
+// front() on an empty vector reads off the end and usually returns a plausible number rather than
+// faulting. The undefined behaviour is REAL and shows up under ASan; what these tests pin on the
+// default build is the second half of the fix, which is the half a sanitizer cannot check: that the
+// code reports what it skipped instead of silently dropping it or inventing an address for it.
 // ---------------------------------------------------------------------------------------------
 
 TEST_F(NoIpSwitchTest, AnAddresslessSwitchDoesNotMatchEveryIpLookup)

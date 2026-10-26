@@ -41,6 +41,13 @@ back on.
 An entry that could not be parsed keeps a replay from claiming completeness even when every
 entry it *could* read succeeded. A journal holding a rule nobody can read is a fabric missing
 something nobody can name, and "complete" is the wrong word for it.
+
+**What the journal is read for instead: the loss is reported, never replayed.** Every pipeline push this proxy makes closes the pushed switch's generation
+(`RuleJournal.wiped`): the records since that switch's last `wiped` marker, written under the
+pipeline cookie the switch held before the push, are folded to the rules the push discarded
+(`discarded_rules`) and served as `ryu_rules_lost` on GET /p4/switch_state (`loss_record`). The
+kernel logs them and puts them on its graph; whoever installed them resends. Nothing is written
+back. [Co-developed with claude code -- Adam]
 """
 
 from __future__ import annotations
@@ -61,6 +68,19 @@ REPLAY_ENV_VAR = "NDTWIN_RULE_JOURNAL_REPLAY"
 #: writes when they mean off -- means off. A gate that read those as on would be worse than no
 #: gate at all.
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+#: The journal line a pipeline push leaves behind for one switch (`RuleJournal.wiped`): every
+#: record of that switch above it was on tables that no longer exist. [Co-developed with claude
+#: code -- Adam]
+WIPED_OP = "wiped"
+
+#: How many lost rules a loss record names one by one (`loss_record`). The count is always the
+#: whole number; past this many the list stops and `rules_omitted` says how many it left out,
+#: because the record is copied onto a kernel graph node once a second.
+LOST_RULES_SHOWN = 100
+
+#: The journal's verbs, as `fold_records` spells them.
+_FOLD_OP = {"install": "insert", "modify": "modify", "delete": "delete"}
 
 
 class ReplayReport:
@@ -126,6 +146,116 @@ class ReplayReport:
                 f" unreadable={self.unreadable}>")
 
 
+def _same_cookie(recorded, wiped):
+    """Whether a record's cookie names the generation a push wiped. None never matches."""
+    if recorded is None or wiped is None:
+        return False
+    try:
+        return int(recorded) == int(wiped)
+    except (TypeError, ValueError):
+        return False
+
+
+def _since_last_wipe(scanned, dpid):
+    """The records of switch `dpid` after its last `wiped` marker, and how many unreadable lines
+    came after that marker. `scanned` is `RuleJournal.scan()`'s list, None standing for a line
+    that could not be read; an unreadable line names no switch, so it is counted against every
+    switch whose last marker it follows. A torn line from before the marker is not counted
+    again: the push that wrote the marker already reported it."""
+    since, unreadable = [], 0
+    for entry in scanned:
+        if entry is None:
+            unreadable += 1
+            continue
+        if not isinstance(entry, dict) or str(entry.get("dpid")) != str(dpid):
+            continue
+        if entry.get("op") == WIPED_OP:
+            since, unreadable = [], 0
+            continue
+        since.append(entry)
+    return since, unreadable
+
+
+def _rule_identity(entry):
+    """The switch entry a journal record wrote, as the fold keys it: the `rule` the manager
+    recorded (`TopologyManager._journal_rule`), or for a record without one the (match,
+    priority) pair."""
+    rule = entry.get("rule")
+    if rule is not None:
+        return key_digest(json.dumps(rule, sort_keys=True, default=str))
+    match = entry.get("match") if isinstance(entry.get("match"), dict) else {}
+    return key_digest((json.dumps(match, sort_keys=True), entry.get("priority")))
+
+
+def discarded_rules(entries, dpid, cookie):
+    """
+    The Ryu-path rules a pipeline push of switch `dpid` discarded, from the journal's entries.
+
+    [Co-developed with claude code -- Adam]
+    The records of that switch after its last `wiped` marker whose cookie is `cookie` -- the
+    generation the switch's tables were under right before the push -- folded per switch entry
+    (`fold_records`). An entry is what the manager recorded as the write's `rule`: on ipv4_lpm
+    the destination alone (one entry per destination, whatever priority an install or a modify
+    named; a non-strict delete names none), on flow_5tuple the match and the P4 priority.
+
+    Only a net install or modify is lost. A net delete is not: on ipv4_lpm a delete hands the
+    slot back to the control-plane route (KNOWN-ISSUES A-4d) or leaves the destination empty
+    when the control plane has no route there, and a restart's route refill leaves the same
+    state; on flow_5tuple nothing recreates an entry. Returns
+    `[{"op", "match", "actions", "priority"}]` in first-written order, `op` in the journal's
+    own words.
+
+    `cookie` None (the switch said none, or could not be asked) discards nothing that can be
+    named: the tables the push replaced were not this journal's. Entries that are None
+    (unreadable lines) are skipped. Pure: no I/O.
+    """
+    since, _unreadable = _since_last_wipe(entries, dpid)
+    records = []
+    for entry in since:
+        if entry.get("op") not in _FOLD_OP or not _same_cookie(entry.get("cookie"), cookie):
+            continue
+        match = entry.get("match") if isinstance(entry.get("match"), dict) else {}
+        records.append({"key": _rule_identity(entry), "op": _FOLD_OP[entry["op"]],
+                        "spec": {"match": match, "actions": entry.get("actions"),
+                                 "priority": entry.get("priority")}})
+    lost = []
+    for item in fold_records(records):
+        if item["op"] == "delete":
+            continue
+        spec = item["spec"]
+        lost.append({"op": "install" if item["op"] == "insert" else item["op"],
+                     "match": spec.get("match"), "actions": spec.get("actions"),
+                     "priority": spec.get("priority")})
+    return lost
+
+
+def loss_record(lost, unreadable, cause, record_id, at=None, count_known=True,
+                unknown_reason=None, write_failures=0):
+    """
+    What `GET /p4/switch_state` says about one push's Ryu-path loss (`ryu_rules_lost`).
+
+    [Co-developed with claude code -- Adam]
+    `count` is every rule `lost` holds, or null when the proxy cannot know (`count_known`
+    False: the push raised, or the switch did not say which generation it held) -- then
+    `count_unknown` says why and `rules` lists what the journal holds as candidates. `rules`
+    names the first LOST_RULES_SHOWN and `rules_omitted` the rest. `journal_unreadable` (lines
+    after this switch's last mark that could not be read) and `journal_write_failures` (writes
+    the switch took that the journal could not record) mean the count may be short.
+    `replayed` is always false: nothing put these back, and whoever installed them has to
+    resend them. `id` changes with every push, so a reader acts once per record.
+    """
+    return {"id": record_id,
+            "cause": cause,
+            "at": time.time() if at is None else at,
+            "count": len(lost) if count_known else None,
+            "count_unknown": None if count_known else unknown_reason,
+            "rules": list(lost[:LOST_RULES_SHOWN]),
+            "rules_omitted": max(0, len(lost) - LOST_RULES_SHOWN),
+            "journal_unreadable": unreadable,
+            "journal_write_failures": write_failures,
+            "replayed": False}
+
+
 class RuleJournal:
     """
     Append-only JSONL of accepted rule writes.
@@ -148,13 +278,20 @@ class RuleJournal:
 
     # --- writing ------------------------------------------------------------------
 
-    def record(self, op, dpid, match, actions, priority=None):
+    def record(self, op, dpid, match, actions, priority=None, cookie=None, rule=None):
         """
         Append one accepted write. Returns True if it reached the file.
 
         Never raises: a journal that cannot be written must not take down the rule install it
         is describing. It returns False instead, and the caller decides how loud to be -- the
         alternative is a proxy that refuses to route because a disk is full.
+
+        `cookie` is the pipeline cookie of the client the write went through: the fabric
+        generation the switch's tables were under when it took the rule. `discarded_rules`
+        counts a record as lost by a push only when its cookie is the one the push wiped, so
+        a record without one (None, or written before this field existed) is never reported.
+        `rule` names the switch entry the write touched (`TopologyManager._journal_rule`), which
+        is what the loss fold keys on. [Co-developed with claude code -- Adam]
         """
         entry = {
             "t": time.time(),
@@ -163,6 +300,8 @@ class RuleJournal:
             "match": match,
             "actions": actions,
             "priority": priority,
+            "cookie": cookie,
+            "rule": rule,
         }
         line = json.dumps(entry, separators=(",", ":"), sort_keys=True) + "\n"
         try:
@@ -180,6 +319,80 @@ class RuleJournal:
             return True
         except OSError:
             return False
+
+    def _append_marker_locked(self, marker_line):
+        """`wiped`'s marker, appended and fsynced like `record`'s lines. The caller holds the
+        lock. Its own body rather than a share of `record`'s, whose lines are a mutation gate's
+        anchors (tests/shell/mutate_rule_journal_is_wired.sh)."""
+        directory = os.path.dirname(self.path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        with open(self.path, "a", encoding="utf-8") as fh:
+            fh.write(marker_line)
+            fh.flush()
+            os.fsync(fh.fileno())
+
+    def wiped(self, dpid, cookie, cause, mark=True):
+        """
+        A pipeline push has just emptied switch `dpid`: what it discarded, and a mark after it.
+
+        [Co-developed with claude code -- Adam]
+        KNOWN-ISSUES A-4c: nothing is replayed (a journal holds requests, not the reasons
+        behind them), the loss is reported instead. Returns `(lost, unreadable)`:
+        `discarded_rules` for the switch and the cookie its tables were under before the push,
+        and how many unreadable lines follow the switch's last mark (one of them may be a lost
+        rule). Then, with `mark`, appends a `wiped` marker for the switch, so the next push of
+        it counts only what was written after this one. Read and mark under one lock hold, so a
+        write recorded meanwhile lands either before the mark (and is counted now) or after it
+        (and is counted next time), never neither. `mark=False` is for a push that raised:
+        whether it emptied the tables is unknown, so the next push counts these again.
+
+        Never raises, like `record`: a journal that cannot be read must not fail the push it
+        describes. An unreadable file comes back as `([], 1)`.
+        """
+        marker = {"t": time.time(), "op": WIPED_OP, "dpid": dpid, "cookie": cookie,
+                  "cause": cause}
+        marker_line = json.dumps(marker, separators=(",", ":"), sort_keys=True) + "\n"
+        try:
+            with self._lock:
+                scanned = self.scan()
+                lost = discarded_rules(scanned, dpid, cookie)
+                _since, unreadable = _since_last_wipe(scanned, dpid)
+                if mark:
+                    try:
+                        self._append_marker_locked(marker_line)
+                    except OSError:
+                        # The count is still right; the next push of this switch may count
+                        # these rules a second time, which errs loud.
+                        pass
+            return lost, unreadable
+        except Exception:  # noqa: BLE001 -- see the docstring
+            return [], 1
+
+    def scan(self):
+        """
+        Every line in order: the parsed entry, or None for a line that could not be read (an
+        unreadable file is one None). What `wiped` needs and `entries` does not keep: where in
+        the file each unreadable line sits. [Co-developed with claude code -- Adam]
+        """
+        out = []
+        try:
+            with open(self.path, "r", encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        parsed = json.loads(line)
+                    except ValueError:
+                        out.append(None)
+                        continue
+                    out.append(parsed if isinstance(parsed, dict) else None)
+        except FileNotFoundError:
+            pass
+        except (OSError, UnicodeDecodeError):
+            out.append(None)
+        return out
 
     # --- reading ------------------------------------------------------------------
 
@@ -263,6 +476,8 @@ class RuleJournal:
         unreadable = self._unreadable
         succeeded = 0
         failed = []
+        # A `wiped` marker is not a rule. [Co-developed with claude code -- Adam]
+        entries = [e for e in entries if e.get("op") != WIPED_OP]
         for entry in entries:
             try:
                 ok = bool(apply_entry(entry))
@@ -846,6 +1061,27 @@ def cookie_verdict(header, seen):
     else:
         return {"confirmed": True, "cookie": switch, "reason": "confirmed"}
     return {"confirmed": False, "cookie": switch, "reason": reason}
+
+
+def cookie_before_push(seen):
+    """
+    What one switch's COOKIE_ONLY answer says about the tables a push is about to empty, for the
+    Ryu-path loss record. [Co-developed with claude code -- Adam]
+
+    `seen` is `main._cookie_seen`'s answer. Returns `{"cookie", "unknown"}`:
+      * a cookie: the generation the tables are under; the journal's records under it are lost;
+      * no cookie, or FAILED_PRECONDITION (a bmv2 that has been pushed no pipeline): the tables
+        hold nothing this journal wrote, so a known zero;
+      * any other error (UNAVAILABLE, a deadline, ...): the switch did not say, and `unknown`
+        is why -- the push may still succeed and empty tables nobody can describe.
+    """
+    kind, value = seen
+    if kind == "cookie":
+        return {"cookie": None if value is None else int(value), "unknown": None}
+    text = str(value)
+    if "FAILED_PRECONDITION" in text:
+        return {"cookie": None, "unknown": None}
+    return {"cookie": None, "unknown": text}
 
 
 def fabric_generation(verdicts, mint):

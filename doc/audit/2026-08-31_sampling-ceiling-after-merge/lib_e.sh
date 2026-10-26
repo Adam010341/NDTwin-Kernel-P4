@@ -8,10 +8,10 @@
 # functions below, for three reasons that the round's own registration names:
 #
 #   1. PREREG §4 requires the identity of BOTH binaries per cell -- sha256, ldd, readelf -d
-#      RUNPATH, identifying strings.  memory/benchmark-must-name-the-binary-it-measured says
-#      naming a commit is not enough: which .so actually loads is decided by RUNPATH, not by the
-#      environment.  So identity is captured by one function, called at one place, and it records
-#      the RUNNING process's /proc/<pid>/exe as well as the file on disk.
+#      RUNPATH, identifying strings.  Naming a commit is not enough: which .so actually loads is
+#      decided by RUNPATH, not by the environment.  So identity is captured by one function, called
+#      at one place, and it records the RUNNING process's /proc/<pid>/exe as well as the file on
+#      disk.
 #
 #   2. PREREG §2 lists gates, and the D round's lesson (§2.3) is that a gate written in a
 #      registration and not called in the script is not a gate.  Every gate here is a function,
@@ -25,9 +25,9 @@
 #   DRY_RUN=1 makes every side-effecting command print instead of running, and makes every probe
 #   return a synthetic HEALTHY reading, so the whole control flow -- ladder, arm switching, cell
 #   archiving, restore -- executes to completion and leaves a transcript.  This is deliberate and
-#   it is the harder direction to test: memory/smoke-the-accept-path-not-just-refusals records
-#   that a guard's refusal branch can always be exercised live while the branch it protects
-#   cannot, so the protected action is what needs the dry run.
+#   it is the harder direction to test: a guard's refusal branch can always be
+#   exercised live while the branch it protects cannot, so the protected action is what needs
+#   the dry run.
 #   DRY_FAIL=<tag> forces exactly one probe unhealthy, so the refusal branch is observable too.
 #   A harness whose gate can only ever go one colour is the 08-30 mirrored defect; this one is
 #   forced in both directions before it is trusted.
@@ -45,13 +45,13 @@ PREREG_FILE="${PREREG_FILE:-$ROUND/PREREG.md}"
 # ratio_gate (--make-forcered WRITES there), plot_ladder_rates and wall_f.sh's cpu_stats would all
 # read another directory while measure.sh keeps writing PRIOR_RAW -- the round judging cells it did
 # not measure, silently. round.env unsets it, but gates_e.sh, run_e.sh and build_1khz_binary.sh
-# skip round.env when ROUND is already set, and each of them sources THIS file unconditionally (the
-# opus judge's NOTE C on 1d5180ce, 09-27). The test seam sets it AFTER sourcing this file.
+# skip round.env when ROUND is already set, and each of them sources THIS file unconditionally.
+# The test seam sets it AFTER sourcing this file.
 unset NDT_SAMPLING_RAW_DIR
 
-# 🔴 A dry run and a real run must never share a transcript.  CLAUDE.md: "跑過" and
-# "讀過未執行" are never tabled together -- and a log file that contains both is exactly that,
-# with the added hazard that the dry lines are the ones that look tidiest.
+# 🔴 A dry run and a real run must never share a transcript.  Results that were run and
+# results that were only read are never tabled together -- and a log file that contains both is
+# exactly that, with the added hazard that the dry lines are the ones that look tidiest.
 #
 # 🔴 But this used to read `LOG="${LOG%.log}.dryrun.log"`, appending to whatever LOG it was handed.
 # round.env does `export LOG=`, so a child process inherits the PARENT'S ALREADY-SUFFIXED value and
@@ -114,8 +114,8 @@ say() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; }
 # restore_production -> teardown -> the session was gone.  BOTH ACTIONS WERE CORRECT; the ORDER
 # was wrong, and the reason that cell failed is now permanently unrecoverable.
 #
-# 🔴 The obvious fix does not work.  `sudo tmux -L ndtwinlab capture-pane` needs a PASSWORD on this
-# machine -- tmux is not in the NOPASSWD list (checked 2026-09-01) -- so it would fail silently in
+# 🔴 The obvious fix does not work.  `sudo tmux -L ndtwinlab capture-pane` needs a sudoers rule for
+# tmux that neither the install manual nor this harness sets up -- so it would fail silently in
 # exactly the situation it exists for, which is this project's most-repeated defect shape.
 # `ndtwin-lab topo-out` reaches the same pane and IS NOPASSWD, so that is what this uses.
 #
@@ -214,7 +214,7 @@ abort() {
 }
 
 # Every command that changes the machine goes through RUN.  In a dry run it is printed with a
-# DRYRUN-EXEC prefix, which is the observable output the ticket asks for: a guarded action that
+# DRYRUN-EXEC prefix, which is the observable output wanted here: a guarded action that
 # leaves no trace when skipped is a guard nobody can verify.
 RUN() {
     if [[ "$DRY_RUN" == 1 ]]; then
@@ -273,7 +273,7 @@ preflight() {
         printf 'REFUSE: NDT_OWNER is unset.  Source round.env first.\n' >&2; return 1
     fi
 
-    # -- 2. the claim.  🔴 memory/lab-claim-handoff-protocol: a claim reading is a point sample,
+    # -- 2. the claim.  🔴 A claim reading is a point sample,
     #       not a lease, so it is re-read HERE, at the moment of acting, not trusted from earlier.
     #       PREREG §4 additionally requires exclusive_cpu=yes -- this round's discriminator is a
     #       CPU plateau, so a concurrent load is not noise, it is a treatment.
@@ -357,7 +357,7 @@ preflight() {
     # because an unread file looks like added protection.
     #
     # 🔑 The check belongs HERE, on the victim, not on the polluter, for two reasons:
-    #   * it needs no change to /usr/local/sbin/ndtwin-lab, which is machine-wide and Adam's call;
+    #   * it needs no change to /usr/local/sbin/ndtwin-lab, which is machine-wide;
     #   * the polluter is BY DEFINITION the party that already went wrong, so putting the duty on
     #     it builds the protection on the failure point.  The round about to be contaminated is
     #     the one with both the motive and the working state to check.
@@ -373,7 +373,7 @@ preflight() {
         return 1
     fi
 
-    # -- 4. the fabric.  This is the check the ticket cares about: without it the script would
+    # -- 4. the fabric.  This is the check that matters most: without it the script would
     #       happily write a full ladder of NO-DATA cells and they would look like a result.
     #
     # 🔴 stage "cell" SKIPS IT, and the reason is structural rather than a convenience.  The
@@ -424,8 +424,8 @@ fabric_is_up() {
 # 🔴 measure.sh -- which this round reuses UNCHANGED so that its cells stay comparable with the
 # D round's -- clears stale servers with `pkill -f iperf3`, and its own comment records that
 # mininet hosts share the root PID namespace, "which is why a plain pkill reaches them at all".
-# That is a project-wide prohibited verb (CLAUDE.md; memory/destructive-shell-traps, seven
-# self-kills to date) and it would reach a sibling session's iperf3.
+# That is a project-wide prohibited verb (it has self-killed seven
+# times to date) and it would reach a sibling session's iperf3.
 #
 # This round does not edit measure.sh -- editing it would fork the instrument the §6 comparison
 # depends on -- so instead it refuses to hand control to measure.sh while any iperf3 exists that
@@ -583,7 +583,7 @@ running_kernel_sha() {
         # one level up.
         # 🔴 Once the arms are actually STAGED, the synthetic value must be the staged arm's REAL
         # sha256 -- otherwise the dry accept path fails against a correctly-built binary, which is
-        # what happened the moment mainDev's binaries landed.  A fixture that only works while the
+        # what happened the moment the real binaries landed.  A fixture that only works while the
         # real artefact is missing is a fixture with an expiry date.
         local _p
         _p="$( [[ "${_DRY_LIVE_ARM:-1hz}" == 1khz ]] && echo "$KBIN_1KHZ" || echo "$KBIN_1HZ" ).provenance"
@@ -699,10 +699,11 @@ record_bmv2_identity() {
         # observed instead of everywhere the pattern occurred.  The other two exact-comm matches
         # in this file (iperf3 at :287, ndtwin_kernel at :417) are 6 and 13 characters and are
         # safe -- checked, not assumed.  [Co-developed with claude code -- Adam]
-        # 🔴 `sudo -n readlink` and `sudo -n sha256sum` are NOT in this machine's NOPASSWD list, so
-        # both returned empty and every sha256 field was blank -- while the pid list looked right.
-        # mnexec IS passwordless (it is how this round already reaches host namespaces), so it is
-        # used as the privileged reader.  The switches run as root; an unprivileged readlink on
+        # 🔴 `sudo -n readlink` and `sudo -n sha256sum` would need NOPASSWD sudoers rules that the
+        # User Manual does not set up; without them both return empty and every sha256 field is
+        # blank -- while the pid list looks right. This round already needs a NOPASSWD rule for
+        # mnexec (to reach host namespaces; the User Manual does not set that one up either), so
+        # mnexec is used as the privileged reader.  The switches run as root; an unprivileged readlink on
         # their /proc/<pid>/exe gets EACCES, which `2>/dev/null` turned into "".
         # 🔑 This was HIDDEN BEHIND the comm bug above: with the match broken the loop body never
         # ran, so a second defect sat inside a block that never executed.  Fixing one revealed the
@@ -1117,7 +1118,7 @@ assert_same_boot() {   # $1 = cell label
 # -------------------------------------------------------------------------------------------------
 # PER-CELL CPU: a fabric-free baseline in the teardown gap, and a gate reading during the cell.
 #
-# Adam ruled 2026-08-31 that the desktop STAYS UP during the window.  That is a working point, not
+# The desktop STAYS UP during the window (decided 2026-08-31).  That is a working point, not
 # a defect -- but it means the gate's floor is ~0.5 cores of EXCESS over a ~0.84-core baseline, and
 # the baseline itself swings ~0.19 cores over seconds.  Two things claw some discrimination back
 # at no cost, and both are RECORDED rather than gated:
@@ -1310,8 +1311,8 @@ compare_recompute_arms() {   # $1 = 1khz jsonl, $2 = 1hz jsonl
 # that same directory through `from plot_figures import RAW`.  Neither is edited -- see round.env.
 # So a cell is measured there and COPIED here, with a sha256 on both sides, because a copy whose
 # fidelity is not checked is a second artefact that merely resembles the first.
-# 🔴 raw/ is git-ignored on working branches and belongs on the audit-raw orphan branch; the
-# pre-commit hook enforces it, and an uninstalled hook enforces nothing.
+# 🔴 raw/ is git-ignored on working branches and is not committed with the code or kept in
+# the working tree; the pre-commit hook enforces it, and an uninstalled hook enforces nothing.
 # -------------------------------------------------------------------------------------------------
 archive_cell() {   # $1 = cell label
     local cell="$1" s suffix

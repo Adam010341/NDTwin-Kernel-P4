@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run the P4 health check detached from the terminal, at low priority, logging to its run dir.
 # [Co-developed with claude code -- Adam]
-#   tools/p4_health/run.sh s0 [extra probe.py args]      -> .test_run/p4_health/<UTC>_p4_health/probe.log (ignored; copy to audit-raw)
+#   tools/p4_health/run.sh s0 [extra probe.py args]      -> .test_run/p4_health/<UTC>_p4_health/probe.log (ignored; copy it if you want to keep it)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"

@@ -35,7 +35,7 @@ namespace sflow
 #define FLOW_IDLE_TIMEOUT 15000 // milliseconds
 
 // [Co-developed with claude code -- Adam]
-// Ticket M. How often calFlowPathByQueried re-derives every tracked flow's path, and therefore
+// How often calFlowPathByQueried re-derives every tracked flow's path, and therefore
 // the freshness bound on the API's `path` field. It was 1 ms, which cost 46.31% of the kernel's
 // CPU on one thread and was paid in full at the lowest sampling rate -- a fixed cost, not a
 // per-sample one.
@@ -44,10 +44,10 @@ namespace sflow
 // that starts and ends inside one interval never gets a path at all. At 1 ms that was
 // impossible; at 1 s it needs a flow shorter than a second, which is ordinary. The ratio here
 // is 1:15 against the idle timeout, so a flow that survives to be timed out has had at least a
-// dozen chances -- but a short flow has not, and that is what ticket M's churn arm measures.
+// dozen chances -- but a short flow has not, and that is what a churn test has to measure.
 //
 // Named rather than a literal so an arm can report which value it measured instead of citing a
-// line number that moves. This file's own line numbers moved during ticket Q.
+// line number that moves.
 constexpr auto kFlowPathRecomputeInterval = std::chrono::seconds(1);
 
 // [Co-developed with claude code -- Adam]
@@ -81,8 +81,7 @@ constexpr auto kFlowPathRecomputeInterval = std::chrono::seconds(1);
 // polls, while `?liveness=all` was still 30/30 there and did not start missing until ~5 pps.
 // Holding the bandwidth at 1 Mbit/s and shrinking the frame 1400 B -> 100 B (14x the packets)
 // moved visibility on the 2 s edge count from 0.70 to 1.00, which is what rules out quoting any
-// of this in Mbit/s. Raw:
-// doc/audit/2026-09-03_night-rounds/round4-traffic-measurement/{06_lead4_rate_sweep,07b_sweepB_analysis}.log
+// of this in Mbit/s.
 // Nothing here changes because of it: widening the window trades this miss for the idle-tail
 // population B-x just removed. The number is recorded so a caller can size its polling against it,
 // and the API document publishes the whole table (doc/2026-01-02_ndt_api.md section 4).
@@ -128,7 +127,7 @@ class FlowLinkUsageCollector
      * @brief Creates, binds and returns the sFlow receive socket. The only place this happens.
      *
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #47. Public and port-parameterised so a test can exercise the real thing: this
+     * Public and port-parameterised so a test can exercise the real thing: this
      * function -- not a copy of it -- is what must produce a descriptor no child can inherit, and
      * what must produce an honest message when the port is taken. Called by openReceiveSocket()
      * with SFLOW_PORT; a test calls it with 0, which binds an ephemeral port and therefore cannot
@@ -345,8 +344,7 @@ class FlowLinkUsageCollector
      * @brief What the sFlow ingest did during the most recently *closed* rate window.
      *
      * @details
-     * [Co-developed with claude code -- Adam] doc/audit/2026-09-03_night-rounds/
-     * round4-traffic-measurement/SUMMARY.md, lead 5(b) and section 1.
+     * [Co-developed with claude code -- Adam] Measured 2026-09-03 under a socket-drop flood.
      *
      * The four drop counters existed and were correct; they were reachable from none of the 105
      * JSON keys the kernel serves, so under a 72.5% socket-drop flood the twin reported a
@@ -411,7 +409,7 @@ class FlowLinkUsageCollector
                                              double windowSeconds);
 
     /// Loss above this fraction of the offered samples means the numbers in the same response are
-    /// materially understated: round 4 measured a 2.76x under-report at 0.725. 0.01 is one lost
+    /// materially understated: 2026-09-03 measured a 2.76x under-report at 0.725. 0.01 is one lost
     /// sample in a hundred, which at 18.5 samples/s is already visible in a per-second rate.
     static constexpr double kIngestLossyFraction = 0.01;
     /// Above this, do not treat the response's rates as a measurement at all.
@@ -425,22 +423,20 @@ class FlowLinkUsageCollector
     nlohmann::json ingestHealthJson() const;
 
     // =============================================================================================
-    // Frame families -- TICKET-P3 §2.3
+    // Frame families
     // [Co-developed with claude code -- Adam]
     //
     // 🔴 WHY THESE LIVE BESIDE THE FLOW TABLE RATHER THAN IN IT.
     // m_flowInfoTable is IPv4-only and stays that way: two frozen contract tests assert exactly
     // that -- test_GoldenFixture.cpp's IgnoresNonIpv4Frames ("protocol N suggests a non-IPv4 frame
     // was parsed as a flow") and test_SFlowEmitterRoundtrip.cpp's
-    // IgnoresEmittedArpWithoutInventingAFlow (ARP must leave the table empty) -- and TICKET-P3 §2.3
-    // forbids editing either file while requiring both to stay green. Non-IPv4 traffic is therefore
+    // IgnoresEmittedArpWithoutInventingAFlow (ARP must leave the table empty) -- and both must stay
+    // green without being edited. Non-IPv4 traffic is therefore
     // *observed* here, in its own bounded table, instead of being routed into a structure whose
     // consumers (rate passes, the classifier's five-tuple lookup, the path walk, the historical
-    // serialiser) all assume an IPv4 five-tuple. The side table rather than one merged table is
-    // the orchestrator's decision, not this worker's, because merging them means editing files
-    // this ticket assigns to nobody: see
-    // doc/audit/2026-09-04_p4-tutorial-exercise-prep/TICKET-P3-observation.md
-    // section 9, ruling 8 item 1.
+    // serialiser) all assume an IPv4 five-tuple. The side table rather than one merged table was
+    // chosen deliberately, because merging them means editing files outside the scope of the
+    // change that added it.
     // =============================================================================================
 
     /// One non-IPv4 identity and what has been seen of it. Sample counts, not rates: a rate here
@@ -451,7 +447,7 @@ class FlowLinkUsageCollector
         /// frame_length * sampling_rate, i.e. the same estimator the link counters use.
         uint64_t estimatedBytes = 0;
         /// 🔴 THE ORDERING CLOCK, AND THE ONLY ONE EVICTION MAY READ.
-        /// [Co-developed with claude code -- Adam] Round 3, ruling 11c. Monotonic milliseconds
+        /// [Co-developed with claude code -- Adam] Monotonic milliseconds
         /// (utils::getCurrentTimeMillisSteadyClock), the same clock the per-port liveness
         /// timestamps already use. "Least recently seen" is a question about the order two
         /// observations happened in, and a wall clock does not answer that one: NTP or a manual
@@ -616,7 +612,7 @@ class FlowLinkUsageCollector
      * edge is owned by the downstream switch's samples. The final hop of a path has no
      * downstream sampler -- hosts do not run agents -- so under that rule alone the
      * switch-to-host edge of every flow reads 0 forever while the bytes demonstrably move
-     * (doc/audit/2026-08-15_fresh-acceptance-report.md §3c).
+     * (observed 2026-08-15 in a fresh acceptance run).
      *
      * This drain closes exactly that gap and nothing else: entries whose far end is another
      * switch are skipped, because the downstream sampler already owns them and a second
@@ -672,9 +668,9 @@ class FlowLinkUsageCollector
      * @brief The same quantity from the *egress* bank: bytes banked for one (agent IP, output
      *        port), which creditHostBoundEgressEdges pays out to switch-to-host edges only.
      *
-     * [Co-developed with claude code -- Adam] TICKET-P3 §2.2.
+     * [Co-developed with claude code -- Adam]
      * The counterpart of sampledByteCreditFor, and the seam the direction split needs. Which of
-     * the two banks a sample lands in is the whole of §2.2's second rule, and the two are not
+     * the two banks a sample lands in is the whole of the direction split's second rule, and the two are not
      * distinguishable from outside: an egress-only sample banked in m_counterReports credits the
      * edge pointing the *other way*, which is a wrong number, not a missing one -- and a wrong
      * number on an edge that has traffic looks exactly like a right one.
@@ -712,7 +708,7 @@ class FlowLinkUsageCollector
 
     std::atomic<uint64_t> m_malformedDatagrams{0};
 
-    // [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+    // [Co-developed with claude code -- Adam]
     /// Counts one sampled frame against its family and records a non-IPv4 identity.
     void noteFrameIdentity(const FrameIdentity& identity,
                            uint32_t frameLength,
@@ -727,7 +723,7 @@ class FlowLinkUsageCollector
     std::atomic<uint64_t> m_samplesUndecodable{0};
     std::atomic<uint64_t> m_malformedIpv4Ihl{0};
     // 🔴 There is no "dropped over capacity" counter here, and there must not be one.
-    // [Co-developed with claude code -- Adam] Round 3, ruling 11b. Round 2 kept the member and
+    // [Co-developed with claude code -- Adam] An earlier version kept the member and
     // the `dropped_over_capacity` key after the table was changed from refusing to evicting, on
     // the theory that a reader should be able to tell the two regimes apart. Nothing wrote it
     // any more, so the key could only ever read 0 -- an API key whose value is a constant is not
@@ -736,7 +732,7 @@ class FlowLinkUsageCollector
     // published by evicted_least_recently_seen below, which is written.
     /// Identities evicted to make room for a newer one. A non-zero value means the table is
     /// showing a window, not a history -- which is exactly what a silently capped table would
-    /// hide. [Co-developed with claude code -- Adam] Round 2, fable-judge F5.
+    /// hide. [Co-developed with claude code -- Adam]
     std::atomic<uint64_t> m_nonIpv4ObservationsEvicted{0};
 
     /// Bounded on purpose: the keys come off an unauthenticated UDP port, and one crafted frame

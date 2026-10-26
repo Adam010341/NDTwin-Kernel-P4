@@ -49,7 +49,7 @@ check "case 1  one suffix" "/tmp/round/run_f5.dryrun.log" "$(derive_log "$B" dry
 check "case 2  suffixes compose in order" "/tmp/round/run_f5.dryrun.selftest.log" \
       "$(derive_log "$B" dryrun selftest)"
 
-# 🔑 The reported filename, reproduced both ways. This is the whole ticket.
+# 🔑 The reported filename, reproduced both ways. This is the whole defect.
 parent=$(derive_log "$B" dryrun selftest)          # parent: dry + selftest
 child_new=$(derive_log "$B" dryrun)                # child re-derives from the base
 child_old="${parent%.log}.dryrun.log"              # child appends to the inherited name
@@ -73,16 +73,16 @@ check "case 6  lib_e.sh and run_f5.sh carry the same derive_log" identical \
 # documentation and reported 2. A guard that cannot tell "the defect is present" from "the defect
 # is explained" would go red on every file that documents its own history -- and would go green if
 # someone re-introduced the append inside a heredoc. Code lines only.
-# 🔴 B12 (2026-09-11). This used to be
+# 🔴 2026-09-11. This used to be
 #
 #     grep -c 'LOG="\${LOG%\.log}'
 #
-# over FOUR hard-coded paths. hunt-0911/F-B0-B12-REPORT.md §3.1 rows (6)b and (6)c put the same
-# append through that pipeline spelled `${LOG%%.log}` (bash's other strip operator, same result
-# here) and `${LOG%".log"}` (the suffix quoted, which bash allows) and got 0 out of both. What
-# was guarded was one string; what has to be guarded is "this line builds the new log name out of
-# the inherited LOG". Two more spellings do the same damage and were never in the report:
-# `LOG="$LOG.dryrun.log"` appends with no strip at all, and `LOG=${LOG%.log}.x` drops the quotes.
+# over FOUR hard-coded paths. Putting the same append through that pipeline spelled `${LOG%%.log}`
+# (bash's other strip operator, same result here) and `${LOG%".log"}` (the suffix quoted, which bash
+# allows) got 0 out of both. What was guarded was one string; what has to be guarded is "this line
+# builds the new log name out of the inherited LOG". Two more spellings do the same damage and were
+# never covered: `LOG="$LOG.dryrun.log"` appends with no strip at all, and `LOG=${LOG%.log}.x` drops
+# the quotes.
 #
 # The rule, in two alternatives:
 #   ${LOG%...} / ${LOG#...}   the extension stripped off the INHERITED name -- any number of
@@ -172,14 +172,13 @@ shell_scripts() {
 mapfile -t SCRIPTS < <(shell_scripts)
 check "case 7m  the scan found the shell scripts" yes \
       "$( (( ${#SCRIPTS[@]} >= 150 )) && echo yes || echo "no (${#SCRIPTS[@]} found)" )"
-# 🔴 Seven, not four. Widening the surface found THREE MORE COPIES of the round scripts --
-# doc/audit/2026-09-02_fix-design-campaign/findings/IPERF3-CONFLICT.patches/committed/{lib_e,
-# run_e,gates_e}.sh -- which the four-name list never read. Case 6 above exists because "the two
-# rounds carry separate copies of derive_log and copies drift"; there were five copies, and two
-# of them were outside every check in this file. The assertion is a FLOOR and the count is
-# printed, so a new copy appearing is visible rather than silently unscanned.
+# 🔴 Seven, not four. Widening the surface found THREE MORE COPIES of lib_e.sh, run_e.sh and
+# gates_e.sh (in a patch directory since removed), which the four-name list never read. Case 6 above
+# exists because "the two rounds carry separate copies of derive_log and copies drift"; there were
+# five copies, and two of them were outside every check in this file. The assertion is a FLOOR and
+# the count is printed, so a new copy appearing is visible rather than silently unscanned.
 found_copies="$(printf '%s\n' "${SCRIPTS[@]}" | grep -cE '/(lib_e|run_e|gates_e|run_f5)\.sh$')"
-check "case 7n  the four the ticket named are in it (of $found_copies copies found)" yes \
+check "case 7n  the four round scripts are in it (of $found_copies copies found)" yes \
       "$( (( found_copies >= 4 )) && echo yes || echo "no ($found_copies)" )"
 check "case 7  no script appends a suffix to the inherited LOG" 0 \
       "$(count_appends "${SCRIPTS[@]}")"

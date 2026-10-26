@@ -1,7 +1,7 @@
 // [Co-developed with claude code -- Adam]
 //
 // The gate for the sFlow ingest health signal.
-// doc/audit/2026-09-03_night-rounds/round4-traffic-measurement/SUMMARY.md, lead 5(b), R4.
+// Calibrated against traffic-measurement runs of 2026-09-03.
 //
 // 🔴 What these tests are FOR: a health field that is always present and always says "ok" is
 // worse than no field, because it converts an unknown into a false reassurance. So every case
@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-// [Co-developed with claude code -- Adam] auditor 2026-09-03: the class lives in `namespace
+// [Co-developed with claude code -- Adam] The class lives in `namespace
 // sflow` (FlowLinkUsageCollector.hpp:30). Every sibling that compiles qualifies it the same way
 // -- e.g. test_SFlowParsing.cpp:140. Unqualified, the whole file fails to name the type.
 using Collector = sflow::FlowLinkUsageCollector;
@@ -73,7 +73,7 @@ TEST(TelemetryHealth, TheDenominatorIsSamplesPlusBothKindsOfDrop)
     EXPECT_EQ(h.status, "severe_loss");
 }
 
-// Application-level loss alone must move the verdict. Round 4 never observed app_drop_total
+// Application-level loss alone must move the verdict. No run ever observed app_drop_total
 // leaving 0, so this arm has no live evidence behind it -- which is exactly why it is pinned
 // here: an unexercised path is where a wrong constant survives.
 TEST(TelemetryHealth, AppDropsAloneMoveTheVerdict)
@@ -84,7 +84,7 @@ TEST(TelemetryHealth, AppDropsAloneMoveTheVerdict)
     EXPECT_EQ(h.offeredInWindow, 1000u);
 }
 
-// Round 4's 150 000 datagrams/s cell: 0.34% lost. Small, and still an under-report -- so it is
+// The 150 000 datagrams/s cell: 0.34% lost. Small, and still an under-report -- so it is
 // reported as loss, not rounded into "ok".
 TEST(TelemetryHealth, SmallLossIsReportedAsLossNotOk)
 {
@@ -103,7 +103,7 @@ TEST(TelemetryHealth, OneLostSampleIsEnoughToLeaveOk)
     EXPECT_GT(h.lossFraction, 0.0);
 }
 
-// Round 4 section 1, the cell that under-reported a 20 Mbit/s flow as 7.14 Mbit/s: 6 548 000
+// The cell that under-reported a 20 Mbit/s flow as 7.14 Mbit/s: 6 548 000
 // datagrams offered, 4 745 333 lost. Every endpoint answered 200 "success" and every flow read
 // "active". This is the reading that must not be able to look healthy.
 TEST(TelemetryHealth, TheMeasuredSevereLossCellReadsSevere)

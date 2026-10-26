@@ -362,8 +362,9 @@ class NotificationIsNotAGateTest(unittest.TestCase):
     help either.
 
     `requests.post` had no `timeout=`, so it blocks until the peer replies or the socket errors. A
-    refused connection returns at once, which is the common case and why this went unnoticed; a
-    wedged kernel still listening on :8000 is documented in HANDOFF 1j as having bitten three times.
+    refused connection returns at once, which is the common case and why this went unnoticed. (A
+    different problem on the same port: by 2026-07-31 a leftover kernel still holding :8000 had
+    caused trouble three times.)
     Everything the handler did *below* that call inherited the hang: on_link_delete's edge removal and
     reinstall scheduling, and on_link_add's reinstall scheduling. That is the pre-2c81b26 behaviour
     returning silently, with the greenlet parked.

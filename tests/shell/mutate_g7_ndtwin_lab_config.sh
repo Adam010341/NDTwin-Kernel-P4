@@ -202,7 +202,7 @@ write_case no-removal-instructions "  and says how to remove the file" <<'PAIR'
     printf '   running on built-in defaults.\n' >&2
 PAIR
 
-# --- heartbeat (Adam, 2026-09-25, ruling (b)): stop/status run on a refused config, start does not
+# --- heartbeat (2026-09-25): stop/status run on a refused config, start does not
 # [Co-developed with claude code -- Adam]
 CASES+=(heartbeat-gate-lets-start-run)
 write_case heartbeat-gate-lets-start-run "heartbeat start does NOT" <<'PAIR'

@@ -3,15 +3,15 @@
 
 [Co-developed with claude code -- Adam]
 
-    ndt serve --owner adam                     # through the ndt verb (same tree's ndt)
-    python3 tools/ndt_serve/serve.py --owner adam [--port 8765] [--ndt ~/.local/bin/ndt]
+    ndt serve --owner <name>                   # through the ndt verb (same tree's ndt)
+    python3 tools/ndt_serve/serve.py --owner <name> [--port 8765] [--ndt ~/.local/bin/ndt]
 
-It listens on 127.0.0.1 only, for one user, with no login (Adam's ruling, 09-24). The API is
-under /api/v1/. The page (the GUI cut, Adam's Q2 ruling 09-27; rebuilt on React in v2) is four
+It listens on 127.0.0.1 only, for one user, with no login. The API is
+under /api/v1/. The page (rebuilt on React in v2) is four
 fixed files -- /, /app.js, /app.css and /manual.html from static/ -- read once at start, served
 with no token and running nothing; every other path is 404.
 
-The design red lines (TICKET section 3), and where each one lives:
+The design red lines, and where each one lives:
 
   1. loopback only     BIND below; the Host header must be 127.0.0.1:<port> or localhost:<port>
                        (DNS rebinding); no CORS header is ever sent.
@@ -19,13 +19,13 @@ The design red lines (TICKET section 3), and where each one lives:
                        the X-NDT-Token header but these: GET /health, the page's four static
                        files (GET /, /app.js, /app.css, /manual.html -- they run nothing), and
                        POST /session, which trades a one-time key instead and REQUIRES the
-                       Origin to be this very origin (judge G-N17, 09-27). The token header is a
+                       Origin to be this very origin. The token header is a
                        custom header,
                        so no browser sends it cross-origin without a preflight this server never
                        answers -- and an Origin header, when present, must be this server's; a POST
-                       also needs a JSON body. 🔴 GETs are gated too (judge 09-24, finding 1): a
+                       also needs a JSON body. 🔴 GETs are gated too: a
                        "read" is not side-effect free -- `ndt status --check` POSTs three lock
-                       probes to the kernel (ndt:9610-9625) -- so an <img> in any page must not be
+                       probes to the kernel (ndt: lock_probe) -- so an <img> in any page must not be
                        able to start one.
   3. whitelist         verbs.py builds every argv; there is no shell on any path.
   4. thin shell        ndt's rc is passed through untouched, with a sentence from ndt help beside
@@ -38,7 +38,7 @@ The design red lines (TICKET section 3), and where each one lives:
                        a cell's `judge` (cells.Grid._run). Two places, one shape.
   7. identity          --owner (or $NDT_OWNER) is set once, and every ndt call carries it.
 
-The page gets the token the way Adam ruled (Q3, 09-27): a ONE-TIME key in the URL's #fragment,
+The page gets the token as a ONE-TIME key in the URL's #fragment,
 which the page trades for the token (POST /session) and then wipes from the address bar. The
 token itself is never in a URL -- a browser may keep a URL in its history before the page can
 wipe it, and a used key is worth nothing there. The start-up URL goes to a terminal only; when
@@ -205,7 +205,7 @@ def page_url(port, nonce):
 
 
 class Nonces:
-    """One-time keys for the page URL (SCOPE section 3). A key is good once, for `ttl` seconds,
+    """One-time keys for the page URL. A key is good once, for `ttl` seconds,
     and only while it is one of the MAX_NONCES newest -- a used, expired or forgotten key and a
     key never minted are the same answer: 403."""
 
@@ -360,7 +360,7 @@ def run_read(cfg, kind, argv_tail, timeout):
     Two of these at a time; a third waits up to cfg.read_queue_wait seconds for a slot and then
     gets None (the caller answers 503). The output is kept BYTE FOR BYTE in the read log and
     fetched back by id: the JSON answer can only carry it decoded, and `ndt` cuts claim notes
-    with `cut -c1-72`, which counts bytes (judge 09-24, finding 4)."""
+    with `cut -c1-72`, which counts bytes."""
     if not READ_SLOTS.acquire(timeout=cfg.read_queue_wait):
         return None
     note = None
@@ -374,7 +374,7 @@ def run_read(cfg, kind, argv_tail, timeout):
             out, err = p.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
             # The group this call created (start_new_session: pgid == p.pid), by the pid it
-            # recorded -- never a name or a pattern (TICKET 3.6).
+            # recorded -- never a name or a pattern.
             timed_out = True
             try:
                 os.killpg(p.pid, signal.SIGKILL)
@@ -385,7 +385,7 @@ def run_read(cfg, kind, argv_tail, timeout):
             except subprocess.TimeoutExpired:
                 # 🔴 Something OUTSIDE the group still holds the pipe (a child that made its own
                 # session -- a sudo'd helper can). Waiting for EOF would pin this handler and its
-                # read slot for as long as that process lives (judge 09-24, finding 7). What was
+                # read slot for as long as that process lives. What was
                 # read before now is kept; the rest is given up, and the answer says so.
                 note = "a process outside ndt's group kept its output pipe open; output after the timeout is lost"
                 partial = getattr(p, "_fileobj2output", None) or {}
@@ -441,11 +441,11 @@ class DryRun(Exception):
 
 
 def confirm_policy(kind, cell=None):
-    """How hard the page makes Adam confirm a write (SCOPE section 2): "typed" or "plain", and
-    whether it waits for his own claim first (section 2.4). The page keeps no table of its own;
+    """How hard the page makes the operator confirm a write: "typed" or "plain", and
+    whether it waits for their own claim first. The page keeps no table of its own;
     it adds only the measuring rule (typed whenever measuring is not `nothing`).
 
-    Behind the page, who refuses what (judge B1, 09-27): `up` and `down` under somebody else's
+    Behind the page, who refuses what: `up` and `down` under somebody else's
     claim -- ndt (rc 5; with no claim at all ndt lets them run, so there the page is stricter than
     ndt); an app start/stop and a lab cell's run unless the claim is yours -- THIS SERVER (409
     claim, _require_own_claim, read inside the slot), because ndt's apps verbs check no claim."""
@@ -640,7 +640,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._read_verb("apps.status", verbs.ARGV_APPS_STATUS, extra={"apps": self.cfg.apps})
 
     def r_lab(self, query):
-        """What the page confirms a write against, read afresh before every one (SCOPE 2.1):
+        """What the page confirms a write against, read afresh before every one:
         plain `ndt status` -- never --check, which POSTs lock probes -- with its claim, measuring
         and declared rows VERBATIM, and the only two readings the page may act on: is the claim
         ndt's own-claim form, whole (OWN_CLAIM, as a cell run's precheck), and is measuring
@@ -655,7 +655,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._send(200, r)
 
     def r_measuring(self, query):
-        """The page's probe while a measurement pauses its refresh (Adam, 2026-10-01): `ndt status
+        """The page's probe while a measurement pauses its refresh: `ndt status
         --measuring`, which prints only plain status's measuring rows, from the same ndt function
         (status_measuring_rows) -- the claim's measuring= and the process table, no sudo, no
         request to the kernel, no OVS or bmv2 query. The rows and the readings are /lab's, read by
@@ -674,7 +674,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                          "default_claim_minutes": verbs.DEFAULT_CLAIM_MINUTES,
                          "max_note_chars": verbs.MAX_NOTE_CHARS, "webgui_url": self.cfg.webgui_url})
 
-    # --- the page's way in (SCOPE section 3) ---
+    # --- the page's way in ---
     def w_session(self, query):
         """A one-time key from the page's URL, for the token. There is no token to check yet, so
         the Origin is REQUIRED here and must be this very origin: a browser sends it on every
@@ -767,7 +767,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def w_app(self, query, name, action):
         # [Co-developed with claude code -- Adam] only under your own claim, read inside the slot
         # as for a lab cell: ndt's apps verbs check no claim at all (cmd_apps, app_start; ndtwin-lab's
-        # energy-start / sim-start neither), so this server is the one that refuses (judge B1, 09-27)
+        # energy-start / sim-start neither), so this server is the one that refuses
         body = self._check_write()
         self._start("apps." + action, _whitelisted(verbs.argv_app, name, action, body, self.cfg.apps), body,
                     precheck=self._require_own_claim)
@@ -843,9 +843,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                             ' Send {"confirm_shared_state_write": true} to run it anyway.')
 
     def _spawn_cell_run(self, cell, body, confirmed):
-        """A cell run. 🔴 A cell that needs the lab runs only under THIS owner's claim (judge r2
-        finding 1). Written 09-24, when ndt's OVS `up` did not refuse under a foreign claim; since
-        trunk 68ace017 it does, on both planes (up_ovs calls guard_up_lab_free, ndt:4477). The check
+        """A cell run. 🔴 A cell that needs the lab runs only under THIS owner's claim.
+        Written 09-24, when ndt's OVS `up` did not refuse under a foreign claim; since
+        trunk 68ace017 it does, on both planes (up_ovs calls guard_up_lab_free). The check
         stays because a cell is more than its `up`: some set netem, send kill -TERM or write the
         host-count knob, and none of that asks ndt's guard -- and under a foreign claim the
         restore's `down` is refused (rc 5), so what the cell left stays."""
@@ -853,7 +853,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         raw_root = os.path.join(cfg.state_dir, "cells-raw", cell["name"] + "-" + secrets.token_hex(4))
         if self.dry_run:
             # before the raw directory (a preview makes nothing) and before the confirmation it
-            # shows: the dialog is where Adam gives it
+            # shows: the dialog is where the operator gives it
             raise DryRun("cells.run", cfg.grid.run_argv(cell["name"], raw_root), cell)
         self._need_confirmation(cell, confirmed)
         os.makedirs(raw_root, mode=0o700)
@@ -862,18 +862,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                            precheck=self._require_own_claim if cell["requires"] != "none" else None)
 
     def _require_own_claim(self):
-        """Read `ndt status`'s claim line (ndt:5926 claim_line) and go on only if it is ndt's
+        """Read `ndt status`'s claim line (ndt: claim_line) and go on only if it is ndt's
         own-claim form, exactly. The precheck of a lab cell's run and of an app start/stop. For a
         cell it doubles guards ndt has for part of what a cell does; for an app it is the only
-        guard -- ndt's apps verbs check no claim (judge B1, 09-27).
+        guard -- ndt's apps verbs check no claim.
 
-        🔴 Exact, not a prefix (intake judge 09-26, finding 2): claim_line prints somebody else's
+        🔴 Exact, not a prefix: claim_line prints somebody else's
         claim as `<owner> -- ...`, and an owner is any string -- `yours-x`, or one that spells the
         whole own form. What it cannot tell apart is an owner named exactly `yours`: ndt prints
         that claim as it prints your own (and its own `--check` reads `yours*` the same way)."""
         r = run_read(self.cfg, "status", verbs.argv_status(False), self.cfg.read_timeout)
         # [Co-developed with claude code -- Adam] two reasons the claim was not read, each named
-        # (intake judge 09-26, finding 5) -- neither is a claim, and neither runs the write
+        # -- neither is a claim, and neither runs the write
         if r is None:
             raise HttpError(409, "claim", note="the claim was not read: no read slot came free within %d s "
                             "(two read-only ndt calls held both), so ndt status never ran; a write that needs "
@@ -1000,7 +1000,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if st["state"] == "running":
                 raise HttpError(409, "running", note="this step's job is still running", walk=walk)
             if st["step"] == "verdict":
-                raise HttpError(409, "yours", note="this step is Adam's: POST %s/guided/%s/verdict" % (API, gid), walk=walk)
+                raise HttpError(409, "yours", note="this step is the operator's: POST %s/guided/%s/verdict" % (API, gid), walk=walk)
             if self.dry_run and st["step"] in READ_STEPS:
                 raise DryRun("guided." + st["step"], None, note=READ_STEPS[st["step"]])
             self._do_step(walk, st)   # a dry run of a claim, run or release step stops at its spawn
@@ -1033,7 +1033,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 {"minutes": 30, "note": "guided walk %s (%s)" % (walk["id"], name)}), {"guided": walk["id"]})
         elif st["step"] == "run":
             # the claim is read again here, inside the slot: another tab's walk may have
-            # released it since this walk's claim step (judge r2 finding 3)
+            # released it since this walk's claim step
             try:
                 st["job"] = self._spawn_cell_run(cell, {"guided": walk["id"]},
                                                  walk.get("confirmed_shared_state_write") is True)
@@ -1099,12 +1099,12 @@ READ_STEPS = {"old": "a read-only step: the cell's own judge reads its old/ fixt
               "compare": "a read-only step: the run's result beside old/'s, row by row"}
 
 CLAIM_LINE = re.compile(r"^  claim\s+(.*?)\s*$", re.M)
-# ndt status's measuring and declared rows (status_measuring_rows, ndt:6828-6856; `ndt status
+# ndt status's measuring and declared rows (ndt: status_measuring_rows; `ndt status
 # --measuring` prints them alone): `measuring  nothing`, or the first process in flight; `declared`
 # only when a claim says measuring=.
 MEASURING_LINE = re.compile(r"^  measuring\s+(.*?)\s*$", re.M)
 DECLARED_LINE = re.compile(r"^  declared\s+(.*?)\s*$", re.M)
-# ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt:5939, claim_line),
+# ndt's own-claim value, whole: `printf 'yours -- %dm left (until %s)\n'` (ndt: claim_line),
 # the time from `date +%H:%M:%S`. [Co-developed with claude code -- Adam]
 OWN_CLAIM = re.compile(r"yours -- [0-9]+m left \(until [0-9]{2}:[0-9]{2}:[0-9]{2}\)")
 
@@ -1138,7 +1138,7 @@ def _step_ok(step, v):
     if v.get("state") != "finished":
         return False
     if step == "run":
-        # a red cell is a RESULT Adam should see -- the walk goes on to compare it. Only a
+        # a red cell is a RESULT the operator should see -- the walk goes on to compare it. Only a
         # harness that could not run it, or a restore that failed, stops the walk.
         return v.get("rc") in (0, 1) and bool(v.get("cell_verdict"))
     return v.get("rc") == 0
@@ -1211,7 +1211,7 @@ DRY_RUN_OK = {Handler.w_up, Handler.w_down, Handler.w_claim, Handler.w_release, 
 
 
 class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    """One thread per connection, and only so many of them (judge 09-24, finding 1): a blind
+    """One thread per connection, and only so many of them: a blind
     flood of connections from a local page gets an immediate 503, not a thread each."""
     daemon_threads = True
     allow_reuse_address = True

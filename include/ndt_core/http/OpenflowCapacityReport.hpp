@@ -14,16 +14,15 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * ### Why this exists (W17)
+ * ### Why this exists
  *
  * The endpoint used to serve `doc/2026-01-02_OpenflowCapacity.json` verbatim: three switch
  * brands -- OVS 1000000, BrocadeICX7250 3072, HPE5520 65535 -- and not one word about the data
- * plane this deployment actually runs. Measured 2026-09-06
- * (`scratch/overnight-2026-09-05/rounds/06-X-experiments.md` §X2, on the live 10-switch bmv2
- * fabric): a bmv2 switch takes **1024** entries in `MyIngress.ipv4_lpm`, and the fabric's own
+ * plane this deployment actually runs. Measured 2026-09-06 on the live 10-switch bmv2
+ * fabric: a bmv2 switch takes **1024** entries in `MyIngress.ipv4_lpm`, and the fabric's own
  * host routes already hold one per host, so at the 128-host scale a caller gets **896** -- the
  * same 896 whether it installs one entry every 50 ms for fifteen minutes or 2000 at once, which
- * is how that round established the number is a table ceiling and not a rate limit. The smallest
+ * is how that measurement established the number is a table ceiling and not a rate limit. The smallest
  * figure the catalogue offered was 3072, **3.4x** the truth, and anyone planning against it hits
  * the wall at 896, where bmv2 answers `StatusCode.UNKNOWN` with empty details and the proxy can
  * only relay `{"status":"error"}` under HTTP 200.

@@ -41,7 +41,7 @@ import journal_isolation  # noqa: E402,F401
 from proxy_agent import api_routes  # noqa: E402
 from proxy_agent import main  # noqa: E402
 # `p4_proxy/mininet` -- the fabric side. `main` puts it on sys.path at import (via profile), so
-# this line only names what these tests read: ticket B's manifest writer and its liveness
+# this line only names what these tests read: the fabric's manifest writer and its liveness
 # predicate, used to BUILD the fixture rather than to describe it.
 # [Co-developed with claude code -- Adam]
 import link_telemetry  # noqa: E402
@@ -679,8 +679,7 @@ class ASwitchWithNoPipelineIsNotAliveTest(unittest.TestCase):
     """What the proxy says about a bmv2 that is running but has no pipeline.
 
     [Co-developed with claude code -- Adam]
-    Measured on stock and bmv2-fast simple_switch_grpc (phase A of run-stock.out and
-    run-fast.out under doc/audit/2026-10-04_p4-cookie-probe/): a bmv2
+    Measured on stock and bmv2-fast simple_switch_grpc (phase A of a probe): a bmv2
     that has been pushed no pipeline answers the COOKIE_ONLY probe with FAILED_PRECONDITION, so
     liveness reads probe_ok false -- the same value as a dead process. The probe cannot see
     empty tables, a missing clone session or a lost stream (switch_liveness serves stream_alive,
@@ -763,7 +762,7 @@ class ASwitchWithNoPipelineIsNotAliveTest(unittest.TestCase):
         self.assertEqual(topo.reroutable_down_endpoints(), set())
 
 
-# --- the telemetry disclosure on GET /p4/switch_state. TICKET-P3 2.6 --------------------------
+# --- the telemetry disclosure on GET /p4/switch_state ----------------------------------------
 
 
 class TheTelemetryDisclosureTest(unittest.TestCase):
@@ -771,8 +770,8 @@ class TheTelemetryDisclosureTest(unittest.TestCase):
     Three keys that say why a switch is not sampling, when it is not sampling on purpose.
 
     [Co-developed with claude code -- Adam]
-    🔴 `pipeline.skipped` ALREADY NAMES THE TWO STEPS AND STAYS EXACTLY AS IT WAS (TICKET-P2
-    7-7): they really were skipped. What it cannot say is WHY, and "why" is the entire
+    🔴 `pipeline.skipped` ALREADY NAMES THE TWO STEPS AND STAYS EXACTLY AS IT WAS:
+    they really were skipped. What it cannot say is WHY, and "why" is the entire
     difference between a decision and a fault -- a `link` switch and a switch whose clone
     session failed produce identical `skipped` lists, identical zero sample counts, and
     identical empty edges in the twin.
@@ -866,15 +865,15 @@ class TheTelemetryDisclosureTest(unittest.TestCase):
 
 
 class TheLinkEmitterSummaryTest(unittest.TestCase):
-    """`control_plane.telemetry.link_emitter` -- B's manifest, read with B's reader.
+    """`control_plane.telemetry.link_emitter` -- the fabric's manifest, read with the proxy's
+    reader.
 
     [Co-developed with claude code -- Adam]
-    🔴 THE FIXTURE IS BUILT BY `link_telemetry.manifest_document()`, NOT BY HAND (TICKET-P3
-    section 9 ruling 5). Round 1 hand-wrote a dict from the ticket's prose, in which `switches`
-    was a map; B writes a LIST of objects. The proxy iterated it as a map and produced a list of
-    stringified dicts -- silently wrong, not None, not an exception -- and the hand-written
-    fixture agreed with the mistake, so nothing could catch it. A fixture produced by the writer
-    cannot disagree with the writer.
+    🔴 THE FIXTURE IS BUILT BY `link_telemetry.manifest_document()`, NOT BY HAND. A dict
+    written by hand once had `switches` as a map, while the writer writes a LIST of objects. The
+    proxy iterated it as a map and produced a list of stringified dicts -- silently wrong, not
+    None, not an exception -- and the hand-written fixture agreed with the mistake, so nothing
+    could catch it. A fixture produced by the writer cannot disagree with the writer.
     """
 
     def setUp(self):
@@ -887,7 +886,7 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def plan(self, dpids=(1, 2)):
-        """A LinkTelemetryPlan, built with B's own dataclasses."""
+        """A LinkTelemetryPlan, built with the fabric's own dataclasses."""
         switches = []
         for dpid in dpids:
             ports = [link_telemetry.PortPlan(port=1, ifname=f"s{dpid}-eth1",
@@ -903,8 +902,8 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         document = link_telemetry.manifest_document(self.plan(dpids), pid, identity=identity)
         with open(path, "w") as fh:
             json.dump(document, fh)
-        # 0644, as B's `write_manifest` leaves it. This user's umask is 0002, and B's reader
-        # refuses a group-writable manifest outright (judge KJL B2) -- so a fixture at the umask's
+        # 0644, as `write_manifest` leaves it. This user's umask is 0002, and the reader
+        # refuses a group-writable manifest outright -- so a fixture at the umask's
         # mode would test the refusal, not the field. [Co-developed with claude code -- Adam]
         os.chmod(path, 0o644)
         return path
@@ -913,7 +912,7 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         self.assertIsNone(main.link_emitter_report(os.path.join(self.tmp, "absent.json")))
 
     def test_the_switches_come_back_as_dpids_and_not_as_stringified_objects(self):
-        # The judge's finding, pinned. `switches` is a list of {dpid, name, agent_ip, ports};
+        # `switches` is a list of {dpid, name, agent_ip, ports};
         # iterating it as a map gives a list whose entries are dicts rendered as text, and every
         # reader downstream sees a plausible-looking list of "switches" that names nothing.
         report = main.link_emitter_report(self.manifest(os.getpid(), dpids=(3, 1, 2)))
@@ -927,16 +926,16 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         self.assertEqual(report["rate"], link_telemetry.LINK_SAMPLE_RATE)
 
     def test_a_pid_that_is_not_the_emitter_reads_dead(self):
-        # 🔴 `alive` IS B'S `process_is_the_emitter`, NOT `/proc/<pid>` EXISTING (section 9
-        # ruling 5). This test's own pid is a live process and is NOT the emitter, so round 1's
-        # check would have called it alive -- which is the exact lie the field exists to avoid:
+        # 🔴 `alive` IS `process_is_the_emitter`'S ANSWER, NOT `/proc/<pid>` EXISTING. This test's
+        # own pid is a live process and is NOT the emitter, so a bare existence check would have
+        # called it alive -- which is the exact lie the field exists to avoid:
         # `link` telemetry with a dead emitter samples into nothing, zero on every edge.
         report = main.link_emitter_report(self.manifest(os.getpid()))
         self.assertFalse(report["alive"],
                          "this test process is not psample_sflow_emitter.py")
 
     def test_a_pid_whose_cmdline_is_the_emitter_reads_alive(self):
-        # The positive half, with B's predicate pointed at a /proc tree written here: nothing is
+        # The positive half, with the predicate pointed at a /proc tree written here: nothing is
         # launched, and the assertion is still about the real check rather than about a stub.
         proc = os.path.join(self.tmp, "proc", "4242")
         os.makedirs(proc, exist_ok=True)
@@ -952,11 +951,11 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
             self.assertTrue(main.link_emitter_report(path)["alive"])
 
     def test_alive_is_judged_by_the_identity_the_bring_up_recorded(self):
-        # 🔴 Adam 2026-09-27, ruling K. The manifest records the emitter's argv and start time,
+        # 🔴 The manifest records the emitter's argv and start time,
         # and `alive` must be answered WITH them -- the test the root teardown applies before it
         # signals -- or this field calls a process alive that the teardown would refuse to stop.
-        # The subject is a child of this test in EXACTLY the launcher's four-word shape (judge
-        # KJL B2: nothing else can ever read alive), so the shape alone says yes to both
+        # The subject is a child of this test in EXACTLY the launcher's four-word shape
+        # (nothing else can ever read alive), so the shape alone says yes to both
         # documents below, and ONLY a reader that passes the recorded start time can tell the
         # one the bring-up wrote from the one that names the same pid with another start.
         # [Co-developed with claude code -- Adam]
@@ -1004,16 +1003,16 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         self.assertIsNone(report["pid"])
 
     def test_the_proxy_reads_the_path_the_bring_up_writes(self):
-        # One constant, B's. Two would be a proxy that reports "no link emitter" on a fabric
-        # that has one.
+        # One constant, the fabric's. Two would be a proxy that reports "no link emitter" on a
+        # fabric that has one.
         self.assertEqual(main.LINK_TELEMETRY_MANIFEST, link_telemetry.LINK_TELEMETRY_MANIFEST)
 
 
-# --- capabilities: what each switch may be asked to do (TICKET-P4-roles 2.5-2) ------------------
+# --- capabilities: what each switch may be asked to do ---------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 # The object the kernel will copy verbatim onto get_graph_data's node in the third cut, and the
-# only thing the GUI draft reads (the ticket's Appendix A, whose four samples are asserted here
+# only thing the GUI draft reads (whose four samples are asserted here
 # word for word). `reroute` is a FABRIC fact reported per switch: one foreign switch skips the
 # watchdog for all of them, so an NDTwin switch on a mixed fabric says false too.
 
@@ -1092,7 +1091,7 @@ class CapabilitiesFromStartupTest(unittest.TestCase):
         self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "lldp")
 
     def test_roles_do_not_apply_to_an_ndtwin_switch_beside_a_foreign_one(self):
-        # 2.1-3: a mixed package with roles -- the NDTwin switch is bound to the baseline, and
+        # A mixed package with roles -- the NDTwin switch is bound to the baseline, and
         # switch_state says so (binding_source baseline), before and after startup.
         from tests.test_declared_links import SeedingTopo, a_foreign_package, bound, clients_bound
         from tests.test_startup import run_startup
@@ -1160,7 +1159,7 @@ class CapabilitiesOnTheEndpointTest(unittest.TestCase):
 
 
 class TheDeclaredLinksReportOnTheEndpointTest(unittest.TestCase):
-    """TICKET-P4-roles section 7 ruling 5, item 8: what the seed did, at FABRIC level.
+    """What the seed did, at FABRIC level.
     [Co-developed with claude code -- Adam]"""
 
     def setUp(self):
@@ -1238,7 +1237,7 @@ class TheCountOnNdtwinsOwnPipelineTest(unittest.TestCase):
     GET /stats/flow then GET /p4/switch_state for a client on NDTwin's own pipeline.
 
     [Co-developed with claude code -- Adam]
-    The ternary writer's ruling is "a rule the twin cannot describe is absent and counted". The
+    The ternary writer's rule is "a rule the twin cannot describe is absent and counted". The
     renderer already counted on every pipeline, but the route threw the number away for NDTwin's
     own, so `flow_stats.unrendered_entries` answered 0 (or null) however many rows /stats/flow
     had left out. These run both endpoints end to end, on the double the byte-identity recorder

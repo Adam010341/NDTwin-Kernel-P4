@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P3 section 2.5. `link_telemetry.py` attaches `tc ... action sample` filters to the
+`link_telemetry.py` attaches `tc ... action sample` filters to the
 switch-side veths; the kernel then multicasts a PSAMPLE_CMD_SAMPLE for one packet in every 256.
 This program joins that multicast group, maps each sample back to the (dpid, port) the filter
 was attached to, and hands it to `proxy_agent/sflow_emitter.py` -- the SAME builder the
@@ -26,10 +26,9 @@ WHAT IT PRINTS. One statistics line to stderr every `--stats-interval` seconds (
 and one final line on the way out. Every drop has a named counter: a sample this program threw
 away is a number an operator can read, not a gap in a graph.
 
-THE DECODER IS THE SPIKE'S. The netlink/genetlink plumbing below is carried over from
-doc/audit/2026-09-04_p4-tutorial-exercise-prep/spike-tc-sample/psample_listen.py, which was run
-live on 2026-09-17 and whose header records what was MEASURED there rather than read out of a
-header file:
+THE DECODER COMES FROM A LIVE SPIKE. The netlink/genetlink plumbing below is carried over from
+a standalone psample listener that was run live on 2026-09-17, so what follows was MEASURED
+there rather than read out of a header file:
 
   * PSAMPLE_ATTR_IIFINDEX/OIFINDEX are written with `nla_put_u16()` -- SIXTEEN BITS. The map is
     keyed on `ifindex & 0xFFFF` and `link_telemetry.plan()` refuses a fabric whose interfaces
@@ -400,7 +399,7 @@ def sample_for(decoded, ports: PortMap, stats: Stats):
     🔴 DIRECTION COMES FROM WHICH ATTRIBUTE IS PRESENT, which the spike measured: ingress
     filters emit IIFINDEX only, egress filters OIFINDEX only. An ingress sample becomes
     `ingress_port=p, egress_port=0`; an egress sample becomes `ingress_port=0, egress_port=p`,
-    which is the shape section 2.2 requires -- the kernel banks an `inputPort == 0` sample as
+    which is the shape the kernel needs: it banks an `inputPort == 0` sample as
     egress-only and credits it to the switch->host edge, and a port number in the ingress field
     would instead book it against the host->switch edge.
     """
@@ -443,8 +442,8 @@ def build_emitter(ports: PortMap, emitter=None):
         agent = emitter.agent_for(dpid)
         if agent is not None:
             # The proxy's cooperative emitter is sub-agent 0. Set after registering rather than
-            # by changing `register_switch`, which belongs to the proxy (file ownership,
-            # TICKET-P3 section 0 item 7) and whose default every other caller relies on.
+            # by changing `register_switch`, which belongs to the proxy and whose
+            # default every other caller relies on.
             agent.sub_agent_id = ports.sub_agent_id
     return emitter
 
@@ -498,7 +497,7 @@ def run(sock, family_id, ports, emitter, stats, stop, stats_interval=10.0,
     return stats
 
 
-#: What "stop sampling" arrives as. TICKET-P3 section 9 ruling 19(1).
+#: What "stop sampling" arrives as.
 #:
 #: [Co-developed with claude code -- Adam]
 #: SIGTERM is what `link_telemetry.stop_emitter` sends. SIGHUP is what `ndtwin-lab topo-stop`'s

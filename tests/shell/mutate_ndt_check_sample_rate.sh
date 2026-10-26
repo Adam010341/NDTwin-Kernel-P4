@@ -6,7 +6,7 @@
 #
 # Each mutation puts back one piece of the two findings -- `ndt status` printing the bmv2 build
 # artefact's 1/256 while the OVS fabric it was describing was set to 1/64
-# (logs/x1-22-status-blind-to-ovs-rate.log), and `ndt check` printing `ok` at a ratio of 0.65
+# (measured on a live OVS fabric), and `ndt check` printing `ok` at a ratio of 0.65
 # with nothing beside it to say that 0.75 is what 1/1024 produces -- or one of the wrong answers
 # "read the right plane" invites, and must turn its NAMED case red.
 #
@@ -108,7 +108,7 @@ report "P3: 'ndt status' asks for the P4 rate whatever is running" "$m" \
        "🔴 ndt status on an OVS fabric prints 1/64"
 
 # The provenance row disappears, which is the whole reason X-2 survived for months.
-# 🔴 The row moved into status_rate_rows at P2-C (TICKET-P2 §5.5) -- `status` and the package
+# 🔴 The row moved into status_rate_rows -- `status` and the package
 # pipeline now decide between two sources, and the printer is one function so the two rows
 # cannot describe different fabrics. The anchor follows it; the mutation is the same one.
 m=$(mutant p4 "$NDT" \
@@ -134,7 +134,7 @@ m=$(mutant p6 "$NDT" \
 report "P6: a fabric with no sflow record is given a rate" "$m" \
        "no sflow record at all"
 
-# 🔴 "Could not ask" reported as a value -- finding #7's shape, on the reading that decides
+# 🔴 "Could not ask" reported as a value -- the same shape, on the reading that decides
 # every bandwidth number.
 m=$(mutant p7 "$NDT" \
     '    if (( rc != 0 )); then echo "UNREADABLE:sudo -n ovs-vsctl would not answer"; return 0; fi' \

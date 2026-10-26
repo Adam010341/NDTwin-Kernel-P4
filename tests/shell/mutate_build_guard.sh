@@ -257,8 +257,8 @@ cat > "$A/m14.new" <<'EOF'
 EOF
 check "M14: a ':' in the lock path splits the held list silently" m14 guarded_build.sh "LOCK containing ':' is rc 2"
 
-# ---- [Co-developed with claude code -- Adam] the build_guard opus judge's NOTE-1 and NOTE-5 (09-27) ----
-# M15: the no-command refusal gone. Before NOTE-1 the suite's bare call waited on the default lock
+# ---- [Co-developed with claude code -- Adam] build_guard hardening (09-27) ----
+# M15: the no-command refusal gone. Before that the suite's bare call waited on the default lock
 # (held by the outer guard in any gate), so this mutant would have timed out here -- SURVIVED -- and
 # a suite run on its own in a gate would have read green after LOCK_WAIT's 3600 s. Now that case
 # has its own lock.

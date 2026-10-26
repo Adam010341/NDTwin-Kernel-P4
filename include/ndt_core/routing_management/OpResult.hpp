@@ -57,7 +57,8 @@ struct OpResult
      * [Co-developed with claude code -- Adam]
      * doc/KNOWN-ISSUES.md C-4. `ok` answers "did the far end accept the request". On the P4 plane
      * that is the same question, because the proxy agent programs the table before replying and
-     * reports a per-entry refusal as {"status":"error"} in a 200 body. On the OVS plane it is not:
+     * reports a per-entry refusal as a non-2xx (502 since KNOWN-ISSUES C-6; before that, a 200
+     * body carrying {"status":"error"}). On the OVS plane it is not:
      * Ryu's /stats/flowentry/add returns once it has built the OFPFlowMod, and OpenFlow does not
      * acknowledge a FLOW_MOD, so its 200 is emitted before any switch has adjudicated anything.
      *

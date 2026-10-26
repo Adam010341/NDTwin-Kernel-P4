@@ -67,7 +67,7 @@ ROUND_DIR="$(dirname "$HARNESS_DIR")"
 # The kernel checkout **under test**, which is not necessarily the one this file lives in.
 #
 # The derived form below assumes the tree that ships the harness is the tree being measured.
-# That is false for any round pinned to a baseline, and T-4 is exactly that: its ruling builds
+# That is false for any round pinned to a baseline, and T-4 is exactly that: it builds
 # from 89c1754 in a separate `git worktree`, because dff87f9 (the T-7 acquire_lock and P-1
 # fixes) lands between 89c1754 and HEAD and rewrites five of the files under test. Left
 # underivable, every `$REPO` use below would have read the wrong tree *and said nothing*:
@@ -93,12 +93,12 @@ REPO="${KERNEL_DIR:-$(cd "$HARNESS_DIR/../../../.." && pwd)}"
 # 🔴 NDT_OWNER must reach `ndt`, and it reaches it only if it is EXPORTED. `ndt` prints a claim as
 # "yours" only when the holder's name equals $NDT_OWNER (ndt:1145); with it unset every claim --
 # including this round's own -- renders as a stranger's name, so 00_preflight's §4.1/§4.2 gate
-# fails on a lab the executor has correctly claimed. Observed 2026-09-02
-# (2026-09-02_live-round/raw/C29_preflight_triage.log (a)): "claim auditor" unset vs "claim yours"
-# with NDT_OWNER=auditor, same second, same claim. CLAUDE.md already requires every `ndt` command
-# to carry it; a value set but not exported satisfies the letter and not the rule, so export it
-# here rather than trusting each executor's shell. Deliberately NOT defaulted: the harness cannot
-# invent an owner -- see claim_verdict's OWNER-UNSET branch, which says so instead of guessing.
+# fails on a lab the executor has correctly claimed. Observed 2026-09-02:
+# "claim <owner>" with NDT_OWNER unset vs "claim yours" with NDT_OWNER=<owner>, same second,
+# same claim. Every `ndt` command is required to carry it; a value set but not exported satisfies
+# the letter and not the rule, so export it here rather than trusting each executor's shell.
+# Deliberately NOT defaulted: the harness cannot invent an owner -- see claim_verdict's OWNER-UNSET
+# branch, which says so instead of guessing.
 # [Co-developed with claude code -- Adam]
 if [[ -n "${NDT_OWNER:-}" ]]; then export NDT_OWNER; fi
 # The root-side lab wrapper, named here so the recovery instructions in 90_restore.sh can quote
@@ -435,7 +435,7 @@ _proc_starttime() {
 #
 # 🔴 FIXED 2026-09-03 (L-10). `ss` prints EVERY process holding a file descriptor for the socket,
 # not the one that called listen(), and the old code took `head -1` of that list. Observed live on
-# 2026-09-02 (2026-09-02_live-round/raw/C29_preflight_triage.log (d)):
+# 2026-09-02:
 #     LISTEN 0 4096 0.0.0.0:8000 0.0.0.0:* users:(("curl",pid=896662,fd=8),("curl",pid=896661,
 #            fd=8),("curl",pid=896660,fd=8),("ndtwin_kernel",pid=845333,fd=8))
 # The kernel forks and execs helpers (execArgv) while its listening fd is not FD_CLOEXEC, so three
@@ -752,10 +752,10 @@ ndt_down() {
 #   OWNER-UNSET  a name is printed and we have no name to compare it with. NOT "foreign".
 #
 # 🔴 The fifth value is the L-10 fix. 00_preflight.sh used to fold OWNER-UNSET into FOREIGN and
-# report "the lab is claimed by someone else: auditor" while auditor WAS this round's own claim
-# (raw/C29_preflight_triage.log (a)). Same family as the port misattribution above: an instrument
-# that cannot establish something must say so, not answer the question it could not reach --
-# the harness already spends assert_port_is and verdict5 on exactly this principle.
+# report "the lab is claimed by someone else: <owner>" while <owner> WAS this round's own claim.
+# Same family as the port misattribution above: an instrument that cannot establish something must
+# say so, not answer the question it could not reach -- the harness already spends assert_port_is
+# and verdict5 on exactly this principle.
 # [Co-developed with claude code -- Adam]
 claim_verdict() {
     local line="$1" owner="${2-${NDT_OWNER:-}}"

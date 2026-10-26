@@ -222,8 +222,8 @@ TEST(P4PowerStrategyTest, PowerOffRunsTheHelperOnceAgainstExactlyThatSwitch)
         << "one switch, one command; anything more is collateral";
     EXPECT_NE(p4.commands[0].find("sudo -n /usr/local/sbin/ndtwin-p4-power off s1"),
               std::string::npos)
-        << "sudoers pins the root-owned path with -n, and the helper is the only thing allowed "
-           "to touch a PID: "
+        << "the sudoers rule the helper needs pins the root-owned path, called with -n, and the "
+           "helper is the only thing allowed to touch a PID: "
         << p4.commands[0];
     EXPECT_FALSE(fix.isUp());
     expectNoNameMatchingKills(p4);
@@ -260,7 +260,7 @@ TEST(P4PowerStrategyTest, PowerOffOnAnAlreadyDownSwitchStillAsksTheHelper)
     // {"status":"already-stopped"} and exits 0 both when the manifest holds no pid and when the
     // pid it holds is no longer alive -- it is idempotent by design, and its own comment says so.
     // So the early return was buying nothing that the helper was not already providing, and it
-    // was paying for it with FINDINGS #35: the guard read the graph, the graph carries the
+    // was paying for it with a wrong answer: the guard read the graph, the graph carries the
     // liveness worker's opinion, and that opinion is `false` for a live switch whenever the
     // proxy's probe is failing -- mid-restart, in reconnect backoff, or having missed one RPC
     // deadline under load. A power-off arriving in any of those states returned 200 "Success"
@@ -377,7 +377,7 @@ TEST(P4PowerStrategyTest, PowerOnReadoptFailureIsA502AndDoesNotMarkUp)
     // lack mastership, a pipeline or routes. Reporting failure here is what keeps the twin
     // honest. Liveness sees only part of it: a bmv2 that has been pushed no pipeline answers the
     // COOKIE_ONLY probe with FAILED_PRECONDITION and reads as not alive (the probe reading was
-    // measured, doc/audit/2026-10-04_p4-cookie-probe/), but one whose pipeline is committed and
+    // measured on 2026-10-04), but one whose pipeline is committed and
     // whose routes are missing reads as alive. So this OpResult is the witness.
     // [Co-developed with claude code -- Adam]
     Fixture fix;
@@ -458,12 +458,12 @@ TEST(P4PowerStrategyTest, PowerOnActsPastTheWindowWhileThePowerOffStandsUnwithdr
     //   "Past the window the graph is the only source there is, and a switch that reads up then
     //    really is up -- the worker has had ten-plus ticks and a Down verdict available to it."
     //
-    // The worker's Down verdict never got to stand. FINDINGS #46: the topology poll re-asserted
-    // `isUp = true` every 30 s for a switch the control plane was still listing, so a graph that
-    // read up past the window was not the worker's considered opinion at all -- it was the poll's
-    // one-way ratchet. Measured (round3, and #36's narrowing): inside 15 s, 14 of 14 power-ons
-    // acted and took ~1.47 s; past it, 4 of 4 returned Success in ~1 ms having run no command, on
-    // switches whose processes were gone. That is the state this case used to require.
+    // The worker's Down verdict never got to stand. The topology poll re-asserted `isUp = true`
+    // every 30 s for a switch the control plane was still listing, so a graph that read up past the
+    // window was not the worker's considered opinion at all -- it was the poll's one-way ratchet.
+    // Measured: inside 15 s, 14 of 14 power-ons acted and took ~1.47 s; past it, 4 of 4 returned
+    // Success in ~1 ms having run no command, on switches whose processes were gone. That is the
+    // state this case used to require.
     //
     // The window is still bounded and still closes -- ASuccessfulPowerOnClosesTheWindow... and
     // PowerOnOnAnAlreadyUpSwitchRunsNothing pin that, and neither of them changed. What is no
@@ -478,7 +478,7 @@ TEST(P4PowerStrategyTest, PowerOnActsPastTheWindowWhileThePowerOffStandsUnwithdr
 
     p4.advance(std::chrono::seconds(20));
 
-    // [Co-developed with claude code -- Adam] -- FINDINGS #80.
+    // [Co-developed with claude code -- Adam]
     // The window is bounded by evidence now, not by the 15 s clock this case was written
     // against, so `advance(20)` no longer closes it and "past the window" is no longer a state
     // time can produce. Closing it with a post-kill probe restores what the case is about: the

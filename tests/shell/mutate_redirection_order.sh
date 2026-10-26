@@ -155,9 +155,9 @@ report "M2b: ndt app_wait_stopped argv line (g6) -- order reverted" "$m" \
        "app_wait_stopped's argv line (g6) is silent for a pid that cannot exist"
 
 # --- the rest of the family: each site anchors on its own full line -----------------------------
-# 2026-09-03 merge note: `cut -c1-90` stopped being a unique anchor when fix/g6-ndt-apps-liveness
+# 2026-09-03 merge note: `cut -c1-90` stopped being a unique anchor when the apps-liveness fix
 # added a second site (app_wait_stopped), and `cut -c1-80` stopped being one when
-# fix/apps-stop-kills-the-group added three more (apps_orphans' second branch,
+# the apps-stop fix added three more (apps_orphans' second branch,
 # app_verify_stopped's survivor list, app_kill_by_existence). Each site now anchors on its own
 # full line and gets its own mutation -- a merge that reintroduces the shape at any of them must
 # be caught, not reported as a non-unique anchor.
@@ -259,7 +259,7 @@ report "M14: ndt up-ovs capture -- order reverted (fifo failure escapes the log)
 # today the static guard matched `<` only when its source was DOUBLE-QUOTED
 # (test_redirection_order.sh:276, `\<[[:space:]]*\"[^\"]*\"...`), so both of these SURVIVED --
 # an unquoted path and a ${braced} one are how half this tree writes a path, and the defect is the
-# ORDER, which does not care. F-B0-B12-REPORT.md §3.1 rows (4)b and (4)d.
+# ORDER, which does not care.
 m=$(mutant m13b "$VM" \
     'tr '"'"'\0'"'"' '"'"'\n'"'"' 2>/dev/null < "/proc/$1/cmdline" | awk' \
     'tr '"'"'\0'"'"' '"'"'\n'"'"' < /proc/$1/cmdline 2>/dev/null | awk' 2)

@@ -204,7 +204,7 @@ TEST(NetemLinkFaultTest, ACleanTreeHasNoNetemToRemove)
 /**
  * The name is derived from the topology file's `bridge_name`, and it is checked before tc runs.
  * Not as an escaping measure -- nothing here builds a command line, so a name is never shell input
- * -- but because a name outside `s<N>-eth<M>` is outside this machine's NOPASSWD grant, and the
+ * -- but because a name outside `s<N>-eth<M>` is outside the `s*-eth*` sudoers rules tc needs, and the
  * failure mode is then a password prompt the kernel cannot answer, reported as a generic tc error.
  */
 TEST(NetemLinkFaultTest, OnlyMininetSwitchInterfaceNamesAreAccepted)
@@ -265,7 +265,8 @@ TEST(NetemLinkFaultTest, ABadInterfaceNameNeverReachesTc)
     const auto report = utils::netem::cutInterface("eth0", "100%", tc.runner());
 
     EXPECT_FALSE(report.value("ok", true));
-    EXPECT_TRUE(tc.calls.empty()) << "tc was invoked for an interface outside the sudo grant";
+    EXPECT_TRUE(tc.calls.empty())
+        << "tc was invoked for an interface outside the s<N>-eth<M> shape the tc sudoers rules name";
 }
 
 /// `sudo -n` refused, or the interface is gone. Reported, and nothing is attached on top of a tree
@@ -330,7 +331,7 @@ TEST(NetemLinkFaultTest, ARestoreThatLeftNetemBehindIsReportedAsAFailure)
 }
 
 // =================================================================================================
-// doc/KNOWN-ISSUES.md B-6 (W8-4): the startup sweep.
+// doc/KNOWN-ISSUES.md B-6: the startup sweep.
 //
 // [Co-developed with claude code -- Adam]
 //
@@ -340,9 +341,8 @@ TEST(NetemLinkFaultTest, ARestoreThatLeftNetemBehindIsReportedAsAFailure)
 // qdisc tree. `EdgeProperties::declaredDown` is deliberately not read back from any file, so a
 // kernel restart forgets every standing declaration -- and the netem does not go with it. The
 // graph then reports a clean `down_reason: "none"` for a link on which 100% of packets are being
-// dropped, and nothing anywhere says otherwise. Raised as W8 §7-4; Adam ruled on 2026-09-06:
-// **sweep the qdisc tree once at startup and WARN. Do not clear it, and do not turn it into a
-// declaration.**
+// dropped, and nothing anywhere says otherwise. The design (2026-09-06): **sweep the qdisc tree
+// once at startup and WARN. Do not clear it, and do not turn it into a declaration.**
 //
 // WHY NOT CLEAR IT: tools/test_workflow/faults.sh is entitled to have netem on an interface, and
 // a kernel that removed a fault it did not create would destroy whatever experiment did.
@@ -452,9 +452,9 @@ constexpr const char* kMachineNoise =
 /**
  * @brief Answers the ONE `tc qdisc show` the sweep issues, and records every argv it was given.
  *
- * E-20 replaced a per-interface fake with this one on purpose. A fake still keyed by interface
- * would answer a question the sweep no longer asks, and could not express the property the ticket
- * is about: residue on an interface the graph does not name at all.
+ * This replaced a per-interface fake on purpose. A fake still keyed by interface would answer a
+ * question the sweep no longer asks, and could not express the property under test: residue on
+ * an interface the graph does not name at all.
  */
 class FakeMachineTc
 {
@@ -491,12 +491,13 @@ class FakeMachineTc
      * @brief What `tc qdisc show dev X` prints: the lines naming X, with the `dev X` words gone.
      *
      * 🔴 THIS FIDELITY IS LOAD-BEARING, and the gate is what proved it. The first run of
-     * mutate_withdrawal_needs_observed_failure.sh against E-20 scored M17 -- "the sweep clears the
-     * netem it finds", the over-correction Adam ruled against by name -- as a SURVIVOR, because
-     * this fake used to answer the whole-machine tree to a per-device question. The mutant calls
-     * utils::netem::restoreInterface(), which parses the PER-DEVICE form; handed the whole-machine
-     * form it could not read an attach point, returned a no-op, and issued no tc write at all. The
-     * fake made a real defect look harmless. Real tc drops those two words, so this does too.
+     * mutate_withdrawal_needs_observed_failure.sh against the whole-machine sweep scored M17 --
+     * "the sweep clears the netem it finds", the over-correction this design rules out -- as a
+     * SURVIVOR, because this fake used to answer the whole-machine tree to a per-device question.
+     * The mutant calls utils::netem::restoreInterface(), which parses the PER-DEVICE form; handed
+     * the whole-machine form it could not read an attach point, returned a no-op, and issued no tc
+     * write at all. The fake made a real defect look harmless. Real tc drops those two words, so
+     * this does too.
      */
     std::string perDevice(const std::string& dev) const
     {
@@ -640,8 +641,8 @@ class ResidualNetemSweepTest : public ::testing::Test
 } // namespace
 
 /// Both ends of every switch-to-switch link, and nothing else: exactly the set
-/// /ndt/inject_link_failure can write to. Since E-20 this is no longer the sweep's SCOPE -- it is
-/// the sweep's `link` classifier, and a host-facing port must not fall into it or the warning
+/// /ndt/inject_link_failure can write to. This is no longer the sweep's SCOPE -- it is the
+/// sweep's `link` classifier, and a host-facing port must not fall into it or the warning
 /// would tell an operator to POST /ndt/inject_link_recovery for a link that does not exist.
 TEST_F(ResidualNetemSweepTest, TheSweepCoversBothEndsOfEverySwitchToSwitchLinkAndNothingElse)
 {
@@ -670,9 +671,9 @@ TEST_F(ResidualNetemSweepTest, TheSweepCoversBothEndsOfEverySwitchToSwitchLinkAn
            "bridge_name must be skipped rather than guessed at";
 }
 
-/// 🆕 E-20. The other half of the classification: the switch-side port of each host attachment.
-/// This is where tools/test_workflow/faults.sh and the chaos harness put netem, and before E-20
-/// the sweep could not see any of it.
+/// 🆕 The other half of the classification: the switch-side port of each host attachment.
+/// This is where tools/test_workflow/faults.sh and the chaos harness put netem, and the original
+/// sweep could not see any of it.
 TEST_F(ResidualNetemSweepTest, TheHostFacingSetIsEveryPortAHostHangsOff)
 {
     const auto ifaces = m_monitor->mininetHostFacingInterfaces();
@@ -687,12 +688,12 @@ TEST_F(ResidualNetemSweepTest, TheHostFacingSetIsEveryPortAHostHangsOff)
 }
 
 /**
- * 🔴 E-20's mechanism, stated on its own. ONE bare `tc qdisc show` for the whole namespace -- not
+ * 🔴 The mechanism, stated on its own. ONE bare `tc qdisc show` for the whole namespace -- not
  * `show dev <iface>` per graph edge.
  *
  * The per-device form can only ask about names the graph already holds, which is precisely why the
  * old sweep could not see a host-facing port or a switch that is running but not in the topology
- * file. It is also the only form the sudoers grant covers, so the temptation to "fix" this back is
+ * file. It is also the only form the tc sudoers rules name, so the temptation to "fix" this back is
  * real: see utils::netem::readOnlyTcRunner for why the bare form needs no privilege at all.
  */
 TEST_F(ResidualNetemSweepTest, TheSweepReadsTheWholeMachineInOneCall)
@@ -713,9 +714,9 @@ TEST_F(ResidualNetemSweepTest, TheSweepReadsTheWholeMachineInOneCall)
 }
 
 /**
- * 🔴 THE FINDING W8-4 EXISTS FOR. netem is on the fabric before this kernel has injected anything,
- * and the one line an operator gets must name the interfaces. Without it a restarted kernel
- * reports a clean graph over a link that is dropping every packet.
+ * 🔴 THE FINDING THE SWEEP EXISTS FOR. netem is on the fabric before this kernel has injected
+ * anything, and the one line an operator gets must name the interfaces. Without it a restarted
+ * kernel reports a clean graph over a link that is dropping every packet.
  */
 TEST_F(ResidualNetemSweepTest, ResidualNetemIsNamedInOneWarningAtStartup)
 {
@@ -743,8 +744,8 @@ TEST_F(ResidualNetemSweepTest, ResidualNetemIsNamedInOneWarningAtStartup)
 }
 
 /**
- * 🔴 E-20, THE DEFECT VERBATIM. `tools/test_workflow/faults.sh` and the chaos harness attach netem
- * to the switch port a HOST hangs off. The pre-E-20 sweep read only switch-to-switch link ends, so
+ * 🔴 THE DEFECT VERBATIM. `tools/test_workflow/faults.sh` and the chaos harness attach netem
+ * to the switch port a HOST hangs off. The original sweep read only switch-to-switch link ends, so
  * for exactly those faults it said nothing -- and silence from this sweep reads as "clean fabric",
  * which is the one thing it exists not to say by accident.
  */
@@ -772,7 +773,7 @@ TEST_F(ResidualNetemSweepTest, NetemOnAHostFacingPortIsFoundAndSaidToBeHostFacin
 }
 
 /**
- * 🔴 E-20's other half. An `s<N>-eth<M>` this topology does not name is the most alarming finding
+ * 🔴 The other half. An `s<N>-eth<M>` this topology does not name is the most alarming finding
  * of the three -- it means the fabric on this machine is not the fabric in the topology file -- so
  * dropping it because there is nothing to attribute it to would throw away the loudest signal.
  */
@@ -843,10 +844,10 @@ TEST_F(ResidualNetemSweepTest, NetemOutsideThisFabricsInterfaceShapeIsNotReporte
     EXPECT_EQ(log.text().find("netem is already attached"), std::string::npos) << log.text();
 }
 
-/// 🔴 Adam's ruling, the half a fix is most likely to overshoot: WARN, do not clear. A kernel that
-/// removed netem at startup would silently destroy any fault campaign it started underneath -- and
-/// since E-20 the sweep sees host-facing and unfamiliar interfaces too, so this matters more, not
-/// less: those are residue it definitely does not own.
+/// 🔴 The half a fix is most likely to overshoot: WARN, do not clear. A kernel that removed netem
+/// at startup would silently destroy any fault campaign it started underneath -- and since the
+/// sweep sees host-facing and unfamiliar interfaces too, this matters more, not less: those are
+/// residue it definitely does not own.
 TEST_F(ResidualNetemSweepTest, TheSweepNeverRunsACommandThatChangesTheTree)
 {
     FakeMachineTc tc;
@@ -861,7 +862,7 @@ TEST_F(ResidualNetemSweepTest, TheSweepNeverRunsACommandThatChangesTheTree)
            "and to complain, and nothing else";
 }
 
-/// The other half of the same ruling: the reading must not become a declaration. Manufacturing one
+/// The other half of the same rule: the reading must not become a declaration. Manufacturing one
 /// from a qdisc tree would make the twin its own witness -- and the tree cannot say which
 /// direction of the pair anybody meant.
 TEST_F(ResidualNetemSweepTest, TheSweepDoesNotDeclareTheLinkDown)
@@ -1024,8 +1025,7 @@ TEST(NetemLinkFaultTest, TheFakesPerDeviceViewIsTheFormRestoreInterfaceCanRead)
 //
 // [Co-developed with claude code -- Adam]
 //
-// ROLE-1 measured this on a live OVS fabric on 2026-09-11, 3 reproductions of 3
-// (scratch/overnight-2026-09-05/hunt-0911/ROLE-1-A1-REPORT.md): a POST to
+// Measured on a live OVS fabric on 2026-09-11, 3 reproductions of 3: a POST to
 // /ndt/inject_link_recovery for a link this kernel had never declared down ran
 // `qdisc del dev s1-eth1 root` on somebody else's `netem loss 100%` and answered 200 with
 // `"ok":true,"detached_at":"root"`. findExistingNetem answers "is there a netem here", which is
@@ -1197,7 +1197,7 @@ class FakeFabric
 // --- whose netem is it -------------------------------------------------------------------------
 
 /**
- * 🔴 THE FINDING (A1, 3 of 3 on a live fabric). Nothing recorded this netem, so it is not this
+ * 🔴 THE FINDING (3 of 3 on a live fabric). Nothing recorded this netem, so it is not this
  * kernel's to remove -- and before B-16 the same tree read that says WHERE it is was taken as
  * permission to delete it.
  */
@@ -1354,7 +1354,7 @@ TEST(AllOrNothingCutTest, BothEndsCutAreBothRecorded)
 }
 
 /**
- * 🔴 THE SECOND FINDING (A1 ②, 2 of 2 on a live fabric). One end already carried somebody else's
+ * 🔴 THE SECOND FINDING (2 of 2 on a live fabric). One end already carried somebody else's
  * netem, so that end was refused -- and the loop went on and cut the OTHER end, leaving a
  * one-directional fault that the reply called `link failure injected`. faults.txt L-2 is about
  * exactly that asymmetry: it kills LLDP one way and leaves the control plane's graph permanently

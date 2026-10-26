@@ -5,7 +5,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Each mutation puts back one way the light read could stop being what Adam ruled (2026-10-01): a
+# Each mutation puts back one way the light read could stop being what was specified (2026-10-01): a
 # probe that is the full report again, a second copy of the answer that drifts from plain status,
 # a sudo or a kernel request on the probe's path, a declaration read differently -- and must turn
 # its NAMED case red. A mutation nobody catches means that case proves nothing.
@@ -124,7 +124,7 @@ echo
 # --- the light read is the light read ----------------------------------------------------------
 
 # The probe is the full report again: every sudo, the kernel graph and the switch queries of a
-# plain `ndt status` land on each probe of a running measurement -- the cost Adam ruled out.
+# plain `ndt status` land on each probe of a running measurement -- the cost the design rules out.
 m=$(mutant L1 "$NDT" \
     '    if [[ "${1:-}" == "--measuring" ]]; then
         local problems=()' \
@@ -195,7 +195,7 @@ m=$(mutant L6 "$NDT" \
 report "L6: --measuring answers 1 (ndt serve would read a failure, not a report)" "$m" \
        "nothing: --measuring answers rc 0"
 
-# 10-02 (the round-3 review): the four ways around a PATH denylist. Each would reach the kernel or
+# 10-02: the four ways around a PATH denylist. Each would reach the kernel or
 # a switch under measurement without one PATH shim seeing it.
 m=$(mutant L14 "$NDT" \
     'status_measuring_rows() {
@@ -226,7 +226,7 @@ except Exception: pass'\'' >/dev/null 2>&1
 report "L15: a python3 urllib GET of the kernel's graph on the shared path" "$m" \
        "🔴 --measuring ran nothing outside its allowlist on PATH"
 
-# /usr/bin/sudo -n true in the ticket's wording: an OVS query by absolute path stands in for it, so
+# /usr/bin/sudo -n true in the original wording: an OVS query by absolute path stands in for it, so
 # that running this gate makes no sudo call of its own; the check reads the text, not the binary.
 m=$(mutant L16 "$NDT" \
     'status_measuring_rows() {

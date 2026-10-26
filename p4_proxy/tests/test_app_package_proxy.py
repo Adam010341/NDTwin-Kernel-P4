@@ -284,7 +284,7 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
 
     def setUp(self):
         # [Co-developed with claude code -- Adam]
-        # The three TICKET-P3 reporters are saved and CLEARED here, not merely saved: importing
+        # The three telemetry reporters are saved and CLEARED here, not merely saved: importing
         # proxy_agent.main wires the real ones into this module's globals, so a fixture that
         # only restored them afterwards would be asserting against whatever the production
         # module injected -- which is how "the baseline control_plane has exactly three keys"
@@ -329,9 +329,8 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
     def test_the_baseline_fabric_says_it_skipped_nothing_rather_than_saying_nothing(self):
         body = self.state({"mode": "ndtwin", "package": None, "skipped": []}, {})
         # [Co-developed with claude code -- Adam]
-        # Cell by cell rather than dict-equal, because TICKET-P3 2.6 adds a fourth key
-        # (`telemetry`) that this fixture does not inject and that the orchestrator's ruling on
-        # TICKET-P2 7-4 allows: "byte-identical" means every existing cell is identical, plus
+        # Cell by cell rather than dict-equal, because a fourth key (`telemetry`) exists that this
+        # fixture does not inject: "byte-identical" means every existing cell is identical, plus
         # documented new keys. A dict-equal assertion here is the one shape that cannot express
         # that -- it fails on an addition exactly as loudly as on a change.
         self.assertEqual(body["control_plane"]["mode"], "ndtwin")
@@ -363,7 +362,7 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
         self.assertEqual(body["switches"]["2"]["entries_recorded"], 0)
 
     def test_every_switch_says_which_pipeline_it_is_running_and_names_it(self):
-        # [Co-developed with claude code -- Adam] TICKET-P2 2.2. Without this a fabric with no
+        # [Co-developed with claude code -- Adam] Without this a fabric with no
         # telemetry and no discovered links is indistinguishable from a broken one: the reason
         # is which program is loaded, and nothing else on this endpoint says.
         body = self.state(
@@ -405,7 +404,7 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
                                "journaled": True})
 
     def test_the_per_switch_skipped_list_survives_the_trip_through_the_endpoint(self):
-        # 🔴 Round 3. `pipeline.skipped` was asserted at `main.pipeline_report_for` and in what
+        # 🔴 `pipeline.skipped` was asserted at `main.pipeline_report_for` and in what
         # `startup()` returns, and at neither of those is it on the wire. The endpoint copies
         # per-switch dicts one key at a time, so a list that never reached it -- or reached it
         # flattened, or under another name -- would have left both of those green. This is the
@@ -464,7 +463,7 @@ class ProductionWiresTheDisclosureItselfTest(unittest.TestCase):
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class WhichPipelineEachSwitchRunsTest(unittest.TestCase):
     """
-    `main._pipeline_is_ndtwin`, the predicate every TICKET-P2 branch turns on.
+    `main._pipeline_is_ndtwin`, the predicate every foreign-pipeline branch turns on.
 
     [Co-developed with claude code -- Adam]
     Computed as an equivalence against what `baseline()` answers for the same switch rather than
@@ -505,8 +504,8 @@ class WhatTheProxySaysAboutOneSwitchesPipelineTest(unittest.TestCase):
     `main._p4info_fingerprint` and `main.pipeline_report_for`.
 
     [Co-developed with claude code -- Adam]
-    The fingerprint is the stable identifier for "which program is this", which CLAUDE.md
-    requires of anything that names a binary. It had no test at all until round 2 -- it was
+    The fingerprint is the stable identifier for "which program is this", which anything
+    that names a binary must carry. It used to have no test at all -- it was
     only ever seen through `pipeline_report_for`, which on this tree answers `None` for every
     package fixture because their artefact paths do not exist, so the success path of the one
     function that produces the identifier was never executed.
@@ -558,14 +557,14 @@ class WhatTheProxySaysAboutOneSwitchesPipelineTest(unittest.TestCase):
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class EachSwitchNamesItsOwnSkippedStepsTest(unittest.TestCase):
     """
-    TICKET-P2 round 2: the per-switch half of the disclosure lives on that switch.
+    The per-switch half of the disclosure lives on that switch.
 
     [Co-developed with claude code -- Adam]
     🔴 The clone session and the sFlow registration are programmed into ONE switch's PRE, so on
     a mixed fabric they are skipped for the package's switches and done for every other one.
     Saying `clone_session` in the fabric-wide `control_plane.skipped` there is a true sentence
     about one switch told about ten, and an operator who acts on it goes looking for a telemetry
-    fault on nine switches that have none. (Round 1 did exactly that; the judge caught it.)
+    fault on nine switches that have none. (An earlier version did exactly that.)
     """
 
     def package(self, pipeline):

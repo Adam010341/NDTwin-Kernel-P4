@@ -261,3 +261,153 @@ TEST(FlowEntryShapeTest, AWellFormedEntryReportsNoProblem)
                              {"actions", nlohmann::json::array({{{"type", "OUTPUT"}, {"port", 1}}})}}),
                   FlowOp::Install));
 }
+
+// --- doc/KNOWN-ISSUES.md C-7: deletes the P4 proxy refuses, answered before the queue ----------
+//
+// [Co-developed with claude code -- Adam]
+// The proxy refuses a strict delete that names a priority against a destination-only match (501,
+// ipv4_lpm has no priority column), and the kernel used to queue it first and answer 200
+// "queued". The predicate below has to refuse exactly what the proxy refuses -- no more, or a
+// delete the proxy would honour is lost; no less, or the 200 comes back.
+
+namespace
+{
+
+nlohmann::json deleteEntry(nlohmann::json priority, nlohmann::json match)
+{
+    nlohmann::json e{{"dpid", 1}, {"match", std::move(match)}};
+    if (!priority.is_null())
+    {
+        e["priority"] = std::move(priority);
+    }
+    return e;
+}
+
+const nlohmann::json kDestOnly{{"eth_type", 2048}, {"ipv4_dst", "10.0.0.2"}};
+
+} // namespace
+
+TEST(P4PriorityDeleteTest, ANamedPriorityOnADestinationOnlyMatchIsRefused)
+{
+    EXPECT_TRUE(isPriorityDeleteP4CannotHonour(deleteEntry(100, kDestOnly)));
+    EXPECT_TRUE(isPriorityDeleteP4CannotHonour(deleteEntry(1, kDestOnly)));
+    EXPECT_TRUE(isPriorityDeleteP4CannotHonour(deleteEntry(10, {{"nw_dst", "10.0.0.2"}})));
+}
+
+TEST(P4PriorityDeleteTest, TheThreeNotANameValuesAreLeftAloneAsTheProxyDoes)
+{
+    // slot_priority.named_priority: absent, -1 and 0 name no entry, and the proxy honours those
+    // as the non-strict route. Refusing them would refuse every delete the apps send.
+    EXPECT_FALSE(isPriorityDeleteP4CannotHonour(deleteEntry(nullptr, kDestOnly)));
+    EXPECT_FALSE(isPriorityDeleteP4CannotHonour(deleteEntry(-1, kDestOnly)));
+    EXPECT_FALSE(isPriorityDeleteP4CannotHonour(deleteEntry(0, kDestOnly)));
+    EXPECT_FALSE(isPriorityDeleteP4CannotHonour(deleteEntry(-7, kDestOnly)));
+}
+
+TEST(P4PriorityDeleteTest, AFiveTupleMatchIsHonouredOnP4AndNotRefused)
+{
+    // flow_5tuple has a priority column; the proxy honours these. Every spelling it maps.
+    for (const char* field : kP4FiveTupleOnlyMatchFields)
+    {
+        auto match = kDestOnly;
+        match[field] = 80;
+        EXPECT_FALSE(isPriorityDeleteP4CannotHonour(deleteEntry(100, match))) << field;
+    }
+}
+
+TEST(P4PriorityDeleteTest, AMissingOrNonObjectMatchIsRefusedAsTheProxyRefusesIt)
+{
+    // needs_five_tuple(non-dict) is False on the proxy, so its refusal fires.
+    EXPECT_TRUE(isPriorityDeleteP4CannotHonour(nlohmann::json{{"dpid", 1}, {"priority", 5}}));
+    EXPECT_TRUE(isPriorityDeleteP4CannotHonour(deleteEntry(5, nlohmann::json::array())));
+}
+
+// [Co-developed with claude code -- Adam]
+// A priority is an OpenFlow priority: an integer from 0 to 65535. Anything else used to be taken
+// by makeInstallJob/makeDeleteJob's `value("priority", ...)` -- nlohmann converts `true` to 1 and
+// truncates 1.5 -- or wrapped (2^32 into an int), and was queued as some other priority. The shape
+// check, which runs before any job is built, now refuses it; the endpoint tests in
+// test_HttpSessionRouting.cpp drive the same values through processFlowBatch.
+TEST(FlowEntryShapeTest, APriorityThatIsNotAnIntegerFrom0To65535IsRefused)
+{
+    for (const auto op : {FlowOp::Install, FlowOp::Modify, FlowOp::Delete})
+    {
+        for (const nlohmann::json& bad :
+             {nlohmann::json(true), nlohmann::json(false), nlohmann::json(1.5),
+              nlohmann::json(100.0), nlohmann::json("100"), nlohmann::json(-1),
+              nlohmann::json(65536), nlohmann::json(4294967296LL), nlohmann::json(nullptr),
+              nlohmann::json::array({1})})
+        {
+            auto e = entryWith({{"dpid", 1}, {"priority", bad}, {"actions", nlohmann::json::array()}});
+            EXPECT_NE(describeFlowEntryShapeProblem(e, op), "")
+                << "priority " << bad.dump() << " was accepted";
+        }
+    }
+}
+
+TEST(FlowEntryShapeTest, APriorityFrom0To65535OrNoneAtAllIsAccepted)
+{
+    for (const auto op : {FlowOp::Install, FlowOp::Modify, FlowOp::Delete})
+    {
+        for (const nlohmann::json& good : {nlohmann::json(0), nlohmann::json(65535),
+                                           nlohmann::json(10), nlohmann::json(50000u)})
+        {
+            auto e = entryWith({{"dpid", 1}, {"priority", good}, {"actions", nlohmann::json::array()}});
+            EXPECT_EQ(describeFlowEntryShapeProblem(e, op), "") << good.dump();
+        }
+        EXPECT_EQ(describeFlowEntryShapeProblem(
+                      entryWith({{"dpid", 1}, {"actions", nlohmann::json::array()}}), op),
+                  "");
+    }
+}
+
+TEST(P4PriorityDeleteTest, OnlyBmv2DpidsAreRefusedAndTheRestKeepTheirOrder)
+{
+    const auto dels = nlohmann::json::array({
+        nlohmann::json{{"dpid", 1}, {"priority", 100}, {"match", kDestOnly}},   // bmv2: refused
+        nlohmann::json{{"dpid", 2}, {"priority", 100}, {"match", kDestOnly}},   // OVS: kept
+        nlohmann::json{{"dpid", 1}, {"match", kDestOnly}},                      // non-strict: kept
+        nlohmann::json{{"dpid", 1}, {"priority", 7}, {"match", kDestOnly}},     // bmv2: refused
+    });
+    const auto out =
+        refusePriorityDeletesP4CannotHonour(dels, [](uint64_t dpid) { return dpid == 1; });
+
+    ASSERT_EQ(out.refused.size(), 2u);
+    EXPECT_EQ(out.refused[0].at("index"), 0);
+    EXPECT_EQ(out.refused[0].at("requested_priority"), 100);
+    EXPECT_EQ(out.refused[1].at("index"), 3);
+    EXPECT_EQ(out.refused[1].at("dpid"), 1);
+    ASSERT_EQ(out.admitted.size(), 2u);
+    EXPECT_EQ(out.admitted[0].at("dpid"), 2);
+    EXPECT_EQ(out.admitted[1], dels[2]);
+}
+
+// [Co-developed with claude code -- Adam]
+// refusePriorityDeletesP4CannotHonour is a public inline function. processFlowBatch only calls it
+// after the shape check, but nothing stops another caller from handing it raw entries -- and it used
+// to read `dpid` and `priority` through nlohmann's const operator[], which asserts (aborts the
+// process) on a missing key instead of throwing. These pin that an entry missing either key is
+// admitted untouched, left for the shape check to refuse.
+TEST(P4PriorityDeleteTest, ADeleteWithoutAPriorityIsAdmittedUntouched)
+{
+    const auto dels = nlohmann::json::array({nlohmann::json{{"dpid", 1}, {"match", kDestOnly}}});
+    const auto out = refusePriorityDeletesP4CannotHonour(dels, [](uint64_t) { return true; });
+    EXPECT_TRUE(out.refused.empty());
+    ASSERT_EQ(out.admitted.size(), 1u);
+    EXPECT_EQ(out.admitted[0], dels[0]);
+}
+
+TEST(P4PriorityDeleteTest, ADeleteWithoutADpidIsAdmittedRatherThanReadPastItsKeys)
+{
+    const auto dels =
+        nlohmann::json::array({nlohmann::json{{"priority", 100}, {"match", kDestOnly}}});
+    bool asked = false;
+    const auto out = refusePriorityDeletesP4CannotHonour(dels, [&asked](uint64_t) {
+        asked = true;
+        return true;
+    });
+    EXPECT_FALSE(asked) << "the plane was asked about a dpid the entry does not have";
+    EXPECT_TRUE(out.refused.empty());
+    ASSERT_EQ(out.admitted.size(), 1u);
+    EXPECT_EQ(out.admitted[0], dels[0]);
+}

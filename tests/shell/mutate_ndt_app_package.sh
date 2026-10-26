@@ -130,7 +130,7 @@ check_fires() {   # <label> <name> <check text that MUST go red> [<more check te
         printf '             red: %s\n' "${wants[@]}"
         # Every OTHER cell this mutation reddened, so "which test kills which mutation" can be
         # rebuilt from the log rather than from memory -- mutate_drive_exercise.sh's own line,
-        # for the same reason (P2-C SUMMARY §8.2-5).
+        # for the same reason.
         /usr/bin/grep '^  FAILED' <<<"$out" | sed 's/^  FAILED   /             also red: /'
         CAUGHT=$((CAUGHT+1))
     else
@@ -139,7 +139,7 @@ check_fires() {   # <label> <name> <check text that MUST go red> [<more check te
         # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
         # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
         # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
-        # read by the orchestrator as the named check that stayed green. The line that names
+        # read as the named check that stayed green. The line that names
         # that check is the `still green:` one above; this one is context, and context that
         # shows passing cells as failures is worse than no context.
         /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
@@ -167,7 +167,7 @@ check_control() {   # <label> <name> -- a behaviour-preserving edit; the suite m
         # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
         # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
         # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
-        # read by the orchestrator as the named check that stayed green. The line that names
+        # read as the named check that stayed green. The line that names
         # that check is the `still green:` one above; this one is context, and context that
         # shows passing cells as failures is worse than no context.
         /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
@@ -316,7 +316,7 @@ check_fires "M10: NDT_TOPO may disagree with the package" m10 \
 # --- M11: `status --check` stops going red on a knob whose package is gone -----------------
 # The row still prints. Only the problem list -- the thing `--check` exits on, and the thing an
 # end-of-round script reads -- goes quiet, which is the "red text with a green exit code" shape
-# Adam ruled against when E-9 was decided.
+# that was decided against on 2026-09-07.
 cat > "$A/m11.old" <<'EOF'
         STATUS_APP_PROBLEMS+=("the app package knob ($rel) names $state, which does not exist -- the next 'ndt up p4' cannot start its proxy")
 EOF
@@ -365,7 +365,7 @@ EOF
 check_fires "M14: the proxy's own last words are not printed" m14 \
             "🔴 the PROXY's own last words are printed"
 
-# --- M15: a fabric that never came up says nothing about why (TICKET-P1D) ---------------------
+# --- M15: a fabric that never came up says nothing about why ---------------------
 # The 2026-09-18 live round: `0/4 switches, manifest missing`, `look at the pane` -- and no
 # pane, because the bridge had already exited and tmux reaps the session with the process. This
 # puts that silence back.
@@ -429,7 +429,7 @@ EOF
 check_fires "M18: the switch count comes off the global ten again" m18 \
             "🔴 a 4-switch package makes the want 4, not 10"
 
-# --- M19-M23: TICKET-P2 §5.5, the package pipeline and the sampling rate ---------------------
+# --- M19-M23: the package pipeline and the sampling rate ---------------------
 #
 # The whole family is one shape: a number decoded from p4_proxy/p4_src/build/ndtwin_switch.json
 # printed for a fabric that never loaded that file. That is X-2 with a different plane in it --
@@ -499,7 +499,7 @@ check_fires "M23: a foreign pipeline raises the built json's rate problems" m23 
             "🔴 a foreign pipeline raises none of the rate problems" \
             "  nor any problem about the compiled rate"
 
-# --- M24-M33: TICKET-P2-D, `verify_p4` over a fabric running the package's own program --------
+# --- M24-M33: `verify_p4` over a fabric running the package's own program --------
 #
 # The family this time is one live defect and the three ways of over-correcting it. On
 # 2026-09-18 `ndt up p4 --app <exercises/basic>` waited out CONVERGE_WAIT for twelve destination
@@ -569,9 +569,9 @@ check_fires "M25: refused table entries no longer fail the bring-up" m25 \
             "🔴 and not the counts-disagree sentence, which is a different fault"
 
 # M26: forwarding is a gate again. `ndt up` then exits 1 on every skeleton arm and on
-# source_routing's solution (whose own answer to a plain ping is silence -- audit-raw 7af2f352
-# measured that arm with send.py/receive.py and a ttl), so drive_exercise.py never sees a red
-# arm or a green one, only ERROR for both. This is the exact shape TICKET-P2 §7-10 decided
+# source_routing's solution (whose own answer to a plain ping is silence;
+# that arm was measured with send.py/receive.py and a ttl), so drive_exercise.py never sees a red
+# arm or a green one, only ERROR for both. This is the exact shape that was decided
 # against, restored.
 cat > "$A/m26.old" <<'EOF'
             verify_dataplane_reading "$src" "$dst" "$(switch_state_p4info_shas <<<"$state")"
@@ -613,7 +613,7 @@ check_fires "M28: status wants paths nobody was ever going to install" m28 \
             "🔴 a package fabric is told the count is not a reading" \
             "🔴 and the shortfall is NOT a --check problem"
 
-# [Co-developed with claude code -- Adam] M28b (Adam's 09-28 ruling): the status row's external
+# [Co-developed with claude code -- Adam] M28b (09-28): the status row's external
 # branch is never taken, so an external control plane on its own pipeline is told its count is
 # the twin's guess over the declared links -- the guess the proxy no longer makes there.
 cat > "$A/m28b.old" <<'EOF'
@@ -625,7 +625,7 @@ EOF
 check_fires "M28b: an external plane's no-path row is read as a guess" m28b \
             "🔴 an external plane on its own pipeline expects no path"
 
-# [Co-developed with claude code -- Adam] M28c (the round-4 review's nit): a count of paths on an
+# [Co-developed with claude code -- Adam] M28c: a count of paths on an
 # external control plane -- the guess coming back -- is never flagged.
 cat > "$A/m28c.old" <<'EOF'
                     if [[ "$paths" =~ ^[0-9]+$ ]] && (( paths > 0 )); then
@@ -702,7 +702,7 @@ check_fires "M33: an unreadable package is treated as somebody else's pipeline" 
 
 # --- M34: THE LIVE DEFECT ITSELF, in the form it shipped in ----------------------------------
 #
-# 🔴 THE ONE MUTATION THIS WHOLE TICKET IS ABOUT, and the first round did not have it. Every
+# 🔴 THE ONE MUTATION THIS WHOLE GATE IS ABOUT, and the first version did not have it. Every
 # other mutation here attacks a piece of the new branch; this one deletes the branch and puts
 # `365c60e1` back. A foreign fabric falls into the counting loop, polls forty times for twelve
 # destination paths the proxy has said it will never install, reads four, and ends
@@ -716,7 +716,7 @@ check_fires "M33: an unreadable package is treated as somebody else's pipeline" 
 # times in verify_p4 -- the paths branch, the data-plane branch and the caveat -- so the elif
 # alone would be a DUP and this mutation would be scored as a survivor rather than applied.
 # The external branch's last warn is unique, and it is the line this elif hangs off.
-# 🔴 THE ANCHOR MOVED IN ROUND 4: TICKET-P2-F put the external plane's own probe gate between
+# 🔴 THE ANCHOR MOVED LATER: the external-liveness change put the external plane's own probe gate between
 # that warn and this elif, so the old pair no longer occurs and the mutation scored ANCHOR:0 --
 # a survivor, correctly, because a mutation that cannot be applied has proved nothing. The line
 # above the elif is now the probes call, which is equally unique.
@@ -750,7 +750,7 @@ check_fires "M35: the entries gate's verdict is ignored" m35 \
             "🔴 a switch that reports no table_entries is red" \
             "🔴 refusals are red even when the counts add up"
 
-# --- M36-M42: TICKET-P2-F, external liveness is a reading and the probe is the gate ----------
+# --- M36-M42: external liveness is a reading and the probe is the gate ----------
 #
 # The family is one live measurement: live-p1/03 printed `kernel: 3 switches, 3 up` and its own
 # `ndt status` one second later read `0 up, 3 enabled`. Nothing about the fabric changed in that
@@ -763,11 +763,11 @@ check_fires "M35: the entries gate's verdict is ignored" m35 \
 # external bring-up is then green or red depending on which second `ndt` read the graph in.
 cat > "$A/m36.old" <<'EOF'
     elif [[ "$mode" == external ]]; then
-        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING. TICKET-P2-F
+        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING.
 EOF
 cat > "$A/m36.new" <<'EOF'
     elif false; then
-        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING. TICKET-P2-F
+        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING.
 EOF
 check_fires "M36: external is judged on 'N up' again (the lottery)" m36 \
             "🔴 an external fabric with 0 up is GREEN" \
@@ -776,7 +776,7 @@ check_fires "M36: external is judged on 'N up' again (the lottery)" m36 \
 
 # M37: the check that REPLACED it is not a gate -- the errors still print, the bring-up is still
 # green. A switch nobody could reach is then reported and passed in the same breath, which is
-# strictly worse than the state before this ticket: it looks like it was checked.
+# strictly worse than the state before this fix: it looks like it was checked.
 cat > "$A/m37.old" <<'EOF'
         verify_p4_probes "$topo" || rc=1
 EOF
@@ -857,21 +857,21 @@ check_fires "M42: --check reports an external fabric as down" m42 \
             "🔴 and --check does NOT call the fabric broken" \
             "🔴 and says they are a reading"
 
-# --- M43-M47: the other direction of each P2-F conditional, and the two unchecked-is-not-passed
-#     paths (judge, round 5). Every new `if` had been mutated ONE way only, so the cells that
+# --- M43-M47: the other direction of each external-liveness conditional, and the two unchecked-is-not-passed
+#     paths. Every new `if` had been mutated ONE way only, so the cells that
 #     say "this is external-ONLY" had never gone red for anything.
 
 # M43 (widening): EVERY plane gets the external reading. `up` stops being a gate on NDTwin's own
 # pipeline and on the baseline too -- a fabric NDTwin genuinely failed to bring up is then
 # reported `ready` with its liveness printed as a reading. That is far worse than the defect
-# this ticket fixed: it is the same silence, applied where the numbers really are a verdict.
+# this fix addresses: it is the same silence, applied where the numbers really are a verdict.
 cat > "$A/m43.old" <<'EOF'
     elif [[ "$mode" == external ]]; then
-        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING. TICKET-P2-F
+        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING.
 EOF
 cat > "$A/m43.new" <<'EOF'
     elif true; then
-        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING. TICKET-P2-F
+        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING.
 EOF
 check_fires "M43 (widening): every plane gets the liveness reading" m43 \
             "🔴 the SAME graph on the baseline path is still red" \
@@ -953,7 +953,7 @@ check_control "C2: --app=<dir> stripped by offset instead of prefix" c2
 
 
 # =================================================================================================
-# TICKET-P3 §6.3: the telemetry source, the emitter and the fingerprint.
+# The telemetry source, the emitter and the fingerprint.
 #
 # 🔴 THE SHAPE OF THIS FEATURE'S FAILURES IS SILENCE. A telemetry knob that is not written, an
 # emitter whose death nobody notices, a fingerprint that cannot tell two proxies apart -- none of
@@ -1222,7 +1222,7 @@ check_fires "M65: the telemetry gate is run and its verdict ignored" m65 \
 # cooperative header at all, so `cooperative` there means the proxy writes a clone session for a
 # pipeline that cannot clone -- and the link emitter, which the fabric DID attach, is then the
 # only source while the twin believes there are two.
-# 🔴 THE ANCHOR MOVED WITH THE RULE (§9 ruling 9 R1, round 2). `ndt` no longer re-derives the
+# 🔴 THE ANCHOR MOVED WITH THE RULE. `ndt` no longer re-derives the
 # split from `foreign:<dpids>`: it CALLS app_package.telemetry_source once per switch, which is
 # the only implementation of §2.1's three layers on this side of the merge. So the edit that
 # reproduces the old defect is the one that asks about ONE switch and prints its answer for all
@@ -1273,10 +1273,10 @@ EOF
 check_fires "M69: a surviving link emitter is not called residue" m69 \
             "🔴 an emitter that outlived the teardown is residue"
 
-# --- M70 (§9 ruling 19①(b), re-anchored): the stale manifest is neither removed nor reported ----
+# --- M70 (re-anchored): the stale manifest is neither removed nor reported ----
 # 🔴 THE ANCHOR MOVED WITH THE BEHAVIOUR. Until the first live run this mutation deleted the
 # `residue: ... is gone.` warning, because reporting was all `ndt down` did with a dead pid.
-# Ruling 19①(b) replaced that report with a REMOVAL, so the old anchor is gone and the
+# A later change replaced that report with a REMOVAL, so the old anchor is gone and the
 # mutation worth making is the one that drops the whole `dead` arm: no removal, no sentence,
 # and the next reader of that file is told about an emitter that does not exist.
 cat > "$A/m70.old" <<'EOF'
@@ -1293,7 +1293,7 @@ check_fires "M70: a stale link-telemetry manifest is left in place, silently" m7
             "🔴 a stale manifest is REMOVED, not reported" \
             "🔴 and the file really is gone"
 
-# --- M74 (§9 ruling 19①(b)): the stale manifest goes back to being reported ---------------------
+# --- M74: the stale manifest goes back to being reported ---------------------
 # 🔴 THE LIVE DEFECT, RESTORED. `topo-stop`'s SIGHUP kills the pane's process group before
 # tear_down can run, so live 02/03/05 all ended with a manifest naming a dead pid. Reporting it
 # and exiting non-zero does the reporting half of a teardown and skips the doing -- and every
@@ -1311,7 +1311,7 @@ check_fires "M74: a provably stale link manifest is reported, not removed" m74 \
             "🔴 and the file really is gone"
 
 # --- M75 (widening): a LIVE emitter's manifest is deleted too -------------------------------------
-# 🔴 THE CONTROL FOR M74, and the line the ruling draws. `dead` is removable because
+# 🔴 THE CONTROL FOR M74, and the line it draws. `dead` is removable because
 # `process_is_the_emitter` has just proved nothing is running; `alive` is a root process this
 # command must not touch, and deleting the manifest that names it would remove the only record
 # of which pid to stop.
@@ -1327,11 +1327,11 @@ EOF
 check_fires "M75 (widening): a live emitter's manifest is deleted as well" m75 \
             "  the manifest is left exactly where it was"
 
-# --- M76 (ruling K, 2026-09-27): `alive` is asked with the pid alone ------------------------------
+# --- M76 (2026-09-27): `alive` is asked with the pid alone ------------------------------
 # 🔴 The bring-up records the emitter's argv and start time beside its pid, and the root teardown
 # will not signal a process that does not match them. A status row that asked with the pid alone
 # would call "alive" -- and print `kill <pid>` for -- a process that teardown refuses to touch.
-# The fixture emitter is in the launcher's four-word shape (judge KJL B2: nothing else may ever
+# The fixture emitter is in the launcher's four-word shape (nothing else may ever
 # read alive), so by pid and shape alone it IS alive; the cell that dies is the manifest naming
 # that same pid with a start time it never had -- only the recorded identity reads that DEAD.
 # [Co-developed with claude code -- Adam]

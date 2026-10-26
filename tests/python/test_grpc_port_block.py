@@ -368,29 +368,14 @@ TOPOLOGY_RESTATES_THE_OLD_BASE = re.compile(r"grpc_port\s*=\s*50050\s*\+")
 #: Files under doc/ or tools/ that may still name the old 5005x block, each for a stated
 #: reason. Everything else in those trees must describe the fabric as it is now.
 #:
-#: doc/audit/ as a whole is excluded separately: it is the archive of finished rounds, and a
-#: round's record says what the ports were on the day it ran. Rewriting a measurement to match
-#: today's configuration would turn evidence into a claim. The eighteen archived files that
-#: still name the old block, recorded here so the exclusion is a list and not a shrug:
+#: doc/audit/ as a whole is excluded separately: it holds the harnesses and raw output of
+#: finished rounds, and a round's record says what the ports were on the day it ran. Rewriting a
+#: measurement to match today's configuration would turn evidence into a claim.
 #:
-#:   2026-07-17_structure-decomposition/testbed_topo_analysis.md
-#:   2026-07-29_codebase-review/PROMPT_Fable_CodebaseAudit.md
-#:   2026-07-29_codebase-review/PROMPT_KernelTestSuite_Review.md
-#:   2026-08-12_overnight-review/{A-live-runbook,B1-commit-review,B2-doc-rot,
-#:                                B3-test-mutation,D-testing-doc-update}.md
-#:   2026-08-15_fresh-acceptance-report.md
-#:   2026-08-18_live-full-stack-round/subagent-round2-FINDINGS.md
-#:   2026-08-18_three-model-questioner-round/questions/deepseek-agent-CONTAMINATED.md
-#:   2026-08-25_sampling-rounds/{gate_d.sh,PREREG.md,run_e8.log}
-#:   2026-08-28_manual-verification-coverage/FINDINGS-section6-and-T2.md
-#:   2026-08-30_live-full-stack-round/harness/{90_restore.sh,lib.sh}
-#:   2026-08_session-handoff-log.md
-#:
-#: ⚠️ 2026-08-25_sampling-rounds/gate_d.sh is the one archived file with a live port filter
-#: (`dport >= :50053 and dport <= :50062`) rather than prose. Re-running that harness against
-#: a renumbered fabric would read 0 bytes -- which is exactly the "telemetry is dead" verdict
-#: the gate exists to make, and its own comment says so. It stays as the record of that round;
-#: anyone reusing it must re-point the filter first.
+#: ⚠️ A harness there that carries a live port filter (`dport >= :50053 and dport <= :50062`)
+#: rather than prose must be re-pointed before anyone reuses it: run against a renumbered fabric
+#: it would read 0 bytes -- which is exactly the "telemetry is dead" verdict such a gate exists to
+#: make.
 ARCHIVED_TREE = os.path.join("doc", "audit")
 ALLOWED_TO_NAME_THE_OLD_BLOCK = {
     # The issue register. F-15's row has to name the ports it was about to be readable, and a
@@ -476,7 +461,7 @@ ALLOWED_LINES_NAMING_THE_OLD_BLOCK = {
 }
 
 #: 50051-50060, 50050, and the ":5005x" shorthand. Bounded so it does not fire on decimals:
-#: doc/audit/2026-08-28_flow-count-capacity/PREREG.md carries the value 0.5005557, which an
+#: a measurement record under doc/audit/ carries the value 0.5005557, which an
 #: unbounded search reports as a port reference.
 OLD_BLOCK = re.compile(r"\b5005[0-9]\b|\b50050\b|5005x")
 

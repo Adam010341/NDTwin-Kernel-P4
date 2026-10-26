@@ -5,7 +5,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # What the finding was, measured 2026-09-11 02:52:03 and again 02:52:27 -- 57 s and 81 s after the
-# event, so not a race (hunt-0911/R7-reconciler.md round 14):
+# event, so not a race:
 #
 #     ryu.pid        20717    /proc/20717 does not exist
 #     ryu.child.pid  20722    /proc/20722 does not exist

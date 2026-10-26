@@ -18,12 +18,11 @@
  * WHY A "DOES IT WORK" TEST IS NOT ENOUGH
  *
  * It is a genuine race and its outcome is decided by how long `file >> j` takes. Measured over 60
- * cold starts (doc/audit/2026-09-03_night-rounds/round3-restart-concurrency/SUMMARY.md, lead C):
- * the power manager WON 5/8 at a 310-byte topology and 5/8 at 587 bytes, and lost 44 of 44 at
- * 7.8 KB and above -- 0/20 on the shipped 4-host P4 model. So a test that merely checks the
- * liveness poll eventually happens would pass today and pass again the day someone puts the load
- * back on the spawned thread, as long as the topology in front of it is small enough. It would go
- * red only for whoever runs the real fabric.
+ * cold starts: the power manager WON 5/8 at a 310-byte topology and 5/8 at 587 bytes, and lost
+ * 44 of 44 at 7.8 KB and above -- 0/20 on the shipped 4-host P4 model. So a test that merely
+ * checks the liveness poll eventually happens would pass today and pass again the day someone
+ * puts the load back on the spawned thread, as long as the topology in front of it is small
+ * enough. It would go red only for whoever runs the real fabric.
  *
  * WHAT THESE ASSERT INSTEAD
  *
@@ -117,7 +116,7 @@ class DataPlaneKindOrderingTest : public ::testing::Test
         if (m_started)
         {
             // Reverse of the start order below. The manager's stop() joins all three of its
-            // threads only since fix/b5-kernel-shutdown; before that this would have aborted.
+            // threads only since the kernel-shutdown fix; before that this would have aborted.
             m_manager->stop();
             m_monitor->stop();
         }

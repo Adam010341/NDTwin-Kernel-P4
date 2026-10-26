@@ -215,12 +215,12 @@ each_mutation() {
                     raise SlotPriorityNotHeld(dpid, ipv4_dst, named, held)
             success = self._write_slot(
                 dpid, ipv4_dst, client,
-                lambda: client.modify_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port),
+                lambda: client.modify_ipv4_route(address, prefix_len, next_hop_mac, out_port),
                 slot_priority.KEEP)' \
         '                held = slots.held(dpid, ipv4_dst, client)
             success = self._write_slot(
                 dpid, ipv4_dst, client,
-                lambda: client.modify_ipv4_route(ipv4_dst, 32, next_hop_mac, out_port),
+                lambda: client.modify_ipv4_route(address, prefix_len, next_hop_mac, out_port),
                 slot_priority.KEEP)
             if named is not None and held != named:
                 raise SlotPriorityNotHeld(dpid, ipv4_dst, named, held)' \
@@ -328,15 +328,19 @@ each_mutation() {
         'test_a_modify_at_ten_after_an_install_at_100_is_501'
 
     "$m" "15. the A-4d restore does not record the control plane's priority" "$TOPO" \
-        'lambda: client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, restore_port),
+        'lambda: client.insert_ipv4_route(address, prefix_len, next_hop_mac,
+                                                     restore_port),
                     CONTROL_PLANE_ROUTE_PRIORITY)' \
-        'lambda: client.insert_ipv4_route(ipv4_dst, 32, next_hop_mac, restore_port),
+        'lambda: client.insert_ipv4_route(address, prefix_len, next_hop_mac,
+                                                     restore_port),
                     None)' \
         'test_a_modify_at_ten_after_the_restore_is_honoured_again'
 
     "$m" "16. a removal keeps the removed entry's priority" "$TOPO" \
-        'lambda: client.delete_ipv4_route(ipv4_dst, 32), None)' \
-        'lambda: client.delete_ipv4_route(ipv4_dst, 32), slot_priority.KEEP)' \
+        'lambda: client.delete_ipv4_route(address, prefix_len),
+                                       None)' \
+        'lambda: client.delete_ipv4_route(address, prefix_len),
+                                       slot_priority.KEEP)' \
         'test_a_removed_slot_has_no_record'
 
     "$m" "17. an honoured modify forgets the slot's priority" "$TOPO" \
@@ -441,13 +445,15 @@ each_mutation() {
         self.pipeline_push_epoch += 1' \
         'test_a_push_that_times_out_still_moves_it'
 
+    # Re-anchored on the line that now follows the early return (the refusal's wording is chosen
+    # between the return and the raise since the prefix case, 2026-10-23).
     "$m" "30. a strict delete at the control plane's priority is honoured" "$API" \
         '    if priority is None or needs_five_tuple(match):
         return
-    raise HTTPException(' \
+    # [Co-developed with claude code -- Adam] What a non-strict delete does here' \
         '    if priority is None or needs_five_tuple(match) or priority == CONTROL_PLANE_ROUTE_PRIORITY:
         return
-    raise HTTPException(' \
+    # [Co-developed with claude code -- Adam] What a non-strict delete does here' \
         'test_a_strict_delete_at_ten_is_still_501'
 
     "$m" "31. the handler does not answer SlotPriorityNotHeld as a 501" "$API" \
@@ -478,10 +484,12 @@ each_mutation() {
 
     # ---- round 2 (review r1, 2026-10-16) ---------------------------------------------
     # [Co-developed with claude code -- Adam]
-    # Re-anchored in round 3: slot_key now goes through canonical_ipv4, and since the verbs
-    # canonicalize first, the record's own contract test is what sees this.
+    # Re-anchored in round 3: slot_key now goes through the route key, and since the verbs
+    # canonicalize first, the record's own contract test is what sees this. Re-anchored
+    # 2026-10-23 (prefix destinations): 3, 15, 16, 34 and 36 follow the route key's text --
+    # address/prefix_len, canonical_route_key -- with the same mutations.
     "$m" "34. the slot is keyed on the caller's spelling, not the switch's entry" "$SLOT" \
-        '    return dpid, canonical_ipv4(ipv4_dst)' \
+        '    return dpid, canonical_route_key(ipv4_dst)' \
         '    return dpid, ipv4_dst' \
         'test_two_spellings_are_one_lock_and_one_record'
 
@@ -494,9 +502,9 @@ each_mutation() {
 
     "$m" "36. a delete or A-4d restore writes without the slot's lock" "$TOPO" \
         '        with self.slot_priorities().lock(dpid, ipv4_dst):
-            restore_port = self._control_plane_port(dpid, ipv4_dst)' \
+            restore_port = (self._control_plane_port(dpid, ipv4_dst)' \
         '        with threading.Lock():
-            restore_port = self._control_plane_port(dpid, ipv4_dst)' \
+            restore_port = (self._control_plane_port(dpid, ipv4_dst)' \
         'test_a_restore_cannot_land_between_a_modifys_check_and_its_write'
 
     "$m" "37. the refill writes without the slot's lock" "$TOPO" \

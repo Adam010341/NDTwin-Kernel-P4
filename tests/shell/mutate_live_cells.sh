@@ -125,7 +125,7 @@ check_cell() {
 #
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
 # read this gate out of this function's own `local label="$1" file="$2" old="$3" new="$4"` line.
-# A gate that tool cannot read is a gate it is not checking (finding #28).
+# A gate that tool cannot read is a gate it is not checking.
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"
@@ -188,9 +188,9 @@ control() {   # $1 = label, $2 = mutant dir, $3 = the cell whose fixture check m
 # --- the restore DECISION, which is run_cells.sh's and not a judge's ---------------------------
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 FIX-NDT-8, 2026-09-12. The grid's restore is the one part of this directory that decides
+# 🔴 2026-09-12. The grid's restore is the one part of this directory that decides
 # something without being a cell: after every cell it runs `ndt down`, `ndt clean` and the orphan
-# verdict and rules on whether the next cell may start. Adam's ruling gave the two verbs a
+# verdict and rules on whether the next cell may start. The decision gave the two verbs a
 # vocabulary that can be judged hard again (0 and 3 restored, 1 and 5 not), so the rules are
 # worth pinning -- and the cell oracle above cannot see them, because restore() is not a judge.
 #
@@ -330,7 +330,7 @@ fi
 # 🔴 The restore's own baseline, and it is compared against a REVIEWED answer rather than
 # against itself: a fingerprint taken from the file under test and then used as the oracle for
 # that file would score every mutation against whatever the file currently does.
-echo "(a2) baseline: run_cells.sh's restore decides the six cases the way Adam ruled"
+echo "(a2) baseline: run_cells.sh's restore decides the six cases as specified"
 CHECKS=$((CHECKS+1))
 RESTORE_BASE="$(restore_fingerprint "$CELLDIR")"
 if [[ "$RESTORE_BASE" == "$RESTORE_EXPECT" ]]; then
@@ -536,7 +536,7 @@ m=$(mutant m20c "$CELL_SAPDNFTF" \
     '    if [[ "$nprob" == 0 ]]; then' \
     '    if true; then')
 report "M21c (widen) RESIDUE-1: the problem list stops being read at all" "$m" stale_app_pidfile_does_not_frame_the_fabric
-# 🔴 The cell's own hygiene, and it is mutated like a finding because the SUMMARY of 2026-09-12
+# 🔴 The cell's own hygiene, and it is mutated like a finding because a report of 2026-09-12
 # claimed the rule had come off the wire on the strength of `delete.code` 200 -- while the raw
 # beside it still had 10.99.99.99 in the table. A cell that installs something must be able to
 # say it took it back, and "it replied 200" is not that sentence.
@@ -559,7 +559,7 @@ m=$(mutant m22 "$CELL_NWRNTLC" \
 report "M23 (widen)  G-32 C: one of the two writes is enough" "$m" northbound_write_reply_names_the_lab_claim
 
 echo
-# --- run_cells.sh's restore: the rules Adam ruled on 09-12 -------------------------------------
+# --- run_cells.sh's restore: the rules decided on 09-12 -------------------------------------
 CELL_RUNCELLS="$CELLDIR/run_cells.sh"
 
 # R1: rc 3 stops being a restored lab. "Measured nothing" is the ordinary state between cells --
