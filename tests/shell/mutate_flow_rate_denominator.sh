@@ -4,7 +4,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # WHY A SECOND SCRIPT RATHER THAN FIVE MORE SLOTS IN mutate_rate_denominator.sh.
-# That one is ticket Q's evidence for the LINK path and it is cited as such. This is the flow
+# That one is the evidence for the LINK path and it is cited as such. This is the flow
 # path, it mutates different files, and it must not be able to change the recorded verdict of the
 # other. Keeping them apart also keeps each runnable on its own: a header this one mutates
 # (common_types/SFlowType.hpp) rebuilds ~60 translation units, so a combined script would cost
@@ -161,7 +161,7 @@ printf '  ✅ green -- %s\n' "$(grep -o '\[  PASSED  \].*' <<<"$base_out" | head
 # --- F1: the defect itself ------------------------------------------------------------------
 # This restores the expression the kernel actually shipped: delta * 8 * samplingRate, with no
 # division. Seeing the named test red against it IS the "seen failing against the unfixed code"
-# observation for this ticket, and unlike a one-off manual check it is reproducible.
+# observation for this fix, and unlike a one-off manual check it is reproducible.
 run_mutation "F1. drop the division on the BIT rate (restores the shipped defect)" "$SFT" '
 import sys,pathlib
 p=pathlib.Path(sys.argv[1]); s=p.read_text()
@@ -190,7 +190,7 @@ p.write_text(s.replace(old,new,1))
 ' ZeroIntervalLeavesTheFlowAlone
 
 # --- F4: THE WIRING -------------------------------------------------------------------------
-# The mutation an arithmetic-only suite cannot kill, and the exact shape of what this ticket is
+# The mutation an arithmetic-only suite cannot kill, and the exact shape of what this fix is
 # repairing: a correct divider handed an assumed one-second interval. Every other test in the
 # suite stays green against it.
 run_mutation "F4. the loop assumes a 1 s period instead of measuring it (WIRING)" "$FLUC" '

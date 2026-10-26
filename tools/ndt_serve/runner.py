@@ -8,7 +8,7 @@
 The server starts this in a NEW SESSION (setsid) and returns. From then on this process, not the
 server, owns the job: it starts `ndt` -- in a session of its own again -- with stdout and stderr
 going straight to files, waits for it, and writes exit.json. The server can die, be restarted, or
-never come back, and the job still runs to the end and still leaves its rc on disk (TICKET 3.5).
+never come back, and the job still runs to the end and still leaves its rc on disk.
 
 Why two sessions and not one:
 
@@ -30,7 +30,7 @@ Files in <job-dir> (the server wrote request.json before starting this):
     exit.json      {"rc": <int>, ...}               (here, atomically, once ndt has been reaped)
 
 🔴 No signal is ever sent from here, and there is no pattern-matching of process names anywhere
-in this service (TICKET 3.6).
+in this service.
 """
 import json
 import os

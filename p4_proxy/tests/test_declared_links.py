@@ -3,7 +3,7 @@ Declared links: a foreign fabric's inter-switch cables come from its package, no
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P4-roles section 2.3. On a fabric with a foreign switch there is no LLDP -- the programs
+On a fabric with a foreign switch there is no LLDP -- the programs
 carry no controller header -- so the proxy's graph never learned an inter-switch edge, served
 none on /v1.0/topology/links, and the kernel's topology poll never enabled one: live
 `2026-09-19T062604Z_02_app_basic` has all eight of pod-topo's inter-switch directions at
@@ -17,7 +17,7 @@ What is asserted, and what each assertion stands against:
     declaration is "this cable exists", not "this cable just came back", and a recovery report
     would fight the kernel's own guard against resurrecting a link declared down (M-R7);
   * the beacon evidence the watchdog reads is untouched, and every declared link is marked
-    `source: "declared"` with `down: null` -- nobody is checking it (2.3-4);
+    `source: "declared"` with `down: null` -- nobody is checking it;
   * a fabric that runs LLDP seeds nothing;
   * the routes come back exactly when EVERY foreign switch binds roles.ipv4_route with owner
     ndtwin, and stay skipped with one unbound switch or one package-owned table (M-R8, M-R9);
@@ -241,7 +241,7 @@ def clients_bound(*bindings):
 
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class WhichFabricsSeedAndWhenRoutesComeBackTest(unittest.TestCase):
-    """2.3-1 and 2.3-3, decided in startup()."""
+    """Decided in startup()."""
 
     def setUp(self):
         saved = (dict(main._fabric), dict(main._capabilities))
@@ -270,7 +270,7 @@ class WhichFabricsSeedAndWhenRoutesComeBackTest(unittest.TestCase):
         self.assertEqual(len(topo.seeded), 1)
 
     def test_a_fabric_that_skips_its_routes_tells_the_route_writer(self):
-        # Section 7 ruling 5 item 1: the declared cables are in `net` now, so the fabric's
+        # The declared cables are in `net` now, so the fabric's
         # route skip has to reach whatever writes routes later (readopt), not only startup.
         _summary, topo = self.start(clients_bound(None, None), a_foreign_package())
         self.assertIs(topo.routes_to_attached_hosts_only, True)
@@ -330,9 +330,9 @@ class WhichFabricsSeedAndWhenRoutesComeBackTest(unittest.TestCase):
         self.assertEqual(topo.seeded, [])
 
     def test_a_topology_double_without_the_seeding_call_does_not_stop_startup(self):
-        # Every pre-roles FakeTopo is this. Round 2 (TICKET-P4-roles section 7 ruling 5, item
-        # 8): the fabric's MODE is still "declared" -- the seed failing does not make it an
-        # external fabric -- and the failure is disclosed at fabric level instead.
+        # Every pre-roles FakeTopo is this. The fabric's MODE is still "declared" -- the seed
+        # failing does not make it an external fabric -- and the failure is disclosed at fabric
+        # level instead.
         summary, _parts = run_startup(clients_bound(None), topo=FakeTopo(),
                                       package=a_foreign_package(dpids=(1,)))
         self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "declared")
@@ -342,12 +342,12 @@ class WhichFabricsSeedAndWhenRoutesComeBackTest(unittest.TestCase):
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class LinkDiscoveryIsTheModeNotTheSeedCountTest(unittest.TestCase):
     """
-    TICKET-P4-roles section 7 ruling 5, item 8. [Co-developed with claude code -- Adam]
+    [Co-developed with claude code -- Adam]
 
-    Round 1 derived `link_discovery` from how many directions the seed entered, so a foreign
-    fabric whose package declares no inter-switch cable -- or whose seed raised -- said "none",
-    the word that also means an external control plane. A reader could not tell the two apart.
-    The word is now the fabric's MODE (lldp / declared / none = external only), and what the
+    `link_discovery` must not be derived from how many directions the seed entered: a foreign
+    fabric whose package declares no inter-switch cable -- or whose seed raised -- would say
+    "none", the word that also means an external control plane, and a reader could not tell the
+    two apart. The word is the fabric's MODE (lldp / declared / none = external only), and what the
     seed actually did is a separate, fabric-level `declared_links` object on switch_state.
     """
 

@@ -111,9 +111,9 @@ else:
 #
 # Generous because the legitimate wait is long: the host-discovery gate above plus the walk
 # itself. Both are measured -- the settle wait is NDTWIN_RYU_SETTLE_S (default 40, and measured
-# to run its full length every time), the walk is 0.25s at 128 hosts (doc/audit/
-# 2026-08-21_ryu-topology-scaling/WALK_SWEEP.md) -- so 300s has room even for a gate that runs
-# its deadline out, and a switch that is merely slow to dial in must not trip this.
+# to run its full length every time), the walk is 0.25s at 128 hosts (a 2026-08-21 sweep) -- so
+# 300s has room even for a gate that runs its deadline out, and a switch that is merely slow to
+# dial in must not trip this.
 initial_install_deadline = int(os.environ.get("NDTWIN_RYU_INITIAL_INSTALL_DEADLINE", "300"))
 
 # [Co-developed with claude code -- Adam]
@@ -149,8 +149,7 @@ initial_install_deadline = int(os.environ.get("NDTWIN_RYU_INITIAL_INSTALL_DEADLI
 #
 # !! READ THIS BEFORE TRUSTING THE WORD "GATE" ABOVE !!
 #
-# Measured 2026-08-22, two deadlines, everything else held
-# (doc/audit/2026-08-22_settle-gate-acceptance/):
+# Measured 2026-08-22, two deadlines, everything else held:
 #
 #     deadline  90s -> gate read 0/128 for the whole  90s, boot 101s, final 128/128, 288 up/0 down
 #     deadline 180s -> gate read 0/128 for the whole 180s, boot 191s, final 128/128, 288 up/0 down
@@ -172,8 +171,7 @@ initial_install_deadline = int(os.environ.get("NDTWIN_RYU_INITIAL_INSTALL_DEADLI
 # fabric bring-up. Do not write any of those down as the reason -- none has been tested.
 #
 # The default is 40, chosen off a measured curve rather than off margin-on-a-guess. Every cell
-# is a full 128-host boot, both sides read at t+0 and again 20 s later
-# (doc/audit/2026-08-22_settle-gate-acceptance/settle_bisect.txt):
+# is a full 128-host boot, both sides read at t+0 and again 20 s later:
 #
 #     settle   boot    Ryu     kernel graph      verdict
 #        5      16s    0/128   288e / 256 down   BLIND
@@ -215,9 +213,9 @@ HOST_QUERY_TIMEOUT_S = float(os.environ.get("NDTWIN_RYU_HOST_QUERY_TIMEOUT_S", "
 #: HOST_QUERY_TIMEOUT_S above bounds get_all_host. It was the third of three untimed
 #: request-reply calls reachable from the EventSwitchEnter handler, and bounding it moved the
 #: wedge to the other two rather than ending it: measured 2026-08-25, both ring-fix arms wedged
-#: with the event loop parked in get_switch or get_link, never in the bounded host read
-#: (doc/audit/2026-08-25_ring-edge-fix/). These two calls sit EARLIER in the same handler than
-#: the async spawn does, so 72fbae6 could not help them either.
+#: with the event loop parked in get_switch or get_link, never in the bounded host read.
+#: These two calls sit EARLIER in the same handler than the async spawn does, so 72fbae6 could
+#: not help them either.
 #:
 #: TOPO_DEADLINE_S replaces a literal 20 that could not be enforced. The old loop re-checked
 #: `time() - start < 20` between iterations, so a single call that never returned was never
@@ -228,15 +226,15 @@ TOPO_QUERY_TIMEOUT_S = float(os.environ.get("NDTWIN_RYU_TOPO_QUERY_TIMEOUT_S", "
 TOPO_DEADLINE_S = float(os.environ.get("NDTWIN_RYU_TOPO_DEADLINE_S", "20"))
 
 # [Co-developed with claude code -- Adam]
-# 2026-08-25: default flipped OFF -> ON (Adam's ruling). Set the variable to "0" to opt out.
+# 2026-08-25: default flipped OFF -> ON. Set the variable to "0" to opt out.
 #
 # THE ONLY EVIDENCE FOR THIS FLIP IS BOOT TIME: wall 26s vs 52s, n=10 per arm, single variable,
 # same machine and evening, on an IDLE machine, with the banner below asserted present on all
-# ten async boots (doc/audit/2026-08-24_boot-ring-verify/).
+# ten async boots.
 #
 # 🔴 IT IS NOT A FIX FOR THE BOOT RING, and this must not drift into being described as one.
 # It was tested against a live reproducing ring on 2026-08-25 and WEDGED TWICE with the flag
-# asserted active (doc/audit/2026-08-25_ring-fix-verify/). Two counterexamples are on record.
+# asserted active. Two counterexamples are on record.
 # The ring survives this fix and d1d973d individually; §5-P's "cut any one edge and the ring
 # cannot close" is refuted by measurement.
 #
@@ -245,10 +243,10 @@ TOPO_DEADLINE_S = float(os.environ.get("NDTWIN_RYU_TOPO_DEADLINE_S", "20"))
 _async_topology_install = os.environ.get("NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL", "1") == "1"
 if _async_topology_install:
     # The leading sentence is stable ON PURPOSE: harnesses grep it to assert the flag actually
-    # reached Ryu (doc/audit/2026-08-24_boot-ring-verify, .../2026-08-25_ring-fix-verify). Do not
-    # reword it without updating those. The parenthetical now distinguishes default-on from
-    # explicitly-on -- it used to print "=1" unconditionally, which became a lie the moment the
-    # default flipped, and an assertion that reads a lie is worse than no assertion.
+    # reached Ryu. Do not reword it without updating those harnesses. The parenthetical now
+    # distinguishes default-on from explicitly-on -- it used to print "=1" unconditionally, which
+    # became a lie the moment the default flipped, and an assertion that reads a lie is worse
+    # than no assertion.
     _how = "explicitly set" if os.environ.get("NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL") else "default since 2026-08-25"
     print("NDTWIN: load_static_topology will run OFF the event handler "
           f"(NDTWIN_RYU_ASYNC_TOPOLOGY_INSTALL, {_how}; set 0 to opt out)", flush=True)
@@ -266,9 +264,9 @@ detecting_time = 60
 # fix: on 2026-08-24 six of ten default OVS boots wedged with LLDP link discovery producing
 # nothing at all, and py-spy could not name the culprit. Two dumps of a wedged Ryu ten seconds
 # apart were byte-identical -- one thread, parked in eventlet's epoll, no runnable greenlet
-# (doc/audit/2026-08-24_full-stack-run/REPORT.md). That rules out any busy-spin, and it is where
-# py-spy stops being useful: it reads THREAD stacks, and a parked greenlet's frames live on the
-# heap, not on any thread.
+# (measured 2026-08-24). That rules out any busy-spin, and it is where py-spy stops being
+# useful: it reads THREAD stacks, and a parked greenlet's frames live on the heap, not on any
+# thread.
 #
 # The surviving hypothesis is a queue cycle -- each Ryu app has a bounded hub.Queue(128), a put
 # into a full queue blocks the emitter, and blocking work inside an EventSwitchEnter handler
@@ -461,10 +459,10 @@ _install_greenlet_dump_handler()
 # looked like they had been configured and had not. A run that cannot show the line below in
 # its Ryu log was not using the knob, whatever the command line said.
 # [Co-developed with claude code -- Adam]
-# 2026-08-25: 0.01 is now the DEFAULT rather than an opt-in override (Adam's ruling).
+# 2026-08-25: 0.01 is now the DEFAULT rather than an opt-in override.
 #
 # Evidence for the value, and only this evidence: the loaded false-positive study measured
-# ZERO false positives across all six cells (doc/audit/2026-08-22_loaded-fp-study/), and the
+# ZERO false positives across all six cells (2026-08-22 loaded study), and the
 # detection speed-up was 3.9x. Nothing here bears on the boot ring or on settle -- those are
 # separate open defects and this knob is not a fix for either.
 #
@@ -655,8 +653,7 @@ class IntelligentRyu(app_manager.RyuApp):
 
         # [Co-developed with claude code -- Adam]
         # Topology rebuilds run on a worker greenlet, never on the event loop. See
-        # _topology_worker for why, and doc/audit/2026-08-25_ring-edge-fix/PREREG-B.md for the
-        # invariant this exists to establish.
+        # _topology_worker for why, and for the invariant this exists to establish.
         #
         # A set rather than a list: the dpids are what to notify, and an enter arriving twice for
         # the same switch is one notification, not two.
@@ -699,7 +696,7 @@ class IntelligentRyu(app_manager.RyuApp):
     # So the rules installed ~60s after startup were the final state for the life of the run.
     # Observed: `link s1 s5 down` with a flow crossing that link -- traffic stopped arriving, was
     # never rerouted, and the twin (correctly) showed the edge down while Ryu's own graph still had
-    # it. See doc/2026-07-29_HANDOFF.md section 1g.
+    # it.
     def _active_net(self):
         """The graph routes are computed from: whichever of the two this run is using."""
         return self.dynamic_net if self.is_dynamically_detect_topo else self.static_net
@@ -770,11 +767,12 @@ class IntelligentRyu(app_manager.RyuApp):
             # is running, so a change arriving during install_all_pair_paths is *dropped* -- and the
             # only place it can still be noticed is here, after the walk.
             #
-            # Without it the window was the duration of the walk: 16256 host pairs, about 60s (see
-            # doc/2026-07-29_HANDOFF.md 1g). A second link failing in that window was never recomputed, which is
-            # the same silent non-recovery 2c81b26 was written to fix -- and the log said "route
-            # reinstall done", meaning the *previous* change. Found by review, not by a test; the
-            # tests below cover the debounce but nothing yet drives a change into the walk.
+            # Without it the window was the duration of the walk: 16256 host pairs, about 60s (the
+            # figure as first written down, 2026-08-03). A second link failing in that window was
+            # never recomputed, which is the same silent non-recovery 2c81b26 was written to fix --
+            # and the log said "route reinstall done", meaning the *previous* change. Found by
+            # review, not by a test; the tests below cover the debounce but nothing yet drives a
+            # change into the walk.
             while True:
                 # Wait for the graph to stop moving: if another change arrives while we sleep, start
                 # the quiet period again.
@@ -885,14 +883,14 @@ class IntelligentRyu(app_manager.RyuApp):
         this app's event loop, the loop stops draining, its 128-slot queue fills, and the very app
         we are waiting for blocks trying to emit EventLinkAdd into it. That is the ring, observed
         rather than argued: both queues at 128/128, twelve emitters blocked on ours and this
-        loop parked in here (doc/audit/2026-08-25_ring-edge-fix/raw/boot{1,2}_greenlets.txt).
+        loop parked in here (greenlet dumps of two boots, 2026-08-25).
 
         Returning None instead of raising keeps each caller free to choose: the switch read
         retries until its deadline, the link read gives up the round. Neither may park the loop.
 
         The warning is not decoration -- it is how a run proves the timeout was actually in the
         binary. A boot that wedges with zero of these lines means the fix did not land, which is
-        a different finding from the fix not working, and PREREG 5-bis R2 orders them apart.
+        a different finding from the fix not working, and the two must be kept apart.
         """
         if budget_s <= 0:
             return None
@@ -1016,7 +1014,7 @@ class IntelligentRyu(app_manager.RyuApp):
             # 🔴 THIS BRANCH HAS NEVER EXECUTED. Stated up front because the comment that
             # stood here claimed it had, and misattributed the evidence: the seven aborts and all
             # 28 timeouts measured in Phase 2 (fixa1) were the get_switch exit above, never this
-            # one -- `grep -c "Link list unavailable" ` is 0 across every log in doc/audit.
+            # one -- `grep -c "Link list unavailable" ` is 0 across every log of the runs.
             #
             # So the get_switch ceiling is what Phase 2 verified. This one is unexercised
             # insurance, and the case it insures against is real rather than theoretical: Phase 0
@@ -1130,7 +1128,7 @@ class IntelligentRyu(app_manager.RyuApp):
                 #
                 # CORRECTED 2026-08-25, and the correction is not cosmetic. This comment used to
                 # read "punted LLDP ... at ~2.5/s: 128 slots fill in ~50 s". Nobody had ever
-                # measured that. Phase 5 of doc/audit/2026-08-25_ring-edge-fix instrumented the
+                # measured that. Phase 5 of the 2026-08-25 ring-edge work instrumented the
                 # counter and got 56-72/s averaged over a boot and 136-210/s over the opening six
                 # seconds, so 128 slots fill in 1.8-2.3 s -- 0.6-0.9 s during the burst. The
                 # comment was off by 20-80x, in the direction that makes the ring EASIER to form:
@@ -1147,9 +1145,8 @@ class IntelligentRyu(app_manager.RyuApp):
                 # -- and boot is exactly when that list is long. Which source actually fills the
                 # queue is still unmeasured; treat "LLDP" as the guess it always was.
                 #
-                # That is the cycle the review session's phase-1 diagnosis describes
-                # (doc/audit/2026-08-24_full-stack-run/REPORT.md) for the 6-of-10 boot failures,
-                # and their conclusion is the reason this branch exists: *any fix that keeps
+                # That is the cycle the phase-1 diagnosis describes for the 6-of-10 boot
+                # failures, and its conclusion is the reason this branch exists: *any fix that keeps
                 # blocking work inside EventSwitchEnter keeps the cycle*. Spawning returns the
                 # handler immediately so the queue keeps draining.
                 #
@@ -1508,10 +1505,9 @@ class IntelligentRyu(app_manager.RyuApp):
         [Co-developed with claude code -- Adam]
         Indexed rather than scanned. This is called from the innermost loop of the all-pairs
         path reconstruction, so a linear scan of net.nodes made that walk cubic in host count
-        rather than quadratic. Measured by intervention (2026-08-21 sweep, doc/audit/
-        2026-08-21_ryu-topology-scaling/WALK_SWEEP.md): swapping this one helper for a dict cut
-        the 128-host report phase 13.7x and dropped the log-log slope from 2.75 to 1.86 -- the
-        cubic term was this line and nothing else.
+        rather than quadratic. Measured by intervention (2026-08-21 sweep): swapping this one
+        helper for a dict cut the 128-host report phase 13.7x and dropped the log-log slope from
+        2.75 to 1.86 -- the cubic term was this line and nothing else.
 
         The cache is rebuilt when the graph gains a node. That is the only event that can
         change the mapping: the index reads nothing but per-node ip_list, which is written when
@@ -1578,9 +1574,8 @@ class IntelligentRyu(app_manager.RyuApp):
         #          three together, not a reading of the walk.
         #   ~60 s  asserted -- the comments beside initial_install_deadline and
         #          initial_install_wait_limit, this method's own tests, and 5affd93's commit
-        #          message all say "the walk is ~60 s over 16256 pairs", sourced from
-        #          doc/2026-07-29_HANDOFF.md 1g -- which predates cc249c8, i.e. predates 128
-        #          hosts being runnable at all.
+        #          message all say "the walk is ~60 s over 16256 pairs", sourced from a
+        #          figure first written down on 2026-08-03.
         #
         # Split into two phases because they scale differently and only one of them is what
         # "16256 pairs" names. The BFS installs one rule per (switch, dst): 1280 at 128 hosts.
@@ -1917,9 +1912,10 @@ class IntelligentRyu(app_manager.RyuApp):
         #
         # This used to sit *below* the notification, which meant it inherited an unbounded
         # `requests.post`. A refused connection returns at once, but a process that accepts and never
-        # answers blocks forever and raises nothing, so the `except` below does not help -- and
-        # HANDOFF 1j records a wedged kernel holding :8000 biting three times. The edge would never
-        # have been removed and no reinstall scheduled: exactly the pre-2c81b26 behaviour, silently.
+        # answers blocks forever and raises nothing, so the `except` below does not help. Had
+        # the call hung, the edge would never have been removed and no reinstall scheduled:
+        # exactly the pre-2c81b26 behaviour, silently. (A separate hazard on the same port: by
+        # 2026-07-31 a leftover kernel still holding :8000 had caused trouble three times.)
         # Beyond the hang, this graph is this application's own state and has no business being
         # conditional on a remote call at all.
         net = self._active_net()

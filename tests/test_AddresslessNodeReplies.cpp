@@ -1,10 +1,11 @@
 /**
- * FINDINGS #88, W14: the seven `ip[0]` sites W2 found and did not fix.
+ * The seven `ip[0]` sites that an earlier round of `ip.front()` guards found and did not fix.
  *
  * [Co-developed with claude code -- Adam]
  *
- * W2 (#88) guarded sixteen unguarded `ip.front()` dereferences. Its own grep then turned up seven
- * more that it left alone, in three other subsystems, written as `ip[0]` instead of `.front()`:
+ * An earlier change guarded sixteen unguarded `ip.front()` dereferences. A grep for the same
+ * pattern then turned up seven more that it left alone, in three other subsystems, written as
+ * `ip[0]` instead of `.front()`:
  *
  *     IntentTranslator.cpp   getSwitchIpByName                 SWITCH
  *     IntentTranslator.cpp   GET_NETWORK_TOPOLOGY, switches[]  SWITCH
@@ -22,9 +23,8 @@
  * declaration, the definition, its `ip[0]` guard, its `friend class AddresslessTopologyPeer;`
  * seam and the two tests that pinned it (one death test, one answer test) were deleted as dead
  * code, and mutations M3, M10 and C3 were removed from the gate with them. The rows above are
- * left as W2 wrote them because they are the record of what the finding covered; this suite now
- * drives six sites, not seven. Reasoning and the decision that authorised it:
- * doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 7.
+ * left as originally written because they are the record of what the finding covered; this suite
+ * now drives six sites, not seven.
  *
  * `operator[]` is not a milder `front()`. libstdc++ defines both as `*(_M_start + n)`, and a
  * default-constructed std::vector has `_M_start == nullptr`, so `ip[0]` on a node with no address
@@ -45,22 +45,22 @@
  *
  * WHAT THE SIX GUARDS ARE, AS OF 2026-09-10
  *
- * They are a SECOND layer, and the first cause behind them is closed. W3 door 3d
- * (TopologyAndFlowMonitor.cpp, merged into trunk on 2026-09-10) refuses a topology file that
+ * They are a SECOND layer, and the first cause behind them is closed. The host check in
+ * TopologyAndFlowMonitor.cpp (merged into trunk on 2026-09-10) refuses a topology file that
  * declares a host with an empty "ip" array before any vertex is applied, and the only other
  * writer of host vertices, `updateHosts`, calls no `add_vertex` at all and skips hosts with no
  * `ipv4`. So no live route reaches these six expressions on this tree, and the tests below and
- * the mutation gate -- not a live run -- are the evidence that they hold. Adam's decision of
- * 2026-09-10 is exactly that: the dead tests plus the gate are the standard here. The last three
- * tests in this file pin the file-level door itself, which is the layer that IS load-bearing.
+ * the mutation gate -- not a live run -- are the evidence that they hold; that is the standard
+ * for a guard with no live route. The last three tests in this file pin the file-level door
+ * itself, which is the layer that IS load-bearing.
  *
  * WHY THE FIRST SIX TESTS FORK
  *
  * The failure is a null dereference, so on an ordinary build the unfixed code does not produce a
  * red line -- it takes the whole binary down, mid-suite, with no `[  FAILED  ]` for anything and
- * no result for any suite that had not run yet. That is not evidence, and W2's mutation gate
+ * no result for any suite that had not run yet. That is not evidence, and the mutation gate
  * proved it: its M2 mutant was scored SURVIVED on 2026-09-04 because the fault landed in an
- * in-process test and killed the process before gtest could return a verdict (W2-SUMMARY §4.2).
+ * in-process test and killed the process before gtest could return a verdict.
  *
  * So each of the six remaining sites gets a death test, declared before every in-process test in
  * this file, and the assertion is `ExitedWithCode(0)`: the child performs the operation and exits
@@ -228,8 +228,8 @@ class PathQueryCollector : public sflow::FlowLinkUsageCollector
  *
  * The graph is deliberately not minimal. Every site walks every vertex, so a graph with only the
  * address-less node in it could not tell "the guard skipped the node it cannot name" apart from
- * "the guard emptied the whole reply" -- W2's M4 mutant is exactly that confusion, and it needs a
- * node that DOES have an address sitting next to the one that does not.
+ * "the guard emptied the whole reply" -- the gate's M4 mutant is exactly that confusion, and it
+ * needs a node that DOES have an address sitting next to the one that does not.
  *
  *   s1  SWITCH, 10.0.0.1     h1  HOST, 10.0.0.11     h3  HOST, 10.0.0.13
  *   s2  SWITCH, no address   h2  HOST, no address
@@ -406,7 +406,7 @@ TEST_F(AddresslessNodeTest, TheHostListingOverAnAddresslessHostDoesNotKillThePro
 // system prompt for every LLM call, so this one faulted on the request path rather than on a
 // reporting path" -- and on this tree that sentence was false in both halves: the call that would
 // have built the prompt from the topology has been commented out since d6f7c014 (2025-12-15), so
-// nothing called the member at all. R5-A4-NTG-SUMMARY.md section 1 is where that was established.
+// nothing called the member at all.
 
 /// FlowLinkUsageCollector.cpp, getPathBetweenHostsJson, source end -- HOST, reachable.
 TEST_F(AddresslessNodeTest, APathQueryFromAnAddresslessHostDoesNotKillTheProcess)
@@ -573,8 +573,8 @@ TEST_F(AddresslessNodeTest, ASwitchWithAnAddressStillResolves)
 }
 
 // =================================================================================================
-// Where an address-less HOST comes from. This is the half W2 left at "read from the code", and
-// these three tests turn it into a file that loads.
+// Where an address-less HOST comes from. This is the half previously left at "read from the
+// code", and these three tests turn it into a file that loads.
 //
 // The fixture above builds its graph with boost::add_vertex directly, which proves the guards work
 // but says nothing about whether production can produce that graph. The loader is the answer: both
@@ -586,11 +586,11 @@ TEST_F(AddresslessNodeTest, ASwitchWithAnAddressStillResolves)
 // These do not use the fixture: PromptLayoutRig chdir()s into a temp directory, and the shipped
 // topology is found relative to the cwd.
 //
-// 🔴 THIS RECORDS A REGIME, AND THE REGIME IS SCHEDULED TO CHANGE. Branch
-// fix/w3-door3b-host-empty-ip is being written in parallel and closes exactly this route at the
-// file level. When the two meet, the middle case below goes red on purpose; the message on that
-// assertion says what to do about it. The runtime guards are not affected either way -- a
-// file-level refusal and a runtime non-crash are two layers, and W3's own ticket says both stay.
+// 🔴 THIS RECORDS A REGIME, AND THE REGIME CAN CHANGE. A file-level check on host addresses
+// closes exactly this route at the loader. When it is in place, the middle case below goes red
+// on purpose; the message on that assertion says what to do about it. The runtime guards are not
+// affected either way -- a file-level refusal and a runtime non-crash are two layers, and both
+// stay.
 // =================================================================================================
 
 namespace
@@ -724,9 +724,9 @@ TEST(AddresslessHostLoadTest, AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad)
     // A new host node, cloned from a shipped one so every key the loader reads is present, with
     // its address list emptied. No edge names it, because an edge endpoint with dpid 0 is resolved
     // by address and validateStaticTopologyJson refuses one whose address no node holds -- that
-    // rule is about the EDGE's own "src_ip"/"dst_ip". Until W3 door 3b it was the only door, so an
-    // unattached address-less host was accepted; since the 2026-09-10 merge of
-    // fix/w3-door3b-host-empty-ip the node loop refuses it too, which is what this case pins now.
+    // rule is about the EDGE's own "src_ip"/"dst_ip". Until the node loop checked hosts it was the
+    // only door, so an unattached address-less host was accepted; since 2026-09-10 the node loop
+    // refuses it too, which is what this case pins now.
     nlohmann::json host;
     for (const auto& node : topology["nodes"])
     {
@@ -745,13 +745,12 @@ TEST(AddresslessHostLoadTest, AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad)
 
     const auto attempt = loadTopology(topology, "host_without_address");
 
-    // Flipped at the 2026-09-10 merge of fix/w3-door3b-host-empty-ip (W3 door 3b; "door 3d" in the
-    // code and its gate), exactly as this case's own failure message asked for: the file-level
-    // door now refuses a host that declares an empty "ip" array before any vertex is applied. The
-    // case is kept, not deleted -- the four HOST-side runtime guards this suite still pins are the
-    // second layer (the fifth, LLMAgent::getCurrentTopology, was deleted with its dead member on
-    // 2026-09-11), and this is the record of which layer was load-bearing when. Recorded in
-    // doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 2.1.1.
+    // Flipped on 2026-09-10, when the loader began refusing a host with an empty "ip" array,
+    // exactly as this case's own failure message asked for: the file-level door now refuses a
+    // host that declares one before any vertex is applied. The case is kept, not deleted -- the
+    // four HOST-side runtime guards this suite still pins are the second layer (the fifth,
+    // LLMAgent::getCurrentTopology, was deleted with its dead member on 2026-09-11), and this is
+    // the record of which layer was load-bearing when.
     EXPECT_TRUE(attempt.threw)
         << "W3 door 3b is in this tree (merged 2026-09-10) and refuses a host with no address at "
            "load; a host that reached the graph here means the file-level door has been reopened. "

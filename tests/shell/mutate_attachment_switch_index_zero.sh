@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #88 / W18: the EIGHTH `ip[0]` -- the attachment switch's address list
+# Mutation gate for the EIGHTH `ip[0]` -- the attachment switch's address list
 # in TopologyAndFlowMonitor::updateHosts, indexed to key the reverse edge.
 #
 # [Co-developed with claude code -- Adam]
@@ -265,9 +265,9 @@ ROUND_FILTER="$DEATH_FILTER"
 echo "mutations:"
 
 # --- M1: the attachment switch's address list, indexed --------------------------------------------
-# 🔴 RE-ANCHORED for the merged form (integrate-0910, 2026-09-10; TopologyAndFlowMonitor.cpp:2352-2368).
-# fix/e29-update-hosts-race-evidence and fix/w18-eighth-index-zero changed the same line and Adam kept
-# both (FIX-E29.md section 6), so the site is no longer trunk's one-liner: the address is copied out of
+# 🔴 RE-ANCHORED for the merged form (2026-09-10; TopologyAndFlowMonitor.cpp:2352-2368).
+# Two fixes (the update-hosts race and an index-zero guard) changed the same line and both were kept
+# so the site is no longer trunk's one-liner: the address is copied out of
 # the graph under a shared_lock, and W18's guard sits outside that scope. The old anchor was trunk's
 # `const auto attachIpOpt = utils::firstAddressRaw(...)` on one unlocked line and matched 0 times here.
 #
@@ -315,7 +315,7 @@ ROUND_FILTER="$FILTER"
 echo "mutations:"
 
 # --- M2: the substituted address ------------------------------------------------------------------
-# The failure mode FIX-CPU-REPORT-NO-IP.md §5 records twice, with a twist specific to this site: the
+# The failure mode of a substituted address that reads as a real one, with a twist specific to this site: the
 # fabricated key resolves to nothing, so the caller is handed "Rev Edge ... not found in static
 # network topology file" -- an instruction to go and edit a file that could never have carried an
 # edge keyed by an address the switch does not have.

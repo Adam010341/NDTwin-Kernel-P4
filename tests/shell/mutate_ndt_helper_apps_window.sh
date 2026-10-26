@@ -289,7 +289,7 @@ m=$(mutant m17 "$NDT" \
 report "M17: orphans reports pids the probe already accounted for" "$m" \
        "🔴 a tracked, running sim is NOT an orphan -- rc 0"
 
-# (widening) The other direction, and it is FINDING #48 itself: subtract everything and the verb
+# (widening) The other direction, and it is the original defect itself: subtract everything and the verb
 # goes green over the 09-02 viz JVMs -- processes no channel names, which is what it exists for.
 m=$(mutant m18 "$NDT" \
     '            (( known == 0 )) && unnamed+=("$s")' \
@@ -376,7 +376,7 @@ report "M26: orphans drops the blindness once it has found something" "$m" \
 # --- F3: the window a stop leaves on disk, and its right edge ----------------------------------
 #
 # Each of these puts back one half of "the stop could date the app it had just stopped, and
-# nothing after it could" (FIX-NDT-2 SUMMARY §7-2), or one half of the fix's own hazard: a
+# nothing after it could", or one half of the fix's own hazard: a
 # recorded window with no end attributes every rule installed since to an app that has stopped.
 
 m=$(mutant m28 "$NDT" \
@@ -416,7 +416,7 @@ m=$(mutant m32 "$NDT" \
 report "M32: a start does not supersede the last stop's window" "$m" \
        "🔴 and it cleared the window its last stop left"
 
-# --- RESIDUE-1: the right edge of the window a dead pidfile opens (Adam, 2026-09-12 12:3x) -----
+# --- RESIDUE-1: the right edge of the window a dead pidfile opens (2026-09-12) -----
 #
 # The measured defect: `app_viz.pid` was written 2026-09-11 14:04:25, viz exited by itself at
 # 14:05:43, nothing removed the pidfile, and twelve hours later `ndt status --check` over a

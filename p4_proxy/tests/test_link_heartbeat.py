@@ -1,21 +1,22 @@
 """
-The veth heartbeat's report, as the proxy reads it -- TICKET-P4-heartbeat segment W.
+The veth heartbeat's report, as the proxy reads it.
 
 [Co-developed with claude code -- Adam]
 
-The root helper (`sudo ndtwin-lab heartbeat start`, segment H) writes what it HEARD to
-/run/ndtwin-lab/heartbeat.json and decides nothing (ruling 3: this proxy does not get root, it
+The root helper (`sudo ndtwin-lab heartbeat start`) writes what it HEARD to
+/run/ndtwin-lab/heartbeat.json and decides nothing (this proxy does not get root, it
 reads what the root helper reports). This file is about the reading, and the three things that
 must be refused before any of it becomes link evidence:
 
   * a report this proxy cannot TRUST -- anything but a regular, root-owned, not group/other
-    writable file in a root-owned directory nobody else can write (segment H's H.7 item 1). A
-    report adam could write would let any local process cut a link in the twin, or hide a cut;
+    writable file in a root-owned directory nobody else can write. A
+    report an ordinary user could write would let any local process cut a link in the twin, or
+    hide a cut;
   * a report that is not ALIVE -- `status` other than running, or not rewritten within two
-    periods (H.7 item 2). A dead heartbeat must NOT read as a network with every link down;
+    periods. A dead heartbeat must NOT read as a network with every link down;
   * a report that is not about THIS fabric, or not at THIS proxy's period -- a direction the
     package declares that the report does not carry, or a period that would make the proxy's
-    3-periods timeout the wrong multiple (H.7 items 3 and 6).
+    3-periods timeout the wrong multiple.
 
 And the one piece of state the reader keeps: the EPOCH from which "not heard" counts. A new
 session starts it at the daemon's own start; a report that comes back after being unusable
@@ -41,7 +42,7 @@ PROXY_DIR = os.path.dirname(HERE)
 REPO = os.path.dirname(PROXY_DIR)
 sys.path.insert(0, PROXY_DIR)
 
-# Only the THIRD-PARTY dependencies decide a skip. This ticket's own module failing to import is
+# Only the THIRD-PARTY dependencies decide a skip. This suite's own module failing to import is
 # a failure -- the red-first run of this file must be red, not "OK (skipped=...)".
 try:
     import fastapi  # noqa: F401
@@ -58,8 +59,7 @@ if HAVE_PROXY:
 
 HELPER = os.path.join(REPO, "tools", "test_workflow", "ndtwin-lab")
 
-#: pod-topo's four cables and both directions of each -- the shape the spike measured
-#: (doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat/12_report_first.json).
+#: pod-topo's four cables and both directions of each -- the shape measured on a live run.
 POD_CABLES = ((1, 3, 3, 1), (1, 4, 4, 2), (2, 3, 4, 1), (2, 4, 3, 2))
 POD_DIRECTIONS = tuple(sorted(POD_CABLES + tuple((d, dp, s, sp) for s, sp, d, dp in POD_CABLES)))
 CUT = ((1, 3, 3, 1), (3, 1, 1, 3))
@@ -70,7 +70,7 @@ PERIOD = 5
 def a_report(now, heard=None, *, status="running", session=SESSION, pid=4242, period_s=PERIOD,
              started=None, written=None, directions=POD_DIRECTIONS, side_effects=None,
              **extra):
-    """A report in the daemon's own shape (segment H's `report` writer), every key it writes.
+    """A report in the daemon's own shape (the daemon's `report` writer), every key it writes.
 
     `heard` maps a direction to its last_heard_mono (None = never heard); the default is every
     direction heard one second before `now`.
@@ -143,7 +143,7 @@ def read(rd, now, declared=POD_DIRECTIONS, period=PERIOD, uid=None):
 
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class AReportThisProxyCanTrustTest(unittest.TestCase):
-    """H.7 item 1: root-written, in a directory nobody else can write -- or not evidence."""
+    """Root-written, in a directory nobody else can write -- or not evidence."""
 
     def setUp(self):
         self.rd = ReportDir(self)
@@ -223,7 +223,7 @@ class AReportThisProxyCanTrustTest(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class AReportThatIsAliveTest(unittest.TestCase):
-    """H.7 item 2: running, and rewritten within two periods -- the daemon rewrites every period."""
+    """Running, and rewritten within two periods -- the daemon rewrites every period."""
 
     def setUp(self):
         self.rd = ReportDir(self)
@@ -251,7 +251,7 @@ class AReportThatIsAliveTest(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class AReportAboutThisFabricAtThisPeriodTest(unittest.TestCase):
-    """H.7 items 3 and 6."""
+    """This fabric, this period."""
 
     def setUp(self):
         self.rd = ReportDir(self)

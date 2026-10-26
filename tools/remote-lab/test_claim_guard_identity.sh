@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Does claim_guard identify the right PRINCIPAL? -- reproduction for
-# doc/audit/2026-08-31_completeness-experiments/FINDING-claim-guard-truncates-owner.md
+# Does claim_guard identify the right PRINCIPAL? -- reproduction for the bug where the guard
+# compared only the first word of a multi-word owner name.
 # [Co-developed with claude code -- Adam]
 #
 # ===========================================================================
@@ -14,11 +14,11 @@
 #
 #  owner_of() is awk '/^owner:/{print $2}' -- the FIRST WORD of the name --
 #  while me() returns NDT_OWNER whole. So a session called
-#  "8/29 poster-reviewer" is refused by its own VM, and "8/31 auditor" and
-#  "8/31 mainDev" are the same principal as far as the guard can tell.
+#  "8/29 sessionC" is refused by its own VM, and "8/31 sessionB" and
+#  "8/31 sessionA" are the same principal as far as the guard can tell.
 #
 #  🔴 The reason the existing gate cannot see this is worth more than the bug:
-#  every OWNER fixture it uses is a SINGLE TOKEN -- bmv2paper, mainDev,
+#  every OWNER fixture it uses is a SINGLE TOKEN -- bmv2paper, sessionA,
 #  tester, someone-else. Eight fixtures, no spaces. The guard's correctness
 #  depends on a property of the user's naming habit, and the gate was written
 #  by someone with the same habit, so the gate's population and the failure's
@@ -27,9 +27,9 @@
 #  than this instance.
 #
 #  🔴 EXPECTED RED until the fix lands. It is kept out of the main gate on
-#  purpose: `開機手冊` is running two VMs through this tool right now, and a
-#  suite that goes red mid-round cannot be told apart from a tool that broke
-#  mid-round. Fold these cases into test_vm_coordination.sh with the fix.
+#  purpose: other sessions run VMs through this tool, and a suite that goes
+#  red mid-round cannot be told apart from a tool that broke mid-round. Fold
+#  these cases into test_vm_coordination.sh with the fix.
 #
 #  Point it at a patched copy to prove it discriminates:
 #      NDTVM_UNDER_TEST=/tmp/patched.sh ./test_claim_guard_identity.sh
@@ -69,14 +69,14 @@ claim() {  # claim <dir> <owner string>
 # that lets us through is observable ("Type DESTROY") without anything running.
 
 echo "=== G-I1  an owner whose name contains a space must pass its own guard ==="
-claim s1 "8/29 poster-reviewer"
+claim s1 "8/29 sessionC"
 expect "GREEN-- the real owner gets through" 1 "Type DESTROY" \
-    env NDT_OWNER="8/29 poster-reviewer" VM_DIR="$T/s1" bash "$VM" destroy
+    env NDT_OWNER="8/29 sessionC" VM_DIR="$T/s1" bash "$VM" destroy
 
 echo "=== G-I2  a same-first-word stranger must NOT pass ==="
-claim s2 "8/31 auditor"
-expect "RED  -- 8/31 mainDev is refused by 8/31 auditor's VM" 3 "belongs to another session" \
-    env NDT_OWNER="8/31 mainDev" VM_DIR="$T/s2" bash "$VM" destroy
+claim s2 "8/31 sessionB"
+expect "RED  -- 8/31 sessionA is refused by 8/31 sessionB's VM" 3 "belongs to another session" \
+    env NDT_OWNER="8/31 sessionA" VM_DIR="$T/s2" bash "$VM" destroy
 expect "RED  -- the truncated token is not an identity either" 3 "belongs to another session" \
     env NDT_OWNER="8/31" VM_DIR="$T/s2" bash "$VM" destroy
 

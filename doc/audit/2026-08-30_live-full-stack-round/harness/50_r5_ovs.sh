@@ -2,7 +2,7 @@
 # =================================================================================================
 # 50_r5_ovs.sh -- R-5 phase 2: F-1 .. F-5b on the OVS/Ryu stack.
 #
-# SECOND PHASE BY INSTRUCTION.  P4 is the professor's line and must produce a result first.
+# SECOND PHASE.  P4 is the primary target and must produce a result first.
 # This phase requires the fabric to be torn down and brought back up as OVS, which is why it is
 # a separate script and not a flag on 40_r5_p4.sh.
 #

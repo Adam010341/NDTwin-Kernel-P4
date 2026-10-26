@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 #
-# CELL stale_app_pidfile_does_not_frame_the_fabric -- RESIDUE-1. A pidfile nobody removed opened
+# CELL stale_app_pidfile_does_not_frame_the_fabric -- A pidfile nobody removed opened
 # an app window with no right edge, and the fabric's OWN forwarding rules were reported as that
 # app's residue.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: hunt-0911/RESIDUE-1-REPORT.md (2026-09-12, read-only investigation) §1 §2 §6.
+# Source: a read-only investigation, 2026-09-12.
 #   09-11 14:04:25  .test_run/pids/app_viz.pid written; the viz exited on its own at 14:05:43,
 #                   so `ndt apps stop` -- the ONLY path that removes a pidfile -- never ran
-#   09-12 02:20:23  ROLE-11 `ndt up ovs4`: switches=10 links=32 paths=installed, 8 s
+#   09-12 02:20:23  `ndt up ovs4`: switches=10 links=32 paths=installed, 8 s
 #   09-12 02:20:45  `ndt status --check`: `residue 60 rule(s) inside an app window, 0 lock(s)
-#                   HELD` -> `check: 1 problem(s)` -> RC=1   (logs/ROLE-11/05-check-after-up.log)
+#                   HELD` -> `check: 1 problem(s)` -> RC=1
 # The 60 were installed by that bring-up, 17 seconds earlier, on switches that did not exist
 # before it. residue_report says so itself: "anything installed in that window is listed,
 # whoever installed it". app_started_at dates a dead pidfile by the pidfile's own mtime and
@@ -23,14 +23,13 @@
 # that is read, and the count is taken from `ndt`'s own tally line rather than recomputed here.
 #
 # 🔴 THE CELL PLANTS ITS OWN STALE PIDFILE, for `te`, and removes it again. Three reasons:
-#   1. a cell must survive the cleanup of the 09-11 crime scene. Adam's ruling is 先格後清 --
-#      the cell first, then app_viz.pid is removed -- and a cell that only reddens while that
+#   1. a cell must survive the cleanup of the original stale pidfile. The order is the cell
+#      first, then app_viz.pid is removed -- and a cell that only reddens while that
 #      one file exists would go green for the wrong reason the day it is deleted.
 #   2. the premise becomes measurable: this cell records the pidfile's mtime and the second the
 #      bring-up started, so `the window opened before the fabric existed` is a reading and not
 #      a story about last night.
-#   3. app_viz.pid is not touched, read-only stat aside. Removing it is the orchestrator's,
-#      recorded in the ledger.
+#   3. app_viz.pid is not touched, read-only stat aside. Removing it is a separate cleanup step.
 # A planted pidfile names a pid that is DEAD and that /proc does not know, so app_pidfile_pid's
 # `pid_is_app` check refuses it (rc 4) exactly as it refuses the real stale one -- which is the
 # point: the second source, the mtime, is the one under test.
@@ -46,7 +45,7 @@ REPO_ROOT="$(cd "$HERE/../../.." && pwd)"
 NDT_ROOT="${NDT_ROOT:-$REPO_ROOT}"
 source "$HERE/_cell_lib.sh"
 
-# The app whose window is staged. `te` and not `viz`: viz's pidfile is the live crime scene and
+# The app whose window is staged. `te` and not `viz`: viz's pidfile is the original evidence and
 # this cell may not write it, and te is in APP_NAMES, has no pidfile on this machine, and its
 # evidence log has not been written since 2026-09-05.
 STALE_APP=te
@@ -119,8 +118,8 @@ cell_observe() {
       printf 'applog=%s\n' "$logf"
       printf 'applog_mtime=%s\n' "${logmt:-none}"
     } > "$d/plant.txt"
-    # The 09-11 crime scene, read-only and never written: stat only, so a reader of this raw can
-    # see whether the original stale pidfile was still there when the cell ran.
+    # The original stale pidfile, read-only and never written: stat only, so a reader of this
+    # raw can see whether it was still there when the cell ran.
     { printf 'viz_pidfile=%s\n' "$NDT_ROOT/.test_run/pids/app_viz.pid"
       printf 'viz_pidfile_mtime=%s\n' "$(stat -c %Y "$NDT_ROOT/.test_run/pids/app_viz.pid" 2>/dev/null || echo absent)"
     } > "$d/viz_scene.txt"
@@ -135,8 +134,8 @@ cell_observe() {
     # The first live run of this cell read the kernel's flow table straight after a converged
     # `ndt up ovs 4` -- `paths=installed`, `h1 -> 10.0.0.2 forwards`, sFlow sampling -- and got
     # `[]`. Every assertion below then passed for the wrong reason: a window that frames nothing
-    # is what an EMPTY TABLE gives you too, whatever the window's right edge is. RESIDUE-1's 60
-    # were read 22 s after ROLE-11's bring-up and are not reproducible on demand.
+    # is what an EMPTY TABLE gives you too, whatever the window's right edge is. The 60 rules in
+    # the original report were read 22 s after a bring-up and are not reproducible on demand.
     # So the premise is manufactured: one rule, installed through the northbound API, matching an
     # address no host on this fabric has, and deleted again below. Its install time is now, which
     # is inside the stale window and outside every honestly-closed one -- which is the whole of
@@ -176,7 +175,8 @@ cell_observe() {
     # in the kernel log and, since they are not in this response, ..."}` -- so a 200 means the
     # batch was taken, not that the rule is off the wire. On 2026-09-12 15:05 this cell read the
     # table once, immediately, got 61 entries again and 10.99.99.99 still in them, and the
-    # SUMMARY then claimed the rule had been removed on the strength of `delete.code` alone.
+    # first version of this cell claimed the rule had been removed on the strength of
+    # `delete.code` alone.
     # It polls now, and the judge reads the TABLE rather than the status code.
     curl -s -o "$d/delete.body" -w '%{http_code}\n' \
         -X POST http://localhost:8000/ndt/delete_flow_entry -d "$CELL_RULE" \
@@ -274,7 +274,7 @@ cell_judge() {
     #     the `N rule(s) listed:` summary, counted inside the block and not over the report.
     a_eq    stale_app_block_lists_no_rule   "0"       "$listed"
     # (4) what the operator sees. `listed by:` is printed on the residue row's RED branch only,
-    #     so its absence is bound to a path and not to a wording (CELLS-1 §7-1).
+    #     so its absence is bound to a path and not to a wording.
     a_hasnt stale_check_does_not_list_them  "listed by:  ndt apps orphans"   "$d/check.log"
     # (5) 🔴 THE PROBLEM LIST, NOT `--check`'s EXIT CODE. The rc is one number for every problem
     #     the report found, and on 2026-09-12 15:04 this cell's own raw came back
@@ -283,7 +283,7 @@ cell_judge() {
     #     the rc cannot tell those apart, so it would go red on a fixed tree whenever somebody
     #     else's suite happened to be running, and green on a broken one never. Counted instead:
     #     how many of the `  - ` problem lines are about rules inside a window. The pattern holds
-    #     across FIX-NDT-9's rename -- `app residue: N rule(s) installed inside an app's window`
+    #     across the rename of that row -- `app residue: N rule(s) installed inside an app's window`
     #     and `rules-in-window: N rule(s) ...` both carry `rule(s)` and `window`.
     nprob="$(awk '/^check: /{p=1; next} p && /^  - /{print}' "$d/check.log" 2>/dev/null \
              | grep -cE 'rule\(s\).*window')"

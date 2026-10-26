@@ -309,8 +309,8 @@ def _c06_undo() -> None:
     misdiagnosis of *this harness's own bug*: it sent `lockName`, the handler reads `type`
     (`HttpSession.cpp:1925`), so both requests carried no type and both defaulted to
     `routing_lock`. Names work fine -- `stringToLockType` (`LockManager.hpp:38-43`) returns
-    `Unknown` for anything unrecognised and the acquire is refused. Corrected by `8/29 auditor`
-    reading the code.
+    `Unknown` for anything unrecognised and the acquire is refused. Corrected by reading the
+    code.
 
     ✅ **The consequence I stated survives the retraction, by a different route**: only three
     lock types exist and all three are real, so there is no private lock to hold. This control
@@ -324,12 +324,12 @@ def _c06_undo() -> None:
 # the handler reads utils::queryParam(target, "state") and IGNORES the body
 # (HttpSession.cpp:2084), which is why nothing is sent in it.
 #
-# 🔴 RETRACTED AND REWRITTEN 2026-09-03 -- KNOWN-ISSUES G-3, and this is the whole of the
-# retraction at doc/audit/2026-08-28_chaos-harness/05_first-live-run.md:203.
+# 🔴 RETRACTED AND REWRITTEN 2026-09-03 (KNOWN-ISSUES G-3): an earlier write-up of this control
+# reported a defect in the kernel that was a defect in the harness.
 #
 # This control used to call THREE routes that the kernel has never registered:
 # /ndt/set_historical_logging, /ndt/get_historical_data and /ndt/set_historical_logging_state.
-# All three answer 404, confirmed live on 2026-09-02 (raw/C8_b3_historical_logging.log). Three
+# All three answer 404, confirmed live on 2026-09-02. Three
 # independently fatal ingredients then lined up:
 #
 #   * the routes 404, so nothing was ever enabled and nothing was ever read;
@@ -524,7 +524,7 @@ def _h23_verify() -> ActionResult:
     the status discarded that came back as None, `n` fell to 0, and the control reported "the
     path map was wiped" on every run -- the mirror image of _c07's false pass. Switched to the
     checked probe so it now REFUSES instead of accusing; naming the route this should read
-    instead is a separate ticket, because the kernel exposes no such endpoint at all and the
+    instead is separate work, because the kernel exposes no such endpoint at all and the
     proxy's /ryu_server/all_destination_paths is a different population.
 
     🔧 2026-09-03: the refusal now also arrives as `HarnessBug`. `probes.assert_route` knows
@@ -550,8 +550,7 @@ def _h23_verify() -> ActionResult:
 # 🔴 W8-8, 2026-09-07. `tc qdisc add dev X root netem loss 100%` does not stack a layer on a
 # Mininet TCLink interface. It REPLACES htb -- the bandwidth shaping INV-04 and every link-usage
 # reading depend on -- and `tc qdisc del dev X root` then restores the KERNEL DEFAULT rather
-# than htb. Measured, verbatim, on 2026-08-13
-# (doc/audit/2026-08-12_overnight-review/C-live-ovs-runbook.md, P1):
+# than htb. Measured, verbatim, on 2026-08-13:
 #
 #     $ tc qdisc show dev s1-eth2
 #     qdisc htb 5: root refcnt 15 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
@@ -562,8 +561,8 @@ def _h23_verify() -> ActionResult:
 #     $ tc qdisc show dev s1-eth2
 #     qdisc noqueue 0: root refcnt 2                               # neither netem nor htb
 #
-# and the sudoers NOPASSWD grant on this machine does not cover putting htb back, so the damage
-# is not repairable through the path this harness has. That cost a whole overnight OVS round.
+# and a sudoers rule set scoped to netem forms of tc (the only tc rules this harness needs) does
+# not cover putting htb back, so the damage is not repairable through the path this harness has. That cost a whole overnight OVS round.
 #
 # What made it invisible HERE is the same shape §4 of the spec is about: the old verify looked
 # for `"netem" in out and "loss 100%" in out`, which is true of BOTH outcomes -- the safe leaf
@@ -604,7 +603,7 @@ _QDISC_HANDLE = 2
 # is the whole difference between the two outcomes of a root netem: on an unshaped interface
 # `del ... root` gave back `qdisc noqueue 0: root refcnt 2` (2026-08-13, verbatim), so the
 # P4 runbook's root-netem recipe is safe there; on a TCLink interface the same delete gave back
-# that same noqueue instead of `htb 5:` with its class, and the NOPASSWD grants on this machine
+# that same noqueue instead of `htb 5:` with its class, and netem-scoped tc sudoers rules
 # cannot rebuild htb.
 #
 # 🔴 The list is what is SAFE to lose, not what is dangerous, so an unrecognised root qdisc is
@@ -674,15 +673,16 @@ def netem_delete_point(tree: str) -> tuple[list[str] | None, str]:
         if len(words) <= _QDISC_KIND or words[0] != "qdisc" or words[_QDISC_KIND] != "netem":
             continue
         if "root" in words[3:]:
-            # 🔴 No trailing `netem` on this form. The NOPASSWD grant is the exact argument
-            # list `qdisc del dev s*-eth* root`; one extra token and the revert dies with
+            # 🔴 No trailing `netem` on this form. sudo matches a rule's argument list literally,
+            # so a NOPASSWD rule for `tc qdisc del dev s*-eth* root` (the User Manual sets up no
+            # tc rule) does not cover the command with one extra token; the revert then dies with
             # "a password is required", leaving the fault in place. Measured 2026-08-13.
             return ["root"], ""
         for i, word in enumerate(words[:-1]):
             if word == "parent":
-                # Also no trailing `netem`: the grant for this form is
-                # `qdisc del dev s*-eth* parent *`, and NetemLinkFault.hpp's restore -- written
-                # against a `sudo -n -l` read on 2026-09-06 -- omits it. faults.sh appends one;
+                # Also no trailing `netem`: a NOPASSWD rule written as
+                # `tc qdisc del dev s*-eth* parent *` matches the command without it, and
+                # NetemLinkFault.hpp's restore omits it too. faults.sh appends one;
                 # omitting it is the strict subset, and it deletes the same qdisc either way.
                 return ["parent", words[i + 1]], ""
         return None, "a netem qdisc is present but its attach point could not be read"
@@ -846,7 +846,7 @@ def link_blackhole(iface: str) -> Action:
                   destructive=True,
                   apply=netem.apply, verify=netem.verify,
                   undo=netem.undo,
-                  # 🔴 E-4, 2026-09-07 (Adam's ruling): gated, and NOT added to CHAOS_ACTIONS.
+                  # 🔴 2026-09-07: gated, and NOT added to CHAOS_ACTIONS.
                   # Those are two separate questions and they got separate answers -- `--full`
                   # still does not run this, and now nothing runs it, dry run included, unless
                   # it is asked for by name. The dry run is inside the gate on purpose: it is
@@ -857,13 +857,14 @@ def link_blackhole(iface: str) -> Action:
                        "interface is shaped, at root only when it is not, and refused outright "
                        "when a netem is already there. undo removes exactly the netem it finds, "
                        "so the shaper it was hung under survives. It is still 100% packet loss "
-                       "on a live link, and the undo's `parent` form has never been observed "
-                       "to be accepted by this machine's sudoers -- so it runs only when asked "
+                       "on a live link, and the undo's `parent` form needs a sudoers rule the User "
+                       "Manual does not set up, and that form has never been observed to succeed "
+                       "on a lab machine -- so it runs only when asked "
                        "for by name")
 
 
-# What `--full` injects, and nothing else. `link_blackhole` is deliberately NOT here: Adam's
-# ruling of 2026-09-07 (DECISIONS.md, grill §4E, E-4) is "not in, and fix the opt-in instead",
+# What `--full` injects, and nothing else. `link_blackhole` is deliberately NOT here: the
+# decision of 2026-09-07 was "not in, and fix the opt-in instead",
 # so `--full` still cannot reach a `tc` command on a live link, and the opt-in above is what
 # guards the one path that can. Adding it here would be a policy change, not a refactor.
 CHAOS_ACTIONS: list[Action] = [

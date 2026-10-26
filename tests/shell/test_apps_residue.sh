@@ -14,8 +14,7 @@
 #     s2 still forwarding on pri 96
 #
 # Neither verb was broken: they answer a question about PROCESSES. Nothing answered the other
-# one. Adam's decision (09-05 grill round 5): `apps stop` and `apps orphans` must LIST the
-# rules and locks, and must not delete them.
+# one. So `apps stop` and `apps orphans` must LIST the rules and locks, and must not delete them.
 #
 # 🔴 FOUR DIRECTIONS, because "print the residue" has wrong answers that look like fixes:
 #   * printing every rule buries the one that matters under the fabric's own baseline (5C);
@@ -101,12 +100,12 @@ mk_entries 300
 # app_started_at reads the pidfile's mtime when the process is gone -- which is G-12's case.
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 RESIDUE-1 (2026-09-12, Adam's ruling 12:3x): that window now has a RIGHT EDGE, taken from
-# the app's own log, so a fixture for "it was running until a moment ago" has to leave that log
-# where app_evidence_log looks for it. Writing it is not decoration: every app of this project
-# has one before it forks (app_spawn opens it; the helper gives sim a `script -qfa`), and a
-# pidfile with no log anywhere is the state of an app whose end nothing can date -- a zero-length
-# window, which is group 12C of tests/shell/test_ndt_helper_apps_window.sh and not this helper's.
+# 🔴 2026-09-12: that window now has a RIGHT EDGE, taken from the app's own log, so a fixture for "it
+# was running until a moment ago" has to leave that log where app_evidence_log looks for it. Writing
+# it is not decoration: every app of this project has one before it forks (app_spawn opens it; the
+# helper gives sim a `script -qfa`), and a pidfile with no log anywhere is the state of an app whose
+# end nothing can date -- a zero-length window, which is group 12C of
+# tests/shell/test_ndt_helper_apps_window.sh and not this helper's.
 #
 # 🔴 AND THE WINDOWED APP IS te, NOT energy, for the same reason group 5L moved to te on
 # 2026-09-07: energy is the one app whose log question has no channel -- `ndtwin-lab
@@ -248,11 +247,11 @@ has   "  naming the rule"                                "pri=96" "$ORPH_OUT"
 has   "🔴 orphans' own answer about PROCESSES is unchanged" "no untracked app processes" "$ORPH_OUT"
 
 # ==========================================================================================
-section "5I. W16-1: the exit code. Adam reversed the recommendation -- residue must be RED"
-# 🔴 The recommendation (W16-SUMMARY §7 q1) was to leave orphans' rc meaning "processes", so
-# `arm_up.sh` and the other gates kept working. Adam ruled the other way, 09-06 grill §4D round
-# 7, and the reason is G-12 itself: the finding IS "every existing check went green over it".
-# A residue report whose exit code cannot fail is one more check that goes green.
+section "5I. the exit code: residue must be RED"
+# 🔴 The alternative was to leave orphans' rc meaning "processes", so `arm_up.sh` and the other gates
+# kept working. It was rejected (09-06), and the reason is G-12 itself: the finding IS "every
+# existing check went green over it". A residue report whose exit code cannot fail is one more check
+# that goes green.
 check "🔴 a held lock and a rule in the window -> rc 4, not 0" "4" "$(rc_of "$ORPH_OUT")"
 has   "  and it says what 4 means"                       "RULES-IN-WINDOW: the processes are gone and the network is not clean" "$ORPH_OUT"
 has   "🔴 and that 4 is not 1 -- nothing is running to stop" "rc 4 is NOT rc 1" "$ORPH_OUT"
@@ -596,8 +595,8 @@ rm -f "$FIX/.test_run/logs/app_te.log"
 section "5M. 3-51: an app nobody can ask is not an app that was asked"
 # 🔴 energy has no disk log anywhere -- `ndtwin-lab energy-start` is a bare tmux session. Until
 # 09-07 the report said "no sign it ever ran here" about it, which is a claim about a channel
-# that does not exist. Adam's E-7 rule: "查不了" may be non-red, "沒去查" may not look like
-# "查了沒事".
+# that does not exist. The rule: "could not look" may be non-red, "did not look" may not look like
+# "looked, nothing there".
 no_pidfile energy
 OUT="$(run_residue "$LOCKS_FREE" energy)"
 has   "🔴 it says the question cannot be asked"          "CANNOT BE ASKED" "$OUT"
@@ -715,7 +714,7 @@ section "G-55. an EMPTY flow table says so -- a window over one frames nothing"
 # a kernel up and no fabric, so counting it as BLIND would make `ndt status --check` answer NOT
 # CHECKED on every clean machine -- a gate that can never pass is a gate nobody reads, which is
 # how G-12's own green checks stopped being read. The rc pair at the end of this group is the
-# assertion that it did not move; DOC-4 §7-8 asked for NOT CHECKED here and Adam has not ruled.
+# assertion that it did not move; whether an empty table should read NOT CHECKED is undecided.
 started_ago te 600
 printf '[]' > "$FIX/entries.json"
 EMPTY_OUT="$(run_residue "$LOCKS_FREE" te)"

@@ -5,13 +5,13 @@
 # [Co-developed with claude code -- Adam]
 #
 # WRITTEN OFFLINE, NEVER RUN BY ITS AUTHOR (no lab, no sudo). Live runs happen in the shared main
-# checkout after the branch is merged (Adam's 10-08 ruling). The offline half -- the package's
-# pipeline loads on a throwaway simple_switch_grpc, every entry goes in and reads back, and every
-# crafted frame and a replayed slice of smallFlows.pcap come out exactly as a hand model of
-# p4anony.p4 says -- is doc/audit/2026-10-16_p4-paper-apps/offline_ontas.py.
+# checkout after the branch is merged. The offline half -- the package's pipeline loads on a
+# throwaway simple_switch_grpc, every entry goes in and reads back, and every crafted frame and a
+# replayed slice of smallFlows.pcap come out exactly as a hand model of p4anony.p4 says
+# (doc/audit/2026-10-16_p4-paper-apps/ontas_model.py) -- is checked separately.
 #
 # THE APP. github.com/Princeton-Cabernet/p4-projects @e5c7cca1, ONTAS/bmv2_p4_16 (Apache-2.0; the
-# local blob-less sparse clone /home/adam/paper-apps/p4-projects, downloaded with Adam's permission).
+# local blob-less sparse clone $HOME/paper-apps/p4-projects).
 # 🔴 DOWNLOADED, UNTRUSTED: nothing of it is executed -- not its Makefile, not a script. This step
 # COPIES the checked-out files (no git command that could fetch a missing blob from the remote),
 # checks every copy's blob id against `git ls-tree` of that commit, compiles p4anony.p4 with this
@@ -70,9 +70,9 @@ CTRL_PY="${CTRL_PY:-/home/adam/p4dev-python-venv/bin/python}"
 HOSTSIDE="$HERE/paper_ontas_hostside.py"
 MODEL_DIR="$REPO/doc/audit/2026-10-16_p4-paper-apps"
 REPLAY_N=60
-#: Files of $APP_PATH at $APP_COMMIT, utils/ excluded (b_02_stage_provenance.log: 11).
+#: Files of $APP_PATH at $APP_COMMIT, utils/ excluded (11, counted when the stage was provisioned).
 WANT_FILES=11
-#: What the offline check ran (2026-10-16, gates-0910/p4-paper-apps/b_01_p4c_ontas.log).
+#: What the offline check ran on 2026-10-16.
 P4INFO_SHA="517074c9175dc3c9ac13595e827de9a81b985daf7655f995dc10373f58f28ec4"
 JSON_SHA="bb74da905adb7683e6949b723c7fdb30204a0e2403aea2f81b3027e369fb63f0"
 FABRIC_SKIPS_HB="['install_initial_routes', 'lldp_discovery']"

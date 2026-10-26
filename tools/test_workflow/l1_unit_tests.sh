@@ -30,7 +30,14 @@
 # limitation rather than a broken test. There are exactly two such prerequisites and the run
 # computes both: an interpreter carrying the P4Runtime protobufs ($PY_P4), and the compiled P4
 # artefacts that l0_build_check.sh writes to $P4_BUILD_DIR. Anything else that skips fails,
-# whether the whole file skipped or one test in it.
+# whether the whole file skipped or one test in it -- with one stated exception: tools/p4_exercise/tests
+# is in this lane too, and a test in it that skips for want of a local P4 tutorial tool (a tutorials
+# checkout, p4c-bm2-ss, the p4dev venv) is reported PROVED LESS, not failed, provided its skip reason
+# names NDTWIN_TUTORIALS_DIR, NDTWIN_P4C or NDTWIN_P4DEV_VENV; a skip with no such reason fails the file,
+# and so does a p4_exercise file in which every test skipped (l1_exercise_verdict). For that file set the
+# lane reads the skip reason; it does not probe the machine. One consequence: test_thrift_cli.py skips one
+# test when it runs as root (it cannot make a file unreadable to root), and that skip names no tool, so the
+# lane is red when run as root, for instance in a default Docker container.
 #
 # [Co-developed with claude code -- Adam]
 # That last clause used to be false for a strict subset of skips. The all-skipped branch below
@@ -144,6 +151,50 @@ l1_lane_verdict() {
     elif [[ "$failed"  -gt 0 ]]; then echo FAIL-CHECKS
     else                              echo PASS
     fi
+}
+
+# l1_exercise_verdict <unittest -v log> <rc> -- echo "<VERDICT> <ran> <skipped> <tool_skipped>" for one
+# tools/p4_exercise/tests file.
+# [Co-developed with claude code -- Adam]
+#
+# Unlike the p4_proxy files, whose partial skips are excused by two things this run computes about the
+# machine, a p4_exercise skip is excused by what its REASON says: the tests there skip only when a local
+# P4 tutorial tool is missing, and each such skip names the variable that points at the tool
+# (NDTWIN_TUTORIALS_DIR, NDTWIN_P4C or NDTWIN_P4DEV_VENV). The lane does not probe those tools; it reads the
+# reason unittest printed. So a skip whose reason names none of them is a failure, which is what stops a
+# test that starts skipping for some other reason from being excused for ever.
+#
+#   FAIL-RC           the file exited non-zero.
+#   FAIL-ALL-SKIPPED  something skipped and nothing passed: a skip-only file (including a setUpClass or
+#                     setUpModule SkipTest, which unittest reports as "Ran 0 tests / OK (skipped=1)") asserted nothing.
+#   FAIL-NO-TESTS     nothing was collected and nothing skipped. For these files that is a failure, not a note.
+#   FAIL-UNRELATED    more skips than skips that name a tool.
+#   PROVED-LESS       every skip names a tool; the rest ran and passed.
+#   PASS
+#
+# Counts, all from the log: skipped is the larger of the number of "... skipped" lines (the reason is on the
+# same line, in single quotes, or in double quotes when it holds an apostrophe; a test with a docstring prints
+# the docstring and then "... skipped" on the next line) and unittest's "(skipped=N)"; tool_skipped is the
+# number of those lines whose reason names one of the three variables; a pass is a "... ok" line or an
+# "ok" line on its own (a test that logged before it finished), or "expected failure".
+l1_exercise_verdict() {
+    local log="$1" rc="$2" ran skipped summary tool_skipped passed
+    ran=$(grep -oE '^Ran [0-9]+ test' "$log" | tail -1 | grep -oE '[0-9]+')
+    skipped=$(grep -cE '\.\.\. skipped' "$log")
+    summary=$(grep -oE '\(skipped=[0-9]+' "$log" | tail -1 | grep -oE '[0-9]+')
+    tool_skipped=$(grep -cE "\.\.\. skipped ['\"].*(NDTWIN_TUTORIALS_DIR|NDTWIN_P4C|NDTWIN_P4DEV_VENV)" "$log")
+    passed=$(grep -cE '(\.\.\. |^)(ok|expected failure)$' "$log")
+    ran=${ran:-0}
+    [[ -n "$summary" && "$summary" -gt "$skipped" ]] && skipped="$summary"
+    local v
+    if   [[ "$rc" -ne 0 ]];                                  then v=FAIL-RC
+    elif [[ "$skipped" -gt 0 && "$passed" -eq 0 ]];          then v=FAIL-ALL-SKIPPED
+    elif [[ "$ran" -eq 0 ]];                                 then v=FAIL-NO-TESTS
+    elif [[ "$skipped" -gt "$tool_skipped" ]];               then v=FAIL-UNRELATED
+    elif [[ "$skipped" -gt 0 ]];                             then v=PROVED-LESS
+    else                                                          v=PASS
+    fi
+    echo "$v $ran $skipped $tool_skipped"
 }
 
 # --- declared skips (tests/python and tests/shell) --------------------------------
@@ -433,7 +484,7 @@ else
     # instead (21 of 41 on 2026-09-26, and one more whose proxy subprocess did), and the note
     # below says so. [Co-developed with claude code -- Adam]
     PY_P4=""
-    for candidate in "$P4_PROXY_PY" /home/adam/p4dev-python-venv/bin/python3 python3; do
+    for candidate in "$P4_PROXY_PY" "${NDTWIN_P4DEV_VENV:-$HOME/p4dev-python-venv}/bin/python3" python3; do
         if [[ -n "$candidate" ]] && command -v "$candidate" >/dev/null 2>&1 \
                 && "$candidate" -c "import p4.v1.p4runtime_pb2" >/dev/null 2>&1; then
             PY_P4="$candidate"; break
@@ -456,8 +507,25 @@ else
     [[ $HAVE_P4INFO -eq 0 ]] && echo "  ${Y}note: no compiled p4info at $P4INFO_FILE;" \
         "run l0_build_check.sh p4 -- tests that pin the metadata ids will skip themselves${N}"
 
+    # [Co-developed with claude code -- Adam]
+    # tools/p4_exercise/tests rides in this lane: same interpreter, same one-file-per-process run,
+    # same verdicts, except one. Four of its files hold a test that skips when a local P4 tutorial
+    # tool is missing: a p4lang-tutorials checkout ($NDTWIN_TUTORIALS_DIR, default ~/tutorials; in
+    # test_convert.py and test_run_external_controller.py), p4c-bm2-ss ($NDTWIN_P4C, default the one
+    # on PATH; test_telemetry_include.py) and the p4dev venv with runtime_CLI.py
+    # ($NDTWIN_P4DEV_VENV, default ~/p4dev-python-venv; test_thrift_cli.py). The "a compiled p4info
+    # is present, so no skip has an excuse" rule below is about the proxy's own tests and says
+    # nothing about those tools, so a partial skip in these files is PROVED LESS whatever the
+    # p4info says -- but only while every skip names its tool: l1_exercise_verdict, above, excuses a
+    # skip when its reason (the `... skipped '<reason>'` text under -v) contains NDTWIN_TUTORIALS_DIR,
+    # NDTWIN_P4C or NDTWIN_P4DEV_VENV, and fails the file when it has more skips than that, when
+    # nothing in it passed, or when nothing ran. This reads the reason; it does not check the machine.
+    # Run as root, test_thrift_cli.py skips one test for want of a file root cannot be denied, that
+    # skip names no tool, and the lane is then red: do not run it as root (a default Docker container is).
     shopt -s nullglob
-    for testfile in "$PROXY_DIR"/tests/test_*.py; do
+    for testfile in "$PROXY_DIR"/tests/test_*.py "$KERNEL_DIR"/tools/p4_exercise/tests/test_*.py; do
+        is_exercise=0; tool_skipped=0
+        [[ "$testfile" == "$KERNEL_DIR"/tools/p4_exercise/tests/* ]] && is_exercise=1
         name="$(basename "$testfile")"
         log="$LOG_DIR/l1_python_${name%.py}.log"
         printf '  %-30s ' "$name"
@@ -470,6 +538,37 @@ else
         ran=$(grep -oE '^Ran [0-9]+ test' "$log" | tail -1 | grep -oE '[0-9]+')
         ran=${ran:-0}
         skipped=$(grep -cE "^test_.* \.\.\. skipped" "$log")
+
+        if [[ $is_exercise -eq 1 ]]; then
+            # Its own verdict, from the log alone (l1_exercise_verdict); the chain below is the
+            # p4_proxy files'.
+            read -r verdict ran skipped tool_skipped <<<"$(l1_exercise_verdict "$log" "$rc")"
+            case "$verdict" in
+            FAIL-RC)
+                echo "${R}FAIL${N} (exit $rc, ran=$ran)"
+                grep -E "^(FAIL|ERROR):|AssertionError|SkipTest" "$log" | head -12 | sed 's/^/      /'
+                FAILURES=$((FAILURES + 1)) ;;
+            FAIL-ALL-SKIPPED)
+                echo "${R}FAIL${N} ${skipped} skip(s) and no test passed — the file asserted nothing"
+                grep -E "\.\.\. skipped" "$log" | head -3 | sed 's/^/      /'
+                FAILURES=$((FAILURES + 1)) ;;
+            FAIL-NO-TESTS)
+                echo "${R}FAIL${N} no test ran (see $log)"
+                FAILURES=$((FAILURES + 1)) ;;
+            FAIL-UNRELATED)
+                echo "${R}FAIL${N} $((skipped - tool_skipped)) of ${skipped} skip(s) had no tool reason" \
+                     "(none of NDTWIN_TUTORIALS_DIR, NDTWIN_P4C, NDTWIN_P4DEV_VENV named) — a" \
+                     "skipped test is not a passing test"
+                grep -E "\.\.\. skipped" "$log" | grep -vE "NDTWIN_TUTORIALS_DIR|NDTWIN_P4C|NDTWIN_P4DEV_VENV" \
+                    | head -6 | sed 's/^/      /'
+                FAILURES=$((FAILURES + 1)) ;;
+            PROVED-LESS)
+                echo "${Y}PROVED LESS${N} ${D}${ran} ran, ${skipped} skipped (needs local P4" \
+                     "tutorial tools; see the file's log)${N}" ;;
+            *)  echo "${G}PASS${N}  ${D}${ran} ran and passed${N}" ;;
+            esac
+            continue
+        fi
 
         if [[ $rc -ne 0 ]]; then
             echo "${R}FAIL${N} (exit $rc, ran=$ran)"
@@ -516,10 +615,12 @@ else
             # NDTWIN_L1_OPT_IN says "this whole file needs a live switch", which a file that ran
             # most of its tests plainly did not.
             #
-            # The two environment excuses are the ones this run computed for itself, so the
-            # verdict never depends on parsing a skip message. On a machine with both
+            # For these p4_proxy files the two environment excuses are the ones this run computed for
+            # itself, so the verdict never depends on parsing a skip message. On a machine with both
             # prerequisites there is no excuse left, and today the reference checkout has zero
-            # partially-skipped files -- so this costs nothing until something regresses.
+            # partially-skipped files -- so this costs nothing until something regresses. (The
+            # p4_exercise files never reach this chain: l1_exercise_verdict scores them, and it does
+            # read the skip reason.)
             if [[ -z "$PY_P4" ]]; then
                 echo "${Y}PROVED LESS${N} ${D}${ran} ran, ${skipped} skipped (no interpreter" \
                      "with the P4Runtime protobufs)${N}"

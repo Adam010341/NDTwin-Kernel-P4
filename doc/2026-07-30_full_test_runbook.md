@@ -31,35 +31,35 @@ P4 對照。背景說明、每個功能的證據、已知限制在 [2026-07-29_p
 
 ### 誰做什麼
 
-`sudoers` 放行了 `/usr/bin/mnexec`（NOPASSWD），所以**只要你把 Mininet 開起來，其餘幾乎都我能代跑**
-—— `mnexec -a <host pid>` 讓我在 host 的 namespace 裡以 root 執行任何指令（實測 uid 0，
+有 `/usr/bin/mnexec` NOPASSWD 規則的帳號（User Manual 沒有教，見 `doc/2026-07-29_environment_gotchas.md`），**在 Mininet 開起來之後，其餘幾乎都能用 `sudo -n` 跑**
+—— `mnexec -a <host pid>` 能在 host 的 namespace 裡以 root 執行任何指令（實測 uid 0，
 `iperf`／`tcpdump`／`ping`／`ip` 都能用）。
 
-| 只有你能做 | 為什麼 |
+| 要互動式 root | 為什麼 |
 |---|---|
 | `sudo python3 testbed_topo.py` / `p4_testbed_topo.py` | 需要互動式 root，`sudo -n python3` 會要密碼 |
 | `sudo mn -c` | 同上 |
 | `mininet> exit` | 在你的互動 CLI 裡 |
 
-| 我可以代跑 | 方式 |
+| 不需要 root，或只要 `doc/2026-07-29_environment_gotchas.md` 那條 NOPASSWD 規則 | 方式 |
 |---|---|
 | `stack.sh up/wait/down`、`run_layers.sh` | 不需要 root |
 | **產生流量**（iperf / ping） | `sudo -n mnexec -a $(pgrep -f "mininet:h1") iperf ...` |
 | `tcpdump` 抓包 | 同上，實測可用 |
 | 所有 `curl` 檢查、log 分析 | — |
-| 建／刪 OVS bridge | `sudo -n ovs-vsctl`（NOPASSWD） |
+| 建／刪 OVS bridge | `sudo -n ovs-vsctl`（要那條規則裡的 `ovs-vsctl`，User Manual 沒有教） |
 
 ### 需要幾個 terminal
 
 | | 用途 | 生命週期 |
 |---|---|---|
 | **B** | Mininet CLI（`sudo`，會停在 `mininet>`）—— **你的** | 全程留著，OVS 和 P4 之間要換 |
-| **A** | `stack.sh` / `run_layers.sh` / `curl` | 我可以代跑；你要自己看也行 |
+| **A** | `stack.sh` / `run_layers.sh` / `curl` | 不需要 root |
 
 ### 確認起點是乾淨的（terminal A）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./stack.sh down
 sudo mn -c
 pgrep -x ndtwin_kernel; pgrep -x simple_switch_g; pgrep -x iperf
@@ -86,7 +86,7 @@ ss -ltn '( sport = 8000 or sport = 8080 or sport = 8081 )'
 ## 第 0 步：不用開任何東西（約 6 分鐘）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./run_layers.sh quick        # L0 build + L1 單元測試
 ./run_layers.sh selftest     # contract schema 自我測試 + 依賴圖
 ./l0_build_check.sh p4       # P4 pipeline 編譯
@@ -103,7 +103,7 @@ L1 passed: 1 test binary/binaries, clean under ctest and direct execution.
 C++ 測試也要**直接跑一次**，不能只靠 ctest —— ctest 一個測試開一個 process，會掩蓋 suite 級別的失敗：
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel && ./build/bin/test_routing_strategy
+cd <repo> && ./build/bin/test_routing_strategy
 ```
 ✅ 驗收條件是 **exit 0**，而且最後一行是 `[  PASSED  ] N tests.`，**沒有** `[  FAILED  ]` 那一段。
 
@@ -119,7 +119,7 @@ cd /home/adam/Desktop/NDTwin-Kernel && ./build/bin/test_routing_strategy
 ### 1a. 起 stack —— 它會先開 Ryu 然後停下來等你（terminal A）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./stack.sh up ovs
 ```
 
@@ -133,7 +133,7 @@ cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
 ### 1b. 開 OVS Mininet（terminal B）
 
 ```bash
-sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
+sudo python3 <repo>/testbed_topo.py
 ```
 
 ✅ 看到 `mininet>` 就成功。
@@ -141,13 +141,13 @@ sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
 ⚠️ 啟動時它會自己跑一輪 128 台 host 平行 ping，**那一輪的 `100% packet loss` 可以忽略**。
 
 但**不要**因此以為那輪 ping 沒作用、或反過來以為它就是 twin 學主機 IP 的來源 —— 兩種說法都被
-2026-08-22 的實測推翻了（`doc/audit/2026-08-22_settle-gate-acceptance/burst_timing.txt`）：
+2026-08-22 的實測推翻了：
 那 128 個 ping 在開機後 **32 秒內就全部跑完**，而 Ryu 在**接下來 65 秒內一台都沒學到**，
 128 台的 IPv4 是在 settle 等待放開的**那一個取樣點**一次全部出現的。
 
 Ryu 只從 packet-in 學主機 IPv4（`ryu/topology/switches.py:877-885`），而 `testbed_topo.py` 已經
-幫每台主機寫好靜態 ARP，把 ARP 那條路封死了 —— 這部分（2026-08-22 `e5e4980` 的介入實驗，
-`doc/audit/2026-08-22_punt-window-discriminator/REPORT.md`）仍然成立。**但「開機那輪 ping 就是
+幫每台主機寫好靜態 ARP，把 ARP 那條路封死了 —— 這部分（2026-08-22 `e5e4980` 的介入實驗）
+仍然成立。**但「開機那輪 ping 就是
 教 Ryu 的那個封包」是錯的**，觸發點是等待放開的那一刻，機制還沒查出來。
 
 錯過這一窗的後果不是「網路壞掉」，而是更難發現的那種：**資料平面完全正常，但 kernel 在
@@ -174,8 +174,7 @@ Ryu 只從 packet-in 學主機 IPv4（`ryu/topology/switches.py:877-885`），�
 那個等待現在是 `NDTWIN_RYU_SETTLE_S`，預設 40，不再是寫死的 `hub.sleep(60)`。
 
 它擋住的就是上面 §1b 講的那件事：**規則一裝上去，學習窗就關了。** 所以這個等待不是「保守起見多等
-一下」，而是 twin 看不看得見自己 128 台主機的分界線。11 次完整開機實測
-（`doc/audit/2026-08-22_settle-gate-acceptance/settle_bisect.txt`）：
+一下」，而是 twin 看不看得見自己 128 台主機的分界線。11 次完整開機實測：
 
 | `NDTWIN_RYU_SETTLE_S` | Ryu 學到的主機 | kernel 圖 | `ndt up ovs` |
 |---|---|---|---|
@@ -386,7 +385,7 @@ sudo mn -c
 ### 2a. 開 bmv2 Mininet（terminal B）—— 這次 **Mininet 先**
 
 ```bash
-sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+sudo python3 <repo>/p4_proxy/mininet/p4_testbed_topo.py
 ```
 
 > ⚠️ **P4 的順序和 OVS 相反，這是對的，不是筆誤。** OVS 是交換機主動撥給 Ryu，所以 Ryu 要先；
@@ -406,7 +405,7 @@ cat /tmp/ndtwin_p4_switches.json | python3 -m json.tool | head -20
 ### 2b. 起 stack（terminal A）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./stack.sh up p4
 ```
 
@@ -424,7 +423,7 @@ cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
 ```
 mininet> h1 ping -c 2700 h4
 ```
-（或我代跑：`sudo -n mnexec -a $(ps -eo pid,args | awk '$NF=="mininet:h1"{print $1}') ping -c 2700 10.0.0.4`）
+（或用 `mnexec` 代跑：`sudo -n mnexec -a $(ps -eo pid,args | awk '$NF=="mininet:h1"{print $1}') ping -c 2700 10.0.0.4`）
 
 ⚠️ **封包要夠多。** 1/256 取樣、每跳獨立取樣，所以機會數 = 封包數 × 跳數。200 個 ping × 10 跳
 ÷ 256 ≈ 8 個 sample。要更穩就用 `-c 2700`（實測 ≈ 107 個 sample）。

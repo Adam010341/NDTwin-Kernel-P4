@@ -11,7 +11,7 @@ KNOWN-ISSUES A-8. The kernel writes
 (src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1134) *because it is
 correctly handling a switch the Energy-Saving-App powered down. The allowlist did not carry
 it, so the log check went red -- the third of three tools that turn red when the system is
-working (doc/audit/2026-08-18_live-full-stack-round/live-findings-2026-08-18-p4.md, N-9).
+working.
 
 The obvious fix is the wrong one. Adding a plain WARNING entry would also silence the line
 when no switch is powered off, and that is the 2026-08-07 wedged-controller defect the

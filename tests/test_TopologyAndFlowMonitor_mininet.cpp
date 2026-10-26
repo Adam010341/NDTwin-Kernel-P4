@@ -7,10 +7,9 @@
  *
  * Expected behaviour is derived from:
  *   1. doc/2026-07-27_p4_bmv2_support_plan.md (issues #4, #5, #12)
- *   2. doc/audit/2026-08-08_external-tools-compat-review.md
- *   3. include/ndt_core/collection/TopologyAndFlowMonitor.hpp (interface contract)
- *   4. setting/StaticNetworkTopologyMininet_10Switches.json (data)
- *   5. doc/audit/2026-08-08_external-tools-compat-review.md (external tool expectations)
+ *   2. include/ndt_core/collection/TopologyAndFlowMonitor.hpp (interface contract)
+ *   3. setting/StaticNetworkTopologyMininet_10Switches.json (data)
+ *   4. what the external tools that read the topology API expect
  *
  * The implementation (.cpp) is read ONLY for function signatures and object
  * construction; no assertion is derived from reading the implementation.

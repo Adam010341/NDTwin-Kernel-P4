@@ -22,9 +22,9 @@
 #        te     1 s    Traffic-engineering-App.py:41 get_graph_data_interval = 1
 #      Three of the five poll FASTER than R-2's 1 Hz path recompute. R-2's registered
 #      expectation of "no observable difference" rests on the 15 s figure, so its premise does
-#      not hold. This is recorded, not silently corrected: amending a pre-registration is the
-#      auditor's call, not the harness's, and "the threshold blocked me so I moved it" is the
-#      worst possible reason to change one.
+#      not hold. This is recorded, not silently corrected: amending a registered expectation is not
+#      the harness's call, and "the threshold blocked me so I moved it" is the worst possible
+#      reason to change one.
 #
 #  (2) "convergence time from `ndt up` to all five apps serving. 08-18 reference: 69 s (OVS) /
 #      2 s (P4)" (PREREG §3 R-3). Those two numbers come from the 08-18 documents' own headers

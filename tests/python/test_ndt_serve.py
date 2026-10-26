@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ndt serve: every red line of TICKET-ndt-serve section 3, against a stub ndt.
+"""ndt serve: every design red line, against a stub ndt.
 
 [Co-developed with claude code -- Adam]
 
@@ -38,7 +38,7 @@ SERVE_DIR = os.environ.get("NDT_SERVE_UNDER_TEST") or os.path.join(REPO, "tools"
 NDT = os.environ.get("NDT_UNDER_TEST") or os.path.join(REPO, "tools", "test_workflow", "ndt")
 OWNER = "serve-test"
 # [Co-developed with claude code -- Adam] `ndt status` with this server's own claim (claim_line's own
-# form): an app start/stop reads it inside the slot and runs only under it (judge B1, 09-27)
+# form): an app start/stop reads it inside the slot and runs only under it
 OWN_CLAIM_STATUS = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
 
 STUB_NDT = textwrap.dedent('''\
@@ -358,7 +358,7 @@ class Csrf(ServeCase):
         self.assertGreaterEqual(len(self.s.token()), 40)
 
     def test_open_directories_left_by_someone_else_are_tightened(self):
-        """Judge finding 8: a state or token directory that already exists 0777, an old 0644
+        """A state or token directory that already exists 0777, an old 0644
         token, and a umask of 000 -- the server still leaves 0700 / 0600 behind."""
         s = Serve()
         try:
@@ -419,8 +419,8 @@ class Csrf(ServeCase):
         self.assertEqual(self.s.calls(), [])
 
     def test_reads_need_the_token_except_health(self):
-        """Judge 09-24 finding 1: GET /status?check=1 runs `ndt status --check`, whose lock probes
-        POST /ndt/acquire_lock to the kernel (ndt:9610-9625). A read is not side-effect free, so
+        """GET /status?check=1 runs `ndt status --check`, whose lock probes
+        POST /ndt/acquire_lock to the kernel (ndt: lock_probe). A read is not side-effect free, so
         every GET but /health is gated the way a write is."""
         paths = ["/status", "/status?check=1", "/apps", "/jobs", "/jobs/20260101T000000Z-abcdef",
                  "/jobs/20260101T000000Z-abcdef/log/stdout", "/cells", "/cells/x", "/cells/x/old",
@@ -465,7 +465,7 @@ class Csrf(ServeCase):
 
 
 class Bounded(unittest.TestCase):
-    """Judge finding 1, second half: a blind GET flood must not pin an unbounded number of threads."""
+    """A blind GET flood must not pin an unbounded number of threads."""
 
     def test_waiters_are_bounded(self):
         s = Serve(extra=["--max-waiters", "2"]).start()
@@ -574,7 +574,7 @@ class Whitelist(ServeCase):
         self.assertEqual(self.s.calls(), [])
 
     def test_app_root_is_a_directory_not_a_prefix(self):
-        """Judge finding 8: commonpath, not startswith -- <root>2/x shares the root's prefix."""
+        """commonpath, not startswith -- <root>2/x shares the root's prefix."""
         sibling = self.s.app_root + "2"
         os.makedirs(os.path.join(sibling, "x"))
         st, j, _, _ = self.s.post("/up", {"plane": "p4", "app": os.path.join(sibling, "x")})
@@ -616,8 +616,8 @@ class Whitelist(ServeCase):
     def test_claim_note_reaches_ndt_as_one_argv_element(self):
         # [Co-developed with claude code -- Adam] The note is the same length whatever TMPDIR is. It
         # used to carry two absolute paths under self.s.tmp, and under a TMPDIR of about 55
-        # characters or more it passed MAX_NOTE_CHARS (200): a 400, not this case (orchestrator
-        # 09-27, on b0cd6731: a 105-character TMPDIR red, 21 green). The names are relative now, so
+        # characters or more it passed MAX_NOTE_CHARS (200): a 400, not this case (seen on
+        # b0cd6731: a 105-character TMPDIR red, 21 green). The names are relative now, so
         # a shell that ran the note would make them in ITS cwd -- the job's, which is where the
         # runner starts ndt (runner.py, cwd=req["cwd"]) and which lies inside the temp tree walked
         # below.
@@ -693,7 +693,7 @@ class ThinShell(ServeCase):
         self.assertEqual(h["x-ndt-log-next-offset"], "6000")
 
     def test_read_output_is_kept_byte_for_byte(self):
-        """Judge finding 4: ndt cuts claim notes with `cut -c1-72`, which counts bytes, so a
+        """ndt cuts claim notes with `cut -c1-72`, which counts bytes, so a
         multi-byte character can be cut in half. The JSON answer shows it with U+FFFD; the bytes
         are kept and can be fetched back by the read's id."""
         cut = "claim note 中文".encode()[:-1] + b"\n"
@@ -725,7 +725,7 @@ class ThinShell(ServeCase):
 
 
 class ReadTimeout(unittest.TestCase):
-    """Judge finding 7: the read-timeout path had never run."""
+    """The read-timeout path had never run."""
 
     def test_a_read_past_its_timeout_is_stopped_and_frees_its_slot(self):
         s = Serve(extra=["--read-timeout", "1"]).start()
@@ -803,7 +803,7 @@ class Jobs(ServeCase):
         self.assertEqual([c["argv"] for c in self.s.calls()], [["up", "4"]])
 
     def test_concurrent_writes_get_exactly_one_slot(self):
-        """Judge finding 8: without `with SLOT:` two requests can both see a free slot."""
+        """Without `with SLOT:` two requests can both see a free slot."""
         import threading
         self.s.behave(up={"sleep": 3})
         barrier = threading.Barrier(20)
@@ -820,7 +820,7 @@ class Jobs(ServeCase):
         self.assertEqual(len(self.s.calls()), 1)
 
     def test_a_zombie_is_not_alive(self):
-        """Judge finding 8: a runner that has exited but not been reaped is still in /proc."""
+        """A runner that has exited but not been reaped is still in /proc."""
         sys.path.insert(0, SERVE_DIR)
         try:
             import importlib
@@ -956,7 +956,7 @@ class NoPatternKill(unittest.TestCase):
             src = _read(os.path.join(SERVE_DIR, name))
             self.assertIn("os.killpg(p.pid, signal.SIGKILL)", src, name)
             self.assertIn("start_new_session=True", src, name)
-        # 🔴 judge r2 finding 4: subprocess.run(timeout=...) kills its child implicitly -- a signal
+        # 🔴 subprocess.run(timeout=...) kills its child implicitly -- a signal
         # this scan cannot see, sent to the child and not to its group. None may remain.
         implicit = [(os.path.basename(p), line) for p in glob.glob(os.path.join(SERVE_DIR, "*.py"))
                     for kind, text, line in code_facts(p)
@@ -996,7 +996,7 @@ class Identity(unittest.TestCase):
             s.close()
 
     def test_jobs_run_the_ndt_resolved_at_start(self):
-        """Judge finding 6: the record names the sha of the file that ran. Re-pointing the symlink
+        """The record names the sha of the file that ran. Re-pointing the symlink
         after start neither changes what runs nor goes unreported."""
         s = Serve()
         try:
@@ -1073,7 +1073,7 @@ class ClaimFormProvenance(unittest.TestCase):
 
 
 class RcProvenance(unittest.TestCase):
-    """Judge finding 5: say where each rc table comes from, and hold it to that source -- the real
+    """Say where each rc table comes from, and hold it to that source -- the real
     ndt of this tree, not a stub."""
 
     @classmethod
@@ -1117,8 +1117,8 @@ class RcProvenance(unittest.TestCase):
         return None
 
     def test_code_sourced_tables_are_in_ndt(self):
-        """Each anchor is its line, the text on it AND the function it lies in (intake judge 09-26,
-        finding 3): `return 1` is on a great many lines, and a line number pointed back at 09-24's
+        """Each anchor is its line, the text on it AND the function it lies in:
+        `return 1` is on a great many lines, and a line number pointed back at 09-24's
         8315 -- proc_checkout's `return 1` today -- passed a check of the text alone. Every
         anchor is checked and every broken one named, not only the first."""
         bad = []
@@ -1145,34 +1145,58 @@ class RcProvenance(unittest.TestCase):
                          [None, "claim_line", "claim_line", None])
 
     # [Co-developed with claude code -- Adam]
-    CITE = re.compile(r"\(ndt:(\d+)-(\d+)\)")
+    CITE = re.compile(r"\(ndt: ([A-Za-z_][A-Za-z0-9_]*)\)")
 
     def test_lock_probe_citations_are_lock_probe(self):
-        """The opus judge's N1-1 (09-27): the README still sent a reader to ndt lines 9292-9307 for
-        the lock probes after segment W had moved them 124 lines down, because nothing held the
-        prose to ndt. Every parenthesised ndt range cited beside the lock probes -- the README,
-        serve.py's docstring, this file's -- must start in lock_probe's own comment block and
-        cover its POST to /ndt/acquire_lock, inside lock_probe. Each place must cite at least once
-        (a check that finds nothing is not a pass)."""
+        """The README once sent a reader to ndt lines 9292-9307 for
+        the lock probes after they had moved 124 lines down, because nothing held the
+        prose to ndt. The citations beside the lock probes -- the README, serve.py's docstring,
+        this file's -- name the ndt FUNCTION instead, `(ndt: <name>)`, so they cannot drift with
+        line numbers; each must name the function the POST to /ndt/acquire_lock lies in, and that
+        function must be defined in ndt. Each place must cite at least once (a check that finds
+        nothing is not a pass)."""
         head = [i + 1 for i, t in enumerate(self.lines) if t.startswith("# lock_probe <type>")]
         post = [i + 1 for i, t in enumerate(self.lines) if "/ndt/acquire_lock" in t]
         self.assertEqual((len(head), len(post)), (1, 1), "one lock_probe header, one acquire_lock POST")
         self.assertEqual(self.enclosing_function(post[0]), "lock_probe")
         end = next(i + 1 for i in range(post[0], len(self.lines)) if self.lines[i].startswith("}"))
+        owner = self.enclosing_function(post[0])
+        defined = {t.split("(", 1)[0] for t in self.lines if re.match(r"^[A-Za-z_][A-Za-z0-9_]*\(\) \{", t)}
         bad = []
         for path in (os.path.join(SERVE_DIR, "README.md"), os.path.join(SERVE_DIR, "serve.py"),
                      os.path.abspath(__file__)):
             with open(path) as f:
                 text = f.read()
-            found = [(text.count("\n", 0, m.start()) + 1, int(m.group(1)), int(m.group(2)))
+            found = [(text.count("\n", 0, m.start()) + 1, m.group(1))
                      for m in self.CITE.finditer(text)
                      if re.search(r"lock[\s_]+probe|acquire_lock", text[max(0, m.start() - 120):m.end()])]
             if not found:
-                bad.append("%s cites no ndt range beside the lock probes" % os.path.basename(path))
-            for line, a, b in found:
-                if not (head[0] <= a <= post[0] <= b <= end):
-                    bad.append("%s:%d cites ndt:%d-%d; lock_probe's comment starts at %d, its POST is at %d, "
-                               "it ends at %d" % (os.path.basename(path), line, a, b, head[0], post[0], end))
+                bad.append("%s cites no ndt function beside the lock probes" % os.path.basename(path))
+            for line, name in found:
+                if name != owner or name not in defined:
+                    bad.append("%s:%d cites ndt: %s; the POST to /ndt/acquire_lock is in %s" % (
+                        os.path.basename(path), line, name, owner))
+        self.assertEqual(bad, [])
+
+    FUNC_CITE = re.compile(r"\(ndt: ([A-Za-z_][A-Za-z0-9_]*)[),;]")
+
+    def test_every_ndt_function_citation_names_a_function_ndt_defines(self):
+        """The service and its tests cite ndt by function --
+        `(ndt: claim_line)`, `(ndt: status_measuring_rows; ...)` -- instead of by line number.
+        A name is only better than a number if it stays true: every such citation must name a
+        function ndt defines, and each of these files must cite at least one (a check that finds
+        nothing is not a pass)."""
+        defined = {t.split("(", 1)[0] for t in self.lines if re.match(r"^[A-Za-z_][A-Za-z0-9_]*\(\) \{", t)}
+        bad = []
+        for path in (os.path.join(SERVE_DIR, "serve.py"), os.path.join(SERVE_DIR, "README.md"),
+                     os.path.abspath(__file__), os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_ndt_serve_cells.py")):
+            with open(path) as f:
+                text = f.read()
+            found = [(text.count("\n", 0, m.start()) + 1, m.group(1)) for m in self.FUNC_CITE.finditer(text)]
+            if not found:
+                bad.append("%s cites no ndt function" % os.path.basename(path))
+            bad += ["%s:%d cites ndt: %s, which ndt does not define" % (os.path.basename(path), line, name)
+                    for line, name in found if name not in defined]
         self.assertEqual(bad, [])
 
     def test_status_check_rc1_names_any_problem(self):
@@ -1184,7 +1208,7 @@ class RcProvenance(unittest.TestCase):
 
 class DemoProbes(unittest.TestCase):
     def test_demo_probes_cannot_touch_the_lab(self):
-        """Judge finding 3: a probe that carries the token and names a writer IS a writer the
+        """A probe that carries the token and names a writer IS a writer the
         moment the slot is free. Every call whose step is a probe must be a GET or carry no token."""
         import ast
         tree = ast.parse(_read(os.path.join(SERVE_DIR, "demo_sequence.py")))

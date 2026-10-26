@@ -2,14 +2,14 @@
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P4-roles section 2.2. Until this module every destination route this proxy wrote --
+Until this module every destination route this proxy wrote --
 `insert/modify/delete_ipv4_route`, `install_initial_routes`, the delete's read-back -- spelled
 five names as string literals: `MyIngress.ipv4_lpm`, `hdr.ipv4.dstAddr`, `MyIngress.ipv4_forward`,
 `dstAddr`, `port`. Those are ndtwin_switch.p4's names. Seven of the thirteen tutorials exercises
-declare the same five names for a table that means the same thing (ANALYSIS section 3), so the
+declare the same five names for a table that means the same thing, so the
 literals WROTE INTO THE AUTHOR'S TABLE on a foreign pipeline -- and where the author had already
-declared the same /32, the INSERT failed and the MODIFY fallback overwrote it (ANALYSIS 2.1
-INFERRED 1). Names are not consent.
+declared the same /32, the INSERT failed and the MODIFY fallback overwrote it.
+Names are not consent.
 
 So a route is written through a `RouteBinding`, and there are exactly three answers to "which
 binding does this switch have", decided when its client is built (`main.build_p4_client`, which
@@ -27,9 +27,9 @@ readopt uses too):
 🔴 NAMES ARE NEVER GUESSED HERE. `resolve` checks what the package said against the p4info and
 refuses anything that does not fit; it does not look for a table that "looks like" a route
 table. The heuristic exists, and it lives in exactly one place -- tools/p4_exercise/preflight.py,
-where it prints a SUGGESTION an author may paste (section 2.1-6).
+where it prints a SUGGESTION an author may paste.
 
-🔴 ONE FUNCTION, TWO CALLERS (section 2.1-4). `resolve` is what pre-flight runs before the fabric
+🔴 ONE FUNCTION, TWO CALLERS. `resolve` is what pre-flight runs before the fabric
 exists and what the proxy runs when it builds each client, so the two refuse the same packages
 with the same sentence. A proxy-side failure refuses startup; it does NOT fall back to unbound,
 because a package that asked for a binding and silently did not get one would run with every
@@ -48,8 +48,8 @@ from typing import Optional
 SOURCE_BASELINE = "baseline"
 SOURCE_PACKAGE = "package"
 
-#: Who owns the table a binding names (section 2.1-2). `ndtwin`: NDTwin writes it, exclusively
-#: -- the package's own entries for it are refused at pre-flight (Adam's ruling 8-1).
+#: Who owns the table a binding names. `ndtwin`: NDTwin writes it, exclusively
+#: -- the package's own entries for it are refused at pre-flight.
 #: `package`: the author owns it; NDTwin knows the binding (to read and render the table) and
 #: writes nothing into it.
 OWNER_NDTWIN = "ndtwin"
@@ -67,9 +67,10 @@ ROUTE_MATCH_BITWIDTH = 32
 #: What the next-hop MAC parameter must be.
 DST_MAC_BITWIDTH = 48
 
-#: Why a route write was refused with 501. `unbound` and `owned_by_package` are section 2.2-3's
-#: two words; `no_five_tuple_role` is the 5-tuple refusal on a foreign switch (this cut has no
-#: 5-tuple role, so a foreign pipeline cannot take one whatever its roles say).
+#: Why a route write was refused with 501. `unbound` and `owned_by_package` are the two
+#: reasons for a missing or foreign-owned binding; `no_five_tuple_role` is the 5-tuple refusal
+#: on a foreign switch (this cut has no 5-tuple role, so a foreign pipeline cannot take one
+#: whatever its roles say).
 REASON_UNBOUND = "unbound"
 REASON_OWNED_BY_PACKAGE = "owned_by_package"
 REASON_NO_FIVE_TUPLE_ROLE = "no_five_tuple_role"
@@ -80,10 +81,11 @@ class RouteBinding:
     """The five names a destination route is written with, and whose table they name.
 
     `port_bitwidth` is the width the p4info gives the port parameter; the value goes on the
-    wire in ceil(width/8) bytes. It is not one of the seven fields TICKET-P4-roles 2.2-1 lists
-    -- it is carried because a package binding's port may be any width the p4info declares, and
-    re-deriving it on every write would put a p4info walk on the route path. BASELINE's 9 is
-    ndtwin_switch.p4's `bit<9>`, i.e. the two bytes the literal code always wrote.
+    wire in ceil(width/8) bytes. It is an eighth field, after the seven that name the route and
+    its owner -- it is carried because a package binding's port may be any width the p4info
+    declares, and re-deriving it on every write would put a p4info walk on the route path.
+    BASELINE's 9 is ndtwin_switch.p4's `bit<9>`, i.e. the two bytes the literal code always
+    wrote.
     """
 
     table: str
@@ -137,7 +139,7 @@ class RouteWriteUnsupported(NotImplementedError):
     group/meter endpoints and the priority refusal already use (`outcome: unsupported_on_p4`).
 
     Raised BEFORE anything is built or sent, and after `_refuse_write`: an external control
-    plane's 409-shaped refusal keeps precedence over this one (section 2.2-4).
+    plane's 409-shaped refusal keeps precedence over this one.
     """
 
     def __init__(self, reason, device_id, what):
@@ -158,7 +160,7 @@ def describe_refusal(reason, device_id, what):
                "owns that table, and NDTwin reads it but does not write it")
     elif reason == REASON_NO_FIVE_TUPLE_ROLE:
         why = ("this switch runs the app package's own pipeline, which has no 5-tuple role "
-               "(TICKET-P4-roles first cut: only a destination route can be bound)")
+               "(in this cut only a destination route can be bound)")
     else:
         why = f"no route binding ({reason})"
     return f"switch {device_id}: refusing {what} -- {why}"
@@ -201,7 +203,7 @@ def resolve(role, p4info, max_port=None, where="roles.ipv4_route"):
     the largest port the package's topology gives this switch (None skips that one check, for a
     caller that has no model). `where` prefixes every message ("s1: roles.ipv4_route").
 
-    Checked, in section 2.1-4's order, and ALL reported rather than the first:
+    Checked in this order, and ALL reported rather than the first:
       * the table exists;
       * `match_field` is a field of that table, its match type is LPM and it is 32 bits wide
         (a route is a destination prefix; anything else would be written as one and mean
@@ -310,7 +312,7 @@ def resolve(role, p4info, max_port=None, where="roles.ipv4_route"):
 
 
 def capability_word(binding: Optional[RouteBinding]) -> str:
-    """`capabilities.ipv4_route` for a binding: its owner, or `unbound` (section 2.5-2)."""
+    """`capabilities.ipv4_route` for a binding: its owner, or `unbound`."""
     return REASON_UNBOUND if binding is None else binding.owner
 
 

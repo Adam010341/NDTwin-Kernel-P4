@@ -35,11 +35,11 @@ control plane and are live steps, not unit tests.
 ## Running it
 
     # green -- the vendored copy stack.sh loads:
-    /home/adam/miniconda3/bin/python3 tests/python/test_ryu_rest_topology_bounded.py
+    <python3 that has ryu> tests/python/test_ryu_rest_topology_bounded.py
 
     # red -- the stock file, i.e. what the tree did before this fix:
     A2_REST_TOPOLOGY=$(python -c 'import ryu.app,os;print(os.path.dirname(ryu.app.__file__))')/rest_topology.py \
-        /home/adam/miniconda3/bin/python3 tests/python/test_ryu_rest_topology_bounded.py
+        <python3 that has ryu> tests/python/test_ryu_rest_topology_bounded.py
 
 The override is kept precisely so the stock file can still be shown red on demand: a fix whose
 test cannot be pointed at the unfixed subject is a fix nobody can re-verify.
@@ -236,7 +236,8 @@ class BoundedTopologyRest(unittest.TestCase):
 
     def test_all_three_endpoints_are_bounded(self):
         # The wedge observed in the field took out all three at once; bounding only the one the
-        # ticket happened to name would leave the same outage with two thirds of its surface.
+        # original report happened to name would leave the same outage with two thirds of its
+        # surface.
         for name, handler in (("get_switch", "_switches"),
                               ("get_host", "_hosts"),
                               ("get_link", "_links")):

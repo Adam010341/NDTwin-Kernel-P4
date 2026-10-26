@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Tests for faults.sh's topo_pid -- the replacement for the `pgrep -f` snippet that faults.sh
-# used to PRINT AT THE OPERATOR when the tc grant was the wrong shape.  KNOWN-ISSUES G-9.
+# used to PRINT AT THE OPERATOR when the tc sudoers rules did not cover the form it needed.  KNOWN-ISSUES G-9.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -155,17 +155,17 @@ check "  and says why"                           yes "$(case "$err_out" in *"mor
 # -- so the assertion is about executable lines and about output, not about the characters
 # appearing anywhere in the file.
 #
-# 🔴 B12 (2026-09-11). Until today these two checks were
+# 🔴 2026-09-11. Until today these two checks were
 #
 #     grep -n 'pgrep -f' "$FAULTS" | grep -vc '^[0-9]*:[[:space:]]*#'
 #     grep -E '^[[:space:]]*(err|say|echo|printf)' "$FAULTS" | grep -c 'pgrep'
 #
-# and hunt-0911/F-B0-B12-REPORT.md §3.1 rows (3)b..(3)e put four inputs through them and got 0 out
-# of every one: `pgrep --full`, `pgrep` with TWO SPACES before -f, `pkill -f`, and the same advice
-# string printed by `warn` instead of `err`. What was guarded was the string `pgrep -f`, spelled
-# that way, on a line whose first word is one of four; what is meant to be guarded is "find or
-# signal a process by its name". They also read ONE hard-coded path, while
-# tools/test_workflow/run_layers.sh has been looking a process up by name the whole time.
+# and four inputs put through them got 0 out of every one: `pgrep --full`, `pgrep` with TWO SPACES
+# before -f, `pkill -f`, and the same advice string printed by `warn` instead of `err`. What was
+# guarded was the string `pgrep -f`, spelled that way, on a line whose first word is one of four;
+# what is meant to be guarded is "find or signal a process by its name". They also read ONE
+# hard-coded path, while tools/test_workflow/run_layers.sh has been looking a process up by name the
+# whole time.
 #
 # The rule now lives in tests/shell/check_process_by_name.py -- it needs to know what is a comment,
 # what is a single-quoted mutation anchor and what is a heredoc body, and that is not a grep. The
@@ -183,8 +183,8 @@ BY_NAME="${CHECK_PROCESS_BY_NAME_UNDER_TEST:-$SUITE_DIR/check_process_by_name.py
 [[ -f "$BY_NAME" ]] || { echo "  FAILED   no checker at $BY_NAME"; exit 2; }
 
 # by_name <RUNS|TEACHES> <text> -- how many sites of that kind the checker finds in that script.
-# The two kinds are scored SEPARATELY, the way F-B0-B12-REPORT.md §3.1 scored the two pipelines
-# these replace: summing them hides (3)e, whose whole point is that pipeline 1 saw the string and
+# The two kinds are scored SEPARATELY, as the two pipelines these replace were: summing them hides
+# the case below that is printed by `warn`, whose whole point is that pipeline 1 saw the string and
 # pipeline 2 -- the one that owns "anything it prints" -- did not.
 by_name() {
     local f="$TMPROOT/by_name_case.sh"
@@ -236,7 +236,7 @@ echo "and so is the advice, whoever prints it"
 check "control: printed by echo"                 1 "$(by_name TEACHES '#!/usr/bin/env bash
 echo "try pgrep -f ndtwin_kernel"
 ')"
-check "(3)e printed by warn, not err"            1 "$(by_name TEACHES '#!/usr/bin/env bash
+check "printed by warn, not err"                 1 "$(by_name TEACHES '#!/usr/bin/env bash
 warn "try pgrep -f ndtwin_kernel"
 ')"
 
@@ -405,17 +405,16 @@ check "no pgrep -f on an executable line"        0 \
 check "no pgrep -f inside anything it prints"    0 \
     "$(python3 "$BY_NAME" "$FAULTS" 2>/dev/null | grep -c 'TEACHES' || true)"
 
-# 🔴 And the surface, which was one path. tools/test_workflow/*.sh + tests/shell/*.sh, minus the
-# four files whose subject IS this rule. Every site the widened scan finds is REGISTERED in the
-# checker with the reason it is still there -- product code is out of scope for the ticket that
-# widened this -- and the verdict compares found against registered IN BOTH DIRECTIONS, so a new
-# site is red and a registered site someone has fixed is red too.
+# 🔴 And the surface, which was one path. tools/test_workflow/*.sh + tests/shell/*.sh, minus the four
+# files whose subject IS this rule. Every site the widened scan finds is REGISTERED in the checker
+# with the reason it is still there -- product code is out of scope for this checker -- and the
+# verdict compares found against registered IN BOTH DIRECTIONS, so a new site is red and a
+# registered site someone has fixed is red too.
 # ---------------------------------------------------------------------------------------------
-# The three sites that used to be REGISTERED rather than fixed (FIX-NDT-4 #16, 2026-09-11).
-# Registration was the honest answer under a ticket that forbade touching product code; it is
-# not a fix, and the scan below reports a registry that has rotted in either direction. Two of
-# the three sites are behaviour and are asserted here; the third was an advice string, and the
-# scan is what holds it.
+# The three sites that used to be REGISTERED rather than fixed (2026-09-11). Registration was the
+# honest answer while product code was off limits; it is not a fix, and the scan below reports a
+# registry that has rotted in either direction. Two of the three sites are behaviour and are
+# asserted here; the third was an advice string, and the scan is what holds it.
 #
 # 🔴 These run in a SUBSHELL each, because both files are sourced whole: stack.sh and
 # run_layers.sh define `info`, `warn` and friends, and this suite's own `check` must survive.
@@ -501,20 +500,19 @@ check "  and python is in the surface"           yes \
        && echo yes || echo no)"
 printf '%s\n' "$scan_out" | sed 's/^/           | /'
 
-# 🔴 2026-09-12, AUDIT-SCAN-1 (Adam's ruling on FIX-PROXY-1 §7-6 / FIX-PROXY-2 §7-4).
-# doc/audit/** is a dated record of what was measured on a day: rewriting one to please a lint is
-# falsifying evidence, so it is NOT a scan surface. Some live tooling lives under it anyway for
-# historical reasons, and until today that was ONE hard-coded string in the glob list -- a carve-out
-# nobody could enumerate, date or argue with. It is now a REGISTRY (path, reason, date), and these
-# four cases are what make it one: the registered path is read, everything else under doc/audit is
-# not, the run says how many exceptions it scanned, and an exception that has stopped matching
-# anything is RED rather than silently nothing.
+# 🔴 2026-09-12. doc/audit/** is a dated record of what was measured on a day: rewriting one to
+# please a lint is falsifying evidence, so it is NOT a scan surface. Some live tooling lives under
+# it anyway for historical reasons, and until today that was ONE hard-coded string in the glob list
+# -- a carve-out nobody could enumerate, date or argue with. It is now a REGISTRY (path, reason,
+# date), and these four cases are what make it one: the registered path is read, everything else
+# under doc/audit is not, the run says how many exceptions it scanned, and an exception that has
+# stopped matching anything is RED rather than silently nothing.
 echo "doc/audit is a record, not a scan surface -- except what is registered"
 auditsurface="$TMPROOT/auditsurface"
 # 🔴 The first path below is verbatim the first entry of AUDIT_EXCEPTIONS in the checker. If the
 # registry changes, this fixture has to change with it -- that coupling IS the assertion, and it is
 # the reason this reads a planted file rather than the real harness: the real harness has no sites
-# left (FIX-PROXY-2 A11 fixed them), so "is it scanned" cannot be answered by "does it report".
+# left (they were fixed), so "is it scanned" cannot be answered by "does it report".
 mkdir -p "$auditsurface/doc/audit/2026-08-28_chaos-harness/harness" \
          "$auditsurface/doc/audit/2026-08-25_large-scale-concurrent"
 printf 'import os\nos.system("pkill -f planted-in-the-registered-exception")\n' \

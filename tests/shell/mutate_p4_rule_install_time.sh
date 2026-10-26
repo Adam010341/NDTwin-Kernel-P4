@@ -18,8 +18,8 @@
 # anyway. None of those is caught by the M cases, and every one of them ends with a number in
 # `duration_sec` that is confidently wrong rather than honestly absent.
 #
-# 🔴 N2 and N3 are the two halves of "the clock restarts", and BOTH are now mutations. Adam
-# ruled on 2026-09-08 (DECISIONS.md) that a P4 rule's duration is counted from the first write
+# 🔴 N2 and N3 are the two halves of "the clock restarts", and BOTH are now mutations. The
+# decision of 2026-09-08 is that a P4 rule's duration is counted from the first write
 # the switch accepted and never restarts -- for agreement with OVS, where duration is the
 # switch's own and OpenFlow counts it from the ADD. An earlier version of this gate required a
 # reroute to restart it; that requirement is now itself the thing that must go red.
@@ -123,8 +123,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
 #
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
 # read this gate: it learns which argument is the anchor and which is the file from a function's
-# own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is not checking
-# (finding #28).
+# own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is not checking.
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"; mkdir -p "$d"
@@ -190,7 +189,7 @@ m=$(mutant m5 "$ROUTES" \
     '        body, unrendered = ryu_flow_stats.render_flow_stats_counted(
             dpid, client.read_table_entries(),
             binding=binding)')
-report "M5: the endpoint stops passing the record (finding #71 again)" "$m" \
+report "M5: the endpoint stops passing the record (again)" "$m" \
        "test_a_rule_the_client_installed_comes_back_with_its_age"
 
 m=$(mutant m6 "$CLIENT" \
@@ -266,9 +265,9 @@ m=$(mutant n2 "$TIMES" \
 report "N2 (control): a second write of the same entry restarts the clock" "$m" \
        "test_an_idempotent_rewrite_does_not_restart_the_clock"
 
-# Adam ruled on 2026-09-08 that duration never restarts, against this gate's earlier N3, which
+# The 2026-09-08 decision is that duration never restarts, against this gate's earlier N3, which
 # required a reroute to restart it. The mutation is therefore inverted: a modify that forgets
-# first is the implementation Adam ruled out, and it must now go red. It is at the client layer
+# first is the implementation that was ruled out, and it must now go red. It is at the client layer
 # because that is the only layer where a reroute is still a distinguishable call -- record()
 # takes no action argument any more, so the record itself cannot tell one write from another.
 m=$(mutant n3 "$CLIENT" \
@@ -281,7 +280,7 @@ m=$(mutant n3 "$CLIENT" \
                 self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
                 self._lpm_match(dst_ip, prefix_len))
             print(f"[{self.device_id}] Modified route:')
-report "N3 (control): a reroute restarts the clock (the design Adam ruled out)" "$m" \
+report "N3 (control): a reroute restarts the clock (the design that was ruled out)" "$m" \
        "test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new"
 
 m=$(mutant n4 "$CLIENT" \

@@ -372,7 +372,7 @@ class RuleInstallTimesTest(unittest.TestCase):
         # would reset every rule's age every few seconds and no rule could look older than the
         # last flap.
         #
-        # Since Adam's 2026-09-08 ruling this holds for EVERY second write of an entry, not only
+        # This holds for EVERY second write of an entry, not only
         # a rewrite that changed nothing: the stamp is the first accepted write and only a delete
         # ends it, matching OVS, where `duration` is the switch's own and OpenFlow counts it from
         # the ADD. `record` no longer takes an action, so it has no way to tell the two apart --
@@ -519,8 +519,7 @@ class TheClientDatesWhatTheSwitchAcceptedTest(unittest.TestCase):
         self.assertIsNotNone(self.age_of(read_back_lpm()))
 
     def test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new(self):
-        # 🔴 Adam's ruling, 2026-09-08 (DECISIONS.md), AGAINST this agent's recommendation in
-        # R3-G13-SUMMARY §7-1, which had this restarting the clock. The stamp is the FIRST
+        # 🔴 A reroute does NOT restart the clock. The stamp is the FIRST
         # accepted write of the entry; a reroute -- same destination, different out-port -- is a
         # MODIFY, and OpenFlow's duration does not restart on a MODIFY. The P4 plane now answers
         # the same question OVS's own duration answers.

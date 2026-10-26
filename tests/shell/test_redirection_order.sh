@@ -150,11 +150,11 @@ unique_line() {   # <file> <fixed anchor> -- the one matching line, or nothing (
     [[ "$n" == 1 ]] || { echo "anchor '$2' matches $n lines in ${1##*/} (want exactly 1)" >&3; return 1; }
     grep -F -m1 -- "$2" "$1"
 }
-# 2026-09-03 merge note: fix/g6-ndt-apps-liveness added a second `cut -c1-90` site
+# 2026-09-03 merge note: the apps-liveness fix added a second `cut -c1-90` site
 # (app_wait_stopped), so that anchor stopped being unique -- which this loop is built to refuse.
 # Each site now carries its own unique anchor, and the new site is covered rather than ignored.
 #
-# 2026-09-03, again: fix/apps-stop-kills-the-group added two more argv-printing sites -- the
+# 2026-09-03, again: the apps-stop fix added two more argv-printing sites -- the
 # survivor list in app_verify_stopped, and the second branch of apps_orphans (children with no
 # pidfile and no signature). `cut -c1-80` stopped being unique for exactly the reason above, so
 # the apps_orphans row now anchors on its own prefix and the two new sites are covered rather
@@ -258,15 +258,15 @@ done
 # ================================================================================================
 echo "6. the ordering rule does not depend on how the source is written"
 # ================================================================================================
-# 🔴 B12 (2026-09-11). The static guard below matched with
+# 🔴 2026-09-11. The static guard below matched with
 #
 #     [[ "$src" =~ \<[[:space:]]*\"[^\"]*\"[^\|]*(2\>|\&\>) ]]
 #
-# -- a `<` whose source is DOUBLE-QUOTED. hunt-0911/F-B0-B12-REPORT.md §3.1 rows (4)b..(4)d put
-# three inputs through that expression and got "passed" out of every one: the same read with the
-# path unquoted, single-quoted, and written `${CMDLINE}`. The defect is the ORDER -- `<` opens the
-# file while fd 2 is still the inherited stderr -- and the order does not care how the path is
-# spelled. Two of the three escapes are how this tree usually writes a path.
+# -- a `<` whose source is DOUBLE-QUOTED. Three inputs put through that expression got "passed" out
+# of every one: the same read with the path unquoted, single-quoted, and written `${CMDLINE}`. The
+# defect is the ORDER -- `<` opens the file while fd 2 is still the inherited stderr -- and the
+# order does not care how the path is spelled. Two of the three escapes are how this tree usually
+# writes a path.
 #
 # What the widened expression is, and what it deliberately is not:
 #   the source     double-quoted, single-quoted, or a bare word ($CMDLINE, ${CMDLINE},

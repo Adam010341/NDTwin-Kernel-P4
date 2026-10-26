@@ -4,13 +4,13 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# WRITTEN OFFLINE, NEVER RUN BY ITS AUTHOR (no lab, no sudo). Adam's 10-08 ruling: live runs happen
-# in the shared main checkout after the branch is merged into trunk. The offline half -- the
-# package's pipeline loads on a throwaway simple_switch_grpc, every entry goes in and reads back,
-# and int-v1's INT frame comes out byte for byte -- is doc/audit/2026-10-16_p4-paper-apps/
-# offline_int_v1.py; this step is the part only a fabric can show.
+# WRITTEN OFFLINE, NEVER RUN BY ITS AUTHOR (no lab, no sudo). Live runs happen in the shared main
+# checkout after the branch is merged into trunk. The offline half -- the package's pipeline
+# loads on a throwaway simple_switch_grpc, every entry goes in and reads back, and int-v1's INT
+# frame comes out byte for byte -- is checked separately; this step is the part only a fabric can
+# show.
 #
-# THE APP. int-v1 @84a3ebe8 (github.com/niloysh/int-v1, MIT, local clone /home/adam/paper-apps/int-v1):
+# THE APP. int-v1 @84a3ebe8 (github.com/niloysh/int-v1, MIT, local clone $HOME/paper-apps/int-v1):
 # an INT v1.0 source on bmv2. linear-topo is h1-s1-s3-s2-h2 plus h3 on s3; s1-s3-runtime.json carry
 # the ipv4_lpm routes (P4Runtime) and runtime_cmds/s1.sh adds, through the bmv2 CLI, the one INT
 # source: s1's ingress port 1, flows 10.0.1.0/24 -> 10.0.2.0/24, any L4 port, hop_metadata_len 8,
@@ -36,7 +36,7 @@
 #   C0  the program is the one tested offline: the compile's p4info sha256 and int.json sha256
 #       must be P4INFO_SHA / JSON_SHA below. (Pre-flight recompiles int.p4 by its absolute path
 #       and gets another int.json sha, 277665a3...: the json then carries that path 42 times, and
-#       with it removed the bytes are the same -- gates-0910/p4-paper-apps/r2_30_*.log.)
+#       with it removed the bytes are the same -- observed in the 2026-10-16 offline run.)
 #   A1  bring-up, the same checks 02_app_basic.sh makes for a foreign pipeline: `ndt up p4 --app`
 #       exits 0; switch_state: mode ndtwin, package == this package, switches exactly 1,2,3, each
 #       on the app's program (pipeline.ndtwin False, p4info_sha256 the tested one, per-switch
@@ -86,7 +86,7 @@ PKG="$PKG_ROOT/int-v1"
 P4C="${P4C:-/usr/local/bin/p4c-bm2-ss}"
 CTRL_PY="${CTRL_PY:-/home/adam/p4dev-python-venv/bin/python}"
 HOSTSIDE="$HERE/paper_int_v1_hostside.py"
-#: What the offline check ran (2026-10-16, gates-0910/p4-paper-apps/21_p4c_int_v1.log).
+#: What the offline check ran on 2026-10-16.
 P4INFO_SHA="7aeaf18009ab6f4f2ef2954671c41d3bd0feafca94e0fe678bd1f45b2d17ca8b"
 JSON_SHA="2c4dba92b8581200a93ac848086c2f15919edac07b9e7299b73d308c09a60d02"
 FABRIC_SKIPS_HB="['install_initial_routes', 'lldp_discovery']"               # sorted, as 02

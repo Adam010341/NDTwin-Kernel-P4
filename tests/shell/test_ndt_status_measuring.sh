@@ -5,13 +5,12 @@
 # [Co-developed with claude code -- Adam]
 #
 # WHY THIS EXISTS. While a measurement runs, ndt serve's page pauses its 10 s refresh and probes
-# once a minute. Until 2026-10-01 the probe was a plain `ndt status`: measured on this laptop with
-# a P4 fabric up and iperf3 running, 564 tasks, 6 sudo calls and one get_graph_data request to the
-# kernel under measurement, per probe (logs/ndt-serve-gui-v2/live-probe-cost/RESULTS.md). Adam
-# ruled the probe must ask only "is anyone measuring": the claim's measuring= and the process
-# table, with no sudo, no request to the kernel and no OVS or bmv2 query.
+# once a minute. Until 2026-10-01 the probe was a plain `ndt status`: measured on this laptop with a
+# P4 fabric up and iperf3 running, 564 tasks, 6 sudo calls and one get_graph_data request to the
+# kernel under measurement, per probe. The probe must ask only "is anyone measuring": the claim's
+# measuring= and the process table, with no sudo, no request to the kernel and no OVS or bmv2 query.
 #
-# Two things are pinned here, and each is half of the ruling:
+# Two things are pinned here, and each is half of that rule:
 #   1. THE SAME ANSWER. `--measuring` prints the rows plain `ndt status` prints for the question
 #      -- `declared`, `measuring`, or `orphaned` -- line for line, in every fixture state below,
 #      and each state's rows are also checked against what they must say (two copies that agree
@@ -19,7 +18,7 @@
 #   2. NOTHING HEAVY, in four layers, because a PATH denylist alone is not a pin (the round-3
 #      review): ndt's own port_open is bash /dev/tcp, ndt already fetches with python3 urllib, and an
 #      absolute path never looks at PATH.
-#        a. every command the ruling names is a recording shim on PATH, and `--measuring` calls none
+#        a. every command the rule names is a recording shim on PATH, and `--measuring` calls none
 #           of them; plain `ndt status` through the same shims does (the control);
 #        b. `--measuring` also runs on an ALLOWLIST-only PATH, with an exported
 #           command_not_found_handle recording anything else it asks for -- python3, curl, ip, git,
@@ -97,7 +96,7 @@ if [[ -f '$FIXTURE' ]]; then
 fi
 exec '$REAL_PS' "\$@"
 EOF
-# What the ruling names -- sudo, a request to the kernel, an OVS or bmv2 query -- plus the lab's own
+# What the rule names -- sudo, a request to the kernel, an OVS or bmv2 query -- plus the lab's own
 # helpers. Each records its argv in \$CALLS_LOG and refuses: sudo in sudo's own words (ndt reads
 # that as a refused grant, tests/shell/lib_probe_stub.sh), the rest with rc 1. None answers, so a
 # plain `ndt status` here never sees a lab.

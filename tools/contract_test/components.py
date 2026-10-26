@@ -23,8 +23,7 @@ import os
 KERNEL_ENDPOINTS = {
     "link_failure_detected": "POST",
     "link_recovery_detected": "POST",
-    # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-6, branch
-    # fix/w8-declared-link-failure-sticky. The injection pair: same payload as the two above, but
+    # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-6. The injection pair: same payload as the two above, but
     # the caller wants the link to BE down rather than reporting that it is. Listed here because
     # tests/python/test_l3_dispatch_drift.py checks BOTH directions -- a route the source registers
     # and this table omits is drift too. No Component below lists them: nothing in the workspace
@@ -69,7 +68,7 @@ KERNEL_ENDPOINTS = {
     "get_openflow_capacity": "GET",
     "historical_logging": "POST",
     "get_average_link_usage": "GET",
-    # [Co-developed with claude code -- Adam] Registered by fix/telemetry-health-visible
+    # [Co-developed with claude code -- Adam] Registered by the telemetry-health change
     # (HttpSession.cpp:306, utils::pathIs) so the four sFlow ingest counters have a reader that is
     # not a log line. Deliberately absent from every Component's endpoint list below, for the same
     # reason get_flow_dispatch_status is: those lists record which sibling repo actually calls
@@ -101,7 +100,7 @@ KNOWN_MISSING_ENDPOINTS = {
 
 
 # Directory holding the sibling component repos. Previously these were hardcoded to
-# /home/adam/..., which broke on any other checkout.
+# absolute /home/<user>/... paths, which broke on any other checkout.
 #
 # Discovered rather than assumed at a fixed depth: the kernel repo is not necessarily a
 # direct sibling of the others (here it sits in Desktop/ while they are one level up), so
@@ -241,8 +240,8 @@ def scan_kernel_dispatch(http_session_cpp: str) -> dict[str, str]:
     🔴 The third form was added 2026-09-03 (KNOWN-ISSUES L-5). It was missing, so the two
     routes registered through utils::pathIs -- /ndt/get_detected_flow_data and
     /ndt/get_detected_top_k_flow_data (HttpSession.cpp:164,169) -- were reported as
-    "the kernel no longer registers it" while both answered 200 in the same live log
-    (2026-09-02_live-round/raw/C6_l3_check_drift.log). A drift detector that cries wolf
+    "the kernel no longer registers it" while both answered 200 in the same live run
+    (2026-09-02). A drift detector that cries wolf
     about drift teaches its readers to ignore drift, which is the one thing it exists to
     catch. `pathIs` matches the path plus an optional query string, so it is a
     registration exactly as `==` and `.starts_with(` are; what changed was the spelling,

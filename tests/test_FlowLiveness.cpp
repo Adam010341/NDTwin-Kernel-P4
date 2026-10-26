@@ -425,7 +425,7 @@ TEST_F(FlowLivenessTableTest, RowsJustReplayedAreActiveAndSurviveTheDefaultFilte
 
 TEST_F(FlowLivenessTableTest, AStoppedFlowIsGoneFromTheDefaultViewAndStillThereUnderAll)
 {
-    // The ticket, end to end. Before the patch getFlowInfoJson had no predicate at all
+    // End to end. Before the patch getFlowInfoJson had no predicate at all
     // (FlowLinkUsageCollector.cpp:2296, `for (const auto& [flowKey, flowInfo] : m_flowInfoTable)`
     // straight into the emit), so both sides of this comparison were the same array and the first
     // EXPECT_TRUE below could never hold.

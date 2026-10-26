@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn a p4lang-tutorials exercise into an NDTwin P4 app package (TICKET-P1 §1, §3).
+"""Turn a p4lang-tutorials exercise into an NDTwin P4 app package.
 
 [Co-developed with claude code -- Adam]
 
@@ -10,7 +10,7 @@
 
 What comes out:
 
-    <package_dir>/package.json           the contract of TICKET-P1 §1
+    <package_dir>/package.json           the package format's contract
     <package_dir>/ndtwin/topology.json   an NDTwin topology model, same schema as
                                          setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
     <package_dir>/<exercise-relative copies of every file package.json names>
@@ -100,7 +100,7 @@ def parse_links(raw_links):
         bandwidth = float(raw[3]) if len(raw) > 3 and raw[3] is not None else None
         if a[0] == "host" and b[0] == "host":
             raise ConversionError(f"link {raw!r} joins two hosts; a host attaches to a switch")
-        # Hosts first, so the package's `links` entries read the way TICKET-P1 §1 spells them.
+        # Hosts first, so the package's `links` entries read the way the package format spells them.
         if b[0] == "host":
             a, b = b, a
         out.append((a, b, latency, bandwidth))
@@ -492,7 +492,7 @@ def artefacts_for_program(program_rel, exercise_dir=None):
 
 
 def switch_pipelines(exercise_dir, switches, p4_rel, ndtwin_pipeline=False):
-    """({dpid: pipeline-or-None}, [(abs_source, package_rel)]) -- G4, TICKET-P2 section 2.5.
+    """({dpid: pipeline-or-None}, [(abs_source, package_rel)]) -- G4.
 
     Three cases, and the third is a refusal rather than a mixture:
 
@@ -653,7 +653,7 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto",
             "grpc_base": common.REQUIRED_GRPC_BASE,
             "device_id": common.REQUIRED_DEVICE_ID,
         },
-        # The exercise's own, when it names one -- flowcache's is 510 (G9b, TICKET-P3 2.6).
+        # The exercise's own, when it names one -- flowcache's is 510 (G9b).
         "bmv2": {"cpu_port": package_cpu_port(switches)},
         "links": [_package_link(a, b, latency, bandwidth) for a, b, latency, bandwidth in links],
     }
@@ -790,7 +790,7 @@ def _dedup_copies(copies):
     return sorted(out, key=lambda t: t[1])
 
 
-# --- `roles.ipv4_route` (TICKET-P4-roles section 2.1-7) --------------------------------------
+# --- `roles.ipv4_route` --------------------------------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -803,7 +803,7 @@ def _dedup_copies(copies):
 # 🔴 WITHOUT THE FLAG NOTHING HERE RUNS, and the package is byte-for-byte what it was
 # (tests/test_convert.py compares every written file against a capture taken at 6291db35).
 # With it, and owner `ndtwin`, this is the first thing convert does that REWRITES a runtime file
-# instead of copying it: NDTwin owns that table exclusively (Adam's ruling 8-1), so the
+# instead of copying it: NDTwin owns that table exclusively, so the
 # exercise's match entries for it are taken out -- and counted, per switch, in convert's own
 # report. The table's default action stays; it is not a route, and pre-flight discloses it.
 
@@ -1120,7 +1120,7 @@ def main(argv=None):
                          "and entries). Overrides --p4 and any per-switch `program`.")
     ap.add_argument("--role-ipv4-route", default=None, metavar="owner=,table=,match_field=,"
                     "action=,dst_mac=,port=",
-                    help="declare roles.ipv4_route (TICKET-P4-roles 2.1): every name written "
+                    help="declare roles.ipv4_route: every name written "
                          "out, none guessed. owner=ndtwin also takes the exercise's match "
                          "entries for that table out of every runtime file (counted below).")
     ap.add_argument("--thrift-commands", action="append", default=[], metavar="sN=<file>",

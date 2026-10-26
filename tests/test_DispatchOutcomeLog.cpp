@@ -241,7 +241,7 @@ TEST(DispatchOutcomeLogTest, ZeroCapacityStillKeepsOneRatherThanDividingByZero)
 }
 
 // ---------------------------------------------------------------------------------------------
-// W11 (#54, R6 K-4): the second counter group, and per-request attribution.
+// The second counter group, and per-request attribution.
 //
 // [Co-developed with claude code -- Adam]
 //
@@ -314,7 +314,7 @@ TEST(DispatchOutcomeLogTest, AnOvsDispatchIsUnknownAtTheSwitchAndNotAnAcceptance
 {
     // The B half. Ryu's 200 is not evidence about any switch, so the honest bucket is `unknown`.
     // The tempting shortcut -- let dispatched_ok stand in for accepted_by_switch -- would report
-    // a healthy OVS fabric as a confirmed one, which is the claim this whole ticket removes.
+    // a healthy OVS fabric as a confirmed one, which is the claim this change removes.
     DispatchOutcomeLog log(8);
     for (int i = 0; i < 5; ++i)
     {
@@ -522,9 +522,9 @@ TEST(DispatchOutcomeLogTest, TheOldestRequestAgesOutAndTheLogSaysHowMany)
 
 TEST(DispatchOutcomeLogTest, TheFailureRingIsAsLargeAsADispatcherBurst)
 {
-    // 2026-09-05 ruling (fifth grill round, honesty item 4). At the old 256 a single 2000-entry
-    // burst could evict the evidence of its own first three quarters, leaving the operator with
-    // an eviction count in place of the failures -- the shape A-7 exists to close.
+    // The ring is sized to a full dispatcher burst. At the old 256 a single 2000-entry burst
+    // could evict the evidence of its own first three quarters, leaving the operator with an
+    // eviction count in place of the failures -- the shape A-7 exists to close.
     EXPECT_EQ(DispatchOutcomeLog::kDefaultCapacity, 2000u)
         << "FlowDispatcher's burstSize default is 2000; these two numbers are meant to match";
     DispatchOutcomeLog log;

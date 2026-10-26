@@ -245,12 +245,12 @@ class AsyncTopologyInstallTest(unittest.TestCase):
     `load_static_topology` blocks for the settle wait plus the walk. Inline, that blocking sits
     on this app's event queue, which Ryu bounds at 128 -- and this app also observes
     EventOFPPacketIn, so punted packet-ins fill those slots while the handler is stuck.
-    The review session's phase-1 diagnosis makes that the cycle behind six-of-ten boot failures,
+    The phase-1 diagnosis makes that the cycle behind six-of-ten boot failures,
     and its operative conclusion is that any fix keeping blocking work in EventSwitchEnter keeps
     the cycle.
 
     This docstring used to say "punted LLDP ... at ~2.5/s", a number nobody had measured.
-    Measured 2026-08-25 (doc/audit/2026-08-25_ring-edge-fix Phase 5): 56-72/s over a boot,
+    Measured 2026-08-25 (Phase 5 of the ring-edge work): 56-72/s over a boot,
     136-210/s over the opening burst, so the 128 slots fill in 1.8-2.3 s rather than the ~50 s
     the old figure implied -- and the LLDP guard moves that rate only 1.22x across a five-fold
     change, so the stream is not LLDP-dominated either. See intelligent_router's comment on the

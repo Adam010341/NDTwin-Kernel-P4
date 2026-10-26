@@ -1,12 +1,12 @@
 """
-The contract between the heartbeat's two writers -- TICKET-P4-heartbeat segment W.
+The contract between the heartbeat's two writers.
 
 [Co-developed with claude code -- Adam]
 
 The root helper's daemon WRITES /run/ndtwin-lab/heartbeat.json (tools/test_workflow/ndtwin-lab,
 its embedded program: `Heartbeat.document()` and `write_json_atomic`); the proxy READS it
-(proxy_agent/link_heartbeat.py: `read_report`, `HeartbeatEvidence`). Until now the key names
-between the two were checked by eye only (the fable judge's 8.1 on 1a3ebd7f): every proxy test
+(proxy_agent/link_heartbeat.py: `read_report`, `HeartbeatEvidence`). Without this test the key names
+between the two would be checked by eye only: every proxy test
 builds its report by hand, in the shape its author believed the daemon writes, so a rename on
 either side would leave both suites green and the live proxy reading `heartbeat_report_unreadable`
 -- or, worse, reading a renamed `forwarded_to_hosts` as zero.
@@ -17,7 +17,7 @@ pod-topo plan and real encoded frames, and its `document()` written with its own
 `write_json_atomic` -- then read by the proxy's reader. Nothing is run as root and nothing touches
 /run: the plan is built in memory (the daemon's `plan()`, which reads the fabric, is not called),
 and the file goes into a temporary directory owned by whoever runs the test. The helper is read,
-never changed (it is sha-pinned and installed; segment W does not touch it).
+never changed (it is sha-pinned and installed).
 
 unittest rather than pytest because tools/test_workflow/l1_unit_tests.sh executes each of these
 files directly and parses "Ran N tests".
@@ -171,7 +171,7 @@ class TheHelpersOwnReportIsWhatTheProxyReadsTest(unittest.TestCase):
         self.assertIn("stopped by SIGTERM", reading.detail)
 
     def test_a_frame_leaving_a_host_port_reaches_the_proxy_as_forwarded_to_hosts(self):
-        # Ruling 4's stop condition travels through the daemon's own key into the proxy's
+        # The stop condition travels through the daemon's own key into the proxy's
         # frames_reached_hosts: a rename on either side must not read as zero.
         a_round(self.hb, STARTED + 5.0)
         ifname, frame, _d = self.hb.frames()[0]

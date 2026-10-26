@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# The byte-identity evidence for TICKET-P1D, regenerable from this repo.
+# The byte-identity evidence for the merged bring-up, regenerable from this repo.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -18,7 +18,7 @@
 # no bmv2, no root. It is safe to run on a machine with a live fabric -- and it has to be, which
 # is why write_manifest is forced to a temp file rather than merely pointed at one.
 #
-# Usage:  bash replay_ab.sh [<pre-change rev>]     (default: 41d7950f, P1-D's base)
+# Usage:  bash replay_ab.sh [<pre-change rev>]     (default: 41d7950f, the base of the merge)
 # Exit:   0 the four comparisons came out as VERDICT.txt records them, 1 otherwise.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,7 +48,7 @@ mkdir -p "$OLD" "$WORK/old/p4_proxy/p4_src"
 for f in p4_testbed_topo.py ntg_bmv2_topo.py; do
     git -C "$REPO" show "$BASE_REV:p4_proxy/mininet/$f" > "$OLD/$f" || exit 2
 done
-# Unchanged by this ticket, so the current copies stand for the old ones. `git diff --name-only
+# Unchanged by the merge, so the current copies stand for the old ones. `git diff --name-only
 # <rev> HEAD -- p4_proxy/mininet/` is the check that this is still true.
 cp "$REPO/p4_proxy/mininet/topo_from_json.py" "$REPO/p4_proxy/mininet/grpc_ports.py" \
    "$REPO/p4_proxy/mininet/app_package.py" "$REPO/p4_proxy/mininet/host_count_override" \

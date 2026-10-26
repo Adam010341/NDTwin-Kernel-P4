@@ -36,6 +36,8 @@ struct VertexProperties;
 // [Co-developed with claude code -- Adam] Per-switch `capabilities`, read from the same
 // GET /p4/switch_state the bmv2 liveness verdict is read from.
 #include "ndt_core/power_management/P4Capabilities.hpp"
+// [Co-developed with claude code -- Adam] Per-switch `ryu_rules_lost`, from the same read.
+#include "ndt_core/power_management/P4RulesLost.hpp"
 #include <mutex> // for mutex (m_p4CapabilitiesMutex)
 
 using json = nlohmann::json;
@@ -357,6 +359,18 @@ class DeviceConfigurationAndPowerManager
      * bmv2 liveness has the same exposure, since it reads the same payload on the same tick.
      */
     p4caps::CapabilitiesByDpid p4CapabilitiesSnapshot() const;
+
+    /**
+     * @brief What the proxy last said each bmv2 switch's latest pipeline push wiped of the rules
+     *        installed through the Ryu-compatible API, keyed by dpid (P4RulesLost.hpp).
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * KNOWN-ISSUES A-4c. Read, replaced and withdrawn exactly as p4CapabilitiesSnapshot's record
+     * is, on the same tick; /ndt/get_graph_data puts each one on its switch's node. The ERROR line
+     * for a record is logged once per record id, by pollP4SwitchState.
+     */
+    p4loss::RecordsByDpid p4RulesLostSnapshot() const;
 
   protected:
     /**
@@ -1211,6 +1225,11 @@ class DeviceConfigurationAndPowerManager
     /// [Co-developed with claude code -- Adam]
     mutable std::mutex m_p4CapabilitiesMutex;
     p4caps::CapabilitiesByDpid m_p4Capabilities;
+    /// The `ryu_rules_lost` records, under the same mutex, and which ids have been logged.
+    /// The announcer is touched only by pollP4SwitchState (the ping thread).
+    /// [Co-developed with claude code -- Adam]
+    p4loss::RecordsByDpid m_p4RulesLost;
+    p4loss::Announcer m_p4RulesLostAnnouncer;
 
     // Helpers for TESTBED mode
     bool setPowerStateTestbed(const SwitchInfo& si, const std::string& action);

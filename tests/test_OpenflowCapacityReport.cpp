@@ -1,5 +1,5 @@
 /**
- * GET /ndt/get_openflow_capacity must report the plane it is actually running (W17).
+ * GET /ndt/get_openflow_capacity must report the plane it is actually running.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -180,7 +180,7 @@ sourceNamed(const std::string& path)
 // =====================================================================================
 
 /**
- * The whole point of W17, in one assertion pair.
+ * The whole point of the change, in one assertion pair.
  *
  * WHICH LINE MAKES THIS RED: any constant in place of the artifact read --
  * `plane["max_entries"] = 1024;` in buildBmv2Plane, or a pipelineTableSizes that answers a fixed
@@ -518,7 +518,7 @@ TEST(OpenflowCapacityReadTest, TheReportIsAssembledFromTheFilesTheSourcesNameAnd
         << "dpid 2 was never polled: " << report.dump();
 }
 
-/// A missing catalogue must not take the bmv2 numbers down with it. Before W17 the handler
+/// A missing catalogue must not take the bmv2 numbers down with it. Before the change the handler
 /// returned an empty 200 in this case; the plane it can still describe is worth serving.
 TEST(OpenflowCapacityReadTest, AMissingCatalogueStillLeavesTheBmv2PlaneAnswerable)
 {

@@ -9,11 +9,11 @@
 # `ndt status`'s "can change behaviour" block disappearing at that exact moment -- or one of the
 # wrong answers "warn about the knob" invites, and must turn its NAMED case red.
 #
-# N12-N17 cover the two things decided on 09-07 (grill §4E round 3): NOT RESTORED is a --check
+# N12-N17 cover the two things decided on 09-07: NOT RESTORED is a --check
 # problem so the rc goes red (E-9, measured printing red at rc 0 on the 04:36 live arm), and
 # `ndt release` retires .test_run/round.baseline to .prev (E-11).
 #
-# N18-N25 cover the correction Adam made that evening (18:1x, R3-NDT §7-1/§7-2): `ndt up p4 4`
+# N18-N25 cover the correction made that evening (18:1x): `ndt up p4 4`
 # writes the knob through, so E-9 made the standard P4 round red from its own second command
 # to its last. E-9b records what ndt wrote (up_wrote=) and demotes that one value to a warning;
 # E-11b moves the deadline to `ndt release`, which refuses while the knob is not back.
@@ -213,7 +213,7 @@ m=$(mutant n13 "$NDT" \
 report "N13: cmd_status stops merging the knob problems" "$m" \
        "🔴 --check exits 1 (it exited 0 over this at 04:36)"
 
-# (widening) The no-baseline value is a problem too. Adam ruled on ONE sentence; this branch
+# (widening) The no-baseline value is a problem too. The decision covered ONE sentence; this branch
 # cannot tell a forgotten restore from a deliberate 128-host round that never claimed, so
 # folding it in turns --check red on every such round -- and it satisfies every case above.
 m=$(mutant n14 "$NDT" \
@@ -257,7 +257,7 @@ report "N17 (widening): 'no claim to release' retires it anyway" "$m" \
 # The state these four are about is the standard P4 round, which E-9 turned red end to end:
 # `ndt claim` records host_count=128, `ndt up p4 4` writes 4 through set_host_count, and from
 # that second command onward every `--check` said NOT RESTORED and exited 1 -- on every P4 arm
-# arm_up.sh:45 runs. Adam's decision 09-07 18:1x (R3-NDT §7-1). [Co-developed with claude code -- Adam]
+# arm_up.sh:45 runs. Decided 09-07 18:1x. [Co-developed with claude code -- Adam]
 
 # 🔴 E-9b itself: the write happens and nothing records that ndt was the one who did it, so the
 # middle answer can never be reached and every P4 round is back to being red throughout.

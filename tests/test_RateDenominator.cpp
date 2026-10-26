@@ -1,6 +1,6 @@
 /**
- * Ticket Q: a published link rate must be bytes converted to bits per second over the interval
- * those bytes accumulated.
+ * A published link rate must be bytes converted to bits per second over the interval those bytes
+ * accumulated.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -8,9 +8,8 @@
  * and both of its callers produced that figure as `accumulator * 8` -- nothing on the path
  * divided by elapsed time. The rate loop sleeps a full second and then runs its body, so its
  * period is 1000 ms plus the body and never exactly 1000. Every rate the kernel published was
- * therefore overstated by (real period / 1 s): tickets 1 and P measured that period between
- * 1001 and 1074 ms depending on load, and generation 1's in-loop instrument read 1249 ms at 64
- * flows.
+ * therefore overstated by (real period / 1 s): measurements put that period between 1001 and
+ * 1074 ms depending on load, and an in-loop instrument read 1249 ms at 64 flows.
  *
  * WHY THESE ASSERTIONS AND NOT OTHERS. The specification is "bits per second", so the tests fix
  * the relationship between bytes, an interval, and the published figure, and derive nothing from
@@ -32,10 +31,10 @@
  *   4. store elapsed BEFORE the guard      -> ZeroIntervalDoesNotRecordADivisor
  *
  * ===========================================================================================
- * THE SECOND SUITE IN THIS FILE -- FlowRateDenominator -- IS THE HALF Q NEVER COVERED.
+ * THE SECOND SUITE IN THIS FILE -- FlowRateDenominator -- IS THE HALF THE FIRST NEVER COVERED.
  * [Co-developed with claude code -- Adam]
  *
- * Everything above concerns the LINK rate. Q's pre-registration enumerated its targets by
+ * Everything above concerns the LINK rate. The link fix enumerated its targets by
  * grepping `MultiplySampingRate`, which finds the two link accumulators and nothing else, so
  * f5e35561 divided the link path and left the per-flow rates beside it computing
  * `delta * 8 * samplingRate` -- bits per loop period, published as
@@ -45,8 +44,7 @@
  * reader who comes here to check "is the denominator gated" must not be able to read a green
  * suite and conclude yes for a path it never touches.
  *
- * FLOW MUTATION GATE -- tests/shell/mutate_flow_rate_denominator.sh, results recorded in
- * doc/audit/2026-09-02_live-round/FLOW-RATE-DENOMINATOR.md.
+ * FLOW MUTATION GATE -- tests/shell/mutate_flow_rate_denominator.sh.
  *
  *   F1. drop `/ elapsedSeconds` on the bit rate     -> FlowSameBytesOverTwoSecondsIsHalfTheRate
  *   F2. drop `/ elapsedSeconds` on the packet rate  -> FlowPacketRateIsPerSecondToo
@@ -146,7 +144,7 @@ TEST(RateDenominator, SameBytesOverTwoSecondsIsHalfTheRate)
 
 TEST(RateDenominator, TheIntervalActuallyUsedIsTheOneSupplied)
 {
-    // Ticket Q's acceptance gate reads this accessor and compares it against the interval
+    // The acceptance gate reads this accessor and compares it against the interval
     // measured independently for the same iteration. If the accessor reported anything other
     // than the divisor, the gate would be checking itself.
     RateFixture fix;
@@ -156,9 +154,9 @@ TEST(RateDenominator, TheIntervalActuallyUsedIsTheOneSupplied)
 
 TEST(RateDenominator, ARealisticLoopPeriodOverstatesByExactlyThatPeriod)
 {
-    // The measured quantity, stated as the thing the round cares about: at ticket P's quiet-arm
-    // period the old code overstates by 4.3%, which is the size of the effect ticket Q exists to
-    // remove. Pinned so a future "simplification" back to bytes*8 has to argue with a number.
+    // The measured quantity, stated as the thing that matters: at the quiet-arm loop period the
+    // old code overstates by 4.3%, which is the size of the effect the fix exists to remove.
+    // Pinned so a future "simplification" back to bytes*8 has to argue with a number.
     RateFixture fix;
     fix.publish(1'000'000, 1.0432);
     const double asIfOneSecond = 8'000'000.0;
@@ -274,7 +272,7 @@ TEST(FlowRateDenominator, FlowPacketRateIsPerSecondToo)
 {
     // Its own test rather than an extra assertion above: the two rates are two statements in the
     // source and a fix applied to one of them must not be able to pass by borrowing the other's
-    // coverage. That is the shape of this whole ticket in miniature.
+    // coverage. That is the shape of this whole suite in miniature.
     sflow::FlowInfo oneSecond = oneHopFlow(1'000, 40);
     sflow::FlowInfo twoSeconds = oneHopFlow(1'000, 40);
 
@@ -287,7 +285,7 @@ TEST(FlowRateDenominator, FlowPacketRateIsPerSecondToo)
 
 TEST(FlowRateDenominator, ARealisticLoopPeriodOverstatesTheFlowRateByThatPeriod)
 {
-    // The measured quantity, at this project's own recorded loop periods. 1.0432 s is ticket P's
+    // The measured quantity, at this project's own recorded loop periods. 1.0432 s is the
     // quiet arm; 1.2487 s is the windowed mean this repo logged at 64 flows on 2026-08-25
     // (FlowLinkUsageCollector.hpp, kFlowActiveWindowMs's rationale). The second number is the
     // point of the test: the error is not a fixed unit slip, it grows with the flow count, so
@@ -460,7 +458,7 @@ makeRatePassCollector()
 
 TEST(FlowRateDenominator, TheFlowDivisorIsMeasuredNotAssumed)
 {
-    // 🔴 THE TEST THIS TICKET EXISTS FOR. Every other assertion in this suite passes against a
+    // 🔴 THE TEST THIS SUITE EXISTS FOR. Every other assertion in this suite passes against a
     // fix that computes `bytes * 8 * rate / elapsedSeconds` and is then handed a hardcoded 1.0
     // by the loop -- which is exactly the state the kernel was in for the per-flow path, with a
     // fully tested divided link path one function away.

@@ -7,7 +7,7 @@
 # Born from the 2026-08-13 overnight OVS round: `tc qdisc add dev X root netem` does not stack
 # a layer, it silently REPLACES TCLink's htb -- shaping gone, and `tc qdisc del dev X root`
 # restores the kernel default, not htb. The usual teardown check ("netem residue = 0") is
-# blind to that damage, and the NOPASSWD grants cannot put htb back. A full-tree snapshot
+# blind to that damage, and netem-scoped tc sudoers rules cannot put htb back. A full-tree snapshot
 # diff turns the injection tool's own side effects into something a run can assert on.
 #
 # Usage, wrapped around any fault-injection round:

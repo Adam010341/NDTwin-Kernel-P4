@@ -30,7 +30,7 @@ Two instances, both on 2026-09-05, both found by running the gate:
   like — **while the whole suite was green and no test would ever have said a word.** Fixed in
   `1d376070`, and the lesson is now in that gate's own M1 header: change the signature of an
   anchored function and the thing to run is the anchor checker, not the tests.
-  See `doc/audit/2026-09-05_fix-topology-three-doors/FIX-TOPOLOGY-THREE-DOORS.md`, §anchor 對帳.
+  See the M1 header of `tests/shell/mutate_topology_input_is_validated.sh`.
 - **W2 / #88, gate M7.** The mutation passed a **two-line** anchor without a uniq line, and the
   gate refused it: `anchor matches 2 times` → M7 INVALID. **`check_gate_anchors.py` called the same
   gate `ok(10)` at the same moment**, and both tools were right. The checker counts with
@@ -38,7 +38,6 @@ Two instances, both on 2026-09-05, both found by running the gate:
   the gate's `assert_unique` counts with `grep -c -F`, which is per line, so two lines are two
   patterns matching once each. **The gate is the stricter instrument, and the gate's verdict is
   the one we ship.** Fixed in `e1bf73ba`.
-  See `doc/audit/2026-09-05_fix-ip-front-guards/FIX-IP-FRONT-GUARDS.md`, the M7 entry.
 
 ⇒ **A new gate is wired only when it has been run for real, every mutant has been seen red, and
 that run is pasted into the FIX document.** A clean `check_gate_anchors.py` is a precondition of
@@ -61,8 +60,8 @@ python3 tests/shell/_probe_checker.py <known-good-rev> # the control, whose numb
 ```
 
 Without the control you cannot tell a regression you caused from a version effect you inherited.
-(Measured in the W2+W3 pre-merge check, 2026-09-05 17:2x; the run log is that night's scratch,
-`scratch/overnight-2026-09-05/fix/VERIFY-W2W3.md` §4, which is outside version control.)
+(Measured in the W2+W3 pre-merge check, 2026-09-05 17:2x; the run log is outside version
+control.)
 
 ### 3. Guard or bare — read the gate first
 
@@ -112,7 +111,7 @@ skip the guard here, and any run that uses it says so in its log.
 
 ### 4. A gate that holds the lock for the whole round starves everyone else
 
-This is **W-GATE-LOCK** (`scratch/overnight-2026-09-04/recon/fixplan.md` §0.2, item 3): a gate
+This is **W-GATE-LOCK** (from the 2026-09-04 fix plan, item 3): a gate
 wrapped in the guard for its entire round holds `/tmp/ndtwin-build.lock` from first build to last.
 Measured in the early hours of 2026-09-04: **1 h 33 m held continuously, 7 waiters.** It happened
 again on 2026-09-05 16:24, when the W3 gate ran under an outer guard for its whole round and the W2

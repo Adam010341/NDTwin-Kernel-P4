@@ -8,7 +8,7 @@ The Proxy Agent is designed to translate high-level network intents (from NDTwin
 
 ### Components
 1. **`main.py`**: The entry point. Initializes the FastAPI web server, establishes P4Runtime connections to all switches concurrently (to minimize startup latency), and loads initial proactive routes.
-2. **`api_routes.py`**: Defines the FastAPI endpoints (e.g., `/stats/flowentry/modify`, `/stats/flowentry/delete_strict`, `/stats/flow/{dpid}`). It receives commands from NDTwin-Kernel and delegates them to the `TopologyManager`. Includes validation to ensure gRPC failures result in HTTP 400 errors.
+2. **`api_routes.py`**: Defines the FastAPI endpoints (e.g., `/stats/flowentry/modify`, `/stats/flowentry/delete_strict`, `/stats/flow/{dpid}`). It receives commands from NDTwin-Kernel and delegates them to the `TopologyManager`. A write the switch refuses is answered 502 on all three flow verbs (the body names it: `{"status":"error",...}` on add and delete, `detail` on modify); a request the proxy refuses before any switch is asked is 400 (its own fault), 404 (no such switch), 409 (read-only control plane) or 501 (`unsupported_on_p4`).
 3. **`topology_manager.py`**: Maintains the abstract view of the network graph (using `networkx`). Handles routing logic (BFS) and translates REST JSON payloads (Match/Action fields) into specific IPv4 addresses and egress ports.
 4. **`p4_client.py`**: The gRPC abstraction layer. Contains `P4RuntimeClient`, which interfaces directly with the `p4runtime_pb2_grpc.P4RuntimeStub`. Provides methods to modify, insert, and delete entries specifically in the `MyIngress.ipv4_lpm` table.
 

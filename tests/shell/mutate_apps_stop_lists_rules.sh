@@ -14,7 +14,7 @@
 # baseline; one reports an unreadable answer as no residue, which is G-12's failure shape moved
 # into the tool that exists to fix it. Both look exactly like a working report.
 #
-# 🔴 A DELETING mutation is included (M9). Adam's decision was "list, do not delete", and a gate
+# 🔴 A DELETING mutation is included (M9). The decision is "list, do not delete", and a gate
 # that only checks the listing would not notice a later edit that started removing flow entries
 # from a reporting verb.
 #
@@ -176,8 +176,8 @@ report "M8: an unanswerable probe is reported as free" "$m" \
 
 # --- the decision: list, do not delete --------------------------------------------------------
 
-# 🔴 Adam ruled "列出該 app 的規則、不自動刪". This is the edit that would quietly undo it, and it
-# would look like an improvement in a diff.
+# 🔴 The rule is to list the app's rules and not delete them automatically. This is the edit that
+# would quietly undo it, and it would look like an improvement in a diff.
 m=$(mutant m9 "$NDT" \
     '    info "  NOT deleted, and nothing here deletes them."' \
     '    curl -s -X POST http://localhost:8000/ndt/delete_flow_entry >/dev/null 2>&1
@@ -233,11 +233,11 @@ m=$(mutant m13 "$NDT" \
 report "M13: the lock loop rebinds the app list" "$m" \
        "  and the rule it left"
 
-# --- W16-1: the exit code Adam ruled into existence on 09-06 -----------------------------------
+# --- the new exit code introduced on 09-06 -----------------------------------------
 #
 # 🔴 The recommendation had been to leave `orphans`' rc meaning "processes" so the gates that
-# read it kept working. Adam ruled the other way, and these are the edits that would quietly
-# put the old behaviour back -- each of them looks like a tidy-up in a diff.
+# read it kept working. The exit code was made distinct instead, and these are the edits that
+# would quietly put the old behaviour back -- each of them looks like a tidy-up in a diff.
 
 m=$(mutant m14 "$NDT" \
     '            residue_verdict; local rrc=$?' \
@@ -425,7 +425,7 @@ m=$(mutant m33 "$NDT" \
 # 🔴 The check's name carries its own two leading spaces (it is a continuation line in the
 # suite's output), and `report` greps for `FAILED   <name>`. Without them this gate reported
 # M33 SURVIVED in its first run while the named check had gone red -- the matcher missed, not
-# the mutation. Logged: mutate_apps_stop_lists_rules.ndt11-0912-r1.log.
+# the mutation (seen in the gate's run of 2026-09-12).
 report "M33: the row counter counts nothing, so every table reads 0" "$m" \
        "  a table with one row is 1"
 

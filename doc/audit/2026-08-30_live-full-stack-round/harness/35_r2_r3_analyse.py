@@ -29,7 +29,7 @@ WHAT IT REPORTS, AND WHAT EACH LINE IS ALLOWED TO SUPPORT
         Computed for the REGISTERED cadence (15 s) and for every MEASURED one
         (1 s viz/te, 5 s nsr, 60 s energy).  Both are printed.  This script does not decide
         which is the right one; PREREG §3 registered 15 s and the measurement says otherwise,
-        and reconciling those is the auditor's call, not the harness's.
+        and reconciling those is for the reader of the report, not the harness.
 
   🔑 WHAT THIS SCRIPT MAY NOT CONCLUDE
         R-2 changed an internal recompute rate.  Nothing here observes that rate.  The strongest

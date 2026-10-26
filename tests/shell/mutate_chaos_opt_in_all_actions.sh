@@ -7,7 +7,8 @@
 # `Action.needs_opt_in` was declared in actions.py and enforced in ONE branch of ONE loop in
 # chaos.py -- the positive controls, live path only. Every other action could carry the field
 # and run ungated, and `link_blackhole` (destructive, `tc netem loss 100%` on a live link, undo
-# dependent on a sudo grant this machine has never been seen to accept) carried nothing at all.
+# needing a sudoers rule for the `parent` form of `tc qdisc del`, which the User Manual does not
+# set up and which has never been observed to succeed on a lab machine) carried nothing at all.
 # The fix puts the decision in `actions.opt_in_refusal` and asks it at BOTH entry points.
 #
 # Two directions, because this fix can go wrong both ways:

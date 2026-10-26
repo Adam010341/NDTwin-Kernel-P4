@@ -4,11 +4,10 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 ONE COPY, and the ticket lists four files rather than five. Three copies of sixty lines of
+# 🔴 ONE COPY. Three copies of sixty lines of
 # claim handling, root checks and teardown traps is the shape this repo keeps recording as a
 # defect -- up_p4 and up_ovs's two copies of the H4 unpacking, with one of them wrong for a day
-# (tests/shell/test_ndt_up_down_robust.sh section 11). The deviation is written up in
-# P1-C-SUMMARY.
+# (tests/shell/test_ndt_up_down_robust.sh section 11).
 #
 # What every step gets from here:
 #   * a refusal when root is not available and when the lab is not free -- BEFORE anything is
@@ -35,9 +34,9 @@ KERNEL_URL="http://localhost:8000"
 #: [Co-developed with claude code -- Adam] Named here, beside this file, and not from $LIVE_DIR at
 #: call time: a suite points LIVE_DIR at its own temp dir to catch the run directory.
 VENV_FINGERPRINT="$LIVE_DIR/venv_fingerprint.sh"
-# [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER (Adam's ruling G, 09-27). This line
+# [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER. This line
 # used to be `: "${NDT_OWNER:=live-p1}"`: a run nobody named claimed the lab as `live-p1`, which is
-# nobody -- a claim no person owns is one no person can finish by hand (segment S, round 7, is how
+# nobody -- a claim no person owns is one no person can finish by hand (which is how
 # 08 learned it and refused on its own). Now start_step REFUSES (rc 2, nothing started) when
 # NDT_OWNER is not given. Sourcing this file for its functions (a self-test, link_usage_cell) still
 # works without one: only a run -- start_step -- needs an owner.
@@ -48,28 +47,28 @@ STEP=""
 RUN=""
 VERDICT_RC=0
 VERDICT_WHY=""
-#: [Co-developed with claude code -- Adam] What a run DISCLOSES without failing on it (Adam's ruling
-#: of 09-27 on 08's H1: a cycle over the strict 20 s is a NOTE, not a FAIL). finish() prints each
+#: [Co-developed with claude code -- Adam] What a run DISCLOSES without failing on it (on 08's
+#: H1, a cycle over the strict 20 s is a NOTE, not a FAIL). finish() prints each
 #: entry as `NOTE <step> -- <text>` right above the last line, so a PASS still carries it.
 DISCLOSED=()
 #: [Co-developed with claude code -- Adam] The signal that stopped the run, carried to finish's exit
-#: code: 130 for INT, 143 for TERM (the external judge's M3, 09-28). Empty on every other path.
+#: code: 130 for INT, 143 for TERM. Empty on every other path.
 SIGNAL_RC=""
 KNOB_ENTRY_COPY=""
 CLAIMED=0
-#: 🔴 NOT RESET WHEN THE CALLER ALREADY SET ONE (§9 ruling 28①). `link_usage_cell` sources this
+#: 🔴 NOT RESET WHEN THE CALLER ALREADY SET ONE. `link_usage_cell` sources this
 #: file in a fresh shell to call one function; an unconditional `CTRL_PID=""` there threw away
 #: the pid the driver had just passed in, so the liveness check below could never see one and
 #: the whole "controller dead => NOT RUN" branch was unreachable from the driver.
 CTRL_PID="${CTRL_PID:-}"
 
-#: 🔴 NOT RUN IS NOT 0 AND NOT 2 (§9 ruling 28①). 0 made `link_usage_cell` report
+#: 🔴 NOT RUN IS NOT 0 AND NOT 2. 0 made `link_usage_cell` report
 #: `ok=True` -- a PASS G1 over a dead controller, the exact thing the branch exists to prevent;
 #: 2 is already "no namespace / no sudo", a permission answer. Its own code, mapped by both
 #: callers.
 LINK_USAGE_NOT_RUN_RC=3
 
-#: 🔴 AND THE WINDOW REFUSAL HAS ITS OWN CODE TOO (§9 ruling 31⑤). "The window this path needs
+#: 🔴 AND THE WINDOW REFUSAL HAS ITS OWN CODE TOO. "The window this path needs
 #: is longer than the caller will wait" is not 1 ("the usage did not follow the path"), not 2
 #: ("no namespace") and not 3 ("the controller is gone"): nothing was measured and nothing was
 #: even started, and a caller that cannot tell it from a red cell would report a refusal as a
@@ -92,33 +91,39 @@ die()  { bad "$*"; exit 2; }
 # --- refusals, before anything is touched -----------------------------------------------------
 #
 # 🔴 ROOT IS REQUIRED BUT EUID 0 IS NOT. `ndt` is designed to be run as the operator with
-# passwordless grants for ndtwin-lab and mnexec (tools/test_workflow/sudo_surface.sh); running
-# the whole script as root works too, but it leaves root-owned files in .test_run/ and in this
-# directory's runs/, which then break the operator's next unprivileged `ndt`. So what is
-# required is that root is REACHABLE without a prompt, and either way of having it is accepted.
+# NOPASSWD sudoers rules for ndtwin-lab and mnexec -- two of the three rules
+# tools/test_workflow/sudo_surface.sh lists; the User Manual sets up only the ndtwin-lab one.
+# Running the whole script as root works too, but it leaves root-owned files in .test_run/
+# and in this directory's runs/, which then break the operator's next unprivileged `ndt`. So
+# what is required is that root is REACHABLE without a prompt, and either way of having it is
+# accepted.
 require_root() {
     if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
         note "running as root (uid 0)"
         bad  "note: files written under runs/ and .test_run/ will be root-owned."
         bad  "      'sudo chown -R $(logname 2>/dev/null || echo "$SUDO_USER") ...' afterwards, or"
-        bad  "      run this WITHOUT sudo -- the grants below are all this needs."
+        bad  "      run this WITHOUT sudo -- as the operator it needs only the ndtwin-lab and mnexec rules."
         return 0
     fi
     if sudo -n true 2>/dev/null; then
         note "root is available without a prompt (sudo -n)"
         return 0
     fi
-    # The operator account on the lab laptop has NO blanket sudo -- `sudo -n true` asks for a
-    # password there for everyone, Adam included -- only the two grants below. `sudo -n -l <cmd>`
-    # answers 0 exactly when that command runs without a prompt, so ask about what is used.
+    # Without blanket passwordless sudo, this needs two of the three NOPASSWD sudoers rules
+    # sudo_surface.sh lists: ndtwin-lab (the User Manual sets that one up) and mnexec (it does
+    # not). The probe below asks `sudo -n -l <cmd>`, which says whether the account may run the
+    # command, not whether it runs without a prompt: an account that also has a password rule
+    # such as `(ALL:ALL) ALL` gets 0 for a command that still asks for a password
+    # (tools/test_workflow/sudo_surface.sh records that case).
     if sudo -n -l /usr/local/sbin/ndtwin-lab >/dev/null 2>&1 \
        && sudo -n -l /usr/bin/mnexec >/dev/null 2>&1; then
         note "root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt"
         return 0
     fi
-    die "refusing: this needs root and cannot ask for it. Either grant the sudoers lines
-       tools/test_workflow/sudo_surface.sh prints (ndtwin-lab and mnexec), or run this under
-       sudo. A step that cannot reach root would report a data plane that never forwarded."
+    die "refusing: this needs root and cannot ask for it. Either add the NOPASSWD sudoers rules
+       for ndtwin-lab and mnexec (two of the three tools/test_workflow/sudo_surface.sh lists; the
+       User Manual sets up only ndtwin-lab), or run this under sudo. A step that cannot reach
+       root would report a data plane that never forwarded."
 }
 
 # require_free_lab -- `ndt status` first, then read the two fields that say somebody else is
@@ -175,13 +180,13 @@ restore_knob() {
     note "host_count_override put back to what this step found"
 }
 
-# --- the telemetry knob (TICKET-P3 §2.1) --------------------------------------------------------
+# --- the telemetry knob ------------------------------------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 # 🔴 THE SAME SNAPSHOT-AND-RESTORE AS THE HOST KNOB, AND FOR THE OPPOSITE REASON. `ndt release`
 # REFUSES while host_count_override differs, so a step that forgot that one finds out at once.
-# NOTHING refuses over p4_proxy/mininet/telemetry_override: `ndt down` does not clear it (§2.1 --
-# it is a standing choice about the NEXT fabric, not a description of this one) and `ndt release`
+# NOTHING refuses over p4_proxy/mininet/telemetry_override: `ndt down` does not clear it (it is a
+# standing choice about the NEXT fabric, not a description of this one) and `ndt release`
 # does not read it. So a step that moved it and walked away decides the next bring-up's telemetry
 # source with nothing on any screen saying so, and the only protection is this pair.
 #
@@ -228,7 +233,7 @@ take_claim() {   # take_claim <note>
 #      and a --force here would be this script signing for a state it created.
 finish() {
     local rc=$?
-    # 🔴 `set +e` FIRST, BEFORE ANYTHING ELSE (TICKET-P3 §9 ruling 19②, found by the first live
+    # 🔴 `set +e` FIRST, BEFORE ANYTHING ELSE (found by the first live
     # run). This file runs under `set -euo pipefail`, and this function is the EXIT trap -- so a
     # teardown step that exits non-zero killed the trap itself, half way through. Live 02 ended
     # at `== teardown` and live 03 at "stopping the exercise controller": no `ndt down rc=` line,
@@ -259,7 +264,7 @@ finish() {
         local down_rc=$?
         note "ndt down rc=$down_rc -> $(basename "$RUN")/90_down.txt"
         tail -3 "$RUN/90_down.txt" | sed 's/^/     /'
-        # 🔴 FOLDED INTO THE VERDICT, NOT INTO AN ABORT (§9 ruling 19②). Before `set +e` this
+        # 🔴 FOLDED INTO THE VERDICT, NOT INTO AN ABORT. Before `set +e` this
         # rc ended the trap; now it is reported and the teardown carries on to the release.
         (( down_rc == 0 )) || fail "'ndt down' exited $down_rc -- see $(basename "$RUN")/90_down.txt"
         if [[ -e "$APP_KNOB" ]]; then
@@ -275,20 +280,20 @@ finish() {
         fi
     fi
     restore_knob || true
-    # TICKET-P3 §2.1: beside the host knob, in the same place, for the reason
+    # The telemetry knob: beside the host knob, in the same place, for the reason
     # restore_telemetry_knob's own note gives -- nothing downstream refuses over this one.
     restore_telemetry_knob || true
     if (( CLAIMED )); then
         # 🔴 `fail`, NOT `bad` -- THE ROUND MUST NOT PRINT PASS WITH THE LAB STILL CLAIMED.
         # `bad` only prints; the verdict stays whatever it was, so a round whose release did not
         # take could end `PASS`, and the next person to want the lab finds it held by a step
-        # that reported success. (The same shape worker E's judge found today.)
+        # that reported success.
         "$NDT" release 2>&1 | sed 's/^/   /' \
             || fail "'ndt release' did not take -- THE LAB IS STILL CLAIMED; run it by hand"
     fi
     printf '\n'
     # 🔴 A REFUSAL KEEPS ITS OWN CODE. `die` exits 2 and 2 means "nothing was started" -- the
-    # same vocabulary `ndt` uses, and the distinction the README tells Adam to read. Flattening
+    # same vocabulary `ndt` uses, and the distinction a reader of the output needs. Flattening
     # it into the 1 that means "this ran and something was wrong" would hide the one case where
     # there is nothing to look at on the machine.
     if (( rc == 2 )) && (( VERDICT_RC == 0 )); then
@@ -297,8 +302,8 @@ finish() {
         exit 2
     fi
     if (( rc != 0 )) && (( VERDICT_RC == 0 )); then VERDICT_RC=1; VERDICT_WHY="the script exited $rc before its own verdict"; fi
-    # The raw path first and the verdict LAST, because the README tells Adam what the last line
-    # should read and a path underneath it would be the last line instead.
+    # The raw path first and the verdict LAST, because the last line
+    # should be the verdict and a path underneath it would be the last line instead.
     printf 'raw: %s\n' "${RUN:-<none>}"
     # [Co-developed with claude code -- Adam] Each disclosure, verbatim, just above the verdict --
     # so the last lines carry it whether the verdict is PASS or FAIL.
@@ -313,10 +318,10 @@ finish() {
 }
 
 # interrupted <signal name> <rc> -- the INT / TERM trap of every live-p1 step.
-# [Co-developed with claude code -- Adam] The AEG judge's N-1 and the external judge's M3 (09-28):
+# [Co-developed with claude code -- Adam]
 # with `finish` itself as the INT/TERM trap, bash ran it with the INTERRUPTED command's $? -- a
 # sleep or a poll that returned 0 -- so a step stopped by pid (this project's way) with nothing
-# failed before it printed PASS. The signal is now the run's failure, named first (a ruling-4 STOP
+# failed before it printed PASS. The signal is now the run's failure, named first (a STOP
 # keeps the head of the line), and the exit code is the signal's, carried through finish.
 interrupted() {
     trap - INT TERM
@@ -337,7 +342,7 @@ arm_step_traps() { trap finish EXIT; trap 'interrupted SIGINT 130' INT; trap 'in
 start_step() {
     STEP="$1"
     # [Co-developed with claude code -- Adam] 🔴 FIRST, before the run directory and the trap: a
-    # run with no named owner starts nothing (Adam's ruling G, 09-27; see NDT_OWNER above).
+    # run with no named owner starts nothing (see NDT_OWNER above).
     if [[ -z "${NDT_OWNER:-}" ]]; then
         bad "refusing: NDT_OWNER is not set. Run it as NDT_OWNER=<you> bash .../$STEP.sh -- the lab is claimed in that name, and no default owner is used"
         printf 'REFUSED %s -- nothing was started\n' "$STEP"
@@ -393,11 +398,11 @@ open(sys.argv[2],'a').write('\n')" "$out.raw" "$out" 2>/dev/null; then
 # foreign fabric's fabric-level answer, one line, OK ... or BAD .... [Co-developed with claude code
 # -- Adam] 02 asks it with its two names; 03/04, on an external control plane that runs the
 # heartbeat detect-only since 09-27, with their five.
-# [Co-developed with claude code -- Adam] The opus judge's N1 (09-27): the expectation is NOT picked
+# [Co-developed with claude code -- Adam] The expectation is NOT picked
 # from the proxy's own `heartbeat.watchdog`. `ndt up p4 --app` starts the heartbeat on such a
 # fabric, so the watchdog MUST run -- anything else is the failure, named with the proxy's own
 # heartbeat.error -- and with it running, control_plane.skipped is exactly <want>.
-# [Co-developed with claude code -- Adam] The AEG judge's N-5 (09-28): ONE line on every path. Every
+# [Co-developed with claude code -- Adam] ONE line on every path. Every
 # exception is caught inside the program and named in its BAD line (a top-level list, a non-dict
 # control_plane, unsortable values); stderr is not merged, so a traceback can never come first; and
 # an interpreter that dies without a word still leaves one BAD line.
@@ -458,7 +463,7 @@ for d in sorted(int(n['dpid']) for n in t['nodes'] if n.get('vertex_type')==0): 
         "$1/ndtwin/topology.json" 2>/dev/null
 }
 
-# --- TICKET-P2-F: the twin's liveness, against what the exercise's controller actually loaded --
+# --- the twin's liveness, against what the exercise's controller actually loaded -------------
 #
 # 🔴 WHY THIS IS THE ASSERTABLE PROPERTY AND "N up" IS NOT. Under `mode: external` NDTwin loads
 # no pipeline; the switches have no program until the exercise's own controller pushes one, and
@@ -597,7 +602,7 @@ assert_probe_ok_follows_set() {
 }
 
 # run_app_pipeline_kind <package-dir> -- `ndt`'s own answer to "whose program is on these
-# switches", out of the same subshell and the same function `ndt up` uses (TICKET-P2-D §3.5).
+# switches", out of the same subshell and the same function `ndt up` uses.
 #
 # 🔴 `ndt`'s, not this script's. app_pipeline_kind answers through Package.pipeline_is_ndtwin --
 # the real loader, comparing RESOLVED paths -- and a live script that decided for itself whether
@@ -663,7 +668,7 @@ pingall_via_ndt() {
 #
 # 🔴 THE LOSS NUMBER COMES FROM PING'S OWN SUMMARY LINE, parsed here, and from nothing else.
 # The namespace is found with `ndt`'s host_pid and entered with the same `sudo -n mnexec -a`
-# seam dataplane_ok uses -- the form this machine's sudoers allows, and the reader that needs
+# seam dataplane_ok uses -- it needs a NOPASSWD rule for mnexec, and it is the reader that needs
 # no pgrep. The permission question is asked FIRST and separately (`mnexec -a <pid> true`), so
 # a missing grant comes back as UNTESTED and can never be rendered as packet loss.
 #
@@ -717,7 +722,7 @@ pingall_loss() {
     echo "PINGALL_LOSS pairs=$pairs zero_loss=$zero lossy=$lossy untested=$untested"
 }
 
-# --- TICKET-P3 §2.7: the generic cell -- link usage follows the iperf path ---------------------
+# --- the generic cell -- link usage follows the iperf path --------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -726,7 +731,7 @@ pingall_loss() {
 # blocked direction, link_monitor's port field. This one is a claim about NDTwin: while a flow
 # crosses the fabric, the twin's `link_bandwidth_usage_bps` must be non-zero on the interfaces
 # that carried it and zero on the inter-switch interfaces that did not -- whatever program the
-# switches are running. It is the assertable half of TICKET-P3 §2.2's "record the link bytes
+# switches are running. It is the assertable half of "record the link bytes
 # BEFORE you ask what the flow was".
 #
 # 🔴 GROUND TRUTH IS /proc/net/dev AND THE TWIN IS THE SUBJECT. The on-path set is not written
@@ -750,10 +755,10 @@ pingall_loss() {
 #: threshold of zero would put every interface in the fabric on the path.
 : "${LINK_USAGE_ONPATH_BYTES:=10000}"
 #: The FLOOR an off-path edge has to stay under. Not zero, and the reason is measured rather
-#: than defensive (TICKET-P3 §9 ruling 9, R4):
+#: than defensive:
 #:
-#:   * after worker A's kernel merge the collector banks a sample's frame length BEFORE it asks
-#:     what the flow was (§2.2), so ARP, LLDP and IPv6 neighbour discovery all count toward
+#:   * the collector banks a sample's frame length BEFORE it asks
+#:     what the flow was, so ARP, LLDP and IPv6 neighbour discovery all count toward
 #:     link usage where they used to be dropped at the `etherType != 0x0800` test;
 #:   * on an NDTwin-pipeline fabric the proxy sends an LLDP beacon along every switch-switch
 #:     link, and the pipeline samples 1 in 256. One beacon drawn in an eight-second window is
@@ -766,7 +771,7 @@ pingall_loss() {
 #: = 3,072,000 bit -- and LINK_USAGE_OFFPATH_FRACTION (2%) of the SMALLEST PRIMARY on-path
 #: integral.
 #:
-#: 🔴 THE ABSOLUTE TERM IS ONE SAMPLE, NOT 5 kbit (§9 rulings 26① and 31④). At 1/256 a single
+#: 🔴 THE ABSOLUTE TERM IS ONE SAMPLE, NOT 5 kbit. At 1/256 a single
 #: sampled frame is banked as 256 x its length, so ONE beacon is already megabits: a floor
 #: below that goes red on the smallest thing the sampler is capable of reporting, and nothing
 #: is measurable below one sample. The old 5 kbit constant was removed rather than kept inside
@@ -781,12 +786,12 @@ pingall_loss() {
 : "${LINK_USAGE_OFFPATH_FRACTION:=0.02}"
 #: The twin refreshes usage once a second; sample above that. Same rate as cmd_check.
 : "${LINK_USAGE_HZ:=4}"
-#: `iperf -u -b 2M -t 8`, TICKET-P3 §2.7 verbatim.
+#: `iperf -u -b 2M -t 8`, as specified.
 : "${LINK_USAGE_SECONDS:=8}"
-#: 🔴 THE WINDOW HAS TO BE LONG ENOUGH FOR THE SAMPLER TO SEE THE FLOW (§9 ruling 26①).
+#: 🔴 THE WINDOW HAS TO BE LONG ENOUGH FOR THE SAMPLER TO SEE THE FLOW.
 #: ecn shapes s1-s2 to 500 kbit/s, so an 8 s 2 Mbit/s iperf delivers ~691 kB -- about 460
 #: datagrams -- and at 1 in 256 the EXPECTED sample count per primary link is ~1.8. P(zero
-#: samples) is then e^-1.8 = 16.5% -- ONE number, everywhere it is quoted (§9 ruling 31⑥) --
+#: samples) is then e^-1.8 = 16.5% -- ONE number, everywhere it is quoted --
 #: and three runs out of four read s2-eth1 = 0 and went red on a fabric that had forwarded
 #: every byte. The fix is not a looser assertion, it is a window that makes
 #: the expectation reachable: enough seconds for >= this many samples on the SLOWEST link of
@@ -798,7 +803,7 @@ pingall_loss() {
 : "${LINK_USAGE_DEFAULT_BPS:=1000000000}"
 : "${LINK_USAGE_RATE:=2M}"
 #: 🔴 iperf's UDP payload. The default 1470 + 28 IP/UDP + a 4-byte tunnel header exceeds 1500
-#: and the fabric drops every datagram (§9 ruling 26②).
+#: and the fabric drops every datagram.
 : "${LINK_USAGE_DATAGRAM:=1200}"
 
 # netdev_tx <out> -- "<iface> <tx_bytes>" for every sN-ethP, from /proc/net/dev. The switches
@@ -823,7 +828,7 @@ for line in open("/proc/net/dev"):
 # silently zero either: it is skipped and named on stderr, because "the interface went away
 # mid-window" and "it moved no bytes" are different facts and only one of them is a reading.
 #: The share of the LARGEST switch-interface delta below which an interface that still passed
-#: the absolute byte threshold is called MINOR rather than primary (TICKET-P3 §9 ruling 20①).
+#: the absolute byte threshold is called MINOR rather than primary.
 : "${LINK_USAGE_PRIMARY_FRACTION:=0.05}"
 #: What the sampler can see, used only to print an expected sample count beside a MINOR row.
 : "${LINK_USAGE_MTU_BYTES:=1500}"
@@ -831,7 +836,7 @@ for line in open("/proc/net/dev"):
 
 # link_usage_window <package-dir> -- how many seconds the iperf must run, and why.
 #
-# 🔴 SIZED FROM THE SLOWEST LINK ON THE PATH (§9 ruling 26①). A sample is one frame in
+# 🔴 SIZED FROM THE SLOWEST LINK ON THE PATH. A sample is one frame in
 # LINK_USAGE_SAMPLE_RATE, so to expect N samples on a link carrying B bits/s of a flow for t
 # seconds you need  t >= N * rate * MTU * 8 / B.  The bottleneck decides: a link shaped to
 # 500 kbit/s carries 500 kbit/s no matter what the sender offers, so the window is computed
@@ -858,7 +863,7 @@ link_usage_window() {
 import json, math, os, sys
 pkg, base_t, want_n = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 rate, mtu, default_bps = int(sys.argv[4]), int(sys.argv[5]), int(sys.argv[6])
-# 🔴 THE MINIMUM IS OVER ALL THE PACKAGE'S LINKS, NOT JUST THE PATH (§9 ruling 28⑤). The path
+# 🔴 THE MINIMUM IS OVER ALL THE PACKAGE'S LINKS, NOT JUST THE PATH. The path
 # is not known here -- the cell picks two hosts and the fabric routes -- so this is the
 # conservative reading: a bottleneck anywhere in the package lengthens the window. For ecn the
 # two agree (the only shaped link IS on the path); for a package with a slow link off the path
@@ -874,7 +879,7 @@ try:
 except (OSError, ValueError):
     pass
 min_bps = min(bps) if bps else float(default_bps)
-# 🔴 THE FLOW IS ALSO CAPPED BY WHAT THE SENDER OFFERS (§9 ruling 28⑤). iperf is told
+# 🔴 THE FLOW IS ALSO CAPPED BY WHAT THE SENDER OFFERS. iperf is told
 # LINK_USAGE_RATE (2 Mbit/s), so on an UNSHAPED 1 Gbit/s path the bits per second that reach a
 # link are the offered rate, not the link speed -- the old formula reported "2604 expected
 # samples" for a window that really delivers about 5. What matters is the smaller of the two.
@@ -891,7 +896,7 @@ PYW
 # that moved at least the threshold, sorted. THE MEASUREMENT, not a list this file knows.
 #
 # 🔴 THREE CLASSES, BECAUSE "CARRIED THE FLOW" AND "THE SAMPLER COULD SEE IT" ARE DIFFERENT
-# FACTS (§9 ruling 20①, from the first live run). qos/solution's real deltas were s1-eth3
+# FACTS. qos/solution's real deltas were s1-eth3
 # 2,162,160 B and s2-eth1 2,162,160 B -- the flow -- plus s1-eth4 15,120 B and s3-eth1
 # 15,120 B: TEN datagrams down a side branch. The old rule called all four on-path because all
 # four passed 10 kB, and then required a non-zero twin integral on each. But at 1 sample in 256
@@ -951,7 +956,7 @@ onpath_primary() { /usr/bin/awk '$2 == "P" {print $1}' "$1"; }
 #
 # 🔴 EVERY EDGE, INCLUDING HOST-FACING ONES. cmd_check deliberately compares inter-switch edges
 # only, because it is computing a ratio and the two populations have to match. This cell is not
-# a ratio: the switch->host edge is where TICKET-P3 §2.2's egress-only sample lands, so leaving
+# a ratio: the switch->host edge is where the egress-only sample lands, so leaving
 # it out would leave out the half of the mechanism this round is here to see. The kind travels
 # with the key so the assertion can hold the two to different standards.
 twin_usage_integral() {
@@ -1029,7 +1034,7 @@ link_usage_floor() {
     local onpath="$1" integral="$2"
     "$PY" -c '
 import sys
-# 🔴 THE FLOOR IS AT LEAST ONE SAMPLE WORTH OF BITS (§9 ruling 26①). A single sampled frame on
+# 🔴 THE FLOOR IS AT LEAST ONE SAMPLE WORTH OF BITS. A single sampled frame on
 # an off-path link is banked as rate x frame x 8 bits -- one 170-byte packet at 1/256 is
 # 348 kbit, thirty-five times the old 5 kbit constant -- so a floor below one sample reds on
 # the smallest thing the sampler can possibly report. Nothing is measurable below one sample.
@@ -1065,7 +1070,7 @@ print("%.3f" % max(floor_abs, frac * min(vals)) if vals else "%.3f" % floor_abs)
 assert_link_usage_follows_path() {
     local onpath="$1" integral="$2" label="$3" rc=0 key bits kind floor
     if [[ ! -s "$onpath" ]]; then
-        # 🔴 AND IT NAMES THE DATAGRAM SIZE (§9 ruling 26②). p4runtime and flowcache read
+        # 🔴 AND IT NAMES THE DATAGRAM SIZE. p4runtime and flowcache read
         # EXACTLY 273 B on every interface: the fabric dropped every 1470-byte UDP datagram
         # (advanced_tunnel's 4-byte header pushes 1470+28+4 over the 1500 MTU) while the
         # driver's 64-byte pings passed. "Nothing carried the flow" and "the flow was too big
@@ -1078,7 +1083,7 @@ assert_link_usage_follows_path() {
         fail "$label: there is no twin integral for this window"
         return 1
     fi
-    # 🔴 PRIMARY IS ASSERTED, MINOR IS PRINTED (§9 ruling 20①). A MINOR interface carried real
+    # 🔴 PRIMARY IS ASSERTED, MINOR IS PRINTED. A MINOR interface carried real
     # bytes -- too few for a 1/256 sampler to be expected to catch any of them -- so neither
     # "the twin saw it" nor "the twin did not" is a finding, and asserting either way would
     # make a correct twin red at random. What IS owed to the reader is the number and what the
@@ -1115,7 +1120,7 @@ assert_link_usage_follows_path() {
         # 🔴 MINOR ROWS ARE NOT OFF-PATH EITHER. They moved real bytes; holding them to the
         # off-path floor would be asserting the opposite of what the class means.
         /usr/bin/awk -v k="$key" '$1 == k {found=1} END{exit !found}' "$onpath" && continue
-        # 🔴 EVERY OFF-PATH EDGE'S RAW INTEGRAL IS RECORDED, judged or not (§9 ruling 9, R4).
+        # 🔴 EVERY OFF-PATH EDGE'S RAW INTEGRAL IS RECORDED, judged or not.
         # The verdict is a comparison against a floor, and a floor only means something beside
         # the numbers it was applied to -- otherwise "under the bound" and "exactly zero" read
         # the same in the raw, and the margin is the whole question.
@@ -1143,7 +1148,7 @@ assert_link_usage_absent() {
         fail "$label (control): the on-path interface set is EMPTY -- with no traffic measured, 'the twin reports nothing' is true of any twin at all"
         return 1
     fi
-    # 🔴 THE CONTROL JUDGES PRIMARIES ONLY, like the assertion it controls (§9 ruling 20①). A
+    # 🔴 THE CONTROL JUDGES PRIMARIES ONLY, like the assertion it controls. A
     # MINOR row is expected to read 0 with sampling ON, so "0 with sampling off" says nothing.
     while read -r key cls delta; do
         [[ -n "$key" ]] || continue
@@ -1168,7 +1173,7 @@ assert_link_usage_absent() {
 # `expect` is `follows` (the cell) or `absent` (the positive control).
 #
 # 🔴 ONE IMPLEMENTATION, TWO CALLERS. live-p1/05 runs it three times and drive_exercise.py's
-# ndtwin arm runs it once at the end of every exercise that HAS a path (TICKET-P3 §2.7). A
+# ndtwin arm runs it once at the end of every exercise that HAS a path. A
 # driver with its own copy of this rule would be a second instrument, and "the same cell on 13
 # exercises" would be a comparison of thirteen runs of one script against three of another.
 #
@@ -1200,7 +1205,7 @@ link_usage_round() {
         fail "$label: the package model does not name two hosts to run a flow between (src='$src' dst='$dst')"
         return 1
     fi
-    # 🔴 AN EXTERNAL CONTROL PLANE MUST STILL BE RUNNING (§9 ruling 26②). flowcache's first
+    # 🔴 AN EXTERNAL CONTROL PLANE MUST STILL BE RUNNING. flowcache's first
     # packet of a flow needs the controller's packet-in; p4runtime's tunnel entries are the
     # controller's too. If it exited between the arm's own steps and this cell, the flow is
     # dropped for a reason that has nothing to do with link usage -- and reporting that as
@@ -1218,22 +1223,22 @@ link_usage_round() {
     # the model's first host and either its last or the one the caller named -- and the
     # refusals below are about whether those namespaces exist. Printing the decision after
     # the refusal would leave a reader of a red run guessing which hosts it meant.
-    # 🔴 THE WINDOW IS COMPUTED, AND ITS ARITHMETIC GOES IN THE RAW (§9 ruling 26①).
+    # 🔴 THE WINDOW IS COMPUTED, AND ITS ARITHMETIC GOES IN THE RAW.
     local secs min_bps at_base carried
     read -r secs min_bps at_base carried < <(link_usage_window "$pkg")
     note "$label: slowest declared link = $min_bps bit/s; iperf offers $(link_usage_offered_bps) bit/s; a link therefore carries at most $carried bit/s"
     note "$label: at ${LINK_USAGE_SECONDS}s that is only $at_base expected samples per primary link"
     note "$label: window = max(${LINK_USAGE_SECONDS}, ceil(${LINK_USAGE_MIN_SAMPLES} x ${LINK_USAGE_SAMPLE_RATE} x ${LINK_USAGE_MTU_BYTES} x 8 / $carried)) = ${secs}s"
-    # 🔴 A WINDOW THE CALLER CANNOT WAIT FOR IS A REFUSAL, NOT A SHORTER WINDOW (§9 ruling 28⑤).
+    # 🔴 A WINDOW THE CALLER CANNOT WAIT FOR IS A REFUSAL, NOT A SHORTER WINDOW.
     # `link_usage_cell` runs this under timeout=240; silently measuring for less than the
-    # computed window would put back exactly the defect ruling 26① fixed, with the arithmetic
-    # on screen saying it had not.
+    # computed window would put back exactly the defect the computed window exists to fix, with the
+    # arithmetic on screen saying it had not.
     if (( secs > LINK_USAGE_MAX_SECONDS )); then
         fail "$label: the window this path needs (${secs}s) exceeds the caller's limit (${LINK_USAGE_MAX_SECONDS}s) -- at $carried bit/s it takes that long to expect ${LINK_USAGE_MIN_SAMPLES} samples per link. Measuring for less would report a sampler miss as a routing fault."
         printf 'LINK_USAGE %s expect=%s primary=- minor=- rc=WINDOW-TOO-LONG\n' "$label" "$expect"
         return $LINK_USAGE_WINDOW_RC
     fi
-    # 🔴 `-l 1200`, NOT THE 1470-BYTE DEFAULT (§9 ruling 26②). advanced_tunnel adds a 4-byte
+    # 🔴 `-l 1200`, NOT THE 1470-BYTE DEFAULT. advanced_tunnel adds a 4-byte
     # myTunnel header, so 1470 + 28 + 4 > the 1500 MTU and the fabric dropped EVERY datagram --
     # p4runtime and flowcache both read 273 B on every interface, the driver's 64-byte pings
     # having passed. 1200 leaves room for any encapsulation these exercises add; mri,
@@ -1257,12 +1262,12 @@ link_usage_round() {
     twin_usage_integral "$dir/twin_integral.txt" "$secs" "$LINK_USAGE_HZ" || rc=1
     wait "$cli" 2>/dev/null || true
     netdev_tx "$dir/netdev.after"
-    # 🔴 The server is stopped by the pid this function started, never by name (CLAUDE.md).
+    # 🔴 The server is stopped by the pid this function started, never by name.
     kill "$srv" 2>/dev/null || true
     wait "$srv" 2>/dev/null || true
     onpath_ifaces "$dir/netdev.before" "$dir/netdev.after" > "$dir/onpath.txt" 2>"$dir/onpath.err"
     [[ -s "$dir/onpath.err" ]] && sed 's/^/   /' "$dir/onpath.err"
-    # 🔴 THE TWO CLASSES ARE NAMED SEPARATELY (§9 ruling 20①). One list mixing P and M would
+    # 🔴 THE TWO CLASSES ARE NAMED SEPARATELY. One list mixing P and M would
     # read as "these all carried the flow and were all checked", and only the P rows were.
     note "$label: primary=$(onpath_primary "$dir/onpath.txt" | tr '\n' ' ')  minor=$(/usr/bin/awk '$2=="M"{printf "%s ", $1}' "$dir/onpath.txt")"
     if [[ "$expect" == absent ]]; then

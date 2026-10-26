@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for Adam's ruling E-21: the four link endpoints in the L2 contract.
+# Mutation gate for the four link endpoints in the L2 contract.
 #
 # [Co-developed with claude code -- Adam]
 #
 # What E-21 bought is one field on the wire: `declaration_retained`. It is the only thing that
 # tells a caller "this kernel deliberately left your link down" -- the status line is 200 whether
 # the recovery was applied or declined, deliberately, because Ryu's on_link_add logs "NDT REJECTED
-# this notification ... the kernel's view is now stale" on any 4xx. Before this ticket the field
+# this notification ... the kernel's view is now stale" on any 4xx. Before this the field
 # was documented in doc/2026-01-02_ndt_api.md §2, emitted by HttpSession.cpp, and named by no
 # schema anywhere, so it could have been dropped without a single check going red.
 #

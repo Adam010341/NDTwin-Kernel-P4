@@ -269,20 +269,23 @@ class ReportedFieldCapTest(unittest.TestCase):
 
 class MalformedMatchValueTest(unittest.TestCase):
     """
-    A CIDR destination must be a 400, not a 500. KNOWN-ISSUES B-2c.
+    A malformed destination must be a 400, not a 500. KNOWN-ISSUES B-2c.
 
     [Co-developed with claude code -- Adam]
     `{"nw_dst": "10.0.0.5/32"}` names a field ipv4_lpm keys on, so unsupported_match_fields
     returned [] and the value went straight to socket.inet_aton() inside insert_ipv4_route,
     which raises OSError. Nothing caught it, so FastAPI answered 500 -- reproducible against the
     proxy alone, with the kernel out of the picture (round 4).
+
+    Since 2026-10-23 a well-formed prefix on a destination-only match is accepted
+    (test_cidr_destination.py); these tests now use a prefix that is still malformed (/33).
     """
 
-    def test_a_cidr_destination_is_refused_under_both_spellings(self):
+    def test_a_malformed_prefix_destination_is_refused_under_both_spellings(self):
         for field in ("nw_dst", "ipv4_dst"):
             with self.subTest(field=field):
                 with self.assertRaises(MalformedMatchValueError):
-                    check_match_values({field: "10.0.0.5/32"}, "installed")
+                    check_match_values({field: "10.0.0.5/33"}, "installed")
 
     def test_a_cidr_source_is_refused_too(self):
         # The 5-tuple path reaches the same inet_aton via _encode_5tuple_value, so fixing only
@@ -296,7 +299,7 @@ class MalformedMatchValueTest(unittest.TestCase):
         # The whole reason it is a subclass, as for MalformedMatchError. If this stops holding,
         # api_routes needs a second catch and a CIDR goes straight back to being a 500.
         try:
-            check_match_values({"nw_dst": "10.0.0.5/32"}, "installed")
+            check_match_values({"nw_dst": "10.0.0.5/33"}, "installed")
         except UnsupportedMatchError as e:
             self.assertIsInstance(e, MalformedMatchValueError)
         else:
@@ -311,18 +314,19 @@ class MalformedMatchValueTest(unittest.TestCase):
         # LockManager::describeError's two rules: quote the caller's own value, and say which
         # operation did not occur -- the question after a 400 is always "did it do it anyway?".
         with self.assertRaises(MalformedMatchValueError) as caught:
-            check_match_values({"nw_dst": "10.0.0.5/32"}, "installed")
+            check_match_values({"nw_dst": "10.0.0.5/33"}, "installed")
         text = str(caught.exception)
         self.assertIn("nw_dst", text)
-        self.assertIn("10.0.0.5/32", text)
+        self.assertIn("10.0.0.5/33", text)
         self.assertIn("No rule was installed", text)
 
     def test_the_message_never_names_the_substituted_value(self):
-        # route_flow forces /32. A message built from the address with the prefix stripped would
-        # name a value the caller never sent, which is exactly how a substitution stays
-        # invisible -- the failure LockManager::describeError's rule exists to stop.
+        # The proxy rewrites a destination to its route key. A message built from the address
+        # with the prefix stripped would name a value the caller never sent, which is exactly
+        # how a substitution stays invisible -- the failure LockManager::describeError's rule
+        # exists to stop.
         with self.assertRaises(MalformedMatchValueError) as caught:
-            check_match_values({"nw_dst": "10.0.0.5/32"}, "installed")
+            check_match_values({"nw_dst": "10.0.0.5/33"}, "installed")
         self.assertNotIn('"10.0.0.5"', str(caught.exception))
 
     def test_the_action_verb_follows_the_caller(self):
@@ -365,20 +369,25 @@ class MalformedMatchValueTest(unittest.TestCase):
         self.assertIsNone(check_match_values(
             {"ipv4_src": "10.0.0.1", "ipv4_dst": "10.0.0.4"}, "installed"))
 
-    def test_forms_inet_aton_already_accepts_are_not_newly_refused(self):
-        # The reason this validates by CALLING inet_aton rather than by a stricter parser of its
-        # own: these all work today, and refusing them would break a working client to fix a
-        # different bug. Same trade parse_eth_type was written for.
-        for value in ("10.1", "10.0.1", "0x0a000001", "127.1"):
-            with self.subTest(value=value):
-                self.assertIsNone(check_match_values({"nw_dst": value}, "installed"))
+    def test_short_and_hex_forms_are_refused_as_the_kernel_refuses_them(self):
+        # [Co-developed with claude code -- Adam] These used to pass (inet_aton reads them as
+        # other addresses: "10.1" is 10.0.0.1, "0x0a000001" is 10.0.0.1). The kernel's flow-batch
+        # check uses inet_pton and refuses them before queueing, so the proxy no longer reads a
+        # value the kernel would never have sent.
+        for field in ("nw_dst", "ipv4_dst", "nw_src", "ipv4_src"):
+            for value in ("10.1", "10.0.1", "0x0a000001", "127.1", "10.0.0.02"):
+                with self.subTest(field=field, value=value):
+                    with self.assertRaises(MalformedMatchValueError):
+                        check_match_values({field: value}, "installed")
 
-    def test_falsy_and_absent_values_are_left_to_the_existing_guards(self):
-        # `match.get("nw_dst") or match.get("ipv4_dst")` falls through an empty string to the
-        # other spelling, and `if not ipv4_dst` returns False downstream. Refusing here would
-        # newly 400 a request that succeeds today.
-        self.assertIsNone(check_match_values({"nw_dst": "", "ipv4_dst": "10.0.0.4"}, "installed"))
-        self.assertIsNone(check_match_values({"nw_dst": None}, "installed"))
+    def test_an_empty_or_null_address_is_refused_and_an_absent_one_is_not(self):
+        # [Co-developed with claude code -- Adam] A PRESENT address field must be readable; the
+        # kernel answers 400 for "" and null too. Only an absent field is "no destination given".
+        for field in ("nw_dst", "ipv4_dst", "nw_src", "ipv4_src"):
+            for value in ("", None):
+                with self.subTest(field=field, value=value):
+                    with self.assertRaises(MalformedMatchValueError):
+                        check_match_values({field: value}, "installed")
         self.assertIsNone(check_match_values({}, "installed"))
 
     def test_fields_the_pipeline_does_not_key_on_are_not_value_checked_here(self):
@@ -398,7 +407,7 @@ class RefusalReachesTheEntryPointsTest(unittest.TestCase):
 
     [Co-developed with claude code -- Adam]
     Everything above tests the helper. These drive route_flow / unroute_flow / modify_flow
-    themselves, because the scoped review's finding (2026-07-31, HANDOFF 1k item 3) was
+    themselves, because the scoped review's finding (2026-07-31) was
     precisely that nothing did: all three `raise` statements could be replaced with `pass`
     and this file stayed green -- which resurrects the silently-narrowed rule end to end
     while every unit test here keeps passing. The second half of each assertion is the
@@ -492,14 +501,16 @@ class RefusalReachesTheEntryPointsTest(unittest.TestCase):
         self.assertEqual(1, len(self.client.calls))
         self.assertEqual("insert", self.client.calls[0][0])
 
-    # --- B-2c: a CIDR value, refused before the switch is touched ---------------------------
+    # --- B-2c: a malformed value, refused before the switch is touched ----------------------
     # [Co-developed with claude code -- Adam]
     # These belong beside the field-name refusals for the reason this class exists at all: the
     # helper tests above would all stay green if check_match_values were never called from the
     # three verbs, which is precisely how the value could reach inet_aton and 500 again. Only
     # driving route_flow / unroute_flow / modify_flow proves the call site is wired.
 
-    CIDR = {"eth_type": 2048, "nw_dst": "10.0.0.5/32"}
+    # [Co-developed with claude code -- Adam] /33: a prefix that is still malformed now that a
+    # well-formed one is accepted (2026-10-23).
+    CIDR = {"eth_type": 2048, "nw_dst": "10.0.0.5/33"}
 
     def test_route_flow_refuses_a_cidr_destination_before_any_write(self):
         with self.assertRaises(MalformedMatchValueError):

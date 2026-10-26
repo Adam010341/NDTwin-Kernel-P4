@@ -5,7 +5,7 @@
 #
 # Both round.env files (the E round and the F-5 round) used to open with
 #
-#     export KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+#     export KERNEL_DIR=<the main checkout's absolute path>
 #
 # and derive everything else from it: ROUND, OUT, PRIOR, ROUND25, TRH, the kernel binaries, the
 # staging directory, the proxy venv. tests/shell/test_gate_exit_code_not_tee.sh and
@@ -35,7 +35,7 @@
 # with an EMPTY environment (env -i: no inherited KERNEL_DIR, CPU_BASELINE_FILE, PY_PROXY, ...) and
 # PATH shims for every command that writes (mkdir install cp mv ln touch rm rmdir tee chmod). The
 # shims record their arguments and write nothing, so the pre-fix file, which pointed at
-# /home/adam/..., is observed pointing there and changes nothing. Every exported variable is
+# the main checkout, is observed pointing there and changes nothing. Every exported variable is
 # found by diffing the exported set before and after sourcing -- not from a list kept here.
 #
 # The two consumer suites are run too (section "consumers"), because the fix is only as good as

@@ -9,18 +9,18 @@ Those two are run by `tests/shell/mutate_app_package.sh` inside a mutant tree th
 suites here read `tools/p4_exercise/tests/fixtures/**` and RUN `tools/p4_exercise/convert.py`,
 so inside that tree they cannot run at all, and a test that cannot run turns a gate's baseline
 red for a reason that has nothing to do with what the gate is about. That gate belongs to
-ticket A (TICKET-P2 0.7), so the fix is on this side: the tests that need the wider repo live in
-a file A's gate does not run, and `tests/shell/mutate_table_entry.sh` -- which links `tools/` in
+the exercise tooling, so the fix is on this side: the tests that need the wider repo live in
+a file that gate does not run, and `tests/shell/mutate_table_entry.sh` -- which links `tools/` in
 for exactly this -- does run it.
 
 🔴 WHAT IS ACTUALLY NEW HERE. Every other test of this feature uses a p4info written by the test
 (a subset of `ndtwin_switch.p4info.txt`, or a synthetic descriptor for a match type no pipeline
 in this repo declares) and a `Package` object built by hand, whose artefact paths name files
-that do not exist. So until ticket A merged, the writer had never once been pointed at a program
-NDTwin did not compile -- and the entire feature exists for programs NDTwin did not compile.
-P2-B round 1 shipped with that gap and said so (P2-B-SUMMARY section 7-2). These are the tests
-that close it: A's compiled `basic`, `firewall` and `calc` p4infos, A's converter, A's runtime
-files, and `startup()` driven over the package that comes out of them.
+that do not exist. So until compiled exercises were committed, the writer had never once been
+pointed at a program NDTwin did not compile -- and the entire feature exists for programs NDTwin
+did not compile. These are the tests that close it: the compiled `basic`, `firewall` and `calc`
+p4infos, the converter, the runtime files, and `startup()` driven over the package that comes out
+of them.
 """
 
 from __future__ import annotations
@@ -93,7 +93,7 @@ def a_client():
 
 # --- against the p4info of a program this proxy did not write --------------------------------
 
-#: The exercises ticket A brought into the tree, compiled. Version-controlled, so a missing one
+#: The compiled exercises committed in the tree. Version-controlled, so a missing one
 #: is a failure and not a skip: `tools/p4_exercise/tests/fixtures/README` says why they are
 #: committed, and a suite that quietly skipped when they went missing would be a suite nobody
 #: noticed had stopped checking the only foreign pipelines this repo has.
@@ -102,7 +102,7 @@ FIXTURES = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
 
 
 def a_real_p4info(relative_path):
-    """One of A's compiled fixture p4infos, parsed the way P4RuntimeClient parses one."""
+    """One of the compiled fixture p4infos, parsed the way P4RuntimeClient parses one."""
     path = os.path.join(FIXTURES, relative_path)
     if not os.path.isfile(path):
         raise AssertionError(
@@ -122,9 +122,8 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
     🔴 EVERYTHING ABOVE THIS CLASS USES A P4INFO WRITTEN IN THIS FILE. That fixture is the
     subset of `ndtwin_switch.p4info.txt` these methods look things up in -- which means the
     writer had never once been pointed at a program NDTwin did not compile, and the entire
-    feature exists for programs NDTwin did not compile. Round 1 shipped with that gap and said
-    so (P2-B-SUMMARY section 7-2); ticket A merging is what made it closable, because the
-    compiled fixtures came with it.
+    feature exists for programs NDTwin did not compile. The compiled exercise fixtures committed
+    in the tree are what closes that gap.
 
     🔴 AND `basic.p4` IS WHY THE SKIPS ELSEWHERE ARE NOT PARANOIA. It declares
     `MyIngress.ipv4_lpm` matching `hdr.ipv4.dstAddr` LPM/32 with action
@@ -132,7 +131,7 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
     and parameter names `ndtwin_switch.p4` uses. So `install_initial_routes` against a switch
     running `basic` does not fail: it SUCCEEDS, writing this proxy's shortest paths into the
     exercise's own table. `test_the_names_basic_p4_shares_with_ndtwin_switch` pins that
-    collision, because it is the premise of TICKET-P2 round 2's `install_routes=False`.
+    collision, because it is the premise of `install_routes=False`.
     """
 
     def client_for(self, relative_path):
@@ -161,7 +160,7 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
         # A WriteRequest `install_initial_routes` builds for our pipeline is therefore byte for
         # byte a request `basic.p4` accepts. There is nothing at the switch that could refuse
         # it, and nothing in P4Runtime that compares programs. That is the whole argument for
-        # TICKET-P2 round 2's `install_routes=False`: the guard cannot be "the write will fail",
+        # `install_routes=False`: the guard cannot be "the write will fail",
         # because it will not.
         self.assertEqual(table.preamble.id,
                          ours._table_by_name("MyIngress.ipv4_lpm").preamble.id)
@@ -182,7 +181,7 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
         return p4info
 
     def test_a_ternary_table_in_a_real_compiled_p4info_is_owned_and_its_builder_builds_it(self):
-        # 🔴 The only REAL ternary table this repository has, and until round 3 nothing pointed
+        # 🔴 The only REAL ternary table this repository has, and nothing used to point
         # the writer at it. `MyIngress.flow_5tuple` is p4c's output from ndtwin_switch.p4: six
         # TERNARY fields it decided the numbering of. None of the tutorials fixtures has one
         # (asserted in test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match), so
@@ -305,8 +304,8 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
             client._table_by_name("MyIngress.flow_5tuple")
 
     def test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match(self):
-        # 🔴 Recorded as a FACT about the fixtures, not as a gap. TICKET-P2 2.3 promises 501 for
-        # those three, and the synthetic descriptors in a_p4info() are how they are exercised --
+        # 🔴 Recorded as a FACT about the fixtures, not as a gap. the table-entry route promises 501
+        # for those three, and the synthetic descriptors in a_p4info() are how they are exercised --
         # this asserts why a synthetic one was necessary rather than leaving a reader to wonder
         # whether a real pipeline was avoided.
         for relative_path in ("firewall/build/basic.p4.p4info.txtpb",

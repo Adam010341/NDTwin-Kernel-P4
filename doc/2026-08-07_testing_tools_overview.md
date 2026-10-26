@@ -483,7 +483,7 @@ tools/test_workflow/local_ci.sh gcc asan     # 指名 job
 
 做法是：對生產程式碼做一個具名的修改（mutation），重新編譯、執行，確認**指名的那個測試**真的失敗，然後還原。每個測試都要附上「把哪一行改成什麼，這個測試就會失敗」的紀錄，包含實際觀察到的失敗輸出。如果找不到任何 mutation 能讓某個測試失敗，那個測試就要被刪掉——因為它證明不了任何事。
 
-實測成效：這個做法在這個 repo 上已經抓出 11 個「會通過但證明不了任何事」的測試。證據文件在 `doc/audit/*_mutation-evidence-*.md`（要當下的份數：`ls doc/audit/*_mutation-evidence-*.md | wc -l`）。
+實測成效：這個做法在這個 repo 上已經抓出 11 個「會通過但證明不了任何事」的測試。可重跑的 mutation 閘門在 `tests/shell/mutate_*.sh`：每支照上面的做法逐一套用多個具名 mutation，每一個都重編、要求它保護的測試變紅、再還原（說明見 `tests/shell/README.md`）。
 
 三個已知的陷阱：
 
@@ -506,7 +506,7 @@ tools/test_workflow/local_ci.sh gcc asan     # 指名 job
 | 資產 | 形式 | 直譯器／編譯器 | 誰會跑它 |
 |---|---|---|---|
 | `tests/test_*.cpp` | gtest，編成 `test_routing_strategy` | GCC（`gcc` job）、clang（只 build）、ASan、TSan | ctest **與**直接執行，兩者都要 |
-| `p4_proxy/tests/test_*.py` | unittest（**不是** pytest） | `p4_proxy/venv/bin/python`，可用第三方套件 | `l1_unit_tests.sh` |
+| `p4_proxy/tests/test_*.py`、`tools/p4_exercise/tests/test_*.py` | unittest（**不是** pytest） | `p4_proxy/venv/bin/python`，可用第三方套件 | `l1_unit_tests.sh`（後者缺本機 P4 教材工具時，那幾個 case 跳過並標 PROVED LESS，見該檔 log） |
 | `tests/python/test_*.py` | unittest | **系統 `python3`，只准標準庫** | `l1_unit_tests.sh`。⚠️ **沒有**被 ctest 註冊 |
 | `tests/shell/test_*.sh` | 純 stub，透過 seam 驅動流程腳本，不碰環境、秒級 | bash | `l1_unit_tests.sh`。⚠️ **沒有**被 ctest 註冊；摘要必須是 `Ran N checks, ...` |
 | `tests/fuzz/fuzz_sflow.cpp` | libFuzzer harness | **clang only**，`-DFUZZING=ON`，預設 OFF | 手動；不在任何驅動裡 |
@@ -514,7 +514,7 @@ tools/test_workflow/local_ci.sh gcc asan     # 指名 job
 | `tests/manual/` | **claim-checker**，不是測試：驗證別處註解所依賴的平台事實 | 手動編譯，刻意不進 CMake build | 手動。存在理由是「那個註解裡唯一承重的宣稱，讀者本來無法重現」 |
 | `tools/test_workflow/faults.txt` | L5 故障目錄（資料） | — | `faults.sh` |
 | `tools/test_workflow/p4_coverage_baseline.txt` | P4 覆蓋基準（資料） | — | `p4_coverage_gate.sh` |
-| `doc/audit/*_mutation-evidence-*.md` | mutation 驗收證據 | — | 人 |
+| `tests/shell/mutate_*.sh` | mutation 閘門：套用具名 mutation、要求它保護的測試變紅、再還原 | bash | 人 |
 
 **「沒有被 ctest 註冊」為什麼要標出來：** `tests/CMakeLists.txt` 只註冊 gtest；`tests/python/` 與 `tests/shell/` 只由 `l1_unit_tests.sh` 驅動。所以「跑了 ctest 全綠」**不包含**這兩個目錄——它們是靠 `run_layers.sh quick` 或 `local_ci.sh python` 才會跑到。
 

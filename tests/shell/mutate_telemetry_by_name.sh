@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for TICKET-P3 2.1 and 2.6, the proxy half: the packet_in metadata ids resolved BY
+# Mutation gate for the telemetry-by-name work, the proxy half: the packet_in metadata ids resolved BY
 # NAME (G1), the telemetry source (none / cooperative / link / auto), the PRE entries a package
 # declares (G8, G9a), the counter route (G7), and the disclosure on GET /p4/switch_state.
 #
@@ -34,11 +34,11 @@
 # its reason: nothing under p4_proxy/ is written, because another session may be executing those
 # files right now. Every source and every test file is re-hashed at the end.
 #
-# The convert.py / preflight.py half of TICKET-P3 (the exercise's own cpu_port, the telemetry
+# The convert.py / preflight.py half of this work (the exercise's own cpu_port, the telemetry
 # word, the PRE replica checks) is NOT here: it is appended to
 # tests/shell/mutate_p4_exercise_tools.sh, which already owns those two files and runs their
 # suite from the root that suite needs. Splitting on the file that is mutated rather than on the
-# ticket keeps each gate's baseline check meaningful.
+# feature keeps each gate's baseline check meaningful.
 #
 # Usage:  tests/shell/mutate_telemetry_by_name.sh
 #         PROXY_PY=/path/to/python tests/shell/mutate_telemetry_by_name.sh
@@ -59,7 +59,7 @@ TEST_STARTUP="$REPO/p4_proxy/tests/test_startup.py"
 TEST_STATE="$REPO/p4_proxy/tests/test_switch_state.py"
 TEST_EMITTER="$REPO/p4_proxy/tests/test_sflow_emitter.py"
 TEST_CLONE="$REPO/p4_proxy/tests/test_clone_session.py"
-# Round 2: section 9 ruling 4 put a telemetry decision on the readopt path too (a power-cycled
+# A later change put a telemetry decision on the readopt path too (a power-cycled
 # switch whose own program carries the header must come back with its clone session), so that
 # suite is part of this gate's baseline now.
 TEST_READOPT="$REPO/p4_proxy/tests/test_readopt.py"
@@ -92,7 +92,7 @@ trap 'rm -rf "$BK"' EXIT
 # Every mutant lives at $BK/<label>, so that directory IS the mutant's `p4_proxy` root and the
 # repo root its tests derive is $BK. Four things are linked in as INPUTS, never subjects:
 #   setting/   the topology models the emitter reads agent IPs out of (several MB, read-only)
-#   tools/     ticket A's compiled exercise fixtures -- the only foreign p4info this repo has
+#   tools/     the compiled exercise fixtures -- the only foreign p4info this repo has
 #   tests/     the REAL sFlow capture fixtures (tests/fixtures/emitted_*.bin). test_sflow_emitter
 #              resolves them from its own __file__ up three levels, so without this every
 #              byte-comparison case ERRORs and the baseline is red for a reason that has nothing
@@ -253,7 +253,7 @@ m=$(mutant c5 "$MAIN" \
 report "M-C5: cooperative on a pipeline that cannot carry it is accepted, and reports zero" "$m" \
        "test_cooperative_on_a_foreign_pipeline_refuses_to_start"
 
-# 🔴 RETARGETED IN ROUND 2. The three layers moved to app_package (section 9 ruling 5), so the
+# 🔴 RETARGETED IN ROUND 2. The three layers moved to app_package, so the
 # proxy-side defect is no longer "the knob is read and ignored" -- it is "the caller's knob path
 # never reaches the rule". `ndt` writes one file and three processes read it; a proxy that
 # silently consulted a different one would resolve `auto` on a fabric brought up with
@@ -373,20 +373,20 @@ m=$(mutant c10 "$MAIN" \
 report "M-C10: a dead link emitter is reported alive, and link telemetry samples into nothing" "$m" \
        "test_a_pid_that_is_not_the_emitter_reads_dead"
 
-# Adam 2026-09-27, ruling K. The manifest records the emitter's argv and start time, and the root
+# 2026-09-27. The manifest records the emitter's argv and start time, and the root
 # teardown refuses to signal a pid that does not match them. A disclosure that asked with the pid
 # alone would call "alive" a process the teardown will never stop. The cell's subject is a child in
-# the launcher's four-word shape (judge KJL B2: nothing else may ever read alive), so the pid and
+# the launcher's four-word shape (nothing else may ever read alive), so the pid and
 # the shape alone say alive to BOTH of its documents; only a reader passing the recorded start
 # time reads the one with a start the child never had as dead.
 # [Co-developed with claude code -- Adam]
 m=$(mutant c24 "$MAIN" \
     '            "alive": link_telemetry.emitter_is_running(document),' \
     '            "alive": link_telemetry.process_is_the_emitter(document.get("pid") or 0),  # MUTANT')
-report "M-C24 (ruling K): alive is judged by the pid alone, not by the identity the bring-up recorded" "$m" \
+report "M-C24: alive is judged by the pid alone, not by the identity the bring-up recorded" "$m" \
        "test_alive_is_judged_by_the_identity_the_bring_up_recorded"
 
-# Round 2, section 9 ruling 5: the manifest is B's document and `switches` is a LIST of objects.
+# The manifest comes from the bring-up and `switches` is a LIST of objects.
 # Round 1 iterated it as a map and produced a list of stringified dicts -- silently wrong, not
 # None, and the hand-written fixture agreed with the mistake.
 m=$(mutant c21 "$MAIN" \
@@ -394,21 +394,21 @@ m=$(mutant c21 "$MAIN" \
         for entry in switches:
             if isinstance(entry, dict) and entry.get("dpid") is not None:
                 dpids.append(entry["dpid"])' \
-    '    dpids = [str(entry) for entry in (switches or [])]  # MUTANT: round 1, verbatim')
+    '    dpids = [str(entry) for entry in (switches or [])]  # MUTANT: the first version, verbatim')
 report "M-C21: the emitter's switches come back as text nobody can match to a dpid" "$m" \
        "test_the_switches_come_back_as_dpids_and_not_as_stringified_objects"
 
-# Section 9 ruling 4: the per-switch skip list is what was ACTUALLY skipped.
+# The per-switch skip list is what was ACTUALLY skipped.
 m=$(mutant c22 "$MAIN" \
     '    return [] if cooperative else sorted(FOREIGN_PIPELINE_SWITCH_SKIPS)' \
-    '    return sorted(FOREIGN_PIPELINE_SWITCH_SKIPS)  # MUTANT: P2 ruling 7, un-amended')
+    '    return sorted(FOREIGN_PIPELINE_SWITCH_SKIPS)  # MUTANT: the original skip list')
 report "M-C22: a switch that got a clone session is reported as having skipped it" "$m" \
        "test_that_switch_says_it_skipped_nothing"
 
 m=$(mutant c23 "$MAIN" \
     '    cooperative = (telemetry_source == TELEMETRY_COOPERATIVE
                    and (ndtwin or pipeline_carries_telemetry(package, dpid)))' \
-    '    cooperative = ndtwin and telemetry_source == TELEMETRY_COOPERATIVE  # MUTANT: round 1')
+    '    cooperative = ndtwin and telemetry_source == TELEMETRY_COOPERATIVE  # MUTANT: the first version')
 report "M-C23: readopt withholds the clone session from a program that can carry it" "$m" \
        "test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session"
 

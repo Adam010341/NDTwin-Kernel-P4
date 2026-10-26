@@ -6,9 +6,8 @@ Tests for the two-phase timing on `install_all_pair_paths` in intelligent_router
 The walk is the largest unattributed term in the 128-host failover budget, and the two figures
 on record disagree by 4.6x -- ~13 s derived (a 73 s control-plane start minus the 60 s
 hub.sleep, so an upper bound covering the parse and graph build too) against ~60 s asserted in
-four places, all tracing to doc/2026-07-29_HANDOFF.md 1g, which predates 128 hosts being
-runnable. The instrumentation exists so the next run settles it without a dedicated lab
-session.
+four places, all tracing to one figure first written down on 2026-08-03. The instrumentation
+exists so the next run settles it without a dedicated lab session.
 
 ## What is actually worth asserting
 

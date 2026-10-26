@@ -53,7 +53,7 @@ info() { echo "${D}$*${N}"; }
 # tests override this to simulate a live or absent Mininet.
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 2026-09-11 (FIX-NDT-4 #16, G-inst-2). This was `ps -eo args | awk '$NF ~ /^mininet:/{c++}'`,
+# 🔴 2026-09-11. This was `ps -eo args | awk '$NF ~ /^mininet:/{c++}'`,
 # and the problem is where the pattern LIVES, not the arithmetic: it travels as that awk's own
 # argv -- and as the argv of the shell that invoked it -- so it is in the process table for the
 # duration of the count. Measured 2026-09-11 on this machine: a substring reader of `ps -eo args=`
@@ -259,7 +259,7 @@ print(",".join(sorted(str(s) for s in skipped)))' 2>/dev/null)" && { printf '%s'
 await_convergence() {
     local mode="$1" topo="$2" timeout="$3"
     # [Co-developed with claude code -- Adam]
-    # 🔴 DO NOT WAIT FOR SOMETHING NOBODY IS DOING (TICKET-P2-D §3.4). The loop below waits for
+    # 🔴 DO NOT WAIT FOR SOMETHING NOBODY IS DOING. The loop below waits for
     # the proxy to report `hosts * (hosts - 1)` destination paths, which it installs after LLDP
     # discovery -- and under an app package carrying its own P4 program, or an external control
     # plane, the proxy sends no LLDP at all and says so in `control_plane.skipped`. Measured live
@@ -370,7 +370,7 @@ SUPERVISE="$HERE/supervise.sh"
 # Reporting only. It deliberately does NOT change any exit code, because 143 (SIGTERM's default
 # action) is what the kernel returns on the *normal* `ndt down` path today -- treating non-zero
 # as failure would turn every teardown red tomorrow morning. Whether a crash on shutdown should
-# fail the command is a decision for Adam, not a side effect of making it visible.
+# fail the command is a separate design decision, not a side effect of making it visible.
 # fatal_exit_status <wait-status> -- true when it means the process died of a FAULT.
 #
 # [Co-developed with claude code -- Adam]
@@ -475,17 +475,18 @@ START_BG_IDENTITY="${START_BG_IDENTITY:-}"
 # rotate_log <path> -- move it aside under its own start time, and keep the newest N.
 #
 # [Co-developed with claude code -- Adam]
-# 09-05 night round, O-4. Two generations (.prev, .prev2) is a depth, and a depth is only ever
-# right for a fixed number of restarts. The evening this was written, R0's first arm produced
-# the kernel.log that five fix tickets (W1/W4/W5/W6/W7) were judged on; nothing copied it, and
-# within twenty minutes it was the .prev -- one more `ndt up` from being gone. It was rescued by
-# hand at 15:53. Later the same evening the R4 arm wrote 151557 lines / 2.78 MB in eleven
-# minutes, so a single rotation would have buried the whole load test.
+# Two generations (.prev, .prev2) is a depth, and a depth is only ever right for a fixed number
+# of restarts. On 2026-09-05 the first arm of a run produced a kernel.log that several later
+# fixes were judged on; nothing copied it, and within twenty minutes it was the .prev -- one
+# more `ndt up` from being gone. It was rescued by hand at 15:53. Later the same evening another
+# arm wrote 151557 lines / 2.78 MB in eleven minutes, so a single rotation would have buried the
+# whole load test.
 #
 # The second half of that finding is why it kept happening: with no up.target, `ndt status`
-# advised "bring the lab up from this checkout first: ndt up <target>" (I-1), and following that
+# advised "bring the lab up from this checkout first: ndt up <target>", and following that
 # advice is what rotated the log. The instrument recommended the action that destroyed the
-# evidence. I-1 is fixed separately; this makes the destruction bounded rather than immediate.
+# evidence. That advice is fixed separately; this makes the destruction bounded rather than
+# immediate.
 #
 # 🔴 STAMPED, not numbered. `.prev`/`.prev2` renames every generation on every restart, so a
 # path written down in a report ("the failure is in kernel.log.prev") means something different
@@ -500,8 +501,8 @@ START_BG_IDENTITY="${START_BG_IDENTITY:-}"
 # 🔴 NOTHING ELSE DELETES THESE. `ndt clean` is the teardown ASSERTION (bmv2 count, host/switch
 # count, topo session, manifest, ports) and touches no file under .test_run/logs/; `ndt down
 # --deep` adds only a port sweep. That was already true before this change and is left true on
-# purpose: a teardown command that silently reaped the previous run's evidence would be O-4 with
-# a different trigger. Pruning happens HERE, at rotation, where a new generation is being
+# purpose: a teardown command that silently reaped the previous run's evidence would be the same
+# loss with a different trigger. Pruning happens HERE, at rotation, where a new generation is being
 # created to replace it -- and only ever on the stamped generations this function writes. Any
 # pre-existing .prev/.prev2 is left alone rather than swept up, because deleting a file this
 # scheme did not create is not this function's decision to make.
@@ -561,9 +562,9 @@ start_bg() {
     #
     # Depth was 2 (.prev/.prev2), chosen for "restart, it recurred, restart again" -- the
     # sequence KNOWN-ISSUES A-5 names and A-2's workaround produces. That is the right shape
-    # for a debugging loop and the wrong one for a night of experiments: on 2026-09-05 seven
-    # `ndt up`s ran in this checkout inside three hours, and the log five fix tickets were
-    # judged on survived only because someone copied it by hand (O-4). See rotate_log.
+    # for a debugging loop and the wrong one for a long run of experiments: on 2026-09-05 seven
+    # `ndt up`s ran in this checkout inside three hours, and the log several fixes were
+    # judged on survived only because someone copied it by hand. See rotate_log.
     if [[ -s "$log" ]]; then
         rotate_log "$log"
     fi
@@ -609,7 +610,7 @@ is_running() {
 # report_exit, exactly as stop_one does.
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 FIX-NDT-3 SUMMARY section 7-2, Adam's ruling 09-11 (FIX-NDT-4 #19). stop_one opens with
+# 🔴 2026-09-11. stop_one opens with
 # `[[ -f "$pidfile" ]] || return 0`, and report_exit sits behind that gate -- so the `.exit` of a
 # component whose pidfile has gone is never read by anybody. cmd_down had a sweep of its own for
 # the FATAL half, which reimplemented report_exit's fatal branch inline (two writers, one
@@ -617,9 +618,10 @@ is_running() {
 # that ended with a plain non-zero status -- `exit 7`, the shape of a bind failure -- was
 # reported by neither.
 #
-# 🔴 AND IT CLEARS THE REGISTRY, which is R7 I-3's other half: `ryu.pid` and `ryu.child.pid`
-# naming a pid that is gone, next to `ryu.exit` saying how it ended (measured 02:52:03 and again
-# at 02:52:27, 57 s and 81 s after the event). `.test_run/pids/` is what a teardown signals and
+# 🔴 AND IT CLEARS THE REGISTRY, which is the other half of the same defect: `ryu.pid` and
+# `ryu.child.pid` naming a pid that is gone, next to `ryu.exit` saying how it ended (measured
+# 02:52:03 and again at 02:52:27, 57 s and 81 s after the event). `.test_run/pids/` is what a
+# teardown signals and
 # what port_owner_verdict calls "ours", so a dead number in it is the pid-reuse fuse under both;
 # `ndt status`'s own row tells the operator to "delete it or run 'ndt down'", and until now
 # `ndt down` did not.
@@ -907,8 +909,8 @@ wait_for_port() {
             # check at the top of this loop, a few instructions earlier. It could therefore only fire
             # if the process died in between, and the stray-listener case it was written for sailed
             # straight through: a leftover kernel holding :8000 was reported as "up" while the kernel
-            # this script started was already dead of `bind: Address already in use`. Found by
-            # review; the guard had never worked.
+            # this script started was already dead of `bind: Address already in use`. The
+            # guard had never worked.
             #
             # Asking who owns the socket is the only way to answer the question the comment claims to
             # answer.
@@ -1191,7 +1193,7 @@ cmd_up() {
         # sFlow agent addresses out of a model of a different network while the kernel was
         # handed the package's. The kernel attributes a sample by AgentKey{agentIP, port}, so
         # the telemetry would arrive and be attributed to nothing: no error, an empty twin.
-        # (P1-A §5-9, handed to this ticket.) On the baseline it changes nothing observable --
+        # On the baseline it changes nothing observable --
         # $topo IS DEFAULT_TOPO_FILE at 4 hosts, and the 4- and 128-host models declare the
         # same ten agent addresses (192.168.123.11-20), checked.
         # [Co-developed with claude code -- Adam]
@@ -1202,7 +1204,7 @@ cmd_up() {
         # The field changes every proxy's recorded command once, so the first `up p4` after it
         # was added restarts a proxy that was already running; later runs reuse it as before.
         # 🔴 AND THE TELEMETRY SOURCE, for exactly the reason the app package is here
-        # (TICKET-P3 §2.1). p4_proxy/mininet/telemetry_override is a third file the proxy reads
+        # p4_proxy/mininet/telemetry_override is a third file the proxy reads
         # at import and that is not on its command line: `ndt up p4 --telemetry cooperative`
         # followed by `--telemetry link` produces two proxies with identical argv, one writing
         # clone sessions and registering switches for sFlow and one deliberately doing neither.
@@ -1376,16 +1378,16 @@ cmd_down() {
     # there is no pidfile, so a component that crashed and whose pidfile someone removed would
     # otherwise be missed by the very check that exists for it.
     #
-    # 🔴 2026-09-11 (FIX-NDT-4 #19). This scan used to be written out here, inline, and it read
+    # 🔴 2026-09-11. This scan used to be written out here, inline, and it read
     # only the fatal half -- a second copy of report_exit's fatal branch, already drifted from it
     # (no `reason`, a different evidence line), with nothing at all for a component that ended
     # `exit 7`. It is now sweep_orphan_exits, one writer for both halves, and it also clears the
-    # registry files that name a pid which is gone (R7 I-3). See the block comment on it.
+    # registry files that name a pid which is gone. See the block comment on it.
     sweep_orphan_exits
 
     if (( leftovers > 0 )); then
         # [Co-developed with claude code -- Adam]
-        # 🔴 2026-09-11 (FIX-NDT-4 #16, G-9's other half). The third line here used to be
+        # 🔴 2026-09-11. The third line here used to be
         # `pgrep -ax ndtwin_kernel`, and advice printed at an operator spreads further than a
         # lookup in code: it gets pasted into shells, runbooks and other scripts by people who
         # never read this file, and `-a` prints a command line that the next reader greps. What

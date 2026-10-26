@@ -784,6 +784,11 @@ DEFAULT_TABLE_JOURNAL_RELPATH = os.path.join(".run", "table_entry_journal")
 #: of this process carries, and every journal header names. None until `confirm_fabric` has run.
 _generation = {"cookie": None}
 
+#: dpid -> what that switch answered COOKIE_ONLY with before this boot's push, as
+#: `rule_journal.cookie_before_push` reads it: {"cookie": int or None, "unknown": None or why}.
+#: Written by `confirm_fabric`. [Co-developed with claude code -- Adam]
+_cookies_before_push = {}
+
 
 def mint_fabric_cookie():
     """A new fabric generation: 64 random bits, never 0."""
@@ -865,9 +870,14 @@ def confirm_fabric(clients, journals, package, mint=None):
     """
     mint = mint_fabric_cookie if mint is None else mint
     verdicts = {}
+    seen_before = {}
     for dpid, client in clients.items():
         header, _records, _unreadable = journals.journal_for(dpid).read()
-        verdicts[dpid] = rule_journal.cookie_verdict(header, _cookie_seen(client))
+        seen = _cookie_seen(client)
+        verdicts[dpid] = rule_journal.cookie_verdict(header, seen)
+        # What the Ryu-path loss record needs, kept before the table-entry journal's own rules
+        # rewrite the verdict. [Co-developed with claude code -- Adam]
+        seen_before[dpid] = rule_journal.cookie_before_push(seen)
     if not journals.enabled:
         # DESIGN 5.4 step 0: a boot that records nothing cannot vouch for
         # what it leaves behind -- a delete made now would be undone by the next start that
@@ -877,6 +887,11 @@ def confirm_fabric(clients, journals, package, mint=None):
                     for dpid, v in verdicts.items()}
     generation, verdicts = rule_journal.fabric_generation(verdicts, mint)
     _generation["cookie"] = generation
+    # What each switch held before this boot pushes anything: the generation its tables are
+    # under, and so which Ryu-path journal records the push is about to wipe (startup's
+    # close_ryu_generation). Replaced whole on every call. [Co-developed with claude code -- Adam]
+    _cookies_before_push.clear()
+    _cookies_before_push.update(seen_before)
     for dpid, client in clients.items():
         client.pipeline_cookie = generation
         verdict = verdicts[dpid]
@@ -2212,6 +2227,14 @@ async def startup(clients_factory, sflow, kernel, topo,
     for i, client in clients.items():
         if read_only or not client.json_path:
             continue
+        # KNOWN-ISSUES A-4c: the push empties this switch, and the rules a previous proxy wrote
+        # through /stats/flowentry/* under the cookie it held go with it. They are reported
+        # (GET /p4/switch_state `ryu_rules_lost`, which the kernel logs), never replayed: the
+        # journal holds requests, not the reasons for them. A fresh bmv2 held no cookie, so a
+        # whole-stack restart reports nothing; a push that raised may still have emptied the
+        # tables, so it reports an unknown count. [Co-developed with claude code -- Adam]
+        close = getattr(topo, "close_ryu_generation", None)
+        before = _cookies_before_push.get(i) or {"cookie": None, "unknown": None}
         try:
             client.set_forwarding_pipeline_config()
             print(f"[Proxy Agent] Connected to Switch {i}")
@@ -2219,6 +2242,11 @@ async def startup(clients_factory, sflow, kernel, topo,
             broken.add(i)
             print(f"[Proxy Agent] Switch {i}: pipeline push failed, continuing without it: "
                   f"{type(e).__name__}: {e}")
+            if close is not None:
+                close(i, before["cookie"], "proxy_restart", client, push_failed=True)
+            continue
+        if close is not None:
+            close(i, before["cookie"], "proxy_restart", client, cookie_unknown=before["unknown"])
 
     if broken:
         # Loud and explicit about the consequence, because a partially-started proxy looks healthy.

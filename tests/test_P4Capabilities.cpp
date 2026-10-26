@@ -65,6 +65,7 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <spdlog/sinks/ringbuffer_sink.h>
 
 #include "common_types/GraphTypes.hpp"
 #include "event_system/EventBus.hpp"
@@ -72,6 +73,7 @@
 #include "ndt_core/http/HttpSession.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "ndt_core/power_management/P4Capabilities.hpp"
+#include "ndt_core/power_management/P4RulesLost.hpp"
 #include "utils/Logger.hpp"
 #include "utils/Utils.hpp"
 
@@ -631,4 +633,267 @@ TEST_F(P4CapabilitiesWire, AnOvsFabricServesNoCapabilities)
     {
         EXPECT_FALSE(node.contains("capabilities")) << node.dump();
     }
+}
+
+// === 4. `ryu_rules_lost` -- what a pipeline push wiped of the Ryu-path rules =====================
+//
+// [Co-developed with claude code -- Adam]
+// KNOWN-ISSUES A-4c: the proxy does not replay the rules written through
+// /stats/flowentry/* after a restart or readopt; it reports them per switch on GET /p4/switch_state,
+// and the kernel must (a) log an ERROR once per record, (b) serve the record on the switch's
+// /ndt/get_graph_data node. Same three layers as above: the pure functions, the 1 Hz poll, the
+// endpoint. The fixture is the record the proxy serves (p4_proxy/proxy_agent/rule_journal.py
+// loss_record).
+
+namespace
+{
+
+json
+lossRecord(const std::string& id, json count, std::int64_t unreadable = 0)
+{
+    return json{{"id", id},
+                {"cause", "proxy_restart"},
+                {"at", 1761200000.5},
+                {"count", count},
+                {"rules",
+                 json::array({{{"op", "install"},
+                               {"match", {{"nw_dst", "10.0.0.4"}, {"tp_dst", 80}}},
+                               {"actions", json::array({{{"type", "OUTPUT"}, {"port", 3}}})},
+                               {"priority", 100}}})},
+                {"rules_omitted", 0},
+                {"journal_unreadable", unreadable},
+                {"replayed", false}};
+}
+
+json
+entryLosing(const json& record)
+{
+    json e = entryWith(kNdtwinPipeline);
+    e["ryu_rules_lost"] = record;
+    return e;
+}
+
+/// Every record the global logger emits while alive, at trace level (the helper
+/// tests/test_CpuReportNoIpSwitch.cpp carries, duplicated for the reason it gives).
+class LossLogCapture
+{
+  public:
+    LossLogCapture()
+        : m_logger(Logger::instance()),
+          m_savedLevel(m_logger->level()),
+          m_sink(std::make_shared<spdlog::sinks::ringbuffer_sink_mt>(256))
+    {
+        m_logger->sinks().push_back(m_sink);
+        m_logger->set_level(spdlog::level::trace);
+    }
+    ~LossLogCapture()
+    {
+        m_logger->set_level(m_savedLevel);
+        auto& sinks = m_logger->sinks();
+        for (auto it = sinks.begin(); it != sinks.end(); ++it)
+        {
+            if (*it == m_sink)
+            {
+                sinks.erase(it);
+                break;
+            }
+        }
+    }
+    LossLogCapture(const LossLogCapture&) = delete;
+    LossLogCapture& operator=(const LossLogCapture&) = delete;
+
+    /// How many ERROR records contain @p token.
+    int errorsContaining(const std::string& token) const
+    {
+        int n = 0;
+        for (const auto& msg : m_sink->last_raw())
+        {
+            if (msg.level == spdlog::level::err &&
+                std::string(msg.payload.data(), msg.payload.size()).find(token) != std::string::npos)
+            {
+                ++n;
+            }
+        }
+        return n;
+    }
+
+  private:
+    std::shared_ptr<spdlog::logger> m_logger;
+    spdlog::level::level_enum m_savedLevel;
+    std::shared_ptr<spdlog::sinks::ringbuffer_sink_mt> m_sink;
+};
+
+class P4RulesLostPoll : public LoadedFabric
+{
+};
+
+class P4RulesLostWire : public LoadedFabric
+{
+};
+
+} // namespace
+
+TEST(P4RulesLost, ARecordIsCopiedVerbatimAndNullIsNoEntry)
+{
+    json absent = entryWith(kNdtwinPipeline);
+    json nulled = entryLosing(nullptr);
+    const json payload = switchState(
+        {{"1", absent}, {"2", nulled}, {"3", entryLosing(lossRecord("g3", 2))}});
+
+    const p4loss::RecordsByDpid records = p4loss::fromSwitchState(payload);
+
+    const p4loss::RecordsByDpid expected = {{3, lossRecord("g3", 2)}};
+    EXPECT_EQ(records, expected);
+    EXPECT_TRUE(p4loss::fromSwitchState(std::nullopt).empty());
+}
+
+TEST(P4RulesLost, EachRecordIsAnnouncedOnceAndANewOneAgain)
+{
+    p4loss::Announcer announcer;
+    const p4loss::RecordsByDpid first = {{3, lossRecord("g3", 2)}};
+
+    const auto a = announcer.observe(first);
+    ASSERT_EQ(a.size(), 1u);
+    EXPECT_EQ(a[0].dpid, 3u);
+    EXPECT_EQ(a[0].count, std::optional<std::int64_t>(2));
+    EXPECT_EQ(a[0].cause, "proxy_restart");
+    EXPECT_TRUE(announcer.observe(first).empty()) << "the same record was announced twice";
+
+    const auto b = announcer.observe({{3, lossRecord("g3-readopt", 1)}});
+    EXPECT_EQ(b.size(), 1u) << "a second push of the same switch went unannounced";
+}
+
+TEST(P4RulesLost, APushThatTookNothingIsNotAnnounced)
+{
+    p4loss::Announcer announcer;
+    EXPECT_TRUE(announcer.observe({{1, lossRecord("g1", 0)}}).empty());
+}
+
+TEST(P4RulesLost, UnreadableJournalLinesAreAnnouncedEvenWithACountOfZero)
+{
+    p4loss::Announcer announcer;
+    const auto a = announcer.observe({{1, lossRecord("g1", 0, 2)}});
+    ASSERT_EQ(a.size(), 1u);
+    EXPECT_EQ(a[0].unreadable, 2);
+    EXPECT_NE(p4loss::describe(a[0]).find("the count may be short"), std::string::npos);
+}
+
+TEST(P4RulesLost, ACountTheKernelCannotReadIsAnnouncedAsUnknown)
+{
+    p4loss::Announcer announcer;
+    const auto a = announcer.observe({{1, lossRecord("g1", "lots")}});
+    ASSERT_EQ(a.size(), 1u);
+    EXPECT_FALSE(a[0].count.has_value());
+    EXPECT_NE(p4loss::describe(a[0]).find("unknown number"), std::string::npos);
+}
+
+TEST(P4RulesLost, JournalWriteFailuresAreAnnouncedEvenWithACountOfZero)
+{
+    p4loss::Announcer announcer;
+    json record = lossRecord("g1", 0);
+    record["journal_write_failures"] = 3;
+    const auto a = announcer.observe({{1, record}});
+    ASSERT_EQ(a.size(), 1u);
+    EXPECT_EQ(a[0].writeFailures, 3);
+    EXPECT_NE(p4loss::describe(a[0]).find("3 write(s) could not be journaled"), std::string::npos);
+}
+
+TEST(P4RulesLost, ANullCountIsAnnouncedWithTheProxysReason)
+{
+    p4loss::Announcer announcer;
+    json record = lossRecord("g1", nullptr);
+    record["count_unknown"] = "the pipeline push raised";
+    const auto a = announcer.observe({{1, record}});
+    ASSERT_EQ(a.size(), 1u);
+    EXPECT_FALSE(a[0].count.has_value());
+    const std::string line = p4loss::describe(a[0]);
+    EXPECT_NE(line.find("unknown number"), std::string::npos) << line;
+    EXPECT_NE(line.find("the pipeline push raised"), std::string::npos) << line;
+}
+
+TEST(P4RulesLost, ARecordWithoutAnIdIsNotAnnounced)
+{
+    p4loss::Announcer announcer;
+    json record = lossRecord("x", 4);
+    record.erase("id");
+    EXPECT_TRUE(announcer.observe({{1, record}}).empty());
+}
+
+TEST(P4RulesLost, TheLineNamesTheSwitchTheCountAndThatNothingWasReplayed)
+{
+    p4loss::Announcement a;
+    a.dpid = 10;
+    a.id = "g10";
+    a.cause = "readopt";
+    a.count = 7;
+    const std::string line = p4loss::describe(a);
+    EXPECT_NE(line.find("dpid 10"), std::string::npos) << line;
+    EXPECT_NE(line.find("wiped 7 rule(s)"), std::string::npos) << line;
+    EXPECT_NE(line.find("readopt"), std::string::npos) << line;
+    EXPECT_NE(line.find("NOT replayed"), std::string::npos) << line;
+    EXPECT_NE(line.find("g10"), std::string::npos) << line;
+}
+
+TEST(P4RulesLost, AttachPutsTheRecordOnItsSwitchOnly)
+{
+    const p4loss::RecordsByDpid records = {{3, lossRecord("g3", 2)}};
+    json node3 = json::object(), node2 = json::object(), host = json::object();
+    p4loss::attachToNode(node3, switchVertex(3), records);
+    p4loss::attachToNode(node2, switchVertex(2), records);
+    p4loss::attachToNode(host, hostVertex(3), records);
+    EXPECT_EQ(node3, (json{{"ryu_rules_lost", lossRecord("g3", 2)}}));
+    EXPECT_EQ(node2, json::object());
+    EXPECT_EQ(host, json::object());
+}
+
+TEST_F(P4RulesLostPoll, ThePollLogsOneErrorPerRecordAndKeepsTheRecord)
+{
+    ASSERT_NO_FATAL_FAILURE(load("BMv2"));
+    LossLogCapture log;
+    m_manager->answer = switchState({{"2", entryLosing(lossRecord("g2", 3))},
+                                     {"3", entryLosing(lossRecord("g3", 0))}});
+
+    m_manager->pollP4SwitchState();
+    m_manager->pollP4SwitchState(); // the next tick serves the same record
+
+    EXPECT_EQ(log.errorsContaining("NOT replayed"), 1);
+    EXPECT_EQ(log.errorsContaining("dpid 2"), 1);
+    EXPECT_EQ(log.errorsContaining("dpid 3"), 0) << "a push that took nothing was logged";
+    const p4loss::RecordsByDpid expected = {{2, lossRecord("g2", 3)}, {3, lossRecord("g3", 0)}};
+    EXPECT_EQ(m_manager->p4RulesLostSnapshot(), expected);
+}
+
+TEST_F(P4RulesLostPoll, AnUnreadableProxyWithdrawsTheRecord)
+{
+    ASSERT_NO_FATAL_FAILURE(load("BMv2"));
+    m_manager->answer = switchState({{"2", entryLosing(lossRecord("g2", 3))}});
+    m_manager->pollP4SwitchState();
+    ASSERT_EQ(m_manager->p4RulesLostSnapshot().size(), 1u);
+
+    m_manager->answer = std::nullopt;
+    m_manager->pollP4SwitchState();
+
+    EXPECT_TRUE(m_manager->p4RulesLostSnapshot().empty());
+}
+
+TEST_F(P4RulesLostWire, TheSwitchNodeCarriesTheRecordVerbatim)
+{
+    ASSERT_NO_FATAL_FAILURE(load("BMv2"));
+    m_manager->answer = switchState({{"2", entryLosing(lossRecord("g2", 3))}, {"3", entryWithout()}});
+    m_manager->pollP4SwitchState();
+
+    const json body = HttpSessionP4CapabilitiesTestPeer{m_monitor, m_manager}.getGraphData();
+
+    int carried = 0;
+    for (const json& node : body.at("nodes"))
+    {
+        if (!node.contains("ryu_rules_lost"))
+        {
+            continue;
+        }
+        ++carried;
+        EXPECT_EQ(node.at("dpid").get<std::uint64_t>(), 2u) << node.dump();
+        EXPECT_EQ(node.at("ryu_rules_lost"), lossRecord("g2", 3));
+    }
+    EXPECT_EQ(carried, 1);
 }

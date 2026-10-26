@@ -12,7 +12,7 @@
 #
 # The load-bearing case is netem_attach_point. `tc qdisc add dev X root netem` silently
 # REPLACES TCLink's htb -- shaping gone, `del root` restores the kernel default rather than
-# htb, and the NOPASSWD grants cannot put it back. So "on an htb interface, never attach at
+# htb, and netem-scoped tc sudoers rules cannot put it back. So "on an htb interface, never attach at
 # root" is the one property that, if it regresses, damages the testbed rather than the test.
 
 set -uo pipefail
@@ -195,12 +195,12 @@ reset_round
 TC_RC=1
 out="$(run_round L-2 2>&1)"; rc=$?
 check "the round fails rather than pretending" 1 "$rc"
-# Measured from `sudo -n -l` on 2026-08-13: the NOPASSWD grant for tc is only
+# A sudoers rule set with only
 #   tc qdisc add dev s*-eth* root netem *  /  del dev s*-eth* root  /  show dev s*-eth*
-# so the SAFE `parent H:D` form this script computes is NOT permitted, while the form that
-# destroys TCLink's htb is. Failing is correct; failing without saying why wastes a round.
+# does NOT permit the SAFE `parent H:D` form this script computes, while it permits the form that
+# destroys TCLink's htb. Failing is correct; failing without saying why wastes a round.
 check "and names the mnexec escape" yes "$(grep -q "mnexec" <<<"$out" && echo yes || echo no)"
-check "and says the grant only covers the destructive form" yes \
+check "and says the tc rules may cover only the destructive form" yes \
       "$(grep -q "only the 'root netem' form" <<<"$out" && echo yes || echo no)"
 
 echo "the qdisc diff is the veto"

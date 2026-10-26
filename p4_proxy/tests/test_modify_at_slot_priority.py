@@ -539,7 +539,9 @@ class TheSlotCheckComesAfterTheSwitchsOwnRefusalsTest(SlotTestCase):
     def test_a_malformed_match_is_still_the_400_before_any_of_them(self):
         self.a_real_switch(arbitration=False)
         data = body(priority=10)
-        data["match"]["ipv4_dst"] = "10.0.0.0/24"
+        # [Co-developed with claude code -- Adam] /33: "10.0.0.0/24" is a valid destination
+        # since 2026-10-23, and this test needs one that is still malformed.
+        data["match"]["ipv4_dst"] = "10.0.0.0/33"
         self.assertEqual(refused(api_routes.modify_flow_entry, data).status_code, 400)
 
 
@@ -588,9 +590,11 @@ class TheRemedyIsTrueOnBothPlanesTest(SlotTestCase):
 # --- round 2 (review r1) ---------------------------------------------------------------------
 # [Co-developed with claude code -- Adam]
 
-#: Another spelling of DST that check_match_values accepts and inet_aton encodes to the same
-#: four bytes, so the switch holds ONE entry for both (p4_client._lpm_match).
-DST_ALT = "10.0.0.02"
+#: Another spelling of DST that check_match_values accepts and that names the same ipv4_lpm
+#: entry, so the switch holds ONE entry for both (a /32 is the bare address).
+#: [Co-developed with claude code -- Adam] It was "10.0.0.02" while inet_aton read that as DST;
+#: the proxy now takes dotted quads only, as the kernel does.
+DST_ALT = "10.0.0.2/32"
 
 
 def race(testcase, second, first=None):
@@ -766,7 +770,7 @@ class EveryLookupSeesOneSpellingTest(SlotTestCase):
     the spelling the switch stores."""
 
     def test_an_aliased_delete_after_an_aliased_install_restores_the_route(self):
-        # Spelled the same both times: dest_paths knows "10.0.0.2", so a raw "10.0.0.02" missed
+        # Spelled the same both times: dest_paths knows "10.0.0.2", so a raw "10.0.0.2/32" missed
         # it and the delete REMOVED the destination's only entry (the A-4d black hole).
         _, c1, _ = self.fabric()
         post(api_routes.add_flow_entry, body(priority=100, port=4, dst=DST_ALT))
@@ -777,7 +781,7 @@ class EveryLookupSeesOneSpellingTest(SlotTestCase):
 
     def test_an_aliased_modify_on_the_attachment_switch_writes_the_hosts_mac(self):
         # Switch 2 is DST's attachment switch: the next hop is the host, and its MAC comes from
-        # net.nodes[DST]. A raw "10.0.0.02" missed it and wrote 00:00:00:00:00:00.
+        # net.nodes[DST]. A raw "10.0.0.2/32" missed it and wrote 00:00:00:00:00:00.
         _, _, c2 = self.fabric()
         out = modify(body(dpid=2, priority=10, port=5, dst=DST_ALT))
         self.assertEqual(out["status"], "success")

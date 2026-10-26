@@ -1,12 +1,12 @@
 # P4 health check -- predictions, committed before any live run (DESIGN 5.1).
 # [Co-developed with claude code -- Adam]
-# expected = the verdict label predicted for today's trunk (995bdfd0 when this file was written; see the Cut A + D line). added: r6 = from the reviewed
-# design; cut1-q3b = added in Cut 1 for Q3(b), not yet reviewed (DESIGN.md sections 13 and 14). Rows whose basis starts "r2 (Cut 1 review)", "r3 (Cut 1 review)" or "r4 (Cut 1 follow-ups)" changed in those review rounds (r4: the basis now cites code, not a relayed record).
-# Cut 2 review: R3 now predicts UNATTRIBUTED (the ctrl_trial observation, before any live run); AP1, AS1 and IT1 moved to cut 3.
+# expected = the verdict label predicted for today's trunk (995bdfd0 when this file was written; see the Cut A + D line). added: r6 = in the
+# first version of this file; cut1-q3b = added later for question Q3(b), not yet checked by a live run. A basis that starts "r2 (Cut 1 review)", "r3 (Cut 1 review)" or "r4 (Cut 1 follow-ups)" marks a row whose prediction was revised in that pass; an r4 basis names the code it rests on.
+# Second cut: R3 now predicts UNATTRIBUTED (seen in the controller trial, before any live run); AP1, AS1 and IT1 moved to the third cut.
 # Cut A + D (2026-10-11; the ternary writer and the health check's half of it): the rows below predict trunk with Cut A + D. T4, T5, T6, T7 and PF-T now predict GREEN, their basis starting "Cut A + D": PF-T is observed by S0; T4-T7 were observed offline (the proxy's own route against throwaway bmv2 stock and fast, 2026-10-11) -- no live run and no health.json yet (DESIGN 5.1 asks for one).
 # Cut C (2026-10-12; the table-entry journal replayed at startup and readopt): T8 now predicts GREEN, its basis starting "Cut C": observed offline (the proxy's own startup, route and switch_state against throwaway bmv2 stock and fast) -- no live run and no health.json yet.
 # C2 thrift cut (2026-10-16; registers read through bmv2's thrift service): R2 now predicts GREEN, its basis starting "C2 thrift cut": observed offline (the proxy's own route and observe_r2 against throwaway bmv2 stock and fast; R2 is judged against the marker's value, thrift kept in SC-reg) -- no live run and no health.json yet. R3 is unchanged (no write route; route detection now looks at the method).
-# Cited records: GAP-2b = doc/audit/2026-09-04_p4-tutorial-exercise-prep/GAP-2b-ndtwin-p4-capabilities-2026-09-27.md and DESIGN.md = doc/audit/2026-10-03_p4-health-check/DESIGN.md; both live on the trunk branch of this repository, not on main.
+# GAP-2b and DESIGN, named in the basis column, are the maintainers' design notes for this check; they are not part of this repository.
 cell	dimension	scope	bringup	cut	expected	basis	added
 PL1	pipeline_load	core	A	2	GREEN	§5.1 pipeline_load always can: each switch gets its own program (main.py:2013-2017); p4info sha in switch_state (api_routes.py:809-812)	r6
 PL2	pipeline_load	core	B	4	GREEN	external skips pipeline_push (main.py:337); the controller pushes its own	r6

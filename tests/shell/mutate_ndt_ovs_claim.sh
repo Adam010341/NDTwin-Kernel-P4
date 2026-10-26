@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for tests/shell/test_ndt_ovs_claim.sh -- `ndt up`'s one claim guard on both
-# planes, the recorded --force, and the stale-pidfile rule (TICKET-ndt-ovs-claim, Adam 09-25).
+# planes, the recorded --force, and the stale-pidfile rule (09-25).
 #
 # [Co-developed with claude code -- Adam]
 #
-# Round 3 (judge r2 on e1420df2) adds M36-M39: the new --check rc 1 (M36) and its help sentence
+# A third pass adds M36-M39: the new --check rc 1 (M36) and its help sentence
 # (M37), and the two down messages (M38, M39).
 #
-# Round 2 (09-25, judge's report on 6b7fce83) adds M21-M35 and C3: one named mutant for each
+# A second pass (09-25) adds M21-M35 and C3: one named mutant for each
 # behaviour that round changed or pinned (F1 M24, F2 M25, F3 M21, F4 M22, F5 M35, F6 M34, F8
-# M26/M27, the start-time widening M28, and the judge's edges M23 M29-M33).
+# M26/M27, the start-time widening M28, and the edge cases M23 M29-M33).
 #
-# The three mutants the ticket names are M1, M2 and M3:
+# The three principal mutants are M1, M2 and M3:
 #   M1  drop OVS's claim check           -- the 09-24 defect itself, put back
 #   M2  the override flag is not recorded -- --force still works, and leaves no trace
 #   M3  staleness judged only by file existence -- the 09-14 app_viz.pid shape, put back
@@ -141,7 +141,7 @@ check_control() {   # <label> <name> -- a behaviour-preserving edit; the suite m
 }
 
 # =============================================================================================
-# The three the ticket names
+# The three principal mutants
 # =============================================================================================
 
 # --- M1: drop OVS's claim check -- the 09-24 defect, put back ---------------------------------
@@ -363,7 +363,7 @@ check_fires "M16: the app's window is lost with its pidfile" m16 \
 
 # --- M17: the status row is defined and nothing calls it ----------------------------------------
 cat > "$A/m17.old" <<'EOF'
-    # [Co-developed with claude code -- Adam] Adam, 2026-09-25: a stale app pidfile is marked.
+    # [Co-developed with claude code -- Adam] 2026-09-25: a stale app pidfile is marked.
     app_pidfile_stale_row
 EOF
 cat > "$A/m17.new" <<'EOF'
@@ -374,7 +374,7 @@ check_fires "M17: 'ndt status' never prints the stale-app row" m17 \
 
 
 # =============================================================================================
-# Round 2 (judge's report on 6b7fce83, orchestrator 09-25): one named mutant per behaviour change
+# Second pass (09-25): one named mutant per behaviour change
 # =============================================================================================
 
 # --- M21 (F3): the window's right end written as now ------------------------------------------
@@ -535,7 +535,7 @@ check_fires "M35 (F5): help claims argv identity for the stack's files" m35 \
 
 
 # =============================================================================================
-# Round 3 (judge r2 on e1420df2, orchestrator 09-25)
+# Third pass (09-25)
 # =============================================================================================
 
 # --- M36 (#1): a recycled stack number is printed but is not a --check problem -------------------

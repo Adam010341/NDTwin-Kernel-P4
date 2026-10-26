@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# TICKET-P3 §2.7. Every other live step in this directory is a claim about one exercise's
+# Every other live step in this directory is a claim about one exercise's
 # program. This one is a claim about NDTwin: while a flow crosses the fabric, the twin's
 # `link_bandwidth_usage_bps` must be non-zero exactly on the interfaces that carried it and zero
 # on the inter-switch interfaces that did not -- whatever program the switches are running.
@@ -14,12 +14,12 @@
 #   1  link         exercises/basic's package (the exercise's OWN program on every switch),
 #                   `--telemetry link`: the samples come from `tc ... action sample` on the
 #                   switch-side veths and the root psample emitter. This is the group the whole
-#                   of TICKET-P3 §2.2 exists for -- a program with no cooperative header at all,
+#                   generic telemetry path exists for -- a program with no cooperative header at all,
 #                   and link usage measured anyway.
 #   2  cooperative  the SAME exercise converted with `--ndtwin-pipeline`, so every switch runs
 #                   NDTwin's own program and the samples come from the pipeline's clone to the
 #                   CPU port. `basic`'s own program has no packet_in header, so `cooperative`
-#                   over group 1's package would be refused at startup (§2.1) -- which is why
+#                   over group 1's package would be refused at startup -- which is why
 #                   this group changes the PACKAGE and not just the word.
 #   3  none         the same fabric as group 2 with `--telemetry none`. Nothing samples, and the
 #                   assertion inverts: every interface that carried the flow must integrate to
@@ -97,7 +97,7 @@ group() {
     # declares every name in a `local` list BEFORE assigning any of them, so a later assignment
     # that reads an earlier one expands an UNSET variable and the function dies on its first
     # line: `label: unbound variable`. Both live scripts had it, neither had ever been run, and
-    # tests/shell/test_live_p1_thirteen.sh is what found it (TICKET-P3 §9 ruling 9, round 2).
+    # tests/shell/test_live_p1_thirteen.sh is what found it.
     local n="$1" label="$2" pkg="$3" word="$4" expect="$5"
     local dir
     dir="$RUN/${n}_${label}"
@@ -120,7 +120,7 @@ group() {
 
 # group_verdict <n> <label> <pkg> <word> <expect> <who> <sentence-for-a-red-reading>
 #
-# 🔴 FOUR ANSWERS, FOUR SENTENCES (§9 ruling 31③). `link_usage_round` returns 0 (the reading was
+# 🔴 FOUR ANSWERS, FOUR SENTENCES. `link_usage_round` returns 0 (the reading was
 # made and it holds), 1 (it was made and it does not), 2 (no namespace / no sudo),
 # $LINK_USAGE_NOT_RUN_RC (the exercise controller was not alive) and $LINK_USAGE_WINDOW_RC (the
 # window this path needs is longer than the caller will wait). Only ONE of those is "the twin's

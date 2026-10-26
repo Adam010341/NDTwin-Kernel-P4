@@ -52,6 +52,7 @@
 #include "event_system/EventBus.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/http/HttpSession.hpp"
+#include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp" // C-7 fixture
 // [Co-developed with claude code -- Adam] W11: the dispatch-status endpoint's own collaborator.
 #include "ndt_core/routing_management/Controller.hpp"
 #include "ndt_core/routing_management/FlowRoutingManager.hpp"
@@ -151,6 +152,32 @@ class HttpSessionTestPeer
                                                  nullptr,          // FlowLinkUsageCollector
                                                  nullptr,          // FlowRoutingManager
                                                  nullptr,          // DeviceConfig...PowerManager
+                                                 nullptr,          // ApplicationManager
+                                                 nullptr,          // SimulationRequestManager
+                                                 nullptr,          // IntentTranslator
+                                                 nullptr,          // HistoricalDataManager
+                                                 std::move(controller),
+                                                 nullptr))         // LockManager
+    {
+    }
+
+    /**
+     * Flow-batch variant: the three collaborators processFlowBatch reads.
+     * [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-7. The refusal of a priority
+     * delete on bmv2 reads the monitor's switch kinds; the entries it lets through go to the
+     * controller's queue and to the power manager's table cache.
+     */
+    HttpSessionTestPeer(std::shared_ptr<TopologyAndFlowMonitor> monitor,
+                        std::shared_ptr<EventBus> bus,
+                        std::shared_ptr<Controller> controller,
+                        std::shared_ptr<DeviceConfigurationAndPowerManager> power)
+        : m_session(std::make_shared<HttpSession>(tcp::socket(m_ioc),
+                                                 std::move(monitor),
+                                                 std::move(bus),
+                                                 utils::TESTBED,
+                                                 nullptr,          // FlowLinkUsageCollector
+                                                 nullptr,          // FlowRoutingManager
+                                                 std::move(power),
                                                  nullptr,          // ApplicationManager
                                                  nullptr,          // SimulationRequestManager
                                                  nullptr,          // IntentTranslator
@@ -2375,4 +2402,201 @@ TEST_F(LabClaimOnWriteRepliesTest, TheClaimChangingHandsIsLoggedOncePerChangeAnd
     EXPECT_EQ(countLogLines(log.text(), "lab claim changed"), 3u)
         << "the claim lapsed without one byte of the file changing, and nothing was logged:\n"
         << log.text();
+}
+
+
+// --- doc/KNOWN-ISSUES.md C-7: a delete the P4 proxy refuses is refused before the queue ----------
+//
+// [Co-developed with claude code -- Adam]
+// A strict delete naming a priority, on a bmv2 switch, against a destination-only match: the proxy
+// answers 501 whatever the switch holds, and the kernel used to queue it and answer 200 "queued".
+// These drive processFlowBatch through the real route, with a topology loaded from a file so the
+// switch kind is the loader's answer, not a stub's.
+
+namespace
+{
+
+/// Exposes the protected file loader.
+class FileTopologyMonitor : public TopologyAndFlowMonitor
+{
+  public:
+    using TopologyAndFlowMonitor::TopologyAndFlowMonitor;
+    using TopologyAndFlowMonitor::loadStaticTopologyFromFile;
+};
+
+class P4PriorityDeleteEndpointTest : public ::testing::Test
+{
+  protected:
+    static void SetUpTestSuite()
+    {
+        LogConfig cfg;
+        cfg.level = spdlog::level::off;
+        Logger::init(cfg);
+    }
+
+    void TearDown() override
+    {
+        std::error_code ec;
+        std::filesystem::remove(m_file, ec);
+    }
+
+    /// A one-switch topology (dpid 1) of the given brand, loaded the way the kernel loads it.
+    void load(const std::string& brand)
+    {
+        static int s_counter = 0;
+        std::error_code ec;
+        std::filesystem::remove(m_file, ec); // a case may load twice; keep only the live one
+        m_file = std::filesystem::temp_directory_path() /
+                 ("ndt_c7_topo_" + std::to_string(::getpid()) + "_" + std::to_string(++s_counter) +
+                  ".json");
+        std::ofstream(m_file) << R"({"nodes": [{
+            "vertex_type": 0, "mac": 0, "ip": ["192.168.123.11"], "dpid": 1,
+            "device_name": "s1", "nickname": "", "brand_name": ")"
+                              << brand << R"(", "bridge_name": "s1", "device_layer": 1,
+            "ecmp_groups": []}], "edges": []})";
+        m_monitor = std::make_shared<FileTopologyMonitor>(std::make_shared<Graph>(),
+                                                          std::make_shared<std::shared_mutex>(),
+                                                          m_bus,
+                                                          utils::DeploymentMode::MININET);
+        m_monitor->loadStaticTopologyFromFile(m_file.string());
+        ASSERT_TRUE(m_monitor->getSwitchKind(1).has_value()) << "fixture did not load";
+        m_power = std::make_shared<DeviceConfigurationAndPowerManager>(m_monitor,
+                                                                       utils::TESTBED,
+                                                                       "localhost",
+                                                                       nullptr);
+    }
+
+    nlohmann::json post(const char* target, const nlohmann::json& body, unsigned expectStatus)
+    {
+        HttpSessionTestPeer peer(m_monitor, m_bus, m_fx.controller, m_power);
+        const auto& res = peer.send(http::verb::post, target, body.dump());
+        EXPECT_EQ(res.result_int(), expectStatus) << "body: " << res.body();
+        return nlohmann::json::parse(res.body());
+    }
+
+    static nlohmann::json priorityDelete(int priority)
+    {
+        return {{"dpid", 1},
+                {"priority", priority},
+                {"match", {{"eth_type", 2048}, {"ipv4_dst", "10.0.0.2"}}}};
+    }
+
+    std::filesystem::path m_file;
+    std::shared_ptr<EventBus> m_bus = std::make_shared<EventBus>();
+    std::shared_ptr<FileTopologyMonitor> m_monitor;
+    std::shared_ptr<DeviceConfigurationAndPowerManager> m_power;
+    DispatchFixture m_fx;
+};
+
+} // namespace
+
+TEST_F(P4PriorityDeleteEndpointTest, APriorityDeleteOnBmv2IsA501AndNothingIsQueued)
+{
+    load("BMv2");
+
+    const auto body = post("/ndt/delete_flow_entry", priorityDelete(100), 501u);
+
+    EXPECT_EQ(body.value("outcome", std::string{}), "unsupported_on_p4") << body.dump();
+    EXPECT_EQ(body.value("status", std::string{}), "error");
+    ASSERT_TRUE(body.contains("refused_on_p4")) << body.dump();
+    ASSERT_EQ(body.at("refused_on_p4").size(), 1u);
+    EXPECT_EQ(body.at("refused_on_p4")[0].value("requested_priority", 0), 100);
+    EXPECT_FALSE(body.contains("request_id")) << "nothing was queued, so there is nothing to ask";
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(m_fx.stub->calls(), 0u) << "the refused delete reached the southbound";
+}
+
+TEST_F(P4PriorityDeleteEndpointTest, ABatchQueuesWhatItCanAndNamesTheRefusedDelete)
+{
+    load("BMv2");
+    const nlohmann::json batch{
+        {"install_flow_entries", nlohmann::json::array()},
+        {"modify_flow_entries", nlohmann::json::array()},
+        {"delete_flow_entries",
+         nlohmann::json::array({priorityDelete(100),
+                                {{"dpid", 1},
+                                 {"match", {{"eth_type", 2048}, {"ipv4_dst", "10.0.0.3"}}}}})}};
+
+    const auto body =
+        post("/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries", batch, 200u);
+
+    EXPECT_EQ(body.value("status", std::string{}), "queued") << body.dump();
+    EXPECT_EQ(body.value("accepted", 0u), 1u) << body.dump();
+    ASSERT_TRUE(body.contains("refused_on_p4")) << body.dump();
+    ASSERT_EQ(body.at("refused_on_p4").size(), 1u);
+    EXPECT_EQ(body.at("refused_on_p4")[0].value("index", 9), 0);
+
+    ASSERT_TRUE(waitForCalls(*m_fx.stub, 1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(m_fx.stub->calls(), 1u) << "only the non-strict delete may reach the southbound";
+}
+
+TEST_F(P4PriorityDeleteEndpointTest, OnOvsTheSamePriorityDeleteIsStillQueued)
+{
+    // The control: OVS honours a strict delete, so the refusal must be bmv2's alone.
+    load("OVS");
+
+    const auto body = post("/ndt/delete_flow_entry", priorityDelete(100), 200u);
+
+    EXPECT_EQ(body.value("status", std::string{}), "queued") << body.dump();
+    EXPECT_FALSE(body.contains("refused_on_p4")) << body.dump();
+    ASSERT_TRUE(waitForCalls(*m_fx.stub, 1));
+}
+
+TEST_F(P4PriorityDeleteEndpointTest, ARefusedDeleteDoesNotRemoveTheRowFromTheTableView)
+{
+    // processFlowBatch feeds the request body to the flow-table cache, which deletes by
+    // (table, priority, match). A delete the switch will never perform must not take the row out
+    // of the view either -- the rejected-request-that-still-acts shape.
+    load("BMv2");
+    const auto row = priorityDelete(100);
+    m_power->updateOpenFlowTables(
+        {{"install_flow_entries",
+          nlohmann::json::array({{{"dpid", 1},
+                                  {"priority", 100},
+                                  {"match", row.at("match")},
+                                  {"actions", nlohmann::json::array()}}})},
+         {"modify_flow_entries", nlohmann::json::array()},
+         {"delete_flow_entries", nlohmann::json::array()}});
+    const auto before = m_power->getOpenFlowTables().dump();
+    ASSERT_NE(before.find("10.0.0.2"), std::string::npos) << "fixture row missing: " << before;
+
+    // Partial, so the batch does reach the cache: the all-refused 501 returns before it.
+    const nlohmann::json batch{
+        {"install_flow_entries", nlohmann::json::array()},
+        {"modify_flow_entries", nlohmann::json::array()},
+        {"delete_flow_entries",
+         nlohmann::json::array({row,
+                                {{"dpid", 1},
+                                 {"match", {{"eth_type", 2048}, {"ipv4_dst", "10.0.0.3"}}}}})}};
+    post("/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries", batch, 200u);
+
+    EXPECT_EQ(m_power->getOpenFlowTables().dump(), before)
+        << "the refused delete changed the table view";
+}
+
+
+TEST_F(P4PriorityDeleteEndpointTest, APriorityThatIsNotAnOpenFlowPriorityIsA400AndNothingIsQueued)
+{
+    // [Co-developed with claude code -- Adam] `true` used to become priority 1 and 2^32 wrapped,
+    // and either was queued -- on bmv2 the first is a delete the proxy refuses, the second one it
+    // might not, so the C-7 refusal and the proxy disagreed. Refused as malformed, on both planes.
+    for (const char* brand : {"BMv2", "OVS"})
+    {
+        load(brand);
+        for (const nlohmann::json& bad : {nlohmann::json(true), nlohmann::json(4294967296LL)})
+        {
+            auto entry = priorityDelete(1);
+            entry["priority"] = bad;
+            const auto body = post("/ndt/delete_flow_entry", entry, 400u);
+            EXPECT_EQ(body.value("error", std::string{}), "malformed flow entry")
+                << brand << " " << bad.dump() << ": " << body.dump();
+            auto install = entry;
+            install["actions"] = nlohmann::json::array();
+            post("/ndt/install_flow_entry", install, 400u);
+        }
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(m_fx.stub->calls(), 0u) << "a malformed priority reached the southbound";
 }

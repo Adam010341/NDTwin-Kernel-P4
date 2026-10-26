@@ -6,9 +6,8 @@
 #
 # A CELL is one reproducible action sequence plus one expected verdict. It is not a role and it
 # is not a test suite: a cell enters this directory when a defect was seen RED on the live lab
-# (or run for real offline) and then fixed, and it never leaves. The monotone number the night
-# round reports is "how many cells are red"; a cell going red is a 🔴 at the top of the wakeup
-# note and a must-fix that night.
+# (or run for real offline) and then fixed, and it never leaves. The monotone number a run
+# reports is "how many cells are red"; a cell going red is a must-fix.
 #
 # Every cell script has exactly two sub-commands, and the split is the whole design:
 #
@@ -44,8 +43,8 @@
 # kernel= and ndt= are read from <rawdir>/ids.txt, which `observe` writes -- the identification
 # travels WITH the raw, so a judge run months later still names the binary that produced it and
 # an old fixture names last night's. Absent means `unknown`, never this machine's current sha:
-# benchmark 必指認 binary, and a judge that fills the gap from its own tree would be inventing
-# provenance for somebody else's evidence.
+# a benchmark must identify its binary, and a judge that fills the gap from its own tree would
+# be inventing provenance for somebody else's evidence.
 #
 # Exit: 0 PASS, 1 FAIL, 3 SKIP (the cell declined to run -- its precondition was not there).
 set -uo pipefail
@@ -124,7 +123,7 @@ cell_verdict() {
         state=FAIL
     elif (( CELL_ASSERTS == 0 )); then
         # 🔴 A judge that asserted NOTHING is not a pass. This is the zero-discriminating-power
-        # case the night rounds keep re-learning: an empty raw directory, a judge whose every
+        # case that keeps being re-learned: an empty raw directory, a judge whose every
         # `a_has` was deleted, or a cell whose observe wrote no files at all would otherwise
         # report PASS and be counted as evidence.
         printf 'ASSERT FAIL %-38s %s\n' "judge_asserted_something" \

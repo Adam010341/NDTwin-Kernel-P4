@@ -19,7 +19,7 @@ proxy_agent/main.py. Two problems, and the second is the one that cost a live ro
      instant simple_switch_grpc calls bind(), and bmv2 then dies with EADDRINUSE. Observed
      2026-08-18: 8 of 10 switches came up, and by the time anyone looked the two guilty ports
      were free again -- which is exactly why the diagnostic blamed a leftover switch that had
-     never existed. (doc/audit/2026-08-18_live-full-stack-round/subagent-round2-FINDINGS.md)
+     never existed.
 
 The Thrift ports were never affected: 9091-9100 sit below 32768. That is the control: the
 same line of code assigns both, and only the one inside the range fails.

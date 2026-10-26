@@ -77,32 +77,32 @@
 
 ### 誰能做什麼
 
-| 只有 Adam 能做 | 為什麼 |
+| 要互動式 root，或刻意留給操作者本人 | 為什麼 |
 |---|---|
 | `sudo python3 testbed_topo.py` | 需要互動式 root，`sudo -n python3` 會要密碼 |
 | `sudo mn -c` | 同上 |
 | `mininet> exit` | 在你的互動 CLI 裡 |
-| `sudo -n ifconfig <iface> down/up` | NOPASSWD 有放行，但需要 root。🔴 **放行不等於可以用**：斷鏈路走 §6 的 API，不要用這個 |
-| `mn`、`ip`、`ovs-ofctl`、kill root process | NOPASSWD 不含這些 |
+| `sudo -n ifconfig <iface> down/up` | `doc/2026-07-29_environment_gotchas.md` 那條 NOPASSWD 規則有放行（User Manual 沒有教），但需要 root。🔴 **放行不等於可以用**：斷鏈路走 §6 的 API，不要用這個 |
+| `mn`、`ip`、`ovs-ofctl`、kill root process | 那條規則不含這些 |
 
-| 我可以代跑 | 方式 |
+| 不需要 root，或只要 `doc/2026-07-29_environment_gotchas.md` 那條 NOPASSWD 規則 | 方式 |
 |---|---|
 | `stack.sh up/wait/down`、`l1_unit_tests.sh` | 不需要 root |
 | `curl` 檢查、log 分析 | — |
-| `sudo -n ovs-vsctl list-br` | NOPASSWD 放行了 `ovs-vsctl` |
-| `sudo -n mnexec -a <pid> <cmd>` | NOPASSWD 放行了 `mnexec`，可在 host namespace 內以 root 執行 |
+| `sudo -n ovs-vsctl list-br` | 要那條規則裡的 `ovs-vsctl`（User Manual 沒有教） |
+| `sudo -n mnexec -a <pid> <cmd>` | 要那條規則裡的 `mnexec`（User Manual 沒有教）；有了就能在 host namespace 內以 root 執行 |
 
 ### Terminal 安排
 
 | | 用途 | 生命週期 |
 |---|---|---|
-| **B** | Mininet CLI（`sudo`，會停在 `mininet>`）—— **Adam 的** | 全程留著 |
-| **A** | `stack.sh` / `curl` / 看 log | 我可以代跑 |
+| **B** | Mininet CLI（`sudo`，會停在 `mininet>`）—— **操作者本人的** | 全程留著 |
+| **A** | `stack.sh` / `curl` / 看 log | 不需要 root |
 
 ### 確認乾淨（terminal A）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./stack.sh down
 sudo mn -c
 pgrep -x ndtwin_kernel; pgrep -x simple_switch_g; pgrep -x iperf; pgrep -x iperf3
@@ -148,7 +148,7 @@ sudo -n ovs-vsctl list-br       # 0 個 bridge
 ## 2. 離線層：build + unit tests（約 6 分鐘，不需要 Mininet）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 
 # C++ build + unit tests（ctest + 直接執行）
 ./l1_unit_tests.sh
@@ -198,7 +198,7 @@ P4 模式有 `./l0_build_check.sh p4` 檢查 bmv2 pipeline 編譯。OVS 模式�
 ### 3a. 開 Ryu + 等 Mininet prompt（terminal A）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./stack.sh up ovs
 ```
 
@@ -206,7 +206,7 @@ cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
 
 ```
 Bringing up the ovs stack
-  topology: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+  topology: <repo>/setting/StaticNetworkTopologyMininet_10Switches.json
 
 [1/3] control plane (Ryu)
   started ryu (pid ...) -> .../.test_run/logs/ryu.log
@@ -215,7 +215,7 @@ Bringing up the ovs stack
   Mininet is interactive (it drops into a CLI) and needs root.
   Start it in a separate terminal:
 
-      sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
+      sudo python3 <repo>/testbed_topo.py
 
   Press Enter once Mininet is up (or Ctrl-C to abort)...
 ```
@@ -241,7 +241,7 @@ ryu-manager --observe-links intelligent_router.py ryu.app.rest_topology ryu.app.
 ### 3b. 開 OVS Mininet（terminal B —— Adam）
 
 ```bash
-sudo python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
+sudo python3 <repo>/testbed_topo.py
 ```
 
 ✅ 看到 `mininet>` 就成功。
@@ -338,7 +338,7 @@ converged after Xs
 09-12 照本節逐字用裸 `python3` 跑 §4a 是通的，但**那次沒事的理由跟手冊給的理由無關**——
 這些片段只 import stdlib 的 `json`／`sys`。任何一段一旦碰到 `grpc`／`networkx`／`requests`，
 裸 `python3` 就會在那裡壞。⇒ **打 `p4_proxy/venv/bin/python` 最省事**，它跑 stdlib 片段一樣通。
-<!-- 來源：ROLE-11 F13，log hunt-0911/logs/ROLE-11/06-graph-4a.log（🟠 轉述：裸 python3、RC=0）。
+<!-- 來源：ROLE-11 F13 的 graph-4a log（🟠 轉述：裸 python3、RC=0）。
      入口手冊那句在 §1（另 §5 重述）；「衝突以入口手冊為準」是該手冊 §6 自己的規定。 -->
 
 ### 4a. 圖（graph）
@@ -372,7 +372,7 @@ edges 288 up 288
 ⚠️ **這裡先前多列了第四行 `hosts with ipv4: 128`，上面那段指令不會印它**（它只 `print` 三次）。
 要那個數字得跑下面 ✅ 段落裡的 Ryu 查詢（`/v1.0/topology/hosts`），它印的是 `128 128` 兩個數字
 一行，不是 `hosts with ipv4: 128`。09-12 照本節逐字跑，輸出就是三行。
-<!-- 來源：ROLE-11 F10，log hunt-0911/logs/ROLE-11/06-graph-4a.log（🟠 轉述：三行，RC=0）。 -->
+<!-- 來源：ROLE-11 F10 的 graph-4a log（🟠 轉述：三行，RC=0）。 -->
 
 4 台那一欄逐字（09-12 實測）：
 
@@ -382,7 +382,7 @@ hosts 4 up 4
 edges 40 up 40
 ```
 
-<!-- 來源：ROLE-11 F4，log hunt-0911/logs/ROLE-11/06-graph-4a.log（🟠 轉述：照本節指令逐字跑在
+<!-- 來源：ROLE-11 F4 的 graph-4a log（🟠 轉述：照本節指令逐字跑在
      `ndt up 4`＝ovs4 之上；同一輪 `ndt status --check` 印 links 40 total, 0 down）。
      128 台那一欄是 2026-08-11 的原值，未在 09-12 重測。 -->
 
@@ -944,9 +944,7 @@ s6->s9 flow_set: [ICMP 條目]     <- 有！同一條 ICMP flow，另一條邊�
 **只用 Mbit/s 講這個界線、不講 frame size，是不可轉移的講法。**
 
 對照組：12 個安靜格（每個負載格前立刻跑一次、同指令、無流量）三窗口全 0/8，12/12；
-一個從未送出的誘餌 flow key 在 456 次查詢中 100% 讀為不存在。
-原始資料：`doc/audit/2026-09-03_night-rounds/round4-traffic-measurement/06_lead4_rate_sweep.log`
-與 `07b_sweepB_analysis.log`。[Co-developed with claude code -- Adam]
+一個從未送出的誘餌 flow key 在 456 次查詢中 100% 讀為不存在。[Co-developed with claude code -- Adam]
 
 🔴 **這個發現的初版推論是錯的，記錄下來作為教訓**：deepseek-agent 下結論「這個端點排除了 ICMP」，10/10 的吻合度讓假設看起來很有說服力，但直接讀 `flow_set` 一戳就破。**跨端點矛盾被驗證為「可重現」，不代表找到真正的機制；重現只排除了「這是暫態噪音」，沒有排除「原因猜錯了」。** 真正的機制（取樣機率）比「協定過濾」更根本，也更能預測其他情境——這個問題在 TCP/UDP 上一樣會發生，只要速率夠低。
 
@@ -1015,8 +1013,8 @@ curl -sS -w "\nHTTP=%{http_code}\n" -X POST localhost:8000/ndt/inject_link_recov
 圖上的 down 是**宣告**造成的（`down_reason: "declared"`）。09-12 實測注入後
 `edges up: 38 / 40`、`down edges: [(1,1,5,1),(5,1,1,1)]`，恢復後回到 `40 / 40`、`netem` 歸 0；
 **但 §6b 那幾行 Ryu 的 `Link deleted` 與那個毫秒數，沒有人在 API 路徑上重測過。**
-<!-- 來源：ROLE-11 F8／F3，log hunt-0911/logs/ROLE-11/08-inject-failure.log、09-graph-after-failure.log、
-     11-inject-recovery.log、12-graph-after-recovery.log、17-p4-inject-recover.log（🟠 轉述：ROLE-11
+<!-- 來源：ROLE-11 F8／F3 的 inject-failure、graph-after-failure、
+     inject-recovery、graph-after-recovery、p4-inject-recover 五份 log（🟠 轉述：ROLE-11
      在 ovs4 與 p4 4 兩個平面各跑一次，HTTP 200、tc 兩端）。ROLE-11 拒絕照本節原文執行 ifconfig，
      理由就是這條硬規矩。LLDP 那半句出自 doc/2026-01-02_ndt_api.md §2b 的 lw8b2 量測，本單未複驗。 -->
 
@@ -1079,8 +1077,8 @@ curl -sS -w "\nHTTP=%{http_code}\n" -X POST localhost:8000/ndt/inject_link_failu
 ✅ **09-12 實測（路徑外那一條，ovs4）**：`HTTP=200`，回應的 `tc[]` 兩筆都 `ok:true`
 （`s1-eth1`、`s5-eth1` 各掛一條 `netem loss 100%`），`tc qdisc show` 看得到兩條。
 🔴 **`200` 只保證圖變了，不保證封包停了——要讀回應裡的 `tc[]` 陣列**（API 規格 §2b）。
-<!-- 來源：ROLE-11 F8／F3，log hunt-0911/logs/ROLE-11/08-inject-failure.log（🟠 轉述）。
-     「路徑上」那條的 payload 是本單依 07-edges.log 的邊表推出來的介面↔邊對應（`1 2 -> 6 1`），
+<!-- 來源：ROLE-11 F8／F3 的 inject-failure log（🟠 轉述）。
+     「路徑上」那條的 payload 是本單依 edges log 的邊表推出來的介面↔邊對應（`1 2 -> 6 1`），
      **沒有人跑過它**；跑過的只有路徑外那一條。 -->
 
 ⚠️ **每次只斷一條，斷完恢復再斷下一條。** 同時斷兩條會分不出哪個現象是哪條造成的。
@@ -1216,8 +1214,8 @@ curl -sS -w "\nHTTP=%{http_code}\n" -X POST localhost:8000/ndt/inject_link_recov
 `tc qdisc show | grep -c netem` 回 **0**，圖回到 `edges up: 40 / 40`、`down edges: []`。
 **收工前一定要確認 netem 歸 0**——`ndt clean` 不看 netem（入口手冊 §2.1），
 留下的 netem 會變成下一輪某個沒人描述的網路。
-<!-- 來源：ROLE-11 F8／F3，log hunt-0911/logs/ROLE-11/11-inject-recovery.log、
-     12-graph-after-recovery.log（🟠 轉述）。 -->
+<!-- 來源：ROLE-11 F8／F3 的 inject-recovery、
+     graph-after-recovery 兩份 log（🟠 轉述）。 -->
 
 **【2026-08-11 實測，`ifconfig up` 那條路徑】edges up 在 3 秒內回到 288**（`ifconfig up` 於 11:06:04.032，11:06:07 已是 288）。第二次實測同樣是 3 秒。**這個 3 秒沒有在 API 路徑上重測過。**
 
@@ -1520,7 +1518,7 @@ Adam 要求用獨立於本次測試設計者的第三方視角，找跨端點矛
 
 ```bash
 # terminal A
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./stack.sh down
 sudo mn -c
 

@@ -81,7 +81,7 @@ class DatagramBuilder
 
     /// Appends opaque bytes, zero-padded to the 32-bit boundary sFlow requires. For frames,
     /// which are the one part of a datagram that is not word-shaped.
-    /// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+    /// [Co-developed with claude code -- Adam]
     DatagramBuilder& bytesPadded(const std::vector<uint8_t>& payload)
     {
         for (size_t i = 0; i < payload.size(); i += 4)
@@ -116,7 +116,7 @@ class DatagramBuilder
     std::vector<uint32_t> m_words;
 };
 
-// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+// [Co-developed with claude code -- Adam]
 // One flow sample in the two-record shape the parser's MININET path requires (see
 // test_GoldenFixture.cpp for why record[0] is effectively mandatory), carrying an arbitrary
 // frame. The emitter's committed fixtures cover the frames that matter in production; this is
@@ -209,8 +209,8 @@ std::vector<uint8_t> ipv6FrameWithExtensionChain()
 
 /// Ethernet + IPv6 + @p hops hop-by-hop headers + UDP.
 ///
-/// [Co-developed with claude code -- Adam] Round 2, fable-judge F4. The chain walk is bounded, and
-/// a bound has two sides: below it the chain must resolve, above it the parser must SAY it could
+/// [Co-developed with claude code -- Adam] The chain walk is bounded, and a bound has two
+/// sides: below it the chain must resolve, above it the parser must SAY it could
 /// not rather than hand back whatever next-header value it was holding when it gave up.
 std::vector<uint8_t> ipv6FrameWithHopByHopChain(int hops)
 {
@@ -794,7 +794,7 @@ TEST(TelemetrySilenceTest, TheRawAgesAreReportedAlongsideEveryVerdict)
 }
 
 // =====================================================================================
-// IPv6 extension headers -- TICKET-P3 §2.3
+// IPv6 extension headers
 //
 // [Co-developed with claude code -- Adam]
 // The chain walk is the one loop in the frame parser whose step size comes out of the packet:
@@ -892,7 +892,7 @@ TEST_F(SFlowParsingFixture, AChainCutOffInsideTheCapturedHeaderDoesNotInventPort
 
 TEST_F(SFlowParsingFixture, AChainWithinTheBoundResolvesAndOneBeyondItDoesNot)
 {
-    // [Co-developed with claude code -- Adam] Round 2, fable-judge F4. Both sides of the bound in
+    // [Co-developed with claude code -- Adam] Both sides of the bound in
     // one case, because either alone is satisfied by a parser that is simply broken: a walk that
     // resolved nothing would pass the second half, and one that never gave up would pass the
     // first. kMaxIpv6ExtensionHeaders is 8.

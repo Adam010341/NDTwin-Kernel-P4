@@ -12,7 +12,7 @@
 #   TopologyAndFlowMonitor::updateLinks applied Ryu's link list with
 #       (*m_graph)[edgeOpt.value()].isUp = true;
 #   and no else branch anywhere in the function -- the same one-way ratchet updateSwitches was
-#   before FINDINGS #46, and believed harmless for the same-sounding reason: Ryu DROPS a failed
+#   before it was fixed, and believed harmless for the same-sounding reason: Ryu DROPS a failed
 #   link from /v1.0/topology/links, so "a poll can fill in what was missed but cannot resurrect an
 #   edge the push path correctly took down". That premise holds for a link that really broke and
 #   NOT for one that was only declared broken through POST /ndt/link_failure_detected: nothing
@@ -310,7 +310,7 @@ mutate "the veto is inverted: only a declared link is raised" \
     DeclaredLinkFailureTest.ADeclaredLinkFailureSurvivesATopologyPoll \
     DeclaredLinkFailureTest.APollStillRaisesALinkNobodyDeclaredDown
 
-# M4 in the ticket's numbering: recovery never withdraws the declaration, so an injection is
+# M4: recovery never withdraws the declaration, so an injection is
 #     permanent and unrecoverable -- the mirror image of the defect, and the failure mode this fix
 #     introduces if the withdrawal is ever lost.
 #
@@ -330,7 +330,7 @@ mutate "recovery does not withdraw the declaration" \
 
 # 🔴 THE TRUNK SHAPE OF THIS BUG. The push path records an OBSERVATION instead of a declaration,
 #     which is byte-for-byte what setEdgeDown does and is exactly what HttpSession called before
-#     this fix. FINDINGS #46's sentence with "vertex" replaced by "edge": calling the observation
+#     this fix. The same sentence as for vertices, with "edge" in place of "vertex": calling the observation
 #     writer from a push path is the defect, because the graph can no longer tell the twin's own
 #     opinion from what it was told.
 mutate "the push path records an observation instead of a declaration (= trunk)" \

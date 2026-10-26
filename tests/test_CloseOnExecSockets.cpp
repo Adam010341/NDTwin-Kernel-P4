@@ -1,6 +1,6 @@
 /**
  * @file test_CloseOnExecSockets.cpp
- * @brief FINDINGS #47: the listening sockets this kernel hands to the shells it forks.
+ * @brief The listening sockets this kernel hands to the shells it forks.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -8,11 +8,11 @@
  * The kernel runs `curl` through popen(), which is fork() + exec("/bin/sh"). Both of its
  * listening sockets were created without SOCK_CLOEXEC -- the sFlow UDP socket by a bare
  * ::socket(), the API acceptor by Boost.Asio, which also uses a bare ::socket() and a bare
- * ::accept(). Every `sh` and every `curl` therefore inherited them. Measured 2026-09-03
- * (doc/audit/2026-09-03_night-rounds/round3-restart-concurrency, step 03): with the kernel's own
- * pid gone, `ss -ltnp` still showed :8000 LISTEN with `curl` and `sh` as its users, for
- * 2.01-2.22 s in 48 of 48 trials, and 6 of 6 restarts inside that window failed. The message the
- * failed restart printed said another NDTwin kernel was almost certainly running. There was none.
+ * ::accept(). Every `sh` and every `curl` therefore inherited them. Measured 2026-09-03: with
+ * the kernel's own pid gone, `ss -ltnp` still showed :8000 LISTEN with `curl` and `sh` as its
+ * users, for 2.01-2.22 s in 48 of 48 trials, and 6 of 6 restarts inside that window failed. The
+ * message the failed restart printed said another NDTwin kernel was almost certainly running.
+ * There was none.
  *
  * WHAT THESE TESTS ASSERT, AND WHY EACH ONE IS HERE
  *   1. The two production socket-opening functions return a close-on-exec descriptor. Not a copy

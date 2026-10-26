@@ -35,7 +35,7 @@ sys.path.insert(0, PRIOR)
 from plot_figures import RAW, load_twin_path          # noqa: E402 -- reuse, never restate
 from plot_ladder_rates import EDGE, SPAN, panel_stats  # noqa: E402
 
-# Pre-registered in PREREG §4. Written here as constants so that a later edit to them shows up
+# Fixed before the runs (PREREG §4). Written here as constants so that a later edit to them shows up
 # as a diff against the commit that fixed them, rather than as a quietly different number.
 SATURATED_RATIO = 0.95   # mean(twin)/gt below this => samples are being lost, not measured
 DATAPLANE_LOSS_PCT = 2.0  # end.sum.lost_percent above this => the data plane is being hurt

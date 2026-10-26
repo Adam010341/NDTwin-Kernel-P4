@@ -23,11 +23,12 @@
  *
  * Every consumer walks the array matching on `dpid` -- `HttpSession.cpp:622` serves it verbatim,
  * `IntentTranslator.cpp:1069` and `LLMAgent.cpp:275` read it whole, and the three checkers
- * (`tools/contract_test/spec.py:295`, `doc/audit/2026-08-28_chaos-harness/harness/invariants.py:147`,
- * `doc/audit/2026-08-31_live-acceptance-batch/probe.py:52`) all iterate and skip non-matching
- * dpids. For every one of them, a *missing* switch and a switch reporting *zero rules* are the
- * same answer -- which is precisely the 2026-08-07 failure `classifyFlowStatsReply` was written to
- * prevent. The verdict refused to apply the empty table; the wholesale swap applied it anyway, by
+ * (`tools/contract_test/spec.py:295`,
+ * `doc/audit/2026-08-28_chaos-harness/harness/invariants.py:147` and a live-acceptance probe) all
+ * iterate and skip non-matching dpids. For every one of them, a *missing* switch and a switch
+ * reporting *zero rules* are the same answer -- which is precisely the 2026-08-07 failure
+ * `classifyFlowStatsReply` was written to prevent. The verdict refused to apply the empty table;
+ * the wholesale swap applied it anyway, by
  * omission. And `inv_tables_non_empty` iterates only the entries that are present, so nothing in
  * the tree could see it happen.
  *

@@ -16,10 +16,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 MININET_DIR = os.path.join(REPO, "p4_proxy", "mininet")
 
-#: The package format this tool writes and reads. TICKET-P1 §1.
+#: The package format this tool writes and reads.
 PACKAGE_FORMAT = 1
 
-#: Stage one pins both of these; see TICKET-P1 §1. They are checked rather than assumed
+#: Stage one pins both of these. They are checked rather than assumed
 #: because the fabric's port assignment lives in grpc_ports.py and nothing else ties the two
 #: together -- the same "two copies of one number" shape F-15 was about.
 REQUIRED_GRPC_BASE = 30050
@@ -69,7 +69,7 @@ PROXY_DIR = os.path.join(REPO, "p4_proxy")
 
 def import_app_package():
     """The proxy's package loader, imported by path -- for `parse_roles`, so pre-flight refuses a
-    `roles` shape with the loader's own sentence (TICKET-P4-roles 2.1-4).
+    `roles` shape with the loader's own sentence.
     [Co-developed with claude code -- Adam]"""
     if MININET_DIR not in sys.path:
         sys.path.insert(0, MININET_DIR)
@@ -82,7 +82,7 @@ def import_route_binding():
     """`p4_proxy/proxy_agent/route_binding`, imported by path.
 
     [Co-developed with claude code -- Adam]
-    🔴 THE SAME FUNCTION THE PROXY RUNS (TICKET-P4-roles 2.1-4): `resolve()` is what the proxy
+    🔴 THE SAME FUNCTION THE PROXY RUNS: `resolve()` is what the proxy
     calls when it builds each client, and a pre-flight with a copy of it would be a second
     opinion that is free to disagree -- and the disagreement would surface as a proxy that
     refuses to start on a package this tool passed. The module imports nothing from the proxy
@@ -139,7 +139,7 @@ def load_json(path):
 
 
 def switch_name_to_dpid(name):
-    """`s7` -> 7. The naming rule the whole stack already assumes (TICKET-P1 §1)."""
+    """`s7` -> 7. The naming rule the whole stack already assumes."""
     if not (isinstance(name, str) and len(name) > 1 and name[0] == "s" and name[1:].isdigit()):
         raise ValueError(
             f"switch name {name!r} is not of the form sN. The dpid is read out of the name in "

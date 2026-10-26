@@ -1,5 +1,5 @@
 """
-The five packet_in metadata ids come from the switch's own p4info, by field name. TICKET-P3 2.6.
+The five packet_in metadata ids come from the switch's own p4info, by field name.
 
 [Co-developed with claude code -- Adam]
 
@@ -218,12 +218,12 @@ class TheDecoderUsesTheIdsItIsGivenTest(unittest.TestCase):
             (3, 7, 1514, 256))
 
     def test_the_old_positional_numbering_swaps_the_two_ports_without_complaining(self):
-        # 🔴 THE NEGATIVE CONTROL, and the reason this ticket exists. A program that declares the
-        # same five fields with ingress_port and egress_port the other way round decodes under
-        # ndtwin's numbering into a PERFECTLY VALID SampledPacket with the two ports exchanged.
-        # The kernel then credits every sampled byte to the reverse edge -- "s1 port 3 received
-        # 4 MB" for traffic that left on port 3 -- and there is no downstream check that could
-        # notice, because both values are ports the fabric really has.
+        # 🔴 THE NEGATIVE CONTROL, and the reason the by-name lookup exists. A program that declares
+        # the same five fields with ingress_port and egress_port the other way round decodes under
+        # ndtwin's numbering into a PERFECTLY VALID SampledPacket with the two ports exchanged. The
+        # kernel then credits every sampled byte to the reverse edge -- "s1 port 3 received 4 MB"
+        # for traffic that left on port 3 -- and there is no downstream check that could notice,
+        # because both values are ports the fabric really has.
         swapped = (("reason", 8), ("egress_port", 9), ("ingress_port", 9),
                    ("frame_length", 16), ("sampling_rate", 16), ("_pad", 6))
         real_ids = packet_in_metadata_ids(a_p4info(packet_in=swapped))

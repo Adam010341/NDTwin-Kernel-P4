@@ -7,8 +7,9 @@ ndtwin-p4-power -- start or stop exactly one bmv2 switch, as root, from the mani
 This is the privileged half of P4PowerStrategy (Phase 7, doc/2026-08-11_phase7_power_mechanism_design.md).
 The kernel runs as an unprivileged user and simple_switch_grpc runs as root, so the kill and the
 relaunch both need root; rather than putting `kill` into NOPASSWD -- which would let the invoking
-user kill any root process on the machine -- this script is the one thing sudoers allows, and it
-refuses everything except managing one named bmv2 switch.
+user kill any root process on the machine -- this script is the one command its NOPASSWD sudoers
+rule names (a rule the User Manual does not set up; the install steps are below), and it refuses
+everything except managing one named bmv2 switch.
 
 Install (one-time, as root -- the sudoers line must point at a root-owned copy, never at the
 repo checkout, because NOPASSWD on a user-writable file is root for whoever can edit it):
@@ -17,7 +18,7 @@ repo checkout, because NOPASSWD on a user-writable file is root for whoever can 
     sudo chown root:root /usr/local/sbin/ndtwin-p4-power
     sudo chmod 755 /usr/local/sbin/ndtwin-p4-power
     # visudo:
-    # adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-p4-power
+    # <user> ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-p4-power
 
 Hard rules, which the tests assert and reviewers should hold this file to:
 

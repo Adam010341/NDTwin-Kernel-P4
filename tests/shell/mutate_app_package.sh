@@ -2,10 +2,9 @@
 #
 # Mutation gate for the P4 app package: the baseline literals, the knob, the model-derived host
 # table and switch list, the election id, `external` mode's read-only refusal plus its
-# disclosure, the fabric side both entry points share, and -- from TICKET-P2 section 3.7 -- the
-# per-switch pipeline (G4): which program each switch is launched with, which of them are not
-# NDTwin's, and the one-switch model that has no cable to declare.
-# TICKET-P1 section 2.4 and TICKET-P2 section 3.7.
+# disclosure, the fabric side both entry points share, and the per-switch pipeline (G4): which
+# program each switch is launched with, which of them are not NDTwin's, and the one-switch model
+# that has no cable to declare.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -78,7 +77,7 @@ TEST_STARTUP="$REPO/p4_proxy/tests/test_startup.py"
 TEST_WRITES="$REPO/p4_proxy/tests/test_p4_client_writes.py"
 TOPOMGR="$REPO/p4_proxy/proxy_agent/topology_manager.py"
 TEST_READOPT="$REPO/p4_proxy/tests/test_readopt.py"
-# TICKET-P1D: the fabric side of the same feature. TESTBED holds the ONE bring-up both entry
+# The fabric side of the same feature. TESTBED holds the ONE bring-up both entry
 # points call, BRIDGE is the entry point `ndtwin-lab topo-start` actually launches, and TOPOLOG
 # is where its output goes now that a dead pane is no longer the only copy.
 TESTBED="$REPO/p4_proxy/mininet/p4_testbed_topo.py"
@@ -117,7 +116,7 @@ trap 'rm -rf "$BK"' EXIT
 # repo root the tests derive from it is $BK. The models and the compiled p4info are read, never
 # written, so they are linked in once rather than copied per mutation.
 ln -s "$REPO/setting" "$BK/setting"
-# TICKET-P3 section 2.4: test_app_package reads `DEFAULT_LINK_BPS` out of
+# test_app_package reads `DEFAULT_LINK_BPS` out of
 # tools/p4_exercise/common.py and asserts it equals app_package's copy of that literal -- the
 # one place the duplication is CHECKED rather than assumed. Linked, never copied and never
 # mutated; without it that cell errors in every mutant and the baseline is red.
@@ -186,8 +185,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
 #
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
 # read this gate: it learns which argument is the anchor and which is the file from a function's
-# own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is not checking
-# (finding #28).
+# own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is not checking.
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"; mkdir -p "$d"
@@ -261,7 +259,7 @@ report "M6: the h<N>-matches-the-last-octet rule is not checked" "$m" \
        "test_a_host_whose_name_does_not_match_its_address_is_refused"
 
 # 🔴 M7 CHANGED SUBJECT WHEN G4 LANDED, and the sentence it is about did not.
-# Until TICKET-P2 a non-null `pipeline` was REFUSED, and M7 removed the refusal: the package was
+# Originally a non-null `pipeline` was REFUSED, and M7 removed the refusal: the package was
 # then accepted and silently given NDTwin's pipeline. G4 made the field legal, so the refusal is
 # gone -- but the same silent substitution is now one line away, through the door that was opened
 # for it: parse the field and store None. Same failure, same mutation slot, new anchor.
@@ -349,13 +347,12 @@ m=$(mutant m17 "$MAIN" \
 report "M17: the skipped steps are not reported -- skipping becomes silence" "$m" \
        "test_an_external_startup_names_every_step_it_skipped"
 
-# 🔴 THE ANCHOR IS THE DECISION'S OWN SENTENCE, NOT ITS BODY (TICKET-P3 §2.7 gate hygiene,
-# recorded as an open item in TICKET-P2 §7-3; D's round 2, R2 -- this file is worker B's and
-# nothing else in it is touched). `    if not read_only:` occurs TWICE in main.py -- the LLDP
-# guard and the watchdog's -- so the first version bought its uniqueness from the two lines of
+# 🔴 THE ANCHOR IS THE DECISION'S OWN SENTENCE, NOT ITS BODY. `    if not read_only:` occurs TWICE in
+# main.py -- the LLDP guard and the watchdog's -- so the first version bought its uniqueness from
+# the two lines of
 # BODY underneath it, which made the mutation break the moment anybody moved the `try` into a
 # helper, and made the anchor an unwritten constraint on how the production code spells this
-# decision (that is the "read_only rebound rather than a second boolean" note in §7-3).
+# decision.
 #
 # The uniqueness now comes from the comment sentence that belongs to this decision and to
 # nothing else in the file, and the guard line follows it. A mutation that FLIPS a guard has to
@@ -419,7 +416,7 @@ m=$(mutant m24 "$CLIENT" \
         update.type = p4runtime_pb2.Update.INSERT
         entry = update.entity.table_entry
         self._build_5tuple_entry(entry, keys, priority)')
-report "M24 (ticket M7): ONE unary stops carrying self.election_id and reverts to (0, 1)" "$m" \
+report "M24 (M7): ONE unary stops carrying self.election_id and reverts to (0, 1)" "$m" \
        "test_a_five_tuple_insert_carries_this_clients_election_id"
 
 m=$(mutant m25 "$TOPOMGR" \
@@ -434,7 +431,7 @@ m=$(mutant m26 "$PKG" \
 report "M26: the manifest's hosts are not checked against the model they must describe" "$m" \
        "test_an_address_the_two_disagree_on_is_refused"
 
-# --- the fabric side: the copy that actually runs (TICKET-P1D) --------------------------------
+# --- the fabric side: the copy that actually runs ----------------------------------------------
 #
 # 🔴 EVERY MUTATION BELOW REPRODUCES A STATE THIS REPO WAS ACTUALLY IN ON 2026-09-18. The
 # app-package work landed in p4_testbed_topo.main(); `ndtwin-lab topo-start` launches
@@ -532,7 +529,7 @@ m=$(mutant m38 "$TESTBED" \
 report "M38: the baseline renames too, so h1-eth0 stops being what every other reader sees" "$m" \
        "test_nothing_is_renamed_under_the_baseline"
 
-# --- G4: the per-switch pipeline (TICKET-P2 section 3.7, M-A1..M-A3 and M-A7..M-A9) -----------
+# --- G4: the per-switch pipeline (M-A1..M-A3 and M-A7..M-A9) -----------------------------------
 #
 # 🔴 EVERY ONE OF THESE IS A FABRIC THAT COMES UP. That is what makes them worth a line: a
 # switch running the wrong compiled program does not fail to start, does not log an error and
@@ -578,7 +575,7 @@ m=$(mutant m44 "$PKG" \
 report "M44 (M-A9): pipeline_is_ndtwin is always True, so nothing downstream ever skips" "$m" \
        "test_pipeline_is_ndtwin_is_false_for_a_package_that_brought_its_own"
 
-# Not in the ticket's list, and here for the reason the ticket gives for the others: an operator
+# Not among the numbered mutations above, and here for the same reason as they are: an operator
 # reading a bring-up log has to be able to tell "the telemetry is off because this fabric runs
 # somebody else's program" from "the telemetry broke", and by the time the proxy discloses it in
 # `switch_state` the fabric is already up. A disclosure nothing can redden is a decoration.
@@ -609,8 +606,8 @@ m=$(mutant m47 "$TESTBED" \
 report "M47: a mixed fabric is reported as though every switch were foreign" "$m" \
        "test_the_plan_counts_one_of_four_and_lists_only_s1"
 
-# TICKET-P3 section 4.3, M-B12. The loader's other refusals are all about a field a package
-# has always had; this one is about the field TICKET-P3 adds, and it is the one that decides
+# M-B12. The loader's other refusals are all about a field a package
+# has always had; this one is about the newer telemetry-source field, and it is the one that decides
 # what the whole fabric measures. A misspelt source that fell back to `auto` would bring the
 # fabric up on a different telemetry path than the package asked for, and every number taken on
 # it would be exactly as plausible as a correct one.

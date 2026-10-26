@@ -90,9 +90,21 @@ class ScriptedFlowRoutingManager : public FlowRoutingManager
     int modifyCalls = 0;
     int deleteCalls = 0;
 
-    OpResult installAnEntry(uint64_t, int, const json&, const json&, int) override
+    // What the last install asked for. [Co-developed with claude code -- Adam] A-4g: BLOCK_HOST's
+    // request shape is what the P4 proxy has to recognise as a drop, so it is asserted too.
+    uint64_t lastInstallDpid = 0;
+    int lastInstallPriority = 0;
+    json lastInstallMatch;
+    json lastInstallActions;
+
+    OpResult installAnEntry(uint64_t dpid, int priority, const json& match, const json& actions,
+                            int) override
     {
         ++installCalls;
+        lastInstallDpid = dpid;
+        lastInstallPriority = priority;
+        lastInstallMatch = match;
+        lastInstallActions = actions;
         return nextResult;
     }
 
@@ -229,6 +241,27 @@ class IntentTaskOutcomesTest : public ::testing::Test
         // own -- a switch vertex carrying no IP would fault there too.
         (*m_graph)[v].ip.push_back(utils::ipStringToUint32(ip));
         m_monitor->m_ipStrToDpidMap[ip] = dpid;
+    }
+
+    /// A host attached to @p switchVertex, as BLOCK_HOST resolves it: by device name, through its
+    /// first adjacent vertex. [Co-developed with claude code -- Adam] A-4g.
+    void addHostOn(const std::string& name, const std::string& ip,
+                   Graph::vertex_descriptor switchVertex)
+    {
+        const auto h = boost::add_vertex(*m_graph);
+        (*m_graph)[h].vertexType = VertexType::HOST;
+        (*m_graph)[h].deviceName = name;
+        (*m_graph)[h].ip.push_back(utils::ipStringToUint32(ip));
+        boost::add_edge(h, switchVertex, *m_graph);
+    }
+
+    Graph::vertex_descriptor addNamedSwitch(const std::string& name, uint64_t dpid)
+    {
+        const auto v = boost::add_vertex(*m_graph);
+        (*m_graph)[v].vertexType = VertexType::SWITCH;
+        (*m_graph)[v].deviceName = name;
+        (*m_graph)[v].dpid = dpid;
+        return v;
     }
 
     // Declared first so it is constructed first and destroyed last: the translator's LLMAgents
@@ -371,6 +404,88 @@ TEST_F(IntentTaskOutcomesTest, AnUnknownDeviceOnAFlowInstallIsRefusedBeforeTheCo
     EXPECT_EQ(m_routing->installCalls, 0)
         << "an unresolvable device name must not reach the controller";
     EXPECT_TRUE(reply.contains("error")) << "reply was: " << reply.dump();
+}
+
+// --- BLOCK_HOST (doc/KNOWN-ISSUES.md A-4g) ------------------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// The install's OpResult was a dropped bare statement and the reply was an unconditional success,
+// on both planes. These drive performTask's real BLOCK_HOST case.
+
+TEST_F(IntentTaskOutcomesTest, AFailedBlockHostReportsTheFailureRatherThanBlocked)
+{
+    const auto s1 = addNamedSwitch("s1", 7);
+    addHostOn("h3", "10.0.0.3", s1);
+    m_routing->nextResult =
+        OpResult::failure(502, "P4 proxy agent returned HTTP 502: Failed to add route");
+
+    llmResponse::BlockHostTask task;
+    task.host_id = "h3";
+
+    const auto reply = nlohmann::json::parse(m_peer->perform(&task));
+
+    EXPECT_EQ(m_routing->installCalls, 1) << "the block was never attempted";
+    EXPECT_TRUE(reply.contains("error")) << "reply was: " << reply.dump();
+    EXPECT_FALSE(reply.contains("status"))
+        << "a refused block must not carry the success key: " << reply.dump();
+    EXPECT_EQ(reply.value("http_status", 0), 502) << reply.dump();
+    EXPECT_NE(reply.value("detail", std::string{}).find("Failed to add route"), std::string::npos)
+        << reply.dump();
+    EXPECT_EQ(reply.value("host", std::string{}), "h3");
+}
+
+TEST_F(IntentTaskOutcomesTest, AnUnreachableControllerOnBlockHostIsAFailureToo)
+{
+    const auto s1 = addNamedSwitch("s1", 7);
+    addHostOn("h3", "10.0.0.3", s1);
+    m_routing->nextResult = OpResult::unreachable("no response from Ryu");
+
+    llmResponse::BlockHostTask task;
+    task.host_id = "h3";
+
+    const auto reply = nlohmann::json::parse(m_peer->perform(&task));
+
+    EXPECT_TRUE(reply.contains("error")) << "reply was: " << reply.dump();
+    EXPECT_EQ(reply.value("http_status", -1), 0) << reply.dump();
+}
+
+TEST_F(IntentTaskOutcomesTest, ASuccessfulBlockHostIsStillBlockedAndSaysWhatKindOfYes)
+{
+    // The accept path, so a guard that refuses everything cannot pass the two tests above.
+    const auto s1 = addNamedSwitch("s1", 7);
+    addHostOn("h3", "10.0.0.3", s1);
+    m_routing->nextResult = OpResult::success().withProgrammingConfirmed(true);
+
+    llmResponse::BlockHostTask task;
+    task.host_id = "h3";
+
+    const auto reply = nlohmann::json::parse(m_peer->perform(&task));
+
+    EXPECT_EQ(reply.value("status", std::string{}), "success") << reply.dump();
+    EXPECT_FALSE(reply.contains("error")) << reply.dump();
+    EXPECT_EQ(reply.value("target_switch", std::string{}), "s1");
+    EXPECT_TRUE(reply.value("programming_confirmed", false)) << reply.dump();
+
+    // The request the P4 proxy now turns into a flow_5tuple drop: source match, empty actions.
+    EXPECT_EQ(m_routing->lastInstallDpid, 7u);
+    EXPECT_EQ(m_routing->lastInstallMatch,
+              (nlohmann::json{{"eth_type", 2048}, {"ipv4_src", "10.0.0.3"}}));
+    EXPECT_EQ(m_routing->lastInstallActions, nlohmann::json::array());
+}
+
+TEST_F(IntentTaskOutcomesTest, AnOvsStyleAcceptanceIsBlockedButNotConfirmed)
+{
+    const auto s1 = addNamedSwitch("s1", 7);
+    addHostOn("h3", "10.0.0.3", s1);
+    m_routing->nextResult = OpResult::success(); // Ryu's 200: confirmsProgramming stays false
+
+    llmResponse::BlockHostTask task;
+    task.host_id = "h3";
+
+    const auto reply = nlohmann::json::parse(m_peer->perform(&task));
+
+    EXPECT_EQ(reply.value("status", std::string{}), "success") << reply.dump();
+    EXPECT_FALSE(reply.value("programming_confirmed", true)) << reply.dump();
 }
 
 // --- the renderers, asserted directly ---------------------------------------------------------

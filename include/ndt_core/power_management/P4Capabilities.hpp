@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <string>
 
 // Declared, not included: DeviceConfigurationAndPowerManager.hpp includes this header and
 // deliberately keeps GraphTypes.hpp out of its own include set (see its note on VertexProperties).
@@ -47,6 +48,17 @@ using CapabilitiesByDpid = std::map<std::uint64_t, nlohmann::json>;
  * reads them). A key that is not a plain decimal number is skipped rather than guessed at.
  */
 CapabilitiesByDpid fromSwitchState(const std::optional<nlohmann::json>& payload);
+
+/**
+ * @brief Every switch's object under @p key in one GET /p4/switch_state body.
+ *
+ * [Co-developed with claude code -- Adam]
+ * The reader fromSwitchState is (it is this, with key "capabilities"), for the other per-switch
+ * objects the kernel copies onto its graph -- `ryu_rules_lost` (P4RulesLost.hpp). Same rules: only
+ * a JSON object is an entry, and a key of `switches` that is not a plain decimal dpid is skipped.
+ */
+std::map<std::uint64_t, nlohmann::json> objectsUnder(const std::optional<nlohmann::json>& payload,
+                                                     const std::string& key);
 
 /**
  * @brief Adds `capabilities` to one serialised /ndt/get_graph_data node, when there is one.

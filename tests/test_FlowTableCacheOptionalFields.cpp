@@ -13,9 +13,7 @@
  * had already been written with `400 {"error":"JSON parsing error"}`.
  *
  * Measured live on 2026-08-17 against a ten-switch bmv2 fabric: switch 1's table went from
- * five entries to six while the caller was told its request was rejected. The full account,
- * including why delete and modify were unaffected, is in
- * doc/audit/2026-08-17_install-rejected-but-applied.md.
+ * five entries to six while the caller was told its request was rejected.
  *
  * So the property under test is not "the cache holds the right number". It is that the two
  * layers agree on what an absent optional field means. If they ever disagree again, the

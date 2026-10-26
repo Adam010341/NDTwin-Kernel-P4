@@ -9,11 +9,10 @@
 # gate gives: a common harness is a second place for the answer to be wrong, and
 # check_gate_anchors.py reads each gate's own anchors.
 #
-# WHAT IT GATES. Measured 2026-09-11 02:01:16-02:02:45 (ROLE-4 T4, written up in
-# scratch/overnight-2026-09-05/fix/FIX-NDT-3-SUMMARY.md section 7-1): a loop firing
+# WHAT IT GATES. Measured 2026-09-11 02:01:16-02:02:45: a loop firing
 # install_flow_entry and delete_flow_entry every two seconds got 200 through the second its own
 # claim expired, and kept getting 200 after a different owner took the claim, until that owner
-# tore the kernel down. Adam's ruling of 2026-09-11 was option C: the kernel REPORTS the claim on
+# tore the kernel down. The 2026-09-11 decision was option C: the kernel REPORTS the claim on
 # every write reply and logs one line when it changes, and refuses nothing.
 #
 # 🔴 M8 IS THE ONE THAT MATTERS MOST, and it is the only mutation here that makes the kernel say
@@ -88,7 +87,7 @@ apply() {   # $1 = file, $2 = exact anchor, $3 = replacement
 
 # 🔴 `grep -c -F` is the WRONG TOOL for a multi-line anchor and this gate never uses it for the
 # verdict: grep splits an -F pattern on newlines, treats the pieces as alternatives, and counts
-# LINES matching any of them. Measured on trunk 6c4000eb (hunt-0911/F-B0-B12-REPORT.md §2.2) a
+# LINES matching any of them. Measured on trunk 6c4000eb a
 # five-line anchor in a sibling gate counted 549 that way and its control was never applied. The
 # exact substring count comes from python, the way mutate_bx_flow_liveness.sh has done it since
 # 2026-09-08.

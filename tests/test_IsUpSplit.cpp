@@ -1,6 +1,6 @@
 /**
  * @file test_IsUpSplit.cpp
- * @brief Q12: `is_up` carried two questions at once. It now answers one, and the other has its
+ * @brief `is_up` carried two questions at once. It now answers one, and the other has its
  *        own name.
  *
  * [Co-developed with claude code -- Adam]
@@ -18,9 +18,9 @@
  *   - the contract suite's A-8 three-state check read the same bit on both sides of its own
  *     comparison ("is this switch down" vs "is it down because we powered it off"), so
  *     `unexplained_down` was structurally empty and the check could not fire, ever.
- *   - FINDINGS #46's fix separated the two INTERNALLY (`adminPoweredOff`) and deliberately left
- *     the wire alone, because splitting it is a design decision. Adam ruled on 2026-09-03:
- *     option (a), `admin_state` + `reachable`, with `is_up` kept as a deprecated alias of
+ *   - An earlier fix separated the two INTERNALLY (`adminPoweredOff`) and deliberately left the
+ *     wire alone, because splitting it is a design decision. Decided on 2026-09-03: the wire
+ *     carries `admin_state` + `reachable`, with `is_up` kept as a deprecated alias of
  *     `reachable` so external readers keep working.
  *
  * WHAT THESE ASSERT
@@ -34,13 +34,13 @@
  *     a kernel that predates this change must still load;
  *  4. `/ndt/get_switches_power_state` reports both fields per switch, which is the endpoint the
  *     whole finding is about;
- *  5. FINDINGS #80: the post-power-off distrust window closes on EVIDENCE, not on a clock. The
+ *  5. the post-power-off distrust window closes on EVIDENCE, not on a clock. The
  *     graph's `reachable` is believable again when a probe taken AFTER the kill says the switch
  *     is serving -- not fifteen seconds after the kill regardless of what anybody observed.
  *
  * WHAT IS DELIBERATELY NOT HERE
  *
- * #81 (`/ndt/inform_switch_entered` must not clear the commanded power-off) is in
+ * The rule that `/ndt/inform_switch_entered` must not clear the commanded power-off is in
  * tests/test_HttpSessionRouting.cpp, because the assertion is about what the HTTP handler does
  * and that file already owns the peer that can drive one.
  */
@@ -146,7 +146,7 @@ struct Fixture
 /// Re-exports the 1 Hz worker's two policy helpers and hands it a strategy whose shell calls are
 /// recorded rather than run.
 ///
-/// [Co-developed with claude code -- Adam] -- FINDINGS #80.
+/// [Co-developed with claude code -- Adam]
 /// Same pattern as PowerProbe in test_SyntheticPower.cpp and LivenessProbe in
 /// test_OvsLiveness.cpp: the helpers are protected so a derived class in a test can drive the
 /// real function. The strategy override is what makes the DECLINE path reachable at all -- a
@@ -197,7 +197,7 @@ class IsUpSplitTest : public ::testing::Test
 
 /**
  * The decision, as a shape. Three keys where there was one, and the old name still present --
- * Adam's ruling keeps `is_up` alive as an alias so the four external readers (Energy-Saving-App,
+ * The design keeps `is_up` alive as an alias so the four external readers (Energy-Saving-App,
  * Network-Traffic-Visualizer, Web-GUI, Traffic-Engineering-App) keep working unchanged. The
  * Energy-Saving-App's own from_json uses `j.at("is_up")`, which THROWS on a missing key, so this
  * assertion is the one standing between that app and a hard parse failure.
@@ -239,7 +239,7 @@ TEST_F(IsUpSplitTest, TheIsUpAliasEqualsReachableInBothDirections)
 /**
  * 🔴 THE FINDING ITSELF. Two switches, both unreachable, one commanded off and one not. Before
  * the split these were the same vertex shape and the same power-state answer; the entire point
- * of Q12 is that they are now different.
+ * of the split is that they are now different.
  */
 TEST_F(IsUpSplitTest, ACommandedOffSwitchAndACrashedSwitchAreDistinguishableOnTheWire)
 {
@@ -400,11 +400,11 @@ TEST_F(IsUpSplitTest, PowerStateEndpointForOneIpCarriesBothFieldsToo)
     EXPECT_FALSE(body["192.168.123.11"].value("reachable", true));
 }
 
-// --- 4. FINDINGS #80: distrust bounded by evidence, not by a clock --------------------------
+// --- 4. distrust bounded by evidence, not by a clock ----------------------------------------
 
 /**
- * 🔴 THE #80 DEFECT. `kPostPowerOffDistrustWindow` was fifteen seconds, and fifteen seconds is
- * not a fact about a switch. Live measurement (FIX-POLL-RESURRECT §3.3.2, 18 of 18 trials): after
+ * 🔴 THE DEFECT. `kPostPowerOffDistrustWindow` was fifteen seconds, and fifteen seconds is
+ * not a fact about a switch. Live measurement (18 of 18 trials): after
  * a kill the proxy's cached `probe_ok` still reads true for 0.3-1.5 s and the graph carries the
  * wrong `isUp` for 8-13 s. The window was sized to cover that -- but the thing it covers is an
  * OBSERVATION going stale, and an observation going stale is not something a timer can know.

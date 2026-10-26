@@ -9,9 +9,10 @@
 
 namespace
 {
-// The privileged half. It lives outside the repo on purpose: sudoers pins this exact
-// root-owned path, because NOPASSWD on a user-writable file is root for whoever can edit
-// the file. Install steps are in the design doc; tools/p4_power_helper.py is the source.
+// The privileged half. It lives outside the repo on purpose: it needs a NOPASSWD sudoers rule
+// that names this exact root-owned path, because NOPASSWD on a user-writable file is root for
+// whoever can edit the file. The User Manual does not set that rule up; the install steps are
+// in tools/p4_power_helper.py's docstring and in the design doc, and that file is the source.
 //
 // The helper addresses processes only by manifest PID, re-verified against /proc before any
 // signal. Never by name: the pre-Phase-7 implementation's `pkill -f simple_switch_grpc`
@@ -55,8 +56,7 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
     // dead, and which is dead. From then until the last LLDP beacon ages past kLldpFreshSeconds
     // the verdict is Unknown, which the worker deliberately does not write, so the wrong Up
     // stands unchallenged. A power-on arriving in that interval took the branch below and
-    // returned 200 "Success" in 0.01s having run no command: measured (scratch/phase2/FINDINGS.md
-    // E2) the bmv2 process count did not move, no readopt was sent, the switch stayed dead, and
+    // returned 200 "Success" in 0.01s having run no command: measured on a live fabric: the bmv2 process count did not move, no readopt was sent, the switch stayed dead, and
     // the twin reported power=ON, is_up=True, 8/8 edges up against 100% packet loss. The same
     // POST replayed after the graph settled to is_up=false took 1.27s, moved the process count
     // 9 -> 10 and restored forwarding, which is what proves the first call had simply not acted.
@@ -72,9 +72,10 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
     // from turning into helper "already running" failures.
     //
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #35/#36, the residual the distrust window did not reach. The window is bounded by
-    // TIME (15 s), and the measurement that made it necessary is not: with #46 in place a
-    // commanded-off switch keeps `isUp = false`, so this guard already stops firing for it -- but
+    // The residual the distrust window did not reach. The window is bounded by
+    // TIME (15 s), and the measurement that made it necessary is not: now that a commanded
+    // power-off is remembered, a commanded-off switch keeps `isUp = false`, so this guard
+    // already stops firing for it -- but
     // only while nothing else writes up. The third question closes the gap that is left, and
     // states the rule the other two only imply: a no-op success is honest exactly when nothing
     // the twin knows contradicts "it is already on". A standing commanded power-off contradicts
@@ -85,7 +86,7 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
     // hand, not through this API) still carries the off command, so the next power-on actuates
     // and the helper refuses to start a second instance -- a 500 that names the wrong step. That
     // is a loud wrong answer replacing a silent one, which is the right direction, and it is
-    // written up in FIX-POLL-RESURRECT.md §6.
+    // a known trade-off.
     if (topoMonitor->getVertexIsUp(node) && !topoMonitor->getVertexAdminPoweredOff(node) &&
         !poweredOffWithinDistrustWindow(swName))
     {
@@ -119,7 +120,7 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
     clearPowerOffRecord(swName);
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #46. The commanded power-off is spent at exactly the same instant and for exactly
+    // The commanded power-off is spent at exactly the same instant and for exactly
     // the reason spelled out above: a bmv2 is serving that gRPC port again, so discovery's word
     // about this switch is worth having again. Cleared HERE and not after readopt, because the
     // 502 path below leaves a running process the twin must still be able to learn about -- and
@@ -131,8 +132,8 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
     // Step 2, the relationship. A restarted bmv2 comes back with nothing pushed through
     // P4Runtime: no pipeline, no clone session, no table entries and no mastership. The
     // liveness probe is a unary RPC on a channel gRPC reconnects on its own, and it sees only
-    // the first of these. MEASURED 2026-10-04 (phases A-E of
-    // doc/audit/2026-10-04_p4-cookie-probe/run-*.out): a bmv2 that has been pushed no pipeline
+    // the first of these. MEASURED 2026-10-04 (a five-phase probe,
+    // A-E): a bmv2 that has been pushed no pipeline
     // answers it FAILED_PRECONDITION, which the proxy serves as probe_ok false. INFERRED from
     // reading the code, not run: that p4LivenessFor then answers Down (Unknown while a fresh
     // LLDP is still arriving). The probe cannot see empty tables, a missing clone session or
@@ -227,7 +228,7 @@ P4PowerStrategy::powerOff(Graph::vertex_descriptor node,
                           TopologyAndFlowMonitor* topoMonitor)
 {
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #35, the power-off direction. This began as
+    // The power-off direction. This began as
     //
     //     if (!topoMonitor->getVertexIsUp(node)) { return OpResult::success(); }
     //
@@ -273,7 +274,7 @@ P4PowerStrategy::powerOff(Graph::vertex_descriptor node,
     notePowerOff(swName);
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #46. setVertexDown, which this was, is the OBSERVATION writer -- the same call the
+    // setVertexDown, which this was, is the OBSERVATION writer -- the same call the
     // 1 Hz liveness worker makes -- so the graph could not tell "the twin killed this" from "the
     // probe missed a beat", and the next topology poll lifted `isUp` straight back and never
     // wrote false again. This records the same down *and* the fact that it was commanded, which
@@ -291,7 +292,7 @@ P4PowerStrategy::now() const
 
 /** @brief Whether this strategy stopped @p swName and nothing has observed it serving since.
  *
- * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+ * [Co-developed with claude code -- Adam]
  * This used to be `now() - it->second < kPostPowerOffDistrustWindow`, i.e. "has fifteen seconds
  * passed". It is now "has anything looked". The record's PRESENCE is the answer: notePowerOff
  * writes it on a confirmed stop, and the two things that can erase it are the two things that
@@ -312,7 +313,7 @@ P4PowerStrategy::poweredOffWithinDistrustWindow(const std::string& swName) const
 
 /** @brief See the header. Judges one liveness Up and, when it counts, closes the window.
  *
- * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+ * [Co-developed with claude code -- Adam]
  */
 bool
 P4PowerStrategy::acceptLivenessUp(const std::string& swName,

@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# WHY THIS FILE EXISTS (TICKET-P2 §5.4). Phase one could only bring a package up on NDTwin's
+# WHY THIS FILE EXISTS. Phase one could only bring a package up on NDTwin's
 # own pipeline, and 02_app_basic.sh was the live assertion of what that did: the package
 # supplies the topology, the host addresses and the host commands, the pipeline stays NDTwin's,
 # the exercise's runtime entries are RECORDED and not applied, and every host pair still

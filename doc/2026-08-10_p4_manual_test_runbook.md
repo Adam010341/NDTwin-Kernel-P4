@@ -55,31 +55,31 @@
 
 ### 誰能做什麼
 
-| 只有 Adam 能做 | 為什麼 |
+| 要互動式 root，或刻意留給操作者本人 | 為什麼 |
 |---|---|
 | `sudo python3 p4_testbed_topo.py` | 需要互動式 root，`sudo -n python3` 會要密碼 |
 | `sudo mn -c` | 同上 |
 | `mininet> exit` | 在你的互動 CLI 裡 |
-| `sudo -n ifconfig <iface> down/up` | NOPASSWD 有放行，但需要 root |
-| `mn`、`ip`、`ovs-ofctl`、kill root process | NOPASSWD 不含這些 |
+| `sudo -n ifconfig <iface> down/up` | `doc/2026-07-29_environment_gotchas.md` 那條 NOPASSWD 規則有放行（User Manual 沒有教），但需要 root |
+| `mn`、`ip`、`ovs-ofctl`、kill root process | 那條規則不含這些 |
 
-| 我可以代跑 | 方式 |
+| 不需要 root，或只要 `doc/2026-07-29_environment_gotchas.md` 那條 NOPASSWD 規則 | 方式 |
 |---|---|
 | `stack.sh up/wait/down`、`l1_unit_tests.sh` | 不需要 root |
 | `curl` 檢查、log 分析 | — |
-| `sudo -n mnexec -a <pid> <cmd>` | NOPASSWD 放行了 `mnexec`，可在 host namespace 內以 root 執行 |
+| `sudo -n mnexec -a <pid> <cmd>` | 要那條規則裡的 `mnexec`（User Manual 沒有教）；有了就能在 host namespace 內以 root 執行 |
 
 ### Terminal 安排
 
 | | 用途 | 生命週期 |
 |---|---|---|
-| **B** | Mininet CLI（`sudo`，會停在 `mininet>`）—— **Adam 的** | 全程留著 |
-| **A** | `stack.sh` / `curl` / 看 log | 我可以代跑 |
+| **B** | Mininet CLI（`sudo`，會停在 `mininet>`）—— **操作者本人的** | 全程留著 |
+| **A** | `stack.sh` / `curl` / 看 log | 不需要 root |
 
 ### 確認乾淨（terminal A）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./stack.sh down
 sudo mn -c
 pgrep -x ndtwin_kernel; pgrep -x simple_switch_g; pgrep -x iperf
@@ -100,7 +100,7 @@ ss -ltn '( sport = 8000 or sport = 8080 or sport = 8081 )'
 ## 2. 離線層：build + unit tests（約 6 分鐘，不需要 Mininet）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 
 # C++ build + unit tests（ctest + 直接執行）
 ./l1_unit_tests.sh
@@ -156,7 +156,7 @@ All selected components build.
 ### 3a. 開 bmv2 Mininet（terminal B —— Adam）
 
 ```bash
-sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+sudo python3 <repo>/p4_proxy/mininet/p4_testbed_topo.py
 ```
 
 ✅ 要看到：
@@ -181,7 +181,7 @@ cat /tmp/ndtwin_p4_switches.json | python3 -m json.tool | head -20
 ### 3b. 起 proxy + kernel（terminal A）
 
 ```bash
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./stack.sh up p4
 ```
 
@@ -571,7 +571,7 @@ switch 沒死、gRPC 沒斷、它還在對外送 beacon，但它**不再把收�
 
 Mininet CLI 的 `link s1 s5 down` 底層也是對兩端做 `ifconfig down`，所以**大概率同一個症狀**（未另外實測）。
 
-### 6a. 斷線（terminal A —— Adam 可代跑，`ifconfig` 在 NOPASSWD 清單裡）
+### 6a. 斷線（terminal A —— 要 `doc/2026-07-29_environment_gotchas.md` 那條 NOPASSWD 規則裡的 `ifconfig`，User Manual 沒有教）
 
 我們斷 **s1-eth1**（即 s1:1 ↔ s5:1 這條鏈路）：
 
@@ -851,9 +851,9 @@ sudo -n tc qdisc del dev s10-eth1 root
 switch 介面**，避免手滑把實體網卡的 qdisc 改掉：
 
 ```
-adam ALL=(root) NOPASSWD: /usr/sbin/tc qdisc add dev s[0-9]*-eth[0-9]* root netem *
-adam ALL=(root) NOPASSWD: /usr/sbin/tc qdisc del dev s[0-9]*-eth[0-9]* root
-adam ALL=(root) NOPASSWD: /usr/sbin/tc qdisc show dev s[0-9]*-eth[0-9]*
+<user> ALL=(root) NOPASSWD: /usr/sbin/tc qdisc add dev s[0-9]*-eth[0-9]* root netem *
+<user> ALL=(root) NOPASSWD: /usr/sbin/tc qdisc del dev s[0-9]*-eth[0-9]* root
+<user> ALL=(root) NOPASSWD: /usr/sbin/tc qdisc show dev s[0-9]*-eth[0-9]*
 ```
 
 **兩種注入方式的實測對照**（同一條 `s5↔s10` 鏈路、同一個 stack）：
@@ -1033,7 +1033,7 @@ pgrep -f "[p]roxy_agent.main" && echo alive || echo dead
 
 ```bash
 # terminal A
-cd /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow
+cd <repo>/tools/test_workflow
 ./stack.sh down
 sudo mn -c
 pkill -x simple_switch_g    # -x 而非 -f，名稱只到 15 字元

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""ndt serve, second ticket: the live_cells grid and the guided walk, against a stub grid.
+"""ndt serve: the live_cells grid and the guided walk, against a stub grid.
 
 [Co-developed with claude code -- Adam]
 
-Adam's ruling (09-24 21:4x): open the live_cells in ndt serve, plus a guided mode in which the
-service does a step, says where to look, and HE calls red or green. These cases pin what that
+The live_cells are open in ndt serve, plus a guided mode in which the
+service does a step, says where to look, and the operator calls red or green. These cases pin what that
 entry may and may not do:
 
   * the cells are the grid's OWN list (run_cells.sh --list) -- nothing else can be named;
   * old/ and new/ are shown by the cell's own judge, read-only, as GETs;
   * a run is a job in the one slot, with the grid's own argv, and SKIP is never shown as a pass;
   * a walk never runs a cell after a refused claim, never releases after a failed restore, and
-    never calls the verdict -- that step is Adam's;
+    never calls the verdict -- that step is the operator's;
   * a GET never moves a walk.
 
 The stub grid lives in the same temp repo as the stub ndt (test_ndt_serve.Serve): run_cells.sh
@@ -98,7 +98,7 @@ RUN_FAIL = OLD_LAB.replace("2026-09-11T02:55:10", "2026-09-24T23:00:00")
 RUN_SKIP = "SKIP: the lab is claimed by somebody else\nCELL: SKIP lab_cell tag=ndt kernel=x ndt=y at=z\n"
 RUN_OFF = ("ASSERT ok   b1_sentence_gone                       help.txt does not contain it\n"
            "CELL: PASS offline_cell tag=ndt kernel=unknown ndt=ffff at=2026-09-24T23:00:00+08:00\n")
-# the claim line as `ndt status` prints it (ndt:5926 claim_line), for each case the service must tell apart
+# the claim line as `ndt status` prints it (ndt: claim_line), for each case the service must tell apart
 CLAIM_YOURS = "lab\n  claim          yours -- 30m left (until 23:59:00)\n  measuring      nothing\n"
 CLAIM_NONE = "lab\n  claim          none\n  prev claim     serve-test (until 23:00:00)\n"
 CLAIM_FOREIGN = "lab\n  claim          orch-0924 -- 12m left (until 23:40:00)\n"
@@ -274,7 +274,7 @@ class CellsRun(GridCase):
         self.assertEqual((job["rc"], job["rc_class"], job["cell_verdict"]["state"]), (0, "pass", "PASS"))
 
     def test_lab_cell_run_needs_your_claim(self):
-        """Judge r2 finding 1: a lab cell run without a claim of your own acts under somebody else's
+        """A lab cell run without a claim of your own acts under somebody else's
         -- its netem, kill or knob write asks no guard, and its restore's `down` is refused (rc 5), so
         what it left stays. (Written 09-24, when ndt's OVS `up` also ignored a foreign claim; trunk
         68ace017 made it refuse.) The run reads `ndt status`'s claim line first."""
@@ -288,10 +288,10 @@ class CellsRun(GridCase):
         self.assertEqual(len(self.s.runs()), 1)
 
     def test_only_ndts_own_claim_form_is_yours(self):
-        """Intake judge 09-26, finding 2: the check was a PREFIX match on "yours", so a foreign
+        """The check was a PREFIX match on "yours", so a foreign
         owner whose name merely starts with it -- `yours-x` -- passed as this server's own claim.
-        ndt prints its own claim as exactly `yours -- <n>m left (until HH:MM:SS)` (ndt:5939,
-        claim_line). Every other value -- another owner's, one named to contain the own form,
+        ndt prints its own claim as exactly `yours -- <n>m left (until HH:MM:SS)`
+        (ndt: claim_line). Every other value -- another owner's, one named to contain the own form,
         EXPIRED, malformed -- is somebody else's or nobody's, and runs nothing."""
         for value in ("yours-x -- 12m left (until 23:40:00)",
                       "yoursx -- 12m left (until 23:40:00)",
@@ -309,7 +309,7 @@ class CellsRun(GridCase):
         self.assertEqual(len(self.s.runs()), 1)
 
     def test_no_read_slot_is_not_a_claim_and_says_so(self):
-        """Intake judge 09-26, finding 5: with both read slots taken past --read-queue-wait, the
+        """With both read slots taken past --read-queue-wait, the
         claim was never read at all -- ndt status did not run. The run is refused (409 claim, so a
         walk records it as blocked), and the answer says THAT, not "ndt status did not answer"."""
         import threading
@@ -337,7 +337,7 @@ class CellsRun(GridCase):
             s.close()
 
     def test_a_status_past_its_timeout_is_not_a_claim(self):
-        """Intake judge 09-26, finding 5: ndt status printed `yours` and then hung past
+        """ndt status printed `yours` and then hung past
         --read-timeout. A read that was stopped is not a reading: the run is refused, the answer
         says it timed out, and what ndt printed before it was stopped is kept, by read id."""
         s = GridServe(extra=["--read-timeout", "2"]).start()
@@ -364,7 +364,7 @@ class CellsRun(GridCase):
         self.assertEqual([c["argv"] for c in self.s.calls()], [], "a `requires none` cell read the claim")
 
     def test_a_cell_that_writes_shared_state_needs_confirmation(self):
-        """Judge r2 finding 2: this cell parks host_count_override at 128 and writes it back; killed
+        """This cell parks host_count_override at 128 and writes it back; killed
         in between (systemd-oomd does that here) it stays 128. Said, and confirmed, before it runs."""
         st, j, _, _ = self.s.get("/cells")
         by = {c["name"]: c for c in j["cells"]}
@@ -383,7 +383,7 @@ class CellsRun(GridCase):
         self.assertEqual(len(self.s.runs()), 1)
 
     def test_a_judge_past_its_timeout_is_stopped(self):
-        """Judge r2 finding 4: the grid's calls had subprocess.run(timeout=60) -- a kill of the child
+        """The grid's calls had subprocess.run(timeout=60) -- a kill of the child
         only, an unbounded wait for the pipe after it, and a 500 from TimeoutExpired."""
         s = GridServe(extra=["--read-timeout", "1"]).start()
         try:
@@ -496,7 +496,7 @@ class GuidedWalk(GridCase):
             self.next(gid)
         w = self.settle(gid)
         self.assertEqual(w["steps"][w["current"]]["step"], "verdict")
-        # the lab is already given back while the walk waits on Adam
+        # the lab is already given back while the walk waits on the operator
         self.assertEqual([c["argv"][0] for c in self.s.calls()], ["status", "claim", "status", "release"])
         cmp_ = [s for s in w["steps"] if s["step"] == "compare"][0]["result"]
         self.assertEqual(sorted(cmp_["red_to_green"]), ["a2_no_boom", "a3_record_written"])
@@ -566,7 +566,7 @@ class GuidedWalk(GridCase):
         self.assertTrue(w["blocked"])
 
     def test_walk_run_rechecks_the_claim(self):
-        """Judge r2 finding 3, second half: the walk's claim step passed, and by its run step the
+        """The walk's claim step passed, and by its run step the
         claim is gone (another tab's walk released it). The run is not started."""
         gid = self.walk()
         for _ in range(4):                       # old, new, status, claim
@@ -594,7 +594,7 @@ class GuidedWalk(GridCase):
         self.settle(gid)
         self.assertEqual(len(self.s.runs()), 1, "a confirmed walk still runs the cell")
 
-    def test_the_verdict_is_adams(self):
+    def test_the_verdict_is_the_operators(self):
         gid = self.walk("offline_cell")
         st, _, _, _ = self.s.post("/guided/%s/verdict" % gid, {"verdict": "green"})
         self.assertEqual(st, 409, "no verdict before the compare step")

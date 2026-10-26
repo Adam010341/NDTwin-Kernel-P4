@@ -3,12 +3,12 @@ The heartbeat on a foreign fabric takes the beacon's path: detection, and rerout
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P4-heartbeat segment W, section 1: "外來 fabric 在心跳跑著時，走和 beacon 逾時／恢復同一條路
-（`_notify_link`＋watchdog pass），常數與自家 fabric 共用、不另寫一份". So nothing here has a
-timeout of its own. The report is turned into beacon EVIDENCE -- "this direction was last heard at
-t" -- through the entry the first cut reserved, `TopologyManager.report_external_link_state`
-(TICKET-P4-roles 2.4), now with an `at`; and `check_link_beacons` decides with
-LINK_BEACON_TIMEOUT_S / LINK_STARTUP_GRACE_S exactly as it does for LLDP.
+A foreign fabric with the heartbeat running takes the same path as a beacon timeout or recovery
+(`_notify_link` plus the watchdog pass), with the constants shared with the proxy's own fabric
+rather than a second copy. So nothing here has a timeout of its own. The report is turned into
+beacon EVIDENCE -- "this direction was last heard at t" -- through the entry reserved for it,
+`TopologyManager.report_external_link_state`, now with an `at`; and `check_link_beacons` decides
+with LINK_BEACON_TIMEOUT_S / LINK_STARTUP_GRACE_S exactly as it does for LLDP.
 
 What is asserted, and what each stands against:
 
@@ -17,9 +17,9 @@ What is asserted, and what each stands against:
   * both directions, the kernel told through `_notify_link`, the direction withheld from the
     topology reply, and back up the same way when the heartbeat is heard again;
   * the reroute happens only on a fabric whose routes NDTwin owns; a fabric that skips its routes
-    (an unbound or package-owned table) DETECTS and does not reroute (section 1, 段 W bullet 2);
+    (an unbound or package-owned table) DETECTS and does not reroute;
   * a heartbeat that is dead, stale, stopped or untrusted freezes every link where it was: the
-    daemon's death is not the network's (H.7 item 2);
+    daemon's death is not the network's;
   * a new session never brings back a link nobody has heard, and a gap never takes down a link
     only because nobody could hear it;
   * an LLDP fabric's watchdog pass is the pass it was.
@@ -36,7 +36,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-# Only the THIRD-PARTY dependencies decide a skip; this ticket's own modules failing to import is
+# Only the THIRD-PARTY dependencies decide a skip; this suite's own modules failing to import is
 # a failure (the red-first run must be red, not skipped).
 try:
     import fastapi  # noqa: F401
@@ -349,7 +349,7 @@ class ADeadHeartbeatIsNotADeadNetworkTest(unittest.TestCase):
         self.assertIs(f.topo._link_beacons[CUT[0]]["down"], False)
 
 
-#: A heartbeat frame as segment H's daemon builds it: dst 02:4e:44:54:48:42, ethertype 0x88B5,
+#: A heartbeat frame as the heartbeat daemon builds it: dst 02:4e:44:54:48:42, ethertype 0x88B5,
 #: magic NDHB, padded to 60 bytes. Only its shape matters here -- it is not LLDP.
 HEARTBEAT_FRAME = (bytes.fromhex("024e44544842") + bytes.fromhex("0200000003e1") + b"\x88\xb5"
                    + b"NDHB" + bytes(42))
@@ -358,12 +358,12 @@ HEARTBEAT_FRAME = (bytes.fromhex("024e44544842") + bytes.fromhex("0200000003e1")
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class AHeartbeatFramePuntedToTheControllerIsNotLinkEvidenceTest(unittest.TestCase):
     """
-    [Co-developed with claude code -- Adam] The orchestrator's 09-26 note on segment S's judge
-    report: the census's `mode ndtwin` arms had the proxy's StreamChannel up, and nobody checked
-    whether a heartbeat frame a pipeline punts to its CPU port reaches `handle_packet_in` as
-    liveness. Whatever such a packet-in proves about the SWITCH (its stream works:
-    `_last_packet_in`), it must not be LINK evidence: on this fabric the only link evidence is the
-    report, so a cut stays a cut however many heartbeat frames a switch punts meanwhile.
+    [Co-developed with claude code -- Adam] The census's `mode ndtwin` arms had the proxy's
+    StreamChannel up, and nobody checked whether a heartbeat frame a pipeline punts to its CPU
+    port reaches `handle_packet_in` as liveness. Whatever such a packet-in proves about the
+    SWITCH (its stream works: `_last_packet_in`), it must not be LINK evidence: on this fabric
+    the only link evidence is the report, so a cut stays a cut however many heartbeat frames a
+    switch punts meanwhile.
     """
 
     def test_punted_heartbeat_frames_do_not_keep_a_cut_link_alive(self):
@@ -470,11 +470,11 @@ class AnLldpFabricsPassIsThePassItWasTest(unittest.TestCase):
 @unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
 class TheWatchdogsPassesAreOnRecordTest(unittest.TestCase):
     """
-    [Co-developed with claude code -- Adam] The orchestrator's 09-26 addendum: H1 at the worst
-    phase can only be verified if the watchdog's pass times are observable -- its phase relative
-    to the heartbeat's rounds drifts by the passes' own durations, which nothing measured. So every
-    pass is recorded (its start and end on the proxy's monotonic clock, and how many directions it
-    turned down and up), a bounded log served in switch_state's heartbeat block.
+    [Co-developed with claude code -- Adam] The watchdog's phase relative to the heartbeat's
+    rounds drifts by the passes' own durations, so the worst case can only be verified if the
+    pass times are observable, and nothing measured them. So every pass is recorded (its start
+    and end on the proxy's monotonic clock, and how many directions it turned down and up), a
+    bounded log served in switch_state's heartbeat block.
     """
 
     def test_every_pass_is_recorded_with_its_times_and_its_transitions(self):

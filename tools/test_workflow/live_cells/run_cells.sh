@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # run_cells.sh -- the regression grid. Runs the cells in this directory, one at a time, restoring
-# the lab between them, and prints one summary line whose FAIL count is the number the night
-# round reports.
+# the lab between them, and prints one summary line whose FAIL count is the number a
+# run reports.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -26,8 +26,8 @@
 #                               a round, and it says so on the summary line.
 #
 # NDT_ROOT names the checkout whose `ndt` is driven (default: this repo). The cells are the
-# instrument; the tree under test is whichever one NDT_ROOT points at, so a night round can run
-# this grid out of a worktree against the main checkout's `ndt` -- which is the only `ndt` the
+# instrument; the tree under test is whichever one NDT_ROOT points at, so this grid can run
+# out of a worktree against the main checkout's `ndt` -- which is the only `ndt` the
 # lab helper acts for.
 #
 # 🔴 RESTORE BETWEEN CELLS, and in this order, because the order is load-bearing:
@@ -138,8 +138,8 @@ restore() {   # <label> -> 0 clean, 1 not
     # this machine whenever an app ran as root) and not from grep CLEAN alone -- `NOT CLEAN` and
     # `NOT CHECKED` both contain neither. ded00d06's rc 3 is a refusal too.
     #
-    # 🔴 2026-09-12, FIX-NDT-8 (Adam, form 1 Q1). BACK TO A HARD JUDGEMENT, on a vocabulary that
-    # can now carry one. Between 09-12 01:09 and today this block RECORDED `ndt down`'s rc and
+    # 🔴 2026-09-12. BACK TO A HARD JUDGEMENT, on a vocabulary that
+    # can now carry one. Before that this block RECORDED `ndt down`'s rc and
     # judged the machine by the sweep and the orphan verdict alone, because that rc had three
     # sources and one of them -- a component that died of a fatal signal, reported once out of a
     # .exit record -- can be LAST round's ending, which would have stopped the grid and blamed
@@ -176,7 +176,7 @@ restore() {   # <label> -> 0 clean, 1 not
         if (( blocked )); then
             # 🔴 WHO blocked it. A refusal names the pid and what it is protecting, and that is
             # the one thing a stopped grid needs in its own log -- the raw directory survives,
-            # but the reason a night round stopped should not require opening it.
+            # but the reason a run stopped should not require opening it.
             echo "    who blocked it:" >&2
             grep -hE "refusing to |pid [0-9]+, started |is claimed by |measuring=" \
                 "$rdir/3-down.log" "$rdir/4-clean.log" 2>/dev/null | sed 's/^/      /' >&2
@@ -196,7 +196,7 @@ restore() {   # <label> -> 0 clean, 1 not
 # A SOURCE SEAM, the same one tools/test_workflow/ndt has and for the same reason: sourced with
 # RUN_CELLS_LIB_ONLY=1 this file defines restore() and stops, so tests/shell/mutate_live_cells.sh
 # can drive the restore DECISION against a recording fake `ndt` instead of against a lab. Without
-# it the only way to exercise this function is a night round, and the rules above -- which rc
+# it the only way to exercise this function is a full live run, and the rules above -- which rc
 # means restored -- would be the one part of the grid nothing tests. `return` outside a function
 # is legal only in a sourced file, which is exactly when this line is reached with the variable
 # set; executed normally it is never reached with it set.

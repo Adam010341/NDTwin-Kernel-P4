@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for finding #77 -- which testbed_topo.py `ndt up ovs` launches, and whether the
+# Mutation gate for which testbed_topo.py `ndt up ovs` launches, and whether the
 # sweep can still find that process afterwards.
 #
 # [Co-developed with claude code -- Adam]
@@ -62,7 +62,7 @@ shadow_of() {
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
 # read this gate: it learns which argument is the file and which is the anchor from this
 # function's own `local ... file="$2" old="$3"` line. A gate that tool cannot read is a gate it is
-# not checking -- finding #28, where two gates written the same night extracted zero anchors and
+# not checking: two gates written the same night extracted zero anchors and
 # nobody would have known. (Three gates in this directory still read NO-ANCHORS today, among them
 # mutate_ndt_up_target.sh, whose `cat > $A/m1.old` heredoc form this one deliberately avoids.)
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
@@ -179,7 +179,7 @@ report "M4: a missing topology starts an empty window anyway" "$m" \
        "rc is non-zero"
 
 # Passes every check that only asks "is it the repo's file" on a default install, and puts
-# FINDING-01's shape back: two places that name a tree, no message when they disagree.
+# The two-places shape back: two places that name a tree, no message when they disagree.
 m=$(mutant m5 "$LAB" \
     "ovs_topo_script() { printf '%s/testbed_topo.py' \"\$KERNEL_DIR\"; }" \
     "ovs_topo_script() { printf '/home/adam/Desktop/NDTwin-Kernel/testbed_topo.py'; }")
@@ -187,7 +187,7 @@ report "M5: the path is a second constant, not the configured tree" "$m" \
        "a different KERNEL_DIR moves the script"
 
 # "Existence is not wiring": every function-level check stays green while the verb root actually
-# reaches runs the old launch. That is exactly the shape finding #77 had.
+# reaches runs the old launch. That is exactly the shape of the original defect.
 m=$(mutant m6 "$LAB" \
     "        ovs_topo_start" \
     "        \$TMUX new-session -d -s topo -c /home/adam/Network-Traffic-Generator \"\$NTG_PY\" /home/adam/Network-Traffic-Generator/testbed_topo.py")

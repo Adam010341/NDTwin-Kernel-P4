@@ -1,4 +1,5 @@
-"""The pre-registered predictions: read from the committed TSV, never derived from a run.
+"""The predictions, written down before any run: read from the committed TSV, never derived
+from a run.
 
 [Co-developed with claude code -- Adam]
 
@@ -41,7 +42,7 @@ NOT_OBSERVED = "not observed"
 def delta(expected_label, observed_label, phase=None):
     """same | flipped | unpredicted | not observed. A cell this run never observed (verdict
     phase "unobserved": a later Cut's cell, or one --only left out) is no evidence about its
-    prediction either way (Cut 2 review m1)."""
+    prediction either way."""
     if phase == "unobserved":
         return NOT_OBSERVED
     if expected_label is None:

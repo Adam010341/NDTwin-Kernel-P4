@@ -6,8 +6,8 @@
 #
 # Four findings from the 09-02/09-03 night rounds, all of them about the same two commands:
 #
-# #3  A failed `ndt up ovs4` does not roll back. Measured 2026-09-02 23:36-23:39
-#     (doc/audit/2026-09-03_night-rounds/round1-ovs/02_): a sibling session's kernel took :8000
+# #3  A failed `ndt up ovs4` does not roll back. Measured 2026-09-02 23:36-23:39:
+#     a sibling session's kernel took :8000
 #     four seconds before the bring-up started; `ndt up` built Ryu (:8080/:6653/:6633) and a
 #     15-process / 36-veth data plane, and only THEN did stack.sh's [3/3] refuse. `ndt up`
 #     returned failure and left all of it running, with no kernel. Three minutes later the same
@@ -22,7 +22,7 @@
 #
 # #49 `ndt down`'s own verify is not synchronised with the sweep it verifies: it printed
 #     "XX bmv2 switches: 5 still running" and "not clean", and `ps -eo comm=` counted 0 twenty
-#     seconds later (round3-restart-concurrency/SUMMARY.md:167, 15_). The fabric was gone; the
+#     seconds later. The fabric was gone; the
 #     verdict was taken before the machine had finished agreeing with it.
 #
 # #83 `ndt:55` hard-codes LAB=/usr/local/sbin/ndtwin-lab, a root-owned COPY. The copy on this
@@ -169,9 +169,9 @@ CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
 # the state every other section assumes; FX_LAB_KERNEL_DIR is how section 6 moves it away.
 LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
 LAB_DEFAULT_KERNEL_DIR="${FX_LAB_KERNEL_DIR:-'"$FIX"'}"
-# [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the heartbeat pidfile and
-# report are fixture paths (never present), so a heartbeat running on this machine cannot add a
-# `heartbeat stop` to a teardown cell or a row to a status cell.
+# [Co-developed with claude code -- Adam] The heartbeat pidfile and report are fixture paths (never
+# present), so a heartbeat running on this machine cannot add a `heartbeat stop` to a teardown cell
+# or a row to a status cell.
 HB_PIDFILE="'"$FIX"'/run/heartbeat.pid"; HB_REPORT="'"$FIX"'/run/heartbeat.json"
 # `sudo` and `sleep` are shell functions here, which shadow the commands for every caller in
 # this shell -- including the ones inside ndt. No production seam, and no root.
@@ -894,13 +894,12 @@ check "  the rc-3 refusal still fires"                     "5" "$(rc_of_out "$OU
 has   "  and still carries the reason out of the subshell" "4 host(s) asked for on the p4 plane, 128 declared" "$OUT"
 
 # ==========================================================================================
-section '12. A1-a: what stack.sh down said reaches the operator, instead of being filtered'
-# FIX-NDT-4 section 7-1, Adam's ruling 2026-09-12 ("both"). ndt down piped stack.sh's teardown
-# output through `grep -E 'stopped|still|held'`. Measured at the text layer on 09-12 (the real
-# messages through the real regex, logs/gates-0910/red-A1a-textlayer.ndt5-0912-r1.log): six of
-# the eight lines that matter were dropped, and the one that got through --
-# "teardown itself worked, but something crashed rather than stopped:" -- had its own next
-# line, the NAMES, eaten. Every message below is copied from tools/test_workflow/stack.sh.
+section '12. what stack.sh down said reaches the operator, instead of being filtered'
+# 2026-09-12. ndt down piped stack.sh's teardown output through `grep -E 'stopped|still|held'`.
+# Measured at the text layer on 09-12 (the real messages through the real regex): six of the eight
+# lines that matter were dropped, and the one that got through -- "teardown itself worked, but
+# something crashed rather than stopped:" -- had its own next line, the NAMES, eaten. Every message
+# below is copied from tools/test_workflow/stack.sh.
 STACK_DOWN_REAL="Shutting down (reverse order)
   stopped kernel
   🔴 ryu did not stop cleanly: killed by SIGABRT
@@ -981,9 +980,9 @@ check "🔴 a clean stack.sh half is still green"            "0" "$(rc_of_out "$
 hasnt "  with nothing said about it"                       "stack.sh down exited" "$OUT"
 
 # ==========================================================================================
-section '14. ROLE-12: the teardown marker has an OWNER'
+section '14. the teardown marker has an OWNER'
 # ==========================================================================================
-# Measured live by ROLE-12, 2026-09-12 02:07:18-02:07:32 (hunt-0911/logs/ROLE-12/c2b-*, marker
+# Measured live 2026-09-12 02:07:18-02:07:32 (the marker
 # sampled every 0.2 s). The H3 marker had no owner: mark_teardown_start wrote `pid=$$`
 # unconditionally and mark_teardown_end was an unconditional `rm -f`.
 #
@@ -1058,10 +1057,10 @@ hasnt "  and says nothing about another teardown" "is still running" "$OUT"
 hasnt "  nor about taking one over"               "taking over the teardown marker" "$OUT"
 
 # ==========================================================================================
-section '15. ROLE-12: the rc of a teardown is its ENDING, not a reading from the middle of it'
+section '15. the rc of a teardown is its ENDING, not a reading from the middle of it'
 # ==========================================================================================
-# Measured by ROLE-12, 2026-09-12: SEVEN out of seven `ndt down`s over a live P4 fabric exited
-# 1, including one with no concurrency at all (c6-03-down-p4-solo.log, rc captured in the
+# Measured 2026-09-12: SEVEN out of seven `ndt down`s over a live P4 fabric exited
+# 1, including one with no concurrency at all (a solo teardown, rc captured in the
 # foreground). Two live OVS teardowns and one already-down lab: rc 0, and not one of these
 # lines. The shape is the order of the steps, not the plane: `stack.sh down` is step [1/3] and
 # the bmv2 sweep is [3/3], so on a live P4 fabric the port assertion necessarily runs while the
@@ -1169,7 +1168,7 @@ check "  and report_exit's fatal-ending line"             "1" \
       "$(grep -cF 'did not stop cleanly:' "$STACK_REAL")"
 
 # ==========================================================================================
-section "16. ROLE-12 cell 3: 'ndt clean' refuses while a teardown is in flight"
+section "16. 'ndt clean' refuses while a teardown is in flight"
 # ==========================================================================================
 # 02:08:24.569 on 2026-09-12, with the marker present and D1 alive and tearing down ten P4
 # switches: `ndt clean` was NOT refused. It exited 1, printed `not clean`, and listed the
@@ -1227,9 +1226,9 @@ hasnt "  it did not refuse itself"        "refusing to judge" "$OUT"
 has   "  and its verify clean really ran" "ports closed" "$OUT"
 
 # ==========================================================================================
-section "17. ROLE-11 F5: 'ndt clean' does not call this stack's own fabric somebody else's"
+section "17. 'ndt clean' does not call this stack's own fabric somebody else's"
 # ==========================================================================================
-# Measured 2026-09-12 02:25:14 (ROLE-11 F5, hunt-0911/logs/ROLE-11/18-clean-live.log), thirty
+# Measured 2026-09-12 02:25:14, thirty
 # seconds after the reader had brought that fabric up himself with `ndt up p4 4`, following the
 # manual's own instruction to verify it with `ndt clean`. Seventy-four XX lines, closing on
 # `this stack did not start it; to kill it too:  ndt down --deep` -- and the first two entries
@@ -1295,8 +1294,8 @@ has   "  which names the port it is about"          "held by nothing this stack 
 # ==========================================================================================
 section "18. ROLE-9: a REFUSED 'ndt up p4 <n>' leaves the P4 host knob exactly as it found it"
 # ==========================================================================================
-# Measured by ROLE-9 on 2026-09-12, twice and in both directions (cell 4b at 04:14:52 and cell
-# 4c at 04:17:57; hunt-0911/logs/ROLE-9/c4b-up.log, c4c-up.log). `ndt up p4 <n>` wrote <n> into
+# Measured on 2026-09-12, twice and in both directions (cell 4b at 04:14:52 and cell
+# 4c at 04:17:57). `ndt up p4 <n>` wrote <n> into
 # p4_proxy/mininet/host_count_override BEFORE the H4 topology check, was refused 0.1 s later
 # having started nothing at all (`[1/3]` zero times, bmv2 0 -> 0), and never put the file back.
 # 4b verbatim, knob 4 on the way in:
@@ -1326,7 +1325,7 @@ knob_put()  { printf '%s' "$1" > "$KNOBF"; }
 
 # -- 4b, verbatim: knob 4, `ndt up p4 128`, NDT_TOPO naming a 4-host model.
 reset_fix; rm -f "$DM"
-knob_put '# Adam: 4 for tonight. NOT committed -- see LAB-RULES hard rule 5.
+knob_put '# 4 for tonight. NOT committed -- see the lab rules.
 4
 '
 KNOB_BEFORE="$(knob_hex)"
@@ -1394,7 +1393,7 @@ check "🔴 and that refusal moved nothing either"           "$KNOB_BEFORE" "$(k
 # really put back, so it is the only place where "write $KNOB_ENTRY back" and "restore the
 # bytes" can be told apart. host_count_in reads 4 out of both.
 reset_fix; rm -f "$DM"; echo "0 10" > "$FIX/bmv2.seq"
-knob_put '# Adam: 4 for tonight, not committed
+knob_put '# 4 for tonight, not committed
 4
 '
 KNOB_BEFORE="$(knob_hex)"
@@ -1444,7 +1443,7 @@ hasnt "  and is not refused as another network"            "a model of a differe
 check "  the knob was written to the size that was built"  "128" "$(cat "$KNOBF")"
 
 # ==========================================================================================
-section "19. ROLE-9 / ROLE-11 F6: the claim note carries the verdict 'verify clean' reached"
+section "19. the claim note carries the verdict 'verify clean' reached"
 # ==========================================================================================
 # ROLE-9, 2026-09-12 04:16:03, .test_run/lab.claim verbatim after the tenth round's teardown:
 #
@@ -1545,9 +1544,9 @@ check "🔴 and no claim file is invented to narrate"    "gone" \
       "$( [[ -f "$FIX/.test_run/lab.claim" ]] && echo present || echo gone )"
 
 # ==========================================================================================
-section "20. FIX-NDT-8: a REFUSED 'ndt up' exits 5; a DIRTY READING still exits 1"
+section "20. a REFUSED 'ndt up' exits 5; a DIRTY READING still exits 1"
 # ==========================================================================================
-# Adam, 2026-09-12 (form 1 Q1, form 5 Q15b): one vocabulary across up, down and clean.
+# 2026-09-12: one vocabulary across up, down and clean.
 #   rc 1  something was MEASURED and it was dirty -- alive, held, would not stop
 #   rc 3  nothing was measured, because there was nothing to measure
 #   rc 5  a guard REFUSED; this command did not act at all
@@ -1647,14 +1646,13 @@ OUT="$(drive 'preflight p4')"
 check "  🔴 and with nothing wrong at all, preflight is still 0" "0" "$(rc_of_out "$OUT")"
 
 # ==========================================================================================
-section "21. FIX-NDT-8: 'ndt clean' answers 3 when there was nothing to judge, 5 when refused"
+section "21. 'ndt clean' answers 3 when there was nothing to judge, 5 when refused"
 # ==========================================================================================
-# Adam, 2026-09-12 (form 1 Q1): "沒量" 不是 "乾淨". `ndt clean` on a machine where no fabric was
-# ever started walked five assertions over an empty process table, found nothing, printed
-# `clean` and exited 0 -- byte-identical, to any script, to a teardown that removed ten bmv2
-# switches and proved them gone. The manual sends a first-time reader to this command to VERIFY
-# a lab; the answer it gave on a machine with no lab at all was the answer it gives on a lab
-# that was torn down correctly.
+# 2026-09-12: "沒量" 不是 "乾淨". `ndt clean` on a machine where no fabric was ever started walked five
+# assertions over an empty process table, found nothing, printed `clean` and exited 0 --
+# byte-identical, to any script, to a teardown that removed ten bmv2 switches and proved them gone.
+# The manual sends a first-time reader to this command to VERIFY a lab; the answer it gave on a
+# machine with no lab at all was the answer it gives on a lab that was torn down correctly.
 #
 # 🔴 The verdict LINE is asserted with grep -x, not with a substring. `clean` occurs inside
 # `not clean` and inside every sentence about being clean, and this whole group is about which
@@ -1679,10 +1677,9 @@ check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<
 # A registry entry is a subject on its own: .test_run/pids/ is what `ndt down` acts on, so a
 # machine that has one has something for this command to be about.
 # [Co-developed with claude code -- Adam]
-# 🔴 A LIVE entry: a `sleep` this cell spawns (before the pidfile is written, so it is not a
-# recycled number either) and kills straight after. It was 992261 until 2026-09-25 -- a number
-# nothing on this machine holds, i.e. a STALE entry, which Adam's ruling that day (TICKET-ndt-
-# ovs-claim section 2 item 3) says is NOT something to judge; the stale half lives in
+# 🔴 A LIVE entry: a `sleep` this cell spawns (before the pidfile is written, so it is not a recycled
+# number either) and kills straight after. It was 992261 until 2026-09-25 -- a number nothing on
+# this machine holds, i.e. a STALE entry, which is NOT something to judge; the stale half lives in
 # tests/shell/test_ndt_ovs_claim.sh section 10. Not this suite's own shell: if a regression ever
 # made this path signal what the registry names, it must hit a fixture and not the harness.
 ( exec sleep 120 ) >/dev/null 2>&1 </dev/null &
@@ -1723,13 +1720,13 @@ check "🔴 the teardown's own verify clean still ends on 'clean'" "1" "$(grep -
 check "  and the teardown is still rc 0"             "0" "$(rc_of_out "$OUT")"
 
 # ==========================================================================================
-section "22. FIX-NDT-8: 'ndt down' answers 3 when there was nothing to tear down, 5 when refused"
+section "22. 'ndt down' answers 3 when there was nothing to tear down, 5 when refused"
 # ==========================================================================================
-# Adam, 2026-09-12 (form 1 Q1). The third table of the same three words. `ndt down` on a lab
-# that was already down printed its four steps, verified an empty machine and exited 0 --
-# indistinguishable, to the caller, from a teardown that removed a fabric and proved it gone.
-# ROLE-12 recorded exactly that pair on 09-12 ("two live OVS teardowns and one already-down
-# lab: rc 0") and had no way to tell the third one from the other two except by reading the log.
+# 2026-09-12. The third table of the same three words. `ndt down` on a lab that was already down
+# printed its four steps, verified an empty machine and exited 0 -- indistinguishable, to the
+# caller, from a teardown that removed a fabric and proved it gone. A recording of exactly that pair
+# was made on 09-12 ("two live OVS teardowns and one already-down lab: rc 0") and had no way to tell
+# the third one from the other two except by reading the log.
 reset_fix; rm -f "$DM" "$FIX/manifest.json"
 OUT="$(drive 'cmd_down')"
 check "🔴 tearing down an already-down lab is rc 3, not rc 0" "3" "$(rc_of_out "$OUT")"
@@ -1807,13 +1804,13 @@ OUT="$(drive 'cmd_down --nope')"
 check "  an unknown option is still 2, not 5"        "2" "$(rc_of_out "$OUT")"
 
 # ==========================================================================================
-section "23. FIX-NDT-8 / Adam Q3: [3/3] says it ran the Mininet sweep for you"
+section "23. [3/3] says it ran the Mininet sweep for you"
 # ==========================================================================================
 # FIX-NDT-5 stopped `ndt down` repeating stack.sh's advice to run the Mininet sweep by hand --
 # inside a teardown that advice is wrong, because [3/3] has already done it. What was left is a
 # teardown that runs the sweep and never says so: an operator following the manual, which does
-# carry that hand-typed command, has no way to tell that it is redundant here. Adam, 2026-09-12
-# (form 1 Q3): the step says it itself.
+# carry that hand-typed command, has no way to tell that it is redundant here. The step now
+# says it itself (2026-09-12).
 reset_fix; rm -f "$DM"
 OUT="$(drive 'cmd_down')"
 has   "🔴 [3/3] says it ran the Mininet sweep"    "this step ran the Mininet sweep (mn -c) for you" "$OUT"
@@ -1838,12 +1835,12 @@ check "  which is still a failed teardown"        "1" "$(rc_of_out "$OUT")"
 has   "  and the failure still has its own line"  "the sweep did not finish" "$OUT"
 
 # ==========================================================================================
-section "24. FIX-NDT-8 / Adam 11:23: the OVS bring-up prints the way IN, like the P4 one"
+section "24. the OVS bring-up prints the way IN, like the P4 one"
 # ==========================================================================================
 # `ndt up p4` ended on `proxy :8081  kernel :8000  Mininet CLI: sudo tmux -L ndtwinlab attach -t
 # topo`; `ndt up ovs` ended on nothing of the kind, so an operator who had just built a 128-host
-# OVS fabric was not told how to get into it -- on the plane that IS the default. Adam asked for
-# it at 11:23 on 2026-09-12.
+# OVS fabric was not told how to get into it -- on the plane that IS the default. It was added on
+# 2026-09-12.
 #
 # 🔴 One function for both planes, and that is the point: two copies of a command an operator
 # pastes drift, and this file already has the evidence (up_p4 and up_ovs carry two copies of the

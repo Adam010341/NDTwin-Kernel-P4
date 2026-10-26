@@ -178,14 +178,14 @@ DISPATCH_STATUS_FOR_REQUEST_SAMPLE = {
 }
 
 # --- doc/2026-01-02_ndt_api.md §1, §2, §2b, §2c: the four link endpoints ----------------------
-# [Co-developed with claude code -- Adam] -- Adam's ruling E-21, 2026-09-07.
+# [Co-developed with claude code -- Adam] -- 2026-09-07.
 # Every one of these is the documented example, copied. Where the document writes "..." for a
 # value it does not spell out (qdisc_before/qdisc_after), a plausible string of the right type is
 # used and nothing else is invented; where it does not print an example at all (§2c's tc entries)
 # the shape is transcribed from utils::NetemLinkFault.hpp's restoreInterface, which builds them,
 # and the fixture name says so.
 
-#: §1 success on fix/w8-declared-link-failure-sticky and later.
+#: §1 success, from the declared-link-failure change on.
 LINK_FAILURE_REPORTED_SAMPLE = {
     "status": "link failure processed",
     "down_reason": "declared",
@@ -304,7 +304,7 @@ FIXTURES = {
                            optional={"power_path": spec.Str(
                                allowed=("synthetic", "snmp", "ssh", "none"))})),
         POWER_REPORT_SAMPLE),
-    # [Co-developed with claude code -- Adam] -- Q12, Adam's ruling (a) of 2026-09-03.
+    # [Co-developed with claude code -- Adam] -- Q12, 2026-09-03.
     # The sample is the NEW shape, because --self-test's job is "prove the schemas accept what
     # the kernel emits" and this is what it emits now. The scalar branch stays in the schema for
     # a kernel that predates the split; it has its own case in tests/python/test_contract_spec.py
@@ -392,7 +392,7 @@ FIXTURES = {
     # Not from doc/2026-01-02_ndt_api.md -- that document predates the endpoint. This is the
     # body HttpSession::handleGetFlowDispatchStatus builds, transcribed field by field from
     # src/ndt_core/http/HttpSession.cpp, with a failure record taken from the shape recorded
-    # live in doc/audit/2026-08-30_a7-dispatch-visibility (a rule naming a nonexistent port).
+    # live on 2026-08-30 (a rule naming a nonexistent port).
     #
     # controller_status is 200 on purpose and it is not a typo: the P4 proxy answers HTTP 200
     # with an error body when a write fails, so this field has no discriminative power in P4

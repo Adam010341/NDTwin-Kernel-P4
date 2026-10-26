@@ -6,7 +6,7 @@ Which code a live-p1 run ran, and whether a treatment's code is the controls' co
 
 The external comparison (README, "合併前的比對") runs its controls C1, C2 (C3, C4) on the main
 checkout at trunk, then merges B there LOCALLY and runs the treatment T. "The same code apart from
-B" is then four facts, and this file records them and checks them (the round-4 review's M-2):
+B" is then four facts, and this file records them and checks them:
 
   * the checkout's HEAD and its parents -- T's HEAD must be a merge whose FIRST parent is the
     controls' HEAD and whose second is the B commit under test;
@@ -20,8 +20,7 @@ B" is then four facts, and this file records them and checks them (the round-4 r
   * the two interpreters (the proxy's venv and the controllers' / driver's): live-p1/
     venv_fingerprint.sh's distribution sha256 for each.
 
-[Co-developed with claude code -- Adam] Round 6 (the round-5 re-review's M-2, and the orchestrator's
-ruling on it):
+[Co-developed with claude code -- Adam] Scope of the uncommitted comparison:
   * the uncommitted comparison covers CODE paths only: doc/**/*.md and doc/audit/**/*.tsv are left
     out (other sessions edit ledgers and reports in the shared checkout all day); every other
     tracked file is compared;
@@ -59,7 +58,7 @@ STOCK = "/usr/local/bin/simple_switch"
 #: The facts that must be equal between the controls, and between the controls and T.
 SAME = ("uncommitted", "kernel", "bmv2_fabric", "bmv2_libs", "bmv2_stock", "helper", "venv",
         "tutorials")
-#: Tracked files left out of the uncommitted comparison (the orchestrator's round-6 ruling): docs and
+#: Tracked files left out of the uncommitted comparison: docs and
 #: audit tables, which other sessions edit while the comparison runs.
 NOT_CODE = (re.compile(r"^doc/.*\.md$"), re.compile(r"^doc/audit/.*\.tsv$"))
 TUTORIALS_PARTS = ("exercises/p4runtime", "exercises/flowcache", "utils")

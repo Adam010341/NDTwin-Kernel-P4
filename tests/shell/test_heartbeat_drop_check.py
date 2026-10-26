@@ -5,8 +5,8 @@ runs each program, one heartbeat frame per data port, no controller.
 
 [Co-developed with claude code -- Adam]
 
-Adam's ruling (09-28): on an external control plane the heartbeat is default-SAFE -- it starts only
-when this check proves the program drops the heartbeat's frame. What is asserted, and against what:
+On an external control plane the heartbeat is default-SAFE -- it starts only when this check proves
+the program drops the heartbeat's frame. What is asserted, and against what:
 
   1. the frame the check injects IS the daemon's frame (the root helper's encode, byte for byte);
   2. the three programs live-p1/06's external arms load -- advanced_tunnel (p4runtime skeleton and
@@ -18,7 +18,7 @@ when this check proves the program drops the heartbeat's frame. What is asserted
   5. rc 2 when the check cannot tell (an unreadable package, a switch that exits), rc 3 when there
      is nothing to check;
   6. the cache: reused for the same program and ports only, UNKNOWN never kept;
-  7. NOT THE LAB (the orchestrator's conditions, 09-28): no root; its socket and pcaps in its own
+  7. NOT THE LAB (09-28): no root; its socket and pcaps in its own
      directory; a Thrift port outside the lab's, checked free right before the launch; a device id
      no fabric has; stopped by its exact pid, and killed with the checker; and, while it runs,
      nothing that finds the fabric's switches by name or argv takes it for one. [Co-developed with
@@ -31,12 +31,12 @@ when this check proves the program drops the heartbeat's frame. What is asserted
   9. end to end: ndt's own hb_drop_check_step, sourced, running this checker on a converted
      package -- its one-line answer, and no throwaway switch left when the fabric would start.
 
-🔴 THE ORCHESTRATOR'S CONDITIONS HOLD FOR EVERY LAUNCH THIS SUITE MAKES, ALSO UNDER A MUTANT (the
-round-4 review's M-4): every Launch.start in this process goes through launch_violation() below --
-argv[0] ndt-hbdrop-bmv2, no argument naming simple_switch*, --thrift-port in 29400-29499,
---device-id >= 900000, --notifications-addr ipc://notif.ipc in its own ndt-hbdrop-* directory,
-pcaps and log relative to it, not root -- and a launch that breaks one is NOT made (it is
-recorded, and the last check goes red). A --version run is refused unless argv[0] is ours.
+🔴 THE NOT-THE-LAB CONDITIONS HOLD FOR EVERY LAUNCH THIS SUITE MAKES, ALSO UNDER A MUTANT: every
+Launch.start in this process goes through launch_violation() below -- argv[0] ndt-hbdrop-bmv2, no
+argument naming simple_switch*, --thrift-port in 29400-29499, --device-id >= 900000,
+--notifications-addr ipc://notif.ipc in its own ndt-hbdrop-* directory, pcaps and log relative to
+it, not root -- and a launch that breaks one is NOT made (it is recorded, and the last check goes
+red). A --version run is refused unless argv[0] is ours.
 Section 9 starts other processes only after section 7's recorder found the tool's launch clean.
 
 Every other cell launches the real stock simple_switch (NDT_HB_CHECK_BMV2 overrides it; the gates
@@ -105,12 +105,11 @@ def section(title):
 
 
 def lab_claim_says_wait(path, me, now=None):
-    """[Co-developed with claude code -- Adam] The orchestrator's round-6 ruling on S-8: this suite
-    starts throwaway switches on whatever machine runs it, and on the lab it must not add any while
-    somebody else holds the lab or a measurement is declared. The reason to skip, or None. The claim
-    file is ndt's (`owner=`, `expires=` in unix seconds, `measuring=`); one that is absent, expired
-    or unreadable does not hold the lab -- as ndt itself reads it ("malformed (no usable expires=)
-    -- treated as free")."""
+    """[Co-developed with claude code -- Adam] This suite starts throwaway switches on whatever machine
+    runs it, and on the lab it must not add any while somebody else holds the lab or a measurement
+    is declared. The reason to skip, or None. The claim file is ndt's (`owner=`, `expires=` in unix
+    seconds, `measuring=`); one that is absent, expired or unreadable does not hold the lab -- as
+    ndt itself reads it ("malformed (no usable expires=) -- treated as free")."""
     try:
         with open(path) as fh:
             fields = dict(line.rstrip("\n").split("=", 1) for line in fh if "=" in line)
@@ -154,8 +153,8 @@ spec = importlib.util.spec_from_file_location("hbcheck", TOOL)
 c = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(c)
 
-# [Co-developed with claude code -- Adam] The launch guard (round-4 review M-4, the orchestrator's
-# 09-28 conditions), as source: section 7's SIGKILL probe runs it in its own process too.
+# [Co-developed with claude code -- Adam] The launch guard (the 09-28 not-the-lab conditions), as
+# source: section 7's SIGKILL probe runs it in its own process too.
 GUARD_SRC = r"""
 import os, re
 LAUNCH_VIOLATIONS = []
@@ -617,8 +616,8 @@ try:
             exec(compile(ast.Module([node], []), "p4_testbed_topo", "exec"), ns)
 
     # --- 7a. [Co-developed with claude code -- Adam] What the check WOULD launch: a recorder stands
-    # in for the switch, so a mutant that breaks a condition launches nothing (the round-4 review's
-    # M-4) -- the argv is read where it is built.
+    # in for the switch, so a mutant that breaks a condition launches nothing -- the argv is read
+    # where it is built.
     recorded = {}
 
     def recorder(self):
@@ -978,7 +977,7 @@ try:
         check("  no throwaway switch is left there either", "topo-start throwaway=0",
               next((l for l in ev_fl.splitlines() if l.startswith("topo-start throwaway=")), "no topo-start"))
 
-    check("🔴 every launch this suite asked for met the orchestrator's conditions", [], GUARD["LAUNCH_VIOLATIONS"])
+    check("🔴 every launch this suite asked for met the launch conditions", [], GUARD["LAUNCH_VIOLATIONS"])
 finally:
     shutil.rmtree(WORK, ignore_errors=True)
 

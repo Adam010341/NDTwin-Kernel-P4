@@ -5,9 +5,9 @@
 # [Co-developed with claude code -- Adam]
 #
 # WHY THIS FILE EXISTS. 06 had no test at all, and the one decision it makes was inverted:
-# `expected_rc()` wanted rc 1 from every skeleton arm, so a completely correct round of
-# twenty-six arms would have printed `FAIL 06_thirteen -- 11 of 26` (judge A2, TICKET-P3
-# section 9 ruling 9). Nothing in the repo would have said so before the lab did.
+# `expected_rc()` wanted rc 1 from every skeleton arm, so a completely correct round of twenty-six
+# arms would have printed `FAIL 06_thirteen -- 11 of 26`. Nothing in the repo would have said so
+# before the lab did.
 #
 # 🔴 "RED" IS A PROPERTY OF THE EXPECTATIONS, NOT OF THE EXIT CODE. drive_exercise.py's
 # skeleton arms assert the red things -- "h2 received 0 packets", "every reported port is 0",
@@ -45,17 +45,17 @@ hasnt() { /usr/bin/grep -qF -- "$2" <<<"$3" && { FAIL=$((FAIL+1)); printf '  FAI
 section() { printf '\n%s\n' "$1"; }
 
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/live-p1-13-XXXXXX")"
-#: 🔴 THE DECOY IS IN THE REAL CHECKOUT, SO THE TRAP HAS TO KNOW ABOUT IT (§9 ruling 16④).
-#: Section 6's own `rmdir` only runs if the suite gets that far; an interrupt or an early exit
-#: between `mkdir` and it would leave a fixture directory in `live-p1/runs/` -- which is
-#: precisely the litter this file exists to assert nobody leaves.
+#: 🔴 THE DECOY IS IN THE REAL CHECKOUT, SO THE TRAP HAS TO KNOW ABOUT IT. Section 6's own `rmdir`
+#: only runs if the suite gets that far; an interrupt or an early exit between `mkdir` and it would
+#: leave a fixture directory in `live-p1/runs/` -- which is precisely the litter this file exists to
+#: assert nobody leaves.
 DECOY="$LIVE/runs/1970-01-01T000000Z.pid${$}_06_thirteen"
 trap 'rm -rf "$FIX"; rmdir "$DECOY" 2>/dev/null' EXIT INT TERM
 
 #: What `live-p1/runs/` held BEFORE this suite ran. Section 6 asserts on the difference, never
 #: on the count: a real `06` run leaves a directory there legitimately, and a cell that counted
 #: them would go red forever after the first one -- taking the gate, which refuses to run over a
-#: red baseline, with it (round-3 ruling 4).
+#: red baseline, with it.
 RUNS_BEFORE="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | /usr/bin/grep -v '/1970-01-01T000000Z\.pid[0-9]*_06_thirteen$' | sort)"
 
 # --- the stub driver -----------------------------------------------------------------------
@@ -95,9 +95,9 @@ run13() {   # run13 <ONLY list> [<extra env assignments>...]
 # =============================================================================================
 section "1. 🔴 a correct SKELETON arm exits 0, and the step expects that"
 # =============================================================================================
-# The whole of judge A2. With rc 1 expected from every skeleton, a completely correct round is
-# reported as a failure -- eleven of twenty-six, one per exercise whose red arm is a data-plane
-# reading rather than a refusal.
+# With rc 1 expected from every skeleton, a completely correct round is reported as a failure --
+# eleven of twenty-six, one per exercise whose red arm is a data-plane reading rather than a
+# refusal.
 OUT="$(run13 basic)"
 check "  a correct pair of arms passes"                  "0" "$?"
 has   "  and says so"                                    "PASS 06_thirteen" "$OUT"
@@ -146,9 +146,8 @@ OUT="$(run13 basic_tunnel)"; RC=$?
 check "🔴 and one that exits 0 is the finding"            "1" "$RC"
 
 # 🔴 rc 1 IS NOT ENOUGH: the two exception arms must exit 1 *on their designed refusal*
-# (round-3 ruling 2). `flowcache/skeleton` that COMPILED prints `FAIL (1/1): the skeleton
-# COMPILED` and exits 1; comparing rc only, the step called that a PASS -- for exactly the
-# finding it exists to report.
+# `flowcache/skeleton` that COMPILED prints `FAIL (1/1): the skeleton COMPILED` and exits 1;
+# comparing rc only, the step called that a PASS -- for exactly the finding it exists to report.
 OUT="$(run13 flowcache RC_flowcache_skeleton=1 \
        "VERDICT_flowcache_skeleton=FAIL (1/1): the skeleton COMPILED")"; RC=$?
 check "🔴 rc 1 with a NON-refusal verdict is the finding, not a pass" "1" "$RC"
@@ -209,9 +208,9 @@ OUT="$(env -i PATH="/usr/bin:/bin" HOME="$FIX" TMPDIR="$FIX" NO_COLOR=1 NDT_OWNE
         bash "$STEP" 2>&1)"; RC=$?
 check "🔴 no interpreter with scapy is rc 2"             "2" "$RC"
 has   "  naming it"                                      "no interpreter at" "$OUT"
-# [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER (Adam's ruling G, 09-27): 06 used to
-# run `: "${NDT_OWNER:=live-p1}"`, and every round then claimed the lab as `live-p1` -- nobody.
-# Without NDT_OWNER it refuses, rc 2, before its run directory exists.
+# [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER (09-27): 06 used to run `:
+# "${NDT_OWNER:=live-p1}"`, and every round then claimed the lab as `live-p1` -- nobody. Without
+# NDT_OWNER it refuses, rc 2, before its run directory exists.
 OUT="$(env -i PATH="/usr/bin:/bin" HOME="$FIX" TMPDIR="$FIX" NO_COLOR=1 \
         ONLY=basic VENV_PY="/usr/bin/python3" DRIVER_UNDER_TEST="$FIX/driver.py" RUNS_DIR="$FIX/runs-noowner" \
         bash "$STEP" 2>&1)"; RC=$?
@@ -231,15 +230,14 @@ section "6. 🔴 this suite leaves nothing in the checkout"
 # R3 with the repo as the target instead of /tmp: every run of this file used to leave a
 # `live-p1/runs/<UTC>_06_thirteen/` directory behind, because 06 derives its raw directory from
 # its own location. RUNS_DIR is the seam; this is the assertion that the cells above used it.
-# 🔴 A SET DIFFERENCE, NOT A COUNT (round-3 ruling 4). Counting every
-# `live-p1/runs/*_06_thirteen` makes this cell -- and therefore the gate, which refuses to run
-# over a red baseline -- fail forever the moment somebody runs 06 for real ONCE. What this
-# suite can honestly assert is that IT created none; directories from real runs are evidence
-# that the step works, not litter.
-# 🔴 FIXTURE NAMES ARE NOT LITTER EITHER (§9 ruling 14a). The decoy below is deliberately
-# inside the glob now, and another copy of this suite may have one live while this one runs;
-# `1970-01-01T000000Z.pid<N>` is a name `06` itself can never write (it stamps UTC now), so it
-# is filtered by SHAPE rather than by luck.
+# 🔴 A SET DIFFERENCE, NOT A COUNT. Counting every `live-p1/runs/*_06_thirteen` makes this cell --
+# and therefore the gate, which refuses to run over a red baseline -- fail forever the moment
+# somebody runs 06 for real ONCE. What this suite can honestly assert is that IT created none;
+# directories from real runs are evidence that the step works, not litter.
+# 🔴 FIXTURE NAMES ARE NOT LITTER EITHER. The decoy below is deliberately inside the glob now, and
+# another copy of this suite may have one live while this one runs; `1970-01-01T000000Z.pid<N>` is a
+# name `06` itself can never write (it stamps UTC now), so it is filtered by SHAPE rather than by
+# luck.
 AFTER="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | /usr/bin/grep -v '/1970-01-01T000000Z\.pid[0-9]*_06_thirteen$' | sort)"
 NEW="$(comm -13 <(printf '%s\n' "$RUNS_BEFORE") <(printf '%s\n' "$AFTER"))"
 check "🔴 this suite wrote no run directory into the checkout" "" "$(printf '%s' "$NEW")"
@@ -250,20 +248,19 @@ has   "  and the raw really went to the fixture instead" "$FIX/runs" "$(run13 ba
 # shape `06` really writes makes them disagree -- and the all-counting version is the one that
 # would go red forever after the first real run of the step, taking the gate (which refuses to
 # run over a red baseline) with it.
-# 🔴 THE PID GOES BEFORE THE SUFFIX, AND THAT IS THE WHOLE FIX (TICKET-P3 §9 ruling 14a).
-# Round 4 wrote `..._06_thirteen.pid$$` -- which no longer matches this suite's own glob
-# `*_06_thirteen`, so BEFORE2 and AFTER2 never saw the decoy at all and the set-difference cell
-# below answered the same whether it used `comm -13` or plain AFTER2. The cell went green
-# because the fixture was INVISIBLE, which is the cheapest way there is to pass a test: remove
-# the thing it was supposed to be about. The stamp still marks it a fixture; the pid still
-# keeps it ours (two suites in one checkout must not race); and now it is inside the glob.
-# (DECOY is defined at the top so the EXIT trap can remove it; this is where it is created.)
+# 🔴 THE PID GOES BEFORE THE SUFFIX, AND THAT IS THE WHOLE FIX. An earlier version wrote
+# `..._06_thirteen.pid$$` -- which no longer matches this suite's own glob `*_06_thirteen`, so
+# BEFORE2 and AFTER2 never saw the decoy at all and the set-difference cell below answered the same
+# whether it used `comm -13` or plain AFTER2. The cell went green because the fixture was INVISIBLE,
+# which is the cheapest way there is to pass a test: remove the thing it was supposed to be about.
+# The stamp still marks it a fixture; the pid still keeps it ours (two suites in one checkout must
+# not race); and now it is inside the glob. (DECOY is defined at the top so the EXIT trap can remove
+# it; this is where it is created.)
 mkdir -p "$DECOY"
-# 🔴 ANOTHER COPY'S DECOY IS NOT OURS EITHER (TICKET-P3 §9 ruling 15④). The comment above says
-# the pid stops two suites in one checkout racing -- and until now only the litter cells acted
-# on it: BEFORE2/AFTER2 took EVERY fixture, so a sibling suite creating or removing its own
-# decoy between the two listings landed in the difference and reddened this cell. Keep ours
-# (pid == $$) and drop every other pid's.
+# 🔴 ANOTHER COPY'S DECOY IS NOT OURS EITHER. The comment above says the pid stops two suites in one
+# checkout racing -- and until now only the litter cells acted on it: BEFORE2/AFTER2 took EVERY
+# fixture, so a sibling suite creating or removing its own decoy between the two listings landed in
+# the difference and reddened this cell. Keep ours (pid == $$) and drop every other pid's.
 runs_visible() {   # every run dir, minus fixtures that are not this process's
     ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null \
         | /usr/bin/grep -vE "/1970-01-01T000000Z\.pid[0-9]+_06_thirteen$|^$" \

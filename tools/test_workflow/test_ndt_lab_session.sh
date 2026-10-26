@@ -70,7 +70,7 @@ check FALSE sim    $'simulator: 1 windows\nbmv2: 0  mininet: 0' "a session named
 check FALSE topo   $'energy: 1 windows -- topo: in mid-line\nbmv2: 0' "'topo:' only mid-line"
 
 # [Co-developed with claude code -- Adam]
-# G-7 (2026-09-02) added a first line to `ndtwin-lab status` naming the config source and the
+# On 2026-09-02 `ndtwin-lab status` gained a first line naming the config source and the
 # KERNEL_DIR in use, so this file's claim to cover "every shape status can produce" needs the
 # new shape or it stops being true. Two directions matter: the extra line must not hide a
 # session that is there, and -- because it carries a PATH, which is attacker-adjacent in the
@@ -79,7 +79,7 @@ CFG='config: /etc/ndtwin-lab.conf (KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel)'
 CFG_TOPO="$CFG"$'\n'"$TOPO"
 CFG_NONE="$CFG"$'\n'"$NONE"
 
-echo "the G-7 config line does not change any answer"
+echo "the config line does not change any answer"
 check TRUE  topo   "$CFG_TOPO" "config line + topo"
 check FALSE energy "$CFG_TOPO" "config line + topo"
 check FALSE topo   "$CFG_NONE" "config line + no sessions"

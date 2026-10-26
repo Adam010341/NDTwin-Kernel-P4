@@ -290,7 +290,7 @@ mutate() {
 }
 
 # 1. The classifier stops classifying: everything is active, forever.  The most direct denial of
-#    the whole ticket.  `true ||` rather than deleting the body, because -Werror is on and an
+#    the whole fix.  `true ||` rather than deleting the body, because -Werror is on and an
 #    unreachable-code or unused-variable warning would fail the build and be reported as
 #    "does not compile", which proves nothing.
 mutate "classifyFlowLiveness always answers active" "$SFLOW" \

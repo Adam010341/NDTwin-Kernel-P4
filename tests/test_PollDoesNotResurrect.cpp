@@ -1,7 +1,7 @@
 /**
  * @file test_PollDoesNotResurrect.cpp
- * @brief FINDINGS #46 (with #35 and #36): the topology poll used to overwrite a commanded
- *        power-off, permanently, and the power API then declined to fix it.
+ * @brief The topology poll used to overwrite a commanded power-off, permanently, and the power
+ *        API then declined to fix it.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -155,7 +155,7 @@ class FakeOvs : public OVSPowerStrategy
   public:
     std::vector<std::string> commands;
 
-    /// FINDINGS #82. The bridge this fake's machine has, rather than a constant: `del-br` takes
+    /// The bridge this fake's machine has, rather than a constant: `del-br` takes
     /// it away and `add-br` puts it back, so a power-off followed by a power-on sees the machine
     /// it just changed. A fixed answer would make one of the two directions untestable here --
     /// "exists" always would stop power-on ever rebuilding, "absent" always would stop power-off
@@ -205,7 +205,7 @@ class FakeOvs : public OVSPowerStrategy
         return SflowBridgeState{};
     }
 
-    /// FINDINGS #82's seam. Covered here for the reason the other four are: without it these
+    /// The bridge-exists seam. Covered here for the reason the other four are: without it these
     /// cases would run `sudo ovs-vsctl br-exists` against whatever machine the suite is on, and
     /// the answer would depend on whether a fabric happened to be up.
     std::optional<bool> executeBridgeExists(const std::string&) override
@@ -261,7 +261,7 @@ class PollDoesNotResurrectTest : public ::testing::Test
         if (m_started)
         {
             // Reverse of the start order. The manager's stop() joins all three of its threads only
-            // since fix/b5-kernel-shutdown; before that this would have aborted.
+            // since the kernel-shutdown fix; before that this would have aborted.
             m_manager->stop();
             m_monitor->stop();
         }
@@ -478,7 +478,7 @@ TEST_F(PollDoesNotResurrectTest, TheLivenessWorkersUpDoesNotWithdrawTheCommand)
            "it within a tick of every kill and the poll would resurrect the switch as before";
 }
 
-// --- 4. FINDINGS #35: the early returns must consult a measurement, not the graph ----------------
+// --- 4. the early returns must consult a measurement, not the graph ------------------------------
 
 /**
  * Power-off. The guard was `if (!getVertexIsUp(node)) return success;` -- and the graph reads down
@@ -522,7 +522,7 @@ TEST_F(PollDoesNotResurrectTest, PowerOnActuatesWhenACommandedOffIsStillStanding
     p4.advance(std::chrono::seconds(60));
     m_monitor->setVertexUp(sw());         // the graph now lies about this switch
 
-    // [Co-developed with claude code -- Adam] -- FINDINGS #80.
+    // [Co-developed with claude code -- Adam]
     // 🔴 THIS LINE IS WHAT MAKES THE CASE DISCRIMINATE, and it was not needed before. The
     // distrust window used to expire on a clock, so `advance(60)` above closed it and the only
     // thing left forcing this power-on to act was the standing COMMAND -- which is what the case
@@ -598,7 +598,8 @@ TEST_F(PollDoesNotResurrectTest, AnOvsPowerOffAlsoSurvivesThePoll)
 }
 
 /**
- * FINDINGS #82: the OVS half of #35, and the reason #46's fix was conditional on this plane.
+ * The OVS half of the early-return problem, and the reason the poll fix was conditional on this
+ * plane.
  *
  * [Co-developed with claude code -- Adam]
  * OVSPowerStrategy::powerOff opened with `if (!getVertexIsUp(node)) return success;`, and that
@@ -645,11 +646,11 @@ TEST_F(PollDoesNotResurrectTest, ARedundantOvsPowerOffIsStillRecordedAsACommand)
            "would have vetoed it took an early return on the graph's own cached isUp";
 }
 
-// --- 6. Q12: the wire shape, after the ruling ----------------------------------------------------
+// --- 6. the wire shape, after the split ----------------------------------------------------------
 
 /**
- * Q12 asked Adam whether `is_up` should become `admin_state` + `reachable` on the wire. He ruled
- * (a) on 2026-09-03: split them, and keep `is_up` as a deprecated alias of `reachable` so the
+ * Whether `is_up` should become `admin_state` + `reachable` on the wire was decided on
+ * 2026-09-03: split them, and keep `is_up` as a deprecated alias of `reachable` so the
  * external readers keep working. This case used to assert the opposite -- that no new key
  * appeared -- and was written to go red the moment the question was answered, which is what it
  * has now done.
@@ -703,7 +704,7 @@ TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeCarriesAdminStateAndReacha
 // down". True for a link that really broke. False for one that was only DECLARED broken through
 // POST /ndt/link_failure_detected: nothing about the fabric changed, so Ryu keeps listing it.
 //
-// Measured 2026-09-04 (night round R2-B, logs/r2-20-linkfail-probe.log): the endpoint answered 200
+// Measured 2026-09-04 (a live link-failure probe): the endpoint answered 200
 // and both directions read is_up=false within 0.02 s; 5 trials out of 5 flipped back to is_up=true
 // within 30 s, each one ~0.6 s after a topology poll, with /ndt/link_recovery_detected never
 // called and no line in kernel.log. The netem control arm (a real cut) stayed down 0 of 1.
@@ -1102,7 +1103,7 @@ TEST_F(DeclaredLinkFailureTest, ADeclaredEdgeBehindADeadSwitchStillReadsDeclared
 }
 
 // =================================================================================================
-// doc/KNOWN-ISSUES.md B-6, SECOND ROUND (W8b): a withdrawal has to pair with a reported break.
+// doc/KNOWN-ISSUES.md B-6, second pass: a withdrawal has to pair with a reported break.
 //
 // [Co-developed with claude code -- Adam]
 //
@@ -1110,8 +1111,7 @@ TEST_F(DeclaredLinkFailureTest, ADeclaredEdgeBehindADeadSwitchStillReadsDeclared
 //
 // The fix above makes a declaration survive a topology poll. It did not make one survive the
 // CONTROL PLANE RESTARTING, and that turned out to be a door of the same size. Measured live on
-// 2026-09-07 00:08 (arm lw8b, OVS 4 hosts, branch fix/w8-declared-link-failure-sticky @ 017c060f,
-// kernel 37d641fa9fd6fc14; console log scratch/overnight-2026-09-05/logs/live-round2-console.log):
+// 2026-09-07 00:08 (OVS 4 hosts, kernel 37d641fa9fd6fc14):
 //
 //   00:08:44  declare s1:1 -> s5:1 down    -> is_up=False down_reason=declared
 //   00:08:47  Ryu killed by pid            -> still is_up=False down_reason=declared
@@ -1123,9 +1123,8 @@ TEST_F(DeclaredLinkFailureTest, ADeclaredEdgeBehindADeadSwitchStillReadsDeclared
 // exactly like a fabric-wide recovery, and intelligent_router.py's on_link_add notifies the twin
 // from there. handleLinkRecovery then called clearEdgeDeclaredDown unconditionally.
 //
-// Adam's ruling, 2026-09-07 00:1x, option (b): a recovery report may only withdraw a declaration
-// it PAIRS with -- one that /ndt/link_failure_detected reported broken. A bare rediscovery is not
-// a repair.
+// The rule (2026-09-07): a recovery report may only withdraw a declaration it PAIRS with -- one
+// that /ndt/link_failure_detected reported broken. A bare rediscovery is not a repair.
 //
 // WHAT THESE ASSERT -- 🔴 BOTH DIRECTIONS again, because the failure mode of over-fixing this is
 // worse than the defect:
@@ -1318,19 +1317,20 @@ TEST_F(DeclaredLinkFailureTest, AReportedFailureStillSurvivesATopologyPoll)
 //
 // [Co-developed with claude code -- Adam]
 //
-// 🔴 THE FINDING (ROLE-1, 2026-09-11, read from a live kernel.log). A successor who does not
+// 🔴 THE FINDING (2026-09-11, read from a live kernel.log). A successor who does not
 // restart the kernel sees exactly one sentence about a standing declaration, and it is this poll's:
 //
 //     TopologyAndFlowMonitor.cpp:2563 updateLinks] the control plane still lists link (dpid
 //     0000000000000005 port 00000001), but a link failure was declared for it, so this poll is not
 //     marking it up. … POST /ndt/link_recovery_detected to clear this
 //
-// For a declaration that came from /ndt/inject_link_failure that advice is WRONG since W8b:
-// /ndt/link_recovery_detected pairs a recovery report with a reported break, finds none, and
-// DECLINES -- it logs "link recovery declined … the declaration was retained". The sentence that
-// names the endpoint which does work (/ndt/inject_link_recovery) is E-20's, and E-20's is printed
-// at ONE call site, src/main.cpp:398, at kernel startup. So the successor is told to use the
-// endpoint that will refuse him, and never shown the one that will not.
+// For a declaration that came from /ndt/inject_link_failure that advice is WRONG since the pairing
+// rule above: /ndt/link_recovery_detected pairs a recovery report with a reported break, finds
+// none, and DECLINES -- it logs "link recovery declined … the declaration was retained". The
+// sentence that names the endpoint which does work (/ndt/inject_link_recovery) is the startup
+// sweep's, and it is printed at ONE call site, src/main.cpp:398, at kernel startup. So the
+// successor is told to use the endpoint that will refuse him, and never shown the one that will
+// not.
 //
 // One state, two sentences, two endpoints. The fix is to make this sentence -- the one that is
 // printed every poll and therefore the one that is read -- name the right endpoint for the

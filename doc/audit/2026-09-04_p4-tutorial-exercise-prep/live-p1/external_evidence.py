@@ -6,7 +6,7 @@ treatment with it.
 [Co-developed with claude code -- Adam]
 
 09-27: `ndt up p4 --app` starts the veth heartbeat on an external control plane too, detect only.
-Adam's standing condition (09-25) is that the heartbeat must not change what a user's own
+The standing condition (09-25) is that the heartbeat must not change what a user's own
 forwarding does. What must NOT differ between runs without it and a run with it is what the
 exercise's own controller saw and did -- its log, in each round's directory -- and what each arm's
 own numbers must satisfy whatever the other runs say. The procedure that produces the runs is in
@@ -34,7 +34,7 @@ WHAT IS READ, per external arm (p4runtime skeleton and solution, flowcache solut
   * [Co-developed with claude code -- Adam] (round 6) each round report's p4c sha256 and every
     compiled JSON's sha256: refused unless each external arm's are the same in every run.
 
-WHAT IS REFUSED (exit 3) -- a comparison about nothing (the external judge's F1 and M2, 09-28):
+WHAT IS REFUSED (exit 3) -- a comparison about nothing:
   * no --samples: the round report's markers are all taken before the exercise's controller runs
     and before its pipeline is loaded, so they cannot say the heartbeat ran while it did;
   * a treatment arm whose N5 session is not what the samples show for the whole arm: never sampled
@@ -42,7 +42,7 @@ WHAT IS REFUSED (exit 3) -- a comparison about nothing (the external judge's F1 
     its written_wall stops), a stretch without a sample, a stop and a restart, a stop before the
     exercise's controller last wrote its log, or ANY OTHER session running inside the arm window;
   * [Co-developed with claude code -- Adam] a treatment arm whose session did not HEAR every one of
-    its directions while the exercise's controller ran (the round-4 review's M-3): a daemon that
+    its directions while the exercise's controller ran: a daemon that
     runs but whose frames never arrive leaves the program nothing to drop, and the comparison
     would be about nothing. Since round 6 the window is the controller's OWN: it opens at the
     first sample whose `ctrl_logs` size of the arm's controller log reaches the end of the log's
@@ -62,7 +62,7 @@ its push; a controller log with no push and no entry); a counter block cut short
 taken mid-traffic: see settled() for when it has); a packet-in whose frame cannot be parsed, an
 IPv4 one included.
 
-WHAT DECIDES, AND WHAT IS ONLY DESCRIBED (pre-registered, round 5 -- the round-4 review's S-9;
+WHAT DECIDES, AND WHAT IS ONLY DESCRIBED (fixed in advance;
 README "合併前的比對" has the arithmetic). Run-to-run noise is real, and a range rule cannot hold a
 noisy field to a small false-fail rate: under no effect, a continuous field lands outside the range
 of n controls with probability 2/(n+1) -- 2/3 with two controls, 2/5 with four. So each arm's
@@ -72,7 +72,7 @@ evidence is split, by what 34 earlier no-heartbeat rounds of these arms show (RE
     packet-ins, cache entries and gRPC errors, and the skeleton's counters; the invariants named in
     DESCRIPTIVE_INVARIANTS' complement). A treatment value that differs from controls that all
     agree is a DIFF (rc 1). Controls that DISAGREE on a decisive check make it UNDECIDED (rc 2):
-    a check the pre-registration took for deterministic was not, and that is reported, not judged;
+    a check taken for deterministic was not, and that is reported, not judged;
   * DESCRIPTIVE -- printed with the controls' values and whether the treatment lies inside their
     spread, and NOT counted: rc and verdict (flaky: 3 of 12 p4runtime/solution and 3 of 11
     flowcache/solution rounds FAILed), p4runtime/solution's final counters and its two traffic
@@ -126,7 +126,7 @@ IPV4_ETHERTYPE = 0x0800
 #: The evidence that decides; everything else printed is context.
 COMPARED = ("rc", "verdict", "rules_installed", "counters_final", "packet_ins", "cache_entries",
             "heartbeat_packet_ins", "non_ipv4_packet_ins", "grpc_errors")
-#: [Co-developed with claude code -- Adam] Pre-registered (round 5, S-9; README): what is only
+#: [Co-developed with claude code -- Adam] Fixed in advance (README): what is only
 #: DESCRIBED per arm -- the keys that varied across 34 earlier no-heartbeat rounds of these arms.
 DESCRIPTIVE = {
     ("p4runtime", "skeleton"): {"rc", "verdict"},
@@ -192,7 +192,7 @@ class Refused(Exception):
 
 
 def read_text(path):
-    """A file's text, or Unreadable -- never a traceback (the external judge's F7, 09-28)."""
+    """A file's text, or Unreadable -- never a traceback."""
     try:
         with open(path, encoding="utf-8") as fh:
             return fh.read()
@@ -229,7 +229,7 @@ def ethertype_of(line):
             raise ValueError("payload shorter than an Ethernet header")
         et = int.from_bytes(payload[12:14], "big")
         if et == IPV4_ETHERTYPE and len(payload) < 34:
-            # the external judge's m1 (09-28): an IPv4 frame too short for its header was an
+            # an IPv4 frame too short for its header was an
             # IndexError later -- a traceback, rc 1
             raise ValueError(f"an IPv4 payload of {len(payload)} bytes, shorter than its header")
     except (IndexError, KeyError, TypeError, ValueError, SyntaxError) as exc:
@@ -496,7 +496,7 @@ def read_samples(path):
         counts = {}
         for name, v in zip(DAEMON, (f[4], f[5], f[8], f[9])):
             # [Co-developed with claude code -- Adam] None, not 0: a counter the report did not carry
-            # is not a counter that stayed at zero (the round-4 review's residual on M2).
+            # is not a counter that stayed at zero.
             counts[name] = int(v) if v.isdigit() else None
         logs = {}
         for item in f[12].split(","):
@@ -588,7 +588,7 @@ def push_offset(log_path):
 
 def heard_evidence(name, ev, sess, stretch, samples):
     """[Co-developed with claude code -- Adam] Every direction of the session HEARD at least one round
-    inside the controller's own window (the round-4 review's M-3, round 6's rule): from the first
+    inside the controller's own window: from the first
     sample whose ctrl_logs size of the arm's log reaches the push's end, to the log's last write."""
     log = ev["log"]
     key = f"{os.path.basename(os.path.dirname(log))}/{os.path.basename(log)}"
@@ -715,7 +715,7 @@ def show(run):
 
 
 def identities(control, controls2, treatment, b_sha):
-    """[Co-developed with claude code -- Adam] The round-4 review's M-2: every control ran the same
+    """[Co-developed with claude code -- Adam] Every control ran the same
     code, and the treatment ran that code with B merged on top -- or Refused."""
     if not b_sha:
         raise Refused("no --b-sha: which B the treatment merged must be named, or 'the same code "
@@ -815,7 +815,7 @@ def compare(control, treatment, controls2, samples_path, b_sha=None):
         if moved:
             diffs += 1
             print(f"   !! DAEMON the heartbeat daemon counted, for this arm's session: {moved}"
-                  f"{' -- ruling 4: a frame reached a host' if moved.get('forwarded_to_hosts') else ''}")
+                  f"{' -- host-port rule: a frame reached a host' if moved.get('forwarded_to_hosts') else ''}")
         else:
             print(f"   daemon  {fmt(se['counts'])} (the session's own counters, sampled, all 0)")
         for key in COMPARED:
@@ -827,7 +827,7 @@ def compare(control, treatment, controls2, samples_path, b_sha=None):
                 where = "inside" if within(key, b[arm][key], cvals) else "OUTSIDE"
                 print(f"   note    {key:<21} {fmt(b[arm][key])}\n"
                       f"           {'':<21} {where} the controls' spread -- descriptive, not counted "
-                      f"(pre-registered); control: {fmt(a[arm][key])}")
+                      f"(fixed before the run); control: {fmt(a[arm][key])}")
                 continue
             if any(v != cvals[0] for v in cvals):
                 undecided += 1
@@ -845,7 +845,7 @@ def compare(control, treatment, controls2, samples_path, b_sha=None):
             if ok:
                 print(f"   inv ok  {name}: {detail}")
             elif name in DESCRIPTIVE_INVARIANTS.get(arm, ()):
-                print(f"   inv ..  {name}: {detail} (descriptive, not counted: pre-registered)")
+                print(f"   inv ..  {name}: {detail} (descriptive, not counted: fixed before the run)")
             elif not all(i[name][0] for i in ic):
                 undecided += 1
                 print(f"   UNDECIDED inv {name}: broken in a control too -- a decisive invariant that "

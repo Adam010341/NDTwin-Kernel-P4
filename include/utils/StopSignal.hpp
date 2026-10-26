@@ -6,18 +6,18 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * FINDINGS #27 and #76. Both are the same sentence -- "said it would stop, hasn't" -- and both are
- * the same mechanism: a worker loop whose only stop check is the `while (m_running.load())` at the
- * top, wrapped around a round that shells out to `curl` once per switch.
+ * Two defects shared one sentence -- "said it would stop, hasn't" -- and one mechanism: a
+ * worker loop whose only stop check is the `while (m_running.load())` at the top, wrapped
+ * around a round that shells out to `curl` once per switch.
  *
- *   #27  DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal walks every up switch and
+ *   - DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal walks every up switch and
  *        runs `curl -s --max-time 8` for each. Nothing in that walk reads the stop flag, so a stop
  *        arriving at the first switch is answered after the last one. Measured on the 10-switch
  *        bmv2 fabric with the proxy not answering: SIGINT took **81.09 s**, ~72 s of it inside
  *        DeviceConfigurationAndPowerManager::stop()'s join -- which is 9 remaining switches times
  *        the 8 s deadline, to the second. Idle, the same shutdown was 2.40-3.00 s.
  *
- *   #76  TopologyAndFlowMonitor's poll thread does the same thing three times per round (switches,
+ *   - TopologyAndFlowMonitor's poll thread does the same thing three times per round (switches,
  *        links, hosts) at `--connect-timeout 2 --max-time 5`. With the proxy wedged, a kernel whose
  *        sFlow bind had already failed printed `Exiting` and was still alive 8 s later, because
  *        main.cpp calls stop() *after* printing it and stop() waited out the in-flight curl.
@@ -34,7 +34,7 @@
  *      loop, once, and it wakes on the condition variable instead -- so the nap contributes ~0 to
  *      the bound rather than 1 s.
  *   3. **A child process that dies with the request.** This is the half that cannot be done by
- *      checking a flag, and it is where #27's 72 s and #76's 8 s actually live: the flag is not
+ *      checking a flag, and it is where the 72 s and the 8 s above actually live: the flag is not
  *      readable from inside a blocking `popen()` read. request() SIGKILLs the process group of
  *      every child registered at that moment, which closes the pipe, which ends the read.
  *
@@ -48,7 +48,7 @@
  *
  * @note No lock in here is ever held across a call into any other subsystem. The mutex guards a
  *       pid set and a name multiset, nothing else, and request() calls only ::kill() while holding
- *       it. That matters because the EventBus deadlock family in doc/audit is exactly what happens
+ *       it. That matters because the EventBus deadlock family is exactly what happens
  *       when a shutdown path takes a second lock while holding the first; this type deliberately
  *       has nothing to take.
  */
@@ -291,7 +291,7 @@ class ChildProcessRegistration
  *
  * [Co-developed with claude code -- Adam]
  *
- * FINDINGS #27 / #76, the third of the three things the required behaviour asks for: *or the kernel
+ * The third of the three things the required behaviour asks for: *or the kernel
  * logs exactly what it is still waiting on, once, with the elapsed time.*
  *
  * @param signal    the subsystem's stop signal. request() must already have been called.
@@ -349,9 +349,8 @@ reportIfWorkersOutlastTheBound(StopSignal& signal,
  *              string still goes to `/bin/sh -c`, so the builders that produce it, the tests that
  *              pin their wire format (tests/test_RequestDeadlines.cpp) and the per-site shell
  *              classification (tests/python/test_shell_command_construction.py) all keep meaning
- *              exactly what they meant. This is not the popen-to-execArgv conversion that
- *              doc/audit/2026-09-03_fix-cloexec/FIX-CLOEXEC.md §7 lists as deliberately not
- *              attempted; it is popen with a pid the caller can reach.
+ *              exactly what they meant. This is not a popen-to-execArgv conversion, which
+ *              was deliberately not attempted; it is popen with a pid the caller can reach.
  * @param stop  killed by stop.request(), and consulted before the fork.
  *
  * @return the child's stdout, plus ran/status as CommandOutcome documents them. A cancelled child
@@ -372,7 +371,7 @@ reportIfWorkersOutlastTheBound(StopSignal& signal,
  *      stop() kills them explicitly. It is also the safer direction, because it no longer depends
  *      on the kernel having a controlling terminal at all (`ndt up` runs it under setsid).
  *   2. **close_range(3, ...) in the child**, which execArgv already does and popen never did.
- *      FINDINGS #47 was fixed at the socket, so this is defence in depth rather than the fix -- but
+ *      The leak of listening sockets into children was fixed at the socket, so this is defence in depth rather than the fix -- but
  *      routing two of the kernel's hottest spawn sites through here makes that hole smaller, not
  *      bigger, which is the direction a change in this area has to move.
  *   3. **SIGKILL, not SIGTERM.** There is nothing for an abandoned `curl` to clean up, and a

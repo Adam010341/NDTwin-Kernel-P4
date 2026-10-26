@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for tests/test_ExemptSwitchIsNotDialled.cpp
-# (E-23 / E-25 / E-30, Adam's rulings of 2026-09-07: a switch admitted only by its `switch_kind`
+# (2026-09-07: a switch admitted only by its `switch_kind`
 # must not be dialled, and the mark that says so must be visible from outside the process).
 #
 # [Co-developed with claude code -- Adam]
@@ -272,7 +272,7 @@ mutate_must_die \
     '            result_json[ip_str] = kHealthMetricUnavailable;'
 
 # --- M2: the power report SSHes the exempted switch again --------------------------------------
-# The site Adam's ruling names. `getPowerReportViaSsh` opens an ssh session with a ten-second
+# The site the exemption rule names. `getPowerReportViaSsh` opens an ssh session with a ten-second
 # connect timeout to a machine that has no account for it, once per switch per round.
 mutate_must_die \
     "M2 E-23 site 2: the power report SSHes it again" \
@@ -342,7 +342,7 @@ mutate_must_die \
 # mutation is the same mutation.
 #
 # 🔴 HOW IT WAS FOUND, because the shape is worth keeping: the first run after item 3
-# (logs/gates-0910/mutate_exempt_switch_is_not_dialled.cpp1-0911-r1.log) reported
+# (2026-09-11) reported
 # `INVALID  M5 ... (anchor did not apply; file unchanged)` -- NOT an anchor-count failure, because
 # the single-line $6 this call passes (the `if (m_mode ...)` line) was still there and still
 # unique. An anchor whose uniqueness line survives a rewrite of its body is exactly the case
@@ -502,10 +502,10 @@ mutate_must_die \
     '    if (noteSwitchExemptFromBrandPaths(vp.dpid), true)'
 
 # --- M14: the power report goes back to publishing an unqualified number -----------------------
-# R5, Adam's ruling of 2026-09-10, and the state the live fabric was measured in: the entries
+# R5 (2026-09-10), and the state the live fabric was measured in: the entries
 # carry `dpid` and `power_consumed` and nothing else, so an exempted switch's figure is
 # indistinguishable from a measured one inside this body. Measured 2026-09-10 on a live four-host
-# OVS fabric (fix/R4-LIVE-SUMMARY.md §7-1): dpid 7, `power_path` "none", answered 44487; the real
+# OVS fabric (R4 live run): dpid 7, `power_path` "none", answered 44487; the real
 # OVS at dpid 1 answered 92465. Ten switches, ten plausible figures, one endpoint away from the
 # mark that qualifies them.
 #
@@ -546,9 +546,8 @@ mutate_must_live \
     '            result_json[ip_str] = kHealthMetricUnavailable;'
 
 # --- M15: the OTHER copy of the figure goes back to an unqualified number ----------------------
-# FIX-CPP-SMALL-1 item 3, 2026-09-11. R5 marked fetchPowerReportInternal (M14 above) and
-# registered what it had not touched, verbatim: "🔴 getSingleSwitchPowerReport 沒有跟著加"
-# (fix/R5-POWER-REPORT-SUMMARY.md 🔴3). That is the copy the Intent Translator reads
+# 2026-09-11. R5 marked fetchPowerReportInternal (M14 above) and left getSingleSwitchPowerReport
+# unmarked. That is the copy the Intent Translator reads
 # (IntentTranslator.cpp:494), and it has no HTTP route of its own, so nothing on the wire was
 # going to notice.
 #

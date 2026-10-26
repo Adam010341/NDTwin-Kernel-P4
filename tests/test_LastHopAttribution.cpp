@@ -6,8 +6,7 @@
 // attributed to the edge *arriving* at that port -- so every edge's accounting is owned by the
 // switch downstream of it. The final hop of a path ends at a host, hosts run no sampler, and
 // under that rule alone the last-hop edge reads usage=0 and flow_set=[] forever while the bytes
-// demonstrably move. Found live by the memory-free acceptance round
-// (doc/audit/2026-08-15_fresh-acceptance-report.md §3c: 0-for-7 polls across 2 directions and
+// demonstrably move. Found live in an acceptance run (0-for-7 polls across 2 directions and
 // 3 egress switches, against 115 MB on the veth), and reproduced under concurrent NTG traffic
 // on 2026-08-16: all four switch-to-host edges at 0 against 1.28 GB of ground truth.
 //
@@ -48,8 +47,8 @@ namespace
 {
 
 // [Co-developed with claude code -- Adam]
-// Ticket Q gave creditHostBoundEgressEdges the interval its bytes accumulated over, because the
-// rate it feeds was never divided by one. These tests are about WHICH edge gets the bytes, not
+// creditHostBoundEgressEdges takes the interval its bytes accumulated over, because the rate it
+// feeds was never divided by one. These tests are about WHICH edge gets the bytes, not
 // about the rate, so they pass exactly one second: bytes * 8 / 1.0 is the arithmetic they were
 // written against, and every expected value below is unchanged.
 constexpr double kOneSecond = 1.0;
@@ -85,7 +84,7 @@ class ProbeCollector : public sflow::FlowLinkUsageCollector
 
     using sflow::FlowLinkUsageCollector::handlePacket;
 
-    /// TICKET-P3 §2.2: which of the two banks a sample landed in is the property under test in
+    /// Which of the two banks a sample landed in is the property under test in
     /// AnIngressLessSampleIsBankedOnceAndOnTheEgressSide, and only the ingress bank's own reader
     /// can answer it. [Co-developed with claude code -- Adam]
     using sflow::FlowLinkUsageCollector::sampledByteCreditFor;
@@ -268,9 +267,8 @@ TEST_F(LastHopAttributionTest, FindEdgeToHostReturnsTheHostBoundEdgeOnly)
 
 TEST_F(LastHopAttributionTest, TheHostBoundSiteDividesByTheIntervalItWasGiven)
 {
-    // NEGATIVE CONTROL for ticket Q, required by the auditor: "deliberately leave one site
-    // unfixed and assert it must go red -- without having seen it red, 'every site is asserted'
-    // has no evidence behind it."
+    // NEGATIVE CONTROL: deliberately leave one site unfixed and assert it must go red --
+    // without having seen it red, 'every site is asserted' has no evidence behind it.
     //
     // There are two sites that publish a rate. Fixing one and not the other produces a read-out
     // where one edge class is corrected and another is not, which reads as "further from 1" or
@@ -342,8 +340,8 @@ TEST_F(LastHopAttributionTest, TwoSamplesInOneSecondAccumulate)
 
 TEST_F(LastHopAttributionTest, AnIngressLessSampleIsBankedOnceAndOnTheEgressSide)
 {
-    // [Co-developed with claude code -- Adam] TICKET-P3 §2.2, second rule. This case asserted the
-    // opposite until P3, and the old assertion was a description of a dead branch rather than of
+    // [Co-developed with claude code -- Adam] This case asserted the opposite until non-IPv4
+    // samples were banked, and the old assertion was a description of a dead branch rather than of
     // a decision: no sample in production ever had inputPort == 0 -- the P4 clone path and OVS
     // both fill it -- so "the ingress bank already has it" was true only because nothing ever
     // took that path. It is about to stop being dead: B's link telemetry puts an *egress* tc

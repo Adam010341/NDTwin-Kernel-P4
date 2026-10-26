@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# CELL up_refuses_while_a_down_is_in_flight -- H3. A bring-up that overlapped a teardown REUSED
+# CELL up_refuses_while_a_down_is_in_flight -- A bring-up that overlapped a teardown REUSED
 # the fabric being destroyed, and the teardown then reported the new run as residue.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: ROLE-2 cycle 13, live 2026-09-11 (logs/ROLE-2/cycle-13-up-B.log). Thirteen seconds
+# Source: live 2026-09-11. Thirteen seconds
 # into an `ndt down`, a second `ndt up p4` printed
 #   `ok  already up: 10 switches, 4 hosts, reusing`
 # and [3/3] then PASSED `model matches fabric` on a fabric that was mid-SIGTERM; the next line
@@ -14,14 +14,13 @@
 # overlap was refused, but by mn_count and for a different reason (`a Mininet is already
 # running`), so the refusal existed on one plane by accident.
 # Fix: 019b125d (.test_run/down.inflight marker + guard in preflight), merged in cb5ab923.
-# Re-measured by ROLE-6 at 02:54:42 (OVS) and 03:09:19 (P4): rc 1 in 0 s, both planes, with the
-# marker's pid quoted. (logs/ROLE-6/50-h3-ovs.log, 52-h3-p4-cleanlab.log)
+# Re-measured at 02:54:42 (OVS) and 03:09:19 (P4): rc 1 in 0 s, both planes, with the
+# marker's pid quoted.
 #
 # 🔴 The overlap this cell builds is a teardown of an EMPTY lab -- 1 s of `ndt down` on a lab
-# that is already down. That is ROLE-6's second attempt, and ROLE-6 wrote down why: the guard
-# lives in preflight, before anything reads the machine, so the path is the same one. What is
-# therefore NOT covered, here or by ROLE-6, is overlapping the teardown of a live 10-switch
-# stack. CELLS.md says so in this cell's row.
+# that is already down. That is enough because the guard lives in preflight, before anything
+# reads the machine, so the path is the same one. What is therefore NOT covered is
+# overlapping the teardown of a live 10-switch stack. CELLS.md says so in this cell's row.
 #
 # 🔴 The refusal must NAME the marker. `ndt up` refusing for some other reason (ports held, a
 # Mininet already running) is the accident this fix replaced, and a cell that accepted any rc 1
@@ -94,9 +93,9 @@ cell_judge() {
     # elsewhere in the same judge is not a needle.
     a_hasnt h3_did_not_reuse_the_fabric             'ok  already up:'               "$d/up.log"
     a_hasnt h3_did_not_verify_a_dying_fabric        'ok  model matches fabric:'     "$d/up.log"
-    # 🔴 5, and renamed with the value, since 2026-09-12 (FIX-NDT-8, Adam form 5 Q15b): a
+    # 🔴 5, and renamed with the value, since 2026-09-12: a
     # REFUSED `ndt up` exits 5 and a bring-up that merely found something dirty still exits 1.
-    # Until today this cell accepted 1 -- and the header above says why that was nearly worthless
+    # Before that this cell accepted 1 -- and the header above says why that was nearly worthless
     # here: the pre-fix run ALSO exited 1, from `a Mininet is already running` on the OVS arm, so
     # the id passed on old/ and on new/ alike. 5 is the first value that separates them.
     # ⚠️ The `new/` fixture beside this cell was captured on 09-11, under the old contract, and

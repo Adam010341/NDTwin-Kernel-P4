@@ -31,18 +31,17 @@ class LLMAgent
 
     private:
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #88, W14 site 5 (D3) lived here: `std::string getCurrentTopology();`, plus a
+        // `std::string getCurrentTopology();` lived here, plus a
         // `friend class AddresslessTopologyPeer;` test seam for it. Both were deleted on
         // 2026-09-11 because the member was dead code -- its only caller, in callOpenAIApi, has
-        // been commented out since d6f7c014 (2025-12-15). See
-        // doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 7.
+        // been commented out since d6f7c014 (2025-12-15).
         //
         // `std::string getCurrentFlowEntries();` stood here too and went the same way, later the
-        // same day. AUDIT_A_hallucinations.md:56 named the pair together in July -- "~90 lines
-        // ... now dead code kept alive by the false log line" -- and this one had BOTH its call
-        // sites commented out, at LLMAgent.cpp:90 and in the `payload["instructions"]` line, both
-        // since d6f7c014. Nothing called it, no test drove it, and no mutation covered it. The
-        // log line that used to keep the pair alive was corrected in the same change.
+        // same day. Like its sibling it was dead code kept alive only by a false log line: it had
+        // BOTH its call sites commented out, at LLMAgent.cpp:90 and in the
+        // `payload["instructions"]` line, both since d6f7c014. Nothing called it, no test drove
+        // it, and no mutation covered it. The log line that used to keep the pair alive was
+        // corrected in the same change.
         std::string shellEscapeSingleQuotes(const std::string &str);
         std::string getLastMsgId(const std::string &sessionId) const;
 
@@ -51,7 +50,7 @@ class LLMAgent
         // [Co-developed with claude code -- Adam] 2026-09-11: getCurrentFlowEntries was this
         // member's ONLY reader, so the pointer is now held and never used. Kept rather than
         // removed because dropping it changes this class's constructor signature, which
-        // IntentTranslator and its tests pass through; see this ticket's SUMMARY section 7.
+        // IntentTranslator and its tests pass through.
         std::shared_ptr<DeviceConfigurationAndPowerManager> m_deviceConfigManager;
         std::string m_model;
         std::string m_apiKey;

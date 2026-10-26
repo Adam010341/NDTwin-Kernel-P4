@@ -55,27 +55,26 @@ ps -eo pid,args --no-headers | awk '$2=="simple_switch_g"'   # 要看 argv 時
 ### 讀 bmv2 的 counter：這台機器上做不到
 
 `simple_switch_CLI` 有裝（`/usr/local/bin/`），但它需要兩個 Python 模組，**兩個 interpreter
-（系統 python3 和 `/home/adam/p4dev-python-venv`）都缺**：
+（系統 python3 和 `$HOME/p4dev-python-venv`）都缺**：
 
 🔴 **2026-08-31 更正**：下表原本寫這兩個模組在
-`/home/adam/P4_Source_Code/behavioral-model/{targets/simple_switch,tools}/`，**那是錯的**，
+`$HOME/P4_Source_Code/behavioral-model/{targets/simple_switch,tools}/`，**那是錯的**，
 而且那棵樹正要被刪。它們**有裝**，`cmp` 乾淨的同一份就在
-`/home/adam/p4dev-python-venv/lib/python3.13/site-packages/`（`make install
+`$HOME/p4dev-python-venv/lib/python3.13/site-packages/`（`make install
 --with-python_prefix` 放的）。wrapper 壞掉的真正原因不是模組不在，是**版本錯配**：
 `/usr/local/bin/simple_switch_CLI` 寫死 python3.13 的 site-packages，而那個 venv 自己的
-直譯器是 3.12，模組與直譯器永遠碰不到面。證據與搜過的母體見
-[audit/2026-08-31_p4-source-tree-residue/README.md](audit/2026-08-31_p4-source-tree-residue/README.md) §5.2。
+直譯器是 3.12，模組與直譯器永遠碰不到面。
 
 | 模組 | 在哪 | 狀況 |
 |---|---|---|
-| `sswitch_CLI` | `/home/adam/p4dev-python-venv/lib/python3.13/site-packages/`（原記載為 `…/P4_Source_Code/behavioral-model/targets/simple_switch/`，2026-08-31 改指） | 要手動加 `PYTHONPATH` |
+| `sswitch_CLI` | `$HOME/p4dev-python-venv/lib/python3.13/site-packages/`（原記載為 `…/P4_Source_Code/behavioral-model/targets/simple_switch/`，2026-08-31 改指） | 要手動加 `PYTHONPATH` |
 | `runtime_CLI` | 同上（原記載為 `…/P4_Source_Code/behavioral-model/tools/`，2026-08-31 改指） | 要手動加 `PYTHONPATH` |
 | `thrift`（Python binding） | `p4_proxy/venv`（3.13）有；系統 python3 與 `p4dev-python-venv`（3.12）都沒有 | 2026-08-31 實跑確認 |
 
 **今天可跑的組合**（2026-08-31 以執行驗證，非推論）：
 
 ```
-SP=/home/adam/p4dev-python-venv/lib/python3.13/site-packages
+SP=$HOME/p4dev-python-venv/lib/python3.13/site-packages
 PYTHONPATH="$SP" p4_proxy/venv/bin/python "$SP/sswitch_CLI.py" --thrift-port <9090+dpid>
 ```
 
@@ -268,7 +267,7 @@ port（`mininet/node.py:1551`）。那條規則管不到**中途重啟**，而�
 
 後果：**資料平面完全正常**（實測每台 130 條規則、`is_connected: true`），但 kernel 的
 `fetchOpenFlowTablesInternal` 讀的是 Ryu 的視角，餵給 Classifier —— 所以**每條 flow 的 `path`
-都是空的，而網路其實好好地在轉封包**。詳細分析和四個被推翻的假設見 `2026-07-29_HANDOFF.md` 第 2c 節。
+都是空的，而網路其實好好地在轉封包**。根因至今未證實，四個假設都被推翻了（見 `CHANGELOG.md` 的 Ryu flow-stats wedge 一節）。
 
 > **完整規則：先 Ryu 再 Mininet；而且不要中途單獨重啟 Ryu —— 要重啟就兩個一起。**
 
@@ -294,7 +293,7 @@ sudo -n mnexec -a $(pgrep -f '[t]estbed_topo.py' | head -1) ovs-ofctl -O OpenFlo
 同樣的技巧讓 `py-spy` 可用（`ptrace_scope=1` 會擋掉直接執行）：
 
 ```bash
-sudo -n mnexec -a <pid> /home/adam/miniconda3/bin/py-spy dump --pid <pid>
+sudo -n mnexec -a <pid> $HOME/miniconda3/bin/py-spy dump --pid <pid>
 ```
 
 ⚠️ **`py-spy dump` 是單一取樣，會騙人。** 我從一張「hub 空閒在 epoll」的 dump 推論「hub 停止調度」，
@@ -322,7 +321,7 @@ shaping 靜默消失；`tc qdisc del dev X root` 還原的是預設 qdisc，**�
   ```
 
   注意這實質上繞過了 sudoers 對 tc 參數的限制，只是因為 `mnexec` 被整支授權。要嘛照這樣用，
-  要嘛請 Adam 在 sudoers 補一條 `parent` 形式的規則——後者比較誠實。
+  要嘛在 sudoers 補一條 `parent` 形式的規則——後者比較誠實。
 - root 是預設 qdisc 的介面才可以用 `root netem`。P4 testbed（`p4_proxy/mininet/
   p4_testbed_topo.py`）不用 TCLink、無 shaping，屬此類——這也是 P4 runbook §6 的
   root netem 寫法在該環境成立的原因。

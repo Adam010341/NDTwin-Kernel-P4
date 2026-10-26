@@ -2,7 +2,7 @@
 #
 # Mutation gate for tests/shell/test_heartbeat_drop_check.py -- tools/test_workflow/
 # heartbeat_drop_check.py, the offline check that decides whether the heartbeat may start on an
-# external control plane (Adam, 09-28: default-safe, not default-on).
+# external control plane (default-safe, not default-on).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -18,7 +18,7 @@
 # (NDT_HB_CHECK_BMV2 and NDT_HB_CHECK_FABRIC_BMV2 pass through).
 #
 # [Co-developed with claude code -- Adam] 🔴 NO MUTANT LAUNCHES A SWITCH THAT BREAKS THE
-# ORCHESTRATOR'S CONDITIONS (the round-4 review's M-4: D16/D16b/D17/D18 launched 64 of them). The
+# LAUNCH CONDITIONS (D16/D16b/D17/D18 once launched 64 of them). The
 # suite asserts argv on a recorder and sends every launch through its guard, which refuses one
 # that breaks a condition; the gates' wrapper refuses it again and the tripwire gate fails on it.
 #
@@ -154,7 +154,7 @@ PY
     fi
 }
 
-# --- the three the orchestrator named (09-28): skip the check, punt as drop, ignore a flood --------
+# --- the three named on 09-28: skip the check, punt as drop, ignore a flood --------
 mutate '                answer = check_program(entry["json"], entry["ports"], entry["cpu_port"])' \
     '                answer = {"program": entry["json"], "program_sha256": entry["sha256"],
                           "verdict": "dropped", "reason": "not checked"}' \
@@ -252,7 +252,7 @@ mutate 'ARGV0 = "ndt-hbdrop-bmv2"' \
     'ARGV0 = "simple_switch"' \
     "D16: the throwaway switch is named like a fabric switch" \
     "🔴 argv[0] is not a switch's name" "🔴 the kernel's capacity scan does not either (argv[0] does not start simple_switch)" \
-    "🔴 every launch this suite asked for met the orchestrator's conditions"
+    "🔴 every launch this suite asked for met the launch conditions"
 mutate 'ARGV0 = "ndt-hbdrop-bmv2"' \
     'ARGV0 = "/usr/local/bmv2-fast/bin/simple_switch_grpc"' \
     "D16b: argv[0] is the fabric's own binary" \
@@ -266,7 +266,7 @@ mutate '                      "--notifications-addr", "ipc://notif.ipc",' \
 mutate '        device_id = DEVICE_ID_BASE + os.getpid() % 90000' \
     '        device_id = 1' \
     "D18: its device id can be a fabric's" \
-    "🔴 its device id is no fabric's (900000 and above)" "🔴 every launch this suite asked for met the orchestrator's conditions"
+    "🔴 its device id is no fabric's (900000 and above)" "🔴 every launch this suite asked for met the launch conditions"
 mutate '                                         preexec_fn=_die_with_parent, start_new_session=True)' \
     '                                         start_new_session=True)' \
     "D19: the switch outlives a checker killed outright" \
@@ -336,7 +336,7 @@ mutate '        answer.update(verdict=verdict, reason=reason, per_port={str(k): 
     '        answer.update(verdict="dropped" if verdict == "unknown" else verdict, reason=reason, per_port={str(k): v for k, v in' \
     "D31: whatever the check could not tell is reported as dropped" \
     "🔴 a program bmv2 will not load: unknown"
-# --- [Co-developed with claude code -- Adam] round 5 (the round-4 review's M-4, S-4, S-6) --------
+# --- [Co-developed with claude code -- Adam] round 5 --------
 mutate '        if verdict == "dropped" and not settled(packets, ports, other):' \
     '        if False:' \
     "D32: a run that did not settle can still be DROPPED" \
@@ -386,15 +386,15 @@ mutate '    try:
     "D36: a crash is Python's own traceback and rc 1" \
     "🔴 a crash of the check is rc 2" "  saying it crashed"
 mutate '    if os.geteuid() == 0:
-        # [Co-developed with claude code -- Adam] The orchestrator'"'"'s first condition (09-28): the' \
+        # [Co-developed with claude code -- Adam] The first launch condition: the' \
     '    if False:
-        # [Co-developed with claude code -- Adam] The orchestrator'"'"'s first condition (09-28): the' \
+        # [Co-developed with claude code -- Adam] The first launch condition: the' \
     "D37: the command runs as root" \
     "🔴 run as root (euid 0): rc 2" "  saying it refuses"
 mutate '        if os.geteuid() == 0:
-            # [Co-developed with claude code -- Adam] The orchestrator'"'"'s first condition (09-28).' \
+            # [Co-developed with claude code -- Adam] The first launch condition.' \
     '        if False:
-            # [Co-developed with claude code -- Adam] The orchestrator'"'"'s first condition (09-28).' \
+            # [Co-developed with claude code -- Adam] The first launch condition.' \
     "D37b: a switch is launched as root" \
     "🔴 and a launch as root is refused"
 mutate '    if IMPORT_ERROR is not None:' \

@@ -794,6 +794,16 @@ DeviceConfigurationAndPowerManager::pollP4SwitchState()
         payload = fetchP4SwitchState();
     }
 
+    // [Co-developed with claude code -- Adam] KNOWN-ISSUES A-4c: a pipeline push wiped the rules
+    // installed through the Ryu path and the proxy, by design, did not replay them. Said once per
+    // record per kernel process, at ERROR, because nothing else in the system will say it. Recorded beside the
+    // capabilities below, under the same lock and with the same absence rules.
+    p4loss::RecordsByDpid rulesLost = p4loss::fromSwitchState(payload);
+    for (const p4loss::Announcement& lost : m_p4RulesLostAnnouncer.observe(rulesLost))
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(), "{}", p4loss::describe(lost));
+    }
+
     // Replaced on every tick, including the ones that asked nothing or got nothing back: an empty
     // record is what makes get_graph_data omit the key, and omitting it is the only answer the
     // kernel has when it cannot read the proxy (P4Capabilities.hpp).
@@ -801,6 +811,7 @@ DeviceConfigurationAndPowerManager::pollP4SwitchState()
     {
         std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
         m_p4Capabilities = std::move(capabilities);
+        m_p4RulesLost = std::move(rulesLost);
     }
     return payload;
 }
@@ -810,6 +821,13 @@ DeviceConfigurationAndPowerManager::p4CapabilitiesSnapshot() const
 {
     std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
     return m_p4Capabilities;
+}
+
+p4loss::RecordsByDpid
+DeviceConfigurationAndPowerManager::p4RulesLostSnapshot() const
+{
+    std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
+    return m_p4RulesLost;
 }
 
 /** @brief A plausible synthetic power draw in mW for a simulated switch. See the header for why.
@@ -2963,29 +2981,47 @@ DeviceConfigurationAndPowerManager::reportWithheldRows(std::size_t withheld)
                        withheld);
 }
 
-static uint32_t
-parseIpv4U32(const nlohmann::json& v)
+namespace
 {
-    if (v.is_number_unsigned() || v.is_number_integer())
+
+// [Co-developed with claude code -- Adam]
+// How the table cache identifies one IPv4 match field when it looks for the row a modify or a
+// delete names: the network and mask the switch matches on, so 10.0.1.0/24 is neither the /32
+// 10.0.1.0 nor the 0.0.0.0 an unread field used to become. A value parseIpv4MatchValue cannot
+// read is kept as its text, so it still matches only itself -- processFlowBatch refuses such a
+// request before queueing, but a polled row is not checked there, and throwing here is what
+// turned replies into errors after the switch had been written.
+struct CachedIpv4Field
+{
+    uint32_t network = 0;
+    uint32_t mask = 0; // 0 with empty text: the field is absent (match-all)
+    std::string unread;
+
+    bool operator==(const CachedIpv4Field&) const = default;
+};
+
+// `field`, else its OpenFlow 1.0 spelling `alias` -- the precedence the classifier uses
+// (Classifier.cpp buildMaskAndValueFromMatch). Ryu's flow stats spell a destination nw_dst.
+CachedIpv4Field
+cachedIpv4Field(const nlohmann::json& match, const char* field, const char* alias)
+{
+    auto it = match.find(field);
+    if (it == match.end())
     {
-        return v.get<uint32_t>(); // already numeric (define: host-order)
+        it = match.find(alias);
     }
-
-    if (v.is_string())
+    if (it == match.end())
     {
-        const std::string s = v.get<std::string>();
-        in_addr a{};
-        if (inet_pton(AF_INET, s.c_str(), &a) != 1)
-        {
-            throw std::runtime_error("invalid ipv4 string: " + s);
-        }
-
-        // inet_pton gives network order; convert to host order
-        return ntohl(a.s_addr);
+        return {};
     }
-
-    throw std::runtime_error("ipv4 must be number or string");
+    if (const auto v = parseIpv4MatchValue(*it))
+    {
+        return {v->address & v->mask, v->mask, {}};
+    }
+    return {0, 0, it->dump()};
 }
+
+} // namespace
 
 // [Co-developed with claude code -- Adam]
 // This runs AFTER HttpSession::processFlowBatch has already enqueued the jobs, so anything it
@@ -3066,8 +3102,14 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
         fk.ethType = match.value("eth_type", 0);
         fk.ipProto = match.value("ip_proto", 0);
 
-        fk.ipv4Dst = match.contains("ipv4_dst") ? parseIpv4U32(match.at("ipv4_dst")) : 0;
-        fk.ipv4Src = match.contains("ipv4_src") ? parseIpv4U32(match.at("ipv4_src")) : 0;
+        // [Co-developed with claude code -- Adam]
+        // The addresses are not put in fk.ipv4Dst/ipv4Src: FlowKey is the classifier's packet key
+        // and has no mask (the classifier keeps masks beside it), so a prefix written there would
+        // read as a /32. They go in the two prefix-aware fields of this local key instead, which
+        // touches no FlowKey user. A /32 ipv4_dst compares exactly as it did; nw_dst, which was
+        // not read at all (every nw_dst rule keyed as 0.0.0.0), is now read like ipv4_dst.
+        const CachedIpv4Field dst = cachedIpv4Field(match, "ipv4_dst", "nw_dst");
+        const CachedIpv4Field src = cachedIpv4Field(match, "ipv4_src", "nw_src");
 
         if (fk.ipProto == 6)
         {
@@ -3080,7 +3122,8 @@ DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
             fk.tpSrc = match.value("udp_src", 0);
         }
 
-        return std::tuple<int, int, ndtClassifier::FlowKey>{tableId, priority, fk};
+        return std::tuple<int, int, ndtClassifier::FlowKey, CachedIpv4Field, CachedIpv4Field>{
+            tableId, priority, fk, dst, src};
     };
 
     // --- INSTALL ---

@@ -102,7 +102,7 @@ fi
 printf '%s\tstatus=%s\tchild=%s\t%s\n' "$(date -Is)" "$RC" "$CHILD" "$REASON" >>"$PREFIX.exit.log"
 
 # [Co-developed with claude code -- Adam]
-# R7 I-3, measured 2026-09-11 02:52:03 and again 02:52:27 -- 57 s and 81 s after the event, so
+# Measured 2026-09-11 02:52:03 and again 02:52:27 -- 57 s and 81 s after the event, so
 # not a race. .test_run/pids/ was contradicting itself:
 #
 #     ryu.pid        20717    /proc/20717 does not exist
@@ -130,7 +130,7 @@ printf '%s\tstatus=%s\tchild=%s\t%s\n' "$(date -Is)" "$RC" "$CHILD" "$REASON" >>
 # status`'s pidfiles row names it, quotes this record, and makes it a --check problem (see
 # stack_pidfile_row in tools/test_workflow/ndt). Whether stop_one should learn to report an .exit
 # it finds with no pidfile beside it is a design question, not something to change as a side
-# effect of this -- it is in FIX-NDT-3-SUMMARY section 7 for Adam.
+# effect of this, and is left open.
 #
 # .child.pid is safe to remove and nothing reads it after this point: this script is its only
 # writer, the pid it names has just been waited on, and the number itself survives in this run's

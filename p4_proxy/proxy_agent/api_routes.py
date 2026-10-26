@@ -7,11 +7,13 @@ from typing import Optional
 from google.rpc import code_pb2, status_pb2
 from p4.v1 import p4runtime_pb2
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError, needs_five_tuple
+# [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: an install refused before the switch.
+from proxy_agent.topology_manager import FlowRequestUnusable
 # [Co-developed with claude code -- Adam] Adam, 2026-10-16: a destination-only modify is
 # honoured at the priority its slot holds, and refused (501) at any other.
 from proxy_agent.slot_priority import (CONTROL_PLANE_ROUTE_PRIORITY, SlotPriorityNotHeld,
                                        named_priority)
-from proxy_agent import ryu_topology, ryu_flow_stats
+from proxy_agent import ryu_topology, ryu_flow_stats, slot_priority
 # [Co-developed with claude code -- Adam] GET /p4/register's two bmv2 thrift calls.
 from proxy_agent import bm_thrift
 # [Co-developed with claude code -- Adam]
@@ -534,12 +536,25 @@ def _refuse_unhonourable_priority(data, match, verb):
     priority = _named_priority(data)
     if priority is None or needs_five_tuple(match):
         return
+    # [Co-developed with claude code -- Adam] What a non-strict delete does here depends on the
+    # destination: a /32 hands the slot back to the control plane's route (KNOWN-ISSUES A-4d),
+    # a prefix has no control-plane route to hand back to and is removed outright. The refusal
+    # comes before the value checks, so `match` may carry anything; only a well-formed prefix
+    # shorter than /32 (or text that is plainly meant as one) takes the prefix wording.
+    prefix = _names_a_prefix(match)
+    here = ("removes that prefix's entry; nothing is restored" if prefix
+            else "restores the route")
+    non_strict_here = (
+        "here it removes that one prefix entry and restores nothing, since the control "
+        "plane writes only /32 host routes and the prefix was never its own" if prefix
+        else "here it hands the destination back to the control plane's route (KNOWN-ISSUES "
+             "A-4d)")
     raise HTTPException(
         status_code=501,
         detail=_priority_refusal_detail(
             priority,
             remedy="match the full five-tuple; on OVS a non-strict delete removes every "
-                   "rule for it (here: restores the route)",
+                   f"rule for it (here: {here})",
             message=(
                 f"this {verb} names priority {priority}, and on a P4/bmv2 data plane a match "
                 "of this shape compiles to the ipv4_lpm table, which has no priority column: "
@@ -550,9 +565,27 @@ def _refuse_unhonourable_priority(data, match, verb):
                 "do while answering 200. A match naming more than a destination compiles to "
                 "flow_5tuple, where priority is part of the entry's identity and is honoured, "
                 "on OVS as here. The non-strict route (no priority) is not the same request on "
-                "the two planes: here it hands the destination back to the control plane's "
-                "route (KNOWN-ISSUES A-4d), on OVS it removes every rule matching the "
+                f"the two planes: {non_strict_here}, on OVS it removes every rule matching the "
                 "destination, the router's own included.")))
+
+
+def _names_a_prefix(match):
+    """
+    Whether `match`'s destination is written as a prefix shorter than /32, for the wording of
+    the strict-delete refusal. Never raises: the value has not been validated yet.
+
+    [Co-developed with claude code -- Adam]
+    """
+    if not isinstance(match, dict):
+        return False
+    value = match.get("nw_dst") or match.get("ipv4_dst")
+    if not isinstance(value, str) or "/" not in value:
+        return False
+    try:
+        _addr, length = slot_priority.parse_destination(value)
+    except ValueError:
+        return True  # "10.0.1.0/33" and the like: not a /32 either, and nothing is restored
+    return length < slot_priority.MAX_PREFIX_LEN
 
 
 def _priority_refusal_detail(priority, remedy, message, **extra):
@@ -636,6 +669,34 @@ def _priority_disclosure(match):
     return {"table": table, "priority_honoured": table == "flow_5tuple"}
 
 
+def _unusable_response(err, dpid, failed_body):
+    """
+    A FlowRequestUnusable as its status, with the endpoint's own failure body leading.
+
+    [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6. Shared by add and delete, whose
+    failure bodies are {"status": "error", "message": ...}: a caller that reads those two keys
+    reads the same words it always did, whatever the status line now says.
+    """
+    body = {**failed_body, "error": err.error, "dpid": dpid, "reason": str(err)}
+    if err.status == 501:
+        body["outcome"] = "unsupported_on_p4"
+    return JSONResponse(status_code=err.status, content=body)
+
+
+#: The body a refused delete answers with, word for word from when it was a 200 (C-6).
+#: [Co-developed with claude code -- Adam]
+DELETE_FAILED_BODY = {"status": "error", "message": "Failed to delete route"}
+
+#: What a refused modify answers with, as `detail`: the string it carried as a 400 (C-6).
+#: [Co-developed with claude code -- Adam]
+MODIFY_FAILED_DETAIL = "Failed to modify flow entry in P4 switch"
+
+
+#: The body a refused install answers with. Kept word for word from when it was a 200 (KNOWN-ISSUES
+#: C-6): only the status line changed. [Co-developed with claude code -- Adam]
+ADD_FAILED_BODY = {"status": "error", "message": "Failed to add route"}
+
+
 @router.post("/stats/flowentry/add")
 async def add_flow_entry(request: Request):
     """
@@ -677,9 +738,26 @@ async def add_flow_entry(request: Request):
     except ControlPlaneReadOnly as err:
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
+    except FlowRequestUnusable as err:
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: refused before any switch
+        # was asked, so not the 502 below. Same two leading keys as the 502's body.
+        return _unusable_response(err, dpid, ADD_FAILED_BODY)
 
     if not success:
-        return {"status": "error", "message": "Failed to add route"}
+        # [Co-developed with claude code -- Adam]
+        # KNOWN-ISSUES C-6. This was a 200 carrying {"status":"error"}, and a caller reading the
+        # status line -- which is most of them -- read a refused write as an installed rule: from
+        # the 897th install on, every one on a full bmv2 table (1024 entries, 128 of them the
+        # fabric's own). Now a 502, the code POST /p4/table_entry gives "the switch refused the
+        # write", and the body is unchanged, so the kernel's `status == "error"` check and every
+        # log that quotes it still read the same words. bmv2 answers a full table with UNKNOWN and
+        # no details, so this proxy cannot say "full" -- only that the switch did not take it.
+        #
+        # The kernel needs no change: HttpRoutingStrategyBase::post already turns any non-2xx
+        # into OpResult::failure (and on P4 marks it confirmsNotProgrammed, as it did the 200
+        # error body), so the dispatch log books it under dispatch_failed / rejected_by_switch
+        # exactly as before; only its controller_status changes from 200 to 502.
+        return JSONResponse(status_code=502, content=dict(ADD_FAILED_BODY))
 
     # [Co-developed with claude code -- Adam]
     # FINDING-07's residue, and the only part of it that is fixable anywhere: the value was
@@ -728,6 +806,11 @@ async def delete_flow_entry(request: Request):
     priority. The OpenFlow wildcard half of non-strict (an empty match clears the table) is
     deliberately not honoured: a match without nw_dst is refused, because an accidental
     table wipe is the worse failure.
+
+    [Co-developed with claude code -- Adam] A prefix destination (accepted since 2026-10-23)
+    deletes that one prefix entry. On OVS a non-strict delete of 10.0.1.0/24 also removes the
+    more specific rules inside it; here the /32 host routes inside it are separate entries and
+    stay -- the same "one entry per destination" reading, with the prefix as the destination.
     """
     data = await _flowentry_body(request)
     dpid = data.get("dpid")
@@ -750,10 +833,18 @@ async def delete_flow_entry(request: Request):
     except ControlPlaneReadOnly as err:
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
+    except FlowRequestUnusable as err:
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6, as on add.
+        return _unusable_response(err, dpid, DELETE_FAILED_BODY)
     if success:
         return {"status": "success", **_priority_disclosure(match)}
-    else:
-        return {"status": "error", "message": "Failed to delete route"}
+    # [Co-developed with claude code -- Adam]
+    # KNOWN-ISSUES C-6, the delete half. This was a 200
+    # carrying {"status":"error"}: a delete the switch refused -- a 5-tuple entry not there at that
+    # priority, a refused restore that left the caller's rule in place -- read as done to anyone
+    # reading the status line. 502 as on add, body unchanged; the kernel already books any
+    # non-2xx as a failure (HttpRoutingStrategyBase::post).
+    return JSONResponse(status_code=502, content=dict(DELETE_FAILED_BODY))
 
 @router.post("/stats/flowentry/modify")
 async def modify_flow_entry(request: Request):
@@ -787,8 +878,20 @@ async def modify_flow_entry(request: Request):
     except ControlPlaneReadOnly as err:
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
+    except FlowRequestUnusable as err:
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: this endpoint's refusals are
+        # HTTPExceptions, so the same fields go in `detail`.
+        detail = {"error": err.error, "dpid": dpid, "message": str(err)}
+        if err.status == 501:
+            detail["outcome"] = "unsupported_on_p4"
+        raise HTTPException(status_code=err.status, detail=detail)
     if not success:
-        raise HTTPException(status_code=400, detail="Failed to modify flow entry in P4 switch")
+        # [Co-developed with claude code -- Adam]
+        # KNOWN-ISSUES C-6, the modify half. A modify the switch refused was a 400 -- the
+        # client's-mistake code for something the client did not do wrong (an entry that is not
+        # there, a write bmv2 turned down). 502 as on add and delete, `detail` unchanged; 400 is
+        # left to the request's own faults above (a bad match, a value that cannot be encoded).
+        raise HTTPException(status_code=502, detail=MODIFY_FAILED_DETAIL)
     return {"status": "success", **_priority_disclosure(match)}
 
 @router.post("/p4/readopt/{dpid}")

@@ -1,1 +1,0 @@
-{"status":"locked","ttl":30,"type":"routing_lock"}

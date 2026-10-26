@@ -24,13 +24,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 TOOL="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_evidence.py"
 IDENT="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/code_identity.py"
-# [Co-developed with claude code -- Adam] (round 6) the frozen survey and its manifest sit beside the tool too
+# [Co-developed with claude code -- Adam] (round 6) the frozen survey sits beside the tool too. Its manifest of
+# raw runs is not part of the public tree, and the suite's survey cases build their own manifests.
 SURVEY="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey.py"
-MANIFEST="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/external_survey_34.tsv"
 TEST="$HERE/test_live_p1_external_evidence.sh"
 [[ -r "$TOOL" && -r "$TEST" && -r "$IDENT" ]] || { echo "refused: the tool, code_identity.py or the suite is missing"; exit 2; }
 ID_SUM="$(sha256sum "$IDENT" | cut -d' ' -f1)"
-SV_SUM="$(sha256sum "$SURVEY" "$MANIFEST" | cut -d' ' -f1 | paste -sd,)"
+SV_SUM="$(sha256sum "$SURVEY" | cut -d' ' -f1)"
 BK="$(mktemp -d "${TMPDIR:-/tmp}/live-p1-evidence-mutate-XXXXXX")"
 trap 'rm -rf "$BK"' EXIT
 BASE_SUM="$(sha256sum "$TOOL" | cut -d' ' -f1)"
@@ -62,7 +62,7 @@ PY
     then
         printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
-    cp "$IDENT" "$d/code_identity.py"; cp "$SURVEY" "$MANIFEST" "$d/"
+    cp "$IDENT" "$d/code_identity.py"; cp "$SURVEY" "$d/"
     if ! python3 -m py_compile "$d/external_evidence.py" 2>/dev/null; then
         printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
@@ -637,7 +637,7 @@ PY
     then
         printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
-    cp "$TOOL" "$d/external_evidence.py"; cp "$SURVEY" "$MANIFEST" "$d/"
+    cp "$TOOL" "$d/external_evidence.py"; cp "$SURVEY" "$d/"
     if ! python3 -m py_compile "$d/code_identity.py" 2>/dev/null; then
         printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
@@ -756,7 +756,7 @@ PY
     then
         printf '  SURVIVED %-62s (anchor not unique or identity)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
-    cp "$TOOL" "$d/external_evidence.py"; cp "$IDENT" "$MANIFEST" "$d/"
+    cp "$TOOL" "$d/external_evidence.py"; cp "$IDENT" "$d/"
     if ! python3 -m py_compile "$d/external_survey.py" 2>/dev/null; then
         printf '  SURVIVED %-62s (the mutant does not compile)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
@@ -819,10 +819,10 @@ fi
 if [[ "$(sha256sum "$IDENT" | cut -d' ' -f1)" != "$ID_SUM" ]]; then
     echo "🔴 code_identity.py CHANGED during the gate"; exit 3
 fi
-if [[ "$(sha256sum "$SURVEY" "$MANIFEST" | cut -d' ' -f1 | paste -sd,)" != "$SV_SUM" ]]; then
-    echo "🔴 external_survey.py or its manifest CHANGED during the gate"; exit 3
+if [[ "$(sha256sum "$SURVEY" | cut -d' ' -f1)" != "$SV_SUM" ]]; then
+    echo "🔴 external_survey.py CHANGED during the gate"; exit 3
 fi
-echo "source byte-identical: yes  external_evidence.py  sha256 $BASE_SUM; code_identity.py sha256 $ID_SUM; survey and manifest $SV_SUM"
+echo "source byte-identical: yes  external_evidence.py  sha256 $BASE_SUM; code_identity.py sha256 $ID_SUM; survey $SV_SUM"
 echo "mutation gate: $((CAUGHT+SURVIVED)) mutations, $SURVIVED survived"
 # [Co-developed with claude code -- Adam] (09-28) every check, by position, red under some mutation
 COV="$(python3 - "$BK" <<'COVERAGE'

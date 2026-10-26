@@ -422,7 +422,7 @@ class SFlowEmitter:
 # Metadata ids of packet_in_header_t in ndtwin_switch.p4, as they appear in the generated
 # p4info. They are positional, so reordering the header's fields renumbers them.
 #
-# 🔴 THESE ARE NOW THE EXPECTATION, NOT THE LOOKUP (TICKET-P3 2.6, G1). Production reads the ids
+# 🔴 THESE ARE NOW THE EXPECTATION, NOT THE LOOKUP. Production reads the ids
 # out of the switch's own p4info by NAME -- `packet_in_metadata_ids` below -- because a package
 # may bring a program that declares the same five fields in another order, and a positional
 # constant against such a program does not fail: it reads `egress_port` as `ingress_port` and
@@ -455,8 +455,8 @@ class TelemetryHeaderMissing(LookupError):
 
     [Co-developed with claude code -- Adam]
     Raised by `packet_in_metadata_ids`, and carrying the names that were missing rather than
-    only the fact that something was. The proxy turns it into a refusal to start that switch
-    (TICKET-P3 2.1): a switch whose program cannot clone to the CPU port reports ZERO samples
+    only the fact that something was. The proxy turns it into a refusal to start that switch:
+    a switch whose program cannot clone to the CPU port reports ZERO samples
     for the whole run, with no error at any step -- pipeline pushed, clone session accepted by
     the PRE, agent registered, and an empty twin. The failure has to be loud at the only moment
     it is still distinguishable from a quiet fabric.
@@ -532,13 +532,13 @@ def packet_out_metadata_ids(p4info) -> dict:
     {field name: metadata id} for `packet_out`, or `{}` for a program with no such header.
 
     [Co-developed with claude code -- Adam]
-    The packet-out side of G1, for the LLDP beacon. It returns a dict rather than a typed record
-    because the header's shape is the including program's business: ndtwin_switch.p4 declares
-    `egress_port` and `_pad`, and a program that pads differently -- or not at all -- is still
-    perfectly usable as long as `egress_port` is there. `{}` rather than an exception: a
-    tutorials pipeline has no packet_out header, and that is already handled a level up by not
-    beaconing at all (main.FOREIGN_PIPELINE_FABRIC_SKIPS), so raising here would turn a decision
-    that has been made into an error that has to be caught.
+    The packet-out side of the by-name lookup, for the LLDP beacon. It returns a dict rather than
+    a typed record because the header's shape is the including program's business:
+    ndtwin_switch.p4 declares `egress_port` and `_pad`, and a program that pads differently -- or
+    not at all -- is still perfectly usable as long as `egress_port` is there. `{}` rather than
+    an exception: a tutorials pipeline has no packet_out header, and that is already handled a
+    level up by not beaconing at all (main.FOREIGN_PIPELINE_FABRIC_SKIPS), so raising here would
+    turn a decision that has been made into an error that has to be caught.
     """
     return _controller_metadata_by_name(p4info, PACKET_OUT_HEADER)
 
@@ -559,7 +559,7 @@ def sample_from_packet_in(packet_in, ids: PacketInIds) -> Optional[SampledPacket
     Builds a SampledPacket from a telemetry-sample packet-in, or returns None.
 
     `ids` is the switch's own `packet_in` numbering, from `packet_in_metadata_ids`. 🔴 IT IS A
-    REQUIRED ARGUMENT (TICKET-P3 2.6). A default of "the ids ndtwin_switch.p4 happens to have"
+    REQUIRED ARGUMENT. A default of "the ids ndtwin_switch.p4 happens to have"
     is exactly the positional read this function was changed to stop doing, and a default is
     invisible at the call site -- so the one caller that forgot to pass the switch's real
     numbering would look identical to the ones that did.

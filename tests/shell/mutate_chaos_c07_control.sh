@@ -13,7 +13,6 @@
 #   M3  the probe swallows a non-2xx again                                (red)
 #   M4  a kernel that really records is still scored as B-3               (red)
 #   M5  a reply with no `recording` field is scored instead of refused    (red)
-#   M6  the retraction is downgraded to a note                            (red)
 #
 # M4 is the one to watch. It is the direction the original control could never reach -- every
 # answer it was capable of receiving satisfied `rows == 0` -- so if M4 survives, the fix bought
@@ -33,27 +32,24 @@ cd "$REPO"
 ROUND=doc/audit/2026-08-28_chaos-harness
 ACTIONS=doc/audit/2026-08-28_chaos-harness/harness/actions.py
 PROBES=doc/audit/2026-08-28_chaos-harness/harness/probes.py
-CLAIM=doc/audit/2026-08-28_chaos-harness/05_first-live-run.md
 TEST=tests/python/test_chaos_c07_control.py
 PY="${PY:-python3}"
 
 BK="$(mktemp -d /tmp/chaos-c07-mutate-XXXXXX)"
 trap 'rm -rf "$BK"' EXIT
-BASE_SHA="$(sha256sum "$ACTIONS" "$PROBES" "$CLAIM" | sha256sum | cut -d' ' -f1)"
+BASE_SHA="$(sha256sum "$ACTIONS" "$PROBES" | sha256sum | cut -d' ' -f1)"
 
 SURVIVORS=0
 MUTATIONS=0
 
-# fresh_copy <tag> -- the harness .py files plus the claim document, laid out so that the
-# test's `dirname(NDT_CHAOS_HARNESS)/05_first-live-run.md` finds the copy. Echoes the harness
-# directory to pass as NDT_CHAOS_HARNESS.
+# fresh_copy <tag> -- a copy of the harness .py files. Echoes the harness directory to pass as
+# NDT_CHAOS_HARNESS.
 fresh_copy() {
     local tag dst
     tag="$1"
     dst="$BK/$tag"
     rm -rf "$dst"; mkdir -p "$dst/harness"
     cp "$REPO/$ROUND"/harness/*.py "$dst/harness/"
-    cp "$REPO/$CLAIM" "$dst/"
     echo "$dst/harness"
 }
 
@@ -131,15 +127,8 @@ apply_exact "$ACTIONS" \
 report "M5: an undecidable reply is scored instead of refused" "$d" \
        "test_a_reply_without_the_recording_field_is_refused"
 
-d="$(fresh_copy m6)"
-apply_exact "$CLAIM" \
-  '> ❌ **RETRACTED 2026-09-03 — KNOWN-ISSUES G-3.**' \
-  '> **Note 2026-09-03 — KNOWN-ISSUES G-3.**' "$(dirname "$d")/05_first-live-run.md"
-report "M6: the retraction is downgraded to a note" "$d" \
-       "test_h9_is_marked_retracted"
-
 echo
-if [[ "$(sha256sum "$ACTIONS" "$PROBES" "$CLAIM" | sha256sum | cut -d' ' -f1)" == "$BASE_SHA" ]]; then
+if [[ "$(sha256sum "$ACTIONS" "$PROBES" | sha256sum | cut -d' ' -f1)" == "$BASE_SHA" ]]; then
     echo "baseline byte-identical: yes"
 else
     echo "🔴 baseline CHANGED -- a harness file was written during the gate"

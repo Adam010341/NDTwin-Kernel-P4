@@ -8,14 +8,13 @@ Expected behaviour is taken from decision 2 of doc/2026-08-11_phase7_power_mecha
 restarted bmv2 has no pipeline, no clone session, no mastership and no routes -- and from Phase 7
 of doc/2026-07-27_p4_bmv2_support_plan.md. The probe sees one of those four: a bmv2 that has been
 pushed no pipeline answers COOKIE_ONLY with FAILED_PRECONDITION, so probe_ok reads false, the same
-value as a dead process (measured in run-stock.out and run-fast.out under
-doc/audit/2026-10-04_p4-cookie-probe/). It cannot see empty tables, a missing clone session or a
-lost stream (the kernel never reads stream_alive), which is why readopt is still needed. Not from reading
-readopt_switch and writing down what it does. The required sequence is the design's:
-callbacks wired before start, a mastership settle before the pipeline push, the clone
-session only after the pipeline it lives in, the old client left in place on failure so the
-switch keeps reporting Down rather than vanishing, and a per-dpid route reinstall. The HTTP
-mappings (404 unknown / 502 failed / 503 unwired) are the design's too.
+value as a dead process (measured on stock and bmv2-fast). It cannot see empty tables, a missing
+clone session or a lost stream (the kernel never reads stream_alive), which is why readopt is still
+needed. Not from reading readopt_switch and writing down what it does. The required sequence is the
+design's: callbacks wired before start, a mastership settle before the pipeline push, the clone
+session only after the pipeline it lives in, the old client left in place on failure so the switch
+keeps reporting Down rather than vanishing, and a per-dpid route reinstall. The HTTP mappings (404
+unknown / 502 failed / 503 unwired) are the design's too.
 
 The settle is observed by patching time.sleep to *record* instead of wait, for the reason
 test_link_watchdog gives about its injected clock: a settle tested by sleeping through it is
@@ -47,7 +46,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import journal_isolation  # noqa: E402,F401
 
-#: The two real compiled p4infos TICKET-P3 section 9 ruling 4's decision rests on: `basic`
+#: The two real compiled p4infos the telemetry-include decision rests on: `basic`
 #: declares no controller header, `basic_telemetry` is the same solution with
 #: `#include "ndtwin_telemetry.p4"`. Absolute, because a per-switch pipeline is passed through
 #: `Package.pipeline_for` untouched when it already is. [Co-developed with claude code -- Adam]
@@ -65,7 +64,7 @@ from fastapi import HTTPException  # noqa: E402
 from proxy_agent import api_routes, topology_manager  # noqa: E402
 from proxy_agent.topology_manager import TopologyManager  # noqa: E402
 # [Co-developed with claude code -- Adam]
-# TICKET-P2 4.2: the endpoint goes through main.readopt_switch now, because what a foreign
+# The endpoint goes through main.readopt_switch now, because what a foreign
 # pipeline changes about a re-adoption is package knowledge. Guarded the way
 # test_app_package_proxy.py guards it -- main pulls in the P4Runtime protobufs, and an
 # interpreter without them should report a skip rather than crash the whole file's import.
@@ -459,9 +458,7 @@ class ReadoptUnderAnExternalControlPlaneTest(ReadoptTestBase):
     operator acts differently on those two: the first says retry or power-cycle, the second
     says this is the mode you asked for.
 
-    So the same outcome is reached by a check that names itself, placed before the gate. Found
-    by the P1-A judge against c3ecf7f8 -- the SUMMARY had claimed readopt failed at the
-    *pipeline* step, and it never got that far.
+    So the same outcome is reached by a check that names itself, placed before the gate.
     """
 
     def external(self):
@@ -657,7 +654,7 @@ class ReadoptEndpointTest(unittest.TestCase):
         self.assertIs(callback, sample_sink)
 
 
-# --- the package's half of readopt (TICKET-P2 4.2) -------------------------------------
+# --- the package's half of readopt -----------------------------------------------------
 
 
 class ThePackageHalfOfReadoptTest(unittest.TestCase):
@@ -669,7 +666,7 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
     (KNOWN-ISSUES A-4c). On NDTwin's own pipeline `install_initial_routes` refills what matters
     and nothing else was there. On a FOREIGN pipeline the rules that vanished are the package's
     own entries, and nothing else in this system will ever put them back -- they are not
-    journaled (Adam 2026-09-18, option a), so a power-cycled switch would come back forwarding
+    journaled, so a power-cycled switch would come back forwarding
     nothing while every liveness signal said it was healthy.
 
     The clone session is the other half: a foreign pipeline clones nothing to the CPU port, so
@@ -688,7 +685,7 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
         self.tmp = tempfile.mkdtemp(prefix="ndtwin_readopt_entries_")
         self.addCleanup(shutil.rmtree, self.tmp, True)
         # [Co-developed with claude code -- Adam] A readopt replays the switch's table-entry
-        # journal (DESIGN 5.5). Each test gets its own, empty one, so that what another test left
+        # journal. Each test gets its own, empty one, so that what another test left
         # in the process-wide journal cannot be replayed into this one's switch.
         self.saved_journals = main.table_journals
         main.table_journals = main.TableJournals(os.path.join(self.tmp, "journal"))
@@ -738,7 +735,7 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
         self.assertNotIn(("clone", 1), self.made[0].log)
 
     def test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session(self):
-        # 🔴 TICKET-P3 SECTION 9 RULING 4, on the readopt path. This switch runs the exercise's
+        # 🔴 ON THE READOPT PATH. This switch runs the exercise's
         # OWN program -- so `pipeline_is_ndtwin` is False and the routes are still not refilled
         # -- but that program includes `p4_proxy/p4_src/ndtwin_telemetry.p4`, so it really does
         # clone to the CPU port. Under `cooperative` it must come back from a power-cycle with
@@ -778,7 +775,7 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
         self.assertIn("count every packet twice", result["telemetry_note"])
 
     def test_a_foreign_pipeline_gets_no_ndtwin_routes(self):
-        # 🔴 Round 2, the orchestrator's ruling on objection ①. Before `install_routes` existed
+        # 🔴 Before `install_routes` existed
         # this refill ran unconditionally: against `basic.p4` it SUCCEEDS, because that program
         # declares `MyIngress.ipv4_lpm` with `MyIngress.ipv4_forward(dstAddr, port)` under those
         # exact names -- so NDTwin's shortest paths landed on top of the exercise's own
@@ -813,7 +810,7 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
         self.assertNotIn("note", result)
 
     def test_an_exception_from_readopt_is_not_swallowed(self):
-        # Round 1 wrapped this call in `except Exception` to turn the KeyError the route refill
+        # An `except Exception` around this call used to turn the KeyError the route refill
         # raised against a foreign pipeline into a named failure instead of a 500. That was a
         # workaround for not having `install_routes`; with the parameter the refill does not
         # run, so anything raising here is a real fault and must not be dressed as a step name.
@@ -876,7 +873,7 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
 
 class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
     """
-    TICKET-P4-roles 2.3-3 on the power-on path.
+    Readopt on the power-on path.
 
     [Co-developed with claude code -- Adam]
     When every foreign switch binds roles.ipv4_route with owner ndtwin, startup put NDTwin's
@@ -914,7 +911,7 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
         self.addCleanup(restore)
         self.made = []
         # What startup left on this fabric: every foreign switch owned, so LLDP and the
-        # watchdog are skipped and the routes are not (round 2, section 7 ruling 5 item 1).
+        # watchdog are skipped and the routes are not.
         self.startup_skipped([main.SKIP_LLDP, main.SKIP_WATCHDOG])
 
     def startup_skipped(self, skipped):
@@ -955,11 +952,11 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
         self.assertEqual(main.capabilities_report()["1"]["ipv4_route"], "unbound")
 
     def test_a_fabric_that_skipped_its_routes_at_startup_is_not_refilled_now(self):
-        # Round 2, section 7 ruling 5 item 1: the same predicate as startup -- the FABRIC did
-        # not skip the routes, and this switch's binding is owner ndtwin. Round 1 asked only
-        # whether every client is owned NOW, so a switch that was unbound (or absent) at
-        # startup and comes back owned would get NDTwin's routes into its table while the rest
-        # of the fabric carries none: a path half-installed.
+        # The same predicate as startup -- the FABRIC did not skip the routes, and this
+        # switch's binding is owner ndtwin. Asking only whether every client is owned NOW is not
+        # enough: a switch that was unbound (or absent) at startup and comes back owned would
+        # get NDTwin's routes into its table while the rest of the fabric carries none: a path
+        # half-installed.
         self.startup_skipped([main.SKIP_LLDP, main.SKIP_WATCHDOG, main.SKIP_ROUTES])
         result = main.readopt_switch(self.topo, 1, self.factory(self.owned), sample_sink,
                                      package=self.package())
@@ -975,9 +972,8 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
         self.assertEqual(self.made[0].routes, [])
 
     def test_a_skipped_refill_on_an_owned_switch_says_the_fabric_skipped_its_routes(self):
-        # Section 7 ruling 6, F3: round 2 kept round 1's note -- "the refill names NDTwin's own
-        # tables" -- which is not why an OWNED switch was left empty. [Co-developed with claude
-        # code -- Adam]
+        # The note must not say "the refill names NDTwin's own tables", which is not why an OWNED
+        # switch was left empty. [Co-developed with claude code -- Adam]
         self.startup_skipped([main.SKIP_LLDP, main.SKIP_WATCHDOG, main.SKIP_ROUTES])
         result = main.readopt_switch(self.topo, 1, self.factory(self.owned), sample_sink,
                                      package=self.package())
@@ -1005,16 +1001,16 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
 
 class ReadoptOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
     """
-    TICKET-P4-roles section 7 ruling 5, item 1: readopt obeys the fabric's route skip.
+    Readopt obeys the fabric's route skip.
 
     [Co-developed with claude code -- Adam]
     A mixed fabric -- s1 on NDTwin's pipeline, s2 on a package's with no roles -- skips
     install_initial_routes for the whole fabric at startup, because s2's table is nobody's to
-    write and a shortest path through it would be half-installed. Round 1 entered the declared
-    s1-s2 cable into `net` (2.3-1), and readopt of s1 kept refilling over the whole graph -- so
-    it wrote s1's route to h2, a path that crosses s2. Before the cut `net` had no inter-switch
-    edge on such a fabric, and the same refill could reach only the hosts attached to s1. That
-    is the behaviour kept: on a fabric that skips its routes, no route NDTwin writes may cross
+    write and a shortest path through it would be half-installed. Entering the declared s1-s2
+    cable into `net` meant that readopt of s1, refilling over the whole graph, wrote s1's route
+    to h2, a path that crosses s2. Without that cable `net` has no inter-switch edge on such a
+    fabric, and the same refill could reach only the hosts attached to s1. That is the
+    behaviour kept: on a fabric that skips its routes, no route NDTwin writes may cross
     another switch.
     """
 
@@ -1076,7 +1072,7 @@ class ReadoptOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
         self.assertIn(main.SKIP_ROUTES, result["routes_note"])
 
     def test_with_no_host_of_its_own_it_promises_no_watchdog_that_does_not_run(self):
-        # Section 7 ruling 6, F2: nothing to write (s1's only host is gone), so
+        # Nothing to write (s1's only host is gone), so
         # TopologyManager.readopt_switch adds `routes_pending` and "the link watchdog installs
         # them" -- on a fabric where no watchdog runs. [Co-developed with claude code -- Adam]
         self.topo.net.remove_node(H1)
@@ -1107,15 +1103,15 @@ class ReadoptOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
 
 class ADeleteOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
     """
-    TICKET-P4-roles section 7 ruling 6, F1: the second writer.
+    The second writer.
 
-    [Co-developed with claude code -- Adam]
-    `unroute_flow` hands an ipv4_lpm slot back to the control plane (KNOWN-ISSUES A-4d) by
-    writing the port `_control_plane_port` says install_initial_routes would write now. Round 2
-    restricted install_initial_routes on a fabric that skips its routes and left this mirror of
-    it alone -- so on the mixed fabric (s1 NDTwin, s2 unbound) withdrawing an application's rule
-    for h2 on s1 "restored" s1 -> s2 -> h2, the half-installed path item 1 closed, through a
-    second door. There the control plane has no route to h2 from s1, so the delete is a removal.
+    [Co-developed with claude code -- Adam] `unroute_flow` hands an ipv4_lpm slot back to the
+    control plane (KNOWN-ISSUES A-4d) by writing the port `_control_plane_port` says
+    install_initial_routes would write now. install_initial_routes is restricted on a fabric that
+    skips its routes, so this mirror of it must be too: otherwise, on the mixed fabric (s1
+    NDTwin, s2 unbound), withdrawing an application's rule for h2 on s1 would "restore" s1 -> s2
+    -> h2, a half-installed path, through a second door. There the control plane has no route to
+    h2 from s1, so the delete is a removal.
     """
 
     def setUp(self):
@@ -1150,7 +1146,7 @@ class ADeleteOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
 
 class OnlyTheAttachedHostsTest(unittest.TestCase):
     """TopologyManager.install_initial_routes under `routes_to_attached_hosts_only`.
-    [Co-developed with claude code -- Adam] Section 7 ruling 5 item 1, at the route writer."""
+    [Co-developed with claude code -- Adam] The route skip, at the route writer."""
 
     def setUp(self):
         self.topo, self.s1, self.s2 = build_topology()
@@ -1173,7 +1169,7 @@ class InstallRoutesIsAParameterTest(ReadoptTestBase):
     `TopologyManager.readopt_switch(install_routes=...)` on its own, without the wrapper.
 
     [Co-developed with claude code -- Adam]
-    The seam the orchestrator's round-2 ruling added. Asserted here as well as through
+    The seam for skipping the route refill. Asserted here as well as through
     `main.readopt_switch` because the default is what every other caller gets, and a default
     that silently flipped would take the route refill away from the whole P4 plane.
     """
@@ -1670,8 +1666,8 @@ class ClearSwitchesFromAPreviousRunTest(unittest.TestCase):
     """
     Startup's reset. Until 2026-09-11 both topologies ran
     `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')` as root on every bring-up
-    -- the form CLAUDE.md's engineering discipline forbids by name, for the reason KNOWN-ISSUES
-    G-9 and G-inst-2 each paid for once: `-f` matches the whole command line, so it takes any
+    -- a form this project forbids, for the reason KNOWN-ISSUES G-9 and G-inst-2 each paid
+    for once: `-f` matches the whole command line, so it takes any
     process whose argv mentions the string, and Mininet switches share the root PID namespace.
 
     Expected behaviour is taken from what the fix has to preserve and what it has to stop, not
@@ -1969,7 +1965,7 @@ class BothMainsRefuseAHeldPortTest(unittest.TestCase):
     defect lived in both of them while every test looked at one.
     [Co-developed with claude code -- Adam]
 
-    🔴 2026-09-18, TICKET-P1D: THE TWO COPIES ARE GONE. The reset is one function,
+    🔴 2026-09-18: THE TWO COPIES ARE GONE. The reset is one function,
     `reset_for_bring_up`, and each main calls it -- so "the call is present in both files" is
     no longer the property to assert; it would now be satisfied by a main that had somehow
     grown its own second copy back. What is asserted instead is the pair that actually carries

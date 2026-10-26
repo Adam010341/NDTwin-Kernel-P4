@@ -5,26 +5,25 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# TICKET-ndt-ovs-claim (doc/audit/2026-09-25_ndt-ovs-claim/), Adam's ruling 2026-09-25:
+# 2026-09-25:
 #
 #   1. up_p4 has refused over a foreign claim (and over a measurement in flight) with rc 5 since
-#      09-12. up_ovs had NEITHER check. Measured by the ndt serve round, 2026-09-24 22:49:45-46
-#      (feat/ndt-serve-0924, doc/audit/2026-09-24_ndt-serve/REPORT.md section 2): a foreign owner
-#      claimed the lab, `ndt up 4` built an OVS fabric under that claim in 8.5 s and exited 0,
-#      and `ndt help` said "5 ... the lab is claimed by somebody else" of both planes. The ruling:
-#      OVS refuses exactly as P4 does, through the SAME code, and nothing is half-built.
+#      09-12. up_ovs had NEITHER check. Measured 2026-09-24 22:49:45-46: a foreign owner claimed the
+#      lab, `ndt up 4` built an OVS fabric under that claim in 8.5 s and exited 0, and `ndt help`
+#      said "5 ... the lab is claimed by somebody else" of both planes. OVS refuses exactly as P4
+#      does, through the SAME code, and nothing is half-built.
 #   2. an explicit override, the same flag on both planes, and every use of it recorded -- who,
 #      when, whose claim.
 #   3. a pidfile whose pid is gone (and whose process group, if recorded, is empty) is STALE:
-#      `status` marks it, `down` removes it, and an already-down lab answers 3 with one of them
-#      in .test_run/pids/. The measured case: `.test_run/pids/app_viz.pid`, written 09-14, naming
-#      a pid long gone, which made "down an already-down lab" answer 0 instead of 3; the
-#      orchestrator had to delete it by hand.
+#      `status` marks it, `down` removes it, and an already-down lab answers 3 with one of them in
+#      .test_run/pids/. The measured case: `.test_run/pids/app_viz.pid`, written 09-14, naming a pid
+#      long gone, which made "down an already-down lab" answer 0 instead of 3; it had to be deleted
+#      by hand.
 #
 # 🔴 FROM A CLAIM FILE, not from a stubbed foreign_claim() -- for the reason
 # tests/shell/test_ndt_down_claim_guard.sh gives: the file on disk producing the answer and the
-# command acting on the answer have failed separately in this repo (ROLE-4 T1, T2). in_flight is
-# the one reading answered by the fixture (FX_BUSY): it reads the process table.
+# command acting on the answer have failed separately in this repo. in_flight is the one reading
+# answered by the fixture (FX_BUSY): it reads the process table.
 #
 # 🔴 WHAT MUST NOT HAPPEN is half of every refusal cell: no sudo, no stack.sh, no up.target, no
 # temp file or fifo left in TMPDIR, the app knob untouched, the claim byte-identical, and no
@@ -164,9 +163,9 @@ MANIFEST="'"$FIX"'/manifest.json"
 CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
 LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
 LAB_DEFAULT_KERNEL_DIR="'"$FIX"'"
-# [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the heartbeat pidfile and
-# report are fixture paths (never present), so a heartbeat running on this machine cannot add a
-# `heartbeat stop` to a teardown cell or a row to a status cell.
+# [Co-developed with claude code -- Adam] The heartbeat pidfile and report are fixture paths (never
+# present), so a heartbeat running on this machine cannot add a `heartbeat stop` to a teardown cell
+# or a row to a status cell.
 HB_PIDFILE="'"$FIX"'/run/heartbeat.pid"; HB_REPORT="'"$FIX"'/run/heartbeat.json"
 export TMPDIR="'"$FIX"'/tmp"
 sudo() {
@@ -232,10 +231,10 @@ touched() {
         "$([[ -e "$KNOB" ]] && echo kept || echo cleared)"
 }
 UNTOUCHED='sudo=0 stack=0 target=0 tmp=0 knob=kept'
-# [Co-developed with claude code -- Adam] judge's note 10 (round 2): every column of touched() has
-# to be seen reading non-zero somewhere, or "nothing was touched" is a sentence it cannot help
-# saying. The bring-up cells below move sudo/stack/target/knob; tmp= is moved here, by hand,
-# because a finished bring-up removes its own fifo and temp file.
+# [Co-developed with claude code -- Adam] Every column of touched() has to be seen reading non-zero
+# somewhere, or "nothing was touched" is a sentence it cannot help saying. The bring-up cells below
+# move sudo/stack/target/knob; tmp= is moved here, by hand, because a finished bring-up removes its
+# own fifo and temp file.
 # ($$ in the name: $FIX is already mktemp'd, but tests/shell/check_test_tmpdirs.py reads the
 # spelling "/tmp/<name>" and cannot know that, and a per-process marker costs nothing.)
 : > "$FIX/tmp/instrument-probe.$$"
@@ -477,7 +476,7 @@ has   "  and the P4 command"                                 "up p4 4 --force" "
 
 # 🔴 ONE guard, not two copies: neither bring-up reads the claim itself any more. The behaviour
 # above is the proof that both are guarded; this is the proof that they are guarded by the one
-# function the ticket asks for, so the next change to it cannot fix one plane and not the other.
+# function, so the next change to it cannot fix one plane and not the other.
 OUT="$(drive 'declare -f up_ovs; declare -f up_p4')"
 check "🔴 neither bring-up calls foreign_claim itself"       "0" "$(grep -c 'foreign_claim' <<<"$OUT")"
 check "  and each calls the shared guard exactly once"       "2" "$(grep -c 'guard_up_lab_free ' <<<"$OUT")"
@@ -583,13 +582,13 @@ check "🔴 the stale pidfile is GONE"                         "absent" "$(prese
 check "  and its .pgid with it"                              "absent" "$(present app_viz.pgid)"
 has   "  it says it removed it, and why"                     "removed stale .test_run/pids/app_viz.pid -- pid $DEAD gone" "$OUT"
 # 🔴 The window is kept before the file goes: app_started_at dates a dead app by this file's
-# mtime, and it is the only record of when viz ran (G-12, RESIDUE-1).
+# mtime, and it is the only record of when viz ran (G-12).
 check "🔴 the app's window was written down before the file went" "1789365600" \
       "$(sed -n 's/^start=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null)"
 # [Co-developed with claude code -- Adam]
-# 🔴 AND ITS RIGHT END (judge's F3, round 2). No app log here, so app_window_seal closes the window
-# at the pidfile's own mtime -- zero-length. Written as `now` instead, it would reopen RESIDUE-1's
-# twelve-hour window over every rule installed since.
+# 🔴 AND ITS RIGHT END. No app log here, so app_window_seal closes the window at the pidfile's own
+# mtime -- zero-length. Written as `now` instead, it would reopen the twelve-hour window over every
+# rule installed since.
 check "🔴 the window's right end is the sealed one, not now" "1789365600" \
       "$(sed -n 's/^end=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null)"
 # Down twice: the second is an already-down lab with nothing stale left.
@@ -653,14 +652,14 @@ OUT="$(drive 'cmd_clean')"
 check "  a LIVE registry entry is still a subject: rc 0"     "0" "$(rc_of "$OUT")"
 
 # =============================================================================================
-section "11. 🔴 F1: a zero-length window moved into a record by 'down' still says NO extent"
+section "11. 🔴 a zero-length window moved into a record by 'down' still says NO extent"
 # =============================================================================================
 # [Co-developed with claude code -- Adam]
-# Judge's F1 on 6b7fce83 (orchestrator round 2, 09-25). energy has no log channel on any machine,
-# so a dead energy pidfile's window is [mtime, mtime]. While the pidfile exists the report says
-# G-12's "NO extent ... NOT 'this app left nothing'"; once `down` moves that window into
-# .test_run/apps/energy.window the report reads it from the record -- and until round 2 that path
-# printed the window and `no flow entry arrived during that window` with no caveat at all.
+# 09-25. energy has no log channel on any machine, so a dead energy pidfile's window is [mtime,
+# mtime]. While the pidfile exists the report says G-12's "NO extent ... NOT 'this app left
+# nothing'"; once `down` moves that window into .test_run/apps/energy.window the report reads it
+# from the record -- and before the fix that path printed the window and `no flow entry arrived
+# during that window` with no caveat at all.
 RESIDUE_STUBS='
 port_open() { return 0; }
 http_get_flow_entries() { cat "$REPO/entries.json"; }
@@ -689,14 +688,14 @@ has   "🔴 F1: and still says the window has NO extent"       "has NO extent" "
 has   "  and that it is NOT 'this app left nothing'"         "NOT 'this app left nothing'" "$OUT"
 
 # =============================================================================================
-section "12. 🔴 F2/F8: a recycled number that leads its own group is STALE (start time), not 'group'"
+section "12. 🔴 a recycled number that leads its own group is STALE (start time), not 'group'"
 # =============================================================================================
 # [Co-developed with claude code -- Adam]
-# Judge's F2 on 6b7fce83. POSIX does not reuse a number still in use as a process-group id, so
-# when an app pidfile's number is alive as a stranger the app's own group is gone -- and if the
-# stranger leads a group (a shell job, a daemon, anything setsid'd) the group question found its
-# own member and called the record "NOT stale". The real shape: a setsid-spawned stranger, the
-# .pgid naming it, the pidfile written BEFORE the stranger started.
+# POSIX does not reuse a number still in use as a process-group id, so when an app pidfile's number
+# is alive as a stranger the app's own group is gone -- and if the stranger leads a group (a shell
+# job, a daemon, anything setsid'd) the group question found its own member and called the record
+# "NOT stale". The real shape: a setsid-spawned stranger, the .pgid naming it, the pidfile written
+# BEFORE the stranger started.
 reset_fix; rm -f "$FIX/manifest.json"
 spawn "stranger-group-leader" setsid; STR="$FIXTURE_PID"
 pidf app_viz.pid "$STR"; pidf app_viz.pgid "$STR"
@@ -717,7 +716,7 @@ hasnt "🔴 control: started BEFORE the file was written -> not stale" "STALE --
 has   "  it is the live-group case"                          "is NOT stale" "$OUT"
 kill_fixture "$STR"
 
-# F8: the stack's own files take the same test. They carry no argv to compare, so a live number
+# The stack's own files take the same test. They carry no argv to compare, so a live number
 # was always LIVE; one whose process started after the file was written is somebody else's.
 reset_fix; rm -f "$FIX/manifest.json"
 spawn "some-daemon"; DAEMON="$FIXTURE_PID"
@@ -728,7 +727,7 @@ has   "🔴 F8: a stack pidfile recycled into a stranger is stale" "kernel.pid: 
 hasnt "  and is not printed as alive"                        "kernel.pid=$DAEMON alive" "$OUT"
 OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
 check "  down: not a subject (rc 3), and removed"            "3 absent" "$(rc_of "$OUT") $(present kernel.pid)"
-# [Co-developed with claude code -- Adam] judge r2 #3: the real stack.sh's stop_one printed, a few
+# [Co-developed with claude code -- Adam] The real stack.sh's stop_one printed, a few
 # lines up, that it was keeping this file; the removal has to say why that was not a contradiction.
 has   "  🔴 and says why stack.sh kept it"                   "stack.sh kept it above because the number is somebody else's" "$OUT"
 reset_fix; rm -f "$FIX/manifest.json"
@@ -740,7 +739,7 @@ check "  and down keeps it and counts it (rc 0)"             "0 present" "$(rc_o
 kill_fixture "$DAEMON"
 
 # =============================================================================================
-section "13. 🔴 F3/F4: the window's right end is the app's log when there is one; no window, no removal"
+section "13. 🔴 the window's right end is the app's log when there is one; no window, no removal"
 # =============================================================================================
 reset_fix; rm -f "$FIX/manifest.json"
 DEAD="$(dead_pid)"
@@ -753,7 +752,7 @@ check "🔴 a log newer than the pidfile closes the window at the log's mtime" "
       "$(sed -n 's/^start=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null) $(sed -n 's/^end=//p' "$FIX/.test_run/apps/viz.window" 2>/dev/null)"
 rm -f "$FIX/.test_run/logs/app_viz.log"
 
-# F4: the record cannot be written (its directory is a plain file) -> the pidfile is KEPT, down is
+# The record cannot be written (its directory is a plain file) -> the pidfile is KEPT, down is
 # 1, and the claim note names it.
 reset_fix; rm -f "$FIX/manifest.json"
 write_claim "$US" "$FUTURE" "our own round" ""
@@ -764,8 +763,8 @@ OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
 check "🔴 F4: no window written -> the stale pidfile is KEPT" "present" "$(present app_viz.pid)"
 check "  and down is 1, not 3"                               "1" "$(rc_of "$OUT")"
 has   "  it says why it kept it"                             "kept stale .test_run/pids/app_viz.pid" "$OUT"
-# [Co-developed with claude code -- Adam] judge r2 #4: rc 1 repeats on every `down` until the cause
-# is removed (run_cells.sh stops the grid on it), so the error says what to fix.
+# [Co-developed with claude code -- Adam] rc 1 repeats on every `down` until the cause is removed
+# (run_cells.sh stops the grid on it), so the error says what to fix.
 has   "  🔴 and how to recover"                              "then run 'ndt down' again" "$OUT"
 has   "  and the claim note names it"                        "app_viz.pid kept" "$(sed -n 's/^note=//p' "$FIX/.test_run/lab.claim")"
 rm -f "$FIX/.test_run/apps"
@@ -848,9 +847,9 @@ has   "🔴 F6: the line means '--force was used', not 'it came up'" 'THE LINE M
 has   "down's rc 1 names the stale-entry failures"           "STALE registry entry could not be removed, or an app's window could not be written" "$FLAT"
 has   "identity is stated per kind of file"                  "for the stack's own files, which carry no argv to compare, the pid alone" "$FLAT"
 has   "clean's 3 says 'live'"                                "nothing in .test_run/pids/ naming a live process" "$FLAT"
-# [Co-developed with claude code -- Adam] judge r2 #1: the new --check rc 1, in the status section,
+# [Co-developed with claude code -- Adam] The new --check rc 1, in the status section,
 # with its qualifier; and the manual saying the same, and saying what the code does about a
-# recycled number (judge r2 #5: stale BEFORE the group is asked).
+# recycled number (stale BEFORE the group is asked).
 has   "🔴 status: a recycled stack pidfile is a --check problem, rc 1 only with a baseline" \
       "(a recycled number) is stale too, and a --check problem: rc 1 while a baseline exists; with none the answer is still 3" "$FLAT"
 MANUAL="$HERE/../../doc/2026-08-17_testing-manual.md"
@@ -861,13 +860,12 @@ has   "🔴 the manual: a recycled number is stale without asking the group" "**
 section "17. 🔴 a recycled stack number is a --check problem: rc 1 with a baseline, 3 without"
 # =============================================================================================
 # [Co-developed with claude code -- Adam]
-# Judge's #1 on e1420df2 (orchestrator round 3). F8 made a kernel.pid whose live pid started after
-# the file was written a `stale pidfile` in the pidfiles row, and that row feeds --check's problem
-# list -- so `status --check` went from 0 to 1 on such a lab. That is only true while a baseline
-# exists: with no .test_run/up.target the report is 3 whatever the problem list says. The baseline
-# comparison itself is test_ndt_status_check_baseline.sh's subject, so here check_up_target
-# answers only "is there a baseline" (0) or "none" (3), from the file, and everything else in
-# cmd_status runs for real.
+# A kernel.pid whose live pid started after the file was written is a `stale pidfile` in the
+# pidfiles row, and that row feeds --check's problem list -- so `status --check` went from 0 to 1 on
+# such a lab. That is only true while a baseline exists: with no .test_run/up.target the report is 3
+# whatever the problem list says. The baseline comparison itself is
+# test_ndt_status_check_baseline.sh's subject, so here check_up_target answers only "is there a
+# baseline" (0) or "none" (3), from the file, and everything else in cmd_status runs for real.
 CHECK_STUB='check_up_target() { UP_TARGET_PROBLEMS=(); [[ -f "$REPO/.test_run/up.target" ]] || return 3; return 0; }'
 spawn "some-daemon"; DAEMON="$FIXTURE_PID"
 reset_fix; rm -f "$KNOB"

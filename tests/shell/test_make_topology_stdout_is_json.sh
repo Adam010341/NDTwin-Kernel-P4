@@ -5,12 +5,11 @@
 # [Co-developed with claude code -- Adam]
 #
 # The flag's documented use is a redirect -- the script's own usage block says
-# `tools/make_topology.py --hosts 16 --stdout` -- and it could not work: the round-trip report
-# and the per-size progress lines went to the same stdout as the JSON, so the redirect produced a
-# file whose first line is "round-trip against the shipped models:". Observed 2026-09-02,
-# doc/audit/2026-09-02_live-round/raw/B6_make_topology.log: `JSONDecodeError: Expecting value:
-# line 1 column 1`, and the same bytes with the report stripped by hand parsed to nodes 22,
-# edges 56.
+# `tools/make_topology.py --hosts 16 --stdout` -- and it could not work: the round-trip report and
+# the per-size progress lines went to the same stdout as the JSON, so the redirect produced a file
+# whose first line is "round-trip against the shipped models:". Observed 2026-09-02:
+# `JSONDecodeError: Expecting value: line 1 column 1`, and the same bytes with the report stripped
+# by hand parsed to nodes 22, edges 56.
 #
 # 🔴 Three directions, because two of the three obvious wrong fixes pass a one-case test:
 #   case 2 -- stdout parses. A build that printed NOTHING to stdout would fail this too.

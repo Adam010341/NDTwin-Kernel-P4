@@ -7,7 +7,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * doc/KNOWN-ISSUES.md B-6, second half. Adam's question on 2026-09-05 was "why can a link the API
+ * doc/KNOWN-ISSUES.md B-6, second half. The question raised on 2026-09-05 was "why can a link the API
  * says is down still carry packets" -- so /ndt/inject_link_failure both declares the failure in the
  * twin AND cuts the link, and /ndt/inject_link_recovery puts both back.
  *
@@ -16,10 +16,10 @@
  *     `tc qdisc add dev X root netem loss 100%` does NOT stack a layer on a TCLink interface.
  *     It REPLACES htb -- the bandwidth shaping the whole experiment depends on is silently gone
  *     -- and `tc qdisc del dev X root` then restores the KERNEL DEFAULT, not htb. The customary
- *     teardown check ("no netem residue") is blind to it, and the NOPASSWD sudo grants on this
- *     machine cannot put htb back.
+ *     teardown check ("no netem residue") is blind to it, and a sudoers
+ *     rule that allows only netem forms of `tc` cannot put htb back.
  *
- * That cost a whole overnight OVS round on 2026-08-13. tools/test_workflow/faults.sh carries the
+ * That cost a whole overnight OVS run on 2026-08-13. tools/test_workflow/faults.sh carries the
  * rule that came out of it -- read the live qdisc tree and attach UNDER the shaper rather than over
  * it -- and this file is that logic moved into the kernel, deliberately as a straight port rather
  * than a reimplementation:
@@ -35,15 +35,15 @@
  * restarted between the injection and the recovery, and a restore that depends on in-process
  * memory would leave the fault in place for ever in exactly that case. The tree is the state.
  *
- * @note The sudo grants this needs were confirmed present on this machine with `sudo -n -l` on
- *       2026-09-06:
+ * @note This needs NOPASSWD sudoers rules for these tc forms, which the User Manual does not
+ *       set up:
  *         tc qdisc add dev s[0-9]*-eth[0-9]* root netem *   |  del dev ... root
  *         tc qdisc add dev s[0-9]*-eth[0-9]* parent * netem *  |  del dev ... parent *
  *         tc qdisc show dev s[0-9]*-eth[0-9]*
- *       Both attach forms are permitted, so the safe one is the one that gets used. The interface
+ *       With rules for both attach forms, the safe one is the one that gets used. The interface
  *       name is checked against that same shape before anything runs -- see
  *       isMininetInterfaceName, which is a refusal, not an escape: nothing here builds a command
- *       line, so a name is never shell input, but a name outside the grant would fail with a
+ *       line, so a name is never shell input, but a name outside those rules would fail with a
  *       password prompt the kernel cannot answer and the caller deserves the clearer error.
  */
 
@@ -100,7 +100,7 @@ mininetInterfaceName(const std::string& bridge, uint32_t port)
 }
 
 /**
- * @brief Whether @p name is inside the shape the sudoers grant covers: s<digits>-eth<digits>.
+ * @brief Whether @p name is inside the shape the tc sudoers rules name: s<digits>-eth<digits>.
  *
  * Stricter than the glob in sudoers (`s[0-9]*-eth[0-9]*`, which also matches `s-eth`) on purpose:
  * a name that cannot be produced by Mininet means the bridge name in the topology file is not what
@@ -242,7 +242,7 @@ planAttach(const std::string& tree)
  * @brief Every interface carrying a netem qdisc in a WHOLE-MACHINE `tc qdisc show`, in tree order.
  *
  * [Co-developed with claude code -- Adam]
- * E-20 (Adam, 2026-09-07). @p tree is the output of the bare, no-`dev` form, which prints one line
+ * @p tree is the output of the bare, no-`dev` form, which prints one line
  * per qdisc with the interface named in it:
  *
  *     qdisc htb 5: dev s1-eth1 root refcnt 2 r2q 10 default 0x1 ...
@@ -363,15 +363,15 @@ realTcRunner()
  * @brief The tc the startup sweep runs: the same binary, **without sudo**.
  *
  * [Co-developed with claude code -- Adam]
- * E-20. Reading the qdisc tree needs no privilege at all -- `tools/test_workflow/qdisc_snapshot.sh`
+ * Reading the qdisc tree needs no privilege at all -- `tools/test_workflow/qdisc_snapshot.sh`
  * has taken whole-machine snapshots with a bare `tc qdisc show` since 2026-08-13 -- and going
  * through sudo here would be worse than pointless:
  *
- *   🔴 the NOPASSWD grants on this machine cover `tc qdisc show dev s[0-9]*-eth[0-9]*`. The bare,
- *      no-`dev` form the sweep needs is NOT one of them, so `sudo -n` would refuse it, and a
+ *   🔴 the tc sudoers rules this file needs (see the @note at the top) name interfaces, for
+ *      example `tc qdisc show dev s[0-9]*-eth[0-9]*`. The bare, no-`dev` form the sweep needs is NOT one of them, so `sudo -n` would refuse it, and a
  *      refusal with stderr dropped is indistinguishable from "no netem anywhere". That exact
  *      misread scored a live measurement INVALID on 2026-08-21 while the injector was printing
- *      "netem verified present" -- see doc/audit/2026-08-21_p4-beacon-sweep/beacon_sweep.sh:89.
+ *      "netem verified present".
  *
  * A `tc` that cannot be reached at all surfaces as a non-zero status, which the sweep reports as
  * "could not read" rather than as a clean fabric. That is the whole point of the distinction:
@@ -400,7 +400,7 @@ showQdisc(const std::string& iface, const TcRunner& run)
 }
 
 /// `tc qdisc show` for the WHOLE machine: every interface in this network namespace, one call.
-/// The form netemInterfacesInTree() parses. E-20.
+/// The form netemInterfacesInTree() parses.
 inline TcOutcome
 showAllQdiscs(const TcRunner& run)
 {
@@ -413,7 +413,7 @@ showAllQdiscs(const TcRunner& run)
  * [Co-developed with claude code -- Adam]
  * doc/KNOWN-ISSUES.md B-16. `findExistingNetem` answers "is there a netem here, and where", which
  * is what a delete needs to know and is not the question `/ndt/inject_link_recovery` was asking.
- * Measured 2026-09-11 (ROLE-1, 3 of 3): the same tree read was taken as permission, and the
+ * Measured 2026-09-11 (3 of 3): the same tree read was taken as permission, and the
  * endpoint deleted the previous operator's `netem loss 100%` and answered 200 `ok:true`.
  */
 enum class NetemProvenance
@@ -712,7 +712,7 @@ restoreSightedNetem(const std::string& iface,
  * @brief Cuts EVERY end of a link with `netem loss 100%`, or none of them.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-16, second finding (ROLE-1 2026-09-11, 2 of 2). The loop this replaces
+ * doc/KNOWN-ISSUES.md B-16, second half (measured 2026-09-11, 2 of 2). The loop this replaces
  * called cutInterface once per end and kept going: one end already carried somebody else's netem
  * and was refused, the other end was really cut, and the reply said `link failure injected`. Both
  * ends were `loss 100%` that time so the effect was still symmetric; had the standing netem been

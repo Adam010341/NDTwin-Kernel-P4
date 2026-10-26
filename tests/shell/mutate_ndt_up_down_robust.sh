@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_ndt_up_down_robust.sh (findings #3, #21, #49, #83).
+# Mutation gate for tests/shell/test_ndt_up_down_robust.sh.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -37,12 +37,12 @@
 # SURVIVOR -- never as skipped.
 #
 # Exit: 0 every mutation behaved as declared, 1 one did not, 2 refused (baseline red /
-#       harness / A MUTANT THAT IS NOT VALID BASH -- §9 ruling 12a), 3 the file under test
+#       harness / A MUTANT THAT IS NOT VALID BASH), 3 the file under test
 #       changed while the gate ran.
 #
 # 🔴 2 AND 1 ARE DIFFERENT ANSWERS. 1 is "the suite let a real mutation through"; 2 is "this
-# gate could not measure, so it is not answering". Round 3 collapsed the second into the first
-# by incrementing SURVIVORS for a dead mutant while its comments and the ticket's report both
+# gate could not measure, so it is not answering". An earlier version collapsed the second into the first
+# by incrementing SURVIVORS for a dead mutant while its comments and its report both
 # said it refused -- and the verdict line then reported a measurement that never happened.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,8 +57,8 @@ BASE_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
-#: Mutants that are not valid bash. 🔴 SEPARATE FROM SURVIVORS, AND IT DECIDES THE EXIT CODE
-#: (TICKET-P3 §9 ruling 12a). Round 3 added the `bash -n` guard, wrote "refused, not a
+#: Mutants that are not valid bash. 🔴 SEPARATE FROM SURVIVORS, AND IT DECIDES THE EXIT CODE.
+#: An earlier version added the `bash -n` guard, wrote "refused, not a
 #: survivor" in the comments AND in the report -- and then incremented SURVIVORS, so a dead
 #: mutant still came out as `N mutations, N survived`, rc 1. That is the SAME defect one level
 #: up: the gate saying one thing about itself and doing another. A dead mutant means the gate
@@ -70,8 +70,8 @@ DEAD=0
 run_against() { NDT_UNDER_TEST="$1/ndt" timeout 600 bash "$TEST" 2>&1; }
 
 # [Co-developed with claude code -- Adam]
-# 🔴 A MUTANT THAT DOES NOT PARSE IS NOT A MUTANT (round-3 ruling 3; the accounting that
-# makes that true rather than merely stated is §9 ruling 12a). `bash -n` is the whole
+# 🔴 A MUTANT THAT DOES NOT PARSE IS NOT A MUTANT (the accounting that
+# makes that true rather than merely stated is the DEAD count below). `bash -n` is the whole
 # guard: a syntactically dead `ndt` reddens every cell for one reason -- it cannot run -- which
 # looks exactly like "the suite is sensitive" while proving nothing, and leaves the NAMED cell
 # absent from the output, which `report` cannot tell from green. That is how M9 was reported as
@@ -145,7 +145,7 @@ report_green() {   # $1 = mutation name, $2 = mutant dir, $3 = why it changes no
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
 # read this gate: it learns which argument is the anchor and which is the file from this
 # function's own `local ... file="$2" old="$3"` line. A gate it cannot read is a gate it is not
-# checking -- finding #28.
+# checking.
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"; mkdir -p "$d"
@@ -157,7 +157,7 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     # 2026-09-12 this python ran bare: a stale anchor printed a traceback into the gate's own
     # log, the copy stayed UNMUTATED, the suite was green, and the gate said `SURVIVED -- that
     # case proves nothing`. "The assertion is not load-bearing" and "the gate can no longer find
-    # that line" are very different diagnoses, and this ticket produced four of the second kind
+    # that line" are very different diagnoses, and this gate once produced four of the second kind
     # in one round. tests/shell/mutate_live_cells.sh has said it this way since 09-11.
     if ! python3 - "$d/$(basename "$file")" "$old" "$new" > "$d/.apply.err" 2>&1 <<'PY'
 import sys
@@ -270,7 +270,7 @@ report "M8: a REUSED fabric is rolled back as if we built it" "$m" \
 
 # 🔴 And the other opposite error: rolling back a stack that came up and merely failed its
 # verification, which destroys the one state an operator needs to be able to read.
-# 🔴 THE ANCHOR IS THE COMPLETE CALL, AND IT WAS NOT (TICKET-P3 round-3 ruling 3).
+# 🔴 THE ANCHOR IS THE COMPLETE CALL, AND IT WAS NOT.
 # `verify_p4 "$topo" "$want_paths"` became a PREFIX of the real line when verify_p4 grew two
 # more arguments (`ndt:3307` now passes "$app_mode" "$app_pipe"). The mutant therefore became
 #     verify_p4 "$topo" "$want_paths" || { ... } "$app_mode" "$app_pipe"
@@ -363,7 +363,7 @@ report "M16: an unanswerable helper comparison is called a match" "$m" \
        "🔴 'could not compare' is not green"
 
 # 🔴 The other direction: preflight starts REFUSING on a helper mismatch. Whether to install is
-# Adam's decision, and a bring-up that will not run until somebody types a sudo command is a
+# the operator's decision, and a bring-up that will not run until somebody types a sudo command is a
 # worse failure than one that runs the old helper and says which one it ran.
 m=$(mutant m17 "$NDT" \
     '    if (( labrc != 0 )); then' \
@@ -406,7 +406,7 @@ report "M20: the guard refuses even when the trees are the same" "$m" \
 
 # The refusal reports this checkout's host_count_override for both trees. It still prints two
 # paths and two numbers -- and the two numbers are the same one, so the reader is told the
-# fabric would be built at a size it would not be built at. FINDING-01's shape inside the
+# fabric would be built at a size it would not be built at. The same shape inside the
 # message written to prevent it.
 m=$(mutant m21 "$NDT" \
     'the fabric would come from      $lab  (host_count_override $(host_count_in "$lab"))' \
@@ -993,9 +993,9 @@ m=$(mutant w10 "$NDT" \
 report_green "W10 (behaviour-preserving): the note's on-screen announcement reworded" "$m" \
        "section 19 reads .test_run/lab.claim, not the screen"
 
-# --- FIX-NDT-8: the one rc vocabulary across up, down and clean (section 20) -------------------
+# --- the one rc vocabulary across up, down and clean -------------------
 #
-# Adam, 2026-09-12. Every mutation below is a way of making the three words mean one word again,
+# 2026-09-12. Every mutation below is a way of making the three words mean one word again,
 # and each of them leaves the product looking exactly as it does now: the same refusals, the
 # same prose, the same guards -- and a caller that cannot tell "I declined to act" from "I
 # looked and it was dirty".
@@ -1040,7 +1040,7 @@ report "M67: up_ovs reads the rc after its own rm -f" "$m" \
 # implemented" is a claim about all of them and a single site left behind is the state this
 # gate exists to see.
 m=$(mutant m68 "$NDT" \
-    '        # 🔴 rc 5: refused. (Adam, 2026-09-12)
+    '        # 🔴 rc 5: refused. (2026-09-12)
         return 5' \
     '        return 1')
 report "M68: a foreign claim refuses with 1 again" "$m" \
@@ -1058,7 +1058,7 @@ m=$(mutant m70 "$NDT" \
 report "M70: H4 refuses with 1 again on the OVS side" "$m" \
        "🔴 H4 refuses with 5 on the OVS side too"
 m=$(mutant m71 "$NDT" \
-    '        # guards, one code -- see the vocabulary note above preflight. (Adam, 2026-09-12)
+    '        # guards, one code -- see the vocabulary note above preflight. (2026-09-12)
         return 5' \
     '        return 1')
 report "M71: the second H4 guard answers 1 again" "$m" \
@@ -1091,7 +1091,7 @@ report_green "W11 (behaviour-preserving): the rc-carrying local is renamed" "$m"
 # M73: the refusal goes back to 1, with every word of it unchanged.
 m=$(mutant m73 "$NDT" \
     '        # 🔴 rc 5: refused. It outranks rc 3 -- a command that refused did not measure this
-        # machine at all, so it has nothing to report about what is on it. (Adam, 2026-09-12)
+        # machine at all, so it has nothing to report about what is on it. (2026-09-12)
         return 5' \
     '        return 1')
 report "M73: 'ndt clean' refuses with 1 again (ROLE-12 cell 3)" "$m" \
@@ -1146,7 +1146,7 @@ report_green "W12 (behaviour-preserving): the rc-3 explanation reworded" "$m" \
 # unchanged; what a caller reads is not.
 m=$(mutant m77 "$NDT" \
     '        # 🔴 rc 5: refused. Nothing on this machine was read, let alone changed -- the same
-        # answer `ndt up` and `ndt clean` give for a guard. (Adam, 2026-09-12)
+        # answer `ndt up` and `ndt clean` give for a guard. (2026-09-12)
         return 5' \
     '        return 1')
 report "M77: a foreign claim refuses the teardown with 1 again" "$m" \
@@ -1196,7 +1196,7 @@ report_green "W13 (behaviour-preserving): the rc-3 explanation reworded" "$m" \
 # --- FIX-NDT-8: [3/3] says it ran the Mininet sweep (section 23) -------------------------------
 
 # M82: the sentence goes. The teardown still does the sweep, and the manual still carries the
-# hand-typed command -- which is the state Adam's Q3 is about.
+# hand-typed command -- which is the state the open question is about.
 m=$(mutant m82 "$NDT" \
     '    ok "this step ran the Mininet sweep (mn -c) for you"' \
     '    :')
@@ -1219,9 +1219,9 @@ m=$(mutant w14 "$NDT" \
 report_green "W14 (behaviour-preserving): the [3/3] explanation reworded" "$m" \
        "section 23 reads the sentence and the verb, not this line"
 
-# --- FIX-NDT-8: the way IN is printed on both planes (section 24) ------------------------------
+# --- the way IN is printed on both planes ------------------------------
 
-# M84: the OVS bring-up stops printing it, which is the state Adam asked about at 11:23 --
+# M84: the OVS bring-up stops printing it, which is the state reported at 11:23 --
 # 128 hosts on the default plane and no line saying how to reach them.
 m=$(mutant m84 "$NDT" \
     '        lab_entry_points ovs' \
@@ -1348,11 +1348,11 @@ if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then
     exit 3
 fi
 echo "baseline byte-identical: yes  tools/test_workflow/ndt  sha256 $BASE_NDT"
-# 🔴 A DEAD MUTANT MEANS THERE IS NO VERDICT TO PRINT (§9 ruling 12a). Not "0 survived" (it was
+# 🔴 A DEAD MUTANT MEANS THERE IS NO VERDICT TO PRINT. Not "0 survived" (it was
 # never measured), not "1 survived" (that is a claim about the SUITE, and the suite never ran
 # against a working mutant). The gate refuses, the way it refuses a red baseline -- and it must
 # not print a `N mutations, N survived` line at all, because that line is what every reader,
-# every log scraper and this ticket's own report table take as the result.
+# every log scraper and this gate's own report table take as the result.
 if [[ "$DEAD" -gt 0 ]]; then
     echo "🔴 REFUSED: $DEAD mutant(s) are not valid bash -- see the DEAD line(s) above."
     echo "   A mutant that does not parse reddens every cell for one reason (it cannot run) and"

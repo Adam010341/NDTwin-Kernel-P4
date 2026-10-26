@@ -6,9 +6,8 @@
 #
 # The chaos harness's `link_blackhole` attached netem with an unconditional `root`. On a
 # Mininet TCLink interface that REPLACES htb rather than stacking on it, `del ... root` then
-# restores the kernel default instead of htb, and the NOPASSWD grants on this machine cannot
-# put htb back -- measured verbatim on 2026-08-13
-# (doc/audit/2026-08-12_overnight-review/C-live-ovs-runbook.md, P1). The fix reads the live
+# restores the kernel default instead of htb, and netem-scoped tc sudoers rules cannot put htb
+# back -- measured verbatim on 2026-08-13. The fix reads the live
 # qdisc tree and attaches under the shaper, exactly as tools/test_workflow/faults.sh does.
 #
 # Two directions, because this fix can go wrong both ways:

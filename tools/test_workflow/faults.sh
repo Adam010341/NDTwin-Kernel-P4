@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Why this exists. The 2026-08-12 static + live review found the same shape three times:
+# Why this exists. The same shape turned up three times on 2026-08-12 (static + live):
 # a real bug was fixed and no fault TYPE was left behind to catch the next one of its kind
 # (unidirectional link loss, mastership collision, killing the controller). Fault types
 # live in faults.txt, one per line, in the same "field | field | reason" shape the rest of
@@ -15,7 +15,7 @@
 #  1. qdisc before and after, and the diff must be empty. `tc qdisc add dev X root netem`
 #     does not stack a layer, it silently REPLACES TCLink's htb; `del root` then restores
 #     the kernel default, not htb. The customary "netem residue = 0" check cannot see that,
-#     and the NOPASSWD grants cannot put htb back. So the round is void unless
+#     and netem-scoped tc sudoers rules cannot put htb back. So the round is void unless
 #     qdisc_snapshot.sh says the tree came back identical -- an injection tool that
 #     corrupts the experiment silently is worse than no injection tool.
 #     (doc/2026-07-29_environment_gotchas.md, 2026-08-13 OVS round.)
@@ -42,29 +42,25 @@
 # are environment variables, so the tests drive the real round logic with nothing running:
 #
 #   FAULTS_TC          tc command                (default: sudo -n tc)
-#                      READ THIS BEFORE THE FIRST LIVE ROUND. Measured with `sudo -n -l` on
-#                      2026-08-13, the NOPASSWD grant for tc was only:
-#                        tc qdisc add dev s*-eth* root netem * | del dev s*-eth* root | show
-#                      i.e. sudo permitted ONLY the `root netem` form -- the one that silently
-#                      replaces TCLink's htb -- and NOT the safe `parent H:D` form this
-#                      script computes, so on a shaped interface plain `sudo -n tc` could not
-#                      do the right thing at all and this script refused rather than fall back
-#                      to the destructive form.
-#                      *** RESOLVED 2026-08-15: Adam added the two parent rules, and
-#                      `sudo -n -l` on 2026-08-17 confirms all four grants are live:
+#                      READ THIS BEFORE THE FIRST LIVE ROUND. The default needs NOPASSWD
+#                      sudoers rules for these tc forms, which the User Manual does not set up:
 #                        tc qdisc add dev s*-eth* root netem * | del dev s*-eth* root | show
 #                        tc qdisc add dev s*-eth* parent * netem * | del dev s*-eth* parent *
-#                      The default FAULTS_TC is therefore correct on this machine now, and the
-#                      safe form is the one that gets used on a shaped interface. Keep the
-#                      escape below for any machine whose sudoers is still the 08-13 shape:
+#                      With rules for the first line only -- the `root netem` form, the one that
+#                      silently replaces TCLink's htb -- and not for the safe `parent H:D` form this
+#                      script computes, plain `sudo -n tc` cannot do the right thing on a shaped
+#                      interface, and this script refuses rather than fall back to the
+#                      destructive form. On such a machine, run tc under mnexec instead:
 #                        FAULTS_TC="sudo -n mnexec -a $(bash tools/test_workflow/faults.sh --topo-pid) tc"
-#                      (mnexec runs as root, so tc under it needs no tc-specific grant --
+#                      (mnexec runs as root, so tc under it needs no tc rule; it needs a NOPASSWD
+#                      rule for mnexec instead, which the User Manual does not set up either --
 #                      the same escape doc/2026-07-29_environment_gotchas.md uses for ovs-ofctl.)
 #   FAULTS_KILL        signal command            (default: sudo -n kill)
 #                      Same trap as FAULTS_TC, found on this script's first live round
-#                      (2026-08-16): this machine's sudoers has no NOPASSWD for bare
-#                      `kill`, so the default answers "a password is required" and the
-#                      injection silently degrades to "not-injected". Use the same escape:
+#                      (2026-08-16): the default needs a NOPASSWD sudoers rule for `kill`, which
+#                      the User Manual does not set up; without it the default answers "a password
+#                      is required" and the injection silently degrades to "not-injected". Or use
+#                      the mnexec escape, which needs its own NOPASSWD rule for mnexec:
 #                        FAULTS_KILL="sudo -n mnexec -a 1 kill"
 #   FAULTS_CRITERIA    verdict command           (default: python3 <root>/tools/twin_audit/criteria.py)
 #                      criteria.py reads PATHS_URL from the environment (default is Ryu's
@@ -308,16 +304,16 @@ inject_link_loss() {
         if ! run_tc qdisc add dev "$dev" $where netem loss "$loss"; then
             err "tc failed on $dev (attach point: $where)"
             if [[ "$where" != "root" ]]; then
-                # Measured 2026-08-13: the NOPASSWD grant for tc is
-                #   /usr/sbin/tc qdisc {add dev s*-eth* root netem *, del dev s*-eth* root, show ...}
-                # i.e. sudo permits ONLY the `root netem` form -- the one that silently
-                # replaces TCLink's htb -- and NOT the safe `parent H:D` form this script
-                # computes. So on a shaped interface plain `sudo -n tc` cannot do the right
-                # thing at all. mnexec runs as uid 0, so tc under it needs no tc-specific
-                # grant; that is the same escape doc/2026-07-29_environment_gotchas.md uses for
-                # ovs-ofctl, which is not in sudoers either.
-                err "The NOPASSWD grant for tc covers only the 'root netem' form, which is"
-                err "exactly the form that destroys TCLink's htb. Run tc as uid 0 instead:"
+                # tc sudoers rules that cover only the `root netem` form -- the one that silently
+                # replaces TCLink's htb -- and not the safe `parent H:D` form this script computes
+                # cannot do the right thing on a shaped interface at all. mnexec runs as uid 0, so
+                # tc under it needs no tc rule, but it needs a NOPASSWD rule for mnexec, which the
+                # User Manual does not set up; doc/2026-07-29_environment_gotchas.md uses the same
+                # escape for ovs-ofctl.
+                err "The safe 'parent' form failed. If the tc sudoers rules here cover only the 'root netem' form,"
+                err "sudo cannot run the safe form, and the root form destroys TCLink's htb. Run tc as uid 0"
+                err "under mnexec instead (this needs a NOPASSWD sudoers rule for mnexec, which the User Manual"
+                err "does not set up):"
                 err "  FAULTS_TC=\"sudo -n mnexec -a \$(bash $0 --topo-pid) tc\""
             fi
             return 1
@@ -343,11 +339,12 @@ revert_link_loss() {
         fi
         if [[ "$where" == "root" ]]; then
             # [Co-developed with claude code -- Adam]
-            # No trailing `netem` here. The NOPASSWD grant is the exact argument list
-            # `qdisc del dev s*-eth* root`, and sudo matches it literally -- one extra token
+            # No trailing `netem` here. sudo matches a rule's argument list literally, so a
+            # NOPASSWD rule for `tc qdisc del dev s*-eth* root` (the User Manual sets up no tc
+            # rule) does not cover the same command with a trailing `netem` -- one extra token
             # and the revert dies with "a password is required", leaving the fault in place
             # and voiding the round on the qdisc diff. Measured 2026-08-13, on the harness's
-            # first live run: the injection was permitted, the revert was not.
+            # first live run: the injection ran and the revert, with the extra token, was refused.
             run_tc qdisc del dev "$dev" root || rc=1
         else
             # shellcheck disable=SC2086

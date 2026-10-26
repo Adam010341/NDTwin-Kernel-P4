@@ -134,7 +134,7 @@ WARNING | ^cannot find graph vertex for switch IP | transient during convergence
 # a string literal this tree still emits, and requires this header to be present, so the next
 # entry cannot outlive its message quietly. The one line that used to be here --
 # `P4 BMv2 Power ON from Kernel is currently a stub`, Phase 7 of the bmv2 support plan -- was
-# removed on 2026-09-11 (Adam's ruling, FIX-NDT-4 #15) after
+# removed on 2026-09-11 after
 # `grep -rn 'currently a stub'` and `grep -rn 'P4 BMv2 Power'` over src/, include/ and
 # p4_proxy/ returned zero hits: the message it permitted does not exist any more.
 # doc/audit/2026-08-30_live-full-stack-round/harness/90_restore.sh:29 had said so on 08-30, in
@@ -221,7 +221,7 @@ WARNING | ^intent_translator requested but the translator is disabled | 503 path
 # ----------------------------------------------------------------------------
 # [Co-developed with claude code -- Adam]
 #
-# doc/KNOWN-ISSUES.md G-32, Adam's ruling of 2026-09-11 (option C). Measured 2026-09-11
+# doc/KNOWN-ISSUES.md G-32 (option C, 2026-09-11). Measured 2026-09-11
 # 02:01:16-02:02:45 (ROLE-4 T4): a loop writing flow entries every two seconds went
 # through the second its own claim expired AND through another owner taking the claim,
 # 200 both times, and only found out when that owner tore the kernel down. The kernel

@@ -17,7 +17,6 @@ and every `/ndt/` metric work without modification.
 Progress, remaining work and the per-phase plan: `doc/2026-07-27_p4_bmv2_support_plan.md`.
 Test procedure and measured results: `doc/2026-07-29_p4_status_and_test_guide.md`.
 Machine-specific setup traps: `doc/2026-07-29_environment_gotchas.md`.
-What is still open: `doc/2026-07-29_HANDOFF.md`.
 
 ### Fixed (crashes and silent failures)
 
@@ -403,7 +402,7 @@ add" cases, malformed parameters answering 500, and `poll()` with a 0 ms timeout
 at idle. Every one is *silent* — nothing crashes, nothing logs, every endpoint answers 200 — which
 is why the premise looked right. So this work is **two** things, and fixing the shared-path
 correctness defects was a prerequisite for the other, because a baseline that lies cannot verify a
-new data plane. See `doc/2026-07-29_HANDOFF.md` and the note below on the Ryu wedge for the clearest example.
+new data plane. See the note below on the Ryu wedge for the clearest example.
 
 ### 1. Correctness defects in the shared kernel path (affect OVS and P4 alike)
 
@@ -432,11 +431,12 @@ new data plane. See `doc/2026-07-29_HANDOFF.md` and the note below on the Ryu we
 ### 2. The Ryu flow-stats wedge
 
 Restarting Ryu under a live Mininet wedges `/stats/flow` into returning an empty table forever.
-Reproduced twice and characterised (`doc/audit/2026-08-07_ryu-wedge-trace.tsv`, 151 samples);
+Reproduced twice and characterised (151 samples);
 **root cause still unproven** after four falsified hypotheses. The harm is fixed without touching
 Ryu: a wedged reply takes 1.011 s against 0.027–0.083 s healthy — and 1.0 s is `DEFAULT_TIMEOUT`
 in `ryu/lib/ofctl_utils.py` — so an empty table that took ≥ 0.5 s is refused and the previous one
-kept. Operationally: **never restart Ryu alone; restart Mininet with it.**
+kept. The refusal rule is pinned in `tests/test_FlowStatsTimeout.cpp`; keeping the previous table is
+not. Operationally: **never restart Ryu alone; restart Mininet with it.**
 
 ### 3. P4/bmv2 support
 
@@ -454,7 +454,7 @@ yet use it. Phase 3 and 8 are not started.
 
 379 gtest tests across 43 suites and 240 Python tests, run both under `ctest` and as one process,
 because either alone hides failures the other finds. **Every test ships with the mutation that
-breaks it** — applied, observed, reverted — with the evidence in `doc/audit/*_mutation-evidence-*.md`;
+breaks it** — applied, observed, reverted;
 this has caught 11 tests that passed while proving nothing. Four false PASSes were fixed in the
 tooling itself, including one where `unittest` counts skipped tests inside `Ran N` so a
 fully-skipped file reported green, and one where a skip check was dead from the day it was written.

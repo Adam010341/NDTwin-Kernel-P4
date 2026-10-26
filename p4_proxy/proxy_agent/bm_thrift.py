@@ -4,8 +4,8 @@ bmv2's thrift service, for GET /p4/register: two register reads and the switch's
 [Co-developed with claude code -- Adam]
 
 Why thrift at all: bmv2's P4Runtime answers every RegisterEntry read UNIMPLEMENTED ("Register reads
-are not supported yet"), and the PI installed with it has no register support in any layer
-(doc/audit/2026-10-16_p4-register-read/DESIGN.md sections 1 and 5). bmv2's own thrift service
+are not supported yet"), and the PI installed with it has no register support in any layer.
+bmv2's own thrift service
 `standard` does have them, and simple_switch_CLI's `register_read` is that service.
 
 Why a client written here and not bmv2's generated `bm_runtime` package: that package lives in
@@ -22,7 +22,7 @@ field from the generated code (bm_runtime/standard/Standard.py and ttypes.py, Th
 on TBinaryProtocol over a buffered socket, multiplexed under the service name "standard" (what
 bmpy_utils.thrift_connect does).
 
-READ ONLY. There is no write here. Measured (DESIGN-thrift.md section 0): a CLI `table_add` leaves
+READ ONLY. There is no write here. Measured: a CLI `table_add` leaves
 P4Runtime's view of a switch "out-of-sync with target"; thrift register reads, CLI register reads,
 a CLI register write and a CLI counter read did not.
 

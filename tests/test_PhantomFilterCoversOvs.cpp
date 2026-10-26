@@ -5,13 +5,12 @@
  *
  * ## What was measured
  *
- * `doc/audit/2026-09-03_night-rounds/round1-ovs/22_x5_b1_phantom_window_ovs.log`, on `ovs4`:
- * after `POST /ndt/install_flow_entry`, `get_switch_openflow_table_entries` served a
- * request-shaped row (`ipv4_dst`, no counters, the caller's priority) at **t=0.257 s** and kept
- * serving it for ~1.0 s. The genuinely polled row arrived at **t=13.4 s**. The same recipe on P4
- * gave `first_sighting=never`.
+ * Measured on a live OVS bridge on 2026-09-03: after `POST /ndt/install_flow_entry`,
+ * `get_switch_openflow_table_entries` served a request-shaped row (`ipv4_dst`, no counters, the
+ * caller's priority) at **t=0.257 s** and kept serving it for ~1.0 s. The genuinely polled row
+ * arrived at **t=13.4 s**. The same recipe on P4 gave `first_sighting=never`.
  *
- * The log's own positive control is the part that decides what the fix must be: a **legitimate**
+ * The run's own positive control is the part that decides what the fix must be: a **legitimate**
  * port-2 rule produced the *same* phantom at t=0.255 s. So the row being served is the optimistic
  * cache row, and the question it answers wrong is not "is this rule legal" but "has anything
  * observed this rule on a switch". Probe resolution was 0.25 s against a ~1.0 s window, so "the
@@ -131,7 +130,7 @@ constexpr const char* kProxyProgrammed = "{\"status\":\"success\"}\n200";
 /// which is the case post() already turns into ok=false.
 constexpr const char* kProxyRefused = "{\"status\":\"error\",\"message\":\"no such port\"}\n200";
 
-/// The install the live recipe sends: the invalid-port arm of 22_x5_b1_phantom_window_ovs.log.
+/// The install the live recipe sends: its invalid-port arm, as captured on a live OVS run.
 json
 invalidPortMatch()
 {

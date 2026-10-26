@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
-# Which testbed_topo.py `ndt up ovs` actually launches -- finding #77.
+# Which testbed_topo.py `ndt up ovs` actually launches.
 #
 # [Co-developed with claude code -- Adam]
 #
-# The defect: `ovs-topo-start` started /home/adam/Network-Traffic-Generator/testbed_topo.py, a
+# The defect: `ovs-topo-start` started $HOME/Network-Traffic-Generator/testbed_topo.py, a
 # file in ANOTHER REPO, while components.env:80 (OVS_TOPO_SCRIPT) and stack.sh:775 both name
 # THIS repo's copy -- so the path the manual tells an operator to run and the path `ndt up ovs`
-# runs were two different files. Finding #42 then fixed this repo's copy so its closing banner is
+# runs were two different files. A later change fixed this repo's copy so its closing banner is
 # derived from the ping self-test, and an operator running `ndt up ovs` still saw NTG's constant
-# "Host internet: OK | sFlow reachability: OK | Switch identification: OK". Adam decided
-# 2026-09-03 (N13): ndt's paths run this repo's copy; NTG is not modified.
+# "Host internet: OK | sFlow reachability: OK | Switch identification: OK". Decided
+# 2026-09-03: ndt's paths run this repo's copy; NTG is not modified.
 #
 # 🔑 WHY THIS SUITE EXERCISES RATHER THAN GREPS. A grep for the NTG path is exactly the test that
 #    would have passed on 2026-09-03 while the bug was live -- the string was in the file, in a

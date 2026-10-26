@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for tests/browser/test_ndt_serve_page.py -- the ndt serve page, v2 (React, built
-# from tools/ndt_serve/web into tools/ndt_serve/static), in headless Chrome
-# (doc/audit/2026-09-27_ndt-serve-gui/SCOPE-v2.md section 5).
+# from tools/ndt_serve/web into tools/ndt_serve/static), in headless Chrome.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -446,7 +445,7 @@ mutant t1-dom "$SESSION_TS" \
 report "T1: the token is written into a data-* attribute of <body> (DOM)" \
        Load.test_the_token_is_not_in_the_dom "the token is in the page's DOM"
 
-# The judge's G-N8 positive control for the profile scan: a value in an IndexedDB store of an
+# The positive control for the profile scan: a value in an IndexedDB store of an
 # innocuously named database. indexedDB.databases() lists the name, not the value, so only the
 # scan of the profile's files can see the token itself.
 mutant t2-indexeddb "$SESSION_TS" \
@@ -571,7 +570,7 @@ mutant c2b-server-no-own-claim "$SERVE_PY" \
 report "C2b: serve.py confirm_policy says up/down need no claim of your own" \
        Confirm.test_a_claim_not_yours_puts_claim_first 'no "claim first" blocker'
 
-# Adam 09-28: no claim at all is not yours either.
+# 09-28: no claim at all is not yours either.
 mutant cf1-blocks-only-a-claim-row "$DIALOG_TSX" \
     'if (D.needs_own_claim && !(L && L.claim_is_yours))' \
     'if (D.needs_own_claim && L && L.claim !== null && !L.claim_is_yours)'
@@ -770,7 +769,7 @@ mutant r6-refresh-now-resumes "$REFRESH_TS" \
 report "R6: 立即更新 always brings the 10 s tick back, even while still measuring" \
        Refresh.test_refresh_stops_while_measuring "while still measuring brought the 10 s tick back"
 
-# --- the probe during a measuring pause (Adam's Q6, 09-28; /measuring alone since 10-01) ---
+# --- the probe during a measuring pause (09-28; /measuring alone since 10-01) ---
 
 mutant q1-no-probe "$REFRESH_TS" \
     '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
@@ -819,7 +818,7 @@ mutant q12-probe-sets-last-read "$APP_TSX" \
 report "Q12: the probe moves the full read's time (the tabs would read fresher than they are)" \
        Refresh.test_a_measuring_pause_probes_measuring_alone "the probe changed the full read's time"
 
-# the r2 review's tests 4-6, against the probe: shown again, a declared pause, a probe timeout
+# tests 4-6, against the probe: shown again, a declared pause, a probe timeout
 mutant q8-shown-probes-at-once "$REFRESH_TS" \
     '      if (measuring.current) {
         arm();

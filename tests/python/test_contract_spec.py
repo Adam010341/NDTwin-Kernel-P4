@@ -53,9 +53,9 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 # authority a mutated tool is judged against must not be mutated with it.
 #
 # The NAME is not free choice: tests/python/test_l3_dispatch_drift.py already reads
-# NDT_CONTRACT_DIR on trunk for this same mechanism, and fix/e21-link-endpoints-in-contract
+# NDT_CONTRACT_DIR on trunk for this same mechanism, and the link-endpoint contract work
 # adds a third reader of it. This branch invented a second spelling for the same thing and it
-# was renamed to this one on 2026-09-07 (Adam's ruling on E-21 §7-2), so that one directory
+# was renamed to this one on 2026-09-07, so that one directory
 # does not end up with two names for one mechanism -- and so that the two branches meet in a
 # conflict about content rather than about spelling. The old name is deliberately not written
 # down anywhere: a dead environment variable in a comment is a grep that lies.
@@ -1327,7 +1327,7 @@ class SplitFieldsMakeTheThreeStateCheckAbleToFireTest(unittest.TestCase):
         self.assertTrue(any(m.startswith(ACCOUNTED_FOR) and "s5" in m for m in out), out)
 
     def test_the_two_dead_switches_are_reported_differently(self):
-        # The whole point of the ruling, in one call: same reachability, different verdicts.
+        # The whole point, in one call: same reachability, different verdicts.
         data = {"nodes": [split_node(1),
                           split_node(5, admin_state="off", reachable=False),
                           split_node(7, admin_state="on", reachable=False)]}
@@ -1477,7 +1477,7 @@ LINK_SEQUENCE = ["link_failure_detected", "link_recovery_detected", "inject_link
 
 class LinkEndpointContractTest(unittest.TestCase):
     """
-    Adam's ruling E-21: the four link endpoints join the contract.
+    The four link endpoints join the contract (2026-09-07).
 
     They had none. `declaration_retained` -- the one field on the wire that says "this kernel
     deliberately left your link down" -- was documented in §2, emitted by HttpSession.cpp and
@@ -1506,7 +1506,7 @@ class LinkEndpointContractTest(unittest.TestCase):
     # --- the family is present at all --------------------------------------------------------
 
     def test_all_four_link_endpoints_are_in_the_contract(self):
-        # The ruling, stated as a test: before E-21 every one of these had zero entries and the
+        # Stated as a test: before 2026-09-07 every one of these had zero entries and the
         # suite was green.
         for path in LINK_ENDPOINT_PATHS:
             self.assertTrue(self.entries_for(path), f"{path} has no contract entry at all")
@@ -1521,7 +1521,7 @@ class LinkEndpointContractTest(unittest.TestCase):
     # --- the declined reply, which is what E-21 is about --------------------------------------
 
     def test_the_declined_recovery_must_report_declaration_retained(self):
-        # THE CHECK THIS TICKET EXISTS FOR. A reply without the field is the lw8b behaviour --
+        # THE CHECK THIS TEST EXISTS FOR. A reply without the field is the lw8b behaviour --
         # the injection withdrawn by a report nothing paired with -- and it must not pass.
         self.assertEqual(
             spec.inv_recovery_was_declined_and_said_so(DECLINED_RECOVERY, None), [])
@@ -1628,8 +1628,8 @@ class LinkEndpointContractTest(unittest.TestCase):
         self.assertTrue(spec.inv_tc_half_is_reported_per_interface({"tc": silent}, None))
 
     def test_a_refused_entry_is_accounted_for_rather_than_failed(self):
-        # "The physical lab gets C only" (Adam, 2026-09-05), and a machine without the NOPASSWD
-        # tc grants is a lab set up differently, not a kernel that is broken. Printed either way.
+        # The physical lab gets C only, and a machine without NOPASSWD sudoers rules for those
+        # tc forms is a lab set up differently, not a kernel that is broken. Printed either way.
         refused = [{"interface": None, "ok": False,
                     "refused": "the topology file gives this switch no bridge_name"},
                    {"interface": "s5-eth1", "ok": True, "command": "qdisc add ..."}]
@@ -1726,7 +1726,7 @@ class LinkEndpointContractTest(unittest.TestCase):
     # --- the error paths --------------------------------------------------------------------
 
     def test_all_four_endpoints_have_a_dpid_zero_door(self):
-        # W8-7 put four doors in, and the ruling (E-18) kept all four. One missing door is a link
+        # Four doors went in on 2026-09-07, and all four were kept. One missing door is a link
         # nobody could have injected but that inject_link_recovery would still run tc against.
         doors = {e["path"] for e in spec.ENDPOINTS
                  if e["category"] == spec.ERRORPATH

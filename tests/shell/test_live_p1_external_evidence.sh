@@ -5,10 +5,9 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# 09-27: `ndt up p4 --app` starts the heartbeat on an external control plane too, and before that
-# is merged the external arms' OWN evidence is compared, with and without it. This tool is that
-# comparison's instrument; what is asserted is that it can tell the answers apart (the external
-# judge's F1, F2, F7, F8 of 09-28 and its M2, m1, m3 of the second round):
+# 09-27: `ndt up p4 --app` starts the heartbeat on an external control plane too, and before that is
+# merged the external arms' OWN evidence is compared, with and without it. This tool is that
+# comparison's instrument; what is asserted is that it can tell the answers apart:
 #
 #   1. roles: no --samples, no --control2, a control given twice, a treatment arm whose session the
 #      samples do not show running through the arm (never, stale, a gap, a restart, stopped before
@@ -364,12 +363,12 @@ open(os.path.join(d, "50_samples.tsv"), "w").write("\n".join(rows) + "\n")
 if o.get("no_end") != "1":
     open(os.path.join(d, "50_t06_end.txt"), "w").write(f"{T0 + 1500}\n")
 MS
-# [Co-developed with claude code -- Adam] (10-02) real.txt: the 12 frozen p4runtime/solution rounds of
-# live-p1/external_survey_34.tsv, the lines settled() reads -- each controller log's last two counter blocks
-# and the iperf client's lines -- copied as they are from the main checkout's
-# doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/ (the path and line numbers under each @@; every
-# report counts 5 pings, mk's own). Each acked round's iperf_server.txt says the same 0/3499. 2026-10-02's
-# rounds are not here: they are the data the rule is read on.
+# [Co-developed with claude code -- Adam] (10-02) real.txt: the 12 frozen p4runtime/solution rounds
+# of live-p1/external_survey_34.tsv, the lines settled() reads -- each controller log's last two
+# counter blocks and the iperf client's lines -- copied as they are from the frozen run directories
+# (the path and line numbers under each @@; every report counts 5 pings, mk's own). Each acked
+# round's iperf_server.txt says the same 0/3499. 2026-10-02's rounds are not here: they are the data
+# the rule is read on.
 cat > "$FIX/real.txt" <<'REAL'
 @@ 2026-09-19T055210Z log
 # runs/2026-09-19T055210Z_p4runtime_solution_ndtwin/driver-controller-p4runtime.log:54-65 (its last two counter blocks; pings: the .md:564, 5 transmitted)
@@ -702,7 +701,7 @@ check "🔴 a session never sampled running: rc 3"            "3" "$(rc_of "$OUT
 ms h5_hosts arm=0b0b hosts=2
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_hosts/50_samples.tsv")"
 check "🔴 a session whose daemon counted a frame to a host: rc 1" "1" "$(rc_of "$OUT")"
-has   "  said as ruling 4"                                 "!! DAEMON the heartbeat daemon counted, for this arm's session: {'forwarded_to_hosts': 2} -- ruling 4" "$OUT"
+has   "  said as a daemon-counted difference"              "!! DAEMON the heartbeat daemon counted, for this arm's session: {'forwarded_to_hosts': 2} -- host-port rule" "$OUT"
 ms h5_between arm=0c0c between=3
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_between/50_samples.tsv")"
 check "🔴 a session that forwarded between switches: rc 1"  "1" "$(rc_of "$OUT")"
@@ -834,14 +833,14 @@ mk t_reads treatment reads_extra=1
 OUT="$(cmp t_reads)"
 check "🔴 one counter read more, same last values: rc 0"   "0" "$(rc_of "$OUT")"
 has   "  the read count is printed, as not compared"       "counter_reads         3 (control 2; not compared" "$OUT"
-# [Co-developed with claude code -- Adam] Round 5 (S-9, pre-registered): p4runtime/solution's final
-# counters varied across earlier rounds -- described, not counted; the skeleton's never did.
+# [Co-developed with claude code -- Adam] p4runtime/solution's final counters varied across earlier
+# rounds -- described, not counted; the skeleton's never did.
 mk t_200 treatment counters_p4rt_sol=3505,3505,8,8
 OUT="$(cmp t_200)"
 check "🔴 p4runtime/solution's counters ending elsewhere, invariants kept: noted, rc 0" "0" "$(rc_of "$OUT")"
 has   "  noted as counters_final"                          "note    counters_final" "$OUT"
 has   "  with the control beside it"                       "control: s1 MyIngress.egressTunnelCounter 200 = 7 packets" "$OUT"
-has   "  said as outside the spread, not counted"          "OUTSIDE the controls' spread -- descriptive, not counted (pre-registered)" "$OUT"
+has   "  said as outside the spread, not counted"          "OUTSIDE the controls' spread -- descriptive, not counted (fixed before the run)" "$OUT"
 mk t_skel_c treatment counters_p4rt_skel=5,0,1,0
 OUT="$(cmp t_skel_c)"
 check "🔴 the skeleton's counters, which never varied, ending elsewhere: rc 1" "1" "$(rc_of "$OUT")"
@@ -897,11 +896,11 @@ mk c2c control counters_p4rt_sol=3505,3505,9,9
 mk t_c8 treatment counters_p4rt_sol=3505,3505,8,8
 OUT="$(ev compare "$FIX/c1" "$FIX/t_c8" --control2 "$FIX/c2c" --samples "$S")"
 check "🔴 tunnel counters between the controls': rc 0"      "0" "$(rc_of "$OUT")"
-has   "  noted as inside the counters' spread"             "inside the controls' spread -- descriptive, not counted (pre-registered); control: s1" "$OUT"
+has   "  noted as inside the counters' spread"             "inside the controls' spread -- descriptive, not counted (fixed before the run); control: s1" "$OUT"
 mk t_c10 treatment counters_p4rt_sol=3505,3505,10,10
 OUT="$(ev compare "$FIX/c1" "$FIX/t_c10" --control2 "$FIX/c2c" --samples "$S")"
 check "🔴 tunnel counters outside the controls': noted, rc 0" "0" "$(rc_of "$OUT")"
-has   "  noted as OUTSIDE the counters' spread"            "OUTSIDE the controls' spread -- descriptive, not counted (pre-registered); control: s1" "$OUT"
+has   "  noted as OUTSIDE the counters' spread"            "OUTSIDE the controls' spread -- descriptive, not counted (fixed before the run); control: s1" "$OUT"
 mk c2r control drop_rule=1
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2r" --samples "$S")"
 check "🔴 controls that disagree on a decisive key (rules installed): UNDECIDED, rc 2" "2" "$(rc_of "$OUT")"
@@ -919,7 +918,7 @@ section "4. 🔴 invariants on each arm's own numbers, counted only when every c
 mk t_lost treatment counters_p4rt_sol=3504,3504,7,7
 OUT="$(cmp t_lost)"
 check "🔴 s1 ingress 100 = pings + the server's 3499, one under pings + Sent (as 6 of 12 earlier rounds): noted, rc 0" "0" "$(rc_of "$OUT")"
-has   "  noted as the invariant, descriptive"              "inv ..  s1 ingress 100 = pings + iperf datagrams: s1 ingress 100 = 3504; pings h1->h2 5 + datagrams to 10.0.2.2 3500 = 3505 (descriptive, not counted: pre-registered)" "$OUT"
+has   "  noted as the invariant, descriptive"              "inv ..  s1 ingress 100 = pings + iperf datagrams: s1 ingress 100 = 3504; pings h1->h2 5 + datagrams to 10.0.2.2 3500 = 3505 (descriptive, not counted: fixed before the run)" "$OUT"
 # (10-02) read twice: a last block with s2 egress 100 not s1 ingress 100 is not settled on its own (section 5)
 mk t_eg treatment counters_p4rt_sol=3505,3504,7,7 reads_extra=1
 OUT="$(cmp t_eg)"

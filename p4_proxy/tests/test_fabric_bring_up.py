@@ -477,8 +477,8 @@ class FakeProcess:
 class FakeSubprocess:
     """`subprocess`, for a suite that is forbidden to run `tc` or start a process.
 
-    🔴 INSTALLED FOR EVERY CASE IN THIS FILE, not only the link-telemetry ones. TICKET-P3
-    section 0 forbids this suite from running `tc`, and `link_telemetry.attach` resolves
+    🔴 INSTALLED FOR EVERY CASE IN THIS FILE, not only the link-telemetry ones. This suite
+    must not run `tc`, and `link_telemetry.attach` resolves
     `subprocess.run` out of its own module globals at call time -- so replacing the module
     attribute is what makes "a unit test cannot shell out" a property of the fixture rather
     than of each test remembering to patch.
@@ -496,7 +496,7 @@ class FakeSubprocess:
     def __init__(self):
         # 🔴 ONE ORDERED LOG, not a list per kind. Two lists can say what happened and cannot
         # say what happened FIRST, and the order of attach / start / write_manifest is the
-        # part of section 2.5 that is load-bearing: a `tc` that fails after the emitter exists
+        # part of the bring-up that is load-bearing: a `tc` that fails after the emitter exists
         # leaves an orphan holding a psample group, and the manifest cannot carry a pid that
         # does not exist yet. `reset()` rather than reassignment, because the derived views
         # below are properties.
@@ -595,14 +595,14 @@ class FabricFixture(unittest.TestCase):
         self.patch(testbed, "reap_manifest_switches",
                    lambda path=None, **kwargs: (self.reaped_paths.append(path), [])[1])
 
-        # --- link telemetry (TICKET-P3 sections 2.1, 2.5) ----------------------------------
+        # --- link telemetry ----------------------------------------------------------------
         #
         # 🔴 FOUR THINGS THIS SUITE MUST NOT REACH, and all four are the machine's:
         #   * the telemetry knob next to the topology script -- an operator's `link` would
         #     otherwise make every case in this file build a different fabric;
         #   * /tmp/ndtwin_link_telemetry.json -- `tear_down` reads it and SIGTERMs the pid it
         #     names, so a suite run while a fabric is up would kill that fabric's emitter;
-        #   * `tc` and `Popen`, which section 0 forbids outright;
+        #   * `tc` and `Popen`, which this suite must never run;
         #   * /sys/class/net, which has no `s1-eth1` unless somebody has a fabric up -- in
         #     which case it has one belonging to a DIFFERENT fabric.
         self.telemetry_knob_path = os.path.join(self.tmp, "telemetry_override")
@@ -618,12 +618,12 @@ class FabricFixture(unittest.TestCase):
         self.sub = FakeSubprocess()
         self.patch(link_telemetry, "subprocess", self.sub)
         # 🔴 AND NOT /proc/<pid>/stat EITHER. The bring-up records the emitter's start time
-        # (`link_telemetry.emitter_identity`, Adam 2026-09-27 ruling K) by reading its pid's
+        # (`link_telemetry.emitter_identity`) by reading its pid's
         # stat -- and the fake emitter's pid, 4242, is whatever process holds that number on
         # the machine running this suite. [Co-developed with claude code -- Adam]
         self.patch(link_telemetry, "process_start_time",
                    lambda pid, proc_root="/proc": FAKE_EMITTER_START_TIME if pid == 4242 else None)
-        # 🔴 AND NO REAL SIGNAL, EVER (judge K-N4). `tear_down` -> `shut_down` -> `stop_emitter`
+        # 🔴 AND NO REAL SIGNAL, EVER. `tear_down` -> `shut_down` -> `stop_emitter`
         # defaults to `os.kill`, and three cells here patch the predicate to False without
         # passing a kill: a mutant that skips the predicate (M-B13) would then SIGTERM pid 4242,
         # whatever holds it on the machine running the gate. `link_telemetry.os` is replaced for
@@ -1285,7 +1285,7 @@ class AMixedFabricNamesOnlyTheSwitchesThatAreForeignTest(FabricFixture):
     [Co-developed with claude code -- Adam]
     The all-foreign case cannot tell a correct count from `len(dpids)`, and it cannot tell a
     correct list from "every switch". This one can: `1 of 4`, and s1 alone in the list. It
-    matters because worker B's per-switch skips are driven by the same predicate -- a fabric
+    matters because the per-switch skips are driven by the same predicate -- a fabric
     where s2-s4 still get their clone session and telemetry, and only s1 does not, is the whole
     point of asking per switch instead of per fabric.
     """
@@ -1430,10 +1430,9 @@ class TheBridgeRecordsWhatKilledItTest(FabricFixture):
     def test_running_the_module_as_a_script_goes_through_run_not_main(self):
         # 🔴 EXISTENCE IS NOT WIRING, and every other cell in this file would stay green on the
         # defect: they call `run()` or `main()` themselves. `if __name__ == '__main__': main()`
-        # ships a bridge whose log is never opened -- which is the whole ticket -- so the
-        # module is EXECUTED as __main__ here, with the tee replaced by a recorder and the
-        # pre-flight made to refuse at once, and what is asserted is that a tee was built and
-        # started before anything else could happen.
+        # ships a bridge whose log is never opened, so the module is EXECUTED as __main__ here, with
+        # the tee replaced by a recorder and the pre-flight made to refuse at once, and what is
+        # asserted is that a tee was built and started before anything else could happen.
         import runpy
         built = []
 
@@ -1547,7 +1546,7 @@ class PlanFabricRefusesBeforeAnythingIsTornDownTest(FabricFixture):
 
     @needs_compiled_baseline
     def test_a_telemetry_knob_outside_the_domain_is_refused_in_the_pre_flight(self):
-        # 🔴 F2. TICKET-P3 §2.1: a word outside the domain is "refuse to start". Read for the
+        # 🔴 A word outside the domain is "refuse to start". Read for the
         # first time inside `bring_up`, that refusal lands AFTER `reset_for_bring_up` has
         # destroyed the fabric that was running and AFTER `net.start()` has built its
         # replacement -- "refuse to start" degraded into "die halfway up".
@@ -1595,7 +1594,7 @@ class PlanFabricRefusesBeforeAnythingIsTornDownTest(FabricFixture):
         self.assertTrue(any(line.startswith("bmv2 binary: ") for line in said), said)
 
 
-# --- 6. G2-C: TCLink only when the package shaped something (TICKET-P3 section 2.4) ---------
+# --- 6. TCLink only when the package shaped something ---------------------------------------
 
 
 class RecordingMininet:
@@ -1660,7 +1659,7 @@ class TheMininetConstructorTest(FabricFixture):
 
     def test_a_delay_alone_brings_tclink_in(self):
         # Bandwidth left at the default: `delay_ms` on its own is shaping too, which is the
-        # half of section 2.4's condition a `bandwidth_bps != DEFAULT` test cannot reach.
+        # half of the shaping condition a `bandwidth_bps != DEFAULT` test cannot reach.
         package = shaped_package_fixture(
             "shaped_delay", lambda links: links[2].__setitem__("delay_ms", 5))
         self.assertIs(self.build(package)["link"], StubTCLink)
@@ -1712,7 +1711,7 @@ class OnlyTheShapedCablesCarryShapingTest(FabricFixture):
             self.assertEqual(kwargs, {})
 
 
-# --- 7. link telemetry (TICKET-P3 sections 2.1, 2.2, 2.5) ------------------------------------
+# --- 7. link telemetry -----------------------------------------------------------------------
 
 
 @needs_compiled_baseline
@@ -1784,7 +1783,7 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         ])
 
     def test_the_rate_is_the_one_compiled_into_ndtwins_own_pipeline(self):
-        # 1-in-256 on both telemetry paths, which is what makes the section 2.8 arms
+        # 1-in-256 on both telemetry paths, which is what makes the telemetry arms
         # comparable: a link arm at another rate would differ in two ways at once.
         self.assertEqual(link_telemetry.LINK_SAMPLE_RATE, 256)
         self.assertEqual(link_telemetry.LINK_SAMPLE_TRUNC, 128)
@@ -1845,10 +1844,10 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
 
     @needs_compiled_baseline
     def test_the_manifest_records_the_emitters_argv_and_its_start_time(self):
-        # 🔴 Adam 2026-09-27, ruling K. The pid alone names whichever process holds that number
-        # when it is read; the root teardown SIGTERMs and SIGKILLs what it names. What the
-        # bring-up launched (the argv, exactly) and when (/proc/<pid>/stat field 22, read while
-        # the emitter is still this process's unreaped child) are what make it ONE process.
+        # 🔴 The pid alone names whichever process holds that number when it is read; the root
+        # teardown SIGTERMs and SIGKILLs what it names. What the bring-up launched (the argv,
+        # exactly) and when (/proc/<pid>/stat field 22, read while the emitter is still this
+        # process's unreaped child) are what make it ONE process.
         # [Co-developed with claude code -- Adam]
         self.bring_up()
         document = self.link_manifest_contents()
@@ -2171,8 +2170,8 @@ class NothingIsLeftAttachedOnAPathNoTeardownRunsTest(FabricFixture):
         stopped = []
         self.patch(link_telemetry, "stop_emitter",
                    lambda pid, **kw: stopped.append(pid) or "term")
-        # 🔴 `reset_for_bring_up` runs `sudo mn -c`. TICKET-P3 section 0 forbids this suite
-        # from touching Mininet at all, so the one call that would is replaced -- restored by
+        # 🔴 `reset_for_bring_up` runs `sudo mn -c`. This suite must not touch
+        # Mininet at all, so the one call that would is replaced -- restored by
         # addCleanup whether this case passes or fails.
         self.patch(testbed.os, "system", lambda _cmd: 0)
         self.patch(testbed, "clear_switches_from_a_previous_run",
@@ -2192,7 +2191,7 @@ class NothingIsLeftAttachedOnAPathNoTeardownRunsTest(FabricFixture):
 
 @needs_compiled_baseline
 class ARefusalInsideTheBringUpIsAVerdictAndNotATracebackTest(FabricFixture):
-    """🔴 F1. `bring_up` is not inside either main's `except ValueError` -- only `plan_fabric` is.
+    """🔴 `bring_up` is not inside either main's `except ValueError` -- only `plan_fabric` is.
 
     `link_telemetry.plan` refuses four things (a switch in its own netns, an unreadable ifindex,
     two interfaces aliasing in psample's sixteen bits, a link switch with no agent address),
@@ -2271,7 +2270,7 @@ class ARefusalInsideTheBringUpIsAVerdictAndNotATracebackTest(FabricFixture):
 
 # --- 7b. the shutdown signal, and the teardown that has to survive it ------------------------
 #
-# 🔴 THE ONLY DEFECT LIVE FOUND (TICKET-P3 section 9 ruling 19(1), 2026-09-19). `ndt down`
+# 🔴 THE ONLY DEFECT LIVE FOUND (2026-09-19). `ndt down`
 # reported "residue: /tmp/ndtwin_link_telemetry.json is still there and the pid it names
 # (2386073) is gone" after every run. `ndtwin-lab topo-stop` sends C-c to the tmux pane, waits
 # ten seconds, then `kill-session`; Mininet's CLI catches KeyboardInterrupt and carries on by
@@ -2403,7 +2402,7 @@ class BothMainsTearDownWhateverEndsTheCliTest(FabricFixture):
         # The real handlers are not installed by these cells: `main` installs them, and this
         # process must not be left with them afterwards. Recorded rather than silenced, so
         # "main arms them at all" is a fact a cell can read -- and it is one of the two halves
-        # of ruling 19(1); the `finally` without the handlers is a `finally` nothing reaches.
+        # of the fix; the `finally` without the handlers is a `finally` nothing reaches.
         self.patch(testbed, "install_teardown_signal_handlers",
                    lambda **kwargs: self.order.append("armed") or ["SIGINT", "SIGTERM",
                                                                    "SIGHUP"])
@@ -2419,7 +2418,7 @@ class BothMainsTearDownWhateverEndsTheCliTest(FabricFixture):
         raise SystemExit(0)
 
     def test_the_handlers_are_armed_before_the_cli_is_entered(self):
-        # 🔴 The other half of ruling 19(1). A `finally` is not reached by a signal whose
+        # 🔴 The other half of the fix. A `finally` is not reached by a signal whose
         # disposition is still the default: SIGHUP terminates the process where it stands.
         self.drive(testbed.main, self.signalled_cli)
         self.assertEqual(self.order, ["armed", "cli"])

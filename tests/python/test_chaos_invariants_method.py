@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FINDINGS-ALL #17: the chaos harness must not send a method the kernel does not register,
+"""The chaos harness must not send a method the kernel does not register,
 and must never read the resulting 404/405 as a finding about NDTwin.
 
 [Co-developed with claude code -- Adam]
@@ -324,7 +324,7 @@ KNOWN_UNREGISTERED = {
         "efd2fe10 (#17, third instance). The kernel exposes no such endpoint at all, so this "
         "read always 404'd and `n` fell to 0, and _h23_verify reported 'the path map was "
         "wiped' on every run. It now calls api_get_checked and REFUSES. Naming the route it "
-        "should read instead is a separate ticket -- the proxy's "
+        "should read instead is separate work -- the proxy's "
         "/ryu_server/all_destination_paths is a different population, not a replacement."
     ),
 }

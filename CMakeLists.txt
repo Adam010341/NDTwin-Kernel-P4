@@ -53,6 +53,16 @@ add_compile_options(
     -Werror -pthread
 )
 
+# [Co-developed with claude code -- Adam]
+# GCC 13 at -O3 reports -Wmaybe-uninitialized from inside Boost.Graph's adj_list_edge_iterator:
+# an end iterator's cached out-edge range is never read, but GCC cannot prove it. It fires in
+# our loops and tests, and one site is inside Boost's own adjacency_list copy, which no change
+# to our loops can reach. Keep the warning visible, but do not let it fail an optimised GCC build.
+# Debug builds, and so CI and the sanitizer jobs, are unchanged; clang is unaffected.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options($<$<NOT:$<CONFIG:Debug>>:-Wno-error=maybe-uninitialized>)
+endif()
+
 # --- Sanitizer builds (opt-in: -DSANITIZER=asan|tsan) ---
 # [Co-developed with claude code -- Adam]
 # No-op unless SANITIZER is defined, so the ordinary build is untouched. Included here rather than

@@ -3,7 +3,7 @@
 # Mutation gate for the generic table-entry writer (G5) and what a FOREIGN pipeline changes:
 # `P4RuntimeClient.encode_value` / `build_table_entry` / `write_table_entry`,
 # `POST /p4/table_entry`, and the startup / readopt branches that apply a package's own entries
-# and stop doing the things a tutorials pipeline cannot support. TICKET-P2 section 4.5.
+# and stop doing the things a tutorials pipeline cannot support.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -23,7 +23,7 @@
 # megabytes, and nothing here mutates them.
 #
 # 🔴 A NOTE THAT WAS TRUE AND IS NOT ANY MORE, kept because the correction is the interesting
-# part. Before ticket A merged, this header said that mutating `_pipeline_is_ndtwin`'s BASE
+# part. Before the G4 reader merged, this header said that mutating `_pipeline_is_ndtwin`'s BASE
 # DIRECTORY would be equivalent, "because under phase-1 app_package.py every package's
 # `pipeline_for` returns the fabric-wide pair". A's G4 reader landed, per-switch pipelines are
 # real, and `pipeline_for` now returns paths INSIDE the package directory -- so that mutation is
@@ -31,9 +31,9 @@
 # instead of the per-switch one. It is killed by the only test that can tell them apart, which
 # is the one holding a package whose four switches run two different programs.
 #
-# The lesson is the gate's, not the ticket's: an "equivalent mutation" claim is a claim about
+# The lesson is the gate's, not the change's: an "equivalent mutation" claim is a claim about
 # the tree, and it expires when the tree changes. M-B18 caught this class of rot once already
-# in round 2 -- see the SUMMARY -- by SURVIVING after its anchor moved out from under it.
+# by SURVIVING after its anchor moved out from under it.
 #
 # 🔴 THE TERNARY WRITER (Cut A) MOVED THE SUBJECT. `encode_value`, the exception types and every
 # shape rule (arity, encoding, value & ~mask, low <= high, the second spelling of don't-care, an
@@ -68,11 +68,11 @@ TEST_ROUTE="$REPO/p4_proxy/tests/test_table_entry_route.py"
 TEST_STARTUP="$REPO/p4_proxy/tests/test_startup.py"
 TEST_READOPT="$REPO/p4_proxy/tests/test_readopt.py"
 TEST_PROXY="$REPO/p4_proxy/tests/test_app_package_proxy.py"
-# The suites that meet a pipeline NDTwin did not compile: A's compiled fixtures, A's
-# converter, A's runtime files. They are in their own file because mutate_app_package.sh
+# The suites that meet a pipeline NDTwin did not compile: the exercise tools' compiled fixtures,
+# converter and runtime files. They are in their own file because mutate_app_package.sh
 # runs its baseline in a tree that holds only p4_proxy/ -- see that file's own header.
 TEST_FOREIGN="$REPO/p4_proxy/tests/test_foreign_pipeline.py"
-# TICKET-P3 section 9 ruling 23②: the live 13/13 found this writer refusing the one-element
+# The live 13/13 found this writer refusing the one-element
 # exact value the upstream exercises actually ship. That suite's subject is the REAL
 # basic_tunnel runtime file, so it belongs to this gate's baseline.
 TEST_EXACT="$REPO/p4_proxy/tests/test_exact_one_element_list.py"
@@ -116,7 +116,7 @@ trap 'rm -rf "$BK"' EXIT
 ln -s "$REPO/setting" "$BK/setting"
 # [Co-developed with claude code -- Adam]
 # Round 2: the suites now reach two things outside p4_proxy, and both are INPUTS, never subjects.
-#   tools/    -- ticket A's compiled exercise fixtures (the only foreign p4info this repo has)
+#   tools/    -- the compiled exercise fixtures (the only foreign p4info this repo has)
 #                and `convert.py`, which test_startup runs to build a real package.
 #   p4_proxy/ -- NOT the mutant. `tools/p4_exercise/common.py` derives the model reader's path
 #                from its own __file__ with abspath (not realpath), so through the link above it
@@ -174,7 +174,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
         printf '  caught   %-72s (%s went red) [%s]\n' "$1" "$3" "$(date +%T)"
         # 🔴 EVERY test that reddened, not only the one this mutation is named for.
         # [Co-developed with claude code -- Adam]
-        # A gate that records one name per mutation cannot answer the question an auditor
+        # A gate that records one name per mutation cannot answer the question a maintainer
         # actually asks -- "which of these tests has ever been seen to fail?" -- for any test
         # that is not somebody's named killer. M-B24 reddens
         # test_the_default_action_row_every_runtime_file_carries_is_a_modify as well as its own
@@ -197,8 +197,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
 #
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
 # read this gate: it learns which argument is the anchor and which is the file from a function's
-# own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is not checking
-# (finding #28).
+# own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is not checking.
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"; mkdir -p "$d"
@@ -277,7 +276,7 @@ m=$(mutant b6 "$SHAPE" \
 report "M-B6: a ternary match is built as an exact one, so a masked rule matches one address" "$m" \
        "test_a_ternary_field_is_built_with_its_value_and_mask"
 
-# TICKET-P3 section 9 ruling 23②, both directions. The upstream exercises write an exact value
+# Both directions. The upstream exercises write an exact value
 # as a one-element list (`"hdr.myTunnel.dst_id": [1]`) and the reference controller unwraps it
 # (~/tutorials/utils/p4runtime_lib/convert.py:71-75). This writer refused it, and three of
 # basic_tunnel/solution's six entries were missing on every switch in both live passes -- while
@@ -454,13 +453,13 @@ m=$(mutant b8 "$MAIN" \
 report "M-B8: the exercise's entries are applied to NDTwin's own pipeline as well" "$m" \
        "test_under_ndtwins_own_pipeline_the_entries_stay_recorded_and_unapplied"
 
-# 🔴 M-B9 IS RETIRED, AND THE REASON IS THE INTERESTING PART (TICKET-P3 section 9 ruling 4).
+# 🔴 M-B9 IS RETIRED, AND THE REASON IS THE INTERESTING PART.
 # It mutated `if i in foreign:` in the telemetry loop to `if False:` and was killed by
-# `test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration`. TICKET-P3 put a
+# `test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration`. A later change put a
 # telemetry-source check a few lines below it, and under `auto` a foreign pipeline resolves to
 # `link` -- so with the foreign branch deleted that check skipped the same switch and the
 # mutation changed nothing observable. It SURVIVED in P3-C round 1 for exactly that reason, and
-# the fix was not to delete the guard: section 9 ruling 4 then made the branch conditional
+# the fix was not to delete the guard: a further change then made the branch conditional
 # (`and source != TELEMETRY_COOPERATIVE`), because a foreign program that includes
 # ndtwin_telemetry.p4 CAN clone to the CPU port and must get a session.
 #
@@ -472,7 +471,7 @@ report "M-B8: the exercise's entries are applied to NDTwin's own pipeline as wel
 # M-C3/M-C22 in tests/shell/mutate_telemetry_by_name.sh.
 m=$(mutant b9b "$MAIN" \
     '        if i in foreign and source != TELEMETRY_COOPERATIVE:' \
-    '        if i in foreign:  # MUTANT: round 1, before section 9 ruling 4')
+    '        if i in foreign:  # MUTANT: the first version, before the header rule')
 report "M-B9b: a foreign program that includes the header is left without a clone session" "$m" \
        "test_a_foreign_program_that_included_the_header_gets_the_cooperative_path"
 
@@ -482,7 +481,7 @@ m=$(mutant b10 "$MAIN" \
 report "M-B10: LLDP, the watchdog and the routes are switched off, two without being named" "$m" \
        "test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off"
 
-# Round 2: section 9 ruling 4 moved the expression this anchored on into `switch_skips_for`,
+# A later change moved the expression this anchored on into `switch_skips_for`,
 # which is now the ONE definition of the per-switch list (predicted before startup, re-recorded
 # by startup with the decision it actually made). The mutation is unchanged in meaning: a
 # foreign switch that really did skip both says it skipped nothing.
@@ -502,7 +501,7 @@ m=$(mutant b11 "$MAIN" \
 report "M-B11: an entry the switch refused is counted as applied" "$m" \
        "test_one_refused_entry_does_not_cost_the_others"
 
-# TICKET-P3 2.1 put the telemetry note inside this branch, so the anchor is the condition
+# The telemetry note sits inside this branch, so the anchor is the condition
 # alone now -- still one site, and `if True:` still returns before the entries go back on.
 m=$(mutant b12 "$MAIN" \
     '    if ndtwin or result.get("status") != "success":' \
@@ -522,7 +521,7 @@ m=$(mutant b23 "$MAIN" \
 report "M-B23: readopt hands a foreign switch the sFlow callback, so a clone session goes in" "$m" \
        "test_a_foreign_pipeline_gets_no_clone_session"
 
-# Round 2: section 9 ruling 4 merged readopt's two "no clone session was programmed" paths into
+# A later change merged readopt's two "no clone session was programmed" paths into
 # one guarded block (the foreign-with-header case now KEEPS its session), so the two lines this
 # anchored on are no longer adjacent. Same mutation: report the session `readopt_switch` claims
 # rather than the one this switch was given.
@@ -532,7 +531,7 @@ m=$(mutant b27 "$MAIN" \
 report "M-B27: readopt reports a clone session on a switch that was given none" "$m" \
        "test_it_does_not_claim_a_clone_session_it_never_programmed"
 
-# --- the route refill the package's pipeline must not receive (round 2, objection 1) ---------
+# --- the route refill the package's pipeline must not receive (round 2) ---------
 
 m=$(mutant b26 "$TOPOMGR" \
     '            if install_routes:

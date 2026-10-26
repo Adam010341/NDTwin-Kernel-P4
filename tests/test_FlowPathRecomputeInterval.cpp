@@ -1,5 +1,5 @@
 /**
- * Ticket M: the interval at which every tracked flow's path is re-derived.
+ * The interval at which every tracked flow's path is re-derived.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -10,9 +10,9 @@
  * 🔴 WHAT THESE TESTS DO NOT DO. They cannot show the change is safe, and nothing in a unit test
  * can. What the 1 kHz bought was a 1 ms freshness bound on the API's `path` field; at 1 Hz a flow
  * that starts and ends inside one pass never gets a path at all. Whether that happens in practice
- * is a property of the workload, and ticket M's churn arm is what measures it -- 6-2 predicts the
- * non-empty `path` ratio falls to 70-90% under short flows while a steady 300-second-flow
- * workload would move 0.17% and report green.
+ * is a property of the workload, and a short-flow churn workload is what measures it: the
+ * non-empty `path` ratio is expected to fall to 70-90% under short flows while a steady
+ * 300-second-flow workload would move 0.17% and report green.
  *
  * This repository has already shipped a speedup that measured CPU and connectivity green while
  * what actually broke was model fidelity. So these tests pin the constant and the relationship
@@ -52,8 +52,8 @@ TEST(FlowPathRecomputeInterval, ShortFlowsCanDieWithoutAPathAndThatIsTheKnownCos
 {
     // Asserted as current behaviour rather than repaired, so that a future fix has to come here
     // and change it deliberately. At this interval any flow shorter than one second may live and
-    // die between two passes. That is the cost ticket M accepts in exchange for 46.31% of a
-    // thread, and the churn arm is what puts a number on it.
+    // die between two passes. That is the cost this change accepts in exchange for 46.31% of a
+    // thread, and a churn workload is what puts a number on it.
     const auto intervalMs =
         std::chrono::duration_cast<std::chrono::milliseconds>(sflow::kFlowPathRecomputeInterval);
     EXPECT_GT(intervalMs.count(), 100)

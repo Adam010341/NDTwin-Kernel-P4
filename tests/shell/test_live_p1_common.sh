@@ -13,7 +13,7 @@
 # isUp there is the proxy's `inform_switch_entered` background retry (30 x 10 s, and it does not
 # consult read_only), which the kernel's 1 Hz pingWorker undoes a second later -- so `3 up` was
 # one read landing in a <= 1 s window, and the same script's `ndt status` a second later read
-# `0 up, 3 enabled`. TICKET-P2-F replaced it with the property that IS stable: the switches the
+# `0 up, 3 enabled`. It was replaced with the property that IS stable: the switches the
 # twin calls up are exactly the switches the exercise's controller loaded a program onto.
 #
 # 🔴 WHAT MUST NOT HAPPEN IS HALF THE SUBJECT:
@@ -66,11 +66,11 @@ trap 'exit 143' TERM
 
 # --- 🔴 NO LAB, EVEN WHILE ONE IS UP (2026-09-27) -------------------------------------------------
 # [Co-developed with claude code -- Adam] On 09-26 at 17:55Z a worker ran this suite while the
-# orchestrator's live 06 had a fabric up: section 5e's cells gave link_usage_round a package whose
-# hosts are h1..h3, host_pid found the live fabric's h1/h2, and -- sudo and iperf being real in
-# drive() -- a 2 Mbit/s iperf ran between them and landed in that arm's G1 counters (+375 kB).
-# "Offline" had meant "offline as long as nobody else has a fabric up".
-# So this suite now ALWAYS runs as if a fabric were up, and can never reach one:
+# somebody's live 06 had a fabric up: section 5e's cells gave link_usage_round a package whose hosts
+# are h1..h3, host_pid found the live fabric's h1/h2, and -- sudo and iperf being real in drive() --
+# a 2 Mbit/s iperf ran between them and landed in that arm's G1 counters (+375 kB). "Offline" had
+# meant "offline as long as nobody else has a fabric up". So this suite now ALWAYS runs as if a
+# fabric were up, and can never reach one:
 #   * a `ps` on PATH that lists four Mininet host shells h1..h4 BEFORE the real process table
 #     (pids above pid_max -- no process can have them, a signal aimed at one reaches nobody; first,
 #     because host_pid takes the first match and a live fabric's hosts must never be it -- F1);
@@ -91,11 +91,11 @@ SHIM
 done
 cat > "$NOLAB/bin/ps" <<'PSEOF'
 #!/bin/bash
-# [Co-developed with claude code -- Adam] 🔴 THE FAKE ROWS COME FIRST (the judge's F1, 09-27):
-# host_pid takes the FIRST row whose argv ends mininet:hN, so with the real table first a real
-# fabric's h2 won over the fake one -- the control below went red and the guard handed a live
-# host's pid to its sudo. A header-less listing (every column named `x=`, which is what host_pid
-# asks for) gets the fake rows and then the real table; one with a header keeps it on top.
+# [Co-developed with claude code -- Adam] 🔴 THE FAKE ROWS COME FIRST (09-27): host_pid takes the
+# FIRST row whose argv ends mininet:hN, so with the real table first a real fabric's h2 won over the
+# fake one -- the control below went red and the guard handed a live host's pid to its sudo. A
+# header-less listing (every column named `x=`, which is what host_pid asks for) gets the fake rows
+# and then the real table; one with a header keeps it on top.
 spec=""; prev=""
 for a in "$@"; do
     [[ "$prev" == -o || "$prev" == -eo || "$prev" == -axo || "$prev" == -Ao ]] && spec="$spec,$a"
@@ -183,7 +183,7 @@ LOG
 # --- the seam -------------------------------------------------------------------------------
 # 🔴 THE GRAPH IS A SEQUENCE, not a constant: one file per curl, the last repeating. That is the
 # only way to tell "waited until it became right" from "read once and got lucky", which is the
-# distinction this whole ticket is about. The counter is a file because every curl in these
+# distinction this whole suite is about. The counter is a file because every curl in these
 # helpers runs inside a command substitution.
 STUBS='
 KERNEL_URL="http://localhost:8000"
@@ -370,7 +370,7 @@ check "🔴 an unreadable model is refused, not assumed"   "1" "$(rc_of "$OUT")"
 has   "  saying there is no universe to check against"   "no universe to check the probes against" "$OUT"
 
 # =============================================================================================
-section "5. TICKET-P3 §2.7 -- the generic cell: link usage follows the iperf path"
+section "5. the generic cell: link usage follows the iperf path"
 # =============================================================================================
 # 🔴 THE ONE CHECK IN THIS SUITE THAT IS ABOUT NDTwin RATHER THAN ABOUT AN EXERCISE. Every other
 # acceptance here is a claim about one program: source_routing's ttl, the twin's liveness under
@@ -415,9 +415,9 @@ s1-eth2 1000
 s1-eth3 11001
 s2-eth1 11000
 ND
-# 🔴 THE CLASS TRAVELS WITH THE NAME (§9 ruling 20①): s1-eth1 moved 1,999,000 B and is the
-# PRIMARY; s1-eth3's 10,001 B is over the 10 kB threshold but far under 5% of the primary, so
-# it is MINOR -- real bytes the sampler cannot be expected to have caught.
+# 🔴 THE CLASS TRAVELS WITH THE NAME: s1-eth1 moved 1,999,000 B and is the PRIMARY; s1-eth3's 10,001
+# B is over the 10 kB threshold but far under 5% of the primary, so it is MINOR -- real bytes the
+# sampler cannot be expected to have caught.
 OUT="$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' | paste -sd, -")"
 check "🔴 only the interfaces that moved bytes are on the path" "s1-eth1 P 1999000,s1-eth3 M 10001" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
 check "  and onpath_primary gives the old one-name shape"  "s1-eth1" \
@@ -459,7 +459,7 @@ mkint() {   # mkint <file> <"<key> <bits> <kind>" ...>
     printf '# samples=4 span=1s\n' >> "$f"
 }
 # 🔴 `P` because these fixtures ARE the flow: the class column is onpath_ifaces' output
-# format now (§9 ruling 20①), and a file without it would exercise a shape nothing produces.
+# format now, and a file without it would exercise a shape nothing produces.
 printf 's1-eth1 P 2000000\ns1-eth3 P 2000000\n' > "$FIX/onpath.txt"
 mkint "$FIX/i_good.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
                         "s1-eth2 0.000 switch" "s2-eth1 400.000 host"
@@ -477,14 +477,14 @@ OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_missing.t
 check "🔴 an on-path interface with NO twin edge is red"  "1" "$(rc_of "$OUT")"
 has   "  and says the link is not modelled"              "the twin has NO edge for it" "$OUT"
 
-# --- 5c-bis. the off-path FLOOR (TICKET-P3 §9 ruling 9, R4) --------------------------------
+# --- 5c-bis. the off-path FLOOR --------------------------------
 # 🔴 "EXACTLY 0" OFF THE PATH WOULD GO RED ON A CORRECT FABRIC, AT RANDOM. After the kernel
 # banks a sample's frame length BEFORE it asks what the flow was (§2.2), ARP and LLDP count
 # toward link usage; the proxy beacons LLDP along every switch-switch link and the pipeline
 # samples 1/256, so ONE beacon drawn in an eight-second window is banked as 256 x its frame
 # length -- tens of kilobits on an edge that carried nothing. The bound is therefore a floor:
 # ONE SAMPLE'S WORTH (256 x MTU x 8 bit = 256 x 1500 x 8 = 3,072,000 bit) or 2% of the smallest
-# PRIMARY on-path integral, WHICHEVER IS LARGER (§9 rulings 26① and 31④).
+# PRIMARY on-path integral, WHICHEVER IS LARGER.
 # 🔴 THE ABSOLUTE TERM IS ONE SAMPLE, NOT THE OLD 5 kbit: below one sample there is nothing the
 # sampler could have reported, so a bound under it bounds noise that cannot exist -- and
 # max(5000, 3072000) is always the latter, which is why that constant was removed rather than
@@ -590,9 +590,9 @@ check "🔴 and an EMPTY on-path set is refused here too"   "1" "$(rc_of "$OUT")
 has   "  for the same reason"                            "the on-path interface set is EMPTY" "$OUT"
 
 # --- 5e. link_usage_round: the two refusals it can decide offline -----------------------------
-# The measurement itself needs a fabric and is the orchestrator's to run. What CAN be decided
-# here is the pair of refusals, and both are the same rule: an answer about permissions or about
-# the package is never rendered as a reading about link usage.
+# The measurement itself needs a fabric and is run live. What CAN be decided here is the pair of
+# refusals, and both are the same rule: an answer about permissions or about the package is never
+# rendered as a reading about link usage.
 mkdir -p "$FIX/pkg1host/ndtwin"
 python3 -c '
 import json, sys
@@ -603,10 +603,10 @@ check "🔴 a model with one host cannot carry a flow"      "1" "$(rc_of "$OUT")
 has   "  and says so instead of measuring nothing"       "does not name two hosts to run a flow between" "$OUT"
 # 🔴 HOST NAMES NO FABRIC CAN HAVE, AND THAT IS THE POINT (found during the live-fix round).
 # This cell used `$PKG3`, whose hosts are h1..h3 -- the names a REAL fabric uses. It passed only
-# while no lab was up: with the orchestrator's live run in progress, `host_pid h1` returns a
-# genuine namespace pid, the refusal never fires, and the cell went red for a reason that has
-# nothing to do with the code under test. A test whose result depends on whether somebody else
-# has a fabric up is not testing what it says.
+# while no lab was up: with a live run in progress, `host_pid h1` returns a genuine namespace pid,
+# the refusal never fires, and the cell went red for a reason that has nothing to do with the code
+# under test. A test whose result depends on whether somebody else has a fabric up is not testing
+# what it says.
 mkdir -p "$FIX/pkg-nons/ndtwin"
 python3 -c '
 import json, sys
@@ -623,10 +623,10 @@ has   "  named as the permission answer it is"           "never a reading about 
 # controller wires h1<->h2 and never touches s3. Measuring to those produces an EMPTY on-path
 # set, which this cell refuses: correctly, and about the wrong thing.
 # [Co-developed with claude code -- Adam] 🔴 AND THEY RUN ON PKGZ (09-27). These two cells used
-# $PKG3's h1..h3, whose names a live fabric has: on 09-26 at 17:55Z, with the orchestrator's 06
-# up, host_pid found its h1/h2 and a real iperf ran into that arm's counters. The destination
-# rule does not care what the hosts are called; the cells now also pin that each stopped at the
-# namespace refusal (rc 2) -- before any flow -- and section 14 checks that nothing got further.
+# $PKG3's h1..h3, whose names a live fabric has: on 09-26 at 17:55Z, with a live 06 up, host_pid
+# found its h1/h2 and a real iperf ran into that arm's counters. The destination rule does not care
+# what the hosts are called; the cells now also pin that each stopped at the namespace refusal (rc
+# 2) -- before any flow -- and section 14 checks that nothing got further.
 OUT="$(drive "link_usage_round '$PKGZ' 'to-zz2' '$FIX/lur3' follows zz2")"
 has   "  a named destination is the one the flow runs to" "zz1 -> zz2 (10.9.9.2)" "$OUT"
 check "  and, zz2 having no namespace, it stopped there (rc 2)" "2" "$(rc_of "$OUT")"
@@ -654,12 +654,12 @@ section "9. 🔴 no live-p1 script reintroduces the \`set -u\` \`local\` hazard"
 # -- so the scan errored, printed NOTHING, and the "no script has the hazard" check went GREEN
 # on empty output. The positive control below is the only reason that was caught, which is the
 # entire argument for having one.
-# 🔴 THE SCANNER MUST FAIL WHEN THE SCANNER FAILS (TICKET-P3 §9 ruling 12d). The first version
-# printed nothing when `python3` itself could not run -- and "prints nothing" is exactly what
-# "no script has the hazard" looks like, so the check went GREEN on a scan that never happened.
-# (That is not hypothetical: it shipped that way for one iteration, with `$PY` unset, and only
-# the positive control caught it.) A tool that cannot run has not answered; this returns
-# non-zero and says so on stderr, and `hazard_check` below turns that into a FAILED cell.
+# 🔴 THE SCANNER MUST FAIL WHEN THE SCANNER FAILS. The first version printed nothing when `python3`
+# itself could not run -- and "prints nothing" is exactly what "no script has the hazard" looks
+# like, so the check went GREEN on a scan that never happened. (That is not hypothetical: it shipped
+# that way for one iteration, with `$PY` unset, and only the positive control caught it.) A tool
+# that cannot run has not answered; this returns non-zero and says so on stderr, and `hazard_check`
+# below turns that into a FAILED cell.
 hazard_scan() {   # hazard_scan <file>... -- prints "<file>:<line> <name> reads $<earlier>"
     local out err rc
     err="$(mktemp "${TMPDIR:-/tmp}/hazard-err-XXXXXX")"
@@ -726,15 +726,15 @@ f() {
 OK
 check "🔴 and the FIXED shape is not flagged"            "" "$(hazard_scan "$FIX/ok.sh")"
 
-# 🔴 THE CONTROL THE JUDGE ASKED FOR (§9 ruling 12d): break the INTERPRETER, not the input.
+# 🔴 THE CONTROL: break the INTERPRETER, not the input.
 # With no `python3` reachable the scan cannot happen -- and the cell above, which asserts an
 # EMPTY result, would be satisfied by that silence. This is the difference between "I looked
 # and found nothing" and "I could not look".
-# 🔴 THE PATH MUST STILL HAVE coreutils (TICKET-P3 §9 ruling 14g). `PATH=/nonexistent` killed
-# `mktemp` inside hazard_scan before python3 was ever reached -- so that cell proved the
-# function fails when the SHELL loses its tools, which is not the thing under test. This PATH
-# has everything the function itself uses and nothing called `python3`, so the only thing that
-# can fail is the interpreter, and the rc it reports must be 127 (command not found).
+# 🔴 THE PATH MUST STILL HAVE coreutils. `PATH=/nonexistent` killed `mktemp` inside hazard_scan
+# before python3 was ever reached -- so that cell proved the function fails when the SHELL loses its
+# tools, which is not the thing under test. This PATH has everything the function itself uses and
+# nothing called `python3`, so the only thing that can fail is the interpreter, and the rc it
+# reports must be 127 (command not found).
 mkdir -p "$FIX/nopy"
 for t in mktemp tr rm cat sed grep; do
     src="$(command -v "$t" 2>/dev/null)" && ln -sf "$src" "$FIX/nopy/$t"
@@ -772,10 +772,10 @@ hasnt "  and prints no SCANNER-FAILED"                   "SCANNER-FAILED" "$OUT"
 # =============================================================================================
 section "10. 🔴 a teardown step that fails must not kill the teardown"
 # =============================================================================================
-# TICKET-P3 §9 ruling 19②, found by the first live run. `_common.sh` runs under
-# `set -euo pipefail` and `finish()` is the EXIT trap, so a non-zero `ndt down` ENDED THE TRAP
-# half way: live 02's log stops at `== teardown` and live 03's at "stopping the exercise
-# controller" -- no `ndt down rc=` line, no `ndt release`, and no verdict line at all, while the
+# Found by the first live run. `_common.sh` runs under `set -euo pipefail` and `finish()` is the
+# EXIT trap, so a non-zero `ndt down` ENDED THE TRAP half way: live 02's log stops at `== teardown`
+# and live 03's at "stopping the exercise controller" -- no `ndt down rc=` line, no `ndt release`,
+# and no verdict line at all, while the
 # README promises the last line is PASS or FAIL. A teardown is the one place where every step
 # must run BECAUSE an earlier one failed, and `-e` inverts exactly that; it took the release
 # with it, leaving the lab claimed by a finished run.
@@ -822,8 +822,8 @@ check "🔴 and the LAST line is the verdict, as the README promises" "1" \
       "$(printf '%s\n' "$OUT10" | tail -1 | /usr/bin/grep -cE '^(PASS|FAIL) ')"
 has   "🔴 'ndt release' still ran -- the lab is not left claimed" "release" "$(cat "$FIX10/ndt.log")"
 
-# 🔴 A RELEASE THAT DID NOT TAKE MUST FAIL THE ROUND (the shape E's judge found today). `bad`
-# only prints: the verdict stayed whatever it was, so a round whose release failed could end
+# 🔴 A RELEASE THAT DID NOT TAKE MUST FAIL THE ROUND. `bad` only prints: the verdict stayed whatever
+# it was, so a round whose release failed could end
 # PASS -- and the next person to want the lab finds it held by a step that reported success.
 cat > "$FIX10/bin/ndt" <<'STUBREL'
 #!/usr/bin/env bash
@@ -858,9 +858,9 @@ rm -rf "$FIX10"
 # =============================================================================================
 section "11. 🔴 qos/solution's real numbers: a side branch the sampler cannot see"
 # =============================================================================================
-# TICKET-P3 §9 ruling 20①, from the first live run. These are the ACTUAL tx deltas of
-# runs/2026-09-19T053856Z_qos_solution_ndtwin/link_usage/netdev.{before,after} and the actual
-# twin integrals from its twin_integral.txt -- not numbers chosen to make a point:
+# From the first live run. These are the ACTUAL tx deltas of the 2026-09-19T053856Z qos/solution run
+# (link_usage/netdev.{before,after}) and the actual twin integrals from its twin_integral.txt -- not
+# numbers chosen to make a point:
 #
 #   s1-eth3  2,162,160 B   twin 22,443,167 bit    <- the flow
 #   s2-eth1  2,162,160 B   twin 14,704,115.5 bit  <- the flow
@@ -928,21 +928,19 @@ has   "  naming it as primary, with its byte count"      "s1-eth3 carried the fl
 # =============================================================================================
 section "12. 🔴 ecn's bottleneck: a window too short for the sampler to see the flow"
 # =============================================================================================
-# TICKET-P3 §9 ruling 26①, from the final live pass. ecn shapes s1-s2 to 500,000 bit/s, so an
-# 8 s 2 Mbit/s iperf delivers ~691 kB -- the REAL numbers from
-# runs/2026-09-19T085702Z_ecn_solution_ndtwin/link_usage are s1-eth3 690,928 B (twin 875,000
-# bit: one sample got through) and s2-eth1 691,131 B with twin 0. At 1 sample in 256 the
-# expected count per primary link is ~1.8, so P(zero) = e^-1.8 = 16.5% -- the one number this
-# repo quotes for it (§9 ruling 31⑥) -- and three runs in four read s2-eth1 = 0 and went red on
-# a fabric that forwarded every byte.
+# From the final live pass. ecn shapes s1-s2 to 500,000 bit/s, so an 8 s 2 Mbit/s iperf delivers
+# ~691 kB -- the REAL numbers from the 2026-09-19T085702Z ecn run (link_usage) are s1-eth3 690,928 B
+# (twin 875,000 bit: one sample got through) and s2-eth1 691,131 B with twin 0. At 1 sample in 256
+# the expected count per primary link is ~1.8, so P(zero) = e^-1.8 = 16.5% -- the one number this
+# repo quotes for it -- and three runs in four read s2-eth1 = 0 and went red on a fabric that
+# forwarded every byte.
 #
-# 🔴 TWO RUNS, AND THE FIXTURE BELOW SAYS WHICH IS WHICH (§9 ruling 31⑥). The off-path
-# 348,002 bit on s1-eth1 is NOT from T085702Z -- that run's s1-eth1 integral is 0.000. It is
-# from runs/2026-09-19T085056Z_ecn_solution_ndtwin/link_usage/twin_integral.txt, the run
-# before it (s1-eth3 692,445 B, twin 500,000 bit). The fixture at §12's end is therefore a
-# COMPOSITE of the two, built to exercise both halves of the floor in one cell; a reader
-# reconciling it against either run's raw has to be told that, or the numbers look like one
-# window that never existed.
+# 🔴 TWO RUNS, AND THE FIXTURE BELOW SAYS WHICH IS WHICH. The off-path 348,002 bit on s1-eth1 is NOT
+# from T085702Z -- that run's s1-eth1 integral is 0.000. It is from the 2026-09-19T085056Z run's
+# link_usage/twin_integral.txt, the run before it (s1-eth3 692,445 B, twin 500,000 bit). The fixture
+# at §12's end is therefore a COMPOSITE of the two, built to exercise both halves of the floor in
+# one cell; a reader reconciling it against either run's raw has to be told that, or the numbers
+# look like one window that never existed.
 mkdir -p "$FIX/ecnpkg/ndtwin"
 python3 -c '
 import json, sys
@@ -953,16 +951,16 @@ json.dump({"links": [{"a": ["h1", 0], "b": ["s1", 1], "bandwidth_bps": 100000000
 
 read -r ECN_T ECN_BPS ECN_AT8 ECN_CARRIED < <(drive "link_usage_window '$FIX/ecnpkg'" | /usr/bin/grep -v '^RC=')
 check "🔴 the slowest declared link is the 500 kbit/s bottleneck" "500000" "$ECN_BPS"
-# (1.30 = bandwidth x time / (rate x MTU x 8). The ruling quotes ~1.8, which is the same
-# quantity computed from the bytes ecn actually delivered -- 691,131 B -- rather than from the
-# shaped rate; both are under two samples, which is the point.)
+# (1.30 = bandwidth x time / (rate x MTU x 8). The ~1.8 quoted above is the same quantity computed
+# from the bytes ecn actually delivered -- 691,131 B -- rather than from the shaped rate; both are
+# under two samples, which is the point.)
 check "🔴 at the old 8 s window only ~1.3 samples were expected" "1.30" "$ECN_AT8"
 check "🔴 so the window grows to 62 s"                    "62" "$ECN_T"
 
-# 🔴 AN UNSHAPED PACKAGE IS CAPPED BY WHAT iperf OFFERS, NOT BY THE LINK (§9 ruling 28⑤).
-# A 1 Gbit/s link carries only the 2 Mbit/s the sender offers, so the old formula -- which
-# divided by the LINK speed -- reported "2604 expected samples" for a window that really
-# delivers about five. The window that reaches ten samples at 2 Mbit/s is 16 s, not 8.
+# 🔴 AN UNSHAPED PACKAGE IS CAPPED BY WHAT iperf OFFERS, NOT BY THE LINK. A 1 Gbit/s link carries
+# only the 2 Mbit/s the sender offers, so the old formula -- which divided by the LINK speed --
+# reported "2604 expected samples" for a window that really delivers about five. The window that
+# reaches ten samples at 2 Mbit/s is 16 s, not 8.
 mkdir -p "$FIX/fastpkg"
 python3 -c '
 import json, sys
@@ -982,9 +980,9 @@ FLOOR="$(one "link_usage_floor '$FIX/ecn.onpath' '$FIX/ecn.int'")"
 check "🔴 the floor is at least ONE sample's worth of bits" "3072000.000" "$FLOOR"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/ecn.onpath' '$FIX/ecn.int' 'ecn'")"
 has   "  and the raw says how that number was reached"   "ONE SAMPLE = 256 x 1500 x 8 = 3072000 bit" "$OUT"
-# 🔴 THE ABSENCE OF THE VERDICT, NOT THE PRESENCE OF THE NOTE (§9 ruling 28④). Every off-path
-# edge's integral is printed BEFORE the comparison, so "off-path s1-eth1 ... bit" appears
-# whether the floor cleared it or reddened it -- that cell was true either way.
+# 🔴 THE ABSENCE OF THE VERDICT, NOT THE PRESENCE OF THE NOTE. Every off-path edge's integral is
+# printed BEFORE the comparison, so "off-path s1-eth1 ... bit" appears whether the floor cleared it
+# or reddened it -- that cell was true either way.
 hasnt "🔴 one sampled frame off the path is NOT a failure" "s1-eth1 is a host-facing link off the path" "$OUT"
 
 # ... and a PRIMARY link the twin never saw is still red -- the window is what changes, not
@@ -992,14 +990,13 @@ hasnt "🔴 one sampled frame off the path is NOT a failure" "s1-eth1 is a host-
 check "🔴 s2-eth1 with a zero integral is still red"      "1" "$(rc_of "$OUT")"
 has   "  naming it as primary"                           "s2-eth1 carried the flow (691131 B, primary)" "$OUT"
 
-# --- 12b. a window longer than the caller will wait for (§9 rulings 28⑤ and 31⑤) -------------
-# 🔴 THIS REFUSAL HAD NEVER BEEN RED. It was written in round 28 and `mutate_live_p1_common.sh`
-# carried it as CONTROL C5 -- "no fixture reaches it yet" -- which is a promise about a branch
-# nobody had run. A package whose slowest link is 100,000 bit/s needs
-# ceil(10 x 256 x 1500 x 8 / 100000) = ceil(307.2) = 308 s, over the 200 s a caller will wait
-# (`link_usage_cell` runs this under timeout=240), so the round must refuse: print the
-# arithmetic, start NO iperf, and return a code of its own that no caller can read as a cell
-# that merely failed.
+# --- 12b. a window longer than the caller will wait for -------------
+# 🔴 THIS REFUSAL HAD NEVER BEEN RED. It was written earlier and `mutate_live_p1_common.sh` carried
+# it as CONTROL C5 -- "no fixture reaches it yet" -- which is a promise about a branch nobody had
+# run. A package whose slowest link is 100,000 bit/s needs ceil(10 x 256 x 1500 x 8 / 100000) =
+# ceil(307.2) = 308 s, over the 200 s a caller will wait (`link_usage_cell` runs this under
+# timeout=240), so the round must refuse: print the arithmetic, start NO iperf, and return a code of
+# its own that no caller can read as a cell that merely failed.
 mkdir -p "$FIX/slowpkg/ndtwin"
 python3 -c '
 import json, sys
@@ -1032,9 +1029,9 @@ check "🔴 and NO iperf was started for it"               "" "$(cat "$FIX/iperf
 # =============================================================================================
 section "13. 🔴 p4runtime/flowcache: 273 B everywhere means the flow never moved"
 # =============================================================================================
-# §9 ruling 26②. Both arms read EXACTLY 273 B on every interface: the fabric dropped every
-# 1470-byte datagram (advanced_tunnel's 4-byte header pushes 1470+28+4 past the 1500 MTU)
-# while the driver's 64-byte pings passed.
+# Both arms read EXACTLY 273 B on every interface: the fabric dropped every 1470-byte datagram
+# (advanced_tunnel's 4-byte header pushes 1470+28+4 past the 1500 MTU) while the driver's 64-byte
+# pings passed.
 cat > "$FIX/flat.before" <<'NB'
 s1-eth1 1000
 s1-eth2 1000
@@ -1057,11 +1054,11 @@ has   "🔴 and NAMING the datagram size it chose"         "iperf -l 1200" "$OUT
 
 # 🔴 A DEAD CONTROLLER IS 'NOT RUN', NEVER 'PASS'. flowcache's first packet needs the
 # controller's packet-in; measuring without it measures the controller's absence.
-# 🔴 THE PID IS SET *BEFORE* THE SOURCE, WHICH IS WHAT THE DRIVER DOES (§9 ruling 28①).
-# `link_usage_cell` builds `CTRL_PID=<pid>` then `source _common.sh` -- so a file that reset
-# CTRL_PID unconditionally at source time threw the pid away and the branch was unreachable.
-# Setting it after the source (as an earlier version of this cell did) tests the branch but
-# NOT the reachability, and that is exactly how the defect survived.
+# 🔴 THE PID IS SET *BEFORE* THE SOURCE, WHICH IS WHAT THE DRIVER DOES. `link_usage_cell` builds
+# `CTRL_PID=<pid>` then `source _common.sh` -- so a file that reset CTRL_PID unconditionally at
+# source time threw the pid away and the branch was unreachable. Setting it after the source (as an
+# earlier version of this cell did) tests the branch but NOT the reachability, and that is exactly
+# how the defect survived.
 # [Co-developed with claude code -- Adam] The dead pid is one ABOVE pid_max (4194304), and the
 # package is PKGZ (09-27): 999999 can be a live process, and then this cell went on to host_pid
 # with PKG3's h1..h3 -- the names of a live fabric.
@@ -1074,13 +1071,13 @@ echo \"RC=\$?\"" 2>&1)"
 has   "🔴 a dead exercise controller makes G1 NOT RUN"   "G1 NOT RUN" "$OUT"
 has   "  naming the pid it checked"                      "pid 4194399" "$OUT"
 has   "  and the summary line says NOT-RUN"              "rc=NOT-RUN" "$OUT"
-# 🔴 AND THE rc IS THE THING (§9 ruling 28④). `primary=s...` can never appear -- the
-# LINK_USAGE line prints COUNTS -- so that cell asserted nothing. NOT RUN has its own code,
-# which is what keeps `link_usage_cell` from reading it as a pass.
+# 🔴 AND THE rc IS THE THING. `primary=s...` can never appear -- the LINK_USAGE line prints COUNTS --
+# so that cell asserted nothing. NOT RUN has its own code, which is what keeps `link_usage_cell`
+# from reading it as a pass.
 check "🔴 NOT RUN has its own rc, not 0 and not 2"       "3" "$(rc_of "$OUT")"
 
 # =============================================================================================
-section "15. 🔴 a disclosure is repeated right above the last line, PASS or FAIL (Adam's ruling A)"
+section "15. 🔴 a disclosure is repeated right above the last line, PASS or FAIL"
 # =============================================================================================
 # [Co-developed with claude code -- Adam] 09-27: 08's H1 discloses a cycle over the strict 20 s
 # instead of failing on it. `disclose` records the text; finish() prints it as `NOTE <step> --
@@ -1118,7 +1115,7 @@ check "  and it passes"                                  "PASS 15_disclose" "$(t
 rm -rf "$FIX15"
 
 # =============================================================================================
-section "16. 🔴 no default owner: a run with no NDT_OWNER refuses and starts nothing (Adam's ruling G)"
+section "16. 🔴 no default owner: a run with no NDT_OWNER refuses and starts nothing"
 # =============================================================================================
 # [Co-developed with claude code -- Adam] 09-27. `_common.sh:35` used to be `: "${NDT_OWNER:=live-p1}"`,
 # so a run nobody named claimed the lab as `live-p1` -- nobody. start_step is where a run starts; the
@@ -1187,7 +1184,7 @@ check "  and the run still passes"                         "PASS 17_venv" "$(tai
 rm -rf "$FIX17"
 
 # =============================================================================================
-section "18. 🔴 02's fabric list: the heartbeat watchdog must RUN, not be read to pick a list (the opus judge's N1)"
+section "18. 🔴 02's fabric list: the heartbeat watchdog must RUN, not be read to pick a list"
 # =============================================================================================
 # [Co-developed with claude code -- Adam] 09-27. 02 brings up a foreign, non-external fabric, where
 # `ndt up p4 --app` starts the heartbeat; heartbeat_skips_verdict asserts the watchdog runs (naming
@@ -1219,16 +1216,16 @@ has   "🔴 no heartbeat block is a failure too"               "BAD switch_state
 has   "🔴 running with link_watchdog still named: BAD"       "BAD control_plane.skipped is ['install_initial_routes', 'link_watchdog', 'lldp_discovery'], want $W18" "$(V18 running_three.json)"
 check "  02 asks this verdict, with the two-name list"      "1" \
       "$(/usr/bin/grep -c '^    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"$' "$LIVE/02_app_basic.sh")"
-# [Co-developed with claude code -- Adam] The AEG judge's N-7 (09-28): the line that CONSUMES the
-# verdict, right under the call -- deleting it used to survive every gate -- and the old selection
-# in any spelling (`"$HB_WD" == running`, `== "running"`, `[ ... = running ]`).
+# [Co-developed with claude code -- Adam] (09-28) The line that CONSUMES the verdict, right under
+# the call -- deleting it used to survive every gate -- and the old selection in any spelling
+# (`"$HB_WD" == running`, `== "running"`, `[ ... = running ]`).
 check "🔴 and fails the run on anything but OK, on the next line" "    [[ \"\$V\" == OK* ]] || fail \"\${V#BAD }\"" \
       "$(/usr/bin/grep -A1 '^    V="$(heartbeat_skips_verdict "$SS" "$FABRIC_SKIPS_HB")"$' "$LIVE/02_app_basic.sh" | sed -n 2p)"
 check "🔴 and 02 no longer picks its list from heartbeat.watchdog" "0" \
       "$(/usr/bin/grep -cE 'HB_WD"? *==? *"?running|running"? *==? *"?\$\{?HB_WD' "$LIVE/02_app_basic.sh")"
-# The AEG judge's N-7: the two-name list with a watchdog that is NOT running -- the cases M50 and M52
-# would actually let through -- and N-5: one BAD line, naming the cause, on a capture that is not
-# what the proxy serves or is not there.
+# The two-name list with a watchdog that is NOT running -- the cases M50 and M52 would actually let
+# through -- and one BAD line, naming the cause, on a capture that is not what the proxy serves or
+# is not there.
 st18 ns_two.json not_started "OSError: no /run" "['lldp_discovery', 'install_initial_routes']"
 st18 absent_two.json - - "['lldp_discovery', 'install_initial_routes']"
 has   "🔴 not_started with the two names is still BAD"       "BAD heartbeat.watchdog is 'not_started'" "$(V18 ns_two.json)"
@@ -1249,8 +1246,7 @@ V5() { ( source "$COMMON" >/dev/null 2>&1; PY="$REAL_PY"; heartbeat_skips_verdic
 check "🔴 external, running, the five names: OK"            "OK heartbeat.watchdog running, control_plane.skipped $W5" "$(V5 ext_running.json)"
 has   "🔴 external, running, link_watchdog still named: BAD" "BAD control_plane.skipped is" "$(V5 ext_six.json)"
 for step in 03_app_p4runtime 04_diag_p4runtime; do
-    # [Co-developed with claude code -- Adam] The external judge's m3 (09-28): and CONSUMES it on the
-    # next line, as 02 does.
+    # [Co-developed with claude code -- Adam] (09-28) And CONSUMES it on the next line, as 02 does.
     check "🔴 $step fails the run on anything but OK, on the next line" "    [[ \"\$V\" == OK* ]] || fail \"\${V#BAD }\"" \
           "$(/usr/bin/grep -A1 -F "V=\"\$(heartbeat_skips_verdict \"\$SS0\" \"$W5\")\"" "$LIVE/$step.sh" | sed -n 2p)"
     check "  $step asks this verdict, with the five names"  "1" \
@@ -1261,11 +1257,11 @@ rm -rf "$FIX18"
 # =============================================================================================
 section "19. 🔴 a step stopped by INT or TERM fails with the signal's code (01-05, 07, 08 share it)"
 # =============================================================================================
-# [Co-developed with claude code -- Adam] The AEG judge's N-1 and the external judge's M3 (09-28):
-# start_step armed `trap finish EXIT INT TERM`, so a TERM while a step waited on a child ran finish
-# with that child's rc 0 and printed PASS. Now INT/TERM go through `interrupted`: FAIL, and the step
-# exits 130 / 143. A real start_step (stubs for the lab-facing checks, as in section 16), then the
-# step's own wait, with the signal sent to the step's shell by pid.
+# [Co-developed with claude code -- Adam] (09-28) start_step armed `trap finish EXIT INT TERM`, so a
+# TERM while a step waited on a child ran finish with that child's rc 0 and printed PASS. Now
+# INT/TERM go through `interrupted`: FAIL, and the step exits 130 / 143. A real start_step (stubs
+# for the lab-facing checks, as in section 16), then the step's own wait, with the signal sent to
+# the step's shell by pid.
 FIX19="$(mktemp -d "${TMPDIR:-/tmp}/common-signal-XXXXXX")"
 mkdir -p "$FIX19/bin"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$FIX19/bin/ndt"; chmod +x "$FIX19/bin/ndt"

@@ -45,7 +45,7 @@ struct LockState {
      *
      * Today that is EVERY release and renew in the workspace, so the number is not interesting
      * as a fraction. It is interesting as a fact: "any caller can release any caller's lock" has
-     * been in KNOWN-ISSUES since round 2 with no measurement attached, because nothing counted.
+     * been in KNOWN-ISSUES with no measurement attached, because nothing counted.
      * When the callers start sending `lease` this becomes the number that says how much of the
      * traffic is still unattributable, which is what tells you when it is safe to enforce.
      */
@@ -116,9 +116,9 @@ class LockManager
      *     release cleared the NEW holder's flag. The new holder was never told. Two apps then
      *     both believed they held the lock that serialises writes to real switches;
      *   - and nothing anywhere -- no log line, no counter, no endpoint -- said a lease had ever
-     *     been reclaimed. The TR-5 diagnosis (doc/audit/2026-08-30_live-traffic-round/
-     *     FINDING-08) had to be made from the *application's* tmux buffer, because the kernel
-     *     side of a held lock is not observable at all.
+     *     been reclaimed. The diagnosis of a live traffic run on 2026-08-30 had to be
+     *     made from the *application's* tmux buffer, because the kernel side of a held lock is
+     *     not observable at all.
      *
      * The previous revision saw this and wrote it down rather than doing it, on the explicit
      * grounds that clearing `isLocked` on a refusal path "would silently alter what unlock()
@@ -197,7 +197,7 @@ class LockManager
      *     harness probes.py:206, tools/contract_test/spec.py -- so "any caller can release any
      *     caller's lock" is still true, and LockState::unattributedActions now counts it;
      *   - with it ON, those same callers get 400 and their releases stop working. That is a
-     *     flag day across four repos, and it belongs to Adam, not to this class.
+     *     flag day across four repos, and it is a decision for the maintainers, not for this class.
      *
      * So: not wired to anything. There is no env var and no call site; `main.cpp` constructs a
      * LockManager and never touches this. That is not an oversight -- an unwired switch that
@@ -495,7 +495,7 @@ class LockManager
      * answered `200 {"status":"released"}` -- the same bytes as a real release. That is the shape
      * KNOWN-ISSUES A-9 was measured through: the Energy-Saving-App takes routing_lock with
      * ttl=300 and reaches its two release_lock() calls only on paths that need a
-     * Simulation-Platform-Manager round trip, so on the TR-5 arms it never released at all.
+     * Simulation-Platform-Manager round trip, so in the 2026-08-30 live traffic run it never released at all.
      *
      * 🔑 THE DANGEROUS CASE IS NOT THE APP'S OWN. It is the one where somebody else has since
      * acquired legitimately:
@@ -586,7 +586,7 @@ class LockManager
      * Added for A-9. There was no way to ask this: the only three entry points all *change* the
      * lock, so "is routing_lock held, and for how long" could only be answered by trying to
      * acquire it -- which either fails (telling you nothing about how long) or succeeds (which is
-     * not a read). The TR-5 write-up had to reconstruct the answer from the application's own
+     * not a read). The diagnosis of that run had to reconstruct the answer from the application's own
      * tmux buffer for exactly this reason.
      *
      * @note This does NOT reap. A read must not change what it is reading; `held` is reported

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# What `ndt up`'s arguments mean. Adam changed the default data plane from P4 to OVS on
+# What `ndt up`'s arguments mean. The default data plane was changed from P4 to OVS on
 # 2026-09-03; this file is what says so in a form that fails when it stops being true.
 #
 # The subject is resolve_up_target, reached through ndt's source seam (ndt:2141 returns early

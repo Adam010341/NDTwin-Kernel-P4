@@ -2,8 +2,8 @@
 # =================================================================================================
 # 40_r5_p4.sh -- R-5 phase 1: re-check F-1 .. F-5b on the P4/bmv2 stack.
 #
-# P4 FIRST, BY INSTRUCTION: the professor's line is P4, so the P4 arm must produce a result even
-# if the OVS arm never runs.
+# P4 FIRST: P4 is the primary target, so the P4 arm must produce a result even if the OVS arm
+# never runs.
 #
 # WRITTEN, NOT RUN. `bash -n` only.
 #

@@ -6,7 +6,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Measured on this machine, 2026-09-04 (scratch/overnight-2026-09-04/FINDINGS-CANDIDATES.md):
+# Measured on this machine, 2026-09-04:
 #   OV-2  POST /ndt/set_switches_power_state?ip=203.0.113.9&action=off -> 500
 #         {"error":"Failed to change switch power state"}, while GET of the SAME address
 #         answered 404 and action=sideways answered 400. One address, two endpoints, two

@@ -7,10 +7,10 @@
 # 09-05 night round, O-4. start_bg kept two generations, .prev and .prev2, a depth chosen for a
 # debugging loop ("restart, it recurred, restart again" -- KNOWN-ISSUES A-5). A night of
 # experiments is a different shape: seven `ndt up`s ran in one checkout inside three hours, and
-# the kernel.log that five fix tickets (W1/W4/W5/W6/W7) were judged on had already become the
-# .prev twenty minutes after it was written. It survived only because it was copied by hand at
-# 15:53. Later the same evening one arm wrote 151557 lines / 2.78 MB in eleven minutes, so a
-# single rotation would have buried a whole load test.
+# the kernel.log that five fixes were judged on had already become the .prev twenty minutes after it
+# was written. It survived only because it was copied by hand at 15:53. Later the same evening one
+# arm wrote 151557 lines / 2.78 MB in eleven minutes, so a single rotation would have buried a whole
+# load test.
 #
 # The finding's second half is why it kept happening: with no up.target `ndt status` advised
 # "bring the lab up from this checkout first", and following that advice is what rotated the

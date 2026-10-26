@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_ndt_serve.py (TICKET-ndt-serve, 09-24), its cells suite,
+# Mutation gate for tests/python/test_ndt_serve.py (09-24), its cells suite,
 # tests/python/test_ndt_serve_gui.py (the GUI cut, 09-27: the G series at the end) and
 # tests/python/test_ndt_serve_web.py (the page rebuilt on React, v2: its manifest, bundle and
 # source lints). The page cases that need a browser have their own gate,
@@ -8,7 +8,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Each mutation puts back one way ndt serve could break a red line of TICKET section 3 -- a
+# Each mutation puts back one way ndt serve could break a red line of the design -- a
 # socket on every interface, a Host header nobody reads, a CORS header, a write without the
 # token, a shell, an rc 5 folded into 1, a job that dies with the server -- and must turn the ONE
 # case it names red. A mutation nobody catches means that case proves nothing.
@@ -482,7 +482,7 @@ report "M40: two servers can share one state directory and token" "$m" \
        Entry.test_second_server_on_the_same_state_refuses
 
 
-# --- the judge's fixes (opus-judge on e4589399, 09-24; orchestrator's ruling) ------------------
+# --- checks added on e4589399, 09-24 ---------------------
 
 m=$(mutant m43 "$SERVE_PY" \
     '            if method == "GET" and route is not Handler.r_health:
@@ -607,13 +607,13 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
 # external detect-only changes 117 more (10522, lock_probe 9569-9584); the port-probe verdict
 # change adds 41 more (10563, lock_probe 9610-9625).
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(10563, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(10556, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
 
 
-# --- the live_cells entry and the guided walk (second ticket, Adam 09-24 21:4x) -------------
+# --- the live_cells entry and the guided walk (09-24) -------------
 
 m=$(mutant c1 "$CELLS_PY" \
     '        for c in self.list():
@@ -701,10 +701,10 @@ report "C12: a run that printed no verdict counts as done" "$m" \
        cells:GuidedWalk.test_a_run_with_no_verdict_line_blocks
 
 m=$(mutant c13 "$SERVE_PY" \
-    '                raise HttpError(409, "yours", note="this step is Adam'"'"'s: POST %s/guided/%s/verdict" % (API, gid), walk=walk)' \
+    '                raise HttpError(409, "yours", note="this step is the operator'"'"'s: POST %s/guided/%s/verdict" % (API, gid), walk=walk)' \
     '                walk["verdict"] = {"verdict": "green", "note": "auto"}; g.save(walk); return self._send(200, {"walk": self._walk_view(walk)})')
 report "C13: the service calls the verdict itself" "$m" \
-       cells:GuidedWalk.test_the_verdict_is_adams
+       cells:GuidedWalk.test_the_verdict_is_the_operators
 
 m=$(mutant c14 "$SERVE_PY" \
     '            self._send(200, {"walk": self._walk_view(self.cfg.guided.load(gid))})' \
@@ -720,10 +720,10 @@ report "C15: an old/ that no longer fails is shown as the red" "$m" \
 m=$(mutant c16 "$CELLS_PY" \
     '        + ["run"] + (["release"] if lab else []) + ["compare", "verdict"]' \
     '        + ["run", "compare", "verdict"] + (["release"] if lab else [])')
-report "C16: the walk holds the shared lab while it waits on Adam's verdict" "$m" \
+report "C16: the walk holds the shared lab while it waits on the verdict" "$m" \
        cells:GuidedWalk.test_the_lab_is_released_before_the_verdict
 
-# --- the judge's second round (opus-judge on e4589399..e28bcfe4, 09-24; orchestrator's rulings) --
+# --- checks added on e4589399..e28bcfe4, 09-24 -----------
 
 m=$(mutant c17 "$SERVE_PY" \
     '            if precheck is not None:
@@ -777,7 +777,7 @@ report "C24: an implicit child-only kill (subprocess.run timeout=) comes back" "
        NoPatternKill.test_the_only_signal_sent_is_to_a_group_this_service_created
 
 
-# --- the intake judge (opus-judge on the merge 48209682, 09-26; the orchestrator's selection) -----
+# --- fixes after the merge 48209682 (09-26) -----
 # [Co-developed with claude code -- Adam]
 
 m=$(mutant c25 "$SERVE_PY" \
@@ -809,23 +809,23 @@ report "C28: a claim read stopped at its timeout is trusted (its partial yours r
        cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
 
 m=$(mutant m63 "$VERBS_PY" \
-    '(9080, 1, "return 1", "app_start")' \
-    '(8620, 1, "return 1", "app_start")')
-report "M63: apps.start rc 1 cites proc_checkout's return 1 (09-24's line 8315, 8620 on this branch)" "$m" \
+    '(9072, 1, "return 1", "app_start")' \
+    '(8612, 1, "return 1", "app_start")')
+report "M63: apps.start rc 1 cites proc_checkout's return 1" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
 
-# [Co-developed with claude code -- Adam] The opus judge's N1-1 (09-27): the README's lock probe
-# citation was left at its pre-segment-W lines; the suite now holds every such citation to ndt.
+# [Co-developed with claude code -- Adam] (09-27) the README's lock probe citation was left at
+# lines the code had moved away from; the suite now holds every such citation to ndt, by name.
 m=$(mutant m64 "$README_MD" \
-    'lock probes to the kernel (ndt:9610-9625)' \
-    'lock probes to the kernel (ndt:9292-9307)')
-report "M64: the README cites the lock probes where they were before segment W (ndt:9292-9307)" "$m" \
+    'lock probes to the kernel (ndt: lock_probe)' \
+    'lock probes to the kernel (ndt: claim_line)')
+report "M64: the README cites the lock probes as another ndt function" "$m" \
        RcProvenance.test_lock_probe_citations_are_lock_probe
 m=$(mutant m65 "$SERVE_PY" \
-    'probes to the kernel (ndt:9610-9625)' \
-    'probes to the kernel (ndt:9610-9614)')
-report "M65: serve.py's docstring cites lock_probe's comment but not its POST" "$m" \
+    'probes to the kernel (ndt: lock_probe)' \
+    'probes to the kernel (ndt: lock_probes)')
+report "M65: serve.py's docstring cites a function ndt does not define" "$m" \
        RcProvenance.test_lock_probe_citations_are_lock_probe
 
 m=$(mutant m62 "$SERVE_PY" \
@@ -834,7 +834,7 @@ m=$(mutant m62 "$SERVE_PY" \
 report "M62: the listen backlog is socketserver's 5 (a burst of 20 gets a reset)" "$m" \
        Bounded.test_listen_backlog_holds_a_burst
 
-# --- the GUI cut (09-27, SCOPE bfffefa0 as the orchestrator approved it): the G series ------------
+# --- the GUI cut (09-27, SCOPE bfffefa0): the G series ------------
 # [Co-developed with claude code -- Adam]
 
 # the page's files: no token, nothing run, the Host check, the CSP
@@ -1118,7 +1118,7 @@ m=$(mutant g15d "$CLIENT_TS" \
     '  token = t;' \
     '  token = t;
   indexedDB.open("ndt").onsuccess = () => undefined;')
-report "G15d: the page opens IndexedDB (judge G-N8: only the profile would show it)" "$m" \
+report "G15d: the page opens IndexedDB (only the profile would show it)" "$m" \
        web:SourceLint.test_nothing_is_kept_outside_memory
 
 m=$(mutant g15e "$TESTHOOKS_TS" \
@@ -1173,7 +1173,7 @@ m=$(mutant g51 "$SESSION_TS" \
     '  const r = await call("POST", "/session", { nonce });' \
     '  const r = await call("POST", "/session", { nonce });
   await call("POST", "/claim", {});')
-report "G51: the session module posts something besides the key (judge G-N10)" "$m" \
+report "G51: the session module posts something besides the key" "$m" \
        web:SourceLint.test_every_write_goes_through_the_confirm_dialog
 
 m=$(mutant g52 "$SESSION_TS" \
@@ -1195,7 +1195,7 @@ report "G52b: the key is traded before it leaves the address bar" "$m" \
        web:SourceLint.test_the_key_leaves_the_address_bar_before_it_is_traded
 
 # the log re-read of an opened job stops when the job ends, when the view closes and while the page
-# is hidden (the orchestrator's condition, 09-27 15:4x)
+# is hidden (09-27)
 m=$(mutant g37 "$JOBLOG_TS" \
     '        if (watching.current !== mine) return; // stop 2: closed, or opened again' \
     '')
@@ -1220,7 +1220,7 @@ m=$(mutant g39 "$JOBLOG_TS" \
 report "G39: the loop is keyed by job id (close and reopen leaves two loops)" "$m" \
        web:SourceLint.test_the_job_log_stops_when_the_job_ends_the_view_closes_or_the_page_hides
 
-# the 10 s refresh (Adam's R2, 09-27) pauses while measuring and while hidden
+# the 10 s refresh (09-27) pauses while measuring and while hidden
 m=$(mutant g53 "$REFRESH_TS" \
     '  return lab.measuring_is_nothing === false || lab.declared !== null;' \
     '  return lab.declared !== null;')
@@ -1287,7 +1287,7 @@ m=$(mutant g56 "$CONFIRM_TSX" \
 report "G56: a UI string written into a component, past the string table" "$m" \
        web:SourceLint.test_every_ui_string_is_in_the_string_table
 
-# the probe during a measuring pause (Adam's Q6, 09-28): /measuring alone (10-01), once a minute, never hidden
+# the probe during a measuring pause (09-28): /measuring alone (10-01), once a minute, never hidden
 m=$(mutant g59 "$REFRESH_TS" \
     '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
     '')
@@ -1438,7 +1438,7 @@ m=$(mutant_add g58e "$WEB_DIR/src/extra.ts" 'x=1')
 report "G58e: a source file the manifest does not name" "$m" \
        web:BuildManifest.test_every_source_file_is_in_the_manifest_with_its_hash
 
-# --- the intake judge on fcd4f69a (opus-judge, 09-27; the orchestrator's selection) -------------
+# --- fixes on fcd4f69a (09-27) -------------
 # [Co-developed with claude code -- Adam]
 
 m=$(mutant g41 "$SERVE_PY" \
@@ -1524,7 +1524,7 @@ m=$(mutant g61 "$SERVE_PY" \
 report "G61: an answer sets a cookie (Chrome keeps it encrypted, out of the profile scan's sight)" "$m" \
        gui:Page.test_no_answer_sets_a_cookie
 
-# --- the probe's read: GET /measuring, `ndt status --measuring` (Adam, 2026-10-01) ---------------
+# --- the probe's read: GET /measuring, `ndt status --measuring` (2026-10-01) ---------------
 # [Co-developed with claude code -- Adam]
 
 # The probe is the full report again: 564 tasks, 6 sudo and a kernel request per probe, measured.
@@ -1579,8 +1579,8 @@ report "G62g: --measuring's rc 0 cites a phrase ndt help does not print" "$m" \
        RcProvenance.test_help_sourced_tables_are_in_ndt_help
 
 m=$(mutant g62h "$VERBS_PY" \
-    '                         "code": [(6865, 0, "return 0", "cmd_status")]},' \
-    '                         "code": [(6803, 0, "return 0", "cmd_status")]},')
+    '                         "code": [(6860, 0, "return 0", "cmd_status")]},' \
+    '                         "code": [(6798, 0, "return 0", "cmd_status")]},')
 report "G62h: --measuring's rc 0 cites a return 0 of another function (app_package_row)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 

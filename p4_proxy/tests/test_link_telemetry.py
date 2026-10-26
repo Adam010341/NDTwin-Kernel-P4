@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-TICKET-P3 sections 2.2 and 2.5. `link_telemetry.py` is the half of the link path that decides;
+`link_telemetry.py` is the half of the link path that decides;
 `psample_sflow_emitter.py` is the half that runs, and has its own file. Nothing here opens a
 socket, runs `tc` or touches /sys: `plan()` is a pure function of the package, the model and the
 switch objects, `attach()` only ever calls the `run` it is handed, and `read_ifindex` is the one
@@ -15,7 +15,7 @@ one belongs to somebody else's fabric).
   1. an INGRESS filter on every port and an EGRESS filter on host-facing ports ONLY. The kernel
      credits a link from the RECEIVING switch's ingress samples, so an egress filter on an
      inter-switch port double-counts that cable; the one direction with no receiving switch is
-     switch->host, which is paid out of the egress bank (section 2.2);
+     switch->host, which is paid out of the egress bank;
   2. the ifindex map is keyed on the LOW SIXTEEN BITS, because that is what psample reports
      (`nla_put_u16`, measured 2026-09-17), and two interfaces that alias there are a REFUSAL --
      whichever won, every sample from the other would be booked against it;
@@ -317,7 +317,7 @@ class TheTcCommandsTest(PlanFixture):
                               f"a filter was added to {device} before its clsact qdisc")
 
     def test_the_rate_is_the_one_ndtwins_own_pipeline_samples_at(self):
-        # Both telemetry paths at 1-in-256, which is what makes the section 2.8 arms
+        # Both telemetry paths at 1-in-256, which is what makes the telemetry arms
         # comparable: a link arm at another rate differs in two ways at once.
         self.assertEqual(link_telemetry.LINK_SAMPLE_RATE, 256)
         self.assertEqual(link_telemetry.LINK_SAMPLE_TRUNC, 128)
@@ -410,7 +410,7 @@ class TheManifestTest(PlanFixture):
 
 
 class TheManifestIsTrustedOnlyFromItsOwnerTest(unittest.TestCase):
-    """Judge KJL B2: the file root acts on must be root's, or the reading user's, and nobody else's.
+    """The file root acts on must be root's, or the reading user's, and nobody else's.
 
     [Co-developed with claude code -- Adam]
     """
@@ -521,7 +521,7 @@ class StoppingTheEmitterTest(unittest.TestCase):
         self.assertEqual(set(slept), {link_telemetry.EMITTER_POLL_INTERVAL_S})
 
     def test_every_question_it_asks_carries_the_recorded_identity(self):
-        # 🔴 Adam 2026-09-27, ruling K. The grace loop asks again on every step, and a step that
+        # 🔴 The grace loop asks again on every step, and a step that
         # asked without the argv and start time would be judging a different process than the
         # first question did -- the one that decided to send SIGTERM at all.
         # [Co-developed with claude code -- Adam]
@@ -640,7 +640,7 @@ class ShuttingDownFromTheManifestTest(PlanFixture):
         self.assertEqual(run.calls, [])
 
     def test_the_manifest_goes_even_when_the_emitter_was_already_gone(self):
-        # 🔴 A KILL THAT ONLY RECORDS (judge K-N4). Without it, a mutant that skips the
+        # 🔴 A KILL THAT ONLY RECORDS. Without it, a mutant that skips the
         # predicate (M-B13) would send a REAL SIGTERM to pid 4242 -- whatever holds that number
         # on the machine running the gate. [Co-developed with claude code -- Adam]
         run, killed = FakeRun(), []
@@ -651,11 +651,11 @@ class ShuttingDownFromTheManifestTest(PlanFixture):
         self.assertFalse(os.path.exists(self.path))
 
 
-# --- which process the manifest's pid is, now (Adam 2026-09-27, ruling K) -------------------
+# --- which process the manifest's pid is, now -----------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 THE TEARDOWN THAT READS THIS RUNS AS ROOT AND SENDS SIGTERM, THEN SIGKILL. Until this ruling
-# "is pid N the emitter" was answered by `b"psample_sflow_emitter.py" in <the whole cmdline>` --
+# 🔴 THE TEARDOWN THAT READS THIS RUNS AS ROOT AND SENDS SIGTERM, THEN SIGKILL. "Is pid N the
+# emitter" used to be answered by `b"psample_sflow_emitter.py" in <the whole cmdline>` --
 # so an editor with that file open, a `grep` or `tail` naming it, or a test runner with it on
 # its command line, holding a recycled pid, was the emitter as far as `stop_emitter` knew. The
 # cases below are REAL processes, started unprivileged by this file and reaped by this file
@@ -739,7 +739,7 @@ class LiveProcessFixture(unittest.TestCase):
         """A manifest written by hand, so a case can name what a bring-up would have recorded.
 
         0644 by default, as `write_manifest` leaves it: this user's umask is 0002, and a
-        group-writable manifest is refused before any identity is looked at (judge KJL B2) --
+        group-writable manifest is refused before any identity is looked at --
         a case about the identity check must not pass because of the mode.
         """
         path = path or self.manifest
@@ -787,8 +787,8 @@ class ADecoyIsNeverTheEmitterTest(LiveProcessFixture):
                          "taken for the emitter")
 
     def test_teardown_does_not_signal_a_decoy_the_manifest_names(self):
-        # A manifest with only a pid in it -- what every bring-up before this ruling wrote --
-        # whose pid a decoy now holds.
+        # A manifest with only a pid in it -- what every bring-up from before identities were
+        # recorded wrote -- whose pid a decoy now holds.
         decoy = self.decoy()
         link_telemetry.write_manifest(link_telemetry.LinkTelemetryPlan(), decoy.pid,
                                       path=self.manifest)
@@ -865,21 +865,21 @@ class TheEmitterItselfIsStillTheEmitterTest(LiveProcessFixture):
         self.assertEqual(proc.wait(timeout=30), -signal.SIGTERM)
 
     def test_a_manifest_that_records_no_identity_still_stops_an_emitter_of_the_launchers_shape(self):
-        # A manifest written before this ruling carries a pid and nothing else. Its emitter was
-        # launched as `<python> <.../psample_sflow_emitter.py> --manifest <path>`, and that
-        # exact shape -- four words, the flag in third place -- is still recognised, so a
+        # A manifest written before identities were recorded carries a pid and nothing else. Its
+        # emitter was launched as `<python> <.../psample_sflow_emitter.py> --manifest <path>`, and
+        # that exact shape -- four words, the flag in third place -- is still recognised, so a
         # fabric brought up by the old code is not orphaned by the new teardown.
         proc = self.launch()
         self.write_document(pid=proc.pid)
         fate, kills = self.tear_down_recording()
-        # An assertion, not an IndexError, when nothing was signalled (judge K-N3): the mutant
+        # An assertion, not an IndexError, when nothing was signalled: the mutant
         # that orphans this emitter (M-B37) must die for the reason this cell is about.
-        self.assertTrue(kills, "a pre-ruling manifest's emitter was left running")
+        self.assertTrue(kills, "an emitter recorded without an identity was left running")
         self.assertEqual(kills[0], (proc.pid, signal.SIGTERM))
         self.assertEqual(fate, "kill")      # the recording kill never really stopped it
 
     def test_a_launch_whose_start_time_cannot_be_read_records_no_identity_at_all(self):
-        # Both or neither (judge K-N7): half an identity is refused outright, so recording one
+        # Both or neither: half an identity is refused outright, so recording one
         # would orphan the emitter just launched. Neither falls back to the launcher's shape.
         # [Co-developed with claude code -- Adam]
         proc = self.launch()
@@ -890,8 +890,7 @@ class TheEmitterItselfIsStillTheEmitterTest(LiveProcessFixture):
 
 
 class AForgedManifestKillsNothingTest(LiveProcessFixture):
-    """Judge KJL B2, red at an intermediate revision of this change: what a manifest someone else
-    wrote could make root signal.
+    """What a manifest someone else wrote could make root signal.
 
     [Co-developed with claude code -- Adam]
     /tmp/ndtwin_link_telemetry.json is a name any local user can create while no fabric is up,
@@ -1024,14 +1023,14 @@ class TheIdentityCheckTest(unittest.TestCase):
         self.assertFalse(self.is_emitter(5, argv=list(self.ARGV), start_time="7777"))
 
     def test_a_bool_start_time_is_not_the_number_it_equals(self):
-        # 🔴 `True == 1` in Python (judge K-N2): a manifest saying `"start_time": true` must not
+        # 🔴 `True == 1` in Python: a manifest saying `"start_time": true` must not
         # match a process whose start time really is 1. [Co-developed with claude code -- Adam]
         self.process(5, self.ARGV, start_time=1)
         self.assertTrue(self.is_emitter(5, argv=list(self.ARGV), start_time=1))
         self.assertFalse(self.is_emitter(5, argv=list(self.ARGV), start_time=True))
 
     def test_a_string_argv_is_not_the_list_of_its_characters(self):
-        # `list("ab") == ["a", "b"]` (judge K-N2). Under the always-required launcher shape a
+        # `list("ab") == ["a", "b"]`. Under the always-required launcher shape a
         # one-character-per-word cmdline can never pass, so this cell holds the refusal without
         # being able to tell the type check from the shape check -- see the gate's note.
         self.process(5, ["a", "b"])
@@ -1040,7 +1039,7 @@ class TheIdentityCheckTest(unittest.TestCase):
         self.assertFalse(self.is_emitter(6, argv="".join(self.ARGV), start_time=7777))
 
     def test_half_an_identity_is_never_a_match(self):
-        # Judge K-N7: the launcher records both or neither, so either half alone is a document
+        # The launcher records both or neither, so either half alone is a document
         # nobody here wrote -- refused, not checked against the half that is there.
         self.process(5, self.ARGV, start_time=7777)
         self.assertTrue(self.is_emitter(5))
@@ -1088,15 +1087,15 @@ class TheIdentityCheckTest(unittest.TestCase):
         # `emitter_is_running` is what `ndt` and the proxy read the manifest through, so neither
         # can quietly compare less than the teardown does. The process IS in the launcher's
         # shape -- so the shape alone would say yes -- and only the recorded start time can
-        # tell the right document from the wrong one (judge KJL B2 reworked this cell: it used
-        # to rest on "not the shape, but the identity", which is exactly what B2 forbids).
+        # tell the right document from the wrong one (resting on "not the shape, but the
+        # identity" would let a forged manifest through).
         self.running = lambda doc: link_telemetry.emitter_is_running(doc, proc_root=self.proc)
         self.process(5, self.ARGV, start_time=11)
         document = {"pid": 5, "argv": list(self.ARGV), "start_time": 11}
         self.assertTrue(self.running(document))
         self.assertFalse(self.running(dict(document, start_time=12)))
         self.assertFalse(self.running(dict(document, argv=self.ARGV[:3] + ["/tmp/other.json"])))
-        self.assertTrue(self.running({"pid": 5}))           # pre-ruling: the shape alone
+        self.assertTrue(self.running({"pid": 5}))           # no identity recorded: the shape alone
         self.assertFalse(self.running("not a document"))
         for pid in (None, 0, 1, -1, True, "5", 5.0):
             with self.subTest(pid=pid):

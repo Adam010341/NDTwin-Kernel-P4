@@ -23,6 +23,7 @@ dpid 10 read as 16 -- silently, since the parse succeeds.
 
 from __future__ import annotations
 
+import socket
 from typing import Any, Optional
 
 # Widths Ryu uses. Not load-bearing for the kernel's base-16 parse, but matching them keeps the
@@ -144,7 +145,57 @@ def down_edges(net, down_endpoints) -> list:
             if (u, data.get("port", 0)) in down]
 
 
-def installed_path(net, installed, src_host, dst_host, down_endpoints=()):
+def prefix_routes(installed):
+    """
+    {dpid: [(prefix_len, network, mask, out_port), ...] longest first} for the prefix routes
+    in `installed`, or {} when there are none.
+
+    [Co-developed with claude code -- Adam] ipv4_lpm may hold prefix routes
+    beside the /32 host routes, keyed "network/len" in `installed` (a /32 is the bare address,
+    as it always was). Built once per render, so a fabric with no prefix route pays one pass
+    over the map and every lookup stays the dict hit it was.
+    """
+    out = {}
+    for key, port in installed.items():
+        dpid, dst = key
+        if not isinstance(dst, str) or "/" not in dst:
+            continue
+        addr, _slash, length = dst.partition("/")
+        try:
+            network = int.from_bytes(socket.inet_aton(addr), "big")
+            prefix_len = int(length)
+        except (OSError, ValueError):
+            continue
+        mask = (0xFFFFFFFF << (32 - prefix_len)) & 0xFFFFFFFF
+        out.setdefault(dpid, []).append((prefix_len, network & mask, mask, port))
+    for routes in out.values():
+        routes.sort(key=lambda r: -r[0])
+    return out
+
+
+def lpm_out_port(installed, prefixes, dpid, dst_ip):
+    """
+    The port `dpid`'s ipv4_lpm sends `dst_ip` out of, by longest prefix: the /32 (the bare
+    address key) when there is one, else the longest recorded prefix covering it, else None.
+    `prefixes` is prefix_routes(installed). [Co-developed with claude code -- Adam]
+    """
+    port = installed.get((dpid, dst_ip))
+    if port is not None:
+        return port
+    routes = prefixes.get(dpid)
+    if not routes:
+        return None
+    try:
+        addr = int.from_bytes(socket.inet_aton(dst_ip), "big")
+    except (OSError, TypeError, ValueError):
+        return None
+    for _prefix_len, network, mask, out_port in routes:
+        if addr & mask == network:
+            return out_port
+    return None
+
+
+def installed_path(net, installed, src_host, dst_host, down_endpoints=(), prefixes=None):
     """
     The hops a packet really takes, by following the rules written to the switches.
 
@@ -160,8 +211,13 @@ def installed_path(net, installed, src_host, dst_host, down_endpoints=()):
 
     Bounded by the node count, so a rule set that points in a circle terminates rather than
     hanging the reply thread.
+
+    Each hop is looked up by longest prefix (lpm_out_port), as the switch looks it up: a /32 for
+    the destination wins over any prefix covering it. [Co-developed with claude code -- Adam]
     """
     down = set(down_endpoints)
+    if prefixes is None:
+        prefixes = prefix_routes(installed)
     first_hops = [v for v in net.neighbors(src_host)]
     if not first_hops:
         return None
@@ -172,7 +228,7 @@ def installed_path(net, installed, src_host, dst_host, down_endpoints=()):
         hops.append(current)
         if current == dst_host:
             return hops
-        out_port = installed.get((current, dst_host))
+        out_port = lpm_out_port(installed, prefixes, current, dst_host)
         if out_port is None:
             return None  # this switch has no rule for that destination
         if (current, out_port) in down:
@@ -256,6 +312,8 @@ def render_destination_paths(net, down_endpoints=(), installed=None) -> dict:
             search = net
 
     paths = []
+    # [Co-developed with claude code -- Adam] Indexed once for every pair below.
+    prefixes = prefix_routes(installed) if installed else {}
     for src in hosts:
         for dst in hosts:
             if src == dst:
@@ -266,7 +324,7 @@ def render_destination_paths(net, down_endpoints=(), installed=None) -> dict:
                 # been reprogrammed. A pair with no working installed route is omitted -- the twin
                 # saying "unreachable" is correct, and is the whole point: it used to keep
                 # advertising all twelve paths while a third of the packets were being dropped.
-                hops = installed_path(net, installed, src, dst, down_endpoints)
+                hops = installed_path(net, installed, src, dst, down_endpoints, prefixes)
             else:
                 hops = _shortest_path(search, src, dst)
             if hops is None:

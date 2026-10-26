@@ -25,6 +25,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -n "${ROUND:-}" ]] || . "$HERE/round.env"
 : "${DRY_RUN:=0}"
 : "${DRY_FAIL:=}"
+_F5_PREREG_GIVEN="${PREREG_FILE:-}"   # selftest uses its fixture only when the caller named no registration
 PREREG_FILE="${PREREG_FILE:-$ROUND/PREREG.md}"
 : "${_DRY_EXE_READS:=0}"
 # 🔴 A dry run and a real run never share a transcript (CLAUDE.md: "跑過" and "讀過未執行" are
@@ -672,6 +673,12 @@ selftest() {
     # window, because a detector first exercised inside a scarce window is a detector whose own
     # bugs are paid for in scarce time.  memory/new-tools-are-the-first-thing-under-test.
     local rc=0 s
+    # [Co-developed with claude code -- Adam] The forces below are built from a registration-shaped
+    # file. A clone carries no registration, so with no PREREG_FILE from the caller they use the
+    # structural fixture beside this script; the arm sub-runs inherit it. The real-run default above
+    # is unchanged: arm, q3 and restore without a registration still refuse.
+    [[ -n "$_F5_PREREG_GIVEN" ]] || PREREG_FILE="$HERE/selftest_registration.txt"
+    export PREREG_FILE
     say "=== f5 detector force tests (no fabric required) ==="
     for s in phantom clean blind; do
         say "--- scenario $s ---"
@@ -720,8 +727,9 @@ selftest() {
     # correct, not a gap.
     # =============================================================================================
     local EV_BAD EV_GOOD; EV_BAD="$(mktemp)"; EV_GOOD="$(mktemp)"
-    # Fixtures are COPIES OF THE REAL REGISTRATION, minimally mutated -- so each carries both the
-    # sentinel and the transcript, and each force tests the real reader against real content.
+    # Fixtures are copies of PREREG_FILE (the round's registration, or selftest_registration.txt
+    # when the caller names none), minimally mutated -- so each carries both the sentinel and the
+    # transcript, and each force tests the real reader against that content.
     local TR_BAD; TR_BAD="$(mktemp)"
     cp "$PREREG_FILE" "$EV_GOOD"
     sed 's/^\([[:space:]]*\)EVIDENCE-BASIS: COMPLETE/\1EVIDENCE-BASIS: INCOMPLETE/' "$PREREG_FILE" >"$EV_BAD"

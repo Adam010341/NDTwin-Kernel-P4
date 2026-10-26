@@ -26,13 +26,16 @@ show the loss.
 
 ### Recommended build
 
-Upstream's own `docs/performance.md` prescribes the performance configuration. Build it
-to a **separate prefix** so the debug install stays available:
+Upstream's own `docs/performance.md` prescribes the base performance configuration
+(`'CXXFLAGS=-g -O3' 'CFLAGS=-g -O3'`, `--disable-logging-macros`, `--disable-elogger`). The
+command below adds `-DNDEBUG` and `-march=native` to both, and `-fno-semantic-interposition`
+to C++. Build it to a **separate prefix** so the debug install stays available:
 
 ```bash
 ./configure --prefix=/usr/local/bmv2-fast --with-pi --with-thrift \
     --disable-logging-macros --disable-elogger \
-    'CXXFLAGS=-O3 -g -DNDEBUG -march=native -fno-semantic-interposition'
+    'CXXFLAGS=-O3 -g -DNDEBUG -march=native -fno-semantic-interposition' \
+    'CFLAGS=-O3 -g -DNDEBUG -march=native'
 make -j"$(nproc)" && sudo make install    # do NOT run ldconfig afterwards
 ```
 
@@ -56,12 +59,14 @@ Practical notes, each learned the hard way:
 
 ### Selecting the build per run
 
-NDTwin's P4 testbed selects the switch binary through an optional one-line override file
-next to the topology (`p4_proxy/mininet/bmv2_binary_override`) containing the absolute
-path of the `simple_switch_grpc` to run. When the file is absent the stock `PATH` lookup
-applies; the matching `lib/` directory is derived automatically into `LD_LIBRARY_PATH`;
-a present-but-broken path refuses to start rather than silently falling back. Keep the
-default (debug) build for functional work and select the fast build for load tests.
+NDTwin's P4 testbed selects the switch binary through a required one-line override file
+next to the topology (`p4_proxy/mininet/bmv2_binary_override`): its first non-comment line is
+the absolute path of the `simple_switch_grpc` to run. If the file is absent, or has no such
+line, or that line is not an absolute path to an executable, start-up refuses rather than picking a
+binary. When the binary's install prefix has a `lib/` directory, it is added to
+`LD_LIBRARY_PATH` automatically. The tracked file names the fast build
+(`/usr/local/bmv2-fast/bin/simple_switch_grpc`); to run the stock build, write the stock
+binary's path there instead (for example `/usr/local/bin/simple_switch_grpc`).
 
 ### What to expect (calibration numbers)
 
@@ -78,8 +83,10 @@ fabric, full NDTwin stack running, iperf3, 2026-08:
 Published figures are consistent in magnitude but not directly transferable — build
 flags and topology dominate. Chen, Hu & Jin (SIGSIM-PADS '23) report ~170 Mbps for
 `simple_switch_grpc` (16-switch linear topology; build conditions unstated) and up to
-~1 Gbps for non-gRPC `simple_switch`; upstream's `docs/performance.md` reports
-~917 Mbps for a single switch with the recommended flags. Measure your own fabric
+~1 Gbps for non-gRPC `simple_switch`; upstream's `docs/performance.md`, on an AWS
+c4.2xlarge for its `simple_router.p4` benchmark, expects around 1 Gbps (80,000 pps) for a
+single `simple_switch` with its recommended flags, and its example run's median is 1047 Mbps.
+Measure your own fabric
 before relying on any of these numbers.
 
 ### References

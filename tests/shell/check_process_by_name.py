@@ -21,17 +21,16 @@ G-inst-2 are the two times it was learned the expensive way:
 =================================================================================================
 THE RULE, and why it is not `grep -n 'pgrep -f'`
 =================================================================================================
-The two checks in tests/shell/test_faults_topo_pid.sh used to be (its "B12 (2026-09-11)" comment,
+The two checks in tests/shell/test_faults_topo_pid.sh used to be (its 2026-09-11 comment,
 above the checks that replaced them, quotes them)
 
     grep -n 'pgrep -f' "$FAULTS" | grep -vc '^[0-9]*:[[:space:]]*#'
     grep -E '^[[:space:]]*(err|say|echo|printf)' "$FAULTS" | grep -c 'pgrep'
 
-and hunt-0911/F-B0-B12-REPORT.md §3.1 rows (3)b..(3)e put four inputs through those two pipelines
-and got 0 out of every one: `pgrep --full`, `pgrep  -f` with two spaces, `pkill -f`, and the same
-advice string printed by `warn` instead of `err`. One space and one letter -- and the file scanned
-was `$FAULTS`, one path, hard-coded, while `tools/test_workflow/run_layers.sh` has been looking a
-process up by name the whole time.
+and four inputs put through those two pipelines got 0 out of every one: `pgrep --full`, `pgrep  -f`
+with two spaces, `pkill -f`, and the same advice string printed by `warn` instead of `err`. One
+space and one letter -- and the file scanned was `$FAULTS`, one path, hard-coded, while
+`tools/test_workflow/run_layers.sh` has been looking a process up by name the whole time.
 
 So the rule is about the PROPERTY: a name-based process lookup or signal, whatever flags it
 carries and whoever prints it. A site is either
@@ -93,15 +92,14 @@ check labels and section headers, which are double-quoted and would read as TEAC
 are listed in ABOUT_THE_RULE, by name, with the reason -- an instrument must not be able to
 report itself (memory: "儀器不能長得像自己的發現").
 
-And the widened scan finds sites in code that is NOT about the rule. They are in REGISTERED
-below rather than fixed: this checker was written under a ticket that forbids touching product
-code, and a scan that silently dropped them would be the third way this rule gets lost. The
-verdict compares the set FOUND against the set REGISTERED in both directions, so a new site is
-red and a registered site that has been fixed is also red -- the registry cannot rot into an
-excuse.
+And the widened scan finds sites in code that is NOT about the rule. They are in REGISTERED below
+rather than fixed: this checker does not touch product code, and a scan that silently dropped them
+would be the third way this rule gets lost. The verdict compares the set FOUND against the set
+REGISTERED in both directions, so a new site is red and a registered site that has been fixed is
+also red -- the registry cannot rot into an excuse.
 
 =================================================================================================
-doc/audit/** IS NOT A SCAN SURFACE, and the exceptions are a registry (2026-09-12, AUDIT-SCAN-1)
+doc/audit/** IS NOT A SCAN SURFACE, and the exceptions are a registry (2026-09-12)
 =================================================================================================
 A directory under doc/audit is a dated record of what was measured on a day. Editing one so that a
 lint goes green is falsifying evidence, so the rule is: it is not scanned. Both halves draw that
@@ -183,13 +181,11 @@ PY_GLOBS = (
 # tests/, tools/, p4_proxy/ or src/ has to execute or mutate the file -- not cite it, not link to
 # it. A dated instrument that another dated round happened to re-run is still a record.
 #
-# AUDIT-SCAN-1 (2026-09-12) inventoried every .py under doc/audit that names a process-by-name
-# tool: 13 files, of which 4 are the chaos harness and 1 is cpu_gate.py. Of the other 8, seven
-# name the family only in prose explaining why they do NOT do it; the eighth
-# (2026-08-25_large-scale-concurrent/sample_load.py:28) really does run
-# `subprocess.run(["pgrep", "-x", "ndtwin_kernel"])`. None of the 8 is run by anything live, so
-# all 8 stay out -- a record is not made true or false by a lint. The table is in
-# AUDIT-SCAN-1-SUMMARY §2, and what to do about that one live-looking site is §7 there.
+# An inventory (2026-09-12) of every .py under doc/audit that names a process-by-name tool found
+# 13 files, of which 4 are the chaos harness and 1 is cpu_gate.py. Of the other 8, seven name the
+# family only in prose explaining why they do NOT do it; the eighth, a load sampler from an early
+# round, really does run `subprocess.run(["pgrep", "-x", "ndtwin_kernel"])`. None of the 8 is run
+# by anything live, so all 8 stay out -- a record is not made true or false by a lint.
 AUDIT_EXCEPTIONS = (
     ("doc/audit/2026-08-28_chaos-harness/harness/*.py",
      "live tooling: tests/python/test_chaos_{invariants_method,runner_wiring,opt_in_all_actions,"
@@ -226,11 +222,10 @@ ABOUT_THE_RULE = frozenset((
 # reason. Each entry is a decision someone has to make, not an exemption.
 #
 # 🔴 IT IS EMPTY, and that is a result rather than a default. The three entries this set was
-# created with were FIXED on 2026-09-11 (FIX-NDT-4 #16, Adam's ruling), and the verdict below
-# compares found against registered in BOTH directions, so the empty set is now itself an
-# assertion: the next site to appear anywhere in the scan surface is red on the day it appears.
-# What the three were, and what replaced them, because the registry is where the next reader
-# looks first:
+# created with were FIXED on 2026-09-11, and the verdict below compares found against registered in
+# BOTH directions, so the empty set is now itself an assertion: the next site to appear anywhere in
+# the scan surface is red on the day it appears. What the three were, and what replaced them,
+# because the registry is where the next reader looks first:
 #
 #   run_layers.sh   `pids="$(pgrep -x ndtwin_kernel 2>/dev/null)"` -- recon-B item 13. `-x`
 #                   matches comm rather than the whole command line, the narrow end of the
@@ -274,15 +269,13 @@ ABOUT_THE_RULE = frozenset((
 #                   evidence that something real still asks, and taking it out of the registry
 #                   should require someone to look at probes.py first.
 #
-# 🔴 2026-09-12, FIX-PROXY-2 A11 (Adam's ruling on FIX-PROXY-1 §7-2, option (i)): all five are
-# FIXED and therefore NOT in the set below, which is empty again. The chaos harness asks the
-# manifest (p4_testbed_topo.MANIFEST_PATH -> pid -> /proc/<pid>/cmdline) for both "how many
-# switches are up" and "which binary are they running", so the count and the provenance probe
-# no longer shell out at all; test_probes.py fakes the manifest instead of faking pgrep's
-# output; the FakeShell in test_chaos_opt_in_all_actions.py no longer answers a command nothing
-# runs; and AO-13 names the trap by what it does rather than by the literal, with the
-# KNOWN-ISSUES id that carries the exact command. The harness did NOT move out of doc/audit --
-# that was option (iii) and Adam did not pick it.
+# 🔴 2026-09-12: all five are FIXED and therefore NOT in the set below, which is empty again. The
+# chaos harness asks the manifest (p4_testbed_topo.MANIFEST_PATH -> pid -> /proc/<pid>/cmdline) for
+# both "how many switches are up" and "which binary are they running", so the count and the
+# provenance probe no longer shell out at all; test_probes.py fakes the manifest instead of faking
+# pgrep's output; the FakeShell in test_chaos_opt_in_all_actions.py no longer answers a command
+# nothing runs; and AO-13 names the trap by what it does rather than by the literal, with the
+# KNOWN-ISSUES id that carries the exact command. The harness did NOT move out of doc/audit.
 REGISTERED = frozenset()
 
 

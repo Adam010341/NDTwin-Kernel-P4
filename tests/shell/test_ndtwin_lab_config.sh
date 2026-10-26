@@ -12,13 +12,13 @@
 # structural check green, and no message anywhere saying which tree was used.
 #
 # The file's own header spent twenty lines arguing that an ENV OVERRIDE is not the fix, because
-# it would let anything running as adam choose which .py root executes. That argument is about
+# it would let any non-root user choose which .py root executes. That argument is about
 # WHO CHOOSES and WHEN -- the caller, at call time -- and it does not carry over to a file only
 # root can write. It does carry over completely to a config file anyone can write, which is why
 # the checks below are the substance of this change and not paperwork around it.
 #
 # 🔑 The escalation that already exists is not closed here and this suite does not pretend it is:
-#    the DEFAULT KERNEL_DIR is adam-writable, so root has been executing an adam-writable .py all
+#    the DEFAULT KERNEL_DIR is user-writable, so root has been executing a user-writable .py all
 #    along. What is under test is that the CHOICE of tree cannot be made by a non-root user.
 #
 # The two halves are tested differently, on purpose:
@@ -87,7 +87,7 @@ check "the fixed path is /etc/ndtwin-lab.conf"   /etc/ndtwin-lab.conf "$LAB_CONF
 # --- 1. trust: who is allowed to choose which .py root executes -------------------------
 #
 # Every file below is real, with real ownership and real permissions. This suite runs as a
-# non-root user, so a file it creates is genuinely one "anything running as adam" could write --
+# non-root user, so a file it creates is genuinely one "anything running as the user" could write --
 # which is exactly the thing that must be refused.
 echo "trust (the refusals are what protect anything)"
 
@@ -95,7 +95,7 @@ MINE="$TMPROOT/mine.conf"; : > "$MINE"; chmod 644 "$MINE"
 
 # The two halves are asked separately, because the directory is judged first and would otherwise
 # answer every question here. There is no directory a non-root user can write to that is also
-# root-owned, so "an adam-owned file in a trusted directory" is not a fixture that can exist --
+# root-owned, so "a user-owned file in a trusted directory" is not a fixture that can exist --
 # and a combined predicate would leave every file-level check below permanently unreachable.
 echo "  the file half"
 check "a file owned by this user is refused"     1 "$(rc_of lab_conf_file_trusted "$MINE")"
@@ -254,10 +254,9 @@ check "cleanup does NOT"                         1 "$(gate_rc cleanup)"
 check "energy-start does NOT"                    1 "$(gate_rc energy-start)"
 check "sim-stop does NOT"                        1 "$(gate_rc sim-stop)"
 
-# Adam 2026-09-25, ruling (b) of the heartbeat round: `heartbeat stop` and `heartbeat status`
-# touch only /run/ndtwin-lab -- nothing in them reads KERNEL_DIR or this file -- so a broken
-# config must not lock an operator out of stopping a root daemon. `heartbeat start` stays
-# fail-closed, like every other verb that starts something.
+# 2026-09-25: `heartbeat stop` and `heartbeat status` touch only /run/ndtwin-lab -- nothing in them
+# reads KERNEL_DIR or this file -- so a broken config must not lock an operator out of stopping a
+# root daemon. `heartbeat start` stays fail-closed, like every other verb that starts something.
 # [Co-developed with claude code -- Adam]
 gate2_rc() { ( LAB_CONF_ERROR="something is wrong"; lab_conf_gate "$1" "$2" >/dev/null 2>&1 ); echo $?; }
 gate2_err() { ( LAB_CONF_ERROR="something is wrong"; lab_conf_gate "$1" "$2" 2>&1 >/dev/null ); }

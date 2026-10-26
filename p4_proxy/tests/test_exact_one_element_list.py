@@ -1,5 +1,5 @@
 """
-An EXACT match value written as a one-element list. TICKET-P3 section 9 ruling 23②.
+An EXACT match value written as a one-element list.
 
 [Co-developed with claude code -- Adam]
 
@@ -9,7 +9,7 @@ writer. The upstream exercises are the actual input, and `p4lang/tutorials`'
 `basic_tunnel/sX-runtime.json` spells an exact-match value as `"hdr.myTunnel.dst_id": [1]` --
 a one-element list. The reference controller those exercises are written against unwraps it:
 
-    /home/adam/tutorials/utils/p4runtime_lib/convert.py:71-75
+    ~/tutorials/utils/p4runtime_lib/convert.py:71-75
 
         def encode(x, bitwidth):
             'Tries to infer the type of `x` and encode it'
@@ -17,8 +17,7 @@ a one-element list. The reference controller those exercises are written against
             if (type(x) == list or type(x) == tuple) and len(x) == 1:
                 x = x[0]
 
-so `switch.WriteTableEntry` accepts those three entries and this proxy refused them. Live
-evidence (`scratch/overnight-2026-09-05/logs/orchestrator-0919/probe2-basic_tunnel-proxy.log`),
+so `switch.WriteTableEntry` accepts those three entries and this proxy refused them. Live,
 three of six entries on every switch:
 
     [Proxy Agent] switch 1: table entry 3 into MyIngress.myTunnel_exact was NOT applied --
@@ -263,7 +262,7 @@ class TheRefusalsThatStayTest(unittest.TestCase):
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class TheProxyAndPreFlightAgreeTest(unittest.TestCase):
     """
-    One package, two readers, one answer. TICKET-P3 section 9 ruling 23② asks for this cell.
+    One package, two readers, one answer.
 
     [Co-developed with claude code -- Adam]
     `tools/p4_exercise/preflight.py` already accepted `[1]` on an EXACT field -- its live report

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive the TICKET section 4 live sequence through a running ndt serve, and keep every byte.
+"""Drive the live sequence through a running ndt serve, and keep every byte.
 
 [Co-developed with claude code -- Adam]
 
@@ -9,10 +9,10 @@ status -> claim -> up (ovs 4) -> status -> apps -> nsr start -> apps -> nsr stop
 release -> status, all over HTTP. Four probes ride along, and each is built so that it CANNOT
 reach ndt whatever state the lab is in: a write with no token (403 at the token check), a request
 with a foreign Host (403 at the Host check), `GET /status?check=1` with no token while the fabric
-is up (403 -- `--check` POSTs lock probes to the kernel, judge 09-24 finding 1), and a GET of
+is up (403 -- `--check` POSTs lock probes to the kernel), and a GET of
 /health while `up` runs, which shows the job holding the one slot.
 
-🔴 The slot probe used to be a real `POST /down` with the token (judge 09-24, finding 3): had
+🔴 The slot probe used to be a real `POST /down` with the token: had
 `up` ended in the moment before it -- an rc 1 in a second -- the slot would have been free and
 the probe would have been an `ndt down` under this driver's own claim.
 
@@ -139,7 +139,7 @@ def main():
         d.finish("up", up_id, row)
     d.call("probe-check-no-token", "GET", "/api/v1/status?check=1", token=False)
     # ... and the same verdict WITH the token: the gate refuses the unauthorised read, it does not
-    # take the feature away (orchestrator 09-24, item 9)
+    # take the feature away
     d.call("status-check-after-up", "GET", "/api/v1/status?check=1")
     d.call("status-after-up", "GET", "/api/v1/status")
     d.call("apps-before", "GET", "/api/v1/apps")

@@ -26,8 +26,7 @@ which is "complete" in the arithmetic sense and must not be reportable as recove
 Replay is opt-in for the same reason. A journal records *requests*, not the reasons behind
 them: a Traffic-Engineering reroute installed because a link was congested is still in the
 journal twenty minutes later when the congestion is gone, and replaying it programs a detour
-nobody wants. That is a judgement call about a live fabric, so the default is off and the
-decision is Adam's.
+nobody wants. That is a judgement call about a live fabric, so the default is off.
 
 unittest rather than pytest -- tools/test_workflow/l1_unit_tests.sh parses "Ran N tests", and
 p4_proxy/venv has no pytest.

@@ -1,6 +1,5 @@
 """
 `GET /p4/counter/{name}` -- three outcomes, three status codes, and none of them is a zero.
-TICKET-P3 2.6 (G7).
 
 [Co-developed with claude code -- Adam]
 
@@ -236,7 +235,7 @@ class TheRefusalsTest(CounterRouteTestBase):
 
 
 class AnExternalControlPlaneCanStillReadTest(CounterRouteTestBase):
-    """🔴 The one endpoint of this ticket that is NOT 409 under `external`."""
+    """🔴 The one read endpoint here that is NOT 409 under `external`."""
 
     def setUp(self):
         super().setUp()
@@ -265,7 +264,7 @@ class TheRouteIsRegisteredTest(unittest.TestCase):
 
     def test_the_name_is_a_path_parameter_so_a_dotted_name_survives(self):
         # `MyEgress.egress_port_counter` has dots in it. A query parameter would have worked
-        # too; a path parameter is what the ticket specifies, and a path parameter that somebody
+        # too; a path parameter is what the route uses, and a path parameter that somebody
         # later makes greedy (`{name:path}`) would start swallowing slashes.
         matches = [r for r in api_routes.router.routes
                    if getattr(r, "path", None) == "/p4/counter/{name}"]

@@ -9,9 +9,8 @@ get pruned". Nothing prunes them, and nothing fails when one rots: a never-match
 printed at the end of a log check as UNUSED, in a run whose verdict is PASS, which is the
 shape of every green check this project has had to stop trusting.
 
-Two things rot differently, and this file separates them, because FIX-CONTRACT-1 SUMMARY
-section 6 and section 7-2 recorded two entries with the same symptom and different
-consequences:
+Two things rot differently, and this file separates them, because two entries once showed
+the same symptom with different consequences:
 
   * a PERMISSION (WARNING/ERROR) for a message no source emits any more is pure noise. It
     cannot cause a false green -- there is nothing left to match it -- and deleting it is
@@ -26,7 +25,7 @@ consequences:
     `FORBID | Cannot open OpenflowCapacity\\.json`; the kernel prints
     `Cannot open 2026-01-02_OpenflowCapacity.json` (HttpSession.cpp, handleGetOpenflowCapacity),
     so `re.search` never matches -- the `2026-01-02_` sits between the two halves of the
-    pattern. FIX-CONTRACT-1 section 7-2 left it for Adam, and this file keeps the darkness
+    pattern. The fix was left undecided, and this file keeps the darkness
     VISIBLE rather than tidy: every dark FORBID has to be registered, with its reason, in
     DARK_FORBID below, and the assertion runs in BOTH directions so the registry cannot rot
     into an excuse either.
@@ -79,8 +78,8 @@ DARK_FORBID = {
         "carry it. Structurally invisible to a source scan, not stale: Logger::init being "
         "called twice is still the thing this line exists to fail on."),
     r"Cannot open OpenflowCapacity\.json": (
-        "🔴 KNOWN DARK, awaiting Adam (FIX-CONTRACT-1 SUMMARY section 7-2, registered as G-y "
-        "in its section 6). The kernel prints 'Cannot open 2026-01-02_OpenflowCapacity.json' "
+        "🔴 KNOWN DARK, awaiting a decision (registered as G-y). "
+        "The kernel prints 'Cannot open 2026-01-02_OpenflowCapacity.json' "
         "and this pattern requires the two halves to be adjacent, so re.search returns None "
         "and the light has never come on. The one-line fix is 'Cannot open "
         ".*OpenflowCapacity\\.json'. It was NOT applied here because it changes what a log "
@@ -248,7 +247,7 @@ class ForbidRulesAreEitherLiveOrRegisteredAsDark(unittest.TestCase):
         """The measurement behind G-y, pinned so the next reader does not have to redo it.
 
         This asserts the STATE, not that the state is right: the kernel's own literal and the
-        shipped pattern, and that one does not match the other. When Adam rules and the regex
+        shipped pattern, and that one does not match the other. When the regex
         is widened, this case and the DARK_FORBID entry go together.
         """
         pattern = r"Cannot open OpenflowCapacity\.json"
@@ -259,7 +258,7 @@ class ForbidRulesAreEitherLiveOrRegisteredAsDark(unittest.TestCase):
                           if "OpenflowCapacity.json" in lit and lit.startswith("Cannot open")]
         self.assertTrue(kernel_literal,
                         "no 'Cannot open ...OpenflowCapacity.json' literal in the sources any "
-                        "more; re-read FIX-CONTRACT-1 section 7-2 before changing the rule")
+                        "more; re-read the G-y entry before changing the rule")
         self.assertFalse(re.search(pattern, kernel_literal[0]),
                          "the FORBID now matches the kernel's message: the G-y fix has been "
                          "applied, so delete this case and the DARK_FORBID entry")

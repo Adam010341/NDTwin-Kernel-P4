@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# `ndt`'s half of the veth heartbeat (TICKET-P4-heartbeat segment W), driven OFFLINE.
+# `ndt`'s half of the veth heartbeat, driven OFFLINE.
 #
 # [Co-developed with claude code -- Adam]
 #
-# The ticket's lifecycle bullet: `ndt up p4 --app` on a foreign fabric STARTS the heartbeat,
-# `ndt down` STOPS it, `ndt status` SHOWS it, and NDTwin's own pipeline (LLDP) never starts it.
-# The root helper does the work (`sudo ndtwin-lab heartbeat start|stop|status`, segment H) and
-# is not touched by this ticket -- its sha is pinned and installed -- so everything asserted here
-# is what `ndt` asks of it, when, and what `ndt` does with the answer.
+# The lifecycle: `ndt up p4 --app` on a foreign fabric STARTS the heartbeat, `ndt down` STOPS it,
+# `ndt status` SHOWS it, and NDTwin's own pipeline (LLDP) never starts it. The root helper does the
+# work (`sudo ndtwin-lab heartbeat start|stop|status`) and is not touched here -- its sha is pinned
+# and installed -- so everything asserted here is what `ndt` asks of it, when, and what `ndt` does
+# with the answer.
 #
 # What is asserted, and what each stands against:
 #
@@ -181,7 +181,7 @@ in_flight() { :; }
 guard_no_live_ovs() { return 0; }
 stale_pipeline() { return 1; }
 preflight() { return 0; }
-# [Co-developed with claude code -- Adam] (Adam, 09-28) The drop check stands in here: it is driven
+# [Co-developed with claude code -- Adam] (09-28) The drop check stands in here: it is driven
 # for real by tests/shell/test_heartbeat_drop_check.py. On the event log, so ORDER can be asserted.
 hb_drop_check_run() {
     printf "hbcheck %s\n" "$1" >> "$EVENTS"
@@ -294,8 +294,8 @@ reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
 hasnt "🔴 a non-external foreign fabric is not called detect-only" "detect only" "$OUT"
 
-# [Co-developed with claude code -- Adam] The external judge's F5 (09-28): when the heartbeat does not
-# start on an external plane, the reason ndt names is the one the proxy serves there.
+# [Co-developed with claude code -- Adam] (09-28) When the heartbeat does not start on an external
+# plane, the reason ndt names is the one the proxy serves there.
 reset_fix
 OUT="$(drive "export HB_START_RC=1; NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
 has   "🔴 a failed start on an external plane names external_control_plane" "the proxy reports reroute.reason external_control_plane" "$OUT"
@@ -304,9 +304,9 @@ hasnt "  and not the reason a foreign fabric serves"        "reroute.reason hear
 # =============================================================================================
 section "2c. 🔴 external: started ONLY when the drop check proves its program drops the frame (09-28)"
 # =============================================================================================
-# [Co-developed with claude code -- Adam] Adam's ruling: default-safe on an external control plane.
-# The check runs in the package pre-flight (before the machine is touched), and the heartbeat
-# starts only on its rc 0 -- not dropped and could-not-tell both withhold it, and say why.
+# [Co-developed with claude code -- Adam] Default-safe on an external control plane. The check runs
+# in the package pre-flight (before the machine is touched), and the heartbeat starts only on its rc
+# 0 -- not dropped and could-not-tell both withhold it, and say why.
 withheld() { cat "$FIX/.test_run/heartbeat.withheld" 2>/dev/null || echo "<no record>"; }
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXTERNAL"); up_p4")"
@@ -457,7 +457,7 @@ report running 1 2
 has   "🔴 a frame that reached a host is named"                  "2 heartbeat frame(s) reached a host" "$(row)"
 printf '{not json' > "$HB_JSON"
 has   "  an unreadable report says so"                           "unreadable" "$(row)"
-# [Co-developed with claude code -- Adam] (Adam, 09-28) A withheld heartbeat is said under the row:
+# [Co-developed with claude code -- Adam] (09-28) A withheld heartbeat is said under the row:
 # the report above it can be an older run's.
 printf 'withheld %s port 2: PUNTED to the CPU port 255\n' "$(date +%s)" > "$FIX/.test_run/heartbeat.withheld"
 has   "🔴 a heartbeat the last bring-up withheld is said, with why" "NOT started by the last 'ndt up'" "$(row)"

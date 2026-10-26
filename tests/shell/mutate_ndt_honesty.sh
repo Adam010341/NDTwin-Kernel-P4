@@ -263,7 +263,7 @@ m=$(mutant m18 "$NDT" \
 report "M18: 'ndt status' renders declarations instead of processes" "$m" \
        "🔴 undeclared traffic is still reported by status"
 
-# R4-5's tempting wrong fix, which Adam ruled against in grill round 4: narrow the band until the
+# R4-5's tempting wrong fix, which was ruled out: narrow the band until the
 # 12/12 low readings go red. That turns a double-count tripwire into a calibration check it was
 # never designed to be, and the fix chosen instead was to say how big the gap is.
 m=$(mutant m19 "$NDT" \
@@ -293,7 +293,7 @@ report "M21: under-reporting is reported as over-reporting" "$m" \
 # read back is not evidence. Found by grepping this gate's own output for duplicate labels
 # (2026-09-11, FIX-NDT-4).
 #
-# ROLE-5 2026-09-11 (logs/ROLE-5/18-posctrl-L2-live.log): one netem link failure read 1.60 and
+# 2026-09-11, on a live L2 fabric: one netem link failure read 1.60 and
 # the tripwire called it `clone replicas stacked`, with `check rc=0`. Each mutation below puts
 # back one half of that.
 
@@ -606,7 +606,7 @@ report 'MC12: the teardown leaves the declaration it just falsified' "$m" \
 
 # 🔴 RE-ANCHORED 2026-09-11 (FIX-NDT-4 #20): the five fields now have ONE writer, claim_write,
 # because lab.claim and lab.claim.prev were coming out of two printfs in different orders
-# (R7-reconciler.md section 3b). The mutation is the same defect -- the note appended, so it
+# The mutation is the same defect -- the note appended, so it
 # migrates to the last line every time it is corrected -- applied at the one call site left.
 m=$(mutant mc13 "$NDT" \
     '        claim_write "$owner" "$exp" "$note" "$ecpu" "$meas"' \
@@ -635,8 +635,8 @@ report 'MC15: status says untracked apps survive a teardown again (T3)' "$m" \
        '🔴 the sentence that round'"'"'s teardown disproved is gone'
 
 
-# T4 is NOT fixed -- whether the API should read the claim is Adam's decision -- so the help
-# saying so is the whole of the deliverable, and a paragraph with no test is what F12 was.
+# T4 is NOT fixed -- whether the API should read the claim is an open question -- so the help
+# saying so is the whole of the deliverable, and a paragraph with no test could drift unnoticed.
 m=$(mutant mc16 "$NDT" \
     '    a claim only blocks the '"'"'ndt'"'"' verbs. It is not the northbound API and it is not' \
     '    a claim is how sessions keep out of each other'"'"'s way.')
@@ -676,11 +676,11 @@ report 'MD2: the clean table drops the refusal (ROLE-12 cell 3)' "$m" \
 m=$(mutant md3 "$NDT" \
     '        NDT_DEEP_SIZE="$(ndt_port_table_size all)"' \
     '        NDT_DEEP_SIZE="9 rule(s), 27 port(s)"')
-report 'MD3: the --deep size is typed rather than computed (ROLE-11 F7)' "$m" \
+report 'MD3: the --deep size is typed rather than computed' "$m" \
        '  the size in the help is computed, not typed'
 
 
-# --- FIX-NDT-8: the three rc tables say one thing (Adam, 2026-09-12) ---------------------------
+# --- the three rc tables say one thing (2026-09-12) ---------------------------
 
 # MD4: `up` loses its rc table again. It had none at all until today, which is why a refused
 # bring-up and a bring-up that found a stray both read as "1" to every script in this repo.
@@ -702,8 +702,8 @@ report 'MD5: the up table stops saying what 1 and 5 separate' "$m" \
 # wins" is a decision the code makes on every run; unwritten, the next reader re-decides it.
 # 🔴 Re-anchored 2026-09-12 after this gate reported MD6 as a SURVIVOR: the first anchor was the
 # line ABOVE the sentence, and the cell reads the sentence -- so the mutation left the needle
-# exactly where it was. The anchor is now the line that carries the ruling, and the replacement
-# is the OTHER ruling rather than a deletion, which is the form an operator could actually meet.
+# exactly where it was. The anchor is now the line that carries the decision, and the replacement
+# is the OTHER decision rather than a deletion, which is the form an operator could actually meet.
 m=$(mutant md6 "$NDT" \
     '                  answer is 5, because the one action that helps is waiting for that' \
     '                  answer is 1, because a held port is a fact whoever else is running and')
@@ -719,7 +719,7 @@ report 'MD7: the clean table drops rc 3 (FIX-NDT-8)' "$m" \
        '  🔴 3 is in the clean table'
 
 # MD8: the table keeps 3 and calls it clean. This is the sentence, not the code -- and the
-# sentence is the whole of Adam's ruling: "沒量" 不是 "乾淨".
+# sentence is the whole of the decision: "沒量" 不是 "乾淨".
 m=$(mutant md8 "$NDT" \
     '                  🔴 3 IS NOT A CLEAN BILL OF HEALTH, and until 09-12 this command' \
     '                  🔴 3 means the same as 0 when nothing is running. Until 09-12 this command')
@@ -734,7 +734,7 @@ m=$(mutant md9 "$NDT" \
 report 'MD9: the down table drops rc 3 (FIX-NDT-8)' "$m" \
        '  🔴 3 is in the down table'
 
-# --- RESIDUE-1 §7-5: one word, two findings, and only one of them moved (Adam, 2026-09-12) ----
+# --- one word, two findings, and only one of them moved (2026-09-12) ----
 
 # MD10: the --check row goes back to being called `residue`. The code is unchanged; what comes
 # back is a report in which `ndt clean`'s port line and `ndt status --check`'s flow-rule line
@@ -746,7 +746,7 @@ report 'MD10: the --check row is called residue again' "$m" \
        '  all four --check row branches carry the new label'
 
 # MD11 (widening): the rename reaches the PROCESS half too -- a `s/residue/rules-in-window/g`.
-# Every needle the rename added still passes; what breaks is the one thing the ruling kept, and
+# Every needle the rename added still passes; what breaks is the one thing the decision kept, and
 # it is what tells a renamed word from a renamed concept.
 m=$(mutant md11 "$NDT" \
     '                  exit 0 it had something to be about and none of it is residue; 1' \

@@ -36,9 +36,9 @@ Four rules keep the record from ever pointing at the wrong entry:
     began and ended wholly inside a push is recorded until the push returns, then stops
     counting with everything else -- the window is the push's own RPC.)
 
-A slot is the switch's entry, not the caller's string: "10.0.0.2", "10.0.0.02" and "10.2" name
-the same ipv4_lpm entry once inet_aton has encoded them, so the record and the lock are keyed
-on that encoding (`slot_key`).
+A slot is the switch's entry, not the caller's string: "10.0.0.2" and "10.0.0.2/32" (or
+"10.0.1.5/24" and "10.0.1.0/24") name the same ipv4_lpm entry, so the record and the lock are
+keyed on the route key (`slot_key`).
 """
 
 from __future__ import annotations
@@ -125,34 +125,106 @@ class SlotPriorityNotHeld(Exception):
                                  else "not written by this proxy at a known priority"))
 
 
-def canonical_ipv4(value):
-    """
-    `value` as the switch stores it: inet_aton's four bytes written back as a dotted quad.
+# --- prefix destinations. [Co-developed with claude code -- Adam] ----------------------------
+#
+# A destination-only match may name a CIDR prefix ("10.0.1.0/24"), installed into ipv4_lpm as
+# that prefix; a /32 behaves exactly as a bare address always has. A ROUTE KEY
+# is how one ipv4_lpm entry is named everywhere in the proxy (the slot record and lock,
+# _installed_routes, dest_paths lookups, the journal): the bare canonical address for a /32 --
+# so every key that existed before prefixes is unchanged -- and "network/len" for 1 to 31.
 
-    [Co-developed with claude code -- Adam] The one encoder for "which address is this": slot_key
-    keys the record with it, and TopologyManager.route_flow / unroute_flow / modify_flow rewrite
-    the request's destination with it right after check_match_values (review r2 NEW-2), so
-    dest_paths, the next-hop MAC lookup, _installed_routes and the journal see one spelling too.
-    Only called on values check_match_values has already accepted.
+#: The prefix lengths a destination may carry. 0 is not among them: an lpm match of length 0 is
+#: a don't-care that P4Runtime wants omitted rather than written, and in ipv4_lpm it would take
+#: over the table's miss (send_to_cpu). Not built; refused as a malformed prefix.
+MIN_PREFIX_LEN = 1
+MAX_PREFIX_LEN = 32
+
+
+def is_dotted_quad(text):
     """
-    return socket.inet_ntoa(socket.inet_aton(value))
+    Whether `text` is an IPv4 address in full dotted-quad form: four decimal fields, no short
+    forms ("10.1"), no hex or octal fields, no leading zeros, no surrounding blanks.
+
+    [Co-developed with claude code -- Adam] inet_pton, the call the kernel's parser makes
+    (parseIpv4MatchValue), so the two layers cannot disagree on what an address is.
+    """
+    try:
+        socket.inet_pton(socket.AF_INET, text)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def parse_destination(value):
+    """
+    (address text, prefix length) for a destination string, or ValueError if it is neither a
+    dotted-quad IPv4 address nor such an address followed by "/1" .. "/32".
+
+    The length must be one or two ASCII digits: `int()` would also take " 24", "+24" and "٢٤",
+    and a validator looser than the forms anyone writes is how a typo becomes a route. The
+    address half is a full dotted quad (inet_pton), the form the kernel's flow-batch check
+    accepts: inet_aton would read "10.0.1/24" as 10.0.0.1/24 and "10.1/16" as 10.0.0.1/16 and
+    install a prefix nobody wrote. [Co-developed with claude code -- Adam]
+    """
+    if not isinstance(value, str):
+        raise ValueError("not a string")
+    addr, slash, length = value.partition("/")
+    if not is_dotted_quad(addr):
+        raise ValueError("not an IPv4 address")
+    if not slash:
+        return addr, MAX_PREFIX_LEN
+    if not (1 <= len(length) <= 2 and all("0" <= c <= "9" for c in length)):
+        raise ValueError("prefix length is not one or two digits")
+    prefix_len = int(length)
+    if not MIN_PREFIX_LEN <= prefix_len <= MAX_PREFIX_LEN:
+        raise ValueError("prefix length out of range")
+    return addr, prefix_len
+
+
+def route_key(address, prefix_len):
+    """The route key for `address`/`prefix_len`: host bits cleared, bare for a /32."""
+    raw = int.from_bytes(socket.inet_pton(socket.AF_INET, address), "big")
+    mask = (0xFFFFFFFF << (32 - prefix_len)) & 0xFFFFFFFF
+    network = socket.inet_ntoa((raw & mask).to_bytes(4, "big"))
+    return network if prefix_len == MAX_PREFIX_LEN else f"{network}/{prefix_len}"
+
+
+def canonical_route_key(value):
+    """
+    `value` (a validated destination) as its route key.
+
+    Host bits are cleared, so "10.0.1.5/24" names the entry "10.0.1.0/24": what Ryu's ofctl
+    sends OVS for that value (address plus netmask, which the switch masks), and what P4Runtime
+    requires of an lpm value. "10.0.0.4/32" is "10.0.0.4", the entry a bare address has always
+    written.
+    """
+    return route_key(*parse_destination(value))
+
+
+def split_route_key(key):
+    """(network address, prefix length) for a route key canonical_route_key produced."""
+    addr, slash, length = key.partition("/")
+    return addr, (int(length) if slash else MAX_PREFIX_LEN)
 
 
 def slot_key(dpid, ipv4_dst):
     """
-    The key of the ipv4_lpm entry `ipv4_dst` writes on `dpid`: the address as inet_aton encodes
-    it, written back canonically.
+    The key of the ipv4_lpm entry `ipv4_dst` writes on `dpid`: its route key.
 
-    [Co-developed with claude code -- Adam] Review r1 MAJOR-1. The switch entry is built from
-    socket.inet_aton(dst) (p4_client._lpm_match), and check_match_values accepts every spelling
-    inet_aton does, so two spellings of one address are ONE entry -- and were two records and
-    two locks here, which let a modify at 10 in one spelling edit an install at 100 made in the
-    other. Same encoder as _lpm_match, so the key cannot disagree with the entry. A value
-    inet_aton refuses never reaches this: check_match_values runs first on every write path
-    (route_flow, unroute_flow, modify_flow), and install_initial_routes writes host addresses
-    from the graph.
+    [Co-developed with claude code -- Adam] The switch entry is built from the
+    address bytes (p4_client._lpm_match) with the host bits cleared, so two spellings of one
+    entry ("10.0.0.2" and "10.0.0.2/32"; "10.0.1.5/24" and "10.0.1.0/24") are ONE entry -- and
+    would be two records and two locks if the key followed the caller's spelling, which would
+    let a modify at 10 in one spelling edit an install at 100 made in the other. A value
+    parse_destination refuses never reaches this: check_match_values runs first on every write
+    path (route_flow, unroute_flow, modify_flow), and install_initial_routes writes host
+    addresses from the graph.
+
+    A prefix destination keys as its route key ("10.0.1.0/24"), which is a different slot from
+    any host inside it -- ipv4_lpm holds both entries side by side. A bare address keys exactly
+    as before.
     """
-    return dpid, canonical_ipv4(ipv4_dst)
+    return dpid, canonical_route_key(ipv4_dst)
 
 
 def _push_epoch(client):

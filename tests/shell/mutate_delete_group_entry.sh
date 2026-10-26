@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for the finding #1 half of tests/test_GroupMeterExistence.cpp:
+# Mutation gate for the delete half of tests/test_GroupMeterExistence.cpp:
 # a delete is claimed only after the switch is asked.
 #
 # [Co-developed with claude code -- Adam]
 #
 # The defect this guards against was measured on ovs4 2026-09-03
-# (doc/audit/2026-09-03_night-rounds/round1-ovs/21_delete_group_meter_says_deleted_but_persists.log):
+# (delete_group_meter_says_deleted_but_persists):
 # /ndt/delete_group_entry answered 200 {"outcome":"deleted"} five times while all five groups
 # stayed on the switch, re-installing the id correctly answered 409 -- so the id was gone for the
 # life of the switch -- and the kernel log held not one line about any of it.
@@ -15,7 +15,7 @@
 # establishes that the entry was there before, which is the precondition for deleting it, not
 # evidence that it left. These five mutations are all on the far side of the POST.
 #
-#   M1  a switch that still has the entry is reported as deleted  -- finding #1, put back
+#   M1  a switch that still has the entry is reported as deleted  -- put back
 #   M2  an unanswerable read-back becomes a failed delete         -- the mirror defect: the
 #                                                                    kernel publishing its own
 #                                                                    reach as a finding
@@ -50,7 +50,7 @@
 # ⚠️ Only src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp is mutated. The header
 #    carries VERIFY_ATTEMPTS and mutating it would rebuild every translation unit that includes
 #    it -- including the ~1.6 GB HttpSession.cpp -- which on this laptop is what systemd-oomd
-#    kills Adam's app over. The loop bound is reached through the .cpp instead (W1).
+#    kills the desktop session over. The loop bound is reached through the .cpp instead.
 #
 # A mutation is only ever CAUGHT by evidence. A mutant that does not compile, and an anchor that
 # no longer matches, are both counted as SURVIVORS: in each the test never ran and therefore
@@ -265,7 +265,7 @@ widen() {
 
 # --- preflight ----------------------------------------------------------------------------------
 
-echo "finding #1 mutation gate -- a delete is claimed only after the switch is asked"
+echo "delete mutation gate -- a delete is claimed only after the switch is asked"
 echo "  build dir : $BUILD_DIR"
 echo "  target    : $TARGET   (tests/test_GroupMeterExistence.cpp compiles into this binary)"
 echo "  filter    : $FILTER"
@@ -309,7 +309,7 @@ printf '  ✅ green  (%s tests)\n' "$BASELINE_COUNT"
 # still there -- so if the suite does not go red here it does not test the finding at all.
 # =================================================================================================
 
-# [Co-developed with claude code -- Adam] 2026-09-04, FINDINGS #87: the read-back block was
+# [Co-developed with claude code -- Adam] 2026-09-04: the read-back block was
 # lifted out of `if (op == EntryOp::Delete)` and made to serve all three verbs, so it lost four
 # spaces of indentation and its Present/Absent tests became `expected`. Same mutation, same
 # verdict, new coordinates. `after != expected` IS "the entry is still there" for a delete,

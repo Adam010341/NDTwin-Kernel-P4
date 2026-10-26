@@ -15,7 +15,7 @@
 # time-stamped generations `<log>.<YYYYmmdd-HHMMSS>` and NDT_LOG_KEEP, and that suite tests them
 # (3A-3D at its lines 84-122; 3E and 3F at :144-162 -- two restarts inside one second, and start_bg
 # really calling the rotator). This file kept asserting `.prev`/`.prev2` and was red from then on.
-# 13 checks became 5 (the accounting corrected after the opus judge's N5 on d2a9d641):
+# 13 checks became 5:
 #   - 8 deleted, not replaced here -- the two multi-restart cells: the red #6, #9, #10, #13 (the
 #     older eras in .prev / .prev2, the oldest one dropped), the green #8 and #12 (".prev2 / .prev3
 #     not there yet" -- green only because no .prev file is made any more) and the green #7 and #11

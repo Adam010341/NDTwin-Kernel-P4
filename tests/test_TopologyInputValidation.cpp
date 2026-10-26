@@ -1,23 +1,22 @@
 /**
- * FINDINGS #61 and #62 -- a topology file the kernel cannot honour must be refused, not
- * quietly reduced to the part of it that happened to resolve.
+ * A topology file the kernel cannot honour must be refused, not quietly reduced to the part of
+ * it that happened to resolve.
  *
  * [Co-developed with claude code -- Adam]
  *
- * WHAT WAS MEASURED (doc/audit/2026-09-03_night-rounds/round5-topology-repro)
+ * WHAT WAS MEASURED (2026-09-03)
  *
- *   #61  topo/m1_host_edge_ghost_dpid.json is the shipped P4 4-host topology with ONE field
- *        changed: edge #32's `dst_dpid` 1 -> 99 (and its `dst_ip` to match), i.e. a host cable
- *        plugged into a switch that is not in the file. The kernel loaded it, wrote one
+ *   edge endpoint  topo/m1_host_edge_ghost_dpid.json is the shipped P4 4-host topology with ONE
+ *        field changed: edge #32's `dst_dpid` 1 -> 99 (and its `dst_ip` to match), i.e. a host
+ *        cable plugged into a switch that is not in the file. The kernel loaded it, wrote one
  *        `[warning] ... Skipping edge:` line, and served a 14-node / **39**-edge graph on
- *        :8000 -- 40 edges went in. Every endpoint answered 200
- *        (03_mutant_m1_host_edge_ghost_dpid.log). A fabric with one cable in the wrong socket
- *        is indistinguishable, from outside, from a healthy one.
+ *        :8000 -- 40 edges went in. Every endpoint answered 200. A fabric with one cable in
+ *        the wrong socket is indistinguishable, from outside, from a healthy one.
  *
- *   #62  topo/m4a_port_zero.json and topo/m4b_port_six_digits.json change edge #0's
+ *   interface range  topo/m4a_port_zero.json and topo/m4b_port_six_digits.json change edge #0's
  *        `src_interface` -- a SWITCH-side port -- to 0 and to 999999. Both loaded, both were
  *        republished verbatim by /ndt/get_graph_data, and the value flows on into the flow
- *        path (06_/07_mutant logs).
+ *        path.
  *
  * WHAT THESE TESTS ASSERT
  *   Behaviour, not prose. The two things claimed are (i) the load fails, and (ii) the failure
@@ -74,7 +73,7 @@ class TestableMonitor : public TopologyAndFlowMonitor
         loadStaticTopologyFromFile(path);
     }
 
-    /// BUG-17. The compile-time AppConfig flag, made settable for the cases that are about what
+    /// The compile-time AppConfig flag, made settable for the cases that are about what
     /// happens when an operator HAS opted in. [Co-developed with claude code -- Adam]
     using TopologyAndFlowMonitor::setAllowMixedDataPlane;
 };
@@ -109,7 +108,7 @@ shippedP4Topology()
 
 /// What one load attempt did. Deliberately records the graph as well as the throw: "the load
 /// failed" and "the load failed without leaving half a topology behind" are two claims, and
-/// #61 is precisely a case where the first held and the second did not.
+/// the edge-endpoint case is precisely one where the first held and the second did not.
 struct LoadOutcome
 {
     bool threw = false;
@@ -128,11 +127,11 @@ struct LoadOutcome
     /// The graph the load produced, kept alive so a case can ask what is ON a vertex.
     ///
     /// [Co-developed with claude code -- Adam]
-    /// FINDINGS #91 / W15-2. Counting vertices answers "was the file refused, and refused
-    /// whole"; it cannot answer "and what did the twin decide about the switch it accepted",
-    /// which is the entire condition attached to the switch_kind exemption. Held by
-    /// shared_ptr rather than copied: VertexProperties carries a saved sFlow state and an ecmp
-    /// vector, and a copy would be a second answer that could disagree with the first.
+    /// Counting vertices answers "was the file refused, and refused whole"; it cannot answer "and
+    /// what did the twin decide about the switch it accepted", which is the entire condition
+    /// attached to the switch_kind exemption. Held by shared_ptr rather than copied:
+    /// VertexProperties carries a saved sFlow state and an ecmp vector, and a copy would be a
+    /// second answer that could disagree with the first.
     std::shared_ptr<Graph> graph;
 };
 
@@ -252,7 +251,7 @@ class MutatedTopology
     std::string m_path;
 };
 
-/// Index of the first edge whose src side is a host, i.e. `src_dpid == 0`. Round 5 mutated
+/// Index of the first edge whose src side is a host, i.e. `src_dpid == 0`. The measurement mutated
 /// edge #32 of this file; finding it by shape rather than by index keeps the test honest if
 /// the file is ever regenerated in a different order.
 std::size_t
@@ -272,7 +271,7 @@ firstHostEdgeIndex(const json& doc)
 /// Index of the LAST switch node in the file.
 ///
 /// [Co-developed with claude code -- Adam]
-/// FINDINGS #89 door 3. Deliberately the last switch and never the first: every door-3 case below
+/// Door 3. Deliberately the last switch and never the first: every door-3 case below
 /// asserts that a refused file leaves `num_vertices == 0`, and a malformed FIRST node would leave
 /// zero vertices even with the refusal still sitting inside the builder loop, where node N throws
 /// with nodes 0..N-1 already added. A first-node case would therefore be green against the defect
@@ -313,7 +312,7 @@ lastEcmpNodeIndex(const json& doc)
 /// Index of the LAST host node in the file.
 ///
 /// [Co-developed with claude code -- Adam]
-/// FINDINGS #90 door 3d. Same reason as lastSwitchNodeIndex: the cases below assert
+/// Door 3d. Same reason as lastSwitchNodeIndex: the cases below assert
 /// `num_vertices == 0`, and a malformed FIRST node leaves zero vertices whether the refusal came
 /// before the builder or from inside it. In the shipped P4 4-host file the hosts come after all
 /// ten switches, so the last host has thirteen nodes in front of it.
@@ -332,22 +331,21 @@ lastHostNodeIndex(const json& doc)
     return found;
 }
 
-/// Appends R0b's bad file `a`: one EXTRA host, `"ip": []`, that no edge names.
+/// Appends the measured bad file: one EXTRA host, `"ip": []`, that no edge names.
 ///
 /// [Co-developed with claude code -- Adam]
 /// 🔴 EMPTYING AN EXISTING HOST'S "ip" DOES NOT REPRODUCE THE DEFECT, AND THE FIRST DRAFT OF THESE
 /// TESTS DID EXACTLY THAT AND WAS GREEN AGAINST IT. Every host in every shipped file is named by
 /// two edges through its address, so taking the address away makes those edges resolve to nothing
-/// and #61's edge door refuses the file -- for the EDGE, not for the host. Measured 2026-09-06
-/// against trunk 1536ff17 with door 3d absent, verbatim:
+/// and the edge-endpoint check refuses the file -- for the EDGE, not for the host. Measured
+/// 2026-09-06 against trunk 1536ff17 with door 3d absent, verbatim:
 ///
 ///     "src_dpid" is 0, so this end is resolved by address, and no node in this file carries
 ///     10.0.0.4. Refusing the file: ...
 ///
 /// The gate said the same thing from the other side: M17 (door 3d never fires) SURVIVED, because
-/// that case stayed green with the door switched off. R0b's file `a` ADDED a host instead, and
-/// that is the only shape that reaches the node side at all: a host nothing points at. R0b §2
-/// had already written down why -- "沒有位址就沒有 edge 指得到它".
+/// that case stayed green with the door switched off. The measured file ADDED a host instead, and
+/// that is the only shape that reaches the node side at all: a host nothing points at.
 ///
 /// The clone keeps every field the builder reads with at(); only the identity and the address
 /// change.
@@ -419,7 +417,7 @@ shippedTopologies()
 } // namespace
 
 // =================================================================================================
-// #61 -- an edge naming an endpoint that is not in the file
+// An edge naming an endpoint that is not in the file
 // =================================================================================================
 
 TEST(TopologyInputValidationTest, AnEdgeNamingADpidNoSwitchHasIsRefused)
@@ -499,7 +497,7 @@ TEST(TopologyInputValidationTest, AHostEdgeWhoseAddressMatchesNoNodeIsRefused)
 }
 
 // =================================================================================================
-// #62 -- interface indices outside the range the fleet uses
+// Interface indices outside the range the fleet uses
 // =================================================================================================
 
 TEST(TopologyInputValidationTest, AZeroInterfaceOnTheSwitchSideIsRefused)
@@ -551,7 +549,7 @@ TEST(TopologyInputValidationTest, TheRefusalNamesTheInterfaceThatWasOutOfRange)
 
 TEST(TopologyInputValidationTest, ADestinationInterfaceIsCheckedToo)
 {
-    // Both ends, not just the one round 5 happened to mutate. `dst_interface` reaches
+    // Both ends, not just the one the measurement happened to mutate. `dst_interface` reaches
     // FlowLinkUsageCollector through the reverse-edge lookup, so it is if anything the more
     // load-bearing of the two.
     MutatedTopology topo("dst_port");
@@ -616,7 +614,7 @@ TEST(TopologyInputValidationTest, AZeroInterfaceOnTheHostSideIsStillAccepted)
 {
     // 🔴 THE FLEET-BREAKING MISTAKE, PINNED. The spec says the host side of a host edge carries
     // dpid 0 AND interface 0, and five shipped TESTBED files do exactly that. Rejecting port 0
-    // everywhere would refuse them all -- a wider outage than #62 ever caused.
+    // everywhere would refuse them all -- a wider outage than the original defect ever caused.
     MutatedTopology topo("host_port_zero");
     ASSERT_TRUE(topo.usable());
 
@@ -680,12 +678,12 @@ TEST(TopologyInputValidationTest, TheTwoMininetCapableTopologiesStillLoadInMinin
 }
 
 // =================================================================================================
-// FINDINGS #89 / W-TOPO-THREE-DOORS -- the other input paths nothing was checking.
+// The other input paths nothing was checking.
 //
 // [Co-developed with claude code -- Adam]
-// #61/#62 established the rule: the whole file is checked before the first add_vertex, so
-// "refused" means the graph was never touched. The rule's COVERAGE was transcribed by hand, and
-// three doors were left open.
+// The edge-endpoint and interface-range checks established the rule: the whole file is checked
+// before the first add_vertex, so "refused" means the graph was never touched. The rule's COVERAGE
+// was transcribed by hand, and three doors were left open.
 //
 //   door 3  Three refusals still lived inside the builder's node loop, below add_vertex's
 //           position in the iteration: switch_kind, a switch with no address, and a MININET
@@ -696,7 +694,7 @@ TEST(TopologyInputValidationTest, TheTwoMininetCapableTopologiesStillLoadInMinin
 //           that only asserted it would have been green against the whole defect.
 //
 //   door 2  `ecmp_groups[].port_id` -- a switch port index, exactly like an edge's interface
-//           index -- got none of the range checking #62 gave its sibling. It is a signed int
+//           index -- got none of the range checking the edge interfaces got. It is a signed int
 //           read straight out of the file, and validateStaticTopologyJson never looked at
 //           `ecmp_groups` at all.
 //
@@ -704,8 +702,8 @@ TEST(TopologyInputValidationTest, TheTwoMininetCapableTopologiesStillLoadInMinin
 //           that the loader deliberately does not use. Pinned below as a structural assertion,
 //           not changed -- see FromJsonHasNoProductionCallers.
 //
-// 🔴 NONE OF THE THREE WAS OBSERVED LIVE. #61 and #62 above were measured on :8000; these were
-// read out of the source and are demonstrated by these tests and by
+// 🔴 NONE OF THE THREE WAS OBSERVED LIVE. The edge-endpoint and interface-range defects above were
+// measured on :8000; these were read out of the source and are demonstrated by these tests and by
 // tests/shell/mutate_topology_input_is_validated.sh. Do not cite them as field observations.
 // =================================================================================================
 
@@ -733,7 +731,7 @@ TEST(TopologyInputValidationTest, AnAddresslessSwitchLeavesNoPartiallyLoadedGrap
 {
     // 🔴 door 3b, and the sharpest of the three: before this fix the load DID throw, and threw
     // from the builder, with every earlier switch already added. `threw` proves nothing here;
-    // `vertices == 0` is the whole claim. FINDINGS #85's door, seen from the loader's side.
+    // `vertices == 0` is the whole claim. The no-address crash's door, seen from the loader's side.
     MutatedTopology topo("addressless_switch");
     ASSERT_TRUE(topo.usable());
 
@@ -791,8 +789,8 @@ TEST(TopologyInputValidationTest, AMissingBridgeNameIsNotCheckedInTestbedMode)
 
 TEST(TopologyInputValidationTest, AnOutOfRangeEcmpPortIdIsRefusedAtLoad)
 {
-    // door 2, the ceiling. 999999 is the value round 5 fed src_interface; the same number in an
-    // ecmp member was accepted, republished, and reached the flow path.
+    // door 2, the ceiling. 999999 is the value the measurement fed src_interface; the same
+    // number in an ecmp member was accepted, republished, and reached the flow path.
     MutatedTopology topo("ecmp_port_huge");
     ASSERT_TRUE(topo.usable());
 
@@ -948,19 +946,18 @@ TEST(TopologyInputValidationTest, FromJsonHasNoProductionCallers)
 }
 
 // =================================================================================================
-// FINDINGS #90 / door 3d -- the HOST half of door 3b.
+// Door 3d -- the HOST half of door 3b.
 //
 // [Co-developed with claude code -- Adam]
-// 🔴 THIS ONE WAS MEASURED, unlike #89's three doors. R0b (2026-09-05,
-// scratch/overnight-2026-09-05/rounds/05-R0b-postmerge2.md, bad file `a`, kernel 862c4bf8) added
-// one host with `"ip": []` to the shipped OVS 4-host model and ran it: the kernel ACCEPTED the
+// 🔴 THIS ONE WAS MEASURED, unlike the three doors above. A run on 2026-09-05 (kernel 862c4bf8)
+// added one host with `"ip": []` to the shipped OVS 4-host model: the kernel ACCEPTED the
 // file with **zero** diagnostic -- 50 log lines, one `Server Listening on port 8000` -- and
-// /ndt/get_graph_data served the node as `('h9', [])`. The same round's file `b`, a switch with
-// the same defect, was refused with a full sentence: door 3b stops at `vertexType == SWITCH`.
+// /ndt/get_graph_data served the node as `('h9', [])`. The same run's file for a switch with
+// the same defect was refused with a full sentence: door 3b stops at `vertexType == SWITCH`.
 //
-// WHY THE FILE LAYER, WHEN #88 ALREADY GUARDED THE RUNTIME
-// #88 put guards on sixteen `ip.front()` sites so an addressless node cannot take the process
-// down. Its own inventory (W2-SUMMARY §2.2) then found seven more dereferences written `ip[0]`,
+// WHY THE FILE LAYER, WHEN THE RUNTIME WAS ALREADY GUARDED
+// Guards on sixteen `ip.front()` sites keep an addressless node from taking the process
+// down. An inventory of the same pattern then found seven more dereferences written `ip[0]`,
 // **five of them on the host side and production-reachable** -- IntentTranslator.cpp:665,:702,
 // LLMAgent.cpp:243, FlowLinkUsageCollector.cpp:2986,:2987 -- and did not fix them. The invariant
 // those five assume holds only if no file ever declares such a host. That is this door.
@@ -970,12 +967,12 @@ TEST(TopologyInputValidationTest, FromJsonHasNoProductionCallers)
 // stated reason -- "rejecting them would refuse every topology that lists hosts before discovery,
 // which is all of them" -- is measurably false of the fleet: all thirteen shipped files give every
 // host an address (eight give one, the five _ipAlias4_ files give four), and tools/make_topology.py
-// always emits one. See doc/audit/2026-09-06_fix-host-address-door/FIX-HOST-ADDRESS-DOOR.md.
+// always emits one.
 // =================================================================================================
 
 TEST(TopologyInputValidationTest, AnAddresslessHostLeavesNoPartiallyLoadedGraph)
 {
-    // R0b file `a`, reproduced: one EXTRA host with `"ip": []` that no edge names. See
+    // The measured file, reproduced: one EXTRA host with `"ip": []` that no edge names. See
     // appendAddresslessHost for why emptying an existing host instead measures nothing.
     MutatedTopology topo("addressless_host");
     ASSERT_TRUE(topo.usable());
@@ -1017,8 +1014,8 @@ TEST(TopologyInputValidationTest, TheAddresslessHostRefusalNamesTheHost)
 TEST(TopologyInputValidationTest, AnExistingHostLosingItsAddressNowNamesTheHostNotTheEdge)
 {
     // 🔴 THE OTHER SHAPE, AND WHY IT IS A DIAGNOSTIC CLAIM RATHER THAN AN ACCEPTANCE ONE.
-    // Emptying an EXISTING host's "ip" was already refused before door 3d -- but by #61's EDGE
-    // door, two doors downstream, because the two edges that name that host by address stopped
+    // Emptying an EXISTING host's "ip" was already refused before door 3d -- but by the EDGE
+    // check, two doors downstream, because the two edges that name that host by address stopped
     // resolving. The operator was told `"src_dpid" is 0, ... no node in this file carries
     // 10.0.0.4`: a true sentence about the wrong entry. The node they have to edit is the host.
     //
@@ -1051,8 +1048,8 @@ TEST(TopologyInputValidationTest, AHostWithNoIpKeyAtAllIsRefusedInPlainLanguage)
     // `at("ip")` read is inside the validator too, so a missing key already threw, already before
     // the first add_vertex -- `threw` and `vertices` were green against this defect. What the
     // operator got was `[json.exception.out_of_range.403] key 'ip' not found`: an exception class
-    // where a sentence belongs. R0b recorded exactly that complaint against door 3c's
-    // `bridge_name` before #89 rewrote it, and the same rewrite is owed here.
+    // where a sentence belongs. The same complaint was recorded against door 3c's
+    // `bridge_name` before it was rewritten, and the same rewrite is owed here.
     MutatedTopology topo("host_no_ip_key");
     ASSERT_TRUE(topo.usable());
 
@@ -1088,10 +1085,10 @@ TEST(TopologyInputValidationTest, AHostWhoseIpIsNotAnArrayIsRefusedInPlainLangua
 }
 
 // =================================================================================================
-// FINDINGS #91 / W15 / door 3e -- a `brand_name` this build has no data plane for.
+// Door 3e -- a `brand_name` this build has no data plane for.
 //
 // [Co-developed with claude code -- Adam]
-// 🔴 MEASURED, like #90 and unlike #89. R0b (2026-09-05, kernel 862c4bf8, bad file `c`) set one
+// 🔴 MEASURED, like door 3d. A run on 2026-09-05 (kernel 862c4bf8) set one
 // switch of the shipped all-OVS model to `brand_name = "NOT_A_REAL_KIND"`. The file was ACCEPTED
 // (rc=124, i.e. the kernel was still serving when the harness gave up) and the only thing the
 // operator saw was
@@ -1100,7 +1097,7 @@ TEST(TopologyInputValidationTest, AHostWhoseIpIsNotAnArrayIsRefusedInPlainLangua
 //     (ovs=[1,2,3,4,5,6,8,9,10]; hardware=[7]). ... Fix the topology file, or set
 //     AppConfig::ALLOW_MIXED_DATAPLANE to override.
 //
-// R0b's own words: the tone is a refusal and the behaviour is an admission. And the remedy it
+// The tone is a refusal and the behaviour is an admission. And the remedy it
 // suggests makes the typo permanent -- ALLOW_MIXED_DATAPLANE turns every misspelled brand into a
 // hardware switch by consent.
 //
@@ -1115,7 +1112,7 @@ TEST(TopologyInputValidationTest, AHostWhoseIpIsNotAnArrayIsRefusedInPlainLangua
 
 TEST(TopologyInputValidationTest, AnUnknownBrandNameLeavesNoPartiallyLoadedGraph)
 {
-    // R0b file `c`, reproduced from the shipped file.
+    // The measured file, reproduced from the shipped file.
     MutatedTopology topo("unknown_brand");
     ASSERT_TRUE(topo.usable());
 
@@ -1136,8 +1133,8 @@ TEST(TopologyInputValidationTest, AnUnknownBrandNameLeavesNoPartiallyLoadedGraph
 TEST(TopologyInputValidationTest, AFabricEntirelyOfAnUnknownBrandIsStillRefused)
 {
     // 🔴 THIS EXISTS BECAUSE TWO DOORS STARTED OVERLAPPING, AND THE GATE SAID SO FIRST.
-    // AnUnknownBrandNameLeavesNoPartiallyLoadedGraph above reproduces R0b's measured file: ONE
-    // switch of a homogeneous fabric given a brand nothing knows. Since BUG-17 that file has two
+    // AnUnknownBrandNameLeavesNoPartiallyLoadedGraph above reproduces the measured file: ONE
+    // switch of a homogeneous fabric given a brand nothing knows. Now that file has two
     // things wrong with it -- the brand, and the data-plane MIXTURE the brand causes, because an
     // unrecognised brand maps to HARDWARE and the other nine switches are BMv2 -- and the mixture
     // is now refused before the first add_vertex too. So switching door 3e off no longer changes
@@ -1171,7 +1168,7 @@ TEST(TopologyInputValidationTest, AFabricEntirelyOfAnUnknownBrandIsStillRefused)
 
 TEST(TopologyInputValidationTest, TheUnknownBrandRefusalNamesTheBrandAndTheAcceptedOnes)
 {
-    // Two claims, and the second is the one the ticket asked for: the message has to say what IS
+    // Two claims, and the second is the one that matters: the message has to say what IS
     // accepted, because "unknown" without a list leaves the operator guessing at a spelling.
     // Searching for the offending value is honest here -- describeTopologyItem's prefix carries
     // device_name, nickname, ip and the edge dpids, and never brand_name.
@@ -1197,7 +1194,7 @@ TEST(TopologyInputValidationTest, TheUnknownBrandRefusalNamesTheBrandAndTheAccep
 
 TEST(TopologyInputValidationTest, TheUnknownBrandRefusalDoesNotSuggestAllowingMixedDataPlanes)
 {
-    // 🔴 R0b's complaint, pinned. The old diagnostic for this file was the data-plane-mixture
+    // 🔴 The complaint, pinned. The old diagnostic for this file was the data-plane-mixture
     // ERROR, whose remedy is `set AppConfig::ALLOW_MIXED_DATAPLANE to override` -- advice that
     // would silence a TYPO rather than fix it. The refusal that replaces it must not carry the
     // same advice forward.
@@ -1317,7 +1314,7 @@ TEST(TopologyInputValidationTest, AHostBrandNameIsNotChecked)
 
 TEST(TopologyInputValidationTest, TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn)
 {
-    // 🔴 WHAT THIS IS FOR, AND HOW IT CHANGED ON 2026-09-07. Until W15-1(b) the accepted list
+    // 🔴 WHAT THIS IS FOR, AND HOW IT CHANGED ON 2026-09-07. Until then the accepted list
     // lived in TopologyAndFlowMonitor.cpp while the code that behaves differently per brand lived
     // in two other files -- GraphTypes.hpp's switchKindFromBrandName and
     // DeviceConfigurationAndPowerManager.cpp's HPE5520 branches -- so this test's job was to
@@ -1489,31 +1486,32 @@ TEST(TopologyInputValidationTest, TheAcceptedBrandListCoversEveryBrandTheCodeBra
 }
 
 // =================================================================================================
-// W15-2 -- the `switch_kind` exemption, and the mark it costs
+// The `switch_kind` exemption, and the mark it costs
 //
 // [Co-developed with claude code -- Adam]
-// 🔴 THIS REVERSES HALF OF #91 ON PURPOSE, AND THE RULING SAID SO. #91 refused every
-// unrecognised `brand_name`; its own §5 wrote down the price ("a Cisco, an Arista -- one line of
-// C++ before the topology loads at all") and asked. Adam ruled on 2026-09-06 (grill §4D round 3):
-// exempt a node that declares an explicit, legal `switch_kind`, AND record in the graph and in
-// the manual that such a machine's power and telemetry are nobody's job.
+// 🔴 THIS REVERSES HALF OF THE UNKNOWN-BRAND REFUSAL ON PURPOSE. That refusal covered every
+// unrecognised `brand_name`, at the price of "a Cisco, an Arista -- one line of C++ before the
+// topology loads at all". Since 2026-09-06 a node that declares an explicit, legal
+// `switch_kind` is exempt, AND the graph and the manual record that such a machine's power and
+// telemetry are nobody's job.
 //
 // So there are two claims here and they fail differently:
 //   - the file loads                              (threw == false, 14 vertices, 40 edges)
 //   - and the switch is marked unmanaged          (power_path / telemetry_path == "none")
-// A fix that did the first without the second would be #91's silent fallback with extra steps,
+// A fix that did the first without the second would be the old silent fallback with extra steps,
 // which is why the mark has cases of its own rather than being asserted as an aside.
 //
 // ⚠️ EVERY CASE BELOW KEEPS THE FABRIC HOMOGENEOUS, AND THAT IS NOT DECORATION. The shipped P4
 // model is all-BMv2; giving ONE switch `"switch_kind": "hardware"` would make it a mixed data
 // plane, which is a different subject with a flag and a manual section of its own -- and which
-// the very next branch (BUG-17) turns into a refusal. A case that mixed planes would then be
-// measuring that instead, and would flip red for a reason that has nothing to do with W15-2.
+// the mixed-plane refusal below turns into a refusal. A case that mixed planes would then be
+// measuring that instead, and would flip red for a reason that has nothing to do with the
+// exemption.
 // =================================================================================================
 
 TEST(TopologyInputValidationTest, AnUnknownBrandWithAnExplicitSwitchKindIsAccepted)
 {
-    // The operator this ruling is for: a fabric of a model this build has never heard of, said
+    // The operator this exemption is for: a fabric of a model this build has never heard of, said
     // out loud in the key that exists for saying it. Every switch, so the data plane stays one
     // kind -- this is what a Cisco lab would actually look like.
     MutatedTopology topo("unknown_brand_exempt");
@@ -1742,12 +1740,11 @@ TEST(TopologyInputValidationTest, AnUnknownBrandWithAMalformedSwitchKindIsStillR
 }
 
 // =================================================================================================
-// BUG-17 -- a topology that mixes data planes, refused instead of merely reported
+// A topology that mixes data planes, refused instead of merely reported
 //
 // [Co-developed with claude code -- Adam]
-// 🔴 MEASURED, AND THE MEASUREMENT IS THE WHOLE POINT. R6 (2026-09-05,
-// doc/audit/2026-09-02_manual-usertest/run-06-opus/BUGS.md, BUG-17) copied the shipped P4 model,
-// changed one switch's brand_name from BMv2 to OVS, and ran the kernel:
+// 🔴 MEASURED, AND THE MEASUREMENT IS THE WHOLE POINT. A manual user test (2026-09-05) copied
+// the shipped P4 model, changed one switch's brand_name from BMv2 to OVS, and ran the kernel:
 //
 //     validateDataPlaneHomogeneity] Topology mixes data planes (ovs=[1]; bmv2=[2,3,4,5,6,7,8,9,10]).
 //     ... Fix the topology file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.
@@ -1768,7 +1765,7 @@ TEST(TopologyInputValidationTest, AnUnknownBrandWithAMalformedSwitchKindIsStillR
 
 TEST(TopologyInputValidationTest, AMixedDataPlaneTopologyIsRefusedAtLoad)
 {
-    // R6's file, reproduced: the shipped all-BMv2 model with one switch made OVS.
+    // The measured file, reproduced: the shipped all-BMv2 model with one switch made OVS.
     MutatedTopology topo("mixed_dataplane");
     ASSERT_TRUE(topo.usable());
 
@@ -1790,8 +1787,8 @@ TEST(TopologyInputValidationTest, AMixedDataPlaneTopologyIsRefusedAtLoad)
 
 TEST(TopologyInputValidationTest, TheMixedDataPlaneRefusalNamesBothPlanesAndTheirDpids)
 {
-    // The half of the old ERROR line that was worth keeping. R6 called the message "excellent"
-    // and the behaviour a lie; this pins the message onto the behaviour.
+    // The half of the old ERROR line that was worth keeping. The message was good and the
+    // behaviour a lie; this pins the message onto the behaviour.
     MutatedTopology topo("mixed_dataplane_named");
     ASSERT_TRUE(topo.usable());
 
@@ -1817,7 +1814,7 @@ TEST(TopologyInputValidationTest, AMixedDataPlaneTopologyLoadsWhenTheFlagIsSet)
     // supported opt-in: setting/AppConfig.hpp.example:15, doc/2026-07-27_p4_bmv2_support_plan.md,
     // and test_SFlowEmitterRoundtrip's AMixedTopologyDoesNotUseIdentity, which exists precisely
     // because the port mapping has to cope with one. The refusal above must be the default, not
-    // the only behaviour -- and before BUG-17 this claim could not be asserted at all, because
+    // the only behaviour -- and before the refusal this claim could not be asserted at all, because
     // AppConfig::ALLOW_MIXED_DATAPLANE is a constexpr bool.
     MutatedTopology topo("mixed_dataplane_allowed");
     ASSERT_TRUE(topo.usable());
@@ -1834,32 +1831,33 @@ TEST(TopologyInputValidationTest, AMixedDataPlaneTopologyLoadsWhenTheFlagIsSet)
 }
 
 // =================================================================================================
-// E-26 -- a topology that declares no switch at all, refused through the same door
+// A topology that declares no switch at all, refused through the same door
 //
 // [Co-developed with claude code -- Adam]
-// 🔴 THIS ASSERTION WAS REVERSED ON 2026-09-07, ONE DAY AFTER IT WAS WRITTEN, BY RULING. The case
+// 🔴 THIS ASSERTION WAS REVERSED ON 2026-09-07, ONE DAY AFTER IT WAS WRITTEN. The case
 // below used to be `ASwitchlessTopologyIsNotWhatThisRefuses` and asserted the opposite:
 //
 //     EXPECT_FALSE(out.threw)
 //         << "a topology with no switches was refused; BUG-17 was about a MIXTURE, and widening
-//            it to cover this is a policy change nobody ruled on";
+//            it to cover this is a policy change nobody decided";
 //
-// That was correct on its own terms -- BUG-17 refused a MIXTURE, and its author declined to widen
-// the refusal to a question nobody had answered -- and the gate's M31 existed to hold the line at
-// exactly one character (`> 1`, not `!= 1`). Adam then answered the question (grill Section 4E,
-// E-26, scratch/overnight-2026-09-05/DECISIONS.md:266), against the recommendation: refuse it.
+// That was correct on its own terms -- the mixed-plane refusal covered a MIXTURE, and its author
+// declined to widen it to a question nobody had answered -- and the gate's M31 existed to hold
+// the line at exactly one character (`> 1`, not `!= 1`). The question was then answered the
+// other way: refuse it.
 //
-// So both the case and its mutation are inverted, deliberately and together. M31 now puts BUG-17's
-// own behaviour back -- at BOTH layers, because E-26 also widened the builder's backstop and one
-// site is not enough to restore it -- and must go RED. M32 removes only the document-level door
-// and is red on `vertices == 4` instead of on `threw`: the backstop still refuses, from the end of
-// the builder, with every host already in the graph. W8 and W9 still prove these cases measure
-// which topologies are refused rather than how the conditions are spelled.
+// So both the case and its mutation are inverted, deliberately and together. M31 now puts the
+// mixed-plane-only behaviour back -- at BOTH layers, because the builder's backstop was widened
+// too and one site is not enough to restore it -- and must go RED. M32 removes only the
+// document-level door and is red on `vertices == 4` instead of on `threw`: the backstop still
+// refuses, from the end of the builder, with every host already in the graph. W8 and W9 still
+// prove these cases measure which topologies are refused rather than how the conditions are
+// spelled.
 //
 // WHAT IS CLAIMED
 //   - a document with hosts and no switch is refused, and refused whole (vertices == 0)
 //   - the refusal names the file, says the file "declares no switch node", and says it is
-//     refusing -- the three things the ruling asked the operator to be told
+//     refusing -- the three things the operator has to be told
 //   - and it is refused even under ALLOW_MIXED_DATAPLANE, because that flag is an opt-in to
 //     running two data planes and says nothing about running none
 // =================================================================================================
@@ -1874,7 +1872,7 @@ namespace
 /// [Co-developed with claude code -- Adam]
 /// Built from the shipped file rather than written by hand so that the ONLY thing wrong with it is
 /// the missing switches: every host keeps its addresses, its vertex_type and its ecmp field, so a
-/// refusal cannot be coming from door 3d or from #61's edge check instead.
+/// refusal cannot be coming from door 3d or from the edge-endpoint check instead.
 std::size_t
 stripEverySwitch(MutatedTopology& topo)
 {
@@ -1914,11 +1912,11 @@ TEST(TopologyInputValidationTest, ASwitchlessTopologyIsRefusedAtLoad)
 
 TEST(TopologyInputValidationTest, TheSwitchlessRefusalNamesTheFileAndWhatIsMissing)
 {
-    // 🔴 THE WORDING IS PINNED HERE AND NOWHERE ELSE IN THIS FILE, AND THAT IS THE RULING'S DOING.
-    // Every other refusal below asserts that the offending NUMBER reaches the operator and leaves
-    // the prose free (see W2 in the gate). E-26 named the three things this one has to say -- the
-    // file, "declares no switch node", and that it is refusing -- so those three are asserted, and
-    // nothing else about the sentence is.
+    // 🔴 THE WORDING IS PINNED HERE AND NOWHERE ELSE IN THIS FILE, BY DESIGN. Every other
+    // refusal below asserts that the offending NUMBER reaches the operator and leaves the prose
+    // free (see W2 in the gate). This one has to say three things -- the file, "declares no
+    // switch node", and that it is refusing -- so those three are asserted, and nothing else
+    // about the sentence is.
     MutatedTopology topo("switchless_message");
     ASSERT_TRUE(topo.usable());
     ASSERT_EQ(stripEverySwitch(topo), 4u);
@@ -1942,7 +1940,8 @@ TEST(TopologyInputValidationTest, ASwitchlessTopologyIsRefusedEvenWithTheMixedPl
     // 🔴 THE FLAG IS ABOUT MIXING, NOT ABOUT HAVING NONE, and the two are one `&&` apart in the
     // source. Writing the switchless door as `!allowMixed && declaredKinds.empty()` compiles,
     // passes every other case in this file, and silently hands a build with
-    // ALLOW_MIXED_DATAPLANE = true the exact behaviour E-26 removed. M33 is that mutation.
+    // ALLOW_MIXED_DATAPLANE = true the exact behaviour the switchless refusal removed. M33 is
+    // that mutation.
     MutatedTopology topo("switchless_opted_in");
     ASSERT_TRUE(topo.usable());
     ASSERT_EQ(stripEverySwitch(topo), 4u);
@@ -1982,10 +1981,9 @@ TEST(TopologyInputValidationTest, AHostWithMoreThanOneAddressStillLoads)
 // divisor the utilization figure is computed with.
 //
 // [Co-developed with claude code -- Adam]
-// 🔴 MEASURED ON :8000, TWICE, ON THE SAME KERNEL (2026-09-11, ROLE-3, binary sha256
-// 356803db69af3b1b..., scratch/overnight-2026-09-05/hunt-0911/ROLE-3-STUDENT-REPORT.md sections 2
-// and 3). A copy of the shipped OVS 4-host model with `link_bandwidth_bps: 0` on every edge was
-// accepted whole: `ndt up ovs 4` reported all four of its verifications ok, including "kernel
+// 🔴 MEASURED ON :8000, TWICE, ON THE SAME KERNEL (2026-09-11, binary sha256 356803db69af3b1b...). A
+// copy of the shipped OVS 4-host model with `link_bandwidth_bps: 0` on every edge was accepted
+// whole: `ndt up ovs 4` reported all four of its verifications ok, including "kernel
 // graph matches the model file: 4 hosts, 40 edges". After 2000 pings h1 -> h2, eight of the forty
 // edges came back from /ndt/get_graph_data with `"link_bandwidth_utilization_percent": null` --
 // TopologyAndFlowMonitor.cpp computes it as `(1.0 - leftIn / linkBandwidth) * 100`, 0/0 is NaN,
@@ -2006,8 +2004,7 @@ TEST(TopologyInputValidationTest, AHostWithMoreThanOneAddressStillLoads)
 // link_bandwidth_bps" -- with no third state. Admitting 0 would mean inventing one and teaching
 // leftBandwidth, leftBandwidthFromFlowSample, BandwidthSource and the utilization arithmetic
 // about it. All thirteen shipped files declare 1 or 10 Gbit/s and nothing else, so the door costs
-// the fleet nothing. See doc/audit/2026-09-05_fix-topology-three-doors/FIX-TOPOLOGY-THREE-DOORS.md
-// section 11 for the alternative that was not taken.
+// the fleet nothing.
 //
 // 🔴 WHAT THIS DOOR DOES NOT COVER, AND IT IS THE SAME DEFECT FROM THE OTHER SIDE: linkBandwidth
 // is also written at runtime from an sFlow counter sample (`edgeProps.linkBandwidth =
@@ -2039,8 +2036,8 @@ lastEdgeIndex(const json& doc)
 /// [Co-developed with claude code -- Adam]
 /// Same construction and the same reason as appendAddresslessHost: a node an edge points at
 /// cannot be used to measure a NODE-side door, because taking its identity away makes those edges
-/// resolve to nothing and #61's edge door refuses the file first -- for the edge, not for the
-/// node. A node nothing points at is the only shape that reaches the node loop's doors alone.
+/// resolve to nothing and the edge-endpoint check refuses the file first -- for the edge, not for
+/// the node. A node nothing points at is the only shape that reaches the node loop's doors alone.
 json&
 appendUnreferencedNode(json& doc, const std::string& name, json ip)
 {
@@ -2057,8 +2054,8 @@ appendUnreferencedNode(json& doc, const std::string& name, json ip)
 
 TEST(TopologyInputValidationTest, AZeroLinkBandwidthIsRefusedAtLoad)
 {
-    // ROLE-3's b2-zero.json, reproduced on the P4 model: one edge declaring a link of zero bits
-    // per second. Accepted before this door, and then divided by.
+    // The measured zero-bandwidth file, reproduced on the P4 model: one edge declaring a link of
+    // zero bits per second. Accepted before this door, and then divided by.
     MutatedTopology topo("bandwidth_zero");
     ASSERT_TRUE(topo.usable());
 
@@ -2094,7 +2091,7 @@ TEST(TopologyInputValidationTest, TheZeroBandwidthRefusalNamesTheFieldAndIsNotAn
 TEST(TopologyInputValidationTest, ANegativeLinkBandwidthIsRefusedAtLoad)
 {
     // 🔴 THE VALUE THE OPERATOR TYPED MUST REACH THEM, AND BEFORE THIS DOOR IT COULD NOT: the
-    // field is read with get<uint64_t>(), so ROLE-3 measured -1 being served back as
+    // field is read with get<uint64_t>(), so -1 was measured being served back as
     // 18446744073709551615. A refusal that quoted the unsigned reading would be telling the
     // operator about a number that is not in their file.
     MutatedTopology topo("bandwidth_negative");
@@ -2121,7 +2118,7 @@ TEST(TopologyInputValidationTest, AMissingLinkBandwidthIsRefusedInPlainLanguage)
     // edge loop, with 14 vertices and 39 edges already in the graph, and reported as
     // `[json.exception.out_of_range.403] key 'link_bandwidth_bps' not found`. That is the
     // 39-of-40 shape validateStaticTopologyJson exists to abolish, reached through the one field
-    // it did not check, and ROLE-3 measured the message verbatim.
+    // it did not check, and the message was measured verbatim.
     MutatedTopology topo("bandwidth_missing");
     ASSERT_TRUE(topo.usable());
 
@@ -2142,7 +2139,7 @@ TEST(TopologyInputValidationTest, AMissingLinkBandwidthIsRefusedInPlainLanguage)
 
 TEST(TopologyInputValidationTest, ALinkBandwidthWrittenAsAStringIsRefusedInPlainLanguage)
 {
-    // The other half of the same operator mistake, and ROLE-3 measured this message too:
+    // The other half of the same operator mistake, and this message was measured too:
     // `[json.exception.type_error.302] type must be number, but is string`.
     MutatedTopology topo("bandwidth_string");
     ASSERT_TRUE(topo.usable());
@@ -2190,7 +2187,7 @@ TEST(TopologyInputValidationTest, TheSmallestPositiveLinkBandwidthIsAccepted)
 // B-14 / door 5 -- `vertex_type`, the field with two entrances and, until now, one door.
 //
 // [Co-developed with claude code -- Adam]
-// 🔴 MEASURED (2026-09-11, ROLE-3, three values, same conclusion each time). A node with
+// 🔴 MEASURED (2026-09-11, three values, same conclusion each time). A node with
 // `"vertex_type": 2` -- and the variants -1 and 99 -- added to the shipped OVS 4-host model and
 // named by no edge was accepted with ZERO diagnostic, took the node count from 14 to 15, and was
 // republished VERBATIM by both /ndt/get_graph_data and /ndt/get_static_topology_json, the latter
@@ -2203,15 +2200,15 @@ TEST(TopologyInputValidationTest, TheSmallestPositiveLinkBandwidthIsAccepted)
 //
 // 🔴 THE CONTROL GROUP IS IN THIS REPO, AT THE OTHER ENTRANCE TO THE SAME FIELD.
 // HttpSession::handleModifyDeviceName answers `POST /ndt/modify_device_name {"vertex_type":2,...}`
-// with 400 and `{"error":"Invalid vertex_type. Must be 0 (switch) or 1 (host)."}` -- ROLE-3 ran
-// it. Same field, same kernel, two entrances, one door. So this door says the API's sentence
+// with 400 and `{"error":"Invalid vertex_type. Must be 0 (switch) or 1 (host)."}` -- measured.
+// Same field, same kernel, two entrances, one door. So this door says the API's sentence
 // word for word rather than inventing a second vocabulary for the same mistake, and
 // TheVertexTypeRefusalUsesTheSameSentenceAsTheApi is what keeps the two from drifting apart.
 // =================================================================================================
 
 TEST(TopologyInputValidationTest, AVertexTypeOutsideTheEnumIsRefusedAtLoad)
 {
-    // All three values ROLE-3 measured, because they fail differently one layer down: 2 and 99 are
+    // All three values measured, because they fail differently one layer down: 2 and 99 are
     // above the enum, -1 is below it, and a door written `> 1` would admit -1 while passing the
     // other two.
     const int kMeasured[] = {2, -1, 99};
@@ -2263,7 +2260,7 @@ TEST(TopologyInputValidationTest, AMissingVertexTypeIsRefusedInPlainLanguage)
 {
     // Already refused before this door -- by `at("vertex_type")` in the validator itself, so
     // `threw` and `vertices == 0` were both green against it. What was red is the sentence:
-    // `[json.exception.out_of_range.403] key 'vertex_type' not found`, the same complaint R0b
+    // `[json.exception.out_of_range.403] key 'vertex_type' not found`, the same complaint
     // recorded against door 3c's bridge_name.
     MutatedTopology topo("vertex_type_missing");
     ASSERT_TRUE(topo.usable());
@@ -2301,10 +2298,10 @@ TEST(TopologyInputValidationTest, AVertexTypeWrittenAsAStringIsRefusedInPlainLan
 // Door 7 -- the shared `ip` read, in plain language for the nodes door 3d does not cover.
 //
 // [Co-developed with claude code -- Adam]
-// Door 3d (#90) rewrote "missing key" and "not an array" into sentences for HOSTS, because the
+// Door 3d rewrote "missing key" and "not an array" into sentences for HOSTS, because the
 // alternative was `[json.exception.out_of_range.403] key 'ip' not found` from the shared read
 // below it. The shared read is shared: a SWITCH with no `ip` key reached exactly that exception,
-// and still did after #90 -- door 3b covers the empty array for switches and nothing covers the
+// and still did after door 3d -- door 3b covers the empty array for switches and nothing covers the
 // other two faults. Same defect, same sentence owed, one branch away.
 //
 // 🔴 IT SITS AFTER DOOR 3d AND SKIPS HOSTS, DELIBERATELY. Written as a check for every node type
@@ -2376,12 +2373,12 @@ TEST(TopologyInputValidationTest, ASwitchWhoseIpIsNotAnArrayIsRefusedInPlainLang
 // B-15 / door 6 -- two nodes, one address; and the spelling that makes them look like two.
 //
 // [Co-developed with claude code -- Adam]
-// 🔴 MEASURED (2026-09-11, ROLE-3, b5-loose.json). h2's `ip` written `["10.1"]` instead of
-// `["10.0.0.2"]`: inet_aton reads "10.1" as 10.0.0.1, which is h1's address. The file loaded with
-// ZERO warnings and ZERO errors; /ndt/get_graph_data reported h1 and h2 with the SAME address
-// (`"ip":[16777226]` for both), /ndt/get_static_topology_json printed both as `["10.0.0.1"]`, and
-// the host edge that should name h2 named h1. #61's edge door -- "no node in this file carries
-// that address" -- passed, because after inet_aton the two spellings ARE the same key.
+// 🔴 MEASURED (2026-09-11). h2's `ip` written `["10.1"]` instead of `["10.0.0.2"]`: inet_aton reads
+// "10.1" as 10.0.0.1, which is h1's address. The file loaded with ZERO warnings and ZERO errors;
+// /ndt/get_graph_data reported h1 and h2 with the SAME address (`"ip":[16777226]` for both),
+// /ndt/get_static_topology_json printed both as `["10.0.0.1"]`, and the host edge that should name
+// h2 named h1. The edge-endpoint check -- "no node in this file carries that address" -- passed,
+// because after inet_aton the two spellings ARE the same key.
 //
 // Downstream, findVertexByIpNoLock returns the first node holding the address and there is no
 // field anywhere that can say a second one claimed it. Every address-resolved path -- top-K,
@@ -2393,7 +2390,7 @@ TEST(TopologyInputValidationTest, ASwitchWhoseIpIsNotAnArrayIsRefusedInPlainLang
 //       "167772161" and "0x0a000001" for the same address, and the twin republishes whichever
 //       form it reconstructs -- so the file and /ndt/get_static_topology_json disagree about what
 //       the operator wrote, and two spellings of one address stop looking like a collision to a
-//       human reading the file. The repo has already ruled this way once for the same reason:
+//       human reading the file. The repo already refuses the same way for the same reason:
 //       utils::tryParseUint64 was introduced over std::stoull because "a mistyped dpid must be
 //       refused, not silently redirected to a different switch" (HttpSession.cpp).
 //   6b  no two nodes may hold the same address AFTER parsing. 6a makes the loose spelling
@@ -2489,8 +2486,9 @@ TEST(TopologyInputValidationTest, TheLooseAddressRefusalNamesBothSpellings)
 
 TEST(TopologyInputValidationTest, TheMeasuredLooseFormCollisionIsRefused)
 {
-    // ROLE-3's b5-loose.json verbatim: an EXISTING host's address rewritten in the loose form of
-    // ANOTHER host's address, its edges rewritten to match so that #61's edge door stays quiet.
+    // The measured loose-form file verbatim: an EXISTING host's address rewritten in the loose
+    // form of ANOTHER host's address, its edges rewritten to match so that the edge-endpoint
+    // check stays quiet.
     // This is the file that loaded with zero diagnostics and served two hosts at one address.
     MutatedTopology topo("loose_collision");
     ASSERT_TRUE(topo.usable());

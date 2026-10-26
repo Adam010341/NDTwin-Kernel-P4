@@ -45,7 +45,7 @@ CFG="$VM_DIR/CONFIG"
 
 # 🔴 A stopped VM is indistinguishable from an abandoned one. 2026-08-31: a sibling
 # session needed RAM, read `vms` showing "unowned / no qemu / has a disk", and offered
-# to destroy the directory -- which held a ruled-preserve toolchain snapshot that had
+# to destroy the directory -- which held a deliberately preserved toolchain snapshot that had
 # cost 38m41s to build. Nothing on screen said otherwise, and nothing was wrong with
 # their reasoning; the row simply did not carry the one fact that mattered.
 # KEEP is that fact, and it is written here only because destroy/vms/status read it.
@@ -442,9 +442,9 @@ ssh_pwauth: false
 package_update: false
 runcmd:
   # DELIBERATE DEVIATION, recorded so it is never mistaken for a test result:
-  # the install manual uses ~/Desktop 13 times but never creates it (finding M-1).
+  # the install manual uses ~/Desktop 13 times but never creates it.
   # We create it here so the build can proceed. This means this VM does NOT
-  # re-test M-1 -- it works around it.
+  # re-test that step of the manual -- it works around it.
   - [ mkdir, -p, "/home/$VM_USER/Desktop" ]
   - [ chown, "$VM_USER:$VM_USER", "/home/$VM_USER/Desktop" ]
   - [ sh, -c, "echo 'ndtwin-lab VM ready' > /home/$VM_USER/CLOUD_INIT_DONE" ]
@@ -528,7 +528,7 @@ stop)
     # mutation gate enumerated the guards I had written rather than the verbs that
     # mutate. 32/32 green meant "every guard fires both ways", never "every mutating
     # verb has a guard" -- and I reported the first as if it answered the second.
-    # Powering off another session's VM mid-run is precisely the R7 downgrade shape:
+    # Powering off another session's VM mid-run is precisely the silent-downgrade shape:
     # they `start` it again without their working point and the lab comes back
     # smaller, silently. See the structural test in test_vm_coordination.sh.
     claim_guard stop
@@ -578,12 +578,12 @@ status)
 ssh)
     # Also missing. `ssh <cmd>` runs arbitrary commands in the guest, so it is a
     # mutating verb wearing a read-only name -- two sessions sharing one VM through
-    # it is exactly what R6 forbids.
+    # it is exactly what the VM usage rules forbid.
     #
     # 🔑 Note what this guard does NOT do: claim_guard refuses, claim_write records,
     # and only create/start call the latter. So requiring NDT_OWNER here still lets
     # you look inside an UNOWNED VM without taking it -- which the 08-31 inventory
-    # of the pending-retirement VM needed, and which §5b of the rules requires stay
+    # of the pending-retirement VM needed, and which the VM usage rules require stay
     # possible. Guarding and claiming are separate powers; do not fuse them.
     claim_guard ssh
     shift

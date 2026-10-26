@@ -40,7 +40,7 @@ preflight all read, and which name the holder and the consequence when either is
 Keep this paragraph and that row in step: this one says why the port is hard-coded here,
 the row says what a leftover on it costs.
 
-sFlow (added 2026-09-03, finding #4). Until this change the file had ZERO sFlow references, so
+sFlow (added 2026-09-03). Until this change the file had ZERO sFlow references, so
 all ten bridges came up with `sflow=[]` while the kernel listened on :6343 as usual. Nothing
 failed: `/ndt/get_average_link_usage` answered `{"avg_link_usage":0.0,"status":"success"}` under
 3000 packets of real traffic, and every per-flow rate read zero. "We never asked" and "the
@@ -49,7 +49,7 @@ network is idle" were the same output, on every channel. The reference topology 
 fixture was missing it. See configure_sflow() below for the parameters and why each is what
 testbed_topo.py already uses.
 
-    sudo /home/adam/miniconda3/envs/ntg-env/bin/python tools/test_workflow/ovs_4host_topo.py
+    sudo <your-conda-env>/bin/python tools/test_workflow/ovs_4host_topo.py
 """
 
 import re

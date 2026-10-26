@@ -159,7 +159,7 @@ esac
 
 # --- the pidfiles it leaves behind (R7 I-3) ---------------------------------------------------
 #
-# 🔴 Measured 2026-09-11 02:52:03 and again 02:52:27 (hunt-0911/R7-reconciler.md round 14), 57 s
+# 🔴 Measured 2026-09-11 02:52:03 and again 02:52:27, 57 s
 # and 81 s after the event. One directory, two files, opposite stories:
 #
 #     ryu.pid        20717    /proc/20717 does not exist
@@ -338,8 +338,8 @@ rm -f "$PID_DIR"/*
 # found sitting beside such a record (I-3, 02:52:03) survived the very command whose own status
 # row tells the operator to run it.
 #
-# Adam's ruling 09-11 (FIX-NDT-4 #19): the sweep calls report_exit, so both halves come out of
-# ONE writer, and it clears the registry files of a component that is provably not running.
+# The sweep calls report_exit, so both halves come out of ONE writer, and it clears the registry
+# files of a component that is provably not running.
 #
 # 🔴 sweep_orphan_exits is driven DIRECTLY here, and cmd_down end-to-end in one case below.
 # Through cmd_down alone the interesting states are unreachable: stop_one stops whatever is

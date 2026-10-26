@@ -1,6 +1,6 @@
 """
 The table-entry journal: what `POST /p4/table_entry` records, how a record folds, and what the
-proxy is allowed to say about it. DESIGN.md sections 5.1-5.3 and 5.6, tests R10-R13.
+proxy is allowed to say about it.
 
 [Co-developed with claude code -- Adam]
 
@@ -255,7 +255,7 @@ class TempDirCase(unittest.TestCase):
 class TheFoldTest(unittest.TestCase):
     """
     The first record of an entry says whether it existed before the API touched it; the last says
-    whether it exists after, and with what. DESIGN 5.4 step 4 -- tested here without a file,
+    whether it exists after, and with what. Tested here without a file,
     because the fold is a pure function and a test of it that needs a disk is a test of the disk.
     """
 
@@ -590,7 +590,7 @@ class TheSnapshotTest(TempDirCase):
     # --- the snapshot's lock, one header shape, what a crash leaves ----------------------
 
     def test_a_snapshot_nobody_holds_the_lock_for_is_refused(self):
-        # DESIGN 5.2: one lock covers the append and the snapshot. A record appended between the
+        # One lock covers the append and the snapshot. A record appended between the
         # snapshot's link and its replace would land in the set-aside inode and be lost.
         journal = TableEntryJournal(os.path.join(self.dir, "s9.jsonl"), 9)
         journal.record("insert", {}, "K")
@@ -768,7 +768,7 @@ class TheOrderOfTheWriteTest(TempDirCase):
         self.assertIsNot(journals.journal_for(1).lock, journals.journal_for(2).lock)
 
     def test_a_delete_the_switch_answered_NOT_FOUND_is_recorded_as_not_found_and_still_raised(self):
-        # DESIGN 10-4: a delete whose answer was lost may have landed, and the retry's NOT_FOUND
+        # A delete whose answer was lost may have landed, and the retry's NOT_FOUND
         # is the only evidence. It is a 502 to the caller (the exception propagates) and a
         # `not_found` line to the journal.
         error = RuntimeError("NOT_FOUND")
@@ -905,7 +905,7 @@ class TheLockTest(TempDirCase):
 
 
 # =============================================================================================
-# Q4 (a): a journal that cannot be written.
+# A journal that cannot be written.
 # =============================================================================================
 
 
@@ -1130,7 +1130,7 @@ class TheRouteRecordsTest(TempDirCase):
                          "priority 20 began unknown, so its insert is an insert")
 
     def test_a_default_entry_and_a_catch_all_of_the_same_table_are_two_entries(self):
-        # DESIGN 10-2. Without a key of its own the default (no match, priority 0) and an LPM
+        # Without a key of its own the default (no match, priority 0) and an LPM
         # entry with every field omitted share `(dpid, table, 0, ())`, and deleting the catch-all
         # would fold away the default's modify.
         action = {"action_name": "MyIngress.ipv4_forward",
@@ -1166,7 +1166,7 @@ class TheRouteRecordsTest(TempDirCase):
         self.assertEqual(os.listdir(self.dir), [])
 
     def test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record(self):
-        # [Co-developed with claude code -- Adam] DESIGN 5.7: a table NDTwin owns is refused by
+        # [Co-developed with claude code -- Adam] A table NDTwin owns is refused by
         # the owner check (409 owned_by_ndtwin) before the entry is built, so the journal never
         # sees it -- not even the delete the switch would have answered NOT_FOUND, which is the
         # one refusal the journal does record when it comes from the switch.
@@ -1268,7 +1268,7 @@ class TheRouteRecordsTest(TempDirCase):
     def test_the_note_for_an_unrecorded_write_says_what_each_op_turns_into(self):
         # "Lost when the proxy restarts" is true of an insert only: the journal
         # puts back what it last knew, so a modify reverts and a deleted entry returns, and the
-        # replay cannot flag it (DESIGN 5.3, 10-5).
+        # replay cannot flag it.
         note = api_routes.TABLE_ENTRY_JOURNAL_WRITE_FAILED
         for words in ("an insert does not come back", "a modified entry reverts",
                       "a deleted entry returns", "will not flag it"):
@@ -1786,7 +1786,7 @@ class TheRouteAnswers503WhenTheSwitchIsBusyTest(TempDirCase):
 
 
 # =============================================================================================
-# The identity of a default entry (DESIGN 10-2).
+# The identity of a default entry.
 # =============================================================================================
 
 
@@ -1888,7 +1888,7 @@ class TheJournalIsWiredInMainTest(unittest.TestCase):
         # The header provider reaches a file through three links: main passes `header_for=`,
         # TableJournals wraps it per switch, TableEntryJournal calls it when it creates the file.
         # Every other test builds its journals without one, so each link could break and leave
-        # every production header all-null (probe-r10-new.log showed that shape).
+        # every production header all-null (a live probe showed that shape).
         from proxy_agent import boot_identity
         directory = tempfile.mkdtemp(prefix="ndt-table-journal-")
         self.addCleanup(shutil.rmtree, directory, True)
@@ -2020,7 +2020,7 @@ class TheJournalIsWiredInMainTest(unittest.TestCase):
         self.assertIsNone(main.table_journal_header(1)["fabric_cookie"])
 
     def test_the_constants_the_two_surfaces_disagree_on_are_split(self):
-        # The multicast response keeps its own sentence, verbatim (Q5 (a)); a table entry's two
+        # The multicast response keeps its own sentence, verbatim; a table entry's two
         # are their own. One sentence cannot be true of a thing that is recorded and replayed
         # and a thing that is recorded nowhere.
         notes = (api_routes.TABLE_ENTRY_NOT_JOURNALED, api_routes.TABLE_ENTRY_JOURNAL_WRITE_FAILED,

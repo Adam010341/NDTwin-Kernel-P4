@@ -29,9 +29,11 @@
 
 ```bash
 sudo install -o root -g root -m 644 /dev/stdin /etc/ndtwin-lab.conf <<'EOF'
-KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel-worktree
+KERNEL_DIR=/home/<user>/Desktop/NDTwin-Kernel-worktree
 EOF
 ```
+
+把 `<user>` 那段換成你自己的 checkout。值必須是**絕對路徑**：檔案是解析不是 `source`，`$HOME` 不會展開，寫成 `$HOME/...` 會被拒絕。
 
 四個鍵，全部可省略（省略＝用內建預設）：
 

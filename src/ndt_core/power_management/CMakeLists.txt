@@ -6,4 +6,6 @@ add_library(NdtCore_PowerManagementLib STATIC
     # [Co-developed with claude code -- Adam] Per-switch `capabilities` from GET /p4/switch_state,
     # onto /ndt/get_graph_data. Its own file so a mutation of it rebuilds one small object.
     P4Capabilities.cpp
+    # [Co-developed with claude code -- Adam] Per-switch `ryu_rules_lost` (KNOWN-ISSUES A-4c).
+    P4RulesLost.cpp
 )

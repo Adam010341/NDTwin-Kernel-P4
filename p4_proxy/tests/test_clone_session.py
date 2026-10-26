@@ -6,7 +6,7 @@ Tests for the PRE clone session and CPU-packet dispatch.
 These need the P4Runtime protobufs, so they are skipped where those are not installed. Run
 them with the p4dev interpreter:
 
-    PYTHONPATH=p4_proxy /home/adam/p4dev-python-venv/bin/python3 \
+    PYTHONPATH=p4_proxy $HOME/p4dev-python-venv/bin/python3 \
         p4_proxy/tests/test_clone_session.py
 
 The clone session is worth its own tests because getting it wrong is silent in both
@@ -160,7 +160,7 @@ def a_client() -> P4RuntimeClient:
     client.packet_in_callback = None
     client.sample_callback = None
     # [Co-developed with claude code -- Adam]
-    # TICKET-P3 2.6 (G1): `handle_packet_in` reads the metadata ids this switch's own p4info
+    # `handle_packet_in` reads the metadata ids this switch's own p4info
     # gives the fields, so the double needs a p4info that describes the controller headers --
     # and it is resolved with the PRODUCTION functions, so a mutation to the name lookup
     # reddens these tests too instead of being hidden by a fixture that agrees with the
@@ -405,7 +405,7 @@ class CloneSessionRequestTest(unittest.TestCase):
                 .session_id, 300)
 
     # --- the settle pair -----------------------------------------------------------
-    # Raw-client repro, 2026-08-16 (doc/audit/2026-08-16_clone-stacking-raw-repro.md):
+    # Raw-client repro, 2026-08-16:
     # a pipeline commit empties the server's clone bookkeeping while the PRE group
     # survives, so the next INSERT appends a replica (1 -> 2 -> 3 across restarts) and a
     # DELETE issued after the commit cannot reach the orphan. Phase E found the one

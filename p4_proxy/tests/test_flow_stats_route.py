@@ -88,7 +88,7 @@ class ForeignClient(HealthyClient):
 
 
 class AForeignSwitchIsRenderedThroughItsBindingTest(unittest.TestCase):
-    """TICKET-P4-roles 2.5-1 at the route: the binding reaches the renderer, the count is kept."""
+    """At the route: the binding reaches the renderer, the count is kept."""
 
     def tearDown(self):
         api_routes.topology = None
@@ -127,14 +127,13 @@ class ARenderOnNdtwinsOwnPipelineIsCountedTooTest(unittest.TestCase):
         self.assertEqual(client.last_flow_render[0], 0)
 
 
-# --- NDTwin's own /stats/flow, in HTTP-body bytes (TICKET-P4-roles section 7 ruling 5, item 4) --
+# --- NDTwin's own /stats/flow, in HTTP-body bytes -----------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 # 🔴 RECORDED AT THE BASE, NOT WRITTEN HERE. tests/record_stats_flow_http_body.py, copied verbatim
 # into a `git archive d492a346` tree (its production code is trunk 6291db35's) and run there,
-# printed these bytes; that file's docstring is the provenance, and the run is logged in
-# logs/gates-0910/record_stats_flow_http_body_at_base.p4r-57aae1bf.log (recorder sha256 89e35766).
-# Round 1 compared the renderer's output re-serialised with sort_keys=True, which cannot see a
+# printed these bytes; that file's docstring is the provenance (recorder sha256 89e35766).
+# Comparing the renderer's output re-serialised with sort_keys=True cannot see a
 # change of key ORDER -- and key order is what the kernel's parser is handed.
 
 #: 2346 bytes, sha256 aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659.
@@ -177,9 +176,9 @@ BASELINE_NDTWIN_HTTP_BODY_SHA256 = "aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b
 class TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest(unittest.TestCase):
     """GET /stats/flow/1 for an NDTwin-pipeline switch, through FastAPI's own serialisation."""
 
-    #: sha256 of tests/record_stats_flow_http_body.py as it ran at the base (the recording
-    #: log's third line). Section 7 ruling 6, F4: recomputed at every head, so a recorder edited
-    #: after the recording cannot keep claiming it produced these bytes.
+    #: sha256 of tests/record_stats_flow_http_body.py as it ran at the base. Recomputed at
+    #: every head, so a recorder edited after the recording cannot keep claiming it produced
+    #: these bytes.
     RECORDER_SHA256 = "89e3576613bedf4920158e68ad019feabf3c317896fc602c4dacf76f96c7a540"
 
     def test_the_recorder_in_the_repo_is_the_one_that_recorded(self):

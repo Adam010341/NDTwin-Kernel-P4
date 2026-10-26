@@ -23,7 +23,7 @@ L2 / L3 / L4 的 Python 工具在 [../contract_test/](../contract_test/)。
 |---|---|---|
 | `components.env` | — | 路徑、conda env、port、拓撲檔的單一資料來源 |
 | `l0_build_check.sh` | L0 | 所有元件是否還建置得起來 |
-| `l1_unit_tests.sh` | L1 | kernel 單元測試（**兩種方式**都跑）＋ P4 proxy 的 Python 測試 |
+| `l1_unit_tests.sh` | L1 | kernel 單元測試（**兩種方式**都跑）＋ P4 proxy 的 Python 測試（`p4_proxy/tests`）＋ `tools/p4_exercise/tests`（缺本機 P4 教材工具 `$NDTWIN_TUTORIALS_DIR`／`$NDTWIN_P4C`／`$NDTWIN_P4DEV_VENV` 時那幾個 case 跳過，標 PROVED LESS） |
 | `stack.sh` | — | 按正確順序啟動／關閉，並等待拓撲收斂 |
 | `run_layers.sh` | 全部 | 頂層驅動，把各層組合起來 |
 | `live_cells/` | — | 回歸格：夜巡「live 紅過、已修好」的發現，每個變成一個可重跑的格（見下） |
@@ -246,7 +246,7 @@ Mininet 需要 root，而且會停在自己的 CLI，沒辦法乾淨地背景化
 ```bash
 live_cells/run_cells.sh --list                    # 有哪些格、各自的 tag 與前提
 live_cells/run_cells.sh --requires none           # 完全不碰實驗室的那些
-NDT_ROOT=/home/adam/Desktop/NDTwin-Kernel live_cells/run_cells.sh --tag ndt
+NDT_ROOT=/path/to/NDTwin-Kernel live_cells/run_cells.sh --tag ndt
 ```
 
 - 最後一行 `CELLS: <pass>/<total> pass, <fail> FAIL, <skip> SKIP`，有 FAIL 就非 0 離開。

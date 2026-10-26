@@ -24,13 +24,12 @@
 # this file goes red on those cases and names the verb, instead of quietly certifying a manual
 # that now describes nothing.
 #
-# 🔴 CASE 14 IS THE CONTROL and it is green before this ticket's fix as well as after. It reads
-# a sentence the fix does not touch (a live fabric answers `ndt clean` with rc 1, §2.1). A suite
-# where every case is red on the unfixed manual cannot tell "sensitive" from "stuck red"; this
-# one can.
+# 🔴 CASE 14 IS THE CONTROL and it is green before the fix as well as after. It reads a sentence the
+# fix does not touch (a live fabric answers `ndt clean` with rc 1, §2.1). A suite where every case
+# is red on the unfixed manual cannot tell "sensitive" from "stuck red"; this one can.
 #
 # The rc table is marked in the manual with NDT-RC-TABLE:BEGIN/END and the restore criterion
-# with NDT-RESTORE-CRITERION:BEGIN/END, so this test reads the two regions the ticket is about
+# with NDT-RESTORE-CRITERION:BEGIN/END, so this test reads the two regions this is about
 # rather than grepping the whole document and hoping. Exactly one rc table is allowed (case 5):
 # the defect being fixed is a second copy of the codes going stale on its own.
 #
@@ -175,7 +174,7 @@ check "case 12c the restore criterion says rc 5 measured nothing" \
 check "case 13 the restore criterion reads orphans_verdict.sh's VERDICT, not a rc" \
       "yes/yes" "$(says 'orphans_verdict.sh')/$(says 'VERDICT: CLEAN')"
 
-# --- case 14 (CONTROL): a sentence this ticket does not touch is still there --------------------
+# --- case 14 (CONTROL): a sentence the fix does not touch is still there --------------------
 # Green on the unfixed manual and on the fixed one. If this file ever goes all-red, this case is
 # how you tell a real regression from a test that stopped reading the document.
 check "case 14 CONTROL: §2.1 still says a live fabric answers 'ndt clean' with rc 1" \

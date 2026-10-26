@@ -5,7 +5,7 @@
 Everything here is a pure function from a request to an argv list, or from an rc to a sentence.
 Nothing here runs anything. The server calls these, and only an argv list that came out of one of
 them ever reaches `ndt` -- there is no other path from an HTTP request to a command line, and
-there is no shell anywhere on that path (TICKET section 3.3).
+there is no shell anywhere on that path.
 
 🔴 This module does NOT reimplement `ndt`. It decides which of `ndt`'s own verbs a request may
 name and checks that each argument is one of a fixed set of values; what the verb then does,
@@ -16,7 +16,7 @@ The rc tables below are ANNOTATION ONLY: the `rc` field of every answer is the i
 exited with, whatever this table says about it. An rc the table does not know is reported as
 `unknown`, never folded into a neighbour.
 
-Where each table comes from is RC_SOURCE, below, and it is not one place (judge 09-24, finding 5):
+Where each table comes from is RC_SOURCE, below, and it is not one place:
 `up`, `down` and `status --check` are in `ndt help`; plain `status`, `claim`, `release` and the
 three `apps` verbs are NOT -- they were read from ndt's code, and RC_SOURCE names the lines.
 tests/python/test_ndt_serve.py RcProvenance holds both kinds to the real ndt of this tree: a
@@ -30,7 +30,7 @@ import re
 # only 128 or 4 -- each is a different ndtwin-lab verb, not a parameter").
 #
 # P4 accepts any multiple of 4 (host_count_buildable), but the service offers only the two sizes
-# that have been measured on this laptop. A wider enum is a decision for Adam (REPORT section 6),
+# that have been measured on this laptop. A wider enum is a design decision,
 # not something the first cut should widen on its own.
 UP_HOSTS = {
     "ovs": (None, 4, 128),
@@ -123,7 +123,7 @@ def cell_run_body(body):
 
 
 def argv_down(body):
-    """POST /api/v1/down  {} -- never --deep, never --force (TICKET section 5)."""
+    """POST /api/v1/down  {} -- never --deep, never --force."""
     _no_extra_keys(body, ())
     return ["down"]
 
@@ -166,7 +166,7 @@ def argv_status(check):
     return ["status", "--check"] if check else ["status"]
 
 
-# GET /measuring, the page's probe while a measurement runs (Adam, 2026-10-01): the measuring rows of
+# GET /measuring, the page's probe while a measurement runs: the measuring rows of
 # plain status and nothing else -- no sudo, no kernel request (ndt help, `status --measuring`).
 # [Co-developed with claude code -- Adam]
 ARGV_STATUS_MEASURING = ["status", "--measuring"]
@@ -216,10 +216,9 @@ RC_TABLE = {
     "status.check": {
         0: ("ok", "all compared fields match what the last 'ndt up' asked for"),
         # 🔴 ndt help says "1 one of them does not", but cmd_status answers 1 whenever its
-        # problems[] is not empty (ndt:7251-7253) -- a claim held by somebody else (6894), a
-        # measurement process in flight (6852, in_flight's process scan -- a measuring= the claim
-        # only DECLARES, 6828-6830, is not a problem), a netem qdisc (7093), a refused sudo grant
-        # (7106) are all problems. A GUI that printed "a field does not match" would name the wrong
+        # problems[] is not empty -- a claim held by somebody else, a measurement process in
+        # flight (in_flight's process scan -- a measuring= the claim only DECLARES is not a
+        # problem), a netem qdisc, a refused sudo grant are all problems. A GUI that printed "a field does not match" would name the wrong
         # cause.
         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
@@ -262,13 +261,13 @@ RC_TABLE = {
 # whitespace-normalised). "code": (line, rc, text that line must contain, the function that line
 # lies in) in tools/test_workflow/ndt -- this tree's line numbers: status_measuring_rows and
 # `status --measuring` (10-01) added 23 lines above cmd_status's verdict, and every row from there
-# down moved by that much. Before that, trunk cafd518a's line numbers (segment W of
-# TICKET-P4-heartbeat added 124 lines to ndt above these rows -- 122 before cmd_status and 2 inside
+# down moved by that much. Before that, trunk cafd518a's line numbers (the heartbeat
+# change added 124 lines to ndt above these rows -- 122 before cmd_status and 2 inside
 # it, the `heartbeat` row, before its verdict; the 11 rows below them moved by that much, each
 # located by its old line's text in the same function): the `serve)` dispatch lies
-# below every anchor. 🔴 The function is half the anchor (intake judge 09-26, finding 3): `return
+# below every anchor. 🔴 The function is half the anchor: `return
 # 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 was one of them --
-# proc_checkout's, 8439 since segment W. [Co-developed with claude code -- Adam]
+# proc_checkout's, 8439 since the heartbeat change. [Co-developed with claude code -- Adam]
 # 2026-09-28: the one-clock residue change put 36 lines above the apps.stop and apps.status rows
 # (app_started_at and residue_report); nothing above cmd_apps' own rows moved otherwise.
 # 2026-10-02, external detect-only branch: the heartbeat drop check and the external-plane
@@ -291,21 +290,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(7244, 3, "return 3", "cmd_status"), (7249, 0, "return 0", "cmd_status"),
-                              (7253, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(7255, 0, "return 0", "cmd_status")]},
+                     "code": [(7239, 3, "return 3", "cmd_status"), (7244, 0, "return 0", "cmd_status"),
+                              (7248, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(7250, 0, "return 0", "cmd_status")]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(6865, 0, "return 0", "cmd_status")]},
-    "claim": {"code": [(757, 2, "return 2", "cmd_claim"), (766, 2, "return 2", "cmd_claim"),
-                       (791, 1, "return 1", "claim_take"), (864, 1, "return 1", "claim_take"),
-                       (866, 0, 'ok "lab claimed by', "claim_take")]},
-    "release": {"code": [(870, 0, "return 0", "cmd_release"), (875, 1, "return 1", "cmd_release"),
-                         (903, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(9076, 0, "return 0", "app_start"), (9080, 1, "return 1", "app_start"),
-                            (9153, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(10630, 1, "return 1", "cmd_apps"), (10633, 2, "return 2", "cmd_apps"),
-                           (10636, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(10563, 0, "return 0", "cmd_apps")]},
+                         "code": [(6860, 0, "return 0", "cmd_status")]},
+    "claim": {"code": [(756, 2, "return 2", "cmd_claim"), (765, 2, "return 2", "cmd_claim"),
+                       (790, 1, "return 1", "claim_take"), (862, 1, "return 1", "claim_take"),
+                       (864, 0, 'ok "lab claimed by', "claim_take")]},
+    "release": {"code": [(868, 0, "return 0", "cmd_release"), (873, 1, "return 1", "cmd_release"),
+                         (901, 1, "return 1", "cmd_release")]},
+    "apps.start": {"code": [(9068, 0, "return 0", "app_start"), (9072, 1, "return 1", "app_start"),
+                            (9145, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(10623, 1, "return 1", "cmd_apps"), (10626, 2, "return 2", "cmd_apps"),
+                           (10629, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(10556, 0, "return 0", "cmd_apps")]},
 }
 
 

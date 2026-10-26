@@ -28,14 +28,17 @@ p4_testbed_topo.py, called by both mains, and this script's output is tee'd to
 Run it (Mininet needs root; nornir/loguru live in the ntg-env conda env, and the
 dist-packages append below borrows the system Mininet the same way NTG's own topo does):
 
-    sudo /home/adam/miniconda3/envs/ntg-env/bin/python ntg_bmv2_topo.py
+    sudo $HOME/miniconda3/envs/ntg-env/bin/python ntg_bmv2_topo.py
 
-Then, at the NTG prompt -- with the P4 stack's rates in mind. This bmv2 is an unoptimized
--O0 build and literature puts the grpc variant around ~170 Mbps per switch (see
-doc/2026-08-15_bmv2-performance-report.md), so use the low-rate template next to this
-script rather than NTG's defaults:
+Then, at the NTG prompt -- with the P4 stack's rates in mind. Measured 2026-08-15 on a
+10-switch fabric with 1400 B UDP over the 3-hop path s1->s5->s2, the stock build (-O0, full
+logging) delivered at most ~40-42 Mbps and the fast build ~460-530 Mbps. This fabric runs the
+fast build by default (p4_proxy/mininet/bmv2_binary_override); the fast-build figure is for a
+single flow. The low-rate template next to this script (its arriving flows ask for 2 and
+4 Mbit/s, its three fixed flows 8 Mbit/s each) was written for the stock build; on the stock
+build, use it rather than NTG's defaults:
 
-    flow --config /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/flow_bmv2_low.json
+    flow --config <your checkout>/p4_proxy/mininet/flow_bmv2_low.json
 
 First thing to watch on a first live run: NTG's `link_relationship_init` computes its
 near/middle/far distance partition against the kernel's host list. Its own topology has 128
@@ -127,7 +130,7 @@ def main(tee=None, enter_cli=None) -> None:
         import nornir  # noqa: F401  -- NTG's hard dependency; missing means wrong interpreter
     except ImportError:
         fail("this interpreter has no 'nornir'; run with the ntg-env python:\n"
-             "  sudo /home/adam/miniconda3/envs/ntg-env/bin/python " + __file__)
+             "  sudo $HOME/miniconda3/envs/ntg-env/bin/python " + __file__)
 
     # 🔴 THE SAME PRE-FLIGHT THE OTHER MAIN RUNS, not a copy of it: which package, which model,
     # which compiled JSON, which binary, and a gRPC port block for the switches THE MODEL
@@ -165,7 +168,7 @@ def main(tee=None, enter_cli=None) -> None:
     print("NTG cannot interrupt an experiment -- let flows finish.")
     print("======================================================================\n")
 
-    # 🔴 THE SAME HANDLERS THE OTHER MAIN INSTALLS, from the same function. Ruling 19(1): this
+    # 🔴 THE SAME HANDLERS THE OTHER MAIN INSTALLS, from the same function. This
     # file already had the `try/finally` the topology script was missing, so the SIGHUP that
     # `ndtwin-lab topo-stop` sends ten seconds after its C-c still killed python outright --
     # a `finally` is not reached by a default-disposition signal. This is the entry point

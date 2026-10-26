@@ -102,7 +102,7 @@ def frame_large_tcp() -> bytes:
         ipv4("10.0.0.1", "10.0.0.4", 6, tcp(5001, 40998, payload=b"\xab" * 1400))
 
 
-# --- TICKET-P3 §2.3: one frame per FlowKey family -------------------------------------------
+# --- one frame per FlowKey family -----------------------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 # Everything above is IPv4, because before P3 the parser understood nothing else: a frame whose
@@ -182,14 +182,14 @@ FIXTURES = [
     ("emitted_tcp_truncated.bin", [(frame_large_tcp(), 1, 2)]),
     # Several samples in one datagram, so the C++ side also walks the sample chain.
     ("emitted_multi.bin", [(frame_tcp(), 1, 2), (frame_udp(), 3, 4), (frame_icmp(), 1, 3)]),
-    # TICKET-P3 §2.3. Appended, never inserted: the six entries above must keep producing
+    # Appended, never inserted: the six entries above must keep producing
     # byte-identical files, which is the evidence that the datagram layout did not move.
     ("emitted_ipv6_udp.bin", [(frame_ipv6_udp(), 3, 4)]),
     ("emitted_custom_0x1234.bin", [(frame_custom_0x1234(), 3, 4)]),
     ("emitted_ipv4_ihl6_tcp.bin", [(frame_ipv4_ihl6_tcp(), 3, 4)]),
     ("emitted_vlan_ipv4.bin", [(frame_vlan_ipv4(), 3, 4)]),
-    # ingress_port 0 with an egress port set: the shape TICKET-P3 §2.2 gives the kernel's
-    # direction split, and the one B's egress tc filters on host-facing ports will emit.
+    # ingress_port 0 with an egress port set: the shape the kernel's direction
+    # split reads, and the one the egress tc filters on host-facing ports will emit.
     ("emitted_egress_only.bin", [(frame_udp_egress_only(), 0, 4)]),
 ]
 

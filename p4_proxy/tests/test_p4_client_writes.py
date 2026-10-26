@@ -113,7 +113,7 @@ def a_p4info():
     table.preamble.id = IPV4_LPM_ID
     table.preamble.name = "MyIngress.ipv4_lpm"
     # [Co-developed with claude code -- Adam]
-    # alias, match_type and bitwidth added for the generic table-entry writer (TICKET-P2 4.1).
+    # alias, match_type and bitwidth added for the generic table-entry writer.
     # The real p4info has carried all three since it was generated -- a double that omits them
     # would let `build_table_entry` read an UNSPECIFIED match type and a zero-width field and
     # still look correct here, which is a double that has stopped standing in for the object.
@@ -259,7 +259,7 @@ def a_p4info():
         field.match_type = kind
 
     # [Co-developed with claude code -- Adam]
-    # The two controller headers, added for TICKET-P3 2.6 (G1). The proxy resolves the metadata
+    # The two controller headers. The proxy resolves the metadata
     # ids BY NAME out of this message now, so a double without them makes every packet-in and
     # packet-out path raise -- which is the correct failure for a double that has stopped
     # standing in for the object, and is how these lines came to be here. Names, ids and widths
@@ -665,9 +665,8 @@ class ProbeTest(unittest.TestCase):
 
     def test_a_switch_with_no_pipeline_is_not_ok_and_the_detail_says_why(self):
         # [Co-developed with claude code -- Adam]
-        # Measured on stock and bmv2-fast simple_switch_grpc, started with nothing pushed through P4Runtime
-        # (doc/audit/2026-10-04_p4-cookie-probe/run-stock.out and
-        # run-fast.out, phase A): COOKIE_ONLY is answered with FAILED_PRECONDITION, "No
+        # Measured on stock and bmv2-fast simple_switch_grpc, started with nothing pushed through
+        # P4Runtime (phase A of a probe): COOKIE_ONLY is answered with FAILED_PRECONDITION, "No
         # forwarding pipeline config set for this device". That is a switch that is alive but
         # has nothing to forward with, and the probe reports it as not ok -- the same value as a
         # dead process, told apart only by the detail. Reading it as ok would list a restarted,
@@ -1576,7 +1575,7 @@ class AReadOnlyClientTest(unittest.TestCase):
         # exercise's controller is programming. `/stats/flow/<dpid>` -- which the kernel polls
         # once a second and turns into every flow's `path` -- is built on this call, so a
         # read-only client that refused it would give the twin an exercise it cannot observe,
-        # which is the "only an observer" option PLAN-0917 section 2 rejected as not-support.
+        # which is the "only an observer" option, rejected as not-support.
         stub = RecordingStub(read_responses=[a_read_response_with_lpm(
             socket.inet_aton("10.0.0.4"), 32)])
         client = self.read_only(stub)
@@ -1612,7 +1611,7 @@ class AReadOnlyClientTest(unittest.TestCase):
                       True)
 
 
-# --- the generic table-entry writer (TICKET-P2 4.1) ------------------------------------------
+# --- the generic table-entry writer ----------------------------------------------------------
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
@@ -2374,7 +2373,7 @@ class ThePriorityRulesTest(unittest.TestCase):
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class TheSection15CatchAllIsRefusedTest(unittest.TestCase):
     """
-    DESIGN 1.5: the generic writer used to put a catch-all in front of NDTwin's own tables. It
+    The generic writer used to put a catch-all in front of NDTwin's own tables. It
     does not any more.
 
     [Co-developed with claude code -- Adam]
@@ -2517,13 +2516,13 @@ class TheReadSideKnowsEveryMatchTypeTest(unittest.TestCase):
             self.assertIsNotNone(age, f"{spec['table']}: the install record is unfindable")
 
 
-# --- the NDTwin pipeline's writes, frozen in bytes (TICKET-P4-roles section 2.2-5) ------------
+# --- the NDTwin pipeline's writes, frozen in bytes -------------------------------
 #
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 CAPTURED AT THE BASE, NOT DESCRIBED. The roles ticket moves every name the ipv4_lpm writes
-# use out of literals and into a binding, and promises that for NDTwin's own pipeline nothing on
-# the wire changes. "Nothing changes" asserted field by field is only as strong as the list of
+# 🔴 CAPTURED AT THE BASE, NOT DESCRIBED. The roles refactor moves every name the ipv4_lpm writes
+# use out of literals and into a binding, and for NDTwin's own pipeline nothing on the wire may
+# change. "Nothing changes" asserted field by field is only as strong as the list of
 # fields somebody remembered to check; asserted as the SERIALISED WriteRequest it covers every
 # field, including the ones nobody thought of (update order, the election id, the width of the
 # port parameter, the order of the two action parameters).
@@ -2662,7 +2661,7 @@ BASELINE_WRITE_REQUESTS = {
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest(unittest.TestCase):
-    """TICKET-P4-roles 2.2-5: the binding refactor puts the same bytes on the wire."""
+    """The binding refactor puts the same bytes on the wire."""
 
     def setUp(self):
         self.captured = baseline_write_capture()
@@ -2678,7 +2677,7 @@ class TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest(unittest.TestCase):
                 self.assertEqual(self.captured.get(case), BASELINE_WRITE_REQUESTS[case])
 
 
-# --- a binding whose every name differs from NDTwin's (TICKET-P4-roles 2.2-3, 2.2-6) -----------
+# --- a binding whose every name differs from NDTwin's --------------------------
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -2789,7 +2788,7 @@ class ARenamedBindingIsWhatGoesOnTheWireTest(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class NoBindingNoWriteTest(unittest.TestCase):
-    """2.2-3: unbound and owner `package` refuse every route write before anything is sent."""
+    """Unbound and owner `package` refuse every route write before anything is sent."""
 
     def assert_refused(self, client, reason, call):
         from proxy_agent.route_binding import RouteWriteUnsupported

@@ -20,9 +20,9 @@
  * recursive, and a second shared_lock on the same thread deadlocks as soon as a writer is queued
  * (the same trap loadStaticTopologyFromFile documents at its own write lock). So the fix copies the
  * address out inside a scope that ends before the lookup. Every other graph access in updateHosts
- * was already under a lock; that one was not. R2-W18 §7 raised it, and Adam's ruling E-29 was
- * "open a ticket, but get independent race evidence first" -- hence the four cases below, which
- * were all run against the UNFIXED code before the lock was added.
+ * was already under a lock; that one was not. The fix required independent race evidence first
+ * -- hence the four cases below, which were all run against the UNFIXED code before the lock was
+ * added.
  *
  * WHAT THESE FOUR CASES ARE FOR, AND WHAT EACH ONE CAN AND CANNOT SHOW
  *
@@ -62,16 +62,15 @@
  *     evidence that the binary is instrumented.
  *
  *  4. Control_UpdateSwitchesAgainstTheSameWriter
- *     The control named in the ticket: updateSwitches is the sibling ingest that does hold the
+ *     The control: updateSwitches is the sibling ingest that does hold the
  *     lock across its lookup (unique_lock + findSwitchByDpidNoLock), so it must come out clean.
  *     Weaker than case 3 as a control -- it reads different bytes of the vertex than the probe
  *     writes, so byte-disjointness alone would explain a clean result -- and it is here because
- *     the ticket asks for the known-locked update path, not because it discriminates on its own.
+ *     a known-locked update path is the natural control, not because it discriminates on its own.
  *
  * WITH THE FIX IN PLACE ALL FOUR CASES ARE CLEAN. Case 2 is the mutation gate: take the
  * shared_lock back out of updateHosts and it reports again, at the line the lock came from. Both
- * directions were run and are quoted verbatim in
- * doc/audit/2026-09-07_fix-e29-update-hosts-race/FIX-E29.md.
+ * directions were run.
  *
  * HOW TO RUN IT. Not in ctest, deliberately: it is a sanitizer instrument, it costs minutes, and
  * one of its cases is allowed to report when the code is wrong. Run each case in its own process
@@ -513,7 +512,7 @@ TEST(UpdateHostsRaceTest, Control_LockedReaderOfTheSameBytes)
 }
 
 // ---------------------------------------------------------------------------------------------
-// 4. The control the ticket names: the sibling ingest that does hold the lock.
+// 4. The control: the sibling ingest that does hold the lock.
 // ---------------------------------------------------------------------------------------------
 
 TEST(UpdateHostsRaceTest, Control_UpdateSwitchesAgainstTheSameWriter)

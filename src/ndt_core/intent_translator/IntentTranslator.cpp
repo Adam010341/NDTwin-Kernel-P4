@@ -806,15 +806,38 @@ IntentTranslator::performTask(llmResponse::Task* task)
             int priority = 50000; 
 
             try {
-                this->m_flowRoutingManager->installAnEntry(switchProp.dpid, priority, match, actions);
-                
+                // [Co-developed with claude code -- Adam]
+                // doc/KNOWN-ISSUES.md A-4g. This was a bare statement: the OpResult was dropped and
+                // the reply below said "blocked" whatever the controller or proxy answered -- on
+                // both planes, the P4 proxy's refusal included. The reply is now built from it.
+                const OpResult result =
+                    this->m_flowRoutingManager->installAnEntry(switchProp.dpid, priority, match, actions);
+                if (!result.ok)
+                {
+                    SPDLOG_LOGGER_WARN(Logger::instance(),
+                                       "Block of host {} (IP: {}) on switch {} (DPID: {}) failed: "
+                                       "HTTP {} -- {}",
+                                       blockTask->host_id, hostIp, switchProp.deviceName,
+                                       switchProp.dpid, result.httpStatus, result.message);
+                    return json{{"error", "Host block failed"},
+                                {"host", blockTask->host_id},
+                                {"target_switch", switchProp.deviceName},
+                                {"http_status", result.httpStatus},
+                                {"detail", result.message}}
+                        .dump();
+                }
+
                 SPDLOG_LOGGER_INFO(Logger::instance(), 
                     "Blocked host {} (IP: {}) on switch {} (DPID: {})", 
                     blockTask->host_id, hostIp, switchProp.deviceName, switchProp.dpid);
 
+                // `programming_confirmed` says what kind of yes this is (OpResult.hpp, C-4): on P4
+                // the proxy wrote the entry before answering; Ryu's 200 on OVS comes before any
+                // switch has seen the FLOW_MOD, so there the rule is accepted, not yet witnessed.
                 return json{{"status", "success"},
                 {"message", "Host " + blockTask->host_id + " blocked."},
-                {"target_switch", switchProp.deviceName}}.dump();
+                {"target_switch", switchProp.deviceName},
+                {"programming_confirmed", result.confirmsProgramming}}.dump();
             }
             catch (const std::exception& e) {
                 SPDLOG_LOGGER_ERROR(Logger::instance(), "Failed to install block rule: {}", e.what());

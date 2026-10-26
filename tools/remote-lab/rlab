@@ -7,7 +7,7 @@
 #   * ~/RLAB-CLAIM on the machine itself is the single source of truth for "who owns it".
 #   * claim says who OWNS the machine, NOT whether an experiment is running --
 #     always read `rlab status <m>` (load/procs) before touching a "free" machine:
-#     server1-4 taught us a box with nobody logged in can be 15 days into an iperf3 run.
+#     a box with nobody logged in can be 15 days into an iperf3 run.
 #   * release appends to ~/RLAB-HANDOFF.log so the history survives.
 #
 # Usage:
@@ -18,11 +18,11 @@
 #   rlab release <machine>                 archive claim to handoff log, then free
 #   rlab suspended <machine>               is it off limits? answers WITHOUT dialling
 #
-# Machines: server1-4 (old testbed, jump gw), server5-8 (new testbed, jump gw2), cc2,
-#           nslab (ssh alias; VPN, NO jump host -- address lives in ~/.ssh/config).
+# Machines: the testbed servers (two groups, each behind its own jump host), a control box,
+#           and one VM host (ssh alias; VPN, NO jump host -- address lives in ~/.ssh/config).
 #
-# 🔴 2026-08-31: the testbed batch (server1-8/cc2/gw/gw2) is SUSPENDED -- see suspended().
-#    nslab was paused the same day and UNPAUSED once its usage rules landed.
+# 🔴 2026-08-31: the testbed batch (servers, control box, jump hosts) is SUSPENDED -- see
+#    suspended(). The VM host was paused the same day and UNPAUSED once its usage rules landed.
 #    `rlab list` reports that without dialling out; `rlab suspended <m>` asks directly.
 #
 # 🔑 This tool's unit is the MACHINE. On a host running several VMs that is too coarse:
@@ -42,8 +42,8 @@ tgt() {
         server6) echo "server6@10.10.10.252";;
         server7) echo "server7@10.10.10.253";;
         server8) echo "server8@10.10.10.254";;
-        # Alias only, like cc2/gw/gw2 below: the address lives in ~/.ssh/config, which is
-        # not in version control. That is not decoration -- this repo has a PUBLIC
+        # Alias only, like the other alias entries below: the address lives in ~/.ssh/config,
+        # which is not in version control. That is not decoration -- this repo has a PUBLIC
         # upstream, its address is DHCP-assigned and will move, and a hostname that only
         # resolves through the VPN is useless to anyone reading it here anyway.
         nslab) echo "$1";;
@@ -64,10 +64,10 @@ tgt() {
 suspended() {
     case "$1" in
         server1|server2|server3|server4|server5|server6|server7|server8|cc2|gw|gw2)
-            echo "學姐 via Adam, 2026-08-31: 「遠端機器先不要用」（整批 testbed）" ;;
-        # nslab was PAUSED 2026-08-31 ~15:00 -- not because anything was wrong with the
+            echo "the lab maintainers, 2026-08-31: 「遠端機器先不要用」（整批 testbed）" ;;
+        # The VM host was PAUSED 2026-08-31 ~15:00 -- not because anything was wrong with the
         # machine, but because its usage rules had not been written. Both unpause
-        # conditions were met the same day: the rules landed (935bc80) and Adam said go.
+        # conditions were met the same day: the rules landed and the unpause was approved.
         # Lifting it is this edit, which is the whole point of there being no env-var
         # bypass: the unpause has a diff and a timestamp, the same as the pause did.
         *) return 1 ;;
@@ -81,8 +81,8 @@ suspension_notice() {
    who/when: $why
    then:     edit suspended() in $0 -- there is no env-var bypass, so lifting this
              leaves a diff and a timestamp.
-   another machine: NONE. The testbed batch (server1-8/cc2) is separately suspended
-             by 學姐 with a different unlock condition. Ask Adam.
+   another machine: NONE. The rest of the testbed batch is separately suspended
+             with a different unlock condition. Ask the lab maintainer.
 EOF
 }
 

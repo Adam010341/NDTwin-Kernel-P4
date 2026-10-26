@@ -13,7 +13,7 @@
 # a reader can be told, so this file requires it to carry one paragraph per NOWHERE row.
 #
 # 🔴 AND NOTHING WOULD HAVE GONE RED IF SOMEBODY DELETED IT. That is the whole reason this file
-# exists (WAKEUP-S8-DRAFT A-7, DECISIONS-0912-NIGHT N5-5; Adam's form-2 Q7: 加 mnexec 文件格).
+# exists.
 # A paragraph no test reads is a paragraph that survives until the next person tidies the file.
 #
 # 🔴 THE NEEDLES COME OUT OF THE TABLE, NOT OUT OF THE README. For each key this takes the

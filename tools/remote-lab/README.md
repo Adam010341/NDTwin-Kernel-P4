@@ -3,7 +3,7 @@
 > 🟢 **`nslab` 可以用**（2026-08-31 晚間解封）。🔴 **testbed 那批（server1~8／cc2／gw／gw2）仍然停用。**
 > 先問，不要用試的：`rlab suspended <machine>`（**不撥號**）。
 >
-> **使用規定與佔用帳的正本＝[`doc/audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md`](../../doc/audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md)。**
+> **使用規定與佔用帳的正本不在本 repo。**
 > 這份 README 只講工具；**要不要用、什麼時候登記、登記什麼，看那份規定。**
 > 🔴 **R1：開跑前登記，不准事後補登**——那台沒有 claim 工具，佔用表是唯一紀錄。
 
@@ -173,8 +173,8 @@ dispatch 裡多一個 `wipe)`，G10 一個字都不會說。
 ### 🔴 73 → 83（G15）：**同一個錯誤的第四、五層——而 fixture 也是我的格式寫的**
 
 `adopt` 是為「工具沒有那條路」寫的修法。**它自己也只有一條路。**
-它服務的那條線一小時內實測：`Nothing matching /home/nslab/ndtwin-vm/disk.qcow2 is running`
-——它們的 VM 在 `~/addtools/work.qcow2`。⇒ `adopt <pid>`：**目錄也從 argv 推導**。
+它服務的那條線一小時內實測：`Nothing matching <remote-home>/ndtwin-vm/disk.qcow2 is running`
+——它們的 VM 在另一個目錄的 `work.qcow2`。⇒ `adopt <pid>`：**目錄也從 argv 推導**。
 🔑 **守衛必須在重指路徑之後跑**——守著呼叫者碰巧指到的目錄、卻寫進另一個目錄，比沒有守衛更糟。
 
 修好之後 `vms` **仍然**看不見它，而這次不是目錄問題：

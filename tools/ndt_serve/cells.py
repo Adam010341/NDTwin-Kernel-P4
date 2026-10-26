@@ -2,9 +2,9 @@
 
 [Co-developed with claude code -- Adam]
 
-Adam's ruling (09-24 21:4x): open the 11 live_cells in ndt serve, plus a guided mode -- the
-service does one step, says where to look, he presses next, and HE calls red or green. Why, in
-his words: so he can see and verify the AI's work with his own eyes quickly, "這樣我才不會心虛".
+The 11 live_cells are open in ndt serve, plus a guided mode -- the service does one step, says
+where to look, the operator presses next, and the OPERATOR calls red or green, so that whoever
+verifies the AI's work can see it with their own eyes quickly.
 
 Everything here reads the grid's OWN files and runs its OWN scripts, from the tree of the ndt
 this server drives (the main checkout, live):
@@ -41,7 +41,7 @@ _FILE_IN_DETAIL = [re.compile(r"^no such raw file: (\S+)$"),
                               r"still contains|matches|does not match)")]
 PIPE_GRACE_S = 5
 
-# 🔴 Cells whose observe WRITES shared state beyond the lab verbs (judge r2 finding 2). ndt serve's
+# 🔴 Cells whose observe WRITES shared state beyond the lab verbs. ndt serve's
 # own list -- the grid has no such field -- so it is held to the real grid by
 # tests/python/test_ndt_serve_cells.py SharedStateRegistry: a cell script that names one of
 # SHARED_STATE_FILES is on it, and nothing else is. A run of one of these needs an explicit
@@ -89,8 +89,8 @@ def parse_judge(text):
 
 
 def parse_cells_md(path):
-    """name -> {source, fix, expected, fixture} from CELLS.md's table. Text shown to Adam, never
-    used to decide anything."""
+    """name -> {source, fix, expected, fixture} from CELLS.md's table. Text shown to the operator,
+    never used to decide anything."""
     out = {}
     try:
         with open(path) as f:
@@ -125,7 +125,7 @@ class Grid:
     def _run(self, argv):
         """(rc, stdout, stderr, timed_out). rc is None when it timed out.
 
-        The same shape as serve.run_read (judge r2 finding 4): its own session, killpg on the
+        The same shape as serve.run_read: its own session, killpg on the
         group this call created -- by the pid it recorded -- and a bounded wait for the pipes after
         it, so a stuck `meta` or `judge` cannot pin a handler, and a timeout is an answer rather
         than a 500."""
@@ -280,11 +280,11 @@ def _read_lines(p):
 # --- the guided walk ---------------------------------------------------------------------------
 #
 # One cell, up to eight steps, one at a time. The service does the step, says where to look and
-# what green looks like, and stops. Adam presses next. The last step is his: he calls it.
+# what green looks like, and stops. The operator presses next. The last step is theirs: they call it.
 #
 # The lab is released right after the run, BEFORE the compare and the verdict: judging reads the
-# raw the run left, not the lab, and a walk waiting on Adam must not hold a shared lab while it
-# waits (the lab is shared with the orchestrator's acceptance rounds).
+# raw the run left, not the lab, and a walk waiting on the operator must not hold a shared lab while it
+# waits (the lab is shared with other sessions).
 #
 # A step that did not come out as it should BLOCKS the walk -- `next` then retries that step, and
 # nothing after it runs. In particular a claim that was refused never leads to a run, and a run
@@ -333,7 +333,7 @@ def _look_at(step, exp):
         "compare": "看 red_to_green 為 true 的那幾列：這幾條在 old/ 是 FAIL，現在是 ok。still_red 應該全部是 false。",
         "verdict": "由你決定。POST /api/v1/guided/<id>/verdict，body 為 {\"verdict\": \"green\" 或 \"red\", \"note\": \"...\"}。",
         "release": ("rc 0 就是還回去了。lab 在對照和判定之前就先還，"
-                    "因為判定看的是這次 run 留下的 raw，不需要 lab；lab 是和 orchestrator 共用的。"),
+                    "因為判定看的是這次 run 留下的 raw，不需要 lab；lab 是大家共用的。"),
     }[step]
 
 

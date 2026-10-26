@@ -5,11 +5,11 @@ into BMv2Switch.start().
 
 [Co-developed with claude code -- Adam]
 
-Contract under test (from the seam's stated purpose, the A/B performance plan in
-doc/2026-08-15_bmv2-performance-report.md):
-  * no override file        -> stock bare name, no LD_LIBRARY_PATH (pre-seam behavior)
+Contract under test (from the seam's stated purpose: the stock vs fast build A/B
+measurement of 2026-08-15):
+  * no override file        -> raises (there is no default binary to fall back to)
   * valid override          -> that binary; sibling ../lib auto-derived when present
-  * commented-out override  -> stock (commenting the line out disables the override)
+  * commented-out override  -> raises (a file with no directive line names no binary)
   * broken override         -> raises; NEVER silently falls back to the stock binary,
                                because that would produce "fast" numbers measured on the
                                slow build

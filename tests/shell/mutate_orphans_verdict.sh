@@ -17,7 +17,7 @@
 #   M1  the floor never fires                       -> ALL-BLIND 1/4
 #   M2  the floor fires on PARTIAL blindness        -> ALL-BLIND 2/4   (the CLEAN side)
 #   M3  the discriminator matches a bare word        -> ALL-BLIND 3/4
-#   M4  kernel-down loses Adam's 09-10 wording      -> ALL-BLIND 4/4
+#   M4  kernel-down loses its 09-10 wording        -> ALL-BLIND 4/4
 #   M5  the token is right and the rc is 0          -> ALL-BLIND 1/4   (rc, not prose)
 #   M6  a window that WAS read stops counting        -> ALL-BLIND 4/4
 #   M7  a dated rule stops being residue            -> RC_IS_NOT_CONSULTED
@@ -120,7 +120,7 @@ perl -0pi -e 's/    if \(\( N_UNANSWERABLE > 0 && NETWORK_ANSWERED == 0 \)\); th
 report "the all-blind floor never fires" "  🔴 rc 3 -- zeros nobody could measure are not a clean network"
 
 # 2. The floor becomes greedy and fires on ANY unanswered question. That makes this reader red on
-#    a clean OVS4 fabric with one lost window -- the case Adam ruled a NOTE on 2026-09-10 and the
+#    a clean OVS4 fabric with one lost window -- the case decided to be only a NOTE on 2026-09-10 and the
 #    reason the helper exists at all. A floor with no ceiling is the same bug facing the other way.
 perl -0pi -e 's/    if \(\( N_UNANSWERABLE > 0 && NETWORK_ANSWERED == 0 \)\); then/    if (( N_UNANSWERABLE > 0 )); then/' "$V"
 report "the floor fires on partial blindness too" "  🔴 rc 0 -- partial blindness is this lab's normal state"
@@ -130,10 +130,10 @@ report "the floor fires on partial blindness too" "  🔴 rc 0 -- partial blindn
 perl -0pi -e "s/'lock\[\[:space:\]\]\+\[A-Za-z_\]\+ free\[\[:space:\]\]\*\\\$'/' free'/" "$V"
 report "the answer test matches a bare 'free' anywhere" "  🔴 rc 3 -- an error message containing 'free' is not a lock that was read"
 
-# 4. Kernel-down stops being CLEAN. Adam ruled on 2026-09-10 that the process half answers for a
+# 4. Kernel-down stops being CLEAN. It was decided on 2026-09-10 that the process half answers for a
 #    report taken after `ndt down`; the new floor must not quietly annex that cell.
 perl -0pi -e 's/        echo "VERDICT: CLEAN -- the process half only; the network half was NOT checked \(kernel down\)"/        echo "VERDICT: NOT CHECKED -- the network half was not checked (kernel down)"/' "$V"
-report "kernel-down loses Adam's 09-10 CLEAN wording" "  🔴 and Adam's 09-10 wording is unchanged"
+report "kernel-down loses its 09-10 CLEAN wording" "  🔴 and the 09-10 wording is unchanged"
 
 # 5. The prose is right and the exit code passes anyway -- the shape every `orphans && ok || fail`
 #    caller reads, and the one a reader that only greps VERDICT: would never notice.

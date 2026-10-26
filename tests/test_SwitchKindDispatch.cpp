@@ -324,9 +324,9 @@ TEST_F(SwitchKindFixture, EmptyTopologyFailsValidation)
     // A graph with no switches cannot control anything, so it is never acceptable.
     //
     // [Co-developed with claude code -- Adam]
-    // 🔴 THIS CASE STOPPED BEING REACHABLE THROUGH A FILE ON 2026-09-07 (E-26). It used to read
+    // 🔴 THIS CASE STOPPED BEING REACHABLE THROUGH A FILE ON 2026-09-07. It used to read
     // `auto monitor = load("");` -- a document with an empty "nodes" array -- and the loader now
-    // refuses precisely that, by Adam's ruling, so written that way it would throw out of the
+    // refuses precisely that, so written that way it would throw out of the
     // fixture and assert nothing about this function. A freshly constructed monitor holds the
     // same empty graph the old file produced, and it is that graph the backstop at the end of
     // parseStaticTopologyFile asks about, so the claim is unchanged and its subject is the same.
@@ -341,7 +341,7 @@ TEST_F(SwitchKindFixture, EmptyTopologyFailsValidation)
 TEST_F(SwitchKindFixture, AnEmptyTopologyFileIsRefusedAtLoad)
 {
     // [Co-developed with claude code -- Adam]
-    // E-26, the other half: what the FUNCTION says about a switchless graph (above) and what the
+    // The other half: what the FUNCTION says about a switchless graph (above) and what the
     // LOADER does with a switchless document are two claims, and until 2026-09-07 only the first
     // was true -- validateDataPlaneHomogeneity returned false, parseStaticTopologyFile called it
     // as a statement, and the kernel served a fabric of zero switches. This suite's own fixture
@@ -531,9 +531,9 @@ TEST_F(SwitchKindFixture, MixedTopologyDispatchesPerDpid)
 // Found by a review of 0e84234, which pointed at one of the ten call sites; the load-time check
 // is what makes the invariant all ten already assume actually true.
 //
-// 🔴 2026-09-06, FINDINGS #90: the host half of this used to be exempt, and is no longer. The
+// 🔴 2026-09-06: the host half of this used to be exempt, and is no longer. The
 // exemption's stated reason was factual and false -- see AHostWithNoAddressIsRefusedAtLoad below,
-// which is the reversed test, and doc/audit/2026-09-06_fix-host-address-door/.
+// which is the reversed test.
 
 namespace
 {
@@ -608,7 +608,7 @@ TEST_F(TopologyIpValidationTest, ASwitchWithAnAddressStillLoads)
 
 TEST_F(TopologyIpValidationTest, AHostWithNoAddressIsRefusedAtLoad)
 {
-    // 🔴 THIS ASSERTION WAS REVERSED ON 2026-09-06, DELIBERATELY (FINDINGS #90, door 3d). It used
+    // 🔴 THIS ASSERTION WAS REVERSED ON 2026-09-06, DELIBERATELY (the host-address check). It used
     // to be AHostWithNoAddressIsStillAllowed and read:
     //
     //     "The invariant belongs to switches only. Hosts are discovered by Ryu and legitimately
@@ -620,11 +620,11 @@ TEST_F(TopologyIpValidationTest, AHostWithNoAddressIsRefusedAtLoad)
     // five _ipAlias4_ files give four -- and tools/make_topology.py always emits one. No shipped
     // topology lists an addressless host, so refusing one refuses no topology anybody has.
     //
-    // What the old behaviour cost was measured (R0b, 2026-09-05, kernel 862c4bf8): the extra
+    // What the old behaviour cost was measured (2026-09-05, kernel 862c4bf8): the extra
     // `"ip": []` host loaded into the shipped OVS model with ZERO diagnostic and was served on
     // :8000 as `('h9', [])`. A host carries "dpid": 0 and is therefore resolved only by address,
-    // and #88 left five production-reachable host-side `ip[0]` dereferences unguarded
-    // (W2-SUMMARY §2.2), so the node is unnameable and the sites that read it are still unguarded.
+    // and five production-reachable host-side `ip[0]` dereferences were left unguarded, so the
+    // node is unnameable and the sites that read it are still unguarded.
     //
     // Discovery is not affected: this pass only ever sees the static topology document. A host
     // Ryu reports at runtime is added by a different path entirely.

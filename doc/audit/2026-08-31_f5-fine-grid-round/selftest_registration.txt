@@ -1,0 +1,29 @@
+# Registration-shaped fixture for `run_f5.sh selftest`. It is not a registration: it carries only the
+# structures the selftest's forces are built from. [Co-developed with claude code -- Adam]
+#
+# 1. The sentinel. The reader takes the first line that matches ^[[:space:]]*EVIDENCE-BASIS:
+    EVIDENCE-BASIS: COMPLETE
+
+# 2. An [ok] in prose, before the block: the transcript force must delete a row INSIDE the block,
+#    not this one. Lines that start with [ok], or with whitespace and "[", are never read as the sentinel.
+
+# 3. The force-matrix block: one [ok] row per FORCE_MATRIX row in run_f5.sh, up to the closing fence.
+```
+--- force matrix: 16 path-level forces, one row each ---
+  [ok]   claim -> REFUSE: lab.claim owner=
+  [ok]   fabric -> REFUSE: the kernel API
+  [ok]   bootid -> ABORT(#3)
+  [ok]   edgecount -> ABORT(#14)
+  [ok]   fabricshort -> ABORT(#5)
+  [ok]   config -> ABORT(#7/#8)
+  [ok]   exedriftmid -> ABORT(§4 F4)
+  [ok]   restore_atexit -> THE PRODUCTION KERNEL IS NOT RESTORED
+  [ok]   config -> [exit] production kernel
+  [ok]   config,restore_atexit -> THE PRODUCTION KERNEL IS NOT RESTORED
+  [ok]   exeunreadablemid -> could not be READ
+  [ok]   exeunreadable_absorbed -> ABORT(§4 F4)
+  [ok]   logrotate -> LOG-EVIDENCE-INCOMPLETE
+  [ok]   @none@ (fixture) -> EVIDENCE-BASIS: INCOMPLETE
+  [ok]   @none@ (fixture) -> @COMPLETES@
+  [ok]   @none@ (fixture) -> transcript embedded in the registration is out of date
+```

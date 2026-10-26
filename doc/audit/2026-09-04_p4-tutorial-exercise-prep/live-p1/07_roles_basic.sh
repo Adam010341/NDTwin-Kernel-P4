@@ -1,30 +1,29 @@
 #!/usr/bin/env bash
 #
-# Phase 4, first cut -- live acceptance L1-L6 (TICKET-P4-roles section 5-2): exercises/basic on
+# Phase 4, first cut -- live acceptance L1-L6: exercises/basic on
 # pod-topo, the exercise's OWN pipeline, with `roles.ipv4_route` owned by NDTwin -- and then the
 # same exercise without roles, as the negative control.
 #
 # [Co-developed with claude code -- Adam]
 #
 # 🔴 WRITTEN AND SELF-TESTED OFFLINE; ITS AUTHOR NEVER RAN IT AGAINST A LAB. The worker that
-# wrote it had no sudo and no lab (TICKET-P4-roles section 0-2). `--self-test` runs every
+# wrote it had no sudo and no lab. `--self-test` runs every
 # verdict function below against synthetic captures -- one that must pass and one that must fail
 # per check -- and against the real 2026-09-19T062604Z_02_app_basic capture where it exists, and
 # touches nothing else. That proves the checks can tell the answers apart; it proves nothing
 # about a fabric.
 #
-# What each step asserts (the ticket's words, and what each is reconciled against):
+# What each step asserts (and what each is reconciled against):
 #
 #   L1  `GET /ndt/get_graph_data`: all 8 of pod-topo's inter-switch directions
 #       `is_enabled: true, is_up: true`. Reconciled against 062604Z_02_app_basic, where all 8
 #       were false -- no LLDP on a foreign pipeline, so nothing ever entered the proxy's graph.
 #       🔴 `is_up` here comes from the package's DECLARED links, NOT failure detection.
 #       On switch_state (both packages): the `links` block is the 8 declared directions, exactly,
-#       every one `source: heartbeat, down: false` -- since TICKET-P4-heartbeat segment W the
-#       heartbeat `ndt up p4 --app` starts feeds each direction to the proxy at its first
-#       watchdog pass, and link_liveness serves it as heartbeat evidence (the fable judge's R2
-#       note on ebdf365e). Polled for up to 30 s: before that first pass, or with no heartbeat,
-#       every entry is still `source: declared, down: null`, which this check calls BAD.
+#       every one `source: heartbeat, down: false` -- the heartbeat `ndt up p4 --app`
+#       starts feeds each direction to the proxy at its first watchdog pass, and link_liveness
+#       serves it as heartbeat evidence. Polled for up to 30 s: before that first pass, or with no
+#       heartbeat, every entry is still `source: declared, down: null`, which this check calls BAD.
 #   L2  a batch rule written through the kernel API goes in: `get_flow_dispatch_status` for that
 #       request has no failure, and `/stats/flow/1` reads it back (and the delete takes it out).
 #   L3  every ordered host pair pings at 0% loss -- the routes NDTwin wrote into the exercise's
@@ -33,20 +32,20 @@
 #       after >= 35 s (at least one `updateLinks` poll), then `inject_link_recovery` -> back to
 #       true, and no netem left on either end. 🔴 REROUTING IS NOT ASSERTED here (08_heartbeat.sh
 #       H1 asserts it); the traffic across the cut link is recorded as it is, loss and all.
-#       [Co-developed with claude code -- Adam] Since TICKET-P4-heartbeat segment W `ndt up p4
+#       [Co-developed with claude code -- Adam] `ndt up p4
 #       --app` starts the heartbeat on this package, and the cut's netem stops its frames too: on
 #       the OWNED package the proxy now detects the cut itself and reroutes, so L4's recorded
 #       traffic numbers may differ from the first cut's (INFERRED, not run).
 #   L5  negative control, the same exercise WITHOUT roles: a kernel write answers 501
 #       `unsupported_on_p4` (reason `unbound`) and lands in the dispatch failures, and the
 #       author's own ipv4_lpm entries are row-for-row what they were before the write.
-#       Round 2 (section 7 ruling 5, item 6): one of the writes is aimed at the author's OWN /32
+#       One of the writes is aimed at the author's OWN /32
 #       -- s1's 10.0.1.1, declared -> port 1, written here with port 2. That is the hazard the
 #       cut exists to close: before it, the INSERT failed on the existing /32 and the proxy
 #       fell back to a MODIFY that silently rewrote the author's entry. It must answer 501, and
 #       s1 must still send 10.0.1.1 out of port 1 afterwards.
-#   L6  `GET /p4/switch_state` -- every switch's `capabilities` is section 2.5's shape, with the
-#       two keys the heartbeat decides (segment W; the fable judge's 2.4 on 1a3ebd7f):
+#   L6  `GET /p4/switch_state` -- every switch's `capabilities` has the specified shape, with the
+#       two keys the heartbeat decides:
 #       {ipv4_route: ndtwin, five_tuple: false, reroute: true, link_discovery: heartbeat,
 #        binding_source: package}; and on the control, {unbound, false, false, heartbeat, null}
 #       -- detected there, not rerouted (reroute.reason `unbound`). Both need the heartbeat
@@ -76,15 +75,15 @@ PROBE_DST="10.0.9.9"
 #: The author's own /32 on s1 (exercises/basic/pod-topo/s1-runtime.json: 10.0.1.1 -> port 1),
 #: and the port L5 tries to move it to.
 AUTHOR_DST="10.0.1.1"; AUTHOR_PORT=1; AUTHOR_MOVED_TO=2
-#: What section 2.5-2 says each switch of each fabric must report.
-#: [Co-developed with claude code -- Adam] reroute / link_discovery as the heartbeat decides them
-#: (TICKET-P4-heartbeat segment W): owned -> true / heartbeat, unbound -> false / heartbeat.
+#: What each switch of each fabric must report.
+#: [Co-developed with claude code -- Adam] reroute / link_discovery as the heartbeat decides them:
+#: owned -> true / heartbeat, unbound -> false / heartbeat.
 CAPS_OWNED='{"ipv4_route":"ndtwin","five_tuple":false,"reroute":true,"link_discovery":"heartbeat","binding_source":"package"}'
 CAPS_UNBOUND='{"ipv4_route":"unbound","five_tuple":false,"reroute":false,"link_discovery":"heartbeat","binding_source":null}'
 #: control_plane.skipped with every table owned: LLDP's beacons still off, routes back on.
-#: [Co-developed with claude code -- Adam] Adam's ruling E (09-27): `link_watchdog` is NOT in it --
-#: the heartbeat drives the watchdog on this fabric, so it runs. (Before the ruling both lists
-#: named it.) It is named only when the heartbeat watchdog did not start.
+#: [Co-developed with claude code -- Adam] `link_watchdog` is NOT in it --
+#: the heartbeat drives the watchdog on this fabric, so it runs. (Both lists used to
+#: name it.) It is named only when the heartbeat watchdog did not start.
 SKIPPED_OWNED="['lldp_discovery']"
 SKIPPED_UNBOUND="['install_initial_routes', 'lldp_discovery']"
 
@@ -182,13 +181,12 @@ l1_links_verdict() { links_heard "$1" "$2"; }
 # links_heard <switch_state.json> <model topology.json> -- switch_state's `links` is the model's
 # inter-switch directions EXACTLY (none missing, none extra), every one fed by the heartbeat
 # (`source: heartbeat`) and every heartbeat entry up (`down: false`).
-# [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W, the fable judge's R2 note:
-# "every link heartbeat-sourced, all 8 present" rather than "declared or heartbeat", because the
-# looser rule passes the two failures this line exists for -- a heartbeat that never reached the
-# proxy (all 8 still `declared`: no detection at all, which only the caps line would otherwise
-# notice) and a direction the heartbeat does not carry (the report is then unusable and every
-# entry stays `declared`). Both rules count; this one also compares the KEYS with the model, so
-# a wrong link cannot stand in for a missing one.
+# [Co-developed with claude code -- Adam] "every link heartbeat-sourced, all 8 present" rather than
+# "declared or heartbeat", because the looser rule passes the two failures this line exists for -- a
+# heartbeat that never reached the proxy (all 8 still `declared`: no detection at all, which only
+# the caps line would otherwise notice) and a direction the heartbeat does not carry (the report is
+# then unusable and every entry stays `declared`). Both rules count; this one also compares the KEYS
+# with the model, so a wrong link cannot stand in for a missing one.
 links_heard() {
     "$PY" - "$1" "$2" <<'PY'
 import json, sys
@@ -202,7 +200,7 @@ missing = [k for k in want if k not in links]
 extra = sorted(k for k in links if k not in want)
 unfed = [k for k in want if k in links and got(k, "source") != "heartbeat"]
 down = [k for k in want if k in links and got(k, "source") == "heartbeat" and got(k, "down") is not False]
-# [Co-developed with claude code -- Adam] The opus judge's N3-1: a direction the heartbeat has not
+# [Co-developed with claude code -- Adam] A direction the heartbeat has not
 # heard yet reads heartbeat / down false for the proxy's 30 s startup grace, with no age -- HEARD
 # means an age.
 number = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
@@ -348,7 +346,7 @@ judge() {
 
 # [Co-developed with claude code -- Adam] state_until and the L6/L1 calls live ABOVE the self-test
 # dispatch (they used to sit below it, with the rest of the live helpers -- which is why no self-test
-# could run them: the opus judge's N3-2).
+# could run them).
 # state_until <seconds> <verdict function> <out-file> [args...] -- poll /p4/switch_state every 2 s
 # until the verdict reads OK or the time is up; the LAST capture is kept at <out-file> and every
 # attempt's verdict is appended to <out-file>.polls. [Co-developed with claude code -- Adam] The
@@ -373,8 +371,8 @@ state_until() {
 # l6_switch_state <out> <model> <caps> <skipped> <label suffix> <no-state message> <poll s> -- L6's
 # two capability checks and L1 on switch_state, on the capture state_until's poll ends on.
 # l6_roles / l6_plain [poll s] are the live path's two calls, arguments and all -- functions so
-# that the self-test executes them (the opus judge's N3-2). [Co-developed with claude code -- Adam]
-# 🔴 THE POLL IS AN ARGUMENT, NEVER THE ENVIRONMENT (R-N2, 09-27): the live path calls them with
+# that the self-test executes them. [Co-developed with claude code -- Adam]
+# 🔴 THE POLL IS AN ARGUMENT, NEVER THE ENVIRONMENT: the live path calls them with
 # none and gets 30 s; only the self-test passes a shorter one. It used to be ${L1_POLL_S:-30}, and
 # any caller that exported L1_POLL_S cut the live wait for the first watchdog pass.
 l6_switch_state() {
@@ -430,15 +428,15 @@ dump("graph_cut.json", cut)
 half = copy.deepcopy(up)
 half["edges"][0]["is_up"] = False     # (1,3,3,1) only
 dump("graph_half_cut.json", half)
-# [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W (the fable judge's 2.4 on
-# 1a3ebd7f): `ndt up p4 --app` now starts the root helper's heartbeat on these packages, so an
-# owned fabric reroutes and both fabrics discover their links by the heartbeat.
+# [Co-developed with claude code -- Adam] `ndt up p4 --app` now starts the root helper's heartbeat
+# on these packages, so an owned fabric reroutes and both fabrics discover their links by the
+# heartbeat.
 owned = {"ipv4_route": "ndtwin", "five_tuple": False, "reroute": True,
          "link_discovery": "heartbeat", "binding_source": "package"}
 unbound = {"ipv4_route": "unbound", "five_tuple": False, "reroute": False,
            "link_discovery": "heartbeat", "binding_source": None}
 # [Co-developed with claude code -- Adam] `links` as switch_state serves it once the heartbeat
-# has fed the proxy (the fable judge's R2 note on ebdf365e): the first watchdog pass enters every
+# has fed the proxy: the first watchdog pass enters every
 # declared direction as heartbeat evidence, and link_liveness reports it with `source: heartbeat`
 # (a declared entry is only the setdefault behind it). Before that pass, or with no heartbeat,
 # every entry is `source: declared, down: null` -- the first cut's shape, kept below as a BAD.
@@ -460,7 +458,7 @@ links_variant("links_all_declared.json", lambda l: [l.__setitem__(k, declared_on
 links_variant("links_one_down.json", lambda l: l[key(3, 1, 1, 3)].__setitem__("down", True))
 links_variant("links_one_missing.json", lambda l: l.pop(key(2, 4, 3, 2)))
 links_variant("links_one_extra.json", lambda l: l.__setitem__(key(1, 3, 4, 1), heard()))
-# [Co-developed with claude code -- Adam] The opus judge's N3-1: a direction the heartbeat has not
+# [Co-developed with claude code -- Adam] A direction the heartbeat has not
 # heard yet is entered at the daemon's start and, for LINK_STARTUP_GRACE_S (30 s), served as
 # heartbeat / down false / age null -- not heard, and not yet down.
 grace = lambda: {"source": "heartbeat", "down": False, "last_beacon_age_s": None, "reported_to_kernel": True}
@@ -477,7 +475,7 @@ wrong["switches"]["3"]["capabilities"] = dict(owned, reroute=False)
 wrong["control_plane"]["skipped"].append("install_initial_routes")
 wrong["links"] = {}
 dump("state_wrong.json", wrong)
-# [Co-developed with claude code -- Adam] Ruling E: the list as it was before -- the watchdog named
+# [Co-developed with claude code -- Adam] The list as it was before -- the watchdog named
 # skipped on a fabric whose heartbeat drives it.
 watchdog_named = copy.deepcopy(state)
 watchdog_named["control_plane"]["skipped"] = ["link_watchdog", "lldp_discovery"]
@@ -556,8 +554,7 @@ PY
     # package's 8 declared directions, exactly, every one fed by the heartbeat and none down.
     # The live path's L1-on-switch_state check (l1_links_verdict), on a heartbeat-fed switch_state
     # and on the first cut's all-declared shape. Until 7de09bac's fix it was `declared_links_marked
-    # "$SS" 8`, which said "BAD 0 of 8 link entries are declared" on the first -- the judge's R2
-    # finding.
+    # "$SS" 8`, which said "BAD 0 of 8 link entries are declared" on the first.
     expect OK  "L1 the live path's switch_state check on a heartbeat-fed fabric" "$(l1_links_verdict "$t/state_owned.json" "$t/model.json")"
     expect BAD "L1 the live path's check on the first cut's all-declared shape" "$(l1_links_verdict "$t/links_all_declared.json" "$t/model.json")"
     expect OK  "L1 the eight declared directions, heard" "$(links_heard "$t/state_owned.json" "$t/model.json")"
@@ -612,8 +609,8 @@ PY
     got="$(st_l6 roles - - 2)" || true
     [[ "$got" == *"F L6: no switch_state"* ]] && ok "  no switch_state at all: a fail, not a pass" \
                                             || red "  no switch_state at all -- $(tr '\n' '|' <<<"$got")"
-    # [Co-developed with claude code -- Adam] R-N2 (the opus judge, 09-27): the live path's poll is
-    # 30 s whatever the environment says. R3-N3 / R3-N4 (the r3 opus judge, 09-27): it is now run to
+    # [Co-developed with claude code -- Adam] The live path's poll is
+    # 30 s whatever the environment says, and it is run to
     # its END, on a clock this cell owns. state_until reads the time only through `date +%s` and
     # waits only through `sleep`; st_l6_default puts a `date` and a `sleep` first on PATH that keep
     # a virtual clock (`sleep N` adds N; `date +%s` reads it; every other `date` is the real one),
@@ -668,7 +665,7 @@ PY
     # 🔴 Against the REAL switch_states of 08's live run (2026-09-26T152605Z_08_heartbeat), where they
     # exist on this machine (not committed; SELFTEST_HB_RUN / SELFTEST_HB_PKGS point elsewhere,
     # read-only): right after `ndt up` (22 roles, 61 unbound) every link is still `declared` -- BAD;
-    # after a cut and restore (35, 67) all eight heard -- OK. (The opus judge's suggested check.)
+    # after a cut and restore (35, 67) all eight heard -- OK.
     local hbrun="${SELFTEST_HB_RUN:-$LIVE_DIR/runs/2026-09-26T152605Z_08_heartbeat}"
     local hbpkgs="${SELFTEST_HB_PKGS:-$PKG_ROOT}"
     if [[ -s "$hbrun/22_switch_state.json" && -s "$hbpkgs/hb_basic_roles/ndtwin/topology.json" ]]; then
@@ -696,8 +693,8 @@ PY
     expect BAD "L5 a refusal for another reason" "$(dispatch_refused_unbound "$t/dispatch_failed.json" "$t/dispatch_global_owned.json")"
     expect OK  "L5 counters moved, rows did not" "$(rows_unchanged "$t/before" "$t/same")"
     expect BAD "L5 a row changed"                "$(rows_unchanged "$t/before" "$t/moved")"
-    # 🔴 Against the REAL capture the ticket reconciles L1 with, where it exists on this machine:
-    # the run that motivated this ticket must read BAD, all eight false.
+    # 🔴 Against the REAL capture L1 is reconciled with, where it exists on this machine:
+    # the run that motivated this check must read BAD, all eight false.
     # Overridable because the capture is not committed: it lives in whichever checkout ran it
     # (SELFTEST_OLD_RUN / SELFTEST_OLD_TOPO point elsewhere, read-only).
     local old="${SELFTEST_OLD_RUN:-$LIVE_DIR/runs/2026-09-19T062604Z_02_app_basic}"
@@ -863,7 +860,7 @@ else
     say "L1 -- the kernel's graph: 8 inter-switch directions enabled and up (poll up to 90 s)"
     V="$(graph_until 90 edges_all_up "$RUN/31_graph_roles.json" "$PKG_ROLES/ndtwin/topology.json")"
     judge "$V" "L1 (reconciled against 062604Z_02_app_basic: 0/8 there)"
-    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: detection comes from the
+    # [Co-developed with claude code -- Adam] Detection comes from the
     # heartbeat now (switch_state `heartbeat`, `reroute`); the edges came up by the declaration.
     note "the edges came up by DECLARATION; a cut is detected by the heartbeat (switch_state heartbeat/reroute), not by LLDP"
 
@@ -956,8 +953,8 @@ if (( DOWN_RC == 0 )); then
             "{\"dpid\":1,\"match\":{\"dl_type\":2048,\"nw_dst\":\"$PROBE_DST\"},\"actions\":[{\"type\":\"OUTPUT\",\"port\":3}]}" \
             "$RUN/73_proxy_add"
         judge "$(refused_501 "$RUN/73_proxy_add.code" "$RUN/73_proxy_add.json")" "L5 proxy"
-        # The author's OWN /32 with another port -- round 1's silent-MODIFY hazard, aimed at
-        # directly (section 7 ruling 5, item 6).
+        # The author's OWN /32 with another port -- the silent-MODIFY hazard, aimed at
+        # directly.
         post_json "$PROXY_URL/stats/flowentry/add" \
             "{\"dpid\":1,\"match\":{\"dl_type\":2048,\"nw_dst\":\"$AUTHOR_DST\"},\"actions\":[{\"type\":\"OUTPUT\",\"port\":$AUTHOR_MOVED_TO}]}" \
             "$RUN/73b_proxy_add_author_32"

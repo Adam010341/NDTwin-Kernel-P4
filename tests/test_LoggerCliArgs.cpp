@@ -1,6 +1,6 @@
 /**
  * @file test_LoggerCliArgs.cpp
- * @brief FINDINGS #63 -- `--logfile` was documented as taking a path and was in fact a boolean.
+ * @brief `--logfile` was documented as taking a path and was in fact a boolean.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -11,8 +11,7 @@
  * The next argv was never consumed. `ndtwin_kernel --logfile /where/i/want.log` therefore did
  * three things at once, all of them quiet: it turned file logging on, it dropped the path as a
  * stray positional, and it wrote to a hard-coded `netdt.log` in the process's cwd. The file the
- * operator named stayed 0 bytes and stderr said nothing. Measured live on 2026-09-03
- * (doc/audit/2026-09-03_night-rounds/round5-topology-repro/26_logfile_option_check.log):
+ * operator named stayed 0 bytes and stderr said nothing. Measured live on 2026-09-03:
  * build/netdt.log = 74 942 bytes, the named file = 0.
  *
  * WHY IT IS WORTH A SUITE OF ITS OWN
@@ -46,7 +45,7 @@
  * be the one to go red, and two mutations are widenings that must leave every test GREEN.
  *
  * -------------------------------------------------------------------------------------------
- * FINDINGS #70 (added on fix/logger-cli-refuses-unknown) -- THE SAME SHAPE, ONE FLAG WIDER.
+ * THE SAME SHAPE, ONE FLAG WIDER.
  *
  * `--logfle /tmp/x.log` was accepted, did nothing and printed nothing, exit 0. Both parsers
  * ignored what they did not recognise, and neither was in a position to do otherwise: each walks
@@ -543,7 +542,7 @@ TEST(LoggerUsageTextTest, TheUsageShowsLoglevelTakingAValue)
 }
 
 // =================================================================================================
-// FINDINGS #70 -- an option nobody owns is an ERROR, and an option somebody owns is not
+// Unknown options -- an option nobody owns is an ERROR, and an option somebody owns is not
 //
 // Half of this block asserts a refusal and half asserts an acceptance, and the second half is the
 // one that gives the first half its meaning. `reject_unknown_flags` returning void and exiting on
@@ -693,10 +692,9 @@ TEST(LoggerCliArgsTest, EveryValueTakingFlagInTheTableIsHonouredByTheParser)
     }
 }
 
-/// FINDINGS #70's first half, executed. This branch has never run in the kernel: src/main.cpp's
+/// The help branch, executed. This branch has never run in the kernel: src/main.cpp's
 /// parser answers --help first and returns 0, so `ndtwin_kernel --help` is main's text, not this
-/// one. It is still the only --help a logging-only binary has (see
-/// doc/audit/2026-09-01_esa-power-off-injection/driver.cpp), and an unexecuted branch is how a
+/// one. It is still the only --help a logging-only binary has, and an unexecuted branch is how a
 /// help text and a behaviour drift apart -- so it is run here rather than left to be assumed.
 TEST(LoggerCliArgsDeathTest, TheHelpBranchOfTheLoggingParserRunsAndPrintsTheOptionBlock)
 {
@@ -715,7 +713,7 @@ TEST(LoggerCliArgsDeathTest, TheShortHelpBranchRunsToo)
 }
 
 // =================================================================================================
-// FINDINGS #69 -- the level names, from the other direction
+// The level names, from the other direction
 //
 // EveryLevelNameTheHelpAdvertisesIsAccepted (above) reads a list written out in this file. This
 // one reads the list out of the HELP TEXT ITSELF, so a name added to the usage that parse_level

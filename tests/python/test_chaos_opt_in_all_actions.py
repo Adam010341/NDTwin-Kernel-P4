@@ -10,10 +10,11 @@ The defect, in `doc/audit/2026-08-28_chaos-harness/harness/`:
 
 So an action that is not a positive control could carry the field and run ungated, and one
 did: `link_blackhole` is `destructive=True`, puts `tc netem loss 100%` on a live link, and its
-undo depends on a sudo grant whose `parent` form has never been observed to be accepted on this
-machine. It had no opt-in at all, and the path that reaches it -- `--dry-run` -- asked no
-question before running it. Same family as #71 and #75: `existence != wiring`. A field declared
-in one file and enforced in one branch of another is a safety label, not a gate.
+undo needs a sudoers rule for the `parent` form of `tc qdisc del`, which the User Manual does not
+set up, and that form has never been observed to succeed on a lab machine. It had no opt-in at
+all, and the path that reaches it -- `--dry-run` -- asked no question before running it. Same
+family as #71 and #75: `existence != wiring`. A field declared in one file and enforced in one
+branch of another is a safety label, not a gate.
 
 🔴 The fix is not "add a flag to the blackhole". A flag added to an action nobody asks about
 would be exactly the defect again, one action later. So the decision moved into
@@ -25,12 +26,11 @@ halves, and the second is the one that would rot silently:
   * `injection_round` refuses BEFORE apply, dry run included, and runs no command at all
   * `gate_g1_controls` refuses with the IDENTICAL sentence (one decision, not two that agree)
   * the flag reaches the action through `main()`'s argv -- the wiring, end to end
-  * `link_blackhole` is gated AND still absent from `CHAOS_ACTIONS`, which is Adam's ruling of
-    2026-09-07 (DECISIONS.md, grill §4E, E-4): gating it and adding it to `--full` are two
-    questions and they got two answers.
+  * `link_blackhole` is gated AND still absent from `CHAOS_ACTIONS`, which is deliberate (2026-09-07): gating it
+    and adding it to `--full` are two questions and they got two answers.
 
-Why the dry run is inside the gate, since it looks like the opposite of `04` §5.2 ("the allow
-path needs a dry run, and the runner exercises it"): the blackhole is in no list, so the dry
+Why the dry run is inside the gate, since it looks like the opposite of the rule that
+"the allow path needs a dry run, and the runner exercises it": the blackhole is in no list, so the dry
 run is the ONLY path that reaches it. An opt-in that exempted dry runs would gate nothing at
 all while the report said "gated". `--dry-run --allow-link-blackhole` gets §5.2's exercise back,
 on purpose and by name.
@@ -73,7 +73,7 @@ from antioracle import PASS  # noqa: E402
 
 FLAG = "allow-link-blackhole"
 
-# 🔴 Verbatim from doc/audit/2026-08-12_overnight-review/C-live-ovs-runbook.md, P1 (2026-08-13):
+# 🔴 Verbatim from a live capture (2026-08-13) of
 # a live TCLink interface. Used here only so the ALLOWED dry run has a real tree to plan
 # against -- the attach rule itself is tested in test_chaos_link_blackhole_attach.py.
 SHAPED = ("qdisc htb 5: root refcnt 15 r2q 10 default 0x1 direct_packets_stat 0 "
@@ -121,7 +121,7 @@ class FakeShell:
 
     2026-09-12: it used to answer `pgrep` too -- "no BMv2 running; pgrep exits 1 on no match".
     That branch is gone because the command is gone: probes.bmv2_process_count reads the switch
-    manifest by pid now (FIX-PROXY-2 A11), and how many switches are up is decided by the
+    manifest by pid now, and how many switches are up is decided by the
     NDTWIN_P4_MANIFEST this file points at a path that does not exist, not by a shell-out. A
     stub that keeps answering a command nothing runs is the thing that makes a registry of
     "still asks by name" rot into an excuse.
@@ -341,17 +341,17 @@ class BothEntryPointsAskTheSameQuestion(unittest.TestCase):
 
 # =============================================================================================
 class TheBlackholeIsGatedAndStaysOutOfFull(unittest.TestCase):
-    """Adam's ruling, 2026-09-07 (E-4). Two questions, two answers, and both are pinned."""
+    """Gated and kept out: two questions, two answers, and both are pinned."""
 
     def test_the_blackhole_carries_an_opt_in_flag(self):
         self.assertEqual(actions.link_blackhole("s1-eth1").needs_opt_in, FLAG)
 
     def test_the_blackhole_is_not_in_the_list_full_runs(self):
         """`--full` walks CHAOS_ACTIONS. Putting the blackhole there would send `tc` at a live
-        link on every full run -- which is the decision Adam took, and took the other way."""
+        link on every full run -- which is deliberately not done."""
         blackholes = [a.id for a in actions.CHAOS_ACTIONS if a.id.startswith("T-netem")]
         self.assertEqual(blackholes, [],
-                         "link_blackhole is in CHAOS_ACTIONS; E-4 ruled it stays out")
+                         "link_blackhole is in CHAOS_ACTIONS; it is meant to stay out")
 
     def test_every_destructive_action_the_runner_can_build_is_behind_a_flag(self):
         """The general statement of E-4, asked of the whole surface rather than of the one

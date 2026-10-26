@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# TICKET-P3 §2.7 and §8-2. This is a LOOP AND A TABLE, not a check: every judgement belongs to
+# This is a LOOP AND A TABLE, not a check: every judgement belongs to
 # drive_exercise.py, which brings its own fabric up and tears it down per arm and writes its own
 # report. What this script adds is the one thing twenty-six separate commands cannot: a single
 # table that says which arms ran, what each of them exited, and -- the part that matters -- that
@@ -37,7 +37,7 @@ REPO="$(cd "$HERE/../../../.." && pwd)"
 #: are a table -- which is the only way to test the one decision this step makes without a lab.
 DRIVER="${DRIVER_UNDER_TEST:-$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py}"
 VENV_PY="${VENV_PY:-/home/adam/p4dev-python-venv/bin/python}"
-# [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER (Adam's ruling G, 09-27): this line was
+# [Co-developed with claude code -- Adam] 🔴 NO DEFAULT OWNER: this line was
 # `: "${NDT_OWNER:=live-p1}"`, and every round the driver claimed was then claimed by nobody.
 # Refused before anything is written -- the run directory included.
 if [[ -z "${NDT_OWNER:-}" ]]; then
@@ -89,7 +89,7 @@ if bash "$HERE/venv_fingerprint.sh" "$RUN/00_venv.txt" "$REPO/p4_proxy/venv/bin/
 else
     bad "the venv fingerprint was not fully recorded -- 00_venv.txt says which interpreter did not answer"
 fi
-# [Co-developed with claude code -- Adam] (the round-4 review's M-2) which code this round ran --
+# [Co-developed with claude code -- Adam] which code this round ran --
 # HEAD and its parents, the uncommitted tracked files, the kernel, bmv2 and helper binaries, both
 # venvs (live-p1/code_identity.py) -- so external_evidence.py can refuse a treatment that is not
 # its controls' code plus B. Recorded, never a refusal here.
@@ -112,7 +112,7 @@ ROWS=0
 
 # 🔴 WHAT "AS EXPECTED" MEANS, per arm -- AND A CORRECT SKELETON ARM EXITS 0.
 #
-# Round 1 had this inverted (judge A2, TICKET-P3 section 9 ruling 9). "The red arm is red" is a
+# This was once inverted. "The red arm is red" is a
 # statement about the EXERCISE, and drive_exercise.py expresses it as an EXPECTATION -- the
 # skeleton arm asserts "h2 received 0 packets", "every reported port is 0", "the flow is NOT
 # blocked". When the skeleton behaves as the exercise says, every one of those PASSES and the
@@ -150,7 +150,7 @@ run_arm() {   # run_arm <exercise> <which>
     # declares every name in a `local` list BEFORE assigning any of them, so a later assignment
     # that reads an earlier one expands an UNSET variable and the function dies on its first
     # line: `which: unbound variable`. Both live scripts had it, neither had ever been run, and
-    # tests/shell/test_live_p1_thirteen.sh is what found it (TICKET-P3 §9 ruling 9, round 2).
+    # tests/shell/test_live_p1_thirteen.sh is what found it.
     local ex="$1" which="$2"
     local log rc want verdict report
     log="$RUN/${ex}_${which}.log"
@@ -164,7 +164,7 @@ run_arm() {   # run_arm <exercise> <which>
     ROWS=$((ROWS+1))
     note "rc=$rc (want $want)   ${verdict:-<no verdict line>}"
     [[ -n "$report" ]] && note "report: $report"
-    # 🔴 rc 1 ALONE CANNOT TELL "by design" FROM "the red arm is not red" (round-3 ruling 2).
+    # 🔴 rc 1 ALONE CANNOT TELL "by design" FROM "the red arm is not red".
     # The two exception arms are expected to exit 1 -- but so does an arm that FAILED an
     # expectation. `flowcache/skeleton` that COMPILED prints `FAIL (1/1): the skeleton COMPILED`
     # and exits 1; `basic_tunnel/skeleton` whose entries INSTALLED prints `FAIL (1/n)` and exits

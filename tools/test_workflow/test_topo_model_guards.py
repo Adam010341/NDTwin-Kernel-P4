@@ -1,6 +1,6 @@
 """Guards on the topology model reader: each must fire, and the baseline must still pass.
 
-Added after the second review round (2026-08-21). Every case here is a defect that was found
+Added 2026-08-21. Every case here is a defect that was found
 live -- a duplicate dpid silently deleting links, an NDTWIN_P4_TOPO_FILE override skipping the
 host-count check it documents, broken JSON escaping as a bare JSONDecodeError. A guard nobody
 has watched fail is not a guard, so this asserts the raise, not just the happy path.
@@ -57,7 +57,7 @@ sw = [n for n in dup["nodes"] if n.get("vertex_type") == 0]
 sw[1]["dpid"] = sw[0]["dpid"]
 expect_raise("duplicate dpid is refused", lambda: T.switches(dup))
 
-print("regression: a host attached twice stays benign (reviewer confirmed it is not a defect)")
+print("regression: a host attached twice stays benign (not a defect)")
 dbl = copy.deepcopy(base)
 host_edge = next(e for e in dbl["edges"] if e.get("src_dpid") and not e.get("dst_dpid"))
 dbl["edges"].append(copy.deepcopy(host_edge))

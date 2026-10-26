@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_ndtwin_lab_heartbeat.sh.  TICKET-P4-heartbeat, segment H.
+# Mutation gate for tests/shell/test_ndtwin_lab_heartbeat.sh.
 #
 # [Co-developed with claude code -- Adam]
 #
-# The heartbeat is a root entry point, and every rule the ticket gives it -- the interfaces come
+# The heartbeat is a root entry point, and every rule it is given -- the interfaces come
 # only from the running fabric, no second daemon, stop by pid AND argv, nothing taken from argv,
 # nothing decided -- is a rule whose absence would be silent. This gate takes each one out of
 # tools/test_workflow/ndtwin-lab, one at a time, runs the suite, and requires that the check NAMED
@@ -24,7 +24,7 @@
 # 🔴 Touches no lab and needs no root. The suite runs as the operator against fixtures; the helper's
 # dispatch -- the only path to root -- is unreachable from it.
 #
-# 🔴 ONE MUTANT NEEDS THE MACHINE, NOT JUST THE REPO (judge #10, round 2): `ethertype-collides`
+# 🔴 ONE MUTANT NEEDS THE MACHINE, NOT JUST THE REPO: `ethertype-collides`
 # is caught by the scan of the tutorials parsers, which exist only where $HOME/tutorials/exercises
 # does (26 .p4 files on this laptop). Without that tree the suite prints "the collision half was
 # NOT checked", the mutant SURVIVES, and this gate exits 1 -- loudly, never a silent pass. On such
@@ -352,7 +352,7 @@ write_case pidfile-path-drift "the helper's HB_RUN_DIR default is the program's 
     return tuple(os.path.join(run_dir, n) for n in ("heartbeat.pidfile", "heartbeat.lock", "heartbeat.json"))
 PAIR
 
-# --- round 2 (Adam's ruling (a), judge #6, #7, #9) ---------------------------------------------
+# --- second pass ---------------------------------------------
 CASES+=(ndtwin-pipeline-accepted)
 write_case ndtwin-pipeline-accepted "a fabric running NDTwin's own pipeline is refused (one switch of four)" <<'PAIR'
     if own:

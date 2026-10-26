@@ -9,7 +9,7 @@
 # ===========================================================================
 #  WHY THIS EXISTS, AND WHY EVERY LINE CARRIES A HOSTNAME
 #
-#  2026-09-01: an auditor read a witness log of this shape
+#  2026-09-01: a reader looked at a witness log of this shape
 #
 #      23:57:39 load=0.58 qemu=1 pids=52578
 #
@@ -295,8 +295,8 @@ COUNT="${2:-0}"
 #
 #      Self-describing output is not a gate. Only refusing is a gate.
 #
-#  Reported by the 8/29 poster-reviewer line, within an hour of first use,
-#  from a real run -- see new-tools-are-the-first-thing-under-test.
+#  Found within an hour of first use, from a real run: new tools are the
+#  first thing under test.
 # ===========================================================================
 case "$INTERVAL" in
     ''|*[!0-9.]*|*.*.*) die_arg "interval must be a number, got '$INTERVAL'" ;;

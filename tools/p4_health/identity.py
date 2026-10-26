@@ -1,4 +1,4 @@
-"""What a lab run ran: the Q6(a) gate fingerprint and the system under test. (Cut 2 review m4)
+"""What a lab run ran: the Q6(a) gate fingerprint and the system under test.
 
 [Co-developed with claude code -- Adam]
 

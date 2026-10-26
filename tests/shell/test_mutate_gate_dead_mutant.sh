@@ -4,11 +4,11 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# WHY THIS FILE EXISTS (TICKET-P3 §9 ruling 12a). Round 3 added a `bash -n` guard to that gate
-# so a mutant that does not parse would be REFUSED rather than counted -- and wrote that in the
-# gate's own comments and in the ticket's report -- while the code incremented `SURVIVORS`. So a
-# dead mutant still came out as `N mutations, N survived`, rc 1: the gate said one thing about
-# itself and did another, which is the same defect it exists to catch, one level up.
+# WHY THIS FILE EXISTS. A `bash -n` guard was added to that gate so a mutant that does not parse
+# would be REFUSED rather than counted -- and the gate's own comments said so -- while the code
+# incremented `SURVIVORS`. So a dead mutant still came out as `N mutations, N survived`, rc 1: the
+# gate said one thing about itself and did another, which is the same defect it exists to catch, one
+# level up.
 #
 # 🔴 THE GUARD HAD NEVER BEEN SEEN RED. Every mutant in that gate parses, so the branch had
 # never executed in anger; "0 survived" was consistent with the guard being dead code. This file
@@ -161,9 +161,9 @@ has   "  the mutation itself was caught"                 "caught" "$OUT"
 # =============================================================================================
 section "3. the counters are three, not two"
 # =============================================================================================
-# 🔴 THE REGRESSION ITSELF. Round 3 incremented SURVIVORS in the dead branch, so `N survived`
-# reported a measurement that never happened. If the dead branch ever touches SURVIVORS again,
-# section 1's `hasnt survived` passes (there is no verdict line) -- this is what catches it.
+# 🔴 THE REGRESSION ITSELF. The first version incremented SURVIVORS in the dead branch, so `N
+# survived` reported a measurement that never happened. If the dead branch ever touches SURVIVORS
+# again, section 1's `hasnt survived` passes (there is no verdict line) -- this is what catches it.
 check "🔴 both report functions increment DEAD, not SURVIVORS" "2" \
       "$(/usr/bin/grep -c 'DEAD=$((DEAD+1))' "$GATE")"
 # 🔴 THE REGRESSION, CHECKED WHERE IT LIVES: the line right after each DEAD increment must be
@@ -175,12 +175,12 @@ has   "  the verdict is gated on DEAD"                   'if [[ "$DEAD" -gt 0 ]]
 # =============================================================================================
 section "5. 🔴 mutate_drive_exercise.sh answers about ITSELF, not about its subject"
 # =============================================================================================
-# TICKET-P3 §9 rulings 14d and 15①. Two separate defects, one symptom.
+# Two separate defects, one symptom.
 #
-#   * round 4: PREP/DRIVER were RELATIVE, so run from another checkout the gate read THAT
+#   * first: PREP/DRIVER were RELATIVE, so run from another checkout the gate read THAT
 #     checkout's drive_exercise.py, found no anchors, and said `ANCHOR IS NOT UNIQUE (0
 #     matches) -- Fix the anchor`: true about the file it opened, false about its subject.
-#   * round 5: the refusal added for that was `exit 2` INSIDE `anchor_count`, which is only
+#   * then: the refusal added for that was `exit 2` INSIDE `anchor_count`, which is only
 #     ever called as `n=$(anchor_count ...)`. `exit` ends the command substitution, not the
 #     gate. The parent read `n=""`, `[[ "" -ne 1 ]]` was true, and the gate printed 87 lines of
 #     `🔴  matches`, `ANCHORS: BROKEN -- 87 anchor(s) have moved` and `86 mutations, 87
@@ -221,18 +221,18 @@ PYWRAP
     hasnt_verdict "🔴 no verdict line"                       "$OUT"
     hasnt "🔴 not folded into 'the anchor is stale'"         "ANCHOR IS NOT UNIQUE" "$OUT"
 
-    # 🔴 (b2) AN INTERPRETER THAT DIES *MID-RUN* (TICKET-P3 §9 ruling 16②). Round 6 made a
-    # suite-that-did-not-run a refusal at the BASELINE only; inside the mutation loop it was
-    # counted as a survivor and the gate carried on to print `N mutations, M survived` -- a
-    # verdict about a comparison that never happened. This wrapper runs normally for the first
-    # few invocations (the baseline suite and the anchor counts) and then fails with no output,
-    # which is exactly what a crashed interpreter looks like from `red_tests`.
-    # 🔴 IT DIES EXACTLY ONCE, ON THE THIRD `-m unittest` CALL (TICKET-P3 §9 ruling 17①).
-    # Round 7 used `-ge 3`: every later call failed too, so a gate that had gone back to
-    # "SURVIVORS++ and continue" inside mutate() would still have been stopped at the negative
-    # control or the closing re-check -- by the SAME refuse_no_suite -- and these cells would
-    # have stayed green for exactly the regression they exist to catch. That is the round-6
-    # shape once more: a cell that cannot fail for the reason it names.
+    # 🔴 (b2) AN INTERPRETER THAT DIES *MID-RUN*. An earlier version made a suite-that-did-not-run a
+    # refusal at the BASELINE only; inside the mutation loop it was counted as a survivor and the
+    # gate carried on to print `N mutations, M survived` -- a verdict about a comparison that never
+    # happened. This wrapper runs normally for the first few invocations (the baseline suite and the
+    # anchor counts) and then fails with no output, which is exactly what a crashed interpreter
+    # looks like from `red_tests`.
+    # 🔴 IT DIES EXACTLY ONCE, ON THE THIRD `-m unittest` CALL. An earlier version used `-ge 3`:
+    # every later call failed too, so a gate that had gone back to "SURVIVORS++ and continue" inside
+    # mutate() would still have been stopped at the negative control or the closing re-check -- by
+    # the SAME refuse_no_suite -- and these cells would have stayed green for exactly the regression
+    # they exist to catch. That is the same shape once more: a cell that cannot fail for the reason
+    # it names.
     #
     # Counting only `-m unittest` puts the death in a MUTATION's red_tests rather than in an
     # anchor count (which has its own refusal, tested above): the baseline uses two calls --
@@ -254,14 +254,14 @@ PYWRAP
     check "🔴 an interpreter that dies MID-RUN is a refusal"  "2" "$RC"
     has   "  named as the suite not having run"              "the test suite did not run at all" "$OUT"
     has   "  and it says nothing was measured"               "nothing was measured" "$OUT"
-    # 🔴 PINNED TO THE MUTATION LOOP (§9 ruling 17①). Without this the cells above are also
-    # satisfied by a refusal raised at the baseline, the control or the closing re-check --
-    # stations that were already refusing in round 6, when mutate() was not.
+    # 🔴 PINNED TO THE MUTATION LOOP. Without this the cells above are also satisfied by a refusal
+    # raised at the baseline, the control or the closing re-check -- stations that already refused
+    # when mutate() did not.
     has   "🔴 and the refusal comes from the MUTATION loop"  "while measuring mutation:" "$OUT"
     hasnt_verdict "🔴 no verdict line after a mid-run death"  "$OUT"
     hasnt "🔴 and it is NOT called a survivor"               "survived" "$OUT"
 
-    # 🔴 (c) FROM A FOREIGN CWD the subject is still the right file (round 4's defect).
+    # 🔴 (c) FROM A FOREIGN CWD the subject is still the right file (the first defect above).
     OUT="$(ANCHOR_CHECK=1 timeout 600 env -C /tmp bash "$DRVGATE" 2>&1)"
     has   "🔴 run from /tmp every anchor still resolves"     "ANCHORS: ok" "$OUT"
     hasnt "  nothing reported as a stale anchor"             "ANCHOR IS NOT UNIQUE" "$OUT"
@@ -281,11 +281,11 @@ fi
 # =============================================================================================
 section "4. 🔴 the lift must FAIL LOUDLY when the gate's shape changes"
 # =============================================================================================
-# The judge's scenario (§9 ruling 14c). Everything above is built on `sed` pulling the gate's
-# own functions out by name. If somebody renames `run_against`, or moves the verdict block, the
-# lift silently produces something that does not run -- and a harness that quietly produced
-# nothing would report... nothing, which `hasnt` reads as success. So: rename it in a copy and
-# assert the harness goes RED rather than quietly passing.
+# The scenario to guard against. Everything above is built on `sed` pulling the gate's own functions
+# out by name. If somebody renames `run_against`, or moves the verdict block, the lift silently
+# produces something that does not run -- and a harness that quietly produced nothing would
+# report... nothing, which `hasnt` reads as success. So: rename it in a copy and assert the harness
+# goes RED rather than quietly passing.
 RENAMED="$FIX/gate-renamed.sh"
 sed 's/^run_against()/run_against_RENAMED()/; s/out=$(run_against /out=$(run_against_RENAMED /' \
     "$GATE" > "$RENAMED"

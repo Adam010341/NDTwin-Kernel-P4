@@ -80,7 +80,7 @@ echo "  DOES:     guest has no layer-2 presence on 10.10.10.0/24; it cannot be s
 echo "            the lab switches, cannot ARP, cannot be a traffic endpoint by accident."
 echo "  DOES NOT: SLIRP routes guest traffic through the HOST's socket layer, so a"
 echo "            deliberate connection to 10.10.10.x from inside the guest would still"
-echo "            work and would look like it came from server8. A hard block needs"
+echo "            work and would look like it came from the lab host. A hard block needs"
 echo "            tap+nftables, which is a later refinement, not done here."
 
 echo

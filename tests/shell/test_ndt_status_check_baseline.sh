@@ -5,7 +5,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # FINDING #8, measured 2026-09-02 23:41-23:42 on a healthy 4-host OVS fabric
-# (doc/audit/2026-09-03_night-rounds/round1-ovs/05_, 07_):
+# (live OVS captures of 2026-09-03):
 #
 #     configuration
 #       hosts          128                                                    <- fabric has 4
@@ -27,8 +27,8 @@
 # -- so the check went GREEN while comparing an OVS fabric against a P4 model file. A check
 # that cannot tell the two data planes apart has zero discriminating power on either.
 #
-# Adam's decision, 2026-09-03 (QUESTIONS-FOR-ADAM N12 (a)): the baseline is the TARGET OF THE
-# LAST `ndt up`, recorded by `up` in .test_run/up.target and compared by `--check`.
+# Decision, 2026-09-03: the baseline is the TARGET OF THE LAST `ndt up`, recorded by `up` in
+# .test_run/up.target and compared by `--check`.
 #
 # 🔴 THREE DIRECTIONS, because "compare more things" has two obvious wrong answers:
 #   * a check that is always GREEN passes group 1 and fails groups 2, 3, 5;
@@ -153,17 +153,16 @@ lock_probe() { echo free; }
 netem_count() { echo 0; }
 ndt_sudo_report() { return 0; }
 ndt_sudo_rows() { echo one-row; }
-# 🔴 F9 (F-OFFLINE-1 §1.13, measured 2026-09-11). WITHOUT this line every `--check` group in
-# this file read a file in the MAIN checkout: app_evidence_log sim is
-# `$(lab_kernel_dir)/.test_run/logs/app_sim.log` (ndt:3938) and lab_kernel_dir’s built-in
-# default is LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel (ndt:940, ndtwin-lab:98) --
-# a 148717-byte root-owned log on this machine (uid 0, mtime 2026-09-10 16:48). Non-empty means
-# "the app ran here and its window is LOST", so every group scored a RESIDUE_BLIND and the
-# residue row said NOT CHECKED rather than "none". It stayed GREEN only because Adam’s E-7
-# ruling makes residue rc 5 not red -- the suite’s exit codes were being held up by a ruling
-# about a different question, and a `sudo truncate` of that file would have changed what this
-# suite prints. 3-51 added exactly this stub to test_apps_residue.sh:126 and
-# test_ndt_status_residue_row.sh:142 and did not reach the other two suites.
+# 🔴 Measured 2026-09-11. WITHOUT this line every `--check` group in this file read a file in the
+# MAIN checkout: app_evidence_log sim is `$(lab_kernel_dir)/.test_run/logs/app_sim.log` (ndt:3938)
+# and lab_kernel_dir’s built-in default is LAB_DEFAULT_KERNEL_DIR, the absolute path of the main
+# checkout (ndt, ndtwin-lab) -- a 148717-byte root-owned log on this machine (uid 0, mtime
+# 2026-09-10 16:48). Non-empty means "the app ran here and its window is LOST", so every group
+# scored a RESIDUE_BLIND and the residue row said NOT CHECKED rather than "none". It stayed GREEN
+# only because residue rc 5 is deliberately not red -- the suite’s exit codes were being held up by
+# a rule about a different question, and a `sudo truncate` of that file would have changed what this
+# suite prints. The same stub had been added to test_apps_residue.sh and
+# test_ndt_status_residue_row.sh and did not reach the other two suites.
 lab_kernel_dir() { echo "$REPO"; }
 app_probe() { APP_STATE=not-running; }
 # Finding #83 added a second thing `--check` compares: the installed /usr/local/sbin/ndtwin-lab
@@ -418,9 +417,9 @@ section "9. 🔴 the nickname overlay is named and NOT compared (W10)"
 # the identical sentence. So an operator naming a switch made the one question worth asking
 # ("is my environment still what I brought up?") answer red, about something they had not done.
 #
-# Adam's decision, 2026-09-05 18:1x (W10): the names go to an overlay outside setting/, `--check`
-# does not look at it, and the kernel lays it back on at startup. These cases are the "--check
-# does not look at it" half. The kernel half is tests/test_NicknameOverlay.cpp.
+# Decision, 2026-09-05 18:1x: the names go to an overlay outside setting/, `--check` does not look
+# at it, and the kernel lays it back on at startup. These cases are the "--check does not look at
+# it" half. The kernel half is tests/test_NicknameOverlay.cpp.
 knob 128
 record ovs 4 "$OVS4"
 healthy_ovs4
@@ -489,7 +488,7 @@ has   "the row's path is the one the kernel writes"     "nickname_overlay/Static
 # ==========================================================================================
 section "10. 🔴 R7 I-3: .test_run/pids/ contradicting itself, and no interface saying so"
 # ==========================================================================================
-# Measured 2026-09-11 02:52:03 and again 02:52:27 (hunt-0911/R7-reconciler.md round 14) --
+# Measured 2026-09-11 02:52:03 and again 02:52:27 --
 # 57 s and 81 s after the event, so not a millisecond race. One directory, two files, opposite
 # stories:
 #
@@ -593,11 +592,11 @@ no_pids
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================
-# F-OFFLINE-1 §1.13. Two of the four `--check` suites had no lab_kernel_dir stub, so
-# app_evidence_log answered with a path in /home/adam/Desktop/NDTwin-Kernel -- a 148717-byte
-# root-owned file this suite cannot write, cannot trim and does not own. Asserted on the PATH
-# rather than on what the path happened to contain: "the residue row said none" would depend on
-# whether somebody had truncated that file, which is the hidden input the stub removes.
+# Two of the four `--check` suites had no lab_kernel_dir stub, so app_evidence_log answered with a
+# path in the main checkout -- a 148717-byte root-owned file this suite cannot write, cannot trim
+# and does not own. Asserted on the PATH rather than on what the path happened to contain: "the
+# residue row said none" would depend on whether somebody had truncated that file, which is the
+# hidden input the stub removes.
 check "  lab_kernel_dir answers the fixture tree"        "$FIX" "$(_f9 'lab_kernel_dir')"
 check "  🔴 sim's evidence log is inside the fixture"    "$FIX/.test_run/logs/app_sim.log" \
       "$(_f9 'app_evidence_log sim')"

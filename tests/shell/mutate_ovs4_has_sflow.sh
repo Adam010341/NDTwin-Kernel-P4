@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for finding #4 -- `ovs4` configures no sFlow, so every rate and utilisation on
+# Mutation gate: `ovs4` configures no sFlow, so every rate and utilisation on
 # that plane is structurally zero and the API still says success.
 #
 # [Co-developed with claude code -- Adam]
@@ -100,7 +100,7 @@ report_sh() {   # $1 = mutation name, $2 = mutant dir, $3 = the case that must f
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py
 # can read this gate: it learns which argument is the anchor and which is the file from this
 # function's own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is
-# not checking (finding #28 -- two gates written the same night extracted zero anchors and
+# not checking (two gates written the same night once extracted zero anchors and
 # nobody would have known).
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"

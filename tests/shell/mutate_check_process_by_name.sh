@@ -28,8 +28,8 @@
 #             python, and the extension dispatch that decides which grammar to use.
 #   M8-M10    the DATA rule breaks in both directions: an unreadable file reported as a clean
 #             one (L-3), and prose read as code -- which is the way a lint gets switched off.
-#   M12-M15   the doc/audit REGISTRY breaks in all four of its directions (2026-09-12,
-#             AUDIT-SCAN-1): the registry is emptied so the live tool under doc/audit stops being
+#   M12-M15   the doc/audit REGISTRY breaks in all four of its directions (2026-09-12):
+#             the registry is emptied so the live tool under doc/audit stops being
 #             read; the rule is REVERSED so all of doc/audit is scanned and a dated record becomes
 #             something a lint can demand edits to; the count is not printed, so the carve-out is
 #             back to being invisible; and an entry that has stopped matching anything is passed
@@ -200,10 +200,10 @@ report "M10 (widening): prose is read as code" "$m10" \
        "a docstring is prose"
 
 # --- family 5: the doc/audit registry breaks -----------------------------------------------------
-# 🔴 M12 and M13 are the two halves of one ruling (Adam, 2026-09-12, on FIX-PROXY-1 §7-6):
+# 🔴 M12 and M13 are the two halves of one rule (2026-09-12):
 # doc/audit/** is a dated record and is NOT scanned, and the live tooling that lives there anyway
 # is scanned because it is REGISTERED. Emptying the registry and reversing the rule are the two
-# ways that ruling can be lost, and neither of them crashes anything.
+# ways that rule can be lost, and neither of them crashes anything.
 #
 # M12 is not an invented mutation either: "the registry is empty" is what the previous shape --
 # one hard-coded glob string under a comment reading "the one exception is" -- degraded to the

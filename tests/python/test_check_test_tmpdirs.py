@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-Decision E-17 (2026-09-07 grill 4E). `c3d99d00` fixed six fixtures whose temp path was the same
+Decided 2026-09-07. `c3d99d00` fixed six fixtures whose temp path was the same
 string in every process; `ctest -j2` was red on that and `-j1` was green, which is how a race gets
 filed as "flaky". `tests/shell/check_test_tmpdirs.py` is the rule that stops the seventh.
 
@@ -277,15 +277,15 @@ printf 'KERNEL_DIRS=/tmp\\n' > "$f"
 # =================================================================================================
 # B12 (2026-09-11): the spellings the gate USED TO let through.
 #
-# hunt-0911/F-B0-B12-REPORT.md §3.1 rows (2)d..(2)h put five synthetic inputs through this scanner
-# and got `0 fixed temp paths`, rc 0, out of every one of them. None of the five differs from a
+# Five synthetic inputs, (2)d..(2)h below, put through this scanner got `0 fixed temp paths`,
+# rc 0, out of every one of them. None of the five differs from a
 # case above in the property the rule names -- each differs only in HOW the same fixed temp path is
 # SPELLED. The cases below are those five inputs, verbatim in shape, plus a sixth of the same
 # family found while reproducing them, and the negative controls that keep each widening from
 # becoming a nuisance.
 # =================================================================================================
 
-# (2)d The escape that motivated the whole ticket: PER_PROCESS_MARKERS was a SUBSTRING test, so a
+# (2)d The escape that motivated the whole change: PER_PROCESS_MARKERS was a SUBSTRING test, so a
 #      variable whose NAME contains "mkdtemp" made every statement it appears in look safe. The
 #      path here is a constant and nothing per-process ever runs.
 PY_MKDTEMP_ONLY_IN_A_VARIABLE_NAME = '''import os
@@ -596,7 +596,7 @@ class NoFalsePositives(TreeCase):
 
 
 class TheRuleIsAboutTheProperty(TreeCase):
-    """B12: the same fixed temp path, spelled the ways F-B0-B12-REPORT.md §3.1 got a clean run out of.
+    """B12: the same fixed temp path, spelled the ways that got a clean run out of the scanner.
 
     🔴 Every case here was `0 fixed temp paths`, rc 0, on trunk c81dabbb. Not one of them differs
     from a case in TheDefectIsCaught in the property the rule names -- "a temp root, materialised,
@@ -675,12 +675,12 @@ class TheWideningDidNotBecomeANuisance(TreeCase):
 
 
 class TheScopeIsEveryTestNotThreeGlobs(TreeCase):
-    """D1 (F-OFFLINE-1-REPORT.md §1.17): the tree walk's three globs were NOT recursive.
+    """D1: the tree walk's three globs were NOT recursive.
 
     `python3 tests/shell/check_test_tmpdirs.py` scanned 261 files -- exactly
     `tests/*.cpp` + `tests/python/*.py` + `tests/shell/*.sh` -- so tests/fuzz/, tests/manual/,
     p4_proxy/tests/, the two .py checkers in tests/shell/ and every .cc/.h/.hpp under tests/ were
-    never opened. The report's own evidence that this is scope and not capability: naming
+    never opened. The evidence that this is scope and not capability: naming
     `p4_proxy/tests/test_rule_install_times.py` on the command line scanned it fine.
 
     🔴 A clean verdict over a scope that excludes most of the tree is the L-3 shape again: the
@@ -762,10 +762,10 @@ class TheScopeIsEveryTestNotThreeGlobs(TreeCase):
 
 
 class TheCppHalfFollowsANameToo(TreeCase):
-    """D2 (F-OFFLINE-1-REPORT.md §1.17): scan_cpp did not do what the module docstring promised.
+    """D2: scan_cpp did not do what the module docstring promised.
 
     "Variables are followed one hop, within one file" has been in KNOWN LIMITS since the gate was
-    written, and scan_python and scan_shell both did it. scan_cpp did not, so the report's
+    written, and scan_python and scan_shell both did it. scan_cpp did not, so a
     synthetic tree caught the same-statement spelling (the positive control) and missed
 
         const std::string root = "/tmp/ndtwin_x";

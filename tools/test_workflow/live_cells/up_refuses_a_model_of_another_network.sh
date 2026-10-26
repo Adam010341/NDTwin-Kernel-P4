@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 #
-# CELL up_refuses_a_model_of_another_network -- H4. `NDT_TOPO=<128-host model> ndt up p4 4`
+# CELL up_refuses_a_model_of_another_network -- `NDT_TOPO=<128-host model> ndt up p4 4`
 # built the 4-host fabric anyway and let the kernel load a model of a different network.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: ROLE-2 cycle 07, live 2026-09-11 01:15:58-01:20:58 (logs/ROLE-2/cycle-07-up.log).
+# Source: live 2026-09-11 01:15:58-01:20:58.
 # `ndt up p4` printed `hosts 4` and `topology ...128Hosts.json` on adjacent lines and never
 # compared them, wrote `hosts=4` beside `model_hosts=128` into up.target, started the topology,
-# brought ten switches up, and then sat in [2/3] until the role's own 300 s timeout killed it
+# brought ten switches up, and then sat in [2/3] until the caller's own 300 s timeout killed it
 # (rc 124). The kernel never started. This is also the live falsification of what `ndt help`
-# used to promise about forgetting an environment variable (B10, scope corrected separately).
-# Fix: 76b5d434, merged in 954ab467. Re-measured by ROLE-6 at 02:48:57: rc 1 in 0 s
-# (logs/ROLE-6/10-h4-redo.log).
+# used to promise about forgetting an environment variable.
+# Fix: 76b5d434, merged in 954ab467. Re-measured at 02:48:57: rc 1 in 0 s.
 #
 # 🔴 rc alone has NO discriminating power here and the judge does not use it: the pre-fix run
 # also ended non-zero -- 124, from a timeout, after building a fabric. The three things that
@@ -24,12 +23,12 @@
 # damaged the tree it was checking. So it is read before, compared after, and put back BYTE FOR
 # BYTE at the end.
 #
-# 🔴 And the value it is set to is the cell's own, not the tree's. ROLE-9 measured this cell
-# reaching opposite conclusions on two checkouts of the same commit (2026-09-12, report §2):
-# the command passes 4, Adam's working tree happens to hold 4, so the write-through is a NO-OP
+# 🔴 And the value it is set to is the cell's own, not the tree's. This cell was measured
+# reaching opposite conclusions on two checkouts of the same commit (2026-09-12):
+# the command passes 4, one working tree happens to hold 4, so the write-through is a NO-OP
 # and `h4_knob_unchanged` is green whatever `ndt` does -- while on any fresh clone or worktree,
-# where HEAD's 128 is what is on disk, the same assertion went red for the defect ROLE-9's
-# cells 4b/4c had just found. An assertion whose power comes from a file nobody committed is
+# where HEAD's 128 is what is on disk, the same assertion went red for the defect cells 4b/4c
+# had just found. An assertion whose power comes from a file nobody committed is
 # not an assertion. This cell now writes 128 into the knob itself, so that the count it asks
 # for and the value on disk differ in EVERY tree, and h4_knob_could_show_a_rewrite is the
 # assertion that says the premise was really established.
@@ -102,7 +101,7 @@ cell_judge() {
     fi
     # 🔴 THE PREMISE, asserted before the thing it is the premise of. Without this the pair
     # below is green on any tree whose knob already reads H4_COUNT, which is how this cell was
-    # green on the machine where ROLE-9 measured the defect with two cells of its own.
+    # green on a machine whose knob already held the count, even though the defect was real.
     local before after entry restored
     before="$(cat "$d/knob.before" 2>/dev/null)"
     after="$(cat "$d/knob.after" 2>/dev/null)"

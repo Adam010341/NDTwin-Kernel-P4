@@ -11,8 +11,8 @@
 # the reader either works around a defect that is gone, or -- worse -- reads the whole paragraph
 # as stale and skips the half that is still true. Three of these were sitting in §2.1 of the
 # manual on 2026-09-12, all three naming FIX-NDT-6, which had merged at 05:56 that morning
-# (`1656bdba`). One of them, the `ndt help` note, was already verified wrong by FIX-DOC-3 and was
-# left in place because it was out of that ticket's scope.
+# (`1656bdba`). One of them, the `ndt help` note, had already been verified wrong and was left in
+# place because it was out of scope for the change that found it.
 #
 # Nothing catches this. A document is not compiled, and the sentence "the fix is in FIX-NDT-6"
 # stays grammatical forever. The only judge that does not decay is the repository itself:
@@ -41,9 +41,9 @@
 # ancestor of HEAD, and it carries no in-progress word. Cases 6 and 6b are the general sweep --
 # ANY line of the manual that names a ticket and calls it unfixed, or names a branch and calls it
 # unmerged, when git says otherwise. They are the ones that will catch the NEXT one of these, in a
-# part of the document this ticket never read.
+# part of the document nobody had read for this.
 #
-# 🔴 CASE 6b EXISTS BECAUSE CASE 6 MISSED ONE WHILE THIS TICKET WAS BEING WRITTEN. §2.6 said
+# 🔴 CASE 6b EXISTS BECAUSE CASE 6 MISSED ONE WHEN THIS SUITE WAS WRITTEN. §2.6 said
 # `fix/e21-link-endpoints-in-contract` was 未併入 trunk and that seventeen contract checks
 # "describe the branch, not trunk"; the branch merged on 2026-09-10 (`bb9301a0`). The line names
 # no FIX-<X>-<n>, so the ticket-shaped scan walked straight past it. A gate whose stated job is
@@ -71,10 +71,10 @@
 # `tools/test_workflow/ndt`, runs `ndt help` (which prints text and exits 2) and asks git about
 # ancestry.
 #
-# CASES 11/11b/11c ARE THE SAME SWEEP OVER EVERY doc/**/*.md OUTSIDE doc/audit/ (FIX-DOC-4 §7-6).
-# They read a markdown BLOCK rather than a line, and they let a block off when it retracts in
-# place -- when it names a merge commit that is an ancestor of HEAD next to 已修/已併. The long
-# comment above those cases is the part to read before changing them.
+# CASES 11/11b/11c ARE THE SAME SWEEP OVER EVERY doc/**/*.md OUTSIDE doc/audit/. They read a
+# markdown BLOCK rather than a line, and they let a block off when it retracts in place -- when it
+# names a merge commit that is an ancestor of HEAD next to 已修/已併. The long comment above those cases
+# is the part to read before changing them.
 #
 # Overridable for the mutation gate, which must never write this worktree's copies:
 #   MANUAL=<path>  NDT=<path>  DOCS=<tree>  bash tests/shell/test_manual_no_stale_in_progress.sh
@@ -259,10 +259,10 @@ check "case 9  the measured record inside the third caveat survived the sweep" \
 # --- cases 11 / 11b / 11c: the same two questions, asked of every doc page -------------------------------
 #
 # 🔴 WHY THIS IS NOT JUST "cases 6/6b WITH MORE FILES". G-52's shape is not specific to the
-# testing manual, and FIX-DOC-4 §7-6 said so and left it. Running 6/6b's exact rule over the
-# other 37 pages produces four hits, and only ONE of them is stale: the other three are entries
-# that name a merged ticket precisely BECAUSE they are recording what it did or did not do.
-# A sweep that calls those three violations teaches the next reader to silence the gate.
+# testing manual. Running 6/6b's exact rule over the other 37 pages produces four hits, and only ONE
+# of them is stale: the other three are entries that name a merged ticket precisely BECAUSE they are
+# recording what it did or did not do. A sweep that calls those three violations teaches the next
+# reader to silence the gate.
 #
 # So the doc-wide half asks for one more thing before it calls a line stale: the markdown BLOCK
 # the line sits in must not already disclose the merge. "Disclose" is checkable, not a word
@@ -276,13 +276,13 @@ check "case 9  the measured record inside the third caveat survived the sweep" \
 # is three lines: the qualifier is on the first, the ticket on the second, the sha on the third.
 # Line-scoped reading sees the middle line alone and calls a retraction a stale caveat.
 #
-# 🔴 WHAT THIS STILL CANNOT DO (FIX-DOC-4 §7-5, now with an instance). ticket_merge is a PREFIX
-# match on the branch name, and FIX-NDT-3's branch is `fix/ndt-claim-semantics-0911` -- no ticket
-# number in it at all. `fix/ndt-3-` therefore matches `fix/ndt-3-51-helper-apps-window`, a
-# different ticket, and the sweep reports THAT sha. The verdict on G-34's line was right and the
-# evidence printed next to it was wrong. The violation line below prints the branch it matched
-# for exactly this reason: a human reading the failure can see the mismatch. A lookup that
-# demanded `fix/<slug>-<4 digits>` would have gone silent on that line instead, which is worse.
+# 🔴 WHAT THIS STILL CANNOT DO (now with an instance). ticket_merge is a PREFIX match on the branch
+# name, and a branch can be named `fix/<topic>-<date>` -- no work-item number in it at all.
+# `fix/<area>-3-` therefore matches `fix/<area>-3-51-<topic>`, a different work item, and the
+# sweep reports THAT sha. The verdict on G-34's line was right and the evidence printed next to it
+# was wrong. The violation line below prints the branch it matched for exactly this reason: a human
+# reading the failure can see the mismatch. A lookup that demanded `fix/<slug>-<4 digits>` would
+# have gone silent on that line instead, which is worse.
 #
 # DOCS= is the tree the pages are READ from; git is still asked about REPO_UNDER_TEST. The
 # mutation gate points DOCS at a mutated copy so this worktree is never written.
@@ -371,13 +371,13 @@ check "case 11b no doc page calls a branch unmerged without naming the merge tha
       0 "$PVIOLB"
 
 # --- case 11d: the failure line names the branch, and not only the sha --------------------------------
-# 🔴 THE SECOND INSTRUMENT CELL, AND THE ONE THAT WAS MISSING UNTIL IT WAS NEEDED. The ruling on
-# the prefix lookup (FIX-DOC-5 §7-1, D5-1) is "leave it alone, because the failure line prints the
-# branch it matched and a reader can see the mismatch". That ruling rests entirely on those
-# parentheses being filled in -- and the FIRST run of this sweep printed `()` on both hits, because
-# the sed wanted a space before `Merge` and a merge subject begins at column 1. Nobody noticed: the
-# only lines that could have shown it were already red for their own reason, which is exactly how
-# an instrument's own defect hides inside the finding it is reporting.
+# 🔴 THE SECOND INSTRUMENT CELL, AND THE ONE THAT WAS MISSING UNTIL IT WAS NEEDED. The decision on
+# the prefix lookup is "leave it alone, because the failure line prints the branch it matched and a
+# reader can see the mismatch". That decision rests entirely on those parentheses being filled in --
+# and the FIRST run of this sweep printed `()` on both hits, because the sed wanted a space before
+# `Merge` and a merge subject begins at column 1. Nobody noticed: the only lines that could have
+# shown it were already red for their own reason, which is exactly how an instrument's own defect
+# hides inside the finding it is reporting.
 #
 # It runs the real printer -- the same function the sweep calls -- on a merge this repository has,
 # so it cannot pass by describing what the printer ought to do. M16 puts the old sed back.
@@ -396,7 +396,7 @@ check "case 11c the sweep has a page list, all of it readable, with the manual a
       "many/0-unreadable/manual/known-issues" \
       "$( [[ "${#PAGES[@]}" -ge 20 ]] && echo many || echo "only ${#PAGES[@]}" )/$PMISS-unreadable/$(printf '%s\n' "${PAGES[@]}" | grep -qx 'doc/2026-08-17_testing-manual.md' && echo manual || echo NO-manual)/$(printf '%s\n' "${PAGES[@]}" | grep -qx 'doc/KNOWN-ISSUES.md' && echo known-issues || echo NO-known-issues)"
 
-# --- case 10 (CONTROL): a sentence this ticket does not touch -------------------------------------------
+# --- case 10 (CONTROL): a sentence this suite does not touch -------------------------------------
 check "case 10 CONTROL: §2.1 still says the machine's 4 veth are not residue" \
       1 "$(grep -c -F -- '這台機器上永遠有 4 條 veth，它們不是殘留。' "$MANUAL")"
 

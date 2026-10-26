@@ -5,15 +5,14 @@
 # [Co-developed with claude code -- Adam]
 #
 # `tools/test_workflow/orphans_verdict.sh` exists because the exit code moved twice inside one
-# merge window while the fabric under it did not change (measured live on `integrate-0910`,
-# 2026-09-10, R4-LIVE §4-A7 and §4-A9):
+# merge window while the fabric under it did not change (measured live on 2026-09-10):
 #
 #     clean OVS4 fabric      rc 0  ->  rc 5     the tally gained `1 question(s) not answerable`
 #     P4 4 with a sim up     rc 5  ->  rc 2     /proc/<pid>/fd of a root process is unreadable
 #
 # `ndt`'s rc table is the spec and is not touched; tests/shell/test_ndt_app_orphans.sh and
 # tests/shell/test_apps_residue.sh pin it. This suite pins the READER, and its four load-bearing
-# cases are the ones Adam named on 2026-09-10:
+# cases are the ones decided on 2026-09-10:
 #
 #     GREEN    a clean report                      -> CLEAN
 #     RED 1    the process half says one is running -> NOT CLEAN
@@ -27,7 +26,7 @@
 #     KERNEL DOWN, a process running  -> NOT CLEAN (the half that COULD be read still decides)
 #     no tally and no kernel-down     -> UNUSABLE (that is a report nobody can read)
 #
-# and, added 2026-09-11 (FIX-NDT-2, from F-OFFLINE-1 §1.11), the floor under the NOTE rule:
+# and, added 2026-09-11, the floor under the NOTE rule:
 #
 #     kernel UP, a tally, ALL THREE lock probes `NOT CHECKED (http 500)`  -> NOT CHECKED (rc 3)
 #     the same, but one probe answered                                    -> CLEAN, with the NOTE
@@ -39,23 +38,22 @@
 # failed probes is not a measurement. Partial blindness IS the normal state of this lab (the
 # CONTROL below is exactly that) and stays a NOTE; total blindness with a live kernel is not.
 #
-# 🔴 ALL-BLIND 4/4 pins the asymmetry that makes both rulings true at once: after `ndt down`
-# nothing read a lock either, and that report is still `CLEAN -- the process half only` (Adam
-# 2026-09-10). The operator closed :8000 on purpose as the last step of the round; a kernel that
+# 🔴 ALL-BLIND 4/4 pins the asymmetry that makes both decisions true at once: after `ndt down`
+# nothing read a lock either, and that report is still `CLEAN -- the process half only`
+# (2026-09-10). The operator closed :8000 on purpose as the last step of the round; a kernel that
 # is UP and returns http 500 to an acquire probe is a malfunction, and the question is askable
 # again this second. Delete either cell and the other stops meaning anything.
 #
 # `ndt down` closes :8000, so residue_report (ndt:5415) returns before it prints a tally. Measured
-# on the merge tree, 2026-09-10 23:59 (`logs/lv-p4128-94-orphans.log`, R5-P4-128 §5 / §7-2): every
-# other instrument said the machine was clean and this reader said UNUSABLE, because "no tally" and
-# "the kernel that owns the tally is switched off" were the same answer here. They are not the same
-# answer: one is a report nobody can read, the other is `ndt` saying in words which half it could
-# not read. The verdict now comes from the half that WAS read, and the other half is named as
-# missing -- never silently counted as zero.
+# on the merge tree, 2026-09-10 23:59: every other instrument said the machine was clean and this
+# reader said UNUSABLE, because "no tally" and "the kernel that owns the tally is switched off" were
+# the same answer here. They are not the same answer: one is a report nobody can read, the other is
+# `ndt` saying in words which half it could not read. The verdict now comes from the half that WAS
+# read, and the other half is named as missing -- never silently counted as zero.
 #
 # The CONTROL case is the reason the helper exists, so its fixture is not synthetic: it is the
-# verbatim report from the live run that found the shift (`logs/lv-a7-a-orphans.log`, OVS4 on
-# `integrate-0910`, 2026-09-10 16:1x). That run's own probe called it a FAIL. It was not one.
+# verbatim report from the live run that found the shift (OVS4, 2026-09-10 16:1x). That run's
+# own probe called it a FAIL. It was not one.
 #
 # 🔴 The discriminating case is RC_IS_NOT_CONSULTED below: the same report body is fed with rc 0
 # and with rc 5 and must produce the same verdict, and the RED 2 body is fed with rc 0 and must
@@ -169,11 +167,11 @@ rules-in-window (nothing below is deleted)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
 EOF
 
-# 🔴 C10-8 (2026-09-12). The column `ndt` prints for processes that carry an app signature and
-# belong to ANOTHER checkout on this machine. Copied from a run of `ndt apps orphans` over two
-# fixtures in a foreign tree (scratch/overnight-2026-09-05/logs/ndt10-0912/green-1-orphans-fixed.log),
-# with the paths shortened. The process half of the report is CLEAN: these lines carry neither of
-# the two sentences it is read from, which is what makes the column a NOTE rather than a verdict.
+# 🔴 C10-8 (2026-09-12). The column `ndt` prints for processes that carry an app signature and belong
+# to ANOTHER checkout on this machine. Copied from a run of `ndt apps orphans` over two fixtures in
+# a foreign tree, with the paths shortened. The process half of the report is CLEAN: these lines
+# carry neither of the two sentences it is read from, which is what makes the column a NOTE rather
+# than a verdict.
 mk elsewhere_only <<'EOF'
   !!  seen elsewhere (not this checkout): 2 process(es)
   !!      te  pid 1159780  python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py
@@ -244,9 +242,9 @@ rules-in-window (nothing below is deleted)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 40 rule(s) that could not be dated, 0 question(s) not answerable
 EOF
 
-# 🔴 THE CONTROL. Verbatim from the live run that found the rc shift: OVS4 on `integrate-0910`,
-# 2026-09-10, `scratch/overnight-2026-09-05/logs/lv-a7-a-orphans.log`. `ndt` answered rc 5 and the
-# night's probe recorded a FAIL for it. Nothing was running and nothing was on the network.
+# 🔴 THE CONTROL. Verbatim from the live run that found the rc shift: OVS4, 2026-09-10. `ndt`
+# answered rc 5 and the night's probe recorded a FAIL for it. Nothing was running and nothing
+# was on the network.
 mk live_a7 <<'EOF'
   ok  no untracked app processes
 
@@ -279,11 +277,11 @@ network residue (nothing below is deleted)
   !!    reading failed. (KNOWN-ISSUES G-12)
 EOF
 
-# 🔴 KERNEL DOWN. Verbatim from `scratch/overnight-2026-09-05/logs/lv-p4128-94-orphans.log` --
-# restore check 2/3 of the `lv-p4128` round, taken seconds after `ndt down` on 2026-09-10 23:59.
-# `ndt` returned 5. Every other instrument in that round said the machine was clean (`ndt clean`
-# rc 0, `procs:` empty, `mininet nodes left: 0`, `ovs bridges:` empty, `listeners:` empty,
-# `tc qdisc` diff 0) and this reader answered `UNUSABLE -- no 'tally:' line`.
+# 🔴 KERNEL DOWN. Verbatim from a live run -- restore check 2/3 of a 128-host P4 round, taken seconds
+# after `ndt down` on 2026-09-10 23:59. `ndt` returned 5. Every other instrument in that round said
+# the machine was clean (`ndt clean` rc 0, `procs:` empty, `mininet nodes left: 0`, `ovs bridges:`
+# empty, `listeners:` empty, `tc qdisc` diff 0) and this reader answered `UNUSABLE -- no 'tally:'
+# line`.
 #
 # There is no tally because residue_report (ndt:5415) returns before printing one when :8000 is
 # closed, which is exactly what `ndt down` does. The two `!!` lines are `ndt` naming the half it
@@ -300,10 +298,10 @@ network residue (nothing below is deleted)
 EOF
 
 # A COMPOSITE, and the only fixture in this file that is: the network half is the verbatim
-# `lv-p4128` kernel-down half above, the process half is the verbatim `running` half from the
-# fixture higher up (apps_orphans, ndt:5627/5650). No live round has produced both at once --
-# it needs an untracked app still up after `ndt down` -- and that is precisely the case a
-# kernel-down NOTE must not swallow: the half that could be read found something.
+# kernel-down half above, the process half is the verbatim `running` half from the fixture higher up
+# (apps_orphans, ndt:5627/5650). No live round has produced both at once -- it needs an untracked
+# app still up after `ndt down` -- and that is precisely the case a kernel-down NOTE must not
+# swallow: the half that could be read found something.
 mk kernel_down_running <<'EOF'
   XX  te: RUNNING as pid(s) 1185971, and these belong to it with nothing naming them -- te
   XX      pid 1185972  (process group 1185971)
@@ -335,13 +333,13 @@ EOF
 
 # The same negative control, real rather than cut by hand, and the SECOND cause of a missing
 # tally: an older `ndt` whose `orphans` had no network half at all. Verbatim
-# `scratch/overnight-2026-09-05/logs/lv-a7-94-orphans.log`. One line, whole, complete -- and it
-# answers nothing about the network. An older `ndt` is not a checked network.
+# from a live run. One line, whole, complete -- and it answers nothing about the network. An older
+# `ndt` is not a checked network.
 #
-# 🔴 68 of the 89 `logs/*orphans*.log` reports in that scratch directory have no tally and no
-# kernel-down sentence, and all 68 are BYTE-IDENTICAL to this one line -- among them 8 named
-# `*-04-orphans.log`, taken at the START of a round with the kernel UP, and the rest `*-94-`,
-# taken after the down. The same text, from both sides of a kernel. That is the reason the
+# 🔴 68 of the 89 saved orphans reports from those runs have no tally and no kernel-down
+# sentence, and all 68 are BYTE-IDENTICAL to this one line -- 8 of them taken at the START of
+# a round with the kernel UP, and the rest taken after the down. The same text, from both
+# sides of a kernel. That is the reason the
 # kernel-down mode keys on `ndt`'s sentence and not on the absence of a tally: the absence of a
 # tally cannot tell those two apart, so a reader that inferred "kernel down" from it would be
 # calling a kernel-up report clean on no evidence at all.
@@ -414,8 +412,8 @@ EOF
 # (ndt:5632). Under the 2026-09-11 rule -- "one positive answer is enough" -- that is partial
 # blindness and stays CLEAN with a NOTE. Pinned rather than left implicit because it is the
 # weakest cell on the CLEAN side of the floor: `0 lock(s) held` in it still rests on three failed
-# probes. Whether the lock half should have to answer on its own is FIX-NDT-2 SUMMARY §7-1, for
-# Adam; until he rules, this is the behaviour and this cell is what would have to change.
+# probes. Whether the lock half should have to answer on its own is undecided; until it is,
+# this is the behaviour and this cell is what would have to change.
 mk locks_blind_window_read <<'EOF'
   ok  no untracked app processes
 
@@ -433,26 +431,23 @@ EOF
 # prints from 2026-09-11 on. Everything else in them is clean -- and both read CLEAN before H2.
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 PRODUCED, NOT TYPED (2026-09-12, FIX-NDT-11 ⑤). Both blocks below are `cmd_apps orphans`'s
-# own output, byte for byte, from the `ndt` of trunk 628d84f1
-# (sha256[0:16] 9f56a38bf50085cc) driven offline with the readings of each state stubbed --
-# port_open, bmv2_count, mn_count, lock_probe, http_get_flow_entries, and an apps_orphans that
-# prints the clean process half. The run is
-# scratch/overnight-2026-09-05/logs/ndt11-0912/q5-half-reports-from-base.ndt11-0912-r1.log.
+# 🔴 PRODUCED, NOT TYPED (2026-09-12). Both blocks below are `cmd_apps orphans`'s own output, byte
+# for byte, from the `ndt` of trunk 628d84f1 (sha256[0:16] 9f56a38bf50085cc) driven offline with the
+# readings of each state stubbed -- port_open, bmv2_count, mn_count, lock_probe,
+# http_get_flow_entries, and an apps_orphans that prints the clean process half.
 # They are still SYNTHETIC by this file's own taxonomy -- the STATE is a fixture, not a machine
 # somebody found in it -- so the QUOTATIONS scan at the end covers them; what has changed is
 # that the wording no longer comes from a person's memory of what `ndt` prints.
 #
-# 🔴 WHAT WAS WRONG WITH THE TYPED VERSION, and it is not what FIX-NDT-10 §7-7 suspected. That
-# report expected to find residue_report's `this is not 'the lab is clean'` sentence sitting in
-# the STACK block; it was already in the right block (`ndt` prints it there itself, from
-# residue_report's kernel-down branch). The real defects were quieter: the HALF sentence was
-# quoted two lines deep out of eight -- it stops before `take it down:  ndt down`, which is the
-# REMEDY, and before the `--mode physical` caveat that says when this state is not a finding --
-# the `!!` lines were indented two columns short of what warn() emits, `half_kernel_only`
-# dropped the whole `NOT deleted ...` block and the `(no app had a datable window in this run)`
-# line, and `half_fabric_only` dropped `cmd_apps orphans`' own closing `NOT CHECKED: the
-# rules-in-window question could not be answered -- rc 5.` Nothing went red for any of it,
+# 🔴 WHAT WAS WRONG WITH THE TYPED VERSION. It was suspected that residue_report's `this is not 'the
+# lab is clean'` sentence was missing from the STACK block; it was already in the right block (`ndt`
+# prints it there itself, from residue_report's kernel-down branch). The real defects were quieter:
+# the HALF sentence was quoted two lines deep out of eight -- it stops before `take it down:  ndt
+# down`, which is the REMEDY, and before the `--mode physical` caveat that says when this state is
+# not a finding -- the `!!` lines were indented two columns short of what warn() emits,
+# `half_kernel_only` dropped the whole `NOT deleted ...` block and the `(no app had a datable window
+# in this run)` line, and `half_fabric_only` dropped `cmd_apps orphans`' own closing `NOT CHECKED:
+# the rules-in-window question could not be answered -- rc 5.` Nothing went red for any of it,
 # because this reader keys on `tally:`, on `stack=`, and on two sentences of the process half.
 mk half_kernel_only <<'EOF'
   ok  no untracked app processes
@@ -678,7 +673,7 @@ has   "  and says so"                                     "VERDICT: UNUSABLE" "$
 hasnt "  🔴 and never says CLEAN"                         "VERDICT: CLEAN" "$OUT"
 hasnt "  🔴 and does not invent a kernel-down NOTE"       "kernel down" "$OUT"
 # Cause 2: an older `ndt` whose `orphans` printed no network half at all. 68 real reports have
-# this exact one line, 8 of them taken with the kernel UP (`logs/*-04-orphans.log`) -- so the
+# this exact one line, 8 of them taken with the kernel UP -- so the
 # absence of a tally is NOT evidence of a down, and must not be read as one.
 OUT="$(verdict "$FIX/no_residue_half" 0)"
 check "  🔴 rc 2 -- a real one-line report from an older ndt"           "2" "$(rc_of "$OUT")"
@@ -738,17 +733,17 @@ section "🔴 ALL-BLIND 4/4 -- the asymmetry with kernel-down is deliberate"
 # =================================================================================================
 # Neither report read a lock. One is CLEAN and one is NOT CHECKED, and the difference is whether
 # the kernel was there to answer: `ndt down` closing :8000 is a state the operator created as the
-# last step of the round, and Adam ruled on 2026-09-10 that the process half still answers for it.
-# An http 500 from a kernel that is UP is a malfunction, and the question is askable this second.
+# last step of the round, and it was decided on 2026-09-10 that the process half still answers for
+# it. An http 500 from a kernel that is UP is a malfunction, and the question is askable this
+# second.
 A="$(verdict "$FIX/kernel_down" 5)"; B="$(verdict "$FIX/all_blind" 5)"
 check "  🔴 kernel down  -> rc 0"                         "0" "$(rc_of "$A")"
-has   "  🔴 and Adam's 09-10 wording is unchanged"        "CLEAN -- the process half only" "$A"
+has   "  🔴 and the 09-10 wording is unchanged"           "CLEAN -- the process half only" "$A"
 check "  🔴 kernel up, all probes blind -> rc 3"          "3" "$(rc_of "$B")"
 check "  🔴 the two verdicts are not the same line"       "differ" \
       "$([[ "$(grep -F 'VERDICT:' <<<"$A")" == "$(grep -F 'VERDICT:' <<<"$B")" ]] && printf same || printf differ)"
 # A window that WAS read is an answer, so this stays CLEAN under the 2026-09-11 rule. See the
-# fixture's own header and FIX-NDT-2 SUMMARY §7-1: this is the cell that changes if Adam rules
-# that the lock half must answer on its own.
+# fixture's own header: this is the cell that changes if the lock half must answer on its own.
 OUT="$(verdict "$FIX/locks_blind_window_read" 5)"
 check "  one window read, three locks blind -> rc 0 (§7-1 is open)" "0" "$(rc_of "$OUT")"
 has   "  with the NOTE"                                   "NOTE: 3 question(s) not answerable" "$OUT"
@@ -770,7 +765,7 @@ has   "  and names the remedy"                            "'ndt down'" "$OUT"
 has   "  processes=clean is still reported"               "processes=clean" "$OUT"
 has   "  and the network half still is too"               "network=0/0/0" "$OUT"
 
-# 🔴 The kernel-down case, which is where Adam's 09-10 ruling lives: the network half is n/a and
+# 🔴 The kernel-down case, which is where the 09-10 decision lives: the network half is n/a and
 # unaskable, but a 10-switch fabric standing after a teardown is something the PROCESS side
 # could see all along. It is a finding, not an unanswerable question.
 OUT="$(verdict "$FIX/half_fabric_only" 5)"
@@ -793,7 +788,7 @@ hasnt "  🔴 with no HALF reason invented"                 "the stack is HALF u
 OUT="$(verdict "$FIX/whole_down" 5)"
 check "  rc 0 -- and so is a finished round"              "0" "$(rc_of "$OUT")"
 has   "  VERDICT: CLEAN"                                  "VERDICT: CLEAN" "$OUT"
-has   "  Adam's 09-10 wording is intact"                  "CLEAN -- the process half only" "$OUT"
+has   "  the 09-10 wording is intact"                      "CLEAN -- the process half only" "$OUT"
 has   "  and the field says so"                           "stack=whole-down" "$OUT"
 
 # =================================================================================================
@@ -808,7 +803,7 @@ has   "  🔴 and the missing half is NAMED"                "stack=not-reported"
 hasnt "  not counted as whole-down"                       "stack=whole-down" "$OUT"
 OUT="$(verdict "$FIX/kernel_down" 5)"
 check "  and so is the kernel-down fixture"               "0" "$(rc_of "$OUT")"
-has   "  still Adam's 09-10 verdict"                      "CLEAN -- the process half only" "$OUT"
+has   "  still the 09-10 verdict"                          "CLEAN -- the process half only" "$OUT"
 has   "  with the stack half named as unreported"         "stack=not-reported" "$OUT"
 OUT="$(verdict "$FIX/running" 1)"
 check "  a running orphan is still rc 1 with no stack line" "1" "$(rc_of "$OUT")"
@@ -858,10 +853,10 @@ check "  an empty report -> rc 2"                         "2"  "$(rc_of "$OUT")"
 section "G-55 -- a report taken over an EMPTY flow table is quoted, and is still CLEAN"
 # =================================================================================================
 # [Co-developed with claude code -- Adam]
-# FIX-NDT-11 ①. `ndt` now says, once, at the top of the network half, that the table it read was
-# empty -- because `no flow entry arrived during that window` is the same sentence whether the
-# window excluded sixty rules or the plane had none (CELLS-2 cell 1, 2026-09-12 15:00:47: a
-# converged `ndt up ovs 4` whose table still read `[]` ten seconds later).
+# `ndt` now says, once, at the top of the network half, that the table it read was empty -- because
+# `no flow entry arrived during that window` is the same sentence whether the window excluded sixty
+# rules or the plane had none (seen 2026-09-12 15:00:47: a converged `ndt up ovs 4` whose table
+# still read `[]` ten seconds later).
 #
 # 🔴 A NOTE, NEVER A FAIL, and the two cells below are the pair that says so. An empty table is
 # the normal reading on every idle lab with a kernel up and no fabric, so failing on it would put
@@ -899,8 +894,8 @@ section "🔴 the synthetic fixtures are QUOTATIONS, and this is what keeps them
 # [Co-developed with claude code -- Adam]
 # Every `mk` block above that is not marked "verbatim from a live log" is a report somebody typed
 # out to stand for what `ndt apps orphans` prints. Their headers say "the shapes `ndt` actually
-# prints" -- and on 2026-09-12 that had stopped being true without anything going red: FIX-NDT-9
-# renamed the flow-table half from `residue` to `rules-in-window` (Adam, RESIDUE-1 §7-5), and
+# prints" -- and on 2026-09-12 that had stopped being true without anything going red: the
+# flow-table half was renamed from `residue` to `rules-in-window` (2026-09-12), and
 # twenty-odd fixtures here still opened with `network residue (nothing below is deleted)` and
 # quoted `NOT CHECKED: the residue question could not be answered`. It was harmless -- this
 # reader keys on `tally:` and on the process half's two sentences, none of which moved -- and
@@ -989,13 +984,13 @@ else
     quoted_in_ndt "ndt still says: seen elsewhere (not this checkout)" "seen elsewhere (not this checkout)"
     quoted_in_ndt "ndt still says: flow table read empty (G-55)"  "flow table read empty -- a window over an empty table frames nothing"
 
-    # (c) 🔴 THE WHOLE SENTENCE, not its first line. FIX-NDT-11 ⑤: the two H2 fixtures quoted
-    # `HALF A STACK` two lines deep out of eight, stopping before `take it down:  ndt down` --
-    # the REMEDY -- and before the `--mode physical` caveat that says when this state is not a
-    # finding. Nothing went red, because this reader keys on `stack=HALF` and on one fragment of
-    # the first line. The sentence is READ OUT OF `ndt` here rather than typed, so an edit to it
-    # goes red in the fixtures the day it is made; typing it would put a third copy of the same
-    # paragraph in the repo and make this cell a test of my own typing.
+    # (c) 🔴 THE WHOLE SENTENCE, not its first line. The two H2 fixtures quoted `HALF A STACK` two
+    # lines deep out of eight, stopping before `take it down:  ndt down` -- the REMEDY -- and before
+    # the `--mode physical` caveat that says when this state is not a finding. Nothing went red,
+    # because this reader keys on `stack=HALF` and on one fragment of the first line. The sentence
+    # is READ OUT OF `ndt` here rather than typed, so an edit to it goes red in the fixtures the day
+    # it is made; typing it would put a third copy of the same paragraph in the repo and make this
+    # cell a test of my own typing.
     HALF_LINES=()
     while IFS= read -r hl; do [[ -n "$hl" ]] && HALF_LINES+=("$hl"); done < <(
         awk '/^        HALF\)$/ {f=1; next} f && /^        whole-up\)$/ {f=0} f' "$NDT_SRC" |

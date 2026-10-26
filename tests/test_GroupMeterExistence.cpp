@@ -132,8 +132,8 @@ class ScriptedRyu : public OpenFlowRoutingStrategy
     /**
      * What the stats query answers AFTER a mod has been forwarded, when that differs.
      *
-     * [Co-developed with claude code -- Adam] Finding #1.
-     * Empty means "the same as before", and that is not a shortcut -- it is the finding.
+     * [Co-developed with claude code -- Adam]
+     * Empty means "the same as before", and that is not a shortcut -- it is the point.
      * A fake whose only setting is one fixed stats reply cannot express the difference
      * between a switch that carried the delete out and one that ignored it, so a test written
      * against it asserts "deleted" in both worlds. That is precisely what the delete path did
@@ -193,7 +193,7 @@ class ScriptedRyu : public OpenFlowRoutingStrategy
         return utils::CommandOutcome{afterPost ? getReplyAfterPost : getReply, true, 0};
     }
 
-    /// [Co-developed with claude code -- Adam] Finding #1. Counted, not slept: the guard's
+    /// [Co-developed with claude code -- Adam] Counted, not slept: the guard's
     /// decisions are what these tests are about, and real milliseconds would only make the
     /// suite slower without making any assertion stronger.
     void pauseBeforeReVerify() override { ++pauses; }
@@ -360,7 +360,7 @@ TEST_F(GroupMeterFixture, DeletingAGroupThatIsThereGoesThroughAndSaysItWasDelete
 {
     ScriptedRyu ryu;
     ryu.getReply = groupDescReply(1, {9});
-    // [Co-developed with claude code -- Adam] Finding #1. This line is the whole difference
+    // [Co-developed with claude code -- Adam] This line is the whole difference
     // between a switch and a constant: the group is there when asked before, and gone when
     // asked after. Until it existed, this test passed against an endpoint that deleted nothing.
     ryu.getReplyAfterPost = groupDescReply(1, {});
@@ -384,14 +384,14 @@ TEST_F(GroupMeterFixture, ModifyingAGroupThatIsThereGoesThrough)
     EXPECT_TRUE(ryu.issued("/stats/groupentry/modify"));
 }
 
-// [Co-developed with claude code -- Adam] 2026-09-04, FINDINGS #87.
+// [Co-developed with claude code -- Adam] 2026-09-04.
 // 🔴 getReplyAfterPost ADDED to the three install-accept cases below, and this is a change to
-// what they mean, so it is written down rather than done quietly. Before #87 an install was
-// claimed off Ryu's 200, so a fake whose table never changed was enough to express "the install
-// went through". It is not any more, and it never was a switch that ACCEPTED anything -- it was
-// a switch whose table is the same before and after, which is precisely the state #87 exists to
-// refuse. The assertions (ok, "installed", the request was issued) are unchanged; what changed
-// is that the fake now has to say the switch took it.
+// what they mean, so it is written down rather than done quietly. Before the read-back an
+// install was claimed off Ryu's 200, so a fake whose table never changed was enough to express
+// "the install went through". It is not any more, and it never was a switch that ACCEPTED
+// anything -- it was a switch whose table is the same before and after, which is precisely the
+// state the read-back exists to refuse. The assertions (ok, "installed", the request was
+// issued) are unchanged; what changed is that the fake now has to say the switch took it.
 TEST_F(GroupMeterFixture, AddingAGroupThatIsNotThereGoesThrough)
 {
     ScriptedRyu ryu;
@@ -427,7 +427,7 @@ TEST_F(GroupMeterFixture, TheMeterAcceptPathsGoThrough)
     {
         ScriptedRyu ryu;
         ryu.getReply = meterConfigReply(1, {});
-        ryu.getReplyAfterPost = meterConfigReply(1, {3}); // the switch took it -- see #87 above
+        ryu.getReplyAfterPost = meterConfigReply(1, {3}); // the switch took it -- see above
         const OpResult r = ryu.installAMeterEntry(meterPayload(3));
         EXPECT_TRUE(r.ok) << r.message;
         EXPECT_EQ(r.outcome, "installed");
@@ -435,11 +435,10 @@ TEST_F(GroupMeterFixture, TheMeterAcceptPathsGoThrough)
     }
 }
 
-// --- finding #1: a delete is claimed only after the switch is asked ------------------------------
+// --- a delete is claimed only after the switch is asked ------------------------------------------
 //
 // [Co-developed with claude code -- Adam]
-// Measured on ovs4 2026-09-03 (doc/audit/2026-09-03_night-rounds/round1-ovs/
-// 21_delete_group_meter_says_deleted_but_persists.log): /ndt/delete_group_entry answered
+// Measured against a live OVS bridge on 2026-09-03: /ndt/delete_group_entry answered
 // 200 {"outcome":"deleted"} five times while all five groups stayed on the switch with
 // duration_sec still climbing, re-installing the id answered 409 "already exists" -- so the id
 // was gone for the life of the switch -- and the kernel log held not one line about any of it.
@@ -495,7 +494,7 @@ TEST_F(GroupMeterFixture, AGroupIdCanBeInstalledAgainAfterAVerifiedDelete)
     // A fresh strategy against the switch state the delete left behind: 9 is gone.
     ScriptedRyu add;
     add.getReply = groupDescReply(1, {});
-    add.getReplyAfterPost = groupDescReply(1, {9}); // and the re-install lands -- see #87 above
+    add.getReplyAfterPost = groupDescReply(1, {9}); // and the re-install lands -- see above
 
     const OpResult reinstalled = add.installAGroupEntry(groupPayload(9));
 
@@ -1011,26 +1010,26 @@ TEST_F(GroupMeterEndpointTest, TheTwoDifferentNotFoundsAreDistinguishableInTheBo
     EXPECT_EQ(json::parse(unknownGroup.body()).value("outcome", ""), "no_such_group");
 }
 
-// --- FINDINGS #87: install and modify are claimed only after the switch is asked ----------------
+// --- install and modify are claimed only after the switch is asked ------------------------------
 //
 // [Co-developed with claude code -- Adam]
-// Finding #1 gave the read-back to Delete and left Add and Modify going straight from Ryu's 200
-// to "installed"/"modified". Ryu does not barrier a group/meter mod and does not wait for the
+// The read-back was first given to Delete, which left Add and Modify going straight from Ryu's
+// 200 to "installed"/"modified". Ryu does not barrier a group/meter mod and does not wait for the
 // switch's reply, so a refused install is refused asynchronously, correlated to nothing -- the
 // delete story, on the other two verbs.
 //
 // 🔴 REACHABILITY, stated because it differs from the delete half: the delete instance was
-// measured on ovs4 on 2026-09-03. An install or modify that a switch REFUSED has NOT been
-// observed -- FINDINGS-ALL.md:136 says so in as many words. The inference is same-function,
-// same-Ryu-behaviour; the evidence below is this fake switch, not a live one.
+// measured on a live OVS bridge on 2026-09-03. An install or modify that a switch REFUSED has
+// NOT been observed. The inference is same-function, same-Ryu-behaviour; the evidence below is
+// this fake switch, not a live one.
 
 // 🔴 The STATUS CODE is asserted at the endpoint layer below, not here, and that is deliberate.
 // tests/shell/mutate_delete_group_entry.sh has a widening (W2) that changes the strategy's 502 to
 // a 503 and requires the suite to stay GREEN -- its point being that the tests are pinned to
-// behaviour and not to an incidental. #87 made both verbs share one OpResult::failure(502, what),
-// so a strategy-level assertion on 502 here would turn that widening red and cost the sibling
-// gate its control. The endpoint test constructs its own OpResult, so it pins the 502 the API
-// documents without touching that.
+// behaviour and not to an incidental. The read-back made both verbs share one
+// OpResult::failure(502, what), so a strategy-level assertion on 502 here would turn that
+// widening red and cost the sibling gate its control. The endpoint test constructs its own
+// OpResult, so it pins the 502 the API documents without touching that.
 
 TEST_F(GroupMeterFixture, AGroupTheSwitchNeverTookIsNotReportedAsInstalled)
 {

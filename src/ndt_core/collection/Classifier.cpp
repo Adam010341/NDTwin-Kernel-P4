@@ -807,7 +807,7 @@ buildMaskAndValueFromMatch(const nlohmann::json& match, KeyBytes& outMaskBytes, 
         // every VLAN-tagged rule becomes unfindable: the walk would hit the "table has no
         // matching rule" branch for traffic whose rule is sitting right there. Half a fix here
         // is worse than none. Either do both sides, or mark vlanTci reserved.
-        // Recorded, not fixed, on Adam's instruction (2026-08-12).
+        // Recorded, not fixed (2026-08-12).
         outValue.vlanTci = static_cast<uint16_t>(parseU64(match.at("vlan_vid")));
         setU16MaskAll(outMaskBytes, 20);
     }

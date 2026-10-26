@@ -31,7 +31,7 @@
 > | `Utils.hpp` 轉換（§4.5） | `IpToStringTest` 4、`TryIpStringToUint32Test` 5、`TryParseUint64Test` 6、`TryMacToUint64Test` 7、`QueryParamTest` 9 |
 > | **sFlow 輸入面（§5.1，本文稱「最大的空白」）** | `SFlowParsingFixture` 17 ＋ `BoundedWordsTest` 4，且 bounds check 已補（ASan 驗證過） |
 > | **p4_proxy Python 沒有任何一層在跑（§5.2）** | L1 現在會跑，且「全 skip」會被判 `NO TESTS RAN` |
-> | `HttpSession`（§4 以外，HANDOFF §1i 記為 ❌） | `HttpSessionRoutingTest` **18**（路由層；handler 內部仍缺接縫） |
+> | `HttpSession`（§4 以外，先前記為 ❌） | `HttpSessionRoutingTest` **18**（路由層；handler 內部仍缺接縫） |
 >
 > **§8 待辦**第 1（sFlow bounds check ＋ 畸形封包工具）、第 2（`LockManager`）、
 > 第 5（`FlowDispatcher` 生命週期）**都已完成**。仍然成立的是第 3（RSS／thread 洩漏無工具）、

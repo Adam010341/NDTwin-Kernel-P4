@@ -4,10 +4,10 @@
 # own sudo records every call and refuses it, and its closing check fails on a call outside the
 # suite's allow-list. A closing check that cannot fail would make the allow-list decoration, so
 # each mutation takes ONE entry out of one suite's allow-list -- a call the suite really makes --
-# and that suite's closing check must go red, ON THAT CALL (the judge's N3 on 356d4e4e, 09-27: a red
+# and that suite's closing check must go red, ON THAT CALL (09-27: a red
 # for any other reason is a survivor). P8 removes a stub altogether: the closing check must say the
 # stub is not there, never read an empty call list as clean. P9 leaves the stub installed but puts
-# ANOTHER sudo in front of it on PATH, P10 another tc, P11 another ovs-vsctl (the judge's N6): the
+# ANOTHER sudo in front of it on PATH, P10 another tc, P11 another ovs-vsctl: the
 # closing check must say so ("the <cmd> on PATH is"), never read the calls that stub no longer sees
 # as none. P12 installs the stub and then deletes it while the suite runs on: the closing check must
 # say it is gone, not that it was never installed. T1-T3 are the stubs' own contract: the unprivileged tc answers `qdisc show` and refuses
@@ -21,12 +21,12 @@
 # never a skip. The baseline -- every suite green, its closing check ok -- must hold first, and so
 # must the gate's own controls (below).
 #
-# 🔴 WHAT THIS GATE COVERS, AND WHAT IT DOES NOT (the judge's N8 on 356d4e4e). It holds each suite's
+# 🔴 WHAT THIS GATE COVERS, AND WHAT IT DOES NOT. It holds each suite's
 # CLOSING check -- the stub and its allow-list. test_apps_stop_kills_the_group, test_ndt_honesty,
 # test_cell_gate_suspect_wiring and test_ndt_sample_rate_reads_both_bounds have mutation gates of
 # their own for everything else; test_lab_handoff and test_ndt_app_orphans do NOT (app_orphans is
 # only read, statically, by mutate_redirection_order.sh). Their other checks have never been seen
-# red by a gate: OPEN, a ticket of its own.
+# red by a gate: OPEN, tracked separately.
 #
 # Usage: bash tests/shell/mutate_probe_stubs.sh
 # Exit:  0 every mutation caught; 1 a mutation survived; 2 refused (precondition / baseline red /
@@ -58,8 +58,8 @@ export PATH="$ESC:$PATH"
 trap 'rm -f "$HERE"/.mutant-*-test_*.sh "$HERE"/.mutant-*-lib_probe_stub.sh; rm -rf "$ESC"' EXIT
 SURVIVORS=0; MUTATIONS=0
 
-# [Co-developed with claude code -- Adam] 🔴 THIS GATE'S PRECONDITION (the judge's N2 on 356d4e4e,
-# 09-27; NOTE c on f9c59a44). Four of the mutations are killed only when ndt makes its
+# [Co-developed with claude code -- Adam] 🔴 THIS GATE'S PRECONDITION (09-27). Four of the mutations
+# are killed only when ndt makes its
 # `sudo ovs-vsctl list-br` probe at all: P4 needs ovs-vsctl on PATH (lab_handoff's `ndt status`
 # probes only a program `command -v` finds, sudo_surface.sh ndt_sudo_probe); P5, P6 and P8 need
 # ndt's whole OVS path -- ovs-vsctl on PATH and ovs-vswitchd running (ndt ovs_bridge_count) -- and
@@ -67,8 +67,8 @@ SURVIVORS=0; MUTATIONS=0
 # sudo). On a machine without that they would SURVIVE for the machine's reason, so the gate REFUSES
 # there instead. It does not pin the path with a fake `ps` on PATH: a refusal fails loud and puts no
 # instrument between the suites and the machine that could itself be wrong -- not because a fake ps
-# must disturb the other suites (one that rewrote only `ps -eo comm=` did not, 09-27, the judge's
-# NOTE b; it could be scoped to the P5/P6/P8 runs, which would let the gate run while a P4 lab is up).
+# must disturb the other suites (one that rewrote only `ps -eo comm=` did not, 09-27;
+# it could be scoped to the P5/P6/P8 runs, which would let the gate run while a P4 lab is up).
 # 🔴 KNOWN LIMITATION: the precondition is read ONCE, here. A bmv2 started, or ovs-vswitchd stopped,
 # while the gate runs shows up as P4/P5/P6/P8 SURVIVED -- red, but for the machine's reason.
 pre=""
@@ -85,7 +85,7 @@ fi
 echo "precondition: ovs-vsctl on PATH, ovs-vswitchd running, no bmv2 switch -- ndt takes its OVS path"
 
 # --- one run, and the two rules that read it --------------------------------------------------
-# [Co-developed with claude code -- Adam] (09-27, the judge's N4 on 356d4e4e) the baseline's rule and a
+# [Co-developed with claude code -- Adam] (09-27) the baseline's rule and a
 # mutant's rule are functions of ONE run's output, rc and escaped-call count, so the controls below
 # can hold each rule to a run whose answer is known.
 run_one() {   # run_one <file> -> RUN_OUT, RUN_RC, RUN_ESC
@@ -157,7 +157,7 @@ report() {   # $1 = mutation name, $2 = the copy (or ANCHOR:n), $3 = "escapes" w
 }
 
 # --- the gate's own controls: each rule above must fire on a run built to trip it ----------------
-# [Co-developed with claude code -- Adam] 🔴 (09-27, the judge's N4 and NOTE e) three branches of this
+# [Co-developed with claude code -- Adam] 🔴 (09-27) three branches of this
 # gate had never been seen to fire: the baseline's refusal of a suite that leaks, a P-mutant that
 # leaks being a SURVIVOR, and "red, but not on the call taken out". Each is tripped here, on a copy
 # built to trip it, every run -- and a control that does not come out as it must stops the gate
@@ -216,7 +216,7 @@ m=$(mutant p8 "$SAMPLE_RATE" "probe_stub_install \"\$TMPROOT\" --ovs-refuse -- '
     ": the stub is not installed")
 report "P8: sample_rate's stub is never installed (its calls escape to this gate's sudo)" "$m" escapes "NO STUB"
 
-# [Co-developed with claude code -- Adam] P9 (the judge's B2 on 356d4e4e, 09-27): the stub installed,
+# [Co-developed with claude code -- Adam] P9 (09-27): the stub installed,
 # then ANOTHER sudo put in front of it on PATH -- the case in which the calls are not recorded and
 # the allow-list check would read nothing as clean. Only lib_probe_stub.sh's "the sudo on PATH is"
 # line can see it; P1-P8 all pass without that line.
@@ -235,7 +235,7 @@ m=$(mutant p12 "$CELL_GATE" "probe_stub_install \"\$T\" -- 'sudo ndtwin-lab stat
 rm -rf \"\$PROBE_STUB_DIR\"")
 report "P12: cell_gate's stub is deleted while the suite runs on" "$m" escapes "the stub was installed and is gone"
 
-# [Co-developed with claude code -- Adam] P10, P11 (the judge's N6 on 356d4e4e, 09-27): the same for the
+# [Co-developed with claude code -- Adam] P10, P11 (09-27): the same for the
 # unprivileged stubs. The shadow answers exactly as the stub does -- tc `qdisc show` with nothing,
 # ovs-vsctl a refusal -- so every other check of the suite stays green and only the closing check can
 # see that its calls went unrecorded.
@@ -250,11 +250,11 @@ P11D=\"\$(mktemp -d \"\$TMPROOT/p11-XXXXXX\")\"; printf '#!/bin/bash\\necho \"ov
 chmod +x \"\$P11D/ovs-vsctl\"; export PATH=\"\$P11D:\$PATH\"")
 report "P11: sample_rate's ovs-vsctl stub is shadowed by another ovs-vsctl on PATH" "$m" "" "the ovs-vsctl on PATH is"
 
-# [Co-developed with claude code -- Adam] T1-T3 (the judge's N5 on 356d4e4e and NOTE d on f9c59a44,
-# 09-27): the stubs' own contract, on the lib given. Each stub must be the command on PATH and record
+# [Co-developed with claude code -- Adam] T1-T3 (09-27): the stubs' own contract, on the lib given.
+# Each stub must be the command on PATH and record
 # what it is asked; the unprivileged tc answers `qdisc show` (rc 0, nothing) and REFUSES every other
 # argv; sudo and ovs-vsctl refuse. A command that is not the stub is not exercised at all -- the
-# contract never hands a real tc or ovs-vsctl a changing argv. Before NOTE d the sudo and ovs-vsctl
+# contract never hands a real tc or ovs-vsctl a changing argv. Before that the sudo and ovs-vsctl
 # halves could not fail in this gate: this gate's own sudo answers in the stub's words, and an
 # unprivileged ovs-vsctl refuses `list-br` too, so a stub that recorded nothing, or was never
 # written, met the contract. T2 and T3 are exactly those.

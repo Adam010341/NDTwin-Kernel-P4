@@ -40,6 +40,7 @@ from fastapi import HTTPException  # noqa: E402
 from proxy_agent import api_routes  # noqa: E402
 from proxy_agent.topology_manager import MalformedMatchValueError  # noqa: E402
 from proxy_agent.topology_manager import TopologyManager  # noqa: E402
+from proxy_agent.topology_manager import FlowRequestUnusable  # noqa: E402
 
 
 class FakeRequest:
@@ -257,6 +258,11 @@ class NonStrictDeleteRouteTest(unittest.TestCase):
                 api_routes.topology = recorder
                 body = json.dumps({"dpid": 1, "match": match, "priority": 100}).encode()
                 reply = call(api_routes.delete_flow_entry, body)
+                # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: the refusal is a 502
+                # JSONResponse now, with the same body.
+                if not isinstance(reply, dict):
+                    self.assertEqual(reply.status_code, 502)
+                    reply = json.loads(reply.body)
                 self.assertEqual(reply["status"], expected)
                 # The priority the body carried must reach the manager: on the ternary table a
                 # delete that loses it removes nothing and still reports success.
@@ -268,7 +274,11 @@ class NonStrictDeleteRouteTest(unittest.TestCase):
         # handler must keep unroute_flow's refusal instead.
         tm = TopologyManager.__new__(TopologyManager)
         tm.switches = {1: object()}
-        self.assertIs(tm.unroute_flow(1, {}), False)
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: refused as the request's
+        # fault (400) rather than returned as False, which the endpoint now answers as 502.
+        with self.assertRaises(FlowRequestUnusable) as caught:
+            tm.unroute_flow(1, {})
+        self.assertEqual(caught.exception.status, 400)
 
 
 class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
@@ -340,8 +350,12 @@ class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
         # something that reads like a qualified success.
         self.recorder.verdict = False
         out = self._add({"dl_type": 2048, "nw_dst": "10.0.0.240"}, priority=915)
-        self.assertEqual(out["status"], "error")
-        self.assertNotIn("priority_honoured", out)
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: a refused install is now a
+        # 502 rather than a 200; the body is what it was. test_refused_install_status.py pins it.
+        self.assertEqual(out.status_code, 502)
+        body = json.loads(out.body)
+        self.assertEqual(body["status"], "error")
+        self.assertNotIn("priority_honoured", body)
 
     def test_the_priority_still_reaches_the_topology_unchanged(self):
         # Disclosing that a value is unused must not become a reason to stop forwarding it: the
@@ -493,8 +507,12 @@ class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
         # The disclosure must not leak onto the failure path, as on the add endpoint.
         self.recorder.verdict = False
         out = call(api_routes.delete_flow_entry, self._body(self.DEST_ONLY))
-        self.assertEqual(out["status"], "error")
-        self.assertNotIn("priority_honoured", out)
+        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: a delete the switch refused is
+        # a 502 now, body unchanged. test_refused_install_status.py pins it.
+        self.assertEqual(out.status_code, 502)
+        body = json.loads(out.body)
+        self.assertEqual(body["status"], "error")
+        self.assertNotIn("priority_honoured", body)
 
 
 class TheRefusalReachesTheOnePlaceACallerCanReadItTest(unittest.TestCase):
