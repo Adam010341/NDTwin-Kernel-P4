@@ -310,7 +310,7 @@ lab_conf_gate() {
             return 0 ;;
         heartbeat)
             # [Co-developed with claude code -- Adam]
-            # Adam, 2026-09-25, ruling (b). `heartbeat stop` and `heartbeat status` touch only
+            # Since 2026-09-25: `heartbeat stop` and `heartbeat status` touch only
             # /run/ndtwin-lab and read nothing this file sets, so a broken config must not lock an
             # operator out of stopping a root daemon. `heartbeat start` starts something and fails
             # closed, like every other verb that does.
@@ -582,21 +582,21 @@ p4_topo_start() {
 #
 # [Co-developed with claude code -- Adam]
 #
-# Finding #77 (2026-09-03). `ovs-topo-start` ran /home/adam/Network-Traffic-Generator/
+# 2026-09-03: `ovs-topo-start` ran /home/adam/Network-Traffic-Generator/
 # testbed_topo.py -- a file in ANOTHER REPO -- while everything else in this project that names
 # the 128-host OVS topology names THIS repo's copy: components.env:80 defines
 # OVS_TOPO_SCRIPT=$KERNEL_DIR/testbed_topo.py, and stack.sh:775 prints exactly that path for the
 # operator to run by hand. So the manual path and the `ndt up ovs` path ran two different files.
 #
-# What that cost, concretely: finding #42 fixed this repo's copy so the closing banner is derived
-# from the ping self-test (counts, NOT MEASURED for the two claims nothing here tests, exit 1 on
-# loss). NTG's copy still prints the old constant
+# What that cost, concretely: an earlier fix corrected this repo's copy so the closing banner is
+# derived from the ping self-test (counts, NOT MEASURED for the two claims nothing here tests, exit
+# 1 on loss). NTG's copy still prints the old constant
 #
 #     Host internet: OK | sFlow reachability: OK | Switch identification: OK
 #
-# unconditionally -- so an operator running `ndt up ovs` after #42 was merged still saw the
-# painted needle. "Fixed" was true of a file that this command did not run. Adam decided
-# 2026-09-03 (N13): ndt's paths run THIS repo's copy; NTG's is retired from them and NTG is not
+# unconditionally -- so an operator running `ndt up ovs` after that fix was merged still saw the
+# painted needle. "Fixed" was true of a file that this command did not run. Since
+# 2026-09-03 ndt's paths run THIS repo's copy; NTG's is retired from them and NTG is not
 # modified.
 #
 # 🔑 The two functions below exist as functions, not as literals inside the dispatch, for one
@@ -641,14 +641,14 @@ ovs_topo_start() {
 }
 
 # -------------------------------------------------------------------------------------
-# THE veth HEARTBEAT.  TICKET-P4-heartbeat, segment H.
+# THE veth HEARTBEAT.
 #
 # [Co-developed with claude code -- Adam]
 #
 # What it is for. A foreign P4 pipeline carries no NDTwin LLDP, so on a foreign fabric nothing
-# tells the proxy that a link died (doc/audit/2026-09-24_p4-driven-api-shape/ANALYSIS.md
-# section 5). `heartbeat start` runs a small root daemon that sends one frame per period out of
-# every switch-side veth with a switch at its far end, reads it back at that far end, and writes
+# tells the proxy that a link died. `heartbeat start` runs a small root daemon that sends one frame
+# per period out of every switch-side veth with a switch at its far end, reads it back at that far
+# end, and writes
 # down WHEN each direction was last heard. `tc netem` sits on the same egress qdisc the frame
 # goes through, so a cut link cuts the heartbeat with it.
 #
@@ -672,7 +672,7 @@ ovs_topo_start() {
 #     whose kernel iflinks name each other. Everything else is listened on and never sent on.
 #   * start without a fabric: no topo session, no manifest, or a manifest whose switches are not
 #     all live bmv2 processes owned by root -- refused before anything is launched.
-#   * run on NDTwin's OWN pipeline (Adam, 2026-09-25). ndtwin_switch.json carries LLDP and punts
+#   * run on NDTwin's OWN pipeline (since 2026-09-25). ndtwin_switch.json carries LLDP and punts
 #     an unknown ethertype to the CPU, so every heartbeat frame would be a packet-in the proxy books
 #     as that switch's liveness. One such switch in the manifest refuses the whole fabric.
 #   * run twice. A live daemon (pidfile + cmdline + uid) makes `start` say so and launch nothing;
@@ -682,17 +682,17 @@ ovs_topo_start() {
 #     EXACTLY the daemon's argv and /proc/<pid>/status says uid 0 -- never a pattern, never
 #     pkill/pgrep (G-9, above).
 #   * decide. The daemon reports "direction X last heard at t"; whether that is DOWN, and what to
-#     reroute, is the proxy's call with the proxy's constants (segment W).
+#     reroute, is the proxy's call with the proxy's constants.
 #
 # 🔑 THE PROGRAM IS INSIDE THIS FILE, not in KERNEL_DIR, and that is the point of it: this file is
-#    the root-owned, sha-pinned copy `ndt status` compares (FINDING #83), so what root runs for
+#    the root-owned, sha-pinned copy `ndt status` compares, so what root runs for
 #    the heartbeat is exactly what was reviewed and installed. A daemon that lived in the
 #    adam-writable tree would make every check above a suggestion. It is written to
 #    $HB_RUN_DIR (root-only) at each start and executed from there, which is also what gives the
 #    process an argv `stop` can recognise.
 #
 # Where the report goes, and why a file: $HB_RUN_DIR/heartbeat.json, 0644 in a 0755 root directory
-# -- the proxy reads it (segment W). The other design, the daemon POSTing to the proxy, would put
+# -- the proxy reads it. The other design, the daemon POSTing to the proxy, would put
 # a root process in the business of finding and trusting an adam-owned HTTP service, and would
 # open a route anything on localhost could post fake link states to.
 
@@ -1760,7 +1760,7 @@ case "${1:-}" in
         rc=0
         sweep_kill "ntg_bmv2_topo"  ntg_bmv2_topo.py  || rc=1
         sweep_kill "p4_testbed_topo" p4_testbed_topo.py || rc=1
-        # The one this lab starts (finding #77), named from the same KERNEL_DIR the launch uses.
+        # The one this lab starts, named from the same KERNEL_DIR the launch uses.
         sweep_kill "OVS testbed_topo" "$(ovs_topo_pattern)" || rc=1
         # ...and NTG's, which this lab no longer starts. Kept because `cleanup` means "reset the
         # lab": an orphan left by a round that ran the old code, or by a hand-typed
@@ -1783,7 +1783,7 @@ case "${1:-}" in
     ovs-topo-start)
         # This repo's 128-host OVS topology (RemoteController -> Ryu), the file components.env
         # calls OVS_TOPO_SCRIPT. Until 2026-09-03 this ran NTG's copy instead; see
-        # ovs_topo_script above for what that cost and for Adam's decision (finding #77).
+        # ovs_topo_script above for what that cost and why it changed.
         # Ryu must already be listening on 6653 -- the agent starts it unprivileged before
         # calling this. Whose Ryu, though, is not checked here and cannot be: a controller left
         # over from the previous round answers this probe exactly like the one the agent just
@@ -1882,7 +1882,7 @@ case "${1:-}" in
             printf 'NTG_DIR:    %s  (NOT an NTG checkout: topo-start will refuse)\n' "$NTG_DIR"
         fi
         ;;
-    # TICKET-P4-heartbeat segment H. Everything after the verb goes to heartbeat_main, which
+    # Everything after the verb goes to heartbeat_main, which
     # accepts exactly one more word (see the section above hb_program). Called in an `||` list so
     # its own rc is the exit code, whatever errexit would have made of a refusal.
     # [Co-developed with claude code -- Adam]
