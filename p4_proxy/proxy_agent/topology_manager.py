@@ -12,10 +12,10 @@ from proxy_agent import boot_identity  # no cycle: boot_identity imports only th
 from proxy_agent import ryu_topology  # no cycle: ryu_topology imports nothing from here
 # [Co-developed with claude code -- Adam] For the Ryu-path loss record (close_ryu_generation).
 from proxy_agent import rule_journal  # no cycle: rule_journal imports only the stdlib
-# TICKET-P4-heartbeat segment W. No cycle: link_heartbeat imports only the stdlib, and is handed
+# No cycle: link_heartbeat imports only the stdlib, and is handed
 # this module's beacon interval rather than importing it. [Co-developed with claude code -- Adam]
 from proxy_agent import link_heartbeat
-# What priority each ipv4_lpm slot was last written with (Adam, 2026-10-16). No cycle:
+# What priority each ipv4_lpm slot was last written with (since 2026-10-16). No cycle:
 # slot_priority imports only the standard library. [Co-developed with claude code -- Adam]
 from proxy_agent import slot_priority
 from proxy_agent.slot_priority import (CONTROL_PLANE_ROUTE_PRIORITY, SlotPriorityNotHeld,
@@ -86,7 +86,7 @@ class MalformedMatchError(UnsupportedMatchError):
     which is the right status, and what this used to get wrong. `(match_dict or {}).items()` raised
     AttributeError for a list, string or number, that escaped the handler's only catch, and FastAPI
     turned a malformed request into **500 Internal Server Error**. Same defect class as the three
-    500s already fixed on the kernel side. Found by agy-review 0072.
+    500s already fixed on the kernel side.
     """
 
     def __init__(self, value):
@@ -126,7 +126,7 @@ class MalformedMatchValueError(UnsupportedMatchError):
     unsupported_match_fields validates field *names*. Nothing validated the values behind them,
     so `{"nw_dst": "10.0.0.5/32"}` passed every check and reached socket.inet_aton() inside
     insert_ipv4_route, which raises OSError -- uncaught, so FastAPI answered **500**
-    (KNOWN-ISSUES B-2c, round 4). Same defect class as MalformedMatchError one shape up: a
+    (KNOWN-ISSUES B-2c). Same defect class as MalformedMatchError one shape up: a
     malformed request is the client's error and must be answered as one, not as a proxy crash.
 
     A subclass for the same reason MalformedMatchError is one: api_routes catches only
@@ -250,7 +250,7 @@ def parse_eth_type(value):
     `int(value)` was used here, and it raises ValueError on `"0x0800"` -- so a caller writing the
     ethertype the way OpenFlow tooling usually writes it had a perfectly valid IPv4 rule **rejected
     with 400**. The falsely-rejected direction is the worse one: it breaks a working client rather
-    than merely letting something through. Found by agy-review 0072.
+    than merely letting something through.
 
     bool is excluded before int because `True == 1` in Python and `{"eth_type": true}` is not a
     request to match ethertype 1.
@@ -729,9 +729,8 @@ LIVENESS_PROBE_TIMEOUT_S = 1.5
 _NOTHING_TO_JUDGE = object()
 
 #: How many watchdog passes `watchdog_passes` keeps: a minute at the 5 s interval, which covers
-#: one cut-and-restore cycle. [Co-developed with claude code -- Adam] TICKET-P4-heartbeat
-#: segment W, the orchestrator's 09-26 addendum: the pass times are what makes the watchdog's
-#: phase against a cut verifiable.
+#: one cut-and-restore cycle. [Co-developed with claude code -- Adam] The pass times
+#: are what makes the watchdog's phase against a cut verifiable.
 WATCHDOG_PASS_LOG = 12
 
 
@@ -747,10 +746,10 @@ class TopologyManager:
     #: restore now reads it, and tests/test_delete_restores_route.py builds its manager with
     #: `TopologyManager.__new__`, so an instance-only attribute would turn every existing
     #: restore test into an AttributeError. False is the pre-roles behaviour, every host.
-    #: [Co-developed with claude code -- Adam] Section 7 ruling 6, F1.
+    #: [Co-developed with claude code -- Adam]
     routes_to_attached_hosts_only = False
 
-    #: [Co-developed with claude code -- Adam] (Adam, 09-28) True on an external control plane
+    #: [Co-developed with claude code -- Adam] True on an external control plane
     #: running its own pipeline: that fabric's forwarding is its own controller's, nothing
     #: installed is known here, and a shortest path over the package's declared links is a guess
     #: -- so no destination path is reported, pulled or pushed. The declared links still seed the
@@ -758,7 +757,7 @@ class TopologyManager:
     #: `routes_to_attached_hosts_only` is one; False everywhere else.
     destination_paths_unknown = False
 
-    #: TICKET-P4-heartbeat segment W: link evidence from outside this proxy's LLDP -- the veth
+    #: Link evidence from outside this proxy's LLDP -- the veth
     #: heartbeat's report on a foreign fabric (link_heartbeat.HeartbeatEvidence) -- and the clock
     #: reading of the last pass that had usable evidence, which is where a dead heartbeat freezes
     #: the judgement. Class attributes too, with the values __init__ gives them, for the reason
@@ -917,17 +916,17 @@ class TopologyManager:
         self._link_ports_warned = False
 
         #: (src_dpid, src_port, dst_dpid, dst_port) directions entered from the package's
-        #: topology rather than discovered -- TICKET-P4-roles 2.3. Empty on every fabric that
+        #: topology rather than discovered. Empty on every fabric that
         #: runs LLDP. Guarded by _liveness_lock, like the beacon evidence it stands beside in
         #: `link_liveness`. [Co-developed with claude code -- Adam]
         self._declared_links = set()
 
-        #: TICKET-P4-roles section 7 ruling 5, item 1. True on a fabric that skips
+        #: True on a fabric that skips
         #: install_initial_routes (startup sets it from `control_plane.skipped`): every route
         #: the control plane writes after that stops at the hosts attached to the switch it is
         #: written on. There are TWO writers left there, and both obey it: readopt's refill
         #: (install_initial_routes) and the A-4d restore of a withdrawn application rule
-        #: (`_control_plane_port`) -- round 2 named only the first; section 7 ruling 6, F1.
+        #: (`_control_plane_port`).
         #: Before the declared links existed,
         #: `net` had no inter-switch edge on such a fabric and no other route was computable;
         #: with them, a shortest path can cross a switch whose table NDTwin may not write, and
@@ -937,7 +936,7 @@ class TopologyManager:
         #: See the class attribute. [Co-developed with claude code -- Adam]
         self.destination_paths_unknown = False
 
-        #: TICKET-P4-roles 2.4 -- what `report_external_link_state` has been told, and what it
+        #: What `report_external_link_state` has been told, and what it
         #: did with it. Guarded by _liveness_lock. [Co-developed with claude code -- Adam]
         self._external_reports = {"received": 0, "routed_through_watchdog": 0,
                                   "recorded_only": 0, "last": None}
@@ -1016,7 +1015,7 @@ class TopologyManager:
         directions were entered.
 
         [Co-developed with claude code -- Adam]
-        TICKET-P4-roles 2.3. On a fabric with a foreign switch there is no LLDP (the programs
+        On a fabric with a foreign switch there is no LLDP (the programs
         carry no controller header), so `net` never learned a single inter-switch edge,
         `render_links` served none, and the kernel's `updateLinks` never enabled one: live
         `2026-09-19T062604Z_02_app_basic` has all eight of pod-topo's inter-switch directions at
@@ -1036,7 +1035,7 @@ class TopologyManager:
           * claim failure detection. `is_up` on these edges means "the package says this cable
             exists". A cut is not noticed and not rerouted around -- `capabilities.reroute` is
             false on this fabric, and `link_liveness` marks every one `source: "declared"`.
-            [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: that holds
+            [Co-developed with claude code -- Adam] That holds
             until the root helper's heartbeat runs. Then `start_heartbeat_watchdog` judges these
             same directions, and an entry it has evidence for says `source: "heartbeat"`.
 
@@ -1172,7 +1171,7 @@ class TopologyManager:
         # i.e. by LLDP packet-in arrival across the ten receive threads named above. On the
         # shipped 4-host P4 fabric that is an eight-way tie for h3 -> h1, and eight bring-ups of
         # one command produced four different fabric-wide routing tables and five different
-        # published utilisations for the s3-s7 link (round 5, 2026-09-03). `canonical_paths_to`
+        # published utilisations for the s3-s7 link (2026-09-03). `canonical_paths_to`
         # ranks the equal-distance candidates by a fixed digest of (destination, here, candidate)
         # instead: same edge set, same answer, whatever order it arrived in. See the block above
         # `_node_token` in ryu_topology for why the key is destination-keyed and hashed rather
@@ -1357,7 +1356,7 @@ class TopologyManager:
         # REST layer answered {"status":"success"} even when the gRPC write was rejected or
         # the switch was unreachable. Return what actually happened.
         # [Co-developed with claude code -- Adam] The slot now holds the application's entry,
-        # at the priority it asked for (Adam, 2026-10-16): a later modify must name that one.
+        # at the priority it asked for (since 2026-10-16): a later modify must name that one.
         with self.slot_priorities().lock(dpid, ipv4_dst):
             success = self._write_slot(
                 dpid, ipv4_dst, client,
@@ -1528,7 +1527,7 @@ class TopologyManager:
                 # The path crosses another switch on a fabric that skips its routes: the
                 # control plane would not write it (install_initial_routes skips it the same
                 # way), so there is nothing to hand the slot back to -- the withdrawal is a
-                # removal. Section 7 ruling 6, F1. [Co-developed with claude code -- Adam]
+                # removal. [Co-developed with claude code -- Adam]
                 return None
             try:
                 return self.net.edges[dpid, next_node]["port"]
@@ -1707,8 +1706,8 @@ class TopologyManager:
         address, prefix_len, next_hop_mac = self._route_target(dpid, ipv4_dst, out_port)
 
         # ---- a named priority must be the one the slot holds -------------------------------
-        # [Co-developed with claude code -- Adam] Adam, 2026-10-16, amending
-        # DECISION-P4-PRIORITY.md §2 for one case. ipv4_lpm has no priority column, so a named
+        # [Co-developed with claude code -- Adam] Since 2026-10-16, amending
+        # the 2026-09-03 decision for one case. ipv4_lpm has no priority column, so a named
         # priority can only name the entry in this slot if it is the priority that entry was
         # written with: CONTROL_PLANE_ROUTE_PRIORITY for the proxy's own route (what TE and ESA
         # modify, as they modify Ryu's priority-10 route on OVS), or an install's own. Anything
@@ -1838,9 +1837,8 @@ class TopologyManager:
         died with the old process and nothing re-establishes it. The liveness probe is a unary
         RPC on a channel gRPC quietly reconnects, and a bmv2 that has been pushed no pipeline
         answers COOKIE_ONLY with FAILED_PRECONDITION, so liveness reads `probe_ok` false for it
-        -- the same value as a dead process (measured on stock and bmv2-fast simple_switch_grpc,
-        phases A and D of run-stock.out and run-fast.out under
-        doc/audit/2026-10-04_p4-cookie-probe/). The probe cannot see empty tables, a missing
+        -- the same value as a dead process (measured on stock and bmv2-fast simple_switch_grpc).
+        The probe cannot see empty tables, a missing
         clone session or a lost stream (switch_liveness does serve `stream_alive`, but the
         kernel's verdict reads only probe_ok, probe_age_s and last_lldp_age_s), which is why
         readopt is still needed. This method is what makes "powered on" true rather than merely reported:
@@ -1856,7 +1854,7 @@ class TopologyManager:
         pipeline it lives in.
 
         `install_routes=False` leaves the shortest-path refill out. [Co-developed with claude
-        code -- Adam] TICKET-P2 round 2. It exists for exactly one caller -- a switch running an
+        code -- Adam] It exists for exactly one caller -- a switch running an
         app package's OWN pipeline -- and for a reason that has no other expression here: the
         refill writes `MyIngress.ipv4_lpm` and `MyIngress.ipv4_forward` BY NAME, and against a
         foreign program those names either do not exist (a KeyError out of the id lookup, which
@@ -1904,7 +1902,7 @@ class TopologyManager:
             # That sentence describes a race this proxy lost. What actually happened is that it
             # was configured never to enter the race, which is a different thing an operator
             # would act on differently. Same fail-closed outcome, checked first, named for what
-            # it is. (Reported by the P1-A judge against c3ecf7f8.)
+            # it is.
             if not new.arbitration:
                 try:
                     new.stop()
@@ -2399,7 +2397,7 @@ class TopologyManager:
             # so the link watchdog's state can be seen without waiting for a POST to arrive at the
             # kernel. [Co-developed with claude code -- Adam]
             "links": self.link_liveness(),
-            # [Co-developed with claude code -- Adam] TICKET-P4-roles 2.4: how many link-state
+            # [Co-developed with claude code -- Adam] How many link-state
             # reports arrived from outside this proxy's LLDP, and whether they were acted on.
             # All zero in this cut -- the entry has no caller yet -- and emitted anyway, so the
             # day the second cut wires one up, "none arrived" and "not reported" stay distinct.
@@ -2623,7 +2621,7 @@ class TopologyManager:
         Returns the `check_link_beacons` result, or None when the pass raised.
 
         [Co-developed with claude code -- Adam]
-        TICKET-P4-heartbeat segment W: on a fabric with link evidence attached (the veth
+        On a fabric with link evidence attached (the veth
         heartbeat on a foreign fabric), the pass first enters that evidence through
         `report_external_link_state(..., at=)` and then judges it with the SAME
         `check_link_beacons`, so one rule and one set of constants decide for LLDP and for the
@@ -2653,7 +2651,7 @@ class TopologyManager:
             # idempotent -- insert_ipv4_route falls back to MODIFY -- so a pass whose links did not
             # actually move rewrites the same rules rather than doing damage.
             #
-            # 🔴 DETECTION IS NOT REROUTING (TICKET-P4-heartbeat segment W). A fabric that skips
+            # 🔴 DETECTION IS NOT REROUTING. A fabric that skips
             # install_initial_routes -- a foreign switch on it is unbound, or keeps its own route
             # table (`owner: package`) -- has had the transition told to the kernel above and
             # has its paths re-pushed below, and NOTHING is written into a switch: a shortest
@@ -2662,8 +2660,8 @@ class TopologyManager:
             # that fabric's one flag (startup sets it from `control_plane.skipped`); every fabric
             # that runs LLDP has it False, so its pass is the pass it was.
             # [Co-developed with claude code -- Adam] Since 09-27 an external control plane takes
-            # this branch too (the external judge's F5, 09-28: the reason named here used to be
-            # only the roles one) -- and since Adam's 09-28 ruling its paths are NOT re-pushed:
+            # this branch too (the reason named here used to be
+            # only the roles one) -- and since 09-28 its paths are NOT re-pushed:
             # `push_destination_paths` knows none there (`destination_paths_unknown`).
             if self.routes_to_attached_hosts_only:
                 print("[TopologyManager] link transition reported to the kernel and NOT rerouted: "
@@ -2679,7 +2677,7 @@ class TopologyManager:
                     print(f"[TopologyManager] reroute after transition failed: "
                           f"{type(e).__name__}: {e}")
             self.push_destination_paths()
-        # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: on record, so the
+        # [Co-developed with claude code -- Adam] On record, so the
         # pass that reported a cut can be placed against the cut (see WATCHDOG_PASS_LOG).
         self._record_watchdog_pass(pass_start, len(result["down"]), len(result["up"]))
         return result
@@ -2711,7 +2709,7 @@ class TopologyManager:
         if self._kernel is None:
             return False
         if self.destination_paths_unknown:
-            # [Co-developed with claude code -- Adam] (Adam, 09-28) An external control plane's
+            # [Co-developed with claude code -- Adam] An external control plane's
             # forwarding is its own controller's: no path is known, so none is pushed (the
             # kernel refuses an empty snapshot anyway), and a guess over the declared links is
             # exactly what this flag withholds.
@@ -2803,14 +2801,14 @@ class TopologyManager:
                     "last_beacon_age_s": None if not e.get("seen", True) else round(now - e["at"], 3),
                     "down": e["down"],
                     "reported_to_kernel": e["acked"],
-                    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: the
+                    # [Co-developed with claude code -- Adam] The
                     # evidence's source, where it came from outside LLDP (`heartbeat`). Absent on
                     # an LLDP entry, so every LLDP fabric's report is exactly what it was.
                     **({"source": e["source"]} if "source" in e else {}),
                 }
                 for (s, sp, d, dp), e in sorted(self._link_beacons.items())
             }
-            # [Co-developed with claude code -- Adam] TICKET-P4-roles 2.3-1. A declared link has
+            # [Co-developed with claude code -- Adam] A declared link has
             # no beacon evidence and no down/up belief -- nothing on its fabric detects either --
             # so it says what it is instead of borrowing the beacon fields' shape. `down: null`,
             # not false: "nobody is checking" is not "checked and up". Only on a fabric that
@@ -2824,7 +2822,7 @@ class TopologyManager:
                 })
             return out
 
-    # --- the external link-state entry. TICKET-P4-roles section 2.4 -------------------------
+    # --- the external link-state entry --------------------------------------------------------
     # [Co-developed with claude code -- Adam]
     #
     # 🔴 AN ENTRY WITH NO CALLER IN THIS CUT. The second cut's fabric root helper (a veth
@@ -2832,7 +2830,7 @@ class TopologyManager:
     # it will land. There is no HTTP route to it and nothing calls it yet -- ON A FOREIGN FABRIC
     # IT EXISTS AND IS NOT WIRED -- and the two branches below are what it does when it is.
     #
-    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W: wired now, from ONE
+    # [Co-developed with claude code -- Adam] Wired now, from ONE
     # place -- the watchdog pass's `_ingest_link_evidence`, which reads the root helper's report
     # file and reports every declared direction here with `at`. Still no HTTP route: nothing can
     # POST link state at this proxy (tests/test_link_state_entry.py says both).
@@ -2856,7 +2854,7 @@ class TopologyManager:
             told -- there is no watchdog to act on it and nothing that would ever take it back.
             The count is served on `GET /p4/switch_state` as `external_link_reports`.
 
-        `at` (TICKET-P4-heartbeat segment W) makes the report evidence AS OF A TIME rather than
+        `at` makes the report evidence AS OF A TIME rather than
         as of now -- what a heartbeat report is: "last heard at t" (`up=True, at=t`), or "not
         heard since t" (`up=False, at=t`, t being the evidence's epoch). See `_enter_evidence`.
         Without `at` the report means what it meant in the first cut.
@@ -2900,11 +2898,11 @@ class TopologyManager:
             out["last"] = None if out["last"] is None else dict(out["last"])
             return out
 
-    # --- the veth heartbeat. TICKET-P4-heartbeat segment W ---------------------------------------
+    # --- the veth heartbeat ----------------------------------------------------------------------
     # [Co-developed with claude code -- Adam]
     #
     # On a foreign fabric the programs carry no controller header, so LLDP cannot run and the
-    # beacon watchdog has nothing to judge (TICKET-P2 2.2; it stays named in
+    # beacon watchdog has nothing to judge (it stays named in
     # `control_plane.skipped`). The root helper's heartbeat sends frames over the veths instead
     # and reports what it heard; the watchdog thread below is the SAME thread, the pass the SAME
     # pass, and the evidence enters through the entry the first cut reserved for it.
@@ -2952,7 +2950,7 @@ class TopologyManager:
 
         The directions are the ones `seed_declared_links` entered -- the package's cables -- so
         the heartbeat judges exactly the edges the kernel was given. The period it is compared
-        with is LLDP_BEACON_INTERVAL_S: one constant, not a second copy (段 W). Nothing is
+        with is LLDP_BEACON_INTERVAL_S: one constant, not a second copy. Nothing is
         seeded into the evidence map: an entry appears when the report first says something
         about that direction, so before the heartbeat has ever been usable `link_liveness` still
         says `source: declared, down: null` -- nobody has checked.

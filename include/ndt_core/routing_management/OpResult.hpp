@@ -80,7 +80,7 @@ struct OpResult
      * @brief Whether this answer is evidence that no switch holds the rule.
      *
      * [Co-developed with claude code -- Adam]
-     * W11 (#54, R6 K-4). The mirror of confirmsProgramming, and the two are deliberately NOT a
+     * The mirror of confirmsProgramming, and the two are deliberately NOT a
      * single tri-state: they are set on different code paths by different facts, and a bool pair
      * that can be (false, false) is exactly the point -- "neither" is the answer on the OVS plane
      * and it has to be representable, because a counter that has to pick one of two buckets will
@@ -110,7 +110,7 @@ struct OpResult
     }
 
     /// A copy of this result carrying @p refused as confirmsNotProgrammed. Chainable.
-    /// [Co-developed with claude code -- Adam] W11.
+    /// [Co-developed with claude code -- Adam]
     OpResult withProgrammingRefused(bool refused) const
     {
         OpResult copy = *this;

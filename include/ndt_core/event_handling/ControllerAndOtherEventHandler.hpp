@@ -93,7 +93,7 @@ class ControllerAndOtherEventHandler
      * @brief Creates the API listening socket. The only place this process makes one.
      *
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #47. Boost.Asio 1.83 creates its sockets with a plain `::socket(af, type,
+     * Boost.Asio 1.83 creates its sockets with a plain `::socket(af, type,
      * protocol)` and accepts with a plain `::accept()` -- no SOCK_CLOEXEC, no accept4() -- so
      * every descriptor it hands back is inherited by every `sh` and `curl` this kernel spawns.
      * Measured 2026-09-03 (round3 step 03): `ss -ltnp` listed `curl` and `sh` as users of :8000
@@ -115,7 +115,7 @@ class ControllerAndOtherEventHandler
      * @brief Marks an accepted connection close-on-exec.
      *
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #47, the part the listening socket alone does not cover. Handlers on this server
+     * The part the listening socket alone does not cover. Handlers on this server
      * shell out -- DeviceConfigurationAndPowerManager runs curl from inside a request handler --
      * so a connection accepted without FD_CLOEXEC is held open by that curl for as long as it
      * lives, and the client sees a request that never finishes rather than a closed connection.

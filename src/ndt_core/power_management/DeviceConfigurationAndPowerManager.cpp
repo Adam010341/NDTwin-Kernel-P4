@@ -201,7 +201,7 @@ DeviceConfigurationAndPowerManager::stop()
     this->m_running.store(false);
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #27, and the whole of it. Setting m_running is what the three loops read *between*
+    // Setting m_running is what the three loops read *between*
     // rounds; this is what reaches a worker that is inside one. It kills the `curl -s --max-time 8`
     // that fetchOpenFlowTablesInternal is blocked on, so the join below waits for a thread that is
     // already returning rather than for nine more switch deadlines. Measured before this line
@@ -407,7 +407,7 @@ DeviceConfigurationAndPowerManager::queryMininet(const std::string& ipParam) con
         {
             if (graph[v].vertexType == VertexType::SWITCH)
             {
-                // FINDINGS #88. A switch with no address has nothing to query; asking about
+                // A switch with no address has nothing to query; asking about
                 // a fabricated one would return someone else's answer.
                 if (const auto ipOpt = utils::firstAddressOf(graph[v].ip))
                 {
@@ -429,7 +429,7 @@ DeviceConfigurationAndPowerManager::queryMininet(const std::string& ipParam) con
         {
             throw std::runtime_error("Unknown switch IP");
         }
-        // [Co-developed with claude code -- Adam] -- Q12, Adam's ruling (a) of 2026-09-03.
+        // [Co-developed with claude code -- Adam]
         //
         // 🔴 THIS LINE WAS `result[sip] = (isUp ? "ON" : "OFF")`, AND IT IS THE FINDING.
         // The endpoint is named "power state", so a caller reads ON/OFF as "what was commanded".
@@ -506,7 +506,7 @@ DeviceConfigurationAndPowerManager::ovsLivenessFor(
 
 /** @brief The age of the probe behind a switch's liveness verdict. See the header.
  *
- * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+ * [Co-developed with claude code -- Adam]
  */
 std::optional<double>
 DeviceConfigurationAndPowerManager::p4ProbeAgeSeconds(uint64_t dpid,
@@ -538,7 +538,7 @@ DeviceConfigurationAndPowerManager::p4ProbeAgeSeconds(uint64_t dpid,
 
 /** @brief See the header. p4LivenessFor's verdict, with a stale Up downgraded to Unknown.
  *
- * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+ * [Co-developed with claude code -- Adam]
  */
 DeviceConfigurationAndPowerManager::OvsLiveness
 DeviceConfigurationAndPowerManager::p4VerdictFor(const std::string& swName,
@@ -555,7 +555,7 @@ DeviceConfigurationAndPowerManager::p4VerdictFor(const std::string& swName,
 
 /** @brief See the header. Dates one Up verdict and asks the P4 strategy whether it counts.
  *
- * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+ * [Co-developed with claude code -- Adam]
  */
 bool
 DeviceConfigurationAndPowerManager::acceptP4LivenessUp(const std::string& swName,
@@ -739,7 +739,7 @@ DeviceConfigurationAndPowerManager::fetchP4SwitchState()
     std::string response;
     try
     {
-        // FINDINGS #27: `curl -s --max-time 3`, on a thread stop() joins. Same command, now
+        // `curl -s --max-time 3`, on a thread stop() joins. Same command, now
         // killable. [Co-developed with claude code -- Adam]
         response = utils::execCommandCancellable(cmd, m_stopSignal).output;
     }
@@ -914,8 +914,7 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
     {
         // [Co-developed with claude code -- Adam]
         // An unsliced 1 s sleep was a 1 s floor under this object's stop(), on every shutdown.
-        // The shell-outs further down this loop are NOT yet cancellable -- see
-        // FIX-KERNEL-STOP-BOUNDED.md for the list of what this branch did not convert and why.
+        // The shell-outs further down this loop are NOT yet cancellable.
         if (m_stopSignal.waitFor(std::chrono::seconds(interval_sec)))
         {
             break;
@@ -934,7 +933,7 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
         {
             listOvsBridges = [&]() -> std::optional<std::vector<std::string>> {
                 // [Co-developed with claude code -- Adam]
-                // FINDINGS #27. This was a bare popen() with NO deadline at all -- `sudo` waiting
+                // This was a bare popen() with NO deadline at all -- `sudo` waiting
                 // on a password prompt, or an ovs-vsctl blocked on the database, was an unbounded
                 // step inside a shutdown, on a thread stop() joins. Same command, same shell, same
                 // exit-status handling; the only difference is that stop() can now end it.
@@ -1058,8 +1057,7 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                     // contained two comments contradicting each other -- and the stale one
                     // was the more prominent, telling a reader to go and implement
                     // something already finished. Deleted rather than corrected, because
-                    // the branch below documents what it does. Found by a review of this
-                    // change; see doc/audit/2026-08-08_commit-review/power.md H2.
+                    // the branch below documents what it does.
                     if (graph[v].switchKind == SwitchKind::BMV2)
                     {
                         // [Co-developed with claude code -- Adam]
@@ -1070,11 +1068,12 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                         switch (p4VerdictFor(swName, graph[v].dpid, p4SwitchState))
                         {
                         case OvsLiveness::Up:
-                            // [Co-developed with claude code -- Adam] -- FINDINGS #80.
+                            // [Co-developed with claude code -- Adam]
                             //
                             // 🔴 THE OTHER DOOR THE RESURRECTION CAME THROUGH, and the one that
-                            // was left open on purpose in #46 because closing it looked like
-                            // refusing an observation. It is not an observation. The proxy
+                            // was left open on purpose when the commanded-power-off veto was added,
+                            // because closing it looked like refusing an observation. It is not an
+                            // observation. The proxy
                             // caches `probe_ok` and a kill does not invalidate the cache, so the
                             // first Up after every kill is routinely a probe TAKEN BEFORE IT --
                             // measured on the live fabric, 18 of 18 trials: `is_up` went 0->1
@@ -1330,7 +1329,7 @@ DeviceConfigurationAndPowerManager::managementIpForReport(const VertexProperties
 }
 
 // [Co-developed with claude code -- Adam]
-// E-23 (Adam's ruling of 2026-09-07). See the declarations in the header for the whole reasoning.
+// See the declarations in the header for the whole reasoning.
 std::string
 DeviceConfigurationAndPowerManager::exemptionNoteFor(const VertexProperties& vp)
 {
@@ -1415,7 +1414,7 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
         }
 
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #85. Was `std::string ip_str = utils::ipToString(vp.ip.front());` -- see
+        // Was `std::string ip_str = utils::ipToString(vp.ip.front());` -- see
         // managementIpForReport in the header. A switch with no address keeps an entry, at the
         // documented sentinel, under a key that cannot be confused with an address.
         const auto ipOpt = managementIpForReport(vp);
@@ -1449,7 +1448,7 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
         }
 
         // [Co-developed with claude code -- Adam]
-        // E-23, site 1 of 6. After the address guard and after the mode test, before the brand
+        // Exemption site 1 of 6. After the address guard and after the mode test, before the brand
         // branches: the address guard reports a defect in the model and its WARN must keep coming
         // from the same report it always did, while this decides only what to dial once the model
         // is sound -- and MININET has nothing to dial, so it must not reach this.
@@ -1543,7 +1542,7 @@ DeviceConfigurationAndPowerManager::classifyFlowStatsReply(const nlohmann::json&
     }
 
     // [Co-developed with claude code -- Adam]
-    // Round 6 finding N2. After the entry scan and before the latency rule, which is the only
+    // After the entry scan and before the latency rule, which is the only
     // place it can go: a value that is not a list has no entries to find, so the scan above passes
     // over it, and the reply then arrives at the latency rule -- where being FAST made it Usable
     // and the junk was published under the switch's own dpid, unflagged. An empty *list* is not
@@ -1599,7 +1598,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
         }
 
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #27. THE check the walk did not have. Without it a stop is answered after the
+        // THE check the walk did not have. Without it a stop is answered after the
         // last switch rather than after the current one, and with a control plane that accepts and
         // never answers that difference is (N-1) x 8 s -- 72 s on the ten-switch fabric.
         //
@@ -1637,7 +1636,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
         // from "Ryu waited out its 1 s stats timeout and gave up". See classifyFlowStatsReply.
         const auto requestStart = std::chrono::steady_clock::now();
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #27. Same shell command, same `/bin/sh -c`, same wire format that
+        // Same shell command, same `/bin/sh -c`, same wire format that
         // tests/test_RequestDeadlines.cpp pins -- the only difference is that this process now owns
         // the child's pid and can end it. popen() does not expose one, which is why the 8 s
         // deadline was the *only* bound available here.
@@ -1748,7 +1747,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
         if (verdict == FlowStatsVerdict::NotUnderstood)
         {
             // [Co-developed with claude code -- Adam]
-            // Round 6 N2: the same conservative treatment its two neighbours already got. The
+            // The same conservative treatment its two neighbours already got. The
             // previous table stays and says stale_since/stale_polls/last_error, instead of the
             // unreadable body being served verbatim as if it were this switch's rules.
             if (m_flowStatsTimeouts.recordFailure())
@@ -1895,26 +1894,27 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
     nlohmann::json result = nlohmann::json::array();
 
     // [Co-developed with claude code -- Adam]
-    // R5 (Adam's ruling of 2026-09-10): /ndt/get_power_report answers in the same vocabulary
+    // /ndt/get_power_report answers in the same vocabulary
     // /ndt/get_graph_data does. Measured on a live OVS fabric, 2026-09-10
     // (scratch/overnight-2026-09-05/fix/R4-LIVE-SUMMARY.md §4-A15 and §7-1): the switch at
     // dpid 7, whose `power_path` is "none" because it was admitted by the `switch_kind`
     // exemption, answered `power_consumed: 44487` while the real OVS at dpid 1 answered 92465 --
     // ten switches, ten different figures, and nothing in the body saying which of them came
-    // from a path this build actually has. E-25 put the mark on get_graph_data's nodes; this
+    // from a path this build actually has. The mark was first put on get_graph_data's nodes; this
     // report is the next door of the same honesty gap.
     //
     // 🔴 THE MARK, NOT THE VALUE -- AND THAT IS THIS FAMILY'S OWN CALIBRE, NOT A SOFTENING.
-    // Two rulings fix it. E-25's serialiser (GraphTypes.hpp,
+    // Two constraints fix it. The node serialiser (GraphTypes.hpp,
     // to_json(nlohmann::json&, const VertexProperties&)) is "purely
-    // additive: no existing key changes type, spelling or value", and E-23 deliberately left
-    // the MININET figure alone, because that figure is syntheticPowerMilliwattsFor(dpid) -- a
-    // function of the dpid, never a question asked of the machine -- which
+    // additive: no existing key changes type, spelling or value", and the exempt-switch change
+    // deliberately left the MININET figure alone, because that figure is
+    // syntheticPowerMilliwattsFor(dpid) -- a function of the dpid, never a question asked of
+    // the machine -- which
     // tests/test_ExemptSwitchIsNotDialled.cpp pins with two widening tests (§7 of that file).
     // So what was missing here is the field, spelled and valued exactly as get_graph_data
     // spells and values it, and no number moves: the exempted switch keeps whatever its mode
-    // legitimately produces (-1 in TESTBED, from the E-23 guard below; the synthetic figure in
-    // MININET) and now says which.
+    // legitimately produces (-1 in TESTBED, from the exempt-switch guard below; the synthetic
+    // figure in MININET) and now says which.
     //
     // `power_path` alone and not the pair: `telemetry_path` is "none" for OVS and BMv2 as well
     // (KNOWN-ISSUES F-1), so it cannot tell an exempted switch from a software one, and it
@@ -1953,7 +1953,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
             const std::string username = "admin";
 
             // [Co-developed with claude code -- Adam]
-            // FINDINGS #85. Was `std::string ip_str = utils::ipToString(props.ip.front());`. This
+            // Was `std::string ip_str = utils::ipToString(props.ip.front());`. This
             // one sits inside the TESTBED branch on purpose and the guard stays there with it:
             // the MININET figure is a function of the dpid alone (see syntheticPowerMilliwattsFor,
             // whose doc comment already says this path must not call ip.front()), so a switch with
@@ -2145,7 +2145,7 @@ DeviceConfigurationAndPowerManager::setPowerStateTestbed(const SwitchInfo& si,
         }
 
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #46, the TESTBED plane. Same distinction as in the two Mininet strategies: the
+        // The TESTBED plane. Same distinction as in the two Mininet strategies: the
         // gateway has just confirmed it switched the plug, so this is a commanded state, not the
         // pingWorker's opinion -- and updateSwitches runs against this graph too. Written through
         // the commanded writers so a poll cannot undo a plug that was actually switched.
@@ -2402,9 +2402,10 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
             continue;
         }
         // [Co-developed with claude code -- Adam]
-        // E-23, site 4 of 6, and the one that is honestly different from the other five: this
+        // Exemption site 4 of 6, and the one that is honestly different from the other five: this
         // site already made no outbound call for a non-HPE switch -- the branch below returns
-        // before the snmpget -- so what E-23 changes here is WHAT IT SAYS, not what it does.
+        // before the snmpget -- so what the exemption changes here is WHAT IT SAYS, not what it
+        // does.
         //
         // "The temperature function only supports the HPE 5520." is true of a Brocade and is a
         // half-truth about an exempted switch: it reads as "we have a path, just not for this
@@ -2564,7 +2565,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
     if (foundVertex)
     {
         const auto& props = graph[*foundVertex];
-        // FINDINGS #88. Same answer as "not found" below: this endpoint is keyed by address
+        // Same answer as "not found" below: this endpoint is keyed by address
         // and there is no address here to key it by.
         const auto ipOpt = utils::firstAddressOf(props.ip);
         if (!ipOpt)
@@ -2575,11 +2576,10 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
         const std::string& ip_str = *ipOpt;
 
         // [Co-developed with claude code -- Adam]
-        // R5, and Adam's ruling of 2026-09-10 that this family answers in the vocabulary
-        // /ndt/get_graph_data publishes. fetchPowerReportInternal got that mark on 2026-09-11;
-        // this is the OTHER copy of the figure -- the one that answers a caller instead of
-        // filling a cache -- and scratch/overnight-2026-09-05/fix/R5-POWER-REPORT-SUMMARY.md
-        // registered it as not done, verbatim: "getSingleSwitchPowerReport 沒有跟著加".
+        // This family answers in the vocabulary /ndt/get_graph_data publishes.
+        // fetchPowerReportInternal got that mark on 2026-09-11; this is the OTHER copy of the
+        // figure -- the one that answers a caller instead of filling a cache -- and it did not get
+        // the mark then.
         //
         // Built in ONE place for the reason the report's entryFor gives next door: both of the
         // exits below that carry a figure must carry the mark, because a key on one of them and
@@ -2587,7 +2587,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
         // The two "no figure at all" exits (no address here, not found below) answer `{}` and
         // are deliberately left alone: there is no power_consumed on them for a path to qualify.
         //
-        // 🔴 NO NUMBER MOVES. E-23 left the MININET figure alone on purpose, because
+        // 🔴 NO NUMBER MOVES. The exemption left the MININET figure alone on purpose, because
         // syntheticPowerMilliwattsFor(dpid) is a function of the dpid and was never a question
         // asked of the machine, and M11 of this function's gate pins the widening that would
         // take it away. `power_consumed` is the value it always was; section 11 of
@@ -2599,7 +2599,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
         };
 
         // [Co-developed with claude code -- Adam]
-        // E-23, site 5 of 6, and one of the two that answers a caller rather than filling a
+        // Exemption site 5 of 6, and one of the two that answers a caller rather than filling a
         // cache. The reply is the ordinary shape PLUS an "exempt" key that says why the figure
         // is the sentinel -- purely additive, so a consumer that has never heard of it still
         // finds `dpid` and `power_consumed` where they always were. This is not an error and
@@ -2658,7 +2658,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
     for (auto v : boost::make_iterator_range(vertices(graph)))
     {
         const auto& vp = graph[v];
-        // FINDINGS #88. The empty check is new; the == is NOT touched. deviceIdentifier
+        // The empty check is new; the == is NOT touched. deviceIdentifier
         // flows into execArgv/snmpget below, and equality against an address the topology
         // already holds is what confines it. Widening this to a substring match is mutation
         // M7 in tests/shell/mutate_first_address_of.sh.
@@ -2697,7 +2697,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
         cpu = kHealthMetricUnavailable;
     }
     // [Co-developed with claude code -- Adam]
-    // E-23, site 6 of 6. Same shape and same reasoning as getSingleSwitchPowerReport's: the
+    // Exemption site 6 of 6. Same shape and same reasoning as getSingleSwitchPowerReport's: the
     // ordinary reply plus an additive "exempt" key, on the request thread, logged once per
     // request. No TESTBED test is needed around it -- unlike the power path, the MININET case is
     // the branch above and has already returned.
@@ -2847,7 +2847,7 @@ DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker()
             // 2. Lock, merge and update the cache (FAST part) -- see applyFetchedTables.
             //
             // [Co-developed with claude code -- Adam]
-            // FINDINGS #27. An abandoned round is not applied. carryForwardUnreadTables would
+            // An abandoned round is not applied. carryForwardUnreadTables would
             // otherwise walk a `tables` holding only the switches polled before the stop and
             // delete every switch after it -- a shutdown that damages the cache it is shutting
             // down. Nothing consumes the cache after this point anyway; the reason to be careful
@@ -3036,7 +3036,7 @@ cachedIpv4Field(const nlohmann::json& match, const char* field, const char* alia
 //
 // The accessors below now match makeInstallJob's exactly (priority 0, match {}, actions []), so
 // the two layers agree on what an absent field means and this function can no longer be the one
-// that decides a request failed. Report: doc/audit/2026-08-17_install-rejected-but-applied.md.
+// that decides a request failed.
 void
 DeviceConfigurationAndPowerManager::updateOpenFlowTables(const json& j)
 {

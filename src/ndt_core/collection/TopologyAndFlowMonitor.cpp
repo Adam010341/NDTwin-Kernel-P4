@@ -2324,13 +2324,13 @@ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
                     //
                     // Being listed by the control plane is not evidence that a switch is
                     // powered. The proxy went on listing a killed switch for D = 3.06 s after it
-                    // died (round3 07_), so the reply this loop is applying can be, and measurably
+                    // died, so the reply this loop is applying can be, and measurably
                     // was, about a switch that is already gone. What makes that permanent rather
                     // than transient is the missing else: the next poll re-asserts it, and the
                     // one after that, for ever -- so one badly-timed power-off left the fabric
-                    // with a dead process the twin called up, and #35's early-return then made
-                    // the power API decline to fix it. 8 of 14 at the losing phase; the winning
-                    // arm 0 of 4.
+                    // with a dead process the twin called up, and the already-down early return
+                    // then made the power API decline to fix it. 8 of 14 at the losing phase; the
+                    // winning arm 0 of 4.
                     //
                     // The narrowest rule that closes it: discovery is still allowed to lift
                     // `isUp` -- it must be, since on a healthy fabric it is real evidence and a

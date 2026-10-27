@@ -160,7 +160,7 @@ formatSeconds(double seconds)
 /// Says what happened to a request that produced no HTTP status, and how long it took.
 ///
 /// [Co-developed with claude code -- Adam]
-/// FINDINGS #38. `%{http_code}` is "000" for every failure that produced no HTTP response, so
+/// `%{http_code}` is "000" for every failure that produced no HTTP response, so
 /// `httpStatus == 0` is the union of "refused", "reset", "could not resolve" and "timed out" --
 /// and the branch that tested it hard-coded the timeout wording, reporting a 6 ms refusal as a
 /// 30-second wait, five times out of five. What separates them is curl's *exit code*, which
@@ -251,7 +251,7 @@ SimulationRequestManager::requestSimulation(const std::string& body)
                                            "-d",
                                            body};
 
-    // FINDINGS #38: the duration is measured here rather than assumed from --max-time. The
+    // The duration is measured here rather than assumed from --max-time. The
     // message that quoted "30s" for a 6 ms request had no measurement behind it at all.
     const auto startedAt = std::chrono::steady_clock::now();
     const utils::CommandOutcome outcome = utils::execArgv(argv);
@@ -281,7 +281,7 @@ SimulationRequestManager::requestSimulation(const std::string& body)
     {
         // FINDINGS #38. This read, for every cause alike:
         //     "no response from the simulator server at <url> within 30s"
-        // Round 2 measured that sentence coming back in 6.0-9.0 ms, five times out of five, with
+        // That sentence was measured coming back in 6.0-9.0 ms, five times out of five, with
         // nothing listening on the port. Two failures that need opposite responses -- start the
         // simulator, versus go and find out why it is slow -- were rendered byte-identically, and
         // the one number in the message was the deadline rather than anything measured.
@@ -366,7 +366,7 @@ SimulationRequestManager::onSimulationResult(int appId,
         }
         else if (curl.httpStatus == 0)
         {
-            // FINDINGS #38's second instance, in the same file. Log-only -- the 200 has already
+            // The same defect's second instance, in the same file. Log-only -- the 200 has already
             // gone out -- but an operator reading "nothing answered within 30s" about a callback
             // URL that is simply not listening is being sent to the same wrong place. No test
             // covers this line: it runs on a detached thread with no caller left to observe, so

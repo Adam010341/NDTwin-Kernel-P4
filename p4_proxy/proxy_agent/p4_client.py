@@ -110,7 +110,7 @@ def _match_ints(match):
 # 🔴 THREE EXCEPTION TYPES, BECAUSE THE THREE FAILURES ARE NOT THE SAME FAILURE. A caller that
 # receives one boolean cannot tell "this pipeline has no such table" (the operator pointed at the
 # wrong package) from "this proxy cannot build that kind of match" (true of every package, and
-# nothing the operator did) from "the switch refused it" (retryable). TICKET-P2 2.3 maps them to
+# nothing the operator did) from "the switch refused it" (retryable). They map to
 # 404 / 501 / 502, and api_routes.table_entry is the only translator. The two this module raises
 # itself, TableEntryUnsupported and TableEntryInvalid, are defined in match_shape.py -- the
 # pre-flight raises and catches the same two -- and re-exported above under their old names.
@@ -193,9 +193,8 @@ def pipeline_carries_telemetry(p4info_path):
     [Co-developed with claude code -- Adam]
     The same question `P4RuntimeClient.__init__` answers for a client that exists, asked of a
     FILE for a switch that does not have one yet -- `readopt_switch` has to decide whether to
-    hand the re-adoption a sample callback BEFORE the new client is built, and TICKET-P3 section
-    9 ruling 4 makes that decision depend on the program's header rather than on whose pipeline
-    it is.
+    hand the re-adoption a sample callback BEFORE the new client is built, and that decision
+    depends on the program's header rather than on whose pipeline it is.
 
     Any failure is False: an unreadable or unparseable p4info is a switch this proxy cannot
     reason about, and the safe answer there is "no cooperative telemetry" -- a clone session
@@ -215,20 +214,20 @@ def pipeline_carries_telemetry(p4info_path):
 class P4RuntimeClient:
     """Encapsulates P4Runtime gRPC connection to a single BMv2 switch"""
 
-    #: The fabric generation this client's pipeline pushes carry in `ForwardingPipelineConfig.cookie`
-    #: (DESIGN 5.2, ruling Q1 (a)), or None for a push with no cookie. `main.startup` sets it on
-    #: every client before its push loop and `main.readopt_switch` on the client its readopt
+    #: The fabric generation this client's pipeline pushes carry in
+    #: `ForwardingPipelineConfig.cookie`, or None for a push with no cookie. `main.startup` sets it
+    #: on every client before its push loop and `main.readopt_switch` on the client its readopt
     #: builds; a later startup reads it back with COOKIE_ONLY (`read_pipeline_cookie`) to tell a
     #: switch this fabric programmed from one that was restarted since. 🔴 A push without it CLEARS
-    #: the cookie on the switch (measured, ternary-a0 08), so every push in this proxy carries it.
-    #: A class default for the reason `route_binding` is one. [Co-developed with claude code -- Adam]
+    #: the cookie on the switch (measured), so every push in this proxy carries it. A class default
+    #: for the reason `route_binding` is one. [Co-developed with claude code -- Adam]
     pipeline_cookie = None
 
     #: Moved on BOTH sides of every pipeline push attempt -- before the RPC and, in a `finally`,
     #: after it -- so it differs from any value read before a push began, whether the push was
     #: accepted, refused or timed out (a timed-out push may still have emptied the tables).
     #: topology_manager's slot-priority records are stamped with it and stop counting when it
-    #: moves: a pipeline push forgets every priority recorded for this switch (Adam, 2026-10-16).
+    #: moves: a pipeline push forgets every priority recorded for this switch (since 2026-10-16).
     #: A class default for the reason `route_binding` below is one: a double built with __new__
     #: never pushes, and reads 0. [Co-developed with claude code -- Adam]
     pipeline_push_epoch = 0
@@ -236,12 +235,12 @@ class P4RuntimeClient:
     #: Which table, match field, action and parameters this client writes a destination route
     #: with -- `route_binding.BASELINE` (NDTwin's own pipeline), a binding resolved from the app
     #: package's `roles.ipv4_route`, or None (a foreign pipeline with no roles: every route
-    #: write answers 501). TICKET-P4-roles section 2.2.
+    #: write answers 501).
     #:
     #: [Co-developed with claude code -- Adam]
     #: 🔴 A CLASS DEFAULT, deliberately, and against this file's own habit of making hand-built
     #: doubles fail loudly on a missing attribute. Every client that existed before roles was an
-    #: NDTwin-pipeline client, and the ticket forbids editing an existing test's fixture -- so a
+    #: NDTwin-pipeline client, and an existing test's fixture is not edited for roles -- so a
     #: double built with __new__ must keep writing what it always wrote. The one production
     #: construction site, main.build_p4_client (startup AND readopt), always calls bind_routes(),
     #: and tests/test_route_binding.py asserts that it does for all three kinds of switch.
@@ -254,7 +253,7 @@ class P4RuntimeClient:
         self.p4info = self._build_p4info(p4info_path)
         self.json_path = json_path
 
-        # --- which metadata ids THIS switch's program uses. TICKET-P3 2.6 (G1).
+        # --- which metadata ids THIS switch's program uses.
         # [Co-developed with claude code -- Adam]
         #
         # Resolved once, here, because the p4info is parsed here and because every later reader
@@ -282,12 +281,11 @@ class P4RuntimeClient:
         # Was the literal `(0, 1)`, written out at NINE sites: the arbitration message in
         # start(), plus EIGHT unary requests each spelling `req.election_id.low = 1` -- the
         # pipeline push, write_clone_session's `build()` (one site, four RPCs), the three
-        # ipv4_lpm writes and the three flow_5tuple writes. Counted, not estimated: TICKET-P1
-        # says "12 places" and an earlier draft of this comment said "thirteen"; `/usr/bin/grep
-        # -n election_id` on this file at 532b6c31 returns those nine assignments and nothing
-        # else. One value in one place now,
-        # and the default is that same (0, 1) so a fabric with no app package puts byte-identical
-        # requests on the wire.
+        # ipv4_lpm writes and the three flow_5tuple writes. Counted, not estimated: an earlier count
+        # said "12 places" and an earlier draft of this comment said "thirteen"; `/usr/bin/grep -n
+        # election_id` on this file at 532b6c31 returns those nine assignments and nothing else. One
+        # value in one place now, and the default is that same (0, 1) so a fabric with no app
+        # package puts byte-identical requests on the wire.
         #
         # 🔴 It is a parameter because of the mastership note below. A proxy that bids (0, 1) can
         # be impersonated by anything else that bids (0, 1) -- and P4Runtime says the LATER
@@ -357,7 +355,7 @@ class P4RuntimeClient:
         #
         # KNOWN-ISSUES G-13. A bmv2 table entry has no age, so /stats/flow/<dpid> reported
         # duration 0/0 for every rule and the P4 plane had no time axis at all -- measured
-        # 2026-09-07 (W16-3). This is the only record of when a rule went on, and the write
+        # 2026-09-07. This is the only record of when a rule went on, and the write
         # methods below stamp it; ryu_flow_stats subtracts. See rule_install_times.py.
         #
         # Per client, not per process: readopt_switch replaces this object and pushes a pipeline
@@ -417,11 +415,11 @@ class P4RuntimeClient:
         self.bind_routes(route_binding_module.BASELINE)
 
         #: (unrendered entries, monotonic) of the most recent /stats/flow render of this switch,
-        #: or None before the first. TICKET-P4-roles 2.5-1: `switch_state` serves the count as
+        #: or None before the first. `switch_state` serves the count as
         #: `flow_stats.unrendered_entries`. [Co-developed with claude code -- Adam]
         self.last_flow_render = None
 
-    # --- the route binding. TICKET-P4-roles section 2.2. [Co-developed with claude code -- Adam]
+    # --- the route binding. [Co-developed with claude code -- Adam]
 
     def bind_routes(self, binding):
         """Set the binding this client writes destination routes through (None = unbound).
@@ -444,7 +442,7 @@ class P4RuntimeClient:
         """The binding a destination-route write may use, or RouteWriteUnsupported (-> 501).
 
         Called AFTER _refuse_write in every route write: an external control plane's refusal
-        comes first (TICKET-P4-roles 2.2-4), and then unbound and owner `package` (2.2-3).
+        comes first, and then unbound and owner `package`.
         """
         binding = self.route_binding
         if binding is None:
@@ -467,7 +465,7 @@ class P4RuntimeClient:
         self._writable_route_binding(what)
 
     def _writable_five_tuple_binding(self, what):
-        """The 5-tuple writes' action names -- NDTwin's pipeline only (TICKET-P4-roles 2.2-3).
+        """The 5-tuple writes' action names -- NDTwin's pipeline only.
 
         `flow_5tuple` exists in ndtwin_switch.p4 and in no exercise, and this cut has no 5-tuple
         role, so a switch that is not bound to BASELINE cannot take one whatever its roles say.
@@ -590,7 +588,7 @@ class P4RuntimeClient:
         # never opened -- and it is a write in every sense that matters: the LLDP beacon is how
         # this proxy puts frames on somebody else's fabric. [Co-developed with claude code -- Adam]
         self._refuse_write("a packet-out")
-        # TICKET-P3 2.6 (G1): the two ids come from this switch's own p4info, by field name.
+        # The two ids come from this switch's own p4info, by field name.
         # Against ndtwin_switch.p4 they resolve to 1 and 2 -- the literals that used to be
         # written here -- so the beacon on the wire is byte-identical. Against a program that
         # declares the header in another order they would not be, and a beacon whose egress port
@@ -706,8 +704,7 @@ class P4RuntimeClient:
         answers it; one with no pipeline pushed answers FAILED_PRECONDITION ("No forwarding
         pipeline config set for this device"), which lands below as ok False, the same value as
         a dead process, told apart only by `detail` (measured on stock and bmv2-fast
-        simple_switch_grpc, doc/audit/2026-10-04_p4-cookie-probe/run-stock.out
-        and run-fast.out, phase A).
+        simple_switch_grpc).
 
         @return {"ok": bool, "detail": str}. `detail` carries the gRPC status *name* as well as its
                 details string, because bmv2 returns an empty details() for some failures and a
@@ -809,7 +806,7 @@ class P4RuntimeClient:
         session is registered -- the settle pair is what actually heals a warm fabric,
         see below.
 
-        Measured live (2026-08-16, reconciliation round 2): a proxy restart re-pushes the
+        Measured live (2026-08-16): a proxy restart re-pushes the
         pipeline, and after that commit the P4Runtime server's clone-session bookkeeping is
         empty while the target's PRE state (multicast group 0x8000+session behind the
         session) survives from the previous proxy generation. The restart's INSERT then
@@ -823,8 +820,7 @@ class P4RuntimeClient:
         because the best-effort swallow below never logged the code) and never touches
         the orphaned group.
 
-        The way out came from the same repro's diagnostic phase
-        (doc/audit/2026-08-16_clone-stacking-raw-repro.md, phase E): a DELETE issued while
+        The way out came from the same repro's diagnostic phase: a DELETE issued while
         the bookkeeping *does* hold the session destroys the whole backing multicast
         group, orphaned replicas included. After a successful registration the bookkeeping
         always holds the session -- so the settle pair below (DELETE, then INSERT again)
@@ -852,7 +848,7 @@ class P4RuntimeClient:
         emitter truncates instead, since it is the side with tests covering it.
 
         [Co-developed with claude code -- Adam]
-        `replicas` (TICKET-P3 2.6, G9a) is for a package that ships its own `clone_session_entries`
+        `replicas` is for a package that ships its own `clone_session_entries`
         -- flowcache's controller programs session 57 with its own replica list, and an exercise
         that declared two of them would otherwise get one. 🔴 ITS DEFAULT IS THE OLD BEHAVIOUR
         SPELLED OUT: `None` means exactly `[{"egress_port": egress_port, "instance": 1}]`, so a
@@ -946,7 +942,7 @@ class P4RuntimeClient:
         Programs one PRE multicast group: `mcast_grp` N replicates to these (port, instance)s.
 
         [Co-developed with claude code -- Adam]
-        TICKET-P3 2.6 (G8). tutorials' `multicast` exercise declares its group in the runtime
+        tutorials' `multicast` exercise declares its group in the runtime
         file (`multicast_group_entries`) and its program then sets `standard_metadata.mcast_grp`;
         without the group the packet is dropped by the PRE with nothing logged -- the exercise's
         h1 simply cannot reach h2/h3/h4 and every table entry reads correct.
@@ -968,8 +964,8 @@ class P4RuntimeClient:
         the MODIFY that follows replaces the group's replica list, and a genuine failure fails
         it too and is reported. What is deliberately NOT copied is the clone session's
         DELETE-first settle pair: that exists because a clone session's backing group survives a
-        pipeline re-push and accumulates a replica per proxy restart (doc/audit/
-        2026-08-16_clone-stacking-raw-repro.md), and MODIFY on a multicast group REPLACES the
+        pipeline re-push and accumulates a replica per proxy restart (measured
+        2026-08-16), and MODIFY on a multicast group REPLACES the
         replica list outright rather than appending to it, so the stacking shape cannot arise.
         """
         self._refuse_write("a multicast group write")
@@ -1112,7 +1108,7 @@ class P4RuntimeClient:
     # runtime files and its own p4info helper look names up both ways
     # (`p4runtime_lib/helper.py` tries name then alias), so a package written against that
     # helper would be refused here for a spelling its own toolchain accepts. The four above are
-    # left exactly as they were -- they are on the baseline write paths, and this ticket changes
+    # left exactly as they were -- they are on the baseline write paths, and package support changes
     # nothing a fabric without a package does.
 
     def _table_by_name(self, name):
@@ -1380,7 +1376,7 @@ class P4RuntimeClient:
         before anything is built: a table that cannot be resolved here is left for
         `build_table_entry`, whose 404 / 400 it already owns.
 
-        ONE EXCEPTION, deliberately narrow (ruling 8-1, kept at runtime): the DEFAULT ACTION of
+        ONE EXCEPTION, deliberately narrow (kept at runtime): the DEFAULT ACTION of
         the table a package binds as `roles.ipv4_route` with owner `ndtwin`, written while this
         proxy applies the package's own entries. `main.py` installs NDTwin's routes after the
         package's entries "so the table's default action is in place first", and NDTwin's
@@ -1419,7 +1415,7 @@ class P4RuntimeClient:
 
     def write_table_entry(self, spec, op="insert", source=None):
         """
-        Put one package- or API-supplied table entry on this switch. TICKET-P2 2.3.
+        Put one package- or API-supplied table entry on this switch.
 
         [Co-developed with claude code -- Adam]
         Returns what went on the wire:
@@ -1726,7 +1722,7 @@ class P4RuntimeClient:
         counter_id = None
         for counter in self.p4info.counters:
             # [Co-developed with claude code -- Adam]
-            # By full name OR alias, the same pair `_table_by_name` accepts (TICKET-P3 2.6, G7).
+            # By full name OR alias, the same pair `_table_by_name` accepts.
             # tutorials' runtime files and its `p4runtime_lib` helpers use both spellings
             # interchangeably -- `MyEgress.egress_port_counter` and `egress_port_counter` name
             # the same object -- so accepting only one turns a correct request into
@@ -1788,7 +1784,7 @@ class P4RuntimeClient:
         ONE wildcard RPC: a DirectCounterEntry naming only the table. bmv2 answers it on both
         builds, stock and bmv2-fast, with each entry's match, its priority and its data (measured
         2026-10-16 on hc_main's exact table and on ndtwin_switch's ternary flow_5tuple and lpm
-        ipv4_lpm, doc/audit/2026-10-16_p4-register-read/DESIGN.md). A one-entry read is not
+        ipv4_lpm). A one-entry read is not
         offered: a GET cannot carry a ternary match and its priority, and for an entry that is
         not there bmv2 answers INVALID_ARGUMENT, which a caller could not tell from a failure.
 
@@ -1911,7 +1907,7 @@ class P4RuntimeClient:
     # naming an entry its own way -- fails silently and completely: every lookup misses, every
     # rule reports 0/0, and the result is indistinguishable from the defect being fixed.
     #
-    # The stamp is the FIRST accepted write of an entry; MODIFY does not restart it (Adam,
+    # The stamp is the FIRST accepted write of an entry; MODIFY does not restart it (decided
     # 2026-09-08, for agreement with OVS, where `duration` is the switch's own and OpenFlow
     # counts it from the ADD). So a modify records nothing new for an entry already known -- it
     # still calls record(), because a modify is also how an entry this client has never written
@@ -1940,7 +1936,7 @@ class P4RuntimeClient:
                            port=None):
         """Fill one destination-route TableEntry from `binding`. No action for a delete.
 
-        [Co-developed with claude code -- Adam] TICKET-P4-roles 2.2-3. The one place the three
+        [Co-developed with claude code -- Adam] The one place the three
         route writes build their entry, in the order the literal code built it -- table, the
         LPM match, then the action with the MAC first and the port second -- because that order
         is what the serialised bytes are compared against. The port goes out in the width the
@@ -2165,7 +2161,7 @@ class P4RuntimeClient:
     def insert_ipv4_route(self, dst_ip, prefix_len, next_hop_mac, port):
         """Inserts a destination route into this switch's route table -- the binding's.
 
-        [Co-developed with claude code -- Adam] TICKET-P4-roles 2.2-3. Every name comes from
+        [Co-developed with claude code -- Adam] Every name comes from
         `self.route_binding`; on NDTwin's pipeline that is BASELINE, whose names are the
         literals this method used to spell (MyIngress.ipv4_lpm / ipv4_forward(dstAddr, port)),
         and the bytes on the wire are the same (test_p4_client_writes' base capture).

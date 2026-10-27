@@ -1010,7 +1010,7 @@ class TableEntryJournal:
         return fold_records(records)
 
 
-# --- the fabric generation: DESIGN 5.2's `fabric_cookie`, 5.4 step 0, ruling Q1 (a) ------------
+# --- the fabric generation: `fabric_cookie` ---------------------------------------------------
 
 
 def cookie_hex(value):

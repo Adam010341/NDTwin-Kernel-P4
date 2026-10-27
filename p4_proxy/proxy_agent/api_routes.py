@@ -9,7 +9,7 @@ from p4.v1 import p4runtime_pb2
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError, needs_five_tuple
 # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: an install refused before the switch.
 from proxy_agent.topology_manager import FlowRequestUnusable
-# [Co-developed with claude code -- Adam] Adam, 2026-10-16: a destination-only modify is
+# [Co-developed with claude code -- Adam] Since 2026-10-16 a destination-only modify is
 # honoured at the priority its slot holds, and refused (501) at any other.
 from proxy_agent.slot_priority import (CONTROL_PLANE_ROUTE_PRIORITY, SlotPriorityNotHeld,
                                        named_priority)
@@ -25,7 +25,7 @@ from proxy_agent import bm_thrift
 from proxy_agent.p4_client import (ControlPlaneReadOnly, CounterNotFound, RPC_TIMEOUT_S,
                                    DirectCounterUnrenderable, TableEntryInvalid,
                                    TableEntryUnsupported, TableOwnedByNDTwin)
-# TICKET-P4-roles: the binding a route is written through, and the 501 when there is none.
+# The binding a route is written through, and the 501 when there is none.
 # [Co-developed with claude code -- Adam]
 from proxy_agent import route_binding
 from proxy_agent.route_binding import RouteWriteUnsupported
@@ -65,10 +65,10 @@ def inject_readopt(client_factory, sample_callback, runner):
     readopt_runner = runner
 
 
-# Injected for GET /sflow/stats (ticket P). [Co-developed with claude code -- Adam]
+# Injected for GET /sflow/stats. [Co-developed with claude code -- Adam]
 # The emitter already counts datagrams_sent, samples_sent and send_errors and has done since it
-# was written; nothing in this repository ever read them. Ticket 1 measured telemetry losing 34%
-# of its bytes under CPU contention and could not say which stage lost them, because the send
+# was written; nothing in this repository ever read them. Telemetry was measured losing 34%
+# of its bytes under CPU contention, and nobody could say which stage lost them, because the send
 # side had no observable. This is the reader those counters never had.
 #
 # The emitter instance is injected rather than reached through readopt_sample_callback.__self__,
@@ -102,7 +102,7 @@ def inject_control_plane(report, entries_recorded):
     entries_recorded_report = entries_recorded
 
 
-# --- the G4/G5 half of the same disclosure (TICKET-P2 2.2). [Co-developed with claude code -- Adam]
+# --- the second half of the same disclosure. [Co-developed with claude code -- Adam]
 #
 # A second injector rather than three more arguments on the one above: `control_plane` and
 # `entries_recorded` answer "what did the package switch off" and "how many rules did it declare",
@@ -142,7 +142,7 @@ def inject_table_journals(journals):
     table_journals = journals
 
 
-# --- the telemetry half of the disclosure (TICKET-P3 2.6). [Co-developed with claude code -- Adam]
+# --- the telemetry half of the disclosure. [Co-developed with claude code -- Adam]
 #
 # 🔴 A THIRD INJECTOR, NOT THREE MORE ARGUMENTS ON THE SECOND. The pair above answers "which
 # program is on each switch and what got written to it". These answer "where does each switch's
@@ -162,8 +162,8 @@ def inject_telemetry_reports(telemetry, pre_entries, fabric_telemetry):
     control_plane_telemetry = fabric_telemetry
 
 
-# --- the roles half of the disclosure (TICKET-P4-roles 2.5-2). [Co-developed with claude code --
-# Adam] A fourth injector, for the reason the third was one: these answer a different question --
+# --- the roles half of the disclosure. [Co-developed with claude code -- Adam]
+# A fourth injector, for the reason the third was one: these answer a different question --
 # "what may this switch be asked to do, and what could its flow table not be rendered as" -- and
 # a reporter that is not injected adds no key at all, so a proxy that has not wired them cannot
 # be read as one that reports every switch incapable.
@@ -171,7 +171,7 @@ capabilities_report = None
 flow_stats_report = None
 
 
-#: TICKET-P4-roles section 7 ruling 5, item 8: what seeding the declared links did, for the
+#: What seeding the declared links did, for the
 #: FABRIC -- {directions, error} on a fabric whose links are declared, null on one whose are
 #: not. Its own injector, for the same reason as the one below: not injected, no key.
 #: [Co-developed with claude code -- Adam]
@@ -189,7 +189,7 @@ def inject_roles_reports(capabilities, flow_stats):
     flow_stats_report = flow_stats
 
 
-#: TICKET-P4-heartbeat segment W: the fabric's `reroute` -- {available, reason, detail} -- and the
+#: The fabric's `reroute` -- {available, reason, detail} -- and the
 #: heartbeat's disclosure, both TOP-LEVEL because both are facts about the fabric, like
 #: `declared_links`. Their own injector, for the same reason: not injected, no key.
 #: [Co-developed with claude code -- Adam]
@@ -208,7 +208,7 @@ def _read_only_conflict(err, dpid):
     A write refused because this fabric's control plane is somebody else's, as a 409.
 
     [Co-developed with claude code -- Adam]
-    TICKET-P4-heartbeat ruling 5(a) (the first cut's section 7 ruling 5 (a)): under
+    Under
     `control_plane.mode: external` every write is refused by `P4RuntimeClient._refuse_write`,
     which RAISES `ControlPlaneReadOnly` so that no retry loop can spin on it. `POST
     /p4/table_entry` turned that into a 409; the three flowentry endpoints did not catch it, and
@@ -225,7 +225,7 @@ def _route_write_unsupported(err, dpid):
     A route write this switch has no binding for, as the 501 the other unsupported writes use.
 
     [Co-developed with claude code -- Adam]
-    TICKET-P4-roles 2.2-3. Replaces what a foreign pipeline used to answer: a 500 out of a
+    Replaces what a foreign pipeline used to answer: a 500 out of a
     KeyError, or -- on the seven exercises that declare ndtwin_switch's own names -- a write into
     the author's table that silently MODIFY'd an entry they had declared. The shape is
     `_refuse_unhonourable_priority`'s and the six group/meter endpoints': `outcome:
@@ -262,7 +262,7 @@ def _grpc_status_name(exc):
     (_MultiThreadedRendezvous, _InactiveRpcError) that means nothing in a log. Duck-typed rather
     than `isinstance(exc, grpc.RpcError)`: a non-gRPC exception has no code() and falls back, so
     this stays the one predicate for "did something below us fail with a status", whatever the
-    class. (This module imports p4_client as of TICKET-P2, so gRPC is now a transitive
+    class. (This module imports p4_client, so gRPC is now a transitive
     dependency; an earlier version of this note said it was not, and that half has stopped
     being true.)
     """
@@ -330,7 +330,7 @@ def _p4rt_error(exc):
 async def sflow_stats():
     """Send-side sFlow counters, raw and cumulative. [Co-developed with claude code -- Adam]
 
-    Ticket P splits a 34% telemetry shortfall across four stages, and this is the only one with no
+    A 34% telemetry shortfall splits across four stages, and this is the only one with no
     observable. samples_sent falling with the twin puts the loss upstream in bmv2; samples_sent
     holding while the twin falls puts it downstream, in the kernel, which would be a bug rather
     than a resource limit.
@@ -411,7 +411,7 @@ async def get_all_paths():
     """
     if not topology:
         return {"status": "success", "all_destination_paths": []}
-    # [Co-developed with claude code -- Adam] (Adam, 09-28) An external control plane on its own
+    # [Co-developed with claude code -- Adam] An external control plane on its own
     # pipeline: the forwarding is its controller's and nothing installed is known here, so no
     # path is reported -- "unknown", not a shortest path over the declared links.
     if getattr(topology, "destination_paths_unknown", False):
@@ -470,14 +470,14 @@ def _refuse_unhonourable_priority(data, match, verb):
     Refuse a strict delete whose priority the destination table cannot honour.
 
     [Co-developed with claude code -- Adam]
-    doc/audit/2026-09-03_night-rounds/DECISION-P4-PRIORITY.md. This is deliberately NOT applied
+    This is deliberately NOT applied
     to /stats/flowentry/add, and the difference is not squeamishness about breaking callers --
     it is that the priority means two different things on the two sides:
 
       * On an install it is a request about PRECEDENCE. The rule is programmed and does
         forward; what is lost is the layering. add_flow_entry answers that with
-        `priority_honoured: false` and a note, per T-15 Option 0 and the 2026-08-30 §1.2
-        ruling, and this change leaves that ruling exactly where it stands.
+        `priority_honoured: false` and a note, per T-15 Option 0 and the 2026-08-30
+        decision, and this change leaves that decision exactly where it stands.
 
       * On delete_strict and modify it is IDENTITY -- it names WHICH entry the caller means.
         ipv4_lpm holds one entry per destination and has no priority column, so every priority
@@ -486,14 +486,14 @@ def _refuse_unhonourable_priority(data, match, verb):
         priority 999 removed it; both answered 200. A disclosure field cannot repair that,
         because it is read after the rule the caller never named is already gone.
 
-    🔴 Since Adam's 2026-10-16 ruling this is the DELETE half only. A destination-only modify
+    🔴 Since 2026-10-16 this is the DELETE half only. A destination-only modify
     naming the priority its slot's entry was written with does name that entry (10 for the
     proxy's own route, an install's own priority), so modify_flow_entry no longer refuses
     before the topology: TopologyManager.modify_flow checks the slot under its lock and raises
     SlotPriorityNotHeld, answered by `_slot_priority_not_held` below. Every named priority on a
     strict delete stays refused here, before the topology and so ahead of the read-only (409)
-    and route-binding (501) refusals: the ruling does not extend to deletes, and on P4 a strict
-    delete at 10 would mean A-4d's restore, not the removal OVS performs.
+    and route-binding (501) refusals: the 2026-10-16 change does not extend to deletes, and on
+    P4 a strict delete at 10 would mean A-4d's restore, not the removal OVS performs.
 
     501, not 400. The request is well-formed OpenFlow -- nothing about it is the client's
     mistake, and answering 400 makes the same misattribution OpResult::notSent was added to
@@ -513,7 +513,7 @@ def _refuse_unhonourable_priority(data, match, verb):
     HttpRoutingStrategyBase.cpp:62-79 puts the response body through `briefly(body, 200)` before
     it becomes OpResult::failure's message, and that string is the whole of what a caller can
     get back: it is `recent_failures[].message` in get_flow_dispatch_status and it is the
-    kernel's log line. Measured 2026-09-11 (hunt-0911/ROLE-5, 4312 POSTs, 2152 of 2152 deletes
+    kernel's log line. Measured 2026-09-11 (4312 POSTs, 2152 of 2152 deletes
     refused): this body is 838 bytes, the cut landed mid-word at "data plan", and so every
     reader of the failure record saw the diagnosis and not one of them saw what to do instead.
     `remedy` is placed so that what a caller acts on is inside the 200-byte window. Measured on
@@ -614,7 +614,7 @@ def _slot_priority_not_held(err):
     TopologyManager.modify_flow's SlotPriorityNotHeld, as the 501.
 
     [Co-developed with claude code -- Adam]
-    Adam, 2026-10-16. `slot_priority` is what the slot's entry was written with, or null when
+    `slot_priority` (since 2026-10-16) is what the slot's entry was written with, or null when
     this proxy holds no record of it -- never written by it, or forgotten after a write it
     could not confirm (a refusal, an exception, a deadline that may have hidden a landed write)
     or after a pipeline push. Null is a real answer: it is why the priority names nothing.
@@ -733,7 +733,7 @@ async def add_flow_entry(request: Request):
                             detail={"error": "unsupported match", "fields": err.fields,
                                     "message": str(err)})
     except RouteWriteUnsupported as err:
-        # TICKET-P4-roles 2.2-3. [Co-developed with claude code -- Adam]
+        # [Co-developed with claude code -- Adam]
         raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
@@ -770,7 +770,7 @@ async def add_flow_entry(request: Request):
     #
     # Disclosed, not refused. A 200 -> 400 here is a breaking change for a caller that does not
     # read status codes and this project has one, so the refusal half stays with T-15 Option 0
-    # and the 2026-08-30 §1.2 ruling. Additive fields cost that caller nothing: the kernel's
+    # and the 2026-08-30 decision. Additive fields cost that caller nothing: the kernel's
     # only check on this body is `status == "error"`
     # (src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp:123-125).
     #
@@ -828,7 +828,7 @@ async def delete_flow_entry(request: Request):
                             detail={"error": "unsupported match", "fields": err.fields,
                                     "message": str(err)})
     except RouteWriteUnsupported as err:
-        # TICKET-P4-roles 2.2-3. [Co-developed with claude code -- Adam]
+        # [Co-developed with claude code -- Adam]
         raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
@@ -853,7 +853,7 @@ async def modify_flow_entry(request: Request):
     match = data.get("match", {})
     actions = data.get("actions", [])
 
-    # [Co-developed with claude code -- Adam] No refusal here any more (Adam, 2026-10-16): a
+    # [Co-developed with claude code -- Adam] No refusal here any more (since 2026-10-16): a
     # named priority is honoured when it is the one the destination's slot holds, which only
     # the topology knows, and the check has to be atomic with the write. modify_flow raises
     # SlotPriorityNotHeld under the slot's lock and before the switch is touched.
@@ -873,7 +873,7 @@ async def modify_flow_entry(request: Request):
         # [Co-developed with claude code -- Adam] Adam, 2026-10-16.
         raise _slot_priority_not_held(err)
     except RouteWriteUnsupported as err:
-        # TICKET-P4-roles 2.2-3. [Co-developed with claude code -- Adam]
+        # [Co-developed with claude code -- Adam]
         raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
@@ -958,7 +958,7 @@ async def switch_state():
     down and must not be answerable with an empty switch map.
 
     [Co-developed with claude code -- Adam]
-    Two additive fields carry the app package's disclosure (PLAN-0917 3.4, TICKET-P1 2.3):
+    Two additive fields carry the app package's disclosure:
 
       * top-level `control_plane` -- {mode, package, skipped}. `skipped` is null before startup
         has run and a list afterwards, so "nothing was skipped" cannot be confused with "nobody
@@ -994,7 +994,7 @@ async def switch_state():
         for dpid, entry in state.get("switches", {}).items():
             entry["entries_recorded"] = recorded.get(str(dpid), 0)
     # [Co-developed with claude code -- Adam]
-    # Two more per-switch keys, TICKET-P2 2.2. In a loop of their own rather than folded into the
+    # Two more per-switch keys. In a loop of their own rather than folded into the
     # one above, because that loop is `tests/shell/mutate_app_package.sh` M20's anchor and a gate
     # cell that stops resolving is a cell that reports SURVIVOR for everything.
     #
@@ -1025,14 +1025,14 @@ async def switch_state():
                                               "failures": 0, "record_complete": False,
                                               "replay": None})})
     # [Co-developed with claude code -- Adam]
-    # TICKET-P3 2.6. Three more keys, in loops of their own for the reason the pair above is:
+    # Three more keys, in loops of their own for the reason the pair above is:
     # each loop is a mutation gate's anchor, and an anchor that stops resolving turns that gate
     # into SURVIVOR for everything it covers.
     #
     #   telemetry    per switch -- where its samples come from, whether a clone session went in,
     #                whether the emitter knows it, and the metadata ids its own p4info gave.
     #                `pipeline.skipped` still lists the two cooperative steps that were skipped
-    #                (TICKET-P2 7-7 froze that list, and they really were skipped); this says
+    #                (that list is frozen, and they really were skipped); this says
     #                WHY, which is the difference between a decision and a fault.
     #   pre_entries  per switch -- the multicast groups and clone sessions the package declared
     #                and what became of them. Separate from `table_entries` because they are
@@ -1053,18 +1053,18 @@ async def switch_state():
     if control_plane_telemetry is not None and "control_plane" in state:
         state["control_plane"]["telemetry"] = control_plane_telemetry()
     # [Co-developed with claude code -- Adam]
-    # TICKET-P4-roles 2.5. Two more per-switch keys, in loops of their own for the reason every
+    # Two more per-switch keys, in loops of their own for the reason every
     # loop above is one: each is a gate's anchor.
     #
     #   capabilities  what this switch may be asked to do -- ipv4_route (whose route table:
     #                 ndtwin / package / unbound), five_tuple, reroute, link_discovery and
-    #                 binding_source. Appendix A of the ticket: the kernel will copy this object
-    #                 verbatim onto get_graph_data's node in the third cut.
+    #                 binding_source. The plan is for the kernel to copy this object verbatim
+    #                 onto get_graph_data's node.
     #   flow_stats    `unrendered_entries`: how many non-default rows the last /stats/flow
     #                 render of this switch left out because it could not describe them -- on
     #                 every pipeline a ternary mask or range Ryu cannot spell; on a foreign
-    #                 pipeline also an unknown action or a row with no usable match (section 7
-    #                 ruling 5, item 3). null until that switch's first /stats/flow render, on
+    #                 pipeline also an unknown action or a row with no usable match. null
+    #                 until that switch's first /stats/flow render, on
     #                 every pipeline; a readopt resets it.
     if capabilities_report is not None:
         caps = capabilities_report()
@@ -1074,12 +1074,12 @@ async def switch_state():
         rendered = flow_stats_report()
         for dpid, entry in state.get("switches", {}).items():
             entry["flow_stats"] = rendered.get(str(dpid), {"unrendered_entries": None})
-    # [Co-developed with claude code -- Adam] Section 7 ruling 5, item 8: top level, because a
+    # [Co-developed with claude code -- Adam] Top level, because a
     # seed runs once for the whole fabric. `link_discovery` says the fabric's links are
     # DECLARED; this says whether the declaration actually reached the graph.
     if declared_links_report is not None:
         state["declared_links"] = declared_links_report()
-    # [Co-developed with claude code -- Adam] TICKET-P4-heartbeat segment W. `reroute` says
+    # [Co-developed with claude code -- Adam] `reroute` says
     # whether a cut link is routed around on this fabric and, when not, why -- `capabilities`
     # carries the boolean per switch and keeps its five keys (the GUI contract); `heartbeat` is
     # what the root helper's heartbeat is doing here, its side effects included (null on a
@@ -1091,7 +1091,7 @@ async def switch_state():
     return state
 
 
-#: Attached to every accepted `POST /p4/table_entry`. Adam's 2026-09-18 ruling (option a) is that
+#: Attached to every accepted `POST /p4/table_entry`. By design (2026-09-18, option a)
 #: phase 2 does not journal these, and the consequence is stated in the response itself rather
 #: than only in a document: an operator who POSTs a rule and restarts the proxy gets an empty
 #: table, and the only warning they will ever read is this one.
@@ -1154,7 +1154,7 @@ def _table_entry_journal_view(dpid, recorded):
 @router.post("/p4/table_entry")
 async def table_entry(request: Request):
     """
-    Write one table entry, in the shape tutorials' `sX-runtime.json` already uses. TICKET-P2 2.3.
+    Write one table entry, in the shape tutorials' `sX-runtime.json` already uses.
 
     [Co-developed with claude code -- Adam]
     The existing `/stats/flowentry/*` endpoints speak OpenFlow and compile a match down to one of
@@ -1394,7 +1394,7 @@ async def table_entry(request: Request):
     return body
 
 
-# --- reading one counter (TICKET-P3 2.6, G7) --------------------------------------------------
+# --- reading one counter -----------------------------------------------------------------------
 
 
 @router.get("/p4/counter/{name}")
@@ -1609,8 +1609,8 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
 
     [Co-developed with claude code -- Adam]
     🔴 BMV2 ONLY, THROUGH ITS THRIFT SERVICE. bmv2's P4Runtime answers every RegisterEntry read
-    UNIMPLEMENTED, and the PI installed with it has no register support in any layer
-    (doc/audit/2026-10-16_p4-register-read/DESIGN.md sections 1 and 5), so this route asks the
+    UNIMPLEMENTED, and the PI installed with it has no register support in any layer,
+    so this route asks the
     switch's own thrift service -- simple_switch_CLI's `register_read` -- on the port
     p4_testbed_topo gives it (grpc_ports.thrift_port: 9090 + dpid). Every answer says so in
     `source: "bmv2-thrift"`. A hardware target has no such service; there this route answers 503.
@@ -1634,8 +1634,7 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
     P4Runtime. NOT caught by these checks alone: a bmv2 with the SAME device id and port number
     (a p4lang-tutorials switch numbers itself exactly as the fabric does) holding 9090 + dpid
     while the dpid's own switch answers P4Runtime -- that rests on the premise that a switch the
-    fabric launched with --thrift-port 9090 + dpid holds that port while it runs
-    (doc/audit/2026-10-16_p4-register-read/DESIGN-thrift.md section 13 says what was measured).
+    fabric launched with --thrift-port 9090 + dpid holds that port while it runs.
 
         200  the read succeeded. A 0 is a 0: the cell holds it.
         400  `index out of range` (the array's size is in p4info and is checked before the
@@ -1781,7 +1780,7 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
             "values": list(raw), "source": "bmv2-thrift"}
 
 
-# --- programming one multicast group (TICKET-P3 2.6, G8) --------------------------------------
+# --- programming one multicast group ----------------------------------------------------------
 
 
 @router.post("/p4/multicast_group")
@@ -1813,7 +1812,7 @@ async def multicast_group(request: Request):
              ONE DID REACH THE SWITCH: it is the switch's answer, so the WriteRequest
              necessarily went out. The gRPC status names are printed by the client rather than
              returned here, because `write_multicast_group` keeps `write_clone_session`'s
-             boolean contract (TICKET-P3 2.6 says its rules and its messages follow that
+             boolean contract (its rules and its messages follow that
              method), and a body that invented a status name would be reporting one it did not
              see. tests/test_multicast_group.py asserts `stub.requests == []` for the
              400/404/409 rows and deliberately not for this one.
@@ -1933,7 +1932,7 @@ def get_flow_stats(dpid: int):
         )
     try:
         # [Co-developed with claude code -- Adam]
-        # TICKET-P4-roles 2.5-1. A switch that is not on NDTwin's own pipeline is rendered
+        # A switch that is not on NDTwin's own pipeline is rendered
         # through ITS binding (a package's roles, or none), and the rows whose action is not
         # one this renderer recognises are left out and counted rather than described as drops.
         # NDTwin's own pipeline goes through the same call with the baseline binding: its body is
@@ -1950,8 +1949,9 @@ def get_flow_stats(dpid: int):
         # switch these entries were just read from. KNOWN-ISSUES G-13.
         #
         # Read as a plain attribute rather than through getattr(..., None): an optional argument
-        # production forgets to pass is the exact shape of finding #71, where the rule journal
-        # had 33 green tests and no caller because every one of them injected the journal itself.
+        # production forgets to pass is the exact shape of the KNOWN-ISSUES A-4c wiring gap, where
+        # the rule journal had 33 green tests and no caller because every one of them injected the
+        # journal itself.
         # If a client cannot answer this, the endpoint must fail loudly here rather than serve
         # duration 0/0 forever and let the silence read as "P4 has no clock".
         body, unrendered = ryu_flow_stats.render_flow_stats_counted(

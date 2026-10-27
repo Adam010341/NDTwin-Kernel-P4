@@ -4,21 +4,20 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: ROLE-2, live 2026-09-11, two shapes and three moments, every one of them
+# Source: live 2026-09-11, two shapes and three moments, every one of them
 # `VERDICT: CLEAN`:
 #   cycle 07 01:21:14  10 bmv2 + 14 mininet + a live p4_proxy, no kernel
 #                      -> `orphans_rc=5`, `VERDICT: CLEAN -- the process half only; the network
-#                         half was NOT checked (kernel down)`   (logs/ROLE-2/cycle-07-probe-afterup.log)
+#                         half was NOT checked (kernel down)`
 #   cycle 13 01:27:08  the mirror image: 0 bmv2, 0 mininet, no topo session, and a kernel on
 #                      :8000 serving a 14-node graph of a network that is not there
-#                      (logs/ROLE-2/cycle-13-orphan-halfstack.log)
 # `ndt apps orphans` answers about APP processes and about the NETWORK. It did not answer about
 # the STACK, and neither did the helper that reads it, so a machine with a fabric and no recorder
 # closed the round as clean.
-# Fix: 6d081d13 (`stack:` line + HALF verdict), merged in 954ab467. Re-measured by ROLE-6 at
-# 02:51:47 and again in its restore: `stack: kernel=down dataplane=mininet bmv2=0 mininet=15
+# Fix: 6d081d13 (`stack:` line + HALF verdict), merged in 954ab467. Re-measured at
+# 02:51:47 and again in a restore: `stack: kernel=down dataplane=mininet bmv2=0 mininet=15
 # proxy=down verdict=HALF` -> `VERDICT: NOT CLEAN -- the stack is HALF up`, and the reverse
-# control (both halves up) still CLEAN.  (logs/ROLE-6/30-h2-live-halfstack.log, 31-h2-control.log)
+# control (both halves up) still CLEAN.
 #
 # 🔴 TWO DIRECTIONS in one cell, because "call a half stack dirty" has a wrong answer that looks
 # like a fix: a verdict that reddens a HEALTHY lab would be read for a week and then ignored. So

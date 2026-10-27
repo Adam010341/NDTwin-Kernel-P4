@@ -81,8 +81,8 @@ fi
 #   B   12 passed, 0 failed             (optionally indented)         (4 suites)
 #   C   ===== 34 check(s): 34 ok, 0 FAILED =====                      (1 suite)
 #
-# Scoring form A alone is what made L1 red on a green tree on 2026-09-02
-# (doc/audit/2026-09-02_live-round/raw/B15,B16): five suites exited 0 with every check ok and
+# Scoring form A alone is what made L1 red on a green tree on 2026-09-02:
+# five suites exited 0 with every check ok and
 # were each counted as a problem group, so local_ci.sh reported the project broken.
 #
 # 🔴 What this must never do is answer "passed" for a log it does not understand. No recognised
@@ -313,11 +313,11 @@ l1_probe_py_plot() {
 # Echoes the lane's line(s); returns 0 when the tree is clean, 1 otherwise.
 #
 # [Co-developed with claude code -- Adam]
-# 2026-09-08, decision E-17. tests/shell/check_test_tmpdirs.py asks whether any test CREATES a
+# 2026-09-08. tests/shell/check_test_tmpdirs.py asks whether any test CREATES a
 # temp path whose name is the same string in every process. ctest gives every test its own
 # process, so a constant path -- or a counter that restarts at 0 in each of them -- is a race
 # that is green at -j1, red at -j2 only sometimes, and red in a DIFFERENT test each time, which
-# is how it gets filed as "just re-run it". Measured 2026-09-06 (W11's round); c3d99d00 fixed six
+# is how it gets filed as "just re-run it". Measured 2026-09-06; c3d99d00 fixed six
 # fixtures by hand and this is what stops the seventh. It reads files and builds nothing, so it
 # belongs beside the anchor check rather than behind the build.
 #
@@ -389,7 +389,7 @@ fi
 
 # --- 0b. test temp paths (read-only, no build, runs even under --no-build) ------
 # [Co-developed with claude code -- Adam]
-# Decision E-17. Reasoning, and why exit 2 is its own kind of red, in l1_check_test_tmpdirs above.
+# Reasoning, and why exit 2 is its own kind of red, in l1_check_test_tmpdirs above.
 # Same placement argument as the anchor check: nothing here builds, so a defect that makes the
 # whole suite untrustworthy at -j2 is reported before the lane spends twenty minutes compiling.
 step "test temp paths (read-only, no build)"
@@ -731,7 +731,7 @@ else
         elif [[ "$kind" == py ]]; then
             # -v so a skip prints "test_x ... skipped 'reason'". Without it unittest prints a bare
             # "s" and the skip count only appears in the summary, which is how the skip check below
-            # was dead for these files from the day it was written. Found by agy-review 0117.
+            # was dead for these files from the day it was written.
             (cd "$KERNEL_DIR" && "$PY_KERNEL" "$testfile" -v) >"$log" 2>&1
         else
             (cd "$KERNEL_DIR" && bash "$testfile") >"$log" 2>&1
@@ -741,8 +741,8 @@ else
         # collected, which proves nothing and must not read as a pass.
         # [Co-developed with claude code -- Adam]
         # Per file type, because the two harnesses report differently and applying unittest's
-        # vocabulary to a shell script silently measures nothing. All three problems here were
-        # found by agy-review 0117; the previous version had one code path for both.
+        # vocabulary to a shell script silently measures nothing. The previous version had one
+        # code path for both.
         #
         # 2026-09-02: the count itself was still unittest's for both types -- a bare
         # `grep '^Ran [0-9]+'` -- and tests/shell has three summary forms of which only one

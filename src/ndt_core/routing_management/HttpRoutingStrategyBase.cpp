@@ -131,7 +131,7 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
     // The honesty half of B-2b, and the half that is not fixed by removing the shell. Whenever the
     // request did not leave this host, the verdict must name this host. It used to name the
     // component -- "no response from <component> at <url> within 5s" -- for causes the component
-    // had no part in, and round 4 measured that a genuinely dead controller produced that exact
+    // had no part in, and a measurement showed that a genuinely dead controller produced that exact
     // sentence, so the log could not tell the two apart. Naming the local cause is what makes the
     // message actionable; the status code (500, not 502) is what makes it actionable to a program.
     if (!outcome.ran)
@@ -173,7 +173,7 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
 
     if (status < 200 || status >= 300)
     {
-        // [Co-developed with claude code -- Adam] W11.
+        // [Co-developed with claude code -- Adam]
         // withProgrammingRefused, and only from here down: above this line the far end either was
         // never asked (notSent) or never answered (unreachable), and neither says anything about
         // a switch. Here it answered, and on a plane that adjudicates before replying its "no" is
@@ -206,7 +206,7 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
                 parsed["status"].is_string() &&
                 parsed["status"].get<std::string>() == "error")
             {
-                // [Co-developed with claude code -- Adam] W11. A P4 proxy's per-entry refusal in
+                // [Co-developed with claude code -- Adam] A P4 proxy's per-entry refusal in
                 // a 200 body: it programs (or fails to find) the entry and then says so. Since
                 // C-6 the current proxy sends that refusal as a 502 instead, which the non-2xx
                 // branch above books the same way; this branch is for a proxy that predates it.
@@ -440,10 +440,9 @@ HttpRoutingStrategyBase::strictModifyPath() const
 //
 // ⚠️ THIS NARROWS THE WINDOW; IT DOES NOT CLOSE IT. Between the check and the mod another
 // writer can create or remove the entry, and then the kernel reports the outcome it verified
-// rather than the one that happened. The residual cases are enumerated in the fix-design note
-// for F-13. A pre-check turns "always wrong for this input" into "wrong only if someone else
-// writes the same id inside one RTT"; the honest end state also needs a post-check, which is a
-// second round trip and a separate decision.
+// rather than the one that happened. A pre-check turns "always wrong for this input" into
+// "wrong only if someone else writes the same id inside one RTT"; the honest end state also
+// needs a post-check, which is a second round trip and a separate decision.
 
 namespace
 {
@@ -552,7 +551,7 @@ HttpRoutingStrategyBase::entryExists(EntryKind kind, uint64_t dpid, long long id
     return Existence::Absent;
 }
 
-// [Co-developed with claude code -- Adam] Finding #1. @see the header for why this exists.
+// [Co-developed with claude code -- Adam] @see the header for why this exists.
 void
 HttpRoutingStrategyBase::pauseBeforeReVerify()
 {
@@ -651,14 +650,14 @@ HttpRoutingStrategyBase::guardedMod(const json& j,
     // guessing in either direction -- a read-back that could not be performed is not evidence
     // that the delete failed, and inventing a 502 from it would republish the kernel's own
     // reach as a finding about the fabric (the same rule the pre-check follows above).
-    // [Co-developed with claude code -- Adam] FINDINGS #87, and the second half of finding #1.
+    // [Co-developed with claude code -- Adam]
     //
     // The read-back above was written for Delete alone, and install/modify fell straight through
     // to the switch below: Ryu's 200 became "installed"/"modified" with nothing having asked the
     // switch anything. Ryu does not barrier a group/meter mod and does not wait for a reply
     // (ofctl_rest.py answers as soon as it has forwarded), so a switch that REFUSES an install
-    // refuses it asynchronously, correlated to nothing -- byte for byte the delete story that
-    // #1 was filed for, on the other two verbs.
+    // refuses it asynchronously, correlated to nothing -- byte for byte the delete story
+    // above, on the other two verbs.
     //
     // So the read-back is one block for all three, differing only in what it expects to find.
     // Delete expects the entry to be gone; Add and Modify expect it to be there.

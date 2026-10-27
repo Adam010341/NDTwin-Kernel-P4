@@ -54,7 +54,7 @@ class SimulationRequestManager
      *                               so production behaviour is unchanged.
      *
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #38 made the deadline a parameter. It was a compile-time constant, and the only
+     * The deadline is a parameter now. It was a compile-time constant, and the only
      * way to exercise the *timed out* branch was to let a test wait the full 30 s -- which is why
      * no test had ever exercised it, and why the branch could go on describing a 6 ms connection
      * refusal as a 30-second wait without anything noticing. A deadline that cannot be shortened

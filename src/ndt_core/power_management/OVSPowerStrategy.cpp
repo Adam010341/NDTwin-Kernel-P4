@@ -88,7 +88,7 @@ std::optional<std::vector<std::string>> OVSPowerStrategy::executeListPorts(const
 std::optional<bool> OVSPowerStrategy::interpretBrExistsStatus(bool ran, int waitStatus)
 {
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #82. The whole rule, in one place that needs no process to exercise. See the
+    // The whole rule, in one place that needs no process to exercise. See the
     // header for the three outcomes and for why conflating the second and the third would be a
     // louder version of the defect this seam removes.
     if (!ran)
@@ -111,7 +111,7 @@ std::optional<bool> OVSPowerStrategy::interpretBrExistsStatus(bool ran, int wait
 std::optional<bool> OVSPowerStrategy::executeBridgeExists(const std::string& br)
 {
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #82. See the header for why this exists. `br-exists` is the one ovs-vsctl call in
+    // See the header for why this exists. `br-exists` is the one ovs-vsctl call in
     // this file whose entire answer is its exit status, so nothing is parsed and there is no
     // output to mistake for a verdict -- which is the trap executeListPorts and
     // executeReadSflowState each carry a paragraph about.
@@ -134,7 +134,7 @@ std::optional<bool> OVSPowerStrategy::executeBridgeExists(const std::string& br)
         // non-zero status. It is not wrong about the status and it does not reach the decision,
         // but it does mean a normal power-off of an already-deleted bridge prints one misleading
         // line above this accurate one. Left alone deliberately: Utils.hpp is shared with three
-        // other branches tonight. Recorded in FIX-OVS-POWER-OFF.md.
+        // other branches tonight.
         SPDLOG_LOGGER_INFO(Logger::instance(),
                            "{} exited 2: there is no bridge named {} on this machine. That is "
                            "ovs-vsctl's documented answer, not a failed query",
@@ -377,7 +377,7 @@ OVSPowerStrategy::powerOn(Graph::vertex_descriptor node,
     // `restorePending` is false for every switch that was never powered off through here, so
     // outside the A-4f path this guard is unchanged.
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #46/#35. Three questions now, and the third is here rather than only in the P4
+    // Three questions now, and the third is here rather than only in the P4
     // strategy because both early returns below would otherwise be traps: a switch carrying a
     // standing commanded power-off whose `isUp` some other writer has lifted would take one of
     // them, return success, and never reach the line that clears the flag -- leaving discovery
@@ -409,7 +409,7 @@ OVSPowerStrategy::powerOn(Graph::vertex_descriptor node,
     }
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #82, the power-on direction. Below this line the graph says down (or a commanded
+    // The power-on direction. Below this line the graph says down (or a commanded
     // power-off is standing) and the next thing that happens is `add-br` -- which on an existing
     // bridge exits 1, "a bridge named s1 already exists", verified against a live ovs-vsctl. The
     // `allOk` check would then return 500 for a switch that is sitting there forwarding.
@@ -421,14 +421,15 @@ OVSPowerStrategy::powerOn(Graph::vertex_descriptor node,
     //   - ovsLivenessFor answers Unknown when `ovs-vsctl list-br` cannot be run, and Down when
     //     the bridge is missing from it -- one refused sudo and the graph is wrong about all ten;
     //   - a power-off that took the absent-bridge path above records a commanded off, and
-    //     FINDINGS #46 keeps the vertex false until a power-on lifts it. Recreate the bridge out
-    //     of band and this is exactly the state the recovering power-on meets.
+    //     the commanded-power-off veto keeps the vertex false until a power-on lifts it.
+    //     Recreate the bridge out of band and this is exactly the state the recovering
+    //     power-on meets.
     //
     // So ask the same source the liveness worker already asks. When the bridge is there, do what
     // the rest of the system concludes from that same measurement -- ovsLivenessFor marks such a
     // switch up within the second -- and settle what this call actually owes: the standing
     // command, and any sFlow restore left pending. `std::nullopt` falls through to the bring-up,
-    // which is what this function did before #82.
+    // which is what this function did before the bridge-existence check.
     const std::optional<bool> bridgeAlreadyThere = executeBridgeExists(swName);
     if (bridgeAlreadyThere.value_or(false))
     {
@@ -499,7 +500,7 @@ OVSPowerStrategy::powerOn(Graph::vertex_descriptor node,
     // What must not happen is for the loss to go unsaid.
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #46. The commanded power-off is spent here, where `add-br`/`add-port`/`ifconfig
+    // The commanded power-off is spent here, where `add-br`/`add-port`/`ifconfig
     // up`/`set-controller` have all just been observed to succeed -- the OVS equivalent of the
     // point where P4PowerStrategy closes its distrust window. Before finishTelemetryRestore, not
     // after, for the same reason it is before readopt over there: the telemetry restore has two
@@ -578,20 +579,20 @@ OVSPowerStrategy::powerOff(Graph::vertex_descriptor node,
     // cache of somebody else's opinion about this bridge. It reads false for a bridge that is
     // present and forwarding in at least four states: a freshly loaded topology (every vertex
     // starts false), a `list-br` that failed or was refused, an ordinary liveness blip, and --
-    // since FINDINGS #46 -- any switch already carrying a commanded power-off.
+    // since the commanded-power-off veto -- any switch already carrying a commanded power-off.
     //
-    // That last one is what made this the OVS half of #35 rather than a tidiness complaint. The
+    // That last one is what made this the OVS half of the already-down early return rather
+    // than a tidiness complaint. The
     // early return sat ABOVE `setVertexPoweredOffByCommand`, and after one power-off the graph
     // says down by construction, so a second `action=off` returned 200 having recorded nothing.
-    // #46's veto only ever protected an OVS switch whose `isUp` happened to be true at the
-    // instant the power-off arrived.
+    // The commanded-power-off veto only ever protected an OVS switch whose `isUp` happened to
+    // be true at the instant the power-off arrived.
     //
     // The P4 side could simply delete its guard, because its helper is idempotent from a
     // MEASUREMENT: `off` reads /proc and prints already-stopped. OVS has no helper, and deleting
     // this guard unguarded would have meant `executeListPorts` running against a bridge that is
     // not there -- it writes nothing and exits 1, so the power-off would refuse with a 500.
-    // FIX-POLL-RESURRECT.md (6).3 is where that was written down and deliberately left. This is
-    // the measurement that was missing.
+    // That was known and deliberately left at first. This is the measurement that was missing.
     const std::optional<bool> bridgeExists = executeBridgeExists(swName);
     const bool nothingToTearDown = bridgeExists.has_value() && !*bridgeExists;
 
@@ -609,8 +610,8 @@ OVSPowerStrategy::powerOff(Graph::vertex_descriptor node,
         // Present -- or, when `br-exists` could not be run at all, unknown. Unknown falls through
         // to the teardown on purpose (see the header): reading "I could not find out" as "there
         // is nothing there" would leave a live bridge forwarding behind a 200, which is the
-        // defect with a louder voice. This path is byte-for-byte what powerOff did before #82,
-        // including its 500 when list-ports then fails.
+        // defect with a louder voice. This path is byte-for-byte what powerOff did before the
+        // bridge-existence check, including its 500 when list-ports then fails.
         const OpResult teardown = tearDownBridge(node, swName, topoMonitor);
         if (!teardown.ok)
         {
@@ -619,15 +620,16 @@ OVSPowerStrategy::powerOff(Graph::vertex_descriptor node,
     }
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #46, the OVS half -- and #82 is why it is HERE, below both paths, rather than at
-    // the end of the teardown. A redundant power-off is still a command: the caller has said this
-    // switch must be down, and this line is the only thing that stops the next topology poll
+    // The commanded-power-off veto, OVS half -- and the bridge-existence check is why it is
+    // HERE, below both paths, rather than at the end of the teardown. A redundant power-off is
+    // still a command: the caller has said this switch must be down, and this line is the
+    // only thing that stops the next topology poll
     // saying otherwise. One call site, reached on both answers, so "recorded on both paths" is
     // true by construction rather than by two sites agreeing.
     //
     // The defect it closes is plane-agnostic. TopologyAndFlowMonitor::updateSwitches applies the
     // same reply shape whether the switches behind it are bmv2 or OVS bridges, and it lifted
-    // `isUp` for both. Live evidence for #46 was taken on the P4 fabric, but a deleted bridge
+    // `isUp` for both. Live evidence for the veto was taken on the P4 fabric, but a deleted bridge
     // that Ryu is slow to stop announcing is the same race with a different clock.
     // See setVertexPoweredOffByCommand.
     topoMonitor->setVertexPoweredOffByCommand(node);
