@@ -37,6 +37,7 @@ import json
 import math
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -398,6 +399,10 @@ class PlanBlockIsFrozen(unittest.TestCase):
         self.mod = load_driver()
         self.mod.TUT = build_tut_root(self.tmp)
         self.mod.UTILS = os.path.join(self.tmp, "utils")
+        # [Co-developed with claude code -- Adam] The temp tree stands in for the DEFAULT tree:
+        # the 09-08 line was printed on the machine whose tutorials checkout is the built-in one,
+        # and a tree that is not the default is spelled out on the sudo line (--tutorials-dir).
+        self.mod.TUT_DEFAULT = self.mod.TUT
         stub_preflight(self.mod)
         stub_compile(self.mod)
 
@@ -3474,6 +3479,136 @@ class TheGenericLinkUsageCell(unittest.TestCase):
         # expectation becomes exit 1 in main()'s verdict block, which is where every other
         # expectation is judged too.
         self.assertEqual(0, rc)
+
+
+#: A tut_root for render_main that occurs nowhere, so the text comes back with real paths in it.
+NO_TUT = "/nonexistent/NDT-TEST-FIXTURE/no-such-root"
+
+
+class TheHomePathsAreConfigurable(unittest.TestCase):
+    """The tutorials tree and the p4dev interpreter: built-in defaults, environment, flags.
+
+    [Co-developed with claude code -- Adam]
+
+    The two paths were literals under one person's home. They now come from TUTORIALS_DIR and
+    VENV_PY (the names live-p1/code_identity.py and live-p1/06_thirteen.sh already give them),
+    and from --tutorials-dir / --venv-py, because the tutorials fabric runs under sudo and sudo
+    resets the environment: what crosses that boundary is the command line the driver prints.
+    """
+
+    KEYS = ("VENV_PY", "TUTORIALS_DIR")
+
+    def setUp(self):
+        self.tmp = mkdtemp(self, "drv-home-")
+        self.tut = build_tut_root(os.path.join(self.tmp, "tut"))
+        self.py = os.path.join(self.tmp, "venv", "bin", "python")
+        os.makedirs(os.path.dirname(self.py))
+        with open(self.py, "w") as f:
+            f.write("#!/bin/sh\n")
+        os.chmod(self.py, 0o755)
+
+    def env(self, **kv):
+        """os.environ without either variable, plus `kv`, for the duration of a `with`."""
+        saved = dict(os.environ)
+        case = self
+
+        class Env(object):
+            def __enter__(self):
+                for k in case.KEYS:
+                    os.environ.pop(k, None)
+                os.environ.update(kv)
+
+            def __exit__(self, *_exc):
+                os.environ.clear()
+                os.environ.update(saved)
+                return False
+        return Env()
+
+    def fresh(self):
+        mod = load_driver()
+        stub_preflight(mod)
+        stub_compile(mod)
+        mod.euid = lambda: 1000
+        return mod
+
+    def assert_paths(self, mod, tut, py):
+        self.assertEqual(tut, mod.TUT)
+        self.assertEqual(os.path.join(tut, "utils"), mod.UTILS)
+        self.assertEqual(py, mod.VENV_PY)
+        self.assertEqual(py, mod.CTRL_PY, "the controller interpreter is the same venv's")
+
+    def test_with_nothing_set_the_paths_are_the_built_in_ones(self):
+        with self.env():
+            mod = self.fresh()
+        self.assert_paths(mod, "/home/adam/tutorials", "/home/adam/p4dev-python-venv/bin/python")
+
+    def test_the_environment_names_the_tree_and_the_interpreter(self):
+        """The unprivileged chain: live-p1/06_thirteen.sh runs `$VENV_PY driver ... --fabric ndtwin`."""
+        with self.env(VENV_PY=self.py, TUTORIALS_DIR=self.tut):
+            mod = self.fresh()
+            rc, text = render_main(mod, ["basic", "--fabric", "ndtwin", "--dry-run"], NO_TUT)
+        self.assertEqual(0, rc, text)
+        self.assert_paths(mod, self.tut, self.py)
+        self.assertIn(os.path.join(self.tut, "exercises", "basic"), text)
+        run_line = [l for l in text.splitlines() if l.strip().endswith("--fabric ndtwin")]
+        self.assertTrue(run_line, text)
+        self.assertTrue(run_line[-1].strip().startswith(self.py + " "), run_line[-1])
+
+    def test_the_sudo_line_carries_both_paths_across_sudos_environment_reset(self):
+        """🔴 The privileged chain. The operator runs the line this prints, under sudo, and
+        sudo's env_reset drops both variables -- so the run as root has to get them from argv."""
+        with self.env(VENV_PY=self.py, TUTORIALS_DIR=self.tut):
+            mod = self.fresh()
+            rc, text = render_main(mod, ["basic"], NO_TUT)
+        self.assertEqual(2, rc, text)
+        self.assertIn("needs root", text)
+        line = [l.strip() for l in text.splitlines() if l.strip().startswith("sudo ")][-1]
+        argv = shlex.split(line)
+        self.assertEqual(["sudo", self.py], argv[:2], line)
+        # what root sees: neither variable, only the words after `sudo <python> <driver>`
+        with self.env():
+            root = self.fresh()
+            rc2, text2 = render_main(root, argv[3:] + ["--dry-run"], NO_TUT)
+        self.assertEqual(0, rc2, text2)
+        self.assert_paths(root, self.tut, self.py)
+        self.assertIn("sudo %s %s/utils/run_exercise.py" % (self.py, self.tut), text2)
+
+    def test_a_flag_wins_over_the_environment(self):
+        with self.env(VENV_PY="/nonexistent/NDT-TEST-FIXTURE/env-python",
+                      TUTORIALS_DIR="/nonexistent/NDT-TEST-FIXTURE/env-tut"):
+            mod = self.fresh()
+            rc, text = render_main(mod, ["basic", "--dry-run", "--tutorials-dir", self.tut,
+                                         "--venv-py", self.py], NO_TUT)
+        self.assertEqual(0, rc, text)
+        self.assert_paths(mod, self.tut, self.py)
+
+    def test_the_environment_reaches_a_real_driver_process(self):
+        """The same chain as 06_thirteen.sh, as a process: interpreter, driver, environment.
+
+        The ndtwin pre-flight asks whether VENV_PY exists before anything is compiled, so the
+        line it prints names the interpreter that process resolved. Nothing here reaches a lab
+        (the dry run claims nothing), and the child's compile_prog is replaced by a refusal
+        BEFORE main() runs: a driver that ignored TUTORIALS_DIR would otherwise compile into
+        whatever tutorials tree its default names, which is a real checkout on a real machine.
+        """
+        want = "/nonexistent/NDT-TEST-FIXTURE/p4dev/bin/python"
+        env = {k: v for k, v in os.environ.items() if k not in self.KEYS}
+        env.update(VENV_PY=want, TUTORIALS_DIR=self.tut, NDT_OWNER="drive-exercise-test")
+        child = (
+            "import importlib.util, sys\n"
+            "spec = importlib.util.spec_from_file_location('drive_exercise_child', sys.argv[1])\n"
+            "mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)\n"
+            "mod.compile_prog = lambda *a: (1, None, {})\n"
+            "sys.argv = ['drive_exercise.py'] + sys.argv[2:]\n"
+            "sys.exit(mod.main())\n")
+        out = subprocess.run([sys.executable, "-c", child, DRIVER_PATH, "basic",
+                              "--fabric", "ndtwin", "--dry-run"],
+                             env=env, cwd=self.tmp, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, universal_newlines=True,
+                             timeout=120).stdout
+        self.assertIn("compile failed", out, "the child did not stop where this test needs it")
+        self.assertIn("!! FAIL no %s" % want, out)
+        self.assertIn("exercise dir %s" % os.path.join(self.tut, "exercises", "basic"), out)
 
 
 class TheSuiteLeavesNoLitter(unittest.TestCase):

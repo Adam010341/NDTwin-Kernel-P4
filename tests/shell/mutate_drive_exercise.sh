@@ -1217,6 +1217,42 @@ add "125. the disclosure is also filed as a verdict row that cannot fail" \
         self._add("probes that reached h2 (disclosure)", "-", "%d" % len(pkts), True, G_SRC)  # MUTANT' \
     'test_the_verdict_rows_are_the_ones_the_ruling_keeps'
 
+# [Co-developed with claude code -- Adam]
+# 126-129: the tutorials tree and the p4dev interpreter. Each is a way for a machine whose user
+# is not adam to get the default path back without being told, or for adam's own sudo line to
+# stop being the one his sudoers rule was written for.
+add "126. the sudo line drops the overrides, so the run as root is back on the defaults" \
+    "$DRIVER" \
+    '        shlex.quote(VENV_PY), shlex.quote(os.path.abspath(__file__)), exercise, which,
+        path_flags())
+
+
+def ndtwin_line(exercise, which):' \
+    '        shlex.quote(VENV_PY), shlex.quote(os.path.abspath(__file__)), exercise, which,
+        "")  # MUTANT
+
+
+def ndtwin_line(exercise, which):' \
+    'test_the_sudo_line_carries_both_paths_across_sudos_environment_reset'
+
+add "127. VENV_PY from the environment is ignored" \
+    "$DRIVER" \
+    'VENV_PY  = os.environ.get("VENV_PY") or VENV_PY_DEFAULT' \
+    'VENV_PY  = VENV_PY_DEFAULT  # MUTANT' \
+    'test_the_environment_names_the_tree_and_the_interpreter'
+
+add "128. --venv-py moves the host-script interpreter but not the controller's" \
+    "$DRIVER" \
+    '        VENV_PY = CTRL_PY = os.path.abspath(args.venv_py)' \
+    '        VENV_PY = os.path.abspath(args.venv_py)  # MUTANT' \
+    'test_a_flag_wins_over_the_environment'
+
+add "129. the default tree is spelled out too, so the 09-08 sudo line changes" \
+    "$DRIVER" \
+    '    if TUT != TUT_DEFAULT:' \
+    '    if True:  # MUTANT' \
+    'test_the_tutorials_plan_and_sudo_line_are_what_they_printed_on_09_08'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
