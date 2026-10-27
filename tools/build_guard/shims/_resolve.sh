@@ -11,19 +11,47 @@ GUARD_SHIM_MARKER=".ndtwin-build-guard-shims"
 # nothing about where another checkout's guard lives. Two guards from two checkouts, one nested
 # in the other, put two shim dirs on PATH (`<clone>/shims:<main>/shims:...`); each shim removed
 # only its own, found the other checkout's shim as the "real" tool, and the two exec'd each
-# other without end (2026-10-25: `cmake --version` hung a CI baseline build for 58 minutes).
-# Skipping every shims directory makes that impossible, whatever the order or the number.
+# other without end (2026-10-25: a baseline build hung for 58 minutes; `cmake --version` alone
+# reproduces it).
+# Skipping every shims directory makes that impossible, whatever the order or the number -- once
+# every guard on PATH carries this check. A guard from before it still strips only its own
+# directory; ours skips that guard's shims (see below), but the old one cannot be taught.
 #
-# `_resolve.sh` is accepted too: it has sat beside the shims since the first version, so a clone
-# from before the marker existed is still recognised when its guard is the outer one.
+# A directory is a shims dir if it holds the marker file, or -- for a clone from before the
+# marker existed -- a regular file `_resolve.sh` that defines guard_real_tool(). Merely being
+# called `_resolve.sh` is not enough: a real-tool directory with an unrelated file of that name
+# must stay on the walk.
 guard_is_shim_dir() {
-    [[ -n "${1:-}" && ( -e "$1/$GUARD_SHIM_MARKER" || -e "$1/_resolve.sh" ) ]]
+    [[ -n "${1:-}" ]] || return 1
+    [[ -e "$1/$GUARD_SHIM_MARKER" ]] && return 0
+    [[ -f "$1/_resolve.sh" && "$(< "$1/_resolve.sh")" == *'guard_real_tool()'* ]]
+}
+
+# guard_shim_dirs_on_path  -- the PATH entries guard_real_tool skips, ':'-joined.
+guard_shim_dirs_on_path() {
+    local part canon out="" saved_glob OLD_IFS="$IFS"
+    case "$-" in *f*) saved_glob=on ;; *) saved_glob=off ;; esac
+    set -f; IFS=:
+    for part in $PATH; do
+        [[ -z "$part" ]] && continue
+        canon="$(CDPATH= cd -P -- "$part" 2>/dev/null && pwd -P)" || canon="$part"
+        guard_is_shim_dir "$canon" && out+="${out:+:}$part"
+    done
+    IFS="$OLD_IFS"
+    [[ "$saved_glob" == off ]] && set +f
+    printf '%s' "$out"
 }
 
 # guard_no_real_tool <tool>  -- the one loud message for "nothing but shims on PATH". Callers exit 127.
 guard_no_real_tool() {
     echo "build_guard: no real $1 on PATH outside the build-guard shim directories" \
-         "(every shims dir is skipped, including other checkouts'); refusing to run. PATH=$PATH" >&2
+         "(every shims dir is skipped, including other checkouts'); refusing to run." \
+         "skipped shims dirs: [$(guard_shim_dirs_on_path)] PATH=$PATH" >&2
+}
+
+# guard_refused <candidate> <its dir>  -- says which candidate was refused, before the shim exits 127.
+guard_refused() {
+    echo "build_guard: refusing $1: it resolves into a build-guard shims dir ($2)" >&2
 }
 
 # guard_real_tool <shim_dir> <tool>  -- prints the real tool's path, or nothing.
@@ -43,7 +71,7 @@ guard_real_tool() {
     # symlink's own path and the comparison below misses. That miss is not a wrong answer -- it
     # leaves the shim dir in PATH, `command -v` finds the shim, and the shim execs itself.
     local shim_dir="$1" tool="$2" canon_shim part canon rebuilt=() saved_glob
-    canon_shim="$(cd "$shim_dir" 2>/dev/null && pwd -P)" || canon_shim="$shim_dir"
+    canon_shim="$(CDPATH= cd -P -- "$shim_dir" 2>/dev/null && pwd -P)" || canon_shim="$shim_dir"
 
     # `for part in $PATH` needs word splitting on ':' but must NOT glob: a PATH entry
     # containing a '*' would otherwise be replaced by matching filenames.
@@ -52,7 +80,7 @@ guard_real_tool() {
     local OLD_IFS="$IFS"; IFS=:
     for part in $PATH; do
         [[ -z "$part" ]] && continue
-        canon="$(cd "$part" 2>/dev/null && pwd -P)" || canon="$part"
+        canon="$(CDPATH= cd -P -- "$part" 2>/dev/null && pwd -P)" || canon="$part"
         [[ "$canon" == "$canon_shim" ]] && continue
         guard_is_shim_dir "$canon" && continue
         rebuilt+=("$part")
@@ -62,7 +90,10 @@ guard_real_tool() {
 
     local stripped found found_dir
     stripped="$(IFS=:; printf '%s' "${rebuilt[*]}")"
-    found="$(PATH="$stripped" command -v "$tool" 2>/dev/null)"
+    # `type -P`, not `command -v`: with an exported shell function called like the tool,
+    # `command -v` answers with the bare name, and `exec <bare name>` goes back through PATH to the
+    # shim. `type -P` looks at files only.
+    found="$(PATH="$stripped" type -P "$tool" 2>/dev/null)"
     [[ -n "$found" ]] || return 0
 
     # If the answer is the shim itself, the shim would exec the shim: one process spinning
@@ -74,9 +105,9 @@ guard_real_tool() {
     # POINTER into it: a $SOMEWHERE/cmake that is a symlink to $SHIM/cmake resolves through a
     # directory that was never stripped. Comparing the link's target is what makes this check
     # reachable, and therefore what makes it testable.
-    found_dir="$(cd "$(dirname "$(readlink -f "$found" 2>/dev/null || echo "$found")")" 2>/dev/null && pwd -P)" || found_dir=""
-    [[ "$found_dir" == "$canon_shim" ]] && return 0
-    guard_is_shim_dir "$found_dir" && return 0
+    found_dir="$(CDPATH= cd -P -- "$(dirname "$(readlink -f "$found" 2>/dev/null || echo "$found")")" 2>/dev/null && pwd -P)" || found_dir=""
+    [[ "$found_dir" == "$canon_shim" ]] && { guard_refused "$found" "$found_dir"; return 0; }
+    guard_is_shim_dir "$found_dir" && { guard_refused "$found" "$found_dir"; return 0; }
 
     printf '%s' "$found"
 }

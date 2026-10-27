@@ -16,16 +16,18 @@
 # because the other checkout's path is exactly what a shim cannot know.
 #
 # No build is run, no compiler is invoked. The "real" tool is a fake cmake that prints its argv
-# (plus, where a real cmake is installed, `cmake --version` itself, which is the reported hang).
+# (plus, where a real cmake is installed, `cmake --version` itself, the command that hung on 2026-10-25).
 #
 # 🔴 EVERY invocation that could loop is wrapped in `timeout`: a regression must come back as
 # rc 124 and a FAILED line, not as a test that never ends. The loop is a chain of exec, so there
 # is no fork bomb, only a process that spins until something kills it.
 #
 # 🔴 NO REAL LOCK, NO REAL SCOPE. Each nested guard is run with NO_CGROUP=1 (no systemd-run) and a
-# LOCK under this run's own mktemp dir -- never /tmp/ndtwin-build.lock. The two guards use two
-# DIFFERENT locks on purpose: two checkouts do not share a lock unless LOCK says so, and a shared
-# one would be the re-entrant case, which test_guarded_build_reentrant.sh covers.
+# LOCK under this run's own mktemp dir -- never /tmp/ndtwin-build.lock. Both cases are covered:
+# two DIFFERENT locks (the inner guard takes its own flock), and ONE shared lock. The shared one
+# is what two checkouts get by default -- the default LOCK is the fixed /tmp/ndtwin-build.lock --
+# and there the inner guard takes the re-entrant branch (test_guarded_build_reentrant.sh covers
+# the branch itself; here it must still reach the real tool).
 #
 # MUTATION GATE: this file is red on the resolver before the fix (every nested case times out).
 #
@@ -56,8 +58,8 @@ for d in "$A" "$B" "$C"; do mkdir -p "$d"; cp -r "$GUARD/." "$d/"; done
 REAL="$TMP/real"; mkdir -p "$REAL"
 printf '#!/usr/bin/env bash\nprintf "%%s\\n" "REAL-cmake $*"\n' > "$REAL/cmake"; chmod +x "$REAL/cmake"
 
-# A PATH tail that has the basics the shims call (dirname, readlink, env, bash, timeout) and
-# nothing else, so "no real binary" really means none.
+# A PATH tail that has only the basics the shims, the guard and this file call (dirname, readlink,
+# env, bash, timeout, cat, flock), so "no real binary" really means none.
 ONLY="$TMP/only"; mkdir -p "$ONLY"
 for u in dirname readlink env bash timeout cat flock; do
     p="$(command -v "$u" 2>/dev/null)" && ln -sf "$p" "$ONLY/$u"
@@ -82,9 +84,9 @@ run_bounded() {
 
 section "🔴 two shim dirs from different checkouts, both orders: the real tool is reached, in bounded time"
 for order in "$A/shims:$B/shims" "$B/shims:$A/shims"; do
-    tag="${order%%:*}"; tag="${tag#$TMP/}"
+    tag="${order//$TMP\//}"
     run_bounded "$order:$REAL:$ONLY" cmake --version
-    t_eq   "[$tag first] cmake --version exits 0 (124 would be the loop)" "0" "$RC"
+    t_eq   "[$tag] cmake --version exits 0 (124 would be the loop)" "0" "$RC"
     t_eq   "and it is the real tool that answered"                  "REAL-cmake --version" "$OUT"
     t_true "and it answered in ${SECS}s, under 5"                    "$([[ $SECS -lt 5 ]] && echo 1 || echo 0)"
 done
@@ -100,11 +102,11 @@ section "a shims dir is recognised by what is in it, not by what it is called"
 ODD="$TMP/odd-name-for-the-shims"; cp -r "$B/shims" "$ODD"; ln -s "$ODD" "$TMP/odd-link"
 run_bounded "$A/shims:$TMP/odd-link:$REAL:$ONLY" cmake --version
 t_eq "a renamed shims dir behind a symlink is skipped too" "REAL-cmake --version" "$OUT"
-# A clone from before the marker existed has no marker file, only _resolve.sh, and its shim strips
-# nothing but ITS OWN directory. This stand-in behaves exactly so: with the clone's dir removed it
-# finds the next cmake and execs it with PATH unchanged -- which, if ours does not skip it, is our
-# shim again, and so on without end.
-OLDC="$TMP/old-clone-shims"; mkdir -p "$OLDC"; : > "$OLDC/_resolve.sh"
+# A clone from before the marker existed has no marker file, only a _resolve.sh that defines
+# guard_real_tool(), and its shim strips nothing but ITS OWN directory. This stand-in behaves
+# exactly so: with the clone's dir removed it finds the next cmake and execs it with PATH
+# unchanged -- which, if ours does not skip it, is our shim again, and so on without end.
+OLDC="$TMP/old-clone-shims"; mkdir -p "$OLDC"; echo 'guard_real_tool() { :; }' > "$OLDC/_resolve.sh"
 cat > "$OLDC/cmake" <<'STUB'
 #!/usr/bin/env bash
 d="$(cd "$(dirname "$0")" && pwd -P)"; new=""; IFS=:
@@ -113,19 +115,65 @@ next="$(PATH="$new" command -v cmake)" && exec "$next" "$@"
 STUB
 chmod +x "$OLDC/cmake"
 run_bounded "$A/shims:$OLDC:$REAL:$ONLY" cmake --version
-t_eq "an older clone's shims dir (no marker file, only _resolve.sh) is skipped too" "REAL-cmake --version" "$OUT"
+t_eq "an older clone's shims dir (no marker file, only _resolve.sh) is skipped: ours first" "REAL-cmake --version" "$OUT"
+run_bounded "$OLDC:$A/shims:$REAL:$ONLY" cmake --version
+t_eq "... and with the older clone first" "REAL-cmake --version" "$OUT"
 
-section "a plain-looking directory whose cmake is a link INTO another checkout's shims is refused, not run"
-# Stripping shims dirs from PATH does not catch a pointer into one. The target here is a stand-in
-# shim that announces itself, so "the shim handed control to it" is visible, not inferred from rc.
+# The same pair with the guard that REALLY shipped before this change, so the stand-in above is not
+# the only evidence. It needs the commit; a shallow clone may not have it.
+PRE="$TMP/prefix"; mkdir -p "$PRE"
+if git -C "$HERE/../.." archive be3568831 tools/build_guard 2>/dev/null | tar -x -C "$PRE" 2>/dev/null \
+        && [[ -d "$PRE/tools/build_guard/shims" ]]; then
+    P="$PRE/tools/build_guard"
+    t_true "the pre-change guard really has no marker file (so only _resolve.sh can identify it)" \
+           "$([[ ! -e "$P/shims/.ndtwin-build-guard-shims" ]] && echo 1 || echo 0)"
+    run_bounded "$A/shims:$P/shims:$REAL:$ONLY" cmake --version
+    t_eq "the real pre-change guard behind ours: not a loop (rc, 124 = loop)" "0" "$RC"
+    t_eq "... and the real tool answered" "REAL-cmake --version" "$OUT"
+    run_bounded "$P/shims:$A/shims:$REAL:$ONLY" cmake --version
+    t_eq "the real pre-change guard in front of ours: not a loop (rc)" "0" "$RC"
+    t_eq "... and the real tool answered" "REAL-cmake --version" "$OUT"
+else
+    echo "  SKIPPED  the real pre-change guard (commit be3568831 is not in this clone) -- only the stand-in above ran"
+fi
+
+section "_resolve.sh alone does not make a directory a shims dir"
+# A real-tool directory that happens to hold an unrelated file of that name must stay on the walk.
+ODDREAL="$TMP/oddreal"; mkdir -p "$ODDREAL"; echo 'echo this is not the guard' > "$ODDREAL/_resolve.sh"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "ODD-cmake $*"\n' > "$ODDREAL/cmake"; chmod +x "$ODDREAL/cmake"
+run_bounded "$A/shims:$ODDREAL:$ONLY" cmake --version
+t_eq "a tool dir with an unrelated _resolve.sh is NOT skipped" "ODD-cmake --version" "$OUT"
+mkdir -p "$TMP/dirnamed"; mkdir "$TMP/dirnamed/_resolve.sh"; cp "$REAL/cmake" "$TMP/dirnamed/cmake"
+run_bounded "$A/shims:$TMP/dirnamed:$ONLY" cmake --version
+t_eq "... nor one where _resolve.sh is a directory" "REAL-cmake --version" "$OUT"
+
+section "the marker file is what the guard ships, and a marker-only directory is skipped"
+t_true "the guard ships shims/.ndtwin-build-guard-shims" "$([[ -e "$GUARD/shims/.ndtwin-build-guard-shims" ]] && echo 1 || echo 0)"
 STAND="$TMP/standin/shims"; mkdir -p "$STAND"; : > "$STAND/.ndtwin-build-guard-shims"
 printf '#!/usr/bin/env bash\necho STANDIN-SHIM-RAN\n' > "$STAND/cmake"; chmod +x "$STAND/cmake"
+run_bounded "$A/shims:$STAND:$REAL:$ONLY" cmake --version
+t_eq "a directory holding nothing but the marker (and a cmake) is skipped" "REAL-cmake --version" "$OUT"
+
+section "a plain-looking directory whose cmake is a link INTO another checkout's shims is refused, not run"
+# Stripping shims dirs from PATH does not catch a pointer into one. The target is the stand-in
+# shim above; it announces itself, so "the shim handed control to it" is visible, not inferred from rc.
 PTR="$TMP/pointer-dir"; mkdir -p "$PTR"; ln -s "$STAND/cmake" "$PTR/cmake"
 run_bounded "$A/shims:$PTR:$REAL:$ONLY" cmake --version
 t_true "the shim did not exec the other checkout's shim through the link" "$([[ "$OUT" != *STANDIN-SHIM-RAN* ]] && echo 1 || echo 0)"
 t_eq   "and it refused with rc 127" "127" "$RC"
+t_true "and stderr says which candidate was refused" "$([[ "$ERR" == *"refusing $PTR/cmake"* ]] && echo 1 || echo 0)"
 
-section "🔴 the same through two real nested guarded_build.sh calls (the reported case)"
+section "an exported shell function named like the tool cannot send the shim back through PATH"
+# `command -v cmake` would answer with the bare word "cmake" for a function, and exec'ing a bare
+# word searches PATH -- which finds a shim again. Bounded, so a regression is rc 124.
+fn_run() { cmake() { :; }; export -f cmake; PATH="$1" timeout -k 1 5 "$2" --version 2>"$TMP/stderr"; }
+OUT="$(fn_run "$A/shims:$REAL:$ONLY" "$A/shims/cmake")"; RC=$?
+t_eq "the function is not mistaken for the real tool (rc)" "0" "$RC"
+t_eq "... and the real tool answered" "REAL-cmake --version" "$OUT"
+OUT="$(fn_run "$A/shims:$B/shims:$ONLY" "$A/shims/cmake")"; RC=$?
+t_eq "with no real tool, a function does not make one up (rc 127, not a loop)" "127" "$RC"
+
+section "🔴 the same through two real nested guarded_build.sh calls (the 2026-10-25 shape)"
 # Outer guard from checkout A, inner guard from the other clone. Each has its OWN lock under
 # $TMP and no cgroup, so nothing real is locked and no scope is opened.
 t0=$SECONDS
@@ -137,7 +185,18 @@ t_eq   "nested guards: cmake --version rc"            "0" "$RC"
 t_eq   "nested guards: the real tool answered"        "REAL-cmake --version" "$OUT"
 t_true "nested guards: and in ${SECS}s, under 8"      "$([[ $SECS -lt 8 ]] && echo 1 || echo 0)"
 
-# If a real cmake is installed, the exact command from the report must print ITS version.
+# The same pair on ONE lock -- what two checkouts get by default (the fixed /tmp lock). The inner
+# guard finds the lock in NDTWIN_GUARD_HELD and nests without a second flock.
+t0=$SECONDS
+OUT="$(PATH="$REAL:$ONLY" NO_CGROUP=1 LOCK="$TMP/lock-shared" timeout -k 1 8 \
+        "$A/guarded_build.sh" env NO_CGROUP=1 LOCK="$TMP/lock-shared" \
+        "$B/guarded_build.sh" cmake --version 2>/dev/null)"; RC=$?
+SECS=$(( SECONDS - t0 ))
+t_eq   "shared lock, nested guards: rc"                 "0" "$RC"
+t_eq   "shared lock, nested guards: the real tool answered" "REAL-cmake --version" "$OUT"
+t_true "shared lock, nested guards: and in ${SECS}s, under 8" "$([[ $SECS -lt 8 ]] && echo 1 || echo 0)"
+
+# If a real cmake is installed, the command that hung on 2026-10-25 must print ITS version.
 # Found by walking PATH ourselves: when this file runs under a guard, `command -v cmake` is a shim.
 real_cmake=""
 OLD_IFS="$IFS"; IFS=:; set -f
@@ -146,22 +205,23 @@ for d in $PATH; do
 done
 set +f; IFS="$OLD_IFS"
 if [[ -n "$real_cmake" ]]; then
-    want="$("$real_cmake" --version 2>/dev/null | head -1)"
+    want="$(timeout -k 1 5 "$real_cmake" --version 2>/dev/null | head -1)"
     OUT="$(NO_CGROUP=1 LOCK="$TMP/lock-a" timeout -k 1 8 \
             "$A/guarded_build.sh" env NO_CGROUP=1 LOCK="$TMP/lock-b" \
             "$B/guarded_build.sh" cmake --version 2>/dev/null | head -1)"
     t_eq "with the system PATH: the installed cmake's own version line" "$want" "$OUT"
 else
-    echo "  (no cmake installed -- the report's exact command is not repeated against a real one)"
+    echo "  (no cmake installed -- the 2026-10-25 command is not repeated against a real one)"
 fi
 
 section "🔴 no real binary anywhere: a loud failure, never a loop and never a silent 0"
 for order in "$A/shims:$B/shims" "$B/shims:$A/shims" "$A/shims"; do
-    tag="${order%%:*}"; tag="${tag#$TMP/}"
+    tag="${order//$TMP\//}"
     run_bounded "$order:$ONLY" cmake --version
-    t_eq   "[$tag first] rc is 127" "127" "$RC"
+    t_eq   "[$tag] no real cmake: rc is 127" "127" "$RC"
     t_true "and it did not time out (rc 124 would be the loop)" "$([[ $RC != 124 ]] && echo 1 || echo 0)"
     t_true "and stderr names the missing tool"                  "$([[ "$ERR" == *"no real cmake"* ]] && echo 1 || echo 0)"
+    t_true "and stderr lists the shims dirs it skipped"         "$([[ "$ERR" == *"skipped shims dirs: ["*"${order%%:*}"* ]] && echo 1 || echo 0)"
     t_eq   "and nothing was printed on stdout"                  "" "$OUT"
 done
 for tool in ninja make; do

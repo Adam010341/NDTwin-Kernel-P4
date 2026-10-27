@@ -51,11 +51,15 @@ Guard 3 is the important one. A vendored script, a recursive make, or a link ste
 - **A shim never resolves to ANY build-guard shim, from any checkout.** Taking only its *own*
   directory out of `PATH` is not enough when two guards from two checkouts are nested: `PATH`
   then reads `<clone>/shims:<main>/shims:…`, each `cmake` finds the other's as the "real" one,
-  and they `exec` each other forever (2026-10-25: a baseline build hung 58 minutes on
-  `cmake --version`). So every `PATH` entry that is a shims directory is skipped, recognised by
-  the marker file `shims/.ndtwin-build-guard-shims` (and by `_resolve.sh`, so a clone from
-  before the marker is skipped too) — by what is in the directory, never by its path. If nothing
-  but shims is left, the shim prints `no real <tool> on PATH …` and exits 127.
+  and they `exec` each other forever (2026-10-25: a baseline build hung for 58 minutes;
+  `cmake --version` alone reproduces it). So every `PATH` entry that is a shims directory is
+  skipped, recognised by the marker file `shims/.ndtwin-build-guard-shims` — or, for a clone from
+  before the marker, by a regular `_resolve.sh` that defines `guard_real_tool()` — by what is in
+  the directory, never by its path. A guard that predates this check still strips only its own
+  directory; ours skips its shims, but the old one cannot be taught, so the loop is closed for
+  certain only when every guard on `PATH` carries the check. If nothing but shims is left, the
+  shim prints `no real <tool> on PATH …` with the shims dirs it skipped and exits 127; a
+  candidate that is a link into a shims dir is named in the message when it is refused.
 
 ## Evidence
 
@@ -65,12 +69,17 @@ Guard 3 is the important one. A vendored script, a recursive make, or a link ste
   real cgroup scope: nesting is a guard whose payload is another guard, and "did it open a
   second scope" is read off a fake `systemd-run` that logs its argv. Every case uses a lock
   under its own `mktemp` dir, never `/tmp/ndtwin-build.lock`.
-- `tests/shell/test_build_guard_nested_checkouts.sh` — 34 checks, no build, no compiler, no real
-  lock and no cgroup scope: the guard is copied into three unrelated directories and nested in
-  both orders; every call that could loop runs under `timeout`, so a regression is rc 124 and a
-  FAILED line. Also the no-real-binary case (rc 127, message names the tool).
-- `tests/shell/mutate_build_guard.sh` — 20 mutations, 0 survived; it runs all three suites above
-  against a mutated copy of this directory. Seven are "the cap must happen"; **M9, M10 and M12
+- `tests/shell/test_build_guard_nested_checkouts.sh` — no build, no compiler, no real lock and no
+  cgroup scope (the check count is not stated: one case runs only where a real cmake is
+  installed, and one only where the pre-change commit is in the clone). The guard is copied into
+  three unrelated directories, put on `PATH` in several orders, and also nested as two real
+  `guarded_build.sh` calls on two locks and on one shared lock; a stand-in and the real
+  pre-change guard stand for an older clone. Every call that could loop runs under `timeout`, so
+  a regression is rc 124 and a FAILED line. Also the no-real-binary case (rc 127, message names
+  the tool and the dirs skipped).
+- `tests/shell/mutate_build_guard.sh` — 23 mutations, 0 survived; it runs all three suites above
+  against a mutated copy of this directory. M1–M8 and M15–M17 are "the cap must happen" and the
+  resolver checks, M11–M14 the re-entrancy, M18–M23 the nested-checkouts fix; **M9, M10 and M12
   are widenings** — a guard that capped *everything* would satisfy a one-sided gate while
   changing what `cmake -S . -B build` and a deliberately serial `make install` do, and a guard
   that stopped locking at the first sign of nesting would satisfy a one-sided re-entrancy gate

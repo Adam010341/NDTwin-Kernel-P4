@@ -88,9 +88,9 @@ REL="$TMP/rel"; ln -s "$SHIM" "$REL"
 t_eq "shim dir reached by a symlink too"  "FAKE-cmake --build d -j2" \
      "$(PATH="$SHIM:$REL:$FAKE:$PATH" timeout 10 cmake --build d 2>/dev/null)"
 ONLYSHIM="$TMP/onlyshim"; mkdir -p "$ONLYSHIM"
-# [Co-developed with claude code -- Adam] readlink too: the shims call it to find their own directory. Without
-# it the shim cannot source _resolve.sh and "no real cmake" is printed by that failure, not by the
-# resolver this case is about.
+# [Co-developed with claude code -- Adam] readlink too: the shims call it to find their own directory.
+# Without it they cannot source _resolve.sh, the resolver never runs, and the case below would see
+# "no real cmake" from that failure instead of from the resolver it is about.
 for u in dirname timeout env bash readlink; do ln -sf "$(command -v $u)" "$ONLYSHIM/$u" 2>/dev/null || true; done
 out="$(PATH="$SHIM:$ONLYSHIM" timeout 10 cmake --build d 2>&1)"; rc=$?
 t_eq "no real tool anywhere -> rc 127, not a loop" "127" "$rc"
