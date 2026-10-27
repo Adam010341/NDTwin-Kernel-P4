@@ -48,6 +48,14 @@ Guard 3 is the important one. A vendored script, a recursive make, or a link ste
   directory is taken out of `PATH` (canonicalised with `pwd -P`, because bash's `pwd` is
   logical and would miss a symlinked entry), and the candidate is `readlink -f`'d before the
   comparison, because stripping a directory does not catch a *pointer* into it.
+- **A shim never resolves to ANY build-guard shim, from any checkout.** Taking only its *own*
+  directory out of `PATH` is not enough when two guards from two checkouts are nested: `PATH`
+  then reads `<clone>/shims:<main>/shims:…`, each `cmake` finds the other's as the "real" one,
+  and they `exec` each other forever (2026-10-25: a baseline build hung 58 minutes on
+  `cmake --version`). So every `PATH` entry that is a shims directory is skipped, recognised by
+  the marker file `shims/.ndtwin-build-guard-shims` (and by `_resolve.sh`, so a clone from
+  before the marker is skipped too) — by what is in the directory, never by its path. If nothing
+  but shims is left, the shim prints `no real <tool> on PATH …` and exits 127.
 
 ## Evidence
 
@@ -57,7 +65,11 @@ Guard 3 is the important one. A vendored script, a recursive make, or a link ste
   real cgroup scope: nesting is a guard whose payload is another guard, and "did it open a
   second scope" is read off a fake `systemd-run` that logs its argv. Every case uses a lock
   under its own `mktemp` dir, never `/tmp/ndtwin-build.lock`.
-- `tests/shell/mutate_build_guard.sh` — 14 mutations, 0 survived; it runs both suites above
+- `tests/shell/test_build_guard_nested_checkouts.sh` — 34 checks, no build, no compiler, no real
+  lock and no cgroup scope: the guard is copied into three unrelated directories and nested in
+  both orders; every call that could loop runs under `timeout`, so a regression is rc 124 and a
+  FAILED line. Also the no-real-binary case (rc 127, message names the tool).
+- `tests/shell/mutate_build_guard.sh` — 20 mutations, 0 survived; it runs all three suites above
   against a mutated copy of this directory. Seven are "the cap must happen"; **M9, M10 and M12
   are widenings** — a guard that capped *everything* would satisfy a one-sided gate while
   changing what `cmake -S . -B build` and a deliberately serial `make install` do, and a guard

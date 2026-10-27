@@ -33,7 +33,8 @@ REPO="$(cd "$HERE/../.." && pwd)"
 GUARD="$REPO/tools/build_guard"
 TEST="$REPO/tests/shell/test_build_guard.sh"
 REENT="$REPO/tests/shell/test_guarded_build_reentrant.sh"
-[[ -d "$GUARD" && -x "$TEST" && -x "$REENT" ]] || { echo "refused: guard or test missing"; exit 2; }
+NESTED="$REPO/tests/shell/test_build_guard_nested_checkouts.sh"
+[[ -d "$GUARD" && -x "$TEST" && -x "$REENT" && -x "$NESTED" ]] || { echo "refused: guard or test missing"; exit 2; }
 
 BK="$(mktemp -d)"; trap 'rm -rf "$BK"' EXIT
 BASE_SUM="$(cd "$GUARD" && find . -type f | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
@@ -65,19 +66,20 @@ print(target.rsplit('/', 2)[0])
 PY
 }
 
-# Both suites, against ONE guard copy. Either one red is red, and a timeout in either one is a
+# All three suites, against ONE guard copy. Any one red is red, and a timeout in any one is a
 # timeout -- the caller distinguishes 124 from 1, because "unbounded" is not "failed".
 run_against() {
-    local g="$1" o1 o2 r1 r2
-    o1="$(GUARD_UNDER_TEST="$g" timeout 300 bash "$TEST" 2>&1)";  r1=$?
-    o2="$(GUARD_UNDER_TEST="$g" timeout 300 bash "$REENT" 2>&1)"; r2=$?
-    printf '%s\n%s\n' "$o1" "$o2"
-    [[ $r1 -eq 124 || $r2 -eq 124 ]] && return 124
-    [[ $r1 -eq 0 && $r2 -eq 0 ]] && return 0
+    local g="$1" o1 o2 o3 r1 r2 r3
+    o1="$(GUARD_UNDER_TEST="$g" timeout 300 bash "$TEST" 2>&1)";   r1=$?
+    o2="$(GUARD_UNDER_TEST="$g" timeout 300 bash "$REENT" 2>&1)";  r2=$?
+    o3="$(GUARD_UNDER_TEST="$g" timeout 300 bash "$NESTED" 2>&1)"; r3=$?
+    printf '%s\n%s\n%s\n' "$o1" "$o2" "$o3"
+    [[ $r1 -eq 124 || $r2 -eq 124 || $r3 -eq 124 ]] && return 124
+    [[ $r1 -eq 0 && $r2 -eq 0 && $r3 -eq 0 ]] && return 0
     return 1
 }
 
-echo "baseline (both suites must be green before any mutation):"
+echo "baseline (all three suites must be green before any mutation):"
 base_out="$(run_against "$GUARD")"; base_rc=$?
 echo "$base_out" | grep -E '^Ran [0-9]+ checks' | sed 's/^/  /'
 if [[ $base_rc -ne 0 ]]; then echo "refused: baseline is not green"; exit 2; fi
@@ -159,11 +161,19 @@ cat > "$A/m6.new" <<'EOF'
 EOF
 check "M6: SHIM_JOBS trusted as given (0 becomes 'unlimited')" m6 shims/_resolve.sh "🔴 SHIM_JOBS=0 falls back to 2"
 
+# [Co-developed with claude code -- Adam] M7 and M8 are mutations of the ORIGINAL resolver checks.
+# The marker layer (guard_is_shim_dir) catches a symlinked shim dir and a pointer into one as well,
+# so mutating the old check alone is an equivalent mutant now. Each anchor therefore spans the
+# marker line too: the mutant is "the resolver as it was before the marker, with this one fault".
+# The marker layer's own mutations are M18..M20 further down.
 cat > "$A/m7.old" <<'EOF'
         canon="$(cd "$part" 2>/dev/null && pwd -P)" || canon="$part"
+        [[ "$canon" == "$canon_shim" ]] && continue
+        guard_is_shim_dir "$canon" && continue
 EOF
 cat > "$A/m7.new" <<'EOF'
         canon="$(cd "$part" 2>/dev/null && pwd)" || canon="$part"
+        [[ "$canon" == "$canon_shim" ]] && continue
 EOF
 check "M7: the resolver goes back to a LOGICAL pwd" m7 shims/_resolve.sh "shim dir reached by a symlink too"
 
@@ -189,6 +199,7 @@ check "M7: the resolver goes back to a LOGICAL pwd" m7 shims/_resolve.sh "shim d
 # That case is now a test, and M8 is an ordinary catchable mutation against it.
 cat > "$A/m8.old" <<'EOF'
     [[ "$found_dir" == "$canon_shim" ]] && return 0
+    guard_is_shim_dir "$found_dir" && return 0
 EOF
 cat > "$A/m8.new" <<'EOF'
     :
@@ -285,6 +296,34 @@ cat > "$A/m17.new" <<'EOF'
     local j="${SHIM_JOBS:-3}"
 EOF
 check "M17: a shim's default -j is 3, not 2" m17 shims/_resolve.sh "-j14 glued becomes -j2"
+
+# ---- nested checkouts: a shim never resolves to ANY build-guard shim -----------------------
+# M18: the PATH loop keeps another checkout's shims dir -- this is the loop itself.
+cat > "$A/m18.old" <<'EOF'
+        guard_is_shim_dir "$canon" && continue
+EOF
+cat > "$A/m18.new" <<'EOF'
+        :
+EOF
+check "M18: a PATH entry that is ANOTHER checkout's shims dir is kept" m18 shims/_resolve.sh "[checkout-a/tools/build_guard/shims first] cmake --version exits 0"
+
+# M19: a link into another checkout's shims dir is accepted as the real tool.
+cat > "$A/m19.old" <<'EOF'
+    guard_is_shim_dir "$found_dir" && return 0
+EOF
+cat > "$A/m19.new" <<'EOF'
+    :
+EOF
+check "M19: a link into another checkout's shims dir is accepted" m19 shims/_resolve.sh "the shim did not exec the other checkout's shim through the link"
+
+# M20: only the marker file counts, so a clone from before the marker is not recognised.
+cat > "$A/m20.old" <<'EOF'
+    [[ -n "${1:-}" && ( -e "$1/$GUARD_SHIM_MARKER" || -e "$1/_resolve.sh" ) ]]
+EOF
+cat > "$A/m20.new" <<'EOF'
+    [[ -n "${1:-}" && ( -e "$1/$GUARD_SHIM_MARKER" ) ]]
+EOF
+check "M20: a shims dir without the marker file is not recognised" m20 shims/_resolve.sh "an older clone's shims dir (no marker file, only _resolve.sh) is skipped too"
 
 echo
 NOW_SUM="$(cd "$GUARD" && find . -type f | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"

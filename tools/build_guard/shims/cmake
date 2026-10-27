@@ -15,7 +15,7 @@ set -uo pipefail
 SHIM_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd -P)"
 source "$SHIM_DIR/_resolve.sh"
 real="$(guard_real_tool "$SHIM_DIR" cmake)"
-[[ -n "$real" ]] || { echo "build_guard: no real cmake on PATH outside the shim dir" >&2; exit 127; }
+[[ -n "$real" ]] || { guard_no_real_tool cmake; exit 127; }
 
 args=(); skip=0; is_build=0
 for a in "$@"; do

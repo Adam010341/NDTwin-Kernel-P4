@@ -1,0 +1,2 @@
+# [Co-developed with claude code -- Adam]
+# Marker: its presence makes this directory a build-guard shims dir. See guard_is_shim_dir in _resolve.sh.

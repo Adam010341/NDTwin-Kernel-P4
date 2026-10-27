@@ -1,9 +1,35 @@
 # Shared by the shims. Sourced, never executed -- hence no shebang and mode 644.
 # [Co-developed with claude code -- Adam]
 
+# The file every build-guard shims directory ships (see guard_is_shim_dir). Its content is
+# irrelevant; its presence is the identity.
+GUARD_SHIM_MARKER=".ndtwin-build-guard-shims"
+
+# guard_is_shim_dir <dir>  -- true if <dir> is a build-guard shims directory, from ANY checkout.
+#
+# Identified by what is IN the directory, never by its path: a shim can know its own path and
+# nothing about where another checkout's guard lives. Two guards from two checkouts, one nested
+# in the other, put two shim dirs on PATH (`<clone>/shims:<main>/shims:...`); each shim removed
+# only its own, found the other checkout's shim as the "real" tool, and the two exec'd each
+# other without end (2026-10-25: `cmake --version` hung a CI baseline build for 58 minutes).
+# Skipping every shims directory makes that impossible, whatever the order or the number.
+#
+# `_resolve.sh` is accepted too: it has sat beside the shims since the first version, so a clone
+# from before the marker existed is still recognised when its guard is the outer one.
+guard_is_shim_dir() {
+    [[ -n "${1:-}" && ( -e "$1/$GUARD_SHIM_MARKER" || -e "$1/_resolve.sh" ) ]]
+}
+
+# guard_no_real_tool <tool>  -- the one loud message for "nothing but shims on PATH". Callers exit 127.
+guard_no_real_tool() {
+    echo "build_guard: no real $1 on PATH outside the build-guard shim directories" \
+         "(every shims dir is skipped, including other checkouts'); refusing to run. PATH=$PATH" >&2
+}
+
 # guard_real_tool <shim_dir> <tool>  -- prints the real tool's path, or nothing.
 #
-# Finds the real tool by taking the shim's own directory out of PATH and asking again.
+# Finds the real tool by taking every shims directory out of PATH -- this shim's own and any
+# other checkout's -- and asking again.
 # Hardcoding /usr/bin/<tool> would be an assumption: this laptop has conda on PATH, and a
 # conda- or pip-installed cmake is an ordinary thing to have. Resolving instead of assuming
 # also makes the shim testable -- a test can put a fake tool on PATH and read what the shim
@@ -28,6 +54,7 @@ guard_real_tool() {
         [[ -z "$part" ]] && continue
         canon="$(cd "$part" 2>/dev/null && pwd -P)" || canon="$part"
         [[ "$canon" == "$canon_shim" ]] && continue
+        guard_is_shim_dir "$canon" && continue
         rebuilt+=("$part")
     done
     IFS="$OLD_IFS"
@@ -49,6 +76,7 @@ guard_real_tool() {
     # reachable, and therefore what makes it testable.
     found_dir="$(cd "$(dirname "$(readlink -f "$found" 2>/dev/null || echo "$found")")" 2>/dev/null && pwd -P)" || found_dir=""
     [[ "$found_dir" == "$canon_shim" ]] && return 0
+    guard_is_shim_dir "$found_dir" && return 0
 
     printf '%s' "$found"
 }
