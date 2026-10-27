@@ -153,6 +153,21 @@ m=$(mutant n7 "$NDT" \
 report "N7: a refused config is reported as plain default" "$m" \
        "🔴 a refused config is named as refused, not silently replaced"
 
+# The trust gate is skipped: a config this user owns is believed, while the helper refuses it.
+m=$(mutant n9 "$NDT" \
+    '        if lab_conf_trusted "$LAB_CONF"; then' \
+    '        if :; then')
+report "N9: ndt ntg believes a config the helper refuses" "$m" \
+       "🔴 a config this user owns is refused -> the default checkout, as in the helper"
+
+# An accepted file without the key is reported as a refused one: the operator is told to fix a
+# file that is fine.
+m=$(mutant n10 "$NDT" \
+    '            LAB_NTG_DIR_SOURCE="built-in default ($LAB_CONF sets no NTG_DIR)"' \
+    '            LAB_NTG_DIR_SOURCE="built-in default ($LAB_CONF was REFUSED)"')
+report "N10: an accepted config without NTG_DIR is called refused" "$m" \
+       "🔴 an accepted config without NTG_DIR is named as such, not as refused"
+
 # --- the control -------------------------------------------------------------------------------
 m=$(mutant n8 "$NDT" \
     '# lab_ntg_dir -- the NTG checkout `sudo ndtwin-lab` hands the P4 bridge. Sets LAB_NTG_DIR_SOURCE.' \

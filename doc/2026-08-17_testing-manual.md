@@ -848,8 +848,8 @@ ndt ntg prompt      # 下次開機交給 NTG 自己的 prompt
 ```
 
 ⚠️ `ndt ntg` 改的是**別的 repo** 的設定檔（`<NTG_DIR>/setting/Mininet.yaml` 的 `mode:`），所以它會印黃字警告。
-改完要下一次 `ndt up` 才生效，正在跑的拓樸維持原樣。`NTG_DIR` 是 lab helper 用的那一份 NTG checkout：
-`/etc/ndtwin-lab.conf` 的 `NTG_DIR=` 行，沒有這行時是內建預設 `/home/adam/Network-Traffic-Generator`
+改完要下一次 `ndt up p4` 才生效，正在跑的拓樸維持原樣。`NTG_DIR` 是 lab helper 用的那一份 NTG checkout：
+`/etc/ndtwin-lab.conf` 的 `NTG_DIR=` 行；沒有這行、或設定檔被拒絕時，是內建預設 `/home/adam/Network-Traffic-Generator`
 （見 [ndtwin-lab 設定檔](2026-09-02_ndtwin-lab-config.md)）。找不到檔案時，錯誤訊息會寫出 `NTG_DIR` 的值與它的來源。
 
 **Mininet CLI 常用**（在 `topo` 這個 tmux session 裡）：

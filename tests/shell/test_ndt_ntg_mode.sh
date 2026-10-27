@@ -18,9 +18,13 @@
 #   * does the copy agree with the helper on every config file -- asked by running the helper's
 #     own parser on the same fixtures, not by comparing against strings written out here.
 #
-# 🔴 NOTHING HERE READS /etc OR A REAL NTG CHECKOUT. LAB_CONF and both defaults are redirected
-#    into a temp dir; the pre-fix global NTG_YAML is pointed at a path that cannot exist, so a
-#    `ndt` that still edits a fixed path can only fail, never touch somebody's checkout. The trust
+# 🔴 NOTHING HERE WRITES /etc OR TOUCHES A REAL NTG CHECKOUT. ndt's LAB_CONF and both defaults
+#    are redirected into a temp dir; the pre-fix global NTG_YAML is pointed at a path that cannot
+#    exist, so a `ndt` that still edits a fixed path can only fail, never touch somebody's
+#    checkout. Sourcing the HELPER does run its top-level lab_config_load, which reads the real
+#    /etc/ndtwin-lab.conf if there is one (read-only); every helper answer below resets
+#    KERNEL_DIR and NTG_DIR by hand before parsing a fixture, so that file decides none of them.
+#    `lab_version_problem` is stubbed, so the installed helper is not compared either. The trust
 #    gate (root-owned file in a root-owned directory) cannot be satisfied off a root shell; it is
 #    exercised for REFUSAL against a real user-owned file, and replaced by `return 0` only in the
 #    cases that are about what a trusted file says. tests/shell/test_ndt_helper_apps_window.sh
@@ -77,6 +81,7 @@ LAB_DEFAULT_KERNEL_DIR="${FX_DEFAULT_KERNEL_DIR:-'"$FIX"'/kernel}"
 LAB_DEFAULT_NTG_DIR="${FX_DEFAULT_NTG_DIR:-'"$FIX"'/defntg}"
 NTG_YAML=/nonexistent/NDT-TEST-FIXTURE/fixed-path/setting/Mininet.yaml
 [[ "${FX_TRUST:-0}" == 1 ]] && lab_conf_trusted() { return 0; }
+lab_version_problem() { :; }
 '
 inner() {   # inner <shell code> -- run it with ndt sourced and the seam in place
     bash -c "source '$NDT' >/dev/null 2>&1
@@ -114,9 +119,11 @@ printf 'KERNEL_DIR=%s\nNTG_DIR=%s\n' "$FIX/otherkernel" "$FIX/ntg" > "$FIX/conf/
 chmod 644 "$FIX/conf/both.conf"
 check "🔴 a trusted config's NTG_DIR -> that checkout's mode is reported" \
       "NTG mode: prompt" "$(FX_TRUST=1 FX_CONF="$FIX/conf/both.conf" inner 'cmd_ntg' | grep -m1 'NTG mode:' | sed 's/^[^N]*//')"
+mk_ntg "$FIX/defntg" prompt     # so that an edit of the wrong checkout would show
 out="$(FX_TRUST=1 FX_CONF="$FIX/conf/both.conf" inner 'cmd_ntg cli; echo RC=$?')"
 check "🔴 ndt ntg cli edits THAT checkout's YAML"    "cli"    "$(mode_in "$FIX/ntg")"
-check "  and leaves the default checkout alone"     "cli"    "$(mode_in "$FIX/defntg")"
+check "  and leaves the default checkout alone"     "prompt" "$(mode_in "$FIX/defntg")"
+mk_ntg "$FIX/defntg" cli
 has   "  and says which file it edited"             "edited $FIX/ntg/setting/Mininet.yaml" "$out"
 check "  rc 0"                                      "RC=0"   "$(grep -m1 '^RC=' <<<"$out")"
 check "  the rest of the YAML is untouched" \
@@ -143,6 +150,24 @@ check "  rc 1, and nothing was created"             "RC=1 no" \
 
 out="$(FX_CONF="$FIX/conf/gone.conf" FX_DEFAULT_NTG_DIR="$FIX/nowhere" inner 'cmd_ntg; echo RC=$?')"
 has   "🔴 a refused config is named as refused, not silently replaced" "was REFUSED" "$out"
+
+printf 'KERNEL_DIR=%s\n' "$FIX/otherkernel" > "$FIX/conf/kernel_only.conf"
+out="$(FX_TRUST=1 FX_CONF="$FIX/conf/kernel_only.conf" FX_DEFAULT_NTG_DIR="$FIX/nowhere" inner 'cmd_ntg; echo RC=$?')"
+has   "🔴 an accepted config without NTG_DIR is named as such, not as refused" "sets no NTG_DIR" "$out"
+
+# 🔴 The helper reads the file as root and ndt as the operator. A root-owned 0600 file passes the
+#    trust gate on both sides, the helper uses its NTG_DIR, and ndt cannot read it: that is an
+#    answer nobody here has, so the verb refuses before it touches any checkout.
+printf 'KERNEL_DIR=%s\nNTG_DIR=%s\n' "$FIX/otherkernel" "$FIX/ntg" > "$FIX/conf/unreadable.conf"
+chmod 000 "$FIX/conf/unreadable.conf"
+mk_ntg "$FIX/defntg" prompt     # so that falling back to the default and editing it would show
+before="$(mode_in "$FIX/ntg") $(mode_in "$FIX/defntg")"
+out="$(FX_TRUST=1 FX_CONF="$FIX/conf/unreadable.conf" inner 'cmd_ntg cli; echo RC=$?')"
+check "🔴 a trusted config this user cannot read -> rc 1"  "RC=1" "$(grep -m1 '^RC=' <<<"$out")"
+check "  and neither checkout was edited"                  "$before" "$(mode_in "$FIX/ntg") $(mode_in "$FIX/defntg")"
+has   "  and it says the file is not readable"             "not readable" "$out"
+chmod 644 "$FIX/conf/unreadable.conf"
+mk_ntg "$FIX/defntg" cli
 
 # ==============================================================================================
 section "4. ndt's copy of the rule agrees with the helper's parser, file by file"
