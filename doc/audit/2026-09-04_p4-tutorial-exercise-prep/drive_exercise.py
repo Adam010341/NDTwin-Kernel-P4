@@ -7,7 +7,8 @@ Run it as ONE command from your own terminal (interactive sudo lives there):
         doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
         source_routing --which solution
 
-(VENV_PY and TUT are the constants below; the tool prints the exact command it wants.)
+(VENV_PY and TUT are set below -- built-in defaults, or $VENV_PY / $TUTORIALS_DIR, or
+--venv-py / --tutorials-dir; the tool prints the exact command it wants.)
 
 It brings the exercise up exactly the way ``utils/run_exercise.py`` does, then
 -- instead of dropping into the Mininet CLI -- runs a scripted set of steps,
@@ -74,15 +75,35 @@ import json as _json
 import math
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
 
 # ---------------------------------------------------------------- constants --
 
-TUT      = "/home/adam/tutorials"
+# [Co-developed with claude code -- Adam]
+# The p4lang/tutorials checkout and the p4dev venv's interpreter. The defaults are the paths this
+# file has always used; another machine names its own with TUTORIALS_DIR and VENV_PY (the names
+# live-p1/code_identity.py and live-p1/06_thirteen.sh already give these two paths), or with
+# --tutorials-dir / --venv-py, which main() applies over both.
+#
+# 🔴 THE FLAGS ARE NOT A SECOND WAY TO SAY THE SAME THING. `--fabric tutorials` runs under sudo,
+# and sudo's env_reset drops both variables before this file is read -- so an override that
+# lived only in the environment would name one tree in the dry run and the default in the run
+# that follows it. What crosses sudo is argv, which is why sudo_line() spells out every path
+# that differs from its default. Where nothing is overridden the line is the one it has always
+# been, byte for byte (tests/fixtures/dryrun_*.txt), so a sudoers rule written for it still
+# matches. That is all a sudoers rule can be relied on for here: the interpreter and this file
+# are both writable by the user, so any NOPASSWD rule for this command gives that user root
+# whatever its arguments are. The defaults are literals, not ~-expansions: under sudo, ~ is
+# root's home. Environment values are normalised the way the flags are, so `/home/adam/tutorials/`
+# is the default and adds no flag.
+TUT_DEFAULT     = "/home/adam/tutorials"
+VENV_PY_DEFAULT = "/home/adam/p4dev-python-venv/bin/python"
+TUT      = os.path.abspath(os.environ.get("TUTORIALS_DIR") or TUT_DEFAULT)
 UTILS    = os.path.join(TUT, "utils")
-VENV_PY  = "/home/adam/p4dev-python-venv/bin/python"
+VENV_PY  = os.path.abspath(os.environ.get("VENV_PY") or VENV_PY_DEFAULT)
 SWITCH   = "/usr/local/bin/simple_switch_grpc"   # NOT /usr/local/bmv2-fast; see README section 3
 P4C      = "/usr/local/bin/p4c-bm2-ss"
 PORT_LO, PORT_HI = 9090, 9099                    # thrift ports the harness hard-codes
@@ -3178,15 +3199,38 @@ def write_report(path, ctx):
 # ---------------------------------------------------------------------- main --
 
 
+def path_flags():
+    """The --tutorials-dir / --venv-py words a printed command needs: one per path that is not
+    its built-in default, and none at all on a machine that overrides nothing."""
+    words = ""
+    if TUT != TUT_DEFAULT:
+        words += " --tutorials-dir %s" % shlex.quote(TUT)
+    if VENV_PY != VENV_PY_DEFAULT:
+        words += " --venv-py %s" % shlex.quote(VENV_PY)
+    return words
+
+
 def sudo_line(exercise, which):
-    return "sudo %s %s %s --which %s" % (
-        VENV_PY, os.path.abspath(__file__), exercise, which)
+    return "sudo %s %s %s --which %s%s" % (
+        shlex.quote(VENV_PY), shlex.quote(os.path.abspath(__file__)), exercise, which,
+        path_flags())
 
 
 def ndtwin_line(exercise, which):
     """The same run on the NDTwin fabric.  No sudo: `ndt` uses the sudoers rules sudo_surface.sh lists."""
-    return "%s %s %s --which %s --fabric ndtwin" % (
-        VENV_PY, os.path.abspath(__file__), exercise, which)
+    return "%s %s %s --which %s%s --fabric ndtwin" % (
+        shlex.quote(VENV_PY), shlex.quote(os.path.abspath(__file__)), exercise, which,
+        path_flags())
+
+
+def apply_path_flags(args):
+    """--tutorials-dir / --venv-py over whatever the environment or the defaults said."""
+    global TUT, UTILS, VENV_PY, CTRL_PY
+    if args.tutorials_dir is not None:
+        TUT = os.path.abspath(args.tutorials_dir)
+        UTILS = os.path.join(TUT, "utils")
+    if args.venv_py is not None:
+        VENV_PY = CTRL_PY = os.path.abspath(args.venv_py)
 
 
 def main():
@@ -3215,7 +3259,18 @@ def main():
                          "p4_proxy/mininet/telemetry_override. Omitted = what the package says.")
     ap.add_argument("--recv-warmup", type=float, default=RECV_WARMUP)
     ap.add_argument("--drain-wait", type=float, default=DRAIN_WAIT)
+    ap.add_argument("--tutorials-dir", default=None,
+                    help="the p4lang/tutorials checkout (default: $TUTORIALS_DIR, else %s)"
+                         % TUT_DEFAULT)
+    ap.add_argument("--venv-py", default=None,
+                    help="the p4dev venv's python, with mininet+grpc+scapy (default: $VENV_PY, "
+                         "else %s)" % VENV_PY_DEFAULT)
     args = ap.parse_args()
+    # An empty path is refused, not read as "the default": abspath("") is the cwd.
+    for flag, value in (("--tutorials-dir", args.tutorials_dir), ("--venv-py", args.venv_py)):
+        if value is not None and not value:
+            ap.error("%s needs a path; leave the flag out to use the default" % flag)
+    apply_path_flags(args)
 
     ex, which = args.exercise, args.which
     exdir = os.path.join(TUT, "exercises", ex)

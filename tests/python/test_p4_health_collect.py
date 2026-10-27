@@ -925,7 +925,7 @@ class TestLabRound(Sealed):
         def up(argv, env, inp):
             with open(knob, "wb") as fh:          # `ndt up p4 --app` rewrites the host knob ...
                 fh.write(b"6\n")
-            test.write_claim(note=UP_NOTE)         # ... and the claim's note (ndt:3504)
+            test.write_claim(note=UP_NOTE)         # ... and the claim's note (ndt:3557)
             return (0, "up")
 
         def down(argv, env, inp):
