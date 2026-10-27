@@ -222,6 +222,10 @@ target_link_libraries(
   Boost::url
 )
 
+# [Co-developed with claude code -- Adam] Boost.Graph false positive; see the top-level CMakeLists.txt.
+set_source_files_properties(test_TopologyAndFlowMonitor.cpp test_TopologyAndFlowMonitor_mininet.cpp
+    PROPERTIES COMPILE_OPTIONS "${NDTWIN_BOOST_GRAPH_MAYBE_UNINITIALIZED}")
+
 include(GoogleTest)
 gtest_discover_tests(test_routing_strategy)
 
