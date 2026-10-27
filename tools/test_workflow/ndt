@@ -1404,12 +1404,16 @@ topo_session() { lab_session topo; }
 #     refused would point this at a tree root is not running -- the stale-tree failure inverted, and just
 #     as quiet.
 #
-# What is NOT copied: NTG_PY/ENERGY_DIR/SIM_DIR/NTG_DIR (nothing here needs their values) and
-# the helper's loud refusal message (it acts on that config; this only reads a log path from it).
-# Their KEYS are copied, because the helper refuses a file with a key it does not know, and so
-# must this.
+# What is NOT copied: NTG_PY/ENERGY_DIR/SIM_DIR (nothing here needs their values) and the
+# helper's loud refusal message (it acts on that config; this only reads paths from it). Their
+# KEYS are copied, because the helper refuses a file with a key it does not know, and so must
+# this. NTG_DIR's value IS copied: `ndt ntg` edits that checkout's setting/Mininet.yaml, and it has
+# to be the checkout the P4 bridge imports NTG from (see lab_ntg_dir).
 LAB_CONF=/etc/ndtwin-lab.conf
 LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+# [Co-developed with claude code -- Adam]
+# The helper's LAB_DEFAULT_NTG_DIR, pinned against its source by tests/shell/test_ndt_ntg_mode.sh.
+LAB_DEFAULT_NTG_DIR=/home/adam/Network-Traffic-Generator
 
 # lab_conf_path_trusted <path> -- root-owned and not group- or other-writable.
 #
@@ -1443,14 +1447,21 @@ lab_conf_trusted() {
     return 0
 }
 
-# lab_conf_kernel_dir <conf> -- the KERNEL_DIR this file sets, or nothing.
+# lab_conf_value <conf> <KEY> -- the value this file sets for KEY. Prints nothing, rc 1, when the
+# helper would refuse the file; prints nothing, rc 3, when it would accept it and KEY is not in it.
 #
 # 🔴 ALL OR NOTHING, because the helper is: lab_config_parse assigns as it reads and restores
 # every default if any later line is bad, so a file whose third line is a typo sets NOTHING.
-# Reading only the KERNEL_DIR line and ignoring the rest would make `ndt` believe a config the
+# Reading only the one line and ignoring the rest would make `ndt` believe a config the
 # helper threw away.
-lab_conf_kernel_dir() {
-    local conf="$1" line key val found=""
+#
+# [Co-developed with claude code -- Adam]
+# One parser for every key, so KERNEL_DIR and NTG_DIR cannot be read by two rules. The helper's
+# post-conditions are on the KERNEL_DIR IN FORCE -- the file's, else the default -- so a file that
+# sets only NTG_DIR on a machine whose default tree is not there is refused whole, and its
+# NTG_DIR is not in force either.
+lab_conf_value() {
+    local conf="$1" want="$2" line key val found="" kdir=""
     while IFS= read -r line || [[ -n "$line" ]]; do
         line="${line%%$'\r'}"
         line="${line#"${line%%[![:space:]]*}"}"
@@ -1466,15 +1477,20 @@ lab_conf_kernel_dir() {
         esac
         [[ "$val" == /* ]] || return 1
         case "$val" in *..*) return 1 ;; esac
-        [[ "$key" == KERNEL_DIR ]] && found="$val"
+        [[ "$key" == KERNEL_DIR ]] && kdir="$val"
+        [[ "$key" == "$want" ]] && found="$val"
     done < "$conf"
-    [[ -n "$found" ]] || return 1
     # The helper's own two post-conditions. It refuses the whole file when either fails, so a
     # KERNEL_DIR that names a tree with no bridge script in it is not in force there either.
-    [[ -d "$found" ]] || return 1
-    [[ -f "$found/p4_proxy/mininet/ntg_bmv2_topo.py" ]] || return 1
+    kdir="${kdir:-$LAB_DEFAULT_KERNEL_DIR}"
+    [[ -d "$kdir" ]] || return 1
+    [[ -f "$kdir/p4_proxy/mininet/ntg_bmv2_topo.py" ]] || return 1
+    [[ -n "$found" ]] || return 3
     printf '%s' "$found"
 }
+
+# lab_conf_kernel_dir <conf> -- the KERNEL_DIR this file sets, or nothing.
+lab_conf_kernel_dir() { lab_conf_value "$1" KERNEL_DIR; }
 
 # lab_kernel_dir -- the tree `sudo ndtwin-lab` acts in. Also sets LAB_KERNEL_DIR_SOURCE, so a
 # report can say WHERE it looked without the reader having to know this rule.
@@ -1494,6 +1510,35 @@ lab_kernel_dir() {
         LAB_KERNEL_DIR_SOURCE="built-in default ($LAB_CONF was REFUSED)"
     fi
     printf '%s' "$LAB_DEFAULT_KERNEL_DIR"
+}
+
+# lab_ntg_dir -- the NTG checkout `sudo ndtwin-lab` hands the P4 bridge. Sets LAB_NTG_DIR_SOURCE.
+#
+# [Co-developed with claude code -- Adam]
+# Read from the config file rather than asked of the helper (`sudo ndtwin-lab config` would need
+# a grant `ndt ntg` has no other use for) and not taken from the environment (an exported value
+# the helper ignores would point this at a checkout the bridge does not use). The file is
+# root-owned and world-readable; the rule is the helper's, through the same trust gate and parser
+# lab_kernel_dir uses.
+LAB_NTG_DIR_SOURCE=""
+lab_ntg_dir() {
+    local d rc=1
+    LAB_NTG_DIR_SOURCE="built-in default (no $LAB_CONF)"
+    if [[ -e "$LAB_CONF" || -L "$LAB_CONF" ]]; then
+        if lab_conf_trusted "$LAB_CONF"; then
+            d="$(lab_conf_value "$LAB_CONF" NTG_DIR)"; rc=$?
+        fi
+        if (( rc == 0 )); then
+            LAB_NTG_DIR_SOURCE="from $LAB_CONF"
+            printf '%s' "$d"
+            return 0
+        elif (( rc == 3 )); then
+            LAB_NTG_DIR_SOURCE="built-in default ($LAB_CONF sets no NTG_DIR)"
+        else
+            LAB_NTG_DIR_SOURCE="built-in default ($LAB_CONF was REFUSED)"
+        fi
+    fi
+    printf '%s' "$LAB_DEFAULT_NTG_DIR"
 }
 
 # --- does `sudo ndtwin-lab` act in THIS checkout? ----------------------------------
@@ -10736,10 +10781,25 @@ cmd_apps() {
 # NTG's prompt and Mininet's CLI are mutually exclusive and chosen by one line in NTG's own
 # config, not by anything here. Reads always; writes only when asked, and says so, because
 # this edits a file in a sibling repo.
-NTG_YAML=/home/adam/Network-Traffic-Generator/setting/Mininet.yaml
-
+#
+# [Co-developed with claude code -- Adam]
+# The file is setting/Mininet.yaml in the NTG checkout the P4 bridge uses: the helper's NTG_DIR,
+# resolved read-only by lab_ntg_dir. With no NTG_DIR line in /etc/ndtwin-lab.conf that is the
+# built-in default, the same path this used to name as a literal.
 cmd_ntg() {
-    [[ -f "$NTG_YAML" ]] || { err "not found: $NTG_YAML"; return 1; }
+    local both ntg_dir src NTG_YAML
+    # One call for both answers: lab_ntg_dir sets the source in the shell it runs in, and a bare
+    # command substitution would leave it empty here.
+    both="$(lab_ntg_dir; printf '\t%s' "$LAB_NTG_DIR_SOURCE")"
+    ntg_dir="${both%%$'\t'*}"; src="${both#*$'\t'}"
+    NTG_YAML="$ntg_dir/setting/Mininet.yaml"
+    if [[ ! -f "$NTG_YAML" ]]; then
+        err "not found: $NTG_YAML"
+        err "  NTG_DIR=$ntg_dir ($src)"
+        err "  NTG_DIR is the helper's: set it with an NTG_DIR= line in $LAB_CONF,"
+        err "  then check what took effect with:  sudo ndtwin-lab config"
+        return 1
+    fi
     local cur; cur="$(sed -n 's/.*mode:[[:space:]]*"\?\([a-z]*\)"\?.*/\1/p' "$NTG_YAML" | head -1)"
     case "${1:-}" in
         "")

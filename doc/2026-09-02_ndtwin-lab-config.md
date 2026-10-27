@@ -66,6 +66,8 @@ root tmux 裡的 bridge（sudo 會重設環境），所以 bridge 舊訊息裡�
 現在 `NTG_DIR` 不是 NTG checkout（沒有 `network_traffic_generator.py`）時，`topo-start` **當場拒絕**並指名這個鍵，
 `sudo ndtwin-lab config` 也會在那一行標出 `topo-start will refuse`。
 OVS 路徑（`ovs-topo-start`、`ovs-topo-4host`）跑的是本 repo 的拓樸檔，不 import NTG，不需要 `NTG_DIR`。
+`ndt ntg cli|prompt` 改的也是這個 `NTG_DIR` 底下的 `setting/Mininet.yaml`：`ndt` 以使用者身分照 helper
+的規則唯讀地讀這個設定檔（同一套信任檢查與解析；helper 拒絕的檔案，`ndt` 也不採用），不讀環境變數。
 
 確認生效：
 
