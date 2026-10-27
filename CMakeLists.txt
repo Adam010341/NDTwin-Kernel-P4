@@ -54,13 +54,14 @@ add_compile_options(
 )
 
 # [Co-developed with claude code -- Adam]
-# GCC 13 at -O3 reports -Wmaybe-uninitialized from inside Boost.Graph's adj_list_edge_iterator:
-# an iterator's cached out-edge range is read only while it is not at the end, and is always set
-# then, but GCC cannot prove it. It fires in TopologyAndFlowMonitor.cpp (one site inside Boost's
-# own adjacency_list copy, which no change to our loops can reach) and in its two test files.
-# Only those three files take this (see their CMakeLists.txt): there the warning stays visible
-# but does not fail an optimised GCC build. Every other file still fails on it, because there it
-# can be a real uninitialized read. Debug builds are unchanged; clang is unaffected.
+# GCC 13 at -O3 reports -Wmaybe-uninitialized inside Boost.Graph's adj_list_edge_iterator: it
+# cannot prove that the iterator's cached out-edge range (its optional `edges` member) is set
+# when read, though Boost reads it only while the iterator is not at the end, and sets it then.
+# Three files take the demotion: TopologyAndFlowMonitor.cpp (one site is inside Boost's own
+# adjacency_list copy) and tests/test_TopologyAndFlowMonitor{,_mininet}.cpp. In them the warning
+# stays visible but does not fail a GCC build that is not Debug (an empty build type included);
+# every other file still fails on it. This keeps fatal what GCC reports and nothing more: a read
+# GCC does not flag is still missed. Debug builds and clang are unaffected.
 set(NDTWIN_BOOST_GRAPH_MAYBE_UNINITIALIZED "")
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(NDTWIN_BOOST_GRAPH_MAYBE_UNINITIALIZED
