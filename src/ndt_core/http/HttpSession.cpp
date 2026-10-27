@@ -137,7 +137,7 @@ HttpSession::handleRequest()
 // lab had changed hands, and the writes had already landed by the time anything was observable.
 //
 // 🔴 NOTHING IN HERE MAY REFUSE A REQUEST. Of the three options weighed on 2026-09-11 this is
-// option C: not option A (409 on a foreign claim), whose cost is that every
+// option C: not option A (409 on a foreign claim), one of whose costs is that every
 // existing client -- tools/contract_test, tools/test_workflow/run_layers.sh, the four-round
 // tester's manual commands, Energy-Saving-App, TE-App -- would have to start carrying an
 // identity, and every client that does not would be cut off at once, in the week the manual is
@@ -764,7 +764,7 @@ namespace
  *        four endpoints can act on.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-6 §7-7, F-16: host edges are not addressed by this endpoint (decided
+ * doc/KNOWN-ISSUES.md B-6 and F-16: host edges are not addressed by this endpoint (decided
  * 2026-09-06). A host vertex carries dpid 0, and findEdgeBySrcAndDstDpid matches on the two
  * dpids ALONE -- so `{"src_dpid":1,"dst_dpid":0}` resolves to whichever host edge of s1 the graph
  * happens to iterate first. Three separate things are wrong with letting that through and only the
@@ -897,7 +897,7 @@ enum class RecoveryLogOutcome
  * @brief Say what this recovery report actually did -- one sentence per outcome, once it is known.
  *
  * [Co-developed with claude code -- Adam]
- * WAKEUP.md §3-52. Until 2026-09-07 this was a single
+ * Until 2026-09-07 this was a single
  * `SPDLOG_LOGGER_INFO("link recovered on {}:{} -> {}:{}")` printed BEFORE
  * findEdgeBySrcAndDstDpid and before the pairing rule ran, so all three outcomes logged the same
  * sentence -- and that sentence asserted the one outcome a reader cares about.
@@ -1037,7 +1037,7 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     const auto revOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(revOpt.value());
 
     // [Co-developed with claude code -- Adam]
-    // §3-52. THE OUTCOME IS KNOWN HERE AND NOWHERE EARLIER, so this is where it is logged. One
+    // THE OUTCOME IS KNOWN HERE AND NOWHERE EARLIER, so this is where it is logged. One
     // line per request rather than per direction: a report names a link, and a link whose two
     // directions ended differently is kernel state gone inconsistent, not something to narrate
     // twice. Retained wins the tie, because "still down" is the half an operator must act on.
@@ -1169,8 +1169,9 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     const std::string dstIface = mininetIfaceFor(graph, data->dstDpid, data->dstInterface);
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-16, second finding (2026-09-11). This was a loop that
-    // called cutInterface once per end and CARRIED ON past a refusal: with somebody else's netem
+    // doc/KNOWN-ISSUES.md B-16, second finding (2026-09-11, 2 reproductions of 2). This was a loop
+    // that called cutInterface once per end and CARRIED ON past a refusal: with somebody else's
+    // netem
     // already on s1-eth1, that end was refused, `netem loss 100%` really went onto s5-eth1, and
     // the reply was 200 `"status":"link failure injected"` with both directions declared. Loss on
     // BOTH ends is the whole point -- faults.txt L-2 records why one end is its own fault type:
@@ -1250,8 +1251,9 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
     }
 
     // [Co-developed with claude code -- Adam]
-    // 🔴 doc/KNOWN-ISSUES.md B-16 (2026-09-11). THE WIRE IS READ BEFORE ANYTHING
-    // IS WRITTEN, and that ordering is the fix rather than a tidiness. What this endpoint used to
+    // 🔴 doc/KNOWN-ISSUES.md B-16 (2026-09-11, 3 reproductions of 3). THE WIRE IS READ BEFORE
+    // ANYTHING IS WRITTEN, and that ordering is the fix rather than a tidiness. What this endpoint
+    // used to
     // do, in this order, was: withdraw the declaration unconditionally, then `tc qdisc del`
     // whatever netem the tree happened to show. For a link nobody had declared down, carrying
     // somebody else's `netem loss 100%`, that deleted their fault and answered 200 `ok:true`.
@@ -1842,9 +1844,9 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
         // exactly one such call site in the kernel (processFlowBatch, below), fed by the four
         // routes named here. It is NOT "entries this fabric has programmed": on a warm fabric
         // with 1280 forwarding rules already installed, `dispatched` reads 0. That is not a
-        // fault, and it was mis-registered as one -- the A-7 round predicted `dispatched` would
-        // exceed the POSTed count "because other subsystems enqueue too" and the live run
-        // refuted it.
+        // fault, and it was mis-registered as one -- the A-7 work predicted `dispatched` would
+        // exceed the POSTed count "because other subsystems enqueue too" and a live run on
+        // 2026-08-31 refuted it.
         //
         // The two exclusions are structural, not oversights:
         //  - boot-time programming runs in a DIFFERENT PROCESS in both fabrics -- the Ryu app
@@ -2322,8 +2324,8 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     //
     // Only installs are tokened, because only installs add a row. A refused modify or delete
     // corrupts the cache differently -- it shows a mutation, or a removal, that never reached the
-    // switch -- and that is the mirror of this defect rather than this defect. Not covered
-    // here, and not silently folded in.
+    // switch -- and that is the mirror of this defect rather than this defect. That case is not
+    // handled here.
     static std::atomic<uint64_t> s_nextPendingToken{1};
     json annotatedInstalls = ins;
     for (auto& e : annotatedInstalls)

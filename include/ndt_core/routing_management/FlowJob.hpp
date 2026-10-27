@@ -18,7 +18,8 @@
  * Leading underscore because it is internal: DeviceConfigurationAndPowerManager::getOpenFlowTables
  * strips it before serving, so it never reaches a consumer and no consumer can come to depend on
  * it. Declared here, next to the token it names, so the writer (HttpSession), the stamper and the
- * filter cannot drift apart on a spelling -- a mismatch would silently disable the filter.
+ * filter cannot drift apart on a spelling -- a mismatch would silently disable the filter, and
+ * every pending row would be served as programmed again.
  */
 inline constexpr const char* kPendingTokenField = "_ndt_pending_token";
 
@@ -70,7 +71,7 @@ struct FlowJob {
      * an identity that survives the trip.
      *
      * **The match does not, and neither does the priority.** Measured 2026-08-30: every entry is
-     * programmed at priority 0 whatever was requested (FINDING-07), and the cached copy carries
+     * programmed at priority 0 whatever was requested, and the cached copy carries
      * the caller's field vocabulary (`ipv4_dst`) while a polled one carries the switch's
      * (`nw_dst`). Matching a pending entry against a confirmation by comparing its *contents*
      * would therefore be comparing two different spellings of two different values.
@@ -104,7 +105,7 @@ struct FlowJob {
      * writers discard the response body entirely), so this is deliberately the coarser identity.
      *
      * Distinct from `token`: a token is minted per *install* and exists to link an optimistic
-     * cache row to its confirmation (T-11), so modifies and deletes have none. Every accepted job
+     * cache row to its confirmation, so modifies and deletes have none. Every accepted job
      * of a batch carries the batch's request id, including deletes.
      *
      * 0 means "not from a tokened HTTP batch": a job built in a test, or by a caller predating

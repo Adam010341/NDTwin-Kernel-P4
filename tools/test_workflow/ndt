@@ -3616,7 +3616,7 @@ up_p4() {
         # [Co-developed with claude code -- Adam]
         # The output is PRINTED, not discarded. topo-start's one line is "topo session started
         # from <KERNEL_DIR>", and ndtwin-lab prints it deliberately -- its comment there says
-        # "Which tree, every time. FINDING-01 ran the main tree's 128-host topology against a
+        # "Which tree, every time. On 2026-08-30 the main tree's 128-host topology ran against a
         # 4-host model for a whole round without a line of output that could have caught it."
         # This call site's `>/dev/null` then silenced exactly that line, so on 09-10 the same
         # two-tree run happened again with nothing on screen naming either tree.
@@ -3994,7 +3994,7 @@ for d in sorted(int(n["dpid"]) for n in t["nodes"] if n.get("vertex_type")==0): 
 # `/v1.0/topology/switches` is `[]` from the first probe onwards. The ONLY writer of isUp on such
 # a fabric is the proxy's `inform_switch_entered` background retry (main.py:863, which does not
 # look at read_only; kernel_notifier.py:153, 30 x 10 s), and the kernel's own pingWorker sets it
-# back to false a second later. Measured: live-p1/03 round 1 printed `3 switches, 3 up` and its
+# back to false a second later. Measured: a live-p1/03 run printed `3 switches, 3 up` and its
 # OWN `ndt status` one second later read `0 up, 3 enabled`. That green was `ndt`'s single read
 # landing inside a <= 1 s window between two races -- not a fabric state, and not repeatable.
 #
@@ -4363,7 +4363,7 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
     # this printed `kernel: 4 switches, 4 up (want 10/10)` and `is_enabled=4/10`, i.e. it
     # reported a correct fabric as broken. `$topo` is the file the kernel was handed and is
     # already what `want_hosts` below is counted from -- counting the switches from the same
-    # place is one reader for one question. topo_model_switches is C's helper, unchanged.
+    # place is one reader for one question. topo_model_switches is an existing helper, unchanged.
     # For both baseline models this is 10, so the baseline verdict is the one it always was.
     local want_sw; want_sw="$(topo_model_switches "$topo")"
     if [[ ! "$want_sw" =~ ^[0-9]+$ ]] || (( want_sw == 0 )); then
@@ -6748,7 +6748,7 @@ print(len(d.get("switches",{})) + len(d.get("hosts",{})))' "$f" 2>/dev/null)"
 #
 # [Co-developed with claude code -- Adam]
 #   telemetry      the word in force, where it came from, and what it resolves to per switch
-#   link shaping   which of the package's links are not the plain 1 Gbit/s default (G2-C)
+#   link shaping   which of the package's links are not the plain 1 Gbit/s default
 #
 # 🔴 A DEAD EMITTER IS A --check PROBLEM AND AN ABSENT ONE IS NOT. No manifest is the ordinary
 # state of a cooperative fabric. A manifest naming a pid that is gone is a fabric whose tc

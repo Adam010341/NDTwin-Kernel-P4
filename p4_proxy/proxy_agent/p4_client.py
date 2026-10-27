@@ -100,7 +100,7 @@ def _match_ints(match):
             for name, field in match.items()}
 
 
-# --- the generic table-entry writer (G5). [Co-developed with claude code -- Adam] -------------
+# --- the generic table-entry writer. [Co-developed with claude code -- Adam] ------------------
 #
 # Everything above this line writes ONE of two tables, both of them NDTwin's own, both of them
 # spelled as literals (`MyIngress.ipv4_lpm`, `MyIngress.flow_5tuple`). A package that brings its
@@ -227,7 +227,7 @@ class P4RuntimeClient:
     #: after it -- so it differs from any value read before a push began, whether the push was
     #: accepted, refused or timed out (a timed-out push may still have emptied the tables).
     #: topology_manager's slot-priority records are stamped with it and stop counting when it
-    #: moves: a pipeline push forgets every priority recorded for this switch (since 2026-10-16).
+    #: moves: a pipeline push forgets every priority recorded for this switch (decided 2026-10-16).
     #: A class default for the reason `route_binding` below is one: a double built with __new__
     #: never pushes, and reads 0. [Co-developed with claude code -- Adam]
     pipeline_push_epoch = 0
@@ -280,9 +280,9 @@ class P4RuntimeClient:
         #
         # Was the literal `(0, 1)`, written out at NINE sites: the arbitration message in
         # start(), plus EIGHT unary requests each spelling `req.election_id.low = 1` -- the
-        # pipeline push, write_clone_session's `build()` (one site, four RPCs), the three
-        # ipv4_lpm writes and the three flow_5tuple writes. Counted, not estimated: an earlier count
-        # said "12 places" and an earlier draft of this comment said "thirteen"; `/usr/bin/grep -n
+        # pipeline push, write_clone_session's `build()` (one site, four RPCs), the three ipv4_lpm
+        # writes and the three flow_5tuple writes. Counted, not estimated: an earlier estimate said
+        # "12 places" and an earlier draft of this comment said "thirteen"; `/usr/bin/grep -n
         # election_id` on this file at 532b6c31 returns those nine assignments and nothing else. One
         # value in one place now, and the default is that same (0, 1) so a fabric with no app
         # package puts byte-identical requests on the wire.
@@ -467,8 +467,9 @@ class P4RuntimeClient:
     def _writable_five_tuple_binding(self, what):
         """The 5-tuple writes' action names -- NDTwin's pipeline only.
 
-        `flow_5tuple` exists in ndtwin_switch.p4 and in no exercise, and this cut has no 5-tuple
-        role, so a switch that is not bound to BASELINE cannot take one whatever its roles say.
+        `flow_5tuple` exists in ndtwin_switch.p4 and in no exercise, and there is no 5-tuple role
+        (only `roles.ipv4_route`), so a switch that is not bound to BASELINE cannot take one
+        whatever its roles say.
         """
         binding = self.route_binding
         if binding is None or binding.source != route_binding_module.SOURCE_BASELINE:
@@ -703,7 +704,7 @@ class P4RuntimeClient:
         returns a single 64-bit cookie, no p4info and no device config. A bmv2 with a pipeline
         answers it; one with no pipeline pushed answers FAILED_PRECONDITION ("No forwarding
         pipeline config set for this device"), which lands below as ok False, the same value as
-        a dead process, told apart only by `detail` (measured on stock and bmv2-fast
+        a dead process, told apart only by `detail` (measured 2026-10-04 on stock and bmv2-fast
         simple_switch_grpc).
 
         @return {"ok": bool, "detail": str}. `detail` carries the gRPC status *name* as well as its
@@ -1516,7 +1517,7 @@ class P4RuntimeClient:
 
         [Co-developed with claude code -- Adam]
         For the one caller that has no `write_table_entry` result to read the key from: a delete
-        the switch answered NOT_FOUND, which the table-entry journal still records (DESIGN 10-4)
+        the switch answered NOT_FOUND, which the table-entry journal still records
         and which therefore needs the key of an entry that was never written. Not called before
         a write, so the order of the refusals `write_table_entry` makes is unchanged.
         """

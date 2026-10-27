@@ -9,8 +9,8 @@ from p4.v1 import p4runtime_pb2
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError, needs_five_tuple
 # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: an install refused before the switch.
 from proxy_agent.topology_manager import FlowRequestUnusable
-# [Co-developed with claude code -- Adam] Since 2026-10-16 a destination-only modify is
-# honoured at the priority its slot holds, and refused (501) at any other.
+# [Co-developed with claude code -- Adam] A destination-only modify is honoured at the
+# priority its slot holds, and refused (501) at any other (decided 2026-10-16).
 from proxy_agent.slot_priority import (CONTROL_PLANE_ROUTE_PRIORITY, SlotPriorityNotHeld,
                                        named_priority)
 from proxy_agent import ryu_topology, ryu_flow_stats, slot_priority
@@ -68,7 +68,8 @@ def inject_readopt(client_factory, sample_callback, runner):
 # Injected for GET /sflow/stats. [Co-developed with claude code -- Adam]
 # The emitter already counts datagrams_sent, samples_sent and send_errors and has done since it
 # was written; nothing in this repository ever read them. Telemetry was measured losing 34%
-# of its bytes under CPU contention, and nobody could say which stage lost them, because the send
+# of its bytes under CPU contention, and the measurement could not say which stage lost them,
+# because the send
 # side had no observable. This is the reader those counters never had.
 #
 # The emitter instance is injected rather than reached through readopt_sample_callback.__self__,
@@ -84,7 +85,7 @@ def inject_emitter(emitter):
 
 # --- what the app package switched off. [Co-developed with claude code -- Adam] --------------
 #
-# 🔴 SKIPPING IS NOT SILENCE (PLAN-0917 3.4). A fabric running somebody else's control plane has
+# 🔴 SKIPPING IS NOT SILENCE. A fabric running somebody else's control plane has
 # no telemetry, no discovered links and no proxy-installed routes, and every one of those looks
 # from the outside exactly like a fault. `GET /p4/switch_state` is where the kernel and an
 # operator already look for this switch's evidence, so it is where the answer to "why is there
@@ -208,8 +209,7 @@ def _read_only_conflict(err, dpid):
     A write refused because this fabric's control plane is somebody else's, as a 409.
 
     [Co-developed with claude code -- Adam]
-    Under
-    `control_plane.mode: external` every write is refused by `P4RuntimeClient._refuse_write`,
+    Under `control_plane.mode: external` every write is refused by `P4RuntimeClient._refuse_write`,
     which RAISES `ControlPlaneReadOnly` so that no retry loop can spin on it. `POST
     /p4/table_entry` turned that into a 409; the three flowentry endpoints did not catch it, and
     FastAPI answered 500 -- the proxy looking broken over a request it had refused on purpose,
@@ -330,8 +330,8 @@ def _p4rt_error(exc):
 async def sflow_stats():
     """Send-side sFlow counters, raw and cumulative. [Co-developed with claude code -- Adam]
 
-    A 34% telemetry shortfall splits across four stages, and this is the only one with no
-    observable. samples_sent falling with the twin puts the loss upstream in bmv2; samples_sent
+    A 34% telemetry shortfall can be lost at any of four stages, and this is the only one with
+    no observable. samples_sent falling with the twin puts the loss upstream in bmv2; samples_sent
     holding while the twin falls puts it downstream, in the kernel, which would be a bug rather
     than a resource limit.
 
@@ -476,8 +476,8 @@ def _refuse_unhonourable_priority(data, match, verb):
 
       * On an install it is a request about PRECEDENCE. The rule is programmed and does
         forward; what is lost is the layering. add_flow_entry answers that with
-        `priority_honoured: false` and a note, per T-15 Option 0 and the 2026-08-30
-        decision, and this change leaves that decision exactly where it stands.
+        `priority_honoured: false` and a note (disclosed, not refused, since
+        2026-08-30), and this change leaves that exactly where it stands.
 
       * On delete_strict and modify it is IDENTITY -- it names WHICH entry the caller means.
         ipv4_lpm holds one entry per destination and has no priority column, so every priority
@@ -486,7 +486,7 @@ def _refuse_unhonourable_priority(data, match, verb):
         priority 999 removed it; both answered 200. A disclosure field cannot repair that,
         because it is read after the rule the caller never named is already gone.
 
-    🔴 Since 2026-10-16 this is the DELETE half only. A destination-only modify
+    🔴 Since the 2026-10-16 decision this is the DELETE half only. A destination-only modify
     naming the priority its slot's entry was written with does name that entry (10 for the
     proxy's own route, an install's own priority), so modify_flow_entry no longer refuses
     before the topology: TopologyManager.modify_flow checks the slot under its lock and raises
@@ -614,7 +614,7 @@ def _slot_priority_not_held(err):
     TopologyManager.modify_flow's SlotPriorityNotHeld, as the 501.
 
     [Co-developed with claude code -- Adam]
-    `slot_priority` (since 2026-10-16) is what the slot's entry was written with, or null when
+    `slot_priority` (decided 2026-10-16) is what the slot's entry was written with, or null when
     this proxy holds no record of it -- never written by it, or forgotten after a write it
     could not confirm (a refusal, an exception, a deadline that may have hidden a landed write)
     or after a pipeline push. Null is a real answer: it is why the priority names nothing.
@@ -760,17 +760,17 @@ async def add_flow_entry(request: Request):
         return JSONResponse(status_code=502, content=dict(ADD_FAILED_BODY))
 
     # [Co-developed with claude code -- Adam]
-    # FINDING-07's residue, and the only part of it that is fixable anywhere: the value was
-    # never dropped by any layer. A destination-only match compiles to `ipv4_lpm`, a P4 LPM
-    # table with no priority column at all -- precedence there is the prefix length -- so the
+    # What is left of the priority-0 readback, and the only part of it that is fixable anywhere:
+    # the value was never dropped by any layer. A destination-only match compiles to `ipv4_lpm`, a
+    # P4 LPM table with no priority column at all -- precedence there is the prefix length -- so the
     # priority the caller sent is unrepresentable at the destination rather than lost in
     # transit. What was wrong was answering `success` and saying nothing: the answer was true
     # about the request and false about the consequence. Seventeen rules were posted at 902 and
     # 910-927 on 2026-08-30 and every one read back at priority 0, and no response said why.
     #
     # Disclosed, not refused. A 200 -> 400 here is a breaking change for a caller that does not
-    # read status codes and this project has one, so the refusal half stays with T-15 Option 0
-    # and the 2026-08-30 decision. Additive fields cost that caller nothing: the kernel's
+    # read status codes and this project has one, so it is disclosed, not refused (since
+    # 2026-08-30). Additive fields cost that caller nothing: the kernel's
     # only check on this body is `status == "error"`
     # (src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp:123-125).
     #
@@ -853,7 +853,7 @@ async def modify_flow_entry(request: Request):
     match = data.get("match", {})
     actions = data.get("actions", [])
 
-    # [Co-developed with claude code -- Adam] No refusal here any more (since 2026-10-16): a
+    # [Co-developed with claude code -- Adam] No refusal here any more (decided 2026-10-16): a
     # named priority is honoured when it is the one the destination's slot holds, which only
     # the topology knows, and the check has to be atomic with the write. modify_flow raises
     # SlotPriorityNotHeld under the slot's lock and before the switch is touched.
@@ -1006,7 +1006,7 @@ async def switch_state():
     #                  `journaled` is true when every API write of this boot is in a journal the
     #                  next startup or readopt replays (`TableJournals.journaled`); `journal`
     #                  says what was recorded and, under `replay`, what the last replay put back
-    #                  and why anything did not come back (DESIGN 5.6).
+    #                  and why anything did not come back.
     if pipelines_report is not None:
         pipelines = pipelines_report()
         for dpid, entry in state.get("switches", {}).items():
@@ -1058,8 +1058,9 @@ async def switch_state():
     #
     #   capabilities  what this switch may be asked to do -- ipv4_route (whose route table:
     #                 ndtwin / package / unbound), five_tuple, reroute, link_discovery and
-    #                 binding_source. The plan is for the kernel to copy this object verbatim
-    #                 onto get_graph_data's node.
+    #                 binding_source. The kernel copies this object verbatim onto
+    #                 get_graph_data's node (p4caps::attachToNode), so its keys are an
+    #                 outward-visible contract.
     #   flow_stats    `unrendered_entries`: how many non-default rows the last /stats/flow
     #                 render of this switch left out because it could not describe them -- on
     #                 every pipeline a ternary mask or range Ryu cannot spell; on a foreign
@@ -1091,10 +1092,11 @@ async def switch_state():
     return state
 
 
-#: Attached to every accepted `POST /p4/table_entry`. By design (2026-09-18, option a)
-#: phase 2 does not journal these, and the consequence is stated in the response itself rather
-#: than only in a document: an operator who POSTs a rule and restarts the proxy gets an empty
-#: table, and the only warning they will ever read is this one.
+#: Attached to every accepted `POST /p4/multicast_group`: nothing records a PRE entry, so a
+#: group is lost when the proxy restarts, and the consequence is stated in the response itself
+#: rather than only in a document. `POST /p4/table_entry` carried it too until table entries
+#: were journaled; a table-entry response whose write is not journaled now carries one of the
+#: two sentences below instead.
 #: [Co-developed with claude code -- Adam]
 TABLE_ENTRY_NOT_JOURNALED = ("not journaled: this entry is lost when the proxy restarts "
                              "(Adam 2026-09-18, option a)")
@@ -1102,10 +1104,10 @@ TABLE_ENTRY_NOT_JOURNALED = ("not journaled: this entry is lost when the proxy r
 
 #: [Co-developed with claude code -- Adam] What a table-entry response says when its write is NOT
 #: journaled. Split from `TABLE_ENTRY_NOT_JOURNALED` above, which POST /p4/multicast_group keeps
-#: verbatim (Q5 (a)): a multicast group is recorded nowhere; a table entry is recorded and
-#: replayed, and the two sentences below are the two ways a write can still not be. Each says
-#: what happens to all three ops, because "lost" is true only of an insert: DESIGN Q4 (a)'s cost
-#: (5.3, 10-5) is that a modify reverts and a deleted entry comes back.
+#: verbatim: a multicast group is recorded nowhere; a table entry is recorded and replayed, and
+#: the two sentences below are the two ways a write can still not be. Each says what happens to
+#: all three ops, because "lost" is true only of an insert: a write the journal missed makes a
+#: modify revert and a deleted entry come back.
 TABLE_ENTRY_JOURNAL_WRITE_FAILED = (
     "the switch took this write but the journal did not record it: a later restart or readopt "
     "puts this entry back as the journal last knew it -- an insert does not come back, a "
@@ -1316,7 +1318,7 @@ async def table_entry(request: Request):
                 lambda: topology.switches.get(raw_dpid), raw_dpid, spec, op, _is_not_found,
                 TABLE_ENTRY_LOCK_TIMEOUT_S)
     except ReplayPending as err:
-        # [Co-developed with claude code -- Adam] DESIGN 5.5: the switch is being re-adopted.
+        # [Co-developed with claude code -- Adam] The switch is being re-adopted.
         raise HTTPException(
             status_code=503,
             detail={"error": "replay pending", "dpid": raw_dpid,
@@ -1522,7 +1524,7 @@ async def direct_counter(name: str, dpid: int):
              would report entries missing that are about to return; nothing was read. It is
              checked once, before the read (POST /p4/table_entry checks again under the
              journal's lock): a readopt that starts after the check can still meet this read
-             mid-push (DESIGN.md section 2.2). Also 503 before the proxy has a topology.
+             mid-push. Also 503 before the proxy has a topology.
 
     Every direct counter can be read, NDTwin's own included: the owner rule (409 owned_by_ndtwin)
     is about writes, and GET /stats/flow already reports NDTwin's direct counters. Works under an
@@ -1621,7 +1623,7 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
     `index=i` is one cell (`start=i`, one value). `start` / `count` is a range; with neither,
     the whole array. At most REGISTER_CELLS_MAX cells per request. A value is the register's
     bit<W> value, W at most 63: bmv2's thrift carries an i64, and a bit<64> cell at or above 2^63
-    comes back as 2^63 - 1 (measured on both builds, DESIGN-thrift.md), so a bit<64> register is
+    comes back as 2^63 - 1 (measured on both builds), so a bit<64> register is
     refused rather than answered with a number that may be a different one.
 
     🔴 THE THRIFT PORT MUST BE THIS SWITCH'S. Two checks, before EVERY read, nothing remembered:
@@ -1634,7 +1636,9 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
     P4Runtime. NOT caught by these checks alone: a bmv2 with the SAME device id and port number
     (a p4lang-tutorials switch numbers itself exactly as the fabric does) holding 9090 + dpid
     while the dpid's own switch answers P4Runtime -- that rests on the premise that a switch the
-    fabric launched with --thrift-port 9090 + dpid holds that port while it runs.
+    fabric launched with --thrift-port 9090 + dpid holds that port while it runs. Measured on
+    stock and bmv2-fast: a bmv2 started on a thrift port that is already held prints `Address
+    already in use` and exits, so a fabric switch that answers P4Runtime does hold its own.
 
         200  the read succeeded. A 0 is a 0: the cell holds it.
         400  `index out of range` (the array's size is in p4info and is checked before the
@@ -1663,7 +1667,7 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
 
     Every register can be read. A thrift read needs no mastership, so it works under an external
     control plane too; and it was measured not to put P4Runtime's reads out of sync (only a CLI
-    table write did, DESIGN-thrift.md section 0). The reads run on a worker thread.
+    table write did). The reads run on a worker thread.
     """
     if topology is None:
         raise _register_error(503, "no topology", dpid, name, "proxy has no topology yet")
@@ -1732,7 +1736,7 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
         return max(0.001, deadline - time.monotonic())
 
     # The dpid's own P4Runtime switch must answer NOW: p4_testbed_topo launched it with
-    # --thrift-port 9090 + dpid, so while it runs that port is its own (DESIGN-thrift.md 13).
+    # --thrift-port 9090 + dpid, so while it runs that port is its own.
     alive = await run_in_threadpool(client.probe, left())
     if not alive.get("ok"):
         raise _register_error(503, "switch not reachable", dpid, full,
@@ -1876,7 +1880,7 @@ async def multicast_group(request: Request):
             "multicast_group_id": group_id,
             "replicas": len(replicas or []),
             # The same not-journaled warning `POST /p4/table_entry` carried before its own journal:
-            # nothing records a PRE entry (Q5 a), and a group that vanishes on a proxy restart
+            # nothing records a PRE entry, and a group that vanishes on a proxy restart
             # is a forwarding change nobody will connect to the restart.
             "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}
 
@@ -1949,8 +1953,9 @@ def get_flow_stats(dpid: int):
         # switch these entries were just read from. KNOWN-ISSUES G-13.
         #
         # Read as a plain attribute rather than through getattr(..., None): an optional argument
-        # production forgets to pass is the exact shape of the KNOWN-ISSUES A-4c wiring gap, where
-        # the rule journal had 33 green tests and no caller because every one of them injected the
+        # production forgets to pass is the exact shape of the rule journal's wiring gap (see the
+        # rule-journal block in main.py), where the rule journal had 33 green tests and no caller
+        # because every one of them injected the
         # journal itself.
         # If a client cannot answer this, the endpoint must fail loudly here rather than serve
         # duration 0/0 forever and let the silence read as "P4 has no clock".

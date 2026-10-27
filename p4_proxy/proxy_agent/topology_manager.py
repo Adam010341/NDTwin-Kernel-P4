@@ -15,7 +15,7 @@ from proxy_agent import rule_journal  # no cycle: rule_journal imports only the 
 # No cycle: link_heartbeat imports only the stdlib, and is handed
 # this module's beacon interval rather than importing it. [Co-developed with claude code -- Adam]
 from proxy_agent import link_heartbeat
-# What priority each ipv4_lpm slot was last written with (since 2026-10-16). No cycle:
+# What priority each ipv4_lpm slot was last written with (decided 2026-10-16). No cycle:
 # slot_priority imports only the standard library. [Co-developed with claude code -- Adam]
 from proxy_agent import slot_priority
 from proxy_agent.slot_priority import (CONTROL_PLANE_ROUTE_PRIORITY, SlotPriorityNotHeld,
@@ -1017,8 +1017,8 @@ class TopologyManager:
         [Co-developed with claude code -- Adam]
         On a fabric with a foreign switch there is no LLDP (the programs
         carry no controller header), so `net` never learned a single inter-switch edge,
-        `render_links` served none, and the kernel's `updateLinks` never enabled one: live
-        `2026-09-19T062604Z_02_app_basic` has all eight of pod-topo's inter-switch directions at
+        `render_links` served none, and the kernel's `updateLinks` never enabled one: a
+        live run on 2026-09-19 had all eight of pod-topo's inter-switch directions at
         `is_enabled: false, is_up: false`. The package already carries the topology -- it is the
         model this proxy built its host table from -- so its cables are entered here, through
         `add_link`, the one entry point LLDP uses, and served like any discovered link.
@@ -1356,7 +1356,7 @@ class TopologyManager:
         # REST layer answered {"status":"success"} even when the gRPC write was rejected or
         # the switch was unreachable. Return what actually happened.
         # [Co-developed with claude code -- Adam] The slot now holds the application's entry,
-        # at the priority it asked for (since 2026-10-16): a later modify must name that one.
+        # at the priority it asked for (decided 2026-10-16): a later modify must name that one.
         with self.slot_priorities().lock(dpid, ipv4_dst):
             success = self._write_slot(
                 dpid, ipv4_dst, client,
@@ -1706,7 +1706,7 @@ class TopologyManager:
         address, prefix_len, next_hop_mac = self._route_target(dpid, ipv4_dst, out_port)
 
         # ---- a named priority must be the one the slot holds -------------------------------
-        # [Co-developed with claude code -- Adam] Since 2026-10-16, amending
+        # [Co-developed with claude code -- Adam] Decided 2026-10-16, amending
         # the 2026-09-03 decision for one case. ipv4_lpm has no priority column, so a named
         # priority can only name the entry in this slot if it is the priority that entry was
         # written with: CONTROL_PLANE_ROUTE_PRIORITY for the proxy's own route (what TE and ESA
@@ -1837,7 +1837,8 @@ class TopologyManager:
         died with the old process and nothing re-establishes it. The liveness probe is a unary
         RPC on a channel gRPC quietly reconnects, and a bmv2 that has been pushed no pipeline
         answers COOKIE_ONLY with FAILED_PRECONDITION, so liveness reads `probe_ok` false for it
-        -- the same value as a dead process (measured on stock and bmv2-fast simple_switch_grpc).
+        -- the same value as a dead process (measured 2026-10-04 on stock and bmv2-fast
+        simple_switch_grpc).
         The probe cannot see empty tables, a missing
         clone session or a lost stream (switch_liveness does serve `stream_alive`, but the
         kernel's verdict reads only probe_ok, probe_age_s and last_lldp_age_s), which is why
@@ -2399,8 +2400,9 @@ class TopologyManager:
             "links": self.link_liveness(),
             # [Co-developed with claude code -- Adam] How many link-state
             # reports arrived from outside this proxy's LLDP, and whether they were acted on.
-            # All zero in this cut -- the entry has no caller yet -- and emitted anyway, so the
-            # day the second cut wires one up, "none arrived" and "not reported" stay distinct.
+            # Only the heartbeat watchdog pass reports here (`_ingest_link_evidence`);
+            # elsewhere the counts stay zero and are emitted anyway, so "none arrived" and
+            # "not reported" stay distinct.
             "external_link_reports": self.external_link_report(),
         }
 
@@ -2661,7 +2663,7 @@ class TopologyManager:
             # that runs LLDP has it False, so its pass is the pass it was.
             # [Co-developed with claude code -- Adam] Since 09-27 an external control plane takes
             # this branch too (the reason named here used to be
-            # only the roles one) -- and since 09-28 its paths are NOT re-pushed:
+            # only the roles one) -- and, decided 09-28, its paths are NOT re-pushed:
             # `push_destination_paths` knows none there (`destination_paths_unknown`).
             if self.routes_to_attached_hosts_only:
                 print("[TopologyManager] link transition reported to the kernel and NOT rerouted: "
@@ -2825,12 +2827,11 @@ class TopologyManager:
     # --- the external link-state entry --------------------------------------------------------
     # [Co-developed with claude code -- Adam]
     #
-    # 🔴 AN ENTRY WITH NO CALLER IN THIS CUT. The second cut's fabric root helper (a veth
-    # heartbeat running as root) will report link state from outside the pipeline; this is where
-    # it will land. There is no HTTP route to it and nothing calls it yet -- ON A FOREIGN FABRIC
-    # IT EXISTS AND IS NOT WIRED -- and the two branches below are what it does when it is.
+    # 🔴 THE ENTRY FOR LINK STATE FROM OUTSIDE THE PIPELINE. The fabric root helper's veth
+    # heartbeat (running as root) reports link state here, and the two branches below are what
+    # the entry does with it.
     #
-    # [Co-developed with claude code -- Adam] Wired now, from ONE
+    # [Co-developed with claude code -- Adam] Wired from ONE
     # place -- the watchdog pass's `_ingest_link_evidence`, which reads the root helper's report
     # file and reports every declared direction here with `at`. Still no HTTP route: nothing can
     # POST link state at this proxy (tests/test_link_state_entry.py says both).
@@ -2849,15 +2850,15 @@ class TopologyManager:
             one: a down report is recorded as silence past the link's timeout, an up report as
             a beacon heard now. LLDP stays authoritative there -- a link still beaconing comes
             back up on the next beacon, as it would after any false timeout;
-          * not running (a foreign fabric, which is every fabric this entry is for in this
-            cut): RECORDED ONLY. No evidence is written, no route is touched, the kernel is not
-            told -- there is no watchdog to act on it and nothing that would ever take it back.
-            The count is served on `GET /p4/switch_state` as `external_link_reports`.
+          * not running (a foreign fabric): RECORDED ONLY. No evidence is written, no route is
+            touched, the kernel is not told -- there is no watchdog to act on it and nothing that
+            would ever take it back. The count is served on `GET /p4/switch_state` as
+            `external_link_reports`.
 
         `at` makes the report evidence AS OF A TIME rather than
         as of now -- what a heartbeat report is: "last heard at t" (`up=True, at=t`), or "not
         heard since t" (`up=False, at=t`, t being the evidence's epoch). See `_enter_evidence`.
-        Without `at` the report means what it meant in the first cut.
+        Without `at` the report is evidence as of now.
 
         Returns {"applied": bool, "link": [...], "why": str}.
         """
@@ -2905,7 +2906,7 @@ class TopologyManager:
     # beacon watchdog has nothing to judge (it stays named in
     # `control_plane.skipped`). The root helper's heartbeat sends frames over the veths instead
     # and reports what it heard; the watchdog thread below is the SAME thread, the pass the SAME
-    # pass, and the evidence enters through the entry the first cut reserved for it.
+    # pass, and the evidence enters through report_external_link_state.
 
     def _enter_evidence(self, link, heard, at, source):
         """`report_external_link_state`'s `at` branch. Caller holds `_liveness_lock`.
@@ -2979,7 +2980,7 @@ class TopologyManager:
             🔴 FROZEN. Nothing is entered, and the pass judges at the clock reading of the last
             pass that had usable evidence -- where every belief already was, so nothing
             transitions, while a report the kernel did not accept is still retried. The
-            heartbeat's death is not the network's (H.7 item 2): judged at the clock, every
+            heartbeat's death is not the network's: judged at the clock, every
             link it stopped hearing would time out together;
           * never usable yet: `_NOTHING_TO_JUDGE`.
         """

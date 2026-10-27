@@ -135,10 +135,10 @@ class HttpRoutingStrategyBase : public IRoutingStrategy
      * [Co-developed with claude code -- Adam]
      * Ryu answers 200 the moment it has enqueued the OpenFlow message, before the switch has
      * seen it (ofctl_v1_3.py:1151 sends with no barrier and awaits no reply), so a read-back
-     * issued immediately can legitimately still see the entry. Without a pause the delete
-     * read-back guard would turn that race into a fabricated failure -- the exact inversion of
-     * the defect it exists to catch. Bounded by VERIFY_ATTEMPTS so a switch that genuinely
-     * refused the mod is still reported rather than waited on forever.
+     * issued immediately can legitimately still see the entry. Without a pause the read-back guard
+     * (delete, add and modify) would turn that race into a fabricated failure -- the exact
+     * inversion of the defect it exists to catch. Bounded by VERIFY_ATTEMPTS so a switch that
+     * genuinely refused the mod is still reported rather than waited on forever.
      *
      * Virtual so a test can pin the guard's decisions without paying real milliseconds; the
      * timing is the environment's, not the assertion's.

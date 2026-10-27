@@ -1065,7 +1065,7 @@ TopologyAndFlowMonitor::~TopologyAndFlowMonitor()
  * [Co-developed with claude code -- Adam]
  * The ordering fix. The load used to be the first statement of run(), i.e. on the thread
  * start() spawns, so main.cpp went straight on to bind the sFlow socket and the REST server
- * while the JSON was still being parsed. Measured 2026-09-03 (round5-topology-repro step 09) on
+ * while the JSON was still being parsed. Measured 2026-09-03 on
  * a 17 KB topology with one bad host address: `:8000` was accepting connections at 0.50 s and
  * "Server Listening on port 8000" was in the log; the process aborted at 1.50 s, rc=134.
  *
@@ -1211,7 +1211,7 @@ TopologyAndFlowMonitor::stop()
  *
  * @details
  * [Co-developed with claude code -- Adam]
- * Measured 2026-09-03 (round5-topology-repro step 09): feeding the kernel a host whose `ip` is
+ * Measured 2026-09-03: feeding the kernel a host whose `ip` is
  * `10.0.0.256` -- which `tools/make_topology.py --hosts 300` emits for h256..h300 -- produced
  * exactly two lines on stderr,
  *
@@ -2328,7 +2328,8 @@ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
                     // was, about a switch that is already gone. What makes that permanent rather
                     // than transient is the missing else: the next poll re-asserts it, and the
                     // one after that, for ever -- so one badly-timed power-off left the fabric
-                    // with a dead process the twin called up, and the already-down early return
+                    // with a dead process the twin called up, and the already-up early return on
+                    // power-on (the graph said up, so `power on` answered Success and ran nothing)
                     // then made the power API decline to fix it. 8 of 14 at the losing phase; the
                     // winning arm 0 of 4.
                     //
@@ -4807,11 +4808,11 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
  *
  * [Co-developed with claude code -- Adam]
  * An exception reaching a std::thread's entry point is std::terminate -- abort() of the whole
- * kernel, with the two lines the C++ runtime prints on stderr and nothing of ours: no logger
- * line, no file, no node, no thread name. That is exactly what round5-topology-repro step 09
- * captured, and this thread had no try/catch anywhere in it. Every individual parse inside
- * runLoop() is guarded on its own, so this should be unreachable; it is here so that "a bad
- * input costs us the poll, not the process" is true for a failure shape nobody has thought of
+ * kernel, with the two lines the C++ runtime prints on stderr and nothing of ours: no logger line,
+ * no file, no node, no thread name. That is exactly what the 2026-09-03 measurement captured, and
+ * this thread had no try/catch anywhere in it. Every individual parse inside runLoop() is guarded
+ * on its own, so this should be unreachable; it is here so that "a bad input costs us the poll, not
+ * the process" is true for a failure shape nobody has thought of
  * yet. The kernel's topology view freezes, which is a degraded twin -- but a degraded twin that
  * is still there to be asked, and that said so, beats a core dump.
  */

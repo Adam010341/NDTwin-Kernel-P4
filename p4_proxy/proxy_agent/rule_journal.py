@@ -514,7 +514,7 @@ class RuleJournal:
 
 
 # =============================================================================================
-# The table-entry journal. POST /p4/table_entry's record, DESIGN.md section 5.
+# The table-entry journal. POST /p4/table_entry's record.
 # [Co-developed with claude code -- Adam]
 #
 # Separate from `RuleJournal` above, on purpose. That one records the kernel's OpenFlow-shaped
@@ -525,7 +525,7 @@ class RuleJournal:
 # `.run/table_entry_journal/s<dpid>.jsonl`, one per switch, which also means the lock that
 # serialises one switch's writes never has to be held over another's.
 #
-# THE REPLAY (DESIGN 5.4, 5.5). A proxy restart, and a readopt, push the pipeline, and the push
+# THE REPLAY. A proxy restart, and a readopt, push the pipeline, and the push
 # empties the tables. What puts the API's entries back is `TableJournals.replay`, called by
 # `main.startup` for every switch it pushed and by `main.readopt_switch` after the package's own
 # entries: it re-reads the file, folds it, writes the net entries back through the writer and
@@ -557,7 +557,7 @@ TABLE_JOURNAL_DIR_ENV_VAR = "NDTWIN_TABLE_JOURNAL_DIR"
 #: "off" turns recording off. Read by `table_journal_enabled`, so the parsing is testable.
 TABLE_JOURNAL_ENV_VAR = "NDTWIN_TABLE_JOURNAL"
 
-#: How many set-aside generations a switch's journal keeps. DESIGN 10-11. A confirmed start uses two
+#: How many set-aside generations a switch's journal keeps. A confirmed start uses two
 #: of them (step 0's header rewrite and the replay's snapshot), so ten is about five boots.
 QUARANTINE_KEEP = 10
 
@@ -604,7 +604,7 @@ _STALE_ENTRIES = ("stale_entries: the package's entries file changed, and this w
 
 class ReplayPending(RuntimeError):
     """The switch is being re-adopted: its pipeline is being pushed and its journal replayed
-    (DESIGN 5.5). Nothing was written and nothing was validated; the route answers 503 `replay
+    Nothing was written and nothing was validated; the route answers 503 `replay
     pending` at once rather than queueing the write behind the re-adoption, which holds the
     switch's lock for the whole of it."""
 
@@ -634,7 +634,7 @@ def fold_records(records):
     """
     Collapse an ordered list of journal records to the net write each entry needs.
 
-    DESIGN 5.4 step 4. The FIRST record of an entry says whether it existed before the API
+    The FIRST record of an entry says whether it existed before the API
     touched it (an insert means it did not; a modify or delete means it did -- a boot entry, or
     a default), and the LAST says whether it exists after and with what spec:
 
@@ -650,7 +650,7 @@ def fold_records(records):
     absent, and its LAST record decides:
       * last absent (a delete): a net delete, marked `unknown_before`. Replayed after the boot
         entries, it removes the boot entry again; a NOT_FOUND then means the goal is reached
-        (DESIGN 10-4: "it only makes the key absent"). The mark is what lets a snapshot of it
+        (a delete only makes the key absent). The mark is what lets a snapshot of it
         (`records_from_net`: a NOT_FOUND delete, then the delete) fold back to a delete that
         began unknown, so an insert of the same key made after the next start still folds to an
         insert and not to a modify the emptied switch would refuse.
@@ -711,7 +711,7 @@ def records_from_net(net, now=None):
     """
     The journal records that say exactly what `fold_records` computed, one per net write.
 
-    What a snapshot is made of (DESIGN 5.4 step 6): the folded history, re-expressed as records,
+    What the replay's snapshot is made of: the folded history, re-expressed as records,
     so that folding the new file again gives the same net -- `fold_records(records_from_net(n))`
     equals `n` in key, op and spec for every `n` a fold can produce (its `records` count is not
     kept: a snapshot has one record per write, two for one that began unknown). A write whose
@@ -859,7 +859,7 @@ class TableEntryJournal:
         """
         Replace the live file by `header` + `records`, keeping the old one under a new name.
 
-        Order matters and is the point (DESIGN 5.4, 10-10, 10-12): write the new content to a
+        Order matters and is the point: write the new content to a
         temp file in the same directory and fsync it; HARD LINK the live file to the quarantine
         name; `os.replace` the temp file over the live name; fsync the directory. A crash between
         any two steps leaves a complete live file -- the old one before the replace, the new one
@@ -880,8 +880,8 @@ class TableEntryJournal:
     def reheader(self, header, keep=QUARANTINE_KEEP):
         """
         Replace the header line and keep every other line of the live file byte for byte -- the
-        torn ones too, so a later read still counts them. DESIGN 5.4 step 0's "rewrite the
-        header's boot_id, records as they are". Same order, same lock rule, same return value as
+        torn ones too, so a later read still counts them. That is step 0's rule: rewrite the
+        header's boot_id, records as they are. Same order, same lock rule, same return value as
         `write_snapshot`.
         """
         body = []
@@ -1031,7 +1031,7 @@ def cookie_value(text):
 
 def cookie_verdict(header, seen):
     """
-    DESIGN 5.4 step 0 for one switch: can its pipeline cookie confirm its journal?
+    Step 0 for one switch: can its pipeline cookie confirm its journal?
 
     `header` is the switch's journal header, None when there is no file or no header line.
     `seen` is what COOKIE_ONLY answered: `("cookie", <int, or None for has_cookie false>)`, or
@@ -1124,7 +1124,7 @@ class TableJournals:
         self._failures = {}
         self._recorded = {}
         self._not_found = {}
-        #: {dpid: how many readopts of it are under way} (DESIGN 5.5): a POST to one is a 503. A
+        #: {dpid: how many readopts of it are under way}: a POST to one is a 503. A
         #: count, not a set: two overlapping readopts of one switch must not have the first one's
         #: end clear the flag the second still holds.
         self._pending = {}
@@ -1170,7 +1170,7 @@ class TableJournals:
         is the one written through.
 
         An exception from the write propagates untouched and nothing is recorded -- with the one
-        exception DESIGN 10-4 makes: a DELETE the switch answered NOT_FOUND is recorded as
+        exception: a DELETE the switch answered NOT_FOUND is recorded as
         `not_found` and then re-raised, so the caller still sees the 502.
 
         A switch that is being re-adopted (`replaying`) raises ReplayPending, before the lock and
@@ -1199,7 +1199,7 @@ class TableJournals:
                                     key_digest(written["entry_key"]), "ok")
             return written, recorded
 
-    # --- re-adoption: pending, and the lock held across it (DESIGN 5.5) ---------------------
+    # --- re-adoption: pending, and the lock held across it ----------------------------------
 
     def pending(self, dpid):
         """Whether `dpid` is being re-adopted right now."""
@@ -1247,7 +1247,7 @@ class TableJournals:
         finally:
             drop()
 
-    # --- step 0: confirm or set aside, under the lock (DESIGN 5.4 step 0) --------------------
+    # --- step 0: confirm or set aside, under the lock ----------------------------------------
 
     def settle(self, dpid, verdict, header_now):
         """
@@ -1287,7 +1287,7 @@ class TableJournals:
         """
         Put this switch's journaled entries back and replace its file by what went back.
 
-        DESIGN 5.4 steps 1 and 3-6, for startup and readopt alike. The caller holds the lock.
+        The replay, for startup and readopt alike. The caller holds the lock.
         `apply(spec, op)` is the writer (`main` passes `write_table_entry` under the `replay`
         source, so V1-V9 and the owner check are met again); it is called directly, never
         through `write_and_journal`, so nothing is appended. `describe(exc)`, when given, is
@@ -1473,7 +1473,7 @@ class TableJournals:
         """
         True while every accepted API write of this boot is in the journal: recording is on, the
         switch is ours to write (not an external control plane's), and no record -- nor a step-0
-        or replay snapshot -- failed. The three conditions of DESIGN 5.6's `journaled`.
+        or replay snapshot -- failed. The three conditions of `journaled`.
         """
         key = str(dpid)
         return (self.enabled and not self._read_only()
@@ -1492,7 +1492,7 @@ class TableJournals:
             recorded         ACCEPTED API writes of this boot that reached the file (the same
                              writes `api_writes` counts)
             not_found        NOT_FOUND deletes of this boot that reached the file as `not_found`
-                             records (DESIGN 10-4) -- refused writes, so not in `recorded`
+                             records -- refused writes, so not in `recorded`
             failures         records of this boot that did NOT reach the file -- once this is
                              above zero `record_complete` stays false until the proxy restarts
             record_complete  every accepted write of this boot is in the file

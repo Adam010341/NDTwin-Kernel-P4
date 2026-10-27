@@ -899,7 +899,7 @@ class DeviceConfigurationAndPowerManager
      * `utils::ipToString(vp.ip.front())`, and `VertexProperties::ip` is a `std::vector` that
      * starts empty -- so a SWITCH vertex with no address was `front()` on an empty vector, i.e.
      * undefined behaviour, and in practice a SIGSEGV on the status thread that took the whole
-     * kernel with it.
+     * kernel with it (gdb backtrace, 2026-09-04).
      *
      * The invariant "every switch has at least one address" is real and is enforced --
      * TopologyAndFlowMonitor::loadStaticTopologyFromFile refuses such a file at load (2da6954f),
@@ -931,7 +931,8 @@ class DeviceConfigurationAndPowerManager
      * invention -- doc/2026-01-02_ndt_api.md §12/§13 already say "-1 means SNMP query failed or
      * data is unavailable", which is precisely this switch's situation.
      *
-     * 🔴 This is an outward-visible key shape.
+     * 🔴 This is an outward-visible key shape: consumers read `dpid:<n>` keys, so it is a
+     * contract and changes to it are breaking.
      */
     static std::string reportKeyForSwitchWithoutIp(uint64_t dpid);
 
@@ -982,8 +983,9 @@ class DeviceConfigurationAndPowerManager
      * @brief The sentence every exemption site says, so all six say the same one.
      *
      * @details
-     * A switch whose `brand_name` this build has no data plane for is admitted at topology load,
-     * on condition that the graph mark it as one whose power and telemetry
+     * A switch whose `brand_name` this build has no data plane for is admitted at topology load
+     * only when its node declares an explicit, valid `switch_kind`, and on condition that the
+     * graph mark it as one whose power and telemetry
      * nobody manages -- and then this file went on dialling it anyway. In TESTBED mode the six
      * brand-branching sites below all fall into an `else` written for
      * "Brocade / Others (Currently via SSH)": a Cisco admitted by its `switch_kind` was sent

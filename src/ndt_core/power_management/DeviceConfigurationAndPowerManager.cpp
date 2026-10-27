@@ -431,7 +431,7 @@ DeviceConfigurationAndPowerManager::queryMininet(const std::string& ipParam) con
         }
         // [Co-developed with claude code -- Adam]
         //
-        // 🔴 THIS LINE WAS `result[sip] = (isUp ? "ON" : "OFF")`, AND IT IS THE FINDING.
+        // 🔴 THIS LINE WAS `result[sip] = (isUp ? "ON" : "OFF")`, AND THAT WAS THE DEFECT.
         // The endpoint is named "power state", so a caller reads ON/OFF as "what was commanded".
         // What it actually returned was an OBSERVATION -- the graph's liveness flag -- so two
         // equally dead switches answered differently depending only on which writer had reached
@@ -914,7 +914,8 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
     {
         // [Co-developed with claude code -- Adam]
         // An unsliced 1 s sleep was a 1 s floor under this object's stop(), on every shutdown.
-        // The shell-outs further down this loop are NOT yet cancellable.
+        // Not every shell-out below is cancellable yet: `ovs-vsctl list-br` and the P4
+        // switch-state curl are; pingSwitch's `ping` is not, and stop() waits for it.
         if (m_stopSignal.waitFor(std::chrono::seconds(interval_sec)))
         {
             break;
@@ -1895,8 +1896,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
 
     // [Co-developed with claude code -- Adam]
     // /ndt/get_power_report answers in the same vocabulary
-    // /ndt/get_graph_data does. Measured on a live OVS fabric, 2026-09-10
-    // (scratch/overnight-2026-09-05/fix/R4-LIVE-SUMMARY.md §4-A15 and §7-1): the switch at
+    // /ndt/get_graph_data does. Measured on a live OVS fabric, 2026-09-10: the switch at
     // dpid 7, whose `power_path` is "none" because it was admitted by the `switch_kind`
     // exemption, answered `power_consumed: 44487` while the real OVS at dpid 1 answered 92465 --
     // ten switches, ten different figures, and nothing in the body saying which of them came
@@ -2145,7 +2145,7 @@ DeviceConfigurationAndPowerManager::setPowerStateTestbed(const SwitchInfo& si,
         }
 
         // [Co-developed with claude code -- Adam]
-        // The TESTBED plane. Same distinction as in the two Mininet strategies: the
+        // On the TESTBED plane, the same distinction as in the two Mininet strategies: the
         // gateway has just confirmed it switched the plug, so this is a commanded state, not the
         // pingWorker's opinion -- and updateSwitches runs against this graph too. Written through
         // the commanded writers so a poll cannot undo a plug that was actually switched.
@@ -2926,7 +2926,7 @@ DeviceConfigurationAndPowerManager::setProgrammedPredicate(std::function<bool(ui
 //
 // What is filtered is decided by provenance, never by shape. A pending row is recognised by the
 // token updateOpenFlowTables stamped on it, not by looking like a request -- four fields, no
-// counters, the caller's field vocabulary. That signature is real and is what FINDING-03 used to
+// counters, the caller's field vocabulary. That signature is real and is what was used to
 // *detect* the phantom, but keying the fix on it would make the instrument the same shape as the
 // thing it measures: any future request that happened to arrive with counters, or any polled
 // entry that happened to arrive without them, would be classified by resemblance rather than by

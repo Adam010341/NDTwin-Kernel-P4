@@ -133,8 +133,8 @@ std::optional<bool> OVSPowerStrategy::executeBridgeExists(const std::string& br)
         // utils::execArgv writes its own "Command failed (exited 2)" line to stderr for any
         // non-zero status. It is not wrong about the status and it does not reach the decision,
         // but it does mean a normal power-off of an already-deleted bridge prints one misleading
-        // line above this accurate one. Left alone deliberately: Utils.hpp is shared with three
-        // other branches tonight.
+        // line above this accurate one. Left alone deliberately: changing it means changing
+        // utils::execArgv, which every shell-out shares.
         SPDLOG_LOGGER_INFO(Logger::instance(),
                            "{} exited 2: there is no bridge named {} on this machine. That is "
                            "ovs-vsctl's documented answer, not a failed query",
@@ -409,7 +409,7 @@ OVSPowerStrategy::powerOn(Graph::vertex_descriptor node,
     }
 
     // [Co-developed with claude code -- Adam]
-    // The power-on direction. Below this line the graph says down (or a commanded
+    // For the power-on direction: below this line the graph says down (or a commanded
     // power-off is standing) and the next thing that happens is `add-br` -- which on an existing
     // bridge exits 1, "a bridge named s1 already exists", verified against a live ovs-vsctl. The
     // `allOk` check would then return 500 for a switch that is sitting there forwarding.
@@ -628,10 +628,10 @@ OVSPowerStrategy::powerOff(Graph::vertex_descriptor node,
     // true by construction rather than by two sites agreeing.
     //
     // The defect it closes is plane-agnostic. TopologyAndFlowMonitor::updateSwitches applies the
-    // same reply shape whether the switches behind it are bmv2 or OVS bridges, and it lifted
-    // `isUp` for both. Live evidence for the veto was taken on the P4 fabric, but a deleted bridge
-    // that Ryu is slow to stop announcing is the same race with a different clock.
-    // See setVertexPoweredOffByCommand.
+    // same reply shape whether the switches behind it are bmv2 or OVS bridges, and it lifted `isUp`
+    // for both. Live evidence of the resurrection was taken on the P4 fabric, but a deleted bridge
+    // that Ryu is slow to stop announcing is the same race with a different clock. See
+    // setVertexPoweredOffByCommand.
     topoMonitor->setVertexPoweredOffByCommand(node);
     return OpResult::success();
 }

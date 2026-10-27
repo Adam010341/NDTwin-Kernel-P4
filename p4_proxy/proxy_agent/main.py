@@ -436,10 +436,10 @@ def _pipeline_is_ndtwin(package, dpid, base_dir=None):
 # parallel branch, exactly as `pipeline_is_ndtwin` was. Both are merged, so the rule collapses
 # onto its owner and what is left on this side is a re-export plus the refusal type.
 #
-# The values are RE-EXPORTED rather than re-spelled. A second `TELEMETRY_LINK = "link"` here
-# would be a string that agrees with B's today and is free to stop agreeing, and the disagreement
-# would present as a fabric that programs a clone session on a switch the emitter is also
-# sampling -- every rate reading exactly double, no error anywhere.
+# The values are RE-EXPORTED rather than re-spelled. A second `TELEMETRY_LINK = "link"` here would
+# be a string that agrees with app_package's today and is free to stop agreeing, and the
+# disagreement would present as a fabric that programs a clone session on a switch the emitter is
+# also sampling -- every rate reading exactly double, no error anywhere.
 TELEMETRY_AUTO = app_package.TELEMETRY_AUTO
 TELEMETRY_NONE = app_package.TELEMETRY_NONE
 TELEMETRY_COOPERATIVE = app_package.TELEMETRY_COOPERATIVE
@@ -450,8 +450,8 @@ TELEMETRY_SOURCES = app_package.TELEMETRY_RESOLVED
 #: Everything that may be WRITTEN, knob or package -- `auto` included.
 TELEMETRY_WORDS = app_package.TELEMETRY_SOURCES
 
-#: The knob `ndt up p4 --telemetry <word>` writes, beside `host_count_override` and the app
-#: package knob. B's path, not a second one: three processes agreeing on a word is the entire
+#: The knob `ndt up p4 --telemetry <word>` writes, beside `host_count_override` and the app package
+#: knob. app_package's path, not a second one: three processes agreeing on a word is the entire
 #: point, and they cannot agree on it through two different files.
 TELEMETRY_KNOB_PATH = app_package.TELEMETRY_KNOB_PATH
 
@@ -466,7 +466,8 @@ class TelemetryConfigError(RuntimeError):
     program has no controller header -- produce a fabric that comes up, connects, pushes
     pipelines, accepts a clone session and then reports ZERO samples for the whole run. A
     warning about that scrolls past in a tmux pane and the measurement it silently spoiled is
-    discovered days later, if at all.
+    discovered days later, if at all -- as on 2026-08-20, when a clone session truncating at
+    128 bytes gave zero telemetry on every edge and nothing logged an error.
 
     🔴 IT IS ALSO THE TRANSLATION OF `AppPackageError`. The rule lives in
     app_package now, and that module raises its own type for a bad word. Letting it through
@@ -534,7 +535,7 @@ def _p4info_fingerprint(path):
 
 
 def pipeline_carries_telemetry(package, dpid, base_dir=None):
-    """Whether switch `dpid`'s program declares the cooperative header (G1's self-check).
+    """Whether switch `dpid`'s program declares the cooperative header.
 
     [Co-developed with claude code -- Adam]
     Answered from the FILE, so it can be asked before a client exists -- which is what
@@ -559,7 +560,7 @@ def switch_skips_for(package, dpid, ndtwin=None, cooperative=None, base_dir=None
     `telemetry.source: cooperative` it gets a clone session and an sFlow registration like any
     NDTwin switch -- so saying it skipped them would be false, and an earlier version said it.
 
-    Four cases, and the first three are P2's unchanged:
+    Four cases, and the first three are the original ones, unchanged:
 
       * NDTwin's own pipeline               -> []            (nothing was skipped)
       * `external`                          -> both          (nothing is programmed at all, and
@@ -709,8 +710,8 @@ def build_p4_clients(dpids=DEFAULT_SWITCH_DPIDS, port_base=DEFAULT_GRPC_PORT_BAS
 
 
 # The emitter itself, for GET /sflow/stats. [Co-developed with claude code -- Adam]
-# The send-side counters have to be readable; sflow_emitter.py is deliberately untouched
-# because four measurement rounds were taken against its current uncommitted contents.
+# The send-side counters have to be readable. sflow_emitter.py was left untouched when this
+# reader was added, because four measurement rounds had been taken against its contents.
 api_routes.inject_emitter(sflow)
 
 
@@ -770,7 +771,7 @@ _api_writes_lock = threading.Lock()
 # --- the table-entry journal. [Co-developed with claude code -- Adam] -----------------------
 #
 # POST /p4/table_entry records every accepted write here, one file per switch, and startup and
-# readopt replay it (DESIGN.md section 5): `confirm_fabric` before the first push, then
+# readopt replay it: `confirm_fabric` before the first push, then
 # `replay_table_journal` for each switch after the package's own entries.
 
 #: Under `.run/` for the reason the routing journal is: per-machine state, gitignored there.
@@ -933,7 +934,7 @@ def _outcome_unknown(exc):
 
 def replay_table_journal(client, dpid, journals, package, when):
     """
-    DESIGN 5.4 steps 1 and 3-6 for one switch whose pipeline was just pushed: its journal's net
+    The replay for one switch whose pipeline was just pushed: its journal's net
     entries go back on (`TableJournals.replay`), after the package's own entries. The caller
     holds the switch's lock. A journal that is off replays nothing and says so. Returns the
     report.
@@ -1109,7 +1110,7 @@ def link_emitter_report(path=None):
     are forbidden in this repo and this is the shape that makes them unnecessary.
 
     🔴 AND IT IS LINK_TELEMETRY'S `emitter_is_running(document)`, which compares the argv and
-    start time the bring-up recorded (since 2026-09-27) -- the same test the root teardown applies
+    start time the bring-up recorded (decided 2026-09-27) -- the same test the root teardown applies
     before it signals, so this field cannot call a process "alive" that the teardown would not
     stop. [Co-developed with claude code -- Adam]
     """
@@ -1156,7 +1157,7 @@ def control_plane_telemetry(package=None, knob_path=None, manifest_path=None):
             "link_emitter": link_emitter_report(manifest_path)}
 
 
-# --- the PRE entries a package declares (G9a). [Co-developed with claude code -- Adam] --------
+# --- the PRE entries a package declares. [Co-developed with claude code -- Adam] --------------
 #
 # 🔴 NOT TABLE ENTRIES, AND THE DIFFERENCE IS WHY THEY ARE APPLIED WHERE TABLE ENTRIES ARE NOT.
 # A package's `table_entries` name tables inside the exercise's own program, so on an NDTwin
@@ -1301,7 +1302,8 @@ _pre_entries.update({str(dpid): _blank_pre_counts() for dpid in DEFAULT_SWITCH_D
 # rerouted around. On a foreign fabric `is_up` for an inter-switch edge comes from the package's
 # DECLARED links, not from failure detection, which is what "declared" says.
 #
-# 🔴 "none" is a third word beside "lldp" and "declared", on purpose and disclosed: under
+# 🔴 "none" names no mechanism, unlike "lldp", "declared" and "heartbeat", on purpose and
+# disclosed: under
 # `control_plane.mode: external` on NDTwin's own pipeline nothing discovers links
 # and nothing seeds them, and "lldp" or "declared" would each be a claim about a mechanism that is
 # not running. [Co-developed with claude code -- Adam]
@@ -1343,7 +1345,7 @@ _heartbeat = {"evidence": None, "passes": None}
 HEARTBEAT_REPORT_PATH = link_heartbeat.REPORT_PATH
 HEARTBEAT_REPORT_UID = link_heartbeat.REPORT_OWNER_UID
 
-#: `reroute.reason` words beside the first cut's (route_binding's `unbound` / `owned_by_package`)
+#: `reroute.reason` words beside route_binding's (`unbound` / `owned_by_package`)
 #: and link_heartbeat's `heartbeat_*`. [Co-developed with claude code -- Adam]
 REROUTE_EXTERNAL = "external_control_plane"
 REROUTE_NO_LLDP_WATCHDOG = "link_watchdog_not_running"
@@ -1470,7 +1472,7 @@ def _fabric_reroute():
       * declared links (a foreign fabric): only with the heartbeat watchdog running on a USABLE
         report AND every foreign route table NDTwin's. The tables are named first when both are
         wrong: fixing the heartbeat alone would not make this fabric reroute;
-      * every other fabric (NDTwin's own pipeline): LLDP and its watchdog, as in the first cut.
+      * every other fabric (NDTwin's own pipeline): LLDP and its watchdog.
     """
     if _fabric.get("lldp") is None:
         return None
@@ -1531,7 +1533,7 @@ def reroute_report():
     return {"available": available, "reason": reason, "detail": detail}
 
 
-#: The heartbeat's side-effect census (OBSERVED 2026-09-26; `raw` below names the file): every
+#: The heartbeat's side-effect census (OBSERVED 2026-09-26; `raw` below names the run): every
 #: exercise of live-p1/06, skeleton and
 #: solution, brought up with the heartbeat running where it could, every host sniffed for 20 s.
 #: Served verbatim on switch_state. Measured numbers, not a claim about any other program: a
@@ -1581,7 +1583,7 @@ HEARTBEAT_CENSUS = {
     # otherwise measured numbers), and the punt blind spot on external control planes is part of
     # what is served. The census never started the 3 external arms' controllers, so it saw each
     # program's default actions only (no entries) -- what is served about them is that, plus a
-    # reading of the P4 source. Since 09-28, on an external control plane the heartbeat starts
+    # reading of the P4 source. Decided 09-28: on an external control plane the heartbeat starts
     # only after the offline drop check proves the program drops the frame; its answer on the 3
     # programs is served too.
     # [Co-developed with claude code -- Adam] "no pipeline was loaded" was contradicted by the
@@ -1816,7 +1818,9 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
     what may be done to the switch afterwards, and that is package knowledge, so it is decided
     here and passed in rather than branched on down there.
 
-    All three rules for a foreign pipeline are expressible from this side:
+    Three rules for a foreign pipeline are expressible from this side (the first does not
+    apply to a program that includes ndtwin_telemetry.p4 and asks for cooperative telemetry
+    -- see `cooperative` in _readopt_switch_locked):
 
       * no clone session -- `sample_callback=None` is exactly how readopt is told a switch gets
         no telemetry, and a foreign pipeline clones nothing to the CPU port, so a session
@@ -1895,7 +1899,7 @@ def _readopt_switch_locked(topology, dpid, client_factory, sample_callback, pack
     cooperative = (telemetry_source == TELEMETRY_COOPERATIVE
                    and (ndtwin or pipeline_carries_telemetry(package, dpid)))
 
-    # The push inside carries this boot's fabric generation (DESIGN 5.5), whatever a journal
+    # The push inside carries this boot's fabric generation, whatever a journal
     # header says. [Co-developed with claude code -- Adam]
     client_factory = _with_generation(client_factory)
     result = topology.readopt_switch(dpid, client_factory,
@@ -1931,7 +1935,8 @@ def _readopt_switch_locked(topology, dpid, client_factory, sample_callback, pack
             + ("" if cooperative else ", so no clone session was programmed"))
 
     if result.get("status") == "success" and not cooperative:
-        # 🔴 SAME LIE, TWO CAUSES.
+        # 🔴 SAME LIE, TWO CAUSES: a telemetry source other than `cooperative`, or a foreign
+        # pipeline whose program does not include the telemetry header.
         # `readopt_switch` answers `clone_session: True` when it was handed no sample callback,
         # which means "nothing failed" -- correct for a fabric whose sFlow is simply not wired,
         # and wrong here, where the decision was that this switch gets none.
@@ -1982,7 +1987,7 @@ def _readopt_switch_locked(topology, dpid, client_factory, sample_callback, pack
     _record_table_entries(dpid, _table_entries.get(str(dpid), {}).get("recorded", 0),
                           counts["applied"], counts["failed"])
     result["table_entries"] = dict(counts)
-    # The API's entries, after the package's own (DESIGN 5.5): re-read from the file -- what was
+    # The API's entries, after the package's own: re-read from the file -- what was
     # POSTed since startup is in it -- and replayed only if this boot's step 0 confirmed it.
     # [Co-developed with claude code -- Adam]
     result["table_entries"]["replay"] = replay_table_journal(
@@ -2096,7 +2101,7 @@ async def startup(clients_factory, sflow, kernel, topo,
     steps only -- [Co-developed with claude code -- Adam] lldp_discovery; install_initial_routes,
     unless every foreign switch's route table is bound with owner ndtwin (roles),
     when NDTwin installs the routes and it drops off the list; and link_watchdog only when
-    the heartbeat watchdog did not start (since 09-27). Under an external control plane
+    the heartbeat watchdog did not start (decided 09-27). Under an external control plane
     the list is EXTERNAL_SKIPS, less link_watchdog when the heartbeat drives it -- and the
     per-switch pair lands on that switch's `pipeline.skipped`. On a mixed fabric
     the switches beside the package's still get a clone session and still sample, so saying
@@ -2173,7 +2178,7 @@ async def startup(clients_factory, sflow, kernel, topo,
         watched = (" Its declared links are watched by the root helper's heartbeat, detect only: "
                    "a cut is told to the kernel and no route is rewritten." if foreign else "")
         # The Skipped list is printed once the heartbeat decision below has settled it (the
-        # foreign fabric's line does the same since 09-27): on a foreign
+        # foreign fabric's line does the same): on a foreign
         # pipeline `link_watchdog` leaves it when the heartbeat drives the watchdog.
         print(f"[Proxy Agent] app package {package.name} declares an EXTERNAL control plane: "
               f"this proxy will not push pipelines, program clone sessions, send LLDP beacons "
@@ -2193,7 +2198,7 @@ async def startup(clients_factory, sflow, kernel, topo,
     # with this boot's. For EVERY client, not only the ones whose push will succeed: a switch
     # that does not answer now cannot confirm its journal, so its file is set aside here and a
     # readopt later finds a header with nothing under it -- never yesterday's entries. Not on an
-    # external control plane: nothing is pushed there and its files are not touched (DESIGN 5.7).
+    # external control plane: nothing is pushed there and its files are not touched.
     if not read_only:
         confirm_fabric(clients, journals, package)
 
@@ -2246,10 +2251,10 @@ async def startup(clients_factory, sflow, kernel, topo,
         print(f"[Proxy Agent] {len(broken)} of {len(clients)} switches have no pipeline "
               f"({sorted(broken)}); they will report as down and will not be enabled in the graph")
 
-    # --- the package's own table entries (G5). [Co-developed with claude code -- Adam] ------
+    # --- the package's own table entries. [Co-developed with claude code -- Adam] -----------
     #
     # 🔴 ONLY ON A FOREIGN PIPELINE, and only after the push that loaded it. Under NDTwin's own
-    # pipeline a package's entries stay RECORDED AND UNAPPLIED, which is what phase 1 shipped
+    # pipeline a package's entries stay RECORDED AND UNAPPLIED, which is what the first version did
     # and what `live-p1/02` asserts: those files are written against the exercise's tables, and
     # `MyIngress.ipv4_lpm` in `basic.p4` is not `MyIngress.ipv4_lpm` in `ndtwin_switch.p4` even
     # though the two strings are equal -- applying them would put the exercise's forwarding
@@ -2299,7 +2304,7 @@ async def startup(clients_factory, sflow, kernel, topo,
             with journals.journal_for(i).lock:
                 replay_table_journal(client, i, journals, package, "startup")
 
-        # --- the PRE half of the same file (G9a). [Co-developed with claude code -- Adam]
+        # --- the PRE half of the same file. [Co-developed with claude code -- Adam]
         #
         # 🔴 ON EVERY SWITCH, NOT ONLY THE FOREIGN ONES -- the one place this loop treats the two
         # kinds differently. A multicast group and a clone session are target objects with no
@@ -2518,7 +2523,7 @@ async def startup(clients_factory, sflow, kernel, topo,
     routes_owned = False
     route_counts = None
     #: [Co-developed with claude code -- Adam] The foreign fabric's startup line, printed once the
-    #: heartbeat decision below has settled `skipped` (since 09-27).
+    #: heartbeat decision below has settled `skipped`.
     foreign_note = None
     if foreign and not read_only:
         skipped.extend(FOREIGN_PIPELINE_FABRIC_SKIPS)
@@ -2537,7 +2542,7 @@ async def startup(clients_factory, sflow, kernel, topo,
         # root helper's heartbeat, and the sentence has to stop saying otherwise.
         steps = ("send LLDP beacons or run the LLDP beacon watchdog" if routes_owned
                  else "send LLDP beacons, run the LLDP beacon watchdog or install routes")
-        # [Co-developed with claude code -- Adam] Since 09-27, NOT printed here. The
+        # [Co-developed with claude code -- Adam] NOT printed here. The
         # Skipped list below is the one `control_plane.skipped` serves, and `link_watchdog` leaves
         # it only after the heartbeat decision further down -- printed here, the log named the
         # watchdog skipped on every fabric the heartbeat drives, one line above the line saying it
@@ -2599,7 +2604,7 @@ async def startup(clients_factory, sflow, kernel, topo,
     # ride a controller header these programs do not have. [Co-developed with claude code -- Adam]
     # An external control plane on its own pipeline gets it too (09-27), detect only: it skips
     # install_initial_routes, so the pass takes the report-and-do-not-reroute branch.
-    # [Co-developed with claude code -- Adam] 🔴 SINCE 09-27, `link_watchdog` LEAVES
+    # [Co-developed with claude code -- Adam] 🔴 DECIDED 09-27: `link_watchdog` LEAVES
     # `control_plane.skipped` when the heartbeat drives the watchdog -- the watchdog IS running,
     # fed by the heartbeat instead of by beacons, and a list that says it was skipped tells a reader
     # no cut on this fabric is watched. It stays named skipped when the heartbeat watchdog did not

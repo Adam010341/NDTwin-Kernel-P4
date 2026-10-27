@@ -313,7 +313,7 @@ l1_probe_py_plot() {
 # Echoes the lane's line(s); returns 0 when the tree is clean, 1 otherwise.
 #
 # [Co-developed with claude code -- Adam]
-# 2026-09-08. tests/shell/check_test_tmpdirs.py asks whether any test CREATES a
+# tests/shell/check_test_tmpdirs.py asks whether any test CREATES a
 # temp path whose name is the same string in every process. ctest gives every test its own
 # process, so a constant path -- or a counter that restarts at 0 in each of them -- is a race
 # that is green at -j1, red at -j2 only sometimes, and red in a DIFFERENT test each time, which

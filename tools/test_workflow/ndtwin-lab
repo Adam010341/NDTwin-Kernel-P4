@@ -37,7 +37,7 @@ TMUX="tmux -L ndtwinlab"
 # 🔴 KERNEL_DIR IS NOT TAKEN FROM THE ENVIRONMENT. READ THIS BEFORE "FIXING" IT.
 # [Co-developed with claude code -- Adam]
 #
-# What it cost while it was a hardcoded constant (measured 2026-08-30, FINDING-01): a round
+# What it cost while it was a hardcoded constant (measured 2026-08-30): a round
 # pinned the kernel to a separate worktree and exported KERNEL_DIR so `ndt`, `stack.sh` and
 # `components.env` all read it. This script was outside the reach of that variable, so
 # `topo-start` ran the MAIN tree's ntg_bmv2_topo.py and its host_count_override of 128, while
@@ -124,8 +124,9 @@ ENERGY_DIR=$LAB_DEFAULT_ENERGY_DIR
 SIM_DIR=$LAB_DEFAULT_SIM_DIR
 NTG_DIR=$LAB_DEFAULT_NTG_DIR
 
-# LAB_CONF_SOURCE -- what `config` and `status` print, so FINDING-01's "no message saying so"
-# cannot happen again: the tree in use is always answerable without reading this file.
+# LAB_CONF_SOURCE -- what `config` and `status` print, so the 2026-08-30 failure -- the wrong tree
+# and no message saying so -- cannot happen again: the tree in use is always answerable without
+# reading this file.
 LAB_CONF_SOURCE="built-in defaults (no $LAB_CONF)"
 
 # LAB_CONF_ERROR -- non-empty when a config file was present and REFUSED.
@@ -150,7 +151,7 @@ conf_fail() { LAB_CONF_ERROR="$*"; return 1; }
 #
 # Refuses rather than falls back. A config file that is present but unusable means someone
 # meant to change the tree, and running the default while they believe otherwise is how
-# FINDING-01 happened in the first place.
+# the 2026-08-30 wrong-tree round happened in the first place.
 # Split in two on purpose, and the split is where the tests can reach:
 #
 #   lab_config_trusted   may this file be believed at all (ownership and permissions)
@@ -271,7 +272,8 @@ lab_config_parse() {
 #
 # Refuses to ADOPT rather than falling back silently: on any failure the defaults stay in force,
 # LAB_CONF_ERROR says why, and LAB_CONF_SOURCE still reports the defaults. Silently running the
-# default while the operator believes their config took effect is FINDING-01 again.
+# default while the operator believes their config took effect is the 2026-08-30 wrong-tree round
+# again.
 #
 # 🔑 The restore is not tidiness. lab_config_parse assigns as it reads, so a file whose third
 #    line is bad has already applied its first two -- and a half-applied config is worse than
@@ -310,7 +312,7 @@ lab_conf_gate() {
             return 0 ;;
         heartbeat)
             # [Co-developed with claude code -- Adam]
-            # Since 2026-09-25: `heartbeat stop` and `heartbeat status` touch only
+            # Decided 2026-09-25: `heartbeat stop` and `heartbeat status` touch only
             # /run/ndtwin-lab and read nothing this file sets, so a broken config must not lock an
             # operator out of stopping a root daemon. `heartbeat start` starts something and fails
             # closed, like every other verb that does.
@@ -345,7 +347,7 @@ die() { echo "ndtwin-lab: $*" >&2; exit 1; }
 # sessions from here".
 #
 # That is the ndtwin-lab half of the session-visibility disagreement logged on 2026-08-30
-# (FINDING-05, and the same shape earlier for sim): `ndt status` said "apps energy" while
+# (and the same shape earlier for sim): `ndt status` said "apps energy" while
 # `ndtwin-lab energy-out` said "no energy session". ndt is immune because lab_session always goes
 # through `sudo -n "$LAB" status`; a hand-typed `ndtwin-lab energy-out` is not.
 # Verified on this machine: /tmp/tmux-0 exists root:root 700, /tmp/tmux-1000 exists with NO
@@ -572,7 +574,7 @@ p4_topo_start() {
     sudo ndtwin-lab config"
     $TMUX new-session -d -s topo -c "$KERNEL_DIR/p4_proxy/mininet" \
         /usr/bin/env "NTG_DIR=$NTG_DIR" "$NTG_PY" "$BRIDGE"
-    # Which tree, every time. FINDING-01 ran the main tree's 128-host topology against a
+    # Which tree, every time. On 2026-08-30 the main tree's 128-host topology ran against a
     # 4-host model for a whole round without a line of output that could have caught it.
     echo "topo session started from $KERNEL_DIR (attach: sudo tmux -L ndtwinlab attach -t topo)"
 }
@@ -609,7 +611,7 @@ p4_topo_start() {
 # ovs_topo_script -- the topology file `ovs-topo-start` launches.
 #
 # Derived from KERNEL_DIR rather than written out, so an install-time config file that moves the
-# tree (G-7) moves this too. A second constant here would reintroduce FINDING-01's shape: two
+# tree (G-7) moves this too. A second constant here would reintroduce the 2026-08-30 shape: two
 # places that name a tree and no message when they disagree.
 ovs_topo_script() { printf '%s/testbed_topo.py' "$KERNEL_DIR"; }
 
@@ -636,7 +638,7 @@ ovs_topo_start() {
   KERNEL_DIR is $KERNEL_DIR ($LAB_CONF_SOURCE).
   This is the file components.env calls OVS_TOPO_SCRIPT and stack.sh prints for the operator."
     $TMUX new-session -d -s topo -c "$KERNEL_DIR" "$NTG_PY" "$script"
-    # Which tree, every time -- the same reason topo-start says it (FINDING-01).
+    # Which tree, every time -- the same reason topo-start says it.
     echo "OVS topo session started from $script (attach: sudo tmux -L ndtwinlab attach -t topo)"
 }
 
@@ -672,7 +674,7 @@ ovs_topo_start() {
 #     whose kernel iflinks name each other. Everything else is listened on and never sent on.
 #   * start without a fabric: no topo session, no manifest, or a manifest whose switches are not
 #     all live bmv2 processes owned by root -- refused before anything is launched.
-#   * run on NDTwin's OWN pipeline (since 2026-09-25). ndtwin_switch.json carries LLDP and punts
+#   * run on NDTwin's OWN pipeline (decided 2026-09-25). ndtwin_switch.json carries LLDP and punts
 #     an unknown ethertype to the CPU, so every heartbeat frame would be a packet-in the proxy books
 #     as that switch's liveness. One such switch in the manifest refuses the whole fabric.
 #   * run twice. A live daemon (pidfile + cmdline + uid) makes `start` say so and launch nothing;
@@ -1822,7 +1824,7 @@ case "${1:-}" in
     sim-start)
         session_running sim && die "sim session already running"
         # [Co-developed with claude code -- Adam]
-        # sim used to write ONLY to its tmux pane. FINDING-02 (2026-08-30): when the pane went,
+        # sim used to write ONLY to its tmux pane. On 2026-08-30, when the pane went,
         # sim's account of its own behaviour went with it -- there was no app_sim.log under
         # .test_run/logs/ and the only file in its repo was a stale build log from 08-22. So
         # "why did sim not serve" could not be asked at all, which is a worse problem than the
@@ -1865,9 +1867,9 @@ case "${1:-}" in
         ;;
     config)
         # [Co-developed with claude code -- Adam]
-        # G-7. FINDING-01 was not "the wrong tree was used", it was "the wrong tree was used and
-        # nothing said so": fabric 128, model 4, every structural check green. A verb that
-        # answers "which tree am I about to run" is the cheap half of that fix.
+        # G-7. The 2026-08-30 wrong-tree round was not "the wrong tree was used", it was "the wrong
+        # tree was used and nothing said so": fabric 128, model 4, every structural check green. A
+        # verb that answers "which tree am I about to run" is the cheap half of that fix.
         printf 'config:     %s\n' "$LAB_CONF_SOURCE"
         printf 'KERNEL_DIR: %s\n' "$KERNEL_DIR"
         printf 'BRIDGE:     %s\n' "$BRIDGE"

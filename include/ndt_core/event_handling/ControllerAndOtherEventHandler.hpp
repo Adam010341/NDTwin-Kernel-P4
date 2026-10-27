@@ -96,7 +96,7 @@ class ControllerAndOtherEventHandler
      * Boost.Asio 1.83 creates its sockets with a plain `::socket(af, type,
      * protocol)` and accepts with a plain `::accept()` -- no SOCK_CLOEXEC, no accept4() -- so
      * every descriptor it hands back is inherited by every `sh` and `curl` this kernel spawns.
-     * Measured 2026-09-03 (round3 step 03): `ss -ltnp` listed `curl` and `sh` as users of :8000
+     * Measured 2026-09-03: `ss -ltnp` listed `curl` and `sh` as users of :8000
      * alongside the kernel, all on fd 8, and the port stayed bound for 2.01-2.22 s after the
      * kernel's pid was gone.
      *
