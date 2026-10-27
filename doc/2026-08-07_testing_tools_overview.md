@@ -31,7 +31,7 @@
 - `components.py` 用實測取代「把七個元件全部啟動再用肉眼檢查」。
 - L1 把 gtest 跑兩種方式，取代「單一測試跑法全綠就當作沒問題」。
 - mutation testing 要求「親眼看測試失敗過」才算出貨，取代「測試有跑、有綠燈就當作有效」。
-- `local_ci.sh` 取代「憑記憶把六個 job 的旗標打對」——`setarch -R` 那一行寫下來三天後還是被重新發現了一次。
+- `local_ci.sh` 取代「憑記憶把七個 job 的旗標打對」——`setarch -R` 那一行寫下來三天後還是被重新發現了一次。
 - `p4_coverage_gate.sh` 取代「覆蓋率大概還可以」——它盯的是**未覆蓋清單的形狀**，不是數字。
 - `fuzz_sflow` 取代「我想得到的畸形封包都寫成測試了」——手寫案例只涵蓋有人想到的畸形。
 - `twin_audit.py` 取代「儀表板說健康就是健康」——所有儀表板數字都來自同一個 ingest，它們一起錯的時候會很有自信。
@@ -66,7 +66,7 @@
 
 ```bash
 ./run_layers.sh quick                     # L0 + L1，約 2 分鐘，不需要 Mininet
-tools/test_workflow/local_ci.sh           # 六個 CI job（含 L1.5），重建四個 build 目錄，數分鐘
+tools/test_workflow/local_ci.sh           # 七個 CI job（含 L1.5），重建五個 build 目錄，數分鐘
 tools/test_workflow/p4_coverage_gate.sh   # L1.5 單跑；.p4 沒改時是毫秒級 no-op
 ./build-fuzz/bin/fuzz_sflow tests/fixtures -max_total_time=60   # L1-fuzz，需先另開 clang build
 ./run_layers.sh api p4                    # L2 + L3 + log check，需要 running stack
@@ -362,32 +362,33 @@ allowlist 格式是三個欄位，以「 | 」（空白-直條-空白）分隔�
 | 驅動 | 管什麼 | 面向 |
 |---|---|---|
 | `run_layers.sh` | L0–L4 | 面向 stack：哪些層在這個環境下跑得起來 |
-| `local_ci.sh` | gcc / python / asan / tsan / clang / p4cov | 面向 CI：GitHub workflow 會跑的那幾件，在這台機器上 |
+| `local_ci.sh` | gcc / release / python / asan / tsan / clang / p4cov | 面向 CI：GitHub workflow 會跑的那幾件，在這台機器上 |
 | （手動） | L5 `faults.sh`、`twin_audit.py`、`fuzz_sflow` | 需要人決定注入哪裡、審計哪條 flow、跑多久 |
 
 ⚠️ `run_layers.sh` **目前不包含 L5、不包含 twin 測謊器、也不包含 fuzz**；`p4_coverage_gate.sh` 則是掛在 `local_ci.sh` 而不是 `run_layers.sh`。不要假設「跑了 `full` 就等於全部跑過」。
 
-#### `local_ci.sh`：GitHub workflow 的六件，在這裡
+#### `local_ci.sh`：GitHub workflow 的七件，在這裡
 
 ```bash
 tools/test_workflow/local_ci.sh              # 全部
 tools/test_workflow/local_ci.sh gcc asan     # 指名 job
 ```
 
-**為什麼存在：** GitHub Actions 自 `b0a7bdc` 起額度用罄（八個 check 全部「Failing after 2s」），repo 目前保持 private，所以**CI 就是這台機器上實際跑過的東西**。四個 workflow job 都很好命名也很好搞錯：TSan 沒有 `setarch -R` 會在 main 之前就死、ASan 的 UBSan 那半邊沒有 `abort_on_error` 會印出報告然後 exit 0、clang 需要一個 `-Wno-error`、GCC 那個 job **刻意**同時跑執行檔與 ctest。手動跑「只要有人記得全部這些」就行得通——而 `setarch` 那一行在寫下來三天後（2026-08-13）還是被重新發現了一次。
+**為什麼存在：** GitHub Actions 自 `b0a7bdc` 起額度用罄（八個 check 全部「Failing after 2s」），repo 目前保持 private，所以**CI 就是這台機器上實際跑過的東西**。五個 workflow job 都很好命名也很好搞錯：TSan 沒有 `setarch -R` 會在 main 之前就死、ASan 的 UBSan 那半邊沒有 `abort_on_error` 會印出報告然後 exit 0、clang 需要一個 `-Wno-error`、GCC 那個 job **刻意**同時跑執行檔與 ctest。手動跑「只要有人記得全部這些」就行得通——而 `setarch` 那一行在寫下來三天後（2026-08-13）還是被重新發現了一次。
 
 **不 fail-fast**：一個 job 紅了後面還是照跑，因為本機跑一輪的目的是**一次知道全部壞了什麼**。任一 job 失敗 exit 1；job 名稱打錯 exit 2。
 
 | job | 是什麼 | 關鍵旗標的理由 |
 |---|---|---|
 | `gcc` | build + 直接執行 + ctest | 兩種都跑；workflow 稱這是它最重要的一行 |
+| `release` | 同 `gcc`，但是 Release（`-O3 -DNDEBUG`） | 其他 job 都是 Debug，只有最佳化建置才看得到的壞（被 `-Werror` 變成錯誤的 `-O3` 警告）只有它看得到 |
 | `python` | 轉呼叫 `l1_unit_tests.sh` | 全 skip 的檔案在那裡是失敗，除非宣告 `NDTWIN_L1_OPT_IN` |
 | `asan` | ASan/UBSan build 並執行 | `abort_on_error=1`，否則 UBSan 報告印完照樣 exit 0 |
 | `tsan` | TSan build 並執行 | `setarch "$(uname -m)" -R`，見陷阱 3 |
 | `clang` | **只 build，不跑測試** | 腐化守衛：clang 曾經根本編不過（GCC 接受的 incomplete type `unique_ptr`），那擋住了整個 fuzzing 計畫 |
 | `p4cov` | L1.5 覆蓋閘門 | 不在 GitHub workflow 裡（runner 沒有 p4c）；`.p4` 沒改時是毫秒級 no-op，所以留著幾乎不花錢 |
 
-`local_ci.sh` 會重建四個 build 目錄（`build`、`build-asan`、`build-tsan`、`build-clang`），跑完要數分鐘——**這不是每次改動後的閘門**，那是 `run_layers.sh quick` 的位置。
+`local_ci.sh` 會重建五個 build 目錄（`build`、`build-release`、`build-asan`、`build-tsan`、`build-clang`），跑完要數分鐘——**這不是每次改動後的閘門**，那是 `run_layers.sh quick` 的位置。
 
 ⚠️ **它鏡射 `.github/workflows/ci.yml`；那個檔案改了，這個檔案要跟著改。** 這是一個沒有工具在守的手動不變量。
 
@@ -471,7 +472,7 @@ tools/test_workflow/local_ci.sh gcc asan     # 指名 job
 - `components.env`：路徑、conda env、port 的單一事實來源，l0/l1/stack 腳本都 source 它；可以在環境變數覆蓋（例如 `NDT_URL=http://192.168.1.5:8000 ./l0_build_check.sh`）。`KERNEL_DIR` 從檔案自身位置推導，`WORKSPACE_ROOT` 用尋找方式發現——不同 checkout 不需要改設定。
 - `stack.sh`：元件有嚴格依賴順序，太早啟動下一個會產生「看起來像 bug 的失敗」。step 3→4 尤其必須等：很多「看起來壞了」其實是「topology 還沒 converge」。腳本涵蓋 1–3 步（control plane、data plane、kernel）加 convergence，因為這幾步必須腳本化才能再現；readers、traffic、apps（steps 4–6）由每個測試場景自己啟動。提供 `up ovs`、`up p4`、`wait`、`status`、`down`、`logs` 等操作。Mininet 需要 root，`up` 會在 sudo 下重新執行 topology；其他步驟以呼叫者身份執行。
 - `run_layers.sh`：把常見情況濃縮成單一指令，每層獨立 verdict、最後 summary、exit code gate CI。
-- `local_ci.sh`：把「六個 job 的旗標」從記憶變成程式碼。不 fail-fast，因為本機跑一輪要的是一次看完全部。
+- `local_ci.sh`：把「七個 job 的旗標」從記憶變成程式碼。不 fail-fast，因為本機跑一輪要的是一次看完全部。
 
 **seam 是這個模式的共同技法。** 每個會碰到外面世界的腳本都留了替換點，所以流程邏輯本身可以在什麼都沒跑的情況下被測試：`local_ci.sh`、`faults.sh` 被 source 時只定義函式不執行；`faults.sh` 的 `run_tc` / `run_signal` / `settle` / `check_pair` / `qdisc_save` / `qdisc_diff` 全部可覆寫，二進位檔則是環境變數（`FAULTS_TC`、`FAULTS_KILL`、`FAULTS_CRITERIA`…）；`qdisc_snapshot.sh` 是 `QDISC_SNAPSHOT_TC`；`p4_coverage_gate.sh` 是 `P4TESTGEN`；`criteria.py` 把 `run_command` / `http_get_json` / `sleep` / `now` 集中成唯一四個碰外界的函式。`tests/shell/` 底下的測試就是靠這些 seam 驅動真正的流程邏輯——**純 stub、不碰環境、秒級**，所以它們可以在沒有 Mininet、沒有 bmv2 的機器上跑。
 
