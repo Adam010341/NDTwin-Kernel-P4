@@ -133,19 +133,21 @@ class HttpRoutingStrategyBase : public IRoutingStrategy
      * @brief Waits between two attempts to read an entry back after a mod was forwarded.
      *
      * [Co-developed with claude code -- Adam]
-     * Ryu answers 200 the moment it has enqueued the OpenFlow message, before the switch has
-     * seen it (ofctl_v1_3.py:1151 sends with no barrier and awaits no reply), so a read-back
-     * issued immediately can legitimately still see the entry. Without a pause the read-back guard
-     * (delete, add and modify) would turn that race into a fabricated failure -- the exact
-     * inversion of the defect it exists to catch. Bounded by VERIFY_ATTEMPTS so a switch that
-     * genuinely refused the mod is still reported rather than waited on forever.
+     * Ryu answers 200 the moment it has enqueued the OpenFlow message, before the switch has seen
+     * it (ofctl_v1_3.py:1151 sends with no barrier and awaits no reply), so a read-back issued
+     * immediately can legitimately still see the switch as it was before the mod: a deleted entry
+     * still there, an added or modified one not yet. Without a pause the read-back guard would turn
+     * that race into a fabricated failure for any of the three operations -- the exact inversion of
+     * the defect it exists to catch. Bounded by VERIFY_ATTEMPTS so a switch that genuinely refused
+     * the mod is still reported rather than waited on forever.
      *
      * Virtual so a test can pin the guard's decisions without paying real milliseconds; the
      * timing is the environment's, not the assertion's.
      */
     virtual void pauseBeforeReVerify();
 
-    /// How many times the entry is read back before a delete is judged to have failed.
+    /// How many times the entry is read back before an add, modify or delete is judged to
+    /// have failed.
     static constexpr int VERIFY_ATTEMPTS = 3;
 
     /// Milliseconds between those attempts. @see pauseBeforeReVerify.

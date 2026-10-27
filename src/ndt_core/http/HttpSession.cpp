@@ -1171,10 +1171,9 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     // [Co-developed with claude code -- Adam]
     // doc/KNOWN-ISSUES.md B-16, second finding (2026-09-11, 2 reproductions of 2). This was a loop
     // that called cutInterface once per end and CARRIED ON past a refusal: with somebody else's
-    // netem
-    // already on s1-eth1, that end was refused, `netem loss 100%` really went onto s5-eth1, and
-    // the reply was 200 `"status":"link failure injected"` with both directions declared. Loss on
-    // BOTH ends is the whole point -- faults.txt L-2 records why one end is its own fault type:
+    // netem already on s1-eth1, that end was refused, `netem loss 100%` really went onto s5-eth1,
+    // and the reply was 200 `"status":"link failure injected"` with both directions declared. Loss
+    // on BOTH ends is the whole point -- faults.txt L-2 records why one end is its own fault type:
     // unidirectional loss kills LLDP in one direction only and leaves the control plane's graph
     // permanently asymmetric -- so "both or neither" is what cutLinkEnds enforces, rollback
     // included.
@@ -1253,8 +1252,7 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
     // [Co-developed with claude code -- Adam]
     // 🔴 doc/KNOWN-ISSUES.md B-16 (2026-09-11, 3 reproductions of 3). THE WIRE IS READ BEFORE
     // ANYTHING IS WRITTEN, and that ordering is the fix rather than a tidiness. What this endpoint
-    // used to
-    // do, in this order, was: withdraw the declaration unconditionally, then `tc qdisc del`
+    // used to do, in this order, was: withdraw the declaration unconditionally, then `tc qdisc del`
     // whatever netem the tree happened to show. For a link nobody had declared down, carrying
     // somebody else's `netem loss 100%`, that deleted their fault and answered 200 `ok:true`.
     //

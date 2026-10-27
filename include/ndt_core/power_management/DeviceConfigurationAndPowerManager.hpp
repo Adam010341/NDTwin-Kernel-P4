@@ -931,8 +931,8 @@ class DeviceConfigurationAndPowerManager
      * invention -- doc/2026-01-02_ndt_api.md §12/§13 already say "-1 means SNMP query failed or
      * data is unavailable", which is precisely this switch's situation.
      *
-     * 🔴 This is an outward-visible key shape: consumers read `dpid:<n>` keys, so it is a
-     * contract and changes to it are breaking.
+     * 🔴 This is an outward-visible key shape: the CPU, memory and temperature bodies serve
+     * `dpid:<n>` keys to every consumer, so changing it is a breaking change.
      */
     static std::string reportKeyForSwitchWithoutIp(uint64_t dpid);
 
@@ -984,9 +984,9 @@ class DeviceConfigurationAndPowerManager
      *
      * @details
      * A switch whose `brand_name` this build has no data plane for is admitted at topology load
-     * only when its node declares an explicit, valid `switch_kind`, and on condition that the
-     * graph mark it as one whose power and telemetry
-     * nobody manages -- and then this file went on dialling it anyway. In TESTBED mode the six
+     * only when its node declares an explicit, valid `switch_kind`, and on condition that the graph
+     * mark it as one whose power and telemetry nobody manages -- and then this file went on
+     * dialling it anyway. In TESTBED mode the six
      * brand-branching sites below all fall into an `else` written for
      * "Brocade / Others (Currently via SSH)": a Cisco admitted by its `switch_kind` was sent
      * Brocade's power OID, Brocade's CPU OID, Brocade's memory OID and an SSH `show power`. Every

@@ -2827,13 +2827,9 @@ class TopologyManager:
     # --- the external link-state entry --------------------------------------------------------
     # [Co-developed with claude code -- Adam]
     #
-    # 🔴 THE ENTRY FOR LINK STATE FROM OUTSIDE THE PIPELINE. The fabric root helper's veth
-    # heartbeat (running as root) reports link state here, and the two branches below are what
-    # the entry does with it.
-    #
-    # [Co-developed with claude code -- Adam] Wired from ONE
-    # place -- the watchdog pass's `_ingest_link_evidence`, which reads the root helper's report
-    # file and reports every declared direction here with `at`. Still no HTTP route: nothing can
+    # 🔴 THE ENTRY FOR LINK STATE FROM OUTSIDE THE PIPELINE. Its one caller is the watchdog
+    # pass's `_ingest_link_evidence`, which reads the root helper's veth-heartbeat report file
+    # and reports every declared direction here with `at`. There is no HTTP route: nothing can
     # POST link state at this proxy (tests/test_link_state_entry.py says both).
 
     def report_external_link_state(self, src_dpid, src_port, dst_dpid, dst_port, up, source,
@@ -2841,24 +2837,26 @@ class TopologyManager:
         """
         One link direction's state, reported by something other than this proxy's LLDP.
 
-        Two branches, decided by whether the link watchdog is running:
+        Decided first by whether the link watchdog is running, then by `at`:
 
-          * running (an all-NDTwin fabric): the report becomes beacon evidence, and the next
+          * running, without `at`: the report becomes beacon evidence, and the next
             watchdog pass handles it exactly as it handles a beacon timeout or a returning
             beacon -- `check_link_beacons` flips the belief, `_notify_link` tells the kernel,
             `run_watchdog_pass` reroutes and pushes the paths. The SAME path, not a parallel
             one: a down report is recorded as silence past the link's timeout, an up report as
-            a beacon heard now. LLDP stays authoritative there -- a link still beaconing comes
-            back up on the next beacon, as it would after any false timeout;
-          * not running (a foreign fabric): RECORDED ONLY. No evidence is written, no route is
-            touched, the kernel is not told -- there is no watchdog to act on it and nothing that
-            would ever take it back. The count is served on `GET /p4/switch_state` as
-            `external_link_reports`.
+            a beacon heard now. LLDP stays authoritative where it runs -- a link still beaconing
+            comes back up on the next beacon, as it would after any false timeout;
+          * not running (no link watchdog was started on this fabric): RECORDED ONLY. No evidence
+            is written, no route is touched, the kernel is not told -- there is no watchdog to act
+            on it and nothing that would ever take it back. The count is served on
+            `GET /p4/switch_state` as `external_link_reports`.
 
         `at` makes the report evidence AS OF A TIME rather than
         as of now -- what a heartbeat report is: "last heard at t" (`up=True, at=t`), or "not
         heard since t" (`up=False, at=t`, t being the evidence's epoch). See `_enter_evidence`.
-        Without `at` the report is evidence as of now.
+        Without `at` the report is evidence as of now. With `at` and the watchdog running -- the
+        heartbeat watchdog on a foreign fabric, the only production caller -- `_enter_evidence`
+        enters the report as beacon evidence as of `at`, and the same pass judges it as above.
 
         Returns {"applied": bool, "link": [...], "why": str}.
         """

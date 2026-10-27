@@ -8891,8 +8891,8 @@ app_kill_pid() {
 # [Co-developed with claude code -- Adam]
 # app_kill_pid asks pid_is_app on both sides of the signal. That is the right check when argv is
 # the identity, and it is the WRONG one here -- it would be a false success in the exact case
-# this fix exists for. A reparented JVM carries no signature of the app that launched it (round
-# 3 counted zero occurrences in either JVM), so `pid_is_app || return 0` answers "gone" the
+# this fix exists for. A reparented JVM carries no signature of the app that launched it (a
+# measurement counted zero occurrences in either JVM), so `pid_is_app || return 0` answers "gone" the
 # instant it is asked, about a process that is still running at 111% of a core.
 #
 # What identifies these pids is the channel that found them -- a process group we recorded, or a

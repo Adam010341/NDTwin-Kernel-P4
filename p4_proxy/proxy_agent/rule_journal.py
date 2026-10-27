@@ -603,7 +603,7 @@ _STALE_ENTRIES = ("stale_entries: the package's entries file changed, and this w
 
 
 class ReplayPending(RuntimeError):
-    """The switch is being re-adopted: its pipeline is being pushed and its journal replayed
+    """The switch is being re-adopted: its pipeline is being pushed and its journal replayed.
     Nothing was written and nothing was validated; the route answers 503 `replay
     pending` at once rather than queueing the write behind the re-adoption, which holds the
     switch's lock for the whole of it."""
@@ -782,8 +782,8 @@ class TableEntryJournal:
 
     `spec` is the validated request body, so a replay can go back through the writer and meet
     every refusal again. Only ACCEPTED writes are recorded (a refused entry never existed), with
-    one exception: a delete the switch answered NOT_FOUND is recorded as `not_found` (DESIGN
-    10-4), because a delete whose answer was lost may have landed.
+    one exception: a delete the switch answered NOT_FOUND is recorded as `not_found`,
+    because a delete whose answer was lost may have landed.
 
     **The caller holds `lock` around the switch write AND the `record`, and around every
     snapshot.** The journal does not take it itself: the lock has to cover the write that
@@ -867,12 +867,12 @@ class TableEntryJournal:
         None when there was no live file. Raises OSError; the caller decides what a failed
         snapshot means.
 
-        🔴 THE CALLER HOLDS `self.lock`, and this raises RuntimeError when nobody does (DESIGN
-        5.2: one lock covers the append and the snapshot). A record appended while a snapshot is
+        🔴 THE CALLER HOLDS `self.lock`, and this raises RuntimeError when nobody does (one
+        lock covers the append and the snapshot). A record appended while a snapshot is
         between its link and its replace lands in the set-aside inode and is lost from the live
         file. The snapshot does not take the lock itself because its one caller that races with
-        writes, a readopt, has to hold it from before the push until after the snapshot (DESIGN
-        5.5), and a `threading.Lock` taken twice by one thread deadlocks.
+        writes, a readopt, has to hold it from before the push until after the snapshot,
+        and a `threading.Lock` taken twice by one thread deadlocks.
         """
         lines = [_jsonl(rec) for rec in records]
         return self._replace_with(self._header_bytes(header), lines, keep)

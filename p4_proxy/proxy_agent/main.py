@@ -565,10 +565,10 @@ def switch_skips_for(package, dpid, ndtwin=None, cooperative=None, base_dir=None
       * NDTwin's own pipeline               -> []            (nothing was skipped)
       * `external`                          -> both          (nothing is programmed at all, and
                                                               `control_plane.skipped` says so
-                                                              fabric-wide -- P2 2.2's shape)
+                                                              fabric-wide)
       * foreign, source is not cooperative  -> both          (`basic` under `auto` resolves to
                                                               `link`: live-p1/02 unchanged)
-      * foreign, cooperative, header present-> []            (the new case)
+      * foreign, cooperative, header present-> []            (cooperative telemetry)
 
     `cooperative` is passed by startup, which KNOWS what it did; left None it is predicted from
     the resolved source and the program's own p4info, which is what the endpoint answers with
@@ -909,7 +909,7 @@ def _replay_write(client, spec, op):
 
 def _refusal_reason(exc):
     """What a replay report says about a write the switch refused: the per-update reason when
-    the switch gave one (E1's `p4rt_error`), the gRPC status name otherwise."""
+    the switch gave one (`p4rt_error`), the gRPC status name otherwise."""
     p4rt = api_routes._p4rt_error(exc)
     if p4rt is not None:
         return f"{p4rt['code']}: {p4rt['message']}"
@@ -919,7 +919,7 @@ def _refusal_reason(exc):
 
 def _already_exists(exc):
     """Whether a refused write's per-update reason is ALREADY_EXISTS (bmv2's answer to an insert of
-    an entry that is there: ternary-a0 13)."""
+    an entry that is there)."""
     p4rt = api_routes._p4rt_error(exc)
     return p4rt is not None and p4rt.get("code") == "ALREADY_EXISTS"
 
@@ -1302,11 +1302,10 @@ _pre_entries.update({str(dpid): _blank_pre_counts() for dpid in DEFAULT_SWITCH_D
 # rerouted around. On a foreign fabric `is_up` for an inter-switch edge comes from the package's
 # DECLARED links, not from failure detection, which is what "declared" says.
 #
-# 🔴 "none" names no mechanism, unlike "lldp", "declared" and "heartbeat", on purpose and
-# disclosed: under
-# `control_plane.mode: external` on NDTwin's own pipeline nothing discovers links
-# and nothing seeds them, and "lldp" or "declared" would each be a claim about a mechanism that is
-# not running. [Co-developed with claude code -- Adam]
+# 🔴 "none" names no mechanism, unlike "lldp", "declared" and "heartbeat", on purpose and disclosed:
+# under `control_plane.mode: external` on NDTwin's own pipeline nothing discovers links and nothing
+# seeds them, and "lldp" or "declared" would each be a claim about a mechanism that is not running.
+# [Co-developed with claude code -- Adam]
 # Since 09-27 an external control plane on its OWN pipeline declares its links (and the
 # heartbeat judges them, detect only), so it says "declared" / "heartbeat" like any foreign
 # fabric; "none" is left for external on NDTwin's pipeline.
@@ -1437,8 +1436,8 @@ def capabilities_report():
 
 
 def _routes_blocked_word(clients, foreign):
-    """None when every foreign switch binds its route table with owner ndtwin; else the first
-    cut's 501 reason word -- `unbound` if any foreign switch has no binding (the more basic of
+    """None when every foreign switch binds its route table with owner ndtwin; else the
+    501 reason word -- `unbound` if any foreign switch has no binding (the more basic of
     the two), `owned_by_package` otherwise. [Co-developed with claude code -- Adam]"""
     words = set()
     for dpid in foreign:
@@ -1533,7 +1532,7 @@ def reroute_report():
     return {"available": available, "reason": reason, "detail": detail}
 
 
-#: The heartbeat's side-effect census (OBSERVED 2026-09-26; `raw` below names the run): every
+#: The heartbeat's side-effect census (OBSERVED 2026-09-26; `raw` below names the file): every
 #: exercise of live-p1/06, skeleton and
 #: solution, brought up with the heartbeat running where it could, every host sniffed for 20 s.
 #: Served verbatim on switch_state. Measured numbers, not a claim about any other program: a
@@ -1850,8 +1849,8 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
     decision was that none should be. And `routes_installed: 0` with nothing beside it reads as
     a switch that refused its routes rather than one that was deliberately not offered any.
 
-    🔴 THE WHOLE RE-ADOPTION HOLDS THE SWITCH'S TABLE-JOURNAL LOCK WITH `pending` SET (DESIGN
-    5.5; `TableJournals.replaying`). A POST to this switch meanwhile is a 503 `replay pending`,
+    🔴 THE WHOLE RE-ADOPTION HOLDS THE SWITCH'S TABLE-JOURNAL LOCK WITH `pending` SET
+    (`TableJournals.replaying`). A POST to this switch meanwhile is a 503 `replay pending`,
     so nothing is written between the new client's swap and the replay -- an entry written there
     would be on the switch AND in the file the replay is about to put back. The push carries
     this boot's fabric generation (`_generation`), never a cookie read from a journal header;

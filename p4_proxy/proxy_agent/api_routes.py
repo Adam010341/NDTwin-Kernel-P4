@@ -66,10 +66,9 @@ def inject_readopt(client_factory, sample_callback, runner):
 
 
 # Injected for GET /sflow/stats. [Co-developed with claude code -- Adam]
-# The emitter already counts datagrams_sent, samples_sent and send_errors and has done since it
-# was written; nothing in this repository ever read them. Telemetry was measured losing 34%
-# of its bytes under CPU contention, and the measurement could not say which stage lost them,
-# because the send
+# The emitter already counts datagrams_sent, samples_sent and send_errors and has done since it was
+# written; nothing in this repository ever read them. Telemetry was measured losing 34% of its bytes
+# under CPU contention, and the measurement could not say which stage lost them, because the send
 # side had no observable. This is the reader those counters never had.
 #
 # The emitter instance is injected rather than reached through readopt_sample_callback.__self__,
@@ -330,10 +329,10 @@ def _p4rt_error(exc):
 async def sflow_stats():
     """Send-side sFlow counters, raw and cumulative. [Co-developed with claude code -- Adam]
 
-    A 34% telemetry shortfall can be lost at any of four stages, and this is the only one with
-    no observable. samples_sent falling with the twin puts the loss upstream in bmv2; samples_sent
-    holding while the twin falls puts it downstream, in the kernel, which would be a bug rather
-    than a resource limit.
+    The 34% of telemetry that goes missing can be lost at any of four stages, and this is the only
+    one with no observable. samples_sent falling with the twin puts the loss upstream in bmv2;
+    samples_sent holding while the twin falls puts it downstream, in the kernel, which would be a
+    bug rather than a resource limit.
 
     Cumulative counters are returned raw, with the wall clock beside them, because the caller must
     differentiate two reads over a window. This project has already published a number obtained by
@@ -768,15 +767,15 @@ async def add_flow_entry(request: Request):
     # about the request and false about the consequence. Seventeen rules were posted at 902 and
     # 910-927 on 2026-08-30 and every one read back at priority 0, and no response said why.
     #
-    # Disclosed, not refused. A 200 -> 400 here is a breaking change for a caller that does not
-    # read status codes and this project has one, so it is disclosed, not refused (since
-    # 2026-08-30). Additive fields cost that caller nothing: the kernel's
+    # Disclosed, not refused (since 2026-08-30). A 200 -> 400 here is a breaking change for a
+    # caller that does not read status codes, and this project has one. Additive fields cost
+    # that caller nothing: the kernel's
     # only check on this body is `status == "error"`
     # (src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp:123-125).
     #
     # Derived from the match by the same predicate route_flow branches on, so it cannot drift
-    # from where the rule actually went -- the property T-15 Option 1 wants of a capability
-    # answer, at the one place a caller is already looking.
+    # from where the rule actually went -- the property a capability answer needs, at
+    # the one place a caller is already looking.
     table = "flow_5tuple" if needs_five_tuple(match) else "ipv4_lpm"
     body = {"status": "success", "table": table, "priority_honoured": table == "flow_5tuple"}
     if data.get("priority") is not None and table == "ipv4_lpm":
@@ -1127,7 +1126,7 @@ TABLE_ENTRY_LOCK_TIMEOUT_S = RPC_TIMEOUT_S
 
 
 def _is_not_found(err):
-    """Whether a switch refusal's per-update reason is NOT_FOUND (E1's `p4rt_error`)."""
+    """Whether a switch refusal's per-update reason is NOT_FOUND (`p4rt_error`)."""
     p4rt = _p4rt_error(err)
     return p4rt is not None and p4rt.get("code") == "NOT_FOUND"
 
@@ -1623,7 +1622,7 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
     `index=i` is one cell (`start=i`, one value). `start` / `count` is a range; with neither,
     the whole array. At most REGISTER_CELLS_MAX cells per request. A value is the register's
     bit<W> value, W at most 63: bmv2's thrift carries an i64, and a bit<64> cell at or above 2^63
-    comes back as 2^63 - 1 (measured on both builds), so a bit<64> register is
+    comes back as 2^63 - 1 (measured on both builds, 2026-10-16), so a bit<64> register is
     refused rather than answered with a number that may be a different one.
 
     🔴 THE THRIFT PORT MUST BE THIS SWITCH'S. Two checks, before EVERY read, nothing remembered:
@@ -1632,12 +1631,12 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
       2. on the read's own thrift connection, bm_mgmt_get_info answers this client's device id and
          thrift port -- else 502 `thrift device mismatch` and no register is read.
     Caught: a bmv2 on that port with another device id or port number, whenever it appears (also
-    after earlier reads); any bmv2 on that port while the dpid's switch is not answering
-    P4Runtime. NOT caught by these checks alone: a bmv2 with the SAME device id and port number
-    (a p4lang-tutorials switch numbers itself exactly as the fabric does) holding 9090 + dpid
-    while the dpid's own switch answers P4Runtime -- that rests on the premise that a switch the
-    fabric launched with --thrift-port 9090 + dpid holds that port while it runs. Measured on
-    stock and bmv2-fast: a bmv2 started on a thrift port that is already held prints `Address
+    after earlier reads); any bmv2 on that port while the dpid's switch is not answering P4Runtime.
+    NOT caught by these checks alone: a bmv2 with the SAME device id and port number (a
+    p4lang-tutorials switch numbers itself exactly as the fabric does) holding 9090 + dpid while the
+    dpid's own switch answers P4Runtime -- that rests on the premise that a switch the fabric
+    launched with --thrift-port 9090 + dpid holds that port while it runs. Measured on stock and
+    bmv2-fast, 2026-10-17: a bmv2 started on a thrift port that is already held prints `Address
     already in use` and exits, so a fabric switch that answers P4Runtime does hold its own.
 
         200  the read succeeded. A 0 is a 0: the cell holds it.
@@ -1666,8 +1665,8 @@ async def register(name: str, dpid: int, index: Optional[int] = None,
              topology yet.
 
     Every register can be read. A thrift read needs no mastership, so it works under an external
-    control plane too; and it was measured not to put P4Runtime's reads out of sync (only a CLI
-    table write did). The reads run on a worker thread.
+    control plane too; and it was measured (2026-10-16) not to put P4Runtime's reads out of sync
+    (only a CLI table write did). The reads run on a worker thread.
     """
     if topology is None:
         raise _register_error(503, "no topology", dpid, name, "proxy has no topology yet")
@@ -1955,8 +1954,7 @@ def get_flow_stats(dpid: int):
         # Read as a plain attribute rather than through getattr(..., None): an optional argument
         # production forgets to pass is the exact shape of the rule journal's wiring gap (see the
         # rule-journal block in main.py), where the rule journal had 33 green tests and no caller
-        # because every one of them injected the
-        # journal itself.
+        # because every one of them injected the journal itself.
         # If a client cannot answer this, the endpoint must fail loudly here rather than serve
         # duration 0/0 forever and let the silence read as "P4 has no clock".
         body, unrendered = ryu_flow_stats.render_flow_stats_counted(

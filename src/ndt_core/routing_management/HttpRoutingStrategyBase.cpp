@@ -657,7 +657,7 @@ HttpRoutingStrategyBase::guardedMod(const json& j,
     // switch anything. Ryu does not barrier a group/meter mod and does not wait for a reply
     // (ofctl_rest.py answers as soon as it has forwarded), so a switch that REFUSES an install
     // refuses it asynchronously, correlated to nothing -- byte for byte the delete story
-    // above, on the other two verbs.
+    // of "Finding #1, part 1 of 2" and "part 2 of 2" above, on the other two verbs.
     //
     // So the read-back is one block for all three, differing only in what it expects to find.
     // Delete expects the entry to be gone; Add and Modify expect it to be there.

@@ -134,7 +134,9 @@ std::optional<bool> OVSPowerStrategy::executeBridgeExists(const std::string& br)
         // non-zero status. It is not wrong about the status and it does not reach the decision,
         // but it does mean a normal power-off of an already-deleted bridge prints one misleading
         // line above this accurate one. Left alone deliberately: changing it means changing
-        // utils::execArgv, which every shell-out shares.
+        // utils::execArgv, which the other argv-based shell-outs share (HttpRoutingStrategyBase,
+        // SimulationRequestManager, ApplicationManager, DeviceConfigurationAndPowerManager,
+        // NetemLinkFault and this file).
         SPDLOG_LOGGER_INFO(Logger::instance(),
                            "{} exited 2: there is no bridge named {} on this machine. That is "
                            "ovs-vsctl's documented answer, not a failed query",

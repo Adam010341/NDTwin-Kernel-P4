@@ -731,7 +731,7 @@ class P4RuntimeClient:
         [Co-developed with claude code -- Adam]
         One GetForwardingPipelineConfig with COOKIE_ONLY, the RPC `probe` sends. Raises what the
         RPC raises: a bmv2 that has been pushed no pipeline answers FAILED_PRECONDITION (a fresh
-        process, whether or not its command line named a JSON -- ternary-a0 08), and a switch
+        process, whether or not its command line named a JSON), and a switch
         that is not there fails the RPC. `main.startup`'s step 0 reads either as "cannot confirm
         this fabric". Works on an external client too: it is a read, and it needs no mastership.
         The timeout is one write's (`RPC_TIMEOUT_S`), not the probe's 2 s: a false "did not

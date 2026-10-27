@@ -647,12 +647,11 @@ ovs_topo_start() {
 #
 # [Co-developed with claude code -- Adam]
 #
-# What it is for. A foreign P4 pipeline carries no NDTwin LLDP, so on a foreign fabric nothing
-# tells the proxy that a link died. `heartbeat start` runs a small root daemon that sends one frame
-# per period out of every switch-side veth with a switch at its far end, reads it back at that far
-# end, and writes
-# down WHEN each direction was last heard. `tc netem` sits on the same egress qdisc the frame
-# goes through, so a cut link cuts the heartbeat with it.
+# What it is for. A foreign P4 pipeline carries no NDTwin LLDP, so on a foreign fabric nothing tells
+# the proxy that a link died. `heartbeat start` runs a small root daemon that sends one frame per
+# period out of every switch-side veth with a switch at its far end, reads it back at that far end,
+# and writes down WHEN each direction was last heard. `tc netem` sits on the same egress qdisc the
+# frame goes through, so a cut link cuts the heartbeat with it.
 #
 # 🔴 WHAT ROOT WILL NOT DO HERE. Each rule below has checks in tests/shell/test_ndtwin_lab_heartbeat.sh,
 #    and for each rule tests/shell/mutate_ndtwin_lab_heartbeat.sh has removed it and seen the check

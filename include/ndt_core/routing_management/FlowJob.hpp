@@ -105,7 +105,7 @@ struct FlowJob {
      * writers discard the response body entirely), so this is deliberately the coarser identity.
      *
      * Distinct from `token`: a token is minted per *install* and exists to link an optimistic
-     * cache row to its confirmation, so modifies and deletes have none. Every accepted job
+     * cache row to its confirmation (T-11), so modifies and deletes have none. Every accepted job
      * of a batch carries the batch's request id, including deletes.
      *
      * 0 means "not from a tokened HTTP batch": a job built in a test, or by a caller predating
