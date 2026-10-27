@@ -99,11 +99,25 @@ def mkdtemp(case, prefix):
     return path
 
 
-def load_driver():
-    """A fresh module object, so one test's monkeypatching cannot reach another."""
-    spec = importlib.util.spec_from_file_location("drive_exercise_under_test", DRIVER_PATH)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+#: The variables the driver reads its two home paths from at import time.
+PATH_ENV = ("VENV_PY", "TUTORIALS_DIR")
+
+
+def load_driver(keep_env=False):
+    """A fresh module object, so one test's monkeypatching cannot reach another.
+
+    [Co-developed with claude code -- Adam] Loaded WITHOUT VENV_PY / TUTORIALS_DIR unless
+    `keep_env`: an operator who exported them for a live round would otherwise turn the 09-08
+    comparison red, or point a cell at a tree it did not build. Only the cells that are about
+    those variables keep them.
+    """
+    saved = {} if keep_env else {k: os.environ.pop(k) for k in PATH_ENV if k in os.environ}
+    try:
+        spec = importlib.util.spec_from_file_location("drive_exercise_under_test", DRIVER_PATH)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    finally:
+        os.environ.update(saved)
     return mod
 
 
@@ -3496,7 +3510,7 @@ class TheHomePathsAreConfigurable(unittest.TestCase):
     resets the environment: what crosses that boundary is the command line the driver prints.
     """
 
-    KEYS = ("VENV_PY", "TUTORIALS_DIR")
+    KEYS = PATH_ENV
 
     def setUp(self):
         self.tmp = mkdtemp(self, "drv-home-")
@@ -3525,10 +3539,24 @@ class TheHomePathsAreConfigurable(unittest.TestCase):
         return Env()
 
     def fresh(self):
-        mod = load_driver()
+        mod = load_driver(keep_env=True)
         stub_preflight(mod)
         stub_compile(mod)
         mod.euid = lambda: 1000
+        return mod
+
+    def fresh_without_defaults(self):
+        """A driver as the far side of the line sees it, whose DEFAULTS name nothing real.
+
+        🔴 A line that dropped its flags would otherwise send this run to the real default tree
+        (a real checkout on a real machine), so the regression this cell exists to catch could
+        only be caught by reading somebody's tutorials. With the defaults pointed at paths that
+        cannot exist, a dropped flag makes main() fail on a missing file instead.
+        """
+        mod = self.fresh()
+        mod.TUT = mod.TUT_DEFAULT = "/nonexistent/NDT-TEST-FIXTURE/default-tutorials"
+        mod.UTILS = os.path.join(mod.TUT, "utils")
+        mod.VENV_PY = mod.VENV_PY_DEFAULT = mod.CTRL_PY = "/nonexistent/NDT-TEST-FIXTURE/default-python"
         return mod
 
     def assert_paths(self, mod, tut, py):
@@ -3538,7 +3566,8 @@ class TheHomePathsAreConfigurable(unittest.TestCase):
         self.assertEqual(py, mod.CTRL_PY, "the controller interpreter is the same venv's")
 
     def test_with_nothing_set_the_paths_are_the_built_in_ones(self):
-        with self.env():
+        """HOME is moved, so a default spelled with `~` would show: under sudo, ~ is root's."""
+        with self.env(HOME=self.tmp):
             mod = self.fresh()
         self.assert_paths(mod, "/home/adam/tutorials", "/home/adam/p4dev-python-venv/bin/python")
 
@@ -3567,11 +3596,27 @@ class TheHomePathsAreConfigurable(unittest.TestCase):
         self.assertEqual(["sudo", self.py], argv[:2], line)
         # what root sees: neither variable, only the words after `sudo <python> <driver>`
         with self.env():
-            root = self.fresh()
+            root = self.fresh_without_defaults()
             rc2, text2 = render_main(root, argv[3:] + ["--dry-run"], NO_TUT)
         self.assertEqual(0, rc2, text2)
         self.assert_paths(root, self.tut, self.py)
         self.assertIn("sudo %s %s/utils/run_exercise.py" % (self.py, self.tut), text2)
+
+    def test_the_ndtwin_line_carries_both_paths_to_a_shell_without_them(self):
+        """The line the ndtwin dry run prints, run where neither variable is set."""
+        with self.env(VENV_PY=self.py, TUTORIALS_DIR=self.tut):
+            mod = self.fresh()
+            rc, text = render_main(mod, ["basic", "--fabric", "ndtwin", "--dry-run"], NO_TUT)
+        self.assertEqual(0, rc, text)
+        line = [l.strip() for l in text.splitlines() if l.strip().endswith("--fabric ndtwin")][-1]
+        argv = shlex.split(line)
+        self.assertEqual(self.py, argv[0], line)
+        with self.env():
+            again = self.fresh_without_defaults()
+            rc2, text2 = render_main(again, argv[2:] + ["--dry-run"], NO_TUT)
+        self.assertEqual(0, rc2, text2)
+        self.assert_paths(again, self.tut, self.py)
+        self.assertIn(os.path.join(self.tut, "exercises", "basic"), text2)
 
     def test_a_flag_wins_over_the_environment(self):
         with self.env(VENV_PY="/nonexistent/NDT-TEST-FIXTURE/env-python",
@@ -3590,6 +3635,8 @@ class TheHomePathsAreConfigurable(unittest.TestCase):
         (the dry run claims nothing), and the child's compile_prog is replaced by a refusal
         BEFORE main() runs: a driver that ignored TUTORIALS_DIR would otherwise compile into
         whatever tutorials tree its default names, which is a real checkout on a real machine.
+        For the same reason the child points P4C at a path that cannot exist (the pre-flight
+        would run `p4c --version`), and exits 97 before main() if it resolved any other tree.
         """
         want = "/nonexistent/NDT-TEST-FIXTURE/p4dev/bin/python"
         env = {k: v for k, v in os.environ.items() if k not in self.KEYS}
@@ -3599,13 +3646,19 @@ class TheHomePathsAreConfigurable(unittest.TestCase):
             "spec = importlib.util.spec_from_file_location('drive_exercise_child', sys.argv[1])\n"
             "mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)\n"
             "mod.compile_prog = lambda *a: (1, None, {})\n"
+            "mod.P4C = '/nonexistent/NDT-TEST-FIXTURE/p4c'\n"
+            "mod.euid = lambda: 1000\n"
+            "import os\n"
+            "if mod.TUT != os.environ['TUTORIALS_DIR']: sys.exit(97)\n"
             "sys.argv = ['drive_exercise.py'] + sys.argv[2:]\n"
             "sys.exit(mod.main())\n")
         out = subprocess.run([sys.executable, "-c", child, DRIVER_PATH, "basic",
                               "--fabric", "ndtwin", "--dry-run"],
                              env=env, cwd=self.tmp, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, universal_newlines=True,
-                             timeout=120).stdout
+                             timeout=120)
+        self.assertNotEqual(97, out.returncode, "the child resolved another tutorials tree")
+        out = out.stdout
         self.assertIn("compile failed", out, "the child did not stop where this test needs it")
         self.assertIn("!! FAIL no %s" % want, out)
         self.assertIn("exercise dir %s" % os.path.join(self.tut, "exercises", "basic"), out)

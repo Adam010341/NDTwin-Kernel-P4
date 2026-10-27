@@ -1237,8 +1237,8 @@ def ndtwin_line(exercise, which):' \
 
 add "127. VENV_PY from the environment is ignored" \
     "$DRIVER" \
-    'VENV_PY  = os.environ.get("VENV_PY") or VENV_PY_DEFAULT' \
-    'VENV_PY  = VENV_PY_DEFAULT  # MUTANT' \
+    'VENV_PY  = os.path.abspath(os.environ.get("VENV_PY") or VENV_PY_DEFAULT)' \
+    'VENV_PY  = os.path.abspath(VENV_PY_DEFAULT)  # MUTANT' \
     'test_the_environment_names_the_tree_and_the_interpreter'
 
 add "128. --venv-py moves the host-script interpreter but not the controller's" \
@@ -1252,6 +1252,22 @@ add "129. the default tree is spelled out too, so the 09-08 sudo line changes" \
     '    if TUT != TUT_DEFAULT:' \
     '    if True:  # MUTANT' \
     'test_the_tutorials_plan_and_sudo_line_are_what_they_printed_on_09_08'
+
+add "130. the default tree is spelled with ~, which under sudo is root's home" \
+    "$DRIVER" \
+    'TUT_DEFAULT     = "/home/adam/tutorials"' \
+    'TUT_DEFAULT = os.path.expanduser("~/tutorials")  # MUTANT' \
+    'test_with_nothing_set_the_paths_are_the_built_in_ones'
+
+add "131. the ndtwin line drops the overrides" \
+    "$DRIVER" \
+    '    return "%s %s %s --which %s%s --fabric ndtwin" % (
+        shlex.quote(VENV_PY), shlex.quote(os.path.abspath(__file__)), exercise, which,
+        path_flags())' \
+    '    return "%s %s %s --which %s%s --fabric ndtwin" % (
+        shlex.quote(VENV_PY), shlex.quote(os.path.abspath(__file__)), exercise, which,
+        "")  # MUTANT' \
+    'test_the_ndtwin_line_carries_both_paths_to_a_shell_without_them'
 
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
@@ -1474,15 +1490,13 @@ echo "  suite green against the real file"
 # catch, one level up.
 #
 # What IS true: every mutation names ONE test, and the `also red:` line under each one names
-# the others that went red with it. Read together those lines cover EVERY cell in the suite --
-# all fifty-one have been red for at least one mutation here, which is the claim "no test in
-# this suite is a decoration" and is the only form of it worth making. Mutations 31-42 exist
-# for exactly that: each was added because some cell had never been seen to fail, and the
-# cell-by-cell table is what this gate prints when it runs. Mutation 43 is the fifty-
-# first cell, added with it.
-printf '\nevery cell in the suite has been red for at least one mutation above; the `also red:`\n'
-printf 'lines are what that claim is built from. (The 09-08 fixture comparison IS reddened --\n'
-printf 'by mutation 1 -- and this footer used to say it was not.)\n'
+# the others that went red with it. The union of those names is the set of cells this run saw
+# red. The gate does NOT check that the union is the whole suite: a cell missing from every
+# line above has not been seen red here, whatever this footer once said. Mutations 31-42 were
+# each added because some cell had never been seen to fail.
+printf '\nthe cells seen red in this run are the named tests plus the `also red:` lines above;\n'
+printf 'this gate does not check that they cover the whole suite. (The 09-08 fixture comparison\n'
+printf 'IS reddened -- by mutation 1.)\n'
 
 printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
 [[ "$SURVIVORS" -eq 0 ]]

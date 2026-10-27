@@ -94,12 +94,16 @@ import time
 # that follows it. What crosses sudo is argv, which is why sudo_line() spells out every path
 # that differs from its default. Where nothing is overridden the line is the one it has always
 # been, byte for byte (tests/fixtures/dryrun_*.txt), so a sudoers rule written for it still
-# matches. The defaults are literals, not ~-expansions: under sudo, ~ is root's home.
+# matches. That is all a sudoers rule can be relied on for here: the interpreter and this file
+# are both writable by the user, so any NOPASSWD rule for this command gives that user root
+# whatever its arguments are. The defaults are literals, not ~-expansions: under sudo, ~ is
+# root's home. Environment values are normalised the way the flags are, so `/home/adam/tutorials/`
+# is the default and adds no flag.
 TUT_DEFAULT     = "/home/adam/tutorials"
 VENV_PY_DEFAULT = "/home/adam/p4dev-python-venv/bin/python"
-TUT      = os.environ.get("TUTORIALS_DIR") or TUT_DEFAULT
+TUT      = os.path.abspath(os.environ.get("TUTORIALS_DIR") or TUT_DEFAULT)
 UTILS    = os.path.join(TUT, "utils")
-VENV_PY  = os.environ.get("VENV_PY") or VENV_PY_DEFAULT
+VENV_PY  = os.path.abspath(os.environ.get("VENV_PY") or VENV_PY_DEFAULT)
 SWITCH   = "/usr/local/bin/simple_switch_grpc"   # NOT /usr/local/bmv2-fast; see README section 3
 P4C      = "/usr/local/bin/p4c-bm2-ss"
 PORT_LO, PORT_HI = 9090, 9099                    # thrift ports the harness hard-codes
@@ -3222,10 +3226,10 @@ def ndtwin_line(exercise, which):
 def apply_path_flags(args):
     """--tutorials-dir / --venv-py over whatever the environment or the defaults said."""
     global TUT, UTILS, VENV_PY, CTRL_PY
-    if args.tutorials_dir:
+    if args.tutorials_dir is not None:
         TUT = os.path.abspath(args.tutorials_dir)
         UTILS = os.path.join(TUT, "utils")
-    if args.venv_py:
+    if args.venv_py is not None:
         VENV_PY = CTRL_PY = os.path.abspath(args.venv_py)
 
 
@@ -3262,6 +3266,10 @@ def main():
                     help="the p4dev venv's python, with mininet+grpc+scapy (default: $VENV_PY, "
                          "else %s)" % VENV_PY_DEFAULT)
     args = ap.parse_args()
+    # An empty path is refused, not read as "the default": abspath("") is the cwd.
+    for flag, value in (("--tutorials-dir", args.tutorials_dir), ("--venv-py", args.venv_py)):
+        if value is not None and not value:
+            ap.error("%s needs a path; leave the flag out to use the default" % flag)
     apply_path_flags(args)
 
     ex, which = args.exercise, args.which
