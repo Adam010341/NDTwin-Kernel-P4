@@ -3416,7 +3416,7 @@ timeout 與 watchdog 間隔**都是衍生的**，所以改一個常數三個一�
   `tests/test_TopKFlowInfoLocking.cpp` 守——**這個函式在此之前一顆測試都沒有**。
   ⚠️ **順手量到一件本條沒寫的事**：排序的比較子拿的是 `const nlohmann::json&`，
   所以 `a["…"]` 走的是 **const `operator[]`**——它**不插入也不丟例外**，是
-  `JSON_ASSERT(找得到)`，即 **`abort()`**；而 Release 帶 `-DNDEBUG`（`CMakeLists.txt:76`）
+  `JSON_ASSERT(找得到)`，即 **`abort()`**；而 Release 帶 `-DNDEBUG`（`CMakeLists.txt:91`）
   時那個 assert 被編掉，變成解參考一個 past-the-end 迭代器。
   ⇒ **發射端與比較子的欄位名一旦不一致，不是某個端點回 500，是整個行程倒掉或 UB。**
   這是變異跑出來的：第一版把斷言寫在呼叫**之後**，行程在更早的 case 就 abort 了，

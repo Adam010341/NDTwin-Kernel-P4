@@ -48,7 +48,7 @@
  * The comparator takes `const nlohmann::json& a` and writes `a["..."]`, so it calls nlohmann's
  * **const** operator[]. That overload does not insert and does not throw: it is
  * `JSON_ASSERT(it != m_data.m_value.object->end())`, i.e. **abort()** in a build with assertions,
- * and with `-DNDEBUG` (this repo's Release flags, CMakeLists.txt:76) the assert is compiled out
+ * and with `-DNDEBUG` (this repo's Release flags, CMakeLists.txt:91) the assert is compiled out
  * and it dereferences a past-the-end iterator instead. So a drift between the emitter's field
  * name and the comparator's does not produce a 500 on one endpoint -- it takes the process down,
  * or is undefined.
