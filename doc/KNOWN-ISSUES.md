@@ -5635,6 +5635,43 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   起點用 `/proc/<pid>/stat` 的 starttime 與 `/proc/uptime` 換出的次秒時刻，記錄下來的邊也存次秒。
   不採：在記錄下來的邊外放寬 1 s（會把視窗外的底座規則算進來，而且擋不住 0–10 s 的快取年齡）。
 
+### G-63 🏁 全新 checkout 上第一次 `ndt up p4`：root 先建了 `.test_run/logs`，stack.sh 寫不進自己的 log —— **已修（2026-10-27）**
+
+- **狀態**：🏁 已修（2026-10-27）。**沒有跑過活的 `ndt up p4`**；證據是下面的實測加離線測試。
+- **平面**：P4 觸發；同一個留下來的目錄也會讓 `ndt up ovs` 失敗（stack.sh 在那裡寫 `ryu.log`）。
+- **失效方向**：悲觀（bring-up 失敗）＋ **診斷指向錯的地方**（`proxy did not open :8081`）。
+- **實測（2026-10-26，全新 VM）**：checkout 裡還沒有 `.test_run/logs`（`.test_run` 本身是使用者的，`ndt claim` 建的）。
+  `ndt up p4 4` → `sudo ndtwin-lab topo-start` → bridge 的 log（`p4_proxy/mininet/topo_log.py` 的 `Tee.open`）
+  用 `os.makedirs` 建出 **`root:root 755`** 的 `logs/` 與 `root:root 644` 的 `topo.log`；
+  兩步之後 `tools/test_workflow/stack.sh`（使用者身分）的 `start_bg` 建 `p4_proxy.log` 得到
+  `Permission denied`，proxy 從沒起來。**只刪掉 `logs/`、其他不動的對照跑重現了它。**〔實測〕
+- **root 在 `.test_run` 底下寫的東西（讀碼）**：`topo.log`（bridge）與 `app_sim.log`（`ndtwin-lab sim-start`，
+  `script -a`）。stack.sh 與 `ndt down` 不改寫、不刪除它們；`ndt apps trim sim` 本來就因為 `app_sim.log` 是 root 的而做不到
+  （ndt 會印 trim needs sudo），這次不變；擋 bring-up 的是目錄。
+  ⚠️ `sim-start` 在 `logs/` 不存在時也會以 root `mkdir -p` 它——同一個形狀。經 `ndt apps sim` 時 `app_start` 先以使用者身分建好
+  `$REPO/.test_run/logs`；只有手動 `sudo ndtwin-lab sim-start`（或從 helper 的 KERNEL_DIR 以外的 checkout 起 sim）會留下 root 的
+  logs/，之後的 `ndt up` 會在 preflight 拒絕並給 `mv` 出路。`sim-start` 本次**沒有改**。
+- **修法（兩層，各管一條路）**：
+  1. **`ndt` 的 preflight 先以使用者身分建好 `.test_run/logs`**（`guard_run_logs_writable`，兩個平面都跑，
+     在 `topo-start` 之前），root 進來時目錄已在，只加自己的檔。目錄存在但寫不進去（舊版留下的 root 目錄）
+     ⇒ **在建任何東西之前拒絕**，訊息指名目錄與擁有者；上層 `.test_run` 可寫時才給不需 root 的出路
+     `mv .test_run/logs .test_run/logs.root-owned.<UTC 時戳>`（時戳讓它不會落進先前移走的那個目錄裡）。
+     目錄根本建不出來時只說建不出來、不給 `mv`。
+  2. **`topo_log.py`：以 root 身分不得不建的目錄，交給它所在的上層目錄的擁有者**（`make_log_dir`）。
+     `chown(..., follow_symlinks=False)` **只管最後一段**：新目錄在 mkdir 與 chown 之間被換成 symlink 時，改到的是 link 本身。
+     **路徑的其餘部分沒有管**：上層的 stat 與 chown 各自按路徑重新解析，能替換上層（`.test_run` 是使用者的）的人仍可在兩次呼叫之間
+     把它們指向不同的目錄。那是 checkout 的使用者對 root 的競態，給不了他比 `ndtwin-lab` 檔頭已寫明的現況（root 執行
+     使用者可寫的 `KERNEL_DIR` 裡的 .py）更多的東西；用目錄 fd（openat／fchown）走完整條路徑這次**沒有做**。
+     `topo.log` 本身以 `O_NOFOLLOW` 開，是 symlink 就拒絕（報一行警告、bridge 照起），不會順著 link 寫進別的檔。
+     這一層管的是手動 `sudo ndtwin-lab topo-start`／手動跑 bridge、或舊版 `ndt`。
+     **擁有者讀上層目錄，不讀 `SUDO_UID`**：bridge 在 root 的 tmux 裡起，環境是 tmux server 的，不是這次呼叫的。
+  🔑 **兩層都不需要重裝 `/usr/local/sbin/ndtwin-lab`**：`ndt` 從 checkout 執行，`topo_log.py` 由 bridge 每次從
+  `KERNEL_DIR` 讀進來。
+- **測試**：`tests/shell/test_ndt_run_logs_dir.sh`（`topo-start` 的 stub 照 bridge 舊行為在缺目錄時建一個寫不進去的
+  `logs/`，假 stack.sh 照 `start_bg` 寫 log）；`p4_proxy/tests/test_topo_log.py` 的
+  `TheLogDirectoryRootCreatesIsTheCheckoutOwnersTest`（替換 `topo_log.geteuid`／`topo_log.chown`）；
+  變異閘門 `tests/shell/mutate_ndt_run_logs_dir.sh`。真的 root 身分、真的 chown **沒有在這些測試裡執行過**。
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |

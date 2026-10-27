@@ -279,6 +279,8 @@ RC_TABLE = {
 # earlier ndt (the text on it and the function it lies in are the same).
 # 2026-10-27: the NTG_DIR key in ndt's read-only config parser put 2 lines above status
 # --measuring's row and every row below it; the claim and release rows did not move.
+# 2026-10-27, .test_run/logs: guard_run_logs_writable and its call in preflight put 41 more lines
+# above the same rows; the claim and release rows did not move.
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -292,21 +294,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(7241, 3, "return 3", "cmd_status"), (7246, 0, "return 0", "cmd_status"),
-                              (7250, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(7252, 0, "return 0", "cmd_status")]},
+                     "code": [(7282, 3, "return 3", "cmd_status"), (7287, 0, "return 0", "cmd_status"),
+                              (7291, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(7293, 0, "return 0", "cmd_status")]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(6862, 0, "return 0", "cmd_status")]},
+                         "code": [(6903, 0, "return 0", "cmd_status")]},
     "claim": {"code": [(756, 2, "return 2", "cmd_claim"), (765, 2, "return 2", "cmd_claim"),
                        (790, 1, "return 1", "claim_take"), (862, 1, "return 1", "claim_take"),
                        (864, 0, 'ok "lab claimed by', "claim_take")]},
     "release": {"code": [(868, 0, "return 0", "cmd_release"), (873, 1, "return 1", "cmd_release"),
                          (901, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(9070, 0, "return 0", "app_start"), (9074, 1, "return 1", "app_start"),
-                            (9147, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(10625, 1, "return 1", "cmd_apps"), (10628, 2, "return 2", "cmd_apps"),
-                           (10631, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(10558, 0, "return 0", "cmd_apps")]},
+    "apps.start": {"code": [(9111, 0, "return 0", "app_start"), (9115, 1, "return 1", "app_start"),
+                            (9188, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(10666, 1, "return 1", "cmd_apps"), (10669, 2, "return 2", "cmd_apps"),
+                           (10672, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(10599, 0, "return 0", "cmd_apps")]},
 }
 
 

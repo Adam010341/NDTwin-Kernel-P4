@@ -606,9 +606,9 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
 # branch status --measuring adds 23 more above them (10405, lock_probe 9452-9467), and the
 # external detect-only changes 117 more (10522, lock_probe 9569-9584); the port-probe verdict
 # change adds 41 more (10563, lock_probe 9610-9625). verbs.py's own row had read 10556, not the
-# 10563 above; the NTG_DIR config key moves it 10556 -> 10558.
+# 10563 above; the NTG_DIR config key (+2) and the .test_run/logs guard (+41) move it 10556 -> 10599.
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(10558, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(10599, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -810,8 +810,8 @@ report "C28: a claim read stopped at its timeout is trusted (its partial yours r
        cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
 
 m=$(mutant m63 "$VERBS_PY" \
-    '(9074, 1, "return 1", "app_start")' \
-    '(8614, 1, "return 1", "app_start")')
+    '(9115, 1, "return 1", "app_start")' \
+    '(8655, 1, "return 1", "app_start")')
 report "M63: apps.start rc 1 cites proc_checkout's return 1" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
@@ -1580,8 +1580,8 @@ report "G62g: --measuring's rc 0 cites a phrase ndt help does not print" "$m" \
        RcProvenance.test_help_sourced_tables_are_in_ndt_help
 
 m=$(mutant g62h "$VERBS_PY" \
-    '                         "code": [(6862, 0, "return 0", "cmd_status")]},' \
-    '                         "code": [(6800, 0, "return 0", "cmd_status")]},')
+    '                         "code": [(6903, 0, "return 0", "cmd_status")]},' \
+    '                         "code": [(6841, 0, "return 0", "cmd_status")]},')
 report "G62h: --measuring's rc 0 cites a return 0 of another function (app_package_row)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
