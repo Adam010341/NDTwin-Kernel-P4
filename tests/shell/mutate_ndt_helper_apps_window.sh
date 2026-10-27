@@ -253,11 +253,11 @@ report "M13: any readable config file is trusted" "$m" \
 # skips the line adopts a KERNEL_DIR that is not in force on the other side of the sudoers rule.
 m=$(mutant m14 "$NDT" \
     '        case "$key" in
-            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR) ;;
+            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR|NTG_DIR) ;;
             *) return 1 ;;
         esac' \
     '        case "$key" in
-            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR) ;;
+            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR|NTG_DIR) ;;
             *) continue ;;
         esac')
 report "M14: an unknown key is skipped instead of refusing the file" "$m" \

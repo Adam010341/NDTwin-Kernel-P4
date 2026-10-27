@@ -3,7 +3,9 @@
 2026-09-02。[Co-developed with claude code -- Adam]
 
 `ndtwin-lab` 的 `KERNEL_DIR` 從寫死改成「**可以**用一個只有 root 能寫的設定檔覆寫」。
-**沒有設定檔的機器行為完全不變。**
+**沒有設定檔的機器跑的是同一棵樹、同一個直譯器、同一個 NTG checkout。**
+唯一的差別（2026-10-27）：`NTG_DIR` 指的不是 NTG checkout 時（例如沒有設定檔、NTG 又不在 `/home/adam` 底下），
+`topo-start` 現在當場拒絕，而不是起一個秒死的 pane。
 
 ## 為什麼不是環境變數
 
@@ -30,12 +32,18 @@
 ```bash
 sudo install -o root -g root -m 644 /dev/stdin /etc/ndtwin-lab.conf <<'EOF'
 KERNEL_DIR=/home/<user>/Desktop/NDTwin-Kernel-worktree
+NTG_PY=/home/<user>/miniconda3/envs/ntg-env/bin/python
+NTG_DIR=/home/<user>/Network-Traffic-Generator
 EOF
 ```
 
+🔴 **先重裝 helper，再寫 `NTG_DIR=`**（2026-10-27）：舊的 `/usr/local/sbin/ndtwin-lab` 不認識 `NTG_DIR`，
+會把**整個**設定檔當成不可信而拒絕（`unknown key 'NTG_DIR'`）——之後**每一個會動東西的子命令都拒絕執行**，
+包括 `topo-stop`／`cleanup`（`ndt down`）。重裝指令在本文最後一節；`ndt status` 會比對已安裝的與 checkout 裡的是否相同。
+
 把 `<user>` 那段換成你自己的 checkout。值必須是**絕對路徑**：檔案是解析不是 `source`，`$HOME` 不會展開，寫成 `$HOME/...` 會被拒絕。
 
-四個鍵，全部可省略（省略＝用內建預設）：
+五個鍵，全部可省略（省略＝用內建預設）：
 
 | 鍵 | 預設 |
 |---|---|
@@ -43,6 +51,21 @@ EOF
 | `NTG_PY` | `/home/adam/miniconda3/envs/ntg-env/bin/python` |
 | `ENERGY_DIR` | `/home/adam/Energy-Saving-App` |
 | `SIM_DIR` | `/home/adam/Simulation-Platform-Manager` |
+| `NTG_DIR` | `/home/adam/Network-Traffic-Generator`（2026-10-27 加入） |
+
+⚠️ **內建預設都在 `/home/adam` 底下。** 在其他使用者、其他機器上，P4 路徑至少要寫
+`KERNEL_DIR`、`NTG_PY`、`NTG_DIR` 三個鍵。
+
+`NTG_DIR` 是 Network-Traffic-Generator 的 checkout，P4 的 bridge（`ntg_bmv2_topo.py`）從那裡 import
+NTG 的 CLI。它**不從 `NTG_PY` 推導**：`NTG_PY` 是 conda env 或 venv 的直譯器，通常不在 NTG 的 checkout 裡。
+`topo-start` 把它以 `env NTG_DIR=<值>` 的形式**明確**交給 bridge——`ndt up` 呼叫端的環境變數到不了
+root tmux 裡的 bridge（sudo 會重設環境），所以 bridge 舊訊息裡「override with the NTG_DIR env var」
+在 `ndt up` 這條路上是做不到的。
+2026-10-26 在一台全新 VM 上實測：NTG 裝在 `/home/ndt/Network-Traffic-Generator`、設定檔只有
+`KERNEL_DIR`／`NTG_PY`，`ndt up p4 4` 在 185.4 秒後 rc 1、`0/10 switches`，原因只寫在 `topo.log`。
+現在 `NTG_DIR` 不是 NTG checkout（沒有 `network_traffic_generator.py`）時，`topo-start` **當場拒絕**並指名這個鍵，
+`sudo ndtwin-lab config` 也會在那一行標出 `topo-start will refuse`。
+OVS 路徑（`ovs-topo-start`、`ovs-topo-4host`）跑的是本 repo 的拓樸檔，不 import NTG，不需要 `NTG_DIR`。
 
 確認生效：
 
@@ -75,7 +98,7 @@ fabric 128、model 4、每一項結構檢查都綠。
 - 檔案不是 root 所有、或 group／other 可寫 → 拒絕。
 - 檔案是 symlink → 拒絕（`stat` 報的是 link 本身；跟著走則會讓一個放在受信任目錄裡的 link
   指到別處一個 adam 可寫的檔）。
-- 內容用**解析**不用 `source`；只認上面四個鍵，其他鍵是**錯誤**不是忽略
+- 內容用**解析**不用 `source`；只認上面五個鍵，其他鍵是**錯誤**不是忽略
   （被忽略的一行＝寫的人以為生效了而其實沒有）。
 - 值必須是絕對路徑、不得含 `..`。
 - `KERNEL_DIR` 必須存在且底下真的有 `p4_proxy/mininet/ntg_bmv2_topo.py`——
@@ -91,3 +114,4 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 ```
 
 **sudoers 不用改**（檔名、路徑不變，只多一個 `config` 子命令）。
+

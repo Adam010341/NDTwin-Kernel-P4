@@ -3964,7 +3964,9 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ### G-7 🔴 `ndtwin-lab` 寫死了一個人的絕對路徑，而且**是刻意不可覆寫的** ⇒ 換一台機器就整個 fabric 起不來
 
-- **狀態**：**已知、未修**（2026-09-02 登記）。出處：2026-09-02 手動 user test run-01 的對帳（不在本 repo）。
+- **狀態**：🏁 **`ndtwin-lab` 的五個路徑已可由安裝期設定檔 `/etc/ndtwin-lab.conf` 指定**（`KERNEL_DIR`／`NTG_PY`／`ENERGY_DIR`／`SIM_DIR` 2026-09-02；`NTG_DIR` 2026-10-27，見本條最後一項），
+  OVS 路徑已改跑本 repo 的 `testbed_topo.py`。**仍未修**：下面「同一家族」的兩處（Ryu 靜態拓樸預設路徑、`bmv2_binary_override`）。
+  2026-09-02 登記；出處：2026-09-02 手動 user test run-01 的對帳（不在本 repo）。
 - **平面**：兩者
 - **失效方向**：悲觀 ＋ **診斷指向錯的地方**（`ndt` 說 fabric 不對，真因是路徑不存在）
 - **機制**：`tools/test_workflow/ndtwin-lab` **`:51`／`:53`／`:55`／`:56`** 寫死
@@ -4010,6 +4012,27 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
      〔實測，本文以 `git ls-tree`／`git show HEAD:` 覆核追蹤狀態與四個 raise〕
   ⚠️ **出處檔說 tester 在 VM 上把這兩處改成了 VM 自己的 `/home/<vm-user>`／`/usr/local/bin/`**，
   **那是未提交的修改、trunk 至今仍是 `/home/adam`**；引用時不要把 tester 的本機修改讀成 repo 狀態。
+- 🏁 **第五個寫死的路徑：NTG 的 checkout（2026-10-26 實測，2026-10-27 修）**。
+  `ndtwin-lab` 的設定檔只認四個鍵，而 P4 bridge `p4_proxy/mininet/ntg_bmv2_topo.py` 另外用
+  `os.environ.get("NTG_DIR", "/home/adam/Network-Traffic-Generator")` 找 NTG。
+  `topo-start` 在 root 的 tmux 裡起 bridge、什麼環境變數都沒傳，`ndt up` 的呼叫端環境又被 sudo 重設，
+  ⇒ bridge 的拒絕訊息「override with the NTG_DIR env var」**在 `ndt up` 這條路上做不到**。
+  全新 VM（NTG 在 `/home/ndt/Network-Traffic-Generator`、設定檔有 `KERNEL_DIR` 與 `NTG_PY`）上
+  `ndt up p4 4` 185.4 秒後 rc 1、`fabric did not come up: 0/10 switches`，原因只在 `topo.log` 一行。〔實測〕
+  - **修法照本條的原則走設定檔，不吃呼叫端 env**：`NTG_DIR` 成為第五個鍵（預設＝bridge 原本的值，
+    沒有設定檔的機器指的仍是同一個 NTG checkout；那裡沒有 NTG 時改成當場拒絕，而不是秒死的 pane）；`topo-start` 以 `env NTG_DIR=<值>` 明確交給 bridge；
+    值不是 NTG checkout（沒有 `network_traffic_generator.py`）時 `topo-start` **當場拒絕**並指名這個鍵，
+    不再起一個秒死的 pane 讓 `ndt up` 等 180 秒；`ndtwin-lab config` 印出它；
+    bridge 自己的訊息改成指名設定檔的鍵。`ndt` 那份唯讀解析器同步認這個鍵——
+    否則同一個設定檔 helper 接受、`ndt` 拒絕，`ndt up` 會以「does not act in this checkout」拒絕。
+  - **不從 `NTG_PY` 推導**：直譯器是 conda env 或 venv，通常不在 NTG 的 checkout 裡（那台 VM 就是）。
+  - **OVS 路徑沒有這個問題**：`ovs-topo-start`／`ovs-topo-4host` 跑本 repo 的 `testbed_topo.py`／
+    `ovs_4host_topo.py`，兩者都不 import NTG，`NTG_PY` 只是直譯器。〔讀碼〕
+  - 🔴 **要重裝 `/usr/local/sbin/ndtwin-lab` 才生效**，而且**先重裝、再寫 `NTG_DIR=`**：
+    舊 helper 不認識這個鍵，會拒絕整個設定檔。
+  - 測試：`tests/shell/test_ndtwin_lab_ntg_dir.sh`（變異閘門 `tests/shell/mutate_ndtwin_lab_ntg_dir.sh`）、
+    `p4_proxy/tests/test_fabric_bring_up.py` 的 `AMissingNTGCheckoutNamesTheConfigKeyTest`。
+    **沒有跑過活的 `ndt up p4`。**
 
 ### G-8 ⚠️ User Manual 只建 `ndt` 的 symlink ⇒ `ndtwin-lab` 缺席時，`ndt up` 失敗而且不說為什麼
 
@@ -5611,6 +5634,43 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   從**表的輪詢時刻**往回推（kernel 目前只在被沿用的表上帶 `stale_since`，一般的表沒有輪詢時刻，要先補），
   起點用 `/proc/<pid>/stat` 的 starttime 與 `/proc/uptime` 換出的次秒時刻，記錄下來的邊也存次秒。
   不採：在記錄下來的邊外放寬 1 s（會把視窗外的底座規則算進來，而且擋不住 0–10 s 的快取年齡）。
+
+### G-63 🏁 全新 checkout 上第一次 `ndt up p4`：root 先建了 `.test_run/logs`，stack.sh 寫不進自己的 log —— **已修（2026-10-27）**
+
+- **狀態**：🏁 已修（2026-10-27）。**沒有跑過活的 `ndt up p4`**；證據是下面的實測加離線測試。
+- **平面**：P4 觸發；同一個留下來的目錄也會讓 `ndt up ovs` 失敗（stack.sh 在那裡寫 `ryu.log`）。
+- **失效方向**：悲觀（bring-up 失敗）＋ **診斷指向錯的地方**（`proxy did not open :8081`）。
+- **實測（2026-10-26，全新 VM）**：checkout 裡還沒有 `.test_run/logs`（`.test_run` 本身是使用者的，`ndt claim` 建的）。
+  `ndt up p4 4` → `sudo ndtwin-lab topo-start` → bridge 的 log（`p4_proxy/mininet/topo_log.py` 的 `Tee.open`）
+  用 `os.makedirs` 建出 **`root:root 755`** 的 `logs/` 與 `root:root 644` 的 `topo.log`；
+  兩步之後 `tools/test_workflow/stack.sh`（使用者身分）的 `start_bg` 建 `p4_proxy.log` 得到
+  `Permission denied`，proxy 從沒起來。**只刪掉 `logs/`、其他不動的對照跑重現了它。**〔實測〕
+- **root 在 `.test_run` 底下寫的東西（讀碼）**：`topo.log`（bridge）與 `app_sim.log`（`ndtwin-lab sim-start`，
+  `script -a`）。stack.sh 與 `ndt down` 不改寫、不刪除它們；`ndt apps trim sim` 本來就因為 `app_sim.log` 是 root 的而做不到
+  （ndt 會印 trim needs sudo），這次不變；擋 bring-up 的是目錄。
+  ⚠️ `sim-start` 在 `logs/` 不存在時也會以 root `mkdir -p` 它——同一個形狀。經 `ndt apps sim` 時 `app_start` 先以使用者身分建好
+  `$REPO/.test_run/logs`；只有手動 `sudo ndtwin-lab sim-start`（或從 helper 的 KERNEL_DIR 以外的 checkout 起 sim）會留下 root 的
+  logs/，之後的 `ndt up` 會在 preflight 拒絕並給 `mv` 出路。`sim-start` 本次**沒有改**。
+- **修法（兩層，各管一條路）**：
+  1. **`ndt` 的 preflight 先以使用者身分建好 `.test_run/logs`**（`guard_run_logs_writable`，兩個平面都跑，
+     在 `topo-start` 之前），root 進來時目錄已在，只加自己的檔。目錄存在但寫不進去（舊版留下的 root 目錄）
+     ⇒ **在建任何東西之前拒絕**，訊息指名目錄與擁有者；上層 `.test_run` 可寫時才給不需 root 的出路
+     `mv .test_run/logs .test_run/logs.root-owned.<UTC 時戳>`（時戳讓它不會落進先前移走的那個目錄裡）。
+     目錄根本建不出來時只說建不出來、不給 `mv`。
+  2. **`topo_log.py`：以 root 身分不得不建的目錄，交給它所在的上層目錄的擁有者**（`make_log_dir`）。
+     `chown(..., follow_symlinks=False)` **只管最後一段**：新目錄在 mkdir 與 chown 之間被換成 symlink 時，改到的是 link 本身。
+     **路徑的其餘部分沒有管**：上層的 stat 與 chown 各自按路徑重新解析，能替換上層（`.test_run` 是使用者的）的人仍可在兩次呼叫之間
+     把它們指向不同的目錄。那是 checkout 的使用者對 root 的競態，給不了他比 `ndtwin-lab` 檔頭已寫明的現況（root 執行
+     使用者可寫的 `KERNEL_DIR` 裡的 .py）更多的東西；用目錄 fd（openat／fchown）走完整條路徑這次**沒有做**。
+     `topo.log` 本身以 `O_NOFOLLOW` 開，是 symlink 就拒絕（報一行警告、bridge 照起），不會順著 link 寫進別的檔。
+     這一層管的是手動 `sudo ndtwin-lab topo-start`／手動跑 bridge、或舊版 `ndt`。
+     **擁有者讀上層目錄，不讀 `SUDO_UID`**：bridge 在 root 的 tmux 裡起，環境是 tmux server 的，不是這次呼叫的。
+  🔑 **兩層都不需要重裝 `/usr/local/sbin/ndtwin-lab`**：`ndt` 從 checkout 執行，`topo_log.py` 由 bridge 每次從
+  `KERNEL_DIR` 讀進來。
+- **測試**：`tests/shell/test_ndt_run_logs_dir.sh`（`topo-start` 的 stub 照 bridge 舊行為在缺目錄時建一個寫不進去的
+  `logs/`，假 stack.sh 照 `start_bg` 寫 log）；`p4_proxy/tests/test_topo_log.py` 的
+  `TheLogDirectoryRootCreatesIsTheCheckoutOwnersTest`（替換 `topo_log.geteuid`／`topo_log.chown`）；
+  變異閘門 `tests/shell/mutate_ndt_run_logs_dir.sh`。真的 root 身分、真的 chown **沒有在這些測試裡執行過**。
 
 ## 證據索引
 

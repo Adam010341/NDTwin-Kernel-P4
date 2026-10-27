@@ -89,6 +89,62 @@ def keep_depth(env=None):
     return DEFAULT_KEEP
 
 
+#: The process's effective uid and the ownership call, as names a test can replace. Root is the
+#: case that matters and a unit test does not run as root.
+geteuid = os.geteuid
+chown = os.chown
+
+
+def make_log_dir(directory, report=None):
+    """Create `directory` and any missing parents, owned like the directory each is made in.
+
+    [Co-developed with claude code -- Adam]
+    The bridge runs as root, and its log lives in the checkout's `.test_run/logs`, beside the
+    logs stack.sh writes as the checkout's user. Measured 2026-10-26 on a fresh VM: when the
+    bridge was the first thing to need that directory, `os.makedirs` made it root:root 755,
+    and stack.sh then could not create p4_proxy.log in it ("Permission denied") -- the proxy
+    never started. So a directory this function has to CREATE while running as root is handed
+    to the owner of the directory it was created in, which is the checkout's user for every
+    directory under the checkout. A directory that already exists is left exactly as it is:
+    whose it is was decided by whoever made it.
+
+    The owner is read from the parent on disk, not from SUDO_UID: the bridge is started inside
+    root's tmux, whose environment is the tmux server's and not this invocation's, so SUDO_UID
+    there is whatever it was when that server started -- or absent.
+
+    What `follow_symlinks=False` covers, and what it does not. It covers the LAST component: a
+    new directory swapped for a symlink between the mkdir and the chown gets the link itself
+    re-owned, not its target. It does not cover the rest of the path: the parent is stat'ed and
+    the chown is made by path, each resolving every component again, so a user who can replace
+    an ancestor (`.test_run` is theirs) between those calls can still point them at different
+    directories. That is a race against root by the checkout's own user, and it grants that user
+    nothing beyond what ndtwin-lab's own header already states (root runs a .py from the
+    user-writable KERNEL_DIR). Closing it would mean walking the path by directory descriptor
+    (openat/fchown); that is not done here. A chown that fails is reported and does not stop the
+    log.
+    """
+    report = report or (lambda msg: print(msg, file=sys.stderr))
+    created = []
+    d = os.path.abspath(directory)
+    while not os.path.isdir(d):
+        created.append(d)
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    os.makedirs(directory, exist_ok=True)
+    if geteuid() != 0:
+        return created
+    for path in reversed(created):
+        try:
+            st = os.stat(os.path.dirname(path))
+            if st.st_uid != 0 or st.st_gid != 0:
+                chown(path, st.st_uid, st.st_gid, follow_symlinks=False)
+        except OSError as exc:
+            report("WARNING: could not give %s to the owner of its parent: %s" % (path, exc))
+    return created
+
+
 def rotate(path, keep=None, env=None, now=None):
     """Move `path` aside under its own start time and prune to `keep` generations.
 
@@ -170,12 +226,17 @@ class Tee:
         try:
             directory = os.path.dirname(self.path)
             if directory:
-                os.makedirs(directory, exist_ok=True)
+                make_log_dir(directory, report=self._report)
             self.rotated_to = rotate(self.path, keep=self._keep, env=self._env)
             # Binary and unbuffered: bmv2 and Mininet both emit bytes this process has no
             # business decoding (BMv2Switch.failure_reason already documents the non-UTF-8
             # case), and a buffered log is empty in precisely the crash it exists for.
-            self._fh = open(self.path, "ab", buffering=0)
+            # [Co-developed with claude code -- Adam] O_NOFOLLOW: the directory is the
+            # checkout user's and this runs as root, so a topo.log that is a symlink is refused
+            # (ELOOP, reported below) rather than followed into a file root would then append to.
+            fd = os.open(self.path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW
+                         | getattr(os, "O_CLOEXEC", 0), 0o644)
+            self._fh = os.fdopen(fd, "ab", buffering=0)
         except OSError as exc:
             self._report("WARNING: could not open the topology log %s: %s" % (self.path, exc))
             self._fh = None

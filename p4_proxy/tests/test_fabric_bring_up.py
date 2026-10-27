@@ -1517,6 +1517,39 @@ class TheBridgeRecordsWhatKilledItTest(FabricFixture):
         self.assertFalse(os.path.exists(self.manifest))
 
 
+class AMissingNTGCheckoutNamesTheConfigKeyTest(FabricFixture):
+    """The bridge's refusal when NTG is not where NTG_DIR says.
+
+    [Co-developed with claude code -- Adam]
+    Measured 2026-10-26 on a fresh VM: topo.log said "override with the NTG_DIR env var", and no
+    environment variable can reach a bridge started by `sudo ndtwin-lab topo-start` in root's
+    tmux. The value comes from the NTG_DIR key of /etc/ndtwin-lab.conf, so that is what the
+    message has to name. Not under @needs_compiled_baseline: the refusal comes before anything
+    reads the compiled program.
+    """
+
+    def test_the_refusal_names_the_config_key_and_not_an_environment_variable(self):
+        missing = os.path.join(self.tmp, "no-ntg-checkout-here")
+        self.patch(ntg, "NTG_DIR", missing)
+
+        def never(*args, **kwargs):
+            raise AssertionError("the bridge went on to plan a fabric without NTG")
+
+        self.patch(testbed, "plan_fabric", never)
+        self.patch(testbed, "reset_for_bring_up", never)
+        said = io.StringIO()
+        with contextlib.redirect_stdout(said), self.assertRaises(SystemExit) as ctx:
+            ntg.main(tee=None)
+        self.assertEqual(ctx.exception.code, 1)
+        text = said.getvalue()
+        self.assertIn(missing, text)
+        self.assertIn("NTG_DIR", text)
+        self.assertIn("/etc/ndtwin-lab.conf", text,
+                      "the refusal does not say where NTG_DIR is set, so the operator is left "
+                      "with a variable nothing on the `ndt up` path can pass in")
+        self.assertNotIn("env var", text)
+
+
 # --- 5. the pre-flight ---------------------------------------------------------------------------
 
 

@@ -1404,8 +1404,10 @@ topo_session() { lab_session topo; }
 #     refused would point this at a tree root is not running -- the stale-tree failure inverted, and just
 #     as quiet.
 #
-# What is NOT copied: NTG_PY/ENERGY_DIR/SIM_DIR (nothing here needs them) and the helper's
-# loud refusal message (it acts on that config; this only reads a log path from it).
+# What is NOT copied: NTG_PY/ENERGY_DIR/SIM_DIR/NTG_DIR (nothing here needs their values) and
+# the helper's loud refusal message (it acts on that config; this only reads a log path from it).
+# Their KEYS are copied, because the helper refuses a file with a key it does not know, and so
+# must this.
 LAB_CONF=/etc/ndtwin-lab.conf
 LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
 
@@ -1459,7 +1461,7 @@ lab_conf_kernel_dir() {
         key="${key%"${key##*[![:space:]]}"}"
         val="${val#"${val%%[![:space:]]*}"}"
         case "$key" in
-            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR) ;;
+            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR|NTG_DIR) ;;
             *) return 1 ;;
         esac
         [[ "$val" == /* ]] || return 1
@@ -2663,6 +2665,44 @@ lab_version_problem() {
     esac
 }
 
+# --- can this checkout's stack write its own logs? --------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# guard_run_logs_writable -- make .test_run/logs as THIS user, before root can make it.
+#
+# Measured 2026-10-26 on a fresh VM, in a checkout with no .test_run/logs yet: `ndt up p4 4`
+# runs `sudo ndtwin-lab topo-start`, the bridge's log (p4_proxy/mininet/topo_log.py) creates the
+# missing directory -- as root, mode 755 -- and two steps later stack.sh, running as the user,
+# cannot create p4_proxy.log in it ("Permission denied"), so the proxy never starts. A run that
+# removed only logs/ and changed nothing else reproduced it. Creating the directory here, as the
+# user, first, means root finds it existing and only adds its own file to it.
+#
+# Here and not in up_p4 because both planes write stack.sh's logs there, and a directory left
+# root-owned by an older run fails `ndt up ovs` in exactly the same way. A directory that exists
+# and is not writable is refused before anything is built: stack.sh would otherwise fail on it
+# after the fabric is up.
+guard_run_logs_writable() {
+    local d="$REPO/.test_run/logs"
+    mkdir -p "$d" 2>/dev/null
+    [[ -d "$d" && -w "$d" && -x "$d" ]] && return 0
+    local qd parent qp; qd="$(printf '%q' "$d")"; parent="$(dirname "$d")"; qp="$(printf '%q' "$parent")"
+    err "refusing to build: $qd is not writable by $(id -un 2>/dev/null || id -u)"
+    err "  stack.sh writes the proxy's, the kernel's and Ryu's logs there, and would fail at the"
+    err "  first one (\"Permission denied\") after the fabric was already built."
+    if [[ ! -d "$d" ]]; then
+        err "  it does not exist and could not be created: $qp must be a directory you can write."
+    elif [[ -d "$parent" && -w "$parent" && -x "$parent" ]]; then
+        err "  it is owned by $(stat -c '%U:%G, mode %a' "$d" 2>/dev/null || echo 'an owner stat could not read')."
+        err "  A root-owned one is what an older topology bridge leaves when it runs before anything"
+        err "  else has made the directory. You can write $qp, so moving it aside needs no root:"
+        err "    mv $qd $(printf '%q' "$d.root-owned.$(date -u +%Y%m%dT%H%M%SZ)")"
+    else
+        err "  it is owned by $(stat -c '%U:%G, mode %a' "$d" 2>/dev/null || echo 'an owner stat could not read'),"
+        err "  and $qp is not writable by you either, so it cannot be moved aside without its owner."
+    fi
+    return 1
+}
+
 # --- preflight --------------------------------------------------------------------
 
 # [Co-developed with claude code -- Adam]
@@ -2697,6 +2737,9 @@ preflight() {
     # 🔴 rc 5, not 1: this is a REFUSAL -- nothing was read from the machine and nothing was
     # built. See the vocabulary note above this function.
     guard_no_teardown_in_flight || { bad=1; refused=5; }
+    # [Co-developed with claude code -- Adam] Before topo-start, so the directory root writes
+    # topo.log into is one this user made. See guard_run_logs_writable.
+    guard_run_logs_writable || bad=1
     [[ -x "$REPO/build/bin/ndtwin_kernel" ]] || { err "kernel binary missing: build/bin/ndtwin_kernel"; bad=1; }
     if [[ "$mode" == "p4" ]]; then
         [[ -x "$REPO/p4_proxy/venv/bin/python" ]] || { err "proxy venv missing: p4_proxy/venv/bin/python"; bad=1; }

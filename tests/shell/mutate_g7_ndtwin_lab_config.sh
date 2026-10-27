@@ -126,7 +126,7 @@ PAIR
 # An unknown key silently ignored is a config the writer believes took effect and did not.
 CASES+=(unknown-key-ignored)
 write_case unknown-key-ignored "unknown-key is refused" <<'PAIR'
-            *) conf_fail "$conf:$n: unknown key '$key' (known: KERNEL_DIR NTG_PY ENERGY_DIR SIM_DIR)"
+            *) conf_fail "$conf:$n: unknown key '$key' (known: KERNEL_DIR NTG_PY ENERGY_DIR SIM_DIR NTG_DIR)"
                return 1 ;;
 @@@TO@@@
             *) continue ;;

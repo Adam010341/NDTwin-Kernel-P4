@@ -57,7 +57,14 @@ sys.path.append('/usr/local/lib/python3/dist-packages')
 # Sibling imports: the bmv2 topology pieces next to this file, and NTG's repo for its CLI.
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
+# [Co-developed with claude code -- Adam]
+# Where NTG is checked out. `ndtwin-lab topo-start` always sets this, from the NTG_DIR key of
+# /etc/ndtwin-lab.conf (or its built-in default, which is the value below), because the
+# environment of whoever ran `ndt up` never reaches a script started under sudo in root's tmux.
+# The fallback is for a bridge started by hand.
 NTG_DIR = os.environ.get("NTG_DIR", "/home/adam/Network-Traffic-Generator")
+#: Where the value that `topo-start` passes in comes from, for the refusal below.
+LAB_CONF = "/etc/ndtwin-lab.conf"
 sys.path.append(NTG_DIR)
 
 from mininet.log import setLogLevel
@@ -125,7 +132,13 @@ def main(tee=None, enter_cli=None) -> None:
     # touch nothing, and "wrong python" is the failure an operator meets most often -- there is
     # no reason to read a package before saying it.
     if not os.path.isdir(NTG_DIR):
-        fail(f"NTG repo not found at {NTG_DIR} (override with the NTG_DIR env var)")
+        # [Co-developed with claude code -- Adam] Names the config key, not an environment
+        # variable: under `ndt up` the environment is not something the operator can reach.
+        fail(f"NTG repo not found at {NTG_DIR}. Set NTG_DIR in {LAB_CONF} to your "
+             "Network-Traffic-Generator checkout; `sudo ndtwin-lab config` shows the value "
+             "topo-start passes in. That needs /usr/local/sbin/ndtwin-lab installed from this "
+             "checkout (`ndt status` compares them); an older one refuses the whole file on that "
+             "key.")
     try:
         import nornir  # noqa: F401  -- NTG's hard dependency; missing means wrong interpreter
     except ImportError:

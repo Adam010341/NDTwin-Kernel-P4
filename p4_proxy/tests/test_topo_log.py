@@ -427,6 +427,108 @@ class TheTeeTest(unittest.TestCase):
         tee.record_traceback(text="a traceback with nowhere to go\n")
 
 
+
+class TheLogDirectoryRootCreatesIsTheCheckoutOwnersTest(unittest.TestCase):
+    """A log directory the bridge has to create as root is given to the checkout's user.
+
+    [Co-developed with claude code -- Adam]
+    Measured 2026-10-26 on a fresh VM: `.test_run/logs` did not exist, the bridge (root) made it
+    root:root 755 for topo.log, and stack.sh -- the checkout's user -- then could not create
+    p4_proxy.log in it, so the proxy never started. Root cannot be had in a unit test, so the
+    effective uid and the chown are replaced (topo_log.geteuid / topo_log.chown) and what is
+    asserted is which directories root would hand to whom. `create=True` so that a topo_log
+    without those names runs this class to an assertion instead of an AttributeError.
+    """
+
+    def setUp(self):
+        import shutil
+        from unittest import mock
+        self.tmp = tempfile.mkdtemp(prefix="topo_log_owner.")
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.tree = os.path.join(self.tmp, "checkout")
+        os.mkdir(self.tree)
+        self.log = os.path.join(self.tree, ".test_run", "logs", "topo.log")
+        self.chowned = []
+        self.euid = 0
+        for name, value in (("geteuid", lambda: self.euid),
+                            ("chown", self._record_chown)):
+            patcher = mock.patch.object(topo_log, name, value, create=True)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        # What the owner must NOT be read from: root's tmux pane carries the tmux server's
+        # environment, not this invocation's.
+        patcher = mock.patch.dict(os.environ, {"SUDO_UID": "4242", "SUDO_GID": "4242"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _record_chown(self, path, uid, gid, follow_symlinks=True):
+        self.chowned.append((os.path.relpath(path, self.tree), uid, gid, follow_symlinks))
+
+    def open_log(self, said=None):
+        tee = topo_log.Tee(self.log, keep=5, env={},
+                           report=(said.append if said is not None else (lambda _m: None)))
+        self.addCleanup(tee.close)
+        return tee.open()
+
+    def test_root_gives_every_directory_it_creates_to_the_checkouts_owner(self):
+        owner = os.stat(self.tree)
+        self.assertTrue(self.open_log())
+        self.assertEqual(
+            self.chowned,
+            [(".test_run", owner.st_uid, owner.st_gid, False),
+             (os.path.join(".test_run", "logs"), owner.st_uid, owner.st_gid, False)],
+            "a directory the bridge created as root stays root's, and stack.sh -- running as "
+            "the checkout's user -- cannot write its own logs into it")
+
+    def test_only_the_missing_directory_is_touched(self):
+        # The usual case: `ndt claim` made .test_run, so only logs/ is new.
+        os.mkdir(os.path.join(self.tree, ".test_run"))
+        owner = os.stat(os.path.join(self.tree, ".test_run"))
+        self.assertTrue(self.open_log())
+        self.assertEqual(self.chowned, [(os.path.join(".test_run", "logs"),
+                                         owner.st_uid, owner.st_gid, False)])
+
+    def test_a_directory_that_already_exists_is_left_as_it_is(self):
+        os.makedirs(os.path.join(self.tree, ".test_run", "logs"))
+        self.assertTrue(self.open_log())
+        self.assertEqual(self.chowned, [])
+
+    def test_not_root_creates_and_changes_no_owner(self):
+        self.euid = os.getuid() or 1000
+        self.assertTrue(self.open_log())
+        self.assertTrue(os.path.isdir(os.path.dirname(self.log)))
+        self.assertEqual(self.chowned, [])
+
+    def test_a_topo_log_that_is_a_symlink_is_not_followed(self):
+        # The directory is the user's; root opening topo.log through a link the user planted
+        # would append the bridge's output to whatever the link names. An EMPTY target, so the
+        # rotation (which moves a non-empty log aside, link and all) does not step in first.
+        os.makedirs(os.path.dirname(self.log))
+        target = os.path.join(self.tmp, "somebody-elses-file")
+        open(target, "w").close()
+        os.symlink(target, self.log)
+        said = []
+        tee = topo_log.Tee(self.log, keep=5, env={}, report=said.append)
+        self.addCleanup(tee.close)
+        opened = tee.open()
+        tee.record_traceback(banner="", text="BRIDGE OUTPUT\n")
+        with open(target) as fh:
+            self.assertEqual(fh.read(), "", "root wrote the bridge's log through the user's link")
+        self.assertFalse(opened)
+        self.assertTrue(any("could not open the topology log" in m for m in said), said)
+
+    def test_a_chown_that_fails_does_not_cost_the_log(self):
+        def refuse(path, uid, gid, follow_symlinks=True):
+            raise PermissionError(1, "Operation not permitted", path)
+
+        from unittest import mock
+        with mock.patch.object(topo_log, "chown", refuse, create=True):
+            said = []
+            self.assertTrue(self.open_log(said))
+        self.assertTrue(os.path.isfile(self.log))
+        self.assertTrue(any("could not give" in m for m in said), said)
+
+
 if __name__ == "__main__":
     unittest.main()
 
