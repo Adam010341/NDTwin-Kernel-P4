@@ -159,6 +159,7 @@ jobs:
   build-and-test-release:
     name: Build and unit tests (GCC Release)
     runs-on: ubuntu-24.04
+    # The full Release build took 20m36s at one job on the development machine (2026-10-28).
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
