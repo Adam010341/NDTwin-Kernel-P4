@@ -4,7 +4,7 @@
 
 TP1 compares get_graph_data with this, item by item. Host namespaces are entered with
 `sudo -n mnexec -a <pid>`, the pid found by the tail-field rule drive_exercise.py uses
-(`ps -eo pid=,args=` lines ending in `mininet:<host>`, drive_exercise.py:1024-1038).
+(`ps -eo pid=,args=` lines ending in `mininet:<host>`, drive_exercise.py:1045-1059).
 """
 from __future__ import annotations
 

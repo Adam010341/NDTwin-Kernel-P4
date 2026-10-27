@@ -4,7 +4,7 @@
 
 Every command goes through the injected Runner (design 4.1): a host is entered with
 `sudo -n mnexec -a <pid>` (design 4.2), the pid found by the tail-field rule (fabric.host_pid,
-drive_exercise.py:1024-1038), and what runs inside is tools/p4_health/hostside.py under the p4dev
+drive_exercise.py:1045-1059), and what runs inside is tools/p4_health/hostside.py under the p4dev
 interpreter. A sniffer is a long-lived child: it is started with Runner.spawn, recorded in
 LAB_STATE.json through `register` (pid + start time + the run's marker token) the moment its pid
 is known, and stops by itself after its window; the round's teardown stops it if a crash comes

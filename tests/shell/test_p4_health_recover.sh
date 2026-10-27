@@ -25,7 +25,7 @@ check() {  # check <name> <condition...>
 UP_NOTE="in use: ndt up p4 6 at 2026-10-03 18:00:00 by p4h-test"
 
 # (r7) The knob exactly as ndt writes it -- a copy of the two printf lines of app_knob_write
-# (tools/test_workflow/ndt:1646-1647; the two-line shape is pinned by tests/shell/test_ndt_app_package.sh:334-335):
+# (tools/test_workflow/ndt:1699-1700; the two-line shape is pinned by tests/shell/test_ndt_app_package.sh:334-335):
 # a "# written by ..." comment line, THEN the directory. The fixture used to write the directory alone,
 # which ndt never does, and recover.sh read the first line of the file.
 write_knob() {  # write_knob <file> <package dir>
@@ -52,7 +52,7 @@ setup() {  # setup <case> -- a fresh run dir, knobs, claim, override, fake /proc
 #!/usr/bin/env bash
 # Every behaviour a recovery's outcome depends on follows the real tool; the lines are cited next to it.
 echo "$s $*" >> "$d/calls"
-host_count() {  # a copy of host_count_in, tools/test_workflow/ndt:1573-1582: the first line that is not blank, not a comment; 4 if none
+host_count() {  # a copy of host_count_in, tools/test_workflow/ndt:1626-1635: the first line that is not blank, not a comment; 4 if none
     local f="$d/knobs/host_count_override" line
     [[ -f "$f" ]] || { echo 4; return; }
     while read -r line; do
@@ -118,7 +118,7 @@ STUB
     sleep 0 & local dead=$!; wait "$dead"
     # The probe's own claim: the REAL `ndt claim`, taken while the knob still has its pre-round value (that is what the
     # round baseline records, ndt:451-464, 853); then `ndt up` moves the knob (the package changed the host count) and
-    # rewrites the claim's note (ndt:3504) -- up is process-bound, so those two are written here.
+    # rewrites the claim's note (ndt:3557) -- up is process-bound, so those two are written here.
     printf '4  # kept as bytes\n' > "$d/knobs/host_count_override"
     NDT_OWNER=p4h-test "$d/repo/tools/test_workflow/ndt" claim 10 "p4-health run-x A state=$d/run/LAB_STATE.json" > /dev/null 2>&1
     printf '6\n' > "$d/knobs/host_count_override"
@@ -163,7 +163,7 @@ expire() { local t; t="$(past)"; claim_set "$1" expires "$t"; state_set "$1" cla
 fabric_gone() { printf '  bmv2 switches  0       \n  host/switch    0       \n' > "$1/status_full"; }
 fabric_up() { printf '  bmv2 switches  4       \n  host/switch    10      \n' > "$1/status_full"; }
 to_down_done() {  # to_down_done <dir> [keep] -- what the probe leaves after a successful `ndt down`:
-    # phase down-done, the claim's note ndt down wrote, app_package_override REMOVED (ndt:1601-1605).
+    # phase down-done, the claim's note ndt down wrote, app_package_override REMOVED (ndt:1654-1658).
     # With `keep` the recorded sniffer and controller stay listed (a kill that failed).
     claim_set "$1" note "down at 2026-10-03 18:20:00; verified clean; claim kept"
     rm -f "$1/knobs/app_package_override"; fabric_gone "$1"

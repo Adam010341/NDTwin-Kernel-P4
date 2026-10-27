@@ -21,7 +21,7 @@
 #      "in use: ndt up p4 ... by <owner>" (ndt:1211-1219), or ndt down's "down at ..."
 #      (ndt:1249-1281). Any mismatch: print it, write NOTHING, stop (rc 3).
 #      (r7) The override is read as ndt reads it: the first line that is neither blank nor a `#`
-#      comment (real ndt writes a comment line and then the path, ndt:1646-1647). When it is ABSENT
+#      comment (real ndt writes a comment line and then the path, ndt:1699-1700). When it is ABSENT
 #      (ndt down, and a baseline ndt up, clear it) the note must be this run's own or ndt down's, never
 #      an "in use: ndt up ..." (an ndt up of the same owner writes exactly that); and if
 #      <claim file>.overrides records an `ndt up --force` past a claim with OUR expires (ndt:1062,
@@ -62,7 +62,7 @@
 #      (r5, Cut 1 follow-ups) The `ndt status` no-fabric check runs BEFORE a re-claim writes
 #      anything (a fabric that is up gets no 30-minute claim from us: rc 4). And an absent
 #      app_package_override is evidence only in down-done, where the probe's own successful `ndt
-#      down` removed it (ndt:1601-1605): there, our own expired claim FILE (owner = ours) is
+#      down` removed it (ndt:1654-1658): there, our own expired claim FILE (owner = ours) is
 #      re-taken. In every other phase an absent override may be somebody else's up, down or clean;
 #      for an EXPIRED claim the answer is rc 3 with nothing written. (r7) For a LIVE claim with the
 #      recorded expires an absent override is accepted in teardown, down-failed and claim-lost (a failed
@@ -280,8 +280,8 @@ if [[ -f "$CLAIM_FILE.overrides" ]] && awk -F'\t' -v e="claim_expires=$CLAIM_EXP
     claim_overridden=1; claim_same=0
 fi
 # (r7) The first line that is not blank and not a comment, as ndt's own reader takes it (app_knob_dir,
-# ndt:1610-1619; the proxy's read_knob skips `#` lines too). Real ndt writes TWO lines: a
-# "# written by ndt up p4 --app at ..." comment, then the directory (ndt:1646-1647).
+# ndt:1663-1672; the proxy's read_knob skips `#` lines too). Real ndt writes TWO lines: a
+# "# written by ndt up p4 --app at ..." comment, then the directory (ndt:1699-1700).
 ov=""
 if [[ -f "$OVERRIDE" ]]; then
     while read -r knob_line; do
@@ -301,13 +301,13 @@ case "$c_note" in
     "down at "*)                                note_ours=1 ;;
 esac
 # (r7) With the knob absent, "in use: ndt up p4 ..." is what a baseline `ndt up` of the same owner writes
-# after it cleared the knob (ndt:3472, 3504); a forced up by anybody leaves the note as it found it. So
+# after it cleared the knob (ndt:3525, 3557); a forced up by anybody leaves the note as it found it. So
 # an absent knob is backed only by this run's own note or ndt down's -- never by an ndt up's.
 if [[ -z "$ov" && "$c_note" == "in use: ndt up p4 "* ]]; then note_ours=0; fi
 measuring_now() {  # a declaration or a measurement in flight, per ndt's own rows; empty if none.
     # Fails CLOSED (review MINOR 6): an `ndt status --measuring` that does not answer is busy.
     # (r4) So is one that answers with neither a `measuring` nor an `orphaned` row: ndt always
-    # prints one of the two (ndt:6844-6856), so their absence is an answer we do not understand.
+    # prints one of the two (ndt:6897-6909), so their absence is an answer we do not understand.
     local out
     if ! out="$(NDT_OWNER="$OWNER" "$NDT" status --measuring 2>/dev/null)"; then
         echo "ndt status --measuring did not answer"; return
