@@ -71,17 +71,20 @@ TMUX="tmux -L ndtwinlab"
 #     other-writable -- and refusing is LOUD, never a silent fall back to the default, because
 #     "it quietly used a different tree than you configured" is the failure this whole comment
 #     is about;
-#   * it is PARSED, not sourced. Only four keys are accepted and anything else is an error, so
+#   * it is PARSED, not sourced. Only five keys are accepted and anything else is an error, so
 #     a typo cannot become a root shell command;
 #   * KERNEL_DIR must be absolute and must actually contain the bridge script, so a
 #     mis-typed path fails at load rather than at `topo-start`.
 #
-# 🔑 A missing config file changes NOTHING. Every default below is the value this script had
-#    before G-7, so a machine with no /etc/ndtwin-lab.conf behaves byte-for-byte as it did.
+# 🔑 A missing config file changes which tree runs not at all. Every default below is the value
+#    this script had before G-7, so a machine with no /etc/ndtwin-lab.conf runs the same tree,
+#    interpreter and NTG checkout as before. One thing does differ (2026-10-27): where NTG_DIR
+#    is not an NTG checkout, topo-start now refuses at once instead of starting a pane that dies.
 #
 # Install one with:
 #   sudo install -o root -g root -m 644 /dev/stdin /etc/ndtwin-lab.conf <<'EOF'
 #   KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel-worktree
+#   NTG_DIR=/home/adam/Network-Traffic-Generator
 #   EOF
 # and check what took effect with `sudo ndtwin-lab config`.
 
@@ -99,11 +102,27 @@ LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
 LAB_DEFAULT_NTG_PY=/home/adam/miniconda3/envs/ntg-env/bin/python
 LAB_DEFAULT_ENERGY_DIR=/home/adam/Energy-Saving-App
 LAB_DEFAULT_SIM_DIR=/home/adam/Simulation-Platform-Manager
+# [Co-developed with claude code -- Adam]
+# NTG_DIR is the Network-Traffic-Generator checkout the P4 bridge imports NTG's CLI from. It
+# used to be a literal inside ntg_bmv2_topo.py with an environment override, and the
+# environment is exactly what never reaches that script: sudo resets it and the bridge runs in
+# root's tmux. On a machine where NTG lives anywhere else, `topo-start` started a pane that died
+# at once and `ndt up p4` waited three minutes to say "0/10 switches". So it is a key here, read
+# from the same root-only file as the other four, and handed to the bridge explicitly (see
+# p4_topo_start). The default is the value the bridge used to carry, so a machine with no config
+# file still points at the same NTG checkout -- and where that checkout is not there, topo-start
+# now refuses at once instead of starting a pane that dies.
+#
+# Not derived from NTG_PY: the interpreter is a conda env or a venv that lives wherever its
+# installer put it, usually outside the NTG checkout, so its path says nothing reliable about
+# where the checkout is.
+LAB_DEFAULT_NTG_DIR=/home/adam/Network-Traffic-Generator
 
 KERNEL_DIR=$LAB_DEFAULT_KERNEL_DIR
 NTG_PY=$LAB_DEFAULT_NTG_PY
 ENERGY_DIR=$LAB_DEFAULT_ENERGY_DIR
 SIM_DIR=$LAB_DEFAULT_SIM_DIR
+NTG_DIR=$LAB_DEFAULT_NTG_DIR
 
 # LAB_CONF_SOURCE -- what `config` and `status` print, so FINDING-01's "no message saying so"
 # cannot happen again: the tree in use is always answerable without reading this file.
@@ -227,11 +246,11 @@ lab_config_parse() {
         key="${line%%=*}"; val="${line#*=}"
         key="${key%"${key##*[![:space:]]}"}"
         val="${val#"${val%%[![:space:]]*}"}"
-        # Parsed, never sourced: only these four keys exist, and an unknown one is an ERROR
+        # Parsed, never sourced: only these five keys exist, and an unknown one is an ERROR
         # rather than a silently ignored line that whoever wrote it believes took effect.
         case "$key" in
-            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR) ;;
-            *) conf_fail "$conf:$n: unknown key '$key' (known: KERNEL_DIR NTG_PY ENERGY_DIR SIM_DIR)"
+            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR|NTG_DIR) ;;
+            *) conf_fail "$conf:$n: unknown key '$key' (known: KERNEL_DIR NTG_PY ENERGY_DIR SIM_DIR NTG_DIR)"
                return 1 ;;
         esac
         [[ "$val" == /* ]] || { conf_fail "$conf:$n: $key must be an absolute path, got '$val'"; return 1; }
@@ -268,6 +287,7 @@ lab_config_load() {
     NTG_PY="$LAB_DEFAULT_NTG_PY"
     ENERGY_DIR="$LAB_DEFAULT_ENERGY_DIR"
     SIM_DIR="$LAB_DEFAULT_SIM_DIR"
+    NTG_DIR="$LAB_DEFAULT_NTG_DIR"
     LAB_CONF_SOURCE="built-in defaults ($conf was REFUSED)"
     return 1
 }
@@ -513,6 +533,48 @@ sweep_count() {
     local n
     n="$(sweep_find "$1" | grep -c . || true)"
     echo "${n:-0}"
+}
+
+# -------------------------------------------------------------------------------------
+# THE P4 BRIDGE: WHERE NTG IS, AND HOW IT GETS THERE.
+#
+# ntg_dir_usable -- is NTG_DIR a Network-Traffic-Generator checkout?
+#
+# [Co-developed with claude code -- Adam]
+# The file is the one the bridge imports (`from network_traffic_generator import command_line`)
+# after changing into NTG_DIR. A directory without it passes the bridge's own isdir check and
+# fails later, at that import, after root has already built the fabric.
+ntg_dir_usable() { [[ -d "$NTG_DIR" && -f "$NTG_DIR/network_traffic_generator.py" ]]; }
+
+# p4_topo_start -- start the bmv2+NTG bridge in root's tmux, from the tree the config file chose.
+#
+# [Co-developed with claude code -- Adam]
+# NTG_DIR goes into the pane EXPLICITLY, as `env NTG_DIR=<value>` in front of the interpreter.
+# Nothing else could carry it: sudo's env_reset drops whatever the caller exported, the tmux
+# server's environment is whatever it was when root first started it, and this script does not
+# take paths from its caller anyway (the KERNEL_DIR comment at the top says why). The value is
+# the one the config file set, or the built-in default -- the administrator's choice, never the
+# caller's.
+#
+# Refused HERE when NTG_DIR is not an NTG checkout, for the reason ovs_topo_start refuses a
+# missing topology: otherwise tmux's window exits at once, this verb still prints "started", and
+# `ndt up p4` waits 180 s to report "0/10 switches". Measured 2026-10-26 on a fresh VM whose NTG
+# checkout was not under /home/adam: rc 1 after 185.4 s, and the only line naming the cause was
+# in topo.log.
+#
+# A function rather than inline in the dispatch so a non-root test can call it with a recording
+# $TMUX, exactly as tests/shell/test_ndt_ovs_topo_script.sh does for ovs_topo_start.
+p4_topo_start() {
+    ntg_dir_usable || die "NTG_DIR=$NTG_DIR is not a Network-Traffic-Generator checkout
+  (no network_traffic_generator.py there). The P4 bridge imports NTG's CLI from it.
+  It is the built-in default unless $LAB_CONF has an NTG_DIR= line (config in use: $LAB_CONF_SOURCE).
+  Set it to your NTG checkout with an NTG_DIR= line in $LAB_CONF, then check it with:
+    sudo ndtwin-lab config"
+    $TMUX new-session -d -s topo -c "$KERNEL_DIR/p4_proxy/mininet" \
+        /usr/bin/env "NTG_DIR=$NTG_DIR" "$NTG_PY" "$BRIDGE"
+    # Which tree, every time. FINDING-01 ran the main tree's 128-host topology against a
+    # 4-host model for a whole round without a line of output that could have caught it.
+    echo "topo session started from $KERNEL_DIR (attach: sudo tmux -L ndtwinlab attach -t topo)"
 }
 
 # -------------------------------------------------------------------------------------
@@ -1662,11 +1724,7 @@ lab_conf_gate "${1:-}" "${2:-}"
 case "${1:-}" in
     topo-start)
         session_running topo && die "topo session already running (topo-stop first)"
-        $TMUX new-session -d -s topo -c "$KERNEL_DIR/p4_proxy/mininet" \
-            "$NTG_PY" "$BRIDGE"
-        # Which tree, every time. FINDING-01 ran the main tree's 128-host topology against a
-        # 4-host model for a whole round without a line of output that could have caught it.
-        echo "topo session started from $KERNEL_DIR (attach: sudo tmux -L ndtwinlab attach -t topo)"
+        p4_topo_start
         ;;
     topo-cmd)
         shift; [ $# -ge 1 ] || die "usage: topo-cmd <text to type into the NTG prompt>"
@@ -1816,6 +1874,13 @@ case "${1:-}" in
         printf 'NTG_PY:     %s\n' "$NTG_PY"
         printf 'ENERGY_DIR: %s\n' "$ENERGY_DIR"
         printf 'SIM_DIR:    %s\n' "$SIM_DIR"
+        # [Co-developed with claude code -- Adam] With the answer topo-start will give about it,
+        # so "will the P4 bridge find NTG" is readable before anything is started.
+        if ntg_dir_usable; then
+            printf 'NTG_DIR:    %s\n' "$NTG_DIR"
+        else
+            printf 'NTG_DIR:    %s  (NOT an NTG checkout: topo-start will refuse)\n' "$NTG_DIR"
+        fi
         ;;
     # TICKET-P4-heartbeat segment H. Everything after the verb goes to heartbeat_main, which
     # accepts exactly one more word (see the section above hb_program). Called in an `||` list so

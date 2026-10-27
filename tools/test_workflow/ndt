@@ -1404,8 +1404,10 @@ topo_session() { lab_session topo; }
 #     refused would point this at a tree root is not running -- the stale-tree failure inverted, and just
 #     as quiet.
 #
-# What is NOT copied: NTG_PY/ENERGY_DIR/SIM_DIR (nothing here needs them) and the helper's
-# loud refusal message (it acts on that config; this only reads a log path from it).
+# What is NOT copied: NTG_PY/ENERGY_DIR/SIM_DIR/NTG_DIR (nothing here needs their values) and
+# the helper's loud refusal message (it acts on that config; this only reads a log path from it).
+# Their KEYS are copied, because the helper refuses a file with a key it does not know, and so
+# must this.
 LAB_CONF=/etc/ndtwin-lab.conf
 LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
 
@@ -1459,7 +1461,7 @@ lab_conf_kernel_dir() {
         key="${key%"${key##*[![:space:]]}"}"
         val="${val#"${val%%[![:space:]]*}"}"
         case "$key" in
-            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR) ;;
+            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR|NTG_DIR) ;;
             *) return 1 ;;
         esac
         [[ "$val" == /* ]] || return 1

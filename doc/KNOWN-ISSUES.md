@@ -3964,7 +3964,9 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ### G-7 🔴 `ndtwin-lab` 寫死了一個人的絕對路徑，而且**是刻意不可覆寫的** ⇒ 換一台機器就整個 fabric 起不來
 
-- **狀態**：**已知、未修**（2026-09-02 登記）。出處：2026-09-02 手動 user test run-01 的對帳（不在本 repo）。
+- **狀態**：🏁 **`ndtwin-lab` 的五個路徑已可由安裝期設定檔 `/etc/ndtwin-lab.conf` 指定**（`KERNEL_DIR`／`NTG_PY`／`ENERGY_DIR`／`SIM_DIR` 2026-09-02；`NTG_DIR` 2026-10-27，見本條最後一項），
+  OVS 路徑已改跑本 repo 的 `testbed_topo.py`。**仍未修**：下面「同一家族」的兩處（Ryu 靜態拓樸預設路徑、`bmv2_binary_override`）。
+  2026-09-02 登記；出處：2026-09-02 手動 user test run-01 的對帳（不在本 repo）。
 - **平面**：兩者
 - **失效方向**：悲觀 ＋ **診斷指向錯的地方**（`ndt` 說 fabric 不對，真因是路徑不存在）
 - **機制**：`tools/test_workflow/ndtwin-lab` **`:51`／`:53`／`:55`／`:56`** 寫死
@@ -4010,6 +4012,27 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
      〔實測，本文以 `git ls-tree`／`git show HEAD:` 覆核追蹤狀態與四個 raise〕
   ⚠️ **出處檔說 tester 在 VM 上把這兩處改成了 VM 自己的 `/home/<vm-user>`／`/usr/local/bin/`**，
   **那是未提交的修改、trunk 至今仍是 `/home/adam`**；引用時不要把 tester 的本機修改讀成 repo 狀態。
+- 🏁 **第五個寫死的路徑：NTG 的 checkout（2026-10-26 實測，2026-10-27 修）**。
+  `ndtwin-lab` 的設定檔只認四個鍵，而 P4 bridge `p4_proxy/mininet/ntg_bmv2_topo.py` 另外用
+  `os.environ.get("NTG_DIR", "/home/adam/Network-Traffic-Generator")` 找 NTG。
+  `topo-start` 在 root 的 tmux 裡起 bridge、什麼環境變數都沒傳，`ndt up` 的呼叫端環境又被 sudo 重設，
+  ⇒ bridge 的拒絕訊息「override with the NTG_DIR env var」**在 `ndt up` 這條路上做不到**。
+  全新 VM（NTG 在 `/home/ndt/Network-Traffic-Generator`、設定檔有 `KERNEL_DIR` 與 `NTG_PY`）上
+  `ndt up p4 4` 185.4 秒後 rc 1、`fabric did not come up: 0/10 switches`，原因只在 `topo.log` 一行。〔實測〕
+  - **修法照本條的原則走設定檔，不吃呼叫端 env**：`NTG_DIR` 成為第五個鍵（預設＝bridge 原本的值，
+    沒有設定檔的機器指的仍是同一個 NTG checkout；那裡沒有 NTG 時改成當場拒絕，而不是秒死的 pane）；`topo-start` 以 `env NTG_DIR=<值>` 明確交給 bridge；
+    值不是 NTG checkout（沒有 `network_traffic_generator.py`）時 `topo-start` **當場拒絕**並指名這個鍵，
+    不再起一個秒死的 pane 讓 `ndt up` 等 180 秒；`ndtwin-lab config` 印出它；
+    bridge 自己的訊息改成指名設定檔的鍵。`ndt` 那份唯讀解析器同步認這個鍵——
+    否則同一個設定檔 helper 接受、`ndt` 拒絕，`ndt up` 會以「does not act in this checkout」拒絕。
+  - **不從 `NTG_PY` 推導**：直譯器是 conda env 或 venv，通常不在 NTG 的 checkout 裡（那台 VM 就是）。
+  - **OVS 路徑沒有這個問題**：`ovs-topo-start`／`ovs-topo-4host` 跑本 repo 的 `testbed_topo.py`／
+    `ovs_4host_topo.py`，兩者都不 import NTG，`NTG_PY` 只是直譯器。〔讀碼〕
+  - 🔴 **要重裝 `/usr/local/sbin/ndtwin-lab` 才生效**，而且**先重裝、再寫 `NTG_DIR=`**：
+    舊 helper 不認識這個鍵，會拒絕整個設定檔。
+  - 測試：`tests/shell/test_ndtwin_lab_ntg_dir.sh`（變異閘門 `tests/shell/mutate_ndtwin_lab_ntg_dir.sh`）、
+    `p4_proxy/tests/test_fabric_bring_up.py` 的 `AMissingNTGCheckoutNamesTheConfigKeyTest`。
+    **沒有跑過活的 `ndt up p4`。**
 
 ### G-8 ⚠️ User Manual 只建 `ndt` 的 symlink ⇒ `ndtwin-lab` 缺席時，`ndt up` 失敗而且不說為什麼
 
