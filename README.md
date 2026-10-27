@@ -118,9 +118,10 @@ Edit it to point at your topology file and controller/proxy addresses.
 ctest --test-dir build --output-on-failure
 ```
 
-CI (`.github/workflows/ci.yml`) also builds under ASan+UBSan and TSan, builds with clang,
-and runs the Python tests for the control-plane tooling. Testing against a live topology is
-manual, because it needs a Mininet network namespace that hosted runners don't have.
+CI (`.github/workflows/ci.yml`) also builds and tests a GCC Release build, builds under
+ASan+UBSan and TSan, builds with clang, and runs the Python tests for the control-plane tooling.
+Testing against a live topology is manual, because it needs a Mininet network namespace that
+hosted runners don't have.
 
 ## Live fabric
 

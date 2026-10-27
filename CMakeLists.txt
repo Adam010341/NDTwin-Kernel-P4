@@ -54,13 +54,18 @@ add_compile_options(
 )
 
 # [Co-developed with claude code -- Adam]
-# GCC 13 at -O3 reports -Wmaybe-uninitialized from inside Boost.Graph's adj_list_edge_iterator:
-# an end iterator's cached out-edge range is never read, but GCC cannot prove it. It fires in
-# our loops and tests, and one site is inside Boost's own adjacency_list copy, which no change
-# to our loops can reach. Keep the warning visible, but do not let it fail an optimised GCC build.
-# Debug builds, and so CI and the sanitizer jobs, are unchanged; clang is unaffected.
+# GCC 13 at -O3 reports -Wmaybe-uninitialized inside Boost.Graph's adj_list_edge_iterator: it
+# cannot prove that the iterator's cached out-edge range (its optional `edges` member) is set
+# when read, though Boost reads it only while the iterator is not at the end, and sets it then.
+# Three files take the demotion: TopologyAndFlowMonitor.cpp (one site is inside Boost's own
+# adjacency_list copy) and tests/test_TopologyAndFlowMonitor{,_mininet}.cpp. In them the warning
+# stays visible but does not fail a GCC build that is not Debug (an empty build type included);
+# every other file still fails on it. This keeps fatal what GCC reports and nothing more: a read
+# GCC does not flag is still missed. Debug builds and clang are unaffected.
+set(NDTWIN_BOOST_GRAPH_MAYBE_UNINITIALIZED "")
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    add_compile_options($<$<NOT:$<CONFIG:Debug>>:-Wno-error=maybe-uninitialized>)
+    set(NDTWIN_BOOST_GRAPH_MAYBE_UNINITIALIZED
+        "$<$<NOT:$<CONFIG:Debug>>:-Wno-error=maybe-uninitialized>")
 endif()
 
 # --- Sanitizer builds (opt-in: -DSANITIZER=asan|tsan) ---

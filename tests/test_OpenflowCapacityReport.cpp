@@ -152,9 +152,10 @@ vendorCatalogue()
  *
  * [Co-developed with claude code -- Adam]
  * 🔴 nlohmann's **const** `operator[]` on a missing key trips `JSON_ASSERT` and **aborts the
- * process** -- this build has no NDEBUG. A mutant that aborts prints no `[  FAILED  ]` line at
- * all, so the mutation gate can only score it as a SURVIVOR: the assertion that was supposed to
- * catch it looks exactly like an assertion nobody wrote. Mutations 9 and 12 of
+ * process** -- in a Debug build; under -DNDEBUG (the Release CI job) the assert is compiled out
+ * and the read is undefined behaviour instead. A mutant that aborts prints no `[  FAILED  ]`
+ * line at all, so the mutation gate can only score it as a SURVIVOR: the assertion that was
+ * supposed to catch it looks exactly like an assertion nobody wrote. Mutations 9 and 12 of
  * tests/shell/mutate_capacity_reads_running_artifact.sh did precisely that on the first run --
  * they strip `source`, and `report["OVS"]["source"]` then killed the binary instead of failing.
  * Every optional read in this file goes through here so that a missing key is a red test.

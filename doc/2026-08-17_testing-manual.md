@@ -21,7 +21,7 @@
 | **要開機／收機／換拓樸／開 app** | **見 §2（開機手冊）** | `ndt up` 25–40 秒 |
 | 改了任何程式碼，還沒 commit | `bash tools/test_workflow/run_layers.sh selftest` | 秒級，完全離線 |
 | 改完想確認沒弄壞既有行為 | `bash tools/test_workflow/run_layers.sh quick` | 約 2 分鐘，不需要 Mininet |
-| 準備 commit／想跑「CI」 | `bash tools/test_workflow/local_ci.sh` | 實測 234–272 秒，6 個 job（GCC 建置+直跑+ctest、Python L1、ASan+UBSan、TSan、clang、p4 覆蓋閘門）。**不 fail-fast**——一次看完所有壞掉的東西 |
+| 準備 commit／想跑「CI」 | `bash tools/test_workflow/local_ci.sh` | 7 個 job（GCC 建置+直跑+ctest、GCC Release 建置+直跑+ctest、Python L1、ASan+UBSan、TSan、clang、p4 覆蓋閘門）；加入 Release job 之前實測 234–272 秒，加入之後沒有重新量過。**不 fail-fast**——一次看完所有壞掉的東西 |
 | 只想跑單元測試 | `bash tools/test_workflow/l1_unit_tests.sh` | **ctest 與直跑兩種都跑**——ctest 每個 TEST_F 各自一個 process，跨測試污染只有直跑抓得到 |
 | 改了 `.p4` | `tools/test_workflow/p4_coverage_gate.sh` | hash 沒變時 14ms；`--force` 強制實測 |
 | 動了資料面／要驗一輪 live | 見 §2、§3 | 要起 fabric |

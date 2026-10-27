@@ -1353,6 +1353,13 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
       〔2026-10-25 補：頂層 `CMakeLists.txt` 已改成 GCC 的非 Debug 建置不因這個警告失敗（警告照印，
       Debug 不變）。這項改動的 Release 建置是在它自己的修正上驗過的，合併到這裡之後沒有重跑
       Release；Release 的 CI job 另外處理。〕
+      〔2026-10-28 補：上一則已不成立。`-Wno-error=maybe-uninitialized` 現在只加在
+      `TopologyAndFlowMonitor.cpp` 與它的兩個測試檔（GCC、非 Debug）；其他檔案在 GCC 的非 Debug
+      建置下照樣因這個警告失敗。這只讓 GCC 報得出來的讀取變成錯誤，GCC 沒報的照樣漏。CI 已有
+      GCC Release job（`build-and-test-release`）；2026-10-28 在這項變更上以 GCC 13.3.0 跑 Release
+      全建置 rc=0（49 個警告，全在這三個檔，全是 Boost.Graph edge iterator 內快取的 out-edge
+      範圍），`test_routing_strategy` 直跑與 `ctest` 各 1448 個全過。清單是 GCC 13.3 量出來的；
+      換一版 GCC 若別的檔出現同一個誤報，把該檔加進清單，不要放回全域降級。〕
     - 同一欄位兩種寫法（`ipv4_dst`／`nw_dst`、`ipv4_src`／`nw_src`）正規化後不是同一個位址，
       `describeFlowEntryShapeProblem` 在 enqueue 前回 400；同一個位址的兩種寫法照收。
 - **平面**：P4
@@ -3409,7 +3416,7 @@ timeout 與 watchdog 間隔**都是衍生的**，所以改一個常數三個一�
   `tests/test_TopKFlowInfoLocking.cpp` 守——**這個函式在此之前一顆測試都沒有**。
   ⚠️ **順手量到一件本條沒寫的事**：排序的比較子拿的是 `const nlohmann::json&`，
   所以 `a["…"]` 走的是 **const `operator[]`**——它**不插入也不丟例外**，是
-  `JSON_ASSERT(找得到)`，即 **`abort()`**；而 Release 帶 `-DNDEBUG`（`CMakeLists.txt:76`）
+  `JSON_ASSERT(找得到)`，即 **`abort()`**；而 Release 帶 `-DNDEBUG`（`CMakeLists.txt:91`）
   時那個 assert 被編掉，變成解參考一個 past-the-end 迭代器。
   ⇒ **發射端與比較子的欄位名一旦不一致，不是某個端點回 500，是整個行程倒掉或 UB。**
   這是變異跑出來的：第一版把斷言寫在呼叫**之後**，行程在更早的 case 就 abort 了，

@@ -351,10 +351,10 @@ mutate_must_die \
 # assumed:
 #   _GLIBCXX_ASSERTIONS   not defined -- zero hits in CMakeLists.txt, tests/CMakeLists.txt, cmake/
 #   _GLIBCXX_DEBUG        not defined -- likewise zero hits
-#   sanitizers            opt-in only: cmake/sanitizer-flags.cmake:22-24 returns unless
-#                         -DSANITIZER= is passed, and tests/CMakeLists.txt:113 puts -fsanitize
+#   sanitizers            opt-in only: cmake/sanitizer-flags.cmake:29-31 returns unless
+#                         -DSANITIZER= is passed, and tests/CMakeLists.txt:282 puts -fsanitize
 #                         only on fuzz_sflow, behind FUZZING=ON (clang-only, OFF by default)
-#   the only global define is SPDLOG_ACTIVE_LEVEL (CMakeLists.txt:66)
+#   the only global define is SPDLOG_ACTIVE_LEVEL (CMakeLists.txt:81)
 #
 # So the likely outcome here is a SEGFAULT that kills the binary before any verdict is printed --
 # which mutate_may_survive reports as a catch-by-crash -- or, if the compiler is feeling

@@ -6,7 +6,7 @@
 #
 # GitHub Actions has been out of quota since b0a7bdc (all eight checks "Failing after 2s") and
 # the repo is staying private for now, so CI is whatever actually gets run on this machine.
-# The four workflow jobs are easy to name and easy to get wrong: TSan dies before main without
+# The five workflow jobs are easy to name and easy to get wrong: TSan dies before main without
 # `setarch -R`, ASan's UBSan half prints and still exits 0 without abort_on_error, clang needs
 # one -Wno-error, and the GCC job deliberately runs the binary *and* ctest because each catches
 # what the other misses. Running them by hand works exactly as long as someone remembers all of
@@ -25,7 +25,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-JOBS_ALL=(gcc python asan tsan clang p4cov)
+JOBS_ALL=(gcc release python asan tsan clang p4cov)
 
 if [[ -t 1 ]]; then
     G=$'\033[32m'; R=$'\033[31m'; D=$'\033[2m'; B=$'\033[1m'; N=$'\033[0m'
@@ -46,6 +46,15 @@ job_gcc() {
     # line.
     "$ROOT/build/bin/test_routing_strategy" || return 1
     ctest --test-dir "$ROOT/build" --output-on-failure || return 1
+}
+
+job_release() {
+    # The same build and tests at -O3: every other job is Debug, so a break that only an
+    # optimised build shows (an -O3 warning that -Werror makes fatal) is seen nowhere else.
+    cmake -S "$ROOT" -B "$ROOT/build-release" -DCMAKE_BUILD_TYPE=Release >/dev/null || return 1
+    cmake --build "$ROOT/build-release" -j"$(nproc)" || return 1
+    "$ROOT/build-release/bin/test_routing_strategy" || return 1
+    ctest --test-dir "$ROOT/build-release" --output-on-failure || return 1
 }
 
 job_python() {

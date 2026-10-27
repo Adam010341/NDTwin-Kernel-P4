@@ -152,6 +152,37 @@ jobs:
         # which nothing passed, and a file that ran nothing all fail.
 
   # ===========================================================================
+  # L0 + L1 again, optimised. Every other job builds Debug, so a break that only -O3 shows (a
+  # warning that -Werror turns into an error) went unseen until someone built Release by hand.
+  # The Python lane is not repeated: it does not depend on how the C++ is built.
+  # ===========================================================================
+  build-and-test-release:
+    name: Build and unit tests (GCC Release)
+    runs-on: ubuntu-24.04
+    # The full Release build took 20m36s at one job on the development machine (2026-10-28).
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        timeout-minutes: 15
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q ${{ env.APT_PACKAGES }}
+
+      - name: Configure (Release)
+        run: cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (Release)
+        run: cmake --build build-release -j"$(nproc)"
+
+      - name: Unit tests (direct execution)
+        run: ./build-release/bin/test_routing_strategy
+
+      - name: Unit tests (ctest)
+        run: ctest --test-dir build-release --output-on-failure
+
+  # ===========================================================================
   # ASan + UBSan. Same tests, different instrumentation.
   # ===========================================================================
   sanitize-address:
