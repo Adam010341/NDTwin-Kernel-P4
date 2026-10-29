@@ -823,6 +823,10 @@ class TheP4infoSuffix(AppTree, unittest.TestCase):
         message = str(caught.exception)
         self.assertIn("build/app.p4.p4info.txt", message)
         self.assertIn("build/app.p4.p4info.txtpb", message)
+        # [Co-developed with claude code -- Adam] tutorials' `clean` target runs `mn -c` under
+        # sudo, which would tear down NDTwin's fabric; the remedy must not name it.
+        self.assertIn("make build", message)
+        self.assertNotIn("make clean", message)
 
     def test_with_neither_the_refusal_names_the_current_spelling(self):
         os.remove(os.path.join(self.app, "build/app.p4.p4info.txt"))

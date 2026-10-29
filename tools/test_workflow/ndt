@@ -2127,14 +2127,25 @@ app_preflight() {
         return 1
     fi
     [[ -r "$tool" ]] || { err "no package pre-flight at $tool"; return 1; }
-    # [Co-developed with claude code -- Adam] The package this run generated from an exercise
-    # gets no `roles suggestion` row: it would tell the user to edit a package.json the next run
-    # overwrites, and one_step.py has already printed the choice as ndt flags.
+    # [Co-developed with claude code -- Adam] A generated package -- the one this run converted
+    # from an exercise, or one under .test_run/packages/generated/ given by its own path -- gets
+    # no `roles suggestion` row: it would tell the user to edit a package.json the next
+    # conversion replaces. The way to choose a role there is an ndt flag, which one_step.py prints.
     local -a extra=()
-    [[ -n "$APP_FROM_EXERCISE" && "$dir" == "$APP_FROM_EXERCISE" ]] && extra=(--no-role-suggestion)
+    app_is_generated "$dir" && extra=(--no-role-suggestion)
     out="$("$py" "$tool" "$dir" ${extra[@]+"${extra[@]}"} 2>&1)"; rc=$?
     printf '%s\n' "$out"
     return $rc
+}
+
+# app_is_generated <dir> -- true when <dir> is a package tools/p4_exercise/one_step.py put under
+# this checkout's .test_run/packages/generated/ (compared resolved, so a symlink to one counts).
+# [Co-developed with claude code -- Adam]
+app_is_generated() {
+    local gen real
+    gen="$(readlink -f "$REPO/.test_run/packages/generated" 2>/dev/null)" || return 1
+    real="$(readlink -f "$1" 2>/dev/null)" || return 1
+    [[ -n "$gen" && "$real" == "$gen"/* ]]
 }
 
 # app_is_exercise <dir> -- true when <dir> holds a p4lang-tutorials topology.json at its top or
@@ -11068,6 +11079,12 @@ up_take_app_flag() {
     fi
     NDT_APP_DIR="$(cd "$NDT_APP_DIR" 2>/dev/null && pwd)" || {
         err "--app: could not resolve that directory to an absolute path"; return 2; }
+    # [Co-developed with claude code -- Adam] ... nor one that resolves through a link to such a path.
+    local app_real; app_real="$(readlink -f "$NDT_APP_DIR" 2>/dev/null)"
+    if [[ "$app_real" == *$'\n'* || "$app_real" == *$'\r'* ]]; then
+        err "--app: the directory resolves to a path with a line break in it; rename it first"
+        return 2
+    fi
     return 0
 }
 
@@ -11202,9 +11219,10 @@ usage: ndt <command>
                   --app is a P4 flag: on any other plane it is a usage error (2), not
                   an ignored argument.
                 --app <exercise dir> takes a p4lang-tutorials exercise directly, once
-                  'make build' has compiled it (a plain 'make' is 'make run', which
-                  starts tutorials' own Mininet; an unbuilt exercise is refused with
-                  the make build command). tools/p4_exercise/one_step.py converts it
+                  'make build' has compiled it ('make build' only compiles; the
+                  exercise Makefile's default target also starts tutorials' own
+                  Mininet; an unbuilt exercise is refused with the make build
+                  command). tools/p4_exercise/one_step.py converts it
                   into a package under .test_run/packages/generated/ -- never inside
                   the exercise -- and prints its path and the route role it chose;
                   pre-flight and the bring-up then run on that package as above. A

@@ -21,9 +21,9 @@ It is convert.py with the three things a user would otherwise type worked out:
   * the route role: `convert.py --auto-role` (owner package, or `--table-owner ndtwin`), unless
     `--role-ipv4-route` names one or `--no-roles` asks for none.
 
-The user compiles the exercise with `make build`. (A plain `make` is `make run`, which starts
-tutorials' own Mininet under sudo beside NDTwin's fabric.) An unbuilt exercise is refused by
-convert.py, with that command.
+The user compiles the exercise with `make build`, which only compiles. (The Makefile's default
+target also starts tutorials' own Mininet under sudo, beside NDTwin's fabric.) An unbuilt exercise
+is refused by convert.py, with that command.
 
 WHERE THE PACKAGE GOES: <run-dir>/packages/generated/<exercise name>-<8 hex digits>, the digits
 being the start of the sha256 of the exercise's resolved path.
@@ -46,7 +46,8 @@ pointed at a half-written package) and compares the result with the last one fil
 Staging directories a killed run left behind for the same exercise are removed first.
 
 Exit: 0 the package is ready (its path is printed, and written to --emit-path); 2 a usage error
-(a malformed or conflicting flag, an unusable path); 5 refused, and no package was written.
+(a malformed or conflicting flag, or an exercise path with a line break in it); 5 refused, and no
+package was written.
 """
 import argparse
 import glob
@@ -99,12 +100,8 @@ def topology_candidates(exercise_dir):
 _MAKE_VAR = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*[:?]?=\s*(.*?)\s*(?:#.*)?$")
 
 
-def makefile_var(exercise_dir, name):
-    """The plain value the exercise's Makefile assigns to `name`, or None.
-
-    Only a literal value counts: one built from `$(...)` is the Makefile's own computation and is
-    not reproduced here.
-    """
+def makefile_assignment(exercise_dir, name):
+    """What the exercise's Makefile assigns to `name`, as written, or None when it assigns nothing."""
     try:
         with open(os.path.join(exercise_dir, "Makefile"), encoding="utf-8", errors="replace") as fh:
             lines = fh.read().splitlines()
@@ -112,15 +109,38 @@ def makefile_var(exercise_dir, name):
         return None
     for line in lines:
         m = _MAKE_VAR.match(line)
-        if m and m.group(1) == name and m.group(2) and "$" not in m.group(2):
+        if m and m.group(1) == name and m.group(2):
             return m.group(2)
     return None
+
+
+def makefile_var(exercise_dir, name):
+    """The plain value the exercise's Makefile assigns to `name`, or None.
+
+    Only a literal value counts: one built from `$(...)` is the Makefile's own computation and is
+    not reproduced here.
+    """
+    value = makefile_assignment(exercise_dir, name)
+    return value if value is not None and "$" not in value else None
+
+
+def _inside_exercise(exercise_dir, rel, what):
+    """Refuse a path that is absolute or resolves outside the exercise: convert.py copies the
+    topology into the package at this same relative path, so one outside the exercise would be
+    written outside the package. [Co-developed with claude code -- Adam]"""
+    real_ex = os.path.realpath(exercise_dir)
+    real = os.path.realpath(os.path.join(real_ex, rel))
+    if os.path.isabs(rel) or not real.startswith(real_ex + os.sep):
+        raise convert.ConversionError(
+            f"{what} is {rel}, which is outside {exercise_dir}; the topology must be a file of "
+            f"the exercise, named relative to it")
+    return rel
 
 
 def choose_topology(exercise_dir, given=None):
     """(topology_rel, how it was chosen): --topology, the Makefile's TOPO, or the only one."""
     if given:
-        return given, f"{TOPOLOGY_FLAG}"
+        return _inside_exercise(exercise_dir, given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"
     found = topology_candidates(exercise_dir)
     if not found:
         raise convert.ConversionError(
@@ -128,6 +148,7 @@ def choose_topology(exercise_dir, given=None):
             f"exercise (no topology.json at its top or one directory down)")
     make_topo = makefile_var(exercise_dir, "TOPO")
     if make_topo:
+        _inside_exercise(exercise_dir, make_topo, "the Makefile's TOPO")
         if not os.path.isfile(os.path.join(exercise_dir, make_topo)):
             raise convert.ConversionError(
                 f"the Makefile's TOPO is {make_topo}, which is not in {exercise_dir}. Pick the "
@@ -135,9 +156,12 @@ def choose_topology(exercise_dir, given=None):
         return make_topo, "the Makefile's TOPO"
     if len(found) == 1:
         return found[0], "the only one"
+    computed = makefile_assignment(exercise_dir, "TOPO")
+    why = (f"its Makefile computes TOPO ({computed}), which this tool does not evaluate"
+           if computed else "its Makefile sets no TOPO")
     raise convert.ConversionError(
-        f"{exercise_dir} has {len(found)} topologies ({', '.join(found)}) and its Makefile sets "
-        f"no TOPO. Pick one with {TOPOLOGY_FLAG}, for example  {TOPOLOGY_FLAG} {found[0]}")
+        f"{exercise_dir} has {len(found)} topologies ({', '.join(found)}) and {why}. Pick one "
+        f"with {TOPOLOGY_FLAG}, for example  {TOPOLOGY_FLAG} {found[0]}")
 
 
 def choose_p4(exercise_dir, given=None):
@@ -196,6 +220,23 @@ def _same_dir(a, b):
     return bool(a) and bool(b) and os.path.realpath(a) == os.path.realpath(b)
 
 
+def _same_filesystem(a, b):
+    """Whether two existing directories are on one filesystem, so a rename between them is one
+    step. [Co-developed with claude code -- Adam]"""
+    return os.stat(a).st_dev == os.stat(b).st_dev
+
+
+def _move(src, dst):
+    """os.rename, with a failure said as a refusal that names the cause instead of a traceback."""
+    try:
+        os.rename(src, dst)
+    except OSError as exc:
+        raise convert.ConversionError(
+            f"could not move {src} to {dst}: {exc.strerror or exc}. The conversion is built beside "
+            f"the run directory's packages/ and moved into place in one rename, which needs both "
+            f"on one filesystem") from exc
+
+
 def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner=None,
             no_roles=False, in_use=None):
     """Convert, compare with the last conversion, and put the package in place.
@@ -232,6 +273,13 @@ def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner
     stage_root = staging_root(run_dir)
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     os.makedirs(stage_root, exist_ok=True)
+    if not _same_filesystem(stage_root, os.path.dirname(dest)):
+        # Refused before anything is converted: a rename across filesystems is a copy, and a
+        # half-copied package in packages/generated/ is what staging exists to prevent.
+        raise convert.ConversionError(
+            f"{stage_root} and {os.path.dirname(dest)} are on two filesystems, so a conversion "
+            f"cannot be put in place in one rename. Keep {os.path.join(run_dir, 'packages')} and "
+            f"{stage_root} on one filesystem (do not mount or link one of them elsewhere)")
     # What a killed run of this same exercise left behind. Only this exercise's: another
     # exercise's conversion may be running beside this one.
     for stale in glob.glob(os.path.join(stage_root, glob.escape(os.path.basename(dest)) + ".*-*")):
@@ -256,12 +304,17 @@ def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner
                 f"Take it down first:  ndt down")
         elif os.path.isdir(dest):
             old = tempfile.mkdtemp(prefix=os.path.basename(dest) + ".old-", dir=stage_root)
-            os.rename(dest, os.path.join(old, "pkg"))
-            os.rename(staging, dest)
+            _move(dest, os.path.join(old, "pkg"))
+            try:
+                _move(staging, dest)
+            except convert.ConversionError:
+                os.rename(os.path.join(old, "pkg"), dest)     # the old package goes back
+                shutil.rmtree(old, ignore_errors=True)
+                raise
             shutil.rmtree(old, ignore_errors=True)
             state = "replaced"
         else:
-            os.rename(staging, dest)
+            _move(staging, dest)
             state = "created"
     finally:
         if os.path.isdir(staging):
@@ -340,10 +393,11 @@ def main(argv=None):
                     help="the tutorials topology.json, relative to the exercise (default: the "
                          "Makefile's TOPO, else the only one)")
     ap.add_argument("--p4", default=None,
-                    help="the program every switch runs, relative to the exercise: its stem picks "
-                         "the compiled build/<stem>.json and build/<stem>.p4.p4info.txtpb, and the "
-                         "file itself is what pre-flight recompiles (default: the Makefile's "
-                         "DEFAULT_PROG, else the one .p4 at its top)")
+                    help="the exercise's default program, relative to the exercise: its stem "
+                         "picks the compiled build/<stem>.json and build/<stem>.p4.p4info.txtpb "
+                         "that every switch runs unless the topology names that switch's own "
+                         "`program`, and the file itself is what pre-flight recompiles (default: "
+                         "the Makefile's DEFAULT_PROG, else the one .p4 at its top)")
     ap.add_argument("--role-ipv4-route", default=None,
                     metavar="[owner=,]table=,match_field=,action=,dst_mac=,port=",
                     help="the forwarding table's role, written out; wins over the auto-filled one")
@@ -371,6 +425,10 @@ def main(argv=None):
     # A newline in the path cannot be written to the app-package knob, which is one line.
     if "\n" in args.exercise_dir or "\r" in args.exercise_dir:
         print("usage: the exercise path has a line break in it", file=sys.stderr)
+        return RC_USAGE
+    real = os.path.realpath(args.exercise_dir)
+    if "\n" in real or "\r" in real:
+        print("usage: the exercise path resolves to one with a line break in it", file=sys.stderr)
         return RC_USAGE
     if args.no_roles and (args.role_ipv4_route is not None or args.table_owner is not None):
         print("usage: --no-roles declares no route role, so it cannot be given with "

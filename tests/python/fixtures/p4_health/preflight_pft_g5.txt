@@ -1,4 +1,4 @@
-# pre-flight's stdout on S0's PF-T package before the ternary writer (fixture of cc805894): the G5 refusal; run directory as <run>.
+# pre-flight's stdout on S0's PF-T package before the ternary writer (fixture of cc805894): the G5 refusal; run directory as <run>; the `roles suggestion` row was edited by hand on 2026-10-30 to preflight.suggestion_detail()'s owner-package text, and is not a row the pre-flight of this capture can be shown to have printed; every other row is as captured.
 pre-flight: <run>/packages/PF-T
   PASS  format                            1
   INFO  name                              p4-health-PF-T

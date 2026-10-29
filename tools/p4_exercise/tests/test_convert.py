@@ -474,7 +474,9 @@ class PerSwitchPipelines(TmpMixin, unittest.TestCase):
         with self.assertRaises(convert.ConversionError) as cm:
             convert.switch_pipelines(FIREWALL, switches, "basic.p4")
         self.assertIn("build/nowhere", str(cm.exception))
-        self.assertIn("make", str(cm.exception))
+        # `make build`, never a bare `make`: tutorials' default target runs its own Mininet.
+        # [Co-developed with claude code -- Adam]
+        self.assertIn("`make build`", str(cm.exception))
 
     def test_the_p4info_of_a_program_is_the_json_stem_with_the_makefiles_suffix(self):
         # The naming rule, stated once: `build/firewall.json` and
@@ -1294,7 +1296,7 @@ class ConvertingWithTheRoleFlagTest(TmpMixin, unittest.TestCase):
 
 
 
-# --- the owner default, --owner and --auto-role ------------------------------------------------
+# --- the owner default, --table-owner and --auto-role ------------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 

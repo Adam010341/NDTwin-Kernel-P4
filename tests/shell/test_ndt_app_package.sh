@@ -1992,6 +1992,11 @@ OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$NLDIR")")"
 check "🔴 a path with a line break in it is a usage error" "2" "$(rc_of "$OUT")"
 has   "  saying why"                                      "has a line break in it" "$OUT"
 rm -rf "$NLDIR"
+NLDIR="$FIX/exercises/two"$'\n'"lines"; mkdir -p "$NLDIR/pod-topo"; ln -sfn "$NLDIR" "$FIX/exercises/plain-name"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$FIX/exercises/plain-name")")"
+check "🔴 so is a path that resolves to one with a line break" "2" "$(rc_of "$OUT")"
+has   "  saying why"                                      "resolves to a path with a line break in it" "$OUT"
+rm -rf "$NLDIR" "$FIX/exercises/plain-name"
 OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --topology')"
 check "  so is a trailing --topology"                     "2" "$(rc_of "$OUT")"
 
@@ -2011,6 +2016,20 @@ OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4')"
 check "🔴 a package with no exercise flags is today's path" "0" "$(rc_of "$OUT")"
 check "🔴 and never reaches the converter"                "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
 hasnt "🔴 and its pre-flight is not told to drop the suggestion" "pre-flight: role suggestion off" "$OUT"
+# [Co-developed with claude code -- Adam] A generated package given by its own path, as one_step.py
+# prints it, is still a generated package: its package.json is the next conversion's to replace.
+reset_one
+HAND="$FIX/.test_run/packages/generated/handmade-0000"; rm -rf "$HAND"; mkdir -p "$(dirname "$HAND")"
+cp -r "$PKG_OK" "$HAND"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$HAND")"'; up_p4')"
+check "  a generated package given by its path comes up"  "0" "$(rc_of "$OUT")"
+has   "🔴 and its pre-flight prints no role suggestion either" "pre-flight: role suggestion off" "$OUT"
+check "  without the converter"                           "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+reset_one
+HLINK="$FIX/packages/link-to-generated"; rm -f "$HLINK"; ln -s "$HAND" "$HLINK"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$HLINK")"'; up_p4')"
+has   "🔴 so is one reached through a symlink"            "pre-flight: role suggestion off" "$OUT"
+rm -rf "$HAND" "$HLINK"
 
 # 🔴 A PACKAGE THAT LOST ITS package.json IS NOT AN EXERCISE. Its ndtwin/topology.json is NDTwin's
 # model; converting the directory again would treat a generated package as somebody's source.
@@ -2057,8 +2076,14 @@ check "🔴 the converter's usage error stays a usage error (2)" "2" "$(rc_of "$
 check "🔴 and the knob was not written"                   "absent" "$(knob_state)"
 reset_one; : > "$ONE_STEP_NO_PATH"
 OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
-check "🔴 rc 0 with no package path named is a refusal"   "5" "$(rc_of "$OUT")"
-has   "🔴 by the converter step, which names no package"  "was not converted into an app package" "$OUT"
+has   "🔴 rc 0 with no package path named is refused by the converter step" \
+      "was not converted into an app package" "$OUT"
+# Controls, unmarked: the model check further down refuses an empty path too, so no single
+# mutation of the converter step can redden these -- they hold the file's rule that every
+# refusal leaves the knob and the machine alone.
+check "  a refusal (5)"                                   "5" "$(rc_of "$OUT")"
+check "  the knob was not written"                        "absent" "$(knob_state)"
+check "  and nothing was touched"                         "sudo=0 stack=0" "$(touched)"
 
 # The default behind the seam, which the stand-in cannot say: the real converter, in this
 # checkout. Under these stubs REPO is the fixture, which has no tools/p4_exercise, so the
@@ -2113,7 +2138,7 @@ check "  which is under .test_run/packages/generated/"    "$FIX/.test_run/packag
 has   "  the Makefile's TOPO chose the topology"          "pod-topo/topology.json   (the Makefile's TOPO)" "$OUT"
 has   "  the role was auto-filled"                        "auto-filled from the p4info -- its one (table, action) candidate" "$OUT"
 has   "🔴 the real pre-flight passed the generated package" "PASS -- every check passed" "$OUT"
-has   "🔴 and resolved the auto-filled role, owner package" "owner package" "$OUT"
+has   "🔴 and resolved the auto-filled role, owner package" "MyIngress.ipv4_forward(dstAddr, port bit<9>), owner package" "$OUT"
 # topo-start and, a real package having inter-switch links, the heartbeat: two sudo calls.
 check "  the machine was reached: one bring-up"           "stack=1" "$(touched | sed 's/^sudo=[0-9]* //')"
 E2E_SUM="$(tree_sum "$E2E_GEN")"

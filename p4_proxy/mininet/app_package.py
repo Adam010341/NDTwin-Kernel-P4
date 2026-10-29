@@ -880,7 +880,8 @@ def parse_roles(raw, where) -> Optional[Roles]:
 
     [Co-developed with claude code -- Adam]
     This cut knows ONE role, `ipv4_route`, with exactly the keys
-    `owner`, `table`, `match_field`, `action`, `params` and `params` exactly `dst_mac`, `port`.
+    `owner`, `table`, `match_field`, `action`, `params` -- `owner` may be left out (see below) --
+    and `params` exactly `dst_mac`, `port`.
     Anything else -- another role name, a missing key, an extra key -- is refused naming it,
     because a misspelled key would leave the real one missing and the fabric running a binding
     nobody declared. `owner` is `ndtwin` or `package` and nothing else.

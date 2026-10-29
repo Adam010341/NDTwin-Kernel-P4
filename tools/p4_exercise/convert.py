@@ -33,8 +33,8 @@ exercise-relative, e.g. "pod-topo/s1-runtime.json") the same string.
 What it deliberately does NOT do:
 
   * It does not invent a pipeline. `switches[*].pipeline` names only artefacts the exercise
-    has ALREADY been built into (`make`), copied into the package beside the runtime files it
-    already copies; an unbuilt exercise is refused with the make command rather than converted
+    has ALREADY been built into (`make build`), copied into the package beside the runtime files
+    it already copies; an unbuilt exercise is refused with that command rather than converted
     into a package naming files that are not there. With no `--p4` -- and with
     `--ndtwin-pipeline` -- every switch is `null`, which the reader turns into NDTwin's own
     artefact.
@@ -466,7 +466,7 @@ def _p4info_rel(exercise_dir, directory, stem):
         raise ConversionError(
             f"{exercise_dir} holds both {present[0]!r} and {present[1]!r}: two p4infos for one "
             f"program, i.e. two builds, and nothing says which one {stem}.json came from. Remove "
-            f"the stale one (or `make clean && make`)")
+            f"the stale one, or delete build/ and run `make build`")
     return present[0] if present else names[0]
 
 
@@ -960,6 +960,20 @@ def auto_route_role(exercise_dir, package, model, owner=DEFAULT_ROLE_OWNER):
                             + "; ".join(_describe_candidate(c) for c in found["candidates"]))
             found["warn"] = True
     if owner == "ndtwin" and found["role"] is None:
+        # [Co-developed with claude code -- Adam] Each case its own way out: on an external
+        # plane no role can be written at all (apply_route_role refuses one), and several
+        # candidates are named as the flag line that picks each, as one_step.py prints them.
+        if external is True:
+            raise ConversionError(
+                "--table-owner ndtwin asks NDTwin to write this program's forwarding table, and "
+                "the control plane is external: the exercise's own controller owns every table, "
+                "so NDTwin can own none. Drop --table-owner")
+        if len(found["candidates"]) > 1:
+            raise ConversionError(
+                "--table-owner ndtwin asks NDTwin to write this program's forwarding table, and "
+                f"{len(found['candidates'])} candidates qualify. Pick one by adding its line: "
+                + "; ".join(f"--role-ipv4-route owner=ndtwin,{role_flag_text(c)}"
+                            for c in found["candidates"]))
         raise ConversionError(
             f"--table-owner ndtwin asks NDTwin to write this program's forwarding table, and no "
             f"single one was found: {found['why']}. Name it with --role-ipv4-route")

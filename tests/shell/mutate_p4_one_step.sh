@@ -35,7 +35,8 @@ SOURCES=("$EXDIR/one_step.py" "$EXDIR/convert.py" "$EXDIR/preflight.py" "$EXDIR/
          "$EXDIR/tests/test_one_step.py" "$EXDIR/tests/test_convert.py"
          "$EXDIR/tests/test_preflight.py" "$REPO/tests/python/test_one_step_repo.py")
 TEST_FILES="tools/p4_exercise/tests/test_one_step tools/p4_exercise/tests/test_convert
-tools/p4_exercise/tests/test_preflight tests/python/test_one_step_repo"
+tools/p4_exercise/tests/test_preflight tools/p4_exercise/tests/test_thrift_cli
+tests/python/test_one_step_repo p4_proxy/tests/test_route_binding"
 NEW_TESTS_SPEC="test_one_step:* test_convert:OwnerDefaultTest test_convert:AutoRoleFlagTest test_preflight:TheSuggestionTest test_one_step_repo:*"
 
 # The interpreter: a worktree has no venv of its own, so the main worktree is consulted.
@@ -61,6 +62,9 @@ tree_copy() {   # tree_copy <dir> -- tools/p4_exercise and p4_proxy/{mininet,pro
     # tests/ is read only (CapturedSuggestionRowsTest reads tests/python/fixtures/p4_health).
     ln -s "$REPO/tests" "$1/tests"
     ln -s "$REPO/tools/ndt_serve" "$1/tools/ndt_serve"      # read only, by test_one_step_repo.py
+    mkdir -p "$1/tools/test_workflow"
+    ln -s "$REPO/tools/test_workflow/ndt" "$1/tools/test_workflow/ndt"   # read only, the same
+    ln -s "$REPO/setting" "$1/setting"                      # read only, by test_route_binding.py
     # p4_proxy: the two directories a mutation may touch are copied, everything else is linked.
     mkdir -p "$1/p4_proxy"
     local e
@@ -263,8 +267,13 @@ mut R2_in_use_replaced "$ONE_STEP" \
     test_a_package_a_fabric_still_runs_is_not_replaced
 mut R3_copied_over "$ONE_STEP" \
     '            old = tempfile.mkdtemp(prefix=os.path.basename(dest) + ".old-", dir=stage_root)
-            os.rename(dest, os.path.join(old, "pkg"))
-            os.rename(staging, dest)
+            _move(dest, os.path.join(old, "pkg"))
+            try:
+                _move(staging, dest)
+            except convert.ConversionError:
+                os.rename(os.path.join(old, "pkg"), dest)     # the old package goes back
+                shutil.rmtree(old, ignore_errors=True)
+                raise
             shutil.rmtree(old, ignore_errors=True)' \
     '            shutil.copytree(staging, dest, dirs_exist_ok=True)' \
     test_a_different_result_replaces_it_whole
@@ -395,7 +404,7 @@ mut H2_any_switch_will_do "$PREFLIGHT" \
     test_a_candidate_must_fit_every_switch
 
 
-# --- round 2: the TOPO default, paths, staging, the stripped count, the flags ---------------------
+# --- the TOPO default, paths, staging, the stripped count, the flags ---------------------
 # [Co-developed with claude code -- Adam]
 mut N1_topo_ignored "$ONE_STEP" \
     '    make_topo = makefile_var(exercise_dir, "TOPO")' \
@@ -475,7 +484,7 @@ mut N20_no_roles_dropped "$ONE_STEP" \
     '                         no_roles=False, in_use=args.in_use)' \
     test_every_flag_is_forwarded_to_prepare
 
-# --- round 2: pre-flight's suggestion, and a role that names no owner -----------------------------
+# --- pre-flight's suggestion, and a role that names no owner -----------------------------
 mut S1_suggestion_owner_ndtwin "$PREFLIGHT" \
     '    block = {"ipv4_route": dict(suggestion, owner="package")}' \
     '    block = {"ipv4_route": suggestion}' \
@@ -497,7 +506,7 @@ mut S4_cli_switch_ignored "$PREFLIGHT" \
 mut S5_loader_default_ndtwin "$APP_PACKAGE" \
     'ROLE_DEFAULT_OWNER = "package"' \
     'ROLE_DEFAULT_OWNER = "ndtwin"' \
-    test_the_loader_gives_it_owner_package
+    test_the_loader_gives_it_owner_package test_the_loader_and_the_resolver_agree_on_the_shape
 mut S6_loader_owner_required "$APP_PACKAGE" \
     '    route = dict(route, owner=route.get("owner", ROLE_DEFAULT_OWNER))' \
     '    pass' \
@@ -505,11 +514,62 @@ mut S6_loader_owner_required "$APP_PACKAGE" \
 mut S7_resolver_default_ndtwin "$ROUTE_BINDING" \
     'DEFAULT_OWNER = OWNER_PACKAGE' \
     'DEFAULT_OWNER = OWNER_NDTWIN' \
-    test_the_resolver_gives_it_owner_package
+    test_the_resolver_gives_it_owner_package test_the_loader_and_the_resolver_agree_on_the_shape
 mut S8_resolver_owner_required "$ROUTE_BINDING" \
     '    role = dict(role, owner=role.get("owner", DEFAULT_OWNER))' \
     '    pass' \
     test_the_resolver_gives_it_owner_package
+
+# --- refusals that name their way out, and paths that stay inside the exercise ---------------------
+mut F3a_several_named_in_prose "$CONVERT" \
+    '        if len(found["candidates"]) > 1:' \
+    '        if False:' \
+    test_table_owner_ndtwin_with_several_names_each_as_a_flag_line
+mut F3b_external_pointed_at_a_role "$CONVERT" \
+    '        if external is True:' \
+    '        if False:' \
+    test_table_owner_ndtwin_on_an_external_plane_says_so
+mut F6a_two_filesystems_taken "$ONE_STEP" \
+    '    if not _same_filesystem(stage_root, os.path.dirname(dest)):' \
+    '    if False:' \
+    test_staging_on_another_filesystem_is_refused_before_converting
+mut F6b_a_failed_move_is_a_traceback "$ONE_STEP" \
+    '    except OSError as exc:
+        raise convert.ConversionError(
+            f"could not move' \
+    '    except ImportError as exc:
+        raise convert.ConversionError(
+            f"could not move' \
+    test_a_failed_move_is_a_refusal_and_the_old_package_stays
+mut F6c_the_old_package_is_lost "$ONE_STEP" \
+    '                os.rename(os.path.join(old, "pkg"), dest)     # the old package goes back' \
+    '                pass' \
+    test_a_failed_move_is_a_refusal_and_the_old_package_stays
+mut F7a_anything_is_inside "$ONE_STEP" \
+    '    if os.path.isabs(rel) or not real.startswith(real_ex + os.sep):' \
+    '    if False:' \
+    test_a_topo_outside_the_exercise_is_refused test_a_topology_flag_outside_the_exercise_is_refused
+mut F7b_the_flag_unchecked "$ONE_STEP" \
+    '        return _inside_exercise(exercise_dir, given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"' \
+    '        return given, f"{TOPOLOGY_FLAG}"' \
+    test_a_topology_flag_outside_the_exercise_is_refused
+mut F7c_topo_unchecked "$ONE_STEP" \
+    '        _inside_exercise(exercise_dir, make_topo, ' \
+    '        (lambda *a: None)(exercise_dir, make_topo, ' \
+    test_a_topo_outside_the_exercise_is_refused
+mut N21_computed_topo_called_unset "$ONE_STEP" \
+    '           if computed else "its Makefile sets no TOPO")' \
+    '           if False else "its Makefile sets no TOPO")' \
+    test_a_computed_topo_is_said_to_be_unread_not_unset
+mut N22_resolved_line_break_taken "$ONE_STEP" \
+    '    if "\n" in real or "\r" in real:' \
+    '    if False:' \
+    test_usage_errors_are_2
+mut M1_make_clean_advised_again "$CONVERT" \
+    '            f"the stale one, or delete build/ and run `make build`")' \
+    '            f"the stale one (or `make clean && make`)")' \
+    test_both_spellings_present_is_refused_naming_both \
+    test_no_printed_string_in_tools_p4_exercise_advises_make
 
 # --- controls ---------------------------------------------------------------------------------
 control K1_comment_in_one_step "$ONE_STEP" \

@@ -128,6 +128,32 @@ class TopologyChoiceTest(ExerciseCase):
         self.refused(self.basic(makefile=makefile(topo="TOPO = gone/topology.json\n")),
                      "TOPO is gone/topology.json")
 
+    def test_a_topo_outside_the_exercise_is_refused(self):
+        # [Co-developed with claude code -- Adam] convert.py copies the topology into the package
+        # at its own relative path, so an absolute one or one through `..` would be copied out.
+        outside = os.path.join(self.tmp, "elsewhere-topology.json")
+        shutil.copyfile(os.path.join(FIXTURES, "basic", "pod-topo", "topology.json"), outside)
+        for n, topo in enumerate((outside, "../elsewhere-topology.json")):
+            with self.subTest(topo=topo):
+                d = self.basic(makefile=makefile(topo=f"TOPO = {topo}\n"), name=f"basic{n}")
+                self.refused(d, "is outside")
+
+    def test_a_topology_flag_outside_the_exercise_is_refused(self):
+        outside = os.path.join(self.tmp, "elsewhere-topology.json")
+        shutil.copyfile(os.path.join(FIXTURES, "basic", "pod-topo", "topology.json"), outside)
+        d = self.basic()
+        for topo in (outside, "../elsewhere-topology.json", "pod-topo/../../elsewhere-topology.json"):
+            with self.subTest(topo=topo):
+                self.refused(d, "--topology is", topology=topo)
+        self.assertEqual(self.generated(), [])
+
+    def test_a_computed_topo_is_said_to_be_unread_not_unset(self):
+        d = self.basic(makefile=makefile(topo="TOPO = $(EXAMPLE)/topology.json\n"))
+        text = self.refused(d, "has 2 topologies")
+        self.assertIn("computes TOPO ($(EXAMPLE)/topology.json), which this tool does not evaluate",
+                      text)
+        self.assertNotIn("sets no TOPO", text)
+
     def test_the_flag_picks_one_over_the_makefile(self):
         result = self.prepare(self.basic(), topology="triangle-topo/topology.json")
         self.assertEqual((result["topology"], result["topology_how"]),
@@ -299,6 +325,34 @@ class RerunTest(ExerciseCase):
         first = self.prepare(d)
         self.assertEqual(self.prepare(d, in_use=first["dest"])["state"], "unchanged")
 
+    def test_staging_on_another_filesystem_is_refused_before_converting(self):
+        real = one_step._same_filesystem
+        one_step._same_filesystem = lambda a, b: False
+        self.addCleanup(setattr, one_step, "_same_filesystem", real)
+        self.refused(self.basic_one_topology(), "are on two filesystems")
+        self.assertEqual(self.generated(), [])
+        self.assertEqual(os.listdir(one_step.staging_root(self.run_dir)), [])
+
+    def test_a_failed_move_is_a_refusal_and_the_old_package_stays(self):
+        import errno
+        from unittest import mock
+
+        d = self.basic_one_topology()
+        first = self.prepare(d)
+        before = tree(first["dest"])
+        real_rename = os.rename
+
+        def rename(src, dst):
+            if os.path.realpath(dst) == os.path.realpath(first["dest"]) and ".new-" in src:
+                raise OSError(errno.EXDEV, "Invalid cross-device link")
+            return real_rename(src, dst)
+
+        with mock.patch("os.rename", side_effect=rename):
+            text = self.refused(d, "Invalid cross-device link", owner="ndtwin")
+        self.assertIn("one filesystem", text)
+        self.assertEqual(tree(first["dest"]), before, "the old package was not put back")
+        self.assertEqual(os.listdir(one_step.staging_root(self.run_dir)), [])
+
     def test_staging_a_killed_run_left_behind_is_removed(self):
         d = self.basic_one_topology()
         dest = one_step.generated_dir(self.run_dir, d)
@@ -409,6 +463,23 @@ class RoleTest(ExerciseCase):
             with self.subTest(table=table):
                 result = self.prepare(d, role_text=flag)
                 self.assertEqual(self.package_json(result)["roles"]["ipv4_route"]["table"], table)
+
+    def test_table_owner_ndtwin_with_several_names_each_as_a_flag_line(self):
+        # [Co-developed with claude code -- Adam]
+        d = self.two_tables()
+        with self.assertRaises(convert.ConversionError) as caught:
+            self.prepare(d, owner="ndtwin")
+        text = str(caught.exception)
+        for table in ("MyIngress.ipv4_lpm,", "MyIngress.ipv4_lpm_backup,"):
+            self.assertIn("--role-ipv4-route owner=ndtwin,table=" + table, text)
+        flag = text.split("--role-ipv4-route ", 2)[1].split(";", 1)[0].strip()
+        result = self.prepare(d, role_text=flag)
+        self.assertEqual(self.package_json(result)["roles"]["ipv4_route"]["owner"], "ndtwin")
+
+    def test_table_owner_ndtwin_on_an_external_plane_says_so(self):
+        text = self.refused(self.exercise("p4runtime"), "the control plane is external",
+                            owner="ndtwin")
+        self.assertNotIn("--role-ipv4-route", text)
 
     def test_table_owner_ndtwin_with_no_single_candidate_is_refused(self):
         self.refused(self.two_tables(), "--table-owner ndtwin asks NDTwin to write", owner="ndtwin")
@@ -525,6 +596,14 @@ class OwnerLeftOutOfARoleTest(ExerciseCase):
 # --- the command line --------------------------------------------------------------------------
 
 class CommandLineTest(ExerciseCase):
+    def newline_link(self, target):
+        """A path without a line break that resolves to one with a line break in it."""
+        real = os.path.join(self.tmp, "two\nlines")
+        shutil.copytree(target, real)
+        link = os.path.join(self.tmp, "plain-link")
+        os.symlink(real, link)
+        return link
+
     def main(self, *argv):
         out = io.StringIO()
         err = io.StringIO()
@@ -561,7 +640,8 @@ class CommandLineTest(ExerciseCase):
                      (d, "--role-ipv4-route", "table=t"),
                      (d, "--role-ipv4-route", "owner=ndtwin," + convert.role_flag_text(
                          dict(BASIC_ROLE, owner="ndtwin")), "--table-owner", "package"),
-                     (d + "\nx",)):
+                     (d + "\nx",),
+                     (self.newline_link(d),)):
             with self.subTest(argv=argv[1:]):
                 rc, out = self.main(*argv, "--run-dir", self.run_dir)
                 self.assertEqual(rc, 2, out)

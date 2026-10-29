@@ -1513,7 +1513,7 @@ cat > "$A/m90.new" <<'EOF'
     if (( rc != 0 )); then
 EOF
 check_fires "M90: a converter that names no package is believed" m90 \
-            "🔴 by the converter step, which names no package"
+            "🔴 rc 0 with no package path named is refused by the converter step"
 
 cat > "$A/m91.old" <<'EOF'
     [[ -r "$tool" ]] || { err "no exercise converter at $tool"; return 5; }
@@ -1560,23 +1560,42 @@ check_fires "M95: a pre-flight refusal says nothing was written" m95 \
             "🔴 and the refusal says the generated package was written" "🔴 not that nothing was written"
 
 cat > "$A/m96.old" <<'EOF'
-    [[ -n "$APP_FROM_EXERCISE" && "$dir" == "$APP_FROM_EXERCISE" ]] && extra=(--no-role-suggestion)
+    app_is_generated "$dir" && extra=(--no-role-suggestion)
 EOF
 cat > "$A/m96.new" <<'EOF'
     :
 EOF
 check_fires "M96: the generated package's pre-flight suggests a package.json edit" m96 \
             "🔴 its pre-flight prints no role suggestion" \
+            "🔴 and its pre-flight prints no role suggestion either" \
             "🔴 and no package.json suggestion beside them" "🔴 and pre-flight does not suggest one anyway"
 
 cat > "$A/m97.old" <<'EOF'
-    [[ -n "$APP_FROM_EXERCISE" && "$dir" == "$APP_FROM_EXERCISE" ]] && extra=(--no-role-suggestion)
+    app_is_generated "$dir" && extra=(--no-role-suggestion)
 EOF
 cat > "$A/m97.new" <<'EOF'
     extra=(--no-role-suggestion)
 EOF
 check_fires "M97 (widening): every package's pre-flight drops the suggestion" m97 \
             "🔴 and its pre-flight is not told to drop the suggestion"
+
+cat > "$A/m98.old" <<'EOF'
+    real="$(readlink -f "$1" 2>/dev/null)" || return 1
+EOF
+cat > "$A/m98.new" <<'EOF'
+    real="$1"
+EOF
+check_fires "M98: a generated package reached through a symlink is not one" m98 \
+            "🔴 so is one reached through a symlink"
+
+cat > "$A/m99.old" <<'EOF'
+    if [[ "$app_real" == *$'\n'* || "$app_real" == *$'\r'* ]]; then
+EOF
+cat > "$A/m99.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M99: a path that resolves to one with a line break is taken" m99 \
+            "🔴 so is a path that resolves to one with a line break"
 
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"

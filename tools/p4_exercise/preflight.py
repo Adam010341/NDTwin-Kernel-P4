@@ -380,7 +380,7 @@ def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
 # 🔴 THE HEURISTIC LIVES HERE AND NOWHERE ELSE (2.1-6). A foreign pipeline with no `roles` whose
 # p4info has a table that LOOKS like a destination route table gets one INFO line: the block an
 # author could paste. It is never fatal and never consulted by the proxy -- a name is not
-# consent (ANALYSIS section 5).
+# consent.
 #
 # [Co-developed with claude code -- Adam]
 # Its one other caller is `convert.py --auto-role` (what `ndt up p4 --app <exercise dir>` runs),

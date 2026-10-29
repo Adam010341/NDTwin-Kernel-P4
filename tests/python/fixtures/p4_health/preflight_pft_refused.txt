@@ -1,4 +1,4 @@
-# pre-flight's stdout, captured 2026-10-11: tools/p4_exercise/preflight.py at 95a8972b on a copy of that PF-T package whose s2 entry 23 has the mask 255.255.255.0; run directory as <run>.
+# pre-flight's stdout, captured 2026-10-11: tools/p4_exercise/preflight.py at 95a8972b on a copy of that PF-T package whose s2 entry 23 has the mask 255.255.255.0; run directory as <run>; the `roles suggestion` row was edited by hand on 2026-10-30 to preflight.suggestion_detail()'s owner-package text; every other row is as captured.
 pre-flight: <run>/packages/PF-T-refused
   PASS  format                            1
   INFO  name                              p4-health-PF-T
