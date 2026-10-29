@@ -30,6 +30,9 @@ CONVERT="$REPO/tools/p4_exercise/convert.py"
 PREFLIGHT="$REPO/tools/p4_exercise/preflight.py"
 APP_PACKAGE="$REPO/p4_proxy/mininet/app_package.py"
 ROUTE_BINDING="$REPO/p4_proxy/proxy_agent/route_binding.py"
+NDT_FILE="$REPO/tools/test_workflow/ndt"
+REPO_TEST="$REPO/tests/python/test_one_step_repo.py"
+CAPTURE="$REPO/tests/python/fixtures/p4_health/preflight_pft.txt"
 SOURCES=("$EXDIR/one_step.py" "$EXDIR/convert.py" "$EXDIR/preflight.py" "$EXDIR/common.py"
          "$APP_PACKAGE" "$ROUTE_BINDING"
          "$EXDIR/tests/test_one_step.py" "$EXDIR/tests/test_convert.py"
@@ -60,10 +63,14 @@ tree_copy() {   # tree_copy <dir> -- tools/p4_exercise and p4_proxy/{mininet,pro
     cp -r "$EXDIR" "$1/tools/p4_exercise"
     rm -rf "$1/tools/p4_exercise/__pycache__" "$1/tools/p4_exercise/tests/__pycache__"
     # tests/ is read only (CapturedSuggestionRowsTest reads tests/python/fixtures/p4_health).
-    ln -s "$REPO/tests" "$1/tests"
+    # tests/python is copied (a mutation may touch a capture or test_one_step_repo.py's own
+    # pattern); nothing else under tests/ is read.
+    mkdir -p "$1/tests"
+    cp -r "$REPO/tests/python" "$1/tests/python"
+    find "$1/tests/python" -name __pycache__ -prune -exec rm -rf {} +
     ln -s "$REPO/tools/ndt_serve" "$1/tools/ndt_serve"      # read only, by test_one_step_repo.py
     mkdir -p "$1/tools/test_workflow"
-    ln -s "$REPO/tools/test_workflow/ndt" "$1/tools/test_workflow/ndt"   # read only, the same
+    cp "$REPO/tools/test_workflow/ndt" "$1/tools/test_workflow/ndt"      # read by test_one_step_repo.py
     ln -s "$REPO/setting" "$1/setting"                      # read only, by test_route_binding.py
     # p4_proxy: the two directories a mutation may touch are copied, everything else is linked.
     mkdir -p "$1/p4_proxy"
@@ -132,6 +139,8 @@ c = s.count(old)
 if c != 1:
     print("ANCHOR:%d" % c); sys.exit(0)
 io.open(target, "w", encoding="utf-8").write(s.replace(old, new, 1))
+if not target.endswith(".py"):
+    print("ok"); sys.exit(0)
 try:
     py_compile.compile(target, doraise=True, cfile=target + ".gatecheck")
 except py_compile.PyCompileError:
@@ -455,10 +464,6 @@ mut N13_bad_role_is_a_refusal "$ONE_STEP" \
             return RC_USAGE' \
     '            print(f"usage: {exc}", file=sys.stderr)' \
     test_usage_errors_are_2
-mut N14_line_break_taken "$ONE_STEP" \
-    '    if "\n" in args.exercise_dir or "\r" in args.exercise_dir:' \
-    '    if False:' \
-    test_usage_errors_are_2
 mut N15_in_use_dropped "$ONE_STEP" \
     '                         no_roles=args.no_roles, in_use=args.in_use)' \
     '                         no_roles=args.no_roles, in_use=None)' \
@@ -570,6 +575,19 @@ mut M1_make_clean_advised_again "$CONVERT" \
     '            f"the stale one (or `make clean && make`)")' \
     test_both_spellings_present_is_refused_naming_both \
     test_no_printed_string_in_tools_p4_exercise_advises_make
+
+mut M2_ndt_help_advises_make_again "$NDT_FILE" \
+    'exercise is refused with the make build' \
+    'exercise is refused with the (make) build' \
+    test_no_line_of_ndt_but_its_comments_advises_make
+mut M3_the_pattern_misses_make_and "$REPO_TEST" \
+    '                         r"|\bmake\s*&&")' \
+    '                         r"|\bmake\s*&&XX")' \
+    test_the_pattern_tells_the_command_from_the_verb
+mut M4_a_capture_says_nothing_of_its_edit "$CAPTURE" \
+    '; every other row is as captured.' \
+    '.' \
+    test_every_capture_says_its_suggestion_row_was_edited_by_hand
 
 # --- controls ---------------------------------------------------------------------------------
 control K1_comment_in_one_step "$ONE_STEP" \

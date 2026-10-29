@@ -422,13 +422,12 @@ def main(argv=None):
         if value is not None and not value.strip():
             print(f"usage: {flag} was given an empty value", file=sys.stderr)
             return RC_USAGE
-    # A newline in the path cannot be written to the app-package knob, which is one line.
-    if "\n" in args.exercise_dir or "\r" in args.exercise_dir:
-        print("usage: the exercise path has a line break in it", file=sys.stderr)
-        return RC_USAGE
+    # A newline in the path cannot be written to the app-package knob, which is one line. Asked of
+    # the resolved path, which is the one written: a line break in what was typed is in it too.
     real = os.path.realpath(args.exercise_dir)
     if "\n" in real or "\r" in real:
-        print("usage: the exercise path resolves to one with a line break in it", file=sys.stderr)
+        print("usage: the exercise path has, or resolves to one with, a line break in it",
+              file=sys.stderr)
         return RC_USAGE
     if args.no_roles and (args.role_ipv4_route is not None or args.table_owner is not None):
         print("usage: --no-roles declares no route role, so it cannot be given with "
