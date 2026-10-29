@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# FINDING #8, measured 2026-09-02 23:41-23:42 on a healthy 4-host OVS fabric
+# Measured 2026-09-02 23:41-23:42 on a healthy 4-host OVS fabric
 # (live OVS captures of 2026-09-03):
 #
 #     configuration

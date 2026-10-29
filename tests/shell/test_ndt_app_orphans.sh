@@ -44,7 +44,7 @@ set -uo pipefail
 export NO_COLOR=1                     # deterministic output to match on
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Env:  NDT_UNDER_TEST=<path>   -- point it at a copy to watch this suite go red. Added
-# 2026-09-12 (FIX-NDT-11 ②): section 10's red is a one-line edit to `ndt`'s fail-closed branch,
+# 2026-09-12: section 10's red is a one-line edit to `ndt`'s fail-closed branch,
 # and a red nobody can reproduce from the repo is a red that exists only in a log.
 NDT="${NDT_UNDER_TEST:-$HERE/../../tools/test_workflow/ndt}"
 
@@ -404,7 +404,7 @@ check "apps_status is quiet when there is none"   no  "$(has "ORPHAN" "$out")"
 # --- 8. C10-8: the scan is machine-wide, the verdict is this checkout's ------------
 #
 # [Co-developed with claude code -- Adam]
-# Measured 2026-09-12 15:05:14 (CELLS-2 window 1; the shape was ROLE-10 section 9 at 05:50).
+# Measured 2026-09-12 15:05:14 (the same shape was seen earlier that day, at 05:50).
 # Another worktree of this repo was running tests/shell/test_ndt_helper_apps_window.sh, whose
 # fixtures wear an app's argv on purpose. `ndt apps orphans` in the MAIN checkout counted them
 # as its own -- `VERDICT: NOT CLEAN`, over a lab that was down, clean and bridge-free -- and the
@@ -482,12 +482,12 @@ check "  and says nothing of theirs"              no  "$(has "ORPHAN" "$out")"
 SNAPSHOT_LINES=""
 rm -f "$PIDDIR"/app_*.pid
 
-# --- 10. E-7 / C10-8: the process nobody could attribute is counted as OURS --------
+# --- 10. the process nobody could attribute is counted as OURS --------
 #
 # [Co-developed with claude code -- Adam]
-# FIX-NDT-10 SUMMARY §7-9. `proc_checkout` answers 2 -- "could not tell" -- when BOTH
+# `proc_checkout` answers 2 -- "could not tell" -- when BOTH
 # /proc/<pid>/cwd and /proc/<pid>/fd are unreadable, every caller treats a 2 as ours, and the
-# report says so instead of claiming to know. That is the whole of C10-8's safety side: the apps
+# report says so instead of claiming to know. That is the whole of the fail-closed rule's safety side: the apps
 # `sudo ndtwin-lab` starts run as root, where both readings are refused, and treating "cannot
 # tell" as foreign would hand this checkout a clean verdict over exactly the orphan class it most
 # needs to find. Until now it had a red and a green only in tests/shell/test_orphans_verdict.sh
@@ -498,8 +498,8 @@ rm -f "$PIDDIR"/app_*.pid
 # proc_fd_links) and this section replaces them, so the process below is a real live fixture with
 # a real /proc entry and only the two channels are blinded. What that costs is stated rather than
 # hidden: this section proves what proc_checkout DOES with a blind pair, not that root processes
-# produce one -- the second half is an OS fact (FIX-NDT-10's live evidence: `/proc/<pid>/fd of a
-# root process could not be read`, R4-LIVE §4-A9) and is out of an offline suite's reach.
+# produce one -- the second half is an OS fact (measured live on 2026-09-12: `/proc/<pid>/fd of a
+# root process could not be read`) and is out of an offline suite's reach.
 #
 # 🔴 AND IT NEEDS THE DISCRIMINATING CONTROL. "Cannot tell -> ours" and "another tree's -> not
 # ours" are two answers to two inputs, and a proc_checkout that answered 2 to everything would
@@ -536,7 +536,7 @@ check "  and it is NOT filed under elsewhere"          0 \
       "$(in_ndt "$blind_both" "app_claims_pid te $FIX; echo \${#APP_ELSEWHERE[@]}")"
 
 # 🔴 It reaches the verdict. A fail-closed that stopped at the sentence would be a report that
-# says "I could not tell" over a rc 0 -- the E-7 shape with the sign flipped.
+# says "I could not tell" over a rc 0 -- the could-not-check-looks-clean shape with the sign flipped.
 OUT10="$(in_ndt "$blind_both" "app_ps_snapshot() { printf '%s %s\n' $FIX '$FIX_ARGV'; }
 rm -f '$PIDDIR'/app_*.pid
 apps_orphans; echo \"ORPHANS_RC=\$?\"")"

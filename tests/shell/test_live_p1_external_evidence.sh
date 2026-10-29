@@ -707,7 +707,7 @@ OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$FIX/h5_be
 check "🔴 a session that forwarded between switches: rc 1"  "1" "$(rc_of "$OUT")"
 OUT="$(ev show "$FIX/t1")"
 has   "🔴 N4's counters are labelled as before the pipeline" "(before the exercise's pipeline was loaded: not evidence about the program)" "$OUT"
-# [Co-developed with claude code -- Adam] The round-4 review's M-3: frames HEARD on every direction
+# [Co-developed with claude code -- Adam] Frames HEARD on every direction
 # inside the exercise's controller's own window -- else the treatment arm is about nothing. Round 6: the
 # window runs from the sample that saw the log reach its last pipeline push to the log's last write.
 OUT="$(ev compare "$FIX/c1" "$FIX/t1" --control2 "$FIX/c2" --samples "$S")"

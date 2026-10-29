@@ -7,7 +7,7 @@
 # The subjects are the places where a reading that was NOT TAKEN used to be rendered as a
 # statement of fact. Each group names the 09-05 night-round finding it pins.
 #
-# I-1 (W12), measured 3/3 on 2026-09-05 (15:46:18, 16:20:04, 17:34:09), each time within
+# I-1, measured 3/3 on 2026-09-05 (15:46:18, 16:20:04, 17:34:09), each time within
 # minutes of an OVS fabric being torn down in this very checkout:
 #
 #     up target
@@ -272,7 +272,7 @@ has   "it says the command names no model it can classify" "names no model this 
 hasnt "  rather than picking one"                        "last kernel.exit ran" "$OUT"
 
 # ==========================================================================================
-# I-4 (W13), measured 2026-09-05 17:21:57 -- one `ndt status`, two rows apart:
+# I-4, measured 2026-09-05 17:21:57 -- one `ndt status`, two rows apart:
 #
 #     note       arm r4p4 finished 17:17; lab free, night claim kept
 #     measuring  iperf3 -c 10.0.0.33 -p 5511 -t 200 -P 4 -i 0    + 7 more process(es)
@@ -428,7 +428,7 @@ ndt_port_label() { echo none; }
 cmd_clean
 echo \"RC=\$?\"" 2>&1)"
 # 🔴 3, not 0, since 2026-09-12: this fixture has no fabric, no registry entry and no held
-# port, so the assertion measured NOTHING and says so (FIX-NDT-8, form 1 Q1). What this cell is
+# port, so the assertion measured NOTHING and says so. What this cell is
 # about is unchanged -- the generations below must survive it -- and the rc is pinned here so
 # that a later edit cannot turn "nothing to judge" back into a bill of health unnoticed.
 check "the assertion itself judged nothing on this fixture" "3" "$(sed -n 's/^RC=//p' <<<"$CLEAN_OUT" | tail -1)"
@@ -858,7 +858,7 @@ check "  🔴 and that branch still reaches no sys.exit"   "1" \
       "$(grep -c 'sys.exit(4)' "$NDT")"
 
 section "5F. the 'down' rc table says a port held at [1/3] is not by itself a failure"
-# The other side of the rc A1-b connected. ROLE-12 measured it 7 times out of 7 on 2026-09-12:
+# The other side of the rc A1-b connected. It was measured 7 times out of 7 on 2026-09-12:
 # every `ndt down` over a LIVE P4 fabric exits 1 because stack.sh's port assertion runs in step
 # [1/3], before the bmv2 sweep in [3/3], and therefore names the twenty ports of the fabric this
 # very teardown is about to remove -- while the same log prints `ok ports closed: ...` four
@@ -916,10 +916,10 @@ section "5H. the help's --deep line quotes ports.sh's table, not three ports"
 # ports.sh's table since the table existed -- nine rules, 27 ports once the two per-device
 # ranges are expanded -- so the sentence understated by 24 the set of processes that verb can
 # kill, in the one place an operator is told what --deep does before running it. The manual was
-# corrected on 09-12 (FIX-DOC-1 F7, commit c395da50); this is the copy inside the tool.
+# corrected on 09-12 (commit c395da50); this is the copy inside the tool.
 #
 # 🔴 The number is GENERATED from the table, not typed next to it. A number typed here is the
-# same artefact one edit later: ROLE-11 counted 25 by hand on the machine and the table says 27.
+# same artefact one edit later: a hand count on the machine on 2026-09-12 said 25 and the table said 27.
 hasnt "  🔴 --deep no longer names three ports"       ":8000/:8080/:8081" "$HELP"
 has   "  it names the table instead"                  "ANY port in ports.sh's table" "$HELP"
 has   "  🔴 with the size read out of the table"      "9 rule(s), 27 port(s)" "$HELP"
@@ -946,7 +946,7 @@ has   "  naming the four things that refuse"             "claimed by somebody el
 has   "  including the teardown overlap"                 "from this checkout is still running, or NDT_TOPO" "$HELP"
 has   "  🔴 and 1 is scoped to a reading, not to failure in general" "1 says this command looked at the" "$HELP"
 # 🔴 The needle starts INSIDE the line, not at the sentence: `has` is a line-wise grep -F and
-# the help wraps "-- the / answer is 5". Same red FIX-NDT-5 and FIX-NDT-6 each took once.
+# the help wraps "-- the / answer is 5". Two earlier changes to the help each took this same red once.
 has   "  🔴 with the precedence when both are true"      "answer is 5, because the one action" "$HELP"
 has   "  and that the dirty reading is still printed"    "Both are still printed" "$HELP"
 has   "  🔴 and why 3 cannot appear under 'up'"          "cannot arise here" "$HELP"
@@ -1106,7 +1106,7 @@ check "  with the expires nothing else can reconstruct"  "$OLD_EXP" "$(cprev exp
 check "  and its note"                                   "the round that ended" "$(cprev note)"
 
 section "6C. 🔴 the loser of the race: free before the lock, held inside it"
-# The window ROLE-4 measured, made deterministic. foreign_claim answers "free" the first time
+# The window measured live on 2026-09-11, made deterministic. foreign_claim answers "free" the first time
 # and "taken" the second; the two readings are the subject -- one before the lock, one inside it.
 no_claim
 rm -f "$FIX/fc.n"
@@ -1154,7 +1154,7 @@ has   "  and says whose it is now"                       "direct-writer" "$OUT"
 hasnt "🔴 and does not report success"                   "lab claimed by fixture-owner" "$OUT"
 
 section "6G. three real claims in one instant: exactly one is told it won"
-# The end-to-end shape of ROLE-4's sweep, with no stub in it. It is 2/16 red before the lock and
+# The end-to-end shape of the 2026-09-11 live sweep, with no stub in it. It is 2/16 red before the lock and
 # deterministic after it, so it is the confirmation and 6C/6E/6F are the discriminating cells.
 no_claim
 rm -f "$FIX"/race.*
@@ -1169,9 +1169,9 @@ check "  and that one is the owner the file names"       "1" \
       "$(grep -cF "lab claimed by $WINNER" "$FIX/race.${WINNER#racer-}" 2>/dev/null)"
 
 section "6H. 🔴 'ndt release' keeps the claim it removed, as .prev"
-# FIX-NDT-3 SUMMARY section 7-3. `ndt claim` keeps one generation (6B above); `release` DELETED,
+# `ndt claim` keeps one generation (6B above); `release` DELETED,
 # and the two neighbours it was modelled on -- lab.handoff and round.baseline -- both rename. The
-# objection recorded there is that `.prev` could make a reader think somebody still holds the
+# objection to keeping it is that `.prev` could make a reader think somebody still holds the
 # lab; it cannot, because `ndt status` reads the LIVE claim for that question and answers "none"
 # after a release. What `.prev` answers is a different question -- who held it, and until when --
 # which is asked after the fact more often than during.
@@ -1343,7 +1343,7 @@ in_flight() { :; }
 app_probe() { APP_STATE=not-running; }
 cmd_clean() { return 0; }
 wait_reaped() { return 0; }
-# 🔴 THE PREMISE, stubbed 2026-09-12 (FIX-NDT-8): cmd_down now reads what it is ABOUT before it
+# 🔴 THE PREMISE, stubbed 2026-09-12: cmd_down now reads what it is ABOUT before it
 # acts, and none of bmv2_count / mn_count / topo_session / MANIFEST / the port table is redirected
 # in this fixture -- so without this line these cells would ask THIS MACHINE whether a lab is up,
 # and every rc below would depend on what somebody else left running. This group is about claims
@@ -1467,7 +1467,7 @@ rm -f "$(claim_file).prev" "$(claim_file).lock" "$FIX/fc.n" "$FIX"/race.*
 # ==========================================================================================
 
 section "9A. T3: 'these survive ndt down' was disproved by the same round's ndt down"
-# ROLE-4 01:56:27-01:57:54. Two `ndt apps nsr` in the same second left two processes and two
+# Measured 2026-09-11 01:56:27-01:57:54. Two `ndt apps nsr` in the same second left two processes and two
 # pidfiles naming different ones; `ndt status` printed "these survive 'ndt down'", and the
 # `ndt down` in that SAME round printed "nsr is running untracked (pid 2666802 2666801) --
 # stopping it by pid" and killed both (`ps` counted 0 afterwards).

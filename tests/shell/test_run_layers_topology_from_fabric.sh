@@ -7,7 +7,7 @@
 #
 # `topo_for_mode()` used to be `p4) echo "$TOPO_P4"`. On 2026-09-02 the fabric was the 128-host
 # P4 model and TOPO_P4 is the 4-host file, so L2/L3 reported `host count is 128, topology file
-# says 4` and `edge count is 288, topology file says 40` (raw/C39_r5_triage.log:5-9) -- a red on
+# says 4` and `edge count is 288, topology file says 40` -- a red on
 # a healthy system. `40_r5_p4.sh:336` greps that output for `BROKEN` to decide whether A-8 is
 # present, so the instrument manufactured the finding it was being read for.
 #
@@ -77,7 +77,7 @@ TOPO_OVS="$SETTING_DIR/StaticNetworkTopologyMininet_10Switches.json"
 LIVE_HOSTS=0
 fabric_host_count() { echo "$LIVE_HOSTS"; }
 
-# [Co-developed with claude code -- Adam] -- E-2.
+# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-15.
 # topo_for_mode now asks the kernel before it derives anything. THIS suite is about the
 # derivation, and it must not depend on whether something happens to be listening on :8000 --
 # a kernel running next door would otherwise answer, and every case below would be measuring

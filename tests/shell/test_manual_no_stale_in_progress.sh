@@ -54,7 +54,7 @@
 # thing it is for. Case 0 asserts that the lookup resolves for a ticket that IS merged, so a
 # broken lookup goes red HERE and by name, instead of going quiet over there.
 #
-# A line may quote what the document USED TO say -- FIX-DOC-3 left such a note at §2.8. The
+# A line may quote what the document USED TO say -- an edit on 2026-09-12 left such a note at §2.8. The
 # convention is one word: a line carrying 原本 or 曾經 is a record of a past wording, not a claim
 # about today, and case 6 skips it. It is a suppression, so it is greppable, and M4 removes the
 # word to show it is not a blanket.

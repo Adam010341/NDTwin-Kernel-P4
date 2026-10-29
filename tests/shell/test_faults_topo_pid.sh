@@ -324,7 +324,7 @@ check "a ( inside a \${ } in a substitution"               1 "$(by_name RUNS "$f
 check "a ) inside a \${ } in a substitution"               1 "$(by_name RUNS "$for_param_close")"
 check "a case after then is still a case"                  1 "$(by_name RUNS "$for_case_after_then")"
 
-# 🔴 2026-09-11, FIX-PROXY-1. The limit this checker wrote down on day one -- "shell only" --
+# 🔴 2026-09-11. The limit this checker wrote down on day one -- "shell only" --
 # was not a limit, it was where the two LIVE violations were: both mininet topologies ran
 # `os.system('sudo pkill -f simple_switch_grpc')` as root on every bring-up while the shell half
 # went green every night. In python the hazard is INSIDE a string literal, so the shell half's
@@ -482,7 +482,7 @@ check "  and it looked at more than one file"    yes \
 # 🔴 And at more than one LANGUAGE. Without this the surface can quietly go back to shell-only
 # and every check above still passes, because they all name their own fixture file.
 #
-# 🔴 2026-09-12, FIX-PROXY-2 A11. This used to read the REAL repo's scan output and require a
+# 🔴 2026-09-12. This used to read the REAL repo's scan output and require a
 # `.py:` site in it -- that is, it proved "python is in the surface" by requiring that a python
 # VIOLATION still exist. The last one was fixed the same day and this check went red on a clean
 # tree: an instrument that needs the defect to survive in order to report that it is looking.

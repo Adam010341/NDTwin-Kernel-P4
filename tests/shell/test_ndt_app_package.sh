@@ -17,7 +17,7 @@
 #
 # 🔴 WHAT MUST NOT HAPPEN IS HALF THE SUBJECT, twice over:
 #   * a REFUSED bring-up must not have moved the knob. `ndt up p4 --app <bad package>` that
-#     wrote the file on its way to saying no is the ROLE-9 defect (a refusal quoting a state
+#     wrote the file on its way to saying no is the KNOWN-ISSUES G-47 defect (a refusal quoting a state
 #     only the refusal had created) with a different file in it, so every refusal cell asserts
 #     the knob is byte-identical to what it was AND that stack.sh and sudo were never reached.
 #   * a knob must never be left PRESENT AND EMPTY. app_package.read_knob refuses that state
@@ -1740,7 +1740,7 @@ rm -f "$TELKNOB"
 # --- link shaping (G2-C's disclosure) --------------------------------------------------------
 mkpkg "$FIX/packages/shaped" ndtwin 4 4
 # 🔴 THE PACKAGE'S OWN LINK FORMAT, which is `["s1", 3]` pairs and not `"s1:3"` strings
-# (app_package._endpoint). Round 1's local reader in `ndt` invented the string form and agreed
+# (app_package._endpoint). The first version of `ndt`'s local reader invented the string form and agreed
 # with this fixture about it; app_package.shaped_links -- the function build_net passes
 # link=TCLink on -- would have raised on both.
 python3 - "$FIX/packages/shaped/package.json" <<'PYS'

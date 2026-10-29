@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# FIX-NDT-8 (merged af5efa4f, 2026-09-12) made `ndt up`, `ndt down` and `ndt clean` share ONE
+# The rc change merged as af5efa4f (2026-09-12) made `ndt up`, `ndt down` and `ndt clean` share ONE
 # rc vocabulary -- 1 measured and dirty, 3 nothing to measure, 5 a guard refused, 0 measured
 # and clean, 2 usage -- and put the three tables into `ndt help`. The manual was written
 # against the code BEFORE that, in three places, and one of them is the only paragraph in the
@@ -113,7 +113,7 @@ RESTORE="$(region NDT-RESTORE-CRITERION)"
 check "case 5  the manual carries exactly one rc table (BEGIN/END)" "1/1" "$BEGINS/$ENDS"
 
 # --- case 6: every code in the contract has a row ---------------------------------------------
-# The row form is `| <code> | ...`. The contract is FIX-NDT-8's five codes.
+# The row form is `| <code> | ...`. The contract is the five codes above.
 row() { grep -E "^\| *$1 *\|" <<<"$TABLE"; }
 for code in 0 1 2 3 5; do
     check "case 6  the rc table has a row for rc $code" 1 "$(row "$code" | grep -c . )"

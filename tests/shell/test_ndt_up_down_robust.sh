@@ -572,7 +572,7 @@ check "🔴 the same tree with a trailing slash is not a refusal" "0" "$(rc_of_o
 
 section "7. R5: topo-start's output is printed, not discarded"
 # ndtwin-lab prints "topo session started from <KERNEL_DIR>" on purpose -- its comment there
-# says FINDING-01 ran two trees for a whole round with no line of output that could have
+# says a whole round (measured 2026-08-30) ran two trees with no line of output that could have
 # caught it. `ndt` then sent that line to /dev/null (ndt:1673 on trunk), so on 09-10 the same
 # two-tree run produced nothing on screen naming either tree. The guard above only fires when
 # the trees DIFFER; this line is what names the tree when they do not.
@@ -594,7 +594,7 @@ has   "  alongside ndt's own line"                         "topo-start failed" "
 # ==========================================================================================
 section "8. H4: a model of a DIFFERENT network is refused before anything is built"
 # ==========================================================================================
-# Measured live by ROLE-2, 2026-09-11 01:20 (ROLE-2-CYCLES-REPORT §4, cycle-07):
+# Measured live 2026-09-11 01:20 (KNOWN-ISSUES G-23):
 # `NDT_TOPO=setting/StaticNetworkTopologyP4_10Switches_128Hosts.json ndt up p4 4` was not
 # refused. It printed `hosts 4` and the 128-host model on adjacent lines, built the 4-host
 # fabric, wrote `hosts=4` and `model_hosts=128` into the same up.target, and hung in [2/3] for
@@ -616,7 +616,7 @@ has   "  and the reason names both counts"                 "4 host(s) asked for 
 has   "  and the file"                                     "$T128" "$OUT"
 hasnt "  🔴 and the model path is NOT printed for a caller to use" "REFUSAL=[]" "$OUT"
 
-# 🔴 The whole bring-up, from the argv ROLE-2 typed. The refusal is above the claim check, the
+# 🔴 The whole bring-up, from the argv typed in that run. The refusal is above the claim check, the
 # in-flight check and preflight, so nothing on the machine has been read yet, let alone changed.
 reset_fix
 OUT="$(NDT_TOPO="$T128" drive 'up_p4 4')"
@@ -670,7 +670,7 @@ check "  the baseline is there"                            "present" \
 
 # 🔴 A model whose hosts cannot be counted is WARNED about and then built: NDT_TOPO exists for
 # models that do not follow the conventions, and "I could not count them" is not evidence of a
-# mismatch. What it must not do is look like a comparison that passed (E-7).
+# mismatch. What it must not do is look like a comparison that passed.
 reset_fix
 printf 'not json at all\n' > "$FIX/setting/unreadable.json"
 OUT="$(NDT_TOPO="$FIX/setting/unreadable.json" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
@@ -686,7 +686,7 @@ check "  🔴 and the warning does not land in the model path" "$FIX/setting/unr
 # ==========================================================================================
 section "9. H3: a bring-up that overlaps a teardown is refused, on BOTH planes"
 # ==========================================================================================
-# Measured live by ROLE-2, 2026-09-11 (ROLE-2-CYCLES-REPORT §4, cycle-13): a second `ndt up p4`
+# Measured live 2026-09-11 (KNOWN-ISSUES G-24): a second `ndt up p4`
 # 13 s after a backgrounded `ndt down` printed `ok already up: 10 switches, 4 hosts, reusing`,
 # then PASSED `ok model matches fabric` with the fabric mid-SIGTERM, and the teardown went on to
 # name that run's own kernel and proxy as residue and advise `ndt down --deep`. On OVS the same
@@ -803,8 +803,8 @@ hasnt "  🔴 nor in the reuse refusal"                    "samples NOTHING" "$O
 # ==========================================================================================
 section "11. H4 REGRESSION: the tab-packed reading left a newline in the middle of the path"
 # ==========================================================================================
-# 🔴 Introduced by H4's own fix (76b5d434, on trunk) and proved live and offline by ROLE-6 on
-# 2026-09-11 (ROLE-6-SUCCESSOR2-REPORT §1). H4 replaced `topo="$(topo_for_hosts ...)"` with a
+# 🔴 Introduced by H4's own fix (76b5d434, on trunk) and proved live and offline on
+# 2026-09-11. H4 replaced `topo="$(topo_for_hosts ...)"` with a
 # packed reading that carries three answers out of one subshell:
 #
 #     both="$(topo_for_hosts "$hosts" p4; printf '\t%s\t%s' "$?" "$TOPO_REFUSAL")"
@@ -945,7 +945,7 @@ has  "🔴 the rollback path prints it too"               "kernel did not stop c
 
 # ==========================================================================================
 section '13. A1-b: a stack.sh teardown that failed makes ndt down non-zero'
-# The other half of FIX-NDT-4 section 7-1. `out=$(... stack.sh down ...)` threw the exit status
+# The teardown half of keeping stack.sh's exit status. `out=$(... stack.sh down ...)` threw it
 # away here while the rollback path a thousand lines up kept it, so B-5's two channels -- the
 # message and the rc -- were both shut at the one command an operator runs to finish a round.
 reset_fix; rc_for stack_down 1
@@ -1184,7 +1184,7 @@ reset_fix; rm -f "$DM"
 printf 'pid=%s\nat=2026-09-12T02:08:17+0800\nby=role-12-D1\n' "$$" > "$DM"
 # 🔴 The two held ports are the fixture half that makes the two `hasnt` cells below mean
 # something: without residue there is no `--deep` line to suppress, and the cells would pass
-# against a product with no guard at all. 2460143/2459746 are ROLE-12's own numbers.
+# against a product with no guard at all. 2460143/2459746 are the pids of the 2026-09-12 live run.
 OUT="$(drive 'FX_BMV2=10 FX_MN=14 FX_TOPO_SESSION=1 FX_HELD="8000:2460143 8081:2459746" cmd_clean')"
 check "🔴 'ndt clean' is refused while a teardown is running" "5" "$(rc_of_out "$OUT")"
 has   "  naming what it is refusing on"   "an 'ndt down' from this checkout is still running" "$OUT"
@@ -1193,7 +1193,7 @@ has   "  and when that teardown started"  "2026-09-12T02:08:17+0800" "$OUT"
 has   "  and the remedy"                  "wait for it" "$OUT"
 # 🔴 The needle is cmd_clean's ADVICE LINE, not the words `ndt down --deep`. The refusal names
 # that verb while explaining what it would have done, and a bare `--deep` needle matches the
-# refusal's own prose -- ROLE-12's cell 5 lost an hour to exactly this shape, a grep that found
+# refusal's own prose -- one live check on 2026-09-12 lost an hour to exactly this shape, a grep that found
 # the message it was asserting about quoted inside the message it was asserting on.
 hasnt "🔴 and it does NOT advise --deep over that teardown's own fabric" \
       "to kill it too:  ndt down --deep" "$OUT"
@@ -1407,7 +1407,7 @@ has   "  and the put-back is announced, not silent"        "host_count_override 
 
 # -- 🔴 THE WRITE STILL HAPPENS. Everything above is satisfied by an `ndt up p4 <n>` that never
 # writes the knob at all -- and then the fabric is built at whatever the last round left, which
-# is the defect E-9 is about. This is the success path, and the knob has to carry the count.
+# is a defect in its own right. This is the success path, and the knob has to carry the count.
 reset_fix; rm -f "$DM"; echo "0 10" > "$FIX/bmv2.seq"
 mk_topo StaticNetworkTopologyP4_10Switches_8Hosts.json 8 56
 knob_put '4
@@ -1445,14 +1445,14 @@ check "  the knob was written to the size that was built"  "128" "$(cat "$KNOBF"
 # ==========================================================================================
 section "19. the claim note carries the verdict 'verify clean' reached"
 # ==========================================================================================
-# ROLE-9, 2026-09-12 04:16:03, .test_run/lab.claim verbatim after the tenth round's teardown:
+# Measured 2026-09-12 04:16:03, .test_run/lab.claim verbatim after the tenth round's teardown:
 #
 #     note=down at 2026-09-12 04:16:03 did NOT verify clean; claim kept -- read 'running'
 #          below, not this note
 #
 # and in the same teardown's log, four steps above it, `verify clean`'s five lines were all
 # `ok` and the last word was `clean`. The note took `$down_rc`, and on a live P4 fabric that rc
-# was 1 for a reading taken in the MIDDLE of the teardown (G-43). ROLE-11 F6 saw the same pair.
+# was 1 for a reading taken in the MIDDLE of the teardown (G-43). A second run saw the same pair.
 #
 # 🔴 THE HALF THAT SURVIVED G-43'S FIX. `ndt down`'s rc has three sources and only some of them
 # are about residue: a component that ended on a FATAL SIGNAL is reported once out of a .exit
@@ -1465,7 +1465,7 @@ section "19. the claim note carries the verdict 'verify clean' reached"
 # (cells 2 and 3 below, both rc 1) and two with different rcs get the same one (cells 1 and 2,
 # rc 0 and rc 1). A note copied from the rc cannot do both.
 #
-# 🔴 THE NOTE OUTLIVES THE ROUND. ROLE-9's own baseline carried the 02:26 version of this
+# 🔴 THE NOTE OUTLIVES THE ROUND. That run's own baseline carried the 02:26 version of this
 # sentence from the session before it, and the note's own tail -- "read 'running' below, not
 # this note" -- is the tool admitting the sentence is not to be trusted. That is why this is
 # pinned on the FILE and not on the screen.
@@ -1489,7 +1489,7 @@ has   "  the claim is still kept, not released"        "claim kept" "$(cnote)"
 hasnt "  and the 'in use' sentence is gone"            "in use" "$(cnote)"
 
 # -- 2. 🔴 THE FINDING. rc 1 from an ending that happened in an EARLIER round, over a machine
-# `verify clean` found spotless. This is the pair ROLE-11 F6 read off the screen and the claim.
+# `verify clean` found spotless. This is the pair read off the screen and the claim on 2026-09-12.
 reset_fix; rm -f "$DM"; rc_for stack_down 1
 out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL"
 mk_claim_note "$IN_USE"
@@ -1559,7 +1559,7 @@ section "20. a REFUSED 'ndt up' exits 5; a DIRTY READING still exits 1"
 # is still rc 1. The distinction is between "I looked and it is dirty" and "I declined to look".
 #
 # 🔴 The knob is put back to 4 here, and reset_fix deliberately does not do it: section 18
-# drives the ROLE-9 rewrites and leaves whatever its last case wrote. Without this line the reuse
+# drives the knob rewrites and leaves whatever its last case wrote. Without this line the reuse
 # branch below compares a 128-host knob against a 4-host fabric, takes the REBUILD path instead,
 # and the cell that is meant to be about stale_pipeline passes for a reason that has nothing to
 # do with it -- measured here 2026-09-12 12:2x: rc 0, with no refusal printed at all.
@@ -1806,7 +1806,7 @@ check "  an unknown option is still 2, not 5"        "2" "$(rc_of_out "$OUT")"
 # ==========================================================================================
 section "23. [3/3] says it ran the Mininet sweep for you"
 # ==========================================================================================
-# FIX-NDT-5 stopped `ndt down` repeating stack.sh's advice to run the Mininet sweep by hand --
+# `ndt down` no longer repeats stack.sh's advice to run the Mininet sweep by hand --
 # inside a teardown that advice is wrong, because [3/3] has already done it. What was left is a
 # teardown that runs the sweep and never says so: an operator following the manual, which does
 # carry that hand-typed command, has no way to tell that it is redundant here. The step now
@@ -1879,7 +1879,7 @@ section "25. 'cannot tell' (ndt_port_open rc 2) is never read as closed, at any 
 # ==========================================================================================
 # [Co-developed with claude code -- Adam]
 # ports.sh: 0 open, 1 closed, 2 cannot tell, and "callers must not fold 2 into closed". Two of
-# ndt's four callers did (`|| continue` in preflight's ownership step, `&&` in ROLE-12's re-read),
+# ndt's four callers did (`|| continue` in preflight's ownership step, `&&` in the deferred-port re-read),
 # and the re-read then printed "closed by [3/3]" for a port it had not read. Each caller's answer
 # to 2 is pinned here: named with its reason, never reported clear; whether it changes the rc is
 # per caller (see the comment at each site in ndt).
@@ -1903,7 +1903,7 @@ check "  deep_sweep: rc unchanged (the verdict is cmd_clean's)" "0" "$(rc_of_out
 has   "  deep_sweep: the port is named, with a reason"   ":6343 (udp) could not be probed (" "$OUT"
 hasnt "  deep_sweep: and it does not say nothing is left" "nothing left holding the ports" "$OUT"
 
-# ndt down's ROLE-12 re-read: :6343 was "still listening" at [1/3]; the re-read cannot tell.
+# ndt down's deferred-port re-read: :6343 was "still listening" at [1/3]; the re-read cannot tell.
 # cmd_clean is stubbed green so that only the re-read decides (as in section 15).
 # NOTE: every cmd_down drive in this suite also reads the REAL link-telemetry manifest
 # (LINK_TELEMETRY_MANIFEST, /tmp/ndtwin_link_telemetry.json by default). Not destructive -- with

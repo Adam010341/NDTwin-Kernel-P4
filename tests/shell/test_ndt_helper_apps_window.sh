@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# 3-51: the two apps the LAB HELPER starts had no window, ever -- and the check that was
+# KNOWN-ISSUES G-14: the two apps the LAB HELPER starts had no window, ever -- and the check that was
 # supposed to notice looked in the wrong tree.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Measured live 2026-09-07, lw16pw (P4 4 hosts, 1/1, rounds/08-round2.md:174-200):
+# Measured live 2026-09-07 (P4 4 hosts, 1/1):
 #
 #     ndt apps start sim     ok sim started (tmux: sim, pid(s) 1169930 1169932)
 #     ndt apps stop sim      sim: no pidfile and no live process -- no window, so no rule
@@ -253,7 +253,7 @@ $1" 2>&1
 rc_of() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
 
 # The flow table residue_report reads: the app's own pri-96 rule at <age>, plus a baseline entry
-# old enough to be outside every window. duration_nsec is non-zero on purpose -- W16-3 reads
+# old enough to be outside every window. duration_nsec is non-zero on purpose -- ndt reads
 # duration 0/0 as the P4 proxy's synthetic signature and would call the whole table UNKNOWN.
 mk_entries() {   # <app-rule-age-seconds>
     python3 - "$FIX/entries.json" "$1" <<'PY'
@@ -437,7 +437,7 @@ hasnt "🔴 and never says 'no sign it ever ran here'"     "no sign it ever ran 
 has   "  counted as unknowable, not as blind"            "V=1 B=0" "$OUT"
 check "🔴 and it is NOT red (nobody can act on it) -- rc 0" "0" \
       "$(rc_of "$(FX_PS="" inner 'residue_report energy >/dev/null; residue_verdict; echo "RC=$?"')")"
-# 🔴 ...and it is not invisible either: E-7's rule is that "could not check" must not look like
+# 🔴 ...and it is not invisible either: the rule is that "could not check" must not look like
 # "checked and clean". This is the row `ndt status --check` prints.
 # 🔴 FX_DEFAULT_KERNEL_DIR is set here and not left at the built-in one: status_residue_row
 # reports on ALL FIVE apps, and with the real default sim's evidence log is the main checkout's
@@ -470,14 +470,14 @@ check "🔴 and that is rc 5 -- not checked, not clean"     "5" \
 rm -f "$FIX/.test_run/logs/app_sim.log" "$FIX/othertree/.test_run/logs/app_sim.log"
 
 section "9. 'apps stop sim' reports on a window it can still see"
-# 🔴 lw16pw's headline: `ndt apps stop sim` verified the app was gone and then printed
+# 🔴 The 2026-09-07 run's headline: `ndt apps stop sim` verified the app was gone and then printed
 # "no window, so no rule can be dated" about the app it had just stopped. The stop deletes the
 # record; the window has to be read before it does.
 spawn_fixture "$SIM_ARGV"; SIMFIX2="$FIXTURE_PID"
 rm -f "$FIX/.test_run/pids"/app_*.pid
 echo "$SIMFIX2" > "$FIX/.test_run/pids/app_sim.pid"
 # The window here is the fixture's own age, which is seconds. The rule has to be inside it, so
-# it is a genuine just-installed one: duration_sec 0 with a non-zero nsec, which W16-3 dates
+# it is a genuine just-installed one: duration_sec 0 with a non-zero nsec, which ndt dates
 # rather than calling synthetic.
 mk_entries 0
 OUT="$(FX_PS="$SIMFIX2 $SIM_ARGV" FX_SESSIONS="sim" FX_STOP_PS="" inner 'cmd_apps stop sim; echo "RC=$?"')"
@@ -613,7 +613,7 @@ hasnt "🔴 and it is not called 'children with no pidfile'" "sim: children with
 hasnt "  nor is the pidfile's own pid listed as untracked" "pid $TWO_PARENT  (process group" "$ORPH"
 has   "  the verb still answers about processes"          "no untracked app processes" "$ORPH"
 
-# 🔴 The control, and it is FINDING #48 itself: same two processes, but the launcher's record is
+# 🔴 The control, and it is the original defect itself: same two processes, but the launcher's record is
 # gone and the argv scan cannot see them. Nothing then accounts for them, and every one must
 # still come out. A dedup that swallowed this would have traded one silent verb for another.
 rm -f "$FIX/.test_run/pids/app_sim.pid"
@@ -796,7 +796,7 @@ ORPH="$(FX_PORT_PIDS="$OURPID" FX_PS="" inner 'apps_orphans; echo "RC=$?"')"
 hasnt "🔴 control: 'apps orphans' says nothing about fd blindness there" "CANNOT READ" "$ORPH"
 
 section "12. F3: the window outlives the process that read it"
-# 🔴 FIX-NDT-2 SUMMARY §7-2 / F3. `cmd_apps stop` reads each window before the loop, but
+# 🔴 F3. `cmd_apps stop` reads each window before the loop, but
 # RESIDUE_WINDOW is a shell variable and dies with the process -- so every residue report taken
 # AFTER a teardown ("ndt down", or any later `ndt apps orphans` / `ndt status --check`) read
 # "the window is LOST" about the apps whose rules are on the wire right then. The window is now
@@ -868,7 +868,7 @@ section "12C. RESIDUE-1: a pidfile whose process is gone does NOT window to now"
 # 2026-09-11 at 14:04:25; viz finished its own run and exited at 14:05:43 (`BUILD SUCCESS` in
 # its own log, one `Starting ...` line in the whole file), and nothing removed the pidfile --
 # `ndt apps stop` is the only path that removes one, and nobody ran it. Twelve hours later
-# ROLE-11 brought up an OVS 4-host fabric and `ndt status --check` answered
+# a live run brought up an OVS 4-host fabric and `ndt status --check` answered
 #
 #     residue        60 rule(s) inside an app window, 0 lock(s) HELD      -> rc 1
 #
@@ -892,7 +892,7 @@ if [[ "$DEAD_TE" =~ ^[0-9]+$ ]] && [[ ! -d "/proc/$DEAD_TE" ]]; then
     echo "BUILD SUCCESS" > "$FIX/.test_run/logs/app_te.log"
     touch -d "@$(( NOW12C - 43100 ))" "$FIX/.test_run/logs/app_te.log"
     # A rule installed five minutes ago: hours AFTER that log stopped, and therefore nobody's
-    # residue. This is ROLE-11's 60 in miniature.
+    # residue. This is that run's 60 in miniature.
     mk_entries 300
     OUT="$(FX_PS="" FX_PORT_PIDS="" inner 'residue_report te; residue_verdict; echo "RC=$?"')"
     has   "🔴 the window has a right edge"                   "window closed at" "$OUT"
@@ -909,7 +909,7 @@ if [[ "$DEAD_TE" =~ ^[0-9]+$ ]] && [[ ! -d "/proc/$DEAD_TE" ]]; then
     OUT="$(FX_PS="" FX_PORT_PIDS="" inner 'residue_report te; residue_verdict; echo "RC=$?"')"
     has   "🔴 control: a rule installed INSIDE the closed window is still listed" "pri=96" "$OUT"
     check "  and that is still residue -- rc 4"              "4" "$(rc_of "$OUT")"
-    # ROLE-11's actual symptom, at the level it was seen: the `--check` row and its problem list.
+    # That run's actual symptom, at the level it was seen: the `--check` row and its problem list.
     mk_entries 300
     ROW="$(FX_DEFAULT_KERNEL_DIR="$FIX/othertree" FX_PS="" FX_PORT_PIDS="" inner \
            'status_residue_row >/dev/null; echo "P=${#STATUS_RESIDUE_PROBLEMS[@]}"')"
@@ -937,7 +937,7 @@ if [[ "$DEAD_TE" =~ ^[0-9]+$ ]] && [[ ! -d "/proc/$DEAD_TE" ]]; then
     has   "🔴 and that is NOT read as 'it left nothing'"     "NOT 'this app left nothing'" "$OUT"
     # 🔴 The LINE AFTER a window line is that window's own answer, and
     # tools/test_workflow/live_cells/stale_app_pidfile_does_not_frame_the_fabric.sh reads exactly
-    # that adjacency (CELLS-2 §7-7). The E-7 caveat above therefore prints ABOVE the window line,
+    # that adjacency. The could-not-check caveat above therefore prints ABOVE the window line,
     # never between it and the answer -- and the zero-length branch is the only one that prints a
     # caveat at all, so it is the only place the adjacency could have been broken.
     check "🔴 the line after the window line is still the window's answer" "yes" \
