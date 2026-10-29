@@ -29,8 +29,6 @@ if TOOLS not in sys.path:
 from p4_exercise import common, convert, one_step, preflight  # noqa: E402
 
 FIXTURES = os.path.join(HERE, "fixtures")
-REPO = os.path.dirname(TOOLS)
-P4_HEALTH_FIXTURES = os.path.join(REPO, "tests", "python", "fixtures", "p4_health")
 
 #: A tutorials exercise Makefile, as exercises/basic and exercises/firewall write theirs.
 MAKEFILE = "BMV2_SWITCH_EXE = simple_switch_grpc\n{topo}{extra}\ninclude ../../utils/Makefile\n"
@@ -266,19 +264,6 @@ class LocationTest(ExerciseCase):
         self.assertFalse(one_step.staging_root(self.run_dir).startswith(
             os.path.join(self.run_dir, "packages") + os.sep))
 
-    def test_ndt_serve_will_not_take_a_staging_directory(self):
-        # The real check ndt serve applies to `up --app` (verbs.app_dir), with its default root.
-        sys.path.insert(0, os.path.join(REPO, "tools", "ndt_serve"))
-        self.addCleanup(sys.path.remove, os.path.join(REPO, "tools", "ndt_serve"))
-        import verbs
-        root = os.path.join(self.run_dir, "packages")
-        stage = os.path.join(one_step.staging_root(self.run_dir), "basic-00000000.new-abc")
-        os.makedirs(stage)
-        with self.assertRaises(verbs.Refused):
-            verbs.app_dir(stage, [root])
-        result = self.prepare(self.basic_one_topology())
-        self.assertEqual(verbs.app_dir(result["dest"], [root]), os.path.realpath(result["dest"]))
-
 
 class RerunTest(ExerciseCase):
     def test_the_same_result_keeps_the_old_package_untouched(self):
@@ -507,30 +492,6 @@ class SuggestionTest(ExerciseCase):
         with contextlib.redirect_stdout(out):
             preflight.main([result["dest"], "--no-compile", "--no-role-suggestion"])
         self.assertNotIn("roles suggestion", out.getvalue())
-
-
-class CapturedSuggestionRowsTest(unittest.TestCase):
-    """The pre-flight captures under tests/python/fixtures/p4_health say what pre-flight prints
-    now: each `roles suggestion` row is suggestion_detail() of the role it carries."""
-
-    def test_every_captured_suggestion_row_is_what_preflight_prints_now(self):
-        seen = 0
-        for name in sorted(os.listdir(P4_HEALTH_FIXTURES)):
-            if not (name.startswith("preflight_pft") and name.endswith(".txt")):
-                continue
-            with open(os.path.join(P4_HEALTH_FIXTURES, name), encoding="utf-8") as fh:
-                for line in fh:
-                    if "roles suggestion" not in line:
-                        continue
-                    detail = line.split("roles suggestion", 1)[1].strip()
-                    block = json.loads(detail.split('"roles": ', 1)[1].split(" (owner ", 1)[0])
-                    # The heuristic hands suggestion_detail its candidate with owner ndtwin
-                    # (route_role_candidates resolves with the stricter owner).
-                    candidate = dict(block["ipv4_route"], owner="ndtwin")
-                    with self.subTest(fixture=name):
-                        self.assertEqual(detail, preflight.suggestion_detail(candidate))
-                    seen += 1
-        self.assertGreaterEqual(seen, 5, "the captures with a suggestion row went missing")
 
 
 class OwnerLeftOutOfARoleTest(ExerciseCase):

@@ -33,9 +33,10 @@ ROUTE_BINDING="$REPO/p4_proxy/proxy_agent/route_binding.py"
 SOURCES=("$EXDIR/one_step.py" "$EXDIR/convert.py" "$EXDIR/preflight.py" "$EXDIR/common.py"
          "$APP_PACKAGE" "$ROUTE_BINDING"
          "$EXDIR/tests/test_one_step.py" "$EXDIR/tests/test_convert.py"
-         "$EXDIR/tests/test_preflight.py")
-TEST_FILES="test_one_step test_convert test_preflight"
-NEW_TESTS_SPEC="test_one_step:* test_convert:OwnerDefaultTest test_convert:AutoRoleFlagTest test_preflight:TheSuggestionTest"
+         "$EXDIR/tests/test_preflight.py" "$REPO/tests/python/test_one_step_repo.py")
+TEST_FILES="tools/p4_exercise/tests/test_one_step tools/p4_exercise/tests/test_convert
+tools/p4_exercise/tests/test_preflight tests/python/test_one_step_repo"
+NEW_TESTS_SPEC="test_one_step:* test_convert:OwnerDefaultTest test_convert:AutoRoleFlagTest test_preflight:TheSuggestionTest test_one_step_repo:*"
 
 # The interpreter: a worktree has no venv of its own, so the main worktree is consulted.
 MAIN_WT="$(git -C "$REPO" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
@@ -75,7 +76,7 @@ tree_copy() {   # tree_copy <dir> -- tools/p4_exercise and p4_proxy/{mininet,pro
 run_tests() {   # run_tests <tree> -> every FAIL/ERROR test name, one per line, then RC=<n>
     local t rc=0 out
     for t in $TEST_FILES; do
-        out="$(cd "$1/p4_proxy" && PYTHONPATH=. timeout 600 "$PY" "$1/tools/p4_exercise/tests/$t.py" -v 2>&1)" || rc=1
+        out="$(cd "$1/p4_proxy" && PYTHONPATH=. timeout 600 "$PY" "$1/$t.py" -v 2>&1)" || rc=1
         printf '%s\n' "$out" | sed -nE 's/^(FAIL|ERROR): (test_[A-Za-z0-9_]+) .*/\2/p'
         grep -qE '^Ran [0-9]+ test' <<<"$out" || echo "__NO_RUN__$t"
     done
@@ -93,7 +94,7 @@ fi
 echo "  green"
 
 # The new tests, by the loader, from the unmutated copy.
-NEW_TESTS="$(cd "$BK/base/p4_proxy" && PYTHONPATH="$BK/base/tools/p4_exercise/tests" "$PY" - $NEW_TESTS_SPEC <<'PY'
+NEW_TESTS="$(cd "$BK/base/p4_proxy" && PYTHONPATH="$BK/base/tools/p4_exercise/tests:$BK/base/tests/python" "$PY" - $NEW_TESTS_SPEC <<'PY'
 import sys, unittest, importlib
 names = set()
 for spec in sys.argv[1:]:
