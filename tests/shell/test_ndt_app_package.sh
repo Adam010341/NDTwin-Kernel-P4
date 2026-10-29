@@ -186,6 +186,7 @@ chmod +x "$FIX/fakepy"
 cat > "$FIX/preflight.sh" <<'FAKE'
 #!/usr/bin/env bash
 echo "pre-flight: $1"
+[[ "${2:-}" == --no-role-suggestion ]] && echo "pre-flight: role suggestion off"
 if [[ -e "$PREFLIGHT_FAIL" ]]; then
     echo "  FAIL  entries match p4info         16 problem(s); first: s1 entry 1 is TERNARY"
     echo "FAIL -- 1 check(s) failed; do NOT bring this package up"
@@ -1957,7 +1958,7 @@ argv_pair() {
 }
 
 reset_one
-OUT="$(drive "$ONE"'up_take_app_flag p4 --app '"$(q "$EX")"' --topology pod-topo/topology.json --owner ndtwin && NDT_APP_DIR='"$(q "$EX")"' && up_p4')"
+OUT="$(drive "$ONE"'up_take_app_flag p4 --app '"$(q "$EX")"' --topology pod-topo/topology.json --table-owner ndtwin && NDT_APP_DIR='"$(q "$EX")"' && up_p4')"
 check "🔴 an exercise directory comes up"                 "0" "$(rc_of "$OUT")"
 check "🔴 the knob names the GENERATED package, not the exercise" "$GEN" "$(knob_state)"
 has   "  the conversion is its own step on screen"        "exercise -> app package" "$OUT"
@@ -1968,8 +1969,9 @@ check "  the converter is handed the exercise"            "yes" "$(argv_has "$EX
 check "🔴 and this checkout's run directory"              "yes" "$(argv_has "$FIX/.test_run")"
 check "🔴 --topology reaches it with its value"           "yes" \
       "$(argv_pair --topology pod-topo/topology.json)"
-check "🔴 --owner reaches it with its value"              "yes" \
-      "$(argv_pair --owner ndtwin)"
+check "🔴 --table-owner reaches it with its value"        "yes" \
+      "$(argv_pair --table-owner ndtwin)"
+has   "🔴 its pre-flight prints no role suggestion"       "pre-flight: role suggestion off" "$OUT"
 check "  and the machine was reached, once"               "sudo=1 stack=1" "$(touched)"
 
 # The flag parser: the exercise flags are lifted out of argv like --app and --telemetry, in both
@@ -1982,9 +1984,14 @@ has   "🔴 and only the plane is left for resolve_up_target" "LEFT=[p4]" "$OUT"
 OUT="$(drive 'up_take_app_flag p4 --topology pod-topo/topology.json')"
 check "🔴 an exercise flag without --app is a usage error" "2" "$(rc_of "$OUT")"
 has   "  naming the flag that wanted it"                  "--topology converts a p4lang-tutorials exercise and needs --app" "$OUT"
-OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --owner')"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --table-owner')"
 check "an exercise flag with no value is a usage error"   "2" "$(rc_of "$OUT")"
-has   "  and says so"                                     "ndt up --owner needs a value" "$OUT"
+has   "  and says so"                                     "ndt up --table-owner needs a value" "$OUT"
+NLDIR="$FIX/exercises/two"$'\n'"lines"; mkdir -p "$NLDIR/pod-topo"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$NLDIR")")"
+check "🔴 a path with a line break in it is a usage error" "2" "$(rc_of "$OUT")"
+has   "  saying why"                                      "has a line break in it" "$OUT"
+rm -rf "$NLDIR"
 OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --topology')"
 check "  so is a trailing --topology"                     "2" "$(rc_of "$OUT")"
 
@@ -1995,14 +2002,43 @@ reset_one
 OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$PKG_OK")"'; NDT_APP_EXERCISE_ARGV=(--no-roles); up_p4')"
 check "🔴 an exercise flag beside a package is a usage error" "2" "$(rc_of "$OUT")"
 has   "  saying why"                                      "is already an app package (it has package.json)" "$OUT"
-check "  the converter was not run"                       "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+check "🔴 the converter was not run"                     "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
 check "  and nothing was touched"                         "sudo=0 stack=0" "$(touched)"
 # ... and a package without the flags never reaches the converter at all (section 1 is that
 # case; this is its control on the stand-in's log).
 reset_one
 OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4')"
-check "  a package with no exercise flags is today's path" "0" "$(rc_of "$OUT")"
+check "🔴 a package with no exercise flags is today's path" "0" "$(rc_of "$OUT")"
 check "🔴 and never reaches the converter"                "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+hasnt "🔴 and its pre-flight is not told to drop the suggestion" "pre-flight: role suggestion off" "$OUT"
+
+# 🔴 A PACKAGE THAT LOST ITS package.json IS NOT AN EXERCISE. Its ndtwin/topology.json is NDTwin's
+# model; converting the directory again would treat a generated package as somebody's source.
+reset_one
+LOST="$FIX/packages/lost-manifest"; rm -rf "$LOST"; cp -r "$PKG_OK" "$LOST"; rm -f "$LOST/package.json"
+mkdir -p "$LOST/pod-topo"; echo '{}' > "$LOST/pod-topo/topology.json"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$LOST")"'; up_p4')"
+check "🔴 a package without its package.json is refused (5)" "5" "$(rc_of "$OUT")"
+has   "  as a package that lost its manifest"             "an app package that lost its manifest" "$OUT"
+check "🔴 and is not converted again"                     "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+rm -rf "$LOST"
+# build/, logs/ and pcaps/ hold no exercise topology (one_step.py skips the same three).
+reset_one
+BUILT="$FIX/exercises/only-build"; mkdir -p "$BUILT/build"; echo '{}' > "$BUILT/build/topology.json"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$BUILT")"'; up_p4')"
+check "🔴 a topology.json under build/ does not make an exercise" "absent" \
+      "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+has   "  the directory gets today's refusal"              "This is neither an app package nor a" "$OUT"
+rm -rf "$BUILT"
+
+# A pre-flight refusal on the exercise path: the generated package WAS written, and is named.
+reset_one; : > "$PREFLIGHT_FAIL"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
+check "🔴 a generated package that fails pre-flight is refused (5)" "5" "$(rc_of "$OUT")"
+has   "🔴 and the refusal says the generated package was written" "The generated package was written ($GEN)" "$OUT"
+hasnt "🔴 not that nothing was written"                   "nothing was started and nothing was written" "$OUT"
+check "  the knob was not written"                        "absent" "$(knob_state)"
+rm -f "$PREFLIGHT_FAIL"
 
 # A refusal from the converter is a refusal here: rc 5, the knob unchanged, nothing reached.
 for crc in 5 1; do
@@ -2016,22 +2052,132 @@ done
 check "🔴 the knob's package is handed over as --in-use"  "yes" \
       "$(argv_pair --in-use "$PKG_OK")"
 reset_one; printf '2\n' > "$ONE_STEP_RC"
-OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; NDT_APP_EXERCISE_ARGV=(--no-roles --owner ndtwin); up_p4')"
-check "the converter's usage error stays a usage error (2)" "2" "$(rc_of "$OUT")"
-check "  and wrote nothing"                               "absent" "$(knob_state)"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; NDT_APP_EXERCISE_ARGV=(--no-roles --table-owner ndtwin); up_p4')"
+check "🔴 the converter's usage error stays a usage error (2)" "2" "$(rc_of "$OUT")"
+check "🔴 and the knob was not written"                   "absent" "$(knob_state)"
 reset_one; : > "$ONE_STEP_NO_PATH"
 OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
 check "🔴 rc 0 with no package path named is a refusal"   "5" "$(rc_of "$OUT")"
-check "  and wrote nothing"                               "absent" "$(knob_state)"
+has   "🔴 by the converter step, which names no package"  "was not converted into an app package" "$OUT"
 
 # The default behind the seam, which the stand-in cannot say: the real converter, in this
 # checkout. Under these stubs REPO is the fixture, which has no tools/p4_exercise, so the
 # function names the path it would have run.
 reset_one
 OUT="$(drive 'unset NDT_APP_ONE_STEP; NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
-check "🔴 with no seam set the real tool is what would run" "5" "$(rc_of "$OUT")"
+check "🔴 a missing converter is a refusal (5)"           "5" "$(rc_of "$OUT")"
 has   "  named by its path in this checkout"              "no exercise converter at $FIX/tools/p4_exercise/one_step.py" "$OUT"
 rm -rf "$FIX/exercises" "$GEN"
+
+# =============================================================================================
+section "23. 🔴 end to end: the REAL one_step.py and the REAL pre-flight, the bring-up stubbed"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# Section 22 drives ndt against a stand-in converter; this one hands ndt the real
+# tools/p4_exercise/one_step.py and preflight.py (through the same two seams, pointed at this
+# checkout) and the proxy's venv interpreter, over a copy of tools/p4_exercise/tests/fixtures/basic
+# laid out like exercises/basic (a Makefile with TOPO, basic.p4 at the top, two topologies). The
+# machine is still the stand-in's. It runs once with no knob, then with the knob naming the
+# package that first run built: the same result is reused, a different one is refused.
+E2E_PY=""
+for c in "${PROXY_PY:-}" "$REAL_REPO/p4_proxy/venv/bin/python" \
+         "$(git -C "$REAL_REPO" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')/p4_proxy/venv/bin/python"; do
+    [[ -n "$c" && -x "$c" ]] || continue
+    "$c" -c 'from p4.config.v1 import p4info_pb2' >/dev/null 2>&1 || continue
+    E2E_PY="$c"; break
+done
+check "🔴 the proxy's venv interpreter is there (a missing one is a FAIL here, not a skip)" \
+      "yes" "$([[ -n "$E2E_PY" ]] && echo yes || echo no)"
+E2E_EX="$FIX/exercises/e2e/basic"
+rm -rf "$E2E_EX"; mkdir -p "$(dirname "$E2E_EX")"
+cp -r "$REAL_REPO/tools/p4_exercise/tests/fixtures/basic" "$E2E_EX"
+cp "$E2E_EX/solution/basic.p4" "$E2E_EX/basic.p4"
+printf 'BMV2_SWITCH_EXE = simple_switch_grpc\nTOPO = pod-topo/topology.json\n\ninclude ../../utils/Makefile\n' \
+    > "$E2E_EX/Makefile"
+REAL='export P4_PROXY_PY='"$(q "$E2E_PY")"'; export NDT_APP_ONE_STEP='"$(q "$REAL_REPO/tools/p4_exercise/one_step.py")"'; export NDT_APP_PREFLIGHT='"$(q "$REAL_REPO/tools/p4_exercise/preflight.py")"'; '
+e2e() {   # e2e <label> <exercise> [exercise flags...] -> OUT; the output is kept when E2E_LOG_DIR is set
+    local label="$1" ex="$2"; shift 2
+    local flags; flags="$(printf '%q ' "$@")"
+    OUT="$(drive "$REAL"'up_take_app_flag p4 --app '"$(q "$ex")"' '"$flags"' && up_p4')"
+    [[ -n "${E2E_LOG_DIR:-}" ]] && printf '%s\n' "$OUT" > "$E2E_LOG_DIR/e2e_$label.txt"
+}
+e2e_gen() { sed -n 's/^  package       : \(.*\)   (.*)$/\1/p' <<<"$OUT" | tail -1; }
+tree_sum() { (cd "$1" 2>/dev/null && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-16); }
+
+reset_fix
+e2e no_knob "$E2E_EX"
+E2E_GEN="$(e2e_gen)"
+check "🔴 with no knob, the exercise comes up through the real converter" "0" "$(rc_of "$OUT")"
+check "🔴 the knob names the package it generated"        "$E2E_GEN" "$(knob_state)"
+check "  which is under .test_run/packages/generated/"    "$FIX/.test_run/packages/generated" "$(dirname "$E2E_GEN")"
+has   "  the Makefile's TOPO chose the topology"          "pod-topo/topology.json   (the Makefile's TOPO)" "$OUT"
+has   "  the role was auto-filled"                        "auto-filled from the p4info -- its one (table, action) candidate" "$OUT"
+has   "🔴 the real pre-flight passed the generated package" "PASS -- every check passed" "$OUT"
+has   "🔴 and resolved the auto-filled role, owner package" "owner package" "$OUT"
+hasnt "🔴 and printed no package.json suggestion"         "roles suggestion" "$OUT"
+# topo-start and, a real package having inter-switch links, the heartbeat: two sudo calls.
+check "  the machine was reached: one bring-up"           "stack=1" "$(touched | sed 's/^sudo=[0-9]* //')"
+E2E_SUM="$(tree_sum "$E2E_GEN")"
+
+# The knob now names that package. The same conversion is reused...
+reset_fix; printf '# written by ndt up p4 --app at 2026-10-29T00:00:00Z\n%s\n' "$E2E_GEN" > "$KNOB"
+e2e knob_same "$E2E_EX"
+check "🔴 with the knob naming it, the same result comes up again" "0" "$(rc_of "$OUT")"
+has   "  reusing the package"                             "$E2E_GEN   (unchanged)" "$OUT"
+# ... and a different one is refused, leaving the package and the knob as they were.
+reset_fix; printf '# written by ndt up p4 --app at 2026-10-29T00:00:00Z\n%s\n' "$E2E_GEN" > "$KNOB"
+e2e knob_changed "$E2E_EX" --table-owner ndtwin
+check "🔴 with the knob naming it, a different result is refused (5)" "5" "$(rc_of "$OUT")"
+has   "  telling the user to take the fabric down"        "Take it down first:  ndt down" "$OUT"
+check "🔴 the package that fabric runs is untouched"      "$E2E_SUM" "$(tree_sum "$E2E_GEN")"
+check "🔴 the knob is untouched"                          "$E2E_GEN" "$(knob_state)"
+check "  and nothing was reached"                         "sudo=0 stack=0" "$(touched)"
+# Without the knob the different result replaces it, and says what owner ndtwin stripped.
+reset_fix
+e2e table_owner_ndtwin "$E2E_EX" --table-owner ndtwin
+check "🔴 without the knob, the different result comes up" "0" "$(rc_of "$OUT")"
+has   "  replacing the package"                           "$E2E_GEN   (replaced)" "$OUT"
+has   "🔴 and saying how many entries it stripped"         "stripped      : 16 match entries of MyIngress.ipv4_lpm" "$OUT"
+# The three outputs a reader of the one-step path must not see contradict each other: several
+# candidates, --no-roles, and an external control plane. Pre-flight prints no suggestion in any.
+reset_fix
+E2E_TWO="$FIX/exercises/e2e/basic_two"; rm -rf "$E2E_TWO"; cp -r "$E2E_EX" "$E2E_TWO"
+# A second route-shaped table, in the p4info AND the bmv2 json, so the two stay one compile.
+"$E2E_PY" - "$E2E_TWO/build/basic.p4.p4info.txtpb" "$E2E_TWO/build/basic.json" "$REAL_REPO/tools" <<'PY'
+import copy, json, sys
+sys.path.insert(0, sys.argv[3])
+from google.protobuf import text_format
+from p4_exercise import preflight
+index = preflight.P4InfoIndex.parse(sys.argv[1])
+twin = index.p4info.tables.add(); twin.CopyFrom(index.table("MyIngress.ipv4_lpm"))
+twin.preamble.id = max(t.preamble.id for t in index.p4info.tables) + 1
+twin.preamble.name = "MyIngress.ipv4_lpm_backup"; twin.preamble.alias = "ipv4_lpm_backup"
+open(sys.argv[1], "w").write(text_format.MessageToString(index.p4info))
+bmv2 = json.load(open(sys.argv[2]))
+for pipe in bmv2["pipelines"]:
+    for t in list(pipe["tables"]):
+        if t["name"] == "MyIngress.ipv4_lpm":
+            c = copy.deepcopy(t); c["name"] = "MyIngress.ipv4_lpm_backup"
+            c["id"] = max(x["id"] for x in pipe["tables"]) + 1
+            pipe["tables"].append(c)
+json.dump(bmv2, open(sys.argv[2], "w"))
+PY
+e2e several "$E2E_TWO"
+has   "🔴 several candidates: the warning"                "the twin will show no flow paths for this fabric" "$OUT"
+has   "  and the ndt flag line for each"                  "--role-ipv4-route table=MyIngress.ipv4_lpm_backup," "$OUT"
+hasnt "🔴 and no package.json suggestion beside them"     "roles suggestion" "$OUT"
+has   "  and pre-flight passes the package"               "PASS -- every check passed" "$OUT"
+reset_fix
+e2e no_roles "$E2E_EX" --no-roles
+has   "🔴 --no-roles: says none was asked for"            "route role    : none -- --no-roles was given" "$OUT"
+hasnt "🔴 and pre-flight does not suggest one anyway"     "roles suggestion" "$OUT"
+reset_fix
+E2E_EXT="$FIX/exercises/e2e/p4runtime"; rm -rf "$E2E_EXT"
+cp -r "$REAL_REPO/tools/p4_exercise/tests/fixtures/p4runtime" "$E2E_EXT"
+e2e external "$E2E_EXT"
+has   "🔴 external: says why there is no role"            "the control plane is external" "$OUT"
+hasnt "🔴 and pre-flight does not suggest one"            "roles suggestion" "$OUT"
+rm -rf "$FIX/exercises/e2e" "$FIX/.test_run/packages" "$FIX/.test_run/packages-staging"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

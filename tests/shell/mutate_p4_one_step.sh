@@ -28,10 +28,14 @@ EXDIR="$REPO/tools/p4_exercise"
 ONE_STEP="$REPO/tools/p4_exercise/one_step.py"
 CONVERT="$REPO/tools/p4_exercise/convert.py"
 PREFLIGHT="$REPO/tools/p4_exercise/preflight.py"
+APP_PACKAGE="$REPO/p4_proxy/mininet/app_package.py"
+ROUTE_BINDING="$REPO/p4_proxy/proxy_agent/route_binding.py"
 SOURCES=("$EXDIR/one_step.py" "$EXDIR/convert.py" "$EXDIR/preflight.py" "$EXDIR/common.py"
-         "$EXDIR/tests/test_one_step.py" "$EXDIR/tests/test_convert.py")
-TEST_FILES="test_one_step test_convert"
-NEW_TESTS_SPEC="test_one_step:* test_convert:OwnerDefaultTest test_convert:AutoRoleFlagTest"
+         "$APP_PACKAGE" "$ROUTE_BINDING"
+         "$EXDIR/tests/test_one_step.py" "$EXDIR/tests/test_convert.py"
+         "$EXDIR/tests/test_preflight.py")
+TEST_FILES="test_one_step test_convert test_preflight"
+NEW_TESTS_SPEC="test_one_step:* test_convert:OwnerDefaultTest test_convert:AutoRoleFlagTest test_preflight:TheSuggestionTest"
 
 # The interpreter: a worktree has no venv of its own, so the main worktree is consulted.
 MAIN_WT="$(git -C "$REPO" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
@@ -49,11 +53,23 @@ trap 'rm -rf "$BK"' EXIT
 sums() { sha256sum "${SOURCES[@]}"; }
 BEFORE="$(sums)"
 
-tree_copy() {   # tree_copy <dir> -- a repo-shaped copy: tools/p4_exercise copied, p4_proxy linked
+tree_copy() {   # tree_copy <dir> -- tools/p4_exercise and p4_proxy/{mininet,proxy_agent} copied
     mkdir -p "$1/tools"
     cp -r "$EXDIR" "$1/tools/p4_exercise"
     rm -rf "$1/tools/p4_exercise/__pycache__" "$1/tools/p4_exercise/tests/__pycache__"
-    ln -s "$REPO/p4_proxy" "$1/p4_proxy"
+    # tests/ is read only (CapturedSuggestionRowsTest reads tests/python/fixtures/p4_health).
+    ln -s "$REPO/tests" "$1/tests"
+    # p4_proxy: the two directories a mutation may touch are copied, everything else is linked.
+    mkdir -p "$1/p4_proxy"
+    local e
+    for e in "$REPO"/p4_proxy/* "$REPO"/p4_proxy/.[!.]*; do
+        [[ -e "$e" ]] || continue
+        case "${e##*/}" in
+            mininet|proxy_agent) cp -r "$e" "$1/p4_proxy/"
+                                 rm -rf "$1/p4_proxy/${e##*/}/__pycache__" ;;
+            *) ln -s "$e" "$1/p4_proxy/${e##*/}" ;;
+        esac
+    done
 }
 
 run_tests() {   # run_tests <tree> -> every FAIL/ERROR test name, one per line, then RC=<n>
@@ -162,7 +178,7 @@ mut T1_several_take_the_first "$ONE_STEP" \
         return found[0], "the only one"' \
     '    if found:
         return found[0], "the only one"' \
-    test_several_are_refused_listed_and_the_flag_named
+    test_several_and_no_topo_are_refused_listed_and_the_flag_named
 mut T2_top_level_ignored "$ONE_STEP" \
     '        out.append("topology.json")' \
     '        pass' \
@@ -176,7 +192,7 @@ mut T4_flag_ignored "$ONE_STEP" \
         return given, f"{TOPOLOGY_FLAG}"' \
     '    if False:
         return given, f"{TOPOLOGY_FLAG}"' \
-    test_the_flag_picks_one
+    test_the_flag_picks_one_over_the_makefile
 mut T5_neither_unsaid "$ONE_STEP" \
     '    if not found:
         raise convert.ConversionError(
@@ -244,7 +260,7 @@ mut R2_in_use_replaced "$ONE_STEP" \
     '        elif False:' \
     test_a_package_a_fabric_still_runs_is_not_replaced
 mut R3_copied_over "$ONE_STEP" \
-    '            old = tempfile.mkdtemp(prefix=os.path.basename(dest) + ".old-", dir=parent)
+    '            old = tempfile.mkdtemp(prefix=os.path.basename(dest) + ".old-", dir=stage_root)
             os.rename(dest, os.path.join(old, "pkg"))
             os.rename(staging, dest)
             shutil.rmtree(old, ignore_errors=True)' \
@@ -259,17 +275,17 @@ mut R4_staging_left "$ONE_STEP" \
 
 # --- one_step.py: which role ------------------------------------------------------------------
 mut O1_explicit_does_not_win "$ONE_STEP" \
-    '            auto_role=(role is None and not no_roles), owner=owner, auto_report=auto)' \
-    '            auto_role=not no_roles, owner=owner, auto_report=auto)' \
+    '            auto_role=(role is None and not no_roles), owner=owner, auto_report=auto,' \
+    '            auto_role=not no_roles, owner=owner, auto_report=auto,' \
     test_an_explicit_role_wins_over_the_auto_filled_one
 mut O2_no_roles_ignored "$ONE_STEP" \
-    '            auto_role=(role is None and not no_roles), owner=owner, auto_report=auto)' \
-    '            auto_role=(role is None), owner=owner, auto_report=auto)' \
+    '            auto_role=(role is None and not no_roles), owner=owner, auto_report=auto,' \
+    '            auto_role=(role is None), owner=owner, auto_report=auto,' \
     test_no_roles_declares_none
 
 # --- one_step.py: the command line ------------------------------------------------------------
 mut C1_usage_combination_accepted "$ONE_STEP" \
-    '    if args.no_roles and (args.role_ipv4_route is not None or args.owner is not None):' \
+    '    if args.no_roles and (args.role_ipv4_route is not None or args.table_owner is not None):' \
     '    if False:' \
     test_usage_errors_are_2
 mut C2_refusal_is_0 "$ONE_STEP" \
@@ -291,7 +307,7 @@ mut A1_several_take_the_first "$CONVERT" \
 mut A2_owner_ndtwin_not_refused "$CONVERT" \
     '    if owner == "ndtwin" and found["role"] is None:' \
     '    if False:' \
-    test_owner_ndtwin_with_no_single_candidate_is_refused
+    test_table_owner_ndtwin_with_no_single_candidate_is_refused
 mut A3_no_warning "$CONVERT" \
     '        lines.append(f"  WARNING       : {NO_PATHS_WARNING}")' \
     '        pass' \
@@ -313,8 +329,8 @@ mut A7_auto_role_writes_nothing "$CONVERT" \
     '        pass' \
     test_it_fills_the_one_candidate_with_owner_package test_one_candidate_is_filled_with_owner_package
 mut A8_choice_unsaid "$CONVERT" \
-    '        return ["  route role    : auto-filled from the p4info -- the one table shaped like a "' \
-    '        return ["  route role    : chosen -- the one table shaped like a "' \
+    '        return ["  route role    : auto-filled from the p4info -- its one (table, action) "' \
+    '        return ["  route role    : chosen -- its one (table, action) "' \
     test_the_choice_is_printed
 mut A9_auto_role_by_default "$CONVERT" \
     '    ap.add_argument("--auto-role", action="store_true",' \
@@ -325,7 +341,7 @@ mut A10_both_role_sources_taken "$CONVERT" \
     '    if False:' \
     test_with_an_explicit_role_it_is_refused
 mut A11_owner_with_nothing_accepted "$CONVERT" \
-    '        if args.owner is not None and args.role_ipv4_route is None and not args.auto_role:' \
+    '        if args.table_owner is not None and args.role_ipv4_route is None and not args.auto_role:' \
     '        if False:' \
     test_an_owner_with_no_role_is_refused
 mut D1_default_owner_ndtwin "$CONVERT" \
@@ -345,9 +361,9 @@ mut D4_format_two "$CONVERT" \
     '        "format": 2,' \
     test_the_package_format_is_still_one
 mut D5_unbuilt_unsaid "$CONVERT" \
+    '                    f"is not at {abs_path}. Build the exercise first (`make build` in "' \
     '                    f"is not at {abs_path}. Build the exercise first (`make` in "' \
-    '                    f"is not at {abs_path}. (in "' \
-    test_an_unbuilt_exercise_is_refused_with_the_make_command
+    test_an_unbuilt_exercise_is_refused_with_make_build
 
 # --- preflight.py: the heuristic --------------------------------------------------------------
 mut H1_first_candidate_only "$PREFLIGHT" \
@@ -375,6 +391,123 @@ mut H2_any_switch_will_do "$PREFLIGHT" \
         try:
             for dpid, p4info in list(p4infos.items())[:1]:' \
     test_a_candidate_must_fit_every_switch
+
+
+# --- round 2: the TOPO default, paths, staging, the stripped count, the flags ---------------------
+# [Co-developed with claude code -- Adam]
+mut N1_topo_ignored "$ONE_STEP" \
+    '    make_topo = makefile_var(exercise_dir, "TOPO")' \
+    '    make_topo = None' \
+    test_the_makefiles_topo_is_the_default
+mut N2_missing_topo_unchecked "$ONE_STEP" \
+    '        if not os.path.isfile(os.path.join(exercise_dir, make_topo)):' \
+    '        if False:' \
+    test_a_topo_that_is_not_there_is_refused
+mut N3_symlink_kept "$ONE_STEP" \
+    '    exercise_dir = os.path.realpath(exercise_dir)' \
+    '    exercise_dir = os.path.abspath(exercise_dir)' \
+    test_a_symlinked_path_is_the_same_exercise
+mut N4_lost_manifest_converted "$ONE_STEP" \
+    '    if os.path.isfile(os.path.join(exercise_dir, PACKAGE_MODEL)):' \
+    '    if False:' \
+    test_a_package_that_lost_its_manifest_is_refused_not_converted
+mut N5_stale_staging_kept "$ONE_STEP" \
+    '        shutil.rmtree(stale, ignore_errors=True)' \
+    '        pass' \
+    test_staging_a_killed_run_left_behind_is_removed
+mut N6_every_staging_removed "$ONE_STEP" \
+    '    for stale in glob.glob(os.path.join(stage_root, glob.escape(os.path.basename(dest)) + ".*-*")):' \
+    '    for stale in glob.glob(os.path.join(stage_root, "*")):' \
+    test_staging_a_killed_run_left_behind_is_removed
+mut N7_staging_under_packages "$ONE_STEP" \
+    '    return os.path.join(os.path.abspath(run_dir), "packages-staging")' \
+    '    return os.path.join(os.path.abspath(run_dir), "packages", "staging")' \
+    test_staging_is_outside_packages
+mut N8_stripped_unsaid "$ONE_STEP" \
+    '    if route is not None and route["owner"] == "ndtwin":' \
+    '    if False:' \
+    test_owner_ndtwin_says_how_many_entries_it_stripped
+mut N9_stripped_said_for_package "$ONE_STEP" \
+    '    if route is not None and route["owner"] == "ndtwin":' \
+    '    if route is not None:' \
+    test_owner_package_strips_nothing_and_says_nothing
+mut N10_count_not_collected "$ONE_STEP" \
+    '            removed=removed)' \
+    '            removed={})' \
+    test_owner_ndtwin_says_how_many_entries_it_stripped
+mut N11_several_not_offered_as_flags "$ONE_STEP" \
+    '        if len(candidates) > 1:' \
+    '        if False:' \
+    test_several_candidates_are_printed_as_the_ndt_flag_that_picks_each
+mut N13_bad_role_is_a_refusal "$ONE_STEP" \
+    '            print(f"usage: {exc}", file=sys.stderr)
+            return RC_USAGE' \
+    '            print(f"usage: {exc}", file=sys.stderr)' \
+    test_usage_errors_are_2
+mut N14_line_break_taken "$ONE_STEP" \
+    '    if "\n" in args.exercise_dir or "\r" in args.exercise_dir:' \
+    '    if False:' \
+    test_usage_errors_are_2
+mut N15_in_use_dropped "$ONE_STEP" \
+    '                         no_roles=args.no_roles, in_use=args.in_use)' \
+    '                         no_roles=args.no_roles, in_use=None)' \
+    test_the_in_use_flag_reaches_the_replace_guard test_every_flag_is_forwarded_to_prepare
+mut N16_topology_dropped "$ONE_STEP" \
+    '        result = prepare(args.exercise_dir, args.run_dir, topology=args.topology, p4=args.p4,' \
+    '        result = prepare(args.exercise_dir, args.run_dir, topology=None, p4=args.p4,' \
+    test_every_flag_is_forwarded_to_prepare
+mut N17_p4_dropped "$ONE_STEP" \
+    '        result = prepare(args.exercise_dir, args.run_dir, topology=args.topology, p4=args.p4,' \
+    '        result = prepare(args.exercise_dir, args.run_dir, topology=args.topology, p4=None,' \
+    test_every_flag_is_forwarded_to_prepare
+mut N18_role_dropped "$ONE_STEP" \
+    '                         role_text=args.role_ipv4_route, owner=args.table_owner,' \
+    '                         role_text=None, owner=args.table_owner,' \
+    test_every_flag_is_forwarded_to_prepare
+mut N19_table_owner_dropped "$ONE_STEP" \
+    '                         role_text=args.role_ipv4_route, owner=args.table_owner,' \
+    '                         role_text=args.role_ipv4_route, owner=None,' \
+    test_every_flag_is_forwarded_to_prepare
+mut N20_no_roles_dropped "$ONE_STEP" \
+    '                         no_roles=args.no_roles, in_use=args.in_use)' \
+    '                         no_roles=False, in_use=args.in_use)' \
+    test_every_flag_is_forwarded_to_prepare
+
+# --- round 2: pre-flight's suggestion, and a role that names no owner -----------------------------
+mut S1_suggestion_owner_ndtwin "$PREFLIGHT" \
+    '    block = {"ipv4_route": dict(suggestion, owner="package")}' \
+    '    block = {"ipv4_route": suggestion}' \
+    test_the_suggestion_offers_owner_package \
+    test_every_captured_suggestion_row_is_what_preflight_prints_now \
+    test_a_foreign_route_shaped_table_without_roles_gets_one_pasteable_line
+mut S2_suggestion_on_external "$PREFLIGHT" \
+    '        if mode == "external" or not report.suggest_roles:' \
+    '        if not report.suggest_roles:' \
+    test_none_is_offered_on_an_external_control_plane
+mut S3_suggestion_not_switchable "$PREFLIGHT" \
+    '        if mode == "external" or not report.suggest_roles:' \
+    '        if mode == "external":' \
+    test_it_can_be_switched_off
+mut S4_cli_switch_ignored "$PREFLIGHT" \
+    '                 suggest_roles=not args.no_role_suggestion)' \
+    '                 suggest_roles=True)' \
+    test_the_command_line_switch_reaches_it
+mut S5_loader_default_ndtwin "$APP_PACKAGE" \
+    'ROLE_DEFAULT_OWNER = "package"' \
+    'ROLE_DEFAULT_OWNER = "ndtwin"' \
+    test_the_loader_gives_it_owner_package
+mut S6_loader_owner_required "$APP_PACKAGE" \
+    '    route = dict(route, owner=route.get("owner", ROLE_DEFAULT_OWNER))' \
+    '    pass' \
+    test_the_loader_gives_it_owner_package test_a_package_whose_role_names_no_owner_passes_pre_flight
+mut S7_resolver_default_ndtwin "$ROUTE_BINDING" \
+    'DEFAULT_OWNER = OWNER_PACKAGE' \
+    'DEFAULT_OWNER = OWNER_NDTWIN' \
+    test_the_resolver_gives_it_owner_package
+mut S8_resolver_owner_required "$ROUTE_BINDING" \
+    '    role = dict(role, owner=role.get("owner", DEFAULT_OWNER))' \
+    '    pass' \
+    test_the_resolver_gives_it_owner_package
 
 # --- controls ---------------------------------------------------------------------------------
 control K1_comment_in_one_step "$ONE_STEP" \

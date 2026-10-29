@@ -7,7 +7,7 @@
         [--p4 solution/basic.p4] --out <package_dir> \
         [--role-ipv4-route [owner=package,]table=MyIngress.ipv4_lpm,match_field=hdr.ipv4.dstAddr,\
                            action=MyIngress.ipv4_forward,dst_mac=dstAddr,port=port
-         | --auto-role] [--owner package|ndtwin]
+         | --auto-role] [--table-owner package|ndtwin]
 
 `ndt up p4 --app <exercise dir>` runs this for you (through one_step.py, with --auto-role) and
 then pre-flight and the bring-up; calling it by hand is for a package you want to keep or edit.
@@ -538,7 +538,7 @@ def switch_pipelines(exercise_dir, switches, p4_rel, ndtwin_pipeline=False):
             if not os.path.isfile(abs_path):
                 raise ConversionError(
                     f"switch {switches[dpid]['name']} runs {json_rel!r}, whose artefact {rel!r} "
-                    f"is not at {abs_path}. Build the exercise first (`make` in "
+                    f"is not at {abs_path}. Build the exercise first (`make build` in "
                     f"{exercise_dir}) -- a package that names a pipeline it does not carry "
                     f"cannot be pre-flighted and cannot be brought up")
             copies.append((abs_path, rel))
@@ -778,7 +778,7 @@ def _runtime_json_dependencies(exercise_dir, entries_abs, entries_rel):
         if not os.path.isfile(abs_path):
             raise ConversionError(
                 f"{entries_rel} names {key} {rel!r}, which is not at {abs_path}. Build the "
-                f"exercise first (`make` in {exercise_dir}) -- a package that names a p4info "
+                f"exercise first (`make build` in {exercise_dir}) -- a package that names a p4info "
                 f"it does not carry cannot be pre-flighted")
         out.append((abs_path, rel))
     return out
@@ -801,19 +801,19 @@ def _dedup_copies(copies):
 # 🔴 EVERY NAME IS WRITTEN OUT BY THE OPERATOR. The flag takes table, match_field, action,
 # dst_mac and port, and a missing one is refused rather than filled in from the p4info: a table
 # that merely LOOKS like a route table is a guess, and the guess is exactly what the roles
-# contract exists to replace (ANALYSIS section 5). preflight.py is the one place that looks at a
+# contract exists to replace. preflight.py is the one place that looks at a
 # p4info and SUGGESTS a block; the author accepts it by typing it here.
 #
 # [Co-developed with claude code -- Adam]
-# `owner=` may be left out, and is then `package` (or what `--owner` says): the author keeps the
-# table and NDTwin only reads it to compute flow paths. `owner=ndtwin` is still there for apps
-# that write OpenFlow-shaped routes through NDTwin.
+# `owner=` may be left out, and is then `package` (or what `--table-owner` says): the author
+# keeps the table and NDTwin only reads it to compute flow paths. `owner=ndtwin` is still there
+# for apps that write OpenFlow-shaped routes through NDTwin.
 #
 # `--auto-role` is the one way the suggestion is applied, and only when exactly ONE candidate
 # qualifies: the block preflight.route_role_candidates finds, with owner `package` unless
-# `--owner ndtwin` is given. Zero or several candidates leave the package without roles and say
-# so. `ndt up p4 --app <exercise dir>` passes it; a bare convert.py call does not, so a call
-# without it writes what it always wrote.
+# `--table-owner ndtwin` is given. Zero or several candidates leave the package without roles
+# and say so. `ndt up p4 --app <exercise dir>` passes it; a bare convert.py call does not, so a
+# call without it writes what it always wrote.
 #
 # 🔴 WITHOUT THE FLAG NOTHING HERE RUNS, and the package is byte-for-byte what it was
 # (tests/test_convert.py compares every written file against a capture taken at 6291db35).
@@ -832,8 +832,8 @@ def parse_role_flag(text, owner=None):
     """`table=...,match_field=...,...` -> the `roles.ipv4_route` object package.json carries.
 
     The five names each once, none empty, nothing else; `owner=` is optional and is `ndtwin` or
-    `package`. Left out, it is `owner` (the `--owner` flag) or else DEFAULT_ROLE_OWNER; written
-    out and different from a given `owner`, the two are refused rather than ranked.
+    `package`. Left out, it is `owner` (the `--table-owner` flag) or else DEFAULT_ROLE_OWNER;
+    written out and different from a given `owner`, the two are refused rather than ranked.
     [Co-developed with claude code -- Adam]
     """
     if not isinstance(text, str) or not text.strip():
@@ -853,10 +853,10 @@ def parse_role_flag(text, owner=None):
             raise ConversionError(f"--role-ipv4-route: {key!r} is empty")
         values[key] = value
     if owner is not None and owner not in ROLE_OWNERS:
-        raise ConversionError(f"--owner must be one of {list(ROLE_OWNERS)}, got {owner!r}")
+        raise ConversionError(f"--table-owner must be one of {list(ROLE_OWNERS)}, got {owner!r}")
     if owner is not None and values.get("owner", owner) != owner:
-        raise ConversionError(f"--role-ipv4-route says owner={values['owner']} and --owner says "
-                              f"{owner}: drop one of them")
+        raise ConversionError(f"--role-ipv4-route says owner={values['owner']} and "
+                              f"--table-owner says {owner}: drop one of them")
     # The one key that may be left out is filled before the check below, so that check still
     # names every other missing key.
     values.setdefault("owner", owner or DEFAULT_ROLE_OWNER)
@@ -896,6 +896,13 @@ NO_PATHS_WARNING = ("the twin will show no flow paths for this fabric unless its
                     "table uses NDTwin's own names")
 
 
+def role_flag_text(role):
+    """The `--role-ipv4-route` value that names `role`, owner left out (it defaults).
+    [Co-developed with claude code -- Adam]"""
+    return (f"table={role['table']},match_field={role['match_field']},action={role['action']},"
+            f"dst_mac={role['params']['dst_mac']},port={role['params']['port']}")
+
+
 def _describe_candidate(role):
     return (f"{role['table']} {role['match_field']} -> {role['action']}"
             f"({role['params']['dst_mac']}, {role['params']['port']})")
@@ -917,7 +924,7 @@ def auto_route_role(exercise_dir, package, model, owner=DEFAULT_ROLE_OWNER):
     [Co-developed with claude code -- Adam]
     """
     if owner not in ROLE_OWNERS:
-        raise ConversionError(f"--owner must be one of {list(ROLE_OWNERS)}, got {owner!r}")
+        raise ConversionError(f"--table-owner must be one of {list(ROLE_OWNERS)}, got {owner!r}")
     found = {"role": None, "candidates": [], "why": None, "warn": False}
     own = {dpid: spec for dpid, spec in package["switches"].items() if spec.get("pipeline")}
     external = package["control_plane"]["mode"] == "external"
@@ -954,8 +961,8 @@ def auto_route_role(exercise_dir, package, model, owner=DEFAULT_ROLE_OWNER):
             found["warn"] = True
     if owner == "ndtwin" and found["role"] is None:
         raise ConversionError(
-            f"--owner ndtwin asks NDTwin to write this program's forwarding table, and no single "
-            f"one was found: {found['why']}. Name it with --role-ipv4-route")
+            f"--table-owner ndtwin asks NDTwin to write this program's forwarding table, and no "
+            f"single one was found: {found['why']}. Name it with --role-ipv4-route")
     return found
 
 
@@ -965,8 +972,8 @@ def auto_role_lines(found):
     if not found:
         return []
     if found.get("role") is not None:
-        return ["  route role    : auto-filled from the p4info -- the one table shaped like a "
-                "destination route: " + _describe_candidate(found["role"])]
+        return ["  route role    : auto-filled from the p4info -- its one (table, action) "
+                "candidate shaped like a destination route: " + _describe_candidate(found["role"])]
     lines = [f"  route role    : none -- {found['why']}"]
     if found.get("warn"):
         lines.append(f"  WARNING       : {NO_PATHS_WARNING}")
@@ -1249,12 +1256,13 @@ def main(argv=None):
                          "entries for that table out of every runtime file (counted below).")
     # [Co-developed with claude code -- Adam]
     ap.add_argument("--auto-role", action="store_true",
-                    help="fill roles.ipv4_route from the p4info when exactly one table is shaped "
-                         "like a destination route (the block pre-flight suggests); with none "
-                         "or several, write no roles and say why")
-    ap.add_argument("--owner", default=None, choices=ROLE_OWNERS,
+                    help="fill roles.ipv4_route from the p4info when it has exactly one "
+                         "(table, action) candidate shaped like a destination route (what "
+                         "pre-flight suggests); with none or several, write no roles and say why")
+    ap.add_argument("--table-owner", default=None, choices=ROLE_OWNERS,
                     help="the owner of a role that does not name one (--auto-role, or a "
-                         "--role-ipv4-route without owner=); default package")
+                         "--role-ipv4-route without owner=); default package. ndtwin also takes "
+                         "the exercise's match entries for that table out (counted below)")
     ap.add_argument("--thrift-commands", action="append", default=[], metavar="sN=<file>",
                     help="translate this switch's simple_switch_CLI table commands (a commands "
                          "file, or a .sh of `simple_switch_CLI <<< \"...\"` lines) into "
@@ -1264,20 +1272,20 @@ def main(argv=None):
 
     removed, translated, auto = {}, {}, {}
     try:
-        # [Co-developed with claude code -- Adam] An --owner with no role to give it to would
+        # [Co-developed with claude code -- Adam] A --table-owner with no role to give it to would
         # be a flag that did nothing while the command exited 0.
-        if args.owner is not None and args.role_ipv4_route is None and not args.auto_role:
-            raise ConversionError("--owner names the owner of a route role, and neither "
+        if args.table_owner is not None and args.role_ipv4_route is None and not args.auto_role:
+            raise ConversionError("--table-owner names the owner of a route role, and neither "
                                   "--role-ipv4-route nor --auto-role asks for one")
         role = (None if args.role_ipv4_route is None
-                else parse_role_flag(args.role_ipv4_route, owner=args.owner))
+                else parse_role_flag(args.role_ipv4_route, owner=args.table_owner))
         thrift = parse_thrift_flags(args.thrift_commands)
         package, model, written = convert(args.exercise_dir, args.topology, args.out,
                                           p4_rel=args.p4, name=args.name, mode=args.mode,
                                           ndtwin_pipeline=args.ndtwin_pipeline,
                                           role_ipv4_route=role, removed=removed,
                                           thrift_commands=thrift, thrift_report=translated,
-                                          auto_role=args.auto_role, owner=args.owner,
+                                          auto_role=args.auto_role, owner=args.table_owner,
                                           auto_report=auto)
     except ConversionError as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)

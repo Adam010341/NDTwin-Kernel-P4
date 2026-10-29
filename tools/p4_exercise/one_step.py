@@ -6,20 +6,24 @@
     tools/p4_exercise/one_step.py <exercise_dir> [--run-dir <repo>/.test_run]
         [--topology pod-topo/topology.json] [--p4 basic.p4]
         [--role-ipv4-route [owner=,]table=,match_field=,action=,dst_mac=,port= | --no-roles]
-        [--owner package|ndtwin] [--in-use <package dir>] [--emit-path <file>]
+        [--table-owner package|ndtwin] [--in-use <package dir>] [--emit-path <file>]
 
 `ndt up p4 --app <exercise dir>` runs this, then pre-flight on what it wrote, then the bring-up.
 It is convert.py with the three things a user would otherwise type worked out:
 
-  * the topology: `topology.json` at the top of the exercise, or `<subdir>/topology.json` one
-    level down (pod-topo/, triangle-topo/, ...). Exactly one is used; several are refused with the
-    list and the `--topology` flag that picks one.
-  * the program: `--p4`, else the exercise Makefile's DEFAULT_PROG, else the one `*.p4` at the top
-    of the exercise -- the same rule tutorials' utils/Makefile applies to DEFAULT_PROG.
-  * the route role: `convert.py --auto-role` (owner package, or `--owner ndtwin`), unless
+  * the topology: `--topology`, else the exercise Makefile's TOPO (what tutorials' own
+    `make run` uses), else the only `topology.json` at the top of the exercise or one level down
+    (pod-topo/, triangle-topo/, ...). Several and no TOPO are refused with the list and the
+    `--topology` flag that picks one.
+  * the program: `--p4`, else the Makefile's DEFAULT_PROG, else the one `*.p4` at the top of the
+    exercise -- the rule tutorials' utils/Makefile applies to DEFAULT_PROG. Its stem picks the
+    compiled build/<stem>.json and build/<stem>.p4.p4info.txtpb every switch runs.
+  * the route role: `convert.py --auto-role` (owner package, or `--table-owner ndtwin`), unless
     `--role-ipv4-route` names one or `--no-roles` asks for none.
 
-The user still runs `make`. An unbuilt exercise is refused by convert.py, with the make command.
+The user compiles the exercise with `make build`. (A plain `make` is `make run`, which starts
+tutorials' own Mininet under sudo beside NDTwin's fabric.) An unbuilt exercise is refused by
+convert.py, with that command.
 
 WHERE THE PACKAGE GOES: <run-dir>/packages/generated/<exercise name>-<8 hex digits>, the digits
 being the start of the sha256 of the exercise's resolved path.
@@ -28,20 +32,24 @@ being the start of the sha256 of the exercise's resolved path.
     generated package is never committed by accident and never seen by another checkout's `ndt`.
     Under packages/ because that is where `ndt serve` admits `up --app` packages from by default.
   * Keyed by the resolved path, so two exercises that share a directory name do not share a
-    package, and one exercise always lands in the same place.
+    package, one exercise always lands in the same place, and a symlinked path to it is the same
+    exercise.
 
-A RE-RUN builds the new conversion beside the old one and compares the two file by file:
+A RE-RUN converts into <run-dir>/packages-staging/ (outside packages/, so `ndt serve` can never be
+pointed at a half-written package) and compares the result with the last one file by file:
   * the same bytes: the old directory is kept as it is, and reported `unchanged`;
   * different: the new one replaces the old one whole, so no file of an earlier conversion
     survives into the new package -- unless the old one is the package the app-package knob names
     (`--in-use`), i.e. a fabric was brought up from it and has not been taken down. That is
     refused: those switches loaded the old program when they started and would go on running it
     under a package that no longer describes them. `ndt down` first.
+Staging directories a killed run left behind for the same exercise are removed first.
 
-Exit: 0 the package is ready (its path is printed, and written to --emit-path); 2 a usage error;
-5 refused, and nothing was written.
+Exit: 0 the package is ready (its path is printed, and written to --emit-path); 2 a usage error
+(a malformed or conflicting flag, an unusable path); 5 refused, and no package was written.
 """
 import argparse
+import glob
 import hashlib
 import os
 import re
@@ -60,7 +68,12 @@ RC_OK, RC_USAGE, RC_REFUSED = 0, 2, 5
 
 #: Subdirectories that never hold an exercise's topology: what `make` writes, and the model
 #: directory of a package (a package's ndtwin/topology.json is NDTwin's format, not tutorials').
+#: `ndt`'s app_is_exercise skips the same four.
 NOT_TOPOLOGY_DIRS = ("build", "logs", "pcaps", "ndtwin")
+
+#: What convert.py writes besides the copies: a directory holding this but no package.json is a
+#: package that lost its manifest, not an exercise.
+PACKAGE_MODEL = os.path.join("ndtwin", "topology.json")
 
 #: The flag that picks one topology when an exercise has several; named in the refusal.
 TOPOLOGY_FLAG = "--topology"
@@ -105,23 +118,26 @@ def makefile_var(exercise_dir, name):
 
 
 def choose_topology(exercise_dir, given=None):
-    """(topology_rel, how it was chosen). Several candidates and no `given` are refused."""
+    """(topology_rel, how it was chosen): --topology, the Makefile's TOPO, or the only one."""
     if given:
         return given, f"{TOPOLOGY_FLAG}"
     found = topology_candidates(exercise_dir)
-    if len(found) == 1:
-        return found[0], "the only one"
     if not found:
         raise convert.ConversionError(
             f"{exercise_dir} is neither an app package (no package.json) nor a p4lang-tutorials "
             f"exercise (no topology.json at its top or one directory down)")
     make_topo = makefile_var(exercise_dir, "TOPO")
-    listing = ", ".join(f"{rel} (the Makefile's TOPO)" if rel == make_topo else rel
-                        for rel in found)
-    pick = make_topo if make_topo in found else found[0]
+    if make_topo:
+        if not os.path.isfile(os.path.join(exercise_dir, make_topo)):
+            raise convert.ConversionError(
+                f"the Makefile's TOPO is {make_topo}, which is not in {exercise_dir}. Pick the "
+                f"topology with {TOPOLOGY_FLAG}, for example  {TOPOLOGY_FLAG} {found[0]}")
+        return make_topo, "the Makefile's TOPO"
+    if len(found) == 1:
+        return found[0], "the only one"
     raise convert.ConversionError(
-        f"{exercise_dir} has {len(found)} topologies: {listing}. Pick one with "
-        f"{TOPOLOGY_FLAG}, for example  {TOPOLOGY_FLAG} {pick}")
+        f"{exercise_dir} has {len(found)} topologies ({', '.join(found)}) and its Makefile sets "
+        f"no TOPO. Pick one with {TOPOLOGY_FLAG}, for example  {TOPOLOGY_FLAG} {found[0]}")
 
 
 def choose_p4(exercise_dir, given=None):
@@ -160,6 +176,11 @@ def generated_dir(run_dir, exercise_dir):
                         f"{os.path.basename(real) or 'exercise'}-{digest}")
 
 
+def staging_root(run_dir):
+    """Where conversions are built before they are put in place: outside packages/."""
+    return os.path.join(os.path.abspath(run_dir), "packages-staging")
+
+
 def _tree(root):
     """{relative path: sha256} of every file under root."""
     out = {}
@@ -181,33 +202,48 @@ def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner
 
     Returns a dict: dest, state (created | replaced | unchanged), topology, topology_how, p4,
     p4_how, package, auto (auto_route_role's answer, {} when it did not run), role_source
-    (auto | flag | none). Raises convert.ConversionError for every refusal; by then nothing has
-    been written but the (empty) parent directory and a staging directory it has removed.
+    (auto | flag | none), removed ({dpid: entries taken out of an owner-ndtwin table}). Raises
+    convert.ConversionError for every refusal; by then no package has been written (only the
+    empty parent directories, and a staging directory that has been removed again).
     """
-    exercise_dir = os.path.abspath(exercise_dir)
+    # The resolved path from here on: a symlink to the exercise and the exercise itself are one
+    # exercise, so they convert to the same bytes (package.json records this path) and compare
+    # `unchanged`.
+    exercise_dir = os.path.realpath(exercise_dir)
     if not os.path.isdir(exercise_dir):
         raise convert.ConversionError(f"no exercise directory at {exercise_dir}")
     if os.path.isfile(os.path.join(exercise_dir, "package.json")):
         raise convert.ConversionError(
             f"{exercise_dir} already is an app package (it has package.json); bring it up as it "
             f"is, without the exercise flags")
+    if os.path.isfile(os.path.join(exercise_dir, PACKAGE_MODEL)):
+        raise convert.ConversionError(
+            f"{exercise_dir} has {PACKAGE_MODEL} but no package.json: it is an app package that "
+            f"lost its manifest, not an exercise. Convert the exercise it came from again, or put "
+            f"its package.json back")
     topology_rel, topology_how = choose_topology(exercise_dir, topology)
     p4_rel, p4_how = choose_p4(exercise_dir, p4)
     role = None if role_text is None else convert.parse_role_flag(role_text, owner=owner)
     dest = generated_dir(run_dir, exercise_dir)
-    real_ex = os.path.realpath(exercise_dir)
-    if os.path.realpath(dest) == real_ex or os.path.realpath(dest).startswith(real_ex + os.sep):
+    if os.path.realpath(dest).startswith(exercise_dir + os.sep):
         raise convert.ConversionError(
             f"the generated package would be written inside the exercise ({dest}); this tool "
             f"never writes there. Run it from a checkout outside {exercise_dir}")
-    parent = os.path.dirname(dest)
-    os.makedirs(parent, exist_ok=True)
-    staging = tempfile.mkdtemp(prefix=os.path.basename(dest) + ".new-", dir=parent)
+    stage_root = staging_root(run_dir)
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    os.makedirs(stage_root, exist_ok=True)
+    # What a killed run of this same exercise left behind. Only this exercise's: another
+    # exercise's conversion may be running beside this one.
+    for stale in glob.glob(os.path.join(stage_root, glob.escape(os.path.basename(dest)) + ".*-*")):
+        shutil.rmtree(stale, ignore_errors=True)
+    staging = tempfile.mkdtemp(prefix=os.path.basename(dest) + ".new-", dir=stage_root)
+    removed = {}
     try:
         auto = {}
         package, _model, _written = convert.convert(
             exercise_dir, topology_rel, staging, p4_rel=p4_rel, role_ipv4_route=role,
-            auto_role=(role is None and not no_roles), owner=owner, auto_report=auto)
+            auto_role=(role is None and not no_roles), owner=owner, auto_report=auto,
+            removed=removed)
         if os.path.lexists(dest) and not os.path.isdir(dest):
             raise convert.ConversionError(f"{dest} exists and is not a directory; remove it")
         if os.path.isdir(dest) and _tree(dest) == _tree(staging):
@@ -219,7 +255,7 @@ def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner
                 f"from it and not taken down, and its switches run the program they loaded then. "
                 f"Take it down first:  ndt down")
         elif os.path.isdir(dest):
-            old = tempfile.mkdtemp(prefix=os.path.basename(dest) + ".old-", dir=parent)
+            old = tempfile.mkdtemp(prefix=os.path.basename(dest) + ".old-", dir=stage_root)
             os.rename(dest, os.path.join(old, "pkg"))
             os.rename(staging, dest)
             shutil.rmtree(old, ignore_errors=True)
@@ -238,11 +274,25 @@ def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner
         role_source = "none"
     return {"dest": dest, "state": state, "topology": topology_rel, "topology_how": topology_how,
             "p4": p4_rel, "p4_how": p4_how, "package": package, "auto": auto,
-            "role_source": role_source}
+            "role_source": role_source, "removed": removed}
+
+
+def _stripped_line(route, removed):
+    """The line that says what owner ndtwin took out of the author's runtime files."""
+    total = sum(removed.values())
+    per = ", ".join(f"s{d}: {n}" for d, n in sorted(removed.items(), key=lambda kv: int(kv[0])))
+    return (f"  stripped      : {total} match entr{'y' if total == 1 else 'ies'} of "
+            f"{route['table']} taken out of the runtime files ({per or 'no switch had any'}), "
+            f"because NDTwin owns that table; its default action stays")
 
 
 def report_lines(result, no_roles=False):
-    """What `ndt up p4 --app <exercise>` prints about the conversion."""
+    """What `ndt up p4 --app <exercise>` prints about the conversion.
+
+    🔴 EVERY WAY OUT IS AN `ndt` FLAG. The user typed `ndt up p4 --app <exercise dir>` and never
+    saw the generated package.json, so a hint to edit it would be a hint to edit a file the next
+    run overwrites. Several candidates are printed as the --role-ipv4-route line that picks each.
+    """
     package = result["package"]
     switches = package["switches"]
     lines = [f"  topology      : {result['topology']}   ({result['topology_how']})",
@@ -270,6 +320,13 @@ def report_lines(result, no_roles=False):
             lines.append(f"  WARNING       : {convert.NO_PATHS_WARNING}")
     else:
         lines += convert.auto_role_lines(result["auto"])
+        candidates = (result["auto"] or {}).get("candidates") or []
+        if len(candidates) > 1:
+            lines.append("  to pick one   : add one of these to the ndt up command")
+            lines += [f"                    --role-ipv4-route {convert.role_flag_text(c)}"
+                      for c in candidates]
+    if route is not None and route["owner"] == "ndtwin":
+        lines.append(_stripped_line(route, result.get("removed") or {}))
     lines.append(f"  package       : {result['dest']}   ({result['state']})")
     return lines
 
@@ -280,16 +337,20 @@ def main(argv=None):
     ap.add_argument("--run-dir", default=os.path.join(common.REPO, ".test_run"),
                     help="the checkout's run directory (default <repo>/.test_run)")
     ap.add_argument("--topology", default=None,
-                    help="the tutorials topology.json, relative to the exercise; needed only "
-                         "when the exercise has several")
+                    help="the tutorials topology.json, relative to the exercise (default: the "
+                         "Makefile's TOPO, else the only one)")
     ap.add_argument("--p4", default=None,
-                    help="the .p4 every switch runs, relative to the exercise (default: the "
-                         "Makefile's DEFAULT_PROG, else the one .p4 at its top)")
+                    help="the program every switch runs, relative to the exercise: its stem picks "
+                         "the compiled build/<stem>.json and build/<stem>.p4.p4info.txtpb, and the "
+                         "file itself is what pre-flight recompiles (default: the Makefile's "
+                         "DEFAULT_PROG, else the one .p4 at its top)")
     ap.add_argument("--role-ipv4-route", default=None,
                     metavar="[owner=,]table=,match_field=,action=,dst_mac=,port=",
                     help="the forwarding table's role, written out; wins over the auto-filled one")
-    ap.add_argument("--owner", default=None, choices=convert.ROLE_OWNERS,
-                    help="owner of the route role (default package: NDTwin only reads the table)")
+    ap.add_argument("--table-owner", default=None, choices=convert.ROLE_OWNERS,
+                    help="who owns the forwarding table (default package: NDTwin only reads it). "
+                         "ndtwin: NDTwin writes it, and the exercise's match entries for it are "
+                         "taken out of the runtime files (the count is printed)")
     ap.add_argument("--no-roles", action="store_true",
                     help="declare no route role, even when the p4info has one candidate")
     ap.add_argument("--in-use", default=None,
@@ -307,15 +368,27 @@ def main(argv=None):
         if value is not None and not value.strip():
             print(f"usage: {flag} was given an empty value", file=sys.stderr)
             return RC_USAGE
-    if args.no_roles and (args.role_ipv4_route is not None or args.owner is not None):
-        print("usage: --no-roles declares no route role, so it cannot be given with "
-              "--role-ipv4-route or --owner", file=sys.stderr)
+    # A newline in the path cannot be written to the app-package knob, which is one line.
+    if "\n" in args.exercise_dir or "\r" in args.exercise_dir:
+        print("usage: the exercise path has a line break in it", file=sys.stderr)
         return RC_USAGE
+    if args.no_roles and (args.role_ipv4_route is not None or args.table_owner is not None):
+        print("usage: --no-roles declares no route role, so it cannot be given with "
+              "--role-ipv4-route or --table-owner", file=sys.stderr)
+        return RC_USAGE
+    if args.role_ipv4_route is not None:
+        # Parsed here as well as in prepare(): a role that does not parse, or names an owner that
+        # --table-owner contradicts, is a usage error (2), not a refusal of the exercise.
+        try:
+            convert.parse_role_flag(args.role_ipv4_route, owner=args.table_owner)
+        except convert.ConversionError as exc:
+            print(f"usage: {exc}", file=sys.stderr)
+            return RC_USAGE
 
     print(f"  exercise      : {os.path.abspath(args.exercise_dir)}")
     try:
         result = prepare(args.exercise_dir, args.run_dir, topology=args.topology, p4=args.p4,
-                         role_text=args.role_ipv4_route, owner=args.owner,
+                         role_text=args.role_ipv4_route, owner=args.table_owner,
                          no_roles=args.no_roles, in_use=args.in_use)
     except convert.ConversionError as exc:
         print(f"REFUSED: {exc}")

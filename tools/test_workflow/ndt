@@ -2127,19 +2127,28 @@ app_preflight() {
         return 1
     fi
     [[ -r "$tool" ]] || { err "no package pre-flight at $tool"; return 1; }
-    out="$("$py" "$tool" "$dir" 2>&1)"; rc=$?
+    # [Co-developed with claude code -- Adam] The package this run generated from an exercise
+    # gets no `roles suggestion` row: it would tell the user to edit a package.json the next run
+    # overwrites, and one_step.py has already printed the choice as ndt flags.
+    local -a extra=()
+    [[ -n "$APP_FROM_EXERCISE" && "$dir" == "$APP_FROM_EXERCISE" ]] && extra=(--no-role-suggestion)
+    out="$("$py" "$tool" "$dir" ${extra[@]+"${extra[@]}"} 2>&1)"; rc=$?
     printf '%s\n' "$out"
     return $rc
 }
 
 # app_is_exercise <dir> -- true when <dir> holds a p4lang-tutorials topology.json at its top or
 # one directory down (pod-topo/topology.json). Only asked of a directory with no package.json.
-# A package's own ndtwin/topology.json is NDTwin's format and does not count.
-# [Co-developed with claude code -- Adam]
+# The four subdirectories tools/p4_exercise/one_step.py skips are skipped here too: build/,
+# logs/ and pcaps/ are what `make` writes, and a package's own ndtwin/topology.json is NDTwin's
+# format, not tutorials'. [Co-developed with claude code -- Adam]
 app_is_exercise() {
-    local f
+    local f sub
     for f in "$1"/topology.json "$1"/*/topology.json; do
-        [[ -f "$f" && "$f" != "$1/ndtwin/topology.json" ]] && return 0
+        [[ -f "$f" ]] || continue
+        sub="${f#"$1"/}"; sub="${sub%/topology.json}"
+        case "$sub" in build|logs|pcaps|ndtwin) continue ;; esac
+        return 0
     done
     return 1
 }
@@ -3423,8 +3432,15 @@ up_p4() {
         # A p4lang-tutorials exercise rather than a package: converted first, into a generated
         # package under .test_run/packages/generated/ (never into the exercise), and from here on
         # that package is handled exactly as if it had been given. Exercise flags beside a
-        # package are refused: they would be ignored.
-        if [[ ! -f "$(app_manifest "$app_dir")" ]] &&
+        # package are refused: they would be ignored. A directory holding a package's model but
+        # no package.json is a package that lost its manifest, and is never converted again.
+        APP_FROM_EXERCISE=""
+        if [[ ! -f "$(app_manifest "$app_dir")" && -f "$(app_model_path "$app_dir")" ]]; then
+            err "refusing to build: $app_dir has ndtwin/topology.json but no package.json --"
+            err "  an app package that lost its manifest, not an exercise. Convert the exercise it"
+            err "  came from again (ndt up p4 --app <exercise dir>), or put its package.json back."
+            return 5
+        elif [[ ! -f "$(app_manifest "$app_dir")" ]] &&
            { (( ${#NDT_APP_EXERCISE_ARGV[@]} )) || app_is_exercise "$app_dir"; }; then
             app_from_exercise "$app_dir" || return $?
             app_dir="$APP_FROM_EXERCISE"
@@ -3448,8 +3464,14 @@ up_p4() {
         if ! app_preflight "$app_dir"; then
             echo
             err "refusing to build: the app package did not pass pre-flight (table above)."
+            if [[ -n "$APP_FROM_EXERCISE" ]]; then
+                # [Co-developed with claude code -- Adam] The generated package WAS written.
+                err "  nothing was started. The generated package was written ($app_dir);"
+                err "  p4_proxy/mininet/app_package_override is UNCHANGED at $(app_knob_state)."
+            else
             err "  nothing was started and nothing was written -- p4_proxy/mininet/app_package_override"
             err "  is UNCHANGED at $(app_knob_state)."
+            fi
             err "  fix the red rows, then:  ndt up p4 --app ${NDT_APP_DIR:-$app_dir}"
             # 🔴 rc 5: a GUARD REFUSED and nothing was built -- the same code the two topology
             # refusals below and record_up_target's give. The distinction rc 1 carries is
@@ -10980,8 +11002,8 @@ up_take_app_flag() {
             --app=*) NDT_APP_DIR="${a#--app=}"; seen=1 ;;
             --telemetry)   twant=1 ;;
             --telemetry=*) NDT_TELEMETRY="${a#--telemetry=}"; tseen=1 ;;
-            --topology|--p4|--role-ipv4-route|--owner) xwant="$a" ;;
-            --topology=*|--p4=*|--role-ipv4-route=*|--owner=*|--no-roles) NDT_APP_EXERCISE_ARGV+=("$a") ;;
+            --topology|--p4|--role-ipv4-route|--table-owner) xwant="$a" ;;
+            --topology=*|--p4=*|--role-ipv4-route=*|--table-owner=*|--no-roles) NDT_APP_EXERCISE_ARGV+=("$a") ;;
             *)       NDT_UP_ARGV+=("$a") ;;
         esac
     done
@@ -11032,6 +11054,12 @@ up_take_app_flag() {
         return 2
     fi
     [[ -z "$NDT_APP_DIR" ]] && return 0
+    # [Co-developed with claude code -- Adam] p4_proxy/mininet/app_package_override is one path
+    # on one line, so a path with a line break in it cannot be written there.
+    if [[ "$NDT_APP_DIR" == *$'\n'* || "$NDT_APP_DIR" == *$'\r'* ]]; then
+        err "--app: the directory's path has a line break in it; rename it first"
+        return 2
+    fi
     if [[ ! -d "$NDT_APP_DIR" ]]; then
         err "--app $NDT_APP_DIR is not a directory"
         err "  it must be a built p4lang-tutorials exercise, or an app package: a directory with"
@@ -11174,27 +11202,39 @@ usage: ndt <command>
                   --app is a P4 flag: on any other plane it is a usage error (2), not
                   an ignored argument.
                 --app <exercise dir> takes a p4lang-tutorials exercise directly, once
-                  'make' has built it (an unbuilt one is refused with the make
-                  command). tools/p4_exercise/one_step.py converts it into a package
-                  under .test_run/packages/generated/ -- never inside the exercise --
-                  and prints its path and the route role it chose; pre-flight and the
-                  bring-up then run on that package as above. A re-run with the same
-                  result reuses it; a different result replaces it, unless a fabric
-                  built from it is still up (then: ndt down first). A conversion that
-                  is refused is 5, nothing built; a bad exercise flag is 2.
-                    ndt up p4 --app exercises/basic --topology pod-topo/topology.json
-                  --topology <rel>   needed only when the exercise has several
-                  --p4 <rel>         the program (default: the Makefile's DEFAULT_PROG,
-                                     else the one .p4 at the exercise's top)
+                  'make build' has compiled it (a plain 'make' is 'make run', which
+                  starts tutorials' own Mininet; an unbuilt exercise is refused with
+                  the make build command). tools/p4_exercise/one_step.py converts it
+                  into a package under .test_run/packages/generated/ -- never inside
+                  the exercise -- and prints its path and the route role it chose;
+                  pre-flight and the bring-up then run on that package as above. A
+                  re-run with the same result reuses it; a different result replaces
+                  it, unless a fabric built from it is still up (then: ndt down
+                  first). A conversion that is refused is 5, nothing built; a
+                  malformed or conflicting exercise flag is 2.
+                    ndt up p4 --app exercises/basic
+                  --topology <rel>   the topology (default: the Makefile's TOPO, else
+                                     the only topology.json in the exercise)
+                  --p4 <rel>         the program; its stem picks the compiled
+                                     build/<stem>.json every switch runs (default:
+                                     the Makefile's DEFAULT_PROG, else the one .p4
+                                     at the exercise's top)
                   --role-ipv4-route [owner=,]table=,match_field=,action=,dst_mac=,port=
                                      the forwarding table, written out; wins over
                                      the auto-filled one
-                  --owner ndtwin     the route role's owner (default package: NDTwin
-                                     only reads the table, to compute flow paths)
+                  --table-owner ndtwin
+                                     NDTwin owns the forwarding table and writes it;
+                                     the exercise's match entries for that table are
+                                     taken out of the runtime files, and the count
+                                     is printed (default package: NDTwin only reads
+                                     the table, to compute flow paths)
                   --no-roles         declare none
-                  without those, the role is filled from the p4info when exactly one
-                  table is shaped like a destination route; with none or several the
-                  package has no role and the twin shows no flow paths for it.
+                  without those, the role is filled from the p4info when it has exactly
+                  one (table, action) candidate shaped like a destination route; with
+                  none or several the package has no role, and the twin will show no
+                  flow paths for this fabric unless its forwarding table uses NDTwin's
+                  own names. Several are printed as the --role-ipv4-route line that
+                  picks each.
                   🔴 THE KNOB IS PERSISTENT AND IS CLEARED AGAIN BY: an 'ndt up' of
                   any plane WITHOUT --app, 'ndt down', 'ndt clean', and a rolled-back
                   bring-up. Each of those prints 'app package cleared: <dir>'. Nothing

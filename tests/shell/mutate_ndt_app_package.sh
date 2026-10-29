@@ -1379,10 +1379,10 @@ check_control "C4: the shaped-links read split over two lines" c4
 # tests/shell/mutate_p4_one_step.sh); these are ndt's half: the branch is taken, the flags reach
 # the converter, a refusal stays a refusal, and the package brought up is the generated one.
 cat > "$A/m77.old" <<'EOF'
-        if [[ ! -f "$(app_manifest "$app_dir")" ]] &&
+        elif [[ ! -f "$(app_manifest "$app_dir")" ]] &&
 EOF
 cat > "$A/m77.new" <<'EOF'
-        if false &&
+        elif false &&
 EOF
 check_fires "M77: an exercise directory is not converted" m77 \
             "🔴 an exercise directory comes up"
@@ -1412,7 +1412,8 @@ cat > "$A/m80.new" <<'EOF'
     "$py" "$tool" "$dir" --run-dir "$REPO/.test_run" \
 EOF
 check_fires "M80: the knob's package is not passed as --in-use" m80 \
-            "🔴 the knob's package is handed over as --in-use"
+            "🔴 the knob's package is handed over as --in-use" \
+            "🔴 with the knob naming it, a different result is refused (5)"
 
 cat > "$A/m81.old" <<'EOF'
         --emit-path "$emit" ${NDT_APP_EXERCISE_ARGV[@]+"${NDT_APP_EXERCISE_ARGV[@]}"}; rc=$?
@@ -1421,10 +1422,10 @@ cat > "$A/m81.new" <<'EOF'
         --emit-path "$emit"; rc=$?
 EOF
 check_fires "M81: the exercise flags never reach the converter" m81 \
-            "🔴 --topology reaches it with its value" "🔴 --owner reaches it with its value"
+            "🔴 --topology reaches it with its value" "🔴 --table-owner reaches it with its value"
 
 cat > "$A/m82.old" <<'EOF'
-            --topology|--p4|--role-ipv4-route|--owner) xwant="$a" ;;
+            --topology|--p4|--role-ipv4-route|--table-owner) xwant="$a" ;;
 EOF
 cat > "$A/m82.new" <<'EOF'
 EOF
@@ -1474,6 +1475,108 @@ cat > "$A/c5.new" <<'EOF'
     for f in "$1/topology.json" "$1"/*/topology.json; do   # the top, then one level down
 EOF
 check_control "C5: app_is_exercise's glob written with the quote moved" c5
+
+
+# --- M87..M97 (2026-10-30): the one-step path's guards, each named by the cell it must redden ----
+# [Co-developed with claude code -- Adam]
+cat > "$A/m87.old" <<'EOF'
+        elif [[ ! -f "$(app_manifest "$app_dir")" ]] &&
+EOF
+cat > "$A/m87.new" <<'EOF'
+        elif true ||
+EOF
+check_fires "M87 (widening): a package is handed to the converter too" m87 \
+            "🔴 the converter was not run" "🔴 and never reaches the converter"
+
+cat > "$A/m88.old" <<'EOF'
+        elif (( ${#NDT_APP_EXERCISE_ARGV[@]} )); then
+EOF
+cat > "$A/m88.new" <<'EOF'
+        elif true; then
+EOF
+check_fires "M88 (widening): a package with no exercise flags is refused" m88 \
+            "🔴 a package with no exercise flags is today's path"
+
+cat > "$A/m89.old" <<'EOF'
+            app_from_exercise "$app_dir" || return $?
+EOF
+cat > "$A/m89.new" <<'EOF'
+            app_from_exercise "$app_dir"
+EOF
+check_fires "M89: the converter's refusal is not a refusal of the bring-up" m89 \
+            "🔴 the converter's usage error stays a usage error (2)" "🔴 and the knob was not written"
+
+cat > "$A/m90.old" <<'EOF'
+    if (( rc != 0 )) || [[ -z "$APP_FROM_EXERCISE" || ! -d "$APP_FROM_EXERCISE" ]]; then
+EOF
+cat > "$A/m90.new" <<'EOF'
+    if (( rc != 0 )); then
+EOF
+check_fires "M90: a converter that names no package is believed" m90 \
+            "🔴 by the converter step, which names no package"
+
+cat > "$A/m91.old" <<'EOF'
+    [[ -r "$tool" ]] || { err "no exercise converter at $tool"; return 5; }
+EOF
+cat > "$A/m91.new" <<'EOF'
+    [[ -r "$tool" ]] || { err "no exercise converter at $tool"; return 1; }
+EOF
+check_fires "M91: a missing converter is a dirty reading (1), not a refusal" m91 \
+            "🔴 a missing converter is a refusal (5)"
+
+cat > "$A/m92.old" <<'EOF'
+        if [[ ! -f "$(app_manifest "$app_dir")" && -f "$(app_model_path "$app_dir")" ]]; then
+EOF
+cat > "$A/m92.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M92: a package that lost its package.json is converted again" m92 \
+            "🔴 a package without its package.json is refused (5)" "🔴 and is not converted again"
+
+cat > "$A/m93.old" <<'EOF'
+        case "$sub" in build|logs|pcaps|ndtwin) continue ;; esac
+EOF
+cat > "$A/m93.new" <<'EOF'
+EOF
+check_fires "M93 (widening): a topology.json under build/ makes an exercise" m93 \
+            "🔴 a topology.json under build/ does not make an exercise"
+
+cat > "$A/m94.old" <<'EOF'
+    if [[ "$NDT_APP_DIR" == *$'\n'* || "$NDT_APP_DIR" == *$'\r'* ]]; then
+EOF
+cat > "$A/m94.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M94: a path with a line break is taken" m94 \
+            "🔴 a path with a line break in it is a usage error"
+
+cat > "$A/m95.old" <<'EOF'
+            if [[ -n "$APP_FROM_EXERCISE" ]]; then
+EOF
+cat > "$A/m95.new" <<'EOF'
+            if false; then
+EOF
+check_fires "M95: a pre-flight refusal says nothing was written" m95 \
+            "🔴 and the refusal says the generated package was written" "🔴 not that nothing was written"
+
+cat > "$A/m96.old" <<'EOF'
+    [[ -n "$APP_FROM_EXERCISE" && "$dir" == "$APP_FROM_EXERCISE" ]] && extra=(--no-role-suggestion)
+EOF
+cat > "$A/m96.new" <<'EOF'
+    :
+EOF
+check_fires "M96: the generated package's pre-flight suggests a package.json edit" m96 \
+            "🔴 its pre-flight prints no role suggestion" "🔴 and printed no package.json suggestion" \
+            "🔴 and no package.json suggestion beside them" "🔴 and pre-flight does not suggest one anyway"
+
+cat > "$A/m97.old" <<'EOF'
+    [[ -n "$APP_FROM_EXERCISE" && "$dir" == "$APP_FROM_EXERCISE" ]] && extra=(--no-role-suggestion)
+EOF
+cat > "$A/m97.new" <<'EOF'
+    extra=(--no-role-suggestion)
+EOF
+check_fires "M97 (widening): every package's pre-flight drops the suggestion" m97 \
+            "🔴 and its pre-flight is not told to drop the suggestion"
 
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"

@@ -1302,7 +1302,7 @@ BASIC_ROLE_NAMES = BASIC_ROLE_FLAG.replace("owner=ndtwin,", "")
 
 
 class OwnerDefaultTest(unittest.TestCase):
-    """A role without owner= is owner package; --owner fills it; the two never disagree."""
+    """A role without owner= is owner package; --table-owner fills it; the two never disagree."""
 
     def test_a_role_without_owner_is_owner_package(self):
         self.assertEqual(convert.parse_role_flag(BASIC_ROLE_NAMES),
@@ -1344,7 +1344,7 @@ class AutoRoleFlagTest(TmpMixin, unittest.TestCase):
         self.assertIn("route role    : auto-filled from the p4info", out)
 
     def test_with_owner_ndtwin_it_takes_the_owned_entries_out(self):
-        rc, out = self.cli("--auto-role", "--owner", "ndtwin")
+        rc, out = self.cli("--auto-role", "--table-owner", "ndtwin")
         self.assertEqual(rc, 0, out)
         self.assertIn("16 match entries for MyIngress.ipv4_lpm taken out", out)
 
@@ -1354,7 +1354,7 @@ class AutoRoleFlagTest(TmpMixin, unittest.TestCase):
         self.assertIn("give one of them", out)
 
     def test_an_owner_with_no_role_is_refused(self):
-        rc, out = self.cli("--owner", "package")
+        rc, out = self.cli("--table-owner", "package")
         self.assertEqual(rc, 1, out)
         self.assertIn("neither --role-ipv4-route nor --auto-role", out)
 

@@ -1516,7 +1516,9 @@ class RolesShapeTest(unittest.TestCase):
         self.refused({"ipv4_route": A_ROUTE_ROLE, "l2_route": {}}, "l2_route")
 
     def test_a_missing_key_is_refused_by_name(self):
-        for key in ("owner", "table", "match_field", "action", "params"):
+        # Every key but `owner`, which defaults to package (tools/p4_exercise/tests/
+        # test_one_step.py OwnerLeftOutOfARoleTest). [Co-developed with claude code -- Adam]
+        for key in ("table", "match_field", "action", "params"):
             with self.subTest(key=key):
                 role = {k: v for k, v in A_ROUTE_ROLE.items() if k != key}
                 self.refused({"ipv4_route": role}, "missing", key)

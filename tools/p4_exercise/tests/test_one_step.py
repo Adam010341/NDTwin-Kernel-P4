@@ -29,9 +29,20 @@ if TOOLS not in sys.path:
 from p4_exercise import common, convert, one_step, preflight  # noqa: E402
 
 FIXTURES = os.path.join(HERE, "fixtures")
+REPO = os.path.dirname(TOOLS)
+P4_HEALTH_FIXTURES = os.path.join(REPO, "tests", "python", "fixtures", "p4_health")
 
 #: A tutorials exercise Makefile, as exercises/basic and exercises/firewall write theirs.
-MAKEFILE = "BMV2_SWITCH_EXE = simple_switch_grpc\nTOPO = pod-topo/topology.json\n{extra}\ninclude ../../utils/Makefile\n"
+MAKEFILE = "BMV2_SWITCH_EXE = simple_switch_grpc\n{topo}{extra}\ninclude ../../utils/Makefile\n"
+TOPO_POD = "TOPO = pod-topo/topology.json\n"
+
+BASIC_ROLE = {"table": "MyIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr",
+              "action": "MyIngress.ipv4_forward",
+              "params": {"dst_mac": "dstAddr", "port": "port"}}
+
+
+def makefile(topo=TOPO_POD, extra=""):
+    return MAKEFILE.format(topo=topo, extra=extra)
 
 
 def tree(root):
@@ -65,9 +76,9 @@ class ExerciseCase(unittest.TestCase):
         return d
 
     def basic(self, **kw):
-        """exercises/basic: two topologies (pod-topo, triangle-topo), basic.p4 at the top."""
+        """exercises/basic: two topologies (pod-topo, triangle-topo), TOPO pod-topo, basic.p4."""
         kw.setdefault("top_p4", {"solution/basic.p4": "basic.p4"})
-        kw.setdefault("makefile", MAKEFILE.format(extra=""))
+        kw.setdefault("makefile", makefile())
         return self.exercise("basic", **kw)
 
     def basic_one_topology(self, **kw):
@@ -85,28 +96,41 @@ class ExerciseCase(unittest.TestCase):
         self.assertIn(needle, str(caught.exception))
         return str(caught.exception)
 
+    def generated(self):
+        d = os.path.join(self.run_dir, "packages", "generated")
+        return sorted(os.listdir(d)) if os.path.isdir(d) else []
+
 
 # --- the topology ------------------------------------------------------------------------------
 
 class TopologyChoiceTest(ExerciseCase):
-    def test_the_only_topology_is_used(self):
-        result = self.prepare(self.basic_one_topology())
+    def test_the_makefiles_topo_is_the_default(self):
+        result = self.prepare(self.basic())
         self.assertEqual((result["topology"], result["topology_how"]),
-                         ("pod-topo/topology.json", "the only one"))
+                         ("pod-topo/topology.json", "the Makefile's TOPO"))
         self.assertEqual(self.package_json(result)["source"]["topology_json"],
                          "pod-topo/topology.json")
+
+    def test_the_only_topology_is_used(self):
+        result = self.prepare(self.basic_one_topology(makefile=makefile(topo="")))
+        self.assertEqual((result["topology"], result["topology_how"]),
+                         ("pod-topo/topology.json", "the only one"))
 
     def test_a_top_level_topology_is_a_candidate_too(self):
         result = self.prepare(self.exercise("calc"))
         self.assertEqual(result["topology"], "topology.json")
 
-    def test_several_are_refused_listed_and_the_flag_named(self):
-        text = self.refused(self.basic(), "has 2 topologies")
-        self.assertIn("pod-topo/topology.json (the Makefile's TOPO)", text)
-        self.assertIn("triangle-topo/topology.json", text)
+    def test_several_and_no_topo_are_refused_listed_and_the_flag_named(self):
+        text = self.refused(self.basic(makefile=makefile(topo="")), "has 2 topologies")
+        self.assertIn("pod-topo/topology.json, triangle-topo/topology.json", text)
+        self.assertIn("sets no TOPO", text)
         self.assertIn("--topology pod-topo/topology.json", text)
 
-    def test_the_flag_picks_one(self):
+    def test_a_topo_that_is_not_there_is_refused(self):
+        self.refused(self.basic(makefile=makefile(topo="TOPO = gone/topology.json\n")),
+                     "TOPO is gone/topology.json")
+
+    def test_the_flag_picks_one_over_the_makefile(self):
         result = self.prepare(self.basic(), topology="triangle-topo/topology.json")
         self.assertEqual((result["topology"], result["topology_how"]),
                          ("triangle-topo/topology.json", "--topology"))
@@ -119,11 +143,12 @@ class TopologyChoiceTest(ExerciseCase):
 
     def test_build_logs_pcaps_and_a_package_model_are_not_candidates(self):
         d = self.basic_one_topology()
-        for sub in ("build", "logs", "pcaps", "ndtwin"):
+        for sub in ("build", "logs", "pcaps"):
             os.makedirs(os.path.join(d, sub), exist_ok=True)
             with open(os.path.join(d, sub, "topology.json"), "w", encoding="utf-8") as fh:
                 fh.write("{}")
         self.assertEqual(one_step.topology_candidates(d), ["pod-topo/topology.json"])
+        self.assertIn("ndtwin", one_step.NOT_TOPOLOGY_DIRS)
 
     def test_a_package_directory_is_refused_as_an_exercise(self):
         d = self.basic_one_topology()
@@ -131,15 +156,23 @@ class TopologyChoiceTest(ExerciseCase):
             fh.write("{}")
         self.refused(d, "already is an app package")
 
+    def test_a_package_that_lost_its_manifest_is_refused_not_converted(self):
+        first = self.prepare(self.basic_one_topology())
+        os.remove(os.path.join(first["dest"], "package.json"))
+        before = tree(first["dest"])
+        self.refused(first["dest"], "lost its manifest")
+        self.assertEqual(tree(first["dest"]), before)
+        self.assertEqual(self.generated(), [os.path.basename(first["dest"])])
+
 
 # --- the program -------------------------------------------------------------------------------
 
 class ProgramChoiceTest(ExerciseCase):
-    def firewall(self, makefile=True):
+    def firewall(self, default_prog=True):
         # exercises/firewall: basic.p4 and firewall.p4 at the top, DEFAULT_PROG = basic.p4, and
         # pod-topo's s1 names build/firewall.json as its own `program`.
-        extra = "DEFAULT_PROG = basic.p4" if makefile else ""
-        d = self.exercise("firewall", makefile=MAKEFILE.format(extra=extra))
+        extra = "DEFAULT_PROG = basic.p4\n" if default_prog else ""
+        d = self.exercise("firewall", makefile=makefile(extra=extra))
         shutil.copyfile(os.path.join(d, "basic.p4"), os.path.join(d, "firewall.p4"))
         return d
 
@@ -152,7 +185,7 @@ class ProgramChoiceTest(ExerciseCase):
         self.assertEqual(switches["2"]["pipeline"]["bmv2_json"], "build/basic.json")
 
     def test_several_programs_and_no_default_prog_are_refused_naming_the_flag(self):
-        text = self.refused(self.firewall(makefile=False), "2 .p4 programs")
+        text = self.refused(self.firewall(default_prog=False), "2 .p4 programs")
         self.assertIn("--p4", text)
         self.assertIn("basic.p4, firewall.p4", text)
 
@@ -170,23 +203,24 @@ class ProgramChoiceTest(ExerciseCase):
         self.assertEqual((result["p4"], result["p4_how"]), ("solution/basic.p4", "--p4"))
 
     def test_a_default_prog_that_is_not_there_is_refused(self):
-        d = self.basic_one_topology(makefile=MAKEFILE.format(extra="DEFAULT_PROG = gone.p4"))
+        d = self.basic_one_topology(makefile=makefile(extra="DEFAULT_PROG = gone.p4\n"))
         self.refused(d, "DEFAULT_PROG is gone.p4")
 
 
 # --- built or not ------------------------------------------------------------------------------
 
 class UnbuiltTest(ExerciseCase):
-    def test_an_unbuilt_exercise_is_refused_with_the_make_command(self):
+    def test_an_unbuilt_exercise_is_refused_with_make_build(self):
         d = self.basic(drop=("triangle-topo", "build"))
-        self.refused(d, f"Build the exercise first (`make` in {d})")
+        self.refused(d, f"Build the exercise first (`make build` in {d})")
 
     def test_and_nothing_is_written(self):
         d = self.basic(drop=("triangle-topo", "build"))
-        self.refused(d, "make")
+        self.refused(d, "make build")
         self.assertFalse(os.path.exists(one_step.generated_dir(self.run_dir, d)))
-        generated = os.path.join(self.run_dir, "packages", "generated")
-        self.assertEqual(os.listdir(generated), [], "a staging directory was left behind")
+        self.assertEqual(self.generated(), [])
+        self.assertEqual(os.listdir(one_step.staging_root(self.run_dir)), [],
+                         "a staging directory was left behind")
 
 
 # --- where it goes, and a re-run ---------------------------------------------------------------
@@ -213,8 +247,24 @@ class LocationTest(ExerciseCase):
         shutil.copytree(a, b)
         self.assertNotEqual(self.prepare(a)["dest"], self.prepare(b)["dest"])
 
+    def test_a_symlinked_path_is_the_same_exercise(self):
+        d = self.basic_one_topology()
+        link = os.path.join(self.tmp, "link-to-basic")
+        os.symlink(d, link)
+        first = self.prepare(d)
+        again = self.prepare(link)
+        self.assertEqual(again["dest"], first["dest"])
+        self.assertEqual(again["state"], "unchanged")
+        self.assertEqual(self.package_json(again)["source"]["exercise_dir"], d)
+
     def test_the_package_format_is_still_one(self):
         self.assertEqual(self.package_json(self.prepare(self.basic_one_topology()))["format"], 1)
+
+    def test_staging_is_outside_packages(self):
+        # ndt serve admits `up --app` packages from under .test_run/packages, so a half-written
+        # conversion must never be there.
+        self.assertFalse(one_step.staging_root(self.run_dir).startswith(
+            os.path.join(self.run_dir, "packages") + os.sep))
 
 
 class RerunTest(ExerciseCase):
@@ -236,8 +286,8 @@ class RerunTest(ExerciseCase):
         self.assertEqual(again["state"], "replaced")
         self.assertFalse(os.path.exists(stale), "a file of the old package survived the replace")
         self.assertEqual(tree(again["dest"]), tree(first["dest"]))
-        siblings = sorted(os.listdir(os.path.dirname(again["dest"])))
-        self.assertEqual(siblings, [os.path.basename(again["dest"])], "staging left behind")
+        self.assertEqual(self.generated(), [os.path.basename(again["dest"])])
+        self.assertEqual(os.listdir(one_step.staging_root(self.run_dir)), [], "staging left behind")
 
     def test_a_package_a_fabric_still_runs_is_not_replaced(self):
         d = self.basic_one_topology()
@@ -250,6 +300,18 @@ class RerunTest(ExerciseCase):
         d = self.basic_one_topology()
         first = self.prepare(d)
         self.assertEqual(self.prepare(d, in_use=first["dest"])["state"], "unchanged")
+
+    def test_staging_a_killed_run_left_behind_is_removed(self):
+        d = self.basic_one_topology()
+        dest = one_step.generated_dir(self.run_dir, d)
+        root = one_step.staging_root(self.run_dir)
+        mine = [os.path.join(root, os.path.basename(dest) + s) for s in (".new-abc123", ".old-xyz")]
+        other = os.path.join(root, "calc-12345678.new-abc123")
+        for p in mine + [other]:
+            os.makedirs(os.path.join(p, "pkg"))
+        self.prepare(d)
+        self.assertEqual(os.listdir(root), [os.path.basename(other)],
+                         "this exercise's leftovers stay, or another exercise's go")
 
 
 # --- the route role ----------------------------------------------------------------------------
@@ -271,15 +333,16 @@ def add_second_route_table(p4info_path):
 
 
 class RoleTest(ExerciseCase):
-    BASIC_ROLE = {"table": "MyIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr",
-                  "action": "MyIngress.ipv4_forward",
-                  "params": {"dst_mac": "dstAddr", "port": "port"}}
+    def two_tables(self):
+        d = self.basic_one_topology()
+        add_second_route_table(os.path.join(d, "build", "basic.p4.p4info.txtpb"))
+        return d
 
     def test_one_candidate_is_filled_with_owner_package(self):
         result = self.prepare(self.basic_one_topology())
         self.assertEqual(result["role_source"], "auto")
         self.assertEqual(self.package_json(result)["roles"],
-                         {"ipv4_route": dict(self.BASIC_ROLE, owner="package")})
+                         {"ipv4_route": dict(BASIC_ROLE, owner="package")})
 
     def test_owner_package_keeps_the_authors_entries(self):
         d = self.basic_one_topology()
@@ -294,16 +357,25 @@ class RoleTest(ExerciseCase):
         entries = common.load_json(os.path.join(result["dest"], "pod-topo/s1-runtime.json"))
         self.assertEqual([e.get("default_action") for e in entries["table_entries"]], [True])
 
+    def test_owner_ndtwin_says_how_many_entries_it_stripped(self):
+        result = self.prepare(self.basic_one_topology(), owner="ndtwin")
+        self.assertEqual(result["removed"], {"1": 4, "2": 4, "3": 4, "4": 4})
+        lines = "\n".join(one_step.report_lines(result))
+        self.assertIn("stripped      : 16 match entries of MyIngress.ipv4_lpm taken out of the "
+                      "runtime files (s1: 4, s2: 4, s3: 4, s4: 4)", lines)
+
+    def test_owner_package_strips_nothing_and_says_nothing(self):
+        lines = "\n".join(one_step.report_lines(self.prepare(self.basic_one_topology())))
+        self.assertNotIn("stripped", lines)
+
     def test_an_explicit_role_wins_over_the_auto_filled_one(self):
-        d = self.basic_one_topology()
-        add_second_route_table(os.path.join(d, "build", "basic.p4.p4info.txtpb"))
         spec = ("table=MyIngress.ipv4_lpm_backup,match_field=hdr.ipv4.dstAddr,"
                 "action=MyIngress.ipv4_forward,dst_mac=dstAddr,port=port")
-        result = self.prepare(d, role_text=spec)
+        result = self.prepare(self.two_tables(), role_text=spec)
         self.assertEqual(result["role_source"], "flag")
         self.assertEqual(result["auto"], {}, "the heuristic ran beside an explicit role")
         self.assertEqual(self.package_json(result)["roles"]["ipv4_route"],
-                         dict(self.BASIC_ROLE, table="MyIngress.ipv4_lpm_backup", owner="package"))
+                         dict(BASIC_ROLE, table="MyIngress.ipv4_lpm_backup", owner="package"))
 
     def test_no_roles_declares_none(self):
         result = self.prepare(self.basic_one_topology(), no_roles=True)
@@ -319,9 +391,7 @@ class RoleTest(ExerciseCase):
         self.assertIn("WARNING       : the twin will show no flow paths", lines)
 
     def test_several_candidates_no_roles_a_warning_naming_each(self):
-        d = self.basic_one_topology()
-        add_second_route_table(os.path.join(d, "build", "basic.p4.p4info.txtpb"))
-        result = self.prepare(d)
+        result = self.prepare(self.two_tables())
         self.assertNotIn("roles", self.package_json(result))
         self.assertEqual(len(result["auto"]["candidates"]), 2)
         lines = "\n".join(one_step.report_lines(result))
@@ -330,10 +400,20 @@ class RoleTest(ExerciseCase):
         self.assertIn("MyIngress.ipv4_lpm_backup hdr.ipv4.dstAddr", lines)
         self.assertIn("WARNING       : the twin will show no flow paths", lines)
 
-    def test_owner_ndtwin_with_no_single_candidate_is_refused(self):
-        d = self.basic_one_topology()
-        add_second_route_table(os.path.join(d, "build", "basic.p4.p4info.txtpb"))
-        self.refused(d, "--owner ndtwin asks NDTwin to write", owner="ndtwin")
+    def test_several_candidates_are_printed_as_the_ndt_flag_that_picks_each(self):
+        d = self.two_tables()
+        lines = one_step.report_lines(self.prepare(d))
+        flags = [l.split("--role-ipv4-route ", 1)[1] for l in lines
+                 if l.lstrip().startswith("--role-ipv4-route ")]
+        self.assertEqual(len(flags), 2, "\n".join(lines))
+        self.assertNotIn("package.json", "\n".join(lines))
+        for flag, table in zip(flags, ("MyIngress.ipv4_lpm", "MyIngress.ipv4_lpm_backup")):
+            with self.subTest(table=table):
+                result = self.prepare(d, role_text=flag)
+                self.assertEqual(self.package_json(result)["roles"]["ipv4_route"]["table"], table)
+
+    def test_table_owner_ndtwin_with_no_single_candidate_is_refused(self):
+        self.refused(self.two_tables(), "--table-owner ndtwin asks NDTwin to write", owner="ndtwin")
         self.refused(self.exercise("calc"), "Name it with --role-ipv4-route", owner="ndtwin")
 
     def test_an_external_control_plane_gets_none_and_says_why(self):
@@ -353,7 +433,7 @@ class RoleTest(ExerciseCase):
 
     def test_the_choice_is_printed(self):
         lines = "\n".join(one_step.report_lines(self.prepare(self.basic_one_topology())))
-        self.assertIn("auto-filled from the p4info", lines)
+        self.assertIn("auto-filled from the p4info -- its one (table, action) candidate", lines)
         self.assertIn("MyIngress.ipv4_lpm hdr.ipv4.dstAddr -> MyIngress.ipv4_forward(dstAddr, port)",
                       lines)
         self.assertIn("override with --role-ipv4-route, or --no-roles", lines)
@@ -386,6 +466,88 @@ class CandidatesTest(unittest.TestCase):
         self.assertEqual(preflight.route_role_candidates(rb, p4infos, None), [])
 
 
+# --- pre-flight's own suggestion, outside the one-step path -----------------------------------
+
+class SuggestionTest(ExerciseCase):
+    """The `roles suggestion` row: owner package, none on an external plane, none on request."""
+
+    def rows(self, exercise, **kw):
+        result = self.prepare(exercise, no_roles=True)
+        report = preflight.run(result["dest"], compile_p4=False, **kw)
+        return [r for r in report.rows if r[1] == "roles suggestion"]
+
+    def test_the_suggestion_offers_owner_package(self):
+        rows = self.rows(self.basic_one_topology())
+        self.assertEqual(len(rows), 1)
+        block = rows[0][2].split('"roles": ', 1)[1].rsplit(" (owner package", 1)[0]
+        self.assertEqual(json.loads(block), {"ipv4_route": dict(BASIC_ROLE, owner="package")})
+
+    def test_it_can_be_switched_off(self):
+        self.assertEqual(self.rows(self.basic_one_topology(), suggest_roles=False), [])
+
+    def test_none_is_offered_on_an_external_control_plane(self):
+        self.assertEqual(self.rows(self.exercise("p4runtime")), [])
+
+    def test_the_command_line_switch_reaches_it(self):
+        result = self.prepare(self.basic_one_topology(), no_roles=True)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            preflight.main([result["dest"], "--no-compile", "--no-role-suggestion"])
+        self.assertNotIn("roles suggestion", out.getvalue())
+
+
+class CapturedSuggestionRowsTest(unittest.TestCase):
+    """The pre-flight captures under tests/python/fixtures/p4_health say what pre-flight prints
+    now: each `roles suggestion` row is suggestion_detail() of the role it carries."""
+
+    def test_every_captured_suggestion_row_is_what_preflight_prints_now(self):
+        seen = 0
+        for name in sorted(os.listdir(P4_HEALTH_FIXTURES)):
+            if not (name.startswith("preflight_pft") and name.endswith(".txt")):
+                continue
+            with open(os.path.join(P4_HEALTH_FIXTURES, name), encoding="utf-8") as fh:
+                for line in fh:
+                    if "roles suggestion" not in line:
+                        continue
+                    detail = line.split("roles suggestion", 1)[1].strip()
+                    block = json.loads(detail.split('"roles": ', 1)[1].split(" (owner ", 1)[0])
+                    # The heuristic hands suggestion_detail its candidate with owner ndtwin
+                    # (route_role_candidates resolves with the stricter owner).
+                    candidate = dict(block["ipv4_route"], owner="ndtwin")
+                    with self.subTest(fixture=name):
+                        self.assertEqual(detail, preflight.suggestion_detail(candidate))
+                    seen += 1
+        self.assertGreaterEqual(seen, 5, "the captures with a suggestion row went missing")
+
+
+class OwnerLeftOutOfARoleTest(ExerciseCase):
+    """A package.json role without `owner` is owner package, in the loader and the resolver."""
+
+    def test_the_loader_gives_it_owner_package(self):
+        app_package = common.import_app_package()
+        roles = app_package.parse_roles({"ipv4_route": BASIC_ROLE}, "package.json")
+        self.assertEqual(roles.ipv4_route.owner, "package")
+        self.assertEqual(roles.ipv4_route.as_manifest(), dict(BASIC_ROLE, owner="package"))
+
+    def test_the_resolver_gives_it_owner_package(self):
+        rb = common.import_route_binding()
+        p4info = preflight.P4InfoIndex.parse(
+            os.path.join(FIXTURES, "basic", "build", "basic.p4.p4info.txtpb")).p4info
+        self.assertEqual(rb.resolve(dict(BASIC_ROLE), p4info).owner, "package")
+
+    def test_a_package_whose_role_names_no_owner_passes_pre_flight(self):
+        result = self.prepare(self.basic_one_topology(), no_roles=True)
+        path = os.path.join(result["dest"], "package.json")
+        doc = common.load_json(path)
+        doc["roles"] = {"ipv4_route": BASIC_ROLE}
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(common.dumps(doc))
+        report = preflight.run(result["dest"], compile_p4=False)
+        self.assertEqual(report.failures, [], report.render())
+        detail = {label: d for _s, label, d in report.rows}["roles.ipv4_route resolves"]
+        self.assertIn("owner package", detail)
+
+
 # --- the command line --------------------------------------------------------------------------
 
 class CommandLineTest(ExerciseCase):
@@ -408,22 +570,57 @@ class CommandLineTest(ExerciseCase):
 
     def test_a_refusal_is_5_and_emits_nothing(self):
         emit = os.path.join(self.tmp, "path")
-        rc, out = self.main(self.basic(), "--run-dir", self.run_dir, "--emit-path", emit)
+        rc, out = self.main(self.basic(makefile=makefile(topo="")), "--run-dir", self.run_dir,
+                            "--emit-path", emit)
         self.assertEqual(rc, 5, out)
         self.assertIn("REFUSED:", out)
         self.assertFalse(os.path.exists(emit))
 
     def test_usage_errors_are_2(self):
         d = self.basic_one_topology()
-        for argv in ((d, "--no-roles", "--owner", "ndtwin"),
+        for argv in ((d, "--no-roles", "--table-owner", "ndtwin"),
                      (d, "--no-roles", "--role-ipv4-route", "table=t"),
                      (d, "--topology", ""),
-                     (d, "--owner", "kernel"),
-                     (d, "--no-such-flag")):
+                     (d, "--table-owner", "kernel"),
+                     (d, "--owner", "ndtwin"),
+                     (d, "--no-such-flag"),
+                     (d, "--role-ipv4-route", "table=t"),
+                     (d, "--role-ipv4-route", "owner=ndtwin," + convert.role_flag_text(
+                         dict(BASIC_ROLE, owner="ndtwin")), "--table-owner", "package"),
+                     (d + "\nx",)):
             with self.subTest(argv=argv[1:]):
                 rc, out = self.main(*argv, "--run-dir", self.run_dir)
                 self.assertEqual(rc, 2, out)
         self.assertFalse(os.path.exists(os.path.join(self.run_dir, "packages")))
+
+    def test_the_in_use_flag_reaches_the_replace_guard(self):
+        d = self.basic_one_topology()
+        first = self.prepare(d)
+        rc, out = self.main(d, "--run-dir", self.run_dir, "--table-owner", "ndtwin",
+                            "--in-use", first["dest"])
+        self.assertEqual(rc, 5, out)
+        self.assertIn("ndt down", out)
+
+    def test_every_flag_is_forwarded_to_prepare(self):
+        seen = {}
+
+        def fake(exercise_dir, run_dir, **kw):
+            seen.update(kw, exercise_dir=exercise_dir, run_dir=run_dir)
+            raise convert.ConversionError("stop here")
+
+        real = one_step.prepare
+        one_step.prepare = fake
+        self.addCleanup(setattr, one_step, "prepare", real)
+        spec = convert.role_flag_text(dict(BASIC_ROLE, owner="package"))
+        self.main("/ex", "--run-dir", "/run", "--topology", "t/topology.json", "--p4", "x.p4",
+                  "--role-ipv4-route", spec, "--table-owner", "ndtwin", "--in-use", "/knob/pkg")
+        self.assertEqual(seen, {"exercise_dir": "/ex", "run_dir": "/run",
+                                "topology": "t/topology.json", "p4": "x.p4", "role_text": spec,
+                                "owner": "ndtwin", "no_roles": False, "in_use": "/knob/pkg"})
+        seen.clear()
+        self.main("/ex", "--run-dir", "/run", "--no-roles")
+        self.assertEqual((seen["no_roles"], seen["role_text"], seen["owner"], seen["in_use"]),
+                         (True, None, None, None))
 
 
 if __name__ == "__main__":

@@ -87,6 +87,12 @@ def match_type_name(value):
 class Report:
     """The PASS/FAIL table, and the verdict."""
 
+    #: Whether a package with no roles gets the `roles suggestion` row. Off for the package
+    #: `ndt up p4 --app <exercise dir>` generates: its user never edits that package.json, and
+    #: one_step.py has already printed the choice as ndt flags.
+    #: [Co-developed with claude code -- Adam]
+    suggest_roles = True
+
     def __init__(self):
         self.rows = []
 
@@ -323,9 +329,10 @@ def check_entry(entry, index, where):
 
 # --- the checks ------------------------------------------------------------------------------
 
-def run(package_dir, report=None, compile_p4=True):
+def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
     """Fill a Report for this package directory. Returns the Report."""
     report = report or Report()
+    report.suggest_roles = suggest_roles
     package_dir = os.path.abspath(package_dir)
     pkg_path = os.path.join(package_dir, "package.json")
     if not os.path.isfile(pkg_path):
@@ -394,7 +401,8 @@ def route_role_candidates(route_binding, p4infos, model):
 
     `p4infos` is {dpid: P4Info message} for the switches that run the package's own program;
     `model` is the NDTwin topology model, for each switch's highest port. Each candidate carries
-    owner `ndtwin`, the stricter of the two owners to resolve. [Co-developed with claude code -- Adam]
+    owner `ndtwin`, the stricter of the two owners to resolve.
+    [Co-developed with claude code -- Adam]
     """
     from p4.config.v1 import p4info_pb2
 
@@ -438,6 +446,25 @@ def _suggest_route_role(route_binding, p4infos, model):
     return None
 
 
+def suggestion_detail(suggestion):
+    """The `roles suggestion` row's text for the heuristic's role, offered with owner package.
+
+    [Co-developed with claude code -- Adam]
+    Owner package because that is what a role without an owner means: the author keeps the table
+    and NDTwin only reads it, to compute flow paths. owner ndtwin is named as the other choice.
+    """
+    import json as _json
+
+    block = {"ipv4_route": dict(suggestion, owner="package")}
+    return ("no roles declared, so NDTwin binds none of this program's tables. Its p4info has a "
+            "destination-route-shaped table on every switch; to let NDTwin read it for flow "
+            "paths, add to package.json: \"roles\": "
+            + _json.dumps(block, sort_keys=False)
+            + " (owner package: NDTwin only reads that table; owner ndtwin instead makes NDTwin "
+              "write it, and the package's own entries for it must then go -- convert.py "
+              "--role-ipv4-route takes them out)")
+
+
 def _check_roles(report, package_dir, package, model, pipeline_p4info, referenced):
     """`roles`: its shape, every foreign switch's binding, and the owned table's entries."""
     import json as _json
@@ -454,16 +481,16 @@ def _check_roles(report, package_dir, package, model, pipeline_p4info, reference
     if raw is None:
         if not p4infos:
             return
+        # [Co-developed with claude code -- Adam] No suggestion on an external control plane
+        # (a role there binds nothing: the exercise's controller owns every table), and none
+        # when the caller has already said what to do (Report.suggest_roles).
+        mode = (package.get("control_plane") or {}).get("mode")
+        if mode == "external" or not report.suggest_roles:
+            return
         suggestion = _suggest_route_role(route_binding, p4infos, model)
         if suggestion is not None:
             report.note("roles suggestion",
-                        "no roles declared, so NDTwin writes none of this program's tables. "
-                        "Its p4info has a destination-route-shaped table on every switch; to let "
-                        "NDTwin route here, add to package.json: \"roles\": "
-                        + _json.dumps({"ipv4_route": suggestion}, sort_keys=False)
-                        + " (owner ndtwin: NDTwin writes that table and the package's own "
-                          "entries for it must go -- convert.py --role-ipv4-route takes them "
-                          "out; owner package: NDTwin only reads it)")
+                        suggestion_detail(suggestion))
         return
 
     app_package = common.import_app_package()
@@ -1286,10 +1313,15 @@ def main(argv=None):
     ap.add_argument("package_dir")
     ap.add_argument("--no-compile", action="store_true",
                     help="skip the p4c compile (it is the only slow check)")
+    # [Co-developed with claude code -- Adam]
+    ap.add_argument("--no-role-suggestion", action="store_true",
+                    help="print no `roles suggestion` row (ndt passes this for the package it "
+                         "generated from an exercise, whose role choice it has already printed)")
     args = ap.parse_args(argv)
 
     print(f"pre-flight: {os.path.abspath(args.package_dir)}")
-    report = run(args.package_dir, compile_p4=not args.no_compile)
+    report = run(args.package_dir, compile_p4=not args.no_compile,
+                 suggest_roles=not args.no_role_suggestion)
     print(report.render())
     n_fail = len(report.failures)
     if n_fail:

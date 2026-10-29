@@ -984,8 +984,10 @@ class TheSuggestionTest(RolesCase):
     def test_a_foreign_route_shaped_table_without_roles_gets_one_pasteable_line(self):
         status, _label, detail = self.row("roles suggestion")
         self.assertEqual(status, preflight.INFO)
-        block = detail.split('"roles": ', 1)[1].rsplit(" (owner ndtwin", 1)[0]
-        self.assertEqual(json.loads(block), {"ipv4_route": BASIC_ROLE})
+        # Offered with owner package, the owner a role without one has.
+        # [Co-developed with claude code -- Adam]
+        block = detail.split('"roles": ', 1)[1].rsplit(" (owner package", 1)[0]
+        self.assertEqual(json.loads(block), {"ipv4_route": dict(BASIC_ROLE, owner="package")})
 
     def test_the_suggestion_is_not_a_failure(self):
         self.assert_green()

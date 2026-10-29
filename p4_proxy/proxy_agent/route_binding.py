@@ -59,6 +59,9 @@ SOURCE_PACKAGE = "package"
 OWNER_NDTWIN = "ndtwin"
 OWNER_PACKAGE = "package"
 OWNERS = (OWNER_NDTWIN, OWNER_PACKAGE)
+#: The owner of a role that names none (app_package.ROLE_DEFAULT_OWNER says the same).
+#: [Co-developed with claude code -- Adam]
+DEFAULT_OWNER = OWNER_PACKAGE
 
 #: The keys of `roles.ipv4_route` and of its `params`, exactly. app_package validates the shape
 #: with these same tuples; they are here because `resolve` is handed the same dict.
@@ -225,6 +228,8 @@ def resolve(role, p4info, max_port=None, where="roles.ipv4_route"):
     problems = []
     if not isinstance(role, dict):
         raise RouteBindingError(f"{where}: must be an object, got {type(role).__name__}")
+    # [Co-developed with claude code -- Adam] A role that names no owner is DEFAULT_OWNER's.
+    role = dict(role, owner=role.get("owner", DEFAULT_OWNER))
     missing = [k for k in ROLE_KEYS if k not in role]
     if missing:
         raise RouteBindingError(f"{where}: missing {missing}")
