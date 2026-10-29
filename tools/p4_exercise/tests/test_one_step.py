@@ -266,6 +266,19 @@ class LocationTest(ExerciseCase):
         self.assertFalse(one_step.staging_root(self.run_dir).startswith(
             os.path.join(self.run_dir, "packages") + os.sep))
 
+    def test_ndt_serve_will_not_take_a_staging_directory(self):
+        # The real check ndt serve applies to `up --app` (verbs.app_dir), with its default root.
+        sys.path.insert(0, os.path.join(REPO, "tools", "ndt_serve"))
+        self.addCleanup(sys.path.remove, os.path.join(REPO, "tools", "ndt_serve"))
+        import verbs
+        root = os.path.join(self.run_dir, "packages")
+        stage = os.path.join(one_step.staging_root(self.run_dir), "basic-00000000.new-abc")
+        os.makedirs(stage)
+        with self.assertRaises(verbs.Refused):
+            verbs.app_dir(stage, [root])
+        result = self.prepare(self.basic_one_topology())
+        self.assertEqual(verbs.app_dir(result["dest"], [root]), os.path.realpath(result["dest"]))
+
 
 class RerunTest(ExerciseCase):
     def test_the_same_result_keeps_the_old_package_untouched(self):

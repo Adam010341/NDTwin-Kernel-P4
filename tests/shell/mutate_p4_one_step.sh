@@ -422,7 +422,7 @@ mut N6_every_staging_removed "$ONE_STEP" \
 mut N7_staging_under_packages "$ONE_STEP" \
     '    return os.path.join(os.path.abspath(run_dir), "packages-staging")' \
     '    return os.path.join(os.path.abspath(run_dir), "packages", "staging")' \
-    test_staging_is_outside_packages
+    test_staging_is_outside_packages test_ndt_serve_will_not_take_a_staging_directory
 mut N8_stripped_unsaid "$ONE_STEP" \
     '    if route is not None and route["owner"] == "ndtwin":' \
     '    if False:' \
