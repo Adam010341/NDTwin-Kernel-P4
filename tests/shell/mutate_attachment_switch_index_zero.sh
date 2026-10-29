@@ -5,8 +5,8 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Structure and mechanics are lifted from mutate_index_zero_guards.sh (W14), which is itself lifted
-# from mutate_first_address_of.sh (W2). Copied rather than shared for the reason those gates give: a
+# Structure and mechanics are lifted from mutate_index_zero_guards.sh, which is itself lifted
+# from mutate_first_address_of.sh. Copied rather than shared for the reason those gates give: a
 # common harness is a second place for the answer to be wrong, and check_gate_anchors.py reads each
 # gate's own anchors.
 #
@@ -268,13 +268,13 @@ echo "mutations:"
 # 🔴 RE-ANCHORED for the merged form (2026-09-10; TopologyAndFlowMonitor.cpp:2352-2368).
 # Two fixes (the update-hosts race and an index-zero guard) changed the same line and both were kept
 # so the site is no longer trunk's one-liner: the address is copied out of
-# the graph under a shared_lock, and W18's guard sits outside that scope. The old anchor was trunk's
+# the graph under a shared_lock, and the index-zero guard sits outside that scope. The old anchor was trunk's
 # `const auto attachIpOpt = utils::firstAddressRaw(...)` on one unlocked line and matched 0 times here.
 #
-# The mutant therefore restores the SUBSCRIPT AND KEEPS THE LOCK -- it is E-29's own shape at 483a03dd,
-# before W18 was merged onto it. Dropping the lock as well would put two defects in one mutant and this
-# gate would no longer be able to say which of them the death test caught; W18's `ip[0]` is the only one
-# this gate is for. The E-29 race has its own evidence and is not a mutation here.
+# The mutant therefore restores the SUBSCRIPT AND KEEPS THE LOCK -- it is the race fix's own shape at 483a03dd,
+# before the index-zero guard was merged onto it. Dropping the lock as well would put two defects in one mutant and this
+# gate would no longer be able to say which of them the death test caught; the guarded `ip[0]` is the only one
+# this gate is for. The update-hosts race has its own evidence and is not a mutation here.
 mutate_must_die \
     "M1 attachment-switch-subscript-restored" \
     "AddresslessAttachmentSwitchTest.AnAddresslessAttachmentSwitchDoesNotKillTheProcess" \
@@ -417,13 +417,13 @@ mutate_must_die \
 # --- C1-C3: controls. Behaviour-preserving; must stay GREEN. --------------------------------------
 
 # C1 spells the helper out at the call site. Same answer by construction. A comment-only edit was
-# rejected here for the reason W14's C1 gives: it produces identical object code, so it would only
+# rejected here for the reason mutate_index_zero_guards.sh's C1 gives: it produces identical object code, so it would only
 # prove the harness rebuilds, not that it can tell a behaviour change from a behaviour-preserving
 # one.
 #
 # 🔴 RE-ANCHORED for the merged form (see M1): the call is now an ASSIGNMENT to an optional declared
 # outside the locked scope, indented 20, not a `const auto` declaration indented 16. Both controls edit
-# only the line inside the scope, so the lock and W18's guard are left exactly as the merged fix has
+# only the line inside the scope, so the lock and the index-zero guard are left exactly as the merged fix has
 # them -- a control that moved either would not be behaviour-preserving.
 mutate_must_live \
     "C1 helper-spelled-out-at-the-call-site" \

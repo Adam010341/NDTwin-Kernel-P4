@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #87 in tests/test_GroupMeterExistence.cpp:
+# Mutation gate for defect #87 in tests/test_GroupMeterExistence.cpp:
 # an install or a modify is claimed only after the switch has been asked.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Finding #1 gave guardedMod a read-back and wired it to Delete alone. Add and Modify went from
+# An earlier fix gave guardedMod a read-back and wired it to Delete alone. Add and Modify went from
 # Ryu's 200 straight to "installed"/"modified" with nothing having asked the switch anything --
 # and Ryu neither barriers a group/meter mod nor waits for a reply, so a switch that refuses one
 # refuses it asynchronously, correlated to nothing. That is the delete story of 2026-09-03

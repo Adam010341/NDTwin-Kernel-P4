@@ -181,14 +181,14 @@ each_mutation() {
         '            whole = (bm_thrift.read_register_as)(REGISTER_THRIFT_HOST, port,' \
         'test_the_range_read_runs_on_a_worker_thread_too'
 
-    # Round 3 (T3): one budget per request; a fresh full budget for the thrift read is the old
+    # One budget per request; a fresh full budget for the thrift read is the old
     # per-call deadline.
     "$m" "3. the thrift read gets a fresh budget instead of what the request has left" "$API" \
         '                                           full, start, expected, left())]' \
         '                                           full, start, expected, RPC_TIMEOUT_S)]' \
         'test_the_liveness_check_and_the_read_share_one_deadline'
 
-    # Round 2: one budget for the whole call, not a fresh timeout per receive.
+    # One budget for the whole call, not a fresh timeout per receive.
     "$m" "4. a receive gets a fresh timeout instead of what is left of the call's" "$BMT" \
         '        def read(self, sz):
             if self.handle is not None:
@@ -213,7 +213,7 @@ each_mutation() {
         '            raw = whole[:count]' \
         'test_a_range_is_sliced_from_the_array'
 
-    # (8, "a short answer is accepted", is gone with the check it mutated: since round 2 a whole
+    # (8, "a short answer is accepted", is gone with the check it mutated: now a whole
     # array is checked against p4info's size before it is sliced (11), so a slice is always `count`
     # long and the later length check could never fire.)
 
@@ -326,9 +326,9 @@ each_mutation() {
         '    client.thrift_port = thrift_port_for(dpid)' \
         'test_a_client_on_another_grpc_numbering_has_no_thrift_port'
 
-    # Round 2: the thrift port must be this switch's (measured: a swapped port answered 200 with
+    # The thrift port must be this switch's (measured: a swapped port answered 200 with
     # the other switch's cells).
-    # Round 3: the identity is asked on the read's own connection, on every read.
+    # And the identity is asked on the read's own connection, on every read.
     "$m" "29. the thrift port's identity is not checked" "$BMT" \
         '    if (found.get("device_id"), found.get("thrift_port")) != tuple(expected):' \
         '    if False:' \
@@ -359,7 +359,7 @@ each_mutation() {
         raise ThriftUnreachable(str(exc)) from exc' \
         'test_a_version_that_is_not_thrifts_is_not_understood'
 
-    # (round 3, F4) a one-element tuple, so the mutant stays well-formed and only NEGATIVE_SIZE is lost
+    # A one-element tuple, so the mutant stays well-formed and only NEGATIVE_SIZE is lost
     "$m" "34. a negative length is reported as no answer" "$BMT" \
         '        if exc.type in (TTransport.TTransportException.NEGATIVE_SIZE,
                         TTransport.TTransportException.SIZE_LIMIT):' \
@@ -438,7 +438,7 @@ import thrift.Thrift  # MUTANT: a hard import again
         '    if count > 1 and size >= REGISTER_READ_ALL_MAX:' \
         'test_the_fetch_whole_limit_itself_is_read_and_one_past_it_is_413'
 
-    # Round 2, measured on both builds: a bit<64> cell at or above 2^63 reads as 2^63 - 1.
+    # Measured on both builds before the fix: a bit<64> cell at or above 2^63 read as 2^63 - 1.
     "$m" "48. bit<64> is read again" "$API" \
         '    if width > 63:' \
         '    if width > 64:' \
@@ -502,7 +502,7 @@ import thrift.Thrift  # MUTANT: a hard import again
         raise _register_error(503, "replay pending",' \
         'test_another_switch_being_readopted_does_not_stop_this_read'
 
-    # ---- round 3: the liveness gate and the identity on every read ----------------------
+    # ---- the liveness gate and the identity on every read ------------------------------
 
     "$m" "61. the liveness gate is gone" "$API" \
         '    alive = await run_in_threadpool(client.probe, left())

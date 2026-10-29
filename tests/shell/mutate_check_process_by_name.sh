@@ -38,7 +38,7 @@
 #             stops uncounting `)`, stops noticing a `case` arm, or never sees `esac`. Before the
 #             depth existed every `)` closed the substitution, and text behind an even number of
 #             apostrophes after such a `)` was read as single-quoted and reported as nothing.
-#   M20, M21  (round 3) `case` is taken for a keyword wherever it stands, so `"$(echo case)"` opens
+#   M20, M21  `case` is taken for a keyword wherever it stands, so `"$(echo case)"` opens
 #             a case nothing closes; and the parens of a `${v%(*}` are counted as groups.
 #
 # A mutation that makes the WRONG check go red is a SURVIVOR, not a kill: the case it targets was
@@ -255,7 +255,7 @@ m19=$(mutant m19 '                    frame[2].pop()'$'\x1f''                   
 report "M19: esac does not end a case" "$m19" \
        "a case arm inside a substitution"
 
-# --- family 7: where `case` is a keyword, and the ${ } in a "$( )" (2026-10-03, round 3) ---------
+# --- family 7: where `case` is a keyword, and the ${ } in a "$( )" (2026-10-03) ------------------
 
 m20=$(mutant m20 '    return line[k:e] in ("then", "do", "else", "elif", "if", "while", "until", "time")'$'\x1f''    return True')
 report "M20: case is a keyword wherever it stands" "$m20" \

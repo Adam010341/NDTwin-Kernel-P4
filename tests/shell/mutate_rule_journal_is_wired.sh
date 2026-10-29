@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# KNOWN-ISSUES A-4c, finding #71. The rule journal shipped with 19 tests of its own and a suite
+# KNOWN-ISSUES A-4c, defect #71. The rule journal shipped with 19 tests of its own and a suite
 # literally named "journal wiring" with 14 more, and was never written once in production:
 # main.py built `TopologyManager(kernel_notifier=kernel)` and `_note_in_journal` returned on
 # `self._journal is None` every call. Both suites injected the journal themselves, so neither
@@ -96,7 +96,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
 # read this gate: it learns which argument is the anchor and which is the file from a function's
 # own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is not checking
-# (finding #28).
+# (it has happened before).
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"; mkdir -p "$d"

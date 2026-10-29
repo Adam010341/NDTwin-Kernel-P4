@@ -60,7 +60,7 @@ CLIENT="$REPO/p4_proxy/proxy_agent/p4_client.py"
 SHAPE="$REPO/p4_proxy/proxy_agent/match_shape.py"
 MAIN="$REPO/p4_proxy/proxy_agent/main.py"
 ROUTES="$REPO/p4_proxy/proxy_agent/api_routes.py"
-# Round 2: `readopt_switch` grew `install_routes`, which is the seam that keeps this proxy's
+# `readopt_switch` grew `install_routes`, which is the seam that keeps this proxy's
 # shortest paths out of somebody else's `MyIngress.ipv4_lpm`. One mutation (M-B26) lives there.
 TOPOMGR="$REPO/p4_proxy/proxy_agent/topology_manager.py"
 TEST_WRITES="$REPO/p4_proxy/tests/test_p4_client_writes.py"
@@ -115,7 +115,7 @@ trap 'rm -rf "$BK"' EXIT
 # written, so they are linked in once rather than copied per mutation.
 ln -s "$REPO/setting" "$BK/setting"
 # [Co-developed with claude code -- Adam]
-# Round 2: the suites now reach two things outside p4_proxy, and both are INPUTS, never subjects.
+# The suites reach two things outside p4_proxy, and both are INPUTS, never subjects.
 #   tools/    -- the compiled exercise fixtures (the only foreign p4info this repo has)
 #                and `convert.py`, which test_startup runs to build a real package.
 #   p4_proxy/ -- NOT the mutant. `tools/p4_exercise/common.py` derives the model reader's path
@@ -178,7 +178,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
         # actually asks -- "which of these tests has ever been seen to fail?" -- for any test
         # that is not somebody's named killer. M-B24 reddens
         # test_the_default_action_row_every_runtime_file_carries_is_a_modify as well as its own
-        # named case, and round 2's log said nothing about it, so that test read as unproven
+        # named case, and an earlier run's log said nothing about it, so that test read as unproven
         # when it was not. Printed, not counted: the verdict is still the named one.
         /usr/bin/grep -E '^(FAIL|ERROR): ' <<<"$out" \
             | sed -E 's/^(FAIL|ERROR): [^(]*\(([^)]*)\).*/             also red: \2/' \
@@ -458,7 +458,7 @@ report "M-B8: the exercise's entries are applied to NDTwin's own pipeline as wel
 # `test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration`. A later change put a
 # telemetry-source check a few lines below it, and under `auto` a foreign pipeline resolves to
 # `link` -- so with the foreign branch deleted that check skipped the same switch and the
-# mutation changed nothing observable. It SURVIVED in P3-C round 1 for exactly that reason, and
+# mutation changed nothing observable. It SURVIVED in an earlier run for exactly that reason, and
 # the fix was not to delete the guard: a further change then made the branch conditional
 # (`and source != TELEMETRY_COOPERATIVE`), because a foreign program that includes
 # ndtwin_telemetry.p4 CAN clone to the CPU port and must get a session.
@@ -531,7 +531,7 @@ m=$(mutant b27 "$MAIN" \
 report "M-B27: readopt reports a clone session on a switch that was given none" "$m" \
        "test_it_does_not_claim_a_clone_session_it_never_programmed"
 
-# --- the route refill the package's pipeline must not receive (round 2) ---------
+# --- the route refill the package's pipeline must not receive ---------
 
 m=$(mutant b26 "$TOPOMGR" \
     '            if install_routes:

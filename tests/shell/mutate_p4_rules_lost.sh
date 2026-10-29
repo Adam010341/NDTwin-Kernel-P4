@@ -17,7 +17,7 @@
 #
 # NOT IN THIS GATE: the lock around the record, for the reason mutate_p4_capabilities.sh gives.
 #
-# Guard: on Adam's laptop every cell goes through tools/build_guard/guarded_build.sh (see
+# Guard: on a shared workstation every cell goes through tools/build_guard/guarded_build.sh (see
 # mutate_p4_capabilities.sh's header for NO_GUARD). In an isolated VM with no guard, NO_GUARD=1.
 #
 # Usage:  bash tests/shell/mutate_p4_rules_lost.sh            (BUILD_DIR defaults to build)

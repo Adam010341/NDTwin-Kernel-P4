@@ -176,7 +176,7 @@ perl -0pi -e 's/\[\[ "\$STACK" == HALF \]\] && REASONS\+=/[[ -n "\$STACK" \&\& "
 report "a healthy live fabric is called residue" "  🔴 rc 0 -- a healthy fabric is not residue"
 
 # 12. A missing stack line is read as whole-down -- 89 reports on disk have no stack line, and
-#     counting them as "nothing was up" is E-7's exact prohibition.
+#     counting them as "nothing was up" reads a missing answer as a clean one.
 perl -0pi -e 's/    echo "stack=not-reported"/    echo "stack=whole-down"/' "$V"
 report "an unreported stack half is counted as clean" "  🔴 and the missing half is NAMED"
 

@@ -78,7 +78,7 @@ PY
     fi
 }
 
-# [Co-developed with claude code -- Adam] Rewritten 09-28 with the tool (the external judge's F1, F2,
+# [Co-developed with claude code -- Adam] Rewritten 09-28 with the tool (F1, F2,
 # F7, F8) and again for its second round (M2, m1, m3): E1-E15 the comparison of the exercise's own
 # evidence, E16-E19 and E32-E40 the roles and the samples, E21-E22 and E41-E43 and E46-E47 what is
 # unreadable, E23-E24 and E45 the controls' spread, E25-E31 the invariants and the daemon, E44 N4's

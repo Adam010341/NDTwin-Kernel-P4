@@ -5,14 +5,14 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# FIX-NDT-10 SUMMARY §7-6: that suite's only red was a hand edit somebody made once
-# (`if false`, 14 of 30 red, quoted in the FIX document) and then undid. A red nobody repeats is
+# Before this gate, that suite's only red was a hand edit somebody made once
+# (`if false`, 14 of 30 red, on 2026-09-12) and then undid. A red nobody repeats is
 # a red that exists in a log; this file is what repeats it, every night, from the repo.
 #
 # 🔴 THE TWO DIRECTIONS, and this gate needs both.
 #   * FIRES: the guard stops working. M1 turns it off, M5 turns off the measuring= half, M4 and
 #     M6 keep the refusal but break what it SAYS -- the sentence an operator reads, and the retry
-#     line ROLE-4 T2 measured pasting a parenthesised description into a command line.
+#     line T2 measured pasting a parenthesised description into a command line.
 #   * WIDENS: M7 refuses everything. Every refusal cell above passes and the lab becomes
 #     impossible to tear down; only the expired-claim control catches it.
 #   * THE INSTRUMENT: M2 and M3 take away one of the two things a proceeding teardown touches,
@@ -130,7 +130,7 @@ check_control() {   # <label> <name> -- a behaviour-preserving edit; the suite m
 }
 
 # --- M1: the guard itself ---------------------------------------------------------------------
-# The hand edit FIX-NDT-10 made once, made permanent. Its red is the one that matters: the
+# The 2026-09-12 hand edit, made permanent. Its red is the one that matters: the
 # intruder's teardown really runs, and `touched()` reads sudo=2 stack=1.
 cat > "$A/m1.old" <<'EOF'
     if [[ -n "$held" && "$force" != "--force" ]]; then
@@ -189,7 +189,7 @@ cat > "$A/m5.new" <<'EOF'
 EOF
 check_fires "M5: a DECLARED measurement stops guarding" m5 "🔴 our OWN claim that DECLARES a measurement is refused"
 
-# --- M6: ROLE-4 T2's retry line, put back the way it was ---------------------------------------
+# --- M6: T2's retry line, put back the way it was ----------------------------------------------
 # `$held` is a DESCRIPTION -- `other-session (until 02:36:24, reader running)`. Pasted, bash reads
 # `(until ...)` as a subshell and the command dies on a syntax error.
 cat > "$A/m6.old" <<'EOF'

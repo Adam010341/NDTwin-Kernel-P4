@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for tests/shell/test_apps_residue.sh and tests/python/test_app_residue_rules.py
-# (KNOWN-ISSUES G-12, W16).
+# (KNOWN-ISSUES G-12).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -190,7 +190,7 @@ report "M9: the report starts deleting what it finds" "$m" \
 # No pidfile means no window; defaulting to one attributes the entire flow table to an app that
 # may never have written a line of it.
 #
-# 🔴 RE-ANCHORED 2026-09-12 (FIX-NDT-9). The anchor was `app_started_at`'s closing `return 1`
+# 🔴 RE-ANCHORED 2026-09-12. The anchor was `app_started_at`'s closing `return 1`
 # followed by `http_get_flow_entries() {`, and RESIDUE-1's fix put a new function between those
 # two -- so the anchor stopped applying, the mutant carried an UNMODIFIED ndt, and this gate
 # printed `SURVIVED M10 ... that case proves nothing`. `check_gate_anchors.py HEAD` said
@@ -359,7 +359,7 @@ m=$(mutant m26 "$NDT" \
 report "M26: the plane's blindness is never announced" "$m" \
        "🔴 it says the plane cannot be windowed"
 
-# --- H2: what of the STACK is up (ROLE-2, 2026-09-11) -----------------------------------------
+# --- H2: what of the STACK is up (measured 2026-09-11) -----------------------------------------
 
 # M20 restores H2: `apps orphans` says nothing about the kernel, the fabric or the proxy, so a
 # reader of its report calls a half-up stack clean -- which is what happened three times on
@@ -397,9 +397,9 @@ report "M30 (widening): a healthy fabric is called HALF" "$m" \
 # --- G-55: an EMPTY table and a window that excluded everything are two readings ---------------
 #
 # [Co-developed with claude code -- Adam]
-# FIX-NDT-11 ①. Until 2026-09-12 both printed `no flow entry arrived during that window` and
+# Until 2026-09-12 both printed `no flow entry arrived during that window` and
 # nothing else -- two byte-identical reports over a plane with sixty rules on it and a plane with
-# none (CELLS-2 cell 1, 15:00:47). The four mutations below are the two directions that sentence
+# none (measured 2026-09-12 15:00:47). The four mutations below are the two directions that sentence
 # can fail in, plus the counter it rests on: never said, always said, a counter that reads 0 for
 # every table, and a counter that answers 0 rather than UNREADABLE to a table it could not parse
 # -- the last of which would put the sentence on a report where the truth is "I could not look".
@@ -432,7 +432,7 @@ report "M33: the row counter counts nothing, so every table reads 0" "$m" \
 # 🔴 The fail-closed side of the counter. `0` and "I could not read it" are different answers and
 # only one of them may produce the sentence: a table this tool cannot parse is already reported
 # as `was not valid JSON`, and adding "and it was empty" to that would be a check that could not
-# look wearing the face of one that looked. (E-7)
+# look wearing the face of one that looked.
 m=$(mutant m34 "$NDT" \
     'except Exception:
     print("UNREADABLE"); sys.exit(0)

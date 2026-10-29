@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #46 (with #35 and #36) -- a commanded power-off must survive the
+# Mutation gate for defect #46 (with #35 and #36) -- a commanded power-off must survive the
 # topology poll, and the poll must go on marking every other switch up.
 #
 # [Co-developed with claude code -- Adam]
@@ -378,7 +378,7 @@ mutate "power-on never withdraws the command" \
     PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain
 
 # ================================================================================================
-#    FINDINGS #35: the early returns that turned the resurrection into a brick
+#    #35: the early returns that turned the resurrection into a brick
 # ================================================================================================
 
 # M7. The power-off guard as it was: ask the graph, believe it, run nothing. The graph reads down

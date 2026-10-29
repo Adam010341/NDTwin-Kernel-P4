@@ -262,7 +262,7 @@ add "14. a run in which NO probe arrived passes every check about the probes" \
     'test_no_probe_rows_fails_the_injection_check_rather_than_passing_vacuously'
 
 # 15: `measuring=` is the only channel a session has for "you cannot see what I am running
-# from the process table" (ROLE-4 T2d). Ignoring it loses somebody else's measurement.
+# from the process table". Ignoring it loses somebody else's measurement.
 add "15. a claim that DECLARES a measurement is treated as a free lab" \
     "$DRIVER" \
     '    if fields.get("measuring"):' \

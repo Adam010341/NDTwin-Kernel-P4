@@ -22,19 +22,19 @@
 # -- and mutations 4..7 are widenings, i.e. code that refuses MORE. A gate with only the first
 # three would pass every one of them.
 #
-# [Co-developed with claude code -- Adam] Adam, 2026-10-16: a destination-only modify naming the
+# [Co-developed with claude code -- Adam] Decided 2026-10-16: a destination-only modify naming the
 # priority its ipv4_lpm slot holds is honoured (slot_priority.py). Mutation 3 used to remove the
 # modify's refusal from the handler; that refusal now lives in TopologyManager.modify_flow,
 # under the slot's lock, so 3 is re-anchored there (the check moved after the write). 4 and 5
 # follow `named_priority` into slot_priority.py, and 8 and 9 follow the 501 body into
-# `_priority_refusal_detail`. Mutations 10.. are the ruling's own rules, two-sided again:
+# `_priority_refusal_detail`. Mutations 10.. are that decision's own rules, two-sided again:
 # honoured where the slot holds the named priority (13, 15, 17, 27), refused everywhere else
 # (10, 11, 12, 14, 16, 26, 30, 31), forgotten after anything unconfirmed (18, 21, 22, 23, 24,
 # 28, 29), atomic per slot and per slot only (19, 25), and in the stated order behind the
 # switch's own refusals with a remedy true on OVS as well (20, 32, 33).
-# Round 2 (review r1): one slot whatever the address spelling (34), every writer's slot lock
+# Second pass: one slot whatever the address spelling (34), every writer's slot lock
 # (35-37), no insert fallback in a modify (38), the delete remedy's OVS caveat inside the cut (39).
-# 25 was re-anchored in round 2 (its key line now goes through slot_key). Round 3 (review r2):
+# 25 was re-anchored in the second pass (its key line now goes through slot_key). Third pass:
 # one spelling for every lookup in the three verbs (40-42), the slot_priority FIELD in the window (43).
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any
@@ -254,8 +254,8 @@ each_mutation() {
         'test_a_five_tuple_match_at_the_same_priority_is_not_refused'
 
     # The refusal is widened to the install path, overturning T-15 Option 0 and the
-    # 2026-08-30 §1.2 ruling silently. That is the owner's decision, not a maintenance edit,
-    # so a test names the ruling and reddens when someone takes it.
+    # 2026-08-30 §1.2 decision silently. That is the owner's decision, not a maintenance edit,
+    # so a test names the decision and reddens when someone takes it.
     "$m" "7. the refusal is widened to the install path, overturning the standing ruling" "$API" \
         '    # 400 with the offending field names, rather than servicing a narrowed version of the rule' \
         '    _refuse_unhonourable_priority(data, match, "install")
@@ -263,7 +263,7 @@ each_mutation() {
         'test_an_install_is_still_disclosed_rather_than_refused'
 
     # ---- half three: the refusal has to be READABLE where it is read ------------------
-    # 🔴 2026-09-11, hunt-0911/ROLE-5-TRAFFIC-REPORT.md §S3. On a live fabric 2152 of 2152
+    # 🔴 Measured 2026-09-11. On a live fabric 2152 of 2152
     # deletes were refused here and every caller got HTTP 200 `queued`, because the kernel
     # answers before the southbound request is made. The single place the refusal surfaces is
     # get_flow_dispatch_status' recent_failures[].message, and what lands there is
@@ -289,7 +289,7 @@ each_mutation() {
         '        "error": "priority not honourable on this table, because ipv4_lpm is a longest-prefix-match table whose only tiebreak is the prefix length and which has no priority column at all, so the value cannot select an entry",' \
         'test_the_remedy_is_inside_the_window_the_kernel_keeps'
 
-    # ---- half four: the slot's own priority (Adam, 2026-10-16) -------------------------
+    # ---- half four: the slot's own priority (decided 2026-10-16) ---------------------
     # [Co-developed with claude code -- Adam] p4_proxy/tests/test_modify_at_slot_priority.py.
 
     # Refused everywhere else.
@@ -482,9 +482,9 @@ each_mutation() {
         **extra,' \
         'test_the_modify_501_keeps_its_machine_fields_inside_the_kernel_window'
 
-    # ---- round 2 (review r1, 2026-10-16) ---------------------------------------------
+    # ---- second pass (2026-10-16) -----------------------------------------------------
     # [Co-developed with claude code -- Adam]
-    # Re-anchored in round 3: slot_key now goes through the route key, and since the verbs
+    # Re-anchored in the third pass: slot_key now goes through the route key, and since the verbs
     # canonicalize first, the record's own contract test is what sees this. Re-anchored
     # 2026-10-23 (prefix destinations): 3, 15, 16, 34 and 36 follow the route key's text --
     # address/prefix_len, canonical_route_key -- with the same mutations.
@@ -535,7 +535,7 @@ each_mutation() {
         '            remedy="match the full five-tuple; a non-strict delete here restores the route and, on OVS, removes every "' \
         'test_the_remedy_is_inside_the_window_the_kernel_keeps'
 
-    # ---- round 3 (review r2, 2026-10-16) ---------------------------------------------
+    # ---- third pass (2026-10-16) ------------------------------------------------------
     # [Co-developed with claude code -- Adam]
     "$m" "40. modify_flow looks the destination up under the caller's spelling" "$TOPO" \
         '        check_match_values(match_dict, "modified")
@@ -561,7 +561,7 @@ each_mutation() {
 ' \
         'test_installed_routes_holds_one_key_for_both_spellings'
 
-    # Review r2 NEW-4: survived against the bare-word needle, because the remedy's prose says
+    # This once survived against the bare-word needle, because the remedy's prose says
     # "name slot_priority" -- the field itself left the window and nothing noticed.
     "$m" "43. only slot_priority moves behind the prose" "$API" \
         '        **extra,

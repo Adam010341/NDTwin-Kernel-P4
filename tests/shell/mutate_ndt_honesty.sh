@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_ndt_honesty.sh (09-05 night round: I-1/W12).
+# Mutation gate for tests/shell/test_ndt_honesty.sh (I-1, found 2026-09-05).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -123,7 +123,7 @@ m=$(mutant m4 "$NDT" \
 report "M4: the plane is a constant, not a reading" "$m" \
        "'last kernel.exit ran p4' after a P4 run"
 
-# Finding #7's conflation in a new place: a command this script cannot classify turned into a
+# The could-not-tell-read-as-known conflation in a new place: a command this script cannot classify turned into a
 # plane anyway. "I could not tell" and "it was ovs" are different answers.
 m=$(mutant m5 "$NDT" \
     '        *StaticNetworkTopologyP4_*)  echo p4;  return 0 ;;
@@ -186,11 +186,11 @@ report "M11: ndt down leaves 'in use' standing over an empty lab" "$m" \
 # T5 commit appended the cleared-measuring suffix to that line. check_gate_anchors.py HEAD read
 # MISSING:1 for it -- which is what the checker is for, and which the gate itself would have
 # reported as a SURVIVOR because an applier that cannot apply is a hole and never a skip.
-# 🔴 REPOINTED AGAIN 2026-09-12 (FIX-NDT-7 item 3): the branch now turns on what `verify clean`
+# 🔴 REPOINTED AGAIN 2026-09-12: the branch now turns on what `verify clean`
 # could not verify rather than on the rc, and its sentence gained the half that failed. The
 # mutation is the same one -- take the "did not verify" branch away -- said against the new
 # condition.
-# 🔴 REPOINTED AGAIN 2026-09-12 (FIX-NDT-8): a teardown that had nothing to tear down now has
+# 🔴 REPOINTED AGAIN 2026-09-12: a teardown that had nothing to tear down now has
 # its own branch above this one, so the "verified clean" branch is an `elif`. The mutation is
 # unchanged -- take the "did not verify" branch away.
 m=$(mutant m12 "$NDT" \
@@ -287,11 +287,11 @@ report "M21: under-reporting is reported as over-reporting" "$m" \
 # --- #17: the tripwire named a mechanism it had not observed, and its rc said nothing ---------
 #
 # 🔴 NUMBERED FROM M40, and the gap is deliberate: this gate already had an M22-M28 (F12/B10/
-# F9/F10, from FIX-NDT-2) and the first draft of this block reused those labels. Both sets ran
+# F9/F10) and the first draft of this block reused those labels. Both sets ran
 # and both were caught -- the mutant directory is created immediately before each run, so no
 # verdict was wrong -- but the LOG then carried two different "M22" lines, and a log you cannot
 # read back is not evidence. Found by grepping this gate's own output for duplicate labels
-# (2026-09-11, FIX-NDT-4).
+# (2026-09-11).
 #
 # 2026-09-11, on a live L2 fabric: one netem link failure read 1.60 and
 # the tripwire called it `clone replicas stacked`, with `check rc=0`. Each mutation below puts
@@ -325,7 +325,7 @@ report "M43 (widening): a constant factor is called a transient too" "$m" \
        "🔴 a constant factor over a steady truth IS the stack shape"
 
 # (widening) The other direction on the same decision: everything is called the stack shape,
-# so ROLE-5's link failure is reported as replicas again with an evidence line under it.
+# so the 2026-09-11 live link failure is reported as replicas again with an evidence line under it.
 m=$(mutant m44 "$NDT" \
     '    steady = hi <= lo * 1.25' \
     '    steady = True
@@ -369,9 +369,9 @@ m=$(mutant n2 "$NDT" \
 report "N2 (control, never checks): every lab has no baseline" "$m" \
        "  and --check checks: rc 0, not 3"
 
-# --- F12 / B10: the help text, which nothing was reading (F-OFFLINE-1 §1.12, §1.24) ----------
+# --- F12 / B10: the help text, which nothing was reading --------------------------------------
 
-# F12 verbatim. Until 2026-09-11 the help defined rc 3 with the very sentence W12 had removed
+# F12 verbatim. Until 2026-09-11 the help defined rc 3 with the very sentence the I-1 fix had removed
 # from the output as false, and 78 green cells in this suite said nothing, because not one of
 # them looked at `ndt help`. This mutation puts it back.
 m=$(mutant m22 "$NDT" \
@@ -466,7 +466,7 @@ report "M30: help calls the orphans rc table disjoint again (F4)" "$m" \
        "  🔴 the rc table says it is not disjoint"
 
 
-# --- T1: the claim was a check-then-write two sessions could both win (ROLE-4) ----------------
+# --- T1: the claim was a check-then-write two sessions could both win (measured 2026-09-11) ----
 
 # The lock is not taken at all, which is 2026-09-11 01:53 exactly: check, then write, with a
 # window in between that two same-second claims both got through.
@@ -604,7 +604,7 @@ m=$(mutant mc12 "$NDT" \
 report 'MC12: the teardown leaves the declaration it just falsified' "$m" \
        '🔴 measuring= is empty afterwards'
 
-# 🔴 RE-ANCHORED 2026-09-11 (FIX-NDT-4 #20): the five fields now have ONE writer, claim_write,
+# 🔴 RE-ANCHORED 2026-09-11: the five fields now have ONE writer, claim_write,
 # because lab.claim and lab.claim.prev were coming out of two printfs in different orders
 # The mutation is the same defect -- the note appended, so it
 # migrates to the last line every time it is corrected -- applied at the one call site left.
@@ -644,7 +644,7 @@ report 'MC16: the help stops saying what a claim does not cover (T4)' "$m" \
        '  the help scopes the claim to this tool'"'"'s own verbs'
 
 
-# --- 09-12: the three paragraphs ROLE-11 and ROLE-12 put into the rc tables --------------------
+# --- 09-12: the three paragraphs added to the rc tables -------------------------------------------
 
 # MD1: the `down` table stops saying that a port held at [1/3] is not by itself a failure. The
 # rc changed under the operator on 09-12 (7 of 7 live P4 teardowns were red, then green); a
@@ -738,7 +738,7 @@ report 'MD9: the down table drops rc 3 (FIX-NDT-8)' "$m" \
 
 # MD10: the --check row goes back to being called `residue`. The code is unchanged; what comes
 # back is a report in which `ndt clean`'s port line and `ndt status --check`'s flow-rule line
-# are the same word, which is how ROLE-11's report quoted both and read as one finding twice.
+# are the same word, which is how a 2026-09-12 live report quoted both and read as one finding twice.
 m=$(mutant md10 "$NDT" \
     '        *) printf '\''  %-14s %s\n'\'' "rules-in-window" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;' \
     '        *) printf '\''  %-14s %s\n'\'' "residue" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;')

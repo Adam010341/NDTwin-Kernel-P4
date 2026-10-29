@@ -121,7 +121,7 @@ add "4. a fully silent round is classified partial" \
 #    /links until LLDP has discovered anything, so this turns normal startup into a logged wedge --
 #    an unexpected case dressed up as a deliberate one, which is the error mode this repo has
 #    already recorded once.
-#    2026-09-04: re-anchored. Round 6 N1 moved the "" vs "[]" distinction out of a per-endpoint
+#    2026-09-04: re-anchored. An earlier change moved the "" vs "[]" distinction out of a per-endpoint
 #    `linksAnswered` bool (gone) and into classifyEndpointReply's bodyIsBlank computation -- the
 #    function's own comment at TopologyAndFlowMonitor.cpp says so ("the emptiness rule ... moved
 #    into classifyEndpointReply, where '[]' is still an answer and '' is still not"). The anchor
@@ -177,7 +177,7 @@ add "9. the stable grep token is renamed" \
 #     rather than tested in place. Closing it is a live step, not a unit test: see §6 of the A-2
 #     findings (stall a listener on :8080, watch for the token in kernel.log).
 #     2026-09-04: re-anchored. noteAndAnnouncePollRound's signature moved from three std::string
-#     bodies to three EndpointReply objects (Round 6 N1); the call site's argument names followed
+#     bodies to three EndpointReply objects; the call site's argument names followed
 #     the rename (switchesStr/hostsStr/linksStr -> switchesReply/hostsReply/linksReply). The
 #     property under test -- does the poll call the bookkeeping at all -- is unchanged.
 add "10. the poll never calls the round bookkeeping at all" \

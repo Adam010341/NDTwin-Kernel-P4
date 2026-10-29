@@ -7,7 +7,7 @@
 # What is being protected. doc/2026-08-17_testing-manual.md carried three caveats saying `ndt
 # clean` and `ndt help` misbehave and that FIX-NDT-6 is working on it. FIX-NDT-6 merged at
 # 05:56 on 2026-09-12 (`1656bdba`); one of the three had already been verified wrong by
-# FIX-DOC-3 and was left standing because it was out of scope. That is KNOWN-ISSUES G-52's
+# an earlier docs edit and was left standing because it was out of its scope. That is KNOWN-ISSUES G-52's
 # shape, and nothing in this repository notices it: a stale caveat stays grammatical forever.
 # The test this gate protects asks git instead -- is the merge that fixes the ticket an ancestor
 # of HEAD -- so the judgement does not decay. These mutations put each half of the old document
@@ -24,7 +24,7 @@
 # nobody here started. M7 deletes it from a copy of `ndt`; case 4 has to go red.
 #
 # 🔴 M4 IS THE SUPPRESSION'S OWN TEST. A manual line may quote what the document USED to say --
-# FIX-DOC-3 left such a note at §2.8 -- and the test skips lines carrying 原本 or 曾經. M4 takes
+# an edit on 2026-09-12 left such a note at §2.8 -- and the test skips lines carrying 原本 or 曾經. M4 takes
 # that word away, and case 6 has to see the line again. A suppression nobody can make fire is a
 # suppression that covers everything.
 #
@@ -101,7 +101,7 @@ manual_mutant() {   # manual_mutant <tag> <anchor \x1f replacement>
 # An UNMUTATED copy of the manual, for the mutations applied to the test or to `ndt` instead.
 # It is a copy and not "$MANUAL" itself because check_gate_anchors.py reads a declared repo path
 # followed by a quoted literal as "anchor in that file", and the case name passed alongside it
-# would be reported as a missing anchor in the manual (FIX-DOC-3 §2, 100/101).
+# would be reported as a missing anchor in the manual.
 manual_copy() {
     local out="$BK/manual.pristine.md"; cp "$MANUAL" "$out"; echo "$out"
 }
@@ -264,7 +264,7 @@ echo "mutations:"
 
 # Short name on purpose. check_gate_anchors.py reads "a declared path followed by a quoted word"
 # as "that word is an anchor in that file", and a longer variable name here is read as an anchor
-# it cannot resolve -- the gate then scores UNPARSED, which is NOT a pass (FIX-DOC-3 §2).
+# it cannot resolve -- the gate then scores UNPARSED, which is NOT a pass.
 P=$(manual_copy)
 D=$(ndt_copy)
 

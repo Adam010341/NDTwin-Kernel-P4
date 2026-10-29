@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for W11 (#54 / R6 K-4): the dispatch-status endpoint's honest counters.
+# Mutation gate for #54: the dispatch-status endpoint's honest counters.
 #
 # [Co-developed with claude code -- Adam]
 #

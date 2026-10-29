@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #82 -- OVS powerOff asks the machine whether the bridge is there,
+# Mutation gate for defect #82 -- OVS powerOff asks the machine whether the bridge is there,
 # and records the commanded power-off on both answers.
 #
 # [Co-developed with claude code -- Adam]
@@ -10,13 +10,13 @@
 # WHAT THE DEFECT WAS
 #   OVSPowerStrategy::powerOff opened with
 #       if (!topoMonitor->getVertexIsUp(node)) { return OpResult::success(); }
-#   -- the OVS twin of the early return FINDINGS #35 names on the P4 side, and the one that was
-#   left in place when #35 was fixed there (FIX-POLL-RESURRECT.md (6).3), because `list-ports` on a
+#   -- the OVS twin of the early return #35 names on the P4 side, and the one that was
+#   left in place when #35 was fixed there, because `list-ports` on a
 #   missing bridge exits 1 and an unguarded power-off would have refused with a 500.
 #
 #   It asked the graph. The graph reads false for a bridge that is present in at least four
 #   states: freshly loaded topology (every vertex starts false), `list-br` refused or failed, a
-#   liveness blip, and -- since FINDINGS #46 -- any switch already carrying a commanded power-off.
+#   liveness blip, and -- since #46 -- any switch already carrying a commanded power-off.
 #   And the early return sits ABOVE setVertexPoweredOffByCommand, so on OVS the #46 fix held only
 #   when isUp happened to be true at the moment the power-off arrived. A second `action=off`
 #   returned 200 having recorded nothing at all.
@@ -437,7 +437,7 @@ mutate "power-on never builds the bridge" \
     OvsPowerStrategyTest.PowerOnBuildsTheBridgeWhenTheMachineSaysItIsNotThere
 
 # M10. The new power-on path settles the telemetry but never withdraws the standing command, so a
-#      switch recovered this way is suppressed by FINDINGS #46's veto for the rest of the process.
+#      switch recovered this way is suppressed by #46's veto for the rest of the process.
 #      This is #46's own M6 arriving through the door #82 opened.
 mutate "the existing-bridge power-on never withdraws the command" \
     "$OVS" \

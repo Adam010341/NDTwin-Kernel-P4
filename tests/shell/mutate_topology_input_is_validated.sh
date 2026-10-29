@@ -31,11 +31,11 @@
 # measured on :8000 (R0b, 2026-09-05, kernel 862c4bf8, served as `('h9', [])`); its missing-key
 # and non-array halves were not, and are message claims rather than acceptance claims.
 #
-# 🔴 E-26 (M31-M33, 2026-09-07) REVERSES A DECISION THIS GATE MADE THE SAME DAY. BUG-17 refused a
+# 🔴 THE SWITCHLESS REFUSAL (M31-M33, 2026-09-07) REVERSES A DECISION THIS GATE MADE THE SAME DAY. BUG-17 refused a
 # data-plane MIXTURE and deliberately left "no switches at all" loading, with M31 as the mutation
 # pinning that boundary. The decision went the other way hours later (2026-09-07, against the
 # recommendation), so M31 now mutates in the opposite direction and its case was renamed. Anyone
-# quoting an M31 result must check which side of 2026-09-07 it came from. E-26 is a two-layer fix
+# quoting an M31 result must check which side of 2026-09-07 it came from. The switchless refusal is a two-layer fix
 # like #61's, so its restoration is a mutate2 -- see section 5f.
 #
 # 🔴 M25-M27 (added 2026-09-07) REVERSE HALF OF THE BRAND CHECK BY DECISION, so this gate now measures
@@ -131,7 +131,7 @@ FILTER_FLIPPED='AddresslessHostLoadTest.*'
 
 TFM=src/ndt_core/collection/TopologyAndFlowMonitor.cpp
 # [Co-developed with claude code -- Adam]
-# W15-1(b), 2026-09-07. The accepted brand list moved out of $TFM and into the header, so two
+# 2026-09-07: the accepted brand list moved out of $TFM and into the header, so two
 # more files are now mutable here -- and both are expensive: GraphTypes.hpp is included by 43
 # translation units, so M23 costs a whole-tree rebuild, and it is worth it because that list is
 # the one piece of this fix a well-meaning edit can break for the entire shipped fleet at once.
@@ -224,7 +224,7 @@ add_anchor "door3e-list"    "$GT"  'inline constexpr std::string_view kBrandHPE5
 add_anchor "brand-branch"   "$DCPM" '    else if (targetSwitch->brandName == kBrandHPE5520)'
 add_anchor "door3e-message" "$TFM" '                    ". An unrecognised brand used to be mapped to \"hardware\" silently, which "'
 
-# W15-2 -- the switch_kind exemption and the mark it costs. Three anchors: the exemption clause
+# The switch_kind exemption and the mark it costs. Three anchors: the exemption clause
 # itself, the predicate that decides it, and the line that writes the mark onto the vertex. The
 # mark has its own anchor because "the file loads" and "and the twin admits it cannot drive this
 # switch" are two claims, and a fix that made only the first one true would be #91's silent
@@ -242,12 +242,12 @@ add_anchor "bug17-guard"    "$TFM" '    if (!allowMixed)
         if (declaredKinds.size() > 1)'
 add_anchor "bug17-size"     "$TFM" '        if (declaredKinds.size() > 1)'
 add_anchor "bug17-second"   "$TFM" '    if (!validateDataPlaneHomogeneity(m_allowMixedDataPlane) && builtKinds.size() != 1)'
-# E-26 (2026-09-07) -- the OTHER end of the same question: a document declaring no switch at all.
+# The switchless refusal (2026-09-07) -- the OTHER end of the same question: a document declaring no switch at all.
 # One anchor, and it deliberately sits OUTSIDE the `!allowMixed` guard above: the mixed-plane
 # opt-in must not carry this refusal with it. M32 mutates it back inside.
 add_anchor "e26-switchless" "$TFM" '    if (declaredKinds.empty())'
 
-# FIX-DOORS-2 (2026-09-11) -- the four fields ROLE-3 measured going through ten doors untouched.
+# Doors 4-7 (2026-09-11) -- the four fields measured live on 2026-09-11 going through ten doors untouched.
 # B-13 door 4 (`link_bandwidth_bps`), B-14 door 5 (`vertex_type`), B-15 door 6 (one address, one
 # node, one spelling) and door 7 (the shared "ip" read's diagnostic for the node types door 3d
 # does not cover). Every arm of every one of them gets its own anchor, for the reason door 3d's
@@ -849,7 +849,7 @@ mutate "door 3e is applied to hosts as well as switches" \
 #      hardware model is misspelled, in the header, where the constant now lives. The two
 #      _ipAlias4_HPE_ files stop loading.
 #
-#      🔴 THE TRIPWIRE IS NO LONGER EXPECTED TO SEE THIS, AND THAT IS THE POINT OF W15-1(b).
+#      🔴 THE TRIPWIRE IS NO LONGER EXPECTED TO SEE THIS, AND THAT IS THE POINT OF ONE SHARED BRAND LIST.
 #      Before 2026-09-07 the list and the power manager spelled "HPE5520" separately, so
 #      misspelling one of them was drift and TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn
 #      caught it. They are the same constant now: changing it changes both, there is nothing to
@@ -879,7 +879,7 @@ mutate "door 3e: the refusal suggests ALLOW_MIXED_DATAPLANE again" \
     TopologyInputValidationTest.TheUnknownBrandRefusalDoesNotSuggestAllowingMixedDataPlanes
 
 # ================================================================================================
-# 5e. W15-2 -- the switch_kind exemption, and the mark it costs (M25-M27, added 2026-09-07)
+# 5e. The switch_kind exemption, and the mark it costs (M25-M27, added 2026-09-07)
 #
 # 🔴 THIS HALF REVERSES #91, SO IT HAS TO BE MEASURED IN BOTH DIRECTIONS AT ONCE. It was decided on
 # 2026-09-06 that a node declaring an explicit, legal `switch_kind` is admitted even when its
@@ -939,7 +939,7 @@ mutate "W15-2: an exempted switch is reported as having a power path" \
     TopologyInputValidationTest.TheExemptionIsPerNodeAndDoesNotUnmarkItsNeighbours \
     TopologyInputValidationTest.TheStaticTopologyEndpointPublishesTheUnmanagedMark
 
-# M28. 🔴 THE DOOR SINGLE-SOURCING DOES NOT CLOSE, and what the tripwire is for after W15-1(b).
+# M28. 🔴 THE DOOR SINGLE-SOURCING DOES NOT CLOSE, and what the tripwire is for now the brand list is shared.
 #      A brand comparison in the power manager is written as a bare string literal again, naming a
 #      model the loader will refuse. It compiles, it works, and it teaches half the kernel about a
 #      switch no topology file may name -- the pre-2026-09-07 shape, reached by hand. Only
@@ -952,7 +952,7 @@ mutate "W15-1(b): the power manager branches on a brand literal the loader refus
     TopologyInputValidationTest.TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn
 
 # ================================================================================================
-# 5f. BUG-17 + E-26 -- how many data planes a topology file may declare (M29-M33, added 2026-09-07)
+# 5f. BUG-17 + the switchless refusal -- how many data planes a topology file may declare (M29-M33, added 2026-09-07)
 #
 # 🔴 THE DEFECT WAS A DISCARDED RETURN VALUE, AND IT WAS MEASURED ON :8000. R6 (2026-09-05)
 # built a mixed model, got an ERROR line naming both dpid sets, and then
@@ -967,7 +967,7 @@ mutate "W15-1(b): the power manager branches on a brand literal the loader refus
 # `!= 1` had to go RED). The decision then went the other way (2026-09-07, explicitly against the
 # recommendation): a
 # switchless topology is refused too, through the same door. So M31 now mutates in the opposite
-# direction -- it takes E-26's door out and leaves BUG-17's `> 1` exactly as it shipped -- and the
+# direction -- it takes the switchless door out and leaves BUG-17's `> 1` exactly as it shipped -- and the
 # case it names was renamed and reversed with it. W8 did not move: it still proves these cases
 # measure WHICH topologies are refused rather than how the condition is spelled.
 #
@@ -976,7 +976,7 @@ mutate "W15-1(b): the power manager branches on a brand literal the loader refus
 #   - the opt-in stops working                  (M30) -- a supported feature removed while "fixing"
 #                                                        it, a bigger regression than the bug
 #   - the switchless refusal is dropped at BOTH
-#     layers                                    (M31) -- E-26 undone; 0f79d44f verbatim, and it
+#     layers                                    (M31) -- the switchless refusal undone; 0f79d44f verbatim, and it
 #                                                        takes two sites, like M2
 #   - ... at the document layer only            (M32) -- the backstop still refuses, but from the
 #                                                        end of the builder with four hosts already
@@ -985,7 +985,7 @@ mutate "W15-1(b): the power manager branches on a brand literal the loader refus
 #   - the switchless refusal hides behind the
 #     mixed-plane opt-in                        (M33) -- one `&&`, and a build with
 #                                                        ALLOW_MIXED_DATAPLANE = true silently gets
-#                                                        the pre-E-26 behaviour back
+#                                                        the pre-2026-09-07 behaviour back
 # ================================================================================================
 
 # M29. The document-level verdict is computed and thrown away, exactly as the builder-level one
@@ -1010,8 +1010,8 @@ mutate "BUG-17: ALLOW_MIXED_DATAPLANE no longer admits a mixed topology" \
         if (declaredKinds.size() > 1)' \
     TopologyInputValidationTest.AMixedDataPlaneTopologyLoadsWhenTheFlagIsSet
 
-# M31. 🔴 E-26 UNDONE AT BOTH LAYERS, WHICH IS EXACTLY BUG-17 AS IT SHIPPED THE DAY BEFORE, AND IT
-#      TAKES TWO SITES -- the M2 situation again. E-26 refuses a switchless document in
+# M31. 🔴 THE SWITCHLESS REFUSAL UNDONE AT BOTH LAYERS, WHICH IS EXACTLY BUG-17 AS IT SHIPPED THE DAY BEFORE, AND IT
+#      TAKES TWO SITES -- the M2 situation again. The 2026-09-07 fix refuses a switchless document in
 #      validateStaticTopologyJson AND widened the builder's backstop from `> 1` to `!= 1`. Removing
 #      only the first leaves the second still refusing (that is M32, below), so a one-site edit
 #      cannot restore 0f79d44f (the mixed-data-plane refusal) and reporting it as though it
@@ -1031,7 +1031,7 @@ mutate2 "E-26 at both layers: a switchless topology loads again -- 0f79d44f verb
 #      document-level door is removed; the builder's backstop still refuses -- but it refuses from
 #      the end of the builder, with all four hosts already in the graph. `vertices == 4` while
 #      `threw` stays true is the #61/#89 shape exactly: refused, and also here is most of it. This
-#      is what makes "E-26 goes through BUG-17's door, before the first add_vertex" a measured
+#      is what makes "the switchless refusal goes through BUG-17's door, before the first add_vertex" a measured
 #      claim rather than a description of where the source happens to sit.
 mutate "E-26: the document-level door is removed, leaving only the builder's backstop" \
     "$TFM" \
@@ -1052,9 +1052,9 @@ mutate "E-26: the switchless refusal is gated on the mixed-plane opt-in" \
     TopologyInputValidationTest.ASwitchlessTopologyIsRefusedEvenWithTheMixedPlaneOptIn
 
 # ================================================================================================
-# 5g. FIX-DOORS-2 / B-13 -- `link_bandwidth_bps` (door 4)
+# 5g. B-13 -- `link_bandwidth_bps` (door 4)
 #
-# 🔴 A THIRD KIND OF CLAIM AGAIN, AND THE MEASUREMENT IS LIVE. ROLE-3 (2026-09-11, binary sha256
+# 🔴 A THIRD KIND OF CLAIM AGAIN, AND THE MEASUREMENT IS LIVE. A live run (2026-09-11, binary sha256
 # 356803db69af3b1b..., ndt up ovs 4, two independent repeats on one kernel) loaded a copy of the
 # shipped OVS 4-host model with `link_bandwidth_bps: 0` on every edge -- all four of `ndt up`'s
 # verifications reported ok -- and after 2000 pings h1->h2 eight of the forty edges came back from
@@ -1088,7 +1088,7 @@ mutate "door 4: the floor is raised from 0 to a megabit" \
     TopologyInputValidationTest.TheSmallestPositiveLinkBandwidthIsAccepted
 
 # M36. The negative arm alone. -1 then reaches get<uint64_t>(), comes out as
-#      18446744073709551615, is not 0, and loads -- which is exactly what ROLE-3 measured being
+#      18446744073709551615, is not 0, and loads -- which is exactly what was measured on 2026-09-11 being
 #      served by get_graph_data.
 mutate "door 4: a negative link_bandwidth_bps becomes 18.4 exabit/s again" \
     "$TFM" \
@@ -1097,7 +1097,7 @@ mutate "door 4: a negative link_bandwidth_bps becomes 18.4 exabit/s again" \
     TopologyInputValidationTest.ANegativeLinkBandwidthIsRefusedAtLoad
 
 # M37. The presence arm alone. The file is still refused -- by at() four lines down, with the
-#      nlohmann exception class ROLE-3 recorded verbatim -- so `threw` and `vertices` stay green
+#      nlohmann exception class the 2026-09-11 run recorded verbatim -- so `threw` and `vertices` stay green
 #      and only the message moves. This is door 3c/3d's claim, on a new field.
 mutate "door 4: a missing link_bandwidth_bps falls through to at() and its nlohmann exception" \
     "$TFM" \
@@ -1117,17 +1117,17 @@ mutate "door 4: a string link_bandwidth_bps is refused as a negative number inst
     TopologyInputValidationTest.ALinkBandwidthWrittenAsAStringIsRefusedInPlainLanguage
 
 # ================================================================================================
-# 5h. FIX-DOORS-2 / B-14 -- `vertex_type` (door 5)
+# 5h. B-14 -- `vertex_type` (door 5)
 #
 # 🔴 ONE UNCHECKED CAST DISABLED FOUR DOORS, AND THAT IS WHY THIS ONE IS NOT JUST ANOTHER FIELD.
 # Doors 3b, 3c, 3d and 3e all begin `vertexType == SWITCH` or `== HOST`, so a third value does not
-# fail them -- it is not examined by any of them. ROLE-3 measured 2, -1 and 99: each loaded with
+# fail them -- it is not examined by any of them. Measured on 2026-09-11 with 2, -1 and 99: each loaded with
 # ZERO diagnostic, took the shipped model from 14 nodes to 15, and was republished verbatim by
 # /ndt/get_graph_data AND /ndt/get_static_topology_json.
 #
 # The control group is in this repo: `POST /ndt/modify_device_name {"vertex_type":2,...}` answers
 # 400 `{"error":"Invalid vertex_type. Must be 0 (switch) or 1 (host)."}` (HttpSession.cpp), which
-# ROLE-3 also ran. One field, two entrances, one door -- so M41 is about the SENTENCE, and it is
+# the 2026-09-11 run also tried. One field, two entrances, one door -- so M41 is about the SENTENCE, and it is
 # the only mutation in this file that reddens by rewording a diagnostic. That is not an exception
 # to W2: W2 says the tests must not pin prose they make no claim about, and this fix's claim IS
 # that the two entrances answer the same mistake in the same words.
@@ -1146,7 +1146,7 @@ mutate "door 5: a vertex_type outside the enum is accepted again" \
 # M40. 🔴 THE HALF-RANGE, and the reason the case tries -1 as well as 2 and 99. Written as a
 #      ceiling alone it compiles, refuses both of the values a reader would think of, and admits
 #      the one below the enum -- which is the value an operator gets from a spreadsheet or a
-#      "missing = -1" convention, and the one ROLE-3 found republished as `"vertex_type":-1`.
+#      "missing = -1" convention, and the one the 2026-09-11 run found republished as `"vertex_type":-1`.
 mutate "door 5: the range is written as a ceiling only, so -1 still loads" \
     "$TFM" \
     '        if (declaredVertexType != static_cast<int>(VertexType::SWITCH) &&
@@ -1172,14 +1172,14 @@ mutate "door 5: a missing vertex_type falls through to at() and its nlohmann exc
     TopologyInputValidationTest.AMissingVertexTypeIsRefusedInPlainLanguage
 
 # ================================================================================================
-# 5i. FIX-DOORS-2 / B-15 -- one address, one node, one spelling (door 6)
+# 5i. B-15 -- one address, one node, one spelling (door 6)
 #
-# 🔴 TWO ARMS, AND THE MEASURED FILE IS REFUSED BY EITHER -- so the file ROLE-3 actually fed can
+# 🔴 TWO ARMS, AND THE MEASURED FILE IS REFUSED BY EITHER -- so the file the 2026-09-11 run actually fed can
 # only be restored by disabling BOTH, which is M45 and the M2/M31 situation again. A one-site edit
 # that reported itself as restoring the defect would be this gate flattering its subject.
 #   6a  a spelling inet_aton accepts but the twin will not reproduce ("10.1" is 10.0.0.1). M44.
 #   6b  two nodes on one parsed address. M43.
-# ROLE-3's b5-loose.json is both at once: h2's `ip` written `["10.1"]`, which is h1's address.
+# That run's b5-loose.json is both at once: h2's `ip` written `["10.1"]`, which is h1's address.
 # The file loaded with zero warnings; get_graph_data reported h1 and h2 with the same `ip`, and
 # get_static_topology_json printed both as `["10.0.0.1"]`.
 #
@@ -1207,7 +1207,7 @@ mutate "door 6a: an address that is not a dotted quad is accepted and rewritten 
     TopologyInputValidationTest.TheLooseAddressRefusalNamesBothSpellings \
     TopologyInputValidationTest.AnEdgeAddressThatIsNotADottedQuadIsRefused
 
-# M45. 🔴 BOTH ARMS, WHICH IS THE MEASURED FILE VERBATIM. With only one of them gone, ROLE-3's
+# M45. 🔴 BOTH ARMS, WHICH IS THE MEASURED FILE VERBATIM. With only one of them gone, the measured
 #      b5-loose.json is still refused -- by the other -- so neither M43 nor M44 can restore it and
 #      neither one's log may be read as saying they could. The red here is on `threw` for the file
 #      that actually served two hosts at one address on :8000.
@@ -1231,7 +1231,7 @@ mutate "door 6a: an edge's addresses are no longer checked for spelling" \
     TopologyInputValidationTest.AnEdgeAddressThatIsNotADottedQuadIsRefused
 
 # ================================================================================================
-# 5j. FIX-DOORS-2 / door 7 -- the shared "ip" read, for the node types door 3d does not cover
+# 5j. Door 7 -- the shared "ip" read, for the node types door 3d does not cover
 #
 # Door 3d (#90) rewrote "missing key" and "not an array" into sentences for HOSTS. The read it was
 # protecting them from is SHARED: a SWITCH with no "ip" key got
@@ -1373,7 +1373,7 @@ widen "the brand membership test is written as none_of" \
                              }) &&
                 !declaresLegalSwitchKind(nodeJson))'
 
-# W7. The W15-2 control. The exemption written as two named booleans and a guard instead of one
+# W7. The switch_kind exemption's control. The exemption written as two named booleans and a guard instead of one
 #     conjunct: the same decision reached by a different route. If this reddens, M25-M27 are
 #     pinning how the exemption is spelled rather than which files it admits.
 widen "the exemption is written as a separate guard rather than a conjunct" \
@@ -1395,7 +1395,7 @@ widen "the mixture test is written as size() >= 2" \
     '        if (declaredKinds.size() > 1)' \
     '        if (declaredKinds.size() >= 2)'
 
-# W9. E-26's control, and the same shape as W5. `empty()` written as `size() == 0`: the identical
+# W9. The switchless refusal's control, and the same shape as W5. `empty()` written as `size() == 0`: the identical
 #     predicate, and one character from `size() == 1`. If this reddens, M31-M33 are pinning how
 #     the switchless tests are spelled rather than which topologies they refuse -- which matters more
 #     here than usual, because this door and its case were both written the other way round
@@ -1405,7 +1405,7 @@ widen "the switchless test is written as size() == 0" \
     '    if (declaredKinds.empty())' \
     '    if (declaredKinds.size() == 0)'
 
-# W10. FIX-DOORS-2's control for door 4. `== 0` written as `< 1`: for an unsigned value these are
+# W10. The control for door 4. `== 0` written as `< 1`: for an unsigned value these are
 #      the identical predicate, and one character from `<= 1`. If this reddens, M34 and M35 are
 #      pinning how the bandwidth floor is spelled rather than which files it refuses.
 widen "the zero-bandwidth test is written as < 1" \

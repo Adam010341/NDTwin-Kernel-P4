@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_chaos_runner_wiring.py (FINDINGS-ALL #75).
+# Mutation gate for tests/python/test_chaos_runner_wiring.py (defect #75).
 #
 # [Co-developed with claude code -- Adam]
 #

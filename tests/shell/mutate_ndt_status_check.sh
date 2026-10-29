@@ -179,7 +179,7 @@ m=$(mutant m8 "$NDT" \
 report "M8: ndt down leaves a stale baseline behind" "$m" \
        "'ndt down' drops the record"
 
-# Finding #7s conflation, inside the new code: a refused `sudo -n ovs-vsctl` read as "there is
+# The unknown-read-as-known conflation, inside the new code: a refused `sudo -n ovs-vsctl` read as "there is
 # no OVS here". That answer is indistinguishable from a live P4 fabric, so a check built on it
 # reports a plane the machine never told it.
 m=$(mutant m9 "$NDT" \
