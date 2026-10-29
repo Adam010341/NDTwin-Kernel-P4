@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
+# [Co-developed with claude code -- Adam] GET /p4/table_entry's required, non-empty `table`.
+from fastapi import Query
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 import json
@@ -1393,6 +1395,90 @@ async def table_entry(request: Request):
     if note is not None:
         body["note"] = note
     return body
+
+
+# --- reading a table's entries back, in the shape POST /p4/table_entry takes ------------------
+
+
+def _table_read_error(status, error, dpid, table, message, **extra):
+    """The HTTPException GET /p4/table_entry raises. [Co-developed with claude code -- Adam]"""
+    return HTTPException(status_code=status, detail=dict(
+        {"error": error, "dpid": dpid, "table": table, "message": message}, **extra))
+
+
+@router.get("/p4/table_entry")
+def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):
+    """
+    Every entry of one table of one switch: `GET /p4/table_entry?dpid=<n>&table=<name>`.
+
+    [Co-developed with claude code -- Adam]
+    The read-back of POST /p4/table_entry. `GET /stats/flow/{dpid}` renders only what Ryu can
+    spell, so an app that wrote its own table had no way to see whether its entry is there.
+    `table` is the full name or the alias, as for the counter and register routes. The answer:
+
+        {"dpid": 2, "table": "PkgIngress.acl",
+         "entries": [{"dpid": 2, "table": "PkgIngress.acl",
+                      "match": {"hdr.ipv4.dstAddr": ["10.0.2.0", "255.255.255.0"]},
+                      "action_name": "PkgIngress.permit", "action_params": {"port": 1},
+                      "priority": 10, "default_action": false}],
+         "unrendered": []}
+
+    Each entry is a POST body less its `op`: add `"op": "modify"` or `"op": "delete"` and send
+    it back unchanged. A value is in the one form its width reads back in
+    (match_shape.render_value): a bit<32> as a dotted address, a bit<48> as a MAC, anything
+    else as an integer; a match field as POST takes its type -- a plain value (exact,
+    optional), `[value, prefix_len]` (lpm), `[value, mask]` (ternary), `[low, high]` (range).
+    A field the entry does not match on is left out, as POST writes "any value". `priority` is
+    null on a table with no priority column and on the default entry. The table's default
+    entry comes last, `default_action: true`, empty match; it can be modified, not deleted. An
+    entry POST could not write back (an action-profile action, an id this p4info does not
+    describe) is not in `entries`: it is listed in `unrendered` with its reason, so an empty
+    `unrendered` says `entries` is the whole table.
+
+        200  the read succeeded, an empty table (`entries: []`, the default entry only) included.
+        404  `unknown switch`: a dpid the proxy did not set up; `not in this pipeline`: a table
+             this switch's p4info does not describe. Nothing was read.
+        422  `dpid` missing or not an integer, `table` missing or empty (FastAPI's own body).
+        503  `table not read`: the read failed -- the switch is not connected, or did not answer
+             within its deadline (RPC_TIMEOUT_S per read); `grpc_status` is the gRPC status name
+             (UNAVAILABLE, DEADLINE_EXCEEDED). NOT AN EMPTY TABLE. `replay pending`: the switch
+             is being re-adopted and its entries put back, so a read now would miss entries that
+             are about to return; nothing was read. `no topology`: the proxy has none yet.
+
+    Every table can be read, NDTwin's own included: the owner rule (409 owned_by_ndtwin) is
+    about writes. Works under an external control plane: a ReadRequest has no election id.
+
+    Deliberately `def`, not `async def`, for get_flow_stats' reason: the read blocks on gRPC,
+    and FastAPI runs a `def` endpoint on its threadpool, so one switch that stops answering
+    cannot hold the event loop every other endpoint runs on.
+    """
+    if topology is None:
+        raise _table_read_error(503, "no topology", dpid, table, "proxy has no topology yet")
+    client = topology.switches.get(dpid)
+    if client is None:
+        raise _table_read_error(404, "unknown switch", dpid, table,
+                                f"switch {dpid} is not one of the switches this proxy set up; "
+                                f"nothing was read")
+    readopting = table_journals is not None and table_journals.pending(dpid)
+    if readopting:
+        raise _table_read_error(503, "replay pending", dpid, table,
+                                f"switch {dpid} is being re-adopted and its entries put back; "
+                                f"nothing was read. Ask again once the readopt has answered")
+    try:
+        reading = client.read_table(table)
+    except KeyError as err:
+        raise _table_read_error(404, "not in this pipeline", dpid, table,
+                                err.args[0] if err.args else str(err))
+    except Exception as err:  # noqa: BLE001 -- only a gRPC failure is turned into a 503
+        reason = _grpc_status_name(err)
+        if reason is None:
+            raise
+        raise _table_read_error(503, "table not read", dpid, table,
+                                f"reading {table} from switch {dpid} failed: {reason}. This is "
+                                f"NOT an empty table", grpc_status=reason)
+    return {"dpid": dpid, "table": reading["table"],
+            "entries": [dict({"dpid": dpid}, **entry) for entry in reading["entries"]],
+            "unrendered": reading["unrendered"]}
 
 
 # --- reading one counter -----------------------------------------------------------------------

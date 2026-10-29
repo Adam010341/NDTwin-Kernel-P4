@@ -1853,6 +1853,131 @@ class P4RuntimeClient:
         return {"counter": counter.preamble.name, "table": self._table_name(table_id),
                 "unit": unit, "entries": entries}
 
+    #: The P4Runtime oneof keys of a FieldMatch, as `_match_as_dict` spells them, in the order
+    #: `match_shape.shape_field` returns them. [Co-developed with claude code -- Adam]
+    _WIRE_KEYS = {"exact": ("value",), "lpm": ("value", "prefix_len"),
+                  "ternary": ("value", "mask"), "range": ("low", "high"),
+                  "optional": ("value",)}
+
+    def read_table(self, name, timeout_s=RPC_TIMEOUT_S):
+        """
+        Every entry of one table, each in the shape `write_table_entry` takes:
+        `{"table", "entries", "unrendered"}`.
+
+        [Co-developed with claude code -- Adam]
+        `name` is the table's full name or its alias; `table` in the answer is the full name. An
+        entry is
+
+            {"table": "PkgIngress.acl",
+             "match": {"hdr.ipv4.dstAddr": ["10.0.2.0", "255.255.255.0"]},
+             "action_name": "PkgIngress.permit", "action_params": {"port": 1},
+             "priority": 10, "default_action": False}
+
+        with every value in the one form `match_shape.render_value` gives a field of its width,
+        so `build_table_entry` builds it back into the entry the switch holds. `priority` is
+        None on a table with no priority column and on the default entry, as the writer takes
+        it. The default entry comes last, with `default_action: True` and an empty match.
+
+        TWO READS. A wildcard read of a table does not return its default entry, only a read
+        that sets `is_default_action` does (measured on bmv2, simple_switch_grpc, 2026-10-04).
+        So the table is read once for its entries and once for its default, each with its own
+        deadline, and an entry the wrong read returned is skipped rather than reported twice.
+
+        The outcomes:
+          a table this p4info does not have -> raises KeyError (`_table_by_name`), before any read;
+          a read that failed (a deadline too) -> the gRPC error is raised, carrying its status;
+          an entry the writer's shape cannot say -> left out of `entries` and listed in
+                                                   `unrendered` with the reason (an action-profile
+                                                   action, an id this p4info does not describe,
+                                                   a value wider than its field), so the caller
+                                                   knows the list is not the whole table.
+
+        Not owner-checked and not refused under an external control plane: a ReadRequest needs
+        no election id, and reading changes nothing.
+        """
+        table = self._table_by_name(name)
+        table_id = table.preamble.id
+        kinds = [self._match_type_name(f) for f in table.match_fields]
+        has_priority = match_shape.table_has_priority_column(kinds)
+
+        answered = []
+        for default in (False, True):
+            req = p4runtime_pb2.ReadRequest()
+            req.device_id = self.device_id
+            wanted = req.entities.add().table_entry
+            wanted.table_id = table_id
+            wanted.is_default_action = default
+            replies = self.stub.Read(req, timeout=timeout_s)
+            for response in replies:
+                answered.extend(
+                    entity.table_entry for entity in response.entities
+                    if entity.HasField("table_entry")
+                    and entity.table_entry.table_id == table_id
+                    and entity.table_entry.is_default_action == default)
+
+        entries, unrendered = [], []
+        for te in answered:
+            try:
+                entries.append(self._entry_as_written(table, te, has_priority))
+            except (TableEntryInvalid, TableEntryUnsupported) as err:
+                unrendered.append({"default_action": te.is_default_action,
+                                   "priority": te.priority, "reason": str(err)})
+        return {"table": table.preamble.name, "entries": entries, "unrendered": unrendered}
+
+    def _entry_as_written(self, table, te, has_priority):
+        """One TableEntry the switch sent, as `build_table_entry` takes it, or TableEntryInvalid
+        naming what the writer's shape cannot say. [Co-developed with claude code -- Adam]"""
+        where = table.preamble.name
+        match = {}
+        spelled = self._match_as_dict(te.table_id, te.match)
+        if None in spelled or len(spelled) != len(te.match):
+            raise TableEntryInvalid(
+                f"{where}: the switch sent a match field this p4info does not describe "
+                f"(field ids {sorted(m.field_id for m in te.match)})")
+        for field_name, got in spelled.items():
+            field = self._match_field_by_name(table, field_name)
+            kind = self._match_type_name(field)
+            if got["type"].upper() != kind:
+                raise TableEntryInvalid(
+                    f"{where}.{field_name} is declared {kind} and the switch sent a "
+                    f"{got['type']} match")
+            wire = (kind,) + tuple(got[key] for key in self._WIRE_KEYS[got["type"]])
+            match[field_name] = match_shape.render_field(
+                f"{where}.{field_name}", field.bitwidth, wire)
+
+        action_name, action_params = None, {}
+        which = te.action.WhichOneof("type")
+        if which is not None and which != "action":
+            raise TableEntryInvalid(
+                f"{where}: the entry's action is an action profile's ({which}), which "
+                f"POST /p4/table_entry cannot write")
+        if which == "action":
+            sent = te.action.action
+            action = next((a for a in self.p4info.actions
+                           if a.preamble.id == sent.action_id), None)
+            if action is None:
+                raise TableEntryInvalid(
+                    f"{where}: the switch sent action id {sent.action_id}, which this p4info "
+                    f"does not describe")
+            values = {p.param_id: p.value for p in sent.params}
+            for param in action.params:
+                if param.id not in values:
+                    raise TableEntryInvalid(
+                        f"{where}: the switch sent {action.preamble.name} without its "
+                        f"parameter {param.name!r}")
+                action_params[param.name] = match_shape.render_value(
+                    values.pop(param.id), param.bitwidth)
+            if values:
+                raise TableEntryInvalid(
+                    f"{where}: the switch sent parameter ids {sorted(values)} that "
+                    f"{action.preamble.name} does not declare")
+            action_name = action.preamble.name
+
+        priority = te.priority if has_priority and not te.is_default_action else None
+        return {"table": where, "match": match, "action_name": action_name,
+                "action_params": action_params, "priority": priority,
+                "default_action": te.is_default_action}
+
     #: Bit width of each flow_5tuple key, from ndtwin_switch.p4. P4Runtime encodes a bit<N> field
     #: in ceil(N/8) bytes, and bmv2 refuses a value OR A MASK with a bit set above bit N-1
     #: ("Bytestring provided does not fit within 9 bits", measured on a throwaway

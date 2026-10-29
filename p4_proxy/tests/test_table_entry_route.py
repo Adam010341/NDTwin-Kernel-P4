@@ -539,8 +539,11 @@ class TheRouteIsRegisteredTest(unittest.TestCase):
 
     @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available")
     def test_post_p4_table_entry_is_on_the_router(self):
+        # [Co-developed with claude code -- Adam] POST only: the same path also carries the
+        # read-back, GET /p4/table_entry (tests/test_table_entry_read.py).
         matching = [route for route in api_routes.router.routes
-                    if getattr(route, "path", None) == "/p4/table_entry"]
+                    if getattr(route, "path", None) == "/p4/table_entry"
+                    and "POST" in route.methods]
         self.assertEqual(len(matching), 1, "the endpoint is not registered at that path")
         self.assertEqual(set(matching[0].methods), {"POST"})
         self.assertIs(matching[0].endpoint, api_routes.table_entry)
