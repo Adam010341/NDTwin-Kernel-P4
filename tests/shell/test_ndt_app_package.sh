@@ -1948,6 +1948,13 @@ GEN="$FIX/.test_run/packages/generated/stub-0000"
 ONE='export NDT_APP_ONE_STEP="'"$FIX"'/one_step.sh"; '
 reset_one() { reset_fix; rm -f "$ONE_STEP_ARGV" "$ONE_STEP_RC" "$ONE_STEP_NO_PATH"; rm -rf "$GEN"; }
 argv_has() { /usr/bin/grep -qxF -- "$1" "$ONE_STEP_ARGV" 2>/dev/null && echo yes || echo no; }
+# argv_pair <flag> <value>: yes when <value> is the word right after <flag>. Compared line by line,
+# not with `grep -zF`: a newline in a -F pattern splits it into several patterns, and the empty
+# one after the last newline matches anything.
+argv_pair() {
+    [[ -r "$ONE_STEP_ARGV" ]] || { echo no; return; }
+    awk -v f="$1" -v v="$2" 'p == f && $0 == v { hit = 1 } { p = $0 } END { print (hit ? "yes" : "no") }' "$ONE_STEP_ARGV"
+}
 
 reset_one
 OUT="$(drive "$ONE"'up_take_app_flag p4 --app '"$(q "$EX")"' --topology pod-topo/topology.json --owner ndtwin && NDT_APP_DIR='"$(q "$EX")"' && up_p4')"
@@ -1960,9 +1967,9 @@ has   "  the banner names the generated package"          "app package  $GEN (mo
 check "  the converter is handed the exercise"            "yes" "$(argv_has "$EX")"
 check "🔴 and this checkout's run directory"              "yes" "$(argv_has "$FIX/.test_run")"
 check "🔴 --topology reaches it with its value"           "yes" \
-      "$(/usr/bin/grep -qzF -- $'--topology\npod-topo/topology.json\n' "$ONE_STEP_ARGV" && echo yes || echo no)"
+      "$(argv_pair --topology pod-topo/topology.json)"
 check "🔴 --owner reaches it with its value"              "yes" \
-      "$(/usr/bin/grep -qzF -- $'--owner\nndtwin\n' "$ONE_STEP_ARGV" && echo yes || echo no)"
+      "$(argv_pair --owner ndtwin)"
 check "  and the machine was reached, once"               "sudo=1 stack=1" "$(touched)"
 
 # The flag parser: the exercise flags are lifted out of argv like --app and --telemetry, in both
@@ -2007,7 +2014,7 @@ for crc in 5 1; do
     check "  and nothing was touched"                     "sudo=0 stack=0" "$(touched)"
 done
 check "🔴 the knob's package is handed over as --in-use"  "yes" \
-      "$(/usr/bin/grep -qzF -- $'--in-use\n'"$PKG_OK"$'\n' "$ONE_STEP_ARGV" && echo yes || echo no)"
+      "$(argv_pair --in-use "$PKG_OK")"
 reset_one; printf '2\n' > "$ONE_STEP_RC"
 OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; NDT_APP_EXERCISE_ARGV=(--no-roles --owner ndtwin); up_p4')"
 check "the converter's usage error stays a usage error (2)" "2" "$(rc_of "$OUT")"
