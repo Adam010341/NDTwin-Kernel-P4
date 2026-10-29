@@ -195,9 +195,9 @@ mut T3_build_dirs_count "$ONE_STEP" \
     test_build_logs_pcaps_and_a_package_model_are_not_candidates
 mut T4_flag_ignored "$ONE_STEP" \
     '    if given:
-        return given, f"{TOPOLOGY_FLAG}"' \
+        return _inside_exercise(exercise_dir, given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"' \
     '    if False:
-        return given, f"{TOPOLOGY_FLAG}"' \
+        return _inside_exercise(exercise_dir, given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"' \
     test_the_flag_picks_one_over_the_makefile
 mut T5_neither_unsaid "$ONE_STEP" \
     '    if not found:
