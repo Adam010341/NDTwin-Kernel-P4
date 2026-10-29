@@ -60,6 +60,7 @@ tree_copy() {   # tree_copy <dir> -- tools/p4_exercise and p4_proxy/{mininet,pro
     rm -rf "$1/tools/p4_exercise/__pycache__" "$1/tools/p4_exercise/tests/__pycache__"
     # tests/ is read only (CapturedSuggestionRowsTest reads tests/python/fixtures/p4_health).
     ln -s "$REPO/tests" "$1/tests"
+    ln -s "$REPO/tools/ndt_serve" "$1/tools/ndt_serve"      # read only, by test_one_step_repo.py
     # p4_proxy: the two directories a mutation may touch are copied, everything else is linked.
     mkdir -p "$1/p4_proxy"
     local e
