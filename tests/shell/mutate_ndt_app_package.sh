@@ -1541,15 +1541,6 @@ EOF
 check_fires "M93 (widening): a topology.json under build/ makes an exercise" m93 \
             "🔴 a topology.json under build/ does not make an exercise"
 
-cat > "$A/m94.old" <<'EOF'
-    if [[ "$NDT_APP_DIR" == *$'\n'* || "$NDT_APP_DIR" == *$'\r'* ]]; then
-EOF
-cat > "$A/m94.new" <<'EOF'
-    if false; then
-EOF
-check_fires "M94: a path with a line break is taken" m94 \
-            "🔴 a path with a line break in it is a usage error"
-
 cat > "$A/m95.old" <<'EOF'
             if [[ -n "$APP_FROM_EXERCISE" ]]; then
 EOF
@@ -1594,7 +1585,8 @@ EOF
 cat > "$A/m99.new" <<'EOF'
     if false; then
 EOF
-check_fires "M99: a path that resolves to one with a line break is taken" m99 \
+check_fires "M99: a path with, or resolving to one with, a line break is taken" m99 \
+            "🔴 a path with a line break in it is a usage error" \
             "🔴 so is a path that resolves to one with a line break"
 
 echo
