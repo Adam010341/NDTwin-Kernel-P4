@@ -372,8 +372,16 @@ def run(package_dir, report=None, compile_p4=True):
 #
 # 🔴 THE HEURISTIC LIVES HERE AND NOWHERE ELSE (2.1-6). A foreign pipeline with no `roles` whose
 # p4info has a table that LOOKS like a destination route table gets one INFO line: the block an
-# author could paste. It is never applied, never fatal, and never consulted by the proxy -- a
-# name is not consent (ANALYSIS section 5).
+# author could paste. It is never fatal and never consulted by the proxy -- a name is not
+# consent (ANALYSIS section 5).
+#
+# [Co-developed with claude code -- Adam]
+# Its one other caller is `convert.py --auto-role` (what `ndt up p4 --app <exercise dir>` runs),
+# which writes the block into package.json when exactly ONE candidate qualifies, with owner
+# `package` unless told otherwise: NDTwin then only reads that table to compute flow paths and
+# writes nothing into it, so the name is used for reading, not taken as consent to write. The
+# written block is then resolved by route_binding.resolve at pre-flight and at proxy start like
+# any hand-written one.
 
 
 def _roles_max_port(model, dpid):
@@ -381,8 +389,13 @@ def _roles_max_port(model, dpid):
     return max(ports) if ports else None
 
 
-def _suggest_route_role(route_binding, p4infos, model):
-    """A roles.ipv4_route every foreign p4info resolves, or None. The one heuristic."""
+def route_role_candidates(route_binding, p4infos, model):
+    """Every roles.ipv4_route that every foreign p4info resolves, in name order. The one heuristic.
+
+    `p4infos` is {dpid: P4Info message} for the switches that run the package's own program;
+    `model` is the NDTwin topology model, for each switch's highest port. Each candidate carries
+    owner `ndtwin`, the stricter of the two owners to resolve. [Co-developed with claude code -- Adam]
+    """
     from p4.config.v1 import p4info_pb2
 
     lpm = p4info_pb2.MatchField.LPM
@@ -405,6 +418,7 @@ def _suggest_route_role(route_binding, p4infos, model):
                 found.add((table.preamble.name, fields[0].name, action.preamble.name,
                            macs[0].name, port.name))
         shared = found if shared is None else shared & found
+    out = []
     for table, field, action, mac, port in sorted(shared or ()):
         role = {"owner": "ndtwin", "table": table, "match_field": field, "action": action,
                 "params": {"dst_mac": mac, "port": port}}
@@ -413,6 +427,13 @@ def _suggest_route_role(route_binding, p4infos, model):
                 route_binding.resolve(role, p4info, max_port=_roles_max_port(model, dpid))
         except route_binding.RouteBindingError:
             continue
+        out.append(role)
+    return out
+
+
+def _suggest_route_role(route_binding, p4infos, model):
+    """The first of route_role_candidates, or None: the block pre-flight prints."""
+    for role in route_role_candidates(route_binding, p4infos, model):
         return role
     return None
 

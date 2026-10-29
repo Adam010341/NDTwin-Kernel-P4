@@ -1195,7 +1195,9 @@ class TheRoleFlagTest(unittest.TestCase):
         self.assertEqual(convert.parse_role_flag(BASIC_ROLE_FLAG), BASIC_ROLE_OBJECT)
 
     def test_a_missing_name_is_refused_and_named(self):
-        for key in convert.ROLE_FLAG_KEYS:
+        # Every key but `owner`, which defaults to package (OwnerDefaultTest).
+        # [Co-developed with claude code -- Adam]
+        for key in [k for k in convert.ROLE_FLAG_KEYS if k != "owner"]:
             with self.subTest(key=key):
                 parts = [p for p in BASIC_ROLE_FLAG.split(",") if not p.startswith(key + "=")]
                 with self.assertRaises(convert.ConversionError) as caught:
@@ -1289,6 +1291,78 @@ class ConvertingWithTheRoleFlagTest(TmpMixin, unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn("16 match entries for MyIngress.ipv4_lpm taken out of the runtime files "
                       "(s1: 4, s2: 4, s3: 4, s4: 4)", out.getvalue())
+
+
+
+# --- the owner default, --owner and --auto-role ------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+
+BASIC_ROLE_NAMES = BASIC_ROLE_FLAG.replace("owner=ndtwin,", "")
+
+
+class OwnerDefaultTest(unittest.TestCase):
+    """A role without owner= is owner package; --owner fills it; the two never disagree."""
+
+    def test_a_role_without_owner_is_owner_package(self):
+        self.assertEqual(convert.parse_role_flag(BASIC_ROLE_NAMES),
+                         dict(BASIC_ROLE_OBJECT, owner="package"))
+
+    def test_the_owner_flag_fills_it(self):
+        self.assertEqual(convert.parse_role_flag(BASIC_ROLE_NAMES, owner="ndtwin"),
+                         BASIC_ROLE_OBJECT)
+
+    def test_an_owner_written_twice_differently_is_refused(self):
+        with self.assertRaises(convert.ConversionError) as caught:
+            convert.parse_role_flag(BASIC_ROLE_FLAG, owner="package")
+        self.assertIn("drop one of them", str(caught.exception))
+
+    def test_the_same_owner_twice_is_fine(self):
+        self.assertEqual(convert.parse_role_flag(BASIC_ROLE_FLAG, owner="ndtwin"),
+                         BASIC_ROLE_OBJECT)
+
+
+class AutoRoleFlagTest(TmpMixin, unittest.TestCase):
+    """convert.py --auto-role, as the one-step path calls it, and its refusals."""
+
+    def cli(self, *extra):
+        import contextlib
+        import io
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            rc = convert.main([BASIC, "--topology", "pod-topo/topology.json", "--p4",
+                               "solution/basic.p4", "--out", os.path.join(self.tmp, "cli")]
+                              + list(extra))
+        return rc, out.getvalue()
+
+    def test_it_fills_the_one_candidate_with_owner_package(self):
+        rc, out = self.cli("--auto-role")
+        self.assertEqual(rc, 0, out)
+        roles = common.load_json(os.path.join(self.tmp, "cli", "package.json"))["roles"]
+        self.assertEqual(roles, {"ipv4_route": dict(BASIC_ROLE_OBJECT, owner="package")})
+        self.assertIn("route role    : auto-filled from the p4info", out)
+
+    def test_with_owner_ndtwin_it_takes_the_owned_entries_out(self):
+        rc, out = self.cli("--auto-role", "--owner", "ndtwin")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("16 match entries for MyIngress.ipv4_lpm taken out", out)
+
+    def test_with_an_explicit_role_it_is_refused(self):
+        rc, out = self.cli("--auto-role", "--role-ipv4-route", BASIC_ROLE_FLAG)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("give one of them", out)
+
+    def test_an_owner_with_no_role_is_refused(self):
+        rc, out = self.cli("--owner", "package")
+        self.assertEqual(rc, 1, out)
+        self.assertIn("neither --role-ipv4-route nor --auto-role", out)
+
+    def test_without_it_there_are_no_roles(self):
+        rc, out = self.cli()
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("roles", common.load_json(os.path.join(self.tmp, "cli", "package.json")))
+        self.assertNotIn("route role", out)
 
 
 if __name__ == "__main__":

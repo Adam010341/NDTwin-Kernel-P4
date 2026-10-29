@@ -27,7 +27,11 @@ readopt uses too):
 🔴 NAMES ARE NEVER GUESSED HERE. `resolve` checks what the package said against the p4info and
 refuses anything that does not fit; it does not look for a table that "looks like" a route
 table. The heuristic exists, and it lives in exactly one place -- tools/p4_exercise/preflight.py,
-where it prints a SUGGESTION an author may paste.
+where it prints a SUGGESTION an author may paste. Its one other caller is `convert.py --auto-role`
+(the `ndt up p4 --app <exercise dir>` path), which writes that block into package.json when
+exactly one table qualifies -- owner `package` by default, so NDTwin only reads that table -- and
+the written block then comes through `resolve` here like any other.
+[Co-developed with claude code -- Adam]
 
 🔴 ONE FUNCTION, TWO CALLERS. `resolve` is what pre-flight runs before the fabric
 exists and what the proxy runs when it builds each client, so the two refuse the same packages

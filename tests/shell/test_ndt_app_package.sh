@@ -1913,6 +1913,119 @@ hasnt "🔴 and the old residue sentence is gone with it"    "the pid it names" 
 mv "$FIX/manifest.json.aside" "$FIX/manifest.json" 2>/dev/null
 rm -f "$FIX/ndtwin_link_telemetry.json"
 
+# =============================================================================================
+section "22. 🔴 --app <exercise dir>: converted first, then brought up as a package"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# What `ndt` owns of the one-step path is the wiring: which directories go to the converter, the
+# flags it is handed, the package it then brings up, and that a refused or malformed conversion
+# moves nothing. What the converter decides (topology, program, role, where the package goes) is
+# tools/p4_exercise/tests/test_one_step.py's subject, against the real convert.py. So here the
+# converter is a stand-in, reached through the same two seams the pre-flight stand-in uses
+# (P4_PROXY_PY and an NDT_APP_* tool path): it records its argv, writes PKG_OK's shape as the
+# generated package and names it, and exits with the rc in a file. It writes the package and its
+# path WHATEVER that rc is, so the refusal cells show the rc is what refuses, not a missing path.
+cat > "$FIX/one_step.sh" <<'FAKE'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$ONE_STEP_ARGV"
+run="" emit="" prev=""
+for a in "$@"; do
+    case "$prev" in --run-dir) run="$a" ;; --emit-path) emit="$a" ;; esac
+    prev="$a"
+done
+rc="$(cat "$ONE_STEP_RC" 2>/dev/null || echo 0)"
+echo "  route role    : (stand-in)"
+d="$run/packages/generated/stub-0000"
+rm -rf "$d"; mkdir -p "$d"; cp -r "$PKG_OK_SRC"/. "$d"/
+[[ -e "$ONE_STEP_NO_PATH" ]] || printf '%s\n' "$d" > "$emit"
+exit "$rc"
+FAKE
+chmod +x "$FIX/one_step.sh"
+export ONE_STEP_ARGV="$FIX/one_step.argv" ONE_STEP_RC="$FIX/one_step.rc" PKG_OK_SRC="$PKG_OK"
+export ONE_STEP_NO_PATH="$FIX/one_step.no-path"
+EX="$FIX/exercises/basic"; mkdir -p "$EX/pod-topo"; echo '{}' > "$EX/pod-topo/topology.json"
+GEN="$FIX/.test_run/packages/generated/stub-0000"
+ONE='export NDT_APP_ONE_STEP="'"$FIX"'/one_step.sh"; '
+reset_one() { reset_fix; rm -f "$ONE_STEP_ARGV" "$ONE_STEP_RC" "$ONE_STEP_NO_PATH"; rm -rf "$GEN"; }
+argv_has() { /usr/bin/grep -qxF -- "$1" "$ONE_STEP_ARGV" 2>/dev/null && echo yes || echo no; }
+
+reset_one
+OUT="$(drive "$ONE"'up_take_app_flag p4 --app '"$(q "$EX")"' --topology pod-topo/topology.json --owner ndtwin && NDT_APP_DIR='"$(q "$EX")"' && up_p4')"
+check "🔴 an exercise directory comes up"                 "0" "$(rc_of "$OUT")"
+check "🔴 the knob names the GENERATED package, not the exercise" "$GEN" "$(knob_state)"
+has   "  the conversion is its own step on screen"        "exercise -> app package" "$OUT"
+has   "  the converter's report is printed"               "route role    : (stand-in)" "$OUT"
+has   "  and pre-flight then runs on the generated package" "pre-flight: $GEN" "$OUT"
+has   "  the banner names the generated package"          "app package  $GEN (mode ndtwin, 4 switch(es))" "$OUT"
+check "  the converter is handed the exercise"            "yes" "$(argv_has "$EX")"
+check "🔴 and this checkout's run directory"              "yes" "$(argv_has "$FIX/.test_run")"
+check "🔴 --topology reaches it with its value"           "yes" \
+      "$(/usr/bin/grep -qzF -- $'--topology\npod-topo/topology.json\n' "$ONE_STEP_ARGV" && echo yes || echo no)"
+check "🔴 --owner reaches it with its value"              "yes" \
+      "$(/usr/bin/grep -qzF -- $'--owner\nndtwin\n' "$ONE_STEP_ARGV" && echo yes || echo no)"
+check "  and the machine was reached, once"               "sudo=1 stack=1" "$(touched)"
+
+# The flag parser: the exercise flags are lifted out of argv like --app and --telemetry, in both
+# spellings, and nothing of them is left for resolve_up_target.
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --p4=basic.p4 --role-ipv4-route table=t,match_field=f,action=a,dst_mac=m,port=p --no-roles; printf "X=%s\n" "${NDT_APP_EXERCISE_ARGV[@]}"; echo "LEFT=[${NDT_UP_ARGV[*]}]"')"
+has   "--p4=<rel> is lifted out as one word"              "X=--p4=basic.p4" "$OUT"
+has   "--role-ipv4-route <spec> keeps its value"          "X=table=t,match_field=f,action=a,dst_mac=m,port=p" "$OUT"
+has   "--no-roles is lifted out"                          "X=--no-roles" "$OUT"
+has   "🔴 and only the plane is left for resolve_up_target" "LEFT=[p4]" "$OUT"
+OUT="$(drive 'up_take_app_flag p4 --topology pod-topo/topology.json')"
+check "🔴 an exercise flag without --app is a usage error" "2" "$(rc_of "$OUT")"
+has   "  naming the flag that wanted it"                  "--topology converts a p4lang-tutorials exercise and needs --app" "$OUT"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --owner')"
+check "an exercise flag with no value is a usage error"   "2" "$(rc_of "$OUT")"
+has   "  and says so"                                     "ndt up --owner needs a value" "$OUT"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --topology')"
+check "  so is a trailing --topology"                     "2" "$(rc_of "$OUT")"
+
+# 🔴 BESIDE A PACKAGE THE FLAGS ARE REFUSED, NOT IGNORED: a package already says its topology,
+# program and roles, and accepting --role-ipv4-route there would build it without the role the
+# operator just typed.
+reset_one
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$PKG_OK")"'; NDT_APP_EXERCISE_ARGV=(--no-roles); up_p4')"
+check "🔴 an exercise flag beside a package is a usage error" "2" "$(rc_of "$OUT")"
+has   "  saying why"                                      "is already an app package (it has package.json)" "$OUT"
+check "  the converter was not run"                       "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+check "  and nothing was touched"                         "sudo=0 stack=0" "$(touched)"
+# ... and a package without the flags never reaches the converter at all (section 1 is that
+# case; this is its control on the stand-in's log).
+reset_one
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4')"
+check "  a package with no exercise flags is today's path" "0" "$(rc_of "$OUT")"
+check "🔴 and never reaches the converter"                "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+
+# A refusal from the converter is a refusal here: rc 5, the knob unchanged, nothing reached.
+for crc in 5 1; do
+    reset_one; plant_knob; printf '%s\n' "$crc" > "$ONE_STEP_RC"
+    OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
+    check "🔴 the converter's rc $crc is a refusal (5)"   "5" "$(rc_of "$OUT")"
+    has   "  saying the exercise was not converted"       "was not converted into an app package" "$OUT"
+    check "🔴 the knob that was there is untouched"       "$PKG_OK" "$(knob_state)"
+    check "  and nothing was touched"                     "sudo=0 stack=0" "$(touched)"
+done
+check "🔴 the knob's package is handed over as --in-use"  "yes" \
+      "$(/usr/bin/grep -qzF -- $'--in-use\n'"$PKG_OK"$'\n' "$ONE_STEP_ARGV" && echo yes || echo no)"
+reset_one; printf '2\n' > "$ONE_STEP_RC"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; NDT_APP_EXERCISE_ARGV=(--no-roles --owner ndtwin); up_p4')"
+check "the converter's usage error stays a usage error (2)" "2" "$(rc_of "$OUT")"
+check "  and wrote nothing"                               "absent" "$(knob_state)"
+reset_one; : > "$ONE_STEP_NO_PATH"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
+check "🔴 rc 0 with no package path named is a refusal"   "5" "$(rc_of "$OUT")"
+check "  and wrote nothing"                               "absent" "$(knob_state)"
+
+# The default behind the seam, which the stand-in cannot say: the real converter, in this
+# checkout. Under these stubs REPO is the fixture, which has no tools/p4_exercise, so the
+# function names the path it would have run.
+reset_one
+OUT="$(drive 'unset NDT_APP_ONE_STEP; NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
+check "🔴 with no seam set the real tool is what would run" "5" "$(rc_of "$OUT")"
+has   "  named by its path in this checkout"              "no exercise converter at $FIX/tools/p4_exercise/one_step.py" "$OUT"
+rm -rf "$FIX/exercises" "$GEN"
+
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 (( FAIL == 0 ))

@@ -1373,6 +1373,108 @@ cat > "$A/c4.new" <<'EOF'
 EOF
 check_control "C4: the shaped-links read split over two lines" c4
 
+# --- M77..M86: `ndt up p4 --app <exercise dir>` (section 22) ---------------------------------
+# [Co-developed with claude code -- Adam]
+# The converter's own decisions are tools/p4_exercise/tests/test_one_step.py's (its gate is
+# tests/shell/mutate_p4_one_step.sh); these are ndt's half: the branch is taken, the flags reach
+# the converter, a refusal stays a refusal, and the package brought up is the generated one.
+cat > "$A/m77.old" <<'EOF'
+        if [[ ! -f "$(app_manifest "$app_dir")" ]] &&
+EOF
+cat > "$A/m77.new" <<'EOF'
+        if false &&
+EOF
+check_fires "M77: an exercise directory is not converted" m77 \
+            "🔴 an exercise directory comes up"
+
+cat > "$A/m78.old" <<'EOF'
+        elif (( ${#NDT_APP_EXERCISE_ARGV[@]} )); then
+EOF
+cat > "$A/m78.new" <<'EOF'
+        elif false; then
+EOF
+check_fires "M78 (widening): exercise flags beside a package are ignored" m78 \
+            "🔴 an exercise flag beside a package is a usage error"
+
+cat > "$A/m79.old" <<'EOF'
+    if (( rc != 0 )) || [[ -z "$APP_FROM_EXERCISE" || ! -d "$APP_FROM_EXERCISE" ]]; then
+EOF
+cat > "$A/m79.new" <<'EOF'
+    if [[ -z "$APP_FROM_EXERCISE" || ! -d "$APP_FROM_EXERCISE" ]]; then
+EOF
+check_fires "M79: a refused conversion is brought up anyway" m79 \
+            "🔴 the converter's rc 5 is a refusal (5)" "🔴 the converter's rc 1 is a refusal (5)"
+
+cat > "$A/m80.old" <<'EOF'
+    "$py" "$tool" "$dir" --run-dir "$REPO/.test_run" --in-use "$(app_knob_dir)" \
+EOF
+cat > "$A/m80.new" <<'EOF'
+    "$py" "$tool" "$dir" --run-dir "$REPO/.test_run" \
+EOF
+check_fires "M80: the knob's package is not passed as --in-use" m80 \
+            "🔴 the knob's package is handed over as --in-use"
+
+cat > "$A/m81.old" <<'EOF'
+        --emit-path "$emit" ${NDT_APP_EXERCISE_ARGV[@]+"${NDT_APP_EXERCISE_ARGV[@]}"}; rc=$?
+EOF
+cat > "$A/m81.new" <<'EOF'
+        --emit-path "$emit"; rc=$?
+EOF
+check_fires "M81: the exercise flags never reach the converter" m81 \
+            "🔴 --topology reaches it with its value" "🔴 --owner reaches it with its value"
+
+cat > "$A/m82.old" <<'EOF'
+            --topology|--p4|--role-ipv4-route|--owner) xwant="$a" ;;
+EOF
+cat > "$A/m82.new" <<'EOF'
+EOF
+check_fires "M82: the exercise flags are left in argv" m82 \
+            "--role-ipv4-route <spec> keeps its value" "🔴 and only the plane is left for resolve_up_target"
+
+cat > "$A/m83.old" <<'EOF'
+    if (( ${#NDT_APP_EXERCISE_ARGV[@]} )) && (( ! seen )); then
+EOF
+cat > "$A/m83.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M83 (widening): an exercise flag without --app is accepted" m83 \
+            "🔴 an exercise flag without --app is a usage error"
+
+cat > "$A/m84.old" <<'EOF'
+    (( rc == 2 )) && return 2
+EOF
+cat > "$A/m84.new" <<'EOF'
+    :
+EOF
+check_fires "M84: the converter's usage error becomes a refusal" m84 \
+            "the converter's usage error stays a usage error (2)"
+
+cat > "$A/m85.old" <<'EOF'
+            app_dir="$APP_FROM_EXERCISE"
+EOF
+cat > "$A/m85.new" <<'EOF'
+            :
+EOF
+check_fires "M85: the exercise directory itself is brought up, not the package" m85 \
+            "🔴 the knob names the GENERATED package, not the exercise"
+
+cat > "$A/m86.old" <<'EOF'
+    tool="${NDT_APP_ONE_STEP:-$REPO/tools/p4_exercise/one_step.py}"
+EOF
+cat > "$A/m86.new" <<'EOF'
+    tool="${NDT_APP_ONE_STEP:-$REPO/tools/p4_exercise/convert.py}"
+EOF
+check_fires "M86: the default converter is some other tool" m86 \
+            "  named by its path in this checkout"
+
+cat > "$A/c5.old" <<'EOF'
+    for f in "$1"/topology.json "$1"/*/topology.json; do
+EOF
+cat > "$A/c5.new" <<'EOF'
+    for f in "$1/topology.json" "$1"/*/topology.json; do   # the top, then one level down
+EOF
+check_control "C5: app_is_exercise's glob written with the quote moved" c5
+
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then
