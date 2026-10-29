@@ -244,9 +244,9 @@ mut P3_the_one_refused "$ONE_STEP" \
     test_the_one_program_at_the_top
 mut P4_flag_ignored "$ONE_STEP" \
     '    if given:
-        return given, "--p4"' \
+        return _package_path(given, "--p4"), "--p4"' \
     '    if False:
-        return given, "--p4"' \
+        return _package_path(given, "--p4"), "--p4"' \
     test_the_flag_picks_the_program
 mut P5_no_program_unnamed "$ONE_STEP" \
     '            f"{exercise_dir} has no .p4 program at its top. Name it with --p4, for example  "' \
@@ -275,16 +275,11 @@ mut R2_in_use_replaced "$ONE_STEP" \
     '        elif False:' \
     test_a_package_a_fabric_still_runs_is_not_replaced
 mut R3_copied_over "$ONE_STEP" \
-    '            old = tempfile.mkdtemp(prefix=os.path.basename(dest) + ".old-", dir=stage_root)
-            _move(dest, os.path.join(old, "pkg"))
-            try:
-                _move(staging, dest)
-            except convert.ConversionError:
-                os.rename(os.path.join(old, "pkg"), dest)     # the old package goes back
-                shutil.rmtree(old, ignore_errors=True)
-                raise
-            shutil.rmtree(old, ignore_errors=True)' \
-    '            shutil.copytree(staging, dest, dirs_exist_ok=True)' \
+    '            shutil.rmtree(old, ignore_errors=True)
+            state = "replaced"' \
+    '            shutil.copytree(os.path.join(old, "pkg"), dest, dirs_exist_ok=True)
+            shutil.rmtree(old, ignore_errors=True)
+            state = "replaced"' \
     test_a_different_result_replaces_it_whole
 mut R4_staging_left "$ONE_STEP" \
     '        if os.path.isdir(staging):
