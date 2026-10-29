@@ -180,7 +180,7 @@ check "case 6b DRY_RUN=1 DRY_FAIL=iperf3 forces the refusal branch" 1 \
       "$( ( DRY_RUN=1 DRY_FAIL=iperf3 foreign_iperf3_guard ) >/dev/null 2>&1; echo $? )"
 
 # --- case 7: the callers still consult it --------------------------------------------------------
-# A fixed function with no caller is not a fix (the round's own §2.3 lesson).
+# A fixed function with no caller is not a fix.
 check "case 7  run_e.sh and gates_e.sh still call the guard and act on its answer" 2 \
       "$(grep -hc 'foreign_iperf3_guard ||' "$ROUND_DIR/run_e.sh" "$ROUND_DIR/gates_e.sh" \
          2>/dev/null | paste -sd+ | bc)"

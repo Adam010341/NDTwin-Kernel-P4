@@ -204,7 +204,7 @@ m=$(mutant m9 '    start, end = paragraph_bounds(lines, idx)'$'\x1f''    start, 
 report "M9: a code anywhere in the file counts as claimed" "$m" "$REPO" \
        "test_a_code_in_a_different_paragraph_does_not_count"
 
-# --- M10-M12: the SPELLING of the citation (B12, 2026-09-11) -------------------------------
+# --- M10-M12: the SPELLING of the citation (2026-09-11) ------------------------------------
 # A check on 2026-09-11 put four re-spellings of one citation through
 # the old regex and got `violations=0` out of every one. Two of these put a spelling test back;
 # the third is the widening direction, which costs the same as a miss here -- a scanner that
@@ -226,7 +226,7 @@ m=$(mutant m12 '    r"|[ \t]*第?[ \t]*(?=\d+(?:[ \t]*(?:" + _KI_JOIN + r")[ \t]
 report "M12 (widening): a 行 row label is read as a line number" "$m" "$REPO" \
        "test_a_row_label_is_not_a_line_number"
 
-# --- M13-M14: the BARE-CODE half (E1, 2026-09-11) ------------------------------------------
+# --- M13-M14: the BARE-CODE half (2026-09-11) ----------------------------------------------
 # A check on 2026-09-11 ran this scanner's own parser over four codes the repo
 # cites as `<the document> <CODE>` -- T-11, L-3, L-5, I-3 -- and got None out of every one while
 # all 30 cases were green. M13 is the miss direction. M14 is the widening one and costs more:

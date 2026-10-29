@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for #54: the dispatch-status endpoint's honest counters.
+# Mutation gate for KNOWN-ISSUES A-7b: the dispatch-status endpoint's honest counters.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -223,7 +223,7 @@ each_mutation() {
     # --- B: what the second group means ---------------------------------------------------
 
     # 🔴 THE ONE THIS GATE EXISTS FOR. The cheapest way to make accepted_by_switch non-zero on a
-    # plane that adjudicates nothing, and the exact claim #54 is about: dispatch read as
+    # plane that adjudicates nothing, and the exact claim A-7b is about: dispatch read as
     # programming. Every OVS rule would be reported as confirmed by a switch that never answered.
     "$m" "1. an acceptance by the far end is read as an acceptance by the switch" cpp "$OUT" \
         '        if (result.confirmsProgramming)

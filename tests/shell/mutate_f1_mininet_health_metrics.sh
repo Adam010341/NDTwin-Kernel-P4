@@ -26,7 +26,7 @@
 # rather than of the test. Counting it would make the gate lie about the test either way. Its
 # comment block says how to make it observable.
 #
-# [Co-developed with claude code -- Adam] 2026-09-04, #85: M8's anchor was re-pointed,
+# [Co-developed with claude code -- Adam] 2026-09-04: M8's anchor was re-pointed,
 # because the line it moved -- `std::string ip_str = utils::ipToString(vp.ip.front());` -- no
 # longer exists in fetchTemperatureReportInternal. That read is now managementIpForReport(vp),
 # which answers nullopt instead of faulting. M8 still moves the address read above the type

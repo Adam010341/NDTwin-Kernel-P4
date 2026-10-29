@@ -864,7 +864,7 @@ check "control: no record for an app nobody stopped"     "no" \
 rm -f "$FIX/othertree/.test_run/logs/app_sim.log"
 
 section "12C. RESIDUE-1: a pidfile whose process is gone does NOT window to now"
-# 🔴 Measured 2026-09-12, RESIDUE-1-REPORT §1/§2. `.test_run/pids/app_viz.pid` was written on
+# 🔴 Measured 2026-09-12. `.test_run/pids/app_viz.pid` was written on
 # 2026-09-11 at 14:04:25; viz finished its own run and exited at 14:05:43 (`BUILD SUCCESS` in
 # its own log, one `Starting ...` line in the whole file), and nothing removed the pidfile --
 # `ndt apps stop` is the only path that removes one, and nobody ran it. Twelve hours later

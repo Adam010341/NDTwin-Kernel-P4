@@ -401,7 +401,7 @@ SNAPSHOT_LINES=""
 out="$(apps_status 2>&1)"
 check "apps_status is quiet when there is none"   no  "$(has "ORPHAN" "$out")"
 
-# --- 8. C10-8: the scan is machine-wide, the verdict is this checkout's ------------
+# --- 8. the scan is machine-wide, the verdict is this checkout's ------------
 #
 # [Co-developed with claude code -- Adam]
 # Measured 2026-09-12 15:05:14 (the same shape was seen earlier that day, at 05:50).
@@ -487,7 +487,7 @@ rm -f "$PIDDIR"/app_*.pid
 # [Co-developed with claude code -- Adam]
 # `proc_checkout` answers 2 -- "could not tell" -- when BOTH
 # /proc/<pid>/cwd and /proc/<pid>/fd are unreadable, every caller treats a 2 as ours, and the
-# report says so instead of claiming to know. That is the whole of the fail-closed rule's safety side: the apps
+# report says so instead of claiming to know. That is the whole of the attribution check's safety side: the apps
 # `sudo ndtwin-lab` starts run as root, where both readings are refused, and treating "cannot
 # tell" as foreign would hand this checkout a clean verdict over exactly the orphan class it most
 # needs to find. Until now it had a red and a green only in tests/shell/test_orphans_verdict.sh

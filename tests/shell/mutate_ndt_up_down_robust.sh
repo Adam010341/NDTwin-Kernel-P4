@@ -826,7 +826,7 @@ report "M52 (widening): every holder is called this stack's own" "$m" \
        "🔴 a holder that is NOT in the registry still gets the old sentence"
 
 
-# --- F1: the plane the rate is read for (F-OFFLINE-1 §1.14) -----------------------------------
+# --- F1: the plane the rate is read for ------------------------------------------------------
 
 # M36 restores F1: `sample_rate` is asked with no argument, so it looks the plane up -- and on a
 # machine with an OVS fabric left up that prints OVSDB's number, or "samples NOTHING", under

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for defect #47 -- the kernel's listening sockets must not survive an exec, and
+# Mutation gate: the kernel's listening sockets must not survive an exec, and
 # the message it prints when a port is taken must be about what it found rather than what it
 # assumed.
 #

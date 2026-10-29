@@ -497,7 +497,7 @@ has   "  the operator is told before the run"              "helper" "$OUT"
 has   "  and told what to do"                              "sudo install -o root -g root -m 755" "$OUT"
 
 section "6. R5: 'ndt up' from a tree the lab does not act in is refused, and says why"
-# The measured shape (R5-P4-128-SUMMARY §2-§3, 2026-09-10): `ndt up p4 128` from a worktree
+# The measured shape (2026-09-10): `ndt up p4 128` from a worktree
 # built a 4-host fabric out of the MAIN checkout -- ndtwin-lab's KERNEL_DIR is a built-in
 # constant -- under a 128-host kernel and proxy from the worktree. One `up`, two trees, two
 # host counts; every structural check green; the only thing said about it was one line at
@@ -764,7 +764,7 @@ has   "  🔴 a refused 'ndt down' writes no marker"       "MARKER=absent" "$OUT
 # ==========================================================================================
 section "10. F1: 'ndt up p4' asks for the P4 plane's rate, not for whatever plane is live"
 # ==========================================================================================
-# F-OFFLINE-1 §1.14. `up_p4` read `rate="$(sample_rate)"` with NO argument, so sample_rate asked
+# `up_p4` read `rate="$(sample_rate)"` with NO argument, so sample_rate asked
 # live_dataplane_kind -- and on a machine where an OVS fabric had been left up that answers
 # `ovs`, so the number came out of OVSDB and was printed under the label "(compiled into
 # ndtwin_switch.json)". The worst form is not a wrong fraction: it is
@@ -1193,7 +1193,7 @@ has   "  and when that teardown started"  "2026-09-12T02:08:17+0800" "$OUT"
 has   "  and the remedy"                  "wait for it" "$OUT"
 # 🔴 The needle is cmd_clean's ADVICE LINE, not the words `ndt down --deep`. The refusal names
 # that verb while explaining what it would have done, and a bare `--deep` needle matches the
-# refusal's own prose -- one live check on 2026-09-12 lost an hour to exactly this shape, a grep that found
+# refusal's own prose -- one check on 2026-09-12 lost an hour to exactly this shape, a grep that found
 # the message it was asserting about quoted inside the message it was asserting on.
 hasnt "🔴 and it does NOT advise --deep over that teardown's own fabric" \
       "to kill it too:  ndt down --deep" "$OUT"
@@ -1407,7 +1407,7 @@ has   "  and the put-back is announced, not silent"        "host_count_override 
 
 # -- 🔴 THE WRITE STILL HAPPENS. Everything above is satisfied by an `ndt up p4 <n>` that never
 # writes the knob at all -- and then the fabric is built at whatever the last round left, which
-# is a defect in its own right. This is the success path, and the knob has to carry the count.
+# is what the NOT RESTORED check exists to catch. This is the success path, and the knob has to carry the count.
 reset_fix; rm -f "$DM"; echo "0 10" > "$FIX/bmv2.seq"
 mk_topo StaticNetworkTopologyP4_10Switches_8Hosts.json 8 56
 knob_put '4

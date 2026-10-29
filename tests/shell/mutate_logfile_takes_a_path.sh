@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for defect #63 -- `--logfile` must consume the path it is given, and a request
+# Mutation gate: `--logfile` must consume the path it is given, and a request
 # the parser cannot honour must be REFUSED rather than accepted and dropped.
 #
 # [Co-developed with claude code -- Adam]

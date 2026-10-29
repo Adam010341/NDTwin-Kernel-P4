@@ -21,7 +21,7 @@
 #
 # mutate_first_address_of.sh needs an asan round because its M1-M3 mutants restore undefined
 # behaviour inside ordinary in-process tests: on the plain build the fault kills the binary with no
-# verdict for anything, which is not a red line. Its own §4.2 records M2 being scored SURVIVED for
+# verdict for anything, which is not a red line. Its M2 was once scored SURVIVED for
 # exactly that.
 #
 # The suite this gate drives answers that with containment instead of with a sanitizer. Each of

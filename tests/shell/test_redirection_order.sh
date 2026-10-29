@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Tests for the redirection ORDER in the /proc readers -- defect #50.
+# Tests for the redirection ORDER in the /proc readers.
 #
 # [Co-developed with claude code -- Adam]
 #

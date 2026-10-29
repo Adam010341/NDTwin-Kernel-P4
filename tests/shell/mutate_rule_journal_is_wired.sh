@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# KNOWN-ISSUES A-4c, defect #71. The rule journal shipped with 19 tests of its own and a suite
+# KNOWN-ISSUES A-4c. The rule journal shipped with 19 tests of its own and a suite
 # literally named "journal wiring" with 14 more, and was never written once in production:
 # main.py built `TopologyManager(kernel_notifier=kernel)` and `_note_in_journal` returned on
 # `self._journal is None` every call. Both suites injected the journal themselves, so neither

@@ -7,7 +7,7 @@
 # What is being protected. doc/2026-08-17_testing-manual.md carried three caveats saying `ndt
 # clean` and `ndt help` misbehave and that FIX-NDT-6 is working on it. FIX-NDT-6 merged at
 # 05:56 on 2026-09-12 (`1656bdba`); one of the three had already been verified wrong by
-# an earlier docs edit and was left standing because it was out of its scope. That is KNOWN-ISSUES G-52's
+# the 2026-09-12 docs edit and was left standing because it was out of its scope. That is KNOWN-ISSUES G-52's
 # shape, and nothing in this repository notices it: a stale caveat stays grammatical forever.
 # The test this gate protects asks git instead -- is the merge that fixes the ticket an ancestor
 # of HEAD -- so the judgement does not decay. These mutations put each half of the old document
@@ -24,7 +24,7 @@
 # nobody here started. M7 deletes it from a copy of `ndt`; case 4 has to go red.
 #
 # 🔴 M4 IS THE SUPPRESSION'S OWN TEST. A manual line may quote what the document USED to say --
-# an edit on 2026-09-12 left such a note at §2.8 -- and the test skips lines carrying 原本 or 曾經. M4 takes
+# that same docs edit left such a note at §2.8 -- and the test skips lines carrying 原本 or 曾經. M4 takes
 # that word away, and case 6 has to see the line again. A suppression nobody can make fire is a
 # suppression that covers everything.
 #

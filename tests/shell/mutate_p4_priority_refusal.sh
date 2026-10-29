@@ -253,9 +253,9 @@ each_mutation() {
         '    if priority is None:' \
         'test_a_five_tuple_match_at_the_same_priority_is_not_refused'
 
-    # The refusal is widened to the install path, overturning T-15 Option 0 and the
-    # 2026-08-30 §1.2 decision silently. That is the owner's decision, not a maintenance edit,
-    # so a test names the decision and reddens when someone takes it.
+    # The refusal is widened to the install path, silently overturning the 2026-08-30 decision
+    # that an install naming a priority ipv4_lpm cannot honour is disclosed, not refused. That is the owner's decision,
+    # not a maintenance edit, so a test names it and reddens when someone takes it.
     "$m" "7. the refusal is widened to the install path, overturning the standing ruling" "$API" \
         '    # 400 with the offending field names, rather than servicing a narrowed version of the rule' \
         '    _refuse_unhonourable_priority(data, match, "install")

@@ -14,8 +14,8 @@
 # 🔴 FROM A CLAIM FILE, not from a stubbed foreign_claim(). tests/shell/test_ndt_up_down_robust.sh
 # already drives this branch with `foreign_claim() { echo other-owner; }`, which tests what
 # cmd_down does with an answer -- not whether the file on disk produces that answer. The two
-# halves have failed separately in this repo: T1 measured live two owners both getting rc 0
-# from `ndt claim` in the same second, and T2 measured a refusal whose retry line pasted
+# halves have failed separately in this repo: the claim race (KNOWN-ISSUES G-28) was measured: two owners both getting rc 0
+# from `ndt claim` in the same second; and the refusal measured on 2026-09-11 (G-30) had a retry line that pasted
 # a description with parentheses into a command line. So everything below writes the five fields
 # `claim_write` documents into $REPO/.test_run/lab.claim and lets the real foreign_claim,
 # claim_field and measuring_declared read them.
@@ -158,7 +158,7 @@ check "🔴 NOTHING on the machine was reached"            "sudo=0 stack=0" "$(t
 check "  and no in-flight teardown marker was left"      "0" "$(markers)"
 hasnt "  the teardown never started"                     "[1/3] kernel + proxy/Ryu" "$OUT"
 
-# 🔴 T2, 2026-09-11 01:56:53 verbatim: the retry line used to be `NDT_OWNER=$held ndt down`, and
+# 🔴 KNOWN-ISSUES G-30, 2026-09-11 01:56:53 verbatim: the retry line used to be `NDT_OWNER=$held ndt down`, and
 # $held is a DESCRIPTION -- "other-session (until 02:36:24, reader running)". Pasted, bash reads
 # `(until ...)` as a subshell and the command dies on a syntax error. The bare owner goes on the
 # command line; the description goes on a line of its own where it cannot get into it.
@@ -168,7 +168,7 @@ hasnt "  🔴 and not the parenthesised description"       "NDT_OWNER=$THEM (unt
 # =============================================================================================
 section "2. an owner who wrote measuring= is told what the teardown would have killed"
 # =============================================================================================
-# T2: the claim said `measuring=ROLE-4 reader nsr, do not tear down` and the refusal never
+# The same 2026-09-11 refusal (G-30): the claim said `measuring=ROLE-4 reader nsr, do not tear down` and the refusal never
 # mentioned it -- the one sentence the holder wrote FOR this moment was the one not shown at it.
 reset_fix
 write_claim "$THEM" "$FUTURE" "night round" "ROLE-4 reader nsr, do not tear down"

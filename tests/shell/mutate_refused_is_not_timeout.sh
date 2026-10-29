@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for defect #38 -- a connection that was refused must not be reported as a wait
+# Mutation gate: a connection that was refused must not be reported as a wait
 # that ran out, and a wait that really did run out must go on saying so.
 #
 # [Co-developed with claude code -- Adam]
@@ -12,7 +12,7 @@
 #   what curl's %{http_code} reports ("000") for EVERY failure that produced no HTTP response --
 #   and then hard-coded one cause:
 #       "no response from the simulator server at <url> within 30s"
-#   A live run measured that sentence coming back in 6.0-9.0 ms, 5 times out of 5, with nothing
+#   A run measured that sentence coming back in 6.0-9.0 ms, 5 times out of 5, with nothing
 #   listening on the port; the kernel's own log timed the same 502 at 9.9 ms. curl's exit code
 #   (7 could-not-connect vs 28 timed-out) was already in CommandOutcome::status and was discarded.
 #
@@ -293,7 +293,7 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 # 5. the mutations -- direction 1: putting the defect back
 # ================================================================================================
 
-# M1. THE DEFECT VERBATIM. The sentence that live run measured coming back in 6 ms, restored exactly:
+# M1. THE DEFECT VERBATIM. The sentence that run measured coming back in 6 ms, restored exactly:
 #     one hard-coded cause for the union of every cause, and the deadline where a measurement
 #     should be. Note that AHangIsStillDescribedAsATimeout goes red on this too -- the old string
 #     never said "timed out" either; it said "within Ns", which reads as a claim about the wait
@@ -347,7 +347,7 @@ mutate "curl exit 7 renders the timeout sentence" \
     RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout
 
 # ================================================================================================
-#    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just #38's.
+#    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just the defect's.
 # ================================================================================================
 
 # M4. THE OVER-CORRECTION. Reading "a refusal must not be called a timeout" as "stop saying

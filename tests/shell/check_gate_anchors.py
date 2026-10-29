@@ -472,7 +472,7 @@ def _perl_subst_pattern(prog):
 
 # 2026-09-04: `mutate_harness_instruments.sh` reported DUP:1 against a target where the anchor is
 # fine -- it occurs twice on purpose (the "hidden owner" sentinel collapses to
-# empty at two call sites since L-10 split the pid search out of port_holder). The gate's own
+# empty at two call sites since the pid search was split out of port_holder). The gate's own
 # `s.replace(old, new)` -- Python's own default, no count argument -- replaces BOTH, uniformly,
 # which is the correct and intended mutation; this tool was inventing a failure by assuming every
 # anchor wants exactly one match. `_replace_call_want` reads the call the way `apply_exact`'s

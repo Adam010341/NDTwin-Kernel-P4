@@ -350,7 +350,7 @@ EOF
 # 🔴 ALL-BLIND. Kernel UP -- there IS a tally, which residue_report only reaches after :8000
 # answered `port_open` (ndt:5415) -- and every one of the three lock probes came back
 # `NOT CHECKED (http 500)` (ndt:5550). Built from `ndt`'s own two print sites for
-# F-OFFLINE-1 §1.11, which measured this exact report reading `VERDICT: CLEAN` rc 0 while `ndt`
+# the 2026-09-11 check, which measured this exact report reading `VERDICT: CLEAN` rc 0 while `ndt`
 # itself answered 5 for it (residue_verdict, ndt:5349).
 #
 # 🔴 The three zeros in its tally are the initial values of counters (ndt:5405-5409) that nothing
@@ -645,7 +645,7 @@ has   "  ndt's rc is recorded, not consulted"             "ndt_rc=5 (recorded, N
 hasnt "  🔴 and it is not UNUSABLE"                       "VERDICT: UNUSABLE" "$OUT"
 # 🔴 The field is slash-separated and `n/a` contains a slash, so a caller that splits it the way
 # the round probes do (`IFS=/ read -r RULES LOCKS UNDATED`) gets `n` and `a`, not `0` and `0`.
-# Those probes compare as STRINGS on purpose (R5-PROBES-INPLACE §3-B), so this fails safe -- but
+# Those probes compare as STRINGS on purpose, so this fails safe -- but
 # only because of that choice, which is why it is pinned here rather than left to be rediscovered.
 NETF="$(sed -n 's/^network=//p' <<<"$OUT")"
 IFS=/ read -r KD_RULES KD_LOCKS KD_UNDATED <<<"$NETF"
@@ -685,7 +685,7 @@ has   "  and it names what is missing"                    "no 'tally:' line in t
 # =================================================================================================
 section "🔴 ALL-BLIND 1/4 -- kernel UP, a tally, and not one network question answered"
 # =================================================================================================
-# F-OFFLINE-1 §1.11, measured 2026-09-11: this report read `VERDICT: CLEAN` rc 0 while `ndt`
+# Measured 2026-09-11: this report read `VERDICT: CLEAN` rc 0 while `ndt`
 # answered 5 for the same observation. The tally's zeros were never measured.
 OUT="$(verdict "$FIX/all_blind" 5)"
 check "  🔴 rc 3 -- zeros nobody could measure are not a clean network" "3" "$(rc_of "$OUT")"

@@ -286,7 +286,7 @@ report "N20 (widening): a hand edit is excused too" "$m" \
        "🔴 and still a problem"
 
 # (widening) A baseline with NO note is treated as though ndt wrote whatever is there. That is
-# the pre-09-07 world with extra steps: every forgotten restore in a round that never ran
+# the world before the NOT RESTORED rule, with extra steps: every forgotten restore in a round that never ran
 # `ndt up p4` goes quiet, and groups 8-11 -- the finding itself -- stop proving anything.
 m=$(mutant n21 "$NDT" \
     '        if [[ -n "$upw" && "$now" == "$upw" ]]; then' \

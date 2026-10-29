@@ -64,7 +64,7 @@
 #           wifi and docker bridge, and a warning that fires on a laptop stops being read.
 #
 # 🔴 WHAT THE NAMESPACE SWEEP CHANGED ABOUT AN EXISTING MUTATION. M16 used to be a direction-2 mutation ("the
-# sweep widens to host-facing interfaces") because before 2026-09-07 the sweep's SCOPE was
+# sweep widens to host-facing interfaces") because until the namespace sweep the sweep's SCOPE was
 # mininetLinkInterfaces(). The namespace sweep made that function its `link` CLASSIFIER instead, so M16
 # now says something else: a classifier that cannot tell a host-facing port from a link end, which
 # makes the warning tell an operator to POST /ndt/inject_link_recovery for a link that does not
@@ -614,7 +614,7 @@ mutate "the dpid guard refuses every link, not just dpid 0" \
 
 # M16. 🆕 REPURPOSED BY THE NAMESPACE SWEEP (see the header): the link/host classifier stops telling the two
 #      apart, so a host-facing port is reported as a link end -- and the warning then tells an
-#      operator to POST /ndt/inject_link_recovery for a link that does not exist. Before 2026-09-07 this
+#      operator to POST /ndt/inject_link_recovery for a link that does not exist. Before the namespace sweep this
 #      same edit widened the sweep's SCOPE, which is why it sits in direction 2 with its old number.
 mutate "the classifier calls a host-facing port a link end" \
     "$TFM" \
@@ -632,7 +632,7 @@ mutate "the classifier calls a host-facing port a link end" \
 # M17. 🔴 THE OVER-CORRECTION THAT WAS RULED OUT BY NAME: the sweep cleans up what it finds. A
 #      kernel that removed netem at startup silently destroys the fault campaign it started
 #      underneath, and tools/test_workflow/faults.sh is entitled to have netem on an interface.
-#      🆕 Since 2026-09-07 the sweep also sees host-facing and unfamiliar interfaces, so this mutant
+#      🆕 Since the namespace sweep the sweep also sees host-facing and unfamiliar interfaces, so this mutant
 #      deletes faults that are definitely not this kernel's. It got worse, not better.
 mutate "the startup sweep clears the netem it finds" \
     "$TFM" \
@@ -752,14 +752,14 @@ mutate "the three outcomes are one sentence again, just logged later" \
 # ================================================================================================
 #   The namespace sweep: the startup sweep reads the whole root namespace and says whose each finding is.
 #   Numbered AFTER M20 on purpose, so M1..M20 keep meaning what results recorded before
-#   2026-09-07 already say they mean. M21..M24 are direction 1, M25 is direction 2.
+#   the namespace sweep already say they mean. M21..M24 are direction 1, M25 is direction 2.
 # ================================================================================================
 
 # M21. 🔴 THE NARROW SWEEP VERBATIM: the sweep goes back to reporting link ends only. This is the shape B-6's second round
 #      shipped, and the reason it had to change is where the fault tools actually attach netem:
 #      testbed_topo.py:92-96 hangs hosts off s1..s4 at ports 3 and up, and the chaos harness's
 #      DEFAULT --iface is s1-eth3 (2026-08-28_chaos-harness/harness/chaos.py:487,544) -- a
-#      host-facing port. For those faults the pre-2026-09-07 sweep said nothing, and silence from this
+#      host-facing port. For those faults the link-ends-only sweep said nothing, and silence from this
 #      sweep is read as "the fabric is clean".
 mutate "the sweep reports link ends only, as it did before E-20" \
     "$TFM" \

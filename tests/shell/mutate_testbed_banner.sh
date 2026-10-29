@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for defect #42 -- testbed_topo.py runs a 128-ping self-test across the fabric
+# Mutation gate for KNOWN-ISSUES G-10 -- testbed_topo.py runs a 128-ping self-test across the fabric
 # and then prints three "OK" health claims with NO data flow from the pings to the banner.
 # Measured 2026-09-03 on a fabric where all 128 pings were at 100% loss: the banner printed
 #

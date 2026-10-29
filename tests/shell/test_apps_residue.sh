@@ -574,7 +574,7 @@ section "5L. an app with no window: a LOST record counts against the code, an ab
 # never pass is a gate nobody reads -- which is how G-12's own green checks stopped being read.
 # The log is the discriminator: app_spawn creates it, so a non-empty one is evidence it ran.
 #
-# 🔴 te and not energy since KNOWN-ISSUES G-14 (2026-09-07). This group needs an app whose log question CAN
+# 🔴 te and not energy since the G-14 fix (2026-09-07). This group needs an app whose log question CAN
 # be answered, and energy is exactly the app whose cannot be: the lab helper starts it with no
 # `script -f` and it has no disk log on any machine. Driving it here asserted that an absent
 # file means "never ran" for an app where the file never exists -- true by construction, and

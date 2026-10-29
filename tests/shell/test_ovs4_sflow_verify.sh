@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Tests for sflow_state / verify_sflow in tools/test_workflow/ndt -- the half of the fix for
-# defect #4 that makes "nothing is sampling" visible.
+# a fabric that samples nothing: making "nothing is sampling" visible.
 #
 # [Co-developed with claude code -- Adam]
 #

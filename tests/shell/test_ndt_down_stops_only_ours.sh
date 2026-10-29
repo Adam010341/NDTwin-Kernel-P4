@@ -7,13 +7,13 @@
 #
 # WHY THIS FILE EXISTS. A change on 2026-09-12 taught `ndt` to tell its own processes
 # from another checkout's, and it was measured on both halves -- but never on both halves AT
-# ONCE through cmd_down: the live teardown it was measured with had only
+# ONCE through cmd_down: the post-fix teardown it was measured with had only
 # the foreign process on the field, so it proved "it does not stop theirs" and nothing about
 # "it still stops ours". The [0/3] gate is `app_probe` (G-6), and `apps orphans`' cells cannot
 # support it: somebody who changed that gate back to `app_running` would leave every orphans
 # cell green. This file is the one report with one of each in it.
 #
-# What went wrong before C10-8, verbatim from the 15:4x restore log of 2026-09-12:
+# What went wrong before the 2026-09-12 checkout-attribution change, verbatim from the 15:4x restore log of 2026-09-12:
 #     !!  sim is running untracked (pid 1166836) -- stopping it by pid
 #     XX  could NOT stop sim
 # -- one tree's teardown reaching for another tree's running test.
@@ -138,7 +138,7 @@ spawn() {
     echo "Ran $((PASS+FAIL)) checks, $FAIL failed"; exit 1
 }
 
-# 🔴 The cleanup is an ASSERTION, not a trap nobody reads. The 2026-09-12 live
+# 🔴 The cleanup is an ASSERTION, not a trap nobody reads. The 2026-09-12 post-fix
 # round could not tell "the TTL expired" from "I cleaned up", because every log line it had was
 # taken BEFORE the kill. This kills by exact pid, re-reads /proc afterwards, and prints both.
 # Every pid spawn() started is in SPAWNED_REG, including one it gave up on and the section-2 control.
@@ -278,7 +278,7 @@ check "🔴 and a foreign process is not a refusal (rc is not 5)" "no" \
 # =============================================================================================
 section "2. the control -- with ONLY the foreign process on the field, nothing is stopped"
 # =============================================================================================
-# The 2026-09-12 live teardown is this case and only this case. Kept as the control: a [0/3] that had
+# The 2026-09-12 post-fix teardown is this case and only this case. Kept as the control: a [0/3] that had
 # stopped reaching apps altogether would pass it, which is why section 1 above is the finding.
 spawn "$THEIRS_ARGV" "$OTHER_TREE"; THEIRS2="$FIXTURE_PID"
 printf '%s %s\n' "$THEIRS2" "$THEIRS_ARGV" > "$FIX/snapshot"

@@ -12,7 +12,7 @@
 # 🔴 THE TWO DIRECTIONS, and this gate needs both.
 #   * FIRES: the guard stops working. M1 turns it off, M5 turns off the measuring= half, M4 and
 #     M6 keep the refusal but break what it SAYS -- the sentence an operator reads, and the retry
-#     line T2 measured pasting a parenthesised description into a command line.
+#     line measured on 2026-09-11 (KNOWN-ISSUES G-30) pasting a parenthesised description into a command line.
 #   * WIDENS: M7 refuses everything. Every refusal cell above passes and the lab becomes
 #     impossible to tear down; only the expired-claim control catches it.
 #   * THE INSTRUMENT: M2 and M3 take away one of the two things a proceeding teardown touches,
@@ -189,7 +189,7 @@ cat > "$A/m5.new" <<'EOF'
 EOF
 check_fires "M5: a DECLARED measurement stops guarding" m5 "🔴 our OWN claim that DECLARES a measurement is refused"
 
-# --- M6: T2's retry line, put back the way it was ----------------------------------------------
+# --- M6: the 2026-09-11 retry line (G-30), put back the way it was ----------------------------
 # `$held` is a DESCRIPTION -- `other-session (until 02:36:24, reader running)`. Pasted, bash reads
 # `(until ...)` as a subshell and the command dies on a syntax error.
 cat > "$A/m6.old" <<'EOF'

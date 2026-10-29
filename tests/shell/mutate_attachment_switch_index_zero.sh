@@ -273,7 +273,7 @@ echo "mutations:"
 #
 # The mutant therefore restores the SUBSCRIPT AND KEEPS THE LOCK -- it is the race fix's own shape at 483a03dd,
 # before the index-zero guard was merged onto it. Dropping the lock as well would put two defects in one mutant and this
-# gate would no longer be able to say which of them the death test caught; the guarded `ip[0]` is the only one
+# gate would no longer be able to say which of them the death test caught; the unguarded `ip[0]` subscript is the only defect
 # this gate is for. The update-hosts race has its own evidence and is not a mutation here.
 mutate_must_die \
     "M1 attachment-switch-subscript-restored" \

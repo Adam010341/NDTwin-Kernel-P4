@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for defect #78 -- check_gate_anchors.py decided which argument of a gate names a
+# Mutation gate for the repo-root blind spot: check_gate_anchors.py decided which argument of a gate names a
 # FILE with `"/" in v`, so a mutation gate whose target sits at the repo ROOT had every one of its
 # anchors attributed to the only slash-bearing string it declared.
 #

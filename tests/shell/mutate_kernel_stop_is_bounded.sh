@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for defects #27 and #76 -- stop() must be bounded, whatever the control plane does.
+# Mutation gate: stop() must be bounded, whatever the control plane does.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -391,8 +391,8 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 # So the flag checks inside the round are NOT what carries the bound. **The cancellation is.** The
 # checks earn their place by setting FlowTableFetch::abandoned -- which is what stops an interrupted
 # round from being applied over the cache and deleting every switch it had not reached -- and that
-# is a correctness property this suite does not measure. It is W5 below, not a mutation.
-#
+# is a correctness property this suite does not measure. It is W5 below,
+# not a mutation.
 #
 # M1. The half that does carry it, for #27: the request already in flight when the stop arrives,
 #     back on the executor that cannot be cancelled.

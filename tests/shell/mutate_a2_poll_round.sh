@@ -174,8 +174,8 @@ add "9. the stable grep token is renamed" \
 #     because an exemption that is not written down is indistinguishable from a gap nobody
 #     noticed. The call sits between three live curls in pollControlPlaneTopology; reaching it
 #     needs a control plane, which is the same reason buildTopologyFetchCommand was extracted
-#     rather than tested in place. Closing it is a live step, not a unit test: see §6 of the A-2
-#     findings (stall a listener on :8080, watch for the token in kernel.log).
+#     rather than tested in place. Closing it is a live step, not a unit test: stall a
+#     listener on :8080 and watch for the token in kernel.log.
 #     2026-09-04: re-anchored. noteAndAnnouncePollRound's signature moved from three std::string
 #     bodies to three EndpointReply objects; the call site's argument names followed
 #     the rename (switchesStr/hostsStr/linksStr -> switchesReply/hostsReply/linksReply). The

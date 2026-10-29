@@ -5,7 +5,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # The subjects are the places where a reading that was NOT TAKEN used to be rendered as a
-# statement of fact. Each group names the 09-05 night-round finding it pins.
+# statement of fact. Each group names the defect, found on 2026-09-05, that it pins.
 #
 # I-1, measured 3/3 on 2026-09-05 (15:46:18, 16:20:04, 17:34:09), each time within
 # minutes of an OVS fabric being torn down in this very checkout:
@@ -692,7 +692,7 @@ unset NDT_OWNER FX_INFLIGHT
 # ==========================================================================================
 section "1G. F10: the DEFAULT round's model is a Mininet_* file, and it reads as ovs"
 # ==========================================================================================
-# F-OFFLINE-1 §1.15, with a positive control. `ndt up` with no arguments is `up_ovs 128`
+# With a positive control. `ndt up` with no arguments is `up_ovs 128`
 # (resolve_up_target), setting/ has no OVS 128-host model -- OVS has 4/8/16/32/64 -- and
 # topo_for_hosts's OVS glob includes StaticNetworkTopologyMininet_*.json, so the model the
 # DEFAULT round loads is setting/StaticNetworkTopologyMininet_10Switches.json, which declares
@@ -730,7 +730,7 @@ out=\"\$(last_kernel_plane)\"; echo \"[\$out] rc=\$?\"" 2>&1)"
 # ==========================================================================================
 # 5. `ndt help` -- the prose is an output too, and nothing was reading it
 # ==========================================================================================
-# 🔴 F-OFFLINE-1 §1.12 / §1.24, measured 2026-09-11: two claims that the code had already
+# 🔴 Measured 2026-09-11: two claims that the code had already
 # stopped making, and one of them the code's own comment calls false, were still being printed
 # by `ndt help` -- with no test anywhere in the tree looking at that output. `grep -rn` over
 # tests/ found the sentences only in four 09-02 manual-test transcripts. A suite that drives
@@ -787,7 +787,7 @@ check "  the refusal the help points at is called from 'ndt up'" "1" \
 
 
 section "5C. F2/F4: the help's two rc tables stop saying things the code does not do"
-# F-OFFLINE-1 §1.16. Both sentences were true of a state the tool is rarely in and false of the
+# Both sentences were true of a state the tool is rarely in and false of the
 # state a round ENDS in, and neither had a test.
 #
 # F2: `residue FOUND is a problem (rc 1)`. cmd_status --check folds residue and knob problems
@@ -919,7 +919,7 @@ section "5H. the help's --deep line quotes ports.sh's table, not three ports"
 # corrected on 09-12 (commit c395da50); this is the copy inside the tool.
 #
 # 🔴 The number is GENERATED from the table, not typed next to it. A number typed here is the
-# same artefact one edit later: a hand count on the machine on 2026-09-12 said 25 and the table said 27.
+# same artefact one edit later: a hand count on the machine on 2026-09-12 said 25 and the table says 27.
 hasnt "  🔴 --deep no longer names three ports"       ":8000/:8080/:8081" "$HELP"
 has   "  it names the table instead"                  "ANY port in ports.sh's table" "$HELP"
 has   "  🔴 with the size read out of the table"      "9 rule(s), 27 port(s)" "$HELP"
@@ -946,7 +946,7 @@ has   "  naming the four things that refuse"             "claimed by somebody el
 has   "  including the teardown overlap"                 "from this checkout is still running, or NDT_TOPO" "$HELP"
 has   "  🔴 and 1 is scoped to a reading, not to failure in general" "1 says this command looked at the" "$HELP"
 # 🔴 The needle starts INSIDE the line, not at the sentence: `has` is a line-wise grep -F and
-# the help wraps "-- the / answer is 5". Two earlier changes to the help each took this same red once.
+# the help wraps "-- the / answer is 5". Two earlier changes each took this same red once.
 has   "  🔴 with the precedence when both are true"      "answer is 5, because the one action" "$HELP"
 has   "  and that the dirty reading is still printed"    "Both are still printed" "$HELP"
 has   "  🔴 and why 3 cannot appear under 'up'"          "cannot arise here" "$HELP"
@@ -1034,7 +1034,7 @@ check "🔴 and ports.sh still prints the process one" "1" \
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================
-# F-OFFLINE-1 §1.13. Two of the four `--check` suites had no lab_kernel_dir stub, so
+# Two of the four `--check` suites had no lab_kernel_dir stub, so
 # app_evidence_log answered with a path in the main checkout -- a 148717-byte root-owned file this
 # suite cannot write, cannot trim and does not own. Asserted on the PATH rather than on what the
 # path happened to contain: "the residue row said none" would depend on whether somebody had
@@ -1106,7 +1106,7 @@ check "  with the expires nothing else can reconstruct"  "$OLD_EXP" "$(cprev exp
 check "  and its note"                                   "the round that ended" "$(cprev note)"
 
 section "6C. 🔴 the loser of the race: free before the lock, held inside it"
-# The window measured live on 2026-09-11, made deterministic. foreign_claim answers "free" the first time
+# The window measured on 2026-09-11, made deterministic. foreign_claim answers "free" the first time
 # and "taken" the second; the two readings are the subject -- one before the lock, one inside it.
 no_claim
 rm -f "$FIX/fc.n"
@@ -1154,7 +1154,7 @@ has   "  and says whose it is now"                       "direct-writer" "$OUT"
 hasnt "🔴 and does not report success"                   "lab claimed by fixture-owner" "$OUT"
 
 section "6G. three real claims in one instant: exactly one is told it won"
-# The end-to-end shape of the 2026-09-11 live sweep, with no stub in it. It is 2/16 red before the lock and
+# The end-to-end shape of the 2026-09-11 sweep, with no stub in it. It is 2/16 red before the lock and
 # deterministic after it, so it is the confirmation and 6C/6E/6F are the discriminating cells.
 no_claim
 rm -f "$FIX"/race.*
@@ -1322,7 +1322,7 @@ mk_claim_m() {  # <owner> <seconds-from-now> <note> <measuring>
 #   * NDT_OWNER is SET. Without it every claim is foreign (the safe default), so 7A's refusal
 #     came from the foreign-claim guard and the declaration was never reached -- a green cell
 #     over an unexercised branch.
-#   * sudo returns 0. The real cmd_down reads the sweep's rc (FINDING #21), so a sudo stub that
+#   * sudo returns 0. The real cmd_down reads the sweep's rc, so a sudo stub that
 #     refuses makes down_rc 1 on every path and "the teardown runs" can never be observed.
 #   * 🔴 STACK exists and succeeds (A1-b, 2026-09-12). cmd_down now reads `stack.sh down`'s exit
 #     status too, and a STACK that is not there is bash's 127 -- a true red, because the first
@@ -1343,7 +1343,7 @@ in_flight() { :; }
 app_probe() { APP_STATE=not-running; }
 cmd_clean() { return 0; }
 wait_reaped() { return 0; }
-# 🔴 THE PREMISE, stubbed 2026-09-12: cmd_down now reads what it is ABOUT before it
+# 🔴 THE PREMISE, stubbed 2026-09-12 (FIX-NDT-8): cmd_down now reads what it is ABOUT before it
 # acts, and none of bmv2_count / mn_count / topo_session / MANIFEST / the port table is redirected
 # in this fixture -- so without this line these cells would ask THIS MACHINE whether a lab is up,
 # and every rc below would depend on what somebody else left running. This group is about claims

@@ -547,8 +547,8 @@ OUT="$(drive 'app_pidfile_stale_row')"
 hasnt "🔴 a pidfile naming a LIVE viz is not stale"          "STALE" "$OUT"
 kill_fixture "$LIVE_VIZ"
 
-# pid gone, but the process group the app was started in still has a member: the #6/#48
-# shape (viz's launcher dead, its JVMs running on). NOT stale.
+# pid gone, but the process group the app was started in still has a member: the shape of
+# viz's launcher dying while its JVMs run on. NOT stale.
 reset_fix
 spawn "java-child-of-viz" setsid; GROUP="$FIXTURE_PID"
 DEAD="$(dead_pid)"

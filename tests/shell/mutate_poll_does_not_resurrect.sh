@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for defect #46 (with #35 and #36) -- a commanded power-off must survive the
+# Mutation gate: a commanded power-off must survive the
 # topology poll, and the poll must go on marking every other switch up.
 #
 # [Co-developed with claude code -- Adam]
@@ -26,7 +26,7 @@
 #         outage than the defect: for everything the liveness worker answers Unknown about,
 #         discovery is the only writer that brings a switch back. A gate without M5/M6 would give
 #         a green light to `// (*m_graph)[v].isUp = true;`.
-#   plus #35's two early returns (M7, M8), which are what turned the resurrection into a brick.
+#   plus the two power-path early returns (M7, M8), which are what turned the resurrection into a brick.
 #
 # 🔴 THREE MUTATIONS MUST **NOT** BE CAUGHT (W1, W2, W3). A suite that reddens on these is pinning
 # source text rather than behaviour, and every catch above would be worth nothing:
@@ -348,7 +348,7 @@ mutate "power-off marks down but records no command" \
     PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand
 
 # ================================================================================================
-#    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just #46's.
+#    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just the defect's.
 # ================================================================================================
 
 # M5. THE OVER-CORRECTION. The poll stops writing isUp at all -- the shape someone reaches for on
@@ -378,7 +378,7 @@ mutate "power-on never withdraws the command" \
     PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain
 
 # ================================================================================================
-#    #35: the early returns that turned the resurrection into a brick
+#    the early returns that turned the resurrection into a brick
 # ================================================================================================
 
 # M7. The power-off guard as it was: ask the graph, believe it, run nothing. The graph reads down
@@ -396,7 +396,7 @@ mutate "power-off returns success on the graph's cached isUp" \
     PollDoesNotResurrectTest.PowerOffActuatesEvenWhenTheGraphAlreadySaysDown
 
 # M8. The power-on guard as it was: two questions instead of three. Past the 15 s distrust window a
-#     resurrected switch reads up, so this is #36 -- 200 Success in ~1 ms, no command, and the only
+#     resurrected switch reads up, so this is the silent power-on -- 200 Success in ~1 ms, no command, and the only
 #     recovery left is out of band.
 mutate "power-on returns success on a cached isUp with a command standing" \
     "$P4" \

@@ -286,8 +286,8 @@ report "M21: under-reporting is reported as over-reporting" "$m" \
 
 # --- #17: the tripwire named a mechanism it had not observed, and its rc said nothing ---------
 #
-# 🔴 NUMBERED FROM M40, and the gap is deliberate: this gate already had an M22-M28 (F12/B10/
-# F9/F10) and the first draft of this block reused those labels. Both sets ran
+# 🔴 NUMBERED FROM M40, and the gap is deliberate: this gate already had an M22-M28 (the help-text
+# block below, KNOWN-ISSUES G-26) and the first draft of this block reused those labels. Both sets ran
 # and both were caught -- the mutant directory is created immediately before each run, so no
 # verdict was wrong -- but the LOG then carried two different "M22" lines, and a log you cannot
 # read back is not evidence. Found by grepping this gate's own output for duplicate labels
@@ -409,7 +409,7 @@ m=$(mutant m25 "$NDT" \
 report "M25: B10 loses its 09-05 counter-example" "$m" \
        "  with the 09-05 counter-example"
 
-# --- F9: the suite reads its own tree (F-OFFLINE-1 §1.13) -------------------------------------
+# --- F9: the suite reads its own tree ------------------------------------------------------
 
 # The sim evidence log stops being derived from the tree the LAB acts in and is hard-coded to
 # the main checkout, which is what this suite was reading until 2026-09-11 -- a 148717-byte
@@ -422,7 +422,7 @@ report "M26: sim's evidence log is hard-coded to the main checkout (F9)" "$m" \
        "  🔴 sim's evidence log is inside the fixture"
 
 
-# --- F10: the default round's model (F-OFFLINE-1 §1.15) ---------------------------------------
+# --- F10: the default round's model ----------------------------------------------------------
 
 # M27 restores F10: last_kernel_plane matches only OVS_* and P4_*, so the model the DEFAULT
 # round loads -- StaticNetworkTopologyMininet_10Switches.json, 128 hosts -- is unclassifiable,
@@ -447,7 +447,7 @@ m=$(mutant m28 "$NDT" \
 report "M28 (widening): every command is read as ovs" "$m" \
        "  🔴 a physical-mode command is still rc 1"
 
-# --- F2 / F4: the help's rc tables (F-OFFLINE-1 §1.16) ----------------------------------------
+# --- F2 / F4: the help's rc tables -----------------------------------------------------------
 
 # M29 restores F2: the help says residue found is rc 1, full stop -- false in the state every
 # round ENDS in, because `ndt down` clears the baseline and the whole report is then rc 3.
@@ -738,7 +738,7 @@ report 'MD9: the down table drops rc 3 (FIX-NDT-8)' "$m" \
 
 # MD10: the --check row goes back to being called `residue`. The code is unchanged; what comes
 # back is a report in which `ndt clean`'s port line and `ndt status --check`'s flow-rule line
-# are the same word, which is how a 2026-09-12 live report quoted both and read as one finding twice.
+# are the same word, which is how a 2026-09-12 report quoted both and read as one finding twice.
 m=$(mutant md10 "$NDT" \
     '        *) printf '\''  %-14s %s\n'\'' "rules-in-window" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;' \
     '        *) printf '\''  %-14s %s\n'\'' "residue" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;')

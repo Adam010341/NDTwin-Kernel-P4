@@ -247,7 +247,7 @@ add_anchor "bug17-second"   "$TFM" '    if (!validateDataPlaneHomogeneity(m_allo
 # opt-in must not carry this refusal with it. M32 mutates it back inside.
 add_anchor "e26-switchless" "$TFM" '    if (declaredKinds.empty())'
 
-# Doors 4-7 (2026-09-11) -- the four fields measured live on 2026-09-11 going through ten doors untouched.
+# Doors 4-7 (2026-09-11) -- the four fields measured live that day going through ten doors untouched.
 # B-13 door 4 (`link_bandwidth_bps`), B-14 door 5 (`vertex_type`), B-15 door 6 (one address, one
 # node, one spelling) and door 7 (the shared "ip" read's diagnostic for the node types door 3d
 # does not cover). Every arm of every one of them gets its own anchor, for the reason door 3d's
@@ -954,7 +954,7 @@ mutate "W15-1(b): the power manager branches on a brand literal the loader refus
 # ================================================================================================
 # 5f. BUG-17 + the switchless refusal -- how many data planes a topology file may declare (M29-M33, added 2026-09-07)
 #
-# 🔴 THE DEFECT WAS A DISCARDED RETURN VALUE, AND IT WAS MEASURED ON :8000. R6 (2026-09-05)
+# 🔴 THE DEFECT WAS A DISCARDED RETURN VALUE, AND IT WAS MEASURED ON :8000. A live run (2026-09-05)
 # built a mixed model, got an ERROR line naming both dpid sets, and then
 # `nodes 14 edges 40` off a live :8000. validateDataPlaneHomogeneity returned a bool;
 # parseStaticTopologyFile called it as a statement. Three shipped pages said the kernel "refuses
@@ -985,7 +985,7 @@ mutate "W15-1(b): the power manager branches on a brand literal the loader refus
 #   - the switchless refusal hides behind the
 #     mixed-plane opt-in                        (M33) -- one `&&`, and a build with
 #                                                        ALLOW_MIXED_DATAPLANE = true silently gets
-#                                                        the pre-2026-09-07 behaviour back
+#                                                        the behaviour from before the switchless refusal back
 # ================================================================================================
 
 # M29. The document-level verdict is computed and thrown away, exactly as the builder-level one
@@ -1011,7 +1011,7 @@ mutate "BUG-17: ALLOW_MIXED_DATAPLANE no longer admits a mixed topology" \
     TopologyInputValidationTest.AMixedDataPlaneTopologyLoadsWhenTheFlagIsSet
 
 # M31. 🔴 THE SWITCHLESS REFUSAL UNDONE AT BOTH LAYERS, WHICH IS EXACTLY BUG-17 AS IT SHIPPED THE DAY BEFORE, AND IT
-#      TAKES TWO SITES -- the M2 situation again. The 2026-09-07 fix refuses a switchless document in
+#      TAKES TWO SITES -- the M2 situation again. The switchless refusal rejects a switchless document in
 #      validateStaticTopologyJson AND widened the builder's backstop from `> 1` to `!= 1`. Removing
 #      only the first leaves the second still refusing (that is M32, below), so a one-site edit
 #      cannot restore 0f79d44f (the mixed-data-plane refusal) and reporting it as though it

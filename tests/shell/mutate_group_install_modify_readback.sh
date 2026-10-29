@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for defect #87 in tests/test_GroupMeterExistence.cpp:
+# Mutation gate for the install/modify half of tests/test_GroupMeterExistence.cpp:
 # an install or a modify is claimed only after the switch has been asked.
 #
 # [Co-developed with claude code -- Adam]
@@ -36,7 +36,7 @@
 #    what held /tmp/ndtwin-build.lock for three hours on 2026-09-04).
 #
 # ⚠️ SIBLING GATES ON THIS FILE. mutate_f13_group_meter_existence.sh mutates the pre-check and
-#    mutate_delete_group_entry.sh mutates the read-back. The #87 change rewrote the read-back
+#    mutate_delete_group_entry.sh mutates the read-back. The install/modify change rewrote the read-back
 #    block, so several of the latter's anchors had to be re-pointed at the new text -- same
 #    mutations, same verdicts, new coordinates. Run
 #      python3 tests/shell/check_gate_anchors.py HEAD --gates \
@@ -200,7 +200,7 @@ mutate_must_live() {   # name, file, anchor, replacement, [uniqueness line]
 
 echo "mutations:"
 
-# --- M1: #87 itself -- add and modify go straight from Ryu's 200 to the outcome -----------------
+# --- M1: the defect itself -- add and modify go straight from Ryu's 200 to the outcome ---------
 mutate_must_die \
     "M1 install/modify claimed without reading back" \
     "GroupMeterFixture.AGroupTheSwitchNeverTookIsNotReportedAsInstalled" \
