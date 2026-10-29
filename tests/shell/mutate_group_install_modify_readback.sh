@@ -12,7 +12,7 @@
 # (five 200 {"outcome":"deleted"} over five groups that were still there), on the other two verbs.
 #
 # 🔴 REACHABILITY, and it is weaker here than for the delete half: the delete instance was
-# measured on ovs4. A refused INSTALL has not been observed -- FINDINGS-ALL.md:136 says so. Every
+# measured on ovs4. A refused INSTALL has not been observed. Every
 # assertion these mutations exercise is against a scripted fake switch, not a live one.
 #
 # 🔴 The last mutation, M7, is the important one and it is not a defect that breaks anything: it

@@ -286,8 +286,8 @@ report "M21: under-reporting is reported as over-reporting" "$m" \
 
 # --- #17: the tripwire named a mechanism it had not observed, and its rc said nothing ---------
 #
-# 🔴 NUMBERED FROM M40, and the gap is deliberate: this gate already had an M22-M28 (the help-text
-# block below, KNOWN-ISSUES G-26) and the first draft of this block reused those labels. Both sets ran
+# 🔴 NUMBERED FROM M40, and the gap is deliberate: this gate already had an M22-M28 (the help-text,
+# suite-tree and default-model blocks below, KNOWN-ISSUES G-26 and G-22) and the first draft of this block reused those labels. Both sets ran
 # and both were caught -- the mutant directory is created immediately before each run, so no
 # verdict was wrong -- but the LOG then carried two different "M22" lines, and a log you cannot
 # read back is not evidence. Found by grepping this gate's own output for duplicate labels

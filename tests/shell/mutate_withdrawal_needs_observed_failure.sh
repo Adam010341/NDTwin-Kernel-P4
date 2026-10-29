@@ -632,7 +632,7 @@ mutate "the classifier calls a host-facing port a link end" \
 # M17. 🔴 THE OVER-CORRECTION THAT WAS RULED OUT BY NAME: the sweep cleans up what it finds. A
 #      kernel that removed netem at startup silently destroys the fault campaign it started
 #      underneath, and tools/test_workflow/faults.sh is entitled to have netem on an interface.
-#      🆕 Since the namespace sweep the sweep also sees host-facing and unfamiliar interfaces, so this mutant
+#      🆕 Since the namespace sweep, the startup sweep also sees host-facing and unfamiliar interfaces, so this mutant
 #      deletes faults that are definitely not this kernel's. It got worse, not better.
 mutate "the startup sweep clears the netem it finds" \
     "$TFM" \

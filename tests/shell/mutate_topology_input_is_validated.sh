@@ -1011,7 +1011,7 @@ mutate "BUG-17: ALLOW_MIXED_DATAPLANE no longer admits a mixed topology" \
     TopologyInputValidationTest.AMixedDataPlaneTopologyLoadsWhenTheFlagIsSet
 
 # M31. 🔴 THE SWITCHLESS REFUSAL UNDONE AT BOTH LAYERS, WHICH IS EXACTLY BUG-17 AS IT SHIPPED THE DAY BEFORE, AND IT
-#      TAKES TWO SITES -- the M2 situation again. The switchless refusal rejects a switchless document in
+#      TAKES TWO SITES -- the M2 situation again. The switchless refusal rejected a switchless document in
 #      validateStaticTopologyJson AND widened the builder's backstop from `> 1` to `!= 1`. Removing
 #      only the first leaves the second still refusing (that is M32, below), so a one-site edit
 #      cannot restore 0f79d44f (the mixed-data-plane refusal) and reporting it as though it

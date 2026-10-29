@@ -452,8 +452,8 @@ check_fires "M19: a package pipeline is given the built json's rate" m19 \
 
 # M20: the predicate the ROW and the --check problem both read stops exempting a foreign
 # pipeline. The row still says n/a (it returns before the stale branch), so what this costs is
-# a `--check` that exits 1 over a file this fabric never read, with the row beside it saying
-# so -- a yellow problem under a green row, which is the shape test_ndt_round_baseline.sh section 8 turns red.
+# a `--check` that exits 1 over a file this fabric never read, with the row beside it saying so -- a yellow
+# problem under a green row: the row and the exit code disagree, the mirror image of the red-row-over-rc-0 case test_ndt_round_baseline.sh section 8 pins.
 cat > "$A/m20.old" <<'EOF'
     case "$kind" in foreign:*) return 1 ;; esac
 EOF

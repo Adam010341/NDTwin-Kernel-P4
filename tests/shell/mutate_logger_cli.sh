@@ -511,7 +511,7 @@ mutate "the unknown flag is reported and then tolerated (warn, do not refuse)" \
     LoggerCliArgsDeathTest.AnUnknownOptionIsRefusedRatherThanSilentlyIgnored \
     KERNEL:unknown-long-flag-refused
 
-# M8. The help text's first half: the --help branch of the logging parser stops answering. It is
+# M8. The first half of the help fix: the --help branch of the logging parser stops answering. It is
 #     unreachable in the kernel and reachable in a logging-only binary, and "unreachable here" is
 #     not "may quietly stop working".
 mutate "the logging parser's --help prints and then falls through instead of exiting" \

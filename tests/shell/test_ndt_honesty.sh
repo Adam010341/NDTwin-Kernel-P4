@@ -5,7 +5,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # The subjects are the places where a reading that was NOT TAKEN used to be rendered as a
-# statement of fact. Each group names the defect, found on 2026-09-05, that it pins.
+# statement of fact. Each group names the defect it pins; I-1 and I-4 were found on 2026-09-05, and later groups give their own dates.
 #
 # I-1, measured 3/3 on 2026-09-05 (15:46:18, 16:20:04, 17:34:09), each time within
 # minutes of an OVS fabric being torn down in this very checkout:
@@ -692,7 +692,7 @@ unset NDT_OWNER FX_INFLIGHT
 # ==========================================================================================
 section "1G. F10: the DEFAULT round's model is a Mininet_* file, and it reads as ovs"
 # ==========================================================================================
-# With a positive control. `ndt up` with no arguments is `up_ovs 128`
+# This group has a positive control. `ndt up` with no arguments is `up_ovs 128`
 # (resolve_up_target), setting/ has no OVS 128-host model -- OVS has 4/8/16/32/64 -- and
 # topo_for_hosts's OVS glob includes StaticNetworkTopologyMininet_*.json, so the model the
 # DEFAULT round loads is setting/StaticNetworkTopologyMininet_10Switches.json, which declares

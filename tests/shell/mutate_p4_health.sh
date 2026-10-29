@@ -2,7 +2,7 @@
 #
 # Mutation gate for tools/p4_health and its offline suites (M1-M18, plus the
 # section 12 refinements, the Q3(b) cells, the seal of the reading-layer test, recover.sh, and one
-# mutant per decision branch).
+# mutant for each of the decision branches B1-B15 below).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -1286,7 +1286,7 @@ add "R4-8b. recover.sh takes only a measuring row for evidence (an orphaned row 
     "awk '\$1 == \"measuring\" { found = 1 }" \
     'an expired claim and only an orphaned row (leftovers, no fabric): rc 0, re-claimed'
 
-# Round 6 (the run's identity: its own package directory, its own claim's expires, a state file that
+# The R6-* mutants (the run's identity: its own package directory, its own claim's expires, a state file that
 # is complete). Each mutant names the ONE check that must go red.
 add "R6-1a. recover.sh does not ask that the package is inside the run dir" \
     "$RECOVER" \
@@ -1541,7 +1541,7 @@ add "R7-L3. LabRound takes str.isdigit for a time" \
     '        if mine.get("owner") != self.cfg.owner or not exp.isdigit() or int(exp) <= 0:  # MUTANT' \
     'test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on'
 
-# Round 8 (a down that already ran leaves no interfaces; recover.sh's own re-claim records the round's host
+# The R8-* mutants (a down that already ran leaves no interfaces; recover.sh's own re-claim records the round's host
 # count as the release baseline; the unrecorded-claim hint). The stubs follow ndt: see the test.
 add "R8-1a. a down is taken for done without asking ndt status" \
     "$RECOVER" \
@@ -2885,7 +2885,7 @@ add "C2R5-6z. the shard-sum script prints another line when all is well" \
     '[four good shards of ten: the one GATE line, rc 0]'
 
 
-# --- round 6 (C2R6-): the fifth round's open items ----------------------------------------------------------
+# --- the C2R6-* mutants -------------------------------------------------------------------------------------
 # finding 2: S0's copy of exercise/ is checked against the pinned commit, and the controller trial loads the copy
 add "C2R6-2a. S0 does not check its exercise copy against the pinned commit" \
     "$S0PY" \
