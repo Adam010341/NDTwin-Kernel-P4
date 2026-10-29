@@ -2114,7 +2114,6 @@ has   "  the Makefile's TOPO chose the topology"          "pod-topo/topology.jso
 has   "  the role was auto-filled"                        "auto-filled from the p4info -- its one (table, action) candidate" "$OUT"
 has   "🔴 the real pre-flight passed the generated package" "PASS -- every check passed" "$OUT"
 has   "🔴 and resolved the auto-filled role, owner package" "owner package" "$OUT"
-hasnt "🔴 and printed no package.json suggestion"         "roles suggestion" "$OUT"
 # topo-start and, a real package having inter-switch links, the heartbeat: two sudo calls.
 check "  the machine was reached: one bring-up"           "stack=1" "$(touched | sed 's/^sudo=[0-9]* //')"
 E2E_SUM="$(tree_sum "$E2E_GEN")"

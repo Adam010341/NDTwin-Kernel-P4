@@ -1448,7 +1448,7 @@ cat > "$A/m84.new" <<'EOF'
     :
 EOF
 check_fires "M84: the converter's usage error becomes a refusal" m84 \
-            "the converter's usage error stays a usage error (2)"
+            "🔴 the converter's usage error stays a usage error (2)"
 
 cat > "$A/m85.old" <<'EOF'
             app_dir="$APP_FROM_EXERCISE"
@@ -1566,7 +1566,7 @@ cat > "$A/m96.new" <<'EOF'
     :
 EOF
 check_fires "M96: the generated package's pre-flight suggests a package.json edit" m96 \
-            "🔴 its pre-flight prints no role suggestion" "🔴 and printed no package.json suggestion" \
+            "🔴 its pre-flight prints no role suggestion" \
             "🔴 and no package.json suggestion beside them" "🔴 and pre-flight does not suggest one anyway"
 
 cat > "$A/m97.old" <<'EOF'
