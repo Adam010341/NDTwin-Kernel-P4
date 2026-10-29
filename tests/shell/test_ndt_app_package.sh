@@ -1997,6 +1997,33 @@ OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$FIX/exercises/plain-name")")"
 check "🔴 so is a path that resolves to one with a line break" "2" "$(rc_of "$OUT")"
 has   "  saying why"                                      "resolves to one with, a line break in it" "$OUT"
 rm -rf "$NLDIR" "$FIX/exercises/plain-name"
+# [Co-developed with claude code -- Adam] The two a check of the resolved path alone misses.
+# (a) a link whose own NAME has the line break: `cd ... && pwd` keeps that name, readlink drops it.
+reset_fix
+NLLINK="$FIX/packages/a"$'\n'"b"; rm -f "$NLLINK"; ln -s "$PKG_OK" "$NLLINK"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$NLLINK")"' && up_p4')"
+# Unmarked: the typed-path check and the logical-path check below it each refuse this one, so
+# no single mutation reddens it.
+check "  a link whose name has a line break is a usage error" "2" "$(rc_of "$OUT")"
+check "  the knob was not written"                        "absent" "$(knob_state)"
+check "  no up.target was recorded"                       "0" "$([[ -e "$FIX/.test_run/up.target" ]] && echo 1 || echo 0)"
+check "  and nothing was touched"                         "sudo=0 stack=0" "$(touched)"
+rm -f "$NLLINK"
+# (b) a directory whose name ENDS in a line break: `$(... pwd)` strips it, naming another path.
+reset_fix
+NLEND="$FIX/packages/trail"$'\n'; rm -rf "$NLEND"; cp -r "$PKG_OK" "$NLEND"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$NLEND")"' && up_p4')"
+check "🔴 a directory whose name ends in a line break is a usage error" "2" "$(rc_of "$OUT")"
+check "  the knob was not written"                        "absent" "$(knob_state)"
+rm -rf "$NLEND"
+# (c) a relative path typed from a directory reached through a link with a line break in its
+# name: the typed path and the resolved one are clean, the logical one is not.
+reset_fix
+NLCWD="$FIX/l"$'\n'"k"; rm -f "$NLCWD"; ln -s "$FIX/packages" "$NLCWD"
+OUT="$(cd "$NLCWD" && drive 'up_take_app_flag p4 --app four && up_p4')"
+check "🔴 a logical path with a line break is a usage error" "2" "$(rc_of "$OUT")"
+check "  the knob was not written"                        "absent" "$(knob_state)"
+rm -f "$NLCWD"
 OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --topology')"
 check "  so is a trailing --topology"                     "2" "$(rc_of "$OUT")"
 

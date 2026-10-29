@@ -1579,15 +1579,33 @@ EOF
 check_fires "M98: a generated package reached through a symlink is not one" m98 \
             "🔴 so is one reached through a symlink"
 
+cat > "$A/m94.old" <<'EOF'
+    if [[ "$NDT_APP_DIR" == *$'\n'* || "$NDT_APP_DIR" == *$'\r'* ]]; then
+EOF
+cat > "$A/m94.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M94: a typed path with a line break is taken" m94 \
+            "🔴 a directory whose name ends in a line break is a usage error"
+
 cat > "$A/m99.old" <<'EOF'
-    if [[ "$app_real" == *$'\n'* || "$app_real" == *$'\r'* ]]; then
+    if [[ "$NDT_APP_DIR$app_real" == *$'\n'* || "$NDT_APP_DIR$app_real" == *$'\r'* ]]; then
 EOF
 cat > "$A/m99.new" <<'EOF'
     if false; then
 EOF
-check_fires "M99: a path with, or resolving to one with, a line break is taken" m99 \
-            "🔴 a path with a line break in it is a usage error" \
-            "🔴 so is a path that resolves to one with a line break"
+check_fires "M99: a logical or resolved path with a line break is taken" m99 \
+            "🔴 so is a path that resolves to one with a line break" \
+            "🔴 a logical path with a line break is a usage error"
+
+cat > "$A/m100.old" <<'EOF'
+    if [[ "$NDT_APP_DIR$app_real" == *$'\n'* || "$NDT_APP_DIR$app_real" == *$'\r'* ]]; then
+EOF
+cat > "$A/m100.new" <<'EOF'
+    if [[ "$app_real" == *$'\n'* || "$app_real" == *$'\r'* ]]; then
+EOF
+check_fires "M100: only the resolved path is asked" m100 \
+            "🔴 a logical path with a line break is a usage error"
 
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"

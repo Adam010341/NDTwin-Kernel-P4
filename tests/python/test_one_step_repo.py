@@ -100,7 +100,8 @@ MAKE_ADVICE = re.compile(r"\bmake clean\b|[`'\"(]make(?! build)\b|\bmake (run|al
 def printed_python_strings(path):
     """(line, text) of every string literal in a module that can reach a user: everything but
     docstrings, plus the module docstring's first line (argparse's description)."""
-    tree = ast.parse(open(path, encoding="utf-8").read())
+    with open(path, encoding="utf-8") as fh:
+        tree = ast.parse(fh.read())
     docstrings = set()
     for node in ast.walk(tree):
         if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):

@@ -128,24 +128,62 @@ class TopologyChoiceTest(ExerciseCase):
         self.refused(self.basic(makefile=makefile(topo="TOPO = gone/topology.json\n")),
                      "TOPO is gone/topology.json")
 
+    def outside_topology(self):
+        """A real topology file beside the exercises, so a `..` that reaches it names a file."""
+        os.makedirs(os.path.join(self.tmp, "exercises"), exist_ok=True)
+        outside = os.path.join(self.tmp, "exercises", "elsewhere-topology.json")
+        shutil.copyfile(os.path.join(FIXTURES, "basic", "pod-topo", "topology.json"), outside)
+        return outside
+
+    def written_under_run_dir(self):
+        """Every file under the run directory: a refusal must have left none anywhere."""
+        out = []
+        for d, _subdirs, files in os.walk(self.run_dir):
+            out += [os.path.relpath(os.path.join(d, f), self.run_dir) for f in files]
+        return out
+
     def test_a_topo_outside_the_exercise_is_refused(self):
         # [Co-developed with claude code -- Adam] convert.py copies the topology into the package
         # at its own relative path, so an absolute one or one through `..` would be copied out.
-        outside = os.path.join(self.tmp, "elsewhere-topology.json")
-        shutil.copyfile(os.path.join(FIXTURES, "basic", "pod-topo", "topology.json"), outside)
+        outside = self.outside_topology()
         for n, topo in enumerate((outside, "../elsewhere-topology.json")):
             with self.subTest(topo=topo):
                 d = self.basic(makefile=makefile(topo=f"TOPO = {topo}\n"), name=f"basic{n}")
-                self.refused(d, "is outside")
+                text = self.refused(d, "would be written outside the package")
+                self.assertIn("TOPO is", text)
+        self.assertEqual(self.written_under_run_dir(), [])
 
     def test_a_topology_flag_outside_the_exercise_is_refused(self):
-        outside = os.path.join(self.tmp, "elsewhere-topology.json")
-        shutil.copyfile(os.path.join(FIXTURES, "basic", "pod-topo", "topology.json"), outside)
+        outside = self.outside_topology()
         d = self.basic()
         for topo in (outside, "../elsewhere-topology.json", "pod-topo/../../elsewhere-topology.json"):
             with self.subTest(topo=topo):
                 self.refused(d, "--topology is", topology=topo)
-        self.assertEqual(self.generated(), [])
+        self.assertEqual(self.written_under_run_dir(), [])
+
+    def test_a_path_that_leaves_and_reenters_the_exercise_is_refused(self):
+        # It names a file of the exercise, but the copy would land beside the package.
+        topo = "pod-topo/../../basic/pod-topo/topology.json"
+        for how, kw in (("TOPO", {}), ("--topology", {"topology": topo})):
+            with self.subTest(how=how):
+                d = self.basic(makefile=makefile(topo=f"TOPO = {topo}\n"))
+                self.assertTrue(os.path.isfile(os.path.join(d, topo)))
+                self.refused(d, "would be written outside the package", **kw)
+                self.assertEqual(self.written_under_run_dir(), [])
+                shutil.rmtree(d)
+
+    def test_a_symlinked_topology_directory_is_accepted_and_copied_inside(self):
+        d = self.basic_one_topology()
+        shared = os.path.join(self.tmp, "shared")
+        os.makedirs(shared)
+        shutil.move(os.path.join(d, "pod-topo"), os.path.join(shared, "pod-topo"))
+        os.symlink(os.path.join(shared, "pod-topo"), os.path.join(d, "pod-topo"))
+        result = self.prepare(d)
+        copied = os.path.join(result["dest"], "pod-topo", "topology.json")
+        self.assertTrue(os.path.isfile(copied) and not os.path.islink(os.path.dirname(copied)))
+        outside = [f for f in self.written_under_run_dir()
+                   if not f.startswith(os.path.join("packages", "generated", ""))]
+        self.assertEqual(outside, [])
 
     def test_a_computed_topo_is_said_to_be_unread_not_unset(self):
         d = self.basic(makefile=makefile(topo="TOPO = $(EXAMPLE)/topology.json\n"))
@@ -226,12 +264,68 @@ class ProgramChoiceTest(ExerciseCase):
         result = self.prepare(d, p4="solution/basic.p4")
         self.assertEqual((result["p4"], result["p4_how"]), ("solution/basic.p4", "--p4"))
 
+    def test_a_program_outside_the_exercise_is_refused(self):
+        # [Co-developed with claude code -- Adam] The .p4 is copied at its own relative path too.
+        d = self.basic_one_topology()
+        shutil.copyfile(os.path.join(d, "basic.p4"), os.path.join(self.tmp, "exercises", "basic.p4"))
+        self.refused(d, "--p4 is", p4="../basic.p4")
+        d2 = self.basic_one_topology(makefile=makefile(extra="DEFAULT_PROG = ../basic.p4\n"),
+                                     name="basic2")
+        self.refused(d2, "DEFAULT_PROG is")
+        self.assertFalse(os.path.exists(os.path.join(self.run_dir, "packages-staging", "basic.p4")))
+
     def test_a_default_prog_that_is_not_there_is_refused(self):
         d = self.basic_one_topology(makefile=makefile(extra="DEFAULT_PROG = gone.p4\n"))
         self.refused(d, "DEFAULT_PROG is gone.p4")
 
 
 # --- built or not ------------------------------------------------------------------------------
+
+class PathsInsideTheExerciseFilesTest(ExerciseCase):
+    """Paths named INSIDE topology.json and the sX-runtime.json files are bounded too: each is
+    copied at its own relative path. [Co-developed with claude code -- Adam]"""
+
+    def written(self):
+        out = []
+        for d, _subdirs, files in os.walk(self.run_dir):
+            out += [os.path.join(d, f) for f in files]
+        return out
+
+    def test_a_runtime_file_naming_a_path_that_leaves_the_exercise_is_refused(self):
+        d = self.basic_one_topology()
+        path = os.path.join(d, "pod-topo", "s1-runtime.json")
+        doc = common.load_json(path)
+        doc["p4info"] = "../basic/build/basic.p4.p4info.txtpb"      # leaves basic, comes back
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(doc, fh)
+        self.refused(d, "would be written outside the package")
+        self.assertEqual(self.written(), [])
+
+    def test_a_topology_naming_a_runtime_file_that_leaves_the_exercise_is_refused(self):
+        d = self.basic_one_topology()
+        path = os.path.join(d, "pod-topo", "topology.json")
+        doc = common.load_json(path)
+        doc["switches"]["s1"]["runtime_json"] = "pod-topo/../../basic/pod-topo/s1-runtime.json"
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(doc, fh)
+        self.refused(d, "would be written outside the package")
+        self.assertEqual(self.written(), [])
+
+
+class ConvertBoundsItsOwnArgumentsTest(ExerciseCase):
+    """convert.py names the argument it refuses, called without one_step.py in front of it."""
+
+    def test_a_topology_or_program_outside_is_refused_by_name(self):
+        d = self.basic_one_topology()
+        out = os.path.join(self.tmp, "pkg")
+        with self.assertRaises(convert.ConversionError) as caught:
+            convert.convert(d, "pod-topo/../../basic/pod-topo/topology.json", out, p4_rel="basic.p4")
+        self.assertIn("the topology is", str(caught.exception))
+        with self.assertRaises(convert.ConversionError) as caught:
+            convert.convert(d, "pod-topo/topology.json", out, p4_rel="../basic/basic.p4")
+        self.assertIn("the program (--p4) is", str(caught.exception))
+        self.assertFalse(os.path.exists(out))
+
 
 class UnbuiltTest(ExerciseCase):
     def test_an_unbuilt_exercise_is_refused_with_make_build(self):
@@ -353,6 +447,46 @@ class RerunTest(ExerciseCase):
         self.assertEqual(tree(first["dest"]), before, "the old package was not put back")
         self.assertEqual(os.listdir(one_step.staging_root(self.run_dir)), [])
 
+    def rename_failing(self, when, err):
+        """os.rename that raises OSError(err) when when(src, dst) is true."""
+        from unittest import mock
+        real_rename = os.rename
+
+        def rename(src, dst):
+            if when(src, dst):
+                raise OSError(err, os.strerror(err))
+            return real_rename(src, dst)
+        return mock.patch("os.rename", side_effect=rename)
+
+    def test_a_failed_move_names_its_own_errno(self):
+        # [Co-developed with claude code -- Adam] Only EXDEV is "not one filesystem".
+        import errno
+        d = self.basic_one_topology()
+        dest = one_step.generated_dir(self.run_dir, d)
+        with self.rename_failing(lambda s, t: t == dest, errno.ENOENT):
+            text = self.refused(d, "ENOENT")
+        self.assertNotIn("one filesystem", text)
+
+    def test_a_failed_first_move_leaves_no_empty_directory(self):
+        import errno
+        d = self.basic_one_topology()
+        first = self.prepare(d)
+        with self.rename_failing(lambda s, t: s == first["dest"], errno.EBUSY):
+            self.refused(d, "EBUSY", owner="ndtwin")
+        self.assertEqual(os.listdir(one_step.staging_root(self.run_dir)), [])
+        self.assertTrue(os.path.isfile(os.path.join(first["dest"], "package.json")))
+
+    def test_a_failed_restore_says_where_the_old_package_was_left(self):
+        import errno
+        d = self.basic_one_topology()
+        first = self.prepare(d)
+        before = tree(first["dest"])
+        with self.rename_failing(lambda s, t: t == first["dest"], errno.EXDEV):
+            text = self.refused(d, "could not be put back", owner="ndtwin")
+        left = text.split("it was left at ", 1)[1].split(",", 1)[0]
+        self.assertTrue(left.endswith(os.sep + "pkg"), text)
+        self.assertEqual(tree(left), before, "the old package is not where the message says")
+
     def test_staging_a_killed_run_left_behind_is_removed(self):
         d = self.basic_one_topology()
         dest = one_step.generated_dir(self.run_dir, d)
@@ -472,7 +606,10 @@ class RoleTest(ExerciseCase):
         text = str(caught.exception)
         for table in ("MyIngress.ipv4_lpm,", "MyIngress.ipv4_lpm_backup,"):
             self.assertIn("--role-ipv4-route owner=ndtwin,table=" + table, text)
-        flag = text.split("--role-ipv4-route ", 2)[1].split(";", 1)[0].strip()
+        lines = [l.strip() for l in text.splitlines() if l.strip().startswith("--role-ipv4-route ")]
+        self.assertEqual(len(lines), 2, "one flag line per candidate")
+        self.assertNotIn("; --role-ipv4-route", text)
+        flag = lines[0].split(" ", 1)[1]
         result = self.prepare(d, role_text=flag)
         self.assertEqual(self.package_json(result)["roles"]["ipv4_route"]["owner"], "ndtwin")
 

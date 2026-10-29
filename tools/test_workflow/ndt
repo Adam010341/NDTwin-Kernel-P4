@@ -11065,6 +11065,14 @@ up_take_app_flag() {
         return 2
     fi
     [[ -z "$NDT_APP_DIR" ]] && return 0
+    # [Co-developed with claude code -- Adam] p4_proxy/mininet/app_package_override is one path
+    # on one line, so a path with a line break in it cannot be written there. Asked first of the
+    # path as typed, before `cd ... && pwd` -- which keeps a link's own name and strips a
+    # trailing line break -- and again below of the logical and the resolved path.
+    if [[ "$NDT_APP_DIR" == *$'\n'* || "$NDT_APP_DIR" == *$'\r'* ]]; then
+        err "--app: the directory's path has a line break in it; rename it first"
+        return 2
+    fi
     if [[ ! -d "$NDT_APP_DIR" ]]; then
         err "--app $NDT_APP_DIR is not a directory"
         err "  it must be a built p4lang-tutorials exercise, or an app package: a directory with"
@@ -11073,11 +11081,8 @@ up_take_app_flag() {
     fi
     NDT_APP_DIR="$(cd "$NDT_APP_DIR" 2>/dev/null && pwd)" || {
         err "--app: could not resolve that directory to an absolute path"; return 2; }
-    # [Co-developed with claude code -- Adam] p4_proxy/mininet/app_package_override is one path
-    # on one line, so a path with a line break in it cannot be written there. Asked of the
-    # resolved path: a line break in what was typed is in it too, and so is one behind a link.
     local app_real; app_real="$(readlink -f "$NDT_APP_DIR" 2>/dev/null)"
-    if [[ "$app_real" == *$'\n'* || "$app_real" == *$'\r'* ]]; then
+    if [[ "$NDT_APP_DIR$app_real" == *$'\n'* || "$NDT_APP_DIR$app_real" == *$'\r'* ]]; then
         err "--app: the directory's path has, or resolves to one with, a line break in it; rename it first"
         return 2
     fi
@@ -11229,10 +11234,11 @@ usage: ndt <command>
                     ndt up p4 --app exercises/basic
                   --topology <rel>   the topology (default: the Makefile's TOPO, else
                                      the only topology.json in the exercise)
-                  --p4 <rel>         the program; its stem picks the compiled
-                                     build/<stem>.json every switch runs (default:
-                                     the Makefile's DEFAULT_PROG, else the one .p4
-                                     at the exercise's top)
+                  --p4 <rel>         the default program; its stem picks the compiled
+                                     build/<stem>.json a switch runs unless the
+                                     topology names that switch's own program
+                                     (default: the Makefile's DEFAULT_PROG, else
+                                     the one .p4 at the exercise's top)
                   --role-ipv4-route [owner=,]table=,match_field=,action=,dst_mac=,port=
                                      the forwarding table, written out; wins over
                                      the auto-filled one

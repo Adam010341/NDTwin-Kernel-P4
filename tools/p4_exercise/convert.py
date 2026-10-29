@@ -556,6 +556,9 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto",
     exercise_dir = os.path.abspath(exercise_dir)
     if not os.path.isdir(exercise_dir):
         raise ConversionError(f"no exercise directory at {exercise_dir}")
+    # [Co-developed with claude code -- Adam] Named here so the refusal names the flag; write()
+    # applies the same bound to every path the package carries.
+    package_relative(topology_rel, "the topology")
     topo_path = os.path.join(exercise_dir, topology_rel)
     if not os.path.isfile(topo_path):
         raise ConversionError(f"no topology at {topo_path}")
@@ -624,6 +627,7 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto",
         # Only when it applies, so every current-format package is byte-for-byte what it was.
         source["topology_format"] = "tutorials-2018 (hosts a list; ports and addresses derived)"
     if p4_rel:
+        package_relative(p4_rel, "the program (--p4)")
         p4_abs = os.path.join(exercise_dir, p4_rel)
         if not os.path.isfile(p4_abs):
             raise ConversionError(f"--p4 {p4_rel!r} is not at {p4_abs}")
@@ -971,9 +975,10 @@ def auto_route_role(exercise_dir, package, model, owner=DEFAULT_ROLE_OWNER):
         if len(found["candidates"]) > 1:
             raise ConversionError(
                 "--table-owner ndtwin asks NDTwin to write this program's forwarding table, and "
-                f"{len(found['candidates'])} candidates qualify. Pick one by adding its line: "
-                + "; ".join(f"--role-ipv4-route owner=ndtwin,{role_flag_text(c)}"
-                            for c in found["candidates"]))
+                f"{len(found['candidates'])} candidates qualify. Pick one by adding its line "
+                f"to the command:\n"
+                + "\n".join(f"    --role-ipv4-route owner=ndtwin,{role_flag_text(c)}"
+                             for c in found["candidates"]))
         raise ConversionError(
             f"--table-owner ndtwin asks NDTwin to write this program's forwarding table, and no "
             f"single one was found: {found['why']}. Name it with --role-ipv4-route")
@@ -1180,6 +1185,25 @@ def read_back(model):
             f"topo_from_json.py, which is the reader the fabric and the proxy use: {exc}") from exc
 
 
+def package_relative(rel, what):
+    """`rel`, if a file written at that relative path stays inside the package; else refused.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE BOUND IS WHERE THE COPY LANDS, NOT WHERE THE SOURCE IS. write() joins the path as
+    written to the package directory, so `pod-topo/../../x` lands outside it even when the file
+    it names resolves back inside the exercise, and a path through a symlinked directory of the
+    exercise lands inside it wherever that directory points. So the question is asked of the
+    normalised path itself: absolute, `..`, or starting with `../` is refused.
+    """
+    norm = os.path.normpath(rel) if isinstance(rel, str) and rel else ""
+    if not norm or os.path.isabs(norm) or norm == os.pardir or norm.startswith(os.pardir + os.sep):
+        raise ConversionError(
+            f"{what} is {rel!r}, which would be written outside the package: the package keeps "
+            f"each file at its exercise-relative path, so the path must stay inside the exercise "
+            f"as written (no absolute path, no `..` that leaves it)")
+    return rel
+
+
 def write(out_dir, package, model, copies, rewrites=None):
     """Write the package. Returns the list of files written, package-relative.
 
@@ -1188,6 +1212,11 @@ def write(out_dir, package, model, copies, rewrites=None):
     extra. [Co-developed with claude code -- Adam]
     """
     out_dir = os.path.abspath(out_dir)
+    # Every path is checked before the first file is written, so a refusal writes nothing.
+    for _abs_src, rel in copies:
+        package_relative(rel, "a file the package carries")
+    for rel in rewrites or {}:
+        package_relative(rel, "a runtime file the package carries")
     os.makedirs(os.path.join(out_dir, "ndtwin"), exist_ok=True)
     written = []
     for abs_src, rel in copies:

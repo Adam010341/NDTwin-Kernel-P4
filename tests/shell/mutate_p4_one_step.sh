@@ -204,9 +204,9 @@ mut T3_build_dirs_count "$ONE_STEP" \
     test_build_logs_pcaps_and_a_package_model_are_not_candidates
 mut T4_flag_ignored "$ONE_STEP" \
     '    if given:
-        return _inside_exercise(exercise_dir, given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"' \
+        return _package_path(given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"' \
     '    if False:
-        return _inside_exercise(exercise_dir, given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"' \
+        return _package_path(given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"' \
     test_the_flag_picks_one_over_the_makefile
 mut T5_neither_unsaid "$ONE_STEP" \
     '    if not found:
@@ -525,43 +525,92 @@ mut S8_resolver_owner_required "$ROUTE_BINDING" \
     '    pass' \
     test_the_resolver_gives_it_owner_package
 
-# --- refusals that name their way out, and paths that stay inside the exercise ---------------------
-mut F3a_several_named_in_prose "$CONVERT" \
+# --- refusals that name their way out ----------------------------------------------------------
+mut A12_several_named_in_prose "$CONVERT" \
     '        if len(found["candidates"]) > 1:' \
     '        if False:' \
     test_table_owner_ndtwin_with_several_names_each_as_a_flag_line
-mut F3b_external_pointed_at_a_role "$CONVERT" \
+mut A13_several_joined_on_one_line "$CONVERT" \
+    '                + "\n".join(f"    --role-ipv4-route owner=ndtwin,{role_flag_text(c)}"' \
+    '                + "; ".join(f"    --role-ipv4-route owner=ndtwin,{role_flag_text(c)}"' \
+    test_table_owner_ndtwin_with_several_names_each_as_a_flag_line
+mut A14_external_pointed_at_a_role "$CONVERT" \
     '        if external is True:' \
     '        if False:' \
     test_table_owner_ndtwin_on_an_external_plane_says_so
-mut F6a_two_filesystems_taken "$ONE_STEP" \
+
+# --- moving a conversion into place ----------------------------------------------------------
+mut R5_two_filesystems_taken "$ONE_STEP" \
     '    if not _same_filesystem(stage_root, os.path.dirname(dest)):' \
     '    if False:' \
     test_staging_on_another_filesystem_is_refused_before_converting
-mut F6b_a_failed_move_is_a_traceback "$ONE_STEP" \
+mut R6_a_failed_move_is_a_traceback "$ONE_STEP" \
     '    except OSError as exc:
-        raise convert.ConversionError(
-            f"could not move' \
+        # Only EXDEV' \
     '    except ImportError as exc:
-        raise convert.ConversionError(
-            f"could not move' \
+        # Only EXDEV' \
     test_a_failed_move_is_a_refusal_and_the_old_package_stays
-mut F6c_the_old_package_is_lost "$ONE_STEP" \
-    '                os.rename(os.path.join(old, "pkg"), dest)     # the old package goes back' \
+mut R7_the_old_package_is_lost "$ONE_STEP" \
+    '                    os.rename(os.path.join(old, "pkg"), dest)     # the old package goes back' \
+    '                    pass' \
+    test_a_failed_move_is_a_refusal_and_the_old_package_stays
+mut R8_every_failure_blamed_on_filesystems "$ONE_STEP" \
+    '               if exc.errno == errno.EXDEV else "")' \
+    '               if True else "")' \
+    test_a_failed_move_names_its_own_errno
+mut R9_empty_directory_left "$ONE_STEP" \
+    '                os.rmdir(old)                                  # the empty directory made for it' \
     '                pass' \
-    test_a_failed_move_is_a_refusal_and_the_old_package_stays
-mut F7a_anything_is_inside "$ONE_STEP" \
-    '    if os.path.isabs(rel) or not real.startswith(real_ex + os.sep):' \
-    '    if False:' \
-    test_a_topo_outside_the_exercise_is_refused test_a_topology_flag_outside_the_exercise_is_refused
-mut F7b_the_flag_unchecked "$ONE_STEP" \
-    '        return _inside_exercise(exercise_dir, given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"' \
+    test_a_failed_first_move_leaves_no_empty_directory
+mut R10_failed_restore_is_a_traceback "$ONE_STEP" \
+    '                except OSError as back:' \
+    '                except ImportError as back:' \
+    test_a_failed_restore_says_where_the_old_package_was_left
+
+# --- every path the package carries stays inside it, as written ------------------------------------
+mut T8_no_bound "$CONVERT" \
+    '    if not norm or os.path.isabs(norm) or norm == os.pardir or norm.startswith(os.pardir + os.sep):' \
+    '    if not norm:' \
+    test_a_path_that_leaves_and_reenters_the_exercise_is_refused \
+    test_a_runtime_file_naming_a_path_that_leaves_the_exercise_is_refused \
+    test_a_topology_naming_a_runtime_file_that_leaves_the_exercise_is_refused \
+    test_a_topo_outside_the_exercise_is_refused test_a_program_outside_the_exercise_is_refused
+mut T9_dotdot_inside_a_path_taken "$CONVERT" \
+    '    if not norm or os.path.isabs(norm) or norm == os.pardir or norm.startswith(os.pardir + os.sep):' \
+    '    if not norm or os.path.isabs(norm) or norm == os.pardir:' \
+    test_a_path_that_leaves_and_reenters_the_exercise_is_refused \
+    test_a_runtime_file_naming_a_path_that_leaves_the_exercise_is_refused
+mut T10_written_paths_unchecked "$CONVERT" \
+    '    for _abs_src, rel in copies:
+        package_relative(rel, "a file the package carries")' \
+    '    for _abs_src, rel in []:
+        package_relative(rel, "a file the package carries")' \
+    test_a_runtime_file_naming_a_path_that_leaves_the_exercise_is_refused \
+    test_a_topology_naming_a_runtime_file_that_leaves_the_exercise_is_refused
+mut T11_topology_flag_unchecked "$ONE_STEP" \
+    '        return _package_path(given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"' \
     '        return given, f"{TOPOLOGY_FLAG}"' \
     test_a_topology_flag_outside_the_exercise_is_refused
-mut F7c_topo_unchecked "$ONE_STEP" \
-    '        _inside_exercise(exercise_dir, make_topo, ' \
-    '        (lambda *a: None)(exercise_dir, make_topo, ' \
+mut T12_topo_unchecked "$ONE_STEP" \
+    '        _package_path(make_topo, ' \
+    '        (lambda *a: None)(make_topo, ' \
     test_a_topo_outside_the_exercise_is_refused
+mut T13_convert_takes_any_topology "$CONVERT" \
+    '    package_relative(topology_rel, "the topology")' \
+    '    pass' \
+    test_a_topology_or_program_outside_is_refused_by_name
+mut P7_p4_flag_unchecked "$ONE_STEP" \
+    '        return _package_path(given, "--p4"), "--p4"' \
+    '        return given, "--p4"' \
+    test_a_program_outside_the_exercise_is_refused
+mut P8_default_prog_unchecked "$ONE_STEP" \
+    '        _package_path(default, ' \
+    '        (lambda *a: None)(default, ' \
+    test_a_program_outside_the_exercise_is_refused
+mut P9_convert_takes_any_program "$CONVERT" \
+    '        package_relative(p4_rel, "the program (--p4)")' \
+    '        pass' \
+    test_a_topology_or_program_outside_is_refused_by_name
 mut N21_computed_topo_called_unset "$ONE_STEP" \
     '           if computed else "its Makefile sets no TOPO")' \
     '           if False else "its Makefile sets no TOPO")' \
@@ -570,21 +619,21 @@ mut N22_resolved_line_break_taken "$ONE_STEP" \
     '    if "\n" in real or "\r" in real:' \
     '    if False:' \
     test_usage_errors_are_2
-mut M1_make_clean_advised_again "$CONVERT" \
+mut D6_make_clean_advised_again "$CONVERT" \
     '            f"the stale one, or delete build/ and run `make build`")' \
     '            f"the stale one (or `make clean && make`)")' \
     test_both_spellings_present_is_refused_naming_both \
     test_no_printed_string_in_tools_p4_exercise_advises_make
 
-mut M2_ndt_help_advises_make_again "$NDT_FILE" \
+mut C4_ndt_help_advises_make_again "$NDT_FILE" \
     'exercise is refused with the make build' \
     'exercise is refused with the (make) build' \
     test_no_line_of_ndt_but_its_comments_advises_make
-mut M3_the_pattern_misses_make_and "$REPO_TEST" \
+mut C5_the_pattern_misses_make_and "$REPO_TEST" \
     '                         r"|\bmake\s*&&")' \
     '                         r"|\bmake\s*&&XX")' \
     test_the_pattern_tells_the_command_from_the_verb
-mut M4_a_capture_says_nothing_of_its_edit "$CAPTURE" \
+mut C6_a_capture_says_nothing_of_its_edit "$CAPTURE" \
     '; every other row is as captured.' \
     '.' \
     test_every_capture_says_its_suggestion_row_was_edited_by_hand

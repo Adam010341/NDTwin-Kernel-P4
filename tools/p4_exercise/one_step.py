@@ -17,7 +17,8 @@ It is convert.py with the three things a user would otherwise type worked out:
     `--topology` flag that picks one.
   * the program: `--p4`, else the Makefile's DEFAULT_PROG, else the one `*.p4` at the top of the
     exercise -- the rule tutorials' utils/Makefile applies to DEFAULT_PROG. Its stem picks the
-    compiled build/<stem>.json and build/<stem>.p4.p4info.txtpb every switch runs.
+    compiled build/<stem>.json and build/<stem>.p4.p4info.txtpb a switch runs unless the topology
+    names that switch's own `program`.
   * the route role: `convert.py --auto-role` (owner package, or `--table-owner ndtwin`), unless
     `--role-ipv4-route` names one or `--no-roles` asks for none.
 
@@ -50,6 +51,7 @@ Exit: 0 the package is ready (its path is printed, and written to --emit-path); 
 package was written.
 """
 import argparse
+import errno
 import glob
 import hashlib
 import os
@@ -124,23 +126,18 @@ def makefile_var(exercise_dir, name):
     return value if value is not None and "$" not in value else None
 
 
-def _inside_exercise(exercise_dir, rel, what):
-    """Refuse a path that is absolute or resolves outside the exercise: convert.py copies the
-    topology into the package at this same relative path, so one outside the exercise would be
-    written outside the package. [Co-developed with claude code -- Adam]"""
-    real_ex = os.path.realpath(exercise_dir)
-    real = os.path.realpath(os.path.join(real_ex, rel))
-    if os.path.isabs(rel) or not real.startswith(real_ex + os.sep):
-        raise convert.ConversionError(
-            f"{what} is {rel}, which is outside {exercise_dir}; the topology must be a file of "
-            f"the exercise, named relative to it")
-    return rel
+def _package_path(rel, what):
+    """`rel`, if convert.py would copy it to a path inside the package; else refused, naming
+    `what`. The question is where the copy lands -- the path as written, normalised -- not where
+    the file resolves: a topology reached through a symlinked directory of the exercise is copied
+    inside the package wherever the link points. [Co-developed with claude code -- Adam]"""
+    return convert.package_relative(rel, what)
 
 
 def choose_topology(exercise_dir, given=None):
     """(topology_rel, how it was chosen): --topology, the Makefile's TOPO, or the only one."""
     if given:
-        return _inside_exercise(exercise_dir, given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"
+        return _package_path(given, TOPOLOGY_FLAG), f"{TOPOLOGY_FLAG}"
     found = topology_candidates(exercise_dir)
     if not found:
         raise convert.ConversionError(
@@ -148,7 +145,7 @@ def choose_topology(exercise_dir, given=None):
             f"exercise (no topology.json at its top or one directory down)")
     make_topo = makefile_var(exercise_dir, "TOPO")
     if make_topo:
-        _inside_exercise(exercise_dir, make_topo, "the Makefile's TOPO")
+        _package_path(make_topo, "the Makefile's TOPO")
         if not os.path.isfile(os.path.join(exercise_dir, make_topo)):
             raise convert.ConversionError(
                 f"the Makefile's TOPO is {make_topo}, which is not in {exercise_dir}. Pick the "
@@ -167,9 +164,10 @@ def choose_topology(exercise_dir, given=None):
 def choose_p4(exercise_dir, given=None):
     """(p4_rel, how it was chosen): --p4, the Makefile's DEFAULT_PROG, or the one top-level .p4."""
     if given:
-        return given, "--p4"
+        return _package_path(given, "--p4"), "--p4"
     default = makefile_var(exercise_dir, "DEFAULT_PROG")
     if default:
+        _package_path(default, "the Makefile's DEFAULT_PROG")
         if not os.path.isfile(os.path.join(exercise_dir, default)):
             raise convert.ConversionError(
                 f"the Makefile's DEFAULT_PROG is {default}, which is not in {exercise_dir}. "
@@ -231,10 +229,14 @@ def _move(src, dst):
     try:
         os.rename(src, dst)
     except OSError as exc:
+        # Only EXDEV is a second filesystem; anything else (a destination that appeared, a
+        # source that went away) is said as what it is. [Co-developed with claude code -- Adam]
+        why = (". The conversion is moved into place in one rename, which needs the run "
+               "directory's packages/ and packages-staging/ on one filesystem"
+               if exc.errno == errno.EXDEV else "")
         raise convert.ConversionError(
-            f"could not move {src} to {dst}: {exc.strerror or exc}. The conversion is built beside "
-            f"the run directory's packages/ and moved into place in one rename, which needs both "
-            f"on one filesystem") from exc
+            f"could not move {src} to {dst}: {errno.errorcode.get(exc.errno, exc.errno)} "
+            f"({exc.strerror or exc}){why}") from exc
 
 
 def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner=None,
@@ -304,11 +306,22 @@ def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner
                 f"Take it down first:  ndt down")
         elif os.path.isdir(dest):
             old = tempfile.mkdtemp(prefix=os.path.basename(dest) + ".old-", dir=stage_root)
-            _move(dest, os.path.join(old, "pkg"))
+            try:
+                _move(dest, os.path.join(old, "pkg"))
+            except convert.ConversionError:
+                os.rmdir(old)                                  # the empty directory made for it
+                raise
             try:
                 _move(staging, dest)
-            except convert.ConversionError:
-                os.rename(os.path.join(old, "pkg"), dest)     # the old package goes back
+            except convert.ConversionError as exc:
+                try:
+                    os.rename(os.path.join(old, "pkg"), dest)     # the old package goes back
+                except OSError as back:
+                    raise convert.ConversionError(
+                        f"{exc}; and the previous package could not be put back at {dest} "
+                        f"({errno.errorcode.get(back.errno, back.errno)}): it was left at "
+                        f"{os.path.join(old, 'pkg')}, and the next run of this exercise removes "
+                        f"it -- copy it out first if it is needed") from back
                 shutil.rmtree(old, ignore_errors=True)
                 raise
             shutil.rmtree(old, ignore_errors=True)
