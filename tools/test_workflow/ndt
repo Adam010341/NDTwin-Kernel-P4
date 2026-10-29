@@ -10940,6 +10940,11 @@ NDT_UP_ARGV=()
 #: which is NOT the same as `auto`: without it the bring-up writes what the package declares.
 NDT_TELEMETRY=""
 #: [Co-developed with claude code -- Adam]
+#: The flags `ndt up p4 --app <exercise dir>` hands to tools/p4_exercise/one_step.py, each with
+#: its value, in the order given. Only meaningful with --app on a p4lang-tutorials exercise; the
+#: tool refuses a bad combination (rc 2) and up_p4 refuses them beside a package.
+NDT_APP_EXERCISE_ARGV=()
+#: [Co-developed with claude code -- Adam]
 #: `ndt up ... --force`: past somebody else's claim or a measurement in flight,
 #: on either plane, and recorded -- see guard_up_lab_free. Set HERE, from argv, and reset on every
 #: call, so an exported NDT_UP_FORCE in somebody's shell forces nothing: the override has to be
@@ -10947,11 +10952,6 @@ NDT_TELEMETRY=""
 #: quoted, which is what the refusal prints as the line to retry with.
 NDT_UP_FORCE=""
 NDT_UP_WORDS=""
-#: [Co-developed with claude code -- Adam]
-#: The flags `ndt up p4 --app <exercise dir>` hands to tools/p4_exercise/one_step.py, each with
-#: its value, in the order given. Only meaningful with --app on a p4lang-tutorials exercise; the
-#: tool refuses a bad combination (rc 2) and up_p4 refuses them beside a package.
-NDT_APP_EXERCISE_ARGV=()
 up_take_app_flag() {
     NDT_APP_DIR=""
     NDT_UP_ARGV=()
