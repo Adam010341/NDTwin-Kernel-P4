@@ -313,7 +313,7 @@ deep_sweep() {
 #                                          poll would perturb; empty means nothing was declared,
 #                                          which is not the same as nothing running.
 #                                          `ndt down` refuses over it and `--force` overrides
-#                                          (T2d); a teardown that goes through clears it, since
+#                                          it; a teardown that goes through clears it, since
 #                                          the run it declared is the one just destroyed.
 #
 # 🔴 The five fields are written IN THAT ORDER by every writer in this file (claim_rewrite), and
@@ -3669,7 +3669,7 @@ up_p4() {
         # [Co-developed with claude code -- Adam]
         # The output is PRINTED, not discarded. topo-start's one line is "topo session started
         # from <KERNEL_DIR>", and ndtwin-lab prints it deliberately -- its comment there says
-        # "Which tree, every time. FINDING-01 ran the main tree's 128-host topology against a
+        # "Which tree, every time. On 2026-08-30 the main tree's 128-host topology ran against a
         # 4-host model for a whole round without a line of output that could have caught it."
         # This call site's `>/dev/null` then silenced exactly that line, so on 09-10 the same
         # two-tree run happened again with nothing on screen naming either tree.
@@ -4047,7 +4047,7 @@ for d in sorted(int(n["dpid"]) for n in t["nodes"] if n.get("vertex_type")==0): 
 # `/v1.0/topology/switches` is `[]` from the first probe onwards. The ONLY writer of isUp on such
 # a fabric is the proxy's `inform_switch_entered` background retry (main.py:863, which does not
 # look at read_only; kernel_notifier.py:153, 30 x 10 s), and the kernel's own pingWorker sets it
-# back to false a second later. Measured: live-p1/03 round 1 printed `3 switches, 3 up` and its
+# back to false a second later. Measured: a live-p1/03 run printed `3 switches, 3 up` and its
 # OWN `ndt status` one second later read `0 up, 3 enabled`. That green was `ndt`'s single read
 # landing inside a <= 1 s window between two races -- not a fabric state, and not repeatable.
 #
@@ -4416,7 +4416,7 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
     # this printed `kernel: 4 switches, 4 up (want 10/10)` and `is_enabled=4/10`, i.e. it
     # reported a correct fabric as broken. `$topo` is the file the kernel was handed and is
     # already what `want_hosts` below is counted from -- counting the switches from the same
-    # place is one reader for one question. topo_model_switches is C's helper, unchanged.
+    # place is one reader for one question. topo_model_switches is an existing helper, unchanged.
     # For both baseline models this is 10, so the baseline verdict is the one it always was.
     local want_sw; want_sw="$(topo_model_switches "$topo")"
     if [[ ! "$want_sw" =~ ^[0-9]+$ ]] || (( want_sw == 0 )); then
@@ -6801,7 +6801,7 @@ print(len(d.get("switches",{})) + len(d.get("hosts",{})))' "$f" 2>/dev/null)"
 #
 # [Co-developed with claude code -- Adam]
 #   telemetry      the word in force, where it came from, and what it resolves to per switch
-#   link shaping   which of the package's links are not the plain 1 Gbit/s default (G2-C)
+#   link shaping   which of the package's links are not the plain 1 Gbit/s default
 #
 # 🔴 A DEAD EMITTER IS A --check PROBLEM AND AN ABSENT ONE IS NOT. No manifest is the ordinary
 # state of a cooperative fabric. A manifest naming a pid that is gone is a fabric whose tc
@@ -7901,7 +7901,7 @@ app_window_read() {
 # nothing can answer it. NOT the file we write to: the file whoever STARTED it writes to.
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 3-51. Three apps and three different answers, and collapsing them into app_logfile is what
+# 🔴 Three apps and three different answers, and collapsing them into app_logfile is what
 # made the residue report confident about a question it had asked in the wrong place:
 #
 #   nsr viz te   app_spawn opens $REPO/.test_run/logs/app_<name>.log itself, so ours IS the file.
@@ -8113,7 +8113,7 @@ app_fd_readable() { [[ -r "/proc/$1/fd" ]]; }
 # inside, rc 1 and nothing when it could look at all of them.
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 3-51c (KNOWN-ISSUES G-14). The fd channel is `find /proc/[0-9]*/fd -lname <log>`, and find
+# 🔴 KNOWN-ISSUES G-14. The fd channel is `find /proc/[0-9]*/fd -lname <log>`, and find
 # cannot descend into a directory it may not read. For everything `sudo ndtwin-lab sim-start`
 # starts -- every sim and every energy on a real lab -- the whole channel returns nothing, and
 # nothing is byte-for-byte what it returns when no process holds the log. "I was not allowed to
@@ -8252,7 +8252,7 @@ app_survivors() {
             done <<<"$out"
         fi
     fi
-    # 🔴 3-51c. Asked LAST, because the question is about the pids the channels above named:
+    # 🔴 Asked LAST, because the question is about the pids the channels above named:
     # which of them could the log-fd channel not have seen? See app_fd_blindness. This adds no
     # survivor and removes none -- it only stops an empty third channel from being read as a
     # clean one for the apps the lab helper starts as root.
@@ -8384,7 +8384,7 @@ app_log_bytes() {
 # app_log_owner <path> -- the uid that owns that file, or nothing.
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 3-51c, AND IT IS THE SEAM THE TEST NEEDS. `sudo ndtwin-lab sim-start` runs `script -qfa
+# 🔴 IT IS THE SEAM THE TEST NEEDS. `sudo ndtwin-lab sim-start` runs `script -qfa
 # <KERNEL_DIR>/.test_run/logs/app_sim.log` as ROOT, so on the main checkout that log is a
 # root-owned 0644 file inside a directory this user owns: readable, listable, countable -- and
 # not truncatable. tests/shell/test_ndt_helper_apps_window.sh has no root and must never ask
@@ -8944,8 +8944,8 @@ app_kill_pid() {
 # [Co-developed with claude code -- Adam]
 # app_kill_pid asks pid_is_app on both sides of the signal. That is the right check when argv is
 # the identity, and it is the WRONG one here -- it would be a false success in the exact case
-# this fix exists for. A reparented JVM carries no signature of the app that launched it (round
-# 3 counted zero occurrences in either JVM), so `pid_is_app || return 0` answers "gone" the
+# this fix exists for. A reparented JVM carries no signature of the app that launched it (a
+# measurement counted zero occurrences in either JVM), so `pid_is_app || return 0` answers "gone" the
 # instant it is asked, about a process that is still running at 111% of a core.
 #
 # What identifies these pids is the channel that found them -- a process group we recorded, or a
@@ -9303,7 +9303,7 @@ app_stop() {
             sudo -n "$LAB" "$name-stop" >/dev/null 2>&1 || true
             app_wait_stopped "$name" || return 1
             # [Co-developed with claude code -- Adam]
-            # 🔴 3-51. The pidfile app_start now writes is removed HERE, on a VERIFIED stop, for
+            # 🔴 The pidfile app_start now writes is removed HERE, on a VERIFIED stop, for
             # the same reason the nsr|viz|te branch removes its own: app_started_at dates a dead
             # app by the pidfile's mtime, and the window that opens has a start and no end. Left
             # behind, it would window from a sim that stopped yesterday to now and report the
@@ -9324,7 +9324,7 @@ app_stop() {
             # 🔴 `$was`, not `$APP_STATE`. app_wait_stopped polls app_probe until it answers
             # not-running, so by the time this line runs APP_STATE has been overwritten with the
             # answer this stop just produced -- and `(was: ...)` is a claim about the state
-            # BEFORE it. Measured live 2026-09-07 (lw351, 1/1): `ndt apps stop sim` printed
+            # BEFORE it. Measured live 2026-09-07 (1/1): `ndt apps stop sim` printed
             # `ok sim stopped (was: not-running)` about a sim whose own log shows it taking
             # SIGINT one second later. The transcript said nothing was there; something was.
             ok "$name stopped (was: $was)" ;;
@@ -9619,7 +9619,7 @@ app_started_at() {
 # find", which is the honest answer for the other two sources.
 #
 # 🔴 THE EDGE IS THE LOG'S mtime, not the pidfile's. app_evidence_log is the file whoever
-# STARTED the app writes to (3-51: the helper's tree for sim, ours for nsr/viz/te), so its last
+# STARTED the app writes to (the helper's tree for sim, ours for nsr/viz/te), so its last
 # write is the last moment this machine can prove the app was doing anything. `>= start` is
 # checked because a window that ends before it begins is not a window -- app_window_read refuses
 # one for the same reason -- and because a log that never moved after the fork would otherwise
@@ -9899,7 +9899,7 @@ PY
 #   RESIDUE_BLIND      questions that could not be asked at all                -> could not look
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 3-51 adds a FIFTH, and it is deliberately not one of the four above:
+# 🔴 There is a FIFTH, and it is deliberately not one of the four above:
 #   RESIDUE_UNKNOWABLE apps whose "did it ever run here" cannot be asked at all
 # The difference from RESIDUE_BLIND follows the rule that a check which could not look may stay
 # un-red but must not look like one that looked and found nothing: BLIND is a question this
@@ -9929,7 +9929,7 @@ RESIDUE_TABLE_ROWS=""
 # from. Filled only by `cmd_apps stop`; empty for every other caller.
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 3-51. `ndt apps stop <app>` verifies the app is gone, removes its pidfile, and THEN prints
+# 🔴 `ndt apps stop <app>` verifies the app is gone, removes its pidfile, and THEN prints
 # the residue report -- so the report ran after the command had deleted the only thing that
 # could date the app, and printed "no pidfile and no live process -- no window" about the app it
 # had just stopped. That is the one moment residue matters most: the rules are on the wire and
@@ -10151,7 +10151,7 @@ residue_report() {
 
     for a in "$@"; do
         # [Co-developed with claude code -- Adam]
-        # 3-51. A window captured by cmd_apps stop BEFORE it stopped this app wins over anything
+        # A window captured by cmd_apps stop BEFORE it stopped this app wins over anything
         # readable now: a verified stop removes the pidfile, so by the time this report runs the
         # only record of when the app ran has been deleted by the command that is printing the
         # report. Empty for every other caller, which is why `apps orphans` and `--check` still
@@ -10336,7 +10336,7 @@ residue_report() {
     info "  tally: $RESIDUE_RULES dated rule(s) in a window, $RESIDUE_LOCKS lock(s) held," \
          "$RESIDUE_UNDATABLE rule(s) that could not be dated, $RESIDUE_BLIND question(s) not answerable"
     # [Co-developed with claude code -- Adam]
-    # 3-51. Printed on its own line and outside the tally above, because it is outside the exit
+    # Printed on its own line and outside the tally above, because it is outside the exit
     # code: this is the count of apps nobody can ask, not of things that went wrong.
     (( RESIDUE_UNKNOWABLE > 0 )) &&
         info "  and $RESIDUE_UNKNOWABLE app(s) could not be asked whether they ran here at all:" \
@@ -10482,10 +10482,10 @@ apps_orphans() {
         # question this whole family of failures could not answer.
         #
         # [Co-developed with claude code -- Adam]
-        # 🔴 3-51b, measured live 2026-09-07 (lw351, 1/1). app_survivors answers "which processes
+        # 🔴 Measured live 2026-09-07 (1/1). app_survivors answers "which processes
         # do these channels find", NOT "which of them is nobody tracking" -- and this verb went
         # straight from the first question to the second word. With a RUNNING sim, tracked by the
-        # pidfile 3-51 had just taught `ndt` to write, it printed:
+        # pidfile `ndt` had just been taught to write, it printed:
         #
         #     sim: children with no pidfile and no signature
         #         pid 3729217  (process group 3729217)
@@ -10511,7 +10511,7 @@ apps_orphans() {
         done
         (( ${#unnamed[@]} == 0 )) && continue
         found=$(( found + 1 ))
-        # Two headlines, because "no pidfile" is a statement of fact and it was false in lw351.
+        # Two headlines, because "no pidfile" is a statement of fact and it was false in that run.
         # A tracked app with an extra process nothing names is still worth rc 1 -- `ndt apps
         # stop` is still the remedy, and it reaches this one through the group -- but the
         # sentence has to describe what was actually found.
@@ -10549,7 +10549,7 @@ apps_orphans() {
     fi
     err "$found app(s) are running with nothing tracking them"
     # [Co-developed with claude code -- Adam]
-    # 🔴 3-51c. Printed HERE too, and it used to be printed only when nothing was found. A
+    # 🔴 Printed HERE too, and it used to be printed only when nothing was found. A
     # channel that could not look is a fact about the answer, not about the verdict: with one
     # orphan named and another channel blind, "$found" is a floor and not a count, and a reader
     # who takes it for a count stops looking at exactly the point where the tool did.
@@ -10588,7 +10588,7 @@ apps_status() {
                 printf '  %-8s %-9s %s\n' "" "" "${D}log $(human_bytes "$bytes")${N}"
             fi
             # [Co-developed with claude code -- Adam]
-            # 🔴 3-51c. The size above came out of stat(2) -- a READ, which succeeds on a file
+            # 🔴 The size above came out of stat(2) -- a READ, which succeeds on a file
             # this user could never truncate -- and the row above then names `ndt apps trim`
             # without ever asking whether that verb can do anything here. For every
             # helper-started sim it cannot: `sudo ndtwin-lab sim-start` wrote the log as root.
@@ -10625,7 +10625,7 @@ apps_trim() {
             continue
         fi
         # [Co-developed with claude code -- Adam]
-        # 🔴 3-51c. Asked BEFORE the tail is written, and not discovered by the truncate below
+        # 🔴 Asked BEFORE the tail is written, and not discovered by the truncate below
         # failing. The old order kept 1 MB into <log>.tail and only then found out it could not
         # truncate: a file created, a byte count unchanged, and a message that named the
         # failure without naming either its cause or the one command that fixes it.
@@ -10690,7 +10690,7 @@ cmd_apps() {
             # three of five and reported the same code it would have reported for zero of five.
             local a arc awin n_fail=0 n_noop=0 n_stopped=0
             # [Co-developed with claude code -- Adam]
-            # 🔴 3-51. Every target is dated BEFORE the loop, because app_stop destroys the
+            # 🔴 Every target is dated BEFORE the loop, because app_stop destroys the
             # record it is dated by: a verified stop removes the pidfile (both branches do, for
             # the reason written at each), and app_started_at's live-process source dies with
             # the process. Without this the residue report below always printed "no window" for

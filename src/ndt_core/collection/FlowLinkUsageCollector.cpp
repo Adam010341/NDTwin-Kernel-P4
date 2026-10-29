@@ -2860,7 +2860,6 @@ FlowLinkUsageCollector::setAllPaths(std::vector<sflow::Path> allPathsVector)
     // refreshDestinationPathsPeriodically calling this every 5-60 seconds for the life of the
     // process, get_path_switch_count would keep answering from a route that no longer exists.
     // Same shape as the Classifier's empty-table bug: a snapshot that only ever added.
-    // Found by agy-review 0073.
     m_allPathMap.clear();
     m_switchCountMap.clear();
 
@@ -2874,7 +2873,7 @@ FlowLinkUsageCollector::setAllPaths(std::vector<sflow::Path> allPathsVector)
         // switchCount line below already guards on size, so the sizes were known to vary.
         //
         // Skipped rather than rejected wholesale: one unusable path in a snapshot of hundreds
-        // should not discard the rest. Found by agy-review 0110.
+        // should not discard the rest.
         if (path.empty())
         {
             SPDLOG_LOGGER_WARN(Logger::instance(),
@@ -3037,7 +3036,7 @@ FlowLinkUsageCollector::fetchAllDestinationPaths()
 // setAllPath (singular) was removed here. It had no callers -- only a declaration and a definition
 // -- and it wrote m_allPathMap while leaving m_switchCountMap untouched, so the first caller to use
 // it would have made getSwitchCount answer from a path it no longer matched. Dead code carrying a
-// trap. Found by agy-review 0073.
+// trap.
 
 std::vector<uint32_t>
 FlowLinkUsageCollector::getAllHostIps()

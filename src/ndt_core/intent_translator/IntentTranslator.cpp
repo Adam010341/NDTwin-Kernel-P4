@@ -210,7 +210,7 @@ IntentTranslator::getSwitchIpByName(const std::string &switchName)
         return std::nullopt;
     }
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #88, W14. `vertex.ip[0]` is the SAME undefined behaviour as `ip.front()`, only
+    // `vertex.ip[0]` is the SAME undefined behaviour as `ip.front()`, only
     // spelled differently: libstdc++'s operator[] is `*(_M_start + n)`, and a default-constructed
     // std::vector has _M_start == nullptr, so the subscript binds a reference to a null pointer.
     // VertexProperties::ip starts empty and there is no invariant in this file that says it does
@@ -669,7 +669,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
             {
                 const auto& vprop = (graph)[*vi];
                 // [Co-developed with claude code -- Adam]
-                // FINDINGS #88, W14. Both branches read `vprop.ip[0]` with no emptiness check;
+                // Both branches read `vprop.ip[0]` with no emptiness check;
                 // see getSwitchIpByName above for why the subscript is the same undefined
                 // behaviour as front(). The HOST branch is the reachable one: this loop filters
                 // on vertexType and nothing else, and the invariant that keeps `ip` non-empty is
@@ -734,7 +734,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 const auto& vprop = (graph)[*vi];
                 if (vprop.vertexType == VertexType::HOST) {
                     // [Co-developed with claude code -- Adam]
-                    // FINDINGS #88, W14. Same site, same reason, as the HOST branch of
+                    // Same site, same reason, as the HOST branch of
                     // GET_NETWORK_TOPOLOGY above: `vprop.ip[0]` on a host whose address list is
                     // empty is a null-pointer dereference, and this loop reaches every HOST in
                     // the graph. `null` rather than a fabricated address, and the host still

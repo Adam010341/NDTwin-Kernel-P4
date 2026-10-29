@@ -62,7 +62,7 @@ kernel_reachable() {
 # 4-host P4 model. The fabric it runs against is whatever `ndt up` last built. On the night of
 # 2026-09-02 that was the 128-host model, so L2/L3 compared a 128-host fabric against a 4-host
 # file and reported `host count is 128, topology file says 4` / `edge count is 288, topology
-# file says 40` (raw/C39_r5_triage.log:5-9). The suite went red on a healthy system.
+# file says 40`. The suite went red on a healthy system.
 #
 # That red is not just noise: `doc/audit/2026-08-30_live-full-stack-round/harness/40_r5_p4.sh:336`
 # greps this run's output for the literal `BROKEN` and reads it as evidence about **A-8** -- so
@@ -130,16 +130,16 @@ PY
 
 # --- ask the kernel, rather than deriving behind its back --------------------------------
 #
-# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-15, DECISIONS.md grill §4E E-2.
+# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-15.
 #
 # Everything above derives the model from the fabric. That is a better guess than the configured
 # default was, and it is still a guess: it reads the number of host namespaces and looks for a
 # model of that size. `setting/` holds more than one model with the same ten dpids and the same
 # 10 switch / 4 host / 40 edge cardinality, so a fabric built from model A validated against
 # model B is green **by construction** -- every per-node identity check passes because the
-# numbers agree. The suite could not know what it was testing (fix/R2-PY-SUMMARY.md §7-3).
+# numbers agree. The suite could not know what it was testing.
 #
-# The kernel knows. It opened one file, and since E-2 it reports which, together with the sha256
+# The kernel knows. It opened one file, and it now reports which, together with the sha256
 # of the bytes it read. So: ask first, derive only when it does not answer.
 #
 # 🔴 The digest is the point, not the path. A model edited after the kernel loaded it is the
@@ -208,13 +208,14 @@ kernel_model_is_confirmed() {
 
 # topo_from_kernel -- the model the KERNEL says it loaded. Path on stdout, notes on stderr.
 #   rc 0  the kernel named a file, and the bytes on disk still hash to what it loaded
-#   rc 1  the kernel did not say -- unreachable, or built before E-2. The caller derives, and
+#   rc 1  the kernel did not say -- unreachable, or built before it reported this. The caller
+#         derives, and
 #         must say that it is deriving
 #   rc 3  the kernel named a file this run cannot confirm it is still serving -- refuse
 #
-# 🔴 A kernel built before E-2 (baseline 28b8b13) serves none of the three keys. Missing means
+# 🔴 A kernel built before that (baseline 28b8b13) serves none of the three keys. Missing means
 # "the kernel did not say", never "there is nothing to check": the caller falls back to the
-# derivation and prints that it is guessing. Aborting instead would take every pre-E-2 kernel
+# derivation and prints that it is guessing. Aborting instead would take every older kernel
 # out of the harness, which is the widening this gate's M6 exists to catch.
 topo_from_kernel() {
     local said path sha local_sha
@@ -265,7 +266,7 @@ topo_for_mode() {
         return 0
     fi
 
-    # [Co-developed with claude code -- Adam] -- E-2. The kernel first; the derivation below is
+    # [Co-developed with claude code -- Adam] The kernel first; the derivation below is
     # the fallback for a kernel that cannot answer, not the primary answer.
     from_kernel="$(topo_from_kernel)"; krc=$?
     if [[ "$krc" -eq 0 ]]; then
@@ -394,7 +395,7 @@ mark_log() {
 # last generation of allowlist noise got where it did.
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 2026-09-11 (FIX-NDT-4 #16, recon-B item 13): the pids come from the REGISTRY, not from a
+# 🔴 2026-09-11: the pids come from the REGISTRY, not from a
 # name. This line was `pgrep -x ndtwin_kernel`, and while `-x` matches comm rather than the whole
 # command line -- the narrow end of that family -- it is still "find the process by what it is
 # called", and what it finds here decides whether a whole layer reports on a live log or a stale

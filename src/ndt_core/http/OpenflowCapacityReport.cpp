@@ -1,6 +1,6 @@
 // [Co-developed with claude code -- Adam]
 //
-// W17: the numbers GET /ndt/get_openflow_capacity serves, each with the provenance that makes it
+// The numbers GET /ndt/get_openflow_capacity serves, each with the provenance that makes it
 // worth serving. The reasoning is in the header; this file is the mechanism.
 //
 // It is a separate translation unit from HttpSession.cpp on purpose. HttpSession.cpp costs about

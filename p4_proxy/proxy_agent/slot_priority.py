@@ -5,10 +5,10 @@ The priority each ipv4_lpm slot was last written with, so a destination-only mod
 
 ipv4_lpm has no priority column and holds one entry per destination ("slot"), so a priority on
 a destination-only modify cannot select an entry by itself. The 2026-09-03 decision
-(doc/audit/2026-09-03_night-rounds/DECISION-P4-PRIORITY.md §2) therefore refused every named
-priority there with 501: measured that day, a modify at 777 rewrote an entry nobody had named.
+therefore refused every named priority there with 501: measured that day, a modify at 777
+rewrote an entry nobody had named.
 
-Adam's 2026-10-16 ruling amends that for one case. The proxy remembers, per slot, the priority
+A 2026-10-16 change amends that for one case. The proxy remembers, per slot, the priority
 the entry in it was last written with -- CONTROL_PLANE_ROUTE_PRIORITY for the proxy's own routes
 (the refill and the A-4d restore), the requested priority for an application's install -- and a
 destination-only modify naming exactly that priority names the entry it names on OVS, so it is

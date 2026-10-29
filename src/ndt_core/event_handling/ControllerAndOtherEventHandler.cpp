@@ -3,7 +3,7 @@
 #include "nlohmann/json.hpp" // for json
 #include "spdlog/spdlog.h"
 #include "utils/Logger.hpp"
-// [Co-developed with claude code -- Adam] FINDINGS #47: setCloseOnExec() for the descriptors
+// [Co-developed with claude code -- Adam] setCloseOnExec() for the descriptors
 // Boost.Asio hands us inheritable, and the /proc lookup behind the bind-failure message.
 #include "utils/FdHygiene.hpp"
 #include "utils/Utils.hpp"
@@ -89,7 +89,7 @@ std::unique_ptr<tcp::acceptor>
 ControllerAndOtherEventHandler::openApiAcceptor(net::io_context& ioc, unsigned short port)
 {
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #47. The construction is unchanged; what is new is the two lines after it. Asio
+    // The construction is unchanged; what is new is the two lines after it. Asio
     // gives us a descriptor it made with a bare ::socket(), which is inheritable, and this
     // process forks a shell on its 1 Hz poll. Marking it here -- at the single place an acceptor
     // is created -- is what keeps a `curl` started three seconds from now from holding :8000
@@ -310,7 +310,7 @@ ControllerAndOtherEventHandler::doAccept()
             SPDLOG_LOGGER_INFO(Logger::instance(), "Accepted new connection");
 
             // [Co-developed with claude code -- Adam]
-            // FINDINGS #47. Asio accepts with ::accept(), not accept4(SOCK_CLOEXEC), so this
+            // Asio accepts with ::accept(), not accept4(SOCK_CLOEXEC), so this
             // descriptor is inheritable until somebody says otherwise. Before the session is
             // handed the socket, because the handlers this session dispatches to are the ones
             // that fork a shell.

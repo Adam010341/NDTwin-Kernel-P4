@@ -18,8 +18,8 @@
  * Leading underscore because it is internal: DeviceConfigurationAndPowerManager::getOpenFlowTables
  * strips it before serving, so it never reaches a consumer and no consumer can come to depend on
  * it. Declared here, next to the token it names, so the writer (HttpSession), the stamper and the
- * filter cannot drift apart on a spelling -- a mismatch would silently disable the filter, which
- * is the failure this whole ticket is about.
+ * filter cannot drift apart on a spelling -- a mismatch would silently disable the filter, and
+ * every pending row would be served as programmed again.
  */
 inline constexpr const char* kPendingTokenField = "_ndt_pending_token";
 
@@ -71,7 +71,7 @@ struct FlowJob {
      * an identity that survives the trip.
      *
      * **The match does not, and neither does the priority.** Measured 2026-08-30: every entry is
-     * programmed at priority 0 whatever was requested (FINDING-07), and the cached copy carries
+     * programmed at priority 0 whatever was requested, and the cached copy carries
      * the caller's field vocabulary (`ipv4_dst`) while a polled one carries the switch's
      * (`nw_dst`). Matching a pending entry against a confirmation by comparing its *contents*
      * would therefore be comparing two different spellings of two different values.
@@ -92,7 +92,7 @@ struct FlowJob {
      *
      * [Co-developed with claude code -- Adam]
      *
-     * W11, from R6 K-4. `get_flow_dispatch_status` is the only programmatic read-back the flow
+     * `get_flow_dispatch_status` is the only programmatic read-back the flow
      * endpoints name in their own 200 body, and its counters are process-wide totals: a caller
      * reading them before and after its own POST is measuring every other writer as well. The
      * manual said so in as many words when the endpoint was first documented (§42, limit 1), and
@@ -106,10 +106,10 @@ struct FlowJob {
      *
      * Distinct from `token`: a token is minted per *install* and exists to link an optimistic
      * cache row to its confirmation (T-11), so modifies and deletes have none. Every accepted job
-     * of a batch carries the batch's request id, including deletes -- K-4 is a delete.
+     * of a batch carries the batch's request id, including deletes.
      *
      * 0 means "not from a tokened HTTP batch": a job built in a test, or by a caller predating
-     * W11. Such a job is counted in the global totals only.
+     * request ids. Such a job is counted in the global totals only.
      */
     uint64_t requestId = 0;
 };

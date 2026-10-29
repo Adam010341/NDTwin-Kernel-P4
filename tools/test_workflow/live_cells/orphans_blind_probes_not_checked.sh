@@ -28,7 +28,7 @@ cell_observe() {
     # tests/shell/test_orphans_verdict.sh, so the two instruments cannot drift apart -- and that
     # suite now CHECKS its synthetic fixtures' sentences against ndt's source, which is what
     # caught this text still saying `network residue` and `the residue question` on 2026-09-12,
-    # a day after FIX-NDT-9 renamed that half to `rules-in-window`. The rename changes nothing
+    # a day after that half was renamed to `rules-in-window`. The rename changes nothing
     # this cell judges (the verdict comes from the tally and the process half, and NOTE-WHY
     # matches `NOT CHECKED` either way) -- which is precisely why nothing went red for a day.
     cat > "$d/orphans.txt" <<'EOF'

@@ -6,14 +6,13 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: ROLE-1, live on an OVS 4-host fabric 2026-09-11 00:55-00:59, 3 reproductions of 3.
-# Round 3 was the isolating control: an edge that had NEVER been declared (`is_up:True`,
+# Source: live on an OVS 4-host fabric 2026-09-11 00:55-00:59, 3 reproductions of 3.
+# The third was the isolating control: an edge that had NEVER been declared (`is_up:True`,
 # `down_reason:"none"`) with a hand-attached `netem loss 100%` on s1-eth1 -- and the endpoint
 # still ran `qdisc del dev s1-eth1 root` and reported
 #   {"status":"link recovery injected","tc":[{"command":"qdisc del dev s1-eth1 root",
 #    "detached_at":"root","interface":"s1-eth1","ok":true, ...}]}   http_code=200
-# Nothing in the reply or in kernel.log questioned whose qdisc it had been
-# (logs/ROLE-1/07-inject-recovery.log, 08-tc-after-recovery.log).
+# Nothing in the reply or in kernel.log questioned whose qdisc it had been.
 # Fix: 0b928fe6 (InjectedNetemLedger + read-both-ends-before-writing), merged in 6c4000eb.
 #
 # 🔴 The netem this cell attaches is DELIBERATELY foreign: attached by hand at the attach point
@@ -74,7 +73,7 @@ cell_judge() {
     a_eq    a1r_http_is_409           "409"  "$(cat "$d/recovery.code" 2>/dev/null)"
     a_has   a1r_body_names_foreign_netem     'netem_not_ours'             "$d/recovery.body"
     a_has   a1r_body_says_nothing_changed    'Nothing was changed'        "$d/recovery.body"
-    # The pre-fix reply, verbatim from ROLE-1: the command it ran and the claim it made.
+    # The pre-fix reply, verbatim: the command it ran and the claim it made.
     a_hasnt a1r_no_qdisc_was_deleted         'qdisc del dev s1-eth1 root' "$d/recovery.body"
     a_hasnt a1r_did_not_claim_a_recovery     'link recovery injected'     "$d/recovery.body"
     # 🔴 The wire, not just the reply. This is the assertion the 200 could not have satisfied.

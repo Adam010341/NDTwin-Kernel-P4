@@ -130,15 +130,14 @@ HttpSession::handleRequest()
 //
 // [Co-developed with claude code -- Adam]
 //
-// doc/KNOWN-ISSUES.md G-32. Measured 2026-09-11 02:01:16-02:02:45 (ROLE-4 T4, written up in
-// scratch/overnight-2026-09-05/fix/FIX-NDT-3-SUMMARY.md section 7-1): a loop firing
+// doc/KNOWN-ISSUES.md G-32. Measured 2026-09-11 02:01:16-02:02:45: a loop firing
 // install_flow_entry and delete_flow_entry every two seconds got 200 through the second in which
 // its OWN claim expired, and went on getting 200 after a different owner took the claim, until
 // that owner tore the kernel down and the writes started answering 000. Neither end was told the
 // lab had changed hands, and the writes had already landed by the time anything was observable.
 //
-// 🔴 NOTHING IN HERE MAY REFUSE A REQUEST. Adam's ruling of 2026-09-11 picked option C of the
-// three that write-up put up: not option A (409 on a foreign claim), whose cost 2 is that every
+// 🔴 NOTHING IN HERE MAY REFUSE A REQUEST. Of the three options weighed on 2026-09-11 this is
+// option C: not option A (409 on a foreign claim), one of whose costs is that every
 // existing client -- tools/contract_test, tools/test_workflow/run_layers.sh, the four-round
 // tester's manual commands, Energy-Saving-App, TE-App -- would have to start carrying an
 // identity, and every client that does not would be cut off at once, in the week the manual is
@@ -260,7 +259,7 @@ labClaimLedger()
 // router would actually have routed.
 //
 // modify_device_name, modify_nickname and set_switches_power_state are left out on purpose and
-// that is a judgement, written down in this ticket's SUMMARY section 4: they write the kernel's
+// that is a judgement: they write the kernel's
 // own configuration, not the fabric, and G-32 is about two owners programming one fabric.
 bool
 isLabClaimBearingWrite(http::verb method, std::string_view target)
@@ -370,7 +369,7 @@ HttpSession::buildResponse()
             handleGetSwitchOpenflowEntries(*response);
         }
         // [Co-developed with claude code -- Adam]
-        // W11: was an exact compare, so `?request_id=12` fell through every branch and answered
+        // This was an exact compare, so `?request_id=12` fell through every branch and answered
         // 404 -- the same defect utils::pathIs was extracted for on get_detected_flow_data. No
         // route can collide: no other target begins with this path.
         else if (method == http::verb::get &&
@@ -501,7 +500,7 @@ HttpSession::buildResponse()
         {
             handleGetAvgLinkUsage(*response);
         }
-        // [Co-developed with claude code -- Adam] Round 4 lead 5(b): this path answered 404, and
+        // [Co-developed with claude code -- Adam] This path used to answer 404, and
         // so did every other name a consumer might try for the four sFlow drop counters.
         else if (method == http::verb::get && utils::pathIs(target, "/ndt/get_sflow_stats"))
         {
@@ -755,7 +754,7 @@ HttpSession::closeSocket()
 }
 
 // [Co-developed with claude code -- Adam]
-// doc/KNOWN-ISSUES.md B-6 (W8-7). The four link-transition endpoints address a link by the two
+// doc/KNOWN-ISSUES.md B-6. The four link-transition endpoints address a link by the two
 // dpids at its ends, and the shared refusal they all owe a caller who names dpid 0.
 namespace
 {
@@ -765,8 +764,8 @@ namespace
  *        four endpoints can act on.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-6 §7-7, F-16, Adam's ruling of 2026-09-06 ("host edges are not addressed
- * by this endpoint"). A host vertex carries dpid 0, and findEdgeBySrcAndDstDpid matches on the two
+ * doc/KNOWN-ISSUES.md B-6 and F-16: host edges are not addressed by this endpoint (decided
+ * 2026-09-06). A host vertex carries dpid 0, and findEdgeBySrcAndDstDpid matches on the two
  * dpids ALONE -- so `{"src_dpid":1,"dst_dpid":0}` resolves to whichever host edge of s1 the graph
  * happens to iterate first. Three separate things are wrong with letting that through and only the
  * first is obvious:
@@ -836,7 +835,7 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
     // failed" from "the poll's own opinion", so the next updateLinks lifted it back. See
     // TopologyAndFlowMonitor.hpp for the writer split.
     //
-    // W8b: ...ByReportedFailure, not ...ByDeclaration. THIS endpoint is Ryu's notification, so a
+    // ...ByReportedFailure, not ...ByDeclaration. THIS endpoint is Ryu's notification, so a
     // call to it is the control plane saying it SAW the break -- and that note is what the matching
     // /ndt/link_recovery_detected later pairs with. /ndt/inject_link_failure calls the plain
     // declaration writer instead, which is what makes an injection immune to a Ryu restart.
@@ -881,7 +880,7 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
 }
 
 // [Co-developed with claude code -- Adam]
-// WAKEUP.md §3-52, Adam's ruling E-22 (2026-09-07): the recovery log has to carry the OUTCOME.
+// The recovery log has to carry the OUTCOME.
 namespace
 {
 
@@ -898,12 +897,12 @@ enum class RecoveryLogOutcome
  * @brief Say what this recovery report actually did -- one sentence per outcome, once it is known.
  *
  * [Co-developed with claude code -- Adam]
- * WAKEUP.md §3-52. Until 2026-09-07 this was a single
+ * Until 2026-09-07 this was a single
  * `SPDLOG_LOGGER_INFO("link recovered on {}:{} -> {}:{}")` printed BEFORE
  * findEdgeBySrcAndDstDpid and before the pairing rule ran, so all three outcomes logged the same
  * sentence -- and that sentence asserted the one outcome a reader cares about.
  *
- * 🟢 MEASURED, arm `lw8b2` 2026-09-07 (scratch/overnight-2026-09-05/logs/lw8b2-kernel.log): the
+ * 🟢 MEASURED 2026-09-07: the
  * manual POST the pairing rule DECLINED logged `link recovered on 1:1 -> 5:1` at 04:33:37.198, and
  * the two reports Ryu sent a second later, which were APPLIED, logged the identical line at
  * 04:33:38.131 and .142. Only the reply body told them apart, and the reply body is not what
@@ -1001,9 +1000,9 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
         return;
     }
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-6, and W8b changed which call this is. It used to be
+    // doc/KNOWN-ISSUES.md B-6. It used to be
     // `clearEdgeDeclaredDown(e); setEdgeUp(e);` -- an unconditional withdrawal, which made a Ryu
-    // restart end every standing injection in the fabric (measured, lw8b 2026-09-07 00:08: within
+    // restart end every standing injection in the fabric (measured 2026-09-07 00:08: within
     // one second of Ryu coming back the kernel logged a recovery POST for every link, and the
     // declaration was gone in 9 of 9 samples). One call now, and it withdraws only when this
     // report pairs with a failure the control plane reported. See applyReportedLinkRecovery.
@@ -1016,7 +1015,7 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
         // Same shape and same reasoning as handleLinkFailure above: edges exist in pairs, so a
         // missing reverse is kernel-state inconsistency, and by now the forward direction has
         // already been acted on -- report the half that happened. [Co-developed with claude code -- Adam]
-        // W8b: "applied" rather than "marked up", because the forward direction may have kept a
+        // "applied" rather than "marked up", because the forward direction may have kept a
         // declaration this report could not pair with. Saying "marked up" would be this branch
         // reporting the outcome it assumed rather than the one it got.
         SPDLOG_LOGGER_WARN(Logger::instance(),
@@ -1038,7 +1037,7 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     const auto revOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(revOpt.value());
 
     // [Co-developed with claude code -- Adam]
-    // §3-52. THE OUTCOME IS KNOWN HERE AND NOWHERE EARLIER, so this is where it is logged. One
+    // THE OUTCOME IS KNOWN HERE AND NOWHERE EARLIER, so this is where it is logged. One
     // line per request rather than per direction: a report names a link, and a link whose two
     // directions ended differently is kernel state gone inconsistent, not something to narrate
     // twice. Retained wins the tie, because "still down" is the half an operator must act on.
@@ -1047,7 +1046,7 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     const auto logged = retained ? RecoveryLogOutcome::Retained : RecoveryLogOutcome::Withdrawn;
     logLinkRecoveryOutcome(logged, srcDpid, srcInterface, dstDpid, dstInterface);
 
-    // doc/KNOWN-ISSUES.md B-6 (W8b). Still 200 -- the notification WAS processed, and Ryu's
+    // doc/KNOWN-ISSUES.md B-6. Still 200 -- the notification WAS processed, and Ryu's
     // on_link_add logs "NDT REJECTED this notification ... the kernel's view is now stale" on any
     // 4xx, which would be false here and would fire once per link on every controller restart.
     // But 200 with the default body would be the older, worse lie: a caller reading only the
@@ -1155,7 +1154,7 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     if (m_mode != utils::DeploymentMode::MININET)
     {
         // The declaration stands either way; what is skipped is the half the twin has no means to
-        // perform. Adam's ruling of 2026-09-05: "the physical lab gets C only."
+        // perform: on the physical lab only the declaration is made.
         body["tc"] = "skipped (not MININET)";
         res.body() = body.dump();
         SPDLOG_LOGGER_INFO(Logger::instance(),
@@ -1170,11 +1169,11 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     const std::string dstIface = mininetIfaceFor(graph, data->dstDpid, data->dstInterface);
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-16, second finding (ROLE-1 2026-09-11, 2 of 2). This was a loop that
-    // called cutInterface once per end and CARRIED ON past a refusal: with somebody else's netem
-    // already on s1-eth1, that end was refused, `netem loss 100%` really went onto s5-eth1, and
-    // the reply was 200 `"status":"link failure injected"` with both directions declared. Loss on
-    // BOTH ends is the whole point -- faults.txt L-2 records why one end is its own fault type:
+    // doc/KNOWN-ISSUES.md B-16, second finding (2026-09-11, 2 reproductions of 2). This was a loop
+    // that called cutInterface once per end and CARRIED ON past a refusal: with somebody else's
+    // netem already on s1-eth1, that end was refused, `netem loss 100%` really went onto s5-eth1,
+    // and the reply was 200 `"status":"link failure injected"` with both directions declared. Loss
+    // on BOTH ends is the whole point -- faults.txt L-2 records why one end is its own fault type:
     // unidirectional loss kills LLDP in one direction only and leaves the control plane's graph
     // permanently asymmetric -- so "both or neither" is what cutLinkEnds enforces, rollback
     // included.
@@ -1218,7 +1217,7 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
         res.body() = R"({"error":"Invalid link-failure payload"})";
         return;
     }
-    // W8-7, the fourth door. The ruling named the failure endpoints, and this one is refused with
+    // The fourth door. The rule was written for the failure endpoints, and this one is refused with
     // them because the family's contract is what is being fixed: a payload this endpoint accepts
     // but its failure sibling refuses is a link nobody could have injected and an interface this
     // endpoint would still run `tc qdisc del` against. [Co-developed with claude code -- Adam]
@@ -1251,9 +1250,9 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
     }
 
     // [Co-developed with claude code -- Adam]
-    // 🔴 doc/KNOWN-ISSUES.md B-16 (ROLE-1 2026-09-11, 3 of 3). THE WIRE IS READ BEFORE ANYTHING
-    // IS WRITTEN, and that ordering is the fix rather than a tidiness. What this endpoint used to
-    // do, in this order, was: withdraw the declaration unconditionally, then `tc qdisc del`
+    // 🔴 doc/KNOWN-ISSUES.md B-16 (2026-09-11, 3 reproductions of 3). THE WIRE IS READ BEFORE
+    // ANYTHING IS WRITTEN, and that ordering is the fix rather than a tidiness. What this endpoint
+    // used to do, in this order, was: withdraw the declaration unconditionally, then `tc qdisc del`
     // whatever netem the tree happened to show. For a link nobody had declared down, carrying
     // somebody else's `netem loss 100%`, that deleted their fault and answered 200 `ok:true`.
     //
@@ -1319,7 +1318,7 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
         }
     }
 
-    // W8b: the UNCONDITIONAL withdrawal, and the only one left. /ndt/link_recovery_detected now
+    // The UNCONDITIONAL withdrawal, and the only one left. /ndt/link_recovery_detected now
     // withdraws a declaration only when it pairs with a reported break; this endpoint is the
     // operator taking their own injection back, so it needs no agreement from the control plane --
     // and it is the endpoint the caller is pointed at when the other one declines.
@@ -1395,13 +1394,13 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
     result["nodes"] = json::array();
     result["edges"] = json::array();
     // [Co-developed with claude code -- Adam]
-    // doc/audit/2026-09-03_night-rounds round 6, finding N1. Read BEFORE the graph, so the verdict
+    // Read BEFORE the graph, so the verdict
     // cannot describe a later round than the nodes and edges below it: the poll thread may finish
     // a round while this loop runs, and a graph labelled with a fresher round's verdict is a worse
     // lie than a stale label. Additive top-level key; GRAPH_DATA is a non-strict Obj.
     result["topology_round"] = m_topologyAndFlowMonitor->pollRoundJson();
 
-    // [Co-developed with claude code -- Adam] -- E-2 (DECISIONS.md, grill §4E).
+    // [Co-developed with claude code -- Adam]
     // Which model this kernel is serving, so a consumer stops having to infer it. Three
     // additive top-level keys -- topology_file, topology_sha256, topology_loaded_at -- merged
     // flat rather than nested, because the one consumer this is for reads them with a shell
@@ -1409,7 +1408,7 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
     // nothing but a level of path.
     //
     // Merged rather than assigned, and the monitor returns an EMPTY object when nothing has
-    // loaded: a kernel with no topology serves exactly the keys a pre-E-2 kernel serves, and
+    // loaded: a kernel with no topology serves exactly the keys a kernel predating them serves, and
     // "absent" keeps its one meaning -- the kernel did not say. See
     // TopologyAndFlowMonitor::loadedTopologyJson.
     result.update(m_topologyAndFlowMonitor->loadedTopologyJson());
@@ -1627,7 +1626,7 @@ HttpSession::handleGetSwitchOpenflowEntries(http::response<http::string_body>& r
 }
 
 // [Co-developed with claude code -- Adam]
-// W11. The sentence that has to appear next to every `unknown`, in the body rather than only in
+// The sentence that has to appear next to every `unknown`, in the body rather than only in
 // the manual. A permanently-unknown field that does not say why it is unknown is read as "checked,
 // nothing wrong" -- it is an instrument shaped like its own finding, and this endpoint already
 // shipped one number (`succeeded`) that was read as an answer to a question it never asked.
@@ -1641,14 +1640,14 @@ static const char* const kWhySwitchOutcomeUnknown =
     "succeeded is still unknown at the switch here";
 
 // [Co-developed with claude code -- Adam]
-// W11. Both bodies emit the same two groups, so they are built once. Sharing them is not tidiness:
+// Both bodies emit the same two groups, so they are built once. Sharing them is not tidiness:
 // the whole point of the per-request answer is that a caller can compare it with the global one,
 // and two spellings of the same counters is how those two stop meaning the same thing.
 static json
 dispatchCountersJson(uint64_t dispatched, uint64_t dispatchedOk, uint64_t dispatchFailed)
 {
     return json{{"dispatched", dispatched},
-                // Renamed from `succeeded` on 2026-09-06 (W11, #54). It counts requests this
+                // Renamed from `succeeded` on 2026-09-06. It counts requests this
                 // kernel handed over and the far end did not refuse -- never rules on a switch.
                 {"dispatched_ok", dispatchedOk},
                 {"dispatch_failed", dispatchFailed}};
@@ -1664,7 +1663,7 @@ switchOutcomeJson(uint64_t accepted, uint64_t rejected, uint64_t unknown)
 }
 
 // [Co-developed with claude code -- Adam]
-// W11 / R6 K-4. `?request_id=<id>` answers for one POST instead of for the process. Split out of
+// `?request_id=<id>` answers for one POST instead of for the process. Split out of
 // the handler below so the two answers cannot drift into different key names, and so the parse
 // failure is answered here rather than by the outermost catch -- `?request_id=abc` through
 // std::stoull is a 500, which is the defect test_HttpSessionRouting exists for.
@@ -1756,7 +1755,7 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Flow Dispatch Status");
 
-    // [Co-developed with claude code -- Adam] W11 / R6 K-4.
+    // [Co-developed with claude code -- Adam]
     if (const std::string raw = utils::queryParam(m_req.target(), "request_id"); !raw.empty())
     {
         respondToDispatchStatusRequestId(res, raw);
@@ -1774,8 +1773,7 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
                                 {"dpid", rec.dpid},
                                 // Named "requested" because it is not necessarily what was
                                 // programmed: measured 2026-08-30, the southbound programs every
-                                // entry at priority 0 whatever was asked for. See
-                                // doc/audit/2026-08-30_live-traffic-round/FINDING-07_*.
+                                // entry at priority 0 whatever was asked for.
                                 {"requested_priority", rec.requestedPriority},
                                 {"match", rec.match},
                                 {"controller_status", rec.controllerStatus},
@@ -1783,7 +1781,7 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
     }
 
     // [Co-developed with claude code -- Adam]
-    // W11 (#54). `succeeded`/`failed` are GONE from this body, renamed to `dispatched_ok`/
+    // `succeeded`/`failed` are GONE from this body, renamed to `dispatched_ok`/
     // `dispatch_failed`. The values are unchanged and always were correct; the names were not.
     // Measured 2026-09-05: the same match installed 20 times moved `succeeded` by +20 while the
     // switch gained one row, and 15 deletes of a match that had never existed moved it by another
@@ -1809,7 +1807,7 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
     json body{
         {"counters", std::move(counters)},
         // [Co-developed with claude code -- Adam]
-        // W11's B half: the second group, answering "what is known about the switch" rather than
+        // The second group, answering "what is known about the switch" rather than
         // "what is known about the dispatch". It partitions the same jobs -- accepted_by_switch +
         // rejected_by_switch + unknown == counters.dispatched -- and is deliberately NOT folded
         // into counters, whose own closure (dispatched == dispatched_ok + dispatch_failed) is the
@@ -1824,7 +1822,7 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
         // description of this endpoint for longer than anyone's deployment lag.
         {"renamed_keys",
          {{"succeeded", "counters.dispatched_ok"}, {"failed", "counters.dispatch_failed"}}},
-        // W11 / R6 K-4. What GET ...?request_id=<id> can still answer for, so a caller can tell
+        // What GET ...?request_id=<id> can still answer for, so a caller can tell
         // "my id is a typo" from "I asked too late".
         {"request_ids_tracked", outcomes.requestsTracked()},
         {"request_ids_capacity", outcomes.requestCapacity()},
@@ -1844,9 +1842,9 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
         // exactly one such call site in the kernel (processFlowBatch, below), fed by the four
         // routes named here. It is NOT "entries this fabric has programmed": on a warm fabric
         // with 1280 forwarding rules already installed, `dispatched` reads 0. That is not a
-        // fault, and it was mis-registered as one -- the A-7 round predicted `dispatched` would
-        // exceed the POSTed count "because other subsystems enqueue too" and the live run
-        // refuted it (doc/audit/2026-08-30_a7-dispatch-visibility/FINDINGS.md:26-33).
+        // fault, and it was mis-registered as one -- the A-7 work predicted `dispatched` would
+        // exceed the POSTed count "because other subsystems enqueue too" and a live run on
+        // 2026-08-31 refuted it.
         //
         // The two exclusions are structural, not oversights:
         //  - boot-time programming runs in a DIFFERENT PROCESS in both fabrics -- the Ryu app
@@ -1858,7 +1856,7 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
         //  - IntentTranslator::performTask calls FlowRoutingManager directly (four sites), so
         //    LLM-driven writes bypass the dispatcher and this log. Counting them is reachable
         //    but needs IntentTranslator to be handed the DispatchOutcomeLog, which changes its
-        //    constructor and its ownership graph; that is a separate ticket.
+        //    constructor and its ownership graph; that is separate work.
         {"counters_cover",
          {{"dispatch_routes",
            json::array({"/ndt/install_flow_entry",
@@ -2324,8 +2322,8 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     //
     // Only installs are tokened, because only installs add a row. A refused modify or delete
     // corrupts the cache differently -- it shows a mutation, or a removal, that never reached the
-    // switch -- and that is the mirror of this defect rather than this defect. Registered, not
-    // silently folded in: see the ticket's "not covered" section.
+    // switch -- and that is the mirror of this defect rather than this defect. That case is not
+    // handled here.
     static std::atomic<uint64_t> s_nextPendingToken{1};
     json annotatedInstalls = ins;
     for (auto& e : annotatedInstalls)
@@ -2387,7 +2385,6 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     //
     // A batch where *nothing* is applicable still answers 404: 200 with accepted == 0 would tell a
     // caller that only reads the status code that its request was fine when not one entry landed.
-    // See doc/audit/2026-08-08_external-tools-compat-review.md for the client-by-client evidence.
     auto partition = partitionFlowBatchByKnownDpid(
         std::move(jobs),
         [this](uint64_t dpid) { return m_topologyAndFlowMonitor->getSwitchKind(dpid).has_value(); });
@@ -2442,7 +2439,7 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     }
 
     // [Co-developed with claude code -- Adam]
-    // W11, from R6 K-4. One id per batch, stamped on every accepted job and returned in the 200
+    // One id per batch, stamped on every accepted job and returned in the 200
     // body, so the caller can ask `get_flow_dispatch_status?request_id=<id>` about its own POST
     // instead of about the process. Without it the only read-back this body names is a set of
     // global totals that a concurrent writer moves as well -- measured 2026-09-05: a delete that
@@ -2506,11 +2503,11 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     // and was the whole of A-7: the only record of a refused write was in a file no program
     // reads. Now that GET /ndt/get_flow_dispatch_status exists, leaving the sentence unchanged
     // would keep the answer undiscoverable to exactly the caller who needs it. Safe to reword:
-    // the two in-repo consumers log this body and neither parses it (auditor cross-repo check,
+    // the two in-repo consumers log this body and neither parses it (cross-repo check,
     // 2026-08-30) -- `status` and `accepted` are unchanged for anything that does.
     //
     // [Co-developed with claude code -- Adam]
-    // W11: `request_id` added, and `detail` now names the query rather than the bare endpoint.
+    // `request_id` added, and `detail` now names the query rather than the bare endpoint.
     // Additive for `status` and `accepted`; the two in-repo writers log this body and neither
     // parses it (Energy-Saving-App src/app/http.cpp:162, Traffic-engineering-App.py:344 -- both
     // discard the response), re-checked 2026-09-06 across all seven sibling repos.
@@ -2532,7 +2529,7 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     {
         body["rejected"] = rejectedEntries;
         body["rejected_dpids"] = unknownDpids;
-        // [Co-developed with claude code -- Adam] W11: request_id covers only the entries that
+        // [Co-developed with claude code -- Adam] request_id covers only the entries that
         // were accepted. The dropped ones were never jobs, so they appear in no counter -- said
         // here, because "enqueued" in the request-scoped answer would otherwise look short.
         body["detail"] = "some entries were dropped because their dpid is not a switch in the "
@@ -2624,12 +2621,12 @@ HttpSession::handleInformSwitchEntered(http::response<http::string_body>& res)
         return;
     }
 
-    // [Co-developed with claude code -- Adam] -- FINDINGS #81.
+    // [Co-developed with claude code -- Adam]
     //
     // This setVertexUp is unconditional ON PURPOSE, and the reason had to be established rather
-    // than assumed. FINDINGS #46 taught discovery to decline for a switch with a standing
+    // than assumed. An earlier fix taught discovery to decline for a switch with a standing
     // commanded power-off, and the obvious next step was to teach this endpoint the same rule.
-    // It would have been wrong. What #46 declines is LIST MEMBERSHIP -- the proxy went on
+    // It would have been wrong. What that fix declines is LIST MEMBERSHIP -- the proxy went on
     // listing a killed switch for D = 3.06 s, so "the control plane still mentions it" is a
     // cache, not a look. This endpoint is a different kind of input:
     //
@@ -2682,8 +2679,7 @@ HttpSession::handleModifyDeviceName(http::response<http::string_body>& res)
         // [Co-developed with claude code -- Adam]
         // tryMacToUint64, because macToUint64 throws and the throw reaches buildResponse's
         // std::exception catch -- which answers 500 for a malformed client request. Exactly the
-        // defect the dpid and app_id parsing was fixed for; this call site was missed. Found by
-        // agy-review 0115.
+        // defect the dpid and app_id parsing was fixed for; this call site was missed.
         const std::string macText = body.at("mac").get<std::string>();
         const auto mac = utils::tryMacToUint64(macText);
         if (!mac)
@@ -3280,7 +3276,7 @@ HttpSession::handleGetPathSwitchCount(http::response<http::string_body>& res)
 }
 
 // [Co-developed with claude code -- Adam]
-// W17. This used to dump doc/2026-01-02_OpenflowCapacity.json verbatim: OVS 1000000,
+// This used to dump doc/2026-01-02_OpenflowCapacity.json verbatim: OVS 1000000,
 // BrocadeICX7250 3072, HPE5520 65535, and not one word about bmv2 -- while the fabric under it
 // holds 1024 entries per switch in MyIngress.ipv4_lpm and hands the caller 896 of them once the
 // fabric's own host routes are counted (measured 2026-09-06). The smallest catalogue number was
@@ -3445,7 +3441,7 @@ HttpSession::handleGetAvgLinkUsage(http::response<http::string_body>& res)
     double avgLinkUsage =
         m_topologyAndFlowMonitor->getAvgLinkUsage(m_topologyAndFlowMonitor->getGraph());
     res.result(http::status::ok);
-    // [Co-developed with claude code -- Adam] Round 4 section 1: under a flood that lost 72.5% of
+    // [Co-developed with claude code -- Adam] Under a flood that lost 72.5% of
     // samples this number moved the WRONG WAY (0.0103 -> 0.0221) and still answered 200
     // "success". `status` there is about the request; `telemetry_health` is about the answer.
     json body{{"status", "success"}, {"avg_link_usage", avgLinkUsage}};
@@ -3460,7 +3456,7 @@ HttpSession::handleGetAvgLinkUsage(http::response<http::string_body>& res)
 // The four counters at FlowLinkUsageCollector's tail had exactly one reader before this: a log
 // line. This endpoint exists for a consumer that wants them without polling a measurement, and
 // carries the same object under the same key as every other response so there is one shape to
-// learn. See doc/audit/2026-09-03_night-rounds/FIX-TELEMETRY-HEALTH.md.
+// learn.
 void
 HttpSession::handleGetSflowStats(http::response<http::string_body>& res)
 {
@@ -3478,7 +3474,7 @@ HttpSession::handleGetSflowStats(http::response<http::string_body>& res)
     json body{{"status", "success"},
               {"telemetry_health", m_flowLinkUsageCollector->ingestHealthJson()}};
 
-    // [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+    // [Co-developed with claude code -- Adam]
     // Additive: `status` and `telemetry_health` keep their exact shape. What is new is the
     // question "what did the samples carry", which had no answer anywhere -- a frame that was not
     // IPv4 was dropped by the parser without a counter, so an exercise carrying its own ethertype

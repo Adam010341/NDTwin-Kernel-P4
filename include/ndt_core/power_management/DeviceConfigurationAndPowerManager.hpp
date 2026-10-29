@@ -1,6 +1,6 @@
 #pragma once
 
-#include "utils/StopSignal.hpp" // for StopSignal (FINDINGS #27: a bounded stop)
+#include "utils/StopSignal.hpp" // for StopSignal (a bounded stop)
 #include "utils/Utils.hpp"   // for DeploymentMode
 #include <chrono>            // for milliseconds
 #include <atomic>            // for atomic
@@ -11,7 +11,7 @@
 #include <shared_mutex>
 #include <stdint.h>           // for uint32_t, uint64_t
 #include <optional>           // for optional
-#include <set>                // for set (the missing-address WARN's edge trigger, FINDINGS #85)
+#include <set>                // for set (the missing-address WARN's edge trigger)
 #include <string>             // for string, basic_string
 #include <thread>             // for thread
 #include <tuple>              // for tuple
@@ -25,7 +25,7 @@ struct VertexProperties;
 
 // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
 #include "ndt_core/power_management/IPowerStrategy.hpp"
-// [Co-developed with claude code -- Adam] -- FINDINGS #80.
+// [Co-developed with claude code -- Adam]
 // The concrete type, not just the interface: the 1 Hz worker feeds probe timestamps to the P4
 // strategy's distrust bookkeeping (acceptLivenessUp), which is a bmv2 concern and has no meaning
 // for OVS. Putting it on IPowerStrategy would give OVSPowerStrategy a method that can only
@@ -247,7 +247,7 @@ class DeviceConfigurationAndPowerManager
      *
      * [Co-developed with claude code -- Adam]
      *
-     * KNOWN-ISSUES T-11, ruled option A ("the listing reports only programmed entries").
+     * KNOWN-ISSUES T-11, option A ("the listing reports only programmed entries").
      * `updateOpenFlowTables` writes the requested rule into the cache on the HTTP thread, before
      * the dispatcher has sent anything, and those rows are the phantom. Each carries a token
      * (see FlowJob::token); this predicate answers whether the southbound confirmed that token.
@@ -313,7 +313,7 @@ class DeviceConfigurationAndPowerManager
     /** @brief How long stop() waits before saying what it is still waiting on. Default 2 s.
      *
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #27. A seam, not a knob: the report is the last line of defence for a stop that is
+     * A seam, not a knob: the report is the last line of defence for a stop that is
      * somehow still not bounded, and a test cannot assert it fires without being able to make it
      * fire. Setting it to 0 makes the report unconditional, which is what
      * tests/test_KernelStopIsBounded.cpp does. Nothing in the kernel calls this.
@@ -448,8 +448,7 @@ class DeviceConfigurationAndPowerManager
      * table. On the wire that is byte-identical to "this switch genuinely has no rules": both are
      * `{"1": []}`. The round trip is the only thing that differs, and it differs widely.
      *
-     * Measured on the OVS testbed, 2026-08-07, 151 samples
-     * (`doc/audit/2026-08-07_ryu-wedge-trace.tsv`):
+     * Measured on the OVS testbed, 2026-08-07, 151 samples:
      *
      * | state   | round trip      | body    |
      * |---------|-----------------|---------|
@@ -473,7 +472,7 @@ class DeviceConfigurationAndPowerManager
         Usable,          ///< Apply it: it has entries, or it was too fast to be a timeout.
         SuspectTimedOut, ///< Empty *and* slow. Keep the previous table; do not apply this one.
         ReportedFailure, ///< The body says "error": the control plane could not read the switch.
-        /// The body parses and the switch's value is not a list of rules. Round 6 N2: of the three
+        /// The body parses and the switch's value is not a list of rules. Of the three
         /// ways to fail to read a switch, this was the one that produced no marker -- the junk was
         /// republished verbatim under the switch's own dpid, so a consumer doing `flows["3"]` as a
         /// list gets a type error, or, being lenient, "zero rules", with nothing saying why.
@@ -516,7 +515,7 @@ class DeviceConfigurationAndPowerManager
         /** @brief The walk stopped early because a stop was requested. **Do not apply this.**
          *
          * [Co-developed with claude code -- Adam]
-         * FINDINGS #27. `tables` then holds only the switches polled before the stop, and
+         * `tables` then holds only the switches polled before the stop, and
          * applyFetchedTables assigns it over the whole cache -- so applying an abandoned round
          * deletes every switch the walk had not reached yet. carryForwardUnreadTables cannot save
          * them either: they are not in `unread`, because they were never asked.
@@ -650,7 +649,7 @@ class DeviceConfigurationAndPowerManager
      * @brief The age in seconds of the probe p4LivenessFor's verdict rests on, when the payload
      *        says; nullopt when it does not.
      *
-     * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+     * [Co-developed with claude code -- Adam]
      * Separate from p4LivenessFor rather than returned beside the verdict, so the verdict policy
      * above keeps exactly the shape it had and this can be read on its own by a test. It reads
      * the same `probe_age_s` p4LivenessFor uses for its staleness branch -- one number, two
@@ -668,7 +667,7 @@ class DeviceConfigurationAndPowerManager
      * @brief Whether a bmv2 liveness Up may be written to the graph, and closes the distrust
      *        window when it may.
      *
-     * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+     * [Co-developed with claude code -- Adam]
      * The join between the two halves: it turns the payload's `probe_age_s` into the absolute
      * moment the probe was taken and hands that to P4PowerStrategy::acceptLivenessUp, which owns
      * the record of when this switch was stopped. Not static, and not const: it writes the
@@ -682,7 +681,7 @@ class DeviceConfigurationAndPowerManager
      * @brief The verdict the 1 Hz worker acts on for one bmv2 switch: p4LivenessFor's answer,
      *        with an Up that rests on a pre-kill probe downgraded to Unknown.
      *
-     * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+     * [Co-developed with claude code -- Adam]
      * Extracted for the same reason ovsLivenessFor and p4LivenessFor were, and the mutation gate
      * is what made the reason concrete: while this lived inline in pingWorker's switch, the line
      * that consults the evidence could not be reached by any test -- the worker needs a running
@@ -700,7 +699,7 @@ class DeviceConfigurationAndPowerManager
     /**
      * @brief The P4 strategy the 1 Hz worker consults about post-kill evidence.
      *
-     * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+     * [Co-developed with claude code -- Adam]
      * A seam, in the same sense as the power strategies' executeSystemCommand: production has
      * exactly one implementation. It exists because the only way to open a distrust window is to
      * confirm a stop, and confirming a stop means running the real root helper against a real
@@ -896,12 +895,11 @@ class DeviceConfigurationAndPowerManager
      *
      * @details
      * [Co-developed with claude code -- Adam]
-     * FINDINGS #85. The four status-worker reports each opened their loop body with
+     * The four status-worker reports each opened their loop body with
      * `utils::ipToString(vp.ip.front())`, and `VertexProperties::ip` is a `std::vector` that
      * starts empty -- so a SWITCH vertex with no address was `front()` on an empty vector, i.e.
      * undefined behaviour, and in practice a SIGSEGV on the status thread that took the whole
-     * kernel with it. gdb stack in the audit-raw log named in
-     * doc/audit/2026-09-04_fix-cpu-report-no-ip/.
+     * kernel with it (gdb backtrace, 2026-09-04).
      *
      * The invariant "every switch has at least one address" is real and is enforced --
      * TopologyAndFlowMonitor::loadStaticTopologyFromFile refuses such a file at load (2da6954f),
@@ -933,8 +931,8 @@ class DeviceConfigurationAndPowerManager
      * invention -- doc/2026-01-02_ndt_api.md §12/§13 already say "-1 means SNMP query failed or
      * data is unavailable", which is precisely this switch's situation.
      *
-     * 🔴 This is an outward-visible key shape. See the question raised in
-     * doc/audit/2026-09-04_fix-cpu-report-no-ip/FIX-CPU-REPORT-NO-IP.md.
+     * 🔴 This is an outward-visible key shape: the CPU, memory and temperature bodies serve
+     * `dpid:<n>` keys to every consumer, so changing it is a breaking change.
      */
     static std::string reportKeyForSwitchWithoutIp(uint64_t dpid);
 
@@ -977,7 +975,7 @@ class DeviceConfigurationAndPowerManager
     std::set<uint64_t> m_switchesMissingManagementIp;
 
     // ---------------------------------------------------------------------------------------
-    // E-23: a switch this build has no brand path for is not dialled. [Co-developed with claude
+    // A switch this build has no brand path for is not dialled. [Co-developed with claude
     // code -- Adam]
     // ---------------------------------------------------------------------------------------
 
@@ -985,9 +983,10 @@ class DeviceConfigurationAndPowerManager
      * @brief The sentence every exemption site says, so all six say the same one.
      *
      * @details
-     * E-23 (Adam's ruling of 2026-09-07). W15-2 admitted a switch whose `brand_name` this build
-     * has no data plane for, on condition that the graph mark it as one whose power and telemetry
-     * nobody manages -- and then this file went on dialling it anyway. In TESTBED mode the six
+     * A switch whose `brand_name` this build has no data plane for is admitted at topology load
+     * only when its node declares an explicit, valid `switch_kind`, and on condition that the graph
+     * mark it as one whose power and telemetry nobody manages -- and then this file went on
+     * dialling it anyway. In TESTBED mode the six
      * brand-branching sites below all fall into an `else` written for
      * "Brocade / Others (Currently via SSH)": a Cisco admitted by its `switch_kind` was sent
      * Brocade's power OID, Brocade's CPU OID, Brocade's memory OID and an SSH `show power`. Every
@@ -1073,7 +1072,7 @@ class DeviceConfigurationAndPowerManager
     json fetchCpuReportInternal();
     json fetchTemperatureReportInternal();
     // [Co-developed with claude code -- Adam]
-    // Moved up from private to join its three siblings (FINDINGS #85). statusUpdateWorker calls
+    // Moved up from private to join its three siblings. statusUpdateWorker calls
     // all four in one round and all four read a switch's management address, so a test that
     // drives "one status round" over a hand-built graph has to be able to call all four -- and
     // this was the only one it could not reach.
@@ -1087,7 +1086,7 @@ class DeviceConfigurationAndPowerManager
 
     // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
     std::unique_ptr<IPowerStrategy> m_ovsPowerStrategy;
-    // [Co-developed with claude code -- Adam] -- FINDINGS #80. Concrete: see the include note.
+    // [Co-developed with claude code -- Adam] Concrete: see the include note.
     std::unique_ptr<P4PowerStrategy> m_p4PowerStrategy;
 
     /// Switches whose liveness Up is currently being declined as a pre-kill reading, so the
@@ -1161,7 +1160,7 @@ class DeviceConfigurationAndPowerManager
      * The latency check in classifyFlowStatsReply does not cover this: a parse failure is local, so
      * it comes back fast, and fast-and-empty is exactly what that check treats as trustworthy.
      *
-     * Found by agy-review 0109. [Co-developed with claude code -- Adam]
+     * [Co-developed with claude code -- Adam]
      */
     std::optional<json> parseFlowStatsTextToJson(const std::string& responseText) const;
 
@@ -1261,7 +1260,7 @@ class DeviceConfigurationAndPowerManager
     std::thread m_openflowTablesUpdateThread;
 
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #27. m_running says "stop was requested" to a loop that is between rounds;
+    // m_running says "stop was requested" to a loop that is between rounds;
     // m_stopSignal says it to a worker that is *inside* one -- it wakes the sleeps and kills the
     // in-flight curl. Both are kept: m_running is read in a dozen places that are not shutdown
     // paths, and narrowing it is a bigger change than this fix.

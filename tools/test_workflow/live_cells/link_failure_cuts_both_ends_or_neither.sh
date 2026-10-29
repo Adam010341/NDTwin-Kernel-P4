@@ -6,8 +6,8 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: ROLE-1, live on an OVS 4-host fabric 2026-09-11 00:57:27, 2 reproductions of 2
-# (logs/ROLE-1/06-inject-failure.log). With a foreign `netem loss 100%` already on s1-eth1 that
+# Source: live on an OVS 4-host fabric 2026-09-11 00:57:27, 2 reproductions of 2.
+# With a foreign `netem loss 100%` already on s1-eth1 that
 # end was refused -- `"ok":false`, "refusing to stack a second one" -- while
 # `qdisc add dev s5-eth1 root netem loss 100%` really happened, and the status line said the
 # failure had been injected:
@@ -22,7 +22,7 @@
 # 🔴 The declaration is expected to STAND -- that is the half this endpoint can carry out, the
 # same as on a non-MININET deployment -- and the reply has to say which half happened. So this
 # cell asserts the presence of the `wire` sentence, not the absence of a declaration: "refuse the
-# whole request" is a different contract and is not what was ruled.
+# whole request" is a different contract and is not what was decided.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../../.." && pwd)"
@@ -96,7 +96,7 @@ cell_judge() {
     # The reply says which half happened, rather than leaving it to be inferred from an array.
     a_has   a1f_names_the_half_that_happened  'no netem was attached to either end'     "$d/failure.body"
     # The declaration stands -- asserted, because "refuse the whole request" is a different
-    # contract from the one that was ruled.
+    # contract from the one that was decided.
     a_has   a1f_declaration_still_stands      'The declaration stands'                  "$d/failure.body"
     a_has   a1f_cell_left_no_netem  'machine netem count after cleanup: 0' "$d/netem_final.txt"
 }

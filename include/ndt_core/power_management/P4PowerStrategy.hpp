@@ -29,7 +29,7 @@ public:
     /// @return true when the verdict may be written, and the distrust window (if any) has just
     ///         been closed by it; false when the verdict rests on a reading of the past.
     ///
-    /// [Co-developed with claude code -- Adam] -- FINDINGS #80.
+    /// [Co-developed with claude code -- Adam]
     /// The parameter is the probe's own time because that is the whole distinction. The proxy
     /// caches `probe_ok` and serves it with a `probe_age_s`; a kill does not invalidate the
     /// cache, so the first Up after a kill is routinely a probe from before it. Reading the
@@ -59,7 +59,7 @@ protected:
     /// without sleeping through it; production has exactly one implementation.
     virtual std::chrono::steady_clock::time_point now() const;
 
-    /// 🔴 THERE IS NO TIME CONSTANT HERE ANY MORE. FINDINGS #80.
+    /// 🔴 THERE IS NO TIME CONSTANT HERE ANY MORE.
     ///
     /// [Co-developed with claude code -- Adam]
     /// This used to be `kPostPowerOffDistrustWindow{15}`, and its own derivation is what
@@ -69,8 +69,8 @@ protected:
     /// with margin." Every clause of that is a claim about an OBSERVATION going stale -- and a
     /// timer cannot know whether an observation has been refreshed. It can only assume.
     ///
-    /// What the assumption bought, measured on the live fabric (FIX-POLL-RESURRECT §3.3.2,
-    /// 18 of 18 trials): `is_up` went 0->1 within 0.3-1.5s of every kill and held for 8-13s.
+    /// What the assumption bought, measured on the live fabric (18 of 18
+    /// trials): `is_up` went 0->1 within 0.3-1.5s of every kill and held for 8-13s.
     /// The window covered that interval by outlasting it. At t+15s it stood down whether or not
     /// anything had looked at the switch since -- so a fabric whose proxy had stopped probing
     /// altogether got its graph trusted again on schedule, with no evidence at all.

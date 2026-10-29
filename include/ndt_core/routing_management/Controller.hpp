@@ -64,7 +64,7 @@ class Controller
      *
      * [Co-developed with claude code -- Adam]
      *
-     * W11. The one write to the outcome log that does not come from the sender callback, and it
+     * The one write to the outcome log that does not come from the sender callback, and it
      * is deliberately a named method rather than a mutable accessor: handing out a non-const
      * DispatchOutcomeLog& would let any caller move any counter, and the "one writer for the
      * outcomes" property above is worth more than the two lines it saves. This adds an id and a
