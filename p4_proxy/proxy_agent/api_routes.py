@@ -1414,25 +1414,28 @@ async def table_entry(request: Request):
 
 
 #: Where GET /p4/table_entry's gRPC reads run: threads of its own, not the threadpool FastAPI
-#: shares between every `def` endpoint and every `run_in_threadpool`. Forty GETs to one stopped
-#: switch used to hold that shared pool for a whole read deadline, and POST writes and
-#: /stats/flow on healthy switches waited behind them (measured on bmv2 1.15.5, 2026-10-30:
-#: about 5 s each, against 0.03 s with no switch stopped).
+#: shares between every `def` endpoint and every `run_in_threadpool`. With forty GETs to one
+#: stopped switch on that shared pool, POST writes and /stats/flow on healthy switches waited
+#: behind them for up to about 5 s (max 4.9–5.0 s, median about 0.01 s; bmv2 1.15.5,
+#: 2026-10-30), against at most 0.03 s with no switch stopped.
 #:
 #: One small pool per switch, so a switch that stops answering holds its own threads and no one
 #: else's, however many switches stop at once. Its threads are made as they are first needed,
 #: so a switch read one table at a time has one. [Co-developed with claude code -- Adam]
 #:
 #: The threads are not daemon threads: a proxy shutting down waits for a read that is still
-#: running, which is at most one read deadline (RPC_TIMEOUT_S) for a switch that does not answer.
+#: running, which is up to two read deadlines (2 * RPC_TIMEOUT_S) for a switch that is slow or
+#: does not answer.
 TABLE_READS_PER_SWITCH = 4
-#: How long a GET waits for one of its switch's read slots before answering 503 `switch busy`. A
-#: healthy switch answers in milliseconds, so its reads never wait this long. Kept short enough
-#: that a whole GET -- this wait, then two reads of up to RPC_TIMEOUT_S each -- answers within
-#: TABLE_READ_WORST_S, inside the 15 s the kernel's /ndt/p4 relay waits for the proxy before it
-#: answers 504 itself.
+#: How long a GET waits for one of its switch's read slots before answering 503 `switch busy`.
+#: A switch takes TABLE_READS_PER_SWITCH reads at a time and other GETs may be waiting ahead of
+#: this one, so a busy but healthy switch can give that answer too. Short enough that a whole
+#: GET -- this wait, then two reads of up to RPC_TIMEOUT_S each, plus the time to convert and
+#: send the entries -- is kept under 15 s, so a caller with a 15 s deadline gets the proxy's own
+#: answer.
 TABLE_READ_WAIT_S = 3.0
-#: The longest a GET /p4/table_entry takes, apart from the event loop's own scheduling.
+#: The longest a GET /p4/table_entry waits on its switch: the slot wait and two read deadlines.
+#: The time to convert and send the entries, and the event loop's own scheduling, come on top.
 TABLE_READ_WORST_S = TABLE_READ_WAIT_S + 2 * RPC_TIMEOUT_S
 
 _table_read_pools = {}
@@ -1537,7 +1540,8 @@ async def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):
     answering ties up its own threads and nothing else, however many switches stop: POST writes,
     /stats/flow and other switches' reads go on. A GET that waits TABLE_READ_WAIT_S for a slot
     of its switch answers 503 `switch busy`, nothing read, and no GET takes longer than
-    TABLE_READ_WORST_S, inside the kernel relay's 15 s.
+    TABLE_READ_WORST_S plus the time to convert and send the entries. That is kept under 15 s,
+    so a caller with a 15 s deadline gets the proxy's own answer.
 
     A readopt during the wait for a slot replaces the client and closes the old one's channel, so
     the switch is looked at again once a slot is free, and a read that fails is put down to a
@@ -1566,9 +1570,10 @@ async def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):
         await asyncio.wait_for(slots.acquire(), timeout=TABLE_READ_WAIT_S)
     except asyncio.TimeoutError:
         raise _table_read_error(503, "switch busy", dpid, table,
-                                f"{TABLE_READS_PER_SWITCH} reads of switch {dpid} were running "
-                                f"and none ended within {TABLE_READ_WAIT_S:g} s; nothing was "
-                                f"read. The switch is slow or not answering")
+                                f"no read slot of switch {dpid} came free for this request within "
+                                f"{TABLE_READ_WAIT_S:g} s ({TABLE_READS_PER_SWITCH} reads at a "
+                                f"time per switch, others may be waiting); nothing was read; "
+                                f"retry")
     if _readopt_seen(dpid, client):
         slots.release()
         raise _table_read_error(503, "replay pending", dpid, table,

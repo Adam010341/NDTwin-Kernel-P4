@@ -1325,6 +1325,9 @@ class P4RuntimeClient:
 
     #: The largest idle timeout the protobuf's int64 holds. [Co-developed with claude code -- Adam]
     IDLE_TIMEOUT_NS_MAX = (1 << 63) - 1
+    #: What may follow the "0x" of an idle timeout given as a string.
+    #: [Co-developed with claude code -- Adam]
+    HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 
     @staticmethod
     def _idle_timeout_as_json(idle):
@@ -1349,12 +1352,13 @@ class P4RuntimeClient:
             return 0
         if isinstance(idle, str) and idle[:2].lower() == "0x":
             # The form GET gives a value at or above 2^53, which a JSON number cannot carry
-            # exactly through every reader (match_shape.JSON_EXACT_INT_BITS).
-            try:
-                idle = int(idle[2:], 16)
-            except ValueError:
+            # exactly through every reader (match_shape.JSON_EXACT_INT_BITS). Only hex digits
+            # after the "0x": int(_, 16) alone also takes "0x1_0", "0x 10", "0x+1" and "0x0x10".
+            digits = idle[2:]
+            if not digits or not all(c in self.HEX_DIGITS for c in digits):
                 raise TableEntryInvalid(
                     f"{where}: 'idle_timeout_ns' {idle!r} is not a hexadecimal number")
+            idle = int(digits, 16)
         if isinstance(idle, bool) or not isinstance(idle, int):
             raise TableEntryInvalid(
                 f"{where}: 'idle_timeout_ns' must be an integer number of nanoseconds, or a "
