@@ -5801,6 +5801,9 @@ cmd_down() {
     registry_clear_stale || {
         down_rc=1
     }
+    # [Co-developed with claude code -- Adam] The host count an `ndt up p4 --app` wrote goes back
+    # here, not in cmd_clean: clean is an assertion and also runs on its own over a live fabric.
+    app_knob_count_restore || { down_rc=1; not_verified "putting host_count_override back"; }
 
     # The lab is no longer being asked for anything, so the baseline `status --check` compares
     # against goes with it. Left in place it would make every later --check red about a fabric
@@ -5813,9 +5816,6 @@ cmd_down() {
     # wait_reaped -- the wait is not allowed to decide anything, only to stop the assertion from
     # being taken while the process table is still catching up.
     wait_reaped "${NDT_REAP_WAIT:-20}" || true
-    # [Co-developed with claude code -- Adam] The host count an `ndt up p4 --app` wrote goes back
-    # here, not in cmd_clean: clean is an assertion and also runs on its own over a live fabric.
-    app_knob_count_restore || { down_rc=1; not_verified "putting host_count_override back"; }
     cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?
     # Both halves count. A sweep that could not finish is a failed teardown even in the case
     # where cmd_clean cannot see what survived -- cleanup also sweeps patterns cmd_clean does
