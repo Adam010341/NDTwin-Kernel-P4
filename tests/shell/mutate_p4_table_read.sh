@@ -15,7 +15,11 @@
 # entry the writer's shape cannot say reported as if it could, or dropped without saying so
 # (half two). The route: a refusal answered 200, a failed read answered as an empty table, a
 # read refused that needs no ownership or mastership, a query parameter no longer checked, the
-# read put on the event loop (half three).
+# read put on the event loop, a readopt during the read not noticed (half three).
+#
+# 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 16 and 17, 43 and 44, 46 and 47, and
+# 58 and 59; 39, 40, 41 and 60 share the route's signature line. check_gate_anchors.py counts
+# each distinct anchor once.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a
@@ -100,8 +104,12 @@ PY
 red_proxy() {
     local out rc
     clear_pyc
-    out=$(cd p4_proxy/tests && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.. \
-              "$PROXY_PY" test_table_entry_read.py 2>&1); rc=$?
+    # Two suites: the read's own, and the writer's, whose registration test now has to tell the
+    # writer's route from the read's on the same path.
+    out=$(cd p4_proxy/tests && { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.. \
+              "$PROXY_PY" test_table_entry_read.py 2>&1; r1=$?
+          PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.. "$PROXY_PY" test_table_entry_route.py 2>&1; r2=$?
+          exit $(( r1 | r2 )); }); rc=$?
     if [[ $rc -eq 0 ]]; then echo ""; return; fi
     sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_0-9]*\) .*/\2/p' <<<"$out" | sort -u | tr '\n' ' '
 }
@@ -194,7 +202,7 @@ each_mutation() {
         '    if False:
         raise TableEntryInvalid(
             f"the switch sent' \
-        'test_a_value_wider_than_its_field_is_unrendered_not_narrowed'
+        'test_a_mac_wider_than_48_bits_is_unrendered_not_an_error'
 
     "$m" "6. an lpm entry loses its prefix length" "$SHAPE" \
         '        return [render_value(wire[1], bitwidth), int(wire[2])]' \
@@ -252,14 +260,14 @@ each_mutation() {
         'test_every_read_carries_a_deadline'
 
     "$m" "16. a priority table's entry reads back without its priority" "$CLIENT" \
-        '        priority = te.priority if has_priority and not te.is_default_action else None' \
-        '        priority = None' \
+        '        return te.priority if has_priority and not te.is_default_action else None' \
+        '        return None' \
         'test_a_ternary_entry_reads_back_with_its_mask_and_its_priority'
 
     # The writer refuses a priority on a default entry, so it could not be sent back.
     "$m" "17. the default entry of a priority table reads back with priority 0" "$CLIENT" \
-        '        priority = te.priority if has_priority and not te.is_default_action else None' \
-        '        priority = te.priority if has_priority else None' \
+        '        return te.priority if has_priority and not te.is_default_action else None' \
+        '        return te.priority if has_priority else None' \
         'test_a_default_entry_on_a_priority_table_has_no_priority'
 
     "$m" "18. the default entry is not marked as one" "$CLIENT" \
@@ -268,13 +276,13 @@ each_mutation() {
         'test_an_empty_table_reads_back_as_its_default_entry_alone'
 
     "$m" "19. the action is named by its alias" "$CLIENT" \
-        '            action_name = action.preamble.name' \
-        '            action_name = action.preamble.alias' \
+        '        spec = {"table": where, "match": match, "action_name": action.preamble.name,' \
+        '        spec = {"table": where, "match": match, "action_name": action.preamble.alias,' \
         'test_an_lpm_entry_reads_back_as_value_and_prefix_with_a_mac_and_a_port'
 
-    "$m" "20. the answer echoes the alias instead of the table's name" "$CLIENT" \
-        '        return {"table": table.preamble.name, "entries": entries, "unrendered": unrendered}' \
-        '        return {"table": name, "entries": entries, "unrendered": unrendered}' \
+    "$m" "20. the answer echoes the alias instead of the table's name" "$API" \
+        '    return {"dpid": dpid, "table": reading["table"],' \
+        '    return {"dpid": dpid, "table": table,' \
         'test_an_alias_names_the_same_table_and_the_answer_gives_the_full_name'
 
     "$m" "21. an entry read back carries no dpid, so it is not a POST body" "$API" \
@@ -286,13 +294,16 @@ each_mutation() {
 
     "$m" "22. an entry that cannot be rendered is dropped without a word" "$CLIENT" \
         '                unrendered.append({"default_action": te.is_default_action,
-                                   "priority": te.priority, "reason": str(err)})' \
+                                   "priority": self._read_priority(te, has_priority),
+                                   "reason": str(err)})' \
         '                pass' \
         'test_an_action_profile_entry_is_listed_as_unrendered_not_dropped'
 
     "$m" "23. an action-profile entry is reported as an entry with no action" "$CLIENT" \
-        '        if which is not None and which != "action":' \
-        '        if False:' \
+        '        if which != "action":
+            raise TableEntryInvalid(' \
+        '        if False:
+            raise TableEntryInvalid(' \
         'test_an_action_profile_entry_is_listed_as_unrendered_not_dropped'
 
     "$m" "24. a match field id this p4info does not describe is not caught" "$CLIENT" \
@@ -306,29 +317,29 @@ each_mutation() {
         'test_a_match_of_another_kind_than_the_p4info_declares_is_unrendered'
 
     "$m" "26. an action id this p4info does not describe is not caught" "$CLIENT" \
-        '            if action is None:
-                raise TableEntryInvalid(
-                    f"{where}: the switch sent action id' \
-        '            if action is None:
-                return {"table": where, "match": match, "action_name": None,
-                        "action_params": {}, "priority": None, "default_action": False}
-                raise TableEntryInvalid(
-                    f"{where}: the switch sent action id' \
+        '        if action is None:
+            raise TableEntryInvalid(
+                f"{where}: the switch sent action id' \
+        '        if action is None:
+            return {"table": where, "match": match, "action_name": None,
+                    "action_params": {}, "priority": None, "default_action": False}
+            raise TableEntryInvalid(
+                f"{where}: the switch sent action id' \
         'test_an_action_this_p4info_does_not_describe_is_unrendered'
 
     "$m" "27. an action missing a parameter is reported without it" "$CLIENT" \
-        '                if param.id not in values:
-                    raise TableEntryInvalid(' \
-        '                if param.id not in values:
-                    continue
-                    raise TableEntryInvalid(' \
+        '            if param.id not in values:
+                raise TableEntryInvalid(' \
+        '            if param.id not in values:
+                continue
+                raise TableEntryInvalid(' \
         'test_an_action_without_one_of_its_parameters_is_unrendered'
 
     "$m" "28. a parameter the action does not declare is ignored" "$CLIENT" \
-        '            if values:
-                raise TableEntryInvalid(' \
-        '            if False:
-                raise TableEntryInvalid(' \
+        '        if values:
+            raise TableEntryInvalid(' \
+        '        if False:
+            raise TableEntryInvalid(' \
         'test_a_parameter_the_action_does_not_declare_is_unrendered'
 
     # ---- half three: the route --------------------------------------------------------------
@@ -387,21 +398,21 @@ each_mutation() {
     # The write rule (409 owned_by_ndtwin) grown onto a read.
     "$m" "37. an owner check refuses NDTwin's own tables" "$API" \
         '    try:
-        reading = client.read_table(table)' \
+        reading = client.read_table(full_name)' \
         '    owned = [t for t in client.p4info.tables if table in (t.preamble.name, t.preamble.alias)]
     if owned and client.table_owned_by_ndtwin(owned[0]):
         raise _table_read_error(409, "owned by NDTwin", dpid, table, "owned")
     try:
-        reading = client.read_table(table)' \
+        reading = client.read_table(full_name)' \
         'test_a_table_ndtwin_owns_is_still_read'
 
     "$m" "38. an external control plane is refused" "$API" \
         '    try:
-        reading = client.read_table(table)' \
+        reading = client.read_table(full_name)' \
         '    if not client.arbitration:
         raise _table_read_error(409, "external control plane", dpid, table, "read only")
     try:
-        reading = client.read_table(table)' \
+        reading = client.read_table(full_name)' \
         'test_an_external_control_plane_can_still_read'
 
     "$m" "39. the read runs on the event loop" "$API" \
@@ -431,6 +442,117 @@ each_mutation() {
 ' \
         '' \
         'test_post_still_reaches_the_writer'
+
+    "$m" "44. the writer's registration test no longer sees the writer" "$API" \
+        '@router.post("/p4/table_entry")
+' \
+        '' \
+        'test_post_p4_table_entry_is_on_the_router'
+
+    # ---- wide values, unrendered priorities, a missing default, a readopt during the read, ---
+    # ---- the writer's own check, the error bodies and the query parameters ---------------
+
+    "$m" "45. an unrendered entry carries the switch's raw priority" "$CLIENT" \
+        '                                   "priority": self._read_priority(te, has_priority),
+                                   "reason": str(err)})' \
+        '                                   "priority": te.priority,
+                                   "reason": str(err)})' \
+        'test_an_unrendered_entry_has_the_priority_an_entry_would_have'
+
+    "$m" "46. the hex threshold moves up to 64 bits" "$SHAPE" \
+        'JSON_EXACT_INT_BITS = 53' \
+        'JSON_EXACT_INT_BITS = 64' \
+        'test_a_bit64_value_above_2_53_and_a_bit128_value_read_back_as_hex_strings'
+
+    "$m" "47. the hex threshold moves down to 52 bits" "$SHAPE" \
+        'JSON_EXACT_INT_BITS = 53' \
+        'JSON_EXACT_INT_BITS = 52' \
+        'test_up_to_53_bits_is_an_integer_and_from_54_bits_a_hex_string'
+
+    "$m" "48. a wide value is a JSON number again" "$SHAPE" \
+        '    if bitwidth > JSON_EXACT_INT_BITS:
+        return f"0x{number:x}"' \
+        '    if False:
+        return f"0x{number:x}"' \
+        'test_a_wide_value_survives_a_json_reader_that_parses_numbers_as_doubles'
+
+    # Padding a stripped value on the wrong side shifts it: 0.0.255.0 sent as ff00 reads ff.00.00.00.
+    "$m" "49. a value sent without its leading zeros is padded on the right" "$SHAPE" \
+        '    number = _as_int(bytes(raw))' \
+        '    number = _as_int(bytes(raw).ljust((bitwidth + 7) // 8, b"\x00"))' \
+        'test_masks_range_bounds_and_optionals_sent_without_leading_zeros_read_the_same'
+
+    "$m" "50. a default entry the switch did not return goes unmentioned" "$CLIENT" \
+        '        if not any(te.is_default_action for te in answered):' \
+        '        if False:' \
+        'test_a_default_read_that_returns_nothing_is_listed_in_unrendered'
+
+    "$m" "51. an unflagged entry from the default read is taken as an entry" "$CLIENT" \
+        '                    and entity.table_entry.is_default_action == default)' \
+        '                    )' \
+        'test_a_default_read_that_returns_an_unflagged_entry_is_listed_in_unrendered'
+
+    "$m" "52. a readopt during the read is not looked for" "$API" \
+        '    if not still_this_switch:' \
+        '    if False:' \
+        'test_a_readopt_that_begins_during_the_read_is_503_replay_pending'
+
+    "$m" "53. a client replaced during the read is not noticed" "$API" \
+        '    still_this_switch = (topology.switches.get(dpid) is client' \
+        '    still_this_switch = (True' \
+        'test_a_client_replaced_during_the_read_is_503_replay_pending'
+
+    "$m" "54. a readopt that began during the read is not noticed" "$API" \
+        '                         and not (table_journals is not None and table_journals.pending(dpid)))' \
+        '                         and True)' \
+        'test_a_readopt_that_begins_during_the_read_is_503_replay_pending'
+
+    "$m" "55. a KeyError anywhere in the read is called a missing table" "$API" \
+        '    try:
+        reading = client.read_table(full_name)
+    except Exception as err:' \
+        '    try:
+        reading = client.read_table(full_name)
+    except KeyError as err:
+        raise _table_read_error(404, "not in this pipeline", dpid, table, str(err))
+    except Exception as err:' \
+        'test_a_key_error_while_rendering_is_not_called_a_missing_table'
+
+    "$m" "56. an entry is listed without the writer having built it" "$CLIENT" \
+        '            self.build_table_entry(spec)
+        except (TableEntryInvalid, TableEntryUnsupported) as err:' \
+        '            pass
+        except (TableEntryInvalid, TableEntryUnsupported) as err:' \
+        'test_a_field_with_no_width_is_unrendered'
+
+    "$m" "57. an entry with no action is blamed on an action profile" "$CLIENT" \
+        '        if which is None:
+            raise TableEntryInvalid(' \
+        '        if False:
+            raise TableEntryInvalid(' \
+        'test_an_entry_with_no_action_is_unrendered'
+
+    "$m" "58. an error body no longer names the switch" "$API" \
+        '        {"error": error, "dpid": dpid, "table": table, "message": message}, **extra))' \
+        '        {"error": error, "table": table, "message": message}, **extra))' \
+        'test_every_error_body_carries_the_dpid_and_the_table_asked_for'
+
+    "$m" "59. an error body no longer names the table" "$API" \
+        '        {"error": error, "dpid": dpid, "table": table, "message": message}, **extra))' \
+        '        {"error": error, "dpid": dpid, "message": message}, **extra))' \
+        'test_every_error_body_carries_the_dpid_and_the_table_asked_for'
+
+    "$m" "60. dpid is no longer checked to be an integer" "$API" \
+        'def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):' \
+        'def read_table_entry(dpid: str, table: str = Query(..., min_length=1)):' \
+        'test_a_missing_or_non_integer_dpid_is_422'
+
+    "$m" "61. a field the entry does not match on is filled in" "$CLIENT" \
+        '        which = te.action.WhichOneof("type")' \
+        '        if not te.is_default_action:
+            match.update({f.name: None for f in table.match_fields if f.name not in match})
+        which = te.action.WhichOneof("type")' \
+        'test_a_field_left_out_stays_left_out'
 }
 
 # --- run ------------------------------------------------------------------------------------

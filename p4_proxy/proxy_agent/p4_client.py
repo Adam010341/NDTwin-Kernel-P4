@@ -1859,6 +1859,11 @@ class P4RuntimeClient:
                   "ternary": ("value", "mask"), "range": ("low", "high"),
                   "optional": ("value",)}
 
+    def table_full_name(self, name):
+        """The full name of the table `name` (full name or alias) names, or KeyError when this
+        p4info has none. [Co-developed with claude code -- Adam]"""
+        return self._table_by_name(name).preamble.name
+
     def read_table(self, name, timeout_s=RPC_TIMEOUT_S):
         """
         Every entry of one table, each in the shape `write_table_entry` takes:
@@ -1874,9 +1879,11 @@ class P4RuntimeClient:
              "priority": 10, "default_action": False}
 
         with every value in the one form `match_shape.render_value` gives a field of its width,
-        so `build_table_entry` builds it back into the entry the switch holds. `priority` is
-        None on a table with no priority column and on the default entry, as the writer takes
-        it. The default entry comes last, with `default_action: True` and an empty match.
+        so `build_table_entry` builds it back into the entry the switch holds -- and each entry
+        is built that way before it is listed, so an entry the writer would refuse is never in
+        `entries`. `priority` is None on a table with no priority column and on the default
+        entry, as the writer takes it. The default entry comes last, with `default_action: True`
+        and an empty match.
 
         TWO READS. A wildcard read of a table does not return its default entry, only a read
         that sets `is_default_action` does (measured on bmv2, simple_switch_grpc, 2026-10-04).
@@ -1889,8 +1896,13 @@ class P4RuntimeClient:
           an entry the writer's shape cannot say -> left out of `entries` and listed in
                                                    `unrendered` with the reason (an action-profile
                                                    action, an id this p4info does not describe,
-                                                   a value wider than its field), so the caller
-                                                   knows the list is not the whole table.
+                                                   a value wider than its field, an entry with
+                                                   no action, anything `build_table_entry`
+                                                   refuses), so the caller knows the list is not
+                                                   the whole table;
+          no default entry in the second read    -> an `unrendered` item says so: every table has
+                                                   one, so "the switch did not send it" is not an
+                                                   answer about the table.
 
         Not owner-checked and not refused under an external control plane: a ReadRequest needs
         no election id, and reading changes nothing.
@@ -1921,8 +1933,20 @@ class P4RuntimeClient:
                 entries.append(self._entry_as_written(table, te, has_priority))
             except (TableEntryInvalid, TableEntryUnsupported) as err:
                 unrendered.append({"default_action": te.is_default_action,
-                                   "priority": te.priority, "reason": str(err)})
+                                   "priority": self._read_priority(te, has_priority),
+                                   "reason": str(err)})
+        if not any(te.is_default_action for te in answered):
+            unrendered.append({"default_action": True, "priority": None,
+                               "reason": f"the switch returned no default entry for "
+                                         f"{table.preamble.name}, so what this table does when "
+                                         f"nothing matches is not known"})
         return {"table": table.preamble.name, "entries": entries, "unrendered": unrendered}
+
+    @staticmethod
+    def _read_priority(te, has_priority):
+        """An entry's priority as the writer takes it: None on a table with no priority column
+        and on the default entry. [Co-developed with claude code -- Adam]"""
+        return te.priority if has_priority and not te.is_default_action else None
 
     def _entry_as_written(self, table, te, has_priority):
         """One TableEntry the switch sent, as `build_table_entry` takes it, or TableEntryInvalid
@@ -1945,38 +1969,48 @@ class P4RuntimeClient:
             match[field_name] = match_shape.render_field(
                 f"{where}.{field_name}", field.bitwidth, wire)
 
-        action_name, action_params = None, {}
         which = te.action.WhichOneof("type")
-        if which is not None and which != "action":
+        if which is None:
+            raise TableEntryInvalid(
+                f"{where}: the switch sent the entry without an action, and POST "
+                f"/p4/table_entry takes a modify only with one")
+        if which != "action":
             raise TableEntryInvalid(
                 f"{where}: the entry's action is an action profile's ({which}), which "
                 f"POST /p4/table_entry cannot write")
-        if which == "action":
-            sent = te.action.action
-            action = next((a for a in self.p4info.actions
-                           if a.preamble.id == sent.action_id), None)
-            if action is None:
+        sent = te.action.action
+        action = next((a for a in self.p4info.actions
+                       if a.preamble.id == sent.action_id), None)
+        if action is None:
+            raise TableEntryInvalid(
+                f"{where}: the switch sent action id {sent.action_id}, which this p4info "
+                f"does not describe")
+        values = {p.param_id: p.value for p in sent.params}
+        action_params = {}
+        for param in action.params:
+            if param.id not in values:
                 raise TableEntryInvalid(
-                    f"{where}: the switch sent action id {sent.action_id}, which this p4info "
-                    f"does not describe")
-            values = {p.param_id: p.value for p in sent.params}
-            for param in action.params:
-                if param.id not in values:
-                    raise TableEntryInvalid(
-                        f"{where}: the switch sent {action.preamble.name} without its "
-                        f"parameter {param.name!r}")
-                action_params[param.name] = match_shape.render_value(
-                    values.pop(param.id), param.bitwidth)
-            if values:
-                raise TableEntryInvalid(
-                    f"{where}: the switch sent parameter ids {sorted(values)} that "
-                    f"{action.preamble.name} does not declare")
-            action_name = action.preamble.name
+                    f"{where}: the switch sent {action.preamble.name} without its "
+                    f"parameter {param.name!r}")
+            action_params[param.name] = match_shape.render_value(
+                values.pop(param.id), param.bitwidth)
+        if values:
+            raise TableEntryInvalid(
+                f"{where}: the switch sent parameter ids {sorted(values)} that "
+                f"{action.preamble.name} does not declare")
 
-        priority = te.priority if has_priority and not te.is_default_action else None
-        return {"table": where, "match": match, "action_name": action_name,
-                "action_params": action_params, "priority": priority,
+        spec = {"table": where, "match": match, "action_name": action.preamble.name,
+                "action_params": action_params,
+                "priority": self._read_priority(te, has_priority),
                 "default_action": te.is_default_action}
+        # Built here, written nowhere: an entry is only listed as a POST body if the writer takes
+        # it as one. A don't-care another controller spelled as a zero mask, or a field with no
+        # width, is refused here with the writer's own sentence instead of at the caller's POST.
+        try:
+            self.build_table_entry(spec)
+        except (TableEntryInvalid, TableEntryUnsupported) as err:
+            raise TableEntryInvalid(f"POST /p4/table_entry would refuse it: {err}") from err
+        return spec
 
     #: Bit width of each flow_5tuple key, from ndtwin_switch.p4. P4Runtime encodes a bit<N> field
     #: in ceil(N/8) bytes, and bmv2 refuses a value OR A MASK with a bit set above bit N-1

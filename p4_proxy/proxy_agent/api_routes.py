@@ -1424,26 +1424,37 @@ def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):
          "unrendered": []}
 
     Each entry is a POST body less its `op`: add `"op": "modify"` or `"op": "delete"` and send
-    it back unchanged. A value is in the one form its width reads back in
-    (match_shape.render_value): a bit<32> as a dotted address, a bit<48> as a MAC, anything
-    else as an integer; a match field as POST takes its type -- a plain value (exact,
-    optional), `[value, prefix_len]` (lpm), `[value, mask]` (ternary), `[low, high]` (range).
-    A field the entry does not match on is left out, as POST writes "any value". `priority` is
-    null on a table with no priority column and on the default entry. The table's default
-    entry comes last, `default_action: true`, empty match; it can be modified, not deleted. An
-    entry POST could not write back (an action-profile action, an id this p4info does not
-    describe) is not in `entries`: it is listed in `unrendered` with its reason, so an empty
-    `unrendered` says `entries` is the whole table.
+    it back unchanged. Every entry in `entries` has been built with the writer's own
+    `build_table_entry` (nothing is written), so the switch is the only thing left to refuse it --
+    a `const entries` table, or a `const default_action`, it refuses whatever is sent. A value is
+    in the one form its width reads back in (match_shape.render_value): a bit<32> as a dotted
+    address, a bit<48> as a MAC, a width up to 53 bits as an integer, a wider one as a lower-case
+    "0x..." string (a JSON number loses precision above 2^53 in many readers); a match field as
+    POST takes its type -- a plain value (exact, optional), `[value, prefix_len]` (lpm),
+    `[value, mask]` (ternary), `[low, high]` (range). A field the entry does not match on is left
+    out, as POST writes "any value". Tables and actions come back under their full names, also
+    when they were written by alias. `priority` is null on a table with no priority column and
+    on the default entry. The table's default entry comes last, `default_action: true`, empty
+    match. An entry POST could not write back (an action-profile action, an id this p4info does
+    not describe, an entry the writer refuses) is not in `entries`: it is listed in `unrendered`
+    with its reason, as is a default entry the switch did not return, so an empty `unrendered`
+    says `entries` is the whole table.
 
-        200  the read succeeded, an empty table (`entries: []`, the default entry only) included.
+        200  the read succeeded. An empty table answers its default entry alone in `entries`.
         404  `unknown switch`: a dpid the proxy did not set up; `not in this pipeline`: a table
              this switch's p4info does not describe. Nothing was read.
         422  `dpid` missing or not an integer, `table` missing or empty (FastAPI's own body).
-        503  `table not read`: the read failed -- the switch is not connected, or did not answer
-             within its deadline (RPC_TIMEOUT_S per read); `grpc_status` is the gRPC status name
-             (UNAVAILABLE, DEADLINE_EXCEEDED). NOT AN EMPTY TABLE. `replay pending`: the switch
-             is being re-adopted and its entries put back, so a read now would miss entries that
-             are about to return; nothing was read. `no topology`: the proxy has none yet.
+        503  `table not read`: the read failed with a gRPC error -- the switch is not connected
+             (UNAVAILABLE), did not answer within its deadline (RPC_TIMEOUT_S per read,
+             DEADLINE_EXCEEDED), has no pipeline since a restart (FAILED_PRECONDITION), or any
+             other status; `grpc_status` names it. NOT AN EMPTY TABLE. `replay pending`: the
+             switch is being re-adopted and its entries put back -- checked before the read, and
+             again after it, since a readopt that starts during the read empties the tables and
+             replaces the client; either way no table is answered. `no topology`: none yet.
+
+    An error other than a gRPC one is not caught: it is a fault in this proxy, and FastAPI
+    answers 500. The table is resolved before the read for that reason, so that "no such table"
+    is the only KeyError that becomes the 404.
 
     Every table can be read, NDTwin's own included: the owner rule (409 owned_by_ndtwin) is
     about writes. Works under an external control plane: a ReadRequest has no election id.
@@ -1465,10 +1476,12 @@ def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):
                                 f"switch {dpid} is being re-adopted and its entries put back; "
                                 f"nothing was read. Ask again once the readopt has answered")
     try:
-        reading = client.read_table(table)
+        full_name = client.table_full_name(table)
     except KeyError as err:
         raise _table_read_error(404, "not in this pipeline", dpid, table,
                                 err.args[0] if err.args else str(err))
+    try:
+        reading = client.read_table(full_name)
     except Exception as err:  # noqa: BLE001 -- only a gRPC failure is turned into a 503
         reason = _grpc_status_name(err)
         if reason is None:
@@ -1476,6 +1489,15 @@ def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):
         raise _table_read_error(503, "table not read", dpid, table,
                                 f"reading {table} from switch {dpid} failed: {reason}. This is "
                                 f"NOT an empty table", grpc_status=reason)
+    # A readopt that began while the table was being read pushes the pipeline (which empties the
+    # tables) and swaps the client, so what was read may be a table half put back.
+    still_this_switch = (topology.switches.get(dpid) is client
+                         and not (table_journals is not None and table_journals.pending(dpid)))
+    if not still_this_switch:
+        raise _table_read_error(503, "replay pending", dpid, table,
+                                f"switch {dpid} was re-adopted while {table} was being read, so "
+                                f"what was read may be incomplete. Ask again once the readopt has "
+                                f"answered")
     return {"dpid": dpid, "table": reading["table"],
             "entries": [dict({"dpid": dpid}, **entry) for entry in reading["entries"]],
             "unrendered": reading["unrendered"]}

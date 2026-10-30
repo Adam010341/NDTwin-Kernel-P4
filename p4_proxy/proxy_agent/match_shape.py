@@ -414,6 +414,11 @@ def shape_priority(table_name, kinds, priority, is_default=False):
 # the same way, and encodes to the same bytes.
 
 
+#: The widest field whose every value a JSON reader that parses numbers as IEEE doubles holds
+#: exactly (2^53). Wider fields read back as "0x..." strings. [Co-developed with claude code -- Adam]
+JSON_EXACT_INT_BITS = 53
+
+
 def render_value(raw, bitwidth):
     """
     One value the switch sent (a match value, mask, bound or action parameter), as JSON.
@@ -422,13 +427,17 @@ def render_value(raw, bitwidth):
     The form depends on the field's width only, because the width is all a p4info says about a
     field:
 
-        bit<32>         a dotted IPv4 address      "10.0.1.1"
-        bit<48>         a MAC address, lower case  "08:00:00:00:01:11"
-        any other width a plain integer            1
+        bit<32>              a dotted IPv4 address      "10.0.1.1"
+        bit<48>              a MAC address, lower case  "08:00:00:00:01:11"
+        up to 53 bits        a plain integer            1
+        wider than 53 bits   a lower-case hex string    "0x20000000000001"
 
-    These are the spellings the tutorials' runtime files use and `encode_value` reads. A 32-bit
-    field that is not an address reads back dotted too ("0.0.0.7" for 7): one form per width is
-    what lets a caller compare two reads, and the value encodes to the same bytes either way.
+    These are the spellings the tutorials' runtime files use and `encode_value` reads (the hex
+    string through its `int(text, 0)`). A 32-bit field that is not an address reads back dotted
+    too ("0.0.0.7" for 7): one form per width is what lets a caller compare two reads, and the
+    value encodes to the same bytes either way. The hex string is there because a JSON number
+    above 2^53 is a double in JavaScript and in many other JSON readers, and a value that has
+    passed through one of them comes back as a different number; a string comes back as it was.
 
     `raw` is read as a big-endian integer, never by its length: P4Runtime lets a target send a
     value with its leading zero bytes stripped. A value wider than the field is refused
@@ -444,6 +453,8 @@ def render_value(raw, bitwidth):
         return socket.inet_ntoa(number.to_bytes(4, "big"))
     if bitwidth == 48:
         return ":".join(f"{b:02x}" for b in number.to_bytes(6, "big"))
+    if bitwidth > JSON_EXACT_INT_BITS:
+        return f"0x{number:x}"
     return number
 
 
@@ -464,6 +475,8 @@ def render_field(where, bitwidth, wire):
         return [render_value(wire[1], bitwidth), int(wire[2])]
     if kind in ("TERNARY", "RANGE"):
         return [render_value(wire[1], bitwidth), render_value(wire[2], bitwidth)]
+    # Not reached from P4RuntimeClient.read_table, which refuses a kind other than the declared
+    # one before it gets here; kept for a caller that hands in a kind this module cannot shape.
     raise TableEntryUnsupported(
         f"{where} is a {kind} match, and this proxy reads {', '.join(BUILDABLE_MATCH_TYPES)} "
         f"entries only")
