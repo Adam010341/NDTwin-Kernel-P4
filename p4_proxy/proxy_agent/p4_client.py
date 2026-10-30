@@ -1327,6 +1327,15 @@ class P4RuntimeClient:
     IDLE_TIMEOUT_NS_MAX = (1 << 63) - 1
 
     @staticmethod
+    def _idle_timeout_as_json(idle):
+        """An idle timeout as GET gives it: an integer below 2^53, a "0x..." string from there on
+        (about 104 days), the rule match_shape.render_value applies to wide fields.
+        [Co-developed with claude code -- Adam]"""
+        if idle >= 1 << match_shape.JSON_EXACT_INT_BITS:
+            return f"0x{idle:x}"
+        return idle
+
+    @staticmethod
     def table_ages_entries(table):
         """Whether `table` (a p4info Table) keeps an idle timeout per entry: the program declared
         it `support_timeout = true`. [Co-developed with claude code -- Adam]"""
@@ -1338,10 +1347,18 @@ class P4RuntimeClient:
         where = table.preamble.name
         if idle is None:
             return 0
+        if isinstance(idle, str) and idle[:2].lower() == "0x":
+            # The form GET gives a value at or above 2^53, which a JSON number cannot carry
+            # exactly through every reader (match_shape.JSON_EXACT_INT_BITS).
+            try:
+                idle = int(idle[2:], 16)
+            except ValueError:
+                raise TableEntryInvalid(
+                    f"{where}: 'idle_timeout_ns' {idle!r} is not a hexadecimal number")
         if isinstance(idle, bool) or not isinstance(idle, int):
             raise TableEntryInvalid(
-                f"{where}: 'idle_timeout_ns' must be an integer number of nanoseconds, got "
-                f"{idle!r}")
+                f"{where}: 'idle_timeout_ns' must be an integer number of nanoseconds, or a "
+                f"\"0x...\" string, got {idle!r}")
         if not 0 <= idle <= self.IDLE_TIMEOUT_NS_MAX:
             raise TableEntryInvalid(
                 f"{where}: 'idle_timeout_ns' {idle} is outside 0..{self.IDLE_TIMEOUT_NS_MAX}")
@@ -2053,7 +2070,7 @@ class P4RuntimeClient:
         # clear it (bmv2 1.15.5, 2026-10-30). Only on a table that ages entries, where it is part
         # of what the entry is; a default entry never goes idle.
         if self.table_ages_entries(table) and not te.is_default_action:
-            spec["idle_timeout_ns"] = te.idle_timeout_ns
+            spec["idle_timeout_ns"] = self._idle_timeout_as_json(te.idle_timeout_ns)
         # Built here, written nowhere: an entry is only listed as a POST body if the writer takes
         # it as one. A don't-care another controller spelled as a zero mask, or a field with no
         # width, is refused here with the writer's own sentence instead of at the caller's POST.

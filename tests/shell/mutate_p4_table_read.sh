@@ -20,8 +20,8 @@
 # else, and the idle timeout an entry has to carry back.
 #
 # 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 39 and 62, 43 and 44, 46 and 47, 57
-# and 77, 58 and 59, and 65 and 66; 37, 38 and 63 share one, and 40, 41 and 60 share the route's
-# signature line. check_gate_anchors.py counts each distinct anchor once.
+# and 77, 58 and 59, 65 and 66, and 84 and 85; 37, 38 and 63 share one, and 40, 41 and 60 share
+# the route's signature line. check_gate_anchors.py counts each distinct anchor once.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a
@@ -415,7 +415,7 @@ each_mutation() {
 
     "$m" "39. the read runs on the event loop" "$API" \
         '    reader = asyncio.get_running_loop().run_in_executor(
-        _table_read_executor(), client.read_table, full_name)' \
+        _table_read_executor(dpid), client.read_table, full_name)' \
         '    reader = asyncio.get_running_loop().create_future()
     reader.set_result(client.read_table(full_name))' \
         'test_the_read_runs_off_the_event_loop'
@@ -556,11 +556,11 @@ each_mutation() {
 
     # ---- the reads' own pool and per-switch slots ------------------------------------------
 
-    # What the live run measured: a stopped switch's reads on the shared pool hold every POST
-    # and /stats/flow behind them.
+    # Measured on bmv2 1.15.5, 2026-10-30: a stopped switch's reads on the shared pool hold
+    # every POST and /stats/flow behind them.
     "$m" "62. the read goes back to FastAPI's shared pool" "$API" \
         '    reader = asyncio.get_running_loop().run_in_executor(
-        _table_read_executor(), client.read_table, full_name)' \
+        _table_read_executor(dpid), client.read_table, full_name)' \
         '    reader = asyncio.ensure_future(run_in_threadpool(client.read_table, full_name))' \
         'test_a_post_and_a_flow_stats_poll_on_another_switch_answer_at_once'
 
@@ -600,7 +600,7 @@ each_mutation() {
         'test_post_writes_the_idle_timeout'
 
     "$m" "69. GET does not return the idle timeout" "$CLIENT" \
-        '            spec["idle_timeout_ns"] = te.idle_timeout_ns' \
+        '            spec["idle_timeout_ns"] = self._idle_timeout_as_json(te.idle_timeout_ns)' \
         '            pass' \
         'test_an_entry_read_back_and_sent_as_a_modify_keeps_its_idle_timeout'
 
@@ -640,7 +640,8 @@ each_mutation() {
         '        return True' \
         'test_an_idle_timeout_on_a_table_without_timeout_support_is_400_and_writes_nothing'
 
-    # The live shape of an indirect table's default: flagged, no action at all.
+    # An indirect table's default as bmv2 1.15.5 returned it (measured 2026-10-30): flagged,
+    # no action at all.
     "$m" "77. an indirect table's default is blamed on an action profile" "$CLIENT" \
         '        if which is None:
             raise TableEntryInvalid(' \
@@ -655,6 +656,68 @@ each_mutation() {
         '        if idle is None:
             idle = 1' \
         'test_post_without_the_key_writes_no_timeout'
+
+    # ---- a readopt during the wait for a slot, the relay's deadline, many stopped switches -----
+
+    "$m" "79. a GET that waited through a readopt reads through the closed channel" "$API" \
+        '    if _readopt_seen(dpid, client):
+        slots.release()' \
+        '    if False:
+        slots.release()' \
+        'test_a_get_that_waited_through_a_readopt_is_503_and_reads_nothing'
+
+    "$m" "80. a read that a readopt broke is answered 500" "$API" \
+        '        if _readopt_seen(dpid, client):
+            raise _table_read_error(503, "replay pending", dpid, table,' \
+        '        if False:
+            raise _table_read_error(503, "replay pending", dpid, table,' \
+        'test_a_read_that_fails_because_of_a_readopt_is_503_not_500'
+
+    "$m" "81. a replaced client is not noticed after the wait" "$API" \
+        '    if topology.switches.get(dpid) is not client:
+        return True' \
+        '    if False:
+        return True' \
+        'test_a_read_that_fails_because_of_a_readopt_is_503_not_500'
+
+    # A wait of two read deadlines would let a GET run 20 s and meet the relay's 504.
+    "$m" "82. the slot wait grows past the kernel relay's deadline" "$API" \
+        'TABLE_READ_WAIT_S = 3.0' \
+        'TABLE_READ_WAIT_S = 2 * RPC_TIMEOUT_S' \
+        'test_a_whole_get_answers_inside_the_kernel_relays_15_s'
+
+    # One pool of 32 workers for every switch is filled by 8 stopped switches.
+    "$m" "83. one pool of 32 for every switch again" "$API" \
+        '    pool = _table_read_pools.get(dpid)
+    if pool is None:
+        pool = ThreadPoolExecutor(max_workers=TABLE_READS_PER_SWITCH,' \
+        '    dpid = "every switch"
+    pool = _table_read_pools.get(dpid)
+    if pool is None:
+        pool = ThreadPoolExecutor(max_workers=32,' \
+        'test_reads_of_another_switch_go_on_while_ten_switches_are_stopped'
+
+    "$m" "84. a wide idle timeout is a JSON number again" "$CLIENT" \
+        '        if idle >= 1 << match_shape.JSON_EXACT_INT_BITS:' \
+        '        if False:' \
+        'test_from_2_53_it_reads_back_a_hex_string'
+
+    "$m" "85. 2^53 itself is a JSON number" "$CLIENT" \
+        '        if idle >= 1 << match_shape.JSON_EXACT_INT_BITS:' \
+        '        if idle > 1 << match_shape.JSON_EXACT_INT_BITS:' \
+        'test_from_2_53_it_reads_back_a_hex_string'
+
+    "$m" "86. POST no longer takes the hex form back" "$CLIENT" \
+        '        if isinstance(idle, str) and idle[:2].lower() == "0x":' \
+        '        if False:' \
+        'test_post_takes_the_hex_string_and_a_read_back_round_trips'
+
+    "$m" "87. a hex string that does not parse escapes as a fault" "$CLIENT" \
+        '                idle = int(idle[2:], 16)
+            except ValueError:' \
+        '                idle = int(idle[2:], 16)
+            except KeyError:' \
+        'test_a_string_that_is_not_hex_is_400'
 }
 
 # --- run ------------------------------------------------------------------------------------

@@ -713,7 +713,7 @@ class ThroughTheAppTest(TableReadTestBase):
         asgi("GET", "/p4/table_entry", b"dpid=2&table=dmac")
         self.assertEqual(len(self.store.threads), 2)
         self.assertNotIn(threading.current_thread().name, self.store.threads)
-        self.assertTrue(all(name.startswith("p4-table-read") for name in self.store.threads),
+        self.assertTrue(all(name.startswith("p4-table-read-s2_") for name in self.store.threads),
                         self.store.threads)
 
     def test_a_404_keeps_the_error_body(self):
@@ -1011,6 +1011,37 @@ class IdleTimeoutTest(TableReadTestBase):
         self.assertEqual(te.idle_timeout_ns, 0)
 
 
+class AWideIdleTimeoutTest(TableReadTestBase):
+    """idle_timeout_ns follows the 53-bit rule wide values do: from 2^53 ns (about 104 days) GET
+    gives it as a "0x..." string, and POST takes that string back."""
+
+    def test_below_2_53_it_reads_back_an_integer(self):
+        self.write(dict(IDLE, idle_timeout_ns=(1 << 53) - 1))
+        self.assertEqual(self.entries("PkgIngress.idle")[0]["idle_timeout_ns"], (1 << 53) - 1)
+
+    def test_from_2_53_it_reads_back_a_hex_string(self):
+        self.write(dict(IDLE, idle_timeout_ns=1 << 53))
+        self.assertEqual(self.entries("PkgIngress.idle")[0]["idle_timeout_ns"],
+                         "0x20000000000000")
+
+    def test_post_takes_the_hex_string_and_a_read_back_round_trips(self):
+        self.write(dict(IDLE, idle_timeout_ns="0x1000000000000003"))
+        self.assertEqual(self.held_timeout(), (1 << 60) + 3)
+        entry = self.entries("PkgIngress.idle")[0]
+        self.assertEqual(self.write(entry, op="modify")["status"], "success")
+        self.assertEqual(self.held_timeout(), (1 << 60) + 3)
+
+    def test_a_string_that_is_not_hex_is_400(self):
+        for bad in ("0xzz", "600", "0x"):
+            with self.subTest(bad=bad), self.assertRaises(HTTPException) as caught:
+                self.write(dict(IDLE, idle_timeout_ns=bad))
+            self.assertEqual(caught.exception.status_code, 400)
+
+    def held_timeout(self):
+        (te,) = [e for (tid, _m, _p), e in self.store.entries.items() if tid == IDLE_ID]
+        return te.idle_timeout_ns
+
+
 class AnIndirectTablesDefaultTest(TableReadTestBase):
     """bmv2 1.15.5 (2026-10-30) answers the default read of an action-profile table with an
     entry flagged is_default_action and no action at all; sent back, it was a 400."""
@@ -1037,16 +1068,24 @@ class AWidthThatIsNoMultipleOfEightTest(TableReadTestBase):
 
 
 class BlockingStore(TableStore):
-    """A switch that stops answering reads: each Read waits on `release` (or 10 s)."""
+    """A switch that stops answering reads: each Read waits on `release` (or 10 s). Once `closed`,
+    a Read fails the way gRPC fails on a channel that has been closed: a ValueError, not a gRPC
+    error. `calls` counts every Read that reached it."""
 
     def __init__(self):
         super().__init__()
         self.release = threading.Event()
         self.started = threading.Semaphore(0)
+        self.closed = False
+        self.calls = 0
 
     def Read(self, request, timeout=None):
+        self.calls += 1
         self.started.release()
-        self.release.wait(10)
+        if not self.closed:
+            self.release.wait(10)
+        if self.closed:
+            raise ValueError("Cannot invoke RPC on closed channel!")
         return super().Read(request, timeout)
 
 
@@ -1165,6 +1204,78 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
                 self.stopped.release.set()
         status, _took = asyncio.run(scenario())
         self.assertEqual(status, 503)
+
+    def test_reads_of_another_switch_go_on_while_ten_switches_are_stopped(self):
+        # Every slot of ten stopped switches taken at once: forty reads that never end. They
+        # hold their own switches' threads, not threads switch 2 needs.
+        stopped = {dpid: BlockingStore() for dpid in range(10, 20)}
+        for store in stopped.values():
+            self.addCleanup(store.release.set)
+        switches = {dpid: a_client(store, device_id=dpid) for dpid, store in stopped.items()}
+        switches[2] = self.client
+        api_routes.topology = FakeTopology(switches)
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        async def scenario():
+            stuck = [asyncio.ensure_future(_call(app, "GET", "/p4/table_entry",
+                                                 b"dpid=%d&table=dmac" % dpid))
+                     for dpid in stopped for _ in range(api_routes.TABLE_READS_PER_SWITCH)]
+            await asyncio.sleep(0.3)
+            try:
+                return await asyncio.wait_for(
+                    _call(app, "GET", "/p4/table_entry", b"dpid=2&table=dmac"), timeout=5)
+            finally:
+                for store in stopped.values():
+                    store.release.set()
+                await asyncio.gather(*stuck, return_exceptions=True)
+        status, took = asyncio.run(scenario())
+        self.assertEqual(status, 200)
+        self.assertLess(took, self.BOUND_S)
+
+    def test_a_whole_get_answers_inside_the_kernel_relays_15_s(self):
+        # The kernel's /ndt/p4 relay answers 504 after 15 s. The slowest GET waits for a slot and
+        # then reads twice, each read up to its deadline; 1 s is left for everything else.
+        worst = api_routes.TABLE_READ_WAIT_S + 2 * RPC_TIMEOUT_S
+        self.assertEqual(api_routes.TABLE_READ_WORST_S, worst)
+        self.assertLessEqual(worst, 14.0)
+
+    def readopt_while_waiting(self):
+        """Every slot of switch 9 taken by reads that hang; one more GET waits for a slot; then
+        switch 9 is re-adopted: a new client, the old one's channel closed, the hung reads end.
+        Returns (the four GETs that were reading, the one that waited)."""
+        saved = api_routes.TABLE_READ_WAIT_S
+        api_routes.TABLE_READ_WAIT_S = 2.0
+        self.addCleanup(setattr, api_routes, "TABLE_READ_WAIT_S", saved)
+        app = FastAPI()
+        app.include_router(api_routes.router)
+        old = self.stopped
+
+        async def scenario():
+            reading = [asyncio.ensure_future(_call(app, "GET", "/p4/table_entry",
+                                                   b"dpid=9&table=dmac"))
+                       for _ in range(api_routes.TABLE_READS_PER_SWITCH)]
+            await asyncio.sleep(0.2)
+            waiting = asyncio.ensure_future(_call(app, "GET", "/p4/table_entry",
+                                                  b"dpid=9&table=dmac"))
+            await asyncio.sleep(0.2)
+            api_routes.topology.switches[9] = a_client(TableStore(), device_id=9)
+            old.closed = True
+            old.release.set()
+            return (await asyncio.gather(*reading, return_exceptions=True),
+                    (await asyncio.gather(waiting, return_exceptions=True))[0])
+        return asyncio.run(scenario())
+
+    def test_a_get_that_waited_through_a_readopt_is_503_and_reads_nothing(self):
+        _reading, waited = self.readopt_while_waiting()
+        self.assertEqual(waited[0], 503, waited)
+        self.assertEqual(self.stopped.calls, api_routes.TABLE_READS_PER_SWITCH,
+                         "the GET that waited read through the closed channel")
+
+    def test_a_read_that_fails_because_of_a_readopt_is_503_not_500(self):
+        reading, _waited = self.readopt_while_waiting()
+        self.assertEqual([r[0] if isinstance(r, tuple) else repr(r) for r in reading],
+                         [503] * api_routes.TABLE_READS_PER_SWITCH)
 
     def test_a_healthy_switchs_concurrent_reads_are_all_answered(self):
         # Fifty at once on a switch that answers: they queue for its slots and none is refused.
