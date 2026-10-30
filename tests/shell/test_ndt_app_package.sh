@@ -2416,7 +2416,11 @@ has   "  and drops the record"                            "REC=absent" "$OUT"
 # A claim over a record the knob has left starts the round from the knob.
 reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
 OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+echo "START=$(round_start_host_count)"
 export NDT_OWNER=t; cmd_claim 60 "after a hand edit" >/dev/null 2>&1; '"$(base_of)"'')"
+# Asked of round_start_host_count itself too: since a claim forgets such a record first, the
+# claim alone can no longer show whether the function would trust it.
+has   "🔴 with a record the knob has left, a round would start from the knob" "START=8" "$OUT"
 has   "🔴 a claim over a record that no longer holds starts from the knob" "BASE=8" "$OUT"
 rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
 

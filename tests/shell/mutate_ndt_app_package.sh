@@ -1823,8 +1823,10 @@ cat > "$A/m121.new" <<'EOF'
     if [[ -f "$rec" ]]; then
         before="$(sed -n 's/^before=//p' "$rec" | head -1)"
 EOF
-check_fires "M121 (widening): a claim trusts a record the knob has left" m121 \
-            "🔴 a claim over a record that no longer holds starts from the knob"
+# The claim forgets such a record before it asks (M122), so the claim's own BASE line no longer
+# shows this mutation; the function is asked directly.
+check_fires "M121 (widening): a round would start from a record the knob has left" m121 \
+            "🔴 with a record the knob has left, a round would start from the knob"
 
 # --- M122..M128: a record that stopped holding, release, and down's failed put-back (24 (g)) ------
 # [Co-developed with claude code -- Adam]
