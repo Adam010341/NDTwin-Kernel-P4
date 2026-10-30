@@ -9,12 +9,17 @@ What this suite holds the route to:
     200  every entry of the table, each `{dpid, table, match, action_name, action_params,
          priority, default_action}`, the default entry last; an empty table is the default entry
          alone. One form per value: bit<32> dotted, bit<48> a MAC, up to 53 bits an integer,
-         wider a "0x..." string. Every listed entry is one build_table_entry takes; any other,
-         and a default entry the switch did not return, is in `unrendered`.
+         wider a "0x..." string. On a table declared support_timeout each entry also carries
+         `idle_timeout_ns`, which POST takes back. Every listed entry is one build_table_entry
+         takes; any other, and a default entry the switch did not return, is in `unrendered`.
     404  an unknown dpid, or a table this switch's p4info does not describe; nothing is read
     422  a missing or non-integer dpid, a missing or empty table
     503  the read failed with any gRPC status, named in the body; a switch being re-adopted,
-         before the read or during it; no topology yet
+         before the read or during it; no read slot of that switch free in time (`switch
+         busy`); no topology yet
+
+and to the isolation the reads run in: a switch that stops answering holds only its own slots
+of the route's own reader pool, never FastAPI's shared one
 
 and to the round trip the route exists for: an entry written through POST, read back, and sent
 back unchanged as a modify or a delete, through the writer's own encoder
@@ -39,6 +44,7 @@ import os
 import queue
 import sys
 import threading
+import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -77,10 +83,11 @@ except ImportError:  # pragma: no cover -- depends on the interpreter L1 picks
 
 # Synthetic ids, one block per table, so a mixed-up id shows as the wrong table.
 LPM_ID, DMAC_ID, TUNNEL_ID, ACL_ID, PROFILED_ID = 41000001, 41000002, 41000003, 41000004, 41000005
-WIDE_ID, NOWIDTH_ID = 41000006, 41000007
+WIDE_ID, NOWIDTH_ID, IDLE_ID, ODD_ID, AP_ID = 41000006, 41000007, 41000008, 41000009, 41000010
 FORWARD_ID, SET_PORT_ID, PERMIT_ID, DROP_ID, NOACTION_ID = 21000001, 21000002, 21000003, 21000004, 21000005
 TAG_ID = 21000006
-ALL_TABLES = (LPM_ID, DMAC_ID, TUNNEL_ID, ACL_ID, PROFILED_ID, WIDE_ID, NOWIDTH_ID)
+ALL_TABLES = (LPM_ID, DMAC_ID, TUNNEL_ID, ACL_ID, PROFILED_ID, WIDE_ID, NOWIDTH_ID, IDLE_ID,
+              ODD_ID, AP_ID)
 
 
 def a_p4info():
@@ -94,6 +101,10 @@ def a_p4info():
         PkgIngress.profiled  exact on a bit<16>, an action-profile table POST cannot write
         PkgIngress.wide      exact bit<64>, ternary bit<128> (a priority table) -> tag(tag bit<64>)
         PkgIngress.nowidth   exact on a field the p4info gives no width, which no writer encodes
+        PkgIngress.idle      exact on a bit<16>, declared support_timeout -> set_port
+        PkgIngress.odd       exact on a bit<57>, a width that is no multiple of 8 -> set_port
+        PkgIngress.t_ap      exact on a bit<16>, an action-profile table whose default the switch
+                             returns with no action (bmv2 1.15.5, 2026-10-30)
     """
     p4info = p4info_pb2.P4Info()
 
@@ -117,6 +128,11 @@ def a_p4info():
     table(WIDE_ID, "PkgIngress.wide", [("meta.cookie", 64, M.EXACT),
                                        ("hdr.ipv6.dstAddr", 128, M.TERNARY)])
     table(NOWIDTH_ID, "PkgIngress.nowidth", [("meta.flag", 0, M.EXACT)])
+    idle = table(IDLE_ID, "PkgIngress.idle", [("hdr.udp.dstPort", 16, M.EXACT)])
+    idle.idle_timeout_behavior = p4info_pb2.Table.NOTIFY_CONTROL
+    table(ODD_ID, "PkgIngress.odd", [("meta.tag57", 57, M.EXACT)])
+    ap = table(AP_ID, "PkgIngress.t_ap", [("hdr.udp.dstPort", 16, M.EXACT)])
+    ap.implementation_id = 28000001
 
     def action(aid, name, params):
         a = p4info.actions.add()
@@ -208,7 +224,7 @@ class TableStore:
     def Read(self, request, timeout=None):
         self.reads.append(request)
         self.timeouts.append(timeout)
-        self.threads.append(threading.get_ident())
+        self.threads.append(threading.current_thread().name)
         if self.read_error is not None:
             raise self.read_error
         out = []
@@ -331,7 +347,7 @@ class TableReadTestBase(unittest.TestCase):
         return asyncio.run(api_routes.table_entry(a_post(dict(spec, dpid=2, op=op))))
 
     def read(self, table, dpid=2):
-        return api_routes.read_table_entry(dpid=dpid, table=table)
+        return asyncio.run(api_routes.read_table_entry(dpid=dpid, table=table))
 
     def refused(self, table, dpid=2):
         with self.assertRaises(HTTPException) as caught:
@@ -692,13 +708,13 @@ class ThroughTheAppTest(TableReadTestBase):
         self.assertEqual(body["entries"][0]["match"], {"hdr.ethernet.dstAddr": "08:00:00:00:02:22"})
 
     def test_the_read_runs_off_the_event_loop(self):
-        # FastAPI sends a `def` endpoint to its threadpool; the read must not run on the loop,
-        # which `asgi` runs on this thread. Compared by thread identity, the property that
-        # matters, as well as by the predicate FastAPI branches on.
-        self.assertFalse(asyncio.iscoroutinefunction(api_routes.read_table_entry))
+        # The read blocks on gRPC, so it runs on the route's own reader threads: not on the loop
+        # (`asgi` runs the loop on this thread) and not on FastAPI's shared pool.
         asgi("GET", "/p4/table_entry", b"dpid=2&table=dmac")
         self.assertEqual(len(self.store.threads), 2)
-        self.assertNotIn(threading.get_ident(), self.store.threads)
+        self.assertNotIn(threading.current_thread().name, self.store.threads)
+        self.assertTrue(all(name.startswith("p4-table-read") for name in self.store.threads),
+                        self.store.threads)
 
     def test_a_404_keeps_the_error_body(self):
         status, body = asgi("GET", "/p4/table_entry", b"dpid=2&table=nope")
@@ -927,6 +943,252 @@ class ErrorBodiesNameTheSwitchAndTheTableTest(TableReadTestBase):
                  (body(no_topology=True), 2, "dmac"))
         for detail, dpid, table in cases:
             self.assertEqual((detail.get("dpid"), detail.get("table")), (dpid, table), detail)
+
+
+IDLE = {"table": "PkgIngress.idle", "match": {"hdr.udp.dstPort": 40099},
+        "action_name": "PkgIngress.set_port", "action_params": {"port": 3},
+        "idle_timeout_ns": 600_000_000_000}
+
+
+class IdleTimeoutTest(TableReadTestBase):
+    """bmv2 clears an entry's idle timeout on a MODIFY that does not carry one (bmv2 1.15.5,
+    2026-10-30), so a table declared support_timeout reads its timeout back and takes it on a
+    write. The stub keeps the TableEntry it was last written, which is the same behaviour."""
+
+    def held_timeout(self):
+        (te,) = [e for (tid, _m, _p), e in self.store.entries.items() if tid == IDLE_ID]
+        return te.idle_timeout_ns
+
+    def test_post_writes_the_idle_timeout(self):
+        self.write(IDLE)
+        self.assertEqual(self.held_timeout(), 600_000_000_000)
+
+    def test_get_returns_the_idle_timeout_the_switch_holds(self):
+        self.write(IDLE)
+        self.assertEqual(self.entries("PkgIngress.idle")[0]["idle_timeout_ns"], 600_000_000_000)
+
+    def test_an_entry_read_back_and_sent_as_a_modify_keeps_its_idle_timeout(self):
+        self.write(IDLE)
+        entry = self.entries("PkgIngress.idle")[0]
+        self.assertEqual(self.write(entry, op="modify")["status"], "success")
+        self.assertEqual(self.held_timeout(), 600_000_000_000)
+        self.assertEqual(self.built(entry), self.built(IDLE))
+
+    def test_an_entry_with_no_timeout_on_such_a_table_reads_back_zero(self):
+        self.write(dict(IDLE, idle_timeout_ns=None))
+        self.assertEqual(self.entries("PkgIngress.idle")[0]["idle_timeout_ns"], 0)
+
+    def test_the_default_entry_and_other_tables_carry_no_idle_timeout_key(self):
+        self.write(IDLE)
+        self.write(DMAC)
+        self.assertNotIn("idle_timeout_ns", self.entries("PkgIngress.idle")[-1])
+        self.assertNotIn("idle_timeout_ns", self.entries("PkgIngress.dmac")[0])
+
+    def test_an_idle_timeout_on_a_table_without_timeout_support_is_400_and_writes_nothing(self):
+        with self.assertRaises(HTTPException) as caught:
+            self.write(dict(DMAC, idle_timeout_ns=1_000_000))
+        self.assertEqual(caught.exception.status_code, 400)
+        self.assertIn("support_timeout", caught.exception.detail["message"])
+        self.assertEqual(self.store.writes, [])
+
+    def test_an_idle_timeout_on_a_default_entry_is_400(self):
+        with self.assertRaises(HTTPException) as caught:
+            self.write({"table": "PkgIngress.idle", "default_action": True,
+                        "action_name": "NoAction", "idle_timeout_ns": 5})
+        self.assertEqual(caught.exception.status_code, 400)
+        self.assertEqual(self.store.writes, [])
+
+    def test_an_idle_timeout_that_is_not_a_non_negative_integer_is_400(self):
+        for bad in (-1, 1.5, "600", True, 1 << 63):
+            with self.subTest(bad=bad), self.assertRaises(HTTPException) as caught:
+                self.write(dict(IDLE, idle_timeout_ns=bad))
+            self.assertEqual(caught.exception.status_code, 400)
+        self.assertEqual(self.store.writes, [])
+
+    def test_post_without_the_key_writes_no_timeout(self):
+        self.write(DMAC)
+        (te,) = self.store.entries.values()
+        self.assertEqual(te.idle_timeout_ns, 0)
+
+
+class AnIndirectTablesDefaultTest(TableReadTestBase):
+    """bmv2 1.15.5 (2026-10-30) answers the default read of an action-profile table with an
+    entry flagged is_default_action and no action at all; sent back, it was a 400."""
+
+    def test_the_default_with_no_action_is_unrendered_saying_so(self):
+        self.store.defaults[AP_ID] = p4runtime_pb2.TableEntry(table_id=AP_ID,
+                                                               is_default_action=True)
+        body = self.read("PkgIngress.t_ap")
+        self.assertEqual(body["entries"], [])
+        self.assertEqual(len(body["unrendered"]), 1)
+        item = body["unrendered"][0]
+        self.assertEqual((item["default_action"], item["priority"]), (True, None))
+        self.assertIn("without an action", item["reason"])
+
+
+class AWidthThatIsNoMultipleOfEightTest(TableReadTestBase):
+    def test_a_bit57_value_above_2_53_rebuilds_the_same_bytes(self):
+        spec = {"table": "PkgIngress.odd", "match": {"meta.tag57": (1 << 56) + 5},
+                "action_name": "PkgIngress.set_port", "action_params": {"port": 1}}
+        self.write(spec)
+        entry = self.entries("PkgIngress.odd")[0]
+        self.assertEqual(entry["match"], {"meta.tag57": "0x100000000000005"})
+        self.assertEqual(self.built(entry), self.built(spec))
+
+
+class BlockingStore(TableStore):
+    """A switch that stops answering reads: each Read waits on `release` (or 10 s)."""
+
+    def __init__(self):
+        super().__init__()
+        self.release = threading.Event()
+        self.started = threading.Semaphore(0)
+
+    def Read(self, request, timeout=None):
+        self.started.release()
+        self.release.wait(10)
+        return super().Read(request, timeout)
+
+
+async def _call(app, method, path, query=b"", body=b""):
+    """One request through the ASGI app on the running loop: (status, seconds)."""
+    sent = []
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
+             "method": method, "path": path, "raw_path": path.encode(), "root_path": "",
+             "scheme": "http", "query_string": query,
+             "headers": [(b"content-type", b"application/json")],
+             "client": ("127.0.0.1", 0), "server": ("127.0.0.1", 8081)}
+    began = time.monotonic()
+    await app(scope, receive, send)
+    status = next(m["status"] for m in sent if m["type"] == "http.response.start")
+    return status, time.monotonic() - began
+
+
+class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
+    """Measured on bmv2 1.15.5, 2026-10-30: forty GETs to one stopped switch held POST writes and
+    /stats/flow on the healthy switches for a whole read deadline (about 5 s, against 0.03 s).
+    Here FastAPI's shared pool is cut to 4 threads and 8 GETs hang on switch 9; a POST, a
+    /stats/flow and a GET on switch 2 must each still answer at once."""
+
+    BOUND_S = 1.0
+
+    def setUp(self):
+        super().setUp()
+        self.stopped = BlockingStore()
+        self.addCleanup(self.stopped.release.set)
+        api_routes.topology = FakeTopology({2: self.client, 9: a_client(self.stopped, device_id=9)})
+
+    def run_while_stopped(self, hung, others):
+        import anyio.to_thread
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        async def scenario():
+            anyio.to_thread.current_default_thread_limiter().total_tokens = 4
+            stuck = [asyncio.ensure_future(_call(app, "GET", "/p4/table_entry",
+                                                 b"dpid=9&table=dmac")) for _ in range(hung)]
+            await asyncio.sleep(0.3)
+            try:
+                return await asyncio.wait_for(
+                    asyncio.gather(*[_call(app, *o) for o in others]), timeout=5)
+            finally:
+                self.stopped.release.set()
+                await asyncio.gather(*stuck, return_exceptions=True)
+        return asyncio.run(scenario())
+
+    def test_a_post_and_a_flow_stats_poll_on_another_switch_answer_at_once(self):
+        results = self.run_while_stopped(8, [
+            ("POST", "/p4/table_entry", b"", json.dumps(dict(DMAC, dpid=2)).encode()),
+            ("GET", "/stats/flow/2")])
+        for status, took in results:
+            self.assertLess(took, self.BOUND_S, results)
+        self.assertEqual([status for status, _ in results], [200, 200], results)
+
+    def test_a_read_of_another_switch_answers_at_once(self):
+        # Forty GETs on the stopped switch: more than the reader pool has workers, so this
+        # needs the per-switch slots as well as the pool of its own.
+        (status, took), = self.run_while_stopped(40, [
+            ("GET", "/p4/table_entry", b"dpid=2&table=dmac")])
+        self.assertEqual(status, 200)
+        self.assertLess(took, self.BOUND_S)
+
+    def test_a_get_that_cannot_get_a_slot_is_503_switch_busy(self):
+        saved = api_routes.TABLE_READ_WAIT_S
+        api_routes.TABLE_READ_WAIT_S = 0.2
+        self.addCleanup(setattr, api_routes, "TABLE_READ_WAIT_S", saved)
+        hung = api_routes.TABLE_READS_PER_SWITCH
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        async def scenario():
+            stuck = [asyncio.ensure_future(_call(app, "GET", "/p4/table_entry",
+                                                 b"dpid=9&table=dmac")) for _ in range(hung)]
+            await asyncio.sleep(0.1)
+            try:
+                return await asyncio.wait_for(
+                    _call(app, "GET", "/p4/table_entry", b"dpid=9&table=dmac"), timeout=3)
+            finally:
+                self.stopped.release.set()
+                await asyncio.gather(*stuck, return_exceptions=True)
+        status, took = asyncio.run(scenario())
+        self.assertEqual(status, 503)
+        self.assertLess(took, 1.0)
+
+    def test_a_read_whose_caller_gave_up_still_holds_its_slot(self):
+        # The reads keep running against the stopped switch after their callers hang up, so the
+        # switch's slots stay taken and a new GET is told so instead of starting a fifth read.
+        saved = api_routes.TABLE_READ_WAIT_S
+        api_routes.TABLE_READ_WAIT_S = 0.2
+        self.addCleanup(setattr, api_routes, "TABLE_READ_WAIT_S", saved)
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        async def scenario():
+            gone = [asyncio.ensure_future(_call(app, "GET", "/p4/table_entry",
+                                                b"dpid=9&table=dmac"))
+                    for _ in range(api_routes.TABLE_READS_PER_SWITCH)]
+            await asyncio.sleep(0.1)
+            for request in gone:
+                request.cancel()
+            await asyncio.gather(*gone, return_exceptions=True)
+            try:
+                return await asyncio.wait_for(
+                    _call(app, "GET", "/p4/table_entry", b"dpid=9&table=dmac"), timeout=3)
+            finally:
+                self.stopped.release.set()
+        status, _took = asyncio.run(scenario())
+        self.assertEqual(status, 503)
+
+    def test_a_healthy_switchs_concurrent_reads_are_all_answered(self):
+        # Fifty at once on a switch that answers: they queue for its slots and none is refused.
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        async def scenario():
+            return await asyncio.gather(*[_call(app, "GET", "/p4/table_entry",
+                                                b"dpid=2&table=dmac") for _ in range(50)])
+        self.assertEqual({status for status, _ in asyncio.run(scenario())}, {200})
+
+    def test_a_slot_is_given_back_after_every_read(self):
+        # More reads, one after another on one loop, than the switch has slots; a slot that was
+        # not given back would leave the later ones waiting and then refused.
+        saved = api_routes.TABLE_READ_WAIT_S
+        api_routes.TABLE_READ_WAIT_S = 0.5
+        self.addCleanup(setattr, api_routes, "TABLE_READ_WAIT_S", saved)
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        async def scenario():
+            return [await _call(app, "GET", "/p4/table_entry", b"dpid=2&table=dmac")
+                    for _ in range(3 * api_routes.TABLE_READS_PER_SWITCH)]
+        self.assertEqual({status for status, _ in asyncio.run(scenario())}, {200})
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")

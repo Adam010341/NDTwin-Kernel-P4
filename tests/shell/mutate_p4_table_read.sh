@@ -15,11 +15,13 @@
 # entry the writer's shape cannot say reported as if it could, or dropped without saying so
 # (half two). The route: a refusal answered 200, a failed read answered as an empty table, a
 # read refused that needs no ownership or mastership, a query parameter no longer checked, the
-# read put on the event loop, a readopt during the read not noticed (half three).
+# read put on the event loop, a readopt during the read not noticed (half three). Then the reads'
+# own pool and per-switch slots, which keep a switch that stops answering from holding up anyone
+# else, and the idle timeout an entry has to carry back.
 #
-# 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 16 and 17, 37 and 38, 43 and 44, 46
-# and 47, and 58 and 59; 39, 40, 41 and 60 share the route's signature line. check_gate_anchors.py
-# counts each distinct anchor once: 51 for 61 mutations.
+# 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 39 and 62, 43 and 44, 46 and 47, 57
+# and 77, 58 and 59, and 65 and 66; 37, 38 and 63 share one, and 40, 41 and 60 share the route's
+# signature line. check_gate_anchors.py counts each distinct anchor once.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a
@@ -397,27 +399,25 @@ each_mutation() {
 
     # The write rule (409 owned_by_ndtwin) grown onto a read.
     "$m" "37. an owner check refuses NDTwin's own tables" "$API" \
-        '    try:
-        reading = client.read_table(full_name)' \
+        '    slots = _table_read_slot(dpid)' \
         '    owned = [t for t in client.p4info.tables if table in (t.preamble.name, t.preamble.alias)]
     if owned and client.table_owned_by_ndtwin(owned[0]):
         raise _table_read_error(409, "owned by NDTwin", dpid, table, "owned")
-    try:
-        reading = client.read_table(full_name)' \
+    slots = _table_read_slot(dpid)' \
         'test_a_table_ndtwin_owns_is_still_read'
 
     "$m" "38. an external control plane is refused" "$API" \
-        '    try:
-        reading = client.read_table(full_name)' \
+        '    slots = _table_read_slot(dpid)' \
         '    if not client.arbitration:
         raise _table_read_error(409, "external control plane", dpid, table, "read only")
-    try:
-        reading = client.read_table(full_name)' \
+    slots = _table_read_slot(dpid)' \
         'test_an_external_control_plane_can_still_read'
 
     "$m" "39. the read runs on the event loop" "$API" \
-        'def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):' \
-        'async def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):' \
+        '    reader = asyncio.get_running_loop().run_in_executor(
+        _table_read_executor(), client.read_table, full_name)' \
+        '    reader = asyncio.get_running_loop().create_future()
+    reader.set_result(client.read_table(full_name))' \
         'test_the_read_runs_off_the_event_loop'
 
     "$m" "40. an empty table name is no longer refused" "$API" \
@@ -509,10 +509,10 @@ each_mutation() {
 
     "$m" "55. a KeyError anywhere in the read is called a missing table" "$API" \
         '    try:
-        reading = client.read_table(full_name)
+        reading = await asyncio.shield(reader)
     except Exception as err:' \
         '    try:
-        reading = client.read_table(full_name)
+        reading = await asyncio.shield(reader)
     except KeyError as err:
         raise _table_read_error(404, "not in this pipeline", dpid, table, str(err))
     except Exception as err:' \
@@ -553,6 +553,108 @@ each_mutation() {
             match.update({f.name: None for f in table.match_fields if f.name not in match})
         which = te.action.WhichOneof("type")' \
         'test_a_field_left_out_stays_left_out'
+
+    # ---- the reads' own pool and per-switch slots ------------------------------------------
+
+    # What the live run measured: a stopped switch's reads on the shared pool hold every POST
+    # and /stats/flow behind them.
+    "$m" "62. the read goes back to FastAPI's shared pool" "$API" \
+        '    reader = asyncio.get_running_loop().run_in_executor(
+        _table_read_executor(), client.read_table, full_name)' \
+        '    reader = asyncio.ensure_future(run_in_threadpool(client.read_table, full_name))' \
+        'test_a_post_and_a_flow_stats_poll_on_another_switch_answer_at_once'
+
+    "$m" "63. one switch's reads are not limited" "$API" \
+        '    slots = _table_read_slot(dpid)' \
+        '    slots = asyncio.Semaphore(1000)' \
+        'test_a_read_of_another_switch_answers_at_once'
+
+    "$m" "64. a slot is never given back" "$API" \
+        '    reader.add_done_callback(lambda _finished: slots.release())' \
+        '    pass' \
+        'test_a_slot_is_given_back_after_every_read'
+
+    "$m" "65. a GET waits for a slot forever" "$API" \
+        '        await asyncio.wait_for(slots.acquire(), timeout=TABLE_READ_WAIT_S)' \
+        '        await slots.acquire()' \
+        'test_a_get_that_cannot_get_a_slot_is_503_switch_busy'
+
+    "$m" "66. a GET that cannot start at once is refused" "$API" \
+        '        await asyncio.wait_for(slots.acquire(), timeout=TABLE_READ_WAIT_S)' \
+        '        await asyncio.wait_for(slots.acquire(), timeout=0)' \
+        'test_a_healthy_switchs_concurrent_reads_are_all_answered'
+
+    # A caller that hangs up must not free the slot of a read that is still running.
+    "$m" "67. the slot goes back when the request ends, not when the read does" "$API" \
+        '        reading = await asyncio.shield(reader)' \
+        '        reading = await reader' \
+        'test_a_read_whose_caller_gave_up_still_holds_its_slot'
+
+    # ---- idle timeouts -------------------------------------------------------------------------
+
+    "$m" "68. POST does not write the idle timeout" "$CLIENT" \
+        '        if idle:
+            entry.idle_timeout_ns = idle' \
+        '        if False:
+            entry.idle_timeout_ns = idle' \
+        'test_post_writes_the_idle_timeout'
+
+    "$m" "69. GET does not return the idle timeout" "$CLIENT" \
+        '            spec["idle_timeout_ns"] = te.idle_timeout_ns' \
+        '            pass' \
+        'test_an_entry_read_back_and_sent_as_a_modify_keeps_its_idle_timeout'
+
+    "$m" "70. an idle timeout is taken on a table that keeps none" "$CLIENT" \
+        '        if idle and not self.table_ages_entries(table):' \
+        '        if False:' \
+        'test_an_idle_timeout_on_a_table_without_timeout_support_is_400_and_writes_nothing'
+
+    "$m" "71. an idle timeout is taken on a default entry" "$CLIENT" \
+        '        if idle and is_default:' \
+        '        if False:' \
+        'test_an_idle_timeout_on_a_default_entry_is_400'
+
+    "$m" "72. the route drops idle_timeout_ns from the body" "$API" \
+        '            ("table", "match", "action_name", "action_params", "default_action", "priority",
+             "idle_timeout_ns")' \
+        '            ("table", "match", "action_name", "action_params", "default_action", "priority")' \
+        'test_post_writes_the_idle_timeout'
+
+    "$m" "73. an idle timeout that is not an integer is taken" "$CLIENT" \
+        '        if isinstance(idle, bool) or not isinstance(idle, int):' \
+        '        if False:' \
+        'test_an_idle_timeout_that_is_not_a_non_negative_integer_is_400'
+
+    "$m" "74. a negative or too large idle timeout is taken" "$CLIENT" \
+        '        if not 0 <= idle <= self.IDLE_TIMEOUT_NS_MAX:' \
+        '        if False:' \
+        'test_an_idle_timeout_that_is_not_a_non_negative_integer_is_400'
+
+    "$m" "75. the idle timeout is read back on every entry of every table" "$CLIENT" \
+        '        if self.table_ages_entries(table) and not te.is_default_action:' \
+        '        if True:' \
+        'test_the_default_entry_and_other_tables_carry_no_idle_timeout_key'
+
+    "$m" "76. every table is taken to keep idle timeouts" "$CLIENT" \
+        '        return table.idle_timeout_behavior != p4info_pb2.Table.NO_TIMEOUT' \
+        '        return True' \
+        'test_an_idle_timeout_on_a_table_without_timeout_support_is_400_and_writes_nothing'
+
+    # The live shape of an indirect table's default: flagged, no action at all.
+    "$m" "77. an indirect table's default is blamed on an action profile" "$CLIENT" \
+        '        if which is None:
+            raise TableEntryInvalid(' \
+        '        if False:
+            raise TableEntryInvalid(' \
+        'test_the_default_with_no_action_is_unrendered_saying_so'
+
+    # Existing callers send no idle_timeout_ns; for them nothing may change.
+    "$m" "78. a POST without the key is given a timeout" "$CLIENT" \
+        '        if idle is None:
+            return 0' \
+        '        if idle is None:
+            idle = 1' \
+        'test_post_without_the_key_writes_no_timeout'
 }
 
 # --- run ------------------------------------------------------------------------------------

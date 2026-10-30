@@ -1209,6 +1209,15 @@ class P4RuntimeClient:
         TERNARY, RANGE or OPTIONAL field also has a priority, which every insert, modify and
         delete must name.
 
+        [Co-developed with claude code -- Adam]
+        `idle_timeout_ns`, optional, is the entry's idle timeout in nanoseconds (0: none), for a
+        table the program declares with `support_timeout = true` (p4info `idle_timeout_behavior`
+        NOTIFY_CONTROL). It has to be sent on a modify too: bmv2 clears an entry's timeout on a
+        MODIFY that does not carry one (measured on bmv2 1.15.5, 2026-10-30), so an entry read back
+        and sent as a modify keeps its timeout only because GET /p4/table_entry returns it. On a
+        table without timeout support, or on a default entry, which matches nothing and so never
+        goes idle, a non-zero one is refused.
+
         Puts nothing on the wire. Everything that can be refused is refused here, so that
         `write_table_entry` reaches `stub.Write` only for an entry this pipeline can represent.
         """
@@ -1308,7 +1317,44 @@ class P4RuntimeClient:
         if priority:
             entry.priority = priority
 
+        idle = self._idle_timeout(table, spec.get("idle_timeout_ns"), default_action)
+        if idle:
+            entry.idle_timeout_ns = idle
+
         return entry, match_types
+
+    #: The largest idle timeout the protobuf's int64 holds. [Co-developed with claude code -- Adam]
+    IDLE_TIMEOUT_NS_MAX = (1 << 63) - 1
+
+    @staticmethod
+    def table_ages_entries(table):
+        """Whether `table` (a p4info Table) keeps an idle timeout per entry: the program declared
+        it `support_timeout = true`. [Co-developed with claude code -- Adam]"""
+        return table.idle_timeout_behavior != p4info_pb2.Table.NO_TIMEOUT
+
+    def _idle_timeout(self, table, idle, is_default):
+        """The `idle_timeout_ns` an entry may carry on this table, as the int for the wire (0 for
+        none), or TableEntryInvalid. [Co-developed with claude code -- Adam]"""
+        where = table.preamble.name
+        if idle is None:
+            return 0
+        if isinstance(idle, bool) or not isinstance(idle, int):
+            raise TableEntryInvalid(
+                f"{where}: 'idle_timeout_ns' must be an integer number of nanoseconds, got "
+                f"{idle!r}")
+        if not 0 <= idle <= self.IDLE_TIMEOUT_NS_MAX:
+            raise TableEntryInvalid(
+                f"{where}: 'idle_timeout_ns' {idle} is outside 0..{self.IDLE_TIMEOUT_NS_MAX}")
+        if idle and not self.table_ages_entries(table):
+            raise TableEntryInvalid(
+                f"{where} keeps no idle timeout: the program does not declare it with "
+                f"support_timeout = true, so the switch has nowhere to put "
+                f"idle_timeout_ns {idle}. Leave the key out.")
+        if idle and is_default:
+            raise TableEntryInvalid(
+                f"{where}: a default entry matches nothing, so it never goes idle and takes no "
+                f"idle_timeout_ns (got {idle})")
+        return idle
 
     def _match_as_dict(self, table_id, match):
         """A repeated FieldMatch as `{field name: {"type": ..., ...}}` -- the ONE place that
@@ -2003,6 +2049,11 @@ class P4RuntimeClient:
                 "action_params": action_params,
                 "priority": self._read_priority(te, has_priority),
                 "default_action": te.is_default_action}
+        # The timeout the switch holds for this entry, or a modify sent back without it would
+        # clear it (bmv2 1.15.5, 2026-10-30). Only on a table that ages entries, where it is part
+        # of what the entry is; a default entry never goes idle.
+        if self.table_ages_entries(table) and not te.is_default_action:
+            spec["idle_timeout_ns"] = te.idle_timeout_ns
         # Built here, written nowhere: an entry is only listed as a POST body if the writer takes
         # it as one. A don't-care another controller spelled as a zero mask, or a field with no
         # width, is refused here with the writer's own sentence instead of at the caller's POST.
