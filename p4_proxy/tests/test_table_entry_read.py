@@ -1037,6 +1037,14 @@ class AWideIdleTimeoutTest(TableReadTestBase):
                 self.write(dict(IDLE, idle_timeout_ns=bad))
             self.assertEqual(caught.exception.status_code, 400)
 
+    def test_anything_but_hex_digits_after_0x_is_400(self):
+        # int(_, 16) on its own takes every one of these.
+        for bad in ("0x1_0", "0x 10", "0x10 ", "0x+1", "0x0x10"):
+            with self.subTest(bad=bad), self.assertRaises(HTTPException) as caught:
+                self.write(dict(IDLE, idle_timeout_ns=bad))
+            self.assertEqual(caught.exception.status_code, 400)
+        self.assertEqual(self.store.writes, [])
+
     def held_timeout(self):
         (te,) = [e for (tid, _m, _p), e in self.store.entries.items() if tid == IDLE_ID]
         return te.idle_timeout_ns
@@ -1090,7 +1098,8 @@ class BlockingStore(TableStore):
 
 
 async def _call(app, method, path, query=b"", body=b""):
-    """One request through the ASGI app on the running loop: (status, seconds)."""
+    """One request through the ASGI app on the running loop: (status, seconds, error), `error`
+    being the body's `detail.error` label (None when the body has none)."""
     sent = []
 
     async def receive():
@@ -1106,13 +1115,20 @@ async def _call(app, method, path, query=b"", body=b""):
              "client": ("127.0.0.1", 0), "server": ("127.0.0.1", 8081)}
     began = time.monotonic()
     await app(scope, receive, send)
+    took = time.monotonic() - began
     status = next(m["status"] for m in sent if m["type"] == "http.response.start")
-    return status, time.monotonic() - began
+    payload = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    try:
+        detail = json.loads(payload).get("detail")
+    except (ValueError, AttributeError):
+        detail = None
+    return status, took, detail.get("error") if isinstance(detail, dict) else None
 
 
 class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
-    """Measured on bmv2 1.15.5, 2026-10-30: forty GETs to one stopped switch held POST writes and
-    /stats/flow on the healthy switches for a whole read deadline (about 5 s, against 0.03 s).
+    """With the reads on FastAPI's shared pool, forty GETs to one stopped switch held up POST
+    writes and /stats/flow on the healthy switches for up to about 5 s (max 4.9–5.0 s, median
+    about 0.01 s; bmv2 1.15.5, 2026-10-30), against at most 0.03 s with no switch stopped.
     Here FastAPI's shared pool is cut to 4 threads and 8 GETs hang on switch 9; a POST, a
     /stats/flow and a GET on switch 2 must each still answer at once."""
 
@@ -1146,14 +1162,15 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
         results = self.run_while_stopped(8, [
             ("POST", "/p4/table_entry", b"", json.dumps(dict(DMAC, dpid=2)).encode()),
             ("GET", "/stats/flow/2")])
-        for status, took in results:
+        for status, took, _error in results:
             self.assertLess(took, self.BOUND_S, results)
-        self.assertEqual([status for status, _ in results], [200, 200], results)
+        self.assertEqual([status for status, _, _ in results], [200, 200], results)
 
     def test_a_read_of_another_switch_answers_at_once(self):
-        # Forty GETs on the stopped switch: more than the reader pool has workers, so this
-        # needs the per-switch slots as well as the pool of its own.
-        (status, took), = self.run_while_stopped(40, [
+        # Forty GETs on the stopped switch, more than its pool has workers: the ones over 4 wait
+        # on switch 9's slots or in switch 9's own pool, and switch 2's read, on a pool of its
+        # own, does not wait behind any of them.
+        (status, took, _error), = self.run_while_stopped(40, [
             ("GET", "/p4/table_entry", b"dpid=2&table=dmac")])
         self.assertEqual(status, 200)
         self.assertLess(took, self.BOUND_S)
@@ -1176,8 +1193,8 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
             finally:
                 self.stopped.release.set()
                 await asyncio.gather(*stuck, return_exceptions=True)
-        status, took = asyncio.run(scenario())
-        self.assertEqual(status, 503)
+        status, took, error = asyncio.run(scenario())
+        self.assertEqual((status, error), (503, "switch busy"))
         self.assertLess(took, 1.0)
 
     def test_a_read_whose_caller_gave_up_still_holds_its_slot(self):
@@ -1202,8 +1219,8 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
                     _call(app, "GET", "/p4/table_entry", b"dpid=9&table=dmac"), timeout=3)
             finally:
                 self.stopped.release.set()
-        status, _took = asyncio.run(scenario())
-        self.assertEqual(status, 503)
+        status, _took, error = asyncio.run(scenario())
+        self.assertEqual((status, error), (503, "switch busy"))
 
     def test_reads_of_another_switch_go_on_while_ten_switches_are_stopped(self):
         # Every slot of ten stopped switches taken at once: forty reads that never end. They
@@ -1229,7 +1246,7 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
                 for store in stopped.values():
                     store.release.set()
                 await asyncio.gather(*stuck, return_exceptions=True)
-        status, took = asyncio.run(scenario())
+        status, took, _error = asyncio.run(scenario())
         self.assertEqual(status, 200)
         self.assertLess(took, self.BOUND_S)
 
@@ -1268,14 +1285,52 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
 
     def test_a_get_that_waited_through_a_readopt_is_503_and_reads_nothing(self):
         _reading, waited = self.readopt_while_waiting()
-        self.assertEqual(waited[0], 503, waited)
+        self.assertEqual((waited[0], waited[2]), (503, "replay pending"), waited)
         self.assertEqual(self.stopped.calls, api_routes.TABLE_READS_PER_SWITCH,
                          "the GET that waited read through the closed channel")
 
     def test_a_read_that_fails_because_of_a_readopt_is_503_not_500(self):
         reading, _waited = self.readopt_while_waiting()
-        self.assertEqual([r[0] if isinstance(r, tuple) else repr(r) for r in reading],
-                         [503] * api_routes.TABLE_READS_PER_SWITCH)
+        self.assertEqual([(r[0], r[2]) if isinstance(r, tuple) else repr(r) for r in reading],
+                         [(503, "replay pending")] * api_routes.TABLE_READS_PER_SWITCH)
+
+    def readopt_starts_while_waiting(self):
+        """Every slot of switch 9 taken by reads that hang; one more GET waits for a slot; then a
+        readopt of switch 9 begins (pending) with the client still in place, and the hung reads
+        fail with a gRPC error. Returns (the four GETs that were reading, the one that waited)."""
+        saved = api_routes.TABLE_READ_WAIT_S
+        api_routes.TABLE_READ_WAIT_S = 2.0
+        self.addCleanup(setattr, api_routes, "TABLE_READ_WAIT_S", saved)
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        async def scenario():
+            reading = [asyncio.ensure_future(_call(app, "GET", "/p4/table_entry",
+                                                   b"dpid=9&table=dmac"))
+                       for _ in range(api_routes.TABLE_READS_PER_SWITCH)]
+            await asyncio.sleep(0.2)
+            waiting = asyncio.ensure_future(_call(app, "GET", "/p4/table_entry",
+                                                  b"dpid=9&table=dmac"))
+            await asyncio.sleep(0.2)
+            api_routes.table_journals = FakeJournals(pending={9})
+            self.stopped.read_error = FakeRpcError(grpc.StatusCode.DEADLINE_EXCEEDED)
+            self.stopped.release.set()
+            return (await asyncio.gather(*reading, return_exceptions=True),
+                    (await asyncio.gather(waiting, return_exceptions=True))[0])
+        return asyncio.run(scenario())
+
+    def test_a_readopt_that_begins_while_a_get_waits_for_a_slot_is_503_and_reads_nothing(self):
+        # The check before the wait found no readopt, and the client is the same one: only the
+        # readopt's pending state, looked at again once the slot is free, turns this GET away.
+        _reading, waited = self.readopt_starts_while_waiting()
+        self.assertEqual((waited[0], waited[2]), (503, "replay pending"), waited)
+        self.assertEqual(self.stopped.calls, api_routes.TABLE_READS_PER_SWITCH,
+                         "the GET that waited read the switch")
+
+    def test_a_read_that_fails_with_a_grpc_error_during_a_readopt_is_replay_pending(self):
+        reading, _waited = self.readopt_starts_while_waiting()
+        self.assertEqual([(r[0], r[2]) if isinstance(r, tuple) else repr(r) for r in reading],
+                         [(503, "replay pending")] * api_routes.TABLE_READS_PER_SWITCH)
 
     def test_a_switch_being_readopted_is_answered_without_waiting_for_a_slot(self):
         # Every slot taken by reads that hang, and the switch is being re-adopted: the GET says so
@@ -1296,8 +1351,8 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
                 api_routes.table_journals = None
                 self.stopped.release.set()
                 await asyncio.gather(*stuck, return_exceptions=True)
-        status, took = asyncio.run(scenario())
-        self.assertEqual(status, 503)
+        status, took, error = asyncio.run(scenario())
+        self.assertEqual((status, error), (503, "replay pending"))
         self.assertLess(took, 1.0, "it waited for a slot")
 
     def test_a_healthy_switchs_concurrent_reads_are_all_answered(self):
@@ -1308,7 +1363,7 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
         async def scenario():
             return await asyncio.gather(*[_call(app, "GET", "/p4/table_entry",
                                                 b"dpid=2&table=dmac") for _ in range(50)])
-        self.assertEqual({status for status, _ in asyncio.run(scenario())}, {200})
+        self.assertEqual({status for status, _, _ in asyncio.run(scenario())}, {200})
 
     def test_a_slot_is_given_back_after_every_read(self):
         # More reads, one after another on one loop, than the switch has slots; a slot that was
@@ -1322,7 +1377,50 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
         async def scenario():
             return [await _call(app, "GET", "/p4/table_entry", b"dpid=2&table=dmac")
                     for _ in range(3 * api_routes.TABLE_READS_PER_SWITCH)]
-        self.assertEqual({status for status, _ in asyncio.run(scenario())}, {200})
+        self.assertEqual({status for status, _, _ in asyncio.run(scenario())}, {200})
+
+
+class SlowStore(TableStore):
+    """A switch that takes `delay` seconds over every Read: one that answers each read just
+    inside its deadline."""
+
+    def __init__(self, delay):
+        super().__init__()
+        self.delay = delay
+
+    def Read(self, request, timeout=None):
+        time.sleep(self.delay)
+        return super().Read(request, timeout)
+
+
+class AWholeGetStaysInsideItsBoundTest(TableReadTestBase):
+    """TABLE_READ_WORST_S (the slot wait and two read deadlines) holds only if a GET that has a
+    slot also has a thread to read on: a switch's pool has at least as many workers as slots.
+    Scaled down: each Read takes RPC_S, standing in for RPC_TIMEOUT_S, and the slot wait is
+    WAIT_S. [Co-developed with claude code -- Adam]"""
+
+    RPC_S = 0.25
+    WAIT_S = 0.75
+    MARGIN_S = 0.4
+
+    def test_four_slow_reads_and_one_waiter_answer_within_the_wait_and_two_read_deadlines(self):
+        saved = api_routes.TABLE_READ_WAIT_S
+        api_routes.TABLE_READ_WAIT_S = self.WAIT_S
+        self.addCleanup(setattr, api_routes, "TABLE_READ_WAIT_S", saved)
+        # A switch no other test reads, so its pool starts with no threads.
+        api_routes.topology = FakeTopology({31: a_client(SlowStore(self.RPC_S), device_id=31)})
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        async def scenario():
+            return await asyncio.gather(*[_call(app, "GET", "/p4/table_entry",
+                                                b"dpid=31&table=dmac")
+                                          for _ in range(api_routes.TABLE_READS_PER_SWITCH + 1)])
+        results = asyncio.run(scenario())
+        bound = self.WAIT_S + 2 * self.RPC_S + self.MARGIN_S
+        self.assertEqual([status for status, _, _ in results],
+                         [200] * (api_routes.TABLE_READS_PER_SWITCH + 1), results)
+        self.assertLessEqual(max(took for _, took, _ in results), bound, results)
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")

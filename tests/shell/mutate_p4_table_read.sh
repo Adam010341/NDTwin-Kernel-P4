@@ -19,9 +19,10 @@
 # own pool and per-switch slots, which keep a switch that stops answering from holding up anyone
 # else, and the idle timeout an entry has to carry back.
 #
-# 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 39 and 62, 43 and 44, 46 and 47, 57
-# and 77, 58 and 59, 65 and 66, and 35 and 89; 37, 38 and 63 share one, as do 84, 85 and 88, and
-# 40, 41 and 60 share the route's signature line. check_gate_anchors.py counts each distinct anchor once.
+# 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 16 and 17, 39 and 62, 43 and 44, 46
+# and 47, 57 and 77, 58 and 59, 65 and 66, 35 and 89, and 80 and 91; 37, 38 and 63 share one, as
+# do 84, 85 and 88, and 40, 41 and 60 share the route's signature line. check_gate_anchors.py
+# counts each distinct anchor once.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a
@@ -556,8 +557,9 @@ each_mutation() {
 
     # ---- the reads' own pool and per-switch slots ------------------------------------------
 
-    # Measured on bmv2 1.15.5, 2026-10-30: a stopped switch's reads on the shared pool hold
-    # every POST and /stats/flow behind them.
+    # With the reads on the shared pool, a stopped switch's reads held up POST and /stats/flow on
+    # healthy switches for up to about 5 s (max 4.9–5.0 s, median about 0.01 s; bmv2 1.15.5,
+    # 2026-10-30).
     "$m" "62. the read goes back to FastAPI's shared pool" "$API" \
         '    reader = asyncio.get_running_loop().run_in_executor(
         _table_read_executor(dpid), client.read_table, full_name)' \
@@ -715,10 +717,8 @@ each_mutation() {
         'test_post_takes_the_hex_string_and_a_read_back_round_trips'
 
     "$m" "87. a hex string that does not parse escapes as a fault" "$CLIENT" \
-        '                idle = int(idle[2:], 16)
-            except ValueError:' \
-        '                idle = int(idle[2:], 16)
-            except KeyError:' \
+        '            if not digits or not all(c in self.HEX_DIGITS for c in digits):' \
+        '            if False:' \
         'test_a_string_that_is_not_hex_is_400'
 
     "$m" "88. an idle timeout below 2^53 reads back as a string" "$CLIENT" \
@@ -733,6 +733,53 @@ each_mutation() {
         '    readopting = False
     _readopt_seen = lambda d, c: topology.switches.get(d) is not c' \
         'test_a_switch_being_readopted_is_503_replay_pending_and_reads_nothing'
+
+    # The check before the wait stays; only the one after it stops looking at `pending`.
+    "$m" "90. a readopt that begins during the slot wait is not noticed" "$API" \
+        '    return table_journals is not None and table_journals.pending(dpid)' \
+        '    return False' \
+        'test_a_readopt_that_begins_while_a_get_waits_for_a_slot_is_503_and_reads_nothing'
+
+    "$m" "91. a failed read is put down to a readopt only when the client was replaced" "$API" \
+        '        if _readopt_seen(dpid, client):
+            raise _table_read_error(503, "replay pending", dpid, table,' \
+        '        if topology.switches.get(dpid) is not client:
+            raise _table_read_error(503, "replay pending", dpid, table,' \
+        'test_a_read_that_fails_with_a_grpc_error_during_a_readopt_is_replay_pending'
+
+    # TABLE_READ_WORST_S needs a thread for every slot.
+    "$m" "92. a switch's pool has fewer workers than slots" "$API" \
+        '        pool = ThreadPoolExecutor(max_workers=TABLE_READS_PER_SWITCH,' \
+        '        pool = ThreadPoolExecutor(max_workers=1,' \
+        'test_four_slow_reads_and_one_waiter_answer_within_the_wait_and_two_read_deadlines'
+
+    # The labels, each with the status left as it is.
+    "$m" "93. switch busy is labelled as a failed read" "$API" \
+        '        raise _table_read_error(503, "switch busy", dpid, table,' \
+        '        raise _table_read_error(503, "table not read", dpid, table,' \
+        'test_a_get_that_cannot_get_a_slot_is_503_switch_busy'
+
+    "$m" "94. a readopt during the slot wait is labelled switch busy" "$API" \
+        '        raise _table_read_error(503, "replay pending", dpid, table,
+                                f"switch {dpid} was re-adopted while this read waited for a slot; "' \
+        '        raise _table_read_error(503, "switch busy", dpid, table,
+                                f"switch {dpid} was re-adopted while this read waited for a slot; "' \
+        'test_a_get_that_waited_through_a_readopt_is_503_and_reads_nothing'
+
+    "$m" "95. a read a readopt broke is labelled as a failed read" "$API" \
+        '            raise _table_read_error(503, "replay pending", dpid, table,
+                                    f"switch {dpid} was re-adopted while {table} was being read, "
+                                    f"and the read failed; ask again once the readopt has "' \
+        '            raise _table_read_error(503, "table not read", dpid, table,
+                                    f"switch {dpid} was re-adopted while {table} was being read, "
+                                    f"and the read failed; ask again once the readopt has "' \
+        'test_a_read_that_fails_because_of_a_readopt_is_503_not_500'
+
+    # int(_, 16) takes "0x1_0", "0x 10", "0x+1" and "0x0x10".
+    "$m" "96. a hex idle timeout is parsed as loosely as int() parses it" "$CLIENT" \
+        '    HEX_DIGITS = frozenset("0123456789abcdefABCDEF")' \
+        '    HEX_DIGITS = frozenset("0123456789abcdefABCDEF_ +xX")' \
+        'test_anything_but_hex_digits_after_0x_is_400'
 }
 
 # --- run ------------------------------------------------------------------------------------
