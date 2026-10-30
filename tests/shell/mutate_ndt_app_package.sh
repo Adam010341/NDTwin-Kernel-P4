@@ -1732,11 +1732,9 @@ check_fires "M112: the record is not copied before a bring-up writes it" m112 \
             "🔴 down then puts the knob back to before the FIRST --app"
 
 cat > "$A/m113.old" <<'EOF'
-    [[ -n "$KNOB_SAVED" ]] || return 0
-    app_knob_count_put_back
+    app_knob_count_put_back      # the --app record's half; a no-op when knob_snapshot took none
 EOF
 cat > "$A/m113.new" <<'EOF'
-    [[ -n "$KNOB_SAVED" ]] || return 0
 EOF
 check_fires "M113: a rolled-back bring-up keeps the record it wrote" m113 \
             "🔴 a failed first --app leaves no record" \

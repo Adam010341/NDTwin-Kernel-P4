@@ -2520,8 +2520,8 @@ knob_snapshot() {
 knob_restore() {
     local why="${1:-}" f now
     f="$(knob_path)"
+    app_knob_count_put_back      # the --app record's half; a no-op when knob_snapshot took none
     [[ -n "$KNOB_SAVED" ]] || return 0
-    app_knob_count_put_back
     if [[ "$KNOB_SAVED" == "(absent)" ]]; then
         [[ -e "$f" ]] || { KNOB_SAVED=""; return 0; }
         rm -f "$f"
