@@ -451,6 +451,10 @@ round_baseline_dirty() {
 record_round_baseline() {
     local f; f="$(round_baseline_file)"
     mkdir -p "$(dirname "$f")" || return 1
+    # [Co-developed with claude code -- Adam] A record of an --app write that the knob has since
+    # left is the user's change, so a new round forgets it: kept, a later hand edit back to the
+    # package's bytes would make it hold again, and 'ndt down' would undo that edit.
+    app_knob_count_holds || app_knob_count_forget
     {
         printf 'at=%s\nby=%s\nhead=%s\nhost_count=%s\n' \
             "$(date +%s)" "${NDT_OWNER:-unset}" \
@@ -896,12 +900,24 @@ cmd_release() {
             if [[ "${1:-}" != "--force" ]]; then
                 err "refusing: the P4 host knob is $knob_now"
                 err "this round started at $knob_base, and the claim is not released with it moved"
-                err "  echo $knob_base > p4_proxy/mininet/host_count_override      # write it; NOT 'git checkout --'"
+                # [Co-developed with claude code -- Adam] Still what `ndt up p4 --app` wrote over the
+                # round's start: the teardown puts it back, and forgets the record with it.
+                if app_knob_count_holds && [[ "$(round_start_host_count)" == "$knob_base" ]]; then
+                    err "  ndt down      # 'ndt up p4 --app' wrote $knob_now; the teardown puts $knob_base back"
+                else
+                    err "  echo $knob_base > p4_proxy/mininet/host_count_override      # write it; NOT 'git checkout --'"
+                fi
                 err "release anyway (it stays at $knob_now):  ndt release --force"
                 return 1
             fi
             err "released with the knob left at $knob_now (round started at $knob_base) -- '--force'"
         fi
+    fi
+    # [Co-developed with claude code -- Adam] The --app record ends with the round, --force or not:
+    # left behind, a later hand edit back to the package's bytes would make it hold again.
+    if [[ -f "$(app_knob_count_path)" ]]; then
+        app_knob_count_holds && warn "'ndt down' will now leave host_count_override at $(host_count): the record of what 'ndt up p4 --app' wrote ends with this round"
+        app_knob_count_forget
     fi
     # [Co-developed with claude code -- Adam]
     # 🔴 This was `rm -f "$CLAIM"`.
@@ -11522,8 +11538,10 @@ usage: ndt <command>
                   the assertion found something still running -- or, since 09-25, a
                   STALE registry entry could not be removed, or an app's window
                   could not be written before its pidfile was (the file is then
-                  kept, and the claim note says which). All four steps run
-                  whatever the earlier ones did -- a first step that failed is what
+                  kept, and the claim note says which) -- or, since 10-30, the
+                  host count an 'ndt up p4 --app' wrote could not be put back (the
+                  claim note says "putting host_count_override back"). All four
+                  steps run whatever the earlier ones did -- a first step that failed is what
                   makes the rest matter -- so the rc is one verdict over all of them
                   and the block above it says which.
                   3 THERE WAS NOTHING TO TEAR DOWN: no fabric, no registry entry in

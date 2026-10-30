@@ -1826,6 +1826,77 @@ EOF
 check_fires "M121 (widening): a claim trusts a record the knob has left" m121 \
             "🔴 a claim over a record that no longer holds starts from the knob"
 
+# --- M122..M128: a record that stopped holding, release, and down's failed put-back (24 (g)) ------
+# [Co-developed with claude code -- Adam]
+cat > "$A/m122.old" <<'EOF'
+    app_knob_count_holds || app_knob_count_forget
+EOF
+cat > "$A/m122.new" <<'EOF'
+EOF
+check_fires "M122: a claim keeps a record the knob has left" m122 \
+            "🔴 and forgets the record the knob had left" \
+            "🔴 and 'ndt down' leaves the hand-set 3"
+
+cat > "$A/m123.old" <<'EOF'
+    if [[ -f "$(app_knob_count_path)" ]]; then
+EOF
+cat > "$A/m123.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M123: a release keeps the --app record" m123 \
+            "🔴 and forgets the --app record" \
+            "🔴 a plain release forgets the record: the next round starts at 4" \
+            "🔴 after release --force the next round starts at the released 4"
+
+cat > "$A/m124.old" <<'EOF'
+    if [[ -f "$(app_knob_count_path)" ]]; then
+EOF
+cat > "$A/m124.new" <<'EOF'
+    if [[ -f "$(app_knob_count_path)" && "${1:-}" != "--force" ]]; then
+EOF
+check_fires "M124: release --force keeps the --app record" m124 \
+            "🔴 after release --force the next round starts at the released 4" \
+            "🔴 and its down leaves that 4"
+
+cat > "$A/m125.old" <<'EOF'
+                if app_knob_count_holds && [[ "$(round_start_host_count)" == "$knob_base" ]]; then
+EOF
+cat > "$A/m125.new" <<'EOF'
+                if false; then
+EOF
+check_fires "M125: release over a live --app knob advises a hand-written number" m125 \
+            "🔴 and points at 'ndt down', which puts the 8 back" \
+            "🔴 not at writing 8 by hand"
+
+cat > "$A/m126.old" <<'EOF'
+                if app_knob_count_holds && [[ "$(round_start_host_count)" == "$knob_base" ]]; then
+EOF
+cat > "$A/m126.new" <<'EOF'
+                if app_knob_count_holds; then
+EOF
+check_fires "M126 (widening): release points at down whenever the record holds" m126 \
+            "🔴 release gives the echo advice"
+
+cat > "$A/m127.old" <<'EOF'
+        if app_knob_count_holds && [[ "$(round_start_host_count)" == "$base" ]]; then
+EOF
+cat > "$A/m127.new" <<'EOF'
+        if app_knob_count_holds; then
+EOF
+check_fires "M127 (widening): knob_row's --app answer whenever the record holds" m127 \
+            "🔴 with the record's before not the round's start: --check exits 1" \
+            "🔴 and the knob is NOT RESTORED"
+
+cat > "$A/m128.old" <<'EOF'
+    app_knob_count_restore || { down_rc=1; not_verified "putting host_count_override back"; }
+EOF
+cat > "$A/m128.new" <<'EOF'
+    app_knob_count_restore || :
+EOF
+check_fires "M128: down's failed put-back exits 0" m128 \
+            "🔴 'ndt down' exits 1" \
+            "🔴 and the claim note names the step"
+
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then

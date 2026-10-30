@@ -2419,6 +2419,106 @@ OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\
 export NDT_OWNER=t; cmd_claim 60 "after a hand edit" >/dev/null 2>&1; '"$(base_of)"'')"
 has   "🔴 a claim over a record that no longer holds starts from the knob" "BASE=8" "$OUT"
 rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+
+# (g) [Co-developed with claude code -- Adam] A record that stopped holding must not come back
+# when a hand edit happens to write the package's bytes again, and it ends with the round.
+STATUS_KNOB='host_count() { host_count_in "$REPO"; }
+git_lines() { knob_row; }
+stale_pipeline() { return 1; }
+sample_rate() { echo 256; }'
+knob_set() { printf '%s\n' "$1" > "$FIX/p4_proxy/mininet/host_count_override"; }
+# Claim at 8, a 4-host --app, no down: release points at down, the one command that puts 8 back.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*; knob_set 8
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 8" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1; echo "KNOB_UP=$(host_count)"
+cmd_release 2>&1; echo "REL1_RC=$?"')"
+has   "  claim at 8, then a 4-host --app: the knob is 4"  "KNOB_UP=4" "$OUT"
+has   "  release refuses"                                 "REL1_RC=1" "$OUT"
+has   "🔴 and points at 'ndt down', which puts the 8 back" "ndt down      # 'ndt up p4 --app' wrote 4; the teardown puts 8 back" "$OUT"
+hasnt "🔴 not at writing 8 by hand"                       "echo 8 > p4_proxy/mininet/host_count_override" "$OUT"
+# The user writes 8 by hand anyway and releases; the next round starts at 8 and they choose 4.
+OUT="$(drive 'export NDT_OWNER=t; printf "8\n" > "$(knob_path)"; cmd_release >/dev/null 2>&1; echo "REL2_RC=$?"
+echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"
+cmd_claim 60 "next round" >/dev/null 2>&1; '"$(base_of)"'
+printf "4\n" > "$(knob_path)"')"
+has   "  with 8 written back by hand, release succeeds"   "REL2_RC=0" "$OUT"
+has   "🔴 and forgets the --app record"                    "REC=absent" "$OUT"
+has   "  the next round starts at 8"                      "BASE=8" "$OUT"
+OUT="$(run_status --check "$STATUS_KNOB")"
+check "🔴 a hand-written 4 in the next round: 'ndt status --check' exits 1" "1" "$(rc_of "$OUT")"
+has   "🔴 and calls the knob NOT RESTORED"                 "4 -- this round started at 8" "$OUT"
+hasnt "  not 'written by ndt up p4 --app'"                "written by 'ndt up p4 --app'" "$OUT"
+OUT="$(drive 'cmd_release 2>&1; echo "REL3_RC=$?"; cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  release refuses the hand-written 4"              "REL3_RC=1" "$OUT"
+has   "  with the echo advice, since down would not put it back" "echo 8 > p4_proxy/mininet/host_count_override" "$OUT"
+has   "🔴 and 'ndt down' leaves the deliberate 4"          "KNOB_DOWN=4" "$OUT"
+# --force over a holding record: the next round starts from the value released, and keeps it.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*; knob_set 8
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 8" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1
+cmd_release --force 2>&1; echo "REL_RC=$?"
+cmd_claim 60 "next round" >/dev/null 2>&1; '"$(base_of)"'
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  release --force over the --app knob succeeds"    "REL_RC=0" "$OUT"
+has   "  and says down will no longer put it back"        "'ndt down' will now leave host_count_override at 4" "$OUT"
+has   "🔴 after release --force the next round starts at the released 4" "BASE=4" "$OUT"
+has   "🔴 and its down leaves that 4"                      "KNOB_DOWN=4" "$OUT"
+# A plain release with the knob at the round's start, over a record whose before is a mid-round 8.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 4" >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1; echo "KNOB_UP=$(host_count)"
+cmd_release >/dev/null 2>&1; echo "REL_RC=$?"
+cmd_claim 60 "next round" >/dev/null 2>&1; '"$(base_of)"'
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  claim at 4, a hand-set 8, then a 4-host --app"   "KNOB_UP=4" "$OUT"
+has   "  release at the round's 4 succeeds"               "REL_RC=0" "$OUT"
+has   "🔴 a plain release forgets the record: the next round starts at 4" "BASE=4" "$OUT"
+has   "🔴 and its down does not put the mid-round 8 back"  "KNOB_DOWN=4" "$OUT"
+# No claim between: --app 4 -> 3, a hand-set 8, a claim, then a hand-set 3 (the package's bytes).
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+export NDT_OWNER=t; cmd_claim 60 "at 8" >/dev/null 2>&1; '"$(base_of)"'
+echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"
+printf "3\n" > "$(knob_path)"')"
+has   "  the claim starts the round at the hand-set 8"    "BASE=8" "$OUT"
+has   "🔴 and forgets the record the knob had left"        "REC=absent" "$OUT"
+OUT="$(run_status --check "$STATUS_KNOB")"
+check "🔴 a hand-set 3 after it: 'ndt status --check' exits 1" "1" "$(rc_of "$OUT")"
+has   "  and calls the knob NOT RESTORED"                 "3 -- this round started at 8" "$OUT"
+OUT="$(drive 'cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "🔴 and 'ndt down' leaves the hand-set 3"            "KNOB_DOWN=3" "$OUT"
+# The record holds but its before no longer gives the round's start (the copy is gone): no
+# up_wrote line excuses the knob, so it is NOT RESTORED, and release does not point at down.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1
+export NDT_OWNER=t; cmd_claim 60 "over --app" >/dev/null 2>&1; '"$(base_of)"'
+rm -f "$REPO/.test_run/host_count_override.app.before"
+echo "UPW=$(sed -n "s/^up_wrote=//p" "$REPO/.test_run/round.baseline")"
+echo "HOLDS=$(app_knob_count_holds && echo yes || echo no)"')"
+has   "  a claim over --app 4 -> 3 starts at 4"           "BASE=4" "$OUT"
+has   "  the record still holds the knob"                 "HOLDS=yes" "$OUT"
+check "  and the baseline has no up_wrote line"           "UPW=" "$(/usr/bin/grep '^UPW=' <<<"$OUT")"
+OUT="$(run_status --check "$STATUS_KNOB")"
+check "🔴 with the record's before not the round's start: --check exits 1" "1" "$(rc_of "$OUT")"
+has   "🔴 and the knob is NOT RESTORED"                    "3 -- this round started at 4" "$OUT"
+hasnt "  not 'ndt down' puts it back"                     "'ndt down' puts it back" "$OUT"
+OUT="$(drive 'cmd_release 2>&1')"
+has   "🔴 release gives the echo advice"                   "echo 4 > p4_proxy/mininet/host_count_override" "$OUT"
+hasnt "  and does not point at 'ndt down'"                "the teardown puts 4 back" "$OUT"
+rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+# The put-back itself fails: down exits 1 and the claim note names it. The switch manifest and
+# the stand-in switch count go after the bring-up (section 21's move), so no residue makes the rc 1.
+reset_fix
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; mv "$MANIFEST" "$MANIFEST.aside"; rm -f "$REPO/bmv2_count"
+cp() { [[ "${@: -1}" == "$(knob_path)" ]] && return 1; command cp "$@"; }
+cmd_down 2>&1; echo "DOWN_RC=$?"; echo "KNOB_DOWN=$(host_count)"')"
+mv "$FIX/manifest.json.aside" "$FIX/manifest.json"
+has   "  the put-back fails and says so"                  "could NOT put p4_proxy/mininet/host_count_override back: it reads 3" "$OUT"
+has   "🔴 'ndt down' exits 1"                              "DOWN_RC=1" "$OUT"
+has   "🔴 and the claim note names the step"               "claim note now says the teardown did not verify clean: putting host_count_override back" "$OUT"
+has   "  the knob is still the package's 3"               "KNOB_DOWN=3" "$OUT"
+rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
 # The header on a fabric where every switch runs the package's own program names no rate at all.
 PKG_ONE="$FIX/packages/one-foreign"; mkpkg "$PKG_ONE" ndtwin 1 1 firewall
 reset_fix
