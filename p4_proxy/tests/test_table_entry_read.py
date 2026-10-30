@@ -1277,6 +1277,29 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
         self.assertEqual([r[0] if isinstance(r, tuple) else repr(r) for r in reading],
                          [503] * api_routes.TABLE_READS_PER_SWITCH)
 
+    def test_a_switch_being_readopted_is_answered_without_waiting_for_a_slot(self):
+        # Every slot taken by reads that hang, and the switch is being re-adopted: the GET says so
+        # at once rather than waiting for a slot it would only give back.
+        app = FastAPI()
+        app.include_router(api_routes.router)
+
+        async def scenario():
+            stuck = [asyncio.ensure_future(_call(app, "GET", "/p4/table_entry",
+                                                 b"dpid=9&table=dmac"))
+                     for _ in range(api_routes.TABLE_READS_PER_SWITCH)]
+            await asyncio.sleep(0.2)
+            api_routes.table_journals = FakeJournals(pending={9})
+            try:
+                return await asyncio.wait_for(
+                    _call(app, "GET", "/p4/table_entry", b"dpid=9&table=dmac"), timeout=5)
+            finally:
+                api_routes.table_journals = None
+                self.stopped.release.set()
+                await asyncio.gather(*stuck, return_exceptions=True)
+        status, took = asyncio.run(scenario())
+        self.assertEqual(status, 503)
+        self.assertLess(took, 1.0, "it waited for a slot")
+
     def test_a_healthy_switchs_concurrent_reads_are_all_answered(self):
         # Fifty at once on a switch that answers: they queue for its slots and none is refused.
         app = FastAPI()

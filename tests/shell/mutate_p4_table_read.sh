@@ -20,8 +20,8 @@
 # else, and the idle timeout an entry has to carry back.
 #
 # 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 39 and 62, 43 and 44, 46 and 47, 57
-# and 77, 58 and 59, 65 and 66, and 84 and 85; 37, 38 and 63 share one, and 40, 41 and 60 share
-# the route's signature line. check_gate_anchors.py counts each distinct anchor once.
+# and 77, 58 and 59, and 65 and 66; 37, 38 and 63 share one, as do 84, 85 and 88, and 40, 41
+# and 60 share the route's signature line. check_gate_anchors.py counts each distinct anchor once.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a
@@ -385,7 +385,7 @@ each_mutation() {
     "$m" "34. a switch being re-adopted is read anyway" "$API" \
         '    if readopting:' \
         '    if False:' \
-        'test_a_switch_being_readopted_is_503_replay_pending_and_reads_nothing'
+        'test_a_switch_being_readopted_is_answered_without_waiting_for_a_slot'
 
     "$m" "35. every switch is refused while any one is re-adopted" "$API" \
         '    readopting = table_journals is not None and table_journals.pending(dpid)' \
@@ -564,10 +564,12 @@ each_mutation() {
         '    reader = asyncio.ensure_future(run_in_threadpool(client.read_table, full_name))' \
         'test_a_post_and_a_flow_stats_poll_on_another_switch_answer_at_once'
 
+    # Other switches are kept apart by the per-switch pools; the slots are what bound one
+    # switch's own reads and turn a long wait into 503 switch busy.
     "$m" "63. one switch's reads are not limited" "$API" \
         '    slots = _table_read_slot(dpid)' \
         '    slots = asyncio.Semaphore(1000)' \
-        'test_a_read_of_another_switch_answers_at_once'
+        'test_a_get_that_cannot_get_a_slot_is_503_switch_busy'
 
     "$m" "64. a slot is never given back" "$API" \
         '    reader.add_done_callback(lambda _finished: slots.release())' \
@@ -718,6 +720,11 @@ each_mutation() {
         '                idle = int(idle[2:], 16)
             except KeyError:' \
         'test_a_string_that_is_not_hex_is_400'
+
+    "$m" "88. an idle timeout below 2^53 reads back as a string" "$CLIENT" \
+        '        if idle >= 1 << match_shape.JSON_EXACT_INT_BITS:' \
+        '        if idle >= 1 << 52:' \
+        'test_below_2_53_it_reads_back_an_integer'
 }
 
 # --- run ------------------------------------------------------------------------------------
