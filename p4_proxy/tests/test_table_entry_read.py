@@ -1033,17 +1033,41 @@ class AWideIdleTimeoutTest(TableReadTestBase):
 
     def test_a_string_that_is_not_hex_is_400(self):
         for bad in ("0xzz", "600", "0x"):
-            with self.subTest(bad=bad), self.assertRaises(HTTPException) as caught:
-                self.write(dict(IDLE, idle_timeout_ns=bad))
-            self.assertEqual(caught.exception.status_code, 400)
+            with self.subTest(bad=bad):
+                with self.assertRaises(HTTPException) as caught:
+                    self.write(dict(IDLE, idle_timeout_ns=bad))
+                self.assertEqual(caught.exception.status_code, 400)
 
     def test_anything_but_hex_digits_after_0x_is_400(self):
         # int(_, 16) on its own takes every one of these.
         for bad in ("0x1_0", "0x 10", "0x10 ", "0x+1", "0x0x10"):
-            with self.subTest(bad=bad), self.assertRaises(HTTPException) as caught:
-                self.write(dict(IDLE, idle_timeout_ns=bad))
-            self.assertEqual(caught.exception.status_code, 400)
+            with self.subTest(bad=bad):
+                with self.assertRaises(HTTPException) as caught:
+                    self.write(dict(IDLE, idle_timeout_ns=bad))
+                self.assertEqual(caught.exception.status_code, 400)
         self.assertEqual(self.store.writes, [])
+
+    # 0x7abcdef012345678: above 2^53, below 2^63, and every hex letter in it.
+    LETTERS = 0x7abcdef012345678
+
+    def test_a_wide_timeout_with_hex_letters_reads_back_and_posts_back(self):
+        self.write(dict(IDLE, idle_timeout_ns=self.LETTERS))
+        entry = self.entries("PkgIngress.idle")[0]
+        self.assertEqual(entry["idle_timeout_ns"], "0x7abcdef012345678")
+        # Another timeout in between, so the one held at the end can only have come from
+        # parsing the string GET gave.
+        self.write(dict(entry, idle_timeout_ns=5), op="modify")
+        self.assertEqual(self.held_timeout(), 5)
+        self.assertEqual(self.write(entry, op="modify")["status"], "success")
+        self.assertEqual(self.held_timeout(), self.LETTERS)
+
+    def test_post_takes_upper_case_hex_digits(self):
+        self.write(dict(IDLE, idle_timeout_ns="0x7ABCDEF012345678"))
+        self.assertEqual(self.held_timeout(), self.LETTERS)
+
+    def test_post_takes_an_upper_case_0X(self):
+        self.write(dict(IDLE, idle_timeout_ns="0X7abcdef012345678"))
+        self.assertEqual(self.held_timeout(), self.LETTERS)
 
     def held_timeout(self):
         (te,) = [e for (tid, _m, _p), e in self.store.entries.items() if tid == IDLE_ID]
@@ -1250,9 +1274,10 @@ class AStoppedSwitchDoesNotHoldTheOthersTest(TableReadTestBase):
         self.assertEqual(status, 200)
         self.assertLess(took, self.BOUND_S)
 
-    def test_a_whole_get_answers_inside_the_kernel_relays_15_s(self):
-        # The kernel's /ndt/p4 relay answers 504 after 15 s. The slowest GET waits for a slot and
-        # then reads twice, each read up to its deadline; 1 s is left for everything else.
+    def test_the_slot_wait_and_two_read_deadlines_fit_a_15_s_deadline_with_1_s_to_spare(self):
+        # For a caller with a 15 s deadline. The slowest GET waits for a slot and then reads
+        # twice, each read up to its deadline; at least 1 s of the 15 s has to be left for
+        # converting and sending the entries, which this does not time.
         worst = api_routes.TABLE_READ_WAIT_S + 2 * RPC_TIMEOUT_S
         self.assertEqual(api_routes.TABLE_READ_WORST_S, worst)
         self.assertLessEqual(worst, 14.0)
@@ -1395,15 +1420,20 @@ class SlowStore(TableStore):
 
 class AWholeGetStaysInsideItsBoundTest(TableReadTestBase):
     """TABLE_READ_WORST_S (the slot wait and two read deadlines) holds only if a GET that has a
-    slot also has a thread to read on: a switch's pool has at least as many workers as slots.
-    Scaled down: each Read takes RPC_S, standing in for RPC_TIMEOUT_S, and the slot wait is
-    WAIT_S. [Co-developed with claude code -- Adam]"""
+    slot also has a thread to read on. Scaled down: each Read takes RPC_S, standing in for
+    RPC_TIMEOUT_S, and the slot wait is WAIT_S. With one GET more than there are slots, the
+    GETs that found a slot free each answer within their two reads plus FIRST_MARGIN_S, less
+    than one more read: a pool with fewer workers than slots makes one of them wait a whole
+    read for a thread. The GET that waited for a slot answers within WAIT_S, its two reads and
+    MARGIN_S. [Co-developed with claude code -- Adam]"""
 
     RPC_S = 0.25
-    WAIT_S = 0.75
+    WAIT_S = 1.0
     MARGIN_S = 0.4
+    FIRST_MARGIN_S = 0.25
 
-    def test_four_slow_reads_and_one_waiter_answer_within_the_wait_and_two_read_deadlines(self):
+    def test_the_gets_with_a_slot_read_at_once_and_the_waiter_answers_within_its_bound(self):
+        self.assertLess(self.FIRST_MARGIN_S, 2 * self.RPC_S)
         saved = api_routes.TABLE_READ_WAIT_S
         api_routes.TABLE_READ_WAIT_S = self.WAIT_S
         self.addCleanup(setattr, api_routes, "TABLE_READ_WAIT_S", saved)
@@ -1417,10 +1447,13 @@ class AWholeGetStaysInsideItsBoundTest(TableReadTestBase):
                                                 b"dpid=31&table=dmac")
                                           for _ in range(api_routes.TABLE_READS_PER_SWITCH + 1)])
         results = asyncio.run(scenario())
-        bound = self.WAIT_S + 2 * self.RPC_S + self.MARGIN_S
         self.assertEqual([status for status, _, _ in results],
                          [200] * (api_routes.TABLE_READS_PER_SWITCH + 1), results)
-        self.assertLessEqual(max(took for _, took, _ in results), bound, results)
+        took = sorted(took for _, took, _ in results)
+        with_a_slot = took[:api_routes.TABLE_READS_PER_SWITCH]
+        self.assertLessEqual(max(with_a_slot), 2 * self.RPC_S + self.FIRST_MARGIN_S,
+                             f"a GET that had a slot waited for a thread: {took}")
+        self.assertLessEqual(took[-1], self.WAIT_S + 2 * self.RPC_S + self.MARGIN_S, took)
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")

@@ -1429,10 +1429,10 @@ async def table_entry(request: Request):
 TABLE_READS_PER_SWITCH = 4
 #: How long a GET waits for one of its switch's read slots before answering 503 `switch busy`.
 #: A switch takes TABLE_READS_PER_SWITCH reads at a time and other GETs may be waiting ahead of
-#: this one, so a busy but healthy switch can give that answer too. Short enough that a whole
-#: GET -- this wait, then two reads of up to RPC_TIMEOUT_S each, plus the time to convert and
-#: send the entries -- is kept under 15 s, so a caller with a 15 s deadline gets the proxy's own
-#: answer.
+#: this one, so a busy but healthy switch can give that answer too. This wait and two reads of
+#: up to RPC_TIMEOUT_S each come to 13 s (TABLE_READ_WORST_S), which leaves 2 s of a 15 s
+#: deadline for converting the entries and sending them. How long that takes on a large table
+#: has not been measured.
 TABLE_READ_WAIT_S = 3.0
 #: The longest a GET /p4/table_entry waits on its switch: the slot wait and two read deadlines.
 #: The time to convert and send the entries, and the event loop's own scheduling, come on top.
@@ -1539,9 +1539,9 @@ async def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):
     a pool of its own, at most TABLE_READS_PER_SWITCH reads at a time. So a switch that stops
     answering ties up its own threads and nothing else, however many switches stop: POST writes,
     /stats/flow and other switches' reads go on. A GET that waits TABLE_READ_WAIT_S for a slot
-    of its switch answers 503 `switch busy`, nothing read, and no GET takes longer than
-    TABLE_READ_WORST_S plus the time to convert and send the entries. That is kept under 15 s,
-    so a caller with a 15 s deadline gets the proxy's own answer.
+    of its switch answers 503 `switch busy`, nothing read. A GET waits on its switch for at most
+    TABLE_READ_WORST_S (13 s), which leaves 2 s of a 15 s deadline for converting the entries
+    and sending them; how long that takes on a large table has not been measured.
 
     A readopt during the wait for a slot replaces the client and closes the old one's channel, so
     the switch is looked at again once a slot is free, and a read that fails is put down to a

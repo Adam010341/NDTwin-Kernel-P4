@@ -20,9 +20,9 @@
 # else, and the idle timeout an entry has to carry back.
 #
 # 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 16 and 17, 39 and 62, 43 and 44, 46
-# and 47, 57 and 77, 58 and 59, 65 and 66, 35 and 89, and 80 and 91; 37, 38 and 63 share one, as
-# do 84, 85 and 88, and 40, 41 and 60 share the route's signature line. check_gate_anchors.py
-# counts each distinct anchor once.
+# and 47, 57 and 77, 58 and 59, 65 and 66, 35 and 89, 80 and 91, and 96 and 97; 37, 38 and 63
+# share one, as do 84, 85 and 88, and 40, 41 and 60 share the route's signature line.
+# check_gate_anchors.py counts each distinct anchor once.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a
@@ -661,7 +661,7 @@ each_mutation() {
             idle = 1' \
         'test_post_without_the_key_writes_no_timeout'
 
-    # ---- a readopt during the wait for a slot, the relay's deadline, many stopped switches -----
+    # ---- a readopt during the wait for a slot, a caller's 15 s deadline, many stopped switches -
 
     "$m" "79. a GET that waited through a readopt reads through the closed channel" "$API" \
         '    if _readopt_seen(dpid, client):
@@ -684,11 +684,11 @@ each_mutation() {
         return True' \
         'test_a_read_that_fails_because_of_a_readopt_is_503_not_500'
 
-    # A wait of two read deadlines would let a GET run 20 s and meet the relay's 504.
-    "$m" "82. the slot wait grows past the kernel relay's deadline" "$API" \
+    # A wait of two read deadlines would let a GET run 20 s, past a caller with a 15 s deadline.
+    "$m" "82. the slot wait grows past what a caller with a 15 s deadline can wait" "$API" \
         'TABLE_READ_WAIT_S = 3.0' \
         'TABLE_READ_WAIT_S = 2 * RPC_TIMEOUT_S' \
-        'test_a_whole_get_answers_inside_the_kernel_relays_15_s'
+        'test_the_slot_wait_and_two_read_deadlines_fit_a_15_s_deadline_with_1_s_to_spare'
 
     # One pool of 32 workers for every switch is filled by 8 stopped switches.
     "$m" "83. one pool of 32 for every switch again" "$API" \
@@ -734,7 +734,8 @@ each_mutation() {
     _readopt_seen = lambda d, c: topology.switches.get(d) is not c' \
         'test_a_switch_being_readopted_is_503_replay_pending_and_reads_nothing'
 
-    # The check before the wait stays; only the one after it stops looking at `pending`.
+    # The check before the wait stays; `_readopt_seen` stops looking at `pending`, and with it
+    # both the check after the wait and the one after a failed read.
     "$m" "90. a readopt that begins during the slot wait is not noticed" "$API" \
         '    return table_journals is not None and table_journals.pending(dpid)' \
         '    return False' \
@@ -747,11 +748,12 @@ each_mutation() {
             raise _table_read_error(503, "replay pending", dpid, table,' \
         'test_a_read_that_fails_with_a_grpc_error_during_a_readopt_is_replay_pending'
 
-    # TABLE_READ_WORST_S needs a thread for every slot.
-    "$m" "92. a switch's pool has fewer workers than slots" "$API" \
+    # TABLE_READ_WORST_S needs a thread for every slot: with one worker fewer, a GET that has a
+    # slot waits a whole read for a thread.
+    "$m" "92. a switch's pool has one worker fewer than its slots" "$API" \
         '        pool = ThreadPoolExecutor(max_workers=TABLE_READS_PER_SWITCH,' \
-        '        pool = ThreadPoolExecutor(max_workers=1,' \
-        'test_four_slow_reads_and_one_waiter_answer_within_the_wait_and_two_read_deadlines'
+        '        pool = ThreadPoolExecutor(max_workers=TABLE_READS_PER_SWITCH - 1,' \
+        'test_the_gets_with_a_slot_read_at_once_and_the_waiter_answers_within_its_bound'
 
     # The labels, each with the status left as it is.
     "$m" "93. switch busy is labelled as a failed read" "$API" \
@@ -780,6 +782,12 @@ each_mutation() {
         '    HEX_DIGITS = frozenset("0123456789abcdefABCDEF")' \
         '    HEX_DIGITS = frozenset("0123456789abcdefABCDEF_ +xX")' \
         'test_anything_but_hex_digits_after_0x_is_400'
+
+    # A value from 2^53 up reads back as hex, and hex has letters.
+    "$m" "97. a hex idle timeout takes decimal digits only" "$CLIENT" \
+        '    HEX_DIGITS = frozenset("0123456789abcdefABCDEF")' \
+        '    HEX_DIGITS = frozenset("0123456789")' \
+        'test_a_wide_timeout_with_hex_letters_reads_back_and_posts_back'
 }
 
 # --- run ------------------------------------------------------------------------------------

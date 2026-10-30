@@ -1332,7 +1332,9 @@ class P4RuntimeClient:
     @staticmethod
     def _idle_timeout_as_json(idle):
         """An idle timeout as GET gives it: an integer below 2^53, a "0x..." string from there on
-        (about 104 days), the rule match_shape.render_value applies to wide fields.
+        (about 104 days). The cut is match_shape.JSON_EXACT_INT_BITS, as in
+        match_shape.render_value, but taken by value: render_value chooses the form by the
+        field's width, and an idle timeout has no width short of the protobuf's int64.
         [Co-developed with claude code -- Adam]"""
         if idle >= 1 << match_shape.JSON_EXACT_INT_BITS:
             return f"0x{idle:x}"
