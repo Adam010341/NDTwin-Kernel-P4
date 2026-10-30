@@ -7,6 +7,8 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include "ndt_core/http/OpenflowCapacityReport.hpp" // [Co-developed with claude code -- Adam]
+#include "ndt_core/http/P4Passthrough.hpp" // [Co-developed with claude code -- Adam]
+#include <chrono> // [Co-developed with claude code -- Adam] the proxy relay's deadline
 #include "ndt_core/routing_management/OpResult.hpp" // [Co-developed with claude code -- Adam]
 #include "utils/NetemLinkFault.hpp" // [Co-developed with claude code -- Adam] B-16: the tc seam
 // For sflow::FlowLivenessFilter, which readLivenessFilter takes by reference and so needs
@@ -143,6 +145,12 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     // `capabilities` it pins reach /ndt/get_graph_data from that manager's record of the proxy.
     friend class HttpSessionP4CapabilitiesTestPeer;
 
+    // [Co-developed with claude code -- Adam]
+    // One more peer, for tests/test_P4Passthrough.cpp, separate for the same ODR reason as the
+    // second. It repoints m_p4ProxyHostAndPort at a fake proxy on a loopback port, so no case
+    // can reach a real proxy on :8081, and shortens m_p4Deadlines.
+    friend class HttpSessionP4PassthroughTestPeer;
+
     // --- Asynchronous Operation Handlers ---
     void readRequest();
     void onRead(beast::error_code ec, std::size_t bytesTransferred);
@@ -178,6 +186,9 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     /// Test seam for the process-wide change ledger; see the definition.
     static void resetLabClaimLedgerForTests();
     /// Adds `lab_claim` to a write endpoint's reply, at the one exit every reply leaves through.
+    /// Catches everything itself: it runs after buildResponse's catch clauses. Not noexcept, so
+    /// that a throw that does get out is an exception a caller can see rather than an immediate
+    /// terminate. [Co-developed with claude code -- Adam]
     void attachLabClaimIfWrite(http::response<http::string_body>& res);
 
     // Each API endpoint gets its own handler function for clarity.
@@ -701,6 +712,49 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      */
     void handleAppRegister(http::response<http::string_body>& res);
     void handleNotFound(http::response<http::string_body>& res);
+
+    /**
+     * @brief The /ndt/p4/... routes: relays the five P4 reads and writes to the P4 proxy.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Called from handleRequest instead of buildResponse, for every method on every path under
+     * /ndt/p4, OPTIONS and HEAD included. The allowlist, the relay and the kernel's own refusals
+     * are p4passthrough::respondAsync; this adds what only a session knows -- whether the loaded
+     * topology has a P4 switch -- and returns at once. finishP4Passthrough writes the reply when
+     * the relay completes, so no kernel io thread waits on the proxy. See
+     * include/ndt_core/http/P4Passthrough.hpp and doc/2026-01-02_ndt_api.md section 43.
+     */
+    void startP4Passthrough();
+
+    /**
+     * @brief Writes the reply for a /ndt/p4 request: the proxy's status, Content-Type and body
+     *        unchanged, or the kernel's own answer (501, 404, 405, 502, 504).
+     *
+     * [Co-developed with claude code -- Adam]
+     * Adds X-NDTwin-Origin, Allow on a 405, X-NDTwin-Lab-Claim on the write route, and none of the
+     * CORS headers buildResponse puts on every other route.
+     */
+    void finishP4Passthrough(p4passthrough::Reply reply);
+
+    /// labClaimJson() as one header value: ASCII only, invalid UTF-8 replaced rather than thrown
+    /// on, and at most kLabClaimHeaderMaxBytes long. [Co-developed with claude code -- Adam]
+    static std::string labClaimHeaderValue();
+
+    /**
+     * @brief The longest X-NDTwin-Lab-Claim value the kernel sends.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Beast-based clients read at most 8 KiB of header per reply by default, and this is one
+     * header among several, so half of that. Beast itself refuses a field value above 65533 bytes,
+     * which a long note reaches easily once escaped (a CJK character becomes six bytes). The
+     * claim's fixed fields take under 100 bytes, so 4 KiB still carries a note of several hundred
+     * characters; a longer one is cut and the value says `"truncated": true`.
+     */
+    static constexpr std::size_t kLabClaimHeaderMaxBytes = 4096;
+
+    /// Whether the loaded topology has at least one P4 (bmv2) switch, which is when the kernel
+    /// has a P4 proxy to relay to. [Co-developed with claude code -- Adam]
+    bool topologyHasP4Switch() const;
     void handleInputTextIntent(http::response<http::string_body>& res);
     void handleGetNickname(http::response<http::string_body>& res);
     void handleModifyNickname(http::response<http::string_body>& res);
@@ -1002,4 +1056,11 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      */
     utils::netem::TcRunner m_tcRunner;
     utils::netem::InjectedNetemLedger* m_injectedNetem;
+
+    // [Co-developed with claude code -- Adam]
+    // Where startP4Passthrough relays to, and how long it waits. Defaults are the deployment's
+    // own (AppConfig::P4_PROXY_IP_AND_PORT, the proxy every other P4 path in the kernel talks to,
+    // and p4passthrough::Deadlines); only HttpSessionP4PassthroughTestPeer changes them.
+    std::string m_p4ProxyHostAndPort;
+    p4passthrough::Deadlines m_p4Deadlines;
 };

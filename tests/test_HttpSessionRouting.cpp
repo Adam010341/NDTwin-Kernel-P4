@@ -1011,6 +1011,25 @@ class DispatchStatusEndpointTest : public ::testing::Test
     }
 };
 
+TEST_F(DispatchStatusEndpointTest, AControllerMessageThatIsNotUtf8IsReportedNotThrownOn)
+{
+    // [Co-developed with claude code -- Adam] A failed dispatch keeps the controller's own words
+    // in recent_failures. Those come from another process and may hold any byte; the status body
+    // must still be served, with such bytes as U+FFFD.
+    DispatchFixture fx;
+    ASSERT_TRUE(fx.run(1, 1, OpResult::failure(502, "controller said \xff\xfe")));
+
+    HttpSessionTestPeer peer(fx.controller);
+    const auto& res = peer.send(http::verb::get, "/ndt/get_flow_dispatch_status");
+    ASSERT_EQ(res.result_int(), 200u) << "body: " << res.body();
+    const auto body = nlohmann::json::parse(res.body(), nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << res.body();
+    ASSERT_FALSE(body.at("recent_failures").empty()) << res.body();
+    const std::string message =
+        body.at("recent_failures").at(0).value("message", std::string{});
+    EXPECT_NE(message.find("\xef\xbf\xbd"), std::string::npos) << res.body();
+}
+
 TEST_F(DispatchStatusEndpointTest, TheCountersAreNamedForWhatTheyCount)
 {
     // #54's A half, on the wire. `succeeded` is gone: the same match dispatched twice moves this
