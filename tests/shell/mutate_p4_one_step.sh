@@ -533,6 +533,10 @@ mut O5_why_external_unsaid "$ONE_STEP" \
     '    elif package["control_plane"]["mode"] == "external":' \
     '    elif False:' \
     test_auto_with_a_mycontroller_is_external_and_says_how_to_change_it
+mut O6_any_mode_word_taken "$ONE_STEP" \
+    '    ap.add_argument("--mode", default="auto", choices=("auto", "ndtwin", "external"),' \
+    '    ap.add_argument("--mode", default="auto",' \
+    test_a_mode_that_is_not_one_of_the_three_is_a_usage_error
 
 # --- refusals that name their way out ----------------------------------------------------------
 mut A12_several_named_in_prose "$CONVERT" \
