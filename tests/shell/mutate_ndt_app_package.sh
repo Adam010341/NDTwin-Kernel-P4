@@ -1425,7 +1425,7 @@ check_fires "M81: the exercise flags never reach the converter" m81 \
             "🔴 --topology reaches it with its value" "🔴 --table-owner reaches it with its value"
 
 cat > "$A/m82.old" <<'EOF'
-            --topology|--p4|--role-ipv4-route|--table-owner) xwant="$a" ;;
+            --topology|--p4|--role-ipv4-route|--table-owner|--mode) xwant="$a" ;;
 EOF
 cat > "$A/m82.new" <<'EOF'
 EOF
@@ -1606,6 +1606,97 @@ cat > "$A/m100.new" <<'EOF'
 EOF
 check_fires "M100: only the resolved path is asked" m100 \
             "🔴 a logical path with a line break is a usage error"
+
+
+# --- M101..M109: what an --app bring-up leaves behind, and what it says it did (section 24) ------
+# [Co-developed with claude code -- Adam]
+cat > "$A/m101.old" <<'EOF'
+    app_knob_count_restore || rc=1
+EOF
+cat > "$A/m101.new" <<'EOF'
+    :
+EOF
+check_fires "M101: 'ndt down' leaves the knob where --app put it" m101 \
+            "🔴 'ndt down' puts the knob back" \
+            "🔴 and 'ndt release' then succeeds with no hand-written number"
+
+cat > "$A/m102.old" <<'EOF'
+    if [[ "$now" != "$wrote" ]]; then
+EOF
+cat > "$A/m102.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M102 (widening): a knob the user changed is put back too" m102 \
+            "🔴 a knob changed after the bring-up is left as it is"
+
+cat > "$A/m103.old" <<'EOF'
+        else
+            app_knob_count_forget
+        fi
+EOF
+cat > "$A/m103.new" <<'EOF'
+        else
+            :
+        fi
+EOF
+check_fires "M103 (widening): a typed host count keeps the app's record" m103 \
+            "🔴 'ndt up p4 4' after an --app bring-up forgets the app's record"
+
+cat > "$A/m104.old" <<'EOF'
+            [[ "$KNOB_ENTRY" != "$knob_wanted" ]] && app_knob_count_note "$knob_wanted"
+EOF
+cat > "$A/m104.new" <<'EOF'
+            :
+EOF
+check_fires "M104: the --app write is not recorded" m104 \
+            "🔴 'ndt down' puts the knob back"
+
+cat > "$A/m105.old" <<'EOF'
+    claim_note_up "$up_what"
+EOF
+cat > "$A/m105.new" <<'EOF'
+    claim_note_up "p4 $hosts"
+EOF
+check_fires "M105: the claim note names a host count for an app" m105 \
+            "🔴 the claim note names the app, not a host count"
+
+cat > "$A/m106.old" <<'EOF'
+            --topology|--p4|--role-ipv4-route|--table-owner|--mode) xwant="$a" ;;
+EOF
+cat > "$A/m106.new" <<'EOF'
+            --topology|--p4|--role-ipv4-route|--table-owner) xwant="$a" ;;
+EOF
+check_fires "M106: --mode is not handed to the converter" m106 \
+            "🔴 --mode reaches the converter with its value"
+
+cat > "$A/m107.old" <<'EOF'
+    if [[ "$app_pipe" == foreign:* ]]; then
+EOF
+cat > "$A/m107.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M107: the header quotes NDTwin's rate for a package pipeline" m107 \
+            "🔴 a package pipeline's header quotes no rate for the package's switches"
+
+cat > "$A/m108.old" <<'EOF'
+            if [[ ",$skipped," == *,install_initial_routes,* ]]; then
+EOF
+cat > "$A/m108.new" <<'EOF'
+            if true; then
+EOF
+check_fires "M108: the path line says no routes when the proxy installed them" m108 \
+            "🔴 the path line says the routes WERE installed" \
+            "🔴 and neither says no routes were installed"
+
+cat > "$A/m109.old" <<'EOF'
+            if [[ -n "$skipped" && ",$skipped," != *,install_initial_routes,* ]]; then
+EOF
+cat > "$A/m109.new" <<'EOF'
+            if false; then
+EOF
+check_fires "M109: the caveat says no routes when the proxy installed them" m109 \
+            "🔴 so does the caveat under ready" \
+            "🔴 and neither says no routes were installed"
 
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"

@@ -2230,6 +2230,72 @@ has   "🔴 external: says why there is no role"            "the control plane i
 hasnt "🔴 and pre-flight does not suggest one"            "roles suggestion" "$OUT"
 rm -rf "$FIX/exercises/e2e" "$FIX/.test_run/packages" "$FIX/.test_run/packages-staging"
 
+# =============================================================================================
+section "24. 🔴 what an --app bring-up leaves behind, and what it says it did"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# (a) The round's knob. `--app` sizes the fabric from the package and writes that count through
+# host_count_override; `ndt release` refuses while the knob differs from the round's start. The
+# whole sequence -- claim, up --app, down, release -- must need no hand-written number.
+LCLAIM="$FIX/.test_run/lab.claim"
+reset_fix; rm -f "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline" "$FIX/.test_run/round.baseline.prev" \
+                 "$FIX/.test_run/host_count_override.app" "$FIX/.test_run/host_count_override.app.before"
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+claim_note_up() { echo "NOTE_ARG=$1"; }
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 2>&1 | grep NOTE_ARG; echo "KNOB_UP=$(host_count)"
+cmd_down; echo "KNOB_DOWN=$(host_count)"; cmd_release')"
+has   "  the --app bring-up moved the knob to the package's count" "KNOB_UP=3" "$OUT"
+has   "🔴 the claim note names the app, not a host count"  "NOTE_ARG=p4 --app $PKG_EXT" "$OUT"
+has   "🔴 'ndt down' puts the knob back"                  "KNOB_DOWN=4" "$OUT"
+has   "  and says so"                                     "host_count_override put back: 3 -> 4" "$OUT"
+check "🔴 and 'ndt release' then succeeds with no hand-written number" "0" "$(rc_of "$OUT")"
+hasnt "  without the knob refusal"                        "refusing: the P4 host knob" "$OUT"
+# A knob the user changed after the bring-up is theirs: left alone, and said so.
+reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline" "$FIX/.test_run/host_count_override.app"*
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+cmd_down; echo "KNOB_DOWN=$(host_count)"')"
+has   "🔴 a knob changed after the bring-up is left as it is" "KNOB_DOWN=8" "$OUT"
+has   "  and the teardown says why"                       "host_count_override left at 8" "$OUT"
+# A count the user typed afterwards replaces the record: the next down does not undo it.
+reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline" "$FIX/.test_run/host_count_override.app"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; NDT_APP_DIR=""; unset NDT_TOPO; up_p4 4 >/dev/null 2>&1
+echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"')"
+has   "🔴 'ndt up p4 4' after an --app bring-up forgets the app's record" "REC=absent" "$OUT"
+rm -f "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+
+# (b) --mode reaches the converter, like the other exercise flags.
+reset_one; mkdir -p "$EX/pod-topo"; echo '{}' > "$EX/pod-topo/topology.json"
+OUT="$(drive "$ONE"'up_take_app_flag p4 --app '"$(q "$EX")"' --mode ndtwin && NDT_APP_DIR='"$(q "$EX")"' && up_p4')"
+check "🔴 --mode reaches the converter with its value"    "yes" "$(argv_pair --mode ndtwin)"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --mode=external; printf "X=%s\n" "${NDT_APP_EXERCISE_ARGV[@]}"')"
+has   "  --mode=<word> is lifted out as one word"         "X=--mode=external" "$OUT"
+rm -rf "$FIX/exercises" "$GEN"
+
+# (c) The header's sample rate on a package pipeline agrees with the footer: none there.
+reset_fix
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_FOREIGN")"'; up_p4')"
+has   "🔴 a package pipeline's header quotes no rate for the package's switches" \
+      "sample rate  none on dpid 1 (the package's own program)" "$OUT"
+hasnt "  and does not say the package runs NDTwin's compiled rate" \
+      "sample rate  1/256     (compiled into ndtwin_switch.json)" "$OUT"
+reset_fix
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4')"
+has   "  a package on NDTwin's own pipeline keeps the compiled rate" \
+      "sample rate  1/256     (compiled into ndtwin_switch.json)" "$OUT"
+
+# (d) What the proxy installed. With roles.ipv4_route owner ndtwin the proxy does NOT skip
+# install_initial_routes, and writes NDTwin's routes into the package's own table.
+SS_OWNED="$FIX/ss_owned.json"; mkss "$SS_OWNED" link_watchdog,lldp_discovery 5:5:0 5:5:0 5:5:0 5:5:0
+OUT="$(vp4 "$SS_OWNED" ndtwin foreign:1,2,3,4)"
+check "  an owned route table fabric still ends ready"    "0" "$(rc_of "$OUT")"
+has   "🔴 the path line says the routes WERE installed"   "and installed NDTwin's routes into the" "$OUT"
+has   "🔴 so does the caveat under ready"                 "wrote its routes into the" "$OUT"
+hasnt "🔴 and neither says no routes were installed"      "installed no routes" "$OUT"
+OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4)"
+has   "  with install_initial_routes skipped it still says none were" "installed no routes on this" "$OUT"
+hasnt "  and not that they were"                          "wrote its routes into the" "$OUT"
+
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 (( FAIL == 0 ))

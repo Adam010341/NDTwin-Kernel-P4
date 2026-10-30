@@ -609,10 +609,10 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
 # 10563 above; the NTG_DIR config key (+2) and the .test_run/logs guard (+41) move it 10556 -> 10599.
 # 2026-10-28: the NTG_DIR lookup for `ndt ntg` (+53) moves it 10599 -> 10652, and M63's and G62h's
 # rows move by the same 53 (9115 -> 9168, proc_checkout 8655 -> 8708; 6903 -> 6956, 6841 -> 6894).
-# 2026-10-29: the exercise path of `ndt up p4 --app` (+98) moves it 10652 -> 10750, and M63's and
-# G62h's rows by the same 98 (9168 -> 9266, proc_checkout 8708 -> 8806; 6956 -> 7054, 6894 -> 6992).
+# 2026-10-29: the exercise path of `ndt up p4 --app` (+198) moves it 10652 -> 10850, and M63's and
+# G62h's rows by the same 198 (9168 -> 9366, proc_checkout 8708 -> 8906; 6956 -> 7154, 6894 -> 7092).
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(10750, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(10850, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -814,8 +814,8 @@ report "C28: a claim read stopped at its timeout is trusted (its partial yours r
        cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
 
 m=$(mutant m63 "$VERBS_PY" \
-    '(9266, 1, "return 1", "app_start")' \
-    '(8806, 1, "return 1", "app_start")')
+    '(9366, 1, "return 1", "app_start")' \
+    '(8906, 1, "return 1", "app_start")')
 report "M63: apps.start rc 1 cites proc_checkout's return 1" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
@@ -1584,8 +1584,8 @@ report "G62g: --measuring's rc 0 cites a phrase ndt help does not print" "$m" \
        RcProvenance.test_help_sourced_tables_are_in_ndt_help
 
 m=$(mutant g62h "$VERBS_PY" \
-    '                         "code": [(7054, 0, "return 0", "cmd_status")]},' \
-    '                         "code": [(6992, 0, "return 0", "cmd_status")]},')
+    '                         "code": [(7154, 0, "return 0", "cmd_status")]},' \
+    '                         "code": [(7092, 0, "return 0", "cmd_status")]},')
 report "G62h: --measuring's rc 0 cites a return 0 of another function (app_package_row)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 

@@ -6,7 +6,8 @@
     tools/p4_exercise/one_step.py <exercise_dir> [--run-dir <repo>/.test_run]
         [--topology pod-topo/topology.json] [--p4 basic.p4]
         [--role-ipv4-route [owner=,]table=,match_field=,action=,dst_mac=,port= | --no-roles]
-        [--table-owner package|ndtwin] [--in-use <package dir>] [--emit-path <file>]
+        [--table-owner package|ndtwin] [--mode auto|ndtwin|external]
+        [--in-use <package dir>] [--emit-path <file>]
 
 `ndt up p4 --app <exercise dir>` runs this, then pre-flight on what it wrote, then the bring-up.
 It is convert.py with the three things a user would otherwise type worked out:
@@ -19,6 +20,9 @@ It is convert.py with the three things a user would otherwise type worked out:
     exercise -- the rule tutorials' utils/Makefile applies to DEFAULT_PROG. Its stem picks the
     compiled build/<stem>.json and build/<stem>.p4.p4info.txtpb a switch runs unless the topology
     names that switch's own `program`.
+  * the control plane: `--mode`, else auto -- external when the exercise has a mycontroller.py
+    (its own controller programs the switches and the fabric comes up empty), NDTwin's otherwise.
+    Which one it was, and why, is printed.
   * the route role: `convert.py --auto-role` (owner package, or `--table-owner ndtwin`), unless
     `--role-ipv4-route` names one or `--no-roles` asks for none.
 
@@ -240,12 +244,13 @@ def _move(src, dst):
 
 
 def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner=None,
-            no_roles=False, in_use=None):
+            no_roles=False, in_use=None, mode="auto"):
     """Convert, compare with the last conversion, and put the package in place.
 
     Returns a dict: dest, state (created | replaced | unchanged), topology, topology_how, p4,
     p4_how, package, auto (auto_route_role's answer, {} when it did not run), role_source
-    (auto | flag | none), removed ({dpid: entries taken out of an owner-ndtwin table}). Raises
+    (auto | flag | none), removed ({dpid: entries taken out of an owner-ndtwin table}), mode_how
+    (why the control plane is what it is). `mode` is convert's: auto, ndtwin or external. Raises
     convert.ConversionError for every refusal; by then no package has been written (only the
     empty parent directories, and a staging directory that has been removed again).
     """
@@ -293,7 +298,7 @@ def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner
         package, _model, _written = convert.convert(
             exercise_dir, topology_rel, staging, p4_rel=p4_rel, role_ipv4_route=role,
             auto_role=(role is None and not no_roles), owner=owner, auto_report=auto,
-            removed=removed)
+            removed=removed, mode=mode)
         if os.path.lexists(dest) and not os.path.isdir(dest):
             raise convert.ConversionError(f"{dest} exists and is not a directory; remove it")
         if os.path.isdir(dest) and _tree(dest) == _tree(staging):
@@ -338,7 +343,17 @@ def prepare(exercise_dir, run_dir, topology=None, p4=None, role_text=None, owner
         role_source = "auto"
     else:
         role_source = "none"
-    return {"dest": dest, "state": state, "topology": topology_rel, "topology_how": topology_how,
+    # [Co-developed with claude code -- Adam] Said, because `auto` decides it from one file name:
+    # an exercise that ships a mycontroller.py comes up EMPTY unless told otherwise.
+    if mode != "auto":
+        mode_how = "--mode"
+    elif package["control_plane"]["mode"] == "external":
+        mode_how = ("mycontroller.py found: external; pass --mode ndtwin to let NDTwin install "
+                    "routes")
+    else:
+        mode_how = "no mycontroller.py: NDTwin installs the routes"
+    return {"mode_how": mode_how,
+            "dest": dest, "state": state, "topology": topology_rel, "topology_how": topology_how,
             "p4": p4_rel, "p4_how": p4_how, "package": package, "auto": auto,
             "role_source": role_source, "removed": removed}
 
@@ -368,7 +383,7 @@ def report_lines(result, no_roles=False):
                  + (switches[k]["pipeline"]["bmv2_json"] if switches[k]["pipeline"]
                     else "NDTwin's own")
                  for k in sorted(switches, key=int)),
-             f"  control plane : {package['control_plane']['mode']}"]
+             f"  control plane : {package['control_plane']['mode']}   ({result['mode_how']})"]
     route = (package.get("roles") or {}).get("ipv4_route")
     if result["role_source"] == "flag":
         lines.append(f"  route role    : from --role-ipv4-route: "
@@ -418,6 +433,10 @@ def main(argv=None):
                     help="who owns the forwarding table (default package: NDTwin only reads it). "
                          "ndtwin: NDTwin writes it, and the exercise's match entries for it are "
                          "taken out of the runtime files (the count is printed)")
+    ap.add_argument("--mode", default="auto", choices=("auto", "ndtwin", "external"),
+                    help="the control plane: ndtwin (NDTwin installs the routes), external (the "
+                         "exercise's own mycontroller.py does), or auto (the default: external "
+                         "when the exercise has a mycontroller.py)")
     ap.add_argument("--no-roles", action="store_true",
                     help="declare no route role, even when the p4info has one candidate")
     ap.add_argument("--in-use", default=None,
@@ -459,7 +478,7 @@ def main(argv=None):
     try:
         result = prepare(args.exercise_dir, args.run_dir, topology=args.topology, p4=args.p4,
                          role_text=args.role_ipv4_route, owner=args.table_owner,
-                         no_roles=args.no_roles, in_use=args.in_use)
+                         no_roles=args.no_roles, in_use=args.in_use, mode=args.mode)
     except convert.ConversionError as exc:
         print(f"REFUSED: {exc}")
         return RC_REFUSED

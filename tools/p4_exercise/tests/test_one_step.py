@@ -645,6 +645,41 @@ class RoleTest(ExerciseCase):
         self.assertIn("override with --role-ipv4-route, or --no-roles", lines)
 
 
+class ModeTest(ExerciseCase):
+    """--mode, and the line that says which control plane auto chose and why.
+    [Co-developed with claude code -- Adam]"""
+
+    def control_plane_line(self, result):
+        return [l for l in one_step.report_lines(result) if "control plane :" in l][0]
+
+    def test_auto_with_a_mycontroller_is_external_and_says_how_to_change_it(self):
+        result = self.prepare(self.exercise("p4runtime"))
+        self.assertEqual(self.package_json(result)["control_plane"]["mode"], "external")
+        self.assertIn("mycontroller.py found: external; pass --mode ndtwin to let NDTwin install "
+                      "routes", self.control_plane_line(result))
+
+    def test_mode_ndtwin_overrides_the_mycontroller(self):
+        result = self.prepare(self.exercise("p4runtime"), mode="ndtwin")
+        self.assertEqual(self.package_json(result)["control_plane"]["mode"], "ndtwin")
+        self.assertIn("(--mode)", self.control_plane_line(result))
+        self.assertEqual(result["role_source"], "auto", "an ndtwin plane gets its route role")
+
+    def test_auto_without_a_mycontroller_says_ndtwin(self):
+        line = self.control_plane_line(self.prepare(self.basic_one_topology()))
+        self.assertIn("ndtwin   (no mycontroller.py: NDTwin installs the routes)", line)
+
+    def test_mode_external_without_a_controller_is_refused(self):
+        self.refused(self.basic_one_topology(), "external means the exercise brings its own",
+                     mode="external")
+
+    def test_a_mode_that_is_not_one_of_the_three_is_a_usage_error(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            rc = one_step.main([self.basic_one_topology(), "--run-dir", self.run_dir,
+                                "--mode", "openflow"])
+        self.assertEqual(rc, 2, out.getvalue())
+
+
 class CandidatesTest(unittest.TestCase):
     """preflight.route_role_candidates is the heuristic; _suggest_route_role is its first answer."""
 
@@ -804,14 +839,16 @@ class CommandLineTest(ExerciseCase):
         self.addCleanup(setattr, one_step, "prepare", real)
         spec = convert.role_flag_text(dict(BASIC_ROLE, owner="package"))
         self.main("/ex", "--run-dir", "/run", "--topology", "t/topology.json", "--p4", "x.p4",
-                  "--role-ipv4-route", spec, "--table-owner", "ndtwin", "--in-use", "/knob/pkg")
+                  "--role-ipv4-route", spec, "--table-owner", "ndtwin", "--in-use", "/knob/pkg",
+                  "--mode", "ndtwin")
         self.assertEqual(seen, {"exercise_dir": "/ex", "run_dir": "/run",
                                 "topology": "t/topology.json", "p4": "x.p4", "role_text": spec,
-                                "owner": "ndtwin", "no_roles": False, "in_use": "/knob/pkg"})
+                                "owner": "ndtwin", "no_roles": False, "in_use": "/knob/pkg",
+                                "mode": "ndtwin"})
         seen.clear()
         self.main("/ex", "--run-dir", "/run", "--no-roles")
-        self.assertEqual((seen["no_roles"], seen["role_text"], seen["owner"], seen["in_use"]),
-                         (True, None, None, None))
+        self.assertEqual((seen["no_roles"], seen["role_text"], seen["owner"], seen["in_use"],
+                          seen["mode"]), (True, None, None, None, "auto"))
 
 
 if __name__ == "__main__":

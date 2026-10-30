@@ -447,8 +447,8 @@ mut N9_stripped_said_for_package "$ONE_STEP" \
     '    if route is not None:' \
     test_owner_package_strips_nothing_and_says_nothing
 mut N10_count_not_collected "$ONE_STEP" \
-    '            removed=removed)' \
-    '            removed={})' \
+    '            removed=removed, mode=mode)' \
+    '            removed={}, mode=mode)' \
     test_owner_ndtwin_says_how_many_entries_it_stripped
 mut N11_several_not_offered_as_flags "$ONE_STEP" \
     '        if len(candidates) > 1:' \
@@ -460,8 +460,8 @@ mut N13_bad_role_is_a_refusal "$ONE_STEP" \
     '            print(f"usage: {exc}", file=sys.stderr)' \
     test_usage_errors_are_2
 mut N15_in_use_dropped "$ONE_STEP" \
-    '                         no_roles=args.no_roles, in_use=args.in_use)' \
-    '                         no_roles=args.no_roles, in_use=None)' \
+    '                         no_roles=args.no_roles, in_use=args.in_use, mode=args.mode)' \
+    '                         no_roles=args.no_roles, in_use=None, mode=args.mode)' \
     test_the_in_use_flag_reaches_the_replace_guard test_every_flag_is_forwarded_to_prepare
 mut N16_topology_dropped "$ONE_STEP" \
     '        result = prepare(args.exercise_dir, args.run_dir, topology=args.topology, p4=args.p4,' \
@@ -480,8 +480,8 @@ mut N19_table_owner_dropped "$ONE_STEP" \
     '                         role_text=args.role_ipv4_route, owner=None,' \
     test_every_flag_is_forwarded_to_prepare
 mut N20_no_roles_dropped "$ONE_STEP" \
-    '                         no_roles=args.no_roles, in_use=args.in_use)' \
-    '                         no_roles=False, in_use=args.in_use)' \
+    '                         no_roles=args.no_roles, in_use=args.in_use, mode=args.mode)' \
+    '                         no_roles=False, in_use=args.in_use, mode=args.mode)' \
     test_every_flag_is_forwarded_to_prepare
 
 # --- pre-flight's suggestion, and a role that names no owner -----------------------------
@@ -519,6 +519,20 @@ mut S8_resolver_owner_required "$ROUTE_BINDING" \
     '    role = dict(role, owner=role.get("owner", DEFAULT_OWNER))' \
     '    pass' \
     test_the_resolver_gives_it_owner_package
+
+# --- the control plane --------------------------------------------------------------------------
+mut O3_mode_not_passed_to_convert "$ONE_STEP" \
+    '            removed=removed, mode=mode)' \
+    '            removed=removed, mode="auto")' \
+    test_mode_ndtwin_overrides_the_mycontroller
+mut O4_mode_flag_dropped "$ONE_STEP" \
+    '                         no_roles=args.no_roles, in_use=args.in_use, mode=args.mode)' \
+    '                         no_roles=args.no_roles, in_use=args.in_use, mode="auto")' \
+    test_every_flag_is_forwarded_to_prepare
+mut O5_why_external_unsaid "$ONE_STEP" \
+    '    elif package["control_plane"]["mode"] == "external":' \
+    '    elif False:' \
+    test_auto_with_a_mycontroller_is_external_and_says_how_to_change_it
 
 # --- refusals that name their way out ----------------------------------------------------------
 mut A12_several_named_in_prose "$CONVERT" \

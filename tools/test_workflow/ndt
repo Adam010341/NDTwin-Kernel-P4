@@ -2547,6 +2547,81 @@ knob_restore() {
     return 0
 }
 
+# --- the knob an app package moved --------------------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# `ndt up p4 --app <dir>` sizes the fabric from the package and writes that count through
+# host_count_override, a number the user never typed. `ndt release` then refuses until the knob
+# is back at the round's starting value (the guard in cmd_release: the next round's `ndt up p4`
+# reads this file and nothing else), so without this the user had to write back a number they
+# never chose. So the write an app package made is RECORDED here, and the teardown that clears
+# the app knob (cmd_clean, which `ndt down` ends with) puts the knob back to what it held before.
+#
+# Put back, rather than excused at release: the guard exists because the next round reads the
+# file, and a knob left at the package's count would size that round's `ndt up p4`.
+#
+#     .test_run/host_count_override.app
+#         wrote=<n>              what the app package wrote
+#         before=absent|<path>   no file before it, or a copy of the file's bytes
+#
+# 🔴 Only when the knob still holds what the package wrote. A knob changed since (by hand, or
+# by a later `ndt up p4 <n>`, which forgets the record) is the user's, and is left alone.
+app_knob_count_path() { printf '%s\n' "$REPO/.test_run/host_count_override.app"; }
+
+# app_knob_count_note <n> -- after set_host_count wrote <n> for an app package. A second app
+# bring-up keeps the FIRST record's `before`: that is the value the round had before any of them.
+app_knob_count_note() {
+    local n="$1" rec before=""
+    rec="$(app_knob_count_path)"
+    mkdir -p "$(dirname "$rec")" 2>/dev/null || return 0
+    if [[ -f "$rec" ]]; then
+        before="$(sed -n 's/^before=//p' "$rec" | head -1)"
+    elif [[ "$KNOB_SAVED" == "(absent)" ]]; then
+        before=absent
+    elif [[ -n "$KNOB_SAVED" ]] && cp -p "$KNOB_SAVED" "$rec.before" 2>/dev/null; then
+        before="$rec.before"
+    fi
+    [[ -n "$before" ]] || return 0
+    printf 'wrote=%s\nbefore=%s\n' "$n" "$before" > "$rec" 2>/dev/null || return 0
+}
+
+# app_knob_count_forget -- a host count the user typed replaces whatever an app package did.
+app_knob_count_forget() {
+    local rec; rec="$(app_knob_count_path)"
+    rm -f "$rec" "$rec.before" 2>/dev/null
+    return 0
+}
+
+# app_knob_count_restore -- put the knob back if it still holds what an app package wrote.
+app_knob_count_restore() {
+    local rec wrote before now f
+    rec="$(app_knob_count_path)"
+    [[ -f "$rec" ]] || return 0
+    wrote="$(sed -n 's/^wrote=//p' "$rec" | head -1)"
+    before="$(sed -n 's/^before=//p' "$rec" | head -1)"
+    f="$(knob_path)"
+    now="$(host_count)"
+    if [[ "$now" != "$wrote" ]]; then
+        info "host_count_override left at $now: it no longer holds the $wrote 'ndt up p4 --app' wrote"
+        app_knob_count_forget
+        return 0
+    fi
+    if [[ "$before" == absent ]]; then
+        rm -f "$f" || { err "could not remove $(short_repo_path "$f") (an app package created it)"; return 1; }
+    elif [[ -f "$before" ]]; then
+        cp -p "$before" "$f" && cmp -s "$before" "$f" || {
+            err "could NOT put $(short_repo_path "$f") back: it reads $now; the bytes it held"
+            err "  before 'ndt up p4 --app' are in ${before#$REPO/} -- copy them back by hand."
+            return 1; }
+    else
+        app_knob_count_forget
+        return 0
+    fi
+    info "host_count_override put back: $now -> $(host_count) ('ndt up p4 --app' had written $now)"
+    app_knob_count_forget
+    return 0
+}
+
 # short_repo_path <path> -- the path as a reader of this checkout would write it.
 short_repo_path() { printf '%s\n' "${1#$REPO/}"; }
 
@@ -3609,7 +3684,7 @@ up_p4() {
     # inline checks and the only copy of them in the file; since 2026-09-25 it is the ONE guard
     # up_ovs calls too, and the one place `--force` is honoured and recorded.
     local up_what="p4 $hosts"
-    [[ -n "$app_dir" ]] && up_what="p4 --app $(printf '%q' "$app_dir")"
+    [[ -n "$app_dir" ]] && up_what="p4 --app $(printf '%q' "${NDT_APP_DIR:-$app_dir}")"
     guard_up_lab_free "$up_what" || return $?
 
     say "ndt up p4"
@@ -3623,7 +3698,13 @@ up_p4() {
         info "app package  none (baseline fabric)"
     fi
     info "bmv2         $binary"
+    # [Co-developed with claude code -- Adam] On dpids that run a package's own program there is
+    # no compiled rate (the footer says so too); the rate below is NDTwin's own pipeline's.
+    if [[ "$app_pipe" == foreign:* ]]; then
+        info "sample rate  none on dpid ${app_pipe#foreign:} (the package's own program); $(rate_label "$rate") only where ndtwin_switch.json runs"
+    else
     info "sample rate  $(rate_label "$rate")     (compiled into ndtwin_switch.json)"
+    fi
     echo
 
     # 🔴 `return $?`, not `return 1`: preflight answers 5 when a guard refused and 1 when it
@@ -3647,6 +3728,12 @@ up_p4() {
     if [[ -n "$knob_wanted" ]]; then
         knob_snapshot
         set_host_count "$knob_wanted" "$knob_layout" || { knob_restore "the knob write itself was refused"; return 1; }
+        # [Co-developed with claude code -- Adam] Which kind of write it was: see app_knob_count_note.
+        if [[ "$knob_layout" == package ]]; then
+            [[ "$KNOB_ENTRY" != "$knob_wanted" ]] && app_knob_count_note "$knob_wanted"
+        else
+            app_knob_count_forget
+        fi
     fi
     # [Co-developed with claude code -- Adam]
     # 🔴 THE APP KNOB, at the same point and under the same rule. The two branches are both
@@ -3686,13 +3773,10 @@ up_p4() {
         err "nothing was started."
         return 1; }
     # [Co-developed with claude code -- Adam]
-    # 🔴 THE NOTE DOES NOT NAME THE PACKAGE, deliberately. This line is the literal anchor of
-    # mutate_ndt_honesty.sh's M10 ("ndt up p4 stops writing the note"), and an anchor that no
-    # longer resolves makes that gate report a SURVIVOR -- a cell losing its power is worse
-    # than a note losing a word. What another session needs is on `ndt status`'s own
-    # `app package` row and in .test_run/up.target's topology path, which under a package IS
-    # the package's model. If the note should carry it, move M10's anchor in the same commit.
-    claim_note_up "p4 $hosts"
+    # The note names what was brought up the way the user asked for it: `p4 <n>`, or
+    # `p4 --app <the directory they gave>` (an exercise, or a package). This line is the literal
+    # anchor of mutate_ndt_honesty.sh's M10 ("ndt up p4 stops writing the note").
+    claim_note_up "$up_what"
 
     # -- 1. fabric --
     say "[1/3] bmv2 fabric"
@@ -4362,7 +4446,14 @@ verify_p4() {
             rc=1
         else
             warn "proxy: destination paths NOT CHECKED -- the package's own program runs on dpid"
+            # [Co-developed with claude code -- Adam] install_initial_routes absent from the list
+            # means the proxy DID install NDTwin's routes (roles.ipv4_route, owner ndtwin).
+            if [[ ",$skipped," == *,install_initial_routes,* ]]; then
             warn "  $foreign; the proxy says it sent no LLDP and installed no routes on this"
+            else
+            warn "  $foreign; the proxy says it sent no LLDP, and installed NDTwin's routes into the"
+            warn "  package's own route table (roles.ipv4_route, owner ndtwin) on this"
+            fi
             warn "  fabric (control_plane.skipped: ${skipped//,/, })"
         fi
         verify_p4_package_entries "$state" || rc=1
@@ -4457,9 +4548,17 @@ verify_p4() {
             # The same shape as the EMPTY paragraph above and for the same reason: `ready` is the
             # word half a dozen scripts grep for, so what is qualified is the paragraph under it,
             # never the word.
+            if [[ -n "$skipped" && ",$skipped," != *,install_initial_routes,* ]]; then
+            # [Co-developed with claude code -- Adam] The proxy did not skip its routes: the
+            # package gave NDTwin its route table (owner ndtwin), so they are in it.
+            warn "package pipeline: NDTwin discovered no links, and wrote its routes into the"
+            warn "  package's own route table (roles.ipv4_route, owner ndtwin); forwarding is those"
+            warn "  routes and the package's $VERIFY_P4_ENTRIES_APPLIED entries on $VERIFY_P4_ENTRIES_SWITCHES switch(es). ndt status quotes no sample rate for it."
+            else
             warn "package pipeline: NDTwin discovered no links and installed no routes on this"
             warn "  fabric; forwarding is whatever the package's $VERIFY_P4_ENTRIES_APPLIED entries on"
             warn "  $VERIFY_P4_ENTRIES_SWITCHES switch(es) make of it. ndt status quotes no sample rate for it."
+            fi
         fi
     else
         say "up, ${R}but not verified${N} -- do not measure on this"
@@ -5828,6 +5927,7 @@ cmd_clean() {
     # above, for the same reason it sits below `down`'s: a refused clean measured nothing and
     # must change nothing.
     app_knob_clear "this checkout is being put back" || rc=1
+    app_knob_count_restore || rc=1
 
     n="$(bmv2_count)"
     if [[ "$n" -eq 0 ]]; then ok "bmv2 switches: 0"; else err "bmv2 switches: $n still running"; rc=1; fi
@@ -11013,8 +11113,8 @@ up_take_app_flag() {
             --app=*) NDT_APP_DIR="${a#--app=}"; seen=1 ;;
             --telemetry)   twant=1 ;;
             --telemetry=*) NDT_TELEMETRY="${a#--telemetry=}"; tseen=1 ;;
-            --topology|--p4|--role-ipv4-route|--table-owner) xwant="$a" ;;
-            --topology=*|--p4=*|--role-ipv4-route=*|--table-owner=*|--no-roles) NDT_APP_EXERCISE_ARGV+=("$a") ;;
+            --topology|--p4|--role-ipv4-route|--table-owner|--mode) xwant="$a" ;;
+            --topology=*|--p4=*|--role-ipv4-route=*|--table-owner=*|--mode=*|--no-roles) NDT_APP_EXERCISE_ARGV+=("$a") ;;
             *)       NDT_UP_ARGV+=("$a") ;;
         esac
     done
@@ -11249,6 +11349,10 @@ usage: ndt <command>
                                      is printed (default package: NDTwin only reads
                                      the table, to compute flow paths)
                   --no-roles         declare none
+                  --mode ndtwin|external|auto
+                                     the control plane (default auto: external when
+                                     the exercise has a mycontroller.py -- the
+                                     fabric then comes up empty -- else NDTwin's)
                   without those, the role is filled from the p4info when it has exactly
                   one (table, action) candidate shaped like a destination route; with
                   none or several the package has no role, and the twin will show no
