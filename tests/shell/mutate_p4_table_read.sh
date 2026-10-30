@@ -20,8 +20,8 @@
 # else, and the idle timeout an entry has to carry back.
 #
 # 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 39 and 62, 43 and 44, 46 and 47, 57
-# and 77, 58 and 59, and 65 and 66; 37, 38 and 63 share one, as do 84, 85 and 88, and 40, 41
-# and 60 share the route's signature line. check_gate_anchors.py counts each distinct anchor once.
+# and 77, 58 and 59, 65 and 66, and 35 and 89; 37, 38 and 63 share one, as do 84, 85 and 88, and
+# 40, 41 and 60 share the route's signature line. check_gate_anchors.py counts each distinct anchor once.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a
@@ -725,6 +725,14 @@ each_mutation() {
         '        if idle >= 1 << match_shape.JSON_EXACT_INT_BITS:' \
         '        if idle >= 1 << 52:' \
         'test_below_2_53_it_reads_back_an_integer'
+
+    # The check before the wait and the one after it both stop looking at `pending`: the read then
+    # goes ahead, and only the check after the read turns it away.
+    "$m" "89. a switch being re-adopted is read before it is turned away" "$API" \
+        '    readopting = table_journals is not None and table_journals.pending(dpid)' \
+        '    readopting = False
+    _readopt_seen = lambda d, c: topology.switches.get(d) is not c' \
+        'test_a_switch_being_readopted_is_503_replay_pending_and_reads_nothing'
 }
 
 # --- run ------------------------------------------------------------------------------------
