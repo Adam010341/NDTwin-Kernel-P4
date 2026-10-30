@@ -1209,6 +1209,15 @@ class P4RuntimeClient:
         TERNARY, RANGE or OPTIONAL field also has a priority, which every insert, modify and
         delete must name.
 
+        [Co-developed with claude code -- Adam]
+        `idle_timeout_ns`, optional, is the entry's idle timeout in nanoseconds (0: none), for a
+        table the program declares with `support_timeout = true` (p4info `idle_timeout_behavior`
+        NOTIFY_CONTROL). It has to be sent on a modify too: bmv2 clears an entry's timeout on a
+        MODIFY that does not carry one (measured on bmv2 1.15.5, 2026-10-30), so an entry read back
+        and sent as a modify keeps its timeout only because GET /p4/table_entry returns it. On a
+        table without timeout support, or on a default entry, which matches nothing and so never
+        goes idle, a non-zero one is refused.
+
         Puts nothing on the wire. Everything that can be refused is refused here, so that
         `write_table_entry` reaches `stub.Write` only for an entry this pipeline can represent.
         """
@@ -1308,7 +1317,67 @@ class P4RuntimeClient:
         if priority:
             entry.priority = priority
 
+        idle = self._idle_timeout(table, spec.get("idle_timeout_ns"), default_action)
+        if idle:
+            entry.idle_timeout_ns = idle
+
         return entry, match_types
+
+    #: The largest idle timeout the protobuf's int64 holds. [Co-developed with claude code -- Adam]
+    IDLE_TIMEOUT_NS_MAX = (1 << 63) - 1
+    #: What may follow the "0x" of an idle timeout given as a string.
+    #: [Co-developed with claude code -- Adam]
+    HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
+    @staticmethod
+    def _idle_timeout_as_json(idle):
+        """An idle timeout as GET gives it: an integer below 2^53, a "0x..." string from there on
+        (about 104 days). The cut is match_shape.JSON_EXACT_INT_BITS, as in
+        match_shape.render_value, but taken by value: render_value chooses the form by the
+        field's width, and an idle timeout has no width short of the protobuf's int64.
+        [Co-developed with claude code -- Adam]"""
+        if idle >= 1 << match_shape.JSON_EXACT_INT_BITS:
+            return f"0x{idle:x}"
+        return idle
+
+    @staticmethod
+    def table_ages_entries(table):
+        """Whether `table` (a p4info Table) keeps an idle timeout per entry: the program declared
+        it `support_timeout = true`. [Co-developed with claude code -- Adam]"""
+        return table.idle_timeout_behavior != p4info_pb2.Table.NO_TIMEOUT
+
+    def _idle_timeout(self, table, idle, is_default):
+        """The `idle_timeout_ns` an entry may carry on this table, as the int for the wire (0 for
+        none), or TableEntryInvalid. [Co-developed with claude code -- Adam]"""
+        where = table.preamble.name
+        if idle is None:
+            return 0
+        if isinstance(idle, str) and idle[:2].lower() == "0x":
+            # The form GET gives a value at or above 2^53, which a JSON number cannot carry
+            # exactly through every reader (match_shape.JSON_EXACT_INT_BITS). Only hex digits
+            # after the "0x": int(_, 16) alone also takes "0x1_0", "0x 10", "0x+1" and "0x0x10".
+            digits = idle[2:]
+            if not digits or not all(c in self.HEX_DIGITS for c in digits):
+                raise TableEntryInvalid(
+                    f"{where}: 'idle_timeout_ns' {idle!r} is not a hexadecimal number")
+            idle = int(digits, 16)
+        if isinstance(idle, bool) or not isinstance(idle, int):
+            raise TableEntryInvalid(
+                f"{where}: 'idle_timeout_ns' must be an integer number of nanoseconds, or a "
+                f"\"0x...\" string, got {idle!r}")
+        if not 0 <= idle <= self.IDLE_TIMEOUT_NS_MAX:
+            raise TableEntryInvalid(
+                f"{where}: 'idle_timeout_ns' {idle} is outside 0..{self.IDLE_TIMEOUT_NS_MAX}")
+        if idle and not self.table_ages_entries(table):
+            raise TableEntryInvalid(
+                f"{where} keeps no idle timeout: the program does not declare it with "
+                f"support_timeout = true, so the switch has nowhere to put "
+                f"idle_timeout_ns {idle}. Leave the key out.")
+        if idle and is_default:
+            raise TableEntryInvalid(
+                f"{where}: a default entry matches nothing, so it never goes idle and takes no "
+                f"idle_timeout_ns (got {idle})")
+        return idle
 
     def _match_as_dict(self, table_id, match):
         """A repeated FieldMatch as `{field name: {"type": ..., ...}}` -- the ONE place that
@@ -1852,6 +1921,170 @@ class P4RuntimeClient:
                 "this p4info: %s" % (self.device_id, name, e)) from e
         return {"counter": counter.preamble.name, "table": self._table_name(table_id),
                 "unit": unit, "entries": entries}
+
+    #: The P4Runtime oneof keys of a FieldMatch, as `_match_as_dict` spells them, in the order
+    #: `match_shape.shape_field` returns them. [Co-developed with claude code -- Adam]
+    _WIRE_KEYS = {"exact": ("value",), "lpm": ("value", "prefix_len"),
+                  "ternary": ("value", "mask"), "range": ("low", "high"),
+                  "optional": ("value",)}
+
+    def table_full_name(self, name):
+        """The full name of the table `name` (full name or alias) names, or KeyError when this
+        p4info has none. [Co-developed with claude code -- Adam]"""
+        return self._table_by_name(name).preamble.name
+
+    def read_table(self, name, timeout_s=RPC_TIMEOUT_S):
+        """
+        Every entry of one table, each in the shape `write_table_entry` takes:
+        `{"table", "entries", "unrendered"}`.
+
+        [Co-developed with claude code -- Adam]
+        `name` is the table's full name or its alias; `table` in the answer is the full name. An
+        entry is
+
+            {"table": "PkgIngress.acl",
+             "match": {"hdr.ipv4.dstAddr": ["10.0.2.0", "255.255.255.0"]},
+             "action_name": "PkgIngress.permit", "action_params": {"port": 1},
+             "priority": 10, "default_action": False}
+
+        with every value in the one form `match_shape.render_value` gives a field of its width,
+        so `build_table_entry` builds it back into the entry the switch holds -- and each entry
+        is built that way before it is listed, so an entry the writer would refuse is never in
+        `entries`. `priority` is None on a table with no priority column and on the default
+        entry, as the writer takes it. The default entry comes last, with `default_action: True`
+        and an empty match.
+
+        TWO READS. A wildcard read of a table does not return its default entry, only a read
+        that sets `is_default_action` does (measured on bmv2, simple_switch_grpc, 2026-10-04).
+        So the table is read once for its entries and once for its default, each with its own
+        deadline, and an entry the wrong read returned is skipped rather than reported twice.
+
+        The outcomes:
+          a table this p4info does not have -> raises KeyError (`_table_by_name`), before any read;
+          a read that failed (a deadline too) -> the gRPC error is raised, carrying its status;
+          an entry the writer's shape cannot say -> left out of `entries` and listed in
+                                                   `unrendered` with the reason (an action-profile
+                                                   action, an id this p4info does not describe,
+                                                   a value wider than its field, an entry with
+                                                   no action, anything `build_table_entry`
+                                                   refuses), so the caller knows the list is not
+                                                   the whole table;
+          no default entry in the second read    -> an `unrendered` item says so: every table has
+                                                   one, so "the switch did not send it" is not an
+                                                   answer about the table.
+
+        Not owner-checked and not refused under an external control plane: a ReadRequest needs
+        no election id, and reading changes nothing.
+        """
+        table = self._table_by_name(name)
+        table_id = table.preamble.id
+        kinds = [self._match_type_name(f) for f in table.match_fields]
+        has_priority = match_shape.table_has_priority_column(kinds)
+
+        answered = []
+        for default in (False, True):
+            req = p4runtime_pb2.ReadRequest()
+            req.device_id = self.device_id
+            wanted = req.entities.add().table_entry
+            wanted.table_id = table_id
+            wanted.is_default_action = default
+            replies = self.stub.Read(req, timeout=timeout_s)
+            for response in replies:
+                answered.extend(
+                    entity.table_entry for entity in response.entities
+                    if entity.HasField("table_entry")
+                    and entity.table_entry.table_id == table_id
+                    and entity.table_entry.is_default_action == default)
+
+        entries, unrendered = [], []
+        for te in answered:
+            try:
+                entries.append(self._entry_as_written(table, te, has_priority))
+            except (TableEntryInvalid, TableEntryUnsupported) as err:
+                unrendered.append({"default_action": te.is_default_action,
+                                   "priority": self._read_priority(te, has_priority),
+                                   "reason": str(err)})
+        if not any(te.is_default_action for te in answered):
+            unrendered.append({"default_action": True, "priority": None,
+                               "reason": f"the switch returned no default entry for "
+                                         f"{table.preamble.name}, so what this table does when "
+                                         f"nothing matches is not known"})
+        return {"table": table.preamble.name, "entries": entries, "unrendered": unrendered}
+
+    @staticmethod
+    def _read_priority(te, has_priority):
+        """An entry's priority as the writer takes it: None on a table with no priority column
+        and on the default entry. [Co-developed with claude code -- Adam]"""
+        return te.priority if has_priority and not te.is_default_action else None
+
+    def _entry_as_written(self, table, te, has_priority):
+        """One TableEntry the switch sent, as `build_table_entry` takes it, or TableEntryInvalid
+        naming what the writer's shape cannot say. [Co-developed with claude code -- Adam]"""
+        where = table.preamble.name
+        match = {}
+        spelled = self._match_as_dict(te.table_id, te.match)
+        if None in spelled or len(spelled) != len(te.match):
+            raise TableEntryInvalid(
+                f"{where}: the switch sent a match field this p4info does not describe "
+                f"(field ids {sorted(m.field_id for m in te.match)})")
+        for field_name, got in spelled.items():
+            field = self._match_field_by_name(table, field_name)
+            kind = self._match_type_name(field)
+            if got["type"].upper() != kind:
+                raise TableEntryInvalid(
+                    f"{where}.{field_name} is declared {kind} and the switch sent a "
+                    f"{got['type']} match")
+            wire = (kind,) + tuple(got[key] for key in self._WIRE_KEYS[got["type"]])
+            match[field_name] = match_shape.render_field(
+                f"{where}.{field_name}", field.bitwidth, wire)
+
+        which = te.action.WhichOneof("type")
+        if which is None:
+            raise TableEntryInvalid(
+                f"{where}: the switch sent the entry without an action, and POST "
+                f"/p4/table_entry takes a modify only with one")
+        if which != "action":
+            raise TableEntryInvalid(
+                f"{where}: the entry's action is an action profile's ({which}), which "
+                f"POST /p4/table_entry cannot write")
+        sent = te.action.action
+        action = next((a for a in self.p4info.actions
+                       if a.preamble.id == sent.action_id), None)
+        if action is None:
+            raise TableEntryInvalid(
+                f"{where}: the switch sent action id {sent.action_id}, which this p4info "
+                f"does not describe")
+        values = {p.param_id: p.value for p in sent.params}
+        action_params = {}
+        for param in action.params:
+            if param.id not in values:
+                raise TableEntryInvalid(
+                    f"{where}: the switch sent {action.preamble.name} without its "
+                    f"parameter {param.name!r}")
+            action_params[param.name] = match_shape.render_value(
+                values.pop(param.id), param.bitwidth)
+        if values:
+            raise TableEntryInvalid(
+                f"{where}: the switch sent parameter ids {sorted(values)} that "
+                f"{action.preamble.name} does not declare")
+
+        spec = {"table": where, "match": match, "action_name": action.preamble.name,
+                "action_params": action_params,
+                "priority": self._read_priority(te, has_priority),
+                "default_action": te.is_default_action}
+        # The timeout the switch holds for this entry, or a modify sent back without it would
+        # clear it (bmv2 1.15.5, 2026-10-30). Only on a table that ages entries, where it is part
+        # of what the entry is; a default entry never goes idle.
+        if self.table_ages_entries(table) and not te.is_default_action:
+            spec["idle_timeout_ns"] = self._idle_timeout_as_json(te.idle_timeout_ns)
+        # Built here, written nowhere: an entry is only listed as a POST body if the writer takes
+        # it as one. A don't-care another controller spelled as a zero mask, or a field with no
+        # width, is refused here with the writer's own sentence instead of at the caller's POST.
+        try:
+            self.build_table_entry(spec)
+        except (TableEntryInvalid, TableEntryUnsupported) as err:
+            raise TableEntryInvalid(f"POST /p4/table_entry would refuse it: {err}") from err
+        return spec
 
     #: Bit width of each flow_5tuple key, from ndtwin_switch.p4. P4Runtime encodes a bit<N> field
     #: in ceil(N/8) bytes, and bmv2 refuses a value OR A MASK with a bit set above bit N-1

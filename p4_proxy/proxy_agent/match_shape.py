@@ -403,3 +403,80 @@ def shape_priority(table_name, kinds, priority, is_default=False):
             f"of the entry's identity: a modify or a delete repeats the one the insert used, and "
             f"the switch answers a different one with NOT_FOUND.", rule="V6")
     return value
+
+
+# --- reading an entry back, in the shape it is written in. [Co-developed with claude code -- Adam]
+#
+# GET /p4/table_entry answers with entries a caller can send straight back to POST
+# /p4/table_entry. The two functions below are the inverse of `encode_value` and `shape_field`:
+# each value comes back in ONE form, the form `encode_value` reads for a field of that width, so
+# whatever spelling the entry was written in ("10.0.1.1", 167772417, "0x0a000101"), it reads back
+# the same way, and encodes to the same bytes.
+
+
+#: The widest field whose every value a JSON reader that parses numbers as IEEE doubles holds
+#: exactly (2^53). Wider fields read back as "0x..." strings. [Co-developed with claude code -- Adam]
+JSON_EXACT_INT_BITS = 53
+
+
+def render_value(raw, bitwidth):
+    """
+    One value the switch sent (a match value, mask, bound or action parameter), as JSON.
+
+    [Co-developed with claude code -- Adam]
+    The form depends on the field's width only, because the width is all a p4info says about a
+    field:
+
+        bit<32>              a dotted IPv4 address      "10.0.1.1"
+        bit<48>              a MAC address, lower case  "08:00:00:00:01:11"
+        up to 53 bits        a plain integer            1
+        wider than 53 bits   a lower-case hex string    "0x20000000000001"
+
+    These are the spellings the tutorials' runtime files use and `encode_value` reads (the hex
+    string through its `int(text, 0)`). A 32-bit field that is not an address reads back dotted
+    too ("0.0.0.7" for 7): one form per width is what lets a caller compare two reads, and the
+    value encodes to the same bytes either way. The hex string is there because a JSON number
+    above 2^53 is a double in JavaScript and in many other JSON readers, and a value that has
+    passed through one of them comes back as a different number; a string comes back as it was.
+
+    `raw` is read as a big-endian integer, never by its length: P4Runtime lets a target send a
+    value with its leading zero bytes stripped. A value wider than the field is refused
+    (TableEntryInvalid, V2), not shown narrower; the writer would refuse it as well.
+    """
+    bitwidth = int(bitwidth)
+    number = _as_int(bytes(raw))
+    if number >= (1 << bitwidth):
+        raise TableEntryInvalid(
+            f"the switch sent 0x{number:x} for a bit<{bitwidth}> field, which does not fit",
+            rule="V2")
+    if bitwidth == 32:
+        return socket.inet_ntoa(number.to_bytes(4, "big"))
+    if bitwidth == 48:
+        return ":".join(f"{b:02x}" for b in number.to_bytes(6, "big"))
+    if bitwidth > JSON_EXACT_INT_BITS:
+        return f"0x{number:x}"
+    return number
+
+
+def render_field(where, bitwidth, wire):
+    """
+    One match field as `shape_field` takes it, from the tuple `shape_field` returns.
+
+    [Co-developed with claude code -- Adam]
+    `wire` is `("EXACT", value)`, `("LPM", value, prefix_len)`, `("TERNARY", value, mask)`,
+    `("RANGE", low, high)` or `("OPTIONAL", value)`, with the values as bytes. The result is
+    what POST /p4/table_entry takes for that match type: a plain value for EXACT and OPTIONAL,
+    `[value, prefix_len]`, `[value, mask]`, `[low, high]`.
+    """
+    kind = wire[0]
+    if kind in ("EXACT", "OPTIONAL"):
+        return render_value(wire[1], bitwidth)
+    if kind == "LPM":
+        return [render_value(wire[1], bitwidth), int(wire[2])]
+    if kind in ("TERNARY", "RANGE"):
+        return [render_value(wire[1], bitwidth), render_value(wire[2], bitwidth)]
+    # Not reached from P4RuntimeClient.read_table, which refuses a kind other than the declared
+    # one before it gets here; kept for a caller that hands in a kind this module cannot shape.
+    raise TableEntryUnsupported(
+        f"{where} is a {kind} match, and this proxy reads {', '.join(BUILDABLE_MATCH_TYPES)} "
+        f"entries only")

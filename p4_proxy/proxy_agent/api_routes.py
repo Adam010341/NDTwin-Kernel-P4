@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
+# [Co-developed with claude code -- Adam] GET /p4/table_entry's required, non-empty `table`.
+from fastapi import Query
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 import json
 import time
 from typing import Optional
+# [Co-developed with claude code -- Adam] GET /p4/table_entry's own reader threads.
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from google.rpc import code_pb2, status_pb2
 from p4.v1 import p4runtime_pb2
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError, needs_five_tuple
@@ -1184,6 +1189,14 @@ async def table_entry(request: Request):
     it is part of the entry's identity, so a modify or delete at another priority is the switch's
     NOT_FOUND (502, `p4rt_error.code`), not a change to some other entry.
 
+    [Co-developed with claude code -- Adam]
+    `idle_timeout_ns` is optional: the entry's idle timeout in nanoseconds (0, or left out: none),
+    on a table the program declares with `support_timeout = true`, as an integer or a "0x..."
+    string (the form GET gives it from 2^53 on). Send it on a modify as well
+    as on an insert, because bmv2 clears the timeout of an entry modified without one (bmv2
+    1.15.5, 2026-10-30); GET /p4/table_entry returns it for that reason. A non-zero one on a table
+    without timeout support, or on a default entry, is a 400.
+
     🔴 JOURNALED: RECORDED, AND REPLAYED AFTER A RESTART -- ON A FABRIC THE PROXY CAN RECOGNISE.
     Every accepted write is appended to this switch's table-entry journal
     (`.run/table_entry_journal/s<dpid>.jsonl`) after the switch took it and before this answer.
@@ -1237,7 +1250,8 @@ async def table_entry(request: Request):
              /0 (say it by leaving the field out), an EXACT field left out, an lpm value with
              host bits, a missing or zero priority on a table that has a priority column, a
              non-zero one on a table that has none or on a default entry, a default action
-             carrying a match, an unknown `op`. NOTHING was written.
+             carrying a match, an unknown `op`, a non-zero `idle_timeout_ns` on a table without
+             `support_timeout` or on a default entry. NOTHING was written.
         404  an unknown dpid, or a table / field / action / parameter this switch's p4info does
              not describe. NOTHING was written.
         409  this fabric's package declares an external control plane, so the proxy reads only
@@ -1301,7 +1315,8 @@ async def table_entry(request: Request):
     # delete to the writer.
     op = str(data.get("op", "insert") or "insert").strip().lower()
     spec = {key: data.get(key) for key in
-            ("table", "match", "action_name", "action_params", "default_action", "priority")
+            ("table", "match", "action_name", "action_params", "default_action", "priority",
+             "idle_timeout_ns")
             if key in data}
 
     recorded = False
@@ -1393,6 +1408,208 @@ async def table_entry(request: Request):
     if note is not None:
         body["note"] = note
     return body
+
+
+# --- reading a table's entries back, in the shape POST /p4/table_entry takes ------------------
+
+
+#: Where GET /p4/table_entry's gRPC reads run: threads of its own, not the threadpool FastAPI
+#: shares between every `def` endpoint and every `run_in_threadpool`. With forty GETs to one
+#: stopped switch on that shared pool, POST writes and /stats/flow on healthy switches waited
+#: behind them for up to about 5 s (max 4.9–5.0 s, median about 0.01 s; bmv2 1.15.5,
+#: 2026-10-30), against at most 0.03 s with no switch stopped.
+#:
+#: One small pool per switch, so a switch that stops answering holds its own threads and no one
+#: else's, however many switches stop at once. Its threads are made as they are first needed,
+#: so a switch read one table at a time has one. [Co-developed with claude code -- Adam]
+#:
+#: The threads are not daemon threads: a proxy shutting down waits for a read that is still
+#: running, which is up to two read deadlines (2 * RPC_TIMEOUT_S) for a switch that is slow or
+#: does not answer.
+TABLE_READS_PER_SWITCH = 4
+#: How long a GET waits for one of its switch's read slots before answering 503 `switch busy`.
+#: A switch takes TABLE_READS_PER_SWITCH reads at a time and other GETs may be waiting ahead of
+#: this one, so a busy but healthy switch can give that answer too. This wait and two reads of
+#: up to RPC_TIMEOUT_S each come to 13 s (TABLE_READ_WORST_S), which leaves 2 s of a 15 s
+#: deadline for converting the entries and sending them. How long that takes on a large table
+#: has not been measured.
+TABLE_READ_WAIT_S = 3.0
+#: The longest a GET /p4/table_entry waits on its switch: the slot wait and two read deadlines.
+#: The time to convert and send the entries, and the event loop's own scheduling, come on top.
+TABLE_READ_WORST_S = TABLE_READ_WAIT_S + 2 * RPC_TIMEOUT_S
+
+_table_read_pools = {}
+_table_read_slots = {}
+
+
+def _table_read_executor(dpid):
+    """The threads this switch's table reads run on, made on first use.
+    [Co-developed with claude code -- Adam]"""
+    pool = _table_read_pools.get(dpid)
+    if pool is None:
+        pool = ThreadPoolExecutor(max_workers=TABLE_READS_PER_SWITCH,
+                                  thread_name_prefix=f"p4-table-read-s{dpid}")
+        _table_read_pools[dpid] = pool
+    return pool
+
+
+def _table_read_slot(dpid):
+    """This switch's read slots, an asyncio.Semaphore of the running loop. Kept per loop as well
+    as per switch: a semaphore belongs to the loop it was first used on.
+    [Co-developed with claude code -- Adam]"""
+    loop = asyncio.get_running_loop()
+    held = _table_read_slots.get(dpid)
+    if held is None or held[0] is not loop:
+        held = (loop, asyncio.Semaphore(TABLE_READS_PER_SWITCH))
+        _table_read_slots[dpid] = held
+    return held[1]
+
+
+def _readopt_seen(dpid, client):
+    """Whether switch `dpid` has been re-adopted since `client` was taken (the client was
+    replaced), or is being re-adopted now. [Co-developed with claude code -- Adam]"""
+    if topology.switches.get(dpid) is not client:
+        return True
+    return table_journals is not None and table_journals.pending(dpid)
+
+
+def _table_read_error(status, error, dpid, table, message, **extra):
+    """The HTTPException GET /p4/table_entry raises. [Co-developed with claude code -- Adam]"""
+    return HTTPException(status_code=status, detail=dict(
+        {"error": error, "dpid": dpid, "table": table, "message": message}, **extra))
+
+
+@router.get("/p4/table_entry")
+async def read_table_entry(dpid: int, table: str = Query(..., min_length=1)):
+    """
+    Every entry of one table of one switch: `GET /p4/table_entry?dpid=<n>&table=<name>`.
+
+    [Co-developed with claude code -- Adam]
+    The read-back of POST /p4/table_entry. `GET /stats/flow/{dpid}` renders only what Ryu can
+    spell, so an app that wrote its own table had no way to see whether its entry is there.
+    `table` is the full name or the alias, as for the counter and register routes. The answer:
+
+        {"dpid": 2, "table": "PkgIngress.acl",
+         "entries": [{"dpid": 2, "table": "PkgIngress.acl",
+                      "match": {"hdr.ipv4.dstAddr": ["10.0.2.0", "255.255.255.0"]},
+                      "action_name": "PkgIngress.permit", "action_params": {"port": 1},
+                      "priority": 10, "default_action": false}],
+         "unrendered": []}
+
+    Each entry is a POST body less its `op`: add `"op": "modify"` or `"op": "delete"` and send
+    it back unchanged. Every entry in `entries` has been built with the writer's own
+    `build_table_entry` (nothing is written), so the switch is the only thing left to refuse it --
+    a `const entries` table, or a `const default_action`, it refuses whatever is sent. A value is
+    in the one form its width reads back in (match_shape.render_value): a bit<32> as a dotted
+    address, a bit<48> as a MAC, a width up to 53 bits as an integer, a wider one as a lower-case
+    "0x..." string (a JSON number loses precision above 2^53 in many readers); a match field as
+    POST takes its type -- a plain value (exact, optional), `[value, prefix_len]` (lpm),
+    `[value, mask]` (ternary), `[low, high]` (range). A field the entry does not match on is left
+    out, as POST writes "any value". Tables and actions come back under their full names, also
+    when they were written by alias. `priority` is null on a table with no priority column and
+    on the default entry. On a table declared `support_timeout`, every entry but the default also
+    carries `idle_timeout_ns` as the switch holds it, since bmv2 clears the timeout of an entry
+    modified without one (bmv2 1.15.5, 2026-10-30). The table's default entry comes last,
+    `default_action: true`, empty match. An entry POST could not write back (an action-profile
+    action, an id this p4info does not describe, an entry the writer refuses) is not in
+    `entries`: it is listed in `unrendered` with its reason, as is a default entry the switch did
+    not return, so an empty `unrendered` says `entries` is the whole table.
+
+        200  the read succeeded. An empty table answers its default entry alone in `entries`.
+        404  `unknown switch`: a dpid the proxy did not set up; `not in this pipeline`: a table
+             this switch's p4info does not describe. Nothing was read.
+        422  `dpid` missing or not an integer, `table` missing or empty (FastAPI's own body).
+        503  `table not read`: the read failed with a gRPC error -- the switch is not connected
+             (UNAVAILABLE), did not answer within its deadline (RPC_TIMEOUT_S per read,
+             DEADLINE_EXCEEDED), has no pipeline since a restart (FAILED_PRECONDITION), or any
+             other status; `grpc_status` names it. NOT AN EMPTY TABLE. `replay pending`: the
+             switch is being re-adopted and its entries put back -- checked before the read, and
+             again after it, since a readopt that starts during the read empties the tables and
+             replaces the client; either way no table is answered. `no topology`: none yet.
+
+    An error other than a gRPC one is not caught: it is a fault in this proxy, and FastAPI
+    answers 500. The table is resolved before the read for that reason, so that "no such table"
+    is the only KeyError that becomes the 404.
+
+    Every table can be read, NDTwin's own included: the owner rule (409 owned_by_ndtwin) is
+    about writes. Works under an external control plane: a ReadRequest has no election id.
+
+    The read blocks on gRPC, so it never runs on the event loop (get_flow_stats' docstring says
+    what that cost once). It does not run on FastAPI's shared threadpool either: each switch has
+    a pool of its own, at most TABLE_READS_PER_SWITCH reads at a time. So a switch that stops
+    answering ties up its own threads and nothing else, however many switches stop: POST writes,
+    /stats/flow and other switches' reads go on. A GET that waits TABLE_READ_WAIT_S for a slot
+    of its switch answers 503 `switch busy`, nothing read. A GET waits on its switch for at most
+    TABLE_READ_WORST_S (13 s), which leaves 2 s of a 15 s deadline for converting the entries
+    and sending them; how long that takes on a large table has not been measured.
+
+    A readopt during the wait for a slot replaces the client and closes the old one's channel, so
+    the switch is looked at again once a slot is free, and a read that fails is put down to a
+    readopt when one happened: both answer 503 `replay pending` rather than reading through the
+    closed channel (a ValueError, not a gRPC error) and answering 500.
+    """
+    if topology is None:
+        raise _table_read_error(503, "no topology", dpid, table, "proxy has no topology yet")
+    client = topology.switches.get(dpid)
+    if client is None:
+        raise _table_read_error(404, "unknown switch", dpid, table,
+                                f"switch {dpid} is not one of the switches this proxy set up; "
+                                f"nothing was read")
+    readopting = table_journals is not None and table_journals.pending(dpid)
+    if readopting:
+        raise _table_read_error(503, "replay pending", dpid, table,
+                                f"switch {dpid} is being re-adopted and its entries put back; "
+                                f"nothing was read. Ask again once the readopt has answered")
+    try:
+        full_name = client.table_full_name(table)
+    except KeyError as err:
+        raise _table_read_error(404, "not in this pipeline", dpid, table,
+                                err.args[0] if err.args else str(err))
+    slots = _table_read_slot(dpid)
+    try:
+        await asyncio.wait_for(slots.acquire(), timeout=TABLE_READ_WAIT_S)
+    except asyncio.TimeoutError:
+        raise _table_read_error(503, "switch busy", dpid, table,
+                                f"no read slot of switch {dpid} came free for this request within "
+                                f"{TABLE_READ_WAIT_S:g} s ({TABLE_READS_PER_SWITCH} reads at a "
+                                f"time per switch, others may be waiting); nothing was read; "
+                                f"retry")
+    if _readopt_seen(dpid, client):
+        slots.release()
+        raise _table_read_error(503, "replay pending", dpid, table,
+                                f"switch {dpid} was re-adopted while this read waited for a slot; "
+                                f"nothing was read. Ask again once the readopt has answered")
+    reader = asyncio.get_running_loop().run_in_executor(
+        _table_read_executor(dpid), client.read_table, full_name)
+    # The slot is given back when the read ends, not when this request does: a caller that hangs
+    # up leaves its read running against the switch, and the slot has to go on counting it.
+    reader.add_done_callback(lambda _finished: slots.release())
+    try:
+        reading = await asyncio.shield(reader)
+    except Exception as err:  # noqa: BLE001 -- only a gRPC failure is turned into a 503
+        if _readopt_seen(dpid, client):
+            raise _table_read_error(503, "replay pending", dpid, table,
+                                    f"switch {dpid} was re-adopted while {table} was being read, "
+                                    f"and the read failed; ask again once the readopt has "
+                                    f"answered")
+        reason = _grpc_status_name(err)
+        if reason is None:
+            raise
+        raise _table_read_error(503, "table not read", dpid, table,
+                                f"reading {table} from switch {dpid} failed: {reason}. This is "
+                                f"NOT an empty table", grpc_status=reason)
+    # A readopt that began while the table was being read pushes the pipeline (which empties the
+    # tables) and swaps the client, so what was read may be a table half put back.
+    still_this_switch = (topology.switches.get(dpid) is client
+                         and not (table_journals is not None and table_journals.pending(dpid)))
+    if not still_this_switch:
+        raise _table_read_error(503, "replay pending", dpid, table,
+                                f"switch {dpid} was re-adopted while {table} was being read, so "
+                                f"what was read may be incomplete. Ask again once the readopt has "
+                                f"answered")
+    return {"dpid": dpid, "table": reading["table"],
+            "entries": [dict({"dpid": dpid}, **entry) for entry in reading["entries"]],
+            "unrendered": reading["unrendered"]}
 
 
 # --- reading one counter -----------------------------------------------------------------------
