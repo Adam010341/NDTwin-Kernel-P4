@@ -617,6 +617,7 @@ class RoleTest(ExerciseCase):
         text = self.refused(self.exercise("p4runtime"), "the control plane is external",
                             owner="ndtwin")
         self.assertNotIn("--role-ipv4-route", text)
+        self.assertIn("--mode ndtwin", text)      # [Co-developed with claude code -- Adam]
 
     def test_table_owner_ndtwin_with_no_single_candidate_is_refused(self):
         self.refused(self.two_tables(), "--table-owner ndtwin asks NDTwin to write", owner="ndtwin")

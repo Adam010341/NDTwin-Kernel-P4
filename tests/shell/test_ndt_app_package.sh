@@ -2256,7 +2256,7 @@ OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
 NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
 cmd_down; echo "KNOB_DOWN=$(host_count)"')"
 has   "🔴 a knob changed after the bring-up is left as it is" "KNOB_DOWN=8" "$OUT"
-has   "  and the teardown says why"                       "host_count_override left at 8" "$OUT"
+has   "  and the teardown says why"                       "host_count_override left as it is" "$OUT"
 # A count the user typed afterwards replaces the record: the next down does not undo it.
 reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline" "$FIX/.test_run/host_count_override.app"*
 OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; NDT_APP_DIR=""; unset NDT_TOPO; up_p4 4 >/dev/null 2>&1
@@ -2289,12 +2289,72 @@ has   "  a package on NDTwin's own pipeline keeps the compiled rate" \
 SS_OWNED="$FIX/ss_owned.json"; mkss "$SS_OWNED" link_watchdog,lldp_discovery 5:5:0 5:5:0 5:5:0 5:5:0
 OUT="$(vp4 "$SS_OWNED" ndtwin foreign:1,2,3,4)"
 check "  an owned route table fabric still ends ready"    "0" "$(rc_of "$OUT")"
-has   "🔴 the path line says the routes WERE installed"   "and installed NDTwin's routes into the" "$OUT"
-has   "🔴 so does the caveat under ready"                 "wrote its routes into the" "$OUT"
+has   "🔴 the path line says the proxy was set to install the routes" "and was set to install NDTwin's routes" "$OUT"
+has   "  and where the proxy says how many went in"       "is in .test_run/logs/p4_proxy.log" "$OUT"
+has   "🔴 so does the caveat under ready"                 "the proxy was set to install" "$OUT"
 hasnt "🔴 and neither says no routes were installed"      "installed no routes" "$OUT"
 OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4)"
 has   "  with install_initial_routes skipped it still says none were" "installed no routes on this" "$OUT"
-hasnt "  and not that they were"                          "wrote its routes into the" "$OUT"
+hasnt "  and not that they were"                          "was set to install" "$OUT"
+
+
+# (e) [Co-developed with claude code -- Adam] The record is part of the knob's state.
+# A claim taken while the knob holds the package's count starts the round from the value BEFORE
+# the package -- the value the teardown puts back -- whoever takes it.
+for who in t u; do
+    reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+    OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1
+export NDT_OWNER='"$who"'; cmd_claim 60 "again" >/dev/null 2>&1
+echo "BASE=$(sed -n "s/^host_count=//p" "$REPO/.test_run/round.baseline")"
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"; cmd_release')"
+    has   "🔴 a re-claim by $who after --app records the round as starting before it" "BASE=4" "$OUT"
+    check "🔴 and claim, --app, re-claim by $who, down, release needs no hand-written number" "0" "$(rc_of "$OUT")"
+    has   "  with the knob back where it started"         "KNOB_DOWN=4" "$OUT"
+done
+# A bring-up that is rolled back leaves the record as it found it.
+reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+KNOB_BEFORE="$(sha256sum "$FIX/p4_proxy/mininet/host_count_override" | cut -c1-16)"
+: > "$STACK_FAIL"
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; echo "UP_RC=$?"
+echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"
+rm -f "$STACK_FAIL"; cmd_down 2>&1')"
+rm -f "$STACK_FAIL"
+has   "  the first --app bring-up failed"                 "UP_RC=1" "$OUT"
+has   "🔴 a failed first --app leaves no record"           "REC=absent" "$OUT"
+hasnt "🔴 so the next down says nothing about a knob --app never moved" "host_count_override left" "$OUT"
+check "  and the knob is byte for byte what it was"       "$KNOB_BEFORE" "$(sha256sum "$FIX/p4_proxy/mininet/host_count_override" | cut -c1-16)"
+# A failed second --app on top of a live first round: the first one's record survives it.
+reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; echo "KNOB_FIRST=$(host_count)"
+: > "$STACK_FAIL"; unset NDT_TOPO; NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1; echo "UP2_RC=$?"
+rm -f "$STACK_FAIL"; echo "KNOB_ROLLED=$(host_count)"
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"; cmd_release')"
+rm -f "$STACK_FAIL"
+has   "  the first --app moved the knob"                  "KNOB_FIRST=3" "$OUT"
+has   "  the second --app failed and was rolled back"     "KNOB_ROLLED=3" "$OUT"
+has   "🔴 down then puts the knob back to before the FIRST --app" "KNOB_DOWN=4" "$OUT"
+check "🔴 and release needs no hand-written number"        "0" "$(rc_of "$OUT")"
+# Bytes, not the number: a knob deleted, or annotated by hand, after the bring-up is the user's.
+reset_fix; rm -f "$FIX/.test_run/host_count_override.app"*; printf '8\n' > "$FIX/p4_proxy/mininet/host_count_override"
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1; echo "KNOB_UP=$(host_count)"
+rm -f "$(knob_path)"; cmd_down >/dev/null 2>&1
+echo "KNOB_FILE=$([[ -e "$(knob_path)" ]] && echo present || echo absent)"')"
+has   "  a 4-host package moved the knob 8 -> 4"          "KNOB_UP=4" "$OUT"
+has   "🔴 a knob deleted after it (whose default is the package's 4) stays deleted" "KNOB_FILE=absent" "$OUT"
+reset_fix; rm -f "$FIX/.test_run/host_count_override.app"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1
+printf "# mine, keep\n3\n" > "$(knob_path)"; cmd_down >/dev/null 2>&1; echo "KNOB_HEAD=$(head -1 "$(knob_path)")"')"
+has   "🔴 a knob annotated by hand with the same number is left as it is" "KNOB_HEAD=# mine, keep" "$OUT"
+rm -f "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+# The header on a fabric where every switch runs the package's own program names no rate at all.
+PKG_ONE="$FIX/packages/one-foreign"; mkpkg "$PKG_ONE" ndtwin 1 1 firewall
+reset_fix
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_ONE")"'; up_p4')"
+has   "🔴 an all-foreign fabric's header says no switch has a compiled rate" \
+      "sample rate  none: every switch runs the package's own program" "$OUT"
+hasnt "  and does not name a rate only where ndtwin_switch.json runs" "only where ndtwin_switch.json runs" "$OUT"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

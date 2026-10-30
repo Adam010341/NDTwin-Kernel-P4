@@ -547,6 +547,10 @@ mut A13_several_joined_on_one_line "$CONVERT" \
     '                + "\n".join(f"    --role-ipv4-route owner=ndtwin,{role_flag_text(c)}"' \
     '                + "; ".join(f"    --role-ipv4-route owner=ndtwin,{role_flag_text(c)}"' \
     test_table_owner_ndtwin_with_several_names_each_as_a_flag_line
+mut A15_external_offers_no_mode "$CONVERT" \
+    '                "so NDTwin can own none. Drop --table-owner, or pass --mode ndtwin so NDTwin "' \
+    '                "so NDTwin can own none. Drop --table-owner, or so NDTwin "' \
+    test_table_owner_ndtwin_on_an_external_plane_says_so
 mut A14_external_pointed_at_a_role "$CONVERT" \
     '        if external is True:' \
     '        if False:' \

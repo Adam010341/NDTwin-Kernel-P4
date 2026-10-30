@@ -971,7 +971,8 @@ def auto_route_role(exercise_dir, package, model, owner=DEFAULT_ROLE_OWNER):
             raise ConversionError(
                 "--table-owner ndtwin asks NDTwin to write this program's forwarding table, and "
                 "the control plane is external: the exercise's own controller owns every table, "
-                "so NDTwin can own none. Drop --table-owner")
+                "so NDTwin can own none. Drop --table-owner, or pass --mode ndtwin so NDTwin "
+                "programs the switches instead of the exercise's controller")
         if len(found["candidates"]) > 1:
             raise ConversionError(
                 "--table-owner ndtwin asks NDTwin to write this program's forwarding table, and "

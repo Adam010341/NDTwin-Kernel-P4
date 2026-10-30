@@ -455,7 +455,7 @@ record_round_baseline() {
         printf 'at=%s\nby=%s\nhead=%s\nhost_count=%s\n' \
             "$(date +%s)" "${NDT_OWNER:-unset}" \
             "$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo '?')" \
-            "$(host_count)"
+            "$(round_start_host_count)"
         # cut -c4-, not `awk '{print $2}'`: porcelain is XY<space><path>, and a path with a
         # space in it is one field to a reader and two to awk.
         git -C "$REPO" status --porcelain 2>/dev/null | cut -c4- | sort | sed 's/^/dirty=/'
@@ -2502,6 +2502,7 @@ knob_snapshot() {
     local f; f="$(knob_path)"
     KNOB_SAVED=""
     KNOB_ENTRY="$(host_count)"
+    app_knob_count_snapshot
     if [[ ! -e "$f" ]]; then KNOB_SAVED="(absent)"; return 0; fi
     mkdir -p "$REPO/.test_run" 2>/dev/null
     if cp -p "$f" "$REPO/.test_run/host_count_override.pre-up" 2>/dev/null; then
@@ -2520,6 +2521,7 @@ knob_restore() {
     local why="${1:-}" f now
     f="$(knob_path)"
     [[ -n "$KNOB_SAVED" ]] || return 0
+    app_knob_count_put_back
     if [[ "$KNOB_SAVED" == "(absent)" ]]; then
         [[ -e "$f" ]] || { KNOB_SAVED=""; return 0; }
         rm -f "$f"
@@ -2560,13 +2562,52 @@ knob_restore() {
 # Put back, rather than excused at release: the guard exists because the next round reads the
 # file, and a knob left at the package's count would size that round's `ndt up p4`.
 #
-#     .test_run/host_count_override.app
-#         wrote=<n>              what the app package wrote
-#         before=absent|<path>   no file before it, or a copy of the file's bytes
+#     .test_run/host_count_override.app          wrote=<n>, before=absent|<path of .before>
+#     .test_run/host_count_override.app.before   the knob's bytes before the first app write
+#     .test_run/host_count_override.app.wrote    the knob's bytes right after the last app write
 #
-# 🔴 Only when the knob still holds what the package wrote. A knob changed since (by hand, or
-# by a later `ndt up p4 <n>`, which forgets the record) is the user's, and is left alone.
+# 🔴 BYTES, NOT THE NUMBER, the rule knob_restore states: the knob is put back only when it is
+# still byte for byte what the package wrote. A knob changed since -- by hand, deleted (whose
+# default may well equal the package's count), annotated, or by a later `ndt up p4 <n>`, which
+# forgets the record -- is the user's, and is left alone.
+#
+# 🔴 THE RECORD IS PART OF THE KNOB'S STATE. knob_snapshot copies it and knob_restore puts it
+# back, so a bring-up that is refused or rolled back leaves the record as it found it; and a
+# claim taken while the knob holds the package's count records the round as starting from the
+# value before the package (round_start_host_count), which is what the teardown restores.
 app_knob_count_path() { printf '%s\n' "$REPO/.test_run/host_count_override.app"; }
+
+# host_count_from_file <file> -- the count a knob file with these bytes reads as: host_count_in's
+# rule (the first line that is neither blank nor a comment; 4 when there is none or no file).
+host_count_from_file() {
+    local f="$1" line
+    [[ -f "$f" ]] || { echo 4; return; }
+    while read -r line; do
+        line="${line%%$'\r'}"; line="${line#"${line%%[![:space:]]*}"}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        echo "$line"; return
+    done < "$f"
+    echo 4
+}
+
+# app_knob_count_holds -- true when the knob is still byte for byte what an app package wrote.
+app_knob_count_holds() {
+    local rec; rec="$(app_knob_count_path)"
+    [[ -f "$rec" && -f "$rec.wrote" ]] && cmp -s "$rec.wrote" "$(knob_path)" 2>/dev/null
+}
+
+# round_start_host_count -- what a round that starts now starts from: the knob's value, unless
+# it is still the package's count, in which case the value before the package.
+round_start_host_count() {
+    local rec before
+    rec="$(app_knob_count_path)"
+    if app_knob_count_holds; then
+        before="$(sed -n 's/^before=//p' "$rec" | head -1)"
+        if [[ "$before" == absent ]]; then host_count_from_file /nonexistent; return; fi
+        if [[ -f "$before" ]]; then host_count_from_file "$before"; return; fi
+    fi
+    host_count
+}
 
 # app_knob_count_note <n> -- after set_host_count wrote <n> for an app package. A second app
 # bring-up keeps the FIRST record's `before`: that is the value the round had before any of them.
@@ -2582,13 +2623,46 @@ app_knob_count_note() {
         before="$rec.before"
     fi
     [[ -n "$before" ]] || return 0
+    cp -p "$(knob_path)" "$rec.wrote" 2>/dev/null || return 0
     printf 'wrote=%s\nbefore=%s\n' "$n" "$before" > "$rec" 2>/dev/null || return 0
 }
 
 # app_knob_count_forget -- a host count the user typed replaces whatever an app package did.
 app_knob_count_forget() {
     local rec; rec="$(app_knob_count_path)"
-    rm -f "$rec" "$rec.before" 2>/dev/null
+    rm -f "$rec" "$rec.before" "$rec.wrote" 2>/dev/null
+    return 0
+}
+
+# app_knob_count_snapshot / app_knob_count_put_back -- the record's half of knob_snapshot and
+# knob_restore: the three files as they were before this run, or "there were none".
+APP_COUNT_SAVED=""   # "" not taken;  "(absent)" there was no record;  else the copy's directory
+app_knob_count_snapshot() {
+    local rec d f
+    rec="$(app_knob_count_path)"
+    d="$rec.pre-up"
+    rm -rf "$d" 2>/dev/null
+    APP_COUNT_SAVED="(absent)"
+    [[ -f "$rec" ]] || return 0
+    mkdir -p "$d" 2>/dev/null || { APP_COUNT_SAVED=""; return 0; }
+    for f in "$rec" "$rec.before" "$rec.wrote"; do
+        [[ -e "$f" ]] && cp -p "$f" "$d/" 2>/dev/null
+    done
+    APP_COUNT_SAVED="$d"
+    return 0
+}
+app_knob_count_put_back() {
+    local rec f
+    rec="$(app_knob_count_path)"
+    case "$APP_COUNT_SAVED" in
+        "") return 0 ;;
+        "(absent)") app_knob_count_forget ;;
+        *) app_knob_count_forget
+           for f in "$APP_COUNT_SAVED"/*; do
+               [[ -e "$f" ]] && cp -p "$f" "$(dirname "$rec")/" 2>/dev/null
+           done ;;
+    esac
+    APP_COUNT_SAVED=""
     return 0
 }
 
@@ -2601,8 +2675,8 @@ app_knob_count_restore() {
     before="$(sed -n 's/^before=//p' "$rec" | head -1)"
     f="$(knob_path)"
     now="$(host_count)"
-    if [[ "$now" != "$wrote" ]]; then
-        info "host_count_override left at $now: it no longer holds the $wrote 'ndt up p4 --app' wrote"
+    if ! app_knob_count_holds; then
+        info "host_count_override left as it is: it is no longer what 'ndt up p4 --app' wrote ($wrote)"
         app_knob_count_forget
         return 0
     fi
@@ -2614,6 +2688,8 @@ app_knob_count_restore() {
             err "  before 'ndt up p4 --app' are in ${before#$REPO/} -- copy them back by hand."
             return 1; }
     else
+        info "host_count_override left at $now: the copy of what it held before 'ndt up p4 --app'"
+        info "  is gone (${before#$REPO/}), so there is nothing to put back"
         app_knob_count_forget
         return 0
     fi
@@ -3700,7 +3776,10 @@ up_p4() {
     info "bmv2         $binary"
     # [Co-developed with claude code -- Adam] On dpids that run a package's own program there is
     # no compiled rate (the footer says so too); the rate below is NDTwin's own pipeline's.
-    if [[ "$app_pipe" == foreign:* ]]; then
+    local foreign_n=0; [[ "$app_pipe" == foreign:* ]] && { local _d="${app_pipe#foreign:}"; IFS=, read -ra _d <<<"$_d"; foreign_n=${#_d[@]}; }
+    if [[ "$app_pipe" == foreign:* ]] && (( foreign_n >= SWITCHES )); then
+        info "sample rate  none: every switch runs the package's own program (no ndtwin_switch.json here)"
+    elif [[ "$app_pipe" == foreign:* ]]; then
         info "sample rate  none on dpid ${app_pipe#foreign:} (the package's own program); $(rate_label "$rate") only where ndtwin_switch.json runs"
     else
     info "sample rate  $(rate_label "$rate")     (compiled into ndtwin_switch.json)"
@@ -4451,8 +4530,9 @@ verify_p4() {
             if [[ ",$skipped," == *,install_initial_routes,* ]]; then
             warn "  $foreign; the proxy says it sent no LLDP and installed no routes on this"
             else
-            warn "  $foreign; the proxy says it sent no LLDP, and installed NDTwin's routes into the"
-            warn "  package's own route table (roles.ipv4_route, owner ndtwin) on this"
+            warn "  $foreign; the proxy says it sent no LLDP, and was set to install NDTwin's routes"
+            warn "  into the package's route table (roles.ipv4_route, owner ndtwin; how many went in"
+            warn "  is in $(short_repo_path "${NDT_PROXY_LOG:-$REPO/.test_run/logs/p4_proxy.log}")) on this"
             fi
             warn "  fabric (control_plane.skipped: ${skipped//,/, })"
         fi
@@ -4551,9 +4631,10 @@ verify_p4() {
             if [[ -n "$skipped" && ",$skipped," != *,install_initial_routes,* ]]; then
             # [Co-developed with claude code -- Adam] The proxy did not skip its routes: the
             # package gave NDTwin its route table (owner ndtwin), so they are in it.
-            warn "package pipeline: NDTwin discovered no links, and wrote its routes into the"
-            warn "  package's own route table (roles.ipv4_route, owner ndtwin); forwarding is those"
-            warn "  routes and the package's $VERIFY_P4_ENTRIES_APPLIED entries on $VERIFY_P4_ENTRIES_SWITCHES switch(es). ndt status quotes no sample rate for it."
+            warn "package pipeline: NDTwin discovered no links, and the proxy was set to install"
+            warn "  NDTwin's routes into the package's route table (roles.ipv4_route, owner ndtwin;"
+            warn "  the proxy log says how many went in); forwarding is those routes and the package's"
+            warn "  $VERIFY_P4_ENTRIES_APPLIED entries on $VERIFY_P4_ENTRIES_SWITCHES switch(es). ndt status quotes no sample rate for it."
             else
             warn "package pipeline: NDTwin discovered no links and installed no routes on this"
             warn "  fabric; forwarding is whatever the package's $VERIFY_P4_ENTRIES_APPLIED entries on"
@@ -11315,8 +11396,10 @@ usage: ndt <command>
                   what it does, in order: runs tools/p4_exercise/preflight.py and
                   prints its table verbatim (a red row means nothing is built and
                   nothing is written); writes p4_proxy/mininet/app_package_override;
-                  rewrites host_count_override; points NDT_TOPO, the kernel's
-                  --topology and the proxy's NDTWIN_TOPO_FILE at the package's model.
+                  rewrites host_count_override (and 'ndt down' or 'ndt clean'
+                  put it back afterwards, unless it was changed since); points
+                  NDT_TOPO, the kernel's --topology and the proxy's NDTWIN_TOPO_FILE
+                  at the package's model.
                   --app is a P4 flag: on any other plane it is a usage error (2), not
                   an ignored argument.
                 --app <exercise dir> takes a p4lang-tutorials exercise directly, once

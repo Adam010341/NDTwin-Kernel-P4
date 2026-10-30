@@ -1621,7 +1621,7 @@ check_fires "M101: 'ndt down' leaves the knob where --app put it" m101 \
             "🔴 and 'ndt release' then succeeds with no hand-written number"
 
 cat > "$A/m102.old" <<'EOF'
-    if [[ "$now" != "$wrote" ]]; then
+    if ! app_knob_count_holds; then
 EOF
 cat > "$A/m102.new" <<'EOF'
     if false; then
@@ -1670,10 +1670,10 @@ check_fires "M106: --mode is not handed to the converter" m106 \
             "🔴 --mode reaches the converter with its value"
 
 cat > "$A/m107.old" <<'EOF'
-    if [[ "$app_pipe" == foreign:* ]]; then
+    elif [[ "$app_pipe" == foreign:* ]]; then
 EOF
 cat > "$A/m107.new" <<'EOF'
-    if false; then
+    elif false; then
 EOF
 check_fires "M107: the header quotes NDTwin's rate for a package pipeline" m107 \
             "🔴 a package pipeline's header quotes no rate for the package's switches"
@@ -1685,7 +1685,7 @@ cat > "$A/m108.new" <<'EOF'
             if true; then
 EOF
 check_fires "M108: the path line says no routes when the proxy installed them" m108 \
-            "🔴 the path line says the routes WERE installed" \
+            "🔴 the path line says the proxy was set to install the routes" \
             "🔴 and neither says no routes were installed"
 
 cat > "$A/m109.old" <<'EOF'
@@ -1697,6 +1697,60 @@ EOF
 check_fires "M109: the caveat says no routes when the proxy installed them" m109 \
             "🔴 so does the caveat under ready" \
             "🔴 and neither says no routes were installed"
+
+
+# --- M110..M114: the record is part of the knob's state (section 24 (e)) ---------------------------
+# [Co-developed with claude code -- Adam]
+cat > "$A/m110.old" <<'EOF'
+    if [[ "$app_pipe" == foreign:* ]] && (( foreign_n >= SWITCHES )); then
+EOF
+cat > "$A/m110.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M110: an all-foreign header names a rate no switch runs" m110 \
+            "🔴 an all-foreign fabric's header says no switch has a compiled rate"
+
+cat > "$A/m111.old" <<'EOF'
+            "$(round_start_host_count)"
+EOF
+cat > "$A/m111.new" <<'EOF'
+            "$(host_count)"
+EOF
+check_fires "M111: a claim after --app records the package's count as the round's start" m111 \
+            "🔴 and claim, --app, re-claim by t, down, release needs no hand-written number" \
+            "🔴 and claim, --app, re-claim by u, down, release needs no hand-written number"
+
+cat > "$A/m112.old" <<'EOF'
+    KNOB_ENTRY="$(host_count)"
+    app_knob_count_snapshot
+EOF
+cat > "$A/m112.new" <<'EOF'
+    KNOB_ENTRY="$(host_count)"
+EOF
+check_fires "M112: the record is not copied before a bring-up writes it" m112 \
+            "🔴 a failed first --app leaves no record" \
+            "🔴 down then puts the knob back to before the FIRST --app"
+
+cat > "$A/m113.old" <<'EOF'
+    [[ -n "$KNOB_SAVED" ]] || return 0
+    app_knob_count_put_back
+EOF
+cat > "$A/m113.new" <<'EOF'
+    [[ -n "$KNOB_SAVED" ]] || return 0
+EOF
+check_fires "M113: a rolled-back bring-up keeps the record it wrote" m113 \
+            "🔴 a failed first --app leaves no record" \
+            "🔴 down then puts the knob back to before the FIRST --app"
+
+cat > "$A/m114.old" <<'EOF'
+    [[ -f "$rec" && -f "$rec.wrote" ]] && cmp -s "$rec.wrote" "$(knob_path)" 2>/dev/null
+EOF
+cat > "$A/m114.new" <<'EOF'
+    [[ -f "$rec" ]] && [[ "$(host_count)" == "$(sed -n 's/^wrote=//p' "$rec" | head -1)" ]]
+EOF
+check_fires "M114 (widening): the knob is compared by number, not bytes" m114 \
+            "🔴 a knob deleted after it (whose default is the package's 4) stays deleted" \
+            "🔴 a knob annotated by hand with the same number is left as it is"
 
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
