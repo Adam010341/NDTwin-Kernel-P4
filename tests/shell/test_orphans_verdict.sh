@@ -155,7 +155,7 @@ rules-in-window (nothing below is deleted)
     tally: 0 dated rule(s) in a window, 1 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
 EOF
 
-# `ndt` rc 2: found nothing, but could not look everywhere. E-7 -- still not a pass.
+# `ndt` rc 2: found nothing, but could not look everywhere -- still not a pass.
 mk blind_channel <<'EOF'
   !!  no untracked app processes found, but a channel was blind: sim: fd channel: CANNOT READ /proc/884317/fd (root process) -- not checked
 
@@ -214,7 +214,7 @@ EOF
 
 # The fail-closed side of the same question: a root-owned process this user may not look inside.
 # `ndt` counts it as OURS and says that it could not tell, which is the sentence this reader has
-# to carry (E-7).
+# to carry.
 mk attrib_blind <<'EOF'
   !!  who owns these could NOT be established, so they are counted as this checkout's: sim pid 884317: cannot read /proc/884317/cwd or /proc/884317/fd (uid 0, you are 1000) -- who owns it was NOT established
   ok  no untracked app processes
@@ -227,7 +227,7 @@ rules-in-window (nothing below is deleted)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
 EOF
 
-# Every P4 fabric, every run: the flow stats carry no clock, so no rule can be placed (W16-3).
+# Every P4 fabric, every run: the flow stats carry no clock, so no rule can be placed.
 mk p4_undated <<'EOF'
   ok  no untracked app processes
 
@@ -350,7 +350,7 @@ EOF
 # 🔴 ALL-BLIND. Kernel UP -- there IS a tally, which residue_report only reaches after :8000
 # answered `port_open` (ndt:5415) -- and every one of the three lock probes came back
 # `NOT CHECKED (http 500)` (ndt:5550). Built from `ndt`'s own two print sites for
-# F-OFFLINE-1 §1.11, which measured this exact report reading `VERDICT: CLEAN` rc 0 while `ndt`
+# the 2026-09-11 check, which measured this exact report reading `VERDICT: CLEAN` rc 0 while `ndt`
 # itself answered 5 for it (residue_verdict, ndt:5349).
 #
 # 🔴 The three zeros in its tally are the initial values of counters (ndt:5405-5409) that nothing
@@ -427,7 +427,7 @@ rules-in-window (nothing below is deleted)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
 EOF
 
-# 🔴 H2. The two live reports from ROLE-2's cycles, with the `stack:` line `ndt apps orphans`
+# 🔴 H2. The two live reports from the 2026-09-11 runs, with the `stack:` line `ndt apps orphans`
 # prints from 2026-09-11 on. Everything else in them is clean -- and both read CLEAN before H2.
 #
 # [Co-developed with claude code -- Adam]
@@ -645,7 +645,7 @@ has   "  ndt's rc is recorded, not consulted"             "ndt_rc=5 (recorded, N
 hasnt "  🔴 and it is not UNUSABLE"                       "VERDICT: UNUSABLE" "$OUT"
 # 🔴 The field is slash-separated and `n/a` contains a slash, so a caller that splits it the way
 # the round probes do (`IFS=/ read -r RULES LOCKS UNDATED`) gets `n` and `a`, not `0` and `0`.
-# Those probes compare as STRINGS on purpose (R5-PROBES-INPLACE §3-B), so this fails safe -- but
+# Those probes compare as STRINGS on purpose, so this fails safe -- but
 # only because of that choice, which is why it is pinned here rather than left to be rediscovered.
 NETF="$(sed -n 's/^network=//p' <<<"$OUT")"
 IFS=/ read -r KD_RULES KD_LOCKS KD_UNDATED <<<"$NETF"
@@ -685,7 +685,7 @@ has   "  and it names what is missing"                    "no 'tally:' line in t
 # =================================================================================================
 section "🔴 ALL-BLIND 1/4 -- kernel UP, a tally, and not one network question answered"
 # =================================================================================================
-# F-OFFLINE-1 §1.11, measured 2026-09-11: this report read `VERDICT: CLEAN` rc 0 while `ndt`
+# Measured 2026-09-11: this report read `VERDICT: CLEAN` rc 0 while `ndt`
 # answered 5 for the same observation. The tally's zeros were never measured.
 OUT="$(verdict "$FIX/all_blind" 5)"
 check "  🔴 rc 3 -- zeros nobody could measure are not a clean network" "3" "$(rc_of "$OUT")"
@@ -795,7 +795,7 @@ has   "  and the field says so"                           "stack=whole-down" "$O
 section "🔴 H2 3/3 -- a report that says nothing about the stack changes nothing"
 # =================================================================================================
 # Every `ndt` before 2026-09-11, and every fixture above written before it. "No answer" is named
-# and never read as "nothing was up" (E-7) -- and never as a failure either, or this reader would
+# and never read as "nothing was up" -- and never as a failure either, or this reader would
 # reject 89 of the reports already on disk.
 OUT="$(verdict "$FIX/clean" 0)"
 check "  rc 0 -- an older report is unaffected"           "0" "$(rc_of "$OUT")"

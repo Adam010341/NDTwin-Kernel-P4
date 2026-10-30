@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #69 and #70 -- an option no parser in this program owns must be an
+# Mutation gate: an option no parser in this program owns must be an
 # ERROR, and an option some parser DOES own must not become one.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Covers the FINDINGS #70 cases in tests/test_LoggerCliArgs.cpp and the parts of the defect that
+# Covers the unknown-option cases in tests/test_LoggerCliArgs.cpp and the parts of the defect that
 # live in src/main.cpp, which no gtest case can reach: main.cpp has a main() of its own and is not
 # linked into the test binary, so main's half of the union is checked here on the REAL
 # ndtwin_kernel binary or it is not checked anywhere.
@@ -88,7 +88,7 @@ FILES=("$LOGCPP" "$MAIN")
 # directory, and this gate both `rm -f`s it and reads its absence as the verdict. Two runs on one
 # machine could each delete the other's evidence -- one reading a file it did not create as a
 # failure, the other reading its own deleted file as a pass. Found by tests/shell/check_test_tmpdirs.py
-# (E-17), which is the only reason anyone was looking.
+# -- the only reason anyone was looking.
 NOFILE=/tmp/ndtwin-logger-cli-gate-should-not-exist.$$.log
 
 MUTATIONS=0
@@ -204,7 +204,7 @@ kernel_problem() {
     local check="$1" out rc
     case "$check" in
 
-    # The half of FINDINGS #70 that is about the help text: the block must be printed by the one
+    # The half of the fix that is about the help text: the block must be printed by the one
     # parser that can be reached, not pointed at.
     help-prints-logging-options)
         out=$(timeout 30 "$KBIN" --help 2>&1); rc=$?
@@ -511,7 +511,7 @@ mutate "the unknown flag is reported and then tolerated (warn, do not refuse)" \
     LoggerCliArgsDeathTest.AnUnknownOptionIsRefusedRatherThanSilentlyIgnored \
     KERNEL:unknown-long-flag-refused
 
-# M8. FINDINGS #70's first half: the --help branch of the logging parser stops answering. It is
+# M8. The first half of the help fix: the --help branch of the logging parser stops answering. It is
 #     unreachable in the kernel and reachable in a logging-only binary, and "unreachable here" is
 #     not "may quietly stop working".
 mutate "the logging parser's --help prints and then falls through instead of exiting" \
@@ -521,7 +521,7 @@ mutate "the logging parser's --help prints and then falls through instead of exi
     LoggerCliArgsDeathTest.TheHelpBranchOfTheLoggingParserRunsAndPrintsTheOptionBlock \
     LoggerCliArgsDeathTest.TheShortHelpBranchRunsToo
 
-# M9. FINDINGS #69 from the direction the hard-coded list cannot see: the usage advertises a level
+# M9. The usage text, from the direction the hard-coded list cannot see: the usage advertises a level
 #     name the parser does not accept. `verbose` is the one an operator would try, and
 #     spdlog::level::from_str answers `off` for it -- so a help text nobody checked against the
 #     parser is a help text that recommends turning logging off.

@@ -6,7 +6,7 @@
 #
 # What this is fixing, and what it is deliberately NOT doing:
 #
-# FINDING-01 (2026-08-30) -- a round pinned the kernel to a worktree and exported KERNEL_DIR.
+# Measured 2026-08-30 -- a round pinned the kernel to a worktree and exported KERNEL_DIR.
 # ndtwin-lab is outside the reach of that variable, so topo-start built the MAIN tree's 128-host
 # fabric while `ndt up p4 4` handed the kernel a 4-host model. Fabric 128, model 4, every
 # structural check green, and no message anywhere saying which tree was used.

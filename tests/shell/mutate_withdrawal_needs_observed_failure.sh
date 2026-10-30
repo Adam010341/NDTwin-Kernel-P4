@@ -2,29 +2,29 @@
 #
 # Mutation gate for doc/KNOWN-ISSUES.md B-6, second round -- three decisions, one gate:
 #
-#   W8-2 (b)  a withdrawal has to PAIR with a reported break. /ndt/link_recovery_detected may
+#   pairing   a withdrawal has to PAIR with a reported break. /ndt/link_recovery_detected may
 #             withdraw a declaration only when /ndt/link_failure_detected reported this link
 #             broken; a bare rediscovery (Ryu restarting) may not.
-#   W8-7      the four link endpoints refuse `src_dpid == 0 || dst_dpid == 0`. dpid 0 is the host
+#   dpid 0    the four link endpoints refuse `src_dpid == 0 || dst_dpid == 0`. dpid 0 is the host
 #             end of a host edge, which these endpoints do not address.
-#   W8-4      the kernel sweeps the qdisc tree at startup on MININET and WARNs about netem it
+#   sweep     the kernel sweeps the qdisc tree at startup on MININET and WARNs about netem it
 #             finds. It does not clear it and does not turn it into a declaration.
 #   recovery  (added 2026-09-07) /ndt/link_recovery_detected logs its OUTCOME,
 #             after the outcome is known, and the three outcomes are three different sentences.
-#   E-20      (added 2026-09-07) that startup sweep reads the WHOLE root namespace in one bare
+#   namespace (added 2026-09-07) that startup sweep reads the WHOLE root namespace in one bare
 #             `tc qdisc show` and classifies what it finds -- link end, host-facing port, or a
 #             name this topology does not contain -- instead of reading only the switch-to-switch
 #             link ends it could itself have written to.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Covers tests/test_PollDoesNotResurrect.cpp (DeclaredLinkFailureTest, the W8b cases),
-# tests/test_HttpSessionRouting.cpp (DeclaredLinkFailureWireTest, the W8b and W8-7 cases) and
+# Covers tests/test_PollDoesNotResurrect.cpp (DeclaredLinkFailureTest, the B-6 second-round cases),
+# tests/test_HttpSessionRouting.cpp (DeclaredLinkFailureWireTest, the second-round and dpid-0 cases) and
 # tests/test_NetemLinkFault.cpp (ResidualNetemSweepTest).
 #
 # WHAT THE DEFECT WAS -- and this one was MEASURED ON A LIVE FABRIC, not reasoned about
 #   The first fix made a declared link failure survive a topology
-#   poll. It did not make one survive the CONTROL PLANE RESTARTING. Arm lw8b, 2026-09-07 00:08,
+#   poll. It did not make one survive the CONTROL PLANE RESTARTING. Measured 2026-09-07 00:08,
 #   OVS 4 hosts, kernel 37d641fa9fd6fc14 built from 017c060f:
 #
 #     00:08:44  declare s1:1 -> s5:1                 is_up=False down_reason=declared
@@ -57,18 +57,18 @@
 #           injection unwithdrawable, which is the state this whole fix creates on purpose;
 #         * an observation writer that manufactures a failure report hands every twin-derived
 #           outage a licence to withdraw a declaration;
-#         * a dpid guard that refuses everything passes every W8-7 case above;
+#         * a dpid guard that refuses everything passes every dpid-0 case above;
 #         * a startup sweep that CLEARS what it finds destroys the fault campaign it started
 #           underneath, which is the exact thing that was ruled out;
 #         * a sweep that reports every netem in the root namespace fires on the operator's own
 #           wifi and docker bridge, and a warning that fires on a laptop stops being read.
 #
-# 🔴 WHAT E-20 CHANGED ABOUT AN EXISTING MUTATION. M16 used to be a direction-2 mutation ("the
-# sweep widens to host-facing interfaces") because before E-20 the sweep's SCOPE was
-# mininetLinkInterfaces(). E-20 made that function the sweep's `link` CLASSIFIER instead, so M16
+# 🔴 WHAT THE NAMESPACE SWEEP CHANGED ABOUT AN EXISTING MUTATION. M16 used to be a direction-2 mutation ("the
+# sweep widens to host-facing interfaces") because until the namespace sweep the sweep's SCOPE was
+# mininetLinkInterfaces(). The namespace sweep made that function its `link` CLASSIFIER instead, so M16
 # now says something else: a classifier that cannot tell a host-facing port from a link end, which
 # makes the warning tell an operator to POST /ndt/inject_link_recovery for a link that does not
-# exist. It kept its number so that RED-GREEN.md and the R2/R3 summaries keep meaning what they say.
+# exist. It kept its number so that results already recorded under it keep meaning what they say.
 #
 # 🔴 A MUTANT THAT DOES NOT COMPILE IS A SURVIVOR, not a skip: the suite never ran, so it proves
 # nothing. Same for an anchor that has moved, and for a run that hangs.
@@ -192,7 +192,7 @@ add_anchor "unread-warn"   "$TFM" '        SPDLOG_LOGGER_WARN(Logger::instance()
                            "already carries netem",
                            tree.status);
         return found;'
-# E-20. The whole-machine read, the name filter that keeps the operator's own interfaces out, and
+# The namespace sweep: the whole-machine read, the name filter that keeps the operator's own interfaces out, and
 # the three-way classification. Separate anchors because they are separate defects: reading one
 # device at a time, reporting somebody else's netem, and reporting this fabric's under the wrong
 # heading are three different mornings for whoever reads the line.
@@ -233,7 +233,7 @@ add_anchor "inject-door"   "$HS"  'HttpSession::handleInjectLinkFailure(http::re
         return;
     }'
 add_anchor "refusal-text"  "$HS"  '    R"({"error":"src_dpid and dst_dpid must both name a switch: dpid 0 is the host end of a host )"'
-# E-22 / 3-52. Two anchors: WHERE the recovery outcome is logged, and WHETHER the three outcomes
+# The recovery log. Two anchors: WHERE the recovery outcome is logged, and WHETHER the three outcomes
 # get three sentences. They are separate defects -- moving the line without changing the words
 # still leaves a declined report reading as a success -- so they are separate mutations.
 add_anchor "log-placement" "$HS"  '    auto fwdOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({srcDpid, dstDpid});
@@ -431,7 +431,7 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 # 5. direction 1 -- putting each of the three defects back
 # ================================================================================================
 
-# M1. 🔴 W8-2, THE DEFECT EXACTLY AS THE lw8b ARM MEASURED IT. The pairing rule is gone and every
+# M1. 🔴 THE PAIRING DEFECT EXACTLY AS IT WAS MEASURED ON 2026-09-07. The pairing rule is gone and every
 #     recovery report withdraws whatever it lands on -- which is what the first fix did, so
 #     this mutant is that fix's behaviour.
 mutate "the defect verbatim: any recovery report withdraws any declaration (= w8 branch)" \
@@ -483,7 +483,7 @@ mutate "the injection withdrawal leaves a report behind for the next episode" \
     // [mutant] the report outlives the episode it belonged to' \
     DeclaredLinkFailureTest.TheInjectionWithdrawalAlsoSpendsAStandingReport
 
-# M6. 🔴 W8-7, THE DEFECT VERBATIM. dpid 0 is accepted, so `{"src_dpid":1,"dst_dpid":0}` resolves to
+# M6. 🔴 THE DPID-0 DEFECT VERBATIM. dpid 0 is accepted, so `{"src_dpid":1,"dst_dpid":0}` resolves to
 #     whichever host edge of s1 the graph iterates first and the endpoint acts on a link the caller
 #     never named.
 mutate "dpid 0 is let through, so a host edge is addressable after all" \
@@ -558,7 +558,7 @@ mutate "an unreadable qdisc tree is passed over in silence" \
     ResidualNetemSweepTest.AnUnreadableQdiscTreeIsReportedAsUnreadNotAsClean
 
 # ================================================================================================
-#    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just W8b's.
+#    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just B-6's second round's.
 # ================================================================================================
 
 # M11. THE BLUNT OVER-CORRECTION. Every recovery report is declined, so /ndt/link_recovery_detected
@@ -603,7 +603,7 @@ mutate "the observation writer manufactures a control-plane failure report" \
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "setEdgeDown {}", (*m_graph)[e].isUp);' \
     DeclaredLinkFailureTest.ObservationWritersNeitherSetNorClearTheFailureReport
 
-# M15. The dpid guard refuses EVERYTHING. Every W8-7 case in direction 1 goes green and all four
+# M15. The dpid guard refuses EVERYTHING. Every dpid-0 case in direction 1 goes green and all four
 #      endpoints stop working -- the failure mode of an input check written from its error message
 #      outwards.
 mutate "the dpid guard refuses every link, not just dpid 0" \
@@ -612,9 +612,9 @@ mutate "the dpid guard refuses every link, not just dpid 0" \
     '    return false;' \
     DeclaredLinkFailureWireTest.TheDpidZeroRefusalDoesNotTouchOrdinarySwitchToSwitchLinks
 
-# M16. 🆕 REPURPOSED BY E-20 (see the header): the link/host classifier stops telling the two
+# M16. 🆕 REPURPOSED BY THE NAMESPACE SWEEP (see the header): the link/host classifier stops telling the two
 #      apart, so a host-facing port is reported as a link end -- and the warning then tells an
-#      operator to POST /ndt/inject_link_recovery for a link that does not exist. Before E-20 this
+#      operator to POST /ndt/inject_link_recovery for a link that does not exist. Before the namespace sweep this
 #      same edit widened the sweep's SCOPE, which is why it sits in direction 2 with its old number.
 mutate "the classifier calls a host-facing port a link end" \
     "$TFM" \
@@ -632,7 +632,7 @@ mutate "the classifier calls a host-facing port a link end" \
 # M17. 🔴 THE OVER-CORRECTION THAT WAS RULED OUT BY NAME: the sweep cleans up what it finds. A
 #      kernel that removed netem at startup silently destroys the fault campaign it started
 #      underneath, and tools/test_workflow/faults.sh is entitled to have netem on an interface.
-#      🆕 Since E-20 the sweep also sees host-facing and unfamiliar interfaces, so this mutant
+#      🆕 Since the namespace sweep, the startup sweep also sees host-facing and unfamiliar interfaces, so this mutant
 #      deletes faults that are definitely not this kernel's. It got worse, not better.
 mutate "the startup sweep clears the netem it finds" \
     "$TFM" \
@@ -659,7 +659,7 @@ mutate "the startup sweep runs tc on a non-MININET deployment" \
 # M19. 🔴 VERBATIM. The line goes back in front of findEdgeBySrcAndDstDpid and in front of the
 #      pairing rule, which is where it sat until this fix: a declined report, an applied one and
 #      one naming an edge the graph does not hold all log `link recovered on 1:1 -> 5:1` again.
-#      Measured on arm lw8b2 (2026-09-07): 04:33:37.198 DECLINED and 04:33:38.131 APPLIED are
+#      Measured 2026-09-07: 04:33:37.198 DECLINED and 04:33:38.131 APPLIED are
 #      byte-identical lines. The outcome-carrying line at the bottom is left in place, because that
 #      is the honest version of this defect -- an operator grepping kernel.log for a recovery still
 #      gets a hit for a report the kernel refused.
@@ -750,16 +750,16 @@ mutate "the three outcomes are one sentence again, just logged later" \
     DeclaredLinkFailureWireTest.ARecoveryForAnEdgeTheGraphDoesNotHoldSaysThatInstead
 
 # ================================================================================================
-#   E-20: the startup sweep reads the whole root namespace and says whose each finding is.
-#   Numbered AFTER M20 on purpose, so M1..M20 keep meaning what RED-GREEN.md and the R2/R3
-#   summaries already say they mean. M21..M24 are direction 1, M25 is direction 2.
+#   The namespace sweep: the startup sweep reads the whole root namespace and says whose each finding is.
+#   Numbered AFTER M20 on purpose, so M1..M20 keep meaning what results recorded before
+#   the namespace sweep already say they mean. M21..M24 are direction 1, M25 is direction 2.
 # ================================================================================================
 
-# M21. 🔴 E-20 VERBATIM: the sweep goes back to reporting link ends only. This is the shape W8b
+# M21. 🔴 THE NARROW SWEEP VERBATIM: the sweep goes back to reporting link ends only. This is the shape B-6's second round
 #      shipped, and the reason it had to change is where the fault tools actually attach netem:
 #      testbed_topo.py:92-96 hangs hosts off s1..s4 at ports 3 and up, and the chaos harness's
 #      DEFAULT --iface is s1-eth3 (2026-08-28_chaos-harness/harness/chaos.py:487,544) -- a
-#      host-facing port. For those faults the pre-E-20 sweep said nothing, and silence from this
+#      host-facing port. For those faults the link-ends-only sweep said nothing, and silence from this
 #      sweep is read as "the fabric is clean".
 mutate "the sweep reports link ends only, as it did before E-20" \
     "$TFM" \
@@ -789,7 +789,7 @@ mutate "the sweep reports link ends only, as it did before E-20" \
     ResidualNetemSweepTest.NetemOnAnInterfaceThisTopologyDoesNotNameIsReportedAsUnknown \
     ResidualNetemSweepTest.TheWarningSeparatesTheThreeKindsAndCountsThem
 
-# M22. The half of E-20 a fix is most likely to leave out: host-facing ports are picked up, and an
+# M22. The half of the namespace sweep a fix is most likely to leave out: host-facing ports are picked up, and an
 #      `s<N>-eth<M>` the topology does not contain is dropped for having no owner to attribute it
 #      to. That one is the loudest finding of the three -- the fabric running on this machine is
 #      not the fabric in the topology file -- and dropping it throws exactly it away.
@@ -822,7 +822,7 @@ mutate "an interface this topology does not name is dropped instead of reported"
 
 # M23. Everything is reported, and everything is called a link. The count is right, the list is
 #      right, and every line of advice attached to it is wrong: /ndt/inject_link_recovery cannot
-#      address a host edge at all (W8-7), so the operator is sent to an endpoint that will refuse.
+#      address a host edge at all (dpid 0), so the operator is sent to an endpoint that will refuse.
 mutate "the classification calls every finding a link end" \
     "$TFM" \
     '        SweptInterface kind = SweptInterface::Unknown;
@@ -855,7 +855,7 @@ mutate "the sweep reads one device at a time again" \
     '    const auto tree = utils::netem::showQdisc("s1-eth1", run);' \
     ResidualNetemSweepTest.TheSweepReadsTheWholeMachineInOneCall
 
-# M25. Direction 2 for E-20: the name filter goes, so every netem in the root namespace is
+# M25. Direction 2 for the namespace sweep: the name filter goes, so every netem in the root namespace is
 #      reported -- the operator's wifi, docker0, every veth a container brought up. A startup
 #      warning that fires on a developer laptop is a startup warning nobody reads, and then the
 #      link-end finding underneath it is lost too.
@@ -961,7 +961,7 @@ mutate "an attach whose sibling failed is not rolled back" \
     AllOrNothingCutTest.ASecondAttachThatFailsRollsBackTheFirst
 
 # M32. 🔴 The poll's advice goes back to naming /ndt/link_recovery_detected for BOTH kinds of
-#      declaration. That endpoint declines an injected one (W8b), so the only sentence a successor
+#      declaration. That endpoint declines an injected one (the pairing rule), so the only sentence a successor
 #      who did not restart the kernel ever sees sends him to the endpoint that will refuse him.
 mutate "the poll's advice names the notification endpoint for an injected declaration too" \
     "$TFM" \
@@ -1022,7 +1022,7 @@ widen "the pairing rule is written as an equivalent expression" \
     '    if (!eprop.failureReported && eprop.declaredDown)' \
     '    if (eprop.declaredDown && eprop.failureReported == false)'
 
-# W4. E-22's control. The declined sentence is REWORDED while still saying the outcome. The three
+# W4. The recovery log's control. The declined sentence is REWORDED while still saying the outcome. The three
 #     new cases key on the word that carries the outcome; if one of them reddens here it is pinning
 #     a sentence instead, and the next person to improve the wording would have to edit a test.
 widen "the declined recovery sentence is reworded (it still says the declaration was retained)" \
@@ -1032,7 +1032,7 @@ widen "the declined recovery sentence is reworded (it still says the declaration
     '                               "declaration was retained and the link stays down. Use POST "
                                "/ndt/inject_link_recovery to take the injection back",'
 
-# W5. E-20's control for the classification: the same three answers, written as one conditional
+# W5. The namespace sweep's control for the classification: the same three answers, written as one conditional
 #     expression instead of an if/else chain. M21..M23 must be catching what the sweep DECIDES, not
 #     the shape it decides it in -- otherwise the next person to tidy this loop has to edit a test.
 widen "the classification is written as one conditional expression" \
@@ -1050,7 +1050,7 @@ widen "the classification is written as one conditional expression" \
                                     : isIn(hostFacing, iface) ? SweptInterface::HostFacing
                                                               : SweptInterface::Unknown;'
 
-# W6. E-20's control for the WARNING: its prose is rewritten while the interface list, the three
+# W6. The namespace sweep's control for the WARNING: its prose is rewritten while the interface list, the three
 #     classification words and the counts stay put. The sweep cases assert `s1-eth9 (host-facing)`
 #     and the count clause; if one of them reddens here it is pinning a paragraph instead.
 widen "the residue warning's prose is rewritten around the same facts" \

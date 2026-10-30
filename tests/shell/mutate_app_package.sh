@@ -28,8 +28,8 @@
 #     models declare dpids 1..10, so the constant and the reader produce the same tuple there.
 #     M10 mutates `switch_dpids` itself instead, which a model declaring (4, 9) can tell apart.
 #
-# 🔴 Two that an earlier version of this header wrongly called equivalent, and are not (the P1-A
-# judge was right about both):
+# 🔴 Two that an earlier version of this header wrongly called equivalent, and are not (each is
+# explained below):
 #
 #   * "put the quarters formula back in build_host_table" (M22). It IS equivalent against the two
 #     NDTwin models -- that agreement is the content of

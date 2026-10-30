@@ -54,7 +54,7 @@ trap cleanup_all EXIT INT TERM
 #
 # Asked in a fresh shell BEFORE this one sources the helper, because sourcing is where the answer
 # is decided. The environment must not get a vote (the KERNEL_DIR comment at the top of
-# ndtwin-lab, FINDING-01): whatever the caller exported, the helper's NTG_DIR is the default or
+# ndtwin-lab): whatever the caller exported, the helper's NTG_DIR is the default or
 # the config file's.
 echo "the caller's environment does not choose NTG_DIR"
 env_said="$(NTG_DIR=/nonexistent/NDT-TEST-FIXTURE/from-the-environment \

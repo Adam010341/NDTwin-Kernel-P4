@@ -133,7 +133,7 @@ add_anchor "link-lifts"     "$TFM" '                    else
 add_anchor "link-enables"   "$TFM" '                    eprop.isEnabled = true;'
 add_anchor "declared-down"  "$TFM" '    eprop.isUp = false;
     eprop.declaredDown = true;'
-# [Co-developed with claude code -- Adam] W8b split the withdrawal in two: the notification path
+# [Co-developed with claude code -- Adam] B-6's second round split the withdrawal in two: the notification path
 # now goes through applyReportedLinkRecovery (which withdraws only when the report pairs) and this
 # one is what /ndt/inject_link_recovery calls. The anchor carries its comment so that it names THIS
 # site and not the other assignment to the same field.
@@ -314,7 +314,7 @@ mutate "the veto is inverted: only a declared link is raised" \
 #     permanent and unrecoverable -- the mirror image of the defect, and the failure mode this fix
 #     introduces if the withdrawal is ever lost.
 #
-# [Co-developed with claude code -- Adam] W8b moved which endpoint reaches this writer. It is now
+# [Co-developed with claude code -- Adam] B-6's second round moved which endpoint reaches this writer. It is now
 # the one /ndt/inject_link_recovery calls, so the wire case named here is the inject one; the
 # notification endpoint's withdrawal lives in applyReportedLinkRecovery and is gated by
 # tests/shell/mutate_withdrawal_needs_observed_failure.sh.

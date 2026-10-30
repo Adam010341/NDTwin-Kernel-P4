@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for W10 -- the nickname overlay.
+# Mutation gate for the nickname overlay.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -10,7 +10,7 @@
 #      satisfied by a kernel that simply stopped saving anything.
 #   3. `ndt status --check` names that somewhere-else and does NOT compare it. Parts 1 and 2
 #      alone are satisfied by a check that folds the overlay back into its sha256, which puts
-#      the operator back where W10 started: red for having named a switch.
+#      the operator back where this started: red for having named a switch.
 #
 # MEASURED. 2026-09-04: one POST /ndt/modify_nickname produced a 3998-insertion /
 # 3998-deletion diff on a tracked topology file (OV-1). That was fixed down to one line.
@@ -41,7 +41,7 @@
 # 🔴 The `ndt` mutations are written as `m=$(ndt_mutant ...)` followed by a call, and not as one
 # nested expression, because that is the shape tests/shell/check_gate_anchors.py can read. Written
 # nested, this gate reported ok(12) for fifteen anchors -- the three `ndt` ones were not checked
-# and nothing said so, which is finding #28 exactly.
+# and nothing said so.
 #
 # 🔴 TWO SUBJECTS, TWO HARNESSES. The kernel mutations are applied to the WORKING TREE and the
 # gtest suite is rebuilt for each one; the `ndt` mutations are applied to a COPY (ndt sources
@@ -406,7 +406,7 @@ echo
 echo "mutations -- ndt status --check:"
 
 # --- M11: 🔴 --check folds the overlay into the model file's sha256 ------------------------------
-# The precise regression W10 exists to prevent: the operator names a switch and the environment
+# The precise regression the overlay exists to prevent: the operator names a switch and the environment
 # check answers "the topology file has been edited".
 m=$(ndt_mutant m11 "$NDT" \
     '        now="$(sha256sum "$path" 2>/dev/null | cut -d'"'"' '"'"' -f1)"' \

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for E-2 / KNOWN-ISSUES G-15 -- the kernel reports the model it loaded, and
+# Mutation gate for KNOWN-ISSUES G-15 -- the kernel reports the model it loaded, and
 # run_layers.sh asks it instead of guessing.
 #
 # Covers both halves, because the defect spans them and either half alone is decoration:
@@ -181,7 +181,7 @@ sh_add "M5: run_layers carries on when the digest no longer matches" \
     '    if false; then' \
     'a topology whose sha256 no longer matches is refused (rc 3)'
 
-# M6. 🔴 WIDENING. Refusing where the baseline must still run: every pre-E-2 kernel, and every
+# M6. 🔴 WIDENING. Refusing where the baseline must still run: every older kernel that does not report its model, and every
 #     offline layer, is taken out of the harness by a check that was supposed to add a question.
 sh_add "M6: WIDENING -- refuse instead of deriving when the kernel does not say" \
     "$RUNLAYERS" \

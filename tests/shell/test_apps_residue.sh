@@ -79,7 +79,7 @@ json.dump(data, open(p, "w"))
 PY
 }
 
-# W16-3, measured 2026-09-07 (P4 4 hosts, trunk 862c4bf8, logs/w163-*): a route was installed
+# W16-3, measured 2026-09-07 (P4 4 hosts, trunk 862c4bf8): a route was installed
 # on the P4 plane and the endpoint read twice, +12 s and +32 s later. That entry and every
 # pre-existing one answered duration_sec 0, duration_nsec 0, while packet_count moved. This is
 # that table.
@@ -574,7 +574,7 @@ section "5L. an app with no window: a LOST record counts against the code, an ab
 # never pass is a gate nobody reads -- which is how G-12's own green checks stopped being read.
 # The log is the discriminator: app_spawn creates it, so a non-empty one is evidence it ran.
 #
-# 🔴 te and not energy since 3-51 (2026-09-07). This group needs an app whose log question CAN
+# 🔴 te and not energy since the G-14 fix (2026-09-07). This group needs an app whose log question CAN
 # be answered, and energy is exactly the app whose cannot be: the lab helper starts it with no
 # `script -f` and it has no disk log on any machine. Driving it here asserted that an absent
 # file means "never ran" for an app where the file never exists -- true by construction, and
@@ -629,7 +629,7 @@ lock_probe graph_lock" 2>&1)"
 # ==========================================================================================
 section "H2. 'apps orphans' says what of the STACK is up -- the reading it never had"
 # ==========================================================================================
-# Measured live by ROLE-2, 2026-09-11 (ROLE-2-CYCLES-REPORT §4): orphans_verdict.sh printed
+# Measured live 2026-09-11: orphans_verdict.sh printed
 # CLEAN three times over a machine whose stack was half up -- 10 bmv2 + 14 mininet with the
 # kernel down (cycle-07), 15 mininet + a topo session (cycle-12), and a kernel serving a
 # 14-node graph with 0 bmv2 and 0 mininet (cycle-13). Every verdict was correct about what it
@@ -771,7 +771,7 @@ has   "🔴 --check's row says the table was empty too"    "flow table read empt
 has   "  with what it does to the row above it"          "did not exclude anything" "$ROW_EMPTY"
 has   "  and the row itself is unchanged"                "none -- 0 rule(s) in any app window" "$ROW_EMPTY"
 # 🔴 `listed by:` is printed on the RED branch only, and a live cell reads its ABSENCE as this
-# fix holding (CELLS-1 §7-1). A caveat that carried it would turn that cell green-for-nothing.
+# fix holding. A caveat that carried it would turn that cell green-for-nothing.
 hasnt "🔴 and it carries no 'listed by:' line"           "listed by:" "$ROW_EMPTY"
 check "  and raises no problem entry"                    "PROBLEMS=0" "$(grep -o 'PROBLEMS=[0-9]*' <<<"$ROW_EMPTY")"
 mk_entries 9000

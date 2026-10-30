@@ -162,7 +162,7 @@ check "it says which file it started"              yes "$(has "$KERNEL_DIR/testb
 #
 # A fix that swapped one hard-coded absolute path for another would pass every check above. This
 # is what says the launched file follows KERNEL_DIR, i.e. follows an install-time config file
-# (G-7) -- the property FINDING-01 cost a whole round for lacking.
+# (G-7) -- the property whose absence cost a whole round on 2026-08-30.
 echo "the tree the config chose is the tree that runs"
 
 ALT="$TMPROOT/alt-tree"; mkdir -p "$ALT"; : > "$ALT/testbed_topo.py"
@@ -179,8 +179,8 @@ check "  and it still starts"                      0 "$alt_rc"
 check "  and the sweep pattern moves with it"      yes "$(yn sweep_matches "$(ovs_topo_pattern)" "$NTG_PY" "$ALT/testbed_topo.py")"
 check "  and does not name another tree's copy"    no  "$(yn sweep_matches "$(ovs_topo_pattern)" "$NTG_PY" /nonexistent/NDT-TEST-FIXTURE/other/testbed_topo.py)"
 
-# ...and pointed at THIS checkout it launches THIS checkout's file. That is the sentence finding
-# #77 is about, and it is the one an operator cares about: `ndt up ovs` runs the repo copy, the
+# ...and pointed at THIS checkout it launches THIS checkout's file. That is the sentence the
+# fix is about, and it is the one an operator cares about: `ndt up ovs` runs the repo copy, the
 # same file components.env calls OVS_TOPO_SCRIPT and stack.sh prints.
 KERNEL_DIR="$REPO"
 rec_reset
@@ -266,7 +266,7 @@ PY
 )"
     check "it imports under $PY_UNDER_TEST"        0 "$imp_rc"
 
-    # ...and it is the file finding #42 fixed: the banner is derived, and says NOT MEASURED for
+    # ...and it is the file the KNOWN-ISSUES G-10 fix changed: the banner is derived, and says NOT MEASURED for
     # the two claims nothing in it tests. NTG's copy has neither symbol.
     banner="$("$PY_UNDER_TEST" - "$REPO/testbed_topo.py" 2>/dev/null <<'PY'
 import importlib.util, sys
@@ -286,7 +286,7 @@ fi
 #
 # 🔑 Everything above tests the FUNCTIONS. The dispatch that root actually reaches is a `case`
 #    below a root guard, so a verb could stop calling any of it and every check above would stay
-#    green -- "existence is not wiring", and that is the exact shape finding #77 had.
+#    green -- "existence is not wiring", and that is the exact shape the original defect had.
 #
 # So the two branches are EXECUTED here, extracted from the file under test and evaluated with
 # the recorder in place. Not grepped: the body runs, and what it does is what is read back.

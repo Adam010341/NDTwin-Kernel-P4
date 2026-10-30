@@ -265,7 +265,7 @@ each_mutation() {
         '    const uint64_t before = droppedAfterStop_.fetch_add(0, std::memory_order_relaxed);' \
         'FlowDispatcherTest.JobsDroppedAfterStopAreCountedAndNotSilent' ''
 
-    # FINDING-07: every rule is reported as reaching the ternary table, so a caller is told its
+    # The defect: every rule is reported as reaching the ternary table, so a caller is told its
     # priority was honoured when the rule went to ipv4_lpm. The exact lie the disclosure exists
     # to stop, reintroduced one level up from where it used to live.
     #

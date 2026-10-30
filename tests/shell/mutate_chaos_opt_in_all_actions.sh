@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_chaos_opt_in_all_actions.py (E-4).
+# Mutation gate for tests/python/test_chaos_opt_in_all_actions.py.
 #
 # [Co-developed with claude code -- Adam]
 #

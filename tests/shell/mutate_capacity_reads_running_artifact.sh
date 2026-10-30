@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for tests/test_OpenflowCapacityReport.cpp -- both its unit cases and the two
-# CapacityEndpointTest wiring cases at the bottom of the same file (W17).
+# CapacityEndpointTest wiring cases at the bottom of the same file.
 #
 # [Co-developed with claude code -- Adam]
 #
-# W17's claim is narrow and easy to fake: `get_openflow_capacity` reports the ceiling of the
+# The claim is narrow and easy to fake: `get_openflow_capacity` reports the ceiling of the
 # pipeline THE RUNNING SWITCH LOADED. A single `= 1024;` anywhere below satisfies every
 # eyeball test on this fabric today -- 1024 is the right answer for the artifact in this
 # repository -- and stops being right the moment `size = 1024;` in ndtwin_switch.p4 moves. So the

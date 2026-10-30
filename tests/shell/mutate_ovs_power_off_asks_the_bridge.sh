@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #82 -- OVS powerOff asks the machine whether the bridge is there,
+# Mutation gate: OVS powerOff asks the machine whether the bridge is there,
 # and records the commanded power-off on both answers.
 #
 # [Co-developed with claude code -- Adam]
@@ -10,18 +10,18 @@
 # WHAT THE DEFECT WAS
 #   OVSPowerStrategy::powerOff opened with
 #       if (!topoMonitor->getVertexIsUp(node)) { return OpResult::success(); }
-#   -- the OVS twin of the early return FINDINGS #35 names on the P4 side, and the one that was
-#   left in place when #35 was fixed there (FIX-POLL-RESURRECT.md (6).3), because `list-ports` on a
+#   -- the OVS twin of the early return the P4 side had, and the one that was
+#   left in place when the P4 one was fixed, because `list-ports` on a
 #   missing bridge exits 1 and an unguarded power-off would have refused with a 500.
 #
 #   It asked the graph. The graph reads false for a bridge that is present in at least four
 #   states: freshly loaded topology (every vertex starts false), `list-br` refused or failed, a
-#   liveness blip, and -- since FINDINGS #46 -- any switch already carrying a commanded power-off.
-#   And the early return sits ABOVE setVertexPoweredOffByCommand, so on OVS the #46 fix held only
+#   liveness blip, and -- since the poll's veto on a commanded power-off -- any switch already carrying one.
+#   And the early return sits ABOVE setVertexPoweredOffByCommand, so on OVS the poll's veto held only
 #   when isUp happened to be true at the moment the power-off arrived. A second `action=off`
 #   returned 200 having recorded nothing at all.
 #
-# 🔴 TWO DIRECTIONS, AND THE SECOND ONE IS WHY THIS GATE IS NOT JUST #82's
+# 🔴 TWO DIRECTIONS, AND THE SECOND ONE IS WHY THIS GATE IS NOT JUST THE DEFECT'S
 #   1. RESTORING the defect must be caught             (M1, M2, M3, M4, M6, M7)
 #      -- the early return itself; the measurement taken and then ignored; the command recorded
 #         only on the teardown path; "could not ask" read as "not there"; the seam conflating
@@ -77,7 +77,7 @@ TEST_TIMEOUT="${TEST_TIMEOUT:-300}"
 TARGET=test_routing_strategy
 BIN="$BUILD_DIR/bin/$TARGET"
 
-# The OVS power cases plus the two in the #46 suite that are about this plane. Named explicitly
+# The OVS power cases plus the two in PollDoesNotResurrectTest that are about this plane. Named explicitly
 # rather than taken as whole suites: PollDoesNotResurrectTest is another change's gate, and a
 # widening here must not be judged against cases neither file's fix owns.
 FILTER='OvsPowerStrategyTest.*:OvsPowerStrategyConcurrencyTest.*:PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll:PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand'
@@ -161,7 +161,7 @@ done
 #
 # tests/test_OvsPowerStrategy.cpp's header records that `sudo ovs-vsctl add-br` once really ran
 # against a developer's machine from inside this suite, because a double covered the string seam
-# and add-br went out through a different one. #82 adds a FIFTH seam, which is a fifth chance to
+# and add-br went out through a different one. This fix adds a FIFTH seam, which is a fifth chance to
 # reopen exactly that hole -- and a double that forgets it does not fail: it silently asks the
 # machine the suite is running on, so the cases pass or fail depending on whether a fabric happens
 # to be up.
@@ -195,7 +195,7 @@ build() { cmake --build "$BUILD_DIR" --target "$TARGET" -j"$JOBS" >/dev/null 2>&
 # run_tests <gtest_filter> -> sets STATUS RC OUT FAILED DIED_IN. rc comes from the binary itself and
 # is never taken through a pipe, because a pipeline's status belongs to its last stage.
 #
-# 🔴 A TEST CAN GO RED WITHOUT PRINTING `[  FAILED  ]`. The #46 cases start real threads; a mutation
+# 🔴 A TEST CAN GO RED WITHOUT PRINTING `[  FAILED  ]`. The PollDoesNotResurrectTest cases start real threads; a mutation
 # that deadlocks one against the graph mutex kills the process with no FAILED line, and reading "no
 # FAILED line" as "nothing went red" would score real damage as a survivor. DIED_IN is the last
 # case gtest announced, empty when it announced none -- which stays a survivor, loudly.
@@ -330,7 +330,7 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 # 5. the mutations -- direction 1: putting the defect back
 # ================================================================================================
 
-# M1. THE DEFECT EXACTLY AS IT SHIPPED. The early return #35 names, restored verbatim at the top of
+# M1. THE DEFECT EXACTLY AS IT SHIPPED. The early return quoted in the header, restored verbatim at the top of
 #     powerOff, above everything including the line that records the command.
 mutate "early return restored: powerOff believes the graph's cached isUp" \
     "$OVS" \
@@ -358,7 +358,7 @@ mutate "br-exists result ignored: the teardown runs whatever the machine answere
     PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand
 
 # M3. The command is recorded only where a bridge was actually deleted -- "a redundant power-off is
-#     not really a power-off". This is #82's own half of #46 and the reason a single call site at
+#     not really a power-off". This is this fix's own half of the poll's veto and the reason a single call site at
 #     the tail is not merely tidier: two call sites are two chances to disagree.
 mutate "command not recorded on the absent path" \
     "$OVS" \
@@ -410,7 +410,7 @@ mutate "the teardown's failure is dropped by its new caller" \
     OvsPowerStrategyTest.PowerOffLeavesTheVertexUpWhenACommandFails
 
 # ================================================================================================
-#    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just #82's.
+#    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just the defect's.
 # ================================================================================================
 
 # M8. THE OVER-CORRECTION. powerOff ALWAYS takes the absent path, so no bridge is ever deleted --
@@ -437,8 +437,8 @@ mutate "power-on never builds the bridge" \
     OvsPowerStrategyTest.PowerOnBuildsTheBridgeWhenTheMachineSaysItIsNotThere
 
 # M10. The new power-on path settles the telemetry but never withdraws the standing command, so a
-#      switch recovered this way is suppressed by FINDINGS #46's veto for the rest of the process.
-#      This is #46's own M6 arriving through the door #82 opened.
+#      switch recovered this way is suppressed by the poll's veto for the rest of the process.
+#      This is mutate_poll_does_not_resurrect.sh's own M6 arriving through the door this fix opened.
 mutate "the existing-bridge power-on never withdraws the command" \
     "$OVS" \
     '        topoMonitor->clearVertexAdminPowerOff(node);

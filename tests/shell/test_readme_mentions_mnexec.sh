@@ -22,7 +22,7 @@
 # paragraph -- it would go green on a paragraph that had been reworded into meaning nothing, and
 # red on a rewrite that improved it.
 #
-# 🔴 2026-09-12 (FIX-NDT-10 item 3, from CELLS-2-SUMMARY §7-6): this gate used to name `mnexec`
+# 🔴 2026-09-12: this gate used to name `mnexec`
 # and only `mnexec`, and it said so out loud -- `ovs-vsctl`, the other NOWHERE row, was excluded
 # because the README did not mention it at all (`grep -c ovs-vsctl` was 0 that morning) and a
 # gate that is red on delivery gets edited rather than obeyed. The README now has that paragraph,

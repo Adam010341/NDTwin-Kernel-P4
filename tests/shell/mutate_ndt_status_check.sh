@@ -179,7 +179,7 @@ m=$(mutant m8 "$NDT" \
 report "M8: ndt down leaves a stale baseline behind" "$m" \
        "'ndt down' drops the record"
 
-# Finding #7s conflation, inside the new code: a refused `sudo -n ovs-vsctl` read as "there is
+# The unknown-read-as-known conflation, inside the new code: a refused `sudo -n ovs-vsctl` read as "there is
 # no OVS here". That answer is indistinguishable from a live P4 fabric, so a check built on it
 # reports a plane the machine never told it.
 m=$(mutant m9 "$NDT" \
@@ -221,7 +221,7 @@ m=$(mutant n3 "$NDT" \
 report "N3 (widening, green): differences printed, never reported" "$m" \
        "a 128-host graph under a 4-host record is red"
 
-# --- F9: the suite reads its own tree (F-OFFLINE-1 §1.13) -------------------------------------
+# --- F9: the suite reads its own tree ------------------------------------------------------
 
 # The sim evidence log stops being derived from the tree the LAB acts in and is hard-coded to
 # the main checkout, which is what this suite was reading until 2026-09-11 -- a 148717-byte

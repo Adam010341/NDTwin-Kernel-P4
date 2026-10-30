@@ -304,9 +304,9 @@ printf '  ✅ green  (%s tests)\n' "$BASELINE_COUNT"
 # =================================================================================================
 # M1 -- a switch that still has the entry is reported as deleted.
 #
-# Finding #1 itself, in one line: the read-back still happens, and its answer is thrown away.
+# The defect itself, in one line: the read-back still happens, and its answer is thrown away.
 # This is the exact behaviour measured on ovs4 -- 200 {"outcome":"deleted"} over a group that is
-# still there -- so if the suite does not go red here it does not test the finding at all.
+# still there -- so if the suite does not go red here it does not test the defect at all.
 # =================================================================================================
 
 # [Co-developed with claude code -- Adam] 2026-09-04: the read-back block was

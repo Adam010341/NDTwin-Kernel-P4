@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_ndt_helper_apps_window.sh (3-51, KNOWN-ISSUES G-14).
+# Mutation gate for tests/shell/test_ndt_helper_apps_window.sh (KNOWN-ISSUES G-14).
 #
 # [Co-developed with claude code -- Adam]
 #
-# Each mutation puts back one piece of what lw16pw measured on 2026-09-07 -- `ndt apps stop sim`
+# Each mutation puts back one piece of what was measured live on 2026-09-07 -- `ndt apps stop sim`
 # answering "no pidfile and no live process -- no window, so no rule can be dated", tally all
 # zeros, about a sim it had just stopped -- and must turn its NAMED case red. "Something failed"
 # is not a verdict: a mutation caught by a case that belongs to different behaviour says nothing
@@ -107,7 +107,7 @@ run_sh "$base" | tail -1
 run_sh "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- mutations prove nothing"; exit 2; }
 echo
 
-# --- E-8 point 1: the pidfile the helper never writes ------------------------------------------
+# --- point 1: the pidfile the helper never writes ----------------------------------------------
 
 # The defect itself. `sudo ndtwin-lab sim-start` starts the program as root in tmux and nothing
 # records the pid, so app_started_at has nothing to read for the rest of the app's life.
@@ -127,9 +127,9 @@ m=$(mutant m2 "$NDT" \
 report "M2 (widening): the pidfile records the request, not the program" "$m" \
        "🔴 and writes NO pidfile"
 
-# --- E-8 point 2: a running app with no pidfile has no window ----------------------------------
+# --- point 2: a running app with no pidfile has no window --------------------------------------
 
-# 🔴 2026-09-12 (FIX-NDT-10, C10-8): the anchor below moved with the code. app_started_at used
+# 🔴 2026-09-12: the anchor below moved with the code. app_started_at used
 # to read the machine-wide scan directly; it now goes through app_scan_here, which drops the pids
 # that belong to ANOTHER checkout on this machine before they can date a window. The mutation is
 # the same one -- delete the scan half and leave app_started_at reading the pidfile alone.
@@ -157,7 +157,7 @@ m=$(mutant m4 "$NDT" \
 report "M4: the window opens at the youngest process, not the oldest" "$m" \
        "🔴 with two live pids the window opens at the OLDER one"
 
-# --- E-8 point 3: which log answers "did it ever run HERE" -------------------------------------
+# --- point 3: which log answers "did it ever run HERE" -----------------------------------------
 
 # The measured shape: the discriminator reads OUR tree while root wrote the log in the helper's,
 # so in a worktree it always says "no sign it ever ran here".
@@ -175,7 +175,7 @@ m=$(mutant m6 "$NDT" \
 report "M6 (widening): energy is given a log it does not have" "$m" \
        "🔴 it says the question cannot be asked"
 
-# --- E-8 point 4: the sentence that was printed about a running app ----------------------------
+# --- point 4: the sentence that was printed about a running app --------------------------------
 
 m=$(mutant m7 "$NDT" \
     '            if (( ${#live[@]} > 0 )); then
@@ -190,7 +190,7 @@ report "M7: 'no live process' is printed without looking for one" "$m" \
 m=$(mutant m8 "$NDT" \
     '                awin="$(app_started_at "$a")" && [[ -n "$awin" ]] && RESIDUE_WINDOW["$a"]="$awin"' \
     '                :')
-# 🔴 RE-ANCHORED 2026-09-11 (FIX-NDT-4, F3). The case this used to name is now ALSO answered by
+# 🔴 RE-ANCHORED 2026-09-11 (F3). The case this used to name is now ALSO answered by
 # the window F3 writes to disk, so both these mutations went green over it -- the gate saying, in
 # its own way, that the two mechanisms had merged. The case they name now is the one only the
 # pre-loop capture can answer: a stop that found nothing running discards the pidfile and writes
@@ -207,7 +207,7 @@ report "M9: the captured window is never read" "$m" \
 # ...and the other direction: a window with a start and no end, kept forever. Every later
 # `--check` windows from a sim that stopped yesterday to now and calls the fabric's own baseline
 # residue -- a verb that is red forever is read as often as one that is green forever.
-# 2026-09-07 (lw351 follow-up): re-anchored to the one line that does the work. The `(was: ...)`
+# 2026-09-07: re-anchored to the one line that does the work. The `(was: ...)`
 # line below it changed in the same commit, and an anchor that spans a neighbour breaks whenever
 # the neighbour is edited -- which is how mutate_g6_apps_liveness.sh lost this same case.
 m=$(mutant m10 "$NDT" \
@@ -216,7 +216,7 @@ m=$(mutant m10 "$NDT" \
 report "M10 (widening): a verified stop leaves the window open forever" "$m" \
        "🔴 and the pidfile is gone afterwards, so the window closes"
 
-# --- E-7: "could not ask" is not red, and is not invisible either ------------------------------
+# --- "could not ask" is not red, and is not invisible either -----------------------------------
 
 # (widening) energy has no log channel on ANY machine, so folding it into the verdict makes
 # `ndt status --check` red on every lab forever, for a fact about the helper nobody can act on.
@@ -306,7 +306,7 @@ m=$(mutant m19 "$NDT" \
 report "M19: the stop reports the state it produced, not the one it found" "$m" \
        "🔴 it says what the app WAS: running"
 
-# --- 3-51c: read, truncate, and look inside are three permissions -------------------------------
+# --- G-14's log follow-up: read, truncate, and look inside are three permissions ----------------
 #
 # Each of these puts back one half of "the tool asked whether it could READ the log and answered
 # whether it could TRUNCATE it", or one half of "the fd channel found nothing" standing in for
@@ -409,7 +409,7 @@ report "M31 (widening): the window end never leaves the reader" "$m" \
        "🔴 and reports it as closed, not open to now"
 
 # Nobody clears it, so a running app has a closed window from its own previous life sitting
-# beside it -- two answers to "when did this app run", which is the shape 3-51 is about.
+# beside it -- two answers to "when did this app run", which is the shape G-14 is about.
 m=$(mutant m32 "$NDT" \
     '    rm -f "$(app_windowfile "$name")"' \
     '    :')
@@ -477,7 +477,7 @@ m=$(mutant m16 "$NDT" \
     '# app_evidence_log <name> -- the file that answers "did this app ever run HERE" (x), or rc 1 when')
 control "M16: a comment-only edit" "$m"
 
-# The same control inside the 3-51c block, because that is where the newest cases are: a case
+# The same control inside the log follow-up block, because that is where the newest cases are: a case
 # that goes red for a reworded comment is reading the file rather than the tool.
 m=$(mutant m27 "$NDT" \
     '# app_log_blocked_reason <path> -- rc 0 and nothing when this process could truncate that log;' \

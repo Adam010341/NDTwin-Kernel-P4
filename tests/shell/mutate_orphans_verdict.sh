@@ -6,7 +6,7 @@
 #
 # `tools/test_workflow/orphans_verdict.sh` is the instrument every round's restore check reads
 # ("verdict from the tally, NOT from the rc"), and until 2026-09-11 nothing made its suite go red.
-# That is how F-OFFLINE-1 §1.11 was possible: a report with the kernel UP and all three lock
+# That is how a 2026-09-11 reading was possible: a report with the kernel UP and all three lock
 # probes answering `NOT CHECKED (http 500)` read `VERDICT: CLEAN` rc 0, and the 78 green cells of
 # that suite had nothing to say about it.
 #
@@ -114,7 +114,7 @@ fi
 echo
 echo "mutations:"
 
-# 1. 🔴 THE ORIGINAL DEFECT (F-OFFLINE-1 §1.11): the floor never fires, so a report in which
+# 1. 🔴 THE ORIGINAL DEFECT: the floor never fires, so a report in which
 #    nothing could be asked reads CLEAN because every counter is still at its initial value.
 perl -0pi -e 's/    if \(\( N_UNANSWERABLE > 0 && NETWORK_ANSWERED == 0 \)\); then/    if (( 0 )); then/' "$V"
 report "the all-blind floor never fires" "  🔴 rc 3 -- zeros nobody could measure are not a clean network"
@@ -176,7 +176,7 @@ perl -0pi -e 's/\[\[ "\$STACK" == HALF \]\] && REASONS\+=/[[ -n "\$STACK" \&\& "
 report "a healthy live fabric is called residue" "  🔴 rc 0 -- a healthy fabric is not residue"
 
 # 12. A missing stack line is read as whole-down -- 89 reports on disk have no stack line, and
-#     counting them as "nothing was up" is E-7's exact prohibition.
+#     counting them as "nothing was up" reads a missing answer as a clean one.
 perl -0pi -e 's/    echo "stack=not-reported"/    echo "stack=whole-down"/' "$V"
 report "an unreported stack half is counted as clean" "  🔴 and the missing half is NAMED"
 

@@ -18,7 +18,7 @@
 #                       p4_proxy/mininet/host_count_override      <- this block DISAPPEARED
 #
 # Groups 8-12 are the 09-07 follow-up, after the row was watched working on a live fabric
-# (arm lw16 step D, 04:36, OVS 4): it printed
+# (04:36, OVS 4): it printed
 #     knob baseline  8 -- this round started at 128 (at 04:36:41): NOT RESTORED
 # in red, and `ndt status --check` returned 0. The decisions of that morning: first, that sentence is
 # a --check problem and the rc goes red on it; second, `ndt release` retires .test_run/round.baseline
@@ -296,7 +296,7 @@ echo \"RC=\$?\"" 2>&1
 KNOB_PROBLEM="- the P4 host knob is NOT RESTORED"
 
 section "8. 🔴 E-9: '--check' EXITS 1 on NOT RESTORED (on 09-07 it printed red and exited 0)"
-# rounds/08-round2.md:146, live arm lw16 step D, 04:36 on a 4-host OVS fabric: claim recorded
+# Live, 04:36 on a 4-host OVS fabric: claim recorded
 # 128, the operator wrote 8, and --check printed
 #     knob baseline  8 -- this round started at 128 (at 04:36:41): NOT RESTORED
 # in red -- and returned 0. Red text with a green exit code is a report, not a gate, and the
@@ -362,7 +362,7 @@ has   "🔴 and the knob problem is still listed"         "$KNOB_PROBLEM" "$OUT"
 write_up_target
 
 section "12. 🔴 E-11: 'ndt release' retires the round baseline to .prev"
-# R2-NDT left `.test_run/round.baseline` behind on purpose -- nothing deleted it, so a round
+# An earlier change left `.test_run/round.baseline` behind on purpose -- nothing deleted it, so a round
 # that ended kept being compared against. Decided 09-07: rename it, on the lab.handoff precedent.
 # Renamed and not deleted, because the knob value and the dirty set a round started from cannot be
 # reconstructed from `git status` afterwards.

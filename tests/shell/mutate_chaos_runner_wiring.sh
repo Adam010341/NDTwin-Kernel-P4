@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_chaos_runner_wiring.py (FINDINGS-ALL #75).
+# Mutation gate for tests/python/test_chaos_runner_wiring.py.
 #
 # [Co-developed with claude code -- Adam]
 #
-# #17 fixed INV-01's latency check. #75 is that nothing called it: `chaos.py` ran
+# An earlier fix corrected INV-01's latency check. The defect here is that nothing called it: `chaos.py` ran
 # `inv01_power_state_agreement` and stopped, so the latency half had zero call sites in the
 # repo and no round has ever evaluated it. The fix wires it into the round -- which can go
 # wrong in two opposite directions, so the mutations run in both:

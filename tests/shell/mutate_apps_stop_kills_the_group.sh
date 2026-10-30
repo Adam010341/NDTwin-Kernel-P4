@@ -57,7 +57,7 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
 # read this gate: it learns which argument is the anchor and which is the file from a function's
 # own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is not checking
-# (finding #28 -- two gates written the same night extracted zero anchors and nobody knew).
+# (it has happened: two gates written the same night extracted zero anchors and nobody knew).
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"; mkdir -p "$d"
@@ -118,7 +118,7 @@ m=$(mutant m4 "$NDT" \
 report "M4: any fd on the log counts, not only a writable one" "$m" \
        "a reader of the log is NOT a writer"
 
-# 2026-09-07 (lw351): re-anchored. apps_orphans now SUBTRACTS the pids app_probe already
+# 2026-09-07: re-anchored. apps_orphans now SUBTRACTS the pids app_probe already
 # accounted for before it reports anything, so the list this guard measures is `unnamed`, not
 # the raw channel output. Same guard, same meaning, same mutation.
 m=$(mutant m5 "$NDT" \
@@ -170,7 +170,7 @@ report "N2 (control): a group id known only from a stale file is signalled" "$m"
 # One line, not two: the two-line form (the TERM plus the loop header under it) stopped
 # resolving the moment a comment was written between them, and `mutant` would then have shipped
 # an UNMUTATED copy and reported N3 as a survivor -- a gate quietly checking nothing, which is
-# finding #19 exactly. tests/shell/check_gate_anchors.py caught it; keep anchors minimal.
+# a known failure shape. tests/shell/check_gate_anchors.py caught it; keep anchors minimal.
 m=$(mutant n3 "$NDT" \
     '    kill -TERM "-$pgid" 2>/dev/null' \
     '    return 2')
@@ -191,7 +191,7 @@ m=$(mutant n4 "$NDT" \
 report "N4 (control): the verifier never says clean, so no stop ever succeeds" "$m" \
        "stop returns 0"
 
-# 2026-09-07 (lw351): re-anchored with M5, and for the same reason.
+# 2026-09-07: re-anchored with M5, and for the same reason.
 m=$(mutant n5 "$NDT" \
     '        (( ${#unnamed[@]} == 0 )) && continue
         found=$(( found + 1 ))' \

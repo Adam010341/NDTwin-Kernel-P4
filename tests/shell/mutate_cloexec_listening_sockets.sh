@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #47 -- the kernel's listening sockets must not survive an exec, and
+# Mutation gate: the kernel's listening sockets must not survive an exec, and
 # the message it prints when a port is taken must be about what it found rather than what it
 # assumed.
 #
@@ -12,7 +12,7 @@
 #   m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);       // no SOCK_CLOEXEC
 #   m_serverAcceptor = make_unique<tcp::acceptor>(...);          // Boost.Asio: also no CLOEXEC
 # popen() is fork()+exec("/bin/sh"), so every `sh` and every `curl` this kernel ran inherited both
-# listening sockets. Measured 2026-09-03 (round3 step 03): with the kernel's pid gone, :8000 and
+# listening sockets. Measured 2026-09-03: with the kernel's pid gone, :8000 and
 # :6343 stayed bound for 2.01-2.22 s in 48/48 trials, restart-inside-the-window failed 6/6, and
 # the failure said "Another NDTwin kernel is almost certainly still running" when the holder was
 # the dead kernel's own orphaned curl.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_chaos_invariants_method.py (FINDINGS-ALL #17).
+# Mutation gate for tests/python/test_chaos_invariants_method.py.
 #
 # [Co-developed with claude code -- Adam]
 #

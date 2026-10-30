@@ -240,7 +240,7 @@ check "no namespace is still its own reason, not folded into the sudo one" \
 
 echo "the probe: what sudo's own words decide (ndt_sudo_probe -> the 'sudo grants' line of ndt status)"
 
-# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927) ndt_sudo_probe
+# [Co-developed with claude code -- Adam] (2026-09-27) ndt_sudo_probe
 # reads a probe that exits non-zero by its stderr: a refusal ndt_sudo_refused knows is 1; a "sudo:"
 # line that is neither a known refusal nor a known non-fatal warning is 2, could not tell; no
 # "sudo:" line at all is the program's own failure, 0 (granted). Until this date every wording it

@@ -6,7 +6,7 @@
 #
 # What is being protected. doc/2026-08-17_testing-manual.md glosses the exit codes of `ndt up`,
 # `ndt down` and `ndt clean`, and `ndt help` is the only place those codes are defined. Before
-# FIX-NDT-8 the two agreed; after it they did not, in three places, and the manual went on
+# the 2026-09-12 rc change the two agreed; after it they did not, in three places, and the manual went on
 # telling readers that a restored lab answers `ndt clean` with rc 0 when that state now answers
 # 3 (KNOWN-ISSUES G-53). Nothing failed. A document is not compiled, so the only way a stale
 # gloss becomes loud is a gate like this one.
@@ -19,7 +19,7 @@
 # sentence case 14 (the control) reads, which is how this gate shows the control is load-bearing
 # rather than a case that is green because it asks nothing.
 #
-# 🔴 M10 IS THE HELP SIDE, AND IT IS THE HALF THIS GATE WAS MISSING (FIX-DOC-3 review, §7-7).
+# 🔴 M10 IS THE HELP SIDE, AND IT IS THE HALF THIS GATE WAS MISSING.
 # Cases 2-4 assert that `ndt help` still announces the contract per verb -- the direction that
 # stops an empty authority from certifying any manual at all -- and until M10 those four cases
 # had no mutation behind them: M7 removes the whole help text, which is not the same as the help
@@ -34,7 +34,7 @@
 #
 # 🔴 ONE MUTATION, ONE ANCHOR. Two mutations sharing an anchor string make
 # check_gate_anchors.py's ok(N) count anchor CELLS rather than mutations, and the difference is
-# printed nowhere (AUDIT-SCAN-1 §7-5 / KNOWN-ISSUES G-56). Every anchor below is distinct.
+# printed nowhere (KNOWN-ISSUES G-56). Every anchor below is distinct.
 #
 # 🔴 NOTHING IN THE WORKTREE IS WRITTEN. Both files under test are copied into a temp dir and
 # the copies are mutated; the test takes MANUAL= and NDT= (and is itself run from a copy for

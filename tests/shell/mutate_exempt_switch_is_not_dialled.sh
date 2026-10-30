@@ -18,8 +18,8 @@
 #           defect itself, restored one site at a time -- six sites, six reds, because a fix
 #           applied at five of them is a fix that still SSHes a Cisco every ten seconds.
 #   M7, M8  The two keys are dropped from to_json, i.e. /ndt/get_graph_data goes back to the shape
-#           round-2's lw17c measured: the mark exists, and nobody outside can see it.
-#   M14     The same defect one endpoint further on (R5, 2026-09-10): /ndt/get_power_report goes
+#           a live run measured: the mark exists, and nobody outside can see it.
+#   M14     The same defect one endpoint further on (2026-09-10): /ndt/get_power_report goes
 #           back to publishing a bare {dpid, power_consumed}, which is the shape the live fabric
 #           was measured in -- an exempted switch's 44487 indistinguishable from a real reading.
 #   M9, M13 The startup line: not printed at all, and printed when there is nothing to print.
@@ -334,8 +334,8 @@ mutate_must_die \
 
 # --- M5: the single-switch power report dials again --------------------------------------------
 #
-# 🔴 RE-ANCHORED 2026-09-11 (FIX-CPP-SMALL-1 item 3), the same way R5 re-anchored M7 of
-# mutate_cpu_report_no_ip.sh on 2026-09-10 and for the same reason: the code this mutation removes
+# 🔴 RE-ANCHORED 2026-09-11, the same way M7 of
+# mutate_cpu_report_no_ip.sh was re-anchored on 2026-09-10 and for the same reason: the code this mutation removes
 # moved under it. getSingleSwitchPowerReport's two exits that carry a figure now build it through
 # one entryFor lambda so that both carry power_path, so the three-line `return {{"dpid", ...}}`
 # this anchor used to name verbatim no longer exists; the branch is the same branch and the
@@ -396,7 +396,7 @@ mutate_must_die \
     '    else if (isExemptFromBrandPaths(*targetSwitch))'
 
 # --- M7: get_graph_data stops publishing power_path --------------------------------------------
-# This is round-2 lw17c's measurement, restored: the mark is written onto the vertex and no
+# This is the live measurement, restored: the mark is written onto the vertex and no
 # consumer can see it. Whole-tree rebuild.
 mutate_must_die \
     "M7 E-25: get_graph_data drops power_path" \

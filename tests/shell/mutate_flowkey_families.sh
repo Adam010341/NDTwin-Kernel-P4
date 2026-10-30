@@ -149,7 +149,7 @@ done
 # verdict passes either way, because it checks the file and not the artifact. That is why a
 # restore that changes a file must also `touch` it.
 #
-# Round 2 tried to pay for that only where it was owed -- a set of "files this run wrote" -- and
+# An earlier version tried to pay for that only where it was owed -- a set of "files this run wrote" -- and
 # broke the ending: the second control restores at the end of classify_control, then section 7
 # restores AGAIN, and the second call cp -p'd the just-touched file back to the snapshot's old
 # mtime while the dirty set was already empty, so nothing was touched. The "rebuild from the

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for the per-node identity half of inv_graph_matches_topology (W3b-3).
+# Mutation gate for the per-node identity half of inv_graph_matches_topology.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -19,7 +19,7 @@
 #
 # 🔴 The X block is not decoration here. A device_name that disagrees with the model file is a
 # NORMAL state of a healthy fabric -- modify_nickname/modify_device_name persist, into
-# .test_run/nickname_overlay/ after W10 -- so a version of this check that failed on a rename
+# .test_run/nickname_overlay/ -- so a version of this check that failed on a rename
 # would turn every renamed switch into a red L2 run, and would be removed within a week. The
 # contract is: brand and addresses fail, names are accounted for, and fields the graph does
 # not carry are out of reach and said to be.

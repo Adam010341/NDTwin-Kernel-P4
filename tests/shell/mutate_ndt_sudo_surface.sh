@@ -70,13 +70,13 @@ report_all() {   # $1 = mutation name, $2 = mutant dir, $3... = cases that must 
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py
 # can read this gate: it learns which argument is the anchor and which is the file from a
 # function's own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it
-# is not checking (finding #28 -- two gates written the same night extracted zero anchors and
+# is not checking (it has happened: two gates written the same night extracted zero anchors and
 # nobody would have known).
 mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"; mkdir -p "$d"
     cp "$SURFACE" "$d/sudo_surface.sh"; cp "$NDT" "$d/ndt"; chmod +x "$d/ndt"
-    # ndt also sources ports.sh from beside itself (fix/ports-that-block-restart); ship it, unmutated.
+    # ndt also sources ports.sh from beside itself; ship it, unmutated.
     cp "$REPO/tools/test_workflow/ports.sh" "$d/ports.sh"
     python3 - "$d/$(basename "$file")" "$old" "$new" <<'PY'
 import sys
@@ -178,7 +178,7 @@ report "M8: explain() names the problem but not the line that fixes it" "$m" \
 
 # --- the wiring: the callers must READ the table, not keep a copy ---------------------------------
 
-# 🔴 REPOINTED 2026-09-12 (FIX-NDT-7 item 1): the failure branch of this call now puts the P4
+# 🔴 REPOINTED 2026-09-12: the failure branch of this call now puts the P4
 # host knob back before returning, so the one-line form this anchored on is gone. Same mutation
 # -- up_p4 stops asking the guard -- against the line that is there now. check_gate_anchors.py
 # reported MISSING:1 for it, which is what that checker is for: this gate would otherwise have
@@ -196,7 +196,7 @@ report "M10: cmd_status --check stops reading the sudo table" "$m" \
        "cmd_status --check reads ndt_sudo_report"
 
 # --- the words: what ndt_sudo_probe does with a "sudo:" line it does not know ----------------------
-# [Co-developed with claude code -- Adam] (2026-09-27, fix/sudo-probe-unknown-0927) each part of the
+# [Co-developed with claude code -- Adam] (2026-09-27) each part of the
 # rule taken out once; each must turn the case that holds that part red, by name.
 m=$(mutant s1 "$SURFACE" \
     '    ndt_sudo_unread && return 2' \

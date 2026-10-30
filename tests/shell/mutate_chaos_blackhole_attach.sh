@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_chaos_link_blackhole_attach.py (W8-8).
+# Mutation gate for tests/python/test_chaos_link_blackhole_attach.py.
 #
 # [Co-developed with claude code -- Adam]
 #

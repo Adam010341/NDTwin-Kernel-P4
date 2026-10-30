@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tools/p4_health and its offline suites (design 5.2-③: M1-M18, plus the
+# Mutation gate for tools/p4_health and its offline suites (M1-M18, plus the
 # section 12 refinements, the Q3(b) cells, the seal of the reading-layer test, recover.sh, and one
-# mutant per decision branch the Cut 1 review listed).
+# mutant for each of the decision branches B1-B15 below).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -503,7 +503,7 @@ add "AD7. the PF-T cell reads the refusal under its old key" \
     '(a.get("g5_rows") or 0) >= 1' \
     'test_pft_refused_in_any_words_is_red_and_never_green'
 
-# Review MAJ-1: a missing or empty reading is never a pass.
+# A missing or empty reading is never a pass.
 add "N1. a reading the row needs may be missing" \
     "$VERDICT" \
     '        if not has(doc, key):' \
@@ -548,7 +548,7 @@ add "N7. T1 accepts a switch missing from switch_state" \
     '            continue  # MUTANT' \
     'test_t1_and_pl1_need_all_four_switches'
 
-# Review MAJ-2: NDTwin's answer unreadable is NOT RUN.
+# NDTwin's answer unreadable is NOT RUN.
 add "A1. an unreadable answer goes on to be decided" \
     "$VERDICT" \
     '    if spec.needs_answer and obs.get("answer") is None:' \
@@ -561,7 +561,7 @@ add "A2. an unreadable switch_state becomes an empty answer" \
     '    return (state or {}).get("switches") if isinstance((state or {}).get("switches"), dict) else {}  # MUTANT' \
     'test_unreadable_switch_state_is_no_answer'
 
-# Review MAJ-3: the controls gate K1 and T3.
+# The controls gate K1 and T3.
 add "C1. a cell ignores its control" \
     "$VERDICT" \
     '    for ctl in spec.controls:' \
@@ -592,7 +592,7 @@ add "C5. health.json drops the controls" \
     '                     for c in [] if c.id in ctx.cells],  # MUTANT' \
     'test_controls_are_in_health_json'
 
-# Review MAJ-4: every branch listed, decided on its own.
+# Every branch listed, decided on its own.
 add "B1. T1 never compares the dump" \
     "$TABLE" \
     '        if as_set(got) != as_set(expect[dpid]):' \
@@ -685,7 +685,7 @@ add "B15. the throwaway CLI dials a lab port" \
     '        if self.thrift_port is None:  # MUTANT' \
     'test_the_throwaway_cli_only_ever_dials_its_own_port'
 
-# Review MAJ-5/MAJ-6: process identity, the claim during teardown.
+# Process identity, the claim during teardown.
 add "L1. a pid without the run marker is registered" \
     "$LABROUND" \
     '        if ident is None or marker not in ident[1]:' \
@@ -726,7 +726,7 @@ add "L6. a stopped process stays in the state file" \
     '        pass  # MUTANT' \
     'test_processes_are_recorded_by_pid_start_and_marker_and_leave_once_stopped'
 
-# Review MAJ-7: deliberately non-hermetic edits the sealed suite must catch.
+# Deliberately non-hermetic edits the sealed suite must catch.
 add "H1. a collector runs a real subprocess instead of the injected Runner" \
     "$OBSERVE" \
     '    reader = TH.ThriftReader(cfg, runner)
@@ -759,7 +759,7 @@ add "H4. a collector dials 127.0.1.1" \
     reply = cfg.proxy.post("/p4/table_entry", entry)' \
     'test_post_table_entry_goes_through_the_config_client'
 
-# Review MAJ-8 and MAJ-9/10: the Q3(b) cells and the rollups.
+# The Q3(b) cells and the rollups.
 add "Q1. HR1 never compares the twin with netdev" \
     "$TABLE" \
     '    wrong = sorted(u for u in UPLINKS if carried[u] != seen[u])' \
@@ -844,7 +844,7 @@ add "Q15. full silently grows to 22 dimensions (review MAJ-10)" \
     '    dims = table.q3b_dimensions if scope == "q3b" else (table.core_dimensions + (table.q3b_dimensions if scope == "full" else ()))  # MUTANT' \
     'test_three_rollups_sixteen_sixteen_and_six'
 
-# The rest of the review MINORs that are decisions in code.
+# The smaller items that are decisions in code.
 add "m10a. an unreadable flow document reads as no side rows" \
     "$KERNEL" \
     '        return list(flow_doc["non_ipv4_flows"])
@@ -928,7 +928,7 @@ add "R-upnote. recover.sh accepts an up note written for another owner" \
     '    "in use: ndt up p4 "*)          note_ours=1 ;;' \
     'an up note written for another owner: rc 3, nothing run'
 
-# Round 3 (the Cut 1 re-review: NEW-A, NEW-B, NEW-C, the RC1 cell, the alias marks, MINORs).
+# The R3-* mutants: NEW-A, NEW-B, NEW-C, the RC1 cell, the alias marks and the smaller items.
 add "R3-A1. the sample floor gates on NDTwin's emitter count again (NEW-A)" \
     "$VERDICT" \
     '        if spec.min_sent is not None and sent < spec.min_sent:' \
@@ -1074,8 +1074,8 @@ add "R3-m6c. recover.sh measuring check fails open" \
     'an expired claim and ndt status --measuring not answering: rc 3 (fails closed)'
 
 
-# Round 4 (the Cut 1 follow-ups: recover after an expired claim in down-done, the HR bound, the
-# K1/T3 route, HU1's key, the timed-reading encodings, a failed kill, measuring_now).
+# The R4-* mutants: recover after an expired claim in down-done, the HR bound, the
+# K1/T3 route, HU1's key, the timed-reading encodings, a failed kill, measuring_now.
 add "R4-1a. recover.sh re-claims only while the override names the package (follow-up 1)" \
     "$RECOVER" \
     '( -z "$ov" && "$PHASE" == down-done && "$c_owner" == "$OWNER" )' \
@@ -1286,7 +1286,7 @@ add "R4-8b. recover.sh takes only a measuring row for evidence (an orphaned row 
     "awk '\$1 == \"measuring\" { found = 1 }" \
     'an expired claim and only an orphaned row (leftovers, no fabric): rc 0, re-claimed'
 
-# Round 6 (the run's identity: its own package directory, its own claim's expires, a state file that
+# The R6-* mutants (the run's identity: its own package directory, its own claim's expires, a state file that
 # is complete). Each mutant names the ONE check that must go red.
 add "R6-1a. recover.sh does not ask that the package is inside the run dir" \
     "$RECOVER" \
@@ -1420,7 +1420,7 @@ add "R6-3h. recover.sh takes 0 for a time" \
     'if ! [[ "$CLAIM_EXPIRES" =~ ^[0-9]+$ ]]; then  # MUTANT' \
     'LAB_STATE.json with a claim_expires of 0: rc 2, no stub called'
 
-# Round 7 (the review of the run-identity branch: the knob as ndt writes it, the phase after recover's own
+# The R7-* mutants (the run-identity work: the knob as ndt writes it, the phase after recover's own
 # ndt down, an absent knob under a live claim, the claim looked at again, the messages).
 add "R7-1a. recover.sh reads the first line of the knob (head -1), a comment in real ndt" \
     "$RECOVER" \
@@ -1541,7 +1541,7 @@ add "R7-L3. LabRound takes str.isdigit for a time" \
     '        if mine.get("owner") != self.cfg.owner or not exp.isdigit() or int(exp) <= 0:  # MUTANT' \
     'test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on'
 
-# Round 8 (a down that already ran leaves no interfaces; recover.sh's own re-claim records the round's host
+# The R8-* mutants (a down that already ran leaves no interfaces; recover.sh's own re-claim records the round's host
 # count as the release baseline; the unrecorded-claim hint). The stubs follow ndt: see the test.
 add "R8-1a. a down is taken for done without asking ndt status" \
     "$RECOVER" \
@@ -1935,7 +1935,7 @@ add "C2-LAB4. a run with an incomplete bring-up reads as complete" \
     '    complete = True  # MUTANT' \
     'test_a_refused_claim_makes_the_run_incomplete'
 
-# --- Cut 2 review fixes (r2) -----------------------------------------------------------------------
+# --- the R2-* mutants of the second part ------------------------------------------------------------
 FABRIC="$PKG/collect/fabric.py"
 HOSTSIDE="$PKG/hostside.py"
 
@@ -2137,7 +2137,7 @@ add "R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of t
     'test_the_fingerprint_moves_with_what_must_be_the_same_only'
 
 
-# --- Cut 2 second review (labels C2R3-) ------------------------------------------------------------------------
+# --- the C2R3-* mutants ---------------------------------------------------------------------------------------
 
 add "C2R3-N1a. a round stopped by a signal lets B claim the lab" \
     "$LABPY" \
@@ -2436,7 +2436,7 @@ add "C2R4-F9. C2R3-N8b tightened: the record is of the source, not of the copy" 
                 sums[rel] = hashlib.sha256(fh.read()).hexdigest()' \
     'test_the_recorded_hash_is_of_the_copy_not_of_the_source'
 
-# --- round 5 (C2R5-): the second review of the fourth round's fixes ------------------------------------
+# --- the C2R5-* mutants -----------------------------------------------------------------------------------
 add "C2R5-2a. probe.py lab answers rc 1 for an S0 that is not complete" \
     "$PROBEPY" \
     '                             mutant=args.mutant, frozen=frozen)
@@ -2885,7 +2885,7 @@ add "C2R5-6z. the shard-sum script prints another line when all is well" \
     '[four good shards of ten: the one GATE line, rc 0]'
 
 
-# --- round 6 (C2R6-): the fifth round's open items ----------------------------------------------------------
+# --- the C2R6-* mutants -------------------------------------------------------------------------------------
 # finding 2: S0's copy of exercise/ is checked against the pinned commit, and the controller trial loads the copy
 add "C2R6-2a. S0 does not check its exercise copy against the pinned commit" \
     "$S0PY" \
@@ -3267,7 +3267,7 @@ add "C2R6-7d. the hash of the gate's scripts leaves out the gate script itself" 
     '[an edit to mutate_p4_health.sh changes the hash]'
 
 
-# --- round 7 (C2R7-): the sixth round's review ---------------------------------------------------------------
+# --- the C2R7-* mutants -------------------------------------------------------------------------------------
 # finding 1: no thread of the process may be able to take a stop while a round's mask is up (lab.run_lab refuses),
 # and the ValueSet trial, which starts gRPC threads in this process, runs with the three signals blocked
 add "C2R7-1a. run_lab does not look at the process's threads" \

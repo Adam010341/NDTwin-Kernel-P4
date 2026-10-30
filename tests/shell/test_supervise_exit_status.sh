@@ -178,7 +178,7 @@ esac
 # of B-5's observability -- is behind that gate. The file whose absence proves the component is
 # dead is also the file that makes anyone look. A stale <prefix>.pid is DISCLOSED by `ndt
 # status` instead (stack_pidfile_row), and whether stop_one should report an orphaned .exit is
-# in FIX-NDT-3-SUMMARY section 7.
+# answered in the orphaned-.exit section below: cmd_down's sweep reports it, not stop_one.
 echo
 echo "supervise.sh removes the child pidfile it can prove is dead, and only that one (R7 I-3)"
 
@@ -329,7 +329,7 @@ out="$(cmd_down 2>&1)"; rc=$?
 check "a clean exit does not fail down" "0" "$rc"
 rm -f "$PID_DIR"/*
 
-# --- the orphaned .exit, and the pidfile beside it (FIX-NDT-3 section 7-2) ---------------------
+# --- the orphaned .exit, and the pidfile beside it ----------------------------------------------
 #
 # 🔴 stop_one opens `[[ -f "$pidfile" ]] || return 0`, so report_exit -- the whole of B-5's
 # observability -- never sees the record of a component whose pidfile has gone. cmd_down's own

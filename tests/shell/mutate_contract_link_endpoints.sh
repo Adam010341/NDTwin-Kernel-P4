@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# What E-21 bought is one field on the wire: `declaration_retained`. It is the only thing that
+# What putting these endpoints in the contract bought is one field on the wire: `declaration_retained`. It is the only thing that
 # tells a caller "this kernel deliberately left your link down" -- the status line is 200 whether
 # the recovery was applied or declined, deliberately, because Ryu's on_link_add logs "NDT REJECTED
 # this notification ... the kernel's view is now stale" on any 4xx. Before this the field
@@ -16,8 +16,8 @@
 #
 #   direction 1 -- weaken the contract, and the suite must go red
 #     M1   the schema stops naming declaration_retained at all
-#     M2   the check that reads it answers nothing            (the headline: E-21's own field)
-#     M3   a dpid-0 door stops requiring 400                  (E-18's four doors)
+#     M2   the check that reads it answers nothing            (the headline: that field)
+#     M3   a dpid-0 door stops requiring 400                  (the four dpid-0 doors)
 #     M4   an endpoint path is mistyped                       (a door that guards nothing)
 #     M5   the endpoint table is sorted, so the sequence loses its order
 #     M6   the tc report no longer has to cover both ends     (faults.txt L-2)

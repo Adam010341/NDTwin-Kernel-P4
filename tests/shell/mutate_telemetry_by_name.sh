@@ -387,7 +387,7 @@ report "M-C24: alive is judged by the pid alone, not by the identity the bring-u
        "test_alive_is_judged_by_the_identity_the_bring_up_recorded"
 
 # The manifest comes from the bring-up and `switches` is a LIST of objects.
-# Round 1 iterated it as a map and produced a list of stringified dicts -- silently wrong, not
+# An earlier version iterated it as a map and produced a list of stringified dicts -- silently wrong, not
 # None, and the hand-written fixture agreed with the mistake.
 m=$(mutant c21 "$MAIN" \
     '    if isinstance(switches, list):

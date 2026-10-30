@@ -725,8 +725,8 @@ try:
     words = out.split()
     orphan = int(words[0]) if words and words[0].isdigit() else None
     running = len(words) > 1 and words[1] == "True"
-    # [Co-developed with claude code -- Adam] 10 s, not 3 (round 5's re-review): a SIGKILLed process
-    # under MemoryHigh throttling can take seconds to go -- the likeliest cause of round 4's D10 crash.
+    # [Co-developed with claude code -- Adam] 10 s, not 3: a SIGKILLed process
+    # under MemoryHigh throttling can take seconds to go -- the likeliest cause of an earlier D10 crash.
     deadline = time.monotonic() + 10
     while orphan and alive(orphan) and time.monotonic() < deadline:
         time.sleep(0.05)

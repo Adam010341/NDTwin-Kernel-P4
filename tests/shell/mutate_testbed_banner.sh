@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for finding #42 -- testbed_topo.py runs a 128-ping self-test across the fabric
+# Mutation gate for KNOWN-ISSUES G-10 -- testbed_topo.py runs a 128-ping self-test across the fabric
 # and then prints three "OK" health claims with NO data flow from the pings to the banner.
 # Measured 2026-09-03 on a fabric where all 128 pings were at 100% loss: the banner printed
 #
@@ -81,7 +81,7 @@ report_py() {   # $1 = mutation name, $2 = mutant dir, $3 = the test method that
 # The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
 # read this gate: it learns which argument is the file and which is the anchor from this
 # function's own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is
-# not checking (finding #28 -- two gates written the same night extracted zero anchors and
+# not checking (it has happened: two gates written the same night extracted zero anchors and
 # nobody would have known).
 #
 # The anchor must be unique. A mutation that lands in two places, or in none, describes itself

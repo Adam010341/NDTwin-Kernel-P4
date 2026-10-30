@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #87 in tests/test_GroupMeterExistence.cpp:
+# Mutation gate for the install/modify half of tests/test_GroupMeterExistence.cpp:
 # an install or a modify is claimed only after the switch has been asked.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Finding #1 gave guardedMod a read-back and wired it to Delete alone. Add and Modify went from
+# An earlier fix gave guardedMod a read-back and wired it to Delete alone. Add and Modify went from
 # Ryu's 200 straight to "installed"/"modified" with nothing having asked the switch anything --
 # and Ryu neither barriers a group/meter mod nor waits for a reply, so a switch that refuses one
 # refuses it asynchronously, correlated to nothing. That is the delete story of 2026-09-03
 # (five 200 {"outcome":"deleted"} over five groups that were still there), on the other two verbs.
 #
 # 🔴 REACHABILITY, and it is weaker here than for the delete half: the delete instance was
-# measured on ovs4. A refused INSTALL has not been observed -- FINDINGS-ALL.md:136 says so. Every
+# measured on ovs4. A refused INSTALL has not been observed. Every
 # assertion these mutations exercise is against a scripted fake switch, not a live one.
 #
 # 🔴 The last mutation, M7, is the important one and it is not a defect that breaks anything: it
@@ -36,7 +36,7 @@
 #    what held /tmp/ndtwin-build.lock for three hours on 2026-09-04).
 #
 # ⚠️ SIBLING GATES ON THIS FILE. mutate_f13_group_meter_existence.sh mutates the pre-check and
-#    mutate_delete_group_entry.sh mutates the read-back. The #87 change rewrote the read-back
+#    mutate_delete_group_entry.sh mutates the read-back. The install/modify change rewrote the read-back
 #    block, so several of the latter's anchors had to be re-pointed at the new text -- same
 #    mutations, same verdicts, new coordinates. Run
 #      python3 tests/shell/check_gate_anchors.py HEAD --gates \
@@ -200,7 +200,7 @@ mutate_must_live() {   # name, file, anchor, replacement, [uniqueness line]
 
 echo "mutations:"
 
-# --- M1: #87 itself -- add and modify go straight from Ryu's 200 to the outcome -----------------
+# --- M1: the defect itself -- add and modify go straight from Ryu's 200 to the outcome ---------
 mutate_must_die \
     "M1 install/modify claimed without reading back" \
     "GroupMeterFixture.AGroupTheSwitchNeverTookIsNotReportedAsInstalled" \

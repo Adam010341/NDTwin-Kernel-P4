@@ -68,7 +68,7 @@ mutant() {   # $1 = name, $2 = repo-relative file to mutate ($PORTS|$NDT), $3 = 
     local name="$1" file="$2" old="$3" new="$4"
     local d="$BK/$1"; mkdir -p "$d"
     cp "$PORTS" "$d/ports.sh"; cp "$NDT" "$d/ndt"; chmod +x "$d/ndt"
-    # ndt also sources sudo_surface.sh from beside itself (fix/ndt-sudo-surface); ship it, unmutated.
+    # ndt also sources sudo_surface.sh from beside itself; ship it, unmutated.
     cp "$REPO/tools/test_workflow/sudo_surface.sh" "$d/sudo_surface.sh"
     python3 - "$d/${file##*/}" "$old" "$new" <<'PY'
 import sys

@@ -452,8 +452,8 @@ check_fires "M19: a package pipeline is given the built json's rate" m19 \
 
 # M20: the predicate the ROW and the --check problem both read stops exempting a foreign
 # pipeline. The row still says n/a (it returns before the stale branch), so what this costs is
-# a `--check` that exits 1 over a file this fabric never read, with the row beside it saying
-# so -- a yellow problem under a green row, which is the shape E-9 was decided against.
+# a `--check` that exits 1 over a file this fabric never read, with the row beside it saying so -- a yellow
+# problem under a green row: the row and the exit code disagree, the mirror image of the red-row-over-rc-0 case test_ndt_round_baseline.sh section 8 pins.
 cat > "$A/m20.old" <<'EOF'
     case "$kind" in foreign:*) return 1 ;; esac
 EOF
@@ -1033,7 +1033,7 @@ check_fires "M72: applying auto writes a file instead of removing one" m72 \
             "🔴 a stale knob does NOT survive a bring-up that asked for nothing"
 
 # --- M52: the refusal path writes the knob anyway -------------------------------------------------
-# The ROLE-9 shape with a third file in it: a bring-up that said no, having already chosen a
+# The KNOWN-ISSUES G-47 shape with a third file in it: a bring-up that said no, having already chosen a
 # telemetry source for the fabric it refused to build.
 cat > "$A/m52.old" <<'EOF'
         if ! app_preflight "$app_dir"; then

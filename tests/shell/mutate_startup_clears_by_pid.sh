@@ -23,7 +23,7 @@
 # probing one port instead of ten, and reporting a held port without saying which port or how to
 # look. Each of those is a plausible edit and each one costs the fix its point.
 #
-# 2026-09-12 (FIX-PROXY-2 A8): the reset grew a second half. A gRPC port the reap could not
+# 2026-09-12: the reset grew a second half. A gRPC port the reap could not
 # free no longer produces a warning that the run walks past -- it aborts the bring-up, in BOTH
 # mains, naming the port, its owner's `ss -ltnp` line and how to check that by hand. MS8-MS11
 # below are that half, and they are aimed at the four ways a refusal quietly becomes a warning

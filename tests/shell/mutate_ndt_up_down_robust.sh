@@ -209,7 +209,7 @@ report "M2: every visible listener is called ours" "$m" \
 
 # The other conflation, and the more expensive one: a socket whose owner we cannot see is read
 # as a stray. bmv2 runs as root, so that refuses every live P4 fabric -- the reuse path this
-# whole distinction exists to keep working. Finding #7's shape, in new code.
+# whole distinction exists to keep working.
 m=$(mutant m3 "$NDT" \
     '    [[ -z "$pids" ]] && { echo unknown; return 0; }' \
     '    [[ -z "$pids" ]] && { echo foreign; return 0; }')
@@ -310,7 +310,7 @@ report "M11: 'ndt down' ignores a sweep that did not finish" "$m" \
 
 # The assertion goes back to being taken at the instant of the sweep: "5 still running / not
 # clean" over a machine that reads 0 a moment later.
-# 🔴 Re-anchored 2026-09-12 (FIX-NDT-8): `verify clean` is now handed the subject cmd_down
+# 🔴 Re-anchored 2026-09-12: `verify clean` is now handed the subject cmd_down
 # measured before it acted, so the line this spans gained an argument. The mutation is the same
 # one -- take the wait away -- said against the new call.
 m=$(mutant m12 "$NDT" \
@@ -433,10 +433,10 @@ m=$(mutant m23 "$NDT" \
 report "M23: the refusal stops saying whose knob those numbers are" "$m" \
        "🔴 and says that knob is the P4 plane's, not what OVS builds"
 
-# --- H4: the model and the fabric are different networks (ROLE-2, 2026-09-11) -----------------
+# --- H4: the model and the fabric are different networks (KNOWN-ISSUES G-23, 2026-09-11) ------
 
 # M24 restores H4 verbatim: the NDT_TOPO escape hatch checks only that the file EXISTS. That is
-# the code ROLE-2 ran `NDT_TOPO=<128-host model> ndt up p4 4` against -- fabric built, kernel
+# the code a 2026-09-11 run of `NDT_TOPO=<128-host model> ndt up p4 4` met -- fabric built, kernel
 # never started, [2/3] hung past 300 s.
 m=$(mutant m24 "$NDT" \
     '        local mh; mh="$(topo_model_counts "$NDT_TOPO")"; mh="${mh%% *}"' \
@@ -481,7 +481,7 @@ report "M26: the refusal's reason dies in a subshell (F8's shape)" "$m" \
        "  🔴 and the refusal names both counts, not a fallback"
 
 # M27: the second guard alone. record_up_target goes back to writing hosts and model_hosts side
-# by side without comparing them -- the sharpest point of ROLE-2 §4.
+# by side without comparing them.
 m=$(mutant m27 "$NDT" \
     '    if [[ "$mh" =~ ^[0-9]+$ && "$hosts" =~ ^[0-9]+$ ]] && (( mh != hosts )); then' \
     '    if false; then')
@@ -536,13 +536,13 @@ report "N2 (widening, green): the rollback prints and does nothing" "$m" \
 
 # N3: `ndt down` always exits 0. The report above it is unchanged, so only an exit code tells
 # the two apart -- and the exit code is what every caller reads.
-# Anchor moved 2026-09-06 (W13): claim_note_down now sits between the two lines this used to
+# Anchor moved 2026-09-06: claim_note_down now sits between the two lines this used to
 # span. The mutation is unchanged -- it still replaces cmd_down's only return with a constant 0.
 # 🔴 Re-anchored 2026-09-11: H3 inserted `mark_teardown_end` between these two lines, and this
 # anchor -- which spanned both -- silently stopped matching. The mutant then carried an
 # UNMUTATED ndt, the suite was green, and the gate reported N3 as a survivor. That is
 # tests/shell/README.md §1's case, and the reason the gate's verdict is the one we ship.
-# 🔴 Re-anchored 2026-09-12 (FIX-NDT-8): the teardown's single exit now returns down_verdict,
+# 🔴 Re-anchored 2026-09-12: the teardown's single exit now returns down_verdict,
 # which is down_rc except in the one case where nothing was there to tear down (rc 3).
 m=$(mutant n3 "$NDT" \
     '    mark_teardown_end
@@ -620,7 +620,7 @@ m=$(mutant w6 "$NDT" \
 report_green "W6 (behaviour-preserving): the refusal's opening line reworded" "$m" \
        "the wording of the first line is not the behaviour under test"
 
-# --- H3: a bring-up that overlaps a teardown (ROLE-2, 2026-09-11) -----------------------------
+# --- H3: a bring-up that overlaps a teardown (KNOWN-ISSUES G-24, 2026-09-11) ------------------
 
 # M30 restores H3: nothing records that a teardown is running, so the only reading a P4
 # bring-up can take is the ports -- which look identical coming up and going down.
@@ -682,9 +682,9 @@ report "M35: a refused teardown still claims to be running" "$m" \
        "  🔴 a refused 'ndt down' writes no marker"
 
 
-# --- ROLE-12 (2026-09-12): the marker has an owner --------------------------------------------
+# --- KNOWN-ISSUES G-42 (2026-09-12): the marker has an owner -----------------------------------
 
-# M40 restores ROLE-12's first half: mark_teardown_start writes `pid=$$` over whatever is there.
+# M40 restores G-42's first half: mark_teardown_start writes `pid=$$` over whatever is there.
 # A second `ndt down` then takes the record of the first one, and for as long as the first is
 # alive every refusal a bring-up gets names the wrong process.
 m=$(mutant m40 "$NDT" \
@@ -719,7 +719,7 @@ report_green "W7 (behaviour-preserving): the second-teardown explanation reworde
        "the wording under the refusal is not the behaviour under test"
 
 
-# --- ROLE-12 (2026-09-12): the teardown rc is its ending, not a reading from the middle -------
+# --- KNOWN-ISSUES G-43 (2026-09-12): the teardown rc is its ending, not a reading from the middle
 
 # M43 restores the 7-of-7: nothing is deferred, so a live P4 teardown is red because [1/3] ran
 # before the sweep that closes the very ports it is complaining about.
@@ -776,9 +776,9 @@ report_green "W8 (behaviour-preserving): the deferral note reworded" "$m" \
        "the note above the re-read is not the behaviour under test"
 
 
-# --- ROLE-12 cell 3: `ndt clean` during a teardown --------------------------------------------
+# --- KNOWN-ISSUES G-44: `ndt clean` during a teardown -------------------------------------------
 
-# M48 restores cell 3: `ndt clean` walks straight into a live teardown and reports the fabric
+# M48 restores G-44: `ndt clean` walks straight into a live teardown and reports the fabric
 # being destroyed as residue, ending on the one piece of advice that would kill the operator's
 # own processes. The named case is the refusal's TEXT, not its rc -- cmd_clean is already rc 1
 # about a dirty machine, so the rc alone cannot see this mutation at all.
@@ -797,9 +797,9 @@ report "M49 (widening): the clean guard refuses its own teardown too" "$m" \
        "🔴 'ndt down' is not refused by its own marker at verify clean"
 
 
-# --- ROLE-11 F5: whose processes `ndt clean` is looking at ------------------------------------
+# --- KNOWN-ISSUES G-45: whose processes `ndt clean` is looking at -------------------------------
 
-# M50 restores F5's pidfile half: the registry is not consulted, so the kernel and proxy this
+# M50 restores G-45's pidfile half: the registry is not consulted, so the kernel and proxy this
 # stack started and recorded are summarised as "this stack did not start it".
 m=$(mutant m50 "$NDT" \
     '                if [[ "$(port_owner_local "$cport" "$cproto")" == ours ]]; then' \
@@ -809,7 +809,7 @@ report "M50: 'ndt clean' stops reading .test_run/pids/ (ROLE-11 F5)" "$m" \
 
 # M51 restores the other half: bmv2 is root-owned, so the pidfile test CANNOT answer for its
 # twenty ports -- drop the manifest arm and the fabric's own ports are strangers again, which
-# is most of the 74 lines ROLE-11 was shown.
+# is most of the 74 lines a live `ndt clean` printed on 2026-09-12.
 m=$(mutant m51 "$NDT" \
     '                elif [[ "$cplane" == p4 && -e "$MANIFEST" ]]; then' \
     '                elif false; then')
@@ -826,7 +826,7 @@ report "M52 (widening): every holder is called this stack's own" "$m" \
        "🔴 a holder that is NOT in the registry still gets the old sentence"
 
 
-# --- F1: the plane the rate is read for (F-OFFLINE-1 §1.14) -----------------------------------
+# --- F1: the plane the rate is read for ------------------------------------------------------
 
 # M36 restores F1: `sample_rate` is asked with no argument, so it looks the plane up -- and on a
 # machine with an OVS fabric left up that prints OVSDB's number, or "samples NOTHING", under
@@ -872,9 +872,9 @@ report "M39: the OVS path keeps it too" "$m" \
 
 
 
-# --- ROLE-9: a refused `ndt up p4 <n>` and the P4 host knob (section 18) -----------------------
+# --- KNOWN-ISSUES G-47: a refused `ndt up p4 <n>` and the P4 host knob (section 18) ------------
 
-# M53 is the defect itself, in the shape ROLE-9 measured: the count is written through before
+# M53 is the defect itself, in the shape measured on 2026-09-12: the count is written through before
 # anything has been checked. The later write is then a no-op, so this mutation changes WHEN and
 # nothing else -- which is the whole finding.
 m=$(mutant m53 "$NDT" \
@@ -925,7 +925,7 @@ report "M57 (widening): the restore is a no-op that still returns 0" "$m" \
        "🔴 and the rollback put the knob back too"
 
 # M58: the size on the command line stops deciding, and the knob decides instead. That is the
-# wrong fix for ROLE-9 -- it removes the write from the refusal path by removing the request
+# wrong fix for G-47 -- it removes the write from the refusal path by removing the request
 # from the check -- and it puts H4 itself back: `ndt up p4 128` with the knob at 4 would compare
 # a 4-host NDT_TOPO against 4, agree, and build a fabric of a different network.
 m=$(mutant m58 "$NDT" \
@@ -943,7 +943,7 @@ m=$(mutant w9 "$NDT" \
 report_green "W9 (behaviour-preserving): the rollback's put-back reason reworded" "$m" \
        "the reason is prose; the file and the value are what is asserted"
 
-# --- ROLE-9 / ROLE-11 F6: the claim note and the verdict (section 19) --------------------------
+# --- KNOWN-ISSUES G-49: the claim note and the verdict (section 19) -----------------------------
 
 # M59 is the defect itself: the note is written from the rc again. It survives every cell whose
 # rc and verdict agree, which is why section 19 carries the one where they do not.
@@ -1086,7 +1086,7 @@ m=$(mutant w11 "$NDT" \
 report_green "W11 (behaviour-preserving): the rc-carrying local is renamed" "$m" \
        "the suite asserts the code that comes out, not the variable it came in"
 
-# --- FIX-NDT-8: 'ndt clean' answers 3 when it measured nothing (section 21) --------------------
+# --- 'ndt clean' answers 3 when it measured nothing (section 21) --------------------------------
 
 # M73: the refusal goes back to 1, with every word of it unchanged.
 m=$(mutant m73 "$NDT" \
@@ -1140,7 +1140,7 @@ m=$(mutant w12 "$NDT" \
 report_green "W12 (behaviour-preserving): the rc-3 explanation reworded" "$m" \
        "the cells read the verdict line and the population sentence, not this one"
 
-# --- FIX-NDT-8: 'ndt down' answers 3 when it tore nothing down (section 22) --------------------
+# --- 'ndt down' answers 3 when it tore nothing down (section 22) --------------------------------
 
 # M77: the teardown's refusals go back to 1, one site at a time. Every word of the refusal is
 # unchanged; what a caller reads is not.
@@ -1158,7 +1158,7 @@ report "M78: a second teardown is refused with 1 again (ROLE-12)" "$m" \
        "🔴 a second 'ndt down' is refused while one is still running"
 
 # M79: the defect itself, put back. An already-down lab reports the same byte as a round that
-# removed a fabric and proved it gone -- which is the state ROLE-12's table was in.
+# removed a fabric and proved it gone -- which is the state a 2026-09-12 table of live runs was in.
 m=$(mutant m79 "$NDT" \
     '    if (( down_rc == 0 )) && [[ -z "$DOWN_SUBJECT" ]]; then
         say "${Y}nothing was up to tear down${N}"' \
@@ -1177,7 +1177,7 @@ report "M80 (widening): every teardown reports 'nothing was up'" "$m" \
        "🔴 a teardown with something to remove is still rc 0"
 
 # M81: the note goes back to saying "verified clean" after a teardown that had nothing to
-# verify. That sentence is a FILE, and ROLE-9's baseline arrived carrying the previous
+# verify. That sentence is a FILE, and a 2026-09-12 baseline arrived carrying the previous
 # session's copy of it.
 m=$(mutant m81 "$NDT" \
     '    if [[ -z "$unverified" && -z "$subject" ]]; then' \
@@ -1193,7 +1193,7 @@ m=$(mutant w13 "$NDT" \
 report_green "W13 (behaviour-preserving): the rc-3 explanation reworded" "$m" \
        "section 22 reads the verdict line, not this one"
 
-# --- FIX-NDT-8: [3/3] says it ran the Mininet sweep (section 23) -------------------------------
+# --- [3/3] says it ran the Mininet sweep (section 23) --------------------------------------------
 
 # M82: the sentence goes. The teardown still does the sweep, and the manual still carries the
 # hand-typed command -- which is the state the open question is about.
@@ -1257,7 +1257,7 @@ report "M87 (widening): the OVS line names a proxy that is not there" "$m" \
 # [Co-developed with claude code -- Adam]
 # ports.sh says callers must not fold 2 into "closed". Each mutation puts one fold back.
 
-# M88: the ROLE-12 re-read reads 2 as closed again, and then says [3/3] closed the port.
+# M88: the deferred-port re-read reads 2 as closed again, and then says [3/3] closed the port.
 m=$(mutant m88 "$NDT" \
     '                2) dunk="${dunk:+$dunk }$dp" ;;' \
     '                2) ;;')

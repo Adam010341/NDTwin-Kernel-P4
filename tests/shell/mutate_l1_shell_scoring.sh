@@ -229,7 +229,7 @@ s = s.replace("            DECLARED_SKIPS+=(\"$name (needs $excuse)\")\n",
 mutate "the DECLARED-SKIP arm records nothing, so the end of the lane never lists it" "$DRIVER_REL" '
 s = s.replace("            DECLARED_SKIPS+=(\"$name (needs $excuse)\")\n", "")
 ' "D20 🔴 the DECLARED-SKIP arm records the file and does NOT count a failure"
-# [Co-developed with claude code -- Adam] (2026-09-28, second round) the excuse is a KIND of machine,
+# [Co-developed with claude code -- Adam] (2026-09-28) the excuse is a KIND of machine,
 # the failed count vetoes it, a partial Python skip is not excused, and only a real comment declares.
 mutate "the hosted-runner condition is dropped, so a lab that lost a need reads as excused" "$DRIVER_REL" '
 s = s.replace(" && \"$hosted\" == 1 && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP", " && \"$failed\" -eq 0 ]]; then echo DECLARED-SKIP")

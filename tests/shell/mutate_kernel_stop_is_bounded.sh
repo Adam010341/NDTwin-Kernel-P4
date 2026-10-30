@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #27 and #76 -- stop() must be bounded, whatever the control plane does.
+# Mutation gate: stop() must be bounded, whatever the control plane does.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -41,7 +41,7 @@
 #       switches and endpoints cost a syscall each and the round ends inside the bound anyway. This
 #       gate therefore CANNOT catch their removal, and listing them as widenings is the honest way
 #       to say so -- they are defence in depth against a future edit to the executor, not behaviour
-#       this suite defends. FIX-KERNEL-STOP-BOUNDED.md §8.3 repeats it.
+#       this suite defends.
 #
 #       🔴 THE 2026-09-04 RUN CAUGHT BOTH OF THEM, AND THE FAULT WAS IN THIS SUITE, NOT IN THEM.
 #       Both reddened AStopThatExceedsItsBoundSaysWhatItIsWaitingOn, which was then an integration
@@ -391,8 +391,8 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 # So the flag checks inside the round are NOT what carries the bound. **The cancellation is.** The
 # checks earn their place by setting FlowTableFetch::abandoned -- which is what stops an interrupted
 # round from being applied over the cache and deleting every switch it had not reached -- and that
-# is a correctness property this suite does not measure. It is W5 below, not a mutation, and
-# FIX-KERNEL-STOP-BOUNDED.md §8.3 says so in the same words.
+# is a correctness property this suite does not measure. It is W5 below,
+# not a mutation.
 #
 # M1. The half that does carry it, for #27: the request already in flight when the stop arrives,
 #     back on the executor that cannot be cancelled.

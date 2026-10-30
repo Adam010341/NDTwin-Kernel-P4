@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# E-2 / KNOWN-ISSUES G-15: run_layers.sh must ask the kernel which model it loaded, and must
+# KNOWN-ISSUES G-15: run_layers.sh must ask the kernel which model it loaded, and must
 # refuse when it cannot confirm that the file has not changed underneath it.
 #
 # [Co-developed with claude code -- Adam]
@@ -9,7 +9,7 @@
 # asked the kernel. `setting/` holds more than one model with the same ten dpids and the same
 # 10 switch / 4 host / 40 edge cardinality, so a fabric built from model A and validated against
 # model B was green **by construction** -- every per-node identity check passes because the
-# numbers agree (fix/R2-PY-SUMMARY.md §7-3). L-1 made the derivation follow the running fabric;
+# numbers agree. L-1 made the derivation follow the running fabric;
 # it did not make it correct, because the fabric cannot say which FILE the twin opened.
 #
 # 🔴 What this file pins is DISCRIMINATING POWER, in three directions:
@@ -91,7 +91,7 @@ kernel_graph_json() {
 }
 
 # body <topology_file> <topology_sha256> -- a graph response. An empty argument omits that key,
-# which is the pre-E-2 shape; the literal `null` sets it to JSON null.
+# which is the shape of a kernel that does not report its model; the literal `null` sets it to JSON null.
 body() {
     python3 - "$1" "$2" <<'PY'
 import json, sys

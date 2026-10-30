@@ -227,7 +227,7 @@ ABOUT_THE_RULE = frozenset((
 # the scan surface is red on the day it appears. What the three were, and what replaced them,
 # because the registry is where the next reader looks first:
 #
-#   run_layers.sh   `pids="$(pgrep -x ndtwin_kernel 2>/dev/null)"` -- recon-B item 13. `-x`
+#   run_layers.sh   `pids="$(pgrep -x ndtwin_kernel 2>/dev/null)"`. `-x`
 #                   matches comm rather than the whole command line, the narrow end of the
 #                   family, and it was still "find the process by its name". Now
 #                   kernel_pidfile_pids: <name>.pid and <name>.child.pid from $PID_DIR. The
@@ -242,10 +242,10 @@ ABOUT_THE_RULE = frozenset((
 #   stack.sh (TEACHES) `err "    pgrep -ax ndtwin_kernel"` -- printed at the operator as the way
 #                   to look, which is G-9's half of the same defect in a different file. Now
 #                   `cat $PID_DIR/*.pid`, beside the `ss -ltnp` line that names the port holder.
-#                   (FIX-NDT-4, 2026-09-11: run_layers.sh:398, stack.sh:55, stack.sh:1075 are FIXED
+#                   (2026-09-11: run_layers.sh:398, stack.sh:55, stack.sh:1075 are FIXED
 #                   and therefore NOT in the list below.)
 #
-# 🔴 2026-09-11, FIX-PROXY-1. Widening the surface to python found five more, and the first two
+# 🔴 2026-09-11. Widening the surface to python found five more, and the first two
 # are the frontal violation CLAUDE.md names -- `os.system('sudo pkill -f simple_switch_grpc')`,
 # as root, on every topology bring-up, in the two files that own the bmv2 fabric:
 #

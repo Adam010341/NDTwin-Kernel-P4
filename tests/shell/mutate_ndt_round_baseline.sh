@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_ndt_round_baseline.sh (09-05 R7 finding I-3).
+# Mutation gate for tests/shell/test_ndt_round_baseline.sh (I-3, found 2026-09-05).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -10,13 +10,13 @@
 # wrong answers "warn about the knob" invites, and must turn its NAMED case red.
 #
 # N12-N17 cover the two things decided on 09-07: NOT RESTORED is a --check
-# problem so the rc goes red (E-9, measured printing red at rc 0 on the 04:36 live arm), and
-# `ndt release` retires .test_run/round.baseline to .prev (E-11).
+# problem so the rc goes red (it was measured printing red at rc 0 on a 04:36 live run), and
+# `ndt release` retires .test_run/round.baseline to .prev.
 #
 # N18-N25 cover the correction made that evening (18:1x): `ndt up p4 4`
-# writes the knob through, so E-9 made the standard P4 round red from its own second command
-# to its last. E-9b records what ndt wrote (up_wrote=) and demotes that one value to a warning;
-# E-11b moves the deadline to `ndt release`, which refuses while the knob is not back.
+# writes the knob through, so the NOT RESTORED rule made the standard P4 round red from its own second command
+# to its last. The correction records what ndt wrote (up_wrote=) and demotes that one value to a warning,
+# and moves the deadline to `ndt release`, which refuses while the knob is not back.
 #
 # 🔴 TWO DIRECTIONS. The mutations marked (widening) stay GREEN where the suite requires RED:
 # one warns whenever the value is not 4, which is on through every legitimate 128-host round;
@@ -25,7 +25,7 @@
 # that held no claim; one excuses a hand edit because a note exists at all; one reads a missing
 # note as "ndt wrote it"; one refuses every release, so --force stops meaning anything; one
 # lets the value `ndt up` wrote be released without a word. All of them look like a working
-# alarm, and the four E-9b/E-11b ones look like the FIX.
+# alarm, and the four on the evening correction look like the FIX.
 #
 # 🔴 Guards its own baseline: mutations are applied to COPIES in a temp dir and the suite is
 # pointed at them with NDT_UNDER_TEST. tools/test_workflow/ndt is never written -- another
@@ -190,14 +190,14 @@ m=$(mutant n11 "$NDT" \
 report "N11: 'ndt claim' stops recording the round" "$m" \
        "🔴 and it wrote the baseline"
 
-# --- E-9: NOT RESTORED is a --check problem, so the rc goes red ---------------------------------
+# --- NOT RESTORED is a --check problem, so the rc goes red --------------------------------------
 #
-# The state these four restore is the 04:36 live arm (rounds/08-round2.md:146): the row printed
+# The state these four restore is the 04:36 live run: the row printed
 # `8 -- this round started at 128: NOT RESTORED` in red and `ndt status --check` returned 0.
-# A report whose exit code never moves is one more green light, which is the thing W16-2 was
+# A report whose exit code never moves is one more green light, which is the thing an earlier rule was
 # decided against. [Co-developed with claude code -- Adam]
 
-# 🔴 E-9 itself: the row prints and raises nothing.
+# 🔴 The defect itself: the row prints and raises nothing.
 m=$(mutant n12 "$NDT" \
     '        STATUS_KNOB_PROBLEMS+=("the P4 host knob is NOT RESTORED: $rel is $now, this round started at $base -- write $base back ('\''echo $base > $rel'\''), not '\''git checkout --'\'', which gives you HEAD. (I-3)")' \
     '        :')
@@ -223,9 +223,9 @@ m=$(mutant n14 "$NDT" \
 report "N14 (widening): the no-baseline value is a problem too" "$m" \
        "🔴 but it is not a problem"
 
-# --- E-11: `ndt release` retires the round baseline ---------------------------------------------
+# --- `ndt release` retires the round baseline --------------------------------------------------
 
-# 🔴 E-11 itself: R2-NDT left the file behind on purpose and nothing removed it, so a round that
+# 🔴 The defect itself: the file was left behind on purpose and nothing removed it, so a round that
 # ended kept being compared against -- `status` would say NOT RESTORED about somebody else's
 # chosen value.
 m=$(mutant n15 "$NDT" \
@@ -252,14 +252,14 @@ m=$(mutant n17 "$NDT" \
 report "N17 (widening): 'no claim to release' retires it anyway" "$m" \
        "🔴 and leaves the baseline where it is"
 
-# --- E-9b: what `ndt up p4` wrote is a warning, a hand edit is still a problem ------------------
+# --- What `ndt up p4` wrote is a warning, a hand edit is still a problem -----------------------
 #
-# The state these four are about is the standard P4 round, which E-9 turned red end to end:
+# The state these four are about is the standard P4 round, which the NOT RESTORED rule turned red end to end:
 # `ndt claim` records host_count=128, `ndt up p4 4` writes 4 through set_host_count, and from
 # that second command onward every `--check` said NOT RESTORED and exited 1 -- on every P4 arm
 # arm_up.sh:45 runs. Decided 09-07 18:1x. [Co-developed with claude code -- Adam]
 
-# 🔴 E-9b itself: the write happens and nothing records that ndt was the one who did it, so the
+# 🔴 The defect itself: the write happens and nothing records that ndt was the one who did it, so the
 # middle answer can never be reached and every P4 round is back to being red throughout.
 m=$(mutant n18 "$NDT" \
     '    note_up_wrote_host_count "$n"' \
@@ -277,7 +277,7 @@ report "N19: the value 'ndt up' wrote is a --check problem again" "$m" \
        "🔴 --check is green (rc 1 for the whole round before E-9b)"
 
 # (widening) Any value at all gets the warning once a note exists. That excuses the 04:36 case
-# -- somebody's `echo 8 >` after an `ndt up p4 4` -- which is the case E-9 was decided on, and
+# -- somebody's `echo 8 >` after an `ndt up p4 4` -- which is the case the NOT RESTORED rule was decided on, and
 # it satisfies every "not a problem" assertion above.
 m=$(mutant n20 "$NDT" \
     '        if [[ -n "$upw" && "$now" == "$upw" ]]; then' \
@@ -286,7 +286,7 @@ report "N20 (widening): a hand edit is excused too" "$m" \
        "🔴 and still a problem"
 
 # (widening) A baseline with NO note is treated as though ndt wrote whatever is there. That is
-# the pre-E-9 world with extra steps: every forgotten restore in a round that never ran
+# the world before the NOT RESTORED rule, with extra steps: every forgotten restore in a round that never ran
 # `ndt up p4` goes quiet, and groups 8-11 -- the finding itself -- stop proving anything.
 m=$(mutant n21 "$NDT" \
     '        if [[ -n "$upw" && "$now" == "$upw" ]]; then' \

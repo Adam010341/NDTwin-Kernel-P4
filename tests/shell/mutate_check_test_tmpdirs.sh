@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_check_test_tmpdirs.py (decision E-17).
+# Mutation gate for tests/python/test_check_test_tmpdirs.py.
 #
 # [Co-developed with claude code -- Adam]
 #

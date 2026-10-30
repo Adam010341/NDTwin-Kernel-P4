@@ -64,7 +64,7 @@ write_case() {   # write_case <name> <expected-red-substring> <<'FROM' ... '==='
 CASES=()
 
 CASES+=(start-reads-request-rc)
-# 2026-09-07: re-anchored, and SHORTENED to one line. 3-51 put a comment block and the pidfile
+# 2026-09-07: re-anchored, and SHORTENED to one line. The G-14 fix put a comment block and the pidfile
 # write BETWEEN the two lines this used to span, so the old two-line anchor matched zero times
 # and the gate reported "no verdict" -- the failure mode check_gate_anchors.py exists for.
 # The one line left is the one that carries the meaning: `app_wait_started` is the whole
@@ -79,7 +79,7 @@ write_case start-reads-request-rc "start of an app that never came up -> rc 1" <
 PAIR
 
 CASES+=(stop-unconditional-ok)
-# 2026-09-07 (lw351): re-anchored, and narrowed to the branch itself. The old anchor started at
+# 2026-09-07: re-anchored, and narrowed to the branch itself. The old anchor started at
 # `energy|sim)` and swept the two lines above the `if`, so `local was=$APP_STATE` -- one line,
 # added between them -- matched it to zero. The `if` plus its first statement is what this
 # mutation is about, and the info string is unique in the file, so the pair is still an exact
