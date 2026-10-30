@@ -2556,8 +2556,8 @@ knob_restore() {
 # host_count_override, a number the user never typed. `ndt release` then refuses until the knob
 # is back at the round's starting value (the guard in cmd_release: the next round's `ndt up p4`
 # reads this file and nothing else), so without this the user had to write back a number they
-# never chose. So the write an app package made is RECORDED here, and the teardown that clears
-# the app knob (cmd_clean, which `ndt down` ends with) puts the knob back to what it held before.
+# never chose. So the write an app package made is RECORDED here, and `ndt down` puts the knob
+# back to what it held before. `ndt clean` does not: it is an assertion, and leaves both alone.
 #
 # Put back, rather than excused at release: the guard exists because the next round reads the
 # file, and a knob left at the package's count would size that round's `ndt up p4`.
@@ -2610,17 +2610,23 @@ round_start_host_count() {
 }
 
 # app_knob_count_note <n> -- after set_host_count wrote <n> for an app package. A second app
-# bring-up keeps the FIRST record's `before`: that is the value the round had before any of them.
+# bring-up keeps the FIRST record's `before` only while that record still held the knob it
+# overwrote: that is the value the round had before any of them. A record the knob had moved
+# away from is the user's change, so the new record starts from the bytes this run overwrote.
 app_knob_count_note() {
     local n="$1" rec before=""
     rec="$(app_knob_count_path)"
     mkdir -p "$(dirname "$rec")" 2>/dev/null || return 0
-    if [[ -f "$rec" ]]; then
+    if [[ -f "$rec" && -n "$KNOB_SAVED" && "$KNOB_SAVED" != "(absent)" ]] &&
+       cmp -s "$KNOB_SAVED" "$rec.wrote" 2>/dev/null; then
         before="$(sed -n 's/^before=//p' "$rec" | head -1)"
-    elif [[ "$KNOB_SAVED" == "(absent)" ]]; then
-        before=absent
-    elif [[ -n "$KNOB_SAVED" ]] && cp -p "$KNOB_SAVED" "$rec.before" 2>/dev/null; then
-        before="$rec.before"
+    else
+        app_knob_count_forget
+        if [[ "$KNOB_SAVED" == "(absent)" ]]; then
+            before=absent
+        elif [[ -n "$KNOB_SAVED" ]] && cp -p "$KNOB_SAVED" "$rec.before" 2>/dev/null; then
+            before="$rec.before"
+        fi
     fi
     [[ -n "$before" ]] || return 0
     cp -p "$(knob_path)" "$rec.wrote" 2>/dev/null || return 0
@@ -5807,6 +5813,9 @@ cmd_down() {
     # wait_reaped -- the wait is not allowed to decide anything, only to stop the assertion from
     # being taken while the process table is still catching up.
     wait_reaped "${NDT_REAP_WAIT:-20}" || true
+    # [Co-developed with claude code -- Adam] The host count an `ndt up p4 --app` wrote goes back
+    # here, not in cmd_clean: clean is an assertion and also runs on its own over a live fabric.
+    app_knob_count_restore || { down_rc=1; not_verified "putting host_count_override back"; }
     cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?
     # Both halves count. A sweep that could not finish is a failed teardown even in the case
     # where cmd_clean cannot see what survived -- cleanup also sweeps patterns cmd_clean does
@@ -6007,8 +6016,9 @@ cmd_clean() {
     # its own it is the command an operator runs to put the checkout back. Below the refusal
     # above, for the same reason it sits below `down`'s: a refused clean measured nothing and
     # must change nothing.
+    # host_count_override is NOT put back here: cmd_down does that before calling this, under its
+    # claim and teardown guards, and a standalone clean on a live round must not resize it.
     app_knob_clear "this checkout is being put back" || rc=1
-    app_knob_count_restore || rc=1
 
     n="$(bmv2_count)"
     if [[ "$n" -eq 0 ]]; then ok "bmv2 switches: 0"; else err "bmv2 switches: $n still running"; rc=1; fi
@@ -6407,6 +6417,14 @@ knob_row() {
         [[ "$at" =~ ^[0-9]+$ ]] && at="$(date -d "@$at" '+%H:%M:%S' 2>/dev/null || echo "$at")"
         if [[ "$now" == "$base" ]]; then
             printf '  %-14s %s\n' "knob baseline" "$now == the value this round started with (at ${at:-?})"
+            return 0
+        fi
+        # [Co-developed with claude code -- Adam] The knob still holds, byte for byte, what
+        # `ndt up p4 --app` wrote, and the value before it is the round's start: a round in
+        # progress that `ndt down` puts back. Asked of the record rather than up_wrote, because a
+        # claim taken over a live --app fabric writes the baseline without an up_wrote line.
+        if app_knob_count_holds && [[ "$(round_start_host_count)" == "$base" ]]; then
+            printf '  %-14s %s\n' "knob baseline" "${Y}$now, written by 'ndt up p4 --app'; the round started at $base -- 'ndt down' puts it back${N}"
             return 0
         fi
         upw="$(round_baseline_field up_wrote)"
@@ -11396,8 +11414,8 @@ usage: ndt <command>
                   what it does, in order: runs tools/p4_exercise/preflight.py and
                   prints its table verbatim (a red row means nothing is built and
                   nothing is written); writes p4_proxy/mininet/app_package_override;
-                  rewrites host_count_override (and 'ndt down' or 'ndt clean'
-                  put it back afterwards, unless it was changed since); points
+                  rewrites host_count_override (and 'ndt down' puts it back
+                  afterwards, unless it was changed since); points
                   NDT_TOPO, the kernel's --topology and the proxy's NDTWIN_TOPO_FILE
                   at the package's model.
                   --app is a P4 flag: on any other plane it is a usage error (2), not

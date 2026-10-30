@@ -2348,6 +2348,77 @@ OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1
 printf "# mine, keep\n3\n" > "$(knob_path)"; cmd_down >/dev/null 2>&1; echo "KNOB_HEAD=$(head -1 "$(knob_path)")"')"
 has   "🔴 a knob annotated by hand with the same number is left as it is" "KNOB_HEAD=# mine, keep" "$OUT"
 rm -f "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+
+# (f) [Co-developed with claude code -- Adam] The record against status, a second --app, clean,
+# and the branches the cells above never reach.
+APP_REC="$FIX/.test_run/host_count_override.app"
+base_of() { echo 'echo "BASE=$(sed -n "s/^host_count=//p" "$REPO/.test_run/round.baseline")"'; }
+# A claim over a live --app fabric is a round in progress, not a knob nobody put back.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; cmd_claim 60 "again" >/dev/null 2>&1
+echo "KNOB_UP=$(host_count)"')"
+has   "  claim, --app, claim: the knob holds the package's count" "KNOB_UP=3" "$OUT"
+# git_lines is stubbed for every cell (FIX is no git repo); here it runs the real knob_row, the
+# row this cell is about, so the knob reaches cmd_status the way it does on a real checkout.
+OUT="$(run_status --check 'host_count() { host_count_in "$REPO"; }
+git_lines() { knob_row; }
+stale_pipeline() { return 1; }
+sample_rate() { echo 256; }')"
+check "🔴 claim, --app, claim: 'ndt status --check' exits 0" "0" "$(rc_of "$OUT")"
+hasnt "🔴 and does not call the knob NOT RESTORED"         "NOT RESTORED" "$OUT"
+has   "  it says 'ndt down' puts it back"                 "written by 'ndt up p4 --app'; the round started at 4 -- 'ndt down' puts it back" "$OUT"
+# A knob changed by hand between two --app bring-ups is the user's: down puts back THAT value.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+unset NDT_TOPO; NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1; echo "KNOB_B=$(host_count)"
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  the second --app moved the hand-set 8 to 4"      "KNOB_B=4" "$OUT"
+has   "🔴 down puts back the value from just before the second --app" "KNOB_DOWN=8" "$OUT"
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+unset NDT_TOPO; NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1
+export NDT_OWNER=t; cmd_claim 60 "after the second" >/dev/null 2>&1; '"$(base_of)"'
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"; cmd_release')"
+has   "🔴 a claim after it starts the round from the hand-set value" "BASE=8" "$OUT"
+has   "🔴 and down puts that value back"                  "KNOB_DOWN=8" "$OUT"
+check "  and release needs no hand-written number"        "0" "$(rc_of "$OUT")"
+# 'ndt clean' is an assertion: on a live --app fabric it leaves the knob and the record alone.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; echo "BMV2=$(bmv2_count)"
+sums() { cat "$(knob_path)" "$REPO/.test_run/host_count_override.app" "$REPO/.test_run/host_count_override.app.before" "$REPO/.test_run/host_count_override.app.wrote" 2>&1 | sha256sum | cut -c1-16; }
+S1="$(sums)"; echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"
+cmd_clean >/dev/null 2>&1; echo "SAME=$([[ "$(sums)" == "$S1" ]] && echo yes || echo no)"; echo "KNOB_CLEAN=$(host_count)"
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  the fabric is up and the record is there"        "BMV2=99" "$OUT"
+has   "  (the record exists)"                             "REC=present" "$OUT"
+has   "🔴 a standalone 'ndt clean' leaves the knob and the record byte for byte" "SAME=yes" "$OUT"
+has   "🔴 so the knob still holds the package's count"     "KNOB_CLEAN=3" "$OUT"
+has   "  and the later down still puts it back"           "KNOB_DOWN=4" "$OUT"
+# No knob file before --app: the claim starts from the default and down removes the file again.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"* "$FIX/p4_proxy/mininet/host_count_override"
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1
+echo "REC_BEFORE=$(sed -n "s/^before=//p" "$REPO/.test_run/host_count_override.app")"
+export NDT_OWNER=t; cmd_claim 60 "no knob file" >/dev/null 2>&1; '"$(base_of)"'
+cmd_down >/dev/null 2>&1; echo "KNOB_FILE=$([[ -e "$(knob_path)" ]] && echo present || echo absent)"; cmd_release')"
+has   "  the record says there was no knob file"          "REC_BEFORE=absent" "$OUT"
+has   "🔴 a claim over it starts the round from the default" "BASE=4" "$OUT"
+has   "🔴 and down removes the file --app created"         "KNOB_FILE=absent" "$OUT"
+check "  and release needs no hand-written number"        "0" "$(rc_of "$OUT")"
+# The copy of the old knob gone: down leaves the knob, says why, and drops the record.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; rm -f "$REPO/.test_run/host_count_override.app.before"
+cmd_down 2>&1; echo "KNOB_DOWN=$(host_count)"
+echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"')"
+has   "🔴 with .before gone, down leaves the knob at the package's count" "KNOB_DOWN=3" "$OUT"
+has   "  and says the copy is gone"                       "is gone (.test_run/host_count_override.app.before), so there is nothing to put back" "$OUT"
+has   "  and drops the record"                            "REC=absent" "$OUT"
+# A claim over a record the knob has left starts the round from the knob.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+export NDT_OWNER=t; cmd_claim 60 "after a hand edit" >/dev/null 2>&1; '"$(base_of)"'')"
+has   "🔴 a claim over a record that no longer holds starts from the knob" "BASE=8" "$OUT"
+rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
 # The header on a fabric where every switch runs the package's own program names no rate at all.
 PKG_ONE="$FIX/packages/one-foreign"; mkpkg "$PKG_ONE" ndtwin 1 1 firewall
 reset_fix

@@ -1611,7 +1611,7 @@ check_fires "M100: only the resolved path is asked" m100 \
 # --- M101..M109: what an --app bring-up leaves behind, and what it says it did (section 24) ------
 # [Co-developed with claude code -- Adam]
 cat > "$A/m101.old" <<'EOF'
-    app_knob_count_restore || rc=1
+    app_knob_count_restore || { down_rc=1; not_verified "putting host_count_override back"; }
 EOF
 cat > "$A/m101.new" <<'EOF'
     :
@@ -1749,6 +1749,82 @@ EOF
 check_fires "M114 (widening): the knob is compared by number, not bytes" m114 \
             "🔴 a knob deleted after it (whose default is the package's 4) stays deleted" \
             "🔴 a knob annotated by hand with the same number is left as it is"
+
+# --- M115..M121: the record against status, a second --app, clean (section 24 (f)) --------------
+# [Co-developed with claude code -- Adam]
+cat > "$A/m115.old" <<'EOF'
+        if app_knob_count_holds && [[ "$(round_start_host_count)" == "$base" ]]; then
+EOF
+cat > "$A/m115.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M115: a claim over a live --app fabric makes --check NOT RESTORED" m115 \
+            "🔴 claim, --app, claim: 'ndt status --check' exits 0" \
+            "🔴 and does not call the knob NOT RESTORED"
+
+cat > "$A/m116.old" <<'EOF'
+    if [[ -f "$rec" && -n "$KNOB_SAVED" && "$KNOB_SAVED" != "(absent)" ]] &&
+       cmp -s "$KNOB_SAVED" "$rec.wrote" 2>/dev/null; then
+EOF
+cat > "$A/m116.new" <<'EOF'
+    if [[ -f "$rec" ]]; then
+EOF
+check_fires "M116 (widening): a second --app inherits a record the knob has left" m116 \
+            "🔴 down puts back the value from just before the second --app" \
+            "🔴 a claim after it starts the round from the hand-set value"
+
+cat > "$A/m117.old" <<'EOF'
+    app_knob_clear "this checkout is being put back" || rc=1
+EOF
+cat > "$A/m117.new" <<'EOF'
+    app_knob_clear "this checkout is being put back" || rc=1
+    app_knob_count_restore || rc=1
+EOF
+check_fires "M117 (widening): a standalone clean puts the knob back" m117 \
+            "🔴 a standalone 'ndt clean' leaves the knob and the record byte for byte" \
+            "🔴 so the knob still holds the package's count"
+
+cat > "$A/m118.old" <<'EOF'
+        if [[ "$before" == absent ]]; then host_count_from_file /nonexistent; return; fi
+EOF
+cat > "$A/m118.new" <<'EOF'
+EOF
+check_fires "M118: a claim reads before=absent as no record" m118 \
+            "🔴 a claim over it starts the round from the default"
+
+cat > "$A/m119.old" <<'EOF'
+    if [[ "$before" == absent ]]; then
+        rm -f "$f" || { err "could not remove $(short_repo_path "$f") (an app package created it)"; return 1; }
+EOF
+cat > "$A/m119.new" <<'EOF'
+    if false; then
+        rm -f "$f" || { err "could not remove $(short_repo_path "$f") (an app package created it)"; return 1; }
+EOF
+check_fires "M119: down leaves a knob file --app created" m119 \
+            "🔴 and down removes the file --app created"
+
+cat > "$A/m120.old" <<'EOF'
+    if [[ "$before" == absent ]]; then
+        rm -f "$f" || { err "could not remove $(short_repo_path "$f") (an app package created it)"; return 1; }
+EOF
+cat > "$A/m120.new" <<'EOF'
+    if [[ "$before" == absent || ! -f "$before" ]]; then
+        rm -f "$f" || { err "could not remove $(short_repo_path "$f") (an app package created it)"; return 1; }
+EOF
+check_fires "M120 (widening): a missing .before is read as no knob file" m120 \
+            "🔴 with .before gone, down leaves the knob at the package's count" \
+            "  and says the copy is gone"
+
+cat > "$A/m121.old" <<'EOF'
+    if app_knob_count_holds; then
+        before="$(sed -n 's/^before=//p' "$rec" | head -1)"
+EOF
+cat > "$A/m121.new" <<'EOF'
+    if [[ -f "$rec" ]]; then
+        before="$(sed -n 's/^before=//p' "$rec" | head -1)"
+EOF
+check_fires "M121 (widening): a claim trusts a record the knob has left" m121 \
+            "🔴 a claim over a record that no longer holds starts from the knob"
 
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"

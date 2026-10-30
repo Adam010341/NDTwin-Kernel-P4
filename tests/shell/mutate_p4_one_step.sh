@@ -16,7 +16,7 @@
 # with p4_proxy/ linked (read only: bytecode writing is off), and nothing in the checkout is
 # written -- every source is re-hashed at the end. A mutation whose anchor does not occur exactly
 # once, a mutant that does not compile, or the WRONG test going red counts as SURVIVED. A control
-# that goes red voids the round.
+# that goes red voids the run.
 #
 # Usage:  tests/shell/mutate_p4_one_step.sh          PROXY_PY=/path/to/python tests/shell/...
 # Exit:   0 every mutation caught, every control green, every new test seen red;
