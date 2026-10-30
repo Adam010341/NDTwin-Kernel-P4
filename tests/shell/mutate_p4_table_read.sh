@@ -17,9 +17,9 @@
 # read refused that needs no ownership or mastership, a query parameter no longer checked, the
 # read put on the event loop, a readopt during the read not noticed (half three).
 #
-# 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 16 and 17, 43 and 44, 46 and 47, and
-# 58 and 59; 39, 40, 41 and 60 share the route's signature line. check_gate_anchors.py counts
-# each distinct anchor once.
+# 🔴 SHARED ANCHORS. 9 and 10 share one, as do 14 and 51, 16 and 17, 37 and 38, 43 and 44, 46
+# and 47, and 58 and 59; 39, 40, 41 and 60 share the route's signature line. check_gate_anchors.py
+# counts each distinct anchor once: 51 for 61 mutations.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # byte-identity asserted at the end. The baseline is the WORKING TREE, not HEAD -- run it in a
