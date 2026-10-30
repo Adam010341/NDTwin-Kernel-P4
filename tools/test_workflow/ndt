@@ -2591,6 +2591,9 @@ knob_restore() {
 # back, so a bring-up that is refused or rolled back leaves the record as it found it; and a
 # claim taken while the knob holds the package's count records the round as starting from the
 # value before the package (round_start_host_count), which is what the teardown restores.
+#
+# The record ends at `ndt release`, or at a claim that finds the knob moved away from it; after
+# that, `ndt down` leaves the knob as it is.
 app_knob_count_path() { printf '%s\n' "$REPO/.test_run/host_count_override.app"; }
 
 # host_count_from_file <file> -- the count a knob file with these bytes reads as: host_count_in's
@@ -11431,7 +11434,8 @@ usage: ndt <command>
                   prints its table verbatim (a red row means nothing is built and
                   nothing is written); writes p4_proxy/mininet/app_package_override;
                   rewrites host_count_override (and 'ndt down' puts it back
-                  afterwards, unless it was changed since); points
+                  afterwards, unless it was changed since, or 'ndt release' or a
+                  claim that found it moved has ended the record); points
                   NDT_TOPO, the kernel's --topology and the proxy's NDTWIN_TOPO_FILE
                   at the package's model.
                   --app is a P4 flag: on any other plane it is a usage error (2), not

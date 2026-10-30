@@ -1823,12 +1823,15 @@ cat > "$A/m121.new" <<'EOF'
     if [[ -f "$rec" ]]; then
         before="$(sed -n 's/^before=//p' "$rec" | head -1)"
 EOF
-# The claim forgets such a record before it asks (M122), so the claim's own BASE line no longer
-# shows this mutation; the function is asked directly.
+# The holds check inside round_start_host_count is redundant now for all three of its callers:
+# the claim forgets a record the knob has left before it asks (M122), and release and knob_row
+# test holds themselves before they call it. So no command can reach this mutation, and the
+# check calls the function directly. The check stays: the function is the one place that
+# answers what a round starts from, and it should not rely on its callers for that.
 check_fires "M121 (widening): a round would start from a record the knob has left" m121 \
             "🔴 with a record the knob has left, a round would start from the knob"
 
-# --- M122..M128: a record that stopped holding, release, and down's failed put-back (24 (g)) ------
+# --- M122..M129: a record that stopped holding, release, and down's failed put-back (24 (g)) ------
 # [Co-developed with claude code -- Adam]
 cat > "$A/m122.old" <<'EOF'
     app_knob_count_holds || app_knob_count_forget
@@ -1877,7 +1880,9 @@ cat > "$A/m126.new" <<'EOF'
                 if app_knob_count_holds; then
 EOF
 check_fires "M126 (widening): release points at down whenever the record holds" m126 \
-            "🔴 release gives the echo advice"
+            "🔴 release gives the echo advice" \
+            "🔴 and gives the echo advice, not the down hint" \
+            "🔴 not 'ndt down'"
 
 cat > "$A/m127.old" <<'EOF'
         if app_knob_count_holds && [[ "$(round_start_host_count)" == "$base" ]]; then
@@ -1886,8 +1891,10 @@ cat > "$A/m127.new" <<'EOF'
         if app_knob_count_holds; then
 EOF
 check_fires "M127 (widening): knob_row's --app answer whenever the record holds" m127 \
-            "🔴 with the record's before not the round's start: --check exits 1" \
-            "🔴 and the knob is NOT RESTORED"
+            "🔴 with the record's before missing: --check exits 1" \
+            "🔴 and the knob is NOT RESTORED" \
+            "🔴 and shows the yellow line for what 'ndt up p4' wrote" \
+            "🔴 not 'ndt down' puts it back"
 
 cat > "$A/m128.old" <<'EOF'
     app_knob_count_restore || { down_rc=1; not_verified "putting host_count_override back"; }
@@ -1895,9 +1902,22 @@ EOF
 cat > "$A/m128.new" <<'EOF'
     app_knob_count_restore || :
 EOF
-check_fires "M128: down's failed put-back exits 0" m128 \
+check_fires "M128: down no longer reports rc 1 for a failed put-back" m128 \
             "🔴 'ndt down' exits 1" \
             "🔴 and the claim note names the step"
+
+cat > "$A/m129.old" <<'EOF'
+                err "release anyway (it stays at $knob_now):  ndt release --force"
+                return 1
+EOF
+cat > "$A/m129.new" <<'EOF'
+                err "release anyway (it stays at $knob_now):  ndt release --force"
+                app_knob_count_forget
+                return 1
+EOF
+check_fires "M129: a refused release forgets the --app record" m129 \
+            "🔴 the refused release keeps the record: down puts the 8 back" \
+            "🔴 and the release after that exits 0"
 
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"

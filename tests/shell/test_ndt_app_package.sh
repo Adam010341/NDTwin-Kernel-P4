@@ -2456,6 +2456,17 @@ OUT="$(drive 'cmd_release 2>&1; echo "REL3_RC=$?"; cmd_down >/dev/null 2>&1; ech
 has   "  release refuses the hand-written 4"              "REL3_RC=1" "$OUT"
 has   "  with the echo advice, since down would not put it back" "echo 8 > p4_proxy/mininet/host_count_override" "$OUT"
 has   "🔴 and 'ndt down' leaves the deliberate 4"          "KNOB_DOWN=4" "$OUT"
+# That hint followed through: down puts the 8 back, and then the release goes through.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*; knob_set 8
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 8" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1
+cmd_release 2>&1; echo "REL1_RC=$?"
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"
+cmd_release 2>&1; echo "REL2_RC=$?"')"
+has   "  release over the 4-host --app knob is refused"    "REL1_RC=1" "$OUT"
+has   "  and names 'ndt down'"                             "ndt down      # 'ndt up p4 --app' wrote 4; the teardown puts 8 back" "$OUT"
+has   "🔴 the refused release keeps the record: down puts the 8 back" "KNOB_DOWN=8" "$OUT"
+has   "🔴 and the release after that exits 0"              "REL2_RC=0" "$OUT"
 # --force over a holding record: the next round starts from the value released, and keeps it.
 reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*; knob_set 8
 OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 8" >/dev/null 2>&1
@@ -2503,12 +2514,33 @@ has   "  a claim over --app 4 -> 3 starts at 4"           "BASE=4" "$OUT"
 has   "  the record still holds the knob"                 "HOLDS=yes" "$OUT"
 check "  and the baseline has no up_wrote line"           "UPW=" "$(/usr/bin/grep '^UPW=' <<<"$OUT")"
 OUT="$(run_status --check "$STATUS_KNOB")"
-check "🔴 with the record's before not the round's start: --check exits 1" "1" "$(rc_of "$OUT")"
+check "🔴 with the record's before missing: --check exits 1" "1" "$(rc_of "$OUT")"
 has   "🔴 and the knob is NOT RESTORED"                    "3 -- this round started at 4" "$OUT"
 hasnt "  not 'ndt down' puts it back"                     "'ndt down' puts it back" "$OUT"
 OUT="$(drive 'cmd_release 2>&1')"
 has   "🔴 release gives the echo advice"                   "echo 4 > p4_proxy/mininet/host_count_override" "$OUT"
 hasnt "  and does not point at 'ndt down'"                "the teardown puts 4 back" "$OUT"
+# The same refusal where the before is there but is not the round's start (a hand-set 8 before the
+# package): up_wrote excuses the knob during the round, 'ndt down' would put 8 back, not the 4.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 4" >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; echo "KNOB_UP=$(host_count)"
+echo "UPW=$(sed -n "s/^up_wrote=//p" "$REPO/.test_run/round.baseline")"
+echo "HOLDS=$(app_knob_count_holds && echo yes || echo no)"; '"$(base_of)"'')"
+has   "  claim at 4, a hand-set 8, then a 3-host --app"    "KNOB_UP=3" "$OUT"
+has   "  the record holds the knob"                        "HOLDS=yes" "$OUT"
+has   "  the round started at 4, and ndt wrote the 3"      "BASE=4" "$OUT"
+has   "  up_wrote is the package's 3"                      "UPW=3" "$OUT"
+OUT="$(run_status --check "$STATUS_KNOB")"
+check "  the record's before is 8, so --check still exits 0" "0" "$(rc_of "$OUT")"
+has   "🔴 and shows the yellow line for what 'ndt up p4' wrote" "written by 'ndt up p4 3'" "$OUT"
+hasnt "🔴 not 'ndt down' puts it back"                     "'ndt down' puts it back" "$OUT"
+OUT="$(drive 'cmd_release 2>&1; echo "REL_RC=$?"')"
+has   "  release refuses"                                  "REL_RC=1" "$OUT"
+has   "🔴 and gives the echo advice, not the down hint"    "echo 4 > p4_proxy/mininet/host_count_override" "$OUT"
+hasnt "🔴 not 'ndt down'"                                   "the teardown puts 4 back" "$OUT"
+OUT="$(drive 'cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  and 'ndt down' puts the hand-set 8 back"          "KNOB_DOWN=8" "$OUT"
 rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
 # The put-back itself fails: down exits 1 and the claim note names it. The switch manifest and
 # the stand-in switch count go after the bring-up (section 21's move), so no residue makes the rc 1.
