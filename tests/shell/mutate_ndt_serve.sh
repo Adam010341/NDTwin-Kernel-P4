@@ -618,8 +618,11 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
 # and M63's and G62h's rows by the same 16 (9481, 9021; 7269, 7207).
 # 2026-10-30, wording: three comment lines in the record's header in ndt move it 10965 -> 10968, and M63's
 # and G62h's rows by the same 3 (9484, 9024; 7272, 7210).
+# 2026-10-31: the path of `ndt ntg`'s config module at the top of ndt and the ready line's
+# fresh-or-reused word (+13) move it 10968 -> 10981, and M63's and G62h's rows by the same 13
+# (9497, 9037; 7285, 7223).
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(10968, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(10981, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -821,8 +824,8 @@ report "C28: a claim read stopped at its timeout is trusted (its partial yours r
        cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
 
 m=$(mutant m63 "$VERBS_PY" \
-    '(9484, 1, "return 1", "app_start")' \
-    '(9024, 1, "return 1", "app_start")')
+    '(9497, 1, "return 1", "app_start")' \
+    '(9037, 1, "return 1", "app_start")')
 report "M63: apps.start rc 1 cites proc_checkout's return 1" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
@@ -1591,8 +1594,8 @@ report "G62g: --measuring's rc 0 cites a phrase ndt help does not print" "$m" \
        RcProvenance.test_help_sourced_tables_are_in_ndt_help
 
 m=$(mutant g62h "$VERBS_PY" \
-    '                         "code": [(7272, 0, "return 0", "cmd_status")]},' \
-    '                         "code": [(7210, 0, "return 0", "cmd_status")]},')
+    '                         "code": [(7285, 0, "return 0", "cmd_status")]},' \
+    '                         "code": [(7223, 0, "return 0", "cmd_status")]},')
 report "G62h: --measuring's rc 0 cites a return 0 of another function (app_package_row)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 

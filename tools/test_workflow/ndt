@@ -52,6 +52,10 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
+# [Co-developed with claude code -- Adam] Which NTG hosts file the P4 bridge hands NTG (see
+# `ndt ntg`). Taken here, at load, so a caller that later points REPO at a fixture tree still
+# reads the one module the bridge imports (see ntg_config for which tree that is).
+NTG_CONFIG_MODULE="$REPO/p4_proxy/mininet/ntg_config.py"
 LAB=/usr/local/sbin/ndtwin-lab
 STACK="$HERE/stack.sh"
 MANIFEST=/tmp/ndtwin_p4_switches.json
@@ -1423,7 +1427,7 @@ topo_session() { lab_session topo; }
 # What is NOT copied: NTG_PY/ENERGY_DIR/SIM_DIR (nothing here needs their values) and the
 # helper's loud refusal message (it acts on that config; this only reads paths from it). Their
 # KEYS are copied, because the helper refuses a file with a key it does not know, and so must
-# this. NTG_DIR's value IS copied: `ndt ntg` edits that checkout's setting/Mininet.yaml, and it has
+# this. NTG_DIR's value IS copied: `ndt ntg` edits that checkout's NTG config, and it has
 # to be the checkout the P4 bridge imports NTG from (see lab_ntg_dir).
 LAB_CONF=/etc/ndtwin-lab.conf
 LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
@@ -1848,11 +1852,13 @@ else:
 # new file in it. The topology script is launched through tmux under a fixed root environment
 # where no operator-set variable arrives, which is why it is a file and not an export.
 #
-# 🔴 `ndt down` DOES NOT CLEAR IT. Unlike app_package_override, this knob is not a description
-# of a running fabric -- it is a standing choice about the next one -- and clearing it on
-# teardown would mean every round silently reverted to `auto`. What that costs is that a round
-# which moved it has to put it back itself; drive_exercise.py and live-p1/_common.sh both do.
+# 🔴 `ndt down` DOES NOT CLEAR IT, and nothing relies on the file outliving a teardown: every
+# `ndt up p4` applies the word it resolved (telemetry_knob_apply, below), removing the file for
+# `auto`, so what a teardown leaves describes the last bring-up and the next one replaces it.
+# [Co-developed with claude code -- Adam]
 TELEMETRY_WORDS="auto none cooperative link"
+# fresh|reused, set by up_p4's fabric step for the ready line; empty outside a bring-up.
+UP_P4_FABRIC=""
 
 telemetry_knob_path() { printf '%s\n' "$REPO/p4_proxy/mininet/telemetry_override"; }
 
@@ -3572,11 +3578,14 @@ rollback_up() {
 # compares the two files rather than trusting this string.
 lab_attach_cmd() { printf 'sudo tmux -L ndtwinlab attach -t topo\n'; }
 
-# lab_entry_points <plane> -- the ports and the CLI, for a lab that came up and verified.
-# OVS has no proxy: naming one there would send a reader to a port nothing is listening on.
+# lab_entry_points <plane> [fresh|reused] -- the ports and the CLI, for a lab that came up and
+# verified. OVS has no proxy: naming one there would send a reader to a port nothing is listening
+# on. On P4 the pane holds what NTG's mode chose, named only for a fabric this run started.
 lab_entry_points() {
     case "$1" in
-        p4)  info "proxy :8081   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;
+        p4)  ntg_pane "${2:-}"
+             info "proxy :8081   kernel :8000   $NTG_PANE_LABEL: $(lab_attach_cmd)"
+             if [[ -n "$NTG_PANE_HINT" ]]; then info "  $NTG_PANE_HINT"; fi ;;
         ovs) info "Ryu :8080   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;
     esac
 }
@@ -3889,6 +3898,9 @@ up_p4() {
     # Reuse requires BOTH counts to match. The switch count alone identifies nothing -- every P4
     # topology here has ten -- so a fabric of the wrong size passed as "already up". See
     # fabric_host_count.
+    # [Co-developed with claude code -- Adam] Whether this run started the fabric: the ready line
+    # (verify_p4) names the pane's NTG mode only for one it started (see ntg_pane).
+    UP_P4_FABRIC=fresh
     if topo_session && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -eq "$hosts" ]]; then
         if stale_pipeline; then
             # Reusing here would measure the old pipeline while every readout says the new one.
@@ -3899,6 +3911,7 @@ up_p4() {
             return 1
         fi
         ok "already up: $n switches, $live_hosts hosts, reusing"
+        UP_P4_FABRIC=reused
     else
         if topo_session && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -ne "$hosts" ]]; then
             info "the running fabric has $live_hosts hosts, this run wants $hosts; rebuilding it"
@@ -4641,7 +4654,7 @@ verify_p4() {
     echo
     if (( rc == 0 )); then
         say "up. ${G}ready${N}"
-        lab_entry_points p4
+        lab_entry_points p4 "${UP_P4_FABRIC:-}"
         # 🔴 The caveat is its own line under an unchanged verdict, not a suffix on it. `ready`
         # is the word an operator and half a dozen scripts grep for; qualifying it in place
         # would make the sentence mean two things depending on the package.
@@ -8027,7 +8040,7 @@ PY
 #
 # Web-GUI and NTG are out of scope on purpose. Web-GUI is a Docker container on :3000 that
 # outlives everything here, and NTG is not a separate process at all -- it is the prompt the
-# topology script hands control to, selected by `mode:` in NTG's Mininet.yaml (see `ndt ntg`).
+# topology script hands control to, selected by `mode:` in the hosts file NTG.yaml names (see `ndt ntg`).
 #
 # Energy and Sim go through ndtwin-lab because it already has NOPASSWD root verbs for them.
 # The other three run fine as the invoking user, so they are started here with pidfiles beside
@@ -11107,11 +11120,98 @@ cmd_apps() {
 # this edits a file in a sibling repo.
 #
 # [Co-developed with claude code -- Adam]
-# The file is setting/Mininet.yaml in the NTG checkout the P4 bridge uses: the helper's NTG_DIR,
-# resolved read-only by lab_ntg_dir. With no NTG_DIR line in /etc/ndtwin-lab.conf that is the
-# built-in default, the same path this used to name as a literal.
+# The checkout is the one the P4 bridge uses: the helper's NTG_DIR, resolved read-only by
+# lab_ntg_dir. With no NTG_DIR line in /etc/ndtwin-lab.conf that is the built-in default.
+#
+# 🔴 WHICH FILE, inside that checkout, is answered by p4_proxy/mininet/ntg_config.py -- the same
+#    module the P4 bridge uses to decide the config it hands NTG, so the two cannot disagree.
+#    NTG reads `mode` from the Mininet_Testbed host in the hosts file its config names
+#    (inventory.options.host_file). NTG as shipped names setting/Hardware.yaml, which has no
+#    Mininet_Testbed entry; the bridge always has a Mininet net, so it then hands NTG a temp copy
+#    of NTG.yaml naming setting/Mininet.yaml, and that is the file read and edited here. NTG's
+#    own NTG.yaml is never edited.
+#
+# 🔴 THE VALUE IS REPLACED WHOLE OR NOT AT ALL. The old edit was `s/mode: "?[a-z]*"?/.../`,
+#    which stops at the underscore of custom_command and wrote `mode: "cli"_command"`. A mode
+#    line that is not `mode: <word>` is refused and left for a person, with the line named.
+#
+# The words are NTG's: `cli` and `custom_command`. `prompt` is kept as another name for
+# custom_command because older manuals used it; a `mode: "prompt"` an older ndt wrote is a value
+# NTG refuses, and is reported as such.
+NTG_ST=""; NTG_CONF=""; NTG_HOST=""; NTG_MODE=""; NTG_DETAIL=""; NTG_VIA=""
+
+# 🔴 WHICH COPY OF THE MODULE: this checkout's ($NTG_CONFIG_MODULE), while the bridge imports the
+#    copy in the helper's KERNEL_DIR. For any fabric `ndt up` builds those are one tree, because
+#    guard_lab_acts_in_this_tree refuses the bring-up otherwise. Run from another checkout,
+#    `ndt ntg` describes what a bring-up from THIS checkout would get.
+#
+# ntg_config <probe|set> <ntg_dir> [word] -- runs the module, sets NTG_ST NTG_CONF NTG_HOST
+# NTG_MODE NTG_DETAIL NTG_VIA (see the module's docstring for the states). Returns its rc:
+# 3 `set` refused because the state no longer allows it, 4 the write failed, 2 it did not run.
+ntg_config() {
+    local rec rc
+    rec="$(python3 -I "$NTG_CONFIG_MODULE" "$@" 2>&1)"; rc=$?
+    NTG_ST=""; NTG_CONF=""; NTG_HOST=""; NTG_MODE=""; NTG_DETAIL=""; NTG_VIA=""
+    IFS=$'\x1f' read -r NTG_ST NTG_CONF NTG_HOST NTG_MODE NTG_DETAIL NTG_VIA <<<"$rec"
+    case "$NTG_ST" in
+        ok|unknown-mode|hardware-mode|no-mode|bad-mode|no-mininet|no-host-file|unreadable|unresolved|no-ntg-yaml|write-failed) ;;
+        *) NTG_ST=unresolved; NTG_CONF="$2/NTG.yaml"; NTG_HOST=""; NTG_MODE=""; NTG_VIA=""
+           NTG_DETAIL="$NTG_CONFIG_MODULE did not run (rc $rc): ${rec//$'\n'/ }"; return 2 ;;
+    esac
+    return $rc
+}
+
+# ntg_pane <fresh|reused> -- what the P4 topology pane holds, from the same module the bridge
+# uses. Sets NTG_PANE_LABEL and NTG_PANE_HINT (a line of its own, or empty).
+#
+# 🔴 ONLY A FABRIC THIS RUN STARTED gets a mode. `ndt up p4` on a running fabric of the same size
+#    reuses it, and that fabric's pane holds whatever NTG read when IT started; the config now
+#    says what the NEXT bring-up will get. Read after the bring-up: a config changed while the
+#    fabric was coming up is not what the topology read, and nothing here can tell.
+NTG_PANE_LABEL=""; NTG_PANE_HINT=""
+ntg_pane() {
+    local d
+    # Every label but `Mininet CLI` gets a line under it that says why.
+    NTG_PANE_LABEL="topology pane (NTG mode unknown)"
+    if [[ "${1:-}" != fresh ]]; then
+        NTG_PANE_HINT="this run reused a running fabric; its pane holds whatever NTG started with ('ndt ntg' shows what the next bring-up gets)"
+        return 0
+    fi
+    NTG_PANE_HINT="which NTG checkout the lab uses is not known here: see 'ndt ntg'"
+    d="$(lab_ntg_dir 2>/dev/null)"
+    [[ -n "$d" ]] || return 0
+    ntg_config probe "$d"
+    NTG_PANE_HINT="ndt cannot work out which file NTG reads its mode from: see 'ndt ntg'"
+    case "$NTG_ST:$NTG_MODE" in
+        ok:cli|no-mode:cli)
+            NTG_PANE_LABEL="Mininet CLI"; NTG_PANE_HINT="" ;;
+        ok:custom_command)
+            NTG_PANE_LABEL="NTG prompt, no mininet>"
+            NTG_PANE_HINT="for Mininet's CLI: 'ndt ntg cli', then 'ndt down' and up again" ;;
+        unknown-mode:*)
+            NTG_PANE_HINT="NTG does not know mode \"$NTG_MODE\" and will not start: 'ndt ntg custom_command' (or cli), then 'ndt down' and up again" ;;
+        hardware-mode:*)
+            NTG_PANE_LABEL="NTG hardware-testbed mode, no mininet>"
+            NTG_PANE_HINT="NTG's hosts file also has a Hardware_Testbed entry; for Mininet's CLI: 'ndt ntg cli', then 'ndt down' and up again" ;;
+        no-mininet:*)
+            NTG_PANE_LABEL="NTG hardware-testbed mode, no mininet>"
+            NTG_PANE_HINT="NTG has no Mininet testbed file to read: see 'ndt ntg'" ;;
+        bad-mode:*)
+            NTG_PANE_HINT="the mode line in NTG's hosts file is not one ndt can read: see 'ndt ntg'" ;;
+        unreadable:*)
+            NTG_PANE_HINT="ndt cannot read NTG's hosts file: see 'ndt ntg'" ;;
+    esac
+    return 0
+}
+
 cmd_ntg() {
-    local both ntg_dir src NTG_YAML
+    local both ntg_dir src want=""
+    case "${1:-}" in
+        "") ;;
+        cli) want=cli ;;
+        custom_command|prompt) want=custom_command ;;
+        *) err "usage: ndt ntg [cli|custom_command]   (prompt = custom_command)"; return 2 ;;
+    esac
     # One call for both answers: lab_ntg_dir sets the source in the shell it runs in, and a bare
     # command substitution would leave it empty here.
     local labprob; labprob="$(lab_version_problem)"
@@ -11123,29 +11223,111 @@ cmd_ntg() {
         err "  $src"
         return 1
     fi
-    NTG_YAML="$ntg_dir/setting/Mininet.yaml"
-    if [[ ! -f "$NTG_YAML" ]]; then
-        err "not found: $NTG_YAML"
-        err "  NTG_DIR=$ntg_dir ($src)"
-        err "  NTG_DIR is the helper's: set it with an NTG_DIR= line in $LAB_CONF, installing the"
-        err "  helper from this tree first if it differs (an older helper refuses the whole file on"
-        err "  the new key), then check what took effect with:  sudo ndtwin-lab config"
+    ntg_config probe "$ntg_dir"
+    case "$NTG_ST" in
+        no-ntg-yaml)
+            err "not found: $NTG_CONF"
+            err "  NTG_DIR=$ntg_dir ($src)"
+            err "  NTG_DIR is the helper's: set it with an NTG_DIR= line in $LAB_CONF, installing the"
+            err "  helper from this tree first if it differs (an older helper refuses the whole file on"
+            err "  the new key), then check what took effect with:  sudo ndtwin-lab config"
+            return 1 ;;
+        unresolved)
+            err "refusing: which file NTG reads its mode from cannot be worked out -- nothing was edited."
+            err "  $NTG_CONF: $NTG_DETAIL"
+            err "  NTG takes its mode from the file NTG.yaml names in inventory.options.host_file."
+            return 1 ;;
+        no-host-file)
+            err "not found: $NTG_HOST"
+            err "  it is the host_file $NTG_CONF names, so NTG cannot start on this config either."
+            return 1 ;;
+        unreadable)
+            err "refusing: $NTG_HOST: $NTG_DETAIL -- nothing was edited."
+            if [[ -n "$NTG_VIA" ]]; then
+                err "  $NTG_CONF names $NTG_VIA, which has no Mininet_Testbed entry, so the P4 bridge"
+                err "  (as root) hands NTG this file instead; ndt, as you, cannot read it."
+            else
+                err "  it is the hosts file NTG reads its mode from ($NTG_CONF)."
+            fi
+            return 1 ;;
+    esac
+    local whence="the host_file $NTG_CONF names"
+    [[ -n "$NTG_VIA" ]] && whence="NTG.yaml names $NTG_VIA, which has no Mininet_Testbed entry, so the P4 bridge hands NTG this file instead; NTG.yaml is not edited"
+    if [[ -z "$want" ]]; then
+        case "$NTG_ST" in
+            ok|no-mode)
+                say "NTG mode: $NTG_MODE$([[ "$NTG_ST" == no-mode ]] && echo " (no mode line: NTG's default)")"
+                info "read from $NTG_HOST"
+                info "  ($whence)" ;;
+            hardware-mode)
+                say "NTG mode: $NTG_MODE -- but NTG leaves Mininet mode for its hardware-testbed mode"
+                info "$NTG_HOST: $NTG_DETAIL"
+                info "for Mininet's CLI:  ndt ntg cli     (read when the topology starts: 'ndt down', then up)"
+                return 0 ;;
+            unknown-mode)
+                say "NTG mode: $NTG_MODE -- not a mode NTG knows; NTG will refuse to start"
+                warn "$NTG_HOST: $NTG_DETAIL"
+                info "set one NTG knows with:  ndt ntg custom_command   (or: ndt ntg cli)"
+                return 1 ;;
+            no-mininet)
+                say "NTG mode: none -- NTG reads $NTG_HOST, which has no Mininet_Testbed entry"
+                info "$NTG_DETAIL. So no mode line applies: NTG leaves Mininet mode for its hardware-testbed"
+                info "mode (and stops if no hardware testbed is set up), and the topology pane shows no mininet>."
+                info "NTG ships a Mininet testbed file as setting/Mininet.yaml; with one there, the P4 bridge uses it."
+                return 0 ;;
+            *)
+                say "NTG mode: unknown"
+                warn "$NTG_HOST: $NTG_DETAIL"
+                warn "  it has to read  mode: \"cli\"  or  mode: \"custom_command\"  -- fix that line by hand."
+                return 1 ;;
+        esac
+        info "cli            -> the topology drops into Mininet's CLI (mininet>)"
+        info "custom_command -> the topology hands control to NTG's own prompt   (also: prompt)"
+        info "change it with:  ndt ntg cli|custom_command     (read when the topology starts: 'ndt down', then up)"
+        return 0
+    fi
+    case "$NTG_ST" in
+        ok|unknown-mode) ;;
+        hardware-mode)
+            # Only cli keeps NTG on this fabric: with a Hardware_Testbed entry beside it, every
+            # other word leaves Mininet mode, so writing it is not the change it looks like.
+            if [[ "$want" != cli ]]; then
+                err "refusing: with the Hardware_Testbed entry in $NTG_HOST, mode $want would still leave"
+                err "  Mininet mode -- nothing was edited."
+                err "  $NTG_DETAIL"
+                err "  NTG's own prompt on this fabric needs that Hardware_Testbed entry gone; ndt does not remove it."
+                return 1
+            fi ;;
+        no-mode)
+            if [[ "$want" == cli ]]; then ok "NTG mode already cli (no mode line: NTG's default)"; return 0; fi
+            err "refusing: $NTG_HOST has no mode line under Mininet_Testbed.data -- nothing was edited."
+            err "  this edits an existing mode line only; add  mode: \"$want\"  there by hand."
+            return 1 ;;
+        no-mininet)
+            err "refusing: NTG reads its mode from $NTG_HOST -- the host_file $NTG_CONF names --"
+            err "  and $NTG_DETAIL, so there is no mode line to change. Nothing was edited."
+            err "  NTG ships a Mininet testbed file as setting/Mininet.yaml; with one there, the P4"
+            err "  bridge uses it and 'ndt ntg $want' edits it."
+            return 1 ;;
+        *)
+            err "refusing: the mode in $NTG_HOST cannot be read as one line -- nothing was edited."
+            err "  $NTG_DETAIL"
+            err "  it has to read  mode: \"cli\"  or  mode: \"custom_command\"; fix it by hand."
+            return 1 ;;
+    esac
+    if [[ "$NTG_ST" == ok && "$NTG_MODE" == "$want" ]]; then ok "NTG mode already $want"; return 0; fi
+    local cur="$NTG_MODE" host="$NTG_HOST" rc
+    ntg_config set "$ntg_dir" "$want"; rc=$?
+    if (( rc != 0 )) || [[ "$NTG_ST" != ok ]]; then
+        case "$rc" in
+            3) err "refusing: $host changed under this command and is now $NTG_ST -- nothing was edited."
+               err "  $NTG_DETAIL" ;;
+            *) err "could not edit ${NTG_HOST:-$host}: $NTG_DETAIL" ;;
+        esac
         return 1
     fi
-    local cur; cur="$(sed -n 's/.*mode:[[:space:]]*"\?\([a-z]*\)"\?.*/\1/p' "$NTG_YAML" | head -1)"
-    case "${1:-}" in
-        "")
-            say "NTG mode: ${cur:-unknown}"
-            info "cli    -> the topology drops into Mininet's CLI"
-            info "prompt -> the topology hands control to NTG's own prompt"
-            info "change it with:  ndt ntg cli|prompt     (takes effect on the next 'ndt up')" ;;
-        cli|prompt)
-            if [[ "$cur" == "$1" ]]; then ok "NTG mode already $1"; return 0; fi
-            sed -i "s/\(mode:[[:space:]]*\)\"\?[a-z]*\"\?/\1\"$1\"/" "$NTG_YAML"
-            warn "edited $NTG_YAML (a sibling repo's config): mode $cur -> $1"
-            info "takes effect on the next 'ndt up'; the running topology keeps its current mode" ;;
-        *) err "usage: ndt ntg [cli|prompt]"; return 2 ;;
-    esac
+    warn "edited $NTG_HOST (the hosts file NTG reads): mode $cur -> $want"
+    info "takes effect on the next 'ndt up' after an 'ndt down'; a running topology keeps its mode"
 }
 
 # --- what `ndt up` means ----------------------------------------------------------
@@ -11729,7 +11911,8 @@ usage: ndt <command>
                     with age=UNKNOWN and none is attributed.
                   ndt apps trim [names|all]  -- bound a running app's log
                     (viz wrote 875 MB in 1h54m; the app keeps running)
-  ntg [cli|prompt]     which prompt the topology hands control to
+  ntg [cli|custom_command]  which prompt the topology hands control to
+                    (prompt = custom_command; edits the hosts file NTG reads under the P4 bridge)
   claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
   release              give it back
   serve [--owner N] [--port P]   a local HTTP API over up/down/status/claim/release

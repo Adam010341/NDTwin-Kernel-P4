@@ -83,6 +83,10 @@ mkdir -p "$FIX/.test_run/pids" "$FIX/setting" "$FIX/p4_proxy/mininet" \
 echo '{}' > "$FIX/p4_proxy/p4_src/build/ndtwin_switch.json"
 echo 4 > "$FIX/p4_proxy/mininet/host_count_override"
 echo '{"switches":[]}' > "$FIX/manifest.json"
+# NTG's two config files, in the shape NTG ships them, with Mininet's CLI selected.
+mkdir -p "$FIX/ntg/setting"
+printf -- '---\ninventory:\n  plugin: SimpleInventory\n  options:\n    host_file: "./setting/Mininet.yaml"\n' > "$FIX/ntg/NTG.yaml"
+printf -- '---\nMininet_Testbed:\n  data:\n    mode: "cli" \n' > "$FIX/ntg/setting/Mininet.yaml"
 
 mk_topo() {   # <file> <hosts> <edges>
     python3 - "$FIX/setting/$1" "$2" "$3" <<'PY'
@@ -169,6 +173,14 @@ CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
 # the state every other section assumes; FX_LAB_KERNEL_DIR is how section 6 moves it away.
 LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
 LAB_DEFAULT_KERNEL_DIR="${FX_LAB_KERNEL_DIR:-'"$FIX"'}"
+# [Co-developed with claude code -- Adam] The P4 ready line reads the NTG config to say what the
+# topology pane holds; this fixture checkout is in `cli`, so no real NTG checkout decides it.
+LAB_DEFAULT_NTG_DIR="'"$FIX"'/ntg"
+# [Co-developed with claude code -- Adam] ...and the module that reads it is the one in this
+# repo, not one beside the ndt under test: the mutation gate points NDT_UNDER_TEST at a bare copy
+# of ndt with no p4_proxy/ next to it, so the path ndt takes to the module names nothing there
+# (the same reason LABFILE below is the helper in this repo).
+NTG_CONFIG_MODULE="'"$HERE"'/../../p4_proxy/mininet/ntg_config.py"
 # [Co-developed with claude code -- Adam] The heartbeat pidfile and report are fixture paths (never
 # present), so a heartbeat running on this machine cannot add a `heartbeat stop` to a teardown cell
 # or a row to a status cell.
@@ -1852,9 +1864,28 @@ has   "🔴 the OVS line carries the Mininet CLI command" \
 has   "  with the kernel's port"                       "kernel :8000" "$OUT"
 has   "  and Ryu's, which is the OVS plane's control plane" "Ryu :8080" "$OUT"
 hasnt "  🔴 and NOT a proxy, which the OVS plane does not have" ":8081" "$OUT"
-OUT="$(drive 'lab_entry_points p4')"
-has   "  the P4 line is unchanged, whole"              \
+OUT="$(drive 'lab_entry_points p4 fresh')"
+has   "  the P4 line, for a fabric this run started with NTG in cli" \
       "proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo" "$OUT"
+# [Co-developed with claude code -- Adam]
+# 🔴 THE WHOLE BRING-UP, both ways. A fabric this run built gets the mode its NTG config names;
+# one it reused (same switch and host counts, so `ndt up p4` takes the reuse path) holds whatever
+# NTG read when it started, and the ready line must not claim the config's mode for it.
+# verify_p4 (stubbed in this file) is where the ready line is printed; here it prints only that
+# line, with the word up_p4 left for it.
+ENTRY='verify_p4() { echo READY; lab_entry_points p4 "${UP_P4_FABRIC:-}"; }'
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(drive "$ENTRY; up_p4")"
+has   "🔴 a fabric this run started: the ready line names the pane's mode" \
+      "Mininet CLI: sudo tmux -L ndtwinlab attach -t topo" "$(grep -A1 '^READY' <<<"$OUT")"
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive "$ENTRY; up_p4")"
+has   "  (the reuse path was taken)"                   "reusing" "$OUT"
+has   "  (and it reached the ready line)"              "READY" "$OUT"
+hasnt "🔴 a reused fabric: the ready line claims no mode" "Mininet CLI" "$OUT"
+has   "  and says the fabric was reused"               "reused a running fabric" "$OUT"
+check "  verify_p4's ready line is the one passing it on" "1" \
+      "$(grep -c 'lab_entry_points p4 "${UP_P4_FABRIC:-}"' "$NDT")"
 
 # 🔴 THE CROSS-FILE CELL, and the one with real discriminating power: the command printed here
 # is the command ndtwin-lab itself hands out at each of its three launch verbs. A session name

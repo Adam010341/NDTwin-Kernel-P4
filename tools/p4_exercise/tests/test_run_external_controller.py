@@ -138,5 +138,26 @@ class Locating(unittest.TestCase):
             adapter.find_tutorials_utils(HERE)
 
 
+class Usage(unittest.TestCase):
+    # [Co-developed with claude code -- Adam]
+    # The usage text named p4_proxy/venv as the interpreter. That venv has grpc but not the
+    # tutorials' p4runtime_lib dependencies: on a real fabric it stopped at
+    # `from p4.tmp import p4config_pb2` with ModuleNotFoundError before the controller ran.
+    def usage_lines(self):
+        return [line.strip() for line in adapter.__doc__.splitlines()
+                if "run_external_controller.py" in line]
+
+    def test_the_usage_does_not_name_the_proxy_venv_as_the_interpreter(self):
+        lines = self.usage_lines()
+        self.assertTrue(lines, "the docstring carries no usage line")
+        for line in lines:
+            self.assertFalse(line.startswith("p4_proxy/venv"), line)
+
+    def test_the_usage_says_which_interpreter_works_and_which_does_not(self):
+        doc = " ".join(adapter.__doc__.split())
+        self.assertIn("p4.tmp", doc)
+        self.assertIn("not p4_proxy/venv", doc)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

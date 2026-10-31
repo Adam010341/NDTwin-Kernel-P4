@@ -842,13 +842,18 @@ OVS 側另外三種答案都不會被印成分數：十筆不一致（`DISAGREE`
 **這兩個是二選一，開機時就決定，開起來之後不能切。**
 
 ```bash
-ndt ntg             # 現在是哪個
-ndt ntg cli         # 下次開機掉進 Mininet 的 CLI
-ndt ntg prompt      # 下次開機交給 NTG 自己的 prompt
+ndt ntg                  # 現在是哪個
+ndt ntg cli              # 下次開機掉進 Mininet 的 CLI（mininet>）
+ndt ntg custom_command   # 下次開機交給 NTG 自己的 prompt（舊名 prompt 仍可用）
 ```
 
-⚠️ `ndt ntg` 改的是**別的 repo** 的設定檔（`<NTG_DIR>/setting/Mininet.yaml` 的 `mode:`），所以它會印黃字警告。
-改完要下一次 `ndt up p4` 才生效，正在跑的拓樸維持原樣。`NTG_DIR` 是 lab helper 用的那一份 NTG checkout：
+⚠️ `ndt ntg` 改的是**別的 repo** 的設定檔，所以它會印黃字警告。哪一個檔：NTG 從 `<NTG_DIR>/NTG.yaml` 的
+`inventory.options.host_file` 指的 hosts 檔讀 `Mininet_Testbed` 的 `mode:`；那個檔沒有 `Mininet_Testbed`
+（NTG 出廠的 NTG.yaml 指向 `setting/Hardware.yaml`）時，P4 bridge 改交給 NTG 一份指向
+`<NTG_DIR>/setting/Mininet.yaml` 的暫存設定（不改 NTG 的 checkout），`ndt ntg` 讀寫的也就是那個檔。
+`ndt ntg` 會印出它讀的是哪個檔。舊版 `ndt` 寫下的 `mode: "prompt"` NTG 不認得，`ndt ntg custom_command` 會改回來；
+`mode: "cli"_command"` 這種壞掉的行 `ndt ntg` 不碰，要手改成 `mode: "cli"` 或 `mode: "custom_command"`。
+改完要 `ndt down` 再 `ndt up p4` 才生效：`ndt up p4` 碰到同樣大小、還在跑的 fabric 會直接沿用，正在跑的拓樸維持原樣。`NTG_DIR` 是 lab helper 用的那一份 NTG checkout：
 `/etc/ndtwin-lab.conf` 的 `NTG_DIR=` 行；沒有這行、或設定檔被拒絕時，是內建預設 `/home/adam/Network-Traffic-Generator`
 （見 [ndtwin-lab 設定檔](2026-09-02_ndtwin-lab-config.md)）。找不到檔案時，錯誤訊息會寫出 `NTG_DIR` 的值與它的來源。
 

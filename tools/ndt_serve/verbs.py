@@ -294,6 +294,9 @@ RC_TABLE = {
 # 2026-10-30, wording: three lines in the record's header comment in ndt (the record ends at release
 # or at a claim that finds the knob moved) put 3 lines above every row below it; the claim and
 # release rows did not move.
+# 2026-10-31: the path of `ndt ntg`'s config module, set at the top of ndt, put 4 lines above every
+# row; the ready line's fresh-or-reused word (its global, up_p4 and lab_entry_points) put 9 more
+# above status --check's row and every row below it.
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -307,21 +310,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(7651, 3, "return 3", "cmd_status"), (7656, 0, "return 0", "cmd_status"),
-                              (7660, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(7662, 0, "return 0", "cmd_status")]},
+                     "code": [(7664, 3, "return 3", "cmd_status"), (7669, 0, "return 0", "cmd_status"),
+                              (7673, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(7675, 0, "return 0", "cmd_status")]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(7272, 0, "return 0", "cmd_status")]},
-    "claim": {"code": [(760, 2, "return 2", "cmd_claim"), (769, 2, "return 2", "cmd_claim"),
-                       (794, 1, "return 1", "claim_take"), (866, 1, "return 1", "claim_take"),
-                       (868, 0, 'ok "lab claimed by', "claim_take")]},
-    "release": {"code": [(872, 0, "return 0", "cmd_release"), (877, 1, "return 1", "cmd_release"),
-                         (911, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(9480, 0, "return 0", "app_start"), (9484, 1, "return 1", "app_start"),
-                            (9557, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(11035, 1, "return 1", "cmd_apps"), (11038, 2, "return 2", "cmd_apps"),
-                           (11041, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(10968, 0, "return 0", "cmd_apps")]},
+                         "code": [(7285, 0, "return 0", "cmd_status")]},
+    "claim": {"code": [(764, 2, "return 2", "cmd_claim"), (773, 2, "return 2", "cmd_claim"),
+                       (798, 1, "return 1", "claim_take"), (870, 1, "return 1", "claim_take"),
+                       (872, 0, 'ok "lab claimed by', "claim_take")]},
+    "release": {"code": [(876, 0, "return 0", "cmd_release"), (881, 1, "return 1", "cmd_release"),
+                         (915, 1, "return 1", "cmd_release")]},
+    "apps.start": {"code": [(9493, 0, "return 0", "app_start"), (9497, 1, "return 1", "app_start"),
+                            (9570, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(11048, 1, "return 1", "cmd_apps"), (11051, 2, "return 2", "cmd_apps"),
+                           (11054, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(10981, 0, "return 0", "cmd_apps")]},
 }
 
 

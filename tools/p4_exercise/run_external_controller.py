@@ -3,8 +3,13 @@
 
 [Co-developed with claude code -- Adam]
 
-    p4_proxy/venv/bin/python tools/p4_exercise/run_external_controller.py \
-        <package_dir> <controller.py>
+    <python> tools/p4_exercise/run_external_controller.py <package_dir> <controller.py>
+
+`<python>` is the interpreter the tutorials' own controllers run under (the p4dev venv, for
+example), not p4_proxy/venv: the controller imports the tutorials' utils/p4runtime_lib, which
+needs `p4.tmp` (p4config_pb2) besides grpc, and p4_proxy/venv does not provide it. The
+controller runs until it is stopped; when its output is piped, run it with `<python> -u` to see
+the lines as they come.
 
 The problem this solves is two hard-coded numbers. `exercises/p4runtime/mycontroller.py:142-151`
 opens `127.0.0.1:50051` with `device_id=0` for s1 and `127.0.0.1:50052` with `device_id=1` for
