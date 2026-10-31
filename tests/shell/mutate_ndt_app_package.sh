@@ -1373,6 +1373,552 @@ cat > "$A/c4.new" <<'EOF'
 EOF
 check_control "C4: the shaped-links read split over two lines" c4
 
+# --- M77..M86: `ndt up p4 --app <exercise dir>` (section 22) ---------------------------------
+# [Co-developed with claude code -- Adam]
+# The converter's own decisions are tools/p4_exercise/tests/test_one_step.py's (its gate is
+# tests/shell/mutate_p4_one_step.sh); these are ndt's half: the branch is taken, the flags reach
+# the converter, a refusal stays a refusal, and the package brought up is the generated one.
+cat > "$A/m77.old" <<'EOF'
+        elif [[ ! -f "$(app_manifest "$app_dir")" ]] &&
+EOF
+cat > "$A/m77.new" <<'EOF'
+        elif false &&
+EOF
+check_fires "M77: an exercise directory is not converted" m77 \
+            "🔴 an exercise directory comes up"
+
+cat > "$A/m78.old" <<'EOF'
+        elif (( ${#NDT_APP_EXERCISE_ARGV[@]} )); then
+EOF
+cat > "$A/m78.new" <<'EOF'
+        elif false; then
+EOF
+check_fires "M78 (widening): exercise flags beside a package are ignored" m78 \
+            "🔴 an exercise flag beside a package is a usage error"
+
+cat > "$A/m79.old" <<'EOF'
+    if (( rc != 0 )) || [[ -z "$APP_FROM_EXERCISE" || ! -d "$APP_FROM_EXERCISE" ]]; then
+EOF
+cat > "$A/m79.new" <<'EOF'
+    if [[ -z "$APP_FROM_EXERCISE" || ! -d "$APP_FROM_EXERCISE" ]]; then
+EOF
+check_fires "M79: a refused conversion is brought up anyway" m79 \
+            "🔴 the converter's rc 5 is a refusal (5)" "🔴 the converter's rc 1 is a refusal (5)"
+
+cat > "$A/m80.old" <<'EOF'
+    "$py" "$tool" "$dir" --run-dir "$REPO/.test_run" --in-use "$(app_knob_dir)" \
+EOF
+cat > "$A/m80.new" <<'EOF'
+    "$py" "$tool" "$dir" --run-dir "$REPO/.test_run" \
+EOF
+check_fires "M80: the knob's package is not passed as --in-use" m80 \
+            "🔴 the knob's package is handed over as --in-use" \
+            "🔴 with the knob naming it, a different result is refused (5)"
+
+cat > "$A/m81.old" <<'EOF'
+        --emit-path "$emit" ${NDT_APP_EXERCISE_ARGV[@]+"${NDT_APP_EXERCISE_ARGV[@]}"}; rc=$?
+EOF
+cat > "$A/m81.new" <<'EOF'
+        --emit-path "$emit"; rc=$?
+EOF
+check_fires "M81: the exercise flags never reach the converter" m81 \
+            "🔴 --topology reaches it with its value" "🔴 --table-owner reaches it with its value"
+
+cat > "$A/m82.old" <<'EOF'
+            --topology|--p4|--role-ipv4-route|--table-owner|--mode) xwant="$a" ;;
+EOF
+cat > "$A/m82.new" <<'EOF'
+EOF
+check_fires "M82: the exercise flags are left in argv" m82 \
+            "--role-ipv4-route <spec> keeps its value" "🔴 and only the plane is left for resolve_up_target"
+
+cat > "$A/m83.old" <<'EOF'
+    if (( ${#NDT_APP_EXERCISE_ARGV[@]} )) && (( ! seen )); then
+EOF
+cat > "$A/m83.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M83 (widening): an exercise flag without --app is accepted" m83 \
+            "🔴 an exercise flag without --app is a usage error"
+
+cat > "$A/m84.old" <<'EOF'
+    (( rc == 2 )) && return 2
+EOF
+cat > "$A/m84.new" <<'EOF'
+    :
+EOF
+check_fires "M84: the converter's usage error becomes a refusal" m84 \
+            "🔴 the converter's usage error stays a usage error (2)"
+
+cat > "$A/m85.old" <<'EOF'
+            app_dir="$APP_FROM_EXERCISE"
+EOF
+cat > "$A/m85.new" <<'EOF'
+            :
+EOF
+check_fires "M85: the exercise directory itself is brought up, not the package" m85 \
+            "🔴 the knob names the GENERATED package, not the exercise"
+
+cat > "$A/m86.old" <<'EOF'
+    tool="${NDT_APP_ONE_STEP:-$REPO/tools/p4_exercise/one_step.py}"
+EOF
+cat > "$A/m86.new" <<'EOF'
+    tool="${NDT_APP_ONE_STEP:-$REPO/tools/p4_exercise/convert.py}"
+EOF
+check_fires "M86: the default converter is some other tool" m86 \
+            "  named by its path in this checkout"
+
+cat > "$A/c5.old" <<'EOF'
+    for f in "$1"/topology.json "$1"/*/topology.json; do
+EOF
+cat > "$A/c5.new" <<'EOF'
+    for f in "$1/topology.json" "$1"/*/topology.json; do   # the top, then one level down
+EOF
+check_control "C5: app_is_exercise's glob written with the quote moved" c5
+
+
+# --- M87..M97 (2026-10-30): the one-step path's guards, each named by the cell it must redden ----
+# [Co-developed with claude code -- Adam]
+cat > "$A/m87.old" <<'EOF'
+        elif [[ ! -f "$(app_manifest "$app_dir")" ]] &&
+EOF
+cat > "$A/m87.new" <<'EOF'
+        elif true ||
+EOF
+check_fires "M87 (widening): a package is handed to the converter too" m87 \
+            "🔴 the converter was not run" "🔴 and never reaches the converter"
+
+cat > "$A/m88.old" <<'EOF'
+        elif (( ${#NDT_APP_EXERCISE_ARGV[@]} )); then
+EOF
+cat > "$A/m88.new" <<'EOF'
+        elif true; then
+EOF
+check_fires "M88 (widening): a package with no exercise flags is refused" m88 \
+            "🔴 a package with no exercise flags is today's path"
+
+cat > "$A/m89.old" <<'EOF'
+            app_from_exercise "$app_dir" || return $?
+EOF
+cat > "$A/m89.new" <<'EOF'
+            app_from_exercise "$app_dir"
+EOF
+check_fires "M89: the converter's refusal is not a refusal of the bring-up" m89 \
+            "🔴 the converter's usage error stays a usage error (2)" "🔴 and the knob was not written"
+
+cat > "$A/m90.old" <<'EOF'
+    if (( rc != 0 )) || [[ -z "$APP_FROM_EXERCISE" || ! -d "$APP_FROM_EXERCISE" ]]; then
+EOF
+cat > "$A/m90.new" <<'EOF'
+    if (( rc != 0 )); then
+EOF
+check_fires "M90: a converter that names no package is believed" m90 \
+            "🔴 rc 0 with no package path named is refused by the converter step"
+
+cat > "$A/m91.old" <<'EOF'
+    [[ -r "$tool" ]] || { err "no exercise converter at $tool"; return 5; }
+EOF
+cat > "$A/m91.new" <<'EOF'
+    [[ -r "$tool" ]] || { err "no exercise converter at $tool"; return 1; }
+EOF
+check_fires "M91: a missing converter is a dirty reading (1), not a refusal" m91 \
+            "🔴 a missing converter is a refusal (5)"
+
+cat > "$A/m92.old" <<'EOF'
+        if [[ ! -f "$(app_manifest "$app_dir")" && -f "$(app_model_path "$app_dir")" ]]; then
+EOF
+cat > "$A/m92.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M92: a package that lost its package.json is converted again" m92 \
+            "🔴 a package without its package.json is refused (5)" "🔴 and is not converted again"
+
+cat > "$A/m93.old" <<'EOF'
+        case "$sub" in build|logs|pcaps|ndtwin) continue ;; esac
+EOF
+cat > "$A/m93.new" <<'EOF'
+EOF
+check_fires "M93 (widening): a topology.json under build/ makes an exercise" m93 \
+            "🔴 a topology.json under build/ does not make an exercise"
+
+cat > "$A/m95.old" <<'EOF'
+            if [[ -n "$APP_FROM_EXERCISE" ]]; then
+EOF
+cat > "$A/m95.new" <<'EOF'
+            if false; then
+EOF
+check_fires "M95: a pre-flight refusal says nothing was written" m95 \
+            "🔴 and the refusal says the generated package was written" "🔴 not that nothing was written"
+
+cat > "$A/m96.old" <<'EOF'
+    app_is_generated "$dir" && extra=(--no-role-suggestion)
+EOF
+cat > "$A/m96.new" <<'EOF'
+    :
+EOF
+check_fires "M96: the generated package's pre-flight suggests a package.json edit" m96 \
+            "🔴 its pre-flight prints no role suggestion" \
+            "🔴 and its pre-flight prints no role suggestion either" \
+            "🔴 and no package.json suggestion beside them" "🔴 and pre-flight does not suggest one anyway"
+
+cat > "$A/m97.old" <<'EOF'
+    app_is_generated "$dir" && extra=(--no-role-suggestion)
+EOF
+cat > "$A/m97.new" <<'EOF'
+    extra=(--no-role-suggestion)
+EOF
+check_fires "M97 (widening): every package's pre-flight drops the suggestion" m97 \
+            "🔴 and its pre-flight is not told to drop the suggestion"
+
+cat > "$A/m98.old" <<'EOF'
+    real="$(readlink -f "$1" 2>/dev/null)" || return 1
+EOF
+cat > "$A/m98.new" <<'EOF'
+    real="$1"
+EOF
+check_fires "M98: a generated package reached through a symlink is not one" m98 \
+            "🔴 so is one reached through a symlink"
+
+cat > "$A/m94.old" <<'EOF'
+    if [[ "$NDT_APP_DIR" == *$'\n'* || "$NDT_APP_DIR" == *$'\r'* ]]; then
+EOF
+cat > "$A/m94.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M94: a typed path with a line break is taken" m94 \
+            "🔴 a directory whose name ends in a line break is a usage error"
+
+cat > "$A/m99.old" <<'EOF'
+    if [[ "$NDT_APP_DIR$app_real" == *$'\n'* || "$NDT_APP_DIR$app_real" == *$'\r'* ]]; then
+EOF
+cat > "$A/m99.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M99: a logical or resolved path with a line break is taken" m99 \
+            "🔴 so is a path that resolves to one with a line break" \
+            "🔴 a logical path with a line break is a usage error"
+
+cat > "$A/m100.old" <<'EOF'
+    if [[ "$NDT_APP_DIR$app_real" == *$'\n'* || "$NDT_APP_DIR$app_real" == *$'\r'* ]]; then
+EOF
+cat > "$A/m100.new" <<'EOF'
+    if [[ "$app_real" == *$'\n'* || "$app_real" == *$'\r'* ]]; then
+EOF
+check_fires "M100: only the resolved path is asked" m100 \
+            "🔴 a logical path with a line break is a usage error"
+
+
+# --- M101..M109: what an --app bring-up leaves behind, and what it says it did (section 24) ------
+# [Co-developed with claude code -- Adam]
+cat > "$A/m101.old" <<'EOF'
+    app_knob_count_restore || { down_rc=1; not_verified "putting host_count_override back"; }
+EOF
+cat > "$A/m101.new" <<'EOF'
+    :
+EOF
+check_fires "M101: 'ndt down' leaves the knob where --app put it" m101 \
+            "🔴 'ndt down' puts the knob back" \
+            "🔴 and 'ndt release' then succeeds with no hand-written number"
+
+cat > "$A/m102.old" <<'EOF'
+    if ! app_knob_count_holds; then
+EOF
+cat > "$A/m102.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M102 (widening): a knob the user changed is put back too" m102 \
+            "🔴 a knob changed after the bring-up is left as it is"
+
+cat > "$A/m103.old" <<'EOF'
+        else
+            app_knob_count_forget
+        fi
+EOF
+cat > "$A/m103.new" <<'EOF'
+        else
+            :
+        fi
+EOF
+check_fires "M103 (widening): a typed host count keeps the app's record" m103 \
+            "🔴 'ndt up p4 4' after an --app bring-up forgets the app's record"
+
+cat > "$A/m104.old" <<'EOF'
+            [[ "$KNOB_ENTRY" != "$knob_wanted" ]] && app_knob_count_note "$knob_wanted"
+EOF
+cat > "$A/m104.new" <<'EOF'
+            :
+EOF
+check_fires "M104: the --app write is not recorded" m104 \
+            "🔴 'ndt down' puts the knob back"
+
+cat > "$A/m105.old" <<'EOF'
+    claim_note_up "$up_what"
+EOF
+cat > "$A/m105.new" <<'EOF'
+    claim_note_up "p4 $hosts"
+EOF
+check_fires "M105: the claim note names a host count for an app" m105 \
+            "🔴 the claim note names the app, not a host count"
+
+cat > "$A/m106.old" <<'EOF'
+            --topology|--p4|--role-ipv4-route|--table-owner|--mode) xwant="$a" ;;
+EOF
+cat > "$A/m106.new" <<'EOF'
+            --topology|--p4|--role-ipv4-route|--table-owner) xwant="$a" ;;
+EOF
+check_fires "M106: --mode is not handed to the converter" m106 \
+            "🔴 --mode reaches the converter with its value"
+
+cat > "$A/m107.old" <<'EOF'
+    elif [[ "$app_pipe" == foreign:* ]]; then
+EOF
+cat > "$A/m107.new" <<'EOF'
+    elif false; then
+EOF
+check_fires "M107: the header quotes NDTwin's rate for a package pipeline" m107 \
+            "🔴 a package pipeline's header quotes no rate for the package's switches"
+
+cat > "$A/m108.old" <<'EOF'
+            if [[ ",$skipped," == *,install_initial_routes,* ]]; then
+EOF
+cat > "$A/m108.new" <<'EOF'
+            if true; then
+EOF
+check_fires "M108: the path line says no routes when the proxy installed them" m108 \
+            "🔴 the path line says the proxy was set to install the routes" \
+            "🔴 and neither says no routes were installed"
+
+cat > "$A/m109.old" <<'EOF'
+            if [[ -n "$skipped" && ",$skipped," != *,install_initial_routes,* ]]; then
+EOF
+cat > "$A/m109.new" <<'EOF'
+            if false; then
+EOF
+check_fires "M109: the caveat says no routes when the proxy installed them" m109 \
+            "🔴 so does the caveat under ready" \
+            "🔴 and neither says no routes were installed"
+
+
+# --- M110..M114: the record is part of the knob's state (section 24 (e)) ---------------------------
+# [Co-developed with claude code -- Adam]
+cat > "$A/m110.old" <<'EOF'
+    if [[ "$app_pipe" == foreign:* ]] && (( foreign_n >= SWITCHES )); then
+EOF
+cat > "$A/m110.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M110: an all-foreign header names a rate no switch runs" m110 \
+            "🔴 an all-foreign fabric's header says no switch has a compiled rate"
+
+cat > "$A/m111.old" <<'EOF'
+            "$(round_start_host_count)"
+EOF
+cat > "$A/m111.new" <<'EOF'
+            "$(host_count)"
+EOF
+check_fires "M111: a claim after --app records the package's count as the round's start" m111 \
+            "🔴 and claim, --app, re-claim by t, down, release needs no hand-written number" \
+            "🔴 and claim, --app, re-claim by u, down, release needs no hand-written number"
+
+cat > "$A/m112.old" <<'EOF'
+    KNOB_ENTRY="$(host_count)"
+    app_knob_count_snapshot
+EOF
+cat > "$A/m112.new" <<'EOF'
+    KNOB_ENTRY="$(host_count)"
+EOF
+check_fires "M112: the record is not copied before a bring-up writes it" m112 \
+            "🔴 a failed first --app leaves no record" \
+            "🔴 down then puts the knob back to before the FIRST --app"
+
+cat > "$A/m113.old" <<'EOF'
+    app_knob_count_put_back      # the --app record's half; a no-op when knob_snapshot took none
+EOF
+cat > "$A/m113.new" <<'EOF'
+EOF
+check_fires "M113: a rolled-back bring-up keeps the record it wrote" m113 \
+            "🔴 a failed first --app leaves no record" \
+            "🔴 down then puts the knob back to before the FIRST --app"
+
+cat > "$A/m114.old" <<'EOF'
+    [[ -f "$rec" && -f "$rec.wrote" ]] && cmp -s "$rec.wrote" "$(knob_path)" 2>/dev/null
+EOF
+cat > "$A/m114.new" <<'EOF'
+    [[ -f "$rec" ]] && [[ "$(host_count)" == "$(sed -n 's/^wrote=//p' "$rec" | head -1)" ]]
+EOF
+check_fires "M114 (widening): the knob is compared by number, not bytes" m114 \
+            "🔴 a knob deleted after it (whose default is the package's 4) stays deleted" \
+            "🔴 a knob annotated by hand with the same number is left as it is"
+
+# --- M115..M121: the record against status, a second --app, clean (section 24 (f)) --------------
+# [Co-developed with claude code -- Adam]
+cat > "$A/m115.old" <<'EOF'
+        if app_knob_count_holds && [[ "$(round_start_host_count)" == "$base" ]]; then
+EOF
+cat > "$A/m115.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M115: a claim over a live --app fabric makes --check NOT RESTORED" m115 \
+            "🔴 claim, --app, claim: 'ndt status --check' exits 0" \
+            "🔴 and does not call the knob NOT RESTORED"
+
+cat > "$A/m116.old" <<'EOF'
+    if [[ -f "$rec" && -n "$KNOB_SAVED" && "$KNOB_SAVED" != "(absent)" ]] &&
+       cmp -s "$KNOB_SAVED" "$rec.wrote" 2>/dev/null; then
+EOF
+cat > "$A/m116.new" <<'EOF'
+    if [[ -f "$rec" ]]; then
+EOF
+check_fires "M116 (widening): a second --app inherits a record the knob has left" m116 \
+            "🔴 down puts back the value from just before the second --app" \
+            "🔴 a claim after it starts the round from the hand-set value"
+
+cat > "$A/m117.old" <<'EOF'
+    app_knob_clear "this checkout is being put back" || rc=1
+EOF
+cat > "$A/m117.new" <<'EOF'
+    app_knob_clear "this checkout is being put back" || rc=1
+    app_knob_count_restore || rc=1
+EOF
+check_fires "M117 (widening): a standalone clean puts the knob back" m117 \
+            "🔴 a standalone 'ndt clean' leaves the knob and the record byte for byte" \
+            "🔴 so the knob still holds the package's count"
+
+cat > "$A/m118.old" <<'EOF'
+        if [[ "$before" == absent ]]; then host_count_from_file /nonexistent; return; fi
+EOF
+cat > "$A/m118.new" <<'EOF'
+EOF
+check_fires "M118: a claim reads before=absent as no record" m118 \
+            "🔴 a claim over it starts the round from the default"
+
+cat > "$A/m119.old" <<'EOF'
+    if [[ "$before" == absent ]]; then
+        rm -f "$f" || { err "could not remove $(short_repo_path "$f") (an app package created it)"; return 1; }
+EOF
+cat > "$A/m119.new" <<'EOF'
+    if false; then
+        rm -f "$f" || { err "could not remove $(short_repo_path "$f") (an app package created it)"; return 1; }
+EOF
+check_fires "M119: down leaves a knob file --app created" m119 \
+            "🔴 and down removes the file --app created"
+
+cat > "$A/m120.old" <<'EOF'
+    if [[ "$before" == absent ]]; then
+        rm -f "$f" || { err "could not remove $(short_repo_path "$f") (an app package created it)"; return 1; }
+EOF
+cat > "$A/m120.new" <<'EOF'
+    if [[ "$before" == absent || ! -f "$before" ]]; then
+        rm -f "$f" || { err "could not remove $(short_repo_path "$f") (an app package created it)"; return 1; }
+EOF
+check_fires "M120 (widening): a missing .before is read as no knob file" m120 \
+            "🔴 with .before gone, down leaves the knob at the package's count" \
+            "  and says the copy is gone"
+
+cat > "$A/m121.old" <<'EOF'
+    if app_knob_count_holds; then
+        before="$(sed -n 's/^before=//p' "$rec" | head -1)"
+EOF
+cat > "$A/m121.new" <<'EOF'
+    if [[ -f "$rec" ]]; then
+        before="$(sed -n 's/^before=//p' "$rec" | head -1)"
+EOF
+# The holds check inside round_start_host_count is redundant now for all three of its callers:
+# the claim forgets a record the knob has left before it asks (M122), and release and knob_row
+# test holds themselves before they call it. So no command can reach this mutation, and the
+# check calls the function directly. The check stays: the function is the one place that
+# answers what a round starts from, and it should not rely on its callers for that.
+check_fires "M121 (widening): a round would start from a record the knob has left" m121 \
+            "🔴 with a record the knob has left, a round would start from the knob"
+
+# --- M122..M129: a record that stopped holding, release, and down's failed put-back (24 (g)) ------
+# [Co-developed with claude code -- Adam]
+cat > "$A/m122.old" <<'EOF'
+    app_knob_count_holds || app_knob_count_forget
+EOF
+cat > "$A/m122.new" <<'EOF'
+EOF
+check_fires "M122: a claim keeps a record the knob has left" m122 \
+            "🔴 and forgets the record the knob had left" \
+            "🔴 and 'ndt down' leaves the hand-set 3"
+
+cat > "$A/m123.old" <<'EOF'
+    if [[ -f "$(app_knob_count_path)" ]]; then
+EOF
+cat > "$A/m123.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M123: a release keeps the --app record" m123 \
+            "🔴 and forgets the --app record" \
+            "🔴 a plain release forgets the record: the next round starts at 4" \
+            "🔴 after release --force the next round starts at the released 4"
+
+cat > "$A/m124.old" <<'EOF'
+    if [[ -f "$(app_knob_count_path)" ]]; then
+EOF
+cat > "$A/m124.new" <<'EOF'
+    if [[ -f "$(app_knob_count_path)" && "${1:-}" != "--force" ]]; then
+EOF
+check_fires "M124: release --force keeps the --app record" m124 \
+            "🔴 after release --force the next round starts at the released 4" \
+            "🔴 and its down leaves that 4"
+
+cat > "$A/m125.old" <<'EOF'
+                if app_knob_count_holds && [[ "$(round_start_host_count)" == "$knob_base" ]]; then
+EOF
+cat > "$A/m125.new" <<'EOF'
+                if false; then
+EOF
+check_fires "M125: release over a live --app knob advises a hand-written number" m125 \
+            "🔴 and points at 'ndt down', which puts the 8 back" \
+            "🔴 not at writing 8 by hand"
+
+cat > "$A/m126.old" <<'EOF'
+                if app_knob_count_holds && [[ "$(round_start_host_count)" == "$knob_base" ]]; then
+EOF
+cat > "$A/m126.new" <<'EOF'
+                if app_knob_count_holds; then
+EOF
+check_fires "M126 (widening): release points at down whenever the record holds" m126 \
+            "🔴 release gives the echo advice" \
+            "🔴 and gives the echo advice, not the down hint" \
+            "🔴 not 'ndt down'"
+
+cat > "$A/m127.old" <<'EOF'
+        if app_knob_count_holds && [[ "$(round_start_host_count)" == "$base" ]]; then
+EOF
+cat > "$A/m127.new" <<'EOF'
+        if app_knob_count_holds; then
+EOF
+check_fires "M127 (widening): knob_row's --app answer whenever the record holds" m127 \
+            "🔴 with the record's before missing: --check exits 1" \
+            "🔴 and the knob is NOT RESTORED" \
+            "🔴 and shows the yellow line for what 'ndt up p4' wrote" \
+            "🔴 not 'ndt down' puts it back"
+
+cat > "$A/m128.old" <<'EOF'
+    app_knob_count_restore || { down_rc=1; not_verified "putting host_count_override back"; }
+EOF
+cat > "$A/m128.new" <<'EOF'
+    app_knob_count_restore || :
+EOF
+check_fires "M128: down no longer reports rc 1 for a failed put-back" m128 \
+            "🔴 'ndt down' exits 1" \
+            "🔴 and the claim note names the step"
+
+cat > "$A/m129.old" <<'EOF'
+                err "release anyway (it stays at $knob_now):  ndt release --force"
+                return 1
+EOF
+cat > "$A/m129.new" <<'EOF'
+                err "release anyway (it stays at $knob_now):  ndt release --force"
+                app_knob_count_forget
+                return 1
+EOF
+check_fires "M129: a refused release forgets the --app record" m129 \
+            "🔴 the refused release keeps the record: down puts the 8 back" \
+            "🔴 and the release after that exits 0"
+
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then

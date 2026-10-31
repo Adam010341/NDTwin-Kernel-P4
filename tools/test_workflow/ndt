@@ -451,11 +451,15 @@ round_baseline_dirty() {
 record_round_baseline() {
     local f; f="$(round_baseline_file)"
     mkdir -p "$(dirname "$f")" || return 1
+    # [Co-developed with claude code -- Adam] A record of an --app write that the knob has since
+    # left is the user's change, so a new round forgets it: kept, a later hand edit back to the
+    # package's bytes would make it hold again, and 'ndt down' would undo that edit.
+    app_knob_count_holds || app_knob_count_forget
     {
         printf 'at=%s\nby=%s\nhead=%s\nhost_count=%s\n' \
             "$(date +%s)" "${NDT_OWNER:-unset}" \
             "$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo '?')" \
-            "$(host_count)"
+            "$(round_start_host_count)"
         # cut -c4-, not `awk '{print $2}'`: porcelain is XY<space><path>, and a path with a
         # space in it is one field to a reader and two to awk.
         git -C "$REPO" status --porcelain 2>/dev/null | cut -c4- | sort | sed 's/^/dirty=/'
@@ -896,12 +900,24 @@ cmd_release() {
             if [[ "${1:-}" != "--force" ]]; then
                 err "refusing: the P4 host knob is $knob_now"
                 err "this round started at $knob_base, and the claim is not released with it moved"
-                err "  echo $knob_base > p4_proxy/mininet/host_count_override      # write it; NOT 'git checkout --'"
+                # [Co-developed with claude code -- Adam] Still what `ndt up p4 --app` wrote over the
+                # round's start: the teardown puts it back, and forgets the record with it.
+                if app_knob_count_holds && [[ "$(round_start_host_count)" == "$knob_base" ]]; then
+                    err "  ndt down      # 'ndt up p4 --app' wrote $knob_now; the teardown puts $knob_base back"
+                else
+                    err "  echo $knob_base > p4_proxy/mininet/host_count_override      # write it; NOT 'git checkout --'"
+                fi
                 err "release anyway (it stays at $knob_now):  ndt release --force"
                 return 1
             fi
             err "released with the knob left at $knob_now (round started at $knob_base) -- '--force'"
         fi
+    fi
+    # [Co-developed with claude code -- Adam] The --app record ends with the round, --force or not:
+    # left behind, a later hand edit back to the package's bytes would make it hold again.
+    if [[ -f "$(app_knob_count_path)" ]]; then
+        app_knob_count_holds && warn "'ndt down' will now leave host_count_override at $(host_count): the record of what 'ndt up p4 --app' wrote ends with this round"
+        app_knob_count_forget
     fi
     # [Co-developed with claude code -- Adam]
     # 🔴 This was `rm -f "$CLAIM"`.
@@ -2127,9 +2143,79 @@ app_preflight() {
         return 1
     fi
     [[ -r "$tool" ]] || { err "no package pre-flight at $tool"; return 1; }
-    out="$("$py" "$tool" "$dir" 2>&1)"; rc=$?
+    # [Co-developed with claude code -- Adam] A generated package -- the one this run converted
+    # from an exercise, or one under .test_run/packages/generated/ given by its own path -- gets
+    # no `roles suggestion` row: it would tell the user to edit a package.json the next
+    # conversion replaces. The way to choose a role there is an ndt flag, which one_step.py prints.
+    local -a extra=()
+    app_is_generated "$dir" && extra=(--no-role-suggestion)
+    out="$("$py" "$tool" "$dir" ${extra[@]+"${extra[@]}"} 2>&1)"; rc=$?
     printf '%s\n' "$out"
     return $rc
+}
+
+# app_is_generated <dir> -- true when <dir> is a package tools/p4_exercise/one_step.py put under
+# this checkout's .test_run/packages/generated/ (compared resolved, so a symlink to one counts).
+# [Co-developed with claude code -- Adam]
+app_is_generated() {
+    local gen real
+    gen="$(readlink -f "$REPO/.test_run/packages/generated" 2>/dev/null)" || return 1
+    real="$(readlink -f "$1" 2>/dev/null)" || return 1
+    [[ -n "$gen" && "$real" == "$gen"/* ]]
+}
+
+# app_is_exercise <dir> -- true when <dir> holds a p4lang-tutorials topology.json at its top or
+# one directory down (pod-topo/topology.json). Only asked of a directory with no package.json.
+# The four subdirectories tools/p4_exercise/one_step.py skips are skipped here too: build/,
+# logs/ and pcaps/ are what `make` writes, and a package's own ndtwin/topology.json is NDTwin's
+# format, not tutorials'. [Co-developed with claude code -- Adam]
+app_is_exercise() {
+    local f sub
+    for f in "$1"/topology.json "$1"/*/topology.json; do
+        [[ -f "$f" ]] || continue
+        sub="${f#"$1"/}"; sub="${sub%/topology.json}"
+        case "$sub" in build|logs|pcaps|ndtwin) continue ;; esac
+        return 0
+    done
+    return 1
+}
+
+# app_from_exercise <dir> -- tools/p4_exercise/one_step.py on a p4lang-tutorials exercise:
+# converts it into a generated package under .test_run/packages/generated/, choosing the
+# topology, the program and the route role, and prints what it chose. Sets APP_FROM_EXERCISE to
+# the package's path. rc 0; 2 a usage error in the exercise flags; 5 refused, nothing built.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THE KNOB'S PACKAGE IS PASSED AS --in-use, so a re-run never replaces the package a fabric
+# that is still up was built from (the tool refuses that, and says `ndt down`). Every other rc
+# of the tool is 5 here: whatever went wrong, nothing was built.
+APP_FROM_EXERCISE=""
+app_from_exercise() {
+    local dir="$1" py tool emit rc
+    APP_FROM_EXERCISE=""
+    py="$(p4_proxy_py)"
+    tool="${NDT_APP_ONE_STEP:-$REPO/tools/p4_exercise/one_step.py}"
+    if [[ ! -x "$py" ]]; then
+        err "converting an exercise needs the proxy's venv interpreter: $py"
+        err "  (p4_proxy/requirements.txt says how to create it)"
+        return 5
+    fi
+    [[ -r "$tool" ]] || { err "no exercise converter at $tool"; return 5; }
+    emit="$(mktemp "${TMPDIR:-/tmp}/ndt-app-from-exercise.XXXXXX")" || {
+        err "could not create a temp file for the converter's answer"; return 5; }
+    say "exercise -> app package"
+    "$py" "$tool" "$dir" --run-dir "$REPO/.test_run" --in-use "$(app_knob_dir)" \
+        --emit-path "$emit" ${NDT_APP_EXERCISE_ARGV[@]+"${NDT_APP_EXERCISE_ARGV[@]}"}; rc=$?
+    APP_FROM_EXERCISE="$(head -n 1 "$emit" 2>/dev/null)"; rm -f "$emit"
+    (( rc == 2 )) && return 2
+    if (( rc != 0 )) || [[ -z "$APP_FROM_EXERCISE" || ! -d "$APP_FROM_EXERCISE" ]]; then
+        APP_FROM_EXERCISE=""
+        err "refusing to build: $dir was not converted into an app package (above)."
+        err "  nothing was started, and p4_proxy/mininet/app_package_override is UNCHANGED at $(app_knob_state)."
+        return 5
+    fi
+    echo
+    return 0
 }
 
 # topo_model_switches <file> -- how many switches the model declares, or nothing.
@@ -2432,6 +2518,7 @@ knob_snapshot() {
     local f; f="$(knob_path)"
     KNOB_SAVED=""
     KNOB_ENTRY="$(host_count)"
+    app_knob_count_snapshot
     if [[ ! -e "$f" ]]; then KNOB_SAVED="(absent)"; return 0; fi
     mkdir -p "$REPO/.test_run" 2>/dev/null
     if cp -p "$f" "$REPO/.test_run/host_count_override.pre-up" 2>/dev/null; then
@@ -2449,6 +2536,7 @@ knob_snapshot() {
 knob_restore() {
     local why="${1:-}" f now
     f="$(knob_path)"
+    app_knob_count_put_back      # the --app record's half; a no-op when knob_snapshot took none
     [[ -n "$KNOB_SAVED" ]] || return 0
     if [[ "$KNOB_SAVED" == "(absent)" ]]; then
         [[ -e "$f" ]] || { KNOB_SAVED=""; return 0; }
@@ -2474,6 +2562,164 @@ knob_restore() {
     fi
     warn "host_count_override put back to $KNOB_ENTRY (it read $now): $why"
     KNOB_SAVED=""
+    return 0
+}
+
+# --- the knob an app package moved --------------------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# `ndt up p4 --app <dir>` sizes the fabric from the package and writes that count through
+# host_count_override, a number the user never typed. `ndt release` then refuses until the knob
+# is back at the round's starting value (the guard in cmd_release: the next round's `ndt up p4`
+# reads this file and nothing else), so without this the user had to write back a number they
+# never chose. So the write an app package made is RECORDED here, and `ndt down` puts the knob
+# back to what it held before. `ndt clean` does not: it is an assertion, and leaves both alone.
+#
+# Put back, rather than excused at release: the guard exists because the next round reads the
+# file, and a knob left at the package's count would size that round's `ndt up p4`.
+#
+#     .test_run/host_count_override.app          wrote=<n>, before=absent|<path of .before>
+#     .test_run/host_count_override.app.before   the knob's bytes before the first app write
+#     .test_run/host_count_override.app.wrote    the knob's bytes right after the last app write
+#
+# 🔴 BYTES, NOT THE NUMBER, the rule knob_restore states: the knob is put back only when it is
+# still byte for byte what the package wrote. A knob changed since -- by hand, deleted (whose
+# default may well equal the package's count), annotated, or by a later `ndt up p4 <n>`, which
+# forgets the record -- is the user's, and is left alone.
+#
+# 🔴 THE RECORD IS PART OF THE KNOB'S STATE. knob_snapshot copies it and knob_restore puts it
+# back, so a bring-up that is refused or rolled back leaves the record as it found it; and a
+# claim taken while the knob holds the package's count records the round as starting from the
+# value before the package (round_start_host_count), which is what the teardown restores.
+#
+# The record ends at `ndt release`, or at a claim that finds the knob moved away from it; after
+# that, `ndt down` leaves the knob as it is.
+app_knob_count_path() { printf '%s\n' "$REPO/.test_run/host_count_override.app"; }
+
+# host_count_from_file <file> -- the count a knob file with these bytes reads as: host_count_in's
+# rule (the first line that is neither blank nor a comment; 4 when there is none or no file).
+host_count_from_file() {
+    local f="$1" line
+    [[ -f "$f" ]] || { echo 4; return; }
+    while read -r line; do
+        line="${line%%$'\r'}"; line="${line#"${line%%[![:space:]]*}"}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        echo "$line"; return
+    done < "$f"
+    echo 4
+}
+
+# app_knob_count_holds -- true when the knob is still byte for byte what an app package wrote.
+app_knob_count_holds() {
+    local rec; rec="$(app_knob_count_path)"
+    [[ -f "$rec" && -f "$rec.wrote" ]] && cmp -s "$rec.wrote" "$(knob_path)" 2>/dev/null
+}
+
+# round_start_host_count -- what a round that starts now starts from: the knob's value, unless
+# it is still the package's count, in which case the value before the package.
+round_start_host_count() {
+    local rec before
+    rec="$(app_knob_count_path)"
+    if app_knob_count_holds; then
+        before="$(sed -n 's/^before=//p' "$rec" | head -1)"
+        if [[ "$before" == absent ]]; then host_count_from_file /nonexistent; return; fi
+        if [[ -f "$before" ]]; then host_count_from_file "$before"; return; fi
+    fi
+    host_count
+}
+
+# app_knob_count_note <n> -- after set_host_count wrote <n> for an app package. A second app
+# bring-up keeps the FIRST record's `before` only while that record still held the knob it
+# overwrote: that is the value the round had before any of them. A record the knob had moved
+# away from is the user's change, so the new record starts from the bytes this run overwrote.
+app_knob_count_note() {
+    local n="$1" rec before=""
+    rec="$(app_knob_count_path)"
+    mkdir -p "$(dirname "$rec")" 2>/dev/null || return 0
+    if [[ -f "$rec" && -n "$KNOB_SAVED" && "$KNOB_SAVED" != "(absent)" ]] &&
+       cmp -s "$KNOB_SAVED" "$rec.wrote" 2>/dev/null; then
+        before="$(sed -n 's/^before=//p' "$rec" | head -1)"
+    else
+        app_knob_count_forget
+        if [[ "$KNOB_SAVED" == "(absent)" ]]; then
+            before=absent
+        elif [[ -n "$KNOB_SAVED" ]] && cp -p "$KNOB_SAVED" "$rec.before" 2>/dev/null; then
+            before="$rec.before"
+        fi
+    fi
+    [[ -n "$before" ]] || return 0
+    cp -p "$(knob_path)" "$rec.wrote" 2>/dev/null || return 0
+    printf 'wrote=%s\nbefore=%s\n' "$n" "$before" > "$rec" 2>/dev/null || return 0
+}
+
+# app_knob_count_forget -- a host count the user typed replaces whatever an app package did.
+app_knob_count_forget() {
+    local rec; rec="$(app_knob_count_path)"
+    rm -f "$rec" "$rec.before" "$rec.wrote" 2>/dev/null
+    return 0
+}
+
+# app_knob_count_snapshot / app_knob_count_put_back -- the record's half of knob_snapshot and
+# knob_restore: the three files as they were before this run, or "there were none".
+APP_COUNT_SAVED=""   # "" not taken;  "(absent)" there was no record;  else the copy's directory
+app_knob_count_snapshot() {
+    local rec d f
+    rec="$(app_knob_count_path)"
+    d="$rec.pre-up"
+    rm -rf "$d" 2>/dev/null
+    APP_COUNT_SAVED="(absent)"
+    [[ -f "$rec" ]] || return 0
+    mkdir -p "$d" 2>/dev/null || { APP_COUNT_SAVED=""; return 0; }
+    for f in "$rec" "$rec.before" "$rec.wrote"; do
+        [[ -e "$f" ]] && cp -p "$f" "$d/" 2>/dev/null
+    done
+    APP_COUNT_SAVED="$d"
+    return 0
+}
+app_knob_count_put_back() {
+    local rec f
+    rec="$(app_knob_count_path)"
+    case "$APP_COUNT_SAVED" in
+        "") return 0 ;;
+        "(absent)") app_knob_count_forget ;;
+        *) app_knob_count_forget
+           for f in "$APP_COUNT_SAVED"/*; do
+               [[ -e "$f" ]] && cp -p "$f" "$(dirname "$rec")/" 2>/dev/null
+           done ;;
+    esac
+    APP_COUNT_SAVED=""
+    return 0
+}
+
+# app_knob_count_restore -- put the knob back if it still holds what an app package wrote.
+app_knob_count_restore() {
+    local rec wrote before now f
+    rec="$(app_knob_count_path)"
+    [[ -f "$rec" ]] || return 0
+    wrote="$(sed -n 's/^wrote=//p' "$rec" | head -1)"
+    before="$(sed -n 's/^before=//p' "$rec" | head -1)"
+    f="$(knob_path)"
+    now="$(host_count)"
+    if ! app_knob_count_holds; then
+        info "host_count_override left as it is: it is no longer what 'ndt up p4 --app' wrote ($wrote)"
+        app_knob_count_forget
+        return 0
+    fi
+    if [[ "$before" == absent ]]; then
+        rm -f "$f" || { err "could not remove $(short_repo_path "$f") (an app package created it)"; return 1; }
+    elif [[ -f "$before" ]]; then
+        cp -p "$before" "$f" && cmp -s "$before" "$f" || {
+            err "could NOT put $(short_repo_path "$f") back: it reads $now; the bytes it held"
+            err "  before 'ndt up p4 --app' are in ${before#$REPO/} -- copy them back by hand."
+            return 1; }
+    else
+        info "host_count_override left at $now: the copy of what it held before 'ndt up p4 --app'"
+        info "  is gone (${before#$REPO/}), so there is nothing to put back"
+        app_knob_count_forget
+        return 0
+    fi
+    info "host_count_override put back: $now -> $(host_count) ('ndt up p4 --app' had written $now)"
+    app_knob_count_forget
     return 0
 }
 
@@ -3369,11 +3615,33 @@ up_p4() {
             err "  got '$1' as well. Drop it, or drop --app."
             return 2
         fi
+        # [Co-developed with claude code -- Adam]
+        # A p4lang-tutorials exercise rather than a package: converted first, into a generated
+        # package under .test_run/packages/generated/ (never into the exercise), and from here on
+        # that package is handled exactly as if it had been given. Exercise flags beside a
+        # package are refused: they would be ignored. A directory holding a package's model but
+        # no package.json is a package that lost its manifest, and is never converted again.
+        APP_FROM_EXERCISE=""
+        if [[ ! -f "$(app_manifest "$app_dir")" && -f "$(app_model_path "$app_dir")" ]]; then
+            err "refusing to build: $app_dir has ndtwin/topology.json but no package.json --"
+            err "  an app package that lost its manifest, not an exercise. Convert the exercise it"
+            err "  came from again (ndt up p4 --app <exercise dir>), or put its package.json back."
+            return 5
+        elif [[ ! -f "$(app_manifest "$app_dir")" ]] &&
+           { (( ${#NDT_APP_EXERCISE_ARGV[@]} )) || app_is_exercise "$app_dir"; }; then
+            app_from_exercise "$app_dir" || return $?
+            app_dir="$APP_FROM_EXERCISE"
+        elif (( ${#NDT_APP_EXERCISE_ARGV[@]} )); then
+            err "${NDT_APP_EXERCISE_ARGV[0]%%=*} converts a p4lang-tutorials exercise, and $app_dir"
+            err "  is already an app package (it has package.json). Drop the flag."
+            return 2
+        fi
         app_model="$(app_model_path "$app_dir")"
         if [[ ! -f "$app_model" ]]; then
             err "refusing to build: $app_dir carries no ${app_model#$app_dir/}"
             err "  that file is what the kernel is handed and what the fabric is built from;"
-            err "  tools/p4_exercise/convert.py writes it. This is not an app package."
+            err "  tools/p4_exercise/convert.py writes it. This is neither an app package nor a"
+            err "  p4lang-tutorials exercise (no topology.json at its top or one directory down)."
             return 5
         fi
         # -- 1. pre-flight, printed verbatim. The package is somebody else's artefact and this
@@ -3383,9 +3651,15 @@ up_p4() {
         if ! app_preflight "$app_dir"; then
             echo
             err "refusing to build: the app package did not pass pre-flight (table above)."
+            if [[ -n "$APP_FROM_EXERCISE" ]]; then
+                # [Co-developed with claude code -- Adam] The generated package WAS written.
+                err "  nothing was started. The generated package was written ($app_dir);"
+                err "  p4_proxy/mininet/app_package_override is UNCHANGED at $(app_knob_state)."
+            else
             err "  nothing was started and nothing was written -- p4_proxy/mininet/app_package_override"
             err "  is UNCHANGED at $(app_knob_state)."
-            err "  fix the red rows, then:  ndt up p4 --app $app_dir"
+            fi
+            err "  fix the red rows, then:  ndt up p4 --app ${NDT_APP_DIR:-$app_dir}"
             # 🔴 rc 5: a GUARD REFUSED and nothing was built -- the same code the two topology
             # refusals below and record_up_target's give. The distinction rc 1 carries is
             # "this command looked at the machine and did not like what it found", and this
@@ -3511,7 +3785,7 @@ up_p4() {
     # inline checks and the only copy of them in the file; since 2026-09-25 it is the ONE guard
     # up_ovs calls too, and the one place `--force` is honoured and recorded.
     local up_what="p4 $hosts"
-    [[ -n "$app_dir" ]] && up_what="p4 --app $(printf '%q' "$app_dir")"
+    [[ -n "$app_dir" ]] && up_what="p4 --app $(printf '%q' "${NDT_APP_DIR:-$app_dir}")"
     guard_up_lab_free "$up_what" || return $?
 
     say "ndt up p4"
@@ -3525,7 +3799,16 @@ up_p4() {
         info "app package  none (baseline fabric)"
     fi
     info "bmv2         $binary"
+    # [Co-developed with claude code -- Adam] On dpids that run a package's own program there is
+    # no compiled rate (the footer says so too); the rate below is NDTwin's own pipeline's.
+    local foreign_n=0; [[ "$app_pipe" == foreign:* ]] && { local _d="${app_pipe#foreign:}"; IFS=, read -ra _d <<<"$_d"; foreign_n=${#_d[@]}; }
+    if [[ "$app_pipe" == foreign:* ]] && (( foreign_n >= SWITCHES )); then
+        info "sample rate  none: every switch runs the package's own program (no ndtwin_switch.json here)"
+    elif [[ "$app_pipe" == foreign:* ]]; then
+        info "sample rate  none on dpid ${app_pipe#foreign:} (the package's own program); $(rate_label "$rate") only where ndtwin_switch.json runs"
+    else
     info "sample rate  $(rate_label "$rate")     (compiled into ndtwin_switch.json)"
+    fi
     echo
 
     # 🔴 `return $?`, not `return 1`: preflight answers 5 when a guard refused and 1 when it
@@ -3549,6 +3832,12 @@ up_p4() {
     if [[ -n "$knob_wanted" ]]; then
         knob_snapshot
         set_host_count "$knob_wanted" "$knob_layout" || { knob_restore "the knob write itself was refused"; return 1; }
+        # [Co-developed with claude code -- Adam] Which kind of write it was: see app_knob_count_note.
+        if [[ "$knob_layout" == package ]]; then
+            [[ "$KNOB_ENTRY" != "$knob_wanted" ]] && app_knob_count_note "$knob_wanted"
+        else
+            app_knob_count_forget
+        fi
     fi
     # [Co-developed with claude code -- Adam]
     # 🔴 THE APP KNOB, at the same point and under the same rule. The two branches are both
@@ -3588,13 +3877,10 @@ up_p4() {
         err "nothing was started."
         return 1; }
     # [Co-developed with claude code -- Adam]
-    # 🔴 THE NOTE DOES NOT NAME THE PACKAGE, deliberately. This line is the literal anchor of
-    # mutate_ndt_honesty.sh's M10 ("ndt up p4 stops writing the note"), and an anchor that no
-    # longer resolves makes that gate report a SURVIVOR -- a cell losing its power is worse
-    # than a note losing a word. What another session needs is on `ndt status`'s own
-    # `app package` row and in .test_run/up.target's topology path, which under a package IS
-    # the package's model. If the note should carry it, move M10's anchor in the same commit.
-    claim_note_up "p4 $hosts"
+    # The note names what was brought up the way the user asked for it: `p4 <n>`, or
+    # `p4 --app <the directory they gave>` (an exercise, or a package). This line is the literal
+    # anchor of mutate_ndt_honesty.sh's M10 ("ndt up p4 stops writing the note").
+    claim_note_up "$up_what"
 
     # -- 1. fabric --
     say "[1/3] bmv2 fabric"
@@ -4264,7 +4550,15 @@ verify_p4() {
             rc=1
         else
             warn "proxy: destination paths NOT CHECKED -- the package's own program runs on dpid"
+            # [Co-developed with claude code -- Adam] install_initial_routes absent from the list
+            # means the proxy DID install NDTwin's routes (roles.ipv4_route, owner ndtwin).
+            if [[ ",$skipped," == *,install_initial_routes,* ]]; then
             warn "  $foreign; the proxy says it sent no LLDP and installed no routes on this"
+            else
+            warn "  $foreign; the proxy says it sent no LLDP, and was set to install NDTwin's routes"
+            warn "  into the package's route table (roles.ipv4_route, owner ndtwin; how many went in"
+            warn "  is in $(short_repo_path "${NDT_PROXY_LOG:-$REPO/.test_run/logs/p4_proxy.log}")) on this"
+            fi
             warn "  fabric (control_plane.skipped: ${skipped//,/, })"
         fi
         verify_p4_package_entries "$state" || rc=1
@@ -4359,9 +4653,18 @@ verify_p4() {
             # The same shape as the EMPTY paragraph above and for the same reason: `ready` is the
             # word half a dozen scripts grep for, so what is qualified is the paragraph under it,
             # never the word.
+            if [[ -n "$skipped" && ",$skipped," != *,install_initial_routes,* ]]; then
+            # [Co-developed with claude code -- Adam] The proxy did not skip its routes: the
+            # package gave NDTwin its route table (owner ndtwin), so they are in it.
+            warn "package pipeline: NDTwin discovered no links, and the proxy was set to install"
+            warn "  NDTwin's routes into the package's route table (roles.ipv4_route, owner ndtwin;"
+            warn "  the proxy log says how many went in); forwarding is those routes and the package's"
+            warn "  $VERIFY_P4_ENTRIES_APPLIED entries on $VERIFY_P4_ENTRIES_SWITCHES switch(es). ndt status quotes no sample rate for it."
+            else
             warn "package pipeline: NDTwin discovered no links and installed no routes on this"
             warn "  fabric; forwarding is whatever the package's $VERIFY_P4_ENTRIES_APPLIED entries on"
             warn "  $VERIFY_P4_ENTRIES_SWITCHES switch(es) make of it. ndt status quotes no sample rate for it."
+            fi
         fi
     else
         say "up, ${R}but not verified${N} -- do not measure on this"
@@ -5517,6 +5820,9 @@ cmd_down() {
     registry_clear_stale || {
         down_rc=1
     }
+    # [Co-developed with claude code -- Adam] The host count an `ndt up p4 --app` wrote goes back
+    # here, not in cmd_clean: clean is an assertion and also runs on its own over a live fabric.
+    app_knob_count_restore || { down_rc=1; not_verified "putting host_count_override back"; }
 
     # The lab is no longer being asked for anything, so the baseline `status --check` compares
     # against goes with it. Left in place it would make every later --check red about a fabric
@@ -5729,6 +6035,8 @@ cmd_clean() {
     # its own it is the command an operator runs to put the checkout back. Below the refusal
     # above, for the same reason it sits below `down`'s: a refused clean measured nothing and
     # must change nothing.
+    # host_count_override is NOT put back here: cmd_down does that before calling this, under its
+    # claim and teardown guards, and a standalone clean on a live round must not resize it.
     app_knob_clear "this checkout is being put back" || rc=1
 
     n="$(bmv2_count)"
@@ -6128,6 +6436,14 @@ knob_row() {
         [[ "$at" =~ ^[0-9]+$ ]] && at="$(date -d "@$at" '+%H:%M:%S' 2>/dev/null || echo "$at")"
         if [[ "$now" == "$base" ]]; then
             printf '  %-14s %s\n' "knob baseline" "$now == the value this round started with (at ${at:-?})"
+            return 0
+        fi
+        # [Co-developed with claude code -- Adam] The knob still holds, byte for byte, what
+        # `ndt up p4 --app` wrote, and the value before it is the round's start: a round in
+        # progress that `ndt down` puts back. Asked of the record rather than up_wrote, because a
+        # claim taken over a live --app fabric writes the baseline without an up_wrote line.
+        if app_knob_count_holds && [[ "$(round_start_host_count)" == "$base" ]]; then
+            printf '  %-14s %s\n' "knob baseline" "${Y}$now, written by 'ndt up p4 --app'; the round started at $base -- 'ndt down' puts it back${N}"
             return 0
         fi
         upw="$(round_baseline_field up_wrote)"
@@ -10875,6 +11191,11 @@ NDT_UP_ARGV=()
 #: which is NOT the same as `auto`: without it the bring-up writes what the package declares.
 NDT_TELEMETRY=""
 #: [Co-developed with claude code -- Adam]
+#: The flags `ndt up p4 --app <exercise dir>` hands to tools/p4_exercise/one_step.py, each with
+#: its value, in the order given. Only meaningful with --app on a p4lang-tutorials exercise; the
+#: tool refuses a bad combination (rc 2) and up_p4 refuses them beside a package.
+NDT_APP_EXERCISE_ARGV=()
+#: [Co-developed with claude code -- Adam]
 #: `ndt up ... --force`: past somebody else's claim or a measurement in flight,
 #: on either plane, and recorded -- see guard_up_lab_free. Set HERE, from argv, and reset on every
 #: call, so an exported NDT_UP_FORCE in somebody's shell forces nothing: the override has to be
@@ -10888,6 +11209,8 @@ up_take_app_flag() {
     NDT_TELEMETRY=""
     NDT_UP_FORCE=""
     NDT_UP_WORDS=""
+    NDT_APP_EXERCISE_ARGV=()
+    local xwant=""
     local -a words=()
     # `seen` is tracked apart from the VALUE, and that is the whole point of it. `--app=` and
     # `--app ""` both set NDT_APP_DIR to the empty string, and an emptiness test alone reads
@@ -10902,17 +11225,29 @@ up_take_app_flag() {
         words+=("$a")
         if (( want )); then NDT_APP_DIR="$a"; want=0; seen=1; continue; fi
         if (( twant )); then NDT_TELEMETRY="$a"; twant=0; tseen=1; continue; fi
+        if [[ -n "$xwant" ]]; then NDT_APP_EXERCISE_ARGV+=("$xwant" "$a"); xwant=""; continue; fi
         case "$a" in
             --app)   want=1 ;;
             --app=*) NDT_APP_DIR="${a#--app=}"; seen=1 ;;
             --telemetry)   twant=1 ;;
             --telemetry=*) NDT_TELEMETRY="${a#--telemetry=}"; tseen=1 ;;
+            --topology|--p4|--role-ipv4-route|--table-owner|--mode) xwant="$a" ;;
+            --topology=*|--p4=*|--role-ipv4-route=*|--table-owner=*|--mode=*|--no-roles) NDT_APP_EXERCISE_ARGV+=("$a") ;;
             *)       NDT_UP_ARGV+=("$a") ;;
         esac
     done
     (( ${#words[@]} > 0 )) && NDT_UP_WORDS="$(printf '%q ' "${words[@]}")" && NDT_UP_WORDS="${NDT_UP_WORDS% }"
     if (( want )); then
         err "ndt up --app needs a package directory:  ndt up p4 --app <dir>"
+        return 2
+    fi
+    if [[ -n "$xwant" ]]; then
+        err "ndt up $xwant needs a value:  ndt up p4 --app <exercise dir> $xwant <value>"
+        return 2
+    fi
+    if (( ${#NDT_APP_EXERCISE_ARGV[@]} )) && (( ! seen )); then
+        err "${NDT_APP_EXERCISE_ARGV[0]%%=*} converts a p4lang-tutorials exercise and needs --app:"
+        err "  ndt up p4 --app <exercise dir> ${NDT_APP_EXERCISE_ARGV[0]%%=*} ..."
         return 2
     fi
     # 🔴 THE SAME `seen` DISCIPLINE AS --app, AND THE SAME REASON. `--telemetry=` and
@@ -10948,14 +11283,27 @@ up_take_app_flag() {
         return 2
     fi
     [[ -z "$NDT_APP_DIR" ]] && return 0
+    # [Co-developed with claude code -- Adam] p4_proxy/mininet/app_package_override is one path
+    # on one line, so a path with a line break in it cannot be written there. Asked first of the
+    # path as typed, before `cd ... && pwd` -- which keeps a link's own name and strips a
+    # trailing line break -- and again below of the logical and the resolved path.
+    if [[ "$NDT_APP_DIR" == *$'\n'* || "$NDT_APP_DIR" == *$'\r'* ]]; then
+        err "--app: the directory's path has a line break in it; rename it first"
+        return 2
+    fi
     if [[ ! -d "$NDT_APP_DIR" ]]; then
         err "--app $NDT_APP_DIR is not a directory"
-        err "  it must be an app package: a directory with package.json and ndtwin/topology.json,"
-        err "  as tools/p4_exercise/convert.py writes one."
+        err "  it must be a built p4lang-tutorials exercise, or an app package: a directory with"
+        err "  package.json and ndtwin/topology.json, as tools/p4_exercise/convert.py writes one."
         return 2
     fi
     NDT_APP_DIR="$(cd "$NDT_APP_DIR" 2>/dev/null && pwd)" || {
         err "--app: could not resolve that directory to an absolute path"; return 2; }
+    local app_real; app_real="$(readlink -f "$NDT_APP_DIR" 2>/dev/null)"
+    if [[ "$NDT_APP_DIR$app_real" == *$'\n'* || "$NDT_APP_DIR$app_real" == *$'\r'* ]]; then
+        err "--app: the directory's path has, or resolves to one with, a line break in it; rename it first"
+        return 2
+    fi
     return 0
 }
 
@@ -11067,7 +11415,8 @@ usage: ndt <command>
                   ndt up p4         p4 at the current host count
                   ndt up p4 4       p4 at 4 hosts   (rewrites host_count_override)
                   ndt up p4 128     p4 at 128 hosts
-                  ndt up p4 --app <dir>   p4 on an APP PACKAGE
+                  ndt up p4 --app <dir>   p4 on an APP PACKAGE, or on a built
+                                    p4lang-tutorials exercise (converted first)
                   ndt up <any of the above> --force
                                     the same, past somebody else's claim or a
                                     measurement in flight -- and written down
@@ -11084,10 +11433,53 @@ usage: ndt <command>
                   what it does, in order: runs tools/p4_exercise/preflight.py and
                   prints its table verbatim (a red row means nothing is built and
                   nothing is written); writes p4_proxy/mininet/app_package_override;
-                  rewrites host_count_override; points NDT_TOPO, the kernel's
-                  --topology and the proxy's NDTWIN_TOPO_FILE at the package's model.
+                  rewrites host_count_override (and 'ndt down' puts it back
+                  afterwards, unless it was changed since, or 'ndt release' or a
+                  claim that found it moved has ended the record); points
+                  NDT_TOPO, the kernel's --topology and the proxy's NDTWIN_TOPO_FILE
+                  at the package's model.
                   --app is a P4 flag: on any other plane it is a usage error (2), not
                   an ignored argument.
+                --app <exercise dir> takes a p4lang-tutorials exercise directly, once
+                  'make build' has compiled it ('make build' only compiles; the
+                  exercise Makefile's default target also starts tutorials' own
+                  Mininet; an unbuilt exercise is refused with the make build
+                  command). tools/p4_exercise/one_step.py converts it
+                  into a package under .test_run/packages/generated/ -- never inside
+                  the exercise -- and prints its path and the route role it chose;
+                  pre-flight and the bring-up then run on that package as above. A
+                  re-run with the same result reuses it; a different result replaces
+                  it, unless a fabric built from it is still up (then: ndt down
+                  first). A conversion that is refused is 5, nothing built; a
+                  malformed or conflicting exercise flag is 2.
+                    ndt up p4 --app exercises/basic
+                  --topology <rel>   the topology (default: the Makefile's TOPO, else
+                                     the only topology.json in the exercise)
+                  --p4 <rel>         the default program; its stem picks the compiled
+                                     build/<stem>.json a switch runs unless the
+                                     topology names that switch's own program
+                                     (default: the Makefile's DEFAULT_PROG, else
+                                     the one .p4 at the exercise's top)
+                  --role-ipv4-route [owner=,]table=,match_field=,action=,dst_mac=,port=
+                                     the forwarding table, written out; wins over
+                                     the auto-filled one
+                  --table-owner ndtwin
+                                     NDTwin owns the forwarding table and writes it;
+                                     the exercise's match entries for that table are
+                                     taken out of the runtime files, and the count
+                                     is printed (default package: NDTwin only reads
+                                     the table, to compute flow paths)
+                  --no-roles         declare none
+                  --mode ndtwin|external|auto
+                                     the control plane (default auto: external when
+                                     the exercise has a mycontroller.py -- the
+                                     fabric then comes up empty -- else NDTwin's)
+                  without those, the role is filled from the p4info when it has exactly
+                  one (table, action) candidate shaped like a destination route; with
+                  none or several the package has no role, and the twin will show no
+                  flow paths for this fabric unless its forwarding table uses NDTwin's
+                  own names. Several are printed as the --role-ipv4-route line that
+                  picks each.
                   🔴 THE KNOB IS PERSISTENT AND IS CLEARED AGAIN BY: an 'ndt up' of
                   any plane WITHOUT --app, 'ndt down', 'ndt clean', and a rolled-back
                   bring-up. Each of those prints 'app package cleared: <dir>'. Nothing
@@ -11150,8 +11542,10 @@ usage: ndt <command>
                   the assertion found something still running -- or, since 09-25, a
                   STALE registry entry could not be removed, or an app's window
                   could not be written before its pidfile was (the file is then
-                  kept, and the claim note says which). All four steps run
-                  whatever the earlier ones did -- a first step that failed is what
+                  kept, and the claim note says which) -- or, since 10-30, the
+                  host count an 'ndt up p4 --app' wrote could not be put back (the
+                  claim note says "putting host_count_override back"). All four
+                  steps run whatever the earlier ones did -- a first step that failed is what
                   makes the rest matter -- so the rc is one verdict over all of them
                   and the block above it says which.
                   3 THERE WAS NOTHING TO TEAR DOWN: no fabric, no registry entry in

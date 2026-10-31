@@ -823,6 +823,10 @@ class TheP4infoSuffix(AppTree, unittest.TestCase):
         message = str(caught.exception)
         self.assertIn("build/app.p4.p4info.txt", message)
         self.assertIn("build/app.p4.p4info.txtpb", message)
+        # [Co-developed with claude code -- Adam] tutorials' `clean` target runs `mn -c` under
+        # sudo, which would tear down NDTwin's fabric; the remedy must not name it.
+        self.assertIn("make build", message)
+        self.assertNotIn("make clean", message)
 
     def test_with_neither_the_refusal_names_the_current_spelling(self):
         os.remove(os.path.join(self.app, "build/app.p4.p4info.txt"))
@@ -887,6 +891,9 @@ class TheProgramsOwnIncludes(AppTree, unittest.TestCase):
         with self.assertRaises(convert.ConversionError) as caught:
             self.convert()
         self.assertIn("outside.p4", str(caught.exception))
+        # Refused by the include walk, which names the including file, and not only by the
+        # bound on where a file is written. [Co-developed with claude code -- Adam]
+        self.assertIn("includes '../../outside.p4', which resolves to", str(caught.exception))
 
 
 class ConvertingWithThriftCommands(AppTree, unittest.TestCase):
@@ -967,6 +974,8 @@ class ConvertingWithThriftCommands(AppTree, unittest.TestCase):
         with self.assertRaises(convert.ConversionError) as caught:
             self.thrift({"s1": "../elsewhere.sh"})
         self.assertIn("outside", str(caught.exception))
+        # By --thrift-commands' own check, which names the flag. [Co-developed with claude code -- Adam]
+        self.assertIn("--thrift-commands s1=../elsewhere.sh: resolves to", str(caught.exception))
 
     def test_a_script_symlinked_out_of_the_app_directory_is_refused(self):
         with open(os.path.join(self.tmp, "elsewhere.sh"), "w") as fh:

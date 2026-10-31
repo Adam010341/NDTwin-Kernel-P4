@@ -186,6 +186,7 @@ chmod +x "$FIX/fakepy"
 cat > "$FIX/preflight.sh" <<'FAKE'
 #!/usr/bin/env bash
 echo "pre-flight: $1"
+[[ "${2:-}" == --no-role-suggestion ]] && echo "pre-flight: role suggestion off"
 if [[ -e "$PREFLIGHT_FAIL" ]]; then
     echo "  FAIL  entries match p4info         16 problem(s); first: s1 entry 1 is TERNARY"
     echo "FAIL -- 1 check(s) failed; do NOT bring this package up"
@@ -1912,6 +1913,655 @@ check "🔴 in particular it is NOT 1 ('this ran and something was wrong')" "0" 
 hasnt "🔴 and the old residue sentence is gone with it"    "the pid it names" "$OUT"
 mv "$FIX/manifest.json.aside" "$FIX/manifest.json" 2>/dev/null
 rm -f "$FIX/ndtwin_link_telemetry.json"
+
+# =============================================================================================
+section "22. 🔴 --app <exercise dir>: converted first, then brought up as a package"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# What `ndt` owns of the one-step path is the wiring: which directories go to the converter, the
+# flags it is handed, the package it then brings up, and that a refused or malformed conversion
+# moves nothing. What the converter decides (topology, program, role, where the package goes) is
+# tools/p4_exercise/tests/test_one_step.py's subject, against the real convert.py. So here the
+# converter is a stand-in, reached through the same two seams the pre-flight stand-in uses
+# (P4_PROXY_PY and an NDT_APP_* tool path): it records its argv, writes PKG_OK's shape as the
+# generated package and names it, and exits with the rc in a file. It writes the package and its
+# path WHATEVER that rc is, so the refusal cells show the rc is what refuses, not a missing path.
+cat > "$FIX/one_step.sh" <<'FAKE'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$ONE_STEP_ARGV"
+run="" emit="" prev=""
+for a in "$@"; do
+    case "$prev" in --run-dir) run="$a" ;; --emit-path) emit="$a" ;; esac
+    prev="$a"
+done
+rc="$(cat "$ONE_STEP_RC" 2>/dev/null || echo 0)"
+echo "  route role    : (stand-in)"
+d="$run/packages/generated/stub-0000"
+rm -rf "$d"; mkdir -p "$d"; cp -r "$PKG_OK_SRC"/. "$d"/
+[[ -e "$ONE_STEP_NO_PATH" ]] || printf '%s\n' "$d" > "$emit"
+exit "$rc"
+FAKE
+chmod +x "$FIX/one_step.sh"
+export ONE_STEP_ARGV="$FIX/one_step.argv" ONE_STEP_RC="$FIX/one_step.rc" PKG_OK_SRC="$PKG_OK"
+export ONE_STEP_NO_PATH="$FIX/one_step.no-path"
+EX="$FIX/exercises/basic"; mkdir -p "$EX/pod-topo"; echo '{}' > "$EX/pod-topo/topology.json"
+GEN="$FIX/.test_run/packages/generated/stub-0000"
+ONE='export NDT_APP_ONE_STEP="'"$FIX"'/one_step.sh"; '
+reset_one() { reset_fix; rm -f "$ONE_STEP_ARGV" "$ONE_STEP_RC" "$ONE_STEP_NO_PATH"; rm -rf "$GEN"; }
+argv_has() { /usr/bin/grep -qxF -- "$1" "$ONE_STEP_ARGV" 2>/dev/null && echo yes || echo no; }
+# argv_pair <flag> <value>: yes when <value> is the word right after <flag>. Compared line by line,
+# not with `grep -zF`: a newline in a -F pattern splits it into several patterns, and the empty
+# one after the last newline matches anything.
+argv_pair() {
+    [[ -r "$ONE_STEP_ARGV" ]] || { echo no; return; }
+    awk -v f="$1" -v v="$2" 'p == f && $0 == v { hit = 1 } { p = $0 } END { print (hit ? "yes" : "no") }' "$ONE_STEP_ARGV"
+}
+
+reset_one
+OUT="$(drive "$ONE"'up_take_app_flag p4 --app '"$(q "$EX")"' --topology pod-topo/topology.json --table-owner ndtwin && NDT_APP_DIR='"$(q "$EX")"' && up_p4')"
+check "🔴 an exercise directory comes up"                 "0" "$(rc_of "$OUT")"
+check "🔴 the knob names the GENERATED package, not the exercise" "$GEN" "$(knob_state)"
+has   "  the conversion is its own step on screen"        "exercise -> app package" "$OUT"
+has   "  the converter's report is printed"               "route role    : (stand-in)" "$OUT"
+has   "  and pre-flight then runs on the generated package" "pre-flight: $GEN" "$OUT"
+has   "  the banner names the generated package"          "app package  $GEN (mode ndtwin, 4 switch(es))" "$OUT"
+check "  the converter is handed the exercise"            "yes" "$(argv_has "$EX")"
+check "🔴 and this checkout's run directory"              "yes" "$(argv_has "$FIX/.test_run")"
+check "🔴 --topology reaches it with its value"           "yes" \
+      "$(argv_pair --topology pod-topo/topology.json)"
+check "🔴 --table-owner reaches it with its value"        "yes" \
+      "$(argv_pair --table-owner ndtwin)"
+has   "🔴 its pre-flight prints no role suggestion"       "pre-flight: role suggestion off" "$OUT"
+check "  and the machine was reached, once"               "sudo=1 stack=1" "$(touched)"
+
+# The flag parser: the exercise flags are lifted out of argv like --app and --telemetry, in both
+# spellings, and nothing of them is left for resolve_up_target.
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --p4=basic.p4 --role-ipv4-route table=t,match_field=f,action=a,dst_mac=m,port=p --no-roles; printf "X=%s\n" "${NDT_APP_EXERCISE_ARGV[@]}"; echo "LEFT=[${NDT_UP_ARGV[*]}]"')"
+has   "--p4=<rel> is lifted out as one word"              "X=--p4=basic.p4" "$OUT"
+has   "--role-ipv4-route <spec> keeps its value"          "X=table=t,match_field=f,action=a,dst_mac=m,port=p" "$OUT"
+has   "--no-roles is lifted out"                          "X=--no-roles" "$OUT"
+has   "🔴 and only the plane is left for resolve_up_target" "LEFT=[p4]" "$OUT"
+OUT="$(drive 'up_take_app_flag p4 --topology pod-topo/topology.json')"
+check "🔴 an exercise flag without --app is a usage error" "2" "$(rc_of "$OUT")"
+has   "  naming the flag that wanted it"                  "--topology converts a p4lang-tutorials exercise and needs --app" "$OUT"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --table-owner')"
+check "an exercise flag with no value is a usage error"   "2" "$(rc_of "$OUT")"
+has   "  and says so"                                     "ndt up --table-owner needs a value" "$OUT"
+NLDIR="$FIX/exercises/two"$'\n'"lines"; mkdir -p "$NLDIR/pod-topo"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$NLDIR")")"
+check "🔴 a path with a line break in it is a usage error" "2" "$(rc_of "$OUT")"
+has   "  saying why"                                      "a line break in it" "$OUT"
+rm -rf "$NLDIR"
+NLDIR="$FIX/exercises/two"$'\n'"lines"; mkdir -p "$NLDIR/pod-topo"; ln -sfn "$NLDIR" "$FIX/exercises/plain-name"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$FIX/exercises/plain-name")")"
+check "🔴 so is a path that resolves to one with a line break" "2" "$(rc_of "$OUT")"
+has   "  saying why"                                      "resolves to one with, a line break in it" "$OUT"
+rm -rf "$NLDIR" "$FIX/exercises/plain-name"
+# [Co-developed with claude code -- Adam] The two a check of the resolved path alone misses.
+# (a) a link whose own NAME has the line break: `cd ... && pwd` keeps that name, readlink drops it.
+reset_fix
+NLLINK="$FIX/packages/a"$'\n'"b"; rm -f "$NLLINK"; ln -s "$PKG_OK" "$NLLINK"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$NLLINK")"' && up_p4')"
+# Unmarked: the typed-path check and the logical-path check below it each refuse this one, so
+# no single mutation reddens it.
+check "  a link whose name has a line break is a usage error" "2" "$(rc_of "$OUT")"
+check "  the knob was not written"                        "absent" "$(knob_state)"
+check "  no up.target was recorded"                       "0" "$([[ -e "$FIX/.test_run/up.target" ]] && echo 1 || echo 0)"
+check "  and nothing was touched"                         "sudo=0 stack=0" "$(touched)"
+rm -f "$NLLINK"
+# (b) a directory whose name ENDS in a line break: `$(... pwd)` strips it, naming another path.
+reset_fix
+NLEND="$FIX/packages/trail"$'\n'; rm -rf "$NLEND"; cp -r "$PKG_OK" "$NLEND"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$NLEND")"' && up_p4')"
+check "🔴 a directory whose name ends in a line break is a usage error" "2" "$(rc_of "$OUT")"
+check "  the knob was not written"                        "absent" "$(knob_state)"
+rm -rf "$NLEND"
+# (c) a relative path typed from a directory reached through a link with a line break in its
+# name: the typed path and the resolved one are clean, the logical one is not.
+reset_fix
+NLCWD="$FIX/l"$'\n'"k"; rm -f "$NLCWD"; ln -s "$FIX/packages" "$NLCWD"
+OUT="$(cd "$NLCWD" && drive 'up_take_app_flag p4 --app four && up_p4')"
+check "🔴 a logical path with a line break is a usage error" "2" "$(rc_of "$OUT")"
+check "  the knob was not written"                        "absent" "$(knob_state)"
+rm -f "$NLCWD"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --topology')"
+check "  so is a trailing --topology"                     "2" "$(rc_of "$OUT")"
+
+# 🔴 BESIDE A PACKAGE THE FLAGS ARE REFUSED, NOT IGNORED: a package already says its topology,
+# program and roles, and accepting --role-ipv4-route there would build it without the role the
+# operator just typed.
+reset_one
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$PKG_OK")"'; NDT_APP_EXERCISE_ARGV=(--no-roles); up_p4')"
+check "🔴 an exercise flag beside a package is a usage error" "2" "$(rc_of "$OUT")"
+has   "  saying why"                                      "is already an app package (it has package.json)" "$OUT"
+check "🔴 the converter was not run"                     "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+check "  and nothing was touched"                         "sudo=0 stack=0" "$(touched)"
+# ... and a package without the flags never reaches the converter at all (section 1 is that
+# case; this is its control on the stand-in's log).
+reset_one
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4')"
+check "🔴 a package with no exercise flags is today's path" "0" "$(rc_of "$OUT")"
+check "🔴 and never reaches the converter"                "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+hasnt "🔴 and its pre-flight is not told to drop the suggestion" "pre-flight: role suggestion off" "$OUT"
+# [Co-developed with claude code -- Adam] A generated package given by its own path, as one_step.py
+# prints it, is still a generated package: its package.json is the next conversion's to replace.
+reset_one
+HAND="$FIX/.test_run/packages/generated/handmade-0000"; rm -rf "$HAND"; mkdir -p "$(dirname "$HAND")"
+cp -r "$PKG_OK" "$HAND"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$HAND")"'; up_p4')"
+check "  a generated package given by its path comes up"  "0" "$(rc_of "$OUT")"
+has   "🔴 and its pre-flight prints no role suggestion either" "pre-flight: role suggestion off" "$OUT"
+check "  without the converter"                           "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+reset_one
+HLINK="$FIX/packages/link-to-generated"; rm -f "$HLINK"; ln -s "$HAND" "$HLINK"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$HLINK")"'; up_p4')"
+has   "🔴 so is one reached through a symlink"            "pre-flight: role suggestion off" "$OUT"
+rm -rf "$HAND" "$HLINK"
+
+# 🔴 A PACKAGE THAT LOST ITS package.json IS NOT AN EXERCISE. Its ndtwin/topology.json is NDTwin's
+# model; converting the directory again would treat a generated package as somebody's source.
+reset_one
+LOST="$FIX/packages/lost-manifest"; rm -rf "$LOST"; cp -r "$PKG_OK" "$LOST"; rm -f "$LOST/package.json"
+mkdir -p "$LOST/pod-topo"; echo '{}' > "$LOST/pod-topo/topology.json"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$LOST")"'; up_p4')"
+check "🔴 a package without its package.json is refused (5)" "5" "$(rc_of "$OUT")"
+has   "  as a package that lost its manifest"             "an app package that lost its manifest" "$OUT"
+check "🔴 and is not converted again"                     "absent" "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+rm -rf "$LOST"
+# build/, logs/ and pcaps/ hold no exercise topology (one_step.py skips the same three).
+reset_one
+BUILT="$FIX/exercises/only-build"; mkdir -p "$BUILT/build"; echo '{}' > "$BUILT/build/topology.json"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$BUILT")"'; up_p4')"
+check "🔴 a topology.json under build/ does not make an exercise" "absent" \
+      "$([[ -e "$ONE_STEP_ARGV" ]] && echo present || echo absent)"
+has   "  the directory gets today's refusal"              "This is neither an app package nor a" "$OUT"
+rm -rf "$BUILT"
+
+# A pre-flight refusal on the exercise path: the generated package WAS written, and is named.
+reset_one; : > "$PREFLIGHT_FAIL"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
+check "🔴 a generated package that fails pre-flight is refused (5)" "5" "$(rc_of "$OUT")"
+has   "🔴 and the refusal says the generated package was written" "The generated package was written ($GEN)" "$OUT"
+hasnt "🔴 not that nothing was written"                   "nothing was started and nothing was written" "$OUT"
+check "  the knob was not written"                        "absent" "$(knob_state)"
+rm -f "$PREFLIGHT_FAIL"
+
+# A refusal from the converter is a refusal here: rc 5, the knob unchanged, nothing reached.
+for crc in 5 1; do
+    reset_one; plant_knob; printf '%s\n' "$crc" > "$ONE_STEP_RC"
+    OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
+    check "🔴 the converter's rc $crc is a refusal (5)"   "5" "$(rc_of "$OUT")"
+    has   "  saying the exercise was not converted"       "was not converted into an app package" "$OUT"
+    check "🔴 the knob that was there is untouched"       "$PKG_OK" "$(knob_state)"
+    check "  and nothing was touched"                     "sudo=0 stack=0" "$(touched)"
+done
+check "🔴 the knob's package is handed over as --in-use"  "yes" \
+      "$(argv_pair --in-use "$PKG_OK")"
+reset_one; printf '2\n' > "$ONE_STEP_RC"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; NDT_APP_EXERCISE_ARGV=(--no-roles --table-owner ndtwin); up_p4')"
+check "🔴 the converter's usage error stays a usage error (2)" "2" "$(rc_of "$OUT")"
+check "🔴 and the knob was not written"                   "absent" "$(knob_state)"
+reset_one; : > "$ONE_STEP_NO_PATH"
+OUT="$(drive "$ONE"'NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
+has   "🔴 rc 0 with no package path named is refused by the converter step" \
+      "was not converted into an app package" "$OUT"
+# Controls, unmarked: the model check further down refuses an empty path too, so no single
+# mutation of the converter step can redden these -- they hold the file's rule that every
+# refusal leaves the knob and the machine alone.
+check "  a refusal (5)"                                   "5" "$(rc_of "$OUT")"
+check "  the knob was not written"                        "absent" "$(knob_state)"
+check "  and nothing was touched"                         "sudo=0 stack=0" "$(touched)"
+
+# The default behind the seam, which the stand-in cannot say: the real converter, in this
+# checkout. Under these stubs REPO is the fixture, which has no tools/p4_exercise, so the
+# function names the path it would have run.
+reset_one
+OUT="$(drive 'unset NDT_APP_ONE_STEP; NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
+check "🔴 a missing converter is a refusal (5)"           "5" "$(rc_of "$OUT")"
+has   "  named by its path in this checkout"              "no exercise converter at $FIX/tools/p4_exercise/one_step.py" "$OUT"
+rm -rf "$FIX/exercises" "$GEN"
+
+# =============================================================================================
+section "23. 🔴 end to end: the REAL one_step.py and the REAL pre-flight, the bring-up stubbed"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# Section 22 drives ndt against a stand-in converter; this one hands ndt the real
+# tools/p4_exercise/one_step.py and preflight.py (through the same two seams, pointed at this
+# checkout) and the proxy's venv interpreter, over a copy of tools/p4_exercise/tests/fixtures/basic
+# laid out like exercises/basic (a Makefile with TOPO, basic.p4 at the top, two topologies). The
+# machine is still the stand-in's. It runs once with no knob, then with the knob naming the
+# package that first run built: the same result is reused, a different one is refused.
+E2E_PY=""
+for c in "${PROXY_PY:-}" "$REAL_REPO/p4_proxy/venv/bin/python" \
+         "$(git -C "$REAL_REPO" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')/p4_proxy/venv/bin/python"; do
+    [[ -n "$c" && -x "$c" ]] || continue
+    "$c" -c 'from p4.config.v1 import p4info_pb2' >/dev/null 2>&1 || continue
+    E2E_PY="$c"; break
+done
+check "🔴 the proxy's venv interpreter is there (a missing one is a FAIL here, not a skip)" \
+      "yes" "$([[ -n "$E2E_PY" ]] && echo yes || echo no)"
+E2E_EX="$FIX/exercises/e2e/basic"
+rm -rf "$E2E_EX"; mkdir -p "$(dirname "$E2E_EX")"
+cp -r "$REAL_REPO/tools/p4_exercise/tests/fixtures/basic" "$E2E_EX"
+cp "$E2E_EX/solution/basic.p4" "$E2E_EX/basic.p4"
+printf 'BMV2_SWITCH_EXE = simple_switch_grpc\nTOPO = pod-topo/topology.json\n\ninclude ../../utils/Makefile\n' \
+    > "$E2E_EX/Makefile"
+REAL='export P4_PROXY_PY='"$(q "$E2E_PY")"'; export NDT_APP_ONE_STEP='"$(q "$REAL_REPO/tools/p4_exercise/one_step.py")"'; export NDT_APP_PREFLIGHT='"$(q "$REAL_REPO/tools/p4_exercise/preflight.py")"'; '
+e2e() {   # e2e <label> <exercise> [exercise flags...] -> OUT; the output is kept when E2E_LOG_DIR is set
+    local label="$1" ex="$2"; shift 2
+    local flags; flags="$(printf '%q ' "$@")"
+    OUT="$(drive "$REAL"'up_take_app_flag p4 --app '"$(q "$ex")"' '"$flags"' && up_p4')"
+    [[ -n "${E2E_LOG_DIR:-}" ]] && printf '%s\n' "$OUT" > "$E2E_LOG_DIR/e2e_$label.txt"
+}
+e2e_gen() { sed -n 's/^  package       : \(.*\)   (.*)$/\1/p' <<<"$OUT" | tail -1; }
+tree_sum() { (cd "$1" 2>/dev/null && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-16); }
+
+reset_fix
+e2e no_knob "$E2E_EX"
+E2E_GEN="$(e2e_gen)"
+check "🔴 with no knob, the exercise comes up through the real converter" "0" "$(rc_of "$OUT")"
+check "🔴 the knob names the package it generated"        "$E2E_GEN" "$(knob_state)"
+check "  which is under .test_run/packages/generated/"    "$FIX/.test_run/packages/generated" "$(dirname "$E2E_GEN")"
+has   "  the Makefile's TOPO chose the topology"          "pod-topo/topology.json   (the Makefile's TOPO)" "$OUT"
+has   "  the role was auto-filled"                        "auto-filled from the p4info -- its one (table, action) candidate" "$OUT"
+has   "🔴 the real pre-flight passed the generated package" "PASS -- every check passed" "$OUT"
+has   "🔴 and resolved the auto-filled role, owner package" "MyIngress.ipv4_forward(dstAddr, port bit<9>), owner package" "$OUT"
+# topo-start and, a real package having inter-switch links, the heartbeat: two sudo calls.
+check "  the machine was reached: one bring-up"           "stack=1" "$(touched | sed 's/^sudo=[0-9]* //')"
+E2E_SUM="$(tree_sum "$E2E_GEN")"
+
+# The knob now names that package. The same conversion is reused...
+reset_fix; printf '# written by ndt up p4 --app at 2026-10-29T00:00:00Z\n%s\n' "$E2E_GEN" > "$KNOB"
+e2e knob_same "$E2E_EX"
+check "🔴 with the knob naming it, the same result comes up again" "0" "$(rc_of "$OUT")"
+has   "  reusing the package"                             "$E2E_GEN   (unchanged)" "$OUT"
+# ... and a different one is refused, leaving the package and the knob as they were.
+reset_fix; printf '# written by ndt up p4 --app at 2026-10-29T00:00:00Z\n%s\n' "$E2E_GEN" > "$KNOB"
+e2e knob_changed "$E2E_EX" --table-owner ndtwin
+check "🔴 with the knob naming it, a different result is refused (5)" "5" "$(rc_of "$OUT")"
+has   "  telling the user to take the fabric down"        "Take it down first:  ndt down" "$OUT"
+check "🔴 the package that fabric runs is untouched"      "$E2E_SUM" "$(tree_sum "$E2E_GEN")"
+check "🔴 the knob is untouched"                          "$E2E_GEN" "$(knob_state)"
+check "  and nothing was reached"                         "sudo=0 stack=0" "$(touched)"
+# Without the knob the different result replaces it, and says what owner ndtwin stripped.
+reset_fix
+e2e table_owner_ndtwin "$E2E_EX" --table-owner ndtwin
+check "🔴 without the knob, the different result comes up" "0" "$(rc_of "$OUT")"
+has   "  replacing the package"                           "$E2E_GEN   (replaced)" "$OUT"
+has   "🔴 and saying how many entries it stripped"         "stripped      : 16 match entries of MyIngress.ipv4_lpm" "$OUT"
+# The three outputs a reader of the one-step path must not see contradict each other: several
+# candidates, --no-roles, and an external control plane. Pre-flight prints no suggestion in any.
+reset_fix
+E2E_TWO="$FIX/exercises/e2e/basic_two"; rm -rf "$E2E_TWO"; cp -r "$E2E_EX" "$E2E_TWO"
+# A second route-shaped table, in the p4info AND the bmv2 json, so the two stay one compile.
+"$E2E_PY" - "$E2E_TWO/build/basic.p4.p4info.txtpb" "$E2E_TWO/build/basic.json" "$REAL_REPO/tools" <<'PY'
+import copy, json, sys
+sys.path.insert(0, sys.argv[3])
+from google.protobuf import text_format
+from p4_exercise import preflight
+index = preflight.P4InfoIndex.parse(sys.argv[1])
+twin = index.p4info.tables.add(); twin.CopyFrom(index.table("MyIngress.ipv4_lpm"))
+twin.preamble.id = max(t.preamble.id for t in index.p4info.tables) + 1
+twin.preamble.name = "MyIngress.ipv4_lpm_backup"; twin.preamble.alias = "ipv4_lpm_backup"
+open(sys.argv[1], "w").write(text_format.MessageToString(index.p4info))
+bmv2 = json.load(open(sys.argv[2]))
+for pipe in bmv2["pipelines"]:
+    for t in list(pipe["tables"]):
+        if t["name"] == "MyIngress.ipv4_lpm":
+            c = copy.deepcopy(t); c["name"] = "MyIngress.ipv4_lpm_backup"
+            c["id"] = max(x["id"] for x in pipe["tables"]) + 1
+            pipe["tables"].append(c)
+json.dump(bmv2, open(sys.argv[2], "w"))
+PY
+e2e several "$E2E_TWO"
+has   "🔴 several candidates: the warning"                "the twin will show no flow paths for this fabric" "$OUT"
+has   "  and the ndt flag line for each"                  "--role-ipv4-route table=MyIngress.ipv4_lpm_backup," "$OUT"
+hasnt "🔴 and no package.json suggestion beside them"     "roles suggestion" "$OUT"
+has   "  and pre-flight passes the package"               "PASS -- every check passed" "$OUT"
+reset_fix
+e2e no_roles "$E2E_EX" --no-roles
+has   "🔴 --no-roles: says none was asked for"            "route role    : none -- --no-roles was given" "$OUT"
+hasnt "🔴 and pre-flight does not suggest one anyway"     "roles suggestion" "$OUT"
+reset_fix
+E2E_EXT="$FIX/exercises/e2e/p4runtime"; rm -rf "$E2E_EXT"
+cp -r "$REAL_REPO/tools/p4_exercise/tests/fixtures/p4runtime" "$E2E_EXT"
+e2e external "$E2E_EXT"
+has   "🔴 external: says why there is no role"            "the control plane is external" "$OUT"
+hasnt "🔴 and pre-flight does not suggest one"            "roles suggestion" "$OUT"
+rm -rf "$FIX/exercises/e2e" "$FIX/.test_run/packages" "$FIX/.test_run/packages-staging"
+
+# =============================================================================================
+section "24. 🔴 what an --app bring-up leaves behind, and what it says it did"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# (a) The round's knob. `--app` sizes the fabric from the package and writes that count through
+# host_count_override; `ndt release` refuses while the knob differs from the round's start. The
+# whole sequence -- claim, up --app, down, release -- must need no hand-written number.
+LCLAIM="$FIX/.test_run/lab.claim"
+reset_fix; rm -f "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline" "$FIX/.test_run/round.baseline.prev" \
+                 "$FIX/.test_run/host_count_override.app" "$FIX/.test_run/host_count_override.app.before"
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+claim_note_up() { echo "NOTE_ARG=$1"; }
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 2>&1 | grep NOTE_ARG; echo "KNOB_UP=$(host_count)"
+cmd_down; echo "KNOB_DOWN=$(host_count)"; cmd_release')"
+has   "  the --app bring-up moved the knob to the package's count" "KNOB_UP=3" "$OUT"
+has   "🔴 the claim note names the app, not a host count"  "NOTE_ARG=p4 --app $PKG_EXT" "$OUT"
+has   "🔴 'ndt down' puts the knob back"                  "KNOB_DOWN=4" "$OUT"
+has   "  and says so"                                     "host_count_override put back: 3 -> 4" "$OUT"
+check "🔴 and 'ndt release' then succeeds with no hand-written number" "0" "$(rc_of "$OUT")"
+hasnt "  without the knob refusal"                        "refusing: the P4 host knob" "$OUT"
+# A knob the user changed after the bring-up is theirs: left alone, and said so.
+reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline" "$FIX/.test_run/host_count_override.app"*
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+cmd_down; echo "KNOB_DOWN=$(host_count)"')"
+has   "🔴 a knob changed after the bring-up is left as it is" "KNOB_DOWN=8" "$OUT"
+has   "  and the teardown says why"                       "host_count_override left as it is" "$OUT"
+# A count the user typed afterwards replaces the record: the next down does not undo it.
+reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline" "$FIX/.test_run/host_count_override.app"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; NDT_APP_DIR=""; unset NDT_TOPO; up_p4 4 >/dev/null 2>&1
+echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"')"
+has   "🔴 'ndt up p4 4' after an --app bring-up forgets the app's record" "REC=absent" "$OUT"
+rm -f "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+
+# (b) --mode reaches the converter, like the other exercise flags.
+reset_one; mkdir -p "$EX/pod-topo"; echo '{}' > "$EX/pod-topo/topology.json"
+OUT="$(drive "$ONE"'up_take_app_flag p4 --app '"$(q "$EX")"' --mode ndtwin && NDT_APP_DIR='"$(q "$EX")"' && up_p4')"
+check "🔴 --mode reaches the converter with its value"    "yes" "$(argv_pair --mode ndtwin)"
+OUT="$(drive 'up_take_app_flag p4 --app '"$(q "$EX")"' --mode=external; printf "X=%s\n" "${NDT_APP_EXERCISE_ARGV[@]}"')"
+has   "  --mode=<word> is lifted out as one word"         "X=--mode=external" "$OUT"
+rm -rf "$FIX/exercises" "$GEN"
+
+# (c) The header's sample rate on a package pipeline agrees with the footer: none there.
+reset_fix
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_FOREIGN")"'; up_p4')"
+has   "🔴 a package pipeline's header quotes no rate for the package's switches" \
+      "sample rate  none on dpid 1 (the package's own program)" "$OUT"
+hasnt "  and does not say the package runs NDTwin's compiled rate" \
+      "sample rate  1/256     (compiled into ndtwin_switch.json)" "$OUT"
+reset_fix
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4')"
+has   "  a package on NDTwin's own pipeline keeps the compiled rate" \
+      "sample rate  1/256     (compiled into ndtwin_switch.json)" "$OUT"
+
+# (d) What the proxy installed. With roles.ipv4_route owner ndtwin the proxy does NOT skip
+# install_initial_routes, and writes NDTwin's routes into the package's own table.
+SS_OWNED="$FIX/ss_owned.json"; mkss "$SS_OWNED" link_watchdog,lldp_discovery 5:5:0 5:5:0 5:5:0 5:5:0
+OUT="$(vp4 "$SS_OWNED" ndtwin foreign:1,2,3,4)"
+check "  an owned route table fabric still ends ready"    "0" "$(rc_of "$OUT")"
+has   "🔴 the path line says the proxy was set to install the routes" "and was set to install NDTwin's routes" "$OUT"
+has   "  and where the proxy says how many went in"       "is in .test_run/logs/p4_proxy.log" "$OUT"
+has   "🔴 so does the caveat under ready"                 "the proxy was set to install" "$OUT"
+hasnt "🔴 and neither says no routes were installed"      "installed no routes" "$OUT"
+OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4)"
+has   "  with install_initial_routes skipped it still says none were" "installed no routes on this" "$OUT"
+hasnt "  and not that they were"                          "was set to install" "$OUT"
+
+
+# (e) [Co-developed with claude code -- Adam] The record is part of the knob's state.
+# A claim taken while the knob holds the package's count starts the round from the value BEFORE
+# the package -- the value the teardown puts back -- whoever takes it.
+for who in t u; do
+    reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+    OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1
+export NDT_OWNER='"$who"'; cmd_claim 60 "again" >/dev/null 2>&1
+echo "BASE=$(sed -n "s/^host_count=//p" "$REPO/.test_run/round.baseline")"
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"; cmd_release')"
+    has   "🔴 a re-claim by $who after --app records the round as starting before it" "BASE=4" "$OUT"
+    check "🔴 and claim, --app, re-claim by $who, down, release needs no hand-written number" "0" "$(rc_of "$OUT")"
+    has   "  with the knob back where it started"         "KNOB_DOWN=4" "$OUT"
+done
+# A bring-up that is rolled back leaves the record as it found it.
+reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+KNOB_BEFORE="$(sha256sum "$FIX/p4_proxy/mininet/host_count_override" | cut -c1-16)"
+: > "$STACK_FAIL"
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; echo "UP_RC=$?"
+echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"
+rm -f "$STACK_FAIL"; cmd_down 2>&1')"
+rm -f "$STACK_FAIL"
+has   "  the first --app bring-up failed"                 "UP_RC=1" "$OUT"
+has   "🔴 a failed first --app leaves no record"           "REC=absent" "$OUT"
+hasnt "🔴 so the next down says nothing about a knob --app never moved" "host_count_override left" "$OUT"
+check "  and the knob is byte for byte what it was"       "$KNOB_BEFORE" "$(sha256sum "$FIX/p4_proxy/mininet/host_count_override" | cut -c1-16)"
+# A failed second --app on top of a live first round: the first one's record survives it.
+reset_fix; rm -f "$LCLAIM" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; echo "KNOB_FIRST=$(host_count)"
+: > "$STACK_FAIL"; unset NDT_TOPO; NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1; echo "UP2_RC=$?"
+rm -f "$STACK_FAIL"; echo "KNOB_ROLLED=$(host_count)"
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"; cmd_release')"
+rm -f "$STACK_FAIL"
+has   "  the first --app moved the knob"                  "KNOB_FIRST=3" "$OUT"
+has   "  the second --app failed and was rolled back"     "KNOB_ROLLED=3" "$OUT"
+has   "🔴 down then puts the knob back to before the FIRST --app" "KNOB_DOWN=4" "$OUT"
+check "🔴 and release needs no hand-written number"        "0" "$(rc_of "$OUT")"
+# Bytes, not the number: a knob deleted, or annotated by hand, after the bring-up is the user's.
+reset_fix; rm -f "$FIX/.test_run/host_count_override.app"*; printf '8\n' > "$FIX/p4_proxy/mininet/host_count_override"
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1; echo "KNOB_UP=$(host_count)"
+rm -f "$(knob_path)"; cmd_down >/dev/null 2>&1
+echo "KNOB_FILE=$([[ -e "$(knob_path)" ]] && echo present || echo absent)"')"
+has   "  a 4-host package moved the knob 8 -> 4"          "KNOB_UP=4" "$OUT"
+has   "🔴 a knob deleted after it (whose default is the package's 4) stays deleted" "KNOB_FILE=absent" "$OUT"
+reset_fix; rm -f "$FIX/.test_run/host_count_override.app"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1
+printf "# mine, keep\n3\n" > "$(knob_path)"; cmd_down >/dev/null 2>&1; echo "KNOB_HEAD=$(head -1 "$(knob_path)")"')"
+has   "🔴 a knob annotated by hand with the same number is left as it is" "KNOB_HEAD=# mine, keep" "$OUT"
+rm -f "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$FIX/.test_run/host_count_override.app"*
+
+# (f) [Co-developed with claude code -- Adam] The record against status, a second --app, clean,
+# and the branches the cells above never reach.
+APP_REC="$FIX/.test_run/host_count_override.app"
+base_of() { echo 'echo "BASE=$(sed -n "s/^host_count=//p" "$REPO/.test_run/round.baseline")"'; }
+# A claim over a live --app fabric is a round in progress, not a knob nobody put back.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; cmd_claim 60 "again" >/dev/null 2>&1
+echo "KNOB_UP=$(host_count)"')"
+has   "  claim, --app, claim: the knob holds the package's count" "KNOB_UP=3" "$OUT"
+# git_lines is stubbed for every cell (FIX is no git repo); here it runs the real knob_row, the
+# row this cell is about, so the knob reaches cmd_status the way it does on a real checkout.
+OUT="$(run_status --check 'host_count() { host_count_in "$REPO"; }
+git_lines() { knob_row; }
+stale_pipeline() { return 1; }
+sample_rate() { echo 256; }')"
+check "🔴 claim, --app, claim: 'ndt status --check' exits 0" "0" "$(rc_of "$OUT")"
+hasnt "🔴 and does not call the knob NOT RESTORED"         "NOT RESTORED" "$OUT"
+has   "  it says 'ndt down' puts it back"                 "written by 'ndt up p4 --app'; the round started at 4 -- 'ndt down' puts it back" "$OUT"
+# A knob changed by hand between two --app bring-ups is the user's: down puts back THAT value.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+unset NDT_TOPO; NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1; echo "KNOB_B=$(host_count)"
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  the second --app moved the hand-set 8 to 4"      "KNOB_B=4" "$OUT"
+has   "🔴 down puts back the value from just before the second --app" "KNOB_DOWN=8" "$OUT"
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+unset NDT_TOPO; NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1
+export NDT_OWNER=t; cmd_claim 60 "after the second" >/dev/null 2>&1; '"$(base_of)"'
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"; cmd_release')"
+has   "🔴 a claim after it starts the round from the hand-set value" "BASE=8" "$OUT"
+has   "🔴 and down puts that value back"                  "KNOB_DOWN=8" "$OUT"
+check "  and release needs no hand-written number"        "0" "$(rc_of "$OUT")"
+# 'ndt clean' is an assertion: on a live --app fabric it leaves the knob and the record alone.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; echo "BMV2=$(bmv2_count)"
+sums() { cat "$(knob_path)" "$REPO/.test_run/host_count_override.app" "$REPO/.test_run/host_count_override.app.before" "$REPO/.test_run/host_count_override.app.wrote" 2>&1 | sha256sum | cut -c1-16; }
+S1="$(sums)"; echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"
+cmd_clean >/dev/null 2>&1; echo "SAME=$([[ "$(sums)" == "$S1" ]] && echo yes || echo no)"; echo "KNOB_CLEAN=$(host_count)"
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  the fabric is up and the record is there"        "BMV2=99" "$OUT"
+has   "  (the record exists)"                             "REC=present" "$OUT"
+has   "🔴 a standalone 'ndt clean' leaves the knob and the record byte for byte" "SAME=yes" "$OUT"
+has   "🔴 so the knob still holds the package's count"     "KNOB_CLEAN=3" "$OUT"
+has   "  and the later down still puts it back"           "KNOB_DOWN=4" "$OUT"
+# No knob file before --app: the claim starts from the default and down removes the file again.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"* "$FIX/p4_proxy/mininet/host_count_override"
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1
+echo "REC_BEFORE=$(sed -n "s/^before=//p" "$REPO/.test_run/host_count_override.app")"
+export NDT_OWNER=t; cmd_claim 60 "no knob file" >/dev/null 2>&1; '"$(base_of)"'
+cmd_down >/dev/null 2>&1; echo "KNOB_FILE=$([[ -e "$(knob_path)" ]] && echo present || echo absent)"; cmd_release')"
+has   "  the record says there was no knob file"          "REC_BEFORE=absent" "$OUT"
+has   "🔴 a claim over it starts the round from the default" "BASE=4" "$OUT"
+has   "🔴 and down removes the file --app created"         "KNOB_FILE=absent" "$OUT"
+check "  and release needs no hand-written number"        "0" "$(rc_of "$OUT")"
+# The copy of the old knob gone: down leaves the knob, says why, and drops the record.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; rm -f "$REPO/.test_run/host_count_override.app.before"
+cmd_down 2>&1; echo "KNOB_DOWN=$(host_count)"
+echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"')"
+has   "🔴 with .before gone, down leaves the knob at the package's count" "KNOB_DOWN=3" "$OUT"
+has   "  and says the copy is gone"                       "is gone (.test_run/host_count_override.app.before), so there is nothing to put back" "$OUT"
+has   "  and drops the record"                            "REC=absent" "$OUT"
+# A claim over a record the knob has left starts the round from the knob.
+reset_fix; rm -rf "$LCLAIM" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+echo "START=$(round_start_host_count)"
+export NDT_OWNER=t; cmd_claim 60 "after a hand edit" >/dev/null 2>&1; '"$(base_of)"'')"
+# Asked of round_start_host_count itself too: since a claim forgets such a record first, the
+# claim alone can no longer show whether the function would trust it.
+has   "🔴 with a record the knob has left, a round would start from the knob" "START=8" "$OUT"
+has   "🔴 a claim over a record that no longer holds starts from the knob" "BASE=8" "$OUT"
+rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+
+# (g) [Co-developed with claude code -- Adam] A record that stopped holding must not come back
+# when a hand edit happens to write the package's bytes again, and it ends with the round.
+STATUS_KNOB='host_count() { host_count_in "$REPO"; }
+git_lines() { knob_row; }
+stale_pipeline() { return 1; }
+sample_rate() { echo 256; }'
+knob_set() { printf '%s\n' "$1" > "$FIX/p4_proxy/mininet/host_count_override"; }
+# Claim at 8, a 4-host --app, no down: release points at down, the one command that puts 8 back.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*; knob_set 8
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 8" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1; echo "KNOB_UP=$(host_count)"
+cmd_release 2>&1; echo "REL1_RC=$?"')"
+has   "  claim at 8, then a 4-host --app: the knob is 4"  "KNOB_UP=4" "$OUT"
+has   "  release refuses"                                 "REL1_RC=1" "$OUT"
+has   "🔴 and points at 'ndt down', which puts the 8 back" "ndt down      # 'ndt up p4 --app' wrote 4; the teardown puts 8 back" "$OUT"
+hasnt "🔴 not at writing 8 by hand"                       "echo 8 > p4_proxy/mininet/host_count_override" "$OUT"
+# The user writes 8 by hand anyway and releases; the next round starts at 8 and they choose 4.
+OUT="$(drive 'export NDT_OWNER=t; printf "8\n" > "$(knob_path)"; cmd_release >/dev/null 2>&1; echo "REL2_RC=$?"
+echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"
+cmd_claim 60 "next round" >/dev/null 2>&1; '"$(base_of)"'
+printf "4\n" > "$(knob_path)"')"
+has   "  with 8 written back by hand, release succeeds"   "REL2_RC=0" "$OUT"
+has   "🔴 and forgets the --app record"                    "REC=absent" "$OUT"
+has   "  the next round starts at 8"                      "BASE=8" "$OUT"
+OUT="$(run_status --check "$STATUS_KNOB")"
+check "🔴 a hand-written 4 in the next round: 'ndt status --check' exits 1" "1" "$(rc_of "$OUT")"
+has   "🔴 and calls the knob NOT RESTORED"                 "4 -- this round started at 8" "$OUT"
+hasnt "  not 'written by ndt up p4 --app'"                "written by 'ndt up p4 --app'" "$OUT"
+OUT="$(drive 'cmd_release 2>&1; echo "REL3_RC=$?"; cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  release refuses the hand-written 4"              "REL3_RC=1" "$OUT"
+has   "  with the echo advice, since down would not put it back" "echo 8 > p4_proxy/mininet/host_count_override" "$OUT"
+has   "🔴 and 'ndt down' leaves the deliberate 4"          "KNOB_DOWN=4" "$OUT"
+# That hint followed through: down puts the 8 back, and then the release goes through.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*; knob_set 8
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 8" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1
+cmd_release 2>&1; echo "REL1_RC=$?"
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"
+cmd_release 2>&1; echo "REL2_RC=$?"')"
+has   "  release over the 4-host --app knob is refused"    "REL1_RC=1" "$OUT"
+has   "  and names 'ndt down'"                             "ndt down      # 'ndt up p4 --app' wrote 4; the teardown puts 8 back" "$OUT"
+has   "🔴 the refused release keeps the record: down puts the 8 back" "KNOB_DOWN=8" "$OUT"
+has   "🔴 and the release after that exits 0"              "REL2_RC=0" "$OUT"
+# --force over a holding record: the next round starts from the value released, and keeps it.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*; knob_set 8
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 8" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1
+cmd_release --force 2>&1; echo "REL_RC=$?"
+cmd_claim 60 "next round" >/dev/null 2>&1; '"$(base_of)"'
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  release --force over the --app knob succeeds"    "REL_RC=0" "$OUT"
+has   "  and says down will no longer put it back"        "'ndt down' will now leave host_count_override at 4" "$OUT"
+has   "🔴 after release --force the next round starts at the released 4" "BASE=4" "$OUT"
+has   "🔴 and its down leaves that 4"                      "KNOB_DOWN=4" "$OUT"
+# A plain release with the knob at the round's start, over a record whose before is a mid-round 8.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 4" >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+NDT_APP_DIR='"$(q "$PKG_OK")"'; up_p4 >/dev/null 2>&1; echo "KNOB_UP=$(host_count)"
+cmd_release >/dev/null 2>&1; echo "REL_RC=$?"
+cmd_claim 60 "next round" >/dev/null 2>&1; '"$(base_of)"'
+cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  claim at 4, a hand-set 8, then a 4-host --app"   "KNOB_UP=4" "$OUT"
+has   "  release at the round's 4 succeeds"               "REL_RC=0" "$OUT"
+has   "🔴 a plain release forgets the record: the next round starts at 4" "BASE=4" "$OUT"
+has   "🔴 and its down does not put the mid-round 8 back"  "KNOB_DOWN=4" "$OUT"
+# No claim between: --app 4 -> 3, a hand-set 8, a claim, then a hand-set 3 (the package's bytes).
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+export NDT_OWNER=t; cmd_claim 60 "at 8" >/dev/null 2>&1; '"$(base_of)"'
+echo "REC=$([[ -e "$REPO/.test_run/host_count_override.app" ]] && echo present || echo absent)"
+printf "3\n" > "$(knob_path)"')"
+has   "  the claim starts the round at the hand-set 8"    "BASE=8" "$OUT"
+has   "🔴 and forgets the record the knob had left"        "REC=absent" "$OUT"
+OUT="$(run_status --check "$STATUS_KNOB")"
+check "🔴 a hand-set 3 after it: 'ndt status --check' exits 1" "1" "$(rc_of "$OUT")"
+has   "  and calls the knob NOT RESTORED"                 "3 -- this round started at 8" "$OUT"
+OUT="$(drive 'cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "🔴 and 'ndt down' leaves the hand-set 3"            "KNOB_DOWN=3" "$OUT"
+# The record holds but its before no longer gives the round's start (the copy is gone): no
+# up_wrote line excuses the knob, so it is NOT RESTORED, and release does not point at down.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1
+export NDT_OWNER=t; cmd_claim 60 "over --app" >/dev/null 2>&1; '"$(base_of)"'
+rm -f "$REPO/.test_run/host_count_override.app.before"
+echo "UPW=$(sed -n "s/^up_wrote=//p" "$REPO/.test_run/round.baseline")"
+echo "HOLDS=$(app_knob_count_holds && echo yes || echo no)"')"
+has   "  a claim over --app 4 -> 3 starts at 4"           "BASE=4" "$OUT"
+has   "  the record still holds the knob"                 "HOLDS=yes" "$OUT"
+check "  and the baseline has no up_wrote line"           "UPW=" "$(/usr/bin/grep '^UPW=' <<<"$OUT")"
+OUT="$(run_status --check "$STATUS_KNOB")"
+check "🔴 with the record's before missing: --check exits 1" "1" "$(rc_of "$OUT")"
+has   "🔴 and the knob is NOT RESTORED"                    "3 -- this round started at 4" "$OUT"
+hasnt "  not 'ndt down' puts it back"                     "'ndt down' puts it back" "$OUT"
+OUT="$(drive 'cmd_release 2>&1')"
+has   "🔴 release gives the echo advice"                   "echo 4 > p4_proxy/mininet/host_count_override" "$OUT"
+hasnt "  and does not point at 'ndt down'"                "the teardown puts 4 back" "$OUT"
+# The same refusal where the before is there but is not the round's start (a hand-set 8 before the
+# package): up_wrote excuses the knob during the round, 'ndt down' would put 8 back, not the 4.
+reset_fix; rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "at 4" >/dev/null 2>&1; printf "8\n" > "$(knob_path)"
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; echo "KNOB_UP=$(host_count)"
+echo "UPW=$(sed -n "s/^up_wrote=//p" "$REPO/.test_run/round.baseline")"
+echo "HOLDS=$(app_knob_count_holds && echo yes || echo no)"; '"$(base_of)"'')"
+has   "  claim at 4, a hand-set 8, then a 3-host --app"    "KNOB_UP=3" "$OUT"
+has   "  the record holds the knob"                        "HOLDS=yes" "$OUT"
+has   "  the round started at 4, and ndt wrote the 3"      "BASE=4" "$OUT"
+has   "  up_wrote is the package's 3"                      "UPW=3" "$OUT"
+OUT="$(run_status --check "$STATUS_KNOB")"
+check "  the record's before is 8, so --check still exits 0" "0" "$(rc_of "$OUT")"
+has   "🔴 and shows the yellow line for what 'ndt up p4' wrote" "written by 'ndt up p4 3'" "$OUT"
+hasnt "🔴 not 'ndt down' puts it back"                     "'ndt down' puts it back" "$OUT"
+OUT="$(drive 'cmd_release 2>&1; echo "REL_RC=$?"')"
+has   "  release refuses"                                  "REL_RC=1" "$OUT"
+has   "🔴 and gives the echo advice, not the down hint"    "echo 4 > p4_proxy/mininet/host_count_override" "$OUT"
+hasnt "🔴 not 'ndt down'"                                   "the teardown puts 4 back" "$OUT"
+OUT="$(drive 'cmd_down >/dev/null 2>&1; echo "KNOB_DOWN=$(host_count)"')"
+has   "  and 'ndt down' puts the hand-set 8 back"          "KNOB_DOWN=8" "$OUT"
+rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+# The put-back itself fails: down exits 1 and the claim note names it. The switch manifest and
+# the stand-in switch count go after the bring-up (section 21's move), so no residue makes the rc 1.
+reset_fix
+OUT="$(drive 'export NDT_OWNER=t; cmd_claim 60 "app round" >/dev/null 2>&1
+NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4 >/dev/null 2>&1; mv "$MANIFEST" "$MANIFEST.aside"; rm -f "$REPO/bmv2_count"
+cp() { [[ "${@: -1}" == "$(knob_path)" ]] && return 1; command cp "$@"; }
+cmd_down 2>&1; echo "DOWN_RC=$?"; echo "KNOB_DOWN=$(host_count)"')"
+mv "$FIX/manifest.json.aside" "$FIX/manifest.json"
+has   "  the put-back fails and says so"                  "could NOT put p4_proxy/mininet/host_count_override back: it reads 3" "$OUT"
+has   "🔴 'ndt down' exits 1"                              "DOWN_RC=1" "$OUT"
+has   "🔴 and the claim note names the step"               "claim note now says the teardown did not verify clean: putting host_count_override back" "$OUT"
+has   "  the knob is still the package's 3"               "KNOB_DOWN=3" "$OUT"
+rm -rf "$LCLAIM" "$LCLAIM.prev" "$FIX/.test_run/round.baseline"* "$APP_REC"*
+# The header on a fabric where every switch runs the package's own program names no rate at all.
+PKG_ONE="$FIX/packages/one-foreign"; mkpkg "$PKG_ONE" ndtwin 1 1 firewall
+reset_fix
+OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_ONE")"'; up_p4')"
+has   "🔴 an all-foreign fabric's header says no switch has a compiled rate" \
+      "sample rate  none: every switch runs the package's own program" "$OUT"
+hasnt "  and does not name a rate only where ndtwin_switch.json runs" "only where ndtwin_switch.json runs" "$OUT"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

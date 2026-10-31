@@ -151,6 +151,10 @@ ROLE_NAMES = ("ipv4_route",)
 ROLE_KEYS = ("owner", "table", "match_field", "action", "params")
 ROLE_PARAM_KEYS = ("dst_mac", "port")
 ROLE_OWNERS = ("ndtwin", "package")
+#: The owner of a roles.ipv4_route that names none: the author keeps the table and NDTwin only
+#: reads it. Spelled again in route_binding as DEFAULT_OWNER; the same test holds the two equal.
+#: [Co-developed with claude code -- Adam]
+ROLE_DEFAULT_OWNER = "package"
 
 
 class AppPackageError(ValueError):
@@ -876,13 +880,18 @@ def parse_roles(raw, where) -> Optional[Roles]:
 
     [Co-developed with claude code -- Adam]
     This cut knows ONE role, `ipv4_route`, with exactly the keys
-    `owner`, `table`, `match_field`, `action`, `params` and `params` exactly `dst_mac`, `port`.
+    `owner`, `table`, `match_field`, `action`, `params` -- `owner` may be left out (see below) --
+    and `params` exactly `dst_mac`, `port`.
     Anything else -- another role name, a missing key, an extra key -- is refused naming it,
     because a misspelled key would leave the real one missing and the fabric running a binding
     nobody declared. `owner` is `ndtwin` or `package` and nothing else.
 
     tools/p4_exercise/preflight.py calls this same function, so pre-flight refuses exactly the
     shapes the loader refuses, with the same sentence.
+
+    [Co-developed with claude code -- Adam] `owner` may be left out, and is then
+    ROLE_DEFAULT_OWNER (`package`). Every package written before that names its owner, so what
+    those load as does not change; `format` stays 1.
     """
     if raw is None:
         return None
@@ -900,6 +909,7 @@ def parse_roles(raw, where) -> Optional[Roles]:
     rw = f"{where}: roles.ipv4_route"
     if not isinstance(route, dict):
         raise AppPackageError(f"{rw} must be an object, got {type(route).__name__}")
+    route = dict(route, owner=route.get("owner", ROLE_DEFAULT_OWNER))
     missing = [k for k in ROLE_KEYS if k not in route]
     extra = sorted(set(route) - set(ROLE_KEYS))
     if missing or extra:

@@ -168,7 +168,7 @@ report "M9: ndt up ovs stops writing the note" "$m" \
        "the note says the lab is in use"
 
 m=$(mutant m10 "$NDT" \
-    '    claim_note_up "p4 $hosts"' \
+    '    claim_note_up "$up_what"' \
     '    :')
 report "M10: ndt up p4 stops writing the note" "$m" \
        "the note names the P4 target"

@@ -159,6 +159,7 @@ class TheBaselineIsTheLiteralsTest(unittest.TestCase):
         self.assertEqual(app_package.ROLE_KEYS, route_binding.ROLE_KEYS)
         self.assertEqual(app_package.ROLE_PARAM_KEYS, route_binding.PARAM_KEYS)
         self.assertEqual(app_package.ROLE_OWNERS, route_binding.OWNERS)
+        self.assertEqual(app_package.ROLE_DEFAULT_OWNER, route_binding.DEFAULT_OWNER)
 
 
 def _string_constant_nodes(tree):
