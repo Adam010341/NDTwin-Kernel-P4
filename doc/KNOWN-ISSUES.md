@@ -2357,6 +2357,46 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   CLI 腳本。
 - **證據**：2026-10-16 離線 INT v1 量測的 READ SCOPE 段（arm B、F、G 與對照 A；不在本 repo）。
 
+### B-19 🟡 用 `simple_switch_CLI` 往 indirect 表（action profile 或 action selector）寫的 entry，會讓 `GET /p4/table_entry` 對整張表回 503
+
+[Co-developed with claude code -- Adam]
+
+- **狀態**：**已知、未修**（2026-10-31 登記）。下面的範圍是 2026-10-31 在 bmv2 1.15.5 上**量到的**；
+  為什麼 bmv2 在這裡讀取失敗**沒有查**。與 B-18 相似（表裡有 CLI 加的 entry 時，P4Runtime 讀那張表失敗），
+  但兩者是不是同一個原因沒有查。
+- **平面**：P4（bmv2）
+- **失效方向**：**悲觀**——switch 上的規則在（CLI 的 `table_dump` 看得到），但讀不回來；503 的訊息明說「這不是空表」，沒有說謊。
+- **誰會碰到**：用 bmv2 的 thrift CLI（`simple_switch_CLI`），而不是經 P4Runtime，往 action profile 或 action selector 的表
+  寫 entry，再用 `GET /p4/table_entry`（kernel 的 `GET /ndt/p4/table_entry` 原樣轉回 proxy 的回答，應是同一個 503；這條路沒有量）讀那張表的人。
+- **會發生什麼**：用 CLI 在一張 action profile 表與一張 action selector 表各建 member（selector 那張另建 group）並各加一筆
+  entry 後，對這兩張表的 GET 各回 **`503 table not read`**，`grpc_status` 是 `INTERNAL`，
+  訊息是 `reading <table> from switch <dpid> failed: INTERNAL. This is NOT an empty table`。
+  **整張表都讀不到**，不是只少那一筆。用 CLI 把那兩筆 entry 刪掉（CLI 建的 member 與 group 留著）之後，兩張表的 GET 都回 200。
+- **對照**：同樣兩種表，member、group 與 entry 都經 P4Runtime 寫入時，GET 回 **200**，`entries` 是空的，
+  entry 與 default entry 都列在 `unrendered`（理由：entry 的 action 是 action profile 的 member 或 group，
+  `POST /p4/table_entry` 寫不了；default entry 則是 switch 送回時沒有帶 action）。
+- **沒有量**：同一張表裡 CLI 的 entry 與經 P4Runtime 寫的 entry 並存時，後者是否也讀不到；CLI 寫 `modify` 的情形；經 kernel 的 GET；轉發；其它 bmv2 版本。
+- **繞法**：NDTwin 沒有寫這類表的路：`POST /p4/table_entry` 寫不了以 member 或 group 當 action 的 entry（上面 `unrendered` 的理由），bmv2 也不收 indirect 表的直接 default action（同次回 502 `Cannot set / reset default action for indirect table`），`convert.py --thrift-commands` 只翻 `table_add` 與 `table_set_default`。要讓 GET 讀得到，這類表的 member、group 與 entry 只能由 P4Runtime 控制器寫，不要用 thrift CLI；在 proxy 是 primary 的 fabric 上，那個控制器要先成為 primary 才能寫（本次的 P4Runtime 寫入就是先取得 mastership 再寫的）。這個缺口本條沒有處理。
+- **證據**：2026-10-31 bmv2 1.15.5 實測（CLI 寫入後的兩個 GET 為 503，P4Runtime 寫入後為 200；原始輸出不在本 repo）。
+
+### B-20 🟡 用 `simple_switch_CLI table_set_timeout` 設的 idle timeout，`GET /p4/table_entry` 讀回 `idle_timeout_ns: 0`，原樣當 modify 送回去就把它清掉
+
+[Co-developed with claude code -- Adam]
+
+- **狀態**：**已知、未修**（2026-10-31 登記）。下面的範圍是 2026-10-31 在 bmv2 1.15.5 上**量到的**；
+  為什麼讀回 0 **沒有查**。
+- **平面**：P4（bmv2）
+- **失效方向**：**靜默**——GET 說這筆 entry 沒有逾時、modify 回 200，逾時就沒了，沒有任何一句話提到它。
+- **誰會碰到**：用 CLI 設 idle timeout，之後又用 `GET /p4/table_entry` 讀出 entry、再原樣 `POST` 回去當 modify（讀—改—寫）的人，或拿 GET 的 `idle_timeout_ns` 判斷 entry 有沒有逾時的人。
+- **會發生什麼**：在一張宣告了 `support_timeout = true` 的表上，entry 經 `POST /p4/table_entry` 插入，
+  再用 `table_set_timeout <table> <handle> 600000` 設逾時；CLI 的 `table_dump_entry` 顯示 `timeout is 600000ms`。
+  此時 `GET /p4/table_entry` 回這筆 entry 的 `idle_timeout_ns` 是 **`0`**。把 GET 回來的 entry 原樣當 modify `POST`，
+  回 **200**；之後 CLI 的 `table_dump_entry` 不再有 timeout 那一行——**逾時被清掉了**。這張表本身讀得到（GET 200）：entry 是經 P4Runtime 插入的，CLI 只改了它的逾時，不是 B-18 的 `table_add`。
+- **對照**：entry 經 `POST` 帶 `idle_timeout_ns: 600000000000` 插入後再送一個 modify：帶同一個 `idle_timeout_ns` 時，之後的 GET 讀回 `600000000000`；不帶時讀回 `0`（同日同版本；兩個 modify 都經 kernel 送出、先回 504 逾時，不帶的那個之後落地；這次沒有 switch 端的讀數）。經 P4Runtime 寫的逾時原樣送回會保住，是 2026-10-30 的量測（API 文件讀表一節）。讀回 0、原樣送回就清掉的，是 CLI 設的逾時。
+- **沒有量**：其它 bmv2 版本；不是整毫秒的逾時值讀回什麼。
+- **繞法**：逾時不要用 thrift CLI 設，經 NDTwin 寫：`POST /p4/table_entry` 帶 `idle_timeout_ns`。
+- **證據**：2026-10-31 bmv2 1.15.5 實測（CLI 設逾時後的 GET 與 modify 前後的 CLI 傾印；原始輸出不在本 repo）。
+
 ---
 
 ## B-x. `/ndt/get_detected_flow_data` 包含已經結束的流（churn 下約 92%）
