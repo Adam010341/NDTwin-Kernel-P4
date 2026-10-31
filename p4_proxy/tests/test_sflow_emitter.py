@@ -501,6 +501,25 @@ class EmitterBehaviourTest(unittest.TestCase):
         self.assertFalse(emitter.emit(99, a_sample(), uptime_ms=0))
         self.assertEqual(sock.sent, [])
 
+    def test_a_forgotten_switch_is_refused_again_and_forgetting_an_unknown_one_is_a_no_op(self):
+        # [Co-developed with claude code -- Adam]
+        # `unregister_switch` is what a readopt that failed before its new client went live
+        # uses to take back the agent it registered ahead of the clone session.
+        sock = _FakeSocket()
+        emitter = SFlowEmitter(sock=sock)
+        emitter.register_switch(1, "192.168.123.11")
+        emitter.register_switch(2, "192.168.123.12")
+        self.assertIsNotNone(emitter.agent_for(1))
+
+        emitter.unregister_switch(1)
+        emitter.unregister_switch(99)       # never registered: no error, nothing else touched
+
+        self.assertIsNone(emitter.agent_for(1))
+        self.assertFalse(emitter.emit(1, a_sample(), uptime_ms=0))
+        self.assertEqual(sock.sent, [])
+        self.assertIsNotNone(emitter.agent_for(2))
+        self.assertTrue(emitter.emit(2, a_sample(), uptime_ms=0))
+
     def test_send_failure_is_reported_not_raised(self):
         # This runs on the gRPC receive thread; an exception there kills the stream and ends
         # telemetry for that switch silently.

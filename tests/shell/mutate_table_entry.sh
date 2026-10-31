@@ -516,8 +516,8 @@ report "M-B22: entries are written to a switch whose pipeline push failed" "$m" 
        "test_a_switch_whose_pipeline_push_failed_gets_no_entries"
 
 m=$(mutant b23 "$MAIN" \
-    '                                     sample_callback if cooperative else None,' \
-    '                                     sample_callback,')
+    '                                         sample_callback if cooperative else None,' \
+    '                                         sample_callback,')
 report "M-B23: readopt hands a foreign switch the sFlow callback, so a clone session goes in" "$m" \
        "test_a_foreign_pipeline_gets_no_clone_session"
 
@@ -562,15 +562,20 @@ report "M-B31: a deliberate zero is reported as a bare zero, which reads as a re
        "test_it_says_the_routes_were_skipped_rather_than_reporting_a_bare_zero"
 
 m=$(mutant b32 "$MAIN" \
-    '    result = topology.readopt_switch(dpid, client_factory,
-                                     sample_callback if cooperative else None,
-                                     install_routes=ndtwin)' \
+    '    try:
+        result = topology.readopt_switch(dpid, client_factory,
+                                         sample_callback if cooperative else None,
+                                         install_routes=ndtwin)
+    except BaseException:
+        if topology.switches.get(dpid) is not prior:' \
     '    try:
         result = topology.readopt_switch(dpid, client_factory,
                                          sample_callback if cooperative else None,
                                          install_routes=ndtwin)
     except Exception as exc:  # noqa: BLE001
-        return {"status": "failed", "step": "routes", "dpid": dpid, "error": str(exc)}')
+        return {"status": "failed", "step": "routes", "dpid": dpid, "error": str(exc)}
+    except BaseException:
+        if topology.switches.get(dpid) is not prior:')
 report "M-B32: round 1's swallow comes back, so a real fault is dressed as a route failure" "$m" \
        "test_an_exception_from_readopt_is_not_swallowed"
 

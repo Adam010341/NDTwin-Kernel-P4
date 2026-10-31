@@ -835,21 +835,7 @@ table_journals = build_table_journals()
 
 def _cookie_seen(client):
     """What one switch's COOKIE_ONLY says: ("cookie", int | None) or ("error", text)."""
-    try:
-        return ("cookie", client.read_pipeline_cookie())
-    except Exception as exc:  # noqa: BLE001 -- every failure is "cannot confirm", and says which
-        code = getattr(exc, "code", None)
-        name = None
-        try:
-            name = code().name if callable(code) and code() is not None else None
-        except Exception:  # noqa: BLE001
-            name = None
-        details = getattr(exc, "details", None)
-        try:
-            text = details() if callable(details) else None
-        except Exception:  # noqa: BLE001
-            text = None
-        return ("error", f"{name}: {text}" if name else f"{type(exc).__name__}: {exc}")
+    return rule_journal.cookie_seen(client)
 
 
 def confirm_fabric(clients, journals, package, mint=None):
@@ -1901,9 +1887,60 @@ def _readopt_switch_locked(topology, dpid, client_factory, sample_callback, pack
     # The push inside carries this boot's fabric generation, whatever a journal
     # header says. [Co-developed with claude code -- Adam]
     client_factory = _with_generation(client_factory)
-    result = topology.readopt_switch(dpid, client_factory,
-                                     sample_callback if cooperative else None,
-                                     install_routes=ndtwin)
+    # [Co-developed with claude code -- Adam]
+    # 🔴 `sflow_registered` SAYS WHAT THE EMITTER HOLDS. Startup registers a switch only after
+    # its push succeeded and the topology file gave it an IP; a switch that skipped either step
+    # reaches a readopt with no agent, and `emit()` drops every sample of an unregistered dpid.
+    # So a cooperative readopt registers the switch BEFORE the topology layer programs the clone
+    # session (as startup does), and takes the agent back if the readopt ends before the new
+    # client was swapped in. Whether the new client is live is read off the manager's own table
+    # (`switches[dpid]` is no longer the client it held before the call), not guessed from the
+    # status words, so it holds on the raising path as well. A switch that already has an agent
+    # keeps it: a fresh one would restart the sFlow sequence numbers the collector tracks.
+    added_agent = False
+    if cooperative and sflow.agent_for(dpid) is None:
+        agent_ip = load_switch_agent_ips().get(dpid)
+        if agent_ip is not None:
+            sflow.register_switch(dpid, agent_ip)
+            added_agent = True
+    prior = topology.switches.get(dpid)
+
+    def record_readopt_telemetry(lead, clone_session, tail=""):
+        sflow_registered = cooperative and sflow.agent_for(dpid) is not None
+        no_agent_reason = ""
+        if cooperative and not sflow_registered:
+            no_agent_reason = (", but this switch has no IP in the topology file, so no "
+                               "sFlow agent was registered and its samples are dropped")
+        _record_telemetry(
+            dpid, telemetry_source, bool(clone_session) and cooperative,
+            sflow_registered, None if not cooperative else _telemetry.get(
+                str(dpid), {}).get("packet_in_ids"),
+            f"{lead}: telemetry source '{telemetry_source}'"
+            + ("" if cooperative else ", so no clone session was programmed")
+            + no_agent_reason + tail)
+
+    try:
+        result = topology.readopt_switch(dpid, client_factory,
+                                         sample_callback if cooperative else None,
+                                         install_routes=ndtwin)
+    except BaseException:
+        if topology.switches.get(dpid) is not prior:
+            # Raised after the swap: the new client is live and may be cloning. It keeps its
+            # agent, and the disclosure says what the emitter holds.
+            record_readopt_telemetry(
+                "readopt raised after the new client went live", False,
+                "; whether its clone session was programmed is not known")
+        elif added_agent:
+            sflow.unregister_switch(dpid)
+        raise
+    live = topology.switches.get(dpid) is not prior
+    if added_agent and not live:
+        sflow.unregister_switch(dpid)
+    if live and result.get("status") != "success":
+        # The new client is live (pipeline pushed, clone session written) but the readopt
+        # failed at its route refill: a sampling switch whose disclosure must say so.
+        record_readopt_telemetry(f"readopt failed at step '{result.get('step')}' after the "
+                                 f"new client went live", result.get("clone_session"))
 
     if result.get("status") == "success":
         # The new client's binding was re-resolved by the factory against the program this
@@ -1926,12 +1963,7 @@ def _readopt_switch_locked(topology, dpid, client_factory, sample_callback, pack
         _record_pipeline_skips(dpid, switch_skips_for(package, dpid, ndtwin=ndtwin,
                                                       cooperative=cooperative))
         result["pre_entries"] = {kind: dict(pre[kind]) for kind in PRE_ENTRY_KINDS}
-        _record_telemetry(
-            dpid, telemetry_source, bool(result.get("clone_session")) and cooperative,
-            cooperative, None if not cooperative else _telemetry.get(
-                str(dpid), {}).get("packet_in_ids"),
-            f"re-adopted: telemetry source '{telemetry_source}'"
-            + ("" if cooperative else ", so no clone session was programmed"))
+        record_readopt_telemetry("re-adopted", result.get("clone_session"))
 
     if result.get("status") == "success" and not cooperative:
         # 🔴 SAME LIE, TWO CAUSES: a telemetry source other than `cooperative`, or a foreign
