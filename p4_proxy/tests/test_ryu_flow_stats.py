@@ -121,14 +121,18 @@ class MatchTranslationTest(unittest.TestCase):
         self.assertEqual(m["nw_dst"], "10.0.0.4")
         self.assertEqual(m["nw_proto"], 6)
 
-    def test_a_mac_match_is_rendered_as_a_mac_string(self):
+    def test_a_mac_match_is_not_rendered_the_kernel_cannot_evaluate_it(self):
+        # [Co-developed with claude code -- Adam] This used to assert the opposite: a
+        # destination-MAC row rendered as `dl_dst`. The kernel's classifier has no `dl_dst` test
+        # and reads an unknown key as matching every packet, so the row would have decided every
+        # flow on that switch. See ADestinationMacOnlyRowIsLeftOutTest.
         entry = {
             "table": "MyIngress.l2_forward", "priority": 0, "is_default": False,
             "match": {"hdr.ethernet.dstAddr": {"type": "exact",
                                                "value": b"\x00\x00\x00\x00\x00\x04"}},
             "action": {"name": "MyIngress.forward_l2", "params": {"port": b"\x03"}},
         }
-        self.assertEqual(self.flows([entry])[0]["match"]["dl_dst"], "00:00:00:00:00:04")
+        self.assertEqual(self.flows([entry]), [])
 
     def test_a_short_address_value_is_left_padded(self):
         # P4Runtime canonical form strips leading zero bytes, so 10.0.0.4 may arrive as 3 bytes
@@ -198,8 +202,12 @@ class RuleSelectionTest(unittest.TestCase):
         self.assertEqual(self.flows([an_lpm_route(priority=-1)])[0]["priority"], 0)
 
     def test_priority_is_otherwise_preserved(self):
-        # flow_5tuple must outrank ipv4_lpm, or traffic leaves by the wrong port.
-        self.assertEqual(self.flows([a_ternary_rule(priority=100)])[0]["priority"], 100)
+        # A flow_5tuple row keeps its rank against the other 5-tuple rows: the shift the writer
+        # applied (OpenFlow n -> P4 n + 1) is undone, so P4 101 is read back as the 100 it was
+        # installed with, and the ordering between two rules is the one the caller gave them.
+        self.assertEqual(self.flows([a_ternary_rule(priority=101)])[0]["priority"], 100)
+        self.assertLess(self.flows([a_ternary_rule(priority=11)])[0]["priority"],
+                        self.flows([a_ternary_rule(priority=12)])[0]["priority"])
 
     def test_counter_fields_are_present_so_the_shape_matches_ovs(self):
         # The L4 differential compares shapes against an OVS baseline; missing keys read as
@@ -208,6 +216,127 @@ class RuleSelectionTest(unittest.TestCase):
         for key in ("byte_count", "packet_count", "duration_sec", "idle_timeout",
                     "hard_timeout", "cookie", "flags", "length", "table_id"):
             self.assertIn(key, flow)
+
+
+class AFiveTupleRowIsRenderedAtTheOpenFlowPriorityTest(unittest.TestCase):
+    """
+    The ternary writer stores OpenFlow priority n as P4 priority n + 1 (P4Runtime refuses 0 on a
+    ternary table). The read-back undoes that, so the number /stats/flow shows is the number the
+    rule was installed with and the one a strict delete wants.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    def flows(self, entries, **kw):
+        return rf.render_flow_stats(1, entries, **kw)["1"]
+
+    def test_p4_priority_101_is_shown_as_100(self):
+        self.assertEqual(self.flows([a_ternary_rule(priority=101)])[0]["priority"], 100)
+
+    def test_the_lowest_p4_priority_is_shown_as_openflow_zero(self):
+        self.assertEqual(self.flows([a_ternary_rule(priority=1)])[0]["priority"], 0)
+
+    def test_a_priority_outside_what_the_writer_can_produce_still_never_goes_negative(self):
+        for odd in (0, -5):
+            with self.subTest(p4_priority=odd):
+                self.assertEqual(self.flows([a_ternary_rule(priority=odd)])[0]["priority"], 0)
+
+    def test_an_lpm_row_is_not_shifted(self):
+        # ipv4_lpm has no priority column; whatever it reports is not the writer's n + 1.
+        self.assertEqual(self.flows([an_lpm_route(priority=5)])[0]["priority"], 5)
+
+    def test_the_single_entry_translator_applies_the_same_shift(self):
+        self.assertEqual(rf.entry_to_ryu(a_ternary_rule(priority=101))["priority"], 100)
+
+    def test_a_5tuple_named_table_on_a_foreign_switch_is_not_shifted(self):
+        # NDTwin never writes a foreign pipeline's tables (5-tuple writes are refused there), so
+        # a table that happens to share the name was not shifted by anyone.
+        self.assertEqual(self.flows([a_ternary_rule(priority=101)], binding=None)[0]["priority"],
+                         101)
+
+    def test_the_install_clock_is_still_looked_up_by_the_p4_priority_it_was_recorded_under(self):
+        clock = FakeClock()
+        times = RuleInstallTimes(monotonic=clock, wall=FakeClock(1_700_000_000.0))
+        entry = a_ternary_rule(priority=101)
+        times.record(1, entry["table"], entry["priority"], entry["match"])
+        clock.advance(9)
+        flow = self.flows([entry], install_times=times)[0]
+        self.assertEqual((flow["priority"], flow["duration_sec"]), (100, 9))
+
+
+def a_mac_row(mac=b"\x00\x00\x00\x00\x00\x04", port=3):
+    return {"table": "MyIngress.l2_forward", "priority": 0, "is_default": False,
+            "match": {"hdr.ethernet.dstAddr": {"type": "exact", "value": mac}},
+            "action": {"name": "MyIngress.forward_l2", "params": {"port": bytes([port])}}}
+
+
+class ADestinationMacOnlyRowIsLeftOutTest(unittest.TestCase):
+    """
+    A row keyed only on `hdr.ethernet.dstAddr` has no spelling the kernel can evaluate.
+
+    [Co-developed with claude code -- Adam]
+    It used to render as `dl_dst`; the kernel's classifier has no test for that key and treats an
+    unknown key as matching every packet, so one such row decided the path of every flow on its
+    switch. A row the twin cannot describe is absent, and counted wherever the count is kept.
+    """
+
+    def test_the_single_entry_translator_returns_nothing(self):
+        self.assertIsNone(rf.entry_to_ryu(a_mac_row()))
+
+    def test_the_row_is_absent_from_the_body_and_the_routes_beside_it_stay(self):
+        body = rf.render_flow_stats(1, [an_lpm_route(port=4), a_mac_row()])
+        self.assertEqual([f["actions"] for f in body["1"]], [["OUTPUT:4"]])
+        self.assertNotIn("dl_dst", json.dumps(body))
+
+    def test_the_field_is_not_in_the_vocabulary(self):
+        self.assertNotIn("hdr.ethernet.dstAddr", rf.FIELD_TO_RYU)
+        self.assertNotIn("dl_dst", rf.FIELD_TO_RYU.values())
+
+    def test_the_row_is_counted_on_a_bound_foreign_switch(self):
+        body, left_out = rf.render_flow_stats_counted(1, [a_mac_row()],
+                                                      binding=a_renamed_binding())
+        self.assertEqual((body["1"], left_out), ([], 1))
+
+    def test_the_row_is_counted_on_an_unbound_foreign_switch(self):
+        body, left_out = rf.render_flow_stats_counted(1, [a_mac_row()], binding=None)
+        self.assertEqual((body["1"], left_out), ([], 1))
+
+    def test_the_row_is_absent_on_ndtwins_own_pipeline_too(self):
+        body, _left_out = rf.render_flow_stats_counted(1, [a_mac_row()])
+        self.assertEqual(body["1"], [])
+
+    def a_mac_and_ip_row(self):
+        # A route keyed on the destination MAC AND an address: dropping only the MAC would list
+        # a rule for every MAC, i.e. a wider rule than the switch holds.
+        row = an_lpm_route(port=4)
+        row["match"]["hdr.ethernet.dstAddr"] = {"type": "exact",
+                                                "value": b"\x00\x00\x00\x00\x00\x04"}
+        return row
+
+    def test_a_mac_key_beside_a_listed_key_takes_the_whole_row_out(self):
+        self.assertIsNone(rf.entry_to_ryu(self.a_mac_and_ip_row()))
+        body = rf.render_flow_stats(1, [self.a_mac_and_ip_row(), an_lpm_route(port=5)])
+        self.assertEqual([f["actions"] for f in body["1"]], [["OUTPUT:5"]])
+
+    def test_that_row_is_counted_once_on_every_pipeline(self):
+        for label, binding in (("ndtwin", route_binding.BASELINE), ("unbound", None),
+                               ("package", a_renamed_binding())):
+            with self.subTest(binding=label):
+                row = self.a_mac_and_ip_row()
+                if label == "package":
+                    row["table"] = "RouteIngress.dest_routes"
+                    row["match"] = {"hdr.ip4.dst": row["match"]["hdr.ipv4.dstAddr"],
+                                    "hdr.ethernet.dstAddr": row["match"]["hdr.ethernet.dstAddr"]}
+                    row["action"] = a_renamed_route()["action"]
+                body, left_out = rf.render_flow_stats_counted(1, [row], binding=binding)
+                self.assertEqual((body["1"], left_out), ([], 1))
+
+    def test_a_dont_care_mac_key_beside_a_listed_key_is_ignored_as_before(self):
+        row = an_lpm_route(port=4)
+        row["match"]["hdr.ethernet.dstAddr"] = {"type": "ternary", "value": b"\x00" * 6,
+                                                "mask": b"\x00" * 6}
+        body, left_out = rf.render_flow_stats_counted(1, [row])
+        self.assertEqual(([f["actions"] for f in body["1"]], left_out), ([["OUTPUT:4"]], 0))
 
 
 class CounterPassthroughTest(unittest.TestCase):
@@ -389,7 +518,7 @@ class DurationComesFromTheProxysOwnRecordTest(unittest.TestCase):
 #
 # 🔴 CAPTURED AT THE BASE. The roles work makes this renderer read its names out of a binding
 # and stop listing actions it does not recognise -- and the NDTwin pipeline's /stats/flow body
-# must not move by one byte. A table of every kind of row ndtwin_switch.p4 can
+# must not move by one byte, except for the two deliberate changes noted at the constant below. A table of every kind of row ndtwin_switch.p4 can
 # hold (both route tables, the l2 table, the four actions it declares plus one it does not, a
 # default row, a row with no usable match, a row with no action), rendered and serialised with
 # sorted keys, is what "does not move" is compared against. The string below was produced by
@@ -428,43 +557,43 @@ def ndtwin_pipeline_render():
     return json.dumps(rf.render_flow_stats(1, ndtwin_pipeline_rows()), sort_keys=True)
 
 
-#: Produced by ndtwin_pipeline_render() at 6291db35's proxy_agent/ (see the block above).
+#: Produced by ndtwin_pipeline_render() at 6291db35's proxy_agent/ (see the block above), with two
+#: deliberate edits since: the 5-tuple row reads priority 100 (was the raw P4 value 101), and the
+#: l2_forward row keyed on hdr.ethernet.dstAddr (`dl_dst`) is gone -- the kernel cannot evaluate
+#: that key and would treat the row as matching everything. [Co-developed with claude code -- Adam]
 BASELINE_NDTWIN_RENDER = (
-    '{"1": [{"actions": ["OUTPUT:6"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "durati'
-    'on_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_t'
-    'ype": 2048, "nw_dst": "10.0.0.4"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"act'
-    'ions": ["OUTPUT:2"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, '
-    '"flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, '
-    '"nw_dst": "10.0.1.0/24"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["'
-    'OUTPUT:4"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": '
-    '0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "in_port"'
-    ': 3, "nw_dst": "10.0.0.4", "nw_proto": 6, "nw_src": "10.0.0.1"}, "packet_count": 0, "prior'
-    'ity": 101, "table_id": 0}, {"actions": ["OUTPUT:9"], "byte_count": 0, "cookie": 0, "durati'
-    'on_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length"'
-    ': 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.4", "nw_proto": 6, "nw_src": "10.0.0.1"}'
-    ', "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:3"], "byte_count"'
-    ': 1500, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0,'
-    ' "idle_timeout": 0, "length": 0, "match": {"dl_dst": "00:00:00:00:00:04"}, "packet_count":'
-    ' 3, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:CONTROLLER"], "byte_count": 0, "co'
-    'okie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_time'
-    'out": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.9"}, "packet_count": 0,'
-    ' "priority": 0, "table_id": 0}, {"actions": [], "byte_count": 0, "cookie": 0, "duration_ns'
-    'ec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, '
-    '"match": {"dl_type": 2048, "nw_dst": "10.0.0.8"}, "packet_count": 0, "priority": 0, "table'
-    '_id": 0}, {"actions": [], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec"'
-    ': 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2'
-    '048, "nw_dst": "10.0.0.7"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": '
-    '[], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard'
-    '_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0'
-    '.6"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": [], "byte_count": 0, "'
-    'cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_ti'
-    'meout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.5"}, "packet_count": '
-    '0, "priority": 0, "table_id": 0}]}'
+    '{"1": [{"actions": ["OUTPUT:6"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration'
+    '_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type"'
+    ': 2048, "nw_dst": "10.0.0.4"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions":'
+    ' ["OUTPUT:2"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags":'
+    ' 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": '
+    '"10.0.1.0/24"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:4"], '
+    '"byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeo'
+    'ut": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "in_port": 3, "nw_dst": "'
+    '10.0.0.4", "nw_proto": 6, "nw_src": "10.0.0.1"}, "packet_count": 0, "priority": 100, "table_'
+    'id": 0}, {"actions": ["OUTPUT:9"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "durati'
+    'on_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_typ'
+    'e": 2048, "nw_dst": "10.0.0.4", "nw_proto": 6, "nw_src": "10.0.0.1"}, "packet_count": 0, "pr'
+    'iority": 0, "table_id": 0}, {"actions": ["OUTPUT:CONTROLLER"], "byte_count": 0, "cookie": 0,'
+    ' "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "l'
+    'ength": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.9"}, "packet_count": 0, "priority": '
+    '0, "table_id": 0}, {"actions": [], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "durati'
+    'on_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_typ'
+    'e": 2048, "nw_dst": "10.0.0.8"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions'
+    '": [], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "har'
+    'd_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.'
+    '7"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": [], "byte_count": 0, "coo'
+    'kie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout'
+    '": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.6"}, "packet_count": 0, "pri'
+    'ority": 0, "table_id": 0}, {"actions": [], "byte_count": 0, "cookie": 0, "duration_nsec": 0,'
+    ' "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": '
+    '{"dl_type": 2048, "nw_dst": "10.0.0.5"}, "packet_count": 0, "priority": 0, "table_id": 0}]}'
 )
 
 
 class TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest(unittest.TestCase):
-    """NDTwin's own /stats/flow body does not move."""
+    """NDTwin's own /stats/flow body does not move, but for the two deliberate changes noted at
+    BASELINE_NDTWIN_RENDER (a 5-tuple row's priority, and the destination-MAC row)."""
 
     def test_the_render_is_the_one_the_base_produced(self):
         self.assertTrue(BASELINE_NDTWIN_RENDER, "the base capture is missing")
@@ -624,6 +753,84 @@ class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase
         body, left_out = rf.render_flow_stats_counted(1, ndtwin_pipeline_rows())
         self.assertEqual(left_out, 0)
         self.assertEqual(json.dumps(body, sort_keys=True), BASELINE_NDTWIN_RENDER)
+
+
+def an_acl_permit_row(src=b"\x0a\x00\x00\x01", priority=10):
+    """A second table of a package's pipeline (`apply { routes.apply(); acl.apply(); }`): a
+    ternary source-address match whose action is NoAction, i.e. "permit, go on"."""
+    return {"table": "RouteIngress.acl", "priority": priority, "is_default": False,
+            "match": {"hdr.ipv4.srcAddr": {"type": "ternary", "value": src,
+                                           "mask": b"\xff\xff\xff\xff"}},
+            "action": {"name": "NoAction", "params": {}}}
+
+
+class OnAPackageBindingOnlyTheBoundTableIsRenderedTest(unittest.TestCase):
+    """
+    The kernel's classifier merges every row of /stats/flow into ONE table and lets the highest
+    priority win. A package's other tables (an ACL, a tag table) are not the route table, so
+    rendering their rows beside the routes made them compete with them: a NoAction permit row at
+    priority 10 rendered as a drop and beat the routes, and the flow read "no rule matches".
+    Only the bound table is rendered; every other row is absent and counted.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    def test_a_noaction_row_of_another_table_is_absent_and_counted(self):
+        body, left_out = rf.render_flow_stats_counted(
+            1, [a_renamed_route(), an_acl_permit_row()], binding=a_renamed_binding())
+        self.assertEqual([f["actions"] for f in body["1"]], [["OUTPUT:3"]])
+        self.assertEqual(left_out, 1)
+
+    def test_each_row_of_the_other_tables_adds_one_to_the_count(self):
+        rows = [a_renamed_route(), an_acl_permit_row(), an_acl_permit_row(src=b"\x0a\x00\x00\x02"),
+                a_tag_row()]
+        body, left_out = rf.render_flow_stats_counted(1, rows, binding=a_renamed_binding())
+        self.assertEqual(len(body["1"]), 1)
+        self.assertEqual(left_out, 3)
+
+    def test_a_forwarding_row_of_another_table_is_absent_too(self):
+        # Not only drops: a row whose action the renderer DOES know, in a table that is not the
+        # route table, would be read as a second route.
+        other = a_renamed_route(dst=b"\x0a\x00\x09\x09")
+        other["table"] = "RouteIngress.second_routes"
+        body, left_out = rf.render_flow_stats_counted(1, [a_renamed_route(), other],
+                                                      binding=a_renamed_binding())
+        self.assertEqual([f["match"]["nw_dst"] for f in body["1"]], ["10.0.3.3"])
+        self.assertEqual(left_out, 1)
+
+    def test_a_default_row_of_another_table_is_still_not_counted(self):
+        default = an_acl_permit_row()
+        default["is_default"] = True
+        body, left_out = rf.render_flow_stats_counted(1, [a_renamed_route(), default],
+                                                      binding=a_renamed_binding())
+        self.assertEqual((len(body["1"]), left_out), (1, 0))
+
+    def test_the_bound_tables_own_noaction_row_is_still_a_drop(self):
+        permit = a_renamed_route()
+        permit["action"] = {"name": "NoAction", "params": {}}
+        body, left_out = rf.render_flow_stats_counted(1, [permit], binding=a_renamed_binding())
+        self.assertEqual((body["1"][0]["actions"], left_out), ([], 0))
+
+    def test_owner_package_binding_is_held_to_its_table_too(self):
+        body, left_out = rf.render_flow_stats_counted(
+            1, [a_renamed_route(), an_acl_permit_row()], binding=a_renamed_binding(owner="package"))
+        self.assertEqual((len(body["1"]), left_out), (1, 1))
+
+    def test_a_switch_with_no_binding_has_no_table_to_be_held_to(self):
+        # Rendered in NDTwin's vocabulary as before roles existed: nothing names a route table.
+        body, left_out = rf.render_flow_stats_counted(1, [an_lpm_route(port=4), an_acl_permit_row()],
+                                                      binding=None)
+        self.assertEqual(left_out, 0)
+        self.assertEqual(len(body["1"]), 2)
+
+    def test_ndtwins_own_pipeline_still_renders_every_table(self):
+        # The baseline binding is not narrowed: its route table, its 5-tuple table and its l2
+        # table are all NDTwin's. (The byte-for-byte capture above pins the whole body.)
+        body, left_out = rf.render_flow_stats_counted(
+            1, [an_lpm_route(port=4), a_ternary_rule(priority=101, port=5)],
+            binding=route_binding.BASELINE)
+        self.assertEqual([f["actions"] for f in body["1"]], [["OUTPUT:4"], ["OUTPUT:5"]])
+        self.assertEqual(left_out, 0)
 
 
 class AMatchRyuCannotSayIsLeftOutAndCountedOnEveryPipelineTest(unittest.TestCase):

@@ -513,7 +513,12 @@ def p4_priority(openflow_priority):
 
     A missing priority becomes 0 -> 1, the lowest band, which is the right default for a table
     that sits in FRONT of ipv4_lpm: an unprioritised 5-tuple rule should still win over the
-    destination-only fallback, but lose to anything anyone bothered to rank.
+    destination-only fallback, but lose to anything anyone bothered to rank. That holds on the
+    SWITCH at every priority, because it applies flow_5tuple first. It holds in the twin only
+    from OpenFlow priority 1 up: /stats/flow reads a 5-tuple rule back at its OpenFlow priority
+    (ryu_flow_stats undoes this +1), so a rule installed at priority 0 reads 0, the same as the
+    destination routes, and the kernel's classifier then ranks the two equal.
+    [Co-developed with claude code -- Adam]
     """
     try:
         of = int(openflow_priority) if openflow_priority is not None else 0

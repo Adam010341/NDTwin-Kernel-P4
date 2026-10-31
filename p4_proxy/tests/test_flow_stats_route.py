@@ -111,6 +111,32 @@ class AForeignSwitchIsRenderedThroughItsBindingTest(unittest.TestCase):
         self.assertFalse(hasattr(client, "last_flow_render"))
 
 
+class APackageClient(HealthyClient):
+    """A client on a package's pipeline: its route table, and an ACL whose rows are NoAction.
+    [Co-developed with claude code -- Adam]"""
+
+    def __init__(self):
+        super().__init__()
+        from tests.test_ryu_flow_stats import a_renamed_binding
+        self.route_binding = a_renamed_binding(owner="package")
+
+    def read_table_entries(self):
+        from tests.test_ryu_flow_stats import a_renamed_route, an_acl_permit_row
+        return [a_renamed_route(), an_acl_permit_row()]
+
+
+class OnAPackageSwitchOnlyTheBoundTableReachesTheBodyTest(unittest.TestCase):
+    def tearDown(self):
+        api_routes.topology = None
+
+    def test_the_other_tables_row_is_left_out_of_the_body_and_counted_on_the_client(self):
+        client = APackageClient()
+        api_routes.topology = FakeTopology(switches={7: client})
+        body = call(7)
+        self.assertEqual([f["actions"] for f in body["7"]], [["OUTPUT:3"]])
+        self.assertEqual(client.last_flow_render[0], 1)
+
+
 class ARenderOnNdtwinsOwnPipelineIsCountedTooTest(unittest.TestCase):
     """The route keeps the count of what it left out for a client on NDTwin's own pipeline."""
 
@@ -127,16 +153,151 @@ class ARenderOnNdtwinsOwnPipelineIsCountedTooTest(unittest.TestCase):
         self.assertEqual(client.last_flow_render[0], 0)
 
 
+# --- a 5-tuple rule reads back at the priority it was installed with ----------------------------
+#
+# [Co-developed with claude code -- Adam]
+# The write path shifts an OpenFlow priority up by one (P4Runtime rejects 0 on a ternary table),
+# and a strict delete shifts what it is given the same way. /stats/flow used to print the P4
+# value, so a client that read a rule back at 101 and deleted "what it saw" asked for 102 and
+# hit nothing. These drive the real TopologyManager write paths over an in-memory table and read
+# the result through the real route.
+
+class InMemoryFiveTupleClient:
+    """A switch whose flow_5tuple table is a dict, read back in read_table_entries' shape."""
+
+    _WIDTH = {"hdr.ipv4.dstAddr": 4, "hdr.ipv4.srcAddr": 4, "hdr.ipv4.protocol": 1,
+              "meta.l4_dst_port": 2, "meta.l4_src_port": 2}
+
+    def __init__(self):
+        self.rule_install_times = RuleInstallTimes()
+        self.rules = {}      # (sorted key items, P4 priority) -> output port
+
+    def insert_5tuple_rule(self, keys, priority, mac, port):
+        self.rules[(tuple(sorted(keys.items())), priority)] = port
+        return True
+
+    def modify_5tuple_rule(self, keys, priority, mac, port):
+        # What the switch answers: NOT_FOUND (False) unless the P4 priority is the stored one.
+        key = (tuple(sorted(keys.items())), priority)
+        if key not in self.rules:
+            return False
+        self.rules[key] = port
+        return True
+
+    def delete_5tuple_rule(self, keys, priority):
+        # What the switch answers: NOT_FOUND (False) unless the P4 priority is the stored one.
+        return self.rules.pop((tuple(sorted(keys.items())), priority), None) is not None
+
+    def _encode(self, field, value):
+        import socket
+        if field.endswith(("srcAddr", "dstAddr")):
+            return socket.inet_aton(value)
+        return int(value).to_bytes(self._WIDTH[field], "big")
+
+    def read_table_entries(self):
+        rows = []
+        for (items, priority), port in self.rules.items():
+            match = {field: {"type": "ternary", "value": self._encode(field, value),
+                             "mask": b"\xff" * self._WIDTH[field]}
+                     for field, value in items}
+            rows.append({"table": "MyIngress.flow_5tuple", "priority": priority,
+                         "is_default": False, "match": match,
+                         "action": {"name": "MyIngress.ipv4_forward",
+                                    "params": {"port": bytes([port])}}})
+        return rows
+
+
+class AFiveTupleRuleIsReadBackAtTheInstalledPriorityTest(unittest.TestCase):
+    MATCH = {"dl_type": 2048, "nw_dst": "10.0.0.1", "nw_proto": 6, "tp_dst": 80}
+    OUT = [{"type": "OUTPUT", "port": 3}]
+
+    def setUp(self):
+        from tests.test_five_tuple_match import manager_with
+        self.client = InMemoryFiveTupleClient()
+        self.mgr = manager_with(self.client)
+        api_routes.topology = self.mgr
+
+    def tearDown(self):
+        api_routes.topology = None
+
+    def shown_priorities(self):
+        return [f["priority"] for f in call(1)["1"]]
+
+    def test_install_at_100_shows_100_and_a_strict_delete_at_the_shown_value_succeeds(self):
+        self.assertTrue(self.mgr.route_flow(1, self.MATCH, self.OUT, 100))
+        self.assertEqual(self.shown_priorities(), [100])
+
+        shown = call(1)["1"][0]["priority"]
+        self.assertTrue(self.mgr.unroute_flow(1, self.MATCH, shown))
+        self.assertEqual(self.client.rules, {}, "the delete at the shown value removed nothing")
+        self.assertEqual(self.shown_priorities(), [])
+
+    def test_a_modify_at_the_shown_priority_edits_that_rule_in_place(self):
+        self.assertTrue(self.mgr.route_flow(1, self.MATCH, self.OUT, 100))
+        shown = call(1)["1"][0]["priority"]
+
+        self.assertTrue(self.mgr.modify_flow(1, self.MATCH, [{"type": "OUTPUT", "port": 4}],
+                                             shown))
+
+        flows = call(1)["1"]
+        self.assertEqual([(f["priority"], f["actions"]) for f in flows], [(100, ["OUTPUT:4"])])
+
+    def test_the_lowest_openflow_priorities_read_back_as_installed_too(self):
+        # 0 -> P4 1 -> shown 0: the shift is undone exactly, and 0 is not clamped away.
+        for priority in (0, 1, 7, 65535):
+            with self.subTest(priority=priority):
+                self.client.rules.clear()
+                self.assertTrue(self.mgr.route_flow(1, self.MATCH, self.OUT, priority))
+                self.assertEqual(self.shown_priorities(), [priority])
+                self.assertTrue(self.mgr.unroute_flow(1, self.MATCH, priority))
+                self.assertEqual(self.client.rules, {})
+
+    def test_the_read_side_undoes_whatever_the_write_side_does(self):
+        # Ties the two spellings of the shift together: if p4_priority ever changes, the
+        # read-back must follow it.
+        from proxy_agent import topology_manager as tm
+        for priority in (0, 1, 2, 100, 50000):
+            with self.subTest(priority=priority):
+                self.client.rules.clear()
+                self.client.insert_5tuple_rule({"hdr.ipv4.dstAddr": "10.0.0.1"},
+                                               tm.p4_priority(priority), None, 1)
+                self.assertEqual(self.shown_priorities(), [priority])
+
+    def test_a_destination_only_route_is_not_shifted(self):
+        # ipv4_lpm has no priority column; its rows read back 0 and must keep doing so.
+        class LpmClient(InMemoryFiveTupleClient):
+            def read_table_entries(self):
+                return [{"table": "MyIngress.ipv4_lpm", "priority": 0, "is_default": False,
+                         "match": {"hdr.ipv4.dstAddr": {"type": "lpm",
+                                                        "value": b"\x0a\x00\x00\x01",
+                                                        "prefix_len": 32}},
+                         "action": {"name": "MyIngress.ipv4_forward",
+                                    "params": {"port": b"\x03"}}}]
+
+        api_routes.topology = FakeTopology(switches={1: LpmClient()})
+        self.assertEqual(self.shown_priorities(), [0])
+
+
 # --- NDTwin's own /stats/flow, in HTTP-body bytes -----------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 # 🔴 RECORDED AT THE BASE, NOT WRITTEN HERE. tests/record_stats_flow_http_body.py, copied verbatim
 # into a `git archive d492a346` tree (its production code is trunk 6291db35's) and run there,
-# printed these bytes; that file's docstring is the provenance (recorder sha256 89e35766).
+# printed these bytes; that file's docstring is the provenance (the sha256 pinned below is of the
+# recorder as it stands now, its docstring edited since).
 # Comparing the renderer's output re-serialised with sort_keys=True cannot see a
 # change of key ORDER -- and key order is what the kernel's parser is handed.
+#
+# Two deliberate edits since the recording; every other byte is the recording's, and the sha256
+# below is of the edited bytes. [Co-developed with claude code -- Adam]
+#   * the 5-tuple row's priority reads 100, where the base printed the raw P4 value 101 (a
+#     5-tuple rule is shown at the priority it was installed with;
+#     AFiveTupleRuleIsReadBackAtTheInstalledPriorityTest);
+#   * the l2_forward row keyed on hdr.ethernet.dstAddr is gone: it rendered as `dl_dst`, which
+#     the kernel's classifier cannot evaluate and treats as matching every packet, so the row
+#     is left out instead (ADestinationMacOnlyRowIsLeftOutTest in test_ryu_flow_stats.py).
 
-#: 2346 bytes, sha256 aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659.
+#: 2120 bytes, sha256 acd86f5b575d90024cc9f09e49317352919ed02a393ec5c6b65440a4c2d4e43b.
 BASELINE_NDTWIN_HTTP_BODY = (
     b'{"1":[{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.4","dl_type":2048'
     b'},"actions":["OUTPUT:6"],"byte_count":0,"packet_count":0,"duration_sec":0,"d'
@@ -144,42 +305,39 @@ BASELINE_NDTWIN_HTTP_BODY = (
     b'th":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.1.0/24","dl_type":'
     b'2048},"actions":["OUTPUT:2"],"byte_count":0,"packet_count":0,"duration_sec":'
     b'0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"'
-    b'length":0},{"table_id":0,"priority":101,"match":{"nw_src":"10.0.0.1","nw_dst'
+    b'length":0},{"table_id":0,"priority":100,"match":{"nw_src":"10.0.0.1","nw_dst'
     b'":"10.0.0.4","nw_proto":6,"in_port":3,"dl_type":2048},"actions":["OUTPUT:4"]'
     b',"byte_count":0,"packet_count":0,"duration_sec":0,"duration_nsec":0,"idle_ti'
     b'meout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0},{"table_id":0,"pr'
     b'iority":0,"match":{"nw_src":"10.0.0.1","nw_dst":"10.0.0.4","nw_proto":6,"dl_'
     b'type":2048},"actions":["OUTPUT:9"],"byte_count":0,"packet_count":0,"duration'
     b'_sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flag'
-    b's":0,"length":0},{"table_id":0,"priority":0,"match":{"dl_dst":"00:00:00:00:0'
-    b'0:04"},"actions":["OUTPUT:3"],"byte_count":1500,"packet_count":3,"duration_s'
-    b'ec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags"'
-    b':0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.9","dl_t'
-    b'ype":2048},"actions":["OUTPUT:CONTROLLER"],"byte_count":0,"packet_count":0,"'
-    b'duration_sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie"'
-    b':0,"flags":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.'
-    b'0.8","dl_type":2048},"actions":[],"byte_count":0,"packet_count":0,"duration_'
-    b'sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags'
-    b'":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.7","dl_'
-    b'type":2048},"actions":[],"byte_count":0,"packet_count":0,"duration_sec":0,"d'
-    b'uration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"leng'
-    b'th":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.6","dl_type":204'
-    b'8},"actions":[],"byte_count":0,"packet_count":0,"duration_sec":0,"duration_n'
-    b'sec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0},{"'
-    b'table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.5","dl_type":2048},"actio'
-    b'ns":[],"byte_count":0,"packet_count":0,"duration_sec":0,"duration_nsec":0,"i'
-    b'dle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0}]}'
+    b's":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.9","dl'
+    b'_type":2048},"actions":["OUTPUT:CONTROLLER"],"byte_count":0,"packet_count":0'
+    b',"duration_sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cooki'
+    b'e":0,"flags":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.'
+    b'0.0.8","dl_type":2048},"actions":[],"byte_count":0,"packet_count":0,"duratio'
+    b'n_sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"fla'
+    b'gs":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.7","d'
+    b'l_type":2048},"actions":[],"byte_count":0,"packet_count":0,"duration_sec":0,'
+    b'"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"le'
+    b'ngth":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.6","dl_type":2'
+    b'048},"actions":[],"byte_count":0,"packet_count":0,"duration_sec":0,"duration'
+    b'_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0},'
+    b'{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.5","dl_type":2048},"act'
+    b'ions":[],"byte_count":0,"packet_count":0,"duration_sec":0,"duration_nsec":0,'
+    b'"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0}]}'
 )
-BASELINE_NDTWIN_HTTP_BODY_SHA256 = "aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659"
+BASELINE_NDTWIN_HTTP_BODY_SHA256 = "acd86f5b575d90024cc9f09e49317352919ed02a393ec5c6b65440a4c2d4e43b"
 
 
 class TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest(unittest.TestCase):
     """GET /stats/flow/1 for an NDTwin-pipeline switch, through FastAPI's own serialisation."""
 
-    #: sha256 of tests/record_stats_flow_http_body.py as it ran at the base. Recomputed at
-    #: every head, so a recorder edited after the recording cannot keep claiming it produced
-    #: these bytes.
-    RECORDER_SHA256 = "89e3576613bedf4920158e68ad019feabf3c317896fc602c4dacf76f96c7a540"
+    #: sha256 of tests/record_stats_flow_http_body.py as it stands now (its docstring was edited
+    #: after the recording, and this value re-pinned then). Recomputed at every head, so a
+    #: recorder edited after this pin cannot keep claiming it produced these bytes.
+    RECORDER_SHA256 = "00aa2edf7c902058e603da2217d5b3d436e0bb6a3e02829080cf6e3aa51d7df8"
 
     def test_the_recorder_in_the_repo_is_the_one_that_recorded(self):
         import hashlib
@@ -207,6 +365,15 @@ class TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest(unittest.TestCase):
 
         self.assertEqual(record({"route_binding": route_binding.BASELINE}),
                          (200, "application/json", BASELINE_NDTWIN_HTTP_BODY))
+
+
+class TheRenderersFiveTupleTableNameIsTheClientsTest(unittest.TestCase):
+    def test_the_table_whose_priority_is_unshifted_is_the_one_the_client_writes(self):
+        # A second spelling of the name would leave the read-back shifting nothing.
+        from proxy_agent import ryu_flow_stats
+        from proxy_agent.p4_client import P4RuntimeClient
+
+        self.assertEqual(ryu_flow_stats.FIVE_TUPLE_TABLE, P4RuntimeClient.FIVE_TUPLE_TABLE)
 
 
 class AFailedReadIsNotAnEmptyTableTest(unittest.TestCase):

@@ -96,6 +96,12 @@ tests.test_switch_state:CapabilitiesOnTheEndpointTest tests.test_switch_state:Th
 tests.test_switch_state:TheCountOnNdtwinsOwnPipelineTest \
 tests.test_switch_state:TheDeclaredLinksReportOnTheEndpointTest \
 tests.test_flow_stats_route:TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest \
+tests.test_ryu_flow_stats:AFiveTupleRowIsRenderedAtTheOpenFlowPriorityTest \
+tests.test_ryu_flow_stats:ADestinationMacOnlyRowIsLeftOutTest \
+tests.test_ryu_flow_stats:OnAPackageBindingOnlyTheBoundTableIsRenderedTest \
+tests.test_flow_stats_route:AFiveTupleRuleIsReadBackAtTheInstalledPriorityTest \
+tests.test_flow_stats_route:TheRenderersFiveTupleTableNameIsTheClientsTest \
+tests.test_flow_stats_route:OnAPackageSwitchOnlyTheBoundTableReachesTheBodyTest \
 tests.test_readopt:ReadoptOnAFabricThatSkipsItsRoutesTest tests.test_readopt:OnlyTheAttachedHostsTest \
 tests.test_readopt:ADeleteOnAFabricThatSkipsItsRoutesTest \
 tests.test_app_package:APackageWithoutRolesLoadsByteIdenticallyTest \
@@ -268,6 +274,9 @@ echo "  new tests to be seen red: $(wc -l < "$NEW_IDS")"
 # CLASSES_AT=worktree while uncommitted. It must be an ancestor of HEAD -- a history that lost it
 # (a squash-merge) is refused, not scanned as "no classes, none missing" -- and the scan carries
 # its own control: with one module left off the list it must name that module's classes.
+# [Co-developed with claude code -- Adam] CLASSES_AT is NOT moved for the /stats/flow render fix:
+# its six classes are listed in NEW_CLASSES above, so each of their tests must be seen red whatever
+# CLASSES_AT is, and a commit of that fix would not stay an ancestor of HEAD once it is squash-merged.
 CLASSES_AT="${CLASSES_AT:-177b9f03}"
 if [[ "$CLASSES_AT" != worktree ]] && ! git -C "$REPO" merge-base --is-ancestor "$CLASSES_AT" HEAD 2>/dev/null; then
     echo "REFUSE: CLASSES_AT $CLASSES_AT is not an ancestor of HEAD -- which classes this change added cannot be read"
@@ -967,8 +976,10 @@ report "FS8: a full mask written wider than the field is taken for a partial one
        "test_a_full_mask_is_still_an_exact_value_whatever_its_width_on_the_wire"
 
 m=$(mutant fs_width_inport "$STATS" \
-    '    "in_port": 9, "dl_dst": 48,' \
-    '    "in_port": 8, "dl_dst": 48,')
+    '    "in_port": 9,
+}' \
+    '    "in_port": 8,
+}')
 report "FS9: the low eight bits of the nine-bit in_port are taken for the whole field" "$m" \
        "test_a_partial_in_port_mask_is_absent_and_counted"
 
@@ -1390,10 +1401,169 @@ report "R2-4a: two keys of every flow swap places in the body the kernel parses"
        "test_the_body_is_the_one_the_base_answered_byte_for_byte"
 
 m=$(mutant http_drift "$FLOWROUTE_TEST" \
-    'BASELINE_NDTWIN_HTTP_BODY_SHA256 = "aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659"' \
+    'BASELINE_NDTWIN_HTTP_BODY_SHA256 = "acd86f5b575d90024cc9f09e49317352919ed02a393ec5c6b65440a4c2d4e43b"' \
     'BASELINE_NDTWIN_HTTP_BODY_SHA256 = "0000000000000000000000000000000000000000000000000000000000000000"')
 report "R2-4b: the pinned bytes and the recording they claim to be part ways" "$m" \
        "test_the_constant_is_the_recording"
+
+# --- the /stats/flow render fix: 5-tuple priority read-back, the destination-MAC row, and the bound
+# table. Each mutation puts one piece of that work back or goes one step too far; the tests in the
+# classes this fix added (see NEW_CLASSES) must each be seen red by one of them.
+# [Co-developed with claude code -- Adam]
+m=$(mutant rf_a1 "$STATS" \
+    'ndtwin_pipeline=not foreign)' \
+    'ndtwin_pipeline=True)')
+report "RF-A1: undo the shift on package bindings and unbound switches too" "$m" \
+       "test_a_5tuple_named_table_on_a_foreign_switch_is_not_shifted"
+
+m=$(mutant rf_a2 "$TOPOMGR" \
+    'client.modify_5tuple_rule(keys, prio, next_hop_mac, out_port)' \
+    'client.modify_5tuple_rule(keys, prio + 1, next_hop_mac, out_port)')
+report "RF-A2: modify path shifts the priority differently" "$m" \
+       "test_a_modify_at_the_shown_priority_edits_that_rule_in_place"
+
+m=$(mutant rf_a3 "$STATS" \
+    'if unrenderable_field_set and out:' \
+    'if False and out:')
+report "RF-A3: mixed MAC+IP row listed with the MAC dropped (old behaviour)" "$m" \
+       "test_a_mac_key_beside_a_listed_key_takes_the_whole_row_out"
+
+m=$(mutant rf_a4 "$STATS" \
+    'age = install_times.age_seconds(dpid, entry.get("table"), entry.get("priority"),' \
+    'age = install_times.age_seconds(dpid, entry.get("table"), _openflow_priority(entry, not foreign),')
+report "RF-A4: install clock looked up by the OpenFlow priority" "$m" \
+       "test_the_install_clock_is_still_looked_up_by_the_p4_priority_it_was_recorded_under"
+
+m=$(mutant rf_a5 "$STATS" \
+    'if p4_name in UNRENDERABLE_FIELDS and not rule_install_times.is_dont_care(spec):' \
+    'if p4_name in UNRENDERABLE_FIELDS:')
+report "RF-A5: a don't-care MAC key beside a listed key counts as a MAC key" "$m" \
+       "test_a_dont_care_mac_key_beside_a_listed_key_is_ignored_as_before"
+
+m=$(mutant rf_b2 "$STATS" \
+    'if ndtwin_pipeline and entry.get("table") == FIVE_TUPLE_TABLE:' \
+    'if ndtwin_pipeline:')
+report "RF-B2: shift undone on every table" "$m" \
+       "test_an_lpm_row_is_not_shifted"
+
+m=$(mutant rf_b2b3 "$STATS" \
+    'priority = int(entry.get("priority") or 0)
+    if ndtwin_pipeline and entry.get("table") == FIVE_TUPLE_TABLE:
+        priority -= FIVE_TUPLE_PRIORITY_SHIFT
+    return max(0, priority)' \
+    'priority = int(entry.get("priority") or 0)
+    if ndtwin_pipeline:
+        priority -= FIVE_TUPLE_PRIORITY_SHIFT
+    return priority')
+report "RF-B2B3: shift undone on every table AND no clamp (the clamp hides B2 at the route)" "$m" \
+       "test_a_destination_only_route_is_not_shifted"
+
+m=$(mutant rf_b3 "$STATS" \
+    'return max(0, priority)' \
+    'return priority')
+report "RF-B3: no clamp at zero" "$m" \
+       "test_a_priority_outside_what_the_writer_can_produce_still_never_goes_negative"
+
+m=$(mutant rf_b4 "$STATS" \
+    'priority -= FIVE_TUPLE_PRIORITY_SHIFT' \
+    'priority -= FIVE_TUPLE_PRIORITY_SHIFT if priority > 1 else 0')
+report "RF-B4: shift undone only above priority 1" "$m" \
+       "test_the_lowest_p4_priority_is_shown_as_openflow_zero"
+
+m=$(mutant rf_b5a "$STATS" \
+    'return FIELD_TO_RYU, FORWARDING_ACTIONS' \
+    'return dict(FIELD_TO_RYU, **{"hdr.ethernet.dstAddr": "dl_dst"}), FORWARDING_ACTIONS')
+report "RF-B5a: MAC key back in the baseline vocabulary only" "$m" \
+       "test_the_row_is_absent_from_the_body_and_the_routes_beside_it_stay"
+
+m=$(mutant rf_b5b "$STATS" \
+    '    fields[binding.match_field] = "nw_dst"' \
+    '    fields[binding.match_field] = "nw_dst"
+    fields["hdr.ethernet.dstAddr"] = "dl_dst"')
+report "RF-B5b: MAC key back in the package vocabulary only" "$m" \
+       "test_that_row_is_counted_once_on_every_pipeline"
+
+m=$(mutant rf_b5c "$STATS" \
+    '    "standard_metadata.ingress_port": "in_port",
+}' \
+    '    "standard_metadata.ingress_port": "in_port",
+    "hdr.ethernet.dstAddr": "dl_dst",
+}')
+report "RF-B5c: MAC key back in FIELD_TO_RYU (both)" "$m" \
+       "test_the_field_is_not_in_the_vocabulary"
+
+m=$(mutant rf_c1 "$STATS" \
+    'if bound_table is not None and counts and entry.get("table") != bound_table:' \
+    'if bound_table is not None and foreign and entry.get("table") != bound_table:')
+report "RF-C1: default rows of other tables counted" "$m" \
+       "test_a_default_row_of_another_table_is_still_not_counted"
+
+m=$(mutant rf_c2 "$STATS" \
+    'bound_table = binding.table if foreign and binding is not None else None
+    flows, unrendered = [], 0
+    for entry in entries or []:
+        counts = foreign and not entry.get("is_default")
+        if bound_table is not None and counts and entry.get("table") != bound_table:' \
+    'bound_table = binding.table if binding is not None else None
+    flows, unrendered = [], 0
+    for entry in entries or []:
+        counts = foreign and not entry.get("is_default")
+        if bound_table is not None and not entry.get("is_default") and entry.get("table") != bound_table:')
+report "RF-C2: table filter applied on NDTwin's own pipeline" "$m" \
+       "test_ndtwins_own_pipeline_still_renders_every_table"
+
+m=$(mutant rf_c3 "$STATS" \
+    'bound_table = binding.table if foreign and binding is not None else None' \
+    'bound_table = (binding.table if binding is not None else route_binding.BASELINE.table) if foreign else None')
+report "RF-C3: table filter applied on an unbound switch (against the baseline table)" "$m" \
+       "test_a_switch_with_no_binding_has_no_table_to_be_held_to"
+
+m=$(mutant rf_c4 "$STATS" \
+    'if bound_table is not None and counts and entry.get("table") != bound_table:
+            unrendered += 1' \
+    'if bound_table is not None and counts and entry.get("table") != bound_table:
+            unrendered += 0')
+report "RF-C4: other tables' rows dropped without counting" "$m" \
+       "test_a_noaction_row_of_another_table_is_absent_and_counted"
+
+m=$(mutant rf_c5 "$STATS" \
+    'if bound_table is not None and counts and entry.get("table") != bound_table:' \
+    'if bound_table is not None and counts and entry.get("table") != bound_table and (entry.get("action") or {}).get("name") == "NoAction":')
+report "RF-C5: table filter only for NoAction rows" "$m" \
+       "test_a_forwarding_row_of_another_table_is_absent_too"
+
+m=$(mutant rf_c6 "$STATS" \
+    'bound_table = binding.table if foreign and binding is not None else None' \
+    'bound_table = binding.table if foreign and binding is not None and binding.owner == "ndtwin" else None')
+report "RF-C6: table filter scoped by binding owner" "$m" \
+       "test_owner_package_binding_is_held_to_its_table_too"
+
+m=$(mutant rf_c7 "$STATS" \
+    'if bound_table is not None and counts and entry.get("table") != bound_table:
+            unrendered += 1' \
+    'if bound_table is not None and counts and entry.get("table") != bound_table:
+            unrendered += 2')
+report "RF-C7: other tables' rows counted twice" "$m" \
+       "test_each_row_of_the_other_tables_adds_one_to_the_count"
+
+m=$(mutant rf_d1 "$STATS" \
+    'FIVE_TUPLE_TABLE = "MyIngress.flow_5tuple"' \
+    'FIVE_TUPLE_TABLE = "MyIngress.flow_5tuple_x"')
+report "RF-D1: the renderer's 5-tuple table name drifts from the client's" "$m" \
+       "test_the_table_whose_priority_is_unshifted_is_the_one_the_client_writes"
+
+m=$(mutant rf_d2 "$STATS" \
+    'DROP_ACTION_NAMES = ("drop", "NoAction")' \
+    'DROP_ACTION_NAMES = ("drop",)')
+report "RF-D2: NoAction no longer a recognised drop" "$m" \
+       "test_the_bound_tables_own_noaction_row_is_still_a_drop"
+
+m=$(mutant rf_d3 "$STATS" \
+    'forwarding_actions=None, ndtwin_pipeline: bool = True)' \
+    'forwarding_actions=None, ndtwin_pipeline: bool = False)')
+report "RF-D3: single-entry translator never undoes the shift" "$m" \
+       "test_the_single_entry_translator_applies_the_same_shift"
+
 
 # item 5 -- a 5-tuple delete / modify on a foreign switch
 m=$(mutant pc_5del "$CLIENT" \
