@@ -29,7 +29,7 @@ supports is "give this manager a journal and it will write to it", not "somebody
 Those are different claims, and for the first three weeks of this journal's life only the first
 was true: `main.py` built `TopologyManager(kernel_notifier=kernel)` with no journal at all,
 `_note_in_journal` returned on `self._journal is None` every single call, and these fourteen
-tests were green the whole time (finding #71). An instrument built to catch a component with no
+tests were green the whole time. An instrument built to catch a component with no
 caller had the shape of a component with no caller.
 
 The missing half is `test_journal_is_wired_in_main.py`, which injects nothing: it imports
@@ -102,7 +102,7 @@ LPM_MATCH = {"nw_dst": "10.0.0.4"}
 FIVE_TUPLE_MATCH = {"nw_dst": "10.0.0.4", "nw_src": "10.0.0.1", "tp_dst": 80}
 #: The priority a destination-only modify carries here: makeModifyJob's default for an absent
 #: one. A named priority on an ipv4_lpm modify is judged against the slot's recorded priority
-#: since Adam's 2026-10-16 ruling (test_modify_at_slot_priority.py), and these tests are about
+#: (see test_modify_at_slot_priority.py), and these tests are about
 #: the journal, not about that. [Co-developed with claude code -- Adam]
 LPM_MODIFY_PRIORITY = 0
 
@@ -220,7 +220,7 @@ class NoJournalIsNotAnErrorTest(unittest.TestCase):
     `journal=None` stays a supported mode, and every sibling test suite builds a bare manager
     that way, so this is the path that must not change.
 
-    It is no longer the production path. Until finding #71 this docstring said "every existing
+    It is no longer the production path. Until main.py was fixed this docstring said "every existing
     construction site passes no journal -- main.py's module-level `topo`", and that sentence was
     both true and the bug: it recorded, as a design intention, that nothing in production ever
     wrote a journal. main.py now passes one (`build_rule_journal`), and

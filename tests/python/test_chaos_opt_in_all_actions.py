@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E-4: the chaos harness's `needs_opt_in` must gate EVERY action, not only the controls.
+"""The chaos harness's `needs_opt_in` must gate EVERY action, not only the controls.
 
 [Co-developed with claude code -- Adam]
 
@@ -221,7 +221,7 @@ class TheInjectionRoundAsksIt(Seam):
         return chaos.injection_round(act, dry, None, None, None, False, None, **kw)
 
     def test_a_gated_action_is_refused_before_anything_is_applied(self):
-        """E-4 itself: this loop never asked the question, so a destructive action with a flag
+        """The defect itself: this loop never asked the question, so a destructive action with a flag
         ran anyway."""
         self.shell()
         act = gated_action()
@@ -354,7 +354,7 @@ class TheBlackholeIsGatedAndStaysOutOfFull(unittest.TestCase):
                          "link_blackhole is in CHAOS_ACTIONS; it is meant to stay out")
 
     def test_every_destructive_action_the_runner_can_build_is_behind_a_flag(self):
-        """The general statement of E-4, asked of the whole surface rather than of the one
+        """The general statement of the rule, asked of the whole surface rather than of the one
         action that prompted it. `all_actions` includes the blackhole, which belongs to no list
         -- and belonging to no list is how it escaped the question for a fortnight."""
         ungated = [a.id for a in actions.all_actions() if a.destructive and not a.needs_opt_in]

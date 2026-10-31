@@ -249,7 +249,7 @@ class SuspectRules(unittest.TestCase):
 
 
 class ThePlaneWithNoClock(unittest.TestCase):
-    """W16-3: on P4 the flow stats are synthesised and every rule reports duration 0/0.
+    """On P4 the flow stats are synthesised and every rule reports duration 0/0.
 
     🔴 MEASURED, 2026-09-07 (P4 4 hosts, trunk 862c4bf8).
     A route to 10.0.0.3 was installed and /ndt/get_switch_openflow_table_entries read at +12 s
@@ -362,7 +362,7 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
             "window's right edge (F3)")
 
     def test_the_plane_reaches_the_selector_from_the_shell(self):
-        """🔴 W16-3 is only fixed if the plane the shell read is the plane python is given.
+        """🔴 ndt's P4 answer to KNOWN-ISSUES G-13 needs python to get the plane the shell read.
 
         A `plane` parameter that defaults to "unknown" and is never passed would leave every
         case in ThePlaneWithNoClock green and the shipped tool blind, which is the shape of
@@ -376,7 +376,7 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
         self.assertEqual(1, text.count('plane = sys.argv[3]'))
 
     def test_the_window_end_reaches_the_selector_from_the_shell(self):
-        """🔴 F3: the fourth argument is the bound, and a bound nothing passes is not a bound.
+        """🔴 The fourth argument is the bound, and a bound nothing passes is not a bound.
 
         The shell reads the window's right edge from the record a stop left on disk
         (app_window_read) and hands it to residue_rule_lines; if that argument never arrives,
@@ -454,7 +454,7 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
 
 
 class TheWindowHasARightEdge(unittest.TestCase):
-    """F3: a window read back from a stop's record is CLOSED, and the bound has to hold.
+    """A window read back from a stop's record is CLOSED, and the bound has to hold.
 
     `cmd_apps stop` could date the app it had just stopped and no
     later process could, because RESIDUE_WINDOW dies with the shell that filled it. The

@@ -2,7 +2,7 @@
 
 [Co-developed with claude code -- Adam]
 
-The defect (finding #4, measured 2026-09-02): the file had ZERO sFlow references. All ten
+The defect (KNOWN-ISSUES A-12, measured 2026-09-02): the file had ZERO sFlow references. All ten
 bridges came up with `sflow=[]` while the kernel listened on :6343 as usual, so
 `/ndt/get_average_link_usage` answered `{"avg_link_usage":0.0,"status":"success"}` through
 3000 packets of real traffic and every per-flow rate read zero. Nothing failed. "We never

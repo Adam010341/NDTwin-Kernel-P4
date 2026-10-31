@@ -49,8 +49,8 @@ def _free_port():
 
     [Co-developed with claude code -- Adam]
     This replaces `PORTS = iter(range(53101, 53199))`, a fixed band handed out from the same
-    starting number in every process. A review caught
-    test_a_switch_that_never_opens_its_port_can_still_be_stopped_by_off failing once in four runs:
+    starting number in every process. With it,
+    test_a_switch_that_never_opens_its_port_can_still_be_stopped_by_off failed once in four runs:
     the helper reported success for a fixture whose whole purpose is never to bind, which can only
     happen if `port_listening` found something answering there.
 

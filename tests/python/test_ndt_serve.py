@@ -433,7 +433,7 @@ class Csrf(ServeCase):
         self.assertEqual(self.s.calls(), [])
 
     def test_status_check_without_token_runs_nothing(self):
-        """The <img src=".../status?check=1"> of finding 1: no token, no Origin -- refused, and
+        """The <img src=".../status?check=1"> request: no token, no Origin -- refused, and
         ndt is never started."""
         st, j, _, _ = self.s.get("/status?check=1", token=None)
         self.assertEqual((st, j["error"]), (403, "token"))

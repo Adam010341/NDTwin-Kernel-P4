@@ -15,12 +15,12 @@ shape, because the four shapes are the thing under test and the real gates chang
 sessions' hands all night. The last case is the real repo, and it asserts only what cannot drift
 out from under it: that those four gates are read at all.
 
-FINDING #78 adds the last two classes, and a different failure. The checker decided which argument
-of a gate names a FILE with `"/" in v`, so a gate whose target sits at the repo ROOT --
-`TOPO="$REPO/testbed_topo.py"`, which reduces to `testbed_topo.py` -- had all 23 of its anchors
-attributed to the only slash-bearing string it declared and was reported MISSING:23. Not
-NO-ANCHORS, not UNPARSED: a confident wrong answer, which is the thing every paragraph above is
-written to prevent. Its gate is tests/shell/mutate_gate_anchors_root_files.sh.
+ATargetAtTheRepoRootIsAFile and NotEveryStringIsAFile cover a different failure. The checker
+decided which argument of a gate names a FILE with `"/" in v`, so a gate whose target sits at the
+repo ROOT -- `TOPO="$REPO/testbed_topo.py"`, which reduces to `testbed_topo.py` -- had all 23 of
+its anchors attributed to the only slash-bearing string it declared and was reported MISSING:23.
+Not NO-ANCHORS, not UNPARSED: a confident wrong answer, which is the thing every paragraph above
+is written to prevent. Its gate is tests/shell/mutate_gate_anchors_root_files.sh.
 
 🔴 The load-bearing half of this file is the NEGATIVE direction. A checker that returns "ok" for
 everything would pass every _ok case here; each of those is therefore paired with a _drift case
@@ -47,10 +47,10 @@ CHECKER = os.environ.get("CHECKER_UNDER_TEST",
                          os.path.join(REPO, "tests", "shell", "check_gate_anchors.py"))
 
 # --- the target files the synthetic gates mutate -------------------------------------------------
-# `epsilon.py` sits at the repo ROOT and is the whole point of the last two classes: it has no
+# `epsilon.py` sits at the repo ROOT and is the whole point of the two root-file classes: it has no
 # directory part, so a file-vs-anchor test spelled `"/" in v` cannot see that it is a file.
 # `tests/python/test_epsilon.py` is the OTHER path its gate declares and does NOT contain the
-# anchor -- it is the file the root target's anchors were misattributed to (finding #78).
+# anchor -- it is the file the root target's anchors were misattributed to.
 TARGETS = {
     "src/alpha.cpp": "void a()\n{\n    int alpha = 1;\n}\n",
     "src/beta.cpp": "void b()\n{\n    long beta = 3;\n}\n",
@@ -313,7 +313,7 @@ EOF
 check "kappa becomes 99" k1 kappa.cpp "some test"
 """
 
-# --- the repo-root shapes (finding #78) ----------------------------------------------------------
+# --- the repo-root shapes ----------------------------------------------------------------------
 # Each of these is the SAME gate written four ways, differing only in how the target file is named.
 # The target is at the repo root in all four, so `$REPO/epsilon.py` reduces to `epsilon.py` and the
 # old `"/" in v` test could not see it. Each shape is one of the four places the tool asks "is this
@@ -889,7 +889,7 @@ class CouldNotCheckIsNeverAPass(unittest.TestCase):
 
 
 class ATargetAtTheRepoRootIsAFile(unittest.TestCase):
-    """Finding #78. `TOPO="$REPO/testbed_topo.py"` reduces to `testbed_topo.py`, which has no
+    """`TOPO="$REPO/testbed_topo.py"` reduces to `testbed_topo.py`, which has no
     slash in it, and `"/" in v` was the whole of the file-vs-anchor test. The first gate in this
     repo whose target sits at the root (mutate_testbed_banner.sh) therefore had all 23 of its
     anchors attributed to the only slash-bearing string it declares -- the python test path, where

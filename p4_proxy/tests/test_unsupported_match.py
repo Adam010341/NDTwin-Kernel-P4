@@ -152,7 +152,7 @@ class EthTypeParsingTest(unittest.TestCase):
     through can be caught downstream, but refusing a valid request breaks a working client outright.
     No caller in this repo sends hex today -- Traffic-Engineering-App and Energy-Saving-App both send
     the integer 2048 -- but hex is how OpenFlow tooling normally writes an ethertype, and this code
-    claims to validate the field. Found by agy-review 0072.
+    claims to validate the field.
     """
 
     def test_the_integer_form_every_current_caller_uses(self):
@@ -203,7 +203,7 @@ class MalformedMatchTest(unittest.TestCase):
     `(match_dict or {}).items()` raised AttributeError for a list, string or number. api_routes
     catches only UnsupportedMatchError, so it escaped and FastAPI answered **500 Internal Server
     Error** for a malformed request -- the same defect class as the three 500s already fixed on the
-    kernel side. Found by agy-review 0072.
+    kernel side.
     """
 
     def test_a_non_object_match_raises_rather_than_crashing(self):
@@ -242,7 +242,7 @@ class ReportedFieldCapTest(unittest.TestCase):
     [Co-developed with claude code -- Adam]
     `match` arrives in an unauthenticated REST body, so a caller can send thousands of keys; all of
     them were sorted, joined, printed to stdout and echoed in the 400 response. A modest
-    amplification, and free to remove. Found by agy-review 0072.
+    amplification, and free to remove.
     """
 
     def test_a_huge_field_list_produces_a_bounded_message(self):
@@ -275,7 +275,7 @@ class MalformedMatchValueTest(unittest.TestCase):
     `{"nw_dst": "10.0.0.5/32"}` names a field ipv4_lpm keys on, so unsupported_match_fields
     returned [] and the value went straight to socket.inet_aton() inside insert_ipv4_route,
     which raises OSError. Nothing caught it, so FastAPI answered 500 -- reproducible against the
-    proxy alone, with the kernel out of the picture (round 4).
+    proxy alone, with the kernel out of the picture.
 
     Since 2026-10-23 a well-formed prefix on a destination-only match is accepted
     (test_cidr_destination.py); these tests now use a prefix that is still malformed (/33).
@@ -407,10 +407,9 @@ class RefusalReachesTheEntryPointsTest(unittest.TestCase):
 
     [Co-developed with claude code -- Adam]
     Everything above tests the helper. These drive route_flow / unroute_flow / modify_flow
-    themselves, because the scoped review's finding (2026-07-31) was
-    precisely that nothing did: all three `raise` statements could be replaced with `pass`
-    and this file stayed green -- which resurrects the silently-narrowed rule end to end
-    while every unit test here keeps passing. The second half of each assertion is the
+    themselves, because on 2026-07-31 nothing did: all three `raise` statements could be
+    replaced with `pass` and this file stayed green -- which resurrects the silently-narrowed
+    rule end to end while every unit test here keeps passing. The second half of each assertion is the
     client staying untouched: a refusal issued after the gRPC write is an apology, not a
     guard, and for unroute_flow it would have already deleted a broader rule than the
     caller named.

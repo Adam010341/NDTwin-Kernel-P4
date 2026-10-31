@@ -254,7 +254,7 @@ class DurationComesFromTheProxysOwnRecordTest(unittest.TestCase):
     `duration_sec`/`duration_nsec` must be the rule's age, or 0/0 meaning "unknown".
 
     KNOWN-ISSUES G-13. bmv2 has no per-entry age, so these two fields were hardcoded zeroes and
-    every rule on the P4 plane looked equally new. Measured 2026-09-07 (W16-3): one route
+    every rule on the P4 plane looked equally new. Measured 2026-09-07: one route
     installed, read back at +12 s and +32 s, `duration_sec: 0, duration_nsec: 0` both times --
     including for every rule that was already on the switch -- while `packet_count` moved. `ndt`
     could therefore not tell a rule an app left behind from a bring-up route, and marked the

@@ -447,7 +447,7 @@ class DownEndpointsCoverTheInferredReverseTest(WatchdogTestBase):
 
     [Co-developed with claude code -- Adam]
     These two used to sit in the class above, whose name promises something about the kernel-facing
-    reply -- and a review was right that they proved nothing about it: they read an intermediate the
+    reply -- and they proved nothing about it: they read an intermediate the
     kernel never sees, so a `render_links` that ignored the set entirely would leave them green.
     Splitting them out is the honest fix. The wiring is pinned by the class above, and measured:
     disabling the filter in `render_links` fails `test_a_failed_link_is_not_reported`,
@@ -1086,7 +1086,7 @@ class ThreadLifecycleTest(unittest.TestCase):
     """
     The LLDP beacon thread had no stop flag and its handle was assigned to a discarded local, so
     main.py's shutdown tore down every P4RuntimeClient underneath a loop still calling
-    send_packet_out on them. Found by the p4-proxy commit review (H3).
+    send_packet_out on them.
     """
 
     def setUp(self):

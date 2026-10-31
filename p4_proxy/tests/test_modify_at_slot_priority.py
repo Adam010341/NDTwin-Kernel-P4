@@ -3,8 +3,7 @@ A destination-only modify naming the priority its ipv4_lpm slot holds is honoure
 
 [Co-developed with claude code -- Adam]
 
-Adam's 2026-10-16 ruling, amending doc/audit/2026-09-03_night-rounds/DECISION-P4-PRIORITY.md
-for one case. Before it, every named priority on a destination-only modify answered 501, and
+Before this case was allowed, every named priority on a destination-only modify answered 501, and
 that included the priority-10 modify Traffic-Engineering's default mode and Energy-Saving send
 for every route change (the kernel builds `modifyAnEntry(dpid, 10, ...)` -> `/stats/flowentry/
 modify` with `"priority": 10`), so neither app moved a flow on P4. Priority 10 is the priority
@@ -270,7 +269,7 @@ class EveryOtherNamedPriorityIsStill501Test(SlotTestCase):
         self.assert_refused_unwritten(c1, body(priority=10), 0)
 
     def test_a_strict_delete_at_ten_is_still_501(self):
-        # Unchanged by the ruling: a strict delete at the slot's own priority stays refused,
+        # A strict delete at the slot's own priority stays refused,
         # before the topology, so the proxy's route is untouched.
         _, c1, _ = self.fabric()
         err = refused(api_routes.delete_flow_entry,
@@ -575,8 +574,8 @@ class TheRemedyIsTrueOnBothPlanesTest(SlotTestCase):
 
     def test_the_modify_501_keeps_its_machine_fields_inside_the_kernel_window(self):
         # '"slot_priority":' -- the KEY, with its quote and colon: the remedy's prose also says
-        # "name slot_priority", so the bare word would pass with the field pushed out (review r2
-        # NEW-4). At the extremes of the priority range too (review r2 nit e).
+        # "name slot_priority", so the bare word would pass with the field pushed out.
+        # At the extremes of the priority range too.
         self.fabric()
         for priority in (1, 99, 65535):
             with self.subTest(priority=priority):
@@ -587,7 +586,7 @@ class TheRemedyIsTrueOnBothPlanesTest(SlotTestCase):
                     self.assertIn(needle, window)
 
 
-# --- round 2 (review r1) ---------------------------------------------------------------------
+# --- one slot per destination, the slot lock, readopt ----------------------------------------
 # [Co-developed with claude code -- Adam]
 
 #: Another spelling of DST that check_match_values accepts and that names the same ipv4_lpm
@@ -621,7 +620,7 @@ def race(testcase, second, first=None):
 
 
 class OneSlotWhateverTheSpellingTest(SlotTestCase):
-    """MAJOR-1: the record and the lock are the switch's entry, not the string the caller sent."""
+    """The record and the lock are the switch's entry, not the string the caller sent."""
 
     def test_an_install_under_another_spelling_is_the_same_slot(self):
         # Refill records 10; an app installs at 100 spelling the address differently (same
@@ -653,7 +652,7 @@ class OneSlotWhateverTheSpellingTest(SlotTestCase):
 
 
 class EveryWriterTakesTheSlotLockTest(SlotTestCase):
-    """m1: built like the install-vs-modify race above, one per remaining writer."""
+    """Built like the install-vs-modify race above, one per remaining writer."""
 
     def test_a_restore_cannot_land_between_a_modifys_check_and_its_write(self):
         made, c1 = race(self, lambda topo: post(api_routes.delete_flow_entry,
@@ -701,7 +700,7 @@ class ReadoptClient(SlotClient):
 
 
 class ReadoptEndToEndTest(SlotTestCase):
-    """m4: TopologyManager.readopt_switch driven with stub clients: push, swap, refill."""
+    """TopologyManager.readopt_switch driven with stub clients: push, swap, refill."""
 
     def test_after_a_readopt_the_refilled_route_is_modified_at_ten(self):
         topo, old, _ = self.fabric(client1=ReadoptClient())
@@ -716,7 +715,7 @@ class ReadoptEndToEndTest(SlotTestCase):
     def test_after_a_readopt_with_no_refill_the_old_records_do_not_count(self):
         # The old client has pushed once too (as startup does), so its records carry the same
         # epoch the new client reaches with its one push: only the client's identity tells them
-        # apart (review r2 nit a -- mutant 24 must bite here).
+        # apart (mutant 24 must bite here).
         old = ReadoptClient()
         old.set_forwarding_pipeline_config()
         topo, _, _ = self.fabric(client1=old)
@@ -729,7 +728,7 @@ class ReadoptEndToEndTest(SlotTestCase):
 
     def test_a_push_that_raised_after_landing_costs_one_failed_modify_and_no_insert(self):
         # The new client's push emptied the tables and raised; readopt keeps the OLD client,
-        # whose records still count. Pinned residual (review r1 m4): the honoured modify reaches
+        # whose records still count. Pinned residual: the honoured modify reaches
         # a slot that is empty, modify_ipv4_route has no insert fallback (pinned below on the
         # real client), so it fails, the record is forgotten, and the next one is a 501.
         topo, old, _ = self.fabric(client1=ReadoptClient())
@@ -748,7 +747,7 @@ class ReadoptEndToEndTest(SlotTestCase):
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class AModifyNeverInsertsTest(unittest.TestCase):
-    """m4: the property the residual above rests on, on the real client."""
+    """The property the residual above rests on, on the real client."""
 
     def test_a_refused_modify_is_not_retried_as_an_insert(self):
         from p4.v1 import p4runtime_pb2
@@ -760,7 +759,7 @@ class AModifyNeverInsertsTest(unittest.TestCase):
                          "a modify on an absent entry must not create one")
 
 
-# --- round 3 (review r2 NEW-2) ---------------------------------------------------------------
+# --- one spelling per destination ------------------------------------------------------------
 # [Co-developed with claude code -- Adam]
 
 
@@ -814,7 +813,7 @@ class EveryLookupSeesOneSpellingTest(SlotTestCase):
 class SlotPrioritiesKeysOnTheEncodingTest(unittest.TestCase):
     """
     SlotPriorities' own contract, without the topology in front of it. [Co-developed with claude
-    code -- Adam] Since round 3 the three verbs canonicalize the destination before they reach
+    code -- Adam] The three verbs canonicalize the destination before they reach
     the record, so the end-to-end spelling tests above can no longer see whether slot_key itself
     does; this one can (mutant 34).
     """

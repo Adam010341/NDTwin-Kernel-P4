@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""W8-8: the chaos harness's `link_blackhole` must attach netem UNDER the shaper, not over it.
+"""The chaos harness's `link_blackhole` must attach netem UNDER the shaper, not over it.
 
 [Co-developed with claude code -- Adam]
 
@@ -238,7 +238,7 @@ class ApplyTest(TcSeam):
     """The command that actually goes out."""
 
     def test_on_a_shaped_interface_the_command_never_says_root(self):
-        """W8-8 itself."""
+        """The defect itself: on a shaped interface the command never says root."""
         tc = self.seam([SHAPED])
         out = actions.link_blackhole("s1-eth2").apply(False)
         self.assertTrue(out.ok, out.detail)

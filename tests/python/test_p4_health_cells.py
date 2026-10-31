@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The P4 health check's verdict functions, on fixtures (design 5.2-①).
+"""The P4 health check's verdict functions, on fixtures.
 
 [Co-developed with claude code -- Adam]
 
@@ -11,7 +11,7 @@ that is readable but EMPTY -> NOT RUN, never GREEN; sent=0 -> NOT RUN (active); 
 unreadable -> NOT RUN; attribution failing -> UNATTRIBUTED (where it can fail); self-check
 failing -> PROBE-BROKEN. Static thrift-match cells: a thrift reply read as a match fails the
 negative read. Then the named fixtures: rule D, the controls, expected refusals, the decision
-order, every compare branch the Cut 1 review listed, the three rollups, and the predictions.
+order, the compare branches TestNamedFixtures pins, the three rollups, and the predictions.
 """
 import copy
 import os
@@ -36,7 +36,7 @@ from p4_health import round_a as RA  # noqa: E402
 
 class MustNotRun(BaseException):
     """What a test double raises where the code under test must not get to. Not an Exception:
-    `probe.py lab` turns any Exception into rc 2 (round 5, #2), which would let a test that expects
+    `probe.py lab` turns any Exception into rc 2, which would let a test that expects
     rc 2 pass even though the double was reached."""
 
 
@@ -52,7 +52,7 @@ EXPECTED_TSV = os.path.join(REPO, "doc", "audit", "2026-10-03_p4-health-check", 
 P4_SRC = os.path.join(os.path.dirname(PKG), "exercise", "src", "hc_main.p4")
 
 ALL_ATTR = {"bmv2": True, "wire": True, "static": True}
-#: The best a cell can read today by its own definition (P4: section 12 item 8).
+#: The best a cell can read today by its own definition.
 BEST = {"P4": V.PARTIAL}
 CONTROL_OK = {"answer": {"http": 404, "error": "not in this pipeline"}}
 
@@ -241,7 +241,7 @@ FIX = {
 STRUCTURAL_ONLY = {"PL1", "PL2", "T1", "T2", "T3", "T8", "M1", "M2", "C1", "K3", "P1", "CH1", "CH2",
                    "CH3", "CH5", "CH6", "CH7", "CH8", "Q1", "CS1", "TP1", "TP2", "TP4", "CP2", "CP4",
                    "V1", "V2", "HR1", "HR2", "HU1", "TTL1", "RC1"}
-#: Design 2.1 / 5.2: every cell whose GREEN rests on a thrift match reads "absent" in the same
+#: Every cell whose GREEN rests on a thrift match reads "absent" in the same
 #: window. Pinned here, so dropping the flag from a row is a red test, not a silent change.
 NEGATIVE_READ_CELLS = {"PL1", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "M1", "M2", "C1", "C2", "MT1",
                        "MT2", "MT3", "R3", "CP4", "AP1", "AS1", "IT1", "VS1"}
@@ -272,7 +272,7 @@ class TestEveryCellHasItsFixtures(unittest.TestCase):
                 self.assertEqual(decide(cid, obs).verdict, V.RED, (cid, decide(cid, obs)))
 
     def test_an_unreadable_answer_is_not_run(self):
-        """Step 0 (review MAJ-2): no answer is no verdict, never RED and never GREEN."""
+        """Step 0: no answer is no verdict, never RED and never GREEN."""
         for c in judged():
             if not c.needs_answer:
                 continue
@@ -286,7 +286,7 @@ class TestEveryCellHasItsFixtures(unittest.TestCase):
                     self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "answer"))
 
     def test_an_empty_answer_or_oracle_is_never_green(self):
-        """Review MAJ-1: a readable but empty reply is a reading not taken."""
+        """A readable but empty reply is a reading not taken."""
         for c in judged():
             for side_ in ("answer", "oracle"):
                 if not any(n.startswith(side_[0] + ":") for n in c.need):
@@ -355,7 +355,7 @@ class TestEveryCellHasItsFixtures(unittest.TestCase):
 
 
 class TestStaticCells(unittest.TestCase):
-    """Design 5.2-① for T2, M1, C1, PL1, T1's dump half, P1, Q2, CS1, TP1."""
+    """The static verdicts of T2, M1, C1, PL1, T1's dump half, P1, Q2, CS1, TP1."""
     STATIC = ("T2", "M1", "C1", "PL1", "T1", "P1", "Q2", "CS1", "TP1")
 
     def test_oracle_unreadable_is_not_run(self):
@@ -434,7 +434,7 @@ class TestRuleD(unittest.TestCase):
         self.assertEqual(V.run_verdict(ctx, True), ("COMPLETE", 0))
 
     def test_a_stop_overrides_probe_broken_and_a_see_red_pass_needs_a_complete_run(self):
-        """(Cut 2 review, round 4 F3) PROBE-BROKEN is checked first, so it used to hide both a
+        """PROBE-BROKEN is checked first, so it used to hide both a
         recorded stop and a round that did not end clean."""
         cells, scs = self.base_obs()
         scs["SC-fwd"] = {"pingall": (29, 30), "dump_ok": True}
@@ -451,7 +451,7 @@ class TestRuleD(unittest.TestCase):
         self.assertEqual(V.run_verdict(clean_ctx, True, stopped=True), ("INCOMPLETE", 2))
 
     def test_a_see_red_run_that_sees_no_red_is_not_a_pass(self):
-        """(Round 5, #3) A see-red run's pass is PROBE-BROKEN. One where no cell is PROBE-BROKEN (the
+        """A see-red run's pass is PROBE-BROKEN. One where no cell is PROBE-BROKEN (the
         mutant went unnoticed: the probe cannot see red) is SEE-RED-NOT-SEEN, rc 2 -- not the
         COMPLETE rc 0 that run.sh and anything reading rc takes for success."""
         clean_ctx = V.judge_all(T.TABLE, *self.base_obs())
@@ -477,7 +477,7 @@ class TestRuleD(unittest.TestCase):
         self.assertEqual(ctx.cells["CP1"].verdict, ctx.cells["T1"].verdict)
 
     def test_aliases_carry_their_sources_verdict(self):
-        """VB1 = CH3 (Cut 1 review, MAJ-9) and CP1 = T1 (design 2.3). RC1 is a real cell (r3)."""
+        """VB1 = CH3 and CP1 = T1. RC1 is a real cell."""
         cells, scs = self.base_obs()
         cells["CH3"] = copy.deepcopy(FIX["CH3"][1])
         ctx = V.judge_all(T.TABLE, cells, scs)
@@ -489,7 +489,7 @@ class TestRuleD(unittest.TestCase):
         self.assertIn("varbit", T.TABLE.cell("VB1").alias_why)
         self.assertIsNone(T.TABLE.cell("RC1").alias_of)
 
-    # MAJ-3: the controls gate their cells
+    # the controls gate their cells
     def test_k1_and_t3_follow_their_controls(self):
         for cell, ctl in (("K1", "K1-neg"), ("T3", "T3-neg")):
             for answer, want in (({"http": 200, "error": None}, V.PROBE_BROKEN),
@@ -507,7 +507,7 @@ class TestRuleD(unittest.TestCase):
                     self.assertEqual(ctx.cells[cell].phase, "control")
 
     def test_a_missing_route_makes_the_cell_red_and_the_round_publishable(self):
-        """Review MINOR 3, decided: no counter / table-entry route -> the control is NOT RUN
+        """No counter / table-entry route -> the control is NOT RUN
         (nothing to ask), K1 / T3 are RED for "no route", and the round stays publishable."""
         cells, scs = self.base_obs()
         for cell, ctl in (("K1", "K1-neg"), ("T3", "T3-neg")):
@@ -596,7 +596,7 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertIn("no route", v.reason)
 
     def test_r2s_red_claims_thrift_only_when_thrift_read_the_cell(self):
-        # (thrift cut round 2) [Co-developed with claude code -- Adam] The oracle is the marker's value
+        # [Co-developed with claude code -- Adam] The oracle is the marker's value
         # and always there; thrift's evidence is register_read's answer, `oracle.thrift`. Without it a
         # red is not attributed -- K1's rule, where thrift_ev needs thrift's counter_read.
         v = decide("R2", {"answer": {"route": False}, "sent": 1, "oracle": {"value": 4660, "thrift": None}})
@@ -667,13 +667,13 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertEqual(decide("T8", {"answer": {"journaled": False}}).verdict, V.RED)
 
     def test_t8_red_says_why_journaled_can_be_false_now(self):
-        # (Cut C) Since the proxy replays its journal, `journaled` is no longer a constant: the RED names the three
+        # Since the proxy replays its journal, `journaled` is no longer a constant: the RED names the three
         # things that make it false, and no longer the constant that used to.
         reason = decide("T8", {"answer": {"journaled": False}}).reason
         self.assertNotIn("constant", reason)
         for word in ("off", "external control plane", "missed a record"):
             self.assertIn(word, reason)
-        # (Cut 2 round 8) and a step-0 or replay snapshot that failed: rule_journal.py counts those as a failure too
+        # and a step-0 or replay snapshot that failed: rule_journal.py counts those as a failure too
         # [Co-developed with claude code -- Adam]
         self.assertIn("snapshot", reason)
 
@@ -726,7 +726,7 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertEqual(decide("CP4", obs).phase, "reading")
 
     def test_malformed_timed_readings_are_probe_broken(self):
-        """Cut 1 follow-up 6: the never / watched_s encoding is validated. A negative time, a
+        """The never / watched_s encoding is validated. A negative time, a
         "Never" that is not the canonical value, and a time larger than the observer's own watch
         are the observer's bug -- PROBE-BROKEN, not GREEN, not RED."""
         cells = (("TP2", "down_after_s"), ("TP4", "down_after_s"), ("CP4", "rerouted_after_s"),
@@ -756,7 +756,7 @@ class TestNamedFixtures(unittest.TestCase):
                 self.assertEqual(decide(cid, obs).verdict, V.RED)
 
     def test_a_route_read_as_gone_during_a_short_watch_is_not_run(self):
-        """Cut 1 follow-up 6: CP4 checks how long the observer watched BEFORE it reads `gone`."""
+        """CP4 checks how long the observer watched BEFORE it reads `gone`."""
         obs = copy.deepcopy(FIX["CP4"][0])
         obs["oracle"]["port_after_cut"] = T.GONE
         obs["answer"]["rerouted_after_s"] = T.NEVER
@@ -832,14 +832,14 @@ class TestNamedFixtures(unittest.TestCase):
                          V.GREEN)
 
     def test_pft_with_no_observation_is_not_run(self):
-        """Review MINOR 2."""
+        """PF-T with no observation is NOT RUN."""
         self.assertEqual(decide("PF-T", {}).verdict, V.NOT_RUN)
         self.assertEqual(decide("PF-T", None).verdict, V.NOT_RUN)
 
     def test_p4_received_is_partial_b(self):
         self.assertEqual(decide("P4", copy.deepcopy(FIX["P4"][0])).label, "PARTIAL(b)")
 
-    # MAJ-4: the compare branches, each with a fixture where it is the one that decides
+    # the compare branches, each with a fixture where it is the one that decides
     def test_t1s_dump_half_decides_on_its_own(self):
         obs = copy.deepcopy(FIX["T1"][0])
         obs["oracle"]["dumps"]["3"] = ["a3"]
@@ -892,7 +892,7 @@ class TestNamedFixtures(unittest.TestCase):
                 self.assertEqual((v.verdict, v.phase), (V.RED, "compare"), (cid, key, v))
 
     def test_empty_probe_side_inputs_are_probe_broken(self):
-        """Review MINOR 1: an empty target, declared port set or marker field list is the probe's
+        """An empty target, declared port set or marker field list is the probe's
         own fault -- PROBE-BROKEN, as pl1 and t1 already treat an incomplete expectation."""
         for cid, key, value in (("MT1", "target", []), ("MT2", "target", []), ("M2", "declared", []),
                                 ("D1", "fields", [])):
@@ -902,14 +902,14 @@ class TestNamedFixtures(unittest.TestCase):
                 self.assertEqual(decide(cid, obs).verdict, V.PROBE_BROKEN)
 
     def test_hu1s_nested_readings_are_needed(self):
-        """Review MINOR 2."""
+        """HU1 needs its nested readings."""
         for member, key in (("v6", "g1"), ("v6", "pair"), ("v6", "flow_identity"), ("x", "pair"),
                             ("x", "side_after")):
             with self.subTest(member=member, key=key):
                 obs = copy.deepcopy(FIX["HU1"][0])
                 del obs["answer"][member][key]
                 self.assertEqual(decide("HU1", obs).verdict, V.NOT_RUN)
-        # Cut 1 follow-up 5: "looked, no flow identity" is False and still decides (PARTIAL(a),
+        # "looked, no flow identity" is False and still decides (PARTIAL(a),
         # the prediction); only a MISSING key is a reading not taken
         obs = copy.deepcopy(FIX["HU1"][0])
         obs["answer"]["v6"]["flow_identity"] = False
@@ -928,8 +928,8 @@ class TestNamedFixtures(unittest.TestCase):
         obs["answer"]["reported_after_s"] = T.NEVER
         obs["attribution"] = dict(ALL_ATTR)
         self.assertEqual(decide("IT1", obs).verdict, V.RED)
-        obs["answer"]["reported_after_s"] = 25.0          # review MINOR 5: a report past the deadline
-        obs["answer"]["watched_s"] = 30                   # (r4) ... seen, so the watch reached it
+        obs["answer"]["reported_after_s"] = 25.0          # a report past the deadline
+        obs["answer"]["watched_s"] = 30                   # ... seen, so the watch reached it
         self.assertEqual(decide("IT1", obs).verdict, V.RED)
         obs["answer"]["reported_after_s"] = T.NEVER
         obs["answer"]["watched_s"] = 4
@@ -961,7 +961,7 @@ class TestNamedFixtures(unittest.TestCase):
         return total
 
     def test_hr_stimulus_size_and_order(self):
-        """Review MINOR 4, redone in Cut 1 follow-up 3: HR's stimulus makes a false RED from
+        """HR's stimulus makes a false RED from
         sampling rare AGAINST THE CELL'S OWN ABSOLUTE THRESHOLD, fits the shaped uplink, and runs
         after TP2 and before Q1."""
         import math
@@ -973,7 +973,8 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertLess(2 * p_half, 1e-5, "false-RED probability of HR2 (either half)")
         p_hr1 = self._poisson_cdf(need - 1, T.HR_FRAMES / float(T.SAMPLE_ONE_IN))
         self.assertLess(p_hr1, 1e-5)                               # HR1's one loaded uplink
-        # the model is the one the review computed: 20000 frames is 2.0e-5, and so is not enough
+        # the model against an independently computed figure: 20000 frames is 2.0e-5,
+        # and so is not enough
         self.assertAlmostEqual(2 * self._poisson_cdf(16 - 1, 20000 / 2.0 / 256), 1.98e-5, delta=0.05e-5)
         self.assertLess(T.HR_RATE_KBIT / 2.0, T.SHAPED_KBIT)      # HR2's half fits s1-eth5
         seconds = T.HR_FRAMES * T.HR_FRAME_BYTES * 8 / (T.HR_RATE_KBIT * 1000.0)
@@ -988,7 +989,7 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertFalse(any(b == "Q1" for b, _a in T.ORDER))      # Q1 last
 
     def test_hr1_is_pinned_to_the_unshaped_uplink(self):
-        """Cut 1 follow-up 3: HR1 sends HR_RATE_KBIT on one uplink; on the shaped one the shaper,
+        """HR1 sends HR_RATE_KBIT on one uplink; on the shaped one the shaper,
         not the program, decides what arrives -- NOT RUN, not a verdict."""
         obs = copy.deepcopy(FIX["HR1"][0])
         self.assertEqual(decide("HR1", obs).verdict, V.GREEN)
@@ -1003,8 +1004,8 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertNotIn(T.HR1_UPLINK, T.SHAPED_IFACES)
 
     def test_order_has_no_consumer_yet_and_the_comment_says_so(self):
-        """Cut 1 follow-up 10: table.ORDER is read by no scheduler. If one now reads it, the comment
-        beside ORDER and design 14.7 are stale -- change them with the scheduler."""
+        """table.ORDER is read by no scheduler. If one now reads it, the comment beside ORDER
+        is stale -- change it with the scheduler."""
         users = []
         for root, _dirs, files in os.walk(PKG if os.path.basename(PKG) == "p4_health" else os.path.dirname(PKG)):
             for f in files:
@@ -1053,7 +1054,7 @@ class TestSelfChecks(unittest.TestCase):
             self.assertIn(v.verdict, (V.PROBE_BROKEN, V.NOT_RUN), s.id)
 
     def test_sc_count_without_loss_and_with_it(self):
-        """Section 12 item 1, zero-loss form: with loss the count is not decided at all (NOT
+        """The zero-loss form: with loss the count is not decided at all (NOT
         RUN, never PROBE-BROKEN); an equal count over a lossy path is not a pass either."""
         for delta in (3, 5):
             ok, _ = self.sc("SC-count").check({"thrift_delta": delta, "sent": 5, "received": 3})
@@ -1120,7 +1121,7 @@ class TestRollup(unittest.TestCase):
 
     def test_three_rollups_sixteen_sixteen_and_six(self):
         """Q2(a) keeps core and full at the 16 dimensions; Q3(b)'s six categories are a third
-        rollup reported beside them (Cut 1 review, MAJ-10)."""
+        rollup reported beside them."""
         ctx = self.ctx_of({"MT1": V.RED, "MT2": V.RED, "MT3": V.GREEN, "AP1": V.RED})
         core, full, q3b = (V.rollup(T.TABLE, ctx, s) for s in ("core", "full", "q3b"))
         self.assertEqual(core["dimensions"]["meters"], V.CANNOT)
@@ -1137,10 +1138,10 @@ class TestRollup(unittest.TestCase):
             V.rollup(T.TABLE, ctx, "all")
 
     def test_the_predictions_give_the_three_rollups(self):
-        """Design 5.1: core most likely 10 / 3 / 3 / 0, full 6 / 7 / 3 / 0; the q3b rollup
-        (design 14) 2 / 1 / 2 / 1. (Cut C) T8 predicts GREEN, the last cell of `tables` that did not, so in the full
-        scope `tables` is CAN and full reads 7 / 6 / 3 / 0. (C2 thrift cut) R2 predicts GREEN and R3 stays UNATTRIBUTED,
-        which the rollup does not count, so `registers` is CAN: core 11 / 3 / 2 / 0, full 8 / 6 / 2 / 0."""
+        """The predictions give core 11 / 3 / 2 / 0, full 8 / 6 / 2 / 0 and q3b 2 / 1 / 2 / 1.
+        They began at core 10 / 3 / 3 / 0, full 6 / 7 / 3 / 0; T8 predicting GREEN (the proxy
+        replays its journal) made full 7 / 6 / 3 / 0; R2 predicting GREEN, with R3 UNATTRIBUTED and
+        not counted, made `registers` CAN."""
         exp = E.load(EXPECTED_TSV)
         verdicts = {cid: re.sub(r"\(.\)$", "", row["expected"]) for cid, row in exp.items()
                     if cid in {c.id for c in T.TABLE.cells}}
@@ -1179,9 +1180,9 @@ class TestExpectedFile(unittest.TestCase):
                               r"|\[relayed|scratch/overnight|DESIGN-r\d", re.IGNORECASE)
 
     def test_no_rulings_intake_judge_or_report_record_is_named_in_expected_today_tsv_or_tools_p4_health(self):
-        """Cut 1 follow-up 11: expected_today.tsv and tools/p4_health go to the public main; neither
+        """expected_today.tsv and tools/p4_health go to the public main; neither
         may name a RULINGS, intake, judge-*, REPORT*.md, "[relayed", DESIGN-r<N> or scratch/overnight
-        record. (r6: the name now says what is scanned -- those two and nothing else, so tests/ and
+        record. (The test's name says what is scanned -- those two and nothing else, so tests/ and
         every other file are not covered; and only those names, not any other citation.)"""
         paths = [EXPECTED_TSV]
         for root, _dirs, files in os.walk(os.path.dirname(PKG) if os.path.basename(PKG) != "p4_health" else PKG):
@@ -1305,7 +1306,7 @@ class TestTheTableAgainstTheDesign(unittest.TestCase):
 class TestProbeJudge(unittest.TestCase):
 
     def test_a_recording_that_does_not_say_it_completed_is_incomplete(self):
-        """Review MINOR 19: `probe.py judge` fails closed."""
+        """`probe.py judge` fails closed."""
         import io
         import json as _json
         import shutil
@@ -1329,7 +1330,7 @@ class TestProbeJudge(unittest.TestCase):
         finally:
             shutil.rmtree(d)
 
-    # --- round 5, NIT 11: the offline judge reads a stop and a see-red run as the live run does ---------
+    # --- the offline judge reads a stop and a see-red run as the live run does --------------------------
     def judged(self, doc, tmp_prefix):
         import io
         import json as _json
@@ -1374,7 +1375,7 @@ class TestProbeJudge(unittest.TestCase):
 class TestNoMachineLiterals(unittest.TestCase):
 
     def test_no_home_directory_literal_in_the_tool(self):
-        """Review MINOR 15: no /home/<user> path in tools/p4_health (derive or configure it)."""
+        """No /home/<user> path in tools/p4_health (derive or configure it)."""
         bad = []
         for root, _dirs, files in os.walk(os.path.dirname(PKG)):
             for f in files:
@@ -1415,7 +1416,7 @@ class TestS0Pieces(unittest.TestCase):
         self.assertEqual(s0.classify_pft(passed.replace("  PASS  p4c-bm2-ss", "  FAIL  p4c-bm2-ss"), where), (0, 1))
 
     def test_pft_a_ternary_refusal_beside_another_one_is_probe_broken(self):
-        """(Cut A + D, round 2) RED is pre-flight refusing exactly the ternary entry and nothing else, as the G5 rule
+        """RED is pre-flight refusing exactly the ternary entry and nothing else, as the G5 rule
         was. Captured: the entries row's first problem is another entry and the ternary refusal is a continuation
         row under it (both counted: PROBE-BROKEN); two problems, both of the ternary entry (RED). Pre-flight prints
         at most six problems and then "... and N more": those N are other refusals."""
@@ -1463,7 +1464,7 @@ class TestS0Pieces(unittest.TestCase):
             RC.commands({"table_entries": [dict(rt["table_entries"][0], priority=1)]}, keys, params)
 
     def test_the_inventory_needles_need_a_use_not_a_declaration(self):
-        """Review MINOR 12: standard_metadata DECLARES mcast_grp and enq_qdepth in every
+        """standard_metadata DECLARES mcast_grp and enq_qdepth in every
         program, so the inventory must look for an assignment / a read inside an action."""
         import json as _json
         import shutil
@@ -1509,7 +1510,7 @@ def _assert_the_signal_mask_is_unchanged_then_put_it_back(mask0, when):
     left it otherwise has leaked a block (or lifted one it did not make), and that is raised as an AssertionError
     naming `when` -- after the mask has been put back to `mask0`, any stop that was pending going to a handler that
     does nothing, and the handlers that were in place put back, so the leak ends in the test that made it.
-    (Cut 2 round 8) It used to clear the mask silently, which hid a restore that was never made. (round 9) It
+    It used to clear the mask silently, which hid a restore that was never made. It
     compares with the mask the test started with, as collect's Sealed does, not with a clear one: a mask the suite
     inherited (a parent that blocks SIGHUP) is not a leak. [Co-developed with claude code -- Adam]"""
     import signal
@@ -1530,7 +1531,7 @@ def _assert_the_signal_mask_is_unchanged_then_put_it_back(mask0, when):
 
 
 class TestSignalMaskHelper(unittest.TestCase):
-    """(round 10) The end-of-test mask check is what every Cut 2 test relies on to see a block never lifted (or one
+    """The end-of-test mask check is what every Cut 2 test relies on to see a block never lifted (or one
     lifted that the test did not make), so it is pinned itself. SIGUSR1 stands for the signal: nothing sends it.
     [Co-developed with claude code -- Adam]"""
 
@@ -1562,13 +1563,13 @@ class TestSignalMaskHelper(unittest.TestCase):
 
 
 class TestS0Cut2Checks(unittest.TestCase):
-    """m5: S0's two new safety checks decide something, so each is pinned."""
+    """S0's two new safety checks decide something, so each is pinned."""
 
     def setUp(self):
-        # (round 7) The tests of the ValueSet trial compare the signal mask before and after it. A mutant that never
+        # The tests of the ValueSet trial compare the signal mask before and after it. A mutant that never
         # lifts the trial's block leaves the mask blocked for every test after the first, and a test that starts
         # with the block already up cannot see it not being lifted: each test ends with the mask it started with put
-        # back, and (round 9) a test that ends with another mask fails.
+        # back, and a test that ends with another mask fails.
         import signal
         self.addCleanup(_assert_the_signal_mask_is_unchanged_then_put_it_back,
                         signal.pthread_sigmask(signal.SIG_BLOCK, ()), "at the end of the test")
@@ -1643,8 +1644,8 @@ class TestS0Cut2Checks(unittest.TestCase):
         self.assertEqual(s0.pft_entries(os.path.join(pkg, "no-such-dir")), [])
 
     def test_a_ternary_table_entry_that_names_no_ternary_field_is_not_pfts(self):
-        """(Cut A + D, round 2) A match-less priority entry on t_ternary is a legal catch-all pre-flight passes, and a
-        default entry names no key: neither is "a boot entry that names a TERNARY field" (design 2.3 PF-T)."""
+        """A match-less priority entry on t_ternary is a legal catch-all pre-flight passes, and a
+        default entry names no key: neither is "a boot entry that names a TERNARY field"."""
         for entry in ({"table": "HcIngress.t_ternary", "priority": 10, "action_name": "HcIngress.set_mark",
                        "action_params": {"v": 7}},
                       {"table": "HcIngress.t_ternary", "default_action": True,
@@ -1709,7 +1710,7 @@ class TestS0Cut2Checks(unittest.TestCase):
         self.assertFalse(x.out["checks"][-1]["ok"])
 
 
-    # --- round 5, #5: S0 runs the frozen copies, not the shared tree's files ----------------------
+    # --- S0 runs the frozen copies, not the shared tree's files -----------------------------------
     def frozen_copies(self):
         import tempfile
         from p4_health import frozen as FZ
@@ -1793,7 +1794,7 @@ class TestS0Cut2Checks(unittest.TestCase):
             self.assertEqual(argvs[-1], ["py-ctrl", want])
 
 
-    # --- round 6, finding 2: the controller trial loads the model from the run's exercise copy ------------
+    # --- the controller trial loads the model from the run's exercise copy --------------------------------
     def test_the_controller_trial_loads_the_model_from_the_runs_exercise_copy_not_the_shared_tree(self):
         """S0 copies `exercise/` into the run dir (`self.ex`) and every later step runs that copy; the
         controller trial exec'd the SHARED tree's gen_runtime.py instead (ctrl_trial.gen, HERE/exercise),
@@ -1863,7 +1864,7 @@ class TestS0Cut2Checks(unittest.TestCase):
                          "/tutorials/utils")
         self.assertEqual(seen, [510])
 
-    # --- round 7, finding 1: the ValueSet trial runs gRPC in this process; the threads it starts must block the stops --
+    # --- the ValueSet trial runs gRPC in this process; the threads it starts must block the stops ----------------------
     def stops(self):
         import signal
         return (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
@@ -1928,12 +1929,12 @@ class TestS0Cut2Checks(unittest.TestCase):
     def test_a_stop_that_arrives_during_the_trial_waits_and_is_delivered_when_the_mask_is_put_back(self):
         import signal
         in_trial, seen_inside, seen_after = [True], [], []
-        # (round 9) the premise: the three are not blocked when the trial starts. A suite started by a parent that
+        # The premise: the three are not blocked when the trial starts. A suite started by a parent that
         # blocks one (SIGHUP, say) would keep that one pending after the trial, rightly: stops_held puts back the
         # mask it found. The mask this test found is put back at its end, with handlers that do nothing in place, so
         # a stop a broken trial left pending is not delivered to the default action (which ends the suite).
         # [Co-developed with claude code -- Adam]
-        # (round 10) Handlers that do nothing go in BEFORE the unblock: a stop already pending while the mask held it
+        # Handlers that do nothing go in BEFORE the unblock: a stop already pending while the mask held it
         # (sent by something outside the suite) is delivered by the unblock, and to the default action it would end
         # the suite. The recording handlers go in once that is over.
         old = {s: signal.signal(s, lambda n, f: None) for s in self.stops()}
@@ -2019,7 +2020,7 @@ class TestS0Cut2Checks(unittest.TestCase):
 
 
 class TestTheLiveRunsIdentity(unittest.TestCase):
-    """m4: a lab run refuses a dirty probe, and records the Q6(a) fingerprint and the system
+    """A lab run refuses a dirty probe, and records the Q6(a) fingerprint and the system
     under test."""
 
     def test_a_dirty_probe_tree_is_refused_before_anything_runs(self):
@@ -2033,7 +2034,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             asked.append(tuple(argv[3:]))
             out = " M tools/p4_health/hostside.py\n" if argv[3] == "status" else "x\n"
             return sp.CompletedProcess(argv, 0, stdout=out, stderr="")
-        # the freeze is stubbed to fail loudly: it would refuse this run dir too (round 4), and a
+        # the freeze is stubbed to fail loudly: it would refuse this run dir too, and a
         # test that only sees rc 2 could not tell which check said no
         with mock.patch.object(probe.subprocess, "run", git), \
                 mock.patch("p4_health.frozen.freeze", side_effect=MustNotRun("the freeze must not start")), \
@@ -2057,7 +2058,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         return run
 
     def test_a_git_that_cannot_answer_is_refused_before_s0(self):
-        """N3: a failed, timed-out or missing git is no answer about the tree -- not 'clean'."""
+        """A failed, timed-out or missing git is no answer about the tree -- not 'clean'."""
         import subprocess as sp
         from unittest import mock
         from p4_health import probe
@@ -2071,8 +2072,8 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                 self.assertEqual(rc, 2)
 
     def test_a_git_status_that_cannot_answer_is_refused_before_s0(self):
-        """N3, the clean check's own refusal: HEAD is named (the pin answers), and `git status` then fails, times
-        out or is missing. Not 'clean'. (Since the round-6 pin, the test above is refused at the pin and no longer
+        """The clean check's own refusal: HEAD is named (the pin answers), and `git status` then fails, times
+        out or is missing. Not 'clean'. (Since HEAD is pinned first, the test above is refused at the pin and no longer
         reaches the status call; this one makes only `status` fail.)"""
         import subprocess as sp
         from unittest import mock
@@ -2095,7 +2096,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                 self.assertEqual(rc, 2)
 
     def test_a_missing_identity_record_stops_the_run_before_the_lab(self):
-        """N3: the first authorized run's record is the baseline of the standing authorization;
+        """The first authorized run's record is the baseline of the standing authorization;
         without it, or with an incomplete fingerprint, the lab is not touched."""
         import tempfile
         from unittest import mock
@@ -2114,7 +2115,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             with self.subTest(sut=sut, gate=gate["sha256"]):
                 # fabric_binary and the freeze are stubbed: this test must not read the real
                 # bmv2_binary_override (absent from a mutant's copy), nor stop at the freeze, whose git
-                # here answers nothing (round 4, F8)
+                # here answers nothing
                 with mock.patch.object(probe.subprocess, "run", self.git_answering(0)), \
                         mock.patch("p4_health.s0.S0", FakeS0), \
                         mock.patch("p4_health.vs_trial.fabric_binary", return_value="/x/simple_switch_grpc"), \
@@ -2127,7 +2128,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                 fp.assert_called_once()                 # refused by the identity check, not by something before it
 
     def test_an_s0_with_a_failing_check_is_rc_2_with_a_health_json_and_no_identity_work(self):
-        """(Round 5, #2) `probe.py lab` returned 1 and wrote no health.json when S0 was not
+        """`probe.py lab` returned 1 and wrote no health.json when S0 was not
         COMPLETE; on the see-red path rc 1 is the pass. Now INCOMPLETE rc 2, with the reason in
         health.json, and neither the identity record nor the lab is started."""
         import contextlib
@@ -2172,7 +2173,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                         h["problems"])
 
     def test_an_exception_out_of_the_lab_path_is_rc_2_not_pythons_status_1(self):
-        """(Round 5, #2) Anything `probe.py lab` does not foresee -- here S0 itself raising -- used
+        """Anything `probe.py lab` does not foresee -- here S0 itself raising -- used
         to leave the process as an uncaught exception: status 1, the see-red run's pass. It is rc 2,
         with the traceback on stderr."""
         import io
@@ -2197,7 +2198,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertIn("S0 fell over", err.getvalue())
 
     def test_a_stop_that_gets_out_of_the_lab_path_is_rc_2_stopped_not_pythons_status_1(self):
-        """(Round 6, finding 3) SignalAbort is a BaseException: main() caught only Exception, so a stop that
+        """SignalAbort is a BaseException: main() caught only Exception, so a stop that
         reached the run level outside run_lab's try (between the handler install and the try) left the
         process as an uncaught exception -- status 1, the see-red run's pass, and no health.json."""
         import io
@@ -2212,7 +2213,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertIn("INCOMPLETE", err.getvalue())
         self.assertNotIn("Traceback", err.getvalue())
 
-    # --- round 4, F8: an unreadable bmv2 override, with the REAL fingerprint ------------------
+    # --- an unreadable bmv2 override, with the REAL fingerprint -------------------------------
     def readable_machine(self, frozen=None):
         """Every part of the fingerprint except the fabric's bmv2 reads fine, so that part alone
         decides whether it says 'incomplete'. The real ID.fingerprint runs."""
@@ -2271,7 +2272,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertEqual(rc, 2)
         ran.assert_not_called()
 
-    # --- round 4, F4: the code a run executes is frozen early and checked against HEAD ---------
+    # --- the code a run executes is frozen early and checked against HEAD ----------------------
     FROZEN = ("p4_health/hostside.py", "p4_health/frames.py", "p4_health/__init__.py",
               "p4_health/controller_ext.py", "p4_exercise/run_external_controller.py",
               "p4_exercise/common.py", "p4_exercise/__init__.py")
@@ -2301,7 +2302,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         from unittest import mock
         from p4_health import probe
 
-        class Reached(BaseException):       # not an Exception: probe.py lab turns those into rc 2 (round 5, #2)
+        class Reached(BaseException):       # not an Exception: probe.py lab turns those into rc 2
             pass
 
         def s0(*a, **kw):
@@ -2327,7 +2328,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
 
     def assert_refused_cleanly(self, rc, reached, err):
         """rc 2, S0 not reached, and the way it got there is the refusal: `refused: ...` on stderr and no
-        traceback. (Round 5: `probe.py lab` turns any exception into rc 2 as well, so rc 2 alone no longer
+        traceback. (`probe.py lab` turns any exception into rc 2 as well, so rc 2 alone no longer
         tells a refusal from a crash -- and a mutant that lets the run go on after a refusal crashed into
         that rc 2 and went unnoticed.)"""
         self.assertEqual((rc, reached), (2, False))
@@ -2395,7 +2396,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             self.assertEqual(res.returncode, 0, (argv, res.stderr))
 
     def test_the_recorded_hash_is_of_the_copy_not_of_the_source(self):
-        """(Round 4, F9) a copy that differs from its source (the case the HEAD check exists for)
+        """A copy that differs from its source (the case the HEAD check exists for)
         is recorded as it is: the record is what root runs."""
         import hashlib
         import shutil
@@ -2416,7 +2417,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             with open(fz.path(rel), "rb") as fh:
                 self.assertEqual(recorded, hashlib.sha256(fh.read()).hexdigest(), rel)
 
-    # --- round 5: the freeze pins one commit, hashes bytes as they are, and writes only what is new -------
+    # --- the freeze pins one commit, hashes bytes as they are, and writes only what is new ----------------
     def git_in(self, repo, *args):
         return subprocess.run(["git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid",
                                "-c", "commit.gpgsign=false"] + list(args), check=True, capture_output=True,
@@ -2434,7 +2435,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             return FZ.freeze(run, repo=repo, git=git or probe._git_run), run
 
     def test_head_is_resolved_once_and_every_blob_is_asked_for_by_that_sha(self):
-        """(NIT 7) `git rev-parse --verify HEAD` once; the blobs are `<sha>:tools/<path>`, never
+        """`git rev-parse --verify HEAD` once; the blobs are `<sha>:tools/<path>`, never
         `HEAD:...`; the Frozen carries that sha."""
         from p4_health import probe
         repo = self.scratch_repo()
@@ -2470,7 +2471,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         return git
 
     def test_a_commit_that_lands_mid_freeze_cannot_give_a_set_that_matches_no_commit(self):
-        """(NIT 7) A commit changing a file the freeze has not copied yet: checked against the HEAD of
+        """A commit changing a file the freeze has not copied yet: checked against the HEAD of
         each moment, the set would match no single commit and still pass. Pinned to the first HEAD,
         the late copy is not what that commit has and the freeze is refused."""
         from p4_health import frozen as FZ
@@ -2488,7 +2489,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertEqual(fz.head, before)
 
     def test_the_identity_of_a_run_names_the_head_the_freeze_pinned(self):
-        """(NIT 7) repo_identity takes the pinned sha: head and probe tree come from it, whatever HEAD
+        """repo_identity takes the pinned sha: head and probe tree come from it, whatever HEAD
         is by the time the identity is written."""
         from unittest import mock
         from p4_health import probe
@@ -2542,7 +2543,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             self.assertEqual(json.load(fh)["frozen_head"], "ab" * 20)
 
     def test_a_copy_is_hashed_as_its_bytes_not_as_a_filter_would_see_them(self):
-        """(NIT 8) `git hash-object` applies the input filters its path selects. A run dir inside the
+        """`git hash-object` applies the input filters its path selects. A run dir inside the
         repo (.test_run/...) is such a path: with `*.py text` a copy with CRLF endings would hash to
         the LF blob HEAD has, and pass. The bytes root would run differ from the commit's."""
         from p4_health import frozen as FZ
@@ -2559,7 +2560,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertIn(os.path.basename(self.FROZEN[0]), str(ctx.exception))
 
     def test_a_frozen_directory_that_is_already_there_is_refused_and_left_alone(self):
-        """(NIT 9) A reused run dir used to lose its earlier frozen evidence without a word."""
+        """A reused run dir used to lose its earlier frozen evidence without a word."""
         import tempfile
         from p4_health import frozen as FZ
         repo = self.scratch_repo()
@@ -2587,7 +2588,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(run, "nowhere")))
 
     def test_a_symlink_planted_at_a_destination_is_not_written_through(self):
-        """(NIT 9) Something plants <run>/frozen/p4_health/hostside.py -> a file outside, after the
+        """Something plants <run>/frozen/p4_health/hostside.py -> a file outside, after the
         directory exists and before the copy: the copy used to be written through the link (the target
         overwritten, the run then executing a file that stays editable). Now refused, target intact."""
         import tempfile
@@ -2613,7 +2614,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             self.assertEqual(fh.read(), "# the target: must stay as it is\n")
 
     def test_a_symlink_planted_for_a_subdirectory_is_not_followed(self):
-        """(NIT 9) The same one level up: <run>/frozen/p4_health planted as a link to a directory outside.
+        """The same one level up: <run>/frozen/p4_health planted as a link to a directory outside.
         makedirs(exist_ok=True) accepted it and every copy landed in the target."""
         import tempfile
         from unittest import mock
@@ -2664,7 +2665,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             probe.main(["lab", "--run-dir", d, "--owner", "o"])
         self.assertIs(seen[0].get("frozen"), fz)
 
-    # --- round 5, #5: every module the lab path loads is loaded before the clean check ----------
+    # --- every module the lab path loads is loaded before the clean check -----------------------
     LAB_DRIVER = (
         "import json, os, sys, types\n"
         "tools, run = sys.argv[1], sys.argv[2]\n"
@@ -2761,7 +2762,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
                                   (rel, name))
 
     def test_the_frozen_adapter_and_controller_launched_as_b_launches_them_load_nothing_from_the_shared_tree(self):
-        """(NIT 12) B starts `<p4dev python> <adapter> <package> <controller> --tutorials-utils <dir>` with
+        """B starts `<p4dev python> <adapter> <package> <controller> --tutorials-utils <dir>` with
         no -I, the adapter importing p4_exercise.common and running the controller through runpy. Here
         that very argv runs against a stub p4runtime_lib (no switch answers: every connect raises, which
         the controller records), and the files of everything loaded are listed at exit, with
@@ -2889,7 +2890,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertEqual(whole["sha256"], "incomplete")          # an unread part is not a match
 
 
-    # --- round 6, finding 2: S0's exercise copy is checked against the pinned commit --------------------
+    # --- S0's exercise copy is checked against the pinned commit ----------------------------------------
     def repo_with_exercise(self):
         """The scratch repo of the freeze tests, plus the package's own exercise/ tree, committed."""
         import shutil
@@ -2957,7 +2958,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertNotIn("refused", err)
 
     def test_an_exercise_file_edited_after_the_clean_check_is_refused_before_any_lab_action(self):
-        """(Finding 2) The freeze checks seven files; `exercise/` is copied by S0 a little later and feeds
+        """The freeze checks seven files; `exercise/` is copied by S0 a little later and feeds
         every expectation the lab run judges by (lab.load_model, s0's own model, the controller trial). An
         edit that lands between the clean check and that copy used to be run, not refused."""
         repo = self.repo_with_exercise()
@@ -3059,7 +3060,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         with self.assertRaises(FZ.Refused):
             fz.check_exercise(copy)
 
-    # --- round 9: the copy's build outputs are checked too, and its modules are compiled from their source ----------
+    # --- the copy's build outputs are checked too, and its modules are compiled from their source -------------------
     def copy_with_build_output(self):
         """(Frozen, a checked copy of exercise/ with p4c-like outputs in build/ and build-mutant/, checked once)."""
         fz, copy = self.freeze_with_exercise()
@@ -3072,7 +3073,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         return fz, copy
 
     def test_the_exercise_copy_check_refuses_build_output_that_changed_since_the_first_check(self):
-        """(Round 9) A later check passes over the same outputs, and refuses one rewritten, one added (in a build*
+        """A later check passes over the same outputs, and refuses one rewritten, one added (in a build*
         directory of its own too) and one removed, and a __pycache__ file that was not there at the first check.
         [Co-developed with claude code -- Adam]"""
         import shutil
@@ -3107,7 +3108,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         refused_naming("__pycache__")
 
     def test_the_exercise_copy_check_refuses_a_pycache_at_its_first_check_too(self):
-        """(Round 10) Nothing writes a __pycache__ into the copy, so one is refused at every check, the first included
+        """Nothing writes a __pycache__ into the copy, so one is refused at every check, the first included
         (it used to be recorded there and compared afterwards), wherever it sits and whether or not it holds a file.
         [Co-developed with claude code -- Adam]"""
         import shutil
@@ -3136,7 +3137,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         fz.check_exercise(copy)                     # the control: with none of them the first check passes
 
     def test_the_exercise_copy_check_refuses_a_copy_root_that_is_a_link(self):
-        """(Round 10) The copy root itself may not be a link: the tree behind it is whatever the link points at now."""
+        """The copy root itself may not be a link: the tree behind it is whatever the link points at now."""
         from p4_health import frozen as FZ
         fz, copy = self.freeze_with_exercise()
         real = copy + "-real"
@@ -3148,7 +3149,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertIn("link", str(ctx.exception))
 
     def test_a_second_check_through_the_same_path_compares_with_the_first_when_a_parent_link_is_re_pointed(self):
-        """(Round 10) The first check of a path records what its copy holds beside the commit's files; the record is
+        """The first check of a path records what its copy holds beside the commit's files; the record is
         kept under that path as given, not under the directory it resolved to, so the same path checked again after
         a link in it was re-pointed at another tree is compared with that record and not recorded afresh."""
         import shutil
@@ -3179,7 +3180,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         fz.check_exercise(via)                      # pointed back: passes
 
     def test_the_exercise_copy_check_refuses_a_link_under_a_build_directory(self):
-        """(Round 9) The build*/ directories used to be skipped whole; a link in one is refused like one elsewhere,
+        """The build*/ directories used to be skipped whole; a link in one is refused like one elsewhere,
         at the first check as at a later one."""
         from p4_health import frozen as FZ
         fz, copy = self.copy_with_build_output()
@@ -3232,7 +3233,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertFalse(hasattr(mod, "runtime"))
 
     def test_every_exec_of_the_exercise_copy_runs_its_source_not_a_cached_pyc(self):
-        """(Round 9) The copy's gen_runtime.py is checked as source, and it was exec'd through the import system's
+        """The copy's gen_runtime.py is checked as source, and it was exec'd through the import system's
         loader, which runs a valid __pycache__/*.pyc in its place: S0's self-checks (_switch_inputs), the controller
         trial (ctrl_trial.gen) and lab.load_model must each run the source. [Co-developed with claude code -- Adam]"""
         from p4_health import ctrl_trial as CT
@@ -3250,7 +3251,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
             self.assertEqual(mod.program(1), "hc_alt", who)          # the source's own model
 
     def test_an_exec_of_the_exercise_copy_writes_no_bytecode_cache_into_it(self):
-        """(Round 9) A __pycache__ written into the copy after its first check would be refused by the next one."""
+        """A __pycache__ written into the copy after its first check would be refused by the next one."""
         import shutil
         import tempfile
         from unittest import mock
@@ -3267,7 +3268,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(copy, "__pycache__")))
 
 
-    # --- round 7, finding 4: the exercise copy is checked again right before lab.load_model runs it ------------------
+    # --- the exercise copy is checked again right before lab.load_model runs it --------------------------------------
     FAKE_CONVERT = (
         "import json, os, sys\n"
         "exercise = sys.argv[1]\n"
@@ -3336,7 +3337,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         return rc, doc, models, len(rounds), lab_runner.calls, fz
 
     def test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_load_model_runs_it(self):
-        """(Finding 4) The copy is checked once, right after S0 compiles; S0 then hands it to the shared tree's
+        """The copy is checked once, right after S0 compiles; S0 then hands it to the shared tree's
         convert.py as its input, and lab.load_model runs gen_runtime.py from it much later. A convert.py that
         wrote into its input was run, not refused. load_model is before any claim, so the refusal is the run's
         ordinary 'could not be set up': INCOMPLETE, rc 2, nothing started, and the record says which file."""
@@ -3368,7 +3369,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
 
 
     def s0_run_after_a_convert_that(self, edit):
-        """(Cut 2 round 8, finding 2) The REAL S0.run(), with the compile and the steps from the pre-flight on as
+        """The REAL S0.run(), with the compile and the steps from the pre-flight on as
         markers, over the checked exercise copy, and the REAL S0.packages() with a fake convert.py that `edit`s the
         copy it is given. Returns the steps run() reached, in order, and what it raised (None: nothing).
         [Co-developed with claude code -- Adam]"""
@@ -3398,7 +3399,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         return reached, None
 
     def test_a_convert_that_appends_to_the_exercise_copys_gen_runtime_is_refused_before_the_pre_flight(self):
-        """(Round 8, finding 2) S0 checks the copy right after the compile; convert.py then gets the copy as its
+        """S0 checks the copy right after the compile; convert.py then gets the copy as its
         input, and the self-checks are the first to exec the copy's gen_runtime.py (the controller trial does so
         later). A run was refused only by lab.run_lab's re-check, after S0 had run the edited file. S0.run() checks
         again right after packages(): an edited, added or removed committed file of the copy is refused there,
@@ -3417,7 +3418,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertEqual(reached, [])
 
     def test_a_convert_that_rewrites_a_build_file_of_the_exercise_copy_is_refused_before_the_pre_flight(self):
-        """(Round 9) The p4c outputs under build*/ are not in the commit, and the check used to skip them: a
+        """The p4c outputs under build*/ are not in the commit, and the check used to skip them: a
         convert.py that rewrote exercise/build/hc_main.json passed every check, and S0's self-checks and trials and
         B's round loaded the rewritten file. S0's first check records them, and the one after packages() refuses
         the rewrite. [Co-developed with claude code -- Adam]"""
@@ -3433,7 +3434,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         self.assertEqual(reached, ["preflight"], "run() raised %r" % (exc,))
 
 
-    # --- round 6, the pin-HEAD NIT: HEAD is pinned first, and the clean check, the freeze and the identity use it --
+    # --- HEAD is pinned first, and the clean check, the freeze and the identity use it -----------------------------
     def lab_pinned(self, hook=None):
         """probe.py lab in a scratch repo whose S0 is a marker that keeps the Frozen it was given. `hook(args)`
         runs after each git call (to land a commit at a chosen moment). Returns (rc, Frozen or None, stderr,
@@ -3488,7 +3489,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         """The freeze pinned HEAD only after the modules were loaded and the tree checked: a commit to
         tools/p4_health in that one second made frozen_head name a commit the preloaded modules were not read
         from. HEAD is pinned first; if it has moved when the clean check is done, the run is refused."""
-        # (round 7, finding 3) The commit is to lab.py: a module the run has loaded but does not freeze. frames.py,
+        # The commit is to lab.py: a module the run has loaded but does not freeze. frames.py,
         # which this test used to commit, is one of the frozen files, so the freeze refused the change by itself
         # and the re-check of HEAD was only seen in its message. Here, without the re-check, the run reaches S0 with
         # frozen_head naming a commit its modules were not read from; the behavioural assertion is the first one.
@@ -3554,7 +3555,7 @@ class TestCut2Decisions(unittest.TestCase):
         self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "answer"))
 
     def test_a_cell_this_run_did_not_observe_has_no_delta(self):
-        """m1: an unobserved cell is not a flip of its prediction: its delta says so."""
+        """An unobserved cell is not a flip of its prediction: its delta says so."""
         ctx = V.Context()
         ctx.cells["CH1"] = decide("CH1", None)
         ctx.cells["T8"] = V.Verdict(V.RED, "x", phase="cannot")
@@ -3564,7 +3565,7 @@ class TestCut2Decisions(unittest.TestCase):
         self.assertEqual(ann["CH1"], ("PARTIAL(a)", "not observed"))
         self.assertEqual(ann["T8"], ("RED", "same"))
         self.assertEqual(ann["PL1"], ("GREEN", "flipped"))
-        # N7: a control this run did not observe (T3-neg in --only K1,TTL1) is no flip either
+        # a control this run did not observe (T3-neg in --only K1,TTL1) is no flip either
         t3neg = [c for c in T.TABLE.controls if c.id == "T3-neg"][0]
         ctx.cells["T3-neg"] = t3neg.judge(None)
         ctx.cells["K1-neg"] = T.TABLE.controls[0].judge({"answer": None})
@@ -3636,7 +3637,7 @@ EXPECT = {"digest": [AT.ip_int("10.0.4.4"), 40041, 40041], "packet_in_port": 1, 
 
 
 class TestAttributionConfirm(unittest.TestCase):
-    """design 4.2: a call that succeeded AND an independent reading, or the attribution fails."""
+    """A call that succeeded AND an independent reading, or the attribution fails."""
 
     def ok(self, result=None, read=None, p3=5, expect=EXPECT):
         got = AT.confirm(ctrl_result() if result is None else result, read or thrift_ok(), p3, expect)

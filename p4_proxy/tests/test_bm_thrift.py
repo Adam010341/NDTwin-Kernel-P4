@@ -7,7 +7,7 @@ The client is written out by hand from bmv2's generated code (bm_runtime/standar
 so what it puts on the wire is pinned here byte for byte: the expected bytes below were produced
 by that generated client (Standard.Client.send_bm_register_read / send_bm_register_read_all,
 Thrift 0.16.0 code, TBinaryProtocol, multiplexed under "standard") on 2026-10-16 and checked
-equal to this module's (LOG/r3B-evidence/wire_bytes_vs_generated.log). The answers are decoded
+equal to this module's. The answers are decoded
 from bytes written the same way. A real socket covers the deadline: a server that accepts and
 never answers must cost one timeout, not forever.
 
@@ -43,11 +43,11 @@ if HAVE_THRIFT:
 READ_3 = bytes.fromhex(
     "80010001000000197374616e646172643a626d5f72656769737465725f7265616400000000080001000000000b"
     "0002000000104863496e67726573732e725f6d61726b0800030000000300")
-#: Standard.Client(...).send_bm_mgmt_get_info() (LOG/r4-evidence/wire_bytes_r2.log).
+#: Standard.Client(...).send_bm_mgmt_get_info().
 GET_INFO = bytes.fromhex(
     "80010001000000197374616e646172643a626d5f6d676d745f6765745f696e666f0000000000")
 #: Standard.bm_mgmt_get_info_result(success=BmConfig(device_id=7, thrift_port=9097,
-#: notifications_socket="ipc://x")) as the generated server code writes it (the same log).
+#: notifications_socket="ipc://x")) as the generated server code writes it.
 GET_INFO_REPLY = bytes.fromhex(
     "8001000200000010626d5f6d676d745f6765745f696e666f000000000c00000a00010000000000000007080002000023"
     "890b0003000000076970633a2f2f780000")
@@ -198,7 +198,7 @@ class OnTheWireTest(unittest.TestCase):
         self.assertEqual(pipe.written, GET_INFO)
 
     def test_the_checked_read_asks_who_the_switch_is_first_on_the_same_connection(self):
-        # (round 3) bm_mgmt_get_info, then the read, in that order, on one transport.
+        # bm_mgmt_get_info, then the read, in that order, on one transport.
         pipe = Pipe(GET_INFO_REPLY + reply("bm_register_read", success_i64(4737)))
         self.assertEqual(B.checked_read(pipe, "HcIngress.r_mark", 3, (7, 9097)), 4737)
         self.assertEqual(pipe.written, GET_INFO + READ_3)
@@ -275,7 +275,7 @@ class ARealSocketTest(unittest.TestCase):
 
     def test_a_peer_trickling_a_byte_every_2_s_is_cut_at_the_calls_deadline(self):
         # Each byte arrives inside the 3 s budget's per-receive share, so only a deadline for the
-        # WHOLE call stops it: before round 2 every receive got a fresh 3 s.
+        # WHOLE call stops it: the client once gave every receive a fresh 3 s.
         answer = reply("bm_register_read", success_i64(4737))
 
         def handler(conn, stop):

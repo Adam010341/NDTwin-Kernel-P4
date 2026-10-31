@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""The P4 health check's reading layer and lab lifecycle, sealed off from the lab (design 5.2-②).
+"""The P4 health check's reading layer and lab lifecycle, sealed off from the lab.
 
 [Co-developed with claude code -- Adam]
 
 HERMETIC BY CONSTRUCTION -- a breach is REFUSED when it happens, recorded, and every test ends by
-asserting nothing was attempted (hardened in the Cut 1 review, MAJ-7):
+asserting nothing was attempted:
 
   * PATH starts with a directory whose `sudo`, `tc`, `ndt`, `mnexec` and `simple_switch_CLI`
     exit 99 and append to a TRIPWIRE file; every test asserts that file does not exist.
@@ -254,11 +254,11 @@ class Sealed(unittest.TestCase):
                           test_run_dir=os.path.join(self.tmp, "test_run"),
                           thrift_cli=["simple_switch_CLI"], qdisc_snapshot="qdisc_snapshot.sh",
                           expected_tsv=os.path.join(self.tmp, "none.tsv"))
-        # (round 7) A mutant (or a bug) that leaves the stop signals blocked after a test must not hand the signals
+        # A mutant (or a bug) that leaves the stop signals blocked after a test must not hand the signals
         # it left pending to a later test: they would be delivered at that test's next mask change, and a SIGINT then
         # ends the whole run with a KeyboardInterrupt -- no "Ran N tests" line, which the mutation gate refuses.
         # Whatever the mask was at the start of the test is put back, pending stops going to no-op handlers.
-        # (round 8) But a mask that is not the one the test began with is also a failure of that test, raised after
+        # But a mask that is not the one the test began with is also a failure of that test, raised after
         # the mask is put back: repairing it silently hid a restore that was never made.
         self._mask0 = signal.pthread_sigmask(signal.SIG_BLOCK, ())
         self.addCleanup(self._assert_the_signal_mask_is_unchanged_then_put_it_back)
@@ -525,7 +525,7 @@ class TestWhereTheNumbersComeFrom(Sealed):
         self.assertEqual(P.post_table_entry(self.cfg, {"table": "t"})[0], 501)
         self.assertEqual(self.proxy.calls[-1], ("POST", "/p4/table_entry", {"table": "t"}))
 
-    # review MAJ-2: an unreadable switch_state is no answer, never a RED and never a GREEN
+    # an unreadable switch_state is no answer, never a RED and never a GREEN
     def test_unreadable_switch_state_is_no_answer(self):
         self.proxy.routes[("GET", "/p4/switch_state")] = (500, None)
         good = fixture("mc_dump_group").replace("mgrp(2)", "mgrp(1)").replace("[1, 3]", "[1, 2]")
@@ -543,7 +543,7 @@ class TestWhereTheNumbersComeFrom(Sealed):
         v = V.decide(T.TABLE.cell("PL1"), obs, V.Context())
         self.assertEqual((v.verdict, v.phase), (V.NOT_RUN, "answer"))
 
-    # review MAJ-3 / MINOR 21: the control keeps the endpoint's own error word
+    # the control keeps the endpoint's own error word
     def test_the_counter_control_needs_the_endpoints_own_refusal(self):
         path = ("GET", "/p4/counter/HcIngress.no_such_counter?dpid=2&index=0")
         ctl = T.TABLE.controls[0]
@@ -554,7 +554,7 @@ class TestWhereTheNumbersComeFrom(Sealed):
 
 
     def test_a_missing_counter_route_is_red_no_route_through_the_observers(self):
-        """Cut 1 follow-up 4: FastAPI's own 404 for /p4/counter, pushed through K1's two observers
+        """FastAPI's own 404 for /p4/counter, pushed through K1's two observers
         and the real cells, must give K1 RED "no route" -- not a PROBE-BROKEN control."""
         r = RecordingRunner().add(("simple_switch_CLI",), lambda a, e, i: (0, fixture("counter_c_in")))
 
@@ -639,7 +639,7 @@ class TestTheRegisterReadAgainstTheMarker(Sealed):
         self.assertNotEqual(self.judge(obs, sc).verdict, V.GREEN)
 
     def test_a_read_that_did_not_happen_is_red_like_k1(self):
-        # (thrift cut round 2) A route that answers 503 to every read would otherwise keep R2 NOT RUN
+        # A route that answers 503 to every read would otherwise keep R2 NOT RUN
         # for ever; K1's 503 is a red ("not a reading"), and so is R2's.
         self.with_read_route((503, {"detail": {"error": "register not read"}}))
         obs, sc = self.observe(RA.R2_CHOSEN)
@@ -649,7 +649,7 @@ class TestTheRegisterReadAgainstTheMarker(Sealed):
         self.assertIn("answered 503 (register not read), which is not a reading", v.reason)
 
     def test_a_marker_that_did_not_land_keeps_r2_from_green(self):
-        # (round 3) The route agrees with the marker, but thrift says the marker never wrote the cell:
+        # The route agrees with the marker, but thrift says the marker never wrote the cell:
         # SC-reg fails, and R2 -- which compares with the marker's value, not with thrift -- must not
         # be GREEN on its own word. This is what keeps that comparison honest.
         self.with_read_route((200, {"values": [RA.R2_CHOSEN]}))
@@ -735,8 +735,8 @@ class TestSmallOracles(Sealed):
         self.assertEqual(FB.veth_peers("7: s1-eth1@if8: <BROADCAST> mtu 1500\n"), {"s1-eth1": 8})
 
     def test_veth_peers_reads_both_iproute2_forms(self):
-        """MAJOR-1: a peer in the same namespace is printed by NAME, one in another namespace by
-        its INDEX there (r2/veth_format.log, iproute2-6.1.0). A switch-to-switch link of a Mininet
+        """A peer in the same namespace is printed by NAME, one in another namespace by
+        its INDEX there (iproute2-6.1.0). A switch-to-switch link of a Mininet
         fabric is the first kind, a host-facing port the second."""
         text = ("1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN\\    link/loopback 00:00:00:00:00:00\n"
                 "2: s2-eth2@s1-eth4: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop\\    link/ether 8a:5d\n"
@@ -751,7 +751,7 @@ class TestSmallOracles(Sealed):
 
 
 class TestHostside(Sealed):
-    """MAJOR-2 / m3: hostside.py is the one module of the probe that runs as root."""
+    """hostside.py is the one module of the probe that runs as root."""
 
     TOK = "abcd1234"
 
@@ -829,7 +829,7 @@ class TestHostside(Sealed):
 
 
 class TestUnreadableIsNotEmpty(Sealed):
-    """Review MINOR 10: an unreadable document or file is None, never "no rows" / "no frames"."""
+    """An unreadable document or file is None, never "no rows" / "no frames"."""
 
     def test_side_rows_and_pcaps(self):
         from p4_health import frames as F
@@ -851,7 +851,7 @@ class TestThrowawayGuard(Sealed):
 
     def test_the_throwaway_cli_only_ever_dials_its_own_port(self):
         """The only thrift writes in tools/p4_health go to a switch the probe started; a lab port,
-        or no port, is refused before the runner is called (review MAJ-4)."""
+        or no port, is refused before the runner is called."""
         r = RecordingRunner().add(("simple_switch_CLI",), (0, "RuntimeCmd: "))
         sw = TW.Throwaway(os.path.join(self.tmp, "x.json"), {1: []}, 510, ["simple_switch_CLI"],
                           workdir=self.tmp, runner=r)
@@ -873,7 +873,7 @@ class TestThrowawayGuard(Sealed):
         self.assertFalse(any(lo <= 29500 < hi for lo, hi in TW.LAB_PORT_RANGES))
 
 
-# --- the lifecycle (M14, M17; section 12 items 10 and 12; review MAJ-6) ---------------------------------
+# --- the lifecycle (M14, M17) --------------------------------------------------------------------------
 
 UP_NOTE = "in use: ndt up p4 6 at 2026-10-03 18:00:00 by p4h-test"
 
@@ -890,7 +890,7 @@ class TestLabRound(Sealed):
             fh.write(b"/some/other/package\n")
         self.proxy.routes[("GET", "/p4/switch_state")] = (200, {"heartbeat": {"state": "usable",
                                                                             "frames_reached_hosts": False}})
-        self.pkg = os.path.join(self.cfg.run_dir, "pkgA")       # (r6) each round's package is inside its run dir
+        self.pkg = os.path.join(self.cfg.run_dir, "pkgA")       # each round's package is inside its run dir
         self.claim_exp = int(__import__("time").time()) + 600  # the one claim the round makes
         self.proc = os.path.join(self.tmp, "proc")
         self.fake_proc(555, 777001, "python3\0sniff.py\0--run-id\0run-x\0")
@@ -1003,7 +1003,7 @@ class TestLabRound(Sealed):
                 self.assertEqual(call["env"].get("NDT_OWNER"), "p4h-test", call["argv"])
 
     def test_a_package_outside_the_run_dir_is_refused_and_nothing_is_touched(self):
-        """(r6) Each round's package is its own copy inside its run dir, so app_package_override names
+        """Each round's package is its own copy inside its run dir, so app_package_override names
         that round and no other. A package anywhere else is refused before any file or command."""
         outside = os.path.join(self.tmp, "shared", "pkg")
         os.makedirs(outside)
@@ -1028,7 +1028,7 @@ class TestLabRound(Sealed):
         self.assertEqual(lr.state["package"], self.pkg)
 
     def test_the_package_path_is_resolved_once_and_that_path_is_used_everywhere(self):
-        """(r7) check, LAB_STATE and `ndt up --app` all take the resolved path. A path with a link followed
+        """check, LAB_STATE and `ndt up --app` all take the resolved path. A path with a link followed
         by .. names one directory to abspath and another to the file system."""
         real = os.path.join(self.cfg.run_dir, "real")
         os.makedirs(os.path.join(real, "sub"))
@@ -1043,7 +1043,7 @@ class TestLabRound(Sealed):
         self.assertEqual(up, ["ndt", "up", "p4", "--app", want])
 
     def test_the_claims_expires_is_recorded_right_after_the_claim_and_before_the_up(self):
-        """(r6) recover.sh tells this claim from any later one by its expires."""
+        """recover.sh tells this claim from any later one by its expires."""
         seen = {}
         r = self.runner()
         up = [rep for rep in r.replies if rep[0] == ("ndt", "up")][0][1]
@@ -1057,7 +1057,7 @@ class TestLabRound(Sealed):
         self.assertEqual(self.state()["claim_expires"], self.claim_exp)
 
     def test_a_claim_the_file_does_not_show_as_ours_is_not_brought_up_on(self):
-        """(r6) `ndt claim` exited 0 but the file has no claim of ours: nothing can be recorded for
+        """`ndt claim` exited 0 but the file has no claim of ours: nothing can be recorded for
         recover.sh to rest on, so nothing is brought up, and nothing is released either."""
         for what, writer in (("no claim file", lambda: None),
                              ("somebody else's claim", lambda: self.write_claim(owner="somebody-else")),
@@ -1229,7 +1229,7 @@ class TestLabRound(Sealed):
         self.assertNotIn(("state", "down-done"), lr.events)
 
     def test_a_failed_kill_keeps_the_process_for_recover(self):
-        """Review MINOR 6: only a stopped (or gone, or recycled) process leaves LAB_STATE."""
+        """Only a stopped (or gone, or recycled) process leaves LAB_STATE."""
         r = self.runner()
         r.replies.insert(0, (("sudo", "-n", "mnexec", "-a", "1", "kill"), (1, "")))
 
@@ -1239,7 +1239,7 @@ class TestLabRound(Sealed):
         self.assertEqual([e["pid"] for e in self.state()["sniffers"]], [555])
 
     def test_a_failed_kill_is_a_problem_and_the_round_is_not_complete(self):
-        """Cut 1 follow-up 2: the teardown used to ignore how a kill ended, so a sniffer that kept
+        """The teardown used to ignore how a kill ended, so a sniffer that kept
         running left a round that read complete with no problem on it."""
         for what, argv in (("sniffer", ("sudo", "-n", "mnexec", "-a", "1", "kill")), ("controller", ("kill",))):
             with self.subTest(process=what):
@@ -1303,7 +1303,7 @@ class TestLabRound(Sealed):
         self.assertEqual(self.names(r)[-4:], ["tc del", "qdisc_snapshot.sh diff", "ndt down", "ndt release"])
 
     def test_a_stop_during_the_teardown_finishes_the_cleanup_and_is_recorded(self):
-        """(Cut 2 review, round 4 F1) A stop that arrives while `ndt down` runs must not abort the
+        """A stop that arrives while `ndt down` runs must not abort the
         cleanup (the release still follows) and must not vanish: the record says the round was
         stopped, because lab.py ends the run on exactly that sentence. Real handlers
         (install_signals), a `ndt down` that sends SIGTERM to the probe -- this process -- as
@@ -1328,9 +1328,9 @@ class TestLabRound(Sealed):
                          ["aborted by signal %d (during the teardown)" % signal.SIGTERM])
         self.assertFalse(rec["complete"])
 
-    # --- round 5, NIT 10: the two windows around the handler switches ------------------------------
+    # --- the two windows around the handler switches -----------------------------------------------
     def test_a_second_stop_before_the_teardown_handler_is_in_place_does_not_skip_the_teardown(self):
-        """(NIT 10, window 1) The body is stopped (SignalAbort propagating); a second stop arrives
+        """(Window 1) The body is stopped (SignalAbort propagating); a second stop arrives
         before `_handlers(False)` has put the teardown's handler in. With the body's raiser still
         installed it raised again, inside `finally`, and the teardown never ran. The first stop's raiser
         now puts the teardown handler in before it raises. Real handlers; the second stop is sent from
@@ -1365,7 +1365,7 @@ class TestLabRound(Sealed):
         self.assertFalse(rec["complete"])
 
     def test_a_knob_that_does_not_go_back_makes_the_round_incomplete_even_when_the_release_succeeds(self):
-        """(NIT 13) rec["complete"] ignored knobs_restored: a telemetry knob that could not be put back
+        """rec["complete"] ignored knobs_restored: a telemetry knob that could not be put back
         (here a directory where the file was) with the down and the release both rc 0 read complete."""
         r = self.runner()
         tele = os.path.join(self.knobs, "telemetry_override")
@@ -1418,7 +1418,7 @@ class TestLabRound(Sealed):
 
 
 class TestASignalIsNeverSwallowed(Sealed):
-    """N1: the stop signal lab_round raises must get through every `except Exception`."""
+    """The stop signal lab_round raises must get through every `except Exception`."""
 
     def test_an_http_call_lets_a_signal_through(self):
         from p4_health.collect import config as CF
@@ -1434,7 +1434,7 @@ class TestASignalIsNeverSwallowed(Sealed):
 
 
 class TestTheStateFileIsNotOverwritten(Sealed):
-    """MAJOR-3: a round never overwrites a LAB_STATE.json recover.sh still needs."""
+    """A round never overwrites a LAB_STATE.json recover.sh still needs."""
 
     def make(self):
         return LR.LabRound(self.cfg, RecordingRunner(), "B", os.path.join(self.cfg.run_dir, "packages", "B"),
@@ -1627,8 +1627,8 @@ class FakeFabric(object):
         self.switch_peer_form = "name"    # "name": iproute2's real form; "none": a parser's blind spot
         self.pipelines = dict(PIPES4)
         self.ctrl_register_ok = False      # bmv2's P4Runtime refuses register writes today
-        self.ctrl_connect_error = False    # (round 5, #4) no switch answers the controller's arbitration
-        # (round 5, #4) s2 is not primary. HYPOTHETICAL, not copied from controller_ext.py: P4Runtime refuses a
+        self.ctrl_connect_error = False    # no switch answers the controller's arbitration
+        # s2 is not primary. HYPOTHETICAL, not copied from controller_ext.py: P4Runtime refuses a
         # pipeline push from a backup client, so the real controller records set_pipeline_ok False plus
         # set_pipeline_error for such a switch (controller_ext.py:150-156); this fake keeps set_pipeline_ok True and
         # lets every attribution confirm -- a fair worst case for the rule, not the controller's own shape.
@@ -1813,7 +1813,7 @@ class FakeFabric(object):
         return out
 
     def root_links(self):
-        """`ip -o link show` in the root namespace, as iproute2 prints it (r2/veth_format.log):
+        """`ip -o link show` in the root namespace, as iproute2 prints it:
         a peer in the SAME namespace by its name (`s1-eth4@s2-eth2:`, every switch-to-switch
         link, since Mininet's switches live in the root netns), a peer in another namespace by
         its index there (`s1-eth1@if2:`, every host-facing port; the host's eth0 is index 2)."""
@@ -1879,7 +1879,7 @@ class FakeFabric(object):
             ports = sorted(p_ for (d, p_) in self.iface_list() if d == s.dpid)
             ports += self.extra_ports.get(s.dpid, [])
             rows = ["    %d   s%d-eth%d   UP   " % (p_, s.dpid, p_) for p_ in ports]
-            if self.cpu_port_listed:                    # not what bmv2 does (r3/show_ports_cpu510.log)
+            if self.cpu_port_listed:                    # not what bmv2 does
                 rows.append("    510   s%d-cpu   UP   " % s.dpid)
             return "  port #  iface name  status  extra info\n" + "\n".join(rows)
         if word == "counter_read":
@@ -1972,7 +1972,7 @@ class FakeFabric(object):
                                  ttl=int(o["ttl"]) - (hops if self.ttl_decrements else 0),
                                  ident=int(o["ident"]))
             self.delivered[dst].append(frame)
-            # (Cut 2 review MAJOR-2) the receiver has no socket on that port: Linux answers with an
+            # The receiver has no socket on that port: Linux answers with an
             # ICMP port unreachable that quotes the whole datagram, marker included, back to the
             # sender -- which is also sniffing for its cell in the pingall
             self.delivered[src].append(icmp_unreachable(frame))
@@ -2254,7 +2254,7 @@ class TestBringUpAOnTodaysFabric(Cut2):
         rows = expected_rows()
         got = {c: ctx.cells[c].label for c in set(RA.CUT2_CELLS) | {"CP1", "VS1"}}
         want = {c: rows[c][5] for c in got}
-        self.assertEqual(want["R3"], V.UNATTRIBUTED)            # m7: the tsv itself says so now
+        self.assertEqual(want["R3"], V.UNATTRIBUTED)            # the tsv itself says so now
         self.assertEqual(want["VS1"], V.UNATTRIBUTED)
         self.assertEqual(got, want, {c: ctx.cells[c].reason for c in got if got[c] != want[c]})
         self.assertIs(a.observations["VS1"]["negative"]["absent"], True)
@@ -2314,7 +2314,7 @@ class TestBringUpAOnTodaysFabric(Cut2):
 
 
 class TestOneObserverFailing(Cut2):
-    """m2: an observer that raises on a live shape it did not expect costs its own cell only."""
+    """An observer that raises on a live shape it did not expect costs its own cell only."""
 
     def test_the_rest_of_the_round_is_still_observed(self):
         def boom(*a, **kw):
@@ -2465,8 +2465,10 @@ class TestBringUpARedPaths(Cut2):
         self.assertEqual(v.verdict, V.PROBE_BROKEN, v)
 
     def test_switch_links_lost_on_both_sides_are_not_a_green(self):
-        """MAJOR-1's mirror image: a fabric oracle that cannot read the switch-to-switch peers,
-        against a graph that has no switch links either, must not agree its way to GREEN."""
+        """The mirror image of test_veth_peers_reads_both_iproute2_forms.
+
+        A fabric oracle that cannot read the switch-to-switch peers, against a graph that has no
+        switch links either, must not agree its way to GREEN."""
         self.fab.switch_peer_form = "none"
         self.fab.graph_drop_switch_edges = True
         v, _c, a = self.verdict("TP1")
@@ -2474,7 +2476,7 @@ class TestBringUpARedPaths(Cut2):
         self.assertEqual(v.verdict, V.NOT_RUN, v)
 
     def test_an_unplaced_port_is_not_run_and_tp1_keeps_what_it_read(self):
-        """N4: TP1's NOT RUN must be diagnosable after `ndt down` has removed the fabric."""
+        """TP1's NOT RUN must be diagnosable after `ndt down` has removed the fabric."""
         self.fab.extra_ports = {2: [9]}
         v, _c, a = self.verdict("TP1")
         self.assertEqual(v.verdict, V.NOT_RUN, v)
@@ -2685,7 +2687,7 @@ class TestBringUpB(Cut2):
                          {"T4": V.UNATTRIBUTED, "MT1": V.UNATTRIBUTED, "MT2": V.UNATTRIBUTED, "T5": V.RED})
 
     def test_b_spawns_no_controller_on_a_fabric_that_is_not_external(self):
-        """MAJOR-3: the adapter checks only the package file; what is UP must say external."""
+        """The adapter checks only the package file; what is UP must say external."""
         b, r, _p = self.b_round(mode="ndtwin")
         self.assertEqual([c for c in r.calls if c.get("spawn") and is_adapter_argv(c["argv"])], [])
         self.assertFalse(any(v["ok"] for v in b.confirmed.values()))
@@ -2802,13 +2804,13 @@ class TestTheLabRun(Cut2):
         self.assertEqual(ups, ["packages/A", "packages/B"])
         self.assertEqual([v for v, _ in ndt], ["status", "claim", "up", "down", "release"] * 2)
         cells = {c["id"]: c for c in doc["cells"]}
-        self.assertEqual(cells["T4"]["verdict"], V.GREEN, cells["T4"])              # (Cut A + D)
+        self.assertEqual(cells["T4"]["verdict"], V.GREEN, cells["T4"])
         self.assertEqual((cells["MT1"]["verdict"], cells["MT1"]["attribution"]["ok"]), (V.RED, True),
                          cells["MT1"])
         self.assertEqual(cells["R3"]["verdict"], V.UNATTRIBUTED)
         self.assertEqual(cells["PF-T"]["verdict"], V.GREEN)
         self.assertEqual(cells["CH1"]["phase"], "unobserved")
-        # m1: nothing this run did not observe reads as a flip -- an alias of such a cell neither
+        # nothing this run did not observe reads as a flip -- an alias of such a cell neither
         deltas = {c["id"]: c["delta"] for c in doc["cells"]}
         self.assertEqual(deltas["VB1"], "not observed")
         self.assertEqual(sorted(c for c, d in deltas.items() if d == "flipped"), [])
@@ -2818,7 +2820,7 @@ class TestTheLabRun(Cut2):
         self.assertIn("system_under_test", doc)
         self.assertTrue(os.path.isfile(os.path.join(self.cfg.run_dir, "A", "K1.json")))
 
-    # --- MAJOR-3: B only after A ended clean, and A's record survives -------------------------
+    # --- B only after A ended clean, and A's record survives ----------------------------------
     def assert_b_kept_out(self, r, rc, doc, a_phase):
         ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
         self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
@@ -2852,7 +2854,7 @@ class TestTheLabRun(Cut2):
                 st = json.load(fh)
             self.assertEqual((st["bring_up"], st["phase"]), (x, "released"))
 
-    # --- N1: a stop signal ends the run; N2: a B that did nothing is not COMPLETE -----------
+    # --- a stop signal ends the run; a B that did nothing is not COMPLETE -------------------
     def assert_signal_ended_the_run(self, r, rc, doc):
         ndt = [c["argv"][1] for c in r.calls if c["argv"][0] == "ndt"]
         self.assertEqual((ndt.count("claim"), ndt.count("up")), (1, 1), ndt)
@@ -2879,7 +2881,7 @@ class TestTheLabRun(Cut2):
         self.assertNotIn("K1", seen)
 
     def test_a_signal_between_the_rounds_ends_the_run(self):
-        """N1's window: from A's teardown to B's claim no round's handler is in place. run_lab's
+        """The gap: from A's teardown to B's claim no round's handler is in place. run_lab's
         own handler turns a SIGTERM there into a stop too (a safety handler stands in for the
         default action, so the test process survives on code without it)."""
         seen = []
@@ -2902,7 +2904,7 @@ class TestTheLabRun(Cut2):
         self.assertTrue(any("stop signal 15" in p_ for p_ in doc["problems"]), doc["problems"])
         self.assertNotEqual(getattr(restored, "__name__", ""), "raiser")   # the caller's handler is back
 
-    # --- round 4, F1: a stop during a teardown ends the run too -------------------------------
+    # --- a stop during a teardown ends the run too --------------------------------------------
     def stop_in_down(self, nth):
         """A runner whose `nth` `ndt down` sends SIGTERM to the probe (this process), as a
         `kill -TERM <pid>` from outside does while subprocess.run waits for ndt: the handler
@@ -2929,7 +2931,7 @@ class TestTheLabRun(Cut2):
         return rc, doc, r
 
     def test_a_stop_during_a_teardown_ends_the_run_before_b_claims(self):
-        """The review's F1: with the teardown handler only noting the signal, B was claimed and
+        """With the teardown handler only noting the signal, B was claimed and
         brought up after a stop. REAL LabRound handlers: the factory of the other run_lab tests
         turns them off, which is why nothing saw this."""
         rc, doc, r = self.run_with_a_stop_in_down(1)
@@ -2951,9 +2953,9 @@ class TestTheLabRun(Cut2):
         self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
 
     def test_root_runs_a_frozen_copy_of_its_code_from_the_run_dir(self):
-        """N8: root executes hostside.py, frames.py and __init__.py; it runs copies taken into the
+        """Root executes hostside.py, frames.py and __init__.py; it runs copies taken into the
         run dir before S0, so the shared tree can change under a 15-minute run and root still
-        runs what was recorded. (Round 4, F9) The record is of the COPY's bytes."""
+        runs what was recorded. The record is of the COPY's bytes."""
         rc, doc, r = self.run_lab()
         base = os.path.join(os.path.realpath(self.cfg.run_dir), "frozen", "p4_health")
         root_argvs = [c["argv"] for c in r.calls if c["argv"][:4] == ["sudo", "-n", "mnexec", "-a"]
@@ -2968,7 +2970,7 @@ class TestTheLabRun(Cut2):
             self.assertEqual(doc["root_code"][name], want, name)
 
     def test_b_runs_its_controller_and_the_adapter_from_the_frozen_copy(self):
-        """(Round 4, F4b) B's controller and the adapter run as the caller, but they write P4Runtime
+        """B's controller and the adapter run as the caller, but they write P4Runtime
         state on the fabric: they too run the run dir's copies, not the shared tree, and the
         record carries their hashes (of the copies' bytes)."""
         rc, doc, r = self.run_lab()
@@ -2987,7 +2989,7 @@ class TestTheLabRun(Cut2):
                 self.assertEqual(doc["frozen_code"][rel], hashlib.sha256(fh.read()).hexdigest(), rel)
 
     def test_run_lab_runs_the_frozen_code_it_is_given(self):
-        """(Round 4, F4a) probe.py freezes and checks the code before S0 and hands it to run_lab;
+        """probe.py freezes and checks the code before S0 and hands it to run_lab;
         run_lab must run exactly that, not freeze a second set unchecked."""
         from p4_health import frozen as FZ
         other = os.path.join(self.tmp, "elsewhere")
@@ -3004,7 +3006,7 @@ class TestTheLabRun(Cut2):
         self.assertFalse(os.path.exists(os.path.join(self.cfg.run_dir, "frozen")))
 
     def test_b_controller_is_recorded_when_the_run_dir_path_has_a_link(self):
-        """(Round 4, F6) LabRound hands out the RESOLVED package path, so the controller's argv
+        """LabRound hands out the RESOLVED package path, so the controller's argv
         carries the resolved run dir. The marker it is registered by must be that path too, or
         `register` refuses it: neither the teardown nor recover.sh could then stop it. The kill
         fails here, so the entry stays in B's state file to be seen."""
@@ -3033,7 +3035,7 @@ class TestTheLabRun(Cut2):
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
         self.assertTrue(any("B's controller" in p_ for p_ in doc["problems"]), doc["problems"])
 
-    # --- round 4, F2: every exit of B without a controller result is a failed B --------------
+    # --- every exit of B without a controller result is a failed B ---------------------------
     def assert_b_failed(self, rc, doc, why):
         """INCOMPLETE rc 2, and the run's problems say B's controller did not do its part, and why."""
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
@@ -3087,7 +3089,7 @@ class TestTheLabRun(Cut2):
         rc, doc, _r = self.run_lab()
         self.assert_b_failed(rc, doc, "no controller result")
 
-    # --- round 5, #2: on the lab path rc 1 means PROBE-BROKEN and nothing else ---------------
+    # --- on the lab path rc 1 means PROBE-BROKEN and nothing else ----------------------------
     def assert_incomplete_with_reason(self, rc, doc, *why):
         """INCOMPLETE rc 2, and the health.json on disk carries the reason(s)."""
         self.assertEqual(rc, 2)
@@ -3099,7 +3101,7 @@ class TestTheLabRun(Cut2):
             self.assertTrue(any(w in p_ for p_ in h["problems"]), (w, h["problems"]))
         return h
 
-    # --- round 5, #4: a B that ran, wrote a result and confirmed nothing is a failed B ---------------
+    # --- a B that ran, wrote a result and confirmed nothing is a failed B ----------------------------
     def test_b_whose_controller_reached_no_switch_is_a_failed_b(self):
         """The result file is there and well-formed, every switch carries a connect_error and every step
         failed (controller_ext.py:121-127, 336-339): used to read COMPLETE rc 0 with no problems."""
@@ -3150,9 +3152,11 @@ class TestTheLabRun(Cut2):
         self.assertEqual((doc["verdict"], rc, doc["problems"]), ("COMPLETE", 0, []))
 
     def test_a_stop_just_after_a_rounds_handlers_are_restored_keeps_that_rounds_record(self):
-        """(NIT 10, window 2) A stop that arrives after `_restore_handlers` -- the run-level handler is
-        back and raises -- used to leave run() before `return rec`: the round's record was missing
-        from health.json. It is now final before the handlers are restored, and run_lab collects it."""
+        """The second window around a handler switch (TestLabRound has the first).
+
+        A stop that arrives after `_restore_handlers` -- the run-level handler is back and
+        raises -- used to leave run() before `return rec`: the round's record was missing from
+        health.json. It is now final before the handlers are restored, and run_lab collects it."""
         seen = []
         safety = signal.signal(signal.SIGTERM, lambda n, f: seen.append(n))
         proc = self.proc
@@ -3178,7 +3182,7 @@ class TestTheLabRun(Cut2):
         self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
 
     def test_an_exception_after_a_rounds_record_is_final_keeps_that_rounds_record(self):
-        """The same for an exception rather than a stop (round 5, #2 and NIT 10)."""
+        """The same for an exception rather than a stop."""
         proc = self.proc
 
         def make(cfg, runner, bringup, pkg, run_id):
@@ -3197,7 +3201,7 @@ class TestTheLabRun(Cut2):
         self.assertTrue(any("RuntimeError" in p_ and "boom" in p_ for p_ in doc["problems"]), doc["problems"])
 
     def test_an_incomplete_s0_touches_nothing(self):
-        """(Round 5, #2) S0 with one failing check: INCOMPLETE rc 2 (not rc 1, which is the see-red
+        """S0 with one failing check: INCOMPLETE rc 2 (not rc 1, which is the see-red
         run's pass), no lab action, and a health.json that names the check."""
         self.s0["verdict"] = "PROBE-BROKEN"
         self.s0["checks"] = [{"name": "compile build/hc_main", "ok": True, "detail": ""},
@@ -3207,7 +3211,7 @@ class TestTheLabRun(Cut2):
         self.assertEqual(r.calls, [])
 
     def test_an_s0_that_refused_pft_is_incomplete_and_pft_not_run(self):
-        """(Cut A + D, round 2) S0 PROBE-BROKEN because pre-flight refused PF-T's ternary entry: INCOMPLETE rc 2, no
+        """S0 PROBE-BROKEN because pre-flight refused PF-T's ternary entry: INCOMPLETE rc 2, no
         lab action, the failed checks named, and PF-T NOT RUN -- S0's PF-T answer is not read from a broken S0."""
         self.s0["verdict"] = "PROBE-BROKEN"
         self.s0["preflight"]["PF-T"] = {"rc": 1, "ternary_rows": 1, "other_fail_rows": 0}
@@ -3221,7 +3225,7 @@ class TestTheLabRun(Cut2):
         self.assertEqual(cells["PF-T"]["verdict"], V.NOT_RUN, cells["PF-T"])
 
     def test_a_leftover_lab_state_is_incomplete_rc_2_and_stays_for_recover(self):
-        """(Round 5, #2) --mutant --only K1,TTL1 --bringups A in a run dir whose LAB_STATE.json
+        """--mutant --only K1,TTL1 --bringups A in a run dir whose LAB_STATE.json
         belongs to a round that did not finish: StateInUse used to leave run_lab as an exception
         (Python's exit status 1, no health.json). The file is recover.sh's: it is not touched."""
         left = {"bring_up": "A", "phase": "up", "sniffers": [], "controllers": [], "netem": []}
@@ -3301,9 +3305,9 @@ class TestTheLabRun(Cut2):
         self.assertEqual(([b["complete"] for b in doc["bringups"]], doc["problems"]), ([True], []))
         self.assertEqual((doc["verdict"], rc), ("PROBE-BROKEN", 1))
 
-    # --- round 4, F3: PROBE-BROKEN does not hide a stop or an unclean round ------------------
+    # --- PROBE-BROKEN does not hide a stop or an unclean round -------------------------------
     def test_a_see_red_run_stopped_after_k1_is_incomplete_not_a_pass(self):
-        """The review's scenario: --mutant --only K1,TTL1 --bringups A, stopped while TTL1 is
+        """The scenario: --mutant --only K1,TTL1 --bringups A, stopped while TTL1 is
         read. K1 is PROBE-BROKEN by SC-count and TTL1 was never observed; the headline used to
         read PROBE-BROKEN rc 1, which is what a see-red PASS reads."""
         self.fab.count_k1 = False
@@ -3315,7 +3319,7 @@ class TestTheLabRun(Cut2):
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
 
     def test_a_see_red_run_whose_mutant_is_not_caught_is_not_a_pass(self):
-        """(Round 5, #3) The mutant package is up but K1 and TTL1 read as on the plain one (the fake
+        """The mutant package is up but K1 and TTL1 read as on the plain one (the fake
         fabric counts and decrements as it should): no cell is PROBE-BROKEN, the probe cannot see
         red. The run was complete and clean, and still must not read COMPLETE rc 0."""
         rc, doc, _r = self.run_lab(bringups=("A",), only=["K1", "TTL1"], mutant=True)
@@ -3327,7 +3331,7 @@ class TestTheLabRun(Cut2):
             self.assertEqual(json.load(fh)["verdict"], "SEE-RED-NOT-SEEN")
 
     def test_the_observations_a_run_writes_carry_what_the_offline_judge_reads(self):
-        """(NIT 11) observations.json says whether the bring-ups were complete, whether the run was
+        """observations.json says whether the bring-ups were complete, whether the run was
         stopped and whether it was a see-red run, and carries the rounds' records and the run's
         problems: `probe.py judge` reads exactly those fields (tested in the cells suite)."""
         self.fab.count_k1 = False
@@ -3398,7 +3402,7 @@ class TestTheLabRun(Cut2):
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
 
 
-    # --- round 6, finding 3: the run-level stop handler is one-shot ------------------------------------------
+    # --- the run-level stop handler is one-shot --------------------------------------------------------------
     def probe_main_over_run_lab(self, **kw):
         """`probe.main(["lab", ...])` -- main()'s own exit-status handling -- around this harness's run_lab in
         place of cmd_lab's S0, freeze and identity work. Returns (rc, run_lab's rc or None)."""
@@ -3413,7 +3417,7 @@ class TestTheLabRun(Cut2):
             return probe.main(["lab", "--run-dir", self.cfg.run_dir, "--owner", "o"]), (got or [None])[0]
 
     def test_a_second_stop_while_run_lab_handles_the_first_gives_rc_2_not_pythons_status_1(self):
-        """(Finding 3) The run-level handler stayed installed while run_lab's `except SignalAbort` body ran
+        """The run-level handler stayed installed while run_lab's `except SignalAbort` body ran
         (take_unrecorded copies files there): a second stop raised again, out of run_lab and out of main(), and
         Python exits 1 -- PROBE-BROKEN, the see-red run's pass -- with no health.json. The first stop comes
         between the rounds (as in test_a_stop_between_the_rounds_...), the second from inside the body."""
@@ -3469,7 +3473,7 @@ class TestTheLabRun(Cut2):
             signal.signal(signal.SIGTERM, safety)
 
 
-    # --- round 8, finding 3: what the handler swaps and their restores put back -------------------------------
+    # --- what the handler swaps and their restores put back ---------------------------------------------------
     # [Co-developed with claude code -- Adam]
     def a_round_stand_in(self):
         """What LabRound._handlers, _restore_handlers and _swap_handlers read from `self`, and nothing else."""
@@ -3510,16 +3514,16 @@ class TestTheLabRun(Cut2):
     def test_run_lab_puts_the_handlers_it_found_back_when_it_ends(self):
         mine = self.handlers_set_to_markers()
         _rc, doc, _r = self.run_lab(real_signals=True)
-        # (round 9) run_lab swaps the handlers only when the rounds start: a run refused at set-up (a stray thread
+        # run_lab swaps the handlers only when the rounds start: a run refused at set-up (a stray thread
         # that can take a stop, say) would pass the last assertion without testing anything
         # [Co-developed with claude code -- Adam]
         self.assertEqual([b["id"] for b in doc["bringups"]], ["A", "B"], doc["problems"])
         self.assertEqual(doc["problems"], [])
         self.assertEqual({s: signal.getsignal(s) for s in LAB.STOP_SIGNALS}, mine)
 
-    # --- round 6, finding 4: no stop falls between a round's record and its handler restore ----------------
+    # --- no stop falls between a round's record and its handler restore ------------------------------------
     def test_a_stop_from_a_hook_inside_finish_after_it_read_the_teardown_signal_means_b_is_not_claimed(self):
-        """(Finding 4) `_finish` reads `teardown_signal` on its first line; the round's handlers were put back
+        """`_finish` reads `teardown_signal` on its first line; the round's handlers were put back
         only afterwards. A stop between the two went to the teardown's noter after the read, was never read
         again, and B was claimed and brought up over it. `_finish` and the restore are now under one signal
         mask: the stop is delivered when the mask lifts, to the run-level handler."""
@@ -3549,7 +3553,7 @@ class TestTheLabRun(Cut2):
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
         self.assertTrue(any("stop signal" in p_ for p_ in doc["problems"]), doc["problems"])
 
-    # --- round 7, finding 1: the mask holds only in the calling thread, so no other thread may take a stop --------
+    # --- the mask holds only in the calling thread, so no other thread may take a stop ----------------------------
     def background_thread(self, blocked):
         """A thread that stays up for the rest of the test, started with the signals in `blocked` blocked in it (a
         thread inherits the mask of the thread that starts it); the caller's own mask is put back as soon as it is
@@ -3623,7 +3627,7 @@ class TestTheLabRun(Cut2):
             self.assertIn(n, text)
 
     def test_a_running_thread_that_does_not_block_sigterm_means_the_lab_is_refused_before_any_claim(self):
-        """(Finding 1) The round's mask blocks the three stop signals in the calling thread only. A stop sent to
+        """The round's mask blocks the three stop signals in the calling thread only. A stop sent to
         the process while that mask is up goes to a thread that does not block it, and Python then runs the
         handler in the main thread, inside the masked region, where it is still the teardown's noter: the stop
         was read by nothing and B was claimed. The finish-hook test with one extra running thread: run_lab now
@@ -3706,7 +3710,7 @@ class TestTheLabRun(Cut2):
             self.assert_refused_before_any_lab_action(rc, doc, r, [], "910003")
 
     def test_a_round_cut_off_before_its_record_was_finished_is_not_complete_in_health_json(self):
-        """(Finding 4, the NIT) A first stop between the end of the body and the swap in `_handlers(False)`
+        """A first stop between the end of the body and the swap in `_handlers(False)`
         raises inside the `finally`: the teardown and `_finish` never run, and the record lab.py takes still
         said complete (set at the end of the body) with down_rc and release_rc None."""
         seen = []
@@ -3733,7 +3737,7 @@ class TestTheLabRun(Cut2):
         self.assertEqual((doc["verdict"], rc), ("INCOMPLETE", 2))
 
 
-    # --- round 6, finding 5: observations.json first, health.json last, each through tmp + replace --------------
+    # --- observations.json first, health.json last, each through tmp + replace ----------------------------------
     def main_over_run_lab_capturing_stderr(self, log=None):
         import io
         from p4_health import probe
@@ -3795,7 +3799,7 @@ class TestTheLabRun(Cut2):
         self.assert_no_verdict_left(rc, err)
 
     def test_the_catch_all_does_not_look_like_a_deliberate_refusal(self):
-        """Since round 5 the tests told a crash from a refusal by the word "Traceback" alone; the crash message
+        """The tests used to tell a crash from a refusal by the word "Traceback" alone; the crash message
         also began with `refused:`, the prefix of the deliberate refusals."""
         with self.failing_open("observations.json"):
             _rc, err = self.main_over_run_lab_capturing_stderr()
@@ -3837,7 +3841,7 @@ class TestTheLabRun(Cut2):
         self.assertEqual([f for f in os.listdir(self.tmp) if f.startswith("health.json") and f != "health.json"], [])
 
 
-    # --- round 6, finding 10: what run_lab writes, `probe.py judge` reads back to the same answer --------------
+    # --- what run_lab writes, `probe.py judge` reads back to the same answer -----------------------------------
     def judged_again(self, doc):
         """`probe.py judge` over the observations.json this harness's run_lab just wrote. Returns (rc, health)."""
         import io
@@ -3860,7 +3864,7 @@ class TestTheLabRun(Cut2):
         self.assertEqual(h2["rollup"], json.loads(json.dumps(doc["rollup"], default=sorted)))
 
     def test_a_complete_runs_observations_judge_offline_to_the_same_headline_and_cells(self):
-        """(Finding 10) run_lab -> observations.json -> `probe.py judge`. After the JSON round trip the tuples
+        """run_lab -> observations.json -> `probe.py judge`. After the JSON round trip the tuples
         and sets are lists: t1 called set() on lists of lists (TypeError), and m1, m2, c1 compared a list with
         a frozenset (always unequal: three cells silently RED). Hand-built recordings never showed it."""
         rc, doc, _r = self.run_lab()

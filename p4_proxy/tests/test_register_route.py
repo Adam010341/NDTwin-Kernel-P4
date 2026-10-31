@@ -242,12 +242,12 @@ class TheReadingItselfTest(RegisterRouteTestBase):
 
 
 class TheThriftPortMustBeThisSwitchsTest(RegisterRouteTestBase):
-    """(round 3) Two checks before a thrift read, on EVERY read:
+    """Two checks before a thrift read, on EVERY read:
       * the dpid's own switch answers P4Runtime now (client.probe), inside the request's deadline --
         else 503 and thrift is not asked; and
       * on the thrift connection itself, bm_mgmt_get_info answers this client's (device id, port)
         -- else 502 and no register is read (bm_thrift.read_register_as).
-    Measured 2026-10-17 (LOG/r5probe-before.json): a remembered identity let a replaced process and
+    Measured 2026-10-17: a remembered identity let a replaced process and
     an impostor holding the port answer 200 with their own cells."""
 
     def test_another_device_on_the_port_is_502_and_nothing_is_read(self):
@@ -300,7 +300,7 @@ class TheThriftPortMustBeThisSwitchsTest(RegisterRouteTestBase):
         self.assertTrue(all(0 < t < RPC_TIMEOUT_S for t in self.client.probe.calls), self.client.probe.calls)
 
     def test_the_liveness_check_and_the_read_share_one_deadline(self):
-        # (round 3, T3) one budget per request, not one per call: what the liveness check used is
+        # One budget per request, not one per call: what the liveness check used is
         # gone from what the thrift read may take.
         self.client.probe.delay = 0.4
         self.get(index=0)
@@ -389,7 +389,7 @@ class TheRefusalsTest(RegisterRouteTestBase):
         self.assert_refused_before_the_switch(501, "register too wide", name="HcIngress.r_huge")
 
     def test_a_bit64_register_is_501_and_says_why(self):
-        # Measured on both builds (LOG/r4probe0.json): every bit<64> cell at or above 2^63 reads as
+        # Measured on both builds: every bit<64> cell at or above 2^63 reads as
         # 2^63 - 1 through thrift, the CLI and bmv2's generated client alike -- so 2^63 - 1 itself
         # cannot be told from 2^64 - 1, and no reading of a bit<64> cell can be vouched for.
         error = self.assert_refused_before_the_switch(501, "register too wide", name="HcIngress.r_wide")

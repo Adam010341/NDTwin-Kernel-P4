@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-The defect (KNOWN-ISSUES G-3, confirmed live 2026-09-02, raw/C8_b3_historical_logging.log).
+The defect (KNOWN-ISSUES G-3, confirmed live 2026-09-02).
 `_c07` was a positive control for B-3 -- "historical_logging answers enabled and writes zero
 rows" -- built out of three ingredients, each fatal on its own:
 
@@ -49,7 +49,7 @@ HARNESS = os.environ.get("NDT_CHAOS_HARNESS") or os.path.join(
     REPO, "doc", "audit", "2026-08-28_chaos-harness", "harness")
 sys.path.insert(0, HARNESS)
 sys.path.insert(0, os.path.join(REPO, "tools", "contract_test"))
-# 🔧 2026-09-03, FINDINGS-ALL #17. probes.assert_route reads the kernel's dispatch chain by
+# 🔧 2026-09-03. probes.assert_route reads the kernel's dispatch chain by
 # walking up from probes.py to find the repo; under this file's own mutation gate probes.py is
 # a copy in /tmp, where that walk finds nothing and every request would be refused as
 # unverifiable. Pinning it here keeps the route table coming from the REAL kernel source, so a
@@ -187,7 +187,7 @@ class StatusIsNotDiscarded(ProbeBase):
         self.assertEqual(probes.api_get_checked("/ndt/get_graph_data"), {"ok": 1})
 
     def test_404_raises_and_carries_the_status(self):
-        # 🔧 2026-09-03, FINDINGS-ALL #17: the route is now checked before the request is sent,
+        # 🔧 2026-09-03: the route is now checked before the request is sent,
         # so this case can no longer use a phantom path as an arbitrary URL -- probes.assert_route
         # refuses it as a harness bug before _request's status handling is ever reached. The
         # subject here is the STATUS handling, so the fixture uses a registered route and the
@@ -226,7 +226,7 @@ class StatusIsNotDiscarded(ProbeBase):
         """Unchanged contract: existing callers that genuinely cope with a missing endpoint
         keep their behaviour. What changed is that a verdict may no longer be built on it.
 
-        🔧 2026-09-03, FINDINGS-ALL #17: registered routes now, for the reason above -- and the
+        🔧 2026-09-03: registered routes now, for the reason above -- and the
         distinction they draw is the point of this case. A REGISTERED route answering 404 (the
         flow is not there) is still absorbed into None, because that is a state a caller may
         tolerate. An UNREGISTERED route, or the wrong method for a real one, is not: it raises

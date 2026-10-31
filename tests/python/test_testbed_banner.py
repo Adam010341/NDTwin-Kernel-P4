@@ -2,7 +2,7 @@
 
 [Co-developed with claude code -- Adam]
 
-The defect (finding #42, measured 2026-09-03): the script launches 128 pings across the fabric
+The defect (KNOWN-ISSUES G-10, measured 2026-09-03): the script launches 128 pings across the fabric
 and then prints
 
     --- Final Configuration Active ---

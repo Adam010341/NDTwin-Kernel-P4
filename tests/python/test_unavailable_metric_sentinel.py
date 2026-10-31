@@ -150,13 +150,13 @@ class PowerReportSchemaAcceptsTheSentinelTest(unittest.TestCase):
 
     [Co-developed with claude code -- Adam]
 
-    R5 / F-OFFLINE-1 (2026-09-10). `/ndt/get_power_report` is not in HEALTH_ENDPOINTS above and
+    `/ndt/get_power_report` is not in HEALTH_ENDPOINTS above and
     cannot be: those three are maps keyed by switch IP, and this one is a LIST of
     `{dpid, power_consumed, power_path}` objects. So it needs its own case -- and it needed one,
     because the two halves were green apart and red together:
 
-      * the C++ has emitted `power_consumed: -1` on the TESTBED branch since E-23 (2026-09-07)
-        for a switch whose `power_path` is "none" and, since FINDINGS #85, for one with no
+      * the C++ has emitted `power_consumed: -1` on the TESTBED branch since 2026-09-07
+        for a switch whose `power_path` is "none", and later also for one with no
         management address -- `kHealthMetricUnavailable`, the same -1 the three endpoints above
         report and the API document names for this endpoint too (section 6's "Note");
       * `spec.py`'s entry for it said `Num(min=0)`, so `validate()` on exactly that row answered
@@ -165,7 +165,7 @@ class PowerReportSchemaAcceptsTheSentinelTest(unittest.TestCase):
     Nothing was red, because the contract runner is pointed at a MININET kernel, where every
     figure is the synthetic one and no row is ever negative. The schema would have failed the
     first time anybody ran it against a testbed with an exempted or address-less switch in the
-    fabric -- which is the deployment E-23 exists for.
+    fabric -- which is the deployment that branch exists for.
 
     🔴 WHY THE FIXTURE SAMPLE IS NOT GIVEN A -1 ROW, unlike the three endpoints above. Their
     samples ARE the API document's examples and the document shows -1 for them. Section 6's
