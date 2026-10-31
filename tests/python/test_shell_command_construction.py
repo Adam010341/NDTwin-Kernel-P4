@@ -56,7 +56,7 @@ import unittest
 SHELL_CALL = re.compile(
     r'(?:\bpopen\s*\(\s*[A-Za-z_"]'
     r'|\bstd::system\s*\(\s*[A-Za-z_"]'
-    # [Co-developed with claude code -- Adam] execCommandCancellable (FINDINGS #27/#76) is
+    # [Co-developed with claude code -- Adam] execCommandCancellable is
     # execCommand with a pid the caller can kill: SAME string, SAME `/bin/sh -c`. Without the
     # optional group below, converting a site to it would remove that site from this inventory
     # altogether -- the four conversions on 2026-09-04 did exactly that, and this file caught it.
@@ -138,7 +138,7 @@ SHELL_SITES = {
         "--write-out argument interpolates only kHttpStatusSentinel, a `static constexpr const "
         "char*` literal (TopologyAndFlowMonitor.hpp:559), and classifyEndpointReply wraps the "
         "RESULT of execCommand -- it passes nothing to the shell.",
-        # [Co-developed with claude code -- Adam] Key moved 2026-09-04 (FINDINGS #27/#76):
+        # [Co-developed with claude code -- Adam] Key moved 2026-09-04:
         # execCommand -> execCommandCancellable. RE-DERIVED, not chased: the executor now
         # owns the child pid so stop() can kill it, but it hands the SAME std::string to
         # the SAME `/bin/sh -c`, and the StopSignal argument never reaches the command
@@ -149,7 +149,7 @@ SHELL_SITES = {
         1, CONSTANT,
         "String literal, no interpolation. "
         # [Co-developed with claude code -- Adam] Was `FILE* fp = popen("sudo ovs-vsctl list-br
-        # 2>/dev/null", "r");` until 2026-09-04 (FINDINGS #27): a bare popen with no deadline on a
+        # 2>/dev/null", "r");` until 2026-09-04: a bare popen with no deadline on a
         # thread stop() joins. Re-derived, not renamed: the argument is still the same string
         # literal and still reaches the same `/bin/sh -c`, so CONSTANT still holds.
         "Re-derived 2026-09-04: the single argument is a literal; the only other argument is the "
@@ -158,7 +158,7 @@ SHELL_SITES = {
     ("src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp",
      "response = utils::execCommandCancellable(cmd, m_stopSignal).output;"): (
         1, CONFIG, "buildSwitchStateCommand(AppConfig::P4_PROXY_IP_AND_PORT).",
-        # [Co-developed with claude code -- Adam] Key moved 2026-09-04 (FINDINGS #27/#76):
+        # [Co-developed with claude code -- Adam] Key moved 2026-09-04:
         # execCommand -> execCommandCancellable. RE-DERIVED, not chased: the executor now
         # owns the child pid so stop() can kill it, but it hands the SAME std::string to
         # the SAME `/bin/sh -c`, and the StopSignal argument never reaches the command
@@ -175,7 +175,7 @@ SHELL_SITES = {
         1, CONFIG,
         "buildFlowStatsCommand(ip_and_port, dpid): ip_and_port is an AppConfig constant, dpid is "
         "a uint64_t.",
-        # [Co-developed with claude code -- Adam] Key moved 2026-09-04 (FINDINGS #27/#76):
+        # [Co-developed with claude code -- Adam] Key moved 2026-09-04:
         # execCommand -> execCommandCancellable. RE-DERIVED, not chased: the executor now
         # owns the child pid so stop() can kill it, but it hands the SAME std::string to
         # the SAME `/bin/sh -c`, and the StopSignal argument never reaches the command
@@ -189,7 +189,7 @@ SHELL_SITES = {
         "(DeviceConfigurationAndPowerManager.cpp:210) and never enters the command.",
     ),
     # [Co-developed with claude code -- Adam]
-    # E-23, 2026-09-07. This key used to be
+    # Changed 2026-09-07. This key used to be
     #     "std::string snmp_result = utils::execCommand(cmd);": (7, NUMERIC, ...)
     # -- the seven snmpget/snmpwalk sites in the four status reports, the single-switch power
     # report and the temperature report. All seven now go through readFromDevice, a virtual test

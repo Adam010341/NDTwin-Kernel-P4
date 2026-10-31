@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""FINDINGS-ALL #75: the chaos RUNNER must actually run INV-01's latency check.
+"""The chaos RUNNER must actually run INV-01's latency check.
 
 [Co-developed with claude code -- Adam]
 
-The defect. #17 rewrote `inv01_powercycle_latency` so it finally sends the request the kernel
-registers (POST, `ip=`) and refuses to score a 404 as an A-1 finding. It fixed a function with
-**zero call sites**: `chaos.py`'s round called `inv01_power_state_agreement` and nothing else,
-so no round -- null, dry-run, controls or full -- has ever evaluated the latency half. Same
-family as #71: `existence != wiring`. A check nobody calls is indistinguishable, in a report,
-from a check that passed.
+The defect. An earlier fix rewrote `inv01_powercycle_latency` so it finally sends the request
+the kernel registers (POST, `ip=`) and refuses to score a 404 as an A-1 finding. It fixed a
+function with **zero call sites**: `chaos.py`'s round called `inv01_power_state_agreement`
+and nothing else, so no round -- null, dry-run, controls or full -- has ever evaluated the
+latency half. Same family as the rule journal that shipped with no caller:
+`existence != wiring`. A check nobody calls is indistinguishable, in a report, from a check
+that passed.
 
-The second half of #17 is the precondition, and it is why this file is not simply "call it":
+The second half of that fix is the precondition, and it is why this file is not simply "call it":
 
     INV-01's latency check has never measured a power-on.
 
@@ -18,9 +19,10 @@ The second half of #17 is the precondition, and it is why this file is not simpl
 timing a power-on of a healthy, running switch measures the CORRECT early return -- and this
 check reads a fast answer as the A-1 lie. Calling it unconditionally would therefore
 manufacture a FAIL on a healthy fabric, which is the failure this harness has already produced
-twice (`switch_flags`' host collision, and #17's own 404 timing). So the round asks first
-whether it has a power-on worth timing, and when it does not the report says **not measured**
--- never "pass". A check that could not run and a check that ran clean are different facts.
+twice (`switch_flags`' host collision, and the old function's own 404 timing). So the round
+asks first whether it has a power-on worth timing, and when it does not the report says
+**not measured** -- never "pass". A check that could not run and a check that ran clean are
+different facts.
 
 Both directions, because only one of them is about calling the function:
 

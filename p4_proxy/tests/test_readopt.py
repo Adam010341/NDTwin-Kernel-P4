@@ -1959,7 +1959,7 @@ class BothMainsRefuseAHeldPortTest(unittest.TestCase):
 
     This is a source-level assertion and it is one on purpose: main() builds a real Mininet and
     cannot be called from a unit test, and the thing that has to be true is precisely that the
-    refusal is reached from BOTH files. FIX-PROXY-1's finding is the reason the weaker test is
+    refusal is reached from BOTH files. A past defect is the reason the weaker test is
     worth having: the copy that actually runs is ntg_bmv2_topo.py -- ndtwin-lab starts that
     one, not p4_testbed_topo.py -- and for as long as both files carried their own copy the
     defect lived in both of them while every test looked at one.

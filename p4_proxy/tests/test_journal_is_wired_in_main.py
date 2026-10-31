@@ -3,7 +3,7 @@ Whether the journal PRODUCTION builds is attached to the manager PRODUCTION uses
 
 [Co-developed with claude code -- Adam]
 
-KNOWN-ISSUES A-4c, finding #71. `test_rule_journal.py` proves the journal keeps its promises,
+KNOWN-ISSUES A-4c. `test_rule_journal.py` proves the journal keeps its promises,
 and `test_journal_wiring.py` proves `TopologyManager` writes to a journal it is handed. Neither
 of them could ever have failed while the journal was, in fact, never written once: both build
 their own manager and inject the dependency. `test_journal_wiring.py` states in its own

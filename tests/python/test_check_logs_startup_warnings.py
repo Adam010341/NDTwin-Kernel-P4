@@ -14,7 +14,7 @@ segment. A startup WARNING that is not allowlisted therefore fails L2 on a healt
 
   1. TopologyAndFlowMonitor.cpp:1354, warnAboutSwitchesWithNoBrandPathNoLock, reached from
      :1297 at every load. It fires once per startup on any topology that declares an
-     explicit `switch_kind` for a brand this build has no power/telemetry path for (E-25).
+     explicit `switch_kind` for a brand this build has no power/telemetry path for.
      It is a statement about a permanent, designed condition -- the same shape as the
      already-allowlisted "HistoricalDataManager not started: MININET" -- so a kernel that
      is behaving correctly must not fail the log gate for saying it. THIS ONE IS THE GAP.
@@ -28,7 +28,7 @@ segment. A startup WARNING that is not allowlisted therefore fails L2 on a healt
      would be green. If this ever turns out to fire routinely, the fix is a rule kind that
      exits 3 (the WHEN-POWERED-OFF precedent), not a blanket permission.
 
-  3. TopologyAndFlowMonitor.cpp:4003, the E-20 residue finding itself: netem is attached to
+  3. TopologyAndFlowMonitor.cpp:4003, the residual-netem warning itself: netem is attached to
      interfaces this kernel did not touch. NOT allowlisted, deliberately. That is a fact
      about the fabric a measurement is about to run on, and the message says so in capitals.
      Allowlisting it would make every run on a fabric somebody left faults on look clean.
@@ -163,7 +163,8 @@ class StartupWarningTest(unittest.TestCase):
         self.assertIn("PROBLEMS", out)
 
     def test_residual_netem_on_the_fabric_is_still_a_problem(self):
-        # The other half. E-20's finding is about the fabric the run is about to measure.
+        # The other half. The residual-netem warning is about the fabric the run is
+        # about to measure.
         rc, out = run_check(self._log("residual_netem"), "--powered-off", "none")
         self.assertEqual(rc, 1, out)
         self.assertIn("PROBLEMS", out)

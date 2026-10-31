@@ -61,9 +61,10 @@ except ImportError:  # pragma: no cover -- environment, not behaviour
 # 🔴 READ AT IMPORT, BEFORE ANY TEST HAS RUN. What is asserted below is that PRODUCTION wired
 # these -- main.py's own import-time inject_* calls -- and every test in this file that touches
 # `switch_state` replaces them with stubs and puts them back. Reading them inside a test would
-# therefore assert only that the previous test's cleanup worked. Finding #71 is the whole reason
-# this distinction is worth four lines: rule_journal.py shipped with 33 green tests and no
-# production caller, because every one of them injected the journal itself.
+# therefore assert only that the previous test's cleanup worked. The rule journal written for
+# KNOWN-ISSUES A-4c is the whole reason this distinction is worth four lines: rule_journal.py
+# shipped with 33 green tests and no production caller, because every one of them injected the
+# journal itself.
 WIRED_AT_IMPORT = None if not HAVE_P4RUNTIME else {
     "control_plane": api_routes.control_plane_report,
     "entries_recorded": api_routes.entries_recorded_report,
@@ -444,7 +445,8 @@ class ProductionWiresTheDisclosureItselfTest(unittest.TestCase):
     [Co-developed with claude code -- Adam]
     Every other test in this file injects its own stubs, which is the right way to test what the
     endpoint DOES and says nothing about whether anybody calls inject_* in production. That gap
-    is finding #71 exactly, and it shipped once with 33 green tests behind it.
+    is how the A-4c rule journal once shipped with 33 green tests behind it and no production
+    caller.
     """
 
     def test_main_injected_every_report_the_endpoint_reads(self):
@@ -593,7 +595,7 @@ class EachSwitchNamesItsOwnSkippedStepsTest(unittest.TestCase):
             self.assertIn(name, main.EXTERNAL_SKIPS)
 
     def test_the_two_scopes_do_not_overlap(self):
-        # 🔴 The property the round-1 bug violated: a step is disclosed at one scope or the
+        # 🔴 The property an earlier bug violated: a step is disclosed at one scope or the
         # other, never both, or a reader counting either list double-counts.
         self.assertEqual(set(main.FOREIGN_PIPELINE_SWITCH_SKIPS)
                          & set(main.FOREIGN_PIPELINE_FABRIC_SKIPS), set())

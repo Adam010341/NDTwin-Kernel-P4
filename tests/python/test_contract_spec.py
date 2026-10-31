@@ -130,7 +130,7 @@ class Ctx:
         self.expected_edges = edges
         self.expected_dpids = set(dpids)
         self.topk = topk
-        # [Co-developed with claude code -- Adam] -- W3b-3.
+        # [Co-developed with claude code -- Adam]
         # Per-node identity, absent by default so the cases above still say exactly what they
         # said: they are about the cardinality half, and a stand-in that started asserting
         # identity too would change what those reds mean. The REAL Context always supplies
@@ -592,12 +592,12 @@ class PoweredDownEdgesTest(unittest.TestCase):
 
 class DeclaredDownEdgesTest(unittest.TestCase):
     """
-    F-OFFLINE-1 G5: `down_reason: "declared"` is an operator's intent, not a fault.
+    `down_reason: "declared"` is an operator's intent, not a fault.
 
     [Co-developed with claude code -- Adam]
 
-    W8's whole point is that a declaration does not clear until somebody POSTs a recovery, and
-    since W8b which recovery is narrowed further. A run that reports the resulting down edge as
+    A declaration does not clear until somebody POSTs a recovery, and only
+    /ndt/inject_link_recovery ends an injection. A run that reports the resulting down edge as
     a broken link raises a false alarm on every fabric where a failure was declared on purpose
     -- including, at the time this was written, the contract test's OWN mutating sequence, whose
     step 1 declares a link down and whose step 3 injects one.
@@ -692,7 +692,7 @@ class PowerStateReadingTest(unittest.TestCase):
 
     def test_a_switch_missing_from_the_reading_makes_the_whole_reading_unknown(self):
         # Before 04b8933 the kernel omitted a down switch's key from the sibling utilisation
-        # maps entirely (live-findings-2026-08-18-ovs.md F-3). Partial coverage here would
+        # maps entirely. Partial coverage here would
         # read a powered-off switch as powered on, which is the A-8 false alarm again.
         state = classify_power_state({"192.168.123.11": "ON"}, self.IP_TO_DPID)
         self.assertFalse(state.known)
@@ -1089,7 +1089,7 @@ class DestructiveEndpointTest(unittest.TestCase):
                   "set_switches_power_state", "modify_nickname", "modify_device_name",
                   "app_register", "inform_switch_entered", "received_a_simulation_case",
                   "install_flow_entries_modify_flow_entries_and_delete_flow_entries",
-                  # [Co-developed with claude code -- Adam] -- E-21. The heaviest writes in the
+                  # [Co-developed with claude code -- Adam] The heaviest writes in the
                   # table: two of them declare a link down until somebody withdraws it, and two
                   # of them attach netem to a real interface. A read-only run must never reach
                   # them, so a category slip here is the one that costs a fabric.
@@ -1136,7 +1136,7 @@ class DestructiveEndpointTest(unittest.TestCase):
         #
         # 🔴 The REASON changed on 2026-09-06 and the assertion did not. This comment used to
         # read "modify_device_name writes to the topology JSON on disk, so a real rename here
-        # would edit a shipped file (and possibly the wrong one)". W10 stopped the kernel
+        # would edit a shipped file (and possibly the wrong one)". The kernel has since stopped
         # writing setting/*.json: the name now goes to .test_run/nickname_overlay/, which is
         # gitignored. The tree no longer goes dirty -- and the rename still survives a restart,
         # so a contract run must still not leave a device called something else. What changed
@@ -1443,12 +1443,12 @@ class PowerStateReadingCarriesBothFieldsTest(unittest.TestCase):
                         "a third spelling of the same state is a contract change")
 
 
-# --- E-21: the four link endpoints -------------------------------------------------
+# --- the four link endpoints -------------------------------------------------------
 # [Co-developed with claude code -- Adam]
 
 
-#: The declined reply, verbatim from doc/2026-01-02_ndt_api.md §2 and measured on arm lw8b3
-#: (2026-09-07 20:26:47, s1:1 -> s5:1). Repeated here rather than imported from
+#: The declined reply, verbatim from doc/2026-01-02_ndt_api.md §2 and measured
+#: 2026-09-07 20:26:47 (s1:1 -> s5:1). Repeated here rather than imported from
 #: selftest_fixtures so that a fixture edited to match a broken kernel does not also move the
 #: assertions -- the two files check the same shape from opposite sides on purpose.
 DECLINED_RECOVERY = {
@@ -1461,8 +1461,8 @@ DECLINED_RECOVERY = {
     "until": "/ndt/inject_link_recovery",
 }
 
-#: The 200 an APPLIED recovery gives, and the one an unconditional withdrawal gave for the whole
-#: of lw8b. The two are the same bytes, which is why the body of the declined case is load-bearing.
+#: The 200 an APPLIED recovery gives, and the one an unconditional withdrawal used to
+#: give. The two are the same bytes, which is why the body of the declined case is load-bearing.
 APPLIED_RECOVERY = {"status": "link recovery processed"}
 
 LINK_ENDPOINT_PATHS = ("/ndt/link_failure_detected", "/ndt/link_recovery_detected",
@@ -1487,7 +1487,7 @@ class LinkEndpointContractTest(unittest.TestCase):
 
       * the DECLINED reply must be distinguishable from the applied one. On the wire they share
         a status line (200, deliberately: Ryu's on_link_add logs "NDT REJECTED this notification"
-        on any 4xx) and, before W8b, they shared a body as well. The body is the whole signal;
+        on any 4xx) and, at one time, they shared a body as well. The body is the whole signal;
         if the check that reads it can pass without it, the contract has re-acquired the defect.
       * the sequence order. Step 4 is only meaningful because step 3 injected a declaration that
         no report pairs with -- sort these six by name and step 4 asks a link nobody declared
@@ -1518,10 +1518,10 @@ class LinkEndpointContractTest(unittest.TestCase):
             for entry in self.entries_for(path):
                 self.assertEqual(entry["method"], "POST", entry["name"])
 
-    # --- the declined reply, which is what E-21 is about --------------------------------------
+    # --- the declined reply -------------------------------------------------------------------
 
     def test_the_declined_recovery_must_report_declaration_retained(self):
-        # THE CHECK THIS TEST EXISTS FOR. A reply without the field is the lw8b behaviour --
+        # THE CHECK THIS TEST EXISTS FOR. A reply without the field is the old behaviour --
         # the injection withdrawn by a report nothing paired with -- and it must not pass.
         self.assertEqual(
             spec.inv_recovery_was_declined_and_said_so(DECLINED_RECOVERY, None), [])
@@ -1549,8 +1549,9 @@ class LinkEndpointContractTest(unittest.TestCase):
                                  {**DECLINED_RECOVERY, "declaration_retained": "true"}))
 
     def test_the_paired_withdrawal_must_not_decline(self):
-        # The other direction of the pairing rule, and the one the W8b gate's over-fitting
-        # mutations (M11-M13) attack: a rule that declines everything is just as green.
+        # The other direction of the pairing rule, and the one the over-fitting mutations of
+        # tests/shell/mutate_withdrawal_needs_observed_failure.sh (M11-M13) attack: a rule that
+        # declines everything is just as green.
         self.assertEqual(spec.inv_recovery_withdrew_the_declaration(APPLIED_RECOVERY, None), [])
         self.assertTrue(spec.inv_recovery_withdrew_the_declaration(DECLINED_RECOVERY, None))
 
@@ -1586,7 +1587,7 @@ class LinkEndpointContractTest(unittest.TestCase):
                                  {"status": "ok", "down_reason": "maintenance"}))
 
     def test_the_injection_reply_must_name_the_only_endpoint_that_ends_it(self):
-        # W8b on the wire: a link_recovery_detected cannot end an injection, so a reply pointing
+        # On the wire: a link_recovery_detected cannot end an injection, so a reply pointing
         # a caller there would send them to the endpoint that is about to refuse them.
         self.assertTrue(validate(
             spec.LINK_FAILURE_INJECTED,
@@ -1768,7 +1769,7 @@ class LinkEndpointContractTest(unittest.TestCase):
         self.assertEqual(positions, sorted(positions), names)
 
     def test_the_sequence_ends_with_a_withdrawal_that_needs_no_agreement(self):
-        # /ndt/link_recovery_detected cannot end an injection -- that is the whole of W8b -- so a
+        # /ndt/link_recovery_detected cannot end an injection, so a
         # sequence ending on it leaves the link declared down and, on MININET, still cut.
         self.assertEqual(self.named(LINK_SEQUENCE[-1])["path"], "/ndt/inject_link_recovery")
         self.assertEqual(self.named(LINK_SEQUENCE[-2])["path"], "/ndt/inject_link_recovery")
@@ -1794,9 +1795,9 @@ class LinkEndpointContractTest(unittest.TestCase):
 
 
 class GraphNodePowerPathTest(unittest.TestCase):
-    """E-25 / E-30: the exemption mark on the wire. [Co-developed with claude code -- Adam]
+    """The exemption mark on the wire. [Co-developed with claude code -- Adam]
 
-    The schema is the sixth side of this change -- kernel, graph serialiser, power manager, the
+    The schema is the sixth side of this mark -- kernel, graph serialiser, power manager, the
     startup WARN, the manual, and this. It is the only one of the six that an external consumer
     is checked against, so a value the kernel invents and nobody listed here would pass the
     contract run in silence.
@@ -1842,7 +1843,7 @@ class GraphNodePowerPathTest(unittest.TestCase):
 
 
 # =============================================================================================
-# W3b-3: per-node identity, and the six deliberately broken models
+# Per-node identity, and the six deliberately broken models
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -2177,7 +2178,7 @@ class AddressDecodingTest(unittest.TestCase):
 
 
 class RenameIsAccountedForNotFailedTest(unittest.TestCase):
-    """W10 moved renames into .test_run/nickname_overlay/ and lays them back over the graph at
+    """Renames go to .test_run/nickname_overlay/ and are laid back over the graph at
     load, so a device_name that disagrees with the model file is a normal state of a healthy
     fabric. Failing on it would turn every rename into a red L2 run."""
 
@@ -2232,15 +2233,15 @@ class GraphSideDuplicateHostMacTest(unittest.TestCase):
 
 class ModelUnderTestTest(unittest.TestCase):
     """
-    E-2: the kernel now says which model it loaded, and the contract asserts it is the one this
+    The kernel says which model it loaded, and the contract asserts it is the one this
     run was pointed at.
 
     [Co-developed with claude code -- Adam]
     The three directions that matter are the same three the invariant documents: a matching
     kernel is silent, a MISSING field is a precondition rather than a pass or a failure, and a
     kernel serving a different file fails. The middle one is the widening -- treating "the
-    kernel did not say" as either verdict is how a pre-E-2 kernel would be reported broken, or
-    how a real mismatch would be reported fine.
+    kernel did not say" as either verdict is how a kernel older than that field would be
+    reported broken, or how a real mismatch would be reported fine.
     """
 
     def _ctx(self):
@@ -2320,7 +2321,7 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
     """
     Every --self-test fixture, against the schema the contract test actually validates with.
 
-    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G2/G13, 2026-09-11.
+    [Co-developed with claude code -- Adam]
 
     17 of the 31 fixtures hold a private copy of a schema instead of spec.py's object. Several
     of those copies are deliberate and say why. What was missing was anyone comparing them: on
@@ -2330,7 +2331,7 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
     "prove the schemas accept what the kernel documents" cannot do that against a schema the
     kernel's contract does not use.
 
-    This is the cross-application the offline round found missing (G3's third leg): the two
+    This is the cross-application that used to be missing: the two
     halves of the tool -- endpoint table and fixture map -- were only ever run against
     themselves. It is a cheap check and it is the only one that can see a copy drift.
     """
@@ -2379,7 +2380,7 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
                         "this control cannot fail and the check above proves nothing")
 
     def test_the_naming_convention_resolves_the_variant_fixtures(self):
-        # G13 counted 9 fixtures as belonging to no endpoint. They are variants; this pins the
+        # 9 fixtures used to count as belonging to no endpoint. They are variants; this pins the
         # convention that says so, because a convention nothing asserts is a guess.
         self.assertEqual(
             self.fx.fixture_target("inject_link_failure (MININET)"),
@@ -2396,10 +2397,10 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
         self.assertIsNone(self.fx.fixture_target("get_graph_data?since=1")[0])
 
     def test_the_endpoints_with_no_fixture_are_exactly_the_ones_declared(self):
-        # G13. The gap is not closed -- most of these need a documented example this repository
-        # does not have -- but it stops growing in silence. Asserted as EQUALITY in both
-        # directions: a new endpoint arrives with a fixture or a line, and a fixture written
-        # for one of these fails until its line goes with it.
+        # KNOWN-ISSUES G-19. The gap is not closed -- most of these need a documented example
+        # this repository does not have -- but it stops growing in silence. Asserted as EQUALITY
+        # in both directions: a new endpoint arrives with a fixture or a line, and a fixture
+        # written for one of these fails until its line goes with it.
         covered = set()
         for name in self.fx.FIXTURES:
             endpoint, which = self.fx.fixture_target(name)
@@ -2422,7 +2423,7 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
         # Not "the table exists" -- the values. Every one of these was wrong before, in a way
         # no test could see: a fixture attributed to the wrong endpoint validates against a
         # schema that happens to fit, and the mis-attribution only surfaces when an invariant
-        # is applied (which is what G3 adds).
+        # is applied (which is what the cross-application stages add).
         self.assertEqual(
             self.fx.fixture_target("link_recovery_detected (declined: declaration_retained)"),
             ("link_recovery_detected__declined_after_injection", "schema"),
@@ -2441,11 +2442,11 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
 
 class DownReasonVocabularyTest(unittest.TestCase):
     """
-    One down_reason vocabulary, written down in seven places, compared here.
+    One down_reason vocabulary (KNOWN-ISSUES G-20), written down in seven places, compared here.
 
-    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G12, 2026-09-11.
+    [Co-developed with claude code -- Adam]
 
-    The offline round counted five declaration sites. There are seven:
+    An earlier count found five declaration sites. There are seven:
 
         spec.py   DOWN_REASONS, DECLARED, LINK_FAILURE_REPORTED, LINK_FAILURE_INJECTED
         kernel    downReasonToString (the enum's wire form, common_types/GraphTypes.hpp),
@@ -2538,9 +2539,9 @@ class DownReasonVocabularyTest(unittest.TestCase):
 
 class DeclinedRecoveryPremiseTest(unittest.TestCase):
     """
-    F-OFFLINE-1 G10: the declined check accuses the kernel of something it may not have done.
+    The declined check accuses the kernel of something it may not have done.
 
-    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8, E-21, 2026-09-11.
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8.
 
     inv_recovery_was_declined_and_said_so is step 4 of the mutating sequence and its whole
     premise is step 3: "the check immediately before this one injected a failure through
@@ -2581,7 +2582,7 @@ class DeclinedRecoveryPremiseTest(unittest.TestCase):
         self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
 
     def test_with_the_premise_established_it_is_still_an_accusation(self):
-        # The control, and the one that matters: this is the lw8b failure mode and gating it
+        # The control, and the one that matters: this is the old failure mode and gating it
         # must not be a way to stop reporting it.
         out = spec.inv_recovery_was_declined_and_said_so(self.BARE, self.Landed())
         self.assertEqual(len(out), 1, out)
@@ -2644,13 +2645,13 @@ class DeclinedRecoveryPremiseTest(unittest.TestCase):
 
 class LinkStepPreconditionTest(unittest.TestCase):
     """
-    F-OFFLINE-1 G11: a step that could not choose a link must make no claim about the kernel.
+    A step that could not choose a link must make no claim about the kernel.
 
     [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8, 2026-09-11.
 
     switch_to_switch_link() returns None when the topology holds no switch-to-switch edge, and
     link_endpoint_body() then sends NO_LINK_CHOSEN_PAYLOAD -- four zeros, which all four link
-    endpoints refuse by design (W8-7's dpid-0 doors). None of the six MUTATE steps declared an
+    endpoints refuse by design. None of the six MUTATE steps declared an
     expect_status, so the default [200] applied and that correct refusal was recorded as
 
         HTTP status 404, expected 200
@@ -2741,9 +2742,9 @@ class CrossApplicationStagesTest(unittest.TestCase):
     """
     --self-test's two cross-application stages, on stand-in fixture maps.
 
-    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G3, 2026-09-11.
+    [Co-developed with claude code -- Adam]
 
-    The stages are what found G3, so they need their own positive controls: a stage that
+    The stages find real defects, so they need their own positive controls: a stage that
     cannot go red is the shape it exists to remove. Each test hands the stage a fixture map
     built here rather than the shipped one, so the shipped one going green (or not) is a
     separate question from whether the stage works.
@@ -2790,7 +2791,7 @@ class CrossApplicationStagesTest(unittest.TestCase):
         self.assertGreaterEqual(failed, 1, "Any_() rejects nothing and must be reported")
 
     def test_the_shipped_capacity_schema_is_not_that(self):
-        # The G3 fix itself, asserted here and not only through the runner's output.
+        # The capacity-schema fix itself, asserted here and not only through the runner's output.
         capacity = next(ep for ep in spec.ENDPOINTS if ep["name"] == "get_openflow_capacity")
         self.assertTrue(validate(capacity["schema"], [{"OVS": {}}]),
                         "a list is not a map keyed by switch family")

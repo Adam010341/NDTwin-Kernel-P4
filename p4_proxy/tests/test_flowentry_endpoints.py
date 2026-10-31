@@ -100,7 +100,7 @@ class RaisingTopology:
 class LpmClient:
     """The ipv4_lpm writes of P4RuntimeClient, recorded. For a real TopologyManager.
 
-    [Co-developed with claude code -- Adam] Since Adam's 2026-10-16 ruling a destination-only
+    [Co-developed with claude code -- Adam] A destination-only
     modify is judged against the priority its slot was written with, which only the topology
     holds -- so the modify half of the refusal tests needs a real manager, not a recorder.
     """
@@ -294,10 +294,9 @@ class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
     and answered `{"status": "success"}` with nothing said.
 
     That is what these tests pin, and only that. They do NOT assert a refusal: a 200 -> 400 here
-    is a breaking change for a caller that does not read status codes, which this project has
-    (T-15 Option 0, and the 2026-08-30 §1.2 ruling it cites). The disclosure is additive, so the
-    kernel -- whose only check on this body is `status == "error"`,
-    HttpRoutingStrategyBase.cpp:123-125 -- cannot see the difference.
+    is a breaking change for a caller that does not read status codes, which this project has.
+    The disclosure is additive, so the kernel -- whose only check on this body is
+    `status == "error"`, HttpRoutingStrategyBase.cpp:123-125 -- cannot see the difference.
 
     The topology is stubbed: which table a match compiles to is decided by `needs_five_tuple` on
     the match alone, so driving a real TopologyManager would add a gRPC dependency without adding
@@ -369,18 +368,18 @@ class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
 
 class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
     """
-    The half of FINDING-07 that disclosure cannot reach.
+    The half of the ipv4_lpm priority defect (KNOWN-ISSUES A-7, FINDING-07) that disclosure cannot
+    reach.
 
     [Co-developed with claude code -- Adam]
     `TheAddResponseSaysWhetherThePriorityWasHonouredTest` above pins the *install* answer, and
     deliberately does not assert a refusal: on an install the priority is a request about
-    *precedence*, the rule is programmed and does forward, and the 2026-08-30 §1.2 ruling
-    (T-15 Option 0) settled that a 200 -> 4xx there is a breaking change this project cannot
-    take. None of that transfers to delete_strict and modify, because on those two verbs the
+    *precedence*, the rule is programmed and does forward, and a 200 -> 4xx there is a breaking
+    change this project cannot take. None of that transfers to delete_strict and modify, because on those two verbs the
     priority is not precedence, it is *identity*: it names WHICH entry the caller means.
 
     ipv4_lpm holds one entry per destination and has no priority column, so every priority
-    names that one entry. Measured 2026-09-03 (doc/audit/2026-09-03_night-rounds/): a modify at
+    names that one entry. Measured 2026-09-03: a modify at
     priority 777, a priority that had never existed on the switch, rewrote the entry that was
     there; a delete at priority 999 removed it. Both answered success. That is not an
     under-delivery a note can qualify after the fact -- the rule the caller never named is
@@ -422,7 +421,7 @@ class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
 
     def routed(self):
         """[Co-developed with claude code -- Adam] A real topology holding the proxy's route
-        to DEST_ONLY's destination at priority 10 (Adam, 2026-10-16: the modify is judged
+        to DEST_ONLY's destination at priority 10 (the modify is judged
         against the slot, so it needs one)."""
         topo, client = a_routed_topology(self.DEST_ONLY["nw_dst"])
         api_routes.topology = topo
@@ -490,8 +489,8 @@ class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
                 self.assertIs(out["priority_honoured"], True)
 
     def test_an_install_is_still_disclosed_rather_than_refused(self):
-        # The standing ruling, pinned from this class as well so that widening the refusal to
-        # the install path reddens the test that names the ruling rather than passing quietly.
+        # The install answer, pinned from this class as well so that widening the refusal to
+        # the install path reddens a test that names it rather than passing quietly.
         out = call(api_routes.add_flow_entry, self._body(self.DEST_ONLY, priority=500))
         self.assertEqual(out["status"], "success")
         self.assertIs(out["priority_honoured"], False)
@@ -520,7 +519,7 @@ class TheRefusalReachesTheOnePlaceACallerCanReadItTest(unittest.TestCase):
     The 501 body is not read where it is written. It is read 200 bytes at a time.
 
     [Co-developed with claude code -- Adam]
-    hunt-0911/ROLE-5-TRAFFIC-REPORT.md §S3, measured 2026-09-11 on a live 10-switch fabric:
+    Measured 2026-09-11 on a live 10-switch fabric:
     4312 POSTs to the kernel's northbound, 100% HTTP 200 `queued`, and 2152 of 2152 deletes
     refused here with this 501. The caller saw a 200 for every one of them. The only place the
     refusal surfaces is get_flow_dispatch_status' `recent_failures[].message`, and what lands
@@ -556,8 +555,8 @@ class TheRefusalReachesTheOnePlaceACallerCanReadItTest(unittest.TestCase):
         """The leading bytes of the real response, which is all the kernel keeps."""
         from fastapi.responses import JSONResponse
         if verb == "modify":
-            # [Co-developed with claude code -- Adam] The modify is judged against the slot
-            # (Adam, 2026-10-16), so it needs a topology that holds one.
+            # [Co-developed with claude code -- Adam] The modify is judged against the slot,
+            # so it needs a topology that holds one.
             api_routes.topology, _ = a_routed_topology("10.9.0.2")
         raw = json.dumps({"dpid": 1, "priority": priority,
                           "match": {"dl_type": 2048, "nw_dst": "10.9.0.2"},
@@ -571,8 +570,8 @@ class TheRefusalReachesTheOnePlaceACallerCanReadItTest(unittest.TestCase):
         return body[:self.KERNEL_MESSAGE_WINDOW], body
 
     def test_the_remedy_is_inside_the_window_the_kernel_keeps(self):
-        # [Co-developed with claude code -- Adam] At the extremes of the priority range as well
-        # (review r2 nit e): the number's width moves everything after it.
+        # [Co-developed with claude code -- Adam] At the extremes of the priority range as well:
+        # the number's width moves everything after it.
         for verb in ("delete", "modify"):
             for priority in (1, 99, 65535):
                 with self.subTest(verb=verb, priority=priority):
@@ -583,7 +582,7 @@ class TheRefusalReachesTheOnePlaceACallerCanReadItTest(unittest.TestCase):
                     self.assertIn("five-tuple", window,
                                   "and it has to name the thing to do, not merely announce "
                                   "that a remedy exists")
-                    # Review r1 m2/n3, r2 NEW-4: the caveat that makes the delete remedy true
+                    # The caveat that makes the delete remedy true
                     # on OVS, and the modify's recorded priority -- as the KEY, quote and colon
                     # included, because the remedy's prose also contains the bare word.
                     self.assertIn({"delete": "OVS", "modify": '"slot_priority":'}[verb], window)

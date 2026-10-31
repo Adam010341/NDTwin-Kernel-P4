@@ -5,7 +5,7 @@ The P4 plane's clock: who writes it, what it refuses to say, and that the endpoi
 
 KNOWN-ISSUES G-13. A bmv2 table entry has no age, so `/stats/flow/<dpid>` reported
 `duration_sec: 0, duration_nsec: 0` for every rule and the P4 plane had no time axis at all.
-Measured 2026-09-07 (W16-3, P4 plane, 4 hosts): a route installed, read back at +12 s and +32 s,
+Measured 2026-09-07 (P4 plane, 4 hosts): a route installed, read back at +12 s and +32 s,
 0/0 both times, for it and for every rule already on the switch, while its counters moved. `ndt`
 therefore could not attribute a leftover rule to the app that wrote it, and marked the whole
 table UNKNOWN.
@@ -682,7 +682,7 @@ class TheEndpointReadsTheClientsOwnRecordTest(unittest.TestCase):
     """
     /stats/flow/<dpid> must pass the record belonging to the client it just read.
 
-    This is the shape of finding #71, where the rule journal had 33 green tests and no caller
+    This is the shape of the A-4c rule journal's wiring defect: 33 green tests and no caller,
     because every test injected the journal itself. An install record production never hands to
     the renderer is a record that works perfectly in the suite and reports 0/0 on the fabric --
     and 0/0 is exactly what the defect looked like, so nothing would say so.

@@ -223,7 +223,7 @@ class ReservingTheBlockMakesAnOverlapSafe(unittest.TestCase):
 
 
 class AnUnreadableRangeIsNotTreatedAsSafe(unittest.TestCase):
-    """Unknown must not be conflated with safe -- the repo's most-repeated review finding."""
+    """Unknown must not be conflated with safe -- the repo's most-repeated mistake."""
 
     def test_a_missing_file_reads_as_None(self):
         self.assertIsNone(G.read_ephemeral_range("/nonexistent/ndtwin/port_range"))

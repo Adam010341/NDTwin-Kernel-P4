@@ -8,7 +8,7 @@ updated and `install_all_pair_paths` ran exactly once per process, so the rules 
 startup were the final state for the life of the run. Observed live: `link s1 s5 down` with a flow
 crossing that link stopped traffic, and it was never rerouted.
 
-A review then found the same defect surviving in a narrower window. `_schedule_route_reinstall`
+The same defect then turned up surviving in a narrower window. `_schedule_route_reinstall`
 returns early while the worker is running, and the worker leaves the loop that watches
 `topology_change_seq` *before* calling `install_all_pair_paths` -- a walk over 16,256 host pairs,
 about 60 s. Any change arriving during that walk was therefore dropped by the early return and never

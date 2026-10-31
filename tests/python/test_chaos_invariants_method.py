@@ -448,7 +448,7 @@ class TheWholeHarnessConforms(unittest.TestCase):
 
         Proxy calls are excluded because they are out of scope for the guard, not because they
         are fine: `/stats/flow/{dpid}` does not resolve and nothing in this repo could check it
-        if it did. That gap is in FIX-CHAOS-INVARIANTS.md §6.
+        if it did.
         """
         unresolved = [c for c in harness_http_calls()
                       if not c["resolved"] and not c.get("raw") and c["base"] == "KERNEL"]
@@ -457,7 +457,7 @@ class TheWholeHarnessConforms(unittest.TestCase):
                          "below verified them")
 
     def test_every_kernel_call_uses_a_registered_method(self):
-        """The table in FIX-CHAOS-INVARIANTS.md, executable."""
+        """Every resolved kernel call outside KNOWN_UNREGISTERED uses a registered method."""
         bad = []
         for c in harness_http_calls():
             if c["base"] != "KERNEL" or c["path"] is None:
