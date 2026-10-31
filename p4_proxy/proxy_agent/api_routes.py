@@ -984,8 +984,10 @@ async def switch_state():
 
     Per switch, `flow_stats.unrendered_entries` counts the non-default rows the last
     `GET /stats/flow` render of that switch left out because it could not describe them: on every
-    pipeline a ternary mask or range Ryu cannot spell; on a foreign pipeline also an unknown action
-    or a row with no usable match. It is null until that switch's first /stats/flow render, on
+    pipeline a ternary mask or range Ryu cannot spell, and a row keyed on the destination MAC
+    together with a field that is listed; on a foreign pipeline also an unknown action or a row
+    with no usable match, and on a package's pipeline every row of a table other than the bound
+    route table. It is null until that switch's first /stats/flow render, on
     every pipeline, and a readopt resets it to null.
     """
     if topology is None:
@@ -1067,8 +1069,10 @@ async def switch_state():
     #                 outward-visible contract.
     #   flow_stats    `unrendered_entries`: how many non-default rows the last /stats/flow
     #                 render of this switch left out because it could not describe them -- on
-    #                 every pipeline a ternary mask or range Ryu cannot spell; on a foreign
-    #                 pipeline also an unknown action or a row with no usable match. null
+    #                 every pipeline a ternary mask or range Ryu cannot spell, or a MAC key beside
+    #                 a listed one; on a foreign pipeline also an unknown action or a row with no
+    #                 usable match, and on a package's pipeline every row of a table other than
+    #                 the bound route table. null
     #                 until that switch's first /stats/flow render, on
     #                 every pipeline; a readopt resets it.
     if capabilities_report is not None:
@@ -2156,12 +2160,14 @@ def get_flow_stats(dpid: int):
         # through ITS binding (a package's roles, or none), and the rows whose action is not
         # one this renderer recognises are left out and counted rather than described as drops.
         # NDTwin's own pipeline goes through the same call with the baseline binding: its body is
-        # the one its byte-identity capture and the rule-clock gate were written against, for
-        # every input. A ternary mask or range Ryu cannot spell is left out of it and counted here,
-        # as on a foreign switch, so `GET /p4/switch_state` can say how many
+        # the one its byte-identity capture and the rule-clock gate were written against, except
+        # that a 5-tuple row is shown at the priority it was installed with and a row keyed on the
+        # destination MAC is left out. A ternary mask or range Ryu cannot spell is left out of it
+        # and counted here, as on a foreign switch, so `GET /p4/switch_state` can say how many
         # `flow_stats.unrendered_entries` there are; a row with no usable match (an empty-match
-        # catch-all, say) is left out of it too but is counted only on a foreign switch. Only the
-        # count is new on that pipeline.
+        # catch-all, say) is left out of it too but is counted only on a foreign switch. On a
+        # package's pipeline only the rows of the bound route table are listed; the others are
+        # left out and counted.
         binding = getattr(client, "route_binding", route_binding.BASELINE)
         # [Co-developed with claude code -- Adam]
         # The client's OWN install record, not a fresh one and not a module global: it is the

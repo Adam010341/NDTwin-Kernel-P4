@@ -2,29 +2,30 @@
 Records the HTTP body `GET /stats/flow/1` answers for a switch on NDTwin's own pipeline.
 
 [Co-developed with claude code -- Adam]
-TICKET-P4-roles section 7 ruling 5, item 4. The roles ticket promises that NDTwin's own
-/stats/flow body does not move by one byte. Round 1 pinned the renderer's output serialised with
-`json.dumps(sort_keys=True)` -- which cannot see a change of key order, and key order is exactly
-what the kernel's parser receives. This records the bytes FastAPI itself hands the ASGI server as
-the response body (its own serialisation: key order, separators, escaping), with no
-re-serialisation by the test, so the constant it produced can be compared byte for byte.
+NDTwin's own /stats/flow body is pinned in bytes. Pinning the renderer's output serialised with
+`json.dumps(sort_keys=True)` cannot see a change of key order, and key order is exactly what the
+kernel's parser receives. This records the bytes FastAPI itself hands the ASGI server as the
+response body (its own serialisation: key order, separators, escaping), with no re-serialisation
+by the test, so the constant it produced can be compared byte for byte.
 
 PROVENANCE of `BASELINE_NDTWIN_HTTP_BODY` in tests/test_flow_stats_route.py:
-  This file, copied VERBATIM into a `git archive d492a346 p4_proxy setting` tree -- d492a346 is
-  the commit that added the round-1 base captures and changes no production file, so its
-  p4_proxy/proxy_agent is trunk 6291db35's (`git diff 6291db35 d492a346 -- p4_proxy/proxy_agent
-  p4_proxy/mininet` is empty) -- and run there, on 2026-09-24, as
+  The constant was first produced by this file, copied verbatim into a tree whose proxy_agent was
+  trunk 6291db35's and run there on 2026-09-24 as
 
       cd p4_proxy && PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 venv/bin/python \
           tests/record_stats_flow_http_body.py
 
-  printed the constant, its length and its sha256; the run is logged in
-  scratch/overnight-2026-09-05/logs/gates-0910/record_stats_flow_http_body_at_base.p4r-*.log.
-  Only what existed at d492a346 is used: `api_routes.router` / `api_routes.topology`,
-  `RuleInstallTimes`, and `tests.test_ryu_flow_stats.ndtwin_pipeline_rows` (which d492a346
-  itself added: every row shape ndtwin_switch.p4's tables can hold).
+  which printed the constant, its length and its sha256. Only what existed at that tree is used:
+  `api_routes.router` / `api_routes.topology`, `RuleInstallTimes`, and
+  `tests.test_ryu_flow_stats.ndtwin_pipeline_rows` (every row shape ndtwin_switch.p4's tables can
+  hold). The constant has been edited since in exactly two places, by script and not by running
+  the recorder: a 5-tuple row's priority reads 100 where the base printed the raw P4 value 101,
+  and the row keyed on the destination MAC is gone (the remaining bytes were re-chunked into
+  76-byte lines). The comment above the constant in tests/test_flow_stats_route.py says so; its
+  sha256 is of the edited bytes, and the test that compares the recorder's output with it passes
+  against the current code.
 
-The client double carries NO `route_binding`, as no client did at the base; the HEAD test runs
+The client double carries NO `route_binding`, as no client did at that tree; the current test runs
 it both ways (absent, and bound to BASELINE -- what every real NDTwin client carries now).
 """
 

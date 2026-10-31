@@ -22,9 +22,12 @@ or is documented as one in doc/2026-07-27_p4_bmv2_support_plan.md:
     and a null `best`, so a rule at priority <= -1 used to segfault the kernel through a trace
     line. That guard is fixed now, but emitting a negative priority would still mean the rule
     can never win a match, so it is clamped here.
-  - **Match keys must use Ryu's names** (`nw_dst`, `dl_type`, `in_port`, ...). The Classifier
-    accepts a fixed set; anything else is dropped without comment, which shows up as rules that
-    match nothing rather than as an error.
+  - **Match keys must be ones the Classifier can evaluate** (`nw_dst`, `dl_type`, `in_port`,
+    ...). It builds a mask from the keys it knows and leaves the bits of any other key at zero,
+    so a rule carrying an unknown key MATCHES EVERY PACKET at its priority -- not nothing. A
+    field with no name in FIELD_TO_RYU is therefore not rendered: a row with no usable match is
+    left out of the body (and counted on a foreign switch). `hdr.ethernet.dstAddr` is such a
+    field: it used to render as `dl_dst`, which the Classifier does not evaluate.
   - **`duration` is the proxy's own record, or nothing.** A bmv2 table entry has no age, so
     these two fields were hardcoded zeroes and every P4 rule looked equally new -- measured
     2026-09-07, W16-3. `rule_install_times` supplies the install stamp; an entry it has no
@@ -43,8 +46,9 @@ from proxy_agent import route_binding
 ETH_TYPE_IPV4 = 0x0800
 
 # P4 field name -> Ryu match key. Derived from ndtwin_switch.p4's table keys; anything not
-# listed is deliberately dropped, because the Classifier ignores unknown keys anyway and
-# passing them through would only make the payload look richer than it is.
+# listed is deliberately not rendered. Passing an unknown key through would be worse than
+# useless: the Classifier reads a key it does not know as matching every packet (see the module
+# docstring), so a field belongs here only if the Classifier evaluates the name it maps to.
 #
 # [Co-developed with claude code -- Adam] The route
 # match field is BASELINE's, like the route action below -- `hdr.ipv4.dstAddr` is written once,
@@ -57,15 +61,20 @@ FIELD_TO_RYU = {
     "meta.l4_src_port": "tp_src",
     "meta.l4_dst_port": "tp_dst",
     "standard_metadata.ingress_port": "in_port",
-    "hdr.ethernet.dstAddr": "dl_dst",
 }
+
+# P4 fields that have NO spelling the Classifier can evaluate (see the module docstring): the
+# destination MAC. A row keyed on one alone has no usable match and is left out; a row keyed on one
+# AND on a listed field is left out too, because listing it with the MAC dropped would describe a
+# wider rule than the switch holds. [Co-developed with claude code -- Adam]
+UNRENDERABLE_FIELDS = frozenset({"hdr.ethernet.dstAddr"})
 
 # Bit width of the field behind each Ryu name above. Needed to tell a FULL ternary mask from one
 # whose leading zero bytes P4Runtime stripped on the way back (ternary-a0 item 10): a 0x00ff mask
 # on a 16-bit port and an 0xff mask on an 8-bit protocol read back as the same byte.
 RYU_WIDTH = {
     "nw_dst": 32, "nw_src": 32, "nw_proto": 8, "tp_src": 16, "tp_dst": 16,
-    "in_port": 9, "dl_dst": 48,
+    "in_port": 9,
 }
 
 # Actions that forward out of a port, and which parameter carries it.
@@ -78,6 +87,17 @@ FORWARDING_ACTIONS = {
     route_binding.BASELINE.action: route_binding.BASELINE.port_param,
     "MyIngress.forward_l2": "port",
 }
+
+# The ternary table NDTwin writes 5-tuple rules into, by its p4info name (the same string
+# `P4RuntimeClient.FIVE_TUPLE_TABLE` writes under; tests/test_flow_stats_route.py ties the two).
+#
+# [Co-developed with claude code -- Adam] The writer stores an OpenFlow priority n as P4 priority
+# n + 1 (`topology_manager.p4_priority`: P4Runtime refuses 0 on a ternary table), and a strict
+# delete shifts what it is given the same way. Reading the raw P4 value back made a rule
+# installed at 100 show as 101, and a delete at the value shown then asked for 102 and found
+# nothing. The read-back undoes the shift for this table, so it shows what was installed.
+FIVE_TUPLE_TABLE = "MyIngress.flow_5tuple"
+FIVE_TUPLE_PRIORITY_SHIFT = 1
 
 # Reserved OpenFlow port number Ryu uses for the controller, matching what
 # Classifier::parseActionsArrayIntoEffect maps "OUTPUT:CONTROLLER" to.
@@ -93,11 +113,6 @@ def _ipv4(value: bytes) -> str:
     """A 4-byte address as dotted quad. Short values are left-padded, as P4Runtime may strip."""
     padded = value.rjust(4, b"\x00")
     return ".".join(str(b) for b in padded[:4])
-
-
-def _mac(value: bytes) -> str:
-    padded = value.rjust(6, b"\x00")
-    return ":".join(f"{b:02x}" for b in padded[:6])
 
 
 def _prefix_to_netmask_suffix(prefix_len: int) -> str:
@@ -134,7 +149,8 @@ def _translate_match(match: dict, field_to_ryu=None):
     `(Ryu match dict, untranslatable)` for one entry's match fields.
 
     `untranslatable` is True when a field this module maps has a form Ryu cannot say: a ternary
-    mask that is not full and, on an address, not a run of leading ones; or any range. The row is
+    mask that is not full and, on an address, not a run of leading ones; or any range; or a field
+    in UNRENDERABLE_FIELDS (the destination MAC) beside a field that does translate. The row is
     then not to be listed at all (the dict is whatever was translated and must not be used):
     listing the fields that did translate would widen the rule.
 
@@ -147,9 +163,12 @@ def _translate_match(match: dict, field_to_ryu=None):
     field_to_ryu = FIELD_TO_RYU if field_to_ryu is None else field_to_ryu
     out: dict[str, Any] = {}
     untranslatable = False
+    unrenderable_field_set = False
     for p4_name, spec in (match or {}).items():
         ryu_name = field_to_ryu.get(p4_name)
         if ryu_name is None:
+            if p4_name in UNRENDERABLE_FIELDS and not rule_install_times.is_dont_care(spec):
+                unrenderable_field_set = True
             continue
 
         kind = spec.get("type")
@@ -177,10 +196,14 @@ def _translate_match(match: dict, field_to_ryu=None):
             if kind == "lpm":
                 text += _prefix_to_netmask_suffix(spec.get("prefix_len", 32))
             out[ryu_name] = text
-        elif ryu_name == "dl_dst":
-            out[ryu_name] = _mac(spec.get("value", b""))
         else:
             out[ryu_name] = _int(spec.get("value", b""))
+
+    # A field the Classifier cannot evaluate beside fields it can: the translated ones alone would
+    # be a wider rule than the switch's, so the row is not to be listed. (On its own such a field
+    # leaves `out` empty and the row has no usable match, as before.)
+    if unrenderable_field_set and out:
+        untranslatable = True
 
     # The Classifier keys IPv4 rules off dl_type, so a rule matching on an IP field must say so.
     if any(k in out for k in ("nw_dst", "nw_src", "nw_proto", "tp_src", "tp_dst")):
@@ -249,8 +272,23 @@ def _duration_fields(age_seconds: Optional[float]) -> tuple:
     return seconds, nanos
 
 
+def _openflow_priority(entry: dict, ndtwin_pipeline: bool = True) -> int:
+    """
+    The priority `entry` is shown with: the raw P4 value, less the writer's shift for a row of
+    NDTwin's own 5-tuple table. Never negative: the Classifier can never match a rule below 0.
+
+    The shift is NDTwin's own writer's, so it is undone only on NDTwin's own pipeline; a
+    foreign program's table that happens to share the name was not written by it.
+    [Co-developed with claude code -- Adam]
+    """
+    priority = int(entry.get("priority") or 0)
+    if ndtwin_pipeline and entry.get("table") == FIVE_TUPLE_TABLE:
+        priority -= FIVE_TUPLE_PRIORITY_SHIFT
+    return max(0, priority)
+
+
 def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=None,
-                 forwarding_actions=None) -> Optional[dict]:
+                 forwarding_actions=None, ndtwin_pipeline: bool = True) -> Optional[dict]:
     """
     One P4 table entry as a Ryu flow-stats entry, or None if it should not be reported.
 
@@ -261,7 +299,8 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
     of installing it -- see `render_flow_stats`, which is where that is looked up.
 
     `field_to_ryu` / `forwarding_actions`: the vocabulary for this switch (`_vocabulary`), None
-    for NDTwin's own. [Co-developed with claude code -- Adam]
+    for NDTwin's own. `ndtwin_pipeline` says whether the 5-tuple priority shift is undone (see
+    `_openflow_priority`). [Co-developed with claude code -- Adam]
     """
     if entry.get("is_default"):
         return None
@@ -281,8 +320,8 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
         # bmv2 has one ingress table block; the kernel only needs a stable key here.
         "table_id": 0,
         # Clamped at 0: negative priorities can never win a match in the Classifier, and used to
-        # crash it outright.
-        "priority": max(0, int(entry.get("priority") or 0)),
+        # crash it outright. A 5-tuple row is shown at the priority it was installed with.
+        "priority": _openflow_priority(entry, ndtwin_pipeline),
         "match": match,
         "actions": _actions_to_ryu(entry.get("action"), forwarding_actions),
         # Counters the kernel tolerates being absent but Ryu always sends. Still emitted even
@@ -316,11 +355,13 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # --- whose vocabulary, and what is left out ---------------------------------------
 # [Co-developed with claude code -- Adam]
 #
-# NDTwin's own pipeline renders its body exactly as it always did -- every action it declares is
-# one this module knows, and an unknown one still renders as an empty action list (the documented
-# choice for a future NDTwin action; tests/test_ryu_flow_stats.py pins that body against a capture
-# taken at 6291db35). What the ternary writer added there is the rows it leaves out and counts
-# (see the paragraph on the baseline count below).
+# NDTwin's own pipeline renders its body as it always did, with two deliberate changes -- every
+# action it declares is one this module knows, and an unknown one still renders as an empty
+# action list (the documented choice for a future NDTwin action; tests/test_ryu_flow_stats.py
+# pins that body against a capture taken at 6291db35). The changes: a 5-tuple row is shown at the
+# priority it was installed with, and a row keyed on the destination MAC is left out. What the
+# ternary writer added there is the rows it leaves out and counts (see the paragraph on the
+# baseline count below).
 #
 # 🔴 A FOREIGN PIPELINE IS WHERE "UNKNOWN" STOPS MEANING DROP. On somebody else's program an
 # action this module does not know is the AUTHOR's semantics -- load_balance's set_ecmp_select,
@@ -343,8 +384,9 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # is NOT LISTED and IS COUNTED. Listing it with the value alone would describe a rule matching one
 # address where the switch matches a pattern.
 #
-# NDTwin's own pipeline is not counted for unknown ACTIONS: its body is the base's, byte for byte,
-# so a row whose action is unknown still lists, with the empty action list, as it always did. It
+# NDTwin's own pipeline is not counted for unknown ACTIONS: its body is the base's apart from the
+# two changes above, so a row whose action is unknown still lists, with the empty action list, as
+# it always did. It
 # IS counted for a match Ryu cannot say (the paragraph above), and `get_flow_stats` records that
 # count for it exactly as for a foreign switch, so `flow_stats.unrendered_entries` is the number
 # of such rows on NDTwin's own pipeline too. For the rows NDTwin writes itself that count stays 0:
@@ -357,6 +399,14 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # A row with no usable match at all (an empty match, or one on fields Ryu has no name for) is left
 # out of the body on every pipeline but counted only on a foreign one: NDTwin's own pipeline does
 # not count it. That is pinned, and whether it should be counted there is the owner's call.
+#
+# 🔴 ON A PACKAGE BINDING ONLY THE BOUND TABLE IS RENDERED. Every row is emitted as `table_id: 0`
+# and the kernel's Classifier merges what it is given into one table, highest priority first, so
+# a package's other tables (an ACL whose permits are `NoAction`, a tag table) would be read as
+# competing routes -- a permit rendered as a drop at priority 10 beat the routes and the flow
+# read "no rule matches". The rows of every table but `binding.table` are left out and counted in
+# `unrendered_entries` (a default row is not a rule and is not counted). A switch with no binding
+# names no route table and keeps every table, as before roles existed.
 #
 # The route action is recognised through the switch's binding: a package's roles add its own
 # route action and match field to NDTwin's vocabulary. An UNBOUND foreign switch is rendered in
@@ -400,13 +450,23 @@ def render_flow_stats_counted(dpid: int, entries, install_times=None,
     are the non-default ones with a ternary mask or range Ryu cannot spell; an unknown action
     still lists, and a row with no usable match is left out but not counted), a package binding,
     or None (a foreign switch with no roles). On a foreign switch an unknown action and a row with
-    no usable match are left out and counted too.
+    no usable match are left out and counted too. On a package binding only the rows of
+    `binding.table` are rendered; every non-default row of another table is left out and counted.
     """
     foreign = binding is None or binding.source != route_binding.SOURCE_BASELINE
     field_to_ryu, forwarding_actions = _vocabulary(binding)
+    # [Co-developed with claude code -- Adam] On a package's pipeline only the route table the
+    # binding names is rendered. The kernel's Classifier merges every row it is given into one
+    # table, so another table's rows (an ACL's NoAction permits, a tag table) would compete with
+    # the routes; each is absent and counted instead. A switch with no binding names no table,
+    # and NDTwin's own pipeline owns all of its tables.
+    bound_table = binding.table if foreign and binding is not None else None
     flows, unrendered = [], 0
     for entry in entries or []:
         counts = foreign and not entry.get("is_default")
+        if bound_table is not None and counts and entry.get("table") != bound_table:
+            unrendered += 1
+            continue
         if counts and not recognises_action(entry.get("action"), forwarding_actions):
             unrendered += 1
             continue
@@ -420,7 +480,8 @@ def render_flow_stats_counted(dpid: int, entries, install_times=None,
             age = install_times.age_seconds(dpid, entry.get("table"), entry.get("priority"),
                                             entry.get("match"))
         converted = entry_to_ryu(entry, age_seconds=age, field_to_ryu=field_to_ryu,
-                                 forwarding_actions=forwarding_actions)
+                                 forwarding_actions=forwarding_actions,
+                                 ndtwin_pipeline=not foreign)
         if converted is not None:
             flows.append(converted)
         elif counts:

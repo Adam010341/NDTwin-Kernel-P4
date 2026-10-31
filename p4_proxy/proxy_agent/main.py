@@ -1667,10 +1667,11 @@ def flow_stats_report():
 
     [Co-developed with claude code -- Adam] The count is of the non-default
     rows the most recent /stats/flow render of that switch did not list. On every pipeline,
-    NDTwin's own included, that counts a ternary mask or a range Ryu cannot spell. A
-    foreign pipeline also counts an action the renderer does not recognise
+    NDTwin's own included, that counts a ternary mask or a range Ryu cannot spell, or a MAC key
+    beside a listed one. A foreign pipeline also counts an action the renderer does not recognise
     and a row with no usable match (an empty-match catch-all, say); on NDTwin's own pipeline such
-    a row is left out of the body too, but it is not counted. None before the first render:
+    a row is left out of the body too, but it is not counted. A package's pipeline also counts
+    every row of a table other than the bound route table. None before the first render:
     "nobody rendered this switch" is not "nothing was left out", and a table read for another
     purpose is not a render.
     """

@@ -577,7 +577,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 >   port 1 送 10 個 UDP（5 個來自 10.0.0.3、5 個來自 10.0.0.5，目的 10.0.0.4，`ipv4_lpm` 送 port 2）。
 >   對照（不擋）：port 2 出 10/10。**base `854e50331`** 送 BLOCK_HOST 形狀：proxy 回 `200 {"status":"error"}`、
 >   `flow_5tuple` 0 條、port 2 出 10/10（**擋不住**）。**分支**：回 `200 success`、`table: flow_5tuple`、
->   讀回一條 `MyIngress.drop` priority 50001、srcAddr 10.0.0.3/32；port 2 出 **5/5 全來自 10.0.0.5，10.0.0.3 為 0**。
+>   讀回一條 `MyIngress.drop` priority 50001（這是 P4 層的值；`/stats/flow` 現在顯示安裝時的 50000）、srcAddr 10.0.0.3/32；port 2 出 **5/5 全來自 10.0.0.5，10.0.0.3 為 0**。
 >   kernel 那半是 gtest（`IntentTaskOutcomesTest.*BlockHost*` 4 個）；**kernel→proxy→交換機整條沒有一起跑過**，
 >   接縫是「kernel 送的 match／actions」＝那個 gtest 斷言的形狀＝試跑送的形狀。
 > - ⚠️ **已知限制（只記下，不改行為）**：
