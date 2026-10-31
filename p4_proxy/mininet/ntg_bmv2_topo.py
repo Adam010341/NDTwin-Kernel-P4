@@ -47,7 +47,9 @@ that is an NTG finding to record, not something to patch here.
 """
 
 import os
+import shutil
 import sys
+import tempfile
 import time
 
 # System Mininet for a conda interpreter, exactly the trick NTG's own testbed_topo.py uses.
@@ -75,6 +77,8 @@ from mininet.log import setLogLevel
 # repaired for. One module object; every call site says where it came from.
 import p4_testbed_topo as testbed  # noqa: E402
 import topo_log  # noqa: E402
+# [Co-developed with claude code -- Adam] Which hosts file NTG gets; `ndt ntg` reads the same module.
+import ntg_config  # noqa: E402
 
 
 def fail(msg: str) -> None:
@@ -100,14 +104,67 @@ def run_ntg_cli(net) -> None:
     untouched) makes re-entry real. And a crash budget keeps a fault that fires before the
     input loop from spinning hot forever.
     """
-    # NTG resolves NTG.yaml -> ./setting/Mininet.yaml relative to its cwd.
+    # [Co-developed with claude code -- Adam] The config NTG starts with: the one main prepared
+    # while its log was still being written (prepare_ntg_config), or, called on its own, one
+    # prepared here. Whichever prepared it removes it.
     os.chdir(NTG_DIR)
     from network_traffic_generator import command_line
 
+    tmp = None
+    config = PREPARED_CONFIG
+    try:
+        if config is None:
+            tmp, config = prepare_ntg_config()
+        _ntg_loop(net, command_line, config)
+    finally:
+        drop_ntg_config(tmp)
+
+
+#: The config main prepared for run_ntg_cli, or None when nothing was prepared.
+PREPARED_CONFIG = None
+
+
+def prepare_ntg_config():
+    """(temp dir or None, the config to hand NTG), with the operator's note printed.
+
+    [Co-developed with claude code -- Adam]
+    NTG resolves the hosts file its config names relative to its cwd (NTG_DIR). Which config:
+    NTG.yaml, unless the hosts file it names has no Mininet_Testbed entry -- NTG as shipped
+    names setting/Hardware.yaml -- in which case NTG would drive remote worker nodes instead of
+    this net. ntg_config then writes a temp copy naming setting/Mininet.yaml; the checkout is
+    not edited, and `ndt ntg` reports and edits that same file.
+
+    🔴 NOTHING HERE MAY KEEP NTG FROM STARTING. A temp dir that cannot be made, or a config
+    this cannot read, falls back to NTG.yaml as it is, and the note says so.
+    """
+    tmp = None
+    try:
+        try:
+            tmp = tempfile.mkdtemp(prefix="ndtwin-ntg-")
+            config, note = ntg_config.config_for_bridge(NTG_DIR, tmp)
+        except Exception as e:   # the bridge must still reach NTG; NTG's own config is the fallback
+            config = os.path.join(NTG_DIR, "NTG.yaml")
+            note = f"[ntg_bmv2_topo] ntg_config failed ({e!r}); NTG gets {config} as it is."
+        if note:
+            print(note)
+    except BaseException:
+        # Anything after mkdtemp that ends this call -- a print to a broken stdout, the teardown
+        # signal's SystemExit -- would leave the caller without the path to remove.
+        drop_ntg_config(tmp)
+        raise
+    return tmp, config
+
+
+def drop_ntg_config(tmp) -> None:
+    if tmp:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _ntg_loop(net, command_line, config) -> None:
     crashes = 0
     while True:
         try:
-            command_line(net, config_file_path=os.path.join(NTG_DIR, "NTG.yaml"))
+            command_line(net, config_file_path=config)
             return
         except (KeyboardInterrupt, EOFError):
             return
@@ -188,7 +245,13 @@ def main(tee=None, enter_cli=None) -> None:
     # `topo-start` actually launches, so it is the one where that mattered every night.
     testbed.install_teardown_signal_handlers()
 
+    global PREPARED_CONFIG
+    tmp = None
     try:
+        if enter_cli is None:
+            # [Co-developed with claude code -- Adam] Decided, and its note printed, while the
+            # tee still copies output to topo.log, so the log records which config NTG got.
+            tmp, PREPARED_CONFIG = prepare_ntg_config()
         if tee is not None:
             # 🔴 THE TEE COMES OFF FOR THE PROMPT, and this is not a convenience. NTG's
             # command_line reaches prompt_toolkit's PromptSession, and prompt_toolkit's
@@ -202,6 +265,8 @@ def main(tee=None, enter_cli=None) -> None:
             tee.stop()
         (enter_cli or run_ntg_cli)(net)
     finally:
+        PREPARED_CONFIG = None
+        drop_ntg_config(tmp)
         if tee is not None:
             tee.start()
         # p4_testbed_topo's teardown, which is now literally p4_testbed_topo's teardown: stop
