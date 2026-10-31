@@ -319,6 +319,15 @@ class SFlowEmitter:
         """
         self._agents[dpid] = SwitchAgent(agent_ip)
 
+    def unregister_switch(self, dpid: int) -> None:
+        """
+        Forgets a dpid's agent. [Co-developed with claude code -- Adam]
+
+        For a caller that registered a switch ahead of a step that then failed, so the emitter
+        does not hold an agent for a switch that never started sampling.
+        """
+        self._agents.pop(dpid, None)
+
     def agent_for(self, dpid: int) -> Optional[SwitchAgent]:
         return self._agents.get(dpid)
 

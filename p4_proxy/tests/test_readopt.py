@@ -871,6 +871,227 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
         self.assertIs(self.topo.switches[1], self.old1)
 
 
+class FakeEmitter:
+    """The sFlow emitter's registration surface, as `SFlowEmitter` has it."""
+
+    def __init__(self):
+        self.registered = {}
+        self.agents = {}
+
+    def register_switch(self, dpid, agent_ip):
+        # Like the real one: a fresh agent object per call.
+        self.registered[dpid] = agent_ip
+        self.agents[dpid] = object()
+
+    def unregister_switch(self, dpid):
+        self.registered.pop(dpid, None)
+        self.agents.pop(dpid, None)
+
+    def agent_for(self, dpid):
+        return self.agents.get(dpid)
+
+    def handle_sample(self, *args, **kwargs):
+        pass
+
+    def close(self):
+        pass
+
+
+class FakeEmitterAgreesWithTheRealOneTest(unittest.TestCase):
+    """FakeEmitter stands in for SFlowEmitter in the tests below; if either side's methods
+    drift (a rename, a changed signature) these fail instead of the fake quietly diverging.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    def test_every_method_the_fake_offers_exists_on_the_real_emitter(self):
+        import inspect
+        from proxy_agent.sflow_emitter import SFlowEmitter
+        for name in ("register_switch", "unregister_switch", "agent_for", "handle_sample"):
+            self.assertTrue(hasattr(SFlowEmitter, name), f"SFlowEmitter has no {name}")
+            self.assertTrue(hasattr(FakeEmitter, name), f"FakeEmitter has no {name}")
+        for name in ("register_switch", "unregister_switch", "agent_for"):
+            self.assertEqual(list(inspect.signature(getattr(FakeEmitter, name)).parameters),
+                             list(inspect.signature(getattr(SFlowEmitter, name)).parameters),
+                             f"{name}: the fake's signature differs from the real one's")
+
+
+class ReadoptRegistersTheSflowAgentTest(unittest.TestCase):
+    """
+    A switch that startup skipped (its push raised, or the topology file gave it no IP) was
+    never registered with the sFlow emitter, and `emit()` drops every sample of an unregistered
+    switch. A readopt that brings such a switch up must register it, and `sflow_registered`
+    must say what the emitter holds.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    IP = "192.168.123.11"
+
+    def setUp(self):
+        if main is None:  # pragma: no cover -- environment, not behaviour
+            self.skipTest("proxy_agent.main is not importable in this interpreter")
+        import test_startup  # the startup doubles live there
+        self.startup = test_startup
+        self.topo, self.old1, self.old2 = build_topology()
+        self._real_sleep = topology_manager.time.sleep
+        topology_manager.time.sleep = lambda seconds: None
+        self.addCleanup(self._restore)
+        self.saved = (dict(main._telemetry), dict(main._pipelines), dict(main._table_entries),
+                      dict(main._pre_entries))
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_readopt_sflow_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.saved_journals = main.table_journals
+        main.table_journals = main.TableJournals(os.path.join(self.tmp, "journal"))
+        self.emitter = FakeEmitter()
+        patches = [mock.patch.object(main, "sflow", self.emitter),
+                   mock.patch.object(main, "load_switch_agent_ips", lambda: {1: self.IP}),
+                   mock.patch.object(main, "TELEMETRY_KNOB_PATH",
+                                     os.path.join(self.tmp, "no-such-knob"))]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def _restore(self):
+        topology_manager.time.sleep = self._real_sleep
+        main.table_journals = self.saved_journals
+        for live, saved in zip((main._telemetry, main._pipelines, main._table_entries,
+                                main._pre_entries), self.saved):
+            live.clear()
+            live.update(saved)
+
+    def start_up(self, clients, agent_ips):
+        return self.startup.run_startup(clients, agent_ips=agent_ips, sflow=self.emitter,
+                                        package=main.app_package.baseline())
+
+    def readopt(self, factory=None):
+        factory = factory or (lambda dpid: FakeClient(dpid))
+        return main.readopt_switch(self.topo, 1, factory, sample_sink,
+                                   package=main.app_package.baseline())
+
+    def test_the_agent_is_registered_before_the_clone_session_is_programmed(self):
+        # Startup registers first; samples cloned the moment the session exists must find an
+        # agent, or they are dropped.
+        seen = []
+
+        class Recording(FakeClient):
+            def write_clone_session(inner):  # noqa: N805
+                seen.append(main.sflow.agent_for(inner.dpid) is not None)
+                return super().write_clone_session()
+        self.start_up({1: self.startup.FakeClient(1)}, {})
+        self.readopt(factory=lambda dpid: Recording(dpid))
+        self.assertEqual(seen, [True])
+
+    def test_a_readopt_that_fails_before_the_new_client_is_live_leaves_no_agent(self):
+        self.start_up({1: self.startup.FakeClient(1)}, {})
+        result = self.readopt(factory=lambda dpid: FakeClient(dpid, mastership_confirmed=False))
+
+        self.assertEqual(result["status"], "failed")
+        self.assertIsNone(self.emitter.agent_for(1),
+                          "an agent for a switch that never started sampling")
+        self.assertIs(main.telemetry_report()["1"]["sflow_registered"], False)
+
+    def test_a_readopt_that_raises_after_the_swap_keeps_the_agent_and_says_so(self):
+        # The manager swapped the new client in, then the route refill raised: the client is
+        # live and may be cloning, so its agent stays and the disclosure is written.
+        self.start_up({1: self.startup.FakeClient(1)}, {})
+        with mock.patch.object(self.topo, "install_initial_routes",
+                               side_effect=RuntimeError("the refill broke")):
+            with self.assertRaises(RuntimeError):
+                self.readopt()
+
+        self.assertIsNot(self.topo.switches[1], self.old1, "precondition: the swap happened")
+        self.assertEqual(self.emitter.registered, {1: self.IP})
+        entry = main.telemetry_report()["1"]
+        self.assertIs(entry["sflow_registered"], True)
+        self.assertIn("raised after the new client went live", entry["reason"])
+
+    def test_a_readopt_that_raises_leaves_no_agent(self):
+        self.start_up({1: self.startup.FakeClient(1)}, {})
+
+        class Exploding:
+            switches = {}
+
+            def readopt_switch(self, dpid, factory, callback, install_routes=True):
+                raise RuntimeError("boom")
+        with self.assertRaises(RuntimeError):
+            main.readopt_switch(Exploding(), 1, lambda dpid: FakeClient(dpid), sample_sink,
+                                package=main.app_package.baseline())
+        self.assertIsNone(self.emitter.agent_for(1))
+
+    def test_a_readopt_that_fails_at_the_routes_step_keeps_the_agent_and_says_so(self):
+        # The new client is live by then, with its clone session.
+        self.start_up({1: self.startup.FakeClient(1)}, {})
+        result = self.readopt(factory=lambda dpid: FakeClient(dpid, route_ok=False))
+
+        self.assertEqual((result["status"], result["step"]), ("failed", "routes"))
+        self.assertEqual(self.emitter.registered, {1: self.IP})
+        entry = main.telemetry_report()["1"]
+        self.assertIs(entry["sflow_registered"], True)
+        self.assertIs(entry["clone_session"], True)
+        self.assertFalse(entry["reason"].startswith("re-adopted"),
+                         "the readopt failed; the disclosure must not call it a success")
+
+    def test_a_switch_whose_push_raised_at_startup_is_registered_by_readopt(self):
+        broken = self.startup.FakeClient(1, pipeline_error=RuntimeError("switch is off"))
+        self.start_up({1: broken}, {1: self.IP})
+        self.assertIsNone(self.emitter.agent_for(1), "precondition: startup skipped it")
+        self.assertIs(main.telemetry_report()["1"]["sflow_registered"], False)
+
+        result = self.readopt()
+
+        self.assertEqual(result["status"], "success")
+        self.assertIsNotNone(self.emitter.agent_for(1),
+                             "emit() drops every sample of a dpid with no agent")
+        self.assertEqual(self.emitter.registered, {1: self.IP})
+        self.assertIs(main.telemetry_report()["1"]["sflow_registered"],
+                      self.emitter.agent_for(1) is not None,
+                      "the disclosure must equal what the emitter holds")
+
+    def test_a_switch_with_no_ip_at_startup_is_registered_once_the_topology_names_it(self):
+        self.start_up({1: self.startup.FakeClient(1)}, {})
+        self.assertIsNone(self.emitter.agent_for(1))
+
+        self.readopt()
+
+        self.assertEqual(self.emitter.registered, {1: self.IP})
+        self.assertIs(main.telemetry_report()["1"]["sflow_registered"], True)
+
+    def test_a_switch_with_no_ip_anywhere_is_reported_unregistered_with_the_reason(self):
+        self.start_up({1: self.startup.FakeClient(1)}, {})
+        with mock.patch.object(main, "load_switch_agent_ips", lambda: {}):
+            result = self.readopt()
+
+        self.assertEqual(result["status"], "success")
+        self.assertIsNone(self.emitter.agent_for(1))
+        entry = main.telemetry_report()["1"]
+        self.assertIs(entry["sflow_registered"], False,
+                      "claiming a registration the emitter does not hold is the lie")
+        self.assertIn("no IP", entry["reason"])
+
+    def test_a_switch_startup_already_registered_keeps_its_agent(self):
+        # A new SwitchAgent restarts the sFlow sequence numbers the collector tracks; a switch
+        # that is already registered must not get one.
+        self.start_up({1: self.startup.FakeClient(1)}, {1: self.IP})
+        before = self.emitter.agent_for(1)
+        self.assertIsNotNone(before)
+
+        self.readopt()
+
+        self.assertIs(self.emitter.agent_for(1), before)
+        self.assertIs(main.telemetry_report()["1"]["sflow_registered"], True)
+
+    def test_a_switch_whose_samples_come_from_the_link_emitter_is_not_registered(self):
+        knob = os.path.join(self.tmp, "telemetry_override")
+        with open(knob, "w") as fh:
+            fh.write("link\n")
+        with mock.patch.object(main, "TELEMETRY_KNOB_PATH", knob):
+            self.readopt()
+
+        self.assertIsNone(self.emitter.agent_for(1))
+        self.assertIs(main.telemetry_report()["1"]["sflow_registered"], False)
+
+
 class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
     """
     Readopt on the power-on path.

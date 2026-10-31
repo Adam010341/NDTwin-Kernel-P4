@@ -1426,7 +1426,8 @@ class TopologyManager:
         [Co-developed with claude code -- Adam]
         KNOWN-ISSUES A-4c. Called right after each pipeline push this proxy makes -- startup's
         push loop and `readopt_switch` -- with the cookie the switch's tables were under BEFORE
-        the push. The journal folds that generation's writes (`RuleJournal.wiped`), and the
+        the push (readopt passes a tuple: that cookie and its old client's, each folded). The
+        journal folds those generations' writes (`RuleJournal.wiped`), and the
         result becomes this switch's `ryu_rules_lost` on GET /p4/switch_state, which the kernel
         reads once a second, logs, and copies onto its graph. Nothing is written back to the
         switch: a journal holds requests and not their reasons, and a replayed
@@ -1954,6 +1955,24 @@ class TopologyManager:
                             "error": "arbitration was not granted within the settle window; "
                                      "the old client (or another controller) likely still "
                                      "holds mastership. The switch was not touched."}
+                # [Co-developed with claude code -- Adam]
+                # What the switch holds BEFORE the push decides which journal records the push
+                # discards. Not `old.pipeline_cookie` alone: startup stamps this boot's cookie on
+                # every client, pushed or not, so after a failed startup push the old client names
+                # a generation the switch never held. Read here, after the mastership gate and
+                # before the push; `cookie_seen` never raises.
+                before = rule_journal.cookie_before_push(rule_journal.cookie_seen(new))
+                # Both generations are folded. A write is journaled under the cookie of the
+                # client that took it, and that client may carry a cookie the switch does not
+                # hold (a write accepted by an old client whose push failed); a rule tagged with
+                # either one is gone after this push. When the switch says it holds no cookie
+                # (a bmv2 that has been pushed no pipeline, as after a power-cycle, or one
+                # whose pipeline carries none) only the old client's remains, which is what the
+                # record has always counted. When the cookie could not be read, the same candidates are
+                # listed and the count stays unknown (`before["unknown"]`).
+                wiped = tuple(dict.fromkeys(
+                    c for c in (before["cookie"], getattr(old, "pipeline_cookie", None))
+                    if c is not None)) or None
                 pushing = True
                 new.set_forwarding_pipeline_config()
             except Exception as e:  # noqa: BLE001
@@ -1969,16 +1988,15 @@ class TopologyManager:
                     # A push that raised may still have emptied the tables: the count is
                     # unknown, not zero. [Co-developed with claude code -- Adam]
                     failed["ryu_rules_lost"] = self.close_ryu_generation(
-                        dpid, getattr(old, "pipeline_cookie", None), "readopt", new,
-                        push_failed=True)
+                        dpid, wiped, "readopt", new, push_failed=True)
                 return failed
 
             # The push above emptied the switch: report what of the Ryu-path rules went with
-            # it, against the generation the OLD client wrote them under. Right after the push,
+            # it, against the generation the switch held before the push. Right after the push,
             # before the clone session and the swap, so no write through the new client can
             # land in the journal ahead of the mark. [Co-developed with claude code -- Adam]
-            ryu_lost = self.close_ryu_generation(dpid, getattr(old, "pipeline_cookie", None),
-                                                 "readopt", new)
+            ryu_lost = self.close_ryu_generation(dpid, wiped, "readopt", new,
+                                                 cookie_unknown=before["unknown"])
 
             # Same policy as startup(): a failed clone session costs telemetry, not the
             # switch. It forwards fine; it just reports zero traffic, and the caller is told.

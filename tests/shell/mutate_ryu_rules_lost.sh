@@ -108,7 +108,8 @@ mutate "R1: a wipe marker does not close the switch's generation" "$JOURNAL" \
   test_only_records_after_the_last_marker_count
 
 mutate "R2: every generation's records count (no cookie check)" "$JOURNAL" \
-'        if entry.get("op") not in _FOLD_OP or not _same_cookie(entry.get("cookie"), cookie):' \
+'        if entry.get("op") not in _FOLD_OP or not _names_any_generation(entry.get("cookie"),
+                                                                        cookie):' \
 '        if entry.get("op") not in _FOLD_OP:' \
   test_a_record_of_another_generation_is_not_counted
 
@@ -185,8 +186,8 @@ mutate "T1: the manager journals writes without their client's cookie" "$TOPO" \
   test_a_ryu_write_is_journaled_under_its_clients_cookie
 
 mutate "T2: readopt never closes the generation (silent again)" "$TOPO" \
-'            ryu_lost = self.close_ryu_generation(dpid, getattr(old, "pipeline_cookie", None),
-                                                 "readopt", new)' \
+'            ryu_lost = self.close_ryu_generation(dpid, wiped, "readopt", new,
+                                                 cookie_unknown=before["unknown"])' \
 '            ryu_lost = None' \
   test_a_readopt_reports_the_rules_it_wiped
 
@@ -235,11 +236,55 @@ mutate "T10: a readopt whose push raised reports nothing" "$TOPO" \
   test_a_readopt_whose_push_raised_reports_an_unknown_count
 
 mutate "T11: readopt swaps the client in before it closes the generation" "$TOPO" \
-'            ryu_lost = self.close_ryu_generation(dpid, getattr(old, "pipeline_cookie", None),' \
+'            ryu_lost = self.close_ryu_generation(dpid, wiped, "readopt", new,' \
 '            with self._liveness_lock:
                 self.switches[dpid] = new
-            ryu_lost = self.close_ryu_generation(dpid, getattr(old, "pipeline_cookie", None),' \
+            ryu_lost = self.close_ryu_generation(dpid, wiped, "readopt", new,' \
   test_the_generation_is_closed_before_the_new_client_takes_writes
+
+mutate "T13: readopt folds only the old client's cookie, not the one the switch held" "$TOPO" \
+'                    c for c in (before["cookie"], getattr(old, "pipeline_cookie", None))' \
+'                    c for c in (getattr(old, "pipeline_cookie", None),)' \
+  test_a_readopt_counts_the_rules_of_the_generation_the_switch_held
+
+mutate "T14: readopt drops the old client's cookie (no fallback for a switch holding none)" "$TOPO" \
+'                    c for c in (before["cookie"], getattr(old, "pipeline_cookie", None))' \
+'                    c for c in (before["cookie"],)' \
+  test_a_switch_that_holds_no_cookie_still_reports_what_this_proxy_wrote
+
+mutate "T15: a readopt that cannot read the cookie loses the unknown reason" "$TOPO" \
+'            ryu_lost = self.close_ryu_generation(dpid, wiped, "readopt", new,
+                                                 cookie_unknown=before["unknown"])' \
+'            ryu_lost = self.close_ryu_generation(dpid, wiped, "readopt", new)' \
+  test_a_switch_that_cannot_say_what_it_held_gives_an_unknown_count
+
+mutate "T16: an unreadable cookie lists no candidates" "$TOPO" \
+'                    c for c in (before["cookie"], getattr(old, "pipeline_cookie", None))' \
+'                    c for c in (before["cookie"], getattr(old, "pipeline_cookie", None)
+                                if before["unknown"] is None else None)' \
+  test_an_unreadable_cookie_still_lists_the_old_clients_rules_as_candidates
+
+mutate "T17: readopt folds one generation, not both" "$TOPO" \
+'                    c for c in (before["cookie"], getattr(old, "pipeline_cookie", None))' \
+'                    c for c in (before["cookie"] or getattr(old, "pipeline_cookie", None),)' \
+  test_a_write_tagged_with_the_old_clients_cookie_is_counted_beside_the_held_ones
+
+mutate "T18: readopt never reads the switch's cookie" "$TOPO" \
+'                before = rule_journal.cookie_before_push(rule_journal.cookie_seen(new))' \
+'                before = {"cookie": None, "unknown": None}' \
+  test_a_readopt_counts_the_rules_of_the_generation_the_switch_held
+
+mutate "T19: a FAILED_PRECONDITION answer is reported as a known zero (no fallback for it)" "$TOPO" \
+'                    c for c in (before["cookie"], getattr(old, "pipeline_cookie", None))' \
+'                    c for c in (before["cookie"], getattr(old, "pipeline_cookie", None)
+                                if rule_journal.cookie_seen(new)[0] == "cookie" else None)' \
+  test_a_power_cycled_switch_still_reports_what_this_proxy_wrote
+
+mutate "T20: each generation is folded separately and the counts are summed" "$JOURNAL" \
+'        records.append({"key": _rule_identity(entry), "op": _FOLD_OP[entry["op"]],' \
+'        records.append({"key": _rule_identity(entry) + str(entry.get("cookie")),
+                        "op": _FOLD_OP[entry["op"]],' \
+  test_a_key_installed_under_both_generations_is_one_lost_rule
 
 mutate "T12: a count the proxy cannot know is reported as known" "$TOPO" \
 '                                          count_known=reason is None, unknown_reason=reason,' \

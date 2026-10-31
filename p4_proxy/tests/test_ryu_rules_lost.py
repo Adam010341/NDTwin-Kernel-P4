@@ -212,9 +212,17 @@ class InstallTimes:
 class FakeSwitch:
     """A bmv2 client that takes every write and every step of a readopt, and remembers them."""
 
-    def __init__(self, dpid, cookie=G):
+    #: Marks "the switch holds the cookie this client presents" -- the common case.
+    SAME = object()
+
+    def __init__(self, dpid, cookie=G, held=SAME, cookie_error=None):
         self.dpid = dpid
         self.pipeline_cookie = cookie
+        # [Co-developed with claude code -- Adam]
+        # What COOKIE_ONLY answers before the push: the cookie the SWITCH holds, which is not
+        # what this client presents when a previous boot's tables are still on it.
+        self.held = cookie if held is FakeSwitch.SAME else held
+        self.cookie_error = cookie_error
         self.table_generation = None
         self.calls = []
         self.arbitration = True
@@ -226,6 +234,12 @@ class FakeSwitch:
 
     def last_table_read(self):
         return None
+
+    def read_pipeline_cookie(self, timeout_s=None):
+        self.calls.append("read_pipeline_cookie")
+        if self.cookie_error is not None:
+            raise self.cookie_error
+        return self.held
 
     def start(self, push_config=True):
         self.calls.append("start")
@@ -406,6 +420,142 @@ class ManagerReadoptTest(ManagerTestBase):
         self.readopt()
         result, _ = self.readopt()
         self.assertEqual(result["ryu_rules_lost"]["count"], 0)
+
+
+class ManagerReadoptCookieTest(ManagerTestBase):
+    """
+    The loss record is folded against the cookie the switch HELD before the push, not the one
+    this boot stamped on its clients. Startup gives every client this boot's cookie, pushed or
+    not, so a switch whose push failed (it hung, or its stream broke) is still holding the
+    previous generation's tables when it is readopted; one that was powered off comes back
+    empty.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    def setUp(self):
+        super().setUp()
+        # The rules were written under OTHER (the previous generation) ...
+        self.old.pipeline_cookie = OTHER
+        self.assertTrue(self.topo.route_flow(1, FIVE, OUT_3, 100))
+        self.assertTrue(self.topo.route_flow(1, LPM, OUT_4, 100))
+        # ... and this boot stamped its own cookie on the client, whose push never succeeded.
+        self.old.pipeline_cookie = G
+
+    def readopt(self, **new_kwargs):
+        return self.topo.readopt_switch(
+            1, lambda dpid: FakeSwitch(dpid, cookie=G, **new_kwargs), None, settle_s=0)
+
+    def test_a_readopt_counts_the_rules_of_the_generation_the_switch_held(self):
+        result = self.readopt(held=OTHER)
+
+        self.assertEqual(result["status"], "success", result)
+        self.assertEqual(result["ryu_rules_lost"]["count"], 2,
+                         "the switch held the previous generation's tables; the push wiped "
+                         "both rules and the apps must be told so")
+
+    def test_a_readopt_whose_push_raised_lists_the_rules_the_switch_held(self):
+        class Refusing(FakeSwitch):
+            def set_forwarding_pipeline_config(self):
+                raise RuntimeError("INTERNAL: the push died half way")
+        result = self.topo.readopt_switch(
+            1, lambda dpid: Refusing(dpid, cookie=G, held=OTHER), None, settle_s=0)
+
+        self.assertEqual(result["status"], "failed")
+        record = result["ryu_rules_lost"]
+        self.assertIsNone(record["count"])
+        self.assertEqual(len(record["rules"]), 2, "the candidates are the held generation's")
+
+    def test_a_switch_that_cannot_say_what_it_held_gives_an_unknown_count(self):
+        result = self.readopt(cookie_error=RuntimeError("UNAVAILABLE: no route to switch"))
+
+        self.assertEqual(result["status"], "success", result)
+        record = result["ryu_rules_lost"]
+        self.assertIsNone(record["count"])
+        self.assertIn("UNAVAILABLE", record["count_unknown"])
+
+    def test_an_unreadable_cookie_still_lists_the_old_clients_rules_as_candidates(self):
+        # The count is unknown, but "unknown" is not "nothing": the rules the old client wrote
+        # under its own cookie are listed so the apps can resend them.
+        self.assertTrue(self.topo.route_flow(1, {"nw_dst": "10.0.0.9"}, OUT_3, 100))
+        result = self.readopt(cookie_error=RuntimeError("UNAVAILABLE: no route to switch"))
+
+        record = result["ryu_rules_lost"]
+        self.assertIsNone(record["count"])
+        self.assertEqual([r["match"] for r in record["rules"]], [{"nw_dst": "10.0.0.9"}])
+
+    def test_a_write_tagged_with_the_old_clients_cookie_is_counted_beside_the_held_ones(self):
+        # The old client carries G but the switch held OTHER; a write it took in between was
+        # journaled under G. The push wipes it as well, so both generations are folded.
+        self.assertTrue(self.topo.route_flow(1, {"nw_dst": "10.0.0.9"}, OUT_3, 100))
+        result = self.readopt(held=OTHER)
+
+        self.assertEqual(result["ryu_rules_lost"]["count"], 3, result["ryu_rules_lost"])
+
+    def test_a_switch_that_holds_no_cookie_still_reports_what_this_proxy_wrote(self):
+        # The switch answers a cookie of None (a pipeline that carries none): the rules this
+        # proxy wrote through the old client (cookie G) are what the record said before.
+        self.assertTrue(self.topo.route_flow(1, {"nw_dst": "10.0.0.9"}, OUT_3, 100))
+        result = self.readopt(held=None)
+
+        self.assertEqual(result["status"], "success", result)
+        self.assertEqual(result["ryu_rules_lost"]["count"], 1, result["ryu_rules_lost"])
+
+    def test_a_power_cycled_switch_still_reports_what_this_proxy_wrote(self):
+        # A restarted bmv2 answers COOKIE_ONLY with FAILED_PRECONDITION (it has been pushed no
+        # pipeline). That is the common readopt, and the rule written through the old client
+        # went with the reboot.
+        self.assertTrue(self.topo.route_flow(1, {"nw_dst": "10.0.0.9"}, OUT_3, 100))
+        result = self.readopt(cookie_error=RuntimeError("FAILED_PRECONDITION: no pipeline"))
+
+        self.assertEqual(result["status"], "success", result)
+        record = result["ryu_rules_lost"]
+        self.assertEqual(record["count"], 1, record)
+        self.assertIsNone(record["count_unknown"])
+
+    def test_the_cookie_is_read_before_the_push(self):
+        made = []
+
+        def factory(dpid):
+            made.append(FakeSwitch(dpid, cookie=G, held=OTHER))
+            return made[-1]
+        self.topo.readopt_switch(1, factory, None, settle_s=0)
+        calls = made[0].calls
+        self.assertIn("read_pipeline_cookie", calls)
+        self.assertLess(calls.index("read_pipeline_cookie"), calls.index("pipeline"))
+
+
+class ManagerReadoptSameKeyAcrossGenerationsTest(ManagerTestBase):
+    """
+    A rule key written under one generation and then written or deleted under the other is ONE
+    entry on the switch, so the two generations are folded together, not counted one by one.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    def readopt(self):
+        return self.topo.readopt_switch(
+            1, lambda dpid: FakeSwitch(dpid, cookie=G, held=OTHER), None, settle_s=0)
+
+    def test_a_key_installed_under_both_generations_is_one_lost_rule(self):
+        self.old.pipeline_cookie = OTHER
+        self.assertTrue(self.topo.route_flow(1, LPM, OUT_3, 100))
+        self.old.pipeline_cookie = G
+        self.assertTrue(self.topo.route_flow(1, LPM, OUT_4, 100))
+
+        record = self.readopt()["ryu_rules_lost"]
+
+        self.assertEqual(record["count"], 1, record)
+
+    def test_a_key_installed_under_one_generation_and_deleted_under_the_other_is_not_lost(self):
+        self.old.pipeline_cookie = OTHER
+        self.assertTrue(self.topo.route_flow(1, LPM, OUT_3, 100))
+        self.old.pipeline_cookie = G
+        self.assertTrue(self.topo.unroute_flow(1, LPM))
+
+        record = self.readopt()["ryu_rules_lost"]
+
+        self.assertEqual(record["count"], 0, record)
 
 
 class CookieSwitch(test_startup.FakeClient):

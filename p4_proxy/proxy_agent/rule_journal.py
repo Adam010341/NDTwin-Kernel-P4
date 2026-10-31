@@ -156,6 +156,13 @@ def _same_cookie(recorded, wiped):
         return False
 
 
+def _names_any_generation(recorded, wiped):
+    """Whether a record's cookie names one of the generations a push wiped. `wiped` is one
+    cookie or a tuple/list of them; None never matches. [Co-developed with claude code -- Adam]"""
+    generations = wiped if isinstance(wiped, (tuple, list, set, frozenset)) else (wiped,)
+    return any(_same_cookie(recorded, one) for one in generations)
+
+
 def _since_last_wipe(scanned, dpid):
     """The records of switch `dpid` after its last `wiped` marker, and how many unreadable lines
     came after that marker. `scanned` is `RuleJournal.scan()`'s list, None standing for a line
@@ -206,13 +213,15 @@ def discarded_rules(entries, dpid, cookie):
     own words.
 
     `cookie` None (the switch said none, or could not be asked) discards nothing that can be
-    named: the tables the push replaced were not this journal's. Entries that are None
-    (unreadable lines) are skipped. Pure: no I/O.
+    named: the tables the push replaced were not this journal's. A tuple of cookies folds every
+    generation in it (a readopt names both the generation the switch held and the one its old
+    client wrote under). Entries that are None (unreadable lines) are skipped. Pure: no I/O.
     """
     since, _unreadable = _since_last_wipe(entries, dpid)
     records = []
     for entry in since:
-        if entry.get("op") not in _FOLD_OP or not _same_cookie(entry.get("cookie"), cookie):
+        if entry.get("op") not in _FOLD_OP or not _names_any_generation(entry.get("cookie"),
+                                                                        cookie):
             continue
         match = entry.get("match") if isinstance(entry.get("match"), dict) else {}
         records.append({"key": _rule_identity(entry), "op": _FOLD_OP[entry["op"]],
@@ -339,7 +348,8 @@ class RuleJournal:
         [Co-developed with claude code -- Adam]
         KNOWN-ISSUES A-4c: nothing is replayed (a journal holds requests, not the reasons
         behind them), the loss is reported instead. Returns `(lost, unreadable)`:
-        `discarded_rules` for the switch and the cookie its tables were under before the push,
+        `discarded_rules` for the switch and the cookie(s) its tables were under before the push
+        (one cookie, or a tuple of them, each folded),
         and how many unreadable lines follow the switch's last mark (one of them may be a lost
         rule). Then, with `mark`, appends a `wiped` marker for the switch, so the next push of
         it counts only what was written after this one. Read and mark under one lock hold, so a
@@ -1063,6 +1073,32 @@ def cookie_verdict(header, seen):
     return {"confirmed": False, "cookie": switch, "reason": reason}
 
 
+def cookie_seen(client):
+    """
+    What one switch's COOKIE_ONLY says: ("cookie", int | None) or ("error", text).
+
+    [Co-developed with claude code -- Adam]
+    Never raises: every failure is "cannot confirm", and the text says which (the gRPC status
+    name when the exception carries one). Shared by startup's step 0 (`main._cookie_seen`) and
+    the readopt push, which both ask the switch what it holds before they empty it.
+    """
+    try:
+        return ("cookie", client.read_pipeline_cookie())
+    except Exception as exc:  # noqa: BLE001 -- every failure is "cannot confirm", and says which
+        code = getattr(exc, "code", None)
+        name = None
+        try:
+            name = code().name if callable(code) and code() is not None else None
+        except Exception:  # noqa: BLE001
+            name = None
+        details = getattr(exc, "details", None)
+        try:
+            text = details() if callable(details) else None
+        except Exception:  # noqa: BLE001
+            text = None
+        return ("error", f"{name}: {text}" if name else f"{type(exc).__name__}: {exc}")
+
+
 def cookie_before_push(seen):
     """
     What one switch's COOKIE_ONLY answer says about the tables a push is about to empty, for the
@@ -1070,8 +1106,9 @@ def cookie_before_push(seen):
 
     `seen` is `main._cookie_seen`'s answer. Returns `{"cookie", "unknown"}`:
       * a cookie: the generation the tables are under; the journal's records under it are lost;
-      * no cookie, or FAILED_PRECONDITION (a bmv2 that has been pushed no pipeline): the tables
-        hold nothing this journal wrote, so a known zero;
+      * no cookie, or FAILED_PRECONDITION (a bmv2 that has been pushed no pipeline): by the
+        switch's account its tables hold nothing this journal wrote, so startup counts a known
+        zero. (Readopt also folds its old client's cookie, whose writes went with the reboot.)
       * any other error (UNAVAILABLE, a deadline, ...): the switch did not say, and `unknown`
         is why -- the push may still succeed and empty tables nobody can describe.
     """
