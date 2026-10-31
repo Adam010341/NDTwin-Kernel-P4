@@ -809,6 +809,20 @@ TEST_F(GroupMeterEndpointTest, DeleteGroupRelaysA404WithAnOutcomeNamingWhatWasNo
     EXPECT_FALSE(body.value("error", "").empty()) << "the reason must survive to the caller";
 }
 
+TEST_F(GroupMeterEndpointTest, AControllerMessageThatIsNotUtf8IsRelayedWithItsStatus)
+{
+    // [Co-developed with claude code -- Adam] The controller's words come from another process
+    // and may hold any byte; the refusal keeps its status and carries them as U+FFFD.
+    m_routing->next = OpResult::failure(502, "controller said \xff\xfe");
+
+    const auto& res = m_peer->send("/ndt/delete_group_entry", kGroupBody);
+
+    EXPECT_EQ(res.result_int(), 502u) << res.body();
+    const auto body = json::parse(res.body(), nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << res.body();
+    EXPECT_NE(body.value("error", "").find("\xef\xbf\xbd"), std::string::npos) << res.body();
+}
+
 TEST_F(GroupMeterEndpointTest, ModifyGroupRelaysA404WithItsOutcome)
 {
     m_routing->next =

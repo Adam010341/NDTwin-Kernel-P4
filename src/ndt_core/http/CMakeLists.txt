@@ -8,6 +8,9 @@ add_library(NdtCore_HttpLib
   # tests/shell/mutate_capacity_reads_running_artifact.sh rebuilds what it mutates once per
   # mutation.
   OpenflowCapacityReport.cpp
+  # [Co-developed with claude code -- Adam] The /ndt/p4 routes' allowlist and HTTP client, kept
+  # out of HttpSession.cpp for the same reason as the file above.
+  P4Passthrough.cpp
 )
 
 # 2. make sure the compiler can find our public headers

@@ -1,4 +1,5 @@
 #include "ndt_core/http/HttpSession.hpp"
+#include "../setting/AppConfig.hpp" // [Co-developed with claude code -- Adam] P4_PROXY_IP_AND_PORT
 #include "event_system/EventBus.hpp"
 #include "event_system/EventPayloads.hpp"
 #include "event_system/PayloadTypes.hpp"
@@ -29,11 +30,35 @@
 #include <iostream>
 #include <limits>
 #include <nlohmann/json.hpp>
+#include <optional> // [Co-developed with claude code -- Adam] the relayed request's Content-Type
 #include <string>
 #include <string_view>
 #include <vector> // [Co-developed with claude code -- Adam] used here already, never included
 
 using json = nlohmann::json;
+
+namespace
+{
+// [Co-developed with claude code -- Adam]
+// For a reply body that carries bytes the kernel did not write itself: an exception's message (a
+// JSON parse error quotes the token it stopped at, raw), a value taken from the request line, or
+// a reply from another process. Any of them can hold bytes that are not UTF-8, on which the
+// strict dump throws -- in a catch clause or past the last one, where nothing catches it and the
+// kernel would terminate. Here those bytes become U+FFFD; valid text is dumped unchanged.
+std::string
+dumpUntrusted(const json& j)
+{
+    return j.dump(-1, ' ', false, json::error_handler_t::replace);
+}
+
+/// `text` with every sequence that is not UTF-8 replaced by U+FFFD, for a string that goes into a
+/// reply which is dumped strictly afterwards.
+std::string
+withInvalidUtf8Replaced(const std::string& text)
+{
+    return json::parse(dumpUntrusted(json(text))).get<std::string>();
+}
+} // namespace
 
 HttpSession::HttpSession(
     tcp::socket socket,
@@ -65,7 +90,11 @@ HttpSession::HttpSession(
       // [Co-developed with claude code -- Adam] B-16. The deployment's own tc and the one ledger
       // the kernel writes to; a test peer repoints both. See the members' docblock.
       m_tcRunner(utils::netem::realTcRunner()),
-      m_injectedNetem(&utils::netem::processInjectedNetemLedger())
+      m_injectedNetem(&utils::netem::processInjectedNetemLedger()),
+      // [Co-developed with claude code -- Adam] The proxy the rest of the kernel already polls on
+      // a P4 fabric; a test peer repoints it. See the members' comment.
+      m_p4ProxyHostAndPort(AppConfig::P4_PROXY_IP_AND_PORT),
+      m_p4Deadlines()
 {
 }
 
@@ -100,7 +129,26 @@ HttpSession::onRead(beast::error_code ec, std::size_t bytes_transferred)
         return;
     }
 
-    handleRequest();
+    // [Co-developed with claude code -- Adam] The last catch. An exception out of this handler
+    // would leave the io_context, whose threads do not catch, and terminate the kernel. Here it
+    // ends this one connection instead, unanswered, and says so in the log.
+    try
+    {
+        handleRequest();
+    }
+    catch (const std::exception& e)
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "request handling failed, closing this connection: {}",
+                            e.what());
+        closeSocket();
+    }
+    catch (...)
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "request handling failed, closing this connection");
+        closeSocket();
+    }
 }
 
 void
@@ -110,6 +158,17 @@ HttpSession::handleRequest()
                        "Got request: {} {}",
                        m_req.method_string(),
                        m_req.target());
+
+    // [Co-developed with claude code -- Adam]
+    // /ndt/p4 is answered asynchronously, and before buildResponse: its relay must not hold this
+    // io thread while the proxy works, and its replies carry none of buildResponse's CORS
+    // headers -- an OPTIONS under /ndt/p4 is a 405 from startP4Passthrough, not the 204
+    // preflight below. No other route begins with /ndt/p4.
+    if (p4passthrough::isP4PassthroughTarget(m_req.target()))
+    {
+        startP4Passthrough();
+        return;
+    }
 
     m_res = buildResponse();
     writeResponse();
@@ -536,7 +595,8 @@ HttpSession::buildResponse()
     catch (const json::exception& e)
     {
         response->result(http::status::bad_request);
-        response->body() = json{{"error", "JSON parsing error"}, {"details", e.what()}}.dump();
+        response->body() =
+            dumpUntrusted(json{{"error", "JSON parsing error"}, {"details", e.what()}});
         // [Co-developed with claude code -- Adam]
         // WARN, not ERROR: this catch *is* the 400 path. Logging a malformed client request at
         // ERROR makes exactly the conflation the 500-to-400 work removed from the wire -- "you sent
@@ -548,7 +608,8 @@ HttpSession::buildResponse()
     catch (const std::exception& e)
     {
         response->result(http::status::internal_server_error);
-        response->body() = json{{"error", "Internal server error"}, {"details", e.what()}}.dump();
+        response->body() =
+            dumpUntrusted(json{{"error", "Internal server error"}, {"details", e.what()}});
         SPDLOG_LOGGER_ERROR(Logger::instance(),
                             "Standard exception in request handler: {}",
                             e.what());
@@ -562,6 +623,7 @@ HttpSession::buildResponse()
 
     // [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md G-32, option C. The single
     // exit, so the mark reaches the refusals and the catch clauses above as well as the 200s.
+    // It runs after those catch clauses, so it catches for itself and never throws.
     attachLabClaimIfWrite(*response);
     return response;
 }
@@ -652,7 +714,8 @@ HttpSession::noteLabClaimChange(const std::string& state,
     SPDLOG_LOGGER_WARN(Logger::instance(),
                        "lab claim changed under a write endpoint: was {}, now state={} owner='{}' "
                        "expires={}. Nothing was refused -- see doc/KNOWN-ISSUES.md G-32; the "
-                       "reply carries the same answer in its lab_claim object",
+                       "reply carries the same answer in its lab_claim object, and POST "
+                       "/ndt/p4/table_entry in its X-NDTwin-Lab-Claim header",
                        was,
                        state,
                        owner,
@@ -671,20 +734,42 @@ HttpSession::noteLabClaimChange(const std::string& state,
 // nlohmann::json object dumped with sorted keys (or a single-key literal), so a round trip is
 // byte-identical apart from the key added. A body this function cannot read as an object is left
 // exactly as it was -- a reply it cannot parse is a reply it must not rewrite.
+//
+// [Co-developed with claude code -- Adam] It catches everything itself. buildResponse calls it
+// after its own catch clauses, so anything thrown here would leave buildResponse and the io
+// handler that called it, and the kernel's io threads do not catch: the kernel would terminate.
+// When the mark cannot be added, the reply goes out exactly as it was built.
 void
 HttpSession::attachLabClaimIfWrite(http::response<http::string_body>& res)
 {
-    if (!isLabClaimBearingWrite(m_req.method(), std::string_view(m_req.target())))
+    try
     {
-        return;
+        if (!isLabClaimBearingWrite(m_req.method(), std::string_view(m_req.target())))
+        {
+            return;
+        }
+        json body = json::parse(res.body(), nullptr, false);
+        if (body.is_discarded() || !body.is_object())
+        {
+            return;
+        }
+        body["lab_claim"] = labClaimJson();
+        // replace: `owner` and `note` are free text from a file, and bytes in them that are not
+        // UTF-8 must become U+FFFD, not a throw. Dumped into a local first, so a failure leaves
+        // the reply as it was.
+        std::string marked = body.dump(-1, ' ', false, json::error_handler_t::replace);
+        res.body() = std::move(marked);
     }
-    json body = json::parse(res.body(), nullptr, false);
-    if (body.is_discarded() || !body.is_object())
+    catch (const std::exception& e)
     {
-        return;
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "lab_claim could not be added to the reply: {}",
+                            e.what());
     }
-    body["lab_claim"] = labClaimJson();
-    res.body() = body.dump();
+    catch (...)
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(), "lab_claim could not be added to the reply");
+    }
 }
 
 // [Co-developed with claude code -- Adam] Test seam, G-32 option C. The ledger is process-wide by
@@ -1680,12 +1765,12 @@ HttpSession::respondToDispatchStatusRequestId(http::response<http::string_body>&
                            "get_flow_dispatch_status: request_id '{}' is not a positive integer",
                            raw);
         res.result(http::status::bad_request);
-        res.body() = json{{"status", "error"},
-                          {"error", "invalid request_id"},
-                          {"request_id", raw},
-                          {"detail", "request_id must be the positive integer returned in the "
-                                     "200 body of the flow-entry endpoint you are asking about"}}
-                         .dump();
+        res.body() = dumpUntrusted(
+            json{{"status", "error"},
+                 {"error", "invalid request_id"},
+                 {"request_id", raw},
+                 {"detail", "request_id must be the positive integer returned in the "
+                            "200 body of the flow-entry endpoint you are asking about"}});
         return true;
     }
 
@@ -1777,7 +1862,9 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
                                 {"requested_priority", rec.requestedPriority},
                                 {"match", rec.match},
                                 {"controller_status", rec.controllerStatus},
-                                {"message", rec.message}});
+                                // [Co-developed with claude code -- Adam] The controller's
+                                // own words, from another process: any byte, dumped strictly.
+                                {"message", withInvalidUtf8Replaced(rec.message)}});
     }
 
     // [Co-developed with claude code -- Adam]
@@ -1896,7 +1983,7 @@ HttpSession::handleGetSwitchesPowerState(http::response<http::string_body>& res)
     catch (const std::runtime_error& e)
     {
         res.result(http::status::not_found);
-        res.body() = json::object({{"error", e.what()}}).dump();
+        res.body() = dumpUntrusted(json::object({{"error", e.what()}}));
         SPDLOG_LOGGER_WARN(Logger::instance(), "get_switches_power_state: {}", e.what());
     }
 }
@@ -2044,7 +2131,7 @@ HttpSession::respondToOpResult(http::response<http::string_body>& res,
     }
 
     json failureBody{{"status", "error"},
-                     {"error", result.message},
+                     {"error", withInvalidUtf8Replaced(result.message)},
                      {"controller_status", result.httpStatus}};
     // [Co-developed with claude code -- Adam] F-13. 404 and 400 are each answered for more than
     // one reason here -- "no such switch" and "no such group" are both 404 -- so the machine-
@@ -2605,11 +2692,10 @@ HttpSession::handleInformSwitchEntered(http::response<http::string_body>& res)
                            "inform_switch_entered: dpid '{}' is not an unsigned integer",
                            dpidStr);
         res.result(http::status::bad_request);
-        res.body() = json{{"status", "error"},
-                          {"error", "invalid dpid"},
-                          {"dpid", dpidStr},
-                          {"detail", "dpid must be an unsigned integer"}}
-                         .dump();
+        res.body() = dumpUntrusted(json{{"status", "error"},
+                                        {"error", "invalid dpid"},
+                                        {"dpid", dpidStr},
+                                        {"detail", "dpid must be an unsigned integer"}});
         return;
     }
     const uint64_t dpid = *dpidOpt;
@@ -2733,7 +2819,8 @@ HttpSession::handleReceivedSimulationCase(http::response<http::string_body>& res
                            *problem);
         res.result(http::status::bad_request);
         res.set(http::field::content_type, "application/json");
-        res.body() = json{{"error", "Invalid simulation case"}, {"details", *problem}}.dump();
+        res.body() =
+            dumpUntrusted(json{{"error", "Invalid simulation case"}, {"details", *problem}});
         return;
     }
 
@@ -2767,10 +2854,9 @@ HttpSession::handleReceivedSimulationCase(http::response<http::string_body>& res
         // as a status code so that a program and not just a human can act on it.
         res.result(dispatch.sent ? http::status::bad_gateway
                                  : http::status::internal_server_error);
-        res.body() = json{{"status", "error"},
-                          {"error", "Simulation case was not accepted"},
-                          {"details", dispatch.failureReason}}
-                         .dump();
+        res.body() = dumpUntrusted(json{{"status", "error"},
+                                        {"error", "Simulation case was not accepted"},
+                                        {"details", dispatch.failureReason}});
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "Responding {} for a simulation case that was not dispatched: {}",
                            static_cast<int>(res.result_int()),
@@ -2781,16 +2867,15 @@ HttpSession::handleReceivedSimulationCase(http::response<http::string_body>& res
     if (dispatch.httpStatus < 200 || dispatch.httpStatus >= 300)
     {
         res.result(static_cast<http::status>(dispatch.httpStatus));
-        res.body() = json{{"status", "error"},
-                          {"error", "The simulator server rejected the case"},
-                          {"simulator_status", dispatch.httpStatus},
-                          {"simulator_response", dispatch.response}}
-                         .dump();
+        res.body() = dumpUntrusted(json{{"status", "error"},
+                                        {"error", "The simulator server rejected the case"},
+                                        {"simulator_status", dispatch.httpStatus},
+                                        {"simulator_response", dispatch.response}});
         return;
     }
 
     res.result(http::status::accepted);
-    res.body() = json{{"status", dispatch.response}}.dump();
+    res.body() = dumpUntrusted(json{{"status", dispatch.response}});
 }
 
 void
@@ -3020,11 +3105,10 @@ HttpSession::handleGetNickname(http::response<http::string_body>& res)
                                    "get_nickname: dpid '{}' is not an unsigned integer",
                                    dpidStr);
                 res.result(http::status::bad_request);
-                res.body() = json{{"status", "error"},
-                                  {"error", "invalid dpid"},
-                                  {"dpid", dpidStr},
-                                  {"detail", "dpid must be an unsigned integer"}}
-                                 .dump();
+                res.body() = dumpUntrusted(json{{"status", "error"},
+                                                {"error", "invalid dpid"},
+                                                {"dpid", dpidStr},
+                                                {"detail", "dpid must be an unsigned integer"}});
                 return;
             }
             const uint64_t dpid = *dpidOpt;
@@ -3053,11 +3137,10 @@ HttpSession::handleGetNickname(http::response<http::string_body>& res)
                                macStr);
             res.result(http::status::bad_request);
             res.set(http::field::content_type, "application/json");
-            res.body() = json{{"status", "error"},
-                              {"error", "invalid mac"},
-                              {"mac", macStr},
-                              {"detail", "expected xx:xx:xx:xx:xx:xx"}}
-                             .dump();
+            res.body() = dumpUntrusted(json{{"status", "error"},
+                                            {"error", "invalid mac"},
+                                            {"mac", macStr},
+                                            {"detail", "expected xx:xx:xx:xx:xx:xx"}});
             return;
         }
         vertexOpt = m_topologyAndFlowMonitor->findVertexByMac(*mac);
@@ -3172,7 +3255,8 @@ HttpSession::handleModifyNickname(http::response<http::string_body>& res)
     catch (const std::exception& e)
     {
         res.result(http::status::bad_request);
-        res.body() = json{{"error", "Failed to modify nickname"}, {"details", e.what()}}.dump();
+        res.body() =
+            dumpUntrusted(json{{"error", "Failed to modify nickname"}, {"details", e.what()}});
     }
 }
 
@@ -3215,12 +3299,12 @@ HttpSession::handleGetPathSwitchCount(http::response<http::string_body>& res)
                                srcIpStr,
                                dstIpStr);
             res.result(http::status::bad_request);
-            res.body() = json{{"status", "error"},
-                              {"error", "invalid IP address"},
-                              {"src_ip", srcIpStr},
-                              {"dst_ip", dstIpStr},
-                              {"detail", "src_ip and dst_ip must be dotted IPv4 addresses"}}
-                             .dump();
+            res.body() = dumpUntrusted(
+                json{{"status", "error"},
+                     {"error", "invalid IP address"},
+                     {"src_ip", srcIpStr},
+                     {"dst_ip", dstIpStr},
+                     {"detail", "src_ip and dst_ip must be dotted IPv4 addresses"}});
             return;
         }
         const uint32_t srcIp = *srcIpOpt;
@@ -3614,6 +3698,195 @@ HttpSession::handleNotFound(http::response<http::string_body>& res)
                        m_req.target());
     res.result(http::status::not_found);
     res.body() = json{{"error", "Not Found"}}.dump();
+}
+
+// [Co-developed with claude code -- Adam]
+namespace
+{
+/// `proxy` when the status and body are the P4 proxy's, `kernel` when the kernel answered itself.
+constexpr const char* kOriginHeader = "X-NDTwin-Origin";
+/// labClaimJson() on one line. A header rather than a body key: the body is the proxy's.
+constexpr const char* kLabClaimHeader = "X-NDTwin-Lab-Claim";
+} // namespace
+
+// [Co-developed with claude code -- Adam]
+// Any bmv2 switch, not "all of them": a bmv2 switch is reached through the proxy whatever else
+// the topology holds (FlowRoutingManager dispatches per dpid), and the proxy itself answers 404
+// for a dpid it does not drive. A topology with none -- OVS under Ryu, or hardware -- has no
+// proxy to relay to.
+bool
+HttpSession::topologyHasP4Switch() const
+{
+    if (!m_topologyAndFlowMonitor)
+    {
+        return false;
+    }
+    return m_topologyAndFlowMonitor->getSwitchKindGroups().count(SwitchKind::BMV2) > 0;
+}
+
+// [Co-developed with claude code -- Adam]
+// A pure relay, completed asynchronously. Everything the relay needs is copied or moved out of
+// m_req before respondAsync returns, and `self` keeps the session alive until the reply is
+// written. An exception out of a completion handler would leave the io_context, and the kernel's
+// io threads do not catch, so it would terminate the kernel. Therefore:
+// startP4Passthrough catches what starting the relay throws, the relay's own steps and the
+// building of its reply are guarded in P4Passthrough.cpp (each turns a throw into a kernel 500,
+// delivered once), and finishP4Passthrough catches what building the HTTP reply throws. What is
+// not guarded is writeResponse() itself, as on every other route.
+void
+HttpSession::startP4Passthrough()
+{
+    auto self = shared_from_this();
+    try
+    {
+        std::optional<std::string> contentType;
+        const auto ct = m_req.find(http::field::content_type);
+        if (ct != m_req.end())
+        {
+            contentType = std::string(ct->value());
+        }
+        p4passthrough::respondAsync(m_socket.get_executor(),
+                                    m_req.method(),
+                                    std::string_view(m_req.target()),
+                                    std::move(m_req.body()),
+                                    contentType,
+                                    topologyHasP4Switch(),
+                                    m_p4ProxyHostAndPort,
+                                    m_p4Deadlines,
+                                    [self](p4passthrough::Reply reply) {
+                                        self->finishP4Passthrough(std::move(reply));
+                                    });
+    }
+    catch (const std::exception& e)
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(), "P4 pass-through could not start: {}", e.what());
+        p4passthrough::Reply reply;
+        reply.status = 500;
+        reply.contentType = "application/json";
+        reply.body = json{{"error", "Internal server error"},
+                          {"message",
+                           "the kernel could not start relaying this request; see the kernel log"},
+                          {"origin", "kernel"}}
+                         .dump();
+        reply.origin = "kernel";
+        reply.labClaimBearing =
+            p4passthrough::matchRoute(m_req.method(), std::string_view(m_req.target())).isWrite;
+        finishP4Passthrough(std::move(reply));
+    }
+}
+
+std::string
+HttpSession::labClaimHeaderValue()
+{
+    // ensure_ascii: `owner` and `note` are free text from a file, and a header value must not
+    // carry a raw newline or a non-ASCII byte. replace: bytes that are not UTF-8 become U+FFFD
+    // instead of a throw, so a bad claim file cannot turn the proxy's answer into an error.
+    json claim = labClaimJson();
+    std::string value = claim.dump(-1, ' ', true, json::error_handler_t::replace);
+    if (value.size() <= kLabClaimHeaderMaxBytes)
+    {
+        return value;
+    }
+    // Too long for a header (see kLabClaimHeaderMaxBytes): cut the free text, the note first and
+    // then the owner, at a code-point boundary until the value fits, and say that it was cut.
+    // Each pass drops half the excess, measured in the file's bytes, so a long ASCII note takes a
+    // few dozen passes and a CJK one, whose characters escape to six bytes, only a few.
+    claim["truncated"] = true;
+    for (const char* key : {"note", "owner"})
+    {
+        std::string text = claim.value(key, std::string());
+        while (true)
+        {
+            claim[key] = text;
+            value = claim.dump(-1, ' ', true, json::error_handler_t::replace);
+            if (value.size() <= kLabClaimHeaderMaxBytes || text.empty())
+            {
+                break;
+            }
+            const std::size_t drop = (value.size() - kLabClaimHeaderMaxBytes + 1) / 2;
+            std::size_t cut = text.size() > drop ? text.size() - drop : 0;
+            while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80)
+            {
+                --cut;
+            }
+            text.resize(cut);
+        }
+        if (value.size() <= kLabClaimHeaderMaxBytes)
+        {
+            return value;
+        }
+    }
+    // Both free-text fields are empty by now, and the fixed fields alone are far under the cap.
+    return value;
+}
+
+void
+HttpSession::finishP4Passthrough(p4passthrough::Reply reply)
+{
+    auto res = std::make_shared<http::response<http::string_body>>();
+    try
+    {
+        // Built before any field of the reply is set, so nothing below can leave a half-written
+        // reply behind it.
+        const std::string claim = reply.labClaimBearing ? labClaimHeaderValue() : std::string();
+
+        res->version(m_req.version());
+        res->keep_alive(m_req.keep_alive());
+        res->set(http::field::server, "ndt-server");
+        res->result(reply.status);
+        if (reply.contentType)
+        {
+            res->set(http::field::content_type, *reply.contentType);
+        }
+        // A HEAD reply carries no body; sending one would be read as the start of the next reply
+        // on a kept-alive connection.
+        if (m_req.method() != http::verb::head)
+        {
+            res->body() = std::move(reply.body);
+        }
+        res->set(kOriginHeader, reply.origin);
+        if (!reply.allow.empty())
+        {
+            res->set(http::field::allow, reply.allow);
+        }
+        if (reply.labClaimBearing)
+        {
+            res->set(kLabClaimHeader, claim);
+        }
+
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "P4 pass-through: {} {} -> {} ({})",
+                           m_req.method_string(),
+                           m_req.target(),
+                           reply.status,
+                           reply.origin);
+    }
+    catch (const std::exception& e)
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(), "P4 pass-through reply failed: {}", e.what());
+        res = std::make_shared<http::response<http::string_body>>(
+            http::status::internal_server_error, m_req.version());
+        res->keep_alive(false);
+        res->set(http::field::content_type, "application/json");
+        res->set(kOriginHeader, "kernel");
+        res->body() = R"({"error":"Internal server error","message":"the kernel could not )"
+                      R"(build its reply to this request; see the kernel log","origin":"kernel"})";
+        if (reply.labClaimBearing)
+        {
+            try
+            {
+                res->set(kLabClaimHeader, labClaimHeaderValue());
+            }
+            catch (const std::exception& claimError)
+            {
+                SPDLOG_LOGGER_ERROR(Logger::instance(),
+                                    "P4 pass-through: no lab claim on the 500: {}",
+                                    claimError.what());
+            }
+        }
+    }
+    m_res = std::move(res);
+    writeResponse();
 }
 
 void

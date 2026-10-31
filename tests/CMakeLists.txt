@@ -192,6 +192,11 @@ add_executable(
   # each bmv2 switch's `capabilities`, verbatim from GET /p4/switch_state, on its
   # /ndt/get_graph_data node -- and absent, never invented, whenever the kernel has none to copy.
   test_P4Capabilities.cpp
+
+  # [Co-developed with claude code -- Adam] The /ndt/p4 routes: relayed to a fake proxy on a
+  # loopback port with method, query and body intact, the proxy's status and body handed back
+  # unchanged, and nothing relayed off the allowlist or on a fabric with no P4 switch.
+  test_P4Passthrough.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
