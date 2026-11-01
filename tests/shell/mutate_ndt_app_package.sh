@@ -204,11 +204,13 @@ check_fires "M2 (widening): the splitter rule is applied to packages" m2 \
 # The quiet half of the feature. A knob left over from an earlier `--app` run is read by the
 # proxy and by p4_testbed_topo.py, so `ndt up p4 4` would build the exercise fabric under a
 # banner that says baseline -- and every topology view would read correct.
+# [Co-developed with claude code -- Adam] The failure branch now unwinds before it returns, so the
+# anchor is the opening of that branch; `: || {` keeps the text valid and never clears the knob.
 cat > "$A/m3.old" <<'EOF'
-        app_knob_clear "this 'ndt up' asked for the baseline fabric" || return 1
+        app_knob_clear "this 'ndt up' asked for the baseline fabric" || {
 EOF
 cat > "$A/m3.new" <<'EOF'
-        :
+        : || {
 EOF
 check_fires "M3: a baseline 'ndt up p4' keeps somebody's package" m3 \
             "🔴 'ndt up p4 4' with no --app clears it"
@@ -1720,12 +1722,14 @@ check_fires "M111: a claim after --app records the package's count as the round'
             "🔴 and claim, --app, re-claim by t, down, release needs no hand-written number" \
             "🔴 and claim, --app, re-claim by u, down, release needs no hand-written number"
 
+# [Co-developed with claude code -- Adam] knob_snapshot also takes the round baseline's up_wrote
+# lines now (up_wrote_snapshot), so the anchor carries that line too.
 cat > "$A/m112.old" <<'EOF'
-    KNOB_ENTRY="$(host_count)"
+    up_wrote_snapshot
     app_knob_count_snapshot
 EOF
 cat > "$A/m112.new" <<'EOF'
-    KNOB_ENTRY="$(host_count)"
+    up_wrote_snapshot
 EOF
 check_fires "M112: the record is not copied before a bring-up writes it" m112 \
             "🔴 a failed first --app leaves no record" \
@@ -1918,6 +1922,25 @@ EOF
 check_fires "M129: a refused release forgets the --app record" m129 \
             "🔴 the refused release keeps the record: down puts the 8 back" \
             "🔴 and the release after that exits 0"
+
+# [Co-developed with claude code -- Adam] The two call sites of the refused-bring-up unwind that only an
+# app package reaches (the rest are in mutate_ndt_up_down_robust.sh, M107-M125).
+cat > "$A/m130.old" <<'EOF'
+            refusal_unwind "the app package knob could not be written"
+EOF
+cat > "$A/m130.new" <<'EOF'
+            knob_restore "the app package knob could not be written"
+EOF
+check_fires "M130: an app knob that cannot be written only restores the host knob" m130 \
+            "🔴 the earlier up.target is back, byte for byte"
+
+cat > "$A/m131.old" <<'EOF'
+            refusal_mark "$(app_knob_path)"
+EOF
+cat > "$A/m131.new" <<'EOF'
+EOF
+check_fires "M131: an app knob that fails its read-back is not marked" m131 \
+            "🔴 the earlier app knob is back, byte for byte"
 
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"

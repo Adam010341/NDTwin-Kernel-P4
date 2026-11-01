@@ -1520,6 +1520,39 @@ check "🔴 a package declaring a word nobody knows refuses" "1" "$(rc_of "$OUT"
 has   "  naming the word and the four it accepts"         "telemetry.source 'sideways', which is not one of" "$OUT"
 check "🔴 and nothing was written"                        "absent" "$(tel_state)"
 check "  and no fabric was started"                       "sudo=0 stack=0" "$(touched)"
+# [Co-developed with claude code -- Adam] "Nothing was written" has to hold for the other files
+# this bring-up had already moved when it refused: the app knob it pointed at the package, and
+# up.target. With a knob and a target from an earlier bring-up in place, both are put back.
+check "🔴 the app knob this run wrote is not left behind"  "absent" "$(knob_state)"
+check "🔴 and neither is an up.target"                      "absent" "$([[ -e "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
+reset_fix; rm -f "$TELKNOB"; plant_knob
+printf 'plane=ovs\nhosts=4\nby=an-earlier-bring-up\n' > "$FIX/.test_run/up.target"
+UT_SEED="$(sha256sum < "$FIX/.test_run/up.target")"
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_TELJUNK"); up_p4")"
+check "  refused again over an earlier bring-up's files"  "1" "$(rc_of "$OUT")"
+check "🔴 the earlier app knob is back"                    "$PKG_OK" "$(knob_state)"
+check "🔴 and the earlier up.target is back, byte for byte" "$UT_SEED" "$(sha256sum < "$FIX/.test_run/up.target" 2>/dev/null)"
+has   "  and the put-back names its reason"               "the package's telemetry source is not one this script knows" "$OUT"
+# ...and when the app knob write itself fails: up.target is back and the earlier knob is not lost.
+reset_fix; rm -f "$TELKNOB"; plant_knob
+printf 'plane=ovs\nhosts=4\nby=an-earlier-bring-up\n' > "$FIX/.test_run/up.target"
+KNOB_SEED="$(sha256sum < "$KNOB")"
+OUT="$(drive "app_knob_write() { return 1; }; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "  an app knob that cannot be written refuses"      "1" "$(rc_of "$OUT")"
+check "🔴 the earlier up.target is back, byte for byte"    "$UT_SEED" "$(sha256sum < "$FIX/.test_run/up.target" 2>/dev/null)"
+check "🔴 and the earlier app knob is untouched"           "$KNOB_SEED" "$(sha256sum < "$KNOB" 2>/dev/null)"
+has   "  and the put-back names its reason"               "the app package knob could not be written" "$OUT"
+# ...and when the real writer moves the new knob into place and then fails its read-back (the stub
+# makes app_knob_dir disagree): the new file is already there, and the earlier one comes back.
+reset_fix; rm -f "$TELKNOB"
+printf '# written by ndt up p4 --app at 2026-10-30T00:00:00Z\n%s\n' "$PKG_TELJUNK" > "$KNOB"
+printf 'plane=ovs\nhosts=4\nby=an-earlier-bring-up\n' > "$FIX/.test_run/up.target"
+KNOB_SEED="$(sha256sum < "$KNOB")"
+OUT="$(drive "app_knob_dir() { echo not-the-package; }; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "  an app knob that fails its read-back refuses"    "1" "$(rc_of "$OUT")"
+has   "  by the writer's own message"                      "did NOT take" "$OUT"
+check "🔴 the earlier app knob is back, byte for byte"     "$KNOB_SEED" "$(sha256sum < "$KNOB" 2>/dev/null)"
+check "🔴 and the earlier up.target is back too"            "$UT_SEED" "$(sha256sum < "$FIX/.test_run/up.target" 2>/dev/null)"
 
 # 🔴 A REFUSED BRING-UP MUST NOT HAVE CHOSEN A SOURCE. The pre-flight refusal is above every
 # write, and this is the same assertion section 3 makes about the app knob.

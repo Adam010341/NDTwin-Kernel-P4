@@ -5148,6 +5148,11 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
     改後 `314 passed, 0 failed`。變異 `mutate_ndt_up_down_robust.sh` M53–M58 ＋ 行為保持的 W9。
   - ⚠️ 🟠 缺陷本身是 ROLE-9 實測的，該單是**轉述**（ROLE-9 的 c4b／c4c 兩份 metrics log，
     不在版控）；該單新增的紅是**離線 fixture 上重現的**，不是 live。
+- 🏁 **後續（2026-10-31）**：上面的「`[1/3]` 的三個 `return 1`」只還原了 host knob；被拒絕時 `up.target`、app／telemetry knob
+  與 claim note 也已被寫過。現在 stale pipeline 與 live OVS 兩個只讀的拒絕搬到所有寫入**之前**；orphan sweep 失敗，
+  以及 up.target 寫好之後的 knob／telemetry 寫入失敗，出口都經 `refusal_unwind`：up.target 與兩個 knob 還原成進來時的 bytes（只在檔案仍是這次執行寫下的內容時；別人在 orphan sweep 期間改過的就不動）；up.target 本身寫入失敗
+  （`record_up_target`）不在此列。claim note 不是整檔還原：只在這次執行寫的那句話還在、claim 仍屬同一個 owner 時，才用
+  `claim_rewrite` 把 `note=` 一個欄位寫回（`tests/shell/test_ndt_up_down_robust.sh` §26）。
 
 ### G-48 🏁 `up_refuses_a_model_of_another_network` 的 knob 斷言在主 checkout 上恆綠、在乾淨 clone 上會紅——兩棵樹相反的結論
 

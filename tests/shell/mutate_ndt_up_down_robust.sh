@@ -1339,6 +1339,258 @@ m=$(mutant m96 "$NDT" \
 report "M96: neither the residue text nor prc == 2 makes ndt clean red" "$m" \
        "  clean: a port that cannot be probed is not clean"
 
+# --- section 26: what a refused 'ndt up p4' puts back, and what it leaves alone ----------------
+#
+# [Co-developed with claude code -- Adam]
+# Each of these deletes ONE condition or call of refusal_unwind / refusal_put_back /
+# up_wrote_put_back / knob_restore and must turn the one cell that pins it red (the cells are
+# section 26 of the suite). They are anchored by text, like the rest of this gate, so a later
+# edit that moves or rewrites the line is told by check_gate_anchors.py instead of going unseen.
+#
+# The claim note is reverted only when all of these hold; each has its own cell, and the cells
+# for the others cannot stop a mutant that drops this one:
+#   M97 the owner is still NDT_OWNER      M98 the note is still the recorded sentence
+#   M99 claim_note_up recorded a sentence (refusal_claim_written's rule)
+#   M100 a sentence was recorded at all (the -n test; only an emptied note reaches it)
+m=$(mutant m97 "$NDT" \
+    '          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then' \
+    '          && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then')
+report "M97: a claim that is no longer ours gets its note rewritten" "$m" \
+       "🔴 a claim that is no longer ours keeps its note"
+
+m=$(mutant m98 "$NDT" \
+    '          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then' \
+    '          && "$(claim_field owner)" == "$NDT_OWNER" ]]; then')
+report "M98: a note that is no longer our sentence is reverted" "$m" \
+       "🔴 a note that is no longer our sentence is kept"
+
+m=$(mutant m99 "$NDT" \
+    '    [[ -n "$REFUSAL_NOTE_TAKEN" && -n "$CLAIM_NOTE_UP_TEXT" && -f "$CLAIM" ]] || return 0
+    [[ "$(claim_field note)" == "$CLAIM_NOTE_UP_TEXT" ]] && REFUSAL_NOTE_WRITTEN="$CLAIM_NOTE_UP_TEXT"' \
+    '    [[ -n "$REFUSAL_NOTE_TAKEN" && -f "$CLAIM" ]] || return 0
+    [[ "$(claim_field note)" == "$REFUSAL_NOTE_BEFORE" ]] || REFUSAL_NOTE_WRITTEN="$(claim_field note)"')
+report "M99: 'the note changed' is read as 'claim_note_up wrote it'" "$m" \
+       "🔴 a note this run did not write is not reverted"
+
+m=$(mutant m100 "$NDT" \
+    'if [[ -n "$REFUSAL_NOTE_WRITTEN" && -n "${NDT_OWNER:-}" && -f "$CLAIM"' \
+    'if [[ -n "${NDT_OWNER:-}" && -f "$CLAIM"')
+report "M100: an emptied note is filled in again (no sentence was recorded)" "$m" \
+       "🔴 an emptied note is not filled in again"
+
+# The three files are put back only while they hold what this run left in them.
+#   M101 the changed-since test is gone (rewrites, creations and deletions are all undone)
+#   M102 an ABSENT file is read as unchanged (only the deletion is undone)
+#   M103 the up_wrote lines are put back whatever they hold now
+m=$(mutant m101 "$NDT" \
+    '    if [[ "$now" != "$after" ]]; then' \
+    '    if false; then')
+report "M101: a file changed during the sweep is put back over" "$m" \
+       "🔴 their telemetry knob is left as they wrote it"
+
+m=$(mutant m102 "$NDT" \
+    '    if [[ -e "$p" ]]; then now="$(cat -- "$p" 2>/dev/null; printf x)"; else now=ABSENT; fi
+    if [[ "$now" != "$after" ]]; then' \
+    '    if [[ -e "$p" ]]; then now="$(cat -- "$p" 2>/dev/null; printf x)"; else now="$after"; fi
+    if [[ "$now" != "$after" ]]; then')
+report "M102: a file deleted during the sweep is written back" "$m" \
+       "🔴 a deleted up.target is not written back"
+
+m=$(mutant m103 "$NDT" \
+    '    [[ "$UPW_MARK" == "$(round_baseline_field up_wrote)|$(round_baseline_field up_wrote_at)" ]] \
+        || return 0
+' \
+    '')
+report "M103: another bring-up's up_wrote lines are put back over" "$m" \
+       "🔴 the lines another bring-up wrote are kept"
+
+# The up_wrote lines go back with the host-count knob, on both of knob_restore's branches and on
+# rollback_up's call.
+#   M104 knob_restore's main branch   M105 its absent-snapshot branch   M106 rollback_up's call
+m=$(mutant m104 "$NDT" \
+    '    warn "host_count_override put back to $KNOB_ENTRY (it read $now): $why"
+    up_wrote_put_back' \
+    '    warn "host_count_override put back to $KNOB_ENTRY (it read $now): $why"')
+report "M104: knob_restore's main branch leaves the up_wrote lines" "$m" \
+       "🔴 the rollback put the baseline's up_wrote back"
+
+m=$(mutant m105 "$NDT" \
+    '        warn "removed $(short_repo_path "$f"): $why (this run created it)"
+        up_wrote_put_back' \
+    '        warn "removed $(short_repo_path "$f"): $why (this run created it)"')
+report "M105: knob_restore's absent-snapshot branch leaves the up_wrote lines" "$m" \
+       "🔴 and the baseline's up_wrote lines are back"
+
+# [Co-developed with claude code -- Adam] M106 makes the same edit as M55 (rollback_up loses its
+# knob_restore call) but is pinned by a different cell: M55 by the host-count knob's, M106 by the
+# round baseline's up_wrote lines.
+m=$(mutant m106 "$NDT" \
+    '    knob_restore "this bring-up was rolled back"
+' \
+    '')
+report "M106: rollback_up leaves the host-count knob and the up_wrote lines" "$m" \
+       "🔴 the rollback put the baseline's up_wrote back"
+
+# --- up_p4's call sites: each unwind, snapshot, mark and decision that the unwind relies on ------
+#
+# [Co-developed with claude code -- Adam]
+# M97-M106 break the functions; these break the places up_p4 calls them from. Each must turn red
+# the cell that pins that call, so a later edit that drops or reorders one is told by this gate.
+# The two sites reached only with an app package (the app knob write and its read-back mark) are
+# pinned in test_ndt_app_package.sh and mutated in mutate_ndt_app_package.sh. refusal_mark's own
+# -r test is mutated too (M126): it matters only when a writer leaves the file unreadable, which
+# the writers do not do on their own, so its cell stubs the telemetry writer to do it and is
+# skipped for a user who can read a mode-000 file. It is not equivalent: without the line the
+# earlier bytes are written back over the run's own.
+#   M107-M111  each refusal_unwind in the write block and at the sweep goes back to the old knob_restore
+m=$(mutant m107 "$NDT" \
+    'set_host_count "$knob_wanted" "$knob_layout" || { refusal_unwind "the knob write itself was refused"; return 1; }' \
+    'set_host_count "$knob_wanted" "$knob_layout" || { knob_restore "the knob write itself was refused"; return 1; }')
+report "M107: a refused host-count write only restores the host-count knob" "$m" \
+       "🔴 and up.target is back (the knob was never moved)"
+
+m=$(mutant m108 "$NDT" \
+    '            refusal_unwind "the app package knob could not be cleared"' \
+    '            knob_restore "the app package knob could not be cleared"')
+report "M108: an app knob that cannot be cleared only restores the host knob" "$m" \
+       "🔴 and up.target and the host-count knob are back"
+
+m=$(mutant m109 "$NDT" \
+    '            refusal_unwind "the package'"'"'s telemetry source is not one this script knows"' \
+    '            knob_restore "the package'"'"'s telemetry source is not one this script knows"')
+report "M109: an unknown telemetry word only restores the host knob" "$m" \
+       "🔴 an unknown telemetry word puts back up.target, the cleared app knob and the host-count knob"
+
+m=$(mutant m110 "$NDT" \
+    '        refusal_unwind "the telemetry knob could not be written"' \
+    '        knob_restore "the telemetry knob could not be written"')
+report "M110: a telemetry knob that cannot be written only restores the host knob" "$m" \
+       "🔴 and up.target, the cleared app knob and the host-count knob are back"
+
+m=$(mutant m111 "$NDT" \
+    '                refusal_unwind "the orphan sweep ran but did not finish; nothing was built"' \
+    '                knob_restore "the orphan sweep ran but did not finish; nothing was built"')
+report "M111: a failed orphan sweep only restores the host knob" "$m" \
+       "🔴 up.target, both knobs, the claim and the host-count knob are byte-identical"
+
+#   M112-M119  the snapshot, the marks, the claim record, the up_wrote mark and the model check are gone
+m=$(mutant m112 "$NDT" \
+    '    refusal_snapshot
+    record_up_target p4 "$hosts" "$topo" || return $?' \
+    '    record_up_target p4 "$hosts" "$topo" || return $?')
+report "M112: nothing is snapshotted before the writes" "$m" \
+       "🔴 up.target, both knobs, the claim and the host-count knob are byte-identical"
+
+m=$(mutant m113 "$NDT" \
+    '    refusal_mark "$(up_target_file)"
+' \
+    '')
+report "M113: up.target is never marked as this run's" "$m" \
+       "🔴 up.target, both knobs, the claim and the host-count knob are byte-identical"
+
+m=$(mutant m114 "$NDT" \
+    '    fi
+    refusal_mark "$(app_knob_path)"
+' \
+    '    fi
+')
+report "M114: the app knob is never marked after its write or clear" "$m" \
+       "🔴 and up.target, the cleared app knob and the host-count knob are back"
+
+m=$(mutant m115 "$NDT" \
+    '    refusal_mark "$(telemetry_knob_path)"
+' \
+    '')
+report "M115: the telemetry knob is never marked after its write" "$m" \
+       "🔴 up.target, both knobs, the claim and the host-count knob are byte-identical"
+
+m=$(mutant m116 "$NDT" \
+    '        refusal_mark "$(telemetry_knob_path)"       # same reason as the app knob'"'"'s block above
+' \
+    '')
+report "M116: a telemetry write that fails its read-back is not marked" "$m" \
+       "🔴 the earlier telemetry knob is back and so is everything else"
+
+m=$(mutant m117 "$NDT" \
+    '    claim_note_up "$up_what"
+    refusal_claim_written' \
+    '    claim_note_up "$up_what"')
+report "M117: the sentence claim_note_up wrote is never recorded" "$m" \
+       "🔴 the note is back to what it was"
+
+m=$(mutant m118 "$NDT" \
+    '        up_wrote_mark
+' \
+    '')
+report "M118: the up_wrote lines are never marked after set_host_count" "$m" \
+       "🔴 up_wrote is what it was before this run"
+
+m=$(mutant m119 "$NDT" \
+    '    up_target_check p4 "$hosts" "$topo" || return $?
+    n="$(bmv2_count)"' \
+    '    n="$(bmv2_count)"')
+report "M119: the model comparison no longer comes before the hoisted refusals" "$m" \
+       "🔴 a mismatched model beats a live OVS fabric: rc 5"
+
+#   M120-M121  the hoisted refusals lose their reuse condition   M122-M124  #56's fresh/reused assignments
+m=$(mutant m120 "$NDT" \
+    '    if (( reuse )) && stale_pipeline; then' \
+    '    if stale_pipeline; then')
+report "M120: a stale build file refuses a fabric that is not being reused" "$m" \
+       "🔴 a stale build file does not refuse a fabric that is not up"
+
+m=$(mutant m121 "$NDT" \
+    '    (( reuse )) || guard_no_live_ovs ||' \
+    '    guard_no_live_ovs ||')
+report "M121: the OVS guard refuses a fabric that is being reused" "$m" \
+       "🔴 reusing a live fabric is not refused by the OVS guard"
+
+m=$(mutant m122 "$NDT" \
+    '        UP_P4_FABRIC=reused
+' \
+    '')
+report "M122: a reused fabric is still called one this run started" "$m" \
+       "🔴 a reused fabric: the ready line claims no mode"
+
+m=$(mutant m123 "$NDT" \
+    '    UP_P4_FABRIC=fresh
+    if (( reuse )); then
+        ok "already up: $n switches, $live_hosts hosts, reusing"
+        UP_P4_FABRIC=reused
+    else' \
+    '    if (( reuse )); then
+        ok "already up: $n switches, $live_hosts hosts, reusing"
+        UP_P4_FABRIC=reused
+    fi
+    UP_P4_FABRIC=fresh
+    if (( reuse )); then :
+    else')
+report "M123: 'fresh' is set after the reuse branch, overwriting 'reused'" "$m" \
+       "🔴 a reused fabric: the ready line claims no mode"
+
+m=$(mutant m124 "$NDT" \
+    '    UP_P4_FABRIC=fresh
+    if (( reuse )); then' \
+    '    if (( reuse )); then')
+report "M124: a fabric this run started is never called fresh" "$m" \
+       "🔴 a fabric this run started: the ready line names the pane's mode"
+
+#   M125  a file that cannot be read is snapshotted as an empty one
+m=$(mutant m125 "$NDT" \
+    '        if [[ -e "$p" && ! -r "$p" ]]; then REFUSAL_PRE[$p]=""; continue; fi
+' \
+    '')
+report "M125: an unreadable file is snapshotted as an empty one" "$m" \
+       "🔴 no empty app knob is written back over it"
+
+#   M126  refusal_mark reads a file it cannot read as an empty one
+m=$(mutant m126 "$NDT" \
+    '    if [[ -e "$p" && ! -r "$p" ]]; then REFUSAL_AFTER[$p]=""; return 0; fi
+' \
+    '')
+report "M126: a file this run left unreadable is read as empty and put back over" "$m" \
+       "🔴 a knob this run left unreadable is not overwritten with the earlier bytes"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then
