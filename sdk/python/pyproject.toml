@@ -1,0 +1,15 @@
+# [Co-developed with claude code -- Adam]
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ndtwin"
+version = "1.0.0"
+description = "A Python client for the NDTwin kernel's HTTP API"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools]
+packages = ["ndtwin"]

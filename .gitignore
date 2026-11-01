@@ -15,6 +15,9 @@ cmake-build-debug/
 # Python and Environment
 p4_proxy/venv/
 __pycache__/
+# the virtual environment and build metadata of `pip install -e sdk/python` (sdk/python/README.md)
+.venv/
+*.egg-info/
 # sanitizer build tree (see tests/test_SFlowParsing.cpp)
 build-asan/
 # test-run artefacts (tools/test_workflow)
