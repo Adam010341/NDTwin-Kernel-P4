@@ -3,7 +3,7 @@ from a run.
 
 [Co-developed with claude code -- Adam]
 
-design 5.1: expected_today.tsv is committed before the first live run, and every fix that flips
+expected_today.tsv is committed before the first live run, and every fix that flips
 a cell changes it in the same PR. So the prediction a row is compared with comes from the file
 and only from the file -- a prediction computed from this run's verdict would make every delta
 "same" (mutation M12).

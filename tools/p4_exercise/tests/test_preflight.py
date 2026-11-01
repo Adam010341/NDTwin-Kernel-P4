@@ -136,7 +136,7 @@ class EntriesRedCells(PackageCase):
     def test_a_bad_table_name_fails(self):
         # 🔴 The single most consequential red cell. A typo'd table name is accepted by every
         # JSON parser, installs nothing, and leaves a switch that forwards nothing while the
-        # twin reports it healthy -- GAP-ANALYSIS §5-①, "reports zero rather than an error".
+        # twin reports zero rather than an error.
         self.edit_entries("pod-topo/s1-runtime.json",
                           lambda d: d["table_entries"][1].__setitem__("table", "MyIngress.ipv4_lmp"))
         self.assert_red("entries match p4info", "is not in the p4info")
@@ -204,7 +204,7 @@ class EntriesRedCells(PackageCase):
 
 
 class PipelineCells(PackageCase):
-    """G4: the per-switch pipeline rows, on the one exercise that has two programs."""
+    """The per-switch pipeline rows, on the one exercise that has two programs."""
 
     exercise = FIREWALL
     p4 = "basic.p4"
@@ -350,7 +350,7 @@ class PipelineCells(PackageCase):
 
 class TernaryEntryCells(PackageCase):
     """
-    G5: a package that declares ternary entries is checked with the proxy's own `match_shape`.
+    A package that declares ternary entries is checked with the proxy's own `match_shape`.
 
     [Co-developed with claude code -- Adam]
     The converted `basic` package has one table, `MyIngress.ipv4_lpm`, with one LPM field. These
@@ -1015,7 +1015,7 @@ class NoSuggestionOnNdtwinsOwnPipelineTest(RolesCase):
 
 
 class ReverseControlsTest(RolesCase):
-    """ANALYSIS section 3's four that cannot bind ipv4_lpm, from the fixtures that exist here:
+    """Exercises that cannot bind ipv4_lpm, from the fixtures that exist here (calc, multicast):
     a roles block naming ipv4_lpm must FAIL and say what is missing."""
 
     flag = None

@@ -3,7 +3,7 @@
 [Co-developed with claude code -- Adam]
 
 sudo, mnexec, tc, ndt, simple_switch_CLI, ps, ip, ethtool: every one of them is run through a
-`Runner` the caller hands in (design 4.1), so a test that injects a `RecordingRunner` has seen
+`Runner` the caller hands in, so a test that injects a `RecordingRunner` has seen
 every command the reading layer and the lifecycle would have run -- and the hermetic test proves
 it with fail-loud stubs first on PATH and a refusal of every other spawn.
 

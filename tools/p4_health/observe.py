@@ -3,7 +3,7 @@
 [Co-developed with claude code -- Adam]
 
 Cut 1 builds the observers the reading layer's tests need to pin the three rules that are about
-WHERE a number comes from (design 5.2-②): `sent` is the sender's own report, the oracle column is
+WHERE a number comes from: `sent` is the sender's own report, the oracle column is
 thrift's and never the proxy's, and a negative read is only "absent" when thrift said so in a
 reply it recognised. The remaining cells' observers are Cut 2-4's, written against the same
 collectors.
@@ -16,9 +16,9 @@ from .collect import thrift as TH
 from . import frames as F
 
 #: Where each "no route" cell would find its endpoint in the proxy's openapi. A fix that adds the
-#: endpoint names its path here in the same PR that flips the cell (design 5.1).
-#: (r4, Cut 1 follow-ups) K1 / K2 / K3 / T3 and the two controls are in it, so their observers can
-#: say `route: False` and the "no route" decision (design 14.6, MINOR 3) can be reached at all.
+#: endpoint names its path here in the same PR that flips the cell.
+#: K1 / K2 / K3 / T3 and the two controls are in it, so their observers can
+#: say `route: False` and the "no route" decision can be reached at all.
 ROUTE_PREFIXES = {
     "K1": ("/p4/counter",), "K2": ("/p4/counter",), "K3": ("/p4/counter",), "K1-neg": ("/p4/counter",),
     "T3": ("/p4/table_entry",), "T3-neg": ("/p4/table_entry",),
@@ -73,7 +73,7 @@ def observe_counter(cfg, runner, dpid, name, index, stimulate, cell):
     """K1 / K3: NDTwin's counter delta and thrift's, around one stimulus.
 
     `stimulate()` runs the sender and returns its stdout; `sent` is what that stdout says.
-    (r4) The answer carries `route`, so a proxy without the endpoint reads as "no route" and not
+    The answer carries `route`, so a proxy without the endpoint reads as "no route" and not
     as FastAPI's own 404."""
     reader = TH.ThriftReader(cfg, runner)
     full = name if "." in name else "HcIngress." + name
@@ -92,8 +92,8 @@ def observe_counter(cfg, runner, dpid, name, index, stimulate, cell):
 
 def observe_counter_control(cfg, dpid, name="HcIngress.no_such_counter"):
     """K1-neg: a counter name the pipeline does not have. The answer keeps the error WORD, so
-    FastAPI's own 404 (a missing route) cannot pass for the endpoint's refusal (review MINOR 21).
-    (r4) And it carries `route`: with no /p4/counter in openapi the control has nothing to ask
+    FastAPI's own 404 (a missing route) cannot pass for the endpoint's refusal.
+    And it carries `route`: with no /p4/counter in openapi the control has nothing to ask
     (NOT RUN), and K1 is RED "no route" instead of the whole round PROBE-BROKEN."""
     status, _packets, error = P.counter(cfg, name, dpid, 0)
     return {"answer": with_route(answer_or_none(status, {"http": status, "error": error}), cfg, "K1-neg")}
@@ -137,7 +137,7 @@ def observe_pl1(cfg, runner, expect_pipelines, alt_table="HcIngress.alt_port_sta
 
 
 def lpm_routes(dump):
-    """{dst ip: port} out of an ipv4_lpm dump (the walk SC-ttl uses, section 12 item 4)."""
+    """{dst ip: port} out of an ipv4_lpm dump (the walk SC-ttl uses)."""
     out = {}
     for e in (dump or {}).get("entries", []):
         if e["action"] != "HcIngress.ipv4_forward" or not e["keys"]:
@@ -148,7 +148,7 @@ def lpm_routes(dump):
 
 
 def v6_routes(dump):
-    """{dst low-32: port} out of a v6_host dump (SC-union's walk, review MINOR 4)."""
+    """{dst low-32: port} out of a v6_host dump (SC-union's walk)."""
     out = {}
     for e in (dump or {}).get("entries", []):
         if e["action"] != "HcIngress.v6_forward" or not e["keys"]:

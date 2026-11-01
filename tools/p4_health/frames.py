@@ -2,7 +2,7 @@
 
 [Co-developed with claude code -- Adam]
 
-design section 2.1 "marker": every active stimulus carries the sender's MAC, the cell's own UDP
+The marker: every active stimulus carries the sender's MAC, the cell's own UDP
 dport (40001-40099), and a payload that starts b"NDTHC" + run id + cell id + sequence number.
 S0's offline self-checks run the program on a throwaway bmv2 in pcap mode, and the live sender
 and sniffer (hostside.py, Cut 2, inside a host's namespace) use this same module rather than

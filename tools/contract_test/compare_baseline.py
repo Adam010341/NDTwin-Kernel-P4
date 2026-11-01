@@ -176,7 +176,7 @@ def facts_util_map(d):
 
 
 def facts_power_state(d):
-    # [Co-developed with claude code -- Adam] -- Q12.
+    # [Co-developed with claude code -- Adam] -- the power-state split.
     # Two shapes: the pre-split scalar "ON"/"OFF", and the post-split per-switch object. A
     # baseline recorded against one kernel is compared against another, so both must reduce to
     # the same fact names or every comparison across the change reads as a regression.

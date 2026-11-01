@@ -273,7 +273,7 @@ def main():
     # (the usage block above says so). It could not work, because the round-trip report and the
     # per-size progress lines were printed to the same stdout as the JSON, so the redirect
     # produced a file whose first line is "round-trip against the shipped models:" and which no
-    # JSON parser accepts -- observed 2026-09-02, raw/B6_make_topology.log:
+    # JSON parser accepts -- observed 2026-09-02:
     # "JSONDecodeError: Expecting value: line 1 column 1", and stripping the report by hand
     # parsed to nodes 22, edges 56. Under --stdout the report therefore goes to stderr, which
     # still puts it in front of an operator running the command interactively while leaving

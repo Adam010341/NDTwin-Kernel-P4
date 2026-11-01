@@ -9,7 +9,7 @@ about where the CPU went. Ten bmv2 processes, Mininet, the proxy and the kernel 
 machine, so contention is a confound in every measurement taken so far -- including the sFlow
 accuracy rounds -- and no report has ever quantified it.
 
-Same discipline as doc/audit/2026-08-18_live-full-stack-round/run.py, deliberately: read the
+The discipline is deliberate: read the
 kernel's own counters rather than ask a tool, sample on a fixed cadence, write JSONL with a
 timestamp so the post-pass can integrate time-weighted instead of assuming the cadence held.
 

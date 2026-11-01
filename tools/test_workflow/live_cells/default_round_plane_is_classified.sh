@@ -5,7 +5,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: F-OFFLINE-1 §1.15, run for real 2026-09-11 (with its own positive control). `ndt up`
+# Source: KNOWN-ISSUES G-26 (F10), run for real 2026-09-11 (with its own positive control). `ndt up`
 # with no argument is `up_ovs 128`; setting/ has no OVS 128-host model (OVS has 4/8/16/32/64);
 # topo_for_hosts' OVS glob includes StaticNetworkTopologyMininet_*.json -- so the model the
 # default round loads is setting/StaticNetworkTopologyMininet_10Switches.json, 128 hosts, which
@@ -15,7 +15,7 @@
 #
 # 🔴 FOUR readings, not one, because "classify everything as ovs" is the obvious wrong fix:
 #   Mininet_* -> ovs   the finding
-#   OVS_*     -> ovs   the positive control F-OFFLINE-1 ran alongside it
+#   OVS_*     -> ovs   the positive control run alongside it
 #   P4_*      -> p4    the direction a blanket answer would swallow
 #   no model  -> rc 1  a physical-mode kernel STILL cannot be classified, and must not be
 #                      given a plane it does not have
@@ -63,7 +63,7 @@ cell_judge() {
     a_have f10_readings_present                          "$d/planes.txt"
     # 🔴 THE KEY ASSERTION: the default round's own model is in the OVS family.
     a_has  f10_mininet_model_reads_as_ovs   'mininet128: out=ovs rc=0'   "$d/planes.txt"
-    # The positive control F-OFFLINE-1 ran beside it -- without this, "always ovs" passes.
+    # The positive control run beside it -- without this, "always ovs" passes.
     a_has  f10_ovs_model_still_reads_as_ovs 'ovs4:       out=ovs rc=0'   "$d/planes.txt"
     # ... and the direction a blanket answer would swallow.
     a_has  f10_p4_is_not_swallowed          'p44:        out=p4 rc=0'    "$d/planes.txt"

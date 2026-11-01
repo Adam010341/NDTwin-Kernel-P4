@@ -8,14 +8,14 @@ kernel, or the proxy's openapi), `oracle` (thrift, ps, the fabric, a sniffer -- 
 writes the probe issued for a write cell) -- and nothing else is trusted:
 
   * UNREADABLE IS None. A reply nobody recognised leaves the key None, never False and never 0;
-    "looked, and nothing is there" is False / 0 / [] (the observer contract, design 2.1 r4).
+    "looked, and nothing is there" is False / 0 / [] (the observer contract).
   * A negative read is {"absent": True} only when thrift answered and the object was not in a
     reply it recognised; an unreadable negative read is None (step 5 then says NOT RUN).
-  * A write cell reads BEFORE it writes: "written then present" needs "absent before" (2.1 r5).
+  * A write cell reads BEFORE it writes: "written then present" needs "absent before".
   * `route` comes from the proxy's own openapi (observe.with_route); an unreadable openapi sets
     no route at all. A cell whose endpoint EXISTS but whose request shape the probe does not
     know yet is left unread (`http: None` -> NOT RUN): the fix that adds the endpoint adds its
-    client here, in the PR that flips the cell (design 5.1).
+    client here, in the PR that flips the cell.
 """
 from __future__ import annotations
 
@@ -485,7 +485,7 @@ def observe_r2(cfg, runner, stimulate, chosen):
     if isinstance(answer, dict) and answer.get("route") is True:
         status, mine, error = P.register(cfg, "HcIngress.r_mark", 2, 0)
         answer = dict(answer, http=status, value=mine, error=error)
-    # (thrift cut round 2) `thrift` beside the oracle is what register_read printed, or None: it is
+    # `thrift` beside the oracle is what register_read printed, or None: it is
     # the only thrift evidence an R2 red may claim (cells.table.r2_thrift_ev), as K1's red claims
     # thrift only when thrift's counter_read answered.
     return ({"answer": answer, "oracle": {"value": chosen, "thrift": value}, "sent": S.sent(out, "R2")},
@@ -623,17 +623,17 @@ def fabric_view(cfg, runner, hosts, names, dpids=DPIDS, diag=None):
     """The fabric as the same four sets: thrift show_ports per switch, veth peers in the root
     namespace, and each host's own interface (its address, MAC and peer) inside its namespace.
 
-    (Cut 2 review MAJOR-1) A switch-to-switch peer is printed by NAME (same namespace), a
+    A switch-to-switch peer is printed by NAME (same namespace), a
     host-facing one by its index in the host's namespace (collect/fabric.veth_peers). EVERY port a
     switch lists must end up on a link -- to another switch's port, or claimed by a host's eth0 --
     or the oracle is unreadable (None): a peer this reader cannot place is a reading not taken,
     never "no link there", so a parser blind to one form cannot agree with a graph that lacks the
     same links.
 
-    (Cut 2 second review N4) `diag`, when given, keeps everything read -- the raw `ip -o link
+    `diag`, when given, keeps everything read -- the raw `ip -o link
     show`, every show_ports, every host's link and address text -- plus the ports nothing placed,
     the CPU ports a switch listed (not fabric ports; bmv2 started as BMv2Switch starts it lists
-    only its -i ports, r3/show_ports_cpu510.log, so this is a guard) and which read failed: a TP1
+    only its -i ports, as observed, so this is a guard) and which read failed: a TP1
     NOT RUN has to be diagnosable after `ndt down` removed the fabric."""
     d_ = diag if diag is not None else {}
     d_.update({"ip_link": None, "show_ports": {}, "hosts": {}, "unplaced": [], "cpu_port_listed": [],

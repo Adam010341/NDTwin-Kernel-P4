@@ -1,17 +1,17 @@
-"""Bring-up A's cells in one LabRound body: static first, then active (design 4.2). (Cut 2)
+"""Bring-up A's cells in one LabRound body: static first, then active. (Cut 2)
 
 [Co-developed with claude code -- Adam]
 
 `ARound(...).body(lab_round)` is what probe.py hands LabRound.run for bring-up A. It reads and
 stimulates through the round's Runner and Config only, records every observation as evidence
 under <run>/A/<cell>.json, and fills `observations` / `sc_observations` for verdict.judge_all.
-It does not judge: the verdicts come after bring-up B has supplied the attributions (design 4.2's
-order -- A, then B).
+It does not judge: the verdicts come after bring-up B has supplied the attributions (the
+order is A, then B).
 
-`only` (design 4.4 `--only`) narrows the round to the named cells plus everything they depend on:
+`only` (`--only`) narrows the round to the named cells plus everything they depend on:
 their controls, their gate cells, the self-checks they need and the cells that produce those
 self-checks' readings -- so `--only K1,TTL1` on the mutant artefact runs PL1, T1, TP1, the marker
-pingall, K1-neg, K1 and TTL1 (design 5.2-④, Cut 2's see-red run).
+pingall, K1-neg, K1 and TTL1 (Cut 2's see-red run).
 
 Bring-up A's Cut 2 cells: PL1 T1 T2 T3 T4 T5 T6 T7 T8 M1 M2 C1 C2 K1 K2 MT1 MT2 MT3 R2 R3 D1 P1
 P2 P3 CS1 TTL1 TP1 (CP1 is T1's alias), VS1 (Q3(b); AP1, AS1 and IT1 are cut 3), the controls
@@ -150,7 +150,7 @@ class ARound(object):
             json.dump(self.problems, fh, indent=2)
 
     def run_step(self, cid):
-        """One cell's step. (Cut 2 review m2) An observer that raises on a live shape it did not
+        """One cell's step. An observer that raises on a live shape it did not
         expect costs its own cell only: the exception is recorded, the observation is left
         UNREADABLE (answer and oracle None -> NOT RUN), and the round goes on with the next."""
         try:

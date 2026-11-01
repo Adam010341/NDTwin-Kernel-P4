@@ -10,7 +10,7 @@ there is no shell anywhere on that path.
 🔴 This module does NOT reimplement `ndt`. It decides which of `ndt`'s own verbs a request may
 name and checks that each argument is one of a fixed set of values; what the verb then does,
 whether the lab is claimed, whether a teardown is in flight -- every guard -- is `ndt`'s, and the
-rc it answers with is passed through unchanged (section 3.4).
+rc it answers with is passed through unchanged.
 
 The rc tables below are ANNOTATION ONLY: the `rc` field of every answer is the integer `ndt`
 exited with, whatever this table says about it. An rc the table does not know is reported as

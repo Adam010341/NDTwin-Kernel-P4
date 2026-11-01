@@ -2,8 +2,8 @@
 
 [Co-developed with claude code -- Adam]
 
-Every command goes through the injected Runner (design 4.1): a host is entered with
-`sudo -n mnexec -a <pid>` (design 4.2), the pid found by the tail-field rule (fabric.host_pid,
+Every command goes through the injected Runner: a host is entered with
+`sudo -n mnexec -a <pid>`, the pid found by the tail-field rule (fabric.host_pid,
 drive_exercise.py:1045-1059), and what runs inside is tools/p4_health/hostside.py under the p4dev
 interpreter. A sniffer is a long-lived child: it is started with Runner.spawn, recorded in
 LAB_STATE.json through `register` (pid + start time + the run's marker token) the moment its pid
@@ -69,7 +69,7 @@ class Hosts(object):
     def root_python(self):
         """The p4dev interpreter as root runs it: -B writes no .pyc beside the probe's sources,
         -X pycache_prefix keeps any read cache under the run, -I takes nothing from the
-        environment or the user's site (Cut 2 review w1)."""
+        environment or the user's site."""
         return [self.cfg.p4dev_python, "-B", "-X", "pycache_prefix=%s" % os.path.join(self.out_dir, "pycache"),
                 "-I"]
 
@@ -104,7 +104,7 @@ class Hosts(object):
 
     def sniff_start(self, host, cells, dport, seconds, until=0):
         """A sniffer on `host` for this run's markers of `cells` -- UDP to `dport` addressed to
-        the host itself (MAJOR-2: not the ICMP errors that quote them)."""
+        the host itself (not the ICMP errors that quote them)."""
         argv = self.in_ns(host, self.root_python() + [self.hostside, "sniff", "--run", self.token,
                                                       "--cells", ",".join(cells), "--seconds", str(seconds),
                                                       "--until", str(int(until)), "--dport", str(int(dport)),

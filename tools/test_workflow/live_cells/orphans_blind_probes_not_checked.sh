@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: F-OFFLINE-1 §1.11, measured offline 2026-09-11 01:0x. A report with the kernel UP, a
+# Source: KNOWN-ISSUES G-21, measured offline 2026-09-11 01:0x. A report with the kernel UP, a
 # tally present, and all three lock probes answering `NOT CHECKED (http 500)` read
 # `VERDICT: CLEAN` rc 0 out of orphans_verdict.sh, while `ndt` itself answered 5 for the same
 # observation. Every restore gate in this project spells `grep -F 'VERDICT: CLEAN'`, so three

@@ -2,10 +2,9 @@
 
 [Co-developed with claude code -- Adam]
 
-The cells, controls, self-checks and rule D's edges of the health-check design (sections 2.1,
-2.3 and 12 of the design notes kept with the project's audit records), plus the rows marked q3b:
-the six categories outside the 16 dimensions and the varbit cell, added in Cut 1 (design
-section 13) and reworked in the Cut 1 review (design section 14).
+The cells, controls, self-checks and rule D's edges of the health check as designed, plus the
+rows marked q3b: the six categories outside the 16 dimensions and the varbit cell, added and
+then reworked in Cut 1.
 
 Predictions are NOT here. They live in doc/audit/2026-10-03_p4-health-check/expected_today.tsv,
 committed before any live run, and are read from that file (expected.py) -- a prediction this
@@ -30,28 +29,28 @@ DPORTS = {"K1": 40011, "K2": 40012, "MT1": 40021, "MT3": 40023, "R2": 40031, "D1
 ETHERTYPES = {"CH1": 0x1212, "CH2": 0x1234, "CH7": 0x1236, "HU1": 0x86DD, "HU1x": 0x1238,
               "HB": 0x88B5}
 
-#: TP2 / TP4 / CP4: how long a cut link may take to read `is_up=false` (design 2.3).
+#: TP2 / TP4 / CP4: how long a cut link may take to read `is_up=false`.
 LINK_DOWN_DEADLINE_S = 20.0
-#: (r3) How a timed reading says "it never happened": the observer watched the whole window and
+#: How a timed reading says "it never happened": the observer watched the whole window and
 #: the event did not come. Spelled as a value, never as a missing key -- a missing key is a
 #: reading not taken (step 4b) and must not be confused with an observation of absence.
 NEVER = "never"
-#: (r4, Cut 1 follow-ups) The encoding is validated, never repaired: a timed reading is NEVER or a
+#: The encoding is validated, never repaired: a timed reading is NEVER or a
 #: real number of seconds, 0 <= s <= its own `watched_s` (an event cannot be seen after the
 #: observer stopped looking), and `watched_s` is itself a real number >= 0. Anything else is a
 #: reading the observer got wrong -- PROBE-BROKEN (timing_problem), never RED and never GREEN.
-#: (r3) CP4: the route the kernel wrote is not in s1's thrift dump at all after the cut.
+#: CP4: the route the kernel wrote is not in s1's thrift dump at all after the cut.
 GONE = "gone"
-#: (r3) IT1: how long after the switch shows the entry aged NDTwin may take to report it.
+#: IT1: how long after the switch shows the entry aged NDTwin may take to report it.
 IT1_REPORT_DEADLINE_S = 10.0
-#: (r3, review NEW-A) The no-sample floor is computed from the SENDER's own count, never from
+#: The no-sample floor is computed from the SENDER's own count, never from
 #: NDTwin's emitter: link telemetry samples 1 in 256 (link_telemetry.py:69), and a cell whose
 #: stimulus expects fewer than 19 samples is NOT RUN (P(0 samples | 19 expected) ~ 6e-9). At or
 #: above the floor a twin that saw nothing is RED -- a broken emitter is NDTwin's fault, not luck.
 SAMPLE_ONE_IN = 256
 MIN_EXPECTED_SAMPLES = 19
 IDENTITY_MIN_SENT = SAMPLE_ONE_IN * MIN_EXPECTED_SAMPLES        # 4864 frames
-#: (r3, review MINOR 4; r4, Cut 1 follow-ups) HR1 / HR2's stimulus: 24000 frames of 64 bytes at
+#: HR1 / HR2's stimulus: 24000 frames of 64 bytes at
 #: 800 kbit/s in all, 15.4 s -- under the 0.5 Mbit/s shaped uplink for HR2's half. The bound is
 #: computed against the cell's ABSOLUTE threshold, CARRY_SHARE x the sender's flow_bytes, which is
 #: CARRY_SHARE x HR_FRAMES / SAMPLE_ONE_IN = 18.75 samples' worth, so a half needs 19 samples.
@@ -61,15 +60,15 @@ IDENTITY_MIN_SENT = SAMPLE_ONE_IN * MIN_EXPECTED_SAMPLES        # 4864 frames
 #: rejects anything above 1e-5; 20000 frames gave 2.0e-5). Assumed, as the test assumes: every
 #: sample books SAMPLE_ONE_IN x its frame's bytes, and the quiet-window noise is zero. They run
 #: after TP2, whose heartbeat they would otherwise load, and before Q1, which floods s1-eth5 and
-#: stays last (design 2.4).
+#: stays last.
 HR_FRAMES = 24000
 HR_FRAME_BYTES = 64
 HR_RATE_KBIT = 800
-#: (r3) The order the active cells of bring-up A run in where it matters: (earlier, later).
-#: (r4) NOTHING CONSUMES THIS YET. No scheduler for the active cells exists in Cut 1; the Cut 3
+#: The order the active cells of bring-up A run in where it matters: (earlier, later).
+#: NOTHING CONSUMES THIS YET. No scheduler for the active cells exists in Cut 1; the Cut 3
 #: scheduler must read it, and the one test that touches it checks only the constant. A run order
 #: that is written down here and enforced nowhere is a promise, not a fact -- do not read the
-#: table as saying the order is kept (design 14.7).
+#: table as saying the order is kept.
 ORDER = (("TP2", "HR1"), ("TP2", "HR2"), ("HR1", "Q1"), ("HR2", "Q1"), ("TP2", "Q1"))
 #: Q1: the shaped link's rate, kbit/s, on both of its interfaces.
 SHAPED_KBIT = 500.0
@@ -79,7 +78,7 @@ SHAPED_IFACES = ("s1-eth5", "s3-eth2")
 #: of the bytes the sender sent. The same rule reads the twin's link usage.
 CARRY_SHARE = 0.2
 UPLINKS = ("s1-eth4", "s1-eth5")
-#: (r4) HR1 sends all of HR_RATE_KBIT on ONE uplink, and HR_RATE_KBIT is above SHAPED_KBIT: its
+#: HR1 sends all of HR_RATE_KBIT on ONE uplink, and HR_RATE_KBIT is above SHAPED_KBIT: its
 #: 5-tuple must hash to the UNSHAPED uplink, or the shaper, not the program, decides how many
 #: frames arrive. The Cut 3 stimulus picks a tuple that hashes there (S0 already finds tuples for
 #: both uplinks); hr_pre(1) makes a wrong pick NOT RUN instead of a verdict.
@@ -110,7 +109,7 @@ class Cell(object):
         self.need = tuple(need)
         self.precondition = precondition          # obs -> (ok, why), or None
         self.alias_of, self.alias_why, self.q3b = alias_of, alias_why, q3b
-        self.min_sent = min_sent                  # (r3) step 3's floor, from the sender's count
+        self.min_sent = min_sent                  # step 3's floor, from the sender's count
 
 
 class SelfCheck(object):
@@ -138,7 +137,7 @@ class Control(object):
             return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")
         a = (obs or {}).get("answer")
         if isinstance(a, dict) and a.get("route") is False:
-            # (r3, review MINOR 3) the endpoint itself is missing from openapi: there is nothing
+            # the endpoint itself is missing from openapi: there is nothing
             # to ask, so the control is not run -- and the cell goes RED for "no route" at step 1
             # instead of the whole round going PROBE-BROKEN.
             return Verdict(NOT_RUN, "no route: the endpoint is not in the proxy's openapi",
@@ -240,7 +239,7 @@ def _find_side(rows, ethertype, src, dst):
 
 def side_row_grew(a, ethertype):
     """The side table has a row for exactly this ethertype AND this host pair, and its
-    `samples` went up inside the window (design 2.3 CH7; section 12 item 6)."""
+    `samples` went up inside the window (CH7)."""
     pair = a.get("pair") or {}
     src, dst = str(pair.get("src_mac", "")).lower(), str(pair.get("dst_mac", "")).lower()
     if not src or not dst:
@@ -258,7 +257,7 @@ def _real(x):
 
 def timing_problem(a, key):
     """Why the timed reading a[key] and a["watched_s"] are not a valid encoding (see NEVER), or
-    None. Called by the cell BEFORE it uses either value (r4, Cut 1 follow-ups)."""
+    None. Called by the cell BEFORE it uses either value."""
     watched, value = a.get("watched_s"), a.get(key)
     if not _real(watched) or watched < 0:
         return "watched_s is %r, not a number of seconds >= 0" % (watched,)
@@ -290,7 +289,7 @@ def nonempty(*values):
 
 
 def as_set(items):
-    """(round 6, finding 10) The members of `items` as a frozenset, whether it is the set of tuples an observer
+    """The members of `items` as a frozenset, whether it is the set of tuples an observer
     recorded or the list of lists a JSON file gives back for it: `probe.py judge` reads observations.json, where
     every tuple and set has become a list, and a list is neither hashable nor equal to a frozenset."""
     def hashable(x):
@@ -359,7 +358,7 @@ def t2(obs):
 def write_then_read(what, checks):
     """The write answered 200 and every one of `checks` (oracle booleans) is True afterwards.
     The checks are named by the row, so a missing one is a reading not taken (need), never a
-    pass (review MAJ-1)."""
+    pass."""
     def compare(obs):
         a, o = A(obs), O(obs)
         if a["http"] != 200:
@@ -388,8 +387,8 @@ def t7(obs):
 
 
 def t8_cannot(obs):
-    """(Cut C) `journaled` is computed since the proxy replays its table-entry journal: false means this switch's
-    journal is off, belongs to an external control plane, lost a record this boot, or (Cut 2 round 8) had its
+    """`journaled` is computed since the proxy replays its table-entry journal: false means this switch's
+    journal is off, belongs to an external control plane, lost a record this boot, or had its
     step-0 snapshot/reheader or a replay snapshot fail -- rule_journal.py counts those as a failure like a lost
     record (TableJournals.record_complete, read by TableJournals.journaled)."""
     if A(obs).get("journaled") is False:
@@ -475,7 +474,7 @@ def counter_equal(obs):
 
 
 def k2_pre(obs):
-    """Design 2.3 K2: thrift's direct counter moved, and by exactly what was sent."""
+    """K2: thrift's direct counter moved, and by exactly what was sent."""
     delta, sent = O(obs).get("delta"), obs.get("sent")
     if not delta or delta != sent:
         return False, "thrift's direct counter moved by %s for %s sent" % (delta, sent)
@@ -495,7 +494,7 @@ def rates_written(obs):
 
 
 def r2_thrift_ev(obs):
-    """(thrift cut round 2) R2's thrift evidence: thrift's register_read of the cell answered (the
+    """R2's thrift evidence: thrift's register_read of the cell answered (the
     observation's `oracle.thrift`). The oracle itself is the marker's value and is always there,
     so `thrift_ev` -- "an oracle exists" -- would claim thrift for every R2 red; K1 claims it only
     when thrift's counter_read answered. [Co-developed with claude code -- Adam]"""
@@ -576,12 +575,11 @@ def delivered(obs):
     return red("nothing arrived where NDTwin's endpoint said it would", "structural")
 
 
-# GAP-2b = the maintainers' analysis of what NDTwin offers a P4 exercise (a design note, not part of this repository).
 def p4(obs):
-    """Section 12 item 8, decided in Cut 1: the controller receiving its packet-in is PARTIAL(b)
-    -- the exercise's own controller did NDTwin's half of packet_io (GAP-2b 0.3 (b)). Nothing
-    arriving is RED, attributed ("bmv2" here means: B's controller is primary and its own writes
-    take, so the silence is not the controller's) only then."""
+    """Decided in Cut 1: the controller receiving its packet-in is PARTIAL(b) -- the exercise's own
+    controller did NDTwin's half of packet_io. Nothing arriving is RED, attributed ("bmv2" here
+    means: B's controller is primary and its own writes take, so the silence is not the
+    controller's) only then."""
     if O(obs)["received"] is True:
         return partial("b", "the controller got its packet-in; no NDTwin code is on that path")
     return red("no packet-in on dport 40050 reached the external controller")
@@ -592,7 +590,7 @@ def expected_samples(sent):
 
 
 def sampled_or_not_run(obs, sent_key="sent"):
-    """Design 2.3 (r3, review NEW-A): too small a stimulus to expect a sample is NOT RUN. The
+    """Too small a stimulus to expect a sample is NOT RUN. The
     expectation comes from the SENDER's own count at 1/256; NDTwin's emitter count plays no part,
     so an emitter that sampled nothing over a big enough stimulus leaves the cell to go RED."""
     if expected_samples(obs.get(sent_key)) < MIN_EXPECTED_SAMPLES:
@@ -752,7 +750,7 @@ def cp4(obs):
     bad = timing_problem(a, "rerouted_after_s")
     if bad:
         return broken("the observer's timing is not a valid reading: %s" % bad)
-    # (r4) the watch length comes BEFORE `gone`: a route read as gone while the observer had not
+    # the watch length comes BEFORE `gone`: a route read as gone while the observer had not
     # yet watched the whole deadline is not an observation of the end state
     if a["rerouted_after_s"] == NEVER and not watched_enough(a):
         return not_run("the route was watched for %s s, less than the %d s deadline" % (a.get("watched_s"), LINK_DOWN_DEADLINE_S))
@@ -868,8 +866,8 @@ def hu1(obs):
         if skip:
             return skip
     v6, x = a["v6"], a["x"]
-    # (r3, review MINOR 2) the nested readings, the same rule as step 4b
-    # (r4) v6.flow_identity too: False is a reading ("looked, nothing there"), a missing key is not
+    # the nested readings, the same rule as step 4b
+    # v6.flow_identity too: False is a reading ("looked, nothing there"), a missing key is not
     for member, doc, keys in (("v6", v6, ("g1", "pair", "side_after", "flow_identity")),
                               ("x", x, ("pair", "side_after"))):
         lacking = [k for k in keys if not isinstance(doc, dict) or doc.get(k) is None]
@@ -892,7 +890,7 @@ def hu1(obs):
 
 def hops_from_lpm(dumps, links, start_dpid, dst, max_hops=8):
     """How many switches a packet to `dst` crosses from `start_dpid`, walked over the entries
-    THRIFT read off each switch (section 12 item 4: h4->h6 has a 2-hop and a 4-hop path, so the
+    THRIFT read off each switch (h4->h6 has a 2-hop and a 4-hop path, so the
     topology alone cannot say which). `dumps` {dpid: {dst: port}} -- an lpm dump's /32s for
     SC-ttl, v6_host's keys for SC-union; `links` {(dpid, port): dpid of the next switch}; a port
     not in `links` is a host port. None when the walk leaves the dumps or loops."""
@@ -923,10 +921,10 @@ def sc_fwd(obs):
 
 
 def sc_count(obs):
-    """Section 12 item 1, the zero-loss form: thrift's delta must equal what was sent, and only
+    """The zero-loss form: thrift's delta must equal what was sent, and only
     when the receiver got every marker. With loss on the path the switch may have seen fewer, so
     neither equal nor unequal says anything about the program: not decided (NOT RUN).
-    (The netdev form was dropped in the Cut 1 review: an interface counter includes the
+    (The netdev form was dropped in Cut 1: an interface counter includes the
     heartbeat's frames and cannot equal a marker count.)"""
     delta = obs.get("thrift_delta")
     sent, got = obs.get("sent"), obs.get("received")
@@ -938,7 +936,7 @@ def sc_count(obs):
 
 
 def sc_reg(obs):
-    """Section 12 item 2: the register must hold the NON-ZERO value the marker chose."""
+    """The register must hold the NON-ZERO value the marker chose."""
     chosen, got = obs.get("chosen"), obs.get("register")
     if not chosen:
         return False, "the marker chose no non-zero value"
@@ -948,7 +946,7 @@ def sc_reg(obs):
 
 
 def sc_qstamp(obs):
-    """Section 12 item 3: the sender must have sent identification 0, so the flag cannot be the
+    """The sender must have sent identification 0, so the flag cannot be the
     sender's own."""
     if set(obs.get("sent_idents") or ()) != {0}:
         return False, "the sender's identifications were %s, not {0}" % sorted(obs.get("sent_idents") or ())
@@ -983,7 +981,7 @@ def sc_recirc(obs):
 
 def sc_union(obs):
     """The IPv6 member forwarded and rewritten: hop limit = sent - hops, the hops walked over
-    the v6_host entries thrift read (review MINOR 4; section 12 item 4's rule)."""
+    the v6_host entries thrift read (the same rule as hops_from_lpm)."""
     hops = obs.get("hops_v6")
     lims = obs.get("hop_limits") or []
     if hops is None or not lims:
@@ -1006,9 +1004,9 @@ SELF_CHECKS = [
 
 NEG = dict(negative_read=True)
 #: identity cells: the oracle is the sender's own report and the configured path, so no thrift
-#: oracle; the stimulus floor is the sender-side sample expectation (r3, NEW-A)
+#: oracle; the stimulus floor is the sender-side sample expectation
 #:
-#: (r4, Cut 1 follow-ups) THE OBSERVER CONTRACT these cells rest on. A reading the observer TOOK
+#: THE OBSERVER CONTRACT these cells rest on. A reading the observer TOOK
 #: and found nothing in is False or 0 (flow_identity False, no side-table row [], usage 0,
 #: samples 0) -- NEVER None and never a missing key. None or a missing key is "not read": step 4b
 #: turns it into NOT RUN, and (verdict.has) the identity cells' G1 and flow_identity fields count
@@ -1134,7 +1132,7 @@ CELLS = [
     Cell("V1", "verification", "core", "active", "A", 3, identity_cell(None), need=("a:g1",), **IDENT),
     Cell("V2", "verification", "core", "active", "A", 3, v2, needs_oracle=False,
          need=("a:bytes_match", "a:flow_identity")),
-    # Q3(b): the six categories outside the 16 dimensions (design 13, reworked in 14)
+    # Q3(b): the six categories outside the 16 dimensions
     Cell("AP1", "action_profile", "ext", "active", "A", 3, cannot=no_route("action-profile member"),
          red_attribution=BM, q3b=True,
          **wtr("AP1", "the action-profile write", ("present_after", "points_to_member"), **NEG)),

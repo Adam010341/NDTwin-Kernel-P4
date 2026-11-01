@@ -23,7 +23,7 @@ def host_pid(ps_lines, host):
 
 def veth_peers(ip_link_text):
     """{iface: its veth peer} from `ip -o link show`. iproute2 prints the peer two ways
-    (Cut 2 review MAJOR-1; seen with iproute2-6.1.0, the gate log r2/veth_format.log):
+    (seen with iproute2-6.1.0):
 
         3: s1-eth4@s2-eth2: ...    the peer is in the SAME namespace -> its NAME (a str)
         5: s1-eth1@if2: ...        the peer is in ANOTHER namespace -> its ifindex THERE (an int)

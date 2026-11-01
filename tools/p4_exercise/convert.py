@@ -661,7 +661,7 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto",
             "grpc_base": common.REQUIRED_GRPC_BASE,
             "device_id": common.REQUIRED_DEVICE_ID,
         },
-        # The exercise's own, when it names one -- flowcache's is 510 (G9b).
+        # The exercise's own, when it names one -- flowcache's is 510.
         "bmv2": {"cpu_port": package_cpu_port(switches)},
         "links": [_package_link(a, b, latency, bandwidth) for a, b, latency, bandwidth in links],
     }
@@ -683,7 +683,7 @@ def _package_link(a, b, latency, bandwidth):
     # ecn's and mri's `["s1-p3", "s2-p3", "0", 0.5]` asks for exactly the delay pod-topo's
     # `["h1", "s1-p1"]` asks for -- none. Recording `delay_ms: 0.0` for one and nothing for the
     # other would make two packages that describe the same shaping look different, and would
-    # hand G2-C (stage three) a netem qdisc to install for no delay.
+    # hand a later link-shaping stage a netem qdisc to install for no delay.
     if latency:
         entry["delay_ms"] = latency
     return entry

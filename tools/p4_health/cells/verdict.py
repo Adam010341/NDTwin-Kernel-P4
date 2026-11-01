@@ -2,12 +2,12 @@
 
 [Co-developed with claude code -- Adam]
 
-The decision order of the design (2.1), with the two steps the Cut 1 review added (marked r2).
+The decision order of the health check.
 Each cell walks these steps and the first that decides, decides:
 
-  0. (r2) NDTwin's answer unreadable -- the proxy or kernel did not answer 2xx JSON, so there
+  0. NDTwin's answer unreadable -- the proxy or kernel did not answer 2xx JSON, so there
      is no answer to judge -> NOT RUN. Cells with no NDTwin half (P1, P4, Q2, CS1, TTL1) skip it.
-  0b. (r2) The cell's known-answer control (K1-neg for K1, T3-neg for T3) is not GREEN -> NOT RUN
+  0b. The cell's known-answer control (K1-neg for K1, T3-neg for T3) is not GREEN -> NOT RUN
      when it was not observed, PROBE-BROKEN when it answered wrongly: the cell's own reading
      came through the same endpoint.
   1. NDTwin's "cannot" answer (no route in openapi, 404 "not in this pipeline", 501, a
@@ -18,8 +18,8 @@ Each cell walks these steps and the first that decides, decides:
      every gate GREEN but a self-check it depends on failed -> PROBE-BROKEN.
   3. The stimulus, as the SENDER reports it (active cells): 0 or unknown -> NOT RUN.
   4. The oracle unreadable -> NOT RUN.
-  4b. (r2) A reading the row needs is missing from the answer or the oracle -> NOT RUN. A
-     missing key is a reading not taken; it must never let a comparison pass (review MAJ-1).
+  4b. A reading the row needs is missing from the answer or the oracle -> NOT RUN. A
+     missing key is a reading not taken; it must never let a comparison pass.
   5. The cell's own precondition, then the comparison -> GREEN / PARTIAL / RED. A GREEN that
      rests on a thrift match also needs its same-window negative read: not taken -> NOT RUN,
      failed -> PROBE-BROKEN.
@@ -137,7 +137,7 @@ def _finish(spec, out, obs, phase):
 def control_problem(spec, ctx, obs=None):
     """Step 0b: the cell's known-answer controls. (verdict, reason) or None.
 
-    (r3, review MINOR 3) A control that found NO ROUTE (the endpoint is missing from openapi)
+    A control that found NO ROUTE (the endpoint is missing from openapi)
     does not make the round PROBE-BROKEN: the cell's own answer must then say "no route" too,
     and step 1 makes the cell RED for it. A cell whose answer claims a route the control did not
     find is an inconsistent reading -> PROBE-BROKEN."""
@@ -186,7 +186,7 @@ def gate_problem(spec, ctx):
 
 
 def decide(spec, obs, ctx):
-    """The five steps of design 2.1 for one cell. `obs` is the observation dict:
+    """The decision steps for one cell. `obs` is the observation dict:
 
         answer       NDTwin's side (route presence, http status, values, ...)
         sent         frames the sender reported sending (active cells)
@@ -200,10 +200,10 @@ def decide(spec, obs, ctx):
     if obs is None:
         return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")
     obs = obs or {}
-    # 0. NDTwin's answer unreadable (r2)
+    # 0. NDTwin's answer unreadable
     if spec.needs_answer and obs.get("answer") is None:
         return Verdict(NOT_RUN, "NDTwin's answer unreadable", phase="answer")
-    # 0b. the cell's known-answer control (r2)
+    # 0b. the cell's known-answer control
     problem = control_problem(spec, ctx, obs)
     if problem is not None:
         return Verdict(problem[0], problem[1], phase="control")
@@ -221,14 +221,14 @@ def decide(spec, obs, ctx):
         sent = obs.get("sent")
         if not sent:
             return Verdict(NOT_RUN, "stimulus: the sender reported %s sent" % (sent,), phase="stimulus")
-        # (r3, review NEW-A) the floor is the SENDER's count; NDTwin's own emitter never gates
+        # the floor is the SENDER's count; NDTwin's own emitter never gates
         if spec.min_sent is not None and sent < spec.min_sent:
             return Verdict(NOT_RUN, "stimulus: the sender reported %s sent, under this cell's floor of %d"
                            % (sent, spec.min_sent), phase="stimulus")
     # 4. oracle
     if spec.needs_oracle and obs.get("oracle") is None:
         return Verdict(NOT_RUN, "oracle unreadable", phase="oracle")
-    # 4b. a reading the row needs is missing (r2)
+    # 4b. a reading the row needs is missing
     lacking = missing_reading(spec, obs)
     if lacking is not None:
         return Verdict(NOT_RUN, "reading not taken: %s" % lacking, phase="reading")
@@ -252,7 +252,7 @@ def decide(spec, obs, ctx):
 
 
 def decide_self_check(sc, obs, ctx):
-    """A self-check: NOT RUN by rule D, else ok or PROBE-BROKEN. Never RED (design 2.1)."""
+    """A self-check: NOT RUN by rule D, else ok or PROBE-BROKEN. Never RED."""
     problem = gate_problem(sc, ctx)
     if problem is not None:
         return Verdict(problem[0], problem[1], phase="gate")
@@ -306,7 +306,7 @@ def judge_all(table, observations, sc_observations):
     for spec in table.cells:
         if spec.alias_of is not None:
             src = ctx.cells[spec.alias_of]
-            # an alias of a cell this run did not observe is itself unobserved (review m1)
+            # an alias of a cell this run did not observe is itself unobserved
             ctx.cells[spec.id] = Verdict(src.verdict, "= %s: %s" % (spec.alias_of, src.reason),
                                          partial=src.partial, attribution=src.attribution,
                                          phase="unobserved" if src.phase == "unobserved" else "alias",
@@ -320,7 +320,7 @@ COUNTED = (GREEN, PARTIAL, RED)
 
 
 def dimension_answer(verdicts):
-    """One dimension's answer from its cells' verdicts. design 5.1: only GREEN, PARTIAL and an
+    """One dimension's answer from its cells' verdicts. Only GREEN, PARTIAL and an
     attributed RED count; none counted -> undecided; all GREEN -> can; all RED -> cannot; else
     partial. NOT RUN never counts as green, and the answer is not the best cell's."""
     counted = [v for v in verdicts if v in COUNTED]
@@ -337,11 +337,11 @@ SCOPES = ("core", "full", "q3b")
 
 
 def rollup(table, ctx, scope):
-    """{dimension: answer} and the four totals. Three rollups (Q2(a), and the Cut 1 review's
-    MAJ-10 for Q3(b)):
+    """{dimension: answer} and the four totals. Three rollups (two for the 16
+    dimensions, one for Q3(b)):
 
       core  the 16 dimensions, core cells only        -- sums to 16
-      full  the 16 dimensions, core and ext cells     -- sums to 16 (Q2(a): comparable with 5.1)
+      full  the 16 dimensions, core and ext cells     -- sums to 16
       q3b   the six categories outside the 16, all their cells -- sums to 6, reported beside
     """
     if scope not in SCOPES:
@@ -352,7 +352,7 @@ def rollup(table, ctx, scope):
         cells = [c for c in table.cells
                  if c.dimension == dim and c.id in ctx.cells and (scope != "core" or c.scope == "core")]
         per[dim] = dimension_answer([ctx.cells[c.id].verdict for c in cells])
-        # (r3) a dimension whose every counted verdict is an alias carries another cell's
+        # a dimension whose every counted verdict is an alias carries another cell's
         # evidence, and the output says whose (e.g. control_plane_mode = T1 through CP1)
         counted = [c for c in cells if ctx.cells[c.id].verdict in COUNTED]
         if counted and all(c.alias_of for c in counted):
@@ -364,7 +364,7 @@ def rollup(table, ctx, scope):
 def run_verdict(ctx, bringups_complete=True, stopped=False, see_red=False):
     """COMPLETE | PROBE-BROKEN | INCOMPLETE | SEE-RED-NOT-SEEN, and the rc (0, 1, 2, 2).
 
-    (Cut 2 round 4, F3) PROBE-BROKEN is looked at first, so two things must come before it:
+    PROBE-BROKEN is looked at first, so two things must come before it:
     a run that was stopped (a record carries "aborted by signal", or the run itself was stopped)
     is INCOMPLETE whatever the cells say, and a see-red run -- whose PROBE-BROKEN is the pass --
     counts as that pass only if its bring-ups were complete and clean."""
@@ -386,7 +386,7 @@ def run_verdict(ctx, bringups_complete=True, stopped=False, see_red=False):
 
 
 def telemetry_none_check(verdicts, link_usage_absent):
-    """The telemetry `none` bring-up (design 2.3): V1, CH1 and CH7 must be RED and
+    """The telemetry `none` bring-up: V1, CH1 and CH7 must be RED and
     assert_link_usage_absent must hold. Anything else -> PROBE-BROKEN. Returns (ok, why)."""
     if link_usage_absent is not True:
         return False, "assert_link_usage_absent did not hold"

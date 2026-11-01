@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-design 4.2: a tutorials-shaped controller (`p4runtime_lib`, Bmv2SwitchConnection to
+A tutorials-shaped controller (`p4runtime_lib`, Bmv2SwitchConnection to
 127.0.0.1:5005<i> with device id i-1) that tools/p4_exercise/run_external_controller.py rewrites
 onto the fabric's ports (30050+i, device id i). It pushes each switch's pipeline, writes the
 package's routes, and then does on switch `attr_dpid` (s2) the eleven things NDTwin's A half

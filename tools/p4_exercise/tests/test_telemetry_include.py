@@ -1,6 +1,6 @@
 """
 `p4_proxy/p4_src/ndtwin_telemetry.p4` -- does it compile into somebody else's program, and does
-the p4info that comes out carry the five names the proxy looks up? TICKET-P3 2.6.
+the p4info that comes out carry the five names the proxy looks up?
 
 [Co-developed with claude code -- Adam]
 
@@ -11,8 +11,8 @@ declares `packet_in` with the five field names; and the forwarding half of the p
 byte-for-byte the solution's. Drop the last one and this file would keep passing for a fixture
 that had quietly become a different program.
 
-🔴 AND THE HEADER MUST MATCH ndtwin_switch.p4's. ndtwin_switch.p4 is NOT changed by this ticket
-(TICKET-P3 0.7 forbids touching it or its build products), so the include is a second copy of
+🔴 AND THE HEADER MUST MATCH ndtwin_switch.p4's. ndtwin_switch.p4 is deliberately NOT changed
+(neither it nor its build products are touched), so the include is a second copy of
 the same header -- and a second copy that drifts is worse than no copy: the proxy would decode
 one program's samples with the other's field widths. The two are compared field by field, from
 the SOURCE of one and the compiled p4info of the other, because that is the pair that can drift
@@ -170,7 +170,7 @@ class TheIncludeAndNdtwinSwitchAgreeTest(unittest.TestCase):
         return match.group(1).strip()
 
     def test_ndtwin_switch_does_not_include_the_new_file(self):
-        # TICKET-P3 0.7: ndtwin_switch.p4 and p4_src/build/* are not this ticket's to change,
+        # ndtwin_switch.p4 and p4_src/build/* are deliberately left unchanged,
         # and an #include here would change the compiled artefacts every fabric is running.
         self.assertNotIn("ndtwin_telemetry.p4", self.switch)
 

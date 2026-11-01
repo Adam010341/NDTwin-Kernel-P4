@@ -68,7 +68,7 @@ OF_TABLES_SAMPLE = [
 ]
 
 # [Co-developed with claude code -- Adam]
-# R5, 2026-09-10: `power_path` is on every entry now, so the sample carries it -- this file's
+# 2026-09-10: `power_path` is on every entry now, so the sample carries it -- this file's
 # schema is its OWN copy of spec.py's, and tests/python/test_unavailable_metric_sentinel.py
 # exists because the two copies had drifted once already. Two different values on purpose: a
 # sample where every entry says the same word would pass a schema that only accepted that word.
@@ -83,7 +83,7 @@ POWER_REPORT_SAMPLE = [
 # honest transcription would need 256 records in this file. The shape is what the schema checks.
 #
 # [Co-developed with claude code -- Adam]
-# W11 (#54), 2026-09-06: `succeeded`/`failed` are now `dispatched_ok`/`dispatch_failed`, and
+# KNOWN-ISSUES A-7b, 2026-09-06: `succeeded`/`failed` are now `dispatched_ok`/`dispatch_failed`, and
 # switch_outcome is the second group. The three switch-side numbers are not filled in at random --
 # they are what THIS body's own failure records imply, so the fixture stays readable as one story:
 # one dispatch succeeded on a plane that confirms nothing (unknown), one failed with the P4
@@ -141,7 +141,7 @@ DISPATCH_STATUS_OLDER_KERNEL = {
 }
 
 # [Co-developed with claude code -- Adam]
-# W11. A kernel from between the A-7 follow-up and the 2026-09-06 rename: the follow-up fields are
+# A-7b. A kernel from between the A-7 follow-up and the 2026-09-06 rename: the follow-up fields are
 # there, the counters still carry the old names, and there is no switch_outcome. The schema and
 # inv_dispatch_counters_close must both still bite on it -- a contract that only understands the
 # newest kernel cannot be pointed at the one that is deployed.
@@ -159,7 +159,7 @@ DISPATCH_STATUS_PRE_W11 = {
 }
 
 # [Co-developed with claude code -- Adam]
-# W11 / R6 K-4: GET /ndt/get_flow_dispatch_status?request_id=<id>. `complete` is False here on
+# KNOWN-ISSUES A-7b: GET /ndt/get_flow_dispatch_status?request_id=<id>. `complete` is False here on
 # purpose -- 2 of the 3 jobs have come back -- because that is the state the process-wide body
 # cannot express and the one a caller polling for its own result is actually in.
 DISPATCH_STATUS_FOR_REQUEST_SAMPLE = {
@@ -200,8 +200,8 @@ LINK_FAILURE_REPORTED_TRUNK = {"status": "link failure processed"}
 #: §2 success, the paired withdrawal.
 LINK_RECOVERY_APPLIED_SAMPLE = {"status": "link recovery processed"}
 
-#: §2 declining an injected declaration -- the shape E-21 is about. Copied from the document's
-#: "Success, but nothing was withdrawn" block, and measured on the wire in arm lw8b3
+#: §2 declining an injected declaration -- the shape B-6's pairing rule is about. Copied from the document's
+#: "Success, but nothing was withdrawn" block, and measured on the wire
 #: (2026-09-07 20:26:47, s1:1 -> s5:1, edge still is_up=false afterwards).
 LINK_RECOVERY_DECLINED_SAMPLE = {
     "status": "link recovery processed",
@@ -256,9 +256,10 @@ LINK_RECOVERY_INJECTED_SAMPLE = {
 }
 
 # --- doc/2026-01-02_ndt_api.md section 37: GET /ndt/get_openflow_capacity ---------------------
-# [Co-developed with claude code -- Adam] W17. Trimmed to the fields the invariants read; the
-# vendor blocks keep their catalogue numbers and say so, and the bmv2 block carries the three
-# figures that have to close. 512 rather than 1024 on purpose -- see the note at the fixture.
+# [Co-developed with claude code -- Adam] The capacity endpoint (KNOWN-ISSUES C-6's workaround).
+# Trimmed to the fields the invariants read; the vendor blocks keep their catalogue numbers and
+# say so, and the bmv2 block carries the three figures that have to close. 512 rather than 1024
+# on purpose -- see the note at the fixture.
 OPENFLOW_CAPACITY_SAMPLE = {
     "OVS": {"source": "vendor table",
             "tables": [{"id": 0, "max_entries": 1000000}]},
@@ -284,7 +285,7 @@ OPENFLOW_CAPACITY_SAMPLE = {
 def _endpoint_schema(endpoint_name):
     """spec.py's own schema object for `endpoint_name`, so no copy of it can drift.
 
-    [Co-developed with claude code -- Adam] -- G2. Several entries below hold a private copy
+    [Co-developed with claude code -- Adam] -- Several entries below hold a private copy
     deliberately (an older kernel's shape, a narrower sample); this is for the ones that have
     no reason to.
     """
@@ -304,7 +305,7 @@ FIXTURES = {
                            optional={"power_path": spec.Str(
                                allowed=("synthetic", "snmp", "ssh", "none"))})),
         POWER_REPORT_SAMPLE),
-    # [Co-developed with claude code -- Adam] -- Q12, 2026-09-03.
+    # [Co-developed with claude code -- Adam] -- 2026-09-03.
     # The sample is the NEW shape, because --self-test's job is "prove the schemas accept what
     # the kernel emits" and this is what it emits now. The scalar branch stays in the schema for
     # a kernel that predates the split; it has its own case in tests/python/test_contract_spec.py
@@ -362,7 +363,7 @@ FIXTURES = {
         spec.Obj({"status": Str()}, optional={"type": Str()}),
         {"status": "released", "type": "routing_lock"}),
     # [Co-developed with claude code -- Adam]
-    # F-OFFLINE-1 G2, 2026-09-11. This was `(spec.STATUS_OK, {"status": "Flow installed"})` --
+    # 2026-09-11. This was `(spec.STATUS_OK, {"status": "Flow installed"})` --
     # a private copy of the schema, one required field short of the endpoint's, and a sample no
     # kernel has emitted since the dispatcher became asynchronous. --self-test printed
     # "ok install_flow_entry" for a body the live run rejects on structure, which is the one
@@ -379,12 +380,12 @@ FIXTURES = {
     "modify_nickname": (
         spec.Obj({"status": Str()}, optional={"message": Str()}),
         {"status": "success", "message": "Nickname updated successfully."}),
-    # [Co-developed with claude code -- Adam] W17. The sample is the shape the kernel emits
+    # [Co-developed with claude code -- Adam] The sample is the shape the kernel emits
     # now: a vendor block that says it is a vendor block, and a bmv2 block whose ceiling came
     # from a pipeline artifact. The ceiling here is 512, not the 1024 this repository's own
     # artifact carries, for the same reason the C++ fixtures avoid 1024 -- a sample that happens
     # to match the one true answer cannot tell a read from a constant.
-    # The copy here was Any_() too, so this line proved nothing about anything (G3): a fixture
+    # The copy here was Any_() too, so this line proved nothing about anything: a fixture
     # whose schema accepts every value cannot fail. The endpoint's own object instead.
     "get_openflow_capacity": (
         _endpoint_schema("get_openflow_capacity"), OPENFLOW_CAPACITY_SAMPLE),
@@ -401,14 +402,14 @@ FIXTURES = {
     "get_flow_dispatch_status": (spec.DISPATCH_STATUS, DISPATCH_STATUS_SAMPLE),
     "get_flow_dispatch_status (kernel without the A-7 follow-up fields)": (
         spec.DISPATCH_STATUS, DISPATCH_STATUS_OLDER_KERNEL),
-    # [Co-developed with claude code -- Adam] W11: both sides of the 2026-09-06 rename, because
+    # [Co-developed with claude code -- Adam] A-7b: both sides of the 2026-09-06 rename, because
     # one schema has to describe a deployed kernel as well as a freshly built one.
     "get_flow_dispatch_status (kernel from before the W11 rename)": (
         spec.DISPATCH_STATUS, DISPATCH_STATUS_PRE_W11),
     "get_flow_dispatch_status?request_id=<id>": (
         spec.DISPATCH_STATUS_FOR_REQUEST, DISPATCH_STATUS_FOR_REQUEST_SAMPLE),
 
-    # --- E-21: the four link endpoints -------------------------------------------------------
+    # --- B-6: the four link endpoints --------------------------------------------------------
     "link_failure_detected": (spec.LINK_FAILURE_REPORTED, LINK_FAILURE_REPORTED_SAMPLE),
     "link_failure_detected (kernel from trunk, no down_reason/until)": (
         spec.LINK_FAILURE_REPORTED, LINK_FAILURE_REPORTED_TRUNK),
@@ -429,7 +430,7 @@ FIXTURES = {
 }
 
 # [Co-developed with claude code -- Adam]
-# F-OFFLINE-1 G2/G13, 2026-09-11. Which endpoint each fixture above is an example FOR.
+# 2026-09-11. Which endpoint each fixture above is an example FOR.
 #
 # 17 of the 31 fixtures carry a private copy of the schema rather than spec.py's object, and one
 # of the 17 had drifted: `install_flow_entry` described `{"status": ...}` alone while the endpoint
@@ -477,7 +478,7 @@ FIXTURE_TARGET_OVERRIDES = {
 
 
 # [Co-developed with claude code -- Adam]
-# F-OFFLINE-1 G3, 2026-09-11. --self-test now runs each endpoint's registered invariants
+# 2026-09-11. --self-test now runs each endpoint's registered invariants
 # against that endpoint's own fixture. Two pairs report, and both are the invariant working:
 # the fixture is a PRE-FIX kernel's reply, kept on purpose so one schema has to describe a
 # deployed kernel as well as a freshly built one. Each is declared here, with the reason.
@@ -501,7 +502,7 @@ FIXTURE_INVARIANT_EXCEPTIONS = {
 
 
 # [Co-developed with claude code -- Adam]
-# F-OFFLINE-1 G13, 2026-09-11. The 15 READ/MUTATE endpoints no fixture describes, named.
+# KNOWN-ISSUES G-19, 2026-09-11. The 15 READ/MUTATE endpoints no fixture describes, named.
 #
 # The gap itself is not closed here -- most of these need a documented example this repository
 # does not have, and inventing one would put a shape nobody has observed into the file whose
@@ -541,7 +542,7 @@ def fixture_target(fixture_name):
     """
     (endpoint name, "schema" | "request_schema") for a key of FIXTURES, or (None, why).
 
-    [Co-developed with claude code -- Adam] -- G2/G13.
+    [Co-developed with claude code -- Adam]
     """
     if fixture_name in FIXTURE_TARGET_OVERRIDES:
         return FIXTURE_TARGET_OVERRIDES[fixture_name]
@@ -566,7 +567,7 @@ class FakeCtx:
         self.expected_edges = edges
         self.expected_dpids = dpids if dpids is not None else {106225808380928}
         self.topk = topk
-        # [Co-developed with claude code -- Adam] -- W3b-3.
+        # [Co-developed with claude code -- Adam]
         # Per-node identity, defaulting to None = "this stand-in has only cardinalities". The
         # real Context (run_contract_test.py) always builds both, so None is never the
         # production answer -- pinned in tests/python/test_contract_spec.py. Cases that want
@@ -579,7 +580,7 @@ class FakeCtx:
         # fabric is a real failure. Leaving this unset would make them assert the
         # precondition path instead, which is a different claim wearing the same red.
         self.power_state = power_state if power_state is not None else PowerState.all_on()
-        # [Co-developed with claude code -- Adam] -- G10. Whether the mutating sequence's
+        # [Co-developed with claude code -- Adam] -- Whether the mutating sequence's
         # /ndt/inject_link_failure landed. Default None = "this run has not got there yet", the
         # same value the real Context starts at, and NOT True: a stand-in that claims the
         # premise held by default is a stand-in that cannot assert the precondition path.
@@ -589,21 +590,21 @@ class FakeCtx:
 # A graph matching FakeCtx exactly, used as the "good" case.
 _GOOD_CTX = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928})
 
-# [Co-developed with claude code -- Adam] -- G10.
-# The same ctx, having recorded step 3's injection as landed. The two lw8b cases below need it:
+# [Co-developed with claude code -- Adam]
+# The same ctx, having recorded step 3's injection as landed. The B-6 case below needs it:
 # without the premise, "the recovery was not declined" is not a finding about the kernel, and
 # _GOOD_CTX must keep saying nothing about the injection so the precondition path stays
 # assertable.
 _CTX_INJECTION_LANDED = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928},
                                 link_failure_injected=True)
 
-# [Co-developed with claude code -- Adam] -- G3.
+# [Co-developed with claude code -- Adam]
 # The ctx --self-test's cross-application stage hands to every endpoint's invariants. Public
 # because run_contract_test.py reads it; it is the graph sample's ctx, so a pair passing there
 # is not evidence the invariant works -- see the stage's docstring.
 SELFTEST_CTX = _GOOD_CTX
 
-# [Co-developed with claude code -- Adam] -- W3b-3.
+# [Co-developed with claude code -- Adam]
 # The identity GRAPH_DATA_SAMPLE really carries, derived from the sample itself rather than
 # transcribed: a hand-typed copy would be a second chance to get the address decoding wrong,
 # and the decoding is the part of this comparison that is easy to get wrong (network order --
@@ -656,7 +657,7 @@ _GRAPH_EDGE_DOWN = {
     "edges": [{**GRAPH_DATA_SAMPLE["edges"][0], "is_up": False}],
 }
 
-# [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G5, W8/W8b.
+# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES B-6.
 # The same edge, down for the one reason the graph states outright: an operator declared it
 # failed. Structurally identical to the graph above -- `down_reason` is the only difference --
 # which is exactly why inv_edges_enabled reported it as a fault until 2026-09-11.
@@ -740,7 +741,7 @@ _DISPATCH_CLEAN_SHUTDOWN_DROP = {
     "counters": {"dispatched": 3, "succeeded": 1, "failed": 2, "dropped_after_stop": 4},
 }
 
-# --- W11 (#54): the switch-side group ----------------------------------------------------------
+# --- KNOWN-ISSUES A-7b: the switch-side group ---------------------------------------------
 # [Co-developed with claude code -- Adam]
 
 #: The group stops partitioning the same jobs -- one dispatch is in no bucket at all, which is
@@ -776,7 +777,7 @@ _DISPATCH_STOPPED = {
 
 # (name, invariant, data, ctx, expect_failures)
 # Every invariant is checked both ways: silent on good data, loud on bad data.
-# [Co-developed with claude code -- Adam] W17.
+# [Co-developed with claude code -- Adam]
 _CAPACITY_UNSOURCED = {
     "OVS": {"tables": [{"id": 0, "max_entries": 1000000}]},
 }
@@ -811,7 +812,7 @@ INVARIANT_CASES = [
      spec.inv_graph_matches_topology, GRAPH_DATA_SAMPLE, FakeCtx(switches=1, hosts=1,
      edges=1, dpids={999}), True),
 
-    # [Co-developed with claude code -- Adam] -- W3b-3. Per-node identity. Every ctx below has
+    # [Co-developed with claude code -- Adam] -- Per-node identity. Every ctx below has
     # the SAME counts and the SAME dpid as the good one, so anything these catch is something
     # the cardinality checks above cannot see.
     ("graph_matches_topology: a graph that matches node for node reports nothing",
@@ -825,7 +826,7 @@ INVARIANT_CASES = [
     ("graph_matches_topology: a renamed device is accounted for, not failed",
      spec.inv_graph_matches_topology, GRAPH_DATA_SAMPLE, _RENAMED_CTX, False),
 
-    # [Co-developed with claude code -- Adam] W17.
+    # [Co-developed with claude code -- Adam]
     ("capacity_names_its_source: accepts a fully labelled report",
      spec.inv_capacity_names_its_source, OPENFLOW_CAPACITY_SAMPLE, _GOOD_CTX, False),
     ("capacity_names_its_source: catches a block with no provenance",
@@ -853,8 +854,8 @@ INVARIANT_CASES = [
      spec.inv_edges_enabled, _GRAPH_EDGE_DOWN, _GOOD_CTX, True),
     ("edges_enabled: a down edge incident to a powered-off switch is not a failure",
      spec.inv_edges_enabled, _GRAPH_EDGE_DOWN, _CTX_EDGE_SRC_OFF, False),
-    # [Co-developed with claude code -- Adam] -- G5. An operator declaration is intent, not a
-    # fault: W8's whole point is that `declared` does not clear until somebody POSTs a recovery,
+    # [Co-developed with claude code -- Adam] -- An operator declaration is intent, not a
+    # fault: B-6's whole point is that `declared` does not clear until somebody POSTs a recovery,
     # so a run that reports it as a broken link raises a false alarm on every fabric where a
     # link failure was declared on purpose. The power-state ctx says nothing is off, so the
     # ONLY thing standing between this case and the one above it is `down_reason`.
@@ -955,7 +956,7 @@ INVARIANT_CASES = [
     ("dispatcher_is_running: says nothing about a kernel that lacks the field",
      spec.inv_dispatcher_is_running, DISPATCH_STATUS_OLDER_KERNEL, _GOOD_CTX, False),
 
-    # --- W11 (#54): the switch-side group -----------------------------------------------------
+    # --- KNOWN-ISSUES A-7b: the switch-side group -------------------------------------------
     # [Co-developed with claude code -- Adam]
     ("switch_outcome_closes: accepts a group that partitions the dispatches",
      spec.inv_switch_outcome_closes, DISPATCH_STATUS_SAMPLE, _GOOD_CTX, False),
@@ -968,11 +969,11 @@ INVARIANT_CASES = [
     ("switch_outcome_closes: says nothing about a kernel that predates the group",
      spec.inv_switch_outcome_closes, DISPATCH_STATUS_PRE_W11, _GOOD_CTX, False),
 
-    # --- E-21: the four link endpoints ---------------------------------------------------------
+    # --- B-6: the four link endpoints ----------------------------------------------------------
     # [Co-developed with claude code -- Adam]
     # Each invariant both ways, and the "bad" side of each one is a body a real kernel has
-    # actually produced: the trunk answer to §1, and the unconditional withdrawal measured on arm
-    # lw8b (2026-09-07 00:08, 9 of 9 samples).
+    # actually produced: the trunk answer to §1, and the unconditional withdrawal measured live
+    # (2026-09-07 00:08, 9 of 9 samples).
     ("declared_failure_says_who_can_withdraw_it: accepts the branch's answer",
      spec.inv_declared_failure_says_who_can_withdraw_it,
      LINK_FAILURE_REPORTED_SAMPLE, _GOOD_CTX, False),
@@ -993,12 +994,12 @@ INVARIANT_CASES = [
     ("recovery_was_declined_and_said_so: accepts the declined reply (the E-21 shape)",
      spec.inv_recovery_was_declined_and_said_so,
      LINK_RECOVERY_DECLINED_SAMPLE, _GOOD_CTX, False),
-    # The lw8b failure mode: the injection was withdrawn by a report nothing paired with, and the
+    # The B-6 failure mode: the injection was withdrawn by a report nothing paired with, and the
     # reply is the same bare 200 a legitimate withdrawal gives.
     ("recovery_was_declined_and_said_so: catches an injection withdrawn anyway",
      spec.inv_recovery_was_declined_and_said_so,
      LINK_RECOVERY_APPLIED_SAMPLE, _CTX_INJECTION_LANDED, True),
-    # [Co-developed with claude code -- Adam] -- G10. The same body, with the premise NOT
+    # [Co-developed with claude code -- Adam] -- The same body, with the premise NOT
     # established: no verdict. On a kernel that predates /ndt/inject_link_failure this is the
     # only reply step 4 can get, and blaming it for withdrawing an undeclared failure is the
     # A-8 shape.
