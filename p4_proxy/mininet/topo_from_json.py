@@ -111,6 +111,12 @@ def switch_links(model):
     """
     dpids = {d for d, _ in switches(model)}
     seen, out = set(), []
+    # [Co-developed with claude code -- Adam]
+    # A switch port is one cable. Both directions of a cable are one key, so the same cable seen
+    # twice is fine; a second DIFFERENT cable on an end already taken is a copy-pasted port
+    # number, and building it would issue two addLink calls on one interface, which fail only
+    # after `mn -c` has torn the running fabric down.
+    owner = {}
     for edge in model.get("edges", []):
         if not edge:
             continue
@@ -123,6 +129,19 @@ def switch_links(model):
         key = tuple(sorted(((int(s), int(sp)), (int(d), int(dp)))))
         if key in seen:
             continue
+        if key[0] == key[1]:
+            raise TopologyModelError(
+                f"switch {key[0][0]} port {key[0][1]} is cabled to itself; a port carries one cable "
+                f"and a cable has two ends")
+        for end in key:
+            if end in owner:
+                raise TopologyModelError(
+                    f"switch {end[0]} port {end[1]} is used by two links: "
+                    f"s{owner[end][0][0]} port {owner[end][0][1]} - "
+                    f"s{owner[end][1][0]} port {owner[end][1][1]} and "
+                    f"s{key[0][0]} port {key[0][1]} - s{key[1][0]} port {key[1][1]}")
+        for end in key:
+            owner[end] = key
         seen.add(key)
         out.append((key[0][0], key[0][1], key[1][0], key[1][1]))
     if not out:
@@ -177,6 +196,25 @@ def host_links(model):
     doubled = [n for n, c in counts.items() if c > 1]
     if doubled:
         raise TopologyModelError(f"hosts attached more than once: {doubled[:5]}")
+    # [Co-developed with claude code -- Adam]
+    # Two hosts on one switch port, or a host on a port an inter-switch cable already uses.
+    # The cable ends are read here directly (not through switch_links, whose "no cables" rule is
+    # a different question), skipping the edges switch_links itself refuses.
+    taken = {}
+    for edge in model.get("edges", []):
+        if not edge:
+            continue
+        s, d = edge.get("src_dpid"), edge.get("dst_dpid")
+        sp, dp = edge.get("src_interface"), edge.get("dst_interface")
+        if s in dpids and d in dpids and s and d and sp and dp:
+            taken[(int(s), int(sp))] = f"the cable to s{int(d)} port {int(dp)}"
+            taken[(int(d), int(dp))] = f"the cable to s{int(s)} port {int(sp)}"
+    for name, dpid, port in dedup:
+        if (dpid, port) in taken:
+            raise TopologyModelError(
+                f"switch {dpid} port {port} is used by two links: {taken[(dpid, port)]} and "
+                f"host {name}")
+        taken[(dpid, port)] = f"host {name}"
     return dedup
 
 

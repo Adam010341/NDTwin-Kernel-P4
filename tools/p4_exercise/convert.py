@@ -143,7 +143,11 @@ def parse_hosts(raw_hosts):
         mac = spec.get("mac")
         if not mac:
             raise ConversionError(f"host {name!r} has no mac")
-        common.mac_to_int(mac)
+        try:
+            common.mac_to_int(mac)
+        except ValueError as exc:
+            raise ConversionError(f"host {name!r}: mac {mac!r} is not a 48-bit address "
+                                  f"({exc})") from exc
         # 🔴 The naming rule, checked at the one moment it can still be fixed. The proxy's
         # reader does not read `device_name` for a host -- it *derives* h<N> from the last
         # octet of the address (topo_from_json.py:86). So a tutorials host called h1 on
@@ -164,7 +168,49 @@ def parse_hosts(raw_hosts):
             "mac": str(mac),
             "commands": list(spec.get("commands") or []),
         }
+    _check_hosts_are_loadable(out)
     return out
+
+
+def _check_hosts_are_loadable(hosts):
+    """Refuse a host the proxy's package loader would refuse at bring-up, with the loader's rule.
+
+    [Co-developed with claude code -- Adam]
+    A /0 prefix converted fine and failed only later, in `app_package.load` (prefix_len must be
+    1..32). Rather than copy the rule, the hosts go through the loader's own manifest reader.
+    The other half -- the MAC -- is compared with the generated model by
+    `_check_hosts_against_the_model`, because the rule is "the manifest's MAC is the colon form
+    the model prints", and that is only knowable from the model.
+    """
+    app_package = common.import_app_package()
+    raw = {name: {"ip": h["ip"], "prefix_len": h["prefix_len"], "mac": h["mac"],
+                  "commands": []} for name, h in hosts.items()}
+    try:
+        app_package.parse_hosts(raw, "the exercise's topology")
+    except app_package.AppPackageError as exc:
+        raise ConversionError(
+            f"the package loader would refuse these hosts at bring-up: {exc}") from exc
+
+
+def _check_hosts_against_the_model(hosts, model_hosts):
+    """The package's hosts against the generated model's, by the loader's own comparison.
+
+    [Co-developed with claude code -- Adam]
+    `model_hosts` is `topo_from_json.hosts` of the model convert is about to write -- what the
+    fabric and the proxy will read -- so a MAC spelled any way but the colon form
+    (`080000000111`, `08-00-...`) is refused here, when the exercise is converted, and not when
+    the package is loaded.
+    """
+    app_package = common.import_app_package()
+    where = "the exercise's topology"
+    raw = {name: {"ip": h["ip"], "prefix_len": h["prefix_len"], "mac": h["mac"],
+                  "commands": []} for name, h in hosts.items()}
+    try:
+        specs = app_package.parse_hosts(raw, where)
+        app_package.hosts_agree_with_the_model(specs, model_hosts, "the generated model", where)
+    except app_package.AppPackageError as exc:
+        raise ConversionError(
+            f"the package loader would refuse these hosts at bring-up: {exc}") from exc
 
 
 def parse_switches(raw_switches):
@@ -756,9 +802,38 @@ def _check_link_endpoints(hosts, switches, links):
         # topo_from_json.host_links() raises on this too; caught here so the message names the
         # exercise file rather than the generated model.
         raise ConversionError(f"hosts attached more than once: {doubled}")
+    _check_switch_ports_are_used_once(links)
     missing = sorted(set(hosts) - set(attached))
     if missing:
         raise ConversionError(f"hosts with no link: {missing}")
+
+
+def _check_switch_ports_are_used_once(links):
+    """Refuse a switch port that two links claim -- a copy-pasted `s1-p1` is a typo, not a design.
+
+    [Co-developed with claude code -- Adam]
+    Nothing else catches it: every host is still attached once and the model still reads back,
+    so the package would pass, and the two `addLink` calls on one bmv2 interface would be found
+    only after `mn -c` had torn the running fabric down. Refused here for
+    the same reason as the rest of this module -- never degraded -- and the same rule is held by
+    topo_from_json (the reader the fabric uses) and by pre-flight.
+    """
+    def label(end):
+        kind, name, port = end
+        return name if kind == "host" else f"{name}-p{port}"
+
+    claimed = {}
+    for a, b, _lat, _bw in links:
+        for end in (a, b):
+            if end[0] != "switch":
+                continue
+            key = (end[1], end[2])
+            here = f"{label(a)} - {label(b)}"
+            if key in claimed:
+                raise ConversionError(
+                    f"switch {end[1]} port {end[2]} is used by more than one link "
+                    f"({claimed[key]} and {here}); a switch port carries one cable")
+            claimed[key] = here
 
 
 def _runtime_json_dependencies(exercise_dir, entries_abs, entries_rel):
@@ -1274,7 +1349,8 @@ def convert(exercise_dir, topology_rel, out_dir, p4_rel=None, name=None, mode="a
             os.path.abspath(exercise_dir), package, copies, role_ipv4_route, rewrites)
         if removed is not None:
             removed.update(taken)
-    read_back(model)
+    reads = read_back(model)
+    _check_hosts_against_the_model(package["hosts"], reads["hosts"])
     return package, model, write(out_dir, package, model, copies, rewrites)
 
 

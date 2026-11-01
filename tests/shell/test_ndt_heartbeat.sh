@@ -92,6 +92,15 @@ for i in range(1, 5):
                         "commands": []}
     edges.append({"src_dpid": 0, "src_interface": 1, "dst_dpid": i, "dst_interface": 1})
     edges.append({"src_dpid": i, "src_interface": 1, "dst_dpid": 0, "dst_interface": 1})
+# [Co-developed with claude code -- Adam] The switches are cabled in a chain (ports 100/101):
+# app_package.load reads the cabling now, and four switches with no cable between them are a
+# fabric of islands, which the reader refuses. What this test reads out of the package is its
+# pipeline kind and hosts, so the cabling is the plainest one that loads.
+for s_dpid in range(1, 4):
+    edges.append({"src_dpid": s_dpid, "src_interface": 100, "dst_dpid": s_dpid + 1,
+                  "dst_interface": 101})
+    edges.append({"src_dpid": s_dpid + 1, "src_interface": 101, "dst_dpid": s_dpid,
+                  "dst_interface": 100})
 json.dump({"nodes": nodes, "edges": edges, "links": []},
           open(os.path.join(d, "ndtwin", "topology.json"), "w"), indent=2, sort_keys=True)
 pipeline = ({"p4info": "build/%s.p4.p4info.txtpb" % pipe, "bmv2_json": "build/%s.json" % pipe}

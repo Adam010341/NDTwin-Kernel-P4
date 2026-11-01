@@ -211,6 +211,10 @@ def check_value(value, bitwidth):
 def check_entry(entry, index, where):
     """Everything wrong with one tutorials table entry, as a list of strings."""
     problems = []
+    # [Co-developed with claude code -- Adam] A hand-edited runtime file can put anything in the
+    # list: say so as a problem, not as an AttributeError out of the tool.
+    if not isinstance(entry, dict):
+        return [f"{where}: is not an object, it is {type(entry).__name__} ({entry!r:.40})"]
     table_name = entry.get("table")
     table = index.table(table_name) if table_name else None
     if table is None:
@@ -220,6 +224,8 @@ def check_entry(entry, index, where):
     match_shape = common.import_match_shape()
     kinds = [match_type_name(f.match_type) for f in table.match_fields]
     match = entry.get("match")
+    if match and not isinstance(match, dict):
+        return [f"{where}: match must be an object of field: value, got {match!r:.40}"]
     is_default = bool(entry.get("default_action"))
     if is_default and match:
         problems.append(f"{where}: a default_action entry cannot also carry a match")
@@ -311,6 +317,9 @@ def check_entry(entry, index, where):
 
     params = {p.name: p for p in action.params}
     given = entry.get("action_params") or {}
+    if not isinstance(given, dict):
+        problems.append(f"{where}: action_params must be an object, got {given!r:.40}")
+        return problems
     for missing in sorted(set(params) - set(given)):
         problems.append(f"{where}: action {action_name} needs a parameter {missing!r}")
     for extra in sorted(set(given) - set(params)):
@@ -329,6 +338,48 @@ def check_entry(entry, index, where):
 
 # --- the checks ------------------------------------------------------------------------------
 
+def _dpid_order(item):
+    """Sort key for a `(dpid_key, ...)` pair: numeric keys in order, anything else last.
+
+    [Co-developed with claude code -- Adam]
+    package.json's switch keys are checked by `switches keys`, which reports a non-number as a
+    FAIL row; every later check that walks the switches in order must survive the same file
+    rather than raise a ValueError from `int()`.
+    """
+    key = str(item[0])
+    return (int(key) if key.isdecimal() else 1 << 30, key)
+
+
+def _check_shape(report, package):
+    """False (after a FAIL row each) when a section every later check reads has the wrong type.
+
+    [Co-developed with claude code -- Adam]
+    The checks below index into these sections with `.get` and `.items()`; a hand-edited
+    package.json that makes one a list or a string is an operator's typo and gets a row that
+    names the section, not an AttributeError. Only a TRUTHY wrong-typed value is flagged: an
+    empty one (`""`, `[]`) is what the checks below already read as "absent", and the loader
+    does too.
+    """
+    ok = True
+    for key in ("source", "control_plane", "bmv2", "hosts", "switches"):
+        value = package.get(key)
+        if value and not isinstance(value, dict):
+            report.bad(key, f"must be an object, got {type(value).__name__}")
+            ok = False
+    links = package.get("links")
+    if links and not isinstance(links, list):
+        report.bad("links", f"must be a list, got {type(links).__name__}")
+        ok = False
+    # Each entry of the two maps the checks walk with `.get`.
+    for key, noun in (("switches", "switch"), ("hosts", "host")):
+        entries = package.get(key)
+        for name, spec in (entries.items() if isinstance(entries, dict) else ()):
+            if spec and not isinstance(spec, dict):
+                report.bad(key, f"{noun} {name!r} must be an object, got {type(spec).__name__}")
+                ok = False
+    return ok
+
+
 def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
     """Fill a Report for this package directory. Returns the Report."""
     report = report or Report()
@@ -343,6 +394,9 @@ def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
     except ValueError as exc:
         report.bad("package.json", f"does not parse: {exc}")
         return report
+    if not isinstance(package, dict):
+        report.bad("package.json", f"is {type(package).__name__}, not an object")
+        return report
 
     fmt = package.get("format")
     if fmt == common.PACKAGE_FORMAT:
@@ -353,9 +407,12 @@ def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
         return report
 
     report.note("name", str(package.get("name")))
+    if not _check_shape(report, package):
+        return report
     _check_control_plane(report, package)
     referenced = _check_referenced_files(report, package_dir, package)
     model = _check_topology(report, package_dir, package)
+    _check_switch_ports(report, package)
     _check_hosts(report, package, model)
     pipeline_p4info = _check_pipelines(report, package_dir, package)
     used_p4info = _check_entries(report, package_dir, package, referenced)
@@ -392,7 +449,9 @@ def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
 
 
 def _roles_max_port(model, dpid):
-    ports = _switch_ports(model).get(int(dpid)) if model else None
+    # A non-numeric switch key is reported by `switches keys`; it has no ports to look up.
+    ports = (_switch_ports(model).get(int(dpid))
+             if model and str(dpid).isdecimal() else None)
     return max(ports) if ports else None
 
 
@@ -507,7 +566,7 @@ def _check_roles(report, package_dir, package, model, pipeline_p4info, reference
         report.note("roles.ipv4_route",
                     "carried, and bound to nothing: control_plane.mode is external, so the "
                     "exercise's own controller owns every table and NDTwin writes none")
-    own = sorted((package.get("switches") or {}).items(), key=lambda kv: int(kv[0]))
+    own = sorted((package.get("switches") or {}).items(), key=_dpid_order)
     own = [k for k, v in own if (v or {}).get("pipeline")]
     if not own:
         report.note("roles.ipv4_route",
@@ -565,6 +624,8 @@ def _check_roles(report, package_dir, package, model, pipeline_p4info, reference
             conf = common.load_json(path)
         except ValueError:
             continue              # already reported by 'entries match p4info'
+        if not isinstance(conf, dict):
+            continue              # ... and so is a file that is not an object
         names = {role.table}
         index_path = pipeline_p4info.get(str(dpid))
         if index_path:
@@ -661,7 +722,7 @@ def _check_telemetry(report, package_dir, package, pipeline_p4info):
     # `pipeline: null` runs ndtwin_switch.p4, which declares it by construction -- and the
     # package directory does not carry that artefact, so there is nothing here to read.
     missing = []
-    for dpid, rel in sorted(pipeline_p4info.items(), key=lambda kv: int(kv[0])):
+    for dpid, rel in sorted(pipeline_p4info.items(), key=_dpid_order):
         try:
             index = P4InfoIndex.parse(rel)
         except Exception as exc:  # noqa: BLE001 -- already reported by _check_pipelines
@@ -718,7 +779,7 @@ def _check_pre_entries(report, package_dir, package, model, referenced):
     cpu_port = (package.get("bmv2") or {}).get("cpu_port")
     problems, totals = [], {"multicast": 0, "clone": 0}
 
-    for dpid, spec in sorted(switches.items(), key=lambda kv: int(kv[0])):
+    for dpid, spec in sorted(switches.items(), key=_dpid_order):
         if not (spec or {}).get("entries"):
             continue
         path = referenced.get(f"switches[{dpid}].entries")
@@ -728,7 +789,9 @@ def _check_pre_entries(report, package_dir, package, model, referenced):
             conf = common.load_json(path)
         except ValueError:
             continue              # already reported by 'entries match p4info'
-        known = ports.get(int(dpid), set())
+        if not isinstance(conf, dict):
+            continue              # ... and so is a file that is not an object
+        known = ports.get(int(dpid), set()) if str(dpid).isdecimal() else set()
 
         for i, entry in enumerate(conf.get("multicast_group_entries") or []):
             totals["multicast"] += 1
@@ -1058,7 +1121,7 @@ def _check_referenced_files(report, package_dir, package):
     for key in ("topology_json", "p4", "p4info", "bmv2_json"):
         if source.get(key):
             refs[f"source.{key}"] = source[key]
-    for dpid, spec in sorted((package.get("switches") or {}).items(), key=lambda kv: int(kv[0])):
+    for dpid, spec in sorted((package.get("switches") or {}).items(), key=_dpid_order):
         if (spec or {}).get("entries"):
             refs[f"switches[{dpid}].entries"] = spec["entries"]
 
@@ -1106,22 +1169,110 @@ def _check_topology(report, package_dir, package):
         return None
 
     model_dpids = {d for d, _ in reads["switches"]}
-    pkg_dpids = {int(k) for k in (package.get("switches") or {})}
+    pkg_dpids = {int(k) for k in (package.get("switches") or {}) if str(k).isdecimal()}
     if model_dpids == pkg_dpids:
         report.ok("switches agree", f"model and package.json both say {sorted(pkg_dpids)}")
     else:
         report.bad("switches agree",
                    f"model has {sorted(model_dpids)}, package.json has {sorted(pkg_dpids)}")
 
-    n_links = len(reads["switch_links"]) + len(reads["host_links"])
-    if n_links == len(package.get("links") or []):
-        report.ok("links agree", f"{n_links} links in both")
-    else:
-        report.bad("links agree",
-                   f"model has {n_links} ({len(reads['switch_links'])} inter-switch + "
-                   f"{len(reads['host_links'])} access), package.json lists "
-                   f"{len(package.get('links') or [])}")
+    _check_links_agree(report, package, reads)
     return {"model": model, "reads": reads}
+
+
+def _manifest_links(package):
+    """package.json's `links` as the tuples topo_from_json reads: (cables, access, unreadable)."""
+    cables, access, unreadable = set(), set(), []
+    for i, link in enumerate(package.get("links") or []):
+        try:
+            (a_name, a_port), (b_name, b_port) = link["a"], link["b"]
+            # Ports are integers. Anything else is not a link the model could hold, and letting
+            # it through would put ports of mixed types into sets that are sorted below.
+            if any(isinstance(p, bool) or not isinstance(p, int) for p in (a_port, b_port)):
+                raise TypeError("port is not an integer")
+            # The order of a link's ends is irrelevant to the fabric: app_package.shaping_index
+            # matches a cable either way round. convert writes the host first, but a hand-written
+            # `{"a": ["s1", 3], "b": ["h1", 1]}` describes the same cable, so it is read the same.
+            if a_name.startswith("s") and b_name.startswith("h"):
+                a_name, a_port, b_name, b_port = b_name, b_port, a_name, a_port
+            if a_name.startswith("h") and b_name.startswith("s"):
+                access.add((a_name, common.switch_name_to_dpid(b_name), b_port))
+            elif a_name.startswith("s") and b_name.startswith("s"):
+                ends = sorted([(common.switch_name_to_dpid(a_name), a_port),
+                               (common.switch_name_to_dpid(b_name), b_port)])
+                cables.add((ends[0][0], ends[0][1], ends[1][0], ends[1][1]))
+            else:
+                raise ValueError("neither a host-switch nor a switch-switch link")
+        except (KeyError, TypeError, ValueError, AttributeError):
+            unreadable.append(i)
+    return cables, access, unreadable
+
+
+def _check_links_agree(report, package, reads):
+    """The manifest's links and the model's cabling must be the same set of links.
+
+    [Co-developed with claude code -- Adam]
+    The fabric is built from the model; package.json's `links` key the link-shaping index. A
+    count match is not agreement: the manifest can put a cable on another port, and every row
+    that only counts would stay green.
+    """
+    model_cables, model_access = set(reads["switch_links"]), set(reads["host_links"])
+    cables, access, unreadable = _manifest_links(package)
+    listed = len(package.get("links") or [])
+    n_links = len(reads["switch_links"]) + len(reads["host_links"])
+    if (not unreadable and cables == model_cables and access == model_access
+            and listed == n_links):
+        report.ok("links agree", f"{n_links} links in both")
+        return
+
+    def show(link):
+        if len(link) == 4:
+            return f"s{link[0]} port {link[1]} - s{link[2]} port {link[3]}"
+        return f"{link[0]} - s{link[1]} port {link[2]}"
+
+    detail = (f"model has {n_links} ({len(reads['switch_links'])} inter-switch + "
+              f"{len(reads['host_links'])} access), package.json lists {listed}")
+    only_manifest = sorted(cables - model_cables) + sorted(access - model_access)
+    only_model = sorted(model_cables - cables) + sorted(model_access - access)
+    if only_manifest:
+        detail += f"; only in package.json: {', '.join(show(l) for l in only_manifest[:3])}"
+    if only_model:
+        detail += f"; only in the model: {', '.join(show(l) for l in only_model[:3])}"
+    if unreadable:
+        detail += f"; links[{unreadable[0]}] is not a readable link"
+    report.bad("links agree", detail)
+
+
+def _check_switch_ports(report, package):
+    """No switch port may be claimed by two of package.json's `links`.
+
+    [Co-developed with claude code -- Adam]
+    The model is what the fabric is built from, and topo_from_json checks it (the
+    `topo_from_json.*` rows); `links agree` holds the manifest to it. This row is the manifest
+    on its own: its `links` key the link-shaping index (a doubled port there shapes the wrong
+    cable), and the doubled port is named here rather than found by a difference.
+    """
+    claimed, clashes = {}, []
+    for i, link in enumerate(package.get("links") or []):
+        ends = [(link or {}).get("a"), (link or {}).get("b")] if isinstance(link, dict) else None
+        if not ends or any(not (isinstance(e, (list, tuple)) and len(e) == 2) for e in ends):
+            clashes.append(f"links[{i}] is not an object with 'a' and 'b' of [node, port]")
+            continue
+        for name, port in ends:
+            if not (isinstance(name, str) and name.startswith("s")):
+                continue                      # a host end: its port is the host's own
+            try:
+                prior = claimed.get((name, port))
+            except TypeError:                 # a list or object for a port: `links agree`
+                continue                      # fails on it, so skip it here
+            if prior is not None:
+                clashes.append(f"{name} port {port} is used by links[{prior}] and links[{i}]")
+            else:
+                claimed[(name, port)] = i
+    if clashes:
+        report.bad("switch ports", f"{len(clashes)} problem(s); first: {clashes[0]}")
+    else:
+        report.ok("switch ports", f"{len(claimed)} switch ports, each on one link")
 
 
 def _check_hosts(report, package, model):
@@ -1177,7 +1328,7 @@ def _check_entries(report, package_dir, package, referenced):
     total, problems = 0, []
     parsed_any = False
     used_p4info = {}
-    for dpid, spec in sorted(with_entries.items(), key=lambda kv: int(kv[0])):
+    for dpid, spec in sorted(with_entries.items(), key=_dpid_order):
         path = referenced.get(f"switches[{dpid}].entries")
         if path is None:
             problems.append(f"s{dpid}: entries file missing (see 'referenced files')")
@@ -1186,6 +1337,10 @@ def _check_entries(report, package_dir, package, referenced):
             conf = common.load_json(path)
         except ValueError as exc:
             problems.append(f"s{dpid}: {spec['entries']} does not parse: {exc}")
+            continue
+        if not isinstance(conf, dict):
+            problems.append(f"s{dpid}: {spec['entries']} is not an object, it is "
+                            f"{type(conf).__name__}")
             continue
         p4info_rel = conf.get("p4info")
         if not p4info_rel:
@@ -1206,6 +1361,10 @@ def _check_entries(report, package_dir, package, referenced):
         parsed_any = True
         used_p4info[str(dpid)] = os.path.realpath(p4info_path)
         entries = conf.get("table_entries") or []
+        if not isinstance(entries, list):
+            problems.append(f"s{dpid}: table_entries in {spec['entries']} is not a list, it is "
+                            f"{type(entries).__name__}")
+            continue
         total += len(entries)
         for i, entry in enumerate(entries):
             problems.extend(check_entry(entry, index, f"s{dpid} entry {i}"))
@@ -1291,7 +1450,11 @@ def _check_compile(report, package_dir, package, compile_p4):
         out_json = os.path.join(tmp, f"{stem}.json")
         out_p4info = os.path.join(tmp, f"{stem}.p4.p4info.txtpb")
         cmd = [p4c, "--p4v", "16", "--p4runtime-files", out_p4info, "-o", out_json, path]
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        except subprocess.TimeoutExpired:
+            report.bad("p4c-bm2-ss", "timed out after 600 s; the program was not compiled")
+            return
         if proc.returncode != 0:
             tail = (proc.stderr or proc.stdout or "").strip().splitlines()
             report.bad("p4c-bm2-ss", f"rc={proc.returncode}: "

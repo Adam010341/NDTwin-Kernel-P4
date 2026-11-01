@@ -54,6 +54,79 @@ def check(label, got, want):
     return 1
 
 
+def _refused(label, read, needle):
+    """1 unless `read()` raises TopologyModelError whose text contains every word of `needle`."""
+    try:
+        got = read()
+    except T.TopologyModelError as exc:
+        missing = [w for w in needle if w not in str(exc)]
+        if missing:
+            print(f"  FAIL  {label}: refused, but the message lacks {missing}: {exc}")
+            return 1
+        print(f"  ok    {label}: refused ({str(exc)[:90]})")
+        return 0
+    print(f"  FAIL  {label}: read {got!r} instead of refusing")
+    return 1
+
+
+def _move_host(model, ip, dpid, port):
+    """Re-attach the host with address `ip` (both stored directions) to switch `dpid` port `port`."""
+    for e in model["edges"]:
+        if e.get("dst_ip") == [ip] and e.get("dst_dpid") == 0:
+            e["src_dpid"], e["src_interface"] = dpid, port
+        if e.get("src_ip") == [ip] and e.get("src_dpid") == 0:
+            e["dst_dpid"], e["dst_interface"] = dpid, port
+
+
+def port_reuse_checks():
+    """One switch port used by two links must be refused, wherever the second link comes from.
+
+    [Co-developed with claude code -- Adam]
+    A copy-pasted `s1-p1` in an exercise's links is valid JSON, reads back as a perfectly
+    ordinary model, and its two `addLink` calls on one bmv2 interface are found only after
+    `mn -c` has torn the running fabric down.
+    """
+    import copy
+    bad = 0
+    path = os.path.join(REPO, "setting", "StaticNetworkTopologyP4_10Switches_4Hosts.json")
+    base = T.load(path)
+    print("a switch port used by two links (4-host model, one port reused each time)")
+
+    # h1 is on s1 port 3 and h2 on s2 port 3 in the shipped model; put h1 on h2's port.
+    two_hosts = copy.deepcopy(base)
+    ips = {n: ip for n, ip, _m in T.hosts(base)}
+    _move_host(two_hosts, ips["h1"], 2, 3)
+    bad += _refused("two hosts on one switch port", lambda: T.host_links(two_hosts),
+                    ["switch 2", "port 3", "h1", "h2"])
+
+    # s1 port 1 is the cable to s5; point the s1-s6 cable at port 1 too.
+    two_cables = copy.deepcopy(base)
+    for e in two_cables["edges"]:
+        if e.get("src_dpid") == 1 and e.get("dst_dpid") == 6:
+            e["src_interface"] = 1
+        if e.get("dst_dpid") == 1 and e.get("src_dpid") == 6:
+            e["dst_interface"] = 1
+    bad += _refused("two cables on one switch port", lambda: T.switch_links(two_cables),
+                    ["switch 1", "port 1"])
+
+    # h1 sits on s1 port 3; move it onto the s1-s5 cable's port 1.
+    host_on_cable = copy.deepcopy(base)
+    _move_host(host_on_cable, ips["h1"], 1, 1)
+    bad += _refused("a host on a port a cable already uses",
+                    lambda: T.host_links(host_on_cable), ["switch 1", "port 1", "h1"])
+
+    # The shipped model stores each cable twice; that is one use of the port, not two.
+    try:
+        T.switch_links(base)
+        T.host_links(base)
+        print("  ok    the shipped model (every edge stored in both directions) still reads")
+    except T.TopologyModelError as exc:
+        print(f"  FAIL  the shipped model no longer reads: {exc}")
+        bad += 1
+    print()
+    return bad
+
+
 def main():
     bad = 0
     for name, host_num in (("P4_10Switches_4Hosts", 4), ("P4_10Switches_128Hosts", 128)):
@@ -177,6 +250,8 @@ def main():
               f"refusing -- that fabric is two islands, each healthy, forwarding nothing")
         bad += 1
     print()
+
+    bad += port_reuse_checks()
 
     print("PASS -- derived wiring is identical to the hard-coded lists" if not bad
           else f"FAIL -- {bad} mismatch(es); do NOT switch the builder over")

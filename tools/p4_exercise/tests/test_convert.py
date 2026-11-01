@@ -858,6 +858,158 @@ class Refusals(TmpMixin, unittest.TestCase):
             convert.plan(BASIC, "no-such-topo/topology.json")
 
 
+class HostAddressesTheLoaderAccepts(TmpMixin, unittest.TestCase):
+    """What convert writes must be something the proxy's package loader takes.
+
+    [Co-developed with claude code -- Adam]
+    A /0 prefix and a MAC spelled any way but the colon form converted fine and were refused only
+    at bring-up, by `app_package` (prefix_len 1..32; the manifest's MAC against the model's,
+    which prints the colon form). convert now asks that same code, so the refusal comes when the
+    exercise is converted, naming the host.
+    """
+
+    def _hosts(self, **change):
+        with open(os.path.join(BASIC, "pod-topo", "topology.json"), encoding="utf-8") as fh:
+            hosts = json.load(fh)["hosts"]
+        hosts["h1"].update(change)
+        return hosts
+
+    def _convert(self, tag, **change):
+        """Convert BASIC with h1 changed; returns the package directory (or raises)."""
+        exercise = os.path.join(self.tmp, f"exercise-{tag}")
+        shutil.copytree(BASIC, exercise)
+        path = os.path.join(exercise, "pod-topo", "topology.json")
+        with open(path, encoding="utf-8") as fh:
+            topo = json.load(fh)
+        topo["hosts"]["h1"].update(change)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(topo, fh)
+        out = os.path.join(self.tmp, f"pkg-{tag}")
+        convert.convert(exercise, "pod-topo/topology.json", out)
+        return out
+
+    def test_a_slash_zero_prefix_is_refused_and_the_host_is_named(self):
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert.parse_hosts(self._hosts(ip="10.0.1.1/0"))
+        self.assertIn("h1", str(cm.exception))
+        self.assertIn("prefix", str(cm.exception))
+
+    def test_prefixes_one_to_thirty_two_are_still_accepted(self):
+        for prefix in (1, 8, 24, 31, 32):
+            with self.subTest(prefix=prefix):
+                got = convert.parse_hosts(self._hosts(ip=f"10.0.1.1/{prefix}"))
+                self.assertEqual(got["h1"]["prefix_len"], prefix)
+
+    def test_a_prefix_past_thirty_two_is_still_refused(self):
+        with self.assertRaises(convert.ConversionError):
+            convert.parse_hosts(self._hosts(ip="10.0.1.1/33"))
+
+    def test_a_mac_that_is_not_in_the_colon_form_is_refused_and_the_host_is_named(self):
+        for i, mac in enumerate(("080000000111", "08-00-00-00-01-11", "8:0:0:0:1:11",
+                                 "08:00:00:00:01")):
+            with self.subTest(mac=mac):
+                with self.assertRaises(convert.ConversionError) as cm:
+                    self._convert(f"mac{i}", mac=mac)
+                self.assertIn("h1", str(cm.exception))
+                self.assertIn("mac", str(cm.exception))
+
+    def test_an_all_zero_mac_is_refused(self):
+        # The model would print the host's index instead of 00:..:00, so the manifest and the
+        # model disagree; the loader says so at bring-up.
+        with self.assertRaises(convert.ConversionError):
+            self._convert("zero", mac="00:00:00:00:00:00")
+
+    def test_the_colon_form_is_accepted_in_either_case(self):
+        for i, mac in enumerate(("08:00:00:00:01:1a", "08:00:00:00:01:1A")):
+            with self.subTest(mac=mac):
+                self.assertEqual(convert.parse_hosts(self._hosts(mac=mac))["h1"]["mac"], mac)
+                self._convert(f"case{i}", mac=mac)
+
+    def test_every_valid_variant_converts_and_loads_and_every_other_is_refused(self):
+        app_package = common.import_app_package()
+        valid = [dict(ip=f"10.0.1.1/{p}") for p in (1, 24, 32)] + [
+            dict(mac="08:00:00:00:01:11"), dict(mac="08:00:00:00:01:1A")]
+        invalid = [dict(ip="10.0.1.1/0"), dict(mac="080000000111"),
+                   dict(mac="08-00-00-00-01-11")]
+        for i, change in enumerate(valid):
+            with self.subTest(valid=change):
+                app_package.load(self._convert(f"ok{i}", **change))
+        for i, change in enumerate(invalid):
+            with self.subTest(invalid=change):
+                with self.assertRaises(convert.ConversionError):
+                    self._convert(f"bad{i}", **change)
+
+
+class APortUsedByTwoLinks(TmpMixin, unittest.TestCase):
+    """A switch port is one cable. `[["h1","s1-p1"],["h2","s1-p1"]]` is a typo, not a topology.
+
+    [Co-developed with claude code -- Adam]
+    Nothing downstream notices it: the model still reads back, every host is attached once, and
+    the two `addLink` calls on one bmv2 interface are found only at bring-up, after `mn -c`
+    had torn the running fabric down.
+    """
+
+    HOSTS = {"h1": {"ip": "10.0.1.1", "prefix_len": 24, "mac": "08:00:00:00:01:11",
+                    "commands": []},
+             "h2": {"ip": "10.0.1.2", "prefix_len": 24, "mac": "08:00:00:00:01:12",
+                    "commands": []}}
+    SWITCHES = {1: {"name": "s1", "entries": None}, 2: {"name": "s2", "entries": None},
+                3: {"name": "s3", "entries": None}}
+
+    def _refused(self, raw_links, hosts=None):
+        links = convert.parse_links(raw_links)
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert._check_link_endpoints(hosts or self.HOSTS, self.SWITCHES, links)
+        return str(cm.exception)
+
+    def test_two_hosts_on_one_switch_port_are_refused_and_the_port_is_named(self):
+        text = self._refused([["h1", "s1-p1"], ["h2", "s1-p1"]])
+        self.assertIn("s1", text)
+        self.assertIn("port 1", text)
+
+    def test_two_switch_cables_on_one_switch_port_are_refused(self):
+        hosts = {"h1": self.HOSTS["h1"]}
+        text = self._refused([["h1", "s1-p2"], ["s1-p1", "s2-p1"], ["s1-p1", "s3-p1"]], hosts)
+        self.assertIn("s1", text)
+        self.assertIn("port 1", text)
+
+    def test_a_host_on_a_port_a_cable_already_uses_is_refused(self):
+        hosts = {"h1": self.HOSTS["h1"]}
+        text = self._refused([["h1", "s2-p1"], ["s1-p2", "s2-p1"]], hosts)
+        self.assertIn("s2", text)
+        self.assertIn("port 1", text)
+
+    def test_the_same_cable_listed_twice_is_refused(self):
+        hosts = {"h1": self.HOSTS["h1"]}
+        text = self._refused([["h1", "s3-p1"], ["s1-p1", "s2-p1"], ["s2-p1", "s1-p1"]], hosts)
+        self.assertIn("port 1", text)
+
+    def test_distinct_ports_on_every_switch_still_pass(self):
+        links = convert.parse_links([["h1", "s1-p1"], ["h2", "s1-p2"], ["s1-p3", "s2-p1"]])
+        convert._check_link_endpoints(self.HOSTS, self.SWITCHES, links)
+
+    def test_the_same_port_number_on_two_different_switches_is_fine(self):
+        hosts = {"h1": self.HOSTS["h1"], "h2": self.HOSTS["h2"]}
+        links = convert.parse_links([["h1", "s1-p1"], ["h2", "s2-p1"], ["s1-p2", "s2-p2"]])
+        convert._check_link_endpoints(hosts, self.SWITCHES, links)
+
+    def test_a_whole_exercise_with_the_typo_is_refused_by_convert(self):
+        exercise = os.path.join(self.tmp, "exercise")
+        shutil.copytree(BASIC, exercise)
+        path = os.path.join(exercise, "pod-topo", "topology.json")
+        with open(path, encoding="utf-8") as fh:
+            topo = json.load(fh)
+        topo["links"][1] = ["h2", "s1-p1"]          # h1 is already on s1-p1
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(topo, fh)
+        out = os.path.join(self.tmp, "pkg")
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert.convert(exercise, "pod-topo/topology.json", out)
+        self.assertIn("s1", str(cm.exception))
+        self.assertIn("port 1", str(cm.exception))
+        self.assertFalse(os.path.exists(os.path.join(out, "package.json")))
+
+
 # --- the exercise's own CPU port ------------------------------------------------------------
 
 

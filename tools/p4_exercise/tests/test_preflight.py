@@ -586,6 +586,97 @@ class PackageRedCells(PackageCase):
         self.edit_model(dup)
         self.assert_red("topo_from_json.switches")
 
+    def test_two_links_on_one_switch_port_in_package_json_fail_and_name_the_port(self):
+        # The pod-topo package's first two links are h1->s1 port 1 and h2->s1 port 2; a
+        # copy-pasted port makes both claim s1 port 1. The counts still agree with the model.
+        def clash(d):
+            d["links"][1]["b"] = list(d["links"][0]["b"])
+        self.edit_package(clash)
+        self.assert_red("switch ports", "s1 port 1")
+
+    def test_two_hosts_on_one_switch_port_in_the_model_fail_and_name_the_port(self):
+        # Same typo in the model: h1 moved onto h2's switch port. Both directions are rewritten,
+        # as convert writes them, so the model is as well formed as the original except that
+        # one port now has two cables.
+        def clash(d):
+            h1 = next(n["ip"][0] for n in d["nodes"] if n.get("device_name") == "h1")
+            h2 = next(n["ip"][0] for n in d["nodes"] if n.get("device_name") == "h2")
+            h2_edge = next(e for e in d["edges"]
+                           if e["dst_dpid"] == 0 and e["dst_ip"] == [h2])
+            for e in d["edges"]:
+                if e["dst_dpid"] == 0 and e["dst_ip"] == [h1]:
+                    e["src_dpid"], e["src_interface"] = h2_edge["src_dpid"], h2_edge["src_interface"]
+                if e["src_dpid"] == 0 and e["src_ip"] == [h1]:
+                    e["dst_dpid"], e["dst_interface"] = h2_edge["src_dpid"], h2_edge["src_interface"]
+        self.edit_model(clash)
+        self.assert_red("topo_from_json.host_links", "port 2")
+
+    def test_two_links_sharing_their_first_end_in_package_json_fail(self):
+        # links[2] and links[3] are s1 port 3 and s1 port 4 on their first end.
+        self.edit_package(lambda d: d["links"][3].__setitem__("a", list(d["links"][2]["a"])))
+        self.assert_red("switch ports", "s1 port 3")
+
+    def test_a_first_end_on_a_second_end_in_package_json_fails(self):
+        # links[3]'s second end onto links[2]'s first: s1 port 3 again, across the two ends.
+        self.edit_package(lambda d: d["links"][3].__setitem__("b", list(d["links"][2]["a"])))
+        self.assert_red("switch ports", "s1 port 3")
+
+    def test_a_manifest_cable_on_another_port_than_the_models_fails_though_the_counts_agree(self):
+        # The model cables s1 port 3 to s3 port 1; the manifest now says port 7. Same number of
+        # links, no port used twice -- only a comparison of the links themselves sees it.
+        self.edit_package(lambda d: d["links"][2]["a"].__setitem__(1, 7))
+        self.assert_red("links agree", "only in package.json")
+        self.assert_red("links agree", "only in the model")
+
+    def test_a_manifest_access_link_on_another_port_than_the_models_fails(self):
+        self.edit_package(lambda d: d["links"][0]["b"].__setitem__(1, 9))
+        self.assert_red("links agree", "h1")
+
+    def test_a_switch_port_that_is_a_list_fails_links_agree_and_does_not_crash_switch_ports(self):
+        # links[2] is s1 port 3 - s3 port 1; a list for the port is unhashable, and the
+        # `switch ports` row must leave that link to `links agree`, which names it.
+        self.edit_package(lambda d: d["links"][2]["a"].__setitem__(1, [3]))
+        self.assert_red("links agree", "links[2] is not a readable link")
+
+    def test_ports_of_mixed_types_in_package_json_fail_links_agree_instead_of_crashing(self):
+        # links[2] is s1 port 3 - s3 port 1 and links[3] is s1 port 4 - s4 port 2. A quoted "3"
+        # and an integer 7 tie on the switch, so sorting the differences would compare str to int.
+        for label, port in (("a quoted number", "3"), ("null", None)):
+            with self.subTest(port=label):
+                shutil.rmtree(self.pkg)
+                convert.convert(self.exercise, self.topology, self.pkg, p4_rel=self.p4)
+
+                def mix(d):
+                    d["links"][2]["a"][1] = port
+                    d["links"][3]["a"][1] = 7
+                self.edit_package(mix)
+                self.assert_red("links agree", "links[2] is not a readable link")
+
+    def test_one_quoted_port_is_not_read_as_the_models_own_link(self):
+        # Without the type check this link reads as "s1 port '3'", differs from the model's
+        # s1 port 3, and the row prints the same-looking link on both sides.
+        self.edit_package(lambda d: d["links"][2]["a"].__setitem__(1, "3"))
+        self.assert_red("links agree", "links[2] is not a readable link")
+
+    def test_a_link_that_is_not_readable_fails_links_agree(self):
+        self.edit_package(lambda d: d["links"].__setitem__(1, {"a": ["h2", 1]}))
+        self.assert_red("links agree", "not a readable link")
+
+    def test_a_switch_first_access_link_the_loader_accepts_is_accepted_here_too(self):
+        # `{"a": ["s1", 1], "b": ["h1", 1]}` is the same link as `{"a": ["h1", 1], "b": ["s1", 1]}`:
+        # app_package.shaping_index matches a cable either way round. The loader keeps `links`
+        # as written and accepts the package, so what this pins is that pre-flight's own
+        # reading of the list is not stricter than that.
+        def swap(d):
+            link = d["links"][0]
+            link["a"], link["b"] = link["b"], link["a"]
+        self.edit_package(swap)
+        the_proxys_reader().load(self.pkg)
+        self.assert_green()
+
+    def test_distinct_ports_keep_the_switch_ports_row_green(self):
+        self.assertEqual(self.statuses().get("switch ports"), preflight.PASS)
+
     def test_a_missing_package_json_fails(self):
         os.remove(os.path.join(self.pkg, "package.json"))
         self.assert_red("package.json")
@@ -629,6 +720,107 @@ class CompileCheck(PackageCase):
                 preflight.run(self.pkg, compile_p4=True).rows}
         self.assertEqual(rows["p4c-bm2-ss"][0], preflight.INFO)
         self.assertIn("nothing to compile", rows["p4c-bm2-ss"][1])
+
+
+class MalformedInputIsARowNotATraceback(PackageCase):
+    """Pre-flight's whole job is to say FAIL; a Python traceback is the one answer it must not give.
+
+    [Co-developed with claude code -- Adam]
+    Each case feeds the tool a package a person could plausibly have typed by hand, and the
+    assertion is two-sided: `run` returns a report (it does not raise) and the report is red on
+    the row that names the problem.
+    """
+
+    p4 = "solution/basic.p4"
+    RUNTIME = "pod-topo/s1-runtime.json"
+
+    def test_a_switch_key_that_is_not_a_number_fails_instead_of_crashing(self):
+        self.edit_package(lambda d: d["switches"].__setitem__("s1", d["switches"].pop("1")))
+        self.assert_red("switches keys", "s1")
+
+    def test_a_table_entry_that_is_not_an_object_fails_instead_of_crashing(self):
+        self.edit_entries(self.RUNTIME, lambda d: d["table_entries"].__setitem__(0, "oops"))
+        self.assert_red("entries match p4info", "not an object")
+
+    def test_a_match_that_is_not_an_object_fails_instead_of_crashing(self):
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d["table_entries"][1].__setitem__("match", ["10.0.1.1", 32]))
+        self.assert_red("entries match p4info", "match")
+
+    def test_a_runtime_file_that_is_not_an_object_fails_instead_of_crashing(self):
+        with open(os.path.join(self.pkg, self.RUNTIME), "w", encoding="utf-8") as fh:
+            fh.write("[1, 2, 3]")
+        self.assert_red("entries match p4info", "not an object")
+
+    def test_a_host_that_is_not_an_object_fails_instead_of_crashing(self):
+        self.edit_package(lambda d: d["hosts"].__setitem__("h1", "oops"))
+        self.assert_red("hosts", "must be an object")
+
+    def test_an_empty_wrong_typed_section_is_read_as_absent_as_it_always_was(self):
+        # A falsy non-object `source` never made the checks crash and the loader never reads it;
+        # it must not become a new FAIL row.
+        self.edit_package(lambda d: d.__setitem__("source", ""))
+        self.assertNotIn("source", self.statuses())
+
+    def test_an_empty_match_list_is_no_match_as_it_always_was(self):
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d["table_entries"][1].__setitem__("match", []))
+        joined = " ".join(r[2] for r in self.report().rows)
+        self.assertNotIn("must be an object", joined)
+
+    def test_a_table_name_that_is_not_a_string_fails_instead_of_crashing(self):
+        self.edit_entries(self.RUNTIME, lambda d: d["table_entries"][1].__setitem__("table", ["x"]))
+        self.assert_red("entries match p4info", "is not in the p4info")
+
+    def test_an_action_name_that_is_not_a_string_fails_instead_of_crashing(self):
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d["table_entries"][1].__setitem__("action_name", ["x"]))
+        self.assert_red("entries match p4info", "is not in the p4info")
+
+    def test_action_params_that_are_not_an_object_fail_instead_of_crashing(self):
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d["table_entries"][1].__setitem__("action_params", ["x"]))
+        self.assert_red("entries match p4info", "action_params must be an object")
+
+    def test_table_entries_that_are_not_a_list_fail_instead_of_crashing(self):
+        self.edit_entries(self.RUNTIME, lambda d: d.__setitem__("table_entries", "oops"))
+        self.assert_red("entries match p4info", "not a list")
+
+    def test_a_section_of_the_wrong_type_fails_naming_the_section(self):
+        cases = {
+            "bmv2": lambda d: d.__setitem__("bmv2", [1]),
+            "switches": lambda d: d.__setitem__("switches", [1]),
+            "hosts": lambda d: d.__setitem__("hosts", [1]),
+            "source": lambda d: d.__setitem__("source", "x"),
+            "control_plane": lambda d: d.__setitem__("control_plane", [1]),
+            "links": lambda d: d.__setitem__("links", {"a": 1}),
+        }
+        for label, corrupt in cases.items():
+            with self.subTest(section=label):
+                shutil.rmtree(self.pkg)
+                convert.convert(self.exercise, self.topology, self.pkg, p4_rel=self.p4)
+                self.edit_package(corrupt)
+                self.assert_red(label, "must be")
+
+    def test_a_switch_that_is_not_an_object_fails_instead_of_crashing(self):
+        self.edit_package(lambda d: d["switches"].__setitem__("1", "oops"))
+        self.assert_red("switches", "must be an object")
+
+    def test_a_package_json_that_is_not_an_object_fails_instead_of_crashing(self):
+        with open(os.path.join(self.pkg, "package.json"), "w", encoding="utf-8") as fh:
+            fh.write("[1]")
+        self.assert_red("package.json", "not an object")
+
+    def test_a_compile_that_times_out_fails_instead_of_crashing(self):
+        timeout = preflight.subprocess.TimeoutExpired(cmd="p4c-bm2-ss", timeout=600)
+        with mock.patch.object(preflight.shutil, "which", return_value="/usr/bin/p4c-bm2-ss"), \
+                mock.patch.object(preflight.subprocess, "run", side_effect=timeout):
+            report = preflight.run(self.pkg, compile_p4=True)
+        rows = [r for r in report.rows if r[1] == "p4c-bm2-ss"]
+        self.assertTrue(rows, report.render())
+        self.assertEqual(rows[0][0], preflight.FAIL, report.render())
+        self.assertIn("timed out", rows[0][2])
+        self.assertIn("600", rows[0][2])
 
 
 class ValueWidths(unittest.TestCase):
