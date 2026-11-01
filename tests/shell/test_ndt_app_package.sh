@@ -102,8 +102,18 @@ for i in range(1, nh + 1):
                                         for sh in (40, 32, 24, 16, 8, 0)),
                         "commands": []}
     sw = (i - 1) % ns + 1
-    edges.append({"src_dpid": 0, "src_interface": 1, "dst_dpid": sw, "dst_interface": 1})
-    edges.append({"src_dpid": sw, "src_interface": 1, "dst_dpid": 0, "dst_interface": 1})
+    port = (i - 1) // ns + 1            # hosts sharing a switch get their own ports
+    edges.append({"src_dpid": 0, "src_interface": 1, "dst_dpid": sw, "dst_interface": port})
+    edges.append({"src_dpid": sw, "src_interface": port, "dst_dpid": 0, "dst_interface": 1})
+# [Co-developed with claude code -- Adam] The switches are cabled in a chain (ports 100/101):
+# app_package.load reads the cabling now, and several switches with no cable between them are a
+# fabric of islands, which the reader refuses. This test is about what `ndt` reads out of the
+# package, not about its wiring, so the cabling is the plainest one that loads.
+for s_dpid in range(1, ns):
+    edges.append({"src_dpid": s_dpid, "src_interface": 100, "dst_dpid": s_dpid + 1,
+                  "dst_interface": 101})
+    edges.append({"src_dpid": s_dpid + 1, "src_interface": 101, "dst_dpid": s_dpid,
+                  "dst_interface": 100})
 json.dump({"nodes": nodes, "edges": edges, "links": []},
           open(os.path.join(d, "ndtwin", "topology.json"), "w"), indent=2, sort_keys=True)
 json.dump({"format": 1, "name": os.path.basename(d), "topology": "ndtwin/topology.json",

@@ -1079,6 +1079,170 @@ class AOneSwitchFabricHasNoInterSwitchLinksTest(unittest.TestCase):
         self.assertEqual(topo_from_json.host_links(model), [("h1", 1, 1), ("h2", 1, 2)])
 
 
+class ASwitchPortIsOneCableTest(unittest.TestCase):
+    """`topo_from_json` refuses a model that puts two links on one switch port.
+
+    [Co-developed with claude code -- Adam]
+    A copy-pasted port number reads back as an ordinary model: every host is attached once and
+    every dpid is declared. What it leaves open is two `addLink` calls on one bmv2 interface,
+    found only after `mn -c` had torn the running fabric down. Each case below moves ONE end of ONE
+    link of the shipped four-host model onto a port something else already uses, so the model
+    is otherwise the one the fabric is built from; the last cases are the controls.
+
+    Ends are chosen on both sides of a cable on purpose. A check that registers only the lower
+    (dpid, port) of each cable passes every case that clashes on the higher one.
+    """
+
+    @staticmethod
+    def shipped():
+        return topo_from_json.load(FOUR_HOST_MODEL)
+
+    @staticmethod
+    def move_cable_end(model, cable, end, port):
+        """Give `end` (a (dpid, port) of `cable`, a (dpid, port, dpid, port) read) a new port."""
+        dpid, old = end
+        a_dpid, a_port, b_dpid, b_port = cable
+        other = (b_dpid, b_port) if end == (a_dpid, a_port) else (a_dpid, a_port)
+        for edge in model["edges"]:
+            if (edge["src_dpid"], edge["src_interface"]) == end \
+                    and (edge["dst_dpid"], edge["dst_interface"]) == other:
+                edge["src_interface"] = port
+            if (edge["dst_dpid"], edge["dst_interface"]) == end \
+                    and (edge["src_dpid"], edge["src_interface"]) == other:
+                edge["dst_interface"] = port
+
+    @staticmethod
+    def move_host(model, name, dpid, port):
+        ip = {n: i for n, i, _m in topo_from_json.hosts(model)}[name]
+        for edge in model["edges"]:
+            if edge.get("dst_dpid") == 0 and edge.get("dst_ip") == [ip]:
+                edge["src_dpid"], edge["src_interface"] = dpid, port
+            if edge.get("src_dpid") == 0 and edge.get("src_ip") == [ip]:
+                edge["dst_dpid"], edge["dst_interface"] = dpid, port
+
+    def refused(self, read, *needles):
+        with self.assertRaises(topo_from_json.TopologyModelError) as caught:
+            read()
+        for needle in needles:
+            self.assertIn(needle, str(caught.exception))
+
+    def test_two_cables_on_the_lower_dpid_end_are_refused(self):
+        # s1 port 1 is the cable to s5; the s1-s6 cable is moved onto it.
+        model = self.shipped()
+        self.move_cable_end(model, (1, 2, 6, 1), (1, 2), 1)
+        self.refused(lambda: topo_from_json.switch_links(model), "switch 1", "port 1")
+
+    def test_two_cables_on_the_higher_dpid_end_are_refused(self):
+        # s5 port 1 is the cable to s1; the s2-s5 cable (s5 port 2) is moved onto it.
+        model = self.shipped()
+        self.move_cable_end(model, (2, 1, 5, 2), (5, 2), 1)
+        self.refused(lambda: topo_from_json.switch_links(model), "switch 5", "port 1")
+
+    def test_a_cable_from_a_port_to_itself_is_refused(self):
+        model = self.shipped()
+        model["edges"].append({"src_dpid": 1, "src_interface": 9, "src_ip": [],
+                               "dst_dpid": 1, "dst_interface": 9, "dst_ip": []})
+        self.refused(lambda: topo_from_json.switch_links(model), "switch 1", "port 9")
+
+    def test_a_host_on_the_lower_end_of_a_cable_is_refused(self):
+        model = self.shipped()
+        self.move_host(model, "h1", 1, 1)         # s1 port 1 is the cable to s5
+        self.refused(lambda: topo_from_json.host_links(model), "switch 1", "port 1", "h1")
+
+    def test_a_host_on_the_higher_end_of_a_cable_is_refused(self):
+        model = self.shipped()
+        self.move_host(model, "h1", 5, 1)         # s5 port 1 is the same cable's other end
+        self.refused(lambda: topo_from_json.host_links(model), "switch 5", "port 1", "h1")
+
+    def test_two_hosts_on_one_port_are_refused_and_both_are_named(self):
+        model = self.shipped()
+        self.move_host(model, "h1", 2, 3)         # h2 is on s2 port 3
+        self.refused(lambda: topo_from_json.host_links(model), "switch 2", "port 3", "h1", "h2")
+
+    def test_the_shipped_models_still_read(self):
+        for path in (FOUR_HOST_MODEL, HOST_128_MODEL):
+            with self.subTest(model=os.path.basename(path)):
+                model = topo_from_json.load(path)
+                self.assertEqual(len(topo_from_json.switch_links(model)), 16)
+                self.assertTrue(topo_from_json.host_links(model))
+
+    def test_a_cable_stored_in_both_directions_is_one_use_of_each_port(self):
+        # The control for the whole class: the shipped model stores every edge twice, and a
+        # model that lists a cable a third time says the same thing again, not a new thing.
+        model = self.shipped()
+        again = [dict(e) for e in model["edges"] if e["src_dpid"] == 1 and e["dst_dpid"] == 5]
+        model["edges"].extend(again)
+        self.assertEqual(len(topo_from_json.switch_links(model)), 16)
+
+
+class APortClashIsRefusedWhenThePackageLoadsTest(unittest.TestCase):
+    """The loader reads the cabling too, so the refusal comes before the running fabric is torn down.
+
+    [Co-developed with claude code -- Adam]
+    `load` already parses the model so that an unusable one is known before Mininet has been
+    torn down; it just did not read the cables and the host attachments, which
+    is where a doubled port is found. A package converted before the converter refused the
+    typo, or a model edited after pre-flight, would otherwise reach `mn -c` first.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_port_clash_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.entries = [f"pod-topo/s{i}-runtime.json" for i in range(1, 5)]
+        self.directory = lay_out_converter_package(self.tmp, CONVERTER_BASIC, "basic",
+                                                   self.entries)
+        self.model_path = os.path.join(self.directory, "ndtwin", "topology.json")
+
+    def edit_model(self, edit):
+        with open(self.model_path) as fh:
+            model = json.load(fh)
+        edit(model)
+        with open(self.model_path, "w") as fh:
+            json.dump(model, fh)
+
+    def test_the_untouched_package_loads(self):
+        self.assertEqual(len(app_package.load(self.directory).hosts), 4)
+
+    def test_a_cable_whose_port_is_not_a_number_is_refused_not_a_traceback(self):
+        def corrupt(model):
+            edge = next(e for e in model["edges"] if e["src_dpid"] and e["dst_dpid"])
+            edge["src_interface"] = [1]
+        self.edit_model(corrupt)
+        with self.assertRaises(app_package.AppPackageError) as caught:
+            app_package.load(self.directory)
+        self.assertIn("not a usable NDTwin topology model", str(caught.exception))
+
+    def test_a_port_cabled_to_itself_is_refused(self):
+        # A cable from s1 port 9 back to s1 port 9: one port, two ends of the same link.
+        self.edit_model(lambda model: model["edges"].append(
+            {"src_dpid": 1, "src_interface": 9, "src_ip": [],
+             "dst_dpid": 1, "dst_interface": 9, "dst_ip": []}))
+        with self.assertRaises(app_package.AppPackageError) as caught:
+            app_package.load(self.directory)
+        self.assertIn("switch 1 port 9 is cabled to itself", str(caught.exception))
+
+    def test_an_edge_that_is_not_an_object_is_refused_not_a_traceback(self):
+        self.edit_model(lambda model: model["edges"].append(5))
+        with self.assertRaises(app_package.AppPackageError) as caught:
+            app_package.load(self.directory)
+        self.assertIn("not a usable NDTwin topology model", str(caught.exception))
+
+    def test_two_hosts_on_one_switch_port_are_refused(self):
+        # h1 is on s1 port 1 and h2 on s1 port 2.
+        self.edit_model(lambda m: ASwitchPortIsOneCableTest.move_host(m, "h2", 1, 1))
+        with self.assertRaises(app_package.AppPackageError) as caught:
+            app_package.load(self.directory)
+        self.assertIn("switch 1 port 1", str(caught.exception))
+
+    def test_two_cables_on_one_switch_port_are_refused(self):
+        # s1 port 3 goes to s3 and s1 port 4 to s4; the second is moved onto port 3.
+        self.edit_model(lambda m: ASwitchPortIsOneCableTest.move_cable_end(
+            m, (1, 4, 4, 2), (1, 4), 3))
+        with self.assertRaises(app_package.AppPackageError) as caught:
+            app_package.load(self.directory)
+        self.assertIn("switch 1 port 3", str(caught.exception))
+
+
 # --- one word, three readers -----------------------------------------------------------------
 
 

@@ -1024,6 +1024,13 @@ def plan_fabric(package=None, report=print):
     report(f"app package: {package.dir or 'baseline (no knob file)'}")
     report(f"topology model: {model_path}")
     dpids = [dpid for dpid, _ in topo_from_json.switches(model)]
+    # [Co-developed with claude code -- Adam]
+    # The cabling is read here as well as in MultiSwitchTopo, which runs only after
+    # reset_for_bring_up: a model that puts two links on one switch port must stop the run
+    # while the old fabric is still up. app_package.load does the same for a package's model;
+    # the baseline and NDTWIN_P4_TOPO_FILE do not go through it. Both reads raise.
+    topo_from_json.switch_links(model)
+    topo_from_json.host_links(model)
 
     # [Co-developed with claude code -- Adam]
     # 🔴 EVERY SWITCH, BY NAME. This used to check dpid 1's json and call the fabric pre-flighted.

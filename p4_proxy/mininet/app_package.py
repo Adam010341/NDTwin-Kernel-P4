@@ -699,7 +699,12 @@ def _election_id(value, where, default):
     return (high, low)
 
 
-def _hosts(raw, where):
+def parse_hosts(raw, where):
+    """The manifest's `hosts` -> tuple of HostSpec, refusing what the fabric cannot be built from.
+
+    [Co-developed with claude code -- Adam] Public because tools/p4_exercise/convert.py asks it
+    the same question about an exercise's hosts before it writes them.
+    """
     if not isinstance(raw, dict):
         raise AppPackageError(f"{where}: 'hosts' must be an object, got {type(raw).__name__}")
     out = []
@@ -821,7 +826,7 @@ def _switches(raw, package_dir, where):
     return tuple(out)
 
 
-def _hosts_agree_with_the_model(hosts, model_hosts, topology, where):
+def hosts_agree_with_the_model(hosts, model_hosts, topology, where):
     """The manifest's hosts and the topology model's must be the same hosts.
 
     [Co-developed with claude code -- Adam]
@@ -873,6 +878,12 @@ def _hosts_agree_with_the_model(hosts, model_hosts, topology, where):
                 f"{where}: hosts.{name} has mac {spec.mac!r} but the topology model gives it "
                 f"{model_mac_str!r}. Static ARP entries written from one and resolved against "
                 f"the other are a fabric that drops every frame for this host")
+
+
+# The private spellings stay: `load` calls them by these names, and
+# tests/shell/mutate_app_package.sh anchors on that call (M26).
+_hosts = parse_hosts
+_hosts_agree_with_the_model = hosts_agree_with_the_model
 
 
 def parse_roles(raw, where) -> Optional[Roles]:
@@ -1001,7 +1012,12 @@ def load(package_dir) -> Package:
         model = topo_from_json.load(topology)
         topo_from_json.switches(model)
         model_hosts = topo_from_json.hosts(model)
-    except (OSError, ValueError, KeyError) as exc:
+        # [Co-developed with claude code -- Adam] The cabling is read here too, for the same
+        # reason: a switch port two links claim is only found when the builder reads the
+        # cables, and by then the running fabric has been torn down. Both reads raise.
+        topo_from_json.switch_links(model)
+        topo_from_json.host_links(model)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         raise AppPackageError(
             f"{where}: topology {topology} is not a usable NDTwin topology model: "
             f"{type(exc).__name__}: {exc}") from exc

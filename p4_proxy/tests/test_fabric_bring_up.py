@@ -39,6 +39,7 @@ files directly and parses "Ran N tests".
 
 import atexit
 import contextlib
+import dataclasses
 import importlib.util
 import io
 import json
@@ -2558,6 +2559,140 @@ class TheTwoEntryPointsBringLinkTelemetryUpTheSameWayTest(FabricFixture):
         # Neither main passes a path -- `ndt status`, `verify_p4` and the proxy's
         # `switch_state` all find the emitter through this one name.
         self.assertEqual(link_telemetry.LINK_TELEMETRY_MANIFEST, self.link_manifest)
+
+
+def repoint_cable_end(path, end, other, port):
+    """Rewrite the model file at `path` so the cable end..other has `port` on the `end` side."""
+    with open(path) as fh:
+        model = json.load(fh)
+    for edge in model["edges"]:
+        if (edge["src_dpid"], edge["src_interface"]) == end \
+                and (edge["dst_dpid"], edge["dst_interface"]) == other:
+            edge["src_interface"] = port
+        if (edge["dst_dpid"], edge["dst_interface"]) == end \
+                and (edge["src_dpid"], edge["src_interface"]) == other:
+            edge["dst_interface"] = port
+    with open(path, "w") as fh:
+        json.dump(model, fh)
+
+
+def repoint_host(path, name, dpid, port):
+    """Rewrite the model file at `path` so host `name` is attached to switch `dpid` port `port`."""
+    with open(path) as fh:
+        model = json.load(fh)
+    ip = next(n["ip"][0] for n in model["nodes"] if n.get("device_name") == name)
+    for edge in model["edges"]:
+        if edge.get("dst_dpid") == 0 and edge.get("dst_ip") == [ip]:
+            edge["src_dpid"], edge["src_interface"] = dpid, port
+        if edge.get("src_dpid") == 0 and edge.get("src_ip") == [ip]:
+            edge["dst_dpid"], edge["dst_interface"] = dpid, port
+    with open(path, "w") as fh:
+        json.dump(model, fh)
+
+
+class AClashingModelIsRefusedBeforeTheTeardownTest(FabricFixture):
+    """Two links on one switch port stop the run in plan_fabric, while the old fabric still runs.
+
+    [Co-developed with claude code -- Adam]
+    `topo_from_json.switch_links`/`host_links` are what refuse the typo, and the builder calls
+    them from inside MultiSwitchTopo -- after `reset_for_bring_up` has run `mn -c` and torn the
+    running fabric down, and outside the try that turns model errors into "Error:". So the
+    refusal is also made by the pre-flight, and these cases pin that it is the pre-flight that
+    makes it: nothing is reset, nothing is built, and no `addLink` is ever issued.
+    """
+
+    def drive_a_main(self, main, **extra):
+        reset, nets, addlinks = [], [], []
+        # [Co-developed with claude code -- Adam] ntg_bmv2_topo.main refuses first when its NTG
+        # checkout is missing, which is the case on a machine that has none (a CI runner). The
+        # case is about the cabling refusal, so give that main a directory that exists.
+        self.patch(ntg, "NTG_DIR", self.tmp)
+        self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: reset.append(ports))
+        real_add_link = StubTopo.addLink
+
+        def counting_add_link(topo, a, b, **kwargs):
+            addlinks.append((a, b))
+            return real_add_link(topo, a, b, **kwargs)
+
+        self.patch(StubTopo, "addLink", counting_add_link)
+
+        def build(package, model, grpc_host=None):
+            nets.append(RecordingNet(package, model, grpc_host=grpc_host))
+            return nets[-1]
+
+        self.patch(testbed, "build_net", build)
+        self.patch(testbed, "CLI", lambda net: None)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            with self.assertRaises(SystemExit) as ctx:
+                main(**extra)
+        return ctx.exception.code, out.getvalue(), reset, nets, addlinks
+
+    def clashing_model_file(self, clash="cables"):
+        """The shipped four-host model with a clash: the s1-s6 cable moved onto s1 port 1 (s1-s5's),
+        or, for clash="hosts", h1 moved onto h2's port (s2 port 3).
+
+        Two clashes because the pre-flight reads the cables and the host attachments with two
+        calls, and a model that clashes in only one of them has to stop the run too."""
+        self.patch(app_package, "KNOB_PATH", os.path.join(self.tmp, "no_such_knob"))
+        # The baseline's compiled program is a build output this checkout may not have; the
+        # refusal under test does not depend on it, so the case brings its own (empty) pair.
+        pair = tuple(os.path.join(self.tmp, name) for name in ("stub.p4info", "stub.json"))
+        for stub in pair:
+            open(stub, "w").close()
+        real_baseline = app_package.baseline
+        self.patch(app_package, "baseline",
+                   lambda: dataclasses.replace(real_baseline(), pipeline=pair))
+        path = os.path.join(self.tmp, "clash.json")
+        shutil.copy(FOUR_HOST_MODEL, path)
+        if clash == "hosts":
+            repoint_host(path, "h1", 2, 3)
+        else:
+            repoint_cable_end(path, (1, 2), (6, 1), 1)
+        self.setenv("NDTWIN_P4_TOPO_FILE", path)
+
+    def clashing_package(self):
+        """A package whose pod-topo model has s1 port 4's cable moved onto port 3's."""
+        self.setenv("NDTWIN_P4_TOPO_FILE", None)
+        pkg = load_two_program_package_fixture(name="clash-two-programs")
+        repoint_cable_end(pkg.topology, (1, 4), (4, 2), 3)
+        self.use_package(pkg)
+
+    def test_plan_fabric_refuses_a_model_file_with_the_clash(self):
+        self.clashing_model_file()
+        with self.assertRaises(topo_from_json.TopologyModelError) as ctx:
+            self.plan()
+        self.assertIn("switch 1 port 1", str(ctx.exception))
+
+    def test_plan_fabric_refuses_a_model_file_with_two_hosts_on_one_port(self):
+        self.clashing_model_file("hosts")
+        with self.assertRaises(topo_from_json.TopologyModelError) as ctx:
+            self.plan()
+        self.assertIn("switch 2 port 3", str(ctx.exception))
+
+    def test_plan_fabric_refuses_a_package_whose_model_has_the_clash(self):
+        self.clashing_package()
+        with self.assertRaises(app_package.AppPackageError) as ctx:
+            self.plan()
+        self.assertIn("switch 1 port 3", str(ctx.exception))
+
+    def test_both_mains_stop_before_the_reset_and_issue_no_addlink(self):
+        for label, main, extra in (("p4_testbed_topo.main", testbed.main, {}),
+                                   ("ntg_bmv2_topo.main", ntg.main,
+                                    {"enter_cli": lambda net: None})):
+            for how in ("model file, cables", "model file, hosts", "package"):
+                with self.subTest(main=label, model=how):
+                    if how == "package":
+                        self.clashing_package()
+                    else:
+                        self.clashing_model_file("hosts" if "hosts" in how else "cables")
+                    code, printed, reset, nets, addlinks = self.drive_a_main(main, **extra)
+                    self.assertEqual(1, code)
+                    self.assertIn("Error:", printed)
+                    self.assertIn("port", printed)
+                    self.assertEqual([], reset, "the running fabric was reset first")
+                    self.assertEqual([], nets, "a net was built on a refused model")
+                    self.assertEqual([], addlinks, "a link was added on a refused model")
 
 
 if __name__ == "__main__":

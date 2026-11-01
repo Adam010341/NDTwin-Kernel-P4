@@ -13,7 +13,8 @@ import os
 import sys
 import tempfile
 
-REPO = "/home/adam/Desktop/NDTwin-Kernel"
+# [Co-developed with claude code -- Adam]
+REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 sys.path.insert(0, os.path.join(REPO, "p4_proxy", "mininet"))
 import topo_from_json as T  # noqa: E402
 
