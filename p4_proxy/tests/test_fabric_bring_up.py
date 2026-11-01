@@ -2603,6 +2603,10 @@ class AClashingModelIsRefusedBeforeTheTeardownTest(FabricFixture):
 
     def drive_a_main(self, main, **extra):
         reset, nets, addlinks = [], [], []
+        # [Co-developed with claude code -- Adam] ntg_bmv2_topo.main refuses first when its NTG
+        # checkout is missing, which is the case on a machine that has none (a CI runner). The
+        # case is about the cabling refusal, so give that main a directory that exists.
+        self.patch(ntg, "NTG_DIR", self.tmp)
         self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: reset.append(ports))
         real_add_link = StubTopo.addLink
 
