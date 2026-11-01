@@ -747,7 +747,7 @@ else
         # 2026-09-02: the count itself was still unittest's for both types -- a bare
         # `grep '^Ran [0-9]+'` -- and tests/shell has three summary forms of which only one
         # starts with "Ran". The five suites that print the other two were scored ran=0 and
-        # counted as failures while every check in them was ok (raw/B15, raw/B16), so this lane
+        # counted as failures while every check in them was ok, so this lane
         # and local_ci.sh were red on a green tree. Shell logs now go through shell_summary,
         # which knows all three forms and still answers 0 for a log it cannot read.
         ran=0; failed=0

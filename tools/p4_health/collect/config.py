@@ -2,8 +2,8 @@
 
 [Co-developed with claude code -- Adam]
 
-design section 4.1: the proxy's and the kernel's addresses and every knob path come from one
-`Config`. Section 12 item 9: the Config carries HTTP CLIENT OBJECTS, not URLs, so a test hands it
+The proxy's and the kernel's addresses and every knob path come from one
+`Config`. The Config carries HTTP CLIENT OBJECTS, not URLs, so a test hands it
 an in-process client and no socket is ever opened.
 """
 from __future__ import annotations

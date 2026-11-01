@@ -2,7 +2,7 @@
 
 [Co-developed with claude code -- Adam]
 
-Every call goes through `cfg.proxy`, the HTTP client object the Config carries (design 12-9):
+Every call goes through `cfg.proxy`, the HTTP client object the Config carries:
 production hands it a urllib client for localhost:8081, the tests an in-process fake.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ def switch_state(cfg):
 def openapi_paths(cfg):
     """{path: set(methods)} from /openapi.json, or None when it could not be read.
 
-    design 2.1 "route 存在與否": a route that is not in the proxy's own OpenAPI document is
+    Route presence: a route that is not in the proxy's own OpenAPI document is
     NDTwin saying it has no such endpoint -- a structural answer, read before any oracle.
     """
     reply = cfg.proxy.get("/openapi.json")

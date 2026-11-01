@@ -61,7 +61,7 @@ _IPV4_RE = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
 
 #: The two match types this file checks with its own (looser) encoder. TERNARY, RANGE and
 #: OPTIONAL go to the proxy's `match_shape`, and anything else is refused with the proxy's
-#: own sentence. The first version was exact and lpm only; G5 added the rest.
+#: own sentence. The first version was exact and lpm only; the rest came later.
 _EXACT_OR_LPM = ("EXACT", "LPM")
 
 
@@ -681,7 +681,7 @@ def _check_telemetry(report, package_dir, package, pipeline_p4info):
                   f"every switch's p4info declares the five packet_in fields")
 
 
-# --- the PRE entries a runtime file declares (G8/G9a) --------------------------
+# --- the PRE entries a runtime file declares ------------------------------------
 
 
 def _switch_ports(model):
@@ -807,7 +807,7 @@ def _check_pre_entries(report, package_dir, package, model, referenced):
                   f"session(s); every replica names a port the model builds")
 
 
-# --- the per-switch pipeline (G4) --------------------------------------------------------------
+# --- the per-switch pipeline -------------------------------------------------------------------
 
 def bmv2_json_names(bmv2):
     """(table names, action names) a compiled bmv2 JSON declares.

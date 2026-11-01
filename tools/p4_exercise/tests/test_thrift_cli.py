@@ -11,7 +11,7 @@ a P4Runtime runtime file: niloysh/int-v1 @84a3ebe8 (MIT) installs its INT source
 with priority 0 and two zero masks. No FILE from that repository is copied here. The p4info
 below is written by hand: for the three tables and the actions the app's runtime files and CLI
 lines use, it has the names, widths and match kinds int-v1's compiled p4info has (checked
-against the compile, logs gates-0910/p4-paper-apps/22_p4info_shapes.log), but it is a SUBSET --
+against the compile), but it is a SUBSET --
 ipv4_lpm's NoAction ref and the tb_set_sink table are left out -- and two tables of our own are
 added for the range and mixed lpm/ternary rules. The two CLI command lines below, and the
 script lines `#!/bin/bash`, `SWITCH_NUM=1` and the THRIFT_PORT assignment, are int-v1's

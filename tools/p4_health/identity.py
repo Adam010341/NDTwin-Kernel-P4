@@ -1,12 +1,12 @@
-"""What a lab run ran: the Q6(a) gate fingerprint and the system under test.
+"""What a lab run ran: the gate fingerprint and the system under test.
 
 [Co-developed with claude code -- Adam]
 
-DESIGN 9 Q6(a), r5/r6: the first live run is authorized by name; a later rerun gets the standing
+The first live run is authorized by name; a later rerun gets the standing
 authorization only if everything OUTSIDE the "may differ" classes is the same as in that first
 run. This module computes that comparison's input -- one digest per part and one over all -- so
 the first run's health.json carries it (`gate_fingerprint`), and records the system under test
-with the existing code_identity.py (`system_under_test`, design 4.3).
+with the existing code_identity.py (`system_under_test`).
 
 May differ (the fixes under test, and text no tool executes):
   p4_proxy/proxy_agent/** except sflow_emitter.py (root runs that one); src/**, include/**,
@@ -144,7 +144,7 @@ def _which(tool):
 
 
 def system_under_test(runner, repo, run_dir, python, script):
-    """design 4.3: the path of a code_identity.py record of this checkout, or None."""
+    """The path of a code_identity.py record of this checkout, or None."""
     out = os.path.join(run_dir, "code_identity.json")
     res = runner.run([python, script, "record", repo, out], timeout=300)
     return out if res.rc == 0 and os.path.isfile(out) else None

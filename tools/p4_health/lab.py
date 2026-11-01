@@ -2,14 +2,14 @@
 
 [Co-developed with claude code -- Adam]
 
-design 4.2's order. S0 must be COMPLETE before anything touches the lab. Then each bring-up is
+In that order. S0 must be COMPLETE before anything touches the lab. Then each bring-up is
 one LabRound (claim -> up -> body -> teardown, crash-safe), on its OWN package directory inside
 the run directory (S0 wrote them to <run>/packages/<name>), and nothing is judged until both are
 done: A's cells whose RED needs a `bmv2` attribution get it from B's confirmed attributions, so
 judging A alone would make every one of them UNATTRIBUTED.
 
-`--only` narrows bring-up A (round_a.expand) and keeps B's attributions (design 4.4); the
-see-red run of design 5.2-④ is `--mutant --only K1,TTL1 --bringups A`.
+`--only` narrows bring-up A (round_a.expand) and keeps B's attributions; the
+see-red run is `--mutant --only K1,TTL1 --bringups A`.
 """
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ def merge(observations, confirmed):
 
 
 def ended_clean(lab_round, rec):
-    """Why a round did NOT end clean, or [] (Cut 2 review MAJOR-3): released, `ndt down` and
+    """Why a round did NOT end clean, or []: released, `ndt down` and
     `ndt release` rc 0, no process it failed to stop, nothing left in its state file. Only then
     may the next bring-up claim the lab -- anything else is recover.sh's to finish first."""
     st, why = lab_round.state, []
@@ -98,14 +98,14 @@ def keep_state(cfg, bringup):
 
 
 def take_unrecorded(cfg, holder, recs):
-    """(Cut 2 round 5, NIT 10) A stop (or any exception) that leaves a round's `run()` after the record is
+    """A stop (or any exception) that leaves a round's `run()` after the record is
     final but before `recs.append` has run leaves that round out of health.json. Every round that was
     started keeps its record in `.rec`: add the ones missing, and the state file as that round left it."""
     for lr in holder.get("rounds") or []:
         rec = getattr(lr, "rec", None)
         if rec is not None and not any(rec is r for r in recs):
             if rec.get("seconds") is None:
-                # (round 6, finding 4) `_finish` sets "seconds": it never ran, so the teardown may not have
+                # `_finish` sets "seconds": it never ran, so the teardown may not have
                 # either, and `complete` may still be the True the end of the body set
                 rec["complete"] = False
                 rec["problems"].append("the round was cut off before its record was finished (its teardown may "
@@ -128,7 +128,7 @@ _STOP_BITS = {s: 1 << (int(s) - 1) for s in STOP_SIGNALS}
 
 
 def stop_signal_threads_refusal():
-    """(Cut 2 round 7, finding 1) "" when every thread of this process other than the calling one blocks SIGTERM, SIGINT
+    """The empty string when every thread of this process other than the calling one blocks SIGTERM, SIGINT
     and SIGHUP, else the sentence that says why the lab must not be touched.
 
     The round's mask (lab_round.LabRound._masked) blocks the three in the calling thread only. A stop sent to the
@@ -180,11 +180,11 @@ def _swap_handlers(handlers):
 
 
 def _stop_on_signals(noted=None):
-    """(Cut 2 review N1) For the whole run, not only inside a round: a stop signal between A's
+    """For the whole run, not only inside a round: a stop signal between A's
     teardown and B's claim raises SignalAbort here too, instead of killing the probe with its
     default action. Returns the handlers it replaced.
 
-    (round 6, finding 3) One-shot, like the round's: the first stop puts a noter in BEFORE it raises, so a
+    One-shot, like the round's: the first stop puts a noter in BEFORE it raises, so a
     second one -- while run_lab's `except SignalAbort` body is copying files, say -- is only noted (appended
     to `noted`) and cannot raise over the first, out of run_lab and out of main()."""
     noted = noted if noted is not None else []
@@ -237,7 +237,7 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
         if signalled(recs[-1]):
             problems.append("stop signal during bring-up B")
         elif b.failed:
-            # (Cut 2 review N2) a B that claimed the lab but whose controller did nothing
+            # a B that claimed the lab but whose controller did nothing
             problems.append("B's controller did not do its part: %s" % b.failed)
             log("  " + problems[-1])
 
@@ -247,7 +247,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
             expected_tsv=None, log=print, identity=None, signals=True, frozen=None):
     """Returns (rc, health document). rc: 0 COMPLETE, 1 PROBE-BROKEN, 2 INCOMPLETE or SEE-RED-NOT-SEEN.
 
-    (Cut 2 round 5, #2) Whatever ends the run early -- S0 not COMPLETE, a set-up that fails
+    Whatever ends the run early -- S0 not COMPLETE, a set-up that fails
     (load_model, expectations), a round that cannot start (LAB_STATE.json left by an unfinished
     round, a package outside the run dir) -- is INCOMPLETE rc 2 with a health.json that says why:
     rc 1 is PROBE-BROKEN only, which on the see-red run is the pass.
@@ -265,7 +265,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
         log(problems[-1])
     else:
         try:
-            # (round 7, finding 4) S0 checks its copy of exercise/ twice, right after compile_all and again right after
+            # S0 checks its copy of exercise/ twice, right after compile_all and again right after
             # packages() (the shared tree's convert.py gets the copy as its input in between). Its self-checks and
             # controller trial run after that second check, so the copy is checked here once more, against the same
             # pinned commit, immediately before gen_runtime.py is loaded from it. This is before any claim: a refusal
@@ -299,7 +299,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
                     log, holder)
         except SignalAbort as exc:
             take_unrecorded(cfg, holder, recs)
-            # (Cut 2 review N1) between rounds, or before a round's own handlers are in place
+            # between rounds, or before a round's own handlers are in place
             problems.append("stop signal %d outside a bring-up's body: the run ends here; finish with "
                             "recover.sh %s if a round was under way" % (exc.signum, run_dir))
             run_stopped.append(exc.signum)
@@ -327,8 +327,8 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     ann = E.annotate(ctx, expected)
     rollups = {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}
     complete = bool(recs) and all(r.get("complete") is True for r in recs) and not problems
-    # (round 4, F3) a recorded stop overrides the headline; a see-red pass needs a complete, clean run.
-    # (round 5, #2) So does a run that ended early on an exception, or never started: it is
+    # a recorded stop overrides the headline; a see-red pass needs a complete, clean run.
+    # So does a run that ended early on an exception, or never started: it is
     # INCOMPLETE whatever the cells that did get read say.
     stopped = any(signalled(r) for r in recs) or bool(run_stopped) or ended_early
     verdict, rc = V.run_verdict(ctx, bringups_complete=complete, stopped=stopped, see_red=bool(mutant))
@@ -345,15 +345,15 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
     doc["root_code"] = frozen.root_code            # what root ran: sha256 of the copies
     doc["frozen_head"] = frozen.head                # the commit every copy was checked against (None: unchecked)
     doc["frozen_code"] = frozen.sums               # every file any round ran, as relative path -> sha256
-    # (Cut 2 review m4) design 4.3's system_under_test and the Q6(a) gate fingerprint
+    # the system under test and the gate fingerprint
     doc["system_under_test"] = (identity or {}).get("system_under_test")
     doc["gate_fingerprint"] = (identity or {}).get("gate_fingerprint")
-    # (round 6, finding 5) observations.json first and health.json LAST, each through tmp + os.replace: a write
+    # observations.json first and health.json LAST, each through tmp + os.replace: a write
     # that fails (ENOSPC is the likely one) leaves no health.json carrying a verdict next to an rc of 2, and
     # nothing is written after the file that says what the run was. (The log lines below can still fail; the
     # catch-all in probe.main sets health.json aside as not-a-verdict when anything does.)
     R.write_json_atomic(os.path.join(run_dir, "observations.json"),
-                        # (round 5, NIT 11) with what `probe.py judge` reads to give the headline this run got
+                        # with what `probe.py judge` reads to give the headline this run got
                         {"cells": observations, "self_checks": a.sc_observations if a else {},
                          "bringups_complete": complete, "stopped": stopped, "see_red": bool(mutant),
                          "bringups": recs, "problems": problems}, default=_jsonable)

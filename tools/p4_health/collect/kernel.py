@@ -35,7 +35,7 @@ def side_rows(flow_doc):
 def side_row_for(rows, ethertype, src_mac, dst_mac):
     """The side-table row for exactly this ethertype AND this MAC pair, or None.
 
-    🔴 ALL THREE KEYS (design 2.3 CH7). Matching on the ethertype alone lets CH2's
+    🔴 ALL THREE KEYS (CH7). Matching on the ethertype alone lets CH2's
     0x1234 row, or any host's ARP, answer for CH7; matching without the destination MAC lets a
     row from another pair answer for this one.
     """

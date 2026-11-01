@@ -35,26 +35,26 @@ from p4_health.collect.runner import Runner  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-#: (Cut 2 round 5, #5) Every module of the package that the probe process can load on a lab run. `cmd_lab`
+#: Every module of the package that the probe process can load on a lab run. `cmd_lab`
 #: imports them all BEFORE its clean check, so that no module of the package is first read from the shared
 #: tree after the check: identity.py (the gate fingerprint, the standing authorization's baseline) and the
 #: modules S0 imports lazily (vs_trial, ctrl_trial, round_b, ...) used to be first imported ~2 minutes later,
 #: from whatever the tree held then. Chosen over re-verifying each loaded module's file against HEAD just
 #: before run_lab because the check would compare the FILE, not the code the process loaded (an edit made and
 #: undone in between passes it), and because it could not cover a module loaded after it.
-#: What the list does not cover, and what covers it instead (round 6; "no probe code is read after the check"
+#: What the list does not cover, and what covers it instead ("no probe code is read after the check"
 #: was never true):
 #:   * files exec'd by path, which are never in sys.modules: exercise/gen_runtime.py (the model). S0 copies
 #:     exercise/ into the run dir and checks the copy against the pinned commit right after compile_all
 #:     (frozen.check_tree: a mismatch is rc 2 before any lab action); lab.load_model, S0 and the controller trial
-#:     then load the COPY, never the shared tree's file. (round 7) S0 then hands the copy to the shared tree's
+#:     then load the COPY, never the shared tree's file. S0 then hands the copy to the shared tree's
 #:     convert.py as input, so lab.run_lab checks it again, against the same commit, immediately before
-#:     lab.load_model runs gen_runtime.py from it (still before any claim). (round 8) S0 execs the copy's
+#:     lab.load_model runs gen_runtime.py from it (still before any claim). S0 execs the copy's
 #:     gen_runtime.py itself, first in its self-checks (self_checks -> selfcheck_run -> _switch_inputs) and later in
 #:     the controller trial, after convert.py and before run_lab's check, so it checks the copy once more right
 #:     after packages() (S0.run); a convert.py that edited, added or removed a committed file of the copy is refused
-#:     there, before the self-checks run it. (round 9) The copy's build*/ outputs, what compile_all's p4c runs wrote,
-#:     are recorded at the first check and must be unchanged at the later ones (round 10: a __pycache__ in the copy
+#:     there, before the self-checks run it. The copy's build*/ outputs, what compile_all's p4c runs wrote,
+#:     are recorded at the first check and must be unchanged at the later ones (a __pycache__ in the copy
 #:     is refused at every check), and every exec of the copy compiles its source itself
 #:     (frozen.load_source), so a cached .pyc is never what runs. run_lab's check stays: it is the one that covers
 #:     lab.load_model.
@@ -137,8 +137,8 @@ def cmd_judge(args):
         REPO, "doc", "audit", "2026-10-03_p4-health-check", "expected_today.tsv"))
     ann = E.annotate(ctx, expected)
     rollups = {s: V.rollup(T.TABLE, ctx, s) for s in V.SCOPES}
-    # A recording that does not say its bring-ups completed did not complete (review MINOR 19).
-    # (round 5, NIT 11) a recording that carries a stop reads INCOMPLETE offline too, and a see-red
+    # A recording that does not say its bring-ups completed did not complete.
+    # A recording that carries a stop reads INCOMPLETE offline too, and a see-red
     # recording (`mutant`/`see_red`) is judged by the see-red rule, exactly as lab.run_lab does it live
     from p4_health.lab import signalled
     stopped = (doc.get("stopped") is True or any(signalled(b) for b in doc.get("bringups") or [])
@@ -162,7 +162,7 @@ def cmd_judge(args):
 def cmd_lab(args):
     """S0 in the run directory, then the lab (lab.run_lab). The owner is required: every ndt
     call carries it (CLAUDE.md), and claims are made in its name."""
-    # (Cut 2 round 6, the pin-HEAD NIT) HEAD is resolved ONCE, before anything else is read: the modules are
+    # HEAD is resolved ONCE, before anything else is read: the modules are
     # loaded, the tree is checked and the code is frozen against THIS commit, and the identity names it. A
     # commit landing in between is refused below, not folded in.
     h_rc, pinned = _git_run("rev-parse", "--verify", "HEAD")
@@ -177,7 +177,7 @@ def cmd_lab(args):
     if not owner:
         print("refused: --owner (or NDT_OWNER) is required for a lab run", file=sys.stderr)
         return 2
-    # (Cut 2 review m4) a lab run runs probe code from this working tree (frozen below):
+    # a lab run runs probe code from this working tree (frozen below):
     # it is refused unless tools/p4_health is exactly what HEAD says (no edit, no new file)
     git_rc, dirty = _git_run("status", "--porcelain", "--", "tools/p4_health")
     if git_rc != 0:
@@ -203,7 +203,7 @@ def cmd_lab(args):
         return _git_run(*a)
     run_dir = os.path.abspath(args.run_dir)
     run_id = os.path.basename(run_dir.rstrip("/"))
-    # (Cut 2 round 4, F4) Freeze right after the clean check, before S0: every round runs these
+    # Freeze right after the clean check, before S0: every round runs these
     # copies, and each is checked against HEAD's blob, so an edit made since the check is refused
     # here, before any lab action (git that cannot answer is a refusal too)
     from p4_health import frozen as FZ
@@ -235,7 +235,7 @@ def cmd_lab(args):
         rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
                              mutant=args.mutant, frozen=frozen)
         return rc
-    # (Cut 2 review m4) DESIGN 4.3 and Q6(a): what this run ran, recorded before the lab
+    # What this run ran, recorded before the lab
     from p4_health import identity as ID
     from p4_health.vs_trial import fabric_binary
     live = os.path.join(REPO, "doc", "audit", "2026-09-04_p4-tutorial-exercise-prep", "live-p1")
@@ -251,7 +251,7 @@ def cmd_lab(args):
     ID.dump(os.path.join(run_dir, "gate_fingerprint.json"), gate)
     print("gate fingerprint %s; system under test %s" % (gate["sha256"], sut))
     if sut is None or gate.get("sha256") in (None, "incomplete"):
-        # (Cut 2 review N3) the first authorized run's record is the standing authorization's
+        # the first authorized run's record is the standing authorization's
         # baseline: without it the run cannot be what it is meant to be, so the lab is not touched
         print("refused: the identity record is incomplete (system under test %s, fingerprint %s); "
               "see %s/gate_fingerprint.json" % (sut, gate.get("sha256"), run_dir), file=sys.stderr)
@@ -319,7 +319,7 @@ def main(argv=None):
             # the see-red run is the pass. Whatever the lab path did not foresee is INCOMPLETE rc 2.
             import traceback
             traceback.print_exc()
-            # (round 6, finding 5) not `refused:` -- the prefix of the deliberate refusals -- and a health.json
+            # not `refused:` -- the prefix of the deliberate refusals -- and a health.json
             # that is already on disk is set aside, so that rc and health.json cannot disagree
             print("ERROR: the lab run ended on an exception (above); it is INCOMPLETE, not a verdict. %s "
                   "If a round was under way, finish with recover.sh on the run dir."

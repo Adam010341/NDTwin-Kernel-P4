@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# CELL help_drops_deleted_claims -- F12 and B10. `ndt help` stops saying two things the code
+# CELL help_drops_deleted_claims -- G-26's F12 and B10. `ndt help` stops saying two things the code
 # had already stopped being able to support.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: F-OFFLINE-1 §1.12 and §1.24, run for real 2026-09-11 00:5x.
+# Source: KNOWN-ISSUES G-26, run for real 2026-09-11 00:5x.
 #   F12  help said `no 'ndt up' has run in THIS checkout. 3 is never "checked and matched"`,
 #        while check_up_target's own comment three thousand lines away says that sentence is a
 #        statement about HISTORY and is false after every ordinary up->down. One file, two

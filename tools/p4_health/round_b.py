@@ -7,7 +7,7 @@ package). In order:
 
   1. write the controller's instructions (controller_ext.py reads $P4H_CTRL_CONFIG);
   2. start it through tools/p4_exercise/run_external_controller.py <B package> controller_ext.py
-     (design 4.2: the adapter rewrites tutorials' 127.0.0.1:5005<i> / device i-1 onto the
+     (the adapter rewrites tutorials' 127.0.0.1:5005<i> / device i-1 onto the
      fabric's 30050+i / device i), as the caller, under the p4dev interpreter (the one with
      p4runtime_lib's p4.tmp); record it in LAB_STATE.json, its marker the run directory (the
      round's package lies inside it, so the argv carries it);
@@ -62,11 +62,11 @@ class BRound(object):
         self.sleep, self.clock = sleep, clock
         self.ready_timeout_s, self.exit_timeout_s = ready_timeout_s, exit_timeout_s
         self.hostside = hostside            # the frozen copy root runs (lab.run_lab), or None
-        self.controller = controller or CONTROLLER      # (round 4, F4b) the frozen copies B runs, or the tree's
+        self.controller = controller or CONTROLLER      # the frozen copies B runs, or the tree's
         self.adapter = adapter or ADAPTER
         self.confirmed = None
         self.problems = []
-        #: (Cut 2 review N2) why B's controller did not do its part, or None: the run is then
+        #: why B's controller did not do its part, or None: the run is then
         #: INCOMPLETE, not COMPLETE with every bmv2 attribution quietly missing
         self.failed = None
 
@@ -105,7 +105,7 @@ class BRound(object):
             self.hosts = Hosts(self.cfg, self.runner, self.run_id, self.out_dir, self.model,
                                register=lab_round.register,
                                **({"hostside": self.hostside} if self.hostside else {}))
-        # (Cut 2 review MAJOR-3) the adapter checks the package FILE; the fabric that is up must
+        # the adapter checks the package FILE; the fabric that is up must
         # itself say external, or this controller would be a second writer on NDTwin's tables
         mode = (((P.switch_state(self.cfg) or {}).get("control_plane")) or {}).get("mode")
         if mode != "external":
@@ -125,7 +125,7 @@ class BRound(object):
             return self.finish(None, None)
         try:
             # the marker is the run directory, RESOLVED: the package path in the argv lies inside it
-            # and LabRound hands that path out with its links followed (round 4, F6)
+            # and LabRound hands that path out with its links followed
             lab_round.register("controller", proc.pid, os.path.realpath(self.cfg.run_dir))
         except ValueError as exc:
             self.problems.append("controller not recorded: %s" % exc)
@@ -148,7 +148,7 @@ class BRound(object):
             return ""
         _out, rx = self.hosts.window([(SRC, ["P3"], P3_DPORT)], stimulate, seconds=180.0, until=5)
         if not sent:
-            # (round 4, F2) hosts.window runs stimulate() only when every sniffer listens: without
+            # hosts.window runs stimulate() only when every sniffer listens: without
             # it nothing was sent and `go` was never written, so the controller waits for nothing
             self.problems.append("B's sniffer on %s never listened: no marker was sent and the "
                                  "controller was never told to go" % SRC)
@@ -163,7 +163,7 @@ class BRound(object):
 
     @staticmethod
     def did_nothing(result, confirmed):
-        """(round 5, #4) Why a controller that wrote a result still did not do its part, as a list of
+        """Why a controller that wrote a result still did not do its part, as a list of
         sentences ([] when it did). A result file says nothing of the sort by itself: the controller writes
         it whether or not it connected or became primary (controller_ext.py:330-359), and an unconfirmed
         item only counts as False (attribution.py:187-190). Two things are not a B that ran:
@@ -194,7 +194,7 @@ class BRound(object):
         self.confirmed = AT.confirm(result, lambda cmd: reader.read(ATTR_DPID, cmd), p3, expect)
         if result is None:
             self.problems.append("no controller result: every attribution is unconfirmed")
-            # (round 4, F2) whatever the way here -- the exits above, a sniffer that never listened,
+            # whatever the way here -- the exits above, a sniffer that never listened,
             # a result file that cannot be read -- a B without a result is a failed B
             self.failed = self.failed or self.problems[-1]
         else:

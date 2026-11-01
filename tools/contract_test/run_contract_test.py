@@ -146,7 +146,7 @@ class Context:
         self.topk = topk
         self.probe_ip = probe_ip
 
-        # [Co-developed with claude code -- Adam] -- W3b-3, 2026-09-07.
+        # [Co-developed with claude code -- Adam] -- 2026-09-07.
         # Per-node identity, so inv_graph_matches_topology can answer "is this the right
         # network" and not only "is it the right size". Switches are keyed by dpid; hosts by
         # mac, because every host carries dpid 0 and device_name is the field a rename moves.
@@ -187,7 +187,7 @@ class Context:
         # TOOL-PRECONDITION-FAILED on a degraded fabric, not a wrong answer.
         self.power_state = PowerState.unknown("the runner has not read it yet")
 
-        # [Co-developed with claude code -- Adam] -- G10. Whether the mutating sequence's
+        # [Co-developed with claude code -- Adam] -- Whether the mutating sequence's
         # /ndt/inject_link_failure landed, written by record_step_outcome when that step runs.
         # None means "this run has not got there yet", and it is deliberately not False: a
         # later step must be able to tell "it did not happen" from "nobody has looked".
@@ -217,7 +217,7 @@ class Context:
     def _identity(nodes, key_field, kind, key_of, value_of):
         """(map from key to identity, or (None, why the file cannot supply one)).
 
-        [Co-developed with claude code -- Adam] -- W3b-3.
+        [Co-developed with claude code -- Adam]
         """
         keys = [key_of(n) for n in nodes]
         repeated = sorted({k for k in keys if keys.count(k) > 1}, key=repr)
@@ -283,7 +283,7 @@ def record_step_outcome(ep, res, ctx) -> None:
     """
     Write a step's outcome onto ctx, for the later step whose premise it is.
 
-    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G10, 2026-09-11.
+    [Co-developed with claude code -- Adam] -- 2026-09-11.
 
     The mutating link sequence is six steps and step 4 means nothing unless step 3 landed.
     Declarative (`records=` on the endpoint) rather than a name matched in this loop, so the
@@ -340,7 +340,7 @@ def check_endpoint(base_url, ep, ctx, args) -> Result:
     """
     One endpoint, checked -- and its outcome recorded for any later step that needs it.
 
-    [Co-developed with claude code -- Adam] -- G10. The recording lives HERE and not in main's
+    [Co-developed with claude code -- Adam] -- The recording lives HERE and not in main's
     loop on purpose: a caller that runs one check by hand (l3_component_check.py, the tests)
     would otherwise get a ctx that never learns anything, and the mutation "the loop stops
     calling the recorder" survived every test written against the function. The step that
@@ -352,7 +352,7 @@ def check_endpoint(base_url, ep, ctx, args) -> Result:
 
 
 def _check_one(base_url, ep, ctx, args) -> Result:
-    # [Co-developed with claude code -- Adam] -- A-8, F-OFFLINE-1 G11/G10, 2026-09-11.
+    # [Co-developed with claude code -- Adam] -- A-8, 2026-09-11.
     # An endpoint may declare what this run has to know before its answer means anything.
     # Checked BEFORE the request, and the request is then not sent: a step whose precondition
     # is unmet has nothing to learn from the reply, and provoking a refusal on a live fabric
@@ -456,7 +456,7 @@ def _cross_apply_schemas(pal: Palette, fx) -> tuple[int, int]:
     """
     Negative controls: a schema that accepts every OTHER endpoint's body checks nothing.
 
-    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G3, 2026-09-11.
+    [Co-developed with claude code -- Adam] -- 2026-09-11.
 
     Until this stage existed, every schema in the suite was only ever run against the one
     fixture written for it, so "ok" meant "this schema accepts this body" and never "this
@@ -509,7 +509,7 @@ def _cross_apply_invariants(pal: Palette, fx) -> tuple[int, int]:
     """
     Every endpoint's registered invariants, against that endpoint's own fixture.
 
-    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G3, 2026-09-11.
+    [Co-developed with claude code -- Adam] -- 2026-09-11.
 
     The suite held both halves and never ran them against each other: fixtures were checked
     against schemas, invariants against their own hand-built cases. So a fixture could
@@ -588,7 +588,7 @@ def run_self_test(pal: Palette) -> int:
     rejects the documented example, the schema is wrong.
 
     Three stages, and the two added on 2026-09-11 exist because the first one alone could not
-    see G2 or G3: a fixture was only ever met by the schema written for it, so neither a copy
+    see either failure: a fixture was only ever met by the schema written for it, so neither a copy
     that had drifted nor a schema that decides nothing changed a single character of output.
     """
     import selftest_fixtures as fx
@@ -629,7 +629,7 @@ def run_self_test(pal: Palette) -> int:
             print(f"  {pal.red('FAIL')}  {name}: "
                   f"expected {'failures' if expect_failures else 'no failures'}, got {got}")
 
-    # [Co-developed with claude code -- Adam] -- G3. The two halves, against each other.
+    # [Co-developed with claude code -- Adam] -- The two halves, against each other.
     stage_passed, stage_failed = _cross_apply_schemas(pal, fx)
     passed, failed = passed + stage_passed, failed + stage_failed
     stage_passed, stage_failed = _cross_apply_invariants(pal, fx)

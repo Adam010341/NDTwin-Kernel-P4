@@ -1,36 +1,35 @@
-"""One bring-up's lifecycle: claim -> up -> cells -> teardown, crash-safe. (Q1(a))
+"""One bring-up's lifecycle: claim -> up -> cells -> teardown, crash-safe.
 
 [Co-developed with claude code -- Adam]
 
-design 4.2 and 4.5, with section 12 items 10 and 12. In Cut 1 this is exercised ONLY offline,
-through a RecordingRunner (tests/python/test_p4_health_collect.py); nothing in Cut 1 calls it
-against the lab.
+In Cut 1 this is exercised ONLY offline, through a RecordingRunner
+(tests/python/test_p4_health_collect.py); nothing in Cut 1 calls it against the lab.
 
   * Before every step that changes the machine, LAB_STATE.json is rewritten (atomically) with
     the probe's pid, the owner, the bring-up, the phase, the knob snapshot, the netem
     interfaces, the sniffer and controller pids and the qdisc snapshot -- so `recover.sh <run>`
     can finish what a crash left. The claim note carries the file's path.
-  * The qdisc snapshot is taken AFTER `ndt up` and before any netem (12-12): before the up there
+  * The qdisc snapshot is taken AFTER `ndt up` and before any netem: before the up there
     is no fabric to snapshot.
   * SIGTERM, SIGINT and SIGHUP become an exception inside the round, so they take the `finally`
     and the teardown runs. A signal that arrives DURING the teardown does not cut the cleanup
     short: the first one is kept, and `run()` adds "aborted by signal N (during the teardown)" to
     the record's problems once the cleanup is done, so the run ends there like any other stop
-    (lab.py reads that sentence) and no later bring-up claims the lab (Cut 2 round 4, F1).
+    (lab.py reads that sentence) and no later bring-up claims the lab.
   * The teardown, in order: stop sniffers -> stop controllers -> remove netem -> compare qdisc
     -> `ndt down` -> put the two knobs back as BYTES -> `ndt release`. A qdisc mismatch is
     recorded and does NOT stop the down, the restore or the release -- only recover.sh stops
-    there (12-10). A failed `ndt down` DOES stop the release: a lab released with a fabric
-    still up is a lab the next session tears down blind (12-10).
+    there. A failed `ndt down` DOES stop the release: a lab released with a fabric
+    still up is a lab the next session tears down blind.
   * `app_package_override` is never touched: `ndt down` clears it (ndt:1654-1658).
   * A claim that is refused makes the round INCOMPLETE; there is no --force.
-  * (Cut 1 review, MAJ-6) A sniffer or controller is recorded as pid + start time
+  * A sniffer or controller is recorded as pid + start time
     (/proc/<pid>/stat field 22) + a marker its command line carries (the run id), and is signalled
     only while all three still match; once stopped it leaves LAB_STATE.json, so nothing kills it
     again later. Before every teardown step that changes shared state (netem, `ndt down`, the
     knobs, the release) the claim is re-read: if it is no longer ours and live, the teardown
     stops there and leaves the rest to recover.sh. A netem whose add failed leaves the list.
-  * (r6) The round's identity is its own: `package_dir` must lie inside `cfg.run_dir` (each round
+  * The round's identity is its own: `package_dir` must lie inside `cfg.run_dir` (each round
     ups a copy of the package made there, so app_package_override names this round only), and the
     claim's `expires`, read from the claim file right after `ndt claim` succeeded, is recorded in
     LAB_STATE.json as `claim_expires` for recover.sh to compare.
@@ -53,8 +52,8 @@ PHASES = ("pre-claim", "claiming", "up", "cells", "teardown", "released", "down-
 
 
 class SignalAbort(BaseException):
-    """SIGTERM / SIGINT / SIGHUP, raised where the probe was. A BaseException on purpose (Cut 2
-    review N1): the reading layer's `except Exception` blocks (an unreachable HTTP answer, a
+    """SIGTERM / SIGINT / SIGHUP, raised where the probe was. A BaseException on purpose:
+    the reading layer's `except Exception` blocks (an unreachable HTTP answer, a
     sniffer that will not end) must not swallow a stop and let the round carry on."""
 
     def __init__(self, signum):
@@ -67,7 +66,7 @@ class RootRefused(RuntimeError):
 
 
 class PackageOutsideRunDir(ValueError):
-    """(r6) A round's package must live inside that round's own run dir."""
+    """A round's package must live inside that round's own run dir."""
 
 
 class StateInUse(RuntimeError):
@@ -165,9 +164,9 @@ def proc_identity(pid, proc_root="/proc"):
 class LabRound(object):
     def __init__(self, cfg, runner, bringup, package_dir, run_id, minutes=45, pid=None,
                  clock=time.time, install_signals=True, proc_root="/proc"):
-        # (r6) Every round has its own package directory, inside its own run dir: what makes
+        # Every round has its own package directory, inside its own run dir: what makes
         # app_package_override name THIS round for recover.sh. Refused before anything is touched.
-        # (r7) Resolved ONCE (links followed): that one path is checked, recorded in LAB_STATE and given to
+        # Resolved ONCE (links followed): that one path is checked, recorded in LAB_STATE and given to
         # `ndt up --app`, so recover.sh compares the very string ndt wrote into the override.
         package_real = os.path.realpath(package_dir)
         if not package_inside(package_real, cfg.run_dir):
@@ -195,7 +194,7 @@ class LabRound(object):
         self.knobs = {}
         self.events = []
         self.teardown_signal = None          # the first stop signal that arrived during the teardown
-        self.rec = None                      # the record run() is filling in, for lab.py (round 5, NIT 10)
+        self.rec = None                      # the record run() is filling in, for lab.py
 
     # --- LAB_STATE.json ---------------------------------------------------------------------------
     def write_state(self, **changes):
@@ -306,7 +305,7 @@ class LabRound(object):
 
     def _swap_handlers(self, handlers):
         """Install `handlers` ({signal: handler}) with the three signals blocked meanwhile, so that no
-        stop arrives between two of the switches (round 5, NIT 10); a stop that came in while they were
+        stop arrives between two of the switches; a stop that came in while they were
         blocked is delivered when the mask is put back, to the handler that is then in place. Returns
         the handlers replaced."""
         old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, self.SIGS)
@@ -317,7 +316,7 @@ class LabRound(object):
 
     @contextlib.contextmanager
     def _masked(self):
-        """(round 6, finding 4) The three stop signals blocked for the body of the `with`: a stop that arrives
+        """The three stop signals blocked for the body of the `with`: a stop that arrives
         meanwhile stays pending and is delivered, when the mask is put back, to whatever handler is then
         installed. Chosen over re-checking `teardown_signal` after the restore because it leaves no window to
         reason about (a re-check has its own gap after the check) and the stop reaches the run-level handler,
@@ -340,7 +339,7 @@ class LabRound(object):
             return
         if on:
             def raiser(signum, _frame):
-                # (round 5, NIT 10) The first stop ends the body, and from here on a further one is only
+                # The first stop ends the body, and from here on a further one is only
                 # noted: the teardown's handler goes in BEFORE this raises, not later in `finally`, where
                 # a second stop used to raise again over the first and skip the whole teardown.
                 self._swap_handlers({s: self._noter for s in self.SIGS})
@@ -377,7 +376,7 @@ class LabRound(object):
             rec["problems"].append("claim refused (rc %s); no --force" % claim.rc)
             self.write_state(phase="claim-refused")
             return rec
-        # (r6) Right after the claim: its `expires`, as the claim file shows it, goes into LAB_STATE
+        # Right after the claim: its `expires`, as the claim file shows it, goes into LAB_STATE
         # so recover.sh can tell this claim from any later one. A claim the file does not show as
         # ours is not brought up on; nothing was recorded that recover.sh could rest on.
         mine = read_claim(self.cfg.claim_file)
@@ -417,10 +416,10 @@ class LabRound(object):
             try:
                 self.teardown(rec)
             finally:
-                # (round 5, NIT 10) the record is final BEFORE the run-level handlers come back: a stop
+                # the record is final BEFORE the run-level handlers come back: a stop
                 # that arrives from then on raises out of this method, and the record is whole for
-                # lab.py to take (self.rec). (NIT 13) A knob that was not put back is not a complete round.
-                # (round 6, finding 4) `_finish` reads teardown_signal and the restore puts the run-level
+                # lab.py to take (self.rec). A knob that was not put back is not a complete round.
+                # `_finish` reads teardown_signal and the restore puts the run-level
                 # handlers back, under ONE mask: a stop that lands between the two used to reach the
                 # teardown's noter after the read and be lost, with B claimed over it. Now it waits and is
                 # delivered, once the mask lifts, to the run-level handler.
@@ -452,7 +451,7 @@ class LabRound(object):
             res = self.runner.run(argv, timeout=15)
             outcome = "stopped" if res.rc == 0 else "kill rc %s" % res.rc
         if outcome.startswith("kill rc"):
-            # (r3, review MINOR 6) a kill that failed leaves the entry for recover.sh to retry
+            # a kill that failed leaves the entry for recover.sh to retry
             self.events.append(("stop-%s" % key[:-1], pid, outcome))
             return outcome
         self.write_state(**{key: [e for e in self.state[key] if e["pid"] != pid]})
@@ -461,7 +460,7 @@ class LabRound(object):
 
     @staticmethod
     def _note_kill(rec, what, entry, outcome):
-        """(r4, Cut 1 follow-ups) A kill that failed is a problem, and the round is not complete:
+        """A kill that failed is a problem, and the round is not complete:
         the process is still running, and the retry is recover.sh's."""
         if not outcome.startswith("kill rc"):
             return

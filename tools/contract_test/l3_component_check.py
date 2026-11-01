@@ -286,8 +286,8 @@ def main() -> int:
         contract[ep] = (res.ok, res.failures)
         if res.preconditions and not res.failures:
             # Not BROKEN: the check made no claim. The literal "BROKEN" is grepped by the
-            # R5 harnesses as an A-8 detector, so emitting it here would report the defect
-            # as still present after it is fixed. [Co-developed with claude code -- Adam]
+            # live full-stack harnesses as an A-8 detector, so emitting it here would report the
+            # defect as still present after it is fixed. [Co-developed with claude code -- Adam]
             blocked[ep] = res.preconditions
             print(f"  {pal.yellow('PRECOND'):>7}  /ndt/{ep}")
         else:

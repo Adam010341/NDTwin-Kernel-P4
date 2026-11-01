@@ -1,4 +1,4 @@
-"""S0: everything the health check can establish without the lab. (design 4.2, Cut 1)
+"""S0: everything the health check can establish without the lab. (Cut 1)
 
 [Co-developed with claude code -- Adam]
 
@@ -44,7 +44,7 @@ BUILDS = [
     ("build-fwd", "hc_main", ["-DHC_MUTANT_FWD_88B5"]),
     ("build-fwd", "hc_alt", ["-DHC_ALT", "-DHC_MUTANT_FWD_88B5"]),
 ]
-#: Section 12 item 5: a mutant changes action bodies only, so its p4info is the plain build's.
+#: A mutant changes action bodies only, so its p4info is the plain build's.
 P4INFO_SAME = [(("build-mutant", "hc_main"), ("build", "hc_main")),
                (("build-fwd", "hc_main"), ("build", "hc_main")),
                (("build-mutant", "hc_alt"), ("build", "hc_alt")),
@@ -53,7 +53,7 @@ ALT_ONLY_TABLE = "HcIngress.alt_port_stamp"
 ROLE_C = ("owner=ndtwin,table=HcIngress.ipv4_lpm,match_field=hdr.ipv4.dstAddr,"
           "action=HcIngress.ipv4_forward,dst_mac=dstAddr,port=port")
 
-#: What the program must carry (design 3 and the Q3(b) constructs) -> how S0 sees it.
+#: What the program must carry (the Q3(b) constructs included) -> how S0 sees it.
 INVENTORY = {
     "match_exact": ("p4info", "match_type: EXACT"), "match_lpm": ("p4info", "match_type: LPM"),
     "match_ternary": ("p4info", "match_type: TERNARY"), "match_range": ("p4info", "match_type: RANGE"),
@@ -69,7 +69,7 @@ INVENTORY = {
     "resubmit": ("json-op", "resubmit"), "hash": ("json-op", "modify_field_with_hash_based_offset"),
     "random": ("json-op", "modify_field_rng_uniform"), "digest_op": ("json-op", "generate_digest"),
     # standard_metadata always DECLARES these two fields, so the needle is a use inside an action
-    # (review MINOR 12): an assignment to mcast_grp, a read of enq_qdepth.
+    # -- an assignment to mcast_grp, a read of enq_qdepth.
     "mcast_grp": ("json-assign", ["standard_metadata", "mcast_grp"]),
     "enq_qdepth": ("json-read", ["standard_metadata", "enq_qdepth"]),
     "header_union": ("json-union", None), "varbit": ("json-varbit", None),
@@ -164,7 +164,7 @@ def classify_pft(stdout, wheres):
     (`  FAIL        <detail>`, no label), or the "... and N more" it ends with (N of them); a continuation row
     with no labelled row above it is another refusal too. The cell is RED only when pre-flight
     refused exactly the ternary entry and nothing else, as the G5 rule was ("FAIL with the G5 row and nothing
-    else", design 2.3 PF-T); a ternary refusal beside another one is PROBE-BROKEN."""
+    else", PF-T); a ternary refusal beside another one is PROBE-BROKEN."""
     names = [re.compile(r"(?<![\w])%s:" % re.escape(w)) for w in wheres]
     ternary = other = 0
     block = None                    # the labelled FAIL row the current line belongs to
@@ -203,7 +203,7 @@ STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
 
 @contextlib.contextmanager
 def stops_held():
-    """(Cut 2 round 7, finding 1) SIGTERM, SIGINT and SIGHUP blocked in the calling thread for the body of the `with`,
+    """SIGTERM, SIGINT and SIGHUP blocked in the calling thread for the body of the `with`,
     and the mask that was there put back afterwards, an exception included. A thread inherits the mask of the thread
     that starts it, so every thread gRPC starts inside the body blocks the three for good; a lab round's own mask
     (lab_round.LabRound._masked) covers the calling thread only, and `lab.run_lab` refuses to start the lab while a
@@ -227,7 +227,7 @@ class S0(object):
     def __init__(self, run_dir, runner, py_p4, bmv2=TW.DEFAULT_BMV2,
                  thrift_cli=None,
                  p4c="p4c-bm2-ss", hb_cache=None, log=print, frozen=None):
-        #: (Cut 2 round 5, #5) the copies `probe.py lab` froze and checked against HEAD: the controller trial
+        #: the copies `probe.py lab` froze and checked against HEAD: the controller trial
         #: and the adapter dry-run run those, not the shared tree's files. None (S0 on its own): the tree's.
         self.frozen = frozen
         self.run_dir = os.path.abspath(run_dir)
@@ -275,15 +275,15 @@ class S0(object):
         return all(b["rc"] == 0 for b in self.out["builds"].values())
 
     def check_exercise_copy(self):
-        """(Cut 2 round 6, finding 2) The copy of exercise/ made at the start of compile_all is the model every
+        """The copy of exercise/ made at the start of compile_all is the model every
         later step goes by (this class, lab.load_model, the controller trial). A lab run froze its code
         against one pinned commit: the copy is checked against that commit as the frozen files are, and a
         mismatch raises frozen.Refused -- `probe.py lab` answers rc 2 before any lab action. S0 on its own
-        (no frozen) has no commit to check against. (Cut 2 round 8) Called twice by run(): right after the compile,
-        and again right after packages(), because convert.py gets the copy as its input and may write into it. (round 9)
+        (no frozen) has no commit to check against. Called twice by run(): right after the compile,
+        and again right after packages(), because convert.py gets the copy as its input and may write into it.
         The first call is also when the build outputs of the copy are recorded (Frozen.check_exercise): what
         compile_all's p4c runs wrote, and nothing else, so it comes after compile_all and before anything else touches
-        the copy. (round 10) A __pycache__ in the copy is refused at both calls, never recorded."""
+        the copy. A __pycache__ in the copy is refused at both calls, never recorded."""
         if self.frozen is not None and getattr(self.frozen, "head", None):
             self.frozen.check_exercise(self.ex)
 
@@ -323,7 +323,7 @@ class S0(object):
         res = self.run_cmd(argv)
         ok = res.rc == 0 and os.path.isfile(os.path.join(pkg, "package.json"))
         if ok:
-            # design 2.2: every package states telemetry.source = link (convert has no flag for it).
+            # every package states telemetry.source = link (convert has no flag for it).
             path = os.path.join(pkg, "package.json")
             with open(path, encoding="utf-8") as fh:
                 doc = json.load(fh)
@@ -340,7 +340,7 @@ class S0(object):
             shutil.rmtree(fwd_ex)
         shutil.copytree(self.ex, fwd_ex, ignore=shutil.ignore_patterns("build", "build-mutant"))
         os.rename(os.path.join(fwd_ex, "build-fwd"), os.path.join(fwd_ex, "build"))
-        # (Cut 2) A with the mutant artefact, for the live see-red run (design 5.2-④: --only
+        # (Cut 2) A with the mutant artefact, for the live see-red run (--only
         # K1,TTL1 must give PROBE-BROKEN by SC-count and SC-ttl). Its p4info is the plain one.
         mut_ex = os.path.join(self.run_dir, "exercise-mutant")
         if os.path.exists(mut_ex):
@@ -556,7 +556,7 @@ class S0(object):
     def self_checks(self):
         want_fail = {"main": set(), "alt": set(), "mutant": {"SC-count", "SC-ttl", "SC-qstamp"},
                      "fwd": set()}
-        # fwd: the heartbeat check below must be seen red once (review MINOR 13)
+        # fwd: the heartbeat check below must be seen red once
         runs = {"main": ("build", 2), "alt": ("build", 1), "mutant": ("build-mutant", 2),
                 "fwd": ("build-fwd", 2)}
         for label, (bdir, dpid) in sorted(runs.items()):
@@ -607,7 +607,7 @@ class S0(object):
                 self.check("  alt: show_tables lists the hc_alt-only table", pr["alt_table_listed"])
 
     def identity(self):
-        """What binaries this S0 ran (review MINOR 14): sha256[:16] of each, and `--version` run
+        """What binaries this S0 ran: sha256[:16] of each, and `--version` run
         through a symlink named ndt-hc-version (so not even a version run reads as a switch)."""
         vdir = os.path.join(self.run_dir, ".version-bin")
         os.makedirs(vdir, exist_ok=True)
@@ -644,10 +644,10 @@ class S0(object):
                    " ".join("%s=%s" % (k, (v["sha16"] or "-")) for k, v in sorted(out.items())))
 
     def vs_trial(self):
-        """VS1's Cut 2 safety question (review MAJ-8), asked of throwaway simple_switch_grpc."""
+        """VS1's Cut 2 safety question, asked of throwaway simple_switch_grpc."""
         try:
             from . import vs_trial as VT
-            # (round 7, finding 1) the trial runs gRPC in this process, and the threads gRPC starts must not be
+            # the trial runs gRPC in this process, and the threads gRPC starts must not be
             # able to take a stop: see stops_held
             with stops_held():
                 results = [VT.trial(os.path.join(self.ex, "build"), b, self.thrift_cli,
@@ -696,7 +696,7 @@ class S0(object):
                        % (sorted(failed), sorted(want_false), r.get("controller_rc")))
 
     def show_ports_trial(self):
-        """(Cut 2 second review N4, r1's test 10) What show_ports lists on a simple_switch_grpc
+        """What show_ports lists on a simple_switch_grpc
         started the way BMv2Switch starts a fabric switch -- data ports as -i, then
         `-- --grpc-server-addr ... --cpu-port 510` -- on throwaway switches, stock and fabric
         build. TP1's oracle must place every port listed, so a listed CPU port would matter;
@@ -727,7 +727,7 @@ class S0(object):
                                          sorted(p) if p else p) for b, p in got.items()))
 
     def adapter_dry_run(self):
-        """(Cut 2 review m5) The live B path through the adapter, without running anything: the
+        """The live B path through the adapter, without running anything: the
         same argv bring-up B spawns, with --dry-run. It must name controller_ext.py and rewrite
         s1-s4 onto the fabric's ports 30051-30054 with device id = dpid."""
         from . import round_b as RB
@@ -780,7 +780,7 @@ class S0(object):
             self.p4info_identity()
             self.take_inventory()
             self.packages()
-            # (Cut 2 round 8) convert.py was handed the copy as its input, and the self-checks are the first to exec the
+            # convert.py was handed the copy as its input, and the self-checks are the first to exec the
             # copy's gen_runtime.py (selfcheck_run -> _switch_inputs; the controller trial does so later): the copy is
             # checked again before anything reads it, not only by lab.run_lab later.
             self.check_exercise_copy()  # [Co-developed with claude code -- Adam]

@@ -46,8 +46,8 @@ ERRORPATH = "error"  # deliberately bad input; asserts a sane failure
 # An invariant returns a list of strings and the runner used to treat every one of them as
 # "the system is broken". That gave the suite exactly two outputs, so the one thing it could
 # not say was "I cannot tell" -- and a tool whose failure is serialised the same way as its
-# finding will mislead you precisely when it matters (KNOWN-ISSUES A-8; the memory note
-# instrument-must-not-mimic-its-own-finding). These two prefixes are the third and fourth
+# finding will mislead you precisely when it matters (KNOWN-ISSUES A-8: an instrument
+# must not mimic its own finding). These two prefixes are the third and fourth
 # answers. run_contract_test.check_endpoint partitions on them; anything unprefixed is still
 # a red failure, so an invariant that has not been taught about them cannot change meaning.
 TOOL_PRECONDITION = "TOOL-PRECONDITION-FAILED: "
@@ -74,7 +74,7 @@ class PowerState:
 
     def __init__(self, off_dpids=(), error=None, unreachable_dpids=()):
         self.off_dpids = frozenset(off_dpids)
-        # [Co-developed with claude code -- Adam] -- Q12.
+        # [Co-developed with claude code -- Adam] -- the power-state split.
         # The endpoint used to answer one question with a word that named the other: its ON/OFF
         # was derived from the graph's `is_up`, so "powered off" and "not answering" were the
         # same reading. They are separate fields now, and so are these -- `off_dpids` is what
@@ -117,7 +117,7 @@ def classify_power_state(payload, ip_to_dpid) -> PowerState:
       * a switch in the topology with no key in the reading -- partial coverage would make
         a powered-off switch look powered on, which is the A-8 false alarm again. The kernel
         has form here: before 04b8933 the CPU/memory maps omitted a down switch's key
-        entirely (live-findings-2026-08-18-ovs.md, F-3).
+        entirely (seen live on OVS, 2026-08-18).
 
     [Co-developed with claude code -- Adam]
     """
@@ -133,11 +133,11 @@ def classify_power_state(payload, ip_to_dpid) -> PowerState:
             return PowerState.unknown(
                 f"reading names {ip!r}, which is not a switch in this topology")
 
-        # [Co-developed with claude code -- Adam] -- Q12.
+        # [Co-developed with claude code -- Adam] -- the power-state split.
         # TWO SHAPES, on purpose. This tool is pointed at whatever kernel is deployed: a kernel
         # from before the split answers with the scalar "ON"/"OFF", one from after answers with
         # {"admin_state": "on"|"off", "reachable": bool}. Refusing the old shape would turn every
-        # pre-Q12 run into TOOL-PRECONDITION-FAILED, which is this file's own definition of a
+        # pre-split run into TOOL-PRECONDITION-FAILED, which is this file's own definition of a
         # tool failing in a way that looks like the system failing.
         if isinstance(value, dict):
             admin = value.get("admin_state")
@@ -157,7 +157,7 @@ def classify_power_state(payload, ip_to_dpid) -> PowerState:
         state = str(value).strip().upper()
         if state == "OFF":
             off.add(dpid)
-            # The old shape cannot tell the two apart -- that is the finding. A pre-Q12 "OFF"
+            # The old shape cannot tell the two apart -- that is the finding. A pre-split "OFF"
             # therefore contributes to `off_dpids` only, and `unreachable_dpids` stays empty
             # rather than being filled with a guess.
         elif state != "ON":
@@ -240,7 +240,7 @@ TELEMETRY_STATES = ("live", "idle", "silent", "unknown")
 # reader still has exactly one thing to do about `declared`, which is find out who declared it.
 DOWN_REASONS = ("none", "switch-unreachable", "declared")
 
-# [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G12, 2026-09-11.
+# [Co-developed with claude code -- Adam] -- 2026-09-11.
 # The one value a declaration endpoint's reply can carry. Named rather than typed out again in
 # LINK_FAILURE_REPORTED and LINK_FAILURE_INJECTED below, and asserted to be part of the
 # vocabulary above -- because this word is now written down in seven places and nothing
@@ -402,7 +402,7 @@ LINK_RECOVERY_REPORTED = Obj({"status": Str(nonempty=True)}, optional={
 
 #: §2b success. REQUIRED, not optional, unlike §1: this endpoint does not exist on trunk at all,
 #: so there is no older kernel whose reply would be wrongly failed. `until` is pinned to the one
-#: endpoint that can end an injection -- that is the whole of W8b on the wire.
+#: endpoint that can end an injection -- that is the whole of B-6's pairing rule on the wire.
 LINK_FAILURE_INJECTED = Obj({
     "status": Str(nonempty=True),
     "down_reason": Str(allowed=(DECLARED,)),
@@ -434,7 +434,7 @@ GRAPH_NODE = Obj({
     "device_layer": Int(),
 }, optional={
     "nickname": Str(),
-    # [Co-developed with claude code -- Adam] -- Q12, 2026-09-03.
+    # [Co-developed with claude code -- Adam] -- 2026-09-03.
     # `is_up` above answered two questions at once. These are the two answers; `is_up` stays
     # REQUIRED because it is now a deprecated alias of `reachable` that four external consumers
     # still read (one of them with a throwing j.at()).
@@ -529,8 +529,9 @@ GRAPH_DATA = Obj({"nodes": List(GRAPH_NODE, min_len=1), "edges": List(GRAPH_EDGE
     # OPTIONAL, and that is the whole of the baseline story: a kernel built before this change
     # (`28b8b13`) serves none of the three, and a consumer that meets that must read it as "the
     # kernel did not say" rather than as licence to guess. Making them required would turn this
-    # suite into a version check and would fail every pre-E-2 kernel on a healthy fabric -- the
-    # same mistake, in the same file, that the liveness triple below is optional to avoid.
+    # suite into a version check and would fail every kernel without the G-15 fix on a healthy
+    # fabric -- the same mistake, in the same file, that the liveness triple below is optional
+    # to avoid.
     #
     # Listing them pins the TYPES. The rest of the shape -- that the digest is 64 lowercase hex,
     # that it is the digest of the file the run was pointed at, and that the file has not been
@@ -596,7 +597,7 @@ STATUS_OK = Obj({"status": Str(nonempty=True)})
 # stop a silent write failure, so leaving it uncovered means the suite would stay green if the
 # thing that reports failures stopped reporting them.
 #
-# recent_failures[].requested_priority is named for FINDING-07: on the destination-only path the
+# recent_failures[].requested_priority is named for KNOWN-ISSUES A-7: on the destination-only path the
 # switch programs the rule into a P4 LPM table that has no priority column, so this field is what
 # the caller ASKED for and never what the table holds. The schema keeps the name as-is on purpose;
 # renaming it to `priority` would restore exactly the confusion the name was chosen to prevent.
@@ -621,13 +622,13 @@ DISPATCH_STATUS = Obj({
         # built from an earlier commit rather than reporting a false regression against one.
         "dropped_after_stop": Int(min=0),
         # [Co-developed with claude code -- Adam]
-        # W11 (#54), 2026-09-06. `succeeded`/`failed` were renamed to `dispatched_ok`/
+        # KNOWN-ISSUES A-7b, 2026-09-06. `succeeded`/`failed` were renamed to `dispatched_ok`/
         # `dispatch_failed`: the values never changed and were never wrong, the word "succeeded"
         # was -- it counts requests the far end took, and it was read as rules on a switch (the
         # same match installed 20 times moved it by +20 for one row). All four spellings are
         # optional HERE and the pair is required by inv_dispatch_counters_close instead, which is
         # what lets one schema describe a kernel from either side of the rename. A schema that
-        # required the new names would report every pre-W11 kernel as broken; one that required
+        # required the new names would report every pre-rename kernel as broken; one that required
         # the old names would do the same to every kernel after it.
         "succeeded": Int(min=0),
         "failed": Int(min=0),
@@ -646,8 +647,8 @@ DISPATCH_STATUS = Obj({
         "includes_intent_translator": Bool(),
     }),
     # [Co-developed with claude code -- Adam]
-    # W11's B half: the second counter group, which answers about the SWITCH rather than about the
-    # dispatch. `why_unknown` is in the schema and required within the object on purpose -- on
+    # A-7b's part B: the second counter group, which answers about the SWITCH rather than about
+    # the dispatch. `why_unknown` is in the schema and required within the object on purpose -- on
     # today's OVS plane `unknown` equals `dispatched` and always will, and a permanently-unknown
     # number with no reason beside it is read as "checked, nothing wrong". The text travelling with
     # the number is the field, not decoration.
@@ -657,7 +658,7 @@ DISPATCH_STATUS = Obj({
         "unknown": Int(min=0),
         "why_unknown": Str(nonempty=True),
     }),
-    # W11 / R6 K-4: what `?request_id=<id>` can still answer for.
+    # KNOWN-ISSUES A-7b: what `?request_id=<id>` can still answer for.
     "request_ids_tracked": Int(min=0),
     "request_ids_capacity": Int(min=1),
     "request_ids_forgotten": Int(min=0),
@@ -667,7 +668,7 @@ DISPATCH_STATUS = Obj({
 
 
 # [Co-developed with claude code -- Adam]
-# W11 / R6 K-4. GET /ndt/get_flow_dispatch_status?request_id=<id>, which answers for one POST
+# KNOWN-ISSUES A-7b. GET /ndt/get_flow_dispatch_status?request_id=<id>, which answers for one POST
 # instead of for the process. Not registered as a probe of its own -- the runner would have to
 # POST a flow batch to obtain an id, which is a mutation and this endpoint's whole value is that
 # it is safe to read on a live fabric. It is here so a caller reading this file learns the shape.
@@ -756,7 +757,7 @@ def inv_graph_matches_topology(data, ctx):
     return out
 
 
-# [Co-developed with claude code -- Adam] -- W3b-3, since 2026-09-07.
+# [Co-developed with claude code -- Adam] -- since 2026-09-07.
 #
 # 🔴 WHY THE COUNTS ARE NOT ENOUGH, and what the two functions below add.
 #
@@ -768,9 +769,9 @@ def inv_graph_matches_topology(data, ctx):
 # GREEN. That is KNOWN-ISSUES L-1's family: the twin compared to a DIFFERENT network, and the
 # difference read as a verdict about the product. Here it read as no verdict at all.
 #
-# It is also what four of R0b's five topology-door findings looked like from this invariant:
-# every one of the six deliberately broken files (rounds/05-R0b-postmerge2.md §2.1) differs from
-# the shipped model in ONE field, and four of them keep every count and every dpid identical.
+# It is also what a broken topology file can look like from this invariant: in one set of six
+# deliberately broken files (a-f), every one differs from the shipped model in ONE field, and
+# four of them keep every count and every dpid identical.
 #
 # What is compared, and what deliberately is not:
 #
@@ -782,13 +783,13 @@ def inv_graph_matches_topology(data, ctx):
 #                                is the field a rename moves.
 #   device_name (both kinds)  -- reported as ACCOUNTED-FOR, never as a failure. `modify_nickname`
 #                                and `modify_device_name` persist a rename -- into the model file
-#                                before W10, into `.test_run/nickname_overlay/` and back over the
+#                                before the overlay, into `.test_run/nickname_overlay/` and back over the
 #                                graph at load after it -- so a name that disagrees with the file
 #                                is an expected state of a healthy fabric. Printed rather than
 #                                failed, because an explained deviation nobody sees is
 #                                indistinguishable from no deviation.
 #   bridge_name, ecmp_groups  -- not compared, because `get_graph_data` does not carry them.
-#                                Files d and e of that round differ from the shipped model only
+#                                Two of those six (d and e) differ from the shipped model only
 #                                in those, and stay green here. Saying so is the point: this
 #                                invariant reads the graph, and what the graph does not say it
 #                                cannot check.
@@ -873,7 +874,7 @@ def _node_reachable(n) -> bool:
     """
     Whether the twin can reach this switch.
 
-    [Co-developed with claude code -- Adam] -- Q12.
+    [Co-developed with claude code -- Adam] -- the power-state split.
     `reachable` is the field; `is_up` is the deprecated alias kept so external readers keep
     working. Where both exist the field wins: a consumer that reads the alias is reading a copy,
     and the two can disagree if anything ever emits them separately.
@@ -885,7 +886,7 @@ def _node_commanded_off(n):
     """
     Whether an operator commanded this switch off, or None when the node does not say.
 
-    [Co-developed with claude code -- Adam] -- Q12.
+    [Co-developed with claude code -- Adam] -- the power-state split.
     None is a third answer and it is load-bearing: a kernel from before the split emits no
     `admin_state`, and reading that absence as "commanded on" would turn every deliberately
     powered-down switch into a failure -- the A-8 false alarm this file exists to have fixed.
@@ -953,7 +954,7 @@ def inv_all_switches_up(data, ctx):
     if not down and not disabled:
         return out
 
-    # [Co-developed with claude code -- Adam] -- Q12, and the reason this check could not fire.
+    # [Co-developed with claude code -- Adam] -- the power-state split, and the reason this check could not fire.
     #
     # 🔴 BOTH SIDES OF THIS COMPARISON USED TO READ THE SAME BIT. The graph's "is this switch
     # down" was `is_up`, and the kernel derived /ndt/get_switches_power_state's ON/OFF answer
@@ -1045,9 +1046,9 @@ def inv_edges_enabled(data, ctx):
     def incident_to_off(e):
         return e["src_dpid"] in power.off_dpids or e["dst_dpid"] in power.off_dpids
 
-    # [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G5, 2026-09-11. W8/W8b.
+    # [Co-developed with claude code -- Adam] -- 2026-09-11. KNOWN-ISSUES B-6.
     # The second explanation, and the graph states it outright. `declared` means an operator
-    # (or this very suite's step 1) said the link failed, and W8's rule is that it does not
+    # (or this very suite's step 1) said the link failed, and B-6's rule is that it does not
     # clear until somebody POSTs the matching recovery -- so the edge being down is the kernel
     # obeying, not the fabric breaking. Reported as a fault it was a false alarm on every
     # fabric with a standing declaration, including the contract test's own mutating sequence.
@@ -1200,13 +1201,13 @@ def inv_kernel_serves_the_model_under_test(data, ctx):
 
       * the kernel names the same file this run was pointed at, and its digest still matches
         what is on disk                                          -> nothing to report
-      * the kernel does not say (built before E-2, `28b8b13`)     -> TOOL-PRECONDITION-FAILED
+      * the kernel does not say (no G-15 fix, `28b8b13`)          -> TOOL-PRECONDITION-FAILED
       * the kernel names a DIFFERENT file, or the same file with a different digest -> FAIL
 
     The second answer is a separate verdict rather than a pass for the same reason the whole
     TOOL_PRECONDITION prefix exists: a check that cannot run must not be serialised the same way
-    as a check that ran and found nothing (A-8, and the memory note about an instrument that
-    mimics its own finding). A pre-E-2 kernel is not broken; this run simply cannot tell.
+    as a check that ran and found nothing (A-8: an instrument that mimics its own finding). A
+    kernel without the G-15 fix is not broken; this run simply cannot tell.
     """
     said = data.get("topology_file")
     if not isinstance(said, str) or not said:
@@ -1357,7 +1358,7 @@ def inv_power_covers_switches(data, ctx):
     return []
 
 
-# [Co-developed with claude code -- Adam] W17.
+# [Co-developed with claude code -- Adam] The capacity endpoint (KNOWN-ISSUES C-6's workaround).
 def inv_capacity_names_its_source(data, ctx):
     """
     Every capacity block must say where its number came from.
@@ -1378,7 +1379,7 @@ def inv_capacity_names_its_source(data, ctx):
     return []
 
 
-# [Co-developed with claude code -- Adam] W17.
+# [Co-developed with claude code -- Adam]
 def inv_capacity_available_closes(data, ctx):
     """
     available == max_entries - in_use, per switch, wherever all three are known.
@@ -1460,10 +1461,10 @@ def inv_dispatch_counters_close(data, ctx):
     southbound attempt, so they are disjoint from all three. Adding it here would make a healthy
     shutdown look like a counting bug.
 
-    W11 (2026-09-06): the two summands were renamed `dispatched_ok`/`dispatch_failed`. This reads
+    A-7b (2026-09-06): the two summands were renamed `dispatched_ok`/`dispatch_failed`. This reads
     either spelling and requires exactly one pair to be present, so the same check bites on a
     kernel from either side of the rename -- and so that "the key vanished" is a failure here
-    rather than a silently skipped invariant. The pre-W11 names are read first purely to keep the
+    rather than a silently skipped invariant. The pre-rename names are read first purely to keep the
     two lines below byte-identical for tests/shell/mutate_a7_dispatch_status.sh, whose mutation 7
     and negative control both anchor on them; a gate that cannot find its anchor is a gate that
     silently stops testing.
@@ -1506,7 +1507,7 @@ def inv_switch_outcome_closes(data, ctx):
     accepted_by_switch + rejected_by_switch + unknown == dispatched, and unknown is not faked.
 
     [Co-developed with claude code -- Adam]
-    W11 (#54). The second counter group partitions the same population as `dispatched` -- a
+    KNOWN-ISSUES A-7b. The second counter group partitions the same population as `dispatched` -- a
     SECOND, independent closure over the same jobs, which is why the group is its own object and
     is not folded into dispatched == dispatched_ok + dispatch_failed. A record() that returned
     early on some op would break one sum or the other.
@@ -1517,7 +1518,8 @@ def inv_switch_outcome_closes(data, ctx):
     the instrument-shaped-like-its-own-finding failure this whole endpoint keeps producing, and
     the text is the part that stops it, so the text is asserted.
 
-    Silent when the group is absent: a pre-W11 kernel has no second group and is not in breach.
+    Silent when the group is absent: a kernel without the A-7b fix has no second group and is
+    not in breach.
     """
     sw = data.get("switch_outcome")
     if sw is None:
@@ -1615,14 +1617,14 @@ def inv_recovery_withdrew_the_declaration(data, ctx):
     """
     §2 answering a failure ITS OWN sibling reported: it must not decline.
 
-    [Co-developed with claude code -- Adam] -- W8b's pairing rule, the other direction.
+    [Co-developed with claude code -- Adam] -- B-6's pairing rule, the other direction.
 
     Its discriminative power comes from WHERE it sits, exactly as acquire_lock_conflict's does:
     the check immediately before it declared this link through /ndt/link_failure_detected, so a
     report is standing and this recovery is the one entitled to spend it. `declaration_retained`
     here means the rule has stopped honouring the reports it was written to honour -- i.e. the
     recovery endpoint has been narrowed into uselessness, which is the over-fitting direction of
-    the W8b gate (mutations M11-M13). Nothing else in the suite would notice.
+    the pairing rule's gate (mutations M11-M13). Nothing else in the suite would notice.
     """
     if data.get("declaration_retained"):
         return [
@@ -1644,7 +1646,7 @@ def inv_recovery_was_declined_and_said_so(data, ctx):
     which records no report, so nothing pairs with this recovery. Two ways for it to be wrong and
     this reports both:
 
-      * it withdrew anyway -- the lw8b failure mode (2026-09-07 00:08: a Ryu restart POSTed a
+      * it withdrew anyway -- the B-6 failure mode (2026-09-07 00:08: a Ryu restart POSTed a
         recovery for every link within one second and ended 9 of 9 standing declarations). On
         MININET the netem stays attached while the graph goes back to reporting the link up, so
         the twin publishes a link that carries no packets;
@@ -1653,12 +1655,12 @@ def inv_recovery_was_declined_and_said_so(data, ctx):
         that sentence would be false here. The status line therefore carries NO information at
         all and the body is the entire signal.
 
-    🟢 Measured live, arm lw8b3 2026-09-07 20:26:47:
+    🟢 Measured live, 2026-09-07 20:26:47:
         {"status":"link recovery processed","declaration_retained":true,"detail":"...",
          "until":"/ndt/inject_link_recovery"}   -- and the edge still is_up=false.
     """
     if data.get("declaration_retained") is not True:
-        # [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G10, A-8, 2026-09-11.
+        # [Co-developed with claude code -- Adam] -- A-8, 2026-09-11.
         # Before this is an accusation, the run has to know its own premise held. This check's
         # entire meaning comes from the step before it having injected a failure, and there was
         # no branch for that step not having happened: on a kernel that predates
@@ -1756,7 +1758,7 @@ def inv_tc_half_is_reported_per_interface(data, ctx):
 
 def inv_power_state_values(data, ctx):
     """
-    [Co-developed with claude code -- Adam] -- Q12.
+    [Co-developed with claude code -- Adam] -- the power-state split.
     Two shapes, because this tool is pointed at whatever kernel is deployed: the pre-split
     scalar "ON"/"OFF", and the post-split {"admin_state": "on"|"off", "reachable": bool}. An
     object missing either half is reported: half an answer here is what made a crashed switch
@@ -1788,7 +1790,7 @@ def switch_to_switch_link(topology_path):
     file -- for the reason Context.a_dpid uses min(): two runs must act on the same link, or a
     report naming s1:1 -> s5:1 does not mean the same thing twice.
 
-    BOTH ENDS MUST BE SWITCHES. dpid 0 is a host end, all four endpoints refuse it (§1, W8-7),
+    BOTH ENDS MUST BE SWITCHES. dpid 0 is a host end, all four endpoints refuse it (§1, B-6),
     and a host edge is raised again by the host poll anyway. Returns None when the topology holds
     no switch-to-switch edge; the caller then sends a payload every endpoint refuses rather than
     guessing, because a guessed link means a fault injected on an edge nobody chose.
@@ -1826,12 +1828,12 @@ def link_step_precondition(ctx):
     """
     None when the sequence has a link to act on; otherwise why it has not.
 
-    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G11, A-8, 2026-09-11.
+    [Co-developed with claude code -- Adam] -- A-8, 2026-09-11.
 
     The fallback above refuses to guess a link, which is right: a guessed link means a fault
     injected on an edge nobody chose. What it did NOT do was say whose problem that is. None
-    of the six steps declared an expect_status, so [200] applied, the four zeros earned the
-    honest 404 that W8-7's dpid-0 doors exist to give them, and the run recorded
+    of the six steps declared an expect_status, so [200] applied, the four zeros earned an
+    honest refusal, and the run recorded
 
         HTTP status 404, expected 200
 
@@ -1855,7 +1857,7 @@ ENDPOINTS = [
     # ---------- read-only: topology and telemetry ----------
     dict(name="get_graph_data", method="GET", path="/ndt/get_graph_data",
          category=READ, schema=GRAPH_DATA,
-         # [Co-developed with claude code -- Adam] -- E-2. First in the list on purpose: every
+         # [Co-developed with claude code -- Adam] -- G-15. First in the list on purpose: every
          # check after it compares the graph against the file this run was handed, and if the
          # kernel is serving a different file none of them means what it says.
          invariants=[inv_kernel_serves_the_model_under_test,
@@ -1983,7 +1985,7 @@ ENDPOINTS = [
 
     # ---------- read-only: device health ----------
     # [Co-developed with claude code -- Adam]
-    # R5, 2026-09-10. `power_path` on the report's own entries, the same key
+    # 2026-09-10. `power_path` on the report's own entries, the same key
     # with the same four-word vocabulary GRAPH_NODE pins above -- measured 2026-09-10 on a live
     # OVS fabric, an exempted switch answered a figure here that no consumer could tell from a
     # measured one. OPTIONAL for the first of the two reasons
@@ -1992,16 +1994,16 @@ ENDPOINTS = [
     # switch, so on a current kernel the key is on all of them.
     # 🔴 min=-1, not 0, for the same reason get_cpu_utilization was relaxed below -- and this
     # endpoint was left behind when that one was fixed. -1 is `kHealthMetricUnavailable`, and
-    # fetchPowerReportInternal has emitted it on the TESTBED branch since E-23 (2026-09-07) for a
+    # fetchPowerReportInternal has emitted it on the TESTBED branch since the C-5c change (2026-09-07) for a
     # switch whose `power_path` is "none", and later for one carrying no management
     # address. The API document says so in section 6's Note. `Num(min=0)` therefore rejected a
-    # row a correct kernel emits -- found 2026-09-10 (F-OFFLINE-1) by validating that exact row
+    # row a correct kernel emits -- found 2026-09-10 by validating that exact row
     # offline, which answered `[0].power_consumed: expected >= 0, got -1`.
     #
     # Nothing was red before that: the contract runner is pointed at a MININET kernel, where
     # every figure is the synthetic one and no row is ever negative. So this would have failed
     # the first time it ran against a testbed with an exempted switch in the fabric, which is the
-    # deployment E-23 exists for. Pinned by tests/python/test_unavailable_metric_sentinel.py's
+    # deployment the `power_path` exemption exists for. Pinned by tests/python/test_unavailable_metric_sentinel.py's
     # PowerReportSchemaAcceptsTheSentinelTest, which also keeps -2 rejected: -1 is the sentinel,
     # not a licence for arbitrary negatives.
     dict(name="get_power_report", method="GET", path="/ndt/get_power_report",
@@ -2013,7 +2015,7 @@ ENDPOINTS = [
 
     dict(name="get_switches_power_state", method="GET", path="/ndt/get_switches_power_state",
          category=READ,
-         # [Co-developed with claude code -- Adam] -- Q12.
+         # [Co-developed with claude code -- Adam] -- the power-state split.
          # OneOf, not a replacement: a kernel from before the split answers with the bare
          # "ON"/"OFF" string, and the contract tool is run against deployed kernels. The object
          # form is the one that can tell a commanded power-off from a switch that crashed --
@@ -2049,7 +2051,7 @@ ENDPOINTS = [
          category=READ,
          schema=MapOf(OneOf(Num(), Str()), key_check=is_ipv4_string, key_desc="IPv4 address")),
 
-    # [Co-developed with claude code -- Adam] W17: this used to serve
+    # [Co-developed with claude code -- Adam] The capacity endpoint used to serve
     # doc/2026-01-02_OpenflowCapacity.json verbatim and never mentioned bmv2. It now carries a
     # `source` on every block and, on a bmv2 topology, a `bmv2` block whose max_entries is read
     # from the pipeline artifact a running simple_switch has loaded.
@@ -2060,7 +2062,7 @@ ENDPOINTS = [
     # weight -- what must hold is that every number names its provenance and that the three
     # per-switch figures close.
     #
-    # 🔴 It was Any_() until 2026-09-11, which is not the same thing (F-OFFLINE-1 G3). Any_()
+    # 🔴 It was Any_() until 2026-09-11, which is not the same thing. Any_()
     # accepts a list, a string and a number as readily as a map: measured against the other 28
     # fixtures in the suite it rejected NONE of them, so the structural check for the one
     # endpoint whose figures had been 3.4x wrong decided nothing at all. MapOf(Any_()) says the
@@ -2307,7 +2309,7 @@ ENDPOINTS = [
     # --allow-mutations, which is rare enough that nobody saw it. Writes the current
     # nickname back, for the reason modify_device_name below does.
     #
-    # 2026-09-06 (W10): this no longer edits setting/*.json -- the name lands in
+    # 2026-09-06 (B-10): this no longer edits setting/*.json -- the name lands in
     # .test_run/nickname_overlay/<model>.names.json, which is gitignored. It still persists
     # across restarts, so re-setting the CURRENT nickname is still the right body.
     dict(name="modify_nickname", method="POST", path="/ndt/modify_nickname",
@@ -2451,7 +2453,7 @@ ENDPOINTS = [
     #   3  inject_link_failure                   declare it again, recording NO report, and cut
     #                                            the wire with netem on both ends
     #   4  link_recovery_detected (again)        nothing to pair with -> DECLINED, and the body
-    #                                            must say so. This is the E-21 shape
+    #                                            must say so. This is why the block exists
     #   5  inject_link_recovery                  the unconditional withdrawal; netem off
     #   6  inject_link_recovery (again)          idempotent: "noop", ok -- and the belt-and-braces
     #                                            restore, because the runner runs every check even
@@ -2459,7 +2461,7 @@ ENDPOINTS = [
     #
     # Step 4 cannot be reached any other way: `declaration_retained` needs a standing declaration
     # that no report answers for, and only /ndt/inject_link_failure produces one. Which is why
-    # this block cuts a link at all -- see the FIX document for the risk and the §7 question.
+    # this block cuts a link at all.
     #
     # The error paths above the sequence change nothing: both refusals happen before any edge
     # lookup and before any write.
@@ -2501,7 +2503,7 @@ ENDPOINTS = [
 
     # A link the graph does not hold. Both dpids are non-zero, so these get past the door above
     # and exercise the edge lookup itself -- the branch that must answer 404 rather than 200 or a
-    # 500. On §2 it is also the branch that logs `link recovery ignored on ...` (E-22).
+    # 500. On §2 it is also the branch that logs `link recovery ignored on ...` (B-6).
     dict(name="link_failure_detected__unknown_edge", method="POST",
          path="/ndt/link_failure_detected", body=NO_SUCH_LINK_PAYLOAD,
          request_schema=LINK_REQUEST,
@@ -2571,7 +2573,7 @@ ENDPOINTS = [
     dict(name="inject_link_failure", method="POST", path="/ndt/inject_link_failure",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
          precondition=link_step_precondition,
-         # [Co-developed with claude code -- Adam] -- G10. Step 4's premise IS this step, and
+         # [Co-developed with claude code -- Adam] -- Step 4's premise IS this step, and
          # step 4 had no way to know whether it held. The runner writes the outcome onto ctx
          # under this name; inv_recovery_was_declined_and_said_so reads it and reports
          # TOOL-PRECONDITION-FAILED rather than accusing the kernel when it did not land.

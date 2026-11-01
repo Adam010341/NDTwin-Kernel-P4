@@ -2,8 +2,8 @@
 
 [Co-developed with claude code -- Adam]
 
-design 4.2: B's controller does what NDTwin could not, and "every one is confirmed by thrift or
-by the receiving host". So an attribution holds only when BOTH:
+B's controller does what NDTwin could not, and every one is to be confirmed by thrift or
+by the receiving host. So an attribution holds only when BOTH:
 
   * the controller reports its P4Runtime call succeeded (controller_ext.py's result file), and
   * a reading that does not come from the controller shows the effect: thrift on the switch
@@ -21,7 +21,7 @@ from __future__ import annotations
 from . import controller_ext as CX
 from .collect import thrift as TH
 
-#: Which A cell each attribution backs (design 4.2's list against the cells of 2.3).
+#: Which A cell each attribution backs (B's items against A's cells).
 CELL_ITEMS = {"T4": "ternary", "T5": "range", "T6": "optional", "T7": "priority",
               "MT1": "meter", "MT2": "meter", "MT3": "direct_meter", "D1": "digest",
               "C2": "clone", "R3": "register", "K2": "direct_counter", "P2": "packet_in",

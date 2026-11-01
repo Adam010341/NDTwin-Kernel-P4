@@ -33,7 +33,7 @@ from p4_exercise import common, convert  # noqa: E402
 FIXTURES = os.path.join(HERE, "fixtures")
 BASIC = os.path.join(FIXTURES, "basic")
 P4RUNTIME = os.path.join(FIXTURES, "p4runtime")
-#: The two TICKET-P2 fixtures. `firewall` is the ONLY shipped exercise whose topology.json uses
+#: The firewall and calc fixtures. `firewall` is the ONLY shipped exercise whose topology.json uses
 #: tutorials' per-switch `program` override (s1 runs firewall.json, s2-s4 run the Makefile's
 #: `DEFAULT_PROG basic.p4`), so it is the only one that can tell a converter that reads that
 #: field from one that drops it. `calc` is the single-switch, zero-inter-switch-link shape.
@@ -47,8 +47,8 @@ CALC = os.path.join(FIXTURES, "calc")
 TUTORIALS_EXERCISES = os.path.join(
     os.environ.get("NDTWIN_TUTORIALS_DIR") or os.path.expanduser("~/tutorials"), "exercises")
 
-#: 🔴 BUILD ARTIFACTS CARRY THE COMMAND THAT MADE THEM, NOT BYTE PROVENANCE (Adam 2026-09-27,
-#: ruling J, the P3-C precedent (c) made the rule rather than a list of exceptions).
+#: 🔴 BUILD ARTIFACTS CARRY THE COMMAND THAT MADE THEM, NOT BYTE PROVENANCE (since
+#: 2026-09-27, as a rule rather than a list of exceptions).
 #:
 #: [Co-developed with claude code -- Adam]
 #: A file under a `build/` directory whose name is a compiler output (`.json`, `.p4info.txtpb`)
@@ -66,8 +66,8 @@ TUTORIALS_EXERCISES = os.path.join(
 #: here, and `program` in each bmv2 json naming the source that command compiled (checked below; a
 #: p4info names no source, and shares its json's command). Rerun as recorded, each command gives
 #: back its artifact's bytes, with one stated exception: basic_telemetry's json also carries the
-#: `-I` include's path in its source_info, so from any checkout but wt-p3-proxy-0919 it differs in
-#: that path and nothing else (verify_recipes, 2026-09-27: 15 identical, 1 identical modulo it). The SOURCES -- every
+#: `-I` include's path in its source_info, so from any checkout other than the one it was compiled
+#: in it differs in that path and nothing else (re-run 2026-09-27: 15 identical, 1 identical modulo it). The SOURCES -- every
 #: `.p4`, every topology and runtime file, `mycontroller.py` -- stay byte-compared with
 #: ~/tutorials, and a `.p4` placed under `build/` is still a source (`is_build_artifact`).
 #:
@@ -99,7 +99,7 @@ for _rel_dir, _stem, _command in (
         # json's `program` is the relative "advanced_tunnel.p4".
         ("p4runtime/build", "advanced_tunnel",
          _p4c("advanced_tunnel.p4", "build", "advanced_tunnel", cd=f"{_TUT}/p4runtime")),
-        # TICKET-P2 (2026-09-18): `exercises/firewall` and `exercises/calc` have never been
+        # 2026-09-18: `exercises/firewall` and `exercises/calc` have never been
         # built in this checkout -- there is no `build/` under either -- and a package cannot
         # name a pipeline it does not carry, so the four artefacts a firewall package needs and
         # the two a calc package needs were compiled into the fixture tree, from the tutorials
@@ -110,22 +110,22 @@ for _rel_dir, _stem, _command in (
          _p4c(f"{_TUT}/firewall/firewall.p4", f"{_FIX}/firewall/build", "firewall")),
         ("calc/build", "calc",
          _p4c(f"{_TUT}/calc/calc.p4", f"{_FIX}/calc/build", "calc")),
-        # TICKET-P3 2.6. Compiled FROM basic_telemetry/basic_telemetry.p4 (AUTHORED_FIXTURES), from
+        # Compiled FROM basic_telemetry/basic_telemetry.p4 (AUTHORED_FIXTURES), from
         # inside that directory, so the json's `program` is the relative "basic_telemetry.p4".
         # The include's path IS recorded in the json's source_info, as whatever `-I` said -- on
-        # 2026-09-19 that was the wt-p3-proxy-0919 worktree's p4_proxy/p4_src. (p4c warns once,
+        # 2026-09-19 that was a worktree's p4_proxy/p4_src. (p4c warns once,
         # about NDTWIN_PKTIN_REASON_PACKET_IN being unused -- that constant is for the including
         # program, not for the include. rc is 0.)
         ("basic_telemetry/build", "basic_telemetry",
          _p4c("basic_telemetry.p4", "build", "basic_telemetry", cd=f"{_FIX}/basic_telemetry",
               extra="-I <repo>/p4_proxy/p4_src ")),
-        # TICKET-P3 2.6 again: `exercises/multicast` has never been built in this checkout
+        # Likewise: `exercises/multicast` has never been built in this checkout
         # either, and its runtime file names build/multicast.p4.p4info.txtpb. Compiled from the
         # fixture's own copy of the SKELETON multicast.p4 (the tables and actions its entries
         # name are in the skeleton; only the group logic is missing), inside the fixture dir.
         ("multicast/build", "multicast",
          _p4c("multicast.p4", "build", "multicast", cd=f"{_FIX}/multicast")),
-        # TICKET-P3 section 9 ruling 23②, the P3-C precedent this rule generalises: the SOLUTION
+        # The case this rule generalises: the SOLUTION
         # compiled by absolute path -- the driver's `compile_prog` equivalent, which is what the
         # fabric actually ran when the defect was found -- while
         # `~/tutorials/exercises/basic_tunnel/build/` holds the skeleton's Makefile build
@@ -212,7 +212,7 @@ def unrecorded_build_artifacts(fixtures_dir, recorded):
 #:
 #: [Co-developed with claude code -- Adam]
 #: `basic_telemetry.p4` is the tutorials `basic` SOLUTION with p4_proxy/p4_src/ndtwin_telemetry.p4
-#: included and seven marked edits, and it is the evidence for TICKET-P3 2.6's claim that an
+#: included and seven marked edits, and it is the evidence for the claim that an
 #: exercise author can keep their own program and gain a live twin. It cannot be a copy, because
 #: upstream has no such file -- and `test_the_authored_fixture_is_the_solution_plus_the_include`
 #: is what stops it drifting into being a different program: it diffs against the solution.
@@ -391,7 +391,7 @@ class PackageFields(TmpMixin, unittest.TestCase):
 
 
 class PerSwitchPipelines(TmpMixin, unittest.TestCase):
-    """G4 on the converter's side: which program each switch is given, and by whom.
+    """Per-switch pipelines on the converter's side: which program each switch is given, and by whom.
 
     [Co-developed with claude code -- Adam]
     exercises/firewall is the discriminating exercise and the only one there is: its pod-topo
@@ -642,8 +642,8 @@ class FixtureProvenance(unittest.TestCase):
     """The fixtures claim to be byte copies of ~/tutorials. This is that claim, checked.
 
     [Co-developed with claude code -- Adam]
-    For the SOURCES. Build artifacts carry their compile command instead (BUILD_ARTIFACTS, Adam
-    2026-09-27 ruling J), because the tree they were copied from is one the live runs recompile.
+    For the SOURCES. Build artifacts carry their compile command instead (BUILD_ARTIFACTS, since
+    2026-09-27), because the tree they were copied from is one the live runs recompile.
     """
 
     def test_every_fixture_is_still_byte_identical_to_its_tutorials_original(self):
@@ -662,9 +662,9 @@ class FixtureProvenance(unittest.TestCase):
         self.assertEqual(mismatched, [],
                          "fixture(s) that have drifted from ~/tutorials; the tests describe a "
                          "file shape the upstream exercise no longer has")
-        # 34, exactly. It was a floor of 34 (TICKET-P2's nine copies on top of 25) while the tree
-        # compared 38 -- TICKET-P3 added four copies (basic_tunnel/s1-runtime.json,
-        # multicast/multicast.p4 and multicast/sig-topo/*) and the floor never moved. Ruling J
+        # 34, exactly. It was a floor of 34 (the firewall/calc fixtures' nine copies on top of 25) while the tree
+        # compared 38 -- four more copies were added (basic_tunnel/s1-runtime.json,
+        # multicast/multicast.p4 and multicast/sig-topo/*) and the floor never moved. BUILD_ARTIFACTS
         # (2026-09-27) then moved the four COPIED build artifacts --
         # basic/build/{basic.json,basic.p4.p4info.txtpb} and
         # p4runtime/build/{advanced_tunnel.json,advanced_tunnel.p4.p4info.txtpb} -- from bytes to
@@ -689,7 +689,7 @@ class FixtureProvenance(unittest.TestCase):
                 self.assertFalse(is_build_artifact(rel))
         # And each is the product of the command recorded for it: a bmv2 json names its own
         # source in `program`, which is the last word of that command -- the source path exactly
-        # as the command gave it. `program` is recorded, never byte-compared (TICKET-P1 B
+        # as the command gave it. `program` is recorded, never byte-compared (it was
         # measured that the json's sha moves with the directory, while the p4info's does not).
         # A p4info names no source; it must share its json's command.
         for rel, command in sorted(BUILD_ARTIFACTS.items()):
@@ -710,7 +710,7 @@ class FixtureProvenance(unittest.TestCase):
 
 
 class TheProvenanceRule(TmpMixin, unittest.TestCase):
-    """Ruling J, against trees written here: what drifts is a failure only if it is a source.
+    """The BUILD_ARTIFACTS rule, against trees written here: what drifts is a failure only if it is a source.
 
     [Co-developed with claude code -- Adam]
     These need no ~/tutorials: they build both trees here, so they run wherever this suite runs,
@@ -858,7 +858,7 @@ class Refusals(TmpMixin, unittest.TestCase):
             convert.plan(BASIC, "no-such-topo/topology.json")
 
 
-# --- TICKET-P3 2.6 (G9b): the exercise's own CPU port -----------------------------------------
+# --- the exercise's own CPU port ------------------------------------------------------------
 
 
 class TheCpuPort(TmpMixin, unittest.TestCase):
@@ -953,7 +953,7 @@ class ThePreEntriesSurviveTheConversion(TmpMixin, unittest.TestCase):
                           for r in entries["multicast_group_entries"][0]["replicas"]], [1, 2, 3])
 
     def test_the_one_switch_topology_reads_back(self):
-        # sig-topo has ONE switch and zero inter-switch links, which TICKET-P2 2.4 made legal
+        # sig-topo has ONE switch and zero inter-switch links, which convert.py allows
         # for exactly this shape. A fixture that could not be read back would make every other
         # assertion in this class vacuous.
         _package, model, _copies = convert.plan(os.path.join(FIXTURES, "multicast"),
@@ -965,7 +965,7 @@ class ThePreEntriesSurviveTheConversion(TmpMixin, unittest.TestCase):
                          ["h1", "h2", "h3", "h4"])
 
 
-# --- convert without --role-ipv4-route writes what it wrote before (TICKET-P4-roles 2.1-7) -----
+# --- convert without --role-ipv4-route writes what it wrote before ---------------------------
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -1168,7 +1168,7 @@ BASELINE_CONVERSIONS = {
 
 
 class WithoutTheRoleFlagTheOutputIsByteIdenticalTest(TmpMixin, unittest.TestCase):
-    """TICKET-P4-roles 2.1-7: no --role-ipv4-route => every written file is the base's."""
+    """No --role-ipv4-route => every written file is the base's."""
 
     def test_every_file_of_every_conversion_is_the_one_the_base_wrote(self):
         self.assertTrue(BASELINE_CONVERSIONS, "the base capture is missing")
@@ -1179,7 +1179,7 @@ class WithoutTheRoleFlagTheOutputIsByteIdenticalTest(TmpMixin, unittest.TestCase
                 self.assertEqual(now[case], BASELINE_CONVERSIONS[case])
 
 
-# --- --role-ipv4-route (TICKET-P4-roles 2.1-7) ---------------------------------------------------
+# --- --role-ipv4-route ----------------------------------------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
 

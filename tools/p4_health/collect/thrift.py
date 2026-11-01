@@ -2,7 +2,7 @@
 
 [Co-developed with claude code -- Adam]
 
-design 2.1 "oracle": `table_dump`, `show_tables`, `counter_read`, `register_read`,
+The oracle: `table_dump`, `show_tables`, `counter_read`, `register_read`,
 `meter_get_rates`, `mc_dump`, `mirroring_get`, `show_ports` -- plus, for the Q3(b) cells,
 `act_prof_dump` and `pvs_get`. Nothing here writes: `check_read_only` admits a command only
 when its first word is one of READ_COMMANDS and it is a single line (a newline would hand the
@@ -12,7 +12,7 @@ switches the probe started itself (throwaway.py); a fabric switch is only ever r
 🔴 UNREADABLE IS None, AND IS NEVER "PRESENT". Every parser returns None for output it does not
 recognise -- a switch that is not there ("Could not connect"), a name the switch does not have
 ("Error: Invalid ... name"), an empty reply. A reader that turned those into a match is exactly
-what the same-window negative reads exist to catch (design 2.1), and a reader that turns them
+what the same-window negative reads exist to catch, and a reader that turns them
 into "absent" would hand the negative read a pass it did not earn -- so "absent" is a positive
 statement that only a recognised reply can make (`mirroring_get`'s SESSION_NOT_FOUND, a dump
 with no such entry, a `pvs_get` that printed its prompt and nothing else).

@@ -1,4 +1,4 @@
-"""health.json, 00_table.tsv and the terminal table (design 4.3), with the three rollups.
+"""health.json, 00_table.tsv and the terminal table, with the three rollups.
 
 [Co-developed with claude code -- Adam]
 """
@@ -20,7 +20,7 @@ def table_rows(table, ctx, annotated):
         attr = v.attribution or {}
         attribution = "+".join(attr.get("kind") or []) + ("" if attr.get("ok", True) else " (not established)")
         if c.alias_of:
-            # (r3) an alias row says whose verdict it is: VB1's varbit verdict is CH3's
+            # an alias row says whose verdict it is: VB1's varbit verdict is CH3's
             attribution = "ALIAS of %s%s" % (c.alias_of, ("; " + attribution) if attribution else "")
         rows.append([c.dimension, c.id, c.scope, v.label, attribution, exp or "-", d, v.reason])
     for ctl in table.controls:
@@ -74,7 +74,7 @@ def health(run_id, probe_version, lab_surface, s0, bringups, table, ctx, annotat
 
 
 def write_json_atomic(path, doc, default=sorted):
-    """(round 6, finding 5) `doc` as JSON at `path` through a temp file and os.replace: the file is either
+    """`doc` as JSON at `path` through a temp file and os.replace: the file is either
     the whole new one or what was there before, never half of one, and a failed write leaves no temp file."""
     tmp = "%s.tmp-%d" % (path, os.getpid())
     try:
