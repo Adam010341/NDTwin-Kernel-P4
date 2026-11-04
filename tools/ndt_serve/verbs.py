@@ -297,6 +297,18 @@ RC_TABLE = {
 # 2026-10-31: the path of `ndt ntg`'s config module, set at the top of ndt, put 4 lines above every
 # row; the ready line's fresh-or-reused word (its global, up_p4 and lab_entry_points) put 9 more
 # above status --check's row and every row below it.
+# 2026-11-01, [Co-developed with claude code -- Adam]: `ndt up p4`'s refusals that only read the
+# machine moved above its writes, up_p4 gained an unwind for what it wrote (refusal_unwind and the
+# functions under it) and the model comparison became its own function (up_target_check): 13 lines
+# above the claim and release rows, and 189 above status --measuring's row and every row below it,
+# counted from the ndt that already carried 'ndt ntg' mode. Each anchor was moved to the line that
+# holds the same code, found by matching against the unchanged lines of the earlier ndt (text and
+# function checked), not by adding one number to all of them.
+# 2026-11-01, later still: 9 more lines above status --measuring's row and every row below it (the
+# claim and release rows did not move): 4 for the unreadable-file checks in refusal_snapshot and
+# refusal_mark, 4 in up_p4's app-knob failure block (a mark and its comment) and 1 for the
+# telemetry mark. Each anchor was moved to the line that holds the same code (text and function
+# checked).
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -310,21 +322,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(7664, 3, "return 3", "cmd_status"), (7669, 0, "return 0", "cmd_status"),
-                              (7673, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(7675, 0, "return 0", "cmd_status")]},
+                     "code": [(7862, 3, "return 3", "cmd_status"), (7867, 0, "return 0", "cmd_status"),
+                              (7871, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(7873, 0, "return 0", "cmd_status")]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(7285, 0, "return 0", "cmd_status")]},
-    "claim": {"code": [(764, 2, "return 2", "cmd_claim"), (773, 2, "return 2", "cmd_claim"),
-                       (798, 1, "return 1", "claim_take"), (870, 1, "return 1", "claim_take"),
-                       (872, 0, 'ok "lab claimed by', "claim_take")]},
-    "release": {"code": [(876, 0, "return 0", "cmd_release"), (881, 1, "return 1", "cmd_release"),
-                         (915, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(9493, 0, "return 0", "app_start"), (9497, 1, "return 1", "app_start"),
-                            (9570, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(11048, 1, "return 1", "cmd_apps"), (11051, 2, "return 2", "cmd_apps"),
-                           (11054, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(10981, 0, "return 0", "cmd_apps")]},
+                         "code": [(7483, 0, "return 0", "cmd_status")]},
+    "claim": {"code": [(777, 2, "return 2", "cmd_claim"), (786, 2, "return 2", "cmd_claim"),
+                       (811, 1, "return 1", "claim_take"), (883, 1, "return 1", "claim_take"),
+                       (885, 0, 'ok "lab claimed by', "claim_take")]},
+    "release": {"code": [(889, 0, "return 0", "cmd_release"), (894, 1, "return 1", "cmd_release"),
+                         (928, 1, "return 1", "cmd_release")]},
+    "apps.start": {"code": [(9691, 0, "return 0", "app_start"), (9695, 1, "return 1", "app_start"),
+                            (9768, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(11246, 1, "return 1", "cmd_apps"), (11249, 2, "return 2", "cmd_apps"),
+                           (11252, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(11179, 0, "return 0", "cmd_apps")]},
 }
 
 

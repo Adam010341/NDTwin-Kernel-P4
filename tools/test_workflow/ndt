@@ -553,21 +553,14 @@ import json,sys; t=json.load(open(sys.argv[1]))
 print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "$1" 2>/dev/null
 }
 
-# record_up_target <plane> <hosts> <topology-file> -- write the baseline.
-#
-# Called from up_p4 and up_ovs at the point where the target is fully decided and every
-# refusal that can be decided without touching the lab has already passed -- i.e. immediately
-# before the first numbered step. Recording it EARLIER would name a fabric no one ever tried
-# to build (a refused claim, a failed preflight); recording it LATER would leave the failure
-# case -- which is exactly the case worth checking -- with no baseline at all. A bring-up that
-# fails half way is still a bring-up that asked for something, and a failed `ndt up ovs4`
-# leaves Ryu, a topo session and a dataplane behind with no kernel -- precisely the state
-# `--check` should be able to call red afterwards.
-record_up_target() {
-    local plane="$1" hosts="$2" topo="$3" f sum counts
+# [Co-developed with claude code -- Adam]
+# up_target_check <plane> <hosts> <topology-file> -- the comparison record_up_target refuses on,
+# without the write. up_p4 asks it before its read-only refusals (a stale pipeline, a live OVS
+# fabric) so a model that is a different network still answers rc 5 whatever else is wrong, as it
+# did when the record was written first. record_up_target runs it again; it only reads.
+up_target_check() {
+    local plane="$1" hosts="$2" topo="$3" f counts
     f="$(up_target_file)"
-    mkdir -p "$(dirname "$f")" || return 1
-    sum="$(sha256sum "$topo" 2>/dev/null | cut -d' ' -f1)"
     counts="$(topo_model_counts "$topo")"
     # [Co-developed with claude code -- Adam]
     # 🔴 This function wrote `hosts=4` and
@@ -595,6 +588,26 @@ record_up_target() {
         # guards, one code -- see the vocabulary note above preflight. (2026-09-12)
         return 5
     fi
+    return 0
+}
+
+# record_up_target <plane> <hosts> <topology-file> -- write the baseline.
+#
+# Called from up_p4 and up_ovs at the point where the target is fully decided and every
+# refusal that can be decided without touching the lab has already passed -- i.e. immediately
+# before the first numbered step. Recording it EARLIER would name a fabric no one ever tried
+# to build (a refused claim, a failed preflight); recording it LATER would leave the failure
+# case -- which is exactly the case worth checking -- with no baseline at all. A bring-up that
+# fails half way is still a bring-up that asked for something, and a failed `ndt up ovs4`
+# leaves Ryu, a topo session and a dataplane behind with no kernel -- precisely the state
+# `--check` should be able to call red afterwards.
+record_up_target() {
+    local plane="$1" hosts="$2" topo="$3" f sum counts
+    f="$(up_target_file)"
+    up_target_check "$plane" "$hosts" "$topo" || return $?
+    mkdir -p "$(dirname "$f")" || return 1
+    sum="$(sha256sum "$topo" 2>/dev/null | cut -d' ' -f1)"
+    counts="$(topo_model_counts "$topo")"
     printf 'plane=%s\nhosts=%s\ntopology=%s\ntopology_sha256=%s\nmodel_hosts=%s\nmodel_edges=%s\nat=%s\nby=%s\nbuilder=%s\n' \
         "$plane" "$hosts" "${topo#$REPO/}" "${sum:-unavailable}" \
         "${counts%% *}" "${counts##* }" "$(date +%s)" "${NDT_OWNER:-unset}" "up_$plane" > "$f" || return 1
@@ -1225,9 +1238,14 @@ claim_note_unwritten() {
 # verify block at the end, and that is deliberate in both directions: an `up` that fails half
 # way still leaves Ryu, a topo session and a data plane behind, and that half-built fabric
 # is precisely the state whose note must not still say the lab is free.
+CLAIM_NOTE_UP_TEXT=""
 claim_note_up() {
-    local what="$1"
-    if set_claim_note "in use: ndt up $what at $(date '+%Y-%m-%d %H:%M:%S') by ${NDT_OWNER:-unset}"; then
+    local what="$1" text
+    text="in use: ndt up $what at $(date '+%Y-%m-%d %H:%M:%S') by ${NDT_OWNER:-unset}"
+    CLAIM_NOTE_UP_TEXT=""
+    if set_claim_note "$text"; then
+        # [Co-developed with claude code -- Adam] The sentence this call wrote, for refusal_unwind.
+        CLAIM_NOTE_UP_TEXT="${text//$'\n'/ }"
         info "claim note now says the lab is in use (owner and expiry unchanged)"
     else
         claim_note_unwritten
@@ -2520,10 +2538,41 @@ knob_path() { printf '%s\n' "$REPO/p4_proxy/mininet/host_count_override"; }
 # knob_snapshot -- take the copy the restore below reads. Answers 0 even when it cannot take
 # one: failing to snapshot must not be a reason to refuse a bring-up, but it IS a reason to say
 # so, because the restore will then be unable to run.
+# [Co-developed with claude code -- Adam]
+# The two `up_wrote` lines set_host_count adds to the round baseline are part of what a refused or
+# rolled-back bring-up puts back: left behind, knob_row calls the value an earlier `ndt up p4`
+# wrote a hand edit once the host knob is back at its starting value.
+#
+# Only what this run left is put back: up_wrote_mark records the two lines right after
+# set_host_count wrote them, and up_wrote_put_back leaves them alone when they have changed since
+# (an `ndt claim` that ran during the orphan sweep started a new round, and that round's lines
+# are not this run's to undo).
+UPW_TAKEN=""; UPW_N=""; UPW_AT=""; UPW_MARK=""
+up_wrote_snapshot() {
+    UPW_TAKEN=1; UPW_MARK=""
+    UPW_N="$(round_baseline_field up_wrote)"; UPW_AT="$(round_baseline_field up_wrote_at)"
+}
+up_wrote_mark() { UPW_MARK="$(round_baseline_field up_wrote)|$(round_baseline_field up_wrote_at)"; }
+up_wrote_put_back() {
+    local f tmp; f="$(round_baseline_file)"
+    [[ -n "$UPW_TAKEN" && -f "$f" ]] || return 0
+    [[ "$UPW_MARK" == "$(round_baseline_field up_wrote)|$(round_baseline_field up_wrote_at)" ]] \
+        || return 0
+    tmp="$(mktemp "$(dirname "$f")/.round-baseline-XXXXXX" 2>/dev/null)" || return 0
+    {
+        grep -v -e '^up_wrote=' -e '^up_wrote_at=' "$f"
+        [[ -n "$UPW_N" ]] && printf 'up_wrote=%s\n' "$UPW_N"
+        [[ -n "$UPW_AT" ]] && printf 'up_wrote_at=%s\n' "$UPW_AT"
+        true
+    } > "$tmp" && mv -f "$tmp" "$f" || rm -f "$tmp"
+    UPW_TAKEN=""
+    return 0
+}
 knob_snapshot() {
     local f; f="$(knob_path)"
     KNOB_SAVED=""
     KNOB_ENTRY="$(host_count)"
+    up_wrote_snapshot
     app_knob_count_snapshot
     if [[ ! -e "$f" ]]; then KNOB_SAVED="(absent)"; return 0; fi
     mkdir -p "$REPO/.test_run" 2>/dev/null
@@ -2534,6 +2583,115 @@ knob_snapshot() {
         warn "  put back automatically -- it reads $KNOB_ENTRY right now"
     fi
     return 0
+}
+
+# [Co-developed with claude code -- Adam]
+# --- what a REFUSED `ndt up p4` puts back ------------------------------------------------------
+#
+# The bring-up writes up.target, the app package knob, the telemetry knob and the claim note
+# after its read-only refusals (decided above them, in up_p4) and before the first step that
+# changes the machine. A refusal after those writes -- the orphan sweep that did not finish, or
+# a write that itself failed -- puts them back to the bytes they had, besides the host-count knob
+# that knob_restore handles. Not deleted: on the usual refusal up.target is an OVS lab's, the
+# knobs belong to an earlier bring-up and the note is somebody's sentence. refusal_snapshot is
+# taken before the first of the three files is written.
+#
+# The `up_wrote=` lines set_host_count adds to the round baseline go back with the host-count knob
+# (knob_restore, up_wrote_put_back).
+#
+# 🔴 The claim note is put back through claim_rewrite, so owner, expiry and any other field stay
+# as they are NOW (and the file's fields are written in the documented order, as claim_note_up
+# already did). It goes back only when claim_note_up itself wrote the note (it records the
+# sentence), the claim is still this NDT_OWNER's and the note is still that sentence: a note
+# someone rewrote since is theirs, and so is any note on a claim a --force bring-up went past.
+#
+# 🔴 The three files are put back only while they still hold what THIS run left in them
+# (refusal_mark records it right after each write): a file someone changed, deleted or created
+# during the orphan sweep is left alone, and said so. A file the run never finished writing is left
+# alone too. The host-count knob is the exception: knob_restore (also rollback_up's first act)
+# puts its snapshot back whatever is on disk, as it always has. So
+#   - its absent-snapshot branch still deletes a host-count knob someone else created, and says
+#     "(this run created it)" of it; the --app record (app_knob_count_put_back) follows the same
+#     rule;
+#   - a second `ndt up p4 <n>` that runs during the sweep keeps its up_wrote line (the lines are
+#     put back only while they are this run's) while its knob value is overwritten.
+declare -A REFUSAL_PRE=() REFUSAL_AFTER=()
+REFUSAL_NOTE_BEFORE=""; REFUSAL_NOTE_WRITTEN=""; REFUSAL_NOTE_TAKEN=""
+refusal_snapshot() {
+    local p
+    REFUSAL_PRE=(); REFUSAL_AFTER=()
+    REFUSAL_NOTE_BEFORE=""; REFUSAL_NOTE_WRITTEN=""; REFUSAL_NOTE_TAKEN=""
+    for p in "$(up_target_file)" "$(app_knob_path)" "$(telemetry_knob_path)"; do
+        # [Co-developed with claude code -- Adam] A file that exists but cannot be read is never
+        # snapshotted as empty (an empty app knob is the state the proxy refuses to start on).
+        if [[ -e "$p" && ! -r "$p" ]]; then REFUSAL_PRE[$p]=""; continue; fi
+        if [[ -e "$p" ]]; then REFUSAL_PRE[$p]="$(cat -- "$p" 2>/dev/null; printf x)"
+        else REFUSAL_PRE[$p]=ABSENT; fi
+    done
+    # A claim that does not exist is never created by claim_note_up, so there is nothing to take.
+    [[ -f "$CLAIM" ]] && { REFUSAL_NOTE_BEFORE="$(claim_field note)"; REFUSAL_NOTE_TAKEN=1; }
+    return 0
+}
+# refusal_mark <path> -- called right after this run wrote <path>: what it holds now is what the
+# run left, and the only thing refusal_put_back will undo.
+refusal_mark() {
+    local p="$1"
+    if [[ -e "$p" && ! -r "$p" ]]; then REFUSAL_AFTER[$p]=""; return 0; fi
+    if [[ -e "$p" ]]; then REFUSAL_AFTER[$p]="$(cat -- "$p" 2>/dev/null; printf x)"
+    else REFUSAL_AFTER[$p]=ABSENT; fi
+}
+# refusal_claim_written -- called after claim_note_up: remember the sentence it left, when it
+# changed the note.
+refusal_claim_written() {
+    [[ -n "$REFUSAL_NOTE_TAKEN" && -n "$CLAIM_NOTE_UP_TEXT" && -f "$CLAIM" ]] || return 0
+    [[ "$(claim_field note)" == "$CLAIM_NOTE_UP_TEXT" ]] && REFUSAL_NOTE_WRITTEN="$CLAIM_NOTE_UP_TEXT"
+    return 0
+}
+# refusal_put_back <path> <why> -- one file back to its snapshot; silent when it already is.
+refusal_put_back() {
+    local p="$1" why="$2" saved="${REFUSAL_PRE[$1]:-}" after="${REFUSAL_AFTER[$1]:-}" now tmp
+    [[ -n "$saved" && -n "$after" ]] || return 0      # nothing to undo, or never finished writing it
+    if [[ -e "$p" ]]; then now="$(cat -- "$p" 2>/dev/null; printf x)"; else now=ABSENT; fi
+    if [[ "$now" != "$after" ]]; then
+        warn "$(short_repo_path "$p") left as it is: it changed after this run wrote it ($why)"
+        return 0
+    fi
+    if [[ "$saved" == ABSENT ]]; then
+        [[ -e "$p" ]] || return 0
+        rm -f "$p" 2>/dev/null || { err "could NOT remove $(short_repo_path "$p"): $why"; return 1; }
+        warn "removed $(short_repo_path "$p"): $why (this run created it)"
+        return 0
+    fi
+    [[ -e "$p" && "$now" == "$saved" ]] && return 0
+    tmp="$p.ndt.$$"
+    if ! { printf '%s' "${saved%x}" > "$tmp" && mv -f "$tmp" "$p"; } 2>/dev/null; then
+        rm -f "$tmp" 2>/dev/null
+        err "could NOT put $(short_repo_path "$p") back to what it was before this 'ndt up': $why"
+        return 1
+    fi
+    warn "$(short_repo_path "$p") put back to what it was: $why"
+}
+# refusal_unwind <why> -- the three files and the claim note a refused bring-up wrote, and the
+# host-count knob, back to what it found. Replaces the bare knob_restore on every exit that
+# comes after the writes.
+refusal_unwind() {
+    local why="$1" p rc=0
+    for p in "$(up_target_file)" "$(app_knob_path)" "$(telemetry_knob_path)"; do
+        refusal_put_back "$p" "$why" || rc=1
+    done
+    if [[ -n "$REFUSAL_NOTE_WRITTEN" && -n "${NDT_OWNER:-}" && -f "$CLAIM" \
+          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then
+        if claim_rewrite note "$REFUSAL_NOTE_BEFORE"; then
+            warn "$(short_repo_path "$CLAIM"): the note is back to what it was: $why"
+        else
+            err "could NOT put the claim note back to what it was before this 'ndt up': $why"
+            rc=1
+        fi
+    fi
+    REFUSAL_NOTE_WRITTEN=""
+    APP_KNOB_WRITTEN=""
+    knob_restore "$why" || rc=1
+    return $rc
 }
 
 # knob_restore <why> -- put the knob back to the snapshot's BYTES, and assert that it is back.
@@ -2548,6 +2706,7 @@ knob_restore() {
         [[ -e "$f" ]] || { KNOB_SAVED=""; return 0; }
         rm -f "$f"
         warn "removed $(short_repo_path "$f"): $why (this run created it)"
+        up_wrote_put_back
         KNOB_SAVED=""
         return 0
     fi
@@ -2567,6 +2726,7 @@ knob_restore() {
         return 1
     fi
     warn "host_count_override put back to $KNOB_ENTRY (it read $now): $why"
+    up_wrote_put_back
     KNOB_SAVED=""
     return 0
 }
@@ -3825,9 +3985,55 @@ up_p4() {
     # was made.
     preflight p4 || return $?
 
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE TWO REFUSALS THAT ONLY READ THE MACHINE ARE DECIDED HERE, above every write. They
+    # used to sit at [1/3], after up.target, the knobs and the claim note had been written, and
+    # printed "refused before it changed anything" over files they had just changed. Both inputs
+    # are readable now: the bmv2 count and the fabric's host count (one reading each, reused at
+    # [1/3]), and the OVS bridge count behind guard_no_live_ovs.
+    #
+    # What stays the same: the guard still answers 0 at once when there is no topo session, and
+    # the orphan sweep only runs when there is none, so the guard's verdict does not depend on the
+    # sweep; and the model-vs-fabric refusal (rc 5) is asked first, as record_up_target used to
+    # ask it before either of these could answer 1. What differs: the readings are taken before
+    # the writes below instead of after, so a lab that changes in that window is read as it was.
+    #
+    # Two order changes for a run with two faults. The first changes only the message: these two
+    # refusals now come BEFORE the write block's rc-1 refusals (a knob that cannot be written, an
+    # unknown telemetry word), and every one of them is rc 1 as before. The second changes the
+    # exit code too: record_up_target checks the model before it makes the .test_run directory,
+    # so a model of another network is rc 5 even when the directory cannot be made (rc 1 before).
+    up_target_check p4 "$hosts" "$topo" || return $?
+    n="$(bmv2_count)"
+    local live_hosts; live_hosts="$(fabric_host_count)"
+    # Reuse requires BOTH counts to match. The switch count alone identifies nothing -- every P4
+    # topology here has ten -- so a fabric of the wrong size passed as "already up". See
+    # fabric_host_count.
+    local reuse=0
+    topo_session && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -eq "$hosts" ]] && reuse=1
+    if (( reuse )) && stale_pipeline; then
+        # Reusing here would measure the old pipeline while every readout says the new one.
+        err "the fabric predates the current build of ndtwin_switch.json."
+        err "bmv2 loads the pipeline at exec time and never reloads, so these $n switches"
+        err "are NOT running $(rate_label "$rate"). take it down and back up:  ndt down && ndt up"
+        err "up.target, the knobs and the claim note were not touched."
+        return 1
+    fi
+    # Refuse a live OVS fabric instead of quietly removing it. `up_ovs` already refuses the
+    # mirror case ("starting Ryu under a live Mininet is the /stats/flow wedge trigger");
+    # this side used to be a bare `topo-stop >/dev/null 2>&1`, so `ndt up` on a running OVS
+    # fabric destroyed it with no message at all. The asymmetry was invisible because all
+    # three ndtwin-lab verbs name their tmux session `topo`, so the session's existence
+    # cannot tell the two planes apart -- the bridges can.
+    # The whole decision, including "could not tell", lives in guard_no_live_ovs so a test
+    # can call it on its own.
+    (( reuse )) || guard_no_live_ovs || { err "up.target, the knobs and the claim note were not touched."; return 1; }
+
     # What this run was asked for, written down before anything is built, so `status --check`
     # has a baseline that does not depend on reading a P4-only knob back afterwards.
+    refusal_snapshot
     record_up_target p4 "$hosts" "$topo" || return $?
+    refusal_mark "$(up_target_file)"
 
     # [Co-developed with claude code -- Adam]
     # 🔴 THE KNOB IS WRITTEN HERE, and this line's position is the fix: everything above
@@ -3837,10 +4043,13 @@ up_p4() {
     # before the only persistent file an `ndt up` writes is moved.
     #
     # Nothing below this point may leave the knob moved unless the fabric really came up at
-    # that size: the three refusals in [1/3] and rollback_up all call knob_restore.
+    # that size: the sweep refusal at [1/3] and every failed write below (refusal_unwind, which
+    # ends in knob_restore) and rollback_up put it back. The stale-pipeline and live-OVS refusals
+    # are decided above this point and never move it.
     if [[ -n "$knob_wanted" ]]; then
         knob_snapshot
-        set_host_count "$knob_wanted" "$knob_layout" || { knob_restore "the knob write itself was refused"; return 1; }
+        set_host_count "$knob_wanted" "$knob_layout" || { refusal_unwind "the knob write itself was refused"; return 1; }
+        up_wrote_mark
         # [Co-developed with claude code -- Adam] Which kind of write it was: see app_knob_count_note.
         if [[ "$knob_layout" == package ]]; then
             [[ "$KNOB_ENTRY" != "$knob_wanted" ]] && app_knob_count_note "$knob_wanted"
@@ -3856,12 +4065,19 @@ up_p4() {
     # that says baseline. Every `ndt up` states which of the two it is.
     if [[ -n "$app_dir" ]]; then
         app_knob_write "$app_dir" || {
-            knob_restore "the app package knob could not be written"
+            # [Co-developed with claude code -- Adam] The writer moves the new file into place and
+            # only then reads it back, so a failed read-back has already replaced the earlier knob:
+            # mark what is there now, or the put-back would leave it alone as somebody else's.
+            refusal_mark "$(app_knob_path)"
+            refusal_unwind "the app package knob could not be written"
             err "nothing was started."
             return 1; }
     else
-        app_knob_clear "this 'ndt up' asked for the baseline fabric" || return 1
+        app_knob_clear "this 'ndt up' asked for the baseline fabric" || {
+            refusal_unwind "the app package knob could not be cleared"
+            return 1; }
     fi
+    refusal_mark "$(app_knob_path)"
     # [Co-developed with claude code -- Adam]
     # 🔴 THE TELEMETRY KNOB, HERE, AND `ndt` IS ITS ONLY WRITER. Beside the
     # app knob because it is the same kind of thing -- a persistent file three readers act on
@@ -3877,39 +4093,31 @@ up_p4() {
     local tel_word="${NDT_TELEMETRY:-}"
     if [[ -z "$tel_word" ]]; then
         tel_word="$(telemetry_word_for_bring_up "$app_dir")" || {
-            knob_restore "the package's telemetry source is not one this script knows"
+            refusal_unwind "the package's telemetry source is not one this script knows"
             err "nothing was started."
             return 1; }
     fi
     telemetry_knob_apply "$tel_word" || {
-        knob_restore "the telemetry knob could not be written"
+        refusal_mark "$(telemetry_knob_path)"       # same reason as the app knob's block above
+        refusal_unwind "the telemetry knob could not be written"
         err "nothing was started."
         return 1; }
+    refusal_mark "$(telemetry_knob_path)"
     # [Co-developed with claude code -- Adam]
     # The note names what was brought up the way the user asked for it: `p4 <n>`, or
     # `p4 --app <the directory they gave>` (an exercise, or a package). This line is the literal
     # anchor of mutate_ndt_honesty.sh's M10 ("ndt up p4 stops writing the note").
     claim_note_up "$up_what"
+    refusal_claim_written
 
     # -- 1. fabric --
     say "[1/3] bmv2 fabric"
-    n="$(bmv2_count)"
-    local live_hosts; live_hosts="$(fabric_host_count)"
-    # Reuse requires BOTH counts to match. The switch count alone identifies nothing -- every P4
-    # topology here has ten -- so a fabric of the wrong size passed as "already up". See
-    # fabric_host_count.
     # [Co-developed with claude code -- Adam] Whether this run started the fabric: the ready line
-    # (verify_p4) names the pane's NTG mode only for one it started (see ntg_pane).
+    # (verify_p4) names the pane's NTG mode only for one it started (see ntg_pane). The reuse
+    # decision, stale pipeline included, was taken above the writes; `reused` is set only on the
+    # branch that accepts the fabric.
     UP_P4_FABRIC=fresh
-    if topo_session && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -eq "$hosts" ]]; then
-        if stale_pipeline; then
-            # Reusing here would measure the old pipeline while every readout says the new one.
-            err "the fabric predates the current build of ndtwin_switch.json."
-            err "bmv2 loads the pipeline at exec time and never reloads, so these $n switches"
-            err "are NOT running $(rate_label "$rate"). take it down and back up:  ndt down && ndt up"
-            knob_restore "this bring-up was refused before it changed anything"
-            return 1
-        fi
+    if (( reuse )); then
         ok "already up: $n switches, $live_hosts hosts, reusing"
         UP_P4_FABRIC=reused
     else
@@ -3943,21 +4151,10 @@ up_p4() {
                 err "refuses instead of proceeding. Ports still held:"
                 ndt_port_residue p4 | sed 's/^/        /' >&2
                 err "deal with it, then retry:  ndt down --deep && ndt up p4"
-                knob_restore "this bring-up was refused before it changed anything"
+                refusal_unwind "the orphan sweep ran but did not finish; nothing was built"
                 return 1
             fi
         fi
-        # [Co-developed with claude code -- Adam]
-        # Refuse a live OVS fabric instead of quietly removing it. `up_ovs` already refuses the
-        # mirror case ("starting Ryu under a live Mininet is the /stats/flow wedge trigger");
-        # this side used to be a bare `topo-stop >/dev/null 2>&1`, so `ndt up` on a running OVS
-        # fabric destroyed it with no message at all. The asymmetry was invisible because all
-        # three ndtwin-lab verbs name their tmux session `topo`, so the session's existence
-        # cannot tell the two planes apart -- the bridges can.
-        # The whole decision, including "could not tell", lives in guard_no_live_ovs so a test
-        # can call it on its own. Inline, it sat behind topo_session and a bmv2 count that had
-        # already returned in every branch a test could reach.
-        guard_no_live_ovs || { knob_restore "this bring-up was refused before it changed anything"; return 1; }
         # [Co-developed with claude code -- Adam] Stop its heartbeat
         # first. Left running, the `heartbeat start` below answers "already running" for the
         # OLD fabric's daemon, which then exits when its fabric goes and leaves this one with none.
@@ -6578,9 +6775,10 @@ ovs_daemon_running() {
 #   0 clear to proceed, 1 stop.
 #
 # 🔴 Three inputs, two outcomes, and the third input is the point: "I could not tell" stops the
-# bring-up. What this guard protects is irreversible -- the next two statements are topo-stop
-# and topo-start, which destroy whatever fabric is there. The old guard had two inputs, so a
-# refused ovs-vsctl arrived as "there is no OVS here" and the teardown went ahead in silence.
+# bring-up. What this guard protects is irreversible -- topo-stop and topo-start, which destroy
+# whatever fabric is there, come later in up_p4 (the guard is asked first, above its writes).
+# The old guard had two inputs, so a refused ovs-vsctl arrived as "there is no OVS here" and the
+# teardown went ahead in silence.
 #
 # It still only asks when a topo session exists, as before: bridges belonging to something else
 # on the machine are not this command's business. [Co-developed with claude code -- Adam]

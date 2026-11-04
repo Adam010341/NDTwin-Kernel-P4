@@ -40,7 +40,11 @@ has()   { grep -q -- "$2" <<<"$3" && t_ok "$1" || t_bad "$1" "no match for '$2' 
 hasnt() { grep -q -- "$2" <<<"$3" && t_bad "$1" "unexpected '$2' in: $3" || t_ok "$1"; }
 
 BIN="$(mktemp -d "${TMPDIR:-/tmp}/ndt-sudo-fakes-XXXXXX")"
-trap 'rm -rf "$BIN"' EXIT
+# [Co-developed with claude code -- Adam] A scratch checkout for the one case that runs up_p4: ndt
+# derives REPO from where it sits, so without this that case wrote up.target and the knobs of the
+# tree the test is run from.
+UPFIX="$(mktemp -d "${TMPDIR:-/tmp}/ndt-sudo-repo-XXXXXX")"; export UPFIX
+trap 'rm -rf "$BIN" "$UPFIX"' EXIT
 
 # --- the fakes -------------------------------------------------------------------------------
 # `sudo` refuses the binaries named in FAKE_SUDO_DENY with sudo's own measured wording, and
@@ -341,9 +345,16 @@ check "report, two rows: an unknown sudo: line, then a program that is not insta
 
 echo "the wiring: the callers read the table rather than keeping a copy"
 
-# up_p4 must take its verdict from guard_no_live_ovs. Everything the function touches before
-# the guard is stubbed, so this asserts the seam and nothing else.
+# up_p4 must take its verdict from guard_no_live_ovs. Everything the function reads before
+# the guard is stubbed, and every path it can write (up.target, the knobs, the claim) is pointed
+# at $UPFIX, so this asserts the seam and nothing else and touches no real checkout.
+# [Co-developed with claude code -- Adam] sudo and sleep are stubbed as well: a bring-up that got
+# past the guard (the gate's mutant does) would otherwise reach `sudo -n $LAB topo-start` through
+# the pass-through fake above and run the real helper.
 UP_STUBS='
+REPO="$UPFIX"; CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff";
+mkdir -p "$REPO/.test_run" "$REPO/p4_proxy/mininet";
+sudo() { return 1; }; sleep() { :; };
 host_count() { echo 4; }; topo_for_hosts() { echo /tmp/x.json; }; bmv2_binary() { echo b; };
 sample_rate() { echo 1; }; rate_label() { echo r; }; foreign_claim() { :; }; in_flight() { :; };
 preflight() { return 0; }; bmv2_count() { echo 0; }; fabric_host_count() { echo 0; };

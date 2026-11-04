@@ -62,7 +62,7 @@ for sib in ports.sh sudo_surface.sh; do
     [[ -r "$(dirname "$NDT")/$sib" ]] || { echo "ndt needs $sib beside it; not at $(dirname "$NDT")/$sib"; exit 2; }
 done
 
-PASS=0; FAIL=0
+PASS=0; FAIL=0; SKIP=0
 t_ok()  { PASS=$((PASS+1)); printf '  ok       %s\n' "$1"; }
 t_bad() { FAIL=$((FAIL+1)); printf '  FAILED   %s\n             %s\n' "$1" "$2"; }
 check() { [[ "$2" == "$3" ]] && t_ok "$1" || t_bad "$1" "expected: [$2]  actual: [$3]"; }
@@ -1978,5 +1978,359 @@ check "  clean (silent): a 'cannot tell' from the residue with no text is still 
 hasnt "  clean (silent): and it does not say the ports are closed" "ports closed" "$OUT"
 
 # ==========================================================================================
+section "26. a refused 'ndt up p4' leaves the files it could have written exactly as it found them"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam]
+# `ndt up p4` writes .test_run/up.target, the app package knob, the telemetry knob, the claim
+# note and (given a count) the host-count knob. Its refusals used to print "refused before it
+# changed anything" with those already rewritten; only the host-count knob was put back, so
+# `ndt status --check` was red against a P4 target nobody built and a stale app knob pointed the
+# next proxy at a package.
+#
+# Two of the three refusals at [1/3] only READ the machine (a stale pipeline, a live OVS
+# fabric) and are decided above every write now: for those the cells say nothing was touched,
+# and that no put-back line was needed. The third, an orphan sweep that did not finish, runs
+# `cleanup` first, so it is decided after the writes and unwinds them; its cells are the ones
+# that can see the host-count knob come back.
+#
+# 🔴 BYTES, and the state the operator really has: an OVS lab is up (so up.target exists and says
+# ovs), a package knob and a `link` telemetry knob are in place, the host-count knob reads 8 under
+# a comment, and the claim carries someone's sentence. "Absent" would be the wrong thing to
+# restore, and so would "4". The run asks for 4, so the host-count knob really moves.
+# 🔴 The control is a bring-up that is NOT refused: it must still write all of them, or the
+# unwind is satisfied by an `ndt up p4` that never writes anything.
+UPT="$FIX/.test_run/up.target"
+APPK="$FIX/p4_proxy/mininet/app_package_override"
+TELK="$FIX/p4_proxy/mininet/telemetry_override"
+CLM="$FIX/.test_run/lab.claim"
+fhash() { if [[ -e "$1" ]]; then sha256sum < "$1" | cut -c1-16; else echo absent; fi; }
+five_hash() { printf '%s|%s|%s|%s|%s\n' "$(fhash "$UPT")" "$(fhash "$APPK")" "$(fhash "$TELK")" "$(fhash "$CLM")" "$(fhash "$KNOBF")"; }
+seed_found() {   # the machine as a live OVS lab left it
+    reset_fix; rm -f "$DM"
+    printf 'plane=ovs\nhosts=4\ntopology=setting/x.json\nat=1\nby=somebody\nbuilder=up_ovs\n' > "$UPT"
+    printf '# written by ndt up p4 --app at 2026-10-30T00:00:00Z\n/srv/some/package\n' > "$APPK"
+    printf '# written by ndt up p4 at 2026-10-30T00:00:00Z\nlink\n' > "$TELK"
+    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=\nmeasuring=\n' \
+        "$NOTE_OWNER" "$(( $(date +%s) + 3600 ))" "run finished; lab free, night claim kept" > "$CLM"
+    printf '# 8 for tonight\n8\n' > "$KNOBF"
+}
+seed_empty() {   # a machine that had none of the four files
+    reset_fix; rm -f "$DM" "$UPT" "$APPK" "$TELK" "$CLM"
+    printf '# 8 for tonight\n8\n' > "$KNOBF"
+}
+NOT_TOUCHED="up.target, the knobs and the claim note were not touched"
+
+# -- the live-OVS refusal (guard_no_live_ovs): decided above every write
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_GUARD_RC=1 drive 'up_p4 4')"
+check "  a live OVS fabric refuses 'ndt up p4'"             "1" "$(rc_of_out "$OUT")"
+has   "  and says the files it concerns were not touched"  "$NOT_TOUCHED" "$OUT"
+hasnt "  and has nothing to put back"                       "put back" "$OUT"
+hasnt "  or to remove"                                      "removed " "$OUT"
+hasnt "  the host-count knob was never written"            "host_count_override: 8 -> 4" "$OUT"
+check "🔴 a live OVS refusal leaves up.target, both knobs, the claim and the host-count knob byte-identical" "$BEFORE" "$(five_hash)"
+
+seed_empty; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_GUARD_RC=1 drive 'up_p4 4')"
+check "  refused again with nothing in place"              "1" "$(rc_of_out "$OUT")"
+check "🔴 no up.target, no knob, no claim was created, and the host-count knob is as found" "$BEFORE" "$(five_hash)"
+
+# -- the stale-pipeline refusal: also decided above every write
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'stale_pipeline() { return 0; }
+up_p4 4')"
+check "  a stale pipeline refuses"                         "1" "$(rc_of_out "$OUT")"
+has   "  by the stale-pipeline message"                    "predates the current build" "$OUT"
+has   "  and says the files it concerns were not touched"  "$NOT_TOUCHED" "$OUT"
+hasnt "  and has nothing to put back"                       "put back" "$OUT"
+check "🔴 all five files are byte-identical"               "$BEFORE" "$(five_hash)"
+
+# -- the orphan-sweep refusal: `cleanup` ran, so the writes came first and are unwound
+seed_found; BEFORE="$(five_hash)"; rc_for cleanup 1
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'up_p4 4')"
+check "  an orphan sweep that fails refuses"               "1" "$(rc_of_out "$OUT")"
+has   "  by the sweep message"                             "the orphan sweep exited" "$OUT"
+has   "🔴 and says what is true: it ran but did not finish" "the orphan sweep ran but did not finish; nothing was built" "$OUT"
+hasnt "  and does not claim nothing changed"               "refused before it changed anything" "$OUT"
+has   "🔴 the host-count knob is put back, and announced"  "host_count_override put back to 8" "$OUT"
+has   "  up.target is put back"                            ".test_run/up.target put back to what it was" "$OUT"
+check "🔴 up.target, both knobs, the claim and the host-count knob are byte-identical" "$BEFORE" "$(five_hash)"
+check "  the cleanup really was asked for"                 "1" "$(grep -c '^ndtwin-lab cleanup\|^installed-ndtwin-lab cleanup' "$FIX/sudo.log")"
+
+seed_empty; BEFORE="$(five_hash)"; rc_for cleanup 1
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'up_p4 4')"
+check "  the sweep refusal again with nothing in place"    "1" "$(rc_of_out "$OUT")"
+has   "  the host-count knob is still put back"            "host_count_override put back to 8" "$OUT"
+check "🔴 nothing this run created is left behind"         "$BEFORE" "$(five_hash)"
+check "  in particular no up.target"                       "absent" "$(fhash "$UPT")"
+
+# -- 🔴 THE CLAIM IS PUT BACK ONLY WHILE IT IS STILL THE NOTE THIS RUN WROTE. The cleanup stub
+# plays somebody else changing the claim during the sweep.
+# (a) another owner took the lab: owner, expiry and note are theirs, and survive.
+seed_found; rc_for cleanup 1
+THEIRS="$(printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=\nmeasuring=\n' \
+          other-session "$(( $(date +%s) + 7200 ))" "other session measuring")"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 THEIRS="$THEIRS" drive 'sudo() { printf "%s\n" "$THEIRS" > "$CLAIM"; return 1; }
+up_p4 4')"
+check "  the sweep refuses with the claim changed under it" "1" "$(rc_of_out "$OUT")"
+check "🔴 the other session's claim survives byte for byte" "$(printf '%s\n' "$THEIRS" | sha256sum | cut -c1-16)" "$(fhash "$CLM")"
+check "  while the files this run wrote are still put back" "$(printf 'plane=ovs\nhosts=4\ntopology=setting/x.json\nat=1\nby=somebody\nbuilder=up_ovs\n' | sha256sum | cut -c1-16)" "$(fhash "$UPT")"
+# (b) the SAME owner's lease was extended during the sweep: the note goes back, the lease stays.
+seed_found; rc_for cleanup 1
+NEWEXP="$(( $(date +%s) + 9000 ))"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 NEWEXP="$NEWEXP" drive 'sudo() { sed -i "s/^expires=.*/expires=$NEWEXP/" "$CLAIM"; return 1; }
+up_p4 4')"
+check "  the sweep refuses with the lease extended under it" "1" "$(rc_of_out "$OUT")"
+check "🔴 the note is back to what it was"                 "run finished; lab free, night claim kept" "$(cnote)"
+check "🔴 and the lease the other writer set is kept"      "$NEWEXP" "$(sed -n 's/^expires=//p' "$CLM")"
+
+# -- 🔴 THE HOIST HAS TO KEEP ITS CONDITIONS. The two read-only refusals are only asked when they
+# were before: the stale pipeline of a fabric this run would REUSE, and the OVS guard of a
+# fabric this run would REPLACE. A hoist that asked both of every run passes every cell above.
+# (a) a fabric that would be reused is not asked the OVS guard, whatever the guard would say
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_GUARD_RC=1 drive 'up_p4 4')"
+check "🔴 reusing a live fabric is not refused by the OVS guard" "0" "$(rc_of_out "$OUT")"
+has   "  it says the fabric is already up"                 "already up: 10 switches, 4 hosts, reusing" "$OUT"
+# (b) with no fabric to reuse, a stale build file says nothing about a fabric that is not there
+seed_found; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'stale_pipeline() { return 0; }
+up_p4 4')"
+check "🔴 a stale build file does not refuse a fabric that is not up" "0" "$(rc_of_out "$OUT")"
+hasnt "  and is not reported as a stale fabric"            "predates the current build" "$OUT"
+has   "  the fabric was built"                             "topo-start" "$(cat "$FIX/sudo.log")"
+
+# -- 🔴 rc 5 KEEPS ITS PRECEDENCE. The model-vs-fabric refusal used to be the first thing after
+# the knob writes, so a model that is another network answered 5 whatever else was wrong. The
+# hoisted refusals answer 1, and must not get in front of it. topo_for_hosts is stubbed to hand
+# up_p4 the 128-host model for a 4-host request: the shape any later escape hatch would have.
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_GUARD_RC=1 T128="$T128" drive 'topo_for_hosts() { echo "$T128"; return 0; }
+up_p4 4')"
+check "🔴 a mismatched model beats a live OVS fabric: rc 5" "5" "$(rc_of_out "$OUT")"
+has   "  and says they are different networks"             "different networks" "$OUT"
+check "  and nothing was touched"                          "$BEFORE" "$(five_hash)"
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 T128="$T128" drive 'stale_pipeline() { return 0; }
+topo_for_hosts() { echo "$T128"; return 0; }
+up_p4 4')"
+check "🔴 a mismatched model beats a stale pipeline: rc 5"  "5" "$(rc_of_out "$OUT")"
+check "  and nothing was touched"                          "$BEFORE" "$(five_hash)"
+
+# -- 🔴 EVERY EXIT AFTER THE WRITES UNWINDS, not only the sweep. Each stub fails one write; the
+# files written before it, and the host-count knob, must come back.
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'set_host_count() { return 1; }
+up_p4 4')"
+check "  a refused host-count write refuses the bring-up"  "1" "$(rc_of_out "$OUT")"
+check "🔴 and up.target is back (the knob was never moved)" "$BEFORE" "$(five_hash)"
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'app_knob_clear() { return 1; }
+up_p4 4')"
+check "  an app knob that cannot be cleared refuses"       "1" "$(rc_of_out "$OUT")"
+check "🔴 and up.target and the host-count knob are back"  "$BEFORE" "$(five_hash)"
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'telemetry_knob_apply() { return 1; }
+up_p4 4')"
+check "  a telemetry knob that cannot be written refuses"  "1" "$(rc_of_out "$OUT")"
+check "🔴 and up.target, the cleared app knob and the host-count knob are back" "$BEFORE" "$(five_hash)"
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'telemetry_word_for_bring_up() { return 1; }
+up_p4 4')"
+check "  a telemetry word nobody knows refuses"            "1" "$(rc_of_out "$OUT")"
+check "🔴 an unknown telemetry word puts back up.target, the cleared app knob and the host-count knob" "$BEFORE" "$(five_hash)"
+
+# -- 🔴 A KNOB WRITE THAT FAILS ITS READ-BACK HAS ALREADY REPLACED THE EARLIER KNOB. The real writer
+# moves the new file into place and then reads it back; the stub makes the read-back disagree. The
+# earlier telemetry knob must come back byte for byte (the app knob's twin of this cell is in
+# test_ndt_app_package.sh, which has packages to point --app at).
+# [Co-developed with claude code -- Adam]
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'NDT_TELEMETRY=cooperative
+telemetry_knob_word() { echo not-the-word; }
+up_p4 4')"
+check "  a telemetry knob that fails its read-back refuses"  "1" "$(rc_of_out "$OUT")"
+has   "  by the writer's own message"                       "did NOT take" "$OUT"
+check "🔴 the earlier telemetry knob is back and so is everything else" "$BEFORE" "$(five_hash)"
+
+# -- 🔴 A FILE THAT CANNOT BE READ IS NEVER SNAPSHOTTED AS AN EMPTY ONE. An empty app knob is the
+# state the proxy refuses to start on, so a put-back that "restored" it would be worse than leaving
+# the unreadable one's removal as it is. (Skipped when this user can read a mode-000 file, i.e. root.)
+seed_found; rc_for cleanup 1; chmod 000 "$APPK"
+if [[ ! -r "$APPK" ]]; then
+    OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'up_p4 4')"
+    check "  the sweep refuses with an unreadable app knob in place" "1" "$(rc_of_out "$OUT")"
+    check "🔴 no empty app knob is written back over it"        "no" "$([[ -e "$APPK" && ! -s "$APPK" ]] && echo yes || echo no)"
+else
+    printf '  skip     (this user reads a mode-000 file; not counted as passed)\n'; SKIP=$((SKIP+1))
+fi
+chmod 600 "$APPK" 2>/dev/null; rm -f "$APPK"
+
+# -- 🔴 A FILE THIS RUN LEFT UNREADABLE IS NOT PUT BACK OVER EITHER. The telemetry writer is stubbed to
+# do what a writer under an odd umask (or a chmod between the write and the mark) would: write the
+# knob, take its read permission away and report failure. refusal_mark cannot read it, so it records
+# no after-state and the put-back leaves the file alone; without that test the mark would read the
+# unreadable file as empty, equal to a later empty reading, and the earlier bytes would be written
+# back over the run's own. (Skipped when this user can read a mode-000 file.)
+# [Co-developed with claude code -- Adam]
+seed_found
+: > "$FIX/.probe-unreadable"; chmod 000 "$FIX/.probe-unreadable"
+if [[ ! -r "$FIX/.probe-unreadable" ]]; then
+    OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'telemetry_knob_apply() { printf "stub-wrote\n" > "$FIX/p4_proxy/mininet/telemetry_override"; chmod 000 "$FIX/p4_proxy/mininet/telemetry_override"; return 1; }
+up_p4 4')"
+    chmod 600 "$TELK" 2>/dev/null
+    check "  a telemetry write that leaves its file unreadable refuses" "1" "$(rc_of_out "$OUT")"
+    check "🔴 a knob this run left unreadable is not overwritten with the earlier bytes" "stub-wrote" "$(cat "$TELK" 2>/dev/null)"
+else
+    printf '  skip     (this user reads a mode-000 file; not counted as passed)\n'; SKIP=$((SKIP+1))
+fi
+chmod 600 "$FIX/.probe-unreadable" 2>/dev/null; rm -f "$FIX/.probe-unreadable"
+
+# -- 🔴 A NOTE THIS RUN DID NOT WRITE IS NOT THIS RUN'S TO REVERT. `--force` builds over somebody
+# else's live claim; claim_note_up cannot write their note (set_claim_note refuses a claim that is
+# not yours), and a note that changes in the write window is theirs. The stub plays them.
+seed_found; rc_for cleanup 1
+printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=\nmeasuring=\n' \
+    other-session "$(( $(date +%s) + 7200 ))" "their first sentence" > "$CLM"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'NDT_UP_FORCE=1
+foreign_claim() { echo "other-session -- 60m left"; }
+app_knob_clear() { sed -i "s/^note=.*/note=their new sentence/" "$CLAIM"; return 0; }
+up_p4 4')"
+check "  the sweep refuses after a forced start"           "1" "$(rc_of_out "$OUT")"
+check "🔴 the other session's new note survives"           "their new sentence" "$(cnote)"
+
+# -- 🔴 THE NOTE IS REVERTED ONLY WHEN ALL OF THESE HOLD: claim_note_up recorded the sentence it
+# wrote (refusal_claim_written), the claim is still this NDT_OWNER's, the note is still that
+# sentence, and a sentence was recorded at all (refusal_unwind's -n test). Which cell pins which:
+#   (owner)     the owner clause
+#   (sentence)  the note-is-still-that-sentence clause
+#   (recorded)  refusal_claim_written's rule (a sentence is recorded only when claim_note_up wrote
+#               it); it also trips the clause below, so it is not what pins that one
+#   (empty)     the -n test: an emptied note equals the empty "recorded" sentence, and only that
+#               test stops it being reverted
+# [Co-developed with claude code -- Adam]
+# (owner) somebody takes the claim during the sweep and leaves our sentence on it: it is theirs now
+seed_found; rc_for cleanup 1
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'sudo() { sed -i "s/^owner=.*/owner=other-session/" "$CLAIM"; return 1; }
+up_p4 4')"
+check "  the sweep refuses with the claim's owner changed"  "1" "$(rc_of_out "$OUT")"
+check "🔴 a claim that is no longer ours keeps its note"    "other-session|in use: ndt up p4 4" \
+      "$(sed -n 's/^owner=//p' "$CLM")|$(cnote | cut -c1-19)"
+# (sentence) the same owner's note is rewritten during the sweep: the rewrite is not ours to undo
+seed_found; rc_for cleanup 1
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'sudo() { sed -i "s/^note=.*/note=their own sentence/" "$CLAIM"; return 1; }
+up_p4 4')"
+check "  the sweep refuses with the note rewritten"         "1" "$(rc_of_out "$OUT")"
+check "🔴 a note that is no longer our sentence is kept"    "their own sentence" "$(cnote)"
+# (recorded) our own, EXPIRED claim: claim_note_up cannot write it, so no sentence is recorded, and
+# a note that changes in the write window is not ours -- whatever the owner says
+seed_found; rc_for cleanup 1
+printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=\nmeasuring=\n' \
+    "$NOTE_OWNER" "$(( $(date +%s) - 60 ))" "run finished; lab free, night claim kept" > "$CLM"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'app_knob_clear() { sed -i "s/^note=.*/note=their note in the window/" "$CLAIM"; return 0; }
+up_p4 4')"
+check "  the sweep refuses over an expired claim of ours"   "1" "$(rc_of_out "$OUT")"
+check "🔴 a note this run did not write is not reverted"    "their note in the window" "$(cnote)"
+# (empty) the same expired claim, its note emptied in the window
+seed_found; rc_for cleanup 1
+printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=\nmeasuring=\n' \
+    "$NOTE_OWNER" "$(( $(date +%s) - 60 ))" "run finished; lab free, night claim kept" > "$CLM"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'app_knob_clear() { sed -i "s/^note=.*/note=/" "$CLAIM"; return 0; }
+up_p4 4')"
+check "  the sweep refuses over an expired claim whose note was emptied" "1" "$(rc_of_out "$OUT")"
+check "🔴 an emptied note is not filled in again"           "1" "$(grep -cx 'note=' "$CLM")"
+
+# -- 🔴 ONLY WHAT THIS RUN LEFT IS PUT BACK. A write that lands during the orphan sweep belongs to
+# whoever made it: the file is left as it is, said so, and never reported as "this run created it".
+# (a file the run had cleared, recreated by somebody else)
+seed_found; rc_for cleanup 1
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'sudo() { printf "link\n" > "$FIX/p4_proxy/mininet/telemetry_override"; echo their-write >> "$FIX/p4_proxy/mininet/telemetry_override"; return 1; }
+up_p4 4')"
+check "  the sweep refuses with a knob written under it"    "1" "$(rc_of_out "$OUT")"
+check "🔴 their telemetry knob is left as they wrote it"    "link|their-write" "$(paste -sd'|' "$TELK")"
+has   "  and the refusal says it left it alone"            "left as it is" "$OUT"
+# (a file the run had created, rewritten by somebody else)
+seed_empty; rc_for cleanup 1
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'sudo() { printf "plane=ovs\nby=somebody-else\n" > "$FIX/.test_run/up.target"; return 1; }
+up_p4 4')"
+check "  the sweep refuses with up.target rewritten under it" "1" "$(rc_of_out "$OUT")"
+check "🔴 their up.target is not deleted as one this run created" "somebody-else" "$(sed -n 's/^by=//p' "$UPT")"
+# (the baseline's up_wrote lines, rewritten by another `ndt up p4 8` running during the sweep)
+RB="$FIX/.test_run/round.baseline"
+seed_found; rc_for cleanup 1
+printf 'knob=6\nup_wrote=6\nup_wrote_at=111\n' > "$RB"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'sudo() { sed -i "s/^up_wrote=.*/up_wrote=8/; s/^up_wrote_at=.*/up_wrote_at=222/" "$FIX/.test_run/round.baseline"; return 1; }
+up_p4 4')"
+check "  the sweep refuses with the baseline rewritten under it" "1" "$(rc_of_out "$OUT")"
+check "🔴 the lines another bring-up wrote are kept"       "8|222" "$(sed -n 's/^up_wrote=//p' "$RB")|$(sed -n 's/^up_wrote_at=//p' "$RB")"
+# (the baseline replaced by a new round's claim: a fresh file with no up_wrote lines at all)
+seed_found; rc_for cleanup 1
+printf 'knob=6\nup_wrote=6\nup_wrote_at=111\n' > "$RB"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'sudo() { printf "knob=4\nclaimed=new\n" > "$FIX/.test_run/round.baseline"; return 1; }
+up_p4 4')"
+check "  the sweep refuses with the baseline replaced under it" "1" "$(rc_of_out "$OUT")"
+check "🔴 the new round's baseline is left alone"          "knob=4|claimed=new" "$(paste -sd'|' "$RB")"
+rm -f "$RB"
+
+# -- 🔴 ONE OF THE THREE FILES (up.target, the app and telemetry knobs) THAT THIS RUN WROTE AND
+# SOMEBODY DELETED DURING THE SWEEP STAYS DELETED, and the run says it left it. (The host-count knob
+# and the --app record are the exception: knob_restore puts them back over a deletion.)
+seed_found; rc_for cleanup 1
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'sudo() { rm -f "$FIX/.test_run/up.target"; return 1; }
+up_p4 4')"
+check "  the sweep refuses with up.target deleted under it" "1" "$(rc_of_out "$OUT")"
+check "🔴 a deleted up.target is not written back"         "absent" "$(fhash "$UPT")"
+has   "  and the refusal says it left it as it is"        "up.target left as it is" "$OUT"
+
+# -- 🔴 knob_restore's ABSENT-SNAPSHOT BRANCH puts the baseline's up_wrote lines back too: the run
+# is `ndt up p4 8` with no host-count knob at all, so the knob it wrote is removed again.
+seed_found; rc_for cleanup 1; rm -f "$KNOBF"
+printf 'knob=6\nup_wrote=6\nup_wrote_at=111\n' > "$RB"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'up_p4 8')"
+check "  the sweep refuses for a count with no knob to start from" "1" "$(rc_of_out "$OUT")"
+check "  the knob this run created is gone again"          "absent" "$(fhash "$KNOBF")"
+check "🔴 and the baseline's up_wrote lines are back"       "6|111" "$(sed -n 's/^up_wrote=//p' "$RB")|$(sed -n 's/^up_wrote_at=//p' "$RB")"
+rm -f "$RB"
+
+# -- 🔴 ROLLBACK PUTS THE UP_WROTE LINES BACK TOO: a bring-up that did change the machine and was
+# taken back down calls knob_restore, which now also restores the baseline's lines.
+seed_found; echo "0 10" > "$FIX/bmv2.seq"; rc_for topo-start 1
+printf 'knob=6\nup_wrote=6\nup_wrote_at=111\n' > "$RB"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_p4 4')"
+check "  a bring-up whose fabric never started is red"      "1" "$(rc_of_out "$OUT")"
+has   "  and it rolled back"                               "rollback" "$OUT"
+check "🔴 the rollback put the baseline's up_wrote back"    "6|111" "$(sed -n 's/^up_wrote=//p' "$RB")|$(sed -n 's/^up_wrote_at=//p' "$RB")"
+rm -f "$RB"
+
+# -- 🔴 THE UP_WROTE LINES GO BACK WITH THE KNOB. set_host_count records what it wrote in the round
+# baseline, and knob_row reads an earlier `ndt up p4` value as a hand edit once the knob is back.
+RB="$FIX/.test_run/round.baseline"
+seed_found; rc_for cleanup 1
+printf 'knob=6\nup_wrote=6\nup_wrote_at=111\n' > "$RB"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'up_p4 4')"
+check "  the sweep refuses with a round baseline in place"  "1" "$(rc_of_out "$OUT")"
+check "🔴 up_wrote is what it was before this run"         "6|111" "$(sed -n 's/^up_wrote=//p' "$RB")|$(sed -n 's/^up_wrote_at=//p' "$RB")"
+check "  and the baseline's other lines are kept"          "knob=6" "$(sed -n 's/^knob=//p' "$RB" | sed 's/^/knob=/')"
+seed_found; rc_for cleanup 1
+printf 'knob=8\n' > "$RB"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 drive 'up_p4 4')"
+check "🔴 with none before, none is left"                  "0" "$(grep -c '^up_wrote' "$RB")"
+rm -f "$RB"
+
+# -- the control: not refused, all of them are written
+seed_found; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_p4 4')"
+check "🔴 a bring-up that is not refused is green"          "0" "$(rc_of_out "$OUT")"
+check "🔴 and up.target now records the P4 target"          "p4" "$(sed -n 's/^plane=//p' "$UPT")"
+check "🔴 and the app knob was cleared for the baseline"    "absent" "$(fhash "$APPK")"
+check "🔴 and the telemetry knob was cleared (auto)"        "absent" "$(fhash "$TELK")"
+check "🔴 and the host-count knob carries the count asked for" "4" "$(tail -1 "$KNOBF")"
+has   "🔴 and the claim note says the lab is in use"        "in use: ndt up p4 4" "$(cat "$CLM")"
+
+# ==========================================================================================
+# The skip count has its own line and the summary below keeps its shape: tools/test_workflow/
+# l1_unit_tests.sh reads "N passed, M failed" anchored at both ends, and counts a line that starts
+# with "SKIP:" as a skipped suite, so neither is changed here. A skipped cell is never in PASS.
+(( SKIP > 0 )) && printf '\n%d cell(s) skipped (see the "skip" lines above); they are not in the passed count\n' "$SKIP"
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
