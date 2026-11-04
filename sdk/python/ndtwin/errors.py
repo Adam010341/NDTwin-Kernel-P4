@@ -125,10 +125,10 @@ class WriteNotVerified(NDTwinError):
     `original_landed` what it decided (see `Settled`), except where the read contradicts that
     decision: ALREADY_EXISTS said the entry is there and the read does not show it as sent
     (another action or parameters, or no entry), or NOT_FOUND said a deleted entry is gone and the
-    read still shows it. Then `original_landed`
-    is None. The decision is kept when the read failed (also when it found entries the API cannot
-    show), when a delete's match could not be compared with the table, and after a re-sent write
-    that was applied (False). Otherwise both are None."""
+    read still shows it. Then `original_landed` is None. The decision is kept when the read failed
+    (also when it found entries the API cannot show), when a delete's match could not be compared
+    with the table, and after a re-sent write that was applied (False). Otherwise both are
+    None."""
 
     original_landed = None
     attempts = None

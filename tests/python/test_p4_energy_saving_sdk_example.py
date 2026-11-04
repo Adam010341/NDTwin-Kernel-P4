@@ -11,11 +11,13 @@ route_walk.py is taken from the app's own directory first, as when the app runs 
 """
 import contextlib
 import copy
+import http.client
 import importlib.util
 import io
 import os
 import sys
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.path.dirname(os.path.dirname(HERE))
@@ -485,6 +487,74 @@ class EnergySavingSdkTest(unittest.TestCase):
         self.assertFalse(result["powered_off"])
         self.assertIn("(not on the switch); s1 {'hdr.ipv4.dstAddr': ['10.0.4.4', 32]} was "
                       "written before it", result["reason"])
+        self.assertEqual(self.posts("/ndt/set_switches_power_state"), [])
+
+    WRITTEN_FIRST = "s1 {'hdr.ipv4.dstAddr': ['10.0.4.4', 32]} was written before it, s4 left on: "
+
+    def error_lines(self):
+        return [ln for ln in self.out.getvalue().splitlines() if ln.startswith("error: ")]
+
+    def not_json_second_write(self):
+        self.fake.fault("POST", "/ndt/p4/table_entry", 200, b"<html>ok</html>", origin="proxy",
+                        apply=True, match=lambda q, b: b["dpid"] == 2)
+
+    @contextlib.contextmanager
+    def refused_second_write(self):
+        """The connection to the kernel is refused for the write to s2 only (every other request
+        is answered); yields the list that gets one item per try."""
+        real_once = self.kernel._http._once
+        tries = []
+
+        def once(method, path, query, body):
+            if path != "/ndt/p4/table_entry" or (body or {}).get("dpid") != 2:
+                return real_once(method, path, query, body)
+            tries.append(1)
+            with mock.patch.object(http.client.HTTPConnection, "connect",
+                                   side_effect=ConnectionRefusedError("refused")):
+                return real_once(method, path, query, body)
+
+        with mock.patch.object(self.kernel._http, "_once", once):
+            yield tries
+
+    # [Co-developed with claude code -- Adam]
+    def test_a_write_reply_that_is_not_json_may_have_landed_and_names_the_first_as_written(self):
+        self.not_json_second_write()
+        result = self.run_once()
+        self.assertFalse(result["powered_off"])
+        self.assertIn("write failed (may have landed); " + self.WRITTEN_FIRST, result["reason"])
+        self.assertEqual(self.posts("/ndt/set_switches_power_state"), [])
+        self.assert_lock_released()
+
+    # [Co-developed with claude code -- Adam]
+    def test_a_refused_connection_on_the_second_write_names_the_first_as_written(self):
+        with self.refused_second_write() as tries:
+            result = self.run_once()
+        self.assertEqual(len(tries), 3, "nothing was sent, so the write is tried 3 times")
+        self.assertFalse(result["powered_off"])
+        self.assertIn("write failed (not on the switch); " + self.WRITTEN_FIRST, result["reason"])
+        self.assertIn("cannot connect to the kernel", result["reason"])
+        self.assertEqual(self.posts("/ndt/set_switches_power_state"), [])
+        self.assert_lock_released()
+
+    # [Co-developed with claude code -- Adam]
+    def test_main_reports_a_write_reply_that_is_not_json_as_a_failed_write_and_exits_1(self):
+        self.not_json_second_write()
+        rc = app.main(["--kernel", self.url, "--settle", "0"], kernel=self.kernel,
+                      log=lambda s: self.out.write(s + "\n"))
+        self.assertEqual(rc, 1)
+        self.assertIn("write failed (may have landed); " + self.WRITTEN_FIRST, self.out.getvalue())
+        self.assertEqual(self.error_lines(), [])
+        self.assertEqual(self.posts("/ndt/set_switches_power_state"), [])
+
+    # [Co-developed with claude code -- Adam]
+    def test_main_reports_a_refused_connection_on_a_write_as_a_failed_write_and_exits_1(self):
+        with self.refused_second_write():
+            rc = app.main(["--kernel", self.url, "--settle", "0"], kernel=self.kernel,
+                          log=lambda s: self.out.write(s + "\n"))
+        self.assertEqual(rc, 1)
+        self.assertIn("write failed (not on the switch); " + self.WRITTEN_FIRST,
+                      self.out.getvalue())
+        self.assertEqual(self.error_lines(), [])
         self.assertEqual(self.posts("/ndt/set_switches_power_state"), [])
 
     def test_a_switch_that_refused_the_entry_keeps_the_switch_on_and_is_sent_once(self):

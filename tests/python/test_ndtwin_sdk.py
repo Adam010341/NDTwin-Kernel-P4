@@ -1134,7 +1134,8 @@ class SettleTest(SdkTest):
         self.assert_identical_resends(entry, "insert", 1)  # the first never reached the kernel
 
     def test_a_resent_write_that_times_out_again_is_sent_again(self):
-        # As on bmv2 1.15.5 with the proxy's pool held: the retry at once got 504 again.
+        # As on bmv2 1.15.5 (2026-10-31) with the proxy's pool held: the retry at once got 504
+        # again.
         entry = self.new_entry()
         self.unknown_write(entry, "insert", apply=True)
         self.timed_out(apply=False)
