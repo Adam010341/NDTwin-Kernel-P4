@@ -584,6 +584,11 @@ class FabricFixture(unittest.TestCase):
         # check out to make a test pass would delete the one line that catches the commonest
         # way this script is run wrongly.
         self.stub_module("nornir")
+        # [Co-developed with claude code -- Adam] ntg_bmv2_topo.main()'s other first precondition
+        # is that its NTG checkout exists. Whether this machine has one (a laptop does, a CI
+        # runner or a fresh VM does not) must not decide the result, so every case gets a
+        # directory that exists; the one case about a MISSING checkout patches its own.
+        self.patch(ntg, "NTG_DIR", self.tmp)
 
         # 🔴 NOTHING IN THIS SUITE READS THE HOST'S /proc. `tear_down` calls
         # `reap_manifest_switches`, whose `is_switch` default is bound at def time to
@@ -2603,10 +2608,6 @@ class AClashingModelIsRefusedBeforeTheTeardownTest(FabricFixture):
 
     def drive_a_main(self, main, **extra):
         reset, nets, addlinks = [], [], []
-        # [Co-developed with claude code -- Adam] ntg_bmv2_topo.main refuses first when its NTG
-        # checkout is missing, which is the case on a machine that has none (a CI runner). The
-        # case is about the cabling refusal, so give that main a directory that exists.
-        self.patch(ntg, "NTG_DIR", self.tmp)
         self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: reset.append(ports))
         real_add_link = StubTopo.addLink
 
