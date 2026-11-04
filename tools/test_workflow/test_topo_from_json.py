@@ -82,9 +82,9 @@ def port_reuse_checks():
     """One switch port used by two links must be refused, wherever the second link comes from.
 
     [Co-developed with claude code -- Adam]
-    A copy-pasted `s1-p1` in an exercise's links is valid JSON, reads back as a perfectly
-    ordinary model, and its two `addLink` calls on one bmv2 interface are found only after
-    `mn -c` has torn the running fabric down.
+    A copy-pasted `s1-p1` in an exercise's links is valid JSON, would read back as a perfectly
+    ordinary model, and its two `addLink` calls on one bmv2 interface would be found only after
+    `mn -c` had torn the running fabric down.
     """
     import copy
     bad = 0

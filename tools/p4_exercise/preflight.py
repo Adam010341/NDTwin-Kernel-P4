@@ -226,7 +226,11 @@ def check_entry(entry, index, where):
     match = entry.get("match")
     if match and not isinstance(match, dict):
         return [f"{where}: match must be an object of field: value, got {match!r:.40}"]
-    is_default = bool(entry.get("default_action"))
+    # [Co-developed with claude code -- Adam] The proxy takes true or false and nothing else
+    # (p4_client.py), so a 1 or a "yes" here would pass pre-flight and be refused at bring-up.
+    is_default = entry.get("default_action", False)
+    if not isinstance(is_default, bool):
+        return [f"{where}: 'default_action' must be true or false, got {is_default!r:.40}"]
     if is_default and match:
         problems.append(f"{where}: a default_action entry cannot also carry a match")
     if not is_default and not match and not match_shape.table_has_priority_column(kinds):
@@ -338,6 +342,35 @@ def check_entry(entry, index, where):
 
 # --- the checks ------------------------------------------------------------------------------
 
+def _key_number(key):
+    """A switch key as the number it spells, or None when it does not spell one.
+
+    [Co-developed with claude code -- Adam]
+    Only ASCII digits are read as a dpid. `str.isdigit()` is also true of `"\u00b2"` and the
+    other superscripts, which `int()` then refuses; `isdecimal()` lets through digits of other
+    scripts, which `int()` reads (app_package.load reads such a key as a dpid too). This is
+    stricter than the loader on purpose: a key like that is a bad key here (`switches keys`
+    says so), never a ValueError. Every place that turns a package.json switch key into an
+    int goes through here.
+    """
+    text = str(key)
+    if not (text.isascii() and text.isdecimal()):
+        return None
+    try:
+        return int(text)
+    except ValueError:                    # more digits than int() will read
+        return None
+
+
+def _key_order(key):
+    """Sort key for a switch key: numeric keys in order, anything else last.
+
+    [Co-developed with claude code -- Adam]
+    """
+    number = _key_number(key)
+    return (number if number is not None else 1 << 30, str(key))
+
+
 def _dpid_order(item):
     """Sort key for a `(dpid_key, ...)` pair: numeric keys in order, anything else last.
 
@@ -346,8 +379,7 @@ def _dpid_order(item):
     FAIL row; every later check that walks the switches in order must survive the same file
     rather than raise a ValueError from `int()`.
     """
-    key = str(item[0])
-    return (int(key) if key.isdecimal() else 1 << 30, key)
+    return _key_order(item[0])
 
 
 def _check_shape(report, package):
@@ -377,7 +409,33 @@ def _check_shape(report, package):
             if spec and not isinstance(spec, dict):
                 report.bad(key, f"{noun} {name!r} must be an object, got {type(spec).__name__}")
                 ok = False
+    # Every value the checks join onto the package directory is a path, and a path is a string.
+    # [Co-developed with claude code -- Adam]
+    # A list or a number there would reach os.path.isabs / os.path.join and raise a TypeError;
+    # it gets a row naming the field instead. As with the sections above, only a TRUTHY value
+    # is flagged: an empty one is what the checks already read as "no path".
+    for section, field, value in _path_fields(package):
+        if value and not isinstance(value, str):
+            report.bad(section, f"{field} is not a path string, it is {type(value).__name__}")
+            ok = False
     return ok
+
+
+def _path_fields(package):
+    """(row label, field name, value) for each path package.json names, as written.
+
+    [Co-developed with claude code -- Adam]
+    """
+    fields = [("topology", "topology", package.get("topology"))]
+    source = package.get("source")
+    for key in ("topology_json", "p4", "p4info", "bmv2_json"):
+        if isinstance(source, dict):
+            fields.append(("source", f"source.{key}", source.get(key)))
+    switches = package.get("switches")
+    for name, spec in (switches.items() if isinstance(switches, dict) else ()):
+        if isinstance(spec, dict):
+            fields.append(("switches", f"switches[{name}].entries", spec.get("entries")))
+    return fields
 
 
 def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
@@ -450,8 +508,9 @@ def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
 
 def _roles_max_port(model, dpid):
     # A non-numeric switch key is reported by `switches keys`; it has no ports to look up.
-    ports = (_switch_ports(model).get(int(dpid))
-             if model and str(dpid).isdecimal() else None)
+    number = _key_number(dpid)
+    ports = (_switch_ports(model).get(number)
+             if model and number is not None else None)
     return max(ports) if ports else None
 
 
@@ -635,8 +694,14 @@ def _check_roles(report, package_dir, package, model, pipeline_p4info, reference
                 table = None
             if table is not None:
                 names = {table.preamble.name, table.preamble.alias} - {""}
-        for i, entry in enumerate(conf.get("table_entries") or []):
-            if not isinstance(entry, dict) or entry.get("table") not in names:
+        # [Co-developed with claude code -- Adam]
+        listed = conf.get("table_entries") or []
+        if not isinstance(listed, list):
+            continue              # ... and so is a table_entries that is not a list
+        for i, entry in enumerate(listed):
+            # A table named by a list or an object is not in `names`, and is not hashable either.
+            table_name = entry.get("table") if isinstance(entry, dict) else None
+            if not isinstance(table_name, str) or table_name not in names:
                 continue
             if entry.get("default_action"):
                 defaults.append(f"s{dpid} entry {i}: default action "
@@ -791,9 +856,16 @@ def _check_pre_entries(report, package_dir, package, model, referenced):
             continue              # already reported by 'entries match p4info'
         if not isinstance(conf, dict):
             continue              # ... and so is a file that is not an object
-        known = ports.get(int(dpid), set()) if str(dpid).isdecimal() else set()
+        number = _key_number(dpid)
+        known = ports.get(number, set()) if number is not None else set()
 
-        for i, entry in enumerate(conf.get("multicast_group_entries") or []):
+        # [Co-developed with claude code -- Adam]
+        groups = conf.get("multicast_group_entries") or []
+        if not isinstance(groups, list):
+            problems.append(f"s{dpid}: multicast_group_entries is not a list, it is "
+                            f"{type(groups).__name__}")
+            groups = []
+        for i, entry in enumerate(groups):
             totals["multicast"] += 1
             where = f"s{dpid} multicast entry {i}"
             if not isinstance(entry, dict):
@@ -820,6 +892,14 @@ def _check_pre_entries(report, package_dir, package, model, referenced):
                     problems.append(f"{where} replica {j}: egress_port {port!r} is not a port "
                                     f"number")
                     continue
+                if isinstance(instance, bool) or not isinstance(instance, int):
+                    problems.append(f"{where} replica {j}: instance {instance!r} is not an "
+                                    f"integer")
+                    continue
+                if instance < 0:          # the proxy refuses it too (p4_client.py)
+                    problems.append(f"{where} replica {j}: instance {instance} is negative; "
+                                    f"P4Runtime instances are unsigned")
+                    continue
                 if known and port not in known and port != cpu_port:
                     problems.append(
                         f"{where} replica {j}: egress_port {port} is not a port s{dpid} has -- "
@@ -832,7 +912,12 @@ def _check_pre_entries(report, package_dir, package, model, referenced):
                         f"group would be smaller than it looks")
                 seen.add((port, instance))
 
-        for i, entry in enumerate(conf.get("clone_session_entries") or []):
+        clones = conf.get("clone_session_entries") or []
+        if not isinstance(clones, list):
+            problems.append(f"s{dpid}: clone_session_entries is not a list, it is "
+                            f"{type(clones).__name__}")
+            clones = []
+        for i, entry in enumerate(clones):
             totals["clone"] += 1
             where = f"s{dpid} clone session entry {i}"
             if not isinstance(entry, dict):
@@ -841,7 +926,12 @@ def _check_pre_entries(report, package_dir, package, model, referenced):
             sid = entry.get("clone_session_id", entry.get("session_id"))
             if isinstance(sid, bool) or not isinstance(sid, int) or sid < 1:
                 problems.append(f"{where}: clone_session_id {sid!r} is not a positive integer")
-            for j, replica in enumerate(entry.get("replicas") or []):
+            listed = entry.get("replicas") or []
+            if not isinstance(listed, list):
+                problems.append(f"{where}: replicas is not a list, it is "
+                                f"{type(listed).__name__}")
+                listed = []
+            for j, replica in enumerate(listed):
                 if not isinstance(replica, dict) or "egress_port" not in replica:
                     problems.append(f"{where} replica {j}: no egress_port")
                     continue
@@ -855,7 +945,7 @@ def _check_pre_entries(report, package_dir, package, model, referenced):
                         f"{where} replica {j}: egress_port {port} is neither a port s{dpid} has "
                         f"nor this package's bmv2.cpu_port ({cpu_port})")
 
-    if not totals["multicast"] and not totals["clone"]:
+    if not totals["multicast"] and not totals["clone"] and not problems:
         report.note("PRE entries", "none declared (no multicast group, no clone session)")
         return
     if problems:
@@ -913,7 +1003,10 @@ def pipeline_path_problem(package_dir, rel):
     that points at `~/tutorials/exercises/firewall/build/firewall.json` passes every check on
     the machine that built it and loads a different program, or nothing, anywhere else.
     """
-    if os.path.isabs(str(rel)):
+    if not isinstance(rel, str):
+        # [Co-developed with claude code -- Adam]
+        return f"{rel!r} is not a path string, it is {type(rel).__name__}"
+    if os.path.isabs(rel):
         return (f"{rel} is an absolute path. A pipeline is carried by the package and named "
                 f"relative to the package directory, so that moving the package moves the "
                 f"program with it -- app_package.load refuses this, and this package would "
@@ -960,7 +1053,7 @@ def _check_pipelines(report, package_dir, package):
         return {}
 
     problems, resolved, notes = [], {}, []
-    for key in sorted(named, key=lambda k: (int(k) if str(k).isdigit() else 1 << 30, str(k))):
+    for key in sorted(named, key=_key_order):
         spec, where = named[key], f"s{key}"
         if not isinstance(spec, dict):
             problems.append(f"{where}: pipeline is a {type(spec).__name__}, not an object with "
@@ -1038,8 +1131,7 @@ def _check_entries_are_for_this_pipeline(report, used_p4info, pipeline_p4info):
     Switches whose pipeline is null are not checked: they run NDTwin's own artefact, whose
     p4info an exercise's entries will never name, and stage two applies none of them there.
     """
-    shared = sorted(set(used_p4info) & set(pipeline_p4info),
-                    key=lambda k: (int(k) if str(k).isdigit() else 1 << 30, str(k)))
+    shared = sorted(set(used_p4info) & set(pipeline_p4info), key=_key_order)
     if not shared:
         return
     wrong = [(k, used_p4info[k], pipeline_p4info[k]) for k in shared
@@ -1097,12 +1189,12 @@ def _check_control_plane(report, package):
     if not switches:
         report.bad("switches", "the package declares none")
         return
-    bad_keys = [k for k in switches if not (str(k).isdigit() and int(k) >= 1)]
+    bad_keys = [k for k in switches if (_key_number(k) or 0) < 1]
     if bad_keys:
         report.bad("switches keys", f"not positive integers: {sorted(bad_keys)[:5]}")
     else:
         report.ok("switches keys", f"{len(switches)} dpids: "
-                                   f"{sorted(int(k) for k in switches)}")
+                                   f"{sorted(_key_number(k) for k in switches)}")
     misnamed = sorted(k for k, v in switches.items()
                       if (v or {}).get("name") != f"s{k}")
     if misnamed:
@@ -1169,7 +1261,8 @@ def _check_topology(report, package_dir, package):
         return None
 
     model_dpids = {d for d, _ in reads["switches"]}
-    pkg_dpids = {int(k) for k in (package.get("switches") or {}) if str(k).isdecimal()}
+    pkg_dpids = {_key_number(k) for k in (package.get("switches") or {})
+                 if _key_number(k) is not None}
     if model_dpids == pkg_dpids:
         report.ok("switches agree", f"model and package.json both say {sorted(pkg_dpids)}")
     else:
@@ -1180,31 +1273,58 @@ def _check_topology(report, package_dir, package):
     return {"model": model, "reads": reads}
 
 
+class _UnreadableLink(Exception):
+    """A `links` entry the model could not hold; the message says why, in a few words.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+
 def _manifest_links(package):
-    """package.json's `links` as the tuples topo_from_json reads: (cables, access, unreadable)."""
+    """package.json's `links` as the tuples topo_from_json reads: (cables, access, unreadable).
+
+    [Co-developed with claude code -- Adam]
+    `unreadable` is a list of (index, reason) for each entry that is not a link.
+    """
     cables, access, unreadable = set(), set(), []
     for i, link in enumerate(package.get("links") or []):
         try:
+            if not isinstance(link, dict):
+                raise _UnreadableLink("not an object")
+            if "a" not in link or "b" not in link:
+                raise _UnreadableLink("needs both 'a' and 'b'")
+            # A string of two characters would unpack too, so the end's type is asked first.
+            if not all(isinstance(end, (list, tuple)) and len(end) == 2
+                       for end in (link["a"], link["b"])):
+                raise _UnreadableLink("an end is not a [node, port] pair")
             (a_name, a_port), (b_name, b_port) = link["a"], link["b"]
+            if not (isinstance(a_name, str) and isinstance(b_name, str)):
+                raise _UnreadableLink("a node name is not a string")
             # Ports are integers. Anything else is not a link the model could hold, and letting
-            # it through would put ports of mixed types into sets that are sorted below.
+            # it through would put ports of mixed types into sets that are sorted below. A
+            # host's port too, as app_package._link_endpoint requires: the loader reads the
+            # ports of a shaped link only, so `["h1", "1"]` loads, and this refuses it anyway.
             if any(isinstance(p, bool) or not isinstance(p, int) for p in (a_port, b_port)):
-                raise TypeError("port is not an integer")
+                raise _UnreadableLink("port is not an integer")
             # The order of a link's ends is irrelevant to the fabric: app_package.shaping_index
             # matches a cable either way round. convert writes the host first, but a hand-written
             # `{"a": ["s1", 3], "b": ["h1", 1]}` describes the same cable, so it is read the same.
             if a_name.startswith("s") and b_name.startswith("h"):
                 a_name, a_port, b_name, b_port = b_name, b_port, a_name, a_port
-            if a_name.startswith("h") and b_name.startswith("s"):
-                access.add((a_name, common.switch_name_to_dpid(b_name), b_port))
-            elif a_name.startswith("s") and b_name.startswith("s"):
-                ends = sorted([(common.switch_name_to_dpid(a_name), a_port),
-                               (common.switch_name_to_dpid(b_name), b_port)])
-                cables.add((ends[0][0], ends[0][1], ends[1][0], ends[1][1]))
-            else:
-                raise ValueError("neither a host-switch nor a switch-switch link")
-        except (KeyError, TypeError, ValueError, AttributeError):
-            unreadable.append(i)
+            try:
+                if a_name.startswith("h") and b_name.startswith("s"):
+                    access.add((a_name, common.switch_name_to_dpid(b_name), b_port))
+                elif a_name.startswith("s") and b_name.startswith("s"):
+                    ends = sorted([(common.switch_name_to_dpid(a_name), a_port),
+                                   (common.switch_name_to_dpid(b_name), b_port)])
+                    cables.add((ends[0][0], ends[0][1], ends[1][0], ends[1][1]))
+                else:
+                    raise _UnreadableLink("neither a host-switch nor a switch-switch link")
+            except ValueError as exc:
+                # The reader's own first sentence: `sX` is not of the form sN, `s0` has no dpid.
+                raise _UnreadableLink(str(exc).split(". ")[0]) from None
+        except _UnreadableLink as exc:
+            unreadable.append((i, str(exc)))
     return cables, access, unreadable
 
 
@@ -1239,7 +1359,11 @@ def _check_links_agree(report, package, reads):
     if only_model:
         detail += f"; only in the model: {', '.join(show(l) for l in only_model[:3])}"
     if unreadable:
-        detail += f"; links[{unreadable[0]}] is not a readable link"
+        # Up to three, each with its reason: with two bad links the second is named somewhere.
+        shown = "; ".join(f"links[{i}] is not a readable link ({why})"
+                          for i, why in unreadable[:3])
+        more = f"; and {len(unreadable) - 3} more" if len(unreadable) > 3 else ""
+        detail += f"; {shown}{more}"
     report.bad("links agree", detail)
 
 
@@ -1347,6 +1471,11 @@ def _check_entries(report, package_dir, package, referenced):
             problems.append(f"s{dpid}: {spec['entries']} names no p4info, so its entries "
                             f"cannot be checked against anything")
             continue
+        if not isinstance(p4info_rel, str):
+            # [Co-developed with claude code -- Adam]
+            problems.append(f"s{dpid}: p4info in {spec['entries']} is not a path string, it is "
+                            f"{type(p4info_rel).__name__}")
+            continue
         p4info_path = (p4info_rel if os.path.isabs(p4info_rel)
                        else os.path.join(package_dir, p4info_rel))
         if not os.path.isfile(p4info_path):
@@ -1406,7 +1535,8 @@ def _check_source_p4info(report, package_dir, package):
 
 
 def _check_port_block(report, package):
-    dpids = sorted(int(k) for k in (package.get("switches") or {}) if str(k).isdigit())
+    dpids = sorted(_key_number(k) for k in (package.get("switches") or {})
+                   if _key_number(k) is not None)
     if not dpids:
         report.bad("gRPC port block", "no dpids to check")
         return

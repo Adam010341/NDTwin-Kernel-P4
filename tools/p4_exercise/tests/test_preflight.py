@@ -92,6 +92,15 @@ class PackageCase(unittest.TestCase):
 
     # --- corrupting it -----------------------------------------------------------------------
 
+    def fresh_package(self):
+        """Convert the exercise again, over whatever a sub-test corrupted.
+
+        [Co-developed with claude code -- Adam]
+        """
+        shutil.rmtree(self.pkg)
+        convert.convert(self.exercise, self.topology, self.pkg, p4_rel=self.p4,
+                        ndtwin_pipeline=self.ndtwin_pipeline)
+
     def edit_package(self, fn):
         path = os.path.join(self.pkg, "package.json")
         with open(path, encoding="utf-8") as fh:
@@ -636,7 +645,7 @@ class PackageRedCells(PackageCase):
         # links[2] is s1 port 3 - s3 port 1; a list for the port is unhashable, and the
         # `switch ports` row must leave that link to `links agree`, which names it.
         self.edit_package(lambda d: d["links"][2]["a"].__setitem__(1, [3]))
-        self.assert_red("links agree", "links[2] is not a readable link")
+        self.assert_red("links agree", "links[2] is not a readable link (port is not an integer)")
 
     def test_ports_of_mixed_types_in_package_json_fail_links_agree_instead_of_crashing(self):
         # links[2] is s1 port 3 - s3 port 1 and links[3] is s1 port 4 - s4 port 2. A quoted "3"
@@ -650,17 +659,90 @@ class PackageRedCells(PackageCase):
                     d["links"][2]["a"][1] = port
                     d["links"][3]["a"][1] = 7
                 self.edit_package(mix)
-                self.assert_red("links agree", "links[2] is not a readable link")
+                self.assert_red("links agree",
+                                "links[2] is not a readable link (port is not an integer)")
 
     def test_one_quoted_port_is_not_read_as_the_models_own_link(self):
         # Without the type check this link reads as "s1 port '3'", differs from the model's
         # s1 port 3, and the row prints the same-looking link on both sides.
         self.edit_package(lambda d: d["links"][2]["a"].__setitem__(1, "3"))
-        self.assert_red("links agree", "links[2] is not a readable link")
+        self.assert_red("links agree", "links[2] is not a readable link (port is not an integer)")
 
     def test_a_link_that_is_not_readable_fails_links_agree(self):
         self.edit_package(lambda d: d["links"].__setitem__(1, {"a": ["h2", 1]}))
-        self.assert_red("links agree", "not a readable link")
+        self.assert_red("links agree", "links[1] is not a readable link (needs both 'a' and 'b')")
+        # [Co-developed with claude code -- Adam] and `switch ports` says so too, in its own row.
+        self.assert_red("switch ports", "links[1] is not an object with 'a' and 'b'")
+
+    def test_a_node_name_that_is_not_a_string_is_an_unreadable_link(self):
+        # [Co-developed with claude code -- Adam]
+        self.edit_package(lambda d: d["links"][0].__setitem__("a", [7, 1]))
+        self.assert_red("links agree", "links[0] is not a readable link (a node name is not a string)")
+
+    def test_an_end_that_is_not_a_node_and_a_port_is_an_unreadable_link(self):
+        # [Co-developed with claude code -- Adam]
+        # A list of one, and a string of two characters, which would unpack into ("h", "1").
+        for label, end in (("a list of one", ["h1"]), ("a two-character string", "h1")):
+            with self.subTest(end=label):
+                self.fresh_package()
+                self.edit_package(lambda d: d["links"][0].__setitem__("a", end))
+                self.assert_red("links agree",
+                                "links[0] is not a readable link (an end is not a [node, port] pair)")
+
+    def test_a_switch_name_that_has_no_dpid_is_an_unreadable_link_and_says_why(self):
+        # [Co-developed with claude code -- Adam]
+        # links[2] is s1 port 3 - s3 port 1; the reason is the reader's own sentence.
+        cases = (("sX", "switch name 'sX' is not of the form sN"),
+                 ("s0", "switch 's0' would have dpid 0; dpids start at 1"))
+        for name, why in cases:
+            with self.subTest(name=name):
+                self.fresh_package()
+                self.edit_package(lambda d: d["links"][2]["b"].__setitem__(0, name))
+                self.assert_red("links agree", f"links[2] is not a readable link ({why})")
+
+    def test_a_link_that_is_not_an_object_fails_switch_ports_instead_of_crashing(self):
+        # [Co-developed with claude code -- Adam]
+        self.edit_package(lambda d: d["links"].__setitem__(1, "s1-s4"))
+        self.assert_red("switch ports", "links[1] is not an object with 'a' and 'b'")
+
+    def test_a_link_listed_twice_fails_links_agree_though_every_link_is_in_the_model(self):
+        # [Co-developed with claude code -- Adam]
+        # The sets of links are equal; only the count of entries differs.
+        self.edit_package(lambda d: d["links"].append(dict(d["links"][0])))
+        self.assert_red("links agree", "package.json lists")
+
+    def test_a_boolean_port_in_package_json_is_not_an_integer(self):
+        # [Co-developed with claude code -- Adam]
+        # `True` is an int in Python, so `["s1", True]` would read as port 1 and match the
+        # model's own `h1 - s1 port 1`: both `links agree` and `switch ports` would stay green
+        # over a manifest that says `true` where a port number belongs.
+        self.edit_package(lambda d: d["links"][0]["b"].__setitem__(1, True))
+        self.assert_red("links agree", "links[0] is not a readable link (port is not an integer)")
+
+    def test_a_host_side_port_that_is_a_string_is_refused_though_the_loader_takes_it(self):
+        # [Co-developed with claude code -- Adam]
+        # The loader reads the ports of a shaped link only, so `["h1", "1"]` loads. Pre-flight
+        # holds the host's port to the documented `["h1", 1]` form (app_package._link_endpoint
+        # asks for the same) and says which link and why; this pins that it is not looser.
+        self.edit_package(lambda d: d["links"][0].__setitem__("a", ["h1", "1"]))
+        the_proxys_reader().load(self.pkg)
+        self.assert_red("links agree", "links[0] is not a readable link (port is not an integer)")
+
+    def test_every_unreadable_link_is_named_up_to_three_with_its_reason(self):
+        # [Co-developed with claude code -- Adam]
+        def spoil(d):
+            d["links"][1] = {"a": ["h2", 1]}                  # no 'b'
+            d["links"][2]["a"][1] = "3"                       # a quoted port
+            d["links"][3] = "s1-s4"                           # not an object
+            d["links"][4] = {"a": ["h3", 1], "b": ["x9", 1]}  # neither kind of link
+        self.edit_package(spoil)
+        report = self.report()
+        detail = " ".join(r[2] for r in report.rows if r[1] == "links agree")
+        self.assertIn("links[1] is not a readable link (needs both 'a' and 'b')", detail)
+        self.assertIn("links[2] is not a readable link (port is not an integer)", detail)
+        self.assertIn("links[3] is not a readable link (not an object)", detail)
+        self.assertNotIn("links[4]", detail)
+        self.assertIn("; and 1 more", detail)
 
     def test_a_switch_first_access_link_the_loader_accepts_is_accepted_here_too(self):
         # `{"a": ["s1", 1], "b": ["h1", 1]}` is the same link as `{"a": ["h1", 1], "b": ["s1", 1]}`:
@@ -742,6 +824,23 @@ class MalformedInputIsARowNotATraceback(PackageCase):
         self.edit_entries(self.RUNTIME, lambda d: d["table_entries"].__setitem__(0, "oops"))
         self.assert_red("entries match p4info", "not an object")
 
+    def test_a_default_action_that_is_not_true_or_false_fails_as_the_proxy_refuses_it(self):
+        # [Co-developed with claude code -- Adam]
+        for label, value in (("a number", 1), ("a string", "yes"), ("null", None)):
+            with self.subTest(default_action=label):
+                self.fresh_package()
+                self.edit_entries(self.RUNTIME,
+                                  lambda d: d["table_entries"][0].__setitem__("default_action", value))
+                self.assert_red("entries match p4info", "'default_action' must be true or false")
+
+    def test_an_explicit_default_action_false_on_a_match_entry_is_accepted(self):
+        # [Co-developed with claude code -- Adam]
+        # The proxy's read-back writes `"default_action": false` on every ordinary entry, and
+        # that shape is meant to be sent back: it is a boolean, and false means "not a default".
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d["table_entries"][1].__setitem__("default_action", False))
+        self.assertEqual(self.statuses()["entries match p4info"], preflight.PASS)
+
     def test_a_match_that_is_not_an_object_fails_instead_of_crashing(self):
         self.edit_entries(self.RUNTIME,
                           lambda d: d["table_entries"][1].__setitem__("match", ["10.0.1.1", 32]))
@@ -810,6 +909,95 @@ class MalformedInputIsARowNotATraceback(PackageCase):
         with open(os.path.join(self.pkg, "package.json"), "w", encoding="utf-8") as fh:
             fh.write("[1]")
         self.assert_red("package.json", "not an object")
+
+    def test_a_path_that_is_not_a_string_fails_naming_the_field(self):
+        # [Co-developed with claude code -- Adam]
+        # A path goes through os.path.isabs / os.path.join, which take a string; a list or a
+        # number there used to end in a TypeError. The row names the field and what it is.
+        cases = {
+            "topology": (lambda d: d.__setitem__("topology", ["ndtwin/topology.json"]),
+                         "topology", "topology is not a path string, it is list"),
+            "source.p4": (lambda d: d["source"].__setitem__("p4", 7),
+                          "source", "source.p4 is not a path string, it is int"),
+            "source.p4info": (lambda d: d["source"].__setitem__("p4info", {"x": 1}),
+                              "source", "source.p4info is not a path string, it is dict"),
+            "source.bmv2_json": (lambda d: d["source"].__setitem__("bmv2_json", ["x"]),
+                                 "source", "source.bmv2_json is not a path string, it is list"),
+            "source.topology_json": (lambda d: d["source"].__setitem__("topology_json", ["x"]),
+                                     "source",
+                                     "source.topology_json is not a path string, it is list"),
+            "entries": (lambda d: d["switches"]["1"].__setitem__(
+                            "entries", ["pod-topo/s1-runtime.json"]),
+                        "switches", "switches[1].entries is not a path string, it is list"),
+        }
+        for label, (corrupt, row, needle) in cases.items():
+            with self.subTest(field=label):
+                self.fresh_package()
+                self.edit_package(corrupt)
+                self.assert_red(row, needle)
+
+    def test_an_empty_path_is_read_as_absent_as_it_always_was(self):
+        # [Co-developed with claude code -- Adam]
+        self.edit_package(lambda d: d["source"].__setitem__("bmv2_json", []))
+        self.assertNotIn("source", {label for status, label, _d in self.report().rows
+                                    if status == preflight.FAIL})
+
+    def test_a_pipeline_path_that_is_not_a_string_fails_instead_of_crashing(self):
+        # [Co-developed with claude code -- Adam]
+        self.edit_package(lambda d: d["switches"]["1"].__setitem__(
+            "pipeline", {"p4info": 7, "bmv2_json": ["x"]}))
+        self.assert_red("switches pipeline", "pipeline.p4info 7 is not a path string, it is int")
+        self.assert_red("switches pipeline", "pipeline.bmv2_json ['x'] is not a path string")
+
+    def test_a_runtime_file_whose_p4info_is_not_a_string_fails_instead_of_crashing(self):
+        # [Co-developed with claude code -- Adam]
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d.__setitem__("p4info", ["build/basic.p4.p4info.txtpb"]))
+        self.assert_red("entries match p4info",
+                        "p4info in pod-topo/s1-runtime.json is not a path string, it is list")
+
+    def test_a_switch_key_of_superscript_digits_fails_instead_of_crashing(self):
+        # [Co-developed with claude code -- Adam]
+        # "\u00b2".isdigit() is true and int("\u00b2") raises. Only ASCII digits spell a number.
+        self.edit_package(lambda d: d["switches"].__setitem__("\u00b2", d["switches"].pop("1")))
+        self.assert_red("switches keys", "\u00b2")
+
+    def test_a_switch_key_in_another_scripts_digits_is_a_bad_key(self):
+        # [Co-developed with claude code -- Adam]
+        # int("\u0663") is 3 and app_package.load reads that key as dpid 3; pre-flight reads only
+        # ASCII digits as a dpid, which is stricter than the loader and so the safe direction.
+        self.edit_package(lambda d: d["switches"].__setitem__("\u0663", d["switches"].pop("1")))
+        self.assert_red("switches keys", "\u0663")
+
+    @unittest.skipUnless(getattr(sys, "get_int_max_str_digits", lambda: 0)() > 0,
+                         "this interpreter reads integers of any length")
+    def test_a_switch_key_of_more_digits_than_int_will_read_is_a_bad_key(self):
+        # [Co-developed with claude code -- Adam]
+        key = "1" * (sys.get_int_max_str_digits() + 1)
+        self.edit_package(lambda d: d["switches"].__setitem__(key, d["switches"].pop("1")))
+        self.assert_red("switches keys", "not positive integers")
+
+    def test_a_package_with_several_wrong_types_ends_in_rows_and_a_failure_exit(self):
+        # [Co-developed with claude code -- Adam]
+        # What a newcomer runs is the command, not `run()`: the same inputs through main().
+        import contextlib
+        import io
+
+        def spoil(d):
+            d["topology"] = ["ndtwin/topology.json"]
+            d["source"]["p4"] = 7
+            d["switches"]["1"]["entries"] = ["pod-topo/s1-runtime.json"]
+        self.edit_package(spoil)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = preflight.main([self.pkg, "--no-compile"])
+        text = out.getvalue()
+        self.assertEqual(rc, 1, text)
+        self.assertNotIn("Traceback", text)
+        for needle in ("topology is not a path string, it is list",
+                       "source.p4 is not a path string, it is int",
+                       "switches[1].entries is not a path string, it is list"):
+            self.assertEqual(text.count(needle), 1, text)
 
     def test_a_compile_that_times_out_fails_instead_of_crashing(self):
         timeout = preflight.subprocess.TimeoutExpired(cmd="p4c-bm2-ss", timeout=600)
@@ -937,6 +1125,53 @@ class TheMulticastPackageIsGreen(TheMulticastExerciseCase):
                               {"clone_session_id": 250,
                                "replicas": [{"egress_port": 77, "instance": 1}]}]))
         self.assert_red("PRE entries", "neither a port s1 has")
+
+
+class ThePreEntriesOfTheWrongType(TheMulticastExerciseCase):
+    """A runtime file whose multicast or clone entries are the wrong type: a row, not a TypeError.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    RUNTIME = "sig-topo/s1-runtime.json"
+
+    def test_multicast_group_entries_that_are_not_a_list_fail(self):
+        self.edit_entries(self.RUNTIME, lambda d: d.__setitem__("multicast_group_entries", 7))
+        self.assert_red("PRE entries", "multicast_group_entries is not a list, it is int")
+
+    def test_clone_session_entries_that_are_not_a_list_fail(self):
+        self.edit_entries(self.RUNTIME, lambda d: d.__setitem__("clone_session_entries", 7))
+        self.assert_red("PRE entries", "clone_session_entries is not a list, it is int")
+
+    def test_clone_session_replicas_that_are_not_a_list_fail(self):
+        self.edit_entries(self.RUNTIME, lambda d: d.__setitem__("clone_session_entries", [
+            {"clone_session_id": 250, "replicas": 7}]))
+        self.assert_red("PRE entries", "replicas is not a list, it is int")
+
+    def test_an_instance_that_is_a_string_is_not_an_integer(self):
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d["multicast_group_entries"][0]["replicas"][0]
+                          .__setitem__("instance", "1"))
+        self.assert_red("PRE entries", "instance '1' is not an integer")
+
+    def test_an_instance_that_is_true_is_not_an_integer(self):
+        # `True` is 1 in Python, and the proxy refuses it before it reaches the switch.
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d["multicast_group_entries"][0]["replicas"][0]
+                          .__setitem__("instance", True))
+        self.assert_red("PRE entries", "instance True is not an integer")
+
+    def test_a_negative_instance_fails_as_the_proxy_refuses_it(self):
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d["multicast_group_entries"][0]["replicas"][0]
+                          .__setitem__("instance", -1))
+        self.assert_red("PRE entries", "instance -1 is negative")
+
+    def test_an_instance_that_is_a_list_fails_instead_of_crashing(self):
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d["multicast_group_entries"][0]["replicas"][0]
+                          .__setitem__("instance", ["x"]))
+        self.assert_red("PRE entries", "instance ['x'] is not an integer")
 
 
 class TheTelemetryWord(PackageCase):
@@ -1120,6 +1355,24 @@ class BasicWithRolesTest(RolesCase):
             route_binding.resolve(dict(BASIC_ROLE, action="MyIngress.fwd"), p4info,
                                   max_port=4, where="s1: roles.ipv4_route")
         self.assertIn(str(caught.exception), detail)
+
+
+class OwnedTableWithMalformedEntriesTest(RolesCase):
+    RUNTIME = "pod-topo/s1-runtime.json"
+
+    def test_table_entries_that_are_not_a_list_fail_instead_of_crashing_the_roles_check(self):
+        # [Co-developed with claude code -- Adam]
+        # `entries match p4info` records its row; the owned-table walk must then skip the file
+        # rather than iterate a number.
+        self.edit_entries(self.RUNTIME, lambda d: d.__setitem__("table_entries", 1))
+        self.assert_red("entries match p4info",
+                        "table_entries in pod-topo/s1-runtime.json is not a list, it is int")
+
+    def test_a_table_named_by_a_list_fails_instead_of_crashing_the_roles_check(self):
+        # [Co-developed with claude code -- Adam]
+        self.edit_entries(self.RUNTIME,
+                          lambda d: d["table_entries"][0].__setitem__("table", ["x"]))
+        self.assert_red("entries match p4info", "is not in the p4info")
 
 
 class RenamedRolesTest(RolesCase):
