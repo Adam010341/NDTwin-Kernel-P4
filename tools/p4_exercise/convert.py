@@ -812,11 +812,12 @@ def _check_switch_ports_are_used_once(links):
     """Refuse a switch port that two links claim -- a copy-pasted `s1-p1` is a typo, not a design.
 
     [Co-developed with claude code -- Adam]
-    Nothing else catches it: every host is still attached once and the model still reads back,
-    so the package would pass, and the two `addLink` calls on one bmv2 interface would be found
-    only after `mn -c` had torn the running fabric down. Refused here for
+    Every host is still attached once, so without a check the package would convert, and the
+    two `addLink` calls on one bmv2 interface would be found only after `mn -c` had torn the
+    running fabric down. topo_from_json refuses it too, so `read_back` would; this check runs
+    first and names the exercise's ports rather than the generated model's. Refused here for
     the same reason as the rest of this module -- never degraded -- and the same rule is held by
-    topo_from_json (the reader the fabric uses) and by pre-flight.
+    pre-flight.
     """
     def label(end):
         kind, name, port = end

@@ -10,6 +10,7 @@
 # fourth subject: tools/p4_exercise/tests/test_convert.py, where that rule lives.
 # The paper-apps work (int-v1 and ONTAS, 2026-10-16) appended 38-77 and a fifth subject,
 # tools/p4_exercise/thrift_cli.py, the bmv2 CLI -> P4Runtime entry translator.
+# Wrong-typed values in a package and the two link checks of pre-flight appended 78-112.
 # [Co-developed with claude code -- Adam]
 #
 # A test that has never been seen to fail is a decoration. This applies ten mutations to the
@@ -243,7 +244,7 @@ add "14. a pipeline may resolve outside the package directory" \
 
 add "15. an absolute pipeline path is accepted here and refused by the loader" \
     "$PREFLIGHT" \
-    '    if os.path.isabs(str(rel)):' \
+    '    if os.path.isabs(rel):' \
     '    if False:  # MUTANT: absolute is fine here, and fatal at bring-up' \
     'test_an_absolute_pipeline_path_fails_here_and_not_only_at_bring_up'
 
@@ -719,6 +720,254 @@ add "77. an lpm /0 beside a ternary field is written as a /0 match" \
     '        if False:  # MUTANT: /0 goes on the wire
             notes.append(f"{what}: {token} matches everything; omitted' \
     'test_an_lpm_slash_zero_beside_a_ternary_field_is_omitted'
+
+# 78-112 are the wrong-typed values (a path that is a list, a switch key that int() refuses, the
+# entries of a runtime file that are not a list) and the two link checks no row above reached
+# (`switch ports` and `links agree`). Each is a package that used to end pre-flight in a Python
+# traceback, or in a green row over a manifest that disagrees with the model, or in a green row
+# over a value the proxy refuses at bring-up (108-111); 101 and 105 pin the rule that an empty path
+# reads as absent and the reader's own reason for an unreadable switch name, and 112 pins that an
+# explicit `default_action: false` is still accepted.
+# [Co-developed with claude code -- Adam]
+add "78. a path in package.json that is not a string is not flagged" \
+    "$PREFLIGHT" \
+    '        if value and not isinstance(value, str):
+            report.bad(section, f"{field} is not a path string, it is {type(value).__name__}")' \
+    '        if False:  # MUTANT: a path may be any type
+            report.bad(section, f"{field} is not a path string, it is {type(value).__name__}")' \
+    'test_a_path_that_is_not_a_string_fails_naming_the_field'
+
+add "79. a pipeline path that is not a string reaches os.path" \
+    "$PREFLIGHT" \
+    '    if not isinstance(rel, str):
+        # [Co-developed with claude code -- Adam]
+        return f"{rel!r} is not a path string, it is {type(rel).__name__}"' \
+    '    if False:  # MUTANT: a pipeline path may be any type
+        return f"{rel!r} is not a path string, it is {type(rel).__name__}"' \
+    'test_a_pipeline_path_that_is_not_a_string_fails_instead_of_crashing'
+
+add "80. a runtime file whose p4info is not a string reaches os.path" \
+    "$PREFLIGHT" \
+    '        if not isinstance(p4info_rel, str):' \
+    '        if False:  # MUTANT: the p4info may be any type' \
+    'test_a_runtime_file_whose_p4info_is_not_a_string_fails_instead_of_crashing'
+
+add "81. the roles check iterates table_entries without asking whether it is a list" \
+    "$PREFLIGHT" \
+    '        if not isinstance(listed, list):
+            continue              # ... and so is a table_entries that is not a list' \
+    '        if False:  # MUTANT: table_entries is always a list
+            continue              # ... and so is a table_entries that is not a list' \
+    'test_table_entries_that_are_not_a_list_fail_instead_of_crashing_the_roles_check'
+
+add "82. a table named by a list is looked up in a set" \
+    "$PREFLIGHT" \
+    '            if not isinstance(table_name, str) or table_name not in names:' \
+    '            if table_name not in names:  # MUTANT: the table name is always hashable' \
+    'test_a_table_named_by_a_list_fails_instead_of_crashing_the_roles_check'
+
+add "83. a switch key in another script's digits is read as a number" \
+    "$PREFLIGHT" \
+    '    if not (text.isascii() and text.isdecimal()):' \
+    '    if not text.isdecimal():  # MUTANT: any decimal digit spells a number' \
+    'test_a_switch_key_in_another_scripts_digits_is_a_bad_key'
+
+add "84. a switch key of superscript digits reaches int()" \
+    "$PREFLIGHT" \
+    '    if not (text.isascii() and text.isdecimal()):
+        return None
+    try:
+        return int(text)
+    except ValueError:                    # more digits than int() will read
+        return None' \
+    '    if not text.isdigit():  # MUTANT: the old reading
+        return None
+    return int(text)' \
+    'test_a_switch_key_of_superscript_digits_fails_instead_of_crashing'
+
+add "85. a switch key of more digits than int() reads raises" \
+    "$PREFLIGHT" \
+    '    try:
+        return int(text)
+    except ValueError:                    # more digits than int() will read
+        return None' \
+    '    return int(text)  # MUTANT: int() always reads it' \
+    'test_a_switch_key_of_more_digits_than_int_will_read_is_a_bad_key'
+
+add "86. multicast_group_entries is iterated without asking whether it is a list" \
+    "$PREFLIGHT" \
+    '        if not isinstance(groups, list):' \
+    '        if False:  # MUTANT: it is always a list' \
+    'test_multicast_group_entries_that_are_not_a_list_fail'
+
+add "87. clone_session_entries is iterated without asking whether it is a list" \
+    "$PREFLIGHT" \
+    '        if not isinstance(clones, list):' \
+    '        if False:  # MUTANT: it is always a list' \
+    'test_clone_session_entries_that_are_not_a_list_fail'
+
+add "88. a clone session's replicas are iterated without asking whether they are a list" \
+    "$PREFLIGHT" \
+    '            if not isinstance(listed, list):
+                problems.append(' \
+    '            if False:  # MUTANT: they are always a list
+                problems.append(' \
+    'test_clone_session_replicas_that_are_not_a_list_fail'
+
+add "89. a replica instance that is a list is put in a set" \
+    "$PREFLIGHT" \
+    '                if isinstance(instance, bool) or not isinstance(instance, int):' \
+    '                if False:  # MUTANT: the instance is always hashable' \
+    'test_an_instance_that_is_a_list_fails_instead_of_crashing'
+
+add "90. a boolean passes for a link port" \
+    "$PREFLIGHT" \
+    '            if any(isinstance(p, bool) or not isinstance(p, int) for p in (a_port, b_port)):' \
+    '            if any(not isinstance(p, int) for p in (a_port, b_port)):  # MUTANT: True is 1' \
+    'test_a_boolean_port_in_package_json_is_not_an_integer'
+
+add "91. only the switch end of a link has to carry an integer port" \
+    "$PREFLIGHT" \
+    '            if any(isinstance(p, bool) or not isinstance(p, int) for p in (a_port, b_port)):' \
+    '            if any(isinstance(p, bool) or not isinstance(p, int) for p in (b_port,)):  # MUTANT' \
+    'test_a_host_side_port_that_is_a_string_is_refused_though_the_loader_takes_it'
+
+add "92. a link written switch-first is not the same link as one written host-first" \
+    "$PREFLIGHT" \
+    '            if a_name.startswith("s") and b_name.startswith("h"):
+                a_name, a_port, b_name, b_port = b_name, b_port, a_name, a_port' \
+    '            if False:  # MUTANT: the order of a link'"'"'s ends matters
+                a_name, a_port, b_name, b_port = b_name, b_port, a_name, a_port' \
+    'test_a_switch_first_access_link_the_loader_accepts_is_accepted_here_too'
+
+add "93. links agree stops comparing the inter-switch cables" \
+    "$PREFLIGHT" \
+    '    if (not unreadable and cables == model_cables and access == model_access
+            and listed == n_links):' \
+    '    if (not unreadable and access == model_access
+            and listed == n_links):  # MUTANT' \
+    'test_a_manifest_cable_on_another_port_than_the_models_fails_though_the_counts_agree'
+
+add "94. links agree stops comparing the access links" \
+    "$PREFLIGHT" \
+    '    if (not unreadable and cables == model_cables and access == model_access
+            and listed == n_links):' \
+    '    if (not unreadable and cables == model_cables
+            and listed == n_links):  # MUTANT' \
+    'test_a_manifest_access_link_on_another_port_than_the_models_fails'
+
+add "95. links agree stops counting the manifest's entries" \
+    "$PREFLIGHT" \
+    '    if (not unreadable and cables == model_cables and access == model_access
+            and listed == n_links):' \
+    '    if (not unreadable and cables == model_cables and access == model_access):  # MUTANT' \
+    'test_a_link_listed_twice_fails_links_agree_though_every_link_is_in_the_model'
+
+add "96. links agree names only the first unreadable link" \
+    "$PREFLIGHT" \
+    '                          for i, why in unreadable[:3])' \
+    '                          for i, why in unreadable[:1])  # MUTANT: only the first is named' \
+    'test_every_unreadable_link_is_named_up_to_three_with_its_reason'
+
+add "97. switch ports stops reporting a port two links use" \
+    "$PREFLIGHT" \
+    '            if prior is not None:' \
+    '            if False:  # MUTANT: a second claim is not a clash' \
+    'test_two_links_on_one_switch_port_in_package_json_fail_and_name_the_port'
+
+add "98. switch ports hashes a port that is a list" \
+    "$PREFLIGHT" \
+    '            except TypeError:                 # a list or object for a port: `links agree`' \
+    '            except KeyError:  # MUTANT: a port is always hashable' \
+    'test_a_switch_port_that_is_a_list_fails_links_agree_and_does_not_crash_switch_ports'
+
+add "99. switch ports unpacks a link that has no second end" \
+    "$PREFLIGHT" \
+    '        if not ends or any(not (isinstance(e, (list, tuple)) and len(e) == 2) for e in ends):' \
+    '        if False:  # MUTANT: every link has two ends' \
+    'test_a_link_that_is_not_readable_fails_links_agree'
+
+add "100. switch ports passes a link that is not an object" \
+    "$PREFLIGHT" \
+    '        ends = [(link or {}).get("a"), (link or {}).get("b")] if isinstance(link, dict) else None' \
+    '        ends = [(link or {}).get("a"), (link or {}).get("b")] if link else None  # MUTANT' \
+    'test_a_link_that_is_not_an_object_fails_switch_ports_instead_of_crashing'
+
+add "101. an empty path is flagged as a wrong type" \
+    "$PREFLIGHT" \
+    '        if value and not isinstance(value, str):' \
+    '        if not isinstance(value, str):  # MUTANT: an empty value is a wrong type too' \
+    'test_an_empty_path_is_read_as_absent_as_it_always_was'
+
+add "102. a node name that is not a string reaches startswith" \
+    "$PREFLIGHT" \
+    '            if not (isinstance(a_name, str) and isinstance(b_name, str)):' \
+    '            if False:  # MUTANT: a node name is always a string' \
+    'test_a_node_name_that_is_not_a_string_is_an_unreadable_link'
+
+add "103. an end of a link may have any length" \
+    "$PREFLIGHT" \
+    'isinstance(end, (list, tuple)) and len(end) == 2' \
+    'isinstance(end, (list, tuple))  # MUTANT' \
+    'test_an_end_that_is_not_a_node_and_a_port_is_an_unreadable_link'
+
+add "104. an end of a link may be a two-character string" \
+    "$PREFLIGHT" \
+    'isinstance(end, (list, tuple)) and len(end) == 2' \
+    'len(end) == 2  # MUTANT' \
+    'test_an_end_that_is_not_a_node_and_a_port_is_an_unreadable_link'
+
+add "105. an unreadable switch name is not said why" \
+    "$PREFLIGHT" \
+    '                raise _UnreadableLink(str(exc).split(". ")[0]) from None' \
+    '                raise _UnreadableLink("a switch name is not readable") from None  # MUTANT' \
+    'test_a_switch_name_that_has_no_dpid_is_an_unreadable_link_and_says_why'
+
+add "106. a switch name that is not sN escapes as a ValueError" \
+    "$PREFLIGHT" \
+    '            except ValueError as exc:
+                # The reader' \
+    '            except KeyError as exc:  # MUTANT
+                # The reader' \
+    'test_a_switch_name_that_has_no_dpid_is_an_unreadable_link_and_says_why'
+
+add "107. source.topology_json is not looked at" \
+    "$PREFLIGHT" \
+    '    for key in ("topology_json", "p4", "p4info", "bmv2_json"):
+        if isinstance(source, dict):' \
+    '    for key in ("p4", "p4info", "bmv2_json"):  # MUTANT
+        if isinstance(source, dict):' \
+    'test_a_path_that_is_not_a_string_fails_naming_the_field'
+
+add "108. a boolean passes for a replica instance" \
+    "$PREFLIGHT" \
+    '                if isinstance(instance, bool) or not isinstance(instance, int):' \
+    '                if not isinstance(instance, int):  # MUTANT: True is 1' \
+    'test_an_instance_that_is_true_is_not_an_integer'
+
+add "109. only a boolean is refused as a replica instance" \
+    "$PREFLIGHT" \
+    '                if isinstance(instance, bool) or not isinstance(instance, int):' \
+    '                if isinstance(instance, bool):  # MUTANT' \
+    'test_an_instance_that_is_a_string_is_not_an_integer'
+
+add "110. a negative replica instance is accepted" \
+    "$PREFLIGHT" \
+    '                if instance < 0:          # the proxy refuses it too (p4_client.py)' \
+    '                if False:  # MUTANT: unsigned is the switch'"'"'s business' \
+    'test_a_negative_instance_fails_as_the_proxy_refuses_it'
+
+add "111. a default_action that is not a boolean is read by its truth" \
+    "$PREFLIGHT" \
+    '    if not isinstance(is_default, bool):' \
+    '    if False:  # MUTANT: anything truthy is a default action' \
+    'test_a_default_action_that_is_not_true_or_false_fails_as_the_proxy_refuses_it'
+
+add "112. an explicit default_action false is refused as if it were not a boolean" \
+    "$PREFLIGHT" \
+    '    if not isinstance(is_default, bool):' \
+    '    if is_default is not True and "default_action" in entry:  # MUTANT' \
+    'test_an_explicit_default_action_false_on_a_match_entry_is_accepted'
 
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'

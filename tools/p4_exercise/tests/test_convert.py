@@ -944,9 +944,9 @@ class APortUsedByTwoLinks(TmpMixin, unittest.TestCase):
     """A switch port is one cable. `[["h1","s1-p1"],["h2","s1-p1"]]` is a typo, not a topology.
 
     [Co-developed with claude code -- Adam]
-    Nothing downstream notices it: the model still reads back, every host is attached once, and
-    the two `addLink` calls on one bmv2 interface are found only at bring-up, after `mn -c`
-    had torn the running fabric down.
+    Before this check nothing downstream noticed it: the model read back, every host was
+    attached once, and the two `addLink` calls on one bmv2 interface were found only at
+    bring-up, after `mn -c` had torn the running fabric down.
     """
 
     HOSTS = {"h1": {"ip": "10.0.1.1", "prefix_len": 24, "mac": "08:00:00:00:01:11",
