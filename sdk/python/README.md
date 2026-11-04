@@ -7,7 +7,8 @@ Python. It uses only the standard library, needs Python 3.10 or newer, and is sy
 the kernel's `/ndt/...` routes and nothing else: an app does not talk to the P4 proxy on port 8081.
 
 Install it into a virtual environment (Ubuntu 24.04's system Python is externally managed, so
-`pip install` refuses to run outside one), from the root of the repository; it needs `setuptools` 64 or newer, which `pip` fetches for the build:
+`pip install` refuses to run outside one), from the root of the repository; it needs `setuptools`
+64 or newer, which `pip` fetches for the build:
 
 ```bash
 python3 -m venv .venv
@@ -68,10 +69,10 @@ with k.lock("routing_lock", ttl=60) as lease:       # LockBusy if another app ho
 | `k.p4.direct_counter(name, dpid)` | `GET /ndt/p4/direct_counter/{name}` |
 | `k.p4.register(name, dpid, index=None, start=None, count=None)` | `GET /ndt/p4/register/{name}` (bmv2 only) |
 
-The power API takes a switch's management address, not its dpid. The SDK maps the dpid to the address
-from the topology (the kernel serialises the address as a little-endian integer, which the SDK
-decodes). A table entry is a `dict` in the exact JSON shape of the API, with `.match`, `.params`,
-`.priority` and `with_params(**changes)`; values the API gives go back unchanged.
+The power API takes a switch's management address, not its dpid. The SDK maps the dpid to the
+address from the topology (the kernel serialises the address as a little-endian integer, which the
+SDK decodes). A table entry is a `dict` in the exact JSON shape of the API, with `.match`,
+`.params`, `.priority` and `with_params(**changes)`; values the API gives go back unchanged.
 
 `verify=True` reads each table back after the writes, as strictly as `read_table`: a table with
 entries the API cannot show raises `WriteNotVerified`, and the check compares values in the form
@@ -173,10 +174,10 @@ It raises:
   entry with another action, written by someone else, ends here), or cannot. It then carries
   `attempts` and `original_landed` as `settle` had decided it, except where the read contradicts
   that decision: after `ALREADY_EXISTS` the read does not show the entry as sent (another action or
-  parameters, or no entry), or after a delete's `NOT_FOUND` it still shows the entry; then `original_landed` is None. The decision is
-  kept when the read failed (also when it found entries the API cannot show), when a delete's
-  match could not be compared with the table, and after a re-sent write that was applied
-  (`False`).
+  parameters, or no entry), or after a delete's `NOT_FOUND` it still shows the entry; then
+  `original_landed` is None. The decision is kept when the read failed (also when it found
+  entries the API cannot show), when a delete's match could not be compared with the table, and
+  after a re-sent write that was applied (`False`).
 
 A modify of an entry that is not there is expected to be answered `NOT_FOUND` every time (that
 follows P4Runtime; it has not been observed on bmv2), so it ends at once in `Unsettled`: an earlier

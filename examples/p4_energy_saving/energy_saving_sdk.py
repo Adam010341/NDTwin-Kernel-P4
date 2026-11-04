@@ -209,8 +209,11 @@ def one_pass(k, a, lease, result, log):
         result["reason"] = (f"every write was answered, the read-back does not confirm them "
                             f"(they may have landed), s{victim} left on: {err}")
         return
-    except ndtwin.WriteError as err:
+    except ndtwin.NDTwinError as err:
+        # Any error of a write: also a KernelUnreachable after the retries and a reply that is not
+        # JSON, which `ndtwin.WriteError` does not hold. modify_all sets `written` on each of them.
         # Every route still works while the switch stays on, rewritten or not.
+        # [Co-developed with claude code -- Adam]
         landed = "may have landed" if err.may_have_landed else "not on the switch"
         before = "".join(f"; s{e.dpid} {e.match} was written before it" for e in err.written)
         result["reason"] = f"write failed ({landed}){before}, s{victim} left on: {err}"

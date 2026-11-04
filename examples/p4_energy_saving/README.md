@@ -96,16 +96,16 @@ link usage.
 
 On `basic`'s pod topology (h1 and h2 on s1, h3 and h4 on s2, s3 and s4 each joined to s1 and s2)
 it picks s4, moves s1's route to h4 and s2's route to h2 onto s3, reads both tables back, and
-powers s4 off. On 2026-10-31 an earlier version of both apps did that on a bmv2 1.15.5 fabric of that exercise, with
-pings through every switch, without losing a ping; the tests show the same against a fake kernel
-built from a recorded reply of that topology.
+powers s4 off. On 2026-10-31 an earlier version of both apps did that on a bmv2 1.15.5 fabric of
+that exercise, with pings through every switch, without losing a ping; the tests show the same
+against a fake kernel built from a recorded reply of that topology.
 
 Powering a bmv2 switch off needs the root helper `ndtwin-p4-power` (`doc/2026-01-02_ndt_api.md`
 §8). The User Manual does not install it: the steps are in the docstring of
-`tools/p4_power_helper.py`. Without it
-the power-off answers `500` and the app says the power-off may have taken effect, since the same
-`500` also comes back when the helper signalled the switch and it had not stopped 10 s later; the
-routes it moved still work, because the other spine carries them.
+`tools/p4_power_helper.py`. Without it the power-off answers `500` and the app says the power-off
+may have taken effect, since the same `500` also comes back when the helper signalled the switch
+and it had not stopped 10 s later; the routes it moved still work, because the other spine carries
+them.
 
 ## Options
 
