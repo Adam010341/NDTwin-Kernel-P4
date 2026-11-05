@@ -44,11 +44,12 @@ SOURCES=("$HBMOD" "$TOPOMGR" "$MAIN" "$ROUTES" "$NDT" "$HELPER" "$LIVE08" "$NDT_
 CLASSES_BASE=580767a8
 
 MODULES="tests.test_link_heartbeat tests.test_heartbeat_watchdog tests.test_heartbeat_fabric \
-tests.test_heartbeat_contract tests.test_flowentry_read_only tests.test_link_state_entry tests.test_route_binding \
+tests.test_heartbeat_contract tests.test_flowentry_read_only tests.test_flowentry_withheld tests.test_link_state_entry tests.test_route_binding \
 tests.test_link_watchdog tests.test_declared_links tests.test_switch_state tests.test_startup"
 
 NEW_CLASSES="tests.test_link_heartbeat:* tests.test_heartbeat_watchdog:* \
-tests.test_heartbeat_fabric:* tests.test_heartbeat_contract:* tests.test_flowentry_read_only:*"
+tests.test_heartbeat_fabric:* tests.test_heartbeat_contract:* tests.test_flowentry_read_only:* \
+tests.test_flowentry_withheld:*"
 #: Two first-cut tests changed on purpose (6e246f2d), asserted as they are now.
 NEW_TESTS="tests.test_route_binding.AWriteWithNoBindingIs501OnTheRenamedFixtureTest.test_an_external_control_plane_refuses_first_as_it_always_did
 tests.test_link_state_entry.TheEntryIsNotWiredInThisCutTest.test_its_one_caller_is_the_watchdog_pass_ingesting_the_heartbeat"
@@ -777,6 +778,80 @@ m=$(mutant x9 "$MAIN" \
     '        print(f"[Proxy Agent] external control plane, skipped: {'"'"', '"'"'.join(sorted(set(skipped) | {SKIP_WATCHDOG}))}. "')
 report "X9: the external line names link_watchdog skipped while the heartbeat drives it" "$m" \
        "test_the_startup_log_names_the_skipped_list_switch_state_serves"
+# [Co-developed with claude code -- Adam] A switch startup did not push to is refused by the three
+# flow verbs (tests/test_flowentry_withheld.py, which this gate counts whole): W1-W3 take the
+# refusal off one verb each, W4 refuses every switch, W5 makes the release a no-op. W6-W9 are
+# startup's (tests/test_startup.py): W6 drops the withhold of a switch that is refused after it
+# read as confirmed, W7 lets an external fabric's switches be waited for, W8 drops the
+# withhold before the wait, W9 drops the release in the wait loop. W10 and W11 mutate readopt
+# (same file): W10 stops the old client before the new one is gated, W11 swaps the new client in
+# before the gate.
+m=$(mutant w1 "$TOPOMGR" \
+    '        self._refuse_withheld(dpid, "written")  # [Co-developed with claude code -- Adam]' \
+    '        pass')
+report "W1: an install is written to a withheld switch" "$m" \
+       "test_every_verb_is_409_naming_the_switch_and_nothing_is_written"
+m=$(mutant w2 "$TOPOMGR" \
+    '        self._refuse_withheld(dpid, "deleted")  # [Co-developed with claude code -- Adam]' \
+    '        pass')
+report "W2: a delete is written to a withheld switch" "$m" \
+       "test_every_verb_is_409_naming_the_switch_and_nothing_is_written"
+m=$(mutant w3 "$TOPOMGR" \
+    '        self._refuse_withheld(dpid, "modified")  # [Co-developed with claude code -- Adam]' \
+    '        pass')
+report "W3: a modify is written to a withheld switch" "$m" \
+       "test_every_verb_is_409_naming_the_switch_and_nothing_is_written"
+m=$(mutant w4 "$TOPOMGR" \
+    '        if dpid in getattr(self, "_routes_withheld", ()):' \
+    '        if True:')
+report "W4: every switch is refused, withheld or not" "$m" \
+       "test_a_switch_that_was_never_withheld_is_unaffected"
+m=$(mutant w5 "$TOPOMGR" \
+    '            self._routes_withheld.discard(dpid)' \
+    '            pass')
+report "W5: a released switch stays refused" "$m" \
+       "test_a_switch_that_was_released_is_written_to_again"
+m=$(mutant w6 "$MAIN" \
+    '            if i in refused and withhold is not None:' \
+    '            if False:')
+report "W6: a switch refused after it read as confirmed is not withheld" "$m" \
+       "test_a_switch_that_stops_reading_as_confirmed_is_refused_and_withheld"
+m=$(mutant w7 "$MAIN" \
+    '    gated = [] if read_only else [i for i, c in clients.items() if c.json_path]' \
+    '    gated = [i for i, c in clients.items() if c.json_path]')
+report "W7: an external fabric's switches are waited for" "$m" \
+       "test_an_external_control_plane_waits_for_nothing"
+m=$(mutant w8 "$MAIN" \
+    '            if not confirmed(i):
+                withhold(i)' \
+    '            if False:
+                withhold(i)')
+report "W8: no switch is withheld before the wait" "$m" \
+       "test_a_route_written_while_startup_waits_does_not_reach_an_unconfirmed_switch"
+m=$(mutant w9 "$MAIN" \
+    '                waiting.remove(i)
+                if release is not None:
+                    release(i)' \
+    '                waiting.remove(i)')
+report "W9: the wait loop does not release a switch that confirmed" "$m" \
+       "test_a_switch_released_mid_wait_and_then_refused_is_withheld_again"
+m=$(mutant w10 "$TOPOMGR" \
+    '                new.start(push_config=False)
+                time.sleep(settle_s)' \
+    '                if old is not None and old is not new:
+                    old.stop()
+                new.start(push_config=False)
+                time.sleep(settle_s)')
+report "W10: readopt stops the startup client before it gates the new one" "$m" \
+       "test_a_readopt_is_refused_while_the_startup_stream_is_up_and_the_switch_stays_withheld"
+m=$(mutant w11 "$TOPOMGR" \
+    '                new.start(push_config=False)
+                time.sleep(settle_s)' \
+    '                self.switches[dpid] = new
+                new.start(push_config=False)
+                time.sleep(settle_s)')
+report "W11: readopt swaps the new client in before it gates it" "$m" \
+       "test_a_readopt_is_refused_while_the_startup_stream_is_up_and_the_switch_stays_withheld"
 m=$(mutant x10 "$MAIN" \
     '        if started and SKIP_WATCHDOG in skipped:
             skipped.remove(SKIP_WATCHDOG)' \

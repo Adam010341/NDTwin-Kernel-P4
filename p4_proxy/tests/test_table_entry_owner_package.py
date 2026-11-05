@@ -157,6 +157,9 @@ class AnOwnerNdtwinRolesPackageEndToEndTest(unittest.TestCase):
         client = main.build_p4_client(dpid, package=self.package)
         self.addCleanup(client.channel.close)
         client.stub = RecordingStub()
+        # [Co-developed with claude code -- Adam] startup pushes only to a switch that confirmed
+        # this client as primary; the recording stub always has.
+        client.mastership_confirmed = True
         client.events = []
         client.set_forwarding_pipeline_config = lambda c=client: c.events.append("pipeline")
         client.write_clone_session = lambda c=client: c.events.append("clone") or True

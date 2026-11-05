@@ -288,10 +288,14 @@ class P4RuntimeClient:
         # package puts byte-identical requests on the wire.
         #
         # 🔴 It is a parameter because of the mastership note below. A proxy that bids (0, 1) can
-        # be impersonated by anything else that bids (0, 1) -- and P4Runtime says the LATER
-        # equal bid wins the primary role, so the impostor's pipeline push is accepted and every
-        # table is wiped. An app package bids higher (app_package.PACKAGE_DEFAULT_ELECTION_ID),
-        # which turns that same push into PERMISSION_DENIED.
+        # be impersonated by anything else that bids (0, 1). bmv2 ends the LATER equal stream
+        # (INVALID_ARGUMENT "Election id already exists", measured on bmv2 1.15.5 on 2026-11-05)
+        # and the earlier stream keeps the primary role, so an impostor is the primary only if it
+        # held the switch first (before this proxy's startup, or after this proxy's stream has
+        # ended). Its unary RPCs carry the same election id, though, so the switch accepts its
+        # pipeline push whether or not its stream survived, and every table is wiped. An app
+        # package bids higher (app_package.PACKAGE_DEFAULT_ELECTION_ID), which turns that same
+        # push into PERMISSION_DENIED.
         self.election_id = (int(election_id[0]), int(election_id[1]))
 
         # --- whether this client drives the switch at all.

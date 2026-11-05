@@ -826,6 +826,54 @@ class SwitchLevelSilenceIsNotARerouteReasonTest(WatchdogTestBase):
         self.assertEqual(self.topo.reroutable_down_endpoints(), {(5, 1)})
 
 
+class ARefusedSwitchIsRoutedAroundOnceItsBeaconsStopTest(WatchdogTestBase):
+    """
+    A switch startup refused (withheld) that another NDTwin proxy still holds keeps beaconing out
+    of itself, and this proxy hears those beacons on its confirmed neighbours. [Co-developed with
+    claude code -- Adam]
+
+    The links into it are silent (its own controller receives what the neighbours send it), so
+    they are reported down; but the switch answers reads and its beacons out are live, which is
+    the signature of a stalled CPU path, and the refill keeps routing through it. Once the other
+    proxy is gone those beacons time out as well and the refill goes around the switch, with no
+    readopt. This is the sentence in the API doc's readopt section.
+    """
+
+    N, R = 1, 2
+
+    def setUp(self):
+        super().setUp()
+        for dpid in (self.N, self.R):
+            self.topo.net.add_node(dpid, type="switch")
+        self.topo.add_link(self.N, self.R, 1, 1)
+        self.topo.withhold_routes(self.R)
+        with self.topo._liveness_lock:
+            self.topo._last_probe[self.R] = {"ok": True, "detail": "", "at": self.clock()}
+        # Both directions have been heard once, then N->R falls silent and R->N goes on.
+        self.beacon(self.N, 1, self.R, 1)
+        self.beacon(self.R, 1, self.N, 1)
+
+    def test_while_its_beacons_are_heard_the_links_into_it_are_down_but_not_rerouted(self):
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.beacon(self.R, 1, self.N, 1)
+        result = self.topo.check_link_beacons()
+        self.assertEqual(result["down"], [(self.N, 1, self.R, 1)])
+        self.assertEqual(self.topo.reroutable_down_endpoints(), set())
+        self.assertEqual(self.topo.routes_withheld(), [self.R])
+
+    def test_once_its_beacons_stop_the_refill_goes_around_it_without_a_readopt(self):
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        self.beacon(self.R, 1, self.N, 1)
+        self.topo.check_link_beacons()
+        self.assertEqual(self.topo.reroutable_down_endpoints(), set())
+        # The other proxy lets go: nothing is heard out of R any more.
+        self.clock.advance(LINK_BEACON_TIMEOUT_S + 1)
+        result = self.topo.check_link_beacons()
+        self.assertEqual(result["down"], [(self.R, 1, self.N, 1)])
+        self.assertEqual(self.topo.reroutable_down_endpoints(), {(self.N, 1), (self.R, 1)})
+        self.assertEqual(self.topo.routes_withheld(), [self.R], "no readopt happened")
+
+
 class ThePushComputesOverASnapshotTest(WatchdogTestBase):
     """
     The push reads the whole graph from the watchdog thread while the gRPC receive threads write it.

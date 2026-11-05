@@ -53,6 +53,18 @@ MAX_REPORTED_FIELDS = 12
 #: [Co-developed with claude code -- Adam]
 MAX_REPORTED_VALUE_CHARS = 64
 
+#: Why a switch is left untouched when this proxy's client never became primary on it: a
+#: pipeline push erases every table, and the switch accepts it from a client whose arbitration
+#: was refused. Readopt's reply and the startup push loop (main.startup) both say exactly this.
+#: Three causes lead here: another controller holds the switch (equal or lower election id), this
+#: proxy's own earlier stream still holds it, or the switch is not answering (a readopt of a switch
+#: that is down gets the same reply), so the text names all of them. Startup uses it only for a
+#: switch that answered its first read.
+#: [Co-developed with claude code -- Adam]
+NOT_PRIMARY_ERROR = ("arbitration was not granted within the settle window: the old client or "
+                     "another controller likely still holds mastership, or the switch is not "
+                     "answering. The switch was not touched.")
+
 
 class UnsupportedMatchError(ValueError):
     """Raised when a match asks for something no table in the pipeline can express."""
@@ -203,7 +215,9 @@ class FlowRequestUnusable(Exception):
       * 404 -- the dpid is not a switch connected to this proxy (POST /p4/table_entry's 404);
       * 400 -- the match names no destination and nothing a 5-tuple rule could key on;
       * 501 -- the actions are neither a forward nor, on flow_5tuple, a drop: this data plane
-        has no translation for them (outcome `unsupported_on_p4`, as the other 501s).
+        has no translation for them (outcome `unsupported_on_p4`, as the other 501s);
+      * 409 -- `switch not primary`: startup did not push to the switch (see `withhold_routes`),
+        so the proxy writes nothing to it until a readopt or a proxy restart confirms this proxy.
     """
 
     def __init__(self, status, error, message):
@@ -839,6 +853,18 @@ class TopologyManager:
         # dropped. Guarded by _net_lock, which is an RLock, so the install path may hold it already.
         self._installed_routes = {}
 
+        # [Co-developed with claude code -- Adam]
+        # Switches startup did not push a pipeline to because this proxy never became primary
+        # on them (or they did not answer). `install_initial_routes` writes no route to them,
+        # and the three /stats/flowentry verbs answer 409 for them: an equal-election-id write
+        # is accepted while the other controller is up, so a write would land in tables that
+        # controller owns. Startup adds every switch that does not read as confirmed at its first
+        # look, takes each one out when it confirms, and adds back every switch it refuses when it
+        # classifies them; the ones that never confirm stay.
+        # `readopt_switch` lets a switch back in once its pipeline push has succeeded. Guarded
+        # by _net_lock.
+        self._routes_withheld = set()
+
         # --- the durable half of the same question. [Co-developed with claude code -- Adam]
         #
         # KNOWN-ISSUES A-4c. `_installed_routes` above answers "where will a packet go", and it
@@ -1262,6 +1288,7 @@ class TopologyManager:
             raise FlowRequestUnusable(
                 404, "unknown switch",
                 f"switch {dpid} is not connected to the proxy; nothing was written")
+        self._refuse_withheld(dpid, "written")  # [Co-developed with claude code -- Adam]
             
         client = self.switches[dpid]
 
@@ -1546,6 +1573,7 @@ class TopologyManager:
             raise FlowRequestUnusable(
                 404, "unknown switch",
                 f"switch {dpid} is not connected to the proxy; nothing was deleted")
+        self._refuse_withheld(dpid, "deleted")  # [Co-developed with claude code -- Adam]
 
         # [Co-developed with claude code -- Adam] As route_flow: a delete whose match names
         # fields we ignored would remove a broader rule than the caller asked to remove, which
@@ -1662,6 +1690,7 @@ class TopologyManager:
             raise FlowRequestUnusable(
                 404, "unknown switch",
                 f"switch {dpid} is not connected to the proxy; nothing was modified")
+        self._refuse_withheld(dpid, "modified")  # [Co-developed with claude code -- Adam]
 
         # [Co-developed with claude code -- Adam] As route_flow.
         bad = unsupported_match_fields(match_dict)
@@ -1746,6 +1775,42 @@ class TopologyManager:
         return self._note_in_journal("modify", dpid, match_dict, actions_dict, priority,
                                      success)
 
+    # [Co-developed with claude code -- Adam]
+    def withhold_routes(self, dpid):
+        """Keep route writes (install_initial_routes, /stats/flowentry/*) off `dpid`.
+
+        For a switch startup did not push to; `release_routes` or a successful
+        `readopt_switch` lets it back in. Startup also calls it for every switch that does not
+        read as confirmed at its first look (before the wait), and again for every switch it
+        refuses when it classifies them."""
+        with self._net_lock:
+            self._routes_withheld.add(dpid)
+
+    # [Co-developed with claude code -- Adam]
+    def release_routes(self, dpid):
+        """Let route writes reach `dpid` again. Idempotent."""
+        with self._net_lock:
+            self._routes_withheld.discard(dpid)
+
+    # [Co-developed with claude code -- Adam]
+    def routes_withheld(self):
+        """The switches route writes are kept off, sorted."""
+        with self._net_lock:
+            return sorted(self._routes_withheld)
+
+    # [Co-developed with claude code -- Adam]
+    def _refuse_withheld(self, dpid, what):
+        """Raise the 409 a flow write to a withheld switch answers with. Nothing is written."""
+        # One set lookup (atomic under the GIL); getattr because some unit tests build the
+        # manager without __init__.
+        if dpid in getattr(self, "_routes_withheld", ()):
+            raise FlowRequestUnusable(
+                409, "switch not primary",
+                f"switch {dpid} was not given a pipeline at proxy start because this proxy is "
+                f"not primary on it (another controller holds it, or it did not answer); "
+                f"POST /p4/readopt/{dpid} once no other controller holds the switch and this "
+                f"proxy's own stream to it has ended, or restart the proxy. Nothing was {what}")
+
 # Developed in collaboration with Gemini 3.1 Pro.
     def install_initial_routes(self, only_dpid=None):
         """
@@ -1786,6 +1851,10 @@ class TopologyManager:
                     continue
                 if only_dpid is not None and src != only_dpid:
                     continue
+                # [Co-developed with claude code -- Adam]
+                with self._net_lock:
+                    if src in self._routes_withheld:
+                        continue
 
                 path = path_info['path']
                 # The next node in the path
@@ -1905,7 +1974,8 @@ class TopologyManager:
             # true one. A client built for `control_plane.mode: external` bids for nothing, so
             # `mastership_confirmed` is False for its whole life -- and the mastership gate
             # below would therefore answer "arbitration was not granted within the settle
-            # window; the old client (or another controller) likely still holds mastership".
+            # window: the old client or another controller likely still holds mastership, or the
+            # switch is not answering".
             # That sentence describes a race this proxy lost. What actually happened is that it
             # was configured never to enter the race, which is a different thing an operator
             # would act on differently. Same fail-closed outcome, checked first, named for what
@@ -1957,9 +2027,7 @@ class TopologyManager:
                     except Exception:  # noqa: BLE001 -- already reporting the first failure
                         pass
                     return {"status": "failed", "step": "mastership",
-                            "error": "arbitration was not granted within the settle window; "
-                                     "the old client (or another controller) likely still "
-                                     "holds mastership. The switch was not touched."}
+                            "error": NOT_PRIMARY_ERROR}
                 # [Co-developed with claude code -- Adam]
                 # What the switch holds BEFORE the push decides which journal records the push
                 # discards. Not `old.pipeline_cookie` alone: startup stamps this boot's cookie on
@@ -2002,6 +2070,9 @@ class TopologyManager:
             # land in the journal ahead of the mark. [Co-developed with claude code -- Adam]
             ryu_lost = self.close_ryu_generation(dpid, wiped, "readopt", new,
                                                  cookie_unknown=before["unknown"])
+            # The pipeline went in, so this proxy is primary here: routes may be written again.
+            # [Co-developed with claude code -- Adam]
+            self.release_routes(dpid)
 
             # Same policy as startup(): a failed clone session costs telemetry, not the
             # switch. It forwards fine; it just reports zero traffic, and the caller is told.

@@ -228,6 +228,9 @@ if HAVE_P4RUNTIME:
     def a_client(switch, workdir, device_id=1):
         """A real client with no channel: `switch` is its stub."""
         client = P4RuntimeClient.__new__(P4RuntimeClient)
+        # [Co-developed with claude code -- Adam] startup pushes only to a switch that confirmed
+        # this client as primary: a stub switch that is up has, one that is down has not.
+        client.mastership_confirmed = switch.reachable
         client.device_id = device_id
         client.grpc_addr = f"127.0.0.1:{50050 + device_id}"
         client.p4info = a_p4info()
@@ -400,6 +403,9 @@ class ReplayCase(unittest.TestCase):
                 mock.patch.object(main, "mint_fabric_cookie", self.mint):
             self.summary = asyncio.run(main.startup(
                 lambda: clients, FakeSflow(), FakeKernel(), self.fabric, settle_seconds=0,
+                # A stub switch confirms at once or never; no need to wait the production 5 s
+                # for one that is down. [Co-developed with claude code -- Adam]
+                mastership_wait_seconds=0.3,
                 agent_ips_loader=lambda: {}, package=package, journals=self.journals))
         api_routes.topology = self.fabric
         api_routes.table_journals = self.journals
@@ -887,7 +893,8 @@ class ASwitchThatIsDownAtStartupTest(ReplayCase):
         self.assertEqual(records, [])
         self.assertEqual(header["boot_id"], boot_identity.BOOT_ID)
         self.assertEqual(self.replay_report()["skipped_reason"],
-                         "the pipeline push failed; a readopt of this switch replays its journal")
+                         "the switch did not answer at startup (UNAVAILABLE: connection refused); "
+                         "no pipeline was pushed; a readopt of this switch replays its journal")
         # It comes back -- the same bmv2, still holding the old generation -- and is readopted.
         self.switches[1].reachable = True
         result = self.readopt(1)
