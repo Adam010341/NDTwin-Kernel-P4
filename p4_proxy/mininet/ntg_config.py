@@ -41,8 +41,9 @@ a detail sentence, and the hosts file NTG.yaml names when the bridge substitutes
   no-mode       Mininet_Testbed has no mode key at all (NTG then uses cli)
   bad-mode      a mode key this cannot read as one plain line, or more than one
   no-mininet    neither the named file nor setting/Mininet.yaml has a Mininet_Testbed entry
-  no-host-file  the hosts file NTG.yaml names is not there
-  unreadable    a hosts file is there and cannot be read
+  no-host-file  the hosts file NTG.yaml names is not a file NTG can load: nothing is there (ENOENT,
+                ENOTDIR, ELOOP, ENAMETOOLONG, or a NUL byte in the name), or it is not a regular file
+  unreadable    a hosts file cannot be read or reached (e.g. it is in a directory this user cannot search)
   unresolved    NTG.yaml does not name one hosts file this can resolve, or cannot be read
   no-ntg-yaml   there is no NTG.yaml
   write-failed  `set` only: the edit could not be written
@@ -50,8 +51,10 @@ a detail sentence, and the hosts file NTG.yaml names when the bridge substitutes
 (4: write failed).
 """
 
+import errno
 import os
 import re
+import stat
 import sys
 
 #: NTG's own words for the Mininet testbed's mode (network_traffic_generator.py, command_line).
@@ -77,7 +80,7 @@ class Record:
         self.detail, self.via, self.where = detail, via, where
 
     def line(self):
-        return "\x1f".join(str(x).replace("\x1f", " ").replace("\n", " ").replace("\r", " ")
+        return "\x1f".join(str(x).replace("\x1f", " ").replace("\n", " ").replace("\r", " ").replace("\x00", "\\0")
                            for x in (self.state, self.conf, self.host, self.mode,
                                      self.detail, self.via))
 
@@ -180,8 +183,28 @@ def named_host_file(ntg):
 
 
 def read_hosts(host):
-    """(lines, entries) or a Record naming why not."""
-    if not os.path.isfile(host):
+    """(lines, entries) or a Record naming why not.
+
+    "Not there" is decided by errno, not by os.path.isfile: isfile is False for a stat that
+    fails with EACCES (a directory this user cannot search), and the bridge runs as root and may
+    well see that file. What counts as "not there" (no-host-file), the same for root:
+      * ENOENT, ENOTDIR: nothing is at that path;
+      * ELOOP (a symlink loop) and ENAMETOOLONG: the path cannot name a file for anyone;
+      * a path with an embedded NUL byte (os.stat raises ValueError): the same;
+      * a path that exists and is not a regular file: a directory makes NTG's open raise
+        IsADirectoryError; a FIFO would block it and a device is not a hosts file, so those two
+        are counted here too without having been measured.
+    Any other OSError (EACCES, EIO, ...) is "cannot read it": the bridge may well do better.
+    """
+    try:
+        mode = os.stat(host).st_mode
+    except ValueError:
+        return None, "no-host-file"
+    except OSError as e:
+        if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP, errno.ENAMETOOLONG):
+            return None, "no-host-file"
+        return None, "cannot read it: %s" % oserror(e)
+    if not stat.S_ISREG(mode):
         return None, "no-host-file"
     try:
         lines = lines_of(host)

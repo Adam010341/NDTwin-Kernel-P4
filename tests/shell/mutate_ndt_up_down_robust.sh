@@ -50,10 +50,15 @@ REPO="$(cd "$HERE/../.." && pwd)"
 NDT="$REPO/tools/test_workflow/ndt"
 # Named so check_gate_anchors.py can tell which file M95's anchor lives in. [Co-developed with claude code -- Adam]
 PORTS="$REPO/tools/test_workflow/ports.sh"
+# [Co-developed with claude code -- Adam] The module the refusal asks (ntg_config.py): every mutant dir carries a copy and the
+# suite is pointed at it with NTG_MODULE_UNDER_TEST, so M145 can mutate it. Named so check_gate_anchors.py can read the gate.
+NTGCFG="$REPO/p4_proxy/mininet/ntg_config.py"
 TEST="$HERE/test_ndt_up_down_robust.sh"
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-updown-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
+# [Co-developed with claude code -- Adam] ntg_config.py is a subject of the gate too (M145 and later): the end-of-run byte check covers it.
+BASE_CFG=$(sha256sum "$NTGCFG" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -67,7 +72,7 @@ MUTATIONS=0
 #: baseline.
 DEAD=0
 
-run_against() { NDT_UNDER_TEST="$1/ndt" timeout 600 bash "$TEST" 2>&1; }
+run_against() { NDT_UNDER_TEST="$1/ndt" NTG_MODULE_UNDER_TEST="$1/ntg_config.py" timeout 600 bash "$TEST" 2>&1; }
 
 # [Co-developed with claude code -- Adam]
 # 🔴 A MUTANT THAT DOES NOT PARSE IS NOT A MUTANT (the accounting that
@@ -84,6 +89,9 @@ syntax_ok() {   # $1 = mutant dir; prints the error when it is not
     for f in "$1"/ndt "$1"/*.sh "$1"/*.env; do
         [[ -f "$f" ]] && bash -n "$f" 2>&1
     done
+    # [Co-developed with claude code -- Adam] A mutated ntg_config.py that does not compile would make every
+    # refusal cell fail for one reason and read as "caught": it is dead, like an unparseable ndt.
+    [[ -f "$1/ntg_config.py" ]] && python3 -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' "$1/ntg_config.py" 2>&1
     return 0
 }
 
@@ -153,6 +161,7 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     cp "$REPO/tools/test_workflow/ports.sh" "$d/ports.sh"
     cp "$REPO/tools/test_workflow/sudo_surface.sh" "$d/sudo_surface.sh"
     cp "$REPO/tools/test_workflow/components.env" "$d/components.env"
+    cp "$NTGCFG" "$d/ntg_config.py"
     # 🔴 AN ANCHOR THAT WILL NOT APPLY IS A SURVIVOR, AND IT MUST SAY WHICH KIND. Until
     # 2026-09-12 this python ran bare: a stale anchor printed a traceback into the gate's own
     # log, the copy stayed UNMUTATED, the suite was green, and the gate said `SURVIVED -- that
@@ -178,6 +187,7 @@ cp "$NDT" "$base/ndt"; chmod +x "$base/ndt"
 cp "$REPO/tools/test_workflow/ports.sh" "$base/ports.sh"
 cp "$REPO/tools/test_workflow/sudo_surface.sh" "$base/sudo_surface.sh"
 cp "$REPO/tools/test_workflow/components.env" "$base/components.env"
+cp "$NTGCFG" "$base/ntg_config.py"
 run_against "$base" | tail -1
 run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
 echo
@@ -1679,6 +1689,174 @@ m=$(mutant m132 "$NDT" \
 report "M132: ndt down with the whole helper refused reads the session as absent" "$m" \
        "  its verify step says it cannot tell whether a topo session is present"
 
+# [Co-developed with claude code -- Adam] Section 28: an NTG mode NTG does not know or a hosts file that does not exist.
+#   M133  the refusal is gone: the fabric is built, handed to NTG, and torn down after [3/3]
+m=$(mutant m133 "$NDT" \
+    '    (( reuse )) || ntg_up_refusal || return $?
+' \
+    '')
+report "M133: a P4 bring-up builds over an NTG mode NTG does not know" "$m" \
+       "🔴 an NTG mode NTG does not know refuses 'ndt up p4' with rc 5"
+
+#   M134  (widening) a fabric this run reuses is refused over the config the next bring-up reads
+m=$(mutant m134 "$NDT" \
+    '    (( reuse )) || ntg_up_refusal || return $?' \
+    '    ntg_up_refusal || return $?')
+report "M134: a reused fabric is refused over the next bring-up's NTG mode" "$m" \
+       "🔴 a reused fabric is not refused over the mode the next bring-up would read"
+
+#   M135  (widening) every mode but cli is refused, custom_command included
+m=$(mutant m135 "$NDT" \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0' \
+    '    [[ "$NTG_ST" == ok && "$NTG_MODE" == cli ]] && return 0')
+report "M135: a mode NTG knows is refused unless it is cli" "$m" \
+       "🔴 a mode NTG knows is still built"
+
+#   M136  (widening) a checkout whose config cannot be read is refused as if NTG would refuse it
+m=$(mutant m136 "$NDT" \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0' \
+    '    [[ "$NTG_ST" == ok ]] && return 0')
+report "M136: a checkout with no NTG config is refused" "$m" \
+       "🔴 a checkout without NTG's config is not a refusal"
+
+# [Co-developed with claude code -- Adam] The refusal's place and its answer.
+#   M137  (placement) the refusal sits below record_up_target: it still says rc 5, but up.target
+#         has been rewritten by then
+m=$(mutant m137 "$NDT" \
+    '    (( reuse )) || ntg_up_refusal || return $?
+
+    # What this run was asked for, written down before anything is built, so `status --check`
+    # has a baseline that does not depend on reading a P4-only knob back afterwards.
+    refusal_snapshot
+    record_up_target p4 "$hosts" "$topo" || return $?
+    refusal_mark "$(up_target_file)"' \
+    '    # What this run was asked for, written down before anything is built, so `status --check`
+    # has a baseline that does not depend on reading a P4-only knob back afterwards.
+    refusal_snapshot
+    record_up_target p4 "$hosts" "$topo" || return $?
+    refusal_mark "$(up_target_file)"
+    (( reuse )) || ntg_up_refusal || return $?')
+report "M137: the NTG refusal is asked after up.target has been rewritten" "$m" \
+       "🔴 up.target, both knobs, the claim and the host-count knob are byte-identical"
+
+#   M138  (rc) the refusal answers 1, which ndt reads as "something measured dirty", not "a guard refused"
+m=$(mutant m138 "$NDT" \
+    '    err "  no fabric was started; up.target, the knobs and the claim note were not touched."
+    return 5' \
+    '    err "  no fabric was started; up.target, the knobs and the claim note were not touched."
+    return 1')
+report "M138: the NTG refusal answers 1 instead of 5" "$m" \
+       "🔴 an NTG mode NTG does not know refuses 'ndt up p4' with rc 5"
+
+#   M139  (widening) a hosts file this user cannot read is refused as if NTG would refuse it
+m=$(mutant m139 "$NDT" \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0' \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file || "$NTG_ST" == unreadable ]] || return 0')
+report "M139: a hosts file this user cannot read is refused" "$m" \
+       "🔴 a hosts file this user cannot read is not a refusal"
+
+#   M140  (widening) a checkout whose NTG.yaml names no hosts file is refused
+m=$(mutant m140 "$NDT" \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0' \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file || "$NTG_ST" == unresolved ]] || return 0')
+report "M140: a checkout whose hosts file cannot be resolved is refused" "$m" \
+       "🔴 a checkout whose hosts file cannot be resolved is not a refusal"
+
+#   M141  (widening) a checkout ndt cannot name is replaced by the built-in default, which the
+#         bridge may not use at all
+m=$(mutant m141 "$NDT" \
+    'ntg_up_refusal() {
+    local d
+    d="$(lab_ntg_dir 2>/dev/null)"
+    [[ -n "$d" ]] || return 0' \
+    'ntg_up_refusal() {
+    local d
+    d="$(lab_ntg_dir 2>/dev/null)"
+    [[ -n "$d" ]] || d="$LAB_DEFAULT_NTG_DIR"')
+report "M141: a checkout ndt cannot name is read as the built-in default" "$m" \
+       "🔴 a checkout ndt cannot name is not a refusal"
+
+#   M142  the refusal stops saying which files it left alone
+m=$(mutant m142 "$NDT" \
+    '    err "  no fabric was started; up.target, the knobs and the claim note were not touched."' \
+    '    err "  no fabric was started."')
+report "M142: the NTG refusal stops saying up.target, the knobs and the claim note were not touched" "$m" \
+       "  and says the files it concerns were not touched"
+
+# [Co-developed with claude code -- Adam] The hosts file NTG.yaml names is not there.
+#   M143  the no-host-file arm is gone: only a mode NTG does not know is refused
+m=$(mutant m143 "$NDT" \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0' \
+    '    [[ "$NTG_ST" == unknown-mode ]] || return 0')
+report "M143: a bring-up builds over a hosts file that does not exist" "$m" \
+       "🔴 a hosts file NTG.yaml names that is not there refuses 'ndt up p4' with rc 5"
+
+#   M144  (widening) a checkout with no NTG.yaml is refused as well
+m=$(mutant m144 "$NDT" \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0' \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file || "$NTG_ST" == no-ntg-yaml ]] || return 0')
+report "M144: a checkout with no NTG.yaml is refused" "$m" \
+       "🔴 a checkout without NTG's config is not a refusal"
+
+# [Co-developed with claude code -- Adam] A hosts file in a directory this user cannot search, and the other labelled states.
+#   M145  "not there" goes back to os.path.isfile, which is False for a stat that fails with EACCES: a hosts file root
+#         may well open is called missing, and refused
+m=$(mutant m145 "$NTGCFG" \
+    '    try:
+        mode = os.stat(host).st_mode
+    except ValueError:
+        return None, "no-host-file"
+    except OSError as e:
+        if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP, errno.ENAMETOOLONG):
+            return None, "no-host-file"
+        return None, "cannot read it: %s" % oserror(e)
+    if not stat.S_ISREG(mode):
+        return None, "no-host-file"' \
+    '    if not os.path.isfile(host):
+        return None, "no-host-file"')
+report "M145: a hosts file in a directory this user cannot search is called missing" "$m" \
+       "🔴 a hosts file in a directory this user cannot search is not a refusal"
+
+#   M146..M149  (widening) one more labelled state added to the guard line
+m=$(mutant m146 "$NDT" \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0' \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file || "$NTG_ST" == hardware-mode ]] || return 0')
+report "M146: a hardware-mode config is refused" "$m" "🔴 a hardware-mode config is not a refusal"
+m=$(mutant m147 "$NDT" \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0' \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file || "$NTG_ST" == no-mininet ]] || return 0')
+report "M147: a no-mininet config is refused" "$m" "🔴 a no-mininet config is not a refusal"
+m=$(mutant m148 "$NDT" \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0' \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file || "$NTG_ST" == bad-mode ]] || return 0')
+report "M148: a bad-mode config is refused" "$m" "🔴 a bad-mode config is not a refusal"
+m=$(mutant m149 "$NDT" \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0' \
+    '    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file || "$NTG_ST" == no-mode ]] || return 0')
+report "M149: a no-mode config is refused" "$m" "🔴 a no-mode config is not a refusal"
+
+# [Co-developed with claude code -- Adam] Paths that cannot name a file for anyone, root included, are "not there".
+#   M150  a symlink loop (ELOOP) is read as unreadable instead of missing
+m=$(mutant m150 "$NTGCFG" \
+    '        if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP, errno.ENAMETOOLONG):' \
+    '        if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.ENAMETOOLONG):')
+report "M150: a host_file that loops is read as unreadable, not missing" "$m" \
+       "🔴 a host_file that loops (ELOOP) is refused like a missing one"
+#   M151  a name longer than the system allows (ENAMETOOLONG) is read as unreadable
+m=$(mutant m151 "$NTGCFG" \
+    '        if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP, errno.ENAMETOOLONG):' \
+    '        if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP):')
+report "M151: a host_file name that is too long is read as unreadable, not missing" "$m" \
+       "🔴 a host_file name longer than the system allows is refused like a missing one"
+#   M152  a NUL byte in the path (ValueError out of os.stat) is not caught: the probe crashes and the state is unresolved
+m=$(mutant m152 "$NTGCFG" \
+    '    except ValueError:
+        return None, "no-host-file"
+    except OSError as e:' \
+    '    except OSError as e:')
+report "M152: a host_file with a NUL byte crashes the probe" "$m" \
+       "🔴 a host_file with a NUL byte in it is refused like a missing one"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then
@@ -1687,7 +1865,15 @@ if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then
     echo "   after:  $NOW_NDT"
     exit 3
 fi
+NOW_CFG=$(sha256sum "$NTGCFG" | cut -d' ' -f1)
+if [[ "$NOW_CFG" != "$BASE_CFG" ]]; then
+    echo "🔴 baseline CHANGED during the gate -- p4_proxy/mininet/ntg_config.py was written"
+    echo "   before: $BASE_CFG"
+    echo "   after:  $NOW_CFG"
+    exit 3
+fi
 echo "baseline byte-identical: yes  tools/test_workflow/ndt  sha256 $BASE_NDT"
+echo "baseline byte-identical: yes  p4_proxy/mininet/ntg_config.py  sha256 $BASE_CFG"
 # 🔴 A DEAD MUTANT MEANS THERE IS NO VERDICT TO PRINT. Not "0 survived" (it was
 # never measured), not "1 survived" (that is a claim about the SUITE, and the suite never ran
 # against a working mutant). The gate refuses, the way it refuses a red baseline -- and it must

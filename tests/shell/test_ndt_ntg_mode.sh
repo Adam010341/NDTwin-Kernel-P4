@@ -837,8 +837,12 @@ else
     dfix merge       ./setting/hosts.yaml '---\nshared: &s\n  mode: custom_command\nMininet_Testbed:\n  data:\n    <<: *s\n'
     dfix commented   ./setting/hosts.yaml '---\nMininet_Testbed:\n  data:\n    # mode: "custom_command"\n    log_level: "DEBUG"\n'
     dfix both        ./setting/hosts.yaml '---\nMininet_Testbed:\n  data:\n    mode: "custom_command"\nHardware_Testbed:\n  data:\n    log_level: "DEBUG"\n'
+    # [Co-developed with claude code -- Adam] A hosts file that is not there, named relative and absolute: ndt says
+    # no-host-file, and NTG's loader, run from the checkout, must raise FileNotFoundError on exactly these.
+    dfix nohost-rel  ./setting/gone.yaml ''
+    dfix nohost-abs  "$D/nohost-abs/setting/gone.yaml" ''
     for q in single bare comment crlf nofinal; do cp -r "$FIX/hf-$q" "$D/hf-$q"; done
-    claimed=0
+    claimed=0; nohost=0
     for d in "$D"/*/; do
         d="${d%/}"; name="${d##*/}"
         r="$(FX_DEFAULT_NTG_DIR="$d" inner 'ntg_config probe "$LAB_DEFAULT_NTG_DIR"; printf "R=%s %s\n" "$NTG_ST" "$NTG_MODE"' | grep -m1 '^R=')"
@@ -856,6 +860,9 @@ except Exception as e:
             ok|no-mode|unknown-mode|hardware-mode)
                 claimed=$((claimed+1))
                 check "  $name: ndt says $mode, NTG reads it" "$mode" "$ntg" ;;
+            no-host-file)
+                nohost=$((nohost+1))
+                check "  $name: ndt says no-host-file; NTG's loader raises FileNotFoundError" "ERROR FileNotFoundError" "$ntg" ;;
             *)
                 check "  $name: ndt claims no mode ($st); NTG reads ${ntg:-?}" "refused" \
                       "$([[ "$st" == bad-mode || "$st" == unresolved ]] && echo refused || echo "$st")" ;;
@@ -865,6 +872,7 @@ except Exception as e:
     # back to NTG's default would disagree with NTG here as well as in section 10.
     # The control: the comparison above is not every fixture refused and nothing compared.
     check "  control: ndt claimed a mode for the 15 readable fixtures" "15" "$claimed"
+    check "  control: and said no-host-file for the 2 fixtures with no hosts file (the arm above ran)" "2" "$nohost"
 fi
 
 # 🔴 THE FILES NTG SHIPS, byte for byte, from NTG's own history at 6e3f388: NTG.yaml names

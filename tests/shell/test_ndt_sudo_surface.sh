@@ -448,6 +448,9 @@ echo "the wiring: the callers read the table rather than keeping a copy"
 # [Co-developed with claude code -- Adam] sudo and sleep are stubbed as well: a bring-up that got
 # past the guard (the gate's mutant does) would otherwise reach `sudo -n $LAB topo-start` through
 # the pass-through fake above and run the real helper.
+# [Co-developed with claude code -- Adam] lab_ntg_dir is stubbed to name no checkout: up_p4 asks
+# ntg_up_refusal once it is past the guard (the gate's mutant gets there), and that would read this
+# machine's lab config and its NTG checkout. With no checkout named it answers "not refused".
 UP_STUBS='
 REPO="$UPFIX"; CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff";
 mkdir -p "$REPO/.test_run" "$REPO/p4_proxy/mininet";
@@ -456,7 +459,7 @@ host_count() { echo 4; }; topo_for_hosts() { echo /tmp/x.json; }; bmv2_binary() 
 sample_rate() { echo 1; }; rate_label() { echo r; }; foreign_claim() { :; }; in_flight() { :; };
 preflight() { return 0; }; bmv2_count() { echo 0; }; fabric_host_count() { echo 0; };
 topo_session() { return 1; }; stale_pipeline() { return 1; };
-guard_no_live_ovs() { echo GUARD-SENTINEL; return 1; };'
+guard_no_live_ovs() { echo GUARD-SENTINEL; return 1; }; lab_ntg_dir() { :; };'
 out="$(in_ndt "$UP_STUBS up_p4; echo rc=\$?")"
 has "up_p4 asks guard_no_live_ovs"          "GUARD-SENTINEL" "$out"
 has "up_p4 stops when the guard says stop"  "rc=1"           "$out"
