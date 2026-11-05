@@ -4945,11 +4945,14 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   加的交叉引用，因為 **G-40 是它的後繼**，而本條停在 OPEN 會讓兩條互相矛盾。
   🔴 **殺法換了，認法沒換**：`process_is_a_switch` 仍然用整條 cmdline 的 substring 認交換機 ⇒ **G-40**。
 
-### G-39 🔴 P4 startup 的中止訊息跟著 tmux pane 一起死，`ndt up p4` 只看得到「fabric 沒起來」
+### G-39 🔴 P4 startup 的中止訊息跟著 tmux pane 一起死：`ndt up p4` 現在幾秒內停止等待並印出 bridge 自己的 log，pane 本身仍然不留
 
-- **狀態**：**OPEN**（2026-09-12 FIX-PROXY-2 實測；merge `892fdbdc`，2026-09-12）。
-  中止本身已修（隨該 merge 生效）；
-  **訊息送不到人手上這半沒修，修法要動 `ndtwin-lab`／`ndt`，留給 Adam 裁。**
+- **狀態**：**`ndt up p4` 這條路徑已修；pane 不留這半仍 OPEN**（2026-09-12 FIX-PROXY-2 實測；merge `892fdbdc`，
+  2026-09-12；ndt 的等待與訊息於 2026-11-05 改）。
+  中止本身已修（隨該 merge 生效）；`ndt up p4` 現在在 bridge 結束後約 6 s 內停止等待，
+  並從 `.test_run/logs/topo.log` 印出 bridge 自己的最後幾行（見下面「現在 ndt 怎麼做」）。
+  **仍沒修的**：`topo-start` 的 session 沒設 `remain-on-exit`，pane 一樣隨 bridge 消失，
+  所以 `look at the pane` 那行仍照印、仍指向已不在的 pane；手跑路徑（手冊、128 tutorial）不經 ndt，沒有這個等待與 topo.log 尾巴。
 - **在哪裡**：`tools/test_workflow/ndtwin-lab:578-581`（`topo-start` ＝ `tmux new-session -d`）、
   `tools/test_workflow/ndt` 的 `up_p4`（`topo-start` 的 rc ＋ 最多 180 s 的 fabric 等待）。
 - **事實**（該輪 log，用**它自己的** tmux socket
@@ -4965,7 +4968,8 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   pane 沒了也讀得到），然後 rollback。`status` 呼叫本身失敗（sudo 拒絕或 helper 出錯，rc 2）
   **不算**沒看到；session 一直在而 fabric 沒起來的仍等滿 180 s。`look at the pane` 那行照印。
 - **為什麼要記**：改之前同一個情境 ndt 會印 `9/10`，那一行至少說得出「少一台」。
-  中止對**手跑**路徑（手冊、128 tutorial）是純賺，對 `ndt up p4` 路徑是**資訊變少**。
+  中止對**手跑**路徑（手冊、128 tutorial）是純賺；對 `ndt up p4` 路徑，原因現在由 topo.log 的尾巴補上
+  （不再是資訊變少），但那是 bridge 自己 tee 的檔，不是 pane。
 - **候選修法**：(i) `topo-start` 的 session 設 `remain-on-exit on`（一行，pane 留著給 `topo-out` 讀）；
   (ii) 中止時另外把那三行落成一個檔（要照 `write_manifest` 的 tempfile+`os.replace` 寫，
   `/tmp` 是 sticky、root 直接 `open(w)` 會被別人先佔名字）；(iii) 照現狀。

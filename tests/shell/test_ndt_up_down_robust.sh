@@ -219,7 +219,9 @@ seq_read() {   # seq_read <file> <default>
 bmv2_count() { seq_read "'"$FIX"'/bmv2.seq" "${FX_BMV2:-0}"; }
 mn_count()   { seq_read "'"$FIX"'/mn.seq"   "${FX_MN:-0}"; }
 fabric_host_count() { echo "${FX_FABRIC_HOSTS:-4}"; }
-topo_session() { [[ -n "${FX_TOPO_SESSION:-}" ]]; }
+# [Co-developed with claude code -- Adam] FX_TOPO_SESSION=refused is the look whose `ndtwin-lab status` call
+# failed: lab_session answers 2, "cannot tell", which is neither a session nor its absence.
+topo_session() { [[ "${FX_TOPO_SESSION:-}" == refused ]] && return 2; [[ -n "${FX_TOPO_SESSION:-}" ]]; }
 foreign_claim() { :; }
 in_flight() { :; }
 guard_no_live_ovs() { return "${FX_GUARD_RC:-0}"; }
@@ -2326,6 +2328,106 @@ check "🔴 and the app knob was cleared for the baseline"    "absent" "$(fhash 
 check "🔴 and the telemetry knob was cleared (auto)"        "absent" "$(fhash "$TELK")"
 check "🔴 and the host-count knob carries the count asked for" "4" "$(tail -1 "$KNOBF")"
 has   "🔴 and the claim note says the lab is in use"        "in use: ndt up p4 4" "$(cat "$CLM")"
+
+# ==========================================================================================
+section "27. a failed 'ndtwin-lab status' call is 'cannot tell' -- never 'no topo session'"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam]
+# lab_session answers 0 (session listed), 1 (not listed) or 2 (the status call itself failed: a refused
+# grant, a missing helper). These callers tested true/false, so a 2 read as "no session":
+#   * the orphan sweep called a running fabric's bmv2 processes orphans and ran `cleanup` on them;
+#   * the fabric start went on over a session it could not look at;
+#   * the rollback and `ndt clean` said "no session" and read clean;
+#   * lab_subject counted an unknown lab as an empty one.
+# FX_TOPO_SESSION=refused is that 2. Every cell with the refusal has a control with the answer it used to
+# be confused with.
+
+# -- the orphan sweep (3 bmv2 processes, no way to tell whether a session owns them)
+reset_fix; echo "3 10" > "$FIX/bmv2.seq"
+OUT="$(FX_TOPO_SESSION=refused drive 'up_p4')"
+check "🔴 bmv2 processes with an unreadable session are not swept: the bring-up is refused" "1" "$(rc_of_out "$OUT")"
+has   "  saying it cannot tell whether a topo session owns them" "cannot tell whether a topo session owns them" "$OUT"
+has   "  and that the status call failed"                   "the 'ndtwin-lab status' call failed" "$OUT"
+hasnt "  and not calling them orphans"                       "orphan bmv2" "$OUT"
+SUDO="$(cat "$FIX/sudo.log")"
+hasnt "🔴 and cleanup was never run"                          "cleanup" "$SUDO"
+hasnt "  and no fabric was started"                          "topo-start" "$SUDO"
+reset_fix; echo "3 10" > "$FIX/bmv2.seq"
+OUT="$(drive 'up_p4')"
+check "control: the same processes with no session ARE swept, and the bring-up goes on" "0" "$(rc_of_out "$OUT")"
+has   "  as orphans"                                         "orphan bmv2" "$OUT"
+has   "  by cleanup"                                         "cleanup" "$(cat "$FIX/sudo.log")"
+
+# -- the stop before the new fabric starts (nothing to sweep, so the sweep never asks)
+reset_fix
+OUT="$(FX_TOPO_SESSION=refused drive 'up_p4')"
+check "🔴 a fabric is not started over a session that could not be looked at" "1" "$(rc_of_out "$OUT")"
+has   "  saying it cannot tell whether a topo session is running" "cannot tell whether a topo session is running" "$OUT"
+has   "  and that the status call failed"                   "the 'ndtwin-lab status' call failed" "$OUT"
+SUDO="$(cat "$FIX/sudo.log")"
+hasnt "🔴 and topo-start was never run"                      "topo-start" "$SUDO"
+hasnt "  nor topo-stop"                                      "topo-stop" "$SUDO"
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(drive 'up_p4')"
+check "control: no session and nothing to stop, the fabric starts" "0" "$(rc_of_out "$OUT")"
+has   "  by topo-start"                                      "topo-start" "$(cat "$FIX/sudo.log")"
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=0 FX_FABRIC_HOSTS=8 drive 'up_p4')"
+has   "control: a listed session is still stopped before the new fabric starts" "topo-stop" "$(cat "$FIX/sudo.log")"
+
+# -- the rollback's last look
+reset_fix; rc_for stack_up 1; echo "0 14 0" > "$FIX/mn.seq"
+OUT="$(FX_TOPO_SESSION=refused drive 'up_ovs 4')"
+check "a rollback that cannot see the session is red"        "1" "$(rc_of_out "$OUT")"
+has   "🔴 it says it cannot tell whether the topo session is still present" "rollback: cannot tell whether the topo session is still present" "$OUT"
+has   "  naming the cause"                                   "the 'ndtwin-lab status' call failed" "$OUT"
+has   "  and reports the rollback as INCOMPLETE"             "rollback INCOMPLETE" "$OUT"
+hasnt "  and never claims the machine is back as it was"     "the machine is back to what it was" "$OUT"
+reset_fix; rc_for stack_up 1; echo "0 14 0" > "$FIX/mn.seq"
+OUT="$(drive 'up_ovs 4')"
+has   "control: the same rollback with a readable, absent session is clean" "rolled back: the machine is back to what it was" "$OUT"
+hasnt "  with no complaint about the session"                "cannot tell" "$OUT"
+
+# -- ndt clean
+reset_fix; rm -f "$FIX/manifest.json"
+OUT="$(FX_TOPO_SESSION=refused drive 'cmd_clean')"
+check "🔴 'ndt clean' that cannot see the session is rc 1, not clean" "1" "$(rc_of_out "$OUT")"
+has   "  saying it cannot tell whether a topo session is present" "cannot tell whether a topo session is present" "$OUT"
+hasnt "  and not saying there is no topo session"            "no topo session" "$OUT"
+reset_fix; rm -f "$FIX/manifest.json"
+OUT="$(drive 'cmd_clean')"
+has   "control: with a readable, absent session it says so"   "no topo session" "$OUT"
+hasnt "  and does not say it cannot tell"                    "cannot tell whether a topo session" "$OUT"
+
+# -- lab_subject, and the teardown that is about it
+reset_fix; rm -f "$FIX/manifest.json"
+OUT="$(FX_TOPO_SESSION=refused drive 'lab_subject')"
+check "🔴 a lab whose session cannot be read is a subject (rc 0)" "0" "$(rc_of_out "$OUT")"
+has   "  said as a session whose existence could not be checked" "whether a topo tmux session exists could not be checked" "$OUT"
+reset_fix; rm -f "$FIX/manifest.json"
+OUT="$(drive 'lab_subject')"
+check "control: a lab with no session and nothing else is no subject (rc 1)" "1" "$(rc_of_out "$OUT")"
+reset_fix; rm -f "$DM" "$FIX/manifest.json"
+OUT="$(FX_TOPO_SESSION=refused drive 'cmd_down')"
+check "🔴 'ndt down' over an unreadable session is not 'nothing to tear down' (not rc 3)" "1" "$(rc_of_out "$OUT")"
+hasnt "  and does not say nothing was up"                    "nothing was up to tear down" "$OUT"
+has   "  and its verify step says it cannot tell"            "cannot tell whether a topo session is present" "$OUT"
+has   "  while the orderly stop still ran"                   "topo-stop" "$(cat "$FIX/sudo.log")"
+
+# -- the whole helper refused, not only `status`: the real lab_session, and topo-stop and cleanup refused too.
+# This is the machine the lab row of sudo_surface.sh describes (the grant covers the helper, so a missing grant
+# refuses every verb). `ndt down` still CALLS its stop and its sweep; the sweep's refusal fails step [3/3], the
+# stop's refusal is printed and its rc is not read; and the unreadable session is a subject whose verify cannot pass.
+reset_fix; rm -f "$DM" "$FIX/manifest.json"
+rc_for status 1; rc_for topo-stop 1; rc_for cleanup 1
+OUT="$(drive 'topo_session() { lab_session topo; }; cmd_down')"
+check "🔴 'ndt down' with the whole helper refused ends non-zero"     "1" "$(rc_of_out "$OUT")"
+has   "  its verify step says it cannot tell whether a topo session is present" "cannot tell whether a topo session is present" "$OUT"
+has   "  the sweep's own refusal fails step [3/3]"                     "cleanup exited 1" "$OUT"
+hasnt "  and it does not say nothing was up to tear down"              "nothing was up to tear down" "$OUT"
+SUDO="$(cat "$FIX/sudo.log")"
+has   "  topo-stop was still called"                                   "topo-stop" "$SUDO"
+has   "  and cleanup was still called"                                 "cleanup" "$SUDO"
 
 # ==========================================================================================
 # The skip count has its own line and the summary below keeps its shape: tools/test_workflow/

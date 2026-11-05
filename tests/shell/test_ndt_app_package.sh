@@ -818,7 +818,12 @@ section "13b. 🔴 a bridge that has already exited is not waited for"
 # Before topo-start there is no session, as on a machine with nothing running.
 BRIDGE_CLOCK='
 echo 0 > "'"$FIX"'/clock"; : > "'"$FIX"'/session.log"
-sleep() { echo $(( $(cat "'"$FIX"'/clock") + 1 )) > "'"$FIX"'/clock"; }
+# [Co-developed with claude code -- Adam] The fake sleep moves bash'"'"'s SECONDS with the clock, so the seconds ndt
+# prints (the bridge-exited line, the success line) are checked against elapsed time and not against the
+# poll index. SECONDS is unset first: a plain variable does not tick with the wall clock, so the cells
+# cannot be off by one when a real second turns over mid-run.
+unset SECONDS; SECONDS=0
+sleep() { echo $(( $(cat "'"$FIX"'/clock") + 1 )) > "'"$FIX"'/clock"; SECONDS=$(( SECONDS + 1 )); }
 topo_session() {
     /usr/bin/grep -q topo-start "'"$FIX"'/sudo.log" || return 1
     local t g; t="$(cat "'"$FIX"'/clock")"; echo "$t" >> "'"$FIX"'/session.log"
@@ -840,6 +845,7 @@ OUT="$(drive "$BRIDGE_CLOCK"$'\n'"SESS_UNTIL=0; NDT_APP_DIR=$(q "$PKG_OK"); up_p
 check "🔴 a bridge that exited at once fails the bring-up"     "1" "$(rc_of "$OUT")"
 check "🔴 and stops waiting within a few seconds, not 180"     "yes" "$(within 6)"
 has   "🔴 saying the bridge exited"                            "the bridge exited: its topo session was gone at two checks in a row" "$OUT"
+has   "🔴 with the elapsed seconds (5), not the poll index (6)"  "at two checks in a row (5s), before the fabric came up" "$OUT"
 has   "  with the same line about how far it got"              "fabric did not come up: 0/4 switches" "$OUT"
 has   "  and the bridge's own last words"                      "this interpreter has no 'nornir'" "$OUT"
 has   "  and the rollback"                                     "the fabric never came up, and a half-built one holds" "$OUT"
@@ -856,12 +862,13 @@ OUT="$(drive "$BRIDGE_CLOCK"$'\n'"SESS_UNTIL=20; NDT_APP_DIR=$(q "$PKG_OK"); up_
 check "🔴 a bridge that died at 20 s fails the bring-up"       "1" "$(rc_of "$OUT")"
 check "🔴 within a few seconds of the session going"           "yes" "$(within 26)"
 has   "  saying the bridge exited"                             "the bridge exited" "$OUT"
+has   "🔴 with the elapsed seconds (23), not the poll index (24)" "at two checks in a row (23s), before the fabric came up" "$OUT"
 
 # --- the controls: a bridge that is still running keeps the whole wait --------------------------
 reset_fix
 OUT="$(drive "$BRIDGE_CLOCK"$'\n'"UP_AT=40; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
 check "🔴 a running bridge whose switches come up at 40 s still comes up" "0" "$(rc_of "$OUT")"
-has   "  after the 40 s it took"                               "4 switches up after 41s, manifest written" "$OUT"
+has   "🔴 saying the elapsed 40 s, not the 41st poll"          "4 switches up after 40s, manifest written" "$OUT"
 hasnt "  and nothing says the bridge exited"                   "the bridge exited" "$OUT"
 check "🔴 the session is asked once every 3 s, not every second" "13" "$(asks 40)"
 

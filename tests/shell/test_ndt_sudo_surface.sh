@@ -58,11 +58,29 @@ cat >"$BIN/sudo" <<'FAKE'
 [[ "${1:-}" == "-n" ]] && shift
 base="${1##*/}"
 [[ -n "${FAKE_SUDO_WARN:-}" ]] && printf '%s\n' "$FAKE_SUDO_WARN" >&2
+# [Co-developed with claude code -- Adam] Only the ndtwin-lab that sits beside this fake may run. The table's own
+# probe names /usr/local/sbin/ndtwin-lab, and this fake runs whatever it does not refuse, so without this a
+# control case (or a mutant of the code under test) would run the helper installed on this machine as this user.
+if [[ "$base" == ndtwin-lab && "$(dirname "$1")" != "$(dirname "$0")" ]]; then
+    printf '%s\n' "sudo: a password is required" >&2
+    exit 1
+fi
+# [Co-developed with claude code -- Adam] An entry "<base>:<verb>" refuses only that verb, so a case can
+# refuse `ndtwin-lab status` and nothing else the helper does.
 case " ${FAKE_SUDO_DENY:-} " in
-    *" $base "*) [[ -n "${FAKE_SUDO_SAY-x}" ]] && printf '%s\n' "${FAKE_SUDO_SAY-sudo: a password is required}" >&2
+    *" $base "*|*" $base:${2:-} "*) [[ -n "${FAKE_SUDO_SAY-x}" ]] && printf '%s\n' "${FAKE_SUDO_SAY-sudo: a password is required}" >&2
                  exit 1 ;;
 esac
 exec "$@"
+FAKE
+
+# [Co-developed with claude code -- Adam] A fake ndtwin-lab for the cases that run the real lab_session: it
+# prints FAKE_LAB_STATUS for `status` and "ran:<verb>" for any other verb. LAB is pointed at it by the case, and the
+# sudo above refuses every other ndtwin-lab path, so the helper installed on this machine cannot run from here.
+cat >"$BIN/ndtwin-lab" <<'FAKE'
+#!/usr/bin/env bash
+[[ "${1:-}" == status ]] || { echo "ran:${1:-}"; exit 0; }
+printf '%s\n' "${FAKE_LAB_STATUS:-no lab sessions}"
 FAKE
 
 cat >"$BIN/ovs-vsctl" <<'FAKE'
@@ -90,7 +108,7 @@ cat >"$BIN/ping" <<'FAKE'
 exit "${FAKE_PING_RC:-0}"
 FAKE
 
-chmod +x "$BIN"/sudo "$BIN"/ovs-vsctl "$BIN"/mnexec "$BIN"/ping
+chmod +x "$BIN"/sudo "$BIN"/ndtwin-lab "$BIN"/ovs-vsctl "$BIN"/mnexec "$BIN"/ping
 PATH="$BIN:$PATH"; export PATH
 
 # --- helpers ---------------------------------------------------------------------------------
@@ -102,7 +120,9 @@ in_ndt_rc() { in_ndt "$1" >/dev/null 2>&1; }
 # Stubs shared by the guard cases: ndt is a library here, the lab is not running, and the OVS
 # daemon question is answered by the test rather than by this machine -- a case whose verdict
 # depended on whether ovs-vswitchd happens to be up would be measuring the laptop.
-STUBS='topo_session() { [[ -n "${T_SESSION:-}" ]]; }; ovs_daemon_running() { [[ -z "${T_NO_DAEMON:-}" ]]; };'
+# [Co-developed with claude code -- Adam] T_SESSION=refused is the session look whose `ndtwin-lab status`
+# call failed (rc 2), as lab_session answers it.
+STUBS='topo_session() { [[ "${T_SESSION:-}" == refused ]] && return 2; [[ -n "${T_SESSION:-}" ]]; }; ovs_daemon_running() { [[ -z "${T_NO_DAEMON:-}" ]]; };'
 
 echo "the table"
 
@@ -196,6 +216,83 @@ has "refused: the guard stops the bring-up"      "rc=1"              "$out"
 has "refused: and says it could not tell"        "cannot tell"       "$out"
 has "refused: and blames sudo, not OVS"          "the reason is sudo" "$out"
 has "refused: and prints the line that fixes it" "NOPASSWD: /usr/bin/ovs-vsctl" "$out"
+
+# [Co-developed with claude code -- Adam]
+# The session look itself can fail: `ndtwin-lab status` refused (or the helper missing) is rc 2 from
+# lab_session, and used to read as "no session", so the guard returned 0 and `ndt up p4` built over a
+# fabric it could not check. Same shape as the OVS look above: cannot tell stops the bring-up.
+inj="$(FAKE_SUDO_DENY=ndtwin-lab:status sudo -n "$BIN/ndtwin-lab" status 2>&1)"; irc=$?
+if [[ "$irc" -ne 0 ]] && grep -q 'password is required' <<<"$inj"; then
+    t_ok "injection took effect: sudo really refuses ndtwin-lab status (rc $irc, sudo's own wording)"
+else
+    t_bad "injection took effect: sudo really refuses ndtwin-lab status (rc $irc, sudo's own wording)" "$inj"
+fi
+inj="$(FAKE_SUDO_DENY=ndtwin-lab:status sudo -n "$BIN/ndtwin-lab" topo-stop 2>&1)"; irc=$?
+[[ "$irc" -eq 0 && "$inj" == "ran:topo-stop" ]] \
+    && t_ok  "injection is only for status: another verb is not refused by it" \
+    || t_bad "injection is only for status: another verb is not refused by it" "[$inj] rc=$irc"
+
+# The hint probes the table's `lab` row, which names /usr/local/sbin/ndtwin-lab. Every hint case therefore
+# replaces the table with a one-row copy that names the fixture's helper, so the answer does not depend on
+# whether this machine has the real one installed.
+LABROW="lab|$BIN/ndtwin-lab status|$BIN/ndtwin-lab|taught-in-the-manual|consequence"
+FIXT="NDT_SUDO_TABLE='$LABROW';"
+out="$(in_ndt "$STUBS $FIXT export T_SESSION=refused FAKE_SUDO_DENY=ndtwin-lab:status; guard_no_live_ovs; echo \"rc=\$?\"")"
+has "status call failed: the guard stops the bring-up"      "rc=1"                  "$out"
+has "status call failed: and says it could not tell"        "cannot tell whether a topo session is running" "$out"
+has "status call failed: and names the cause in plain words" "the 'ndtwin-lab status' call failed" "$out"
+has "status call failed: and blames sudo, not the lab"      "the reason is sudo"    "$out"
+has "status call failed: and prints the line that fixes it" "NOPASSWD: $BIN/ndtwin-lab" "$out"
+
+# 🔴 The hint when the probe cannot tell either (rc 2): sudo said something ndt cannot read, or the helper is not
+# installed. "The reason is sudo" and a sudoers line are not true then; the hint says what ndt_sudo_report says.
+out="$(in_ndt "$STUBS $FIXT export T_SESSION=refused FAKE_SUDO_DENY=ndtwin-lab:status FAKE_SUDO_SAY='sudo: refused by the nolab shim (a lab command)'; guard_no_live_ovs; echo \"rc=\$?\"")"
+has   "status call failed, probe cannot read sudo: the guard still stops"        "rc=1" "$out"
+has   "status call failed, probe cannot read sudo: the hint quotes what sudo said" 'could not be tested: sudo answered "sudo: refused by the nolab shim (a lab command)"' "$out"
+hasnt "status call failed, probe cannot read sudo: no claim that the reason is sudo" "the reason is sudo" "$out"
+hasnt "status call failed, probe cannot read sudo: no sudoers line is offered"   "NOPASSWD" "$out"
+NOHELP="NDT_SUDO_TABLE='lab|$BIN/no-such-helper status|$BIN/no-such-helper|taught|consequence';"
+out="$(in_ndt "$STUBS $NOHELP export T_SESSION=refused; guard_no_live_ovs; echo \"rc=\$?\"")"
+has   "status call failed, helper not installed: the guard still stops"          "rc=1" "$out"
+has   "status call failed, helper not installed: the hint says so and names the path" "(no sudo, or $BIN/no-such-helper is not installed)" "$out"
+hasnt "status call failed, helper not installed: no claim that the reason is sudo" "the reason is sudo" "$out"
+hasnt "status call failed, helper not installed: no sudoers line for a missing binary" "NOPASSWD" "$out"
+# controls: the two answers the hint already had keep their text
+out="$(in_ndt "$STUBS $FIXT export T_SESSION=refused; guard_no_live_ovs; echo \"rc=\$?\"")"
+has   "control, probe says granted: the hint says the grant is permitted"        "the grant is permitted but the call did not answer" "$out"
+hasnt "control, probe says granted: and does not claim a refusal"                "the reason is sudo" "$out"
+# the fake itself: an ndtwin-lab outside the fixture is refused (a path that does not exist, so a broken fake runs nothing)
+inj="$(sudo -n /ndt-no-such-dir/ndtwin-lab status 2>&1)"; irc=$?
+if [[ "$irc" -eq 1 ]] && grep -q 'password is required' <<<"$inj"; then
+    t_ok "injection took effect: the fake sudo refuses an ndtwin-lab outside the fixture"
+else
+    t_bad "injection took effect: the fake sudo refuses an ndtwin-lab outside the fixture" "rc=$irc $inj"
+fi
+
+# The real predicate, not the stub: a fake sudo that refuses only `ndtwin-lab status`, LAB pointed at
+# the fake helper, and nothing else replaced but the question about the OVS daemon.
+REAL='ovs_daemon_running() { return 1; }; LAB="'"$BIN"'/ndtwin-lab"; '"$FIXT"
+out="$(in_ndt "$REAL export FAKE_SUDO_DENY=ndtwin-lab:status; topo_session; echo \"look=\$?\"; guard_no_live_ovs; echo \"rc=\$?\"")"
+has "real lab_session: a refused status call is rc 2, not 'no session'" "look=2" "$out"
+has "real lab_session: the guard refuses the bring-up"      "rc=1"                  "$out"
+has "real lab_session: and says it could not tell"          "cannot tell whether a topo session is running" "$out"
+# 🔴 controls, same real code, same fake helper, sudo allows the call: no session is a pass, a session
+# with no bridges is a pass, and the answer is not "cannot tell".
+out="$(in_ndt "$REAL topo_session; echo \"look=\$?\"; guard_no_live_ovs; echo \"rc=\$?\"")"
+has   "control, real lab_session: no session is rc 1"         "look=1"          "$out"
+has   "control, real lab_session: and the guard PASSES"       "rc=0"            "$out"
+hasnt "control, real lab_session: and does not say it could not tell" "cannot tell" "$out"
+out="$(in_ndt "$REAL export FAKE_LAB_STATUS='topo: 1 windows (created X)'; topo_session; echo \"look=\$?\"; guard_no_live_ovs; echo \"rc=\$?\"")"
+has "control, real lab_session: a listed session is rc 0"      "look=0"          "$out"
+has "control, real lab_session: no bridges under it, the guard PASSES" "rc=0"    "$out"
+
+# What the table says the refusal costs is what ndt now does (the row used to claim an empty lab and a
+# skipped stop; no path of `ndt down` skips its stop).
+has   "the lab row says what ndt does now: stops before the fabric" "stops before it touches the fabric" "$(ndt_sudo_explain lab)"
+hasnt "the lab row no longer claims an empty lab"      'reports an empty lab'          "$(ndt_sudo_explain lab)"
+hasnt "the lab row no longer claims a skipped stop"    'skips the orderly stop'        "$(ndt_sudo_explain lab)"
+has   "the lab row says down's stop and sweep are refused too"  "the missing grant refuses those too" "$(ndt_sudo_explain lab)"
+hasnt "the lab row does not say down still runs them"  'still runs its stop and sweep'   "$(ndt_sudo_explain lab)"
 
 # 🔴 controls. A guard that always returns 1 passes every case above and makes `ndt up p4`
 # impossible; these are the cases it fails.

@@ -649,6 +649,26 @@ check "  the grants row says it could not be tested"            "yes" \
       "$(grep -qE '^ *sudo grants +.*could not be tested' <<<"$OUT" && echo yes || echo no)"
 has   "  and quotes what sudo said"                             'sudo answered "sudo: refused by the nolab shim (a lab command)"' "$OUT"
 
+# ==========================================================================================
+section "T. a failed 'ndtwin-lab status' call is 'unknown' in the report, never 'absent'"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam] lab_session answers 2 when the status call itself fails, and the
+# "topo session" cell of the running block used to print absent for it. Same fixture as group S (a healthy
+# ovs4 fabric); only the session look differs. Each answer has its own row text, and only the unknown one
+# is a --check problem.
+topo_row() { grep -m1 'topo session' <<<"$1" | sed 's/.*topo session *//'; }
+OUT="$(run_check_with 'topo_session() { return 2; }')"
+check "🔴 a status call that failed is printed as unknown"              "unknown (ndtwin-lab status failed)" "$(topo_row "$OUT")"
+check "🔴 and makes --check exit 1"                                      "1" "$(rc_of "$OUT")"
+has   "  naming the cause as a problem"                                  "the topo session could not be checked: the 'ndtwin-lab status' call failed" "$OUT"
+OUT="$(run_check_with 'topo_session() { return 0; }')"
+check "control: a listed session is printed as present"                  "present" "$(topo_row "$OUT")"
+check "  and --check stays at exit 0"                                    "0" "$(rc_of "$OUT")"
+hasnt "  with no problem about the session"                              "the topo session could not be checked" "$OUT"
+OUT="$(run_check_with 'topo_session() { return 1; }')"
+check "control: a session that is not listed is printed as absent"       "absent" "$(topo_row "$OUT")"
+hasnt "  with no problem about the session"                              "the topo session could not be checked" "$OUT"
+
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
 [[ "$FAIL" -eq 0 ]] || exit 1

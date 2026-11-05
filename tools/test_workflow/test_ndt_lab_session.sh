@@ -61,7 +61,10 @@ check TRUE  sim    "$EST"   "energy + sim + topo"
 echo "must still say absent when it genuinely is"
 check FALSE topo   "$ES"    "energy + sim, topo gone"
 check FALSE topo   "$NONE"  "no sessions at all"
-check FALSE topo   ""       "empty output (sudo -n failed)"
+# [Co-developed with claude code -- Adam] Not "sudo -n failed": a failed call returns 2 before this match
+# is reached (the real function is driven below). What reaches the match with nothing in it is a
+# status call that succeeded and printed nothing, and that is "no session".
+check FALSE topo   ""       "empty output (the call succeeded, printed nothing)"
 check FALSE energy "$NONE"  "no sessions at all"
 
 echo "must not be satisfied by a near miss"
@@ -94,6 +97,30 @@ if grep -qF "$EXPR" "$NDT" 2>/dev/null; then
 else
     printf '  FAIL  %-44s\n' "ndt no longer contains the tested expression"; fail=$(( fail + 1 ))
 fi
+
+# [Co-developed with claude code -- Adam]
+# The real lab_session, not the copy of its expression above: ndt is sourced through its own seam and
+# `sudo` is a shell function that stands for the status call. 0 = listed, 1 = not listed, 2 = the call
+# itself failed -- and a failed call is "cannot tell" whatever it printed before it failed.
+real() {   # real '<body of the fake sudo>'  -> lab_session topo's rc
+    bash -c "source '$NDT' >/dev/null 2>&1; sudo() { $1; }; lab_session topo; echo \$?" 2>/dev/null | tail -1
+}
+rcheck() {   # rcheck <want rc> <label> '<body of the fake sudo>'
+    local want="$1" label="$2" got
+    got="$(real "$3")"
+    if [[ "$got" == "$want" ]]; then
+        printf '  ok    %-60s -> rc %s\n' "$label" "$got"; pass=$(( pass + 1 ))
+    else
+        printf '  FAIL  %-60s -> rc %s (want %s)\n' "$label" "$got" "$want"; fail=$(( fail + 1 ))
+    fi
+}
+echo "the real lab_session: a failed status call is rc 2, not 'no session'"
+rcheck 2 "the call is refused (rc 1, no output)"            'return 1'
+rcheck 2 "the call fails after printing a topo line"        'printf "topo: 1 windows\n"; return 3'
+rcheck 2 "the call fails after printing 'no lab sessions'"  'printf "no lab sessions\n"; return 1'
+rcheck 0 "control: a topo session is listed"                'printf "config: c\ntopo: 1 windows\nbmv2: 4  mininet: 0\n"'
+rcheck 1 "control: 'no lab sessions'"                       'printf "no lab sessions\nbmv2: 0  mininet: 0\n"'
+rcheck 1 "control: the call succeeded and printed nothing"  'return 0'
 
 echo
 printf '%d passed, %d failed\n' "$pass" "$fail"
