@@ -172,7 +172,7 @@ WHEN-POWERED-OFF | returned an empty flow table for switch (?P<dpid>\d+) after |
 
 FORBID | Unsupported SFlow Version | the sFlow emitter is producing malformed datagrams; the collector is discarding every sample
 FORBID | Cannot open topology file | the kernel is running without its topology; the whole graph will be empty
-FORBID | No matching node in JSON | a device rename targeted the wrong topology file (see issue 12 in doc/2026-07-27_p4_bmv2_support_plan.md)
+FORBID | No matching node in JSON | a device rename targeted the wrong topology file
 FORBID | Failed to bind UDP socket | the sFlow collector port is taken; no telemetry will arrive at all
 FORBID | Failed to create UDP socket | as above
 FORBID | Exceed 100 hop \(potential loop\) | a forwarding loop in the computed path

@@ -797,7 +797,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
     // dpid sets -- and then :8000 open and answering with the mixed model, 14 nodes and 40 edges.
     // `validateDataPlaneHomogeneity` returned a bool and parseStaticTopologyFile called it as a
     // statement, so "the kernel refuses to load a mixed topology" -- what architecture.md, the
-    // installation manual, doc/2026-07-29_p4_status_and_test_guide.md:76 and AppConfig.hpp all
+    // installation manual, the P4 test guide of the time (line 76) and AppConfig.hpp all
     // said -- was true of nothing but the log's tone.
     //
     // 🔴 THE CHECK IS HERE, NOT AT THE END OF THE BUILDER, AND THAT IS THE POINT. Refusing where

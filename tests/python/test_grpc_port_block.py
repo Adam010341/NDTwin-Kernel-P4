@@ -381,10 +381,6 @@ ALLOWED_TO_NAME_THE_OLD_BLOCK = {
     # The issue register. F-15's row has to name the ports it was about to be readable, and a
     # resolved entry that cannot say what was wrong is not a record of anything.
     os.path.join("doc", "KNOWN-ISSUES.md"),
-    # Carries measurements taken on 2026-08-11 -- ":50056 was listening", a 59-sample count --
-    # against the fabric as it was numbered that day. The header note says so; the numbers
-    # stay as they were observed.
-    os.path.join("doc", "2026-08-11_phase7_power_mechanism_design.md"),
 }
 
 # [Co-developed with claude code -- Adam]

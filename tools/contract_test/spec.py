@@ -1,7 +1,7 @@
 """
 Contract definitions for every /ndt/* endpoint the kernel registers.
 
-Three kinds of check per endpoint, matching doc/2026-07-27_testing_workflow.md's L2 layer:
+Three kinds of check per endpoint, the L2 layer of tools/test_workflow/run_layers.sh:
 
   1. structure  -- the response is valid JSON with the right fields and types
   2. invariants -- the values make sense together (10 switches, all up, paths non-empty)
@@ -943,7 +943,7 @@ def inv_all_switches_up(data, ctx):
     accounted-for or precondition wording, or those harnesses will keep reporting A-8 as
     present after it is fixed.
 
-    admin_disabled is deliberately NOT the key here: per doc/2026-08-10_p4_manual_test_runbook.md
+    admin_disabled is deliberately NOT the key here: per the P4 manual runbook of the time
     it marks the Intent Translator's DisableSwitch, not the power app, and was measured false
     for all three powered-off switches on 2026-08-18.
     """
@@ -2134,8 +2134,8 @@ ENDPOINTS = [
          body={"type": LOCK_TYPE},
          category=ERRORPATH, expect_status=[412, 400, 404],
          schema=Any_(),
-         # known_gap removed: handleReleaseLock now answers 412 for a lock that is not held or
-         # whose type is invalid, matching the sibling renew handler and doc/2026-07-27_testing_workflow.md.
+         # known_gap removed: handleReleaseLock now answers 412 for a lock that is not held (an
+         # invalid type is a 400), matching the sibling renew handler and doc/2026-01-02_ndt_api.md §29.
          # [Co-developed with claude code -- Adam]
          note="releasing an already-released lock must not report success"),
 

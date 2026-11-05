@@ -3,7 +3,7 @@
  * Architecture: v1model
  * Target: BMv2
  *
- * Phase 4 of doc/2026-07-27_p4_bmv2_support_plan.md.
+ * Loaded by the P4 proxy; see p4_proxy/p4_src/SPEC.md.
  *
  * [Co-developed with claude code -- Adam]
  *

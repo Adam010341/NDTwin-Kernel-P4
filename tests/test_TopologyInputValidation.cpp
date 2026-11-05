@@ -1103,7 +1103,7 @@ TEST(TopologyInputValidationTest, AHostWhoseIpIsNotAnArrayIsRefusedInPlainLangua
 //
 // 🔴 THE MIXED-DATA-PLANE PATH IS NOT REMOVED, AND MUST NOT BE. Mixed fabrics are a supported
 // opt-in with a flag, a manual section and a unit test of their own
-// (setting/AppConfig.hpp.example:15, doc/2026-07-27_p4_bmv2_support_plan.md:213,
+// (setting/AppConfig.hpp.example:15,
 // test_SFlowEmitterRoundtrip.cpp's AMixedTopologyDoesNotUseIdentity). What changes is that a typo
 // can no longer REACH that message: validateDataPlaneHomogeneity runs at the end of the builder,
 // door 3e in the node loop before it. `vertices == 0` below is what pins that ordering, and it is
@@ -1811,7 +1811,7 @@ TEST(TopologyInputValidationTest, TheMixedDataPlaneRefusalNamesBothPlanesAndThei
 TEST(TopologyInputValidationTest, AMixedDataPlaneTopologyLoadsWhenTheFlagIsSet)
 {
     // 🔴 THE CONTROL THAT KEEPS THIS FIX FROM BEING A FEATURE REMOVAL. Mixed fabrics are a
-    // supported opt-in: setting/AppConfig.hpp.example:15, doc/2026-07-27_p4_bmv2_support_plan.md,
+    // supported opt-in: setting/AppConfig.hpp.example:15, [Co-developed with claude code -- Adam]
     // and test_SFlowEmitterRoundtrip's AMixedTopologyDoesNotUseIdentity, which exists precisely
     // because the port mapping has to cope with one. The refusal above must be the default, not
     // the only behaviour -- and before the refusal this claim could not be asserted at all, because

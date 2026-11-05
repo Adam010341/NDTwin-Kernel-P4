@@ -1,6 +1,6 @@
 # L2 契約測試與 log 檢查
 
-實作 [doc/2026-07-27_testing_workflow.md](../../doc/2026-07-27_testing_workflow.md) 的 **L2 層**：把「打開元件看看有沒有 error」變成機器判斷的 pass/fail。
+實作測試分層（L0–L4，見 [../test_workflow/run_layers.sh](../test_workflow/run_layers.sh) 的開頭）的 **L2 層**：把「打開元件看看有沒有 error」變成機器判斷的 pass/fail。
 
 不需要安裝任何套件，只要 `python3`。
 
@@ -124,7 +124,7 @@ acquire → 第二次 acquire 必須 423 → renew → release → 再 acquire �
 - 失敗 → 顯示黃色 `GAP`，**不計入失敗**（否則測試永遠是紅的，就沒人看了）
 - 哪天它**通過了** → 顯示 `FIXED`，並提醒你把標記拿掉
 
-目前唯一一條是 `release_lock_not_held`：`HttpSession::handleReleaseLock` 不管鎖有沒有被持有、型別有沒有效，**一律回 200**，所以「釋放一個沒持有的鎖」跟正常釋放無法區分。`doc/2026-07-27_testing_workflow.md` 寫的「應該回 412」目前並未實作。
+目前唯一一條是 `release_lock_not_held`：`HttpSession::handleReleaseLock` 不管鎖有沒有被持有、型別有沒有效，**一律回 200**，所以「釋放一個沒持有的鎖」跟正常釋放無法區分。當時的測試分層設計寫的「應該回 412」目前並未實作。
 
 ### 為什麼預設不跑 mutation
 

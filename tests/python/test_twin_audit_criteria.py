@@ -145,7 +145,7 @@ class NamespaceWrappingTest(WorldFreeTestCase):
 
     def test_a_pid_is_passed_to_mnexec_dash_a(self):
         # mnexec -a takes a PID. Passing a *name* is a documented past bug in this repo
-        # (doc/2026-07-27_p4_bmv2_support_plan.md item 6) -- the command silently does nothing.
+        # (item 6 of the P4 support plan's defect list) -- the command silently does nothing. [Co-developed with claude code -- Adam]
         self.assertEqual(["sudo", "-n", "mnexec", "-a", "4242", "ping", "10.0.0.1"],
                          criteria._in_namespace(self.cfg, 4242, ["ping", "10.0.0.1"]))
 

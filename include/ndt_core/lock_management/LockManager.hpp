@@ -639,8 +639,8 @@ class LockManager
      *     D acquires.                                    refused, "held by another client",
      *                                                    for 120s, on behalf of nobody
      *
-     * The contract has always said this is 412 (doc/2026-07-27_testing_workflow.md:221,
-     * "renew_lock 用沒持有／過期的 lock -> 412"); the implementation just never asked the
+     * The contract has always said this is 412 (today doc/2026-01-02_ndt_api.md §28: renew_lock
+     * on a lock that is not held or has expired); the implementation just never asked the
      * question. KNOWN-ISSUES B-2①.
      *
      * 🔑 THE CONTROL GROUP WAS FORTY LINES UP THE SAME FILE. acquireLock() writes

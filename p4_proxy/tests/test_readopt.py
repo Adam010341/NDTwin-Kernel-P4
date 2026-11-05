@@ -4,9 +4,9 @@ POST /p4/readopt/{dpid} endpoint, and write_manifest's atomic replacement.
 
 [Co-developed with claude code -- Adam]
 
-Expected behaviour is taken from decision 2 of doc/2026-08-11_phase7_power_mechanism_design.md -- a
+Expected behaviour is taken from decision 2 of the P4 power design (maintainer notes, not in this repository) -- a
 restarted bmv2 has no pipeline, no clone session, no mastership and no routes -- and from Phase 7
-of doc/2026-07-27_p4_bmv2_support_plan.md. The probe sees one of those four: a bmv2 that has been
+of the P4 support plan (likewise). The probe sees one of those four: a bmv2 that has been
 pushed no pipeline answers COOKIE_ONLY with FAILED_PRECONDITION, so probe_ok reads false, the same
 value as a dead process (measured on stock and bmv2-fast). It cannot see empty tables, a missing
 clone session or a lost stream (the kernel never reads stream_alive), which is why readopt is still
@@ -389,7 +389,7 @@ class ReadoptMastershipGateTest(ReadoptTestBase):
 
     The expectations below are unchanged by that correction, and the gate is still the right
     fix: a client that did not win arbitration must not reach the destructive push.
-    doc/2026-08-13_p4runtime-mastership-spec-check.md has the measured scenarios.
+    p4_proxy/reference/p4runtime_mastership_probe.py re-runs the measured scenarios. [Co-developed with claude code -- Adam]
     """
 
     def test_refused_arbitration_fails_before_the_pipeline_push(self):

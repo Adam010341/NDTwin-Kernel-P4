@@ -19,7 +19,7 @@
 #   * always red -- group 2's clean fabric must stay rc 0, or the gate is ignored inside a day;
 #   * red on "could not check" -- group 4: on P4 NO rule can ever be dated (W16-3), so folding
 #     that into the verdict makes --check permanently red on every healthy P4 fabric, and
-#     doc/2026-08-17_testing-manual.md:279 makes rc 0 the P4 acceptance criterion;
+#     doc/2026-11-05_user-guide.md section 4.5 makes rc 0 the healthy-P4 answer;
 #   * silent on "could not check" -- group 4 again, from the other side: it must SAY it did not
 #     check, in words, and must never be printed as clean;
 #   * scanning on plain `ndt status` too -- group 5: the scan is a flow-table GET plus three

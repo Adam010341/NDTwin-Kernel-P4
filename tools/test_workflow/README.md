@@ -1,6 +1,6 @@
 # 測試流程腳本
 
-實作 [doc/2026-07-27_testing_workflow.md](../../doc/2026-07-27_testing_workflow.md) 的 L0、L1 兩層，以及啟動編排與頂層驅動。
+實作測試分層（L0–L4，見 [run_layers.sh](run_layers.sh) 的開頭）的 L0、L1 兩層，以及啟動編排與頂層驅動。
 L2 / L3 / L4 的 Python 工具在 [../contract_test/](../contract_test/)。
 
 ---
@@ -311,9 +311,9 @@ TOPO_P4=/path/to/my_topo.json ./stack.sh up p4
 ### `ovs-vsctl`：另一條沒有任何手冊教的授權，而它的拒絕長得像一個讀數
 
 `sudo_surface.sh` 的表裡 `taught_by` 寫 `NOWHERE` 的有兩條，`mnexec` 是上面那條，另一條是
-**`ovs-vsctl`**（探針 `ovs-vsctl list-br`，目標 `/usr/bin/ovs-vsctl`）。安裝手冊與使用手冊
-都沒有它，只有 `doc/2026-07-29_environment_gotchas.md` 提過——那是這台機器的地雷清單，
-不在安裝路徑上。⇒ **照手冊裝完的機器上，這條是缺的，而缺了不會有人告訴你。**
+**`ovs-vsctl`**（探針 `ovs-vsctl list-br`，目標 `/usr/bin/ovs-vsctl`）。官網的安裝手冊與使用手冊
+都沒有它；本 repo 的使用指南 `doc/2026-11-05_user-guide.md` 第 3.2 節現在有教，
+但它不在官網的安裝路徑上。⇒ **照手冊裝完的機器上，這條是缺的，而缺了不會有人告訴你。**
 
 🔴 **缺了會怎樣（`sudo_surface.sh` 的 consequence 欄逐字寫著）**：`ovs_bridge_count()`
 早期把被拒絕的 `sudo -n ovs-vsctl list-br` 回成 **0 座 bridge**——而 0 也正是

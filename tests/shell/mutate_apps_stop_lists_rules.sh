@@ -291,7 +291,7 @@ report "M19: --check prints residue and still exits 0" "$m" \
        "🔴 and --check exits 1 (it exited 0 over this on 09-05)" row
 
 # (widening) --check is red on "could not check" too. Permanently red on every healthy P4
-# fabric, where doc/2026-08-17_testing-manual.md:279 makes rc 0 the acceptance criterion.
+# fabric, where doc/2026-11-05_user-guide.md section 4.5 makes rc 0 the healthy-P4 answer. [Co-developed with claude code -- Adam]
 m=$(mutant m20 "$NDT" \
     '           printf '\''  %-14s %s\n'\'' "" "the locks WERE checked: $RESIDUE_LOCKS held.  details:  ndt apps orphans" ;;' \
     '           STATUS_RESIDUE_PROBLEMS+=("the rules-in-window could not be checked") ;;')

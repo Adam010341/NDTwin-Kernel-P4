@@ -7,8 +7,8 @@ Mastership probe: what bmv2 really does with SetForwardingPipelineConfig.
 This script settled the "bmv2 accepts a pipeline push from a non-primary client"
 question by running the three cases apart from each other. Result: bmv2 is
 spec-conforming in all three, and the destructive readopt we saw on 2026-08-13 was
-caused by *our* client reusing the primary's election id. The write-up is
-doc/2026-08-13_p4runtime-mastership-spec-check.md.
+caused by *our* client reusing the primary's election id. The write-up is in
+maintainer notes, not in this repository; this header and the code are what remain here.
 
 It is kept because the question will come back the moment anyone reads the old
 audit reports, and because the three scenarios are the cheapest way to re-derive

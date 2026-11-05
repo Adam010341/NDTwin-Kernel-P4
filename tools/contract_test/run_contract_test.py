@@ -3,8 +3,8 @@
 L2 contract test for the NDTwin kernel's /ndt/* HTTP API.
 
 Every tool and app in the workspace talks to the kernel only through this API, so
-verifying it here verifies the foundation all of them stand on. See
-doc/2026-07-27_testing_workflow.md for how this fits the wider test layers.
+verifying it here verifies the foundation all of them stand on. See the header of
+tools/test_workflow/run_layers.sh for how this fits the wider test layers.
 
 Checks three things per endpoint:
   1. structure  -- valid JSON, right fields, right types

@@ -2,7 +2,7 @@
 //
 // Cross-language round trip: sFlow synthesised by the Python emitter, parsed by the C++ kernel.
 //
-// Phase 5 of doc/2026-07-27_p4_bmv2_support_plan.md replaces a missing sFlow agent with
+// The P4 support replaces bmv2's missing sFlow agent with
 // p4_proxy/proxy_agent/sflow_emitter.py, so bmv2 telemetry reaches the collector the kernel
 // already listens on. That only works if the two agree byte for byte, and neither side's own
 // tests can establish it: the Python tests compare against captured OVS bytes, which proves
