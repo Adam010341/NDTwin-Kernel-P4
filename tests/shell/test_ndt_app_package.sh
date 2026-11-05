@@ -800,6 +800,106 @@ has   "  and the bring-up was rolled back"                "rollback" "$OUT"
 rm -f "$TOPO_LOG"
 
 # =============================================================================================
+section "13b. 🔴 a bridge that has already exited is not waited for"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# Seen live on a fresh VM: the bridge exited within a second (its interpreter lacked a module),
+# tmux removed the topo session, and `ndt up p4` still polled the full 180 s before printing
+# the topo.log line that named the cause -- 186 s for an error known at second one.
+#
+# The fabric wait now asks topo_session every third second, and two misses in a row end it.
+# These cells run that loop on a fake clock: `sleep` advances it, and topo_session and
+# bmv2_count answer from it, so "how long did it wait" is the clock's value at the end and
+# "how often did it ask" is the number of lines topo_session logged.
+#   SESS_FROM / SESS_UNTIL  the session is listed for FROM <= t < UNTIL
+#   SESS_GAPS               seconds at which one `status` answer misses a session that is there
+#   SESS_FAILS              seconds at which the `status` call itself fails (rc 2), or `all`
+#   UP_AT                   the second from which bmv2_count says 4
+# Before topo-start there is no session, as on a machine with nothing running.
+BRIDGE_CLOCK='
+echo 0 > "'"$FIX"'/clock"; : > "'"$FIX"'/session.log"
+sleep() { echo $(( $(cat "'"$FIX"'/clock") + 1 )) > "'"$FIX"'/clock"; }
+topo_session() {
+    /usr/bin/grep -q topo-start "'"$FIX"'/sudo.log" || return 1
+    local t g; t="$(cat "'"$FIX"'/clock")"; echo "$t" >> "'"$FIX"'/session.log"
+    for g in ${SESS_FAILS:-}; do [[ "$t" == "$g" || "$g" == all ]] && return 2; done
+    for g in ${SESS_GAPS:-}; do [[ "$t" == "$g" ]] && return 1; done
+    (( t >= ${SESS_FROM:-0} && t < ${SESS_UNTIL:-100000} ))
+}
+bmv2_count() { (( $(cat "'"$FIX"'/clock") >= ${UP_AT:-100000} )) && echo 4 || echo 0; }
+'
+clock_now() { cat "$FIX/clock" 2>/dev/null; }
+asks() { awk -v m="$1" '$1 < m { c++ } END { print c + 0 }' "$FIX/session.log" 2>/dev/null; }   # asks before second <m>
+within() { local c; c="$(clock_now)"; [[ "$c" =~ ^[0-9]+$ ]] && (( c <= $1 )) && echo yes || echo "no (${c:-?} s)"; }
+atleast() { local c; c="$(clock_now)"; [[ "$c" =~ ^[0-9]+$ ]] && (( c >= $1 )) && echo yes || echo "no (${c:-?} s)"; }
+
+# --- the live shape: the session is gone before the first look, and never comes back --------
+reset_fix
+printf "Error: this interpreter has no 'nornir'; run with the ntg-env python\n" > "$TOPO_LOG"
+OUT="$(drive "$BRIDGE_CLOCK"$'\n'"SESS_UNTIL=0; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 a bridge that exited at once fails the bring-up"     "1" "$(rc_of "$OUT")"
+check "🔴 and stops waiting within a few seconds, not 180"     "yes" "$(within 6)"
+has   "🔴 saying the bridge exited"                            "the bridge exited: its topo session was gone at two checks in a row" "$OUT"
+has   "  with the same line about how far it got"              "fabric did not come up: 0/4 switches" "$OUT"
+has   "  and the bridge's own last words"                      "this interpreter has no 'nornir'" "$OUT"
+has   "  and the rollback"                                     "the fabric never came up, and a half-built one holds" "$OUT"
+check "  the knob this run wrote does not outlive it"          "absent" "$(knob_state)"
+tail_at="$(/usr/bin/grep -n 'the last 30 line(s) of' <<<"$OUT" | head -1 | cut -d: -f1)"
+roll_at="$(/usr/bin/grep -n 'this bring-up started' <<<"$OUT" | head -1 | cut -d: -f1)"
+check "  the cause is still printed above the rollback"        "yes" \
+      "$( [[ -n "$tail_at" && -n "$roll_at" && "$tail_at" -lt "$roll_at" ]] && echo yes || echo no )"
+rm -f "$TOPO_LOG"
+
+# --- a bridge that ran for a while and then died ------------------------------------------------
+reset_fix
+OUT="$(drive "$BRIDGE_CLOCK"$'\n'"SESS_UNTIL=20; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 a bridge that died at 20 s fails the bring-up"       "1" "$(rc_of "$OUT")"
+check "🔴 within a few seconds of the session going"           "yes" "$(within 26)"
+has   "  saying the bridge exited"                             "the bridge exited" "$OUT"
+
+# --- the controls: a bridge that is still running keeps the whole wait --------------------------
+reset_fix
+OUT="$(drive "$BRIDGE_CLOCK"$'\n'"UP_AT=40; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 a running bridge whose switches come up at 40 s still comes up" "0" "$(rc_of "$OUT")"
+has   "  after the 40 s it took"                               "4 switches up after 41s, manifest written" "$OUT"
+hasnt "  and nothing says the bridge exited"                   "the bridge exited" "$OUT"
+check "🔴 the session is asked once every 3 s, not every second" "13" "$(asks 40)"
+
+reset_fix
+OUT="$(drive "$BRIDGE_CLOCK"$'\n'"SESS_FROM=4; UP_AT=20; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 a session that is not listed yet at the first look is not read as exited" "0" "$(rc_of "$OUT")"
+hasnt "  and nothing says the bridge exited"                   "the bridge exited" "$OUT"
+
+reset_fix
+OUT="$(drive "$BRIDGE_CLOCK"$'\n'"SESS_GAPS='5 11'; UP_AT=30; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 two odd answers with a good one between them do not end the wait" "0" "$(rc_of "$OUT")"
+hasnt "  and nothing says the bridge exited"                   "the bridge exited" "$OUT"
+
+# --- a bridge that keeps running while its fabric never comes up: the whole budget, as before ---
+reset_fix
+OUT="$(drive "$BRIDGE_CLOCK"$'\n'"NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 a running bridge whose fabric never comes up fails the bring-up" "1" "$(rc_of "$OUT")"
+check "🔴 after the whole 180 s budget, not before"            "yes" "$(atleast 179)"
+has   "  saying how far it got"                                "fabric did not come up: 0/4 switches" "$OUT"
+hasnt "🔴 and does NOT say the bridge exited while it was running" "the bridge exited" "$OUT"
+check "  asking for the session 60 times over the 180 s"       "60" "$(asks 180)"
+
+# --- a `status` call that fails is no answer: neither a session nor its absence -----------------
+# lab_session answers 2 when sudo or the helper fails (ndtwin-lab status exits 0 whenever it runs),
+# so a refused or broken status call cannot end a bring-up as "the bridge exited".
+reset_fix
+OUT="$(drive "$BRIDGE_CLOCK"$'\n'"SESS_FAILS=all; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 a status call that fails at every look keeps the whole wait" "yes" "$(atleast 179)"
+hasnt "🔴 and is never reported as the bridge exiting"         "the bridge exited" "$OUT"
+check "  the bring-up still fails on the fabric, as before"    "1" "$(rc_of "$OUT")"
+LS_FAIL="$(drive 'sudo() { return 1; }; lab_session topo; echo "LS=$?"')"
+has   "🔴 lab_session answers 2 when the status call fails"    "LS=2" "$LS_FAIL"
+LS_UP="$(drive 'sudo() { printf "config: c\nenergy: 1 windows\ntopo: 1 windows\nbmv2: 4  mininet: 0\n"; }; lab_session topo; echo "LS=$?"')"
+has   "  0 when the session is listed (after another one)"     "LS=0" "$LS_UP"
+LS_NONE="$(drive 'sudo() { printf "config: c\nno lab sessions\nbmv2: 0  mininet: 0\n"; }; lab_session topo; echo "LS=$?"')"
+has   "  and 1 when it is not"                                 "LS=1" "$LS_NONE"
+
+# =============================================================================================
 section "14. 🔴 a package pipeline has no sampling rate here, and the rate rows say so"
 # =============================================================================================
 # `sample rate` is decoded from p4_proxy/p4_src/build/ndtwin_switch.json, and a switch running the

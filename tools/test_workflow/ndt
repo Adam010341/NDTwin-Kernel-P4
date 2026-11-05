@@ -1376,7 +1376,7 @@ in_flight() {
     done < <(ps -eo pid=,comm=,args= 2>/dev/null)
 }
 
-# lab_session <name> -- is that lab tmux session running?
+# lab_session <name> -- is that lab tmux session running? (rc 0 yes, 1 no, 2 the status call failed)
 #
 # One implementation for all three (topo/energy/sim). There used to be two, and they
 # disagreed; that disagreement is the bug fixed on 2026-08-21.
@@ -1413,7 +1413,7 @@ in_flight() {
 #     operator exports TERM already and never saw this; an agent or CI harness may not.
 lab_session() {
     local out
-    out="$(TERM="${TERM:-dumb}" sudo -n "$LAB" status 2>/dev/null)"
+    out="$(TERM="${TERM:-dumb}" sudo -n "$LAB" status 2>/dev/null)" || return 2
     [[ $'\n'"$out"$'\n' == *$'\n'"$1":* ]]
 }
 
@@ -4190,14 +4190,27 @@ up_p4() {
             return 1
         fi
         info "waiting for $SWITCHES switches and the manifest"
-        local i
+        # [Co-developed with claude code -- Adam]
+        # The bridge runs in root's tmux session `topo`, and tmux removes the session when the
+        # bridge exits. A bridge that dies at start-up (a missing module, a bad package) used to
+        # cost the whole 180 s below before the topo.log tail named the cause. So every third
+        # second the loop also asks topo_session -- the `ndtwin-lab status` call ndt already makes,
+        # no new verb -- which is one sudo line per 3 s, at most 60 for a full wait. Two misses in a
+        # row end the wait: one odd answer, or a session tmux has not listed yet, is not an exit,
+        # and a status call that failed (rc 2) is no answer. A fabric that is up wins: it is checked first.
+        local i misses=0 bridge_gone=0 t0=$SECONDS
         for i in $(seq 1 180); do
             n="$(bmv2_count)"
             [[ "$n" -ge "$SWITCHES" && -s "$MANIFEST" ]] && break
+            if (( i % 3 == 0 )); then
+                topo_session; case $? in 0) misses=0 ;; 1) misses=$(( misses + 1 )) ;; esac
+                (( misses >= 2 )) && { bridge_gone=1; break; }
+            fi
             sleep 1
         done
         n="$(bmv2_count)"
         if [[ "$n" -lt "$SWITCHES" || ! -s "$MANIFEST" ]]; then
+            (( bridge_gone )) && err "the bridge exited: its topo session was gone at two checks in a row ($(( SECONDS - t0 ))s), before the fabric came up"
             err "fabric did not come up: $n/$SWITCHES switches, manifest $( [[ -s $MANIFEST ]] && echo present || echo missing )"
             err "look at the pane:  sudo -n $LAB topo-out 40"
             # [Co-developed with claude code -- Adam]

@@ -309,6 +309,9 @@ RC_TABLE = {
 # refusal_mark, 4 in up_p4's app-knob failure block (a mark and its comment) and 1 for the
 # telemetry mark. Each anchor was moved to the line that holds the same code (text and function
 # checked).
+# 2026-11-04: 13 more lines above status --measuring's row and every row below it (the claim and
+# release rows did not move): up_p4's fabric wait now also watches the bridge's topo session.
+# Each anchor was moved to the line that holds the same code (text and function checked).
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -322,21 +325,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(7862, 3, "return 3", "cmd_status"), (7867, 0, "return 0", "cmd_status"),
-                              (7871, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(7873, 0, "return 0", "cmd_status")]},
+                     "code": [(7875, 3, "return 3", "cmd_status"), (7880, 0, "return 0", "cmd_status"),
+                              (7884, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(7886, 0, "return 0", "cmd_status")]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(7483, 0, "return 0", "cmd_status")]},
+                         "code": [(7496, 0, "return 0", "cmd_status")]},
     "claim": {"code": [(777, 2, "return 2", "cmd_claim"), (786, 2, "return 2", "cmd_claim"),
                        (811, 1, "return 1", "claim_take"), (883, 1, "return 1", "claim_take"),
                        (885, 0, 'ok "lab claimed by', "claim_take")]},
     "release": {"code": [(889, 0, "return 0", "cmd_release"), (894, 1, "return 1", "cmd_release"),
                          (928, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(9691, 0, "return 0", "app_start"), (9695, 1, "return 1", "app_start"),
-                            (9768, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(11246, 1, "return 1", "cmd_apps"), (11249, 2, "return 2", "cmd_apps"),
-                           (11252, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(11179, 0, "return 0", "cmd_apps")]},
+    "apps.start": {"code": [(9704, 0, "return 0", "app_start"), (9708, 1, "return 1", "app_start"),
+                            (9781, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(11259, 1, "return 1", "cmd_apps"), (11262, 2, "return 2", "cmd_apps"),
+                           (11265, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(11192, 0, "return 0", "cmd_apps")]},
 }
 
 
