@@ -277,16 +277,36 @@ class FakeProxy
     std::vector<std::shared_ptr<Conn>> m_conns; // touched only on m_ioc's thread
 };
 
-/// A loopback port nothing listens on: bound to learn a free number, then closed.
-std::string
-refusingHostAndPort()
+// [Co-developed with claude code -- Adam]
+/// A loopback port nothing listens on, held for as long as this object lives. The socket is bound
+/// to 127.0.0.1:<n> but never listens, and it sets neither SO_REUSEADDR nor SO_REUSEPORT: a
+/// connect to it is refused, and while it is held no socket can bind 127.0.0.1 or the wildcard
+/// address on that port, nor be given it by a port-0 bind -- including the kernel under test
+/// (LiveKernel's acceptor sets reuse_address, but SO_REUSEADDR lets two sockets share an address
+/// and port only when both have set it). Handing out a number that was merely closed again left a
+/// window in which the next ephemeral listener could be given it.
+class RefusingPort
 {
-    net::io_context ioc;
-    tcp::acceptor acceptor(ioc, tcp::endpoint(net::ip::address_v4::loopback(), 0));
-    const auto port = acceptor.local_endpoint().port();
-    acceptor.close();
-    return "127.0.0.1:" + std::to_string(port);
-}
+  public:
+    RefusingPort() : m_socket(m_ioc)
+    {
+        m_socket.open(tcp::v4());
+        m_socket.set_option(net::socket_base::reuse_address(false));
+        m_socket.bind(tcp::endpoint(net::ip::address_v4::loopback(), 0));
+        m_hostAndPort = "127.0.0.1:" + std::to_string(m_socket.local_endpoint().port());
+    }
+
+    RefusingPort(const RefusingPort&) = delete;
+    RefusingPort& operator=(const RefusingPort&) = delete;
+
+    const std::string& hostAndPort() const { return m_hostAndPort; }
+    unsigned short port() const { return m_socket.local_endpoint().port(); }
+
+  private:
+    net::io_context m_ioc;
+    tcp::socket m_socket;
+    std::string m_hostAndPort;
+};
 
 constexpr milliseconds kShortTimeout{400};
 
@@ -513,6 +533,51 @@ repoFile(const std::string& relative)
 } // namespace
 
 // ---------------------------------------------------------------------------------------------
+// The address of a proxy that is "down" must stay down for as long as a case uses it.
+// ---------------------------------------------------------------------------------------------
+
+// [Co-developed with claude code -- Adam]
+TEST(RefusingPort, StaysReservedWhileHeld)
+{
+    RefusingPort held;
+    const tcp::endpoint endpoint(net::ip::address_v4::loopback(), held.port());
+    EXPECT_EQ(held.hostAndPort(), "127.0.0.1:" + std::to_string(held.port()));
+
+    // The way a listener of this process binds: reuse_address on, as LiveKernel's acceptor has it.
+    // It must not be given the held number.
+    {
+        net::io_context ioc;
+        tcp::acceptor other(ioc);
+        other.open(tcp::v4());
+        other.set_option(net::socket_base::reuse_address(true));
+        boost::system::error_code ec;
+        other.bind(endpoint, ec);
+        EXPECT_EQ(ec, boost::asio::error::address_in_use) << ec.message();
+    }
+
+    // A connect to it is refused rather than answered or left hanging.
+    {
+        net::io_context ioc;
+        tcp::socket client(ioc);
+        boost::system::error_code ec;
+        client.connect(endpoint, ec);
+        EXPECT_EQ(ec, boost::asio::error::connection_refused) << ec.message();
+    }
+
+    // Many listeners asking for "any free port" are never handed the held one.
+    {
+        net::io_context ioc;
+        std::vector<std::unique_ptr<tcp::acceptor>> listeners;
+        for (int i = 0; i < 200; ++i)
+        {
+            listeners.push_back(std::make_unique<tcp::acceptor>(
+                ioc, tcp::endpoint(net::ip::address_v4::loopback(), 0)));
+            EXPECT_NE(listeners.back()->local_endpoint().port(), held.port());
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
 // The five routes are relayed with method, query and body intact.
 // ---------------------------------------------------------------------------------------------
 
@@ -651,7 +716,8 @@ TEST(P4PassthroughRelay, AReplyWithNoContentTypeComesBackWithNone)
 
 TEST(P4PassthroughUnreachable, NothingListeningIsAKernel502ThatSaysTheProxyWasNotReached)
 {
-    const std::string address = refusingHostAndPort();
+    const RefusingPort refusing;
+    const std::string& address = refusing.hostAndPort();
     const auto started = std::chrono::steady_clock::now();
     const auto reply = relayTo(
         address, http::verb::post, "/ndt/p4/table_entry", R"({"dpid":2})", "application/json");
@@ -1666,7 +1732,8 @@ TEST_F(P4PassthroughSession, TheWriteCarriesTheLabClaimAsAHeaderAndTheBodyStaysT
 
 TEST_F(P4PassthroughSession, TheWriteCarriesTheLabClaimOnTheKernelsOwnRefusalsToo)
 {
-    LiveKernel kernel(s_ovs, refusingHostAndPort(), kSessionDeadlines);
+    RefusingPort refusing;
+    LiveKernel kernel(s_ovs, refusing.hostAndPort(), kSessionDeadlines);
     const auto res = call(kernel.port(), "POST", "/ndt/p4/table_entry", R"({"dpid":1})");
     ASSERT_TRUE(res.complete) << res.error;
     EXPECT_EQ(res.status, 501u);
@@ -1764,7 +1831,8 @@ TEST_F(P4PassthroughSession, NoReplyUnderP4CarriesACorsHeader)
     FakeProxy proxy;
     LiveKernel p4(s_bmv2, proxy.hostAndPort(), kSessionDeadlines);
     LiveKernel ovs(s_ovs, proxy.hostAndPort(), kSessionDeadlines);
-    LiveKernel down(s_bmv2, refusingHostAndPort(), kSessionDeadlines);
+    RefusingPort refusing;
+    LiveKernel down(s_bmv2, refusing.hostAndPort(), kSessionDeadlines);
 
     const auto relayed = call(p4.port(), "GET", "/ndt/p4/counter/c?dpid=1");
     const auto notListed = call(p4.port(), "GET", "/ndt/p4/switch_state");
@@ -1781,7 +1849,8 @@ TEST_F(P4PassthroughSession, NoReplyUnderP4CarriesACorsHeader)
 
 TEST_F(P4PassthroughSession, AnotherKernelRouteKeepsItsCorsHeaders)
 {
-    LiveKernel kernel(s_bmv2, refusingHostAndPort(), kSessionDeadlines);
+    RefusingPort refusing;
+    LiveKernel kernel(s_bmv2, refusing.hostAndPort(), kSessionDeadlines);
     const auto notFound = call(kernel.port(), "GET", "/ndt/no_such_route");
     const auto preflight = call(kernel.port(), "OPTIONS", "/ndt/get_graph_data");
     ASSERT_TRUE(notFound.complete && preflight.complete) << notFound.error << preflight.error;
@@ -1928,7 +1997,8 @@ TEST_F(P4PassthroughSession, AClaimFileThatIsNotUtf8DoesNotTakeDownTheKernelOnTh
     // The twelve writes of the API manual's section 0 put the claim into their JSON body. A note
     // that is not UTF-8 must come back replaced, the status must be what it would have been, and
     // the kernel must still be there for the next request.
-    LiveKernel kernel(s_bmv2, refusingHostAndPort(), kSessionDeadlines);
+    RefusingPort refusing;
+    LiveKernel kernel(s_bmv2, refusing.hostAndPort(), kSessionDeadlines);
     unsigned control = 0;
     {
         ClaimFile claim("a plain note");
@@ -1994,7 +2064,8 @@ TEST_F(P4PassthroughSession, ABodyWithAByteThatIsNotUtf8IsA400AndTheKernelStaysU
 {
     // The parser's own error message quotes the token it stopped at, raw. The kernel's 400 has to
     // carry that message as valid JSON, and the kernel has to be there for the next request.
-    LiveKernel kernel(s_bmv2, refusingHostAndPort(), kSessionDeadlines);
+    RefusingPort refusing;
+    LiveKernel kernel(s_bmv2, refusing.hostAndPort(), kSessionDeadlines);
     const auto bad = call(kernel.port(), "POST", "/ndt/install_flow_entry", "{\"a\":\"\xff\"}");
     ASSERT_TRUE(bad.complete) << "the kernel did not answer: " << bad.error;
     EXPECT_EQ(bad.status, 400u) << bad.body;
@@ -2011,7 +2082,8 @@ TEST_F(P4PassthroughSession, ABodyWithAByteThatIsNotUtf8IsA400AndTheKernelStaysU
 TEST_F(P4PassthroughSession, AQueryValueWithAByteThatIsNotUtf8GetsItsOwnRefusal)
 {
     // The request line may carry any byte above 0x20, and get_nickname echoes a bad dpid back.
-    LiveKernel kernel(s_bmv2, refusingHostAndPort(), kSessionDeadlines);
+    RefusingPort refusing;
+    LiveKernel kernel(s_bmv2, refusing.hostAndPort(), kSessionDeadlines);
     const auto res = call(kernel.port(), "GET", "/ndt/get_nickname?dpid=\xff");
     ASSERT_TRUE(res.complete) << res.error;
     EXPECT_EQ(res.status, 400u) << res.body;
@@ -2029,7 +2101,8 @@ TEST_F(P4PassthroughSession, AnExceptionMessageCarryingRequestBytesIsA500ThatIsV
     // A real manager over the BMv2 fixture, never started: the lookup is all this case reaches.
     auto power = std::make_shared<DeviceConfigurationAndPowerManager>(
         s_bmv2, utils::MININET, "127.0.0.1", nullptr);
-    LiveKernel kernel(s_bmv2, refusingHostAndPort(), kSessionDeadlines, 4, power);
+    RefusingPort refusing;
+    LiveKernel kernel(s_bmv2, refusing.hostAndPort(), kSessionDeadlines, 4, power);
     const auto res =
         call(kernel.port(), "POST", "/ndt/set_switches_power_state?ip=\xff&action=off", "");
     ASSERT_TRUE(res.complete) << "the kernel did not answer: " << res.error;
