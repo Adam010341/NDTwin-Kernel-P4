@@ -66,7 +66,7 @@ export FAKE_TC_STATE="$TMP/state.damaged"
 out="$("$TOOL" diff "$TMP/snap" 2>&1)"; rc=$?
 check "diff exits 1" 1 "$rc"
 check "the lost htb line is in the output" yes "$(grep -q -- "-qdisc htb 5: dev s1-eth1" <<<"$out" && echo yes || echo no)"
-check "points at the gotcha" yes "$(grep -q "environment_gotchas" <<<"$out" && echo yes || echo no)"
+check "points at the user guide" yes "$(grep -q "2026-11-05_user-guide.md, section 4.9" <<<"$out" && echo yes || echo no)"  # [Co-developed with claude code -- Adam]
 
 echo "operator errors are exit 2, distinct from drift's exit 1"
 out="$("$TOOL" diff "$TMP/never-saved" 2>&1)"; rc=$?

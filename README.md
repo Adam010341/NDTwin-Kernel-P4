@@ -132,16 +132,14 @@ tools/test_workflow/ndt up p4    # P4/BMv2 instead
 tools/test_workflow/ndt down     # tear it down
 ```
 
-Bring-up, test layers and common environment problems are in
-[`doc/2026-08-17_testing-manual.md`](doc/2026-08-17_testing-manual.md).
+Installing, bringing a lab up, checking it and troubleshooting are in
+[`doc/2026-11-05_user-guide.md`](doc/2026-11-05_user-guide.md).
 
 ## Docs
 
 - [`doc/2026-11-05_user-guide.md`](doc/2026-11-05_user-guide.md): user guide (install, run and troubleshoot a lab)
 - [`doc/2026-01-02_ndt_api.md`](doc/2026-01-02_ndt_api.md): REST API reference
 - [`doc/2026-10-31_p4-app-guide.md`](doc/2026-10-31_p4-app-guide.md): put your P4 program into NDTwin
-- [`doc/2026-08-17_testing-manual.md`](doc/2026-08-17_testing-manual.md): testing manual
-- [`doc/2026-07-27_p4_bmv2_support_plan.md`](doc/2026-07-27_p4_bmv2_support_plan.md): P4/BMv2 design notes and progress
 - [`doc/KNOWN-ISSUES.md`](doc/KNOWN-ISSUES.md): known defects and their status
 - [`CHANGELOG.md`](CHANGELOG.md)
 

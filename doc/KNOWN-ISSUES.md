@@ -325,8 +325,8 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 正好就是本條的觸發條件**。⚠️ **但那三份手冊都不啟動 Energy-Saving-App**
 （2026-08-29 實查：兩份零次提及、OVS 那份唯一一次在講別的端點），
 所以**對照著那些手冊操作不會發作**；會發作的是**把同樣的網路狀態帶到 ESA 有在跑的環境**。
-手冊：`doc/2026-07-30_full_test_runbook.md` §1d（完整版）、
-`doc/2026-07-29_p4_status_and_test_guide.md`、`doc/2026-08-10_ovs_manual_test_runbook.md`。
+手冊：完整測試 runbook §1d（完整版）、
+P4 進度與測試指南、OVS 手動測試 runbook（三份都是維護者筆記，已不在本 repo）。
 
 📌 那個 `!has_value()` 分支的註解記著一個**已修**的除零：邊數為 0 時算出 `inf`，
 而 `inf >= HIGH_WATER_MARK` 會把整組**開回來**。同一個地方已經踩過一次。
@@ -1002,7 +1002,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   在 P4 上為真、在 OVS 上為假**
 - **根因（OVS）**：`Controller.cpp:55` 靠「在 200 body 裡找錯誤」偵測失敗；
   P4 proxy 會放一個進去，Ryu 的 fire-and-forget `/stats/flowentry/add` 做不到
-- **⚠️ 這在三週前就被預測過**：`doc/2026-07-28_test_coverage_gaps.md` §8 待辦 4 猜對了原因
+- **⚠️ 這在三週前就被預測過**：測試涵蓋缺口清單（維護者筆記，已不在本 repo）§8 待辦 4 猜對了原因
   （"curl fire-and-forget"），08-13 的 fault catalogue C-1 引用它並稱之為
   「最有價值也最容易做」
 - **副作用**：服務出去的表格**混用兩套 match key 詞彙**——poll 來的是 `dl_type`/`nw_dst`，
@@ -2123,8 +2123,8 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 - 🔴 **同一個位置還有一條沒修的**（09-05 夜巡記為 **BUG-17**，Adam 已裁「開單，連兩份文件一起改」，
   **本次不代為登記**）：`validateDataPlaneHomogeneity` 的回傳值被丟棄
   ⇒ **真正的混平面檔案至今仍然是「印 `[error]` 然後照樣起來」**，
-  而 `doc/2026-07-29_p4_status_and_test_guide.md:76` 寫著「拓撲裡 switch 種類不一致會**直接 fatal**
-  並列出是哪些 dpid」、`doc/2026-07-27_p4_bmv2_support_plan.md:213` 寫著「**直接以致命錯誤中止**」
+  而 P4 進度與測試指南第 76 行寫著「拓撲裡 switch 種類不一致會**直接 fatal**
+  並列出是哪些 dpid」、P4 支援計畫第 213 行（兩份都已不在本 repo）寫著「**直接以致命錯誤中止**」
   ——**那兩句是假的**（🟢 兩行都是本條登記者開檔逐字核對的；W15 的修法另外點名了一份
   `architecture.md`，**這棵樹裡沒有那個檔名**，本條不轉述它）。W15 的修法只是讓**打錯的 brand** 到不了那條路。
 - **修法後的行為**（`008de16d`，**2026-09-10 起在 trunk 上**）：node 迴圈裡（door 3a 之後、3b 之前）
@@ -2330,7 +2330,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 [Co-developed with claude code -- Adam]
 
-- **狀態**：**OPEN，不是 NDTwin 的 bug、本身也不是安全問題**（bmv2 的 Thrift port 開放面見 testing manual §2.2「P4：用主機防火牆擋住 bmv2 的 Thrift port（建議）」）——bmv2 的 P4Runtime 伺服器與 thrift CLI 之間的限制。
+- **狀態**：**OPEN，不是 NDTwin 的 bug、本身也不是安全問題**（bmv2 的 Thrift port 開放面見本 repo 的使用指南 `doc/2026-11-05_user-guide.md` 第 5 節「Protecting bmv2's Thrift port」）——bmv2 的 P4Runtime 伺服器與 thrift CLI 之間的限制。
   下面的範圍是 2026-10-16 **量到的**；機制「PI 自己保留每張表的副本，CLI 的寫入繞過它」是**推論**
   （錯誤字串 "Table state out-of-sync with target" 與下面的分布都與它相符，但沒有讀 PI 的碼）。
 - **平面**：P4（bmv2）
@@ -2979,7 +2979,7 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   （2026-09-06 已在網站 repo 更正成「loads the topology anyway」，見〈影響面〉）；
   ② 安裝手冊 §6：「**logs an error naming the mixture when it loads** such a topology」——真；
   ③ 安裝手冊 Step 6.4 註解：「setting it true **only suppresses the startup error**」——真。
-  repo 內另有兩處與 ① 同一邊：`doc/2026-07-29_p4_status_and_test_guide.md:76`（「直接 fatal」）
+  repo 內另有兩處與 ① 同一邊：P4 進度與測試指南第 76 行（「直接 fatal」；該文件已不在本 repo）
   與 `setting/AppConfig.hpp:12-15` 的註解（「the kernel refuses to load a mixed topology」）。
 - **修法**：同質性判定移進 `validateStaticTopologyJson`（**第一個 `add_vertex` 之前**，
   所以被拒絕的檔案留下 `num_vertices == 0`，與 #61／#89／#90／#91 五扇門同一條紀律），
@@ -4393,7 +4393,7 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
     **新寫的閘門要看得懂 0／1／2／4／5，不要把「非 0」一律讀成「有殘留」。**
   - **要退掉**：`tools/test_workflow/ndt:3914-3918` 那兩行改成只印不記，
     閘門 `mutate_ndt_helper_apps_window.sh` 的 **M24** 會立刻紅。
-  文件：`doc/2026-08-17_testing-manual.md` §2.3「Known count under a helper-started sim」。**仍然沒有 live 驗過這一格。**
+  文件：舊測試手冊 §2.3「Known count under a helper-started sim」（已不在本 repo；rc 2 的意思見本 repo 的使用指南 `doc/2026-11-05_user-guide.md` 4.8 節）。**仍然沒有 live 驗過這一格。**
   [Co-developed with claude code -- Adam]
 - **證據**：缺陷 09-05 夜巡 round 2（lw16pw 逐節）；
   **lw351** 的 log 與
@@ -5062,7 +5062,7 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
     **讀 G-43 的人要一起讀 G-53。**
   - 文末那句「`00-COMMON-0911-DAY.md` 02:15 那節可以改寫，但改它是 orchestrator 的事」
     **仍然成立**，而且現在又多一層：那一節講的 rc 值本身換版了。
-  - **手冊那半（FIX-DOC-3）**：`doc/2026-08-17_testing-manual.md` §2.8 原本把這一條寫成
+  - **手冊那半（FIX-DOC-3）**：舊測試手冊（已不在本 repo）§2.8 原本把這一條寫成
     「FIX-NDT-6 在修」的現行缺陷。現在改成已修，並指明兩半分別由 `1656bdba`（rc）與
     `aab7581e`（note）修掉——不改的話，同一節下面的還原判準會跟它上面那段自相矛盾。
   - ⚠️ 🟠 **轉述**：本 bullet 是修法側原文的轉抄，FIX-DOC-3 **沒有開 lab 重驗**；
@@ -5334,7 +5334,7 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   ⚠️ 🟠 **轉述**：本條由 FIX-DOC-3 抄錄 FIX-NDT-8 §6，**沒有重跑那些閘門、沒有開 lab**；
   親自驗的只有「`af5efa4f` 是 trunk `9f80a33f` 的祖先」與「`ndt help` 今天印的三段」。
 - 🏁 **狀態更新（2026-09-12，FIX-DOC-3）——手冊那半：**
-  - `doc/2026-08-17_testing-manual.md` 有三處把舊 rc 語意寫成指示（FIX-NDT-8 §7-11／§8-9 B），
+  - 舊測試手冊（已不在本 repo）有三處把舊 rc 語意寫成指示（FIX-NDT-8 §7-11／§8-9 B），
     其中 §2.8 的**還原判準**要求 `ndt clean` 回 **rc 0**——而那正是新契約下回 **3** 的狀態
     ⇒ **照手冊做會把一個收乾淨的 lab 判成沒收乾淨**，而那是手冊裡唯一一段教人怎麼判
     「還原了沒」的文字。
@@ -5632,7 +5632,7 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **留下來的那一格**：`test_header_sampling_polling_match_the_reference` 比對的正是 `ndt up ovs` 執行的本 repo 那份，不動。
 - **殘留（沒改）**：還有四處文字說 `ndt up ovs` 跑 NTG 那份：`tools/test_workflow/ndt:4308` 的註解、
   `:4331` 的錯誤訊息（「128 comes from NTG's testbed_topo.py」，操作者看得到）、`:10521` 的註解，
-  以及 `doc/2026-08-17_testing-manual.md:349`（「NTG 自帶的 testbed_topo.py」）。
+  以及舊測試手冊第 349 行（「NTG 自帶的 testbed_topo.py」；已不在本 repo）。
 
 ### G-61 🔴 lab 的 L1 lane 用 Python 3.8 跑 `tests/python`，而 `test_ovs4_sflow.py` 用了 3.9 才有的 `ast.unparse` ⇒ lab 上 ERROR、CI 上看不到
 

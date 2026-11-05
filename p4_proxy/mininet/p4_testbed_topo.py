@@ -31,7 +31,7 @@ import link_telemetry  # noqa: E402
 # Where the switch manifest is written: name -> pid, grpc_host, grpc_port, thrift_port, device_id.
 # P4PowerStrategy needs this to power one switch off without killing the other nine
 # (Mininet switches share the root PID namespace, so `pkill -f simple_switch_grpc` kills
-# all of them). See Phase 7 of doc/2026-07-27_p4_bmv2_support_plan.md.
+# all of them). See tools/p4_power_helper.py, the helper that reads it.
 MANIFEST_PATH = "/tmp/ndtwin_p4_switches.json"
 
 # [Co-developed with claude code -- Adam]

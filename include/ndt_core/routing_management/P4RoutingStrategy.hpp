@@ -18,8 +18,8 @@
  * Group and meter entries are now refused explicitly. P4 has no OpenFlow group or meter
  * concept -- the equivalents would be an ActionSelector and direct/indirect meters, which the
  * proxy does not implement -- so posting to those routes previously produced a silent 404 that
- * nothing observed. Reporting "unsupported" tells the caller the truth, and Phase 4 of
- * doc/2026-07-27_p4_bmv2_support_plan.md is where the P4 pipeline grows an ECMP selector.
+ * nothing observed. Reporting "unsupported" tells the caller the truth until the P4 pipeline
+ * (p4_proxy/p4_src/ndtwin_switch.p4) grows an ECMP selector. [Co-developed with claude code -- Adam]
  */
 class P4RoutingStrategy : public HttpRoutingStrategyBase
 {

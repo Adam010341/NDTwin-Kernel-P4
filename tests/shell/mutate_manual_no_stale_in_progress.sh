@@ -4,14 +4,12 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# What is being protected. doc/2026-08-17_testing-manual.md carried three caveats saying `ndt
-# clean` and `ndt help` misbehave and that FIX-NDT-6 is working on it. FIX-NDT-6 merged at
-# 05:56 on 2026-09-12 (`1656bdba`); one of the three had already been verified wrong by
-# the 2026-09-12 docs edit and was left standing because it was out of its scope. That is KNOWN-ISSUES G-52's
-# shape, and nothing in this repository notices it: a stale caveat stays grammatical forever.
-# The test this gate protects asks git instead -- is the merge that fixes the ticket an ancestor
-# of HEAD -- so the judgement does not decay. These mutations put each half of the old document
-# back, one at a time, and name the case that has to notice.
+# What is being protected. A document that calls a merged fix "being worked on" (KNOWN-ISSUES
+# G-52) stays grammatical forever, and nothing in this repository notices it. The test this gate
+# protects asks git instead -- is the merge that fixes it an ancestor of HEAD -- over every doc
+# page, and checks that the tool still prints the sentences the user guide relies on. These
+# mutations put a stale sentence back, or take an authority away, one at a time, and name the
+# case that has to notice.
 #
 # 🔴 M5 IS THE ONE WORTH READING. It takes `ndt help` away from the TEST. The test's case 1 is
 # a NEGATIVE assertion -- help no longer names three ports -- and an empty help text satisfies
@@ -23,24 +21,22 @@
 # strangers" test is "never say it at all", and that sentence is the only warning before a :8000
 # nobody here started. M7 deletes it from a copy of `ndt`; case 4 has to go red.
 #
-# 🔴 M4 IS THE SUPPRESSION'S OWN TEST. A manual line may quote what the document USED to say --
-# that same docs edit left such a note at §2.8 -- and the test skips lines carrying 原本 or 曾經. M4 takes
-# that word away, and case 6 has to see the line again. A suppression nobody can make fire is a
-# suppression that covers everything.
+# M17 takes the own-fabric sentence out of a copy of the user guide; case 8 has to go red.
+# M18 and C2 show that the sweep's 原本/曾經 suppression is the word, not a blanket.
 #
-# C1 at the end is the opposite: an HTML-comment reword, which must leave every case green. A
-# gate with no surviving control cannot tell "the suite is sensitive" from "stuck red".
+# C1 at the end is the opposite: an HTML-comment reword in the guide, which must leave every case
+# green. A gate with no surviving control cannot tell "the suite is sensitive" from "stuck red".
 #
 # 🔴 ONE MUTATION, ONE ANCHOR. Two mutations sharing an anchor string make
 # check_gate_anchors.py's ok(N) count anchor CELLS rather than mutations, and the difference is
 # printed nowhere (KNOWN-ISSUES G-56). Every anchor below is distinct.
 #
-# 🔴 NOTHING IN THE WORKTREE IS WRITTEN. All three files under test are copied into a temp dir
-# and the copies are mutated; the test takes MANUAL= and NDT=, and is itself run from a copy for
-# M5, so this gate is safe to run while another session is editing this shared tree. Byte
-# identity of all three originals is asserted at the end anyway.
+# 🔴 NOTHING IN THE WORKTREE IS WRITTEN. The guide, `ndt`, the test and KNOWN-ISSUES are copied
+# into a temp dir and the copies are mutated; the test takes MANUAL= (the guide), NDT= and DOCS=,
+# and is itself run from a copy for M5, so this gate is safe to run while another session is
+# editing this shared tree. Byte identity of the originals is asserted at the end anyway.
 #
-# Nothing is built, no lab is touched: the test reads a markdown file, reads `ndt`, runs `ndt
+# Nothing is built, no lab is touched: the test reads markdown files, reads `ndt`, runs `ndt
 # help` (which prints text and exits 2) and asks git about ancestry.
 #
 # Exit: 0  every mutation caught by the case it names, the control survived, originals intact
@@ -51,7 +47,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
-MANUAL="$REPO/doc/2026-08-17_testing-manual.md"
+MANUAL="$REPO/doc/2026-11-05_user-guide.md"
 TEST="$REPO/tests/shell/test_manual_no_stale_in_progress.sh"
 NDT="$REPO/tools/test_workflow/ndt"
 KI="$REPO/doc/KNOWN-ISSUES.md"
@@ -238,10 +234,10 @@ report_pages() {   # report_pages <label> <test> <manual> <ndt> <page tree> <cas
     fi
 }
 
-control() {   # control <label> <test file> <manual file> <ndt file>
+control() {   # control <label> <test file> <manual file> <ndt file> [page tree]
     local out rc
     CONTROLS=$((CONTROLS + 1))
-    out=$(run_triple "$2" "$3" "$4"); rc=$?
+    out=$(run_quad "$2" "$3" "$4" "${5:-$PGS}"); rc=$?
     if [[ "$rc" -eq 0 ]]; then
         printf '  SURVIVED      %-54s (control, as required)\n' "$1"
     else
@@ -268,27 +264,6 @@ echo "mutations:"
 P=$(manual_copy)
 D=$(ndt_copy)
 
-# --- M1: the first caveat goes back to being an open defect -- the ticket itself ---------------
-M=$(manual_mutant m1 '🏁 **已修（工具的措辭，2026-09-12 merge `1656bdba`，FIX-NDT-6 ④）'$'\x1f''🔴 **已知（工具的措辭，FIX-NDT-6 在修）')
-report "M1: the clean caveat is written back as an open defect" "$TEST" "$M" "$D" "case 5a caveat 'clean-calls-your-fabric-residue' is retracted and says what merged it"
-
-# --- M2: a caveat loses its marker, so the sweep cannot be seen ---------------------------------
-M=$(manual_mutant m2 '<!-- NDT-MERGED-CAVEAT:BEGIN help-deep-names-three-ports 1656bdba -->
-'$'\x1f''')
-report "M2: the help caveat's BEGIN marker is deleted" "$TEST" "$M" "$D" "case 5b caveat 'help-deep-names-three-ports' is retracted and says what merged it"
-
-# --- M3: a caveat claims a merge that is not in the tree ----------------------------------------
-# "Fixed in <sha>" is only worth reading if the sha is reachable from here. A typo, a
-# branch-local sha, or a commit that was rebased away must not read as merged.
-M=$(manual_mutant m3 'NDT-MERGED-CAVEAT:BEGIN clean-advises-deep-on-your-own 1656bdba'$'\x1f''NDT-MERGED-CAVEAT:BEGIN clean-advises-deep-on-your-own 0123456789ab')
-report "M3: a caveat names a merge that is not an ancestor" "$TEST" "$M" "$D" "case 5c caveat 'clean-advises-deep-on-your-own' is retracted and says what merged it"
-
-# --- M4: the suppression word is taken off a line that really is stale ---------------------------
-# §2.8's note is allowed to quote the old wording because it says 原本. Without that word the
-# line is an ordinary claim about a merged ticket, and case 6 has to see it.
-M=$(manual_mutant m4 '原本這裡寫「FIX-NDT-6 在修」'$'\x1f''這裡寫的是「FIX-NDT-6 在修」')
-report "M4: a stale line loses the word that excuses it" "$TEST" "$M" "$D" "case 6  no line calls a ticket unfixed when its merge is already in the tree"
-
 # --- M5: the TEST loses its authority ------------------------------------------------------------
 # 🔴 The direction that matters. Case 1 is a negative assertion about `ndt help`; with no help
 # text at all it is green, and only case 2 stands between this file and a certificate that means
@@ -296,27 +271,15 @@ report "M4: a stale line loses the word that excuses it" "$TEST" "$M" "$D" "case
 T=$(test_mutant m5 'HELP="$(bash "$NDT" help 2>&1)"'$'\x1f''HELP=""')
 report "M5: the test stops reading 'ndt help'" "$T" "$P" "$D" "case 2  'ndt help' prints --deep's size out of ports.sh's table"
 
-# --- M6: the sweep takes the measurement with it --------------------------------------------------
-# Retracting a caveat is not deleting what was measured under it. The pids are the record.
-M=$(manual_mutant m6 'XX  residue: ndtwin_kernel pid 2511227 holding :8000 (tcp)'$'\x1f''XX  residue: 某個行程 holding :8000 (tcp)')
-report "M6: the measured record is dropped with the caveat" "$TEST" "$M" "$D" "case 9  the measured record inside the third caveat survived the sweep"
-
 # --- M7: the tool is 'fixed' by never warning about a stranger again --------------------------------
 N=$(ndt_mutant m7 'err "   this stack did not start it; to kill it too:  ndt down --deep"'$'\x1f''err "   nothing on this machine is worth mentioning"')
 report_isolated "M7: 'ndt' stops warning about a stranger at all" "$TEST" "$P" "$N" \
                 "case 4  'ndt' still has the stranger sentence (the fix was not 'never say it')" \
                 "case 2  'ndt help' prints --deep's size out of ports.sh's table"
 
-# --- M8: the branch caveat goes back to claiming the branch never landed ---------------------------
-# 🔴 The spelling case 6 could not see. This line names no ticket code, only a branch, which is
-# exactly how it sat in §2.6 for two days after `bb9301a0`.
-M=$(manual_mutant m8 '🏁 **那個分支 `fix/e21-link-endpoints-in-contract` 已併入 trunk**（merge `bb9301a0`，2026-09-10）。'$'\x1f''分支 `fix/e21-link-endpoints-in-contract`，**未併入 trunk**。')
-report "M8: the branch caveat says 未併入 again" "$TEST" "$M" "$D" "case 6b no line calls a branch unmerged when its merge is already in the tree"
-
-# --- M9: the fourth caveat loses its END marker -------------------------------------------------------
-M=$(manual_mutant m9 '<!-- NDT-MERGED-CAVEAT:END e21-contract-branch-only -->
-'$'\x1f''')
-report "M9: the branch caveat's END marker is deleted" "$TEST" "$M" "$D" "case 5d caveat 'e21-contract-branch-only' is retracted and says what merged it"
+# --- M17: the user guide stops quoting the own-fabric sentence ------------------------------------
+M=$(manual_mutant m17 'registered under `the fabric this stack started is still up`;'$'\x1f''registered under a heading of their own;')
+report "M17: the guide drops clean's own-fabric sentence" "$TEST" "$M" "$D" "case 8  the user guide quotes clean's own-fabric sentence"
 
 # --- M10-M15: the doc-wide sweep (cases 11 / 11b / 11c) ------------------------------------------------
 # 🔴 THESE SIX ARE ABOUT ONE BARGAIN. Cases 11/11b let a block off when it retracts IN PLACE --
@@ -365,7 +328,7 @@ report_pages "M14: the sweep reads one line instead of the block" "$T" "$P" "$D"
 # directory, a renamed pathspec -- without anybody editing a document.
 T=$(test_mutant m15 'mapfile -t PAGES < <(git -C "$REPO" ls-files'$'\x1f''mapfile -t PAGES < <(true "$REPO" ls-files')
 report_pages "M15: the sweep's page list comes back empty" "$T" "$P" "$D" "$PGS" \
-             "case 11c the sweep has a page list, all of it readable, with the manual and KNOWN-ISSUES in it"
+             "case 11c the sweep has a page list, all of it readable, with the user guide and KNOWN-ISSUES in it"
 
 # --- M16: the failure line goes back to printing empty parentheses --------------------------------------
 # 🔴 NOT A HYPOTHETICAL MUTATION -- IT IS THE FIRST RUN OF THIS SWEEP. `merge_branch`'s sed wanted
@@ -378,22 +341,40 @@ T=$(test_mutant m16 '^.*Merge \(fix\/[^: ]*\)'$'\x1f''.* Merge \(fix\/[^: ]*\)')
 report_pages "M16: the failure line stops naming the branch it matched" "$T" "$P" "$D" "$PGS" \
              "case 11d a violation line names the branch the lookup matched, not just the sha"
 
-# --- C1 (control): a source comment is reworded; nothing about the contract changes -----------------
+# --- M18 / C2: the past-wording suppression is the word, not a blanket ----------------------------------
+# [Co-developed with claude code -- Adam]
+# A block carrying 原本 or 曾經 is skipped as a record of what a page used to say. The page list
+# comes from git, so the fixture is a synthetic paragraph inside the page tree's KNOWN-ISSUES copy,
+# placed before a heading so it is a block of its own: it names a merged fix as 在修 and no merge.
+# C2 keeps the word and must stay green; M18 is the same sentence without it, and case 11 must see it.
+G=$(ki_mutant m18 '### G-61 '$'\x1f''這裡寫的是「FIX-NDT-6 在修」（sweep fixture）。'$'\n\n''### G-61 ')
+report_pages "M18: a stale block without the past-wording word" "$TEST" "$P" "$D" "$G" \
+             "case 11  no doc page calls a ticket unfixed without naming the merge that landed it"
 echo
-M=$(manual_mutant c1 '🟠 轉述 KNOWN-ISSUES G-45 與 fix/FIX-NDT-6-SUMMARY.md §1.4：本單沒有開 lab 重跑'$'\x1f''🟠 轉述 KNOWN-ISSUES G-45 與 fix/FIX-NDT-6-SUMMARY.md §1.4；本單並未開 lab 重跑')
+G=$(ki_mutant c2 '### G-60 '$'\x1f''原本這裡寫「FIX-NDT-6 在修」（sweep fixture）。'$'\n\n''### G-60 ')
+if [[ -z "$G" ]]; then
+    echo "  DID-NOT-APPLY C2 (control): the heading it writes before is not there" >&2
+    UNAPPLIED=$((UNAPPLIED + 1))
+else
+    control "C2 (control): the same block, marked as past wording" "$TEST" "$P" "$D" "$G"
+fi
+
+# --- C1 (control): an HTML comment in the guide is reworded; nothing about the contract changes ------
+echo
+M=$(manual_mutant c1 'Keep exactly one table of these codes in this guide.'$'\x1f''Keep only one table of these codes in this guide.')
 if [[ -z "$M" ]]; then
     echo "  DID-NOT-APPLY C1 (control): the comment it rewords is not there" >&2
     UNAPPLIED=$((UNAPPLIED + 1))
 else
-    control "C1 (control): a source comment is reworded" "$TEST" "$M" "$D"
+    control "C1 (control): an HTML comment in the guide is reworded" "$TEST" "$M" "$D"
 fi
 
 echo
 ok=0
 if [[ "$(sha256sum "$MANUAL" | cut -d' ' -f1)" == "$MANUAL_SHA" ]]; then
-    echo "baseline byte-identical: yes  doc/2026-08-17_testing-manual.md"
+    echo "baseline byte-identical: yes  doc/2026-11-05_user-guide.md"
 else
-    echo "🔴 THE MANUAL CHANGED WHILE THIS GATE RAN -- a mutant may be on disk"; ok=1
+    echo "🔴 THE USER GUIDE CHANGED WHILE THIS GATE RAN -- a mutant may be on disk"; ok=1
 fi
 if [[ "$(sha256sum "$TEST" | cut -d' ' -f1)" == "$TEST_SHA" ]]; then
     echo "baseline byte-identical: yes  tests/shell/test_manual_no_stale_in_progress.sh"

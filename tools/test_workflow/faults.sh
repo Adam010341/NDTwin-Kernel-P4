@@ -18,7 +18,7 @@
 #     and netem-scoped tc sudoers rules cannot put htb back. So the round is void unless
 #     qdisc_snapshot.sh says the tree came back identical -- an injection tool that
 #     corrupts the experiment silently is worse than no injection tool.
-#     (doc/2026-07-29_environment_gotchas.md, 2026-08-13 OVS round.)
+#     (Seen live on an OVS fabric on 2026-08-13.)
 #
 #  2. The verdict comes from tools/twin_audit/criteria.py -- the same three-channel quorum
 #     the twin lie detector uses, not a second opinion written here. One source of truth
@@ -54,7 +54,7 @@
 #                        FAULTS_TC="sudo -n mnexec -a $(bash tools/test_workflow/faults.sh --topo-pid) tc"
 #                      (mnexec runs as root, so tc under it needs no tc rule; it needs a NOPASSWD
 #                      rule for mnexec instead, which the User Manual does not set up either --
-#                      the same escape doc/2026-07-29_environment_gotchas.md uses for ovs-ofctl.)
+#                      the same escape that works for ovs-ofctl.)
 #   FAULTS_KILL        signal command            (default: sudo -n kill)
 #                      Same trap as FAULTS_TC, found on this script's first live round
 #                      (2026-08-16): the default needs a NOPASSWD sudoers rule for `kill`, which
@@ -297,7 +297,7 @@ inject_link_loss() {
             err "refusing to touch $dev: cannot find a safe netem attach point."
             err "Either the qdisc tree is unreadable, or netem is already present from an"
             err "earlier round. Attaching at root here would replace TCLink's htb and the"
-            err "shaping cannot be restored (doc/2026-07-29_environment_gotchas.md)."
+            err "shaping cannot be restored (doc/2026-11-05_user-guide.md, section 4.9)."  # [Co-developed with claude code -- Adam]
             return 1
         fi
         # shellcheck disable=SC2086 -- $where is deliberately two words ("parent 5:1").
@@ -308,8 +308,8 @@ inject_link_loss() {
                 # replaces TCLink's htb -- and not the safe `parent H:D` form this script computes
                 # cannot do the right thing on a shaped interface at all. mnexec runs as uid 0, so
                 # tc under it needs no tc rule, but it needs a NOPASSWD rule for mnexec, which the
-                # User Manual does not set up; doc/2026-07-29_environment_gotchas.md uses the same
-                # escape for ovs-ofctl.
+                # User Manual does not set up (doc/2026-11-05_user-guide.md section 3.2 has it); the
+                # same escape works for ovs-ofctl. [Co-developed with claude code -- Adam]
                 err "The safe 'parent' form failed. If the tc sudoers rules here cover only the 'root netem' form,"
                 err "sudo cannot run the safe form, and the root form destroys TCLink's htb. Run tc as uid 0"
                 err "under mnexec instead (this needs a NOPASSWD sudoers rule for mnexec, which the User Manual"
@@ -379,7 +379,7 @@ inject_proc_signal() {
     [[ -n "$OPT_PID" ]] || { err "proc_signal needs --pid"; return 2; }
     # A PID, never a pattern. Mininet nodes share a PID namespace, so `pkill -f
     # simple_switch_grpc` takes out all ten switches -- a documented past bug here
-    # (doc/2026-07-27_p4_bmv2_support_plan.md item 6). pkill is a forbidden word on this path.
+    # (item 6 of the P4 support plan's defect list). pkill is a forbidden word on this path. [Co-developed with claude code -- Adam]
     if ! run_signal "$signal" "$OPT_PID"; then
         err "could not send SIG${signal} to $OPT_PID"
         return 1

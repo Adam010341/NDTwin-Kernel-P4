@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Top-level driver for the test layers in doc/2026-07-27_testing_workflow.md.
+# Top-level driver for the test layers (L0 build, L1 unit tests, L2-L4 against a running stack).
 #
 # Picks the right set of layers for what you are doing, so the common cases are one
 # command instead of six:

@@ -4,7 +4,7 @@ ndtwin-p4-power -- start or stop exactly one bmv2 switch, as root, from the mani
 
 [Co-developed with claude code -- Adam]
 
-This is the privileged half of P4PowerStrategy (Phase 7, doc/2026-08-11_phase7_power_mechanism_design.md).
+This is the privileged half of P4PowerStrategy (P4 power control).
 The kernel runs as an unprivileged user and simple_switch_grpc runs as root, so the kill and the
 relaunch both need root; rather than putting `kill` into NOPASSWD -- which would let the invoking
 user kill any root process on the machine -- this script is the one command its NOPASSWD sudoers
@@ -48,9 +48,9 @@ import time
 MANIFEST_PATH = "/tmp/ndtwin_p4_switches.json"
 EXPECTED_NAME = "simple_switch_grpc"
 #: /proc/<pid>/comm is capped at 15 characters (TASK_COMM_LEN - 1), so the full binary name
-#: can never appear there -- comparing against it would refuse every real switch. The manual
-#: test runbook documents the same trap for `pgrep -x`. comm gets the truncation; the
-#: untruncated name is checked against /proc/<pid>/cmdline, which is not capped.
+#: can never appear there -- comparing against it would refuse every real switch. The
+#: user guide documents the same trap for `pgrep -x`. comm gets the truncation; the
+#: untruncated name is checked against /proc/<pid>/cmdline, which is not capped. [Co-developed with claude code -- Adam]
 EXPECTED_COMM = EXPECTED_NAME[:15]
 
 #: How long "off" waits for the process to disappear after SIGTERM.

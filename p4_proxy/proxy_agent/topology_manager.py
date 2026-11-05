@@ -36,7 +36,7 @@ from proxy_agent.sflow_emitter import DEFAULT_TOPO_FILE
 # rather than the one flow the caller named, and the table read back priority 0 rather than 100.
 # A Traffic-Engineering rule aimed at one flow silently became a rule for a whole destination.
 #
-# The plan's own rule is "where P4 genuinely cannot honour a semantic, the proxy returns an
+# The P4 support's guiding rule is "where P4 genuinely cannot honour a semantic, the proxy returns an
 # explicit error the kernel logs -- never a silent success", so these are rejected now. The
 # pipeline does have a ternary flow_5tuple table with real priority (Phase 4); wiring route_flow
 # to it is the proper fix and remains Phase 3 work. Until then, refusing beats pretending.
@@ -1918,7 +1918,7 @@ class TopologyManager:
         clone session or a lost stream (switch_liveness does serve `stream_alive`, but the
         kernel's verdict reads only probe_ok, probe_age_s and last_lldp_age_s), which is why
         readopt is still needed. This method is what makes "powered on" true rather than merely reported:
-        doc/2026-08-11_phase7_power_mechanism_design.md, decision 2.
+        a restarted bmv2 has no pipeline, clone session, mastership or routes until readopt pushes them.
 
         A *new* client rather than restarting the old one: stop() closes the channel, poisons
         the outbound queue with its None sentinel, and lets the receiver thread die -- every
@@ -2020,7 +2020,7 @@ class TopologyManager:
                 # success (live 2026-08-13, s1 and s6). If this stream did not become primary
                 # inside the settle window there is nothing readopt can safely do; leave the
                 # switch untouched and say why.
-                # doc/2026-08-13_p4runtime-mastership-spec-check.md, scenarios 2 and 3.
+                # p4_proxy/reference/p4runtime_mastership_probe.py, scenarios 2 and 3.
                 if not getattr(new, "mastership_confirmed", False):
                     try:
                         new.stop()

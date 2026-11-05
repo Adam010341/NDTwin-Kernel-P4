@@ -106,8 +106,8 @@ journal = build_rule_journal()
 # [Co-developed with claude code -- Adam]
 # Pushes switch/link state to the kernel the way Ryu does. The push is the fast path for
 # isEnabled, not the only one -- the kernel's topology poll enables reported switches itself
-# (TopologyAndFlowMonitor.cpp:566). See kernel_notifier.py's module docstring and Phase 6 of
-# doc/2026-07-27_p4_bmv2_support_plan.md.
+# (TopologyAndFlowMonitor.cpp:566). See kernel_notifier.py's module docstring for what it
+# pushes and why.
 kernel = KernelNotifier()
 
 # Built with the notifier already in hand: the beacon watchdog reports link failures through it,
@@ -193,9 +193,9 @@ app.include_router(api_routes.router)
 # mapping TopologyManager already owns. POST /p4/readopt/{dpid} replaces topo.switches[dpid]
 # with a freshly built client, and that copy did not follow: shutdown then stopped the
 # already-stopped old client and left the new one's channel and receiver thread running.
-# topo.switches is the authority, so shutdown reads it directly. (The Phase 7 design doc said
-# this swap was safe because only api_routes and main held references -- main's reference was
-# exactly the problem.)
+# topo.switches is the authority, so shutdown reads it directly. (The P4 power design notes, kept
+# outside this repository, said this swap was safe because only api_routes and main held
+# references -- main's reference was exactly the problem.)
 # [Co-developed with claude code -- Adam]
 # batch_size defaults to 1, which the emitter documents as byte-for-byte the old
 # behaviour -- so with the variable unset nothing changes, and the A/B differs by one value.
@@ -2278,7 +2278,7 @@ async def startup(clients_factory, sflow, kernel, topo,
     broken = set()
     # [Co-developed with claude code -- Adam]
     # 🔴 THE PUSH GATE. SetForwardingPipelineConfig empties every table, and a switch accepts it
-    # from a client whose arbitration it refused (doc/2026-08-13_p4runtime-mastership-spec-check.md,
+    # from a client whose arbitration it refused (p4_proxy/reference/p4runtime_mastership_probe.py,
     # scenario 2): a second proxy started against a live fabric would wipe the first one's
     # switches and both would report success. Readopt has refused such a push since 08-13
     # (TopologyManager.readopt_switch); startup waits here for `mastership_confirmed` and pushes

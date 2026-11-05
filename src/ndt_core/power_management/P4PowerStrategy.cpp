@@ -1,6 +1,6 @@
 // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
 // [Co-developed with claude code -- Adam] -- Phase 7: real power operations via the manifest
-// helper and the proxy's readopt endpoint. Design: doc/2026-08-11_phase7_power_mechanism_design.md.
+// helper and the proxy's readopt endpoint. The helper's rules: tools/p4_power_helper.py.
 #include "ndt_core/power_management/P4PowerStrategy.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "utils/Logger.hpp"
@@ -12,7 +12,7 @@ namespace
 // The privileged half. It lives outside the repo on purpose: it needs a NOPASSWD sudoers rule
 // that names this exact root-owned path, because NOPASSWD on a user-writable file is root for
 // whoever can edit the file. The User Manual does not set that rule up; the install steps are
-// in tools/p4_power_helper.py's docstring and in the design doc, and that file is the source.
+// in tools/p4_power_helper.py's docstring, and that file is the source.
 //
 // The helper addresses processes only by manifest PID, re-verified against /proc before any
 // signal. Never by name: the pre-Phase-7 implementation's `pkill -f simple_switch_grpc`
@@ -104,8 +104,8 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
                                  "ndtwin-p4-power could not start " + swName +
                                      "; the switch was not brought up. See the kernel log for "
                                      "the helper's reason (stale manifest, occupied port, or "
-                                     "the helper is not installed -- the design doc has the "
-                                     "install steps).");
+                                     "the helper is not installed -- the header of "
+                                     "tools/p4_power_helper.py has the install steps).");
     }
 
     // [Co-developed with claude code -- Adam]
@@ -163,7 +163,7 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
         // control_plane, mastership or pipeline, and the probe answers FAILED_PRECONDITION
         // (measured) and reads as not alive; once the pipeline is committed (step routes, or
         // curl's 30 s timeout while the proxy finishes the readopt) it reads alive although
-        // the routes may be missing (the known residual in the design doc, corrected
+        // the routes may be missing (the known readopt residual, see POST /p4/readopt in doc/2026-01-02_ndt_api.md; corrected
         // 2026-10-04). Two exceptions to "normally": a pipeline push whose 5 s deadline expires
         // after bmv2 committed leaves a pipeline although the step is `pipeline`, and the
         // curl-timeout case can also end at `pipeline`, because every readopt queues on the
@@ -256,7 +256,7 @@ P4PowerStrategy::powerOff(Graph::vertex_descriptor node,
     // re-verifying the PID still is that switch -- and exits 0 only once the process is
     // gone. Everything the twin then observes follows honestly: the stream dies with the
     // process, the probe starts failing, and the watchdog reroutes around the switch, which
-    // is exactly the plan's acceptance criterion ("the other nine keep forwarding").
+    // is exactly the acceptance criterion P4 power control was built to ("the other nine keep forwarding").
     if (!executeSystemCommand(std::string("sudo -n ") + kPowerHelper + " off " + swName))
     {
         // Left running is left up: marking the vertex down over a failed kill would be the

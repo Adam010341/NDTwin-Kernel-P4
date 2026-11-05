@@ -6,7 +6,7 @@
  * [Co-developed with claude code -- Adam]
  *
  * Expected behaviour is derived from:
- *   1. doc/2026-07-27_p4_bmv2_support_plan.md (issues #4, #5, #12)
+ *   1. the P4 support plan, issues #4, #5, #12 (maintainer notes, not in this repository)
  *   2. include/ndt_core/collection/TopologyAndFlowMonitor.hpp (interface contract)
  *   3. setting/StaticNetworkTopologyMininet_10Switches.json (data)
  *   4. what the external tools that read the topology API expect
@@ -117,7 +117,7 @@ struct MininetTopologyFixture
 } // namespace
 
 // [Co-developed with claude code -- Adam]
-// Spec source: doc/2026-07-27_p4_bmv2_support_plan.md issue #4 —
+// Spec source: the P4 support plan, issue #4 —
 // "node 和 edge 初始都是 false"
 TEST(MininetTopologyTest, AfterLoadingTopologyAllVerticesAndEdgesAreDisabled)
 {

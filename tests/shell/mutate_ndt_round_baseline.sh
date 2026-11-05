@@ -234,9 +234,9 @@ m=$(mutant n15 "$NDT" \
 report "N15: 'ndt release' leaves the round baseline behind" "$m" \
        "🔴 the round baseline is gone"
 
-# The NAME, separately. `.prev` is the lab.handoff precedent and it is what the testing manual
+# The NAME, separately. `.prev` is the lab.handoff precedent and it is what the user guide
 # and the round-closing checklist tell a human to go and read; a rename to anything else is
-# indistinguishable from a delete for everyone who was told where to look.
+# indistinguishable from a delete for everyone who was told where to look. [Co-developed with claude code -- Adam]
 m=$(mutant n16 "$NDT" \
     '        mv -f "$rb" "$rb.prev" 2>/dev/null \' \
     '        mv -f "$rb" "$rb.old" 2>/dev/null \')

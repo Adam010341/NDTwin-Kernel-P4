@@ -35,7 +35,7 @@
  * case the endpoint actually admits, because renew takes a lock NAME and no holder: a caller
  * that has never held anything can revive a dead lease and keep every other client out of a lock
  * nobody owns. The contract said 412 for an expired lock the whole time
- * (doc/2026-07-27_testing_workflow.md:221).
+ * (today doc/2026-01-02_ndt_api.md §28).
  *
  * 🔑 The test was not wrong about the code -- it described it exactly. It was wrong about which
  * of the two it was doing, and a passing test that pins a defect is worse than no test, because

@@ -324,8 +324,8 @@ class P4RuntimeClient:
         # That is what happened on 2026-08-13: readopt against a healthy switch wiped its
         # tables, installed nothing, and reported success. bmv2 was conforming throughout --
         # measured against a third-party client, a genuinely non-primary push is refused with
-        # PERMISSION_DENIED. doc/2026-08-13_p4runtime-mastership-spec-check.md has the three
-        # scenarios; p4_proxy/reference/p4runtime_mastership_probe.py re-runs them.
+        # PERMISSION_DENIED. p4_proxy/reference/p4runtime_mastership_probe.py runs the three
+        # scenarios against a bmv2 and describes them in its header.
         #
         # 🔴 An app package bids higher than (0, 1) precisely so that an impostor presenting the
         # old default is refused with PERMISSION_DENIED instead of being accepted. And under

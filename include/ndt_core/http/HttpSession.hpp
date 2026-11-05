@@ -992,7 +992,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      *
      * @note There is still no owner token. Naming a held lock releases it whoever took it; the
      *       400/412 split only guarantees a request acts on the lock it named, not that the
-     *       caller was entitled to it. Tracked in doc/2026-07-28_test_coverage_gaps.md §1.1.
+     *       caller was entitled to it. Tracked in doc/KNOWN-ISSUES.md B-2. [Co-developed with claude code -- Adam]
      *
      * @param[out] res HTTP response returned to the caller (JSON).
      */

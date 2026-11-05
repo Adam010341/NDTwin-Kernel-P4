@@ -14,9 +14,9 @@ the P4 proxy agent impersonates Ryu's northbound API, and the proxy synthesises 
 into the kernel's existing UDP:6343 collector, so `FlowLinkUsageCollector`, `Classifier`
 and every `/ndt/` metric work without modification.
 
-Progress, remaining work and the per-phase plan: `doc/2026-07-27_p4_bmv2_support_plan.md`.
-Test procedure and measured results: `doc/2026-07-29_p4_status_and_test_guide.md`.
-Machine-specific setup traps: `doc/2026-07-29_environment_gotchas.md`.
+Setting up and running the P4 plane, and the common setup traps: `doc/2026-11-05_user-guide.md`.
+The per-phase plan and the test notes of that time are maintainer notes, kept outside this
+repository.
 
 ### Fixed (crashes and silent failures)
 

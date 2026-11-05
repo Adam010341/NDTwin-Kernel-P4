@@ -4098,11 +4098,11 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
 
         // 412, matching the sibling renew handler, for the one condition that is left here:
         // a real lock that is simply not held. tools/contract_test/spec.py expects [412, 400,
-        // 404]; doc/2026-07-27_testing_workflow.md documents 412. 423 Locked, which
+        // 404]; the test-layer design of the time documented 412. 423 Locked, which
         // doc/2026-01-02_ndt_api.md mentions, is the wrong shape: 423 means "the resource is
         // locked so your request cannot proceed", whereas the failure here is "there was no
         // lock of yours to release". An invalid type no longer arrives here -- it is a 400
-        // above -- so it has been dropped from the sentence.
+        // above -- so it has been dropped from the sentence. [Co-developed with claude code -- Adam]
         //
         // [Co-developed with claude code -- Adam]
         // 🔴 A-9. This used to be `if (!unlock(type))`, and `unlock` answered **true** for a
@@ -4114,7 +4114,7 @@ HttpSession::handleReleaseLock(http::response<http::string_body>& res)
         //
         // Four outcomes now, three answers. The status for `expired` stays 412 so that
         // tools/contract_test/spec.py's release_lock_not_held ([412, 400, 404]) and
-        // doc/2026-07-27_testing_workflow.md keep their meaning; the body carries the
+        // doc/2026-01-02_ndt_api.md §29 keep their meaning; the body carries the
         // distinction, because "your lease was reclaimed" and "there was nothing here" are
         // different things to have just learned.
         std::uint64_t releasedLease = 0;

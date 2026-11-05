@@ -994,7 +994,7 @@ def main(argv):
         print("      is a race the suite can only be trusted at -j1: put getpid() / os.getpid() / "
               "$$ in the name,")
         print("      or let mkdtemp / mkstemp / mktemp -d choose it. See "
-              "doc/2026-08-17_testing-manual.md.")
+              "the header of tests/shell/check_test_tmpdirs.py.")  # [Co-developed with claude code -- Adam]
     else:
         print("check_test_tmpdirs: %d file(s) scanned, 0 fixed temp paths" % scanned)
     # 🔴 The verdict. mutate_check_test_tmpdirs.sh M3 pins this to 0: a gate that finds everything

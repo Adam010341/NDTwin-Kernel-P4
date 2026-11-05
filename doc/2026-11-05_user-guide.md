@@ -578,7 +578,20 @@ port of the table, including processes you did not start; use it only on a machi
 `ndt clean` stops nothing and deletes no logs, but it does clear a selected `--app` package (it prints
 `app package cleared: <dir>`). It does not check veths, OVS bridges or namespaces, and nothing in `ndt`
 removes `.test_run/`. `ndt status` counts leftover netem qdiscs in its `tc netem` row
-(`N qdisc(s) still shaping -- leftover fault injection?`); `ndt down` removes them along with the interfaces. To remove one by hand on a shaped link, delete the netem at the parent that `tc qdisc show` reports, not at `root`: `del ... root` also removes the bandwidth shaping.
+(`N qdisc(s) still shaping -- leftover fault injection?`); `ndt down` removes them along with the
+interfaces.
+
+Links shaped with a bandwidth, which are every link of the OVS 128-host fabric and the links of an app
+package that sets `bandwidth_bps`, are built with Mininet's TCLink and have an htb carrying the limit as
+their root qdisc. On such a link, `tc qdisc add ... root netem` replaces the htb rather than adding a
+layer, and a later `tc qdisc del ... root` restores the kernel's default qdisc, not the htb: the shaping
+stays gone until `ndt down` and `ndt up` rebuild the links. Attach netem under htb's default class
+(`parent <handle>:<default>` from `tc qdisc show`) and delete it at that same parent, as
+`tools/test_workflow/faults.sh` does; on an unshaped link `root` is fine. A package link that sets
+`delay_ms` already carries a netem (at the root when it has no bandwidth, under the htb when it has one),
+and `faults.sh` refuses to add a second netem to any interface that has one.
+`tools/test_workflow/qdisc_snapshot.sh save` before an injection and `diff` after it show whether the
+qdisc tree came back unchanged.
 
 ### 4.10 Exit codes of `up`, `down` and `clean`
 
@@ -710,7 +723,9 @@ Logs are in `.test_run/logs/` of the checkout: `kernel.log`, `p4_proxy.log`, `ry
 - Run `kill` or `pkill` inside a Mininet host: Mininet isolates only the network namespace, so the
   process id space is the machine's.
 - Bring a link down with `ifconfig <iface> down` on bmv2: it stops forwarding for the whole switch. Cut
-  one link with `tc netem loss 100%` on both ends.
+  one link with `tc netem loss 100%` on both ends, attached where `tools/test_workflow/faults.sh`
+  attaches it: under htb's default class on a link shaped with a bandwidth, at `root` on an unshaped
+  one. A link with a declared delay already has a netem, and `faults.sh` will not add another (4.9).
 - Recompile the P4 pipeline while a fabric is up (4.6).
 
 **Protecting bmv2's Thrift port.** bmv2's Thrift server (port 9090 + the switch's dpid, so

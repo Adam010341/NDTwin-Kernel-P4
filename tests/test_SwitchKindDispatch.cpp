@@ -1,7 +1,7 @@
 // [Co-developed with claude code -- Adam]
 //
-// Tests for the typed switch-kind dispatch introduced in Phase 1 of
-// doc/2026-07-27_p4_bmv2_support_plan.md.
+// Tests for the typed switch-kind dispatch introduced in Phase 1 of the P4 support plan
+// (maintainer notes, not in this repository).
 //
 // Before this, choosing between the OpenFlow and P4 strategies compared
 // VertexProperties::brandName against the literal "BMv2" in three separate places, and an
