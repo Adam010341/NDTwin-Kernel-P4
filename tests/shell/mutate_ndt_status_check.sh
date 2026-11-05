@@ -336,6 +336,26 @@ m=$(mutant s4 "$NDT" \
 report "S4: the grants row stops saying it could not be tested" "$m" \
        "  the grants row says it could not be tested"
 
+# --- [Co-developed with claude code -- Adam] a failed `ndtwin-lab status` call is "unknown" (group T) -------------
+m=$(mutant t1 "$NDT" \
+    '        *) tsess="unknown (ndtwin-lab status failed)"
+           problems+=("the topo session could not be checked: the '"'"'ndtwin-lab status'"'"' call failed") ;;' \
+    '        *) tsess=absent ;;')
+report "T1: a status call that failed is printed as an absent session again" "$m" \
+       "🔴 a status call that failed is printed as unknown"
+
+m=$(mutant t2 "$NDT" \
+    '           problems+=("the topo session could not be checked: the '"'"'ndtwin-lab status'"'"' call failed") ;;' \
+    '           : ;;')
+report "T2: an unknown topo session is not a --check problem" "$m" \
+       "  naming the cause as a problem"
+
+m=$(mutant t3 "$NDT" \
+    '        1) tsess=absent ;;' \
+    '        1) tsess="unknown (ndtwin-lab status failed)" ;;')
+report "T3 (control): a session that is not listed is printed as unknown too" "$m" \
+       "control: a session that is not listed is printed as absent"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

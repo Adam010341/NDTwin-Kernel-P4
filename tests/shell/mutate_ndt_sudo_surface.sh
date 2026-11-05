@@ -305,8 +305,8 @@ report "N1 (control): ovs_bridge_count always says 'cannot tell'" "$m" \
        "control, permitted: ovs_bridge_count returns 0 and the real count"
 
 m=$(mutant n2 "$NDT" \
-    '    topo_session || return 0' \
-    '    topo_session && return 1
+    '    (( srv == 0 )) || return 0' \
+    '    (( srv == 0 )) && return 1
     return 0')
 report "N2 (control): the guard refuses whenever a topo session exists" "$m" \
        "control, permitted and no bridges: the guard PASSES and the bring-up proceeds"
@@ -322,6 +322,83 @@ m=$(mutant n4 "$NDT" \
     '    return 2')
 report "N4 (control): dataplane_ok never tests, so a real outage is never seen" "$m" \
        "control, permitted and the ping really fails: 'not forwarding' is still said"
+
+# --- [Co-developed with claude code -- Adam] a failed `ndtwin-lab status` call is "cannot tell" ------------------
+# The session look in guard_no_live_ovs used to be `topo_session || return 0`: rc 2 (the status call itself
+# failed) fell through as "no session" and the bring-up went on over a fabric it could not check.
+
+m=$(mutant l1 "$NDT" \
+    '    if (( srv == 2 )); then' \
+    '    if false; then')
+report "L1: the guard reads a failed status call as 'no session' again" "$m" \
+       "status call failed: the guard stops the bring-up"
+
+m=$(mutant l2 "$NDT" \
+    '    out="$(TERM="${TERM:-dumb}" sudo -n "$LAB" status 2>/dev/null)" || return 2' \
+    '    out="$(TERM="${TERM:-dumb}" sudo -n "$LAB" status 2>/dev/null)" || return 1')
+report "L2: lab_session answers 1 ('no session') for a failed status call" "$m" \
+       "real lab_session: a refused status call is rc 2, not 'no session'"
+
+m=$(mutant l3 "$NDT" \
+    '        ndt_sudo_explain lab | while IFS= read -r l; do err "$l"; done' \
+    '        :')
+report "L3: the stop does not print the sudoers line that fixes it" "$m" \
+       "status call failed: and prints the line that fixes it"
+
+m=$(mutant l4 "$SURFACE" \
+    'so `ndt up p4` stops before it touches the fabric, ' \
+    'so `ndt status` reports an empty lab, ')
+report "L4: the lab row goes back to claiming an empty lab" "$m" \
+       "the lab row says what ndt does now: stops before the fabric"
+
+m=$(mutant l5 "$SURFACE" \
+    'still calls topo-stop and cleanup (the missing grant refuses those too, so its sweep fails)' \
+    'skips the orderly stop')
+report "L5: the lab row goes back to claiming a skipped stop" "$m" \
+       "the lab row no longer claims a skipped stop"
+
+m=$(mutant l6 "$NDT" \
+    '    if (( srv == 2 )); then' \
+    '    if (( srv != 0 )); then')
+report "L6 (control): the guard stops whenever there is no session too" "$m" \
+       "control, real lab_session: and the guard PASSES"
+
+m=$(mutant l7 "$NDT" \
+    '    if (( srv == 2 )); then' \
+    '    if true; then')
+report "L7 (control): the guard stops for every session look" "$m" \
+       "control, real lab_session: no bridges under it, the guard PASSES"
+
+# --- [Co-developed with claude code -- Adam] the row's sentence about `ndt down`, the hint's third case, the fake sudo ---
+m=$(mutant l8 "$SURFACE" \
+    'still calls topo-stop and cleanup (the missing grant refuses those too, so its sweep fails)' \
+    'still runs its stop and sweep')
+report "L8: the lab row says ndt down still runs its stop and sweep again" "$m" \
+       "the lab row says down's stop and sweep are refused too"
+
+m=$(mutant l9 "$NDT" \
+    '    case $p in' \
+    '    case $(( p == 2 ? 1 : p )) in')
+report "L9: the hint answers 'the reason is sudo' when the probe could not tell" "$m" \
+       "status call failed, probe cannot read sudo: the hint quotes what sudo said"
+
+m=$(mutant l10 "$NDT" \
+    '(no sudo, or $(ndt_sudo_field lab 3) is not installed)' \
+    '(no sudo, or the helper is not installed)')
+report "L10: the hint for a missing helper does not name its path" "$m" \
+       "status call failed, helper not installed: the hint says so and names the path"
+
+m=$(mutant l11 "$NDT" \
+    '        0) err "   the grant is permitted but the call did not answer; try:  sudo -n $LAB status" ;;' \
+    '        0) : ;;')
+report "L11 (control): the hint says nothing when the grant is permitted" "$m" \
+       "control, probe says granted: the hint says the grant is permitted"
+
+t=$(tmutant t2 "$TEST" \
+    'if [[ "$base" == ndtwin-lab && "$(dirname "$1")" != "$(dirname "$0")" ]]; then' \
+    'if false; then')
+report_test "T2: the suite's fake sudo runs any ndtwin-lab it is given" "$t" \
+       "injection took effect: the fake sudo refuses an ndtwin-lab outside the fixture"
 
 echo
 [[ "$(sha256sum "$SURFACE" | cut -d' ' -f1)" == "$BASE_SURFACE" ]] || { echo "🔴 baseline CHANGED -- sudo_surface.sh was written during the gate"; exit 3; }

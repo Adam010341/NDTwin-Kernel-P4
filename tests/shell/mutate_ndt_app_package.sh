@@ -2039,6 +2039,27 @@ cat > "$A/c6.new" <<'EOF'
 EOF
 check_control "C6: the session look written as two (( )) tests" c6
 
+# [Co-developed with claude code -- Adam] The seconds ndt prints are elapsed seconds (the suite's fake sleep moves
+# SECONDS with its clock): the bridge-exited line and the success line each put back to the poll index.
+cat > "$A/m141.old" <<'EOF'
+            (( bridge_gone )) && err "the bridge exited: its topo session was gone at two checks in a row ($(( SECONDS - t0 ))s), before the fabric came up"
+EOF
+cat > "$A/m141.new" <<'EOF'
+            (( bridge_gone )) && err "the bridge exited: its topo session was gone at two checks in a row (${i}s), before the fabric came up"
+EOF
+check_fires "M141: the bridge-exited line prints the poll index as seconds" m141 \
+            "🔴 with the elapsed seconds (5), not the poll index (6)" \
+            "🔴 with the elapsed seconds (23), not the poll index (24)"
+
+cat > "$A/m142.old" <<'EOF'
+        ok "$n switches up after $(( SECONDS - t0 ))s, manifest written"
+EOF
+cat > "$A/m142.new" <<'EOF'
+        ok "$n switches up after ${i}s, manifest written"
+EOF
+check_fires "M142: the success line prints the poll index as seconds" m142 \
+            "🔴 saying the elapsed 40 s, not the 41st poll"
+
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then

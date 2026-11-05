@@ -1591,6 +1591,94 @@ m=$(mutant m126 "$NDT" \
 report "M126: a file this run left unreadable is read as empty and put back over" "$m" \
        "🔴 a knob this run left unreadable is not overwritten with the earlier bytes"
 
+# [Co-developed with claude code -- Adam] Section 27: a failed `ndtwin-lab status` call (lab_session rc 2) is
+# "cannot tell". Each site put back to reading it as "no session", then each site widened to refuse the
+# answers it must not refuse. The sweep and the stop share a variable, so their anchors carry the next line.
+#   M127  the orphan sweep reads rc 2 as "no session" and sweeps
+m=$(mutant m127 "$NDT" \
+    '            topo_session; sess_rc=$?
+            if (( sess_rc == 2 )); then' \
+    '            topo_session; sess_rc=$?; (( sess_rc == 2 )) && sess_rc=1
+            if (( sess_rc == 2 )); then')
+# (Not the rc cell: the stop before the new fabric, M128's site, refuses the same answer and keeps rc 1.)
+report "M127: bmv2 with an unreadable session are swept as orphans" "$m" \
+       "🔴 and cleanup was never run"
+
+#   M128  the fabric start reads rc 2 as "no session to stop"
+m=$(mutant m128 "$NDT" \
+    '        topo_session; sess_rc=$?
+        if (( sess_rc == 2 )); then' \
+    '        topo_session; sess_rc=$?; (( sess_rc == 2 )) && sess_rc=1
+        if (( sess_rc == 2 )); then')
+# (Not the rc cell: a fabric that is started here never comes up on the stubbed machine, which is rc 1 too.)
+report "M128: a fabric is started over a session that could not be looked at" "$m" \
+       "🔴 and topo-start was never run"
+
+#   M129  the rollback's last look reads rc 2 as "no session"
+m=$(mutant m129 "$NDT" \
+    '            2) err "rollback: cannot tell whether the topo session is still present (the '"'"'ndtwin-lab status'"'"' call failed)"; left=1 ;;' \
+    '            2) : ;;')
+# (Not the rc cell: the bring-up being rolled back failed, which is rc 1 whatever the last look says.)
+report "M129: a rollback that cannot see the session reads clean" "$m" \
+       "🔴 it says it cannot tell whether the topo session is still present"
+
+#   M130  ndt clean reads rc 2 as "no topo session"
+m=$(mutant m130 "$NDT" \
+    '        *) err "cannot tell whether a topo session is present: the '"'"'ndtwin-lab status'"'"' call failed"; rc=1 ;;' \
+    '        *) ok "no topo session" ;;')
+report "M130: ndt clean says 'no topo session' for a status call that failed" "$m" \
+       "🔴 'ndt clean' that cannot see the session is rc 1, not clean"
+
+#   M131  lab_subject counts an unreadable session as nothing
+m=$(mutant m131 "$NDT" \
+    '        2) echo "whether a topo tmux session exists could not be checked (the '"'"'ndtwin-lab status'"'"' call failed)"; found=1 ;;' \
+    '        2) : ;;')
+report "M131: an unreadable session is not part of what a teardown is about" "$m" \
+       "🔴 a lab whose session cannot be read is a subject (rc 0)"
+
+#   N127..N131  the same sites widened until they refuse the answers they must not refuse
+m=$(mutant n127 "$NDT" \
+    '            topo_session; sess_rc=$?
+            if (( sess_rc == 2 )); then' \
+    '            topo_session; sess_rc=$?
+            if (( sess_rc != 0 )); then')
+report "N127: the sweep refuses whenever there is no session too" "$m" \
+       "control: the same processes with no session ARE swept, and the bring-up goes on"
+
+m=$(mutant n128 "$NDT" \
+    '        topo_session; sess_rc=$?
+        if (( sess_rc == 2 )); then' \
+    '        topo_session; sess_rc=$?
+        if (( sess_rc != 0 )); then')
+report "N128: the fabric start refuses whenever there is no session too" "$m" \
+       "control: no session and nothing to stop, the fabric starts"
+
+m=$(mutant n129 "$NDT" \
+    '            2) err "rollback: cannot tell whether the topo session is still present' \
+    '            *) err "rollback: cannot tell whether the topo session is still present')
+report "N129: the rollback cannot tell whenever the session is absent too" "$m" \
+       "control: the same rollback with a readable, absent session is clean"
+
+m=$(mutant n130 "$NDT" \
+    '        1) ok "no topo session" ;;' \
+    '        1) err "cannot tell whether a topo session is present: the '"'"'ndtwin-lab status'"'"' call failed"; rc=1 ;;')
+report "N130: ndt clean cannot tell whenever the session is absent too" "$m" \
+       "control: with a readable, absent session it says so"
+
+m=$(mutant n131 "$NDT" \
+    '        2) echo "whether a topo tmux session exists could not be checked' \
+    '        *) echo "whether a topo tmux session exists could not be checked')
+report "N131: lab_subject finds a session whenever there is none too" "$m" \
+       "control: a lab with no session and nothing else is no subject (rc 1)"
+
+#   M132  [Co-developed with claude code -- Adam] the whole-helper-refused `ndt down` (section 27): cmd_clean's rc-2 answer
+#         put back to "no topo session" leaves the session unmentioned there
+m=$(mutant m132 "$NDT" \
+    '        *) err "cannot tell whether a topo session is present: the '"'"'ndtwin-lab status'"'"' call failed"; rc=1 ;;' \
+    '        *) ok "no topo session" ;;')
+report "M132: ndt down with the whole helper refused reads the session as absent" "$m" \
+       "  its verify step says it cannot tell whether a topo session is present"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

@@ -1419,6 +1419,28 @@ lab_session() {
 
 topo_session() { lab_session topo; }
 
+# lab_status_failed_hint -- the lines that belong under "the ndtwin-lab status call failed": is the
+# grant the reason, and if so the sudoers line that fixes it. The same two helpers the OVS branch of
+# guard_no_live_ovs uses (ndt_sudo_probe, ndt_sudo_explain), asked about the `lab` row.
+# [Co-developed with claude code -- Adam]
+lab_status_failed_hint() {
+    local l p
+    ndt_sudo_probe lab; p=$?
+    case $p in
+        0) err "   the grant is permitted but the call did not answer; try:  sudo -n $LAB status" ;;
+        1) err "   the reason is sudo, not the lab:"
+           ndt_sudo_explain lab | while IFS= read -r l; do err "$l"; done ;;
+        # The probe could not tell either (rc 2): no sudo, the helper is not installed, or sudo said
+        # something ndt cannot read. Neither "sudo refused" nor a sudoers line is true then, so this says
+        # what ndt_sudo_report says for the same answer. [Co-developed with claude code -- Adam]
+        *) if [[ -n "$NDT_SUDO_UNREAD" ]]; then
+               err "   the status call could not be tested: sudo answered \"$NDT_SUDO_UNREAD\", which ndt cannot read as granted or refused"
+           else
+               err "   the status call could not be tested on this machine (no sudo, or $(ndt_sudo_field lab 3) is not installed)"
+           fi ;;
+    esac
+}
+
 # --- which tree the ROOT helper runs in, resolved READ-ONLY ------------------------
 #
 # [Co-developed with claude code -- Adam]
@@ -3701,7 +3723,11 @@ rollback_up() {
     # afterwards. Assert after the bounded wait, never instead of it.
     if up_did_start fabric; then
         wait_reaped "${NDT_REAP_WAIT:-20}" || true
-        if topo_session; then err "rollback: the topo session is still present"; left=1; fi
+        # [Co-developed with claude code -- Adam] rc 2 is "the status call failed": not an empty lab.
+        topo_session; case $? in
+            0) err "rollback: the topo session is still present"; left=1 ;;
+            2) err "rollback: cannot tell whether the topo session is still present (the 'ndtwin-lab status' call failed)"; left=1 ;;
+        esac
         [[ "$(bmv2_count)" -ne 0 ]] && { err "rollback: $(bmv2_count) bmv2 process(es) still running"; left=1; }
         [[ "$(mn_count)"   -ne 0 ]] && { err "rollback: $(mn_count) host/switch process(es) still running"; left=1; }
     fi
@@ -4124,7 +4150,22 @@ up_p4() {
         if topo_session && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -ne "$hosts" ]]; then
             info "the running fabric has $live_hosts hosts, this run wants $hosts; rebuilding it"
         fi
-        if [[ "$n" -gt 0 ]] && ! topo_session; then
+        # [Co-developed with claude code -- Adam]
+        # 🔴 Three answers, not two. "No topo session" is what lets bmv2 processes be called orphans and
+        # swept; a status call that FAILED (rc 2) says nothing about a session, and sweeping on it
+        # would kill a fabric a session owns. Asked only when there is something to sweep, as before.
+        local sess_rc=1
+        if [[ "$n" -gt 0 ]]; then
+            topo_session; sess_rc=$?
+            if (( sess_rc == 2 )); then
+                err "$n bmv2 process(es) are running and it cannot tell whether a topo session owns them:"
+                err "the 'ndtwin-lab status' call failed. They are not swept, because they may be a live fabric."
+                lab_status_failed_hint
+                refusal_unwind "the topo session could not be checked; nothing was swept or built"
+                return 1
+            fi
+        fi
+        if [[ "$n" -gt 0 ]] && (( sess_rc == 1 )); then
             # Orphans outlive `mn -c`. Which ports that costs, and why the resulting error
             # reads like a P4 pipeline problem, is now a row in ports.sh rather than a
             # sentence here -- and the row is printed, so the operator sees the actual held
@@ -4158,7 +4199,17 @@ up_p4() {
         # [Co-developed with claude code -- Adam] Stop its heartbeat
         # first. Left running, the `heartbeat start` below answers "already running" for the
         # OLD fabric's daemon, which then exits when its fabric goes and leaves this one with none.
-        topo_session && { info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
+        # [Co-developed with claude code -- Adam] rc 2 (the status call failed) is not "no session to stop":
+        # a fabric started over a session nobody could look at is the thing the guard above refuses.
+        topo_session; sess_rc=$?
+        if (( sess_rc == 2 )); then
+            err "cannot tell whether a topo session is running: the 'ndtwin-lab status' call failed."
+            err "a fabric is not started over a session that could not be checked, so this stops here."
+            lab_status_failed_hint
+            refusal_unwind "the topo session could not be checked; nothing was built"
+            return 1
+        fi
+        (( sess_rc == 0 )) && { info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
         # Recorded before the call, not after: a topo-start that fails part way through has
         # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.
         up_started fabric
@@ -4225,7 +4276,7 @@ up_p4() {
             rollback_up "the fabric never came up, and a half-built one holds :3005x/:909x"
             return 1
         fi
-        ok "$n switches up after ${i}s, manifest written"
+        ok "$n switches up after $(( SECONDS - t0 ))s, manifest written"
     fi
     # The binary that is *running*, not the one the override file names -- a stale fabric
     # started before an override edit is the difference between 40 and 500 Mbit/s.
@@ -5749,7 +5800,12 @@ lab_subject() {
     local found=0 n f
     n="$(bmv2_count)";  [[ "$n" -gt 0 ]] && { echo "$n bmv2 switch(es)"; found=1; }
     n="$(mn_count)";    [[ "$n" -gt 0 ]] && { echo "$n host/switch process(es)"; found=1; }
-    topo_session && { echo "a topo tmux session"; found=1; }
+    # [Co-developed with claude code -- Adam] A status call that failed (rc 2) is an unknown lab, not an
+    # empty one: it counts as found, so the teardown is about something and `verify clean` is asked.
+    topo_session; case $? in
+        0) echo "a topo tmux session"; found=1 ;;
+        2) echo "whether a topo tmux session exists could not be checked (the 'ndtwin-lab status' call failed)"; found=1 ;;
+    esac
     [[ -e "$MANIFEST" ]] && { echo "the switch manifest ${MANIFEST#$REPO/}"; found=1; }
     while IFS= read -r f; do
         [[ -z "$f" ]] && continue
@@ -6268,7 +6324,12 @@ cmd_clean() {
     n="$(mn_count)"
     if [[ "$n" -eq 0 ]]; then ok "host/switch processes: 0"; else err "host/switch processes: $n still running"; rc=1; fi
 
-    if topo_session; then err "topo tmux session still present"; rc=1; else ok "no topo session"; fi
+    # [Co-developed with claude code -- Adam] rc 2: the status call failed, which is not "no topo session".
+    topo_session; case $? in
+        0) err "topo tmux session still present"; rc=1 ;;
+        1) ok "no topo session" ;;
+        *) err "cannot tell whether a topo session is present: the 'ndtwin-lab status' call failed"; rc=1 ;;
+    esac
 
     if [[ -e "$MANIFEST" ]]; then err "switch manifest still present: $MANIFEST"; rc=1; else ok "no switch manifest"; fi
 
@@ -6796,8 +6857,19 @@ ovs_daemon_running() {
 # It still only asks when a topo session exists, as before: bridges belonging to something else
 # on the machine are not this command's business. [Co-developed with claude code -- Adam]
 guard_no_live_ovs() {
-    topo_session || return 0
-    local n brc
+    # [Co-developed with claude code -- Adam]
+    # 🔴 Three answers from the session look, as from the OVS look below: rc 2 is "the `ndtwin-lab status`
+    # call failed", and it stops the bring-up for the same reason an OVS look that failed does. It used to
+    # read as "no session" and return 0, so `ndt up p4` built over a fabric it had not been able to check.
+    local srv n brc
+    topo_session; srv=$?
+    if (( srv == 2 )); then
+        err "cannot tell whether a topo session is running: the 'ndtwin-lab status' call failed."
+        err "'ndt up' runs 'topo-stop' next, which destroys whatever is there, so it stops here."
+        lab_status_failed_hint
+        return 1
+    fi
+    (( srv == 0 )) || return 0
     n="$(ovs_bridge_count)"; brc=$?
     if (( brc != 0 )); then
         err "cannot tell whether an OVS fabric is running under the topo session."
@@ -7662,7 +7734,14 @@ cmd_status() {
     # -- what is running --
     say "running"
     n="$(bmv2_count)"; printf '  %-14s %-8s' "bmv2 switches" "$n"
-    printf '%-14s %s\n' "topo session" "$(topo_session && echo present || echo absent)"
+    # [Co-developed with claude code -- Adam] A status call that failed is "unknown", and a --check problem.
+    local tsess; topo_session; case $? in
+        0) tsess=present ;;
+        1) tsess=absent ;;
+        *) tsess="unknown (ndtwin-lab status failed)"
+           problems+=("the topo session could not be checked: the 'ndtwin-lab status' call failed") ;;
+    esac
+    printf '%-14s %s\n' "topo session" "$tsess"
     n="$(mn_count)";   printf '  %-14s %-8s' "host/switch" "$n"
     printf '%-14s %s\n' "manifest" "$( [[ -e $MANIFEST ]] && echo present || echo absent )"
     printf '  %-14s %-8s' ":8000 kernel" "$(port_open 8000 && echo open || echo closed)"
@@ -11937,7 +12016,10 @@ usage: ndt <command>
                   could not be written before its pidfile was (the file is then
                   kept, and the claim note says which) -- or, since 10-30, the
                   host count an 'ndt up p4 --app' wrote could not be put back (the
-                  claim note says "putting host_count_override back"). All four
+                  claim note says "putting host_count_override back") -- or, since
+                  11-05, the topo session could not be read because the
+                  'ndtwin-lab status' call failed (the assertion cannot tell, and an
+                  unreadable lab is not an empty one). All four
                   steps run whatever the earlier ones did -- a first step that failed is what
                   makes the rest matter -- so the rc is one verdict over all of them
                   and the block above it says which.
@@ -12044,7 +12126,9 @@ usage: ndt <command>
                   exit 0 it had something to be about and none of it is residue; 1
                   something was MEASURED and is still there -- a switch, a host or
                   switch process, the topo session, the manifest, a held port, or a
-                  port this user could not read, because unknown is never clean;
+                  port this user could not read, because unknown is never clean --
+                  and likewise, since 11-05, a topo session the 'ndtwin-lab status'
+                  call could not be read for;
                   3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in
                   .test_run/pids/ naming a live process, and no port in ports.sh's
                   table held.
