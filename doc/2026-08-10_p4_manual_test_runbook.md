@@ -992,7 +992,7 @@ violations (admin_disabled AND is_enabled): 0
 | 症狀 | 先看 | 別誤判成 |
 |---|---|---|
 | `stack.sh up p4` 停在 `waiting for P4 proxy agent` | `.test_run/logs/p4_proxy.log` 找 `ECONNREFUSED` | 不是 proxy bug——bmv2 沒起來 |
-| `stack.sh wait` timeout，`enabled` 不是 10 | `.test_run/logs/p4_proxy.log` 找 `inform_switch_entered` 或 `pipeline push failed` | 不是 kernel 的問題 |
+| `stack.sh wait` timeout，`enabled` 不是 10 | `.test_run/logs/p4_proxy.log` 找 `inform_switch_entered`、`pipeline push failed`、`did not answer at startup` 或 `arbitration was not granted` | 不是 kernel 的問題 |
 | `avg_link_usage` = 0 但有流量 | 流量兩端是不是在同一台交換機 | 不是 bug（設計上排除 host 邊） |
 | `num_of_flows` = 0 | 流量還在跑嗎；那台交換機在路徑上嗎 | 它不是 OpenFlow 規則數 |
 | `{"error":"Not Found"}` | 端點是 GET 還是 POST；是不是多加了 `?dpid=` | 不是功能沒實作 |

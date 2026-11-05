@@ -396,6 +396,10 @@ class ReadoptMastershipGateTest(ReadoptTestBase):
         result = self.readopt(factory=self.factory(mastership_confirmed=False))
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["step"], "mastership")
+        # [Co-developed with claude code -- Adam] startup's refusal quotes this same sentence.
+        self.assertEqual(result["error"], topology_manager.NOT_PRIMARY_ERROR)
+        # A readopt of a switch that is down gets this reply too, so it must not blame only a holder.
+        self.assertIn("the switch is not answering", result["error"])
         self.assertNotIn(("pipeline", 1), self.log,
                          "the pipeline push wipes every table on the switch; a client that "
                          "never became primary must not reach it")
@@ -452,8 +456,8 @@ class ReadoptUnderAnExternalControlPlaneTest(ReadoptTestBase):
     A fabric running `control_plane.mode: external` cannot be readopted: the exercise's own
     controller holds mastership and this proxy's clients bid for nothing. Failing closed was
     already true by accident -- an arbitration-less client never sets `mastership_confirmed`,
-    so the gate above caught it -- but it answered `step: "mastership"` with "the old client
-    (or another controller) likely still holds mastership", which describes a RACE THIS PROXY
+    so the gate above caught it -- but it answered `step: "mastership"` with "the old client or
+    another controller likely still holds mastership", which describes a RACE THIS PROXY
     LOST. What actually happened is that it was configured never to enter the race. An
     operator acts differently on those two: the first says retry or power-cycle, the second
     says this is the mode you asked for.
@@ -960,9 +964,9 @@ class ReadoptRegistersTheSflowAgentTest(unittest.TestCase):
             live.clear()
             live.update(saved)
 
-    def start_up(self, clients, agent_ips):
+    def start_up(self, clients, agent_ips, **kwargs):
         return self.startup.run_startup(clients, agent_ips=agent_ips, sflow=self.emitter,
-                                        package=main.app_package.baseline())
+                                        package=main.app_package.baseline(), **kwargs)
 
     def readopt(self, factory=None):
         factory = factory or (lambda dpid: FakeClient(dpid))
@@ -1047,6 +1051,22 @@ class ReadoptRegistersTheSflowAgentTest(unittest.TestCase):
         self.assertIs(main.telemetry_report()["1"]["sflow_registered"],
                       self.emitter.agent_for(1) is not None,
                       "the disclosure must equal what the emitter holds")
+
+    def test_a_switch_startup_refused_to_push_to_is_registered_by_readopt(self):
+        # [Co-developed with claude code -- Adam]
+        # Startup waited for its arbitration, never got it, and pushed nothing; the switch has an
+        # agent IP, but registration rides the same per-switch steps and was skipped with them.
+        refused = self.startup.FakeClient(1, mastership_confirmed=False, cookie_answer=None)
+        summary, _ = self.start_up({1: refused}, {1: self.IP}, mastership_wait_seconds=0.2)
+        self.assertEqual(summary["broken"], [1])
+        self.assertEqual(refused.events, [], "precondition: nothing was done to it")
+        self.assertIsNone(self.emitter.agent_for(1), "precondition: startup left it unregistered")
+
+        result = self.readopt()
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(self.emitter.registered, {1: self.IP})
+        self.assertIs(main.telemetry_report()["1"]["sflow_registered"], True)
 
     def test_a_switch_with_no_ip_at_startup_is_registered_once_the_topology_names_it(self):
         self.start_up({1: self.startup.FakeClient(1)}, {})

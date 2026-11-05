@@ -8,9 +8,10 @@ import secrets
 import socket
 import sys
 import threading
+import time
 import uvicorn
 from fastapi import FastAPI
-from proxy_agent.topology_manager import TopologyManager
+from proxy_agent.topology_manager import TopologyManager, NOT_PRIMARY_ERROR
 from proxy_agent.p4_client import P4RuntimeClient
 # The module as well as the class: `pipeline_carries_telemetry` is a question
 # about a FILE, asked before any client exists. [Co-developed with claude code -- Adam]
@@ -209,6 +210,12 @@ sflow = SFlowEmitter(batch_size=int(os.environ.get("NDTWIN_SFLOW_BATCH", "1")))
 #: How long to let mastership settle before pushing pipelines. bmv2 accepts the arbitration
 #: message before it has finished electing, and a config push in that window is rejected.
 MASTERSHIP_SETTLE_S = 1.0
+
+#: How long startup waits, once for all switches together, for each client's arbitration to be
+#: confirmed before it pushes a pipeline. A switch still unconfirmed after this gets no pipeline.
+#: Its own number rather than the write deadline's, so retuning one does not move the other.
+#: [Co-developed with claude code -- Adam]
+MASTERSHIP_WAIT_S = 5.0
 
 #: The switches this proxy expects, and how their gRPC ports are numbered. Derived from the
 #: topology model rather than written as `range(1, 11)`: that literal was one of four copies of
@@ -2090,6 +2097,7 @@ api_routes.inject_heartbeat_reports(reroute_report, heartbeat_report)
 
 async def startup(clients_factory, sflow, kernel, topo,
                   *, settle_seconds=MASTERSHIP_SETTLE_S,
+                  mastership_wait_seconds=MASTERSHIP_WAIT_S,
                   agent_ips_loader=load_switch_agent_ips,
                   package=None, journals=None):
     """
@@ -2157,6 +2165,24 @@ async def startup(clients_factory, sflow, kernel, topo,
     clients = clients_factory()
     for dpid, client in clients.items():
         topo.add_switch(dpid, client)
+
+    # [Co-developed with claude code -- Adam]
+    # The push gate below decides which switches this proxy may write to. Until it has, a
+    # switch whose arbitration is not confirmed gets no route from install_initial_routes either:
+    # a packet-in on another switch's stream can run add_link -> install_initial_routes at any
+    # moment from here on. Each switch is let back in the moment it confirms (a push that
+    # follows empties the tables anyway, so a route skipped in this window costs nothing).
+    gated = [] if read_only else [i for i, c in clients.items() if c.json_path]
+    withhold = getattr(topo, "withhold_routes", None)
+    release = getattr(topo, "release_routes", None)
+
+    def confirmed(i):
+        return getattr(clients[i], "mastership_confirmed", False)
+
+    if withhold is not None:
+        for i in gated:
+            if not confirmed(i):
+                withhold(i)
 
     # Which program each switch is about to run, recorded before anything is done to it so the
     # endpoint can answer while the pushes are still in flight. `foreign` is the set the
@@ -2250,8 +2276,62 @@ async def startup(clients_factory, sflow, kernel, topo,
     # The first loop's try/except does not cover this: grpc connects lazily, so start() succeeds
     # against a dead switch and the failure surfaces here, or asynchronously in the stream receiver.
     broken = set()
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE PUSH GATE. SetForwardingPipelineConfig empties every table, and a switch accepts it
+    # from a client whose arbitration it refused (doc/2026-08-13_p4runtime-mastership-spec-check.md,
+    # scenario 2): a second proxy started against a live fabric would wipe the first one's
+    # switches and both would report success. Readopt has refused such a push since 08-13
+    # (TopologyManager.readopt_switch); startup waits here for `mastership_confirmed` and pushes
+    # nothing to a switch that never confirms. ONE deadline for all switches, so N silent
+    # switches cost one wait, not N.
+    #
+    # Why it did not confirm decides the words, not the outcome. A switch that answered step 0's
+    # COOKIE_ONLY read (`_cookies_before_push[i]["unknown"]` is None) is up and not ours:
+    # readopt's own sentence. One that did not answer is down or unreachable, which is what
+    # `broken` was always for, and is told so. Neither is pushed to (fail closed).
+    #
+    # A switch whose step-0 read failed is not waited for: its stream is not retried, so it
+    # cannot confirm, and one switch that is down must not cost the fabric the whole wait.
+    refused = {}  # dpid -> (the log sentence, the short reason the journal and telemetry carry)
+    if gated:
+        def unanswered(i):
+            return (_cookies_before_push.get(i) or {}).get("unknown")
+
+        waiting = [i for i in gated if unanswered(i) is None]
+        deadline = time.monotonic() + mastership_wait_seconds
+        while True:
+            for i in [i for i in waiting if confirmed(i)]:
+                waiting.remove(i)
+                if release is not None:
+                    release(i)
+            if not waiting or time.monotonic() >= deadline:
+                break
+            await asyncio.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
+        for i in gated:
+            if confirmed(i):
+                if release is not None:
+                    release(i)
+            elif unanswered(i) is None:
+                refused[i] = (NOT_PRIMARY_ERROR,
+                              "no pipeline was pushed, this proxy is not primary on it")
+            else:
+                said = f"did not answer at startup ({unanswered(i)}); no pipeline was pushed"
+                refused[i] = (said, f"the switch {said}")
+            # [Co-developed with claude code -- Adam]
+            # Withheld here as well as at the top: the flag can drop after the first look (a
+            # later arbitration message overwrites it, a lost stream clears it), and a switch
+            # that read as confirmed then is released above but is refused here.
+            if i in refused and withhold is not None:
+                withhold(i)
     for i, client in clients.items():
         if read_only or not client.json_path:
+            continue
+        if i in refused:
+            broken.add(i)
+            print(f"[Proxy Agent] Switch {i}: {refused[i][0]}")
+            # [Co-developed with claude code -- Adam]
+            # Withheld when it was classified (above): no route and no /stats/flowentry write
+            # until a readopt or a proxy restart confirms this proxy.
             continue
         # KNOWN-ISSUES A-4c: the push empties this switch, and the rules a previous proxy wrote
         # through /stats/flowentry/* under the cookie it held go with it. They are reported
@@ -2275,13 +2355,21 @@ async def startup(clients_factory, sflow, kernel, topo,
             close(i, before["cookie"], "proxy_restart", client, cookie_unknown=before["unknown"])
 
     if broken:
+        # [Co-developed with claude code -- Adam]
         # Loud and explicit about the consequence, because a partially-started proxy looks healthy.
-        # These switches keep their P4RuntimeClient, so the liveness poller still probes them and
-        # `GET /p4/switch_state` reports probe_ok=false -- which is what lets the kernel show them as
-        # down rather than merely absent. What they do not get is `inform_switch_entered`: isEnabled
-        # means "the control plane can drive this switch", and one with no pipeline cannot forward.
-        print(f"[Proxy Agent] {len(broken)} of {len(clients)} switches have no pipeline "
-              f"({sorted(broken)}); they will report as down and will not be enabled in the graph")
+        # These switches keep their P4RuntimeClient, so the liveness poller still probes them.
+        # The probe is a read that needs no mastership; it fails on a switch that is down or that
+        # holds no pipeline. So a switch that is down, or whose push failed and which kept no
+        # older pipeline, or which answered the startup read with FAILED_PRECONDITION (no pipeline
+        # at all, though it counts as having answered), reports probe_ok=false on
+        # `GET /p4/switch_state`, which is what lets the kernel show it as down rather than merely
+        # absent. One that answered with a pipeline of another controller's, and one whose push
+        # failed but which kept an older pipeline, report probe_ok=true, so they can be listed on
+        # /v1.0/topology/switches and enabled by the kernel's own topology poll. What none of them
+        # get from this proxy is `inform_switch_entered`.
+        print(f"[Proxy Agent] {len(broken)} of {len(clients)} switches have no pipeline from this "
+              f"proxy ({sorted(broken)}); it will not tell the kernel they entered. "
+              f"POST /p4/readopt/<dpid> pushes the pipeline once the cause is gone")
 
     # --- the package's own table entries. [Co-developed with claude code -- Adam] -----------
     #
@@ -2322,10 +2410,10 @@ async def startup(clients_factory, sflow, kernel, topo,
         elif i in broken:
             # With the journal off a readopt replays nothing either, so it is not promised.
             # [Co-developed with claude code -- Adam]
-            journals.note_skipped(i, "the pipeline push failed; a readopt of this switch "
+            what = refused[i][1] if i in refused else "the pipeline push failed"
+            journals.note_skipped(i, f"{what}; a readopt of this switch "
                                      "replays its journal" if journals.enabled else
-                                     "the pipeline push failed, and the table-entry journal "
-                                     "is off")
+                                     f"{what}, and the table-entry journal is off")
         elif not client.json_path:
             # The push loop's own test: no pipeline was pushed, so nothing was emptied, and a
             # replay would meet every journalled entry still there. [Co-developed with claude
@@ -2398,8 +2486,10 @@ async def startup(clients_factory, sflow, kernel, topo,
             # The clone session lives in the pipeline's PRE, so there is nothing to program it into.
             # [Co-developed with claude code -- Adam]
             _record_telemetry(i, source, False, False, _ids_of(client),
-                              "the pipeline push failed for this switch, so there is no PRE to "
-                              "program a clone session into")
+                              (f"{refused[i][1]}, so no clone session was programmed"
+                               if i in refused else
+                               "the pipeline push failed for this switch, so there is no PRE to "
+                               "program a clone session into"))
             continue
         if i in foreign and source != TELEMETRY_COOPERATIVE:
             # [Co-developed with claude code -- Adam]

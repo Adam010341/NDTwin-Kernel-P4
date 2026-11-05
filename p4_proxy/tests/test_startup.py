@@ -36,6 +36,7 @@ import journal_isolation  # noqa: E402,F401
 import proxy_agent.main as main  # noqa: E402
 from proxy_agent.main import startup  # noqa: E402
 from proxy_agent.sflow_emitter import PacketInIds  # noqa: E402
+from proxy_agent.topology_manager import NOT_PRIMARY_ERROR  # noqa: E402
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
@@ -74,13 +75,33 @@ NDTWIN_PACKET_IN_IDS = PacketInIds(reason=1, ingress_port=2, egress_port=3, fram
                                    sampling_rate=5)
 
 
+#: `FakeClient(cookie_answer=...)` default: the client carries no COOKIE_ONLY reader at all.
+NO_COOKIE_READ = object()
+
+
 class FakeClient:
     """A bmv2 switch that can be made to fail at each independent step."""
 
     def __init__(self, dpid, pipeline_error=None, clone_ok=True, json_path="pipeline.json",
                  stop_error=None, entry_errors=(), packet_in_ids=NDTWIN_PACKET_IN_IDS,
-                 multicast_ok=True):
+                 multicast_ok=True, mastership_confirmed=True, cookie_answer=NO_COOKIE_READ):
         self.dpid = dpid
+        # [Co-developed with claude code -- Adam]
+        # What the real client's arbitration stream sets once the switch names it primary. True by
+        # default: every switch in this file is the primary of its own switch, and the push gate
+        # (startup waits for this flag) must not change what any of them does.
+        self.mastership_confirmed = mastership_confirmed
+        # [Co-developed with claude code -- Adam]
+        # What step 0's COOKIE_ONLY read gets from this switch. Left out, the client has no
+        # `read_pipeline_cookie` at all and step 0 reads that as "did not answer" -- which is what
+        # every test in this file has always had. Given, the switch ANSWERS: a cookie (or None for a
+        # pipeline without one), or an exception to raise (a switch that is down).
+        if cookie_answer is not NO_COOKIE_READ:
+            def read_pipeline_cookie(timeout_s=None):
+                if isinstance(cookie_answer, BaseException):
+                    raise cookie_answer
+                return cookie_answer
+            self.read_pipeline_cookie = read_pipeline_cookie
         self.device_id = dpid
         # [Co-developed with claude code -- Adam]
         # The real client resolves the five packet_in metadata ids out of
@@ -210,7 +231,7 @@ class FakeTopo:
 
 
 def run_startup(clients, *, kernel=None, agent_ips=None, sflow=None, topo=None, package=None,
-                telemetry_knob=None):
+                telemetry_knob=None, mastership_wait_seconds=None, alongside=None):
     """Drives startup with fakes and no settling delay, and returns (summary, parts).
 
     [Co-developed with claude code -- Adam]
@@ -230,12 +251,27 @@ def run_startup(clients, *, kernel=None, agent_ips=None, sflow=None, topo=None, 
     # process, and two of them agreeing on one path is a race that only shows up under -j2.
     knob = telemetry_knob or os.path.join(
         tempfile.gettempdir(), f"ndtwin-no-such-telemetry-override-{os.getpid()}")
+    # Only passed when a test sets it: the default is production's, which a switch that
+    # confirms never waits out. [Co-developed with claude code -- Adam]
+    extra = {} if mastership_wait_seconds is None else {
+        "mastership_wait_seconds": mastership_wait_seconds}
+    async def drive():
+        # `alongside` is a coroutine function run on the SAME event loop while startup runs: how
+        # a test sees whether startup keeps the loop free. [Co-developed with claude code -- Adam]
+        side = asyncio.ensure_future(alongside()) if alongside is not None else None
+        try:
+            return await startup(
+                lambda: clients, sflow, kernel, topo,
+                settle_seconds=0, agent_ips_loader=lambda: ips,
+                package=package if package is not None else app_package.baseline(),
+                **extra,
+            )
+        finally:
+            if side is not None:
+                side.cancel()
+
     with mock.patch.object(main, "TELEMETRY_KNOB_PATH", knob):
-        summary = asyncio.run(startup(
-            lambda: clients, sflow, kernel, topo,
-            settle_seconds=0, agent_ips_loader=lambda: ips,
-            package=package if package is not None else app_package.baseline(),
-        ))
+        summary = asyncio.run(drive())
     return summary, {"kernel": kernel, "sflow": sflow, "topo": topo}
 
 
@@ -1319,6 +1355,429 @@ class ThePackagesPreEntriesAtStartupTest(unittest.TestCase):
         run_startup({1: client}, package=self.package(doc))
         self.assertEqual(client.clone_sessions[-1], (None, None),
                          "the proxy's own default clone session must be the last PRE write")
+
+
+class RecordingTopo(FakeTopo):
+    """FakeTopo that remembers which switches had a Ryu-path generation closed.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.closed = []
+
+    def close_ryu_generation(self, dpid, cookie, cause, client, **kwargs):
+        self.closed.append(dpid)
+
+
+class StartupPushNeedsMastershipTest(unittest.TestCase):
+    """Startup pushes a pipeline only to a switch whose arbitration confirmed this client.
+
+    [Co-developed with claude code -- Adam]
+    SetForwardingPipelineConfig empties every table, and a switch accepts it from a client whose
+    arbitration was refused (doc/2026-08-13_p4runtime-mastership-spec-check.md, scenario 2).
+    Readopt has refused such a push since then; startup pushed to every client regardless.
+    """
+
+    def run_quiet(self, clients, **kwargs):
+        import contextlib
+        import io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            summary, parts = run_startup(clients, **kwargs)
+        return summary, parts, out.getvalue()
+
+    def skipped_reason(self, dpid):
+        return main.table_journals.report(dpid)["replay"]["skipped_reason"]
+
+    def test_a_switch_that_answered_but_never_confirms_is_not_primary_and_untouched(self):
+        # It answered step 0's read (cookie None = a pipeline without one) and still did not
+        # confirm: up, and held by someone else.
+        clients = {1: FakeClient(1), 2: FakeClient(2, mastership_confirmed=False,
+                                                    cookie_answer=None)}
+        topo = RecordingTopo()
+        summary, parts, out = self.run_quiet(clients, mastership_wait_seconds=0.2, topo=topo)
+        self.assertEqual(clients[2].events, [],
+                         "nothing at all was done to a switch this client is not primary on: "
+                         "no pipeline, clone session, multicast group or table entry")
+        self.assertEqual(summary["broken"], [2])
+        self.assertIn("pipeline", clients[1].events)
+        self.assertEqual(parts["kernel"].entered, [1])
+        self.assertIn(f"Switch 2: {NOT_PRIMARY_ERROR}", out)
+        self.assertIn("arbitration was not granted", out)
+        self.assertEqual(
+            self.skipped_reason(2),
+            "no pipeline was pushed, this proxy is not primary on it; "
+            "a readopt of this switch replays its journal")
+        reason = summary["telemetry_report"]["2"]["reason"]
+        self.assertIn("this proxy is not primary on it", reason)
+        self.assertTrue(reason.endswith("so no clone session was programmed"), reason)
+        self.assertEqual(topo.closed, [1], "no Ryu-path loss is recorded for a switch not pushed")
+
+    def test_a_switch_that_did_not_answer_is_told_apart_from_one_held_by_another_controller(self):
+        down = RuntimeError("UNAVAILABLE: connection refused")
+        clients = {1: FakeClient(1), 2: FakeClient(2, mastership_confirmed=False,
+                                                    cookie_answer=down)}
+        topo = RecordingTopo()
+        summary, parts, out = self.run_quiet(clients, mastership_wait_seconds=0.2, topo=topo)
+        self.assertEqual(clients[2].events, [])
+        self.assertEqual(summary["broken"], [2])
+        self.assertIn("Switch 2: did not answer at startup (RuntimeError: UNAVAILABLE: "
+                      "connection refused); no pipeline was pushed", out)
+        self.assertNotIn("arbitration was not granted", out,
+                         "a switch that is down is not a mastership conflict")
+        said = ("the switch did not answer at startup (RuntimeError: UNAVAILABLE: connection "
+                "refused); no pipeline was pushed")
+        self.assertEqual(self.skipped_reason(2),
+                         f"{said}; a readopt of this switch replays its journal")
+        self.assertEqual(summary["telemetry_report"]["2"]["reason"],
+                         f"{said}, so no clone session was programmed")
+        self.assertEqual(topo.closed, [1])
+
+    def test_a_switch_that_confirms_after_a_short_delay_is_pushed(self):
+        import threading
+        client = FakeClient(1, mastership_confirmed=False, cookie_answer=None)
+        timer = threading.Timer(0.3, lambda: setattr(client, "mastership_confirmed", True))
+        timer.start()
+        try:
+            summary, parts, _ = self.run_quiet({1: client}, mastership_wait_seconds=5.0)
+        finally:
+            timer.cancel()
+        self.assertIn("pipeline", client.events)
+        self.assertEqual(summary["broken"], [])
+        self.assertEqual(parts["kernel"].entered, [1])
+
+    def test_the_wait_leaves_the_event_loop_free(self):
+        # The confirmation arrives on another thread, so a blocking sleep in the wait would still
+        # see it; what it would do is stall every other task uvicorn has queued.
+        import threading
+        ticks = []
+
+        async def ticker():
+            while True:
+                ticks.append(1)
+                await asyncio.sleep(0.01)
+
+        client = FakeClient(1, mastership_confirmed=False, cookie_answer=None)
+        timer = threading.Timer(0.4, lambda: setattr(client, "mastership_confirmed", True))
+        timer.start()
+        try:
+            self.run_quiet({1: client}, mastership_wait_seconds=5.0, alongside=ticker)
+        finally:
+            timer.cancel()
+        self.assertGreater(len(ticks), 10, "the event loop was blocked while startup waited")
+
+    def test_confirming_switches_do_not_make_startup_wait(self):
+        import time
+        clients = {n: FakeClient(n) for n in range(1, 6)}
+        t0 = time.monotonic()
+        summary, _, _ = self.run_quiet(clients, mastership_wait_seconds=30.0)
+        self.assertLess(time.monotonic() - t0, 5.0)
+        self.assertEqual(summary["broken"], [])
+
+    def test_waits_for_all_switches_share_one_deadline(self):
+        # Four switches that never confirm cost one wait, not four.
+        import time
+        clients = {n: FakeClient(n, mastership_confirmed=False, cookie_answer=None)
+                   for n in range(1, 5)}
+        t0 = time.monotonic()
+        summary, _, _ = self.run_quiet(clients, mastership_wait_seconds=0.5)
+        elapsed = time.monotonic() - t0
+        self.assertEqual(summary["broken"], [1, 2, 3, 4])
+        self.assertGreaterEqual(elapsed, 0.5, "the switches that answered were not waited for")
+        self.assertLess(elapsed, 1.5, f"the waits ran one after another ({elapsed:.2f} s)")
+
+    def test_a_switch_that_did_not_answer_adds_no_wait(self):
+        # Its step-0 read failed and its stream is not retried, so it cannot confirm: waiting the
+        # production 5 s for it would be 5 s lost on a fabric with one switch down.
+        import time
+        clients = {1: FakeClient(1),
+                   2: FakeClient(2, mastership_confirmed=False,
+                                 cookie_answer=RuntimeError("UNAVAILABLE: connection refused"))}
+        t0 = time.monotonic()
+        summary, _, _ = self.run_quiet(clients)  # the default wait, 5 s
+        self.assertLess(time.monotonic() - t0, 2.0, "startup waited for a switch that is down")
+        self.assertEqual(summary["broken"], [2])
+
+    def test_an_external_control_plane_waits_for_nothing(self):
+        # A real external client opens no arbitration stream, so `mastership_confirmed` is False
+        # for its whole life and startup pushes nothing there anyway.
+        import time
+        # `confirm_fabric` does not run on an external fabric, so whatever an earlier test left in
+        # `_cookies_before_push` is what the gate would read: start from none.
+        self.addCleanup(main._cookies_before_push.clear)
+        main._cookies_before_push.clear()
+        clients = {n: FakeClient(n, mastership_confirmed=False) for n in (1, 2)}
+        t0 = time.monotonic()
+        summary, _, _ = self.run_quiet(clients, package=external_package(),
+                                       mastership_wait_seconds=3.0)
+        self.assertLess(time.monotonic() - t0, 1.5, "startup waited on an external fabric")
+        self.assertEqual(summary["broken"], [])
+        self.assertEqual([c.events for c in clients.values()], [[], []])
+
+    def test_the_default_wait_is_five_seconds_and_not_the_write_deadline(self):
+        import inspect
+        default = inspect.signature(startup).parameters["mastership_wait_seconds"].default
+        self.assertEqual(default, 5.0)
+        self.assertIs(default, main.MASTERSHIP_WAIT_S)
+
+
+class StartupRefusedSwitchGetsNoRoutesTest(unittest.TestCase):
+    """A switch startup refused is written no route, at startup or later, until a readopt or a
+    proxy restart confirms this proxy.
+
+    [Co-developed with claude code -- Adam]
+    The real TopologyManager sits behind the startup under test, on an owner-ndtwin foreign
+    fabric (the case where startup writes routes into the package's own tables). h1 -- s1 -- s2
+    -- h2, with s2 never confirming.
+    """
+
+    def setUp(self):
+        saved = (dict(main._fabric), dict(main._capabilities))
+
+        def restore():
+            main._fabric.clear()
+            main._fabric.update(saved[0])
+            main._capabilities.clear()
+            main._capabilities.update(saved[1])
+        self.addCleanup(restore)
+
+    def run_it(self, confirms_s2=False, alongside=None, wait=0.05, s2_cookie=None, with_s3=False):
+        from tests.test_declared_links import SeedingTopo, a_foreign_package, bound
+        from tests.test_readopt import build_topology
+
+        manager, _old1, _old2 = build_topology()
+
+        class RouteClient(FakeClient):
+            def __init__(self, dpid, **kwargs):
+                super().__init__(dpid, **kwargs)
+                self.routes = []
+                self.route_binding = bound("ndtwin")
+
+            def insert_ipv4_route(self, dst_ip, prefix_len, mac, port):
+                self.routes.append(dst_ip)
+                return True
+
+        class RealRoutesTopo(SeedingTopo):
+            """SeedingTopo whose switch map and route writer are the real manager's."""
+
+            def add_switch(self, dpid, client):
+                # build_topology() already registered stand-ins, and add_switch keeps those.
+                manager.switches[dpid] = client
+
+            def withhold_routes(self, dpid):
+                manager.withhold_routes(dpid)
+
+            def release_routes(self, dpid):
+                manager.release_routes(dpid)
+
+            def install_initial_routes(self, only_dpid=None):
+                return manager.install_initial_routes(only_dpid=only_dpid)
+
+        self.manager = manager
+        self.s1 = RouteClient(1)
+        self.s2 = RouteClient(2, mastership_confirmed=confirms_s2, cookie_answer=s2_cookie)
+        clients = {1: self.s1, 2: self.s2}
+        dpids = (1, 2)
+        if with_s3:
+            # [Co-developed with claude code -- Adam] An answering switch that has not confirmed,
+            # so the wait stays open for it until the test lets it confirm.
+            self.s3 = RouteClient(3, mastership_confirmed=False, cookie_answer=None)
+            clients[3] = self.s3
+            dpids = (1, 2, 3)
+        import contextlib
+        import io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            summary, _ = run_startup(
+                clients, topo=RealRoutesTopo(),
+                package=a_foreign_package(dpids=dpids, owner="ndtwin"),
+                mastership_wait_seconds=wait, alongside=alongside)
+        self.log = out.getvalue()
+        return summary
+
+    def test_no_route_reaches_a_refused_switch_at_startup(self):
+        summary = self.run_it()
+        self.assertEqual(summary["broken"], [2])
+        self.assertEqual(sorted(self.s1.routes), sorted(["10.0.50.1", "10.0.50.2"]),
+                         "the switch that confirmed gets its routes as before")
+        self.assertEqual(self.s2.routes, [], "a route was written to a switch startup refused")
+        self.assertEqual(summary["owned_routes"], {"installed": 2, "attempted": 2})
+
+    def test_none_reaches_it_on_a_later_link_transition_either(self):
+        self.run_it()
+        self.s1.routes.clear()
+        self.manager.install_initial_routes()  # what a discovery or a link transition calls
+        self.assertEqual(self.s2.routes, [])
+        self.assertEqual(len(self.s1.routes), 2)
+
+    def test_a_successful_readopt_lets_it_back_in(self):
+        # Through main.readopt_switch, as production does on a foreign fabric: the topology's
+        # readopt runs with install_routes=False and main refills the routes itself afterwards.
+        from tests.test_declared_links import a_foreign_package, bound
+        from tests.test_readopt import FakeClient as ReadoptClient
+
+        self.run_it()
+
+        def factory(dpid):
+            client = ReadoptClient(dpid)
+            client.route_binding = bound("ndtwin")
+            return client
+
+        made = []
+
+        def recording_factory(dpid):
+            made.append(factory(dpid))
+            return made[-1]
+
+        result = main.readopt_switch(self.manager, 2, recording_factory, None,
+                                     package=a_foreign_package(owner="ndtwin"))
+        self.assertEqual(result["status"], "success", result)
+        self.assertEqual(result["routes"], "installed", result)
+        self.assertEqual(len(made[0].routes), 2, "the readopted switch got its routes")
+        self.assertEqual(self.manager.routes_withheld(), [])
+
+    def test_a_readopt_that_is_refused_keeps_it_out(self):
+        from tests.test_readopt import FakeClient as ReadoptClient
+
+        self.run_it()
+        result = self.manager.readopt_switch(
+            2, lambda dpid: ReadoptClient(dpid, mastership_confirmed=False), None, settle_s=0)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(self.manager.routes_withheld(), [2])
+        self.manager.install_initial_routes()
+        self.assertEqual(self.s2.routes, [])
+
+    def test_a_route_written_while_startup_waits_does_not_reach_an_unconfirmed_switch(self):
+        # A packet-in on another switch's stream can run add_link -> install_initial_routes
+        # before the push loop decides. The switch is withheld from the moment startup begins
+        # and let back in only when it confirms.
+        seen = []
+
+        # run_it builds s2; the coroutine runs beside startup. It writes the route first and
+        # confirms afterwards, so no timer decides the order.
+        async def transition_then_confirm():
+            await asyncio.sleep(0.05)
+            self.manager.install_initial_routes()
+            seen.append(list(self.s2.routes))
+            self.s2.mastership_confirmed = True
+
+        self.run_it(alongside=transition_then_confirm, wait=2.0)
+        self.assertEqual(seen, [[]], "a route reached a switch whose arbitration had not confirmed")
+        self.assertEqual(self.manager.routes_withheld(), [], "the switch confirmed, so it is let in")
+        self.assertEqual(len(self.s2.routes), 2, "and it was pushed and routed as usual")
+
+    def test_a_switch_that_confirms_is_never_withheld(self):
+        self.run_it(confirms_s2=True)
+        self.assertEqual(self.manager.routes_withheld(), [])
+        self.assertEqual(len(self.s2.routes), 2)
+
+    def test_a_switch_that_stops_reading_as_confirmed_is_refused_and_withheld(self):
+        # [Co-developed with claude code -- Adam]
+        # Arbitration messages overwrite the flag and a lost stream clears it, so a switch can
+        # read confirmed when startup looks first and unconfirmed when it classifies. It is then
+        # refused (no pipeline), and has to be kept out of route and flow writes like any other.
+        from tests.test_flowentry_withheld import add_answer
+
+        async def lose_mastership():
+            self.s2.mastership_confirmed = False
+
+        summary = self.run_it(confirms_s2=True, alongside=lose_mastership)
+        self.assertEqual(summary["broken"], [2])
+        self.assertEqual(self.manager.routes_withheld(), [2])
+        self.manager.install_initial_routes()
+        self.assertEqual(self.s2.routes, [], "a route was written to a switch startup refused")
+        status, _ = add_answer(self.manager, 2)
+        self.assertEqual(status, 409)
+
+    def test_a_switch_released_mid_wait_and_then_refused_is_withheld_again(self):
+        # [Co-developed with claude code -- Adam]
+        # s3 keeps the wait open. s2 is withheld at the first look, confirms during the wait and
+        # is released by the wait loop; its flag then drops, and s3 confirms so only s2 is left
+        # at the end. Classification refuses s2 and has to withhold it again, because nothing
+        # else puts it back in the set.
+        withheld_at_start = []
+        released = []
+
+        async def confirm_then_lose_then_let_s3_confirm():
+            withheld_at_start.append(2 in self.manager.routes_withheld())
+            self.s2.mastership_confirmed = True
+            while 2 in self.manager.routes_withheld():
+                await asyncio.sleep(0.01)
+            released.append(True)
+            self.s2.mastership_confirmed = False
+            self.s3.mastership_confirmed = True
+
+        summary = self.run_it(alongside=confirm_then_lose_then_let_s3_confirm, wait=0.5,
+                              with_s3=True)
+        self.assertEqual(withheld_at_start, [True], "s2 was not withheld before the wait")
+        self.assertEqual(released, [True], "s2 was never released during the wait")
+        self.assertIn(main.NOT_PRIMARY_ERROR, self.log)
+        self.assertEqual(summary["broken"], [2])
+        self.assertEqual(self.manager.routes_withheld(), [2])
+        self.manager.install_initial_routes()
+        self.assertEqual(self.s2.routes, [], "a route was written to a switch startup refused")
+
+    def test_only_a_readopt_releases_a_withheld_switch_not_its_flag_turning_true(self):
+        # [Co-developed with claude code -- Adam]
+        # With a lower election id this proxy is a backup, and P4Runtime can make it primary
+        # when the holder leaves. That sets the flag after startup, but nothing was pushed, so
+        # the switch has no pipeline from this proxy and stays out of route and flow writes. Only
+        # a successful readopt releases it, and while this proxy's own startup stream is up a
+        # readopt is refused (the next test). Pins existing behaviour: no code path reads the
+        # flag after startup's classification.
+        from tests.test_flowentry_withheld import add_answer
+
+        self.run_it()
+        self.assertEqual(self.manager.routes_withheld(), [2])
+        self.s2.mastership_confirmed = True
+        self.assertEqual(self.manager.routes_withheld(), [2])
+        self.manager.install_initial_routes()
+        self.assertEqual(self.s2.routes, [], "a route was written to a switch that was not readopted")
+        status, _ = add_answer(self.manager, 2)
+        self.assertEqual(status, 409)
+
+    def test_a_readopt_is_refused_while_the_startup_stream_is_up_and_the_switch_stays_withheld(self):
+        # [Co-developed with claude code -- Adam]
+        # The lower-id case after the holder left: this proxy's startup stream now reads
+        # confirmed (a backup promoted), the switch is still withheld, and a readopt builds a new
+        # client with the same election id. That duplicate is refused, so the readopt answers
+        # step `mastership`, stops only the new client, and the switch stays withheld.
+        from tests.test_readopt import FakeClient as ReadoptClient
+
+        self.run_it()
+        self.s2.mastership_confirmed = True
+        made = []
+
+        def refused_factory(dpid):
+            made.append(ReadoptClient(dpid, mastership_confirmed=False))
+            return made[-1]
+
+        result = self.manager.readopt_switch(2, refused_factory, None, settle_s=0)
+        self.assertEqual(result["status"], "failed", result)
+        self.assertEqual(result["step"], "mastership", result)
+        self.assertEqual(self.manager.routes_withheld(), [2])
+        self.assertNotIn("stop", self.s2.events, "the startup stream was stopped before the gate")
+        self.assertIs(self.manager.switches[2], self.s2, "the refused client replaced the old one")
+        self.assertTrue(made[0].stopped, "the refused new client was left running")
+        self.manager.install_initial_routes()
+        self.assertEqual(self.s2.routes, [])
+
+    def test_a_switch_that_did_not_answer_and_read_as_confirmed_is_withheld_too(self):
+        # [Co-developed with claude code -- Adam]
+        # The other refusal branch: step 0's read failed, so the switch is not waited for, and its
+        # flag read true at the first look and false at classification.
+        async def lose_mastership():
+            self.s2.mastership_confirmed = False
+
+        summary = self.run_it(confirms_s2=True, alongside=lose_mastership,
+                              s2_cookie=RuntimeError("UNAVAILABLE: connection refused"))
+        self.assertIn("did not answer at startup", self.log)
+        self.assertEqual(summary["broken"], [2])
+        self.assertEqual(self.manager.routes_withheld(), [2])
+        self.manager.install_initial_routes()
+        self.assertEqual(self.s2.routes, [], "a route was written to a switch startup refused")
 
 
 if __name__ == "__main__":

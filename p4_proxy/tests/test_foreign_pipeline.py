@@ -398,6 +398,9 @@ class ARealPackageWithRealPipelinesTest(unittest.TestCase):
         client = main.build_p4_client(dpid, package=self.package)
         self.addCleanup(client.channel.close)
         client.stub = RecordingWriteStub()
+        # [Co-developed with claude code -- Adam] startup pushes only to a switch that confirmed
+        # this client as primary; the recording stub always has.
+        client.mastership_confirmed = True
         client.events = []
         return client
 

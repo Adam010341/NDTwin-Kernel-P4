@@ -591,6 +591,45 @@ class LossTopo(test_startup.FakeTopo):
         return self.manager.close_ryu_generation(dpid, cookie, cause, client, **kw)
 
 
+class RefusedThenReadoptedTest(unittest.TestCase):
+    """A switch startup refused to push to, readopted later: its loss record names what it held.
+
+    [Co-developed with claude code -- Adam]
+    Startup stamps this boot's cookie on every client, pushed or not, so the refused switch's
+    client names a generation the switch never held. The readopt must count against the cookie
+    the switch itself reports, or the rules the previous generation wrote are missed and the
+    record reads as a known zero.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="ndt-ryu-lost-")
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.dir, True))
+        self.journal = RuleJournal(os.path.join(self.dir, "rule_journal.jsonl"))
+        self.journal.record("install", 1, FIVE, OUT_3, 100, cookie=G)
+        self.journal.record("install", 1, LPM, OUT_4, 100, cookie=G)
+        self.manager = TopologyManager(journal=self.journal)
+
+    def test_the_readopt_counts_the_rules_of_the_generation_the_switch_held(self):
+        switch = CookieSwitch(1, held=G, mastership_confirmed=False)
+        self.manager.add_switch(1, switch)
+        summary, _ = test_startup.run_startup({1: switch}, topo=LossTopo(self.manager),
+                                              mastership_wait_seconds=0.2)
+        self.assertEqual(summary["broken"], [1])
+        self.assertEqual(switch.events, [], "precondition: nothing was pushed to it")
+        self.assertNotIn(1, self.manager._ryu_rules_lost, "nothing was wiped, so nothing is lost")
+        self.assertNotIn(WIPED_OP, [e["op"] for e in self.journal.entries()])
+        self.assertNotEqual(switch.pipeline_cookie, G,
+                            "precondition: startup stamped a cookie the switch never held")
+
+        result = self.manager.readopt_switch(
+            1, lambda dpid: FakeSwitch(dpid, cookie=switch.pipeline_cookie, held=G), None,
+            settle_s=0)
+
+        self.assertEqual(result["status"], "success", result)
+        record = result["ryu_rules_lost"]
+        self.assertEqual((record["count"], record["cause"]), (2, "readopt"), record)
+
+
 class StartupTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp(prefix="ndt-ryu-lost-")
