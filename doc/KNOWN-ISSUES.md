@@ -4951,13 +4951,19 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   中止本身已修（隨該 merge 生效）；
   **訊息送不到人手上這半沒修，修法要動 `ndtwin-lab`／`ndt`，留給 Adam 裁。**
 - **在哪裡**：`tools/test_workflow/ndtwin-lab:578-581`（`topo-start` ＝ `tmux new-session -d`）、
-  `tools/test_workflow/ndt:2134-2153`（`topo-start` 的 rc ＋ 180 s 等待）。
+  `tools/test_workflow/ndt` 的 `up_p4`（`topo-start` 的 rc ＋ 最多 180 s 的 fabric 等待）。
 - **事實**（該輪 log，用**它自己的** tmux socket
   `-L ndtwin-proxy2-probe` 重現，沒碰 lab 的 `-L ndtwinlab`）：腳本 `exit 1` ⇒
   `new-session rc=0`、`has-session rc=1`、`capture-pane rc=1`。
-  ⇒ `topo-start` 回 **0**，ndt 不會走 `topo-start failed` 那條，而是等滿 180 s 後印
+  ⇒ `topo-start` 回 **0**，ndt 不會走 `topo-start failed` 那條，而是（當時）等滿 180 s 後印
   `fabric did not come up: 0/10 switches, manifest missing` ＋ `look at the pane: sudo -n <LAB> topo-out 40`
   ——**那個 pane 已經不在了**。
+- **現在 ndt 怎麼做（2026-11-05）**：fabric 等待每 3 秒用既有的 `ndtwin-lab status` 看一次
+  topo session，**連兩次沒看到**就不再等滿 180 s（約 6 s），走同一條失敗路徑，先印
+  `the bridge exited: its topo session was gone at two checks in a row (Ns), before the fabric came up`，
+  再印 `fabric did not come up: ...` 與 `.test_run/logs/topo.log` 的尾巴（bridge 自己 tee 的輸出，
+  pane 沒了也讀得到），然後 rollback。`status` 呼叫本身失敗（sudo 拒絕或 helper 出錯，rc 2）
+  **不算**沒看到；session 一直在而 fabric 沒起來的仍等滿 180 s。`look at the pane` 那行照印。
 - **為什麼要記**：改之前同一個情境 ndt 會印 `9/10`，那一行至少說得出「少一台」。
   中止對**手跑**路徑（手冊、128 tutorial）是純賺，對 `ndt up p4` 路徑是**資訊變少**。
 - **候選修法**：(i) `topo-start` 的 session 設 `remain-on-exit on`（一行，pane 留著給 `topo-out` 讀）；

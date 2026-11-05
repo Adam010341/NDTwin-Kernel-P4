@@ -1942,6 +1942,103 @@ EOF
 check_fires "M131: an app knob that fails its read-back is not marked" m131 \
             "🔴 the earlier app knob is back, byte for byte"
 
+# [Co-developed with claude code -- Adam] The fabric wait's watch on the bridge's topo session
+# (section 13b): each part of the rule taken out once, the message's guard and the budget included.
+cat > "$A/m132.old" <<'EOF'
+                (( misses >= 2 )) && { bridge_gone=1; break; }
+EOF
+cat > "$A/m132.new" <<'EOF'
+                :
+EOF
+check_fires "M132: a bridge that has exited is waited for the full 180 s again" m132 \
+            "🔴 and stops waiting within a few seconds, not 180" \
+            "🔴 within a few seconds of the session going" \
+            "🔴 saying the bridge exited"
+
+cat > "$A/m133.old" <<'EOF'
+                (( misses >= 2 )) && { bridge_gone=1; break; }
+EOF
+cat > "$A/m133.new" <<'EOF'
+                (( misses >= 1 )) && { bridge_gone=1; break; }
+EOF
+check_fires "M133 (widening): one missed look ends the wait" m133 \
+            "🔴 a session that is not listed yet at the first look is not read as exited" \
+            "🔴 two odd answers with a good one between them do not end the wait"
+
+cat > "$A/m134.old" <<'EOF'
+            if (( i % 3 == 0 )); then
+EOF
+cat > "$A/m134.new" <<'EOF'
+            if true; then
+EOF
+check_fires "M134: the session is asked every second (a sudo line a second)" m134 \
+            "🔴 the session is asked once every 3 s, not every second"
+
+cat > "$A/m135.old" <<'EOF'
+            (( bridge_gone )) && err "the bridge exited: its topo session was gone at two checks in a row ($(( SECONDS - t0 ))s), before the fabric came up"
+EOF
+cat > "$A/m135.new" <<'EOF'
+            :
+EOF
+check_fires "M135: the early stop does not say the bridge exited" m135 \
+            "🔴 saying the bridge exited"
+
+cat > "$A/m136.old" <<'EOF'
+                topo_session; case $? in 0) misses=0 ;; 1) misses=$(( misses + 1 )) ;; esac
+EOF
+cat > "$A/m136.new" <<'EOF'
+                topo_session; case $? in 0) : ;; 1) misses=$(( misses + 1 )) ;; esac
+EOF
+check_fires "M136 (widening): misses add up across good answers" m136 \
+            "🔴 two odd answers with a good one between them do not end the wait"
+
+cat > "$A/m137.old" <<'EOF'
+            (( bridge_gone )) && err "the bridge exited: its topo session was gone at two checks in a row ($(( SECONDS - t0 ))s), before the fabric came up"
+EOF
+cat > "$A/m137.new" <<'EOF'
+            err "the bridge exited: its topo session was gone at two checks in a row ($(( SECONDS - t0 ))s), before the fabric came up"
+EOF
+check_fires "M137: every timeout says the bridge exited, running or not" m137 \
+            "🔴 and does NOT say the bridge exited while it was running"
+
+cat > "$A/m138.old" <<'EOF'
+        for i in $(seq 1 180); do
+            n="$(bmv2_count)"
+EOF
+cat > "$A/m138.new" <<'EOF'
+        for i in $(seq 1 60); do
+            n="$(bmv2_count)"
+EOF
+check_fires "M138: a running bridge gets 60 s instead of 180" m138 \
+            "🔴 after the whole 180 s budget, not before"
+
+cat > "$A/m139.old" <<'EOF'
+                topo_session; case $? in 0) misses=0 ;; 1) misses=$(( misses + 1 )) ;; esac
+EOF
+cat > "$A/m139.new" <<'EOF'
+                topo_session; case $? in 0) misses=0 ;; *) misses=$(( misses + 1 )) ;; esac
+EOF
+check_fires "M139 (widening): a status call that failed counts as a miss" m139 \
+            "🔴 a status call that fails at every look keeps the whole wait" \
+            "🔴 and is never reported as the bridge exiting"
+
+cat > "$A/m140.old" <<'EOF'
+    out="$(TERM="${TERM:-dumb}" sudo -n "$LAB" status 2>/dev/null)" || return 2
+EOF
+cat > "$A/m140.new" <<'EOF'
+    out="$(TERM="${TERM:-dumb}" sudo -n "$LAB" status 2>/dev/null)"
+EOF
+check_fires "M140: a failed status call reads as 'no session' again" m140 \
+            "🔴 lab_session answers 2 when the status call fails"
+
+cat > "$A/c6.old" <<'EOF'
+                topo_session; case $? in 0) misses=0 ;; 1) misses=$(( misses + 1 )) ;; esac
+EOF
+cat > "$A/c6.new" <<'EOF'
+                topo_session; tsrc=$?; (( tsrc == 0 )) && misses=0; (( tsrc == 1 )) && misses=$(( misses + 1 ))
+EOF
+check_control "C6: the session look written as two (( )) tests" c6
+
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then
