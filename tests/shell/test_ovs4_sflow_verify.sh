@@ -50,14 +50,30 @@ trap 'rm -rf "$BIN"' EXIT
 # --- the fakes -------------------------------------------------------------------------------
 # `sudo` refuses whatever FAKE_SUDO_DENY names, with sudo's own measured wording, and otherwise
 # runs it -- so the code under test sees a real exit status and a real stderr.
+#
+# [Co-developed with claude code -- Adam] It runs a command only if the command is one of the
+# fakes in this directory: a bare name is looked up here and nowhere else, and a name with a
+# slash in it is accepted only when it points into this directory. Everything else gets the same
+# refusal. An `exec "$@"` handed an absolute path (or any name this directory has no fake for)
+# to the real binary, which then ran with the privileges of whoever started the test; so a test
+# of the sFlow check could run a real ovs or lab binary on the machine it was started on.
 cat >"$BIN/sudo" <<'FAKE'
 #!/usr/bin/env bash
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+refuse() { echo "sudo: a password is required" >&2; exit 1; }
 [[ "${1:-}" == "-n" ]] && shift
-base="${1##*/}"
+cmd="${1:-}"
+base="${cmd##*/}"
 case " ${FAKE_SUDO_DENY:-} " in
-    *" $base "*) echo "sudo: a password is required" >&2; exit 1 ;;
+    *" $base "*) refuse ;;
 esac
-exec "$@"
+[[ -n "$base" && "$base" != sudo ]] || refuse
+if [[ "$cmd" == */* ]]; then
+    [[ "$(cd "$(dirname "$cmd")" 2>/dev/null && pwd)" == "$here" ]] || refuse
+fi
+[[ -f "$here/$base" && -x "$here/$base" ]] || refuse
+shift
+exec "$here/$base" "$@"
 FAKE
 
 # ovs-vsctl answers the two queries sflow_state makes, from FAKE_BRIDGE_ROWS / FAKE_SFLOW_ROWS,
@@ -271,6 +287,42 @@ r="$(healthy_records | sed 's|127.0.0.1:6343|192.168.123.1:6343|')"
 a="$(healthy_addrs; echo "lo 192.168.123.1")"
 out="$(state "$(healthy_bridges)" "$r" "$a")"
 has "control: the 128-host topology's collector alias passes" "rc=0"                     "$out"
+
+echo
+echo "the fake sudo is a fake: it runs only what this directory holds"
+# [Co-developed with claude code -- Adam] Every target below is harmless (touch of a marker file
+# inside the fakes' own temp directory, or /bin/true); a marker that exists afterwards means the
+# command ran. None of them names a real ovs or lab binary.
+MARK="$BIN/must-not-exist"
+mkdir -p "$BIN/decoy"
+printf '#!/usr/bin/env bash\n: > "%s"\n' "$MARK" > "$BIN/decoy/ip"
+chmod +x "$BIN/decoy/ip"
+
+out="$("$BIN/sudo" -n /bin/true 2>&1)"; rc=$?
+check "an absolute path outside the fakes is refused"          "1"                        "$rc"
+has   "  ... with sudo's own wording"                          "sudo: a password is required" "$out"
+
+rm -f "$MARK"
+"$BIN/sudo" -n /bin/touch "$MARK" >/dev/null 2>&1
+check "  ... and the command did not run"                      "absent"                   "$([[ -e "$MARK" ]] && echo present || echo absent)"
+
+rm -f "$MARK"
+out="$("$BIN/sudo" -n touch "$MARK" 2>&1)"; rc=$?
+check "a bare name with no fake here is refused too"           "1"                        "$rc"
+check "  ... and did not run"                                  "absent"                   "$([[ -e "$MARK" ]] && echo present || echo absent)"
+
+rm -f "$MARK"
+out="$("$BIN/sudo" -n "$BIN/decoy/ip" 2>&1)"; rc=$?
+check "a lookalike name in some other directory is refused"    "1"                        "$rc"
+check "  ... and did not run"                                  "absent"                   "$([[ -e "$MARK" ]] && echo present || echo absent)"
+
+out="$(FAKE_ADDRS='lo 127.0.0.1' "$BIN/sudo" -n ip -4 -o addr show 2>&1)"; rc=$?
+check "control: a bare name that has a fake here runs it"      "0"                        "$rc"
+has   "control: ... and the fake's answer comes back"          "127.0.0.1"                "$out"
+out="$(FAKE_ADDRS='lo 127.0.0.1' "$BIN/sudo" -n "$BIN/ip" 2>&1)"; rc=$?
+check "control: so does the same fake named by its own path"   "0"                        "$rc"
+out="$(FAKE_SUDO_DENY=ip FAKE_ADDRS='lo 127.0.0.1' "$BIN/sudo" -n ip 2>&1)"; rc=$?
+check "control: FAKE_SUDO_DENY still refuses a fake that is here" "1"                     "$rc"
 
 echo
 echo "wiring: existence is not wiring"
