@@ -1502,12 +1502,12 @@ section "9B. T4: the help says what a claim does NOT cover"
 has   "  the help scopes the claim to this tool's own verbs" "claim only blocks the 'ndt'" "$HELP"
 has   "  and names the API as outside it"                "not the northbound API" "$HELP"
 has   "🔴 and says expiry and loss are silent"           "no signal" "$HELP"
-# The manual carries the same fact. Asserted here rather than nowhere; note that the mutation
+# The user guide carries the same fact. Asserted here rather than nowhere; note that the mutation
 # gate copies only ndt, so this cell is not mutation-protected.
-MANUAL="$HERE/../../doc/2026-08-17_testing-manual.md"
-check "  the manual is readable from here"               "yes" \
-      "$( [[ -r "$MANUAL" ]] && echo yes || echo no )"
-has   "🔴 and the manual's claim section says it too"    "ROLE-4 T4" "$(cat "$MANUAL" 2>/dev/null)"
+GUIDE="$HERE/../../doc/2026-11-05_user-guide.md"
+check "  the user guide is readable from here"          "yes" \
+      "$( [[ -r "$GUIDE" ]] && echo yes || echo no )"
+has   "🔴 and the user guide's claim section says it too" "It is not the northbound API" "$(cat "$GUIDE" 2>/dev/null)"
 
 # [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
 check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"

@@ -848,13 +848,13 @@ has   "down's rc 1 names the stale-entry failures"           "STALE registry ent
 has   "identity is stated per kind of file"                  "for the stack's own files, which carry no argv to compare, the pid alone" "$FLAT"
 has   "clean's 3 says 'live'"                                "nothing in .test_run/pids/ naming a live process" "$FLAT"
 # [Co-developed with claude code -- Adam] The new --check rc 1, in the status section,
-# with its qualifier; and the manual saying the same, and saying what the code does about a
+# with its qualifier; and the user guide saying the same, and saying what the code does about a
 # recycled number (stale BEFORE the group is asked).
 has   "🔴 status: a recycled stack pidfile is a --check problem, rc 1 only with a baseline" \
       "(a recycled number) is stale too, and a --check problem: rc 1 while a baseline exists; with none the answer is still 3" "$FLAT"
-MANUAL="$HERE/../../doc/2026-08-17_testing-manual.md"
-has   "🔴 the manual says the same about --check"            "有 baseline（\`.test_run/up.target\`）時 rc 1，沒有時照舊 3" "$(cat "$MANUAL" 2>/dev/null)"
-has   "🔴 the manual: a recycled number is stale without asking the group" "**直接**判 stale，不問 group" "$(cat "$MANUAL" 2>/dev/null)"
+GUIDE="$HERE/../../doc/2026-11-05_user-guide.md"
+has   "🔴 the user guide says the same about --check"        "that is a \`--check\` problem (rc 1); without one the answer is still 3" "$(cat "$GUIDE" 2>/dev/null)"
+has   "🔴 the user guide: a recycled number is stale without asking the group" "is stale at once, without asking the process group" "$(cat "$GUIDE" 2>/dev/null)"
 
 # =============================================================================================
 section "17. 🔴 a recycled stack number is a --check problem: rc 1 with a baseline, 3 without"
