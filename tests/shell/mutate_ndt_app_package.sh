@@ -37,7 +37,20 @@
 # Run:  bash tests/shell/mutate_ndt_app_package.sh
 # Exit: 0 every mutation caught and the controls survived; 1 a mutation survived or a control
 #       went red; 2 refused (baseline red, or the harness could not set up); 3 ndt changed
-#       under it.
+#       under it; 4 `sudo` did not resolve to the shim for some suite run (that run was not
+#       started; for the baseline the gate stops at once with 4, for a mutant or control it
+#       finishes and exits 4 at the end).
+#
+# 🔴 NO MUTANT MAY REACH THE REAL sudo. The suite drives `ndt` mostly through stubs, but three
+# cells run the real dispatch unsourced (`bash "$NDT" up ...`), which is expected to refuse in the
+# argument parser. Nothing on PATH used to stand between such a run and the real `sudo`, so a
+# mutant that got a command past a refusal could have called it. (A mutant copy resolves its
+# own tree to the temp directory, so it is expected to stop at "no ... topology model" before any
+# sudo. The shim does not rely on that.) Every suite run
+# this gate makes -- the baseline and each mutant -- therefore gets a `sudo` shim first on PATH,
+# whatever the layout: it refuses with sudo's own wording and appends its argv to a log in the
+# gate's temp dir. Before each run the gate checks that `sudo` resolves to the shim, as a file,
+# in the environment the run is given.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -46,8 +59,23 @@ TEST="$HERE/test_ndt_app_package.sh"
 [[ -r "$NDT" && -r "$TEST" ]] || { echo "refused: ndt or test missing"; exit 2; }
 
 BK="$(mktemp -d "${TMPDIR:-/tmp}/ndt-app-pkg-mutate-XXXXXX")"
+# [Co-developed with claude code -- Adam] Absolute, whatever TMPDIR was: the shim's PATH entry
+# lives under it, and the suite changes directory before its unsourced dispatch cells.
+BK="$(cd "$BK" && pwd)"
 trap 'rm -rf "$BK"' EXIT
 A="$BK/anchors"; mkdir -p "$A"
+
+# [Co-developed with claude code -- Adam] The refusing `sudo`. Its log path is written into the
+# script rather than read from a variable, so the shim logs wherever it is called from.
+SHIM_DIR="$BK/sudo-shim"; SHIM_LOG="$BK/sudo-shim.log"; SHIM_PROBES="$BK/sudo-shim.probes"
+mkdir -p "$SHIM_DIR"; : > "$SHIM_LOG"; : > "$SHIM_PROBES"
+cat > "$SHIM_DIR/sudo" <<SHIM
+#!/usr/bin/env bash
+printf '%s\n' "sudo \$*" >> '$SHIM_LOG'
+echo "sudo: a password is required" >&2
+exit 1
+SHIM
+chmod +x "$SHIM_DIR/sudo"
 BASE_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
 
 # mutant <name> -- a copy of ndt with A/<name>.old replaced by A/<name>.new. The anchors travel
@@ -78,12 +106,30 @@ print(target)
 PY
 }
 
-run_test() { NDT_UNDER_TEST="$1" timeout 600 bash "$TEST" 2>&1; }
+# [Co-developed with claude code -- Adam] Every suite run goes through here. The probe is a bash
+# started with the very environment the run gets (PATH with the shim first, no other change), and
+# what it prints is what an unsourced `bash "$NDT"` in the suite would resolve `sudo` to: a file
+# (`type -t`, so a `sudo` function exported by the caller does not pass for it) at the shim's
+# path (`type -P`). A run whose `sudo` is anything else is not started: it returns 97 with no
+# "Ran N checks" line, which every caller already reads as "the run did not finish" (a survivor,
+# a red control) -- never as a catch -- and the baseline stops the gate with exit 4.
+run_test() {
+    local resolved
+    resolved="$(PATH="$SHIM_DIR:$PATH" NDT_UNDER_TEST="$1" bash -c 'printf "%s %s" "$(type -t sudo)" "$(type -P sudo)"' 2>/dev/null)"
+    if [[ "$resolved" != "file $SHIM_DIR/sudo" ]]; then
+        echo "BYPASS $resolved" >> "$SHIM_PROBES"
+        echo "refused: sudo resolves to [$resolved], not the shim -- this run was not started"
+        return 97
+    fi
+    echo "ok" >> "$SHIM_PROBES"
+    PATH="$SHIM_DIR:$PATH" NDT_UNDER_TEST="$1" timeout 600 bash "$TEST" 2>&1
+}
 
 echo "baseline (must be green before any mutation):"
 BASE_OUT="$(run_test "$NDT")"; BASE_RC=$?
 BASE_RAN="$(/usr/bin/grep -oE 'Ran [0-9]+ checks' <<<"$BASE_OUT" | tail -1)"
 tail -1 <<<"$BASE_OUT" | sed 's/^/  /'
+(( BASE_RC == 97 )) && { echo "refused: the baseline run could have reached the real sudo -- nothing was run"; exit 4; }
 [[ $BASE_RC -eq 0 ]] || { echo "refused: baseline is not green -- mutations would prove nothing"; exit 2; }
 echo
 
@@ -2070,4 +2116,11 @@ if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then
 fi
 echo "baseline byte-identical: yes  tools/test_workflow/ndt  sha256 $BASE_SUM"
 echo "mutation gate: $((CAUGHT+SURVIVED)) mutations, $SURVIVED survived; $CONTROLS control(s), $CONTROLS_RED went red"
+# [Co-developed with claude code -- Adam] Information, not a verdict: how often a run reached for
+# `sudo` and was turned away. The verdict is the probe count -- every suite run saw the shim.
+PROBES_OK="$(/usr/bin/grep -c '^ok$' "$SHIM_PROBES")"
+PROBES_BAD="$(/usr/bin/grep -c '^BYPASS' "$SHIM_PROBES")"
+echo "sudo shim: $PROBES_OK suite run(s) resolved sudo to the shim, $PROBES_BAD did not; $(wc -l < "$SHIM_LOG") call(s) refused"
+/usr/bin/grep . "$SHIM_LOG" | sed 's/^/  refused: /'
+(( PROBES_BAD == 0 )) || { echo "🔴 a suite run was refused because sudo did not resolve to the shim"; exit 4; }
 (( SURVIVED == 0 && CONTROLS_RED == 0 ))
