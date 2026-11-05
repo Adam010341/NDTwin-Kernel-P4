@@ -52,6 +52,14 @@ import sys
 import tempfile
 import time
 
+# [Co-developed with claude code -- Adam]
+# Root runs this file, and everything it imports (this checkout's modules, NTG's) lives in a tree
+# owned by someone else: bytecode written there is root-owned and keeps its owner from deleting
+# the checkout. The flag covers this process; the variable covers the Pythons it starts
+# (the link-telemetry emitter), which do not inherit the flag. Above every non-stdlib import.
+sys.dont_write_bytecode = True
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+
 # System Mininet for a conda interpreter, exactly the trick NTG's own testbed_topo.py uses.
 sys.path.append('/usr/lib/python3/dist-packages')
 sys.path.append('/usr/local/lib/python3/dist-packages')

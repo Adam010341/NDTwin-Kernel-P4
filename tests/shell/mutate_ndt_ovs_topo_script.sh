@@ -159,8 +159,8 @@ report "M1: the launch names NTG's testbed_topo.py again" "$m" \
 # Half a revert is the interesting one: the script argument is still ours, so a check that read
 # only the last argv element would pass while tmux ran it from another repo's tree.
 m=$(mutant m2 "$LAB" \
-    "    \$TMUX new-session -d -s topo -c \"\$KERNEL_DIR\" \"\$NTG_PY\" \"\$script\"" \
-    "    \$TMUX new-session -d -s topo -c /home/adam/Network-Traffic-Generator \"\$NTG_PY\" \"\$script\"")
+    "    \$TMUX new-session -d -s topo -c \"\$KERNEL_DIR\" /usr/bin/env PYTHONDONTWRITEBYTECODE=1 \"\$NTG_PY\" \"\$script\"" \
+    "    \$TMUX new-session -d -s topo -c /home/adam/Network-Traffic-Generator /usr/bin/env PYTHONDONTWRITEBYTECODE=1 \"\$NTG_PY\" \"\$script\"")
 report "M2: the tmux working directory goes back to NTG" "$m" \
        "tmux's working directory is the tree"
 
