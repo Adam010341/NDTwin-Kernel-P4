@@ -222,6 +222,10 @@ MANIFEST="'"$FIX"'/manifest.json"
 CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
 LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
 LAB_DEFAULT_KERNEL_DIR="'"$FIX"'"
+# [Co-developed with claude code -- Adam] A fresh up_p4 reads the NTG config of the checkout the
+# lab uses; it refuses a mode NTG does not know or a hosts file that does not exist. This fixture has
+# no NTG checkout (the path is not there), so no real one on this machine can decide these cells.
+LAB_DEFAULT_NTG_DIR="'"$FIX"'/no-ntg"
 # [Co-developed with claude code -- Adam] The heartbeat pidfile and report are fixture paths (never
 # present), so a heartbeat running on this machine cannot add a `heartbeat stop` to a teardown cell
 # or a row to a status cell.
@@ -2712,6 +2716,71 @@ OUT="$(drive 'NDT_APP_DIR='"$(q "$PKG_ONE")"'; up_p4')"
 has   "🔴 an all-foreign fabric's header says no switch has a compiled rate" \
       "sample rate  none: every switch runs the package's own program" "$OUT"
 hasnt "  and does not name a rate only where ndtwin_switch.json runs" "only where ndtwin_switch.json runs" "$OUT"
+
+# =============================================================================================
+section "25. 🔴 an NTG mode NTG does not know, with --app: refused, and the app knob does not move"
+# =============================================================================================
+# [Co-developed with claude code -- Adam]
+# up_p4 refuses a fresh fabric when the NTG config the P4 bridge will hand NTG names a mode NTG does
+# not know (tests/shell/test_ndt_up_down_robust.sh, section 28, is where the refusal itself is
+# measured). What is added here is the --app side: the knob this command writes is the one an
+# earlier package left, and a refusal that moved it would leave the next hand-run bridge building
+# somebody else's fabric. Both ways in are driven -- a package, and an exercise directory that is
+# converted first -- each beside a control over a mode NTG knows, so "nothing moved" is read from
+# an instrument that can be seen moving.
+# The NTG checkout is a fixture of this section's own, and so is the module that reads it: the
+# stubs above point LAB_DEFAULT_NTG_DIR at a path with nothing in it (so no real checkout decides
+# the cells before this one), and the mutation gate runs a copy of ndt with no p4_proxy/ beside it.
+NTGP="$FIX/ntg-prompt"; mkdir -p "$NTGP/setting"
+printf -- '---\ninventory:\n  plugin: SimpleInventory\n  options:\n    host_file: "./setting/Mininet.yaml"\n' > "$NTGP/NTG.yaml"
+ntg_mode() { printf -- '---\nMininet_Testbed:\n  data:\n    mode: "%s" \n' "$1" > "$NTGP/setting/Mininet.yaml"; }
+NTGSEAM='LAB_DEFAULT_NTG_DIR='"$(q "$NTGP")"'; NTG_CONFIG_MODULE='"$(q "$REAL_REPO/p4_proxy/mininet/ntg_config.py")"'; '
+
+# --- a package ----------------------------------------------------------------------------
+reset_fix; plant_knob; ntg_mode prompt
+KNOB_SEED="$(sha256sum < "$KNOB")"
+OUT="$(drive "$NTGSEAM"'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4')"
+check "🔴 --app <package> over a mode NTG does not know is refused (5)" "5" "$(rc_of "$OUT")"
+has   "  naming the mode"                                  'NTG does not know mode "prompt"' "$OUT"
+has   "  and the command that sets one NTG knows"          "ndt ntg custom_command" "$OUT"
+check "🔴 the app knob an earlier package left is byte-identical" "$KNOB_SEED" "$(sha256sum < "$KNOB" 2>/dev/null)"
+check "  and does not name the package that was refused"    "$PKG_OK" "$(knob_state)"
+check "  host_count_override was not moved (the package has 3 hosts)" "4" \
+      "$(sed -n '1p' "$FIX/p4_proxy/mininet/host_count_override")"
+check "🔴 NOTHING on the machine was reached"               "sudo=0 stack=0" "$(touched)"
+check "  and no up.target was recorded"                     "0" "$([[ -e "$FIX/.test_run/up.target" ]] && echo 1 || echo 0)"
+reset_fix; plant_knob; ntg_mode cli
+OUT="$(drive "$NTGSEAM"'NDT_APP_DIR='"$(q "$PKG_EXT")"'; up_p4')"
+check "🔴 control: the same package over a mode NTG knows comes up" "0" "$(rc_of "$OUT")"
+check "  and the knob now names it"                         "$PKG_EXT" "$(knob_state)"
+check "  and the machine WAS reached -- the instrument moves" "sudo=1 stack=1" "$(touched)"
+
+# --- an exercise directory, converted first ---------------------------------------------------
+# [Co-developed with claude code -- Adam] The generated package has 4 hosts, so the host-count knob is
+# started at 8 here: a knob left at 4 would read the same whether or not anything wrote it.
+reset_one; plant_knob; ntg_mode prompt
+printf '8\n' > "$FIX/p4_proxy/mininet/host_count_override"
+mkdir -p "$EX/pod-topo"; echo '{}' > "$EX/pod-topo/topology.json"
+KNOB_SEED="$(sha256sum < "$KNOB")"
+OUT="$(drive "$ONE$NTGSEAM"'NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
+check "🔴 --app <exercise> over a mode NTG does not know is refused (5)" "5" "$(rc_of "$OUT")"
+has   "  naming the mode"                                  'NTG does not know mode "prompt"' "$OUT"
+check "🔴 the app knob an earlier package left is byte-identical" "$KNOB_SEED" "$(sha256sum < "$KNOB" 2>/dev/null)"
+check "  and does not name the generated package"           "$PKG_OK" "$(knob_state)"
+check "🔴 host_count_override was not moved (8, not the generated package's 4)" "8" \
+      "$(sed -n '1p' "$FIX/p4_proxy/mininet/host_count_override")"
+check "🔴 NOTHING on the machine was reached"               "sudo=0 stack=0" "$(touched)"
+check "  and no up.target was recorded"                     "0" "$([[ -e "$FIX/.test_run/up.target" ]] && echo 1 || echo 0)"
+reset_one; plant_knob; ntg_mode cli
+printf '8\n' > "$FIX/p4_proxy/mininet/host_count_override"
+mkdir -p "$EX/pod-topo"; echo '{}' > "$EX/pod-topo/topology.json"
+OUT="$(drive "$ONE$NTGSEAM"'NDT_APP_DIR='"$(q "$EX")"'; up_p4')"
+check "🔴 control: the same exercise over a mode NTG knows comes up" "0" "$(rc_of "$OUT")"
+check "  and the knob names the generated package"          "$GEN" "$(knob_state)"
+check "  and the host-count knob moved to the package's 4 -- the instrument moves" "4" \
+      "$(sed -n '1p' "$FIX/p4_proxy/mininet/host_count_override")"
+check "  and the machine WAS reached -- the instrument moves" "sudo=1 stack=1" "$(touched)"
+rm -rf "$FIX/exercises" "$GEN"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

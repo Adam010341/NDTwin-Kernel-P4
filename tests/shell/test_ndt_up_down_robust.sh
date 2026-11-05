@@ -49,6 +49,7 @@
 # rollback, the bounded wait and the sha comparison all run for real.
 #
 # Env:  NDT_UNDER_TEST=<path>   (the mutation gate points this at a copy)
+#       NTG_MODULE_UNDER_TEST=<path to ntg_config.py>   (the gate points this at its copy of the module)
 # Run:  bash tests/shell/test_ndt_up_down_robust.sh
 set -uo pipefail
 
@@ -71,7 +72,7 @@ hasnt() { grep -qF -- "$2" <<<"$3" && t_bad "$1" "unexpected '$2' in the output"
 section() { printf '\n%s\n' "$1"; }
 
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/ndt-updown-XXXXXX")"
-trap 'rm -rf "$FIX"' EXIT
+trap 'chmod -R u+rwx "$FIX" 2>/dev/null; rm -rf "$FIX"' EXIT
 export FIX
 mkdir -p "$FIX/.test_run/pids" "$FIX/setting" "$FIX/p4_proxy/mininet" \
          "$FIX/p4_proxy/venv/bin" "$FIX/p4_proxy/p4_src/build" "$FIX/build/bin" "$FIX/tools/test_workflow"
@@ -179,8 +180,9 @@ LAB_DEFAULT_NTG_DIR="'"$FIX"'/ntg"
 # [Co-developed with claude code -- Adam] ...and the module that reads it is the one in this
 # repo, not one beside the ndt under test: the mutation gate points NDT_UNDER_TEST at a bare copy
 # of ndt with no p4_proxy/ next to it, so the path ndt takes to the module names nothing there
-# (the same reason LABFILE below is the helper in this repo).
-NTG_CONFIG_MODULE="'"$HERE"'/../../p4_proxy/mininet/ntg_config.py"
+# (the same reason LABFILE below is the helper in this repo). Under that gate the module is the
+# copy it keeps beside its ndt copy (NTG_MODULE_UNDER_TEST), so a mutation of the module is measured.
+NTG_CONFIG_MODULE="'"${NTG_MODULE_UNDER_TEST:-$HERE/../../p4_proxy/mininet/ntg_config.py}"'"
 # [Co-developed with claude code -- Adam] The heartbeat pidfile and report are fixture paths (never
 # present), so a heartbeat running on this machine cannot add a `heartbeat stop` to a teardown cell
 # or a row to a status cell.
@@ -2021,6 +2023,9 @@ seed_empty() {   # a machine that had none of the four files
     printf '# 8 for tonight\n8\n' > "$KNOBF"
 }
 NOT_TOUCHED="up.target, the knobs and the claim note were not touched"
+# [Co-developed with claude code -- Adam] The NTG refusal says "no fabric" (not "nothing"): an external package on
+# its own pipeline has run its drop check, which starts and stops a throwaway switch, by then.
+NTG_NOT_TOUCHED="no fabric was started; $NOT_TOUCHED"
 
 # -- the live-OVS refusal (guard_no_live_ovs): decided above every write
 seed_found; BEFORE="$(five_hash)"
@@ -2428,6 +2433,182 @@ hasnt "  and it does not say nothing was up to tear down"              "nothing 
 SUDO="$(cat "$FIX/sudo.log")"
 has   "  topo-stop was still called"                                   "topo-stop" "$SUDO"
 has   "  and cleanup was still called"                                 "cleanup" "$SUDO"
+
+# ==========================================================================================
+section "28. an NTG mode NTG does not know, or a hosts file that does not exist, is refused before the P4 fabric is built"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam]
+# Measured live on 2026-11-05 with `mode: "prompt"` in the hosts file the bridge hands NTG:
+# `ndt up p4 --app` passed [3/3] and exited 0 with a hint under the ready line; the topology's
+# tmux session and every bmv2 were gone two seconds later, the proxy and kernel kept running,
+# and the heartbeat reported a cut link. The bridge hands its net to NTG, NTG raises on a mode
+# it does not know, and after five tries the bridge tears its fabric down. ndt read that mode
+# from the same module the bridge uses -- only after it had built the fabric.
+#
+# The fixture's NTG checkout ($FIX/ntg) is the one the bring-up reads (LAB_DEFAULT_NTG_DIR in
+# the STUBS); the cells rewrite its mode line and put `cli` back at the end.
+NTGM="$FIX/ntg/setting/Mininet.yaml"
+ntg_mode_put() { printf -- '---\nMininet_Testbed:\n  data:\n    mode: "%s" \n' "$1" > "$NTGM"; }
+
+seed_found; BEFORE="$(five_hash)"; echo "0 10" > "$FIX/bmv2.seq"; ntg_mode_put prompt
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_p4 4')"
+check "🔴 an NTG mode NTG does not know refuses 'ndt up p4' with rc 5" "5" "$(rc_of_out "$OUT")"
+has   "  naming the mode"                                  'NTG does not know mode "prompt"' "$OUT"
+has   "  and the file it was read from"                    "$NTGM" "$OUT"
+has   "  and the command that sets a mode NTG knows"       "ndt ntg custom_command" "$OUT"
+has   "  and says the files it concerns were not touched"  "$NTG_NOT_TOUCHED" "$OUT"
+check "🔴 and no fabric was started: nothing went through the helper" "" "$(cat "$FIX/sudo.log")"
+check "  nor through stack.sh"                             "" "$(cat "$FIX/stack.log")"
+check "🔴 up.target, both knobs, the claim and the host-count knob are byte-identical" "$BEFORE" "$(five_hash)"
+hasnt "  it is a refusal, not a rollback"                  "rollback" "$OUT"
+
+# 🔴 THE CONTROLS. "Refuse whenever the mode is not cli", "refuse whenever the config cannot be
+# read" and "refuse a fabric this run reuses" all pass the cells above.
+# (a) a fabric this run REUSES keeps the mode it started with; the config is the next bring-up's.
+seed_found; ntg_mode_put prompt
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+check "🔴 a reused fabric is not refused over the mode the next bring-up would read" "0" "$(rc_of_out "$OUT")"
+has   "  (the reuse path was taken)"                       "already up: 10 switches, 4 hosts, reusing" "$OUT"
+# (b) the other mode NTG knows is built as before.
+seed_found; echo "0 10" > "$FIX/bmv2.seq"; ntg_mode_put custom_command
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_p4 4')"
+check "🔴 a mode NTG knows is still built"                 "0" "$(rc_of_out "$OUT")"
+has   "  the fabric really was started"                    "topo-start" "$(cat "$FIX/sudo.log")"
+# (c) no NTG.yaml at all is not one of the two states that are refused (a decision, 2026-11-05): it is labelled.
+seed_found; echo "0 10" > "$FIX/bmv2.seq"; mkdir -p "$FIX/ntg-empty"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'LAB_DEFAULT_NTG_DIR="$FIX/ntg-empty"
+up_p4 4')"
+check "🔴 a checkout without NTG's config is not a refusal" "0" "$(rc_of_out "$OUT")"
+hasnt "  and says nothing about NTG's mode"                "NTG does not know mode" "$OUT"
+# [Co-developed with claude code -- Adam] Three more states that are labelled and not refused, by
+# decision (2026-11-05: only a mode NTG does not know and a hosts file that does not exist are
+# refused). A hosts file this user cannot read may be readable by root; ndt cannot say which file
+# NTG opens when NTG.yaml names none; and when ndt cannot tell which checkout the lab uses it does
+# not read the built-in default (the bridge may use another). Each
+# fixture carries a mode line NTG does not know, so a refusal could only come from treating the
+# state as that mode; each cell first reads the state back, so it cannot pass over a fixture that
+# is in another one.
+# (d) the hosts file is there and this user cannot read it
+mkdir -p "$FIX/ntg-unreadable/setting"
+printf -- '---\ninventory:\n  plugin: SimpleInventory\n  options:\n    host_file: "./setting/Mininet.yaml"\n' > "$FIX/ntg-unreadable/NTG.yaml"
+printf -- '---\nMininet_Testbed:\n  data:\n    mode: "prompt" \n' > "$FIX/ntg-unreadable/setting/Mininet.yaml"
+chmod 000 "$FIX/ntg-unreadable/setting/Mininet.yaml"
+if [[ ! -r "$FIX/ntg-unreadable/setting/Mininet.yaml" ]]; then
+    seed_found; echo "0 10" > "$FIX/bmv2.seq"
+    OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'LAB_DEFAULT_NTG_DIR="$FIX/ntg-unreadable"
+ntg_config probe "$LAB_DEFAULT_NTG_DIR"; echo "STATE=$NTG_ST"
+up_p4 4')"
+    has   "  (the fixture reads as unreadable)"                "STATE=unreadable" "$OUT"
+    check "🔴 a hosts file this user cannot read is not a refusal" "0" "$(rc_of_out "$OUT")"
+    hasnt "  and says nothing about NTG's mode"                "NTG does not know mode" "$OUT"
+else
+    printf '  skip     (this user reads a mode-000 file; not counted as passed)\n'; SKIP=$((SKIP+1))
+fi
+chmod 600 "$FIX/ntg-unreadable/setting/Mininet.yaml" 2>/dev/null
+# (e) NTG.yaml does not name one hosts file, so there is no mode line to read
+mkdir -p "$FIX/ntg-unresolved/setting"
+printf -- '---\ninventory:\n  plugin: SimpleInventory\n' > "$FIX/ntg-unresolved/NTG.yaml"
+printf -- '---\nMininet_Testbed:\n  data:\n    mode: "prompt" \n' > "$FIX/ntg-unresolved/setting/Mininet.yaml"
+seed_found; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'LAB_DEFAULT_NTG_DIR="$FIX/ntg-unresolved"
+ntg_config probe "$LAB_DEFAULT_NTG_DIR"; echo "STATE=$NTG_ST"
+up_p4 4')"
+has   "  (the fixture reads as unresolved)"                "STATE=unresolved" "$OUT"
+check "🔴 a checkout whose hosts file cannot be resolved is not a refusal" "0" "$(rc_of_out "$OUT")"
+hasnt "  and says nothing about NTG's mode"                "NTG does not know mode" "$OUT"
+# (f) ndt cannot tell which checkout the lab uses (lab_ntg_dir answers no path, rc 4): the default
+# checkout -- here in a mode NTG does not know -- is not the one the bridge uses, so it is not read
+seed_found; echo "0 10" > "$FIX/bmv2.seq"; ntg_mode_put prompt
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'lab_ntg_dir() { LAB_NTG_DIR_SOURCE="UNKNOWN: fixture"; return 4; }
+echo "NAMED=[$(lab_ntg_dir 2>/dev/null)]"
+ntg_config probe "$LAB_DEFAULT_NTG_DIR"; echo "DEFAULT_STATE=$NTG_ST"
+up_p4 4')"
+has   "  (ndt names no checkout)"                          "NAMED=[]" "$OUT"
+has   "  (and the default checkout would be refused if it were read)" "DEFAULT_STATE=unknown-mode" "$OUT"
+check "🔴 a checkout ndt cannot name is not a refusal"      "0" "$(rc_of_out "$OUT")"
+hasnt "  and the default checkout's mode is not read instead" "NTG does not know mode" "$OUT"
+has   "  (the fabric really was started)"                   "topo-start" "$(cat "$FIX/sudo.log")"
+# [Co-developed with claude code -- Adam] (g) NTG.yaml names a hosts file that is not there: NTG opens
+# it without checking and raises, so the bridge's five tries end in the same teardown. Refused, like
+# a mode NTG does not know. (c) above is the control for the neighbouring state, no NTG.yaml at all.
+mkdir -p "$FIX/ntg-nohost"
+printf -- '---\ninventory:\n  plugin: SimpleInventory\n  options:\n    host_file: "./setting/Mininet.yaml"\n' > "$FIX/ntg-nohost/NTG.yaml"
+seed_found; BEFORE="$(five_hash)"; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'LAB_DEFAULT_NTG_DIR="$FIX/ntg-nohost"
+ntg_config probe "$LAB_DEFAULT_NTG_DIR"; echo "STATE=$NTG_ST"
+up_p4 4')"
+has   "  (the fixture reads as no-host-file)"              "STATE=no-host-file" "$OUT"
+check "🔴 a hosts file NTG.yaml names that is not there refuses 'ndt up p4' with rc 5" "5" "$(rc_of_out "$OUT")"
+has   "  naming the file that is not there"                "not found: $FIX/ntg-nohost/setting/Mininet.yaml" "$OUT"
+has   "  and what to do about it"                          "point inventory.options.host_file" "$OUT"
+has   "  and says the files it concerns were not touched"  "$NTG_NOT_TOUCHED" "$OUT"
+check "🔴 and no fabric was started: nothing went through the helper" "" "$(cat "$FIX/sudo.log")"
+check "  nor through stack.sh"                             "" "$(cat "$FIX/stack.log")"
+check "🔴 up.target, both knobs, the claim and the host-count knob are byte-identical" "$BEFORE" "$(five_hash)"
+hasnt "  it is a refusal, not a rollback"                  "rollback" "$OUT"
+hasnt "  and it is not the mode refusal"                   "NTG does not know mode" "$OUT"
+# [Co-developed with claude code -- Adam] (h) the hosts file is there, in a directory this user cannot
+# search: stat fails with EACCES, which is not "not there" -- the bridge runs as root and may well open
+# it. Labelled `unreadable`, not refused. (Skipped as root, which searches a mode-000 directory.)
+mkdir -p "$FIX/ntg-nosearch/setting"
+printf -- '---\ninventory:\n  plugin: SimpleInventory\n  options:\n    host_file: "./setting/Mininet.yaml"\n' > "$FIX/ntg-nosearch/NTG.yaml"
+printf -- '---\nMininet_Testbed:\n  data:\n    mode: "prompt" \n' > "$FIX/ntg-nosearch/setting/Mininet.yaml"
+chmod 000 "$FIX/ntg-nosearch/setting"
+if [[ ! -x "$FIX/ntg-nosearch/setting" ]]; then
+    seed_found; echo "0 10" > "$FIX/bmv2.seq"
+    OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'LAB_DEFAULT_NTG_DIR="$FIX/ntg-nosearch"
+ntg_config probe "$LAB_DEFAULT_NTG_DIR"; echo "STATE=$NTG_ST"
+up_p4 4')"
+    has   "  (the fixture reads as unreadable)"                "STATE=unreadable" "$OUT"
+    check "🔴 a hosts file in a directory this user cannot search is not a refusal" "0" "$(rc_of_out "$OUT")"
+    hasnt "  and is not called missing"                        "not found:" "$OUT"
+    hasnt "  nor refused over a mode"                          "NTG does not know mode" "$OUT"
+else
+    printf '  SKIP     (running as root: a mode-000 directory is still searchable -- checked with [[ -x ]] on it; not counted as passed)\n'; SKIP=$((SKIP+1))
+fi
+chmod 755 "$FIX/ntg-nosearch/setting" 2>/dev/null
+# (i) the four other states ntg_config can answer, each labelled and not refused: hardware-mode (the
+# hosts file also lists a Hardware_Testbed: real hardware may be behind it), no-mininet (no
+# Mininet_Testbed anywhere), bad-mode (a mode line this cannot read as one plain line) and no-mode
+# (NTG then uses cli). Each fixture is read back first.
+nr_state() {   # nr_state <name> <state> <hosts-file content> [<host_file value> [<hosts-file name>]]
+    local d="$FIX/ntg-$1"
+    mkdir -p "$d/setting"
+    printf -- '---\ninventory:\n  plugin: SimpleInventory\n  options:\n    host_file: "%s"\n' "${4:-./setting/Mininet.yaml}" > "$d/NTG.yaml"
+    printf -- "$3" > "$d/setting/${5:-Mininet.yaml}"
+    seed_found; echo "0 10" > "$FIX/bmv2.seq"
+    OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'LAB_DEFAULT_NTG_DIR="'"$d"'"
+ntg_config probe "$LAB_DEFAULT_NTG_DIR"; echo "STATE=$NTG_ST"
+up_p4 4')"
+    has   "  ($1: the fixture reads as $2)"                    "STATE=$2" "$OUT"
+    check "🔴 a $1 config is not a refusal"                    "0" "$(rc_of_out "$OUT")"
+    hasnt "  ($1) and says nothing about NTG's mode or a missing file" "refusing to build" "$OUT"
+}
+nr_state hardware-mode hardware-mode '---\nMininet_Testbed:\n  data:\n    mode: "custom_command"\nHardware_Testbed:\n  data: {}\n'
+nr_state no-mininet no-mininet '---\nHardware_Testbed:\n  data: {}\n' ./setting/Hardware.yaml Hardware.yaml
+nr_state bad-mode bad-mode '---\nMininet_Testbed:\n  data: {mode: cli}\n'
+nr_state no-mode no-mode '---\nMininet_Testbed:\n  data:\n    log_level: "DEBUG"\n'
+# [Co-developed with claude code -- Adam] (j)-(l) A host_file that cannot name a file for anyone, root
+# included, is as missing as one that is not there: a symlink loop (ELOOP), a name longer than the
+# system allows (ENAMETOOLONG) and a path with a NUL byte in it. Refused, like (g).
+nh_refuse() {   # nh_refuse <name> <what it is> <host_file value, as printf %b reads it>
+    local d="$FIX/ntg-$1"
+    mkdir -p "$d/setting"
+    printf -- '---\ninventory:\n  plugin: SimpleInventory\n  options:\n    host_file: "%b"\n' "$3" > "$d/NTG.yaml"
+    seed_found; BEFORE="$(five_hash)"; echo "0 10" > "$FIX/bmv2.seq"
+    OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'LAB_DEFAULT_NTG_DIR="'"$d"'"
+ntg_config probe "$LAB_DEFAULT_NTG_DIR"; echo "STATE=$NTG_ST"
+up_p4 4')"
+    has   "  ($1: the fixture reads as no-host-file)"          "STATE=no-host-file" "$OUT"
+    check "🔴 a host_file $2 is refused like a missing one"   "5" "$(rc_of_out "$OUT")"
+    has   "  ($1) and the missing file is named"               "not found:" "$OUT"
+    check "  ($1) and nothing was written"                      "$BEFORE" "$(five_hash)"
+}
+mkdir -p "$FIX/ntg-loop/setting"; ln -sfn loop.yaml "$FIX/ntg-loop/setting/loop.yaml"
+nh_refuse loop "that loops (ELOOP)" './setting/loop.yaml'
+nh_refuse toolong "name longer than the system allows" "./setting/$(printf 'a%.0s' $(seq 1 300)).yaml"
+nh_refuse nul "with a NUL byte in it" './setting/a\0b.yaml'
+ntg_mode_put cli
 
 # ==========================================================================================
 # The skip count has its own line and the summary below keeps its shape: tools/test_workflow/

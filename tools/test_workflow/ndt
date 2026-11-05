@@ -4054,6 +4054,9 @@ up_p4() {
     # The whole decision, including "could not tell", lives in guard_no_live_ovs so a test
     # can call it on its own.
     (( reuse )) || guard_no_live_ovs || { err "up.target, the knobs and the claim note were not touched."; return 1; }
+    # [Co-developed with claude code -- Adam] A fabric this run builds is handed to NTG; a mode NTG
+    # refuses takes that fabric down seconds after [3/3] passes (see ntg_up_refusal).
+    (( reuse )) || ntg_up_refusal || return $?
 
     # What this run was asked for, written down before anything is built, so `status --check`
     # has a baseline that does not depend on reading a P4-only knob back afterwards.
@@ -11427,7 +11430,8 @@ cmd_apps() {
 #
 # The words are NTG's: `cli` and `custom_command`. `prompt` is kept as another name for
 # custom_command because older manuals used it; a `mode: "prompt"` an older ndt wrote is a value
-# NTG refuses, and is reported as such.
+# NTG refuses, and is reported as such. `ndt up p4` refuses to build over a mode NTG does not know or
+# a hosts file that does not exist (ntg_up_refusal).
 NTG_ST=""; NTG_CONF=""; NTG_HOST=""; NTG_MODE=""; NTG_DETAIL=""; NTG_VIA=""
 
 # 🔴 WHICH COPY OF THE MODULE: this checkout's ($NTG_CONFIG_MODULE), while the bridge imports the
@@ -11494,6 +11498,47 @@ ntg_pane() {
     return 0
 }
 
+# ntg_up_refusal -- rc 5, with the refusal printed, when the NTG config the P4 bridge will hand
+# NTG names a mode NTG does not know or a hosts file that does not exist; rc 0 otherwise. Asked by
+# up_p4 for a fabric it is about to build, before any fabric, knob, target or claim-note write.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THE FABRIC DOES NOT SURVIVE THAT MODE. The bridge builds the fabric, writes the manifest and
+#    then calls NTG's command_line, which raises "Current NTG configuration is invalid" for any
+#    Mininet mode but cli and custom_command. The bridge's crash armour retries five times, one
+#    second apart, then returns, and its teardown stops every switch. `ndt up` had already seen the
+#    switches and the manifest and gone on to start the proxy and kernel, so it verified a fabric
+#    with seconds to live and exited 0, leaving the proxy and kernel over nothing.
+#    A hosts file NTG.yaml names and that is not there ends the same way: NTG opens it without
+#    checking, raises, and the bridge's five tries end in the same teardown.
+# 🔴 ONLY unknown-mode AND no-host-file, by decision (2026-11-05). Every other state keeps its
+#    ready-line label and is not refused: a file this user cannot read may be readable by root, ndt
+#    does not read the built-in default when it cannot tell which checkout the lab uses (the bridge
+#    may use another), and hardware-mode may have real hardware behind it.
+ntg_up_refusal() {
+    local d
+    d="$(lab_ntg_dir 2>/dev/null)"
+    [[ -n "$d" ]] || return 0
+    ntg_config probe "$d"
+    [[ "$NTG_ST" == unknown-mode || "$NTG_ST" == no-host-file ]] || return 0
+    if [[ "$NTG_ST" == no-host-file ]]; then
+        err "refusing to build: the hosts file $NTG_CONF names is not a file NTG can load, so the fabric would not stay up."
+        err "  not found: $NTG_HOST"
+        err "  the P4 topology hands its fabric to NTG; NTG fails when it loads that config, and after five"
+        err "  tries the topology stops and takes every switch with it, after the bring-up has passed."
+        err "  create it, or point inventory.options.host_file in $NTG_CONF at one that exists"
+        err "  ('ndt ntg' shows the state), then run the same 'ndt up' again."
+    else
+        err "refusing to build: NTG does not know mode \"$NTG_MODE\", so the fabric would not stay up."
+        err "  $NTG_HOST: $NTG_DETAIL"
+        err "  the P4 topology hands its fabric to NTG; NTG refuses this mode at once, and after five"
+        err "  tries the topology stops and takes every switch with it, after the bring-up has passed."
+        err "  set a mode NTG knows, then run the same 'ndt up' again:  ndt ntg custom_command   (or: ndt ntg cli)"
+    fi
+    err "  no fabric was started; up.target, the knobs and the claim note were not touched."
+    return 5
+}
+
 cmd_ntg() {
     local both ntg_dir src want=""
     case "${1:-}" in
@@ -11534,8 +11579,8 @@ cmd_ntg() {
         unreadable)
             err "refusing: $NTG_HOST: $NTG_DETAIL -- nothing was edited."
             if [[ -n "$NTG_VIA" ]]; then
-                err "  $NTG_CONF names $NTG_VIA, which has no Mininet_Testbed entry, so the P4 bridge"
-                err "  (as root) hands NTG this file instead; ndt, as you, cannot read it."
+                err "  $NTG_CONF names $NTG_VIA, which has no Mininet_Testbed entry, so the P4 bridge (as root)"
+                err "  would hand NTG this file instead if it finds one there; ndt, as you, cannot read it."
             else
                 err "  it is the hosts file NTG reads its mode from ($NTG_CONF)."
             fi
@@ -11970,7 +12015,10 @@ usage: ndt <command>
                   'ndt down' from this checkout is still running, or NDT_TOPO names a
                   model of a different network. An --app package that did not
                   pass tools/p4_exercise/preflight.py is 5 for the same reason: the
-                  table is printed and nothing is built. 2 is a usage error.
+                  table is printed and nothing is built. So is 'ndt up p4' when NTG's
+                  config names a mode NTG does not know or a hosts file that does not
+                  exist ('ndt ntg' shows the state and sets the mode).
+                  2 is a usage error.
                   🔴 THE CLAIM AND THE MEASUREMENT ARE REFUSED BY ONE GUARD, before
                   anything is written -- on OVS only since 2026-09-25: until then
                   'ndt up ovs' built a fabric under somebody else's claim and exited

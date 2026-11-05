@@ -154,6 +154,10 @@ MANIFEST="'"$FIX"'/manifest.json"
 CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
 LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
 LAB_DEFAULT_KERNEL_DIR="'"$FIX"'"
+# [Co-developed with claude code -- Adam] A fresh up_p4 reads the NTG config of the checkout the
+# lab uses; it refuses a mode NTG does not know or a hosts file that does not exist. This fixture has
+# no NTG checkout (the path is not there), so no real one on this machine can decide these cells.
+LAB_DEFAULT_NTG_DIR="'"$FIX"'/no-ntg"
 HB_PIDFILE="'"$HB_PID"'"
 HB_REPORT="'"$HB_JSON"'"
 LINK_TELEMETRY_MANIFEST="'"$FIX"'/ndtwin_link_telemetry.json"
