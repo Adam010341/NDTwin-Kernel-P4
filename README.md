@@ -137,6 +137,7 @@ Bring-up, test layers and common environment problems are in
 
 ## Docs
 
+- [`doc/2026-11-05_user-guide.md`](doc/2026-11-05_user-guide.md): user guide (install, run and troubleshoot a lab)
 - [`doc/2026-01-02_ndt_api.md`](doc/2026-01-02_ndt_api.md): REST API reference
 - [`doc/2026-10-31_p4-app-guide.md`](doc/2026-10-31_p4-app-guide.md): put your P4 program into NDTwin
 - [`doc/2026-08-17_testing-manual.md`](doc/2026-08-17_testing-manual.md): testing manual

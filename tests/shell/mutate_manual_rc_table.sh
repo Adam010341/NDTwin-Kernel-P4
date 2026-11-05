@@ -4,16 +4,15 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# What is being protected. doc/2026-08-17_testing-manual.md glosses the exit codes of `ndt up`,
-# `ndt down` and `ndt clean`, and `ndt help` is the only place those codes are defined. Before
-# the 2026-09-12 rc change the two agreed; after it they did not, in three places, and the manual went on
-# telling readers that a restored lab answers `ndt clean` with rc 0 when that state now answers
-# 3 (KNOWN-ISSUES G-53). Nothing failed. A document is not compiled, so the only way a stale
-# gloss becomes loud is a gate like this one.
+# What is being protected. doc/2026-11-05_user-guide.md glosses the exit codes of `ndt up`,
+# `ndt down` and `ndt clean`, and `ndt help` is the only place those codes are defined. If the two
+# drift apart the guide goes on telling readers that a restored lab answers `ndt clean` with rc 0
+# when that state answers 3 (KNOWN-ISSUES G-53). Nothing fails. A document is not compiled, so the
+# only way a stale gloss becomes loud is a gate like this one.
 #
-# M1-M6 and M8-M9 put a piece of the OLD manual back, one at a time, and name the case that has
+# M1-M6, M8-M9 and M11-M17 put a piece of the OLD guide back, one at a time, and name the case that has
 # to notice. M7 is the other direction and is the one worth reading: it takes `ndt help` away
-# from the TEST. A test that only asks "is every sentence the manual quotes also in the help
+# from the TEST. A test that only asks "is every sentence the guide quotes also in the help
 # text" is perfect on an empty help text -- the authority that says nothing contradicts nothing
 # -- so if case 1 stayed green under M7 the whole file would be a decoration. M9 mutates the
 # sentence case 14 (the control) reads, which is how this gate shows the control is load-bearing
@@ -21,11 +20,11 @@
 #
 # 🔴 M10 IS THE HELP SIDE, AND IT IS THE HALF THIS GATE WAS MISSING.
 # Cases 2-4 assert that `ndt help` still announces the contract per verb -- the direction that
-# stops an empty authority from certifying any manual at all -- and until M10 those four cases
+# stops an empty authority from certifying any guide at all -- and until M10 those four cases
 # had no mutation behind them: M7 removes the whole help text, which is not the same as the help
 # text quietly losing one sentence. M10 takes exactly one sentence out of a COPY of `ndt`, the one
-# the manual's rc 3 row quotes, and requires BOTH halves to notice: case 2 (the tool still says
-# it) and case 7a (the manual is not quoting a sentence the tool does not print). One of the two
+# the guide's rc 3 row quotes, and requires BOTH halves to notice: case 2 (the tool still says
+# it) and case 7a (the guide is not quoting a sentence the tool does not print). One of the two
 # going red would mean the other is decorative.
 #
 # C1 at the end is the opposite: an HTML-comment reword, which must leave every case green. A
@@ -51,7 +50,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
-MANUAL="$REPO/doc/2026-08-17_testing-manual.md"
+MANUAL="$REPO/doc/2026-11-05_user-guide.md"
 TEST="$REPO/tests/shell/test_manual_rc_table.sh"
 NDT="$REPO/tools/test_workflow/ndt"
 PY="${PY:-/usr/bin/python3}"
@@ -80,23 +79,23 @@ open(p, "w", encoding="utf-8").write(s.replace(old, new))
 PY
 }
 
-# A mutated copy of the manual; prints its path, or an empty string if the anchor missed.
+# A mutated copy of the guide; prints its path, or an empty string if the anchor missed.
 manual_mutant() {   # manual_mutant <tag> <anchor \x1f replacement>
     local out="$BK/manual.$1.md"; cp "$MANUAL" "$out"
     apply_exact "$out" "$2" >&2 || { echo ""; return; }
     echo "$out"
 }
 
-# An UNMUTATED copy of the manual, for the mutations that are applied to the test instead.
+# An UNMUTATED copy of the guide, for the mutations that are applied to the test instead.
 # It is a copy and not "$MANUAL" itself because check_gate_anchors.py reads a declared repo path
 # followed by a quoted literal as "anchor in that file", and the case name passed alongside it
-# would be reported as a missing anchor in the manual (100/101, and the cell that is wrong is
+# would be reported as a missing anchor in the guide (100/101, and the cell that is wrong is
 # this gate's own).
 manual_copy() {
     local out="$BK/manual.pristine.md"; cp "$MANUAL" "$out"; echo "$out"
 }
 
-# A mutated copy of the test itself, run against the REAL manual.
+# A mutated copy of the test itself, run against the REAL guide.
 test_mutant() {   # test_mutant <tag> <anchor \x1f replacement>
     local out="$BK/test.$1.sh"; cp "$TEST" "$out"
     apply_exact "$out" "$2" >&2 || { echo ""; return; }
@@ -119,11 +118,11 @@ ndt_mutant() {   # ndt_mutant <tag> <anchor \x1f replacement>
     echo "$out"
 }
 
-run_pair() {   # run_pair <test file> <manual file> [ndt file]
+run_pair() {   # run_pair <test file> <guide file> [ndt file]
     MANUAL="$2" NDT="${3:-$NDT}" bash "$1" 2>&1
 }
 
-report() {   # report <label> <test file> <manual file> <case that must go red>
+report() {   # report <label> <test file> <guide file> <case that must go red>
     local out rc
     MUTATIONS=$((MUTATIONS + 1))
     if [[ -z "$2" || -z "$3" ]]; then
@@ -151,7 +150,7 @@ report() {   # report <label> <test file> <manual file> <case that must go red>
 # naming one case and hoping the other one would have been red too. The witness is the third
 # argument's purpose: a mutant `ndt` that cannot run at all makes every help case red, which
 # would "catch" this mutation while proving nothing about the sentence it removed.
-report_two() {   # report_two <label> <test> <manual> <ndt> <case A> <case B> <witness that stays green>
+report_two() {   # report_two <label> <test> <guide> <ndt> <case A> <case B> <witness that stays green>
     local out rc
     MUTATIONS=$((MUTATIONS + 1))
     if [[ -z "$2" || -z "$3" || -z "$4" ]]; then
@@ -176,7 +175,7 @@ report_two() {   # report_two <label> <test> <manual> <ndt> <case A> <case B> <w
     fi
 }
 
-control() {   # control <label> <test file> <manual file>
+control() {   # control <label> <test file> <guide file>
     local out rc
     CONTROLS=$((CONTROLS + 1))
     out=$(run_pair "$2" "$3"); rc=$?
@@ -201,31 +200,31 @@ echo
 echo "mutations:"
 
 # --- M1: the rc 3 row goes back to being an rc 0 row -- the defect itself -------------------
-M=$(manual_mutant m1 '| 3 | **沒有東西可量**——閒置的機器、已經收掉的 lab | `THERE WAS NOTHING TO JUDGE` |'$'\x1f''| 0 | 乾淨 | `the teardown finished and the machine verified clean` |')
+M=$(manual_mutant m1 '| 3 | **nothing to measure**: an idle machine, a lab that was already down | `THERE WAS NOTHING TO JUDGE` |'$'\x1f''| 0 | clean | `the teardown finished and the machine verified clean` |')
 report "M1: the rc 3 row is written back as an rc 0 row" "$TEST" "$M" "case 6  the rc table has a row for rc 3"
 
 # --- M2: the refusal row disappears, so 5 goes back to being indistinguishable from 1 -------
-M=$(manual_mutant m2 '| 5 | **守衛拒絕，機器一個 byte 都沒動** | `A GUARD REFUSED and nothing was torn down` |
+M=$(manual_mutant m2 '| 5 | **a guard refused and the machine was not touched** | `A GUARD REFUSED and nothing was torn down` |
 '$'\x1f''')
 report "M2: the rc 5 row is deleted" "$TEST" "$M" "case 6  the rc table has a row for rc 5"
 
 # --- M3: the restore criterion asks for rc 0 again ------------------------------------------
 # This is the one that scored a restored lab as not restored. It must not be quietly re-enterable.
-M=$(manual_mutant m3 '1. **`ndt clean` 回 0 或 3。**'$'\x1f''1. **`ndt clean` 回 rc 0。**')
+M=$(manual_mutant m3 '1. **`ndt clean` returns 0 or 3.**'$'\x1f''1. **`ndt clean` returns rc 0.**')
 report "M3: the restore criterion demands rc 0 again" "$TEST" "$M" "case 12a the restore criterion accepts rc 3 from 'ndt clean' as restored"
 
 # --- M4: a second rc table appears ----------------------------------------------------------
 # Two copies of the codes is the shape of the original defect: one of them goes stale alone.
 M=$(manual_mutant m4 '<!-- NDT-RC-TABLE:END -->'$'\x1f''<!-- NDT-RC-TABLE:END -->
 
-<!-- NDT-RC-TABLE:BEGIN 第二份 -->
+<!-- NDT-RC-TABLE:BEGIN second copy -->
 
-| rc | 意思 | `ndt help` 的原句 |
+| rc | Meaning | `ndt help` says |
 |---|---|---|
-| 0 | 乾淨 | `the teardown finished and the machine verified clean` |
+| 0 | clean | `the teardown finished and the machine verified clean` |
 
 <!-- NDT-RC-TABLE:END -->')
-report "M4: a second rc table is added" "$TEST" "$M" "case 5  the manual carries exactly one rc table (BEGIN/END)"
+report "M4: a second rc table is added" "$TEST" "$M" "case 5  the guide carries exactly one rc table (BEGIN/END)"
 
 # --- M5: the table quotes a sentence `ndt help` does not print -------------------------------
 M=$(manual_mutant m5 '`THERE WAS NOTHING TO JUDGE`'$'\x1f''`NOTHING TO JUDGE, SO IT IS CLEAN`')
@@ -234,11 +233,11 @@ report "M5: the table attributes an invented sentence to ndt help" "$TEST" "$M" 
 # --- M6: the criterion reads the orphans rc instead of the verdict ---------------------------
 # `ndt apps orphans` answers 5 for "processes clean, residue could not be checked" -- a different
 # 5 from this table's. Reading its rc is exactly the confusion the criterion has to avoid.
-M=$(manual_mutant m6 '**`orphans_verdict.sh` 印 `VERDICT: CLEAN`**'$'\x1f''**`ndt apps orphans` 回 rc 0**')
+M=$(manual_mutant m6 '**`orphans_verdict.sh` prints `VERDICT: CLEAN`.**'$'\x1f''**`ndt apps orphans` returns rc 0.**')
 report "M6: the criterion reads the orphans rc, not its VERDICT" "$TEST" "$M" "case 13 the restore criterion reads orphans_verdict.sh's VERDICT, not a rc"
 
 # --- M7: the TEST loses its authority --------------------------------------------------------
-# 🔴 The direction that matters. With no help text every "the manual agrees with help" case is
+# 🔴 The direction that matters. With no help text every "the guide agrees with help" case is
 # vacuously green; case 1 is the only thing standing between this file and a certificate that
 # means nothing.
 T=$(test_mutant m7 'HELP="$(bash "$NDT" help 2>&1)"'$'\x1f''HELP=""')
@@ -246,17 +245,17 @@ M=$(manual_copy)
 report "M7: the test stops reading 'ndt help'" "$T" "$M" "case 1  'ndt help' still prints a block for 'up' (>= 5 lines)"
 
 # --- M8: a command comment gets its own rc gloss back ----------------------------------------
-M=$(manual_mutant m8 'ndt clean           # 驗收；怎麼讀它的 exit code 見 §2.1 那張表'$'\x1f''ndt clean           # 證明真的乾淨了；exit 1 = 沒有')
+M=$(manual_mutant m8 'ndt clean         # the assertion only; it stops nothing'$'\x1f''ndt clean         # proves it is clean; exit 1 = no')
 report "M8: a code-block comment glosses an rc on its own again" "$TEST" "$M" "case 10 no 'ndt up/down/clean' command comment carries its own rc gloss"
 
 # --- M9: the sentence the CONTROL reads is taken away -----------------------------------------
 # Without this, case 14 could be green because it asks nothing. It has to be able to go red.
-M=$(manual_mutant m9 'fabric 活著時 `ndt clean` 回 rc 1 是正常的'$'\x1f''fabric 活著時 `ndt clean` 會抱怨')
+M=$(manual_mutant m9 'Over a live fabric a plain `ndt clean` returns rc 1'$'\x1f''Over a live fabric a plain `ndt clean` complains')
 report "M9: the control's sentence is removed" "$TEST" "$M" "case 14 CONTROL"
 
 # --- M10: `ndt help` quietly loses ONE sentence ------------------------------------------------
 # 🔴 The half cases 2-4 did not have. M7 takes the whole help text away; a real drift is one line
-# of usage text being reworded, which leaves every other help assertion green. The manual's rc 3
+# of usage text being reworded, which leaves every other help assertion green. The guide's rc 3
 # row quotes this exact sentence, so case 7a has to see it go missing as well.
 N=$(ndt_mutant m10 '3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in'$'\x1f''3 nothing was found to judge: no fabric, nothing in')
 M=$(manual_copy)
@@ -265,9 +264,43 @@ report_two "M10: 'ndt help' loses the sentence the rc 3 row quotes" "$TEST" "$M"
            "case 7a every quote in the rc table is verbatim from 'ndt help'" \
            "case 3  help's 'down' block still announces 3 as nothing to tear down"
 
+# --- M11: the guide's own gloss of rc 5 is reworded -----------------------------------------------
+# The right-hand column quotes `ndt help` in capitals, so the case that reads the GLOSS must not be
+# satisfiable by the quote: it is case-sensitive, and this is the mutation that shows it.
+M=$(manual_mutant m11 '**a guard refused and the machine was not touched**'$'\x1f''**it stopped early**')
+report "M11: the rc 5 gloss is reworded and no longer says a guard refused" "$TEST" "$M" "case 9  the rc 5 row says a guard refused and nothing was done"
+
+# --- M12: the same for the rc 3 gloss --------------------------------------------------------------
+M=$(manual_mutant m12 '**nothing to measure**: an idle machine'$'\x1f''**all fine**: an idle machine')
+report "M12: the rc 3 gloss is reworded and no longer says nothing was measured" "$TEST" "$M" "case 8  the rc 3 row says nothing was measured, not that it was clean"
+
+# --- M13: a typed port-table size comes back into the guide -----------------------------------------
+M=$(manual_mutant m13 'every port in the table of `tools/test_workflow/ports.sh`; `ndt help` prints'$'\x1f''every port in the table of `tools/test_workflow/ports.sh` (9 rules, 27 ports); `ndt help` prints')
+report "M13: the guide types the port table's size again" "$TEST" "$M" "case 15 the guide does not type the port table's size or its port list"
+
+# --- M14: a bare ifconfig grant comes back ------------------------------------------------------------
+M=$(manual_mutant m14 'NOPASSWD: /usr/sbin/ifconfig s[0-9]*-eth[0-9]* up, '$'\x1f''NOPASSWD: /usr/sbin/ifconfig, /usr/sbin/ifconfig s[0-9]*-eth[0-9]* up, ')
+report "M14: the guide grants a bare ifconfig again" "$TEST" "$M" "case 16 no sudoers entry in the guide grants sed, exportfs, a bare tc or a bare ifconfig"
+
+# --- M15: a bare tc grant comes back --------------------------------------------------------------------
+M=$(manual_mutant m15 'NOPASSWD: /usr/sbin/tc qdisc show dev s[0-9]*-eth[0-9]*, '$'\x1f''NOPASSWD: /usr/sbin/tc, /usr/sbin/tc qdisc show dev s[0-9]*-eth[0-9]*, ')
+report "M15: the guide grants a bare tc again" "$TEST" "$M" "case 16 no sudoers entry in the guide grants sed, exportfs, a bare tc or a bare ifconfig"
+
+# --- M16: sed and exportfs are offered again -----------------------------------------------------------------
+M=$(manual_mutant m16 '# P4 power control only
+$USER ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-p4-power'$'\x1f''# P4 power control only
+$USER ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-p4-power, /usr/sbin/exportfs, /usr/bin/sed')
+report "M16: the guide grants exportfs and sed again" "$TEST" "$M" "case 16 no sudoers entry in the guide grants sed, exportfs, a bare tc or a bare ifconfig"
+
+# --- M17: the scan stops seeing the guide's sudoers lines ------------------------------------------------------
+# Without 16b a scan that reads nothing says "no violation" about nothing.
+T=$(test_mutant m17 "sed -n 's/.*NOPASSWD:[[:space:]]*//p'"$'\x1f'"sed -n 's/.*NOPASSWDX:[[:space:]]*//p'")
+M=$(manual_copy)
+report "M17: the grant scan reads no entries at all" "$T" "$M" "case 16b the grant scan sees the guide's sudoers entries (>= 8)"
+
 # --- C1 (control): a comment is reworded; nothing about the contract changes -------------------
 echo
-M=$(manual_mutant c1 '這是整份手冊唯一一段教人怎麼判「還原了沒」的文字。'$'\x1f''這一段是唯一講「還原了沒」怎麼判的文字。')
+M=$(manual_mutant c1 'The only place this guide says how to decide that a lab was restored.'$'\x1f''This is the one place this guide says how to decide that a lab was restored.')
 if [[ -z "$M" ]]; then
     echo "  DID-NOT-APPLY C1 (control): the comment it rewords is not there" >&2
     UNAPPLIED=$((UNAPPLIED + 1))
@@ -278,9 +311,9 @@ fi
 echo
 ok=0
 if [[ "$(sha256sum "$MANUAL" | cut -d' ' -f1)" == "$MANUAL_SHA" ]]; then
-    echo "baseline byte-identical: yes  doc/2026-08-17_testing-manual.md"
+    echo "baseline byte-identical: yes  doc/2026-11-05_user-guide.md"
 else
-    echo "🔴 THE MANUAL CHANGED WHILE THIS GATE RAN -- a mutant may be on disk"; ok=1
+    echo "🔴 THE GUIDE CHANGED WHILE THIS GATE RAN -- a mutant may be on disk"; ok=1
 fi
 if [[ "$(sha256sum "$TEST" | cut -d' ' -f1)" == "$TEST_SHA" ]]; then
     echo "baseline byte-identical: yes  tests/shell/test_manual_rc_table.sh"

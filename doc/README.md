@@ -24,6 +24,7 @@ repo 外的一組連結。所以這份索引取代分區——標記地位，不
 
 | 檔案 | 為什麼是它 |
 |---|---|
+| [2026-11-05_user-guide.md](2026-11-05_user-guide.md) | **User guide (English)**: install, run and troubleshoot a lab with `ndt` |
 | [2026-08-17_testing-manual.md](2026-08-17_testing-manual.md) | **「我現在該跑什麼」的唯一入口**；**§2 是完整的開機手冊**（清空／起 bmv2 與 OVS／切拓樸／改參數／Mininet 與 NTG／開 app／收尾／故障排除）。其餘七份測試文件的地位也列在它裡面 |
 | [2026-01-02_ndt_api.md](2026-01-02_ndt_api.md) | `/ndt/*` 的 41 個端點，與 dispatcher 逐條相符。7 個兄弟元件與 kernel 之間唯一的介面 |
 
