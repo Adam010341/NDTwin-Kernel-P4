@@ -92,8 +92,8 @@ echo "mutants -- the old behaviour must not come back:"
 
 # The defect itself: the bridge is launched with nothing that carries NTG_DIR.
 m=$(mutant m1 "$LAB" \
-    '        /usr/bin/env "NTG_DIR=$NTG_DIR" "$NTG_PY" "$BRIDGE"' \
-    '        "$NTG_PY" "$BRIDGE"')
+    '        /usr/bin/env "NTG_DIR=$NTG_DIR" PYTHONDONTWRITEBYTECODE=1 "$NTG_PY" "$BRIDGE"' \
+    '        /usr/bin/env PYTHONDONTWRITEBYTECODE=1 "$NTG_PY" "$BRIDGE"')
 report "M1: topo-start no longer hands the bridge NTG_DIR" "$m" \
        "🔴 the program started in the pane sees the configured NTG_DIR"
 

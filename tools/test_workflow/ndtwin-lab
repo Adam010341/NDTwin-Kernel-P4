@@ -34,6 +34,16 @@ NDTWIN_LAB_SOURCED=0
 
 TMUX="tmux -L ndtwinlab"
 
+# [Co-developed with claude code -- Adam]
+# The three topology launches below (topo-start, ovs-topo-start, ovs-topo-4host) start their
+# interpreter with PYTHONDONTWRITEBYTECODE=1, put on the launch command itself (a running tmux
+# server does not pass this script's environment on): root-written __pycache__ in a user-owned
+# checkout stops that user deleting it. Two things are left without it on purpose:
+#   * the heartbeat: root's own /usr/bin/python3, run with -I (which implies -E, so the variable
+#     would be ignored there anyway), the program in /run/ndtwin-lab or on stdin, standard-library imports
+#     only -- no user tree is on its path;
+#   * `mn -c` (cleanup): system Mininet from root-owned dist-packages.
+
 # 🔴 KERNEL_DIR IS NOT TAKEN FROM THE ENVIRONMENT. READ THIS BEFORE "FIXING" IT.
 # [Co-developed with claude code -- Adam]
 #
@@ -573,7 +583,7 @@ p4_topo_start() {
   Set it to your NTG checkout with an NTG_DIR= line in $LAB_CONF, then check it with:
     sudo ndtwin-lab config"
     $TMUX new-session -d -s topo -c "$KERNEL_DIR/p4_proxy/mininet" \
-        /usr/bin/env "NTG_DIR=$NTG_DIR" "$NTG_PY" "$BRIDGE"
+        /usr/bin/env "NTG_DIR=$NTG_DIR" PYTHONDONTWRITEBYTECODE=1 "$NTG_PY" "$BRIDGE"
     # Which tree, every time. On 2026-08-30 the main tree's 128-host topology ran against a
     # 4-host model for a whole round without a line of output that could have caught it.
     echo "topo session started from $KERNEL_DIR (attach: sudo tmux -L ndtwinlab attach -t topo)"
@@ -637,7 +647,7 @@ ovs_topo_start() {
     [[ -r "$script" ]] || die "no readable OVS topology at $script
   KERNEL_DIR is $KERNEL_DIR ($LAB_CONF_SOURCE).
   This is the file components.env calls OVS_TOPO_SCRIPT and stack.sh prints for the operator."
-    $TMUX new-session -d -s topo -c "$KERNEL_DIR" "$NTG_PY" "$script"
+    $TMUX new-session -d -s topo -c "$KERNEL_DIR" /usr/bin/env PYTHONDONTWRITEBYTECODE=1 "$NTG_PY" "$script"
     # Which tree, every time -- the same reason topo-start says it.
     echo "OVS topo session started from $script (attach: sudo tmux -L ndtwinlab attach -t topo)"
 }
@@ -1802,7 +1812,7 @@ case "${1:-}" in
         # ports.sh's 6653/6633 rows are what say whether it is THIS round's Ryu.
         session_running topo && die "topo session already running (topo-stop first)"
         $TMUX new-session -d -s topo -c "$KERNEL_DIR" \
-            "$NTG_PY" "$KERNEL_DIR/tools/test_workflow/ovs_4host_topo.py"
+            /usr/bin/env PYTHONDONTWRITEBYTECODE=1 "$NTG_PY" "$KERNEL_DIR/tools/test_workflow/ovs_4host_topo.py"
         echo "OVS 4-host topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)"
         ;;
     energy-start)
