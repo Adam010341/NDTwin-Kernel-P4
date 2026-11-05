@@ -51,8 +51,9 @@
 #            write under /tmp, and their tree is the new one whose register lists such a pid.
 #   cleanup  the same, and then, once the cleanup the first signal started is in its `sleep 0.3`
 #            (a child of the suite's shell that was not there before the signal), the second:
-#            INT to the group, TERM to the suite's shell. Its premise is the clock -- how much of
-#            that sleep was left when the second signal went, from the sleep's start time.
+#            INT to the group, TERM to the suite's shell. Its premise is that sleep, seen alive
+#            and stopped with the run held when the second signal goes (see HELD below); how
+#            much of it was left then, from its start time, is printed beside it.
 #   app      app_spawn's `sleep 1` is a child of the suite's shell AND the pidfile it has just
 #            written names a live process of this run.
 #   two      the inserted `sleep 1` is a child of the suite's shell AND the two-layer fixture's
@@ -62,6 +63,25 @@
 #            process group is the suite's, and is not its own pid.
 # apps_group has no check that announces a fixture: its moment is the suite's register of process
 # GROUPS (`groups`) naming a live process of the run, the app it has just started.
+# HELD (2026-11-05). A moment is only ever taken with the run HELD: its whole process group
+# stopped (SIGSTOP; the group is the run's own, checked first), the suite's shell seen stopped,
+# and then the moment read again. Every signal of a run is sent while it is held and before it is
+# let go (SIGCONT), so the state the moment was read from is the state the signal lands in,
+# however slowly this test is scheduled. A held moment also needs the suite NOT to be on its own
+# way out -- no summary line printed yet, INT and TERM not ignored by its shell -- because every
+# cleanup ignores both first thing (`trap '' INT TERM`), and a signal that lands in a run ending
+# by itself is ignored by design: that run ends 0 or 1, which says nothing about the suite.
+# [Co-developed with claude code -- Adam]
+# LATE (2026-11-06). A run that came near its moment (its premise was seen) and then ended on its
+# own, with no held look seeing the moment while the suite was still in its main flow -- held
+# too late, held only once it was on its way out, or not held at all because this test was too
+# slow -- is started again, up to SIGNAL_ATTEMPTS times in all within the one
+# SIGNAL_FIRST_FIXTURE_WAIT, each restart printed as a note with the number of holds it made, its
+# last line of output and how many of its processes were reaped. A late watcher is this test's
+# problem, not the suite's. A run that never comes near its moment, or is still running when that
+# wait is used up, is not restarted, and when every attempt is late the cell fails as a missed
+# moment that names them.
+# [Co-developed with claude code -- Adam]
 # TERM goes to the suite's own pid, INT to its whole process group, the way a terminal's Ctrl-C
 # arrives (bash runs an INT trap once the foreground child it is waiting for has died of INT too).
 # Then:
@@ -78,16 +98,18 @@
 #   labels: orphans liveness sweep window topo_pid ovs_claim down apps_group (default: all eight); a label
 #   selects every run of that suite.
 #   SIGNAL_END_WITHIN=20  SIGNAL_FIRST_FIXTURE_WAIT=30  SIGNAL_CLEANUP_WAIT=10  SIGNAL_HARD_LIMIT=30
-#   SIGNAL_TOTAL_LIMIT=210 (seconds). Green, the forty-three runs take 91-101 s in all on the
-#   development machine (measured 2026-10-03, three runs on this tree, 98 s on the one before it); about a third of that is the three
-#   `app`/`two`/`held` runs, which wait for a point 11-13 s into their suite.
+#   SIGNAL_TOTAL_LIMIT=210 (seconds)  SIGNAL_ATTEMPTS=3. Green, the forty-three runs take 93-98 s in
+#   all on the development machine (measured 2026-11-06, three runs with the holds: 93, 98 and 95 s;
+#   103 s on the tree before them); about a third of that is the three `app`/`two`/`held` runs,
+#   which wait for a point 11-13 s into their suite.
 # THE BOUND. The limits keep a HUNG suite a red line rather than a killed CI job. ci.yml's
 #   build-and-test has timeout-minutes 30, and on PR #22 that job took 22 min 11 s and 21 min 30 s
 #   (GitHub Actions jobs 110274499246 and 110274514834: 07:56:17Z-08:18:28Z and
-#   07:56:19Z-08:17:49Z), so about 7.8 min are left. One run is at most FIRST_WAIT + CLEANUP_WAIT
-#   + HARD_LIMIT + about 5 s of /proc scans = 75 s, and no run starts after TOTAL_LIMIT, so this
-#   whole test ends within 210 + 75 = 285 s (4.75 min) -- 22 min 11 s + 4.75 min = 26.9 min,
-#   inside the 30. Without the total limit it would be 43 x 75 = 3225 s. The limit is about twice
+#   07:56:19Z-08:17:49Z), so about 7.8 min are left. One run is at most FIRST_WAIT (all its
+#   attempts share it) + CLEANUP_WAIT + HARD_LIMIT, plus up to 2 s each for a hold that overruns
+#   the first two, plus about 5 s of /proc scans = 79 s, and no run starts after TOTAL_LIMIT, so
+#   this whole test ends within 210 + 79 = 289 s (4.8 min) -- 22 min 11 s + 4.8 min = 27.0 min,
+#   inside the 30. Without the total limit it would be 43 x 79 = 3397 s. The limit is about twice
 #   the green time, so a host half as fast still runs every run.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -97,6 +119,7 @@ FIRST_WAIT="${SIGNAL_FIRST_FIXTURE_WAIT:-30}"
 CLEANUP_WAIT="${SIGNAL_CLEANUP_WAIT:-10}"
 HARD_LIMIT="${SIGNAL_HARD_LIMIT:-30}"
 TOTAL_LIMIT="${SIGNAL_TOTAL_LIMIT:-210}"
+ATTEMPTS="${SIGNAL_ATTEMPTS:-3}"
 
 PASS=0; FAIL=0
 check() {
@@ -166,6 +189,14 @@ command -v python3 >/dev/null 2>&1 \
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/ndt-signal-ends-run-XXXXXX")"
 TOKENS=()
+# [Co-developed with claude code -- Adam] nap <seconds> -- a wait with no fork: a read that times
+# out on a fifo of this test's own, open at both ends so nothing ever arrives (2026-11-05). The
+# polls between two holds of a run use it, so a run is let go for about that long and no longer,
+# however slowly this test forks. Every run is started with that descriptor closed.
+mkfifo "$WORK/nap" && exec {NAP_FD}<>"$WORK/nap" \
+    || { echo "  FAILED   could not open a fifo in $WORK"; echo "Ran 1 checks, 1 failed"; rm -rf "$WORK"; exit 1; }
+nap() { local nap_; read -r -t "$1" -u "$NAP_FD" nap_; return 0; }
+HOLDING=0
 # token_pids <token> -- every live process whose environment carries this run's token.
 token_pids() {
     local f
@@ -174,10 +205,13 @@ token_pids() {
     done
 }
 # reap_token <token> -- kill, by pid, whatever still carries it (each pid re-read first).
+# REAPED: how many it killed ([Co-developed with claude code -- Adam], 2026-11-06).
 reap_token() {
     local p
+    REAPED=0
     for p in $(token_pids "$1"); do
-        grep -qasF -- "NDT_SIGNAL_TEST_TOKEN=$1" "/proc/$p/environ" 2>/dev/null && kill -KILL "$p" 2>/dev/null
+        grep -qasF -- "NDT_SIGNAL_TEST_TOKEN=$1" "/proc/$p/environ" 2>/dev/null && kill -KILL "$p" 2>/dev/null \
+            && REAPED=$((REAPED + 1))
     done
     return 0
 }
@@ -186,6 +220,15 @@ cleanup() {
     # (2026-10-03), as in the suites.
     trap '' INT TERM
     local t
+    # [Co-developed with claude code -- Adam] A run this test is holding is reaped first, while it
+    # is still stopped and cannot fork, then its group is let go (2026-11-06), so an INT or TERM of
+    # this test mid-hold leaves no group stopped and no child of it unreaped. A SIGKILL of this
+    # test cannot be handled at all: a run it was holding then stays stopped, in a session of its
+    # own, until `kill -CONT -- -<that session's id>`.
+    if (( ${HOLDING:-0} )) && [[ "${HELD_GROUP:-}" =~ ^[0-9]+$ ]]; then
+        [[ -n "${HELD_TOKEN:-}" ]] && reap_token "$HELD_TOKEN"
+        kill -s CONT -- "-$HELD_GROUP" 2>/dev/null
+    fi
     for t in "${TOKENS[@]}"; do reap_token "$t"; done
     [[ -n "${WORK:-}" && -d "$WORK" ]] && rm -rf "$WORK"
     rm -f "$HERE"/.spawn-gate-$$-signal-*
@@ -199,7 +242,39 @@ trap 'exit 143' TERM
 
 # state_of <pid> -- R/S/D/Z/... from /proc, or "gone".
 state_of() { local s; s="$(cat "/proc/$1/stat" 2>/dev/null)" || { echo gone; return; }; s="${s##*) }"; echo "${s%% *}"; }
-ended() { local s; s="$(state_of "$1")"; [[ "$s" == Z || "$s" == gone ]]; }
+# [Co-developed with claude code -- Adam] proc_stat <pid> -> PSTAT, the fields of /proc/<pid>/stat
+# from the state on (PSTAT[0] the state, [2] the process group, [3] the session, [19] the start
+# time in clock ticks), read with no fork (2026-11-05); 1 when it is gone. ended: Z or gone.
+proc_stat() { local s; PSTAT=(); { read -r s < "/proc/$1/stat"; } 2>/dev/null || return 1; read -r -a PSTAT <<<"${s##*) }"; }
+ended() { proc_stat "$1" || return 0; [[ "${PSTAT[0]}" == Z ]]; }
+leads_own_session() { proc_stat "$1" && [[ "${PSTAT[2]} ${PSTAT[3]}" == "$1 $1" ]]; }
+# [Co-developed with claude code -- Adam] hold <group> <pid> -- stop the run's whole process group
+# and wait, with no fork and for up to 2 s, until <pid> (the suite's shell) is seen stopped
+# (2026-11-05). HELD_MS: the uptime, in ms, read just after the stop went. Called only for a
+# group that leads its own session, which this test started. release <group> lets it go again.
+hold() {
+    local i u
+    kill -s STOP -- "-$1" 2>/dev/null || return 1
+    HOLDING=1; HELD_GROUP="$1"; HELD_TOKEN="${tok:-}"; HOLDS=$(( ${HOLDS:-0} + 1 ))
+    read -r u _ < /proc/uptime; HELD_MS=$(( ${u%.*} * 1000 + 10#${u#*.} * 10 ))
+    for (( i = 0; i < 400; i++ )); do
+        proc_stat "$2" && [[ "${PSTAT[0]}" != Z ]] || break
+        [[ "${PSTAT[0]}" == T ]] && return 0
+        nap 0.005
+    done
+    release "$1"; return 1
+}
+release() { (( HOLDING )) && kill -s CONT -- "-$1" 2>/dev/null; HOLDING=0; return 0; }
+# [Co-developed with claude code -- Adam] ending <suite pid> <its output> -- the suite is on its
+# own way out (2026-11-05): its summary line is printed, or its shell ignores INT or TERM (bits 1
+# and 14 of SigIgn), which each of the eight cleanups makes it do first thing. Gone counts too.
+ending() {
+    local k v
+    grep -qE '^Ran [0-9]+ checks?' "$2" 2>/dev/null && return 0
+    { while read -r k v; do [[ "$k" == SigIgn: ]] && break; done < "/proc/$1/status"; } 2>/dev/null
+    [[ "$k" == SigIgn: && "$v" =~ ^[0-9a-fA-F]+$ ]] || return 0
+    (( (16#$v >> 1) & 1 || (16#$v >> 14) & 1 ))
+}
 now_ms() { local t="${EPOCHREALTIME/,/.}"; echo $(( ${t%.*} * 1000 + 10#${t#*.} / 1000 )); }
 # children_of <pid> -- its child pids, from /proc/<pid>/task/<pid>/children where there is one,
 # else from every process's parent field.
@@ -219,12 +294,26 @@ children_of() {
 argv_of() { { tr '\0' ' ' < "/proc/$1/cmdline"; } 2>/dev/null; }
 # child_running <pid> <argv, words joined by spaces> [<pids to ignore>] -> CHILD, the first child of
 # <pid> with exactly that argv that is not in the list.
+# [Co-developed with claude code -- Adam] With no fork (2026-11-05): the polls that look for a
+# moment between two holds call it, and a fork there is time the run spends let go.
 child_running() {
-    local c
+    local c f s
+    local -a ck=() a=()
     CHILD=""
-    for c in $(children_of "$1"); do
+    if [[ -r "/proc/$1/task/$1/children" ]]; then
+        { read -r -a ck < "/proc/$1/task/$1/children"; } 2>/dev/null
+    else
+        for f in /proc/[0-9]*/stat; do
+            { read -r s < "$f"; } 2>/dev/null || continue
+            s="${s##*) }"; s="${s#* }"
+            [[ "${s%% *}" == "$1" ]] || continue
+            c="${f#/proc/}"; ck+=("${c%/stat}")
+        done
+    fi
+    for c in "${ck[@]}"; do
         [[ " ${3:-} " == *" $c "* ]] && continue
-        [[ "$(argv_of "$c")" == "$2 " ]] && { CHILD="$c"; return 0; }
+        a=(); { mapfile -d '' -t a < "/proc/$c/cmdline"; } 2>/dev/null
+        [[ "${a[*]}" == "$2" ]] && { CHILD="$c"; return 0; }
     done
     return 1
 }
@@ -234,65 +323,28 @@ file_names_live() {
     p="$(head -1 "$1" 2>/dev/null)"
     [[ "$p" =~ ^[0-9]+$ ]] && grep -qasF -- "NDT_SIGNAL_TEST_TOKEN=$2" "/proc/$p/environ" 2>/dev/null
 }
-# start_ticks <pid> -- its start time, in clock ticks since boot; uptime_ms -- now, in ms since boot.
+# CLK_TCK -- clock ticks per second, the unit of a start time in /proc/<pid>/stat.
 CLK_TCK="$(getconf CLK_TCK 2>/dev/null)"; [[ "$CLK_TCK" =~ ^[0-9]+$ ]] || CLK_TCK=100
-start_ticks() { local s; { read -r s < "/proc/$1/stat"; } 2>/dev/null || return 1; s="${s##*) }"; read -r -a s <<<"$s"; echo "${s[19]}"; }
-uptime_ms() { local u; read -r u _ < /proc/uptime; echo $(( ${u%.*} * 1000 + 10#${u#*.} * 10 )); }
 send() {   # send <TERM|INT> <the pid signalled>: TERM to the pid, INT to its group
     if [[ "$1" == INT ]]; then kill -s INT -- "-$2"; else kill -s "$1" "$2"; fi
 }
 
-# one <label> <mode> <SIG> <expected rc> [<the second signal, for mode cleanup>]
-one() {
-    local label="$1" mode="$2" sig="$3" want="$4" second="${5:-}" tok tmpd out spid suite="" t0 t1 rc i tree="" d p f0="$FAIL"
-    local deadline runfile name moment="" what n sid pg start_t sent_t left_ms held=""
-    local -a before=() fixtures=() left=() live=() kids=()
-    suite_info "$label"
-    variant_of "$label" "$mode"
-    name="$label $mode $sig${second:++$second}"
-    tok="$label-$mode-$sig$second-$$-$RANDOM$RANDOM"; TOKENS+=("$tok")
-    tmpd="$WORK/tmp-$label-$mode-$sig$second"; out="$WORK/out-$label-$mode-$sig$second.log"
-    mkdir -p "$tmpd"
-    runfile="$SFILE"
-    if [[ -n "$VOLD" ]]; then
-        # Beside the suite, so every path it derives from its own location is the real one; the
-        # name is one .gitignore keeps out of a commit, and cleanup removes it.
-        runfile="$HERE/.spawn-gate-$$-signal-$label-$mode-$sig$second-$(basename "$SFILE")"
-        n="$(python3 -c 'import sys
-s = open(sys.argv[1]).read(); n = s.count(sys.argv[3])
-if n == 1: open(sys.argv[2], "w").write(s.replace(sys.argv[3], sys.argv[4], 1))
-print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
-        if [[ "$n" != 1 ]]; then
-            check "$name: the copy's one edit has exactly one place to go in ${SFILE##*/}" 1 "$n"
-            rm -f "$runfile"; return
-        fi
-    fi
-    (( SPRIVATE )) || { shopt -s nullglob; before=(/tmp/"$SPREFIX"*); shopt -u nullglob; }
-    echo "$name${VDESC:+ (a copy, with $VDESC)}"
-    if [[ "$sig" == INT ]]; then
-        # [Co-developed with claude code -- Adam] The caller, as l1_unit_tests.sh calls a suite.
-        TMPDIR="$tmpd" NDT_SIGNAL_TEST_TOKEN="$tok" \
-            setsid env --default-signal=INT bash -c 'bash "$1"; echo "the caller carried on after rc $?"' _ "$runfile" \
-            </dev/null >"$out" 2>&1 &
-    else
-        TMPDIR="$tmpd" NDT_SIGNAL_TEST_TOKEN="$tok" \
-            setsid env --default-signal=INT bash "$runfile" </dev/null >"$out" 2>&1 &
-    fi
-    spid=$!
-    # Wait for the run's moment (see HOW above). For `fixture` and `cleanup`: a fixture premise
-    # printed AND a live process of this run in the suite's own fixture register; the register it
-    # is in is the suite's temp tree. A suite may stop its first fixture again within a second
-    # (test_ndt_ovs_claim.sh does) and run on with only a poll's sleep or a `bash -c` of its own
-    # alive: a signal sent then gives the leftover checks nothing to find, so that moment does
-    # not count.
-    deadline=$(( SECONDS + FIRST_WAIT ))
-    while (( SECONDS < deadline )); do
-        ended "$spid" && break
-        if [[ -z "$suite" ]]; then
-            if [[ "$sig" == TERM ]]; then suite="$spid"
-            else for p in $(children_of "$spid"); do [[ "$(argv_of "$p")" == "bash $runfile " ]] && suite="$p"; done; fi
-        fi
-        if [[ -n "$suite" ]]; then case "$mode" in
+# [Co-developed with claude code -- Adam] The moment of a run, in two looks (2026-11-05). Both run
+# inside `one` and read and set its locals (bash scoping is dynamic).
+# moment_near -- a cheap look, with the run going and no fork once the premise line is seen: may
+# its moment be here? find_moment -- the whole look, with the run held: sets tree and moment (and,
+# for `held`, held) when it is.
+moment_near() {
+    case "$mode" in
+        fixture|cleanup)
+            (( premised )) || { grep -qE "$SPREMISE" "$out" 2>/dev/null && premised=1; }
+            (( premised )) ;;
+        *)  child_running "$suite" "sleep 1" ;;
+    esac
+}
+find_moment() {
+    tree=""; moment=""; held=""
+    case "$mode" in
         fixture|cleanup)
             if grep -qE "$SPREMISE" "$out" 2>/dev/null; then
                 mapfile -t live < <(token_pids "$tok" | grep -vx -e "$spid" -e "$suite")
@@ -330,9 +382,103 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
                     done
                 done
             fi ;;
-        esac; fi
-        [[ -n "$tree" ]] && break
-        if [[ "$mode" == fixture || "$mode" == cleanup ]]; then sleep 0.1; else sleep 0.02; fi
+    esac
+    [[ -n "$tree" ]]
+}
+
+# one <label> <mode> <SIG> <expected rc> [<the second signal, for mode cleanup>]
+one() {
+    local label="$1" mode="$2" sig="$3" want="$4" second="${5:-}" tok tmpd out spid suite="" t0 t1 rc i tree="" d p f0="$FAIL"
+    local deadline runfile name moment="" what n sid pg left_ms held="" premised=0 late="" went="" near="" attempt tok0 lastl
+    local -a before=() fixtures=() left=() live=() kids=()
+    suite_info "$label"
+    variant_of "$label" "$mode"
+    name="$label $mode $sig${second:++$second}"
+    tok0="$label-$mode-$sig$second-$$-$RANDOM$RANDOM"; tok="$tok0"; TOKENS+=("$tok")
+    tmpd="$WORK/tmp-$label-$mode-$sig$second"; out="$WORK/out-$label-$mode-$sig$second.log"
+    mkdir -p "$tmpd"
+    runfile="$SFILE"
+    if [[ -n "$VOLD" ]]; then
+        # Beside the suite, so every path it derives from its own location is the real one; the
+        # name is one .gitignore keeps out of a commit, and cleanup removes it.
+        runfile="$HERE/.spawn-gate-$$-signal-$label-$mode-$sig$second-$(basename "$SFILE")"
+        n="$(python3 -c 'import sys
+s = open(sys.argv[1]).read(); n = s.count(sys.argv[3])
+if n == 1: open(sys.argv[2], "w").write(s.replace(sys.argv[3], sys.argv[4], 1))
+print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
+        if [[ "$n" != 1 ]]; then
+            check "$name: the copy's one edit has exactly one place to go in ${SFILE##*/}" 1 "$n"
+            rm -f "$runfile"; return
+        fi
+    fi
+    echo "$name${VDESC:+ (a copy, with $VDESC)}"
+    # Wait for the run's moment (see HOW above). For `fixture` and `cleanup`: a fixture premise
+    # printed AND a live process of this run in the suite's own fixture register; the register it
+    # is in is the suite's temp tree. A suite may stop its first fixture again within a second
+    # (test_ndt_ovs_claim.sh does) and run on with only a poll's sleep or a `bash -c` of its own
+    # alive: a signal sent then gives the leftover checks nothing to find, so that moment does
+    # not count.
+    #
+    # [Co-developed with claude code -- Adam] HELD (2026-11-05; see the header). A cheap look with
+    # the run going (moment_near), then the run held and the whole moment read (find_moment); it
+    # stays held from there until its signal has gone. Read with the run going, as it was, the
+    # moment could be old by the time the signal went, several forks of checks and notes later: a
+    # suite could by then have finished on its own and be in its cleanup, which ignores the
+    # signal, and such a run ends 0 or 1. That race was reproduced for `down` with this test
+    # starved of CPU; it fits two CI failures of `cleanup` cells (`down` TERM+TERM, `orphans`
+    # INT+INT) whose exit status was not printed.
+    # [Co-developed with claude code -- Adam] LATE (2026-11-06; see the header): attempts.
+    deadline=$(( SECONDS + FIRST_WAIT ))
+    for (( attempt = 1; ; attempt++ )); do
+        if (( attempt > 1 )); then tok="$tok0-a$attempt"; TOKENS+=("$tok"); fi
+        (( SPRIVATE )) || { shopt -s nullglob; before=(/tmp/"$SPREFIX"*); shopt -u nullglob; }
+        # [Co-developed with claude code -- Adam] Emptied here, by this shell, so no line of an
+        # earlier attempt can be read as this one's premise (2026-11-06).
+        : > "$out"
+        if [[ "$sig" == INT ]]; then
+            # [Co-developed with claude code -- Adam] The caller, as l1_unit_tests.sh calls a suite.
+            TMPDIR="$tmpd" NDT_SIGNAL_TEST_TOKEN="$tok" \
+                setsid env --default-signal=INT bash -c 'bash "$1"; echo "the caller carried on after rc $?"' _ "$runfile" \
+                </dev/null >"$out" 2>&1 {NAP_FD}<&- &
+        else
+            TMPDIR="$tmpd" NDT_SIGNAL_TEST_TOKEN="$tok" \
+                setsid env --default-signal=INT bash "$runfile" </dev/null >"$out" 2>&1 {NAP_FD}<&- &
+        fi
+        spid=$!
+        suite=""; premised=0; near=""; late=""; tree=""; moment=""; held=""; live=(); HOLDS=0
+        while (( SECONDS < deadline )); do
+            ended "$spid" && break
+            if [[ -z "$suite" ]]; then
+                if [[ "$sig" == TERM ]]; then suite="$spid"
+                else for p in $(children_of "$spid"); do [[ "$(argv_of "$p")" == "bash $runfile " ]] && suite="$p"; done; fi
+            fi
+            if [[ -n "$suite" ]] && moment_near; then
+                near=1
+                if ! leads_own_session "$spid"; then
+                    # Not held, and not signalled either: the check below says why.
+                    find_moment; [[ -n "$tree" ]] && break
+                elif hold "$spid" "$suite"; then
+                    find_moment
+                    if [[ -n "$tree" ]]; then
+                        ending "$suite" "$out" || break
+                        late="held with $moment, the suite was already on its own way out"
+                    fi
+                    tree=""; moment=""; held=""
+                    release "$spid"
+                fi
+            fi
+            if [[ "$mode" == fixture || "$mode" == cleanup ]]; then nap 0.1; else nap 0.02; fi
+        done
+        [[ -n "$tree" ]] && ! ended "$spid" && break
+        # Late: it came near its moment (its premise was seen) and ended on its own, with no held
+        # look seeing the moment while the suite was still in its main flow (see LATE above).
+        if [[ -n "$near" ]] && ended "$spid" && (( attempt < ATTEMPTS && SECONDS < deadline )); then
+            wait "$spid" 2>/dev/null; reap_token "$tok"
+            lastl="$(tail -1 "$out" | cut -c1-80)"
+            echo "  note     attempt $attempt of $ATTEMPTS late (came near its moment, held $HOLDS time(s), ${late:-no held look found the moment while the suite was still in its main flow}); the suite ended on its own, last line: $lastl; $REAPED process(es) of it reaped: started again"
+            continue
+        fi
+        break
     done
     case "$mode" in
         fixture|cleanup) what="a pid in its own fixture register is alive" ;;
@@ -341,8 +487,9 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
         held) what="the held parent, not a group leader, is alive and the suite in the inserted sleep 1" ;;
     esac
     if ended "$spid" || [[ -z "$tree" ]]; then
-        check "$name: within ${FIRST_WAIT}s, $what, the suite still running" yes \
-              "no ($(state_of "$spid"); ${#live[@]} other process(es) of the run alive; last line: $(tail -1 "$out" | cut -c1-80))"
+        release "$spid"
+        check "$name: within ${FIRST_WAIT}s, $what, the suite still running and not on its own way out" yes \
+              "no (attempt $attempt of $ATTEMPTS, every one late or without a moment; $(state_of "$spid"); ${#live[@]} other process(es) of the run alive;${late:+ $late;} last line: $(tail -1 "$out" | cut -c1-80))"
         kill -KILL "$spid" 2>/dev/null; wait "$spid" 2>/dev/null; reap_token "$tok"
         [[ -n "$tree" && -d "$tree" && "${tree##*/}" == "$SPREFIX"* ]] && rm -rf "$tree"
         [[ "$runfile" != "$SFILE" ]] && rm -f "$runfile"
@@ -365,6 +512,7 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
         # group of its own, so a cleanup that kills a group could reach this test and whatever
         # runs it, and the signal itself (INT goes to the group) could too.
         echo "  note     not signalled: the run does not lead a process group and session of its own"
+        release "$spid"
         kill -KILL "$spid" 2>/dev/null; wait "$spid" 2>/dev/null; reap_token "$tok"
         [[ -d "$tree" && "${tree##*/}" == "$SPREFIX"* ]] && rm -rf "$tree"
         [[ "$runfile" != "$SFILE" ]] && rm -f "$runfile"
@@ -385,30 +533,41 @@ print(n)' "$SFILE" "$runfile" "$VOLD" "$VNEW")"
     mapfile -t kids < <(children_of "$suite")
     t0="$(now_ms)"
     send "$sig" "$spid"
+    release "$spid"
     if [[ "$mode" == cleanup ]]; then
         # The second signal, once the cleanup that the first one started is in its `sleep 0.3` -- a
         # child of the suite's shell that was not one before the first signal. A second INT goes to
-        # the group, a second TERM to the suite's own shell. The premise is read from the clock:
-        # the sleep's start time against the moment the signal went, so it says whether the
-        # signal landed inside the sleep whatever the signal then did to it.
-        CHILD=""; start_t=""; left_ms=""
+        # the group, a second TERM to the suite's own shell.
+        # [Co-developed with claude code -- Adam] Looked for with the run held, and sent before it
+        # is let go (2026-11-05): the sleep is seen alive and stopped, the suite's shell stopped, so
+        # the signal lands inside the sleep however late this test gets to it. Between two holds
+        # the run goes for one nap. It used to be looked for with the run going and its premise
+        # read from the clock afterwards, which a slow enough watcher failed: the signal went after
+        # the sleep. The clock stays as a note, read at the hold.
+        CHILD=""; left_ms=""; went=""
         deadline=$(( SECONDS + CLEANUP_WAIT ))
         while (( SECONDS < deadline )); do
             ended "$suite" && break
-            child_running "$suite" "sleep 0.3" "${kids[*]}" && { start_t="$(start_ticks "$CHILD")"; break; }
-            sleep 0.02
+            # [Co-developed with claude code -- Adam] The session re-read before every stop, as in
+            # the first loop (2026-11-06).
+            leads_own_session "$spid" || break
+            if hold "$spid" "$suite"; then
+                if child_running "$suite" "sleep 0.3" "${kids[*]}" && proc_stat "$CHILD" && [[ "${PSTAT[0]}" == T ]]; then
+                    left_ms=$(( 300 - (HELD_MS - PSTAT[19] * 1000 / CLK_TCK) ))
+                    if [[ "$second" == INT ]]; then send INT "$spid"; else send TERM "$suite"; fi
+                    went=yes
+                fi
+                release "$spid"
+                [[ -n "$went" ]] && break
+            fi
+            nap 0.01
         done
-        if [[ -n "$CHILD" && -n "$start_t" ]] && ! ended "$suite"; then
-            if [[ "$second" == INT ]]; then send INT "$spid"; else send TERM "$suite"; fi
-            sent_t="$(uptime_ms)"
-            left_ms=$(( 300 - (sent_t - start_t * 1000 / CLK_TCK) ))
-        fi
         # (Worked out first, not inside the check's argument: check_process_by_name.py's reader
         # cannot follow that many nested quotes, and then refuses the whole file.)
-        what="no (${left_ms:-not sent} ms of the sleep left; the suite's shell: $(state_of "$suite"))"
-        [[ -n "$left_ms" ]] && (( left_ms >= 20 )) && what=yes
+        what="no (not sent; the suite's shell: $(state_of "$suite"))"
+        [[ -n "$went" ]] && what=yes
         check "$name: a second $second, sent while its cleanup is in its sleep 0.3" yes "$what"
-        [[ -n "$left_ms" ]] && echo "  note     the second $second went with about $left_ms ms of that sleep left"
+        [[ -n "$went" ]] && echo "  note     the second $second went with the run held in that sleep, about $left_ms ms of it left at the hold"
     fi
     deadline=$(( SECONDS + HARD_LIMIT ))
     while (( SECONDS < deadline )); do ended "$spid" && break; sleep 0.1; done
