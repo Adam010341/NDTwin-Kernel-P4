@@ -878,7 +878,7 @@ fi
 # 🔴 THE FILES NTG SHIPS, byte for byte, from NTG's own history at 6e3f388: NTG.yaml names
 # ./setting/Hardware.yaml, and setting/Mininet.yaml says custom_command. What the module answers
 # there is what a newcomer's first bring-up gets, and the label is the one the P4 app guide quotes.
-# Run under every interpreter at hand: the bridge runs the module under NTG's (3.10), ndt under
+# Run under every interpreter at hand: the bridge runs the module under NTG's interpreter, ndt under
 # the system one.
 NC="${NTG_CHECKOUT:-$NDT_DEFAULT}"
 SH="$FIX/shipped"

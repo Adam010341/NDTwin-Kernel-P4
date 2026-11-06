@@ -293,8 +293,11 @@ def scenario_1(addr, device_id, p4info, cfg):
     A.stop(); B.stop()
 
     ok = push.startswith("PERMISSION_DENIED") and write.startswith("PERMISSION_DENIED")
-    print(f"\n  => {'as expected: bmv2 denies a genuine non-primary on BOTH RPCs'
-                    if ok else 'UNEXPECTED -- read the lines above'}")
+    # [Co-developed with claude code -- Adam] The conditional is hoisted out of the f-string because
+    # Python 3.10 cannot parse a line break inside a quoted f-string's braces.
+    verdict = ("as expected: bmv2 denies a genuine non-primary on BOTH RPCs"
+               if ok else "UNEXPECTED -- read the lines above")
+    print(f"\n  => {verdict}")
     return ok
 
 
@@ -329,8 +332,10 @@ def scenario_2(addr, device_id, p4info, cfg):
     O.stop(); D.stop()
 
     both = push == "OK" and write == "OK"
-    print(f"\n  => {'both RPCs accepted: the election id, not the connection, is the credential'
-                    if both else 'UNEXPECTED -- read the lines above'}")
+    # [Co-developed with claude code -- Adam] Hoisted for the same reason as in scenario_1.
+    verdict = ("both RPCs accepted: the election id, not the connection, is the credential"
+               if both else "UNEXPECTED -- read the lines above")
+    print(f"\n  => {verdict}")
     return both
 
 
@@ -365,8 +370,10 @@ def scenario_3(addr, device_id, p4info, cfg):
     D.stop()
 
     confirmed = push == "OK" and write.startswith("PERMISSION_DENIED")
-    print(f"\n  => {'confirmed: the refusal follows the primary leaving, not the RPC kind'
-                    if confirmed else 'NOT confirmed -- the readopt log needs another explanation'}")
+    # [Co-developed with claude code -- Adam] Hoisted for the same reason as in scenario_1.
+    verdict = ("confirmed: the refusal follows the primary leaving, not the RPC kind"
+               if confirmed else "NOT confirmed -- the readopt log needs another explanation")
+    print(f"\n  => {verdict}")
     return confirmed
 
 

@@ -167,10 +167,13 @@ def _c01_verify() -> ActionResult:
         return ActionResult(False, f"cannot read the graph to verify: {e}")
     _, dt = probes.api_post_timed(f"/ndt/set_switches_power_state?ip={S1_MGMT_IP}&action=on", {})
     landed = up > live
+    # [Co-developed with claude code -- Adam] The conditional is hoisted out of the f-string because
+    # Python 3.10 cannot parse a line break inside a quoted f-string's braces.
+    verdict = ("A-1 reproduced: the twin is certifying a dead switch" if landed
+               else "no discrepancy, so A-1 did NOT reproduce")
     return ActionResult(landed,
                         f"graph says {up} up, {live} bmv2 processes alive; power-on {dt:.4f}s "
-                        f"({'A-1 reproduced: the twin is certifying a dead switch' if landed else
-                           'no discrepancy, so A-1 did NOT reproduce'})",
+                        f"({verdict})",
                         {"graph_up": up, "processes": live, "elapsed_s": dt})
 
 

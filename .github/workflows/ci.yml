@@ -291,3 +291,45 @@ jobs:
       # passes under one can fail under the other.
       - name: Unit tests (clang build)
         run: ./build-clang/bin/test_routing_strategy
+
+  # ===========================================================================
+  # Tracked Python must not use syntax newer than 3.10. The test job above runs 3.12, which accepts
+  # syntax older interpreters reject (a line break inside a quoted f-string's braces, PEP 701), and
+  # code here also runs on older ones: the SDK declares requires-python >= 3.10
+  # (sdk/python/pyproject.toml), and the Ryu lane runs 3.8. This job compiles every tracked .py with
+  # 3.10; it does not check 3.8. Nothing is run: each file is only compiled, so no dependency is
+  # installed.
+  # ===========================================================================
+  python310-compile:
+    name: Python 3.10 compile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Positive control: the check has to reject a file 3.10 rejects (the bug's shape: a line break
+      # inside the braces of a quoted f-string whose inner quotes are the other kind), or the
+      # "0 failed" of the next step would prove nothing. The file lives outside the checkout.
+      - name: The check rejects a known-bad file
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/bad310.py" <<'EOF'
+          x = {"a": 1}
+          print(f"v: {x['a']
+                if x else 'none'}")
+          EOF
+          rc=0
+          printf '%s\0' "$RUNNER_TEMP/bad310.py" \
+            | python tools/test_workflow/check_py310_compile.py > "$RUNNER_TEMP/bad310.out" || rc=$?
+          cat "$RUNNER_TEMP/bad310.out"
+          test "$rc" -eq 1
+          grep -F bad310.py "$RUNNER_TEMP/bad310.out" > /dev/null
+
+      # shell: bash makes the step `bash -eo pipefail`, so a failing `git ls-files` fails it too.
+      - name: Compile every tracked .py
+        shell: bash
+        run: git ls-files -z -- '*.py' | python tools/test_workflow/check_py310_compile.py
