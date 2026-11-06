@@ -156,13 +156,12 @@ EOF
 check_fires "M2: stack.sh is never invoked (the stack= number)" m2 \
             "🔴 and the machine WAS reached -- the instrument can read non-zero"
 
+# [Co-developed with claude code -- Adam] Repointed 2026-11-06: [2/3] captures the call and its rc now.
 cat > "$A/m3.old" <<'EOF'
-    say "[2/3] topology session"
-    sudo -n "$LAB" topo-stop 2>&1 | sed 's/^/      /'
+    stop_out="$(LC_ALL=C LANGUAGE=C sudo -n "$LAB" topo-stop 2>&1)"; stop_rc=$?
 EOF
 cat > "$A/m3.new" <<'EOF'
-    say "[2/3] topology session"
-    :
+    stop_out=""; stop_rc=0
 EOF
 check_fires "M3: [2/3] stops calling sudo (the sudo= number)" m3 \
             "🔴 and the machine WAS reached -- the instrument can read non-zero"

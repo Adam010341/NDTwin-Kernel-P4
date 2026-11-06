@@ -210,9 +210,14 @@ echo "the guard: 'I could not tell' stops ndt up p4"
 in_ndt_rc "$STUBS export T_SESSION=1 FAKE_BRIDGES='s1 s2'; guard_no_live_ovs" \
     && t_bad "a live OVS fabric stops the bring-up (unchanged)" "guard returned 0" \
     || t_ok  "a live OVS fabric stops the bring-up (unchanged)"
+# [Co-developed with claude code -- Adam] control for the 5s below: a fabric the guard SAW is "measured, and dirty".
+out="$(in_ndt "$STUBS export T_SESSION=1 FAKE_BRIDGES='s1 s2'; guard_no_live_ovs; echo \"rc=\$?\"")"
+check "control: a live OVS fabric it saw is rc 1, not 5" "rc=1" "$(grep -o 'rc=[0-9]*' <<<"$out")"
 
 out="$(in_ndt "$STUBS export T_SESSION=1 FAKE_SUDO_DENY=ovs-vsctl; guard_no_live_ovs; echo \"rc=\$?\"")"
-has "refused: the guard stops the bring-up"      "rc=1"              "$out"
+# [Co-developed with claude code -- Adam] rc 5, like every refusal that never looked and touched nothing
+# (2026-11-06; it was 1, the code for "measured, and dirty"). A live OVS fabric it DID see stays 1, below.
+has "refused: the guard stops the bring-up, rc 5" "rc=5"              "$out"
 has "refused: and says it could not tell"        "cannot tell"       "$out"
 has "refused: and blames sudo, not OVS"          "the reason is sudo" "$out"
 has "refused: and prints the line that fixes it" "NOPASSWD: /usr/bin/ovs-vsctl" "$out"
@@ -238,7 +243,7 @@ inj="$(FAKE_SUDO_DENY=ndtwin-lab:status sudo -n "$BIN/ndtwin-lab" topo-stop 2>&1
 LABROW="lab|$BIN/ndtwin-lab status|$BIN/ndtwin-lab|taught-in-the-manual|consequence"
 FIXT="NDT_SUDO_TABLE='$LABROW';"
 out="$(in_ndt "$STUBS $FIXT export T_SESSION=refused FAKE_SUDO_DENY=ndtwin-lab:status; guard_no_live_ovs; echo \"rc=\$?\"")"
-has "status call failed: the guard stops the bring-up"      "rc=1"                  "$out"
+has "status call failed: the guard stops the bring-up, rc 5" "rc=5"                 "$out"
 has "status call failed: and says it could not tell"        "cannot tell whether a topo session is running" "$out"
 has "status call failed: and names the cause in plain words" "the 'ndtwin-lab status' call failed" "$out"
 has "status call failed: and blames sudo, not the lab"      "the reason is sudo"    "$out"
@@ -247,13 +252,13 @@ has "status call failed: and prints the line that fixes it" "NOPASSWD: $BIN/ndtw
 # 🔴 The hint when the probe cannot tell either (rc 2): sudo said something ndt cannot read, or the helper is not
 # installed. "The reason is sudo" and a sudoers line are not true then; the hint says what ndt_sudo_report says.
 out="$(in_ndt "$STUBS $FIXT export T_SESSION=refused FAKE_SUDO_DENY=ndtwin-lab:status FAKE_SUDO_SAY='sudo: refused by the nolab shim (a lab command)'; guard_no_live_ovs; echo \"rc=\$?\"")"
-has   "status call failed, probe cannot read sudo: the guard still stops"        "rc=1" "$out"
+has   "status call failed, probe cannot read sudo: the guard still stops"        "rc=5" "$out"
 has   "status call failed, probe cannot read sudo: the hint quotes what sudo said" 'whether sudo grants the status call could not be checked: sudo answered "sudo: refused by the nolab shim (a lab command)"' "$out"
 hasnt "status call failed, probe cannot read sudo: no claim that the reason is sudo" "the reason is sudo" "$out"
 hasnt "status call failed, probe cannot read sudo: no sudoers line is offered"   "NOPASSWD" "$out"
 NOHELP="NDT_SUDO_TABLE='lab|$BIN/no-such-helper status|$BIN/no-such-helper|taught|consequence';"
 out="$(in_ndt "$STUBS $NOHELP export T_SESSION=refused; guard_no_live_ovs; echo \"rc=\$?\"")"
-has   "status call failed, helper not installed: the guard still stops"          "rc=1" "$out"
+has   "status call failed, helper not installed: the guard still stops"          "rc=5" "$out"
 has   "status call failed, helper not installed: the hint says so and names the path" "whether sudo grants the status call could not be checked on this machine (no sudo, or $BIN/no-such-helper is not installed)" "$out"
 hasnt "status call failed, helper not installed: no claim that the reason is sudo" "the reason is sudo" "$out"
 hasnt "status call failed, helper not installed: no sudoers line for a missing binary" "NOPASSWD" "$out"
@@ -274,7 +279,7 @@ fi
 REAL='ovs_daemon_running() { return 1; }; LAB="'"$BIN"'/ndtwin-lab"; '"$FIXT"
 out="$(in_ndt "$REAL export FAKE_SUDO_DENY=ndtwin-lab:status; topo_session; echo \"look=\$?\"; guard_no_live_ovs; echo \"rc=\$?\"")"
 has "real lab_session: a refused status call is rc 2, not 'no session'" "look=2" "$out"
-has "real lab_session: the guard refuses the bring-up"      "rc=1"                  "$out"
+has "real lab_session: the guard refuses the bring-up"      "rc=5"                  "$out"
 has "real lab_session: and says it could not tell"          "cannot tell whether a topo session is running" "$out"
 # 🔴 controls, same real code, same fake helper, sudo allows the call: no session is a pass, a session
 # with no bridges is a pass, and the answer is not "cannot tell".
@@ -292,6 +297,10 @@ has   "the lab row says what ndt does now: stops before the fabric" "stops befor
 hasnt "the lab row no longer claims an empty lab"      'reports an empty lab'          "$(ndt_sudo_explain lab)"
 hasnt "the lab row no longer claims a skipped stop"    'skips the orderly stop'        "$(ndt_sudo_explain lab)"
 has   "the lab row says down's stop and sweep are refused too"  "the missing grant refuses those too" "$(ndt_sudo_explain lab)"
+# [Co-developed with claude code -- Adam] and the exit code each row's refusal answers with
+has   "the lab row gives up's refusal rc 5"                 "stops before it touches the fabric (rc 5)" "$(ndt_sudo_explain lab)"
+has   "the ovs-vsctl row gives up's refusal rc 5"           "running under the topo session\" (rc 5)" "$(ndt_sudo_explain ovs-vsctl)"
+has   "the lab row says down keeps the record"              "ends non-zero and keeps the 'ndt up' record" "$(ndt_sudo_explain lab)"
 hasnt "the lab row does not say down still runs them"  'still runs its stop and sweep'   "$(ndt_sudo_explain lab)"
 
 # 🔴 controls. A guard that always returns 1 passes every case above and makes `ndt up p4`

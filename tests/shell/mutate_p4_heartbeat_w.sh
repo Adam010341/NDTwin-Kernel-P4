@@ -1322,6 +1322,8 @@ m=$(nmutant n07 "$NDT" \
     '    heartbeat_stop_step "before the topology it watches is taken down" || {' \
     '    true || {')
 nreport "N07: ndt down never stops the heartbeat" "$m" "🔴 one 'heartbeat stop'"
+# [Co-developed with claude code -- Adam] Repointed 2026-11-06: [2/3] reads its own rc now, so the
+# anchor runs to the line that calls topo-stop, and the stop moves below it as before.
 m=$(nmutant n08 "$NDT" \
     '    heartbeat_stop_step "before the topology it watches is taken down" || {
         down_rc=1
@@ -1331,9 +1333,28 @@ m=$(nmutant n08 "$NDT" \
     rm -f "$(hb_withheld_file)"
 
     say "[2/3] topology session"
-    sudo -n "$LAB" topo-stop 2>&1 | sed '"'"'s/^/      /'"'"'' \
-    '    say "[2/3] topology session"
-    sudo -n "$LAB" topo-stop 2>&1 | sed '"'"'s/^/      /'"'"'
+    # [Co-developed with claude code -- Adam]
+    # This was `sudo -n "$LAB" topo-stop 2>&1 | sed ...` with its rc dropped: without the lab grant the step
+    # printed the one line from sudo and nothing from ndt, and the rc of the teardown did not count it. A
+    # stop that failed is now said and counted; one sudo refused says it did not run, and why, in the words
+    # of lab_status_failed_hint. LC_ALL/LANGUAGE pinned the way the capture in sudo_surface.sh pins them, so
+    # the wording sudo prints is the one lab_call_verdict reads. lab_hint_said: the sudoers line is printed
+    # once, not again under [3/3].
+    local stop_out stop_rc stop_v lab_hint_said=0
+    stop_out="$(LC_ALL=C LANGUAGE=C sudo -n "$LAB" topo-stop 2>&1)"; stop_rc=$?' \
+    '    # [Co-developed with claude code -- Adam] The withheld record describes the fabric going away.
+    rm -f "$(hb_withheld_file)"
+
+    say "[2/3] topology session"
+    # [Co-developed with claude code -- Adam]
+    # This was `sudo -n "$LAB" topo-stop 2>&1 | sed ...` with its rc dropped: without the lab grant the step
+    # printed the one line from sudo and nothing from ndt, and the rc of the teardown did not count it. A
+    # stop that failed is now said and counted; one sudo refused says it did not run, and why, in the words
+    # of lab_status_failed_hint. LC_ALL/LANGUAGE pinned the way the capture in sudo_surface.sh pins them, so
+    # the wording sudo prints is the one lab_call_verdict reads. lab_hint_said: the sudoers line is printed
+    # once, not again under [3/3].
+    local stop_out stop_rc stop_v lab_hint_said=0
+    stop_out="$(LC_ALL=C LANGUAGE=C sudo -n "$LAB" topo-stop 2>&1)"; stop_rc=$?
     heartbeat_stop_step "before the topology it watches is taken down" || {
         down_rc=1
         not_verified "the heartbeat daemon (its stop failed; sudo ndtwin-lab heartbeat status says whether it runs)"
@@ -1471,11 +1492,10 @@ m=$(nmutant n35 "$NDT" \
     '        3) info "heartbeat: nothing to watch -- this fabric has no inter-switch link (rc 3)" ;;' \
     '        3) info "heartbeat: rc 3" ;;')
 nreport "N35: rc 3 is not said as what it is" "$m" "  said as what it is, in ndt's own words"
+# [Co-developed with claude code -- Adam] Repointed 2026-11-06 to the line that calls topo-stop now.
 m=$(nmutant n36 "$NDT" \
-    '    say "[2/3] topology session"
-    sudo -n "$LAB" topo-stop 2>&1 | sed '"'"'s/^/      /'"'"'' \
-    '    say "[2/3] topology session"
-    sudo -n "$LAB" topo-stop 2>&1 | sed '"'"'s/^/      /'"'"'
+    '    stop_out="$(LC_ALL=C LANGUAGE=C sudo -n "$LAB" topo-stop 2>&1)"; stop_rc=$?' \
+    '    stop_out="$(LC_ALL=C LANGUAGE=C sudo -n "$LAB" topo-stop 2>&1)"; stop_rc=$?
     sudo -n "$LAB" cleanup > /dev/null 2>&1')
 nreport "N36: (control of the counter) the teardown asks sudo once more" "$m" \
         "  and the teardown's own two sudo calls are the only ones"

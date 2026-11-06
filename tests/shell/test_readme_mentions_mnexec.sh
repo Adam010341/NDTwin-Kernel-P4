@@ -123,6 +123,19 @@ for KEY in "${NOWHERE_KEYS[@]}"; do
     check "$KEY: and the guide's sudoers block grants the target path" $? "[\$USER ALL=(root) NOPASSWD: $TARGET]"
 done
 
+# [Co-developed with claude code -- Adam] A row the website's manual DOES teach is printed as "taught in:"
+# under the same refusal, to a reader whose machine may have been set up from the user guide alone; the
+# guide's 3.2 block grants it too, so the row names the guide as the other rows do (the manual's step
+# stays, as the place it is first taught).
+for KEY in "${TAUGHT_KEYS[@]}"; do
+    TAUGHT="$(ndt_sudo_field "$KEY" 4 2>/dev/null || true)"
+    TARGET="$(ndt_sudo_field "$KEY" 3 2>/dev/null || true)"
+    [[ "$TAUGHT" == *"doc/2026-11-05_user-guide.md section 3.2"* ]]
+    check "$KEY: taught_by also names the user guide's 3.2" $? "[$TAUGHT]"
+    [[ -n "$TARGET" ]] && grep -qxF -- '$USER ALL=(root) NOPASSWD: '"$TARGET" "$GUIDE"
+    check "$KEY: and the guide's sudoers block grants the target path" $? "[\$USER ALL=(root) NOPASSWD: $TARGET]"
+done
+
 # And the file the reader is sent to for the rule, so the README's paragraphs and the table
 # cannot drift into describing different privileges.
 mentions "sudo_surface.sh"; check "README names the surface it is about" $? "tools/test_workflow/sudo_surface.sh"

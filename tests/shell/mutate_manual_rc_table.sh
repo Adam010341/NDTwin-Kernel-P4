@@ -146,6 +146,25 @@ report() {   # report <label> <test file> <guide file> <case that must go red>
     fi
 }
 
+# report_ndt <label> <test> <guide> <ndt> <case> -- report() for a mutated `ndt` (its help is the authority).
+# [Co-developed with claude code -- Adam]
+report_ndt() {
+    local out rc
+    MUTATIONS=$((MUTATIONS + 1))
+    if [[ -z "$2" || -z "$3" || -z "$4" ]]; then
+        printf '  DID-NOT-APPLY %-54s (anchor missed; nothing was tested)\n' "$1"
+        UNAPPLIED=$((UNAPPLIED + 1))
+        return
+    fi
+    out=$(run_pair "$2" "$3" "$4"); rc=$?
+    if [[ "$rc" -ne 0 ]] && grep -q "FAILED   $5" <<<"$out"; then
+        printf '  caught        %-54s (%s went red)\n' "$1" "$5"
+    else
+        SURVIVORS=$((SURVIVORS + 1))
+        printf '  SURVIVED      %-54s (%s stayed green -- that case proves nothing)\n' "$1" "$5"
+    fi
+}
+
 # M10 needs BOTH sides to notice one missing sentence, so it gets its own reporter rather than
 # naming one case and hoping the other one would have been red too. The witness is the third
 # argument's purpose: a mutant `ndt` that cannot run at all makes every help case red, which
@@ -297,6 +316,34 @@ report "M16: the guide grants exportfs and sed again" "$TEST" "$M" "case 16 no s
 T=$(test_mutant m17 "sed -n 's/.*NOPASSWD:[[:space:]]*//p'"$'\x1f'"sed -n 's/.*NOPASSWDX:[[:space:]]*//p'")
 M=$(manual_copy)
 report "M17: the grant scan reads no entries at all" "$T" "$M" "case 16b the grant scan sees the guide's sudoers entries (>= 8)"
+
+# --- [Co-developed with claude code -- Adam] M18-M21: what 'ndt up' refuses with 5 (case 17), 2026-11-06 ---------------
+M=$(manual_mutant m18 '
+  names a mode NTG does not know or a hosts file that does not exist (4.7), and when'$'\x1f''
+  is not usable (4.7), and when')
+report "M18: the guide's up-5 bullet drops NTG's config again" "$TEST" "$M" "case 17b and the guide's 'ndt up' exits 5 bullet names it"
+M=$(manual_mutant m19 ', and when `ndt up p4` cannot
+  tell whether a topology session, or an OVS fabric under one, is running because a sudo call failed
+  (3.2). It never exits 3.'$'\x1f''. It never exits 3.')
+report "M19: the guide's up-5 bullet drops 'cannot tell' again" "$TEST" "$M" "case 17d and the guide's bullet names it"
+M=$(manual_mutant m20 'running under the topo session` (rc 5, nothing built)'$'\x1f''running under the topo session` (rc 1, nothing built)')
+report "M20: 3.2's ovs-vsctl row says rc 1 again" "$TEST" "$M" "case 17e 3.2's ovs-vsctl row gives that refusal rc 5"
+M=$(manual_mutant m22 'stops before it touches the fabric (rc 5),'$'\x1f''stops before it touches the fabric,')
+report "M22: 3.2's lab row drops the refusal's rc 5" "$TEST" "$M" "case 17g 3.2's lab row gives that refusal rc 5"
+M=$(manual_mutant m23 'unless `verify clean` still finds the fabric itself:'$'\x1f''unless `verify clean` finds anything:')
+report "M23: guide 4.9 states a wider rule than the code applies" "$TEST" "$M" "case 18c guide 4.9 says the same rule"
+M=$(manual_mutant m24 'remove it yourself (`rm .test_run/up.target`).'$'\x1f''remove it yourself.')
+report "M24: guide 4.9 names no way out once the fabric is gone" "$TEST" "$M" "case 18d and the same way out"
+N=$(ndt_mutant m25 "still finds the fabric itself -- bmv2 switches,"$'\x1f'"fails -- bmv2 switches,")
+M=$(manual_copy)
+report_ndt "M25: help's down block states a wider rule than the code" "$TEST" "$M" "$N" "case 18a help's 'down' block says the record is kept only over the fabric itself"
+N=$(ndt_mutant m26 "remove it (rm .test_run/up.target). All four"$'\x1f'"remove it. All four")
+report_ndt "M26: help's down block names no way out" "$TEST" "$M" "$N" "case 18b and names the way out once the fabric is gone"
+# [Co-developed with claude code -- Adam] 4.5's rc 3 row
+M=$(manual_mutant m27 'no baseline (`ndt down` clears it unless `verify clean` still finds the fabric; see 4.9)'$'\x1f''no baseline (every `ndt down` clears it)')
+report "M27: 4.5's rc 3 row says every down clears it again" "$TEST" "$M" "case 18e 4.5's rc 3 row points at the same rule"
+M=$(manual_mutant m21 '| `refusing to build: NTG does not know mode'$'\x1f''| `NTG does not know mode')
+report "M21: section 5 loses its row for the NTG refusal" "$TEST" "$M" "case 17f section 5 has a row for the NTG refusal"
 
 # --- C1 (control): a comment is reworded; nothing about the contract changes -------------------
 echo

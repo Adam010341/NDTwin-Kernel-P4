@@ -422,7 +422,9 @@ SUDO="$(cat "$FIX/sudo.log")"
 has   "  and the bring-up proceeds"                        "topo-start" "$SUDO"
 
 # cmd_down's sweep: same shape, through a pipeline.
-reset_fix; rc_for cleanup 1; out_for cleanup "  STILL RUNNING  ntg_bmv2_topo pid 99"
+# [Co-developed with claude code -- Adam] With the closing line the real helper prints after a survivor.
+reset_fix; rc_for cleanup 1; out_for cleanup "  STILL RUNNING  ntg_bmv2_topo pid 99
+cleanup INCOMPLETE -- something above survived TERM and KILL"
 OUT="$(drive 'cmd_down')"
 check "🔴 'ndt down' is red when its sweep did not finish" "1"  "$(rc_of_out "$OUT")"
 has   "  and names what survived"                          "STILL RUNNING" "$OUT"
@@ -1528,11 +1530,16 @@ has   "  with the sentence that says not to act on it" "read 'running' below, no
 
 # -- 4. the sweep is the other half, and it is NOT the residue check: cleanup sweeps patterns
 # cmd_clean does not look at, so a reader told "the residue check" would look in the wrong place.
-reset_fix; rm -f "$DM"; rc_for cleanup 1; out_for cleanup "STILL RUNNING bmv2 pid 4242"
+# [Co-developed with claude code -- Adam] The fixture prints what the real helper prints when its sweep ran and
+# a survivor outlived it: the survivor and the closing line. Without the closing line ndt no longer says the
+# sweep ran, and the note's entry is the other one (section 29 (j)).
+reset_fix; rm -f "$DM"; rc_for cleanup 1; out_for cleanup "  STILL RUNNING  simple_switch_grpc pid 4242 (TERM and KILL both refused or ignored)
+cleanup INCOMPLETE -- something above survived TERM and KILL"
 mk_claim_note "$IN_USE"
 OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
 check "  a sweep that did not finish is red"           "1" "$(rc_of_out "$OUT")"
 has   "🔴 and the note names the sweep"                "the [3/3] sweep" "$(cnote)"
+hasnt "  as a sweep that ran, not one that did not"    "the [3/3] sweep (it" "$(cnote)"
 hasnt "  not the half that was green"                  "the residue check" "$(cnote)"
 
 # -- 5. and the deferred ports, re-read after [3/3] and still held: a third half, named.
@@ -1842,11 +1849,15 @@ OUT="$(drive 'cmd_down')"
 hasnt "🔴 stack.sh's hand-typed advice is still filtered out" "Mininet was started manually" "$OUT"
 has   "  while [3/3] still says what it did"      "this step ran the Mininet sweep" "$OUT"
 
-# It is said whatever the sweep's own exit status was: "I ran it" and "it finished" are two
-# statements, and the second one already has its own line and its own rc.
+# It is said whenever the sweep RAN, whatever its own exit status was: "I ran it" and "it finished" are
+# two statements, and the second one already has its own line and its own rc. [Co-developed with claude
+# code -- Adam] The fixture prints what the helper's cleanup prints when its sweep ran and something
+# survived (section 29 pins both lines against the helper's source); a sweep that did not run is section 29.
 reset_fix; rm -f "$DM"; rc_for cleanup 1
+out_for cleanup "  STILL RUNNING  simple_switch_grpc pid 4242 (TERM and KILL both refused or ignored)
+cleanup INCOMPLETE -- something above survived TERM and KILL"
 OUT="$(drive 'cmd_down')"
-has   "  it is said even when the sweep did not finish" "this step ran the Mininet sweep" "$OUT"
+has   "  it is said when the sweep ran and did not finish" "this step ran the Mininet sweep" "$OUT"
 check "  which is still a failed teardown"        "1" "$(rc_of_out "$OUT")"
 has   "  and the failure still has its own line"  "the sweep did not finish" "$OUT"
 
@@ -2350,7 +2361,7 @@ section "27. a failed 'ndtwin-lab status' call is 'cannot tell' -- never 'no top
 # -- the orphan sweep (3 bmv2 processes, no way to tell whether a session owns them)
 reset_fix; echo "3 10" > "$FIX/bmv2.seq"
 OUT="$(FX_TOPO_SESSION=refused drive 'up_p4')"
-check "🔴 bmv2 processes with an unreadable session are not swept: the bring-up is refused" "1" "$(rc_of_out "$OUT")"
+check "🔴 bmv2 processes with an unreadable session are not swept: the bring-up is refused, rc 5" "5" "$(rc_of_out "$OUT")"
 has   "  saying it cannot tell whether a topo session owns them" "cannot tell whether a topo session owns them" "$OUT"
 has   "  and that the status call failed"                   "the 'ndtwin-lab status' call failed" "$OUT"
 hasnt "  and not calling them orphans"                       "orphan bmv2" "$OUT"
@@ -2366,7 +2377,7 @@ has   "  by cleanup"                                         "cleanup" "$(cat "$
 # -- the stop before the new fabric starts (nothing to sweep, so the sweep never asks)
 reset_fix
 OUT="$(FX_TOPO_SESSION=refused drive 'up_p4')"
-check "🔴 a fabric is not started over a session that could not be looked at" "1" "$(rc_of_out "$OUT")"
+check "🔴 a fabric is not started over a session that could not be looked at: rc 5" "5" "$(rc_of_out "$OUT")"
 has   "  saying it cannot tell whether a topo session is running" "cannot tell whether a topo session is running" "$OUT"
 has   "  and that the status call failed"                   "the 'ndtwin-lab status' call failed" "$OUT"
 SUDO="$(cat "$FIX/sudo.log")"
@@ -2421,14 +2432,16 @@ has   "  while the orderly stop still ran"                   "topo-stop" "$(cat 
 
 # -- the whole helper refused, not only `status`: the real lab_session, and topo-stop and cleanup refused too.
 # This is the machine the lab row of sudo_surface.sh describes (the grant covers the helper, so a missing grant
-# refuses every verb). `ndt down` still CALLS its stop and its sweep; the sweep's refusal fails step [3/3], the
-# stop's refusal is printed and its rc is not read; and the unreadable session is a subject whose verify cannot pass.
+# refuses every verb). `ndt down` still CALLS its stop and its sweep; each says it did not run (section 29 has
+# the rest), and the unreadable session is a subject whose verify cannot pass.
+# [Co-developed with claude code -- Adam] The refused calls print sudo's own line, as sudo does.
 reset_fix; rm -f "$DM" "$FIX/manifest.json"
 rc_for status 1; rc_for topo-stop 1; rc_for cleanup 1
+out_for topo-stop "sudo: a password is required"; out_for cleanup "sudo: a password is required"
 OUT="$(drive 'topo_session() { lab_session topo; }; cmd_down')"
 check "🔴 'ndt down' with the whole helper refused ends non-zero"     "1" "$(rc_of_out "$OUT")"
 has   "  its verify step says it cannot tell whether a topo session is present" "cannot tell whether a topo session is present" "$OUT"
-has   "  the sweep's own refusal fails step [3/3]"                     "cleanup exited 1" "$OUT"
+has   "  the sweep's own refusal fails step [3/3]"                     "[3/3] did not run" "$OUT"
 hasnt "  and it does not say nothing was up to tear down"              "nothing was up to tear down" "$OUT"
 SUDO="$(cat "$FIX/sudo.log")"
 has   "  topo-stop was still called"                                   "topo-stop" "$SUDO"
@@ -2609,6 +2622,225 @@ nh_refuse loop "that loops (ELOOP)" './setting/loop.yaml'
 nh_refuse toolong "name longer than the system allows" "./setting/$(printf 'a%.0s' $(seq 1 300)).yaml"
 nh_refuse nul "with a NUL byte in it" './setting/a\0b.yaml'
 ntg_mode_put cli
+
+# ==========================================================================================
+section "29. 'ndt down' says which step did not run, and keeps the 'ndt up' record over what is still there"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam]
+# A live run on 2026-11-06, with the lab grant moved aside over a running 10-switch P4 fabric: `ndt down`'s
+# [2/3] printed only sudo's "a password is required" and its rc was dropped; [3/3] printed sudo's line, then
+# `ok  this step ran the Mininet sweep (mn -c) for you`, then `cleanup exited 1`; and `cleared the 'ndt up'
+# target record` ran while ten bmv2 and the topo session were still up. Each cell below has a control with
+# the answer it must keep.
+UPT="$FIX/.test_run/up.target"
+seed_upt() { mkdir -p "$FIX/.test_run"; printf 'plane=p4\nhosts=4\n' > "$UPT"; }
+SWEPT="this step ran the Mininet sweep (mn -c) for you"
+
+# (a) the live run: the whole helper refused, the fabric still running
+reset_fix; rm -f "$DM"; seed_upt
+rc_for status 1; rc_for topo-stop 1; rc_for cleanup 1
+out_for topo-stop "sudo: a password is required"; out_for cleanup "sudo: a password is required"
+OUT="$(FX_BMV2=10 FX_MN=14 drive 'topo_session() { lab_session topo; }; cmd_down')"
+check "🔴 refused helper: 'ndt down' is rc 1"                              "1" "$(rc_of_out "$OUT")"
+hasnt "🔴 refused helper: no ok line for a sweep that did not run"         "$SWEPT" "$OUT"
+has   "🔴 refused helper: [2/3] says it did not run, and what sudo refused" "[2/3] did not run: sudo refused 'ndtwin-lab topo-stop'" "$OUT"
+has   "🔴 refused helper: [3/3] says it did not run, and what sudo refused" "[3/3] did not run: sudo refused 'ndtwin-lab cleanup'" "$OUT"
+has   "  and that 'mn -c' did not run"                                     "'mn -c' did not run" "$OUT"
+has   "  in lab_status_failed_hint's words"                                "the reason is sudo, not the lab" "$OUT"
+check "  the sudoers line is printed once, not under both steps"           "1" "$(grep -c 'grant it:' <<<"$OUT")"
+hasnt "  and no 'what survived is named above' over a sweep that never ran" "what survived is named above" "$OUT"
+check "🔴 refused helper: the 'ndt up' record is KEPT over a fabric still running" "present" "$([[ -f "$UPT" ]] && echo present || echo gone)"
+has   "  and it says so"                                                   "kept the 'ndt up' target record" "$OUT"
+hasnt "  and does not say it cleared it"                                   "cleared the 'ndt up' target record" "$OUT"
+
+# (b) the stop ran and failed on its own account: said, and counted
+reset_fix; rm -f "$DM"
+rc_for topo-stop 1; out_for topo-stop "can't find session: topo"
+OUT="$(drive 'cmd_down')"
+check "🔴 a topo-stop that failed makes 'ndt down' rc 1"                   "1" "$(rc_of_out "$OUT")"
+has   "  and it is said in ndt's own line"                                 "topo-stop exited 1: the topo session may still be up" "$OUT"
+hasnt "  not as a step sudo refused"                                       "[2/3] did not run" "$OUT"
+has   "  while the sweep that did run still says so"                       "$SWEPT" "$OUT"
+reset_fix; rm -f "$DM"
+OUT="$(drive 'cmd_down')"
+check "control: a topo-stop that succeeded leaves 'ndt down' at 0"         "0" "$(rc_of_out "$OUT")"
+hasnt "  with no line about it"                                            "topo-stop exited" "$OUT"
+
+# (c) sudo said something ndt cannot read: may not have run, and the hint quotes it
+reset_fix; rm -f "$DM"
+rc_for cleanup 1; out_for cleanup "sudo: refused by the nolab shim (a lab command)"
+OUT="$(drive 'cmd_down')"
+check "unreadable sudo answer: 'ndt down' is rc 1"                         "1" "$(rc_of_out "$OUT")"
+hasnt "🔴 unreadable sudo answer: no ok line for the sweep"                "$SWEPT" "$OUT"
+has   "  it says the sweep may not have run"                               "[3/3] may not have run" "$OUT"
+has   "  quoting what sudo said, in the hint's words"                      'whether sudo grants the cleanup call could not be checked: sudo answered "sudo: refused by the nolab shim (a lab command)"' "$OUT"
+hasnt "  and does not claim the reason is sudo"                            "the reason is sudo" "$OUT"
+
+# (d) sudo let the helper run, and the helper stopped before its sweep: its config refused, the whole
+# block lab_conf_gate prints (with its own "sudo rm" advice, which is not a sudo refusal)
+reset_fix; rm -f "$DM"
+rc_for cleanup 1; out_for cleanup "🔴 /etc/ndtwin-lab.conf was REFUSED and is NOT in use:
+   /etc/ndtwin-lab.conf is group- or other-writable
+   running on built-in defaults. remove it with:  sudo rm /etc/ndtwin-lab.conf
+ndtwin-lab: refusing to run 'cleanup' with a config file that cannot be trusted."
+OUT="$(drive 'cmd_down')"
+check "helper refused itself: 'ndt down' is rc 1"                          "1" "$(rc_of_out "$OUT")"
+hasnt "🔴 helper refused itself: no ok line for the sweep"                 "$SWEPT" "$OUT"
+has   "  it says the sweep did not report finishing"                       "cleanup exited 1 without reporting that its sweep finished" "$OUT"
+hasnt "  and does not blame sudo"                                          "the reason is sudo" "$OUT"
+hasnt "  nor say sudo's answer could not be read"                          "could not be checked" "$OUT"
+
+# (e) what says the sweep ran is the helper's own output: the one sentence the ok line reads is in its
+# source, once, and AFTER the `mn -c` of its cleanup arm (a line printed before `mn -c` would not prove it ran)
+LABSRC="$HERE/../../tools/test_workflow/ndtwin-lab"
+check "the helper's cleanup still prints 'cleanup INCOMPLETE'"            "1" \
+      "$(grep -c 'echo "cleanup INCOMPLETE -- something above survived TERM and KILL" >&2' "$LABSRC")"
+MNC_LINE="$(awk '/^    cleanup\)/{on=1} on && /mn -c >\/dev\/null/{print NR; exit}' "$LABSRC")"
+INC_LINE="$(grep -n 'echo "cleanup INCOMPLETE' "$LABSRC" | head -1 | cut -d: -f1)"
+check "  and prints it after the 'mn -c' of its cleanup arm"              "yes" \
+      "$( [[ -n "$MNC_LINE" && -n "$INC_LINE" && "$MNC_LINE" -lt "$INC_LINE" ]] && echo yes || echo "no (mn -c at ${MNC_LINE:-?}, INCOMPLETE at ${INC_LINE:-?})")"
+
+# (f) the record is kept only while 'verify clean' still finds the fabric itself (or was itself refused)
+reset_fix; rm -f "$DM"; seed_upt
+OUT="$(FX_BMV2=10 drive 'cmd_down')"
+check "🔴 a bmv2 that survived a sweep that ran: the record is KEPT"        "present" "$([[ -f "$UPT" ]] && echo present || echo gone)"
+check "  and 'ndt down' is rc 1"                                           "1" "$(rc_of_out "$OUT")"
+reset_fix; rm -f "$DM"; seed_upt
+OUT="$(drive 'cmd_down')"
+check "control: a teardown that verified clean clears the record"          "gone" "$([[ -f "$UPT" ]] && echo present || echo gone)"
+has   "  and says so"                                                      "cleared the 'ndt up' target record" "$OUT"
+has   "  and on what"                                                      "'verify clean' found none of the fabric itself" "$OUT"
+check "  at rc 0"                                                          "0" "$(rc_of_out "$OUT")"
+reset_fix; rm -f "$DM" "$FIX/manifest.json"; seed_upt
+OUT="$(drive 'cmd_down')"
+check "control: with nothing up (rc 3) the record is cleared too"          "3:gone" "$(rc_of_out "$OUT"):$([[ -f "$UPT" ]] && echo present || echo gone)"
+# [Co-developed with claude code -- Adam] A verify that is red only about something that is not the fabric
+# -- a stranger on a port of the table, which `ndt down` without --deep never removes -- clears the record:
+# kept, it would stay for every down after this one, comparing every --check against a fabric that is gone.
+reset_fix; rm -f "$DM"; seed_upt
+OUT="$(FX_HELD="8080:777" drive 'cmd_down')"
+check "  (the stranger makes the teardown red)"                            "1" "$(rc_of_out "$OUT")"
+check "🔴 a stranger on a port is not the fabric: the record is cleared"   "gone" "$([[ -f "$UPT" ]] && echo present || echo gone)"
+hasnt "  and not said to be kept"                                          "kept the 'ndt up' target record" "$OUT"
+# A session nobody could read may be the fabric: kept, and every way out is named.
+reset_fix; rm -f "$DM" "$FIX/manifest.json"; seed_upt
+OUT="$(FX_TOPO_SESSION=refused drive 'cmd_down')"
+check "🔴 a topo session it could not read keeps the record"               "present" "$([[ -f "$UPT" ]] && echo present || echo gone)"
+has   "  naming what verify clean found"                                   "a topo session it could not read" "$OUT"
+has   "  and how it goes once the fabric is gone"                          "rm .test_run/up.target" "$OUT"
+has   "  and that the next 'ndt up' that builds a fabric replaces it"      "or the next 'ndt up' that builds a fabric" "$OUT"
+has   "  and, for an unreadable session, to make the status call work and run down again" "once the 'ndtwin-lab status' call works again" "$OUT"
+reset_fix; rm -f "$DM"; seed_upt
+OUT="$(FX_MN=14 drive 'cmd_down')"
+check "  Mininet hosts or switches left keep it too"                       "present" "$([[ -f "$UPT" ]] && echo present || echo gone)"
+hasnt "  and the status-call advice is only for an unreadable session"     "once the 'ndtwin-lab status' call works again" "$OUT"
+# [Co-developed with claude code -- Adam] the fourth reading: a topo session that is there and readable
+reset_fix; rm -f "$DM"; seed_upt
+OUT="$(FX_TOPO_SESSION=1 drive 'cmd_down')"
+check "🔴 a topo session still present keeps the record"                   "present" "$([[ -f "$UPT" ]] && echo present || echo gone)"
+has   "  naming it"                                                        "(the topo session)" "$OUT"
+# Two more readings that are not the fabric clear it, like the stranger above: a port the probe cannot read,
+# and an app knob that cannot be removed.
+reset_fix; rm -f "$DM"; seed_upt
+OUT="$(FX_BLIND=6343 drive 'cmd_down')"
+check "  (a port it cannot probe makes the teardown red)"                  "1" "$(rc_of_out "$OUT")"
+check "🔴 a port it cannot probe is not the fabric: the record is cleared" "gone" "$([[ -f "$UPT" ]] && echo present || echo gone)"
+reset_fix; rm -f "$DM"; seed_upt
+OUT="$(drive 'app_knob_clear() { return 1; }; cmd_down')"
+check "  (an app knob it cannot remove makes the teardown red)"            "1" "$(rc_of_out "$OUT")"
+check "🔴 an app knob it cannot remove is not the fabric: the record is cleared" "gone" "$([[ -f "$UPT" ]] && echo present || echo gone)"
+# A verify that was itself refused -- another `ndt down` took the marker between this one's start and its
+# verify -- measured nothing: the record is kept, and the message says why. The foreign marker is written by
+# the wait that runs just before the verify, naming a live pid that is not this teardown's.
+reset_fix; rm -f "$DM"; seed_upt
+OUT="$(drive 'wait_reaped() { printf "pid=%s\nat=2026-11-06T12:00:00+0800\nby=other\n" "$PPID" > "$(down_marker)"; }; cmd_down')"
+rm -f "$DM"
+has   "  (the verify was refused)"                                         "refusing to judge this lab" "$OUT"
+check "🔴 a verify refused by another teardown keeps the record"           "present" "$([[ -f "$UPT" ]] && echo present || echo gone)"
+has   "  saying why"                                                       "its own 'verify clean' was refused because another 'ndt down' is running" "$OUT"
+# A kept record and a refused 'ndt up p4': the record is left byte for byte, on the guard's path (nothing
+# written) and on a later refusal (written, then put back).
+reset_fix; rm -f "$DM"; printf 'plane=p4\nhosts=8\nby=kept-record\n' > "$UPT"; UPT_SUM="$(sha256sum < "$UPT")"
+OUT="$(FX_GUARD_RC=5 drive 'up_p4')"
+check "a kept record survives an 'ndt up p4' the guard refused"            "5:$UPT_SUM" "$(rc_of_out "$OUT"):$(sha256sum < "$UPT" 2>/dev/null)"
+OUT="$(FX_TOPO_SESSION=refused drive 'up_p4')"
+check "  and one refused after it wrote the record (put back)"             "5:$UPT_SUM" "$(rc_of_out "$OUT"):$(sha256sum < "$UPT" 2>/dev/null)"
+
+# (g) 'ndt up p4' that could not look is 5, like every refusal that touched nothing
+reset_fix
+OUT="$(FX_GUARD_RC=5 drive 'up_p4')"
+check "🔴 up_p4 carries the guard's 'cannot tell' out as 5"                "5" "$(rc_of_out "$OUT")"
+has   "  still saying nothing was touched"                                 "up.target, the knobs and the claim note were not touched" "$OUT"
+reset_fix
+OUT="$(FX_GUARD_RC=1 drive 'up_p4')"
+check "control: a live OVS fabric the guard found is still 1"              "1" "$(rc_of_out "$OUT")"
+reset_fix
+OUT="$(FX_TOPO_SESSION=refused drive 'refusal_unwind() { return 1; }; up_p4')"
+check "control: a 'cannot tell' whose put-back failed has touched the files: 1, not 5" "1" "$(rc_of_out "$OUT")"
+# [Co-developed with claude code -- Adam] the same on the path that found bmv2 processes first
+reset_fix; echo "3 10" > "$FIX/bmv2.seq"
+OUT="$(FX_TOPO_SESSION=refused drive 'refusal_unwind() { return 1; }; up_p4')"
+check "  and on the path over bmv2 processes it cannot place: 1, not 5"   "1" "$(rc_of_out "$OUT")"
+
+# (h) [Co-developed with claude code -- Adam] a helper that died after a survivor and before its closing
+# line: four of the helper's five kills, each of which can print "STILL RUNNING", come before `mn -c`, so
+# that line does not say the sweep ran
+reset_fix; rm -f "$DM"
+rc_for cleanup 137; out_for cleanup "  STILL RUNNING  ntg_bmv2_topo pid 99 (TERM and KILL both refused or ignored)"
+OUT="$(drive 'cmd_down')"
+hasnt "🔴 STILL RUNNING (four of five kills come before mn -c) and no closing line, rc 137: no ok line" "$SWEPT" "$OUT"
+has   "  it says the sweep did not report finishing"                       "cleanup exited 137 without reporting that its sweep finished" "$OUT"
+
+# (i) the branches of the verdict, each with sudo's own wording
+reset_fix; rm -f "$DM"
+rc_for topo-stop 1; out_for topo-stop "sudo: refused by the nolab shim (a lab command)"
+OUT="$(drive 'cmd_down')"
+has   "[2/3] with an answer ndt cannot read: may not have run"            "[2/3] may not have run: topo-stop exited 1" "$OUT"
+has   "  quoting it"                                                       'whether sudo grants the topo-stop call could not be checked: sudo answered "sudo: refused by the nolab shim (a lab command)"' "$OUT"
+reset_fix; rm -f "$DM"
+rc_for cleanup 1; out_for cleanup "sudo: a password is required"
+OUT="$(drive 'cmd_down')"
+has   "[3/3] refused while [2/3] ran: [3/3] says it did not run"          "[3/3] did not run: sudo refused 'ndtwin-lab cleanup'" "$OUT"
+has   "  and prints the sudoers line itself"                               "grant it:" "$(sed -n '/^\[3\/3\]/,$p' <<<"$OUT")"
+hasnt "  not pointing at a [2/3] line that was never printed"              "the same refusal as [2/3]" "$OUT"
+reset_fix; rm -f "$DM"
+rc_for cleanup 1; out_for cleanup "Sorry, user lab is not allowed to execute '/usr/local/sbin/ndtwin-lab cleanup' as root on lab."
+OUT="$(drive 'cmd_down')"
+has   "sudo's 'not allowed to execute' reads as refused"                   "[3/3] did not run: sudo refused" "$OUT"
+reset_fix; rm -f "$DM"
+rc_for cleanup 1; out_for cleanup "sudo: /usr/local/sbin/ndtwin-lab: command not found"
+OUT="$(drive 'cmd_down')"
+has   "a helper sudo cannot find: may not have run, quoting sudo"          'sudo answered "sudo: /usr/local/sbin/ndtwin-lab: command not found"' "$OUT"
+hasnt "  with no ok line"                                                  "$SWEPT" "$OUT"
+reset_fix; rm -f "$DM"
+rc_for cleanup 127
+OUT="$(drive 'command() { [[ "${1:-} ${2:-}" == "-v sudo" ]] && return 1; builtin command "$@"; }; cmd_down')"
+has   "no sudo on this machine: may not have run"                          "[3/3] may not have run: cleanup exited 127" "$OUT"
+has   "  in the hint's words for that case"                                "could not be checked on this machine (no sudo, or" "$OUT"
+# A refusal worded without a "sudo:" line (sudo-rs prints "sudo-rs:") cannot be told from the helper failing:
+# it gets the neutral wording, and still no ok line.
+reset_fix; rm -f "$DM"
+rc_for cleanup 1; out_for cleanup "sudo-rs: interactive authentication is required"
+OUT="$(drive 'cmd_down')"
+hasnt "a refusal with no 'sudo:' line: no ok line"                         "$SWEPT" "$OUT"
+has   "  and only the neutral wording"                                     "cleanup exited 1 without reporting that its sweep finished" "$OUT"
+
+# (j) the claim note names the steps that did not run, each as one item of its list
+reset_fix; rm -f "$DM"
+rc_for status 1; rc_for topo-stop 1; rc_for cleanup 1
+out_for topo-stop "sudo: a password is required"; out_for cleanup "sudo: a password is required"
+mk_claim_note "$IN_USE"
+OUT="$(FX_BMV2=10 NDT_OWNER="$NOTE_OWNER" drive 'topo_session() { lab_session topo; }; cmd_down')"
+has   "the claim note names the stop that did not run"                     "the [2/3] topology stop (it failed or did not run)" "$(cnote)"
+has   "  and the sweep that did not run"                                   "the [3/3] sweep (it did not run)" "$(cnote)"
+
+# (k) both lab calls run with sudo's wording pinned, the way the classifier expects it -- driven from a
+# locale that is neither, so a run under an exported C locale still sees a call that is not pinned
+reset_fix; rm -f "$DM"
+OUT="$(export LC_ALL=POSIX LANGUAGE=fr; drive 'eval "fx_$(declare -f sudo)"; sudo() { printf "%s LC_ALL=%s LANGUAGE=%s\n" "${3:-}" "${LC_ALL:-}" "${LANGUAGE:-}" >> "$FIX/lc.log"; fx_sudo "$@"; }; cmd_down')"
+check "topo-stop runs under LC_ALL=C LANGUAGE=C"                           "1" "$(grep -c '^topo-stop LC_ALL=C LANGUAGE=C$' "$FIX/lc.log")"
+check "and so does cleanup"                                                "1" "$(grep -c '^cleanup LC_ALL=C LANGUAGE=C$' "$FIX/lc.log")"
+rm -f "$FIX/lc.log"
 
 # ==========================================================================================
 # The skip count has its own line and the summary below keeps its shape: tools/test_workflow/

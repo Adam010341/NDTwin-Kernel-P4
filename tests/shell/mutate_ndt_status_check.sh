@@ -169,13 +169,13 @@ m=$(mutant m7 "$NDT" \
 report "M7: ndt up p4 stops recording its target" "$m" \
        "'ndt up p4' records its target too"
 
+# [Co-developed with claude code -- Adam] Repointed 2026-11-06: the call moved below `verify clean`, which
+# now decides it (kept only while the fabric itself is still found); the suite's down stubs cmd_clean.
 m=$(mutant m8 "$NDT" \
-    '    clear_up_target
-
-    echo
-    say "verify clean"' \
-    '    echo
-    say "verify clean"')
+    '    if [[ -z "$CLEAN_FABRIC_LEFT" ]]; then
+        clear_up_target' \
+    '    if [[ -z "$CLEAN_FABRIC_LEFT" ]]; then
+        :')
 report "M8: ndt down leaves a stale baseline behind" "$m" \
        "'ndt down' drops the record"
 

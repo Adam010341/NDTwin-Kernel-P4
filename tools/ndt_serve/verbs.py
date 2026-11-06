@@ -191,7 +191,8 @@ RC_TABLE = {
                      "running, a stale fabric, a bring-up that could not finish or verify)"),
         2: ("usage", "usage error"),
         5: ("refused", "a GUARD REFUSED and nothing was built (claimed by somebody else, a "
-                       "measurement in flight, a teardown still running, or a model of another network)"),
+                       "measurement in flight, a teardown still running, a model of another network, an "
+                       "NTG config NTG would refuse, or a lab state it could not read)"),
     },
     "down": {
         0: ("ok", "the teardown finished and the machine verified clean"),
@@ -323,6 +324,11 @@ RC_TABLE = {
 # not move): up_p4 refuses a fabric whose NTG config names a mode NTG does not know or a hosts file that does not
 # exist, before any fabric, knob, target or claim-note write. Each anchor was moved to the line that holds the same
 # code (text and function checked).
+# 2026-11-06, later: 23 more lines above the claim and release rows and 134 more above status --measuring's
+# row and every row below it: `ndt down`'s stop and sweep saying when they did not run, the 'ndt up' record
+# kept only while verify clean still finds the fabric itself (cmd_clean's list of what of it is left), the
+# hint's verb, lab_call_verdict and the guard's rc 5. Each anchor was moved to the line that holds the same
+# code (text and function checked).
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -336,21 +342,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(7957, 3, "return 3", "cmd_status"), (7962, 0, "return 0", "cmd_status"),
-                              (7966, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(7968, 0, "return 0", "cmd_status")]},
+                     "code": [(8091, 3, "return 3", "cmd_status"), (8096, 0, "return 0", "cmd_status"),
+                              (8100, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(8102, 0, "return 0", "cmd_status")]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(7571, 0, "return 0", "cmd_status")]},
-    "claim": {"code": [(777, 2, "return 2", "cmd_claim"), (786, 2, "return 2", "cmd_claim"),
-                       (811, 1, "return 1", "claim_take"), (883, 1, "return 1", "claim_take"),
-                       (885, 0, 'ok "lab claimed by', "claim_take")]},
-    "release": {"code": [(889, 0, "return 0", "cmd_release"), (894, 1, "return 1", "cmd_release"),
-                         (928, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(9786, 0, "return 0", "app_start"), (9790, 1, "return 1", "app_start"),
-                            (9863, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(11341, 1, "return 1", "cmd_apps"), (11344, 2, "return 2", "cmd_apps"),
-                           (11347, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(11274, 0, "return 0", "cmd_apps")]},
+                         "code": [(7705, 0, "return 0", "cmd_status")]},
+    "claim": {"code": [(800, 2, "return 2", "cmd_claim"), (809, 2, "return 2", "cmd_claim"),
+                       (834, 1, "return 1", "claim_take"), (906, 1, "return 1", "claim_take"),
+                       (908, 0, 'ok "lab claimed by', "claim_take")]},
+    "release": {"code": [(912, 0, "return 0", "cmd_release"), (917, 1, "return 1", "cmd_release"),
+                         (951, 1, "return 1", "cmd_release")]},
+    "apps.start": {"code": [(9920, 0, "return 0", "app_start"), (9924, 1, "return 1", "app_start"),
+                            (9997, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(11475, 1, "return 1", "cmd_apps"), (11478, 2, "return 2", "cmd_apps"),
+                           (11481, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(11408, 0, "return 0", "cmd_apps")]},
 }
 
 

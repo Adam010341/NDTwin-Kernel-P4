@@ -639,8 +639,12 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
 # [Co-developed with claude code -- Adam] 2026-11-06: up_p4's refusal of an NTG config NTG cannot start on (+3, all above
 # these rows) moves it 11271 -> 11274, and M63's and G62h's rows by the same 3 (9790, 9330; 7571, 7509), each found by
 # text and function.
+# [Co-developed with claude code -- Adam] 2026-11-06, later: `ndt down`'s stop and sweep saying when they did not
+# run, the 'ndt up' record kept only over the fabric itself, and the guard's rc 5 (+134, all above these rows)
+# move it 11274 -> 11408, and M63's and G62h's rows by the same 134 (9924, 9464; 7705, 7643), each found by
+# text and function.
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(11274, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(11408, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -841,9 +845,18 @@ m=$(mutant c28 "$SERVE_PY" \
 report "C28: a claim read stopped at its timeout is trusted (its partial yours runs the cell)" "$m" \
        cells:CellsRun.test_a_status_past_its_timeout_is_not_a_claim
 
+# [Co-developed with claude code -- Adam] 2026-11-06: the GUI's sentence for up's 5 names the two refusals
+# help names (an NTG config NTG would refuse, a lab state it could not read).
+m=$(mutant m63b "$VERBS_PY" \
+    ', an "
+                       "NTG config NTG would refuse, or a lab state it could not read)"' \
+    ')"')
+report "M63b: up's rc 5 sentence drops the refusals it gained" "$m" \
+       RcProvenance.test_up_refused_names_the_refusals_help_names
+
 m=$(mutant m63 "$VERBS_PY" \
-    '(9790, 1, "return 1", "app_start")' \
-    '(9330, 1, "return 1", "app_start")')
+    '(9924, 1, "return 1", "app_start")' \
+    '(9464, 1, "return 1", "app_start")')
 report "M63: apps.start rc 1 cites proc_checkout's return 1" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
@@ -1612,8 +1625,8 @@ report "G62g: --measuring's rc 0 cites a phrase ndt help does not print" "$m" \
        RcProvenance.test_help_sourced_tables_are_in_ndt_help
 
 m=$(mutant g62h "$VERBS_PY" \
-    '                         "code": [(7571, 0, "return 0", "cmd_status")]},' \
-    '                         "code": [(7509, 0, "return 0", "cmd_status")]},')
+    '                         "code": [(7705, 0, "return 0", "cmd_status")]},' \
+    '                         "code": [(7643, 0, "return 0", "cmd_status")]},')
 report "G62h: --measuring's rc 0 cites a return 0 of another function (app_package_row)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 

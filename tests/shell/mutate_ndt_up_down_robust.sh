@@ -1633,8 +1633,11 @@ report "M129: a rollback that cannot see the session reads clean" "$m" \
        "🔴 it says it cannot tell whether the topo session is still present"
 
 #   M130  ndt clean reads rc 2 as "no topo session"
+# [Co-developed with claude code -- Adam] Repointed 2026-11-06: the branch also records the session for the
+# 'ndt up' record's decision, on a second line.
 m=$(mutant m130 "$NDT" \
-    '        *) err "cannot tell whether a topo session is present: the '"'"'ndtwin-lab status'"'"' call failed"; rc=1 ;;' \
+    '        *) err "cannot tell whether a topo session is present: the '"'"'ndtwin-lab status'"'"' call failed"; rc=1
+           fabric_left "a topo session it could not read" ;;' \
     '        *) ok "no topo session" ;;')
 report "M130: ndt clean says 'no topo session' for a status call that failed" "$m" \
        "🔴 'ndt clean' that cannot see the session is rc 1, not clean"
@@ -1857,6 +1860,230 @@ m=$(mutant m152 "$NTGCFG" \
     '    except OSError as e:')
 report "M152: a host_file with a NUL byte crashes the probe" "$m" \
        "🔴 a host_file with a NUL byte in it is refused like a missing one"
+
+# --- [Co-developed with claude code -- Adam] `ndt down` says which step did not run, keeps the record (section 29) ---
+# 2026-11-06. Each mutation puts back one half of what a live run with the lab grant moved aside showed, or
+# breaks the reading that tells "did not run" from "ran and failed".
+m=$(mutant d1 "$NDT" \
+    '    if (( stop_rc != 0 )); then
+        lab_call_verdict "$stop_out"; stop_v=$?' \
+    '    if false; then
+        lab_call_verdict "$stop_out"; stop_v=$?')
+report "D1: [2/3] drops the rc of topo-stop again" "$m" \
+       "🔴 a topo-stop that failed makes 'ndt down' rc 1"
+
+m=$(mutant d2 "$NDT" \
+    '    if (( sweep_rc == 0 )) || [[ "$sweep_out" == *"cleanup INCOMPLETE"* ]]; then' \
+    '    if true; then')
+report "D2: [3/3] says it ran the sweep whatever happened (the live run)" "$m" \
+       "🔴 refused helper: no ok line for a sweep that did not run"
+
+m=$(mutant d3 "$NDT" \
+    '    if (( sweep_rc == 0 )) || [[ "$sweep_out" == *"cleanup INCOMPLETE"* ]]; then' \
+    '    if (( sweep_rc == 0 )); then')
+report "D3 (control): a sweep that ran and did not finish loses its ok line" "$m" \
+       "  it is said when the sweep ran and did not finish"
+
+m=$(mutant d4 "$NDT" \
+    '    ndt_sudo_refused && return 1
+    ndt_sudo_unread && return 2
+    return 0
+}' \
+    '    ndt_sudo_refused && return 0
+    ndt_sudo_unread && return 2
+    return 0
+}')
+report "D4: a call sudo refused reads as a call that ran" "$m" \
+       "🔴 refused helper: [2/3] says it did not run, and what sudo refused"
+
+m=$(mutant d5 "$NDT" \
+    '    ndt_sudo_refused && return 1
+    ndt_sudo_unread && return 2
+    return 0
+}' \
+    '    ndt_sudo_refused && return 1
+    ndt_sudo_unread && return 0
+    return 0
+}')
+report "D5: an answer ndt cannot read reads as a call that ran" "$m" \
+       "  it says the sweep may not have run"
+
+m=$(mutant d6 "$NDT" \
+    '               if (( lab_hint_said )); then' \
+    '               if false; then')
+report "D6: the sudoers line is printed under both steps" "$m" \
+       "  the sudoers line is printed once, not under both steps"
+
+m=$(mutant d7 "$NDT" \
+    '    else
+        up_target_kept "$CLEAN_FABRIC_LEFT"
+    fi' \
+    '    else
+        clear_up_target
+    fi')
+report "D7: the record is cleared over a fabric still running (the live run)" "$m" \
+       "🔴 refused helper: the 'ndt up' record is KEPT over a fabric still running"
+
+m=$(mutant d8 "$NDT" \
+    '    if [[ -z "$CLEAN_FABRIC_LEFT" ]]; then
+        clear_up_target' \
+    '    if [[ -z "$CLEAN_FABRIC_LEFT" ]]; then
+        :')
+report "D8 (control): the record is never cleared" "$m" \
+       "control: a teardown that verified clean clears the record"
+
+m=$(mutant d9 "$NDT" \
+    '                refusal_unwind "the topo session could not be checked; nothing was swept or built" || return 1
+                return 5' \
+    '                refusal_unwind "the topo session could not be checked; nothing was swept or built" || return 1
+                return 1')
+report "D9: up_p4's 'cannot tell' over bmv2 processes is 1 again" "$m" \
+       "🔴 bmv2 processes with an unreadable session are not swept: the bring-up is refused, rc 5"
+
+m=$(mutant d10 "$NDT" \
+    '            refusal_unwind "the topo session could not be checked; nothing was built" || return 1
+            return 5' \
+    '            refusal_unwind "the topo session could not be checked; nothing was built" || return 1
+            return 1')
+report "D10: up_p4's 'cannot tell' before topo-start is 1 again" "$m" \
+       "🔴 a fabric is not started over a session that could not be looked at: rc 5"
+
+m=$(mutant d11 "$NDT" \
+    'err "up.target, the knobs and the claim note were not touched."; return "$grc"; }' \
+    'err "up.target, the knobs and the claim note were not touched."; return 1; }')
+report "D11: up_p4 flattens the guard's 5 to 1" "$m" \
+       "🔴 up_p4 carries the guard's 'cannot tell' out as 5"
+
+m=$(mutant d12 "$NDT" \
+    '            refusal_unwind "the topo session could not be checked; nothing was built" || return 1' \
+    '            refusal_unwind "the topo session could not be checked; nothing was built"')
+report "D12: a put-back that failed is still reported as 5" "$m" \
+       "control: a 'cannot tell' whose put-back failed has touched the files: 1, not 5"
+
+# [Co-developed with claude code -- Adam] 2026-11-06, second pass: the record follows the fabric, the sweep's
+# evidence is the closing line only, and the branches of the verdict each have a cell.
+m=$(mutant d13 "$NDT" \
+    '    if (( sweep_rc == 0 )) || [[ "$sweep_out" == *"cleanup INCOMPLETE"* ]]; then' \
+    '    if (( sweep_rc == 0 )) || [[ "$sweep_out" == *"cleanup INCOMPLETE"* || "$sweep_out" == *"STILL RUNNING"* ]]; then')
+report "D13: a STILL RUNNING (four of five kills come before mn -c) is taken as the sweep having run" "$m" \
+       "🔴 STILL RUNNING (four of five kills come before mn -c) and no closing line, rc 137: no ok line"
+
+m=$(mutant d14 "$NDT" \
+    '    if [[ -z "$CLEAN_FABRIC_LEFT" ]]; then
+        clear_up_target' \
+    '    if (( clean_rc == 0 || clean_rc == 3 )); then
+        clear_up_target')
+report "D14: the record is kept on any red verify (a stranger strands it)" "$m" \
+       "🔴 a stranger on a port is not the fabric: the record is cleared"
+
+m=$(mutant d15 "$NDT" \
+    '           fabric_left "a topo session it could not read" ;;' \
+    '           : ;;')
+report "D15: a session nobody could read is not counted as the fabric" "$m" \
+       "🔴 a topo session it could not read keeps the record"
+
+m=$(mutant d16 "$NDT" \
+    'rc=1; fabric_left "$n host/switch process(es)"; fi' \
+    'rc=1; fi')
+report "D16: Mininet hosts or switches are not counted as the fabric" "$m" \
+       "  Mininet hosts or switches left keep it too"
+
+m=$(mutant d17 "$NDT" \
+    '                refusal_unwind "the topo session could not be checked; nothing was swept or built" || return 1' \
+    '                refusal_unwind "the topo session could not be checked; nothing was swept or built"')
+report "D17: a failed put-back over bmv2 processes is still reported as 5" "$m" \
+       "  and on the path over bmv2 processes it cannot place: 1, not 5"
+
+m=$(mutant d18 "$NDT" \
+    '    warn "  leaves it as it is); once the fabric is gone you can also remove it:  rm ${f#$REPO/}"' \
+    '    :')
+report "D18: a kept record names no way out once the fabric is gone" "$m" \
+       "  and how it goes once the fabric is gone"
+
+m=$(mutant d19 "$NDT" \
+    '    command -v sudo >/dev/null 2>&1 || return 2
+    NDT_SUDO_STDERR="$1"' \
+    '    NDT_SUDO_STDERR="$1"')
+report "D19: no sudo on the machine is read from the words of a shell error" "$m" \
+       "no sudo on this machine: may not have run"
+
+m=$(mutant d20 "$NDT" \
+    '    stop_out="$(LC_ALL=C LANGUAGE=C sudo -n "$LAB" topo-stop 2>&1)"; stop_rc=$?' \
+    '    stop_out="$(sudo -n "$LAB" topo-stop 2>&1)"; stop_rc=$?')
+report "D20: topo-stop runs in the operator's locale, which the classifier cannot read" "$m" \
+       "topo-stop runs under LC_ALL=C LANGUAGE=C"
+
+m=$(mutant d21 "$NDT" \
+    '        not_verified "the [2/3] topology stop (it failed or did not run)"' \
+    '        :')
+report "D21: the claim note does not name a stop that did not run" "$m" \
+       "the claim note names the stop that did not run"
+
+m=$(mutant d22 "$NDT" \
+    '                   lab_status_failed_hint cleanup 1' \
+    '                   :')
+report "D22: [3/3] refused on its own prints no sudoers line" "$m" \
+       "  and prints the sudoers line itself"
+
+m=$(mutant d23 "$NDT" \
+    '            2) err "[2/3] may not have run: topo-stop exited $stop_rc, and whether sudo let it run cannot be told."' \
+    '            2) err "topo-stop exited $stop_rc"')
+report "D23: [2/3] does not say it may not have run when sudo could not be read" "$m" \
+       "[2/3] with an answer ndt cannot read: may not have run"
+
+# [Co-developed with claude code -- Adam] 2026-11-06, third pass: the fourth fabric reading, the refused verify,
+# the cleanup call's locale pin, and the advice for an unreadable session.
+m=$(mutant d24 "$NDT" \
+    'rc=1; fabric_left "the topo session" ;;' \
+    'rc=1 ;;')
+report "D24: a topo session still present is not counted as the fabric" "$m" \
+       "🔴 a topo session still present keeps the record"
+
+m=$(mutant d25 "$NDT" \
+    '    sweep_out="$(LC_ALL=C LANGUAGE=C sudo -n "$LAB" cleanup 2>&1)"; sweep_rc=$?' \
+    '    sweep_out="$(sudo -n "$LAB" cleanup 2>&1)"; sweep_rc=$?')
+report "D25: cleanup runs in the operator's locale" "$m" \
+       "and so does cleanup"
+
+m=$(mutant d26 "$NDT" \
+    '    CLEAN_FABRIC_LEFT="its own '"'"'verify clean'"'"' was refused because another '"'"'ndt down'"'"' is running, so nothing was measured"' \
+    '    CLEAN_FABRIC_LEFT=""')
+report "D26: a refused verify reads as one that found no fabric" "$m" \
+       "🔴 a verify refused by another teardown keeps the record"
+
+m=$(mutant d27 "$NDT" \
+    '    if [[ "$1" == *"a topo session it could not read"* ]]; then' \
+    '    if false; then')
+report "D27: a kept record over an unreadable session gives no way to the call that would clear it" "$m" \
+       "  and, for an unreadable session, to make the status call work and run down again"
+
+m=$(mutant d28 "$NDT" \
+    '        clear_up_target "'"'"'verify clean'"'"' found none of the fabric itself (no bmv2, Mininet or topo session)"' \
+    '        clear_up_target')
+report "D28: the clear does not say what it was decided on" "$m" \
+       "  and on what"
+
+m=$(mutant d29 "$NDT" \
+    '    local why="$1" p rc=0
+    for p in "$(up_target_file)" "$(app_knob_path)" "$(telemetry_knob_path)"; do' \
+    '    local why="$1" p rc=0
+    for p in "$(app_knob_path)" "$(telemetry_knob_path)"; do')
+report "D29: a refused 'ndt up p4' leaves its own record over the one a down kept" "$m" \
+       "  and one refused after it wrote the record (put back)"
+
+m=$(mutant d30 "$NDT" \
+    '    residue="$(ndt_port_residue all)"; local prc=$?' \
+    '    residue="$(ndt_port_residue all)"; local prc=$?; [[ -n "$residue" ]] && fabric_left "a held port"')
+report "D30: a port reading counts as the fabric" "$m" \
+       "🔴 a port it cannot probe is not the fabric: the record is cleared"
+
+m=$(mutant d31 "$NDT" \
+    '    app_knob_clear "this checkout is being put back" || rc=1
+    CLEAN_FABRIC_LEFT=""' \
+    '    CLEAN_FABRIC_LEFT=""
+    app_knob_clear "this checkout is being put back" || { rc=1; fabric_left "the app knob"; }')
+report "D31: an app knob that cannot be removed counts as the fabric" "$m" \
+       "🔴 an app knob it cannot remove is not the fabric: the record is cleared"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
