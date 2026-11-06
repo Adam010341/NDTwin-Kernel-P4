@@ -119,7 +119,8 @@ ctest --test-dir build --output-on-failure
 ```
 
 CI (`.github/workflows/ci.yml`) also builds and tests a GCC Release build, builds under
-ASan+UBSan and TSan, builds with clang, and runs the Python tests for the control-plane tooling.
+ASan+UBSan and TSan, builds with clang, runs the Python tests for the control-plane tooling, and
+checks that every tracked `.py` file compiles on Python 3.10.
 Testing against a live topology is manual, because it needs a Mininet network namespace that
 hosted runners don't have.
 

@@ -6,7 +6,7 @@
 #
 # GitHub Actions has been out of quota since b0a7bdc (all eight checks "Failing after 2s") and
 # the repo is staying private for now, so CI is whatever actually gets run on this machine.
-# The five workflow jobs are easy to name and easy to get wrong: TSan dies before main without
+# The workflow jobs are easy to name and easy to get wrong: TSan dies before main without
 # `setarch -R`, ASan's UBSan half prints and still exits 0 without abort_on_error, clang needs
 # one -Wno-error, and the GCC job deliberately runs the binary *and* ctest because each catches
 # what the other misses. Running them by hand works exactly as long as someone remembers all of
@@ -16,6 +16,9 @@
 # Usage:
 #   tools/test_workflow/local_ci.sh              # every job
 #   tools/test_workflow/local_ci.sh gcc asan     # named jobs only
+#   PY310=/path/to/python3.10 tools/test_workflow/local_ci.sh py310
+#                                                # py310 needs a 3.10 interpreter: PY310, else
+#                                                # python3.10 on PATH; without one it fails
 #
 # Not fail-fast: every job runs even after one fails, because the point of a local run is to
 # learn everything that is broken in one pass. Exit 1 if any job failed, 2 for a usage error.
@@ -25,7 +28,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-JOBS_ALL=(gcc release python asan tsan clang p4cov)
+JOBS_ALL=(gcc release python asan tsan clang py310 p4cov)
 
 if [[ -t 1 ]]; then
     G=$'\033[32m'; R=$'\033[31m'; D=$'\033[2m'; B=$'\033[1m'; N=$'\033[0m'
@@ -82,6 +85,26 @@ job_tsan() {
     # before main -- current kernels use more mmap entropy than TSan's fixed shadow layout allows.
     TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1:history_size=4 \
         setarch "$(uname -m)" -R "$ROOT/build-tsan/bin/test_routing_strategy" || return 1
+}
+
+job_py310() {
+    # Compiles every tracked .py with a 3.10 interpreter, which is the only thing that can say
+    # whether a file still parses there (the python job runs under the interpreters l1_unit_tests.sh
+    # picks, not under 3.10).
+    # PY310 names the interpreter; otherwise python3.10 from PATH. Neither found, or one that is not
+    # 3.10, is a failure with the reason: a pass from a newer interpreter would mean nothing.
+    local py="${PY310:-}"
+    if [[ -z "$py" ]]; then
+        py="$(command -v python3.10 || true)"
+    fi
+    if [[ -z "$py" ]] || ! "$py" -c 'import sys; sys.exit(0 if sys.version_info[:2] == (3, 10) else 1)' 2>/dev/null; then
+        echo "no Python 3.10 interpreter (PY310='${PY310:-}', python3.10 on PATH: $(command -v python3.10 || echo none));" >&2
+        echo "set PY310 to a Python 3.10 interpreter and run again" >&2
+        return 1
+    fi
+    # From the repository root, so the list covers the whole repository even when this is run from a
+    # subdirectory (git ls-files lists only the current directory's subtree).
+    (cd "$ROOT" && git ls-files -z -- '*.py' | "$py" "$ROOT/tools/test_workflow/check_py310_compile.py") || return 1
 }
 
 job_p4cov() {
