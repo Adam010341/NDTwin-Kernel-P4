@@ -581,7 +581,7 @@ ssh)
     # it is exactly what the VM usage rules forbid.
     #
     # 🔑 Note what this guard does NOT do: claim_guard refuses, claim_write records,
-    # and only create/start call the latter. So requiring NDT_OWNER here still lets
+    # and only create/start/adopt call the latter. So requiring NDT_OWNER here still lets
     # you look inside an UNOWNED VM without taking it -- which the 08-31 inventory
     # of the pending-retirement VM needed, and which the VM usage rules require stay
     # possible. Guarding and claiming are separate powers; do not fuse them.

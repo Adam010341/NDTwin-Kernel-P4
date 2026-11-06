@@ -1,85 +1,96 @@
-# L2 契約測試與 log 檢查
+# L2 contract tests and log checks
 
-實作測試分層（L0–L4，見 [../test_workflow/run_layers.sh](../test_workflow/run_layers.sh) 的開頭）的 **L2 層**：把「打開元件看看有沒有 error」變成機器判斷的 pass/fail。
+The **L2 layer** of the test layering (L0-L4; see the top of
+[../test_workflow/run_layers.sh](../test_workflow/run_layers.sh)). It turns "open the component and
+see whether anything looks wrong" into a machine-decided pass/fail.
 
-不需要安裝任何套件，只要 `python3`。
-
----
-
-## 為什麼需要這個
-
-Workspace 裡 7 個 tool/app 跟 kernel 之間**唯一**的介面就是 `/ndt/*` HTTP API。所以 kernel 的 API 只要形狀變了，所有元件會同時壞掉，但每個壞的樣子都不一樣，很難從單一元件的畫面看出來。
-
-在一個地方把契約驗過，等於一次驗證了所有元件的地基。
+Nothing needs to be installed: the tools need `python3` only.
 
 ---
 
-## 四支工具
+## Why this exists
 
-| 工具 | 層 | 檢查什麼 |
+The only interface between the kernel and the tools and apps around it is the `/ndt/*` HTTP API.
+When the shape of an API answer changes, every component breaks at once, each in its own way, and
+that is hard to see from any one component's screen. Checking the contract in one place checks the
+foundation of all of them.
+
+---
+
+## The four tools
+
+| Tool | Layer | What it checks |
 |---|---|---|
-| `run_contract_test.py` | L2 | kernel 的 API 回應：結構、語意不變量、錯誤路徑 |
-| `l3_component_check.py` | L3 | 各元件依賴的端點是否都在、契約是否成立 |
-| `compare_baseline.py` | L4 | P4 跟 OVS baseline 的差異 |
-| `check_logs.py` | — | kernel 的 log：未預期的 warning/error |
+| `run_contract_test.py` | L2 | The kernel's API answers: structure, semantic invariants, error paths |
+| `l3_component_check.py` | L3 | Whether every endpoint a component depends on exists and honours its contract |
+| `compare_baseline.py` | L4 | The difference between a P4 run and an OVS baseline |
+| `check_logs.py` | - | The kernel log: unexpected warnings and errors, crashes |
 
-啟動編排與 L0／L1 在 [../test_workflow/](../test_workflow/)。
+Stack start-up orchestration and L0/L1 live in [../test_workflow/](../test_workflow/).
 
 ---
 
-## 快速開始
+## Quick start
 
 ```bash
 cd tools/contract_test
 
-# 1. 先確認測試腳本本身是對的（不需要 kernel 在跑）
+# 1. Check that the test tooling itself is right (no kernel needed)
 ./run_contract_test.py --self-test
 
-# 2. kernel 跑起來之後，做唯讀檢查（不會改到網路狀態）
+# 2. With a kernel running: read-only checks (they change nothing in the network)
 ./run_contract_test.py --topology ../../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
 
-# 3. 開始產生流量後，加上 telemetry 相關檢查
-./run_contract_test.py --topology <拓撲檔> --with-traffic
+# 3. Once traffic is flowing, add the telemetry checks
+./run_contract_test.py --topology <topology file> --with-traffic
 
-# 4. 檢查 log
+# 4. Check a kernel log
 ./check_logs.py /path/to/kernel.log
 ```
 
-兩支都是**成功才回傳 exit code 0**，可以直接接進 CI。
+Both tools exit 0 only on success, so they can be wired into CI.
 
-### exit code 3＝工具沒有下判斷（A-8）
+### Exit code 3: the tool reached no verdict
 
-三支工具（`run_contract_test.py`、`l3_component_check.py`、`check_logs.py`）都多了一個
-**exit code 3 ＝ `TOOL-PRECONDITION-FAILED`**：工具在下判斷之前需要知道的事沒能確立，
-所以它**對系統不做任何宣稱**。這跟 exit 1（「系統壞了」）是兩件事。
+`run_contract_test.py`, `l3_component_check.py` and `check_logs.py` can exit with **3
+(`TOOL-PRECONDITION-FAILED`)**: something the tool needs to know before it can decide could not be
+established, so it makes **no claim** about the system. That is different from exit 1 ("the system
+is broken").
 
-為什麼要分開：Energy-Saving-App **正確地**關掉一台交換機時，這三支工具會同時變紅
-（KNOWN-ISSUES A-8，2026-08-18 實測、2026-08-30 重驗）。一個在系統正確時變紅的套件，
-會訓練它的讀者忽略紅色。**一個儀器唯一不能有的故障，就是長得跟它自己的發現一模一樣的那個。**
+The reason for the split is power management. When the Energy-Saving-App correctly turns a
+switch off, that switch is `is_up=false`, and a checker that reported it as a failure would be red
+when the system is right. So:
 
-- L2／L3 開跑前先讀一次 `/ndt/get_switches_power_state`，`is_up=false` 的交換機分三種答案：
-  power state 說 ON ⇒ **仍然是失敗**（P4 接線失敗的偵測原封不動）；說 OFF ⇒ 列成
-  `accounted for`，不算失敗；**讀不到 ⇒ exit 3**，不猜。
-- `check_logs.py` 用 `--powered-off 5,7,9` 宣告哪幾台被關掉；`--powered-off none` 是
-  「我宣告沒有任何一台被關」（**跟不給這個旗標不一樣**）。
-- `run_layers.sh` 用環境變數轉發：`NDT_POWERED_OFF=5,7,9 ./run_layers.sh api ovs`。
+- Before deciding, L2 and L3 read `/ndt/get_switches_power_state` once. For each switch that is
+  `is_up=false` there are three possible answers. The power state says ON: still a **failure**
+  (wiring faults are still detected). It says OFF: listed as `accounted for`, not a failure. It
+  cannot be read: **exit 3**, no guess.
+- `check_logs.py` takes `--powered-off 5,7,9` to declare which switches were switched off.
+  `--powered-off none` means "I assert that nothing is off", which is **not** the same as leaving
+  the flag out.
+- `run_layers.sh` forwards the declaration through the environment:
+  `NDT_POWERED_OFF=5,7,9 ./run_layers.sh api ovs` (or `NDT_POWERED_OFF=none`).
 
-`run_layers.sh` 的 `layer()` 只看「非 0 就是 FAIL」，所以 exit 3 在那裡仍然算一層失敗
-（fail closed）——差別在報告會說出「我沒有下判斷」而不是指認一個不存在的故障。
+`run_layers.sh` treats any non-zero code as a failed layer, so exit 3 still counts as a failure
+there (it fails closed); the difference is that the report says that no verdict was reached
+instead of naming a fault that does not exist.
 
 ---
 
 ## run_contract_test.py
 
-### 三種檢查
+### Three kinds of check
 
-**1. 結構** — 回應是合法 JSON、欄位存在、型別正確。失敗訊息會指到確切位置：
+**1. Structure.** The answer is valid JSON, the fields exist and have the right types. A failure
+points at the exact location:
 
 ```
 nodes[3].is_up: expected bool, got str ('true')
 ```
 
-**2. 語意不變量** — 這是把「看一眼」變成「可判定」的關鍵。期望值**從拓撲檔推導**，不是寫死的，所以換拓撲會自動適應（OVS 10 switch/128 host、P4 10 switch/4 host 都能用同一套）：
+**2. Semantic invariants.** This is what makes "have a look" decidable. Expected values are
+**derived from the topology file**, not hard-coded, so the same checks work for the OVS 10-switch
+topology and the P4 10-switch/4-host topology:
 
 ```
 switch(es) not enabled (not connected to a controller): s3(dpid=3)
@@ -89,335 +100,380 @@ switch(es) not enabled (not connected to a controller): s3(dpid=3)
   -- the Classifier has no flow-table data (check /stats/flow/<dpid>)
 ```
 
-**3. 錯誤路徑** — 餵壞的輸入，要回合理的 4xx，不能回 500 也不能假裝成功。這類檢查會抓到：未知 dpid 被安靜轉給 Ryu、非數字 dpid 造成 500、lock 沒有正確回 423/412。
+**3. Error paths.** Feed bad input and require a sensible 4xx: not a 500, and not a pretend
+success. These checks catch, for example, an unknown dpid silently forwarded to Ryu, a non-numeric
+dpid causing a 500, or a lock that does not answer 423/412 where it should.
 
-### 重要參數
+### Main options
 
-| 參數 | 說明 |
+| Option | Meaning |
 |---|---|
-| `--topology <檔案>` | **必填**。kernel 啟動時用的拓撲檔，不變量的期望值由它推導 |
-| `--with-traffic` | 額外要求「有 flow、path 非空、速率非零」。沒有流量時不要加，否則會誤報 |
-| `--allow-mutations` | 才會執行會改動網路的端點（裝規則、改電源、改名稱）。**預設不執行** |
-| `--url` | kernel 位址，預設 `http://localhost:8000`（或環境變數 `NDT_API_URL`） |
-| `--save-json <目錄>` | 把每個回應存檔。這就是 L4 做 OVS/P4 差異比對的 baseline |
-| `--only <名稱>` | 只跑指定檢查，除錯時用。可重複 |
-| `--self-test` | 用 `doc/2026-01-02_ndt_api.md` 的範例驗證 schema 本身，不需要 kernel |
+| `--topology <file>` | **Required.** The topology file the kernel was started with; the invariants' expected values are derived from it |
+| `--with-traffic` | Also require flows, non-empty paths and non-zero rates. Do not use it when no traffic is running; it would report false failures |
+| `--allow-mutations` | Run the endpoints that change the network (install rules, change power state, rename). **Off by default** |
+| `--url` | Kernel address; default `http://localhost:8000` (or the `NDT_API_URL` environment variable) |
+| `--save-json <dir>` | Save every answer to a file. This is how an L4 baseline for the OVS/P4 comparison is captured |
+| `--only <name>` | Run only the named check; repeatable. For debugging |
+| `--self-test` | Validate the schemas against the examples in `doc/2026-01-02_ndt_api.md`; needs no kernel |
 
-### 鎖的檢查用 `graph_lock`（不是自訂型別）
+Other options: `--timeout`, `--topk`, `--probe-ip` (see `--help`).
 
-`LockManager::stringToLockType` 只認得 `routing_lock` / `graph_lock` / `power_lock`，其他一律回 `Unknown`，而 `acquireLock`／`renew` 對 `Unknown` 直接回 false。所以**自訂一個假的 lock type 會讓每個鎖檢查都失敗，而且互斥邏輯從頭到尾沒被驗到**。
+### The lock checks use `graph_lock`
 
-用 `graph_lock` 的理由：它是 kernel 真的認得的型別，而全 workspace 掃過只有 `routing_lock` 被 app 使用（Energy-Saving-App、Traffic-Engineering-App）。所以這些檢查跑的是真正的互斥語意，又不可能干擾正在跑的 app。
+`LockManager::stringToLockType` recognises `routing_lock`, `graph_lock` and `power_lock`; any
+other string is `Unknown`, and acquire and renew refuse it. A made-up lock type would therefore
+make every lock check fail without ever exercising the mutual exclusion. `graph_lock` is a type
+the kernel really knows, and the applications in the workspace do not use it, so the checks run
+the real exclusion logic without disturbing a running app.
 
-驗證的是一條完整生命週期：
+The checks run a whole life cycle:
 
 ```
-acquire → 第二次 acquire 必須 423 → renew → release → 再 acquire 必須成功 → cleanup
+acquire -> a second acquire must answer 423 -> renew -> release -> acquire again must succeed -> clean up
 ```
 
-其中「再 acquire 必須成功」會抓到「release 回報成功但其實沒放開」這種 bug。
+"Acquire again must succeed" is what catches a release that reported success but did not let go.
 
-### known_gap：已知的 kernel 缺陷
+### `known_gap`: documented kernel defects
 
-有些檢查會失敗，原因是 kernel 真的有缺陷、而且短期內不會修。這種在 `spec.py` 標上 `known_gap`（附原因），行為是：
+A check whose failure is a real, known kernel defect can be marked `known_gap` (with a reason) in
+`spec.py`. It then behaves like this:
 
-- 失敗 → 顯示黃色 `GAP`，**不計入失敗**（否則測試永遠是紅的，就沒人看了）
-- 哪天它**通過了** → 顯示 `FIXED`，並提醒你把標記拿掉
+- It fails: shown as a yellow `GAP` and **not counted as a failure** (otherwise the suite would be
+  permanently red and nobody would read it). A gap does not excuse a missing answer or a 5xx.
+- It starts to pass: shown as `FIXED`, with a reminder to remove the marker.
 
-目前唯一一條是 `release_lock_not_held`：`HttpSession::handleReleaseLock` 不管鎖有沒有被持有、型別有沒有效，**一律回 200**，所以「釋放一個沒持有的鎖」跟正常釋放無法區分。當時的測試分層設計寫的「應該回 412」目前並未實作。
+At the moment no check in `spec.py` carries a `known_gap`; the mechanism is there for the next one.
 
-### 為什麼預設不跑 mutation
+### Why mutations are off by default
 
-`--allow-mutations` 會真的下流量規則、改電源狀態。對正在跑的系統來說這是破壞性的，所以必須明確開啟。唯讀檢查可以隨時對生產環境跑。
+`--allow-mutations` really installs flow rules and changes power state. That is destructive on a
+running system, so it has to be asked for. Read-only checks can be run against a live system at
+any time. (The lock checks always run; see above.)
 
-（例外：lock 相關檢查會執行，但它用 `graph_lock` —— 一個 kernel 認得、但沒有任何 app 在用的型別，所以不會干擾正在跑的 app。詳見上面一節。）
+### What `--self-test` does
 
-### --self-test 是什麼
+It validates the schemas against `selftest_fixtures.py`, which holds example answers copied from
+`doc/2026-01-02_ndt_api.md` (the self-test itself does not read the document). If a schema does
+not accept the document's own examples, the schema is wrong, and noticing that here is much
+cheaper than debugging it against a live system.
 
-它拿 `doc/2026-01-02_ndt_api.md` 裡的實際回應範例去驗證 schema。**如果 schema 連文件裡的範例都不接受，那是 schema 寫錯了** — 在這裡發現比對著真系統 debug 便宜太多。
-
-它同時檢查每個不變量的**兩個方向**：好資料要安靜、壞資料要噴錯。這樣才知道檢查不是「永遠都過」的假綠燈。
-
-目前 47 個 self-test 檢查。
+It also checks every invariant **in both directions**: good data must be quiet and bad data must
+raise an error. That is how you know a check is not an always-green light.
 
 ---
 
 ## check_logs.py
 
-### 核心概念
+### Core idea
 
-沒有 allowlist 的話，「檢查 log 有沒有 warning」在 warning 超過幾個之後就失效了 — 真正新出現的問題會被你已經決定接受的那些淹沒。
+Without an allowlist, "check the log for warnings" stops working once there are more than a few
+warnings: a genuinely new problem is drowned by the ones you decided to accept. With an allowlist,
+**anything not listed fails**, so a regression cannot hide.
 
-有了 allowlist，**沒列在裡面的就是失敗**，所以 regression 藏不住。
+### Verdict rules
 
-### 判定規則
-
-| 情況 | 結果 |
+| Case | Result |
 |---|---|
-| `error` / `critical` 等級 | **失敗**，除非明確列在 allowlist |
-| `warning` 等級 | **失敗**，除非列在 allowlist |
-| 符合 `FORBID` 樣式 | **失敗，不管什麼等級**（包含 info/debug） |
-| 符合 `WHEN-POWERED-OFF` 樣式，且該 dpid 有被 `--powered-off` 宣告 | **EXPECTED**，不算失敗 |
-| 符合 `WHEN-POWERED-OFF` 樣式，但該 dpid 沒被宣告 | **失敗**（照原本的等級規則走） |
-| 符合 `WHEN-POWERED-OFF` 樣式，而**完全沒有宣告** | **exit 3**，不下判斷 |
-| allowlist 有列但這次沒對到 | 提示（方便清理過期項目；`FORBID`／`WHEN-POWERED-OFF` 不算） |
+| `error` / `critical` level | **Fails**, unless listed in the allowlist |
+| `warning` level | **Fails**, unless listed in the allowlist |
+| Matches a `FORBID` pattern | **Fails at any level** (including info and debug) |
+| Matches a `WHEN-POWERED-OFF` pattern, and that dpid was declared with `--powered-off` | **EXPECTED**, not a failure |
+| Matches a `WHEN-POWERED-OFF` pattern, but that dpid was not declared | **Fails** (normal level rules apply) |
+| Matches a `WHEN-POWERED-OFF` pattern and **nothing was declared at all** | **Exit 3**, no verdict reached |
+| Listed in the allowlist but not matched in this run | Reported (so stale entries can be cleaned up; `FORBID` and `WHEN-POWERED-OFF` entries are not reported) |
 
-`WHEN-POWERED-OFF` 是**有範圍的許可**，不是 allowlist 的第四種寫法：
-`... reported a read failure for switch 5 ...` 這一行，在 s5 被關掉時是 kernel **正確**的保守處理
-（`DeviceConfigurationAndPowerManager.cpp:1134`），在 s5 沒被關掉時就是 2026-08-07 那個
-「Ryu wedged、十台全報 0 條規則而 s1 其實有 130 條」的缺陷。
-**寫成普通 `WARNING` 會把這支工具變成掩蓋那個缺陷的東西。**
-所以樣式必須用 `(?P<dpid>\d+)` 抓出是哪一台，`check_logs.py` 拒絕載入沒有這個 group 的規則。
+`WHEN-POWERED-OFF` is a **scoped permission**, not a fourth way to write a warning entry. A line
+like `... reported a read failure for switch 5 ...` is the kernel's correct, conservative handling
+when switch 5 has been switched off; when switch 5 has not been switched off it is a real defect (a
+wedged Ryu reporting zero rules on every switch). Writing it as a plain `WARNING` would turn this
+tool into something that hides that defect. So the pattern must capture the switch with
+`(?P<dpid>\d+)`, and `check_logs.py` refuses to load a `WHEN-POWERED-OFF` rule without that group.
 
-### 崩潰偵測（不受 allowlist 影響）
+### Crash detection (not affected by the allowlist)
 
-crash 訊息是 runtime 印的，不是 spdlog 印的，所以**不符合 log 格式**，原本會被 `--ignore-unparsed` 整批丟掉 — 等於把最重要的訊號放在盲區。
-
-現在會先掃過**每一行**（不管解析得出來與否）尋找：
+Crash messages are printed by the runtime, not by spdlog, so they do not match the log format and
+would be dropped by `--ignore-unparsed`, which would put the most important signal in a blind
+spot. Every line is therefore scanned first, whether or not it parses, for things such as:
 
 ```
-terminate called after throwing / what():        ← std::terminate
-Segmentation fault / core dumped / SIGSEGV       ← 記憶體錯誤
-Floating point exception / SIGFPE                ← 整數除以零
-Assertion ... failed / std::bad_alloc            ← 斷言、配置失敗
-AddressSanitizer / double free / 純虛擬呼叫       ← 其他致命錯誤
+terminate called after throwing / what():        <- std::terminate
+Segmentation fault / core dumped / SIGSEGV       <- memory error
+Floating point exception / SIGFPE                <- integer division by zero
+Assertion ... failed / std::bad_alloc            <- assertion, allocation failure
+AddressSanitizer / double free / pure virtual    <- other fatal errors
 ```
 
-這些**永遠失敗，而且不能被 allowlist 放行**。Phase 0 修掉的兩個 bug 剛好各是一種（`std::terminate` 和 SIGFPE），以前的工具抓不到，現在會。
+(The full list is `CRASH_PATTERNS` in `check_logs.py`.) These **always fail and cannot be
+allowlisted**.
 
-### 錯誤路徑會污染 log 檢查 — 用 `--to-line` 解
+### Error-path checks pollute the log: use `--to-line`
 
-L2 的錯誤路徑檢查會**故意**讓 kernel 寫 ERROR／WARN（畸形 JSON、未知 dpid、非數字 dpid、不存在的端點）。如果檢查整份 log，這一層就會永遠是紅的，而且原因是測試自己造成的 — 那會訓練你忽略它，正好是這個機制最不該發生的事。
+The L2 error-path checks make the kernel write ERROR and WARN lines **on purpose** (malformed JSON,
+unknown dpid, non-numeric dpid, nonexistent endpoints). Checking the whole log would make this
+layer permanently red for a reason the test itself caused, and that trains readers to ignore it.
 
-`run_layers.sh` 的解法：跑 L2 **之前**先記下 log 行數，最後只檢查那之前的部分。
+`run_layers.sh` solves this by recording the log's line count **before** running L2 and checking
+only the part before that point:
 
 ```bash
-./check_logs.py kernel.log --to-line 120   # 只看前 120 行
-./check_logs.py kernel.log --from-line 50  # 跳過前 50 行（例如上一輪的殘留）
+./check_logs.py kernel.log --to-line 120   # look only at the first 120 lines
+./check_logs.py kernel.log --from-line 50  # skip the first 50 lines (e.g. leftovers from a previous run)
 ```
 
-崩潰偵測不受 window 影響 — 它一律掃全部。
+Crash detection ignores the window and always scans everything.
 
-### FORBID 為什麼存在
+### Why FORBID exists
 
-有些訊息的嚴重性跟它被記錄的等級不符。例如 `Unsupported SFlow Version` 是用 `WARN` 記的，但它代表**所有 telemetry 都被丟掉了** — 整個數位孿生的資料全部是空的。
+Some messages are logged at a level lower than their real severity. For example
+`Unsupported SFlow Version` is logged at `WARN`, but it means **all telemetry is being dropped**
+and the twin's data is empty. `FORBID` makes such a message fail the check at whatever level it is
+logged. FORBID violations are **not** offered by `--suggest-allowlist`: they are to be fixed, not
+waved through.
 
-FORBID 讓這種訊息不管記在哪個等級都會讓測試失敗。
+### Allowlist format
 
-而且 FORBID 的違規**不會**被 `--suggest-allowlist` 建議加進白名單 — 那種訊息要修，不是要放行。
-
-### allowlist 格式
-
-`warning_allowlist.txt`，三欄用**前後有空白的 pipe**（`" | "`）分隔：
+`warning_allowlist.txt`, three fields separated by a pipe **with spaces around it** (`" | "`):
 
 ```
-LEVEL | python regex | 為什麼可以接受
+LEVEL | python regex | why it is acceptable
 ```
 
-不是裸的 `|`，這樣 regex 的 alternation 才能用（寫成 `(int|float)`，pipe 兩側不加空白）。
+It is not a bare `|`, so regex alternation still works: write `(int|float)` with no spaces around
+the pipe. `LEVEL` is `WARNING`, `ERROR`, `FORBID` or `WHEN-POWERED-OFF`.
 
-比對的是**訊息本文**（時間戳、等級、檔名行號、函式名都會先被剝掉，ANSI 色碼也會清掉），所以不用自己處理前綴。
+The regex is matched against the **message text** only (timestamp, level, file name and line, and
+function name are stripped first, and ANSI colour codes are removed), so you do not need to deal
+with the prefix.
 
-### 導入到現有的 log
+### Adopting it on an existing log
 
-現有的 log 大概本來就有一堆 warning。用這個產生起始清單：
+An existing log probably has plenty of warnings already. Generate a starting list:
 
 ```bash
 ./check_logs.py kernel.log --suggest-allowlist
 ```
 
-它會輸出可以直接貼的 allowlist 行（數字會自動泛化成 `\d+`，一條規則涵蓋多個實例）。
+It prints allowlist lines you can paste (numbers are generalised to `\d+`, so one rule covers many
+instances). **Do not paste blindly.** The value of the mechanism is that it forces a decision on
+each warning, "is this one really acceptable?", instead of silencing them all. Every entry needs a
+reason.
 
-**但不要無腦貼上。** 這個機制的價值在於逼你逐條決定「這個 warning 到底可不可以接受」，而不是把所有 warning 消音。每一條都要填上理由。
+### Cleaning up
 
-### 清理機制
-
-工具會報告「列在 allowlist 但這次沒對到」的項目，避免清單長期累積垃圾。
-
-FORBID 規則不會被列為未使用 — FORBID 沒對到代表系統健康，那正是我們要的。
+The tool reports entries that are in the allowlist but did not match this time, so the list does
+not collect junk over the years. FORBID rules are never listed as unused: a FORBID that does not
+match means the system is healthy, which is what we want.
 
 ---
 
 ## l3_component_check.py
 
-L2 問的是「kernel 的 API 對不對」；L3 問的是「**哪些元件會壞**」。改完某個端點之後，不用把七個工具都開起來，就能知道影響範圍。
+L2 asks "is the kernel's API right?". L3 asks "**which components will break?**". After changing
+an endpoint you can see the blast radius without starting every tool.
 
 ```bash
-./l3_component_check.py --map                          # 離線：依賴地圖
-./l3_component_check.py --blast-radius get_graph_data  # 離線：影響哪些元件
-./l3_component_check.py --topology <拓撲檔>             # 完整檢查
-./l3_component_check.py --topology <拓撲檔> --component Web-GUI
+./l3_component_check.py --map                          # offline: the dependency map
+./l3_component_check.py --blast-radius get_graph_data  # offline: which components are affected
+./l3_component_check.py --topology <topology file>     # the full check
+./l3_component_check.py --topology <topology file> --component Web-GUI
 ```
 
-### 兩種檢查
+### Two kinds of check
 
-**1. 存在性** — 元件呼叫的每個端點都必須存在。404 就代表元件在打一個 kernel 沒實作的東西。
+**1. Existence.** Every endpoint a component calls must exist. A 404 means the component is
+calling something the kernel does not implement.
 
-這是怎麼抓到 `disable_switch` 的：Energy-Saving-App 一直在 POST `/ndt/disable_switch`，kernel 從來沒註冊過，所以一直拿 404，而 app 把錯誤吃掉了。
+The probe **must use the right HTTP method**: the kernel matches on `(method, target)` together,
+so a GET to a POST-only endpoint falls through to 404 and looks like a missing endpoint.
 
-探測時**必須用正確的 HTTP method** —— kernel 是用 `(method, target)` 一起比對的，所以用 GET 去打一個只收 POST 的端點會落到 404，看起來像端點不存在。
+**2. Contract.** For the endpoints that `spec.py` covers, the L2 checks are run and failures are
+attributed to the components that depend on that endpoint.
 
-**2. 契約** — 對 `spec.py` 涵蓋的端點跑 L2 的檢查，並把失敗歸屬到依賴它的元件。
+A 5xx does not count as "the endpoint exists": a route that throws on a minimal request still
+gives its consumers a 5xx, so it is reported as a problem.
 
-### `--check-drift`：防止手抄表腐化
+### `--check-drift`: keep the hand-copied table honest
 
-`components.py` 的 `KERNEL_ENDPOINTS`（41 筆）是從 `HttpSession.cpp` 的 if/else 鏈**人工轉錄**的。新增端點卻忘了更新這張表時，L3 反而會把新端點報成「不在 dispatch table」。
+`KERNEL_ENDPOINTS` in `components.py` is **transcribed by hand** from the if/else chain in
+`HttpSession.cpp`. If someone adds an endpoint and forgets the table, L3 would report the new
+endpoint as "not in the dispatch table".
 
 ```bash
 ./l3_component_check.py --check-drift
 ```
 
-直接讀 `HttpSession.cpp` 原始碼比對，三種漂移都會抓到：漏列、方法寫錯（會導致探測用錯 method 而誤判成 404）、多列了已移除的端點。`--map` 也會在表過期時先印警告。
+This reads `HttpSession.cpp` and compares. It catches all three kinds of drift: an endpoint left
+out, a wrong method (which would make the probe use the wrong method and misreport a 404), and an
+entry for an endpoint that has been removed. `--map` also prints a warning first when the table is
+stale.
 
-### 5xx 不算「端點存在」
+### Known gaps versus new gaps
 
-存在性探測原本只要不是 404 就算通過 — 於是一個「POST 空 body 就 500」的端點在 L3 眼中是健康的。現在 5xx 會被判定為問題：路由存在，但它對最小請求就丟例外，consumer 收到的還是 5xx。
+Same principle as the other allowlists: known gaps are registered in `KNOWN_MISSING_ENDPOINTS` in
+`components.py`, each with a reason, so a **new** missing endpoint fails instead of being lost among
+the tolerated ones.
 
-### 已知缺口 vs 新缺口
+- Known gap: yellow `KNOWN GAPS` / `DEGRADED`, exit 0.
+- Unregistered gap: red `UNACKNOWLEDGED`, exit 1.
 
-跟其他 allowlist 一樣的原則：已知缺口登記在 `components.py` 的 `KNOWN_MISSING_ENDPOINTS`（附理由），這樣**新出現的**缺失端點才會失敗，而不是被淹沒在已經容忍的那些裡面。
+### Why the map is useful
 
-- 已知缺口 → 黃色 `KNOWN GAPS`／`DEGRADED`，exit 0
-- 未登記的缺口 → 紅色 `UNACKNOWLEDGED`，exit 1
-
-### 為什麼這張地圖有用
-
-```
- * get_graph_data          6  (全部 6 個會讀資料的元件)
- * get_detected_flow_data  5
-```
-
-`get_graph_data` 壞掉等於全系統壞掉。這兩個剛好都依賴 sFlow telemetry，也就是 P4 模式下最脆弱的部分 —— 所以測試重心應該壓在這裡。
+`--blast-radius get_graph_data` lists every component that reads it; a break there is a break
+almost everywhere. That endpoint and the detected-flow data both depend on sFlow telemetry, which
+is the most fragile part in P4 mode, so test effort should concentrate there.
 
 ---
 
 ## compare_baseline.py
 
-P4 開發最省時間的技巧：**OVS 那條路是已知正常的**，所以直接拿它的行為當規格，不用自己想「P4 應該長什麼樣」。
+The cheapest way to develop the P4 path: **the OVS path is known to work**, so use its behaviour as
+the specification instead of guessing what P4 "should look like".
 
 ```bash
-# 在健康的 OVS 環境擷取一次
-./run_contract_test.py --topology <ovs 拓撲> --with-traffic --save-json baseline/ovs
+# Capture once on a healthy OVS stack
+./run_contract_test.py --topology <ovs topology> --with-traffic --save-json baseline/ovs
 
-# P4 用同樣方式擷取，然後比對
-./run_contract_test.py --topology <p4 拓撲> --with-traffic --save-json result/p4
+# Capture the same way for P4, then compare
+./run_contract_test.py --topology <p4 topology> --with-traffic --save-json result/p4
 ./compare_baseline.py baseline/ovs result/p4
 ```
 
-### 為什麼不能直接做 JSON diff
+### Why not a plain JSON diff
 
-兩邊的拓撲本來就不同（128 host vs 4 host），而且速率／計數器／時間戳每秒都在變。所以只比對「不管哪種資料平面都應該一樣」的兩件事：
+The two sides have different topologies (128 hosts versus 4), and rates, counters and timestamps
+change every second. So only two things are compared, the ones that should be the same on any data
+plane:
 
-**1. 形狀（shape）** — 遞迴的「欄位路徑 → 型別」集合。抓得到欄位消失、型別改變，以及最關鍵的：**一邊有資料另一邊是空的**，這正是 P4 各種 stub 的表現形式。
+**1. Shape.** A recursive set of "field path -> type". It catches a field disappearing, a type
+changing and, most importantly, **one side having data where the other is empty**, which is how P4
+stubs usually show up. List indices are collapsed to `[]`, so 4 hosts and 128 hosts have the same
+signature.
 
-list 的索引會收斂成 `[]`，所以 4 host 和 128 host 產生相同的簽名。
+**2. Behavioural facts.** A boolean per endpoint: are all switches up? Is the flow path filled in?
+Is the rate non-zero? Is the table non-empty? These answers must agree even when the values
+differ.
 
-**2. 行為事實（facts）** — 每個端點的布林判斷：switch 是不是全部 up？flow 的 path 有沒有填？速率是不是非零？表格是不是非空？這些答案就算數值不同也必須一致。
+### Empty lists
 
-### 空 list 的處理
-
-早期版本會在 P4 回傳 `[]` 時，把 OVS 元素的每一個欄位都報一次「欄位消失」—— 20 行雜訊，而真正的發現只有一件事。現在會收斂成單一結論：
+When P4 returns `[]`, an early version reported every field of every OVS element as "missing":
+twenty lines of noise for one real difference. It now collapses to a single conclusion:
 
 ```
 [empty] list is empty in P4 but populated in OVS: <root list>
 ```
 
-### allowlist
+### Allowlist
 
-`baseline_diff_allowlist.txt`，格式跟 log allowlist 一樣（`endpoint | regex | 理由`）。
+`baseline_diff_allowlist.txt`, same format as the log allowlist (`endpoint | regex | reason`).
 
-差異只有三種歸類：
-1. **允許的 P4 限制** → 寫進 allowlist，附上「哪個 Phase 會移除它」
-2. **數值容忍範圍內** → 工具自動處理（含 `_bps`／`_rate`／`_count` 等欄位只比型別）
-3. **其他** → **就是 bug**
+A difference falls in exactly one of three classes:
+1. **An allowed P4 limitation**: write it in the allowlist and say what removes it.
+2. **Within numeric tolerance**: handled by the tool (fields such as `_bps`, `_rate` and `_count`
+   are compared by type only).
+3. **Anything else is a bug.**
 
-沒有第四類。這樣每個「P4 做不到的事」都會被寫下來，而不是靜靜地壞掉。
+There is no fourth class, so every "P4 cannot do this" is written down instead of silently broken.
 
-檔案末尾用註解列出了**不可以**加進 allowlist 的例子（例如 `all_switches_enabled`），因為那正是我們要抓的 Phase 6 bug，放行等於自廢武功。
+The end of the file lists, as comments, examples that must **not** be added to the allowlist (for
+example `all_switches_enabled`): that is exactly the kind of defect the comparison exists to catch,
+and allowing it would defeat the purpose.
 
-工具會報告「登記了但這次沒用到」的項目 —— 那通常代表對應的 Phase 已經完成，該把那行刪掉了。
+The tool also reports entries that were registered but not used this time; that usually means the
+limitation has been fixed and the line should be deleted.
 
 ---
 
-## 建議節奏
+## Suggested rhythm
 
-| 時機 | 執行 |
+| When | Run |
 |---|---|
-| 改完程式碼 | `--self-test`（秒級，不需要 kernel） |
-| 每個 phase 結束 | 唯讀檢查 + `check_logs.py` |
-| 產生流量後 | 加 `--with-traffic` |
-| 要驗證寫入路徑 | 加 `--allow-mutations` |
-| 準備 demo 前 | OVS 和 P4 各跑一次，用 `--save-json` 存下來比對 |
+| After changing code | `--self-test` (seconds, no kernel) |
+| At the end of each development phase | The read-only checks plus `check_logs.py` |
+| Once traffic is flowing | Add `--with-traffic` |
+| To verify the write paths | Add `--allow-mutations` |
+| Before a demo | Run OVS and P4 once each, saving with `--save-json`, and compare |
 
 ---
 
-## 檔案
+## Files
 
-| 檔案 | 用途 |
+| File | Purpose |
 |---|---|
-| `run_contract_test.py` | L2 主程式（CLI、HTTP、報表） |
-| `spec.py` | 端點定義與語意不變量 |
-| `schema.py` | 極簡 schema 驗證器（零依賴） |
-| `selftest_fixtures.py` | `doc/2026-01-02_ndt_api.md` 的範例，供 self-test 使用 |
-| `components.py` | 各元件的端點依賴表 + kernel 的 dispatch table + 已知缺口 |
-| `l3_component_check.py` | L3 元件契約檢查 |
-| `compare_baseline.py` | L4 OVS/P4 差異比對 |
-| `baseline_diff_allowlist.txt` | 可接受的 OVS/P4 差異清單 |
-| `check_logs.py` | log 檢查器 |
-| `warning_allowlist.txt` | 可接受的 warning 清單 |
+| `run_contract_test.py` | L2 main program (CLI, HTTP, report) |
+| `spec.py` | Endpoint definitions and semantic invariants |
+| `schema.py` | Minimal schema validator (no dependencies) |
+| `selftest_fixtures.py` | Examples from `doc/2026-01-02_ndt_api.md`, for `--self-test` |
+| `components.py` | Per-component endpoint dependencies, the kernel dispatch table, known gaps |
+| `l3_component_check.py` | L3 component contract check |
+| `compare_baseline.py` | L4 OVS/P4 comparison |
+| `baseline_diff_allowlist.txt` | Acceptable OVS/P4 differences |
+| `check_logs.py` | Log checker |
+| `warning_allowlist.txt` | Acceptable warnings |
 
-### allowlist 的欄位分隔符
+### Field separator in the allowlists
 
-三個 allowlist 檔都用 **前後有空白的 pipe**（`" | "`）分隔欄位，不是裸的 `|`。這樣 regex 的 alternation 才能用 —— 寫成 `(int|float)`（pipe 兩側不加空白）就不會被誤判成欄位分隔。
+All three allowlist files separate fields with a pipe **with spaces around it** (`" | "`), not a
+bare `|`. That keeps regex alternation usable: `(int|float)` (no spaces around the pipe) is not
+mistaken for a field separator.
 
-### 要新增一個端點檢查
+### Adding an endpoint check
 
-編輯 `spec.py` 的 `ENDPOINTS`，加一筆 dict：`name`、`method`、`path`、`category`（`READ`／`MUTATE`／`ERRORPATH`）、`schema`，需要的話再加 `invariants`。
+Edit `ENDPOINTS` in `spec.py` and add a dict with `name`, `method`, `path`, `category` (`READ`,
+`MUTATE` or `ERRORPATH`), `schema` and, if needed, `invariants`.
 
-如果新增了 schema，順手在 `selftest_fixtures.py` 加一筆範例，這樣 self-test 才守得住它。
+If you add a schema, add an example for it to `selftest_fixtures.py` so that `--self-test` guards
+it.
 
 ---
 
-## 已知限制
+## Known limits
 
-涵蓋率：**45 個註冊端點中的 37 個**有 contract。🟢 這是 2026-09-07 在分支 `fix/e21-link-endpoints-in-contract` 上**用下面那段指令實際跑出來貼上的輸出**：
+- **Coverage.** Not every registered endpoint has a contract: the group and meter endpoints
+  (`install_`/`modify_`/`delete_` `group_entry` and `meter_entry`), `get_sflow_stats` and
+  `inform_all_destination_paths` have none, and none of them has a consumer among the components.
+  Do not copy a number from this file; recompute it:
 
-```
-registered: 45 covered: 37
-  UNCOVERED delete_group_entry -
-  UNCOVERED delete_meter_entry -
-  UNCOVERED get_sflow_stats -
-  UNCOVERED inform_all_destination_paths -
-  UNCOVERED install_group_entry -
-  UNCOVERED install_meter_entry -
-  UNCOVERED modify_group_entry -
-  UNCOVERED modify_meter_entry -
-```
+  ```bash
+  python3 -c "
+  import sys; sys.path.insert(0,'.')
+  import spec, components
+  covered = {e['path'].removeprefix('/ndt/') for e in spec.ENDPOINTS}
+  kernel = set(components.KERNEL_ENDPOINTS)
+  print('registered:', len(kernel), 'covered:', len(covered & kernel))
+  for e in sorted(kernel - covered):
+      print('  UNCOVERED', e, components.blast_radius(e) or '-')"
+  ```
+- **The `--with-traffic` invariants assume traffic is running.** On a system where traffic has just
+  stopped they report false failures.
+- **The success path of `intent_translator/text` deliberately has no contract.** It needs an OpenAI
+  token, costs money per call, and the answer is model-dependent, so a contract would be unstable
+  and expensive. The error path has one (no token needed), and the Web-GUI's dependence on the
+  success path is covered only by the L3 existence check.
+- **The simulation endpoints are checked on their error paths only.** The success path of
+  `received_a_simulation_case` and `simulation_completed` needs the Simulation-Platform-Manager
+  running, which would make the checks unstable; their input validation (malformed JSON must not
+  give a 500) can be checked and is.
+- **The group and meter endpoints have no contract.** `FlowRoutingManager` dispatches them by the
+  `dpid` in the payload (`dispatchByPayloadDpid`), so the P4 strategy can refuse them explicitly,
+  but L2 does not exercise that routing.
+- **Invariants have a limit on strictness.** `inv_graph_matches_topology` compares the three
+  counts, the dpid set and per-node identity (switches by `brand_name` and address set against
+  dpid; hosts by address set against `mac`; `device_name` is only reported as accounted for, since
+  a rename is persisted by design). It does **not** verify that the edges are wired correctly (the
+  right count with wrong endpoints passes), and it cannot see fields `get_graph_data` does not
+  return. A topology file that is itself wrong, faithfully served by the kernel, is also
+  invisible to it: the graph agrees with the file. `inv_flow_paths_non_empty` checks only that a
+  path is non-empty, not that it is connected or consistent with the edges. `inv_topk_bounded`
+  checks that there are at most k entries, not that they are really the k largest.
+- **The HTTP protocol layer is not checked**: CORS / `OPTIONS` (which the Web-GUI depends on),
+  keep-alive, request body size limits, boundary values of the `k` parameter.
+- **Concurrency is not checked.** The kernel serves requests on `hardware_concurrency()` threads
+  that share one `io_context`. L2 and L3 send their requests one at a time, so neither contention
+  nor a slow handler (SNMP, SSH, a synchronous curl to Ryu) tying up a thread is ever exercised.
+- **The sFlow UDP input is not exercised.** The kernel has two external input surfaces (`/ndt/*`
+  over HTTP and sFlow over UDP on :6343); only the first is covered here.
+- **Process health (RSS, thread count, exit code) has no tool.** `check_logs.py` catches crash
+  messages, but memory leaks and thread leaks are not detected.
 
-剩下 8 個是 group／meter 六個、`get_sflow_stats`、`inform_all_destination_paths`，全部沒有 consumer。33→37 是 Adam 的裁決 **E-21**：四個 link 端點（`link_failure_detected`／`link_recovery_detected`／`inject_link_failure`／`inject_link_recovery`）進契約。⚠️ **這四筆描述的是分支不是 `trunk`**：`inject_*` 兩條路在 trunk 上回 404，`link_failure_detected` 在 trunk 上只回 `{"status": "link failure processed"}`，所以對 trunk 跑這四個檢查會紅——那是刻意的讀法，不是誤報。⚠️ 更早的版本寫過「42 中的 33」與「43 中的 33」，都是手寫數字追不上程式碼；下面那段警告講的就是這件事。
-
-> 這行原本寫「41 個中的 30 個」，是**手寫的數字追不上程式碼**——端點與 contract 都各自增加過而這行沒動。用上面那段指令算出來的才算數；下次改這行請貼實際輸出，不要沿用舊值。
-> 另外 `intent_translator/text` 已**不在**未涵蓋清單上：它有一筆 ERRORPATH contract（`intent_translator_text__incomplete_body`），涵蓋率的指令因此把它算成 covered。**成功路徑仍然刻意沒有 contract**（下一節），兩件事不要混用。
-
-- **`--with-traffic` 的不變量假設流量正在跑。** 用在流量剛停的系統上會誤報。
-- **`intent_translator/text` 的成功路徑刻意沒有 contract** — 需要 OpenAI token、每次呼叫要花錢、回應由模型決定，contract 會既不穩定又昂貴。錯誤路徑有（不需要 token），Web-GUI 對成功路徑的依賴只靠 L3 的存在性檢查。這是決定，不是疏漏。
-- **模擬相關端點只驗錯誤路徑。** `received_a_simulation_case` / `simulation_completed` 的成功路徑需要 Simulation-Platform-Manager 在跑，會讓檢查不穩定；但它們的輸入驗證（畸形 JSON 不能回 500）是可以驗的，也已經在驗。
-- **group / meter 端點沒有 contract**（六個，無 consumer）。值得注意的是它們在 P4 模式下會**無條件走 OVS strategy** — `FlowRoutingManager` 的 group/meter 方法直接用 `m_ovsStrategy`，完全不看 dpid，所以對 bmv2 下的 group/meter 規則會被送到 Ryu。這是 kernel 的缺陷（P4 計畫 Phase 3 會修），現在沒有任何測試會抓到。
-- **不變量的嚴格度有上限。** `inv_graph_matches_topology` 比對三個基數、dpid 集合，**以及 per-node 身分**（switch 依 dpid 比 `brand_name` 與位址集合；host 依 `mac` 比位址集合；`device_name` 只報 ACCOUNTED-FOR 不算失敗，因為改名本來就會持久化）——2026-09-07 加的，變異閘是 `tests/shell/mutate_contract_per_node_identity.sh`。🔴 **仍然不驗 edge 的接線是否正確**（數量對但接錯不會被抓），也**看不到 `get_graph_data` 沒有回的欄位**（`bridge_name`／`ecmp_groups`）。而「拓樸檔本身是壞的、kernel 忠實地照它服務」這一類**這支不變量結構上抓不到**（圖與檔一致就是一致），那是載入器那五扇門的工作。`inv_flow_paths_non_empty` 只驗 path 非空，不驗它是否連通、是否與 edge 一致。`inv_topk_bounded` 只驗數量 ≤ k，不驗真的是前 k 大。
-- **HTTP 協定層沒驗**：CORS / `OPTIONS`（Web-GUI 直接依賴）、keep-alive、request body 大小上限、`k` 參數的邊界值。
-- **併發沒驗**。kernel 的 HTTP server 是**單執行緒**（`main.cpp` 的 `net::io_context ioc{1}`），任何慢的 handler（SNMP、SSH、對 Ryu 的同步 curl）會阻塞所有其他請求。而 L2/L3 是序列發請求的，永遠碰不到這個情境。
-- **sFlow UDP 輸入面完全沒被碰過**。kernel 有兩個外部輸入面（`/ndt/*` HTTP 和 :6343 sFlow UDP），這裡只涵蓋前者。
-- **行程健康度（RSS / thread 數 / exit code）沒有工具。** 崩潰訊息現在會被 `check_logs.py` 抓到，但記憶體洩漏與 thread 洩漏不會。
-
-### 重算涵蓋率
-
-```bash
-python3 -c "
-import sys; sys.path.insert(0,'.')
-import spec, components
-covered = {e['path'].removeprefix('/ndt/') for e in spec.ENDPOINTS}
-kernel = set(components.KERNEL_ENDPOINTS)
-print('registered:', len(kernel), 'covered:', len(covered & kernel))
-for e in sorted(kernel - covered):
-    print('  UNCOVERED', e, components.blast_radius(e) or '-')"
-```
+[Co-developed with claude code -- Adam]
