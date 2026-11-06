@@ -735,7 +735,7 @@ class _LinkNetem:
         if where is None:
             detail = (f"refusing to touch {self.iface}: {refused}. Attaching at root here would "
                       f"replace TCLink's htb and the shaping cannot be restored "
-                      f"(doc/2026-07-29_environment_gotchas.md)")
+                      f"(doc/2026-11-05_user-guide.md, section 4.9)")
             if dry:
                 return _dry(detail, iface=self.iface, planned=None, qdisc_before=tree.strip())
             return ActionResult(False, detail, {"iface": self.iface, "qdisc_before": tree.strip()})

@@ -1681,12 +1681,13 @@ m=$(mutant n131 "$NDT" \
 report "N131: lab_subject finds a session whenever there is none too" "$m" \
        "control: a lab with no session and nothing else is no subject (rc 1)"
 
-#   M132  [Co-developed with claude code -- Adam] the whole-helper-refused `ndt down` (section 27): cmd_clean's rc-2 answer
-#         put back to "no topo session" leaves the session unmentioned there
+#   M132  [Co-developed with claude code -- Adam] the whole-helper-refused `ndt down` (section 27) runs the real lab_session, so
+#         a failed status call answered 1 ("no session") instead of 2 leaves cmd_down's verify step without "cannot tell".
+#         (M130 mutates cmd_clean's rc-2 branch, which M132 used to repeat byte for byte.)
 m=$(mutant m132 "$NDT" \
-    '        *) err "cannot tell whether a topo session is present: the '"'"'ndtwin-lab status'"'"' call failed"; rc=1 ;;' \
-    '        *) ok "no topo session" ;;')
-report "M132: ndt down with the whole helper refused reads the session as absent" "$m" \
+    '    out="$(TERM="${TERM:-dumb}" sudo -n "$LAB" status 2>/dev/null)" || return 2' \
+    '    out="$(TERM="${TERM:-dumb}" sudo -n "$LAB" status 2>/dev/null)" || return 1')
+report "M132: a failed status call is read as 'no session' by lab_session itself" "$m" \
        "  its verify step says it cannot tell whether a topo session is present"
 
 # [Co-developed with claude code -- Adam] Section 28: an NTG mode NTG does not know or a hosts file that does not exist.

@@ -130,8 +130,8 @@ other lines of its output wrong rather than failing loudly, so `ndt status` test
 
 | Program | What happens without it |
 |---|---|
-| `/usr/local/sbin/ndtwin-lab` | `ndt status` reports an empty lab while a topology is running, and `ndt down` skips the orderly stop |
-| `/usr/bin/ovs-vsctl` | with a topology session present, `ndt up p4` cannot tell whether an OVS fabric is running, so it stops with `cannot tell whether an OVS fabric is running under the topo session` (rc 1, nothing built) rather than risk destroying one; `ndt status --check` shows `cannot tell (ovs-vsctl refused; see the sudo grants block)` for the data plane |
+| `/usr/local/sbin/ndtwin-lab` | the `ndtwin-lab status` call fails, so `ndt` cannot tell whether a topology session is running: `ndt up p4` stops before it touches the fabric, `ndt status` shows the topo session as unknown and lists it under `--check`, and `ndt clean` and `ndt down` say they cannot tell and end non-zero (`ndt down`'s stop and sweep are refused too) |
+| `/usr/bin/ovs-vsctl` | with a topology session present and Open vSwitch running, `ndt up p4` cannot tell whether an OVS fabric is running, so it stops with `cannot tell whether an OVS fabric is running under the topo session` (rc 1, nothing built) rather than risk destroying one, unless the session is a running P4 fabric of the size asked for, which it reuses without asking; with Open vSwitch running and no bmv2 switch up, `ndt status` cannot tell the data plane and its up-target block (once a record exists) shows `cannot tell (ovs-vsctl refused; see the sudo grants block)` |
 | `/usr/bin/mnexec` | the forwarding check at the end of `ndt up` cannot send its ping |
 
 The kernel itself also runs programs through `sudo`. It starts without a terminal, so sudo cannot ask
