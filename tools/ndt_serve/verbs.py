@@ -316,10 +316,10 @@ RC_TABLE = {
 # claim and release rows did not move): the topo session look now has three answers at its callers
 # (lab_status_failed_hint, up_p4's sweep and stop, the rollback, lab_subject, cmd_clean, cmd_status and
 # the guard). Each anchor was moved to the line that holds the same code (text and function checked).
-# 2026-11-05, later: 8 more lines above status --check's rows and every row below them (the claim and
+# 2026-11-05, later: 8 more lines above status --measuring's row and every row below it (the claim and
 # release rows did not move): the hint under a failed status call has a third case. Each anchor was moved
 # to the line that holds the same code (text and function checked).
-# 2026-11-06: 3 more lines above status --check's rows and every row below them (the claim and release rows did
+# 2026-11-06: 3 more lines above status --measuring's row and every row below it (the claim and release rows did
 # not move): up_p4 refuses a fabric whose NTG config names a mode NTG does not know or a hosts file that does not
 # exist, before any fabric, knob, target or claim-note write. Each anchor was moved to the line that holds the same
 # code (text and function checked).

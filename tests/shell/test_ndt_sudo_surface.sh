@@ -248,13 +248,13 @@ has "status call failed: and prints the line that fixes it" "NOPASSWD: $BIN/ndtw
 # installed. "The reason is sudo" and a sudoers line are not true then; the hint says what ndt_sudo_report says.
 out="$(in_ndt "$STUBS $FIXT export T_SESSION=refused FAKE_SUDO_DENY=ndtwin-lab:status FAKE_SUDO_SAY='sudo: refused by the nolab shim (a lab command)'; guard_no_live_ovs; echo \"rc=\$?\"")"
 has   "status call failed, probe cannot read sudo: the guard still stops"        "rc=1" "$out"
-has   "status call failed, probe cannot read sudo: the hint quotes what sudo said" 'could not be tested: sudo answered "sudo: refused by the nolab shim (a lab command)"' "$out"
+has   "status call failed, probe cannot read sudo: the hint quotes what sudo said" 'whether sudo grants the status call could not be checked: sudo answered "sudo: refused by the nolab shim (a lab command)"' "$out"
 hasnt "status call failed, probe cannot read sudo: no claim that the reason is sudo" "the reason is sudo" "$out"
 hasnt "status call failed, probe cannot read sudo: no sudoers line is offered"   "NOPASSWD" "$out"
 NOHELP="NDT_SUDO_TABLE='lab|$BIN/no-such-helper status|$BIN/no-such-helper|taught|consequence';"
 out="$(in_ndt "$STUBS $NOHELP export T_SESSION=refused; guard_no_live_ovs; echo \"rc=\$?\"")"
 has   "status call failed, helper not installed: the guard still stops"          "rc=1" "$out"
-has   "status call failed, helper not installed: the hint says so and names the path" "(no sudo, or $BIN/no-such-helper is not installed)" "$out"
+has   "status call failed, helper not installed: the hint says so and names the path" "whether sudo grants the status call could not be checked on this machine (no sudo, or $BIN/no-such-helper is not installed)" "$out"
 hasnt "status call failed, helper not installed: no claim that the reason is sudo" "the reason is sudo" "$out"
 hasnt "status call failed, helper not installed: no sudoers line for a missing binary" "NOPASSWD" "$out"
 # controls: the two answers the hint already had keep their text

@@ -14,14 +14,14 @@
 #
 # The website's User Manual -> NDTwin Kernel -> Operate an Emulated (Software) Network ->
 # "Native-Linux Excution Environment" teaches exactly one sudoers line, for ndtwin-lab. No
-# page of the Installation or User Manual mentions ovs-vsctl, mnexec, ifconfig or tc. The
-# grants for those live in doc/2026-07-29_environment_gotchas.md, which is this machine's
-# gotcha list and is not on the install path a new reader walks.
+# page of the Installation or User Manual mentions ovs-vsctl, mnexec, ifconfig or tc.
+# doc/2026-11-05_user-guide.md section 3.2 teaches the three grants `ndt` needs; the website's
+# manual does not, and a new reader who only walks the manual never meets that section.
 #
-# So a reader who follows the manual exactly ends up with the one permission set that arms the
-# defect: ndtwin-lab granted, so `topo-stop` and `topo-start` work and the fabric really does
+# So a reader who followed the manual exactly ended up with the one permission set that armed the
+# defect: ndtwin-lab granted, so `topo-stop` and `topo-start` worked and the fabric really did
 # get torn down -- and ovs-vsctl refused, so the guard that was supposed to stop that teardown
-# reads zero bridges and does not fire. Neither half is dangerous alone.
+# read zero bridges and did not fire. Neither half is dangerous alone. (Now it says "cannot tell".)
 #
 # What a refusal used to look like
 #
@@ -76,8 +76,8 @@
 # STUB FIXES"). Now only a refusal that prints no "sudo:" line at all still reads as granted.
 #
 # Not covered here: tools/test_workflow/faults.sh keeps its own privileged surface in
-# FAULTS_TC / FAULTS_KILL (bare `tc` and bare `kill`), documented in its header and in
-# doc/2026-08-17_testing-manual.md. It is a second surface with the same shape; it is not wired
+# FAULTS_TC / FAULTS_KILL (bare `tc` and bare `kill`), documented in its header. It is a
+# second surface with the same shape; it is not wired
 # to this table.
 #
 # Defines functions and data only -- no side effects, so sourcing it from a test is safe.
@@ -99,8 +99,8 @@
 #              did not have: every one of these refusals used to arrive as a plausible value.
 NDT_SUDO_TABLE="$(cat <<'TABLE'
 lab|/usr/local/sbin/ndtwin-lab status|/usr/local/sbin/ndtwin-lab|NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3|lab_session() answers 2, "cannot tell", when `ndtwin-lab status` fails, so `ndt up p4` stops before it touches the fabric, `ndt status` prints the topo session as unknown and lists it under --check, `ndt clean` and the rollback say they cannot tell and end non-zero, and `ndt down` still calls topo-stop and cleanup (the missing grant refuses those too, so its sweep fails) and counts the unchecked session as part of what it tears down, so it ends non-zero
-ovs-vsctl|ovs-vsctl list-br|/usr/bin/ovs-vsctl|NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, which is this machine's gotcha list and not part of the install path|ovs_bridge_count() used to answer 0, which is also the answer for "there is no OVS here", so `ndt up p4`'s refusal to build over a live OVS fabric never fired and the fabric was torn down with no message
-mnexec|mnexec -a 1 true|/usr/bin/mnexec|NOWHERE in the Installation or User Manual -- only doc/2026-07-29_environment_gotchas.md, as above|dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
+ovs-vsctl|ovs-vsctl list-br|/usr/bin/ovs-vsctl|NOWHERE in the website's Installation or User Manual -- doc/2026-11-05_user-guide.md section 3.2 teaches it|with a topo session present and Open vSwitch running, ovs_bridge_count() answers 2, "cannot tell" (it used to answer 0, which is also the answer for "there is no OVS here"), so `ndt up p4` stops with "cannot tell whether an OVS fabric is running under the topo session" (rc 1) before it touches the fabric, unless the session is a running P4 fabric of the size asked for, which it reuses without asking; with Open vSwitch running and no bmv2 switch up, `ndt status` cannot tell the data plane
+mnexec|mnexec -a 1 true|/usr/bin/mnexec|NOWHERE in the website's Installation or User Manual -- doc/2026-11-05_user-guide.md section 3.2 teaches it|dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
 TABLE
 )"
 

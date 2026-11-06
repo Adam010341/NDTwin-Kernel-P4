@@ -7,10 +7,12 @@
 #
 # WHAT IT GATES. tools/test_workflow/sudo_surface.sh declares the root privileges `ndt` needs,
 # and its `taught_by` column says where a reader is told to grant each one -- or `NOWHERE`,
-# which is the finding that table exists to carry. A grant no manual teaches is missing on every
-# machine installed from the manual, and its absence arrives at the caller as a plausible value
-# rather than as an error (that is the `consequence` column). The README is then the only place
-# a reader can be told, so this file requires it to carry one paragraph per NOWHERE row.
+# which is the fact that table exists to carry: the website's Installation or User Manual does
+# not teach it. A grant that manual does not teach is missing on every machine installed from it,
+# and its absence arrives at the caller as a plausible value rather than as an error (that is the
+# `consequence` column). The README sits next to the tool and doc/2026-11-05_user-guide.md section
+# 3.2 teaches the grants; this file requires the README to carry one paragraph per NOWHERE row,
+# and the row to point at the guide, whose sudoers block has to grant the row's target.
 #
 # 🔴 AND NOTHING WOULD HAVE GONE RED IF SOMEBODY DELETED IT. That is the whole reason this file
 # exists.
@@ -35,7 +37,7 @@
 #   * whether the paragraph is any good. It requires the key and the probe's argument form to
 #     appear; it cannot require them to have been explained.
 #
-# No lab, no build, no network, no sudo: this reads two files.
+# No lab, no build, no network, no sudo: this reads three files.
 #
 # Run:  bash tests/shell/test_readme_mentions_mnexec.sh
 # Exit: 0 every check passed, 1 some check failed
@@ -45,6 +47,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 SURFACE="$REPO/tools/test_workflow/sudo_surface.sh"
 README="$REPO/tools/test_workflow/README.md"
+GUIDE="$REPO/doc/2026-11-05_user-guide.md"
 
 PASS=0
 FAIL=0
@@ -53,7 +56,7 @@ check() {   # <name> <ok?0/1> <detail>
     else FAIL=$((FAIL+1)); printf '  FAILED   %-52s %s\n' "$1" "${3:-}"; fi
 }
 
-for f in "$SURFACE" "$README"; do
+for f in "$SURFACE" "$README" "$GUIDE"; do
     [[ -r "$f" ]] || { echo "  FAILED   no such file: $f"; echo "Ran 1 checks, 1 failed"; exit 1; }
 done
 # shellcheck source=/dev/null
@@ -106,6 +109,18 @@ for KEY in "${NOWHERE_KEYS[@]}"; do
     ARGFORM="$(awk '{print $1, $2}' <<<"$PROBE")"
     mentions "$ARGFORM"
     check "$KEY: README carries the probe's argument form" $? "[$ARGFORM], from the probe column"
+    # [Co-developed with claude code -- Adam] The row says where the grant IS taught: the user guide. A
+    # pointer nobody reads goes stale (the previous one named a page that was later removed), so the
+    # column has to name the guide and the guide has to carry the sudoers target the row declares.
+    TAUGHT="$(ndt_sudo_field "$KEY" 4 2>/dev/null || true)"
+    TARGET="$(ndt_sudo_field "$KEY" 3 2>/dev/null || true)"
+    [[ "$TAUGHT" == *"doc/2026-11-05_user-guide.md"* ]]
+    check "$KEY: taught_by names the user guide" $? "[$TAUGHT]"
+    # [Co-developed with claude code -- Adam] The whole line of the guide's install block, not the path: the path
+    # also appears in prose and in the table above the block, so deleting the sudoers line would leave a bare
+    # path check green.
+    [[ -n "$TARGET" ]] && grep -qxF -- '$USER ALL=(root) NOPASSWD: '"$TARGET" "$GUIDE"
+    check "$KEY: and the guide's sudoers block grants the target path" $? "[\$USER ALL=(root) NOPASSWD: $TARGET]"
 done
 
 # And the file the reader is sent to for the rule, so the README's paragraphs and the table

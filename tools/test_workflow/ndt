@@ -1419,9 +1419,9 @@ lab_session() {
 
 topo_session() { lab_session topo; }
 
-# lab_status_failed_hint -- the lines that belong under "the ndtwin-lab status call failed": is the
-# grant the reason, and if so the sudoers line that fixes it. The same two helpers the OVS branch of
-# guard_no_live_ovs uses (ndt_sudo_probe, ndt_sudo_explain), asked about the `lab` row.
+# lab_status_failed_hint -- the lines under "the ndtwin-lab status call failed". Three answers about the
+# grant: permitted (the call itself did not answer), refused (with the sudoers line that fixes it), or
+# could not be checked. The same two helpers guard_no_live_ovs uses (ndt_sudo_probe, ndt_sudo_explain).
 # [Co-developed with claude code -- Adam]
 lab_status_failed_hint() {
     local l p
@@ -1434,9 +1434,9 @@ lab_status_failed_hint() {
         # something ndt cannot read. Neither "sudo refused" nor a sudoers line is true then, so this says
         # what ndt_sudo_report says for the same answer. [Co-developed with claude code -- Adam]
         *) if [[ -n "$NDT_SUDO_UNREAD" ]]; then
-               err "   the status call could not be tested: sudo answered \"$NDT_SUDO_UNREAD\", which ndt cannot read as granted or refused"
+               err "   whether sudo grants the status call could not be checked: sudo answered \"$NDT_SUDO_UNREAD\", which ndt cannot read as granted or refused"
            else
-               err "   the status call could not be tested on this machine (no sudo, or $(ndt_sudo_field lab 3) is not installed)"
+               err "   whether sudo grants the status call could not be checked on this machine (no sudo, or $(ndt_sudo_field lab 3) is not installed)"
            fi ;;
     esac
 }
@@ -7807,9 +7807,9 @@ cmd_status() {
     else
         printf '  %-14s %s\n' "tc netem" "none"
     fi
-    # A missing sudo grant makes other lines on this page lie rather than fail, so it belongs
-    # in --check: without ovs-vsctl the `up` guard cannot see an OVS fabric, and without mnexec
-    # the forwarding check reports a specific routing failure it never measured. The table
+    # A missing sudo grant leaves other lines on this page unreadable, so it belongs in --check:
+    # without ovs-vsctl `ndt up p4` stops with "cannot tell" (unless it reuses a P4 fabric) and the plane
+    # can read unknown; without mnexec the forwarding check says it was NOT tested. The table
     # decides which grants matter; this loop only reports them. [Co-developed with claude code -- Adam]
     local sudo_report; sudo_report="$(ndt_sudo_report)"; local src=$?
     case $src in
@@ -10604,7 +10604,7 @@ residue_verdict() {
 # => rc non-zero" -- residue found, not residue unmeasurable. The difference matters because
 # on the P4 plane NO rule can be dated at all, ever, so
 # folding 5 into the verdict would make `ndt status --check` permanently red on every healthy
-# P4 fabric -- and doc/2026-08-17_testing-manual.md:279 makes rc 0 the P4 acceptance criterion.
+# P4 fabric -- and doc/2026-11-05_user-guide.md (4.5) gives rc 0 with `check: ok` as the healthy-P4 answer.
 # A gate that can never pass is ignored within a day, which is how G-12's own green checks
 # stopped being read. So 5 is printed, in words, saying it is NOT 'the network is clean'.
 STATUS_RESIDUE_PROBLEMS=()
@@ -11363,7 +11363,7 @@ cmd_apps() {
         # The process answer wins when it is non-zero: a live process is still changing the
         # network, and `ndt apps stop <name>` is a different remedy from deleting a flow entry.
         # Callers in this repo: tests/shell/test_ndt_app_orphans.sh (drives apps_orphans, the
-        # process half, directly) and doc/2026-08-17_testing-manual.md. Out of tree:
+        # process half, directly) and doc/2026-11-05_user-guide.md 4.8 (via orphans_verdict.sh). Out of tree:
         # the lab's restore scripts.
         orphans)
             apps_orphans; local orc=$?
@@ -12055,7 +12055,7 @@ usage: ndt <command>
                   ports.sh existed -- 24 ports short, in the sentence an operator
                   reads before running the one verb here that kills processes this
                   stack did not start. The size and the list above are computed from
-                  the table, so they cannot go stale again; the manual's copy was
+                  the table, so they cannot go stale again; this paragraph was
                   corrected the same day. (2026-09-12)
                   exit 0 the teardown finished and the machine verified clean; 1 any
                   of: stack.sh's half exited non-zero, the sweep did not finish, or
@@ -12175,8 +12175,8 @@ usage: ndt <command>
                   something was MEASURED and is still there -- a switch, a host or
                   switch process, the topo session, the manifest, a held port, or a
                   port this user could not read, because unknown is never clean --
-                  and likewise, since 11-05, a topo session the 'ndtwin-lab status'
-                  call could not be read for;
+                  and likewise, since 11-05, a topo session that could not be read
+                  because the 'ndtwin-lab status' call failed;
                   3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in
                   .test_run/pids/ naming a live process, and no port in ports.sh's
                   table held.

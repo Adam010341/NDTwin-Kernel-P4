@@ -661,7 +661,7 @@ check "  🔴 and writes no file"                            "absent" \
       "$([[ -f "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
 
 # 🔴 THE CONTROLS. "Refuse whenever NDT_TOPO is set" would satisfy every check above and remove
-# the escape hatch the manual documents (doc/2026-08-17_testing-manual.md:832).
+# the escape hatch the user guide documents (doc/2026-11-05_user-guide.md, section 4.4).
 reset_fix
 OUT="$(NDT_TOPO="$T4" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
 has   "  🔴 a MATCHING NDT_TOPO is still honoured"         "TRC=0" "$OUT"
