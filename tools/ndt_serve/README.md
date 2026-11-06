@@ -204,7 +204,7 @@ The probe that reads nothing measuring and nothing declared brings the 10 s refr
 that lands in the gap between two runs of an undeclared measurement therefore resumes it, and one
 full round (719 tasks, 8 `sudo` and one graph request, measured) can fall inside the next run
 before a read sees it measuring again; a declared measurement keeps the page paused throughout.
-立即更新 (refresh now) reads everything at any time. While the page is hidden nothing is read,
+The "refresh now" button reads everything at any time. While the page is hidden nothing is read,
 probe included. The probe changes nothing the tabs show: the top bar's "last read" is the last
 full read, and while paused a "last probe" time stands beside it.
 

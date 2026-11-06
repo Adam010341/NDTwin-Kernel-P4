@@ -1,159 +1,187 @@
-# 測試流程腳本
+# Test workflow scripts
 
-實作測試分層（L0–L4，見 [run_layers.sh](run_layers.sh) 的開頭）的 L0、L1 兩層，以及啟動編排與頂層驅動。
-L2 / L3 / L4 的 Python 工具在 [../contract_test/](../contract_test/)。
+The L0 and L1 layers of the test layering (L0-L4, plus L5 fault injection in `faults.sh`; see the top
+of [run_layers.sh](run_layers.sh)),
+plus stack start-up orchestration and the top-level driver. The L2, L3 and L4 Python tools are in
+[../contract_test/](../contract_test/).
 
 ---
 
-## 一句話
+## In one line each
 
 ```bash
-./run_layers.sh selftest     # 完全離線，秒級。改完程式碼先跑這個
-./run_layers.sh quick        # L0 建置 + L1 單元測試，約 2 分鐘
-./run_layers.sh api p4       # L2 + L3 + log 檢查（需要 stack 在跑）
+./run_layers.sh selftest     # completely offline, seconds. Run this after changing code
+./run_layers.sh quick        # L0 build + L1 unit tests, about 2 minutes
+./run_layers.sh api p4       # L2 + L3 + log check (needs a running stack)
 ```
 
-全部都是**成功才 exit 0**，可以直接接 CI。
+Everything exits 0 only on success, so it can be wired into CI.
 
 ---
 
-## 檔案
+## Files
 
-| 檔案 | 層 | 用途 |
+| File | Layer | Purpose |
 |---|---|---|
-| `components.env` | — | 路徑、conda env、port、拓撲檔的單一資料來源 |
-| `l0_build_check.sh` | L0 | 所有元件是否還建置得起來 |
-| `l1_unit_tests.sh` | L1 | kernel 單元測試（**兩種方式**都跑）＋ P4 proxy 的 Python 測試（`p4_proxy/tests`）＋ `tools/p4_exercise/tests`（缺本機 P4 教材工具 `$NDTWIN_TUTORIALS_DIR`／`$NDTWIN_P4C`／`$NDTWIN_P4DEV_VENV` 時那幾個 case 跳過，標 PROVED LESS） |
-| `stack.sh` | — | 按正確順序啟動／關閉，並等待拓撲收斂 |
-| `run_layers.sh` | 全部 | 頂層驅動，把各層組合起來 |
-| `live_cells/` | — | 回歸格：夜巡「live 紅過、已修好」的發現，每個變成一個可重跑的格（見下） |
+| `components.env` | - | Single source of truth for paths, conda environments, ports and topology files |
+| `l0_build_check.sh` | L0 | Does every component still build? |
+| `l1_unit_tests.sh` | L1 | Kernel unit tests (run **two ways**), the P4 proxy's Python tests (`p4_proxy/tests`) and `tools/p4_exercise/tests`. A p4_exercise test that skips because a local P4 tutorial tool is missing (`$NDTWIN_TUTORIALS_DIR`, `$NDTWIN_P4C`, `$NDTWIN_P4DEV_VENV`) is reported PROVED LESS rather than failed |
+| `stack.sh` | - | Start and stop the stack in the right order and wait for the topology to converge |
+| `run_layers.sh` | all | Top-level driver that combines the layers |
+| `live_cells/` | - | Regression cells: one re-runnable cell for each defect that failed on a live lab and was then fixed (see below) |
+| `ndt` | - | One-line bring-up and tear-down of the lab (`ndt up`, `ndt down`, `ndt status`, ...); see `ndt help` and `doc/2026-11-05_user-guide.md` |
+| `ndtwin-lab` | - | The root-side lab operations `ndt` relies on (topology start/stop, NTG CLI, app binaries), run through one `sudo` rule. Install instructions are in its header |
+| `sudo_surface.sh` | - | The root privileges `ndt` needs, declared once as a table (`ndt status` prints which are available) |
+| `ports.sh` | - | The ports that block a bring-up, with owner and consequence for each |
+| `faults.sh`, `faults.txt` | L5 | Inject one named fault, prove what it did, and put everything back |
+| `qdisc_snapshot.sh` | - | Before/after snapshots of every interface's qdisc tree (`save <file>`, `diff <file>`; exit 1 on drift) |
+| `orphans_verdict.sh` | - | Reads the report `ndt apps orphans` prints, not just its exit code |
+| `supervise.sh` | - | Runs a command and records how it ended (the kernel is started through it) |
+| `local_ci.sh` | - | Runs the jobs of `.github/workflows/ci.yml` locally |
 
 ---
 
-## L0：建置檢查
+## L0: build check
 
 ```bash
-./l0_build_check.sh              # 全部 10 個目標
-./l0_build_check.sh kernel p4    # 只跑指定目標
+./l0_build_check.sh              # all targets
+./l0_build_check.sh kernel p4    # only the named targets
 ./l0_build_check.sh --list
 ```
 
-涵蓋：kernel（CMake）、P4 pipeline（`p4c-bm2-ss`）、Energy-Saving-App、Simulation-Platform-Manager、Visualizer（Maven）、Web-GUI、三個 Python 元件、契約測試工具本身。
+The targets are `kernel`, `p4`, `energy`, `sim`, `visualizer`, `webgui`, `python` and `contract`:
+the kernel (CMake), the P4 pipeline (`p4c-bm2-ss`), Energy-Saving-App, Simulation-Platform-Manager,
+Network-Traffic-Visualizer (Maven), Web-GUI, the Python components, and the contract test tooling
+itself (`--self-test`).
 
-三種結果：
-- **PASS** — 建置乾淨
-- **FAIL** — 建置錯誤，會直接印出 log 最後 25 行（錯誤幾乎都在那裡）
-- **SKIP** — 這台機器沒有該工具鏈。**不算失敗**，但會列出來讓你知道涵蓋範圍縮小了
+Three results:
+- **PASS**: the build is clean.
+- **FAIL**: a build error; the last 25 lines of the log are printed (the error is almost always there).
+- **SKIP**: the toolchain is not installed on this machine. This is **not** a failure, but it is
+  listed so you know the coverage shrank.
 
-kernel 開了 `-Werror`，所以任何新 warning 在這一層就已經是失敗。
+The kernel is built with `-Werror`, so any new warning is already a failure at this layer.
 
-**Web-GUI 的處理**：這台機器沒有 node/pnpm，官方路徑是 Docker。預設只驗證 compose 檔（快），要完整建 image 就設 `L0_WEBGUI_DOCKER_BUILD=1`。
+**Web-GUI**: if `pnpm` is present it installs and builds; otherwise, with a usable Docker daemon,
+it validates the compose file (fast). Set `L0_WEBGUI_DOCKER_BUILD=1` for a full image build.
 
-**Python 元件用 `ast.parse` 而不是 `py_compile`**：後者會把 bytecode 寫在原始碼旁邊，而這些目錄裡有 sudo 跑 Mininet 留下的 root-owned `__pycache__`，會讓檢查因為跟程式碼無關的原因失敗。兩者涵蓋範圍相同（都只抓 SyntaxError），但 parse 不寫檔。
-
----
-
-## L1：kernel 單元測試
-
-```bash
-./l1_unit_tests.sh              # 建置後執行
-./l1_unit_tests.sh --no-build   # 假設 build 是最新的
-```
-
-**為什麼要用兩種方式跑**，這是這支腳本存在的唯一理由：
-
-`ctest` 透過 `gtest_discover_tests` 把每個 `TEST_F` 放在**獨立 process**執行。所以 `SetUpTestSuite` 失敗只會影響那一個 process，其他照樣通過 —— `ctest` 會顯示全綠。
-
-這不是理論。我實測把 `Logger::init` 的 idempotency 修正拿掉後：
-
-```
-ctest            → 100% tests passed, 0 tests failed out of 12   ← 謊言
-直接執行         → FAIL (exit 1, ran=12 passed=10 skipped=2)      ← 真相
-                   C++ exception "logger with name 'netdt' already exists"
-                   thrown in SetUpTestSuite()
-```
-
-所以這支腳本會：
-1. 跑 `ctest`
-2. **另外**直接執行每個測試 binary
-3. 檢查「實際執行數」是否等於「發現的測試數」—— **SKIPPED 的測試不算通過**
-4. 交叉比對 ctest 註冊的案例數與 gtest 的測試數（不一致代表有測試沒被註冊）
+**The Python components use `ast.parse`, not `py_compile`.** `py_compile` writes bytecode next to
+the source, and these directories can contain root-owned `__pycache__` left by `sudo` Mininet
+runs, which would fail the check for reasons that have nothing to do with the code. Both only
+catch a `SyntaxError`; `ast.parse` writes nothing.
 
 ---
 
-## stack.sh：啟動編排
-
-元件有嚴格的依賴順序，順序錯了會測出假的失敗。**而且兩個模式的前兩步是相反的**，因為南向連線
-的方向相反：
-
-```
-OVS 模式                              P4 模式
-1. 控制層  Ryu                        1. 資料層  bmv2 Mininet
-2. 資料層  Mininet                    2. 控制層  P4 proxy agent
-   ↑ switch 主動連去 Ryu(:6633)          ↑ proxy 主動連去 bmv2(:30051~60)
-3. Kernel  ndtwin_kernel   ← 開這個之前必須等收斂（兩個模式都要）
-4. 唯讀工具  Visualizer / NSR / Web-GUI
-5. 產流量    NTG
-6. 應用程式  Energy-Saving / Traffic-Engineering   ← 會改動網路，最後才開
-```
-
-Ryu 是 server、switch 連進來，所以 Ryu 要先開；bmv2 才是 server（`simple_switch_grpc` 監聽
-`127.0.0.1:30051-30060`（gRPC，預設）），proxy 是 gRPC **client**，所以 P4 模式要先開 Mininet。`stack.sh up`
-會依模式自動走對的順序。
+## L1: kernel unit tests
 
 ```bash
-./stack.sh up ovs     # Ryu → 提示你開 Mininet → 等收斂 → kernel
-./stack.sh up p4      # 提示你開 bmv2 Mininet → proxy → 等收斂 → kernel
-./stack.sh wait       # 阻塞直到收斂
+./l1_unit_tests.sh              # build, then run
+./l1_unit_tests.sh --no-build   # assume the build is current
+```
+
+**Why the tests run two ways** is the only reason this script exists:
+
+`ctest` uses `gtest_discover_tests` and runs every `TEST_F` in its **own process**. A failure in
+`SetUpTestSuite` therefore only affects that one process, the others pass, and `ctest` shows all
+green. Measured with the `Logger::init` idempotency fix removed:
+
+```
+ctest            -> 100% tests passed, 0 tests failed out of 12     <- misleading
+direct execution -> FAIL (exit 1, ran=12 passed=10 skipped=2)       <- the truth
+                    C++ exception "logger with name 'netdt' already exists"
+                    thrown in SetUpTestSuite()
+```
+
+So the script:
+1. runs `ctest`;
+2. **also** runs each test binary directly;
+3. checks that the number of tests that actually ran equals the number discovered; **a SKIPPED
+   test does not count as a pass**;
+4. cross-checks the number of cases `ctest` registered against gtest's test count (a mismatch
+   means some test is not registered).
+
+It also runs the P4 proxy's Python tests, since half of the P4 path is Python (the sFlow emitter
+and the clone session) and the C++ suite cannot reach it. A skipped Python test is reported, not
+counted as a pass, unless the run can see for itself that a prerequisite is missing: an
+interpreter with the P4Runtime protobufs, or the compiled P4 artefacts that `l0_build_check.sh`
+writes to `$P4_BUILD_DIR`.
+
+---
+
+## stack.sh: start-up orchestration
+
+The components have a strict dependency order, and starting them in the wrong order produces
+failures that are not real. **The first two steps are reversed between the two modes**, because
+the southbound connections point in opposite directions:
+
+```
+OVS mode                                P4 mode
+1. control plane  Ryu                   1. data plane     bmv2 Mininet
+2. data plane     Mininet               2. control plane  P4 proxy agent
+   (switches connect to Ryu)               (the proxy connects to bmv2 over gRPC)
+3. kernel         ndtwin_kernel  <- must wait for convergence before this (both modes)
+4. read-only tools  Visualizer / NSR / Web-GUI
+5. traffic          NTG
+6. applications     Energy-Saving / Traffic-Engineering   <- they change the network, so last
+```
+
+Ryu is the server and the switches connect to it, so Ryu starts first. In P4 mode bmv2
+(`simple_switch_grpc`, listening on `127.0.0.1:30051-30060`) is the server and the proxy is the
+gRPC **client**, so Mininet starts first. `stack.sh up` follows the right order for the mode.
+
+```bash
+./stack.sh up ovs     # Ryu -> asks you to start Mininet -> waits for convergence -> kernel
+./stack.sh up p4      # asks you to start bmv2 Mininet -> proxy -> waits for convergence -> kernel
+./stack.sh wait       # block until the kernel reports a converged topology
 ./stack.sh status
 ./stack.sh down
 ./stack.sh logs
 ```
 
-kernel 一定要**最後**開，而且開之前要等 LLDP 收斂完。原因是
-`TopologyAndFlowMonitor::run()` 只在啟動時**拉一次** `/v1.0/topology/*` 跟 destination paths
-就結束，沒有重試迴圈——那一刻控制層還不知道的東西，kernel 這輩子都不會知道。太早開 kernel 的
-症狀是 `up=0 enabled=0` 而且不會自己好。
+The kernel is started last, with `--mode mininet --topology <topology file> --no-ai` (both data
+planes run under `mode=mininet`; the topology file decides OVS versus bmv2), and only after
+discovery has finished. The reason is that `TopologyAndFlowMonitor::run()` pulls
+`/v1.0/topology/*` and the destination paths **once** at start-up and then stops, with no retry:
+whatever the control plane does not know at that moment, the kernel never learns. The symptom of
+starting it too early is `up=0 enabled=0`, which does not heal by itself.
 
-**這裡是輪詢控制層，不是固定睡 60 秒。** 真正重要的不是「過了多久」而是「discovery 到底做完
-了沒有」，而期望值是從拓撲檔算出來的，不是寫死的：
+**The wait polls the control plane; it does not sleep for a fixed time.** What matters is whether
+discovery has finished, and the expected values are computed from the topology file:
 
-| 模式 | 輪詢的東西 | 收斂條件（10 switch 的拓撲） |
+| Mode | What is polled | Converged when |
 |---|---|---|
-| OVS | Ryu `/v1.0/topology/switches` 和 `/links` | 10 台 switch + **32** 條 link（switch 之間的有向邊，host 的邊 Ryu 不會報） |
-| OVS | Ryu `/ryu_server/all_destination_paths` | **非空**（不驗數量：實際條數取決於 Ryu 學到幾台 host，而 static ARP 會擋住 host discovery） |
-| P4 | proxy `/ryu_server/all_destination_paths` | **14** 個 node（10 switch 以 dpid 為 key + 4 host 以 IP 為 key） |
+| OVS | Ryu `/v1.0/topology/switches` and `/links` | The number of switches in the topology file, and the number of switch-to-switch directed links (host links are not reported by Ryu) |
+| OVS | Ryu `/ryu_server/all_destination_paths` | **Non-empty** (the exact count depends on how many hosts Ryu learned) |
+| P4 | Proxy `/ryu_server/all_destination_paths` | `hosts * (hosts - 1)` destination paths (12 for the 4-host topology); not waited for if the proxy reports that it sends no LLDP on this fabric |
 
-⚠️ **OVS 模式的兩個條件時間差很大，而且必須兩個都滿足。** link discovery 是交換機之間的
-LLDP，實測約 **2 秒**；但使用說明書要求的里程碑是 *all-destination paths installed*，它卡在
-`intelligent_router.py` 靜態拓撲分支裡的 `hub.sleep(60)`（`if is_mininet:` 之下，緊接在
-`# Install all-destination routing entries` 註解後面）後面，所以**至少 60 秒**。
-只看 link 數量會比說明書的條件早放行大約 58 秒 —— 這正是先前的錯誤。
+In OVS mode **both** conditions have to hold, and they become true at very different times: link
+discovery (LLDP between switches) takes a couple of seconds, while "all destination paths
+installed" is the milestone the user manual names and it comes only after the Ryu app has
+finished its settle wait before installing paths (`NDTWIN_RYU_SETTLE_S` in `intelligent_router.py`).
+Checking only the link count would release the kernel far too early.
 
-`all_destination_paths` 初始是 `[]`（`IntelligentRouter.__init__`），只在
-`install_all_pair_paths()` 結尾被賦值（`self.all_destination_paths = all_destination_paths`，
-在路徑走訪迴圈之後），所以「非空」是這個里程碑的直接訊號，不必去 grep log。
+`all_destination_paths` starts as `[]` and is assigned at the end of `install_all_pair_paths()`
+in `intelligent_router.py`, so "non-empty" is the direct signal for that milestone and no log
+grepping is needed.
 
-> 這一段原本引用三個行號（`:282`、`:74`、`:510`）。後兩個在寫下時是正確的，第一個差一行，
-> 而三個現在**全部是錯的**：`hub.sleep(60)` 移到了 422、初始化移到 88、賦值移到 671，
-> 因為 `intelligent_router.py` 之後又被改了四次。行號指向 `dpid = ev.switch.dp.id` 這種
-> 完全無關的地方，比沒有引用更糟。**引用一個還在動的檔案就用函式名與鄰近的程式碼構造，不要用行號。**
+`CONVERGE_WAIT` (default **150**, whole seconds) is an **upper bound**, not a fixed wait. On
+timeout the script **warns but still starts the kernel**, because being able to look at the broken
+state is more useful than giving up. If the control plane never answered at all, it waits the
+whole timeout before continuing, since going ahead immediately would reintroduce the race the wait
+exists to prevent.
 
-`CONVERGE_WAIT`（預設 **150**，必須是純整數秒）是**上限**而不是固定等待時間 —— 先前預設 60，
-比它要等的事件本身還短。
+In OVS mode Ryu is started with `--observe-links`, `intelligent_router.py`, the repository's own
+bounded topology app (`tools/ryu_apps/rest_topology_bounded.py`) and `ryu.app.ofctl_rest`.
+`--observe-links` only loads `ryu.topology.switches` (the events); the `/v1.0/topology/*` REST
+routes come from the bounded app, and the stock `ryu.app.rest_topology` must **not** be loaded
+alongside it, because both register the same routes. Without those routes the kernel's
+`updateSwitches()` would parse a 404 HTML page as JSON, fail, give up quietly, and leave the whole
+graph down and disabled.
 
-逾時的行為是刻意設計的：**會警告但仍然啟動 kernel**，因為這時候能進去看壞掉的狀態比直接放棄更
-有用。但如果控制層從頭到尾都沒回應，它會**等滿整個 timeout** 才繼續——立刻往下走只會把這個
-等待原本要避免的 race 又放回來。
+### `wait` is the most important part
 
-OVS 模式的 Ryu 需要多載一個 `ryu.app.rest_topology`。`--observe-links` 只會載入
-`ryu.topology.switches`（提供事件），不含 `/v1.0/topology/*` 這組 REST endpoint；少了它
-那三個網址會回 404，而 kernel 的 `updateSwitches()` 會把 404 的 HTML 當 JSON 去 parse、
-丟出例外後**靜靜地**放棄，於是整張圖永遠是 down 且 disabled。
-
-### `wait` 是最重要的部分
-
-它輪詢 `get_graph_data`，直到**拓撲檔裡的每一台 switch 都同時 up 且 enabled**。期望值從拓撲檔推導，不是寫死的。
+It polls `get_graph_data` until **every switch in the topology file is both up and enabled**. The
+expected number is derived from the topology file.
 
 ```
 waiting for topology convergence (expect 10 switches up+enabled, timeout 90s)
@@ -162,42 +190,33 @@ waiting for topology convergence (expect 10 switches up+enabled, timeout 90s)
 converged after 12s
 ```
 
-很多「看起來壞掉」其實只是還沒收斂。有了這個就不會再誤判。
+A lot of "looks broken" is just "not converged yet", and this removes that misreading.
 
-逾時的時候它會給出方向：
+### Mininet is started by hand
 
-```
-did not converge within 90s (last: 10 4 0 0)
-in P4 mode this is expected until Phase 6: nothing calls
-/ndt/inform_switch_entered, so is_enabled stays false.
-```
-
-### Mininet 是手動的
-
-Mininet 需要 root，而且會停在自己的 CLI，沒辦法乾淨地背景化。所以 `up` 會停下來請你在另一個終端機執行，等你按 Enter 再繼續。這是刻意的 —— 硬要自動化只會換成更難除錯的問題。
-
-關閉時 Mininet 也要自己清：`sudo mn -c`。
-
-### kernel 的 stdin 提問
-
-`main.cpp` 目前還是用互動式 `std::cin` 問模式／拓撲／AI，所以 `stack.sh` 用 `printf '1\n2\n2\n'` 餵答案。這很脆弱 —— 計畫 Phase 1 會改成 CLI 參數（`--mode`／`--topology`／`--no-ai`），到時候這段可以簡化。
+Mininet needs root and drops into its own CLI, so it cannot be backgrounded cleanly. `up` therefore
+stops, prints the command to run in another terminal, and waits for Enter. This is deliberate:
+automating it would only trade it for something harder to debug. Clean up afterwards with
+`sudo mn -c`. (`ndt up` / `ndt down` do this for you through `ndtwin-lab`.)
 
 ---
 
-## run_layers.sh：頂層驅動
+## run_layers.sh: the top-level driver
 
-| 模式 | 跑什麼 | 需要 Mininet？ |
+| Mode | Runs | Needs Mininet? |
 |---|---|---|
-| `selftest` | schema self-test、依賴地圖 | ❌ |
-| `quick` | L0 + L1 | ❌ |
-| `api {ovs\|p4}` | L2 + L3 + log 檢查 | ✅ |
-| `baseline {ovs\|p4}` | 擷取回應供 L4 比對 | ✅ |
-| `compare` | L4 差異比對 | ❌（用已擷取的檔案） |
-| `full {ovs\|p4}` | 全部，跑不了的自動跳過 | 視情況 |
+| `selftest` | Schema self-test, dependency map | no |
+| `quick` | L0 + L1 | no |
+| `api {ovs\|p4}` | L2 + L3 + log check | yes |
+| `baseline {ovs\|p4}` | Capture responses for L4 | yes |
+| `compare` | L4 difference check | no (uses the captured files) |
+| `full {ovs\|p4}` | Everything; what cannot run is skipped | depends |
 
-選項：`--traffic`（額外要求 flow／path／速率）、`--mutations`（含寫入端點）。
+Options: `--traffic` (also require flows, paths and rates) and `--mutations` (include the write
+endpoints). `NDT_POWERED_OFF=5,7,9` (or `none`) declares which switches were powered off, and is
+passed to the log check (see [../contract_test/](../contract_test/README.md)).
 
-### 典型 P4 開發流程
+### A typical P4 development loop
 
 ```bash
 ./stack.sh up p4 && ./stack.sh wait
@@ -205,7 +224,7 @@ Mininet 需要 root，而且會停在自己的 CLI，沒辦法乾淨地背景化
 ./stack.sh down
 ```
 
-### 建立 L4 baseline（在健康的 OVS 環境做一次）
+### Building the L4 baseline (once, on a healthy OVS stack)
 
 ```bash
 ./stack.sh up ovs && ./stack.sh wait
@@ -213,7 +232,7 @@ Mininet 需要 root，而且會停在自己的 CLI，沒辦法乾淨地背景化
 ./stack.sh down
 ```
 
-之後每次 P4 有進展：
+After that, whenever the P4 side makes progress:
 
 ```bash
 ./stack.sh up p4 && ./stack.sh wait
@@ -221,137 +240,148 @@ Mininet 需要 root，而且會停在自己的 CLI，沒辦法乾淨地背景化
 ./run_layers.sh compare
 ```
 
-`compare` 會把 P4 跟 OVS 的差異分成三類：允許的 P4 限制（寫在 allowlist）、數值容忍範圍內、**其他就是 bug**。
+`compare` sorts the differences between P4 and OVS into three classes: allowed P4 limitations
+(written in the allowlist), differences within numeric tolerance, and **everything else, which is
+a bug**.
 
 ---
 
-## live_cells：回歸格
+## live_cells: regression cells
 
-`l1_unit_tests.sh` 與 `tests/shell/` 問的是「這段碼對不對」。`live_cells/` 問的是另一個問題：
-**上一晚在真實驗室上紅過、後來修好的那條缺陷，今天還是好的嗎。**
+`l1_unit_tests.sh` and `tests/shell/` ask "is this code right?". `live_cells/` asks a different
+question: **a defect that failed on a real lab and was then fixed: is it still fixed today?**
 
-一個**格**（cell）＝一個可重現的動作序列＋一個預期判定。進入規則是「**live 紅過、已修好** ⇒ 進來，
-而且永不退出」，所以這個目錄只會長大；夜巡報的那個數字是「紅了幾格」。
+A **cell** is a reproducible sequence of actions plus an expected verdict. The rule for entry is
+"it failed live and was fixed, so it comes in and never leaves", so the directory only grows, and
+the number a run reports is how many cells are red.
 
-每個格都是兩個子命令，而這個切法就是整個設計：
+Every cell has two subcommands, and that split is the whole design:
 
 | | |
 |---|---|
-| `observe <rawdir>` | 驅動實驗室（或工具），只寫 raw，不做任何判定 |
-| `judge <rawdir>` | 那個目錄的**純函數**：不碰實驗室、不碰網路、不看時鐘、不讀 git |
+| `observe <rawdir>` | Drives the lab (or the tool) and only writes raw data; it reaches no verdict |
+| `judge <rawdir>` | A **pure function** of that directory: no lab, no network, no clock, no git |
 
-`judge` 是純函數這件事是刻意的：它因此可以被指向**昨晚的 log**，於是「這個格真的會紅」這件事
-不必重建昨晚的 binary 就證得出來。`tests/fixtures/live_cells/<格>/old/` 就是那份紅。
+Because `judge` is pure it can be pointed at an older log, so "this cell really can go red" can be
+shown without rebuilding the old binary. `tests/fixtures/live_cells/<cell>/old/` holds that red.
 
 ```bash
-live_cells/run_cells.sh --list                    # 有哪些格、各自的 tag 與前提
-live_cells/run_cells.sh --requires none           # 完全不碰實驗室的那些
+live_cells/run_cells.sh --list                    # which cells, with their tags and requirements
+live_cells/run_cells.sh --requires none           # the cells that need no lab at all
 NDT_ROOT=/path/to/NDTwin-Kernel live_cells/run_cells.sh --tag ndt
 ```
 
-- 最後一行 `CELLS: <pass>/<total> pass, <fail> FAIL, <skip> SKIP`，有 FAIL 就非 0 離開。
-- 每個格印一行 `CELL: PASS|FAIL|SKIP <name> tag=… kernel=<sha16> ndt=<blob sha> at=…`，
-  那兩個識別碼是 `observe` 寫進 raw 的 `ids.txt`，**跟著 raw 走**（所以老 fixture 指認的是昨晚
-  那支，不是今天這支）。
-- 格與格之間 `run_cells.sh` 自己還原：`orphans_verdict.sh`（**down 之前**）→ `ndt down` →
-  `ndt clean` → `orphans_verdict.sh`。還原沒過就停，不會把上一格的殘骸算進下一格。
-- `NDT_ROOT` 指定驅動哪一個 checkout 的 `ndt`。格是儀器，受測的樹是 `NDT_ROOT` 那棵——這台機器上
-  只有主 checkout 的 `ndt` 是 `sudo ndtwin-lab` 會代為動作的那一支。
-- raw 進 `$NDT_ROOT/.test_run/live_cells/<date>/<格>/`。
+- The last line is `CELLS: <pass>/<total> pass, <fail> FAIL, <skip> SKIP`; any FAIL gives a
+  non-zero exit.
+- Each cell prints `CELL: PASS|FAIL|SKIP <name> tag=... kernel=<sha16> ndt=<blob sha> at=...`. The two
+  identifiers are written by `observe` into `ids.txt` and **travel with the raw data**, so an old
+  fixture identifies the old binary, not today's.
+- Between cells `run_cells.sh` restores the lab itself: `orphans_verdict.sh` (**before** the
+  down), `ndt down`, `ndt clean`, `orphans_verdict.sh` again. If the restore fails it stops, so
+  one cell's leftovers are not charged to the next.
+- `NDT_ROOT` selects the checkout whose `ndt` is driven. The cells are the instrument; the tree
+  under test is the one `NDT_ROOT` points at. The root-side operations (`ndtwin-lab`) do not follow
+  `NDT_ROOT`: they act on the kernel tree named in the root-owned `/etc/ndtwin-lab.conf` (or its
+  built-in default when that file is absent), and `sudo ndtwin-lab config` prints which tree is in
+  effect.
+- Raw data goes to `$NDT_ROOT/.test_run/live_cells/<date>/<cell>/`.
 
-名冊、每格的來源與修法 commit、以及**這些格涵蓋不到什麼**，都在 `live_cells/CELLS.md`。
-閘門是 `tests/shell/mutate_live_cells.sh`（judge 的關鍵斷言各兩顆變異：delete 與 widen）。
-
----
-
-## 產出位置
-
-所有 log、pidfile、baseline 都在 `$RUN_DIR`（預設 `/tmp/ndtwin_test_run`），不會污染 repo。
-
-```
-/tmp/ndtwin_test_run/
-├── logs/       建置 log、各元件執行 log、ctest 輸出
-├── pids/       stack.sh 的 pidfile
-├── baseline/   ovs/ 與 p4/ 的 API 回應擷取
-└── mode        目前 stack 的模式與拓撲
-```
-
-要換位置：`RUN_DIR=/somewhere ./run_layers.sh quick`
+The list of cells, where each came from, the commit that fixed it, and **what the cells do not
+cover** are in `live_cells/CELLS.md`. The mutation gate is `tests/shell/mutate_live_cells.sh`
+(two mutants, delete and widen, for each key assertion in `judge`).
 
 ---
 
-## 覆寫設定
+## Where output goes
 
-`components.env` 裡每個變數都可以從環境覆寫：
+All logs, pidfiles and baselines live under `$RUN_DIR` (default `<repo>/.test_run`, which is
+gitignored). It is deliberately not under `/tmp`: a predictable path in a world-writable directory
+would let another local user pre-create the pidfiles that `stack.sh` later reads and kills.
+
+```
+.test_run/
+|-- logs/       build logs, component logs, ctest output
+|-- pids/       stack.sh pidfiles
+|-- baseline/   captured API responses for ovs/ and p4/
+`-- mode        the current stack's mode and topology
+```
+
+To change the location: `RUN_DIR=/somewhere ./run_layers.sh quick`
+
+---
+
+## Overriding the configuration
+
+Every variable in `components.env` can be overridden from the environment:
 
 ```bash
 NDT_URL=http://192.168.1.5:8000 ./run_layers.sh api p4
 TOPO_P4=/path/to/my_topo.json ./stack.sh up p4
 ```
 
----
-
-## sudo 面：那份白名單是方便，不是邊界
-
-`ndt` 需要的 root 權限宣告在 `sudo_surface.sh`（`ndt status` 會逐條印出可用與否）。
-這台機器的 sudoers 另外給了一條 `tc` 的 NOPASSWD 白名單，**只涵蓋 netem 形**
-（`tc qdisc add|del|show … netem`）——`htb`、`class`、`tc qdisc replace` 都不在裡面。
-
-🔴 **旁邊那條 NOPASSWD `mnexec` 讓那份白名單不成其為邊界。** `mnexec -a <pid> <任何命令>`
-是以 root 在那個行程的 namespace 裡執行任意命令，所以白名單擋掉的每一種 `tc` 形式，
-都可以原封不動地從 `mnexec` 走一次。2026-09-11（ROLE-8）兩格就是這樣做到的：
-一格掛 `htb root`、一格用 `tc qdisc replace`，兩格都沒有用到白名單裡的任何一條規則。
-
-⇒ **把那份白名單讀成「這個帳號在 lab 上能做什麼」的上界是錯的**：它是「常用動作不必打密碼」的
-方便設施。實際的上界是 `mnexec` 那一條，而它等於 root。要嘛把 `mnexec` 收窄成具體子命令，
-要嘛承認這個帳號在 lab 上就是 root、照 root 稽核——**不要兩條都留著，又拿白名單當防護在講**。
-（2026-09-12 記錄：安全觀察，不是產品缺陷；`ndt` 自己不走 `mnexec` 繞過任何東西，
-它的兩個 `mnexec` 呼叫點在 `sudo_surface.sh` 的表裡宣告著。）
-
-### `ovs-vsctl`：另一條沒有任何手冊教的授權，而它的拒絕長得像一個讀數
-
-`sudo_surface.sh` 的表裡 `taught_by` 寫 `NOWHERE` 的有兩條，`mnexec` 是上面那條，另一條是
-**`ovs-vsctl`**（探針 `ovs-vsctl list-br`，目標 `/usr/bin/ovs-vsctl`）。官網的安裝手冊與使用手冊
-都沒有它；本 repo 的使用指南 `doc/2026-11-05_user-guide.md` 第 3.2 節現在有教，
-但它不在官網的安裝路徑上。⇒ **照手冊裝完的機器上，這條是缺的，而缺了不會有人告訴你。**
-
-🔴 **缺了會怎樣（`sudo_surface.sh` 的 consequence 欄逐字寫著）**：`ovs_bridge_count()`
-早期把被拒絕的 `sudo -n ovs-vsctl list-br` 回成 **0 座 bridge**——而 0 也正是
-「這台機器根本沒有 OVS」的答案。同一個數字兩種意思，於是 `ndt up p4` 那道
-「不要蓋在活的 OVS fabric 上」的守衛（`guard_no_live_ovs`）**不會開火**，
-既有的 fabric 被 `topo-stop` 拆掉，而且**沒有任何一行訊息說過這件事**。
-
-現在 `ovs_bridge_count()` 對「被拒絕」回 rc 2、`guard_no_live_ovs` 把「我判斷不出來」
-當成停止的理由（finding #7），所以這條缺了會**擋下** bring-up 而不是默默拆掉別人的 fabric。
-但**授權本身還是要自己加**，規則長這樣（用 `ndt_sudo_rule ovs-vsctl` 產生，不要手抄路徑：
-`target` 欄是這台機器 `command -v` 解出來的，換機器要換）：
-
-```
-<你的帳號> ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
-```
-
-`ndt status` 會逐條印出這三條授權此刻是通的還是被拒絕的；被拒絕時它印的是「拒絕」，
-不是一個數字——**這一段講的就是那個差別**。
-
-（本節 2026-09-12 補；`tests/shell/test_readme_mentions_mnexec.sh` 會對 `sudo_surface.sh` 裡
-**每一條** `taught_by=NOWHERE` 要求這裡有對應段落，所以這一段被刪掉會紅。
-[Co-developed with claude code -- Adam]）
+`KERNEL_DIR` is derived from the location of `components.env`, and the sibling repositories
+(Energy-Saving-App and so on) are looked up from there; conda environments are expected under
+`$CONDA_ROOT` (default `~/miniconda3`). Adjust these for a different layout.
 
 ---
 
-## 已知限制
+## The sudo surface
 
-- **Mininet 手動**：見上面說明。
-- **kernel 靠 stdin 餵參數**：Phase 1 加了 CLI 參數之後要更新 `stack.sh`。
-- **L0 的 Python 檢查只驗語法**：這些腳本的執行期依賴太重（Mininet、nornir、活的 kernel），沒辦法在這一層 import。
-- **步驟 4-6 沒有腳本化**：Visualizer 需要顯示器、Web-GUI 是 Docker、NTG 要在 Mininet 裡跑，各測試情境需求不同，所以留給人工或個別情境腳本。
-- **`components.env` 的路徑是這台機器的實際配置**，換機器要調整。
-- **`ndt down`／`stack.sh down` 送的是 SIGTERM，kernel 只裝了 SIGINT handler**（`src/main.cpp:344`
-  只有 `std::signal(SIGINT, handleSigint)`，沒有對應的 SIGTERM 註冊）：SIGTERM 的預設動作直接
-  終止行程，所以健康 kernel 收到 `ndt down` 之後的 exit code 是 **143**——這是 `stack.sh` 自己
-  認定的正常值（`report_exit`／`fatal_exit_status` 不把 143 算進「壞掉」的清單），不是失敗的
-  訊號。連帶後果：`main.cpp` 裡「Shutdown requested」／「All subsystems stopped」那段關機序列、
-  以及倚賴它的「stop 有界」量測，在 `ndt down` 這條真正的關機路徑上從來沒有執行過——只有手動
-  `kill -INT`（或 Ctrl-C）會走到。2026-09-04 讀了三代 `.test_run/logs/kernel.log`／`.prev`／
-  `.prev2`，三份「All subsystems stopped」都是 0 次，跟這個機制一致。要看關機序列本身，用
-  `kill -INT <kernel pid>`，不要用 `ndt down`。
+The root privileges `ndt` needs are declared in `sudo_surface.sh`; `ndt status` prints, one by
+one, whether each is available. Section 3.2 of `doc/2026-11-05_user-guide.md` teaches how to
+grant them. On a machine set up from the website's manuals, two of them are **not** taught
+there and have to be added by hand: `mnexec` and `ovs-vsctl`.
+
+### `mnexec` makes any narrower `tc` rule moot
+
+`mnexec -a <pid> <any command>` runs an arbitrary command **as root** inside that process's
+namespaces. So whatever narrow `tc` rules the sudoers file carries (for example only the
+`netem` forms of `tc qdisc add|del|show`), every `tc` form they exclude can be run through
+`mnexec` unchanged. A `tc` allowlist is a convenience ("no password for the common actions"),
+not a boundary, and a `NOPASSWD` `mnexec` rule makes the account root for practical purposes
+inside the lab. Either narrow the `mnexec` rule to specific commands or treat that account as
+root; do not keep both and describe the `tc` list as protection. (`ndt` itself does not use
+`mnexec` to get around anything; its two `mnexec` call sites are declared in `sudo_surface.sh`.)
+
+### `ovs-vsctl`: a grant the website's manuals do not teach, whose refusal looks like a reading
+
+The probe is `ovs-vsctl list-br` (target `/usr/bin/ovs-vsctl`). Without the grant, a refused
+`sudo -n ovs-vsctl list-br` used to be turned into **0 bridges**, which is also the correct
+answer for a machine with no OVS at all. The same number then meant two different things, so the
+guard of `ndt up p4` ("do not build on top of a live OVS fabric", `guard_no_live_ovs`) did not
+fire and an existing fabric could be torn down without a word.
+
+Now `ovs_bridge_count()` answers rc 2 ("cannot tell") for a refusal and `guard_no_live_ovs` treats
+"cannot tell" as a reason to stop, so a missing grant **blocks** a bring-up instead of silently
+removing someone else's fabric. The grant itself still has to be added. Generate the rule with
+`ndt_sudo_rule ovs-vsctl` rather than copying a path, because the target column is whatever
+`command -v` resolves on that machine:
+
+```
+<your account> ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
+```
+
+`ndt status` prints, for each grant, whether it works or was refused; a refusal is printed as a
+refusal, never as a number.
+
+`tests/shell/test_readme_mentions_mnexec.sh` requires this README to carry a paragraph for every
+`taught_by=NOWHERE` row of `sudo_surface.sh`, so deleting this section turns that test red.
+[Co-developed with claude code -- Adam]
+
+---
+
+## Known limits
+
+- **Mininet is started by hand** (see above).
+- **Steps 4-6 are not scripted**: the Visualizer needs a display, the Web-GUI runs in Docker and
+  NTG runs inside Mininet; test scenarios need different things, so these are left to a person or
+  to per-scenario scripts.
+- **The Python checks in L0 verify syntax only**: these scripts have heavy runtime dependencies
+  (Mininet, nornir, a live kernel) that cannot be imported at this layer.
+- **`ndt down` and `stack.sh down` send SIGTERM, and the kernel installs a handler only for
+  SIGINT** (`std::signal(SIGINT, handleSigint)` in `src/main.cpp`). SIGTERM's default action
+  terminates the process directly, so a healthy kernel stopped by `ndt down` exits with code
+  **143**; `stack.sh` treats 143 as normal (`fatal_exit_status` does not list it). The
+  consequence is that the orderly shutdown sequence in `main.cpp` ("Shutdown requested" and "All
+  subsystems stopped") does not run on the `ndt down` path; only a manual `kill -INT` (or Ctrl-C)
+  reaches it. To see the shutdown sequence itself, stop the kernel with `kill -INT <kernel pid>`.

@@ -1,273 +1,181 @@
-# `tools/remote-lab/` — 遠端 lab 機器的佔用協調與 VM 生命週期
+# `tools/remote-lab/`: claims on remote lab machines, and the VM life cycle
 
-> 🟢 **`nslab` 可以用**（2026-08-31 晚間解封）。🔴 **testbed 那批（server1~8／cc2／gw／gw2）仍然停用。**
-> 先問，不要用試的：`rlab suspended <machine>`（**不撥號**）。
->
-> **使用規定與佔用帳的正本不在本 repo。**
-> 這份 README 只講工具；**要不要用、什麼時候登記、登記什麼，看那份規定。**
-> 🔴 **R1：開跑前登記，不准事後補登**——那台沒有 claim 工具，佔用表是唯一紀錄。
+Tools for sharing a remote lab machine between several sessions without them overwriting each
+other's work. This README describes the tools. Whether you may use a given machine, and when and
+what to register, is decided by the people who run it; register **before** you start, because the
+claim record is the only record of who is using the machine.
 
-## 為什麼有兩層
+## Why there are two layers
 
-爭用單位有兩個，而**只做機器層是不夠的**：
+There are two units of contention, and the machine layer alone is not enough:
 
-| 層 | 工具 | 單位 |
+| Layer | Tool | Unit |
 |---|---|---|
-| 機器 | `rlab` | 一台實體機（`~/RLAB-CLAIM` 是那台上的真實來源） |
-| **VM** | `ndtwin-vm.sh` | **一顆 VM** |
+| Machine | `rlab` | One physical machine (`~/RLAB-CLAIM` on that machine is the source of truth) |
+| **VM** | `ndtwin-vm.sh` | **One VM** |
 
-2026-08-31 的實例：兩個 session **共用同一台機器沒事**（Mininet netns／OVS datapath 的衝突
-是 per-kernel 的），但它們**落在同一顆 `disk.qcow2` 裡**——因為 `VM_DIR` 與 `SSH_PORT`
-**兩個預設值互相獨立**，只改其一的第二個 session 就直接疊上去，而且**沒有任何一層會報錯**。
-發現的方式是快照列表裡出現沒人建過的快照。
+Two sessions can share one machine safely (Mininet network namespaces and OVS datapaths collide
+per kernel, not per machine) and still land in the **same `disk.qcow2`**: `VM_DIR` and `SSH_PORT`
+have independent defaults, so a second session that changes only one of them lands on top of the
+first, and no layer reports an error. The VM layer exists to make that collision visible and to
+refuse it.
 
-## 檔案
+## Files
 
-| 檔 | 跑在哪 | 用途 |
+| File | Runs where | Purpose |
 |---|---|---|
-| `rlab` | 操作者的機器 | 機器層 claim：`list` / `status` / `claim` / `note` / `release`，＋ `suspended()` 停用表 |
-| `ndtwin-vm.sh` | 遠端 host（**不需要 root**） | VM 生命週期＋協調守衛＋`vms` 跨 session 視圖 |
-| `ndtwin-virt-root.sh` | 遠端 host（**唯一要 root 的一步**） | 裝 `qemu-system-x86`／`qemu-utils`／`cloud-image-utils`＋帳號加進 `kvm` 群組。**不碰 sudoers、不加任何 NOPASSWD** |
-| `vm-install-stack.sh` | **guest VM 內** | 安裝手冊 §3.1＋§3.2 apt ＋ `install-p4dev-v8.sh`。**驗收釘產物不釘 rc** |
-| `p4_patch_preflight.sh` | 任何有網路的機器 | 2 分鐘 dry-run：p4-guide 的 patch 還套不套得上（**v10 當控制組**） |
-| `host_witness.sh` | **要被見證的那台**（host 或 guest 都可） | 量測窗內的**連續佔用記帳**：每行帶 `host=`、用 `/proc/<pid>/exe` 判別 VM、三態 `vm`／`other`／`unreadable`。`--self-test` **19 條、純的**（假 procfs、零行程）⇒ 別人的 exclusive-CPU 窗內也跑得了 |
-| `test_vm_coordination.sh` | **本機，不碰任何 lab 機器** | 下述全部守衛的變異閘 |
+| `rlab` | The operator's machine | Machine-level claim: `list`, `status`, `claim`, `note`, `release`, `suspended` |
+| `ndtwin-vm.sh` | The remote host (**no root needed**) | VM life cycle, the coordination guards, and the `vms` view across sessions |
+| `ndtwin-virt-root.sh` | The remote host (**the only step that needs root**) | Installs `qemu-system-x86`, `qemu-utils` and `cloud-image-utils` and adds the account to the `kvm` group. It does not touch sudoers and adds no `NOPASSWD` entry |
+| `vm-install-stack.sh` | **Inside the guest VM** | Installs the apt packages from the Installation Manual (steps 3.1 and 3.2) and runs p4-guide's `install-p4dev-v8.sh`. Acceptance is read from build artifacts, not from exit codes |
+| `p4_patch_preflight.sh` | Any machine with network access | A dry run of about two minutes: do p4-guide's patches still apply to the current behavioral-model? (v10 is included as a control that is expected to fail) |
+| `host_witness.sh` | The machine to be witnessed (host or guest) | Continuous accounting of what runs on a host during a measurement window; see below |
+| `test_vm_coordination.sh` | The local machine; touches no lab machine | The mutation gate for all the guards described below |
+| `test_claim_guard_identity.sh` | The local machine | Checks how `claim_guard` compares owner names; it exits 1 on purpose until the owner comparison is fixed and `test_vm_coordination.sh` gets a multi-word owner fixture. See "Owner names" |
 
-🔴 **`host_witness.sh` 為什麼存在**：09-01 有人讀一份**沒有 hostname 欄**的見證 log，
-判成「Adam 筆電上有 VM」，據此要求下游撤回兩欄**正確**資料、四格判髒——
-而那顆 VM 在 lab 機器上。**那份 log 沒寫錯，它只是從來沒說自己在講哪一台。**
-> **一份「機器上有什麼」的紀錄，必須自己說出它講的是哪一台。**
-判準：**「把這個檔剪下來貼進別人的信裡，它還說得出自己是什麼嗎？」**
+## `rlab`: machine claims
 
-### 09-01 第一次對外實跑抓到三個缺陷（`6ba089a`，全部由使用它的那條線發現）
+```
+rlab list                              every machine: claim and load, one line each
+rlab status <machine>                  claim and occupancy detail
+rlab claim <machine> <owner> <note>    refuse if already claimed
+rlab note <machine> <text>             amend a live claim (terms changed, no handoff)
+rlab release <machine>                 archive the claim to the handoff log, then free it
+rlab suspended <machine>               is the machine off limits? Answers without connecting
+```
 
-1. **未辨識的旗標會變成取樣間隔。** `--help` 不是分支 ⇒ 落進 `INTERVAL` ⇒ `sleep --help`
-   立刻回 ⇒ **忙迴圈取樣器**。🔑 **失效方向是重點**：取樣密度正是讀者用來論證「連續有帳」
-   的量，所以壞掉的見證**產出一份看起來覆蓋率極佳的紀錄**，而「有沒有 >8 s 空隙」那種判準
-   查的是反方向、結構上抓不到。header 有印 `interval=--helps`——
-   **自陳不是閘門，拒絕才是。**
-2. 🔴 **`tty_nr==0` 被當成「這是核心執行緒」。** 在它正在見證的那台機器上交叉列表：
-   **248 個真核心執行緒 ＋ 72 個使用者行程**（`/sbin/init`、`systemd-resolved`、`blkmapd`…
-   每個沒有控制終端的 daemon）全被報成 `other`＝**不是 VM**，而真相是「我讀不到」。
-   **root 或 `setsid` 起的 qemu 正是這一類** ⇒ **舊版會在有 VM 的機器上報 `vms=0`**。
-   ⚠️ **舊 log 的 `vms=` 要讀成「我讀得到的 VM 數」**，尤其 nslab 上跑在別的使用者名下的。
-   判準已換成 **cmdline 是否為空**（核心執行緒依定義沒有 argv）。
-3. **它自己是不小的負載源。** 每 pid 一個 `$(readlink)` ⇒ 671 pid 上 **~2,000 fork／3.19 s
-   每筆取樣**，跑在別人 CPU 獨佔量測中的機器上；而且實際節奏是 `interval + 取樣成本`，
-   要 1 秒會拿到 5 秒。改成一次 `find` + bash `read` ⇒ **0.156 s／~6 fork**（對照 9/12/9、
-   治療 16/16/18）。**記帳負載的儀器不可以是明顯的負載來源。**
+- `~/RLAB-CLAIM` on the machine is the single source of truth for "who owns it". A claim says who
+  owns the machine, **not** whether an experiment is running: read `rlab status <machine>`
+  (load, processes) before touching a machine that looks free.
+- `release` appends the claim to `~/RLAB-HANDOFF.log`, so the history survives.
+- A machine can be marked suspended in the `suspended()` table in `rlab`. A suspended machine is
+  refused **before any packet is sent**, and the refusal says who stopped it, when, and what lifts
+  it. There is deliberately no environment-variable bypass: lifting a suspension means editing the
+  table, which leaves a diff.
+- The VM host, the control box and the jump hosts are known to `rlab` as ssh aliases only; their
+  addresses live in the operator's `~/.ssh/config`, not in this repository.
+- No tool here holds a password or a key. The only step that needs a password is
+  `ndtwin-virt-root.sh`, which a person runs with `sudo`.
 
-📌 **`# end` 行**：正常結束、訊號、`sleep` 失敗、節奏塌陷都會寫一行 `# end … reason=…`。
-⇒ **沒有 `# end` 結尾的 log 就是被截斷的**（被 SIGKILL 打死的那種寫不出來，而那正好是缺的那份）。
-在這行之前，判斷見證有沒有中途死掉要「隔幾秒讀兩次行數」。
+## `ndtwin-vm.sh`: VM life cycle
 
-### 🏁 `qemu_pids()` 已改用 `exe`（G17，09-01）——**而它不是換個欄位就好**
+```
+ndtwin-vm.sh create           fetch the cloud image, build the seed, make the disk
+ndtwin-vm.sh start            boot it (daemonised, survives an ssh disconnect)
+ndtwin-vm.sh stop             graceful shutdown, wait for the process to go
+ndtwin-vm.sh status           pid / port / disk / snapshots / guest reachability
+ndtwin-vm.sh ssh [cmd...]     run a command in the guest (or open a shell)
+ndtwin-vm.sh snap <name>      stop if needed, snapshot, restore the previous run state
+ndtwin-vm.sh restore <name>   roll back to a snapshot
+ndtwin-vm.sh snaps            list snapshots
+ndtwin-vm.sh vms              every lab VM on this host: dir / owner / port / pid
+ndtwin-vm.sh keep "<why>"     mark this disk as must-not-delete (--clear to lift)
+ndtwin-vm.sh adopt [pid]      register a running VM this tool did not start
+ndtwin-vm.sh destroy          delete the disk (asks for a confirmation word)
+```
 
-舊版比對 **cmdline（argv）的子字串** ⇒ 算進 (a) 這個閘門自己起的六個 argv 假身、
-(b) **任何只是「提到」`qemu-system` 的行程**——一個 grep、一個開著檔的編輯器、
-正在 debug 這個函式的那個 shell。**與 `pkill -f` 同一族。**
+It uses plain qemu (no libvirt, so no extra root daemon) with user-mode (SLIRP) networking: the
+guest gets outbound NAT and no layer-2 presence on the lab subnet, and no tap device is needed.
+`/dev/kvm` is `root:kvm`, so being in the `kvm` group is what lets a non-root account start a VM
+(a new login is needed after `ndtwin-virt-root.sh` adds the group).
 
-⚠️ **但直接換成 `exe` 會製造一個更糟的缺陷**：`exe` 對**別人的**行程讀不到，
-而 `vms` 存在的意義正是「看見別的 session 的 VM」⇒ 天真地換欄位＝
-**拿「多算假身」換「漏掉每一顆不是我的 VM」**。
+One VM per session: `VM_DIR` and `SSH_PORT` are both environment variables and **both must differ**
+between sessions (the defaults are `$HOME/ndtwin-vm` and 2222).
 
-⇒ 三態，跟 `host_witness.sh` 同一套：
+Working point: `VM_CPUS`, `VM_MEM`, `VM_DISK` and `SSH_PORT` come from the environment first, then
+from the `CONFIG` file in the VM directory, then from built-in defaults. Because of that, a
+`stop`, `snap`, `start` cycle that forgets to repeat the variables brings the VM back with the
+working point it last ran with.
 
-| exe | argv[0] | 判定 |
-|---|---|---|
-| 讀得到且是 `qemu-system-*`／`qemu-kvm` | — | **verified** |
-| 讀得到但不是 | — | **no**（假身在這裡死） |
-| **讀不到** | 像 qemu | **unverified** ⇒ 照列，但 `vms` 那一行明寫 ⚠️ |
-| 讀不到 | 不像 | no |
+Acceptance is read from state (pid alive, ssh answers, snapshot listed), never from an exit code:
+`qemu -daemonize` returns 0 long before the guest is usable.
 
-🔑 **`unverified` 的標記印在「被使用的那一行」**，不是只印在判定的地方——
-一個我沒能查證的身分，要在讀者用到它的地方說出自己沒被查證。
+### The guards
 
-📌 **fixture 也得跟著改**：六個 stand-in 原本只偽裝 argv，改用 exe 之後**它們會全部消失**，
-而**斷言仍然是綠的**（斷言看的是工具的輸出）⇒ 現在用一份 **`cp $(command -v bash)` 改名成
-`qemu-system-x86_64` 的真二進位檔**；G17 另外**留一個 argv 假身當陰性對照**，斷言它**不**被算進去。
-🔑 **而 `comm` 不會被這兩種騙**（實測 `comm=bash`／`comm=sleep`），
-所以「改用 `exe`」的理由是 **exe 由核心維護、行程改不了**，**不是**「comm 壞了」。
+| Guard | Behaviour |
+|---|---|
+| `NDT_OWNER` is required | Any verb that mutates a VM refuses to run without it (fail closed) |
+| `$VM_DIR/OWNER` | Another session's VM is refused with **`rc=3`**, which prints that session's claim and the full command to create your own VM |
+| `SSH_PORT` in use | Refused with **`rc=4`**, listing who holds the port |
+| `CONFIG` | Working point precedence is env, then `CONFIG`, then built-in default; `start` prints which source it used, and warns loudly when it falls back to the built-in defaults although a disk already exists |
+| Snapshot names | Generic names (`fresh`, `base`, `clean`, `test`, `tmp`, `snap`, `backup`) are refused, and so is a tag that already exists, because `qemu-img` silently allows duplicate tags |
+| Snapshot listing | Read with `-U`; "could not read" and "there are none" are printed as different things |
+| `NDTVM_FORCE=1` | Overrides a foreign claim, and **writes the override into the `OWNER` file of the VM it took** |
+| `vms` | Read-only and needs no `NDT_OWNER`: looking up who holds what must not require already holding something |
+| `stop`, `ssh` | Guarded like the other mutating verbs (`ssh <cmd>` can change a VM, and `stop` takes down someone else's running work) |
+| `keep` | Marks the disk as must-not-delete; `vms`, `status` and `destroy` all show it. `destroy` then lists the snapshot tags and wants `DESTROY <directory name>` instead of the bare word |
+| `adopt` | Registers an already-running VM: writes `OWNER` and `CONFIG` with the working point read **from the process's own argv** (`/proc/<pid>/cmdline`), not from input. With a pid, the VM directory is read from argv too, so it works for a VM that was not laid out by this script. It prints a loud warning when the ssh forward is not on loopback |
 
-🔑 **`/dev/kvm` 是 `root:kvm`**，所以「要不要 root 才能開 VM」的開關就是**群組成員資格**。
-桌面登入時 logind 會給一條 `user:<帳號>:rw-` 的 **ACL**，但**人一登出就收回**，SSH 進來的
-session 會突然開不了 VM。**ACL 是借來的，群組才是自己的**；而群組只對**新登入**生效。
+`claim_guard` refuses (under `NDTVM_FORCE=1` it appends a `FORCED:` line to `OWNER` instead),
+and `claim_write` is what writes the claim; only `create`, `start` and `adopt` call the latter.
+So `ssh` is guarded, but you can still look inside an unowned VM without taking it over.
 
-## `ndtwin-vm.sh` 的守衛（每一條都是踩過才有的）
+`vms` identifies a qemu process by `/proc/<pid>/exe`, not by command-line text: `exe` is kept by
+the kernel and a process cannot set it, whereas a grep, an editor or a shell that merely mentions
+`qemu-system` has it in its argv. When `exe` cannot be read (another user's process) but argv[0]
+looks like qemu, the row is listed and marked **unverified**, on the line where it is used. It also
+marks listeners on the VM's forwarded ports: a port bound outside loopback is flagged, a local
+sshd is a neutral note. The classification is a pure function of the address string
+(`addr_is_loopback`, `listener_level`; all of `127.0.0.0/8` and `::1`, with or without a `%scope`
+suffix, count as loopback).
 
-| 守衛 | 行為 | 起因 |
-|---|---|---|
-| `NDT_OWNER` 必填 | 缺就拒絕（fail closed） | 把 `unset` 寫進登記等於一個永遠不會紅的閘門 |
-| `$VM_DIR/OWNER` | 別人的 VM → **`rc=3`**，印出對方的 claim 與「開自己那顆」的完整指令 | 兩個 session 同一顆 qcow2 |
-| `SSH_PORT` 佔用 | → **`rc=4`**，列出誰佔的 | 碰撞的真正機制 |
-| `CONFIG` 工作點 | env ＞ CONFIG ＞ built-in；落到 built-in 而磁碟已存在就**大聲警告** | 一次 `stop→snap→start` 沒重帶參數，16 vCPU/16 GiB 的 lab **無聲地以 12/8192 開回來**。什麼都沒失敗、guest 開得好好的 |
-| 快照通用名 | `fresh`/`base`/`clean`/… **直接拒絕**；`snap` 先讀再寫、tag 已存在也拒絕 | `qemu-img` **允許重複 tag 而且完全不報錯** |
-| 快照列表 | `-U` 讀得到；**「讀不到」與「沒有」印成兩種不同的字** | 舊碼是 `qemu-img snapshot -l … \|\| say "(no snapshots)"`——鎖住讀失敗被翻譯成「磁碟是空的」，**不是報錯，是一個有自信的錯誤答案**。這是同名快照的**病因**，通用名只是症狀 |
-| `NDTVM_FORCE=1` | 可以搶，但**會把搶奪這件事寫進被搶的 `OWNER` 檔** | 看不見的旁路不是守衛 |
-| `vms` | **唯讀、不需要 `NDT_OWNER`** | 查「誰佔了什麼」不該以「你已經佔了東西」為前提，否則第一個想禮讓的人反而被擋在門外 |
-| **`stop` / `ssh`** | 🔴 **08-31 補上的**——這兩個會改動狀態，之前**完全沒有守衛** | 見下節。`ssh <cmd>` 是「披著唯讀名字的改動性動詞」；`stop` 關掉別人跑到一半的 VM，正是 R7 無聲降級的前半段 |
-| **`keep`** | 🔒 標記「這顆磁碟不能刪」，並由 **`vms`／`status`／`destroy` 三個讀者**呈現；`destroy` 會列出快照 tag 並改要 `DESTROY <目錄名>` | **停掉的 VM 與被遺棄的 VM 在 `vms` 上長得一模一樣**。08-31：另一條線讀到 `unowned／無 qemu／有磁碟`，很合理地提議把它 destroy——那裡面是 38m41s 建出來、裁定保留的 toolchain 快照 |
-| **`adopt`** | 對**已經在跑**的 VM 補建 `OWNER`＋`CONFIG`，**工作點從 `/proc/<pid>/cmdline` 推導、不接受輸入**；已存在但不符的 `CONFIG` **先大聲報差異**再更新 | 協調整組掛在 `create`／`start` 上，**任何繞過它們的正當用法會把協調一起弄丟**。08-31：一條線要「從匯出的快照建 VM」——`create` 只會下載乾淨 image，**根本沒有那條路** ⇒ 它自己組 qemu 指令，於是量測輪跑在一個「只存在於行程 argv 裡」的工作點上 |
+### Owner names
 
-🔑 **守衛與 claim 是兩個權力，不要合成一個**：`claim_guard` 只負責拒絕，`claim_write` 才寫
-`OWNER` 檔，而**只有 `create`／`start` 呼叫後者**。所以 `ssh` 加了守衛之後，**仍然可以在不
-把一顆 unowned VM 佔走的前提下進去看**——那是規定 §5b（待退役的 VM 要能盤點）的硬需求，
-08-31 的 `.git` 盤點就靠它。這件事有專門的測試盯著，不靠記得。
+`NDT_OWNER` must be a **single word**: a name containing spaces is refused by its own VM.
 
-`rlab` 的 `suspended()` 同理：**對停用機器連都不連就拒絕**，並印出誰說的／何時／解封條件／
-有沒有替代機器。**刻意沒有環境變數旁路**——解封要改這支 script，留得下 diff。
+## `host_witness.sh`: what is running on this host
 
-## 驗收
+```
+host_witness.sh [interval_sec] [count]      # count 0 = run until killed
+host_witness.sh --self-test                 # pure: a fake procfs, no processes
+```
+
+It writes one line every interval for the length of a measurement window, so that a later reader
+can tell whether a VM or other heavy process was present on the host. Things to know:
+
+- **Every line carries `host=`.** A record of what is on a machine must say which machine; a log
+  with no hostname can be read as describing the wrong one.
+- A VM is identified by `/proc/<pid>/exe`. Each process is classified three ways: `vm`, `other`,
+  or `unreadable` (could not be read). A `vms=` count therefore means "VMs I could read"; a
+  process running as another user may be missing from it.
+- It samples cheaply (one `find` and shell `read`, no fork per pid) because an instrument that
+  accounts for load must not be a significant source of it. Its real cadence is
+  `interval + sampling cost`.
+- Unrecognised options are rejected rather than treated as an interval (`--help` prints usage).
+- The log ends with a `# end ... reason=...` line on normal exit, on a signal, on a failing
+  `sleep`, or when the cadence collapses. **A log with no `# end` line was truncated** (a SIGKILL
+  cannot write one). To check whether a witness died mid-window, read the line count twice a few
+  seconds apart.
+- The log's own cadence is its version stamp: if you change sampling cost or cadence, tell
+  whoever is comparing runs against it.
+
+## Tests
 
 ```bash
 bash tools/remote-lab/test_vm_coordination.sh
 ```
 
-**100/100**（2026-09-01）。每個閘門 **force-red 與 force-green 各一次**，包含停用表自己的
-green 方向（不在表上的機器要正常落到 `unknown machine`，證明它不是無差別拒絕）。
-斷言比對**訊息文字**不只比對 rc——好幾種不同的失敗都是 `rc=1`。
+It runs entirely on the local machine and touches no lab machine. Every gate is checked both
+ways (forced red and forced green), and assertions compare the message text as well as the exit
+code, because several different failures share `rc=1`. Paths inside the test are relative to the
+script, so it tests the copy you checked out rather than some other copy on the machine.
 
-### 🔴 為什麼從 32 → 49 → 56：**閘門數的是守衛，不是動詞**
+What the gate is built to cover:
 
-08-31 那個 32/32 是綠的，而 `stop` 與 `ssh` **兩個會改動狀態的動詞根本沒有守衛**。
-閘門列舉的是「我寫過的守衛」，所以它只能反覆確認那些守衛——**它沒有任何辦法注意到
-一個被漏掉的動詞**。「每個守衛雙向都對」與「每個改動性動詞都有守衛」是兩個問題，
-而我把前者的答案當成後者報了。
-
-⇒ 補的不只是那兩個守衛，是一個**結構測試**（G10）：把動詞分成 `MUTATING` 與 `READONLY`
-兩張表，直接對 dispatch 斷言。它自己也帶控制組——解析器若讀不到東西，十一個檢查會全部空過
-而看起來像通過，所以有一格專門證明解析器真的讀得到已知的守衛。
-
-> 🔴 **這裡原本寫著「下一個被加進來的動詞會在這裡紅掉，直到有人用文字決定它屬於哪一張表」。
-> 那句是假的，已刪。** 08-31 晚間加 `keep` 時實測：**十一綠、零紅。** 見下一節。
-
-### 🔴 56 → 66（G10a）：**閘門只能檢查它自己導出的母體**
-
-同一個錯誤的**第三次**，而且是我自己的修法：`for v in $MUTATING` 迴圈的是**我手寫的字串常數**。
-把「列舉守衛」換成「列舉動詞」，換掉的只是母體的**內容**——它的**來源**還是我。
-dispatch 裡多一個 `wipe)`，G10 一個字都不會說。
-
-> **閘門對「它沒有列舉到的東西」不是報錯，是沉默——而沉默會被讀成綠。**
-
-⇒ **母體必須從受測物本身導出**：G10a 解析 dispatch 的 case label，斷言
-`MUTATING ∪ READONLY` **涵蓋**它。手寫的兩張表從此只決定**歸類**，不再決定**範圍**。
-🔑 **它自己的控制組是同型的**——解析器配不到東西時，「零個未歸類」與「全部已歸類」
-輸出一模一樣，所以另有一格斷言它列得出已知的 `destroy` 與 `vms`。
-
-**加 `adopt` 時第一次在真實情況下用到它：紅，訊息是「兩張表都沒涵蓋它」。**
-
-🔑 **第三次是文件**：R8b 與這份 README 都白紙黑字寫著那句話，**而我從沒測過它**——
-它只是我對自己修法的描述。⇒ **修法的效果宣稱，和被修的缺陷一樣需要一個變異來證明。**
-
-### 66 → 73（G13／G14）：KEEP 標記與 `adopt`
-
-| | |
-|---|---|
-| **G13** | `KEEP` 的價值全在**讀者**（`vms`／`status`／`destroy`）。標記由測試**手寫**而非由 `keep` 產生——**壞掉的 writer 不該讓 reader 的測試變綠** |
-| **G14** | `adopt` 的工作點必須**從 argv 推導**。fixture 是一個**真的行程**，而它的 `-smp 11 -m 5555` 是**沒有任何人傳給 `adopt` 的值**；另一格傳 `SSH_PORT=9999` 而斷言記下的是 argv 裡的 `2296` |
-
-🔑 **G14 的 fixture 第一版是壞的**：`bash -c 'sleep 30'` 會被 bash 優化成 **`exec`**，
-而 exec **取代 argv** ⇒ 那些旗標全部消失，五格紅在一個與 `adopt` 無關的理由上。
-**控制組當場說「G14 可能是空過的」**，才沒有被讀成 `adopt` 壞掉。改成 `sleep 30; :` 就好。
-
-### 🔴 73 → 83（G15）：**同一個錯誤的第四、五層——而 fixture 也是我的格式寫的**
-
-`adopt` 是為「工具沒有那條路」寫的修法。**它自己也只有一條路。**
-它服務的那條線一小時內實測：`Nothing matching <remote-home>/ndtwin-vm/disk.qcow2 is running`
-——它們的 VM 在另一個目錄的 `work.qcow2`。⇒ `adopt <pid>`：**目錄也從 argv 推導**。
-🔑 **守衛必須在重指路徑之後跑**——守著呼叫者碰巧指到的目錄、卻寫進另一個目錄，比沒有守衛更糟。
-
-修好之後 `vms` **仍然**看不見它，而這次不是目錄問題：
-
-```
-我的腳本產生：  -drive file=/path/disk.qcow2,if=virtio,format=qcow2
-它們的：        -drive id=d0,file=/path/work.qcow2,if=none,format=qcow2
-我的 awk：      /^file=/          ← 只在 file= 排第一個時命中
-```
-
-`-drive` 的鍵是**逗號分隔、順序無關**的，而我按自己的輸出寫死了順序。
-
-> **一個晚上、三個層級：閘門的母體來自我的清單；`vms` 的母體來自我的命名慣例；
-> 解析器的格式來自我的輸出。每一次的修法都在下一層重演。**
-
-⇒ **可操作的解藥是關於 fixture，不是關於母體**：
-**stand-in 必須包含這支程式自己絕不會產生的形式。**
-G15 一開始三個 stand-in 全用我的格式寫，所以全綠——現在有一個是那個在現場弄壞它的形式。
-
-🔑 **兩個斷言還得收斂到自己的 fixture**：這台筆電**真的**跑著另一顆 qemu，
-掃整段的 `grep` 會被一個與測試無關的行程回答。
-⚠️ **而「不要假設機器上沒有別的 qemu」這句警告，就寫在那個假設了它的斷言正上方。**
-
-🔑 **綠方向補了一格**：「未登記」警告要在登記後消失。少了它，那個分支可以被寫成無條件，
-**而上面每一個紅方向都照樣通過**——這是變異找出來的。
-
-✅ **部署後對真實對象複驗**（不是 fixture）：`vms` 在那台上列出該線的 VM、標 `no CONFIG`、
-推導出 `4 vCPU / 6144 MiB`，**與它登記的工作點相符**。
-
-### 🔴 83 → 96（G16）：**hostfwd 的位址是安全屬性，而我的測試把錯誤分類寫成了規格**
-
-`adopt` 在「Read out of its argv, not typed in」這句底下印了 `port=2222`——**四欄三真一假**。
-成因同上：regex 寫死 `hostfwd=tcp:127\.0\.0\.1:`，而對方的 argv 是 `hostfwd=tcp::2296-:22`。
-> **三真一假比四個都沒有更難查，因為那三個真的替假的背書。**
-
-🔑 **第一版只修了 `CONFIG`**——`claim_write` 把 `$SSH_PORT` 蓋進 `OWNER`，
-**而 `vms` 的 port 欄正是從 `OWNER` 讀的** ⇒ **一個假值有兩個落點，只修看得見的那個等於沒修。**
-
-而順著查出來的不是格式問題是**安全屬性**：qemu 的 `hostfwd=tcp:[hostaddr]:port-`
-**省略 hostaddr ＝綁所有介面**。對方當晚每顆 VM 都是 `tcp::<port>`，實際在聽 `0.0.0.0`。
-同一個假設還有第二處：`vms` 的 listening 段本來 `grep '^ *127.0.0.1:'`
-⇒ 綁 `0.0.0.0` 的 port **不是沒被標記，是被過濾掉了**，而那一段叫「the ground truth」。
-
-#### 🔴 而測試把錯誤分類寫成了規格
-
-修法上線後**第一次真的跑**就把 systemd-resolved 的 `127.0.0.53%lo` 標成暴露——**127/8 全是 loopback**。
-測試沒抓到，**因為它就是那個錯誤的來源**：為了「測暴露偵測器不該製造暴露」，
-fixture 挑了 `127.0.0.2`，然後斷言它**會**被標記。
-
-> **一個為了安全而挑的 fixture，把一個錯誤的分類固定成了規格。**
-
-⇒ **解法是別用 socket**：分類是字串的純函數 ⇒ 抽成 `addr_is_loopback`／`listener_level`，
-**用表格測**（127/8、`::1`、帶 scope 的 `::1%lo` 對上 `0.0.0.0`／`[::]`／LAN）。
-不開任何 port，而且涵蓋到 socket fixture **構不到**的形式。
-🔑 **標記分兩級**：🔴 只留給「lab VM 對外轉發」，本機 sshd 這種給中性註記——
-**一個會對正常系統狀態發警報的標記，人會學會跳過它，而跳過的時機正好是它該有用的時候。**
-
-📌 **一個等價變異照實記**：`%iface` 剝除在全 IPv4 案例下是多餘的（`127.*` 這個 glob 本來就吃得下後綴）
-⇒ 加 `::1%lo` 進表格才讓它可殺。**把等價變異當成覆蓋率的洞處理，不要記成「殺不掉，算了」。**
-
-**三個變異都親自看過紅**：拿掉 `stop` 的守衛（＝08-31 之前的真實狀態）→ 3 紅、
-給唯讀的 `vms` 加守衛 → 2 紅、弄壞解析器 → 8 紅且控制組明說「以上全部空過」。
-
-**49 → 56（G11／G12，由 mainDev 實用時找到）**：`destroy` 只刪 disk/seed/pid/monitor，
-**留著 `OWNER` 與 `CONFIG`** ⇒ `vms` 繼續列出一顆磁碟已不存在的 VM，連 port 都標著。
-**下一個人讀到的是一個幽靈佔用。**
-
-🔑 **更值得記的是它的收尾訊息**：舊版只講「base image 留著」——**那是真的，所以才更誤導**。
-
-> **一份揭露了一個殘留的報告，會被讀成殘留的完整清單。**
-
-⇒ 現在它**列舉實際還剩什麼**；`vms` 對沒有磁碟的目錄標 `no disk` 不再列成佔用。
-三個變異看過紅：還原 `destroy` → 2 紅、連 base image 一起刪 → 2 紅、`vms` 分支寫成無條件 → 1 紅。
-
-🔑 **兩個測試自己先錯了，方向相反**：`vms` 那格設了 `VM_DIR` 而 `vms` glob 的是 `$HOME`
-⇒ **fixture 從沒被掃到，紅得毫無意義**；base image 那個變異則**一直「存活」到我去查為止**——
-我的注入只斷言了「目標字串存在」，沒斷言**改到正確的那一處**（同一字串在 `create` 裡也有）。
-⇒ **斷言存在不等於斷言注入成功。**
-
-🔑 **測試自己也是受測物**：第一版拿「內容不是 qcow2 的文字檔」當「讀不到」的 fixture，
-**但 `qemu-img` 會把它猜成 raw，而 raw 就是零個快照 ⇒ 讀成功、空的** ⇒ **那個測試對舊的壞碼
-也會過**。改用 `chmod 000` 的真 qcow2 才真的紅。
-
-🔑 **路徑一律相對於腳本自己**。寫絕對路徑的 harness 測的是那個路徑上的副本——一旦
-repo 與 `~/.local/` 各有一份，**測到的就不是讀者剛 checkout 的那一份**。
-
-## 不在這裡的東西
-
-- `ndtwin-bootstrap.sh` / `ndtwin-lab.server8`：**server8 專用**，而那台的部署已凍結。
-  留在 `~/.local/share/ndtwin-remote/`，等處置裁決下來再決定去留。
-- **機器位址**：`rlab` 只認 ssh 別名（`nslab`、`cc2`、`gw`、`gw2`），位址在 `~/.ssh/config`。
-  這個 repo 有**公開的上游**，而那些位址是 DHCP 給的、只在 VPN 內解析得到。
-- **任何憑證**。這批腳本從不持有密碼或金鑰；唯一要密碼的是 `ndtwin-virt-root.sh`，
-  由**人**自己 `sudo` 跑。
+- **The surface, not the guards that happen to exist.** `MUTATING` and `READONLY` are two written
+  lists of verbs, and a structural check (G10) asserts them against the dispatch of `ndtwin-vm.sh`
+  itself. The population is derived by parsing the `case` labels of the real script (G10a), so a
+  new verb is red until someone decides which list it belongs to; the parser has its own control
+  (it must find the known `destroy` and `vms`).
+- **`keep` and `adopt`** (G13, G14, G15): the `KEEP` marker is written by hand in the test rather
+  than by `keep`, so a broken writer cannot make the reader's test green. `adopt` derives its
+  working point and directory from a real process's argv, and the stand-in processes include a
+  form of `-drive`/`hostfwd` that the tool itself never produces.
+- **Port and exposure classification** (G16): table-driven tests of the loopback classifier,
+  without opening any socket.
+- **`destroy`** takes the registry entry with it, and `vms` shows a directory without a disk as
+  "leftover files only, not a VM" instead of as an occupancy (G11, G12).
+- **Process identity** (G17): a VM is recognised by `exe`; the test keeps one process whose argv merely
+  says `qemu-system-x86_64` as a negative control, which must not be counted.
 
 [Co-developed with claude code -- Adam]

@@ -1,10 +1,4 @@
-> **Unverified.** These examples are a vendor-syntax reference from an early baseline of the project. They were never checked against the current code, and no code depends on them. Treat them as an external syntax memo, not as a description of how NDTwin behaves. <!-- [Co-developed with claude code -- Adam] -->
-
-> ⚠️ **Baseline 時期的廠商語法參考，未對現況查證。**
-> 最後實質更新 2026-01-02，且 repo 內目前**沒有任何檔案引用它**。內容是OVS (Open vSwitch) 的 flow entry 語法範例，
-> 保留的理由是 kernel 確實還在跟這類設備對話（`FlowLinkUsageCollector` 有 `sampleType == 3`
-> 的 HPE 分支），但**這份文件本身沒有人對照過現在的程式碼**。當作外部語法備忘看，不要當作
-> 本專案行為的依據。
+> **Unverified.** These examples are a vendor-syntax reference from an early baseline of the project (last substantive update 2026-01-02), covering Open vSwitch flow-entry syntax. They have not been checked against the current code, and no code depends on them. They are kept because the kernel still talks to this kind of device (`FlowLinkUsageCollector` has an HPE branch for sFlow `sampleType == 3`). Treat them as an external syntax memo, not as a description of how NDTwin behaves. <!-- [Co-developed with claude code -- Adam] -->
 
 
 -----
