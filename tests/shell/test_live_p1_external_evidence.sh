@@ -145,9 +145,9 @@ for i, (ex, which, key) in enumerate(order):
     if o.get("noshas") != key:
         prog = "advanced_tunnel" if ex == "p4runtime" else "flowcache"
         js = o.get("json_" + key, {"p4rt_skel": "ef1adeee9e769f26", "p4rt_sol": "ef1adeee9e769f26", "fc_sol": "6156e996ba5c3ec4"}[key])
-        md += ["| 執行檔 | sha256[:16] | --version |", "|---|---|---|",
+        md += ["| Executable | sha256[:16] | --version |", "|---|---|---|",
                f"| `/usr/local/bin/p4c-bm2-ss` | `{o.get('p4c', '226f3f66df515c9e')}` | Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) |", "",
-               "| 產物 | bytes | sha256[:16] |", "|---|---|---|",
+               "| Output | bytes | sha256[:16] |", "|---|---|---|",
                f"| `/h/tutorials/exercises/{ex}/build/{prog}.json` | 27957 | `{js}` |",
                f"| `/h/tutorials/exercises/{ex}/build/{prog}.p4.p4info.txtpb` | 2285 | `4d986039017abeef` |", ""]
     md += ["### 3. N3  ndt up p4 --app", "```"]
@@ -171,7 +171,7 @@ for i, (ex, which, key) in enumerate(order):
     md += ["", "### 7. P1  h1 ping h2 with the controller running", "```", "$ ping -c 5 -W 2 10.0.2.2", "```",
            "```", "5 packets transmitted, 5 received, 0% packet loss, time 4005ms", "```", ""]
     if True:
-        md += ["## 8. 完整 transcript", "", "### stdout", "```",
+        md += ["## 8. Full transcript", "", "### stdout", "```",
                f"   controller pid {ctl_pid[key]} (handed to the generic cell; stopped after it)", "```", ""]
     if o.get("report_is_dir") == key:
         os.makedirs(paths[key])

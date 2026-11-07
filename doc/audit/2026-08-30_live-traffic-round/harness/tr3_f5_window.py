@@ -11,10 +11,10 @@ This probe puts rungs in between.
 WHAT IT MEASURES, AND WHAT IT CANNOT
     It polls GET /ndt/get_switch_openflow_table_entries as fast as the kernel will answer, so its
     RESOLUTION IS THE REQUEST LATENCY -- and the northbound API serialises one request at a time
-    (memory: northbound-api-serialises), so a poll is not free: this instrument competes with the
+    (the northbound API serialises requests), so a poll is not free: this instrument competes with the
     very dispatch queue whose window it is timing. Both are reported. A window shorter than the
     measured inter-sample gap is recorded as "< gap", never as a number.
-    🔑 memory: instrument-must-not-mimic-its-own-finding -- a ladder shorter than the thing it
+    🔑 an instrument must not mimic its own finding -- a ladder shorter than the thing it
     measures. Here the ladder's rungs are request latencies and they are printed next to the
     answer so nobody has to take the resolution on trust.
 
@@ -150,7 +150,7 @@ def scan(body, prio, dst=None):
 
     So the rule identity has to be the DESTINATION, which the caller chooses and which survives
     the trip, not the priority, which does not.
-    🔑 memory: grep-endpoints-misses-concatenation -- ask the other side before reporting an
+    🔑 a grep for endpoints misses concatenated paths -- ask the other side before reporting an
     absence. An instrument keyed on a field the system rewrites reports absence with total
     confidence, and "never programmed" is a far more exciting sentence than "programmed at a
     different priority", which is exactly why it needed checking.
@@ -254,7 +254,7 @@ def main():
             # A staggered, IRREGULAR inter-rep delay. If the phantom's lifetime is set by a
             # PERIODIC flush rather than by queue depth, then evenly spaced reps can alias with
             # that period and produce a fake constant. Varying the spacing decorrelates the POST's
-            # phase within any cycle. (memory: arithmetic-that-fits-is-not-the-mechanism -- a
+            # phase within any cycle. (arithmetic that fits is not the mechanism -- a
             # distribution that fits a periodic story has to be given a chance to refute it.)
             if rep:
                 time.sleep(1.7 * (rep % 5))

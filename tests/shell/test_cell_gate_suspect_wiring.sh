@@ -7,7 +7,7 @@
 # The lifetime version of cpu_gate.py (2026-09-01) added `suspect` and `unattributed_cores` to
 # every record. The reader in lib_e.sh kept reading verdict= and excess= and nothing else, so a
 # GREEN beside 3.6 unattributed cores was logged as a quiet cell. That is the downstream half of
-# KNOWN-ISSUES "CPU 汙染閘門有三個洞": the gate's arithmetic was one hole, the reader that took
+# the former known issue "the CPU-contamination gate has three holes": the gate's arithmetic was one hole, the reader that took
 # verdict= for the total was the one that made it invisible.
 #
 # Case 3 is the one that matters most in the long run. A record with NO suspect field comes from

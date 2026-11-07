@@ -680,7 +680,7 @@ class ThinShell(ServeCase):
         self.assertEqual((job["rc"], job["rc_class"]), (7, "unknown"))
 
     def test_output_is_kept_byte_for_byte(self):
-        blob = bytes(range(256)) * 1200 + "中文 🔴\n".encode()
+        blob = bytes(range(256)) * 1200 + "中文 🔴\n".encode()  # CJK and emoji: multi-byte UTF-8 test data
         self.s.behave(down={"stdout_hex": blob.hex(), "stderr": "only stderr\n"})
         job = self.s.run_job("/down")
         self.assertEqual(job["stdout_bytes"], len(blob))
@@ -696,7 +696,7 @@ class ThinShell(ServeCase):
         """ndt cuts claim notes with `cut -c1-72`, which counts bytes, so a
         multi-byte character can be cut in half. The JSON answer shows it with U+FFFD; the bytes
         are kept and can be fetched back by the read's id."""
-        cut = "claim note 中文".encode()[:-1] + b"\n"
+        cut = "claim note 中文".encode()[:-1] + b"\n"  # two 3-byte CJK characters; the last is cut in half
         self.s.behave(status={"stdout_hex": cut.hex(), "stderr": "e\n"})
         st, j, _, _ = self.s.get("/status")
         self.assertIn("\ufffd", j["stdout"])

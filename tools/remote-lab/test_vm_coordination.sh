@@ -120,7 +120,7 @@ expect "GREEN-- a purpose+date tag is allowed" 1 "snapshot failed" \
 
 echo "=== G8  the working point survives a restart (2026-08-31 silent downgrade) ==="
 mkdir -p "$T/e"; : > "$T/e/disk.qcow2"; printf 'x' > "$T/e/disk.qcow2"
-expect "RED  -- existing VM, no CONFIG, warns before booting" 1 "工作點來自 built-in default" \
+expect "RED  -- existing VM, no CONFIG, warns before booting" 1 "its working point comes from the built-in default" \
     env NDT_OWNER=sessionA VM_DIR="$T/e" SSH_PORT=34570 bash "$VM" start
 if grep -q '^cpus=12' "$T/e/CONFIG" 2>/dev/null; then
     echo "  ✅ and it recorded what it actually used"; pass=$((pass+1))
@@ -130,7 +130,7 @@ fi
 printf 'cpus=16\nmem=16384\ndisk=120G\nport=34570\n' > "$T/e/CONFIG"
 expect "GREEN-- CONFIG is honoured with no env vars"  1 "16 vCPU, 16384MiB" \
     env NDT_OWNER=sessionA VM_DIR="$T/e" SSH_PORT=34570 bash "$VM" start
-expect "GREEN-- and the warning is gone"              1 "CONFIG（這顆 VM 上次跑的工作點）" \
+expect "GREEN-- and the warning is gone"              1 "CONFIG (the working point this VM last ran with)" \
     env NDT_OWNER=sessionA VM_DIR="$T/e" SSH_PORT=34570 bash "$VM" start
 expect "GREEN-- an explicit env var still overrides"  1 "8 vCPU, 4096MiB" \
     env NDT_OWNER=sessionA VM_DIR="$T/e" SSH_PORT=34570 VM_CPUS=8 VM_MEM=4096 bash "$VM" start
@@ -176,7 +176,7 @@ echo "=== G7  the suspension table: refuses the suspended, lets the unpaused pas
 # refusals cannot be tested in the direction that matters: that it lets the right
 # things past. 2026-08-31 exercised both directions for real: the VM host was paused in
 # the afternoon and unpaused the same evening once its usage rules landed.
-expect "RED  -- a suspended machine is refused"  4 "遠端機器先不要用" \
+expect "RED  -- a suspended machine is refused"  4 "do not use the remote machines for now" \
     env bash "$RLAB" suspended server8
 expect "RED  -- and it names who and when"       4 "the lab maintainers, 2026-08-31" \
     env bash "$RLAB" suspended server8
@@ -694,7 +694,7 @@ kill "$OUTS" "$INS" "$OTHR" 2>/dev/null; wait "$OUTS" "$INS" "$OTHR" 2>/dev/null
 
 echo
 echo "=== G16 the host address in hostfwd is a security property, not a format quirk ==="
-# 開機手冊 found this: qemu's `hostfwd=tcp:[hostaddr]:port-` has an OPTIONAL host address,
+# The boot-manual session found this: qemu's `hostfwd=tcp:[hostaddr]:port-` has an OPTIONAL host address,
 # and omitting it binds EVERY interface. They had written `hostfwd=tcp::PORT-` on every
 # VM that evening, so their forwards were on 0.0.0.0, into a guest with a password login,
 # on the lab network. My parser matched the literal `127.0.0.1:` this script writes -- so

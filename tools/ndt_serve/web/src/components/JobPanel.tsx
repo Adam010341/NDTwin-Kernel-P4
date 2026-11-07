@@ -1,9 +1,9 @@
 // [Co-developed with claude code -- Adam]
 // One job, opened from the job table, from a write's answer or from a walk step. It sits below the
-// tabs, so a job started in 操作, Apps or 驗證格 shows its log where it was started; there is one
+// tabs, so a job started in the Actions, Apps or Cells tab shows its log where it was started; there is one
 // panel, so its element ids (v1's: job, job-id, job-close, job-rows, job-stdout, job-stderr) are
 // unique. The log is useJobLog's: every 2 s while the job runs, never while hidden, and not after
-// 關閉.
+// the panel is closed.
 import { useTranslation } from "react-i18next";
 import type { JobLog } from "../hooks/useJobLog";
 import { BTN_SECONDARY, CARD, PRE, WARN_TEXT } from "../lib/ui";

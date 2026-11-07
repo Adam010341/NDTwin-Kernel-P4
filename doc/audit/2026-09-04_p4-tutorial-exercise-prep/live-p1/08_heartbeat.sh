@@ -46,7 +46,7 @@
 #       still measured). 🔴 THE KERNEL'S GRAPH IS NOT THE READING HERE: no exercise controller runs
 #       in H4, so no pipeline is loaded and the twin holds these switches down (03's 2026-09-18
 #       reading). What the exercise's own evidence does with the heartbeat running is H5's 06
-#       against a same-session CONTROL without the heartbeat (README, "合併前的比對"), by
+#       against a same-session CONTROL without the heartbeat (the pre-merge comparison), by
 #       external_evidence.py -- not against 074635Z, which ran other code (5dc7fc9a + 95 uncommitted
 #       files) and has no venv fingerprint.
 #   H5  (PART=h5, separately: it runs 06 and 01, which claim the lab per step) live-p1/06 ONCE
@@ -197,7 +197,7 @@ consts() {
 #: What 06 is reconciled against (H5). [Co-developed with claude code -- Adam] 09-27: the round on
 #: the protobuf 5 venv with no heartbeat on the external arms (its rc and verdict columns are
 #: 185505Z's, arm for arm). For the external detect-only comparison set it to the same session's
-#: control C1 instead (README "合併前的比對"): 074635Z ran other
+#: control C1 instead (the pre-merge comparison): 074635Z ran other
 #: code (5dc7fc9a + 95 uncommitted files) and recorded no venv.
 OLD_06="${OLD_06:-$LIVE_DIR/runs/2026-09-27T074635Z_06_thirteen}"
 #: The 06 arms that bring up a foreign fabric with an inter-switch link, i.e. the ones `ndt up p4

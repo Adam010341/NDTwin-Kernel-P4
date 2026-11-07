@@ -1,5 +1,5 @@
 // [Co-developed with claude code -- Adam]
-// A cell's old/ (修前紀錄) or new/ (修好當晚) fixture, as the cell's own judge reads it: its ASSERT
+// A cell's old/ (the record from before the fix) or new/ (the record from the night it was fixed) fixture, as the cell's own judge reads it: its ASSERT
 // rows, its CELL: line, and -- for old/ -- whether the failing set is the reviewed EXPECTED-FAILS,
 // the PROVENANCE.md and the fixture-gap note. A raw file opens below it. v1's element ids.
 import { useState } from "react";

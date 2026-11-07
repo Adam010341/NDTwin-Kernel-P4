@@ -171,7 +171,7 @@ class HttpRoutingStrategyBase : public IRoutingStrategy
      * every existing executeCommand() override -- including the one in test_RoutingStrategies.cpp
      * -- compiling, silently unused, and no longer intercepting anything, so the tests would start
      * running real curl against localhost while still passing. Removing the old name makes that a
-     * compile error instead. See MEMORY [[existence-is-not-wiring]].
+     * compile error instead.
      */
     virtual utils::CommandOutcome executeArgv(const std::vector<std::string>& argv);
 

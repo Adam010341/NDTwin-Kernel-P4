@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-f5_dst_sequence.py -- PREREG-F5 【TBD-1】: the install sequence, verbatim.
+f5_dst_sequence.py -- PREREG-F5 [TBD-1]: the install sequence, verbatim.
 
 [Co-developed with claude code -- Adam]
 
 WHAT THE REGISTRATION ASKS FOR.  §3: "N = 60 installs per arm (churn-driven and explicit POSTs
-mixed; the sequence is frozen first: interleaved dst, no repeats)".  【TBD-1】 then names the dst
+mixed; the sequence is frozen first: interleaved dst, no repeats)".  [TBD-1] then names the dst
 list itself as the thing still to be written down.
 
 WHY A GENERATOR RATHER THAN A LITERAL LIST, AND WHY IT IS STILL "VERBATIM".
@@ -67,7 +67,7 @@ def main():
     seq = sequence(a.n, a.base, a.first_octet, a.stride)
 
     # Assert the two properties the registration names, here, rather than trusting the arithmetic.
-    # memory/injections-must-assert-their-own-success: the generator that quietly produced 59
+    # an injection must assert its own success: the generator that quietly produced 59
     # distinct addresses would look exactly like the one that produced 60.
     if len(set(seq)) != a.n:
         raise SystemExit(f"REFUSE: {a.n - len(set(seq))} repeated address(es) in the sequence")

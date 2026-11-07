@@ -30,7 +30,7 @@ THE FORCE-RED, AND WHY IT IS SHAPED LIKE THIS.
 BOTH ASSERTIONS ARE MADE, IN THIS ORDER, AND EITHER ONE FAILING STOPS THE ROUND:
     1. the SOURCE cell must already be ratio-green.  A force-red built from an already-red cell
        proves nothing -- the gate would have gone red without the injection.
-       (memory/injections-must-assert-their-own-success: a deletion leaves a hole, but a rename
+       (an injection must assert its own success: a deletion leaves a hole, but a rename
        leaves a plausible wrong answer, quietly.)
     2. the PRODUCED cell must be ratio-red.  If it is not, the gate cannot detect a 20% loss and
        every green reading in the round is uninformative.

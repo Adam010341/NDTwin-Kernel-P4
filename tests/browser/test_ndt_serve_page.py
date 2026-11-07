@@ -25,7 +25,7 @@ the server and the stub ndt recorded -- never from the page's word alone where t
                  that dry run                                                            Confirm
   auto-refresh   10 s while shown and idle; no tick while measuring, while a measurement is
                  declared, or while the page is hidden (a second target really hides it), and a
-                 read as soon as it is shown again; 立即更新 while measuring keeps the pause;
+                 read as soon as it is shown again; refresh-now while measuring keeps the pause;
                  during a measuring pause a probe reads /measuring alone once a minute (`ndt
                  status --measuring`, never /lab), and the one that reads nothing measuring and
                  nothing declared brings the tick back; shown again while measuring, one probe
@@ -685,22 +685,22 @@ class Refresh(PageCase):
         self.assertEqual(after, before, "the page read %r in %d s while %s (before %r)" % (after, QUIET_S, why, before))
         self.assertEqual(hook(p, "refresh"), "paused-measuring")
         if refresh_now_while_measuring:
-            # 立即更新 reads everything once (the four reads, not the probe), and a read that is still
+            # refresh-now reads everything once (the four reads, not the probe), and a read that is still
             # measuring keeps the pause
             p.click("refresh-now")
             want = {k: v + (k != "measuring") for k, v in after.items()}
             until(lambda: self.tick_reads() == want, 5)
-            self.assertEqual(self.tick_reads(), want, "立即更新 did not read everything once")
+            self.assertEqual(self.tick_reads(), want, "refresh-now did not read everything once")
             self.pause(REFRESH_S + 1)
             self.assertEqual((self.tick_reads(), hook(p, "refresh")), (want, "paused-measuring"),
-                             "立即更新 while still measuring brought the 10 s tick back")
-        # back to the 10 s tick: 立即更新 (here) or the probe (test_a_measuring_pause_probes_measuring_alone),
+                             "refresh-now while still measuring brought the 10 s tick back")
+        # back to the 10 s tick: refresh-now (here) or the probe (test_a_measuring_pause_probes_measuring_alone),
         # and only once nothing measures
         self.stub(status=IDLE)
         n = self.tick_reads()["lab"]
         p.click("refresh-now")
         p.wait_for("document.body.dataset.refresh === 'running'", 10)
-        self.assertEqual(self.tick_reads()["lab"], n + 1, "立即更新 read /lab other than once")
+        self.assertEqual(self.tick_reads()["lab"], n + 1, "refresh-now read /lab other than once")
 
     def test_refresh_stops_while_measuring(self):
         self.paused_by_the_lab(MEASURING, "ndt status said measuring", refresh_now_while_measuring=True)
@@ -762,8 +762,8 @@ class Refresh(PageCase):
         self.assertEqual(hook(p, "refresh"), "paused-measuring")
 
     def test_a_declared_pause_is_resumed_by_the_probe(self):
-        # The r2 review's test 5: a pause on a DECLARED measurement (measuring nothing) ends at the
-        # probe that reads no declaration -- not only at 立即更新.
+        # A pause on a DECLARED measurement (measuring nothing) ends at the
+        # probe that reads no declaration -- not only at refresh-now.
         self.stub(status=DECLARED)
         p = self.load()
         self.assertEqual(hook(p, "refresh"), "paused-measuring", "precondition: a declaration pauses the page")

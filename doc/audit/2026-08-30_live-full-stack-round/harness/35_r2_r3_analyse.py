@@ -22,7 +22,7 @@ WHAT IT REPORTS, AND WHAT EACH LINE IS ALLOWED TO SUPPORT
   2. Change intervals of the flowPath a consumer reads.
         For each flow key, the times at which its path digest changed.  Reported as a
         distribution, not a mean: a ~60 s mode is the refresh thread
-        (memory: destination-paths-not-monotonic, ceiling ~60 s) and must not be read as the
+        (a known ~60 s ceiling on destination-path refreshes) and must not be read as the
         recompute rate.
 
   3. The decimation table -- what a consumer polling at cadence C would have observed.
@@ -35,7 +35,7 @@ WHAT IT REPORTS, AND WHAT EACH LINE IS ALLOWED TO SUPPORT
         R-2 changed an internal recompute rate.  Nothing here observes that rate.  The strongest
         honest statement available is about what a consumer could see.  "No consumer-visible
         difference" is a claim about consumers; it is not a claim that the recompute happens at
-        1 Hz.  memory: claim-verb-decides-the-evidence.
+        1 Hz.  the verb of a claim decides which evidence it needs.
 
 H-CORRESPONDENCE
     H-17/H-22  no processes involved.
@@ -238,8 +238,8 @@ def main():
             near60 = sum(1 for x in allint if 50 <= x <= 70)
             print("  intervals in [50,70] s: %d (%.0f%%)  <- if this dominates, you are seeing"
                   % (near60, 100.0 * near60 / len(allint)))
-            print("     the refresh thread's ~60 s ceiling (memory: destination-paths-not-")
-            print("     monotonic), NOT the recompute rate.  Its downgrade condition is")
+            print("     the refresh thread's known ~60 s ceiling,")
+            print("     NOT the recompute rate.  Its downgrade condition is")
             print("     'non-empty', not 'converged', so 99.8%% of the time it looks converged.")
             sub1 = sum(1 for x in allint if x < 1.0)
             print("  intervals < 1 s: %d  <- anything here is faster than R-2's 1 Hz and needs"

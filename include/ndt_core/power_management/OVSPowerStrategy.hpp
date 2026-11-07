@@ -199,8 +199,8 @@ protected:
      * ⚠️ The commands this runs are new `sudo -n ovs-vsctl` argv shapes. A NOPASSWD allowlist is
      * argv-pattern scoped, so `list-ports` being permitted says nothing about `get bridge`. A
      * denial arrives on stderr with a non-zero status and must come back as nullopt, never as an
-     * empty state -- that is the same "counted 0 from an empty stream" trap the memory file
-     * `injections-must-assert-their-own-success` records as its eighth form.
+     * empty state -- that is the same "counted 0 from an empty stream" trap (an injection
+     * must assert its own success).
      */
     virtual std::optional<SflowBridgeState> executeReadSflowState(const std::string& br);
 

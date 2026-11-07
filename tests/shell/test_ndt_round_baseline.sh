@@ -35,8 +35,8 @@
 #
 # The value was still printed in the configuration section. What vanished was the WARNING, at
 # the moment the knob held the value that changes the most behaviour. Two guards, one flawed
-# signal: not redundant, blind together. (MEMORY: "the clean version is the one you have to go
-# back and check".)
+# signal: not redundant, blind together. (the clean version is the one you have to go
+# back and check.)
 #
 # 🔴 THREE DIRECTIONS, because "warn about the knob" has wrong answers that look like fixes:
 #   * warn whenever the value is not 4 -- group 3 is the 128-host round that is SUPPOSED to be

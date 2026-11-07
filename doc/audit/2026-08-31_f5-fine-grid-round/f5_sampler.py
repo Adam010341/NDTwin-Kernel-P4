@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-f5_sampler.py -- PREREG-F5 【TBD-2】: the sampler.  One install, ten grid points, two instruments
+f5_sampler.py -- PREREG-F5 [TBD-2]: the sampler.  One install, ten grid points, two instruments
                  per point, and every quantity the registration says must be recorded per point.
 
 [Co-developed with claude code -- Adam]

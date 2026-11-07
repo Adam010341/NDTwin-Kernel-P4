@@ -5,7 +5,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # A test nobody has seen fail is not delivered. Each mutation below reintroduces one of the three
-# holes the 2026-09-01 lifetime change closed (KNOWN-ISSUES "CPU 汙染閘門有三個洞"), or disables
+# holes the 2026-09-01 lifetime change closed (a former known issue: the CPU-contamination gate had three holes), or disables
 # one of the reporting guards that make the fix legible, and names the case that must go red.
 # A mutation that SURVIVES means that case is decorative.
 #

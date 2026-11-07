@@ -898,7 +898,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
                         
                         if (util > 100.0) lossRate = 5.0 + (util - 100.0) * 0.5; 
                         else if (util > 90.0) lossRate = (util - 90.0) * 0.1;   
-                        else lossRate = 0.0; // 正常
+                        else lossRate = 0.0; // normal
 
                     }
 

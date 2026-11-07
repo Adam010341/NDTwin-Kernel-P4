@@ -39,7 +39,7 @@ set -uo pipefail
 # mutate a shared checkout that several sessions have uncommitted work in. The anchor check
 # happens to refuse there (a tree without these changes has none of the anchors), but "it would
 # have failed anyway" is not a protection, and the next anchor to become common to both trees
-# removes it. CLAUDE.md's shared-worktree rule is the reason this is an abort and not a warning.
+# removes it. The shared-worktree rule (never sweep another session's uncommitted changes) is the reason this is an abort and not a warning.
 OWN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" # tests/shell/ -> the worktree root
 cd "$(git rev-parse --show-toplevel)" || exit 2
 if [[ "$PWD" != "$OWN_ROOT" ]]; then

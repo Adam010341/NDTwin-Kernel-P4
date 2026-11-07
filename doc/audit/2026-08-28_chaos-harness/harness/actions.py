@@ -128,7 +128,7 @@ def _c01_apply(dry: bool) -> ActionResult:
     signature is "success, suspiciously fast". An unrouted request is also fast. So
     `_c01_verify` timed a request that never reached the power code, measured 0.0069 s, and
     reported *"fast path reached"* -- the instrument's own failure mode is byte-identical to
-    the defect it hunts (`instrument-must-not-mimic-its-own-finding`). The pre-state capture,
+    the defect it hunts (an instrument must not mimic its own finding). The pre-state capture,
     the restore path and the `setsid` were all correct precautions around an action that was
     inert.
 

@@ -1,5 +1,5 @@
 // [Co-developed with claude code -- Adam]
-// 實驗室: what `ndt status` says right now -- the claim, measuring and declared rows verbatim, the
+// The Lab tab: what `ndt status` says right now -- the claim, measuring and declared rows verbatim, the
 // server's two readings of them (claim_is_yours, measuring_is_nothing), the slot, when it was read,
 // the whole report, and the ndt_drift warning from /health. Read by the auto-refresh.
 import { useTranslation } from "react-i18next";

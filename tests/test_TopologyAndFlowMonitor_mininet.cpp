@@ -118,7 +118,7 @@ struct MininetTopologyFixture
 
 // [Co-developed with claude code -- Adam]
 // Spec source: the P4 support plan, issue #4 —
-// "node 和 edge 初始都是 false"
+// "nodes and edges are all false initially" (originally written in Chinese)
 TEST(MininetTopologyTest, AfterLoadingTopologyAllVerticesAndEdgesAreDisabled)
 {
     MininetTopologyFixture fix;

@@ -353,7 +353,7 @@ preflight() {
     # F-5 writes doc/audit/*/raw/LAB-NOT-RESTORED when it exits with a non-production kernel.
     # Until now that file had THREE WRITERS AND ZERO READERS -- /usr/local/sbin/ndtwin-lab does
     # not mention it, nor does ndt -- so "fatal to hand over the lab carrying it" did not exist
-    # anywhere in code.  existence-is-not-wiring, again; and it was WORSE than what it replaced,
+    # anywhere in code.  existence is not wiring, again; and it was WORSE than what it replaced,
     # because an unread file looks like added protection.
     #
     # 🔑 The check belongs HERE, on the victim, not on the polluter, for two reasons:
@@ -806,7 +806,7 @@ bringup() {   # $1 = NDTWIN_SFLOW_BATCH value for this cell
 }
 
 # 🔴 The batching value has to be shown to have REACHED the emitter, not merely to have been
-# exported.  memory: an env var whose reader does not exist is this repo's most-repeated bug
+# exported.  An env var whose reader does not exist is this repo's most-repeated bug
 # shape, and NDTWIN_CLONE_DISABLE shipped a committed setter, committed docs and zero readers.
 # GET /sflow/stats answers with the value the emitter is actually holding, and 503s (never zeros)
 # if the emitter was not injected.
@@ -896,7 +896,7 @@ swap_kernel() {   # $1 = 1khz | 1hz
     want=$(sed -n 's/^sha256=//p' "$src.provenance" 2>/dev/null | head -1)
     got=$(sha256sum "$KBIN" | cut -d' ' -f1)
     [[ -n "$want" ]] || abort "swap_kernel" "$src has no .provenance recording its sha256.
-        An unidentified binary cannot be an arm -- benchmark-must-name-the-binary-it-measured."
+        An unidentified binary cannot be an arm -- a benchmark must name the binary it measured."
     [[ "$want" == "$got" ]] || abort "swap_kernel" "arm '$which': staged sha256 $want != in-place $got"
     # Negative control on the identification itself: if the two arms hash the same, the build did
     # not pick up the one-line change and both 'arms' are one arm under two names.
@@ -1045,7 +1045,7 @@ restore_production() {
 # -------------------------------------------------------------------------------------------------
 # #14 -- AN INVARIANT ACROSS A RESTART.
 # run_e8:67 compared edge count before and after a proxy restart and shouted "telemetry
-# multiplication trap may have fired" (memory: proxy-restart-warm-fabric-multiplies-telemetry).
+# multiplication trap may have fired" (restarting the proxy on a warm fabric multiplies telemetry).
 # This round rebuilds the fabric EVERY CELL and registered no before/after check at all.
 # The topology is identical by construction across cells, so a changed edge count means the
 # rebuild did not reproduce the fabric -- and every ceiling reading is per-fabric.
@@ -1217,7 +1217,7 @@ except Exception: print('')" 2>/dev/null)
     # two more fields in the record: suspect, and unattributed_cores -- the CPU the gate could NOT
     # put a name to, which is exactly where a window full of short-lived processes ends up.  This
     # function used to read verdict= and excess= and stop, so a GREEN beside 3.6 unattributed
-    # cores was recorded as a quiet cell (KNOWN-ISSUES "CPU 汙染閘門有三個洞": the defect was
+    # cores was recorded as a quiet cell (a former known issue, "the CPU-contamination gate has three holes": the defect was
     # never in the gate's arithmetic, it was in the reader that took verdict= for the total).
     #
     # suspect is deliberately not a fourth exit code and is NOT an abort here: the verdict still

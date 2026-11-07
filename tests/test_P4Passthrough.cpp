@@ -1744,7 +1744,7 @@ TEST_F(P4PassthroughSession, TheWriteCarriesTheLabClaimOnTheKernelsOwnRefusalsTo
 
 TEST_F(P4PassthroughSession, ANonAsciiNoteReachesTheHeaderAsAsciiAndParsesBackUnchanged)
 {
-    ClaimFile claim("\xe6\xb8\xac\xe8\xa9\xa6 upgrade"); // "測試 upgrade" in UTF-8
+    ClaimFile claim("\xe6\xb8\xac\xe8\xa9\xa6 upgrade"); // "upgrade" preceded by the two-character Chinese word for "test" (U+6E2C U+8A66), in UTF-8
     FakeProxy proxy;
     LiveKernel kernel(s_bmv2, proxy.hostAndPort(), kSessionDeadlines);
     const auto res = call(kernel.port(), "POST", "/ndt/p4/table_entry", R"({"dpid":1})");
@@ -2029,7 +2029,7 @@ TEST_F(P4PassthroughSession, AnOversizedClaimNoteIsCutInTheHeaderAndTheProxysAns
     std::string cjk = "note:";
     for (int i = 0; i < 70000; ++i)
     {
-        cjk += "\xe6\xb8\xac"; // 測
+        cjk += "\xe6\xb8\xac"; // U+6E2C, a three-byte CJK character
     }
     for (const std::string& note : {std::string(70000, 'n'), cjk})
     {

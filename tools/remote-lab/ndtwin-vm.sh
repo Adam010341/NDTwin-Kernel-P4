@@ -61,8 +61,8 @@ KEEPF="$VM_DIR/KEEP"
 # ⇒ env var (explicit intent) > CONFIG (what this VM has been running as) > built-in.
 cfg_get() { [ -f "$CFG" ] && awk -F= -v k="$1" '$1==k{print $2; exit}' "$CFG" || true; }
 
-if   [ -n "${VM_CPUS:-}${VM_MEM:-}" ]; then WP_SRC="env（顯式指定）"
-elif [ -f "$CFG" ];                   then WP_SRC="CONFIG（這顆 VM 上次跑的工作點）"
+if   [ -n "${VM_CPUS:-}${VM_MEM:-}" ]; then WP_SRC="env (explicitly set)"
+elif [ -f "$CFG" ];                   then WP_SRC="CONFIG (the working point this VM last ran with)"
 else                                       WP_SRC="built-in default"; fi
 
 VM_USER="${VM_USER:-ndt}"
@@ -304,7 +304,7 @@ claim_guard() {  # claim_guard <verb> -- call before anything that mutates this 
     [ "$who" = unset ] && die "NDT_OWNER is not set -- refusing to touch $VM_DIR.
    Every VM on a shared host must name the session that owns it:
        NDT_OWNER=<session> $0 $1
-   (same rule as every ndt command; see CLAUDE.md)"
+   (same rule as every ndt command; see 'The guards' in tools/remote-lab/README.md)"
 
     if [ -f "$OWNERF" ]; then
         cur=$(owner_of "$VM_DIR")
@@ -333,7 +333,7 @@ claim_write() {  # record the claim; called once the VM dir really exists
     mkdir -p "$VM_DIR"
     if [ ! -f "$OWNERF" ]; then
         printf 'owner: %s\nsince: %s\nport:  %s\nnote:  %s\n' \
-            "$(me)" "$(date -Is)" "$SSH_PORT" "${VM_NOTE:-（未填 -- 用 VM_NOTE= 說明用途）}" \
+            "$(me)" "$(date -Is)" "$SSH_PORT" "${VM_NOTE:-(not given -- set VM_NOTE= to say what this VM is for)}" \
             > "$OWNERF"
     else
         # Ownership unchanged, but the port can move between runs and a stale port in
@@ -355,8 +355,8 @@ snaps_list() {
     # Two fixes, and the second matters more than the first:
     #   -U (force-share) actually reads the list while the VM runs.
     #   "could not read" and "there are none" are printed as DIFFERENT things. Collapsing
-    #   them is what turned a lock into a false fact -- see memory/failures-that-report-
-    #   success: the report was not an error, it was a confident wrong answer.
+    #   them is what turned a lock into a false fact: the report
+    #   was not an error, it was a confident wrong answer.
     local out rc
     [ -f "$IMG" ] || { say "  🔴 no disk at $IMG"; return 1; }
     out=$(qemu-img snapshot -l -U "$IMG" 2>&1); rc=$?
@@ -478,15 +478,15 @@ start)
     # comes back up on built-in defaults is a DIFFERENT machine, and nothing else in
     # the system will ever say so.
     if [ "$WP_SRC" = "built-in default" ] && [ -s "$IMG" ]; then
-        say "⚠️  這顆 VM 已經存在，但工作點來自 built-in default（${VM_CPUS} vCPU / ${VM_MEM} MiB）。"
-        say "    上一次是多少沒有紀錄（沒有 $CFG）⇒ 它可能正被無聲地縮小或放大。"
-        say "    要固定就顯式指定一次：VM_CPUS=… VM_MEM=… $0 start（之後會記住）"
+        say "⚠️  This VM already exists, but its working point comes from the built-in default (${VM_CPUS} vCPU / ${VM_MEM} MiB)."
+        say "    What it ran with last time was not recorded (no $CFG) => it may be silently shrunk or enlarged."
+        say "    To pin it, set it explicitly once: VM_CPUS=... VM_MEM=... $0 start (it is remembered afterwards)"
     fi
     cfg_write
     rm -f "$PIDF" "$MON"
     mkdir -p "$VM_DIR"
     say "--- booting: ${VM_CPUS} vCPU, ${VM_MEM}MiB, ssh on 127.0.0.1:${SSH_PORT} ---"
-    say "    工作點來源: $WP_SRC   （記在 $CFG）"
+    say "    working point source: $WP_SRC   (recorded in $CFG)"
     # setsid so the VM outlives this ssh session; -daemonize so we get the shell back.
     setsid qemu-system-x86_64 \
         -name ndtwin-lab-vm \

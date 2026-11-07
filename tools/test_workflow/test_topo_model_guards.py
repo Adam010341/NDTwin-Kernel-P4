@@ -52,7 +52,7 @@ print("baseline must still pass")
 expect_ok("unmodified 4-host model parses", lambda: (T.switches(base), T.switch_links(base),
                                                      T.hosts(base), T.host_links(base)))
 
-print("G3 -- two switches sharing a dpid")
+print("two switches sharing a dpid")
 dup = copy.deepcopy(base)
 sw = [n for n in dup["nodes"] if n.get("vertex_type") == 0]
 sw[1]["dpid"] = sw[0]["dpid"]
@@ -64,7 +64,7 @@ host_edge = next(e for e in dbl["edges"] if e.get("src_dpid") and not e.get("dst
 dbl["edges"].append(copy.deepcopy(host_edge))
 expect_ok("duplicate host edge still ignored", lambda: T.host_links(dbl))
 
-print("G1 / G5 -- the NDTWIN_P4_TOPO_FILE path")
+print("the NDTWIN_P4_TOPO_FILE path")
 sys.path.insert(0, os.path.join(REPO, "p4_proxy", "mininet"))
 os.environ["NDTWIN_P4_HOST_NUM"] = "4"
 import p4_testbed_topo as P  # noqa: E402

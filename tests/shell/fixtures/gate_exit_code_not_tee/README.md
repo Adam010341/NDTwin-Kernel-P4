@@ -9,7 +9,7 @@ so in any worktree, clone or CI checkout the gate had no data: `UNRUNNABLE (no r
 rc 2 -- and case 2, which expects rc 2, passed for that wrong reason.
 
 These two files are MADE, not copied (the first cut's first row had the real trace's `t` and `tx`,
-1787658157.534 and 3302 -- the opus judge's N3 on d2a9d641; since 09-27 `t` starts at 1700000000.0
+1787658157.534 and 3302 -- noticed on d2a9d641; since 09-27 `t` starts at 1700000000.0
 and the counter at 0, every row shifted by the same amount, so the ratio is unchanged). Their shape
 is the real trace's (`git show
 audit-raw:doc/audit/2026-08-20_sampling-rate-and-cpu/raw/t008_poll_twin.jsonl`, sha256 295ab0d4…):

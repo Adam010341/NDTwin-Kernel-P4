@@ -155,7 +155,7 @@ namespace
  * The exit status is checked before the output is looked at, deliberately. A `sudo -n` that is
  * refused writes its complaint to stderr, exits non-zero and leaves stdout completely empty --
  * so a caller that parses first cannot tell "the switch said no sFlow" from "the command never
- * ran". That is the eighth form in the memory file `injections-must-assert-their-own-success`:
+ * ran". That is the injection-must-assert-its-own-success trap:
  * an assertion that never executed looks exactly like one that executed and answered negative.
  */
 std::optional<std::string>
@@ -327,7 +327,7 @@ OVSPowerStrategy::restoreSflow(const std::string& swName, const SflowBridgeState
     // exits 0 says the transaction was accepted, not that this bridge now samples: the record
     // could be attached to nothing, or the agent could still have no address. This project has
     // twice shipped a change whose only evidence was an exit code and twice been wrong about it
-    // (see memory injections-must-assert-their-own-success, forms 5 and 6), so the assertion
+    // (an injection must assert its own success), so the assertion
     // here reads the state back through the same seam that saved it.
     const auto after = executeReadSflowState(swName);
     if (!after)

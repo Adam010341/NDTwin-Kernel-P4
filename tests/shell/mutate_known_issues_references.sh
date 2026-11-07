@@ -158,10 +158,10 @@ if [[ ! -f "$T1/tests/python/test_known_issues_references.py" ]]; then
     echo "🔴 the tree copy is missing the file under test -- commit or 'git add -N' first" >&2
     exit 2
 fi
-STALE="doc/$KI:1679"
+STALE="doc/$KI:1679"   # M1 fixture below: a citation by heading, no line number (accepted); M1 makes it a stale line number
 M1_FIX="$T1/doc/m1-citation-fixture.md"
 printf '%s\n' '# M1 fixture' '' \
-    'The rebuild recipe of the kernel in production is tracked in KNOWN-ISSUES〈生產線在跑的那顆 kernel 的重建配方〉.' \
+    'The rebuild recipe of the kernel in production is tracked in KNOWN-ISSUES "Rebuild recipe of the kernel that production runs".' \
     > "$M1_FIX"
 if ! run_against "$TEST" "$T1" >/dev/null 2>&1; then
     echo "🔴 the tree copy is RED with the M1 fixture before any mutation -- M1 would prove nothing" >&2
@@ -169,7 +169,7 @@ if ! run_against "$TEST" "$T1" >/dev/null 2>&1; then
     exit 2
 fi
 if ! apply_exact "$M1_FIX" \
-        'KNOWN-ISSUES〈生產線在跑的那顆 kernel 的重建配方〉'$'\x1f'"\`$STALE\`"; then
+        'KNOWN-ISSUES "Rebuild recipe of the kernel that production runs"'$'\x1f'"\`$STALE\`"; then
     echo "  🔴 M1 could not be applied -- the citation it puts back is not where it was" >&2
     SURVIVORS=$((SURVIVORS + 1)); MUTATIONS=$((MUTATIONS + 1))
 else
@@ -236,7 +236,7 @@ report "M11: one colon, one space each side, and nothing else" "$m" "$REPO" \
        "test_each_spelling_of_a_wrong_line_is_reported"
 
 m=$(mutant m12 '    r"|[ \t]*第?[ \t]*(?=\d+(?:[ \t]*(?:" + _KI_JOIN + r")[ \t]*\d+)*[ \t]*行)"'$'\x1f''    r"|[ \t]*[第行][ \t]*"')
-report "M12 (widening): a 行 row label is read as a line number" "$m" "$REPO" \
+report "M12 (widening): a row label with the Chinese line marker is read as a line number" "$m" "$REPO" \
        "test_a_row_label_is_not_a_line_number"
 
 # --- M13-M14: the BARE-CODE half (2026-09-11) ----------------------------------------------
