@@ -5,7 +5,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: KNOWN-ISSUES G-26, run for real 2026-09-11 00:5x.
+# Source: FIXED-ISSUES G-26, run for real 2026-09-11 00:5x.
 #   F12  help said `no 'ndt up' has run in THIS checkout. 3 is never "checked and matched"`,
 #        while check_up_target's own comment three thousand lines away says that sentence is a
 #        statement about HISTORY and is false after every ordinary up->down. One file, two

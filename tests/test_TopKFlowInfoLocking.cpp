@@ -3,7 +3,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * ## What was wrong (KNOWN-ISSUES §E-2, fixed 2026-09-01)
+ * ## What was wrong (FIXED-ISSUES §E-2, fixed 2026-09-01)
  *
  * The function opened with `shared_lock lock(m_flowInfoTableMutex);` one line above a call to
  * getFlowInfoJson(), which opens with the same acquisition. Recursively acquiring a
@@ -20,8 +20,9 @@
  *
  * The fix is a deletion: nothing out there needed protecting. getFlowInfoJson() returns a freshly
  * built array and every line after it works on that local copy. Deleting the outer lock also
- * moved the std::sort out of the critical section, which is the second half of the KNOWN-ISSUES
- * note -- the section used to grow O(n log n) in the size of the flow table.
+ * moved the std::sort out of the critical section, which is the second half of the latent item
+ * recorded with it (FIXED-ISSUES E-2) -- the section used to grow O(n log n) in the size of the
+ * flow table.
  *
  * ## 🔴 What this file does NOT test, said out loud
  *

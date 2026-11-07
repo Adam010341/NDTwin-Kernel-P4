@@ -1,6 +1,6 @@
 /**
  * @file test_PowerManagerShutdown.cpp
- * @brief KNOWN-ISSUES B-5: the kernel aborts on its own shutdown path.
+ * @brief FIXED-ISSUES B-5: the kernel aborts on its own shutdown path.
  *
  * [Co-developed with claude code -- Adam]
  *

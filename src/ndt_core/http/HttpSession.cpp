@@ -189,7 +189,7 @@ HttpSession::handleRequest()
 //
 // [Co-developed with claude code -- Adam]
 //
-// doc/KNOWN-ISSUES.md G-32. Measured 2026-09-11 02:01:16-02:02:45: a loop firing
+// doc/FIXED-ISSUES.md G-32. Measured 2026-09-11 02:01:16-02:02:45: a loop firing
 // install_flow_entry and delete_flow_entry every two seconds got 200 through the second in which
 // its OWN claim expired, and went on getting 200 after a different owner took the claim, until
 // that owner tore the kernel down and the writes started answering 000. Neither end was told the
@@ -392,7 +392,7 @@ HttpSession::buildResponse()
             handleLinkRecovery(*response);
         }
         // [Co-developed with claude code -- Adam]
-        // doc/KNOWN-ISSUES.md B-6. Separate routes from the two above, not a parameter on them:
+        // doc/FIXED-ISSUES.md B-6. Separate routes from the two above, not a parameter on them:
         // the notification ("Ryu saw this fail") and the injection ("make this fail") are
         // different acts with different authority, and only one of them may run tc. Folding them
         // into one endpoint would mean a controller's routine notification could cut a link.
@@ -621,7 +621,7 @@ HttpSession::buildResponse()
         SPDLOG_LOGGER_ERROR(Logger::instance(), "Unknown exception in request handler.");
     }
 
-    // [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md G-32, option C. The single
+    // [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md G-32, option C. The single
     // exit, so the mark reaches the refusals and the catch clauses above as well as the 200s.
     // It runs after those catch clauses, so it catches for itself and never throws.
     attachLabClaimIfWrite(*response);
@@ -713,7 +713,7 @@ HttpSession::noteLabClaimChange(const std::string& state,
 
     SPDLOG_LOGGER_WARN(Logger::instance(),
                        "lab claim changed under a write endpoint: was {}, now state={} owner='{}' "
-                       "expires={}. Nothing was refused -- see doc/KNOWN-ISSUES.md G-32; the "
+                       "expires={}. Nothing was refused -- see doc/FIXED-ISSUES.md G-32; the "
                        "reply carries the same answer in its lab_claim object, and POST "
                        "/ndt/p4/table_entry in its X-NDTwin-Lab-Claim header",
                        was,
@@ -839,7 +839,7 @@ HttpSession::closeSocket()
 }
 
 // [Co-developed with claude code -- Adam]
-// doc/KNOWN-ISSUES.md B-6. The four link-transition endpoints address a link by the two
+// doc/FIXED-ISSUES.md B-6. The four link-transition endpoints address a link by the two
 // dpids at its ends, and the shared refusal they all owe a caller who names dpid 0.
 namespace
 {
@@ -849,7 +849,7 @@ namespace
  *        four endpoints can act on.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-6 and F-16: host edges are not addressed by this endpoint (decided
+ * doc/FIXED-ISSUES.md B-6 and F-16: host edges are not addressed by this endpoint (decided
  * 2026-09-06). A host vertex carries dpid 0, and findEdgeBySrcAndDstDpid matches on the two
  * dpids ALONE -- so `{"src_dpid":1,"dst_dpid":0}` resolves to whichever host edge of s1 the graph
  * happens to iterate first. Three separate things are wrong with letting that through and only the
@@ -915,7 +915,7 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
         return;
     }
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-6. Not setEdgeDown: this is the push path, and calling the observation
+    // doc/FIXED-ISSUES.md B-6. Not setEdgeDown: this is the push path, and calling the observation
     // writer from it is the defect -- the graph could not then tell "an operator told us this link
     // failed" from "the poll's own opinion", so the next updateLinks lifted it back. See
     // TopologyAndFlowMonitor.hpp for the writer split.
@@ -1085,7 +1085,7 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
         return;
     }
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-6. It used to be
+    // doc/FIXED-ISSUES.md B-6. It used to be
     // `clearEdgeDeclaredDown(e); setEdgeUp(e);` -- an unconditional withdrawal, which made a Ryu
     // restart end every standing injection in the fabric (measured 2026-09-07 00:08: within
     // one second of Ryu coming back the kernel logged a recovery POST for every link, and the
@@ -1131,7 +1131,7 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     const auto logged = retained ? RecoveryLogOutcome::Retained : RecoveryLogOutcome::Withdrawn;
     logLinkRecoveryOutcome(logged, srcDpid, srcInterface, dstDpid, dstInterface);
 
-    // doc/KNOWN-ISSUES.md B-6. Still 200 -- the notification WAS processed, and Ryu's
+    // doc/FIXED-ISSUES.md B-6. Still 200 -- the notification WAS processed, and Ryu's
     // on_link_add logs "NDT REJECTED this notification ... the kernel's view is now stale" on any
     // 4xx, which would be false here and would fire once per link on every controller restart.
     // But 200 with the default body would be the older, worse lie: a caller reading only the
@@ -1151,7 +1151,7 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
 }
 
 // [Co-developed with claude code -- Adam]
-// doc/KNOWN-ISSUES.md B-6. The two inject endpoints. Shared helpers first.
+// doc/FIXED-ISSUES.md B-6. The two inject endpoints. Shared helpers first.
 namespace
 {
 
@@ -1254,7 +1254,7 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     const std::string dstIface = mininetIfaceFor(graph, data->dstDpid, data->dstInterface);
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-16, second finding (2026-09-11, 2 reproductions of 2). This was a loop
+    // doc/FIXED-ISSUES.md B-16, second finding (2026-09-11, 2 reproductions of 2). This was a loop
     // that called cutInterface once per end and CARRIED ON past a refusal: with somebody else's
     // netem already on s1-eth1, that end was refused, `netem loss 100%` really went onto s5-eth1,
     // and the reply was 200 `"status":"link failure injected"` with both directions declared. Loss
@@ -1335,7 +1335,7 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
     }
 
     // [Co-developed with claude code -- Adam]
-    // 🔴 doc/KNOWN-ISSUES.md B-16 (2026-09-11, 3 reproductions of 3). THE WIRE IS READ BEFORE
+    // 🔴 doc/FIXED-ISSUES.md B-16 (2026-09-11, 3 reproductions of 3). THE WIRE IS READ BEFORE
     // ANYTHING IS WRITTEN, and that ordering is the fix rather than a tidiness. What this endpoint
     // used to do, in this order, was: withdraw the declaration unconditionally, then `tc qdisc del`
     // whatever netem the tree happened to show. For a link nobody had declared down, carrying
@@ -1592,7 +1592,7 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
              {"is_enabled", e.isEnabled && !e.adminDisabled},
              {"admin_disabled", e.adminDisabled},
              // [Co-developed with claude code -- Adam]
-             // doc/KNOWN-ISSUES.md F-16. Host-facing edges can now read is_up=false, which they
+             // doc/FIXED-ISSUES.md F-16. Host-facing edges can now read is_up=false, which they
              // could not before -- /ndt/link_failed is keyed on two dpids and a host has none --
              // so a consumer needs to be able to tell an injected link failure ("none") from the
              // twin's own inference that the switch behind this edge is gone
@@ -1611,7 +1611,7 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
 }
 
 // [Co-developed with claude code -- Adam]
-// KNOWN-ISSUES B-x. The API's own default lives here rather than in the collector, so that
+// FIXED-ISSUES B-x. The API's own default lives here rather than in the collector, so that
 // changing what the endpoint returns is one line in one place and no in-repo caller of
 // getFlowInfoJson() is dragged along with it.
 //
@@ -1687,7 +1687,7 @@ HttpSession::handleGetDetectedTopKFlowData(http::response<http::string_body>& re
     }
 
     // [Co-developed with claude code -- Adam]
-    // KNOWN-ISSUES B-x, second half. The same default as the flow-data endpoint, because the
+    // FIXED-ISSUES B-x, second half. The same default as the flow-data endpoint, because the
     // measured harm here is worse: at the churn working point the default k = 50 was returning
     // ~45 rows of rate-0 corpses, and median 4 of the top 10 rows were ended flows. The document
     // calls this endpoint "Top-K active flows" (doc/2026-01-02_ndt_api.md:2395); with this
@@ -1719,7 +1719,7 @@ static const char* const kWhySwitchOutcomeUnknown =
     "a count of jobs whose plane's reply is not evidence about any switch. On the OVS/OpenFlow "
     "plane that is every job and always will be until a barrier read-back exists: OpenFlow does "
     "not acknowledge a FLOW_MOD, so Ryu's 200 is emitted before any switch has adjudicated "
-    "anything (doc/KNOWN-ISSUES.md C-4). On the P4 plane the proxy programs the entry before "
+    "anything (doc/FIXED-ISSUES.md C-4). On the P4 plane the proxy programs the entry before "
     "replying, so its answer lands in accepted_by_switch or rejected_by_switch. This bucket is "
     "NOT derived from counters.dispatched_ok and must not be read as one: a dispatch that "
     "succeeded is still unknown at the switch here";
@@ -1824,7 +1824,7 @@ HttpSession::respondToDispatchStatusRequestId(http::response<http::string_body>&
 }
 
 // [Co-developed with claude code -- Adam]
-// Answers KNOWN-ISSUES A-7. install_flow_entry replies `queued` and says per-entry outcomes go to
+// Answers FIXED-ISSUES A-7. install_flow_entry replies `queued` and says per-entry outcomes go to
 // the kernel log; this is where a program can read what the log was told.
 //
 // Served straight off the dispatcher's own counters, deliberately NOT through
@@ -2350,7 +2350,7 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     }
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md C-7. A strict delete naming a priority, on a bmv2 switch, against a
+    // doc/FIXED-ISSUES.md C-7. A strict delete naming a priority, on a bmv2 switch, against a
     // match that compiles to ipv4_lpm, is refused by the P4 proxy whatever the switch holds (501,
     // `priority not honourable on this table`) -- and it used to be queued first, so the caller was
     // told 200 "queued" for a delete that could not happen (2152 of 2152 in the 2026-09-11 run).
@@ -2376,7 +2376,7 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "refusing {} of {} delete entries before queueing: each names a "
                            "priority on a bmv2 switch for a destination-only match, which the P4 "
-                           "proxy refuses (ipv4_lpm has no priority column; KNOWN-ISSUES C-7)",
+                           "proxy refuses (ipv4_lpm has no priority column; FIXED-ISSUES C-7)",
                            p4Refused,
                            dels.size());
     }
@@ -2827,7 +2827,7 @@ HttpSession::handleReceivedSimulationCase(http::response<http::string_body>& res
     const auto dispatch = m_simulationRequestManager->requestSimulation(m_req.body());
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-4. These four lines used to be three: 202 Accepted, unconditionally,
+    // doc/FIXED-ISSUES.md B-4. These four lines used to be three: 202 Accepted, unconditionally,
     // with the return value of requestSimulation() pasted into a hand-built JSON string. Two
     // separate defects sat in that.
     //
@@ -3365,7 +3365,7 @@ HttpSession::handleGetPathSwitchCount(http::response<http::string_body>& res)
 // holds 1024 entries per switch in MyIngress.ipv4_lpm and hands the caller 896 of them once the
 // fabric's own host routes are counted (measured 2026-09-06). The smallest catalogue number was
 // 3.4x the truth, and past the real ceiling the write path answered HTTP 200 with
-// {"status":"error"} (KNOWN-ISSUES C-6; a 502 since that was fixed, still with no reason bmv2
+// {"status":"error"} (FIXED-ISSUES C-6; a 502 since that was fixed, still with no reason bmv2
 // would give), so planning against the catalogue ends in a wall.
 //
 // The numbers and their provenance are assembled in ofcapacity:: -- see

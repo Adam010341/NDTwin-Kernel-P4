@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-The defect (KNOWN-ISSUES G-3, confirmed live 2026-09-02).
+The defect (FIXED-ISSUES G-3, confirmed live 2026-09-02).
 `_c07` was a positive control for B-3 -- "historical_logging answers enabled and writes zero
 rows" -- built out of three ingredients, each fatal on its own:
 

@@ -3,7 +3,7 @@ When this proxy wrote each rule, and the one entry key both sides are required t
 
 [Co-developed with claude code -- Adam]
 
-KNOWN-ISSUES G-13. A bmv2 table entry has no age. P4Runtime's TableEntry carries a match, an
+FIXED-ISSUES G-13. A bmv2 table entry has no age. P4Runtime's TableEntry carries a match, an
 action, a priority and (with a direct counter) byte and packet counts -- and nothing that says
 when it was installed. So `ryu_flow_stats` had nothing to put in `duration_sec`/`duration_nsec`
 and emitted 0/0 for every rule, which the kernel serves verbatim through

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_ryu_rest_topology_bounded.py (KNOWN-ISSUES A-2, item 2).
+# Mutation gate for tests/python/test_ryu_rest_topology_bounded.py (FIXED-ISSUES A-2, item 2).
 #
 # [Co-developed with claude code -- Adam]
 #

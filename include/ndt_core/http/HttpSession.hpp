@@ -55,7 +55,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     /**
      * @brief What the two flow-listing endpoints return when no `liveness` parameter is supplied.
      *
-     * [Co-developed with claude code -- Adam] KNOWN-ISSUES B-x.
+     * [Co-developed with claude code -- Adam] FIXED-ISSUES B-x.
      *
      * Public, and in the header, so that flipping it back is one visible line AND so a test can
      * pin it. Pinning a constant is a weak test in the sense that it restates a decision -- the
@@ -171,7 +171,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      */
     std::shared_ptr<http::response<http::string_body>> buildResponse();
 
-    // [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md G-32, decided
+    // [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md G-32, decided
     // 2026-09-11. The northbound writes report what the lab claim says and log the
     // moment it changes; they do NOT refuse anything. The measurement, the format of the file
     // and the reason the path comes from NDT_LAB_CLAIM_FILE are all in the anonymous namespace
@@ -233,7 +233,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * @brief Declares a link failed AND makes it true on the wire, where the twin can.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-6. `/ndt/link_failure_detected` is a NOTIFICATION: Ryu saw a link go
+     * doc/FIXED-ISSUES.md B-6. `/ndt/link_failure_detected` is a NOTIFICATION: Ryu saw a link go
      * down and is telling the twin. This endpoint is the other direction -- the caller wants the
      * link to BE down, which is what a fault-injection round means by "inject". Same payload, and
      * it does everything link_failure_detected does; on a MININET deployment it additionally
@@ -314,7 +314,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     /**
      * @brief Reads the `liveness` query parameter shared by both flow-listing endpoints.
      *
-     * [Co-developed with claude code -- Adam] KNOWN-ISSUES B-x.
+     * [Co-developed with claude code -- Adam] FIXED-ISSUES B-x.
      *
      * @param[out] res    On a rejected value, filled with 400 and a diagnostic body.
      * @param[out] filter The API default when the parameter is absent, otherwise the parsed value.
@@ -364,7 +364,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * switch on a worker thread afterwards. When the switch refuses a rule, the outcome was
      * written to `kernel.log` and nowhere else -- no counter, no endpoint, no field in any
      * response -- so a caller, a contract test and a dashboard all saw a healthy system
-     * (KNOWN-ISSUES A-7). This endpoint is the read side of that: totals since start, plus the
+     * (FIXED-ISSUES A-7). This endpoint is the read side of that: totals since start, plus the
      * most recent failures with dpid, match, controller status and reason.
      *
      * Unlike the other GET handlers on this class it is **not** served from a periodically

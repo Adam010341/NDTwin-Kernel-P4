@@ -276,7 +276,7 @@ mutate_must_die \
     '            cpu = 10 + (std::hash<std::string>{}(ip_str) % 50);'
 
 # --- M2: the memory endpoint invents a figure again --------------------------------------------
-# Byte-identical to M1's expression on the same seed -- which is the half of F-1 the KNOWN-ISSUES
+# Byte-identical to M1's expression on the same seed -- which is the half of F-1 the FIXED-ISSUES
 # entry names, and the reason the two endpoints answered the same body.
 mutate_must_die \
     "M2 memory-map-refabricates" \
@@ -294,7 +294,7 @@ mutate_must_die \
     '            temp = 25 + (std::hash<std::string>{}(ip_str) % 25);'
 
 # --- M4: the fourth copy, on the Intent Translator's per-device path ---------------------------
-# The one doc/KNOWN-ISSUES.md's F-1 entry does not name. It must red a DIFFERENT test from M1: if
+# The one doc/FIXED-ISSUES.md's F-1 entry does not name. It must red a DIFFERENT test from M1: if
 # it reds CpuReportsUnavailableForEverySwitch instead, the per-device path is not separately
 # covered and a future edit could fix the map endpoints while leaving this one fabricating.
 # Two-line anchor; uniqueness is asserted on the comment line, which is unique on its own (the

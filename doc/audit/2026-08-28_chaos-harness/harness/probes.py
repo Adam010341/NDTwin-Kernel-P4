@@ -9,7 +9,7 @@ under test and this codebase has twelve documented "fails while reporting succes
      because the status is not in the return value at all. (`02`'s INV-06 says
      "Do NOT check HTTP codes"; `04` §5.3 generalises it to everything.)
 
-     🔴 NARROWED 2026-09-03, KNOWN-ISSUES G-3. Rule 1 was written against one failure --
+     🔴 NARROWED 2026-09-03, FIXED-ISSUES G-3. Rule 1 was written against one failure --
      "a 200 is not proof the work happened" -- and it is still right about that. What it
      did not say is that the CONVERSE is not symmetric: a 404 IS proof the work did not
      happen, and throwing it away made "the endpoint answered with nothing" and "there is
@@ -77,7 +77,7 @@ class Timeout(Exception):
 class NotAnswered(Exception):
     """The request produced nothing a caller may reason about.
 
-    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-3.
+    [Co-developed with claude code -- Adam] -- FIXED-ISSUES G-3.
 
     Three causes, one meaning: the transfer failed, the kernel answered a non-2xx, or a 2xx
     carried a body that is not JSON. In every one of them the honest answer to "what did the
@@ -172,7 +172,7 @@ def run(argv: list[str], timeout: float = 5.0,
 # 🔴 The table is NOT transcribed here. `tools/contract_test/components.py` already owns the
 # one scanner in this repo that parses the if/else-if chain out of HttpSession.cpp, and it
 # already knows all three registration spellings (`==`, `.starts_with(`, `utils::pathIs(` --
-# the third added 2026-09-03 for KNOWN-ISSUES L-5). A second hand-copy living here would be a
+# the third added 2026-09-03 for FIXED-ISSUES L-5). A second hand-copy living here would be a
 # second thing to rot, and the failure mode of a rotted route table is a harness that refuses
 # routes the kernel serves -- the exact false-negative this guard exists to prevent.
 #
@@ -296,7 +296,7 @@ def _curl(argv: list[str], stdin: str | None = None) -> tuple[int, str, str]:
 def _request(method: str, path: str, base: str, payload: dict | None = None) -> Any | None:
     """One request. Returns the PARSED BODY of a 2xx; raises NotAnswered for anything else.
 
-    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-3.
+    [Co-developed with claude code -- Adam] -- FIXED-ISSUES G-3.
 
     `-w '\\n%{http_code}'` appends the status on its own final line, so the split is on the LAST
     newline and a body containing newlines is still recovered whole. On a failed transfer curl

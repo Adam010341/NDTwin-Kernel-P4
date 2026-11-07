@@ -111,7 +111,7 @@
 # the port is closed it says so and returns BEFORE printing a tally (ndt:5415):
 #
 #     !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
-#     !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+#     !!  this is not 'the lab is clean'. it is 'nobody asked'. (FIXED-ISSUES G-12)
 #
 # So every report taken after `ndt down` -- which is where a round's restore check is taken -- had
 # no tally, and this reader answered UNUSABLE on a machine that six other instruments had just

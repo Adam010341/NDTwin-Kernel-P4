@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/test_StaleTableCarryForward.cpp (KNOWN-ISSUES F-6).
+# Mutation gate for tests/test_StaleTableCarryForward.cpp (FIXED-ISSUES F-6).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -250,7 +250,7 @@ mutate "6. a stale copy no longer yields to a fresh read" \
 
 # 7. The markers are written but the T-11 filter eats them on the way out, so the endpoint serves
 #    a stale table with nothing saying so -- the fix reverted at the last possible moment.
-#    2026-09-04: re-anchored. doc/KNOWN-ISSUES.md B-1's 2026-09-02 review (clause 3) made the
+#    2026-09-04: re-anchored. doc/FIXED-ISSUES.md B-1's 2026-09-02 review (clause 3) made the
 #    caller capture stripUnprogrammedEntries' return value ("const std::size_t withheld = "
 #    prefix); the call itself, and this mutation's target, did not move.
 mutate "7. the T-11 filter rebuilds the switch object and drops the markers" \

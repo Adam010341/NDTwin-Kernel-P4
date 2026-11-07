@@ -30,7 +30,7 @@ Exit code
   3  TOOL-PRECONDITION-FAILED -- this run could not establish what it needed before
      judging, so it makes no claim about the log. Distinct from 1 on purpose: a tool
      must never be able to fail in a way that looks like the system failing
-     (KNOWN-ISSUES A-8). [Co-developed with claude code -- Adam]
+     (FIXED-ISSUES A-8). [Co-developed with claude code -- Adam]
 
 Log format comes from Logger::init in src/utils/Logger.cpp:
   [2026-07-27 10:00:00.123] [info] [File.cpp:123 func] message
@@ -70,7 +70,7 @@ CRASH_PATTERNS = [
      "unhandled exception reached std::terminate"),
     (re.compile(r"terminate called recursively", re.I), "recursive terminate"),
     # [Co-developed with claude code -- Adam]
-    # KNOWN-ISSUES B-5. The third wording, and the one the kernel actually printed: std::terminate
+    # FIXED-ISSUES B-5. The third wording, and the one the kernel actually printed: std::terminate
     # with no exception in flight, which in practice means a joinable std::thread was destroyed.
     # It was missing here, so the abort the kernel raised on every Ctrl-C shutdown would have
     # passed this gate even on the runs whose logs did capture it. The catch-all below covers a
@@ -135,7 +135,7 @@ def colour(enabled):
 
 
 #: A rule kind whose permission is conditional on a fact the operator must state.
-#: [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8.
+#: [Co-developed with claude code -- Adam] -- FIXED-ISSUES A-8.
 #:
 #: The kernel emits "... reported a read failure for switch N -- keeping the previous table"
 #: (DeviceConfigurationAndPowerManager.cpp:1134) *because it is handling a powered-off switch

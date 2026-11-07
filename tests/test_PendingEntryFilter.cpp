@@ -1,5 +1,5 @@
 /**
- * Tests for KNOWN-ISSUES T-11 (option A: the table listing reports only programmed entries).
+ * Tests for FIXED-ISSUES T-11 (option A: the table listing reports only programmed entries).
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -168,7 +168,7 @@ TEST(PendingEntryFilterTest, MalformedShapesAreLeftAloneRatherThanThrowing)
 
 // --- The confirmation signal itself, which is what the predicate reads in production.
 
-// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4.
+// [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md C-4.
 // Renamed, and the two OpResults below now say which kind of success they are. The old name --
 // OnlyASouthboundSuccessConfirmsAToken -- and its bare OpResult::success() together asserted the
 // defect: that any southbound success confirms an entry. That is true on P4, where the proxy
@@ -200,7 +200,7 @@ TEST(ProgrammedTokenTest, OnlyAnAdjudicatingSouthboundSuccessConfirmsAToken)
     EXPECT_TRUE(log.isProgrammed(11));
     EXPECT_FALSE(log.isProgrammed(44))
         << "a plane that answers before its switch adjudicates confirms nothing, however "
-           "successful the answer (KNOWN-ISSUES C-4)";
+           "successful the answer (FIXED-ISSUES C-4)";
     EXPECT_FALSE(log.isProgrammed(22)) << "a refused rule must never be reported as programmed";
     EXPECT_FALSE(log.isProgrammed(33)) << "a token nobody has answered for yet";
     EXPECT_TRUE(log.isProgrammed(0)) << "untokened rows are not the filter's business";

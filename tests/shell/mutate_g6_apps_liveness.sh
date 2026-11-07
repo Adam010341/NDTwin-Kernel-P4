@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_ndt_apps_liveness.sh.  KNOWN-ISSUES G-6.
+# Mutation gate for tests/shell/test_ndt_apps_liveness.sh.  FIXED-ISSUES G-6.
 #
 # [Co-developed with claude code -- Adam]
 #

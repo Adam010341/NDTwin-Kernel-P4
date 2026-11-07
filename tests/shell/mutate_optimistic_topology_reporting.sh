@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for tests/test_OptimisticTopologyReporting.cpp
-# (doc/KNOWN-ISSUES.md §C rows F-4, F-14 and F-16 -- the "twin always reports optimistically"
+# (doc/FIXED-ISSUES.md §C rows F-4, F-14 and F-16 -- the "twin always reports optimistically"
 # family; by code, not by line: the numbers this header carried had all drifted by 2026-09-11).
 #
 # [Co-developed with claude code -- Adam]

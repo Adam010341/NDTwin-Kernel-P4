@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for doc/KNOWN-ISSUES.md B-6 -- a DECLARED link failure must survive the topology
+# Mutation gate for doc/FIXED-ISSUES.md B-6 -- a DECLARED link failure must survive the topology
 # poll, and the poll must go on raising every link nobody declared down.
 #
 # [Co-developed with claude code -- Adam]

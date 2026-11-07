@@ -3,7 +3,7 @@ Tests for check_logs.py's WHEN-POWERED-OFF rule kind.
 
 [Co-developed with claude code -- Adam]
 
-KNOWN-ISSUES A-8. The kernel writes
+FIXED-ISSUES A-8. The kernel writes
 
     [warning] localhost:8081 reported a read failure for switch 5 (...) -- keeping the
     previous table rather than treating it as a switch with no rules

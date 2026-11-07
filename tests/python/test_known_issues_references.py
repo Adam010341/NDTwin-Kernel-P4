@@ -33,10 +33,10 @@ is resolved against `doc/KNOWN-ISSUES.md` AS IT IS IN THE SAME TREE. For each on
   * line n (and m) must fall inside that code's section.
 
 A citation with no code anywhere near it, or one whose line lands in a DIFFERENT entry, is a
-violation and the message says 改成條目代號.
+violation and the message says to cite the entry code.
 
 🔴 It does NOT enforce that a citation carries a line number, and it must not: the whole point
-of the rule is that `KNOWN-ISSUES B-11` alone is the correct citation. What the scanner
+of the rule is that `KNOWN-ISSUES B-9` alone is the correct citation. What the scanner
 guards is the other direction -- if you DO write a line number, it has to be true, and it has
 to say which entry it means.
 
@@ -91,6 +91,7 @@ Run:  p4_proxy/venv/bin/python -m unittest discover -s tests/python \
 import os
 import re
 import shutil
+import signal
 import tempfile
 import unittest
 
@@ -113,7 +114,7 @@ SCAN_DIRS = ("doc", "tests", "tools", "src", "include", "p4_proxy")
 #: does. A rule enforced twice is a rule whose real enforcement point nobody can find.
 TEXT_SUFFIXES = frozenset((
     ".md", ".py", ".sh", ".cpp", ".hpp", ".cc", ".c", ".h", ".txt", ".tsv", ".csv",
-    ".json", ".p4", ".yml", ".yaml", ".cmake", ".cfg", ".ini", ".toml", ".rst",
+    ".json", ".p4", ".yml", ".yaml", ".cmake", ".cfg", ".ini", ".toml", ".rst", ".env",
     ".log", ".diff", ".patch",
 ))
 
@@ -133,7 +134,12 @@ SKIP_DIR_PREFIXES = ("build",)
 #: An entry code as the convention defines it: one uppercase letter, a hyphen, digits, and an
 #: optional lowercase suffix (`A-4c`, `B-2d`). `\b` on both sides so `UTF-8` is not `F-8` and
 #: `RFC-2119` is not `C-2119`.
-CODE_RE = re.compile(r"\b([A-Z]-\d+[a-z]?)\b")
+#:
+#: 🔴 A circled digit may follow (`B-2②` is case 2 of B-2). Python's `\b` counts a circled digit as a
+#: word character, so without this the pattern saw no code in `B-2②` at all and a citation that
+#: mixed an open and a fixed case was never checked. The digit is matched and not captured: the
+#: code is the base, and the citation of the base is what has to land in the right document.
+CODE_RE = re.compile(r"\b([A-Z]-\d+[a-z]?)[\u2460-\u2473]?(?!\w)")
 
 #: A citation by line number. `.md` is OPTIONAL -- the repo spells it both ways (20 of the 62
 #: sites on `1a284f75` dropped the suffix), and a scanner that reads only the longer spelling
@@ -176,6 +182,10 @@ CITATION_RE = re.compile(_KI_DOC + r"(?:" + _KI_LINE_SEP + r")(\d+)"
 #: The document's name on its own, for the bare-code half below.
 DOC_NAME_RE = re.compile(_KI_DOC)
 
+#: The second document's name, spelled the same ways. Only the bare-code half reads it: a
+#: fixed defect's entry has no line-number convention to protect.
+FIXED_DOC_NAME_RE = re.compile(r"FIXED[-_]ISSUES(?:\.md)?")
+
 #: How far after the document's name a code may sit and still be read as a citation BY this
 #: document. 40 characters is about one clause.
 #:
@@ -207,20 +217,45 @@ H2_RE = re.compile(r"^## (?!#)(.*)$")
 FIRST_CELL_RE = re.compile(r"^\|([^|]*)(?:\||$)")
 CELL_IS_CODE_RE = re.compile(r"(?:\W|\s)*([A-Z]-\d+[a-z]?)(?:\s*[（(\[【].*)?")
 
+#: The second document. doc/KNOWN-ISSUES.md lists only OPEN defects; the codes of the
+#: ones that were fixed, were not defects, or were decided against live in doc/FIXED-ISSUES.md.
+#: A code lives in exactly one of the two.
+FIXED_NAME = "FIXED-ISSUES.md"
+FIXED_REL = os.path.join("doc", FIXED_NAME)
+
+#: Floors for the standing checks. Each is a number a parser gone blind cannot reach and an
+#: ordinary edit cannot fall under; the reason is in the message of the case that uses it.
+KI_MIN_CODES = 15
+KI_MIN_LINES = 300
+KI_REQUIRED_CODES = ("A-13", "B-9", "C-4b", "G-39")
+FIXED_MIN_CODES = 80
+FIXED_MIN_LINES = 100
+FIXED_REQUIRED_CODES = ("A-1", "B-2b", "C-6", "G-13")
+
 NO_CODE = "NO-CODE"
 WRONG_ENTRY = "WRONG-ENTRY"
 UNRESOLVABLE_CODE = "UNRESOLVABLE-CODE"
 OUT_OF_RANGE = "OUT-OF-RANGE"
 UNDEFINED_CODE = "UNDEFINED-CODE"
+FIXED_CODE = "FIXED-CODE"
+OPEN_CODE = "OPEN-CODE"
 
 #: The sentence the rule asks for. Kept in one place so the gate can mutate it and the tests
 #: can assert on it without two spellings drifting apart.
-FIX_ADVICE = "改成條目代號"
+FIX_ADVICE = "cite the entry code, not a line number"
 
 #: The other advice: a bare code IS the accepted form, so the fix is never "drop the citation".
 #: Either the document is missing an entry it is being cited for, or the citation names the
 #: wrong code.
-FIX_ADVICE_UNDEFINED = "登記那個代號，或改引到真的條目"
+FIX_ADVICE_UNDEFINED = "register that code, or cite the entry that really exists"
+
+#: A code the open document does not define but the fixed one does: the defect is fixed, and the
+#: citation is still right about WHICH defect -- only the document name is wrong.
+FIX_ADVICE_FIXED = ("that code is defined in doc/FIXED-ISSUES.md (a fixed or partly fixed defect, "
+                    "not a defect, or decided against) -- cite that file instead")
+
+#: The mirror: the fixed document cited for a code that is still open.
+FIX_ADVICE_OPEN = "that code is defined in doc/KNOWN-ISSUES.md, so the defect is open -- cite that file instead"
 
 
 class Violation(object):
@@ -235,7 +270,9 @@ class Violation(object):
         self.actual = actual      # entry the cited line really falls in, or a note
 
     def __str__(self):
-        advice = FIX_ADVICE_UNDEFINED if self.kind == UNDEFINED_CODE else FIX_ADVICE
+        advice = {UNDEFINED_CODE: FIX_ADVICE_UNDEFINED,
+                  FIXED_CODE: FIX_ADVICE_FIXED,
+                  OPEN_CODE: FIX_ADVICE_OPEN}.get(self.kind, FIX_ADVICE)
         return "%s:%d  %-28s claims %-8s %-18s %s -- %s" % (
             self.path, self.line, self.raw, self.claimed or "(none)", self.kind,
             self.actual, advice)
@@ -378,7 +415,7 @@ def mentions_the_document(text):
     and both halves of the scan go through it (2026-09-11): a filter two scanners spell
     separately is two filters.
     """
-    return "KNOWN" in text
+    return "KNOWN" in text or "FIXED" in text
 
 
 def defined_codes(text):
@@ -393,8 +430,10 @@ def defined_codes(text):
     return codes
 
 
-def bare_code_citations(text):
-    """(line_no, raw, code) for every citation of the shape <this document> <CODE>.
+def bare_code_citations(text, name_re=DOC_NAME_RE):
+    """(line_no, raw, code) for every citation of the shape <the document> <CODE>.
+
+    `name_re` picks the document: DOC_NAME_RE for the open one, FIXED_DOC_NAME_RE for the other.
 
     Only the first code inside the window counts, and the window is bounded on purpose --
     see BARE_CODE_WINDOW. A citation that also carries a line number is handled by
@@ -403,7 +442,7 @@ def bare_code_citations(text):
     """
     out = []
     for idx, line in enumerate(text.splitlines(), 1):
-        for m in DOC_NAME_RE.finditer(line):
+        for m in name_re.finditer(line):
             window = line[m.end():m.end() + BARE_CODE_WINDOW]
             cm = CODE_RE.search(window)
             if cm is None:
@@ -412,19 +451,30 @@ def bare_code_citations(text):
     return out
 
 
+def read_defined_codes(root, rel):
+    """The codes one of the two documents defines. Raises if it is missing: a scan that could
+    not read what it compares against is not a clean scan."""
+    path = os.path.join(root, rel)
+    if not os.path.isfile(path):
+        raise IOError("%s is not in %s -- nothing to check citations against" % (rel, root))
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        return defined_codes(fh.read())
+
+
 def scan_tree_bare_codes(root):
-    """(violations, files_read) -- the bare-code half of the scan.
+    """(violations, files_read) -- the bare-code half of the scan, for both documents.
 
     A second walk rather than a second return value from scan_tree(): that function's
     (violations, stats) contract is asserted by a dozen cases and mutated by nine of the
     gate's mutations, and widening it to carry this would put every one of them at risk for
     no gain. The walk is the same iter_files() and costs a fraction of a second.
+
+    A citation of the open document must name a code the open document defines; a code that
+    only the fixed document defines gets its own verdict (the defect is fixed, cite that
+    file). The fixed document's citations are held to the mirror of that rule.
     """
-    ki_path = os.path.join(root, KI_REL)
-    if not os.path.isfile(ki_path):
-        raise IOError("%s is not in %s -- nothing to check citations against" % (KI_REL, root))
-    with open(ki_path, encoding="utf-8", errors="replace") as fh:
-        codes = defined_codes(fh.read())
+    known = read_defined_codes(root, KI_REL)
+    fixed = read_defined_codes(root, FIXED_REL)
 
     violations, scanned = [], 0
     for rel in iter_files(root):
@@ -440,12 +490,34 @@ def scan_tree_bare_codes(root):
         if not mentions_the_document(text):
             continue
         for line_no, raw, code in bare_code_citations(text):
-            if code in codes:
+            if code in known:
+                continue
+            if code in fixed:
+                violations.append(Violation(
+                    rel, line_no, raw, code, FIXED_CODE,
+                    "%s is defined in %s, not in %s" % (code, FIXED_NAME, KI_NAME)))
                 continue
             violations.append(Violation(
                 rel, line_no, raw, code, UNDEFINED_CODE,
                 "%s is neither an entry nor a sub-entry of %s" % (code, KI_NAME)))
+        for line_no, raw, code in bare_code_citations(text, FIXED_DOC_NAME_RE):
+            if code in fixed:
+                continue
+            if code in known:
+                violations.append(Violation(
+                    rel, line_no, raw, code, OPEN_CODE,
+                    "%s is defined in %s, not in %s" % (code, KI_NAME, FIXED_NAME)))
+                continue
+            violations.append(Violation(
+                rel, line_no, raw, code, UNDEFINED_CODE,
+                "%s is neither an entry nor a sub-entry of %s" % (code, FIXED_NAME)))
     return violations, scanned
+
+
+def codes_in_both(root):
+    """The codes defined in BOTH documents. There must be none: a code that lives in two places
+    leaves every citation of it a coin toss about which file is the truth."""
+    return read_defined_codes(root, KI_REL) & read_defined_codes(root, FIXED_REL)
 
 
 def is_text_file(name):
@@ -453,6 +525,25 @@ def is_text_file(name):
     if suffix in VERBATIM_SUFFIXES:
         return False
     return suffix in TEXT_SUFFIXES
+
+
+def is_shebang_script(path):
+    """A file with no suffix whose first two bytes are `#!`: `ndt`, `ndtwin-lab` and the like.
+
+    The suffix list alone never reached them, and they print codes to users. A file with no
+    suffix and no shebang is still not read (a build product, a data file).
+    """
+    if os.path.splitext(path)[1]:
+        return False
+    # Only a regular file may be opened: opening a named pipe that sits in a scanned directory
+    # would block the whole walk, and a symlink is not read anywhere else in this scan either.
+    if os.path.islink(path) or not os.path.isfile(path):
+        return False
+    try:
+        with open(path, "rb") as fh:
+            return fh.read(2) == b"#!"
+    except OSError:
+        return False
 
 
 def iter_files(root):
@@ -471,7 +562,7 @@ def iter_files(root):
                 and not d.startswith(SKIP_DIR_PREFIXES)
                 and not os.path.islink(os.path.join(dirpath, d)))
             for name in sorted(filenames):
-                if is_text_file(name):
+                if is_text_file(name) or is_shebang_script(os.path.join(dirpath, name)):
                     yield os.path.relpath(os.path.join(dirpath, name), root)
 
 
@@ -546,6 +637,21 @@ FAKE_KI = "\n".join([
 ]) + "\n"
 
 
+# The stand-in for doc/FIXED-ISSUES.md. B-5 and C-6 are defined here and NOT in FAKE_KI, so a
+# citation of either against the open document is exactly the "fixed code, wrong document" case.
+FAKE_FIXED = "\n".join([
+    "# Fixed and closed defects",    # 1
+    "",                              # 2
+    "## Letter B",                   # 3
+    "",                              # 4
+    "| code | what was wrong | status | where |",   # 5
+    "|---|---|---|---|",             # 6
+    "| B-5 | something | fixed | x.cpp |",           # 7
+    "| C-6 | something else | fixed | y.cpp |",      # 8
+    "",                              # 9
+]) + "\n"
+
+
 def cite(n, m=None, with_md=True):
     """Build a citation. Never written as a literal anywhere in this repo's tests, because
     tests/ is inside the scanned tree and a literal here would be a finding about itself."""
@@ -559,6 +665,15 @@ def bare(code, with_md=False):
     the fixture below cites a code that deliberately does not exist."""
     return "%s%s %s" % ("KNOWN-ISSUES", ".md" if with_md else "", code)
 
+
+def fbare(code, with_md=False, underscore=False):
+    """A bare-code citation of the FIXED document, assembled for the same reason bare() is."""
+    return "%s%s %s" % ("FIXED" + ("_" if underscore else "-") + "ISSUES",
+                        ".md" if with_md else "", code)
+
+
+#: A circled digit two: the suffix of `B-2②` (case 2 of B-2).
+CIRCLED_TWO = "\u2461"
 
 SPELLINGS = ("underscore", "blob-anchor", "the-word-line", "roomy-colon",
              "fullwidth-colon", "chinese")
@@ -598,6 +713,7 @@ class TreeFixture(object):
         self.root = tempfile.mkdtemp(prefix="kiref-")
         testcase.addCleanup(self._cleanup)
         self.write(KI_REL, FAKE_KI)
+        self.write(FIXED_REL, FAKE_FIXED)
         for rel, body in files.items():
             self.write(rel, body)
 
@@ -656,11 +772,31 @@ class TheEntryIndex(unittest.TestCase):
     def test_the_real_document_parses_into_entries(self):
         with open(os.path.join(REPO, KI_REL), encoding="utf-8") as fh:
             spans = parse_entries(fh.read())
-        self.assertGreaterEqual(len(spans), 40,
+        # 🔴 The document lists only OPEN defects, so it shrinks as they are fixed. The floor is
+        # far below today's count on purpose: it exists to catch a parser that has gone blind
+        # (reads 0-5 codes), not to stop a fix from moving an entry out. When the list really
+        # does fall under it, lower the floor in the same change that moves the entry.
+        self.assertGreaterEqual(len(spans), KI_MIN_CODES,
                                 "only %d codes resolved out of the real %s -- the parser has "
                                 "gone blind and every citation would read as fine"
                                 % (len(spans), KI_NAME))
-        for code in ("A-1", "B-2d", "C-4b", "G-9"):
+        # Entries of different shapes and letters, so a parser blind to one heading level or one
+        # letter is caught. If one of these is fixed and moves to the other document, pick
+        # another open entry here in the same change.
+        for code in KI_REQUIRED_CODES:
+            self.assertIn(code, spans, "%s should be an open entry of %s; if it was fixed, "
+                                       "move it to %s and choose another here"
+                          % (code, KI_NAME, FIXED_NAME))
+
+    def test_the_real_fixed_document_parses_into_entries(self):
+        with open(os.path.join(REPO, FIXED_REL), encoding="utf-8") as fh:
+            spans = parse_entries(fh.read())
+        self.assertGreaterEqual(len(spans), FIXED_MIN_CODES,
+                                "only %d codes resolved out of the real %s -- the table parser "
+                                "has gone blind and every citation of a fixed code would read "
+                                "as undefined, or as fine if the check is skipped"
+                                % (len(spans), FIXED_NAME))
+        for code in FIXED_REQUIRED_CODES:
             self.assertIn(code, spans)
 
 
@@ -682,7 +818,7 @@ class WhatIsAViolation(unittest.TestCase):
         self.assertEqual([], t.scan(), report(t.scan()))
 
     def test_a_line_in_another_entry_is_reported(self):
-        t = TreeFixture(self, {"doc/x.md": "見 KNOWN-ISSUES A-1（`doc/%s`）。\n" % cite(11)})
+        t = TreeFixture(self, {"doc/x.md": "見 %s（`doc/%s`）。\n" % (bare("A-1"), cite(11))})
         v = t.scan()
         self.assertEqual(1, len(v), report(v))
         self.assertEqual(WRONG_ENTRY, v[0].kind)
@@ -757,8 +893,8 @@ class TheSpellingOfTheCitationIsNotThePoint(unittest.TestCase):
     def test_each_spelling_of_a_wrong_line_is_reported(self):
         for spelling in SPELLINGS:
             with self.subTest(spelling=spelling):
-                t = TreeFixture(self, {"doc/x.md": "\u898b KNOWN-ISSUES A-1\uff08`%s`\uff09\u3002\n"
-                                                   % cite_as(spelling, 11)})
+                t = TreeFixture(self, {"doc/x.md": "\u898b %s\uff08`%s`\uff09\u3002\n"
+                                                   % (bare("A-1"), cite_as(spelling, 11))})
                 v = t.scan()
                 self.assertEqual(1, len(v), report(v))
                 self.assertEqual(WRONG_ENTRY, v[0].kind)
@@ -811,7 +947,7 @@ class TheWideningStillHoldsItsFire(unittest.TestCase):
         self.assertEqual([], t.scan(), report(t.scan()))
 
     def test_a_bare_entry_code_is_still_invisible(self):
-        """The whole point: `KNOWN-ISSUES B-11` with no line number is the CORRECT
+        """The whole point: `KNOWN-ISSUES B-9` with no line number is the CORRECT
         citation, and the line-number half must have nothing to say about it.
 
         The bare-code half added on 2026-09-11 asks only whether the code EXISTS, which A-4c
@@ -887,6 +1023,122 @@ class ABareCodeMustNameSomethingThisDocumentDefines(unittest.TestCase):
         self.assertEqual([], t.scan_bare(), report(t.scan_bare()))
 
 
+# --- two documents, one namespace of codes ------------------------------------------------
+
+class TheFixedDocumentIsTheSecondHalf(unittest.TestCase):
+    """doc/KNOWN-ISSUES.md lists open defects; doc/FIXED-ISSUES.md keeps the codes of the rest.
+
+    A citation names a code, and the document it names must be the one that defines the code.
+    The fixtures: FAKE_KI defines A-1, A-4c, F-9, F-13, G-9; FAKE_FIXED defines B-5 and C-6.
+    """
+
+    def test_a_fixed_code_cited_against_the_open_document_is_reported(self):
+        t = TreeFixture(self, {"doc/x.md": "See %s.\n" % bare("B-5")})
+        v = t.scan_bare()
+        self.assertEqual(1, len(v), report(v))
+        self.assertEqual(FIXED_CODE, v[0].kind)
+        self.assertEqual("B-5", v[0].claimed)
+        self.assertIn(FIXED_NAME, str(v[0]), "the message has to say which document to cite")
+        self.assertIn("fixed", str(v[0]))
+
+    def test_a_fixed_code_cited_against_the_fixed_document_is_left_alone(self):
+        t = TreeFixture(self, {"doc/x.md": "See %s.\n" % fbare("B-5", with_md=True)})
+        self.assertEqual([], t.scan_bare(), report(t.scan_bare()))
+
+    def test_an_open_code_cited_against_the_fixed_document_is_reported(self):
+        t = TreeFixture(self, {"doc/x.md": "See %s.\n" % fbare("A-4c")})
+        v = t.scan_bare()
+        self.assertEqual(1, len(v), report(v))
+        self.assertEqual(OPEN_CODE, v[0].kind)
+        self.assertIn(KI_NAME, str(v[0]))
+
+    def test_a_code_neither_document_defines_is_reported_against_the_fixed_one_too(self):
+        t = TreeFixture(self, {"doc/x.md": "See %s.\n" % fbare("Z-3")})
+        v = t.scan_bare()
+        self.assertEqual(1, len(v), report(v))
+        self.assertEqual(UNDEFINED_CODE, v[0].kind)
+        self.assertIn(FIXED_NAME, v[0].actual)
+
+    def test_the_underscore_spelling_of_the_fixed_document_is_read_too(self):
+        t = TreeFixture(self, {"doc/x.md": "See %s.\n" % fbare("Z-3", underscore=True)})
+        self.assertEqual(1, len(t.scan_bare()), report(t.scan_bare()))
+
+    def test_an_open_code_against_the_open_document_is_still_clean(self):
+        """The control for the two above: the new checks must not start reporting what is right."""
+        t = TreeFixture(self, {"doc/x.md": "See %s and %s.\n" % (bare("A-4c"), fbare("C-6"))})
+        self.assertEqual([], t.scan_bare(), report(t.scan_bare()))
+
+    def test_a_code_defined_in_both_documents_is_reported(self):
+        t = TreeFixture(self, {})
+        self.assertEqual(set(), codes_in_both(t.root), "the two fixtures share no code")
+        t.write(FIXED_REL, FAKE_FIXED + "| A-1 | defined here as well | fixed | z.cpp |\n")
+        self.assertEqual({"A-1"}, codes_in_both(t.root))
+
+    def test_a_missing_fixed_document_is_an_error_not_a_clean_scan(self):
+        t = TreeFixture(self, {"doc/x.md": "See %s.\n" % bare("A-4c")})
+        os.remove(os.path.join(t.root, FIXED_REL))
+        with self.assertRaises(IOError):
+            t.scan_bare()
+
+    def test_a_circled_digit_suffix_is_part_of_the_citation(self):
+        """`<name> B-2②` cites case 2 of B-2: the circled digit belongs to the citation of its base
+        code. Python's \\b treats a circled digit as a word character, so the code pattern used to
+        see no code at all in it and a mixed citation of an open and a fixed case slipped through."""
+        t = TreeFixture(self, {"doc/open.md": "See %s%s.\n" % (fbare("A-4c"), CIRCLED_TWO),
+                               "doc/fixed.md": "See %s%s.\n" % (bare("B-5"), CIRCLED_TWO),
+                               "doc/ok.md": "See %s%s.\n" % (bare("A-4c"), CIRCLED_TWO)})
+        v = sorted(t.scan_bare(), key=lambda x: x.path)
+        self.assertEqual(["doc/fixed.md", "doc/open.md"], [x.path for x in v], report(v))
+        self.assertEqual({"doc/fixed.md": FIXED_CODE, "doc/open.md": OPEN_CODE},
+                         {x.path: x.kind for x in v})
+
+    def test_a_suffixless_script_with_a_shebang_is_read(self):
+        """`ndt` and `ndtwin-lab` have no suffix, so the suffix list never reached them; their
+        messages cite codes too."""
+        t = TreeFixture(self, {"tools/thing": "#!/usr/bin/env bash\n# See %s.\n" % bare("B-5")})
+        v = t.scan_bare()
+        self.assertEqual(1, len(v), report(v))
+        self.assertEqual("tools/thing", v[0].path)
+        self.assertEqual(FIXED_CODE, v[0].kind)
+
+    def test_a_suffixless_script_is_read_by_the_line_number_half_too(self):
+        t = TreeFixture(self, {"tools/thing": "#!/bin/sh\n# A-1 doc/%s\n" % cite(11)})
+        self.assertEqual(1, len(t.scan()), report(t.scan()))
+
+    def test_a_suffixless_file_without_a_shebang_is_not_read(self):
+        t = TreeFixture(self, {"tools/notes": "See %s.\n" % bare("B-5")})
+        self.assertEqual([], t.scan_bare(), report(t.scan_bare()))
+
+    def test_a_suffixless_script_in_a_build_tree_is_not_read(self):
+        t = TreeFixture(self, {"tools/build-x/thing": "#!/bin/sh\n# See %s.\n" % bare("B-5")})
+        self.assertEqual([], t.scan_bare(), report(t.scan_bare()))
+
+    def test_a_named_pipe_without_a_suffix_does_not_hang_the_walk(self):
+        t = TreeFixture(self, {"tools/real": "#!/bin/sh\n# See %s.\n" % bare("B-5")})
+        os.mkfifo(os.path.join(t.root, "tools", "pipe"))
+
+        class Blocked(Exception):
+            """Not an OSError: the scanner swallows those around open(), and TimeoutError is one."""
+
+        def too_slow(signum, frame):
+            raise Blocked()
+
+        old = signal.signal(signal.SIGALRM, too_slow)
+        signal.alarm(5)
+        try:
+            v = t.scan_bare()
+        except Blocked:
+            self.fail("the walk blocked on a named pipe")
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old)
+        self.assertEqual(["tools/real"], [x.path for x in v], report(v))
+
+    def test_an_env_file_is_read(self):
+        t = TreeFixture(self, {"tools/components.env": "# See %s.\n" % bare("B-5")})
+        self.assertEqual(1, len(t.scan_bare()), report(t.scan_bare()))
+
+
 # --- which files are read -----------------------------------------------------------------
 
 class WhichFilesAreRead(unittest.TestCase):
@@ -953,7 +1205,7 @@ class TheRepositoryAsItStands(unittest.TestCase):
         # its line really lands in.
         self.assertEqual(
             0, len(violations),
-            "%d citation(s) of %s cannot be trusted. %s："
+            "%d citation(s) of %s cannot be trusted. %s:"
             "\n%s"
             % (len(violations), KI_NAME, FIX_ADVICE, report(violations)))
 
@@ -964,8 +1216,17 @@ class TheRepositoryAsItStands(unittest.TestCase):
                                 % files)
         self.assertEqual(
             0, len(violations),
-            "%d bare-code citation(s) name a code %s does not define. %s:\n%s"
-            % (len(violations), KI_NAME, FIX_ADVICE_UNDEFINED, report(violations)))
+            "%d bare-code citation(s) are wrong about the code or about the document that "
+            "defines it (the verdict on each line says which):\n%s"
+            % (len(violations), report(violations)))
+
+    def test_no_code_is_defined_in_both_documents(self):
+        both = sorted(codes_in_both(REPO))
+        self.assertEqual(
+            [], both,
+            "%d code(s) are defined in both %s and %s: %s. A code lives in exactly one of them "
+            "(open or closed), so a citation never has two places to land."
+            % (len(both), KI_NAME, FIXED_NAME, ", ".join(both)))
 
     def test_the_scan_actually_read_the_repository(self):
         """A green scan of nothing is the failure mode this whole family of gates exists to
@@ -974,19 +1235,26 @@ class TheRepositoryAsItStands(unittest.TestCase):
         self.assertGreaterEqual(stats["files"], 800,
                                 "only %d file(s) read -- the walk is not reaching the tree"
                                 % stats["files"])
-        self.assertGreaterEqual(stats["codes"], 40,
+        self.assertGreaterEqual(stats["codes"], KI_MIN_CODES,
                                 "only %d entry code(s) resolved out of %s"
                                 % (stats["codes"], KI_NAME))
-        self.assertGreaterEqual(stats["ki_lines"], 2000,
+        self.assertGreaterEqual(stats["ki_lines"], KI_MIN_LINES,
                                 "%s is %d lines -- that is not the document"
                                 % (KI_NAME, stats["ki_lines"]))
+        with open(os.path.join(REPO, FIXED_REL), encoding="utf-8") as fh:
+            fixed_lines = len(fh.read().splitlines())
+        self.assertGreaterEqual(fixed_lines, FIXED_MIN_LINES,
+                                "%s is %d lines -- that is not the document"
+                                % (FIXED_NAME, fixed_lines))
 
     def test_this_file_and_its_gate_are_inside_the_scanned_tree(self):
         """No self-exemption. If either ever stops being scanned, the reason it contains no
         literal citation stops being a discipline and becomes an accident."""
         scanned = set(iter_files(REPO))
         for rel in (os.path.join("tests", "python", "test_known_issues_references.py"),
-                    os.path.join("tests", "shell", "mutate_known_issues_references.sh")):
+                    os.path.join("tests", "shell", "mutate_known_issues_references.sh"),
+                    # no suffix, starts with a shebang: reached only by the shebang rule
+                    os.path.join("tools", "test_workflow", "ndt")):
             # Not assertIn: its failure message prints the whole 1,000-entry set and buries
             # the one name that matters.
             self.assertTrue(rel in scanned, "%s is not in the scanned set" % rel)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/test_GroupMeterExistence.cpp (doc/KNOWN-ISSUES.md F-13).
+# Mutation gate for tests/test_GroupMeterExistence.cpp (doc/FIXED-ISSUES.md F-13).
 #
 # [Co-developed with claude code -- Adam]
 #

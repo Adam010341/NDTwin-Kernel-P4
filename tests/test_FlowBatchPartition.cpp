@@ -262,7 +262,7 @@ TEST(FlowEntryShapeTest, AWellFormedEntryReportsNoProblem)
                   FlowOp::Install));
 }
 
-// --- doc/KNOWN-ISSUES.md C-7: deletes the P4 proxy refuses, answered before the queue ----------
+// --- doc/FIXED-ISSUES.md C-7: deletes the P4 proxy refuses, answered before the queue ----------
 //
 // [Co-developed with claude code -- Adam]
 // The proxy refuses a strict delete that names a priority against a destination-only match (501,

@@ -631,7 +631,7 @@ TEST_F(NoIpSwitchTest, AnAddresslessHostDoesNotEndTheTopKReport)
 
     ASSERT_TRUE(body.contains("links_skipped_no_address"))
         << "the report dropped a link and did not say so. A silent skip is indistinguishable from "
-           "'there were only this many links', which is the shape KNOWN-ISSUES #4 records: "
+           "'there were only this many links', which is the shape of a silent skip: "
         << body.dump();
     EXPECT_GE(body["links_skipped_no_address"].get<int>(), 1) << body.dump();
 

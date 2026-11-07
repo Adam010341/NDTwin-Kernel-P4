@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_faults_topo_pid.sh.  KNOWN-ISSUES G-9 (faults.sh half).
+# Mutation gate for tests/shell/test_faults_topo_pid.sh.  FIXED-ISSUES G-9 (faults.sh half).
 #
 # [Co-developed with claude code -- Adam]
 #

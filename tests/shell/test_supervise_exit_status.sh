@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# The exit-status pipeline: supervise.sh, start_bg and stop_one. KNOWN-ISSUES B-5.
+# The exit-status pipeline: supervise.sh, start_bg and stop_one. FIXED-ISSUES B-5.
 #
 # [Co-developed with claude code -- Adam]
 #

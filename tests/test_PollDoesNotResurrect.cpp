@@ -687,7 +687,7 @@ TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeCarriesAdminStateAndReacha
 }
 
 // =================================================================================================
-// doc/KNOWN-ISSUES.md B-6 -- the EDGE half of the same defect.
+// doc/FIXED-ISSUES.md B-6 -- the EDGE half of the same defect.
 //
 // [Co-developed with claude code -- Adam]
 //
@@ -1103,7 +1103,7 @@ TEST_F(DeclaredLinkFailureTest, ADeclaredEdgeBehindADeadSwitchStillReadsDeclared
 }
 
 // =================================================================================================
-// doc/KNOWN-ISSUES.md B-6, second pass: a withdrawal has to pair with a reported break.
+// doc/FIXED-ISSUES.md B-6, second pass: a withdrawal has to pair with a reported break.
 //
 // [Co-developed with claude code -- Adam]
 //

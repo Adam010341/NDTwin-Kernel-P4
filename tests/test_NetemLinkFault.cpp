@@ -1,6 +1,6 @@
 /**
  * @file test_NetemLinkFault.cpp
- * @brief doc/KNOWN-ISSUES.md B-6, second half: cutting a link with netem without destroying the
+ * @brief doc/FIXED-ISSUES.md B-6, second half: cutting a link with netem without destroying the
  *        interface's shaping, and putting it back.
  *
  * [Co-developed with claude code -- Adam]
@@ -331,7 +331,7 @@ TEST(NetemLinkFaultTest, ARestoreThatLeftNetemBehindIsReportedAsAFailure)
 }
 
 // =================================================================================================
-// doc/KNOWN-ISSUES.md B-6: the startup sweep.
+// doc/FIXED-ISSUES.md B-6: the startup sweep.
 //
 // [Co-developed with claude code -- Adam]
 //

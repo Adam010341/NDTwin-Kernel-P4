@@ -2,7 +2,7 @@
 
 [Co-developed with claude code -- Adam]
 
-The defect (KNOWN-ISSUES A-12, measured 2026-09-02): the file had ZERO sFlow references. All ten
+The defect (FIXED-ISSUES A-12, measured 2026-09-02): the file had ZERO sFlow references. All ten
 bridges came up with `sflow=[]` while the kernel listened on :6343 as usual, so
 `/ndt/get_average_link_usage` answered `{"avg_link_usage":0.0,"status":"success"}` through
 3000 packets of real traffic and every per-flow rate read zero. Nothing failed. "We never
@@ -57,7 +57,7 @@ MODEL = os.path.join(REPO, "setting", "StaticNetworkTopologyOVS_10Switches_4Host
 #: also the one `ndt up ovs` executes (ndtwin-lab's ovs_topo_script, since 87612059).
 #: [Co-developed with claude code -- Adam] A second reference, NTG's own testbed_topo.py, was
 #: checked here while `ndt up ovs` still ran that copy; the check was retired on 2026-09-28 when it
-#: no longer did -- see doc/KNOWN-ISSUES.md G-60.
+#: no longer did -- see doc/FIXED-ISSUES.md G-60.
 REFERENCE = os.path.join(REPO, "testbed_topo.py")
 
 SWITCHES = 10

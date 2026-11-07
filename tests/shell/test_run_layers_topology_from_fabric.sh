@@ -77,7 +77,7 @@ TOPO_OVS="$SETTING_DIR/StaticNetworkTopologyMininet_10Switches.json"
 LIVE_HOSTS=0
 fabric_host_count() { echo "$LIVE_HOSTS"; }
 
-# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-15.
+# [Co-developed with claude code -- Adam] -- FIXED-ISSUES G-15.
 # topo_for_mode now asks the kernel before it derives anything. THIS suite is about the
 # derivation, and it must not depend on whether something happens to be listening on :8000 --
 # a kernel running next door would otherwise answer, and every case below would be measuring

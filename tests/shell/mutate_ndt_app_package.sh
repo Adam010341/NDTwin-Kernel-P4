@@ -1081,7 +1081,7 @@ check_fires "M72: applying auto writes a file instead of removing one" m72 \
             "🔴 a stale knob does NOT survive a bring-up that asked for nothing"
 
 # --- M52: the refusal path writes the knob anyway -------------------------------------------------
-# The KNOWN-ISSUES G-47 shape with a third file in it: a bring-up that said no, having already chosen a
+# The FIXED-ISSUES G-47 shape with a third file in it: a bring-up that said no, having already chosen a
 # telemetry source for the fabric it refused to build.
 cat > "$A/m52.old" <<'EOF'
         if ! app_preflight "$app_dir"; then

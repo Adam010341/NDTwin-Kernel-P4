@@ -18,7 +18,7 @@
 #include <unordered_map>      // for unordered_map
 #include <vector>             // for vector
 class TopologyAndFlowMonitor; // lines 34-34
-// [Co-developed with claude code -- Adam] KNOWN-ISSUES F-6: isPollableForFlowTable takes this by
+// [Co-developed with claude code -- Adam] FIXED-ISSUES F-6: isPollableForFlowTable takes this by
 // const reference, which needs only the declaration. Forward-declared rather than including
 // GraphTypes.hpp, matching how this header already treats TopologyAndFlowMonitor.
 struct VertexProperties;
@@ -31,7 +31,7 @@ struct VertexProperties;
 // for OVS. Putting it on IPowerStrategy would give OVSPowerStrategy a method that can only
 // return "yes, accept" -- an interface member no implementation shares is not an interface.
 #include "ndt_core/power_management/P4PowerStrategy.hpp"
-// [Co-developed with claude code -- Adam] KNOWN-ISSUES F-6: UnreadSwitch and the carry-forward rule.
+// [Co-developed with claude code -- Adam] FIXED-ISSUES F-6: UnreadSwitch and the carry-forward rule.
 #include "ndt_core/power_management/StaleTableCarryForward.hpp"
 // [Co-developed with claude code -- Adam] Per-switch `capabilities`, read from the same
 // GET /p4/switch_state the bmv2 liveness verdict is read from.
@@ -144,7 +144,7 @@ class DeviceConfigurationAndPowerManager
      * @brief Stops the background workers, so that none of them outlives this object.
      *
      * [Co-developed with claude code -- Adam]
-     * KNOWN-ISSUES B-5. This class was the only long-running component here with no destructor
+     * FIXED-ISSUES B-5. This class was the only long-running component here with no destructor
      * at all, while start() leaves three std::thread members behind. Destroying a joinable
      * std::thread is std::terminate -- "terminate called without an active exception", SIGABRT,
      * exit status 134 -- and that is what the kernel did on every clean shutdown: reproduced
@@ -247,7 +247,7 @@ class DeviceConfigurationAndPowerManager
      *
      * [Co-developed with claude code -- Adam]
      *
-     * KNOWN-ISSUES T-11, option A ("the listing reports only programmed entries").
+     * FIXED-ISSUES T-11, option A ("the listing reports only programmed entries").
      * `updateOpenFlowTables` writes the requested rule into the cache on the HTTP thread, before
      * the dispatcher has sent anything, and those rows are the phantom. Each carries a token
      * (see FlowJob::token); this predicate answers whether the southbound confirmed that token.
@@ -481,7 +481,7 @@ class DeviceConfigurationAndPowerManager
     };
 
     // [Co-developed with claude code -- Adam]
-    // KNOWN-ISSUES F-6, and worth a pointer because the two halves are not next to each other:
+    // FIXED-ISSUES F-6, and worth a pointer because the two halves are not next to each other:
     // "keep the previous table" is NOT what the `continue` in fetchOpenFlowTablesInternal does.
     // That loop builds a fresh array and only records the dpid in FlowTableFetch::unread; the
     // keeping happens afterwards in openflowTablesUpdateWorker, via carryForwardUnreadTables.
@@ -494,7 +494,7 @@ class DeviceConfigurationAndPowerManager
      *
      * [Co-developed with claude code -- Adam]
      *
-     * KNOWN-ISSUES F-6. `tables` used to be fetchOpenFlowTablesInternal's whole return value, and
+     * FIXED-ISSUES F-6. `tables` used to be fetchOpenFlowTablesInternal's whole return value, and
      * openflowTablesUpdateWorker assigned it straight over the cache -- so a switch that failed to
      * read was not "kept", it was deleted, in contradiction of every comment on the four skip
      * paths. Reporting the failures alongside the data, instead of only to the log, is what lets
@@ -531,7 +531,7 @@ class DeviceConfigurationAndPowerManager
      *
      * [Co-developed with claude code -- Adam]
      *
-     * @details KNOWN-ISSUES F-6. A named predicate rather than the inline
+     * @details FIXED-ISSUES F-6. A named predicate rather than the inline
      * `vertexType != SWITCH || isUp == false` it replaced, because it is the **only** gate in
      * front of `FlowTableFetch::unread` and therefore the entire boundary between the two facts
      * this fix must not confuse:
@@ -559,7 +559,7 @@ class DeviceConfigurationAndPowerManager
      *
      * [Co-developed with claude code -- Adam]
      *
-     * @details KNOWN-ISSUES F-6. Carries the previous table of every switch in
+     * @details FIXED-ISSUES F-6. Carries the previous table of every switch in
      * `fetched.unread` into `fetched.tables`, marked stale, and only then replaces the cache.
      *
      * Split out of openflowTablesUpdateWorker so it can be tested. The worker is a ten-second
@@ -868,7 +868,7 @@ class DeviceConfigurationAndPowerManager
      * constant functions of the management IP, so a switch under full load and an idle one read
      * the same, and CPU and memory read the same as each other. `% 50` has fifty buckets, so on
      * a ten-switch topology two switches showing the identical percentage was the likely case,
-     * not the unlucky one. That is F-1 in doc/KNOWN-ISSUES.md.
+     * not the unlucky one. That is F-1 in doc/FIXED-ISSUES.md.
      *
      * -1 rather than a new, more plausible-looking figure: a fabricated number that *varies*
      * would be worse than one that does not, because it would survive the questions that catch
@@ -1278,14 +1278,14 @@ class DeviceConfigurationAndPowerManager
     /// T-11: answers whether a cached entry's token was confirmed by the southbound. Guarded by
     /// m_openflowTablesMutex, which is also the lock held while filtering, so it is set once at
     /// wiring time and read under the same lock as the cache it filters.
-    /// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4. Says, once per change,
+    /// [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md C-4. Says, once per change,
     /// that the flow-table view is short of rows and where to read why. See the definition for
     /// the edge trigger and why it is not per-read.
     void reportWithheldRows(std::size_t withheld);
 
     std::function<bool(uint64_t)> m_isProgrammed;
 
-    /// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4. The last count
+    /// [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md C-4. The last count
     /// reportWithheldRows announced, so the line is edge-triggered rather than emitted on every
     /// read. Atomic because getOpenFlowTables holds only a shared lock and several readers can be
     /// inside it at once.

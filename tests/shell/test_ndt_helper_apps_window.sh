@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# KNOWN-ISSUES G-14: the two apps the LAB HELPER starts had no window, ever -- and the check that was
+# FIXED-ISSUES G-14: the two apps the LAB HELPER starts had no window, ever -- and the check that was
 # supposed to notice looked in the wrong tree.
 #
 # [Co-developed with claude code -- Adam]

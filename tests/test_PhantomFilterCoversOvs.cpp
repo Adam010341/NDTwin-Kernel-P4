@@ -1,5 +1,5 @@
 /**
- * Tests for KNOWN-ISSUES C-4: B-1's phantom-rule filter did not cover the OVS write path.
+ * Tests for FIXED-ISSUES C-4: B-1's phantom-rule filter did not cover the OVS write path.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -588,7 +588,7 @@ TEST_F(PhantomOvsFixture, PolledRowsAreNeverWithheldOnEitherPlane)
 
 TEST_F(PhantomOvsFixture, TheViewSaysItIsWithholdingRows)
 {
-    // KNOWN-ISSUES B-1's 2026-09-02 review, clause 3: stripUnprogrammedEntries returns a count
+    // FIXED-ISSUES B-1's 2026-09-02 review, clause 3: stripUnprogrammedEntries returns a count
     // whose own docstring says "so a caller can log or assert on it", and the caller dropped it.
     // A view that is quietly short of rows is the same shape as one that is quietly long of them,
     // which is the defect this filter exists to remove.

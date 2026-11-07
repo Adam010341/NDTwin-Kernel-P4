@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for KNOWN-ISSUES A-7b: the dispatch-status endpoint's honest counters.
+# Mutation gate for FIXED-ISSUES A-7b: the dispatch-status endpoint's honest counters.
 #
 # [Co-developed with claude code -- Adam]
 #

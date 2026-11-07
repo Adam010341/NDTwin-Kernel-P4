@@ -2643,7 +2643,7 @@ FlowLinkUsageCollector::getFlowInfoTable()
 }
 
 // [Co-developed with claude code -- Adam]
-// KNOWN-ISSUES B-x. The predicate that was missing. Every row is classified from the age of its
+// FIXED-ISSUES B-x. The predicate that was missing. Every row is classified from the age of its
 // most recent sample against the same `endTime` field purgeIdleFlows uses, so the two cannot
 // disagree about what has ended: one field, one clock, two readers.
 sflow::FlowLivenessCounts
@@ -2777,7 +2777,7 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter fil
     // self-deadlock -- the kind switched to PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP, or a
     // libstdc++ built without _GLIBCXX_USE_PTHREAD_RWLOCK_T so shared_mutex is the condvar
     // implementation. Either would wedge the thread between the two acquisitions, with a writer
-    // in the middle. KNOWN-ISSUES §E-2.
+    // in the middle. FIXED-ISSUES §E-2.
     //
     // 🔑 And a wedge here is not one endpoint: the northbound API serialises, so the stuck
     // handler thread holds the whole server.
@@ -2786,11 +2786,11 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter fil
     // anything to protect out here: getFlowInfoJson() returns a freshly built json array, and
     // every line below operates on that local copy. Nothing in this function reads a member.
     //
-    // 📌 It also closes the note KNOWN-ISSUES filed beside the deadlock: the std::sort was
-    // running INSIDE the shared lock, so the critical section grew as O(n log n) in the size of
-    // the flow table. It is now outside, and the lock is held only for the copy.
+    // 📌 It also closes the latent item recorded with the deadlock (FIXED-ISSUES E-2): the
+    // std::sort was running INSIDE the shared lock, so the critical section grew as O(n log n) in
+    // the size of the flow table. It is now outside, and the lock is held only for the copy.
     // [Co-developed with claude code -- Adam]
-    // KNOWN-ISSUES B-x. The filter is applied HERE, before the sort and before `min(k, size)`,
+    // FIXED-ISSUES B-x. The filter is applied HERE, before the sort and before `min(k, size)`,
     // not to the k rows that come out. Filtering afterwards would return fewer than k rows while
     // live ones sat just below the cut -- the caller asked for the busiest k flows, not for
     // whatever survives a predicate applied to an arbitrary prefix.

@@ -269,7 +269,7 @@ class ReportedFieldCapTest(unittest.TestCase):
 
 class MalformedMatchValueTest(unittest.TestCase):
     """
-    A malformed destination must be a 400, not a 500. KNOWN-ISSUES B-2c.
+    A malformed destination must be a 400, not a 500. FIXED-ISSUES B-2c.
 
     [Co-developed with claude code -- Adam]
     `{"nw_dst": "10.0.0.5/32"}` names a field ipv4_lpm keys on, so unsupported_match_fields

@@ -33,7 +33,7 @@ Exit code
   3  TOOL-PRECONDITION-FAILED -- the suite could not establish what it needed to know
      before judging, so it makes no claim about the system. Distinct from 1 on purpose:
      a tool must never be able to fail in a way that looks like the system failing
-     (KNOWN-ISSUES A-8). Callers that only test `rc != 0` still fail closed.
+     (FIXED-ISSUES A-8). Callers that only test `rc != 0` still fail closed.
      [Co-developed with claude code -- Adam]
 
 [Co-developed with claude code -- Adam]

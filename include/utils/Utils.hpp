@@ -546,7 +546,7 @@ queryParam(std::string_view target, std::string_view key)
  *  - `target == "/ndt/get_detected_flow_data"` -- an exact compare, so the endpoint could not
  *    accept a query parameter at all. Adding `?liveness=all` to it produced a 404, because the
  *    string no longer matched any branch and fell through to the not-found tail. That is the
- *    reason this helper exists: KNOWN-ISSUES B-x needs a parameter on that endpoint.
+ *    reason this helper exists: FIXED-ISSUES B-x needs a parameter on that endpoint.
  *  - `target.starts_with("/ndt/get_detected_top_k_flow_data")` -- a prefix compare, which also
  *    accepts `/ndt/get_detected_top_k_flow_dataZZZ` and any other suffix. A caller who typos the
  *    endpoint name gets the endpoint rather than a 404, which is the wrong answer to a wrong
@@ -614,7 +614,7 @@ describeCommandStatus(int status, std::string_view command = {}, int savedErrno 
  *
  * [Co-developed with claude code -- Adam]
  *
- * @details The reason this type exists is doc/KNOWN-ISSUES.md B-2b. execCommand() returns a bare
+ * @details The reason this type exists is doc/FIXED-ISSUES.md B-2b. execCommand() returns a bare
  * std::string containing the child's stdout, and prints the wait status to std::cerr -- so the
  * caller is not merely *not told* whether the command ran, it is **incapable of being told**.
  * HttpRoutingStrategyBase::post() is where that costs something: a body that breaks the shell and
@@ -672,7 +672,7 @@ describeArgv(const std::vector<std::string>& argv)
  *
  * [Co-developed with claude code -- Adam]
  *
- * @details The mechanism doc/KNOWN-ISSUES.md B-2b and B-4 both say is missing. popen() and
+ * @details The mechanism doc/FIXED-ISSUES.md B-2b and B-4 both say is missing. popen() and
  * std::system() hand their string to `/bin/sh -c`, so every value interpolated into that string is
  * shell *code*: a single quote in a JSON body ends the quoting and what follows is a command. This
  * function never constructs a command line at all -- @p argv goes to execvp() as separate
@@ -817,7 +817,7 @@ execArgv(const std::vector<std::string>& argv)
  * @warning [Co-developed with claude code -- Adam] **Do not add call sites.** Use execArgv()
  *          above, which cannot have this problem because it never builds a command line.
  *
- *          The doc/KNOWN-ISSUES.md B-2b sweep classified every shell-execution site in the kernel
+ *          The doc/FIXED-ISSUES.md B-2b sweep classified every shell-execution site in the kernel
  *          by what reaches it. None of the remaining callers of this function interpolates a
  *          request-controlled string: what they carry is compile-time constants, AppConfig /
  *          topology-file values, and integers re-rendered as text (utils::ipToString on a uint32,

@@ -51,7 +51,7 @@ namespace sflow
 constexpr auto kFlowPathRecomputeInterval = std::chrono::seconds(1);
 
 // [Co-developed with claude code -- Adam]
-// KNOWN-ISSUES B-x. How stale a flow's most recent sample may be before the API stops calling it
+// FIXED-ISSUES B-x. How stale a flow's most recent sample may be before the API stops calling it
 // `active`. It sits beside FLOW_IDLE_TIMEOUT for the same reason kFlowPathRecomputeInterval does:
 // the pair is what matters. FLOW_IDLE_TIMEOUT decides when a flow leaves the table; this decides
 // when the API stops claiming it is sending. Everything between the two is `idle` -- retained, and
@@ -190,7 +190,7 @@ class FlowLinkUsageCollector
     /**
      * @brief Serialise the flow table, optionally dropping rows by liveness.
      *
-     * [Co-developed with claude code -- Adam] KNOWN-ISSUES B-x.
+     * [Co-developed with claude code -- Adam] FIXED-ISSUES B-x.
      *
      * 🔴 The default is `All`, which is today's behaviour, and that is deliberate. The endpoint's
      * default lives in HttpSession, not here, so no in-repo caller of this function changes what
@@ -263,7 +263,7 @@ class FlowLinkUsageCollector
      *
      * @details
      * [Co-developed with claude code -- Adam]
-     * KNOWN-ISSUES A-4f, the half nobody could see. A switch that loses its sFlow record keeps
+     * FIXED-ISSUES A-4f, the half nobody could see. A switch that loses its sFlow record keeps
      * forwarding and keeps its links marked up, but stops producing samples -- so the edges
      * arriving at it publish exactly 0 bps for ever, which is bit-identical to an idle link and
      * to a kernel that started a moment ago. Three different worlds, one number.
@@ -683,7 +683,7 @@ class FlowLinkUsageCollector
      * [Co-developed with claude code -- Adam]
      *
      * A seam, and it is here because the alternative was worse. The one assertion that matters
-     * for KNOWN-ISSUES B-x -- that a flow which stopped is actually dropped from the default view
+     * for FIXED-ISSUES B-x -- that a flow which stopped is actually dropped from the default view
      * -- needs a row whose last sample is older than the window, and the only ways to get one are
      * to sleep past kFlowActiveWindowMs (3 s of wall clock in a suite that today contains no
      * multi-second sleep at all, and a timing-dependent test to maintain forever) or to write

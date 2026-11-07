@@ -3,7 +3,7 @@ A destination-only delete must hand ipv4_lpm back to the control plane, not empt
 
 [Co-developed with claude code -- Adam]
 
-## What was wrong (doc/KNOWN-ISSUES.md A-4d)
+## What was wrong (doc/FIXED-ISSUES.md A-4d)
 
 `ipv4_lpm` keys on the destination alone and holds **one entry per destination**
 (`ndtwin_switch.p4:350-363`). Both writers use the same key: `install_initial_routes` writes

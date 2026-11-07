@@ -7,7 +7,7 @@
 # What is being protected. doc/2026-11-05_user-guide.md glosses the exit codes of `ndt up`,
 # `ndt down` and `ndt clean`, and `ndt help` is the only place those codes are defined. If the two
 # drift apart the guide goes on telling readers that a restored lab answers `ndt clean` with rc 0
-# when that state answers 3 (KNOWN-ISSUES G-53). Nothing fails. A document is not compiled, so the
+# when that state answers 3 (FIXED-ISSUES G-53). Nothing fails. A document is not compiled, so the
 # only way a stale gloss becomes loud is a gate like this one.
 #
 # M1-M6, M8-M9 and M11-M17 put a piece of the OLD guide back, one at a time, and name the case that has
@@ -33,7 +33,7 @@
 #
 # 🔴 ONE MUTATION, ONE ANCHOR. Two mutations sharing an anchor string make
 # check_gate_anchors.py's ok(N) count anchor CELLS rather than mutations, and the difference is
-# printed nowhere (KNOWN-ISSUES G-56). Every anchor below is distinct.
+# printed nowhere (FIXED-ISSUES G-56). Every anchor below is distinct.
 #
 # 🔴 NOTHING IN THE WORKTREE IS WRITTEN. Both files under test are copied into a temp dir and
 # the copies are mutated; the test takes MANUAL= and NDT= (and is itself run from a copy for

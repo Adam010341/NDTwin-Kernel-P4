@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_check_gate_anchors.py (KNOWN-ISSUES L-3).
+# Mutation gate for tests/python/test_check_gate_anchors.py (FIXED-ISSUES L-3).
 #
 # [Co-developed with claude code -- Adam]
 #

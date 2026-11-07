@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-CLAUDE.md, engineering discipline: "永不 `pkill -f`／`pgrep -f` 殺程序". KNOWN-ISSUES G-9 and
+CLAUDE.md, engineering discipline: "永不 `pkill -f`／`pgrep -f` 殺程序". FIXED-ISSUES G-9 and
 G-inst-2 are the two times it was learned the expensive way:
 
   * faults.sh printed `pgrep -f '[t]estbed_topo.py' | head -1` AT THE OPERATOR as the value to
@@ -128,7 +128,7 @@ KNOWN LIMITS (documented rather than papered over -- a lint, not a proof)
    first place.
  * A file this scanner cannot read -- an unterminated shell quote, a python SyntaxError -- is
    reported as NOT CHECKED and the run exits 2, never as a clean file. check_gate_anchors.py
-   learned that one (KNOWN-ISSUES L-3).
+   learned that one (FIXED-ISSUES L-3).
 """
 import ast
 import os

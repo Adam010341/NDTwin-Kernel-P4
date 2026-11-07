@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# ## The defect this file exists to stop (KNOWN-ISSUES G-52)
+# ## The defect this file exists to stop (FIXED-ISSUES G-52)
 #
 # A branch lands and nobody goes back to retract the caveat that was written while it was still
 # a branch. The document keeps telling a reader that a tool misbehaves, months after it stopped;
@@ -271,6 +271,51 @@ d11="$(viol_ticket doc/EXAMPLE.md 1 FIX-NDT-6 "$(ticket_merge FIX-NDT-6)")"
 check "case 11d a violation line names the branch the lookup matched, not just the sha" \
       "yes" "$( grep -qE '\(fix/[a-z0-9][a-z0-9._-]*\)' <<<"$d11" \
                 && echo yes || echo "no -- $(head -1 <<<"$d11" | sed 's/^ *//')" )"
+
+# --- cases 11e / 11g: the English half of the sweep ---------------------------------------------------
+# [Co-developed with claude code -- Adam]
+# The Chinese word lists above see the G-52 shape only in pages written in Chinese. The same defect
+# in English -- "fixed on a branch, not on trunk", "has not been merged" -- is what the API reference
+# said for weeks after the fix had merged (FIXED-ISSUES G-52). A page that must say that a change
+# is not yet in `main` says "not in main"; these four phrases are the wording that goes stale.
+# Case-insensitive, over the same page list (doc/**/*.md outside doc/audit/, from git). No page
+# is allowed to match: a page that needs to quote one of them describes it instead ("described as
+# unmerged"), so there is no allow-list to grow.
+# Prose here wraps at about 100 columns and a quoted note carries a `>` at the start of each line,
+# so a phrase can be split between two lines; the separators between its words therefore accept
+# any run of white space and `>`, and the page is read as one record (grep -z).
+ENGLISH_STALE='on[\s>]+a[\s>]+branch|not[\s>]+on[\s>]+.?trunk.?|has[\s>]+not[\s>]+been[\s>]+merged|not[\s>]+yet[\s>]+merged'
+english_sweep() {   # english_sweep <tree> <page>... -> "page: <phrase as written>" for every stale phrase
+    local tree="$1" pg; shift
+    for pg in "$@"; do
+        [[ -r "$tree/$pg" ]] || continue
+        grep -z -o -i -P "$ENGLISH_STALE" "$tree/$pg" | sed -z 's/[[:space:]>]\+/ /g' | tr '\0' '\n' | sed "s|^|$pg: |"
+    done
+}
+EHITS="$(english_sweep "$DOCS" "${PAGES[@]}")"
+EVIOL=0
+if [[ -n "$EHITS" ]]; then
+    EVIOL="$(grep -c . <<<"$EHITS")"
+    while IFS= read -r hit; do
+        echo "             ${hit%%: *}  says a change is still on a branch or unmerged: \"${hit#*: }\""
+    done <<<"$EHITS"
+fi
+check "case 11e no doc page says a fix is on a branch, not on trunk, or not yet merged" \
+      0 "$EVIOL"
+# The sweep's own control, run through the same function on a fixture tree: one page with four
+# phrasings (one in capitals) that must all be found, one page with two phrasings split across lines
+# (one inside a `>` quote) that must be found too, and one page with ordinary sentences about a merge
+# that must not be. A pattern gone blind or case-sensitive, one that cannot read a wrapped phrase,
+# a pattern widened to everything, or a sweep that reads nothing is red here and nowhere else.
+EFIX="$(mktemp -d /tmp/english-sweep-XXXXXX)"
+mkdir -p "$EFIX/doc"
+printf '%s\n' 'It lives ON A BRANCH.' 'It is not on `trunk`.' 'That change has not been merged.' \
+       'It is not yet merged.' > "$EFIX/doc/stale.md"
+printf '%s\n' 'The branch was merged on 2026-09-10.' 'The fix is in main.' > "$EFIX/doc/ordinary.md"
+printf '%s\n' 'The fix is still' '> on a' '> branch, and that change has not' 'been merged yet.' > "$EFIX/doc/wrapped.md"
+check "case 11g the English sweep finds four phrasings, two split across lines, and nothing on an ordinary page" \
+      "4/2/0" "$(english_sweep "$EFIX" doc/stale.md | grep -c .)/$(english_sweep "$EFIX" doc/wrapped.md | grep -c .)/$(english_sweep "$EFIX" doc/ordinary.md | grep -c .)"
+rm -rf "$EFIX"
 
 # --- case 11c: the sweep's own check -----------------------------------------------------------------
 # Cases 11/11b count violations, so an empty file list is indistinguishable from a clean tree.

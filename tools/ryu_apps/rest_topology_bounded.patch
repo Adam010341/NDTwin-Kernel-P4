@@ -11,7 +11,7 @@
 +#   local patch     : tools/ryu_apps/rest_topology_bounded.patch
 +#   refresh         : see tools/ryu_apps/README.md
 +#
-+# WHY THIS COPY EXISTS (doc/KNOWN-ISSUES.md A-2)
++# WHY THIS COPY EXISTS (doc/FIXED-ISSUES.md A-2)
 +#
 +# The kernel polls /v1.0/topology/{switches,hosts,links}, and those three routes are served by
 +# THIS app -- not by intelligent_router.py, which only serves /ryu_server/all_destination_paths.
@@ -63,7 +63,7 @@
 +from ryu.lib import hub
  from ryu.topology.api import get_switch, get_link, get_host
  
-+# --- NDTwin: bound the three topology reads (doc/KNOWN-ISSUES.md A-2) --------------------------
++# --- NDTwin: bound the three topology reads (doc/FIXED-ISSUES.md A-2) --------------------------
 +# [Co-developed with claude code -- Adam]
 +#
 +# get_switch/get_link/get_host are request-reply: send_request() puts an event on the

@@ -1347,7 +1347,7 @@ class ADeleteOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
     The second writer.
 
     [Co-developed with claude code -- Adam] `unroute_flow` hands an ipv4_lpm slot back to the
-    control plane (KNOWN-ISSUES A-4d) by writing the port `_control_plane_port` says
+    control plane (FIXED-ISSUES A-4d) by writing the port `_control_plane_port` says
     install_initial_routes would write now. install_initial_routes is restricted on a fabric that
     skips its routes, so this mirror of it must be too: otherwise, on the mixed fabric (s1
     NDTwin, s2 unbound), withdrawing an application's rule for h2 on s1 would "restore" s1 -> s2
@@ -1907,7 +1907,7 @@ class ClearSwitchesFromAPreviousRunTest(unittest.TestCase):
     """
     Startup's reset. Until 2026-09-11 both topologies ran
     `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')` as root on every bring-up
-    -- a form this project forbids, for the reason KNOWN-ISSUES G-9 and G-inst-2 each paid
+    -- a form this project forbids, for the reason FIXED-ISSUES G-9 and G-inst-2 each paid
     for once: `-f` matches the whole command line, so it takes any
     process whose argv mentions the string, and Mininet switches share the root PID namespace.
 

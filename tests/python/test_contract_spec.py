@@ -471,7 +471,7 @@ class EdgeInvariantTest(unittest.TestCase):
 
 class PoweredDownIsNotAFaultTest(unittest.TestCase):
     """
-    KNOWN-ISSUES A-8: three test tools turn red when the system is working correctly.
+    FIXED-ISSUES A-8: three test tools turn red when the system is working correctly.
 
     Measured twice on a live fabric (2026-08-18 F-2, re-verified 2026-08-30 R-5): the
     Energy-Saving-App powered down s5/s7/s9, the twin reported that accurately, and this
@@ -772,7 +772,7 @@ class BandwidthInvariantTest(unittest.TestCase):
 
 class SilentTelemetryTest(unittest.TestCase):
     """
-    KNOWN-ISSUES A-4f: an OVS power cycle deletes the bridge and with it the sFlow record, so
+    FIXED-ISSUES A-4f: an OVS power cycle deletes the bridge and with it the sFlow record, so
     the links entering that switch read *exactly* 0 bps for ever while carrying real traffic.
     Nothing in get_graph_data could tell that 0 apart from an idle link's 0.
 
@@ -1834,7 +1834,7 @@ class GraphNodePowerPathTest(unittest.TestCase):
     def test_the_telemetry_vocabulary_is_the_smaller_one_and_not_a_copy(self):
         # Deliberately narrower than power_path's: telemetryPathForBrandName can only ever answer
         # "snmp" or "none". "synthetic" is a power-only mechanism (the Mininet fake), and
-        # accepting it here would let a kernel claim health telemetry that KNOWN-ISSUES F-1 says
+        # accepting it here would let a kernel claim health telemetry that FIXED-ISSUES F-1 says
         # does not exist for a software switch.
         self.assertTrue(validate(spec.GRAPH_NODE, {**self.BASE, "telemetry_path": "synthetic"}),
                         "telemetry_path accepted a power-only mechanism")
@@ -2397,7 +2397,7 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
         self.assertIsNone(self.fx.fixture_target("get_graph_data?since=1")[0])
 
     def test_the_endpoints_with_no_fixture_are_exactly_the_ones_declared(self):
-        # KNOWN-ISSUES G-19. The gap is not closed -- most of these need a documented example
+        # The gap is not closed -- most of these need a documented example
         # this repository does not have -- but it stops growing in silence. Asserted as EQUALITY
         # in both directions: a new endpoint arrives with a fixture or a line, and a fixture
         # written for one of these fails until its line goes with it.
@@ -2442,7 +2442,7 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
 
 class DownReasonVocabularyTest(unittest.TestCase):
     """
-    One down_reason vocabulary (KNOWN-ISSUES G-20), written down in seven places, compared here.
+    One down_reason vocabulary (FIXED-ISSUES G-20), written down in seven places, compared here.
 
     [Co-developed with claude code -- Adam]
 
@@ -2541,7 +2541,7 @@ class DeclinedRecoveryPremiseTest(unittest.TestCase):
     """
     The declined check accuses the kernel of something it may not have done.
 
-    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8.
+    [Co-developed with claude code -- Adam] -- FIXED-ISSUES A-8.
 
     inv_recovery_was_declined_and_said_so is step 4 of the mutating sequence and its whole
     premise is step 3: "the check immediately before this one injected a failure through
@@ -2647,7 +2647,7 @@ class LinkStepPreconditionTest(unittest.TestCase):
     """
     A step that could not choose a link must make no claim about the kernel.
 
-    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8, 2026-09-11.
+    [Co-developed with claude code -- Adam] -- FIXED-ISSUES A-8, 2026-09-11.
 
     switch_to_switch_link() returns None when the topology holds no switch-to-switch edge, and
     link_endpoint_body() then sends NO_LINK_CHOSEN_PAYLOAD -- four zeros, which all four link

@@ -138,7 +138,7 @@ class MalformedMatchValueError(UnsupportedMatchError):
     unsupported_match_fields validates field *names*. Nothing validated the values behind them,
     so `{"nw_dst": "10.0.0.5/32"}` passed every check and reached socket.inet_aton() inside
     insert_ipv4_route, which raises OSError -- uncaught, so FastAPI answered **500**
-    (KNOWN-ISSUES B-2c). Same defect class as MalformedMatchError one shape up: a
+    (FIXED-ISSUES B-2c). Same defect class as MalformedMatchError one shape up: a
     malformed request is the client's error and must be answered as one, not as a proxy crash.
 
     A subclass for the same reason MalformedMatchError is one: api_routes catches only
@@ -206,7 +206,7 @@ class FlowRequestUnusable(Exception):
     A flow write refused before any switch was asked, with the HTTP status it is answered with.
 
     [Co-developed with claude code -- Adam]
-    KNOWN-ISSUES C-6. route_flow, unroute_flow and modify_flow used to return False for these as
+    FIXED-ISSUES C-6. route_flow, unroute_flow and modify_flow used to return False for these as
     well as for a write the switch refused, and the endpoints answered every False alike (200
     {"status":"error"} on add and delete, 400 on modify). Now that a write the switch refused is
     a 502 on all three verbs, the causes that are not the switch's need their own codes, or a
@@ -362,7 +362,7 @@ def check_match_values(match_dict, action):
     Raises MalformedMatchValueError if an address field or an in_port carries a value the
     encoders reject.
 
-    Closes KNOWN-ISSUES B-2c: `{"nw_dst": "10.0.0.5/32"}` used to pass field-name validation,
+    Closes FIXED-ISSUES B-2c: `{"nw_dst": "10.0.0.5/32"}` used to pass field-name validation,
     reach socket.inet_aton() and raise OSError out of the handler as a 500.
 
     [Co-developed with claude code -- Adam]
@@ -388,8 +388,8 @@ def check_match_values(match_dict, action):
     tp_src/tp_dst and their spellings) reach `int(value).to_bytes(width)` in
     _encode_5tuple_value, where a non-numeric string still raises ValueError and an out-of-range
     number still raises OverflowError -- both still uncaught, both still 500s. Same family, not
-    the adjudicated defect, and deliberately not fixed in the same change: see the evidence draft
-    for 2026-08-30, which registers it rather than leaving it to look handled.
+    the CIDR defect, and deliberately not fixed in the same change: it is registered as
+    KNOWN-ISSUES B-22 rather than left to look handled.
 
     in_port is covered since the 5-tuple mask fix. The key is bit<9>, and the writer refuses 512
     and up with an OverflowError raised while it builds the request, which no handler catches (a
@@ -599,7 +599,7 @@ def five_tuple_keys(match_dict):
 LLDP_BEACON_INTERVAL_S = 5
 
 # [Co-developed with claude code -- Adam]
-# Experiment knob for KNOWN-ISSUES D-2 (sweep the beacon interval, measure detection AND false
+# Experiment knob for FIXED-ISSUES D-2 (sweep the beacon interval, measure detection AND false
 # positives). Placed before the derived constants below so timeout, watchdog and startup grace
 # all follow the override -- that derivation chain is the cheap part of the change and splitting
 # it would be a fourth constant to keep in sync.
@@ -1258,7 +1258,7 @@ class TopologyManager:
         *replaces* the destination's only entry.
 
         That replacement is what makes the withdrawal asymmetric too, and this docstring used
-        to stop one sentence short of saying so (doc/KNOWN-ISSUES.md A-4d): the control plane's
+        to stop one sentence short of saying so (doc/FIXED-ISSUES.md A-4d): the control plane's
         route is gone the moment this write lands, so a plain delete afterwards left the
         destination with no entry at all rather than back where it started. unroute_flow now
         restores it instead of removing it; the restore is recomputed from dest_paths, not
@@ -1284,7 +1284,7 @@ class TopologyManager:
         """
         if dpid not in self.switches:
             print(f"[TopologyManager] Switch {dpid} not found for routing!")
-            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: see FlowRequestUnusable.
             raise FlowRequestUnusable(
                 404, "unknown switch",
                 f"switch {dpid} is not connected to the proxy; nothing was written")
@@ -1319,7 +1319,7 @@ class TopologyManager:
 
         if out_port is None:
             # [Co-developed with claude code -- Adam]
-            # KNOWN-ISSUES A-4g. OpenFlow reads an empty action list as "drop", and BLOCK_HOST
+            # FIXED-ISSUES A-4g. OpenFlow reads an empty action list as "drop", and BLOCK_HOST
             # sends exactly that (match on ipv4_src, `actions: []`). This returned False for it,
             # so the block never reached the switch. On flow_5tuple, which lists drop() among its
             # actions and is applied before ipv4_lpm, it is now a drop rule. On ipv4_lpm it stays
@@ -1334,7 +1334,7 @@ class TopologyManager:
                     "install", dpid, match_dict, actions_dict, priority,
                     bool(client.insert_5tuple_drop(keys, prio)))
             print("[TopologyManager] No OUTPUT action found")
-            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: see FlowRequestUnusable.
             raise FlowRequestUnusable(
                 501, "actions not supported",
                 "this install has no OUTPUT action. On a P4/bmv2 data plane an empty action "
@@ -1369,7 +1369,7 @@ class TopologyManager:
 
         if not ipv4_dst:
             print("[TopologyManager] Unsupported match criteria (needs nw_dst)")
-            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: see FlowRequestUnusable.
             raise FlowRequestUnusable(
                 400, "unsupported match",
                 "the match names no destination (nw_dst / ipv4_dst) and no other field a "
@@ -1569,7 +1569,7 @@ class TopologyManager:
 
     def unroute_flow(self, dpid, match_dict, priority=None):
         if dpid not in self.switches:
-            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: see FlowRequestUnusable.
             raise FlowRequestUnusable(
                 404, "unknown switch",
                 f"switch {dpid} is not connected to the proxy; nothing was deleted")
@@ -1607,7 +1607,7 @@ class TopologyManager:
                                          bool(client.delete_5tuple_rule(keys, prio)))
 
         if not ipv4_dst:
-            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: the wildcard half of a
+            # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: the wildcard half of a
             # non-strict delete is refused on purpose (delete_flow_entry's docstring), and that is
             # the request's shape, not the switch's verdict.
             raise FlowRequestUnusable(
@@ -1618,7 +1618,7 @@ class TopologyManager:
             
         # ---- give the slot back to the control plane, do not empty it -----------------------
         # [Co-developed with claude code -- Adam]
-        # doc/KNOWN-ISSUES.md A-4d. ipv4_lpm holds one entry per destination, and route_flow
+        # doc/FIXED-ISSUES.md A-4d. ipv4_lpm holds one entry per destination, and route_flow
         # writes the same dst/32 key install_initial_routes does -- so an application's rule
         # does not sit on top of the control plane's route, it *replaces* it, through
         # insert_ipv4_route's MODIFY fallback. Deleting it therefore removed the destination's
@@ -1686,7 +1686,7 @@ class TopologyManager:
 
     def modify_flow(self, dpid, match_dict, actions_dict, priority=None):
         if dpid not in self.switches:
-            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: see FlowRequestUnusable.
             raise FlowRequestUnusable(
                 404, "unknown switch",
                 f"switch {dpid} is not connected to the proxy; nothing was modified")
@@ -1712,7 +1712,7 @@ class TopologyManager:
                 out_port = action.get("port")
 
         if out_port is None:
-            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: see FlowRequestUnusable.
             raise FlowRequestUnusable(
                 501, "actions not supported",
                 "this modify has no OUTPUT action. On a P4/bmv2 data plane a modify can only "
@@ -1731,7 +1731,7 @@ class TopologyManager:
                 bool(client.modify_5tuple_rule(keys, prio, next_hop_mac, out_port)))
 
         if not ipv4_dst:
-            # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: see FlowRequestUnusable.
+            # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: see FlowRequestUnusable.
             raise FlowRequestUnusable(
                 400, "unsupported match",
                 "the match names no destination (nw_dst / ipv4_dst) and no other field a "
@@ -2392,7 +2392,7 @@ class TopologyManager:
             for dpid in dpids:
                 probe = self._last_probe.get(dpid)
                 client = self.switches.get(dpid)
-                # [Co-developed with claude code -- Adam] KNOWN-ISSUES G-13. See the four keys
+                # [Co-developed with claude code -- Adam] FIXED-ISSUES G-13. See the four keys
                 # below. Read off the client as plain attributes, guarded only by "is there a
                 # client at all" -- a dpid can be in this report on probe or beacon evidence
                 # alone, with nothing in self.switches. A getattr default here would let a
@@ -2441,7 +2441,7 @@ class TopologyManager:
                     # pushed to the switch. The kernel logs it and copies it onto its graph.
                     "ryu_rules_lost": self._ryu_rules_lost.get(dpid),
                     # [Co-developed with claude code -- Adam]
-                    # KNOWN-ISSUES G-13, and the reason these four are here at all: on this
+                    # FIXED-ISSUES G-13, and the reason these four are here at all: on this
                     # plane `duration 0/0` means "this proxy has no record of installing that
                     # rule", NOT "installed just now" -- and from /stats/flow/<dpid> alone an
                     # operator cannot tell which. These say which.

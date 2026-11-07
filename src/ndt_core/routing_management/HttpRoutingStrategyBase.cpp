@@ -18,7 +18,7 @@ namespace
 /// What curl's stdout told us.
 ///
 /// [Co-developed with claude code -- Adam]
-/// `statusLinePresent` is new, and it is the fix for doc/KNOWN-ISSUES.md B-2b's misattribution.
+/// `statusLinePresent` is new, and it is the fix for doc/FIXED-ISSUES.md B-2b's misattribution.
 /// The old version returned `{output, 0}` for two situations that mean opposite things:
 ///   - curl ran, could not connect, and wrote `000` -- the component really is unreachable;
 ///   - curl produced nothing at all -- it never ran, so nothing was ever asked of the component.
@@ -91,7 +91,7 @@ OpResult
 HttpRoutingStrategyBase::post(const std::string& path, const json& body, const char* operation)
 {
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-2b. This was one std::ostringstream producing a shell command line,
+    // doc/FIXED-ISSUES.md B-2b. This was one std::ostringstream producing a shell command line,
     // with body.dump() interpolated between two single quotes. json::dump() escapes what JSON
     // needs escaped, and `'` is not a JSON metacharacter, so it went through untouched: a match
     // value containing a quote ended the quoting and everything after it was read by /bin/sh as
@@ -193,7 +193,7 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
     }
 
     // Some proxies answer 200 with {"status":"error"} in the body, and that is a failure too. Ryu
-    // never does; the P4 proxy agent did for every refused add and delete until KNOWN-ISSUES C-6
+    // never does; the P4 proxy agent did for every refused add and delete until FIXED-ISSUES C-6
     // made those a 502, and the check stays so an older proxy, or any proxy that still answers that
     // way, is not read as a success. (The first words of this comment are a mutation-gate anchor:
     // tests/shell/mutate_dispatch_status_honest.sh, mutation 5.) [Co-developed with claude code -- Adam]
@@ -230,7 +230,7 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
     }
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md C-4. The gate just above is where the two planes stop meaning the same
+    // doc/FIXED-ISSUES.md C-4. The gate just above is where the two planes stop meaning the same
     // thing by a 200 -- its own comment says so, in as many words -- and this is the line that
     // carries that difference forward instead of dropping it here, which is what left the OVS
     // half of B-1 open for two weeks after the P4 half was closed.
@@ -242,7 +242,7 @@ std::pair<OpResult, std::string>
 HttpRoutingStrategyBase::get(const std::string& path, const char* operation)
 {
     // [Co-developed with claude code -- Adam]
-    // F-13 wrote this as one std::ostringstream handed to executeCommand(); doc/KNOWN-ISSUES.md
+    // F-13 wrote this as one std::ostringstream handed to executeCommand(); doc/FIXED-ISSUES.md
     // B-2b removed that seam in favour of an argument vector handed to execvp. get() is "the read
     // half of post()", so it is built and read exactly the way post() now is: no command line is
     // constructed, and a request that never left this host says so instead of naming the far end.
@@ -359,7 +359,7 @@ HttpRoutingStrategyBase::modifyAnEntry(uint64_t dpid,
     body["actions"] = action;
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md A-4e. This function used to set body["priority"] and then post to the
+    // doc/FIXED-ISSUES.md A-4e. This function used to set body["priority"] and then post to the
     // non-strict route -- the two lines contradicting each other, forty lines below a delete that
     // gets the same decision right. OFPFC_MODIFY does not compare priority, so the field was
     // carried all the way to the controller and ignored, and the modify landed on whichever entry
@@ -401,7 +401,7 @@ HttpRoutingStrategyBase::strictModifyPath() const
 
 // --- group and meter entries -------------------------------------------------------
 //
-// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md F-13.
+// [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md F-13.
 //
 // All six of these used to be a bare `post`, and every one of them answered 200 for an entry
 // that did not exist. The 200 was not invented here -- it was relayed, and relayed faithfully,

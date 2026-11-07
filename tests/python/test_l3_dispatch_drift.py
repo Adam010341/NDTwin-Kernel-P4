@@ -4,7 +4,7 @@ and must still go red for a name the kernel really does not carry.
 
 [Co-developed with claude code -- Adam]
 
-The defect (KNOWN-ISSUES L-5, observed 2026-09-02): the scanner's
+The defect (FIXED-ISSUES L-5, observed 2026-09-02): the scanner's
 regex knew `target == "..."` and `target.starts_with("...")` but not
 `utils::pathIs(target, "...")`, so `l3_component_check.py --check-drift` exited 1 reporting
 

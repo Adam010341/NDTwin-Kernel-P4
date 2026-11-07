@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# CELL link_failure_cuts_both_ends_or_neither -- A1 / KNOWN-ISSUES B-16, second finding.
+# CELL link_failure_cuts_both_ends_or_neither -- A1 / FIXED-ISSUES B-16, second finding.
 # `POST /ndt/inject_link_failure` had one end refused and cut the other one anyway, and still
 # answered 200 {"status":"link failure injected"}.
 #

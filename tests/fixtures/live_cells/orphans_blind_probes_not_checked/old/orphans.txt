@@ -15,4 +15,4 @@ network residue (nothing below is deleted)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
   !!  NOT CHECKED: the residue question could not be answered -- rc 5.
   !!    this is not 'the network is clean'. see the lines above for which
-  !!    reading failed. (KNOWN-ISSUES G-12)
+  !!    reading failed. (FIXED-ISSUES G-12)

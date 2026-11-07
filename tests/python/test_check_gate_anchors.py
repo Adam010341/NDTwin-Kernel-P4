@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-KNOWN-ISSUES L-3. `check_gate_anchors.py` could not parse four gates, among them
+FIXED-ISSUES L-3. `check_gate_anchors.py` could not parse four gates, among them
 `mutate_lock_lease_all.sh`, the 23-mutation driver that is the entire kernel-side evidence for
 A-9. It reported them UNPARSED / NO-ANCHORS and exited 2, which is honest but useless: nobody
 reads the difference between "24 gates, 20 ok" and "24 gates, 20 ok and 4 never looked at", and

@@ -9,7 +9,7 @@
 # and it returned an EMPTY LIST for all four -- while run_layers.sh picks the model by
 # (mode, live host count) rather than by asking the kernel which file it loaded, so validating
 # a fabric against a model that is not the one it is running is reachable rather than
-# hypothetical (KNOWN-ISSUES L-1's family).
+# hypothetical (FIXED-ISSUES L-1's family).
 #
 # Two directions, because this can go wrong both ways and the second way is worse:
 #

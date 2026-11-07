@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# KNOWN-ISSUES G-15: run_layers.sh must ask the kernel which model it loaded, and must
+# FIXED-ISSUES G-15: run_layers.sh must ask the kernel which model it loaded, and must
 # refuse when it cannot confirm that the file has not changed underneath it.
 #
 # [Co-developed with claude code -- Adam]

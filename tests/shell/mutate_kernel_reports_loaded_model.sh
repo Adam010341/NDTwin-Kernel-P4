@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for KNOWN-ISSUES G-15 -- the kernel reports the model it loaded, and
+# Mutation gate for FIXED-ISSUES G-15 -- the kernel reports the model it loaded, and
 # run_layers.sh asks it instead of guessing.
 #
 # Covers both halves, because the defect spans them and either half alone is decoration:

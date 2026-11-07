@@ -439,7 +439,7 @@ m=$(mutant m9b "$CELL_URAMOAN" \
             'refusing to build: NDT_TOPO names a model of a different network'  \"\$d/up.log\"" \
     '    _a_ok   h4_refusal_names_two_networks "(widening: any refusal counts, whatever it says)"')
 report "M10b (widen) H4: any refusal counts, whatever refused it" "$m" up_refuses_a_model_of_another_network
-# 🔴 KNOWN-ISSUES G-48, 2026-09-12: the premise assertion. This cell reached opposite conclusions on
+# 🔴 FIXED-ISSUES G-48, 2026-09-12: the premise assertion. This cell reached opposite conclusions on
 # two checkouts of the same commit until it started parking the knob itself -- and old/ is the
 # run that had no discriminating power, so this is the one id here whose red IS that finding.
 m=$(mutant m9c "$CELL_URAMOAN" \

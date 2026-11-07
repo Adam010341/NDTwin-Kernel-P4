@@ -32,7 +32,7 @@ namespace
 ///
 /// [Co-developed with claude code -- Adam]
 /// The seam is now executeArgv(), because post() no longer builds a shell command line
-/// (doc/KNOWN-ISSUES.md B-2b). `commands` keeps holding a flat string so the existing request-shape
+/// (doc/FIXED-ISSUES.md B-2b). `commands` keeps holding a flat string so the existing request-shape
 /// assertions read the same, but note what that string now is: a *rendering* of the argument
 /// vector, not a command line. `argvs` holds the real thing, and the injection tests below assert
 /// on that -- because the whole property being pinned is that arguments stay separate, and a joined
@@ -161,7 +161,7 @@ TEST_F(RoutingStrategyFixture, DeleteWithPriorityUsesTheStrictRoute)
 // --- A-4e: a modify names one entry, and must be able to touch only that one.
 //
 // [Co-developed with claude code -- Adam]
-// doc/KNOWN-ISSUES.md A-4e. modifyAnEntry was the one write verb no test round had ever called,
+// doc/FIXED-ISSUES.md A-4e. modifyAnEntry was the one write verb no test round had ever called,
 // which is how it kept a defect the delete two tests up does not have: it set "priority" in the
 // body and posted the non-strict route, where OpenFlow does not compare priority at all.
 
@@ -327,7 +327,7 @@ TEST_F(RoutingStrategyFixture, HandlesOutputWithNoStatusLine)
     //
     // [Co-developed with claude code -- Adam]
     // This test used to end `EXPECT_TRUE(r.noResponse())`, and that expectation *was* the defect
-    // in doc/KNOWN-ISSUES.md B-2b, written down and pinned: "curl never ran" was being recorded as
+    // in doc/FIXED-ISSUES.md B-2b, written down and pinned: "curl never ran" was being recorded as
     // "the controller did not respond". Kept as a reminder that a test can hold a bug in place
     // while looking like coverage -- the assertion is now the opposite one.
     RecordingOpenFlow s("localhost:8080");
@@ -341,7 +341,7 @@ TEST_F(RoutingStrategyFixture, HandlesOutputWithNoStatusLine)
 }
 
 // =====================================================================================
-// doc/KNOWN-ISSUES.md B-2b: a single quote must not break the request, and must not make
+// doc/FIXED-ISSUES.md B-2b: a single quote must not break the request, and must not make
 // the kernel accuse a component it never contacted.
 //
 // [Co-developed with claude code -- Adam]

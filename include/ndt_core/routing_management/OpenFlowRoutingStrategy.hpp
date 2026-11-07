@@ -22,7 +22,7 @@ class OpenFlowRoutingStrategy : public HttpRoutingStrategyBase
 
     const char* describe() const override { return "Ryu controller"; }
 
-    /// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4.
+    /// [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md C-4.
     /// Ryu answers /stats/flowentry/* as soon as it has built the OFPFlowMod, and OpenFlow does
     /// not acknowledge a FLOW_MOD, so nothing in a 200 from here has been adjudicated by a switch.
     /// An OFPBarrierRequest is what an acknowledgement would be; ofctl_rest exposes no route for

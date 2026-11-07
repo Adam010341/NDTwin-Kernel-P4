@@ -56,7 +56,7 @@ kernel_reachable() {
 
 # --- which model describes the fabric that is actually running --------------------
 #
-# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES L-1.
+# [Co-developed with claude code -- Adam] -- FIXED-ISSUES L-1.
 #
 # This used to be `p4) echo "$TOPO_P4"`, i.e. whatever components.env defaults to, which is the
 # 4-host P4 model. The fabric it runs against is whatever `ndt up` last built. On the night of
@@ -130,7 +130,7 @@ PY
 
 # --- ask the kernel, rather than deriving behind its back --------------------------------
 #
-# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-15.
+# [Co-developed with claude code -- Adam] -- FIXED-ISSUES G-15.
 #
 # Everything above derives the model from the fabric. That is a better guess than the configured
 # default was, and it is still a guess: it reads the number of host namespaces and looks for a
@@ -289,7 +289,7 @@ topo_for_mode() {
         echo "describes a network that size.${N}" >&2
         echo "testing against ${configured#$KERNEL_DIR/} anyway would compare the twin to a" >&2
         echo "different network and report the difference as a product defect -- which is how" >&2
-        echo "a BROKEN line ended up being read as evidence about A-8 (KNOWN-ISSUES L-1)." >&2
+        echo "a BROKEN line ended up being read as evidence about A-8 (FIXED-ISSUES L-1)." >&2
         echo "derive one first, or name it explicitly:" >&2
         echo "  python3 tools/test_workflow/derive_p4_topology_json.py \\" >&2
         echo "      setting/StaticNetworkTopologyMininet_10Switches.json \\" >&2
@@ -504,7 +504,7 @@ run_logcheck() {
             ;;
     esac
 
-    # [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8.
+    # [Co-developed with claude code -- Adam] -- FIXED-ISSUES A-8.
     # Which switches the Energy-Saving-App has powered down. Passed straight through so the
     # log check can tell "the proxy cannot read a switch we turned off" (correct) from "the
     # control plane has stopped reading its switches" (the 2026-08-07 defect). Those two

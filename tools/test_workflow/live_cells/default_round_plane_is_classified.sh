@@ -5,7 +5,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: KNOWN-ISSUES G-26 (F10), run for real 2026-09-11 (with its own positive control). `ndt up`
+# Source: FIXED-ISSUES G-26 (F10), run for real 2026-09-11 (with its own positive control). `ndt up`
 # with no argument is `up_ovs 128`; setting/ has no OVS 128-host model (OVS has 4/8/16/32/64);
 # topo_for_hosts' OVS glob includes StaticNetworkTopologyMininet_*.json -- so the model the
 # default round loads is setting/StaticNetworkTopologyMininet_10Switches.json, 128 hosts, which

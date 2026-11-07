@@ -6,7 +6,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * doc/KNOWN-ISSUES.md B-16. Measured on a live OVS fabric on 2026-09-11 (3 of 3
+ * doc/FIXED-ISSUES.md B-16. Measured on a live OVS fabric on 2026-09-11 (3 of 3
  * reproductions): a successor POSTed
  * /ndt/inject_link_recovery for a link this kernel had never declared down, and the kernel ran
  * `tc qdisc del dev s1-eth1 root` on somebody else's `netem loss 100%` and answered

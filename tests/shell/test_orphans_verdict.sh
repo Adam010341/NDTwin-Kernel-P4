@@ -274,7 +274,7 @@ network residue (nothing below is deleted)
     and 1 app(s) could not be asked whether they ran here at all: energy (no log channel exists for them -- see above)
   !!  NOT CHECKED: the residue question could not be answered -- rc 5.
   !!    this is not 'the network is clean'. see the lines above for which
-  !!    reading failed. (KNOWN-ISSUES G-12)
+  !!    reading failed. (FIXED-ISSUES G-12)
 EOF
 
 # 🔴 KERNEL DOWN. Verbatim from a live run -- restore check 2/3 of a 128-host P4 round, taken seconds
@@ -291,10 +291,10 @@ mk kernel_down <<'EOF'
 
 network residue (nothing below is deleted)
   !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
-  !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  !!  this is not 'the lab is clean'. it is 'nobody asked'. (FIXED-ISSUES G-12)
   !!  NOT CHECKED: the residue question could not be answered -- rc 5.
   !!    this is not 'the network is clean'. see the lines above for which
-  !!    reading failed. (KNOWN-ISSUES G-12)
+  !!    reading failed. (FIXED-ISSUES G-12)
 EOF
 
 # A COMPOSITE, and the only fixture in this file that is: the network half is the verbatim
@@ -310,10 +310,10 @@ mk kernel_down_running <<'EOF'
 
 network residue (nothing below is deleted)
   !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
-  !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  !!  this is not 'the lab is clean'. it is 'nobody asked'. (FIXED-ISSUES G-12)
   !!  NOT CHECKED: the residue question could not be answered -- rc 5.
   !!    this is not 'the network is clean'. see the lines above for which
-  !!    reading failed. (KNOWN-ISSUES G-12)
+  !!    reading failed. (FIXED-ISSUES G-12)
 EOF
 
 # Half a report: the residue half started and stopped, and NOTHING says why. No tally, and no
@@ -374,7 +374,7 @@ rules-in-window (nothing below is deleted)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
   !!  NOT CHECKED: the rules-in-window question could not be answered -- rc 5.
   !!    this is not 'the network is clean'. see the lines above for which
-  !!    reading failed. (KNOWN-ISSUES G-12)
+  !!    reading failed. (FIXED-ISSUES G-12)
 EOF
 
 # The other side of the floor: ONE of the three probes answered. Partial blindness is the normal
@@ -499,10 +499,10 @@ stack
 
 rules-in-window (nothing below is deleted)
   !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
-  !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  !!  this is not 'the lab is clean'. it is 'nobody asked'. (FIXED-ISSUES G-12)
   !!  NOT CHECKED: the rules-in-window question could not be answered -- rc 5.
   !!    this is not 'the network is clean'. see the lines above for which
-  !!    reading failed. (KNOWN-ISSUES G-12)
+  !!    reading failed. (FIXED-ISSUES G-12)
 EOF
 
 # 🔴 THE CONTROL for H2: `apps orphans` is asked BEFORE a teardown too, and a healthy fabric
@@ -532,7 +532,7 @@ stack
 
 rules-in-window (nothing below is deleted)
   !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
-  !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  !!  this is not 'the lab is clean'. it is 'nobody asked'. (FIXED-ISSUES G-12)
 EOF
 
 # What a caller who forgot `2>&1` collects when an orphan IS running: err() writes to fd 2.

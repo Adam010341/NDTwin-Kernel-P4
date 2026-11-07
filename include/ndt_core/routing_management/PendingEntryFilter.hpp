@@ -12,7 +12,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * @details KNOWN-ISSUES T-11, ruled option A: the table listing reports only entries that have
+ * @details FIXED-ISSUES T-11, ruled option A: the table listing reports only entries that have
  * actually been programmed.
  *
  * Separated from DeviceConfigurationAndPowerManager::getOpenFlowTables so the decision can be

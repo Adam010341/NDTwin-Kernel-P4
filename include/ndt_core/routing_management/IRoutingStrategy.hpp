@@ -59,7 +59,7 @@ class IRoutingStrategy
      *        programmed the rule.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md C-4. The two planes answer the same route with the same status code and
+     * doc/FIXED-ISSUES.md C-4. The two planes answer the same route with the same status code and
      * mean different things by it, and until this question was asked the kernel could not tell
      * them apart: DispatchOutcomeLog stamped a flow entry as programmed on any 200, so on OVS the
      * optimistic cache row was served 0.257 s after the POST while the polled row arrived at 13.4 s.

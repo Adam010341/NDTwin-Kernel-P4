@@ -147,7 +147,7 @@ ANTI_ORACLE: list[AntiOracleItem] = [
                    "OVSPowerStrategy::powerOff saves ports but not qdisc/sFlow (A-4f)",
                    "pre-record tc qdisc show; only the saved ports should be missing"),
     AntiOracleItem("AO-13", "sudo prompts, mn -c killing the caller, a name-matched kill taking "
-                            "the wrapper with it (KNOWN-ISSUES G-9 carries the exact command)",
+                            "the wrapper with it (FIXED-ISSUES G-9 carries the exact command)",
                    "documented operation traps (KNOWN-ISSUES G) -- run killers, not defects",
                    "follow the runbook; kill by recorded pid, never by pattern"),
 ]

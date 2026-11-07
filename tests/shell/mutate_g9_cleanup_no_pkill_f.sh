@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_ndtwin_lab_sweep.sh.  KNOWN-ISSUES G-9.
+# Mutation gate for tests/shell/test_ndtwin_lab_sweep.sh.  FIXED-ISSUES G-9.
 #
 # [Co-developed with claude code -- Adam]
 #

@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# THE FINDING THIS EXISTS FOR (2026-09-02, alongside KNOWN-ISSUES B-5):
+# THE FINDING THIS EXISTS FOR (2026-09-02, alongside FIXED-ISSUES B-5):
 #
 # check_logs.py's CRASH_PATTERNS listed "terminate called after throwing" and "terminate called
 # recursively" -- and not "terminate called without an active exception", which is the one the

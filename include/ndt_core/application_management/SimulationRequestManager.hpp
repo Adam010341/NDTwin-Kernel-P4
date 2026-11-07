@@ -102,7 +102,7 @@ class SimulationRequestManager
      * @brief What happened to one simulation request.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-4. requestSimulation() returned std::string, and that type cannot say
+     * doc/FIXED-ISSUES.md B-4. requestSimulation() returned std::string, and that type cannot say
      * "this never left the host" -- an empty string meant the simulator answered with nothing,
      * meant curl was not installed, and meant /bin/sh had refused to parse the command line,
      * indistinguishably. HttpSession did not even look at it: it answered 202 Accepted

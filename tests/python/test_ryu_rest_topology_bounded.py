@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-doc/KNOWN-ISSUES.md A-2, second uncovered item -- restated, because the entry names the wrong
+doc/FIXED-ISSUES.md A-2, second uncovered item -- restated, because the entry names the wrong
 file. `intelligent_router.py`'s get_link is already bounded (`_bounded_topo_read`, landed in
 cce9c5db) AND it never served /v1.0/topology/* in the first place: those three routes come from
 the stock `ryu.app.rest_topology`. That is where the unbounded read the kernel actually polls

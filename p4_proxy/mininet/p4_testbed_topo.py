@@ -828,7 +828,7 @@ def clear_switches_from_a_previous_run(manifest_path=MANIFEST_PATH, ports=(), re
     [Co-developed with claude code -- Adam]
     This was `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')`, here and in
     ntg_bmv2_topo.py, as root, on every bring-up. That exact form is forbidden in
-    this project, and KNOWN-ISSUES G-9 and G-inst-2 are the two times the reason was
+    this project, and FIXED-ISSUES G-9 and G-inst-2 are the two times the reason was
     learned the expensive way: `-f` matches the whole command line, so it takes any process
     whose argv merely mentions the string -- a sibling session's fabric, a tail of a log path,
     an editor with the file open -- and Mininet switches share the root PID namespace, so there

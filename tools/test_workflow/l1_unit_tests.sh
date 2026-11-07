@@ -327,7 +327,7 @@ l1_probe_py_plot() {
 # Three parser bugs while that tool was being written each made whole REAL files scan green and
 # print exactly what a clean tree prints. So rc 2 is red, like rc 1, but it must not say the same
 # thing: one means "a test names a path it shares", the other means "this gate went blind".
-# KNOWN-ISSUES L-3 is the same lesson from check_gate_anchors.py's side.
+# FIXED-ISSUES L-3 is the same lesson from check_gate_anchors.py's side.
 #
 # Takes the repo as an argument so the scanner and the tree it scans move together: that is what
 # lets this function be driven over a sandbox tree, which is the only way anyone sees its two red

@@ -32,7 +32,7 @@ or was recorded as one while the P4 support was built:
     these two fields were hardcoded zeroes and every P4 rule looked equally new -- measured
     2026-09-07, W16-3. `rule_install_times` supplies the install stamp; an entry it has no
     record of keeps 0/0, which is what `ndt` already reads as "age unknown". See
-    KNOWN-ISSUES G-13 and that module's docstring.
+    FIXED-ISSUES G-13 and that module's docstring.
 """
 
 from __future__ import annotations
@@ -338,7 +338,7 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
         "byte_count": int((entry.get("counters") or {}).get("bytes") or 0),
         "packet_count": int((entry.get("counters") or {}).get("packets") or 0),
         # These were hardcoded zeroes too, and for a harder reason than the counters: bmv2 has
-        # no per-entry age to read at all (KNOWN-ISSUES G-13). The number below therefore comes
+        # no per-entry age to read at all (FIXED-ISSUES G-13). The number below therefore comes
         # from the proxy's own record of writing the rule, and stays 0/0 for a rule it did not
         # write -- which is the answer `ndt` already reads as UNKNOWN, not a claim that the rule
         # is new. [Co-developed with claude code -- Adam]

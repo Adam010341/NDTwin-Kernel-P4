@@ -1,4 +1,4 @@
-"""Source guard for the shell-command-construction family: doc/KNOWN-ISSUES.md B-2b and B-4.
+"""Source guard for the shell-command-construction family: doc/FIXED-ISSUES.md B-2b and B-4.
 
 [Co-developed with claude code -- Adam]
 
@@ -389,7 +389,7 @@ class ShellCommandConstructionTest(unittest.TestCase):
             [],
             hits,
             "a request body is being interpolated into a shell command line again "
-            "(doc/KNOWN-ISSUES.md B-2b/B-4); use utils::execArgv, not escaping:\n"
+            "(doc/FIXED-ISSUES.md B-2b/B-4); use utils::execArgv, not escaping:\n"
             + "\n".join(hits),
         )
 

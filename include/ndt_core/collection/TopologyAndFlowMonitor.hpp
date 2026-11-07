@@ -40,7 +40,7 @@ class EventBus;
  * @brief What applying one control-plane recovery report to an edge did.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-6. Returned rather than logged-and-forgotten because the HTTP
+ * doc/FIXED-ISSUES.md B-6. Returned rather than logged-and-forgotten because the HTTP
  * handler has to say which of the two happened: a caller that reads `200 link recovery processed`
  * and finds the edge still down would otherwise be looking at the kernel disagreeing with itself.
  */
@@ -285,7 +285,7 @@ class TopologyAndFlowMonitor
      * @brief Records that a link failure was DECLARED for @p e, and takes it down.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-6 -- the edge version of the vertex split documented below, arrived at
+     * doc/FIXED-ISSUES.md B-6 -- the edge version of the vertex split documented below, arrived at
      * the same way and for the same reason. The two writers of edge liveness answer different
      * questions and must be different calls, because only one of them is allowed to survive a
      * topology poll:
@@ -308,7 +308,7 @@ class TopologyAndFlowMonitor
      *
      * @warning The declaration is PERMANENT until it is withdrawn, and a topology poll
      *          is no longer the only thing that cannot end it: a bare `EventLinkAdd` rediscovery
-     *          cannot either. That is the deliberate other half of KNOWN-ISSUES B-6 -- the old failure mode was
+     *          cannot either. That is the deliberate other half of FIXED-ISSUES B-6 -- the old failure mode was
      *          an injection that ended early and silently, and the new one is an injection that
      *          never ends. Both directions have to be asserted by anything that injects.
      */
@@ -318,7 +318,7 @@ class TopologyAndFlowMonitor
      * @brief Declares @p e failed AND records that the control plane reported the break.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-6. /ndt/link_failure_detected, and nothing else, calls this:
+     * doc/FIXED-ISSUES.md B-6. /ndt/link_failure_detected, and nothing else, calls this:
      * it is Ryu's notification endpoint, so a call to it is the twin being TOLD a link broke.
      * /ndt/inject_link_failure calls setEdgeDownByDeclaration instead -- an operator asking for a
      * link to be down is not the control plane observing that it is.
@@ -331,7 +331,7 @@ class TopologyAndFlowMonitor
      * @brief Applies a control-plane recovery report (/ndt/link_recovery_detected) to @p e.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-6, and the whole of the rule settled on 2026-09-07 after a live
+     * doc/FIXED-ISSUES.md B-6, and the whole of the rule settled on 2026-09-07 after a live
      * run: **a withdrawal has to pair with a reported break.**
      *
      *   - `failureReported` set  -> the report pairs with it. Spend it, withdraw any declaration,
@@ -382,7 +382,7 @@ class TopologyAndFlowMonitor
      *        switch-to-switch link, deduplicated, in graph order.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-6. Exactly the set /ndt/inject_link_failure can reach and no
+     * doc/FIXED-ISSUES.md B-6. Exactly the set /ndt/inject_link_failure can reach and no
      * wider: a switch with no `bridge_name` is skipped rather than guessed at, and host-facing
      * edges are excluded because the link endpoints refuse dpid 0 outright.
      *
@@ -409,7 +409,7 @@ class TopologyAndFlowMonitor
      * @brief Startup sweep: does the machine already carry netem this kernel does not know about?
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-6. Decided 2026-09-06: **WARN, do not clear, and do
+     * doc/FIXED-ISSUES.md B-6. Decided 2026-09-06: **WARN, do not clear, and do
      * not turn it into a declaration.** Widened on 2026-09-07 from "both ends of every
      * switch-to-switch link" to **every Mininet interface this machine's root namespace shows**.
      *
@@ -720,7 +720,7 @@ class TopologyAndFlowMonitor
      *
      * @details
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md F-14 and F-16. The three discovery writers above assign `isUp = true`
+     * doc/FIXED-ISSUES.md F-14 and F-16. The three discovery writers above assign `isUp = true`
      * at six sites and `false` at none, and the only writers of `false` anywhere in the process
      * are the power actuation paths, the liveness poll (switch vertices only -- see the comment
      * at DeviceConfigurationAndPowerManager.cpp:781) and `/ndt/link_failed`, which is keyed on a
@@ -1002,7 +1002,7 @@ class TopologyAndFlowMonitor
      * @brief Seconds curl may spend reaching the control plane before giving up on one request.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md A-2. This poll used to be three bare `curl -s` calls through
+     * doc/FIXED-ISSUES.md A-2. This poll used to be three bare `curl -s` calls through
      * utils::execCommand, which is a plain popen(): no deadline anywhere, so an unresponsive
      * controller held the polling thread until the process exited. Measured once at 733 seconds
      * and still climbing -- the twin showed all 40 links down and 10 switches disabled while the
@@ -1027,7 +1027,7 @@ class TopologyAndFlowMonitor
      * @brief How much of one control-plane poll round answered.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md A-2, the third explicitly uncovered item. One round fetches switches,
+     * doc/FIXED-ISSUES.md A-2, the third explicitly uncovered item. One round fetches switches,
      * hosts and links as three separate requests, and updateSwitches/updateHosts/updateLinks each
      * return early on an empty body -- so a round where only some endpoints answer still applies
      * the part that did, leaving a graph assembled from replies of two different ages.
@@ -1204,7 +1204,7 @@ class TopologyAndFlowMonitor
     /// link-failure declaration, so the WARN is written once per episode rather than once per poll.
     ///
     /// [Co-developed with claude code -- Adam]
-    /// doc/KNOWN-ISSUES.md B-6, and the same edge-triggering as m_resurrectionDeclined above --
+    /// doc/FIXED-ISSUES.md B-6, and the same edge-triggering as m_resurrectionDeclined above --
     /// with a sharper reason for it here. Ryu goes on listing a link that was declared failed for
     /// ever, because a declaration has no LLDP consequence: nothing about the fabric changed, only
     /// what the twin was told. So a line per decline is a line per declared edge every 30 s, with

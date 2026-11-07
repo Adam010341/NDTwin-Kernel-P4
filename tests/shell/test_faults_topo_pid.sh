@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Tests for faults.sh's topo_pid -- the replacement for the `pgrep -f` snippet that faults.sh
-# used to PRINT AT THE OPERATOR when the tc sudoers rules did not cover the form it needed.  KNOWN-ISSUES G-9.
+# used to PRINT AT THE OPERATOR when the tc sudoers rules did not cover the form it needed.  FIXED-ISSUES G-9.
 #
 # [Co-developed with claude code -- Adam]
 #

@@ -12,7 +12,7 @@
 # 🔴 THE TWO DIRECTIONS, and this gate needs both.
 #   * FIRES: the guard stops working. M1 turns it off, M5 turns off the measuring= half, M4 and
 #     M6 keep the refusal but break what it SAYS -- the sentence an operator reads, and the retry
-#     line measured on 2026-09-11 (KNOWN-ISSUES G-30) pasting a parenthesised description into a command line.
+#     line measured on 2026-09-11 (FIXED-ISSUES G-30) pasting a parenthesised description into a command line.
 #   * WIDENS: M7 refuses everything. Every refusal cell above passes and the lab becomes
 #     impossible to tear down; only the expired-claim control catches it.
 #   * THE INSTRUMENT: M2 and M3 take away one of the two things a proceeding teardown touches,

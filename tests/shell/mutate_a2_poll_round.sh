@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/test_TopologyPollRound.cpp (KNOWN-ISSUES A-2, third uncovered item).
+# Mutation gate for tests/test_TopologyPollRound.cpp (FIXED-ISSUES A-2, third uncovered item).
 #
 # [Co-developed with claude code -- Adam]
 #

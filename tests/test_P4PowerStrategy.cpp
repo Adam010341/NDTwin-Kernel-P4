@@ -414,7 +414,7 @@ TEST(P4PowerStrategyTest, PowerOnOnAnAlreadyUpSwitchRunsNothing)
 // --- A-1: the graph is not a witness about a switch this strategy has just killed.
 //
 // [Co-developed with claude code -- Adam]
-// doc/KNOWN-ISSUES.md A-1. Every test below drives the strategy's clock rather than sleeping,
+// doc/FIXED-ISSUES.md A-1. Every test below drives the strategy's clock rather than sleeping,
 // and each one flips the vertex back to up by hand -- that hand is standing in for the 1 Hz
 // pingWorker, which does exactly that within a second of a bmv2 dying, because p4LivenessFor
 // reads the proxy's stale `probe_ok: true` and answers Up. Nothing here needs a fabric; the

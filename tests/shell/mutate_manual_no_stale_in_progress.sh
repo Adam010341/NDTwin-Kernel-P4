@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# What is being protected. A document that calls a merged fix "being worked on" (KNOWN-ISSUES
+# What is being protected. A document that calls a merged fix "being worked on" (FIXED-ISSUES
 # G-52) stays grammatical forever, and nothing in this repository notices it. The test this gate
 # protects asks git instead -- is the merge that fixes it an ancestor of HEAD -- over every doc
 # page, and checks that the tool still prints the sentences the user guide relies on. These
@@ -22,14 +22,14 @@
 # nobody here started. M7 deletes it from a copy of `ndt`; case 4 has to go red.
 #
 # M17 takes the own-fabric sentence out of a copy of the user guide; case 8 has to go red.
-# M18 and C2 show that the sweep's 原本/曾經 suppression is the word, not a blanket.
+# M18 and C2 show that the sweep's past-wording suppression is the word, not a blanket.
 #
 # C1 at the end is the opposite: an HTML-comment reword in the guide, which must leave every case
 # green. A gate with no surviving control cannot tell "the suite is sensitive" from "stuck red".
 #
 # 🔴 ONE MUTATION, ONE ANCHOR. Two mutations sharing an anchor string make
 # check_gate_anchors.py's ok(N) count anchor CELLS rather than mutations, and the difference is
-# printed nowhere (KNOWN-ISSUES G-56). Every anchor below is distinct.
+# printed nowhere (FIXED-ISSUES G-56). Every anchor below is distinct.
 #
 # 🔴 NOTHING IN THE WORKTREE IS WRITTEN. The guide, `ndt`, the test and KNOWN-ISSUES are copied
 # into a temp dir and the copies are mutated; the test takes MANUAL= (the guide), NDT= and DOCS=,
@@ -283,18 +283,49 @@ report "M17: the guide drops clean's own-fabric sentence" "$TEST" "$M" "$D" "cas
 
 # --- M10-M15: the doc-wide sweep (cases 11 / 11b / 11c) ------------------------------------------------
 # 🔴 THESE SIX ARE ABOUT ONE BARGAIN. Cases 11/11b let a block off when it retracts IN PLACE --
-# names a merge commit that is an ancestor of HEAD, next to 已修/已併. That escape is the only
-# thing standing between the sweep and four false positives in KNOWN-ISSUES.md, so every clause
-# of it is taken away once: the word (M10, M11), the sha's merge-ness (M12), the sha's existence
-# (M13), and the block that carries it (M14). M15 is the sweep's own silence.
+# names a merge commit that is an ancestor of HEAD, next to the words for "fixed" or "merged". That escape is the only
+# thing standing between the sweep and false positives on pages that retract a stale caveat, so
+# every clause of it is taken away once: the word (M10, M11), the sha's merge-ness (M12), the
+# sha's existence (M13), and the block that carries it (M14). M15 is the sweep's own silence.
+#
+# 🔴 THE FIXTURES ARE SYNTHETIC SINCE THE KNOWN-ISSUES REWRITE. These mutations used to be anchored
+# on four real retraction notes in the old KNOWN-ISSUES.md. That file now lists only open defects
+# and holds no such note, but the sweep and its escape clause are unchanged, so each mutation now
+# writes its own retraction block into the page tree's copy of that file (a paragraph of its own,
+# before a heading that exists) and takes one clause of it away. C3 and C4 are the same blocks
+# with every clause in place: the sweep must stay green on them, or the mutations below would
+# only prove that any block at all turns case 11 red. The shas are looked up in this repository
+# when the gate runs, so no commit id is typed here.
+FIX6_MERGE=$(git -C "$REPO" log --merges --format='%H %s' HEAD | grep -F -- ' Merge fix/ndt-6-' | head -1 | cut -d' ' -f1)
+W8_BRANCH='fix/w8-declared-link-failure-sticky'
+W8_MERGE=$(git -C "$REPO" log --merges --format='%H %s' HEAD | grep -F -- " Merge $W8_BRANCH:" | head -1 | cut -d' ' -f1)
+NONMERGE=$(git -C "$REPO" rev-list --no-merges -1 HEAD)
+# The sweep (case 11/11b) looks for these four Chinese words; they are written as UTF-8 bytes here
+# so that the fixtures below stay readable in English.
+W_INPROG=$'\xe5\x9c\xa8\xe4\xbf\xae'          # "being worked on"
+W_FIXED=$'\xe5\xb7\xb2\xe4\xbf\xae'           # "fixed"
+W_MERGED=$'\xe5\xb7\xb2\xe4\xbd\xb5'          # "merged"
+W_UNMERGED=$'\xe6\x9c\xaa\xe4\xbd\xb5\xe5\x85\xa5'  # "not merged in"
+W_WAS=$'\xe5\x8e\x9f\xe6\x9c\xac'              # "originally": marks a block as past wording
+if [[ -z "$FIX6_MERGE" || -z "$W8_MERGE" || -z "$NONMERGE" ]]; then
+    echo "  REFUSE: this checkout has no merge for the fixtures (ticket '$FIX6_MERGE', branch '$W8_MERGE')"
+    exit 2
+fi
+
+# --- C3 / C4 (controls): the same blocks with every clause of the escape in place ----------------------
+# They run first so a red here says the fixtures are wrong before any mutation is blamed.
+G=$(ki_mutant c3 '### F-9 '$'\x1f'"This block says FIX-NDT-6 ${W_INPROG} (sweep fixture), ${W_FIXED}, merge \`${FIX6_MERGE}\`."$'\n\n''### F-9 ')
+control "C3 (control): a ticket caveat that names its merge in place" "$TEST" "$P" "$D" "$G"
+G=$(ki_mutant c4 '### F-17 '$'\x1f'"\`${W8_BRANCH}\` ${W_UNMERGED} trunk (sweep fixture),"$'\n'"${W_MERGED}, merge \`${W8_MERGE}\`."$'\n\n''### F-17 ')
+control "C4 (control): a branch caveat whose merge sits on the next line" "$TEST" "$P" "$D" "$G"
 
 # --- M10: a block says a merge landed and then does not say so ----------------------------------------
-G=$(ki_mutant m10 '**那張單本身已併入**（merge'$'\x1f''**那張單本身的狀態**（merge')
+G=$(ki_mutant m10 '### G-62 '$'\x1f'"This block says FIX-NDT-6 ${W_INPROG} (sweep fixture), merge \`${FIX6_MERGE}\`."$'\n\n''### G-62 ')
 report_pages "M10: a doc block drops the word that says the ticket landed" "$TEST" "$P" "$D" "$G" \
              "case 11  no doc page calls a ticket unfixed without naming the merge that landed it"
 
-# --- M11: the same, on the branch half, in a note whose sha is on the NEXT line -------------------------
-G=$(ki_mutant m11 '> 2026-09-10 已併，merge'$'\x1f''> 2026-09-10，見 merge')
+# --- M11: the same, on the branch half ---------------------------------------------------------------------
+G=$(ki_mutant m11 '### G-59 '$'\x1f'"\`${W8_BRANCH}\` ${W_UNMERGED} trunk (sweep fixture), merge \`${W8_MERGE}\`."$'\n\n''### G-59 ')
 report_pages "M11: a doc block drops the word that says the branch landed" "$TEST" "$P" "$D" "$G" \
              "case 11b no doc page calls a branch unmerged without naming the merge that landed it"
 
@@ -302,24 +333,26 @@ report_pages "M11: a doc block drops the word that says the branch landed" "$TES
 # 🔴 A commit on the branch is not the branch arriving. If a single-parent commit counted, "fixed
 # in <sha>" could name the very commit that is still only on the branch and the sweep would agree
 # with it. The replacement sha has to be BOTH reachable and not a merge, or this mutation proves
-# nothing -- measured, not assumed:
-#   2244bab0  `git cat-file -p | grep -c '^parent'` = 1,  `merge-base --is-ancestor .. HEAD` = 0
-#   892fdbdc  (the sha being replaced)            = 2,                                       = 0
-G=$(ki_mutant m12 'merge **`892fdbdc`**，2026-09-12 01:09'$'\x1f''merge **`2244bab0`**，2026-09-12 01:09')
+# nothing: NONMERGE above is the newest non-merge commit of HEAD, so it has one parent and is an
+# ancestor of HEAD by construction.
+G=$(ki_mutant m12 '### G-39 '$'\x1f'"This block says FIX-NDT-6 ${W_INPROG} (sweep fixture), ${W_FIXED}, merge \`${NONMERGE}\`."$'\n\n''### G-39 ')
 report_pages "M12: the disclosed sha is an ancestor but not a merge" "$TEST" "$P" "$D" "$G" \
              "case 11  no doc page calls a ticket unfixed without naming the merge that landed it"
 
 # --- M13: the disclosed sha does not resolve at all -------------------------------------------------------
-G=$(ki_mutant m13 'merge **`a180134f`**（2026-09-11 04:27）'$'\x1f''merge **`0123456789ab`**（2026-09-11 04:27）')
+G=$(ki_mutant m13 '### G-36 '$'\x1f'"This block says FIX-NDT-6 ${W_INPROG} (sweep fixture), ${W_FIXED}, merge \`0123456789ab\`."$'\n\n''### G-36 ')
 report_pages "M13: the disclosed sha is not in this repository" "$TEST" "$P" "$D" "$G" \
              "case 11  no doc page calls a ticket unfixed without naming the merge that landed it"
 
 # --- M14: the sweep reads a line where it should read a block -----------------------------------------------
-# 🔴 THE ONE THAT IS EASY TO GET WRONG. Prose wraps: B-10's note says 尚未併 on one line and
-# names `0584f1b5` on the next. A line-scoped reader sees the first half of a sentence and calls
-# a retraction a stale caveat -- which is how a sweep teaches people to switch it off.
+# 🔴 THE ONE THAT IS EASY TO GET WRONG. Prose wraps: a note can say it is not merged on one line and name
+# the merge on the next. A line-scoped reader sees the first half of a sentence and calls a
+# retraction a stale caveat -- which is how a sweep teaches people to switch it off. The page
+# tree is C4's block (branch caveat on one line, retraction on the next), and the mutation is the
+# test's block reader becoming a line reader.
 T=$(test_mutant m14 'for (i = s; i <= e; i++) print a[i]'$'\x1f''print a[L]')
-report_pages "M14: the sweep reads one line instead of the block" "$T" "$P" "$D" "$PGS" \
+G=$(ki_mutant m14p '### B-9 '$'\x1f'"\`${W8_BRANCH}\` ${W_UNMERGED} trunk (sweep fixture),"$'\n'"${W_MERGED}, merge \`${W8_MERGE}\`."$'\n\n''### B-9 ')
+report_pages "M14: the sweep reads one line instead of the block" "$T" "$P" "$D" "$G" \
              "case 11b no doc page calls a branch unmerged without naming the merge that landed it"
 
 # --- M15: the sweep stops having anything to sweep -------------------------------------------------------
@@ -343,20 +376,53 @@ report_pages "M16: the failure line stops naming the branch it matched" "$T" "$P
 
 # --- M18 / C2: the past-wording suppression is the word, not a blanket ----------------------------------
 # [Co-developed with claude code -- Adam]
-# A block carrying 原本 or 曾經 is skipped as a record of what a page used to say. The page list
+# A block carrying one of the two past-wording words is skipped as a record of what a page used to say. The page list
 # comes from git, so the fixture is a synthetic paragraph inside the page tree's KNOWN-ISSUES copy,
-# placed before a heading so it is a block of its own: it names a merged fix as 在修 and no merge.
+# placed before a heading so it is a block of its own: it names a merged fix as being worked on and no merge.
 # C2 keeps the word and must stay green; M18 is the same sentence without it, and case 11 must see it.
-G=$(ki_mutant m18 '### G-61 '$'\x1f''這裡寫的是「FIX-NDT-6 在修」（sweep fixture）。'$'\n\n''### G-61 ')
+G=$(ki_mutant m18 '### G-33 '$'\x1f'"This block says FIX-NDT-6 ${W_INPROG} (sweep fixture)."$'\n\n''### G-33 ')
 report_pages "M18: a stale block without the past-wording word" "$TEST" "$P" "$D" "$G" \
              "case 11  no doc page calls a ticket unfixed without naming the merge that landed it"
 echo
-G=$(ki_mutant c2 '### G-60 '$'\x1f''原本這裡寫「FIX-NDT-6 在修」（sweep fixture）。'$'\n\n''### G-60 ')
+G=$(ki_mutant c2 '### A-13 '$'\x1f'"${W_WAS} this block said FIX-NDT-6 ${W_INPROG} (sweep fixture)."$'\n\n''### A-13 ')
 if [[ -z "$G" ]]; then
     echo "  DID-NOT-APPLY C2 (control): the heading it writes before is not there" >&2
     UNAPPLIED=$((UNAPPLIED + 1))
 else
     control "C2 (control): the same block, marked as past wording" "$TEST" "$P" "$D" "$G"
+fi
+
+# --- M19-M24 / C5: the English half of the sweep (cases 11e / 11g) --------------------------------------
+# [Co-developed with claude code -- Adam]
+# The Chinese word lists cannot see "fixed on a branch, not on trunk" written in English, which is
+# how FIXED-ISSUES G-52 happened. Case 11g runs the English sweep over a fixture tree (four stale
+# phrasings on one page, two phrasings split across lines on another, ordinary sentences on a
+# third); M19 takes a phrase out of the pattern, M20 makes the sweep read nothing, M21 adds an
+# alternative that matches every character, M23 drops case-insensitivity and M24 makes one phrase
+# need single spaces, so its wrapped form is missed: all five must turn that case red. M22 is the document side: a stale English
+# sentence in a page of the tree must turn case 11e red. C5 is the same fact reworded the way the
+# repository's own G-52 row describes it, and must stay green.
+T11G="case 11g the English sweep finds four phrasings, two split across lines, and nothing on an ordinary page"
+T=$(test_mutant m19 "not[\\s>]+on[\\s>]+.?trunk.?|has"$'\x1f'"this-phrase-matches-nothing|has")
+report "M19: the English pattern loses its second phrase" "$T" "$P" "$D" "$T11G"
+T=$(test_mutant m20 'grep -z -o -i -P "$ENGLISH_STALE" "$tree/$pg" | sed -z '"'"'s/[[:space:]>]\+/ /g'"'"' | tr '"'"'\0'"'"' '"'"'\n'"'"' | sed "s|^|$pg: |"'$'\x1f''true "$tree/$pg"')
+report "M20: the English sweep reads no page" "$T" "$P" "$D" "$T11G"
+T=$(test_mutant m21 "+merged|not[\\s>]+yet[\\s>]+merged'"$'\x1f'"+merged|.'")
+report "M21: the English pattern gains an alternative that matches everything" "$T" "$P" "$D" "$T11G"
+T=$(test_mutant m23 'grep -z -o -i -P "$ENGLISH_STALE"'$'\x1f''grep -z -o -P "$ENGLISH_STALE"')
+report "M23: the English sweep becomes case-sensitive" "$T" "$P" "$D" "$T11G"
+T=$(test_mutant m24 "ENGLISH_STALE='on[\\s>]+a[\\s>]+branch|"$'\x1f'"ENGLISH_STALE='on a branch|")
+report "M24: a phrase split across two lines is no longer found" "$T" "$P" "$D" "$T11G"
+G=$(ki_mutant m22 '### B-17 '$'\x1f'"This fix is still only on a branch (sweep fixture)."$'\n\n''### B-17 ')
+report_pages "M22: a doc page says a fix is only on a branch" "$TEST" "$P" "$D" "$G" \
+             "case 11e no doc page says a fix is on a branch, not on trunk, or not yet merged"
+echo
+G=$(ki_mutant c5 '### B-21 '$'\x1f'"This fix was described as unmerged after it had merged (sweep fixture)."$'\n\n''### B-21 ')
+if [[ -z "$G" ]]; then
+    echo "  DID-NOT-APPLY C5 (control): the heading it writes before is not there" >&2
+    UNAPPLIED=$((UNAPPLIED + 1))
+else
+    control "C5 (control): the same fact, described instead of quoted" "$TEST" "$P" "$D" "$G"
 fi
 
 # --- C1 (control): an HTML comment in the guide is reworded; nothing about the contract changes ------

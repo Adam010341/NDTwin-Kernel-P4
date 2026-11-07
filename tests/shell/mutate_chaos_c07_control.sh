@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_chaos_c07_control.py (KNOWN-ISSUES G-3).
+# Mutation gate for tests/python/test_chaos_c07_control.py (FIXED-ISSUES G-3).
 #
 # [Co-developed with claude code -- Adam]
 #

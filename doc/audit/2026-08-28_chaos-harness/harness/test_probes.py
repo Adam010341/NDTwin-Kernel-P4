@@ -175,7 +175,7 @@ def main(path: str) -> int:
         check("a pid recycled into a log reader is not a switch",
               113 not in live,
               "the case a full-command-line name match counted as a switch, because a log "
-              "path mentions the binary (KNOWN-ISSUES G-9); argv[0]'s basename is the test")
+              "path mentions the binary (FIXED-ISSUES G-9); argv[0]'s basename is the test")
         check("a manifest pid that is gone is simply not live", 99991 not in live, "")
 
         os.environ["NDTWIN_P4_MANIFEST"] = os.path.join(tmp, "there-is-no-manifest.json")

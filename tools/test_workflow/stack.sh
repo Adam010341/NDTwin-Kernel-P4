@@ -358,7 +358,7 @@ CMD_SUFFIX=".cmd"
 
 recorded_cmd() { cat "$PID_DIR/$1$CMD_SUFFIX" 2>/dev/null; }
 
-# The wrapper that records how a component ended. See supervise.sh; KNOWN-ISSUES B-5.
+# The wrapper that records how a component ended. See supervise.sh; FIXED-ISSUES B-5.
 # [Co-developed with claude code -- Adam]
 SUPERVISE="$HERE/supervise.sh"
 
@@ -561,7 +561,7 @@ start_bg() {
     # Rotating keeps each file single-era and the disk bounded. [Co-developed with claude code -- Adam]
     #
     # Depth was 2 (.prev/.prev2), chosen for "restart, it recurred, restart again" -- the
-    # sequence KNOWN-ISSUES A-5 names and A-2's workaround produces. That is the right shape
+    # sequence FIXED-ISSUES A-5 names and A-2's workaround produces. That is the right shape
     # for a debugging loop and the wrong one for a long run of experiments: on 2026-09-05 seven
     # `ndt up`s ran in this checkout inside three hours, and the log several fixes were
     # judged on survived only because someone copied it by hand. See rotate_log.
@@ -569,7 +569,7 @@ start_bg() {
         rotate_log "$log"
     fi
     # [Co-developed with claude code -- Adam]
-    # KNOWN-ISSUES B-5. Launched through supervise.sh so that HOW the component ended is written
+    # FIXED-ISSUES B-5. Launched through supervise.sh so that HOW the component ended is written
     # down. Nothing here waited for these processes and nothing recorded their exit status, so a
     # component that aborted and a component that stopped cleanly left the same evidence: a pid
     # that is no longer there. The kernel had been dying of SIGABRT on every Ctrl-C shutdown, and
@@ -781,7 +781,7 @@ stop_one() {
         fi
     fi
     # [Co-developed with claude code -- Adam]
-    # KNOWN-ISSUES B-5. Read after the process is gone, never before: supervise.sh writes the
+    # FIXED-ISSUES B-5. Read after the process is gone, never before: supervise.sh writes the
     # file and then exits, so by the time the kill loop above sees the pid disappear the answer
     # is already on disk. A component that had died on its own before `down` ran is reported here
     # too -- that is the point, since nothing else would ever have said so.
@@ -1144,7 +1144,7 @@ cmd_up() {
         #
         #     🔴 This is $RYU_TOPOLOGY_APP -- OUR copy (tools/ryu_apps/rest_topology_bounded.py),
         #     not the stock `ryu.app.rest_topology` module, and the stock one must NOT be added
-        #     back alongside it: both register the same /v1.0/topology/* routes. KNOWN-ISSUES A-2
+        #     back alongside it: both register the same /v1.0/topology/* routes. FIXED-ISSUES A-2
         #     -- upstream these three handlers block forever in send_request -> reply_q.get(), so
         #     a wedged ryu.topology.switches accepts the kernel's connection and never answers.
         #     The copy bounds each at 3 s and returns 503 with an empty body. See
@@ -1370,7 +1370,7 @@ cmd_down() {
       done
     done < <(ndt_port_rows all)
     # [Co-developed with claude code -- Adam]
-    # KNOWN-ISSUES B-5. A component that ended on a fatal signal fails this command and is named
+    # FIXED-ISSUES B-5. A component that ended on a fatal signal fails this command and is named
     # in the failure. Until now a crash on shutdown was not merely unreported -- it was
     # unreportable, because nothing recorded an exit status at all, and `down` said "done".
     #

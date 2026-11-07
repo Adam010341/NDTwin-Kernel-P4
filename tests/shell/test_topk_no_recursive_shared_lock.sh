@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Structural guard for KNOWN-ISSUES §E-2: getTopKFlowInfoJson must not take
+# Structural guard for FIXED-ISSUES §E-2: getTopKFlowInfoJson must not take
 # m_flowInfoTableMutex, because the getFlowInfoJson() it calls takes it already.
 #
 # [Co-developed with claude code -- Adam]

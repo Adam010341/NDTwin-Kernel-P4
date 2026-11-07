@@ -5,7 +5,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # 09-05 night round, O-4. start_bg kept two generations, .prev and .prev2, a depth chosen for a
-# debugging loop ("restart, it recurred, restart again" -- KNOWN-ISSUES A-5). A night of
+# debugging loop ("restart, it recurred, restart again" -- FIXED-ISSUES A-5). A night of
 # experiments is a different shape: seven `ndt up`s ran in one checkout inside three hours, and
 # the kernel.log that five fixes were judged on had already become the .prev twenty minutes after it
 # was written. It survived only because it was copied by hand at 15:53. Later the same evening one

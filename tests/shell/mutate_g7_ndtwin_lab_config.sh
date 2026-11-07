@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_ndtwin_lab_config.sh.  KNOWN-ISSUES G-7.
+# Mutation gate for tests/shell/test_ndtwin_lab_config.sh.  FIXED-ISSUES G-7.
 #
 # [Co-developed with claude code -- Adam]
 #

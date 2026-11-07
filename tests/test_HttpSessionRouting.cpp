@@ -93,7 +93,7 @@ class HttpSessionTestPeer
      * test of what they do -- rather than what they refuse -- needs real ones.
      * [Co-developed with claude code -- Adam]
      */
-    /// Mode-carrying variant. [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-6:
+    /// Mode-carrying variant. [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md B-6:
     /// /ndt/inject_link_failure runs tc on a MININET deployment and must NOT on any other, so the
     /// mode is the subject of a case rather than a fixture constant. Kept as a third constructor,
     /// not a default argument on the one below, so that every existing call site keeps naming
@@ -163,7 +163,7 @@ class HttpSessionTestPeer
 
     /**
      * Flow-batch variant: the three collaborators processFlowBatch reads.
-     * [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-7. The refusal of a priority
+     * [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md C-7. The refusal of a priority
      * delete on bmv2 reads the monitor's switch kinds; the entries it lets through go to the
      * controller's queue and to the power manager's table cache.
      */
@@ -191,7 +191,7 @@ class HttpSessionTestPeer
      * @brief Points the session's tc seam and provenance ledger at ones the test owns. B-16.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-16. This is what makes the MININET half of /ndt/inject_link_failure
+     * doc/FIXED-ISSUES.md B-16. This is what makes the MININET half of /ndt/inject_link_failure
      * and /ndt/inject_link_recovery reachable from ctest at all: before it, both handlers built
      * `utils::netem::realTcRunner()` inline and every case here had to use utils::TESTBED, where
      * the handler answers `"tc": "skipped (not MININET)"` and returns.
@@ -704,7 +704,7 @@ TEST_F(GraphDataHeadroomTest, TheExistingHeadroomKeyKeepsItsNameAndType)
 }
 
 // --- the liveness parameter on the two flow-listing endpoints ---------------------------------
-// [Co-developed with claude code -- Adam] KNOWN-ISSUES B-x.
+// [Co-developed with claude code -- Adam] FIXED-ISSUES B-x.
 //
 // These belong in this file rather than test_FlowLiveness.cpp for the reason its header states:
 // the status code is decided by HttpSession, so only HttpSession can be asked about it. They also
@@ -2424,7 +2424,7 @@ TEST_F(LabClaimOnWriteRepliesTest, TheClaimChangingHandsIsLoggedOncePerChangeAnd
 }
 
 
-// --- doc/KNOWN-ISSUES.md C-7: a delete the P4 proxy refuses is refused before the queue ----------
+// --- doc/FIXED-ISSUES.md C-7: a delete the P4 proxy refuses is refused before the queue ----------
 //
 // [Co-developed with claude code -- Adam]
 // A strict delete naming a priority, on a bmv2 switch, against a destination-only match: the proxy

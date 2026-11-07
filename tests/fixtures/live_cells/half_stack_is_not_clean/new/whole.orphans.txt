@@ -47,4 +47,4 @@ network residue (nothing below is deleted)
     and 1 app(s) could not be asked whether they ran here at all: energy (no log channel exists for them -- see above)
   !!  NOT CHECKED: the residue question could not be answered -- rc 5.
   !!    this is not 'the network is clean'. see the lines above for which
-  !!    reading failed. (KNOWN-ISSUES G-12)
+  !!    reading failed. (FIXED-ISSUES G-12)

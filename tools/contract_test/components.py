@@ -23,7 +23,7 @@ import os
 KERNEL_ENDPOINTS = {
     "link_failure_detected": "POST",
     "link_recovery_detected": "POST",
-    # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-6. The injection pair: same payload as the two above, but
+    # [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md B-6. The injection pair: same payload as the two above, but
     # the caller wants the link to BE down rather than reporting that it is. Listed here because
     # tests/python/test_l3_dispatch_drift.py checks BOTH directions -- a route the source registers
     # and this table omits is drift too. No Component below lists them: nothing in the workspace
@@ -237,7 +237,7 @@ def scan_kernel_dispatch(http_session_cpp: str) -> dict[str, str]:
         method == http::verb::get  && utils::pathIs(target, "/ndt/x")
 
     [Co-developed with claude code -- Adam]
-    🔴 The third form was added 2026-09-03 (KNOWN-ISSUES L-5). It was missing, so the two
+    🔴 The third form was added 2026-09-03 (FIXED-ISSUES L-5). It was missing, so the two
     routes registered through utils::pathIs -- /ndt/get_detected_flow_data and
     /ndt/get_detected_top_k_flow_data (HttpSession.cpp:164,169) -- were reported as
     "the kernel no longer registers it" while both answered 200 in the same live run

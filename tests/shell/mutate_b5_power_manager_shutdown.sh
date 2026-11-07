@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/test_PowerManagerShutdown.cpp (KNOWN-ISSUES B-5).
+# Mutation gate for tests/test_PowerManagerShutdown.cpp (FIXED-ISSUES B-5).
 #
 # [Co-developed with claude code -- Adam]
 #

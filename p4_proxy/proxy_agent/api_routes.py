@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from google.rpc import code_pb2, status_pb2
 from p4.v1 import p4runtime_pb2
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError, needs_five_tuple
-# [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: an install refused before the switch.
+# [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: an install refused before the switch.
 from proxy_agent.topology_manager import FlowRequestUnusable
 # [Co-developed with claude code -- Adam] A destination-only modify is honoured at the
 # priority its slot holds, and refused (501) at any other (decided 2026-10-16).
@@ -541,7 +541,7 @@ def _refuse_unhonourable_priority(data, match, verb):
     if priority is None or needs_five_tuple(match):
         return
     # [Co-developed with claude code -- Adam] What a non-strict delete does here depends on the
-    # destination: a /32 hands the slot back to the control plane's route (KNOWN-ISSUES A-4d),
+    # destination: a /32 hands the slot back to the control plane's route (FIXED-ISSUES A-4d),
     # a prefix has no control-plane route to hand back to and is removed outright. The refusal
     # comes before the value checks, so `match` may carry anything; only a well-formed prefix
     # shorter than /32 (or text that is plainly meant as one) takes the prefix wording.
@@ -551,7 +551,7 @@ def _refuse_unhonourable_priority(data, match, verb):
     non_strict_here = (
         "here it removes that one prefix entry and restores nothing, since the control "
         "plane writes only /32 host routes and the prefix was never its own" if prefix
-        else "here it hands the destination back to the control plane's route (KNOWN-ISSUES "
+        else "here it hands the destination back to the control plane's route (FIXED-ISSUES "
              "A-4d)")
     raise HTTPException(
         status_code=501,
@@ -677,7 +677,7 @@ def _unusable_response(err, dpid, failed_body):
     """
     A FlowRequestUnusable as its status, with the endpoint's own failure body leading.
 
-    [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6. Shared by add and delete, whose
+    [Co-developed with claude code -- Adam] FIXED-ISSUES C-6. Shared by add and delete, whose
     failure bodies are {"status": "error", "message": ...}: a caller that reads those two keys
     reads the same words it always did, whatever the status line now says.
     """
@@ -696,7 +696,7 @@ DELETE_FAILED_BODY = {"status": "error", "message": "Failed to delete route"}
 MODIFY_FAILED_DETAIL = "Failed to modify flow entry in P4 switch"
 
 
-#: The body a refused install answers with. Kept word for word from when it was a 200 (KNOWN-ISSUES
+#: The body a refused install answers with. Kept word for word from when it was a 200 (FIXED-ISSUES
 #: C-6): only the status line changed. [Co-developed with claude code -- Adam]
 ADD_FAILED_BODY = {"status": "error", "message": "Failed to add route"}
 
@@ -743,13 +743,13 @@ async def add_flow_entry(request: Request):
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: refused before any switch
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: refused before any switch
         # was asked, so not the 502 below. Same two leading keys as the 502's body.
         return _unusable_response(err, dpid, ADD_FAILED_BODY)
 
     if not success:
         # [Co-developed with claude code -- Adam]
-        # KNOWN-ISSUES C-6. This was a 200 carrying {"status":"error"}, and a caller reading the
+        # FIXED-ISSUES C-6. This was a 200 carrying {"status":"error"}, and a caller reading the
         # status line -- which is most of them -- read a refused write as an installed rule: from
         # the 897th install on, every one on a full bmv2 table (1024 entries, 128 of them the
         # fabric's own). Now a 502, the code POST /p4/table_entry gives "the switch refused the
@@ -838,12 +838,12 @@ async def delete_flow_entry(request: Request):
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6, as on add.
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6, as on add.
         return _unusable_response(err, dpid, DELETE_FAILED_BODY)
     if success:
         return {"status": "success", **_priority_disclosure(match)}
     # [Co-developed with claude code -- Adam]
-    # KNOWN-ISSUES C-6, the delete half. This was a 200
+    # FIXED-ISSUES C-6, the delete half. This was a 200
     # carrying {"status":"error"}: a delete the switch refused -- a 5-tuple entry not there at that
     # priority, a refused restore that left the caller's rule in place -- read as done to anyone
     # reading the status line. 502 as on add, body unchanged; the kernel already books any
@@ -883,7 +883,7 @@ async def modify_flow_entry(request: Request):
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: this endpoint's refusals are
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: this endpoint's refusals are
         # HTTPExceptions, so the same fields go in `detail`.
         detail = {"error": err.error, "dpid": dpid, "message": str(err)}
         if err.status == 501:
@@ -891,7 +891,7 @@ async def modify_flow_entry(request: Request):
         raise HTTPException(status_code=err.status, detail=detail)
     if not success:
         # [Co-developed with claude code -- Adam]
-        # KNOWN-ISSUES C-6, the modify half. A modify the switch refused was a 400 -- the
+        # FIXED-ISSUES C-6, the modify half. A modify the switch refused was a 400 -- the
         # client's-mistake code for something the client did not do wrong (an entry that is not
         # there, a write bmv2 turned down). 502 as on add and delete, `detail` unchanged; 400 is
         # left to the request's own faults above (a bad match, a value that cannot be encoded).
@@ -2172,7 +2172,7 @@ def get_flow_stats(dpid: int):
         # [Co-developed with claude code -- Adam]
         # The client's OWN install record, not a fresh one and not a module global: it is the
         # object the write paths on this same client stamped, and the switch it describes is the
-        # switch these entries were just read from. KNOWN-ISSUES G-13.
+        # switch these entries were just read from. FIXED-ISSUES G-13.
         #
         # Read as a plain attribute rather than through getattr(..., None): an optional argument
         # production forgets to pass is the exact shape of the rule journal's wiring gap (see the

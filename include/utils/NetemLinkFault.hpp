@@ -7,7 +7,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * doc/KNOWN-ISSUES.md B-6, second half. The question raised on 2026-09-05 was "why can a link the API
+ * doc/FIXED-ISSUES.md B-6, second half. The question raised on 2026-09-05 was "why can a link the API
  * says is down still carry packets" -- so /ndt/inject_link_failure both declares the failure in the
  * twin AND cuts the link, and /ndt/inject_link_recovery puts both back.
  *
@@ -323,7 +323,7 @@ findExistingNetem(const std::string& tree)
  * @brief The tc handle of the netem on this interface, e.g. `801d:`, or empty when there is none.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-16. The handle is the only thing on a qdisc that can identify it: `netem
+ * doc/FIXED-ISSUES.md B-16. The handle is the only thing on a qdisc that can identify it: `netem
  * loss 100%` attached by faults.sh, by the chaos harness and by this kernel are the same three
  * words, and tc records no owner. So provenance is "the kernel wrote down a handle and this is
  * still that handle" -- see utils::netem::InjectedNetemLedger.
@@ -411,7 +411,7 @@ showAllQdiscs(const TcRunner& run)
  * @brief Whether the netem on an interface is one THIS kernel attached.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-16. `findExistingNetem` answers "is there a netem here, and where", which
+ * doc/FIXED-ISSUES.md B-16. `findExistingNetem` answers "is there a netem here, and where", which
  * is what a delete needs to know and is not the question `/ndt/inject_link_recovery` was asking.
  * Measured 2026-09-11 (3 of 3): the same tree read was taken as permission, and the
  * endpoint deleted the previous operator's `netem loss 100%` and answered 200 `ok:true`.
@@ -652,7 +652,7 @@ restoreInterface(const std::string& iface, const TcRunner& run)
  * @brief The recovery's per-end action: remove the netem if it is this kernel's, and only then.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-16, and the whole of the fix on one interface. @p seen must come from
+ * doc/FIXED-ISSUES.md B-16, and the whole of the fix on one interface. @p seen must come from
  * inspectNetem against the same @p ledger, so that the qdisc whose provenance was checked is the
  * qdisc this deletes.
  *
@@ -712,7 +712,7 @@ restoreSightedNetem(const std::string& iface,
  * @brief Cuts EVERY end of a link with `netem loss 100%`, or none of them.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-16, second half (measured 2026-09-11, 2 of 2). The loop this replaces
+ * doc/FIXED-ISSUES.md B-16, second half (measured 2026-09-11, 2 of 2). The loop this replaces
  * called cutInterface once per end and kept going: one end already carried somebody else's netem
  * and was refused, the other end was really cut, and the reply said `link failure injected`. Both
  * ends were `loss 100%` that time so the effect was still symmetric; had the standing netem been

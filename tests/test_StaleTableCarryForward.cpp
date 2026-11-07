@@ -1,5 +1,5 @@
 /**
- * Tests for KNOWN-ISSUES F-6: a switch whose flow-table read failed must not vanish.
+ * Tests for FIXED-ISSUES F-6: a switch whose flow-table read failed must not vanish.
  *
  * [Co-developed with claude code -- Adam]
  *

@@ -52,7 +52,7 @@ class Controller
      * Read-only for callers outside the sender: the only writer is the sender callback, which is
      * the sole point where a FlowJob and its OpResult exist together. Exposed so the HTTP layer
      * can answer "did the writes I was told were queued actually land?" -- a question that had no
-     * answer anywhere in the API before (KNOWN-ISSUES A-7).
+     * answer anywhere in the API before (FIXED-ISSUES A-7).
      */
     const DispatchOutcomeLog& dispatchOutcomes() const
     {

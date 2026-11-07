@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for tests/shell/test_apps_residue.sh and tests/python/test_app_residue_rules.py
-# (KNOWN-ISSUES G-12).
+# (FIXED-ISSUES G-12).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -211,7 +211,7 @@ report "M10: an app with no record gets a window of all time" "$m" \
 # A kernel that is not answering reported as a clean network -- the sentence 5F exists for.
 m=$(mutant m11 "$NDT" \
     '        warn "the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked."
-        warn "this is not '\''the lab is clean'\''. it is '\''nobody asked'\''. (KNOWN-ISSUES G-12)"' \
+        warn "this is not '\''the lab is clean'\''. it is '\''nobody asked'\''. (FIXED-ISSUES G-12)"' \
     '        ok "nothing to report"')
 report "M11: a kernel that is down is reported as nothing to report" "$m" \
        "it says rules and locks cannot be checked"

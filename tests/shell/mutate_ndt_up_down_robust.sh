@@ -443,7 +443,7 @@ m=$(mutant m23 "$NDT" \
 report "M23: the refusal stops saying whose knob those numbers are" "$m" \
        "🔴 and says that knob is the P4 plane's, not what OVS builds"
 
-# --- H4: the model and the fabric are different networks (KNOWN-ISSUES G-23, 2026-09-11) ------
+# --- H4: the model and the fabric are different networks (FIXED-ISSUES G-23, 2026-09-11) ------
 
 # M24 restores H4 verbatim: the NDT_TOPO escape hatch checks only that the file EXISTS. That is
 # the code a 2026-09-11 run of `NDT_TOPO=<128-host model> ndt up p4 4` met -- fabric built, kernel
@@ -630,7 +630,7 @@ m=$(mutant w6 "$NDT" \
 report_green "W6 (behaviour-preserving): the refusal's opening line reworded" "$m" \
        "the wording of the first line is not the behaviour under test"
 
-# --- H3: a bring-up that overlaps a teardown (KNOWN-ISSUES G-24, 2026-09-11) ------------------
+# --- H3: a bring-up that overlaps a teardown (FIXED-ISSUES G-24, 2026-09-11) ------------------
 
 # M30 restores H3: nothing records that a teardown is running, so the only reading a P4
 # bring-up can take is the ports -- which look identical coming up and going down.
@@ -692,7 +692,7 @@ report "M35: a refused teardown still claims to be running" "$m" \
        "  🔴 a refused 'ndt down' writes no marker"
 
 
-# --- KNOWN-ISSUES G-42 (2026-09-12): the marker has an owner -----------------------------------
+# --- FIXED-ISSUES G-42 (2026-09-12): the marker has an owner -----------------------------------
 
 # M40 restores G-42's first half: mark_teardown_start writes `pid=$$` over whatever is there.
 # A second `ndt down` then takes the record of the first one, and for as long as the first is
@@ -729,7 +729,7 @@ report_green "W7 (behaviour-preserving): the second-teardown explanation reworde
        "the wording under the refusal is not the behaviour under test"
 
 
-# --- KNOWN-ISSUES G-43 (2026-09-12): the teardown rc is its ending, not a reading from the middle
+# --- FIXED-ISSUES G-43 (2026-09-12): the teardown rc is its ending, not a reading from the middle
 
 # M43 restores the 7-of-7: nothing is deferred, so a live P4 teardown is red because [1/3] ran
 # before the sweep that closes the very ports it is complaining about.
@@ -786,7 +786,7 @@ report_green "W8 (behaviour-preserving): the deferral note reworded" "$m" \
        "the note above the re-read is not the behaviour under test"
 
 
-# --- KNOWN-ISSUES G-44: `ndt clean` during a teardown -------------------------------------------
+# --- FIXED-ISSUES G-44: `ndt clean` during a teardown -------------------------------------------
 
 # M48 restores G-44: `ndt clean` walks straight into a live teardown and reports the fabric
 # being destroyed as residue, ending on the one piece of advice that would kill the operator's
@@ -807,7 +807,7 @@ report "M49 (widening): the clean guard refuses its own teardown too" "$m" \
        "🔴 'ndt down' is not refused by its own marker at verify clean"
 
 
-# --- KNOWN-ISSUES G-45: whose processes `ndt clean` is looking at -------------------------------
+# --- FIXED-ISSUES G-45: whose processes `ndt clean` is looking at -------------------------------
 
 # M50 restores G-45's pidfile half: the registry is not consulted, so the kernel and proxy this
 # stack started and recorded are summarised as "this stack did not start it".
@@ -882,7 +882,7 @@ report "M39: the OVS path keeps it too" "$m" \
 
 
 
-# --- KNOWN-ISSUES G-47: a refused `ndt up p4 <n>` and the P4 host knob (section 18) ------------
+# --- FIXED-ISSUES G-47: a refused `ndt up p4 <n>` and the P4 host knob (section 18) ------------
 
 # M53 is the defect itself, in the shape measured on 2026-09-12: the count is written through before
 # anything has been checked. The later write is then a no-op, so this mutation changes WHEN and
@@ -953,7 +953,7 @@ m=$(mutant w9 "$NDT" \
 report_green "W9 (behaviour-preserving): the rollback's put-back reason reworded" "$m" \
        "the reason is prose; the file and the value are what is asserted"
 
-# --- KNOWN-ISSUES G-49: the claim note and the verdict (section 19) -----------------------------
+# --- FIXED-ISSUES G-49: the claim note and the verdict (section 19) -----------------------------
 
 # M59 is the defect itself: the note is written from the rc again. It survives every cell whose
 # rc and verdict agree, which is why section 19 carries the one where they do not.

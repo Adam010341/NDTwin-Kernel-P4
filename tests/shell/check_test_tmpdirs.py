@@ -147,7 +147,7 @@ _IDENTIFIER_BYTE = re.compile(r"[A-Za-z0-9_]")
 
 
 # 🔴 A file this scanner could not read is NOT a file with no findings. check_gate_anchors.py
-# learned this the expensive way (KNOWN-ISSUES L-3): four gates it could not parse were reported
+# learned this the expensive way (FIXED-ISSUES L-3): four gates it could not parse were reported
 # as "no anchors" for weeks. Anything carrying this prefix makes the run exit 2, which is neither
 # "clean" nor "there is a fixed path here" but "go and look".
 NOT_CHECKED = "NOT CHECKED: "
