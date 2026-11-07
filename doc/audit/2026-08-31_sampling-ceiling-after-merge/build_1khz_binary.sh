@@ -6,16 +6,16 @@
 #
 # WHY THIS IS A SEPARATE SCRIPT AND NOT A STEP OF run_e.sh.
 #   PREREG §4 and the local fabric queue both forbid building inside the measurement window
-#   ("窗內全 repo 禁 commit／build／VM"), and this round's readout is a CPU plateau, so a compile
+#   (no commit, build or VM anywhere in the repo inside the window), and this round's readout is a CPU plateau, so a compile
 #   during it is a treatment rather than noise.  A build step hidden inside the measurement driver
 #   would violate the round's own environment clause the first time it was needed.
 #
-# WHY THERE HAS TO BE A SECOND BINARY AT ALL  (PREREG 【TBD-1】).
+# WHY THERE HAS TO BE A SECOND BINARY AT ALL  (PREREG [TBD-1]).
 #   There is no flag.  `kFlowPathRecomputeInterval` is
 #       include/ndt_core/collection/FlowLinkUsageCollector.hpp:51
 #           constexpr auto kFlowPathRecomputeInterval = std::chrono::seconds(1);
 #   with a single use site at src/ndt_core/collection/FlowLinkUsageCollector.cpp:2969, and the
-#   only getenv anywhere in the kernel's collection tree is NDTWIN_TOPO_FILE.  So 【TBD-1】's
+#   only getenv anywhere in the kernel's collection tree is NDTWIN_TOPO_FILE.  So [TBD-1]'s
 #   "flag vs revert patch" has only one arm that exists: a second binary.  The remaining choice is
 #   WHICH second binary, and that is a decision for the reviewer -- see TBD-DRAFT.md D3.  This
 #   script implements the recommended option and refuses to pretend it is the only one.

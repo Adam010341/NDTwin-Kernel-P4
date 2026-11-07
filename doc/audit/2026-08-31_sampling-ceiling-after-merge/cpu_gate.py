@@ -11,7 +11,7 @@ contaminated a six-arm window asymmetrically without touching the fabric, the bu
 -- nothing the claim covers.
 
 WHY IT COUNTS *FOREIGN* CORES AND NOT load1.
-    load1 is a lagging composite and cannot be a threshold (same memory note).  What this round
+    load1 is a lagging composite and cannot be a threshold (a load average lags by construction).  What this round
     needs to know is narrower and answerable: how much CPU is being burned by processes that are
     neither the fabric nor this round's instruments.  That is a difference of two /proc/<pid>/stat
     reads over a window, attributed per process, with an explicit allow list.
@@ -114,7 +114,7 @@ CLK = os.sysconf("SC_CLK_TCK")
 #   Mid-window processes now enter the sum, and the sum is no longer truncated at the listing
 #   floor, so a reading from this version is NOT comparable with one from before it -- in the
 #   same direction, both times: the new number is >= the old one.  The sibling KNOWN-ISSUES entry
-#   asks measure.sh for exactly this ("改版前／改版後的格永遠分得開"), and a gate that demands it
+#   asks measure.sh for exactly this (cells from before and after a version change can always be told apart), and a gate that demands it
 #   of others has to carry it itself.  Deliberately a date-string and not an integer: nobody can
 #   accidentally write `if version < 3`.
 GATE_VERSION = "2026-09-01.lifetime"

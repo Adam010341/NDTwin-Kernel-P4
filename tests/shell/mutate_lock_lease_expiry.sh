@@ -109,7 +109,7 @@ report() {
 
 # Every mutation is a literal string replacement asserted to have fired exactly once. A perl
 # substitution that matches nothing edits nothing, and the run then reports the UNMUTATED tree as
-# "caught"/"survived" -- ticks that mean nothing. memory/injections-must-assert-their-own-success.
+# "caught"/"survived" -- ticks that mean nothing. an injection must assert its own success.
 mutate() {   # $1 = file, $2 = literal to find, $3 = literal replacement
     local file="$1" from="$2" to="$3" n
     n=$(FROM="$from" perl -0777 -ne 'my $f = quotemeta $ENV{FROM}; my $c = () = /$f/g; print $c' "$file")

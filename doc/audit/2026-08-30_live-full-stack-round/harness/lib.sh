@@ -44,7 +44,7 @@
 # ADDITIONAL TRAPS THIS FILE ENCODES (each has drawn blood in this project)
 #   * `ndt up` / `ndt down` kill the shell that calls them (exit 144, teardown itself succeeds).
 #     -> `ndt_up()` / `ndt_down()` run under `setsid`, redirect to a log, and are judged on the
-#        log's own success line, never on rc. See memory: ndt-one-command-lab-lifecycle.
+#        log's own success line, never on rc.
 #   * the kernel binary is interactive; it prompts for three answers when given no flags.
 #     -> nothing here launches it bare. `ndt up` supplies `--mode mininet --topology ... --no-ai`
 #        (stack.sh:756). If you launch it by hand, supply all three.
@@ -74,7 +74,7 @@ ROUND_DIR="$(dirname "$HARNESS_DIR")"
 # 00_preflight would have sha256'd a binary the fabric was not running and written it into
 # binary-provenance.txt, and 40_/50_'s F-1 and F-4 source checks would have been answered from
 # post-fix source. A provenance record that names the wrong binary is worse than none.
-# (memory: benchmark-must-name-the-binary-it-measured)
+# (a benchmark must name the binary it measured)
 #
 # KERNEL_DIR is reused rather than a new name invented: components.env already means exactly
 # this by it and already honours it from the environment, so one export makes ndt, stack.sh and
@@ -667,7 +667,7 @@ wait_for_line() {
 #
 # "The command returned 0" is not evidence that the command did anything. Every injection in
 # this round must name an independently-observed consequence. See
-# memory: injections-must-assert-their-own-success -- deletion leaves a loud hole, renaming
+# an injection must assert its own success -- deletion leaves a loud hole, renaming
 # leaves a quiet wrong answer.
 assert_effect() {
     local what="$1" observed="$2" expected="$3"

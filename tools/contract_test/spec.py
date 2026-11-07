@@ -935,7 +935,7 @@ def inv_all_switches_up(data, ctx):
       down, and the power state is not readable
                                       -> TOOL-PRECONDITION-FAILED. The tool says it cannot
                                          decide, which must not look like the fabric being
-                                         broken (instrument-must-not-mimic-its-own-finding).
+                                         broken (an instrument must not mimic its own finding).
 
     NOTE for anyone editing the strings below: `switch(es) not up` is grepped by
     doc/audit/2026-08-30_live-full-stack-round/harness/{40_r5_p4,50_r5_ovs}.sh as the F-2/A-8

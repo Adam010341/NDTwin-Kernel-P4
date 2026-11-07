@@ -158,7 +158,7 @@ cmd_calibrate() {
         > "$OUT/calibration.tsv"
 
     # The gate that matters: the counters MOVED. An idle fabric and a broken injection look
-    # identical downstream (memory: injections-must-assert-their-own-success).
+    # identical downstream (an injection must assert its own success).
     gate "the source namespace's own netdev counted the offered traffic" \
          "$( (( tx1 - tx0 > 1000000 )) && echo 0 || echo 1 )" "$(( tx1 - tx0 )) B in 8 s"
     gate "the destination namespace's own netdev counted traffic arriving" \

@@ -766,7 +766,7 @@ mutant r6-refresh-now-resumes "$REFRESH_TS" \
     measuring.current = false; // R6
     arm();
   }, []);'
-report "R6: 立即更新 always brings the 10 s tick back, even while still measuring" \
+report "R6: refresh-now always brings the 10 s tick back, even while still measuring" \
        Refresh.test_refresh_stops_while_measuring "while still measuring brought the 10 s tick back"
 
 # --- the probe during a measuring pause (09-28; /measuring alone since 10-01) ---

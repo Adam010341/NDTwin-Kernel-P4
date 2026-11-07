@@ -151,7 +151,7 @@ err_out="$(topo_pid "$SCRIPT" 2>&1 >/dev/null)"
 check "  and says why"                           yes "$(case "$err_out" in *"more than one"*) echo yes ;; *) echo no ;; esac)"
 
 # The red line is about what this file DOES and what it TELLS PEOPLE TO DO. Quoting the bad
-# form inside an explanation is how the rule gets taught -- CLAUDE.md itself contains the string
+# form inside an explanation is how the rule gets taught -- the project's own rules contain the string
 # -- so the assertion is about executable lines and about output, not about the characters
 # appearing anywhere in the file.
 #
@@ -365,7 +365,7 @@ check "  nor a python string it prints"          0 "$(by_name_py TEACHES 'import
 # never pkill -f anything; signal the pid the manifest recorded
 os.system("sudo mn -c")
 ')"
-check "a docstring is prose"                     0 "$(by_name_py TEACHES '"""Teardown must never pkill -f simple_switch_grpc; see CLAUDE.md."""
+check "a docstring is prose"                     0 "$(by_name_py TEACHES '"""Teardown must never pkill -f simple_switch_grpc; see the project rules."""
 import os
 ')"
 check "a string used as a block comment"         0 "$(by_name_py TEACHES 'import os

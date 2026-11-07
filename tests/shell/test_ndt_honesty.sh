@@ -767,7 +767,7 @@ has   "  and points at the file the report reads instead" ".test_run/pids/kernel
 section "5B. B10: help scopes the host_count_override claim to what the code enforces"
 # The 09-05 round (R3-3) recorded this sentence as REFUTED. It was not: read literally it only
 # ever claimed that FORGETTING an environment variable cannot cause the mistake, and R3-3's own
-# note says what it did -- "設一個環境變數就做到了". What was false is the impression the
+# note says what it did -- it was done by setting one environment variable. What was false is the impression the
 # sentence leaves, so what changes is its SCOPE, and the help now carries both halves.
 hasnt "  🔴 the blanket 'cannot be made' claim is gone"  "mistake cannot be made by forgetting an" "$HELP"
 has   "  the claim that survives is scoped to P4"        "On P4, 'ndt up' derives" "$HELP"
@@ -1252,10 +1252,10 @@ OUT="$(run_status)"
 hasnt "no .prev -> no handover row at all"               "prev claim" "$OUT"
 
 section "6J. 🔴 one writer for the claim file, so the field order cannot be a function of who wrote"
-# R7's 附帶發現 (section 3b): `lab.claim` and `lab.claim.prev` carried the five fields in
+# Noticed in passing: `lab.claim` and `lab.claim.prev` carried the five fields in
 # DIFFERENT orders -- owner/expires/note/exclusive_cpu/measuring against
 # owner/expires/exclusive_cpu/measuring/note -- because they came from two different writers.
-# Harmless that night (R7 compared field by field), and it makes `diff lab.claim lab.claim.prev`
+# Harmless that night (the comparison was field by field), and it makes `diff lab.claim lab.claim.prev`
 # or a hash comparison report a change forever, for two files that mean the same thing.
 #
 # claim_rewrite fixed the order for the note path (8C). This is the other writer: claim_take's

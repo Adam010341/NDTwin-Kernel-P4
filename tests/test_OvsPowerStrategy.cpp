@@ -822,8 +822,8 @@ TEST(OvsPowerStrategyTest, PowerOnReportsFailureWhenTheAgentInterfaceHasNoAddres
 {
     // The record is attached and every command exited 0, and it is still useless: with no IPv4 on
     // the agent interface the datagrams carry no address the collector can key an edge from. A
-    // restore that runs, succeeds and lands somewhere it cannot be seen is the failure shape the
-    // memory file calls the ninth form, so the assertion has to cover placement and not just
+    // restore that runs, succeeds and lands somewhere it cannot be seen is the failure shape of an
+    // action that reports success without being visible, so the assertion has to cover placement and not just
     // presence.
     Fixture fix;
     (*fix.graph)[fix.sw].isUp = false;

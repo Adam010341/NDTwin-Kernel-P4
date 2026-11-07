@@ -24,7 +24,7 @@
 # the whole-up control is taken first, from the same fabric, and must still be CLEAN.
 #
 # 🔴 How the half is made: the kernel is stopped by the pid in .test_run/pids/kernel.pid, with
-# SIGTERM, by number. Never `pkill -f` (CLAUDE.md), and never a sweep -- the point is to remove
+# SIGTERM, by number. Never `pkill -f`, and never a sweep -- the point is to remove
 # exactly the process this cell started and nothing else on the machine.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

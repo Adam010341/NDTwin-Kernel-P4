@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-CLAUDE.md, engineering discipline: "永不 `pkill -f`／`pgrep -f` 殺程序". FIXED-ISSUES G-9 and
+The rule: never kill a process with `pkill -f` / `pgrep -f`. FIXED-ISSUES G-9 and
 G-inst-2 are the two times it was learned the expensive way:
 
   * faults.sh printed `pgrep -f '[t]estbed_topo.py' | head -1` AT THE OPERATOR as the value to
@@ -48,7 +48,7 @@ AND PYTHON, because the two live violations in this tree are python (2026-09-11,
 
     os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')
 
-at startup -- the frontal violation of CLAUDE.md's red line, in the one language this checker
+at startup -- the frontal violation of the no-kill-by-name rule, in the one language this checker
 could not read. It was recorded as a KNOWN LIMIT here the day this file was written, which is
 exactly how a limit becomes a hole: the shell half went green every night while the thing the
 rule exists to prevent ran as root on every topology bring-up.
@@ -90,7 +90,7 @@ occurrence would report its own instrument first. Three constructs are therefore
 That is not enough on its own: the suites whose whole subject IS this rule name it in their own
 check labels and section headers, which are double-quoted and would read as TEACHES. Those files
 are listed in ABOUT_THE_RULE, by name, with the reason -- an instrument must not be able to
-report itself (memory: "儀器不能長得像自己的發現").
+report itself (an instrument must not be able to look like its own finding).
 
 And the widened scan finds sites in code that is NOT about the rule. They are in REGISTERED below
 rather than fixed: this checker does not touch product code, and a scan that silently dropped them
@@ -246,7 +246,7 @@ ABOUT_THE_RULE = frozenset((
 #                   and therefore NOT in the list below.)
 #
 # 🔴 2026-09-11. Widening the surface to python found five more, and the first two
-# are the frontal violation CLAUDE.md names -- `os.system('sudo pkill -f simple_switch_grpc')`,
+# are the frontal violation of that rule -- `os.system('sudo pkill -f simple_switch_grpc')`,
 # as root, on every topology bring-up, in the two files that own the bmv2 fabric:
 #
 #   p4_proxy/mininet/{p4_testbed_topo,ntg_bmv2_topo}.py -- FIXED, and therefore NOT in the list

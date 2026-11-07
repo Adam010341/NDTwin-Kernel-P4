@@ -21,7 +21,7 @@ stubs -- and what is left is the part that is a decision rather than a reading:
     and are distinguishable from their green arms.
 
 🔴 WHAT IT CANNOT SAY: nothing here has run a switch.  Every expectation about
-what bmv2 does with firewall.p4 or link_monitor.p4 is 【源碼推導，未執行】 until
+what bmv2 does with firewall.p4 or link_monitor.p4 is [source-derived, not run] until
 the live round, and these tests assert only that the driver ASKS
 the question that way.
 
@@ -1120,7 +1120,7 @@ class TheReport(unittest.TestCase):
 #
 # 🔴 WHAT THESE CELLS CAN AND CANNOT SAY. Not one of the nine has ever been run on either
 # fabric by the session that wrote them. Every expectation in the driver is
-# 【源碼推導，未執行】 or 【README 宣稱】 (DRIVER.md §6 grades each one), and what is asserted
+# [source-derived, not run] or [README claim] (DRIVER.md §6 grades each one), and what is asserted
 # here is only that the driver ASKS the question that way, and that the two arms of each
 # exercise are DISTINGUISHABLE -- the solution's own output must fail the skeleton's check and
 # the skeleton's must fail the solution's. Without that second half a pair of arms can both be

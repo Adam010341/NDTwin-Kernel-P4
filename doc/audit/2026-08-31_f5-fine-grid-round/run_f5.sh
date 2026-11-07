@@ -28,8 +28,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _F5_PREREG_GIVEN="${PREREG_FILE:-}"   # selftest uses its fixture only when the caller named no registration
 PREREG_FILE="${PREREG_FILE:-$ROUND/PREREG.md}"
 : "${_DRY_EXE_READS:=0}"
-# 🔴 A dry run and a real run never share a transcript (CLAUDE.md: "跑過" and "讀過未執行" are
-# never tabled together), and the dry lines are the ones that look tidiest.
+# 🔴 A dry run and a real run never share a transcript (a result that was run and one that was
+# only read, not executed, are never tabled together), and the dry lines are the ones that look tidiest.
 #
 # 🔴 This used to read `LOG="${LOG%.log}.dryrun.log"`, appending to whatever LOG it was handed.
 # round.env does `export LOG=`, so an `arm` child inherited the parent's FINISHED name and suffixed
@@ -621,7 +621,7 @@ arm() {
 }
 
 # -------------------------------------------------------------------------------------------------
-# Q3 (§1 Q3, cadence = 【TBD-3】).  Interleaved install/list, hammered, pre-T-11 only.
+# Q3 (§1 Q3, cadence = [TBD-3]).  Interleaved install/list, hammered, pre-T-11 only.
 # Reports an UPPER BOUND per hundred interleaved operations and never extrapolates a natural rate:
 # "the accidental case understates the deliberate case" cuts both ways, and the deliberate number
 # says nothing about how often it happens by itself.
@@ -648,7 +648,7 @@ q3() {
         has nothing to do with T-11.  Register a second address range first, before any data."
     fi
     say "=== Q3 adversarial: $Q3_ROUNDS bursts x $Q3_BURST installs = $ops ops (budget $N_INSTALLS) ==="
-    say "🔴 【TBD-3】 is a DRAFT.  These three numbers are not frozen by PREREG v0.2; running Q3"
+    say "🔴 [TBD-3] is a DRAFT.  These three numbers are not frozen by PREREG v0.2; running Q3"
     say "🔴 before they are ruled would be choosing the cadence after seeing the fabric."
     if [[ -z "${Q3_CADENCE_RULED:-}" ]]; then
         say "   Set Q3_CADENCE_RULED=1 once the reviewer has ruled TBD-3, then re-run."
@@ -671,7 +671,7 @@ q3() {
 selftest() {
     # The detector's force tests.  No fabric, no claim -- deliberately runnable outside the
     # window, because a detector first exercised inside a scarce window is a detector whose own
-    # bugs are paid for in scarce time.  memory/new-tools-are-the-first-thing-under-test.
+    # bugs are paid for in scarce time.  a new tool is the first thing under test.
     local rc=0 s
     # [Co-developed with claude code -- Adam] The forces below are built from a registration-shaped
     # file. A clone carries no registration, so with no PREREG_FILE from the caller they use the

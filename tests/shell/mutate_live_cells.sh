@@ -23,7 +23,7 @@
 #     Either changes the failing set, so (a) must break. 🔴 The WIDENING one is the reason the
 #     set comparison exists: a widened assertion keeps the cell red overall, keeps its id in the
 #     report, and has no discriminating power at all -- which is exactly the shape of instrument
-#     this project keeps re-discovering (02-recurring-mistakes: 揭露≠下修, 零鑑別力).
+#     this project keeps re-discovering (a disclosure that is not a downgrade; zero discriminating power).
 #     Only assertions each fixture's PROVENANCE.md names as CARRYING THE FINDING are mutated. An
 #     assertion that fails on a fixture merely because the role kept no such file is a fixture
 #     gap, and mutating it would be this gate grading a gap.

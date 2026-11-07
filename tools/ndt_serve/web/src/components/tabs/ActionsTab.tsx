@@ -1,5 +1,5 @@
 // [Co-developed with claude code -- Adam]
-// 操作: claim / release and up / down. Every button opens the confirm dialog; nothing here writes.
+// The Actions tab: claim / release and up / down. Every button opens the confirm dialog; nothing here writes.
 // The forms offer what /meta says the server takes (up_hosts, the claim limits); the values are read
 // from the fields when the button is pressed, as v1 did.
 import { useRef, useState } from "react";

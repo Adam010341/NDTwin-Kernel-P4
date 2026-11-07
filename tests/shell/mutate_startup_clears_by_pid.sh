@@ -12,7 +12,7 @@
 #     os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')
 #
 # in p4_proxy/mininet/p4_testbed_topo.py and again in ntg_bmv2_topo.py -- as root, on every
-# bring-up, for as long as either file has existed. CLAUDE.md's engineering discipline names that
+# bring-up, for as long as either file has existed. This project's engineering rules name that
 # exact form as forbidden; `-f` matches the whole command line, so it takes any process whose
 # argv merely mentions the string, and Mininet switches share the root PID namespace, so there is
 # no blast wall between the ten.

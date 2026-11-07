@@ -1,5 +1,5 @@
 // [Co-developed with claude code -- Adam]
-// The bar across the top: title, owner, the session, the auto-refresh state and 立即更新, and the
+// The bar across the top: title, owner, the session, the auto-refresh state and the refresh-now button, and the
 // two links out -- Web-GUI (its address comes from the server's /meta, webgui_url, set with
 // `ndt serve --webgui-url`; the browser keeps no copy) and this page's manual (./manual.html, a
 // static file beside the page). Web-GUI has no global bar; this follows AvailabilityStatus.tsx's

@@ -58,7 +58,7 @@ BROKEN=0
 # Every mutation is a literal string replacement asserted to have fired exactly once. A perl
 # substitution that matches nothing edits nothing, and the run then reports the UNMUTATED tree as
 # "caught" -- a green tick that means nothing.
-# memory/injections-must-assert-their-own-success.
+# an injection must assert its own success.
 mutate() {   # $1 = file, $2 = literal to find, $3 = literal replacement
     local file="$1" from="$2" to="$3" n
     n=$(FROM="$from" perl -0777 -ne 'my $f = quotemeta $ENV{FROM}; my $c = () = /$f/g; print $c' "$file")
@@ -95,7 +95,7 @@ report() {
 
 # A mutation that must NOT be caught. Without it, a suite that fails on absolutely any edit --
 # a stale build, a dirty tree, a broken runner -- would score a perfect run and look rigorous.
-# memory/a-control-that-cannot-fail-measures-nothing.
+# a control that cannot fail measures nothing.
 control() {   # $1 = name
     local name="$1" out rc
     MUTATIONS=$((MUTATIONS + 1))

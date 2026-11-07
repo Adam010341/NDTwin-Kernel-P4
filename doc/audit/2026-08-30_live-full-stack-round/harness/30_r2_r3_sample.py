@@ -12,7 +12,7 @@ WHAT IT DOES
     without re-running the fabric.
 
 WHY IT KEEPS EVERYTHING
-    memory: evidence-must-outlive-the-handoff.  A digest computed at sample time answers only
+    evidence must outlive the handoff.  A digest computed at sample time answers only
     the question we thought of at sample time.  The 08-18 round's sharpest finding (F-5) turned
     on the SHAPE of a field -- a JSON object among 130 strings -- which no counter would have
     preserved.  Raw bodies are gzipped; on a 4-host fabric this is a few MB an hour.
@@ -28,9 +28,9 @@ R-2 AND WHAT IT CAN ACTUALLY SHOW
       (a) the recompute rate itself           -- unobservable from outside; do not claim it
       (b) how often the value a consumer      -- measurable: inter-change intervals, below
           reads actually changes
-      (c) the refresh thread's ceiling        -- memory: destination-paths-not-monotonic says a
-                                                 refresh thread bounds staleness at ~60 s, and
-                                                 that its downgrade condition is "non-empty",
+      (c) the refresh thread's ceiling        -- a destination-path refresh
+                                                 thread bounds staleness at ~60 s, and
+                                                 its downgrade condition is "non-empty",
                                                  not "converged", so 99.8% of the time it LOOKS
                                                  converged.  A ~60 s periodicity in the change
                                                  intervals is that thread, NOT the recompute.
@@ -130,7 +130,7 @@ def main():
     args = ap.parse_args()
 
     # The sampler must out-resolve its subject.  A ladder shorter than the thing it measures is
-    # a recurring shape in this project (memory: instrument-must-not-mimic-its-own-finding).
+    # a recurring shape in this project (an instrument must not mimic its own finding).
     if args.interval >= 1.0:
         sys.stderr.write(
             "REFUSING: --interval %.2f s cannot resolve a 1 Hz recompute or a 1 s consumer "
@@ -170,7 +170,7 @@ def main():
         "seconds": args.seconds,
         "targets": dict(targets),
         "written_not_run": "this sampler was authored without being executed; first run is its "
-                           "own first test (memory: new-tools-are-the-first-thing-under-test)",
+                           "own first test (a new tool is the first thing under test)",
         "cadence_note": "measured app cadences 2026-08-30: energy 60s, sim event-driven, "
                         "nsr 5s, viz 1s, te 1s.  PREREG R-2 assumes 15s for all consumers.",
     }

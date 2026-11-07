@@ -53,8 +53,8 @@ tgt() {
 }
 
 # ---------------------------------------------------------------------- suspension
-# 🔴 A stop order that lives only in a memory file is enforced by whoever happens to
-# read that file. This table enforces it at the point of use: a suspended machine is
+# 🔴 A stop order that lives only in someone's notes is enforced by whoever happens to
+# read them. This table enforces it at the point of use: a suspended machine is
 # refused BEFORE any packet leaves, and the refusal carries the three things a stop
 # order needs -- who said it, when, and what unsuspends it.
 #
@@ -64,7 +64,7 @@ tgt() {
 suspended() {
     case "$1" in
         server1|server2|server3|server4|server5|server6|server7|server8|cc2|gw|gw2)
-            echo "the lab maintainers, 2026-08-31: 「遠端機器先不要用」（整批 testbed）" ;;
+            echo "the lab maintainers, 2026-08-31: \"do not use the remote machines for now\" (the whole testbed)" ;;
         # The VM host was PAUSED 2026-08-31 ~15:00 -- not because anything was wrong with the
         # machine, but because its usage rules had not been written. Both unpause
         # conditions were met the same day: the rules landed and the unpause was approved.

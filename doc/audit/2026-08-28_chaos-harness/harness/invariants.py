@@ -144,7 +144,7 @@ def inv01_powercycle_latency(ip: str) -> Finding:
 
     which is a fluent, confident, entirely fabricated finding about NDTwin, and CONSTANT --
     it fired whether or not A-1 existed, whether or not a switch was up, on any fabric and on
-    no fabric at all. `instrument-must-not-mimic-its-own-finding`: this invariant hunts for
+    no fabric at all. An instrument must not mimic its own finding: this invariant hunts for
     "suspiciously fast success", and the shape of its own breakage is suspicious speed.
 
     The fix is both halves plus a guard, because fixing only the route leaves the shape intact

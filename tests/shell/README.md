@@ -8,8 +8,8 @@ Three kinds of file live here:
 | `mutate_*.sh` | mutation gates. Each edits a source file by exact text, rebuilds, and requires the suite it protects to go **red**. A gate that cannot make its suite fail is protecting nothing. |
 | `check_gate_anchors.py` | read-only anchor accounting over every gate. For a given rev it counts each gate's anchor strings in the files that gate mutates. It never writes a file, never builds, never runs a gate. |
 
-The gates are this project's evidence that a test would notice the defect coming back — `CLAUDE.md`
-states the rule they exist for: **a test nobody has seen fail is not delivered.**
+The gates are this project's evidence that a test would notice the defect coming back. The rule
+they exist for: **a test nobody has seen fail is not delivered.**
 
 ## Wiring a new mutation gate
 

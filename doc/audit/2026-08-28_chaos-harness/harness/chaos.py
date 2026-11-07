@@ -261,7 +261,7 @@ def power_on_chance(agreement: I.Finding, power_ip: str | None) -> PowerOnChance
     `P4PowerStrategy::powerOn` returns success immediately when the vertex is already up. That
     early return is CORRECT for a healthy, running switch -- and INV-01's latency check reads a
     fast 2xx as the A-1 lie. So calling it unconditionally would manufacture a FAIL on a
-    perfectly healthy fabric, which is `instrument-must-not-mimic-its-own-finding` for the
+    perfectly healthy fabric, which is the instrument mimicking its own finding for the
     third time in this harness (`switch_flags` collided 128 hosts into a +1; #17 timed a 404).
 
     The precondition is therefore: a power-on that OUGHT to do work. Two states qualify, and

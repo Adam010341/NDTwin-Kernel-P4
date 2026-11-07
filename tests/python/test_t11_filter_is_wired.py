@@ -77,7 +77,7 @@ Treat this as a tripwire against silent disconnection during a refactor, not as 
 filter works -- that evidence is the gtest suite plus the live batch. The two layers are
 complementary on purpose: this one guards the joints, that one guards the rule.
 
-Related: memory `existence-is-not-wiring`.
+Related: existence is not wiring.
 
 ## Standard library only
 

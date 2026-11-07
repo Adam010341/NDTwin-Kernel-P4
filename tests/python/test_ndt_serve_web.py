@@ -312,7 +312,7 @@ class SourceLint(unittest.TestCase):
         self.assertRegex(s, r"hook\(\"cspViolations\"")
 
     def test_every_ui_string_is_in_the_string_table(self):
-        cjk = where(r"[　-〿㐀-鿿＀-￯]", self.src)
+        cjk = where(r"[\u3000-\u303f\u3400-\u9fff\uff00-\uffef]", self.src)  # CJK punctuation, ideographs, fullwidth forms
         self.assertEqual(cjk, {}, "Chinese text outside src/i18n/zh.json")
         table = json.loads(read(os.path.join(SRC, "i18n", "zh.json")))
         self.assertEqual(sorted(table), ["ndtServe"], "every key lives under ndtServe.*")

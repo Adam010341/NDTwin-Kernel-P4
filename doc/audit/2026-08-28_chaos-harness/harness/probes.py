@@ -608,7 +608,7 @@ def bmv2_provenance() -> dict:
     the argv had said fast, but the committed JSON recorded neither, and the pre-state capture
     ran the argv through an `awk` that stripped the path. By the time the question arrived the
     fabric had been rebuilt and those processes were gone -- so the evidence existed only in a
-    session transcript, which is exactly what `evidence-must-outlive-the-handoff` forbids.
+    session transcript, which is exactly what the rule that evidence must outlive the handoff forbids.
 
     Provenance is one level below the strongest form, and says so: `/proc/<pid>/exe` is not
     readable as this uid, so this falls back to argv[0] cross-checked against the override file,
