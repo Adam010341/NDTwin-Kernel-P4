@@ -197,6 +197,43 @@ check "case 16 no sudoers entry in the guide grants sed, exportfs, a bare tc or 
 check "case 16b the grant scan sees the guide's sudoers entries (>= 8)" \
       "yes" "$( [[ "$(grep -c . <<<"$GRANT_ENTRIES")" -ge 8 ]] && echo yes || echo "no ($(grep -c . <<<"$GRANT_ENTRIES"))" )"
 
+# --- case 17: what 'ndt up' refuses with 5, in the guide as in help ------------------------
+# [Co-developed with claude code -- Adam] The guide's bullet for 'ndt up's 5 names each refusal help's up
+# block names besides the shared ones: NTG's config (4.7) and "cannot tell" (3.2), which help gained first
+# and the guide did not. And 3.2's ovs-vsctl row gives the refusal's rc as help does: 5, nothing built.
+UP5="$(awk '/^- `ndt up` exits 5/{on=1; print; next} on && /^  /{print; next} {on=0}' "$MANUAL" | flat)"
+check "case 17a help's 'up' block names NTG's config under 5" \
+      1 "$(grep -c 'NTG does not know' <<<"$UP_FLAT")"
+check "case 17b and the guide's 'ndt up' exits 5 bullet names it" \
+      1 "$(grep -c 'names a mode NTG does not know' <<<"$UP5")"
+check "case 17c help's 'up' block names 'cannot tell' under 5" \
+      1 "$(grep -c 'cannot tell whether a topo session is running' <<<"$UP_FLAT")"
+check "case 17d and the guide's bullet names it" \
+      1 "$(grep -c 'cannot tell whether a topology session' <<<"$UP5")"
+check "case 17e 3.2's ovs-vsctl row gives that refusal rc 5" \
+      1 "$(grep -c 'running under the topo session` (rc 5, nothing built)' "$MANUAL")"
+check "case 17f section 5 has a row for the NTG refusal" \
+      1 "$(grep -c '^| `refusing to build: NTG does not know mode' "$MANUAL")"
+check "case 17g 3.2's lab row gives that refusal rc 5" \
+      1 "$(grep -c 'stops before it touches the fabric (rc 5)' "$MANUAL")"
+
+# --- case 18: when 'ndt down' keeps the 'ndt up' record, and how it goes ------------------
+# [Co-developed with claude code -- Adam] help's down block and guide 4.9 state the rule the code applies (kept
+# only while verify clean still finds the fabric itself) and every way the record goes, including removing it.
+check "case 18a help's 'down' block says the record is kept only over the fabric itself" \
+      1 "$(grep -c "still finds the fabric itself" <<<"$DOWN_FLAT")"
+check "case 18b and names the way out once the fabric is gone" \
+      1 "$(grep -c 'rm .test_run/up.target' <<<"$DOWN_FLAT")"
+check "case 18c guide 4.9 says the same rule" \
+      1 "$(grep -c '^unless `verify clean` still finds the fabric itself' "$MANUAL")"
+check "case 18d and the same way out" \
+      1 "$(grep -c '(`rm .test_run/up.target`)' "$MANUAL")"
+# [Co-developed with claude code -- Adam] 4.5's rc 3 row says the same, and not "every down clears it"
+check "case 18e 4.5's rc 3 row points at the same rule" \
+      1 "$(grep -c 'no baseline (`ndt down` clears it unless `verify clean` still finds the fabric; see 4.9)' "$MANUAL")"
+check "case 18f and no line says every down clears it" \
+      0 "$(grep -c 'every `ndt down` clears it' "$MANUAL")"
+
 # --- case 14 (CONTROL): a sentence the fix does not touch is still there --------------------
 # Green on the unfixed guide and on the fixed one. If this file ever goes all-red, this case is
 # how you tell a real regression from a test that stopped reading the document.

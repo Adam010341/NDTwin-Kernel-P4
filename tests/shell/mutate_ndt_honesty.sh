@@ -386,8 +386,8 @@ report "M22: help defines rc 3 by history again (F12)" "$m" \
 # return sites (no record, ndt:2991; a record nobody can read, ndt:3001) and the help has to
 # name both. This mutation keeps the tense honest and drops the second cause.
 m=$(mutant m23 "$NDT" \
-    'ordinary up->down clears it) or unreadable.' \
-    'ordinary up->down clears it).')
+    'keeps it) or unreadable.' \
+    'keeps it).')
 report "M23: help names only one of rc 3's two causes" "$m" \
        "  🔴 and 'unreadable' as the other -- rc 3 has two return sites"
 

@@ -142,7 +142,7 @@ m=$(mutant m3 "$NDT" \
     '    if (( brc != 0 )); then' \
     '    if false; then')
 report "M3: the guard reads 'could not tell' as 'nothing there'" "$m" \
-       "refused: the guard stops the bring-up"
+       "refused: the guard stops the bring-up, rc 5"
 
 m=$(mutant m4 "$NDT" \
     '            NDT_DATAPLANE_WHY="sudo refused mnexec"' \
@@ -185,8 +185,9 @@ report "M8: explain() names the problem but not the line that fixes it" "$m" \
 # said SURVIVED, and an applier that cannot apply is a hole and never a skip.
 # [Co-developed with claude code -- Adam] Repointed again: the guard is now asked above the
 # writes (up.target, the knobs, the claim note), on the line that refuses with "were not touched".
+# [Co-developed with claude code -- Adam] Repointed 2026-11-06: that line now carries the guard's rc out.
 m=$(mutant m9 "$NDT" \
-    '    (( reuse )) || guard_no_live_ovs || { err "up.target, the knobs and the claim note were not touched."; return 1; }' \
+    '    (( reuse )) || guard_no_live_ovs || { local grc=$?; err "up.target, the knobs and the claim note were not touched."; return "$grc"; }' \
     '        :')
 report "M9: up_p4 stops asking the guard" "$m" \
        "up_p4 asks guard_no_live_ovs"
@@ -331,7 +332,7 @@ m=$(mutant l1 "$NDT" \
     '    if (( srv == 2 )); then' \
     '    if false; then')
 report "L1: the guard reads a failed status call as 'no session' again" "$m" \
-       "status call failed: the guard stops the bring-up"
+       "status call failed: the guard stops the bring-up, rc 5"
 
 m=$(mutant l2 "$NDT" \
     '    out="$(TERM="${TERM:-dumb}" sudo -n "$LAB" status 2>/dev/null)" || return 2' \
@@ -346,13 +347,13 @@ report "L3: the stop does not print the sudoers line that fixes it" "$m" \
        "status call failed: and prints the line that fixes it"
 
 m=$(mutant l4 "$SURFACE" \
-    'so `ndt up p4` stops before it touches the fabric, ' \
+    'so `ndt up p4` stops before it touches the fabric (rc 5), ' \
     'so `ndt status` reports an empty lab, ')
 report "L4: the lab row goes back to claiming an empty lab" "$m" \
        "the lab row says what ndt does now: stops before the fabric"
 
 m=$(mutant l5 "$SURFACE" \
-    'still calls topo-stop and cleanup (the missing grant refuses those too, so its sweep fails)' \
+    'still calls topo-stop and cleanup (the missing grant refuses those too, so it says they did not run)' \
     'skips the orderly stop')
 report "L5: the lab row goes back to claiming a skipped stop" "$m" \
        "the lab row no longer claims a skipped stop"
@@ -371,7 +372,7 @@ report "L7 (control): the guard stops for every session look" "$m" \
 
 # --- [Co-developed with claude code -- Adam] the row's sentence about `ndt down`, the hint's third case, the fake sudo ---
 m=$(mutant l8 "$SURFACE" \
-    'still calls topo-stop and cleanup (the missing grant refuses those too, so its sweep fails)' \
+    'still calls topo-stop and cleanup (the missing grant refuses those too, so it says they did not run)' \
     'still runs its stop and sweep')
 report "L8: the lab row says ndt down still runs its stop and sweep again" "$m" \
        "the lab row says down's stop and sweep are refused too"
@@ -389,10 +390,62 @@ report "L10: the hint for a missing helper does not name its path" "$m" \
        "status call failed, helper not installed: the hint says so and names the path"
 
 m=$(mutant l11 "$NDT" \
-    '        0) err "   the grant is permitted but the call did not answer; try:  sudo -n $LAB status" ;;' \
+    '        0) err "   the grant is permitted but the call did not answer; try:  sudo -n $LAB $verb" ;;' \
     '        0) : ;;')
 report "L11 (control): the hint says nothing when the grant is permitted" "$m" \
        "control, probe says granted: the hint says the grant is permitted"
+
+# --- [Co-developed with claude code -- Adam] 2026-11-06: "cannot tell" is rc 5, a live OVS fabric rc 1 ---
+m=$(mutant l12 "$NDT" \
+    '        lab_status_failed_hint
+        return 5
+    fi
+    (( srv == 0 )) || return 0' \
+    '        lab_status_failed_hint
+        return 1
+    fi
+    (( srv == 0 )) || return 0')
+report "L12: a failed status call is rc 1 again (measured, and dirty)" "$m" \
+       "status call failed: the guard stops the bring-up, rc 5"
+
+m=$(mutant l13 "$NDT" \
+    '            ndt_sudo_explain ovs-vsctl | while IFS= read -r l; do err "$l"; done
+        fi
+        return 5' \
+    '            ndt_sudo_explain ovs-vsctl | while IFS= read -r l; do err "$l"; done
+        fi
+        return 1')
+report "L13: a refused ovs-vsctl look is rc 1 again" "$m" \
+       "refused: the guard stops the bring-up, rc 5"
+
+m=$(mutant l14 "$NDT" \
+    '        err "'"'"'ndt up'"'"' would tear it down to build a bmv2 fabric in its place."
+        err "take it down first:  ndt down"
+        return 1' \
+    '        err "'"'"'ndt up'"'"' would tear it down to build a bmv2 fabric in its place."
+        err "take it down first:  ndt down"
+        return 5')
+report "L14 (control): a live OVS fabric the guard saw becomes 5" "$m" \
+       "control: a live OVS fabric it saw is rc 1, not 5"
+
+# [Co-developed with claude code -- Adam] the rows' exit codes and the kept record, 2026-11-06 second pass
+m=$(mutant l15 "$SURFACE" \
+    'stops before it touches the fabric (rc 5), `ndt status` prints' \
+    'stops before it touches the fabric, `ndt status` prints')
+report "L15: the lab row drops up's rc 5" "$m" \
+       "the lab row gives up's refusal rc 5"
+
+m=$(mutant l16 "$SURFACE" \
+    'running under the topo session" (rc 5) before it touches the fabric' \
+    'running under the topo session" (rc 1) before it touches the fabric')
+report "L16: the ovs-vsctl row says rc 1 again" "$m" \
+       "the ovs-vsctl row gives up's refusal rc 5"
+
+m=$(mutant l17 "$SURFACE" \
+    ', ends non-zero and keeps the '"'"'ndt up'"'"' record' \
+    ' and ends non-zero')
+report "L17: the lab row does not say down keeps the record" "$m" \
+       "the lab row says down keeps the record"
 
 t=$(tmutant t2 "$TEST" \
     'if [[ "$base" == ndtwin-lab && "$(dirname "$1")" != "$(dirname "$0")" ]]; then' \

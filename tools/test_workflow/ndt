@@ -618,16 +618,39 @@ record_up_target() {
 # fabric", so the baseline goes with it; otherwise every `--check` on a deliberately idle
 # machine is red about a fabric nobody wants, and a check that cries wolf gets ignored. After
 # a `down`, "could not check" is the true answer: nothing has been asked for.
+# [Co-developed with claude code -- Adam] Not after a `down` whose `verify clean` still found the fabric
+# itself (cmd_down says why); then up_target_kept says the record stays and how it goes.
 clear_up_target() {
     local f; f="$(up_target_file)"
     [[ -f "$f" ]] || return 0
-    rm -f "$f" && info "cleared the 'ndt up' target record (${f#$REPO/})"
+    rm -f "$f" && info "cleared the 'ndt up' target record (${f#$REPO/})${1:+: $1}"
+}
+
+# up_target_kept <what was found> -- what `down` says when its `verify clean` still found the fabric
+# itself and the record stays: what was asked for is still the baseline for what is running. Every way
+# the record goes is named, because a teardown that cannot finish (a missing grant) must not leave the
+# reader with no way to the state a finished one leaves.
+# [Co-developed with claude code -- Adam]
+up_target_kept() {
+    local f; f="$(up_target_file)"
+    [[ -f "$f" ]] || return 0
+    warn "kept the 'ndt up' target record (${f#$REPO/}): 'verify clean' did not show the fabric gone ($1),"
+    warn "  so it stays the baseline 'ndt status --check' compares against. It goes with the next 'ndt down'"
+    warn "  that finds none of the fabric, or the next 'ndt up' that builds a fabric (one that refuses"
+    warn "  leaves it as it is); once the fabric is gone you can also remove it:  rm ${f#$REPO/}"
+    # [Co-developed with claude code -- Adam] An unreadable session is the case where the next down keeps it
+    # again, and an `ndt up p4` refuses for the same reason: the way out is the call itself.
+    if [[ "$1" == *"a topo session it could not read"* ]]; then
+        warn "  the topo session could not be read: once the 'ndtwin-lab status' call works again (the lines"
+        warn "  above say why it failed, with the sudoers line to restore when sudo refused it), run 'ndt down' again."
+    fi
 }
 
 # --- what ran here BEFORE the record was cleared -------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
-# `down` removes up.target, above, and that removal is right. What was
+# `down` removes up.target (clear_up_target, above) when its verify finds no fabric, and that removal is
+# right. What was
 # wrong is that BOTH readers of the resulting absence rendered it as a claim about HISTORY:
 # `--check` printed "no 'ndt up' has run in this checkout", and `status`'s configuration block
 # fell back to the P4-only host-count knob and named a P4 model file. Measured 3/3 after a
@@ -1423,22 +1446,48 @@ topo_session() { lab_session topo; }
 # grant: permitted (the call itself did not answer), refused (with the sudoers line that fixes it), or
 # could not be checked. The same two helpers guard_no_live_ovs uses (ndt_sudo_probe, ndt_sudo_explain).
 # [Co-developed with claude code -- Adam]
+# Optional <verb> <answer>: the same lines for another helper verb whose own call already gave the answer
+# (lab_call_verdict), so `ndt down`'s stop and sweep say why they did not run in these words, not new ones.
 lab_status_failed_hint() {
-    local l p
-    ndt_sudo_probe lab; p=$?
+    local l p verb="${1:-status}"
+    if [[ $# -ge 2 ]]; then p="$2"; else ndt_sudo_probe lab; p=$?; fi
     case $p in
-        0) err "   the grant is permitted but the call did not answer; try:  sudo -n $LAB status" ;;
+        0) err "   the grant is permitted but the call did not answer; try:  sudo -n $LAB $verb" ;;
         1) err "   the reason is sudo, not the lab:"
            ndt_sudo_explain lab | while IFS= read -r l; do err "$l"; done ;;
         # The probe could not tell either (rc 2): no sudo, the helper is not installed, or sudo said
         # something ndt cannot read. Neither "sudo refused" nor a sudoers line is true then, so this says
         # what ndt_sudo_report says for the same answer. [Co-developed with claude code -- Adam]
         *) if [[ -n "$NDT_SUDO_UNREAD" ]]; then
-               err "   whether sudo grants the status call could not be checked: sudo answered \"$NDT_SUDO_UNREAD\", which ndt cannot read as granted or refused"
+               err "   whether sudo grants the $verb call could not be checked: sudo answered \"$NDT_SUDO_UNREAD\", which ndt cannot read as granted or refused"
            else
-               err "   whether sudo grants the status call could not be checked on this machine (no sudo, or $(ndt_sudo_field lab 3) is not installed)"
+               err "   whether sudo grants the $verb call could not be checked on this machine (no sudo, or $(ndt_sudo_field lab 3) is not installed)"
            fi ;;
     esac
+}
+
+# lab_call_verdict <what `sudo -n $LAB <verb>` printed, stdout and stderr> -- after that call exited non-zero,
+# did the helper run? Read from the call's own words with sudo_surface.sh's classifier, the way ndt_sudo_probe
+# reads its probe, so no second sudo call is made:
+#   0 sudo ran the helper and the verb failed on its own account (or sudo refused without a "sudo:" line,
+#     which cannot be told apart from that -- see ndt_sudo_probe)
+#   1 sudo refused the call: the helper did not run
+#   2 cannot tell: no sudo here, or sudo said something ndt cannot read (NDT_SUDO_UNREAD holds it; a helper
+#     that is not installed reads this way, "sudo: <path>: command not found")
+# The call's stdout is read along with its stderr, and ndt_sudo_refused matches its phrases anywhere in
+# that text, not only on a "sudo:" line. Safe for this helper: none of the lines its topo-stop, cleanup
+# and config refusal print starts with "sudo:" or contains one of those phrases (checked against
+# tools/test_workflow/ndtwin-lab, 2026-11-06). A helper line that did would read as a refusal, or, starting
+# "sudo:" with no known phrase, as an answer ndt cannot read; the config refusal can echo text from the
+# config file, which is the one place such a line could come from.
+# [Co-developed with claude code -- Adam]
+lab_call_verdict() {
+    NDT_SUDO_UNREAD=""
+    command -v sudo >/dev/null 2>&1 || return 2
+    NDT_SUDO_STDERR="$1"
+    ndt_sudo_refused && return 1
+    ndt_sudo_unread && return 2
+    return 0
 }
 
 # --- which tree the ROOT helper runs in, resolved READ-ONLY ------------------------
@@ -4053,7 +4102,9 @@ up_p4() {
     # cannot tell the two planes apart -- the bridges can.
     # The whole decision, including "could not tell", lives in guard_no_live_ovs so a test
     # can call it on its own.
-    (( reuse )) || guard_no_live_ovs || { err "up.target, the knobs and the claim note were not touched."; return 1; }
+    # [Co-developed with claude code -- Adam] Its rc is carried out: 1 for an OVS fabric it found, 5 for
+    # one it could not look for.
+    (( reuse )) || guard_no_live_ovs || { local grc=$?; err "up.target, the knobs and the claim note were not touched."; return "$grc"; }
     # [Co-developed with claude code -- Adam] A fabric this run builds is handed to NTG; a mode NTG
     # refuses takes that fabric down seconds after [3/3] passes (see ntg_up_refusal).
     (( reuse )) || ntg_up_refusal || return $?
@@ -4164,8 +4215,10 @@ up_p4() {
                 err "$n bmv2 process(es) are running and it cannot tell whether a topo session owns them:"
                 err "the 'ndtwin-lab status' call failed. They are not swept, because they may be a live fabric."
                 lab_status_failed_hint
-                refusal_unwind "the topo session could not be checked; nothing was swept or built"
-                return 1
+                # [Co-developed with claude code -- Adam] 5: the guard's own "cannot tell", met later; the
+                # files this run wrote are put back first, and if that fails they were touched, so 1.
+                refusal_unwind "the topo session could not be checked; nothing was swept or built" || return 1
+                return 5
             fi
         fi
         if [[ "$n" -gt 0 ]] && (( sess_rc == 1 )); then
@@ -4209,8 +4262,8 @@ up_p4() {
             err "cannot tell whether a topo session is running: the 'ndtwin-lab status' call failed."
             err "a fabric is not started over a session that could not be checked, so this stops here."
             lab_status_failed_hint
-            refusal_unwind "the topo session could not be checked; nothing was built"
-            return 1
+            refusal_unwind "the topo session could not be checked; nothing was built" || return 1
+            return 5
         fi
         (( sess_rc == 0 )) && { info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
         # Recorded before the call, not after: a topo-start that fails part way through has
@@ -6049,7 +6102,29 @@ cmd_down() {
     rm -f "$(hb_withheld_file)"
 
     say "[2/3] topology session"
-    sudo -n "$LAB" topo-stop 2>&1 | sed 's/^/      /'
+    # [Co-developed with claude code -- Adam]
+    # This was `sudo -n "$LAB" topo-stop 2>&1 | sed ...` with its rc dropped: without the lab grant the step
+    # printed the one line from sudo and nothing from ndt, and the rc of the teardown did not count it. A
+    # stop that failed is now said and counted; one sudo refused says it did not run, and why, in the words
+    # of lab_status_failed_hint. LC_ALL/LANGUAGE pinned the way the capture in sudo_surface.sh pins them, so
+    # the wording sudo prints is the one lab_call_verdict reads. lab_hint_said: the sudoers line is printed
+    # once, not again under [3/3].
+    local stop_out stop_rc stop_v lab_hint_said=0
+    stop_out="$(LC_ALL=C LANGUAGE=C sudo -n "$LAB" topo-stop 2>&1)"; stop_rc=$?
+    [[ -n "$stop_out" ]] && printf '%s\n' "$stop_out" | sed 's/^/      /'
+    if (( stop_rc != 0 )); then
+        lab_call_verdict "$stop_out"; stop_v=$?
+        case $stop_v in
+            1) err "[2/3] did not run: sudo refused 'ndtwin-lab topo-stop', so the topo session was not stopped."
+               lab_status_failed_hint topo-stop 1; lab_hint_said=1 ;;
+            2) err "[2/3] may not have run: topo-stop exited $stop_rc, and whether sudo let it run cannot be told."
+               lab_status_failed_hint topo-stop 2 ;;
+            *) err "topo-stop exited $stop_rc: the topo session may still be up. The lines above are what"
+               err "  the call printed; 'verify clean' below says whether a session is still there." ;;
+        esac
+        down_rc=1
+        not_verified "the [2/3] topology stop (it failed or did not run)"
+    fi
 
     say "[3/3] sweep"
     # Safe to call from inside this script: see trap note 1 in the header. `mn -c` kills by
@@ -6061,25 +6136,58 @@ cmd_down() {
     # and made it name what survived TERM and KILL, so a dropped rc here means the one line a
     # human has to see -- "STILL RUNNING <label> pid N" -- scrolls past inside a teardown that
     # then reports whatever cmd_clean happens to think.
-    local sweep_out sweep_rc
-    sweep_out="$(sudo -n "$LAB" cleanup 2>&1)"; sweep_rc=$?
+    local sweep_out sweep_rc sweep_ran=0 sweep_v=0
+    sweep_out="$(LC_ALL=C LANGUAGE=C sudo -n "$LAB" cleanup 2>&1)"; sweep_rc=$?
     printf '%s\n' "$sweep_out" | sed 's/^/      /'
     # [Co-developed with claude code -- Adam]
     # 🔴 2026-09-12. This command stopped repeating stack.sh's advice to
     # run the Mininet sweep by hand, because inside a teardown that advice is wrong: THIS step
     # has already done it. What was left was a teardown that does the sweep and never says so,
     # while the manual still carries the hand-typed command -- so the operator cannot tell that
-    # it is redundant here. Said unconditionally: "I ran it" and "it finished" are two
-    # statements, and the second one has its own line and its own rc immediately below.
-    ok "this step ran the Mininet sweep (mn -c) for you"
-    info "  [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps"
-    info "  simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that"
-    info "  command by hand is advice this teardown has already acted on -- which is why"
-    info "  [1/3] filters it out."
-    if (( sweep_rc != 0 )); then
+    # it is redundant here. "I ran it" and "it finished" are two statements, and the second one
+    # has its own line and its own rc immediately below.
+    #
+    # 🔴 2026-11-06: said only when the sweep RAN. It used to be said unconditionally, and with the lab
+    # grant missing it followed sudo's "a password is required" -- a helper that never started, an `ok`
+    # over a sweep nothing did. What says it ran: rc 0, or the closing line the helper's cleanup prints
+    # only AFTER `mn -c` and its last kill ("cleanup INCOMPLETE ..."). Not "STILL RUNNING": four of the
+    # helper's five kills, each of which can print it, come before `mn -c`, so a helper that died after
+    # one of those never reached it. A helper that stopped before the sweep (sudo refused it, or the helper refused its
+    # config) prints neither. The sentence, and its place after `mn -c`, are pinned against the helper's
+    # source by tests/shell/test_ndt_up_down_robust.sh section 29.
+    if (( sweep_rc == 0 )) || [[ "$sweep_out" == *"cleanup INCOMPLETE"* ]]; then
+        sweep_ran=1
+    else
+        lab_call_verdict "$sweep_out"; sweep_v=$?
+    fi
+    if (( sweep_ran )); then
+        ok "this step ran the Mininet sweep (mn -c) for you"
+        info "  [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps"
+        info "  simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that"
+        info "  command by hand is advice this teardown has already acted on -- which is why"
+        info "  [1/3] filters it out."
+    fi
+    if (( sweep_rc != 0 && sweep_ran )); then
         err "cleanup exited $sweep_rc -- the sweep did not finish; what survived is named above"
         down_rc=1
         not_verified "the [3/3] sweep"
+    elif (( sweep_rc != 0 )); then
+        case $sweep_v in
+            1) err "[3/3] did not run: sudo refused 'ndtwin-lab cleanup', so nothing was swept and 'mn -c' did not run."
+               if (( lab_hint_said )); then
+                   err "   the reason is sudo, the same refusal as [2/3], where the line that fixes it is printed."
+               else
+                   lab_status_failed_hint cleanup 1
+               fi ;;
+            2) err "[3/3] may not have run: cleanup exited $sweep_rc, and whether sudo let it run cannot be told,"
+               err "  so nothing here says the sweep or 'mn -c' ran."
+               lab_status_failed_hint cleanup 2 ;;
+            *) err "cleanup exited $sweep_rc without reporting that its sweep finished: the lines above are"
+               err "  what the call printed, and nothing here says the sweep or 'mn -c' ran." ;;
+        esac
+        down_rc=1
+        if (( sweep_v == 2 )); then not_verified "the [3/3] sweep (it may not have run)"
+        else not_verified "the [3/3] sweep (it did not run)"; fi
     fi
 
     # Last, and only when asked: anything still holding the ports was not started by this
@@ -6106,16 +6214,12 @@ cmd_down() {
     # here, not in cmd_clean: clean is an assertion and also runs on its own over a live fabric.
     app_knob_count_restore || { down_rc=1; not_verified "putting host_count_override back"; }
 
-    # The lab is no longer being asked for anything, so the baseline `status --check` compares
-    # against goes with it. Left in place it would make every later --check red about a fabric
-    # nobody wants; removed, the honest answer after a `down` is "could not check".
-    clear_up_target
-
     echo
     say "verify clean"
     # Wait for the sweep before judging it, with a bound, and then judge it. See
     # wait_reaped -- the wait is not allowed to decide anything, only to stop the assertion from
     # being taken while the process table is still catching up.
+    CLEAN_FABRIC_LEFT=""    # cmd_clean sets it from its own readings [Co-developed with claude code -- Adam]
     wait_reaped "${NDT_REAP_WAIT:-20}" || true
     cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?
     # Both halves count. A sweep that could not finish is a failed teardown even in the case
@@ -6125,6 +6229,22 @@ cmd_down() {
     # when this teardown had no subject either -- DOWN_SUBJECT is what it was given -- and that
     # case is answered at the single exit below, not by calling a clean machine dirty.
     (( clean_rc != 0 && clean_rc != 3 )) && { down_rc=1; not_verified "the residue check"; }
+    # [Co-developed with claude code -- Adam]
+    # The baseline `status --check` compares against goes when the lab is no longer being asked for
+    # anything -- and whether the fabric is gone is decided by THIS assertion, not before it. It used
+    # to be removed before `verify clean`, whatever that found: with the lab grant missing, [2/3] and
+    # [3/3] did not run, ten switches and the topo session stayed up, and the record was removed under
+    # them, so a --check taken before a later teardown could have had no baseline for a fabric that
+    # was running. Kept only while the FABRIC is still there (CLEAN_FABRIC_LEFT, from cmd_clean's own
+    # readings): bmv2, Mininet hosts or switches, the topo session, or a session nobody could read.
+    # Anything else verify clean is red about -- a stranger on a port, a port it could not probe, the
+    # app knob -- is not that fabric, `ndt down` without --deep never removes a stranger, and keeping
+    # the record over it would leave every later --check comparing against a fabric that is gone.
+    if [[ -z "$CLEAN_FABRIC_LEFT" ]]; then
+        clear_up_target "'verify clean' found none of the fabric itself (no bmv2, Mininet or topo session)"
+    else
+        up_target_kept "$CLEAN_FABRIC_LEFT"
+    fi
     # 🔴 The SECOND reading of the ports [1/3] complained about, and the one the rc
     # follows. Taken by port number with the same probe cmd_clean's residue uses, rather than
     # inherited from clean_rc -- `cmd_clean` is red about a held port for its own reasons, so a
@@ -6257,6 +6377,10 @@ cmd_down() {
     return "$down_verdict"
 }
 
+# fabric_left <what> -- add one item to CLEAN_FABRIC_LEFT (cmd_clean's list of what of the fabric is still
+# there). [Co-developed with claude code -- Adam]
+fabric_left() { CLEAN_FABRIC_LEFT="${CLEAN_FABRIC_LEFT:+$CLEAN_FABRIC_LEFT, }$1"; }
+
 # The teardown assertion, separately callable. Exits non-zero if anything survived, because
 # a leftover is not cosmetic: it makes the next run measure the wrong process.
 #
@@ -6278,6 +6402,11 @@ cmd_clean() {
     # the sign flipped -- "I removed it and proved it gone" downgraded to "there was never
     # anything here". (Section 21 drives both halves over ONE machine state.)
     local subject_known="${1:-}"
+    # [Co-developed with claude code -- Adam] What of the FABRIC this assertion found, for cmd_down's
+    # decision about the 'ndt up' record: bmv2 switches, Mininet hosts or switches, the topo session
+    # (whose pane is the bridge), or a topo session it could not read. Set from the readings below,
+    # so no second probe is made; a refusal never takes them, and says so here.
+    CLEAN_FABRIC_LEFT="its own 'verify clean' was refused because another 'ndt down' is running, so nothing was measured"
 
     # [Co-developed with claude code -- Adam]
     # 🔴 Measured 2026-09-12 02:08:24.569: with the marker present and a `down`
@@ -6320,18 +6449,20 @@ cmd_clean() {
     # host_count_override is NOT put back here: cmd_down does that before calling this, under its
     # claim and teardown guards, and a standalone clean on a live round must not resize it.
     app_knob_clear "this checkout is being put back" || rc=1
+    CLEAN_FABRIC_LEFT=""
 
     n="$(bmv2_count)"
-    if [[ "$n" -eq 0 ]]; then ok "bmv2 switches: 0"; else err "bmv2 switches: $n still running"; rc=1; fi
+    if [[ "$n" -eq 0 ]]; then ok "bmv2 switches: 0"; else err "bmv2 switches: $n still running"; rc=1; fabric_left "$n bmv2 switch(es)"; fi
 
     n="$(mn_count)"
-    if [[ "$n" -eq 0 ]]; then ok "host/switch processes: 0"; else err "host/switch processes: $n still running"; rc=1; fi
+    if [[ "$n" -eq 0 ]]; then ok "host/switch processes: 0"; else err "host/switch processes: $n still running"; rc=1; fabric_left "$n host/switch process(es)"; fi
 
     # [Co-developed with claude code -- Adam] rc 2: the status call failed, which is not "no topo session".
     topo_session; case $? in
-        0) err "topo tmux session still present"; rc=1 ;;
+        0) err "topo tmux session still present"; rc=1; fabric_left "the topo session" ;;
         1) ok "no topo session" ;;
-        *) err "cannot tell whether a topo session is present: the 'ndtwin-lab status' call failed"; rc=1 ;;
+        *) err "cannot tell whether a topo session is present: the 'ndtwin-lab status' call failed"; rc=1
+           fabric_left "a topo session it could not read" ;;
     esac
 
     if [[ -e "$MANIFEST" ]]; then err "switch manifest still present: $MANIFEST"; rc=1; else ok "no switch manifest"; fi
@@ -6849,7 +6980,10 @@ ovs_daemon_running() {
 }
 
 # guard_no_live_ovs -- `ndt up p4` must not build a bmv2 fabric on top of a live OVS one.
-#   0 clear to proceed, 1 stop.
+#   0 clear to proceed, 1 stop: an OVS fabric IS running (measured), 5 stop: it cannot tell.
+# [Co-developed with claude code -- Adam] 5, not 1, for "cannot tell" (2026-11-06): that refusal could
+# not read the machine and touched nothing, which is what 5 means for up, down and clean; 1 is
+# "measured, and dirty".
 #
 # 🔴 Three inputs, two outcomes, and the third input is the point: "I could not tell" stops the
 # bring-up. What this guard protects is irreversible -- topo-stop and topo-start, which destroy
@@ -6870,7 +7004,7 @@ guard_no_live_ovs() {
         err "cannot tell whether a topo session is running: the 'ndtwin-lab status' call failed."
         err "'ndt up' runs 'topo-stop' next, which destroys whatever is there, so it stops here."
         lab_status_failed_hint
-        return 1
+        return 5
     fi
     (( srv == 0 )) || return 0
     n="$(ovs_bridge_count)"; brc=$?
@@ -6883,7 +7017,7 @@ guard_no_live_ovs() {
             err "   the reason is sudo, not OVS:"
             ndt_sudo_explain ovs-vsctl | while IFS= read -r l; do err "$l"; done
         fi
-        return 1
+        return 5
     fi
     if [[ "$n" -gt 0 ]]; then
         err "an OVS fabric is running ($n bridges) under the topo session."
@@ -12017,7 +12151,12 @@ usage: ndt <command>
                   pass tools/p4_exercise/preflight.py is 5 for the same reason: the
                   table is printed and nothing is built. So is 'ndt up p4' when NTG's
                   config names a mode NTG does not know or a hosts file that does not
-                  exist ('ndt ntg' shows the state and sets the mode).
+                  exist ('ndt ntg' shows the state and sets the mode). And so is
+                  'ndt up p4' when it cannot tell whether a topo session is running
+                  (the 'ndtwin-lab status' call failed), or, under one, whether an
+                  OVS fabric is (ovs-vsctl did not answer): 'topo-stop' would destroy
+                  whatever is there, so it stops before it touches the fabric, and
+                  puts back any file it had already written.
                   2 is a usage error.
                   🔴 THE CLAIM AND THE MEASUREMENT ARE REFUSED BY ONE GUARD, before
                   anything is written -- on OVS only since 2026-09-25: until then
@@ -12067,7 +12206,17 @@ usage: ndt <command>
                   claim note says "putting host_count_override back") -- or, since
                   11-05, the topo session could not be read because the
                   'ndtwin-lab status' call failed (the assertion cannot tell, and an
-                  unreadable lab is not an empty one). All four
+                  unreadable lab is not an empty one) -- or, since 11-06, the [2/3]
+                  topo-stop exited non-zero. A stop or sweep that sudo refused says
+                  it did NOT run and why; only a sweep that ran says it ran 'mn -c'.
+                  The 'ndt up' record (.test_run/up.target) is cleared unless
+                  'verify clean' still finds the fabric itself -- bmv2 switches,
+                  Mininet hosts or switches, the topo session, or a session it
+                  cannot read -- or was itself refused because another 'ndt down'
+                  is running; then it is kept, so 'ndt status --check' still
+                  compares against it, until a down finds none of the fabric, the
+                  next 'ndt up' that builds a fabric replaces it, or, once the
+                  fabric is gone, you remove it (rm .test_run/up.target). All four
                   steps run whatever the earlier ones did -- a first step that failed is what
                   makes the rest matter -- so the rc is one verdict over all of them
                   and the block above it says which.
@@ -12132,7 +12281,9 @@ usage: ndt <command>
                   exit 0 all compared fields match; 1 one of them does not (the
                   message names it); 3 nothing was compared, because there is
                   no baseline RIGHT NOW -- .test_run/up.target is absent (every
-                  ordinary up->down clears it) or unreadable.
+                  ordinary up->down clears it; a down whose 'verify clean' still
+                  finds the fabric keeps it) or unreadable.
+                  A kept record goes the ways the 'down' paragraph above names.
                   3 is never "checked and matched", and it is NOT "no 'ndt up'
                   has ever run here": that sentence was taken out of the output
                   on 09-05 as false after every teardown, and when
@@ -12150,8 +12301,8 @@ usage: ndt <command>
                   baseline: with no up.target the whole report is rc 3, and the
                   rules-in-window and knob problems are printed under "everything else this
                   report could still check" rather than raising the code. 'ndt down'
-                  clears the baseline, so that is the state at the END of every
-                  round -- exactly when a rule is most likely to be left on the wire
+                  clears the baseline once the fabric is gone, so that is the state
+                  at the END of every round -- exactly when a rule is most likely to be left on the wire
                   with no process to attribute it to. Read the rules-in-window ROW, not the
                   exit code, when the record row says none. (2026-09-11)
                   a pidfile naming a process that is gone is marked STALE: the

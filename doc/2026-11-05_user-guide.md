@@ -130,8 +130,8 @@ other lines of its output wrong rather than failing loudly, so `ndt status` test
 
 | Program | What happens without it |
 |---|---|
-| `/usr/local/sbin/ndtwin-lab` | the `ndtwin-lab status` call fails, so `ndt` cannot tell whether a topology session is running: `ndt up p4` stops before it touches the fabric, `ndt status` shows the topo session as unknown and lists it under `--check`, and `ndt clean` and `ndt down` say they cannot tell and end non-zero (`ndt down`'s stop and sweep are refused too) |
-| `/usr/bin/ovs-vsctl` | with a topology session present and Open vSwitch running, `ndt up p4` cannot tell whether an OVS fabric is running, so it stops with `cannot tell whether an OVS fabric is running under the topo session` (rc 1, nothing built) rather than risk destroying one, unless the session is a running P4 fabric of the size asked for, which it reuses without asking; with Open vSwitch running and no bmv2 switch up, `ndt status` cannot tell the data plane and its up-target block (once a record exists) shows `cannot tell (ovs-vsctl refused; see the sudo grants block)` |
+| `/usr/local/sbin/ndtwin-lab` | the `ndtwin-lab status` call fails, so `ndt` cannot tell whether a topology session is running: `ndt up p4` stops before it touches the fabric (rc 5), `ndt status` shows the topo session as unknown and lists it under `--check`, and `ndt clean` and `ndt down` say they cannot tell and end non-zero (`ndt down`'s stop and sweep are refused too, and it says they did not run and keeps the `ndt up` record) |
+| `/usr/bin/ovs-vsctl` | with a topology session present and Open vSwitch running, `ndt up p4` cannot tell whether an OVS fabric is running, so it stops with `cannot tell whether an OVS fabric is running under the topo session` (rc 5, nothing built) rather than risk destroying one, unless the session is a running P4 fabric of the size asked for, which it reuses without asking; with Open vSwitch running and no bmv2 switch up, `ndt status` cannot tell the data plane and its up-target block (once a record exists) shows `cannot tell (ovs-vsctl refused; see the sudo grants block)` |
 | `/usr/bin/mnexec` | the forwarding check at the end of `ndt up` cannot send its ping |
 
 The kernel itself also runs programs through `sudo`. It starts without a terminal, so sudo cannot ask
@@ -435,7 +435,7 @@ pipeline on P4, OVSDB on OVS), not from a setting; if no sample rate can be read
 |---|---|
 | 0 | everything compared matches |
 | 1 | a problem; the message names it |
-| 3 | nothing was compared: there is no baseline (every `ndt down` clears it) |
+| 3 | nothing was compared: there is no baseline (`ndt down` clears it unless `verify clean` still finds the fabric; see 4.9) |
 
 3 is never "checked and matched". `--check` also prints a `rules-in-window` row: flow rules installed
 inside an app's time window and locks still held. `none` means it asked and found none; `N rule(s)
@@ -505,6 +505,12 @@ for you to fix by hand, with the line named. The checkout is the helper's `NTG_D
 file cannot be found, the error shows `NTG_DIR` and where its value came from. `ndt ntg` exits 0, 1
 (refused or not found) or 2 (usage).
 
+`ndt up p4` will not build a fabric for NTG to take over when NTG's config names a mode NTG does not
+know or a hosts file that does not exist: NTG would fail on it, and the topology would stop and take
+the switches with it after the bring-up had passed. It refuses with rc 5 before anything is built;
+set a mode with `ndt ntg custom_command` (or `cli`), or fix the hosts file, and run the same `ndt up`
+again.
+
 Handy Mininet CLI commands: `nodes`, `net`, `h1 ping -c 3 h2`, `h1 ifconfig`, `iperf h1 h2`,
 `sh <command>` (runs in the root namespace) and `exit` (which ends the topology, that is the whole
 fabric). `pingall` over 128 hosts takes a long time. In NTG's prompt, `flow --config <file>` generates
@@ -562,6 +568,16 @@ ndt clean         # the assertion only; it stops nothing
 which closes Mininet), `[3/3] sweep` (the helper's `cleanup`: stray topology and bmv2 processes, `mn -c`,
 and the switch manifest), then `verify clean`.
 Its steps can be repeated safely: if it was interrupted, run `ndt down` again and then `ndt clean`.
+When sudo refuses the helper (3.2), `[2/3]` and `[3/3]` say they did not run and print the sudoers
+line, and `ndt down` ends with rc 1. `ndt down` clears the `ndt up` record (`.test_run/up.target`)
+unless `verify clean` still finds the fabric itself: bmv2 switches, Mininet hosts or switches, the
+topo session, or a topo session it cannot read; it also keeps it when its own `verify clean` was
+refused because another `ndt down` is running. Then it keeps the record, so `ndt status --check`
+still compares against what was asked for. The next `ndt down` that finds none of the fabric clears
+it, the next `ndt up` that builds a fabric replaces it (one that refuses leaves it as it is), and
+once the fabric is gone you can remove it yourself (`rm .test_run/up.target`). When the topo session
+could not be read, restore the sudo grant `ndt down` printed (3.2) and run `ndt down` again. Anything
+else `verify clean` reports, such as a stranger holding a port, does not keep it.
 
 `ndt clean` checks bmv2 processes, host/switch processes, the `topo` session, the switch manifest and
 every port in the table of `tools/test_workflow/ports.sh`; `ndt help` prints that table's size and port
@@ -620,8 +636,12 @@ qdisc tree came back unchanged.
   measurement is running, another `ndt down` from this checkout is still running, or `NDT_TOPO` names
   a model of another network. Nothing was done. `ndt clean` also answers 5 while an `ndt down` of this
   checkout is running, because that teardown's own processes would otherwise be listed as residue. Read
-  who refused and wait; 5 is neither clean nor dirty.
-- `ndt up` exits 5 for the same refusals, and also when `--app`'s pre-flight failed. It never exits 3.
+  who refused and wait, or, when it names a missing sudo grant or NTG's config, fix what it names; 5 is
+  neither clean nor dirty.
+- `ndt up` exits 5 for the same refusals, and also when `--app`'s pre-flight failed, when NTG's config
+  names a mode NTG does not know or a hosts file that does not exist (4.7), and when `ndt up p4` cannot
+  tell whether a topology session, or an OVS fabric under one, is running because a sudo call failed
+  (3.2). It never exits 3.
 - `ndt down` exits 1 also when a component's recorded ending was a fatal signal (SIGKILL, SIGABRT,
   SIGSEGV) from an earlier session. That record is delivered once; the next `ndt down` is green again.
   Read the `[1/3]` block, which names the component. A port held at `[1/3]` is not by itself a failed
@@ -698,6 +718,7 @@ Logs are in `.test_run/logs/` of the checkout: `kernel.log`, `p4_proxy.log`, `ry
 | `no P4 topology model in setting/ has <n> hosts` | 4.4 |
 | `host count must be a multiple of 4 and at least 4` | `ndt up p4 <n>` constraint |
 | `NDT_TOPO names a model of a different network` | unset `NDT_TOPO` or set the host count to the model's (rc 5) |
+| `refusing to build: NTG does not know mode ...` or `refusing to build: the hosts file ... is not a file NTG can load` (rc 5) | NTG's config would stop the fabric after it came up (4.7): `ndt ntg custom_command` (or `cli`), or create the hosts file, then the same `ndt up` again |
 | `--app is a P4 flag` / `--telemetry is a P4 flag` | you named the OVS plane (rc 2) |
 | `ndt up` ends `forwarding NOT tested` | the `mnexec` grant is missing (3.2) |
 | `[2/4]` or the topology never converges, and no log mentions a port | Ryu was not listening when Mininet started: start through `ndt up`, which starts Ryu first and waits for it. `ndt up` starts Ryu with its default listeners, 6653 and 6633. If you run your own Ryu, let it listen on both 6653 and 6633 (Ryu's default when `--ofp-tcp-listen-port` is not given): the 4-host layout connects to 6653 explicitly, only the 128-host layout probes 6653 then 6633, and OVS power-on reattaches a rebuilt bridge to `tcp:127.0.0.1:6633` |

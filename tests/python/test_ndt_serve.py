@@ -1101,6 +1101,15 @@ class RcProvenance(unittest.TestCase):
             for rc, phrase in src["help"].items():
                 self.assertIn(" ".join(phrase.split()), self.help, "%s rc %d" % (kind, rc))
 
+    def test_up_refused_names_the_refusals_help_names(self):
+        """[Co-developed with claude code -- Adam] `ndt up` answers 5 for an NTG config NTG would refuse
+        and for a lab state it could not read, and help says so; the GUI's sentence for 5 names both."""
+        meaning = self.verbs.RC_TABLE["up"][5][1]
+        self.assertIn("NTG does not know", self.help)
+        self.assertIn("an NTG config NTG would refuse", meaning)
+        self.assertIn("cannot tell whether a topo session is running", self.help)
+        self.assertIn("a lab state it could not read", meaning)
+
     FUNC_DEF = re.compile(r"^([A-Za-z_][A-Za-z0-9_:-]*)\s*\(\)\s*\{")
 
     def enclosing_function(self, n):
