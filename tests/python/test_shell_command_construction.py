@@ -36,8 +36,8 @@ how the 14/11 disagreement started.
 
 The first pass of this sweep grepped for `utils::execCommand`, `std::system` and
 `executeSystemCommand`, and reported the population as complete. It was not: `OVSPowerStrategy`
-and `SSHHelper` call **`popen` directly**, bypassing every named helper, and neither appeared. See
-MEMORY [[grep-gives-incomplete-answers]] -- an enumeration is only as complete as the widest
+and `SSHHelper` call **`popen` directly**, bypassing every named helper, and neither appeared.
+An enumeration is only as complete as the widest
 spelling you thought of, and "I grepped for it" is not evidence that a category does not exist.
 """
 

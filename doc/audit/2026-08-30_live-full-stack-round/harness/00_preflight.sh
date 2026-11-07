@@ -44,7 +44,7 @@ case "$(claim_verdict "$CLAIM_LINE")" in
     YOURS)   ok "the lab is claimed by this session (PREREG §4.2)" ;;
     UNCLAIMED) bad "the lab is NOT claimed. PREREG §4.2 requires a claim naming this round before any measurement. Run: NDT_OWNER=<you> ndt claim 240 'T-4 full-stack round'" ;;
     EXPIRED) bad "the lab claim has EXPIRED ($CLAIM_LINE) -- re-claim before measuring" ;;
-    FOREIGN) bad "the lab is claimed by someone else: $CLAIM_LINE (this session is NDT_OWNER=${NDT_OWNER:-}). PREREG §4.1 requires 開機手冊 to have released it." ;;
+    FOREIGN) bad "the lab is claimed by someone else: $CLAIM_LINE (this session is NDT_OWNER=${NDT_OWNER:-}). PREREG §4.1 requires the boot-manual session to have released it." ;;
     OWNER-UNSET) bad "THIS HARNESS CANNOT TELL WHOSE CLAIM THAT IS: NDT_OWNER is unset, so 'ndt status' renders every claim -- including this round's own -- as a stranger's name ($CLAIM_LINE). This is the instrument, not the lab. Re-run with the name the claim was made under: export NDT_OWNER=${CLAIM_LINE%% *} (and keep it exported for every later script)." ;;
 esac
 
@@ -90,7 +90,7 @@ info "REMINDER, not a gate: the session running this harness is itself a covaria
 
 # -------------------------------------------------------------------------------------------------
 say "PREREG §4.3 -- name the binaries this round measures"
-# memory: benchmark-must-name-the-binary-it-measured -- name the commit AND say which kind of
+# a benchmark must name the binary it measured -- name the commit AND say which kind of
 # identifier it is. mtime does not even give a lower bound; the binary on PATH is not
 # necessarily the binary the fabric runs.
 {

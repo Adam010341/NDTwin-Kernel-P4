@@ -529,7 +529,7 @@ def _telemetry_source(package, dpid, knob_path=None, base_dir=None):
 def _p4info_fingerprint(path):
     """`sha256[:16]` of a p4info file, or None if it cannot be read.
 
-    A stable identifier for "which program is this", per CLAUDE.md's rule that a benchmark names
+    A stable identifier for "which program is this", following the rule that a benchmark names
     its binary. The bmv2 JSON is deliberately NOT fingerprinted: it carries the absolute path of
     the source in a `program` field, so the same program compiled in two directories has two
     hashes and the difference says nothing.

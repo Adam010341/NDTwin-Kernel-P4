@@ -5,7 +5,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # `pkill -f <pattern>` signals every process whose WHOLE COMMAND LINE contains the pattern. The
-# project's rule against it (CLAUDE.md) is not stylistic -- it has three distinct failure modes
+# project's rule against it is not stylistic -- it has three distinct failure modes
 # and this repo has been bitten by each:
 #
 #   1. it matches the searcher, and its shell, and that shell's parent. A guard that finds itself

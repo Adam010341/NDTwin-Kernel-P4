@@ -109,7 +109,7 @@ fi
 # Case 6 above runs either way, and a red check before the SKIP is never excused.
 # NDTWIN_L1_NEEDS: py-plot
 if [[ ! -x "${PY_PLOT:-}" && ! -f "${PY_PLOT:-}" ]]; then
-    echo "SKIP: PY_PLOT (${PY_PLOT:-unset}) is not present; the gate cannot be invoked"
+    echo "SKIP: PY_PLOT is not present (unset, or no such file); the gate cannot be invoked"
     exit 0
 fi
 

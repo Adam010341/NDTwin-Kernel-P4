@@ -1,6 +1,6 @@
 // [Co-developed with claude code -- Adam]
-// One guided walk (逐步驗證): its steps with the server-derived state of each, where to look, the
-// result a step recorded and the job it ran; 下一步 and 中止 through the confirm dialog; and, at the
+// One guided walk (step-by-step verification): its steps with the server-derived state of each, where to look, the
+// result a step recorded and the job it ran; the next and abort buttons, through the confirm dialog; and, at the
 // verdict step, Adam's own call. Whether a button is on is decided from the walk's current, blocked,
 // done and aborted fields, as v1 did. v1's element ids.
 import { useRef } from "react";

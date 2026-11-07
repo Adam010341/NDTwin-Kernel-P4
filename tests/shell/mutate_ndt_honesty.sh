@@ -719,7 +719,7 @@ report 'MD7: the clean table drops rc 3 (FIX-NDT-8)' "$m" \
        '  🔴 3 is in the clean table'
 
 # MD8: the table keeps 3 and calls it clean. This is the sentence, not the code -- and the
-# sentence is the whole of the decision: "沒量" 不是 "乾淨".
+# sentence is the whole of the decision: "not measured" is not "clean".
 m=$(mutant md8 "$NDT" \
     '                  🔴 3 IS NOT A CLEAN BILL OF HEALTH, and until 09-12 this command' \
     '                  🔴 3 means the same as 0 when nothing is running. Until 09-12 this command')

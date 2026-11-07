@@ -4,7 +4,7 @@ Which code a live-p1 run ran, and whether a treatment's code is the controls' co
 
 [Co-developed with claude code -- Adam]
 
-The external comparison (README, "合併前的比對") runs its controls C1, C2 (C3, C4) on the main
+The external pre-merge comparison runs its controls C1, C2 (C3, C4) on the main
 checkout at trunk, then merges B there LOCALLY and runs the treatment T. "The same code apart from
 B" is then four facts, and this file records them and checks them:
 

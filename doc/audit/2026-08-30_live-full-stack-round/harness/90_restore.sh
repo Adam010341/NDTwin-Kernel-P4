@@ -214,7 +214,7 @@ PY
     done < "$OUT/restore_targets.txt"
 
     # A power-on endpoint in this project has already been observed returning success without
-    # acting (memory: power-on-reports-success-without-acting). The verdict is the graph, and
+    # acting. The verdict is the graph, and
     # only the graph. 08-18 N-8 measured full restoration within 45 s, so 120 s is generous.
     say "verify -- the graph, not the response code"
     RESTORED=0

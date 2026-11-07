@@ -107,7 +107,7 @@ report() {
 
 # Every mutation is a literal replacement asserted to have fired exactly once. A substitution that
 # matches nothing edits nothing, and the run then reports the UNMUTATED tree as caught/survived.
-# memory/injections-must-assert-their-own-success.
+# an injection must assert its own success.
 mutate() {   # $1 = file, $2 = literal to find, $3 = literal replacement
     local file="$1" from="$2" to="$3" n
     n=$(FROM="$from" perl -0777 -ne 'my $f = quotemeta $ENV{FROM}; my $c = () = /$f/g; print $c' "$file")
@@ -185,7 +185,7 @@ report "an unattributable release is not counted" \
 # --- what the switch does when it is on --------------------------------------------------------
 
 # 3. Enforcement is checked but does not stop the release: the caller is refused AND the lock is
-#    freed anyway. memory/rejected-requests-can-still-act -- the worst shape a refusal can take,
+#    freed anyway. a rejected request can still act -- the worst shape a refusal can take,
 #    and invisible to any test that stops at the return value.
 mutate "$LOCK" \
     'if (m_requireLeaseId) {

@@ -1308,7 +1308,7 @@ claim_note_down() {
     local rc="${1:-0}" unverified="${2:-}" when cleared="" ok=0
     # 🔴 The third argument is what the teardown was ABOUT, measured before it acted. A teardown
     # that had nothing to tear down must not write "verified clean" into a file the next session
-    # reads: that sentence would be the "沒量 ≠ 乾淨" conflation one layer down, in the one place
+    # reads: that sentence would be the "not measured = clean" conflation one layer down, in the one place
     # it outlives the round.
     local subject="${3:-}"
     when="$(date '+%Y-%m-%d %H:%M:%S')"
@@ -2790,7 +2790,7 @@ knob_restore() {
         return 1
     fi
     # 🔴 Asserted, not assumed. A restore that reports success without reading the file back is
-    # the shape 02-recurring-mistakes calls 注入後必須斷言注入成功, with the sign flipped.
+    # the unchecked-fault-injection mistake (after injecting a fault, assert that it took effect), with the sign flipped.
     if ! cmp -s "$KNOB_SAVED" "$f" 2>/dev/null; then
         err "put p4_proxy/mininet/host_count_override back and it did NOT take: it reads"
         err "  $(host_count), not $KNOB_ENTRY. The bytes are in ${KNOB_SAVED#$REPO/}."
@@ -4482,7 +4482,7 @@ print("\n".join(out))' 2>/dev/null
 
 # switch_state_p4info_shas -- the DISTINCT pipeline fingerprints on this fabric, comma-joined,
 # or `p4info sha unreported` when no switch carries one. The one stable identifier a pipeline has
-# (CLAUDE.md: a benchmark names its binary), and the thing the forwarding READING below is a
+# (a benchmark names its binary), and the thing the forwarding READING below is a
 # reading *of* -- "this program does not forward plain IPv4" is a sentence about a named program.
 switch_state_p4info_shas() {
     python3 -c '

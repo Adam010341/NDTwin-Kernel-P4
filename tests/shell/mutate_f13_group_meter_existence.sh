@@ -148,7 +148,7 @@ LAST_OUT=""
 LAST_RC=0
 run_suite() {
     # Assignment then $? on the next line: a pipe here would report the filter's rc, not the
-    # binary's. (memory: `cmd | filter` followed by && / || is always wrong.)
+    # binary's. (`cmd | filter` followed by && / || is always wrong.)
     LAST_OUT=$("$BIN" --gtest_filter="$FILTER" 2>&1)
     LAST_RC=$?
 }

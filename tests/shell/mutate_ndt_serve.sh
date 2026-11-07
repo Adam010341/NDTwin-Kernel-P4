@@ -1330,14 +1330,14 @@ report "G55: CSP violations go uncounted (the browser tests would read 0 anyway)
 m=$(mutant g56 "$CONFIRM_TSX" \
     '          {t("ndtServe.confirm.cancel")}' \
     '          取消')
-report "G56: a UI string written into a component, past the string table" "$m" \
+report "G56: a UI string (Chinese for \"cancel\") written into a component, past the string table" "$m" \
        web:SourceLint.test_every_ui_string_is_in_the_string_table
 
 # the probe during a measuring pause (09-28): /measuring alone (10-01), once a minute, never hidden
 m=$(mutant g59 "$REFRESH_TS" \
     '      if (document.visibilityState !== "hidden") timer.current = window.setTimeout(probe, PROBE_INTERVAL_MS);' \
     '')
-report "G59: a measuring pause arms no probe (nothing but 立即更新 resumes it)" "$m" \
+report "G59: a measuring pause arms no probe (nothing but refresh-now resumes it)" "$m" \
        web:SourceLint.test_a_measuring_pause_probes_measuring_alone_once_a_minute
 
 m=$(mutant g59b "$REFRESH_TS" \

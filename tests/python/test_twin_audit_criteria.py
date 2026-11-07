@@ -492,7 +492,7 @@ class CombineTest(unittest.TestCase):
             [obs("ping", STILL), obs("paths", MOVING), obs("counters", STILL)]))
 
     def test_one_channel_alone_decides_nothing(self):
-        # "單一來源會被騙" -- this repo has been fooled by a lone signal repeatedly.
+        # A single source can be fooled -- a lone signal has misled this project repeatedly.
         self.assertEqual(INCONCLUSIVE, criteria.combine(
             [obs("ping", STILL), obs("paths", UNKNOWN), obs("counters", UNKNOWN)]))
         self.assertEqual(INCONCLUSIVE, criteria.combine(

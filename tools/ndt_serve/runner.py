@@ -15,7 +15,7 @@ Why two sessions and not one:
   * the runner's own session keeps the job out of the server's process group, so a Ctrl-C or a
     closed terminal that takes the server down does not take the job with it;
   * `ndt`'s session keeps the runner out of `ndt`'s process group. `ndt up`/`ndt down` have killed
-    the shell that called them (exit 144, 2026-08-29, memory ndt-one-command-lab-lifecycle) --
+    the shell that called them (exit 144, 2026-08-29) --
     the runner is that caller here, and a runner that dies there leaves an rc nobody recorded.
 
 Output goes to FILES, never to a pipe back to the server: a pipe whose reader has died turns the

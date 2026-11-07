@@ -149,8 +149,8 @@ TEST(LockOwnershipTest, WithEnforcementOnAReleaseNamingNoLeaseIsRefusedAndTheLoc
 {
     // The close for B-2②'s release half. The important half of the assertion is the second one:
     // a refusal that still released the lock would be worse than no refusal, because the caller
-    // would be told "no" and the holder would lose the lock anyway (memory:
-    // rejected-requests-can-still-act).
+    // would be told "no" and the holder would lose the lock anyway (a rejected
+    // request can still act).
     LockManager mgr;
     LockManager::AcquireReport a;
     ASSERT_TRUE(mgr.acquireLock("routing_lock", 3600, &a));

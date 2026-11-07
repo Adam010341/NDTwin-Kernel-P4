@@ -1,5 +1,5 @@
 // [Co-developed with claude code -- Adam]
-// 工作紀錄: the last jobs, newest first, read by the auto-refresh. 開啟 opens a job's panel (below
+// The Jobs tab: the last jobs, newest first, read by the auto-refresh. Its open button opens a job's panel (below
 // the tabs), whose log is followed while the job runs.
 import { useTranslation } from "react-i18next";
 import type { ApiResult } from "../../api/client";

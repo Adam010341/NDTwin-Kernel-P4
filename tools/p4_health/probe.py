@@ -161,7 +161,7 @@ def cmd_judge(args):
 
 def cmd_lab(args):
     """S0 in the run directory, then the lab (lab.run_lab). The owner is required: every ndt
-    call carries it (CLAUDE.md), and claims are made in its name."""
+    call carries it, and claims are made in its name."""
     # HEAD is resolved ONCE, before anything else is read: the modules are
     # loaded, the tree is checked and the code is frozen against THIS commit, and the identity names it. A
     # commit landing in between is refused below, not folded in.

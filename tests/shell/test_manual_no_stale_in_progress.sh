@@ -21,7 +21,7 @@
 # ## The two directions
 #
 # 🔴 DIRECTION ONE IS THE TOOL, AND IT IS WHY CASES 1-4 EXIST. A test that only asks "does the
-# document still say 在修" is passed perfectly by deleting the word -- a document that claims a fix
+# document still say 'being fixed' (in Chinese)" is passed perfectly by deleting the word -- a document that claims a fix
 # nobody made is worse than one that claims a defect nobody has. So cases 2-4 go and find, in
 # `ndt help`'s live output and in `tools/test_workflow/ndt` itself, the sentences the documents
 # say the tool prints. Case 1 is the negative half (the three-port sentence is GONE from help)
@@ -46,7 +46,7 @@
 # lookup goes red HERE and by name, instead of going quiet over there.
 #
 # A block may quote what a document USED TO say. The convention is one word: a block carrying
-# 原本 or 曾經 is a record of a past wording, not a claim about today, and the sweep skips it.
+# either of the two Chinese words for "originally" / "once was" (the two skip sites below) is a record of a past wording, not a claim about today, and the sweep skips it.
 # It is a suppression, so it is greppable.
 #
 # CASE 10 IS THE CONTROL: a sentence of the guide this suite does not touch. A suite that is
@@ -58,7 +58,7 @@
 #
 # CASES 11/11b/11c ARE THE SWEEP OVER EVERY doc/**/*.md OUTSIDE doc/audit/. They read a
 # markdown BLOCK rather than a line, and they let a block off when it retracts in place -- when it
-# names a merge commit that is an ancestor of HEAD next to 已修/已併. The long comment above those cases
+# names a merge commit that is an ancestor of HEAD next to the Chinese word for "fixed" or "merged". The long comment above those cases
 # is the part to read before changing them.
 #
 # Overridable for the mutation gate, which must never write this worktree's copies (MANUAL names
@@ -108,8 +108,8 @@ ticket_merge() {   # ticket_merge FIX-NDT-6 -> the merge sha reachable from HEAD
         | grep -F -- " Merge $br" | head -1 | cut -d' ' -f1
 }
 # The same question asked of a branch a page names outright. A caveat does not have to name a
-# work item to go stale: the old testing manual said `fix/e21-link-endpoints-in-contract` was 未併入
-# trunk after that branch merged on 2026-09-10 (`bb9301a0`), and a scan for FIX-<X>-<n> could not
+# work item to go stale: the old testing manual said `fix/e21-link-endpoints-in-contract` was "not yet merged" (in Chinese)
+# into trunk after that branch merged on 2026-09-10 (`bb9301a0`), and a scan for FIX-<X>-<n> could not
 # see it -- which is how the branch half of the sweep (case 11b) came to exist.
 branch_merge() {   # branch_merge fix/e21-... -> the merge sha reachable from HEAD, or ""
     git -C "$REPO" log --merges --format='%H %s' HEAD 2>/dev/null \
@@ -153,12 +153,12 @@ check "case 8  the user guide quotes clean's own-fabric sentence" \
 # So the doc-wide half asks for one more thing before it calls a line stale: the markdown BLOCK
 # the line sits in must not already disclose the merge. "Disclose" is checkable, not a word
 # list -- the block has to name a hex sha that resolves in THIS repository to a MERGE commit
-# that is an ancestor of HEAD, next to 已修 or 已併. That is the same bargain the old manual's
+# that is an ancestor of HEAD, next to the Chinese word for "fixed" or "merged". That is the same bargain the old manual's
 # NDT-MERGED-CAVEAT markers strike (retract in place, name what merged it), written as a rule
 # that works in a file which has no markers.
 #
 # 🔴 THE UNIT IS A BLOCK, NOT A LINE, AND THAT IS LOAD-BEARING. Prose here wraps at ~100 chars,
-# so the sentence "§2.8 原本把這一條寫成「FIX-NDT-6 在修」的現行缺陷。現在改成已修 ... `1656bdba`"
+# so a sentence such as "§2.8 used to describe this as a current defect, 'FIX-NDT-6 is being fixed'; it now says fixed ... `1656bdba`" (the old manual wrote it in Chinese)
 # is three lines: the qualifier is on the first, the ticket on the second, the sha on the third.
 # Line-scoped reading sees the middle line alone and calls a retraction a stale caveat.
 #

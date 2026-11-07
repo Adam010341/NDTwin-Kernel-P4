@@ -105,7 +105,7 @@ ltree() {   # ltree <dir>
     local d="$1"
     mkdir -p "$d/$LIVE_DIR_REL" "$d/tools/test_workflow" "$d/doc/audit/2026-09-25_p4-heartbeat/spike" "$d/tmp"
     cp "$REPO/$LIVE_DIR_REL/_common.sh" "$LIVE08" "$d/$LIVE_DIR_REL/"
-    # [Co-developed with claude code -- Adam] round 5: 08's identity gate runs these two (M-2)
+    # [Co-developed with claude code -- Adam] 08's identity gate runs these two
     cp "$REPO/$LIVE_DIR_REL/code_identity.py" "$REPO/$LIVE_DIR_REL/venv_fingerprint.sh" "$d/$LIVE_DIR_REL/"
     cp "$REPO/tools/test_workflow/faults.sh" "$REPO/tools/test_workflow/qdisc_snapshot.sh" "$d/tools/test_workflow/"
     cp "$REPO/doc/audit/2026-09-25_p4-heartbeat/spike/census_prepare.py" "$d/doc/audit/2026-09-25_p4-heartbeat/spike/"
@@ -241,8 +241,8 @@ echo "  new proxy tests to be seen red: $(wc -l < "$NEW_IDS")"
 # would go red on trunk the first time somebody else adds a proxy test -- which is exactly what
 # the first cut's mutate_roles_binding.sh does at this segment's head (its NEW_CLASSES check,
 # pinned to 6291db35, lists the 18 classes added here and counts them as its survivor).
-# CLASSES_AT is the last commit of this segment that added a test class (round 2 moved it from
-# d57531d9 to f8309d02, test_heartbeat_contract). A later round that adds one
+# CLASSES_AT is the last commit of this segment that added a test class (it was later moved from
+# d57531d9 to f8309d02, test_heartbeat_contract). A later change that adds one
 # moves it, or runs with CLASSES_AT=worktree while it is uncommitted. It
 # must be an ancestor of HEAD: a history that lost it (a squash-merge) is refused, not scanned
 # as "no classes, none missing".
@@ -966,7 +966,7 @@ report "A02: an uninjected reporter still adds a key" "$m" "test_an_uninjected_r
 m=$(mutant a03 "$ROUTES" \
     '        raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
-        # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
+        # A read-only external control plane refuses the write (409). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
         # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: refused before any switch' \
@@ -977,7 +977,7 @@ report "A03: add on an external control plane is 500 again" "$m" "test_add_is_40
 m=$(mutant a04 "$ROUTES" \
     '        raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
-        # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
+        # A read-only external control plane refuses the write (409). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
         # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6, as on add.' \
@@ -988,7 +988,7 @@ report "A04: delete on an external control plane is 500 again" "$m" "test_delete
 m=$(mutant a05 "$ROUTES" \
     '        raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
-        # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
+        # A read-only external control plane refuses the write (409). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
         # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: this endpoint'"'"'s refusals are' \
@@ -1010,7 +1010,7 @@ report "A07: delete_strict is not the delete handler" "$m" "test_both_delete_rou
 # HELPER's embedded daemon -- in the mutant's copy only; the helper itself is never written, and
 # the gate checks it byte-identical at the end -- because the contract test is what stands between
 # a rename in the writer and a proxy reading `heartbeat_report_unreadable` (or zero hosts) live.
-echo "round 2: the census, and the helper's report as the proxy reads it"
+echo "the census, and the helper's report as the proxy reads it"
 m=$(mutant m28 "$MAIN" \
     '               "skeletons do not build. Segment S'"'"'s census started the heartbeat by hand (the "
                "helper, not ndt) on all 20. Since 2026-09-27 `ndt up p4 --app` is EXPECTED to "

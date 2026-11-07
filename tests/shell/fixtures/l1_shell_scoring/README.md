@@ -7,7 +7,7 @@ reads it exactly as it reads a suite in `tests/shell/`, and group R asserts the 
 them is ever run -- they live outside the `tests/shell/test_*.sh` glob on purpose, so neither the
 L1 lane nor group C's corpus loop picks them up.
 
-Why they exist (2026-09-27, the opus judge's NOTEs A, B, F, G, H and I on `1d5180ce`): group C's
+Why they exist (2026-09-27, six gaps found when the scoring was checked on `1d5180ce`): group C's
 rules were only ever checked against the corpus as it happened to be, so a reading the corpus did
 not exercise could be wrong in either direction without anything going red. Each fixture pins one
 reading; `tests/shell/mutate_l1_shell_scoring.sh` breaks each reading and must see its fixture's

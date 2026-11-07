@@ -1671,7 +1671,7 @@ check "  🔴 and with nothing wrong at all, preflight is still 0" "0" "$(rc_of_
 # ==========================================================================================
 section "21. 'ndt clean' answers 3 when there was nothing to judge, 5 when refused"
 # ==========================================================================================
-# 2026-09-12: "沒量" 不是 "乾淨". `ndt clean` on a machine where no fabric was ever started walked five
+# 2026-09-12: "not measured" is not "clean". `ndt clean` on a machine where no fabric was ever started walked five
 # assertions over an empty process table, found nothing, printed `clean` and exited 0 --
 # byte-identical, to any script, to a teardown that removed ten bmv2 switches and proved them gone.
 # The manual sends a first-time reader to this command to VERIFY a lab; the answer it gave on a

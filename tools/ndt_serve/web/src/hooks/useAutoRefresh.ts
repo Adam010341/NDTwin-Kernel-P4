@@ -9,7 +9,7 @@
 //     anyone measuring" -- `ndt status --measuring`, the claim's measuring= and the process table,
 //     no sudo and no request to the kernel under measurement). No /lab, /apps, /health or /jobs.
 //     The probe that reads nothing measuring and nothing declared brings the 10 s tick back.
-//     立即更新 reads everything at once, paused or not.
+//     refresh-now reads everything at once, paused or not.
 //   * paused-hidden: while document.visibilityState === "hidden" nothing is read, tick or probe.
 //     Shown again, the page reads once at once and re-arms the timer -- unless the last read was
 //     measuring: then only the probe is armed again, and it reads 60 s later, not at once.
@@ -23,7 +23,7 @@ export const PROBE_INTERVAL_MS = 60_000;
 export type RefreshState = "running" | "paused-measuring" | "paused-hidden";
 
 // A read, and the measuring reading it got (null when it did not answer 200): readAll is what the
-// tick and 立即更新 read (its /lab answer), readProbe is the probe's /measuring alone. Both answers
+// tick and refresh-now read (its /lab answer), readProbe is the probe's /measuring alone. Both answers
 // carry the server's one reading of ndt's measuring rows (serve.py measuring_fields).
 export type Measuring = Pick<MeasuringAnswer, "measuring_is_nothing" | "declared">;
 export type Read = () => Promise<Measuring | null>;
@@ -101,7 +101,7 @@ export function useAutoRefresh(enabled: boolean, readAll: Read, readProbe: Read,
     arm();
   };
 
-  // 立即更新: always available, also while paused. One read of everything; arm() then decides
+  // refresh-now: always available, also while paused. One read of everything; arm() then decides
   // between the tick and the probe. Every callee reads refs only, so [] is enough.
   const refreshNow = useCallback(async () => {
     if (!live.current || inFlight.current) return;

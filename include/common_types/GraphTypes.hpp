@@ -404,7 +404,7 @@ to_string(MemberType t)
  * (FlowLinkUsageCollector.cpp:1442-1447 keys on the agent IP; TopologyAndFlowMonitor.cpp:1571
  * resolves it against `dstIp`). Restoring the record onto an address-less interface would be a
  * restore that runs, succeeds, and lands somewhere the samples cannot be attributed from --
- * the shape memory `injections-must-assert-their-own-success` calls the ninth form.
+ * the shape of an injection nobody asserted took effect.
  *
  * The three-state contract mirrors executeListPorts':
  *   - `std::nullopt` from the reader           -- the query failed; we do not know

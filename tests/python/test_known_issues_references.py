@@ -155,14 +155,14 @@ CODE_RE = re.compile(r"\b([A-Z]-\d+[a-z]?)[\u2460-\u2473]?(?!\w)")
 #: `#L<N>`, the English word `line <N>`, and extra spaces around the colon. A citation is a claim
 #: about a line of that document whatever punctuation carries it, and the claim is what rots.
 #:
-#: The Chinese form is in for the same reason: this repo's documents are written in Chinese, and
-#: a document in this repo has been citing two line
-#: numbers as `第<N>／<N>行` since 09-02. They went stale exactly the way the other 62 did -- the
+#: The Chinese form is in for the same reason: this repo's documents used to be written in Chinese,
+#: and a document in this repo had been citing two line numbers in that form (an ordinal marker
+#: before the first number and U+884C, "line" there, after the last) since 09-02. They went stale exactly the way the other 62 did -- the
 #: lines it names are now inside an entry about netem scanning.
 #:
-#: 🔴 `行<N>` -- the marker BEFORE the number -- is deliberately NOT a line citation, and the
+#: 🔴 U+884C placed BEFORE the number (where it reads "row", not "line") is deliberately NOT a line citation, and the
 #: lookahead is what keeps them apart. §L of the document numbers its ROWS `| **02** |`,
-#: `| **05** |`, and a ledger's `行 02/05` means those
+#: `| **05** |`, and a ledger's "row 02/05" in that spelling means those
 #: rows: a correct entry citation. Reading it as "lines 2 and 5" would report a citation that is
 #: right, and the only way to get the tree green again would be to delete something true.
 _KI_DOC = r"KNOWN[-_]ISSUES(?:\.md)?"
@@ -190,7 +190,7 @@ FIXED_DOC_NAME_RE = re.compile(r"FIXED[-_]ISSUES(?:\.md)?")
 #: document. 40 characters is about one clause.
 #:
 #: 🔴 The bound is the whole design of this half. A code ANYWHERE on the line would read
-#: `<the document> ... 而 FINDINGS-COVERAGE.md 的 A-9` as this document's A-9 -- reporting
+#: `<the document> ... and A-9 of FINDINGS-COVERAGE.md` (Chinese in the fixture) as this document's A-9 -- reporting
 #: something correct, which this file treats as the worse error (see M4's note in the gate).
 #: The name is written as a placeholder here for the reason cite() gives: this file is inside
 #: the scanned tree, and a literal name-plus-code here would be a citation of its own.
@@ -209,9 +209,9 @@ H3_RE = re.compile(r"^### (?!#)(.*)$")
 H2_RE = re.compile(r"^## (?!#)(.*)$")
 
 #: The first cell of a table row, and what has to be left of it for the row to BE an entry.
-#: §C's rows are `| 🏁 **F-14** | ...` and §D's is `| **F-4**<br>（＝subagent 那套編號） | ...`,
+#: §C's rows are `| 🏁 **F-14** | ...` and §D's is `| **F-4**<br>(fullwidth-parenthesised gloss) | ...`,
 #: so the status marker and the `<br>` gloss are stripped before the cell is compared. A row
-#: whose first cell is prose (`| 代號 | 說明 |`) is not an entry, and neither is one inside a
+#: whose first cell is prose (a header row such as `| code | description |`, Chinese in the fixtures) is not an entry, and neither is one inside a
 #: blockquote (`> | `F-1` | ...`) -- that table is the OTHER campaign's numbering, and reading
 #: it as an entry index would make citations of the wrong F-1 look resolved.
 FIRST_CELL_RE = re.compile(r"^\|([^|]*)(?:\||$)")
@@ -606,7 +606,7 @@ def report(violations):
 #
 # A three-entry stand-in for doc/KNOWN-ISSUES.md. Written out rather than sliced from the real
 # document so the line numbers the tests assert on stay put when the real one is edited -- which
-# is the very thing this file is about.
+# is the very thing this file is about. The Chinese in its headings and prose is fixture data for the scanner's Chinese forms.
 
 FAKE_KI = "\n".join([
     "# NDTwin — 已知未修缺陷",      # 1
@@ -939,7 +939,7 @@ class TheWideningStillHoldsItsFire(unittest.TestCase):
     def test_a_row_label_is_not_a_line_number(self):
         """🔴 The case that pays for the Chinese spelling. §L of the document numbers its ROWS
         `| **02** |` and `| **05** |`, and
-        a ledger cites them as `行 02/05` -- the
+        a ledger cites them with U+884C ("row") before `02/05` -- the
         marker BEFORE the number, which in this repo means the row and not the line. Reading it
         as "lines 2 and 5" reports a correct entry citation as a violation."""
         t = TreeFixture(self, {"doc/x.md": "NDT-HARNESS\uff1a%s \u5df2\u904e\u671f\u3002\n"

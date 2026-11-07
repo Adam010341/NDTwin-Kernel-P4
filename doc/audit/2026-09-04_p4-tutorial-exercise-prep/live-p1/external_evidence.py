@@ -9,8 +9,8 @@ treatment with it.
 The standing condition (09-25) is that the heartbeat must not change what a user's own
 forwarding does. What must NOT differ between runs without it and a run with it is what the
 exercise's own controller saw and did -- its log, in each round's directory -- and what each arm's
-own numbers must satisfy whatever the other runs say. The procedure that produces the runs is in
-live-p1/README.md ("合併前的比對").
+own numbers must satisfy whatever the other runs say. The procedure: controls C1, C2 (C3, C4) run
+on the main checkout, B is then merged there locally and the treatment T runs (see code_identity.py).
 
 WHAT IS READ, per external arm (p4runtime skeleton and solution, flowcache solution):
   * 00_table.tsv: the arm's rc, verdict and round report (`<stamp>_<ex>_<arm>_ndtwin.md`; the round
@@ -30,7 +30,7 @@ WHAT IS READ, per external arm (p4runtime skeleton and solution, flowcache solut
     kernel, bmv2 (binaries and the fabric's lib/), helper, venv and ~/tutorials. Each run's two
     must be equal (the code did not change while it ran); every control must carry the same
     identity, and the treatment's must be that one plus B merged, its tree the one merging its two
-    parents gives: refused otherwise (README, "合併前的比對", M-2);
+    parents gives: refused otherwise;
   * [Co-developed with claude code -- Adam] (round 6) each round report's p4c sha256 and every
     compiled JSON's sha256: refused unless each external arm's are the same in every run.
 
@@ -62,11 +62,11 @@ its push; a controller log with no push and no entry); a counter block cut short
 taken mid-traffic: see settled() for when it has); a packet-in whose frame cannot be parsed, an
 IPv4 one included.
 
-WHAT DECIDES, AND WHAT IS ONLY DESCRIBED (fixed in advance;
-README "合併前的比對" has the arithmetic). Run-to-run noise is real, and a range rule cannot hold a
+WHAT DECIDES, AND WHAT IS ONLY DESCRIBED (fixed in advance).
+Run-to-run noise is real, and a range rule cannot hold a
 noisy field to a small false-fail rate: under no effect, a continuous field lands outside the range
 of n controls with probability 2/(n+1) -- 2/3 with two controls, 2/5 with four. So each arm's
-evidence is split, by what 34 earlier no-heartbeat rounds of these arms show (README):
+evidence is split, by what 34 earlier no-heartbeat rounds of these arms show:
   * DECISIVE -- held EXACTLY to the controls: every key and invariant that never varied in those
     rounds (rules installed everywhere; the 0x88B5 and non-IPv4 packet-ins; on p4runtime the
     packet-ins, cache entries and gRPC errors, and the skeleton's counters; the invariants named in
@@ -719,7 +719,7 @@ def identities(control, controls2, treatment, b_sha):
     code, and the treatment ran that code with B merged on top -- or Refused."""
     if not b_sha:
         raise Refused("no --b-sha: which B the treatment merged must be named, or 'the same code "
-                      "apart from B' cannot be checked (README, 合併前的比對)")
+                      "apart from B' cannot be checked (the pre-merge comparison needs it)")
     ids = []
     for run in [control] + list(controls2) + [treatment]:
         # [Co-developed with claude code -- Adam] round 6: recorded BEFORE and AFTER the run, and equal
@@ -770,10 +770,10 @@ def compare(control, treatment, controls2, samples_path, b_sha=None):
     if not samples_path:
         raise Refused("no --samples: every marker in a round report is taken before the exercise's "
                       "controller runs, so only live-p1/08 PART=h5's samples can say the heartbeat "
-                      "ran while it did (README, 合併前的比對)")
+                      "ran while it did (the pre-merge comparison needs it)")
     if not controls2:
         raise Refused("no --control2: with one control nothing can tell a difference from run-to-run "
-                      "noise (README, 合併前的比對)")
+                      "noise (the pre-merge comparison needs it)")
     dirs = [os.path.realpath(d) for d in [control] + list(controls2)]
     if len(set(dirs)) != len(dirs):
         raise Refused(f"a control is given twice ({dirs}): a control compared with itself has no spread")

@@ -740,7 +740,7 @@ async def add_flow_entry(request: Request):
         # [Co-developed with claude code -- Adam]
         raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
-        # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
+        # A read-only external control plane refuses the write (409). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
         # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: refused before any switch
@@ -835,7 +835,7 @@ async def delete_flow_entry(request: Request):
         # [Co-developed with claude code -- Adam]
         raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
-        # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
+        # A read-only external control plane refuses the write (409). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
         # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6, as on add.
@@ -880,7 +880,7 @@ async def modify_flow_entry(request: Request):
         # [Co-developed with claude code -- Adam]
         raise _route_write_unsupported(err, dpid)
     except ControlPlaneReadOnly as err:
-        # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
+        # A read-only external control plane refuses the write (409). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
         # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: this endpoint's refusals are

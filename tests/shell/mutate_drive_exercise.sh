@@ -220,7 +220,7 @@ add "8. a host with no namespace comes back as pid 0 instead of a named failure"
 
 # 9-11: the lab. A package that will not pre-flight must not have held the lab while it was
 # being rejected, a claim must come back however the round ended, and `ndt` must know who is
-# asking (CLAUDE.md: ndt 指令都帶 NDT_OWNER).
+# asking (every ndt command carries NDT_OWNER).
 add "9. a FAILED pre-flight goes on to claim the lab and bring the fabric up" \
     "$DRIVER" \
     '        say("!! pre-flight FAILED (rc %d). '"'"'ndt up p4 --app'"'"' would refuse this too;"

@@ -293,7 +293,7 @@ bltrue() {
 
 # 🔴 `plan` executes for real and needs no fabric, so it is not a dry run -- but it is not a
 # measurement either, and a plan transcript sitting in the measurement log is the same
-# "跑過 vs 讀過未執行 混表" hazard the dry-run suffix exists to prevent.  Its own file.
+# hazard of mixing results that were run with results that were only read, not executed, which the dry-run suffix exists to prevent.  Its own file.
 # Derived from the base, not appended to the current LOG: appending here would stack a second
 # `.plan` onto an inherited one.  shellcheck disable=SC2086 -- an empty $LOG_SUFFIX_DRY must vanish.
 # shellcheck disable=SC2086

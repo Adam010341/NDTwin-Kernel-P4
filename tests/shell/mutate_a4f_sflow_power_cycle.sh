@@ -275,7 +275,7 @@ report "powerOn replays the record but never reads it back" \
 # 3. The read-back accepts a record attached to an interface with no IPv4 address.
 #    Structurally present, functionally useless: the datagrams carry no agent address the
 #    collector can key an edge from, so the restore ran, succeeded, and landed somewhere nothing
-#    can see it. That is the ninth form in injections-must-assert-their-own-success, and it is the
+#    can see it. That is a case of the rule that an injection must assert its own success, and it is the
 #    one a reviewer is most likely to call over-engineering.
 apply "$POWER" \
 '    if (after->agentIpCidr.empty())

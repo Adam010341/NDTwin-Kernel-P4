@@ -1,9 +1,9 @@
 // [Co-developed with claude code -- Adam]
-// 驗證格: the live_cells grid (GET /cells, i.e. run_cells.sh --list), one line per cell saying what it
-// checks, and the four buttons Adam's point 8 renamed -- 修前紀錄 (old/), 修好當晚 (new/), 現在重跑
-// (run), 逐步驗證 (walk) -- each explained in the legend and on hover. Below: the fixture view, the
-// walks, and the walk panel. Nothing here refreshes by itself: the grid is read when the tab is first
-// opened and when 讀取驗證格 is pressed.
+// The Cells tab: the live_cells grid (GET /cells, i.e. run_cells.sh --list), one line per cell saying
+// what it checks, and its four buttons -- the record from before the fix (old/), the record from the
+// night it was fixed (new/), re-run now (run), step-by-step verification (walk) -- each explained in
+// the legend and on hover. Below: the fixture view, the walks, and the walk panel. Nothing here refreshes
+// by itself: the grid is read when the tab is first opened and when the load button is pressed.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { get } from "../../api/client";
