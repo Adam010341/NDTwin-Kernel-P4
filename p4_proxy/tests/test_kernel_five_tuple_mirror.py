@@ -3,7 +3,7 @@ The kernel's copy of the 5-tuple field list is the proxy's.
 
 [Co-developed with claude code -- Adam]
 
-KNOWN-ISSUES C-7. The kernel now refuses, before queueing, a strict delete the proxy is known to
+FIXED-ISSUES C-7. The kernel now refuses, before queueing, a strict delete the proxy is known to
 refuse: a named priority on a match that compiles to ipv4_lpm. Whether a match compiles there is
 the proxy's `needs_five_tuple`, which reads FIVE_TUPLE_ONLY_FIELDS -- and the kernel cannot import
 Python, so it carries `kP4FiveTupleOnlyMatchFields` in FlowJob.hpp. If the proxy learns a new

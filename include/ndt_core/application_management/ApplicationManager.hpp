@@ -94,7 +94,7 @@ class ApplicationManager
      * deliberately unchanged from the inline original -- shell quoting across every southbound
      * command is the deferred debt tracked in issue #2, and fixing one call site here would
      * misrepresent the rest as safe." That reasoning was sound and is now spent: the sweep for
-     * doc/KNOWN-ISSUES.md B-2b/B-4 went through every shell-execution site in the kernel, so
+     * doc/FIXED-ISSUES.md B-2b/B-4 went through every shell-execution site in the kernel, so
      * fixing this one no longer implies anything false about the others.
      *
      * `folder` is not request-controlled -- it is m_nfsExportDir plus an integer app id, and the

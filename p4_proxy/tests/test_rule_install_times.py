@@ -3,7 +3,7 @@ The P4 plane's clock: who writes it, what it refuses to say, and that the endpoi
 
 [Co-developed with claude code -- Adam]
 
-KNOWN-ISSUES G-13. A bmv2 table entry has no age, so `/stats/flow/<dpid>` reported
+FIXED-ISSUES G-13. A bmv2 table entry has no age, so `/stats/flow/<dpid>` reported
 `duration_sec: 0, duration_nsec: 0` for every rule and the P4 plane had no time axis at all.
 Measured 2026-09-07 (P4 plane, 4 hosts): a route installed, read back at +12 s and +32 s,
 0/0 both times, for it and for every rule already on the switch, while its counters moved. `ndt`

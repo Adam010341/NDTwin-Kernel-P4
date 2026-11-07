@@ -180,7 +180,7 @@ DeviceConfigurationAndPowerManager::start()
 }
 
 // [Co-developed with claude code -- Adam]
-// KNOWN-ISSUES B-5. stop() is what joins the workers, and the destructor is what guarantees it
+// FIXED-ISSUES B-5. stop() is what joins the workers, and the destructor is what guarantees it
 // runs: an object that is started and then dropped without a stop() -- an early return, an
 // exception on a startup path, or simply main's shared_ptr going away -- would otherwise destroy
 // joinable std::threads and abort. Idempotent, because main calls stop() explicitly first.
@@ -229,7 +229,7 @@ DeviceConfigurationAndPowerManager::stop()
     }
 
     // [Co-developed with claude code -- Adam]
-    // KNOWN-ISSUES B-5, the thread this function used to forget. start() launches three workers
+    // FIXED-ISSUES B-5, the thread this function used to forget. start() launches three workers
     // and this joined two of them, so the third was still joinable when the object was
     // destroyed -- which is std::terminate, not a leak: "terminate called without an active
     // exception" and SIGABRT, every time the kernel reached its own shutdown path.
@@ -1178,7 +1178,7 @@ DeviceConfigurationAndPowerManager::buildRelayPowerCommand(const std::string& gw
     // parameters, and it is the only working example of this API in the repo.
     //
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-2b sweep. `action` is the only value in the whole remaining shell
+    // doc/FIXED-ISSUES.md B-2b sweep. `action` is the only value in the whole remaining shell
     // population that originates in an HTTP request: it is the `action` query parameter of
     // POST /ndt/set_switches_power_state (HttpSession.cpp:712). It is checked against exactly
     // {"on","off"} twice before it gets here -- at the HTTP boundary (HttpSession.cpp:714) and
@@ -1474,7 +1474,7 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
             // Was `10 + (std::hash<std::string>{}(ip_str) % 50)` -- the same expression, on the
             // same seed, as the CPU report, so the two endpoints answered byte-identical bodies.
             // See kHealthMetricUnavailable in the header for why this is -1 and not a better
-            // fake. F-1 in doc/KNOWN-ISSUES.md.
+            // fake. F-1 in doc/FIXED-ISSUES.md.
             memory = kHealthMetricUnavailable;
         }
         else if (vp.brandName == kBrandHPE5520)
@@ -1565,7 +1565,7 @@ DeviceConfigurationAndPowerManager::classifyFlowStatsReply(const nlohmann::json&
 }
 
 // [Co-developed with claude code -- Adam]
-// KNOWN-ISSUES F-6. See the declaration for why this is a named function instead of the inline
+// FIXED-ISSUES F-6. See the declaration for why this is a named function instead of the inline
 // condition it replaced: it is the whole boundary between "not asked" and "asked and got no
 // answer", and only the second of those may be carried forward.
 bool
@@ -1585,7 +1585,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
     {
         const auto& props = graph[v];
         // [Co-developed with claude code -- Adam]
-        // KNOWN-ISSUES F-6. This is the ONLY gate in front of fetched.unread, which is what makes
+        // FIXED-ISSUES F-6. This is the ONLY gate in front of fetched.unread, which is what makes
         // it worth its own named predicate rather than an inline condition: everything past this
         // line has actually asked the control plane a question, so everything past this line may
         // legitimately be carried forward when the answer does not come. A vertex rejected here
@@ -1698,7 +1698,7 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
             // reason: stale data that was once true beats a confident claim that is false now.
             // The parse error itself is already logged one line up.
             //
-            // KNOWN-ISSUES F-6: until 2026-09-02 the sentence above described a step that did not
+            // FIXED-ISSUES F-6: until 2026-09-02 the sentence above described a step that did not
             // exist. `continue` left the dpid out of the fresh array, which the worker then
             // assigned over the whole cache -- so "keeping the previous table" deleted it. The
             // record below is what makes the sentence true.
@@ -1917,7 +1917,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
     // figure in MININET) and now says which.
     //
     // `power_path` alone and not the pair: `telemetry_path` is "none" for OVS and BMv2 as well
-    // (KNOWN-ISSUES F-1), so it cannot tell an exempted switch from a software one, and it
+    // (FIXED-ISSUES F-1), so it cannot tell an exempted switch from a software one, and it
     // answers about CPU/memory/temperature rather than about this report. GraphTypes.hpp's
     // isExemptFromBrandPaths says the same thing in its own comment.
     //
@@ -2309,7 +2309,7 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
             // Was `10 + (std::hash<std::string>{}(ip_str) % 50)`: a constant function of the
             // management IP, identical to the memory report's, and drawn from only fifty buckets
             // so two of ten switches usually collided. See kHealthMetricUnavailable in the
-            // header. F-1 in doc/KNOWN-ISSUES.md.
+            // header. F-1 in doc/FIXED-ISSUES.md.
             cpu = kHealthMetricUnavailable;
         }
         else if (vp.brandName == kBrandHPE5520)
@@ -2433,7 +2433,7 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
             // [Co-developed with claude code -- Adam]
             // Was `25 + (std::hash<std::string>{}(ip_str) % 25)`. A bmv2 or OVS switch is a
             // process; it has no thermal sensor, and a per-IP constant is not one. See
-            // kHealthMetricUnavailable in the header. F-1 in doc/KNOWN-ISSUES.md.
+            // kHealthMetricUnavailable in the header. F-1 in doc/FIXED-ISSUES.md.
             temp = kHealthMetricUnavailable;
         }
         else
@@ -2689,7 +2689,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
     if (m_mode == utils::DeploymentMode::MININET)
     {
         // [Co-developed with claude code -- Adam]
-        // The fourth copy of the same fabrication, and the one doc/KNOWN-ISSUES.md's F-1 entry
+        // The fourth copy of the same fabrication, and the one doc/FIXED-ISSUES.md's F-1 entry
         // does not name: this is the Intent Translator's per-device path
         // (IntentTranslator.cpp:447), so "what is s3's CPU?" answered with the same invented
         // constant the map endpoint served. Same seed -- the IP string -- so the two at least
@@ -2710,7 +2710,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
                 {"exempt", note}};
     }
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-2b sweep. These two are the only shell commands in this file built
+    // doc/FIXED-ISSUES.md B-2b sweep. These two are the only shell commands in this file built
     // from one of its own std::string parameters rather than from a re-rendered integer, and the
     // parameter's caller chain starts at an LLM-supplied device name.
     //
@@ -2792,7 +2792,7 @@ DeviceConfigurationAndPowerManager::statusUpdateWorker()
 }
 
 // [Co-developed with claude code -- Adam]
-// KNOWN-ISSUES F-6. Split out of openflowTablesUpdateWorker so the merge can be tested: the
+// FIXED-ISSUES F-6. Split out of openflowTablesUpdateWorker so the merge can be tested: the
 // worker itself is a 10-second sleep loop around a curl per switch and no test can drive it, so
 // while this lived inline the only thing under test was that the helper computed the right array
 // -- never that the served cache actually kept the switch. That gap is the same shape as the
@@ -2916,7 +2916,7 @@ DeviceConfigurationAndPowerManager::setProgrammedPredicate(std::function<bool(ui
 }
 
 // [Co-developed with claude code -- Adam]
-// KNOWN-ISSUES T-11, option A: the listing reports only entries that have actually been
+// FIXED-ISSUES T-11, option A: the listing reports only entries that have actually been
 // programmed.
 //
 // The filter lives here rather than in the HTTP handler because this is the common source. Three
@@ -2946,7 +2946,7 @@ DeviceConfigurationAndPowerManager::getOpenFlowTables()
 }
 
 // [Co-developed with claude code -- Adam]
-// doc/KNOWN-ISSUES.md B-1's 2026-09-02 review, clause 3: stripUnprogrammedEntries returns a count
+// doc/FIXED-ISSUES.md B-1's 2026-09-02 review, clause 3: stripUnprogrammedEntries returns a count
 // whose own docstring says "so a caller can log or assert on it", and the caller dropped it. A
 // view that is quietly short of rows reads to its consumer exactly like a switch with fewer rules
 // -- the phantom's own shape, one level up, and the reason this line exists at all.
@@ -2977,7 +2977,7 @@ DeviceConfigurationAndPowerManager::reportWithheldRows(std::size_t withheld)
                        "get_switch_openflow_table_entries: dispatched, but not observed on a "
                        "switch. Why each one is unconfirmed is logged where it was dispatched; a "
                        "row appears as soon as a poll reads it back off the switch "
-                       "(KNOWN-ISSUES C-4).",
+                       "(FIXED-ISSUES C-4).",
                        withheld);
 }
 

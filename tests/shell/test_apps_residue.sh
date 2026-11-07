@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# KNOWN-ISSUES G-12, measured 2026-09-05 (R6, 1/1, OVS). An app took `graph_lock`, installed a
+# FIXED-ISSUES G-12, measured 2026-09-05 (R6, 1/1, OVS). An app took `graph_lock`, installed a
 # rule on s2 (pri 96, ["OUTPUT:2"]), and was killed by pid. Both survived it, and every
 # cleanliness verb went green:
 #
@@ -722,7 +722,7 @@ has   "🔴 an empty table is named as empty"              "flow table read empt
 has   "  and what that does to a window"                 "a window over an empty table frames nothing" "$EMPTY_OUT"
 has   "  it says the line below discriminates nothing"   "discriminates NOTHING" "$EMPTY_OUT"
 has   "  and refuses to read it as 'they left nothing'"  "NOT 'these apps left nothing'" "$EMPTY_OUT"
-has   "  it names the issue"                             "KNOWN-ISSUES G-55" "$EMPTY_OUT"
+has   "  it names the issue"                             "FIXED-ISSUES G-55" "$EMPTY_OUT"
 has   "  and the reading that produced it"               "+10s 61" "$EMPTY_OUT"
 # 🔴 THE THREE NEEDLES tools/test_workflow/live_cells/
 # stale_app_pidfile_does_not_frame_the_fabric.sh greps for do NOT move, and its judge reads the

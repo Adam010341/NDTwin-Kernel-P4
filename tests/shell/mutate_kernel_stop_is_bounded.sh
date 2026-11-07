@@ -23,7 +23,7 @@
 #   2. BUYING THE BOUND BY DROPPING THE JOIN must ALSO be caught   (M8)
 #      -- this is the tempting wrong fix and it is *worse than the defect*. A stop() that does not
 #         join returns in microseconds and makes every timing assertion in direction 1 go green,
-#         while destroying a joinable std::thread -- which is std::terminate, i.e. KNOWN-ISSUES B-5
+#         while destroying a joinable std::thread -- which is std::terminate, i.e. FIXED-ISSUES B-5
 #         all over again. A gate without M8 would give a green light to deleting the join.
 #
 # 🔴 FIVE MUTATIONS MUST **NOT** BE CAUGHT (W1-W5). A suite that reddens on these is pinning source
@@ -176,7 +176,7 @@ add_anchor "pm-sleep"       "$PM"  '        if (m_stopSignal.waitFor(std::chrono
 }
 
 // [Co-developed with claude code -- Adam]
-// KNOWN-ISSUES F-6. Split out of openflowTablesUpdateWorker'
+// FIXED-ISSUES F-6. Split out of openflowTablesUpdateWorker'
 add_anchor "of-scope"       "$PM"  '    utils::StopSignal::WorkerScope scope(m_stopSignal, "openflow-tables");'
 add_anchor "topo-curl"      "$TFM" '        return classifyEndpointReply(
             utils::execCommandCancellable(buildTopologyFetchCommand(url), m_stopSignal)
@@ -466,7 +466,7 @@ mutate "the over-bound report returns without saying anything" \
 # 6. direction 2: buying the bound by dropping the join
 #
 # 🔴 THE ONE THAT MATTERS. Deleting the join makes stop() return in microseconds and turns every
-# timing assertion above green. It is also KNOWN-ISSUES B-5 restored: a joinable std::thread
+# timing assertion above green. It is also FIXED-ISSUES B-5 restored: a joinable std::thread
 # destroyed is std::terminate, SIGABRT, exit 134 -- reproduced 7/7 on the real kernel. Only
 # test_PowerManagerShutdown.cpp's death tests can see it, which is why this gate runs them.
 # ================================================================================================

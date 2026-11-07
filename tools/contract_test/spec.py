@@ -46,7 +46,7 @@ ERRORPATH = "error"  # deliberately bad input; asserts a sane failure
 # An invariant returns a list of strings and the runner used to treat every one of them as
 # "the system is broken". That gave the suite exactly two outputs, so the one thing it could
 # not say was "I cannot tell" -- and a tool whose failure is serialised the same way as its
-# finding will mislead you precisely when it matters (KNOWN-ISSUES A-8: an instrument
+# finding will mislead you precisely when it matters (FIXED-ISSUES A-8: an instrument
 # must not mimic its own finding). These two prefixes are the third and fourth
 # answers. run_contract_test.check_endpoint partitions on them; anything unprefixed is still
 # a red failure, so an invariant that has not been taught about them cannot change meaning.
@@ -58,7 +58,7 @@ class PowerState:
     """
     Which switches the operator has deliberately powered down -- or why we do not know.
 
-    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8.
+    [Co-developed with claude code -- Adam] -- FIXED-ISSUES A-8.
 
     The graph invariants need to separate "this switch is down because the
     Energy-Saving-App turned it off" from "this switch never connected". Those are the same
@@ -262,7 +262,7 @@ DECLARED = "declared"
 assert DECLARED in DOWN_REASONS, "the declaration value must be part of the down_reason vocabulary"
 
 # [Co-developed with claude code -- Adam]
-# doc/KNOWN-ISSUES.md G-32 (option C, 2026-09-11). Every northbound write that
+# doc/FIXED-ISSUES.md G-32 (option C, 2026-09-11). Every northbound write that
 # reaches the data plane now carries what the kernel could see of the lab claim when it answered.
 #
 # 🔴 OPTIONAL, and it has to stay optional: a kernel built before 2026-09-11 emits none of this,
@@ -471,7 +471,7 @@ GRAPH_NODE = Obj({
     # deliberately different sizes and that is not a typo -- see GraphTypes.hpp: power has four
     # mechanisms (synthetic for the Mininet fake, snmp for HPE, ssh for the two Brocades, none),
     # while health telemetry only ever had snmp, because a software switch has no thermal sensor
-    # to read (KNOWN-ISSUES F-1). `telemetry_path == "none"` therefore does NOT mark an exempted
+    # to read (FIXED-ISSUES F-1). `telemetry_path == "none"` therefore does NOT mark an exempted
     # switch; only `power_path` does.
     "power_path": Str(allowed=("synthetic", "snmp", "ssh", "none")),
     "telemetry_path": Str(allowed=("snmp", "none")),
@@ -520,7 +520,7 @@ GRAPH_EDGE = Obj({
 })
 
 GRAPH_DATA = Obj({"nodes": List(GRAPH_NODE, min_len=1), "edges": List(GRAPH_EDGE)}, optional={
-    # [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-15.
+    # [Co-developed with claude code -- Adam] -- FIXED-ISSUES G-15.
     # Which model the kernel loaded, so a consumer stops having to infer it. `run_layers.sh` used
     # to derive the model from (data plane, live host count) and `setting/` holds more than one
     # model with the same dpids and the same cardinality, so validating one fabric against
@@ -559,7 +559,7 @@ FLOW_RECORD = Obj({
     "path": List(PATH_HOP),
 }, optional={
     # [Co-developed with claude code -- Adam]
-    # KNOWN-ISSUES B-x. The liveness triple, added 2026-09-02. OPTIONAL rather than required, and
+    # FIXED-ISSUES B-x. The liveness triple, added 2026-09-02. OPTIONAL rather than required, and
     # deliberately: this file is run against a live kernel, and a kernel built before the patch
     # emits twelve fields. Making them required would turn the contract test into a version check
     # and report "contract broken" for an old binary that is behaving exactly as it was built to.
@@ -592,12 +592,12 @@ OF_TABLES = List(Obj({
 STATUS_OK = Obj({"status": Str(nonempty=True)})
 
 # [Co-developed with claude code -- Adam]
-# GET /ndt/get_flow_dispatch_status -- KNOWN-ISSUES A-7's answer surface, and until now one of
+# GET /ndt/get_flow_dispatch_status -- FIXED-ISSUES A-7's answer surface, and until now one of
 # the registered endpoints with no contract at all. It is the endpoint whose whole purpose is to
 # stop a silent write failure, so leaving it uncovered means the suite would stay green if the
 # thing that reports failures stopped reporting them.
 #
-# recent_failures[].requested_priority is named for KNOWN-ISSUES A-7: on the destination-only path the
+# recent_failures[].requested_priority is named for FIXED-ISSUES A-7: on the destination-only path the
 # switch programs the rule into a P4 LPM table that has no priority column, so this field is what
 # the caller ASKED for and never what the table holds. The schema keeps the name as-is on purpose;
 # renaming it to `priority` would restore exactly the confusion the name was chosen to prevent.
@@ -622,7 +622,7 @@ DISPATCH_STATUS = Obj({
         # built from an earlier commit rather than reporting a false regression against one.
         "dropped_after_stop": Int(min=0),
         # [Co-developed with claude code -- Adam]
-        # KNOWN-ISSUES A-7b, 2026-09-06. `succeeded`/`failed` were renamed to `dispatched_ok`/
+        # FIXED-ISSUES A-7b, 2026-09-06. `succeeded`/`failed` were renamed to `dispatched_ok`/
         # `dispatch_failed`: the values never changed and were never wrong, the word "succeeded"
         # was -- it counts requests the far end took, and it was read as rules on a switch (the
         # same match installed 20 times moved it by +20 for one row). All four spellings are
@@ -658,7 +658,7 @@ DISPATCH_STATUS = Obj({
         "unknown": Int(min=0),
         "why_unknown": Str(nonempty=True),
     }),
-    # KNOWN-ISSUES A-7b: what `?request_id=<id>` can still answer for.
+    # FIXED-ISSUES A-7b: what `?request_id=<id>` can still answer for.
     "request_ids_tracked": Int(min=0),
     "request_ids_capacity": Int(min=1),
     "request_ids_forgotten": Int(min=0),
@@ -668,7 +668,7 @@ DISPATCH_STATUS = Obj({
 
 
 # [Co-developed with claude code -- Adam]
-# KNOWN-ISSUES A-7b. GET /ndt/get_flow_dispatch_status?request_id=<id>, which answers for one POST
+# FIXED-ISSUES A-7b. GET /ndt/get_flow_dispatch_status?request_id=<id>, which answers for one POST
 # instead of for the process. Not registered as a probe of its own -- the runner would have to
 # POST a flow batch to obtain an id, which is a mutation and this endpoint's whole value is that
 # it is safe to read on a live fabric. It is here so a caller reading this file learns the shape.
@@ -766,7 +766,7 @@ def inv_graph_matches_topology(data, ctx):
 # same ten dpids (OVS and P4), and `tools/test_workflow/run_layers.sh:135` picks the model by
 # (mode, live host count) rather than by asking the kernel which file it loaded -- so validating
 # a fabric against a model that is not the one it is running is reachable, and came out ALL
-# GREEN. That is KNOWN-ISSUES L-1's family: the twin compared to a DIFFERENT network, and the
+# GREEN. That is FIXED-ISSUES L-1's family: the twin compared to a DIFFERENT network, and the
 # difference read as a verdict about the product. Here it read as no verdict at all.
 #
 # It is also what a broken topology file can look like from this invariant: in one set of six
@@ -1046,7 +1046,7 @@ def inv_edges_enabled(data, ctx):
     def incident_to_off(e):
         return e["src_dpid"] in power.off_dpids or e["dst_dpid"] in power.off_dpids
 
-    # [Co-developed with claude code -- Adam] -- 2026-09-11. KNOWN-ISSUES B-6.
+    # [Co-developed with claude code -- Adam] -- 2026-09-11. FIXED-ISSUES B-6.
     # The second explanation, and the graph states it outright. `declared` means an operator
     # (or this very suite's step 1) said the link failed, and B-6's rule is that it does not
     # clear until somebody POSTs the matching recovery -- so the edge being down is the kernel
@@ -1113,7 +1113,7 @@ def inv_no_silent_telemetry(data, ctx):
     A link reading 0 bps because nothing is measuring it must not look like an idle link.
 
     [Co-developed with claude code -- Adam]
-    KNOWN-ISSUES A-4f. An OVS power cycle runs `ovs-vsctl del-br`, which destroys the bridge
+    FIXED-ISSUES A-4f. An OVS power cycle runs `ovs-vsctl del-br`, which destroys the bridge
     row and with it the sFlow record hanging off it (OVSPowerStrategy.cpp:171). powerOn
     rebuilds the bridge, the ports and the controller and never re-creates the record
     (OVSPowerStrategy.cpp:97-112), so that switch stops sampling for good. The edges *entering*
@@ -1189,7 +1189,7 @@ def inv_kernel_serves_the_model_under_test(data, ctx):
     """
     The kernel must be serving the model this run is validating it against.
 
-    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-15.
+    [Co-developed with claude code -- Adam] -- FIXED-ISSUES G-15.
 
     🔴 This check could not exist until the kernel reported what it had loaded. `inv_graph_matches_topology` compares the graph against the
     file it was HANDED, so when the runner is pointed at the wrong model the two agree by
@@ -1358,7 +1358,7 @@ def inv_power_covers_switches(data, ctx):
     return []
 
 
-# [Co-developed with claude code -- Adam] The capacity endpoint (KNOWN-ISSUES C-6's workaround).
+# [Co-developed with claude code -- Adam] The capacity endpoint (FIXED-ISSUES C-6's workaround).
 def inv_capacity_names_its_source(data, ctx):
     """
     Every capacity block must say where its number came from.
@@ -1507,7 +1507,7 @@ def inv_switch_outcome_closes(data, ctx):
     accepted_by_switch + rejected_by_switch + unknown == dispatched, and unknown is not faked.
 
     [Co-developed with claude code -- Adam]
-    KNOWN-ISSUES A-7b. The second counter group partitions the same population as `dispatched` -- a
+    FIXED-ISSUES A-7b. The second counter group partitions the same population as `dispatched` -- a
     SECOND, independent closure over the same jobs, which is why the group is its own object and
     is not folded into dispatched == dispatched_ok + dispatch_failed. A record() that returned
     early on some op would break one sum or the other.
@@ -1583,7 +1583,7 @@ def inv_declared_failure_says_who_can_withdraw_it(data, ctx):
     """
     §1: a 200 must say the failure was DECLARED, and name what ends it.
 
-    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES B-6.
+    [Co-developed with claude code -- Adam] -- FIXED-ISSUES B-6.
 
     The two keys are the whole of B-6 on the wire. Without them a caller cannot tell the fixed
     behaviour (the declaration stands until somebody withdraws it) from the defect (the next
@@ -1885,7 +1885,7 @@ ENDPOINTS = [
          note="feeds the Classifier, which produces every flow's path"),
 
     # [Co-developed with claude code -- Adam]
-    # KNOWN-ISSUES A-7's answer surface. Registered since 636f9ab and uncovered until now, which
+    # FIXED-ISSUES A-7's answer surface. Registered since 636f9ab and uncovered until now, which
     # is the wrong endpoint to leave uncovered: it exists so that a queued write that failed can
     # be found, so if it stopped reporting, this suite going green would be the symptom AND the
     # reason nobody noticed.

@@ -9,7 +9,7 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
           // SenderFn: batch send using your existing flow manager
           [this](const std::vector<FlowJob>& batch) {
               // [Co-developed with claude code -- Adam]
-              // doc/KNOWN-ISSUES.md C-4. Tallied over the batch and reported once below rather
+              // doc/FIXED-ISSUES.md C-4. Tallied over the batch and reported once below rather
               // than once per job: a burst is 2000 entries, and a line each would be its own
               // outage. One worker per dpid, so a batch names one switch.
               std::size_t unconfirmed = 0;
@@ -90,7 +90,7 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
               }
 
               // [Co-developed with claude code -- Adam]
-              // doc/KNOWN-ISSUES.md C-4. The "why" belongs here, because this is the only place
+              // doc/FIXED-ISSUES.md C-4. The "why" belongs here, because this is the only place
               // the control plane's answer is in scope. Deliberately not worded with "failed":
               // check_logs.py fails a run on a dispatched-*-failed line, and an entry the far end
               // accepted has not failed -- it is merely unwitnessed, which is a different thing
@@ -103,7 +103,7 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
                                      "evidence the switch programmed them -- it answers before "
                                      "the switch adjudicates. They are withheld from "
                                      "get_switch_openflow_table_entries until a poll observes "
-                                     "them (KNOWN-ISSUES C-4).",
+                                     "them (FIXED-ISSUES C-4).",
                                      unconfirmed,
                                      batch.size(),
                                      unconfirmedDpid);

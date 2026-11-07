@@ -32,7 +32,7 @@ enum class VertexType
  * @brief Why the twin last moved a vertex or edge to `isUp = false`.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md F-14 / F-16. Before this existed, `isUp = false` on an edge could only
+ * doc/FIXED-ISSUES.md F-14 / F-16. Before this existed, `isUp = false` on an edge could only
  * come from an operator POSTing /ndt/link_failed, and on a host vertex it could not come from
  * anywhere at all -- so "down" carried no question about its own provenance. Making a host
  * markable down introduces one: the twin has no host liveness probe and never will have one on
@@ -48,7 +48,7 @@ enum class VertexType
  * a power actuation or the liveness poll.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-6 added the third value. `Declared` is not a derivation: it is the
+ * doc/FIXED-ISSUES.md B-6 added the third value. `Declared` is not a derivation: it is the
  * provenance of an edge an operator POSTed /ndt/link_failure_detected about, and the reason it is
  * PUBLIC rather than an internal bool is that the declaration is now permanent until someone
  * withdraws it. A forgotten injection used to disappear by itself within 30 s; it now stays, so
@@ -277,7 +277,7 @@ switchKindFromString(std::string s)
  *
  * ⚠️ `telemetry_path` is "none" for OVS and BMv2 as well, and that is not a mistake or a
  * softening of the mark: MININET mode returns kHealthMetricUnavailable (-1) for CPU, memory and
- * temperature alike (KNOWN-ISSUES F-1), so a software switch genuinely has no health telemetry
+ * temperature alike (FIXED-ISSUES F-1), so a software switch genuinely has no health telemetry
  * either. **`power_path == "none"` is the mark that is unique to an exempted switch** -- every
  * accepted brand has some power path, and only a brand this build does not know has none.
  *
@@ -394,7 +394,7 @@ to_string(MemberType t)
  *
  * @details
  * [Co-developed with claude code -- Adam]
- * KNOWN-ISSUES A-4f. This is what `ovs-vsctl del-br` destroys along with the bridge, and what
+ * FIXED-ISSUES A-4f. This is what `ovs-vsctl del-br` destroys along with the bridge, and what
  * powerOn has to put back. It is a value, not a command string, so the strategy that saves it
  * and the strategy that replays it cannot disagree about the format.
  *
@@ -600,7 +600,7 @@ struct VertexProperties
      * @brief What this bridge's sFlow looked like before powerOff deleted it.
      *
      * [Co-developed with claude code -- Adam]
-     * KNOWN-ISSUES A-4f. Saved for the same reason and at the same moment as
+     * FIXED-ISSUES A-4f. Saved for the same reason and at the same moment as
      * bridgeConnectedPortsForMininet: `ovs-vsctl del-br` destroys the Bridge row, and the sFlow
      * row hangs off it. The sFlow table is not an OVSDB root table, so once no Bridge references
      * it, it is garbage-collected -- the bridge is the only record of it, exactly as the bridge
@@ -638,7 +638,7 @@ isUsable(const VertexProperties& v)
  * [Co-developed with claude code -- Adam]
  * `power_path == "none"` is the ONE mark that is unique to a
  * switch admitted by the `switch_kind` exemption -- `telemetry_path` is "none" for OVS and BMv2
- * as well, because a software switch genuinely has no CPU or thermal telemetry (KNOWN-ISSUES
+ * as well, because a software switch genuinely has no CPU or thermal telemetry (FIXED-ISSUES
  * F-1), so it cannot carry this question. See powerPathForBrandName for the full contract.
  *
  * One predicate rather than five copies of `v.powerPath == "none"`, because it is now asked at
@@ -891,7 +891,7 @@ struct EdgeProperties
      * @brief An operator declared this link failed, and discovery may not overrule it.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md **B-6**, and the edge half of the `adminPoweredOff` problem above. A fifth flag rather than a
+     * doc/FIXED-ISSUES.md **B-6**, and the edge half of the `adminPoweredOff` problem above. A fifth flag rather than a
      * new meaning for `isUp` or a third value written into `downReason`, for the reasons
      * `adminPoweredOff` is a fourth one on the vertex:
      *
@@ -927,7 +927,7 @@ struct EdgeProperties
      *        it yet. The thing a `/ndt/link_recovery_detected` has to pair with.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md **B-6**, second half. A SIXTH flag, and the reason it is not a
+     * doc/FIXED-ISSUES.md **B-6**, second half. A SIXTH flag, and the reason it is not a
      * reuse of `declaredDown` is that the two answer different questions:
      *
      *   - `declaredDown`    -- "the twin is holding this link down because it was told to."
@@ -999,7 +999,7 @@ isUsable(const EdgeProperties& e)
  * @brief The `down_reason` an edge publishes: the declaration wins over the derivation.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-6. The two can hold at once -- an edge can be declared down AND sit
+ * doc/FIXED-ISSUES.md B-6. The two can hold at once -- an edge can be declared down AND sit
  * behind a switch the twin has isolated -- and a reader gets one string. It is the declaration,
  * because the two answers differ in what the reader has to DO about them: `switch-unreachable`
  * clears itself when the switch comes back, `declared` does not clear until somebody POSTs

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_run_layers_topology_from_fabric.sh (KNOWN-ISSUES L-1).
+# Mutation gate for tests/shell/test_run_layers_topology_from_fabric.sh (FIXED-ISSUES L-1).
 #
 # [Co-developed with claude code -- Adam]
 #

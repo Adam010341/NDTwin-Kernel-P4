@@ -3,7 +3,7 @@
 
 [Co-developed with claude code -- Adam]
 
-KNOWN-ISSUES G-12, measured 2026-09-05 (R6, 1/1, OVS). An app that took a lock, installed a
+FIXED-ISSUES G-12, measured 2026-09-05 (R6, 1/1, OVS). An app that took a lock, installed a
 rule and was then killed by pid left both behind, and every cleanliness verb went green over
 them: `ndt apps orphans` answered `ok  no untracked app processes` rc 0 and `ndt status
 --check` answered rc 0. Neither was broken -- they look at PROCESSES. Nothing looked at what a
@@ -362,7 +362,7 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
             "window's right edge (F3)")
 
     def test_the_plane_reaches_the_selector_from_the_shell(self):
-        """🔴 ndt's P4 answer to KNOWN-ISSUES G-13 needs python to get the plane the shell read.
+        """🔴 ndt's P4 answer to FIXED-ISSUES G-13 needs python to get the plane the shell read.
 
         A `plane` parameter that defaults to "unknown" and is never passed would leave every
         case in ThePlaneWithNoClock green and the shipped tool blind, which is the shape of

@@ -266,7 +266,7 @@ PY
 )"
     check "it imports under $PY_UNDER_TEST"        0 "$imp_rc"
 
-    # ...and it is the file the KNOWN-ISSUES G-10 fix changed: the banner is derived, and says NOT MEASURED for
+    # ...and it is the file the FIXED-ISSUES G-10 fix changed: the banner is derived, and says NOT MEASURED for
     # the two claims nothing in it tests. NTG's copy has neither symbol.
     banner="$("$PY_UNDER_TEST" - "$REPO/testbed_topo.py" 2>/dev/null <<'PY'
 import importlib.util, sys

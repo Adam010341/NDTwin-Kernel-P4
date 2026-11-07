@@ -533,7 +533,7 @@ OVSPowerStrategy::finishTelemetryRestore(Graph::vertex_descriptor node,
                 swName + " is forwarding again, but its sFlow configuration could not be read "
                          "before the power-off and therefore could not be restored. Every link "
                          "entering it will read exactly 0 bps whatever it carries, which is "
-                         "indistinguishable from idle (KNOWN-ISSUES A-4f). Restore it by hand "
+                         "indistinguishable from idle (FIXED-ISSUES A-4f). Restore it by hand "
                          "with the ovs-vsctl in testbed_topo.py's enable_sflow(), or rebuild the "
                          "fabric -- and do not report telemetry for this switch until you have.");
         }
@@ -560,7 +560,7 @@ OVSPowerStrategy::finishTelemetryRestore(Graph::vertex_descriptor node,
                 swName + " is forwarding again, but its sFlow record could not be restored and "
                          "verified. Every link entering it now reads exactly 0 bps whatever it "
                          "carries, and nothing downstream can tell that from an idle link "
-                         "(KNOWN-ISSUES A-4f). The reason is in the log line above. Retrying "
+                         "(FIXED-ISSUES A-4f). The reason is in the log line above. Retrying "
                          "this power-on WILL re-attempt the restore -- that is what the "
                          "restorePending flag is for -- and `sudo ovs-vsctl list sflow` says "
                          "whether it took.");

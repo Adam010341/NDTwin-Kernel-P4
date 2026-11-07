@@ -58,7 +58,7 @@ using Renew = LockManager::RenewOutcome;
 
 TEST(LockOwnershipTest, AnyCallerCanStillReleaseAnyCallersLiveLockWhenNoLeaseIsNamed)
 {
-    // 🔴 THIS TEST ASSERTS A DEFECT. KNOWN-ISSUES B-2②, verbatim: A holds routing_lock, B has
+    // 🔴 THIS TEST ASSERTS A DEFECT. KNOWN-ISSUES B-2② describes it: A holds routing_lock, B has
     // never held anything, B releases, and it works. Measured live on 2026-08-30 as well -- a
     // bare curl that never acquired released the Energy-Saving-App's lock and got 200.
     //
@@ -76,7 +76,7 @@ TEST(LockOwnershipTest, AnyCallerCanStillReleaseAnyCallersLiveLockWhenNoLeaseIsN
 
 TEST(LockOwnershipTest, AnyCallerCanStillRenewAnyCallersLiveLease)
 {
-    // The renew half, which is the example KNOWN-ISSUES B-2 actually writes out. Since B-2① this
+    // The renew half, which is the case KNOWN-ISSUES B-2② describes in prose. Since B-2① this
     // only works while the lease is alive -- a dead one is refused -- so the live case is exactly
     // what is left of the original defect.
     LockManager mgr;

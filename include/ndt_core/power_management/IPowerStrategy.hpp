@@ -36,7 +36,7 @@ public:
      * [Co-developed with claude code -- Adam]
      * There is a third outcome, and it was missing here. A switch can come back forwarding
      * traffic and still not be *usable by the twin*: OVSPowerStrategy rebuilds the bridge but
-     * the sFlow record went with the old one (KNOWN-ISSUES A-4f), and P4PowerStrategy restarts
+     * the sFlow record went with the old one (FIXED-ISSUES A-4f), and P4PowerStrategy restarts
      * bmv2 but the proxy may fail to re-adopt it. Those two differ in one way that decides what
      * the vertex flag should say: the P4 switch has no pipeline and cannot forward a packet, so
      * it is not up; the OVS switch forwards perfectly and only cannot be measured, so it IS up

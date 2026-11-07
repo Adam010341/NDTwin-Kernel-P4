@@ -1706,7 +1706,7 @@ guard_lab_acts_in_this_tree() {
     err "  the fabric would come from      $lab  (host_count_override $(host_count_in "$lab"))"
     # 🔴 Whose knob that is, said here rather than left to be inferred. host_count_override is
     # the P4 plane's and nothing else's -- `ndt status` printed it on the OVS plane for weeks
-    # (KNOWN-ISSUES D-2) and it was read as the OVS sampling/size answer, which it never was. On OVS
+    # (FIXED-ISSUES D-2) and it was read as the OVS sampling/size answer, which it never was. On OVS
     # the size is decided by WHICH VERB runs, so the two numbers above identify the two trees
     # and say nothing about what an OVS bring-up would have built.
     err "  (that knob is the P4 plane's. On the OVS plane the size is the verb -- ovs-topo-start"
@@ -2369,7 +2369,7 @@ bmv2_binary() {
 # Test: tests/shell/test_ndt_sample_rate_reads_both_bounds.sh
 #
 # 🔴 THIS IS THE P4 PLANE'S ANSWER AND NOTHING ELSE'S. It used to be the only one, and
-# `ndt status` printed it on the OVS plane too (KNOWN-ISSUES D-2, 2026-09-06): with every OVS
+# `ndt status` printed it on the OVS plane too (FIXED-ISSUES D-2, 2026-09-06): with every OVS
 # sflow record set to 64, `ndt status` still said
 # `sample rate 1/256`, read out of a bmv2 build artefact that the OVS fabric never loads.
 # The two numbers had only ever agreed by coincidence. sample_rate() below picks by plane.
@@ -2397,7 +2397,7 @@ PY
 # ovs_sample_rate -- the rate the RUNNING OVS fabric is configured with, out of OVSDB.
 #
 # [Co-developed with claude code -- Adam]
-# KNOWN-ISSUES D-2. `testbed_topo.py:160` (`sampling=256`) is the ONLY place the OVS plane's rate is
+# FIXED-ISSUES D-2. `testbed_topo.py:160` (`sampling=256`) is the ONLY place the OVS plane's rate is
 # set, and it lands in OVSDB's `sflow` table -- one record per bridge, ten of them on the
 # 10-switch fabric. `ovs-vsctl set sflow <uuid> sampling=<N>` changes it under a live fabric
 # with no restart, which is how a sweep went 1/64 -> 1/256 -> 1/1024 in one evening; nothing about
@@ -3010,7 +3010,7 @@ rate_label() {
 # or rc 1 for one it did not.
 #
 # [Co-developed with claude code -- Adam]
-# KNOWN-ISSUES D-2: `ndt check` prints the ratio AND what the
+# FIXED-ISSUES D-2: `ndt check` prints the ratio AND what the
 # ratio is expected to be at the sampling rate in force, because `ok` covers 0.5-1.5 and the
 # twin's under-report is a monotone function of the sampling rate, not noise.
 #
@@ -3072,7 +3072,7 @@ status_pipeline_is_stale() {
 # tests/shell/test_ndt_app_package.sh can drive every branch with no fabric and no package on
 # disk. `--check`'s problem list stays in cmd_status, which asks the same predicate.
 #
-# 🔴 A FOREIGN PIPELINE HAS NO RATE HERE, AND SAYING `1/256` WOULD REPEAT KNOWN-ISSUES D-2
+# 🔴 A FOREIGN PIPELINE HAS NO RATE HERE, AND SAYING `1/256` WOULD REPEAT FIXED-ISSUES D-2
 # (2026-09-06): that number is decoded from p4_proxy/p4_src/build/ndtwin_switch.json, which a
 # switch running the package's own program never loaded, and the two would agree only by
 # coincidence. So the row reads `n/a (package pipeline)` and the source row says which
@@ -7714,7 +7714,7 @@ cmd_status() {
     # the running lab was asked to be comes from the up-target record below.
     hosts="$(host_count)"
     topo="$(topo_for_hosts "$hosts" p4)"
-    # KNOWN-ISSUES D-2: the plane is decided ONCE, here, and the sampling rate is read from it. Until
+    # FIXED-ISSUES D-2: the plane is decided ONCE, here, and the sampling rate is read from it. Until
     # 09-06 this line was `rate="$(sample_rate)"` and sample_rate could only read the compiled
     # bmv2 artefact, so on an OVS fabric `status` printed a number belonging to a plane that was
     # not running. [Co-developed with claude code -- Adam]
@@ -8430,7 +8430,7 @@ PY
     # read the twin at all; both are kept and returned BELOW, after the rate lines and the CPU
     # note, because those are the context a reader needs for the number that just went red.
     local vrc=$?
-    # KNOWN-ISSUES D-2: the rate the ratio above was produced at,
+    # FIXED-ISSUES D-2: the rate the ratio above was produced at,
     # and what was measured for the ratio at that rate -- printed in the same breath, because
     # `ok` spans 0.5-1.5 and 0.65 printed `ok` while the twin was a quarter low. Read from the
     # plane that is running: on OVS this used to be the bmv2 build artefact's number.
@@ -8869,7 +8869,7 @@ app_fd_readable() { [[ -r "/proc/$1/fd" ]]; }
 # inside, rc 1 and nothing when it could look at all of them.
 #
 # [Co-developed with claude code -- Adam]
-# 🔴 KNOWN-ISSUES G-14. The fd channel is `find /proc/[0-9]*/fd -lname <log>`, and find
+# 🔴 FIXED-ISSUES G-14. The fd channel is `find /proc/[0-9]*/fd -lname <log>`, and find
 # cannot descend into a directory it may not read. For everything `sudo ndtwin-lab sim-start`
 # starts -- every sim and every energy on a real lab -- the whole channel returns nothing, and
 # nothing is byte-for-byte what it returns when no process holds the log. "I was not allowed to
@@ -10257,7 +10257,7 @@ app_stop() {
 # --- residue: what an app leaves on the NETWORK after its process is gone -------------------
 #
 # [Co-developed with claude code -- Adam]
-# KNOWN-ISSUES G-12, measured 2026-09-05 (OVS). An app that took a lock, installed a
+# FIXED-ISSUES G-12, measured 2026-09-05 (OVS). An app that took a lock, installed a
 # rule and was then killed by pid left BOTH behind, and every existing cleanliness verb went
 # green over them: `ndt apps orphans` answered `ok  no untracked app processes` rc 0, and
 # `ndt status --check` answered rc 0. Neither was broken. They look at PROCESSES; nothing in
@@ -10809,7 +10809,7 @@ residue_report() {
     say "rules-in-window (nothing below is deleted)"
     if ! port_open 8000; then
         warn "the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked."
-        warn "this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)"
+        warn "this is not 'the lab is clean'. it is 'nobody asked'. (FIXED-ISSUES G-12)"
         RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))
         return 0
     fi
@@ -10875,7 +10875,7 @@ residue_report() {
             warn "        the kernel answered and its answer is 0 entry(s) on the whole plane, so"
             warn "        every 'no flow entry arrived during that window' below is true of an"
             warn "        empty table whatever the window was: that line discriminates NOTHING"
-            warn "        here. NOT 'these apps left nothing'. (KNOWN-ISSUES G-55)"
+            warn "        here. NOT 'these apps left nothing'. (FIXED-ISSUES G-55)"
             warn "        a table read within ~10s of 'ndt up' can still be empty while the"
             warn "        fabric is being programmed (measured 2026-09-12 15:00:47: +0s 0,"
             warn "        +5s 0, +10s 61). Poll it to non-empty, or install a datable rule of"
@@ -11524,7 +11524,7 @@ cmd_apps() {
                    err "  lock frees itself at its TTL." ;;
                 5) warn "NOT CHECKED: the rules-in-window question could not be answered -- rc 5."
                    warn "  this is not 'the network is clean'. see the lines above for which"
-                   warn "  reading failed. (KNOWN-ISSUES G-12)" ;;
+                   warn "  reading failed. (FIXED-ISSUES G-12)" ;;
             esac
             return "$rrc" ;;
         # The disk half of the viz-orphan defect: bound a log that is still being written to.

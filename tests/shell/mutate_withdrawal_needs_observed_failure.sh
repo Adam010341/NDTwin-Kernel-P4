@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for doc/KNOWN-ISSUES.md B-6, second round -- three decisions, one gate:
+# Mutation gate for doc/FIXED-ISSUES.md B-6, second round -- three decisions, one gate:
 #
 #   pairing   a withdrawal has to PAIR with a reported break. /ndt/link_recovery_detected may
 #             withdraw a declaration only when /ndt/link_failure_detected reported this link
@@ -872,7 +872,7 @@ mutate "the sweep reports every netem on the machine, not just this fabric's" \
     ResidualNetemSweepTest.NetemOutsideThisFabricsInterfaceShapeIsNotReported
 
 # ================================================================================================
-#   doc/KNOWN-ISSUES.md B-16 (2026-09-11).
+#   doc/FIXED-ISSUES.md B-16 (2026-09-11).
 #   MEASURED ON A LIVE OVS FABRIC, 3 reproductions of 3 plus 2 of 2 for the second half:
 #
 #     POST /ndt/inject_link_recovery, link never declared down, `netem 8021:` on s1-eth1 left by

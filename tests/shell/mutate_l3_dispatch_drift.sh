@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/python/test_l3_dispatch_drift.py (KNOWN-ISSUES L-5).
+# Mutation gate for tests/python/test_l3_dispatch_drift.py (FIXED-ISSUES L-5).
 #
 # [Co-developed with claude code -- Adam]
 #

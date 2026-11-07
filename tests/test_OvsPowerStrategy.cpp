@@ -68,7 +68,7 @@ class FakeOvs : public OVSPowerStrategy
         return failSubstring.empty() || cmd.find(failSubstring) == std::string::npos;
     }
 
-    /// A-4f's sFlow restore goes through the argv seam (doc/KNOWN-ISSUES.md B-2b), which
+    /// A-4f's sFlow restore goes through the argv seam (doc/FIXED-ISSUES.md B-2b), which
     /// executeSystemCommand does NOT intercept -- a double that overrode only the string seam
     /// would shell out to a real `sudo ovs-vsctl` from inside a unit test, which is exactly the
     /// hole this file's header records having been bitten by once. Delegating keeps one recording

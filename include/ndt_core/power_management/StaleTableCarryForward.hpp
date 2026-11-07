@@ -15,7 +15,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * @details KNOWN-ISSUES F-6.
+ * @details FIXED-ISSUES F-6.
  *
  * ### What was wrong
  *
@@ -70,7 +70,7 @@
  * Only switches whose read was **attempted and failed** are carried forward. A switch skipped
  * because it is down (`DeviceConfigurationAndPowerManager.cpp:1027`) was never read, is not in
  * the unread list, and must stay out: carrying those forward would keep a dead switch's rules
- * alive indefinitely, which is the optimistic direction of KNOWN-ISSUES F-4/F-16 -- a worse
+ * alive indefinitely, which is the optimistic direction of FIXED-ISSUES F-4/F-16 -- a worse
  * failure than the one being fixed here.
  *
  * Free function in a header, like `PendingEntryFilter.hpp` and for the same reason: the rule can

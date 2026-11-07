@@ -612,7 +612,7 @@ has   "  alongside ndt's own line"                         "topo-start failed" "
 # ==========================================================================================
 section "8. H4: a model of a DIFFERENT network is refused before anything is built"
 # ==========================================================================================
-# Measured live 2026-09-11 01:20 (KNOWN-ISSUES G-23):
+# Measured live 2026-09-11 01:20 (FIXED-ISSUES G-23):
 # `NDT_TOPO=setting/StaticNetworkTopologyP4_10Switches_128Hosts.json ndt up p4 4` was not
 # refused. It printed `hosts 4` and the 128-host model on adjacent lines, built the 4-host
 # fabric, wrote `hosts=4` and `model_hosts=128` into the same up.target, and hung in [2/3] for
@@ -704,7 +704,7 @@ check "  🔴 and the warning does not land in the model path" "$FIX/setting/unr
 # ==========================================================================================
 section "9. H3: a bring-up that overlaps a teardown is refused, on BOTH planes"
 # ==========================================================================================
-# Measured live 2026-09-11 (KNOWN-ISSUES G-24): a second `ndt up p4`
+# Measured live 2026-09-11 (FIXED-ISSUES G-24): a second `ndt up p4`
 # 13 s after a backgrounded `ndt down` printed `ok already up: 10 switches, 4 hosts, reusing`,
 # then PASSED `ok model matches fabric` with the fabric mid-SIGTERM, and the teardown went on to
 # name that run's own kernel and proxy as residue and advise `ndt down --deep`. On OVS the same

@@ -3,7 +3,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * doc/KNOWN-ISSUES.md A-2, the third of the three items that entry explicitly lists as uncovered,
+ * doc/FIXED-ISSUES.md A-2, the third of the three items that entry explicitly lists as uncovered,
  * and the question that entry leaves open: a round where switches answers and links does not still
  * applies the half it got, because updateSwitches/updateHosts/updateLinks each return early on an
  * empty body.

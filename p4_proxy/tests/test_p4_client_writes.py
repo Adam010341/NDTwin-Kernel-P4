@@ -393,7 +393,7 @@ def a_client(stub=None, device_id=1):
     client.stream_recv_thread = None
     client.stream_out_q = queue.Queue()
     # [Co-developed with claude code -- Adam]
-    # Every write path stamps this (KNOWN-ISSUES G-13), so a fixture without it makes each of
+    # Every write path stamps this (FIXED-ISSUES G-13), so a fixture without it makes each of
     # them raise AttributeError -- which is the correct failure for a hand-built double that has
     # stopped standing in for the real object, and is how this line came to be here.
     client.rule_install_times = RuleInstallTimes()
@@ -910,7 +910,7 @@ class ReadTableEntriesTest(unittest.TestCase):
     def test_a_table_read_records_how_many_rows_it_returned(self):
         # GET /p4/switch_state serves this as `rules_total` -- the denominator for the install
         # record, so an operator can tell a switch this proxy installed nothing on from a switch
-        # with nothing on it (KNOWN-ISSUES G-13). Recorded by the read itself rather than by its
+        # with nothing on it (FIXED-ISSUES G-13). Recorded by the read itself rather than by its
         # caller: the flow-stats poll is not the only reader, and a count the next caller forgets
         # to note would stop moving with nothing anywhere saying so.
         entries = self.read(an_lpm_entry(), an_lpm_entry(prefix_len=24))
@@ -1989,7 +1989,7 @@ class WriteTableEntryTest(unittest.TestCase):
                          "a MODIFY here would overwrite somebody's rule and report an insert")
 
     def test_an_accepted_write_is_dated_so_its_age_can_be_reported(self):
-        # KNOWN-ISSUES G-13: bmv2 cannot say how old an entry is, so the write path says it.
+        # FIXED-ISSUES G-13: bmv2 cannot say how old an entry is, so the write path says it.
         self.assertEqual(len(self.client.rule_install_times), 0)
         self.client.write_table_entry(self.spec())
         self.assertEqual(len(self.client.rule_install_times), 1)
@@ -2773,7 +2773,7 @@ class ARenamedBindingIsWhatGoesOnTheWireTest(unittest.TestCase):
         self.assertIs(client.delete_ipv4_route("10.0.1.1", 32), False)
 
     def test_a_renamed_route_is_dated_under_the_table_name_the_read_back_reports(self):
-        # KNOWN-ISSUES G-13's record keys by table name; keyed by NDTwin's, every renamed route
+        # FIXED-ISSUES G-13's record keys by table name; keyed by NDTwin's, every renamed route
         # would render duration 0/0 -- exactly the defect that record fixed.
         clock = [100.0]
         self.client.rule_install_times = RuleInstallTimes(monotonic=lambda: clock[0])

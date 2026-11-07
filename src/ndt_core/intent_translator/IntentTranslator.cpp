@@ -261,7 +261,7 @@ IntentTranslator::dpidForSwitchIp(const std::string& switchIp) const
 // and friends) are deliberately left alone: they interpolate nothing, so they are constant valid
 // JSON and converting them would be churn.
 //
-// Related, and the reason this is one family rather than two: doc/KNOWN-ISSUES.md B-2b/B-4 is the
+// Related, and the reason this is one family rather than two: doc/FIXED-ISSUES.md B-2b/B-4 is the
 // same mistake pointed at a shell instead of at JSON -- a structured value assembled by pasting
 // text together, so that a character in the data changes the structure. utils::execArgv is the
 // answer on that side; a JSON library is the answer on this one.
@@ -589,7 +589,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
         case llmResponse::TaskType::GET_ACTIVE_FLOW_COUNT:
         {
             // [Co-developed with claude code -- Adam]
-            // KNOWN-ISSUES B-x. This was `getFlowInfoTable().size()` -- the size of the whole
+            // FIXED-ISSUES B-x. This was `getFlowInfoTable().size()` -- the size of the whole
             // table, reported under the key `active_flow_count`. The table retains a flow for
             // FLOW_IDLE_TIMEOUT (15 s) after its last sample, so at the measured churn working
             // point this answered 63 when 4.7 flows were sending: the field's name was a claim
@@ -807,7 +807,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
 
             try {
                 // [Co-developed with claude code -- Adam]
-                // doc/KNOWN-ISSUES.md A-4g. This was a bare statement: the OpResult was dropped and
+                // doc/FIXED-ISSUES.md A-4g. This was a bare statement: the OpResult was dropped and
                 // the reply below said "blocked" whatever the controller or proxy answered -- on
                 // both planes, the P4 proxy's refusal included. The reply is now built from it.
                 const OpResult result =

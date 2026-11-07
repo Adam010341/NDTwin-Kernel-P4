@@ -219,7 +219,7 @@ TEST(RelayPowerCommandTest, CarriesTheThreeParametersTheGatewayIsKnownToAccept)
 }
 
 // [Co-developed with claude code -- Adam]
-// doc/KNOWN-ISSUES.md B-2b sweep. `action` is the one value in the kernel's remaining shell
+// doc/FIXED-ISSUES.md B-2b sweep. `action` is the one value in the kernel's remaining shell
 // population that starts life as an HTTP query parameter, and this pins that it can no longer be
 // read as anything but data -- independently of the two "on"/"off" checks upstream, which is the
 // point: those checks are what this test must not have to trust.

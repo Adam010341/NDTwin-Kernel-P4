@@ -5,7 +5,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Covers the C++ half of KNOWN-ISSUES A-4f. `ovs-vsctl del-br` destroys the Bridge row and the
+# Covers the C++ half of FIXED-ISSUES A-4f. `ovs-vsctl del-br` destroys the Bridge row and the
 # sFlow record hanging off it, powerOn rebuilt everything except that record, and the links
 # arriving at the switch then read exactly 0 bps for ever -- bit-identical to an idle link.
 # The tests under gate are in tests/test_OvsPowerStrategy.cpp (config half) and

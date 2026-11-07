@@ -26,6 +26,19 @@
 # M13-M14 are the bare-code half (2026-09-11, E1): `<the document> <CODE>` with no line number
 # is the preferred citation form, and until that night nothing checked that the code existed.
 #
+# M20-M27 close the gaps in M15-M19: a missing second document must be an
+# error (M20), the fast path must read a file that names only the second document (M21), a code in
+# both documents must fail the repository test (M22, a data mutation in the style of M1), a circled
+# digit belongs to its code's citation (M23), and a script with no suffix is read only when it
+# starts with a shebang (M24 reads none, M25 reads all), a build directory is never walked (M26) and
+# a named pipe is never opened (M27).
+#
+# M15-M19 are the two-document half: doc/KNOWN-ISSUES.md lists only open defects and
+# the codes of the others live in doc/FIXED-ISSUES.md, so a bare-code citation has to name a code
+# that the document it names defines. M15 is the open document being cited for a fixed code, M16
+# the fixed document not being read at all, M17 a code living in both files, M18-M19 a parser that
+# has gone blind on one of the two documents (the floors).
+#
 # M1 is applied to the DATA, not the scanner: a copy of the tree gets a fixture document whose
 # citation by heading is then turned back into a stale line-number citation, and the repository
 # case has to notice. M2-M9 are applied to the scanner. The two are different failures and this
@@ -240,6 +253,85 @@ report "M13: a bare code is never even found" "$m" "$REPO" \
 m=$(mutant m14 '            window = line[m.end():m.end() + BARE_CODE_WINDOW]'$'\x1f''            window = line[m.end():]')
 report "M14 (widening): any code on the line is claimed" "$m" "$REPO" \
        "test_a_code_beyond_the_window_is_not_claimed_by_this_document"
+
+# --- M15-M19: the TWO-DOCUMENT half --------------------------------------------
+# The open document lost its fixed entries, so 450 old citations now need the other file's name.
+# Each check below is a way for that to go quiet: a fixed code cited against the open file reads
+# as fine (M15), the fixed file's own citations are never read (M16), a code is defined in both
+# files and the citation has two places to land (M17), or the parser reads no codes out of
+# one of the documents and every floor-less check stays green over nothing (M18, M19).
+
+m=$(mutant m15 '            if code in known:
+                continue
+            if code in fixed:'$'\x1f''            if code in known or code in fixed:
+                continue
+            if code in fixed:')
+report "M15: a fixed code cited against the open document passes" "$m" "$REPO" \
+       "test_a_fixed_code_cited_against_the_open_document_is_reported"
+
+m=$(mutant m16 '        for line_no, raw, code in bare_code_citations(text, FIXED_DOC_NAME_RE):'$'\x1f''        for line_no, raw, code in ():')
+report "M16: citations of the fixed document are never read" "$m" "$REPO" \
+       "test_an_open_code_cited_against_the_fixed_document_is_reported"
+
+m=$(mutant m17 '    return read_defined_codes(root, KI_REL) & read_defined_codes(root, FIXED_REL)'$'\x1f''    return set()')
+report "M17: a code defined in both documents is not noticed" "$m" "$REPO" \
+       "test_a_code_defined_in_both_documents_is_reported"
+
+m=$(mutant m18 '    m2 = CELL_IS_CODE_RE.fullmatch(cell)'$'\x1f''    m2 = None')
+report "M18: the table parser reads no code out of the fixed document" "$m" "$REPO" \
+       "test_the_real_fixed_document_parses_into_entries"
+
+m=$(mutant m19 '    heading_spans(H3_RE)
+'$'\x1f''    pass
+')
+report "M19: the heading parser reads no code out of the open document" "$m" "$REPO" \
+       "test_the_real_document_parses_into_entries"
+
+# --- M20-M27: more checks on the two-document half -------------------------------------
+m=$(mutant m20 '        raise IOError("%s is not in %s -- nothing to check citations against" % (rel, root))'$'\x1f''        return set()')
+report "M20: a missing fixed document reads as a clean scan" "$m" "$REPO" \
+       "test_a_missing_fixed_document_is_an_error_not_a_clean_scan"
+
+m=$(mutant m21 '    return "KNOWN" in text or "FIXED" in text'$'\x1f''    return "KNOWN" in text')
+report "M21: the fast path skips a file that names only the fixed document" "$m" "$REPO" \
+       "test_an_open_code_cited_against_the_fixed_document_is_reported"
+
+# M22 is applied to the DATA, like M1: a copy of the tree gets one code defined in both documents.
+# The repository test must go red on it, and only a tree that is green first proves that it is the
+# duplicate and not something else that did it.
+T22="$BK/tree.m22"
+snapshot_tree "$T22"
+if ! run_against "$TEST" "$T22" >/dev/null 2>&1; then
+    echo "🔴 the tree copy is RED before the M22 mutation -- M22 would prove nothing" >&2
+    run_against "$TEST" "$T22" | grep -E '^(FAIL|ERROR): ' | sed 's/^/    /' >&2
+    SURVIVORS=$((SURVIVORS + 1)); MUTATIONS=$((MUTATIONS + 1))
+else
+    printf '%s\n' '| B-9 | a row that repeats an open code | fixed | nowhere |' >> "$T22/doc/FIXED-ISSUES.md"
+    report "M22 (data): a code defined in both documents" "$TEST" "$T22" \
+           "test_no_code_is_defined_in_both_documents"
+fi
+
+m=$(mutant m23 'CODE_RE = re.compile(r"\b([A-Z]-\d+[a-z]?)[\u2460-\u2473]?(?!\w)")'$'\x1f''CODE_RE = re.compile(r"\b([A-Z]-\d+[a-z]?)\b")')
+report "M23: a circled digit hides the code it belongs to" "$m" "$REPO" \
+       "test_a_circled_digit_suffix_is_part_of_the_citation"
+
+m=$(mutant m24 '    if os.path.splitext(path)[1]:'$'\x1f''    if True:')
+report "M24: a script with no suffix is never read" "$m" "$REPO" \
+       "test_a_suffixless_script_with_a_shebang_is_read"
+
+m=$(mutant m25 '            return fh.read(2) == b"#!"'$'\x1f''            return True')
+report "M25 (widening): every file with no suffix is read" "$m" "$REPO" \
+       "test_a_suffixless_file_without_a_shebang_is_not_read"
+
+m=$(mutant m26 'SKIP_DIR_PREFIXES = ("build",)'$'\x1f''SKIP_DIR_PREFIXES = ()')
+report "M26: a build tree is walked" "$m" "$REPO" \
+       "test_a_suffixless_script_in_a_build_tree_is_not_read"
+
+m=$(mutant m27 '    if os.path.islink(path) or not os.path.isfile(path):
+        return False'$'\x1f''    if False:
+        return False')
+report "M27: a named pipe is opened" "$m" "$REPO" \
+       "test_a_named_pipe_without_a_suffix_does_not_hang_the_walk"
 
 # --- C1: the control -----------------------------------------------------------------------
 # A comment-only edit. If this goes red the suite is pinned to the shape of its own source and

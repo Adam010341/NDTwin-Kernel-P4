@@ -2,7 +2,7 @@
 #
 # Mutation gate for p4_proxy/tests/test_readopt.py's startup-reset and switch-reap classes:
 # ClearSwitchesFromAPreviousRunTest, GrpcPortIsOpenTest, ReapManifestSwitchesTest,
-# AnUntrustedSwitchManifestSignalsNothingTest and ProcessIsASwitchTest.  KNOWN-ISSUES G-9,
+# AnUntrustedSwitchManifestSignalsNothingTest and ProcessIsASwitchTest.  FIXED-ISSUES G-9,
 # G-inst-2.
 #
 # [Co-developed with claude code -- Adam]

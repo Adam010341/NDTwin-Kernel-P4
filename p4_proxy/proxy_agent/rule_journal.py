@@ -206,7 +206,7 @@ def discarded_rules(entries, dpid, cookie):
     named; a non-strict delete names none), on flow_5tuple the match and the P4 priority.
 
     Only a net install or modify is lost. A net delete is not: on ipv4_lpm a delete hands the
-    slot back to the control-plane route (KNOWN-ISSUES A-4d) or leaves the destination empty
+    slot back to the control-plane route (FIXED-ISSUES A-4d) or leaves the destination empty
     when the control plane has no route there, and a restart's route refill leaves the same
     state; on flow_5tuple nothing recreates an entry. Returns
     `[{"op", "match", "actions", "priority"}]` in first-written order, `op` in the journal's

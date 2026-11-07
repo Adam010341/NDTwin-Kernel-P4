@@ -327,7 +327,7 @@ def _c06_undo() -> None:
 # the handler reads utils::queryParam(target, "state") and IGNORES the body
 # (HttpSession.cpp:2084), which is why nothing is sent in it.
 #
-# 🔴 RETRACTED AND REWRITTEN 2026-09-03 (KNOWN-ISSUES G-3): an earlier write-up of this control
+# 🔴 RETRACTED AND REWRITTEN 2026-09-03 (FIXED-ISSUES G-3): an earlier write-up of this control
 # reported a defect in the kernel that was a defect in the harness.
 #
 # This control used to call THREE routes that the kernel has never registered:

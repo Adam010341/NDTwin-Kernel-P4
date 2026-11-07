@@ -493,7 +493,7 @@ class LockManager
      * it looked at `isLocked` and nothing else. Since expiry never cleared `isLocked`, a release
      * arriving after its own lease had run out found the flag still set, cleared it, and was
      * answered `200 {"status":"released"}` -- the same bytes as a real release. That is the shape
-     * KNOWN-ISSUES A-9 was measured through: the Energy-Saving-App takes routing_lock with
+     * FIXED-ISSUES A-9 was measured through: the Energy-Saving-App takes routing_lock with
      * ttl=300 and reaches its two release_lock() calls only on paths that need a
      * Simulation-Platform-Manager round trip, so in the 2026-08-30 live traffic run it never released at all.
      *

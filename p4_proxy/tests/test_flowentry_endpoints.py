@@ -183,7 +183,7 @@ class MalformedBodyIsTheClientsErrorTest(unittest.TestCase):
 
 class MalformedMatchValueIsA400Test(unittest.TestCase):
     """
-    A CIDR `nw_dst` must surface as 400, not 500. KNOWN-ISSUES B-2c.
+    A CIDR `nw_dst` must surface as 400, not 500. FIXED-ISSUES B-2c.
 
     [Co-developed with claude code -- Adam]
     The refusal itself is tested in test_unsupported_match.py, at the layer that raises. What is
@@ -258,7 +258,7 @@ class NonStrictDeleteRouteTest(unittest.TestCase):
                 api_routes.topology = recorder
                 body = json.dumps({"dpid": 1, "match": match, "priority": 100}).encode()
                 reply = call(api_routes.delete_flow_entry, body)
-                # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: the refusal is a 502
+                # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: the refusal is a 502
                 # JSONResponse now, with the same body.
                 if not isinstance(reply, dict):
                     self.assertEqual(reply.status_code, 502)
@@ -274,7 +274,7 @@ class NonStrictDeleteRouteTest(unittest.TestCase):
         # handler must keep unroute_flow's refusal instead.
         tm = TopologyManager.__new__(TopologyManager)
         tm.switches = {1: object()}
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: refused as the request's
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: refused as the request's
         # fault (400) rather than returned as False, which the endpoint now answers as 502.
         with self.assertRaises(FlowRequestUnusable) as caught:
             tm.unroute_flow(1, {})
@@ -349,7 +349,7 @@ class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
         # something that reads like a qualified success.
         self.recorder.verdict = False
         out = self._add({"dl_type": 2048, "nw_dst": "10.0.0.240"}, priority=915)
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: a refused install is now a
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: a refused install is now a
         # 502 rather than a 200; the body is what it was. test_refused_install_status.py pins it.
         self.assertEqual(out.status_code, 502)
         body = json.loads(out.body)
@@ -368,7 +368,7 @@ class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
 
 class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
     """
-    The half of the ipv4_lpm priority defect (KNOWN-ISSUES A-7, FINDING-07) that disclosure cannot
+    The half of the ipv4_lpm priority defect (FIXED-ISSUES A-7, FINDING-07) that disclosure cannot
     reach.
 
     [Co-developed with claude code -- Adam]
@@ -506,7 +506,7 @@ class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
         # The disclosure must not leak onto the failure path, as on the add endpoint.
         self.recorder.verdict = False
         out = call(api_routes.delete_flow_entry, self._body(self.DEST_ONLY))
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: a delete the switch refused is
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: a delete the switch refused is
         # a 502 now, body unchanged. test_refused_install_status.py pins it.
         self.assertEqual(out.status_code, 502)
         body = json.loads(out.body)

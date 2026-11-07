@@ -147,7 +147,7 @@ WARNING | ^cannot find graph vertex for switch IP | transient during convergence
 # ============================================================================
 # WHEN-POWERED-OFF: correct behaviour that only looks wrong out of context
 # ----------------------------------------------------------------------------
-# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8.
+# [Co-developed with claude code -- Adam] -- FIXED-ISSUES A-8.
 #
 # These are NOT plain WARNING entries and must never be converted into any. A plain entry
 # is a blanket permission, and each line below is *also* what a genuinely broken control
@@ -221,7 +221,7 @@ WARNING | ^intent_translator requested but the translator is disabled | 503 path
 # ----------------------------------------------------------------------------
 # [Co-developed with claude code -- Adam]
 #
-# doc/KNOWN-ISSUES.md G-32 (option C, 2026-09-11). Measured 2026-09-11
+# doc/FIXED-ISSUES.md G-32 (option C, 2026-09-11). Measured 2026-09-11
 # 02:01:16-02:02:45 (ROLE-4 T4): a loop writing flow entries every two seconds went
 # through the second its own claim expired AND through another owner taking the claim,
 # 200 both times, and only found out when that owner tore the kernel down. The kernel

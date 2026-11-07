@@ -4,7 +4,7 @@
  * [Co-developed with claude code -- Adam]
  *
  * Scope note, 2026-08-30: this file was written about DeviceConfigurationAndPowerManager alone.
- * It now also covers TopologyAndFlowMonitor's control-plane poll (doc/KNOWN-ISSUES.md A-2), which
+ * It now also covers TopologyAndFlowMonitor's control-plane poll (doc/FIXED-ISSUES.md A-2), which
  * was the same defect in a second class and outlived this file by two weeks precisely because the
  * invariant was filed under one class's name rather than under the property. The requests are
  * enumerated here together for the reason the paragraph below already gives.
@@ -158,7 +158,7 @@ TEST(RequestDeadlines, TheLivenessRequestStillAsksForTheStatusLine)
     EXPECT_NE(cmd.find("http://10.0.0.9:8081/p4/switch_state"), std::string::npos) << cmd;
 }
 
-// --- The control-plane topology poll (doc/KNOWN-ISSUES.md A-2).
+// --- The control-plane topology poll (doc/FIXED-ISSUES.md A-2).
 
 TEST(RequestDeadlines, TheTopologyPollIsBounded)
 {

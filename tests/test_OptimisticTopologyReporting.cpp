@@ -4,7 +4,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * The defects these pin are doc/KNOWN-ISSUES.md §C F-4, F-14 and F-16, which are one family:
+ * The defects these pin are doc/FIXED-ISSUES.md §C F-4, F-14 and F-16, which are one family:
  * every one of them is in the "optimistic" column, meaning the twin says healthy when the fabric
  * is not.
  *
@@ -21,7 +21,7 @@
  *         learned as a host by both control planes.
  *
  * Expected behaviour is derived from:
- *   1. doc/KNOWN-ISSUES.md §C rows F-4, F-14 and F-16, and the §D entry on F-4 (by code)
+ *   1. doc/FIXED-ISSUES.md §C rows F-4, F-14 and F-16, and the §D entry on F-4 (by code)
  *   2. include/common_types/GraphTypes.hpp -- the three availability flags, DownReason, and the
  *      rule that hosts are the vertices carrying no datapath id
  *   3. include/ndt_core/collection/TopologyAndFlowMonitor.hpp -- reconcileDerivedLiveness's
@@ -233,7 +233,7 @@ struct Fixture
 } // namespace
 
 // ---------------------------------------------------------------------------------------------
-// F-4 -- doc/KNOWN-ISSUES.md, entry F-4
+// F-4 -- doc/FIXED-ISSUES.md, entry F-4
 // ---------------------------------------------------------------------------------------------
 
 /**
@@ -301,7 +301,7 @@ TEST(OptimisticTopologyReportingTest, ARealHostEntryStillRaisesItsOwnTwoEdges)
 }
 
 // ---------------------------------------------------------------------------------------------
-// F-16 -- doc/KNOWN-ISSUES.md, entry F-16
+// F-16 -- doc/FIXED-ISSUES.md, entry F-16
 // ---------------------------------------------------------------------------------------------
 
 /**
@@ -338,7 +338,7 @@ TEST(OptimisticTopologyReportingTest, HostFacingEdgesOfAnUnreachableSwitchGoDown
 }
 
 // ---------------------------------------------------------------------------------------------
-// F-14 -- doc/KNOWN-ISSUES.md, entry F-14
+// F-14 -- doc/FIXED-ISSUES.md, entry F-14
 // ---------------------------------------------------------------------------------------------
 
 /**

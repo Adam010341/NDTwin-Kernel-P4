@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/shell/test_ndt_helper_apps_window.sh (KNOWN-ISSUES G-14).
+# Mutation gate for tests/shell/test_ndt_helper_apps_window.sh (FIXED-ISSUES G-14).
 #
 # [Co-developed with claude code -- Adam]
 #

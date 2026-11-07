@@ -357,7 +357,7 @@ class P4RuntimeClient:
 
         # --- when this client wrote each rule. [Co-developed with claude code -- Adam]
         #
-        # KNOWN-ISSUES G-13. A bmv2 table entry has no age, so /stats/flow/<dpid> reported
+        # FIXED-ISSUES G-13. A bmv2 table entry has no age, so /stats/flow/<dpid> reported
         # duration 0/0 for every rule and the P4 plane had no time axis at all -- measured
         # 2026-09-07. This is the only record of when a rule went on, and the write
         # methods below stamp it; ryu_flow_stats subtracts. See rule_install_times.py.
@@ -429,7 +429,7 @@ class P4RuntimeClient:
         """Set the binding this client writes destination routes through (None = unbound).
 
         🔴 TWO ATTRIBUTES, SET TOGETHER. The install-time record keys a route by
-        `self.IPV4_LPM_TABLE` (KNOWN-ISSUES G-13; that record and its gate,
+        `self.IPV4_LPM_TABLE` (FIXED-ISSUES G-13; that record and its gate,
         tests/shell/mutate_p4_rule_install_time.sh, predate roles and spell it that way), and
         the key has to be the table name read_table_entries reports for THIS switch -- the
         binding's -- or every renamed-table route renders `duration 0/0`, which reads exactly
@@ -785,7 +785,7 @@ class P4RuntimeClient:
         # bring-up paths straight afterwards and re-stamps what it writes; anything it does not
         # rewrite must come back as "age unknown", not as the age of the rule the wipe removed.
         # Alongside table_generation, and after the RPC for the same reason: a refused push
-        # destroyed nothing. KNOWN-ISSUES G-13, A-4c.
+        # destroyed nothing. FIXED-ISSUES G-13, KNOWN-ISSUES A-4c.
         self.rule_install_times.clear()
         # And the row count that record is reported against. The last read counted rows in a
         # table that no longer exists, so keeping it would pair a freshly emptied `rules_timed`
@@ -1415,7 +1415,7 @@ class P4RuntimeClient:
 
         The install-time record is keyed by that shape on both sides (see the note above
         insert_5tuple_rule): a second spelling would mean every lookup misses, every rule
-        reports duration 0/0, and the result is indistinguishable from KNOWN-ISSUES G-13
+        reports duration 0/0, and the result is indistinguishable from FIXED-ISSUES G-13
         being unfixed. [Co-developed with claude code -- Adam]
         """
         return self._match_as_dict(entry.table_id, entry.match)
@@ -1756,7 +1756,7 @@ class P4RuntimeClient:
         count with no age would let a switch nobody has polled for an hour read as current.
 
         None, not `(0, ...)`: "nobody has counted this switch's rules" is not "this switch has
-        no rules", and the whole of KNOWN-ISSUES G-13 is about not letting those collapse.
+        no rules", and the whole of FIXED-ISSUES G-13 is about not letting those collapse.
         """
         seen = self._last_table_read
         if seen is None:
@@ -2134,7 +2134,7 @@ class P4RuntimeClient:
             raise OverflowError(f"{value!r} does not fit in {p4_field}, which is bit<{bits}>")
         return raw, ((1 << bits) - 1).to_bytes(width, byteorder="big")
 
-    # --- the install-time record. KNOWN-ISSUES G-13. [Co-developed with claude code -- Adam]
+    # --- the install-time record. FIXED-ISSUES G-13. [Co-developed with claude code -- Adam]
     #
     # bmv2 cannot say how old an entry is, so the write paths below say it instead: each one
     # stamps `self.rule_install_times` once the switch has ACCEPTED the write, and ryu_flow_stats
@@ -2327,7 +2327,7 @@ class P4RuntimeClient:
         Inserts a flow_5tuple rule that drops what it matches.
 
         [Co-developed with claude code -- Adam]
-        KNOWN-ISSUES A-4g. OpenFlow reads an empty action list as "drop", and that is what the
+        FIXED-ISSUES A-4g. OpenFlow reads an empty action list as "drop", and that is what the
         kernel's BLOCK_HOST sends (match on ipv4_src, `actions: []`). This client only had a
         forwarding writer, so the request never reached the switch while the reply said it had.
         The pipeline applies flow_5tuple before ipv4_lpm and falls through only on a miss, so a

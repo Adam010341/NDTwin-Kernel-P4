@@ -6,7 +6,7 @@
 # its own on the child's streams, which it inherits unchanged.
 #
 # [Co-developed with claude code -- Adam]
-# KNOWN-ISSUES B-5. Before this, a kernel that aborted on shutdown and a kernel that stopped
+# FIXED-ISSUES B-5. Before this, a kernel that aborted on shutdown and a kernel that stopped
 # cleanly left identical evidence. start_bg launched the component with `setsid "$@" ... &` and
 # never waited for it; stop_one polled `kill -0` until the pid disappeared. A pid disappearing is
 # all either of them ever knew, and "it exited" and "it exited cleanly" are not the same claim.

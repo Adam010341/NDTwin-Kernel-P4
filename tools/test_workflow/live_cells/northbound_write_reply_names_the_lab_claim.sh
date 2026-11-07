@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# CELL northbound_write_reply_names_the_lab_claim -- KNOWN-ISSUES G-32. A write that programs
+# CELL northbound_write_reply_names_the_lab_claim -- FIXED-ISSUES G-32. A write that programs
 # the fabric answers with the claim it was made under, so a caller can tell "my claim" from
 # "somebody else's" from the reply itself.
 #

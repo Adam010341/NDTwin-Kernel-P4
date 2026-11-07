@@ -5,7 +5,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# KNOWN-ISSUES G-13. A bmv2 table entry has no age, so ryu_flow_stats hardcoded
+# FIXED-ISSUES G-13. A bmv2 table entry has no age, so ryu_flow_stats hardcoded
 # `duration_sec: 0, duration_nsec: 0` and every rule on the P4 plane looked equally new --
 # measured 2026-09-07 (W16-3): a route installed, read back at +12 s and +32 s, 0/0 both times
 # for it and for every rule already on the switch, while its counters moved. The fix is a record

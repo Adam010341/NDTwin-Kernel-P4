@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for the lab claim on a write reply -- doc/KNOWN-ISSUES.md G-32, option C.
+# Mutation gate for the lab claim on a write reply -- doc/FIXED-ISSUES.md G-32, option C.
 #
 # [Co-developed with claude code -- Adam]
 #

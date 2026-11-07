@@ -18,7 +18,7 @@
  *   - and if somebody else had legitimately acquired in the meantime, that late release cleared
  *     the NEW holder's lock, silently.
  *
- * Why it matters here rather than in the abstract: KNOWN-ISSUES A-9. The Energy-Saving-App takes
+ * Why it matters here rather than in the abstract: FIXED-ISSUES A-9. The Energy-Saving-App takes
  * `routing_lock` with `ttl=300` (Energy-Saving-App/src/app/http.cpp:425) and reaches its two
  * `release_lock()` calls only on paths that need a Simulation-Platform-Manager round trip, so in
  * the live traffic runs it never released at all -- 0 switches powered off, three arms.
@@ -120,7 +120,7 @@ TEST(LockLeaseExpiryTest, AnUnknownLockNameIsNotHeldRatherThanExpired)
 
 TEST(LockLeaseExpiryTest, ALateReleaseNamingItsOwnLeaseCannotFreeTheLeaseThatReplacedIt)
 {
-    // The sequence from KNOWN-ISSUES A-9 / B-2②, written out rather than as a property:
+    // The sequence from FIXED-ISSUES A-9 / KNOWN-ISSUES B-2②, written out rather than as a property:
     //
     //   A acquires, ttl runs out, B acquires legitimately, A finally releases.
     //
@@ -237,7 +237,7 @@ TEST(LockLeaseExpiryTest, SnapshotAnswersWhoHoldsItAndForHowLongWithoutTakingIt)
 {
     // "Is routing_lock held, and for how long" had exactly one way to be asked before: try to
     // take it. That either fails, telling you nothing about how long, or succeeds, which is not
-    // a read. An operator following KNOWN-ISSUES A-9's workaround is in that position.
+    // a read. An operator following the by-hand release in KNOWN-ISSUES A-4b is in that position.
     LockManager mgr;
     LockManager::AcquireReport a;
     ASSERT_TRUE(mgr.acquireLock("routing_lock", 300, &a));

@@ -342,7 +342,7 @@ TEST(FlowDispatcherTest, JobsDroppedAfterStopAreCountedAndNotSilent)
 }
 
 // [Co-developed with claude code -- Adam]
-// KNOWN-ISSUES A-7. droppedAfterStop() is published by GET /ndt/get_flow_dispatch_status, and a
+// FIXED-ISSUES A-7. droppedAfterStop() is published by GET /ndt/get_flow_dispatch_status, and a
 // published 0 is ambiguous on its own: the counter cannot leave 0 until stop() has run, so a live
 // dispatcher that has dropped nothing and a stopped dispatcher that has not yet been handed
 // anything to drop report the same number. running() is what separates them, and it is asserted

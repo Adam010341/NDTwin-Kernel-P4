@@ -21,7 +21,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * @details Closes KNOWN-ISSUES A-7, "queued writes fail invisibly to every API".
+ * @details Closes FIXED-ISSUES A-7, "queued writes fail invisibly to every API".
  *
  * The chain this sits in: `POST /ndt/install_flow_entry` validates the batch, calls
  * `FlowDispatcher::enqueue`, and answers `200 {"status":"queued"}`. A worker thread later hands
@@ -208,7 +208,7 @@ class DispatchOutcomeLog
         {
             succeeded_.fetch_add(1, std::memory_order_relaxed);
             // [Co-developed with claude code -- Adam]
-            // doc/KNOWN-ISSUES.md C-4. This was an unconditional noteProgrammed_(job.token), and
+            // doc/FIXED-ISSUES.md C-4. This was an unconditional noteProgrammed_(job.token), and
             // that one line is the whole of the OVS half of B-1: `ok` means the far end took the
             // request, and only on P4 does the far end taking it imply that a switch programmed
             // it. Counting is deliberately unchanged -- an accepted entry is still a success.
@@ -378,7 +378,7 @@ class DispatchOutcomeLog
      *
      * [Co-developed with claude code -- Adam]
      *
-     * KNOWN-ISSUES T-11's filter predicate. This is the index the A-7 note said a future change
+     * FIXED-ISSUES T-11's filter predicate. This is the index the A-7 note said a future change
      * would add here; adding it needed no change to any call site, which was the point of routing
      * successes through record().
      *

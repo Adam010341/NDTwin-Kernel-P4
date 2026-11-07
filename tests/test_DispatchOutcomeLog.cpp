@@ -1,5 +1,5 @@
 /**
- * Tests for DispatchOutcomeLog -- the read side of KNOWN-ISSUES A-7.
+ * Tests for DispatchOutcomeLog -- the read side of FIXED-ISSUES A-7.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -275,7 +275,7 @@ p4Refused(int status = 200, const char* why = "proxy reported an error in a 200 
 }
 
 /// Ryu's answer to a flow-mod. `ok`, and evidence of nothing: OpenFlow does not acknowledge a
-/// FLOW_MOD, so this 200 is emitted before any switch has adjudicated (KNOWN-ISSUES C-4).
+/// FLOW_MOD, so this 200 is emitted before any switch has adjudicated (FIXED-ISSUES C-4).
 OpResult
 ovsAccepted()
 {

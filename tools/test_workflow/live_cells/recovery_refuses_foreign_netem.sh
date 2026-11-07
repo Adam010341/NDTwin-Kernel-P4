@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# CELL recovery_refuses_foreign_netem -- A1 / KNOWN-ISSUES B-16. `POST /ndt/inject_link_recovery`
+# CELL recovery_refuses_foreign_netem -- A1 / FIXED-ISSUES B-16. `POST /ndt/inject_link_recovery`
 # deleted the previous operator's netem off a link this kernel had never declared down, and
 # answered 200 {"ok":true}.
 #

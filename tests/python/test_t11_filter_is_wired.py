@@ -5,7 +5,7 @@ T-11-A wiring guard: the phantom filter must stay CONNECTED, not merely present.
 
 ## Why this file exists
 
-`91e7743` ("Serve only the flow entries that were actually programmed") fixed KNOWN-ISSUES
+`91e7743` ("Serve only the flow entries that were actually programmed") fixed FIXED-ISSUES
 B-1 by filtering unconfirmed rows out of the flow-table view. It shipped
 `tests/test_PendingEntryFilter.cpp`, eight gtest cases, and those are good tests -- but they
 include exactly two headers:
@@ -356,7 +356,7 @@ class FilterIsWiredIntoTheReadPath(unittest.TestCase):
                 "This is the single read exit shared by "
                 "/ndt/get_switch_openflow_table_entries, LLMAgent::getCurrentFlowEntries() "
                 "and IntentTranslator -- without this call every one of them serves "
-                "KNOWN-ISSUES B-1's phantom again. The eight cases in "
+                "FIXED-ISSUES B-1's phantom again. The eight cases in "
                 "tests/test_PendingEntryFilter.cpp cannot see this: they call the filter "
                 "directly and stay green."
             ),

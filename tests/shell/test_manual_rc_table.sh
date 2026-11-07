@@ -9,7 +9,7 @@
 # `ndt help`. The user guide glosses those codes, and one paragraph of it is the only place that
 # tells a reader how to decide whether a lab was restored: written wrongly (as it once was, in the
 # guide's predecessor) it requires `ndt clean` to answer rc 0, which is exactly the state that
-# answers 3, and scores a lab that WAS put back as one that was not (KNOWN-ISSUES G-53).
+# answers 3, and scores a lab that WAS put back as one that was not (FIXED-ISSUES G-53).
 #
 # 🔴 `ndt help` IS THE AUTHORITY AND THIS TEST TREATS IT AS ONE. Every code the guide glosses
 # carries the sentence `ndt help` prints for it, and case 7 goes and finds that sentence in the

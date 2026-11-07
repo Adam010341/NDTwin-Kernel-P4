@@ -611,7 +611,7 @@ TEST_F(LockEndpointTest, ReleasingAnExpiredLeaseIs412AndSaysExpiredRatherThan200
 {
     // 🔴 THE REGRESSION THIS FILE EXISTS TO CATCH. Before A-9 this answered
     // 200 {"status":"released"} -- byte-identical to a real release -- because unlock() looked at
-    // `isLocked`, which expiry never cleared. KNOWN-ISSUES A-9: the Energy-Saving-App holds
+    // `isLocked`, which expiry never cleared. FIXED-ISSUES A-9: the Energy-Saving-App holds
     // routing_lock for a 300 s ttl and never releases it on the failing path, so this is the
     // reply an operator following the documented workaround actually gets.
     ASSERT_TRUE(m_locks->acquireLock("routing_lock", 0)) << "held, and already run out";

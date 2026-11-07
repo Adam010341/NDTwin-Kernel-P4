@@ -17,7 +17,7 @@
 #
 # 🔴 WHAT MUST NOT HAPPEN IS HALF THE SUBJECT, twice over:
 #   * a REFUSED bring-up must not have moved the knob. `ndt up p4 --app <bad package>` that
-#     wrote the file on its way to saying no is the KNOWN-ISSUES G-47 defect (a refusal quoting a state
+#     wrote the file on its way to saying no is the FIXED-ISSUES G-47 defect (a refusal quoting a state
 #     only the refusal had created) with a different file in it, so every refusal cell asserts
 #     the knob is byte-identical to what it was AND that stack.sh and sudo were never reached.
 #   * a knob must never be left PRESENT AND EMPTY. app_package.read_knob refuses that state

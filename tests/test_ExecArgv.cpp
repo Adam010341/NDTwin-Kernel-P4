@@ -1,5 +1,5 @@
 /**
- * Tests for utils::execArgv -- the shell-free executor introduced for doc/KNOWN-ISSUES.md B-2b/B-4.
+ * Tests for utils::execArgv -- the shell-free executor introduced for doc/FIXED-ISSUES.md B-2b/B-4.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -40,7 +40,7 @@ namespace
 
 /// One would-be shell command, used as a payload rather than executed. If execArgv ever handed its
 /// arguments to a shell, this is the value that would make it obvious -- and it is close to what
-/// KNOWN-ISSUES B-2b describes an attacker sending through the northbound API.
+/// FIXED-ISSUES B-2b describes an attacker sending through the northbound API.
 const char* const kHostileValue = R"(x'; touch /tmp/ndtwin-pwned; echo ')";
 
 } // namespace
@@ -94,7 +94,7 @@ TEST(ExecArgvTest, DoesNotInterpretShellMetacharactersInAnyPosition)
 
 TEST(ExecArgvTest, ReportsThatItRanEvenWhenTheProgramFailed)
 {
-    // The distinction doc/KNOWN-ISSUES.md B-2b's message collapsed. `ran` is not `succeeded`:
+    // The distinction doc/FIXED-ISSUES.md B-2b's message collapsed. `ran` is not `succeeded`:
     // /bin/false ran perfectly well and exited 1, exactly as curl exits 22 on an HTTP 404. A
     // caller that treated a non-zero exit as "the request never left" would misreport the far end
     // in the other direction.

@@ -39,7 +39,7 @@ add_executable(
   test_PendingEntryFilter.cpp
   test_Controller.cpp
   test_ParamParsing.cpp
-  # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-2b/B-4: the shell-free executor.
+  # [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md B-2b/B-4: the shell-free executor.
   test_ExecArgv.cpp
   test_SimulationRequestValidation.cpp
   test_OvsPowerStrategy.cpp
@@ -64,7 +64,7 @@ add_executable(
   test_StaleTableCarryForward.cpp
   test_FlowTableConcurrency.cpp
   test_TopKFlowInfoLocking.cpp
-  # KNOWN-ISSUES B-x, flow liveness. [Co-developed with claude code -- Adam]
+  # FIXED-ISSUES B-x, flow liveness. [Co-developed with claude code -- Adam]
   test_FlowLiveness.cpp
   test_FlowBatchPartition.cpp
   test_TopologyAndFlowMonitor.cpp
@@ -76,7 +76,7 @@ add_executable(
   test_ApiKeyNotLogged.cpp
   test_IntentTaskOutcomes.cpp
   test_HttpSessionStatusCodes.cpp
-  # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md F-13.
+  # [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md F-13.
   test_GroupMeterExistence.cpp
   test_HistoricalLogging.cpp
   test_CommandFailure.cpp
@@ -84,7 +84,7 @@ add_executable(
   test_SmartPlugFields.cpp
   test_PathNodeParsing.cpp
   test_ApplicationManager.cpp
-  # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-5: the kernel aborted on its own
+  # [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md B-5: the kernel aborted on its own
   # shutdown path -- a joinable std::thread destroyed by ~DeviceConfigurationAndPowerManager.
   # Death tests: the failure is process death, so it cannot be asserted from inside the process.
   test_PowerManagerShutdown.cpp
@@ -123,7 +123,7 @@ add_executable(
   # which ends the kernel. Includes the reachability evidence (updateSwitches invents no vertex),
   # so the day that stops being true, this suite says so. One death test; forks once.
   test_CpuReportNoIpSwitch.cpp
-  # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-4: B-1's phantom filter covered the
+  # [Co-developed with claude code -- Adam] FIXED-ISSUES C-4: B-1's phantom filter covered the
   # read path on both planes but only ever had a confirmation signal on one. Ryu answers 200
   # before any switch has seen the FLOW_MOD, so the OVS half stamped a token on an entry nothing
   # had observed and served it 0.257 s after the POST. Next to test_PendingEntryFilter.cpp in
@@ -158,7 +158,7 @@ add_executable(
   # a guard is allowed to cost: only the reverse edge is keyed by the missing address.
   test_AddresslessAttachmentSwitch.cpp
 
-  # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-6, second half: where a netem
+  # [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md B-6, second half: where a netem
   # may be attached so that cutting a link does not silently replace TCLink's htb -- the rule
   # tools/test_workflow/faults.sh bought with the lost 2026-08-13 overnight round, moved into the
   # kernel for POST /ndt/inject_link_failure. Pure functions over real `tc qdisc show` output; no

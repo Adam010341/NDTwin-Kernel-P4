@@ -44,7 +44,7 @@ class FailingClient:
 class HealthyClient:
     # [Co-developed with claude code -- Adam]
     # A real client carries its own install-time record and the handler passes it to the
-    # renderer (KNOWN-ISSUES G-13). A double without one answers 503 on the *success* path,
+    # renderer (FIXED-ISSUES G-13). A double without one answers 503 on the *success* path,
     # which is how a stand-in that has drifted from the thing it stands in for should fail.
     def __init__(self):
         self.rule_install_times = RuleInstallTimes()

@@ -406,7 +406,7 @@ TEST_F(IntentTaskOutcomesTest, AnUnknownDeviceOnAFlowInstallIsRefusedBeforeTheCo
     EXPECT_TRUE(reply.contains("error")) << "reply was: " << reply.dump();
 }
 
-// --- BLOCK_HOST (doc/KNOWN-ISSUES.md A-4g) ------------------------------------------------------
+// --- BLOCK_HOST (doc/FIXED-ISSUES.md A-4g) ------------------------------------------------------
 //
 // [Co-developed with claude code -- Adam]
 // The install's OpResult was a dropped bare statement and the reply was an unconditional success,

@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# THE DEFECT (found 2026-09-02 while making the kernel's exit status observable, KNOWN-ISSUES
+# THE DEFECT (found 2026-09-02 while making the kernel's exit status observable, FIXED-ISSUES
 # B-5). stop_one began:
 #
 #     local name="$1" pidfile="$PID_DIR/$name.pid"

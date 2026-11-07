@@ -69,7 +69,7 @@ protected:
      *
      * @details
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-2b/B-4. executeSystemCommand hands its string to /bin/sh, so every
+     * doc/FIXED-ISSUES.md B-2b/B-4. executeSystemCommand hands its string to /bin/sh, so every
      * value interpolated into it is shell *code*. The two sFlow restore commands A-4f added
      * interpolate five values read back out of the switch's own OVS database -- targets, header,
      * sampling, polling and the agent interface name -- and tests/python/
@@ -186,7 +186,7 @@ protected:
      *
      * @details
      * [Co-developed with claude code -- Adam]
-     * KNOWN-ISSUES A-4f. `powerOff` calls this before `del-br` and `powerOn` calls it again after
+     * FIXED-ISSUES A-4f. `powerOff` calls this before `del-br` and `powerOn` calls it again after
      * the restore, so one seam both saves the state and verifies that putting it back worked.
      *
      * Three outcomes, and keeping them apart is the whole point (see executeListPorts above for

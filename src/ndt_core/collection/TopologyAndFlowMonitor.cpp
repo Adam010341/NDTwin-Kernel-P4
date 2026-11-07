@@ -255,7 +255,7 @@ switchKindGroupsFromJson(const json& j)
 /** @brief Refuse an edge whose declared capacity is not a capacity.
  *
  * [Co-developed with claude code -- Adam]
- * KNOWN-ISSUES B-13. `link_bandwidth_bps` is the one field of an edge no door looked at, and it is the
+ * FIXED-ISSUES B-13. `link_bandwidth_bps` is the one field of an edge no door looked at, and it is the
  * divisor: updateLinkInfoLeftLinkBandwidth computes
  * `(1.0 - leftIn / edgeProps.linkBandwidth) * 100`. Measured 2026-09-11 (two independent
  * repeats on one kernel): a copy of the shipped OVS 4-host model with 0 on every edge loaded
@@ -343,7 +343,7 @@ nodeInWords(const json& nodeJson, std::size_t index)
 /** @brief Refuse an address the file does not spell the way the twin will read it back.
  *
  * [Co-developed with claude code -- Adam]
- * KNOWN-ISSUES B-15. inet_aton accepts "10.1", "167772161" and "0x0a000001" for 10.0.0.1, and the
+ * FIXED-ISSUES B-15. inet_aton accepts "10.1", "167772161" and "0x0a000001" for 10.0.0.1, and the
  * graph stores the parsed uint32 -- so /ndt/get_static_topology_json republishes a dotted quad
  * the operator never wrote, and two spellings of one address stop looking like a collision to
  * anyone reading the file. Measured 2026-09-11: `"ip": ["10.1"]` on one host of the
@@ -632,7 +632,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         const auto addresses = utils::ipStringVecToUint32Vec(addressText);
         nodeAddresses.insert(addresses.begin(), addresses.end());
 
-        // ---- KNOWN-ISSUES B-15 door 6: one address, one node, one spelling ----
+        // ---- FIXED-ISSUES B-15 door 6: one address, one node, one spelling ----
         // [Co-developed with claude code -- Adam]
         // 6b is the arm 6a cannot cover: the same dotted quad typed twice. `nodeAddresses` is a
         // set and has been since the edge guard, so a second claim on an address was not merely unrefused,
@@ -1911,7 +1911,7 @@ TopologyAndFlowMonitor::shouldAnnouncePartialRound(PollRoundKind previous, PollR
  *
  * @details
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md A-2, third uncovered item; 11_behavior-evidence.md §6 open question 3 asked
+ * doc/FIXED-ISSUES.md A-2, third uncovered item; 11_behavior-evidence.md §6 open question 3 asked
  * whether a round should be all-or-nothing. It should not, and the reasons are worth keeping next
  * to the code that declines to do it:
  *
@@ -2008,7 +2008,7 @@ void
 TopologyAndFlowMonitor::pollControlPlaneTopology()
 {
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md A-2. These were three bare `curl -s` calls with no deadline, each
+    // doc/FIXED-ISSUES.md A-2. These were three bare `curl -s` calls with no deadline, each
     // wrapped in a try/catch that could only ever fire on popen() failing -- never on the failure
     // that actually happened, which is a child that does not return. One unresponsive controller
     // therefore ended this thread for the lifetime of the process, and did it without writing a
@@ -2481,7 +2481,7 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
             const uint32_t ip = *ipOpt;
 
             // [Co-developed with claude code -- Adam]
-            // doc/KNOWN-ISSUES.md F-4, first of two guards. A control plane learns a host from
+            // doc/FIXED-ISSUES.md F-4, first of two guards. A control plane learns a host from
             // traffic, and a switch's own management interface emits traffic, so this reply
             // contains entries whose "host" address belongs to a switch in our own topology.
             // Everything below keys on that address, and the two lookups it reaches -- both of
@@ -2648,7 +2648,7 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
                 {
                     unique_lock lock(*m_graphMutex);
                     // [Co-developed with claude code -- Adam]
-                    // doc/KNOWN-ISSUES.md F-4, second guard, and the more direct of the two
+                    // doc/FIXED-ISSUES.md F-4, second guard, and the more direct of the two
                     // routes: findEdgeBySrcAndDstIp matches (srcIp, dstIp) with no regard for
                     // datapath ids, so when `ip` is a switch's management address and
                     // `vertexOpt2` is its neighbour, this pair *is* the switch-to-switch edge
@@ -2805,7 +2805,7 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                     auto& eprop = (*m_graph)[edgeOpt.value()];
 
                     // [Co-developed with claude code -- Adam]
-                    // doc/KNOWN-ISSUES.md B-6, and the only line of this fix that changes what the
+                    // doc/FIXED-ISSUES.md B-6, and the only line of this fix that changes what the
                     // twin reports. This was an unconditional `isUp = true` with no else branch
                     // anywhere in the function, so the only thing a topology poll could ever say
                     // about a link was "up" -- a one-way ratchet, exactly as updateSwitches was
@@ -2839,7 +2839,7 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                                 .second)
                         {
                             // [Co-developed with claude code -- Adam]
-                            // 🔴 doc/KNOWN-ISSUES.md B-16, third half. The tail of this sentence
+                            // 🔴 doc/FIXED-ISSUES.md B-16, third half. The tail of this sentence
                             // used to be `POST /ndt/link_recovery_detected to clear this` for
                             // BOTH kinds of declaration, and that is wrong for one of
                             // them: a declaration nothing ever reported broken -- an injection --
@@ -2979,7 +2979,7 @@ TopologyAndFlowMonitor::reconcileDerivedLiveness()
     std::size_t hostsReleased = 0;
 
     // Pass 2: edges. An edge with an isolating switch at either end cannot carry traffic --
-    // including the host-facing ones, which is doc/KNOWN-ISSUES.md F-16: the only other writer of
+    // including the host-facing ones, which is doc/FIXED-ISSUES.md F-16: the only other writer of
     // edge-down is /ndt/link_failed, and that is keyed on a pair of dpids, so a host's edge (dpid
     // 0 at one end) was not addressable by it at all.
     for (auto e : boost::make_iterator_range(boost::edges(*m_graph)))
@@ -3008,7 +3008,7 @@ TopologyAndFlowMonitor::reconcileDerivedLiveness()
         }
     }
 
-    // Pass 3: hosts. doc/KNOWN-ISSUES.md F-14. A host is unreachable when every switch it attaches
+    // Pass 3: hosts. doc/FIXED-ISSUES.md F-14. A host is unreachable when every switch it attaches
     // to is isolating -- "every", not "any", so a dual-homed host in a future topology does not go
     // down because one of its two switches did.
     //
@@ -4059,7 +4059,7 @@ TopologyAndFlowMonitor::applyReportedLinkRecovery(Graph::edge_descriptor e)
     auto& eprop = (*m_graph)[e];
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-6. THE RULE, and it is one condition: a recovery report may only
+    // doc/FIXED-ISSUES.md B-6. THE RULE, and it is one condition: a recovery report may only
     // withdraw a declaration it pairs with. `failureReported` is set by /ndt/link_failure_detected
     // and by nothing else, so an edge that carries a declaration without one was declared down by
     // an operator through /ndt/inject_link_failure -- and Ryu rediscovering the link says nothing
@@ -4793,7 +4793,7 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
  * down.
  *
  * [Co-developed with claude code -- Adam]
- * 🔴 doc/KNOWN-ISSUES.md B-6. The paragraph above is not wrong, but its premise was never checked
+ * 🔴 doc/FIXED-ISSUES.md B-6. The paragraph above is not wrong, but its premise was never checked
  * by the code, and there is a whole class of edge-down for which it does not hold: a link failure
  * that was DECLARED through /ndt/link_failure_detected rather than observed. Nothing about the
  * fabric changed, so Ryu goes on listing that link and the poll lifted it straight back -- 5 times

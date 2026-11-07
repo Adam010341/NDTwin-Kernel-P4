@@ -378,7 +378,7 @@ main(int argc, char* argv[])
     }
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-6: sweep the qdisc tree once at
+    // doc/FIXED-ISSUES.md B-6: sweep the qdisc tree once at
     // startup and WARN about netem that is already there. Not a gate -- a kernel is entitled to
     // start on a fabric someone is deliberately running faults on -- so the return value is
     // ignored here on purpose and the process carries on either way.
@@ -445,7 +445,7 @@ main(int argc, char* argv[])
     auto controller = std::make_shared<Controller>(flowRoutingManager);
 
     // [Co-developed with claude code -- Adam]
-    // KNOWN-ISSUES T-11 (option A: the table listing reports only programmed entries). This is
+    // FIXED-ISSUES T-11 (option A: the table listing reports only programmed entries). This is
     // the one line that connects the two halves -- Controller knows which dispatched jobs the
     // southbound confirmed, the power manager owns the cache that is served as the table view.
     //

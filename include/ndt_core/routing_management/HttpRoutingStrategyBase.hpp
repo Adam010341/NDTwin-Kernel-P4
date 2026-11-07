@@ -160,7 +160,7 @@ class HttpRoutingStrategyBase : public IRoutingStrategy
      * capture the request without a live controller.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-2b. This was `std::string executeCommand(const std::string&)`, and both
+     * doc/FIXED-ISSUES.md B-2b. This was `std::string executeCommand(const std::string&)`, and both
      * halves of that signature were defects rather than style. The string parameter meant post()
      * had to flatten a JSON body into shell source, where a single quote in a match value ended
      * the quoting and the rest became commands. The string return meant the caller could not learn

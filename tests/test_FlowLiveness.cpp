@@ -4,7 +4,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * KNOWN-ISSUES B-x. A flow stays in the table for FLOW_IDLE_TIMEOUT -- 15000 ms -- after its last
+ * FIXED-ISSUES B-x. A flow stays in the table for FLOW_IDLE_TIMEOUT -- 15000 ms -- after its last
  * sample, and getFlowInfoJson walked the whole table with no predicate whatsoever, so
  * /ndt/get_detected_flow_data listed flows that had already ended. Measured on 2026-08-27 at one
  * churn working point of 1.6 new flows per second: mean 4.7 flows actually sending against

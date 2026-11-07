@@ -210,7 +210,7 @@ class ReportedEvidenceTest(unittest.TestCase):
 
 class TheRuleClockOnTheLivenessPayloadTest(unittest.TestCase):
     """
-    KNOWN-ISSUES G-13. Whether `duration 0/0` means "old" or "unknown", answered on the payload
+    FIXED-ISSUES G-13. Whether `duration 0/0` means "old" or "unknown", answered on the payload
     the kernel already polls.
 
     [Co-developed with claude code -- Adam]

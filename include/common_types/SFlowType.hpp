@@ -1002,7 +1002,7 @@ computeEstimatedRates(uint64_t accumulatedFlowRate,
 // ================================ flow liveness ================================================
 // [Co-developed with claude code -- Adam]
 //
-// KNOWN-ISSUES B-x. The flow table keeps a flow for FLOW_IDLE_TIMEOUT (15 s) after its last
+// FIXED-ISSUES B-x. The flow table keeps a flow for FLOW_IDLE_TIMEOUT (15 s) after its last
 // sample, and getFlowInfoJson walks the whole table with no predicate, so the API lists flows that
 // have already ended. Measured on 2026-08-27 at one churn working point (1.6 new flows/s):
 // mean 4.7 flows actually sending against mean 63.0 listed, 13.3x, and the ratio never dropped
@@ -1322,7 +1322,7 @@ updateFlowRatesForInterval(FlowInfo& info, double elapsedSeconds, uint64_t eleph
     //   this field -- so a flow that stopped kept its last non-zero rate forever, stayed flagged
     //   an elephant, and never left top-k. Measured five and ten seconds after iperf3 ended:
     //   top-k still reported a bit-identical 20.3 Mbps / 10496 pps while `_in_the_last_sec` in
-    //   the same object read 0 (KNOWN-ISSUES A-3).
+    //   the same object read 0 (FIXED-ISSUES A-3).
     //   Introduced by the divide-by-zero guard in 31b357a6, so it was ours to fix.
     //
     // ⚠️ Those two figures were read from THIS field before it had a denominator, so their

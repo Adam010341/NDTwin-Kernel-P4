@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Source: KNOWN-ISSUES G-21, measured offline 2026-09-11 01:0x. A report with the kernel UP, a
+# Source: FIXED-ISSUES G-21, measured offline 2026-09-11 01:0x. A report with the kernel UP, a
 # tally present, and all three lock probes answering `NOT CHECKED (http 500)` read
 # `VERDICT: CLEAN` rc 0 out of orphans_verdict.sh, while `ndt` itself answered 5 for the same
 # observation. Every restore gate in this project spells `grep -F 'VERDICT: CLEAN'`, so three
@@ -49,7 +49,7 @@ rules-in-window (nothing below is deleted)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
   !!  NOT CHECKED: the rules-in-window question could not be answered -- rc 5.
   !!    this is not 'the network is clean'. see the lines above for which
-  !!    reading failed. (KNOWN-ISSUES G-12)
+  !!    reading failed. (FIXED-ISSUES G-12)
 EOF
     # 5 is what `ndt apps orphans` returns for this report (residue_verdict, ndt:5349) and is the
     # second argument every caller passes. Recorded so the fixture carries its own input.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for the KNOWN-ISSUES A-7 follow-up: the dispatch-status endpoint's
+# Mutation gate for the FIXED-ISSUES A-7 follow-up: the dispatch-status endpoint's
 # running/scope disclosure, its contract, and the table disclosure in the P4 proxy.
 #
 # [Co-developed with claude code -- Adam]

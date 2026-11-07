@@ -55,9 +55,9 @@ struct OpResult
      * Whether this answer is evidence that a switch now holds the rule.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md C-4. `ok` answers "did the far end accept the request". On the P4 plane
+     * doc/FIXED-ISSUES.md C-4. `ok` answers "did the far end accept the request". On the P4 plane
      * that is the same question, because the proxy agent programs the table before replying and
-     * reports a per-entry refusal as a non-2xx (502 since KNOWN-ISSUES C-6; before that, a 200
+     * reports a per-entry refusal as a non-2xx (502 since FIXED-ISSUES C-6; before that, a 200
      * body carrying {"status":"error"}). On the OVS plane it is not:
      * Ryu's /stats/flowentry/add returns once it has built the OFPFlowMod, and OpenFlow does not
      * acknowledge a FLOW_MOD, so its 200 is emitted before any switch has adjudicated anything.
@@ -146,7 +146,7 @@ struct OpResult
      * @brief The request never left this host, so the far end has no case to answer.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-2b. unreachable() was being used for this too, and its message names
+     * doc/FIXED-ISSUES.md B-2b. unreachable() was being used for this too, and its message names
      * the component ("no response from <component> at <url>"). When the request was never sent --
      * the shell could not parse the command line, curl is not installed, fork failed -- that
      * sentence accuses a component the kernel never contacted, and it is byte-identical to what a

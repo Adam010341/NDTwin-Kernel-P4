@@ -969,10 +969,10 @@ m=$(mutant a03 "$ROUTES" \
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: refused before any switch' \
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: refused before any switch' \
     '        raise _route_write_unsupported(err, dpid)
     except FlowRequestUnusable as err:
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: refused before any switch')
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: refused before any switch')
 report "A03: add on an external control plane is 500 again" "$m" "test_add_is_409"
 m=$(mutant a04 "$ROUTES" \
     '        raise _route_write_unsupported(err, dpid)
@@ -980,10 +980,10 @@ m=$(mutant a04 "$ROUTES" \
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6, as on add.' \
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6, as on add.' \
     '        raise _route_write_unsupported(err, dpid)
     except FlowRequestUnusable as err:
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6, as on add.')
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6, as on add.')
 report "A04: delete on an external control plane is 500 again" "$m" "test_delete_is_409"
 m=$(mutant a05 "$ROUTES" \
     '        raise _route_write_unsupported(err, dpid)
@@ -991,10 +991,10 @@ m=$(mutant a05 "$ROUTES" \
         # TICKET-P4-heartbeat ruling 5(a). [Co-developed with claude code -- Adam]
         raise _read_only_conflict(err, dpid)
     except FlowRequestUnusable as err:
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: this endpoint'"'"'s refusals are' \
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: this endpoint'"'"'s refusals are' \
     '        raise _route_write_unsupported(err, dpid)
     except FlowRequestUnusable as err:
-        # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-6: this endpoint'"'"'s refusals are')
+        # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: this endpoint'"'"'s refusals are')
 report "A05: modify on an external control plane is 500 again" "$m" "test_modify_is_409"
 m=$(mutant a06 "$ROUTES" \
     '        detail={"error": "external control plane", "dpid": dpid, "message": str(err)})' \

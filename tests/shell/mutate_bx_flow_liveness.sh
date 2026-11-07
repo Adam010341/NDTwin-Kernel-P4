@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for tests/test_FlowLiveness.cpp and the four liveness cases appended to
-# tests/test_HttpSessionRouting.cpp.  KNOWN-ISSUES B-x.
+# tests/test_HttpSessionRouting.cpp.  FIXED-ISSUES B-x.
 #
 # [Co-developed with claude code -- Adam]
 #

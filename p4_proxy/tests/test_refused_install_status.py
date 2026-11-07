@@ -5,7 +5,7 @@ A refused install is not a 200, and an empty action list on a 5-tuple match is a
 
 Two defects on the one endpoint, POST /stats/flowentry/add:
 
-  * KNOWN-ISSUES C-6. A write the switch refused -- every install from the 897th on, on a full
+  * FIXED-ISSUES C-6. A write the switch refused -- every install from the 897th on, on a full
     bmv2 ipv4_lpm (1024 entries, 128 of them the fabric's own host routes) -- answered
     **200** {"status": "error", "message": "Failed to add route"}. A caller reading the status
     line read it as installed. Now a 502, the code POST /p4/table_entry answers "the switch refused
@@ -13,7 +13,7 @@ Two defects on the one endpoint, POST /stats/flowentry/add:
     are NOT the switch's (no such switch, no destination, actions this plane cannot express) get
     404 / 400 / 501, so a caller is not sent to look at a switch that was never asked.
 
-  * KNOWN-ISSUES A-4g. The kernel's BLOCK_HOST sends `{"eth_type": 2048, "ipv4_src": <host>}`
+  * FIXED-ISSUES A-4g. The kernel's BLOCK_HOST sends `{"eth_type": 2048, "ipv4_src": <host>}`
     with `actions: []` -- OpenFlow's drop. route_flow returned False for any install without an
     OUTPUT action, so the block never reached the switch. On flow_5tuple, whose action list
     includes drop() and which the pipeline applies before ipv4_lpm, it is now a drop entry.

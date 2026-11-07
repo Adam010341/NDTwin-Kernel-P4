@@ -77,13 +77,13 @@ POWER_REPORT_SAMPLE = [
     {"dpid": 106225808380928, "power_consumed": 851152638, "power_path": "none"},
 ]
 
-# --- GET /ndt/get_flow_dispatch_status (KNOWN-ISSUES A-7) -------------------------------------
+# --- GET /ndt/get_flow_dispatch_status (FIXED-ISSUES A-7) -------------------------------------
 # The counters are kept small and self-consistent rather than reproducing the live 262/1/261
 # from the A-7 round: at capacity 256 that run had evicted 5 and was holding a full ring, so an
 # honest transcription would need 256 records in this file. The shape is what the schema checks.
 #
 # [Co-developed with claude code -- Adam]
-# KNOWN-ISSUES A-7b, 2026-09-06: `succeeded`/`failed` are now `dispatched_ok`/`dispatch_failed`, and
+# FIXED-ISSUES A-7b, 2026-09-06: `succeeded`/`failed` are now `dispatched_ok`/`dispatch_failed`, and
 # switch_outcome is the second group. The three switch-side numbers are not filled in at random --
 # they are what THIS body's own failure records imply, so the fixture stays readable as one story:
 # one dispatch succeeded on a plane that confirms nothing (unknown), one failed with the P4
@@ -159,7 +159,7 @@ DISPATCH_STATUS_PRE_W11 = {
 }
 
 # [Co-developed with claude code -- Adam]
-# KNOWN-ISSUES A-7b: GET /ndt/get_flow_dispatch_status?request_id=<id>. `complete` is False here on
+# FIXED-ISSUES A-7b: GET /ndt/get_flow_dispatch_status?request_id=<id>. `complete` is False here on
 # purpose -- 2 of the 3 jobs have come back -- because that is the state the process-wide body
 # cannot express and the one a caller polling for its own result is actually in.
 DISPATCH_STATUS_FOR_REQUEST_SAMPLE = {
@@ -256,7 +256,7 @@ LINK_RECOVERY_INJECTED_SAMPLE = {
 }
 
 # --- doc/2026-01-02_ndt_api.md section 37: GET /ndt/get_openflow_capacity ---------------------
-# [Co-developed with claude code -- Adam] The capacity endpoint (KNOWN-ISSUES C-6's workaround).
+# [Co-developed with claude code -- Adam] The capacity endpoint (FIXED-ISSUES C-6's workaround).
 # Trimmed to the fields the invariants read; the vendor blocks keep their catalogue numbers and
 # say so, and the bmv2 block carries the three figures that have to close. 512 rather than 1024
 # on purpose -- see the note at the fixture.
@@ -502,7 +502,7 @@ FIXTURE_INVARIANT_EXCEPTIONS = {
 
 
 # [Co-developed with claude code -- Adam]
-# KNOWN-ISSUES G-19, 2026-09-11. The 15 READ/MUTATE endpoints no fixture describes, named.
+# 2026-09-11. The 15 READ/MUTATE endpoints no fixture describes, named.
 #
 # The gap itself is not closed here -- most of these need a documented example this repository
 # does not have, and inventing one would put a shape nobody has observed into the file whose
@@ -657,7 +657,7 @@ _GRAPH_EDGE_DOWN = {
     "edges": [{**GRAPH_DATA_SAMPLE["edges"][0], "is_up": False}],
 }
 
-# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES B-6.
+# [Co-developed with claude code -- Adam] -- FIXED-ISSUES B-6.
 # The same edge, down for the one reason the graph states outright: an operator declared it
 # failed. Structurally identical to the graph above -- `down_reason` is the only difference --
 # which is exactly why inv_edges_enabled reported it as a fault until 2026-09-11.
@@ -741,7 +741,7 @@ _DISPATCH_CLEAN_SHUTDOWN_DROP = {
     "counters": {"dispatched": 3, "succeeded": 1, "failed": 2, "dropped_after_stop": 4},
 }
 
-# --- KNOWN-ISSUES A-7b: the switch-side group ---------------------------------------------
+# --- FIXED-ISSUES A-7b: the switch-side group ---------------------------------------------
 # [Co-developed with claude code -- Adam]
 
 #: The group stops partitioning the same jobs -- one dispatch is in no bucket at all, which is
@@ -956,7 +956,7 @@ INVARIANT_CASES = [
     ("dispatcher_is_running: says nothing about a kernel that lacks the field",
      spec.inv_dispatcher_is_running, DISPATCH_STATUS_OLDER_KERNEL, _GOOD_CTX, False),
 
-    # --- KNOWN-ISSUES A-7b: the switch-side group -------------------------------------------
+    # --- FIXED-ISSUES A-7b: the switch-side group -------------------------------------------
     # [Co-developed with claude code -- Adam]
     ("switch_outcome_closes: accepts a group that partitions the dispatches",
      spec.inv_switch_outcome_closes, DISPATCH_STATUS_SAMPLE, _GOOD_CTX, False),

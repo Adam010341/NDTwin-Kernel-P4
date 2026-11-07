@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# KNOWN-ISSUES G-12, measured 2026-09-05 (R6, 1/1, OVS). An app took `graph_lock`, installed a
+# FIXED-ISSUES G-12, measured 2026-09-05 (R6, 1/1, OVS). An app took `graph_lock`, installed a
 # rule on s2 (pri 96) and was killed by pid. Both survived, and:
 #
 #     ndt apps orphans      ok  no untracked app processes        rc 0

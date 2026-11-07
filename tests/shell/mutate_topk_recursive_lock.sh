@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for the KNOWN-ISSUES §E-2 fix: getTopKFlowInfoJson must not recursively acquire
+# Mutation gate for the FIXED-ISSUES §E-2 fix: getTopKFlowInfoJson must not recursively acquire
 # m_flowInfoTableMutex.
 #
 # [Co-developed with claude code -- Adam]

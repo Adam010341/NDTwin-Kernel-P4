@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for tests/test_PhantomFilterCoversOvs.cpp (KNOWN-ISSUES C-4).
+# Mutation gate for tests/test_PhantomFilterCoversOvs.cpp (FIXED-ISSUES C-4).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -289,7 +289,7 @@ mutate "7. an accepted-but-unconfirmed entry is counted as a failure" \
     'if (result.confirmsProgramming) { succeeded_.fetch_add(1, std::memory_order_relaxed); } else { failed_.fetch_add(1, std::memory_order_relaxed); }' \
     'PhantomOvsFixture.TheCountersStillMeanWhatA7SaysTheyMean'
 
-# 8. The view stops saying it is withholding. Silence here is the exact defect KNOWN-ISSUES B-1's
+# 8. The view stops saying it is withholding. Silence here is the exact defect FIXED-ISSUES B-1's
 #    2026-09-02 review recorded as clause 3: the count was computed and dropped.
 mutate "8. the view withholds silently again" \
     "$DEVMGR" \
@@ -353,7 +353,7 @@ widen "W2. the confirmation test written the other way round" \
 widen "W3. the view's line reworded around its two load-bearing fragments" \
     "$DEVMGR" \
     '"flow-table view is withholding {} row(s) from ' \
-    '"KNOWN-ISSUES C-4: flow-table view is withholding {} row(s) from ' \
+    '"FIXED-ISSUES C-4: flow-table view is withholding {} row(s) from ' \
     "same two fragments, extra prose -- a message may be improved without breaking a test"
 
 # W4. post() computes the claim before the return instead of inside it. Identical call, identical

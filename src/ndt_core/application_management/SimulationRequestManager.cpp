@@ -224,7 +224,7 @@ describeCurlNoReply(int status, double elapsedSeconds, int deadlineSeconds, cons
 SimulationRequestManager::Dispatch
 SimulationRequestManager::requestSimulation(const std::string& body)
 {
-    // doc/KNOWN-ISSUES.md B-4. This was an std::ostringstream building a shell command line, with
+    // doc/FIXED-ISSUES.md B-4. This was an std::ostringstream building a shell command line, with
     // `body` between two single quotes and SIM_SERVER_URL between two double quotes, handed to
     // popen(). Both were injection sites and they were not equally obvious: a single quote in the
     // body ended its quoting, but the *double*-quoted URL needed no quote at all, because $(...)
@@ -319,7 +319,7 @@ SimulationRequestManager::onSimulationResult(int appId,
         const std::string& apiUrl = apiUrlOpt.value();
 
         // [Co-developed with claude code -- Adam]
-        // doc/KNOWN-ISSUES.md B-4's second site, and the more dangerous of the two: `apiUrl` is
+        // doc/FIXED-ISSUES.md B-4's second site, and the more dangerous of the two: `apiUrl` is
         // whatever string an application supplied as `simulation_completed_url` when it called
         // POST /ndt/app_register, and it was interpolated into a *double*-quoted shell word. A
         // registered URL of the form `http://x/$(command)` therefore ran a command here without

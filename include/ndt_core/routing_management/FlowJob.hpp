@@ -11,7 +11,7 @@
 
 /**
  * @brief Name of the provenance stamp carried by an optimistically-cached, not-yet-programmed
- *        flow entry. See FlowJob::token and KNOWN-ISSUES T-11.
+ *        flow entry. See FlowJob::token and FIXED-ISSUES T-11.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -64,7 +64,7 @@ struct FlowJob {
      *
      * [Co-developed with claude code -- Adam]
      *
-     * KNOWN-ISSUES T-11. `install_flow_entry` writes the requested rule straight into the table
+     * FIXED-ISSUES T-11. `install_flow_entry` writes the requested rule straight into the table
      * cache on the HTTP thread, before anything has been programmed, so
      * `get_switch_openflow_table_entries` serves it as though it were a table entry. The view
      * must only report entries the southbound has confirmed, and deciding which those are needs
@@ -285,7 +285,7 @@ describeFlowEntryShapeProblem(const nlohmann::json& entry, FlowOp op)
     // An OpenFlow priority is an integer from 0 to 65535. The job builders read it with
     // value("priority", default), which takes `true` as 1, truncates 1.5 and lets 2^32 wrap in an
     // int -- so a priority nobody asked for was queued, and on bmv2 a delete could be refused or
-    // honoured by the proxy depending on which number it had become (KNOWN-ISSUES C-7). Absent
+    // honoured by the proxy depending on which number it had become (FIXED-ISSUES C-7). Absent
     // stays legal: install and modify default to 0, delete to the non-strict route.
     if (entry.contains("priority"))
     {
@@ -341,7 +341,7 @@ describeFlowEntryShapeProblem(const nlohmann::json& entry, FlowOp op)
  * @brief The match fields that send a P4 rule to flow_5tuple instead of ipv4_lpm.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md C-7. The kernel's copy of the P4 proxy's FIVE_TUPLE_ONLY_FIELDS
+ * doc/FIXED-ISSUES.md C-7. The kernel's copy of the P4 proxy's FIVE_TUPLE_ONLY_FIELDS
  * (p4_proxy/proxy_agent/topology_manager.py): every spelling the proxy maps to a flow_5tuple key,
  * minus the destination. A match naming none of them compiles to ipv4_lpm, which has no priority
  * column and one entry per destination. p4_proxy/tests/test_kernel_five_tuple_mirror.py reads
@@ -356,7 +356,7 @@ inline constexpr const char* kP4FiveTupleOnlyMatchFields[] = {
  * @brief Whether a delete entry is one the P4 proxy is known to refuse whatever the switch holds.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md C-7. A strict delete that names a priority, against a match that compiles
+ * doc/FIXED-ISSUES.md C-7. A strict delete that names a priority, against a match that compiles
  * to ipv4_lpm, is refused by the proxy with 501 `priority not honourable on this table`
  * (api_routes._refuse_unhonourable_priority) before it reaches the topology -- and it used to be
  * queued here first, so every caller got 200 "queued" for a delete that could not happen.
@@ -412,7 +412,7 @@ isPriorityDeleteP4CannotHonour(const nlohmann::json& entry)
 /**
  * @brief The deletes of a batch split into those to queue and those refused up front on P4.
  *
- * [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-7.
+ * [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md C-7.
  */
 struct P4DeleteRefusals
 {
@@ -425,7 +425,7 @@ struct P4DeleteRefusals
 /**
  * @brief Take out of @p deletes every entry that is a bmv2 switch's isPriorityDeleteP4CannotHonour.
  *
- * [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-7. Run on the raw entries, before
+ * [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md C-7. Run on the raw entries, before
  * any job is built, so that what is refused is neither queued NOR applied to the flow-table cache
  * (processFlowBatch hands the cache the request body; a delete the switch will never perform must
  * not remove a row from the view either).

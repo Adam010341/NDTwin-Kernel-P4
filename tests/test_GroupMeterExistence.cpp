@@ -1,5 +1,5 @@
 /**
- * doc/KNOWN-ISSUES.md F-13 -- the six group/meter endpoints.
+ * doc/FIXED-ISSUES.md F-13 -- the six group/meter endpoints.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -176,7 +176,7 @@ class ScriptedRyu : public OpenFlowRoutingStrategy
 
   protected:
     /// [Co-developed with claude code -- Adam]
-    /// The seam is executeArgv() since doc/KNOWN-ISSUES.md B-2b removed the shell-string one.
+    /// The seam is executeArgv() since doc/FIXED-ISSUES.md B-2b removed the shell-string one.
     /// `commands` keeps holding a flat string so the request-shape assertions above read
     /// unchanged, but note what it now is: utils::describeArgv's rendering of the vector, for
     /// humans -- not a command line. Nothing here is ever handed back to a shell.
@@ -922,7 +922,7 @@ TEST_F(GroupMeterEndpointTest, EachEndpointKeepsItsOwnSuccessSentenceAndCarriesT
         EXPECT_EQ(body.value("outcome", ""), c.outcome) << c.target;
         // [Co-developed with claude code -- Adam]
         // 2 -> 3 on 2026-09-11, deliberately, and this is the write-up the count exists to
-        // force: doc/KNOWN-ISSUES.md G-32 option C puts `lab_claim` on every northbound write's
+        // force: doc/FIXED-ISSUES.md G-32 option C puts `lab_claim` on every northbound write's
         // reply, these six included. The count stays an assertion rather than being relaxed --
         // its job is to make any change to this reply a decision somebody had to write down --
         // which is the same trade LockEndpointTest.ReleasingAHeldLockSucceeds recorded when
@@ -971,7 +971,7 @@ TEST_F(GroupMeterEndpointTest, AnUnverifiedSuccessSaysSoRatherThanClaimingItWasD
  *
  * [Co-developed with claude code -- Adam]
  * 3 -> 4 on 2026-09-11, and the name stays as it is because it names what the test is FOR. The
- * fourth key is `lab_claim` (doc/KNOWN-ISSUES.md G-32 option C), and THIS reply is the one that
+ * fourth key is `lab_claim` (doc/FIXED-ISSUES.md G-32 option C), and THIS reply is the one that
  * makes the case for putting it on refusals as well as on 200s: a 502 from a controller that
  * never answered is exactly the moment a caller is trying to work out what just happened to the
  * fabric, and "whose lab was I writing to" is half of that answer. The count stays an assertion

@@ -141,7 +141,8 @@ Installing, bringing a lab up, checking it and troubleshooting are in
 - [`doc/2026-11-05_user-guide.md`](doc/2026-11-05_user-guide.md): user guide (install, run and troubleshoot a lab)
 - [`doc/2026-01-02_ndt_api.md`](doc/2026-01-02_ndt_api.md): REST API reference
 - [`doc/2026-10-31_p4-app-guide.md`](doc/2026-10-31_p4-app-guide.md): put your P4 program into NDTwin
-- [`doc/KNOWN-ISSUES.md`](doc/KNOWN-ISSUES.md): known defects and their status
+- [`doc/KNOWN-ISSUES.md`](doc/KNOWN-ISSUES.md): the defects that are open
+- [`doc/FIXED-ISSUES.md`](doc/FIXED-ISSUES.md): the codes of defects that are fixed, were not defects, or were decided against
 - [`CHANGELOG.md`](CHANGELOG.md)
 
 ## Status

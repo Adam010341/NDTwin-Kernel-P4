@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for the KNOWN-ISSUES A-9 fix: a lock lease that runs out must END, visibly, and a
+# Mutation gate for the FIXED-ISSUES A-9 fix: a lock lease that runs out must END, visibly, and a
 # release that arrives after it must be told so rather than answered "released".
 #
 # [Co-developed with claude code -- Adam]
@@ -202,7 +202,7 @@ report "lease ids are reused" \
        "LockLeaseExpiryTest.LeaseIdsAreNeverReusedAcrossAcquiresOrAcrossLocks"
 
 # 6. The opt-in ownership check goes. A caller naming a superseded lease releases the current
-#    holder's lock again -- the sequence KNOWN-ISSUES A-9 and B-2② are both about.
+#    holder's lock again -- the sequence FIXED-ISSUES A-9 and KNOWN-ISSUES B-2② are both about.
 mutate "$LOCK" \
     'if (leaseId != 0 && leaseId != it->second.leaseId) {
             SPDLOG_LOGGER_WARN(Logger::instance(),

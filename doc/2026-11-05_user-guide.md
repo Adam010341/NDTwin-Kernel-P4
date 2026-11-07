@@ -15,7 +15,7 @@ applications against it and take it down again.
 | The REST API the kernel serves on port 8000 | [2026-01-02_ndt_api.md](2026-01-02_ndt_api.md) |
 | Run your own P4 program in the lab | [2026-10-31_p4-app-guide.md](2026-10-31_p4-app-guide.md) |
 | Drive the kernel from Python | [sdk/python/README.md](../sdk/python/README.md) |
-| A known defect (they are cited by entry ID, for example `G-12`) | [KNOWN-ISSUES.md](KNOWN-ISSUES.md), written in Chinese |
+| A known defect (they are cited by entry ID, for example `B-9`) | [KNOWN-ISSUES.md](KNOWN-ISSUES.md) lists the open ones; a message may also name the code of a fixed one, which [FIXED-ISSUES.md](FIXED-ISSUES.md) explains |
 | OpenFlow request examples | the two cookbooks in this directory; their first lines say they are unverified |
 
 The lab is driven by one command, `tools/test_workflow/ndt` (written `ndt` below). Run it from the
@@ -779,6 +779,6 @@ and would remove the other host firewall rules (container networking, VPN) on re
 - `ndt serve` starts a local HTTP API and web page over `up`, `down`, `status`, `claim`, `release`
   and `apps`, on 127.0.0.1 only, for one user; `ndt serve --help` lists its options and
   `tools/ndt_serve/README.md` describes the API.
-- A defect you hit: search [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for the message you saw.
+- A defect you hit: search [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for the message you saw. A message that names a code you cannot find there names a fixed defect: look it up in [FIXED-ISSUES.md](FIXED-ISSUES.md).
 
 [Co-developed with claude code -- Adam]
