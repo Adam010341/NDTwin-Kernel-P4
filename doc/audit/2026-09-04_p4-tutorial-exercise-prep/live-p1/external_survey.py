@@ -7,7 +7,7 @@ field took over them.
 
 [Co-developed with claude code -- Adam]
 
-Round 6 (the round-5 re-review's S-9 and the orchestrator's ruling on it): the split is pre-registered
+The split is pre-registered
 on these rounds, so the rounds themselves are pinned -- a file that is gone or whose bytes changed
 refuses the survey, and so does a round with any trace of the heartbeat (the detect-only start
 line, a heartbeat block on switch_state, a running row): such a round would not be a control.

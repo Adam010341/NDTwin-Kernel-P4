@@ -1,5 +1,5 @@
 // [Co-developed with claude code -- Adam]
-// ndt serve's page, v2 (Adam's 8 points and rulings R1-R3, 09-27; SCOPE-v2). The root component:
+// ndt serve's page, v2 (09-27). The root component:
 // it owns the session, the server's /meta, what the auto-refresh read, the confirm dialog's request,
 // the open job and the open walk. It changes no global state but <body>'s test hooks (testhooks.ts).
 //

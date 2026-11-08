@@ -20,7 +20,7 @@
 #     CONTROL  1 question(s) not answerable, rc 5,  -> CLEAN, with a NOTE
 #              everything else clean
 #
-# and, added 2026-09-11 (R5-ORPHANS-RC-2), the three cells for a report taken AFTER `ndt down`:
+# and, added 2026-09-11, the three cells for a report taken AFTER `ndt down`:
 #
 #     KERNEL DOWN, clean processes    -> CLEAN, with `NOTE: network half not checkable: kernel down`
 #     KERNEL DOWN, a process running  -> NOT CLEAN (the half that COULD be read still decides)
@@ -169,15 +169,15 @@ EOF
 
 # 🔴 C10-8 (2026-09-12). The column `ndt` prints for processes that carry an app signature and belong
 # to ANOTHER checkout on this machine. Copied from a run of `ndt apps orphans` over two fixtures in
-# a foreign tree, with the paths shortened. The process half of the report is CLEAN: these lines
+# a foreign tree, with the paths replaced. The process half of the report is CLEAN: these lines
 # carry neither of the two sentences it is read from, which is what makes the column a NOTE rather
 # than a verdict.
 mk elsewhere_only <<'EOF'
   !!  seen elsewhere (not this checkout): 2 process(es)
   !!      te  pid 1159780  python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py
-  !!          nothing ties it to /home/adam/Desktop/NDTwin-Kernel (it runs in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt7-0912)
+  !!          nothing ties it to /srv/ndtwin/main (it runs in /srv/ndtwin/wt-a)
   !!      sim  pid 1166836  /nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager 120
-  !!          nothing ties it to /home/adam/Desktop/NDTwin-Kernel (it runs in /tmp/ndt-helper-window-oyNBmC)
+  !!          nothing ties it to /srv/ndtwin/main (it runs in /tmp/ndt-helper-window-oyNBmC)
   !!      they carry an app signature and nothing ties them to this checkout, so they are
   !!      NOT in the verdict and 'ndt down' here does not stop them. Whoever owns that
   !!      tree stops them. (C10-8, 2026-09-12)
@@ -195,7 +195,7 @@ EOF
 mk elsewhere_and_ours <<'EOF'
   !!  seen elsewhere (not this checkout): 1 process(es)
   !!      sim  pid 1166836  /nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager 120
-  !!          nothing ties it to /home/adam/Desktop/NDTwin-Kernel (it runs in /tmp/ndt-helper-window-oyNBmC)
+  !!          nothing ties it to /srv/ndtwin/main (it runs in /tmp/ndt-helper-window-oyNBmC)
   !!      they carry an app signature and nothing ties them to this checkout, so they are
   !!      NOT in the verdict and 'ndt down' here does not stop them. Whoever owns that
   !!      tree stops them. (C10-8, 2026-09-12)
@@ -322,7 +322,7 @@ EOF
 # 🔴 Until 2026-09-11 this fixture held the kernel-down text now in `kernel_down` above, so the
 # one cell in this file that pinned "an unreadable report is UNUSABLE" was pinned by a report that
 # `ndt` had in fact explained. The negative control has to be the case with no explanation in it,
-# or the two cannot be told apart -- which is the bug R5-ORPHANS-RC-2 fixes.
+# or the two cannot be told apart -- which is the bug that was fixed.
 mk no_tally <<'EOF'
   ok  no untracked app processes
 
@@ -610,7 +610,7 @@ has   "  network=0/1/0"                                   "network=0/1/0" "$OUT"
 has   "  and says a lock heals at its TTL"                "a lock frees itself at its TTL" "$OUT"
 
 # =================================================================================================
-section "A blind liveness channel is NOT a pass (E-7)"
+section "A blind liveness channel is NOT a pass"
 # =================================================================================================
 OUT="$(verdict "$FIX/blind_channel" 2)"
 check "  rc 1"                                            "1"  "$(rc_of "$OUT")"
@@ -619,7 +619,7 @@ has   "  and the verdict says which of the two it was"    "a liveness channel wa
 hasnt "  🔴 and it is not reported as a running orphan"   "processes=running" "$OUT"
 
 # =================================================================================================
-section "Undated rules are a NOTE -- every P4 fabric, every run (W16-3)"
+section "Undated rules are a NOTE -- every P4 fabric, every run"
 # =================================================================================================
 OUT="$(verdict "$FIX/p4_undated" 5)"
 check "  🔴 rc 0 -- a P4 fabric must be able to pass"     "0"  "$(rc_of "$OUT")"
@@ -832,7 +832,7 @@ OUT="$(verdict "$FIX/clean" 0)"
 hasnt "  🔴 a report with no such line gets no field"     "elsewhere=" "$OUT"
 OUT="$(verdict "$FIX/attrib_blind" 5)"
 check "  a pid nobody could attribute -> still rc 0"      "0" "$(rc_of "$OUT")"
-has   "  🔴 and the sentence is carried (E-7)"            "who owns these could NOT be established" "$OUT"
+has   "  🔴 and the sentence is carried"            "who owns these could NOT be established" "$OUT"
 
 # =================================================================================================
 section "An unreadable report is UNUSABLE, never CLEAN"

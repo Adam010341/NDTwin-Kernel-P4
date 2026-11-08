@@ -3,7 +3,7 @@
 /* -*- P4_16 -*- */
 /*
  * The tutorials `basic` SOLUTION with NDTwin's cooperative telemetry included, and nothing
- * else changed. TICKET-P3 2.6.
+ * else changed.
  *
  * [Co-developed with claude code -- Adam]
  *

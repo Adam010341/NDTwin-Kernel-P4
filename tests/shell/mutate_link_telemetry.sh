@@ -169,7 +169,7 @@ run_against "$base" | /usr/bin/grep -E '^(Ran |OK|FAILED)'
 run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
 echo
 
-# --- section 2.2: which port, which direction ------------------------------------------------
+# --- which port, which direction -------------------------------------------------------------
 
 # The kernel credits a link from the RECEIVING switch's ingress samples, so an egress filter on
 # an inter-switch port double-counts that cable. The one direction with no receiving switch is
@@ -197,7 +197,7 @@ m=$(mutant m_b3 "$LINKTEL" \
 report "M-B3: the namespace check is gone, so a silent fabric passes bring-up" "$m" \
        "test_a_switch_in_its_own_namespace_is_refused"
 
-# --- section 2.5: the emitter's life ---------------------------------------------------------
+# --- the emitter's life ----------------------------------------------------------------------
 
 # The filters are ON. The kernel is sampling one packet in 256 off every switch veth and
 # multicasting it to a group nobody joined; every other line of the bring-up reads success.
@@ -227,7 +227,7 @@ m=$(mutant m_b11b "$LINKTEL" \
 report "M-B11b: teardown stops the emitter but never detaches" "$m" \
        "test_it_stops_the_pid_the_manifest_names_and_detaches_every_interface"
 
-# --- section 2.1: the three layers of the knob -----------------------------------------------
+# --- the three layers of the knob ------------------------------------------------------------
 
 m=$(mutant m_b5 "$PKG" \
     '    if knob is not None and knob != TELEMETRY_AUTO:' \
@@ -244,7 +244,7 @@ m=$(mutant m_b6 "$PKG" \
 report "M-B6: auto answers cooperative for a foreign pipeline, which measures nothing" "$m" \
        "test_auto_sends_a_foreign_pipeline_down_the_link_path"
 
-# --- section 2.4: G2-C -----------------------------------------------------------------------
+# --- link shaping ----------------------------------------------------------------------------
 
 # TCLink puts an htb qdisc on every interface it builds and a netem behind it. Every reading ever
 # taken on this fabric was taken without them.
@@ -262,7 +262,7 @@ m=$(mutant m_b8 "$PKG" \
 report "M-B8: bandwidth reaches Mininet in bits per second, so no bottleneck is built" "$m" \
        "test_a_bottleneck_is_reported_in_megabit_with_its_endpoints"
 
-# --- section 2.2: the sample the emitter synthesises -----------------------------------------
+# --- the sample the emitter synthesises ------------------------------------------------------
 
 # The kernel banks a sample with inputPort 0 and a non-zero outputPort as egress-only and credits
 # it to the switch->host edge. A port number here books the same bytes against host->switch.

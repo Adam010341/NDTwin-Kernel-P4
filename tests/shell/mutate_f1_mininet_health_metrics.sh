@@ -388,7 +388,7 @@ mutate_may_survive \
         }
 
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #85, the third of the three the comment above predicted would "still fault one
+        // The third of the three the comment above predicted would "still fault one
         // branch later". See managementIpForReport in the header.
         const auto ipOpt = managementIpForReport(vp);' \
     '        const auto ipOpt = managementIpForReport(vp);

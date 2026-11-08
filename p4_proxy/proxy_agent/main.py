@@ -343,7 +343,7 @@ def route_binding_for(package, dpid, p4info, base_dir=None):
 # links and does not install routes -- every one of which is a thing the twin normally reports
 # on. A switch with no telemetry reports zero samples; a fabric with no LLDP reports no links; a
 # fabric with no routes reports empty paths. All three of those look EXACTLY like a fault, which
-# is GAP-ANALYSIS section 5's "reports zero rather than reporting an error". So each skipped step
+# is the defect of "reporting zero rather than reporting an error". So each skipped step
 # is named here, returned by startup(), and served on `GET /p4/switch_state`.
 #
 # 🔴 THE NAMES LIVE HERE, ABOVE THE PIPELINE SECTION, because the per-switch disclosure below
@@ -1531,7 +1531,7 @@ def reroute_report():
 #: Served verbatim on switch_state. Measured numbers, not a claim about any other program: a
 #: pipeline outside these 26 arms has not been looked at. [Co-developed with claude code -- Adam]
 HEARTBEAT_CENSUS = {
-    "measured": "2026-09-26, TICKET-P4-heartbeat segment S (census part)",
+    "measured": "2026-09-26, side-effect census of the heartbeat over the tutorial exercises",
     "raw": "doc/audit/2026-09-25_p4-heartbeat/spike/runs/2026-09-26T052148Z_S_heartbeat/"
            "40_census.tsv",
     "arms": 26,
@@ -1543,7 +1543,7 @@ HEARTBEAT_CENSUS = {
                "ran, no host received a heartbeat frame, and the daemon counted none leaving a "
                "host-facing port and none forwarded to another switch. calc and multicast are "
                "one switch (no inter-switch link, nothing sent); basic_tunnel and flowcache "
-               "skeletons do not build. Segment S's census started the heartbeat by hand (the "
+               "skeletons do not build. The census started the heartbeat by hand (the "
                "helper, not ndt) on all 20. Since 2026-09-27 `ndt up p4 --app` is EXPECTED to "
                "start it on all 20 too -- on the 3 external control planes among them (p4runtime "
                "skeleton and solution, flowcache solution) detect only, and since 2026-09-28 only "
@@ -1558,7 +1558,7 @@ HEARTBEAT_CENSUS = {
                "egress_spec stays 0 -- that no port 0 exists is inferred from bmv2), and the drop "
                "check agrees on a throwaway bmv2 with each program loaded and no controller "
                "(flowcache drops it at ingress; advanced_tunnel sends it to port 0, which no "
-               "switch of the fabric has). Segment S's census ran them with no controller: each "
+               "switch of the fabric has). The census ran them with no controller: each "
                "switch ran the package's compiled program (the daemon's report names "
                "advanced_tunnel.json or flowcache.json for every switch) with no table entry, "
                "every direction heard all 5 frames sent and no host saw one -- the programs' "
@@ -2016,7 +2016,7 @@ def _readopt_switch_locked(topology, dpid, client_factory, sample_callback, pack
         "(the refill names NDTwin's own tables). Its forwarding is the package's table entries "
         "below. Whether it also has a clone session is in `clone_session`: a package program "
         "that includes p4_proxy/p4_src/ndtwin_telemetry.p4 and asks for cooperative telemetry "
-        "gets one (TICKET-P3 section 9 ruling 4).")
+        "gets one.")
 
     # The pipeline push inside readopt emptied the switch. Whatever the package declared for it
     # is gone with everything else, so it goes back on -- and the counts are re-recorded, not
@@ -2674,12 +2674,12 @@ async def startup(clients_factory, sflow, kernel, topo,
                         f"controller header: this proxy will not {steps} on ANY switch of this "
                         f"fabric. ")
         read_only = True
-        # 🔴 TICKET-P4-roles 2.3-1/2: the links come from the package's topology instead of
+        # 🔴 The links come from the package's topology instead of
         # LLDP, through the same add_link LLDP uses -- and NOTHING is sent to the kernel's
         # link_recovery_detected / link_failure_detected. A declaration says "this cable exists",
         # not "this cable just came back"; see TopologyManager.seed_declared_links.
-        # 🔴 `declared_links` is the MODE, set whatever the seed managed (section 7 ruling 5,
-        # item 8); the seed's own outcome is `declared_links_seed`, served at fabric level.
+        # 🔴 `declared_links` is the MODE, set whatever the seed managed;
+        # the seed's own outcome is `declared_links_seed`, served at fabric level.
         seeded, seed_error = _seed_declared_links(topo, package)
         _fabric.update(lldp=False, watchdog=False, declared_links=True,
                        declared_links_seed={"directions": seeded, "error": seed_error})

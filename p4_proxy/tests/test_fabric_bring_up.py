@@ -1625,7 +1625,7 @@ class PlanFabricRefusesBeforeAnythingIsTornDownTest(FabricFixture):
 
     @needs_compiled_baseline
     def test_the_plan_says_which_package_and_which_model_it_chose(self):
-        # FINDING-01: a round that ran the wrong tree's topology for hours with no line of
+        # A round that ran the wrong tree's topology for hours with no line of
         # output that could have caught it. Both mains print these two now; the bridge did not.
         _plan, said = self.plan()
         self.assertTrue(any(line.startswith("app package: ") for line in said), said)
@@ -1675,7 +1675,7 @@ class TheMininetConstructorTest(FabricFixture):
 
     @needs_compiled_baseline
     def test_the_baseline_is_the_constructor_call_this_fabric_has_always_made(self):
-        # 🔴 EQUAL, not "contains". The claim G2-C has to keep is that a fabric nobody asked to
+        # 🔴 EQUAL, not "contains". The claim link shaping has to keep is that a fabric nobody asked to
         # shape is built exactly as before, and `assertIn` would pass with `link=TCLink` beside
         # the other three. Written from the literal in build_net's own first branch.
         kwargs = self.build(None)
@@ -2049,7 +2049,7 @@ class _OsWithKill:
 
 @needs_compiled_baseline
 class AnEmitterThatDiedIsFatalTest(FabricFixture):
-    """Section 2.5: not a warning. The filters are on and nothing is listening."""
+    """Not a warning. The filters are on and nothing is listening."""
 
     def setUp(self):
         super().setUp()

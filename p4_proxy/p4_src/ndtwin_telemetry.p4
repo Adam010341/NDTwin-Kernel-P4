@@ -1,7 +1,7 @@
 /* -*- P4_16 -*- */
 /*
  * ndtwin_telemetry.p4 -- the cooperative telemetry path, as an include for somebody else's
- * program. TICKET-P3 2.6 ("telemetry A").
+ * program.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -18,9 +18,9 @@
  * the same header layout, the same session, the same rate, the same truncation, extracted so it
  * can be included.
  *
- * 🔴 ndtwin_switch.p4 IS NOT CHANGED, and does not include this file. TICKET-P3 0.7 forbids it
- * (the compiled artefacts under p4_src/build/ are the fabric's baseline and a recompile would
- * move every sha in flight), so the two copies are deliberate duplication for now, with
+ * 🔴 ndtwin_switch.p4 IS NOT CHANGED, and does not include this file: the compiled artefacts
+ * under p4_src/build/ are the fabric's baseline and a recompile would
+ * move every sha in flight, so the two copies are deliberate duplication for now, with
  * tools/p4_exercise/tests/test_telemetry_include.py asserting that the field names and widths
  * this file declares are the ones ndtwin_switch.p4 declares. When the duplication is collapsed,
  * that test is what says the collapse changed nothing.

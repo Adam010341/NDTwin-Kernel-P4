@@ -491,7 +491,7 @@ TEST(P4PowerStrategyTest, PowerOnActsPastTheWindowWhileThePowerOffStandsUnwithdr
     EXPECT_TRUE(result.ok) << result.message;
     EXPECT_TRUE(p4.ran("ndtwin-p4-power on s1"))
         << "believed a graph that says up about a switch this strategy stopped and nobody has "
-           "asked it to start; that is FINDINGS #36 -- 200 Success, no command, dead switch";
+           "asked it to start; that is the defect -- 200 Success, no command, dead switch";
     EXPECT_TRUE(p4.ran("/p4/readopt/7")) << "started the process but never re-adopted it";
     EXPECT_TRUE(fix.isUp());
 }

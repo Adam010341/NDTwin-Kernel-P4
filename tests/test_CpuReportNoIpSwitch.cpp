@@ -250,11 +250,11 @@ class NoIpSwitchTest : public ::testing::Test
     std::size_t vertexCount() const { return boost::num_vertices(*m_graph); }
 
     // -----------------------------------------------------------------------------------------
-    // FINDINGS #88 builders. [Co-developed with claude code -- Adam]
+    // Builders. [Co-developed with claude code -- Adam]
     //
-    // #85 only ever needed switch vertices, because the load-time gate
-    // (TopologyAndFlowMonitor.cpp:654-670) covers SWITCH vertices and the #85 sites all sat
-    // behind a vertexType == SWITCH test. #88's two reachable groups are precisely the ones that
+    // The empty-address switch case only ever needed switch vertices, because the load-time gate
+    // (TopologyAndFlowMonitor.cpp:654-670) covers SWITCH vertices and its sites all sat
+    // behind a vertexType == SWITCH test. The host and edge cases' two reachable groups are precisely the ones that
     // gate does NOT cover -- HOST vertices, and edge endpoints -- so this fixture needs to build
     // both, which it could not before.
     // -----------------------------------------------------------------------------------------
@@ -342,7 +342,7 @@ class NoIpSwitchTest : public ::testing::Test
 } // namespace
 
 // ---------------------------------------------------------------------------------------------
-// 1. Reachability. This is the test that decides whether #85 is a live crash or a latent one.
+// 1. Reachability. This is the test that decides whether an empty-address switch vertex is a live crash or a latent one.
 // ---------------------------------------------------------------------------------------------
 
 TEST_F(NoIpSwitchTest, UpdateSwitchesInventsNoVertexForADpidTheTopologyDoesNotDeclare)
@@ -360,9 +360,9 @@ TEST_F(NoIpSwitchTest, UpdateSwitchesInventsNoVertexForADpidTheTopologyDoesNotDe
 
     EXPECT_EQ(vertexCount(), 1u)
         << "updateSwitches created a vertex for a dpid the static topology does not declare. That "
-           "is the mechanism FINDINGS #85 suspected: such a vertex would carry no address (the "
+           "is the mechanism suspected earlier: such a vertex would carry no address (the "
            "reply has none to give it), and the status worker's reports would then fault on "
-           "ip.front(). If this ever goes red, #85 is a live remote crash again and the fix in "
+           "ip.front(). If this ever goes red, that crash is live again and the fix in "
            "DeviceConfigurationAndPowerManager is the only thing standing in front of it.";
 
     EXPECT_NE(log.text().find("not found in static network topology file"), std::string::npos)
@@ -571,9 +571,9 @@ TEST_F(NoIpSwitchTest, MininetPowerStillReportsARealFigureForAnAddresslessSwitch
 //
 // [Co-developed with claude code -- Adam]
 //
-// #85 was one call site behind a `vertexType == SWITCH` test, and the load-time gate at
+// The empty-address switch case was one call site behind a `vertexType == SWITCH` test, and the load-time gate at
 // TopologyAndFlowMonitor.cpp:654-670 -- which that gate's own comment says ten call sites lean on
-// -- made it unreachable in production. #88 is the rest of the family, and the gate's condition
+// -- made it unreachable in production. The host and edge cases are the rest of the family, and the gate's condition
 // is narrower than the set of callers that depend on it in two specific ways:
 //
 //   * it tests `vp.vertexType == VertexType::SWITCH`, so a HOST vertex with an empty "ip" array
@@ -611,7 +611,7 @@ TEST_F(NoIpSwitchTest, AnAddresslessSwitchDoesNotMatchEveryIpLookup)
 
 TEST_F(NoIpSwitchTest, AnAddresslessHostDoesNotEndTheTopKReport)
 {
-    // 🔴 The main test for #88. A switch-to-host link where the host carries no address, plus a
+    // 🔴 The main test for the host case. A switch-to-host link where the host carries no address, plus a
     // switch-to-switch link that is entirely well formed. The report must come back, must rank
     // the good link, and must SAY that it dropped one.
     const auto s1 = addSwitchVertex("10.0.0.1", 1);
@@ -645,7 +645,7 @@ TEST_F(NoIpSwitchTest, ALinkWithAddressesOnBothEndsStillRanks)
 {
     // The control for over-guarding. If the guard is hoisted so that any address-less vertex
     // anywhere empties the whole report, nothing crashes and nothing is undefined -- and the
-    // endpoint quietly stops answering. That is the M9 shape from the #85 gate, restated here.
+    // endpoint quietly stops answering. That is the M9 shape from the empty-address-switch gate, restated here.
     const auto s1 = addSwitchVertex("10.0.0.1", 1);
     const auto s2 = addSwitchVertex("10.0.0.2", 2);
     const auto h1 = addHostVertex("");

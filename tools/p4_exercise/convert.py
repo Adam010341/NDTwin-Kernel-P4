@@ -27,7 +27,7 @@ them against the *current working directory*, which for `make run` is the exerci
 `<package_dir>/build/basic.p4.p4info.txtpb` and those interior paths resolve unchanged with the
 package directory as the new root -- so the runtime files are byte-identical copies rather than
 rewritten ones, and the package does not depend on ~/tutorials still being there. It also makes
-the two path conventions in §1 (paths relative to package_dir; example values that are
+the two path conventions (paths relative to package_dir; example values that are
 exercise-relative, e.g. "pod-topo/s1-runtime.json") the same string.
 
 What it deliberately does NOT do:
@@ -39,7 +39,7 @@ What it deliberately does NOT do:
     `--ndtwin-pipeline` -- every switch is `null`, which the reader turns into NDTwin's own
     artefact.
   * It does not apply link shaping. tutorials' optional latency/bandwidth elements are
-    recorded on the package's `links` and nothing acts on them yet (G2-C, stage three).
+    recorded on the package's `links`; the fabric applies them (app_package.shaped_links).
   * It does not guess a prefix length. A tutorials host address without one is refused -- an
     assumed /24 is exactly the silent default that makes a wrong fabric look built.
 """
@@ -729,7 +729,7 @@ def _package_link(a, b, latency, bandwidth):
     # ecn's and mri's `["s1-p3", "s2-p3", "0", 0.5]` asks for exactly the delay pod-topo's
     # `["h1", "s1-p1"]` asks for -- none. Recording `delay_ms: 0.0` for one and nothing for the
     # other would make two packages that describe the same shaping look different, and would
-    # hand a later link-shaping stage a netem qdisc to install for no delay.
+    # hand the fabric a netem qdisc to install for no delay.
     if latency:
         entry["delay_ms"] = latency
     return entry

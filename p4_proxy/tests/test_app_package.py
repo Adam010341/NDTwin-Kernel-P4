@@ -717,7 +717,7 @@ class OptionalFormatFieldsTest(unittest.TestCase):
         return app_package.load(lay_out_converter_package(self.tmp, manifest, name))
 
     def test_a_link_delay_is_carried_verbatim_and_applied_by_nobody(self):
-        # Phase 1 does no shaping at all (G2-C is phase 3). Carried so `ndt status` and the
+        # Kept verbatim on the package; shaped_links() is what applies it (ShapedLinksTest). Carried so `ndt status` and the
         # converter's round-trip can show what the exercise declared. Asserted on a manifest
         # built for it rather than by editing a copy of a real package: that is how the first
         # version of this suite came to claim a delay that was in neither artefact.
@@ -1301,7 +1301,7 @@ class TelemetrySourceTest(unittest.TestCase):
         self.assertIn("'telemetry' must be an object", str(ctx.exception))
 
     def test_the_field_is_additive_and_the_format_number_does_not_move(self):
-        # Section 2.1: `format` stays 1, because a reader that does not know this key still
+        # `format` stays 1, because a reader that does not know this key still
         # reads every other key correctly.
         self.assertEqual(app_package.FORMAT, 1)
         self.assertEqual(self.package("link", name="still_one").telemetry_source, "link")
@@ -1425,7 +1425,7 @@ class ShapedLinksTest(unittest.TestCase):
 
     def test_a_bottleneck_is_reported_in_megabit_with_its_endpoints(self):
         # ecn's and mri's `["s1-p3", "s2-p3", "0", 0.5]` -- 500000 bps, which is the whole
-        # point of both exercises and reads as zero queue depth without G2-C.
+        # point of both exercises and reads as zero queue depth without link shaping.
         package = self.load(lambda links: links[2].__setitem__("bandwidth_bps", 500000),
                             "bottleneck")
         self.assertEqual(app_package.shaped_links(package),

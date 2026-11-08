@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // [Co-developed with claude code -- Adam]
 //
-// TICKET-P4-roles section 2.2-6: a destination-route table in which EVERY name differs from
+// A destination-route table in which EVERY name differs from
 // ndtwin_switch.p4's. tutorials' `basic` declares MyIngress.ipv4_lpm / hdr.ipv4.dstAddr /
 // MyIngress.ipv4_forward(dstAddr, port) -- character for character NDTwin's own five names --
 // so a test run only on basic cannot tell code that reads the binding from code that still

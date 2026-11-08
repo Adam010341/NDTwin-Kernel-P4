@@ -940,7 +940,7 @@ TEST(TopologyInputValidationTest, FromJsonHasNoProductionCallers)
     }
     EXPECT_TRUE(callers.empty())
         << "from_json now has " << callers.size()
-        << " production caller(s), so door 1 of FINDINGS #89 is live and the unguarded extraction "
+        << " production caller(s), so door 1 is live and the unguarded extraction "
            "path is reachable from the kernel. Decide it rather than inheriting it:"
         << found;
 }

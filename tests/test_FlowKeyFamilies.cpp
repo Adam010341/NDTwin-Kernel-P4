@@ -11,7 +11,7 @@
 //   2. THE LINK IT CROSSED READ ZERO. The byte counter that becomes `link_bandwidth_usage_bps`
 //      was incremented inside that same discarded block, so a link carrying nothing but
 //      source-routed frames reported an idle link -- which is indistinguishable, to every
-//      consumer, from a link that really is idle. PLAN §8.3's first claim is that link
+//      consumer, from a link that really is idle. The design claim is that link
 //      utilisation is a property of the link and not of the application; this is the file where
 //      that claim is executable.
 //
@@ -248,7 +248,7 @@ class FlowKeyFamiliesTest : public ::testing::Test
 
 TEST_F(FlowKeyFamiliesTest, Ipv4KeyHashIsBitIdenticalToThePreFamilyExpression)
 {
-    // §2.3. FlowKey gained six members; FlowKeyHash must still return, for an IPv4 key, the exact
+    // FlowKey gained six members; FlowKeyHash must still return, for an IPv4 key, the exact
     // integer it returned before they existed. Not a tidiness point: the flow table is an
     // unordered_map keyed by this hash and the edge flow sets are too, so a changed hash silently
     // re-buckets every stored key -- and a stored key that hashes elsewhere is a leak, not an
@@ -341,7 +341,7 @@ TEST_F(FlowKeyFamiliesTest, AnIpv4SampleIsStillAnIpv4FlowWithTheSameFiveTuple)
 }
 
 // =================================================================================================
-// §2.2 third rule: the bytes are banked before anything asks what the frame was
+// Third rule: the bytes are banked before anything asks what the frame was
 // =================================================================================================
 
 TEST_F(FlowKeyFamiliesTest, AnArpSampleBanksItsLinkBytesAndIsObservedAsL2)
@@ -377,7 +377,7 @@ TEST_F(FlowKeyFamiliesTest, AnArpSampleBanksItsLinkBytesAndIsObservedAsL2)
 TEST_F(FlowKeyFamiliesTest, ACustomEtherTypeSampleBanksItsLinkBytesAndIsObservedAsL2)
 {
     // 0x1234 is the source-routing exercise's own ethertype: no IP header anywhere in the frame.
-    // This is the shape the generic link-usage cell (§2.7) runs over, so it is the one that has
+    // This is the shape the generic link-usage cell runs over, so it is the one that has
     // to bank bytes without an L3 identity.
     feed("emitted_custom_0x1234.bin");
 
@@ -419,7 +419,7 @@ TEST_F(FlowKeyFamiliesTest, AnIpv6UdpSampleIsObservedWithItsAddressesAndPorts)
 }
 
 // =================================================================================================
-// §2.3: ihl and VLAN -- the two things that move the L4 offset
+// ihl and VLAN -- the two things that move the L4 offset
 // =================================================================================================
 
 TEST_F(FlowKeyFamiliesTest, Ipv4OptionsMoveThePortsAndTheParserFollowsThem)
@@ -496,7 +496,7 @@ TEST_F(FlowKeyFamiliesTest, AnIhlBelowFiveIsCountedAndRecordedAsNoFlowButStillBa
 }
 
 // =================================================================================================
-// §2.2 second rule: which bank an egress-only sample lands in
+// Second rule: which bank an egress-only sample lands in
 // =================================================================================================
 
 TEST_F(FlowKeyFamiliesTest, AnEgressOnlySampleCreditsTheEgressBankAndOnlyThat)
@@ -514,7 +514,7 @@ TEST_F(FlowKeyFamiliesTest, AnEgressOnlySampleCreditsTheEgressBankAndOnlyThat)
 
 TEST_F(FlowKeyFamiliesTest, TheTwoHalvesOfADualPortSampleAreTheTwoOneSidedSamples)
 {
-    // §2.2: "the two added together equal the effect of one of today's dual-port samples". Stated
+    // The rule: "the two added together equal the effect of one of today's dual-port samples". Stated
     // as an equality between three collectors rather than as three separate absolute numbers,
     // because the interesting failure -- a sample counted on both sides, or on neither -- keeps
     // every individual number plausible.
@@ -1150,8 +1150,8 @@ TEST_F(FlowKeyFamiliesTest, AnIcmpv6SampleCarriesItsTypeAndItsWholeCodeInThePort
 
 TEST_F(FlowKeyFamiliesTest, AnIpv4SampleOfAnotherProtocolBanksItsBytesAndIsCountedWithoutBeingAFlow)
 {
-    // OSPF and IGMP: IPv4 frames with no five-tuple. §2.2's rule is that the link bytes are
-    // recorded for every well-formed sample, and §2.3's is that the flow table stays TCP/UDP/ICMP
+    // OSPF and IGMP: IPv4 frames with no five-tuple. one rule is that the link bytes are
+    // recorded for every well-formed sample, and another is that the flow table stays TCP/UDP/ICMP
     // -- so these three assertions have to hold together, which is the combination once said
     // only in prose ("non-IPv4 also banks") and left untested.
     const std::vector<SampleSpec> samples{
@@ -1175,9 +1175,9 @@ TEST_F(FlowKeyFamiliesTest, AnIpv4SampleOfAnotherProtocolBanksItsBytesAndIsCount
         << "both are IPv4 frames and samples_by_family counts frames, not flows";
     EXPECT_EQ(m_collector->ingestHealthJson().at("addressed_total").get<uint64_t>(), 2u)
         << "telemetry_health.addressed_total is now every flow sample. That outward calibre "
-           "change is accepted in doc/audit/2026-09-04_p4-tutorial-exercise-prep/"
-           "TICKET-P3-observation.md section 9, ruling 8 item 4; E reconciles sampling error "
-           "against this number";
+           "change is deliberate; a sampling-error "
+           "reconciliation reads "
+           "this number";
 }
 
 TEST_F(FlowKeyFamiliesTest, AnHpeIcmpSampleCarriesTheRealIcmpTypeRatherThanAConstantZero)

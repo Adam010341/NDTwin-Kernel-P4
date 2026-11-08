@@ -9,7 +9,7 @@
 std::shared_ptr<spdlog::logger> Logger::m_logger = nullptr;
 
 // [Co-developed with claude code -- Adam]
-// FINDINGS #63, second instance of the same shape as --logfile. This used to be a try/catch
+// Second instance of the same shape as --logfile. This used to be a try/catch
 // around spdlog::level::from_str, and the catch was UNREACHABLE: from_str is declared
 // SPDLOG_NOEXCEPT and answers `level::off` for every name it does not recognise
 // (libs/spdlog/common-inl.h, spdlog 1.15.2). So `--loglevel inf` did not fail and did not fall
@@ -100,7 +100,7 @@ known_option_names(const std::vector<CliFlag>& also_known)
 }
 
 // [Co-developed with claude code -- Adam]
-// FINDINGS #70. See include/utils/Logger.hpp for why this is one pass over the union of both
+// See include/utils/Logger.hpp for why this is one pass over the union of both
 // parsers' tables rather than a check inside each parser.
 const std::vector<CliFlag>&
 Logger::logging_flags()

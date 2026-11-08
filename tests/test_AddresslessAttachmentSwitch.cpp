@@ -1,17 +1,17 @@
 /**
- * FINDINGS #88, W18: the eighth `ip[0]`, in TopologyAndFlowMonitor::updateHosts.
+ * The eighth `ip[0]`, in TopologyAndFlowMonitor::updateHosts.
  *
  * [Co-developed with claude code -- Adam]
  *
- * W2 (#88) guarded sixteen `ip.front()` dereferences and its own grep turned up seven more spelled
- * `ip[0]`; W14 guarded those seven and its rescan turned up one more, in the file W2 had spent the
+ * The first change guarded sixteen `ip.front()` dereferences and its own grep turned up seven more
+ * spelled `ip[0]`; the second guarded those seven and its rescan turned up one more, in the file the first had spent the
  * most time in:
  *
  *     TopologyAndFlowMonitor.cpp   updateHosts, the attachment switch   SWITCH
  *
  *         auto edgeRevOpt = findEdgeBySrcAndDstIp((*m_graph)[*vertexOpt2].ip[0], ip);
  *
- * It is not new. `git show f0687b34` -- W2's own base -- already has the line. The inventory that
+ * It is not new. `git show f0687b34` -- the first change's own base -- already has the line. The inventory that
  * called the total sixteen, and then the one that called it twenty-three, both walked past it, so
  * the correct number is TWENTY-FOUR.
  *
@@ -22,7 +22,7 @@
  * WHAT THIS SITE READS, AND WHY IT IS PINNED ANYWAY
  *
  * `vertexOpt2` comes from findSwitchByDpid, so it is always a SWITCH -- the same reachability class
- * as W14's sites 1, 2, 6 and 7, and NOT the class its five HOST sites were in. Every SWITCH vertex
+ * as rows 1 and 2 of test_AddresslessNodeReplies.cpp's table, and NOT the class its five HOST sites (rows 3-7) were in. Every SWITCH vertex
  * comes from loadStaticTopologyFromFile, and both the pre-validation pass and the builder's
  * backstop refuse a SWITCH whose "ip" array is empty (TopologyAndFlowMonitor.cpp, "has an empty
  * \"ip\" array"); updateSwitches creates no vertex for a dpid it has not seen. So no production
@@ -31,15 +31,15 @@
  *
  * That is the reason to fix it, not a reason to skip it: the invariant is one `if` in another
  * subsystem, it is younger than the call sites that lean on it, and the same sentence was true of
- * the six other SWITCH-class sites in this finding before someone wrote that `if`. W14's file makes
+ * the other SWITCH-class sites in this family before someone wrote that `if`. test_AddresslessNodeReplies.cpp makes
  * the same argument in the same words.
  *
  * WHY THE FIRST TEST FORKS
  *
  * The failure is a null dereference. On an ordinary build the unfixed code produces no red line --
  * it takes the whole binary down mid-suite, with no `[  FAILED  ]` for anything and no result for
- * any suite that had not run yet. W2's mutation gate scored a mutant SURVIVED for exactly that
- * reason (W2-SUMMARY §4.2). So the site gets a death test, declared before every in-process test in
+ * any suite that had not run yet. The first change's mutation gate scored a mutant SURVIVED for exactly that
+ * reason. So the site gets a death test, declared before every in-process test in
  * this file, asserting `ExitedWithCode(0)`: the child runs one poll and exits cleanly. On the
  * unfixed code the child dies of SIGSEGV and the parent prints a named red line.
  *
@@ -247,7 +247,7 @@ class AddresslessAttachmentSwitchTest : public ::testing::Test
         // raised" would be true of a graph that has no reverse edge to raise, which is not evidence
         // about the guard. Whether an address-less switch's reverse edge SHOULD instead be raised
         // from the host's address alone (findReverseEdgeByHostIp) is an open design question --
-        // FIX-ATTACHMENT-SWITCH-INDEX-ZERO.md §3.4 -- and pinning it either way here would turn a
+        // undecided -- and pinning it either way here would turn a
         // preference into a rule.
         (void)addEdge(m_addresslessSwitch, m_hostOnAddressless, {}, kAddresslessDpid,
                       {ipOf(kHostOnAddresslessSwitchIp)}, 0);

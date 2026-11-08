@@ -1,6 +1,6 @@
 // [Co-developed with claude code -- Adam]
 // Mounts <NdtServeApp/> and counts CSP violations into <body data-csp-violations> ("0" from the
-// start), which the browser tests assert is 0 (SCOPE-v2 section 4). Nothing else.
+// start), which the browser tests assert is 0. Nothing else.
 //
 // Two counters, because one cannot see everything: the securitypolicyviolation listener counts what
 // happens after this module runs, and a buffered ReportingObserver also hands over the reports of

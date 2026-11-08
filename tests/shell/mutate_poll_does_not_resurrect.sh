@@ -503,7 +503,7 @@ printf '  %d widenings, %d wrongly caught\n' "$WIDENINGS" "$WIDENINGS_CAUGHT"
 
 if [[ "$ok" != 1 ]]; then exit 2; fi
 if (( SURVIVORS > 0 || WIDENINGS_CAUGHT > 0 )); then exit 1; fi
-echo "  FINDINGS #46 gate: the defect cannot be put back by any of six routes, a poll that"
+echo "  Poll gate: the defect cannot be put back by any of six routes, a poll that"
 echo "  stops marking switches up is caught too, and three behaviour-preserving edits were"
 echo "  left alone."
 exit 0

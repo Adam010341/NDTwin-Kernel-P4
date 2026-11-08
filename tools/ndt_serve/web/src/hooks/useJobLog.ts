@@ -1,6 +1,6 @@
 // [Co-developed with claude code -- Adam]
-// The log of the job Adam opened, read again every 2 s while it runs -- file reads on the server,
-// never an ndt call. v1's three stop conditions (the orchestrator's condition, 09-27 15:4x), each
+// The log of the job the user opened, read again every 2 s while it runs -- file reads on the server,
+// never an ndt call. v1's three stop conditions (09-27), each
 // written out once below and pinned by SourceLint:
 //
 //   1. the job ended:           job.state !== "running"  -> stop

@@ -7,10 +7,10 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * FINDINGS #47. The kernel runs `curl` through popen()/std::system(), which is fork() + exec()
+ * The kernel runs `curl` through popen()/std::system(), which is fork() + exec()
  * of `/bin/sh`. Every descriptor without FD_CLOEXEC survives that exec, so both listening
  * sockets -- TCP :8000 and UDP :6343 -- were inherited by every `sh` and every `curl` the kernel
- * had ever started. Measured 2026-09-03 (round3 step 03): after the kernel's own pid was gone,
+ * had ever started. Measured 2026-09-03 (live run): after the kernel's own pid was gone,
  * `ss -ltnp` still listed the port, with `curl` and `sh` as its users, for 2.01-2.22 s in 48 of
  * 48 trials. A restart inside that window failed 6 times out of 6.
  *

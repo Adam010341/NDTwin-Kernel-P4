@@ -53,7 +53,7 @@
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/http/HttpSession.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp" // C-7 fixture
-// [Co-developed with claude code -- Adam] W11: the dispatch-status endpoint's own collaborator.
+// [Co-developed with claude code -- Adam] The dispatch-status endpoint's own collaborator.
 #include "ndt_core/routing_management/Controller.hpp"
 #include "ndt_core/routing_management/FlowRoutingManager.hpp"
 #include "utils/Logger.hpp"
@@ -137,10 +137,10 @@ class HttpSessionTestPeer
 
     /**
      * Controller variant, for GET /ndt/get_flow_dispatch_status.
-     * [Co-developed with claude code -- Adam] W11.
+     * [Co-developed with claude code -- Adam]
      *
      * That handler reads only the controller, so everything else can stay null and the response
-     * body -- the thing W11 changes -- becomes reachable from a unit test for the first time. The
+     * body -- the body the dispatch-status cases below read -- becomes reachable from a unit test for the first time. The
      * A-7 gate declared this endpoint's body uncovered because no suite exercised HttpSession's
      * handlers in-process; the null-dependency peer above could only witness refusals.
      */
@@ -500,7 +500,7 @@ TEST(HttpSessionRoutingTest, CorsHeadersAreSetEvenOnAFailedRequest)
 // caller could not tell a fully handled transition from one that left the graph asymmetric --
 // one direction changed, the pair it belongs to untouched. Edges are inserted in pairs by every
 // loader, so a lone directed edge is the kernel's own state gone inconsistent: the handlers now
-// answer 500 and say which half happened. Found by agy-review 0198 #4.
+// answer 500 and say which half happened.
 
 class LinkTransitionEndpointsTest : public ::testing::Test
 {
@@ -771,11 +771,11 @@ TEST(HttpSessionRoutingTest, AMistypedFlowDataEndpointIsNotFoundRatherThanServed
 }
 
 // =================================================================================================
-// FINDINGS #81 -- /ndt/inform_switch_entered and a standing commanded power-off
+// /ndt/inform_switch_entered and a standing commanded power-off
 //
 // [Co-developed with claude code -- Adam]
 //
-// handleInformSwitchEntered calls setVertexUp unconditionally. #46 closed the topology poll's
+// handleInformSwitchEntered calls setVertexUp unconditionally. The commanded-off veto closed the topology poll's
 // door onto a commanded-off switch; this is the other push, and it was left alone because
 // nobody had established what it is evidence OF.
 //
@@ -790,12 +790,12 @@ TEST(HttpSessionRoutingTest, AMistypedFlowDataEndpointIsNotFoundRatherThanServed
 //     adopts a switch.
 //
 // All three are EDGE-TRIGGERED BY A COMPLETED SESSION. That is categorically different from
-// FINDINGS #46's poll, whose input was list membership in a reply the proxy went on serving for
+// the topology poll, whose input was list membership in a reply the proxy went on serving for
 // D = 3.06 s after the switch died. A dead process does not complete a handshake, so this push
 // is evidence about the present and is allowed to lift `reachable`.
 //
 // What it is NOT evidence of is anybody having withdrawn the power-off. Those are now separate
-// fields (Q12), so the twin no longer has to pick one: it reports admin_state=off with
+// fields (admin_state and reachable), so the twin no longer has to pick one: it reports admin_state=off with
 // reachable=true and lets the operator see that the switch came back without being asked to.
 // =================================================================================================
 
@@ -827,7 +827,7 @@ class InformSwitchEnteredTest : public ::testing::Test
 
 TEST_F(InformSwitchEnteredTest, ASwitchEnteredPushDoesNotClearAStandingCommandedPowerOff)
 {
-    // 🔴 The assertion #81 is about. If this push could clear the command, every guard #46 built
+    // 🔴 The assertion this section is about. If this push could clear the command, every guard built for it
     // would have a second door: the twin kills a switch, the control plane pushes one enter, and
     // discovery is free to mark it up for ever after.
     m_monitor->setVertexPoweredOffByCommand(m_sw);
@@ -838,16 +838,16 @@ TEST_F(InformSwitchEnteredTest, ASwitchEnteredPushDoesNotClearAStandingCommanded
 
     EXPECT_EQ(res.result_int(), 200u) << "body: " << res.body();
     EXPECT_TRUE(m_monitor->getVertexAdminPoweredOff(m_sw))
-        << "a control-plane push withdrew a power-off command. Only a power-on may do that "
-           "(FINDINGS #46); this endpoint reports a session, not an instruction";
+        << "a control-plane push withdrew a power-off command. Only a power-on may do that"
+           "; this endpoint reports a session, not an instruction";
 }
 
 TEST_F(InformSwitchEnteredTest, ASwitchEnteredPushMayStillLiftReachable)
 {
     // The other direction, and the reason this endpoint was NOT made to decline. A completed
     // handshake is evidence the process is serving; refusing to record it would make the twin
-    // report a switch that is demonstrably answering as unreachable -- the failure mode #46's
-    // own write-up names as worse than the defect.
+    // report a switch that is demonstrably answering as unreachable -- the failure mode the
+    // commanded-off fix itself names as worse than the defect.
     m_monitor->setVertexPoweredOffByCommand(m_sw);
     ASSERT_FALSE(m_monitor->getVertexIsUp(m_sw));
 
@@ -861,7 +861,7 @@ TEST_F(InformSwitchEnteredTest, ASwitchEnteredPushMayStillLiftReachable)
 
 TEST_F(InformSwitchEnteredTest, TheResultingVertexReportsTheDisagreementRatherThanPickingOne)
 {
-    // Q12 is what makes the paragraph above legal. With one boolean the twin had to choose
+    // The two-field split is what makes the paragraph above legal. With one boolean the twin had to choose
     // between "commanded off" and "answering", and either choice was a lie; with two fields it
     // states both and the operator sees a switch that came back without being asked.
     m_monitor->setVertexPoweredOffByCommand(m_sw);
@@ -875,11 +875,11 @@ TEST_F(InformSwitchEnteredTest, TheResultingVertexReportsTheDisagreementRatherTh
     EXPECT_TRUE(j.value("is_up", false)) << "the alias must track reachable";
 }
 
-// --- W11: GET /ndt/get_flow_dispatch_status ----------------------------------------------------
+// --- GET /ndt/get_flow_dispatch_status ----------------------------------------------------
 //
 // [Co-developed with claude code -- Adam]
 //
-// #54 and R6 K-4. Two changes to this endpoint's body and one to its route, and all three are
+// Two changes to this endpoint's body and one to its route, and all three are
 // only observable from a response: the counters were renamed (`succeeded` -> `dispatched_ok`),
 // a second group was added that answers about the switch rather than about the dispatch, and the
 // route now accepts `?request_id=`, which the exact-string compare it used to have could not.
@@ -1032,7 +1032,7 @@ TEST_F(DispatchStatusEndpointTest, AControllerMessageThatIsNotUtf8IsReportedNotT
 
 TEST_F(DispatchStatusEndpointTest, TheCountersAreNamedForWhatTheyCount)
 {
-    // #54's A half, on the wire. `succeeded` is gone: the same match dispatched twice moves this
+    // The counters half, on the wire. `succeeded` is gone: the same match dispatched twice moves this
     // by +2 while a switch gains one row, and the old name asserted the opposite.
     DispatchFixture fx;
     ASSERT_TRUE(fx.run(1, 2, OpResult::success()));
@@ -1057,7 +1057,7 @@ TEST_F(DispatchStatusEndpointTest, TheCountersAreNamedForWhatTheyCount)
 
 TEST_F(DispatchStatusEndpointTest, AnOvsFabricReportsUnknownAtTheSwitchAndSaysWhy)
 {
-    // W11's B half. Ryu's 200 is not evidence about a switch, so the second group says `unknown`
+    // The second-group half. Ryu's 200 is not evidence about a switch, so the second group says `unknown`
     // -- and says why in the body, because a permanently-unknown number with no explanation next
     // to it is read as "checked, nothing wrong".
     DispatchFixture fx;
@@ -1492,12 +1492,12 @@ TEST_F(DeclaredLinkFailureWireTest, InjectWithAnInvalidPayloadIsRejected)
 // --- B-6 W8b: a withdrawal has to pair with a reported break -------------------------------------
 // [Co-developed with claude code -- Adam]
 //
-// The wire half of the rule Adam settled on 2026-09-07 after the lw8b live arm. These cases run
+// The wire half of the rule decided on 2026-09-07 after the lw8b live arm. These cases run
 // the endpoints, because the decision is made in HttpSession -- which monitor call each push path
 // takes, and what the reply says when a recovery report is declined. The state-machine half is in
 // tests/test_PollDoesNotResurrect.cpp.
 //
-// Measured 2026-09-07 00:08 (scratch/overnight-2026-09-05/logs/live-round2-console.log, arm lw8b):
+// Measured 2026-09-07 00:08 (live run, arm lw8b):
 // killing Ryu and restarting it with the same argv made intelligent_router.py's on_link_add POST
 // /ndt/link_recovery_detected for EVERY link within a second of the controller coming back, and
 // the standing declaration was gone in 9 of 9 samples over the next 90 s.
@@ -1599,12 +1599,12 @@ TEST_F(DeclaredLinkFailureWireTest, InjectRecoveryStillWithdrawsAfterARefusedRed
 // --- 3-52: the log line has to carry the outcome -------------------------------------------------
 // [Co-developed with claude code -- Adam]
 //
-// Adam's ruling E-22, 2026-09-07. handleLinkRecovery logged `link recovered on <s>:<p> -> <d>:<p>`
+// 2026-09-07: handleLinkRecovery logged `link recovered on <s>:<p> -> <d>:<p>`
 // BEFORE it looked the edge up and before the pairing rule ran, so a report that was declined, one
 // that was applied, and one naming an edge the graph does not hold were the SAME sentence in
 // kernel.log -- and that sentence asserted the outcome.
 //
-// 🟢 MEASURED, arm lw8b2 2026-09-07 (scratch/overnight-2026-09-05/logs/lw8b2-kernel.log):
+// 🟢 MEASURED, arm lw8b2 2026-09-07 (kernel log):
 //     04:33:37.198  DECLINED  link recovered on 1:1 -> 5:1
 //     04:33:38.131  APPLIED   link recovered on 1:1 -> 5:1
 //     04:33:38.142  APPLIED   link recovered on 5:1 -> 1:1
@@ -1697,7 +1697,7 @@ TEST_F(DeclaredLinkFailureWireTest, ARecoveryForAnEdgeTheGraphDoesNotHoldSaysTha
 // --- B-6 W8-7: dpid 0 is the host end, and no link endpoint addresses a host edge -----------------
 // [Co-developed with claude code -- Adam]
 //
-// Adam's ruling, 2026-09-06 (grill §4D seventh round, after re-asking): the endpoints must refuse
+// Decided 2026-09-06: the endpoints must refuse
 // it. A host vertex carries dpid 0 and findEdgeBySrcAndDstDpid matches on the two dpids alone, so
 // `{"src_dpid":1,"dst_dpid":0}` picks whichever host edge of s1 the graph iterates first -- the
 // caller cannot say which one they meant and the kernel does not tell them which one it took. The
@@ -1769,9 +1769,9 @@ TEST_F(DeclaredLinkFailureWireTest, TheDpidZeroRefusalDoesNotTouchOrdinarySwitch
 //
 // [Co-developed with claude code -- Adam]
 //
-// 🔴 MEASURED, ROLE-1 2026-09-11 00:52-01:02 CST, OVS 4-host fabric, kernel
-// `sha256 356803db69af3b1b…` (scratch/overnight-2026-09-05/hunt-0911/ROLE-1-A1-REPORT.md, 3 of 3
-// reproductions plus a 2-of-2 for the second finding). The reply the third round got, verbatim:
+// 🔴 MEASURED 2026-09-11 00:52-01:02 CST, OVS 4-host fabric, kernel
+// `sha256 356803db69af3b1b…` (3 of 3
+// reproductions plus a 2-of-2 for the second problem). The reply the third round got, verbatim:
 //
 //     {"status":"link recovery injected","tc":[
 //      {"command":"qdisc del dev s1-eth1 root","detached_at":"root","interface":"s1-eth1",
@@ -1784,7 +1784,7 @@ TEST_F(DeclaredLinkFailureWireTest, TheDpidZeroRefusalDoesNotTouchOrdinarySwitch
 // These cases are the wire half of that. They are in DeclaredLinkFailureWireTest so that both
 // B-6 gates cover them, and they are the FIRST cases in this repository to reach the MININET
 // branch of the two inject handlers: until B-16 gave HttpSession a tc seam, `realTcRunner()` was
-// written inline in both handlers and `grep -rn realTcRunner tests/` found nothing (A2).
+// written inline in both handlers and `grep -rn realTcRunner tests/` found nothing.
 // =================================================================================================
 
 namespace
@@ -1823,7 +1823,7 @@ class FakeWireFabric
     }
 
     /// Somebody else's netem: at the root, with a handle this kernel never recorded. This is the
-    /// state ROLE-1 created with a bare `sudo tc qdisc add dev s1-eth1 root netem loss 100%`.
+    /// state a live run created with a bare `sudo tc qdisc add dev s1-eth1 root netem loss 100%`.
     std::string attachSomebodyElsesNetem(const std::string& dev)
     {
         const std::string handle = nextHandle();
@@ -1905,7 +1905,7 @@ class FakeWireFabric
 } // namespace
 
 /**
- * 🔴 THE FINDING, VERBATIM (ROLE-1 round 3, the isolating control: no declaration, no injection,
+ * 🔴 THE MEASURED CASE, VERBATIM (the isolating control: no declaration, no injection,
  * one netem that belongs to somebody else). 409 and nothing run, because the alternative measured
  * on 2026-09-11 was 200 `ok:true` over a deleted `tc qdisc` that this kernel had no claim to.
  */
@@ -2035,7 +2035,7 @@ TEST_F(DeclaredLinkFailureWireTest, ASecondInjectRecoveryIsStillAnIdempotentNoop
 }
 
 /**
- * 🔴 The third state, and the one the ticket's ruling names: the link IS declared -- this kernel
+ * 🔴 The third state: the link IS declared -- this kernel
  * injected it -- and somebody has since replaced the netem. The declaration is the caller's to
  * withdraw and the qdisc is not this kernel's to delete, so it does both halves and says which.
  */
@@ -2133,17 +2133,17 @@ TEST_F(DeclaredLinkFailureWireTest, AHalfDoneInjectionNeverAnswersInjected)
 //
 // [Co-developed with claude code -- Adam]
 //
-// WHAT WAS MEASURED. 2026-09-11 02:01:16-02:02:45 (ROLE-4 T4, written up in
-// scratch/overnight-2026-09-05/fix/FIX-NDT-3-SUMMARY.md section 7-1): a loop firing
+// WHAT WAS MEASURED. 2026-09-11 02:01:16-02:02:45 (live):
+// a loop firing
 // install_flow_entry and delete_flow_entry every two seconds got 200 through the second its own
 // claim expired, and went on getting 200 after a different owner claimed the lab -- until that
 // owner tore the kernel down and the writes turned into 000, with `kernel.exit`'s `at=` in the
 // same second as the first of them. Neither the writer nor the new owner was told anything, and
 // the writes had already reached the fabric by the time anything was observable.
 //
-// Adam's ruling of 2026-09-11 was option C of the three that write-up put up: the kernel does
+// Decided 2026-09-11: the kernel does
 // not refuse, it reports. So these cases assert a KEY and a LOG LINE -- and one of them asserts
-// that the reply is still the reply it was, because option A (409 on a foreign claim) is the
+// that the reply is still the reply it was, because a 409 on a foreign claim is the
 // thing this fix deliberately is not, and a suite that only checked for the key would stay green
 // if somebody turned the report into a refusal later.
 //

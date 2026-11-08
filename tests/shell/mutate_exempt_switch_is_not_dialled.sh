@@ -278,7 +278,7 @@ mutate_must_die \
     "M2 E-23 site 2: the power report SSHes it again" \
     "ExemptSwitchTest.TheTestbedPowerReportDoesNotSshTheExemptSwitch" \
     "$SRC" \
-    '            // E-23, site 2 of 6, and the one the ruling names: the `else` below is the
+    '            // Exemption site 2 of 6, the power report: the `else` below is the
             // "Brocade / Others (Currently via SSH)" branch, so an exempted switch was SSHed into
             // with `show power` every ten seconds. The sentinel, and the same entry shape the
             // address-less case above emits -- this body is keyed by dpid, so the entry is
@@ -294,14 +294,14 @@ mutate_must_die \
 ' \
     '            // MUTANT M2: the exemption is not consulted here any more.
 ' \
-    '            // E-23, site 2 of 6, and the one the ruling names: the `else` below is the'
+    '            // Exemption site 2 of 6, the power report: the `else` below is the'
 
 # --- M3: the CPU report dials the exempted switch again ----------------------------------------
 mutate_must_die \
     "M3 E-23 site 3: the CPU report dials it again" \
     "ExemptSwitchTest.TheCpuReportDoesNotSnmpTheExemptSwitch" \
     "$SRC" \
-    '        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule and for why
+    '        // Exemption site 3 of 6. See fetchMemoryReportInternal for the placement rule and for why
         // this is an early exit rather than one more branch of the chain below.
         if (m_mode != utils::DeploymentMode::MININET && exemptFromBrandPathsForReport(vp))
         {
@@ -311,7 +311,7 @@ mutate_must_die \
 ' \
     '        // MUTANT M3: the exemption is not consulted here any more.
 ' \
-    '        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule and for why'
+    '        // Exemption site 3 of 6. See fetchMemoryReportInternal for the placement rule and for why'
 
 # --- M4: the temperature report goes back to the HPE sentence ----------------------------------
 # The only one of the six where the fix changes what is SAID and not what is done: this site

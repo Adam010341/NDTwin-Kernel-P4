@@ -2,7 +2,7 @@
 add_executable(
   test_routing_strategy
   test_LoggerEnvironment.cpp
-  # [Co-developed with claude code -- Adam] FINDINGS #63: `--logfile` was documented as taking a
+  # [Co-developed with claude code -- Adam] `--logfile` was documented as taking a
   # path and was in fact a boolean, so the named file stayed 0 bytes and stderr said nothing.
   # Next to test_LoggerEnvironment.cpp because they are the two halves of the same object: that
   # one owns "a logger exists", this one owns "it logs where it was told to".
@@ -16,7 +16,7 @@ add_executable(
   test_SFlowParsing.cpp
   test_GoldenFixture.cpp
   test_SFlowEmitterRoundtrip.cpp
-  # [Co-developed with claude code -- Adam] TICKET-P3 §2.2/§2.3: the three FlowKey families, the
+  # [Co-developed with claude code -- Adam] The three FlowKey families, the
   # ihl-derived L4 offset, and which of the two byte banks a sample lands in. Next to the two
   # suites above because it is the same subject read from the other end -- those pin the datagram
   # layout the parser requires, this pins what the parser makes of the frame inside it.
@@ -91,34 +91,34 @@ add_executable(
   # [Co-developed with claude code -- Adam] D15: the startup race that left bmv2 liveness off for
   # the whole process lifetime. Asserts the ordering, not the outcome -- see the file header.
   test_DataPlaneKindOrdering.cpp
-  # [Co-developed with claude code -- Adam] Round 4 lead 5(b): the sFlow drop counters were
+  # [Co-developed with claude code -- Adam] The sFlow drop counters were
   # reachable from none of the 105 JSON keys the kernel serves. Gate for the health verdict.
   test_TelemetryHealth.cpp
-  # [Co-developed with claude code -- Adam] FINDINGS #47: the listening sockets were inherited by
+  # [Co-developed with claude code -- Adam] the listening sockets were inherited by
   # the sh/curl children popen() forks, so :8000 and :6343 outlived the kernel by ~2 s and the
   # restart inside that window blamed a second kernel that did not exist.
   test_CloseOnExecSockets.cpp
-  # [Co-developed with claude code -- Adam] FINDINGS #46/#35/#36: the topology poll overwrote a
+  # [Co-developed with claude code -- Adam] the topology poll overwrote a
   # commanded power-off and the resurrection was permanent. Both directions -- see the header.
   test_PollDoesNotResurrect.cpp
-  # [Co-developed with claude code -- Adam] FINDINGS #61/#62: a host edge naming a dpid no switch
+  # [Co-developed with claude code -- Adam] a host edge naming a dpid no switch
   # has was dropped with one WARN (40 edges in, 39 served), and src_interface 0 / 999999 passed
   # with no range check. Both are now load-time refusals -- see the file header for why the host
   # side of a host edge must keep its documented port 0.
   test_TopologyInputValidation.cpp
-  # [Co-developed with claude code -- Adam] FINDINGS #38: a connection refused in 6 ms was reported
+  # [Co-developed with claude code -- Adam] a connection refused in 6 ms was reported
   # as a 30-second timeout. Real loopback sockets -- the classification lives in curl's exit code,
   # so a fake would have to invent the very thing under test. ~2 s for the one case that waits.
   test_RefusedIsNotTimeout.cpp
-  # [Co-developed with claude code -- Adam] FINDINGS #27/#76: "said it would stop, hasn't". Both
+  # [Co-developed with claude code -- Adam] "said it would stop, hasn't". Both
   # workers read their stop flag only between rounds, so a stop waited out one curl per switch
   # (81.09 s measured) or per topology endpoint. Timed against a listener that never answers.
   test_KernelStopIsBounded.cpp
-  # [Co-developed with claude code -- Adam] Q12 (Adam's ruling (a), 2026-09-03) with FINDINGS #80:
+  # [Co-developed with claude code -- Adam] 2026-09-03:
   # `is_up` answered two questions at once, so a commanded-off switch and a crashed one were the
   # same shape. Split into admin_state + reachable, is_up kept as a deprecated alias.
   test_IsUpSplit.cpp
-  # [Co-developed with claude code -- Adam] FINDINGS #85: a SWITCH vertex with an empty `ip` made
+  # [Co-developed with claude code -- Adam] a SWITCH vertex with an empty `ip` made
   # the status worker's four reports call `front()` on an empty vector -- SIGSEGV on that thread,
   # which ends the kernel. Includes the reachability evidence (updateSwitches invents no vertex),
   # so the day that stops being true, this suite says so. One death test; forks once.
@@ -130,18 +130,18 @@ add_executable(
   # spirit -- that one owns the rule, this one owns what the two planes are allowed to confirm.
   test_PhantomFilterCoversOvs.cpp
 
-  # [Co-developed with claude code -- Adam] W10, and OV-1 before it. One POST
+  # [Co-developed with claude code -- Adam] One POST
   # /ndt/modify_nickname rewrote all 3998 lines of a topology file the repository tracks
-  # (2026-09-04); OV-1 got that down to one line, and one line still moved the file's sha256,
+  # (2026-09-04); a first fix got that down to one line, and one line still moved the file's sha256,
   # so `ndt status --check` still reported the kernel's own write as "the topology file has
-  # been edited" (measured live 2026-09-05). W10 stops the kernel writing model files at all
+  # been edited" (measured live 2026-09-05). The final fix stops the kernel writing model files at all
   # and keeps the operator's names in an overlay outside setting/. This owns both halves: the
   # model file is byte-identical after a rename, for every shipped topology, and the name
   # comes back on the next load. Renamed from test_NicknameDoesNotRewriteTheFile.cpp, whose
   # subject -- how tidily the model file is rewritten -- no longer exists.
   test_NicknameOverlay.cpp
 
-  # [Co-developed with claude code -- Adam] FINDINGS #88, W14: the seven `ip[0]` sites W2's own
+  # [Co-developed with claude code -- Adam] the seven `ip[0]` sites the earlier `ip.front()` fix's own
   # grep found and left alone. `operator[]` is not a milder `front()` -- both are
   # `*(_M_start + n)`, and a default-constructed std::vector has _M_start == nullptr. Five of the
   # seven read a HOST, and the load-time gate that keeps `ip` non-empty covers SWITCH vertices
@@ -149,8 +149,8 @@ add_executable(
   # produces no red line -- it takes the binary down mid-suite with no verdict for anything.
   test_AddresslessNodeReplies.cpp
 
-  # [Co-developed with claude code -- Adam] FINDINGS #88, W18: the eighth `ip[0]`, which W2's
-  # inventory (sixteen) and W14's rescan-and-fix (seven more) both walked past -- updateHosts
+  # [Co-developed with claude code -- Adam] the eighth `ip[0]`, which the `ip.front()` fix's
+  # inventory (sixteen) and the `ip[0]` rescan-and-fix (seven more) both walked past -- updateHosts
   # indexes the attachment switch's address list to key the reverse edge. SWITCH-class, so the
   # load-time gate does cover it and no production route was found; pinned anyway, because that
   # gate is one `if` in another subsystem and is younger than the call sites leaning on it. One
@@ -165,8 +165,8 @@ add_executable(
   # test here runs tc.
   test_NetemLinkFault.cpp
 
-  # [Co-developed with claude code -- Adam] E-23 / E-25 / E-30 (Adam's rulings of 2026-09-07).
-  # W15-2 admitted a switch this build has no data plane for and marked it "nobody manages this",
+  # [Co-developed with claude code -- Adam] 2026-09-07:
+  # A switch this build has no data plane for was admitted and marked "nobody manages this",
   # and then the power manager went on sending it Brocade's OIDs and an SSH `show power` every
   # ten seconds while nothing outside the process could see the mark at all. Counts the calls a
   # marked switch must NOT cause -- which is why DeviceConfigurationAndPowerManager grew three
@@ -174,7 +174,7 @@ add_executable(
   # load. Nothing here shells out; the three seams are all replaced.
   test_ExemptSwitchIsNotDialled.cpp
 
-  # [Co-developed with claude code -- Adam] W17: get_openflow_capacity served a vendor catalogue
+  # [Co-developed with claude code -- Adam] get_openflow_capacity served a vendor catalogue
   # whose smallest number was 3.4x what the bmv2 fabric under it actually held, and never
   # mentioned bmv2 at all. This owns the property that the ceiling is READ from the pipeline the
   # running switch loaded -- so the fixtures say 512 and 2048, never 1024.
@@ -235,7 +235,7 @@ include(GoogleTest)
 gtest_discover_tests(test_routing_strategy)
 
 # [Co-developed with claude code -- Adam]
-# R3-E29: the ThreadSanitizer instrument for updateHosts' unlocked graph read. Its own executable
+# The ThreadSanitizer instrument for updateHosts' unlocked graph read. Its own executable
 # for two reasons, and neither is style:
 #
 #   1. It must be buildable under -DSANITIZER=tsan without dragging in HttpSession.cpp and
@@ -247,8 +247,8 @@ gtest_discover_tests(test_routing_strategy)
 #      share a process with one that is allowed to report.
 #
 # Deliberately NOT registered with gtest_discover_tests: this is not a ctest case. It takes
-# minutes, it only means anything under a sanitizer, and its evidence run is written up in
-# doc/audit/2026-09-07_fix-e29-update-hosts-race/FIX-E29.md. It IS built by the ordinary build, so
+# minutes, it only means anything under a sanitizer, and its evidence run was recorded when it
+# was written. It IS built by the ordinary build, so
 # it cannot rot unnoticed -- which also means local_ci.sh's asan/tsan/clang jobs now COMPILE it
 # (one .cpp and one link on top of libraries they already build) without running it. See the file
 # header for how to run it.

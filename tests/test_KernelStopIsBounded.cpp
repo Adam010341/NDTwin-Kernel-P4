@@ -1,12 +1,12 @@
 /**
  * @file test_KernelStopIsBounded.cpp
- * @brief FINDINGS #27 and #76 -- "said it would stop, hasn't".
+ * @brief "said it would stop, hasn't".
  *
  * [Co-developed with claude code -- Adam]
  *
  * WHAT THE DEFECTS WERE
  *
- *   #27  DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker reads its stop flag once
+ *   (1)  DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker reads its stop flag once
  *        per round. One round is fetchOpenFlowTablesInternal(), which walks every up switch and
  *        runs `curl -s --max-time 8` for each, serially, with nothing in the walk reading the
  *        flag. A stop arriving at the first switch is therefore answered after the last one.
@@ -14,7 +14,7 @@
  *        2.40/2.40/2.53/2.40/3.00/6.40 s idle -- and **81.09 s** with the proxy not answering,
  *        ~72 s of it inside that join. 9 remaining switches x 8 s = 72 s, to the second.
  *
- *   #76  TopologyAndFlowMonitor's poll thread has the same shape three times per round (switches,
+ *   (2)  TopologyAndFlowMonitor's poll thread has the same shape three times per round (switches,
  *        hosts, links) at `--connect-timeout 2 --max-time 5`. With the proxy wedged, a kernel
  *        whose sFlow bind had failed printed `Exiting` and was still running 8 s later, because
  *        main.cpp prints that line and *then* calls the stop that waits the curl out.
@@ -37,7 +37,7 @@
  * THE FAKE CONTROL PLANE
  *
  * A listener that accepts and never writes. This is not a stand-in for a wedged proxy, it is the
- * same condition: FIX-CLOEXEC.md's §2.3 measurements record that with nothing listening at all
+ * same condition: measurements made for the close-on-exec fix record that with nothing listening at all
  * every poll's curl fails in ~0 ms and the defect does not reproduce -- "refused" is fast, and it
  * is "accepted, then silent" that costs the full deadline. WedgedControlPlane is therefore the
  * instrument, and TheInstrumentReallyWedgesACurl is the control that proves it works before any
@@ -333,7 +333,7 @@ TEST_F(KernelStopIsBoundedTest, TheInstrumentReallyWedgesACurl)
 }
 
 // ================================================================================================
-// FINDINGS #27. The measured one: ~72 s inside DeviceConfigurationAndPowerManager::stop().
+// The measured one: ~72 s inside DeviceConfigurationAndPowerManager::stop().
 // ================================================================================================
 TEST_F(KernelStopIsBoundedTest, AFlowTablePollCaughtMidRoundStopsWithinTheBound)
 {
@@ -375,12 +375,12 @@ TEST_F(KernelStopIsBoundedTest, AFlowTablePollCaughtMidRoundStopsWithinTheBound)
     EXPECT_LT(elapsed, kStopBound)
         << "stop() took " << std::chrono::duration<double>(elapsed).count()
         << " s with " << kSwitchesInFabric << " switches against a control plane that accepts and "
-           "never answers. FINDINGS #27: the worker only reads its stop flag between rounds, so "
+           "never answers. The worker only reads its stop flag between rounds, so "
            "the stop waits out one `curl --max-time 8` per remaining switch.";
 }
 
 // ================================================================================================
-// FINDINGS #76. The poll thread, blocked in the HTTP call main.cpp has already printed `Exiting`
+// The poll thread, blocked in the HTTP call main.cpp has already printed `Exiting`
 // about.
 // ================================================================================================
 TEST_F(KernelStopIsBoundedTest, ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound)
@@ -413,7 +413,7 @@ TEST_F(KernelStopIsBoundedTest, ATopologyPollBlockedInItsHttpCallReturnsWithinTh
 
     EXPECT_LT(elapsed, kStopBound)
         << "stop() took " << std::chrono::duration<double>(elapsed).count()
-        << " s while the poll was inside `curl --connect-timeout 2 --max-time 5`. FINDINGS #76: "
+        << " s while the poll was inside `curl --connect-timeout 2 --max-time 5`: "
            "the kernel prints `Exiting` and then blocks here, so a restart script reading that "
            "line as 'it has exited' finds the port still held.";
 }
@@ -445,7 +445,7 @@ TEST_F(KernelStopIsBoundedTest, ATopologyPollBlockedInItsHttpCallReturnsWithinTh
 // the fixture rather than an outcome of a scheduling race, and the assertion is about what
 // reportIfWorkersOutlastTheBound does with a straggler -- which is the whole of its behaviour.
 //
-// What this deliberately gives up is stated in FIX-KERNEL-STOP-BOUNDED.md §8.3: nothing here pins
+// What this deliberately gives up is this: nothing here pins
 // that DeviceConfigurationAndPowerManager::stop() still CALLS the report. That call site is
 // defended by review, not by this suite, and saying so is better than a test that pretends to
 // defend it two runs out of three.

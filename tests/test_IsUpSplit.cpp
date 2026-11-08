@@ -256,7 +256,7 @@ TEST_F(IsUpSplitTest, ACommandedOffSwitchAndACrashedSwitchAreDistinguishableOnTh
 
     EXPECT_EQ(dead.value("admin_state", ""), "on")
         << "a switch nobody commanded off must not report admin_state off just because it died; "
-           "that is the conflation Q12 rules on";
+           "that is the conflation the admin_state/reachable split removes";
     EXPECT_FALSE(dead.value("reachable", true));
 
     EXPECT_NE(off.value("admin_state", "?"), dead.value("admin_state", "?"))
@@ -278,7 +278,7 @@ TEST_F(IsUpSplitTest, ACommandedOffSwitchThatIsReachableAgainReportsBothHonestly
     const nlohmann::json j = fix.emit(fix.commanded);
 
     EXPECT_EQ(j.value("admin_state", ""), "off")
-        << "an observation withdrew a command. FINDINGS #46: only a power-on may do that";
+        << "an observation withdrew a command: only a power-on may do that";
     EXPECT_TRUE(j.value("reachable", false))
         << "the twin observed the switch answering and refused to say so";
     EXPECT_TRUE(j.value("is_up", false)) << "the alias must track reachable, not admin_state";
@@ -438,7 +438,7 @@ TEST_F(IsUpSplitTest, TheDistrustWindowDoesNotCloseOnTimeAlone)
     EXPECT_TRUE(p4.ran("ndtwin-p4-power on s1"))
         << "the distrust window expired on a clock. Nothing observed this switch after it was "
            "killed, so the graph's reachable is still the pre-kill cache -- and a power-on that "
-           "believes it returns 200 Success having started nothing (FINDINGS #36, measured 4 of "
+           "believes it returns 200 Success having started nothing (measured 4 of "
            "4 past the old 15 s window)";
 }
 

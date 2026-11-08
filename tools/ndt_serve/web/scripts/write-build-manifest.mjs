@@ -1,6 +1,6 @@
 // [Co-developed with claude code -- Adam]
 // The last step of `npm run build`: <static>/BUILD.json, which binds the committed bundle to the
-// source it was built from (SCOPE-v2 section 2).
+// source it was built from.
 //
 //   toolchain  the node and npm that ran this build
 //   command    how to rebuild it

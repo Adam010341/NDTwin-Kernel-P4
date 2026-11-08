@@ -352,7 +352,7 @@ DeviceConfigurationAndPowerManager::queryTestbed(const std::string& ipParam) con
                 }
             }
 
-            // [Co-developed with claude code -- Adam] -- Q12.
+            // [Co-developed with claude code -- Adam]
             // The same shape as the MININET branch, because a caller that has to parse two
             // shapes depending on which deployment answered has not been given a contract.
             // `outlet` is the extra fact this plane has and the other does not: the PDU's own
@@ -1271,7 +1271,7 @@ DeviceConfigurationAndPowerManager::interpretRelayResponse(const std::string& re
 }
 
 // [Co-developed with claude code -- Adam]
-// FINDINGS #85. See the four declarations in the header for why these exist and what they refuse
+// See the four declarations in the header for why these exist and what they refuse
 // to invent. The short version: `vp.ip.front()` on a switch that carries no address is undefined
 // behaviour on the status thread, and the status thread dying takes the kernel with it.
 std::optional<std::string>
@@ -1971,7 +1971,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
             const std::string ip_str = *ipOpt;
 
             // [Co-developed with claude code -- Adam]
-            // E-23, site 2 of 6, and the one the ruling names: the `else` below is the
+            // Exemption site 2 of 6, the power report: the `else` below is the
             // "Brocade / Others (Currently via SSH)" branch, so an exempted switch was SSHed into
             // with `show power` every ten seconds. The sentinel, and the same entry shape the
             // address-less case above emits -- this body is keyed by dpid, so the entry is
@@ -2257,7 +2257,7 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
         }
 
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #85, and the site the gdb backtrace named. Was
+        // The site the gdb backtrace named. Was
         // `std::string ip_str = utils::ipToString(vp.ip.front());`, which is `front()` on an
         // empty vector for a switch carrying no address: undefined behaviour on the status
         // thread, observed as a SIGSEGV that killed the whole kernel within one round. See
@@ -2293,7 +2293,7 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
         }
 
         // [Co-developed with claude code -- Adam]
-        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule and for why
+        // Exemption site 3 of 6. See fetchMemoryReportInternal for the placement rule and for why
         // this is an early exit rather than one more branch of the chain below.
         if (m_mode != utils::DeploymentMode::MININET && exemptFromBrandPathsForReport(vp))
         {
@@ -2376,7 +2376,7 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
         }
 
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #85, the third of the three the comment above predicted would "still fault one
+        // The third of the three the comment above predicted would "still fault one
         // branch later". See managementIpForReport in the header.
         const auto ipOpt = managementIpForReport(vp);
         if (!ipOpt)

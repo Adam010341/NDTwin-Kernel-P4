@@ -1,11 +1,11 @@
 // [Co-developed with claude code -- Adam]
-// The only way out of this page (SCOPE-v2 section 10). What SourceLint holds this file to:
+// The only way out of this page. What SourceLint holds this file to:
 //
 //   * fetch is called here and nowhere else, and the token header is set here and nowhere else.
 //   * The token lives in ONE module-level variable: never in storage, a cookie, the DOM or a URL.
 //     The only code that hands it in is api/session.ts, after trading the one-time key.
 //   * get reads; post writes, and post is called only from components/ConfirmDialog.tsx --
-//     a fresh GET /lab, the server's own dry run, and a dialog Adam confirms.
+//     a fresh GET /lab, the server's own dry run, and a dialog the user confirms.
 //   * The base is set at build time (VITE_NDT_SERVE_API_BASE); by default it is ./api/v1, the
 //     server's own origin, relative to wherever the page is mounted.
 
