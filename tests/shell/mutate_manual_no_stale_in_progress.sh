@@ -384,7 +384,7 @@ G=$(ki_mutant m18 '### G-33 '$'\x1f'"This block says FIX-NDT-6 ${W_INPROG} (swee
 report_pages "M18: a stale block without the past-wording word" "$TEST" "$P" "$D" "$G" \
              "case 11  no doc page calls a ticket unfixed without naming the merge that landed it"
 echo
-G=$(ki_mutant c2 '### A-13 '$'\x1f'"${W_WAS} this block said FIX-NDT-6 ${W_INPROG} (sweep fixture)."$'\n\n''### A-13 ')
+G=$(ki_mutant c2 '### G-36 '$'\x1f'"${W_WAS} this block said FIX-NDT-6 ${W_INPROG} (sweep fixture)."$'\n\n''### G-36 ')
 if [[ -z "$G" ]]; then
     echo "  DID-NOT-APPLY C2 (control): the heading it writes before is not there" >&2
     UNAPPLIED=$((UNAPPLIED + 1))

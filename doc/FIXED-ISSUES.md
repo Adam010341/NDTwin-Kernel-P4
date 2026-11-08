@@ -26,6 +26,7 @@ Status is one of: fixed, partly fixed, not a defect, decided not to change. The 
 | A-10 | /ndt/delete_group_entry on OVS was a silent no-op and leaked the group id. | fixed | `src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp`; `tests/shell/mutate_delete_group_entry.sh` |
 | A-11 | A failed ndt up ovs4 did not roll back what it had started. | fixed | `tools/test_workflow/ndt` |
 | A-12 | The ovs4 topology configured no sFlow (the same defect as A-4). | fixed | `tools/test_workflow/ovs_4host_topo.py`; `tests/python/test_ovs4_sflow.py` |
+| A-13 | `ndt down` killed the kernel with SIGTERM instead of letting it shut down, so its subsystems were never stopped and its per-app folders under /srv/nfs/sim stayed behind. The shutdown itself, until then reached only by Ctrl-C, could abort or hang: the sFlow collector joined its worker threads from two threads at once. A component still running when `ndt down` stops waiting is now killed and fails the teardown. | fixed | `src/main.cpp`; `src/ndt_core/collection/FlowLinkUsageCollector.cpp`; `tools/test_workflow/stack.sh`; `tests/shell/test_kernel_stops_on_term.sh` |
 | A-14 | Two sudo -n calls in ndt were not covered by the sudoers rules the manual gives. | fixed | `doc/2026-11-05_user-guide.md`; `tools/test_workflow/ndt` |
 
 ## Letter B

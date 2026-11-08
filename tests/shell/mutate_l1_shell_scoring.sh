@@ -257,7 +257,7 @@ s = s.replace("# NDTWIN_L1_NEEDS: py-plot\n", "# NDTWIN_L1_NEEDS: py-plot no-suc
 ' "D22 every NDTWIN_L1_NEEDS in tests/shell and tests/python is one the lane probes"
 mutate "the ryu probe is lost" "$DRIVER_REL" '
 s = s.replace("L1_NEED_MET[ryu]=0\n\"$PY_KERNEL\" -c \"import networkx, ryu\" >/dev/null 2>&1 && L1_NEED_MET[ryu]=1\n", "")
-' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)"
+' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock, kernel-ports)"
 
 echo
 echo "=== mutations: the corpus check (group C) actually reads the corpus ==="
@@ -401,9 +401,13 @@ s = s.replace("    if owner and owner != me:", "    if owner:")
 mutate "the drop check suite takes an expired claim for a live one" "$HBDROP_REL" '
 s = s.replace("        live = int(fields.get(\"expires\", \"0\")) > (time.time() if now is None else now)", "        live = True")
 ' "D34 🔴 an expired claim holds nothing (the other skip answers)"
+# [Co-developed with claude code -- Adam] kernel-ports, declared by test_kernel_stops_on_term.sh.
+mutate "the lane never probes kernel-ports" "$DRIVER_REL" '
+s = s.replace("L1_NEED_MET[kernel-ports]=1\n", "").replace("    L1_NEED_MET[kernel-ports]=0\n", "    :\n")
+' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock, kernel-ports)"
 mutate "the lane never probes bmv2-stock" "$DRIVER_REL" '
 s = s.replace("L1_NEED_MET[bmv2-stock]=0\n", "").replace("&& L1_NEED_MET[bmv2-stock]=1", "&& :")
-' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)"
+' "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock, kernel-ports)"
 
 echo
 echo "===== $((KILLED + SURVIVED)) mutation(s): $KILLED killed, $SURVIVED survived ====="

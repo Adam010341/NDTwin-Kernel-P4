@@ -926,7 +926,7 @@ STACK_DOWN_REAL="Shutting down (reverse order)
   cleared ryu's stale registry files (pid gone): ryu.pid ryu.child.pid
   -> the next bring-up cannot bind :8000
   find and stop it, or the next 'up' will report on it:
-  teardown itself worked, but something crashed rather than stopped:
+  teardown itself worked, but something crashed or had to be killed rather than stopping:
     ryu(134)
 Mininet was started manually; clean it up with:  sudo mn -c"
 
@@ -969,7 +969,7 @@ section '13. A1-b: a stack.sh teardown that failed makes ndt down non-zero'
 reset_fix; rc_for stack_down 1
 out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL
      evidence: $FIX/.test_run/pids/kernel.exit, and the tail of $FIX/.test_run/logs/kernel.log
-  teardown itself worked, but something crashed rather than stopped:
+  teardown itself worked, but something crashed or had to be killed rather than stopping:
     kernel(137)"
 OUT="$(drive 'cmd_down')"
 check "🔴 'ndt down' is red when its stack.sh half was red" "1" "$(rc_of_out "$OUT")"
@@ -1183,7 +1183,11 @@ check "  so is the foreign-holder line"                   "1" \
 check "  and the one for a holder this stack started"     "1" \
       "$(grep -cF 'is still held by a process this script started' "$STACK_REAL")"
 check "  and report_exit's fatal-ending line"             "1" \
-      "$(grep -cF 'did not stop cleanly:' "$STACK_REAL")"
+      "$(grep -cF '$name did not stop cleanly: $reason' "$STACK_REAL")"
+# [Co-developed with claude code -- Adam] stop_one's KILL after the stop window carries the same
+# phrase on purpose, so this reader treats it as a fatal ending too; nothing else may.
+check "  and stop_one's stop-window KILL line, the only other one" "1 2" \
+      "$(grep -cF 'did not stop cleanly: still running' "$STACK_REAL") $(grep -cF 'did not stop cleanly:' "$STACK_REAL")"
 
 # ==========================================================================================
 section "16. 'ndt clean' refuses while a teardown is in flight"

@@ -15,9 +15,10 @@
 #
 #   0    stopped cleanly
 #   134  SIGABRT -- the C++ runtime aborted (B-5)
-#   143  SIGTERM's default action, which is what `ndt down` produces TODAY on a healthy kernel,
-#        since main registers a handler for SIGINT only. This one is NOT a failure, and a
-#        pipeline that called every non-zero status a failure would redden every teardown.
+#   143  SIGTERM's default action: how Ryu and the P4 proxy end on every `ndt down`, and how a
+#        kernel built before it handled SIGTERM ends. This one is NOT a failure, and a pipeline
+#        that called every non-zero status a failure would redden every teardown. (A current
+#        kernel handles SIGTERM and ends 0; tests/shell/test_kernel_stops_on_term.sh.)
 #
 # Isolation: PID_DIR/LOG_DIR are redirected to a temp directory, no component of the real stack
 # is started, and no ndtwin-lab verb is called. Nothing here touches a live lab.
@@ -139,8 +140,8 @@ case "$out" in
 esac
 
 # The healthy path: a long-lived component stopped by stop_one, which signals the process GROUP.
-# 143 must be reported without being called a failure -- it is what `ndt down` does to a kernel
-# that has no SIGTERM handler, which is every kernel today.
+# 143 must be reported without being called a failure -- it is what `ndt down` does to Ryu, the
+# P4 proxy and a kernel built before SIGTERM was handled.
 start_bg sleeper "$LOG_DIR/sleeper.log" bash -c 'exec sleep 300' >/dev/null 2>&1
 sleep 0.5
 CHILD="$(cat "$PID_DIR/sleeper.child.pid" 2>/dev/null)"
@@ -227,7 +228,7 @@ check "  and it is gone once that run has ended" "gone" \
 #
 # The acceptance criteria for making a crash on shutdown fail `ndt down`: an injected fatal
 # status must be red, the ordinary 143 must be green, and 0 must be green. 143 is not negotiable:
-# it is what `ndt down` produces on every healthy kernel today, because main handles SIGINT only.
+# it is how Ryu and the P4 proxy end on every `ndt down`, and how an older kernel binary ends.
 echo
 echo "cmd_down fails on a fatal ending, and only on one"
 
@@ -327,6 +328,77 @@ rm -f "$PID_DIR"/*
 write_exit kernel 0
 out="$(cmd_down 2>&1)"; rc=$?
 check "a clean exit does not fail down" "0" "$rc"
+rm -f "$PID_DIR"/*
+
+# --- a component still running when the TERM window ends ------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# The kernel now runs its own shutdown on SIGTERM, so stop_one waits for it. One that does not
+# finish inside the window is killed -- and the KILL takes supervise.sh with it, so no .exit is
+# written and nothing else will ever say so. It must fail `down`, not pass as a warning.
+# A shorter window than stack.sh's (2 s, not 10): the path is the same, only the wait differs.
+echo
+echo "stop_one kills what outlives the TERM window, and calls it a fatal ending"
+# :- so this case still runs (and goes red by name) against a stack.sh that has no such knob.
+SAVED_TICKS="${STOP_WAIT_TICKS:-20}"
+STOP_WAIT_TICKS=4
+STACK_FATAL_ENDINGS=""; STACK_EXITS_REPORTED=""
+start_bg stubborn "$LOG_DIR/stubborn.log" bash -c 'trap "" TERM; exec sleep 300' >/dev/null 2>&1
+for _ in $(seq 1 40); do [[ -s "$PID_DIR/stubborn.child.pid" ]] && break; sleep 0.1; done
+STUBBORN_CHILD="$(cat "$PID_DIR/stubborn.child.pid" 2>/dev/null)"
+check "the component that ignores TERM is running" "alive" \
+    "$([[ "$STUBBORN_CHILD" =~ ^[0-9]+$ ]] && kill -0 "$STUBBORN_CHILD" 2>/dev/null && echo alive || echo gone)"
+STUBBORN_PGID="$(cat "$PID_DIR/stubborn.pid" 2>/dev/null)"
+stop_one stubborn >"$TMP/stubborn.out" 2>&1
+sleep 0.5
+check "🔴 it is killed when the window ends" "gone" \
+    "$(kill -0 "$STUBBORN_CHILD" 2>/dev/null && echo alive || echo gone)"
+check "  stop_one says it did not stop cleanly" "yes" \
+    "$(grep -q 'stubborn did not stop cleanly' "$TMP/stubborn.out" && echo yes || echo "no: $(cat "$TMP/stubborn.out")")"
+check "  🔴 and records it as a fatal ending" "stubborn(KILL)" "$STACK_FATAL_ENDINGS"
+# supervise.sh died with it, so stop_one writes the history line itself; otherwise the last line
+# of .exit.log is the previous run's ending, and that is where cmd_down sends the reader.
+LAST_HISTORY="$(tail -1 "$PID_DIR/stubborn.exit.log" 2>/dev/null)"
+check "  🔴 the KILL is in the component's exit history, as status 137" "yes" \
+    "$(grep -qP "\tstatus=137\tchild=$STUBBORN_CHILD\tkilled by stop_one" <<<"$LAST_HISTORY" \
+        && echo yes || echo "no: ${LAST_HISTORY:-no .exit.log line}")"
+out="$(cmd_down 2>&1)"; rc=$?
+check "  so the teardown fails" "1" "$rc"
+check "  and cmd_down does not call the KILL a crash" "yes" \
+    "$(grep -qF 'crashed or had to be killed' <<<"$out" && echo yes || echo "no: $out")"
+# Whatever a broken stop_one left running, by the group it was started in.
+[[ "$STUBBORN_PGID" =~ ^[0-9]+$ ]] && kill -KILL -- "-$STUBBORN_PGID" 2>/dev/null
+STOP_WAIT_TICKS="$SAVED_TICKS"
+STACK_FATAL_ENDINGS=""; STACK_EXITS_REPORTED=""
+rm -f "$PID_DIR"/*
+
+# --- the stop window can be set from the environment, and a bad value is refused ---------------
+# [Co-developed with claude code -- Adam]
+# PID_DIR/LOG_DIR/RUN_DIR are exported to this suite's temp directory, so the executed stack.sh
+# below could only ever act on that -- and the refusal is meant to stop it before it acts at all.
+echo
+echo "STOP_WAIT_TICKS from the environment"
+check "the default window is 20 ticks" "20" \
+    "$(env -u STOP_WAIT_TICKS bash -c 'source "$1" >/dev/null 2>&1; echo "$STOP_WAIT_TICKS"' _ "$STACK")"
+check "an override from the environment is used" "40" \
+    "$(STOP_WAIT_TICKS=40 bash -c 'source "$1" >/dev/null 2>&1; echo "$STOP_WAIT_TICKS"' _ "$STACK")"
+for bad in abc 0 -3 2.5; do
+    out="$(STOP_WAIT_TICKS="$bad" bash "$STACK" down 2>&1)"; rc=$?
+    check "🔴 STOP_WAIT_TICKS=$bad is refused before 'down' does anything" "2 refused" \
+        "$rc $(grep -qF "STOP_WAIT_TICKS='$bad' is not a whole number" <<<"$out" && echo refused || echo "silent: $out")"
+done
+# The sourced path (stop_one called directly, as ndt's tests and this suite do) refuses too, and
+# stops nothing.
+start_bg patient "$LOG_DIR/patient.log" bash -c 'exec sleep 300' >/dev/null 2>&1
+for _ in $(seq 1 40); do [[ -s "$PID_DIR/patient.child.pid" ]] && break; sleep 0.1; done
+PATIENT_CHILD="$(cat "$PID_DIR/patient.child.pid" 2>/dev/null)"
+PATIENT_PGID="$(cat "$PID_DIR/patient.pid" 2>/dev/null)"
+STOP_WAIT_TICKS=zero
+stop_one patient >"$TMP/patient.out" 2>&1; rc=$?
+STOP_WAIT_TICKS="$SAVED_TICKS"
+check "  🔴 stop_one refuses a bad window and stops nothing" "1 alive" \
+    "$rc $(kill -0 "$PATIENT_CHILD" 2>/dev/null && echo alive || echo gone)"
+[[ "$PATIENT_PGID" =~ ^[0-9]+$ ]] && { kill -KILL -- "-$PATIENT_PGID"; wait "$PATIENT_PGID"; } 2>/dev/null
 rm -f "$PID_DIR"/*
 
 # --- the orphaned .exit, and the pidfile beside it ----------------------------------------------

@@ -21,33 +21,6 @@ defects but are limits of the environment or of the measurement are at the end, 
 
 ## Running a lab with `ndt`
 
-### A-13 The kernel is killed instead of shutting down when `ndt down` stops it
-
-**What you see.** `ndt down` stops the kernel, but the kernel never runs its own orderly shutdown. It
-is killed by the signal, so the "Shutdown requested. Cleaning up" and "All subsystems stopped" lines
-are not written and its subsystems are not stopped one by one.
-
-**When.** Every `ndt down` (and every `stack.sh` stop) of a kernel started by `ndt up`.
-
-**Why.** The kernel installs a handler for `SIGINT` only (`src/main.cpp:344`); nothing in `src/` or
-`include/` handles `SIGTERM`. The orderly path, which stops the subsystems and returns 0, runs only
-after that handler has set a flag (`src/main.cpp:516-529`). The stop script sends `SIGTERM` to the
-kernel's process group (`tools/test_workflow/stack.sh:771`), whose default action ends the process
-at once. The scripts know this: the exit-status check treats 143 as normal for that reason
-(`tools/test_workflow/stack.sh:383-385`). A Ctrl-C in a terminal does reach the orderly path; its
-earlier crash at exit (one worker thread was never joined) is fixed
-(`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:221-247`).
-
-**What to do.** Nothing is needed for the lab itself: `ndt down` goes on to verify that the machine is
-clean. One leftover is known: the kernel removes its per-app folders under `/srv/nfs/sim` in the
-destructor of its application manager, which only the orderly path reaches
-(`src/main.cpp:432`, `src/ndt_core/application_management/ApplicationManager.cpp:27-30`, `:271-294`),
-so after `ndt down` they stay until the next kernel start removes them (`:419-455`). They are
-harmless, and a kernel that does not run as root writes no export lines. If you start the kernel by
-hand and want the orderly shutdown, stop it with `SIGINT` (Ctrl-C). None yet for `ndt down`.
-
-Failure direction: silent.
-
 ### G-33 `ndt check` reports DOUBLE-COUNTING and exits 4 when a link has just failed
 
 **What you see.** While traffic flows and a link is cut (for example with `tc netem loss 100%` on an

@@ -323,6 +323,15 @@ TOPO_P4=/path/to/my_topo.json ./stack.sh up p4
 (Energy-Saving-App and so on) are looked up from there; conda environments are expected under
 `$CONDA_ROOT` (default `~/miniconda3`). Adjust these for a different layout.
 
+`stack.sh` itself reads one more: `STOP_WAIT_TICKS`, how long `down` (and an `up` that restarts a
+component) waits after SIGTERM before it sends SIGKILL, in half-second ticks. The default is 20
+(10 s). A value that is not a whole number of at least 1 is refused with exit status 2 before
+anything is stopped:
+
+```bash
+STOP_WAIT_TICKS=40 ./stack.sh down      # wait up to 20 s
+```
+
 ---
 
 ## The sudo surface
@@ -378,10 +387,10 @@ refusal, never as a number.
   to per-scenario scripts.
 - **The Python checks in L0 verify syntax only**: these scripts have heavy runtime dependencies
   (Mininet, nornir, a live kernel) that cannot be imported at this layer.
-- **`ndt down` and `stack.sh down` send SIGTERM, and the kernel installs a handler only for
-  SIGINT** (`std::signal(SIGINT, handleSigint)` in `src/main.cpp`). SIGTERM's default action
-  terminates the process directly, so a healthy kernel stopped by `ndt down` exits with code
-  **143**; `stack.sh` treats 143 as normal (`fatal_exit_status` does not list it). The
-  consequence is that the orderly shutdown sequence in `main.cpp` ("Shutdown requested" and "All
-  subsystems stopped") does not run on the `ndt down` path; only a manual `kill -INT` (or Ctrl-C)
-  reaches it. To see the shutdown sequence itself, stop the kernel with `kill -INT <kernel pid>`.
+- **`ndt down` and `stack.sh down` wait 10 s after SIGTERM.** They send SIGTERM to each
+  component's process group. The kernel handles it like SIGINT: it logs "Shutdown requested",
+  stops its subsystems, logs "All subsystems stopped" and exits 0. Ryu and the P4 proxy end with
+  status 143 (SIGTERM's default action), which `stack.sh` reports and does not count as a failure;
+  a kernel binary built before SIGTERM was handled ends the same way. A component still running
+  after the 10 s (`STOP_WAIT_TICKS`, see "Overriding the configuration") is sent SIGKILL, and the
+  teardown then fails, naming it.

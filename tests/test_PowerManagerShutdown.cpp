@@ -17,10 +17,11 @@
  *
  * WHY NOBODY SAW IT
  *
- * main() registers a handler for SIGINT only (src/main.cpp:314). `ndt down` sends SIGTERM, whose
- * default action kills the process on the spot: no destructors, no abort, exit status 143. The
- * crash is reachable only from the shutdown a human performs by hand -- Ctrl-C in a terminal --
- * which is the manual usertest and nothing else.
+ * main() then registered a handler for SIGINT only. `ndt down` sends SIGTERM, whose default
+ * action killed the process on the spot: no destructors, no abort, exit status 143. The crash was
+ * reachable only from the shutdown a human performs by hand -- Ctrl-C in a terminal -- which is
+ * the manual usertest and nothing else. Since FIXED-ISSUES A-13 the kernel handles SIGTERM too,
+ * so every `ndt down` now runs this shutdown.
  *
  * WHY THESE ARE DEATH TESTS
  *

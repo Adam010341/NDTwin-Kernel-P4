@@ -227,7 +227,7 @@ FIXED_REL = os.path.join("doc", FIXED_NAME)
 #: ordinary edit cannot fall under; the reason is in the message of the case that uses it.
 KI_MIN_CODES = 15
 KI_MIN_LINES = 300
-KI_REQUIRED_CODES = ("A-13", "B-9", "C-4b", "G-39")
+KI_REQUIRED_CODES = ("A-4b", "B-9", "C-4b", "G-39")
 FIXED_MIN_CODES = 80
 FIXED_MIN_LINES = 100
 FIXED_REQUIRED_CODES = ("A-1", "B-2b", "C-6", "G-13")

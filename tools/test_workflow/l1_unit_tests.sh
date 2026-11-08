@@ -706,6 +706,15 @@ L1_NEED_MET[py-plot]="$(l1_probe_py_plot "$KERNEL_DIR")"
 # runs for real (tests/shell/test_heartbeat_drop_check.py); a hosted runner has none.
 L1_NEED_MET[bmv2-stock]=0
 [[ -x "${NDT_HB_CHECK_BMV2:-/usr/local/bin/simple_switch}" ]] && L1_NEED_MET[bmv2-stock]=1
+# [Co-developed with claude code -- Adam] kernel-ports: TCP :8000 and UDP :6343 are free, which
+# tests/shell/test_kernel_stops_on_term.sh needs to start a real kernel; a running lab holds both.
+# With no ss the ports cannot be read and count as free: the suite then fails to start the kernel
+# and says so, rather than being excused.
+L1_NEED_MET[kernel-ports]=1
+if command -v ss >/dev/null 2>&1 \
+    && [[ -n "$(ss -ltnH 'sport = :8000' 2>/dev/null)$(ss -lunH 'sport = :6343' 2>/dev/null)" ]]; then
+    L1_NEED_MET[kernel-ports]=0
+fi
 # ...and whether this machine is one a declared skip may excuse at all (a hosted CI runner).
 L1_HOSTED="$(l1_hosted_runner)"
 DECLARED_SKIPS=()
