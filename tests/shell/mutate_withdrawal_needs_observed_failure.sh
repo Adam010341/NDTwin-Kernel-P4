@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for doc/FIXED-ISSUES.md B-6, second round -- three decisions, one gate:
+# Mutation gate for doc/FIXED-ISSUES.md B-6, the follow-up -- three decisions, one gate:
 #
 #   pairing   a withdrawal has to PAIR with a reported break. /ndt/link_recovery_detected may
 #             withdraw a declaration only when /ndt/link_failure_detected reported this link
@@ -223,7 +223,7 @@ add_anchor "inject-door"   "$HS"  'HttpSession::handleInjectLinkFailure(http::re
         res.body() = R"({"error":"Invalid link-failure payload"})";
         return;
     }
-    // W8-7. Refused here for the reason the notification endpoint refuses it, and one more: this
+    // Refused here for the reason the notification endpoint refuses it, and one more: this
     // endpoint runs tc, so a dpid-0 payload would attach netem to whichever host-facing interface
     // the arbitrarily-chosen edge named. [Co-developed with claude code -- Adam]
     if (!namesTwoSwitches(data->srcDpid, data->dstDpid))
@@ -434,7 +434,7 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 # M1. 🔴 THE PAIRING DEFECT EXACTLY AS IT WAS MEASURED ON 2026-09-07. The pairing rule is gone and every
 #     recovery report withdraws whatever it lands on -- which is what the first fix did, so
 #     this mutant is that fix's behaviour.
-mutate "the defect verbatim: any recovery report withdraws any declaration (= w8 branch)" \
+mutate "the defect verbatim: any recovery report withdraws any declaration (= the code before the pairing rule)" \
     "$TFM" \
     '    if (!eprop.failureReported && eprop.declaredDown)' \
     '    if (false)' \
@@ -507,7 +507,7 @@ mutate "the guard is missing from /ndt/inject_link_failure alone" \
         res.body() = R"({"error":"Invalid link-failure payload"})";
         return;
     }
-    // W8-7. Refused here for the reason the notification endpoint refuses it, and one more: this
+    // Refused here for the reason the notification endpoint refuses it, and one more: this
     // endpoint runs tc, so a dpid-0 payload would attach netem to whichever host-facing interface
     // the arbitrarily-chosen edge named. [Co-developed with claude code -- Adam]
     if (!namesTwoSwitches(data->srcDpid, data->dstDpid))
@@ -558,7 +558,7 @@ mutate "an unreadable qdisc tree is passed over in silence" \
     ResidualNetemSweepTest.AnUnreadableQdiscTreeIsReportedAsUnreadNotAsClean
 
 # ================================================================================================
-#    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just B-6's second round's.
+#    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just the B-6 follow-up's.
 # ================================================================================================
 
 # M11. THE BLUNT OVER-CORRECTION. Every recovery report is declined, so /ndt/link_recovery_detected
@@ -755,7 +755,7 @@ mutate "the three outcomes are one sentence again, just logged later" \
 #   the namespace sweep already say they mean. M21..M24 are direction 1, M25 is direction 2.
 # ================================================================================================
 
-# M21. 🔴 THE NARROW SWEEP VERBATIM: the sweep goes back to reporting link ends only. This is the shape B-6's second round
+# M21. 🔴 THE NARROW SWEEP VERBATIM: the sweep goes back to reporting link ends only. This is the shape the B-6 follow-up
 #      shipped, and the reason it had to change is where the fault tools actually attach netem:
 #      testbed_topo.py:92-96 hangs hosts off s1..s4 at ports 3 and up, and the chaos harness's
 #      DEFAULT --iface is s1-eth3 (2026-08-28_chaos-harness/harness/chaos.py:487,544) -- a
@@ -880,13 +880,13 @@ mutate "the sweep reports every netem on the machine, not just this fabric's" \
 #     POST /ndt/inject_link_failure with a netem already on s1-eth1  ->  that end refused, s5-eth1
 #     really cut, 200 {"status":"link failure injected"}
 #
-#   Numbered after M25 so M1..M25 keep meaning what RED-GREEN.md and the R2/R3 summaries say.
+#   Numbered after M25 so M1..M25 keep the meaning earlier reports gave them.
 #   🔴 THE READ IS NOT THE PERMISSION. findExistingNetem answers "is there a netem here, and
 #   where"; whose it is cannot be read off the tree at all, because a netem carries no owner. Every
 #   mutation below is a way of going back to treating one answer as the other.
 # ================================================================================================
 
-# M26. 🔴 THE FINDING VERBATIM, and the mutation that was named: the 409 never fires, so a
+# M26. 🔴 THE DEFECT VERBATIM, and the mutation that was named: the 409 never fires, so a
 #      recovery for a link nobody declared down deletes whatever netem is on it and says ok.
 # 🔴 `if (false)` would leave `const bool declared` unread, and -Werror makes a mutant that does
 #      not compile a SURVIVOR here (it was, on the first run of these additions). The condition is
@@ -922,10 +922,10 @@ mutate "provenance is keyed on the interface name, not the tc handle" \
     InjectedNetemProvenanceTest.ANetemSwappedForOursIsNotOursAnyMore \
     DeclaredLinkFailureWireTest.ANetemSwappedUnderAStandingDeclarationIsLeftStandingAndSaidSo
 
-# M29. 🔴 THE SECOND FINDING VERBATIM: the trunk loop is back. cutInterface per end, carrying on
+# M29. 🔴 THE SECOND DEFECT VERBATIM: the trunk loop is back. cutInterface per end, carrying on
 #      past a refusal, no ledger entry and no rollback -- so one end already carrying somebody
 #      else's netem leaves the OTHER end really cut, and the reply says `link failure injected`.
-mutate "the per-end cut loop is back (= the trunk shape of the second finding)" \
+mutate "the per-end cut loop is back (= the trunk shape of the second defect)" \
     "$HS" \
     '    const auto cut = utils::netem::cutLinkEnds({srcIface, dstIface},
                                                "100%",
@@ -1118,7 +1118,7 @@ printf '  %d widenings, %d wrongly caught\n' "$WIDENINGS" "$WIDENINGS_CAUGHT"
 
 if [[ "$ok" != 1 ]]; then exit 2; fi
 if (( SURVIVORS > 0 || WIDENINGS_CAUGHT > 0 )); then exit 1; fi
-echo "  W8b gate: a withdrawal cannot be unpaired from a reported break by any of five routes,"
+echo "  Pairing gate: a withdrawal cannot be unpaired from a reported break by any of five routes,"
 echo "  dpid 0 cannot be let back in at the helper or at one door, the recovery log cannot go"
 echo "  back in front of its outcome or collapse its three outcomes into one sentence, and the"
 echo "  startup sweep cannot go silent, go blind, shrink back to link ends, drop an interface"

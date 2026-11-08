@@ -25,7 +25,7 @@
  * A row is withheld when it **carries a token** and that token is **not confirmed**. Nothing else.
  * In particular it is never withheld for *looking like* a request -- four fields, no counters, the
  * caller's field vocabulary rather than the switch's. That signature is real, and it is what
- * FINDING-03 used to detect the phantom, but a filter keyed on it would be the same shape as the
+ * was used to detect the phantom, but a filter keyed on it would be the same shape as the
  * thing it measures: a polled entry that happened to arrive without counters would vanish, and a
  * pending entry that happened to look complete would survive. Provenance answers "where did this
  * row come from", which is the actual question. Resemblance only ever answers "what does it look

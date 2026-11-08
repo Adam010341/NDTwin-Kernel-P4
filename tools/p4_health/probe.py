@@ -9,10 +9,10 @@
                                                                    S0, then bring-ups A and B (Cut 2)
 
 Exit: 0 COMPLETE, 1 PROBE-BROKEN (not publishable), 2 INCOMPLETE / refused. On `lab`, 1 is PROBE-BROKEN and nothing
-else (round 5): an S0 that is not whole, a run that cannot start and an exception are all 2, and so is
+else: an S0 that is not whole, a run that cannot start and an exception are all 2, and so is
 SEE-RED-NOT-SEEN: a --mutant run (complete, clean) in which no cell is PROBE-BROKEN, i.e. the probe did not
 notice the mutant. The see-red run's pass is PROBE-BROKEN rc 1 with empty problems.
-Refuses to run as root (design 7.3). Wrap in run.sh (setsid, nice) for anything long.
+Refuses to run as root. Wrap in run.sh (setsid, nice) for anything long.
 """
 from __future__ import annotations
 
@@ -109,8 +109,8 @@ def probe_version(head=None):
 
 
 def repo_identity(head=None):
-    """HEAD (a commit sha), the probe's tree, and whether either is dirty (review MINOR 14). A lab run
-    passes the sha its freeze pinned (round 5, NIT 7): the identity names the commit the copies were
+    """HEAD (a commit sha), the probe's tree, and whether either is dirty. A lab run
+    passes the sha its freeze pinned: the identity names the commit the copies were
     checked against, not whatever HEAD is by the time this is written."""
     return {"head": head or _git("rev-parse", "HEAD") or "unknown", "probe_tree": probe_version(head),
             "dirty_paths": len([l for l in _git("status", "--porcelain").splitlines() if l.strip()])}
@@ -221,7 +221,7 @@ def cmd_lab(args):
     try:
         s0.run()
     except FZ.Refused as exc:
-        # (round 6, finding 2) S0's copy of exercise/ is not what the pinned commit has: no lab action
+        # S0's copy of exercise/ is not what the pinned commit has: no lab action
         print("refused: %s" % exc, file=sys.stderr)
         return 2
     print("S0 %s" % s0.out["verdict"])
@@ -229,7 +229,7 @@ def cmd_lab(args):
     bringups = tuple(b for b in (args.bringups or "A,B").split(",") if b)
     only = [c for c in (args.only or "").split(",") if c] or None
     if s0.out["verdict"] != "COMPLETE":
-        # (Cut 2 round 5, #2) rc 1 is PROBE-BROKEN, the see-red run's pass: an S0 that is not whole is
+        # rc 1 is PROBE-BROKEN, the see-red run's pass: an S0 that is not whole is
         # INCOMPLETE rc 2, and run_lab writes the health.json that says which check failed. No identity
         # work, no lab.
         rc, _doc = L.run_lab(cfg, runner, s0.out, run_dir, run_id, bringups=bringups, only=only,
@@ -263,7 +263,7 @@ def cmd_lab(args):
 
 
 def set_verdict_aside(run_dir):
-    """(Cut 2 round 6, finding 5) A run that ends rc 2 on an exception must not leave a health.json that reads as
+    """A run that ends rc 2 on an exception must not leave a health.json that reads as
     a verdict: an existing one is renamed health.json.not-a-verdict. Returns the sentence that says what was
     done, "" when there was nothing to do."""
     path = os.path.join(os.path.abspath(run_dir), "health.json")
@@ -279,7 +279,7 @@ def set_verdict_aside(run_dir):
 
 def main(argv=None):
     if os.geteuid() == 0:
-        print("refusing to run as root (design 7.3)", file=sys.stderr)
+        print("refusing to run as root", file=sys.stderr)
         return 2
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd")
@@ -307,7 +307,7 @@ def main(argv=None):
         try:
             return cmd_lab(args)
         except SignalAbort as exc:
-            # (round 6, finding 3) A BaseException: `except Exception` below does not see it, and Python's
+            # A BaseException: `except Exception` below does not see it, and Python's
             # status for it is 1 -- PROBE-BROKEN, the see-red run's pass. A stop that reached the run level
             # outside run_lab's own try ends the run INCOMPLETE rc 2.
             print("stopped: signal %d ended the lab run outside any round's body; it is INCOMPLETE, not a "
@@ -315,7 +315,7 @@ def main(argv=None):
                   % (exc.signum, set_verdict_aside(args.run_dir)), file=sys.stderr)
             return 2
         except Exception:  # noqa: BLE001
-            # (Cut 2 round 5, #2) Python's status for an uncaught exception is 1 -- PROBE-BROKEN, which on
+            # Python's status for an uncaught exception is 1 -- PROBE-BROKEN, which on
             # the see-red run is the pass. Whatever the lab path did not foresee is INCOMPLETE rc 2.
             import traceback
             traceback.print_exc()

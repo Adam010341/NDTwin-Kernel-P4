@@ -325,7 +325,7 @@ class DeviceConfigurationAndPowerManager
      *
      * @details
      * [Co-developed with claude code -- Adam]
-     * D15. Not a const getter over a value fixed at start(): it derives the answer on first use
+     * Not a const getter over a value fixed at start(): it derives the answer on first use
      * if start() could not, which is the half of the fix that survives someone reintroducing the
      * startup race. Public because it is also the only seam through which a test can see which
      * verdict the liveness worker will act on, without standing up a fabric.
@@ -1123,7 +1123,7 @@ class DeviceConfigurationAndPowerManager
      *
      * @details
      * [Co-developed with claude code -- Adam]
-     * D15. The missing bit. "No switches have been read yet" and "these switches are not bmv2"
+     * The missing bit. "No switches have been read yet" and "these switches are not bmv2"
      * used to produce the same value -- false -- and it was latched at a moment when only the
      * first could be true. This separates them: false here means *not yet known*, and the answer
      * is derived again at the point of use rather than believed.

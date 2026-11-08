@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Add the shard logs of tests/shell/mutate_p4_health.sh up, and say whether they are the gate. (Cut 2 round 5, #6)
+# Add the shard logs of tests/shell/mutate_p4_health.sh up, and say whether they are the gate.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -15,15 +15,15 @@
 #     never says REFUSED, and its last line is `rc=0`;
 #   * all of them share one commit (the first line, and the HEAD line), one tools/p4_health tree (and none says
 #     UNCOMMITTED) and one subject sha;
-#   * (round 8) all of them name the same interpreter, on their one
+#   * all of them name the same interpreter, on their one
 #     `interpreter: <path> (<version>, prefix <sys.prefix>)` line: shards run by another interpreter (another path,
-#     version or, from round 9, sys.prefix -- realpath maps a venv onto its base interpreter, so the prefix is what
+#     version or, in newer logs, sys.prefix -- realpath maps a venv onto its base interpreter, so the prefix is what
 #     tells two venvs on one base apart) are not one run of the suites. The whole line is compared. The line names
 #     no host, so two machines with the same path, version and prefix are not told apart. Logs written before
-#     round 9 have no prefix on the line;
+#     the prefix was added have no prefix on the line;
 #   * they agree on n and on L, n is not larger than L, the shards are exactly 0..n-1 once each, each ran its
 #     share of the table (the positions k, k+n, ... below L) and the shares add up to L;
-#   * (round 6) the commit they share is the checkout's HEAD -- or, with --commit, the commit named there -- and
+#   * the commit they share is the checkout's HEAD -- or, with --commit, the commit named there -- and
 #     the tools/p4_health tree they share is that commit's tree: logs of another commit certify nothing about
 #     this one. The checkout is this script's own (../..), or $P4_HEALTH_SUM_REPO. The subject sha is a hash of
 #     the working files, which a commit does not fix, so it is compared between the logs only, and printed.

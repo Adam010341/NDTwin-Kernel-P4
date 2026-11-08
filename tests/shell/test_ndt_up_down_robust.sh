@@ -4,9 +4,9 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Four findings from the 09-02/09-03 night rounds, all of them about the same two commands:
+# Four defects from 09-02/09-03, all of them about the same two commands:
 #
-# #3  A failed `ndt up ovs4` does not roll back. Measured 2026-09-02 23:36-23:39:
+# rollback (A-11)  A failed `ndt up ovs4` does not roll back. Measured 2026-09-02 23:36-23:39:
 #     a sibling session's kernel took :8000
 #     four seconds before the bring-up started; `ndt up` built Ryu (:8080/:6653/:6633) and a
 #     15-process / 36-veth data plane, and only THEN did stack.sh's [3/3] refuse. `ndt up`
@@ -14,18 +14,18 @@
 #     processes were still there. Two defects in one: the refusal ran after the machine had been
 #     changed, and nothing undid what had been done.
 #
-# #21 `up_p4` sweeps an orphan bmv2 with `sudo -n "$LAB" cleanup >/dev/null 2>&1` and throws the
+# sweep-rc  `up_p4` sweeps an orphan bmv2 with `sudo -n "$LAB" cleanup >/dev/null 2>&1` and throws the
 #     rc away, then builds on top of whatever survived. The orphan holds :3005x, the new fabric
 #     cannot bind, and the operator sees an error that reads like a P4 pipeline problem.
 #     `cmd_down`'s sweep has the same shape through a pipeline. Until G-9 this was invisible
 #     rather than wrong -- every kill in the old cleanup was `|| true`, so it could not fail.
 #
-# #49 `ndt down`'s own verify is not synchronised with the sweep it verifies: it printed
+# verify-race  `ndt down`'s own verify is not synchronised with the sweep it verifies: it printed
 #     "XX bmv2 switches: 5 still running" and "not clean", and `ps -eo comm=` counted 0 twenty
 #     seconds later. The fabric was gone; the
 #     verdict was taken before the machine had finished agreeing with it.
 #
-# #83 `ndt:55` hard-codes LAB=/usr/local/sbin/ndtwin-lab, a root-owned COPY. The copy on this
+# helper-copy  `ndt:55` hard-codes LAB=/usr/local/sbin/ndtwin-lab, a root-owned COPY. The copy on this
 #     machine is the 08-30 one (sha256 288b71cb...); tools/test_workflow/ndtwin-lab has moved
 #     five commits since. So `ndt up`/`ndt down` run code that is not in this tree, and nothing
 #     -- status, preflight, or any gate -- compares the two files or says a word.
@@ -39,7 +39,7 @@
 #   * roll back everything you can find      -> tears down a fabric this run REUSED and did not
 #     start, i.e. someone else's lab.
 #   * wait until the machine looks clean     -> turns a real leftover into a green teardown,
-#     which is #49 with the sign flipped and strictly worse than the false negative.
+#     which is the verify-race with the sign flipped and strictly worse than the false negative.
 #
 # Offline and fixture-driven, like tests/shell/test_ndt_status_check_baseline.sh: `ndt` is
 # sourced through its own source seam, REPO/LAB/STACK are redirected into a temp dir, `sudo` and
@@ -102,7 +102,7 @@ PY
 mk_topo StaticNetworkTopologyOVS_10Switches_4Hosts.json  4 40
 mk_topo StaticNetworkTopologyP4_10Switches_4Hosts.json   4 40
 
-# The two helper copies #83 is about. Distinct contents, so their sha256s differ the way the
+# The two helper copies the helper-copy defect is about. Distinct contents, so their sha256s differ the way the
 # installed 08-30 copy differs from this tree's.
 mk_helpers() {   # <installed-content> <repo-content>;  "-" means "do not create the file"
     rm -f "$FIX/installed-ndtwin-lab" "$FIX/tools/test_workflow/ndtwin-lab"
@@ -208,9 +208,9 @@ sudo() {
 }
 sleep() { :; }
 # Counters. A SEQUENCE file answers successive readings with successive values and then repeats
-# the last one, which is the whole of finding #49: the sweep has signalled the processes, the
+# the last one, which is the whole of the verify-race defect: the sweep has signalled the processes, the
 # table has not caught up yet, and the next reading is different from this one. It is also how a
-# fabric can be an orphan on one reading and a live fabric on the next, which is the #21 branch.
+# fabric can be an orphan on one reading and a live fabric on the next, which is the sweep-rc branch.
 seq_read() {   # seq_read <file> <default>
     local f="$1" v rest
     [[ -f "$f" ]] || { echo "$2"; return 0; }
@@ -279,7 +279,7 @@ rc_of_out() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
 ledger() { printf '%s\n' "$2" > "$FIX/.test_run/pids/$1.pid"; }   # ledger <component> <pid>
 
 # ==========================================================================================
-section "1. #3(a): the cheap refusals are decided BEFORE the machine is touched"
+section "1. rollback (a): the cheap refusals are decided BEFORE the machine is touched"
 # The measured collision, verbatim: :8000 held by a kernel this checkout did not start. On
 # 09-02 that was discovered by stack.sh's [3/3], after Ryu and a 15-process fabric existed.
 reset_fix
@@ -327,7 +327,7 @@ OUT="$(drive 'preflight ovs')"
 check "nothing held: preflight passes"                     "0"  "$(rc_of_out "$OUT")"
 hasnt "  and says nothing about foreign holders"           "not part of this checkout" "$OUT"
 
-section "2. #3(b): a bring-up that fails after changing the machine takes it back down"
+section "2. rollback (b): a bring-up that fails after changing the machine takes it back down"
 # up_ovs, the measured shape: Ryu started, the fabric built, then the kernel step failed.
 reset_fix; rc_for stack_up 1; echo "0 14 0" > "$FIX/mn.seq"
 OUT="$(drive 'up_ovs 4')"
@@ -344,7 +344,7 @@ check "  the record really is still there"                 "yes" "$( [[ -f "$FIX
 
 # 🔴 The control against "roll back on any non-zero exit". A stack that came UP and then failed
 # its verification is the state an operator most needs to look at; tearing it down destroys the
-# evidence and is not what #3 asks for.
+# evidence and is not what the rollback defect asks for.
 # The sequence is "0 10": no orphan on the reading that looks for one, ten switches on every
 # reading after -- a bring-up that builds its own fabric, gets a stack, and then fails [3/3].
 reset_fix; echo "0 10" > "$FIX/bmv2.seq"
@@ -398,7 +398,7 @@ has   "an incomplete rollback says so"                     "rollback INCOMPLETE"
 has   "  and names the survivor cleanup reported"          "STILL RUNNING" "$OUT"
 hasnt "  and never claims the machine is back as it was"   "the machine is back to what it was" "$OUT"
 
-section "3. #21: cleanup's exit status is read, not thrown away"
+section "3. sweep-rc: cleanup's exit status is read, not thrown away"
 # up_p4 with an orphan bmv2 and no topo session -- the exact branch, ndt:803 on trunk.
 # 🔴 The sequence is "3 10": three orphans on the reading that finds them, ten switches on every
 # reading after -- i.e. a bring-up that would otherwise have gone all the way to green. Without
@@ -435,7 +435,7 @@ OUT="$(drive 'cmd_down')"
 check "🔴 and a clean teardown is still green"             "0"  "$(rc_of_out "$OUT")"
 hasnt "  with no complaint about the sweep"                "cleanup exited" "$OUT"
 
-section "4. #49: the teardown verify waits for the sweep it is verifying"
+section "4. verify-race: the teardown verify waits for the sweep it is verifying"
 # The measured case: five bmv2 still in the table at the instant of the assertion, gone shortly
 # after. Trunk asserts immediately and reports "5 still running / not clean".
 reset_fix; echo "5 5 5 0" > "$FIX/bmv2.seq"
@@ -465,7 +465,7 @@ OUT="$(drive 'cmd_clean')"
 check "🔴 'ndt clean' alone does not wait"                 "1"  "$(rc_of_out "$OUT")"
 has   "  it answers about this instant"                    "bmv2 switches: 5 still running" "$OUT"
 
-section "5. #83: the installed helper is compared with this tree's, and named"
+section "5. helper-copy: the installed helper is compared with this tree's, and named"
 reset_fix; mk_helpers "helper 08-30" "helper trunk"
 OUT="$(drive 'lab_version_report')"
 check "a differing helper is reported"                     "1"  "$(rc_of_out "$OUT")"
@@ -934,7 +934,7 @@ reset_fix; out_for stack_down "$STACK_DOWN_REAL"
 OUT="$(drive 'cmd_down')"
 has  "🔴 the crash half of B-5 arrives"                 "ryu did not stop cleanly" "$OUT"
 has  "  and the evidence it names arrives with it"      "evidence:" "$OUT"
-has  "🔴 a plain non-zero ending arrives (#19)"         "ryu exit status 7" "$OUT"
+has  "🔴 a plain non-zero ending arrives"                "ryu exit status 7" "$OUT"
 has  "🔴 the stale registry files it cleared are named" "cleared ryu's stale registry files" "$OUT"
 has  "  the port table's consequence line"              "the next bring-up cannot bind :8000" "$OUT"
 has  "  and the remedy printed under it"                "find and stop it" "$OUT"
@@ -1322,7 +1322,7 @@ section "18. ROLE-9: a REFUSED 'ndt up p4 <n>' leaves the P4 host knob exactly a
 #     XX  refusing to build: NDT_TOPO names a model of a different network: 128 host(s) asked
 #     XX    the fabric is built from p4_proxy/mininet/host_count_override (128), and the
 #
-# 🔴 THE THIRD LINE IS THE FINDING. The refusal told the operator the fabric is built from a
+# 🔴 THE THIRD LINE IS THE DEFECT. The refusal told the operator the fabric is built from a
 # knob reading 128 -- a value this refused command had written 0.1 s earlier. The operator's
 # tree said 4. A refusal that quotes a state only the refusal itself created cannot be acted
 # on, and on this machine that file is somebody else's uncommitted change: `ndt status` is the
@@ -1506,7 +1506,7 @@ hasnt "🔴 and does not say the opposite"               "did NOT verify clean" 
 has   "  the claim is still kept, not released"        "claim kept" "$(cnote)"
 hasnt "  and the 'in use' sentence is gone"            "in use" "$(cnote)"
 
-# -- 2. 🔴 THE FINDING. rc 1 from an ending that happened in an EARLIER round, over a machine
+# -- 2. 🔴 THE DEFECT. rc 1 from an ending that happened in an EARLIER round, over a machine
 # `verify clean` found spotless. This is the pair read off the screen and the claim on 2026-09-12.
 reset_fix; rm -f "$DM"; rc_for stack_down 1
 out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL"

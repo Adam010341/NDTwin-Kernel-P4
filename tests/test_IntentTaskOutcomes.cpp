@@ -132,8 +132,8 @@ class ScriptedFlowRoutingManager : public FlowRoutingManager
  * The root used to be the constant `<tmp>/ndtwin_test_intent_task_outcomes`, shared by all nine
  * tests in this file. `ctest` gives every test its own process, so under `-j2` two of them build
  * and tear down that one directory at the same time -- and the constructor's `remove_all` runs
- * while the other process is chdir'ed inside it. Measured 2026-09-06 (W11's round,
- * `w11-logs/05-ctest.log`, `CTEST_RC=8`): tests 818 and 819 failed with
+ * while the other process is chdir'ed inside it. Measured 2026-09-06 (ctest,
+ * `CTEST_RC=8`): tests 818 and 819 failed with
  *   C++ exception with description "filesystem error: cannot remove: Directory not empty
  *   [/tmp/ndtwin_test_intent_task_outcomes]" thrown in the test fixture's constructor.
  * while `-j1` was 100% green -- i.e. the suite could only be trusted at one job.

@@ -225,7 +225,7 @@ TEST(FlowStatsTimeoutTest, AFastEmptyTableIsUsableWhichIsWhyAFailedParseMustNotL
 // the failure travels on. Before the ReportedFailure verdict existed, this body had no array
 // entries and came back *fast* -- failing is faster than timing out -- so it classified Usable and
 // was applied as an authoritative empty snapshot, sweeping every rule the Classifier held for that
-// switch. Found by agy-review 0170 #2.
+// switch.
 
 TEST(FlowStatsTimeoutTest, AnErrorBodyIsAReportedFailureNoMatterHowFastItArrived)
 {

@@ -354,7 +354,7 @@ class LabRound(object):
 
     def run(self, body):
         if os.geteuid() == 0:
-            raise RootRefused("the probe refuses to run as root (design 7.3)")
+            raise RootRefused("the probe refuses to run as root")
         rec = {"id": self.bringup, "up_rc": None, "down_rc": None, "release_rc": None,
                "claim_rc": None, "knobs_restored": None, "qdisc_same": None,
                "heartbeat_state": None, "frames_reached_hosts": None, "seconds": None,

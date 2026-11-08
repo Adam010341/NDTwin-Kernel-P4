@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Each mutation puts back one piece of #8 -- the `ndt status --check` that reported a healthy
+# Each mutation puts back one piece of the false-red and false-green defect -- the `ndt status --check` that reported a healthy
 # 4-host OVS fabric as "the kernel graph does not match the topology file" because its baseline
 # came from a P4-only knob, and that went green comparing an OVS fabric against a P4 model file
 # because its whole comparison was (hosts, edges) -- and must turn its named case red. A
@@ -15,7 +15,7 @@
 # --check that compares nothing at all, one that treats a missing baseline as a pass, one that
 # prints every comparison and reports no difference. Each of those satisfies every "did it go
 # red on the broken fixture" question a fires-only gate asks, and each would put back exactly
-# the property #8 is about -- a check with no discriminating power that looks like a check.
+# the property that defect is about -- a check with no discriminating power that looks like a check.
 #
 # 🔴 THE WIRING IS MUTATED TOO (M6/M7/M8). The record can exist, be readable, and be compared
 # correctly while nothing ever writes it; --check then answers "could not check" for ever and
@@ -28,7 +28,7 @@
 #
 # 🔴 A mutant directory carries ports.sh and sudo_surface.sh too. ndt sources both from beside
 # itself, so a copy without them exits 2 at source time and every case goes red for a reason
-# that has nothing to do with the mutation (MERGE-LOG.md, 09-03).
+# that has nothing to do with the mutation.
 #
 # 🔴 A mutation that will not apply, a non-unique anchor, or the WRONG case going red counts as
 # SURVIVOR -- never as skipped.
@@ -101,7 +101,7 @@ echo
 
 # --- the defect itself ---------------------------------------------------------------------
 
-# #8 exactly: the baseline goes back to being derived from p4_proxy/mininet/host_count_override,
+# That defect exactly: the baseline goes back to being derived from p4_proxy/mininet/host_count_override,
 # a P4-only knob that `ndt up ovs4` never writes. On a healthy ovs4 that is the false red.
 m=$(mutant m1 "$NDT" \
     '    plane="$(up_target_field plane)";       hosts="$(up_target_field hosts)"' \
@@ -109,7 +109,7 @@ m=$(mutant m1 "$NDT" \
 report "M1: the host baseline comes from the P4 knob again" "$m" \
        "a healthy ovs4 exits 0"
 
-# The second half of #8, and the reason a "which file" fix alone is not one: the data plane kind
+# The second half of that defect, and the reason a "which file" fix alone is not one: the data plane kind
 # is printed but not compared, so the comparison is (hosts, edges) again -- a pair that the P4
 # and OVS 4-host models share, and therefore a pair that cannot tell the two planes apart.
 m=$(mutant m2 "$NDT" \
@@ -234,7 +234,7 @@ report "M10: sim's evidence log is hard-coded to the main checkout (F9)" "$m" \
        "  🔴 sim's evidence log is inside the fixture"
 
 
-# --- R7 I-3: .test_run/pids/ contradicting itself, and no interface saying so -----------------
+# --- .test_run/pids/ contradicting itself, and no interface saying so -----------------
 #
 # Measured 2026-09-11 02:52:03 and again 02:52:27: ryu.pid=20717 and
 # ryu.child.pid=20722 both naming pids that /proc did not have, ryu.exit in the same directory
@@ -286,7 +286,7 @@ report 'MI5: the app pidfiles are claimed by this row as well as by the apps blo
        '🔴 an app pidfile is not claimed by this row'
 
 
-# The contradiction is the finding, not the stale file on its own: the evidence for how that pid
+# The contradiction is the defect, not the stale file on its own: the evidence for how that pid
 # ended was already on disk, one filename over, and nothing put the two side by side.
 m=$(mutant mi6 "$NDT" \
     '        if [[ -n "$ev_at" || -n "$ev_st" ]]; then

@@ -67,7 +67,7 @@ kernel_reachable() {
 # That red is not just noise: `doc/audit/2026-08-30_live-full-stack-round/harness/40_r5_p4.sh:336`
 # greps this run's output for the literal `BROKEN` and reads it as evidence about **A-8** -- so
 # the highest-value fix merged that day could not get a live verdict, and the red it did get
-# would have been read as a product failure. An instrument that manufactures the finding it is
+# would have been read as a product failure. An instrument that manufactures the result it is
 # being read for is worse than one that says nothing.
 #
 # `ndt up` has always derived the model instead of assuming it (ndt:682 passes TOPO_P4 down to
@@ -222,7 +222,7 @@ topo_from_kernel() {
     said="$(kernel_graph_json | kernel_loaded_model)"
     if [[ -z "$said" ]]; then
         echo "${Y}topology: the kernel did not say which model it loaded (unreachable, or built" >&2
-        echo "before E-2), so the model below is DERIVED from the running fabric -- guessing.${N}" >&2
+        echo "before G-15), so the model below is DERIVED from the running fabric -- guessing.${N}" >&2
         return 1
     fi
 

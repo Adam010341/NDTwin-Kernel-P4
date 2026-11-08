@@ -88,7 +88,7 @@ add_executable(
   # shutdown path -- a joinable std::thread destroyed by ~DeviceConfigurationAndPowerManager.
   # Death tests: the failure is process death, so it cannot be asserted from inside the process.
   test_PowerManagerShutdown.cpp
-  # [Co-developed with claude code -- Adam] D15: the startup race that left bmv2 liveness off for
+  # [Co-developed with claude code -- Adam] The startup race that left bmv2 liveness off for
   # the whole process lifetime. Asserts the ordering, not the outcome -- see the file header.
   test_DataPlaneKindOrdering.cpp
   # [Co-developed with claude code -- Adam] The sFlow drop counters were
@@ -158,7 +158,7 @@ add_executable(
   # a guard is allowed to cost: only the reverse edge is keyed by the missing address.
   test_AddresslessAttachmentSwitch.cpp
 
-  # [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md B-6, second half: where a netem
+  # [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md B-6, the follow-up: where a netem
   # may be attached so that cutting a link does not silently replace TCLink's htb -- the rule
   # tools/test_workflow/faults.sh bought with the lost 2026-08-13 overnight round, moved into the
   # kernel for POST /ndt/inject_link_failure. Pure functions over real `tc qdisc show` output; no
@@ -180,7 +180,7 @@ add_executable(
   # running switch loaded -- so the fixtures say 512 and 2048, never 1024.
   test_OpenflowCapacityReport.cpp
 
-  # [Co-developed with claude code -- Adam] E-2: run_layers.sh chose the model to validate the
+  # [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md G-15: run_layers.sh chose the model to validate the
   # fabric against from (data plane, live host count) and never asked the kernel, and setting/
   # holds more than one model with the same dpids and the same cardinality -- so validating one
   # fabric against another's model was green by construction. This owns the kernel's side of the

@@ -8,7 +8,7 @@
 Exit 0 when every check passes, 1 when any fails. Needs no root, no Mininet and no fabric: it
 reads files and parses protobuf, which is the whole point -- the failures it is looking for are
 exactly the ones that today show up after `ndt up p4` as a switch that came up with an empty
-table and a twin that reports zero rather than an error (GAP-ANALYSIS §5-①).
+table and a twin that reports zero rather than an error.
 
 Each check prints PASS or FAIL with a reason. A check that cannot be run prints FAIL, never
 PASS -- "could not tell" is not "fine". The one exception is the p4c compile, which prints

@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Each mutation puts back one piece of findings #6/#48 -- the `ndt apps stop` that stopped the
+# Each mutation puts back one piece of G-11 -- the `ndt apps stop` that stopped the
 # wrapper, reported `ok viz stopped` with rc 0, and left two JVMs running for 1h54m -- and must
 # turn its named case red. A mutation nobody catches means that case proves nothing.
 #
@@ -22,7 +22,7 @@
 # 🔴 A mutant directory carries ports.sh and sudo_surface.sh too. ndt sources both from beside
 # itself, so a copy without them exits 2 at source time and every case in the suite goes red for
 # a reason that has nothing to do with the mutation -- which is how three gates went red during
-# the 09-03 merge (MERGE-LOG.md).
+# the 09-03 merge.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"

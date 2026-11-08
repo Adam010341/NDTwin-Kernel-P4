@@ -6,7 +6,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # Each mutation puts back one way the page, or the server behind it, could break a guarantee of
-# section 5 -- the token somewhere it can be read back, a second key trade, a key left in the
+# its design -- the token somewhere it can be read back, a second key trade, a key left in the
 # address bar, a poll that does not stop, a write on load, a dialog that asks less than the server
 # says, a write without its dry run, an inline script -- and must turn the ONE browser case it
 # names red, for the reason it names (a fixed text of that case's failure message).

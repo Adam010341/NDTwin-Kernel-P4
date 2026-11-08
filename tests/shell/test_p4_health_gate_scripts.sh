@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# The mutation gate's own refusals, and the script that adds its shards up (Cut 2 round 5, #6).
+# The mutation gate's own refusals, and the script that adds its shards up.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -12,7 +12,7 @@
 # only if they share one commit, tree and subject sha, every baseline, control and after-check is green, every
 # rc is 0 and the counts add up to the table; anything else exits non-zero.
 #
-# (round 6) The shard-sum script also compares the logs' commit and tools/p4_health tree with the checkout it runs
+# The shard-sum script also compares the logs' commit and tools/p4_health tree with the checkout it runs
 # in (HEAD, or --commit), and prints them; the gate script marks an uncommitted change to any of its own scripts, to
 # tools/p4_exercise and to grpc_ports.py on its tree line, and prints a hash of its own scripts that does not depend on
 # where they are. Those are checked here against scratch git repos laid out as the gate expects.
@@ -69,7 +69,7 @@ check "MUT_SHARD with k above n is refused" \
     refused_before_baseline kgtn "k must be below n" MUT_SHARD=5/4
 check "MUT_SHARD with n larger than the table is refused (a shard that would run nothing)" \
     refused_before_baseline ntoobig "larger than the" MUT_SHARD=400/5000
-# (round 9) the table's size is read from the gate itself, the banner of a one-shard run ("0/1 (L of L mutations;"),
+# The table's size is read from the gate itself, the banner of a one-shard run ("0/1 (L of L mutations;"),
 # so the boundary is tested where it is: n = L+1 refused, n = L accepted (below, with the controls)
 table_size() {
     gate "$WORK/size.out" MUT_SHARD=0/1 > /dev/null
@@ -118,7 +118,7 @@ no_banner_for_the_whole_gate() {
 }
 check "the whole gate does not" no_banner_for_the_whole_gate
 
-# --- the gate script's header (round 6) ----------------------------------------------------------------
+# --- the gate script's header ----------------------------------------------------------------
 header() {  # header <scratch checkout>: the gate script of that checkout, up to its baseline; its output in $WORK/hdr.out
     ( cd "$1" && env -u MUT_SHARD -u ONLY_LABEL_PREFIX -u ANCHOR_CHECK PYTHON=/bin/true timeout 60 \
         bash tests/shell/mutate_p4_health.sh > "$WORK/hdr.out" 2>&1 )
@@ -163,7 +163,7 @@ doc_is_not_marked() {
 }
 check "a file outside what the gate runs or tests is not marked" doc_is_not_marked
 
-# --- (Cut 2 round 8) the subject sha does not depend on the locale -------------------------------------
+# --- the subject sha does not depend on the locale -------------------------------------
 # The subject sha is a hash over a sorted file list, and a sort orders by the locale's collation unless it is told
 # otherwise: the same tools/p4_health gave two values on one machine (LC_ALL=C and en_US.UTF-8), so shards run on two
 # machines could not be told from shards of two trees. The gate script puts LC_ALL=C on the sorts that feed a hash. Here
@@ -198,7 +198,7 @@ every_hashed_sort_is_c() {  # every sort in a pipe of the gate script, outside i
 }
 check "every sort in a pipe of the gate script is told LC_ALL=C" every_hashed_sort_is_c
 
-# --- (round 9) the interpreter line names sys.prefix ----------------------------------------------------
+# --- the interpreter line names sys.prefix ----------------------------------------------------
 # realpath maps a venv onto its base interpreter: two venvs built on one python gave one line. The gate is run here
 # with each venv's python up to its baseline (the scratch checkout's suites are empty, so it stops there).
 interp_line_with() {  # interp_line_with <python>: the gate's interpreter line with that PYTHON
@@ -382,7 +382,7 @@ check "no logs at all is refused, with a reason" no_logs
 missing_log() { out="$(bash "$SUM" /no/such/log 2>&1)"; rc=$?; [[ "$rc" -ne 0 ]] && grep -q "^NOT THE GATE:" <<<"$out"; }
 check "a log that does not exist is refused, with a reason" missing_log
 
-# --- (round 6) the logs must be of this checkout's commit and tree, or of --commit ---------------------
+# --- the logs must be of this checkout's commit and tree, or of --commit ---------------------
 echo "--- the logs must be of the checkout's HEAD and tools/p4_health tree, or of --commit"
 OTHER=4444444444444444444444444444444444444444
 refuses_other_head() {  # four logs that agree with each other, of a commit that is not the checkout's HEAD

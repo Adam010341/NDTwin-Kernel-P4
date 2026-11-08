@@ -157,7 +157,7 @@ def classify_power_state(payload, ip_to_dpid) -> PowerState:
         state = str(value).strip().upper()
         if state == "OFF":
             off.add(dpid)
-            # The old shape cannot tell the two apart -- that is the finding. A pre-split "OFF"
+            # The old shape cannot tell the two apart -- that is the defect. A pre-split "OFF"
             # therefore contributes to `off_dpids` only, and `unreachable_dpids` stays empty
             # rather than being filled with a guess.
         elif state != "ON":
@@ -1084,7 +1084,7 @@ def inv_edges_enabled(data, ctx):
         out.append(
             ACCOUNTED_FOR
             + f"{len(names)} edge(s) are down because down_reason says an operator declared "
-              f"them failed, which does not clear until a recovery is POSTed (W8/W8b): "
+              f"them failed, which does not clear until a recovery is POSTed (B-6): "
               f"{shown}"
         )
     return out
@@ -1215,7 +1215,7 @@ def inv_kernel_serves_the_model_under_test(data, ctx):
                 "this kernel does not report which topology it loaded (no `topology_file` on "
                 "get_graph_data), so nothing here can confirm the graph is being compared "
                 "against the model the kernel is actually serving. Baseline 28b8b13 and every "
-                "kernel before E-2 answers this way"]
+                "kernel before G-15 answers this way"]
 
     out = []
     digest = data.get("topology_sha256")
@@ -1477,7 +1477,7 @@ def inv_dispatch_counters_close(data, ctx):
         failed = c.get("dispatch_failed")
     if None in (dispatched, succeeded, failed):
         return ["counters is missing one of dispatched/succeeded/failed "
-                "(post-W11 spelling: dispatched/dispatched_ok/dispatch_failed)"]
+                "(post-A-7b spelling: dispatched/dispatched_ok/dispatch_failed)"]
 
     out = []
     if dispatched != succeeded + failed:
@@ -1688,7 +1688,7 @@ def inv_recovery_was_declined_and_said_so(data, ctx):
             "withdrew a declaration nothing ever answered for, or withdrew nothing and did not "
             f"say so. The reply carries {sorted(data)}. Either way a caller reading the status "
             "line believes a link is back that this kernel deliberately left down, and on "
-            "MININET the tc netem that came with the injection is still attached (B-6, W8b)"
+            "MININET the tc netem that came with the injection is still attached (B-6)"
         ]
     out = []
     if not str(data.get("detail", "")).strip():
@@ -1900,7 +1900,7 @@ ENDPOINTS = [
                      inv_switch_outcome_closes],
          note="A-7: the only API surface on which a failed queued write is visible. "
               "counters cover the four dispatch routes only -- boot-time programming runs in "
-              "a different process and is not counted here. W11 (2026-09-06): counters.succeeded/"
+              "a different process and is not counted here. A-7b (2026-09-06): counters.succeeded/"
               "failed are now counters.dispatched_ok/dispatch_failed, and switch_outcome answers "
               "about the switch rather than the dispatch (all unknown on OVS, by construction). "
               "?request_id=<id> narrows both groups to one POST -- see DISPATCH_STATUS_FOR_REQUEST"),
@@ -2019,7 +2019,7 @@ ENDPOINTS = [
          # OneOf, not a replacement: a kernel from before the split answers with the bare
          # "ON"/"OFF" string, and the contract tool is run against deployed kernels. The object
          # form is the one that can tell a commanded power-off from a switch that crashed --
-         # which is the entire reason this endpoint is named in the finding.
+         # which is the entire reason this endpoint is named in the defect description.
          schema=MapOf(OneOf(Str(),
                             Obj({"admin_state": Str(allowed=("on", "off")),
                                  "reachable": Bool()})),
@@ -2341,13 +2341,13 @@ ENDPOINTS = [
          schema=Obj({"status": Str(nonempty=True)}, optional={"message": Str()}),
          note="Web-GUI depends on this. The body deliberately re-sets the CURRENT name: a "
               "rename here persists, and a contract run must not leave a device called "
-              "something else. UPDATED 2026-09-06 (W10): the kernel no longer writes "
+              "something else. UPDATED 2026-09-06: the kernel no longer writes "
               "setting/*.json at all -- the name goes to .test_run/nickname_overlay/ and is "
               "laid back over the graph at load -- so the tree no longer goes dirty and "
               "`ndt status --check` no longer reports a rename as an edited topology file. "
               "The note this replaces said 'EXPECT A DIRTY TREE ANYWAY: even writing the "
               "same name back re-serialises the whole file ... git checkout it after a "
-              "mutation run', which was true from 2026-08-17 until W10 and is not any more. "
+              "mutation run', which was true from 2026-08-17 until 2026-09-06 and is not any more. "
               "🔴 What DOES survive a mutation run now is the overlay file: it is gitignored, "
               "so it is invisible to `git status`, and the next kernel start will apply it"),
 
@@ -2601,7 +2601,7 @@ ENDPOINTS = [
          precondition=link_step_precondition,
          category=MUTATE, schema=LINK_RECOVERY_INJECTED,
          invariants=[inv_tc_half_is_reported_per_interface],
-         note="step 5 of 6. The unconditional withdrawal, and since W8b the only one: it takes "
+         note="step 5 of 6. The unconditional withdrawal, and since B-6's pairing rule the only one: it takes "
               "back the injection of step 3 and removes the netem"),
 
     dict(name="inject_link_recovery_cleanup", method="POST", path="/ndt/inject_link_recovery",

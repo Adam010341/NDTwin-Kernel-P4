@@ -837,7 +837,7 @@ void go(const std::string& path)
 
 
 class TheDocumentedLimitIsStillTheLimit(TreeCase):
-    """(2)g, the one row of §3.1 that is NOT widened, pinned so the decision is visible.
+    """(2)g, the one spelling in that family that is NOT widened, pinned so the decision is visible.
 
     `os.path.join("/" + "tmp", "name")` assembles a temp root out of pieces that are individually
     not temp roots. The module docstring has said so since the gate was written, and it stays a
@@ -882,7 +882,7 @@ class ItSaysSoWhenItCannotRead(TreeCase):
     def test_a_herestring_is_not_a_heredoc(self):
         """`<<<"$OUT"` read as `<<"` swallowed the remaining 482 lines of mutate_logger_cli.sh and
         the whole gate scanned clean. The synthetic file has a real finding AFTER the herestring:
-        if the herestring is misread, the finding disappears."""
+        if the herestring is misread, the defect goes unseen."""
         text = ('#!/usr/bin/env bash\n'
                 'FAILED=$(sed -n "s/x/y/p" <<<"$OUT")\n'
                 'mkdir -p /tmp/ndtwin-case-after-the-herestring\n')

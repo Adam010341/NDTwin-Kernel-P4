@@ -1014,7 +1014,7 @@ class TestNamedFixtures(unittest.TestCase):
                     with open(path, encoding="utf-8") as fh:
                         if re.search(r"\bORDER\b", fh.read()):
                             users.append(path)
-        self.assertEqual(users, [], "something reads table.ORDER: update its comment and design 14.7")
+        self.assertEqual(users, [], "something reads table.ORDER: update its comment")
         with open(T.__file__, encoding="utf-8") as fh:
             src = fh.read()
         self.assertIn("NOTHING CONSUMES THIS YET", src)
@@ -2717,7 +2717,7 @@ class TestTheLiveRunsIdentity(unittest.TestCase):
         return d
 
     def test_an_edit_to_identity_during_s0_cannot_reach_the_probe_process(self):
-        """(#5) identity.py computes the gate fingerprint that becomes the standing authorization's
+        """identity.py computes the gate fingerprint that becomes the standing authorization's
         baseline, and used to be imported only after S0 (~2 minutes after the clean check). Run
         `probe.py lab` in a scratch copy with S0 replaced by a stub that edits identity.py: the module
         must already be loaded, so the edit is on disk and nowhere else. Likewise every other module

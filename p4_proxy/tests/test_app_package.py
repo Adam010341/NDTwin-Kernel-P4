@@ -295,7 +295,7 @@ class AValidPackageTest(unittest.TestCase):
     def test_switch_names_come_from_the_package(self):
         self.assertEqual(self.pkg.switch_names(), {1: "s1", 2: "s2"})
 
-    def test_links_are_recorded_verbatim_and_applied_by_nobody(self):
+    def test_links_are_recorded_verbatim(self):
         self.assertEqual(len(self.pkg.links), 1)
         self.assertEqual(self.pkg.links[0]["bandwidth_bps"], 1000000000)
 
@@ -716,7 +716,7 @@ class OptionalFormatFieldsTest(unittest.TestCase):
     def load(self, manifest, name):
         return app_package.load(lay_out_converter_package(self.tmp, manifest, name))
 
-    def test_a_link_delay_is_carried_verbatim_and_applied_by_nobody(self):
+    def test_a_link_delay_is_carried_verbatim(self):
         # Kept verbatim on the package; shaped_links() is what applies it (ShapedLinksTest). Carried so `ndt status` and the
         # converter's round-trip can show what the exercise declared. Asserted on a manifest
         # built for it rather than by editing a copy of a real package: that is how the first

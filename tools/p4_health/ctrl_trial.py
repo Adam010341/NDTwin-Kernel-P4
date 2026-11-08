@@ -36,7 +36,7 @@ TOKEN = "ctltrial"
 
 def gen(exercise=None):
     """The model (gen_runtime.py) of `exercise` -- the run's copy, which S0 checked against HEAD -- else the
-    shared tree's own. (round 9) Compiled from its source by frozen.load_source, never from a cached .pyc.
+    shared tree's own. Compiled from its source by frozen.load_source, never from a cached .pyc.
     [Co-developed with claude code -- Adam]"""
     return FZ.load_source(
         "hc_gen", os.path.join(exercise or os.path.join(HERE, "exercise"), "gen_runtime.py"))
@@ -44,9 +44,9 @@ def gen(exercise=None):
 
 def trial(build, bmv2, cli_argv, work, ctrl_python, tutorials_utils, wait_s=15, controller=None,
           exercise=None):
-    """`controller`: the controller_ext.py to start -- S0 hands the copy the lab run froze (round 5, #5);
+    """`controller`: the controller_ext.py to start -- S0 hands the copy the lab run froze;
     None: the shared tree's own. `exercise`: the exercise directory whose gen_runtime.py is the model -- S0
-    hands its copy in the run dir (round 6, finding 2); None: the shared tree's own."""
+    hands its copy in the run dir; None: the shared tree's own."""
     g = gen(exercise)
     os.makedirs(work, exist_ok=True)
     h4m, h4ip, h6ip, gw = g.host_mac(4), g.host_ip(4), g.host_ip(6), "08:00:00:00:04:00"

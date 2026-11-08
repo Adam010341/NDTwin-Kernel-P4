@@ -163,7 +163,7 @@ void appendBigEndian16(std::vector<uint8_t>& out, uint16_t value)
 
 /// Ethernet + IPv6 + hop-by-hop + routing + fragment + UDP, in that order.
 ///
-/// The chain is the point: §2.3 requires the parser to step over those three header types to
+/// The chain is the point: the parser has to step over those three header types to
 /// reach the ports, and every step is a length taken from the packet itself -- which is exactly
 /// the shape that reads past the end of a truncated buffer.
 std::vector<uint8_t> ipv6FrameWithExtensionChain()
@@ -847,7 +847,7 @@ TEST_F(SFlowParsingFixture, AFullIpv6ExtensionChainResolvesToTheUpperLayerPorts)
 TEST_F(SFlowParsingFixture, AnOpaqueIpv6ExtensionHeaderFallsBackToTheL2Identity)
 {
     // ESP (50) is encrypted: its payload is not an L4 header and reading one out of it would be
-    // an invented five-tuple. §2.3's rule is to report what is still known -- the two MAC
+    // an invented five-tuple. The rule is to report what is still known -- the two MAC
     // addresses -- rather than to guess.
     auto frame = ipv6FrameWithExtensionChain();
     ASSERT_GT(frame.size(), size_t(54 + 8));

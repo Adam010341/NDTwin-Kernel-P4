@@ -104,7 +104,7 @@ class TopologyAndFlowMonitor
      * 2. The flow flushing thread (flushEdgeFlowLoop) for cleaning up stale flows.
      *
      * [Co-developed with claude code -- Adam]
-     * D15. The load used to be the first statement of `run()`, i.e. on the spawned thread, while
+     * The load used to be the first statement of `run()`, i.e. on the spawned thread, while
      * `start()` returned immediately -- so everything main.cpp sequences *after* `start()` raced
      * the JSON parse. Loading here makes "after start() returns, the switch-kind index is
      * populated" true by construction, at any file size. isStaticTopologyLoaded() is the
@@ -139,7 +139,7 @@ class TopologyAndFlowMonitor
      * The ordering itself, in a form that can be asserted rather than timed. "The topology is
      * loaded by the time start() returns" is only *usually* observable if the load is on another
      * thread -- a fast enough parse makes a racy implementation look correct, which is exactly
-     * how D15 survived on small topology files. Who did the loading does not depend on speed:
+     * how the race survived on small topology files. Who did the loading does not depend on speed:
      * equal to the caller's id means start() did it synchronously; anything else, including a
      * default-constructed id, means it did not.
      */
@@ -341,7 +341,7 @@ class TopologyAndFlowMonitor
      *   - nothing reported, nothing declared -> mark the edge up (the report is evidence and the
      *                               next poll may be 30 s away). Returns Applied.
      *
-     * WHY: measured 2026-09-07 00:08 (lw8b). Killing Ryu and restarting it with the same argv made
+     * WHY: measured 2026-09-07 00:08 (a live OVS run). Killing Ryu and restarting it with the same argv made
      * `on_link_add` fire for every link LLDP rediscovered, and `intelligent_router.py` POSTs
      * /ndt/link_recovery_detected from there -- so within one second of the control plane coming
      * back, every standing declaration in the fabric had been withdrawn (9 of 9 samples over the
@@ -1027,7 +1027,7 @@ class TopologyAndFlowMonitor
      * @brief How much of one control-plane poll round answered.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/FIXED-ISSUES.md A-2, the third explicitly uncovered item. One round fetches switches,
+     * doc/FIXED-ISSUES.md A-2, a related gap. One round fetches switches,
      * hosts and links as three separate requests, and updateSwitches/updateHosts/updateLinks each
      * return early on an empty body -- so a round where only some endpoints answer still applies
      * the part that did, leaving a graph assembled from replies of two different ages.
@@ -1276,7 +1276,7 @@ class TopologyAndFlowMonitor
     mutable std::shared_mutex m_switchKindMutex;
 
     // [Co-developed with claude code -- Adam]
-    // D15. Read by isStaticTopologyLoaded(); written once, at the end of start()'s synchronous
+    // Read by isStaticTopologyLoaded(); written once, at the end of start()'s synchronous
     // load pass. Release/acquire rather than relaxed: a reader that sees this true must also see
     // every m_dpidToSwitchKind write that preceded it, on whatever thread it is reading from.
     std::atomic<bool> m_staticTopologyLoaded{false};

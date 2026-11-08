@@ -341,7 +341,7 @@ TEST_F(FlowKeyFamiliesTest, AnIpv4SampleIsStillAnIpv4FlowWithTheSameFiveTuple)
 }
 
 // =================================================================================================
-// Third rule: the bytes are banked before anything asks what the frame was
+// Rule: the bytes are banked before anything asks what the frame was
 // =================================================================================================
 
 TEST_F(FlowKeyFamiliesTest, AnArpSampleBanksItsLinkBytesAndIsObservedAsL2)
@@ -496,7 +496,7 @@ TEST_F(FlowKeyFamiliesTest, AnIhlBelowFiveIsCountedAndRecordedAsNoFlowButStillBa
 }
 
 // =================================================================================================
-// Second rule: which bank an egress-only sample lands in
+// Rule: which bank an egress-only sample lands in
 // =================================================================================================
 
 TEST_F(FlowKeyFamiliesTest, AnEgressOnlySampleCreditsTheEgressBankAndOnlyThat)
@@ -1150,7 +1150,7 @@ TEST_F(FlowKeyFamiliesTest, AnIcmpv6SampleCarriesItsTypeAndItsWholeCodeInThePort
 
 TEST_F(FlowKeyFamiliesTest, AnIpv4SampleOfAnotherProtocolBanksItsBytesAndIsCountedWithoutBeingAFlow)
 {
-    // OSPF and IGMP: IPv4 frames with no five-tuple. one rule is that the link bytes are
+    // OSPF and IGMP: IPv4 frames with no five-tuple. One rule is that the link bytes are
     // recorded for every well-formed sample, and another is that the flow table stays TCP/UDP/ICMP
     // -- so these three assertions have to hold together, which is the combination once said
     // only in prose ("non-IPv4 also banks") and left untested.

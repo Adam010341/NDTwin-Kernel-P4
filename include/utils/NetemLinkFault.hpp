@@ -7,7 +7,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * doc/FIXED-ISSUES.md B-6, second half. The question raised on 2026-09-05 was "why can a link the API
+ * doc/FIXED-ISSUES.md B-6, the follow-up. The question raised on 2026-09-05 was "why can a link the API
  * says is down still carry packets" -- so /ndt/inject_link_failure both declares the failure in the
  * twin AND cuts the link, and /ndt/inject_link_recovery puts both back.
  *
@@ -712,7 +712,7 @@ restoreSightedNetem(const std::string& iface,
  * @brief Cuts EVERY end of a link with `netem loss 100%`, or none of them.
  *
  * [Co-developed with claude code -- Adam]
- * doc/FIXED-ISSUES.md B-16, second half (measured 2026-09-11, 2 of 2). The loop this replaces
+ * doc/FIXED-ISSUES.md B-16, related (measured 2026-09-11, 2 of 2). The loop this replaces
  * called cutInterface once per end and kept going: one end already carried somebody else's netem
  * and was refused, the other end was really cut, and the reply said `link failure injected`. Both
  * ends were `loss 100%` that time so the effect was still symmetric; had the standing netem been

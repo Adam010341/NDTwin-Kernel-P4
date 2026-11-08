@@ -145,7 +145,7 @@ d="$(fresh_copy w1)"
 apply_exact "$CHAOS" \
   '        if inv_id == I.INV01:' \
   '        if False:' "$d" || d=""
-report "W1: the call is removed again (finding #75 itself)" "$d" \
+report "W1: the call is removed again (the unwired check itself)" "$d" \
        "test_the_latency_check_reaches_the_round_report"
 
 d="$(fresh_copy w2)"

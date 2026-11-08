@@ -5,7 +5,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # Structure, mechanics and wording are lifted from mutate_cpu_report_no_ip.sh, which gates the
-# #85 suite in the same file. Copied rather than shared for the reason that gate gives: a common
+# empty-address CPU-report suite in the same file. Copied rather than shared for the reason that gate gives: a common
 # harness is a second place for the answer to be wrong, and check_gate_anchors.py reads each
 # gate's own anchors.
 #
@@ -34,7 +34,7 @@
 #            reported as SKIPPED and exits 1, never as a pass.
 #
 # WHY M4/M5/M6 ARE THE POINT OF THIS GATE
-# All three make the code "not crash", which is what a naive reading of #88 asks for, and all
+# All three make the code "not crash", which is what a naive reading of the empty-address defect asks for, and all
 # three make the report say something untrue: that there were fewer congested links than there
 # are, that a link has an address it does not have, or that nothing was dropped. A guard that
 # stops the crash and loses the disclosure has moved the defect, not fixed it.
@@ -134,7 +134,7 @@ run_suite() {
     "$CUR_DIR/bin/$TARGET" --gtest_filter="$FILTER" >"$BK/run.log" 2>&1
 }
 
-# Did the sanitizer say anything? This is round 2's definition of a red line.
+# Did the sanitizer say anything? This is ROUND 2's definition of a red line.
 saw_sanitizer_report() {
     grep -qE 'AddressSanitizer|UndefinedBehaviorSanitizer|runtime error:|SEGV on unknown address' \
         "$BK/run.log"
@@ -162,7 +162,7 @@ baseline_must_be_green() {   # $1 = human name of the round
     fi
     if saw_sanitizer_report; then
         echo "  REFUSE: the sanitizer reported against the UNMUTATED build. The fix is incomplete;"
-        echo "          round 2 cannot tell a mutant's report from this one."
+        echo "          the mutation run cannot tell a mutant's report from this one."
         exit 2
     fi
     if ! grep -qE '^\[  PASSED  \] [1-9]' "$BK/run.log"; then
@@ -486,7 +486,7 @@ TopologyAndFlowMonitor::findEdgeToHostByAgentIpAndPort(' \
 
     # --- M3: group A put back -------------------------------------------------------------------
     # An address-less SWITCH is reached before the switch that holds the address being searched
-    # for. Listed here rather than in round 1 because it is undefined behaviour, not a lie: the
+    # for. Listed here rather than in ROUND 1 because it is undefined behaviour, not a lie: the
     # ordinary build either crashes with no verdict or reads garbage and stays green, and neither
     # of those is a red line.
     mutate_must_trip_sanitizer \

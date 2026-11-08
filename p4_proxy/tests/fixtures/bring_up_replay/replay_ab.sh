@@ -68,7 +68,7 @@ run_arm() {   # <label> <mininet dir> <repo root> <hosts>
 }
 
 for hosts in 4 128; do
-    # 🔴 THE OLD TREE'S COUNT FILE HAS TO BE SET, AND THAT IS ITSELF A FINDING. The pre-change
+    # 🔴 THE OLD TREE'S COUNT FILE HAS TO BE SET, AND THAT IS ITSELF A DEFECT. The pre-change
     # bridge built its host list from `_host_count_override()` -- the FILE -- while the fabric
     # was built from the MODEL, so the two could disagree with nothing saying so. Run it here
     # with a 128 in the file and NDTWIN_P4_HOST_NUM=4 and it dies `KeyError: 'h5'`: the same

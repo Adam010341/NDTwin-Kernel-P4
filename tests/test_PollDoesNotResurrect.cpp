@@ -32,7 +32,7 @@
  *
  * WHAT THESE ASSERT
  *
- * 🔴 BOTH DIRECTIONS, because only one of them is the finding and a gate that pins only that one
+ * 🔴 BOTH DIRECTIONS, because only one of them is the defect and a gate that pins only that one
  * would pass a poll that never marks anything up:
  *
  *   1. discovery must NOT lift `isUp` for a switch with a standing commanded power-off, and must
@@ -345,7 +345,7 @@ class PollDoesNotResurrectTest : public ::testing::Test
 
 } // namespace
 
-// --- 1. the finding: a commanded power-off must survive the poll ---------------------------------
+// --- 1. the defect: a commanded power-off must survive the poll ---------------------------------
 
 /**
  * The defect itself, in the phase that lost it: the switch is killed, and the poll that arrives
@@ -666,7 +666,7 @@ TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeCarriesAdminStateAndReacha
     FakeP4 p4;
     ASSERT_EQ(p4.powerOff(sw(), "s1", m_monitor.get()).ok, true);
 
-    // After the poll, because the shape has to be right in the state the finding is about.
+    // After the poll, because the shape has to be right in the state the defect is about.
     m_monitor->pollSwitches(switchListing(kDpid));
 
     nlohmann::json j;
@@ -881,10 +881,10 @@ class DeclaredLinkFailureTest : public ::testing::Test
 
 } // namespace
 
-// --- direction 1: the finding -- a declaration must survive the poll -----------------------------
+// --- direction 1: the defect -- a declaration must survive the poll -----------------------------
 
 /**
- * 🔴 THE FINDING. The declaration is made, and the poll that arrives next still lists the link,
+ * 🔴 THE DEFECT. The declaration is made, and the poll that arrives next still lists the link,
  * because a declaration has no LLDP consequence and Ryu has nothing to notice. That poll used to
  * put is_up back to true, 5 times in 5, within 30 s.
  */
@@ -931,7 +931,7 @@ TEST_F(DeclaredLinkFailureTest, EveryLaterPollDeclinesTheDeclaredLinkToo)
 // --- direction 2: the poll must still be a writer ------------------------------------------------
 
 /**
- * 🔴 THE OVER-CORRECTION, and the reason this suite is not just the finding. A poll that never
+ * 🔴 THE OVER-CORRECTION, and the reason this suite is not just the defect. A poll that never
  * writes `isUp = true` satisfies every assertion above and is a bigger outage than the defect:
  * updateLinks is the ONLY writer that brings an inter-switch link back, so `// isUp = true;` would
  * leave the graph dark for every link that was ever down.
@@ -1103,7 +1103,7 @@ TEST_F(DeclaredLinkFailureTest, ADeclaredEdgeBehindADeadSwitchStillReadsDeclared
 }
 
 // =================================================================================================
-// doc/FIXED-ISSUES.md B-6, second pass: a withdrawal has to pair with a reported break.
+// doc/FIXED-ISSUES.md B-6, the follow-up: a withdrawal has to pair with a reported break.
 //
 // [Co-developed with claude code -- Adam]
 //
@@ -1137,7 +1137,7 @@ TEST_F(DeclaredLinkFailureTest, ADeclaredEdgeBehindADeadSwitchStillReadsDeclared
 // =================================================================================================
 
 /**
- * 🔴 THE FINDING. An injected failure (declared, never reported broken by anyone) meets the
+ * 🔴 THE DEFECT. An injected failure (declared, never reported broken by anyone) meets the
  * fabric-wide recovery burst a Ryu restart produces. It must not be withdrawn -- and this is the
  * dangerous half, because /ndt/inject_link_failure leaves a `tc netem loss 100%` on both
  * interfaces: withdrawing the declaration publishes a link that is up and does not carry packets.
@@ -1155,7 +1155,7 @@ TEST_F(DeclaredLinkFailureTest, ARediscoveryDoesNotWithdrawADeclarationNothingRe
     EXPECT_TRUE(m_monitor->getEdgeDeclaredDown(fwd()))
         << "a bare rediscovery withdrew a declaration nothing ever reported broken; a control "
            "plane restart therefore ends every standing injection in the fabric, and for an "
-           "injection made through /ndt/inject_link_failure the netem stays attached (B-6, W8b)";
+           "injection made through /ndt/inject_link_failure the netem stays attached (B-6)";
     EXPECT_FALSE(edgeIsUp(fwd()))
         << "the edge was marked up while its declaration still stands, which publishes "
            "is_up: true with down_reason: declared";
@@ -1293,7 +1293,7 @@ TEST_F(DeclaredLinkFailureTest, ObservationWritersNeitherSetNorClearTheFailureRe
 
 /**
  * Direction 2 for the notification path: recording the report must not cost the stickiness the
- * first half of B-6 bought. A failure reported by the control plane is still declared, and a poll
+ * fix for B-6 bought. A failure reported by the control plane is still declared, and a poll
  * still declines it.
  */
 TEST_F(DeclaredLinkFailureTest, AReportedFailureStillSurvivesATopologyPoll)
@@ -1305,19 +1305,19 @@ TEST_F(DeclaredLinkFailureTest, AReportedFailureStillSurvivesATopologyPoll)
     m_monitor->pollLinks(bothDirections());
 
     EXPECT_FALSE(edgeIsUp(fwd()))
-        << "recording the report cost the declaration its stickiness -- B-6's first half undone "
-           "by its second";
+        << "recording the report cost the declaration its stickiness -- the fix for B-6 undone "
+           "by the report itself";
     EXPECT_FALSE(edgeIsUp(rev()));
     EXPECT_EQ(edgeDownReason(fwd()), "declared");
 }
 
 // =================================================================================================
-// B-16, third half: the poll's advice has to name the endpoint that can actually clear THIS
+// B-16, related: the poll's advice has to name the endpoint that can actually clear THIS
 //                   declaration
 //
 // [Co-developed with claude code -- Adam]
 //
-// 🔴 THE FINDING (2026-09-11, read from a live kernel.log). A successor who does not
+// 🔴 THE DEFECT (2026-09-11, read from a live kernel.log). A successor who does not
 // restart the kernel sees exactly one sentence about a standing declaration, and it is this poll's:
 //
 //     TopologyAndFlowMonitor.cpp:2563 updateLinks] the control plane still lists link (dpid
@@ -1403,7 +1403,7 @@ class PollLogCapture
 } // namespace
 
 /**
- * 🔴 THE FINDING. Nothing reported this link broken -- it was injected -- so the endpoint the poll
+ * 🔴 THE DEFECT. Nothing reported this link broken -- it was injected -- so the endpoint the poll
  * used to name would decline. The successor has to be told the other one.
  */
 TEST_F(DeclaredLinkFailureTest, ThePollPointsAnInjectedDeclarationAtTheInjectionEndpoint)
@@ -1424,7 +1424,7 @@ TEST_F(DeclaredLinkFailureTest, ThePollPointsAnInjectedDeclarationAtTheInjection
         << logged;
     EXPECT_NE(logged.find("/ndt/inject_link_recovery"), std::string::npos)
         << "the only sentence a successor who did not restart the kernel ever sees points at "
-           "/ndt/link_recovery_detected, which since W8b DECLINES a declaration nothing reported "
+           "/ndt/link_recovery_detected, which since B-6's pairing rule DECLINES a declaration nothing reported "
            "broken. He is told to use the endpoint that will refuse him (B-16, measured "
            "2026-09-11). Log was:\n"
         << logged;

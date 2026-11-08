@@ -279,7 +279,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
             problems.append("the run could not be set up: %s: %s" % (type(exc).__name__, exc))
             log("  " + problems[-1])
     if prepared is not None and signals:
-        # (round 7, finding 1) before the first lab action: a thread that can take a stop makes the round's mask
+        # before the first lab action: a thread that can take a stop makes the round's mask
         # worth nothing, so the lab is not touched
         refusal = stop_signal_threads_refusal()
         if refusal:
@@ -304,7 +304,7 @@ def run_lab(cfg, runner, s0_out, run_dir, run_id, bringups=("A", "B"), only=None
                             "recover.sh %s if a round was under way" % (exc.signum, run_dir))
             run_stopped.append(exc.signum)
             log("  " + problems[-1])
-        except Exception as exc:  # noqa: BLE001 -- (round 5, #2) StateInUse, a package outside the run dir, ...
+        except Exception as exc:  # noqa: BLE001 -- StateInUse, a package outside the run dir, ...
             take_unrecorded(cfg, holder, recs)
             problems.append("the run ended on %s: %s; finish with recover.sh %s if a round was under way"
                             % (type(exc).__name__, exc, run_dir))

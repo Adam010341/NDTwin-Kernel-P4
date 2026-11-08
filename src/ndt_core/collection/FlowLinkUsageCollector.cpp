@@ -1616,7 +1616,7 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                     // Neither port survived: both ifIndexes translated to 0, which is what
                     // lookupOfport returns for an unknown interface when the topology is not an
                     // all-bmv2 one (and therefore what every sample looks like before a topology
-                    // is loaded at all). §2.2's redirect is written for `inputPort == 0 &&
+                    // is loaded at all). The redirect is written for `inputPort == 0 &&
                     // outputPort != 0` precisely so this case is left where it was: the bytes
                     // are real and dropping them here would lose the sample entirely, while the
                     // (agent, 0) entry names no edge and so credits none.

@@ -1,5 +1,5 @@
 // [Co-developed with claude code -- Adam]
-// Getting in (SCOPE section 3 of the GUI cut, unchanged in v2). The URL the server prints carries a
+// Getting in (unchanged in v2). The URL the server prints carries a
 // ONE-TIME key in its #fragment -- never the token. The fragment leaves the address bar FIRST, before
 // anything else happens; then the key is traded for the token, exactly once, and the token goes to
 // api/client.ts's one variable. Reloading the page ends the session.

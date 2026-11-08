@@ -235,7 +235,7 @@ TOPO_DEADLINE_S = float(os.environ.get("NDTWIN_RYU_TOPO_DEADLINE_S", "20"))
 # 🔴 IT IS NOT A FIX FOR THE BOOT RING, and this must not drift into being described as one.
 # It was tested against a live reproducing ring on 2026-08-25 and WEDGED TWICE with the flag
 # asserted active. Two counterexamples are on record.
-# The ring survives this fix and d1d973d individually; §5-P's "cut any one edge and the ring
+# The ring survives this fix and d1d973d individually; the claim "cut any one edge and the ring
 # cannot close" is refuted by measurement.
 #
 # Also unmeasured, so also not claimable: whether the 26s holds under CPU load, and whether this
@@ -284,7 +284,7 @@ detecting_time = 60
 #   * Every step wrapped -- a diagnostic that can crash the control plane it is diagnosing is
 #     worse than no diagnostic. Failures here degrade to a line in the log.
 #   * Appends rather than truncates, and stamps each dump, so two dumps taken seconds apart can
-#     be diffed the way the py-spy pair was -- "identical" was itself the finding that ruled out
+#     be diffed the way the py-spy pair was -- "identical" was itself the result that ruled out
 #     busy-spin.
 GREENLET_DUMP_PATH = os.environ.get("NDTWIN_RYU_GREENLET_DUMP",
                                     "/tmp/ndtwin_ryu_greenlets.txt")
@@ -1435,7 +1435,7 @@ class IntelligentRyu(app_manager.RyuApp):
             # module level). It dominates OVS bring-up: the whole control-plane start was ~73 s
             # and the walk it is waiting for takes 0.25 s of that (128 hosts, live n=3, after the
             # O(1)-token fix in 4810e8f; the 2.166 s and the slower index figures this comment
-            # carried before are two superseded generations -- see WALK_SWEEP.md).
+            # carried before are two superseded generations).
             #
             # It is now a gate on the event rather than a guess at its duration. The seam that
             # made the question answerable by measurement did its job: measuring it showed the

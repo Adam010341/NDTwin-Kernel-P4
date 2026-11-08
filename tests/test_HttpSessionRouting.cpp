@@ -1264,7 +1264,7 @@ class DeclaredLinkFailureWireTest : public ::testing::Test
         addEdge(s5, s1, 5, 1);
 
         // [Co-developed with claude code -- Adam]
-        // W8-7. A host, and the pair of edges that hang it off s1 on a DIFFERENT port. It is here
+        // A host, and the pair of edges that hang it off s1 on a DIFFERENT port. It is here
         // so the dpid-0 cases below have something to hit: a host vertex carries dpid 0, and
         // findEdgeBySrcAndDstDpid matches on the two dpids alone, so without the refusal
         // `{"src_dpid":1,"dst_dpid":0}` RESOLVES -- to whichever host edge of s1 comes first --
@@ -1288,7 +1288,7 @@ class DeclaredLinkFailureWireTest : public ::testing::Test
         return boost::add_vertex(vp, *m_graph);
     }
 
-    /// A host vertex: dpid 0, which is the whole point of the W8-7 cases.
+    /// A host vertex: dpid 0, which is the whole point of the dpid-0 cases.
     Graph::vertex_descriptor addHost(uint32_t ip)
     {
         VertexProperties vp;
@@ -1350,7 +1350,7 @@ class DeclaredLinkFailureWireTest : public ::testing::Test
     static constexpr const char* kBody =
         R"({"src_dpid":1,"src_interface":1,"dst_dpid":5,"dst_interface":1})";
 
-    /// [Co-developed with claude code -- Adam] W8-7. The degenerate payload: s1 to "the host end",
+    /// [Co-developed with claude code -- Adam] The degenerate payload: s1 to "the host end",
     /// which names no particular edge at all. 10.0.0.1 in host order.
     static constexpr const char* kHostEdgeBody =
         R"({"src_dpid":1,"src_interface":2,"dst_dpid":0,"dst_interface":1})";
@@ -1489,7 +1489,7 @@ TEST_F(DeclaredLinkFailureWireTest, InjectWithAnInvalidPayloadIsRejected)
               400u);
 }
 
-// --- B-6 W8b: a withdrawal has to pair with a reported break -------------------------------------
+// --- B-6: a withdrawal has to pair with a reported break -------------------------------------
 // [Co-developed with claude code -- Adam]
 //
 // The wire half of the rule decided on 2026-09-07 after the lw8b live arm. These cases run
@@ -1503,7 +1503,7 @@ TEST_F(DeclaredLinkFailureWireTest, InjectWithAnInvalidPayloadIsRejected)
 // the standing declaration was gone in 9 of 9 samples over the next 90 s.
 
 /**
- * 🔴 THE FINDING, end to end and in the shape the live arm ran it: an injection is standing, the
+ * 🔴 THE DEFECT, end to end and in the shape the live arm ran it: an injection is standing, the
  * control plane restarts, and one recovery report per link arrives for links nobody said broke.
  * The declaration must still be there afterwards, and a poll must still decline the edge.
  */
@@ -1537,7 +1537,7 @@ TEST_F(DeclaredLinkFailureWireTest, ARyuRestartDoesNotWithdrawAnInjectedLinkFail
     EXPECT_FALSE(fwd.value("is_up", true))
         << "a bare rediscovery ended an injection: restarting the control plane withdrew a "
            "declaration nothing ever reported broken, and on MININET the tc netem that "
-           "accompanies /ndt/inject_link_failure would still be attached (B-6, W8b)";
+           "accompanies /ndt/inject_link_failure would still be attached (B-6)";
     EXPECT_FALSE(rev.value("is_up", true)) << "the reverse direction was withdrawn";
     EXPECT_EQ(fwd.value("down_reason", ""), "declared");
 
@@ -1694,7 +1694,7 @@ TEST_F(DeclaredLinkFailureWireTest, ARecoveryForAnEdgeTheGraphDoesNotHoldSaysTha
         << logged;
 }
 
-// --- B-6 W8-7: dpid 0 is the host end, and no link endpoint addresses a host edge -----------------
+// --- B-6: dpid 0 is the host end, and no link endpoint addresses a host edge -----------------
 // [Co-developed with claude code -- Adam]
 //
 // Decided 2026-09-06: the endpoints must refuse
@@ -2077,7 +2077,7 @@ TEST_F(DeclaredLinkFailureWireTest, ANetemSwappedUnderAStandingDeclarationIsLeft
 }
 
 /**
- * 🔴 THE SECOND FINDING ON THE WIRE (A1 ②, 2 of 2). s1-eth1 already carries somebody else's netem,
+ * 🔴 THE SECOND DEFECT ON THE WIRE (2 of 2). s1-eth1 already carries somebody else's netem,
  * so it is refused -- and before B-16 the loop went on and really attached `netem loss 100%` to
  * s5-eth1, then answered 200 `"status":"link failure injected"` with both directions declared.
  */

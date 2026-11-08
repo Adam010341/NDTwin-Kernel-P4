@@ -376,7 +376,7 @@ section "5. the generic cell: link usage follows the iperf path"
 # acceptance here is a claim about one program: source_routing's ttl, the twin's liveness under
 # p4runtime's controller. This one says that while a flow crosses the fabric the twin's
 # `link_bandwidth_usage_bps` is non-zero exactly on the interfaces that carried it -- whatever
-# program the switches are running -- and it is the assertable half of §2.2's "record the link
+# program the switches are running -- and it is the assertable half of the rule "record the link
 # bytes BEFORE you ask what the flow was".
 #
 # 🔴 THE ON-PATH SET IS MEASURED, NOT WRITTEN DOWN. It is the tx_bytes delta on each `sN-ethP`
@@ -479,7 +479,7 @@ has   "  and says the link is not modelled"              "the twin has NO edge f
 
 # --- 5c-bis. the off-path FLOOR --------------------------------
 # 🔴 "EXACTLY 0" OFF THE PATH WOULD GO RED ON A CORRECT FABRIC, AT RANDOM. After the kernel
-# banks a sample's frame length BEFORE it asks what the flow was (§2.2), ARP and LLDP count
+# banks a sample's frame length BEFORE it asks what the flow was, ARP and LLDP count
 # toward link usage; the proxy beacons LLDP along every switch-switch link and the pipeline
 # samples 1/256, so ONE beacon drawn in an eight-second window is banked as 256 x its frame
 # length -- tens of kilobits on an edge that carried nothing. The bound is therefore a floor:
@@ -643,7 +643,7 @@ section "9. 🔴 no live-p1 script reintroduces the \`set -u\` \`local\` hazard"
 # Under `set -u`, bash 5.2 declares EVERY name in a `local` list before assigning any of them,
 # so `local a="$1" b="${a}.log"` expands an unset `a` and the function dies on its own first
 # line. `05_link_usage_generic.sh` and `06_thirteen.sh` both had it and NEITHER HAD EVER BEEN
-# RUN, so nothing in the repo said a word (found in round 2, via 06's new test).
+# RUN, so nothing in the repo said a word (found via 06's new test).
 #
 # 🔴 WHY THIS IS A SCANNER AND NOT A RUN OF 05. `group()` is reachable only after p4c, two
 # convert.py runs, two pre-flights and a lab claim; a stub deep enough to reach it would be a

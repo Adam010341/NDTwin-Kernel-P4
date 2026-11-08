@@ -20,7 +20,7 @@
 # those is a multi-minute rebuild; the other three mutations and the other control rebuild one
 # file. Two more full rebuilds bracket the run -- the baseline (which touches both files, so it
 # cannot inherit a previous run's binary) and the final one from the restored tree. Budget two
-# hours. That asymmetry is why section 3.4 caps the table at a handful of mutations.
+# hours. That asymmetry is why the table is capped at a handful of mutations.
 #
 # Usage:  tests/shell/mutate_flowkey_families.sh
 #   BUILD_DIR=build       configured build directory (ninja), relative to the worktree root
@@ -337,7 +337,7 @@ mutate "M-A1 link bytes are banked only for IPv4 frames (identity before bytes)"
 
 # M-A2. The egress-only branch is skipped, so the sample falls through to the both-ports-zero
 # arm and is banked in m_counterReports keyed by its OUTPUT port -- exactly the dead branch
-# section 2.2 replaces. The drain then credits the edge pointing the other way.
+# the redirect replaces. The drain then credits the edge pointing the other way.
 mutate "M-A2 an egress-only sample goes back into the ingress bank" "$COLL" \
 "$EGRESS_ONLY" \
 '                else if (false && outputPort != 0)' \

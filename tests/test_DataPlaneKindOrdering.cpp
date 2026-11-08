@@ -1,6 +1,6 @@
 /**
  * @file test_DataPlaneKindOrdering.cpp
- * @brief D15: the startup race that switched bmv2 liveness off for the whole process lifetime.
+ * @brief The startup race that switched bmv2 liveness off for the whole process lifetime.
  *
  * [Co-developed with claude code -- Adam]
  *

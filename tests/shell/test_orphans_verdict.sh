@@ -745,7 +745,7 @@ check "  🔴 the two verdicts are not the same line"       "differ" \
 # A window that WAS read is an answer, so this stays CLEAN under the 2026-09-11 rule. See the
 # fixture's own header: this is the cell that changes if the lock half must answer on its own.
 OUT="$(verdict "$FIX/locks_blind_window_read" 5)"
-check "  one window read, three locks blind -> rc 0 (§7-1 is open)" "0" "$(rc_of "$OUT")"
+check "  one window read, three locks blind -> rc 0 (undecided, see the fixture)" "0" "$(rc_of "$OUT")"
 has   "  with the NOTE"                                   "NOTE: 3 question(s) not answerable" "$OUT"
 
 # =================================================================================================

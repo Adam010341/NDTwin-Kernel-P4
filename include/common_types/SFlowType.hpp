@@ -235,7 +235,7 @@ mac48(const uint8_t* p)
  * @brief Headers this parser cannot step over, so a chain containing one cannot be resolved.
  *
  * Encrypted (ESP), authenticated (AH), and the three whose payload the sampled 128 bytes may not
- * even contain. §2.3's rule for these is explicit: treat the frame as opaque and fall back to the
+ * even contain. The rule for these is explicit: treat the frame as opaque and fall back to the
  * L2 family, which still names the two endpoints, rather than inventing an L4 identity from
  * whatever byte happens to sit at the offset.
  */
@@ -292,8 +292,8 @@ identifyFrame(const uint8_t* frame, size_t length)
     // to_json/from_json -- which do not serialise MACs -- could never find the row again.
     //
     // The rule this replaces "family fields are additive" with: A KEY CARRIES EXACTLY THE FIELDS
-    // ITS FAMILY NAMES. IPv4 keys are the five-tuple and nothing else, which is what §2.3's "every
-    // added member is zero for the IPv4 family" says and what the hash's early return assumes.
+    // ITS FAMILY NAMES. IPv4 keys are the five-tuple and nothing else, which is the rule that every
+    // added member is zero for the IPv4 family, and what the hash's early return assumes.
     // IPv6 keys are the address pair, the next header and the ports -- no MACs either, or the
     // side table splits per hop the same way.
     const uint64_t dstMac = mac48(frame);
@@ -464,7 +464,7 @@ identifyFrame(const uint8_t* frame, size_t length)
 
         if (!resolved || isOpaqueExtensionHeader(next))
         {
-            // §2.3: anything the chain walk cannot step over is opaque, and an opaque frame is
+            // Anything the chain walk cannot step over is opaque, and an opaque frame is
             // reported by its L2 identity rather than by a guess.
             fallBackToL2();
             return out;

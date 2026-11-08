@@ -6,7 +6,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # Some files under doc/audit are records even though a kept tool reads them on a real run: a
-# round's registration (PREREG.md, read for its EVIDENCE-BASIS sentinel and its force-matrix
+# round's registration file (read for its EVIDENCE-BASIS sentinel and its force-matrix
 # transcript) and a raw-log index (external_survey_34.tsv, the frozen list of rounds the survey
 # compares). They stay out of the public tree. This suite checks what a clone without them does:
 #

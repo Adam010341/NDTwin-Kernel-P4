@@ -1,6 +1,6 @@
 /**
  * @file test_NetemLinkFault.cpp
- * @brief doc/FIXED-ISSUES.md B-6, second half: cutting a link with netem without destroying the
+ * @brief doc/FIXED-ISSUES.md B-6, the follow-up: cutting a link with netem without destroying the
  *        interface's shaping, and putting it back.
  *
  * [Co-developed with claude code -- Adam]
@@ -115,7 +115,7 @@ constexpr const char* kUnshapedWithNetem =
 // --- where netem may be attached -----------------------------------------------------------------
 
 /**
- * 🔴 THE FINDING. On a shaped interface the attach point must be the htb default class. Attaching
+ * 🔴 THE DEFECT. On a shaped interface the attach point must be the htb default class. Attaching
  * at `root` here is the 2026-08-13 defect: it reports success, removes the shaping, and no
  * teardown check in the repository can see that it happened.
  */
@@ -659,7 +659,7 @@ TEST_F(ResidualNetemSweepTest, TheSweepCoversBothEndsOfEverySwitchToSwitchLinkAn
 
     EXPECT_FALSE(contains(ifaces, "s1-eth9"))
         << "a host-facing interface was classed as a link end; no link endpoint can address a host "
-           "edge (W8-7), so the recovery this warning points at could not take it back";
+           "edge, so the recovery this warning points at could not take it back";
     for (const auto& iface : ifaces)
     {
         EXPECT_NE(iface.rfind("s8-", 0), 0u)
@@ -714,7 +714,7 @@ TEST_F(ResidualNetemSweepTest, TheSweepReadsTheWholeMachineInOneCall)
 }
 
 /**
- * 🔴 THE FINDING THE SWEEP EXISTS FOR. netem is on the fabric before this kernel has injected
+ * 🔴 THE DEFECT THE SWEEP EXISTS FOR. netem is on the fabric before this kernel has injected
  * anything, and the one line an operator gets must name the interfaces. Without it a restarted
  * kernel reports a clean graph over a link that is dropping every packet.
  */
@@ -736,7 +736,7 @@ TEST_F(ResidualNetemSweepTest, ResidualNetemIsNamedInOneWarningAtStartup)
         << "the startup sweep found residual netem and said nothing an operator could act on. A "
            "kernel restart forgets standing declarations and the tc qdisc that accompanied one "
            "outlives it, so with no warning the graph's clean down_reason is the only thing "
-           "anybody reads (B-6, W8-4). Log was:\n"
+           "anybody reads (B-6). Log was:\n"
         << text;
     EXPECT_NE(text.find("s5-eth1"), std::string::npos)
         << "the warning named one end of the cut and not the other:\n"
@@ -763,7 +763,7 @@ TEST_F(ResidualNetemSweepTest, NetemOnAHostFacingPortIsFoundAndSaidToBeHostFacin
     EXPECT_EQ(found[0].interface, "s1-eth9");
     EXPECT_EQ(found[0].kind, SweptInterface::HostFacing)
         << "a host-facing port was reported under the wrong heading. It matters: no link endpoint "
-           "can address a host edge (W8-7), so /ndt/inject_link_recovery cannot take this one back";
+           "can address a host edge, so /ndt/inject_link_recovery cannot take this one back";
 
     const auto text = log.text();
     EXPECT_NE(text.find("s1-eth9 (host-facing)"), std::string::npos)
@@ -1197,7 +1197,7 @@ class FakeFabric
 // --- whose netem is it -------------------------------------------------------------------------
 
 /**
- * 🔴 THE FINDING (3 of 3 on a live fabric). Nothing recorded this netem, so it is not this
+ * 🔴 THE DEFECT (3 of 3 on a live fabric). Nothing recorded this netem, so it is not this
  * kernel's to remove -- and before B-16 the same tree read that says WHERE it is was taken as
  * permission to delete it.
  */
@@ -1287,7 +1287,7 @@ TEST(InjectedNetemProvenanceTest, ACleanInterfaceIsStillTheIdempotentNoop)
 }
 
 /**
- * 🔴 THE FINDING'S BEHAVIOUR HALF. Refusing to delete is only a refusal if no command runs: a
+ * 🔴 THE DEFECT'S BEHAVIOUR HALF. Refusing to delete is only a refusal if no command runs: a
  * report that says `refused` after having deleted the qdisc is the defect with better prose.
  */
 TEST(InjectedNetemProvenanceTest, RestoringAForeignNetemRunsNoCommandAtAll)
@@ -1354,7 +1354,7 @@ TEST(AllOrNothingCutTest, BothEndsCutAreBothRecorded)
 }
 
 /**
- * 🔴 THE SECOND FINDING (2 of 2 on a live fabric). One end already carried somebody else's
+ * 🔴 THE SECOND DEFECT (2 of 2 on a live fabric). One end already carried somebody else's
  * netem, so that end was refused -- and the loop went on and cut the OTHER end, leaving a
  * one-directional fault that the reply called `link failure injected`. faults.txt L-2 is about
  * exactly that asymmetry: it kills LLDP one way and leaves the control plane's graph permanently

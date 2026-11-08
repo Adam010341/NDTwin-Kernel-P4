@@ -17,7 +17,7 @@
 #     CHECK_RC=1
 #
 # Both numbers came from p4_proxy/mininet/host_count_override, a P4-ONLY knob that
-# `ndt up ovs4` never writes. That is the false red. The second half of the finding is worse
+# `ndt up ovs4` never writes. That is the false red. The second half of the defect is worse
 # and is the reason this suite exists at all: setting the knob "correctly" does not fix it,
 # because the comparison was (hosts, edges) and BOTH 4-host models are (4, 40) --
 #
@@ -69,7 +69,7 @@ trap 'rm -rf "$FIX"' EXIT
 mkdir -p "$FIX/.test_run" "$FIX/setting" "$FIX/p4_proxy/mininet"
 
 # --- fixtures ---------------------------------------------------------------------------
-# Topology models with the counts that make the finding what it is: the two 4-host models are
+# Topology models with the counts that make the defect what it is: the two 4-host models are
 # indistinguishable on (hosts, edges), and the 128-host P4 model is the one the knob selects.
 mk_topo() {   # <file> <hosts> <edges>
     python3 - "$FIX/setting/$1" "$2" "$3" <<'PY'
@@ -143,7 +143,7 @@ ovs_daemon_running() { [[ "${FX_BRIDGES:-0}" -gt 0 ]]; }
 topo_session() { [[ -n "${FX_TOPO_SESSION:-1}" ]]; }
 port_open() { case "$1" in 8000) [[ -s "$REPO/graph.json" ]] ;; *) return 1 ;; esac; }
 http_get_graph() { [[ -s "$REPO/graph.json" ]] && cat "$REPO/graph.json"; }
-# 09-07: `cmd_status --check` now runs a residue scan (W16-2). Answered from the fixture so
+# 09-07: `cmd_status --check` now runs a residue scan. Answered from the fixture so
 # this suite never reaches :8000 -- with these unstubbed the result would depend on whether a
 # kernel happens to be listening on the machine the suite is run from, which is the kind of
 # hidden input that makes a green run mean nothing. Both answer "nothing there", so the exit
@@ -165,7 +165,7 @@ ndt_sudo_rows() { echo one-row; }
 # test_ndt_status_residue_row.sh and did not reach the other two suites.
 lab_kernel_dir() { echo "$REPO"; }
 app_probe() { APP_STATE=not-running; }
-# Finding #83 added a second thing `--check` compares: the installed /usr/local/sbin/ndtwin-lab
+# The fix for the stale installed helper added a second thing `--check` compares: the installed /usr/local/sbin/ndtwin-lab
 # against tools/test_workflow/ndtwin-lab. On this machine those really do differ, so without
 # this stub every "exits 0" case below would be red about the helper -- a true statement, and
 # not the one this suite is making. Pinned to "same" so an exit code here is about the up-target
@@ -243,7 +243,7 @@ has   "  and says it could not check"                   "COULD NOT CHECK" "$OUT"
 hasnt "  never the mismatch sentence"                   "the kernel graph does not match the topology file" "$OUT"
 hasnt "  never 'ok'"                                    "check: ok" "$OUT"
 has   "  it says where the record would be"             ".test_run/up.target" "$OUT"
-has   "  and that .test_run is per checkout (#79)"      "per checkout" "$OUT"
+has   "  and that .test_run is per checkout"           "per checkout" "$OUT"
 
 # The direction that matters most, and the one the old code got exactly wrong: with the knob
 # agreeing with the graph by coincidence, the old check printed "check: ok" and exited 0 --
@@ -406,7 +406,7 @@ cmd_down >/dev/null 2>&1
 [[ -f \"\$REPO/.test_run/up.target\" ]] && echo still-there || echo gone" 2>/dev/null)"
 check "'ndt down' drops the record"                     "gone" "$OUT"
 
-section "9. 🔴 the nickname overlay is named and NOT compared (W10)"
+section "9. 🔴 the nickname overlay is named and NOT compared"
 # [Co-developed with claude code -- Adam]
 #
 # Measured live on OVS, 2026-09-05: one POST /ndt/modify_nickname, a two-line diff on
@@ -486,7 +486,7 @@ has   "the row's path is the one the kernel writes"     "nickname_overlay/Static
 
 
 # ==========================================================================================
-section "10. 🔴 R7 I-3: .test_run/pids/ contradicting itself, and no interface saying so"
+section "10. 🔴 .test_run/pids/ contradicting itself, and no interface saying so"
 # ==========================================================================================
 # Measured 2026-09-11 02:52:03 and again 02:52:27 --
 # 57 s and 81 s after the event, so not a millisecond race. One directory, two files, opposite

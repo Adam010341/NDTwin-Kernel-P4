@@ -277,7 +277,7 @@ class ApplyTest(TcSeam):
                          "the dry run printed a command that would destroy the shaper")
 
     def test_a_dry_run_with_no_fabric_plans_nothing_rather_than_printing_a_false_command(self):
-        # §5.2: a dry run makes no claim about the system, so an unreadable tree is not a
+        # A dry run makes no claim about the system, so an unreadable tree is not a
         # failure -- but it is not a plan either, and the old version printed
         # "would run: tc qdisc add dev X root netem loss 100%" whether or not that was true.
         tc = self.seam([""], show_rc=1, show_err="Cannot find device")

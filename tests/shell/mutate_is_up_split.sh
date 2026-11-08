@@ -16,7 +16,7 @@
 #       see -- and only until liveness caught up, at which point they answered the same;
 #     - the contract suite's A-8 check read the same bit on both sides of its own comparison, so
 #       `unexplained_down` was structurally empty on any real kernel;
-#     - #80: `kPostPowerOffDistrustWindow` bounded distrust by TIME (15 s) over an interval whose
+#     - the distrust window: `kPostPowerOffDistrustWindow` bounded distrust by TIME (15 s) over an interval whose
 #       measured length is 8-13 s of stale cache. A timer cannot know whether anything looked.
 #
 # 🔴 TWO DIRECTIONS, AND THE SECOND IS WHY THIS GATE IS MORE THAN A SHAPE CHECK
@@ -376,7 +376,7 @@ mutate "a missing admin_state defaults to off" \
     IsUpSplitTest.FromJsonAcceptsAnOldPayloadThatCarriesOnlyIsUp
 
 # M8. THE ENDPOINT, back to one scalar derived from the observation. This is what
-#     /ndt/get_switches_power_state did, and it is the shape the finding is named for.
+#     /ndt/get_switches_power_state did, and it is the shape the defect is named for.
 mutate "get_switches_power_state answers one scalar off isUp again" \
     "$PM" \
     '        result[sip] = json{
@@ -401,7 +401,7 @@ mutate "the endpoint's admin_state is filled from the observation" \
 #    distrust bounded by evidence
 # ================================================================================================
 
-# M10. THE #80 DEFECT PUT BACK: the window closes on a clock. Written with the literal rather than
+# M10. THE DISTRUST-WINDOW DEFECT PUT BACK: the window closes on a clock. Written with the literal rather than
 #      the old constant, because the constant is gone -- which is the point.
 mutate "the distrust window goes back to a fifteen-second timer" \
     "$P4" \
@@ -444,7 +444,7 @@ mutate "an untimed Up counts as evidence" \
     IsUpSplitTest.AnUpWithNoProbeTimestampIsNotEvidence
 
 # M13. The worker stops asking: the verdict is passed through undated and every Up is written,
-#      which is trunk's behaviour and the 8-13 s of `is_up=true` after every kill that #80
+#      which is trunk's behaviour and the 8-13 s of `is_up=true` after every kill that the distrust-window defect
 #      measured. 🔴 THIS MUTATION SURVIVED THE GATE'S FIRST RUN, because the check was inline in
 #      pingWorker's switch and the worker needs a running proxy -- no test could reach the line.
 #      That is what moved the policy into p4VerdictFor: policy that cannot be driven is policy
@@ -499,7 +499,7 @@ mutate "the window never closes on a probe, only on a power-on" \
 #    the control-plane push
 # ================================================================================================
 
-# M17. The push clears the command. This is the second door #46 spent a whole branch closing: one
+# M17. The push clears the command. This is the second door the power-off-resurrection fix spent a whole branch closing: one
 #      "switch entered" and discovery is free to mark a commanded-off switch up for ever after.
 mutate "inform_switch_entered withdraws the commanded power-off" \
     "$HS" \

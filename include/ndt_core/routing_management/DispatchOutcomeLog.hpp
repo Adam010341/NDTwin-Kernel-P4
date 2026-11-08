@@ -146,7 +146,7 @@ class DispatchOutcomeLog
         uint64_t dpid = 0;
         /// What the caller asked for. Not necessarily what the switch programmed -- see above.
         int requestedPriority = 0;
-        /// The caller's match, which is the identity that survives the trip (FINDING-07).
+        /// The caller's match, which is the identity that survives the trip (doc/FIXED-ISSUES.md A-7).
         nlohmann::json match;
         int controllerStatus = 0; ///< OpResult::httpStatus. 0 means nothing answered at all.
         std::string message;

@@ -3,9 +3,9 @@ Tests for `find_host_by_ip` -- the helper that has now been the walk's bottlenec
 
 [Co-developed with claude code -- Adam]
 
-First as a linear scan (cubic walk, 13.7x, WALK_SWEEP.md), then as an index whose cache token
+First as a linear scan (cubic walk, 13.7x), then as an index whose cache token
 called `net.number_of_edges()` per lookup -- O(V) in networkx, which made the "indexed" walk
-1.69x slower than the scan it replaced (walk_variants.txt in the same audit dir). Both
+1.69x slower than the scan it replaced. Both
 versions looked obviously fine and shipped. So besides behaviour, these tests pin the cost
 discipline itself: the helper may not call any graph method that walks the graph.
 

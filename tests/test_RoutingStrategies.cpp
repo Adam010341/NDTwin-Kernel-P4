@@ -345,7 +345,7 @@ TEST_F(RoutingStrategyFixture, HandlesOutputWithNoStatusLine)
 // the kernel accuse a component it never contacted.
 //
 // [Co-developed with claude code -- Adam]
-// Round 4 measured that a quote in a match value and a genuinely dead controller produced the
+// A measurement showed that a quote in a match value and a genuinely dead controller produced the
 // byte-identical verdict `no response from <component> at <url> within 5s`. Two properties have to
 // hold for that to be over: the quote must be transported rather than interpreted, and the two
 // causes must produce different verdicts. One test each.
@@ -389,7 +389,7 @@ TEST_F(RoutingStrategyFixture, AQuoteInAMatchValueIsSentAsDataAndDoesNotBreakThe
 TEST_F(RoutingStrategyFixture, ARequestThatNeverRanDoesNotAccuseTheController)
 {
     // The honesty half. curl absent / fork failed: the controller was never contacted, so naming
-    // it is a false accusation, and round 4 showed the message was indistinguishable from a real
+    // it is a false accusation, and a measurement showed the message was indistinguishable from a real
     // outage. The two verdicts are compared against each other here rather than matched against
     // fixed strings, because "they differ" is the property that was broken.
     RecordingOpenFlow neverRan("localhost:8080");
@@ -478,12 +478,12 @@ TEST_F(RoutingStrategyFixture, StrategiesNameThemselvesForLogs)
 }
 
 // =====================================================================================
-// W11 (#54): the refusal half of the plane's verdict
+// A-7b: the refusal half of the plane's verdict
 //
 // [Co-developed with claude code -- Adam]
 //
 // C-4 made a plane's *acceptance* carry whether it is evidence of programming
-// (OpResult::confirmsProgramming). W11 needs the other direction, because a refusal is the only
+// (OpResult::confirmsProgramming). The refusal case needs the other direction, because a refusal is the only
 // switch-side answer the OVS plane never gives and the P4 plane routinely does: R6 K-4's delete
 // of a match no switch held returns {"status":"error"} from the proxy, and that is the kernel
 // knowing the switch does not hold the rule -- a fact `get_flow_dispatch_status` had no bucket

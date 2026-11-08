@@ -23,12 +23,12 @@
  * declaration, the definition, its `ip[0]` guard, its `friend class AddresslessTopologyPeer;`
  * seam and the two tests that pinned it (one death test, one answer test) were deleted as dead
  * code, and mutations M3, M10 and C3 were removed from the gate with them. The rows above are
- * left as originally written because they are the record of what the finding covered; this suite
+ * left as originally written because they are the record of what the defect covered; this suite
  * now drives six sites, not seven.
  *
  * `operator[]` is not a milder `front()`. libstdc++ defines both as `*(_M_start + n)`, and a
  * default-constructed std::vector has `_M_start == nullptr`, so `ip[0]` on a node with no address
- * binds a reference to a null pointer and then reads through it. The only difference from #88 is
+ * binds a reference to a null pointer and then reads through it. The only difference from `front()` is
  * spelling.
  *
  * WHY THE HOST SITES ARE THE ONES THAT MATTER
@@ -752,7 +752,7 @@ TEST(AddresslessHostLoadTest, AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad)
     // LLMAgent::getCurrentTopology, was deleted with its dead member on 2026-09-11), and this is
     // the record of which layer was load-bearing when.
     EXPECT_TRUE(attempt.threw)
-        << "W3 door 3b is in this tree (merged 2026-09-10) and refuses a host with no address at "
+        << "door 3b is in this tree (merged 2026-09-10) and refuses a host with no address at "
            "load; a host that reached the graph here means the file-level door has been reopened. "
            "The load reported: "
         << attempt.message;
@@ -760,7 +760,7 @@ TEST(AddresslessHostLoadTest, AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad)
         << "the refusal has to name the host it is about: " << attempt.message;
     EXPECT_NE(attempt.message.find("declares an empty \"ip\" array"), std::string::npos)
         << attempt.message;
-    EXPECT_EQ(attempt.vertices, 0u) << "refused without leaving a partial graph (#61)";
+    EXPECT_EQ(attempt.vertices, 0u) << "refused without leaving a partial graph";
 }
 
 TEST(AddresslessHostLoadTest, TheSameEditOnASwitchIsRefused)
@@ -781,9 +781,9 @@ TEST(AddresslessHostLoadTest, TheSameEditOnASwitchIsRefused)
 
     const auto attempt = loadTopology(topology, "switch_without_address");
 
-    EXPECT_TRUE(attempt.threw) << "a switch with no address is refused at load; until W3 door 3b "
+    EXPECT_TRUE(attempt.threw) << "a switch with no address is refused at load; until door 3b "
                                   "(merged 2026-09-10) a host with none was not, and that asymmetry "
                                   "was the whole reachability argument";
     EXPECT_NE(attempt.message.find("empty \"ip\" array"), std::string::npos) << attempt.message;
-    EXPECT_EQ(attempt.vertices, 0u) << "refused without leaving a partial graph (#61)";
+    EXPECT_EQ(attempt.vertices, 0u) << "refused without leaving a partial graph";
 }

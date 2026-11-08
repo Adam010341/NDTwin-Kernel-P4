@@ -401,7 +401,7 @@ def t8_cannot(obs):
 
 def t8(obs):
     if A(obs)["journaled"] is True:
-        return green("journaled; the restart half is deferred (design 2.3)")
+        return green("journaled; the restart half is deferred")
     return not_run("switch_state's journaled field is %r" % (A(obs)["journaled"],))
 
 
@@ -1122,7 +1122,7 @@ CELLS = [
          needs_oracle=False, need=("a:down_after_s", "a:recovered", "a:watched_s")),
     # control_plane_mode
     Cell("CP1", "control_plane_mode", "core", "active", "A", 2, alias_of="T1",
-         alias_why="design 2.3: CP1 = T1"),
+         alias_why="CP1 = T1"),
     Cell("CP2", "control_plane_mode", "core", "active", "B", 4, cp2,
          need=("a:http", "o:entry_present", "o:controller_entry_present")),
     Cell("CP4", "control_plane_mode", "core", "active", "C", 4, cp4, precondition=cp4_pre,

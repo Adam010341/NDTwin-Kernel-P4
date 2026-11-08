@@ -197,7 +197,7 @@ echo "=== G9  the two verbs the gate itself missed (stop, ssh) ==="
 # `ssh` mutate and had NO claim_guard, and this gate was 32/32 green anyway. The gate
 # enumerated the guards that existed, so it could only ever confirm them -- it had no
 # way to notice a verb that had been left out. That is a coverage hole shaped exactly
-# like the finding: a check that cannot fail for the reason you care about.
+# like the defect: a check that cannot fail for the reason you care about.
 mkdir -p "$T/h"
 printf 'owner: bmv2paper\nsince: 2026-08-31T14:00:00+08:00\nport:  2222\nnote:  B round\n' > "$T/h/OWNER"
 
@@ -477,7 +477,7 @@ if [ -f "$T/a/OWNER" ] && grep -q 'owner: tester' "$T/a/OWNER"; then
 else
     echo "  🔴 adopt left the VM unowned"; fail=$((fail+1))
 fi
-# GREEN: a drifted CONFIG is a FINDING, not something to overwrite quietly. This is
+# GREEN: a drifted CONFIG is reported, not something to overwrite quietly. This is
 # the case that turns adopt into an instrument instead of a repair.
 printf 'cpus=12\nmem=8192\ndisk=x\nport=2296\n' > "$T/a/CONFIG"
 DOUT2=$(env NDT_OWNER=tester VM_DIR="$T/a" SSH_PORT=2296 bash "$VM" adopt 2>&1)

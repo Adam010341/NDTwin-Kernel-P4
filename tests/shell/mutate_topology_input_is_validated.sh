@@ -11,55 +11,55 @@
 # binary. M17 names it; section 4 asserts its suite green at baseline because $FILTER does not
 # select it. See the M17 header for why it was added.
 #
-# 🔴 #89 IS A DIFFERENT CLAIM FROM #61/#62 AND IS MEASURED DIFFERENTLY (M10-M16, added
-# 2026-09-05). #61/#62 were about whether the loader refuses at all. #89 is about WHERE it
+# 🔴 THE LATE-REFUSAL CLAIM IS A DIFFERENT CLAIM FROM THE DROPPED-EDGE AND PORT-RANGE ONES AND IS MEASURED DIFFERENTLY (M10-M16, added
+# 2026-09-05). The dropped-edge and port-range defects were about whether the loader refuses at all. The late-refusal claim is about WHERE it
 # refuses: three node-side conditions were still throwing from inside the builder loop, on node N,
 # with nodes 0..N-1 already added -- so every one of them was already "refused", and a mutation
 # scored by `threw` would show nothing. M10-M13 are scored by `vertices == 0`. The fourth door,
 # `ecmp_groups[].port_id`, had no check anywhere and is M14-M16.
 #
-# 🔴 #90 IS A THIRD CLAIM AGAIN (M17-M20, added 2026-09-06): door 3b's condition stopped at
+# 🔴 B-11 IS A THIRD CLAIM AGAIN (M17-M20, added 2026-09-06): door 3b's condition stopped at
 # `vertexType == SWITCH`, so the same defect on a HOST was accepted. Half of it is scored like
-# #61/#62 (`threw`, because an addressless host really did load) and half like nothing else in
+# the dropped-edge and port-range defects (`threw`, because an addressless host really did load) and half like nothing else in
 # this file (the message, because a missing or non-array "ip" was ALREADY refused -- with a raw
 # nlohmann exception where a sentence belongs). See section 5c. Since 2026-09-11 M17 also scores
 # the case that FLIPPED when this door arrived, which lives in another suite -- see M17.
 #
-# 🔴 #61/#62 WERE MEASURED ON :8000. #89's three doors WERE NOT -- they were read out of the
+# 🔴 THE DROPPED-EDGE AND PORT-RANGE DEFECTS WERE MEASURED ON :8000. The late-refusal claim's three doors WERE NOT -- they were read out of the
 # source, and this gate plus test_TopologyInputValidation.cpp is their entire evidence. Anything
-# quoting this file must not upgrade them to field observations. #90's empty-array half WAS
-# measured on :8000 (R0b, 2026-09-05, kernel 862c4bf8, served as `('h9', [])`); its missing-key
+# quoting this file must not upgrade them to field observations. B-11's empty-array half WAS
+# measured on :8000 (2026-09-05, served as `('h9', [])`); its missing-key
 # and non-array halves were not, and are message claims rather than acceptance claims.
 #
-# 🔴 THE SWITCHLESS REFUSAL (M31-M33, 2026-09-07) REVERSES A DECISION THIS GATE MADE THE SAME DAY. BUG-17 refused a
+# 🔴 THE SWITCHLESS REFUSAL (M31-M33, 2026-09-07) REVERSES A DECISION THIS GATE MADE THE SAME DAY. BUG-17 (FIXED-ISSUES C-5) refused a
 # data-plane MIXTURE and deliberately left "no switches at all" loading, with M31 as the mutation
 # pinning that boundary. The decision went the other way hours later (2026-09-07, against the
 # recommendation), so M31 now mutates in the opposite direction and its case was renamed. Anyone
 # quoting an M31 result must check which side of 2026-09-07 it came from. The switchless refusal is a two-layer fix
-# like #61's, so its restoration is a mutate2 -- see section 5f.
+# like the dropped-edge fix's, so its restoration is a mutate2 -- see section 5f.
 #
 # 🔴 M25-M27 (added 2026-09-07) REVERSE HALF OF THE BRAND CHECK BY DECISION, so this gate now measures
 # a door that is deliberately narrower than it was yesterday: an unrecognised brand is admitted
 # when the node declares an explicit, legal `switch_kind`, and the switch is marked
 # power_path/telemetry_path "none" in the graph. The mark is not a detail -- it is the condition
 # the decision came with, it is what M27 exists for, and a gate that only measured "the file loads"
-# would pass a fix that had quietly restored #91's silent fallback. See section 5e.
+# would pass a fix that had quietly restored B-12's silent fallback. See section 5e.
 #
-# 🔴 #91 (M21-M24, added 2026-09-06) IS THE SAME ROUND'S bad file `c`, and it WAS measured:
+# 🔴 B-12 (M21-M24, added 2026-09-06) IS THE SAME ROUND'S bad file `c`, and it WAS measured:
 # `brand_name = "NOT_A_REAL_KIND"` was accepted, mapped to HARDWARE, and reported only as a
 # data-plane MIXTURE whose suggested remedy would have made the typo permanent. Half of this half
 # is therefore about what the message SAYS, and M24 is the only thing that can redden it. See
 # section 5d.
 #
 # WHAT THE DEFECTS WERE
-#   #61  An edge whose dpid matched no switch node was dropped. One `[warning] Skipping edge:`
+#   dropped-edge  An edge whose dpid matched no switch node was dropped. One `[warning] Skipping edge:`
 #        line, and the graph went on to be served: measured on :8000 against the shipped P4
 #        4-host topology with one field changed, 40 edges in and **39** out, every endpoint 200
 #        (reproduced with mutant M1, a host edge naming a ghost dpid).
-#   #62  `src_interface` 0 and 999999 passed with no range check at all and were republished
+#   port-range    `src_interface` 0 and 999999 passed with no range check at all and were republished
 #        verbatim by get_graph_data (reproduced by putting the defect back).
 #
-# 🔴 TWO DIRECTIONS, AND THE SECOND ONE IS WHY THIS GATE IS NOT JUST #61's AND #62's.
+# 🔴 TWO DIRECTIONS, AND THE SECOND ONE IS WHY THIS GATE IS NOT JUST THE DROPPED-EDGE DEFECT'S AND THE PORT-RANGE DEFECT'S.
 #   1. RESTORING either defect must be caught             (M1-M7)
 #      -- the validator not called, the endpoint check gone, the refusal turned back into a
 #         WARN, the range check gone, and the range check off by one at either end.
@@ -68,9 +68,9 @@
 #         rule a reader reaches for, and it is wrong: the spec says the host side of a host edge
 #         carries dpid 0 AND interface 0, and five shipped TESTBED files do exactly that on every
 #         host edge. A gate without M8 would green-light a change that refuses five of the
-#         thirteen files this repo ships -- a wider outage than #62 ever caused.
+#         thirteen files this repo ships -- a wider outage than the port-range defect ever caused.
 #         M9 is the same shape one step milder: the ceiling quietly narrowed to the fleet's
-#         observed maximum, which passes every #62 case and breaks the next switch with more
+#         observed maximum, which passes every port-range case and breaks the next switch with more
 #         ports than today's.
 #
 # 🔴 THE FIX HAS TWO LAYERS, SO ONE MUTATION HERE EDITS TWO SITES (M2). The validator refuses the
@@ -227,12 +227,12 @@ add_anchor "door3e-message" "$TFM" '                    ". An unrecognised brand
 # The switch_kind exemption and the mark it costs. Three anchors: the exemption clause
 # itself, the predicate that decides it, and the line that writes the mark onto the vertex. The
 # mark has its own anchor because "the file loads" and "and the twin admits it cannot drive this
-# switch" are two claims, and a fix that made only the first one true would be #91's silent
+# switch" are two claims, and a fix that made only the first one true would be B-12's silent
 # fallback dressed up as the exemption.
-add_anchor "w15b-exempt"    "$TFM" '                !declaresLegalSwitchKind(nodeJson))'
-add_anchor "w15b-presence"  "$TFM" '            if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()))'
-add_anchor "w15b-predicate" "$TFM" '    if (!(nodeJson.contains("switch_kind") && nodeJson.at("switch_kind").is_string()))'
-add_anchor "w15b-mark"      "$TFM" '        vp.powerPath = powerPathForBrandName(vp.brandName);'
+add_anchor "swk-exempt"     "$TFM" '                !declaresLegalSwitchKind(nodeJson))'
+add_anchor "swk-presence"   "$TFM" '            if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()))'
+add_anchor "swk-predicate" "$TFM" '    if (!(nodeJson.contains("switch_kind") && nodeJson.at("switch_kind").is_string()))'
+add_anchor "swk-mark"       "$TFM" '        vp.powerPath = powerPathForBrandName(vp.brandName);'
 
 # BUG-17 -- the data-plane mixture, decided from the document and refused before the first
 # add_vertex. Three anchors: the guard that reads the flag, the `> 1` that says what counts as a
@@ -355,7 +355,7 @@ _score() {
             printf '  ✅ caught  red: %s\n' "${got[*]}"
         fi
         # [Co-developed with claude code -- Adam]
-        # 🔴 PRINT THE RED, not just the name of the light. Added 2026-09-05 with #89's
+        # 🔴 PRINT THE RED, not just the name of the light. Added 2026-09-05 with the late-refusal claim's
         # mutations. "M11 caught AnAddresslessSwitchLeavesNoPartiallyLoadedGraph" does not say
         # WHICH assertion went red, and for door 3 that is the entire distinction being measured:
         # `threw` is true with and without the fix, and only the `vertices == 0` line separates
@@ -468,12 +468,12 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 # 5. the mutations -- direction 1: putting either defect back
 # ================================================================================================
 
-# M1. VALIDATION REMOVED. The whole pass is never called. #62 is then unchecked end to end; #61
+# M1. VALIDATION REMOVED. The whole pass is never called. the port-range defect is then unchecked end to end; the dropped-edge defect
 #     is still refused, by the builder's own guard -- but refused AFTER 14 vertices and 32 edges
 #     have been added, which is the partial application the fix exists to stop. That split is
-#     exactly what the two #61 tests are for, and only one of them may go red here.
+#     exactly what the two dropped-edge tests are for, and only one of them may go red here.
 #
-#     🔴 ITS ANCHOR MOVED ONCE ALREADY, AND NOTHING BUT check_gate_anchors.py SAID SO. #89 gave
+#     🔴 ITS ANCHOR MOVED ONCE ALREADY, AND NOTHING BUT check_gate_anchors.py SAID SO. The late-refusal fix gave
 #     validateStaticTopologyJson a third parameter; this anchor still read `(j, where)`, so on
 #     2026-09-05 M1 reported SURVIVED-anchor-not-applied while every test stayed green. That is
 #     the exact failure mode that tool exists for (`mutate_lock_renew_expiry.sh` lost six anchors
@@ -511,7 +511,7 @@ mutate "validation removed: the whole pass is never called" \
     TopologyInputValidationTest.AnExistingHostLosingItsAddressNowNamesTheHostNotTheEdge \
     TopologyInputValidationTest.ASwitchWithASwitchKindStillNeedsABrandName
 
-# M2. THE #61 DEFECT VERBATIM: THE ERROR SWALLOWED INTO A WARN AGAIN. Both layers, because the
+# M2. THE DROPPED-EDGE DEFECT VERBATIM: THE ERROR SWALLOWED INTO A WARN AGAIN. Both layers, because the
 #     fix has two -- see the header. The validator logs and moves on, and the builder goes back
 #     to the `Skipping edge` line it shipped with. This is the measured 40 -> 39.
 mutate2 "error swallowed into a WARN again (both layers): the 40 -> 39 defect verbatim" \
@@ -548,7 +548,7 @@ mutate "the unknown-dpid check can never fire" \
     '            if (switchDpids.count(dpid) == 0 && false)' \
     TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph
 
-# M4. The other half of #61's lookup: the host side, resolved by address rather than by dpid.
+# M4. The other half of the dropped-edge lookup: the host side, resolved by address rather than by dpid.
 #     Nothing in the switch-side cases can see this.
 mutate "a host edge's address is no longer checked against the file" \
     "$TFM" \
@@ -556,7 +556,7 @@ mutate "a host edge's address is no longer checked against the file" \
     '            if (nodeAddresses.count(addresses.front()) == 0 && false)' \
     TopologyInputValidationTest.AHostEdgeWhoseAddressMatchesNoNodeIsRefused
 
-# M5. #62's ceiling removed. 999999 passes again and reaches get_graph_data verbatim.
+# M5. The port-range ceiling removed. 999999 passes again and reaches get_graph_data verbatim.
 mutate "the interface range check is removed" \
     "$TFM" \
     '        if (ifIndex > kMaxTopologyInterface)' \
@@ -567,7 +567,7 @@ mutate "the interface range check is removed" \
     TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused
 
 # M6. RANGE CHECK OFF BY ONE, at the top. `>` becomes `>=` on the value one past the limit --
-#     i.e. the ceiling silently gains a value. One character, and every #62 case above stays
+#     i.e. the ceiling silently gains a value. One character, and every port-range case above stays
 #     green: only the boundary case can see it.
 mutate "range check off by one: the ceiling admits one value too many" \
     "$TFM" \
@@ -587,11 +587,11 @@ mutate "range check off by one: the floor also refuses port 1" \
     TopologyInputValidationTest.TheTwoMininetCapableTopologiesStillLoadInMininetMode
 
 # ================================================================================================
-#    direction 2: over-correcting. 🔴 These are the reason this gate is not just #61's and #62's.
+#    direction 2: over-correcting. 🔴 These are the reason this gate is not just the dropped-edge and port-range defects'.
 # ================================================================================================
 
-# M8. 🔴 THE FLEET-BREAKING MISTAKE. "A port index must be >= 1" -- the rule the finding's own
-#     wording invites -- applied to both sides instead of only the switch side. Every #62 case
+# M8. 🔴 THE FLEET-BREAKING MISTAKE. "A port index must be >= 1" -- the rule the report's own
+#     wording invites -- applied to both sides instead of only the switch side. Every port-range case
 #     above stays green. Five shipped TESTBED files, which put the documented 0 on every host
 #     edge, stop loading.
 mutate "the floor is applied to the host side too (port 0 refused everywhere)" \
@@ -602,7 +602,7 @@ mutate "the floor is applied to the host side too (port 0 refused everywhere)" \
     TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped
 
 # M9. The milder over-correction: the ceiling narrowed to the highest interface index the fleet
-#     happens to use today (67). Every #62 case stays green -- 999999 is still refused -- and the
+#     happens to use today (67). Every port-range case stays green -- 999999 is still refused -- and the
 #     next switch with more ports than any current one is refused with it.
 mutate "the ceiling is narrowed to the fleet's observed maximum" \
     "$TFM" \
@@ -667,7 +667,7 @@ mutate "door 3c is applied to the wrong mode (TESTBED demands a bridge_name)" \
     TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped
 
 # M14. Door 2's ceiling removed. 999999 in an ecmp member is accepted again and reaches the flow
-#      path -- #62's defect, on the field #62 did not cover.
+#      path -- the port-range defect, on the field it did not cover.
 mutate "door 2: the ecmp port_id ceiling is removed" \
     "$TFM" \
     '                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))' \
@@ -700,7 +700,7 @@ mutate "door 2: the host side's port-0 exemption is transplanted onto ecmp membe
 # 5c. Door 3d, the HOST half of door 3b (M17-M20, added 2026-09-06)
 #
 # 🔴 THIS DOOR IS MEASURED DIFFERENTLY AGAIN, AND IN TWO DIFFERENT WAYS AT ONCE.
-#   - The EMPTY ARRAY was measured live: R0b (2026-09-05, kernel 862c4bf8) loaded a host with
+#   - The EMPTY ARRAY was measured live: a run on 2026-09-05 loaded a host with
 #     `"ip": []` into the shipped OVS model, the kernel accepted it with zero diagnostic, opened
 #     :8000, and served the node as `('h9', [])`. For that one, `threw` is a real red.
 #   - The MISSING KEY and the NON-ARRAY were already refused before this fix, by the shared
@@ -724,7 +724,7 @@ mutate "door 2: the host side's port-0 exemption is transplanted onto ecmp membe
 #      FIXTURE LOOKS THE WAY IT DOES. The first draft of
 #      AnAddresslessHostLeavesNoPartiallyLoadedGraph emptied an EXISTING host's "ip". That file is
 #      refused with or without door 3d -- the two edges naming that host by address stop resolving
-#      and #61's edge door refuses it -- so the case stayed green here and M17 reported SURVIVED
+#      and the dropped-edge fix's edge door refuses it -- so the case stayed green here and M17 reported SURVIVED
 #      while the whole suite was green. Only an ADDED host, which no edge points at, reaches the
 #      node side. Do not "simplify" the fixture back.
 #
@@ -788,7 +788,7 @@ mutate "door 3d demands exactly one address (the five _ipAlias4_ files give four
 # 5d. Door 3e, a brand_name this build has no data plane for (M21-M24,
 #     added 2026-09-06)
 #
-# 🔴 THE DEFECT WAS NOT SILENCE, IT WAS A REFUSAL THAT DID NOT REFUSE. R0b measured an unknown
+# 🔴 THE DEFECT WAS NOT SILENCE, IT WAS A REFUSAL THAT DID NOT REFUSE. The 2026-09-05 run measured an unknown
 # brand being accepted while the operator was shown an ERROR-level "Topology mixes data planes"
 # line whose suggested remedy -- set AppConfig::ALLOW_MIXED_DATAPLANE -- would have made the typo
 # permanent. So this half of the gate has two directions that are easy to confuse:
@@ -819,7 +819,7 @@ mutate "door 3e: an unknown brand_name is accepted again" \
     TopologyInputValidationTest.TheUnknownBrandRefusalDoesNotSuggestAllowingMixedDataPlanes
 
 # 🔴 M21 USED TO NAME AnUnknownBrandNameLeavesNoPartiallyLoadedGraph, AND SINCE BUG-17 IT CANNOT.
-# That case is R0b's measured file: ONE switch of an all-BMv2 fabric given an unknown brand. An
+# That case is the 2026-09-05 measured file: ONE switch of an all-BMv2 fabric given an unknown brand. An
 # unknown brand maps to HARDWARE, so that file is ALSO a data-plane mixture -- and since
 # 2026-09-07 a mixture is refused in the same pass, before the first add_vertex. With door 3e
 # switched off the file is therefore still refused, still with vertices == 0, and that case stays
@@ -827,7 +827,7 @@ mutate "door 3e: an unknown brand_name is accepted again" \
 #
 # The replacement makes every switch the unknown brand, which removes the mixture (all ten map to
 # HARDWARE) and leaves door 3e as the only thing that can refuse the file. The two message cases
-# stay: with door 3e off, R0b's file is refused by the MIXTURE door, whose sentence names neither
+# stay: with door 3e off, that measured file is refused by the MIXTURE door, whose sentence names neither
 # the brand nor the accepted list and does suggest ALLOW_MIXED_DATAPLANE -- so they still go red,
 # and they are now what pins WHICH door refused.
 
@@ -868,7 +868,7 @@ mutate "door 3e: a hardware model is misspelled where the brand constants live" 
     TopologyInputValidationTest.EveryAcceptedBrandCarriesAPowerPathThatIsNotNone
 
 # M24. 🔴 THE ADVICE COMES BACK. The file is still refused, and the refusal still names the brand
-#      -- but it tells the operator to set ALLOW_MIXED_DATAPLANE, which is what R0b caught the old
+#      -- but it tells the operator to set ALLOW_MIXED_DATAPLANE, which is what that run caught the old
 #      message doing and is the half of this fix that is about what the message SAYS. Only one
 #      case can see it.
 mutate "door 3e: the refusal suggests ALLOW_MIXED_DATAPLANE again" \
@@ -881,14 +881,14 @@ mutate "door 3e: the refusal suggests ALLOW_MIXED_DATAPLANE again" \
 # ================================================================================================
 # 5e. The switch_kind exemption, and the mark it costs (M25-M27, added 2026-09-07)
 #
-# 🔴 THIS HALF REVERSES #91, SO IT HAS TO BE MEASURED IN BOTH DIRECTIONS AT ONCE. It was decided on
+# 🔴 THIS HALF REVERSES THE B-12 REFUSAL, SO IT HAS TO BE MEASURED IN BOTH DIRECTIONS AT ONCE. It was decided on
 # 2026-09-06 that a node declaring an explicit, legal `switch_kind` is admitted even when its
 # `brand_name` is one this build cannot drive -- and that such a machine must be marked in the
 # graph as one whose power and telemetry nobody manages. Two mutations for the two ways to get
 # that wrong, and they are opposites:
 #   - the exemption is gone      (M25) -- the decision is not implemented, the Cisco operator is
 #                                         still editing C++
-#   - the exemption is unconditional (M26) -- #91 is undone: every unrecognised brand is admitted
+#   - the exemption is unconditional (M26) -- the B-12 refusal is undone: every unrecognised brand is admitted
 #                                         again, which is the measured defect verbatim
 # and one for the direction that looks like the fix while removing its condition:
 #   - the switch is admitted but NOT marked (M27) -- the graph says a switch this build has no
@@ -905,8 +905,8 @@ mutate "door 3e: the refusal suggests ALLOW_MIXED_DATAPLANE again" \
 # ================================================================================================
 
 # M25. The exemption is removed: an explicit switch_kind no longer admits an unrecognised brand.
-#      The decision undone, back to #91's cost.
-mutate "W15-2: an explicit switch_kind no longer exempts an unrecognised brand" \
+#      The decision undone, back to B-12's cost.
+mutate "switch_kind exemption: an explicit switch_kind no longer exempts an unrecognised brand" \
     "$TFM" \
     '                !declaresLegalSwitchKind(nodeJson))' \
     '                !(declaresLegalSwitchKind(nodeJson) && false))' \
@@ -920,7 +920,7 @@ mutate "W15-2: an explicit switch_kind no longer exempts an unrecognised brand" 
 #      consistently, and it is not: the builder reads brand_name with at(), so a node without one
 #      throws a raw nlohmann exception from a line further down -- the "the message is an
 #      exception class, not a sentence" defect doors 3c/3d/3e were each written to remove.
-mutate "W15-2: the exemption also waives the brand_name presence check" \
+mutate "switch_kind exemption: the exemption also waives the brand_name presence check" \
     "$TFM" \
     '            if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()))' \
     '            if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()) &&
@@ -931,7 +931,7 @@ mutate "W15-2: the exemption also waives the brand_name presence check" \
 #      brand's own default path for a brand that has none -- `powerPathForBrandName` replaced by
 #      the value an accepted hardware switch would get. Nothing about loading changes, so only
 #      the cases that ask what is ON the vertex can see it.
-mutate "W15-2: an exempted switch is reported as having a power path" \
+mutate "switch_kind exemption: an exempted switch is reported as having a power path" \
     "$TFM" \
     '        vp.powerPath = powerPathForBrandName(vp.brandName);' \
     '        vp.powerPath = "snmp";' \
@@ -945,7 +945,7 @@ mutate "W15-2: an exempted switch is reported as having a power path" \
 #      switch no topology file may name -- the pre-2026-09-07 shape, reached by hand. Only
 #      TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn can see it: nothing about loading
 #      changes, so no behavioural case moves.
-mutate "W15-1(b): the power manager branches on a brand literal the loader refuses" \
+mutate "brand list: the power manager branches on a brand literal the loader refuses" \
     "$DCPM" \
     '    else if (targetSwitch->brandName == kBrandHPE5520)' \
     '    else if (targetSwitch->brandName == "CiscoC9300")' \
@@ -1030,7 +1030,7 @@ mutate2 "E-26 at both layers: a switchless topology loads again -- 0f79d44f verb
 # M32. 🔴 THE FIRST LAYER ALONE, AND THE RED IS A DIFFERENT SENTENCE FROM M31's. Only the
 #      document-level door is removed; the builder's backstop still refuses -- but it refuses from
 #      the end of the builder, with all four hosts already in the graph. `vertices == 4` while
-#      `threw` stays true is the #61/#89 shape exactly: refused, and also here is most of it. This
+#      `threw` stays true is the dropped-edge/late-refusal shape exactly: refused, and also here is most of it. This
 #      is what makes "the switchless refusal goes through BUG-17's door, before the first add_vertex" a measured
 #      claim rather than a description of where the source happens to sit.
 mutate "E-26: the document-level door is removed, leaving only the builder's backstop" \
@@ -1062,8 +1062,8 @@ mutate "E-26: the switchless refusal is gated on the mixed-plane opt-in" \
 # sixteen. /ndt/get_average_link_usage answered `{"avg_link_usage":0.0,"status":"success"}`
 # throughout. `-1` loaded too and was served as 18446744073709551615.
 #
-# So the ACCEPTANCE half of this door is scored like #61/#62 (`threw`), and the two message halves
-# -- missing key, wrong type -- are scored like #90's (the absence of `json.exception`), because
+# So the ACCEPTANCE half of this door is scored like the dropped-edge and port-range defects (`threw`), and the two message halves
+# -- missing key, wrong type -- are scored like B-11's (the absence of `json.exception`), because
 # both were already refused, by the builder's own at(), from the middle of its edge loop.
 # ================================================================================================
 
@@ -1211,7 +1211,7 @@ mutate "door 6a: an address that is not a dotted quad is accepted and rewritten 
 #      b5-loose.json is still refused -- by the other -- so neither M43 nor M44 can restore it and
 #      neither one's log may be read as saying they could. The red here is on `threw` for the file
 #      that actually served two hosts at one address on :8000.
-mutate2 "door 6, both arms: ROLE-3's b5-loose.json loads again" \
+mutate2 "door 6, both arms: the measured b5-loose.json loads again" \
     "$TFM" \
     '    if (canonical == text)' \
     '    if (canonical == text || true)' \
@@ -1233,9 +1233,9 @@ mutate "door 6a: an edge's addresses are no longer checked for spelling" \
 # ================================================================================================
 # 5j. Door 7 -- the shared "ip" read, for the node types door 3d does not cover
 #
-# Door 3d (#90) rewrote "missing key" and "not an array" into sentences for HOSTS. The read it was
+# Door 3d (the B-11 fix) rewrote "missing key" and "not an array" into sentences for HOSTS. The read it was
 # protecting them from is SHARED: a SWITCH with no "ip" key got
-# `[json.exception.out_of_range.403] key 'ip' not found` before #90 and still did after it, because
+# `[json.exception.out_of_range.403] key 'ip' not found` before that door and still did after it, because
 # door 3b covers a switch's EMPTY array and nothing covered the other two faults.
 #
 # 🔴 M48 IS THE ONE THAT MATTERS HERE, and it is an ORDERING mutation -- a MOVE, not a widening.
@@ -1341,7 +1341,7 @@ widen "the dpid lookup is written as the negated comparison" \
     '            if (switchDpids.count(dpid) == 0)' \
     '            if (!(switchDpids.count(dpid) > 0))'
 
-# W4. #89's control. The ecmp bound written with the literal instead of the named constant and
+# W4. The late-refusal claim's control. The ecmp bound written with the literal instead of the named constant and
 #     `< 1` written as `<= 0` -- identical semantics for a signed value, different text in both
 #     halves of the condition. If this reddens, M14/M15/M16 are pinning how the bound is spelled
 #     rather than where it sits, and "three doors closed" would be a claim about source text.
@@ -1350,7 +1350,7 @@ widen "the ecmp bound is written as the equivalent literal" \
     '                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))' \
     '                if (portId <= 0 || portId > 65535)'
 
-# W5. #90's control. `empty()` written as `size() == 0` -- the same predicate, one character away
+# W5. B-11's control. `empty()` written as `size() == 0` -- the same predicate, one character away
 #     from M20's `size() != 1`. If this reddens, M20 is measuring the spelling of the emptiness
 #     test rather than which host counts it refuses.
 widen "the host emptiness test is written as size() == 0" \
@@ -1358,7 +1358,7 @@ widen "the host emptiness test is written as size() == 0" \
     '            else if (nodeJson.at("ip").empty())' \
     '            else if (nodeJson.at("ip").size() == 0)'
 
-# W6. #91's control. The membership test written as none_of with an explicit comparison instead of
+# W6. B-12's control. The membership test written as none_of with an explicit comparison instead of
 #     find-against-end: identical semantics, a completely different shape. If this reddens,
 #     M21/M23 are pinning how the lookup is spelled rather than which brands it admits.
 widen "the brand membership test is written as none_of" \
@@ -1499,23 +1499,23 @@ echo "  a different way stays green. Since 2026-09-11 M17 also reddens the case 
 echo "  door 3b was merged -- AddresslessHostLoadTest"
 echo "  .AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad, which no gate named before that date -- while"
 echo "  its two siblings in that suite stay green through the same edit."
-echo "  BUG-17 + E-26 gate: a mixed data plane cannot be reported-and-loaded again, the opt-in"
+echo "  BUG-17 + E-26 gate (FIXED-ISSUES C-5, C-5b): a mixed data plane cannot be reported-and-loaded again, the opt-in"
 echo "  cannot stop working, and the switchless refusal cannot be dropped at both layers (which is"
 echo "  BUG-17 as it shipped on 2026-09-06, before E-26 reversed it), cannot be dropped at the"
 echo "  document layer alone without a case going red on vertices == 4 while threw stays true, and"
 echo "  cannot be hidden behind the mixed-plane opt-in -- while writing the mixture test as"
 echo "  size() >= 2 and the switchless test as size() == 0 both stay green."
-echo "  W15-1(b) gate: the brand list cannot lose a hardware model without the shipped fleet saying"
+echo "  Brand-list gate: the brand list cannot lose a hardware model without the shipped fleet saying"
 echo "  so, and a brand comparison cannot go back to a bare literal the loader would refuse."
-echo "  W15-2 gate: the switch_kind exemption cannot be removed, cannot spread to the brand_name"
+echo "  switch_kind-exemption gate: the switch_kind exemption cannot be removed, cannot spread to the brand_name"
 echo "  presence check, and cannot admit a switch without marking it power_path/telemetry_path"
 echo "  none -- while writing the exemption as two named booleans and a guard stays green."
-echo "  FIX-DOORS-2 gate (B-13/B-14/B-15, 2026-09-11): the four fields ROLE-3 measured walking"
+echo "  B-13/B-14/B-15 gate (2026-09-11): the four fields a 2026-09-11 run measured walking"
 echo "  through ten doors untouched now have doors that cannot be switched off -- a zero or"
 echo "  negative link_bandwidth_bps cannot be accepted again and its floor cannot be raised off 0"
 echo "  without the 1 bit/s case saying so; a vertex_type outside the enum cannot load, the range"
 echo "  cannot lose its lower half, and the refusal cannot stop using the sentence the API answers"
-echo "  the same mistake with; neither arm of the address door can be dropped, and ROLE-3's"
+echo "  the same mistake with; neither arm of the address door can be dropped, and that run's"
 echo "  b5-loose.json needs both of them gone before it loads again; an edge's addresses cannot"
 echo "  stop being checked for spelling; and door 7 cannot be switched off, nor widened over door"
 echo "  3d -- while writing the bandwidth floor as < 1, the vertex_type range as a floor and a"

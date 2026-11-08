@@ -600,7 +600,7 @@ HttpRoutingStrategyBase::guardedMod(const json& j,
         return result;
     }
 
-    // [Co-developed with claude code -- Adam] Finding #1, part 1 of 2: what is sent.
+    // [Co-developed with claude code -- Adam] A-10, part 1 of 2: what is sent.
     //
     // A *_MOD delete NAMES an entry; it does not carry a definition of one. OpenFlow 1.3
     // §6.4/A.3.4.2 gives ofp_group_mod's bucket list no meaning for OFPGC_DELETE, and Ryu
@@ -635,7 +635,7 @@ HttpRoutingStrategyBase::guardedMod(const json& j,
         return result.withOutcome("unverified");
     }
 
-    // [Co-developed with claude code -- Adam] Finding #1, part 2 of 2: what is claimed.
+    // [Co-developed with claude code -- Adam] A-10, part 2 of 2: what is claimed.
     //
     // Part 1 fixes one reason a delete does not land. This fixes the reason nobody could tell.
     // "Forwarded" was being reported as "deleted", so every way the switch can decline a
@@ -657,7 +657,7 @@ HttpRoutingStrategyBase::guardedMod(const json& j,
     // switch anything. Ryu does not barrier a group/meter mod and does not wait for a reply
     // (ofctl_rest.py answers as soon as it has forwarded), so a switch that REFUSES an install
     // refuses it asynchronously, correlated to nothing -- byte for byte the delete story
-    // of "Finding #1, part 1 of 2" and "part 2 of 2" above, on the other two verbs.
+    // of "A-10, part 1 of 2" and "part 2 of 2" above, on the other two verbs.
     //
     // So the read-back is one block for all three, differing only in what it expects to find.
     // Delete expects the entry to be gone; Add and Modify expect it to be there.
