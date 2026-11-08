@@ -269,42 +269,6 @@ count are emptied after 2 seconds (`src/ndt_core/collection/TopologyAndFlowMonit
 
 Failure direction: pessimistic (and optimistic for a caller that shuts down paths it thinks are idle).
 
-### B-22 A flow rule whose L4 port or protocol is not a number, or does not fit, is answered 500 by the P4 proxy
-
-(Cited as "B-2c-b" before this code was assigned.)
-
-**What you see.** A match on a P4 switch whose `tp_dst`, `tp_src`, `tcp_*`, `udp_*`, `ip_proto` or
-`nw_proto` value is not a number (for example `"abc"`), or is too large (a port above 65535, a protocol
-above 255), is not refused with a 400 that names the field. The error is raised while the request is being
-built, before anything is sent to the switch, so no rule is installed. What the caller sees depends on the
-route:
-- Through the kernel (`POST /ndt/install_flow_entry`): the answer is 200 `queued`, and the proxy's failure
-  appears only later in the dispatch status (`GET /ndt/get_flow_dispatch_status`, section 42 of
-  `doc/2026-01-02_ndt_api.md`) with `controller_status` 500. The kernel's own shape check covers the priority
-  and the IPv4 fields only (`include/ndt_core/routing_management/FlowJob.hpp:302-312`), and it answers
-  `queued` at `src/ndt_core/http/HttpSession.cpp:2601`.
-- Calling the proxy directly (`/stats/flowentry/add`): HTTP 500, from an unhandled `ValueError` or
-  `OverflowError` (read from the code).
-
-**When.** A match that names more than a destination, so that it goes to the `flow_5tuple` table, with
-such a value. It was reproduced offline by awaiting the proxy's route handler with a stubbed switch client
-(`tp_dst` `"abc"` and `70000`); no HTTP request, kernel or switch was involved, so the HTTP 500 and the
-kernel route above are read from the code. Delete and modify build the same keys
-(`p4_proxy/proxy_agent/topology_manager.py:1602`, `:1724`) and were not tried.
-
-**Why.** The value check covers address fields and `in_port` only (`p4_proxy/proxy_agent/topology_manager.py:360`,
-and the note at `:387-392`). The other numeric keys reach `int(value).to_bytes(...)` in the encoder
-(`p4_proxy/proxy_agent/p4_client.py:2129`), and the handler catches only the proxy's own error classes
-(`p4_proxy/proxy_agent/api_routes.py:733-748`).
-
-**What to do.** Check that port and protocol values are integers in range (0-65535 for a port, 0-255 for
-a protocol) before sending the rule. Through the kernel, read the dispatch status for the request: a
-failure with `controller_status` 500 on such a rule is this defect. None yet in the proxy.
-
-Failure direction: the reply through the kernel (200 `queued`) does not show it; the dispatch status and
-the kernel log do (`src/ndt_core/routing_management/Controller.cpp:81-85` logs it at ERROR); loud (500)
-when the proxy is called directly.
-
 ### C-8 `last_sample_age_seconds` is -1.0 for a link that has never been sampled
 
 **What you see.** In `get_graph_data`, an edge's `last_sample_age_seconds` is -1.0 when no sample has

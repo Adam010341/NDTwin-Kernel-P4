@@ -152,7 +152,9 @@ class MalformedMatchValueError(UnsupportedMatchError):
     anything after the length), a prefix on a match that compiles to flow_5tuple (that writer
     encodes exact addresses only), a prefix on a source address, an address field that is
     present but empty or null, and the two spellings of one field (nw_dst / ipv4_dst,
-    nw_src / ipv4_src) carrying different addresses. [Co-developed with claude code -- Adam]
+    nw_src / ipv4_src) carrying different addresses. The same class covers a number the
+    flow_5tuple keys cannot hold: an in_port outside 0-511, a protocol outside 0-255 and an L4
+    port outside 0-65535, or one that is no number at all. [Co-developed with claude code -- Adam]
 
     Reachable from in-repo code, not just hand-written curl: IntentTranslator.cpp:359-362 copies
     the validation agent's `ipv4_dst` into `nw_dst` verbatim, and validation_agent_prompt.txt:113
@@ -162,8 +164,9 @@ class MalformedMatchValueError(UnsupportedMatchError):
     def __init__(self, field, value, action, expected=None, prefix_allowed=False):
         self.fields = [field]
         if expected is not None:
-            # [Co-developed with claude code -- Adam] A field that is not an address (in_port):
-            # the default sentence below would call a port number "not an IPv4 address".
+            # [Co-developed with claude code -- Adam] A field that is not an address (in_port,
+            # a protocol or an L4 port): the default sentence below would call a port number
+            # "not an IPv4 address".
             # A small integer is shown as itself: "a int" would not tell a caller which of
             # 512 and 70000 it sent.
             shown = (str(value) if isinstance(value, int) and not isinstance(value, bool)
@@ -339,28 +342,65 @@ IN_PORT_MATCH_FIELDS = frozenset(
 )
 
 
+#: The match spellings that land on flow_5tuple's protocol and L4 port keys (bit<8> and bit<16>).
+#: Derived from FIVE_TUPLE_FIELD_MAP like the two sets above, so a spelling added there is
+#: checked here without a second edit. [Co-developed with claude code -- Adam]
+L4_VALUED_MATCH_FIELDS = frozenset(
+    field for field, p4_key in FIVE_TUPLE_FIELD_MAP.items()
+    if p4_key in ("hdr.ipv4.protocol", "meta.l4_src_port", "meta.l4_dst_port")
+)
+
+
+def _check_numeric_key_value(field, value, action, noun):
+    """MalformedMatchValueError unless the 5-tuple encoder takes this value for `field`.
+
+    [Co-developed with claude code -- Adam]
+    The oracle is P4RuntimeClient._encode_5tuple_value itself, so the accepted set cannot drift
+    from what the writer puts on the wire, and the range in the message is read from the same
+    width table the encoder uses (_FIVE_TUPLE_KEY_BITS), not written out a second time. Imported
+    here and not at the top: p4_client is the heavy module (gRPC, protobuf) and only a match that
+    names one of these keys needs it.
+    """
+    from proxy_agent.p4_client import P4RuntimeClient
+    p4_key = FIVE_TUPLE_FIELD_MAP[field]
+    try:
+        P4RuntimeClient._encode_5tuple_value(p4_key, value)
+    except (ValueError, OverflowError, TypeError, OSError):
+        bits = P4RuntimeClient._FIVE_TUPLE_KEY_BITS[p4_key]
+        raise MalformedMatchValueError(
+            field, value, action,
+            expected=f"{noun} from 0 to {(1 << bits) - 1} (the key is {bits} bits wide)") from None
+
+
 def _check_in_port_value(field, value, action):
     """MalformedMatchValueError unless the 5-tuple encoder takes this in_port.
 
     [Co-developed with claude code -- Adam]
-    The oracle is P4RuntimeClient._encode_5tuple_value itself, so the accepted set (0-511, or a
-    numeric string of one) cannot drift from what the writer puts on the wire. Imported here and
-    not at the top: p4_client is the heavy module (gRPC, protobuf) and only a match that names
-    in_port needs it.
+    The accepted set is 0-511, or a numeric string of one.
     """
-    from proxy_agent.p4_client import P4RuntimeClient
-    try:
-        P4RuntimeClient._encode_5tuple_value(FIVE_TUPLE_FIELD_MAP[field], value)
-    except (ValueError, OverflowError, TypeError, OSError):
-        raise MalformedMatchValueError(
-            field, value, action,
-            expected="a switch port number from 0 to 511 (the key is 9 bits wide)") from None
+    _check_numeric_key_value(field, value, action, "a switch port number")
+
+
+def _check_l4_value(field, value, action):
+    """MalformedMatchValueError unless the 5-tuple encoder takes this protocol or L4 port.
+
+    [Co-developed with claude code -- Adam]
+    The accepted set is what the encoder takes for in_port, at the key's own width: whatever
+    int() reads as 0-255 (the protocol) or 0-65535 (a port) -- an int, a bool, a float, a digit
+    string with or without surrounding blanks, a sign or underscores. A string with a dot goes
+    through socket.inet_aton: one it reads comes out four bytes wide, which no one-byte or
+    two-byte key takes (ValueError), and one it cannot read ("a.b", "1.2.3.4.5") raises OSError,
+    so a dotted string is refused whatever it spells.
+    """
+    noun = "a protocol number" if FIVE_TUPLE_FIELD_MAP[field] == "hdr.ipv4.protocol" \
+        else "a port number"
+    _check_numeric_key_value(field, value, action, noun)
 
 
 def check_match_values(match_dict, action):
     """
-    Raises MalformedMatchValueError if an address field or an in_port carries a value the
-    encoders reject.
+    Raises MalformedMatchValueError if an address field, an in_port, a protocol or an L4 port
+    carries a value the encoders reject.
 
     Closes FIXED-ISSUES B-2c: `{"nw_dst": "10.0.0.5/32"}` used to pass field-name validation,
     reach socket.inet_aton() and raise OSError out of the handler as a 500.
@@ -384,12 +424,11 @@ def check_match_values(match_dict, action):
     The two spellings of one field (nw_dst / ipv4_dst, nw_src / ipv4_src) may both be present
     only if they name the same address once normalised; otherwise ConflictingMatchValueError.
 
-    ⚠️ Covers the inet_aton sinks and in_port ONLY. The other numeric flow_5tuple keys (ip_proto,
-    tp_src/tp_dst and their spellings) reach `int(value).to_bytes(width)` in
-    _encode_5tuple_value, where a non-numeric string still raises ValueError and an out-of-range
-    number still raises OverflowError -- both still uncaught, both still 500s. Same family, not
-    the CIDR defect, and deliberately not fixed in the same change: it is registered as
-    KNOWN-ISSUES B-22 rather than left to look handled.
+    The protocol and L4 port keys (ip_proto / nw_proto, tp_src / tcp_src / udp_src, tp_dst /
+    tcp_dst / udp_dst) are checked the same way as in_port, at their own widths (bit<8> and
+    bit<16>): `int(value).to_bytes(width)` in _encode_5tuple_value used to raise ValueError for
+    "abc" and OverflowError for 70000 out of the handler, a 500 on all three verbs. They are
+    checked here whatever the value, ahead of the writer (FIXED-ISSUES B-22).
 
     in_port is covered since the 5-tuple mask fix. The key is bit<9>, and the writer refuses 512
     and up with an OverflowError raised while it builds the request, which no handler catches (a
@@ -408,6 +447,9 @@ def check_match_values(match_dict, action):
     for field in sorted(match_dict):
         if field in IN_PORT_MATCH_FIELDS:
             _check_in_port_value(field, match_dict[field], action)
+            continue
+        if field in L4_VALUED_MATCH_FIELDS:
+            _check_l4_value(field, match_dict[field], action)
             continue
         if field not in IPV4_VALUED_MATCH_FIELDS:
             continue
