@@ -78,7 +78,7 @@ check FALSE topo   $'energy: 1 windows -- topo: in mid-line\nbmv2: 0' "'topo:' o
 # new shape or it stops being true. Two directions matter: the extra line must not hide a
 # session that is there, and -- because it carries a PATH, which is attacker-adjacent in the
 # sense that it is whatever the config file said -- it must not manufacture one that is not.
-CFG='config: /etc/ndtwin-lab.conf (KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel)'
+CFG='config: /etc/ndtwin-lab.conf (KERNEL_DIR=/home/user/NDTwin-Kernel)'
 CFG_TOPO="$CFG"$'\n'"$TOPO"
 CFG_NONE="$CFG"$'\n'"$NONE"
 
@@ -88,7 +88,7 @@ check FALSE energy "$CFG_TOPO" "config line + topo"
 check FALSE topo   "$CFG_NONE" "config line + no sessions"
 # A KERNEL_DIR that happens to contain a session name followed by a colon is the near-miss the
 # config line makes newly possible, and it is a path an operator chooses, not this script.
-check FALSE topo   "config: /etc/ndtwin-lab.conf (KERNEL_DIR=/home/adam/topo:2)"$'\n'"$NONE" \
+check FALSE topo   "config: /etc/ndtwin-lab.conf (KERNEL_DIR=/home/user/topo:2)"$'\n'"$NONE" \
       "a KERNEL_DIR containing 'topo:'"
 
 echo "the implementation has not drifted from what is tested here"

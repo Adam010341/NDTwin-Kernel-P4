@@ -304,13 +304,13 @@ TEST(OpenflowCapacityArgvTest, ThePipelineIsFoundEvenThoughItIsNotTheLastArgumen
                                            "-i", "1@s1-eth1",
                                            "--thrift-port", "9091",
                                            "--device-id", "1",
-                                           "/home/adam/p4_src/build/ndtwin_switch.json",
+                                           "/opt/ndtwin/p4_src/build/ndtwin_switch.json",
                                            "--",
                                            "--grpc-server-addr", "0.0.0.0:9559",
                                            "--cpu-port", "255"};
     const auto found = ofcapacity::pipelineJsonInArgv(argv);
     ASSERT_TRUE(found.has_value());
-    EXPECT_EQ(*found, "/home/adam/p4_src/build/ndtwin_switch.json");
+    EXPECT_EQ(*found, "/opt/ndtwin/p4_src/build/ndtwin_switch.json");
 }
 
 /**

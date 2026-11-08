@@ -59,6 +59,7 @@ Usage (needs the proxy venv -- the system python3 has no grpc):
 """
 
 import argparse
+import os
 import queue
 import socket
 import sys
@@ -70,7 +71,10 @@ from google.protobuf import text_format
 from p4.config.v1 import p4info_pb2
 from p4.v1 import p4runtime_pb2, p4runtime_pb2_grpc
 
-BUILD = "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build"
+# [Co-developed with claude code -- Adam]
+# The P4 build output of the checkout this file sits in (p4_proxy/p4_src/build).
+BUILD = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                     "p4_src", "build")
 P4INFO_PATH = f"{BUILD}/ndtwin_switch.p4info.txt"
 JSON_PATH = f"{BUILD}/ndtwin_switch.json"
 
@@ -78,7 +82,6 @@ JSON_PATH = f"{BUILD}/ndtwin_switch.json"
 # The port convention, from the fabric's own module rather than restated here. This does NOT
 # weaken the third-party discipline the docstring describes: grpc_ports carries a port number
 # and a /proc check, and shares no request-building code with proxy_agent/p4_client.py.
-import os  # noqa: E402
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
 from grpc_ports import GRPC_PORT_BASE, grpc_port  # noqa: E402

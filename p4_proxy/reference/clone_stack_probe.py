@@ -53,6 +53,7 @@ Usage:
 """
 
 import argparse
+import os
 import queue
 import sys
 import threading
@@ -63,7 +64,10 @@ from google.protobuf import text_format
 from p4.config.v1 import p4info_pb2
 from p4.v1 import p4runtime_pb2, p4runtime_pb2_grpc
 
-BUILD = "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build"
+# [Co-developed with claude code -- Adam]
+# The P4 build output of the checkout this file sits in (p4_proxy/p4_src/build).
+BUILD = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                     "p4_src", "build")
 P4INFO_PATH = f"{BUILD}/ndtwin_switch.p4info.txt"
 JSON_PATH = f"{BUILD}/ndtwin_switch.json"
 
@@ -72,7 +76,6 @@ JSON_PATH = f"{BUILD}/ndtwin_switch.json"
 # discipline the docstring describes: grpc_ports holds a port number and a /proc check, and
 # shares nothing with proxy_agent/p4_client.py's request building. What it buys is that F-15's
 # renumber cannot leave this probe dialling an empty port and reporting it as a dead switch.
-import os  # noqa: E402
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
 from grpc_ports import grpc_port  # noqa: E402

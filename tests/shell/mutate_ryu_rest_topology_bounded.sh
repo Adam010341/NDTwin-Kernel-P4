@@ -51,7 +51,8 @@ set -uo pipefail
 # identity check is what turned a silently wrong PASS into a visible survivor.
 export PYTHONDONTWRITEBYTECODE=1
 
-PYTHON="${PYTHON:-/home/adam/miniconda3/bin/python3}"
+# [Co-developed with claude code -- Adam]
+PYTHON="${PYTHON:-$HOME/miniconda3/bin/python3}"
 SRC=tools/ryu_apps/rest_topology_bounded.py
 TEST=tests/python/test_ryu_rest_topology_bounded.py
 PYCACHE=tools/ryu_apps/__pycache__

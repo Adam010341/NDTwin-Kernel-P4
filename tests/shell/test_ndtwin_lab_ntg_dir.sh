@@ -8,7 +8,7 @@
 # /etc/ndtwin-lab.conf): `ndt up p4 4` returned rc 1 after 185.4 s with "fabric did not come up:
 # 0/10 switches", and topo.log held one line:
 #
-#     Error: NTG repo not found at /home/adam/Network-Traffic-Generator (override with the
+#     Error: NTG repo not found at <the bridge's built-in default> (override with the
 #     NTG_DIR env var)
 #
 # ntg_bmv2_topo.py read NTG_DIR from its environment with a default under one person's home, and
@@ -87,9 +87,46 @@ FAKETREE="$TMPROOT/kernel"; mkdir -p "$FAKETREE/p4_proxy/mininet"
 : > "$FAKETREE/p4_proxy/mininet/ntg_bmv2_topo.py"
 FAKENTG="$TMPROOT/ntg checkout"; mkdir -p "$FAKENTG"; : > "$FAKENTG/network_traffic_generator.py"
 
-check "the built-in default is the value the bridge used to carry" \
-      "$(grep -o 'os.environ.get("NTG_DIR", "[^"]*")' "$BRIDGE_PY" | sed 's/.*, "\(.*\)")/\1/')" \
+# The helper's built-in default (LAB_DEFAULT_NTG_DIR in tools/test_workflow/ndtwin-lab) is the
+# checkout a machine with no config file has always run. ndt carries its own copy of it, so a
+# default that moved in the helper alone shows as a difference between the two. (The value itself
+# is pinned in test_ndt_ntg_mode.sh.)
+NDT_DEFAULT_NTG_DIR="$(sed -n 's/^LAB_DEFAULT_NTG_DIR=//p' "$NDT" | head -1)"
+check "the built-in default is the checkout ndt carries too" \
+      "${NDT_DEFAULT_NTG_DIR:-<no LAB_DEFAULT_NTG_DIR in ndt>}" \
       "${LAB_DEFAULT_NTG_DIR:-<no LAB_DEFAULT_NTG_DIR>}"
+
+# [Co-developed with claude code -- Adam]
+# The bridge's own fallback (a bridge started by hand) is asked of the bridge: its module-level
+# NTG_DIR expression is evaluated under a chosen HOME, with the environment's NTG_DIR set or not.
+# The bridge itself cannot be imported here (it needs mininet), so only that one assignment runs.
+BRIDGE_EVAL='
+import ast, os, sys
+tree = ast.parse(open(sys.argv[1]).read())
+for node in tree.body:
+    if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "NTG_DIR" for t in node.targets):
+        print(eval(compile(ast.Expression(node.value), sys.argv[1], "eval"), {"os": os}))
+        break
+else:
+    sys.exit(3)
+'
+bridge_ntg_dir() {   # <HOME> [<NTG_DIR in the environment>]
+    if [[ $# -ge 2 ]]; then
+        HOME="$1" NTG_DIR="$2" python3 -c "$BRIDGE_EVAL" "$BRIDGE_PY"
+    else
+        env -u NTG_DIR -u SUDO_USER HOME="$1" python3 -c "$BRIDGE_EVAL" "$BRIDGE_PY"
+    fi
+}
+check "🔴 the bridge's fallback is NTG under HOME when it was not started with sudo" \
+      "$TMPROOT/some-home/Network-Traffic-Generator" "$(bridge_ntg_dir "$TMPROOT/some-home")"
+# Started by hand with sudo (the documented way), HOME inside the process is root's and SUDO_USER
+# names the user who ran it: the fallback is that user's home from the password database, whatever
+# HOME says.
+check "🔴 started with sudo, the fallback is the invoking user's home, not root's" \
+      "$(getent passwd "$(id -un)" | cut -d: -f6)/Network-Traffic-Generator" \
+      "$(env -u NTG_DIR HOME=/nonexistent/NDT-TEST-FIXTURE/root-home SUDO_USER="$(id -un)" python3 -c "$BRIDGE_EVAL" "$BRIDGE_PY")"
+check "  and an exported NTG_DIR still wins over it" \
+      "/nonexistent/NDT-TEST-FIXTURE/ntg" "$(bridge_ntg_dir "$TMPROOT/some-home" /nonexistent/NDT-TEST-FIXTURE/ntg)"
 
 good="$TMPROOT/good.conf"
 printf 'KERNEL_DIR=%s\nNTG_PY=/usr/bin/python3\nNTG_DIR=%s\n' "$FAKETREE" "$FAKENTG" > "$good"

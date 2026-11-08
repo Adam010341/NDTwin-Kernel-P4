@@ -4,7 +4,10 @@ which is the exact shape the hypothesis predicts), main thread idle in the hub."
 import eventlet
 eventlet.monkey_patch()
 import os, sys, signal, time
-sys.path.insert(0, "/home/adam/Desktop/NDTwin-Kernel")
+# [Co-developed with claude code -- Adam]
+# The checkout this file sits in (tools/test_workflow/ is two levels below its root).
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, REPO_ROOT)
 
 # Was hardcoded to a scratchpad path that no longer exists, so the dump would land nowhere and
 # the smoke would "pass" by writing to a path nobody reads. Use a temp file owned by this run
@@ -17,7 +20,7 @@ os.environ["NDTWIN_RYU_GREENLET_DUMP"] = _dump_path
 
 # Import only the dump machinery, not the whole Ryu app.
 import importlib.util, types
-src = open("/home/adam/Desktop/NDTwin-Kernel/intelligent_router.py").read()
+src = open(os.path.join(REPO_ROOT, "intelligent_router.py")).read()
 start = src.index("GREENLET_DUMP_PATH = os.environ.get")
 end = src.rindex("_install_greenlet_dump_handler()") + len("_install_greenlet_dump_handler()")
 mod = types.ModuleType("gdump"); mod.__dict__["os"] = os

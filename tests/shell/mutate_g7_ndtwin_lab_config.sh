@@ -158,7 +158,7 @@ CASES+=(default-tree-changed)
 write_case default-tree-changed "KERNEL_DIR is the pre-G-7 default" <<'PAIR'
 LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
 @@@TO@@@
-LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel-somewhere-else
+LAB_DEFAULT_KERNEL_DIR=/opt/NDTwin-Kernel-somewhere-else
 PAIR
 
 # --- the 2026-09-03 revision: what a refused config costs, verb by verb ------------------

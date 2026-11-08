@@ -53,8 +53,16 @@ FILES=("$DSP" "$DSC" "$SES" "$API" "$SPC")
 
 # The proxy's own venv, not miniconda: the handlers import fastapi, which miniconda's python3
 # does not have. A missing interpreter is a harness fault, not a survivor -- it proves nothing.
-PROXY_PY="${PROXY_PY:-/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python3}"
-CONTRACT_PY="${CONTRACT_PY:-/home/adam/miniconda3/bin/python3}"
+# [Co-developed with claude code -- Adam]
+# The proxy venv of this checkout, else the main checkout's: a git worktree has no venv of its own
+# (p4_proxy/venv/ is gitignored), so the main worktree is asked of git, as mutate_p4_probe.sh does.
+REPO_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+MAIN_WT="$(git -C "$REPO_HERE" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+if [[ -z "${PROXY_PY:-}" ]]; then
+    PROXY_PY="$REPO_HERE/p4_proxy/venv/bin/python3"
+    [[ -x "$PROXY_PY" || -z "$MAIN_WT" ]] || PROXY_PY="$MAIN_WT/p4_proxy/venv/bin/python3"
+fi
+CONTRACT_PY="${CONTRACT_PY:-$HOME/miniconda3/bin/python3}"
 
 MODE=full
 case "${1:-}" in

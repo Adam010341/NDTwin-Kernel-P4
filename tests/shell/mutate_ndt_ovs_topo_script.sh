@@ -40,6 +40,11 @@ BK="$(mktemp -d "${TMPDIR:-/tmp}/ndt-ovs-topo-mutate-XXXXXX")"
 trap 'rm -rf "$BK"' EXIT
 BASE_LAB="$(sha256sum "$LAB" | cut -d' ' -f1)"
 BASE_TOPO="$(sha256sum "$TOPO" | cut -d' ' -f1)"
+# [Co-developed with claude code -- Adam]
+# The tree ndtwin-lab falls back to when no config names one, read from the helper: mutation 5
+# hard-codes exactly that tree as "a second constant", so the literal is whatever the helper says.
+DEFAULT_KERNEL_DIR="$(sed -n 's/^LAB_DEFAULT_KERNEL_DIR=//p' "$LAB" | head -1)"
+[[ -n "$DEFAULT_KERNEL_DIR" ]] || { echo "refused: no LAB_DEFAULT_KERNEL_DIR in $LAB"; exit 2; }
 
 CAUGHT=0; SURVIVORS=0; WIDE_OK=0
 
@@ -152,7 +157,7 @@ echo "fires -- the old behaviour must not come back:"
 
 m=$(mutant m1 "$LAB" \
     "ovs_topo_script() { printf '%s/testbed_topo.py' \"\$KERNEL_DIR\"; }" \
-    "ovs_topo_script() { printf '/home/adam/Network-Traffic-Generator/testbed_topo.py'; }")
+    "ovs_topo_script() { printf '/home/user/Network-Traffic-Generator/testbed_topo.py'; }")
 report "M1: the launch names NTG's testbed_topo.py again" "$m" \
        "the topology comes from the kernel tree"
 
@@ -160,7 +165,7 @@ report "M1: the launch names NTG's testbed_topo.py again" "$m" \
 # only the last argv element would pass while tmux ran it from another repo's tree.
 m=$(mutant m2 "$LAB" \
     "    \$TMUX new-session -d -s topo -c \"\$KERNEL_DIR\" /usr/bin/env PYTHONDONTWRITEBYTECODE=1 \"\$NTG_PY\" \"\$script\"" \
-    "    \$TMUX new-session -d -s topo -c /home/adam/Network-Traffic-Generator /usr/bin/env PYTHONDONTWRITEBYTECODE=1 \"\$NTG_PY\" \"\$script\"")
+    "    \$TMUX new-session -d -s topo -c /home/user/Network-Traffic-Generator /usr/bin/env PYTHONDONTWRITEBYTECODE=1 \"\$NTG_PY\" \"\$script\"")
 report "M2: the tmux working directory goes back to NTG" "$m" \
        "tmux's working directory is the tree"
 
@@ -182,7 +187,7 @@ report "M4: a missing topology starts an empty window anyway" "$m" \
 # The two-places shape back: two places that name a tree, no message when they disagree.
 m=$(mutant m5 "$LAB" \
     "ovs_topo_script() { printf '%s/testbed_topo.py' \"\$KERNEL_DIR\"; }" \
-    "ovs_topo_script() { printf '/home/adam/Desktop/NDTwin-Kernel/testbed_topo.py'; }")
+    "ovs_topo_script() { printf '$DEFAULT_KERNEL_DIR/testbed_topo.py'; }")
 report "M5: the path is a second constant, not the configured tree" "$m" \
        "a different KERNEL_DIR moves the script"
 
@@ -190,7 +195,7 @@ report "M5: the path is a second constant, not the configured tree" "$m" \
 # reaches runs the old launch. That is exactly the shape of the original defect.
 m=$(mutant m6 "$LAB" \
     "        ovs_topo_start" \
-    "        \$TMUX new-session -d -s topo -c /home/adam/Network-Traffic-Generator \"\$NTG_PY\" /home/adam/Network-Traffic-Generator/testbed_topo.py")
+    "        \$TMUX new-session -d -s topo -c /home/user/Network-Traffic-Generator \"\$NTG_PY\" /home/user/Network-Traffic-Generator/testbed_topo.py")
 report "M6: the verb inlines the old launch again" "$m" \
        "the ovs-topo-start branch launches that file"
 

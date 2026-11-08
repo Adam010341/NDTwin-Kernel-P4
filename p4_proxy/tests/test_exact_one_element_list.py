@@ -68,7 +68,7 @@ RUNTIME_JSON = os.path.join(FIXTURE, "s1-runtime.json")
 P4INFO = os.path.join(FIXTURE, "build", "basic_tunnel.p4.p4info.txtpb")
 
 #: The upstream helper this proxy has to agree with, quoted where a reader can check it.
-UPSTREAM_ENCODE = "/home/adam/tutorials/utils/p4runtime_lib/convert.py:71-75"
+UPSTREAM_ENCODE = "tutorials/utils/p4runtime_lib/convert.py:71-75"
 
 
 def the_real_entries():

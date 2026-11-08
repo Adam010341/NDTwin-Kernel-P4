@@ -267,7 +267,7 @@ report "M14: an unknown key is skipped instead of refusing the file" "$m" \
 # eventually, and the only thing that can see it happen.
 m=$(mutant m15 "$NDT" \
     'LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel' \
-    'LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel-worktree')
+    'LAB_DEFAULT_KERNEL_DIR=/opt/NDTwin-Kernel-worktree')
 report "M15: ndt's default drifts from the helper's" "$m" \
        "🔴 ndt's default KERNEL_DIR is the helper's default"
 

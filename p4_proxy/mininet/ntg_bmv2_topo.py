@@ -69,10 +69,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
 # [Co-developed with claude code -- Adam]
 # Where NTG is checked out. `ndtwin-lab topo-start` always sets this, from the NTG_DIR key of
-# /etc/ndtwin-lab.conf (or its built-in default, which is the value below), because the
-# environment of whoever ran `ndt up` never reaches a script started under sudo in root's tmux.
-# The fallback is for a bridge started by hand.
-NTG_DIR = os.environ.get("NTG_DIR", "/home/adam/Network-Traffic-Generator")
+# /etc/ndtwin-lab.conf (or the helper's built-in default), because the environment of whoever
+# ran `ndt up` never reaches a script started under sudo in root's tmux. The fallback is for a
+# bridge started by hand: Network-Traffic-Generator in the home of the user who ran it (under
+# sudo that is SUDO_USER's, not root's), unless NTG_DIR says otherwise.
+NTG_DIR = os.environ.get("NTG_DIR",
+                         os.path.join(os.path.expanduser("~" + os.environ.get("SUDO_USER", "")),
+                                      "Network-Traffic-Generator"))
 #: Where the value that `topo-start` passes in comes from, for the refusal below.
 LAB_CONF = "/etc/ndtwin-lab.conf"
 sys.path.append(NTG_DIR)

@@ -15,7 +15,7 @@ A **cell** is one reproducible action sequence plus one expected verdict. Not a 
 ```
 tools/test_workflow/live_cells/run_cells.sh --list
 tools/test_workflow/live_cells/run_cells.sh --requires none     # safe while somebody holds the lab
-NDT_ROOT=/home/adam/Desktop/NDTwin-Kernel tools/test_workflow/live_cells/run_cells.sh --tag ndt
+NDT_ROOT=<checkout> tools/test_workflow/live_cells/run_cells.sh --tag ndt
 ```
 
 `NDT_ROOT` names the checkout whose `ndt` is driven. The cells are the instrument; the tree under
