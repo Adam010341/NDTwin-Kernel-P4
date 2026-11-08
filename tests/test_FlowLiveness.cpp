@@ -16,7 +16,7 @@
  * dead flows outrank live ones in top-k by keeping a stale non-zero sort key. That compounding was
  * proposed, and on 2026-08-28 it was refuted on both arms -- 3040 observations, dead-and-non-zero
  * came back 0 -- because the periodic rates are cleared whenever no hop reported traffic
- * (FlowLinkUsageCollector.cpp:1921). The harm that WAS measured is the population: median 4 of the
+ * (FlowLinkUsageCollector.cpp:1868). The harm that WAS measured is the population: median 4 of the
  * top 10 rows were ended flows, not because they beat anything but because fewer than ten flows
  * were alive and they filled the space underneath. No rate-field fix can reach that. Only a
  * predicate can, which is what is under test here.
@@ -120,7 +120,7 @@ TEST(FlowLivenessTest, TheWholeRetentionTailIsIdleRatherThanActiveOrEnded)
 
 TEST(FlowLivenessTest, EndedBeginsExactlyWherePurgeIdleFlowsWouldRemoveTheRow)
 {
-    // purgeIdleFlows removes at `idle_time >= FLOW_IDLE_TIMEOUT` (FlowLinkUsageCollector.cpp:2257).
+    // purgeIdleFlows removes at `idle_time >= FLOW_IDLE_TIMEOUT` (FlowLinkUsageCollector.cpp:2208).
     // The classifier has to use the same comparison or the API and the purge would disagree about
     // what has ended -- one field, one clock, two readers.
     EXPECT_EQ(at(kTimeout - 1), FlowLiveness::Idle);
@@ -388,7 +388,7 @@ class FlowLivenessTableTest : public ::testing::Test
 
 TEST_F(FlowLivenessTableTest, EveryRowCarriesTheThreeFieldsThatSayWhetherItIsStillSending)
 {
-    // 🔴 The core red. Before the patch the emitter at FlowLinkUsageCollector.cpp:2308-2333 built
+    // 🔴 The core red. Before the patch the emitter at FlowLinkUsageCollector.cpp:2259-2284 built
     // exactly twelve keys -- src_ip, dst_ip, src_port, dst_port, protocol_id, four rates,
     // first_sampled_time, latest_sampled_time, path -- and not one of them said whether the flow
     // had stopped. Every row fails the first ASSERT below.
@@ -426,7 +426,7 @@ TEST_F(FlowLivenessTableTest, RowsJustReplayedAreActiveAndSurviveTheDefaultFilte
 TEST_F(FlowLivenessTableTest, AStoppedFlowIsGoneFromTheDefaultViewAndStillThereUnderAll)
 {
     // End to end. Before the patch getFlowInfoJson had no predicate at all
-    // (FlowLinkUsageCollector.cpp:2306, `for (const auto& [flowKey, flowInfo] : m_flowInfoTable)`
+    // (FlowLinkUsageCollector.cpp:2257, `for (const auto& [flowKey, flowInfo] : m_flowInfoTable)`
     // straight into the emit), so both sides of this comparison were the same array and the first
     // EXPECT_TRUE below could never hold.
     const auto before = m_collector->getFlowInfoJson(FlowLivenessFilter::All);

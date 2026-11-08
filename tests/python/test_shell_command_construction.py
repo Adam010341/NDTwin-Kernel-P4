@@ -111,10 +111,19 @@ SHELL_SITES = {
         1, CONSTANT, "String literal, no interpolation.",
     ),
     ("src/ndt_core/collection/FlowLinkUsageCollector.cpp",
-     "const std::string output = utils::execCommand(cmd);"): (
+     "const std::string output = utils::execCommandCancellable(cmd, m_stopSignal).output;"): (
         1, CONFIG,
         "controlPlaneHostAndPort() returns AppConfig::P4_PROXY_IP_AND_PORT or "
-        "AppConfig::RYU_IP_AND_PORT (FlowLinkUsageCollector.cpp:216/218).",
+        "AppConfig::RYU_IP_AND_PORT (FlowLinkUsageCollector.cpp:156/158).",
+        # [Co-developed with claude code -- Adam] Re-derived when controlPlaneHostAndPort() gained
+        # a test override: it returns m_controlPlaneForTesting when that is non-empty, and the
+        # only writer is the protected setControlPlaneForTesting(), called from tests/ alone. No
+        # HTTP handler reaches it, so what reaches the shell is still an AppConfig constant in
+        # the kernel, and CONFIG still holds.
+        # [Co-developed with claude code -- Adam] Key moved: execCommand ->
+        # execCommandCancellable, so the collector's stop() can kill this curl. RE-DERIVED, not
+        # chased: the same std::string goes to the same `/bin/sh -c`, and the StopSignal argument
+        # never reaches the command line.
     ),
     ("src/ndt_core/collection/TopologyAndFlowMonitor.cpp",
      "utils::execCommandCancellable(buildTopologyFetchCommand(url), m_stopSignal)"): (

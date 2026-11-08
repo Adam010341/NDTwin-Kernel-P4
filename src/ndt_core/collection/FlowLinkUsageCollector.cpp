@@ -1,6 +1,8 @@
 #include "ndt_core/collection/FlowLinkUsageCollector.hpp"
 #include "common_types/GraphTypes.hpp"
 #include "ndt_core/collection/Classifier.hpp"
+// [Co-developed with claude code -- Adam] The per-worker queue and the worker loop.
+#include "ndt_core/collection/SPSCQueue.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "utils/Logger.hpp"
@@ -77,83 +79,13 @@ namespace sflow
 //
 // Moving the *types* up rather than the two functions down is deliberate: it makes every present and
 // future member function correct, instead of fixing the two that happen to exist today.
+//
+// [Co-developed with claude code -- Adam] SPSCQueue now comes from SPSCQueue.hpp, included at the
+// top of this file, so it is still complete before the first member function; Packet stays here.
 struct Packet
 {
     uint16_t len = 0;
     alignas(4) std::array<char, BUFFER_SIZE> data{};
-};
-
-// Single-producer / single-consumer queue
-template <typename T>
-class SPSCQueue
-{
-  public:
-    explicit SPSCQueue(size_t capacity)
-        : m_capacity(capacity)
-    {
-    }
-
-    bool tryPush(T&& item, const std::atomic_bool& running)
-    {
-        if (!running.load(std::memory_order_relaxed))
-        {
-            return false;
-        }
-
-        std::unique_lock<std::mutex> lk(m_mu);
-
-        if (m_q.size() >= m_capacity)
-        {
-            return false;
-        }
-        m_q.emplace_back(std::move(item));
-        lk.unlock();
-        m_cv_not_empty.notify_one();
-        return true;
-    }
-
-    // bool push(T&& item, const std::atomic_bool& running)
-    // {
-    //     // TODO: Count dropped packet, return immediately don't wait here
-    //     std::unique_lock<std::mutex> lk(m_mu);
-    //     m_cv_not_full.wait(lk, [&] { return m_q.size() < m_capacity || !running.load(); });
-    //     if (!running.load())
-    //     {
-    //         return false;
-    //     }
-    //     m_q.emplace_back(std::move(item));
-    //     lk.unlock();
-    //     m_cv_not_empty.notify_one();
-    //     return true;
-    // }
-
-    bool pop(T& out, const std::atomic_bool& running)
-    {
-        std::unique_lock<std::mutex> lk(m_mu);
-        m_cv_not_empty.wait(lk, [&] { return !m_q.empty() || !running.load(); });
-        if (m_q.empty())
-        {
-            return false; // stop and drained
-        }
-        out = std::move(m_q.front());
-        m_q.pop_front();
-        lk.unlock();
-        // m_cv_not_full.notify_one();
-        return true;
-    }
-
-    void notify_all()
-    {
-        m_cv_not_empty.notify_all();
-        // m_cv_not_full.notify_all();
-    }
-
-  private:
-    size_t m_capacity;
-    std::mutex m_mu;
-    std::condition_variable m_cv_not_empty;
-    // std::condition_variable m_cv_not_full;
-    std::deque<T> m_q;
 };
 
 FlowLinkUsageCollector::FlowLinkUsageCollector(
@@ -213,6 +145,11 @@ FlowLinkUsageCollector::usesIdentityPortMapping(
 std::string
 FlowLinkUsageCollector::controlPlaneHostAndPort() const
 {
+    // [Co-developed with claude code -- Adam] Set only by setControlPlaneForTesting().
+    if (!m_controlPlaneForTesting.empty())
+    {
+        return m_controlPlaneForTesting;
+    }
     if (m_mode == utils::MININET && m_topologyAndFlowMonitor
         && usesIdentityPortMapping(m_topologyAndFlowMonitor->getSwitchKindGroups()))
     {
@@ -505,6 +442,8 @@ FlowLinkUsageCollector::start(size_t numWorkers, size_t queueCapacity)
     // started that would need unwinding.
     openReceiveSocket();
 
+    // [Co-developed with claude code -- Adam] Armed before any thread that waits on it exists.
+    m_stopSignal.reset();
     this->m_running.store(true);
     m_pktRcvThread = thread(&FlowLinkUsageCollector::run, this, numWorkers, queueCapacity);
     m_calAvgFlowSendingRateThreadPeriodically =
@@ -551,12 +490,12 @@ FlowLinkUsageCollector::refreshDestinationPathsPeriodically()
         // minutes when the address did not answer). Sleeping up front is still what we want, so
         // the topology-loading thread has run and controlPlaneHostAndPort() knows which control
         // plane owns the switches before the first request goes out.
+        //
+        // [Co-developed with claude code -- Adam]
+        // The same interval as before, slept in one piece that stop() ends at once. It was 1 s
+        // slices that only re-read m_running, so a stop waited up to a second here.
         const auto interval = haveAny ? kOnceLoaded : kWhileEmpty;
-        for (auto slept = 0s; slept < interval && m_running.load(); slept += 1s)
-        {
-            std::this_thread::sleep_for(1s);
-        }
-        if (!m_running.load())
+        if (m_stopSignal.waitFor(interval) || !m_running.load())
         {
             break;
         }
@@ -580,7 +519,20 @@ FlowLinkUsageCollector::stop()
 {
     this->m_running.store(false);
 
+    // [Co-developed with claude code -- Adam]
+    // Before any join: wakes every periodic thread from its sleep and kills a destination-path
+    // fetch in flight. That fetch is `curl --max-time 10`, so against a control plane that accepts
+    // and never answers it used to hold this stop for up to 10 s -- the whole window stack.sh
+    // allows before it KILLs the kernel.
+    const std::size_t killed = m_stopSignal.request();
+
     SPDLOG_LOGGER_INFO(Logger::instance(), "Collector Stops");
+    if (killed > 0)
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "Collector: stop cancelled {} in-flight destination-path request(s)",
+                           killed);
+    }
 
     // [Co-developed with claude code -- Adam]
     // The receive thread FIRST. run() leaves its poll loop within one poll timeout of m_running
@@ -670,7 +622,8 @@ FlowLinkUsageCollector::openReceiveSocket()
     // Assigned only on success. openSflowSocket() closes its own descriptor before throwing, so
     // m_sockfd stays at -1 on failure and neither stop() nor the destructor closes a number that
     // has since been handed to somebody else.
-    m_sockfd = openSflowSocket(SFLOW_PORT);
+    // [Co-developed with claude code -- Adam] SFLOW_PORT unless a test chose another.
+    m_sockfd = openSflowSocket(m_receivePort);
 }
 
 int
@@ -914,6 +867,11 @@ FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "Run loop exiting");
 
+    // [Co-developed with claude code -- Adam]
+    // This loop also ends on its own, on a socket error, and then the collector has stopped
+    // collecting. Request the stop here too, so the periodic threads end now rather than at their
+    // next wake: the destination-path refresh sleeps up to 60 s. After stop() it is a no-op.
+    m_stopSignal.request();
     stopAndJoinWorkers();
 
     if (m_sockfd >= 0)
@@ -928,38 +886,27 @@ FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
 void
 FlowLinkUsageCollector::workerLoop(size_t qid)
 {
-    Packet pkt;
-    while (m_running.load())
-    {
-        if (!m_queues[qid]->pop(pkt, m_running))
+    // [Co-developed with claude code -- Adam] The loop itself is serveUntilDrained (SPSCQueue.hpp).
+    serveUntilDrained(
+        *m_queues[qid],
+        m_running,
+        [this](Packet& pkt) { handlePacket(pkt.data.data(), pkt.len); },
+        [qid](const std::exception* e)
         {
-            break;
-        }
-
-        try
-        {
-            handlePacket(pkt.data.data(), pkt.len);
-        }
-        catch (const std::exception& e)
-        {
-            SPDLOG_LOGGER_ERROR(Logger::instance(),
-                                "worker {} handlePacket exception: {}",
-                                qid,
-                                e.what());
-        }
-        catch (...)
-        {
-            SPDLOG_LOGGER_ERROR(Logger::instance(),
-                                "worker {} handlePacket unknown exception",
-                                qid);
-        }
-    }
-
-    // Drain remaining after stop
-    while (m_queues[qid]->pop(pkt, m_running))
-    {
-        handlePacket(pkt.data.data(), pkt.len);
-    }
+            if (e != nullptr)
+            {
+                SPDLOG_LOGGER_ERROR(Logger::instance(),
+                                    "worker {} handlePacket exception: {}",
+                                    qid,
+                                    e->what());
+            }
+            else
+            {
+                SPDLOG_LOGGER_ERROR(Logger::instance(),
+                                    "worker {} handlePacket unknown exception",
+                                    qid);
+            }
+        });
 }
 
 namespace
@@ -2216,7 +2163,11 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
 
     while (m_running.load())
     {
-        this_thread::sleep_for(chrono::seconds(1));
+        // [Co-developed with claude code -- Adam] 1 s as before; stop() ends the wait at once.
+        if (m_stopSignal.waitFor(chrono::seconds(1)))
+        {
+            break;
+        }
 
         {
             const auto nowIter = std::chrono::steady_clock::now();
@@ -2560,7 +2511,11 @@ FlowLinkUsageCollector::testCalAvgFlowSendingRatesRandomly()
                             "FlowLinkUsageCollector::testCalAvgFlowSendingRatesRandomly() "
                             "Waiting for {} ms before next call...",
                             waitTime);
-        this_thread::sleep_for(chrono::milliseconds(waitTime));
+        // [Co-developed with claude code -- Adam] Same 0.5-2 s; stop() ends the wait at once.
+        if (m_stopSignal.waitFor(chrono::milliseconds(waitTime)))
+        {
+            break;
+        }
     }
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "Exiting Loop of testCalAvgFlowSendingRatesRandomly");
@@ -2639,7 +2594,11 @@ FlowLinkUsageCollector::purgeIdleFlows()
             }
         }
 
-        this_thread::sleep_for(chrono::milliseconds(1000));
+        // [Co-developed with claude code -- Adam] 1 s as before; stop() ends the wait at once.
+        if (m_stopSignal.waitFor(chrono::milliseconds(1000)))
+        {
+            break;
+        }
     }
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "Exiting Loop of purgeIdleFlows");
@@ -2778,7 +2737,7 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter fil
     // call to getFlowInfoJson(), which opens with the same acquisition. Recursively acquiring a
     // std::shared_mutex is undefined behaviour -- [thread.sharedmutex.requirements] says a
     // thread must not own the mutex when it calls lock_shared -- and five writers take
-    // unique_lock on this same mutex (:1496 :1832 :2119 :2282 :2934).
+    // unique_lock on this same mutex (:1443 :1779 :2066 :2233 :2893).
     //
     // It never bit, and the reason it never bit is an implementation detail of this machine's C++
     // library rather than anything the code arranged: glibc's pthread_rwlock defaults to
@@ -2806,7 +2765,7 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter fil
     // whatever survives a predicate applied to an arbitrary prefix.
     //
     // 🔴 Not because dead flows outrank live ones. They do not: their sort key
-    // (estimated_packet_rate_in_the_proceeding_1sec_timeslot) is cleared to 0 at :1921 whenever no
+    // (estimated_packet_rate_in_the_proceeding_1sec_timeslot) is cleared to 0 at :1868 whenever no
     // hop reported traffic, and 3040 measured observations on two arms found zero dead-and-nonzero
     // rows. The measured harm is that they FILL the list from the bottom -- median 4 of the top 10
     // rows were ended flows -- because at the churn working point fewer than ten flows are alive.
@@ -2974,7 +2933,12 @@ FlowLinkUsageCollector::fetchAllDestinationPaths()
                                 "-H \"User-Agent: NDT-client/1.1\" "
                                 "\"http://" +
                                 controlPlaneHostAndPort() + "/ryu_server/all_destination_paths\"";
-        const std::string output = utils::execCommand(cmd);
+        // [Co-developed with claude code -- Adam]
+        // Cancellable: stop() kills this curl rather than waiting out its --max-time, and a fetch
+        // that would start after the stop is not started. What a killed curl wrote is a partial
+        // body, so it is dropped rather than parsed (and logged as malformed) on the way down.
+        const std::string output = utils::execCommandCancellable(cmd, m_stopSignal).output;
+        if (m_stopSignal.stopRequested()) return;
 
         if (output.empty()) return;
 
@@ -3458,12 +3422,12 @@ FlowLinkUsageCollector::calFlowPathByQueried()
         //
         // WHAT THE 1 kHz WAS BUYING, written down before the wait was touched: exactly one
         // thing, a 1 ms freshness bound on the API's `path` field. flowPath has a single reader
-        // in the whole repo (getFlowInfoJson, :2266) and one writer (:2874); tests/, tools/ and
+        // in the whole repo (getFlowInfoJson, :2217) and one writer (:2833); tests/, tools/ and
         // p4_proxy/ have none. At 1 Hz the bound becomes 1 s.
         //
         // THE RISK IS NOT PERFORMANCE, IT IS SHORT FLOWS. Between a flow appearing and the next
         // pass, its `path` is empty: 0.5 s on average, 1 s worst case. FLOW_IDLE_TIMEOUT is
-        // 15 s (include/.../FlowLinkUsageCollector.hpp:34), so a flow shorter than one pass can
+        // 15 s (include/.../FlowLinkUsageCollector.hpp:35), so a flow shorter than one pass can
         // live and die without ever having a path. A steady 300-second-flow workload would show
         // this as 0.5/300 = 0.17% and report green, which is why a churn test of short flows exists --
         // this project has already shipped a speedup that measured CPU and connectivity green
@@ -3471,7 +3435,12 @@ FlowLinkUsageCollector::calFlowPathByQueried()
         //
         // The interval is a named constant so the arms can state which value they measured
         // rather than citing a line number that moves.
-        std::this_thread::sleep_for(kFlowPathRecomputeInterval);
+        //
+        // [Co-developed with claude code -- Adam] The same interval; stop() ends the wait at once.
+        if (m_stopSignal.waitFor(kFlowPathRecomputeInterval))
+        {
+            break;
+        }
     }
 }
 

@@ -3,6 +3,7 @@
 #include "common_types/GraphTypes.hpp" // for SwitchKind
 #include "common_types/SFlowType.hpp" // for Path, CounterInfo, FlowInfo
 #include "utils/Utils.hpp"            // for DeploymentMode
+#include "utils/StopSignal.hpp"       // for StopSignal
 #include <chrono>
 #include <atomic>                     // for atomic
 #include <cstdint>                    // for uint32_t
@@ -529,6 +530,24 @@ class FlowLinkUsageCollector
     std::string controlPlaneHostAndPort() const;
 
     /**
+     * @brief Test seams: where start() binds the sFlow socket, and which control plane the
+     *        destination-path fetch asks.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Call before start(); nothing else writes either value. Port 0 binds an ephemeral port, so a
+     * test that starts the collector cannot collide with a kernel on this machine, and an empty
+     * host:port (the default) leaves controlPlaneHostAndPort() choosing between Ryu and the proxy.
+     */
+    void setReceivePortForTesting(uint16_t port) { m_receivePort = port; }
+    void setControlPlaneForTesting(std::string hostAndPort)
+    {
+        m_controlPlaneForTesting = std::move(hostAndPort);
+    }
+    /// [Co-developed with claude code -- Adam] The bound sFlow socket, -1 when there is none. For a
+    /// test that has to make the receive loop fail on its own; nothing in the kernel reads it.
+    int receiveSocketForTesting() const { return m_sockfd.load(); }
+
+    /**
      * @brief Re-pulls the destination paths until they arrive, then keeps them fresh.
      *
      * @details
@@ -793,6 +812,15 @@ class FlowLinkUsageCollector
 
     std::atomic<int> m_sockfd{-1};
     std::atomic<bool> m_running{false};
+
+    // [Co-developed with claude code -- Adam] The two test seams above; production never sets them.
+    uint16_t m_receivePort = SFLOW_PORT;
+    std::string m_controlPlaneForTesting;
+
+    // [Co-developed with claude code -- Adam]
+    // What stop() requests before it joins anything: it wakes the periodic threads' sleeps and kills
+    // a destination-path fetch in flight. start() resets it.
+    utils::StopSignal m_stopSignal;
 
     std::thread m_pktRcvThread;
     std::thread m_calAvgFlowSendingRateThreadPeriodically;

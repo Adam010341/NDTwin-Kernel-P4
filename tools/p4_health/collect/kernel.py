@@ -3,7 +3,7 @@
 [Co-developed with claude code -- Adam]
 
 `get_graph_data` (topology, link usage, `is_up`) and `get_detected_flow_data` (the flow table,
-and the `non_ipv4_flows` side table, FlowLinkUsageCollector.cpp:1144-1171). Read through
+and the `non_ipv4_flows` side table, FlowLinkUsageCollector.cpp:1091-1118). Read through
 `cfg.kernel`, the client object the Config carries. None = the kernel did not answer.
 """
 from __future__ import annotations
