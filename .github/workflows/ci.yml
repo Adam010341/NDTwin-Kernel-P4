@@ -66,11 +66,50 @@ jobs:
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q ${{ env.APT_PACKAGES }}
 
+      # [Co-developed with claude code -- Adam]
+      # googletest comes from github.com, and FetchContent does not retry an HTTP error, so one
+      # 503 fails the job. Get the archive here instead: restore it from the cache, else download it
+      # with retries (tools/ci/fetch_googletest.sh, which reads the pin from CMakeLists.txt), and
+      # hand the directory to configure so FetchContent downloads nothing. The cache key is the
+      # pinned commit id, so a new pin in CMakeLists.txt is a new key.
+      - name: Pin googletest
+        id: gtest_pin
+        run: |
+          commit="$(tools/ci/fetch_googletest.sh --print-commit)"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Cache googletest
+        id: gtest_cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/googletest-cache
+          key: googletest-${{ steps.gtest_pin.outputs.commit }}
+
+      - name: Fetch googletest
+        id: gtest
+        timeout-minutes: 15
+        run: |
+          # A cache restore that failed part-way leaves files behind and reports a miss; start clean.
+          [ "${{ steps.gtest_cache.outputs.cache-hit }}" = true ] || rm -rf "$RUNNER_TEMP/googletest-cache"
+          dir="$(tools/ci/fetch_googletest.sh "$RUNNER_TEMP/googletest-cache")"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
       # setting/AppConfig.hpp is gitignored, but no step is needed to create it: the top-level
       # CMakeLists copies it from AppConfig.hpp.example during configure (CMakeLists.txt:18-31).
       # Verified on a fresh shallow clone -- both binaries build with no manual setup.
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+        env:
+          GTEST_DIR: ${{ steps.gtest.outputs.dir }}
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST="${GTEST_DIR:?}"
+
+      # FetchContent creates <build>/_deps/googletest-subbuild only when it downloads googletest.
+      # With the directory passed to configure it must not exist.
+      - name: Check googletest was not downloaded
+        run: |
+          if [ -e build/_deps/googletest-subbuild ]; then
+            echo "FetchContent downloaded googletest despite FETCHCONTENT_SOURCE_DIR_GOOGLETEST" >&2
+            exit 1
+          fi
 
       - name: Build
         run: cmake --build build -j"$(nproc)"
@@ -170,8 +209,47 @@ jobs:
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q ${{ env.APT_PACKAGES }}
 
+      # [Co-developed with claude code -- Adam]
+      # googletest comes from github.com, and FetchContent does not retry an HTTP error, so one
+      # 503 fails the job. Get the archive here instead: restore it from the cache, else download it
+      # with retries (tools/ci/fetch_googletest.sh, which reads the pin from CMakeLists.txt), and
+      # hand the directory to configure so FetchContent downloads nothing. The cache key is the
+      # pinned commit id, so a new pin in CMakeLists.txt is a new key.
+      - name: Pin googletest
+        id: gtest_pin
+        run: |
+          commit="$(tools/ci/fetch_googletest.sh --print-commit)"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Cache googletest
+        id: gtest_cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/googletest-cache
+          key: googletest-${{ steps.gtest_pin.outputs.commit }}
+
+      - name: Fetch googletest
+        id: gtest
+        timeout-minutes: 15
+        run: |
+          # A cache restore that failed part-way leaves files behind and reports a miss; start clean.
+          [ "${{ steps.gtest_cache.outputs.cache-hit }}" = true ] || rm -rf "$RUNNER_TEMP/googletest-cache"
+          dir="$(tools/ci/fetch_googletest.sh "$RUNNER_TEMP/googletest-cache")"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
       - name: Configure (Release)
-        run: cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+        env:
+          GTEST_DIR: ${{ steps.gtest.outputs.dir }}
+        run: cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST="${GTEST_DIR:?}"
+
+      # FetchContent creates <build>/_deps/googletest-subbuild only when it downloads googletest.
+      # With the directory passed to configure it must not exist.
+      - name: Check googletest was not downloaded
+        run: |
+          if [ -e build-release/_deps/googletest-subbuild ]; then
+            echo "FetchContent downloaded googletest despite FETCHCONTENT_SOURCE_DIR_GOOGLETEST" >&2
+            exit 1
+          fi
 
       - name: Build (Release)
         run: cmake --build build-release -j"$(nproc)"
@@ -198,14 +276,54 @@ jobs:
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q ${{ env.APT_PACKAGES }}
 
+      # [Co-developed with claude code -- Adam]
+      # googletest comes from github.com, and FetchContent does not retry an HTTP error, so one
+      # 503 fails the job. Get the archive here instead: restore it from the cache, else download it
+      # with retries (tools/ci/fetch_googletest.sh, which reads the pin from CMakeLists.txt), and
+      # hand the directory to configure so FetchContent downloads nothing. The cache key is the
+      # pinned commit id, so a new pin in CMakeLists.txt is a new key.
+      - name: Pin googletest
+        id: gtest_pin
+        run: |
+          commit="$(tools/ci/fetch_googletest.sh --print-commit)"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Cache googletest
+        id: gtest_cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/googletest-cache
+          key: googletest-${{ steps.gtest_pin.outputs.commit }}
+
+      - name: Fetch googletest
+        id: gtest
+        timeout-minutes: 15
+        run: |
+          # A cache restore that failed part-way leaves files behind and reports a miss; start clean.
+          [ "${{ steps.gtest_cache.outputs.cache-hit }}" = true ] || rm -rf "$RUNNER_TEMP/googletest-cache"
+          dir="$(tools/ci/fetch_googletest.sh "$RUNNER_TEMP/googletest-cache")"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
       # DISCOVERY_MODE PRE_TEST: gtest_discover_tests runs the binary during the build to enumerate
       # cases, and under a sanitizer that run can fail for reasons unrelated to the code -- which
       # aborts the link rather than reporting a test failure. Deferring discovery to test time keeps
       # the failure legible.
       - name: Configure (asan)
+        env:
+          GTEST_DIR: ${{ steps.gtest.outputs.dir }}
         run: >
           cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=asan
+          -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST="${GTEST_DIR:?}"
           -DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST
+
+      # FetchContent creates <build>/_deps/googletest-subbuild only when it downloads googletest.
+      # With the directory passed to configure it must not exist.
+      - name: Check googletest was not downloaded
+        run: |
+          if [ -e build-asan/_deps/googletest-subbuild ]; then
+            echo "FetchContent downloaded googletest despite FETCHCONTENT_SOURCE_DIR_GOOGLETEST" >&2
+            exit 1
+          fi
 
       - name: Build (asan)
         run: cmake --build build-asan -j"$(nproc)"
@@ -234,10 +352,50 @@ jobs:
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q ${{ env.APT_PACKAGES }} util-linux
 
+      # [Co-developed with claude code -- Adam]
+      # googletest comes from github.com, and FetchContent does not retry an HTTP error, so one
+      # 503 fails the job. Get the archive here instead: restore it from the cache, else download it
+      # with retries (tools/ci/fetch_googletest.sh, which reads the pin from CMakeLists.txt), and
+      # hand the directory to configure so FetchContent downloads nothing. The cache key is the
+      # pinned commit id, so a new pin in CMakeLists.txt is a new key.
+      - name: Pin googletest
+        id: gtest_pin
+        run: |
+          commit="$(tools/ci/fetch_googletest.sh --print-commit)"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Cache googletest
+        id: gtest_cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/googletest-cache
+          key: googletest-${{ steps.gtest_pin.outputs.commit }}
+
+      - name: Fetch googletest
+        id: gtest
+        timeout-minutes: 15
+        run: |
+          # A cache restore that failed part-way leaves files behind and reports a miss; start clean.
+          [ "${{ steps.gtest_cache.outputs.cache-hit }}" = true ] || rm -rf "$RUNNER_TEMP/googletest-cache"
+          dir="$(tools/ci/fetch_googletest.sh "$RUNNER_TEMP/googletest-cache")"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
       - name: Configure (tsan)
+        env:
+          GTEST_DIR: ${{ steps.gtest.outputs.dir }}
         run: >
           cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=tsan
+          -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST="${GTEST_DIR:?}"
           -DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST
+
+      # FetchContent creates <build>/_deps/googletest-subbuild only when it downloads googletest.
+      # With the directory passed to configure it must not exist.
+      - name: Check googletest was not downloaded
+        run: |
+          if [ -e build-tsan/_deps/googletest-subbuild ]; then
+            echo "FetchContent downloaded googletest despite FETCHCONTENT_SOURCE_DIR_GOOGLETEST" >&2
+            exit 1
+          fi
 
       - name: Build (tsan)
         run: cmake --build build-tsan -j"$(nproc)"
@@ -266,6 +424,34 @@ jobs:
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -q
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -q ${{ env.APT_PACKAGES }} clang
 
+      # [Co-developed with claude code -- Adam]
+      # googletest comes from github.com, and FetchContent does not retry an HTTP error, so one
+      # 503 fails the job. Get the archive here instead: restore it from the cache, else download it
+      # with retries (tools/ci/fetch_googletest.sh, which reads the pin from CMakeLists.txt), and
+      # hand the directory to configure so FetchContent downloads nothing. The cache key is the
+      # pinned commit id, so a new pin in CMakeLists.txt is a new key.
+      - name: Pin googletest
+        id: gtest_pin
+        run: |
+          commit="$(tools/ci/fetch_googletest.sh --print-commit)"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Cache googletest
+        id: gtest_cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/googletest-cache
+          key: googletest-${{ steps.gtest_pin.outputs.commit }}
+
+      - name: Fetch googletest
+        id: gtest
+        timeout-minutes: 15
+        run: |
+          # A cache restore that failed part-way leaves files behind and reports a miss; start clean.
+          [ "${{ steps.gtest_cache.outputs.cache-hit }}" = true ] || rm -rf "$RUNNER_TEMP/googletest-cache"
+          dir="$(tools/ci/fetch_googletest.sh "$RUNNER_TEMP/googletest-cache")"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
       # This job exists because of a specific event. libFuzzer only exists for clang, and when that
       # became relevant the codebase did not compile under clang at all: a unique_ptr to an
       # incomplete type in FlowLinkUsageCollector -- undefined behaviour that GCC happens to accept,
@@ -278,11 +464,23 @@ jobs:
       # only its promotion to an error is dropped, and only for this job. GCC's warning set does not
       # include it, which is why the ordinary build never saw it.
       - name: Configure with clang
+        env:
+          GTEST_DIR: ${{ steps.gtest.outputs.dir }}
         run: >
           cmake -S . -B build-clang -DCMAKE_BUILD_TYPE=Debug
+          -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST="${GTEST_DIR:?}"
           -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang
           -DCMAKE_CXX_FLAGS=-Wno-error=deprecated-declarations
           -DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST
+
+      # FetchContent creates <build>/_deps/googletest-subbuild only when it downloads googletest.
+      # With the directory passed to configure it must not exist.
+      - name: Check googletest was not downloaded
+        run: |
+          if [ -e build-clang/_deps/googletest-subbuild ]; then
+            echo "FetchContent downloaded googletest despite FETCHCONTENT_SOURCE_DIR_GOOGLETEST" >&2
+            exit 1
+          fi
 
       - name: Build with clang
         run: cmake --build build-clang -j"$(nproc)"
