@@ -506,7 +506,7 @@ class LabRound(object):
         down = self.ndt(["down"], timeout=900)
         rec["down_rc"] = down.rc
         if down.rc == 0:
-            # (r3, review NEW-C) the fabric is gone: from here a crash leaves only the knobs and
+            # The fabric is gone: from here a crash leaves only the knobs and
             # the release, and recover.sh must not compare qdiscs against interfaces that no
             # longer exist.
             self.write_state(phase="down-done")

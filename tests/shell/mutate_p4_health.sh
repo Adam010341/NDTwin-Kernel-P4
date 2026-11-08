@@ -838,7 +838,7 @@ add "Q14. SC-union accepts any hop limit" \
     '    if False:  # MUTANT' \
     'test_sc_recirc_and_sc_union'
 
-add "Q15. full silently grows to 22 dimensions (review MAJ-10)" \
+add "Q15. full silently grows to 22 dimensions" \
     "$VERDICT" \
     '    dims = table.q3b_dimensions if scope == "q3b" else table.core_dimensions' \
     '    dims = table.q3b_dimensions if scope == "q3b" else (table.core_dimensions + (table.q3b_dimensions if scope == "full" else ()))  # MUTANT' \
@@ -928,7 +928,7 @@ add "R-upnote. recover.sh accepts an up note written for another owner" \
     '    "in use: ndt up p4 "*)          note_ours=1 ;;' \
     'an up note written for another owner: rc 3, nothing run'
 
-# The R3-* mutants: NEW-A, NEW-B, NEW-C, the RC1 cell, the alias marks and the smaller items.
+# The R3-* mutants: the sample floor, the never-went-down links, the down-done phase, the RC1 cell, the alias marks and the smaller items.
 add "R3-A1. the sample floor gates on NDTwin's emitter count again" \
     "$VERDICT" \
     '        if spec.min_sent is not None and sent < spec.min_sent:' \
@@ -970,9 +970,9 @@ add "R3-B4. never-rerouted reads as not read" \
 add "R3-C1. lab_round records no down-done" \
     "$LABROUND" \
     '        if down.rc == 0:
-            # (r3, review NEW-C)' \
+            # The fabric is gone:' \
     '        if False:  # MUTANT
-            # (r3, review NEW-C)' \
+            # The fabric is gone:' \
     'test_a_successful_down_is_recorded_before_the_knobs_and_the_release'
 
 add "R3-C2. recover.sh in down-done still compares qdiscs" \
@@ -1094,7 +1094,7 @@ add "R5-1b. a down-done claim file that names no owner is re-claimed" \
     '( -z "$ov" && "$PHASE" == down-done )' \
     'down-done, an expired claim file that is the recorded one but names no owner: rc 3, nothing written'
 
-# R5-1c moves the check; it does not delete it (r6): the fabric is looked at only AFTER the re-claim wrote,
+# R5-1c moves the check; it does not delete it: the fabric is looked at only AFTER the re-claim wrote,
 # so what goes red is "the claim stub never called" (the release and the knob are never reached either way).
 add "R5-1c. the fabric is checked after the re-claim, not before" \
     "$RECOVER" \
@@ -2142,9 +2142,9 @@ add "R2-m4d. the fingerprint ignores uncommitted edits (HEAD's blob instead of t
 add "C2R3-N1a. a round stopped by a signal lets B claim the lab" \
     "$LABPY" \
     '        if signalled(recs[-1]):
-            # (Cut 2 review N1) a stop is a stop' \
+            # a stop is a stop' \
     '        if False:  # MUTANT
-            # (Cut 2 review N1) a stop is a stop' \
+            # a stop is a stop' \
     'test_a_signal_in_an_observer_ends_the_run'
 
 add "C2R3-N1b. the stop signal is an Exception again (every except Exception swallows it)" \
@@ -2168,9 +2168,9 @@ add "C2R3-N2. a B whose controller did nothing leaves the run complete" \
 add "C2R3-N3a. a git that could not answer reads as a clean tree" \
     "$PROBEPY" \
     '    if git_rc != 0:
-        # (Cut 2 review N3) no answer is not "clean"' \
+        # no answer is not "clean"' \
     '    if False:  # MUTANT
-        # (Cut 2 review N3) no answer is not "clean"' \
+        # no answer is not "clean"' \
     'test_a_git_status_that_cannot_answer_is_refused_before_s0'
 
 add "C2R3-N3b. the lab starts without a system-under-test record" \
@@ -2212,9 +2212,9 @@ add "C2R3-N4d. S0's show_ports check rejects a listed CPU port" \
 add "C2R3-N7. an unobserved control reads as a flip" \
     "$TABLE" \
     '        if obs is None:
-            # (Cut 2 second review N7)' \
+            # A control this run' \
     '        if False:  # MUTANT
-            # (Cut 2 second review N7)' \
+            # A control this run' \
     'test_a_cell_this_run_did_not_observe_has_no_delta'
 
 add "C2R3-N8a. root runs the shared tree's hostside.py, not the run's frozen copy" \

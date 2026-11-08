@@ -317,7 +317,7 @@ measuring_now() {  # a declaration or a measurement in flight, per ndt's own row
     fi
     printf '%s\n' "$out" | awk '$1 == "declared" || ($1 == "measuring" && $2 != "nothing") { print; exit }'
 }
-down_done_fabric_check() {  # (r3, review NEW-C; r5: called BEFORE any write) the fabric was torn down already; prove it
+down_done_fabric_check() {  # called BEFORE any write: the fabric was torn down already; prove it
     [[ "$PHASE" == down-done ]] || return 0
     local st_out n_bmv2 n_mn
     st_out="$(NDT_OWNER="$OWNER" "$NDT" status 2>/dev/null)"

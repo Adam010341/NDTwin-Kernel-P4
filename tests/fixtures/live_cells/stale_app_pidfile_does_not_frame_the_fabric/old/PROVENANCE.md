@@ -4,7 +4,7 @@
 
 **Kind: last night's evidence, and it is this cell's own first live run.** Not a replay and not a
 reconstruction: every file here was written by `cell_observe` against the live lab, and the
-defect it shows is the one the tree still has.
+defect it shows is the one the tree had on 2026-09-12, before the fix (`../new/` is the run after it).
 
 | | |
 |---|---|
@@ -12,7 +12,7 @@ defect it shows is the one the tree still has.
 | where | main checkout `/home/adam/Desktop/NDTwin-Kernel`, trunk `af5efa4f` (**before** FIX-NDT-9) |
 | kernel | `build/bin/ndtwin_kernel` sha256[0:16] **`c4c8e50310d7e4a1`** (`ids.txt`) |
 | `ndt` | blob **`54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc`** (`ids.txt`) |
-| driven by | `run_cells.sh --cell stale_app_pidfile_does_not_frame_the_fabric`, window 1 of the CELLS-2 live window (`hunt-0911/CELLS-2-LIVE-WINDOW.txt`), claim held by the orchestrator |
+| driven by | `run_cells.sh --cell stale_app_pidfile_does_not_frame_the_fabric`, window 1 of the CELLS-2 live window (`hunt-0911/CELLS-2-LIVE-WINDOW.txt`), lab claim held by the session that drove the window |
 | runner log | `scratch/overnight-2026-09-05/logs/gates-0910/run_cells_stalepid.cells2-0912-r2.log` |
 
 Every file is a byte copy out of

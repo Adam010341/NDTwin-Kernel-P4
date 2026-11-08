@@ -132,7 +132,7 @@ class Control(object):
 
     def judge(self, obs):
         if obs is None:
-            # (Cut 2 second review N7) a control this run did not observe, as a cell is (verdict
+            # A control this run did not observe, as a cell is (verdict
             # step "unobserved"): its delta then reads "not observed", not "flipped"
             return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")
         a = (obs or {}).get("answer")

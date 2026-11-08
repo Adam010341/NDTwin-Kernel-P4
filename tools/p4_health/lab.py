@@ -213,7 +213,7 @@ def _rounds(cfg, runner, run_id, model, pipelines, runtimes, orders, only, mutan
         keep_state(cfg, "A")
         log("  A: complete=%s problems=%s" % (recs[-1]["complete"], recs[-1]["problems"]))
         if signalled(recs[-1]):
-            # (Cut 2 review N1) a stop is a stop: no further claim, whatever A's teardown did
+            # a stop is a stop: no further claim, whatever A's teardown did
             problems.append("stop signal during bring-up A: the run ends here, B not brought up")
             log("  " + problems[-1])
             return

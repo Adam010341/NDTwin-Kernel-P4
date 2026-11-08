@@ -52,7 +52,7 @@ DEMO_PY="$REPO/tools/ndt_serve/demo_sequence.py"
 # probe citation, RcProvenance), so a mutant tree carries it and the gate watches it too
 README_MD="$REPO/tools/ndt_serve/README.md"
 NDT="$REPO/tools/test_workflow/ndt"
-# [Co-developed with claude code -- Adam] the page (v2): its sources under web/ and what they build
+# [Co-developed with claude code -- Adam] the page: its sources under web/ and what they build
 # into static/. A mutant tree carries all of both but web/node_modules and web/dist; the G mutations
 # on the page edit the copies' TS sources or built files and need no Node.
 WEB_DIR="$REPO/tools/ndt_serve/web"

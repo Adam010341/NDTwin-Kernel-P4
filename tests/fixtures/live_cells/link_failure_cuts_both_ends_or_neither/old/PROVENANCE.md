@@ -19,6 +19,6 @@
 `a1f_does_not_claim_injected` (the status line), `a1f_says_nothing_was_attached`,
 `a1f_names_the_half_that_happened`, `a1f_declaration_still_stands`. No fixture gap.
 
-Note the last one: the ruling is that the DECLARATION stands and the reply says which half
-happened -- not that the whole request is refused. A judge asserting the absence of a declaration
+Note the last one: the behaviour wanted is that the DECLARATION stands and the reply says which
+half happened -- not that the whole request is refused. A judge asserting the absence of a declaration
 would be pinning a contract nobody agreed to.

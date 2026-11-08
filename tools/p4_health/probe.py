@@ -95,7 +95,7 @@ def _git_run(*args):
 
 def _git(*args):
     """stdout of a git call that only labels a record; "" when git could not answer. A decision
-    must not rest on this -- use _git_run and its rc (Cut 2 review N3)."""
+    must not rest on this -- use _git_run and its rc."""
     rc, out = _git_run(*args)
     return out if rc == 0 else ""
 
@@ -181,7 +181,7 @@ def cmd_lab(args):
     # it is refused unless tools/p4_health is exactly what HEAD says (no edit, no new file)
     git_rc, dirty = _git_run("status", "--porcelain", "--", "tools/p4_health")
     if git_rc != 0:
-        # (Cut 2 review N3) no answer is not "clean"
+        # no answer is not "clean"
         print("refused: git status could not tell whether tools/p4_health is clean (rc %s)" % (git_rc,),
               file=sys.stderr)
         return 2

@@ -34,4 +34,4 @@ of real `ndt` output, inserted after the `apps` row where `ndt` itself puts them
 
 That the premise is right about the machine -- only that it reads the row. Whether an untracked
 app process really can open a legitimately-wide window is measured nowhere in this directory;
-`CELLS.md` §what these cells do NOT cover item 8 says so.
+`CELLS.md` §what these cells do NOT cover item 6 says so.
