@@ -279,7 +279,7 @@ SimulationRequestManager::requestSimulation(const std::string& body)
 
     if (curl.httpStatus == 0)
     {
-        // FINDINGS #38. This read, for every cause alike:
+        // This read, for every cause alike:
         //     "no response from the simulator server at <url> within 30s"
         // That sentence was measured coming back in 6.0-9.0 ms, five times out of five, with
         // nothing listening on the port. Two failures that need opposite responses -- start the

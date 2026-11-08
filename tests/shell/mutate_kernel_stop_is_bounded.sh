@@ -8,11 +8,11 @@
 # death tests, because one of the two directions below can only be caught by them.
 #
 # WHAT THE DEFECTS WERE
-#   #27 DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal walks every up switch and
+#   (1) DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal walks every up switch and
 #       runs `curl -s --max-time 8` per switch, reading its stop flag only between rounds. Measured
 #       on the 10-switch bmv2 fabric with the proxy not answering: SIGINT took 81.09 s, ~72 s of it
 #       inside the join -- 9 remaining switches x 8 s, to the second.
-#   #76 TopologyAndFlowMonitor's poll does the same three times a round at --max-time 5, and
+#   (2) TopologyAndFlowMonitor's poll does the same three times a round at --max-time 5, and
 #       main.cpp prints `Exiting` *before* calling the stop that blocks in it.
 #
 # 🔴 TWO DIRECTIONS, AND THE SECOND ONE IS WHY THIS GATE EXISTS AT ALL
@@ -394,7 +394,7 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 # is a correctness property this suite does not measure. It is W5 below,
 # not a mutation.
 #
-# M1. The half that does carry it, for #27: the request already in flight when the stop arrives,
+# M1. The half that does carry it, for the first defect: the request already in flight when the stop arrives,
 #     back on the executor that cannot be cancelled.
 mutate "the flow-table request goes back to the uncancellable executor" \
     "$PM" \
@@ -402,7 +402,7 @@ mutate "the flow-table request goes back to the uncancellable executor" \
     '        std::string raw = utils::execCommand(cmd);' \
     KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
 
-# M3. #76's half of the same thing, in the other class.
+# M3. The second defect's half of the same thing, in the other class.
 mutate "the topology request goes back to the uncancellable executor" \
     "$TFM" \
     '        return classifyEndpointReply(
@@ -605,7 +605,7 @@ printf '  %d widenings, %d wrongly caught\n' "$WIDENINGS" "$WIDENINGS_CAUGHT"
 
 if [[ "$ok" != 1 ]]; then exit 2; fi
 if (( SURVIVORS > 0 || WIDENINGS_CAUGHT > 0 )); then exit 1; fi
-echo "  FINDINGS #27/#76 gate: neither defect can be put back by any of seven routes, buying the"
+echo "  Kernel-stop gate: neither defect can be put back by any of seven routes, buying the"
 echo "  bound by deleting the join is caught by B-5's death tests, and five behaviour-preserving"
 echo "  edits -- two of which document redundancies this suite does NOT defend -- were left alone."
 exit 0

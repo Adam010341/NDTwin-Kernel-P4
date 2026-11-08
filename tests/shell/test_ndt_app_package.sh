@@ -1307,8 +1307,8 @@ OUT="$(run_status --check "$PROXY_STUBS")"
 has   "🔴 an external plane on its own pipeline expects no path" "4 destination paths reported; none expected -- an external control plane on dpid 1" "$OUT"
 hasnt "  and does not call its count the twin's guess"   "the twin's guess" "$OUT"
 hasnt "  nor a shortfall --check problem"                "proxy reports 4 destination paths, want 12" "$OUT"
-# [Co-developed with claude code -- Adam] ...but a count there IS the guess coming back (the
-# round-4 review's nit): flagged, and a --check problem. Zero is the designed answer, and quiet.
+# [Co-developed with claude code -- Adam] ...but a count there IS the guess coming back (a
+# reported nit): flagged, and a --check problem. Zero is the designed answer, and quiet.
 has   "🔴 a nonzero count on an external plane is flagged"  "!! 4 path(s) on an external control plane, where the proxy reports none" "$OUT"
 has   "🔴 and is a --check problem"                         "proxy reports 4 destination paths on an external control plane, want 0" "$OUT"
 check "  so --check exits 1 on it"                        "1" "$(rc_of "$OUT")"
@@ -1892,7 +1892,7 @@ has   "🔴 a knob naming a word nobody knows is a problem" "which is not a tele
 has   "  and --check lists it as a problem"               "- the telemetry knob" "$OUT"
 rm -f "$TELKNOB"
 
-# --- link shaping (G2-C's disclosure) --------------------------------------------------------
+# --- link shaping disclosure -----------------------------------------------------------------
 mkpkg "$FIX/packages/shaped" ndtwin 4 4
 # 🔴 THE PACKAGE'S OWN LINK FORMAT, which is `["s1", 3]` pairs and not `"s1:3"` strings
 # (app_package._endpoint). The first version of `ndt`'s local reader invented the string form and agreed

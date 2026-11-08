@@ -600,7 +600,7 @@ arm() {
     fi
 
     # -- R1, as code (§3-judgement).  Any phantom on a post-T-11 arm is a regression FINDING.
-    #    🔴 The stop is SCOPED: Q3 stops, Q2 CONTINUES.  Q2 is Adam's material for re-ruling F-5
+    #    🔴 The stop is SCOPED: Q3 stops, Q2 CONTINUES.  Q2 is the material for deciding F-5 again
     #    and is logically independent of whether the fix regressed.  A blanket stop would destroy
     #    the deliverable in order to report the finding.
     if [[ "$ARM" == *-post ]] && [[ "$DRY_RUN" != 1 ]]; then
@@ -610,7 +610,7 @@ arm() {
             say "🔴 R1: $hits phantom(s) on a POST-T-11 binary.  The fix has regressed to a FINDING."
             say "🔴 §3 R1 stop scope: Q3 is CANCELLED (a deliberate-trigger upper bound is"
             say "🔴 meaningless while the fix is known broken).  Q2 CONTINUES -- it is the"
-            say "🔴 material for Adam's re-ruling and does not depend on Q1's answer."
+            say "🔴 material for deciding F-5 again and does not depend on Q1's answer."
             say "🔴 The round stops on this evidence; do not re-run the arm hoping for zero."
         fi
     fi

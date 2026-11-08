@@ -140,7 +140,7 @@ add_anchor "curl-exit-28"   "$SRM" '    case 28:
                std::to_string(deadlineSeconds) + "s deadline (curl exit 28)";'
 add_anchor "curl-exit-56"   "$SRM" '    case 56:
         return "connection reset after " + took + " by " + url + " (curl exit 56)";'
-add_anchor "finding-comment" "$SRM" '        // FINDINGS #38. This read, for every cause alike:'
+add_anchor "refused-comment" "$SRM" '        // This read, for every cause alike:'
 
 echo "=== anchor uniqueness (exact substring count must be 1) ==="
 anchor_ok=1
@@ -410,8 +410,8 @@ mutate "the message quotes the deadline instead of the measured duration" \
 #     rebuilt" rather than "the classification changed".
 widen "a comment, nothing else" \
     "$SRM" \
-    '        // FINDINGS #38. This read, for every cause alike:' \
-    '        // FINDINGS #38. Before this, for every cause alike, it read:'
+    '        // This read, for every cause alike:' \
+    '        // Before this, for every cause alike, it read:'
 
 # W2. THE REFUSAL REWORDED, classification intact. This is the control the whole gate is for: the
 #     tests must be pinning which of refused/reset/timed-out the message commits to, not the
@@ -486,7 +486,7 @@ printf '  %d widenings, %d wrongly caught\n' "$WIDENINGS" "$WIDENINGS_CAUGHT"
 
 if [[ "$ok" != 1 ]]; then exit 2; fi
 if (( SURVIVORS > 0 || WIDENINGS_CAUGHT > 0 )); then exit 1; fi
-echo "  FINDINGS #38 gate: the refusal cannot be called a timeout again by any of five routes,"
+echo "  Refused-connection gate: the refusal cannot be called a timeout again by any of five routes,"
 echo "  dropping the timeout wording or calling everything a refusal is caught too, the quoted"
 echo "  duration must be one this process measured, and three behaviour-preserving edits --"
 echo "  including a rewording of each message -- were left alone."

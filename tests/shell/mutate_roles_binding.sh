@@ -16,7 +16,7 @@
 # and a test that no mutation reddened FAILS THE GATE by name. A test nobody has seen fail is a
 # decoration; this is the list that would otherwise have to be trusted.
 #
-# 🔴 M-R1 MUST BE KILLED ONLY BY THE RENAMED FIXTURE (section 3.3). tutorials' basic spells
+# 🔴 M-R1 MUST BE KILLED ONLY BY THE RENAMED FIXTURE. tutorials' basic spells
 # NDTwin's five names character for character, so a binding that ignores the roles and falls
 # back to the literals is indistinguishable from a correct one on basic. The gate therefore
 # checks more than "its killer went red": every test that went red under M-R1 must carry
@@ -34,11 +34,11 @@
 # depends on somebody else's build tree reports on that tree, not on this change. The test then
 # skips, loudly, as it is written to.
 #
-# ROUND 3 added R3-F1a..F4: the A-4d restore obeys the route scope, the
+# A third part added R3-F1a..F4: the A-4d restore obeys the route scope, the
 # watchdog promise is taken back where no watchdog runs, an owned switch left empty says why,
 # and the recorder's sha is pinned at every head.
 #
-# ROUND 2 added: the mutations for items 1-8; the
+# A second part added: the mutations for items 1-8; the
 # 07_roles_basic.sh --self-test mutations (item 6), run on a copy of the script, each named for
 # the self-test case that must go red; and a check that NEW_CLASSES -- a typed list -- names
 # every TestCase class that exists now and did not exist at the base 6291db35, so a
@@ -269,8 +269,8 @@ echo "  new tests to be seen red: $(wc -l < "$NEW_IDS")"
 # (found when the heartbeat work added classes of its own). Read from the working tree, "every class added
 # since 6291db35" is also every class any LATER change adds: at the heartbeat work's head this check listed
 # the 18 classes it added and counted them as its survivor, so on trunk this gate would be rc 1 for
-# good. CLASSES_AT is this work's last commit, 177b9f03 (round 3, the branch head merged as
-# 572d9462); a later round of THIS work that adds a class moves it, or runs with
+# good. CLASSES_AT is this work's last commit, 177b9f03 (the branch head merged as
+# 572d9462); a later change of THIS work that adds a class moves it, or runs with
 # CLASSES_AT=worktree while uncommitted. It must be an ancestor of HEAD -- a history that lost it
 # (a squash-merge) is refused, not scanned as "no classes, none missing" -- and the scan carries
 # its own control: with one module left off the list it must name that module's classes.
@@ -391,9 +391,9 @@ report "M-R5b: pre-flight does not size the port against the topology" "$m" \
 # [Co-developed with claude code -- Adam] 09-27: the external branch seeds with the same line, so the
 # anchor carries the foreign branch's comment line above it (R6, R2-8a).
 m=$(mutant r6 "$MAIN" \
-    '        # item 8); the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
+    '        # the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
         seeded, seed_error = _seed_declared_links(topo, package)' \
-    '        # item 8); the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
+    '        # the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
         seeded, seed_error = 0, None')
 report "M-R6: a foreign fabric's declared links are never seeded" "$m" \
        "test_a_foreign_fabric_seeds_its_declared_links"
@@ -430,9 +430,9 @@ report "M-R9: one unbound switch and the routes are installed anyway" "$m" \
 
 m=$(mutant r10 "$MAIN" \
     '        read_only = True
-        # 🔴 TICKET-P4-roles 2.3-1/2' \
+        # 🔴 The links come from the package'"'"'s topology instead of' \
     '        read_only = False
-        # 🔴 TICKET-P4-roles 2.3-1/2')
+        # 🔴 The links come from the package'"'"'s topology instead of')
 report "M-R10: a foreign fabric starts LLDP and the watchdog" "$m" \
        "test_lldp_and_the_watchdog_stay_off_on_a_foreign_fabric_even_when_every_table_is_owned"
 
@@ -920,7 +920,7 @@ m=$(mutant fs_count "$STATS" \
             unrendered += 1' \
     '        elif False:
             unrendered += 1')
-report "FS3: a foreign row with no usable match is left out and not counted (round 1's rule)" "$m" \
+report "FS3: a foreign row with no usable match is left out and not counted (the first rule)" "$m" \
        "test_a_row_with_no_usable_match_is_counted_whatever_its_action"
 
 m=$(mutant fs_countdefault "$STATS" \
@@ -1298,7 +1298,7 @@ m=$(mutant mn_predict "$MAIN" \
 report "MN17: the prediction applies a package's roles to an NDTwin-pipeline switch" "$m" \
        "test_roles_do_not_apply_to_an_ndtwin_switch_beside_a_foreign_one"
 
-# --- round 2 -------------------------------------------------
+# --- second part -------------------------------------------------
 
 # item 1 -- readopt obeys the fabric's route skip
 m=$(mutant tm_attachedoff "$TOPOMGR" \
@@ -1359,7 +1359,7 @@ m=$(mutant mn_refillowner "$MAIN" \
 report "R2-1i: a package-owned switch is refilled with NDTwin's routes" "$m" \
        "test_a_package_owned_switch_is_not_refilled_on_a_fabric_that_installs_routes"
 
-# Round 1's killer for this test was M-R9, inside routes_owned_by_ndtwin -- which readopt no
+# The first killer for this test was M-R9, inside routes_owned_by_ndtwin -- which readopt no
 # longer calls (item 1: the predicate is startup's recorded decision plus THIS switch's binding).
 m=$(mutant mn_refillunbound "$MAIN" \
     '    if (_fabric_installs_routes() and binding is not None
@@ -1389,7 +1389,7 @@ m=$(mutant tm_stale "$TOPOMGR" \
 report "R2-2c: a named exception stops matching anything and stays on the list" "$m" \
        "test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions"
 
-# item 4 -- NDTwin's /stats/flow in HTTP-body bytes. R2-4a is invisible to round 1's
+# item 4 -- NDTwin's /stats/flow in HTTP-body bytes. R2-4a is invisible to the first
 # sort_keys fixture (TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest stays green): that
 # is the point of the byte comparison.
 m=$(mutant fs_keyorder "$STATS" \
@@ -1578,12 +1578,12 @@ m=$(mutant pc_5mod "$CLIENT" \
 report "R2-5b: a 5-tuple modify reaches a foreign switch" "$m" \
        "test_a_five_tuple_modify_on_a_foreign_switch_answers_501"
 
-# item 8 -- link_discovery is the mode; the seed's outcome is its own fabric-level key
+# link_discovery is the mode; the seed's outcome is its own fabric-level key
 m=$(mutant mn_seedcount "$MAIN" \
-    '        # item 8); the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
+    '        # the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
         seeded, seed_error = _seed_declared_links(topo, package)
         _fabric.update(lldp=False, watchdog=False, declared_links=True,' \
-    '        # item 8); the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
+    '        # the seed'"'"'s own outcome is `declared_links_seed`, served at fabric level.
         seeded, seed_error = _seed_declared_links(topo, package)
         _fabric.update(lldp=False, watchdog=False, declared_links=seeded > 0,')
 report "R2-8a: link_discovery follows the seed count again" "$m" \
@@ -1649,7 +1649,7 @@ m=$(mutant mn_seedunwired "$MAIN" \
 report "R2-8i: the proxy never wires the seed reporter" "$m" \
        "test_the_proxy_wires_the_reporter_at_import"
 
-# --- round 3 --------------------------------------------------
+# --- third part --------------------------------------------------
 
 # F1 -- the A-4d restore is the second writer on a fabric that skips its routes
 m=$(mutant tm_restorethrough "$TOPOMGR" \

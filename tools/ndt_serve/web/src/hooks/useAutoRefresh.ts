@@ -1,10 +1,10 @@
 // [Co-developed with claude code -- Adam]
-// Every 10 s, one read of /lab, /apps, /health and /jobs (Adam's R2, 09-27; SCOPE-v2 section 6):
+// Every 10 s, one read of /lab, /apps, /health and /jobs (09-27):
 // at most 24 requests and 12 ndt calls a minute while the page is shown and idle.
 //
 //   * No overlap: the next tick is armed only after the previous read has finished.
 //   * paused-measuring: the last read said measuring_is_nothing === false, or declared !== null.
-//     While it lasts, a probe reads /measuring and nothing else once every 60 s (Adam's Q6, 09-28:
+//     While it lasts, a probe reads /measuring and nothing else once every 60 s (decided 09-28:
 //     an automatic probe after a measuring pause, read-only and light; and 10-01: it asks only "is
 //     anyone measuring" -- `ndt status --measuring`, the claim's measuring= and the process table,
 //     no sudo and no request to the kernel under measurement). No /lab, /apps, /health or /jobs.

@@ -972,7 +972,7 @@ class TopologyManager:
         self._external_reports = {"received": 0, "routed_through_watchdog": 0,
                                   "recorded_only": 0, "last": None}
 
-        #: TICKET-P4-heartbeat segment W -- see the class attributes of the same names.
+        #: Heartbeat link evidence and when it was last evaluated -- see the class attributes of the same names.
         #: [Co-developed with claude code -- Adam]
         self._link_evidence = None
         self._evidence_judged_at = None

@@ -215,7 +215,7 @@ TEST(RefusedIsNotTimeoutTest, ARefusalIsNotDescribedAsATimeout)
         << "the connection was not actually refused quickly; this run cannot judge the message";
 
     EXPECT_FALSE(claimsATimeout(reason))
-        << "FINDINGS #38: a connection refused in " << elapsed
+        << "a connection refused in " << elapsed
         << "s is being reported as a wait that ran out. Message was: " << reason;
     EXPECT_TRUE(mentions(reason, "refused"))
         << "the message does not say what happened. Message was: " << reason;
@@ -268,7 +268,7 @@ TEST(RefusedIsNotTimeoutTest, TheTwoFailuresDoNotProduceTheSameSentence)
     };
 
     EXPECT_NE(withoutEndpoint(refused), withoutEndpoint(hung))
-        << "FINDINGS #38: a refused connection and a request that timed out are reported with the "
+        << "a refused connection and a request that timed out are reported with the "
            "same sentence.\n  refused: "
         << refused << "\n  hung:    " << hung;
 }

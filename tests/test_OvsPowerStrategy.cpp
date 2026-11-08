@@ -21,7 +21,7 @@
  * shared_ptrs, and the accessors used here are plain graph reads under a mutex, so a hand-built
  * two-vertex graph is enough and the assertions are about the real thing. Only the shell seams are
  * overridden -- 🔴 ALL FOUR of them (executeSystemCommand, executeArgvCommand, executeListPorts,
- * executeReadSflowState, and since FINDINGS #82 executeBridgeExists). A double that covers some
+ * executeReadSflowState, and now executeBridgeExists). A double that covers some
  * of them is how `sudo ovs-vsctl add-br` came to really run against a developer's machine from
  * inside this suite; each new seam is another chance to reopen that hole.
  */
@@ -88,7 +88,7 @@ class FakeOvs : public OVSPowerStrategy
     }
 
     /**
-     * FINDINGS #82. Overridden for the reason all four of these are, and this one is the seam a
+     * Overridden for the reason all four of these are, and this one is the seam a
      * double is most likely to forget because it is the newest: without it every case below that
      * reaches powerOff or powerOn would run `sudo ovs-vsctl br-exists` against the machine
      * running the suite. That is the exact hole this file's header records having been bitten by
@@ -143,8 +143,8 @@ class FakeOvs : public OVSPowerStrategy
 
     int readSflowCalls = 0;
 
-    /// FINDINGS #82. What `ovs-vsctl br-exists` answers. Default `true` -- a bridge that is
-    /// really there -- so every case written before #82 exercises the same teardown it always
+    /// What `ovs-vsctl br-exists` answers. Default `true` -- a bridge that is
+    /// really there -- so every case written before the bridge-exists check exercises the same teardown it always
     /// did. `false` is the already-deleted bridge, `std::nullopt` the query that could not run.
     std::optional<bool> bridgeExistsResult = true;
     int bridgeExistsCalls = 0;
@@ -331,7 +331,7 @@ TEST(OvsPowerStrategyTest, PowerOffLeavesTheVertexUpWhenACommandFails)
     EXPECT_TRUE(fix.isUp());
 }
 
-// --- FINDINGS #82: powerOff asks the machine, not the graph.
+// --- powerOff asks the machine, not the graph.
 //
 // [Co-developed with claude code -- Adam]
 // This block replaces a case called PowerOffOnAnAlreadyDownSwitchDoesNothing, which asserted the
@@ -346,16 +346,16 @@ TEST(OvsPowerStrategyTest, PowerOffLeavesTheVertexUpWhenACommandFails)
 //   - the topology was just loaded -- loadStaticTopologyFromFile starts EVERY vertex at false
 //   - `list-br` failed or was refused, and one blip took the whole graph down (see the comment
 //     on the OVS branch of the liveness worker, which exists because of exactly that)
-//   - FINDINGS #46 recorded a commanded power-off and discovery has not lifted it since
+//   - a commanded power-off was recorded and discovery has not lifted it since
 //
-// The last one is the vicious one on this plane: after #46 a switch that has been powered off
+// The last one is the vicious one on this plane: after the commanded-off veto a switch that has been powered off
 // STAYS false, so the second power-off took the early return, and the early return sits above
-// setVertexPoweredOffByCommand. The #46 fix therefore held on OVS only when `isUp` happened to
+// setVertexPoweredOffByCommand. The veto therefore held on OVS only when `isUp` happened to
 // be true at power-off time.
 
 TEST(OvsPowerStrategyTest, PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysDown)
 {
-    // The defect's own shape: graph false, bridge present. Before #82 this returned 200 with the
+    // The defect's own shape: graph false, bridge present. Before the bridge-exists check this returned 200 with the
     // bridge still forwarding and nothing recorded.
     Fixture fix;
     (*fix.graph)[fix.sw].isUp = false;
@@ -369,14 +369,14 @@ TEST(OvsPowerStrategyTest, PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysD
     EXPECT_EQ(ovs.bridgeExistsCalls, 1) << "believed the graph instead of asking ovs-vsctl";
     EXPECT_TRUE(ovs.ran("del-br s1"))
         << "returned success with the bridge still there, because the graph already said down. "
-           "FINDINGS #82: 'Success' has to mean ovs-vsctl was consulted";
+           "'Success' has to mean ovs-vsctl was consulted";
     EXPECT_TRUE(ovs.ran("ifconfig s1-eth1 down"));
     EXPECT_EQ(fix.savedPorts(), (std::vector<std::string>{"s1-eth1", "s1-eth2"}))
         << "powerOn has nothing else to reattach from";
     EXPECT_FALSE(fix.isUp());
     EXPECT_TRUE(fix.monitor->getVertexAdminPoweredOff(fix.sw))
         << "the teardown ran but the power-off was not recorded as commanded, so the next "
-           "topology poll would lift this switch straight back (FINDINGS #46)";
+           "topology poll would lift this switch straight back";
 }
 
 TEST(OvsPowerStrategyTest, PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand)
@@ -386,8 +386,8 @@ TEST(OvsPowerStrategyTest, PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythi
     //
     // 🔴 The command is recorded on this path too. A redundant power-off is still a power-off:
     // the operator (or the Energy-Saving-App re-sending desired state) has said "this switch must
-    // be down", and #46's veto is the only thing that keeps the next poll from disagreeing. An
-    // early return that skipped this line is precisely how #82 made the #46 fix conditional on
+    // be down", and the commanded-off veto is the only thing that keeps the next poll from disagreeing. An
+    // early return that skipped this line is precisely how the veto became conditional on
     // the phase of the liveness probe.
     //
     // It must also not run list-ports: that would overwrite the ports saved by the powerOff that
@@ -443,7 +443,7 @@ TEST(OvsPowerStrategyTest, PowerOffAttemptsTheTeardownWhenItCannotAskWhetherTheB
     // "the question could not be asked" is a state that will exist on real machines. Unknown must
     // not become "absent": that would skip the teardown on a live bridge and report success,
     // which is the defect with a louder voice. Falling through to the teardown degrades to
-    // exactly what this file did before #82 -- including its 500 when list-ports then fails.
+    // exactly what this file did before the bridge-exists check -- including its 500 when list-ports then fails.
     Fixture fix;
     FakeOvs ovs;
     ovs.bridgeExistsResult = std::nullopt;
@@ -460,7 +460,7 @@ TEST(OvsPowerStrategyTest, PowerOffAttemptsTheTeardownWhenItCannotAskWhetherTheB
 
 TEST(OvsPowerStrategyTest, PowerOffStillRefusesWhenTheBridgeIsThereButItsPortsCannotBeRead)
 {
-    // #82 must not have widened the one refusal this class already had. The bridge exists, so
+    // The bridge-exists check must not have widened the one refusal this class already had. The bridge exists, so
     // there is real state to destroy, and list-ports failing means we do not know what it is.
     Fixture fix;
     fix.setSavedPorts({"s1-eth1"});
@@ -486,7 +486,7 @@ TEST(OvsPowerStrategyTest, PowerOnRecreatesTheBridgeWithTheSavedPorts)
     (*fix.graph)[fix.sw].isUp = false;
     fix.setSavedPorts({"s1-eth1", "s1-eth2"});
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
 
     const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
 
@@ -507,13 +507,13 @@ TEST(OvsPowerStrategyTest, PowerOnSetsTheDatapathIdAsSixteenHexDigits)
     Fixture fix;
     (*fix.graph)[fix.sw].isUp = false;
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
 
     ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
     EXPECT_TRUE(ovs.ran("other-config:datapath-id=0000000000000001")) << "dpid 1";
 
     FakeOvs wide;
-    wide.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    wide.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
     Fixture fix2;
     (*fix2.graph)[fix2.sw].isUp = false;
     wide.powerOn(fix2.sw, "s10", 255, fix2.monitor.get());
@@ -527,7 +527,7 @@ TEST(OvsPowerStrategyTest, PowerOnDoesNotMarkUpWhenACommandFails)
     (*fix.graph)[fix.sw].isUp = false;
     fix.setSavedPorts({"s1-eth1"});
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
     ovs.failSubstring = "add-br";
 
     const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
@@ -552,7 +552,7 @@ TEST(OvsPowerStrategyTest, AFailedPortCommandFailsTheWholeOperation)
     (*fix.graph)[fix.sw].isUp = false;
     fix.setSavedPorts({"s1-eth1", "s1-eth2", "s1-eth3"});
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
     ovs.failSubstring = "add-port s1 s1-eth1";
 
     const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
@@ -584,14 +584,14 @@ TEST(OvsPowerStrategyTest, PowerOnOnAnAlreadyUpSwitchDoesNothing)
 
 TEST(OvsPowerStrategyTest, PowerOnDoesNotBlindAddBrWhenTheBridgeIsAlreadyThere)
 {
-    // FINDINGS #82, the power-on direction. `add-br` on an existing bridge exits 1 -- verified
+    // The power-on direction. `add-br` on an existing bridge exits 1 -- verified
     // against a live ovs-vsctl, "a bridge named s1 already exists" -- and `allOk` then turns that
     // into a 500 for a switch that is sitting there forwarding.
     //
     // Reachable, and not only in theory:
     //   - loadStaticTopologyFromFile starts every vertex at isUp = false, so between the fabric
     //     being built and the first liveness tick every bridge in the graph reads down;
-    //   - a power-off that took the absent-bridge path above records a commanded off, and #46
+    //   - a power-off that took the absent-bridge path above records a commanded off, and the veto
     //     keeps the vertex false until a power-on clears it -- so if the bridge is recreated out
     //     of band, the recovering power-on meets exactly this state.
     //
@@ -622,7 +622,7 @@ TEST(OvsPowerStrategyTest, PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCo
     // The recovery path the case above describes: powered off (bridge absent, command recorded),
     // bridge put back out of band, operator asks for power on. If the command were left standing
     // because the bring-up was skipped, discovery would go on refusing to mark a live bridge up
-    // for the rest of the run -- the over-correction FINDINGS #46's own gate calls M6.
+    // for the rest of the run -- the over-correction the poll gate calls M6.
     Fixture fix;
     FakeOvs off;
     off.bridgeExistsResult = false;
@@ -644,7 +644,7 @@ TEST(OvsPowerStrategyTest, PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCo
 
 TEST(OvsPowerStrategyTest, PowerOnBuildsTheBridgeWhenTheMachineSaysItIsNotThere)
 {
-    // The control for the two above: #82 must not have turned power-on into a no-op. Same graph
+    // The control for the two above: the bridge-exists check must not have turned power-on into a no-op. Same graph
     // state, opposite answer from the machine, and the full bring-up has to run.
     Fixture fix;
     (*fix.graph)[fix.sw].isUp = false;
@@ -672,7 +672,7 @@ TEST(OvsPowerStrategyTest, PowerOnWithNoSavedPortsStillReportsSuccessButBuildsAn
     Fixture fix;
     (*fix.graph)[fix.sw].isUp = false;
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
 
     const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
 
@@ -756,7 +756,7 @@ TEST(OvsPowerStrategyTest, PowerOnRestoresTheAgentAddressAndTheSflowRecord)
     fix.setSavedSflow(saved);
 
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
     ovs.sflowResult = liveSflow(); // the read-back finds it attached
 
     const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
@@ -786,7 +786,7 @@ TEST(OvsPowerStrategyTest, PowerOnRestoresTheSflowAfterTheBridgeExists)
     fix.setSavedSflow(saved);
 
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
     ovs.sflowResult = liveSflow();
     ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
 
@@ -805,7 +805,7 @@ TEST(OvsPowerStrategyTest, PowerOnReportsFailureWhenTheSflowRecordDoesNotComeBac
     fix.setSavedSflow(saved);
 
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
     ovs.sflowScript = {SflowBridgeState{}}; // read-back: still no record
 
     const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
@@ -835,7 +835,7 @@ TEST(OvsPowerStrategyTest, PowerOnReportsFailureWhenTheAgentInterfaceHasNoAddres
     attachedButAddressless.agentIpCidr = "";
 
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
     ovs.sflowScript = {attachedButAddressless};
 
     const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
@@ -853,7 +853,7 @@ TEST(OvsPowerStrategyTest, PowerOnTreatsAnUnreadableReadBackAsFailureNotAsSucces
     fix.setSavedSflow(saved);
 
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
     ovs.sflowScript = {std::nullopt}; // could not read it back
 
     const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
@@ -872,7 +872,7 @@ TEST(OvsPowerStrategyTest, PowerOnSaysSoWhenPowerOffNeverManagedToReadTheRecord)
     fix.setSavedSflow(saved);
 
     FakeOvs ovs;
-    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    ovs.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
     const OpResult result = ovs.powerOn(fix.sw, "s1", 1, fix.monitor.get());
 
     EXPECT_FALSE(result.ok);
@@ -896,7 +896,7 @@ TEST(OvsPowerStrategyTest, ARetriedPowerOnReAttemptsTheSflowRestore)
     fix.setSavedSflow(saved);
 
     FakeOvs first;
-    first.bridgeExistsResult = false; // the switch is off, so its bridge is gone (FINDINGS #82: powerOn asks)
+    first.bridgeExistsResult = false; // the switch is off, so its bridge is gone (powerOn asks)
     first.sflowScript = {SflowBridgeState{}};
     ASSERT_FALSE(first.powerOn(fix.sw, "s1", 1, fix.monitor.get()).ok);
     ASSERT_TRUE(fix.isUp()) << "precondition: the retry now meets an already-up vertex";
@@ -969,7 +969,7 @@ TEST(OvsPowerStrategyTest, TheRealShellSeamRunsTheCommandAndReportsItsExitStatus
            "exact shape of the bug the seam's comment describes";
 }
 
-// --- FINDINGS #82: the br-exists rule, without a bridge.
+// --- the br-exists rule, without a bridge.
 //
 // [Co-developed with claude code -- Adam]
 // Every double in this file replaces executeBridgeExists, which is the only way to keep
@@ -1201,7 +1201,7 @@ class RendezvousOvs : public OVSPowerStrategy
         return SflowBridgeState{};
     }
 
-    /// FINDINGS #82: the fourth seam, overridden for the same reason as the three above. Answers
+    /// The fourth seam, overridden for the same reason as the three above. Answers
     /// "no bridge" so both requests take the full bring-up this test is about; it deliberately
     /// does NOT go through the rendezvous, because parking a request inside the existence query
     /// would test a different interleaving than the one the concurrency defect lived in.

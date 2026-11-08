@@ -527,6 +527,6 @@ printf '  %d widenings, %d wrongly caught\n' "$WIDENINGS" "$WIDENINGS_CAUGHT"
 
 if [[ "$ok" != 1 ]]; then exit 2; fi
 if (( SURVIVORS > 0 || WIDENINGS_CAUGHT > 0 )); then exit 1; fi
-echo "  FINDINGS #63 gate: every mutation was caught by the test it names, and every"
+echo "  Logfile gate: every mutation was caught by the test it names, and every"
 echo "  behaviour-preserving change was left alone."
 exit 0

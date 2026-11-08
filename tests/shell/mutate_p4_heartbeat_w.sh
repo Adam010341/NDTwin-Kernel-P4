@@ -588,10 +588,10 @@ m=$(mutant t23 "$TOPOMGR" \
                 return {"down": [], "up": [], "unacked": []}')
 report "T23: a pass with nothing to judge is not on record" "$m" "test_a_frozen_pass_is_recorded_too"
 m=$(mutant t20 "$TOPOMGR" \
-    '        #: TICKET-P4-heartbeat segment W -- see the class attributes of the same names.
+    '        #: Heartbeat link evidence and when it was last evaluated -- see the class attributes of the same names.
         #: [Co-developed with claude code -- Adam]
         self._link_evidence = None' \
-    '        #: TICKET-P4-heartbeat segment W -- see the class attributes of the same names.
+    '        #: Heartbeat link evidence and when it was last evaluated -- see the class attributes of the same names.
         #: [Co-developed with claude code -- Adam]
         self._link_evidence = link_heartbeat.HeartbeatEvidence((), period_s=5)')
 report "T20: every manager gets heartbeat evidence attached" "$m" "test_no_evidence_is_attached_by_default"
@@ -919,7 +919,7 @@ report "M21: a frame at a host is never named" "$m" "test_a_frame_that_reached_a
 m=$(mutant m22 "$MAIN" \
     '        "census": HEARTBEAT_CENSUS,' \
     '        "census": {},')
-report "M22: segment S's census is not served" "$m" \
+report "M22: the census is not served" "$m" \
        "test_the_block_carries_the_live_counters_and_segment_s_census"
 m=$(mutant m23 "$MAIN" \
     '    if not _fabric.get("declared_links") or _fabric.get("heartbeat_watchdog") is None:
@@ -1012,7 +1012,7 @@ report "A07: delete_strict is not the delete handler" "$m" "test_both_delete_rou
 # a rename in the writer and a proxy reading `heartbeat_report_unreadable` (or zero hosts) live.
 echo "the census, and the helper's report as the proxy reads it"
 m=$(mutant m28 "$MAIN" \
-    '               "skeletons do not build. Segment S'"'"'s census started the heartbeat by hand (the "
+    '               "skeletons do not build. The census started the heartbeat by hand (the "
                "helper, not ndt) on all 20. Since 2026-09-27 `ndt up p4 --app` is EXPECTED to "
                "start it on all 20 too -- on the 3 external control planes among them (p4runtime "
                "skeleton and solution, flowcache solution) detect only, and since 2026-09-28 only "
@@ -1027,7 +1027,7 @@ m=$(mutant m28 "$MAIN" \
                "egress_spec stays 0 -- that no port 0 exists is inferred from bmv2), and the drop "
                "check agrees on a throwaway bmv2 with each program loaded and no controller "
                "(flowcache drops it at ingress; advanced_tunnel sends it to port 0, which no "
-               "switch of the fabric has). Segment S'"'"'s census ran them with no controller: each "
+               "switch of the fabric has). The census ran them with no controller: each "
                "switch ran the package'"'"'s compiled program (the daemon'"'"'s report names "
                "advanced_tunnel.json or flowcache.json for every switch) with no table entry, "
                "every direction heard all 5 frames sent and no host saw one -- the programs'"'"' "
@@ -1049,11 +1049,11 @@ report "M28b: the census stops saying what the drop check does not cover" "$m" \
 # [Co-developed with claude code -- Adam] The sentence about the earlier raw goes back
 # to "no pipeline was loaded", which that raw contradicts.
 m=$(mutant m28d "$MAIN" \
-    '               "switch of the fabric has). Segment S'"'"'s census ran them with no controller: each "
+    '               "switch of the fabric has). The census ran them with no controller: each "
                "switch ran the package'"'"'s compiled program (the daemon'"'"'s report names "' \
-    '               "switch of the fabric has). Segment S'"'"'s census ran them with no controller, so no "
+    '               "switch of the fabric has). The census ran them with no controller, so no "
                "pipeline was loaded (the daemon'"'"'s report names "')
-report "M28d: the census says segment S loaded no pipeline" "$m" \
+report "M28d: the census says no pipeline was loaded" "$m" \
        "test_the_census_names_the_punt_blind_spot_on_external_control_planes"
 m=$(mutant k01 "$HELPER" \
     '        end = lambda port: {"dpid": port.dpid, "port": port.port, "ifname": port.ifname}' \

@@ -145,7 +145,7 @@ add_anchor "on-clears"       "$OVS" '        topoMonitor->clearVertexAdminPowerO
         return finishTelemetryRestore(node, swName, saved, topoMonitor);'
 add_anchor "seam-exit2"      "$OVS" '    if (WIFEXITED(waitStatus) && WEXITSTATUS(waitStatus) == 2)'
 add_anchor "absent-log"      "$OVS" '                       "{} has no bridge on this machine, so there was nothing to tear down. "'
-add_anchor "off-comment"     "$OVS" '    // FINDINGS #82. The question this used to ask was `getVertexIsUp`, and the graph is a'
+add_anchor "off-comment"     "$OVS" '    // The question this used to ask was `getVertexIsUp`, and the graph is a'
 
 echo "=== anchor uniqueness (exact substring count must be 1) ==="
 anchor_ok=1
@@ -319,7 +319,7 @@ BIN_SHA_BEFORE=$(sha256sum "$BIN" | cut -c1-16)
 
 run_tests "$FILTER"
 case "$STATUS" in
-  pass) echo "  ok       baseline green ($(grep -c '^\[       OK \]' <<<"$OUT") cases in the #82 filter)" ;;
+  pass) echo "  ok       baseline green ($(grep -c '^\[       OK \]' <<<"$OUT") cases in the filter)" ;;
   hang) echo "🔴 BASELINE HUNG (>${TEST_TIMEOUT}s). Not a red; the gate cannot proceed." >&2; exit 2 ;;
   *)    echo "🔴 THE BASELINE IS ALREADY RED: $FAILED $DIED_IN" >&2
         echo "   Every 'expect red' below would be meaningless. Stopping." >&2; exit 2 ;;
@@ -454,8 +454,8 @@ mutate "the existing-bridge power-on never withdraws the command" \
 #     rebuilt" rather than "the behaviour changed".
 widen "a comment, nothing else" \
     "$OVS" \
-    '    // FINDINGS #82. The question this used to ask was `getVertexIsUp`, and the graph is a' \
-    '    // FINDINGS #82. This used to ask `getVertexIsUp`, and that graph field is a'
+    '    // The question this used to ask was `getVertexIsUp`, and the graph is a' \
+    '    // This used to ask `getVertexIsUp`, and that graph field is a'
 
 # W2. The absent-path log line reworded. The INFO is a diagnostic: a suite that reddens here is
 #     pinning a string, and the next person to improve the message would have to change a test.
@@ -519,7 +519,7 @@ printf '  %d widenings, %d wrongly caught\n' "$WIDENINGS" "$WIDENINGS_CAUGHT"
 
 if [[ "$ok" != 1 ]]; then exit 2; fi
 if (( SURVIVORS > 0 || WIDENINGS_CAUGHT > 0 )); then exit 1; fi
-echo "  FINDINGS #82 gate: the early return cannot be put back by any of seven routes, a"
+echo "  OVS power-off gate: the early return cannot be put back by any of seven routes, a"
 echo "  power-off that stops deleting bridges and a power-on that stops building them are"
 echo "  caught too, and three behaviour-preserving edits were left alone."
 exit 0

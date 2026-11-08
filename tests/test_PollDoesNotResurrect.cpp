@@ -15,17 +15,17 @@
  * was a one-way ratchet: the only thing it could ever say about a switch's power was "up".
  *
  * That matters because being listed is not evidence of being powered. The P4 proxy went on
- * listing a killed switch for D = 3.06 s after it died (round3 07_), so a power-off landing
+ * listing a killed switch for D = 3.06 s after it died (live run), so a power-off landing
  * shortly before a poll was undone by that poll -- and because nothing on the discovery path
  * ever writes false, the resurrection was permanent, re-asserted every 30 s for ever.
  *
- * Measured on the live 10-switch bmv2 fabric (round3 08_/09_/11_):
+ * Measured on the live 10-switch bmv2 fabric (live runs):
  *   - power-off fired ~1.5 s BEFORE the next poll  -> lost 8 times in 14
  *   - power-off fired ~2 s AFTER a poll            -> lost 0 times in 4
  *   - every loss put is_up back to 1 at t_off + 2.31 s -- the instant the poll that still listed
  *     the switch was applied. A phase-dependent defect, not a flaky one.
  *
- * #35 is the other half and is what made it unrecoverable (#36): both power directions returned
+ * The other half is what made it unrecoverable: both power directions returned
  * early on the graph's `isUp`. After a resurrection the graph said up, so `power on` returned
  * 200 "Success" in ~1 ms having run no command -- 4 of 4 past the 15 s distrust window -- and the
  * switch could only be recovered out of band.
@@ -44,7 +44,7 @@
  *
  * plus the seam that makes (1) possible -- the observation writers (setVertexUp/setVertexDown,
  * which the 1 Hz pingWorker calls) must not be able to set or clear the commanded state -- and
- * the two #35 early returns, each asserted by the commands that did or did not reach the seam.
+ * the two early returns on the graph's `isUp`, each asserted by the commands that did or did not reach the seam.
  *
  * WHY THE FIXTURE STARTS THE POWER MANAGER TOO
  *
@@ -366,7 +366,7 @@ TEST_F(PollDoesNotResurrectTest, ACommandedPowerOffSurvivesTheNextPollThatStillL
     m_monitor->pollSwitches(switchListing(kDpid));
 
     EXPECT_FALSE(isUp())
-        << "the topology poll marked a commanded-off switch up again. This is FINDINGS #46: the "
+        << "the topology poll marked a commanded-off switch up again. The "
            "control plane lists a switch it has not yet noticed is gone, and being listed is not "
            "evidence of being powered";
 }
@@ -501,12 +501,12 @@ TEST_F(PollDoesNotResurrectTest, PowerOffActuatesEvenWhenTheGraphAlreadySaysDown
     EXPECT_EQ(r.ok, true);
     EXPECT_TRUE(p4.ran("ndtwin-p4-power off s1"))
         << "power-off returned success without running a single command, because the graph "
-           "already said down. FINDINGS #35: the graph is a cache of someone else's opinion, and "
+           "already said down. The graph is a cache of someone else's opinion, and "
            "'Success' has to mean /proc was consulted";
 }
 
 /**
- * Power-on, past the distrust window. This is #36 exactly: after the poll resurrected a dead
+ * Power-on, past the distrust window. This is the unrecoverable case exactly: after the poll resurrected a dead
  * switch, `power on` saw `isUp == true`, the 15 s window had expired, and it returned Success in
  * ~1 ms having run nothing -- 4 of 4. The switch was only recoverable out of band.
  *
@@ -543,7 +543,7 @@ TEST_F(PollDoesNotResurrectTest, PowerOnActuatesWhenACommandedOffIsStillStanding
     EXPECT_EQ(r.ok, true);
     EXPECT_TRUE(p4.ran("ndtwin-p4-power on s1"))
         << "power-on returned success without starting anything. The graph said up because a poll "
-           "had put it there; the process was gone. This is what made #46 unrecoverable";
+           "had put it there; the process was gone. This is what made the resurrection unrecoverable";
     EXPECT_TRUE(p4.ran("/p4/readopt/"))
         << "the process was started but never re-adopted: a bmv2 with no pipeline forwards nothing";
 }
@@ -636,8 +636,8 @@ TEST_F(PollDoesNotResurrectTest, ARedundantOvsPowerOffIsStillRecordedAsACommand)
         << "deleted a bridge that ovs-vsctl says is not there; on a fabric whose bridge names are "
            "reused that is somebody else's switch";
     EXPECT_TRUE(m_monitor->getVertexAdminPoweredOff(sw()))
-        << "the redundant power-off returned 200 and recorded nothing. FINDINGS #82: on OVS this "
-           "is how a power-off stopped being protected by #46 at all";
+        << "the redundant power-off returned 200 and recorded nothing. On OVS this "
+           "is how a power-off stopped being protected by the commanded-off veto at all";
 
     m_monitor->pollSwitches(switchListing(kDpid));
 
@@ -680,7 +680,7 @@ TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeCarriesAdminStateAndReacha
            "commanded off";
     EXPECT_FALSE(j.value("reachable", true))
         << "the observed half must still say the poll did not resurrect it";
-    EXPECT_TRUE(j.contains("is_up")) << "is_up is what four consumers read; the ruling keeps it "
+    EXPECT_TRUE(j.contains("is_up")) << "is_up is what four consumers read; it is kept "
                                         "as an alias rather than removing it";
     EXPECT_EQ(j.value("is_up", true), j.value("reachable", false))
         << "the alias drifted from the field it aliases";

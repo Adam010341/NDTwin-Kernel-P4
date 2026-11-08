@@ -1,5 +1,5 @@
 // [Co-developed with claude code -- Adam]
-// manual/zh.md -> <static>/manual.html (SCOPE-v2 section 7), with marked. The page it makes has no
+// manual/zh.md -> <static>/manual.html, with marked. The page it makes has no
 // script, no inline style and no handler, and links ./app.css only: the server's CSP applies to it
 // as to the page, and the classes it uses (manual/style.json) are in app.css because Tailwind's
 // `content` scans that file. Any of those in the output fails the build instead of shipping.

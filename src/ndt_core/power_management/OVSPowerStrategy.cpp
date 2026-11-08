@@ -577,7 +577,7 @@ OVSPowerStrategy::powerOff(Graph::vertex_descriptor node,
                            TopologyAndFlowMonitor* topoMonitor)
 {
     // [Co-developed with claude code -- Adam]
-    // FINDINGS #82. The question this used to ask was `getVertexIsUp`, and the graph is a
+    // The question this used to ask was `getVertexIsUp`, and the graph is a
     // cache of somebody else's opinion about this bridge. It reads false for a bridge that is
     // present and forwarding in at least four states: a freshly loaded topology (every vertex
     // starts false), a `list-br` that failed or was refused, an ordinary liveness blip, and --

@@ -1,6 +1,6 @@
 // [Co-developed with claude code -- Adam]
-// The short-id display rule, decided here and nowhere else (orchestrator's ruling on SCOPE-v2
-// section 11, decision 4). A job id is `20260927T062127Z-a8a334`, a walk id `g...`, a read id `r...`:
+// The short-id display rule, decided here and nowhere else.
+// A job id is `20260927T062127Z-a8a334`, a walk id `g...`, a read id `r...`:
 // the first eight characters would be the date and tell nothing apart, so the short form is the
 // id's own HHMM (UTC, as the id carries it) and its six random characters: `0621·a8a334`. Any other
 // shape shows its first eight characters. The whole id is always one hover (title) or one click

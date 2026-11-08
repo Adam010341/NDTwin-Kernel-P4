@@ -1,5 +1,5 @@
 // [Co-developed with claude code -- Adam]
-// FINDINGS #47. See include/utils/FdHygiene.hpp for what this exists to prevent.
+// See include/utils/FdHygiene.hpp for what this exists to prevent.
 
 #include "utils/FdHygiene.hpp"
 

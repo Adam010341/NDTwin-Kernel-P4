@@ -282,7 +282,7 @@ mutate_must_die \
 
         // [Co-developed with claude code -- Adam]
         // A switch that is down gets the documented sentinel, not a missing key.' \
-    '        // FINDINGS #85, and the site the gdb backtrace named. Was'
+    '        // The site the gdb backtrace named. Was'
 
 # --- M2: the same defect on the power path -----------------------------------------------------
 # statusUpdateWorker calls the power report FIRST, so in TESTBED mode this is the site that would
@@ -355,7 +355,7 @@ mutate_must_die \
 
         // [Co-developed with claude code -- Adam]
         // A switch that is down gets the documented sentinel, not a missing key.' \
-    '        // FINDINGS #85, and the site the gdb backtrace named. Was'
+    '        // The site the gdb backtrace named. Was'
 
 # --- M6: the CPU sentinel becomes 0 ------------------------------------------------------------
 # 0 is the specific wrong answer this endpoint has produced before. A sentinel inside the
@@ -441,7 +441,7 @@ mutate_must_die \
 mutate_must_live \
     "C1 control-comment-only" \
     "$SRC" \
-    '// FINDINGS #85. See the four declarations in the header for why these exist and what they refuse' \
+    '// See the four declarations in the header for why these exist and what they refuse' \
     '// CONTROL EDIT: comment text only, no behaviour change. See the header for the reasoning'
 
 # --- C2: control, the empty check rewritten --------------------------------------------------

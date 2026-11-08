@@ -12,8 +12,8 @@ Run it as ONE command from your own terminal (interactive sudo lives there):
 
 It brings the exercise up exactly the way ``utils/run_exercise.py`` does, then
 -- instead of dropping into the Mininet CLI -- runs a scripted set of steps,
-compares what came back against the expectations recorded in
-``M7-source_routing.md``, prints a pass/fail table and writes a run report.
+compares what came back against the per-exercise expectations written out
+in this file, prints a pass/fail table and writes a run report.
 Nothing is typed by hand and no xterm is spawned.
 
 Why the pieces are shaped the way they are (all read out of the callee sources,
@@ -201,7 +201,7 @@ EXERCISES = {
     #                 The skeleton arm runs that path and the solution arm runs
     #                 solution/<basename>, which is how live-p1/03 already drives p4runtime.
     #   `needs`       a property of the FABRIC this exercise's expectations depend on, named
-    #                 so a red run can be read. "shaped_links" is G2-C.
+    #                 so a red run can be read. "shaped_links" is link-shaping support.
     "basic_tunnel": {
         "topo": "topology.json",
         "prog": "basic_tunnel.p4",
@@ -327,7 +327,7 @@ EXERCISES = {
         "default_prog": "qos.p4",
         "hosts": 5, "switches": 3,
         # 🔴 qos's topology.json has NO throttled link (unlike ecn's and mri's, whose
-        # :65-69 carries `"0", 0.5`), so this exercise does not need G2-C.
+        # :65-69 carries `"0", 0.5`), so this exercise does not need link shaping.
         "plan_steps": ("h2 receive.py; h1 send.py --p=UDP then --p=TCP; "
                        "assert ipv4.tos (solution 0xb9 / 0xb1, skeleton 0x1)"),
     },
@@ -365,8 +365,8 @@ BG_SECONDS = 20       # s of the mri background iperf -u (must outlast SEND_SECO
 # was marked and still inside s1 when the sniffer was stopped. Two of the six carried the
 # answer that time. 60 is the README's own advice for this exact failure (troubleshooting
 # item 5, README:198: "use a larger duration value (e.g., 60) when calling send.py"), and the
-# arithmetic that says it is enough is in the test class TheEcnProbeTrain (one line of it in
-# DRIVER.md §6.2). mri and qos keep SEND_SECONDS / BG_SECONDS: neither reads a congestion mark.
+# arithmetic that says it is enough is in the test class TheEcnProbeTrain.
+# mri and qos keep SEND_SECONDS / BG_SECONDS: neither reads a congestion mark.
 ECN_PROBES = 60
 #: How long `_send_once` lets the ecn sender live. 60 probes at the 1.02-1.03 s spacing of that
 #: s1.log is ~62 s, and SEND_TIMEOUT (60 s) would kill the train before its tail -- silently.
@@ -625,7 +625,7 @@ def lab_is_free(fields, now=None):
     """(ok, why) for the two fields _common.sh's require_free_lab reads.
 
     🔴 BOTH FIELDS, NOT ONE.  `measuring=` is the only channel a session has for
-    "you cannot see what I am running from the process table" (ROLE-4 T2d), and a
+    "you cannot see what I am running from the process table", and a
     claim can be held with nothing declared -- so a live claim somebody else holds
     refuses, and a live claim of ours that DECLARES a measurement refuses too.
     An expired claim is not a claim.
@@ -1238,7 +1238,7 @@ class Steps(object):
                       "README step 3: the message should be delivered")
             self._add("ttl multiset {2 3 2 2 1 ; 2 1}", "[59, 62]", str(ttls),
                       ttls == [59, 62], G_BOTH,
-                      "M7 section 2: 5 hops -> 64-5=59; shortest path 2 hops -> 62")
+                      "5 hops -> 64-5=59; shortest path 2 hops -> 62")
             bad = [p for p in pkts if p["srcroute"]]
             self._add("no SourceRoute layer left at h2", "0 blocks", "%d blocks" % len(bad),
                       not bad, G_SRC,
@@ -1320,7 +1320,7 @@ class Steps(object):
         else:
             self._add("pingall loss (ping -c 5, every ordered pair)", "100.0%", pa.label(),
                       loss == 100, G_BOTH,
-                      "see the derivation in DRIVER.md: basic.p4:66-74 / :119-129 / :147 / :202-211")
+                      "the skeleton basic.p4 (lines 66-74, 119-129, 147 and 202-211) forwards no packet")
             self._add("h1 ping -c3 h2 received", "0", str(rx),
                       rx == 0, G_SRC)
             self._add("h2 got the send.py packet", "0", str(len(pkts)),
@@ -1544,7 +1544,7 @@ class Steps(object):
     # 🔴 EVERY EXPECTATION BELOW IS [source-derived, not run] OR [README claim] UNTIL THE
     # LIVE ROUND. None of the nine has been run on either fabric by the session
     # that wrote them; what the offline suite asserts is that the driver ASKS the question this
-    # way and that the two arms are distinguishable. DRIVER.md §6 carries the grade per cell.
+    # way and that the two arms are distinguishable. A cell's grade is its G_SRC / G_BOTH tag.
 
     # -- shared readers -------------------------------------------------------------------
 
@@ -1828,14 +1828,14 @@ class Steps(object):
     def steps_ecn(self):
         """exercises/ecn, README step 1.8 (skeleton) and step 3 (solution).
 
-        🔴 THIS ARM NEEDS A QUEUE, AND THE QUEUE NEEDS G2-C. ecn.p4:9 sets ECN_THRESHOLD = 10
+        🔴 THIS ARM NEEDS A QUEUE, AND THE QUEUE NEEDS LINK SHAPING. ecn.p4:9 sets ECN_THRESHOLD = 10
         and the solution only marks when `standard_metadata.enq_qdepth >= ECN_THRESHOLD`
         (solution/ecn.p4:131-139). The only thing that builds a queue here is
         topology.json:65-69's `[ "s1-p3", "s2-p3", "0", 0.5 ]` -- a 0.5 Mbit/s link. On a
         fabric that does not shape that link the queue is empty, `tos` never leaves 0x1, and
-        the SOLUTION arm is red for a reason that is not about ecn.p4. spec["needs"] says so
-        and DRIVER.md §6 repeats it; this exercise stays out of the gate until
-        G2-C lands.
+        the SOLUTION arm is red for a reason that is not about ecn.p4. spec["needs"] names it;
+        build_net shapes that link (TCLink) when the package declares a bandwidth
+        (app_package.shaped_links()), and without it this arm is red as above.
 
         🔴 THE PROBES THAT REACH h2 ARE THE SAMPLE, SO THERE ARE ECN_PROBES OF THEM, NOT
         SEND_SECONDS (the why is at ECN_PROBES). The background's
@@ -1896,7 +1896,7 @@ class Steps(object):
                       str(sorted(set(tos))), "0x3" in tos, G_BOTH,
                       "README step 3: 'tos values change from 1 to 3 as the queue builds up'; "
                       "solution/ecn.p4:131-139 sets ecn=3 when enq_qdepth >= 10. Needs the "
-                      "0.5 Mbit/s link of topology.json:65-69 (G2-C).")
+                      "0.5 Mbit/s link of topology.json:65-69 (shaped_links).")
         else:
             self._add("RED ARM: every tos stays 0x1", "['0x1']", str(sorted(set(tos))),
                       bool(tos) and set(tos) == {"0x1"}, G_BOTH,
@@ -1916,7 +1916,7 @@ class Steps(object):
         two switches h1 -> s1 -> s2 -> h2 crosses.
 
         🔴 `qdepth` IS DELIBERATELY NOT ASSERTED. It is 0 unless the 0.5 Mbit/s link of
-        topology.json:65-69 is shaped (G2-C), and README's own troubleshooting item 4 is
+        topology.json:65-69 is shaped (shaped_links), and README's own troubleshooting item 4 is
         about exactly that; `count` and the swids are the exercise's claim and need no queue.
         """
         srv, cli, fh = self._background_udp("h11", "h22", self.ips["h22"], rate="1M")
@@ -2058,7 +2058,7 @@ class Steps(object):
         # only the MULTICAST GROUP (:47-65) that leaves port 4 out. So an ARP request from hX
         # floods to ports 1,2,3 and never reaches h4 (hX -> h4 is 100% loss), while h4's own
         # ARP request floods to 1,2,3 and IS answered, and the unicast reply hits h4's
-        # mac_forward entry: h4 -> hX forwards at 0%. Round 1 asserted 100% on all six pairs
+        # mac_forward entry: h4 -> hX forwards at 0%. An earlier version asserted 100% on all six pairs
         # and would have been red on three of them for a fabric behaving exactly as the
         # exercise describes.
         to_h4 = [r for (s, d), r in sorted(pa.results.items()) if d == "h4"]
@@ -2713,7 +2713,7 @@ def ndtwin_teardown(knob_before, steps_out=None, telemetry_before=None):
     p4_proxy/mininet/host_count_override -- exercises/source_routing declares THREE hosts, so
     that file moves off 4 the first time this driver runs that exercise -- `ndt down` does not
     put it back, and `ndt release` REFUSES while it differs from what the round started at
-    (ndt:885-898, E-11b). A teardown without the restore therefore ends with the lab still
+    (the host-count check in `ndt release`). A teardown without the restore therefore ends with the lab still
     claimed by a driver that printed PASS and exited 0, which is the one failure this whole
     step exists to make impossible.
     """
@@ -2781,11 +2781,11 @@ def convert_p4_arg(exdir, spec, which):
 #: pass: the verdict is `RED ARM (n/n): ... by design` and the exit code is 1 -- the pair
 #: `flowcache`'s compile arm has always reported.
 #:
-#: 🔴 A DICT, AND MODULE-LEVEL, BECAUSE BOTH FABRICS HAVE TO SET IT. Round 2 hung it on
+#: 🔴 A DICT, AND MODULE-LEVEL, BECAUSE BOTH FABRICS HAVE TO SET IT. An earlier version hung it on
 #: `run_on_ndtwin`, which is only reachable from the NDTwin path, and then read it under
 #: `args.fabric == "ndtwin"` -- so `basic_tunnel`'s skeleton still printed `PASS (1/1)` / exit 0
-#: on tutorials while printing `RED ARM (1/1)` / exit 1 on NDTwin. That is the same defect A6
-#: named, half-fixed: ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS. The tutorials refusal
+#: on tutorials while printing `RED ARM (1/1)` / exit 1 on NDTwin. That is the same defect,
+#: half-fixed: ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS. The tutorials refusal
 #: happens inside the harness (`program_switches` raises) rather than in a pre-flight, but it is
 #: the same refusal, for the reason README:41-43 gives.
 DESIGNED_REFUSAL = {"hit": False}
@@ -3023,7 +3023,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                 else:
                     run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
                         # 🔴 THE STRING SAYS WHAT THE CELL ACTUALLY ASSERTS.
-                        # It said `off-path == 0` -- which is the rule R4 REMOVED, because a single
+                        # It said `off-path == 0` -- which is the rule a later change removed, because a single
                         # sampled LLDP beacon (1/256, banked as 256x its frame length) would red a
                         # correct fabric at random. An expectation line that names a bound nobody
                         # applies is worse than none: a reader reconciling a green cell against it
@@ -3516,7 +3516,7 @@ def main():
     # `basic_tunnel`'s skeleton cannot install its own runtime entries -- README:41-43
     # says so -- and the round therefore ends non-zero having met every expectation it has. On
     # the tutorials fabric the refusal lands as a harness exception and on NDTwin as a pre-flight
-    # rc; BOTH set DESIGNED_REFUSAL, and this branch does not ask which fabric it was. Round 2
+    # rc; BOTH set DESIGNED_REFUSAL, and this branch does not ask which fabric it was. An earlier version
     # asked, and `basic_tunnel`'s skeleton went on reading two ways.
     designed = DESIGNED_REFUSAL["hit"]
     if designed and expects and not failed:

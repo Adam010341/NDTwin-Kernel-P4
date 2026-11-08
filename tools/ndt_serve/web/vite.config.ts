@@ -1,10 +1,10 @@
 // [Co-developed with claude code -- Adam]
-// The page's build (SCOPE-v2 section 2 and 4). Output: EXACTLY index.html, app.js and app.css in the
+// The page's build. Output: EXACTLY index.html, app.js and app.css in the
 // static directory ndt serve reads at start; scripts/build-manual.mjs adds manual.html and
 // scripts/write-build-manifest.mjs adds BUILD.json and refuses any other file there.
 //
 //   * base './': the page refers to ./app.js and ./app.css and assumes nothing about where it is
-//     mounted (section 10).
+//     mounted.
 //   * one chunk, one stylesheet, fixed names: the server looks a path up in a table, it never joins
 //     one onto a directory, so the file set must not depend on the build.
 //   * no modulepreload polyfill and no sourcemap: nothing inline, nothing extra.

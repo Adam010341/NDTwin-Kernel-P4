@@ -301,7 +301,7 @@ class StubHosts(object):
     def flush_arp(self):
         """🔴 RECORDED IN ORDER, NOT JUST COUNTED.
 
-        Round 3's cell counted flushes and got 2 either way -- so an arm that flushed AFTER the
+        An earlier cell counted flushes and got 2 either way -- so an arm that flushed AFTER the
         pingall, which is the same as not flushing at all for the pairs that matter, passed it.
         `events` is the sequence, and the cell below reads the sequence.
         """
@@ -1120,7 +1120,7 @@ class TheReport(unittest.TestCase):
 #
 # 🔴 WHAT THESE CELLS CAN AND CANNOT SAY. Not one of the nine has ever been run on either
 # fabric by the session that wrote them. Every expectation in the driver is
-# [source-derived, not run] or [README claim] (DRIVER.md §6 grades each one), and what is asserted
+# [source-derived, not run] or [README claim] (each cell carries its grade), and what is asserted
 # here is only that the driver ASKS the question that way, and that the two arms of each
 # exercise are DISTINGUISHABLE -- the solution's own output must fail the skeleton's check and
 # the skeleton's must fail the solution's. Without that second half a pair of arms can both be
@@ -1648,7 +1648,7 @@ class TheEcnProbeTrain(unittest.TestCase):
     These cells hold the fix: ecn gets its own probe count (sized below
     from those numbers) and its own background, which outlasts the whole train; mri and qos keep
     the shared constants; both arms assert exactly what they asserted before. The arithmetic is
-    INFERRED -- probes behind one queue are not independent draws (DRIVER.md §6.2).
+    INFERRED -- probes behind one queue are not independent draws.
     """
 
     #: OBSERVED, the ten 09-24 ndtwin solution runs: probes sent, and how many reached h2 as 0x3.
@@ -1859,7 +1859,7 @@ class TheMriArms(unittest.TestCase):
         self.assertFalse(v["RED ARM: the hop count stays 0"].ok)
 
     def test_qdepth_is_not_asserted_in_either_arm(self):
-        """🔴 It is 0 without the 0.5 Mbit/s link of topology.json:65-69 (G2-C), and this
+        """🔴 It is 0 without the 0.5 Mbit/s link of topology.json:65-69 (shaped_links), and this
         exercise's claim is the count and the swids. A cell on qdepth would make mri red for
         a property of the fabric rather than of mri.p4."""
         for which in ("solution", "skeleton"):
@@ -2277,7 +2277,7 @@ class TheOverLongWindowRefusalIsNotATwinDefect(unittest.TestCase):
     """
 
     #: What `link_usage_round` really prints on that path: the derivation, then the refusal,
-    #: then its summary line. (The same 100,000 bit/s package §12b of
+    #: then its summary line. (The same 100,000 bit/s package
     #: tests/shell/test_live_p1_common.sh drives the shell side with: 308 s against a 200 s
     #: limit.)
     WINDOW_OUT = (
@@ -2530,7 +2530,7 @@ class TheMulticastArms(unittest.TestCase):
     def test_the_first_flush_happens_BEFORE_the_pingall(self):
         """🔴 A FLUSH AFTER THE PINGALL IS NOT A FLUSH AT ALL.
 
-        Round 3's cell counted flushes; it got 2 whether the first one ran before or after the
+        An earlier cell counted flushes; it got 2 whether the first one ran before or after the
         walk, so an arm that measured from whatever ARP state the fabric was already in passed
         it. What the expectation rests on is that hX -> h4 is measured while nobody holds h4's
         MAC -- which is a statement about ORDER, so this reads the order.
@@ -2561,7 +2561,7 @@ class TheMulticastArms(unittest.TestCase):
         self.assertIn("ping", ev, ev)
         # 🔴 EVERY PING, NOT "THE FIRST ONE AFTER". A later change rewrote
         # this cell's words and not its meaning: `after` being non-empty is the same statement
-        # as "the LAST ping is after last_flush" (round 5's), and the equality that followed was
+        # as "the LAST ping is after last_flush" (an earlier version's), and the equality that followed was
         # a tautology -- `ev[last_flush]` IS the flush, so the pings in `ev[last_flush:]` are
         # exactly `after`, and `len(after) == len(after)` holds for anything. The arm the
         # comment claimed to block -- a flush in the MIDDLE of the re-measure,
@@ -2842,14 +2842,14 @@ class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
         return os.path.join(self.root, "exercises", exercise)
 
     #: The two states of THIS process's PYTHONPATH the guards are run in: none at all, and one the
-    #: caller's shell exported (round 2: with none, "the arm keeps the environment it always had"
+    #: caller's shell exported (an earlier version: with none, "the arm keeps the environment it always had"
     #: could not see an arm that LOST an inherited value -- there was no value to lose).
     INHERITED = (None, "/somewhere/else")
 
     def environment_before(self, inherited):
         """Put this process's PYTHONPATH in state `inherited`.  -> the env the child must get.
 
-        🔴 SNAPSHOT BEFORE THE CALL (round 2). Round 1 built `want` from os.environ AFTER the
+        🔴 SNAPSHOT BEFORE THE CALL. The first version built `want` from os.environ AFTER the
         driver had run, so a driver that edited its own os.environ would have been compared with
         its own edit. setUp's cleanups take whatever is set here away again.
         """
@@ -2878,7 +2878,7 @@ class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
             return fake_controller("")(argv, **kw)
         self.mod.local_popen = record
         self.mod.CTRL_SETTLE = 0            # the same wait steps_for() zeroes
-        #: What the driver printed, line by line -- quiet() threw it away, and round 2 reads the
+        #: What the driver printed, line by line -- quiet() threw it away, and a later check reads the
         #: `$ ...` start line (the transcript's copy of the command).
         self.said = []
         self.mod.say = lambda *parts: self.said.append(" ".join(str(p) for p in parts))
@@ -2959,7 +2959,7 @@ class TheSolutionControllerFindsTheTutorialsLibrary(unittest.TestCase):
                          [os.path.normpath(p) for p in kw["env"]["PYTHONPATH"].split(os.pathsep)])
 
     def test_the_printed_start_line_carries_the_prefix_on_the_solution_arm_only(self):
-        """The transcript's `$ ...` line is the other copy of the command (round 2): it must say
+        """The transcript's `$ ...` line is the other copy of the command: it must say
         what C1 says -- PYTHONPATH=<utils> on the tutorials solution arm, and nothing of the kind
         on the three arms whose environment this fix does not touch."""
         arms = (("tutorials", "solution", None), ("tutorials", "skeleton", None),
@@ -3075,7 +3075,7 @@ class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
         basic_tunnel's skeleton cannot install its own runtime entries -- README:41-43 -- and
         the round therefore ends non-zero having met every expectation it has. On the tutorials
         fabric the harness raises and the driver records `PASS (1/1)`; on NDTwin the pre-flight
-        refuses, `run_on_ndtwin` returns 1, and round 1's main() printed the word it prints for
+        refuses, `run_on_ndtwin` returns 1, and the first main() printed the word it prints for
         a driver that fell over: ERROR.
         """
         mod = load_driver()
@@ -3106,10 +3106,10 @@ class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
     def test_the_tutorials_arm_reads_the_same_as_the_ndtwin_one(self):
         """🔴 ONE EXERCISE, ONE VERDICT, ON BOTH FABRICS.
 
-        Round 2 fixed only the NDTwin half: the flag lived on `run_on_ndtwin` and the verdict
+        An earlier version fixed only the NDTwin half: the flag lived on `run_on_ndtwin` and the verdict
         asked `args.fabric == "ndtwin"`, so `basic_tunnel/skeleton` still printed `PASS (1/1)`
         and exited 0 on tutorials while printing `RED ARM (1/1)` and exiting 1 on NDTwin -- the
-        same defect A6 named, half-done. The refusal arrives differently (a harness exception
+        same defect, half-done. The refusal arrives differently (a harness exception
         from `program_switches`, not a pre-flight rc); it is the same refusal.
         """
         mod = load_driver()
@@ -3362,7 +3362,7 @@ class TheGenericLinkUsageCell(unittest.TestCase):
     def test_the_generic_cell_states_the_bound_it_actually_applies(self):
         """🔴 AN EXPECTATION LINE THAT NAMES A BOUND NOBODY APPLIES IS WORSE THAN NONE.
 
-        R4 replaced "off-path integrates to exactly 0" with a floor, because after the kernel
+        A later change replaced "off-path integrates to exactly 0" with a floor, because after the kernel
         merge a single sampled LLDP beacon (1/256, banked as 256x its frame length) would red a
         correct fabric at random. The Expect's `want` string went on saying `off-path == 0`,
         so a reader reconciling a GREEN cell against it would conclude the
@@ -3680,7 +3680,7 @@ class TheSuiteLeavesNoLitter(unittest.TestCase):
     def test_no_drv_temp_directory_outlives_this_run(self):
         """🔴 ONLY THE ONES THIS PROCESS MADE.
 
-        Round 2 asserted on every `/tmp/drv-*` on the machine. Two copies of this suite running
+        An earlier version asserted on every `/tmp/drv-*` on the machine. Two copies of this suite running
         at once -- which is exactly what a mutation gate does, and what the overnight fleet does
         across worktrees -- would then red each other: B's live directories are not A's litter.
         The suite can only honestly speak for its own.

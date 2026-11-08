@@ -45,8 +45,8 @@
 #   tests/shell/mutate_p4_priority_refusal.sh --dry-run  anchors only, NOT a gate result
 #
 # No build lane and no build: the change is entirely in the proxy, because only the proxy knows
-# which table a match compiles to (needs_five_tuple). See DECISION-P4-PRIORITY.md for why the
-# refusal was not duplicated into the kernel.
+# which table a match compiles to (needs_five_tuple), so the
+# refusal is not duplicated into the kernel.
 #
 # Exit: 0 every mutation caught, 1 a mutation survived, 2 refused (harness fault only).
 set -uo pipefail
@@ -254,9 +254,9 @@ each_mutation() {
         'test_a_five_tuple_match_at_the_same_priority_is_not_refused'
 
     # The refusal is widened to the install path, silently overturning the 2026-08-30 decision
-    # that an install naming a priority ipv4_lpm cannot honour is disclosed, not refused. That is the owner's decision,
+    # that an install naming a priority ipv4_lpm cannot honour is disclosed, not refused. That is a deliberate decision,
     # not a maintenance edit, so a test names it and reddens when someone takes it.
-    "$m" "7. the refusal is widened to the install path, overturning the standing ruling" "$API" \
+    "$m" "7. the refusal is widened to the install path, which must disclose, not refuse" "$API" \
         '    # 400 with the offending field names, rather than servicing a narrowed version of the rule' \
         '    _refuse_unhonourable_priority(data, match, "install")
     # 400 with the offending field names, rather than servicing a narrowed version of the rule' \
