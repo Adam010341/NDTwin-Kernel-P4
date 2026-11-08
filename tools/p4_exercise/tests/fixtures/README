@@ -50,7 +50,9 @@ of build artifacts in this tree, so the exemption cannot rot into a silent pass)
   package that does not carry those artefacts cannot be converted at all. Produced with:
 
     p4c-bm2-ss --p4v 16 --p4runtime-files build/<stem>.p4.p4info.txtpb \
-               -o build/<stem>.json /home/adam/tutorials/exercises/<exercise>/<stem>.p4
+               -o build/<stem>.json <tutorials>/exercises/<exercise>/<stem>.p4
+
+  (<tutorials> is the p4lang/tutorials checkout the artifacts were compiled from.)
 
   p4c-bm2-ss 1.2.5.15 (SHA 5b948b037a BUILD: Release), /usr/local/bin/p4c-bm2-ss.
   A bmv2 json's `program` is the source path exactly as its command gave it, so it is ABSOLUTE

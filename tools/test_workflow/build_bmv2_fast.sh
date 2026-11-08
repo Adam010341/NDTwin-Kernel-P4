@@ -38,13 +38,14 @@
 set -euo pipefail
 
 # $SRC used to be a bare constant. It is now overridable, because the tree it named
-# (the default below, 3.5 GB) is scheduled for deletion and the documented way to
-# rebuild after that is to clone f0b7d201 somewhere else and point SRC at it. The default is
-# unchanged, so nothing about an existing invocation moves.
-SRC="${SRC:-/home/adam/P4_Source_Code/behavioral-model}"
+# (the original 3.5 GB checkout) was scheduled for deletion, and the documented way to
+# rebuild without it is to clone f0b7d201 somewhere else and point SRC at it.
+# [Co-developed with claude code -- Adam] The default tree and the venv below are under the
+# invoking user's home ($HOME).
+SRC="${SRC:-$HOME/P4_Source_Code/behavioral-model}"
 PREFIX=/usr/local/bmv2-fast
 BUILD=/tmp/bmv2-fast-src
-VENV=/home/adam/p4dev-python-venv
+VENV="$HOME/p4dev-python-venv"
 
 # The commit both installed simple_switch_grpc binaries were built from; see
 # tools/test_workflow/manifest_backfill.sh. Overridable, but only on purpose and by name.
@@ -74,8 +75,8 @@ REFUSING TO BUILD: the behavioral-model source tree is not there.
 
   SRC = $SRC   <-- no .git in it (missing, or not a git checkout)
 
-This tree (the built-in default for SRC) has been deleted, or you
-pointed SRC somewhere that is not a checkout.
+Either the built-in default (a checkout under your home that was never set up here, or has
+been deleted since) is not there, or you pointed SRC somewhere that is not a checkout.
 
 NOT cloning a replacement, deliberately. A fresh clone lands on upstream HEAD, not on
 $EXPECT_COMMIT, and this script would then build, install to $PREFIX and

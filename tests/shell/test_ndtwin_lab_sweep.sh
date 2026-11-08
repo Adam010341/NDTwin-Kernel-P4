@@ -174,8 +174,8 @@ FIX_OTHER_TESTBED="/nonexistent/NDT-TEST-FIXTURE/p4_proxy/mininet/testbed_topo.p
 echo "identity (an argv element IS the program; a mention is not)"
 
 check "a compiled switch by absolute path"   yes "$(yn sweep_matches "$SW" "/usr/local/bin/$SW" --name s1)"
-check "an interpreted topo as argv[1]"       yes "$(yn sweep_matches "$TOPO" /usr/bin/python3 "/home/adam/x/$TOPO")"
-check "the path-suffix form"                 yes "$(yn sweep_matches "$NTG" python "/home/adam/$NTG")"
+check "an interpreted topo as argv[1]"       yes "$(yn sweep_matches "$TOPO" /usr/bin/python3 "/home/user/x/$TOPO")"
+check "the path-suffix form"                 yes "$(yn sweep_matches "$NTG" python "/home/user/$NTG")"
 
 check "an echo that MENTIONS a switch"       no  "$(yn sweep_matches "$SW" bash -c "echo restarting $SW now")"
 check "a log file named after the topo"      no  "$(yn sweep_matches "$TOPO" tail -f "/var/log/$TOPO.log")"

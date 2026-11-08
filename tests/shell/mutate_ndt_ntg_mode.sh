@@ -147,7 +147,7 @@ report "N3: the missing-file error does not say where NTG_DIR came from" "$m" \
 # The copy drifts from the helper -- the one failure a copied rule is guaranteed to have.
 m=$(mutant n4 "$NDT" \
     'LAB_DEFAULT_NTG_DIR=/home/adam/Network-Traffic-Generator' \
-    'LAB_DEFAULT_NTG_DIR=/home/adam/NTG')
+    'LAB_DEFAULT_NTG_DIR=/opt/NTG')
 report "N4: ndt's default NTG_DIR drifts from the helper's" "$m" \
        "🔴 ndt's default NTG_DIR is the helper's default"
 

@@ -46,8 +46,11 @@ SH_TEST="$HERE/test_ovs4_sflow_verify.sh"
 # this machine and a bare `python3` is not the same environment.
 PY="${OVS4_TEST_PY:-}"
 if [[ -z "$PY" ]]; then
+    # [Co-developed with claude code -- Adam] The last candidate is the main checkout's: a git
+    # worktree has no venv of its own, so the main worktree is asked of git (as mutate_p4_probe.sh does).
+    MAIN_WT="$(git -C "$REPO" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
     for c in "$REPO/test_env/bin/python" "$REPO/p4_proxy/venv/bin/python" \
-             /home/adam/Desktop/NDTwin-Kernel/test_env/bin/python; do
+             "${MAIN_WT:-/nonexistent}/test_env/bin/python"; do
         [[ -x "$c" ]] && { PY="$c"; break; }
     done
 fi

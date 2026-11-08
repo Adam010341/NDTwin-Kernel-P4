@@ -153,8 +153,8 @@ report "M8: ndt's copy of the parser does not know NTG_DIR" "$m" \
 m=$(mutant m9 "$LAB" \
     'LAB_DEFAULT_NTG_DIR=/home/adam/Network-Traffic-Generator' \
     'LAB_DEFAULT_NTG_DIR=/opt/Network-Traffic-Generator')
-report "M9: the built-in default is not the bridge's old value" "$m" \
-       "the built-in default is the value the bridge used to carry"
+report "M9: the helper's built-in default moves away from ndt's" "$m" \
+       "the built-in default is the checkout ndt carries too"
 
 echo
 [[ "$(sha256sum "$LAB" | cut -d' ' -f1)" == "$BASE_LAB" ]] || { echo "🔴 baseline CHANGED -- ndtwin-lab was written during the gate"; exit 3; }

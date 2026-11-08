@@ -131,7 +131,7 @@ echo
 d="$(fresh m1)"
 apply_exact "$E_ENV" \
   '_kd="${KERNEL_DIR:-$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." >/dev/null && pwd)}"' \
-  '_kd="${KERNEL_DIR:-/home/adam/Desktop/NDTwin-Kernel}"' "$d/e.env"
+  '_kd="${KERNEL_DIR:-/nonexistent/NDT-TEST-FIXTURE/NDTwin-Kernel}"' "$d/e.env"
 report "M1: E names the main checkout again (the defect)" "$d" "$RO" \
        "🔴 E: KERNEL_DIR is the tree the file sits in" \
        "🔴 E: a second checkout gets its own KERNEL_DIR"
@@ -162,14 +162,14 @@ report "M4: E ignores an exported KERNEL_DIR" "$d" "$RO" \
 d="$(fresh m5)"
 apply_exact "$E_ENV" \
   'export PRIOR="$KERNEL_DIR/doc/audit/2026-08-20_sampling-rate-and-cpu"' \
-  'export PRIOR="/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu"' "$d/e.env"
+  'export PRIOR="/nonexistent/NDT-TEST-FIXTURE/NDTwin-Kernel/doc/audit/2026-08-20_sampling-rate-and-cpu"' "$d/e.env"
 report "M5: one exported E path still names a fixed tree" "$d" "$RO" \
        "🔴 E: every absolute path it exports is inside that tree"
 
 d="$(fresh m6)"
 apply_exact "$E_ENV" \
   'mkdir -p "$OUT" "$KBIN_STAGE"' \
-  'mkdir -p "$OUT" "/home/adam/Desktop/NDTwin-Kernel/.test_run/binaries/e-round"' "$d/e.env"
+  'mkdir -p "$OUT" "/nonexistent/NDT-TEST-FIXTURE/NDTwin-Kernel/.test_run/binaries/e-round"' "$d/e.env"
 report "M6: E creates one directory in a fixed tree" "$d" "$RO" \
        "🔴 E: every write it asks for is inside that tree"
 
@@ -219,7 +219,7 @@ report "M24: E's checkout guard exits an interactive shell again (a paste)" "$d"
 d="$(fresh m7)"
 apply_exact "$F_ENV" \
   '_kd="${KERNEL_DIR:-$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." >/dev/null && pwd)}"' \
-  '_kd="${KERNEL_DIR:-/home/adam/Desktop/NDTwin-Kernel}"' "$d/f.env"
+  '_kd="${KERNEL_DIR:-/nonexistent/NDT-TEST-FIXTURE/NDTwin-Kernel}"' "$d/f.env"
 report "M7: F5 names the main checkout again (the defect)" "$d" "$RO" \
        "🔴 F5: KERNEL_DIR is the tree the file sits in" \
        "🔴 F5: a second checkout gets its own KERNEL_DIR"
@@ -248,14 +248,14 @@ report "M10: F5 ignores an exported KERNEL_DIR" "$d" "$RO" \
 d="$(fresh m11)"
 apply_exact "$F_ENV" \
   'export TRH="$KERNEL_DIR/doc/audit/2026-08-30_live-traffic-round/harness"' \
-  'export TRH="/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness"' "$d/f.env"
+  'export TRH="/nonexistent/NDT-TEST-FIXTURE/NDTwin-Kernel/doc/audit/2026-08-30_live-traffic-round/harness"' "$d/f.env"
 report "M11: one exported F5 path still names a fixed tree" "$d" "$RO" \
        "🔴 F5: every absolute path it exports is inside that tree"
 
 d="$(fresh m12)"
 apply_exact "$F_ENV" \
   'mkdir -p "$OUT"' \
-  'mkdir -p "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/$ARM"' "$d/f.env"
+  'mkdir -p "/nonexistent/NDT-TEST-FIXTURE/NDTwin-Kernel/doc/audit/2026-08-31_f5-fine-grid-round/raw/$ARM"' "$d/f.env"
 report "M12: F5 creates its directory in a fixed tree" "$d" "$RO" \
        "🔴 F5: every write it asks for is inside that tree"
 

@@ -45,7 +45,10 @@ REPO="$(cd "$HERE/../.." && pwd)"
 HB_TEST_PY="${HB_TEST_PY:-/usr/bin/python3}"
 if [[ -n "${PYTHON:-}" ]]; then PIN_PYS=("$PYTHON")
 else
-    IFS=: read -ra PIN_PYS <<<"${HB_PIN_VENVS:-$REPO/p4_proxy/venv/bin/python:/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python}"
+    # [Co-developed with claude code -- Adam] The main checkout's venv is found the way
+    # mutate_p4_probe.sh finds it: a git worktree has none of its own, so the main worktree is asked of git.
+    MAIN_WT="$(git -C "$REPO" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+    IFS=: read -ra PIN_PYS <<<"${HB_PIN_VENVS:-$REPO/p4_proxy/venv/bin/python:${MAIN_WT:-/nonexistent}/p4_proxy/venv/bin/python}"
     PIN_PYS+=(python3)
 fi
 
