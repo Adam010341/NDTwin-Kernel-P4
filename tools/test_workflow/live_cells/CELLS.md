@@ -8,8 +8,9 @@ A **cell** is one reproducible action sequence plus one expected verdict. Not a 
   offline against the tool -- and then fixed. **It never leaves.**
 * **The number:** how many cells are red. That is what a night round reports, and it is the only
   number here that is meant to be monotone.
-* **A cell going red** is 🔴 at the top of `WAKEUP.md` and a must-fix that night.
-* **When to run:** round 0 of a night round (while the reconnaissance agents are reading code),
+* **A cell going red** is 🔴 at the top of that night's notes (kept outside this repository) and a
+  must-fix that night.
+* **When to run:** round 0 of a night round (while the code is being read),
   and after every merge that touches `ndt`, the kernel, or the proxy -- `--tag` picks the subset.
 
 ```
@@ -24,19 +25,21 @@ the one `sudo ndtwin-lab` acts for.
 
 ## The cells
 
-| name | tag | requires | source: night / role / raw log | fix | expected verdict | `old/` fixture |
+The raw logs and investigation write-ups named in the `source` column are kept outside this repository.
+
+| name | tag | requires | source: night / run / raw log | fix | expected verdict | `old/` fixture |
 |---|---|---|---|---|---|---|
-| `up_target_names_a_readable_model` | ndt | ovs4 | 09-11 ROLE-6 §①, live both planes. `hunt-0911/logs/ROLE-6/51a-up-p4-A.log` (rc 1, 318 s), `20-up-ovs4.log` | `ce2ae2f9` → trunk `5e7a91c8` | `ndt up ovs 4` reaches rc 0, prints no `cannot read expected counts from`, and `.test_run/up.target` carries a 64-hex `topology_sha256`, a counted `model_hosts` and a one-line `topology` path | captured log; **no `up.target` kept** -- see its PROVENANCE.md |
-| `up_refuses_a_model_of_another_network` | ndt | idle | 09-11 ROLE-2 cycle 07, live. `logs/ROLE-2/cycle-07-up.log` (rc 124 after 300 s, ten switches built); the knob half is 09-12 ROLE-9 §2 and cells 4b/4c (`logs/ROLE-9/c4b-metrics.log`, `c4c-metrics.log`) | `76b5d434` (merged `954ab467`); knob half `fix/ndt-7-0912` | the cell **parks `host_count_override` at 128 itself**, then `NDT_TOPO=<128-host model> ndt up p4 4` refuses in 0 s naming both counts, builds nothing, records no target, and leaves the knob byte-identical **to the 128 the cell set** -- and the cell puts the tree's own bytes back and records that it did | captured log; two ids added 09-12 -- one evidence, one fixture gap, see its PROVENANCE.md |
-| `up_refuses_while_a_down_is_in_flight` | ndt | idle | 09-11 ROLE-2 cycle 13, live. `logs/ROLE-2/cycle-13-up-B.log` (`already up: … reusing`, `model matches fabric` on a dying fabric) | `019b125d` (merged `cb5ab923`) | a bring-up overlapping an `ndt down` is refused rc 5 within 30 s, the refusal quotes `.test_run/down.inflight`, and the marker is gone afterwards | captured log; the marker is `(absent)` because the marker IS the fix |
-| `half_stack_is_not_clean` | ndt | ovs4 | 09-11 ROLE-2 cycle 07, live. `logs/ROLE-2/cycle-07-probe-afterup.log` (`VERDICT: CLEAN` over 10 bmv2 + 14 mininet and no kernel) | `6d081d13` (merged `954ab467`) | whole stack → `VERDICT: CLEAN` / `verdict=whole-up`; kernel stopped by its own pidfile → `VERDICT: NOT CLEAN`, `the stack is HALF up`, rc 1, `verdict=HALF` in the report | captured log, **thin** (one `VERDICT:` line) -- see its PROVENANCE.md |
-| `recovery_refuses_foreign_netem` | kernel | ovs4 | 09-11 ROLE-1, live 3/3. `logs/ROLE-1/07-inject-recovery.log`, `08-tc-after-recovery.log`, premise in `04-tc-netem-on.log` | `0b928fe6` (merged `6c4000eb`; FIXED-ISSUES B-16) | `POST /ndt/inject_link_recovery` on an undeclared link carrying a foreign netem → **409**, `netem_not_ours`, `Nothing was changed`, and the qdisc still on the wire | captured log |
-| `link_failure_cuts_both_ends_or_neither` | kernel | ovs4 | 09-11 ROLE-1, live 2/2. `logs/ROLE-1/06-inject-failure.log` (`netem 801e` really on s5-eth1, status `link failure injected`) | `0b928fe6` (merged `6c4000eb`; B-16) | one end refused → **neither** end carries netem, the status line says `link failure declared; nothing was attached`, the body says which half happened, and the declaration stands | captured log |
-| `orphans_blind_probes_not_checked` | ndt | none | 09-11 F-OFFLINE-1 §1.11, run for real offline. `hunt-0911/F-OFFLINE-1-REPORT.md` | `ded00d06` (merged `954ab467`) | a report with the kernel up and all three lock probes `NOT CHECKED (http 500)` → `VERDICT: NOT CHECKED` rc 3, and **not** the token `VERDICT: CLEAN` | replay of `ded00d06^` |
-| `help_drops_deleted_claims` | ndt | none | 09-11 F-OFFLINE-1 §1.12 and §1.24, run for real offline | `3259d296` (merged `954ab467`) | `ndt help` no longer carries the `has run in THIS checkout` sentence nor the blanket environment-variable guarantee, and does carry the scoped replacements | replay of `3259d296^` |
-| `default_round_plane_is_classified` | ndt | none | 09-11 F-OFFLINE-1 §1.15, run for real offline with its own positive control | `ca9af4f1` (merged `954ab467`) | `last_kernel_plane` reads `Mininet_*` as ovs, `OVS_*` as ovs, `P4_*` as p4, and a physical-mode command as rc 1 / no plane | replay of `ca9af4f1^` |
-| `stale_app_pidfile_does_not_frame_the_fabric` | ndt | ovs4 | 09-12 RESIDUE-1 §1 §2 §6, read-only investigation of `logs/ROLE-11/05-check-after-up.log` (`residue 60 rule(s) inside an app window` 22 s after a bring-up that installed them). This cell's own live run of 15:04 is the red | `53a62c71` (the merge of the fix) | the app window opened by a pidfile whose process is dead has a right edge, frames no rule of a fabric built later, and `ndt status --check` carries no `listed by:  ndt apps orphans` line and no problem line about rules inside an app window (the judge does not read that command's rc) | **this cell's own live run**, 2026-09-12 15:04, kernel `c4c8e50310d7e4a1` |
-| `northbound_write_reply_names_the_lab_claim` | kernel | ovs4 | 09-11 ROLE-4 T4 (FIX-NDT-3-SUMMARY §7-1): writes kept answering 200 across an expiry and across a change of owner. FIXED-ISSUES G-32 | `ea517ed5` (merged `f313b1a4`) | both writes of an inject/recover pair and the 400 from an unparseable body carry a `lab_claim` whose `owner`/`expires_at` are `.test_run/lab.claim`'s; a POST outside the twelve and a GET do not | ROLE-11's pre-fix reply bodies, **thin** -- see its PROVENANCE.md for which two ids are evidence |
+| `up_target_names_a_readable_model` | ndt | ovs4 | 09-11, one session's live run on both planes (§① of its write-up). `51a-up-p4-A.log` (rc 1, 318 s), `20-up-ovs4.log` | `ce2ae2f9` → trunk `5e7a91c8` | `ndt up ovs 4` reaches rc 0, prints no `cannot read expected counts from`, and `.test_run/up.target` carries a 64-hex `topology_sha256`, a counted `model_hosts` and a one-line `topology` path | captured log; **no `up.target` kept** -- see its PROVENANCE.md |
+| `up_refuses_a_model_of_another_network` | ndt | idle | 09-11, live (cycle 07). `cycle-07-up.log` (rc 124 after 300 s, ten switches built); the knob half is a second session's measurement of 09-12, runs 4b and 4c (`c4b-metrics.log`, `c4c-metrics.log`) | `76b5d434` (merged `954ab467`); knob half FIXED-ISSUES G-47 | the cell **parks `host_count_override` at 128 itself**, then `NDT_TOPO=<128-host model> ndt up p4 4` refuses in 0 s naming both counts, builds nothing, records no target, and leaves the knob byte-identical **to the 128 the cell set** -- and the cell puts the tree's own bytes back and records that it did | captured log; two ids added 09-12 -- one evidence, one fixture gap, see its PROVENANCE.md |
+| `up_refuses_while_a_down_is_in_flight` | ndt | idle | 09-11, live (cycle 13). `cycle-13-up-B.log` (`already up: … reusing`, `model matches fabric` on a dying fabric) | `019b125d` (merged `cb5ab923`) | a bring-up overlapping an `ndt down` is refused rc 5 within 30 s, the refusal quotes `.test_run/down.inflight`, and the marker is gone afterwards | captured log; the marker is `(absent)` because the marker IS the fix |
+| `half_stack_is_not_clean` | ndt | ovs4 | 09-11, live (cycle 07). `cycle-07-probe-afterup.log` (`VERDICT: CLEAN` over 10 bmv2 + 14 mininet and no kernel) | `6d081d13` (merged `954ab467`) | whole stack → `VERDICT: CLEAN` / `verdict=whole-up`; kernel stopped by its own pidfile → `VERDICT: NOT CLEAN`, `the stack is HALF up`, rc 1, `verdict=HALF` in the report | captured log, **thin** (one `VERDICT:` line) -- see its PROVENANCE.md |
+| `recovery_refuses_foreign_netem` | kernel | ovs4 | 09-11, live 3/3. `07-inject-recovery.log`, `08-tc-after-recovery.log`, premise in `04-tc-netem-on.log` | `0b928fe6` (merged `6c4000eb`; FIXED-ISSUES B-16) | `POST /ndt/inject_link_recovery` on an undeclared link carrying a foreign netem → **409**, `netem_not_ours`, `Nothing was changed`, and the qdisc still on the wire | captured log |
+| `link_failure_cuts_both_ends_or_neither` | kernel | ovs4 | 09-11, live 2/2. `06-inject-failure.log` (`netem 801e` really on s5-eth1, status `link failure injected`) | `0b928fe6` (merged `6c4000eb`; B-16) | one end refused → **neither** end carries netem, the status line says `link failure declared; nothing was attached`, the body says which half happened, and the declaration stands | captured log |
+| `orphans_blind_probes_not_checked` | ndt | none | 09-11 offline investigation (§1.11 of its write-up), run for real offline | `ded00d06` (merged `954ab467`) | a report with the kernel up and all three lock probes `NOT CHECKED (http 500)` → `VERDICT: NOT CHECKED` rc 3, and **not** the token `VERDICT: CLEAN` | replay of `ded00d06^` |
+| `help_drops_deleted_claims` | ndt | none | 09-11 offline investigation (§1.12 and §1.24 of its write-up), run for real offline | `3259d296` (merged `954ab467`) | `ndt help` no longer carries the `has run in THIS checkout` sentence nor the blanket environment-variable guarantee, and does carry the scoped replacements | replay of `3259d296^` |
+| `default_round_plane_is_classified` | ndt | none | 09-11 offline investigation (§1.15 of its write-up), run for real offline with its own positive control | `ca9af4f1` (merged `954ab467`) | `last_kernel_plane` reads `Mininet_*` as ovs, `OVS_*` as ovs, `P4_*` as p4, and a physical-mode command as rc 1 / no plane | replay of `ca9af4f1^` |
+| `stale_app_pidfile_does_not_frame_the_fabric` | ndt | ovs4 | 09-12 read-only investigation (§1 §2 §6 of its write-up) of `05-check-after-up.log` (`residue 60 rule(s) inside an app window` 22 s after a bring-up that installed them). This cell's own live run of 15:04 is the red | `53a62c71` (the merge of the fix) | the app window opened by a pidfile whose process is dead has a right edge, frames no rule of a fabric built later, and `ndt status --check` carries no `listed by:  ndt apps orphans` line and no problem line about rules inside an app window (the judge does not read that command's rc) | **this cell's own live run**, 2026-09-12 15:04, kernel `c4c8e50310d7e4a1` |
+| `northbound_write_reply_names_the_lab_claim` | kernel | ovs4 | 09-11 02:01-02:02, live (§7-1 of a write-up kept outside this repository): writes kept answering 200 across an expiry and across a change of owner | `ea517ed5` (merged `f313b1a4`; FIXED-ISSUES G-32) | both writes of an inject/recover pair and the 400 from an unparseable body carry a `lab_claim` whose `owner`/`expires_at` are `.test_run/lab.claim`'s; a POST outside the twelve and a GET do not | pre-fix reply bodies recorded by another session on 09-12, **thin** -- see its PROVENANCE.md for which two ids are evidence |
 
 `requires` is what a cell NEEDS, and `run_cells.sh --requires` filters on it:
 
@@ -76,13 +79,14 @@ Said here rather than left to be discovered, because a grid that is read as "the
 verified" is worse than no grid.
 
 0. 🔴 **`h4_knob_unchanged` has no fixture that reddens it either, and the reason is not the
-   one above.** ROLE-9's cells 4b/4c ARE runs where a refused `ndt up p4 <n>` left the knob
+   one above.** The second session's runs 4b and 4c ARE runs where a refused `ndt up p4 <n>` left the knob
    rewritten (`340a` -> `3132380a` and the mirror), which is exactly what that assertion is
-   for -- but `old/` for this cell is ROLE-2's cycle 07, where the knob was 4 both times. What
+   for -- but `old/` for this cell is the 09-11 cycle-07 run, where the knob was 4 both times. What
    `old/` can redden is the PREMISE (`h4_knob_could_show_a_rewrite`), and it does. The write
    itself is mutated where the subject lives: `tests/shell/test_ndt_up_down_robust.sh` §18 and
-   `mutate_ndt_up_down_robust.sh` M53-M58. A cell whose `old/` is ROLE-9 4b would close this;
-   it is proposed in `FIX-NDT-7-SUMMARY.md` §7 and not written.
+   `mutate_ndt_up_down_robust.sh` M53-M58. A cell whose `old/` is run 4b would close this;
+   it is proposed in §7 of the write-up of the 2026-09-12 knob fix
+   (kept outside this repository) and not written.
 1. **Control assertions have no fixture that reddens them.** Every cell carries assertions for
    the wrong-fix direction -- `f10_p4_is_not_swallowed`, `f10_physical_is_still_unknown`,
    `h2_whole_stack_is_clean`, `a1r_far_end_untouched`, `a1f_declaration_still_stands`. They pass
@@ -90,10 +94,10 @@ verified" is worse than no grid.
    catch it. Those directions are mutated where the subject lives: `mutate_ndt_honesty.sh`,
    `mutate_ndt_up_down_robust.sh`, `mutate_orphans_verdict.sh` and the B-16 C++ gates.
 2. **`up_refuses_while_a_down_is_in_flight` overlaps a teardown of an EMPTY lab**, not of a live
-   10-switch stack. So did ROLE-6, and for the same reason it wrote down: the guard is in
+   10-switch stack. So did the session that re-measured it, and for the same reason it wrote down: the guard is in
    `preflight`, before anything reads the machine, so the code path is the same one -- but "the
    teardown of a live fabric was overlapped" is still not measured by anybody.
-3. **`up_target_names_a_readable_model` drives OVS; its `old/` is the P4 arm.** ROLE-6 has no rc
+3. **`up_target_names_a_readable_model` drives OVS; its `old/` is the P4 arm.** The session behind `old/` has no rc
    for the OVS arm at all (its own tool timeout killed the wrapper past 120 s). Two copies of the
    same three lines, one plane each.
 4. **The `(c)` half of the gate -- re-running `observe` against the pre-fix tool -- is done for
@@ -113,11 +117,11 @@ verified" is worse than no grid.
 
 ## Registered and NOT converted
 
-From `WAKEUP.md` §7.3 (the numbering is that section's). These are the candidates this round
+From the night's list of candidates (kept outside this repository; the numbering is that list's). These are the candidates this round
 declined, each with the reason -- a cell forced into existence here would be a cell nobody can
 trust.
 
-| §7.3 | why not |
+| # | why not |
 |---|---|
 | 21 `NDT_TOPO=<path outside the repo>` makes `ndt status`'s plane read `names no model this script can classify` | **not fixed.** `ca9af4f1` brought `Mininet_*` into the OVS family; a path whose basename matches neither pattern still classifies as nothing. The entry rule is "red, then fixed", and this one is still open |
 | 22 T1, two owners win `ndt claim` in the same second | writing `.test_run/lab.claim` IS the lab's state. Whoever runs the grid live holds the lab claim, and a cell that ran `claim`/`release` would take it from them; against a copied tree it stops being live and becomes `test_ndt_honesty.sh` §6, which already has it |
@@ -125,8 +129,8 @@ trust.
 | 25 T2, the foreign-`down` refusal is unpasteable and silent about `measuring=` | cheap and genuinely live -- but if the guard regresses, the cell IS a teardown of somebody else's lab. Not written for that reason |
 | 26 T5, `ndt up` writes the wrong note when it is not the owner | needs claim ownership, as 22 |
 | 27 T3, same-second double-open | the hypothesis was **falsified** -- `ndt down` did collect both processes. What `daa2d0e7` fixed is a sentence in `ndt status`, and there is no live red to convert |
-| 31 I-3, `*.pid` naming a dead pid while `*.exit` records the SIGTERM | R7 was read-only and kept **no raw `ndt status` output**, only prose. The `old/` fixture would have to be reconstructed by hand, and a reconstruction the author writes is not last night's evidence. A `(c)` run of the pre-fix `ndt status` over a staged `pids/` would be a real red; that raw does not exist yet |
-| 33 ROLE-6's three re-measurements | **converted**: they are `half_stack_is_not_clean`, `up_refuses_while_a_down_is_in_flight`, `up_refuses_a_model_of_another_network`, plus `up_target_names_a_readable_model` for the regression ROLE-6 found underneath them |
+| 31 I-3, `*.pid` naming a dead pid while `*.exit` records the SIGTERM | The investigation behind it was read-only and kept **no raw `ndt status` output**, only prose. The `old/` fixture would have to be reconstructed by hand, and a reconstruction the author writes is not last night's evidence. A `(c)` run of the pre-fix `ndt status` over a staged `pids/` would be a real red; that raw does not exist yet |
+| 33 a session's three re-measurements | **converted**: they are `half_stack_is_not_clean`, `up_refuses_while_a_down_is_in_flight`, `up_refuses_a_model_of_another_network`, plus `up_target_names_a_readable_model` for the regression that session found underneath them |
 | 34 I-2, `lab.claim.prev` keeps the replaced claim | needs `ndt claim`, as 22 |
 | 10 / F1, `ndt up p4` printed the LIVE plane's sampling rate | the property is which ARGUMENT the call site passes, and observing it needs the whole `up_p4` stub seam -- which is what `test_ndt_up_down_robust.sh` §10 is. A live form would need an OVS fabric up while a P4 bring-up runs; the lab has one fabric |
 | 10 / F9, two `--check` suites read the main checkout's root-owned log | the subject is two test suites, not the lab. A cell would be a grep over test sources, which is a gate's job |

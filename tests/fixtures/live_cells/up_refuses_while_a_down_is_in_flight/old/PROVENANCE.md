@@ -2,13 +2,14 @@
 
 [Co-developed with claude code -- Adam]
 
-**Kind: captured log.** ROLE-2 cycle 13, live 2026-09-11 on the main checkout at `c81dabbb`,
-driven by `logs/ROLE-2/overlap.sh` (background `ndt down`, then `ndt up p4` one second later).
+**Kind: captured log.** Live 2026-09-11 on the main checkout at `c81dabbb`,
+driven by that run's `overlap.sh` (kept outside this repository; background `ndt down`, then
+`ndt up p4` one second later).
 
 | file | where it came from |
 |---|---|
-| `up.log` | `hunt-0911/logs/ROLE-2/cycle-13-up-B.log`, colour codes stripped. The second `ndt up p4` |
-| `up.rc` | `1` -- ROLE-2-CYCLES-REPORT, cycle-13 paragraph |
+| `up.log` | that run's `cycle-13-up-B.log`, colour codes stripped. The second `ndt up p4` |
+| `up.rc` | `1` -- the cycle report's cycle-13 paragraph (kept outside this repository) |
 | `up.secs` | `13` -- the overlap delay the harness used; `overlap.sh` measures from the background down, so this is the elapsed figure that log's own trailer reports |
 | `down.rc` | `1` -- the background teardown, which reported the SECOND up's kernel and proxy as residue |
 | `down.inflight`, `down.inflight.after` | `(absent)`. **Not a gap: the marker is the fix.** `.test_run/down.inflight` did not exist at `019b125d^`, so "absent" is what any reader would have found |

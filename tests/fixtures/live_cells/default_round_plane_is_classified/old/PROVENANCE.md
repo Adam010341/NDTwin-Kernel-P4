@@ -8,7 +8,7 @@ the pre-fix reading is reproduced exactly by sourcing `ca9af4f1^`'s `ndt` throug
 
 | file | where it came from |
 |---|---|
-| `planes.txt` | the cell's own `observe` with `NDT_ROOT` pointed at a temp tree carrying `ca9af4f1^`'s `ndt`. Reads `mininet128: out=<empty> rc=1` there, which is F-OFFLINE-1 §1.15's measurement, and `ovs4: out=ovs rc=0` -- that report's own positive control |
+| `planes.txt` | the cell's own `observe` with `NDT_ROOT` pointed at a temp tree carrying `ca9af4f1^`'s `ndt`. Reads `mininet128: out=<empty> rc=1` there, which is the offline investigation's measurement of 2026-09-11 (§1.15 of its write-up), and `ovs4: out=ovs rc=0` -- that write-up's own positive control |
 | `ids.txt` | the blob sha of `tools/test_workflow/ndt` at `ca9af4f1^` |
 
 **One failing assertion, and it is the finding**: `f10_mininet_model_reads_as_ovs`. The other

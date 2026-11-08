@@ -19,9 +19,10 @@ One directory per cell in `tools/test_workflow/live_cells/`, and up to three thi
    only the files the judge reads), and files produced by running the tool as it was at
    `<fix commit>^`. Both are recorded per file.
 2. **A failing assertion is not automatically the finding.** Several `old/` directories are
-   thinner than their cell's raw layout, because the role that measured the defect did not keep
-   every file the cell now writes -- ROLE-6 kept no `up.target`, ROLE-2's cycle probe kept only
-   the `VERDICT:` line. Those assertions fail with `no such raw file`, which is honest but is a
+   thinner than their cell's raw layout, because the run that measured the defect did not keep
+   every file the cell now writes -- the run behind `up_target_names_a_readable_model/old/` kept
+   no `up.target`, and the cycle probe behind `half_stack_is_not_clean/old/` kept only the
+   `VERDICT:` line. Those assertions fail with `no such raw file`, which is honest but is a
    fixture gap and not evidence. Each PROVENANCE.md names the assertions that carry the finding,
    and the gate mutates only those.
 3. **A cell with no `new/` yet is PENDING, not passing.** The gate says so, on its own line, and

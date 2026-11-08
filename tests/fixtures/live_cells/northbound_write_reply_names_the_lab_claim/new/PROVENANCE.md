@@ -7,11 +7,11 @@
 | | |
 |---|---|
 | when | 2026-09-12 15:00:09 -> 15:00:35 CST (26 s) |
-| where | main checkout `/home/adam/Desktop/NDTwin-Kernel`, trunk `af5efa4f` |
+| where | main checkout, trunk `af5efa4f` |
 | kernel | sha256[0:16] **`c4c8e50310d7e4a1`**, built 2026-09-12 04:25:15 -- the first build carrying `ea517ed5` |
 | `ndt` | blob **`54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc`** |
-| driven by | `run_cells.sh --cell northbound_write_reply_names_the_lab_claim`, window 1 of the CELLS-2 live window; the lab claim was held by the session that drove the window (owner `overnight-0905`), and this cell only read it |
-| runner log | `scratch/overnight-2026-09-05/logs/gates-0910/run_cells_labclaim.cells2-0912-r1.log` (`CELLS: 1/1 pass`) |
+| driven by | `run_cells.sh --cell northbound_write_reply_names_the_lab_claim`, window 1 of the live window; the lab claim was held by the session that drove the window (owner `overnight-0905`), and this cell only read it |
+| runner log | the run's own log, kept outside this repository (`CELLS: 1/1 pass`) |
 
 Every file is a byte copy out of
 `.test_run/live_cells/2026-09-12/northbound_write_reply_names_the_lab_claim/`, `read.body`
@@ -25,7 +25,7 @@ The reply this fixture exists for, verbatim from `failure.body`:
 ```
 
 (`...` is this file's elision of the eight-element `tc` array; everything before it is
-byte-for-byte `failure.body`. The `note` is not the one the CELLS-2 window file carries -- `ndt up`
+byte-for-byte `failure.body`. The `note` is not the one the live window's file carried -- `ndt up`
 rewrites it: `claim note now says the lab is in use (owner and expiry unchanged)`, up.log l.5.)
 
 `lab.claim` in this directory is the file it was read from, so the judge compares one against
