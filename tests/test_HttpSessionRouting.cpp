@@ -2129,6 +2129,267 @@ TEST_F(DeclaredLinkFailureWireTest, AHalfDoneInjectionNeverAnswersInjected)
         << "the refused end does not say why: " << res.body();
 }
 
+// --- B-23: only /ndt/inject_link_recovery ends an injection -------------------------------------
+// [Co-developed with claude code -- Adam]
+//
+// An injection records no failure report, but the control plane makes one anyway: the netem that
+// /ndt/inject_link_failure attaches drops LLDP and the P4 proxy's beacons, so Ryu (after its LLDP
+// timeout) and the proxy's link watchdog both POST /ndt/link_failure_detected for the injected
+// link. Under the pairing rule alone that report -- made after the injection, or standing from
+// before it -- let the next /ndt/link_recovery_detected withdraw the injection, answer a plain
+// `200 link recovery processed`, and leave the netem on both ends. The graph then said the link was
+// up while every packet on it was still dropped.
+//
+// The rule now: an injection is ended by /ndt/inject_link_recovery and by nothing else. A recovery
+// report for an injected link is declined the way an unpaired one is (`declaration_retained`),
+// whatever /ndt/link_failure_detected said before or after the injection. Links nobody injected
+// behave exactly as before; the last two cases pin that.
+//
+// The first two run on MININET with the fake tc, because the netem is the part a caller loses: the
+// reply has to say the declaration stands, and nothing may have touched the qdisc tree.
+
+namespace
+{
+
+/// One request's outcome, copied out of the peer. send() replaces the response it owns, so a
+/// reference taken from one send dangles at the next.
+struct CopiedReply
+{
+    unsigned status = 0;
+    std::string body;
+    nlohmann::json json() const { return nlohmann::json::parse(body, nullptr, false); }
+};
+
+CopiedReply
+postAndCopy(HttpSessionTestPeer& peer, const std::string& path, const std::string& body)
+{
+    const auto& res = peer.send(http::verb::post, path, body);
+    return CopiedReply{res.result_int(), res.body()};
+}
+
+} // namespace
+
+/**
+ * 🔴 B-23 in the order the lab produces it: inject, the control plane reports the cut it sees,
+ * then a recovery report. The injection must stand, its netem must stay, and the reply must say so.
+ */
+TEST_F(DeclaredLinkFailureWireTest,
+       AnInjectionOutlivesARecoveryReportAfterTheControlPlaneReportedTheCut)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+
+    ASSERT_EQ(postAndCopy(peer, "/ndt/inject_link_failure", kBody).status, 200u);
+    ASSERT_TRUE(fabric.hasNetem("s1-eth1") && fabric.hasNetem("s5-eth1")) << fabric.argvLog();
+    const std::string netemS1 = fabric.handleOn("s1-eth1");
+    const std::string netemS5 = fabric.handleOn("s5-eth1");
+    const std::size_t callsAfterInjection = fabric.calls.size();
+
+    // What Ryu (or the P4 proxy's watchdog) POSTs once LLDP stops crossing the cut link.
+    ASSERT_EQ(postAndCopy(peer, "/ndt/link_failure_detected", kBody).status, 200u);
+
+    std::string logged;
+    CopiedReply recovery;
+    {
+        LogCapture log;
+        recovery = postAndCopy(peer, "/ndt/link_recovery_detected", kBody);
+        logged = log.text();
+    }
+    ASSERT_EQ(recovery.status, 200u) << recovery.body;
+    const auto body = recovery.json();
+    ASSERT_FALSE(body.is_discarded()) << recovery.body;
+    EXPECT_TRUE(body.value("declaration_retained", false))
+        << "a recovery report withdrew an injection because the control plane had reported the "
+           "cut the injection made; the netem is still on both ends (B-23): " << recovery.body;
+    EXPECT_EQ(body.value("until", std::string()), "/ndt/inject_link_recovery") << recovery.body;
+    EXPECT_EQ(body.value("detail", std::string()).find("nothing ever reported"), std::string::npos)
+        << "the reply says nothing reported this link broken, and /ndt/link_failure_detected "
+           "just did: " << recovery.body;
+    EXPECT_NE(body.value("detail", std::string()).find("injected"), std::string::npos)
+        << recovery.body;
+
+    m_monitor->pollLinks(kLinkListing());
+    const auto fwd = edgeFromGraphData(peer, 1, 5);
+    const auto rev = edgeFromGraphData(peer, 5, 1);
+    EXPECT_FALSE(fwd.value("is_up", true))
+        << "the graph says up while the netem drops every packet";
+    EXPECT_FALSE(rev.value("is_up", true));
+    EXPECT_EQ(fwd.value("down_reason", std::string()), "declared");
+    EXPECT_EQ(rev.value("down_reason", std::string()), "declared");
+
+    EXPECT_EQ(fabric.handleOn("s1-eth1"), netemS1);
+    EXPECT_EQ(fabric.handleOn("s5-eth1"), netemS5);
+    EXPECT_EQ(fabric.calls.size(), callsAfterInjection)
+        << "a recovery report ran tc:\n" << fabric.argvLog();
+    EXPECT_EQ(logged.find("link recovered on"), std::string::npos) << logged;
+    EXPECT_NE(logged.find("declaration was retained"), std::string::npos) << logged;
+    // Both declined sentences say "declaration was retained"; only the injection one is true here.
+    // [Co-developed with claude code -- Adam]
+    EXPECT_EQ(logged.find("nothing ever reported"), std::string::npos)
+        << "the decline was logged with the unpaired-declaration reason, and "
+           "/ndt/link_failure_detected had just reported this link broken:\n"
+        << logged;
+    EXPECT_NE(logged.find("the link failure declared here was injected"), std::string::npos)
+        << logged;
+
+    // And the one way out still works, netem included.
+    const auto ended = postAndCopy(peer, "/ndt/inject_link_recovery", kBody);
+    ASSERT_EQ(ended.status, 200u) << ended.body;
+    EXPECT_FALSE(fabric.hasNetem("s1-eth1")) << ended.body;
+    EXPECT_FALSE(fabric.hasNetem("s5-eth1")) << ended.body;
+    EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false)) << ended.body;
+}
+
+/**
+ * The other order: the control plane's report was already standing when the link was injected.
+ * Same answer -- the injection is ended only by /ndt/inject_link_recovery.
+ */
+TEST_F(DeclaredLinkFailureWireTest, AnInjectionOutlivesARecoveryReportWhenTheReportCameFirst)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+
+    ASSERT_EQ(postAndCopy(peer, "/ndt/link_failure_detected", kBody).status, 200u);
+    ASSERT_EQ(postAndCopy(peer, "/ndt/inject_link_failure", kBody).status, 200u);
+    ASSERT_TRUE(fabric.hasNetem("s1-eth1") && fabric.hasNetem("s5-eth1")) << fabric.argvLog();
+    const std::size_t callsAfterInjection = fabric.calls.size();
+
+    const auto recovery = postAndCopy(peer, "/ndt/link_recovery_detected", kBody);
+    ASSERT_EQ(recovery.status, 200u) << recovery.body;
+    const auto body = recovery.json();
+    ASSERT_FALSE(body.is_discarded()) << recovery.body;
+    EXPECT_TRUE(body.value("declaration_retained", false))
+        << "a failure report made before the injection let a recovery report end it (B-23): "
+        << recovery.body;
+    EXPECT_EQ(body.value("until", std::string()), "/ndt/inject_link_recovery") << recovery.body;
+    EXPECT_EQ(body.value("detail", std::string()).find("nothing ever reported"), std::string::npos)
+        << recovery.body;
+
+    m_monitor->pollLinks(kLinkListing());
+    EXPECT_FALSE(edgeFromGraphData(peer, 1, 5).value("is_up", true));
+    EXPECT_FALSE(edgeFromGraphData(peer, 5, 1).value("is_up", true));
+    EXPECT_EQ(edgeFromGraphData(peer, 1, 5).value("down_reason", std::string()), "declared");
+    EXPECT_TRUE(fabric.hasNetem("s1-eth1") && fabric.hasNetem("s5-eth1"));
+    EXPECT_EQ(fabric.calls.size(), callsAfterInjection)
+        << "a recovery report ran tc:\n" << fabric.argvLog();
+}
+
+/**
+ * The failure report's own reply. On an injected link it used to name
+ * /ndt/link_recovery_detected as what ends the declaration -- the endpoint that, since this fix,
+ * declines. It has to name the one that works.
+ */
+TEST_F(DeclaredLinkFailureWireTest, AFailureReportOnAnInjectedLinkNamesTheInjectionEndpoint)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+    ASSERT_EQ(postAndCopy(peer, "/ndt/inject_link_failure", kBody).status, 200u);
+
+    const auto report = postAndCopy(peer, "/ndt/link_failure_detected", kBody);
+    ASSERT_EQ(report.status, 200u) << report.body;
+    const auto body = report.json();
+    ASSERT_FALSE(body.is_discarded()) << report.body;
+    EXPECT_EQ(body.value("down_reason", std::string()), "declared") << report.body;
+    EXPECT_EQ(body.value("until", std::string()), "/ndt/inject_link_recovery")
+        << "the reply points the caller at /ndt/link_recovery_detected, which does not end an "
+           "injection: " << report.body;
+}
+
+/**
+ * The poll's advice for the state the lab actually produces: injected AND reported. It used to
+ * read `failureReported` alone and say "POST /ndt/link_recovery_detected to clear this" -- the
+ * request that was B-23's trigger.
+ */
+TEST_F(DeclaredLinkFailureWireTest,
+       ThePollPointsAnInjectedLinkTheControlPlaneReportedAtTheInjectionEndpoint)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+    ASSERT_EQ(postAndCopy(peer, "/ndt/inject_link_failure", kBody).status, 200u);
+    ASSERT_EQ(postAndCopy(peer, "/ndt/link_failure_detected", kBody).status, 200u);
+
+    std::string logged;
+    {
+        LogCapture log;
+        m_monitor->pollLinks(kLinkListing());
+        logged = log.text();
+    }
+    ASSERT_NE(logged.find("not marking it up"), std::string::npos)
+        << "the poll did not print the declined-resurrection line, so this case reads nothing:\n"
+        << logged;
+    EXPECT_EQ(logged.find("POST /ndt/link_recovery_detected to clear this"), std::string::npos)
+        << "the poll tells the reader to end an injection with a recovery report:\n" << logged;
+    EXPECT_NE(logged.find("POST /ndt/inject_link_recovery"), std::string::npos) << logged;
+}
+
+/**
+ * Control: a link nobody injected. /ndt/link_failure_detected still names its own sibling, and that
+ * sibling still withdraws the declaration and raises the link. A fix that treated every reported
+ * link as injected would leave every real outage standing for ever.
+ */
+TEST_F(DeclaredLinkFailureWireTest, AReportedFailureNobodyInjectedIsStillEndedByItsOwnRecovery)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+
+    const auto report = postAndCopy(peer, "/ndt/link_failure_detected", kBody);
+    ASSERT_EQ(report.status, 200u) << report.body;
+    EXPECT_EQ(report.json().value("until", std::string()), "/ndt/link_recovery_detected")
+        << report.body;
+
+    std::string logged;
+    CopiedReply recovery;
+    {
+        LogCapture log;
+        recovery = postAndCopy(peer, "/ndt/link_recovery_detected", kBody);
+        logged = log.text();
+    }
+    ASSERT_EQ(recovery.status, 200u) << recovery.body;
+    EXPECT_FALSE(recovery.json().value("declaration_retained", false)) << recovery.body;
+    EXPECT_NE(logged.find("was withdrawn"), std::string::npos) << logged;
+    EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false));
+    EXPECT_TRUE(edgeFromGraphData(peer, 5, 1).value("is_up", false));
+    EXPECT_EQ(edgeFromGraphData(peer, 1, 5).value("down_reason", std::string()), "none");
+}
+
+/**
+ * Control: /ndt/inject_link_recovery ends an injection the control plane also reported, removes its
+ * netem, and leaves an ordinary link behind -- the next reported failure on it is ended by its own
+ * recovery report again. If the injection note outlived the injection, that real outage would be
+ * declined for ever.
+ */
+TEST_F(DeclaredLinkFailureWireTest, InjectRecoveryEndsAReportedInjectionAndLeavesAnOrdinaryLink)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+
+    ASSERT_EQ(postAndCopy(peer, "/ndt/inject_link_failure", kBody).status, 200u);
+    ASSERT_EQ(postAndCopy(peer, "/ndt/link_failure_detected", kBody).status, 200u);
+
+    const auto ended = postAndCopy(peer, "/ndt/inject_link_recovery", kBody);
+    ASSERT_EQ(ended.status, 200u) << ended.body;
+    EXPECT_EQ(ended.json().value("status", std::string()), "link recovery injected") << ended.body;
+    EXPECT_FALSE(fabric.hasNetem("s1-eth1")) << ended.body;
+    EXPECT_FALSE(fabric.hasNetem("s5-eth1")) << ended.body;
+    m_monitor->pollLinks(kLinkListing());
+    EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false));
+
+    // The next outage on the same link is a plain reported one.
+    const auto report = postAndCopy(peer, "/ndt/link_failure_detected", kBody);
+    ASSERT_EQ(report.status, 200u) << report.body;
+    EXPECT_EQ(report.json().value("until", std::string()), "/ndt/link_recovery_detected")
+        << "the link still counts as injected after /ndt/inject_link_recovery: " << report.body;
+    const auto recovery = postAndCopy(peer, "/ndt/link_recovery_detected", kBody);
+    ASSERT_EQ(recovery.status, 200u) << recovery.body;
+    EXPECT_FALSE(recovery.json().value("declaration_retained", false))
+        << "a real outage reported after the injection ended was declined as if it were the "
+           "injection: " << recovery.body;
+    EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false));
+}
+
 // --- G-32 option C: the lab claim on a write reply -------------------------------------------
 //
 // [Co-developed with claude code -- Adam]

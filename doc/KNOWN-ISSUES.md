@@ -305,53 +305,6 @@ Failure direction: the reply through the kernel (200 `queued`) does not show it;
 the kernel log do (`src/ndt_core/routing_management/Controller.cpp:81-85` logs it at ERROR); loud (500)
 when the proxy is called directly.
 
-### B-23 A recovery report can end an injected link failure and leave its netem attached
-
-**What you see.** After `POST /ndt/inject_link_failure` has cut a link with netem, a later
-`POST /ndt/link_recovery_detected` for that link answers a plain `200 {"status":"link recovery processed"}`
-(no `declaration_retained`). `get_graph_data` then shows both directions up with `down_reason` `none`,
-and a sweep for `down_reason == "declared"` finds nothing, while the netem is still on both interfaces
-and every packet on the link is still dropped. Nothing in the reply shows that the netem is still there.
-
-**When.** Only for a link on which the control plane has itself reported the break to
-`POST /ndt/link_failure_detected` and that report has not yet been used by a recovery report. Ryu sends
-that report on every link-down event after its LLDP timeout (OVS stack), and the P4 proxy's link watchdog
-sends it when a link's beacons stop (P4 stack, with `link_discovery` `lldp` or `heartbeat`; a report made before the
-injection counts too). The recovery report that then ends the injection has to come from a caller: the
-netem that `inject_link_failure` attaches is `loss 100%`, so LLDP and beacons cannot cross the link while
-it is on, and the control plane does not send a recovery report of its own for that link until the netem
-has been removed. Someone posting `link_recovery_detected` for the link (an operator who meant
-`inject_link_recovery`, or a script) is the realistic trigger. An injection on which the control plane
-has not reported the link is not affected: that recovery report is declined with `declaration_retained`
-(see `doc/2026-01-02_ndt_api.md`, sections 2 and 2b). An injection that attached no netem (outside
-MININET, or a cut that attached nothing) has no netem to leave behind.
-
-**Why.** `/ndt/link_failure_detected` records that the control plane reported the break on every link it
-names and does not check whether the link was injected
-(`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:4042-4052`, called from
-`src/ndt_core/http/HttpSession.cpp:927` and `:956`), while `inject_link_failure` declares the link down
-without that record (`HttpSession.cpp:1228`, `:1231`). The recovery report keeps a declaration only while
-`!failureReported && declaredDown` (`TopologyAndFlowMonitor.cpp:4073`); otherwise it spends the report,
-withdraws the declaration and marks the edge up (`:4089-4097`). The control plane's report comes from
-`on_link_delete` (`intelligent_router.py:1893`, POST at `:1928`) and from `check_link_beacons`
-(`p4_proxy/proxy_agent/topology_manager.py:2596`, `:2654`, via `p4_proxy/proxy_agent/kernel_notifier.py:99-104`).
-
-**What to do.** End an injection only with `POST /ndt/inject_link_recovery`, and do not post
-`link_recovery_detected` for an injected link. If it was posted, or the link reads up while traffic still
-fails, check both ends of the link (the interfaces `s<N>-eth<M>` named by the topology file's
-`bridge_name`) with `tc qdisc show dev <interface>` for a `netem loss 100%`. Then call
-`POST /ndt/inject_link_recovery` for the link: the declaration is already gone, but as long as the same
-kernel process attached the netem it still removes it (`HttpSession.cpp:1295-1458`,
-`include/utils/InjectedNetemLedger.hpp:27-35`) and answers `link recovery injected`. If the kernel was
-restarted since the injection it no longer knows the netem is its own: `inject_link_recovery` answers
-409 `netem_not_ours` and changes nothing (`HttpSession.cpp:1376-1402`); remove the netem by hand on both ends
-with `sudo tc qdisc del dev <interface> root` (or `parent <id>`, as `tc qdisc show` prints its attach
-point). None yet in the kernel.
-
-Read from the code, including the 409 after a kernel restart; not reproduced on a running lab.
-
-Failure direction: optimistic (the graph reports the link up while it drops every packet).
-
 ### C-8 `last_sample_age_seconds` is -1.0 for a link that has never been sampled
 
 **What you see.** In `get_graph_data`, an edge's `last_sample_age_seconds` is -1.0 when no sample has

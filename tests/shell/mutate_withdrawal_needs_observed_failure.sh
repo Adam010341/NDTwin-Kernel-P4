@@ -15,6 +15,10 @@
 #             `tc qdisc show` and classifies what it finds -- link end, host-facing port, or a
 #             name this topology does not contain -- instead of reading only the switch-to-switch
 #             link ends it could itself have written to.
+#   injection (doc/FIXED-ISSUES.md B-23) an injection is ended by /ndt/inject_link_recovery and by
+#             nothing else: a recovery report for an injected link is declined even when
+#             /ndt/link_failure_detected reported that link broken, before or after the injection.
+#             M35 .. M43, W8.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -279,7 +283,30 @@ add_anchor "log-sentences" "$HS"  '    switch (outcome)
                                dstDpid,
                                dstInterface);
             return;
+        // [Co-developed with claude code -- Adam] B-23. Not the Retained sentence: on an injected
+        // link the control plane has usually reported the break, so "nothing ever reported this
+        // link broken" would be false exactly where it matters.
+        case RecoveryLogOutcome::InjectionRetained:
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "link recovery declined on {}:{} -> {}:{}: the link failure "
+                               "declared here was injected, and only POST "
+                               "/ndt/inject_link_recovery ends an injection, so the declaration "
+                               "was retained and the link is still down. Any netem the injection "
+                               "attached is still in place",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
     }'
+add_anchor "inject-rule"   "$TFM" '    if (eprop.injected)'
+add_anchor "inject-note-end" "$TFM" '    eprop.injected = false;'
+add_anchor "inject-writer" "$HS"  '    m_topologyAndFlowMonitor->setEdgeDownByInjection(fwdOpt.value());'
+add_anchor "report-until"  "$HS"  '    if (m_topologyAndFlowMonitor->getEdgeInjected(fwdOpt.value()) ||
+        m_topologyAndFlowMonitor->getEdgeInjected(revOpt.value()))'
+add_anchor "log-injection" "$HS"  'injectionRetained ? RecoveryLogOutcome::InjectionRetained'
+add_anchor "inject-reply"  "$HS"  '    if (injectionRetained)
+    {'
 add_anchor "log-decline-text" "$HS" '                               "declaration was retained and the link is still down. POST "
                                "/ndt/inject_link_recovery to withdraw it",'
 
@@ -440,8 +467,12 @@ mutate "the defect verbatim: any recovery report withdraws any declaration (= th
     '    if (false)' \
     DeclaredLinkFailureTest.ARediscoveryDoesNotWithdrawADeclarationNothingReportedBroken \
     DeclaredLinkFailureTest.ARecoveryReportIsSpentAndDoesNotWithdrawTheNextDeclaration \
-    DeclaredLinkFailureTest.TheInjectionWithdrawalAlsoSpendsAStandingReport \
-    DeclaredLinkFailureWireTest.ARyuRestartDoesNotWithdrawAnInjectedLinkFailure
+    DeclaredLinkFailureTest.TheInjectionWithdrawalAlsoSpendsAStandingReport
+# (Since B-23 DeclaredLinkFailureWireTest.ARyuRestartDoesNotWithdrawAnInjectedLinkFailure is not
+# expected red here: /ndt/inject_link_failure now marks the edge `injected`, and the injection rule
+# declines that recovery before the pairing rule is reached. M35 does not redden it either -- the
+# pairing rule still holds an injection nothing reported -- so both rules guard it. M43 is the
+# mutation that does turn it red.)
 
 # M2. The report is never recorded, so nothing can ever pair with it: the notification endpoint's
 #     own recovery stops working and every real link outage becomes permanent.
@@ -731,12 +762,28 @@ mutate "the three outcomes are one sentence again, just logged later" \
                                dstDpid,
                                dstInterface);
             return;
+        // [Co-developed with claude code -- Adam] B-23. Not the Retained sentence: on an injected
+        // link the control plane has usually reported the break, so "nothing ever reported this
+        // link broken" would be false exactly where it matters.
+        case RecoveryLogOutcome::InjectionRetained:
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "link recovery declined on {}:{} -> {}:{}: the link failure "
+                               "declared here was injected, and only POST "
+                               "/ndt/inject_link_recovery ends an injection, so the declaration "
+                               "was retained and the link is still down. Any netem the injection "
+                               "attached is still in place",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
     }' \
     '    switch (outcome)
     {
         case RecoveryLogOutcome::Withdrawn:
         case RecoveryLogOutcome::Retained:
         case RecoveryLogOutcome::NoSuchEdge:
+        case RecoveryLogOutcome::InjectionRetained:
             SPDLOG_LOGGER_INFO(Logger::instance(),
                                "link recovered on {}:{} -> {}:{}",
                                srcDpid,
@@ -965,11 +1012,12 @@ mutate "an attach whose sibling failed is not rolled back" \
 #      who did not restart the kernel ever sees sends him to the endpoint that will refuse him.
 mutate "the poll's advice names the notification endpoint for an injected declaration too" \
     "$TFM" \
-    '                                eprop.failureReported
+    '                                eprop.failureReported && !eprop.injected
                                     ? "POST /ndt/link_recovery_detected to clear this"' \
     '                                true
                                     ? "POST /ndt/link_recovery_detected to clear this"' \
-    DeclaredLinkFailureTest.ThePollPointsAnInjectedDeclarationAtTheInjectionEndpoint
+    DeclaredLinkFailureTest.ThePollPointsAnInjectedDeclarationAtTheInjectionEndpoint \
+    DeclaredLinkFailureWireTest.ThePollPointsAnInjectedLinkTheControlPlaneReportedAtTheInjectionEndpoint
 
 # ================================================================================================
 #   B-16, direction 2: relaxing PAST the fix. Both of these pass every case above.
@@ -991,11 +1039,105 @@ mutate "the refusal fires for any netem, including this kernel's own" \
 #      then wrong on exactly the axis this fix is about.
 mutate "the poll's advice names the injection endpoint for a reported break too" \
     "$TFM" \
-    '                                eprop.failureReported
+    '                                eprop.failureReported && !eprop.injected
                                     ? "POST /ndt/link_recovery_detected to clear this"' \
     '                                false
                                     ? "POST /ndt/link_recovery_detected to clear this"' \
     DeclaredLinkFailureTest.ThePollStillPointsAReportedFailureAtTheNotificationEndpoint
+
+# ================================================================================================
+#   doc/FIXED-ISSUES.md B-23: only /ndt/inject_link_recovery ends an injection.
+#   Numbered after M34 so M1..M34 keep meaning what earlier results say they mean.
+#   The netem an injection attaches drops LLDP and the P4 proxy's beacons, so the control plane
+#   reports the injected link broken itself; under the pairing rule alone that report let the next
+#   /ndt/link_recovery_detected withdraw the injection with its netem still attached.
+# ================================================================================================
+
+# M35. 🔴 B-23 VERBATIM: the injection rule is gone, so a failure report on an injected link buys
+#      a withdrawal again -- in either order.
+mutate "a recovery report can end an injection the control plane reported (= B-23)" \
+    "$TFM" \
+    '    if (eprop.injected)' \
+    '    if (false)' \
+    DeclaredLinkFailureWireTest.AnInjectionOutlivesARecoveryReportAfterTheControlPlaneReportedTheCut \
+    DeclaredLinkFailureWireTest.AnInjectionOutlivesARecoveryReportWhenTheReportCameFirst
+
+# M36. The rule is intact and the injection endpoint stops using it for the FORWARD direction: that
+#      call records a plain declaration, which is what it did before B-23. The reverse call is left
+#      alone, so the reply still says `declaration_retained`; the red comes from the forward edge
+#      being withdrawn and raised.
+mutate "the injection endpoint records a plain declaration for the forward direction" \
+    "$HS" \
+    '    m_topologyAndFlowMonitor->setEdgeDownByInjection(fwdOpt.value());' \
+    '    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(fwdOpt.value());' \
+    DeclaredLinkFailureWireTest.AnInjectionOutlivesARecoveryReportAfterTheControlPlaneReportedTheCut \
+    DeclaredLinkFailureWireTest.AnInjectionOutlivesARecoveryReportWhenTheReportCameFirst
+
+# M37. The injection note outlives /ndt/inject_link_recovery, so the next REAL outage on that link
+#      is declined as if it were the injection, and never ends.
+mutate "inject_link_recovery leaves the injection note behind" \
+    "$TFM" \
+    '    eprop.injected = false;' \
+    '    // [mutant] the injection note outlives the injection' \
+    DeclaredLinkFailureWireTest.InjectRecoveryEndsAReportedInjectionAndLeavesAnOrdinaryLink
+
+# M38. The poll's advice reads `failureReported` alone again, so an injected link the control plane
+#      reported is sent to /ndt/link_recovery_detected -- the request that was B-23's trigger.
+mutate "the poll's advice ignores the injection note" \
+    "$TFM" \
+    '                                eprop.failureReported && !eprop.injected
+                                    ? "POST /ndt/link_recovery_detected to clear this"' \
+    '                                eprop.failureReported
+                                    ? "POST /ndt/link_recovery_detected to clear this"' \
+    DeclaredLinkFailureWireTest.ThePollPointsAnInjectedLinkTheControlPlaneReportedAtTheInjectionEndpoint
+
+# M39. The failure report's reply on an injected link names /ndt/link_recovery_detected again.
+mutate "the failure report's reply ignores the injection" \
+    "$HS" \
+    '    if (m_topologyAndFlowMonitor->getEdgeInjected(fwdOpt.value()) ||
+        m_topologyAndFlowMonitor->getEdgeInjected(revOpt.value()))' \
+    '    if (false)' \
+    DeclaredLinkFailureWireTest.AFailureReportOnAnInjectedLinkNamesTheInjectionEndpoint
+
+# M40. The decline is kept and its REASON is not: the reply falls back to the unpaired-declaration
+#      body, which says nothing ever reported the link broken -- false whenever a report stands.
+mutate "a declined injection is answered with the unpaired-declaration reason" \
+    "$HS" \
+    '    if (injectionRetained)
+    {' \
+    '    if (injectionRetained && false)
+    {' \
+    DeclaredLinkFailureWireTest.AnInjectionOutlivesARecoveryReportAfterTheControlPlaneReportedTheCut \
+    DeclaredLinkFailureWireTest.AnInjectionOutlivesARecoveryReportWhenTheReportCameFirst
+
+# M41. Direction 2, the over-correction: every REPORTED link is treated as injected, so no recovery
+#      report ever ends a real outage again.
+mutate "every reported link is treated as injected" \
+    "$TFM" \
+    '    if (eprop.injected)' \
+    '    if (eprop.injected || eprop.failureReported)' \
+    DeclaredLinkFailureWireTest.AReportedFailureNobodyInjectedIsStillEndedByItsOwnRecovery \
+    DeclaredLinkFailureWireTest.AReportedFailureIsStillWithdrawnByItsOwnRecovery \
+    DeclaredLinkFailureTest.AReportedFailureIsWithdrawnByItsMatchingRecovery
+
+# M42. The decline is kept and the LOG says the wrong reason: an injection is logged with the
+#      unpaired-declaration sentence, "nothing ever reported this link broken" -- false whenever the
+#      control plane has reported the injected link, which is the B-23 case.
+mutate "a declined injection is logged with the unpaired-declaration sentence" \
+    "$HS" \
+    'injectionRetained ? RecoveryLogOutcome::InjectionRetained' \
+    'injectionRetained ? RecoveryLogOutcome::Retained' \
+    DeclaredLinkFailureWireTest.AnInjectionOutlivesARecoveryReportAfterTheControlPlaneReportedTheCut
+
+# M43. The injection endpoint records a REPORTED failure for the forward direction, so a bare
+#      rediscovery (a Ryu restart) finds a report to pair with and withdraws the injection. This is
+#      the mutation that turns ARyuRestartDoesNotWithdrawAnInjectedLinkFailure red; neither rule
+#      alone does (see M1).
+mutate "the injection endpoint records a reported failure instead of an injection" \
+    "$HS" \
+    '    m_topologyAndFlowMonitor->setEdgeDownByInjection(fwdOpt.value());' \
+    '    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());' \
+    DeclaredLinkFailureWireTest.ARyuRestartDoesNotWithdrawAnInjectedLinkFailure
 
 # ================================================================================================
 # 6. the widenings -- these MUST survive
@@ -1025,6 +1167,10 @@ widen "the pairing rule is written as an equivalent expression" \
 # W4. The recovery log's control. The declined sentence is REWORDED while still saying the outcome. The three
 #     new cases key on the word that carries the outcome; if one of them reddens here it is pinning
 #     a sentence instead, and the next person to improve the wording would have to edit a test.
+#     🔴 Since B-23 NO TEST REACHES THIS SENTENCE: no endpoint makes a plain declaration any more,
+#     ADeclinedRecoveryIsNotLoggedAsARecovery now goes through InjectionRetained, and the monitor
+#     cases do not run the HTTP handler. So its "survived" proves nothing. It is kept rather than
+#     dropped only so that W5..W8 keep their numbers; W8 is the live control for the declined log.
 widen "the declined recovery sentence is reworded (it still says the declaration was retained)" \
     "$HS" \
     '                               "declaration was retained and the link is still down. POST "
@@ -1070,6 +1216,14 @@ widen "the refusal is reworded (it still names the interface and whose the netem
     '                " that this kernel did not attach. Remove it yourself once you know whose "
                 "experiment it is; nothing here was changed, no declaration was withdrawn and "
                 "no qdisc was deleted";'
+
+# W8. B-23's control: the declined-injection sentence is reworded while it still says the
+#     declaration was retained. The cases key on that phrase; a case that reddens here is pinning
+#     the prose around it.
+widen "the declined-injection sentence is reworded (it still says the declaration was retained)" \
+    "$HS" \
+    '                               "attached is still in place",' \
+    '                               "attached has not been removed",'
 
 # ================================================================================================
 # 7. restore and verdict
@@ -1123,5 +1277,7 @@ echo "  dpid 0 cannot be let back in at the helper or at one door, the recovery 
 echo "  back in front of its outcome or collapse its three outcomes into one sentence, and the"
 echo "  startup sweep cannot go silent, go blind, shrink back to link ends, drop an interface"
 echo "  this topology does not name, call everything a link, or read one device at a time --"
-echo "  and nine ways of over-correcting are caught too."
+echo "  and nine ways of over-correcting are caught too. An injection cannot be ended by a"
+echo "  recovery report again, whatever the control plane reported (B-23), and treating every"
+echo "  reported link as injected is caught as well."
 exit 0

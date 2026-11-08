@@ -2850,6 +2850,14 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                             // src/main.cpp), so it was sending him to the endpoint that would
                             // refuse him. `failureReported` is right here in the edge this poll
                             // is declining to raise, so the poll can tell the two apart.
+                            //
+                            // doc/FIXED-ISSUES.md B-23: `injected` overrides `failureReported`
+                            // here, so a reported link gets the notification endpoint only when
+                            // nobody injected it. An injected link usually carries a report too
+                            // (the netem stops LLDP, and Ryu or the P4 proxy reports the break),
+                            // and this sentence used to send that case to
+                            // /ndt/link_recovery_detected as well.
+                            // [Co-developed with claude code -- Adam]
                             SPDLOG_LOGGER_WARN(
                                 Logger::instance(),
                                 "the control plane still lists link (dpid {} port {}), but a link "
@@ -2858,15 +2866,16 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                                 "go on listing this link for ever. {}",
                                 srcDpidStr,
                                 srcPortStr,
-                                eprop.failureReported
+                                eprop.failureReported && !eprop.injected
                                     ? "POST /ndt/link_recovery_detected to clear this"
-                                    : "Nothing ever reported this link broken, so it was injected "
-                                      "and /ndt/link_recovery_detected will DECLINE to clear it "
-                                      "(B-6): POST /ndt/inject_link_recovery to withdraw the "
-                                      "declaration. On MININET that also removes the netem -- but "
-                                      "only one this kernel attached; a netem it did not attach is "
-                                      "refused with 409 and has to be removed by whoever left it "
-                                      "(B-16)");
+                                    : "This declaration was injected (or nothing ever reported "
+                                      "this link broken), so /ndt/link_recovery_detected will "
+                                      "DECLINE to clear it: POST /ndt/inject_link_recovery to "
+                                      "withdraw the declaration. On MININET that also removes the "
+                                      "netem -- but only one this kernel attached; a netem it did "
+                                      "not attach is left in place (the reply lists it in "
+                                      "netem_left_standing) and has to be removed by whoever "
+                                      "left it (B-16)");
                         }
                     }
                     else
@@ -4030,8 +4039,8 @@ TopologyAndFlowMonitor::setEdgeDownByDeclaration(Graph::edge_descriptor e)
     // it), and a declared-failed link is still a link the control plane is allowed to drive.
     // Folding the two would make /ndt/link_failure_detected a covert DisableSwitch.
     SPDLOG_LOGGER_INFO(Logger::instance(),
-                       "edge {} -> {} declared down; a topology poll will not lift it until "
-                       "/ndt/link_recovery_detected withdraws the declaration",
+                       "edge {} -> {} declared down; a topology poll will not lift it until the "
+                       "declaration is withdrawn",
                        eprop.srcDpid,
                        eprop.dstDpid);
 }
@@ -4052,6 +4061,19 @@ TopologyAndFlowMonitor::setEdgeDownByReportedFailure(Graph::edge_descriptor e)
 }
 
 /** @brief See the header. [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::setEdgeDownByInjection(Graph::edge_descriptor e)
+{
+    {
+        std::unique_lock lock(*m_graphMutex);
+        // B-23. Written before the declaration, so there is no moment at which this edge is
+        // declared down and not yet known to be an injection.
+        (*m_graph)[e].injected = true;
+    }
+    setEdgeDownByDeclaration(e);
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
 LinkRecoveryOutcome
 TopologyAndFlowMonitor::applyReportedLinkRecovery(Graph::edge_descriptor e)
 {
@@ -4059,17 +4081,44 @@ TopologyAndFlowMonitor::applyReportedLinkRecovery(Graph::edge_descriptor e)
     auto& eprop = (*m_graph)[e];
 
     // [Co-developed with claude code -- Adam]
+    // doc/FIXED-ISSUES.md B-23. An injection is ended by /ndt/inject_link_recovery and by nothing
+    // else, so this comes before the pairing rule and does not look at `failureReported`. It has
+    // to: the netem an injection attaches drops LLDP and the P4 proxy's beacons, so Ryu and the
+    // proxy's link watchdog report the injected link broken themselves, and under the pairing rule
+    // alone that report licensed the next recovery report to withdraw the injection with its netem
+    // still attached. The report is left standing; clearEdgeDeclaredDown spends it.
+    if (eprop.injected)
+    {
+        SPDLOG_LOGGER_WARN(
+            Logger::instance(),
+            "the control plane reports link {} -> {} recovered, but the link failure declared for "
+            "it was injected, and only POST /ndt/inject_link_recovery ends an injection, so the "
+            "declaration stands and the edge is left down. Any netem the injection attached is "
+            "still in place",
+            eprop.srcDpid,
+            eprop.dstDpid);
+        return LinkRecoveryOutcome::InjectionRetained;
+    }
+
+    // [Co-developed with claude code -- Adam]
     // doc/FIXED-ISSUES.md B-6. THE RULE, and it is one condition: a recovery report may only
     // withdraw a declaration it pairs with. `failureReported` is set by /ndt/link_failure_detected
-    // and by nothing else, so an edge that carries a declaration without one was declared down by
-    // an operator through /ndt/inject_link_failure -- and Ryu rediscovering the link says nothing
-    // about that, because nothing on the fabric had to change for Ryu to list it again.
+    // and by nothing else, so an edge that carries a declaration without one was not declared by
+    // the control plane -- and Ryu rediscovering the link says nothing about that, because nothing
+    // on the fabric had to change for Ryu to list it again. (Since B-23 a declaration from
+    // /ndt/inject_link_failure goes through setEdgeDownByInjection and is declined by the
+    // injection branch above; this one is reached only through setEdgeDownByDeclaration.)
     //
     // Measured 2026-09-07 00:08 (OVS 4 hosts): Ryu restarted with the same argv POSTed
     // /ndt/link_recovery_detected for EVERY link within one second of coming back, and every
     // standing declaration was gone. Without this branch a control-plane restart silently ends
     // every injection in the fabric while the netem that accompanies one stays attached -- the
     // graph then says the link is up and the packets still do not flow.
+    //
+    // Since B-23 an injection made through /ndt/inject_link_failure is declined by the branch
+    // above before it gets here. This branch still holds a declaration that carries neither note,
+    // which no endpoint makes any more but setEdgeDownByDeclaration can.
+    // [Co-developed with claude code -- Adam]
     if (!eprop.failureReported && eprop.declaredDown)
     {
         // NOT edge-triggered, unlike m_linkResurrectionDeclined next door, and the difference is
@@ -4108,6 +4157,8 @@ TopologyAndFlowMonitor::clearEdgeDeclaredDown(Graph::edge_descriptor e)
     // Spent as well: an operator taking an injection back ends the episode, so a recovery report
     // arriving afterwards must not find a report left over to pair with.
     eprop.failureReported = false;
+    // B-23: and this is the one place an injection ends. [Co-developed with claude code -- Adam]
+    eprop.injected = false;
     // The episode is over, so the next decline for this edge is a new one and deserves its line.
     m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
 }
@@ -4126,6 +4177,14 @@ TopologyAndFlowMonitor::getEdgeFailureReported(Graph::edge_descriptor e)
 {
     std::shared_lock lock(*m_graphMutex);
     return (*m_graph)[e].failureReported;
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+bool
+TopologyAndFlowMonitor::getEdgeInjected(Graph::edge_descriptor e)
+{
+    std::shared_lock lock(*m_graphMutex);
+    return (*m_graph)[e].injected;
 }
 
 /** @brief See the header. [Co-developed with claude code -- Adam] */

@@ -200,16 +200,18 @@ LINK_FAILURE_REPORTED_TRUNK = {"status": "link failure processed"}
 #: §2 success, the paired withdrawal.
 LINK_RECOVERY_APPLIED_SAMPLE = {"status": "link recovery processed"}
 
-#: §2 declining an injected declaration -- the shape B-6's pairing rule is about. Copied from the document's
-#: "Success, but nothing was withdrawn" block, and measured on the wire
-#: (2026-09-07 20:26:47, s1:1 -> s5:1, edge still is_up=false afterwards).
+#: §2 declining an injected declaration. Copied from the document's "Success, but nothing was
+#: withdrawn" block. The same shape was measured on the wire on 2026-09-07 20:26:47 (s1:1 -> s5:1,
+#: edge still is_up=false afterwards); the detail text has changed since (B-23), the keys have not.
+#: [Co-developed with claude code -- Adam]
 LINK_RECOVERY_DECLINED_SAMPLE = {
     "status": "link recovery processed",
     "declaration_retained": True,
-    "detail": "a link failure is declared for this link and nothing ever reported it broken, so "
-              "this recovery report did not withdraw it and the link is still down. That is what "
-              "an injected failure surviving a control-plane restart looks like. Withdraw it with "
-              "POST /ndt/inject_link_recovery",
+    "detail": "the link failure declared for this link was injected with POST "
+              "/ndt/inject_link_failure, and only POST /ndt/inject_link_recovery ends an "
+              "injection, so this recovery report did not withdraw it and the link is still down. "
+              "Any netem the injection attached is still in place; POST /ndt/inject_link_recovery "
+              "withdraws the declaration and removes that netem",
     "until": "/ndt/inject_link_recovery",
 }
 
@@ -980,7 +982,8 @@ INVARIANT_CASES = [
     ("declared_failure_says_who_can_withdraw_it: reports trunk's bare status",
      spec.inv_declared_failure_says_who_can_withdraw_it,
      LINK_FAILURE_REPORTED_TRUNK, _GOOD_CTX, True),
-    ("declared_failure_says_who_can_withdraw_it: catches the wrong withdrawal endpoint",
+    ("declared_failure_says_who_can_withdraw_it: catches the wrong withdrawal endpoint for a link "
+     "nobody injected",
      spec.inv_declared_failure_says_who_can_withdraw_it,
      {**LINK_FAILURE_REPORTED_SAMPLE, "until": "/ndt/inject_link_recovery"}, _GOOD_CTX, True),
 

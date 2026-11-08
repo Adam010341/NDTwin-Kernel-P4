@@ -922,8 +922,10 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
     //
     // ...ByReportedFailure, not ...ByDeclaration. THIS endpoint is Ryu's notification, so a
     // call to it is the control plane saying it SAW the break -- and that note is what the matching
-    // /ndt/link_recovery_detected later pairs with. /ndt/inject_link_failure calls the plain
-    // declaration writer instead, which is what makes an injection immune to a Ryu restart.
+    // /ndt/link_recovery_detected later pairs with. /ndt/inject_link_failure calls
+    // setEdgeDownByInjection instead, and the `injected` note that writes is what makes an
+    // injection immune to a recovery report, a Ryu restart's included (B-23).
+    // [Co-developed with claude code -- Adam]
     m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());
     m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
                            .payload = LinkFailureEventData{fwdOpt.value()}});
@@ -960,6 +962,27 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
     // B-6. The body now says how long this lasts, because the answer changed and the old one was
     // never written down: the declaration stands until /ndt/link_recovery_detected withdraws it,
     // rather than until the next topology poll silently undoes it.
+    //
+    // doc/FIXED-ISSUES.md B-23: except on a link that was injected. The report above is recorded
+    // there too (the control plane did see the break; the injection's netem caused it), but the
+    // declaration is the injection's, and only /ndt/inject_link_recovery ends that -- so `until`
+    // names it. Same keys, one value that depends on the link.
+    // [Co-developed with claude code -- Adam]
+    if (m_topologyAndFlowMonitor->getEdgeInjected(fwdOpt.value()) ||
+        m_topologyAndFlowMonitor->getEdgeInjected(revOpt.value()))
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "link failure report on {}:{} -> {}:{} recorded for an injected link: "
+                           "the injection stands until POST /ndt/inject_link_recovery, and a "
+                           "recovery report will not end it",
+                           data->srcDpid,
+                           data->srcInterface,
+                           data->dstDpid,
+                           data->dstInterface);
+        res.body() =
+            R"({"status":"link failure processed","down_reason":"declared","until":"/ndt/inject_link_recovery"})";
+        return;
+    }
     res.body() =
         R"({"status":"link failure processed","down_reason":"declared","until":"/ndt/link_recovery_detected"})";
 }
@@ -975,7 +998,10 @@ enum class RecoveryLogOutcome
 {
     Withdrawn,  ///< Applied: any declaration standing here is gone and both directions are up.
     Retained,   ///< Declined by the pairing rule: the declaration stands, the link is still down.
-    NoSuchEdge  ///< The topology holds no such edge: nothing withdrawn, nothing marked up.
+    NoSuchEdge, ///< The topology holds no such edge: nothing withdrawn, nothing marked up.
+    /// Declined because the declaration is an injection (B-23): it stands, the link is still down,
+    /// and any netem it attached is still on. [Co-developed with claude code -- Adam]
+    InjectionRetained
 };
 
 /**
@@ -1036,6 +1062,21 @@ logLinkRecoveryOutcome(RecoveryLogOutcome outcome,
             SPDLOG_LOGGER_WARN(Logger::instance(),
                                "link recovery ignored on {}:{} -> {}:{}: the topology holds no "
                                "such edge, so nothing was withdrawn and nothing was marked up",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+        // [Co-developed with claude code -- Adam] B-23. Not the Retained sentence: on an injected
+        // link the control plane has usually reported the break, so "nothing ever reported this
+        // link broken" would be false exactly where it matters.
+        case RecoveryLogOutcome::InjectionRetained:
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "link recovery declined on {}:{} -> {}:{}: the link failure "
+                               "declared here was injected, and only POST "
+                               "/ndt/inject_link_recovery ends an injection, so the declaration "
+                               "was retained and the link is still down. Any netem the injection "
+                               "attached is still in place",
                                srcDpid,
                                srcInterface,
                                dstDpid,
@@ -1112,8 +1153,8 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
                            dstInterface,
                            dstDpid,
                            srcDpid,
-                           fwdOutcome == LinkRecoveryOutcome::Retained ? "declaration retained"
-                                                                      : "marked up");
+                           fwdOutcome == LinkRecoveryOutcome::Applied ? "marked up"
+                                                                     : "declaration retained");
         res.result(http::status::internal_server_error);
         res.body() =
             R"({"error":"reverse edge missing from the topology; the reported direction was applied, its reverse was not"})";
@@ -1126,9 +1167,17 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     // line per request rather than per direction: a report names a link, and a link whose two
     // directions ended differently is kernel state gone inconsistent, not something to narrate
     // twice. Retained wins the tie, because "still down" is the half an operator must act on.
-    const bool retained = fwdOutcome == LinkRecoveryOutcome::Retained ||
-                          revOutcome == LinkRecoveryOutcome::Retained;
-    const auto logged = retained ? RecoveryLogOutcome::Retained : RecoveryLogOutcome::Withdrawn;
+    //
+    // B-23: an injection outranks an unpaired declaration in the same tie, for the same reason --
+    // its sentence names the netem, which is the half still dropping packets.
+    // [Co-developed with claude code -- Adam]
+    const bool injectionRetained = fwdOutcome == LinkRecoveryOutcome::InjectionRetained ||
+                                   revOutcome == LinkRecoveryOutcome::InjectionRetained;
+    const bool retained = fwdOutcome != LinkRecoveryOutcome::Applied ||
+                          revOutcome != LinkRecoveryOutcome::Applied;
+    const auto logged = injectionRetained ? RecoveryLogOutcome::InjectionRetained
+                        : retained        ? RecoveryLogOutcome::Retained
+                                          : RecoveryLogOutcome::Withdrawn;
     logLinkRecoveryOutcome(logged, srcDpid, srcInterface, dstDpid, dstInterface);
 
     // doc/FIXED-ISSUES.md B-6. Still 200 -- the notification WAS processed, and Ryu's
@@ -1137,13 +1186,26 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     // But 200 with the default body would be the older, worse lie: a caller reading only the
     // status line would believe a link is back that this kernel deliberately left down. So the
     // body says so, and names the endpoint that CAN withdraw it.
+    if (injectionRetained)
+    {
+        // B-23. The same shape as the reply below; only the detail differs, because the reason
+        // does. [Co-developed with claude code -- Adam]
+        res.body() =
+            R"({"status":"link recovery processed","declaration_retained":true,)"
+            R"("detail":"the link failure declared for this link was injected with POST )"
+            R"(/ndt/inject_link_failure, and only POST /ndt/inject_link_recovery ends an )"
+            R"(injection, so this recovery report did not withdraw it and the link is still )"
+            R"(down. Any netem the injection attached is still in place; POST )"
+            R"(/ndt/inject_link_recovery withdraws the declaration and removes that netem",)"
+            R"("until":"/ndt/inject_link_recovery"})";
+        return;
+    }
     if (retained)
     {
         res.body() =
             R"({"status":"link recovery processed","declaration_retained":true,)"
             R"("detail":"a link failure is declared for this link and nothing ever reported it )"
             R"(broken, so this recovery report did not withdraw it and the link is still down. )"
-            R"(That is what an injected failure surviving a control-plane restart looks like. )"
             R"(Withdraw it with POST /ndt/inject_link_recovery","until":"/ndt/inject_link_recovery"})";
         return;
     }
@@ -1225,10 +1287,12 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
         return;
     }
 
-    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(fwdOpt.value());
+    // [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md B-23: ...ByInjection, so that no
+    // recovery report can end this, whatever the control plane reports about the link.
+    m_topologyAndFlowMonitor->setEdgeDownByInjection(fwdOpt.value());
     m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
                            .payload = LinkFailureEventData{fwdOpt.value()}});
-    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(revOpt.value());
+    m_topologyAndFlowMonitor->setEdgeDownByInjection(revOpt.value());
     m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
                            .payload = LinkFailureEventData{revOpt.value()}});
 

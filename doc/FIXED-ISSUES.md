@@ -48,6 +48,7 @@ Status is one of: fixed, partly fixed, not a defect, decided not to change. The 
 | B-14 | An out-of-range vertex_type was accepted from a file but rejected with 400 from the API. | fixed | `src/ndt_core/collection/TopologyAndFlowMonitor.cpp`; `tests/test_TopologyInputValidation.cpp` |
 | B-15 | A loose spelling of an address let two hosts share one address. | fixed | `src/ndt_core/collection/TopologyAndFlowMonitor.cpp`; `tests/test_TopologyInputValidation.cpp` |
 | B-16 | inject_link_recovery removed netem it had not attached and still answered ok. | fixed | `include/utils/InjectedNetemLedger.hpp`; `tests/test_HttpSessionRouting.cpp` |
+| B-23 | A link_recovery_detected report could end an injected link failure, and leave its netem attached, once the control plane had reported the injected link broken. Only inject_link_recovery ends an injection now. | fixed | `src/ndt_core/collection/TopologyAndFlowMonitor.cpp`; `src/ndt_core/http/HttpSession.cpp`; `tests/test_HttpSessionRouting.cpp`; `tests/shell/mutate_withdrawal_needs_observed_failure.sh` |
 | B-x | get_detected_flow_data listed ended flows, about 92% of its rows under churn (the ended-flow half of the old B-x entry; the reverse half, a low-rate flow dropping out of the default view, is open as B-21 in doc/KNOWN-ISSUES.md). | fixed | `include/common_types/SFlowType.hpp`; `tests/test_FlowLiveness.cpp` |
 
 ## Letter C

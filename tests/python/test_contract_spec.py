@@ -1447,17 +1447,19 @@ class PowerStateReadingCarriesBothFieldsTest(unittest.TestCase):
 # [Co-developed with claude code -- Adam]
 
 
-#: The declined reply, verbatim from doc/2026-01-02_ndt_api.md §2 and measured
-#: 2026-09-07 20:26:47 (s1:1 -> s5:1). Repeated here rather than imported from
+#: The declined reply, verbatim from doc/2026-01-02_ndt_api.md §2. The same keys were measured on
+#: the wire on 2026-09-07 20:26:47 (s1:1 -> s5:1); the detail text has changed since (B-23).
+#: [Co-developed with claude code -- Adam] Repeated here rather than imported from
 #: selftest_fixtures so that a fixture edited to match a broken kernel does not also move the
 #: assertions -- the two files check the same shape from opposite sides on purpose.
 DECLINED_RECOVERY = {
     "status": "link recovery processed",
     "declaration_retained": True,
-    "detail": "a link failure is declared for this link and nothing ever reported it broken, so "
-              "this recovery report did not withdraw it and the link is still down. That is what "
-              "an injected failure surviving a control-plane restart looks like. Withdraw it with "
-              "POST /ndt/inject_link_recovery",
+    "detail": "the link failure declared for this link was injected with POST "
+              "/ndt/inject_link_failure, and only POST /ndt/inject_link_recovery ends an "
+              "injection, so this recovery report did not withdraw it and the link is still down. "
+              "Any netem the injection attached is still in place; POST /ndt/inject_link_recovery "
+              "withdraws the declaration and removes that netem",
     "until": "/ndt/inject_link_recovery",
 }
 
