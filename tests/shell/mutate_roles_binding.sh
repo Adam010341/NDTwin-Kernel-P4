@@ -47,8 +47,8 @@
 # Usage:  tests/shell/mutate_roles_binding.sh
 #         PROXY_PY=/path/to/python tests/shell/mutate_roles_binding.sh
 # Exit:   0 every mutation caught, every control green, every new test seen red;
-#         1 otherwise; 2 refused (no interpreter, or the baseline was red); 3 a source changed
-#         underneath the gate.
+#         1 otherwise; 2 refused (no interpreter, or the baseline was red or skipped a test);
+#         3 a source changed underneath the gate.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -164,7 +164,10 @@ run_against() {
     ( cd "$d/p4_proxy" && HOME="$d/home" TMPDIR="$d/tmp" PYTHONPATH="$d/p4_proxy" \
         PYTHONDONTWRITEBYTECODE=1 timeout 300 "$PY" -m unittest $MODULES -v 2>&1 )
     rc1=$?
-    ( cd "$d" && HOME="$d/home" TMPDIR="$d/tmp" PYTHONDONTWRITEBYTECODE=1 timeout 300 \
+    # [Co-developed with claude code -- Adam] The two variables that would point the tools suite at a
+    # tutorials tree or a p4dev venv outside the empty HOME are dropped too, for the same reason.
+    ( cd "$d" && HOME="$d/home" TMPDIR="$d/tmp" PYTHONDONTWRITEBYTECODE=1 \
+        timeout 300 env -u NDTWIN_TUTORIALS_DIR -u NDTWIN_P4DEV_VENV \
         "$PY" -m unittest discover -s tools/p4_exercise/tests -t tools/p4_exercise/tests -v 2>&1 )
     rc2=$?
     if [[ $rc1 -eq 124 || $rc2 -eq 124 ]]; then return 124; fi
@@ -235,6 +238,16 @@ if ! base_out=$(run_against "$base"); then
     exit 2
 fi
 /usr/bin/grep -E '^(Ran |OK)' <<<"$base_out" | sed 's/^/  /'
+# [Co-developed with claude code -- Adam] A test the baseline skipped did not run, so a mutation only
+# it catches would be scored SURVIVED: refuse instead (lib_gate_skips.sh). The tools suite runs with
+# an empty HOME (see the header), so its three tests that need a p4lang-tutorials checkout or the
+# p4dev venv under HOME skip by design and are declared here; any other skip refuses.
+source "$HERE/lib_gate_skips.sh"
+gate_baseline_skips \
+    'test_convert\.FixtureProvenance\.test_every_fixture_is_still_byte_identical_to_its_tutorials_original' \
+    'test_run_external_controller\.Locating\.test_the_tutorials_utils_directory_is_found_by_walking_up' \
+    'test_thrift_cli\.TheParserAgainstRuntimeCli\.test_the_value_parser_agrees_with_runtime_cli_except_where_it_says_it_is_stricter' \
+    <<<"$base_out" || exit 2
 
 # The new tests, enumerated from the unmutated copy by the loader itself.
 NEW_IDS="$BK/new_ids.txt"

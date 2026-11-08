@@ -34,6 +34,9 @@
 # 🔴 Guards its own baseline: every mutation is applied to a COPY of p4_proxy under a temp dir
 # and the tests are run there. Nothing under p4_proxy/ is written -- another session may be
 # executing those files right now -- and the four source files are re-hashed at the end.
+#
+# Exit: 0 every mutation caught, 1 a mutation survived, 2 refused (no interpreter, or the baseline
+#       was red or skipped a test), 3 a source file changed underneath the gate.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -128,6 +131,9 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"; mkdir -p "$d"
     cp -r "$REPO/p4_proxy/proxy_agent" "$REPO/p4_proxy/tests" "$REPO/p4_proxy/mininet" "$d/"
+    # [Co-developed with claude code -- Adam] The compiled program too, as the sibling gates copy it:
+    # test_p4_client_writes reads it, and without it that test skips in every run of this gate.
+    mkdir -p "$d/p4_src"; cp -r "$REPO/p4_proxy/p4_src/build" "$d/p4_src/" 2>/dev/null
     find "$d" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
     python3 - "$d/${file#"$REPO/p4_proxy/"}" "$old" "$new" <<'PY'
 import sys
@@ -142,9 +148,15 @@ PY
 echo "baseline (must be green before any mutation):"
 base="$BK/base"; mkdir -p "$base"
 cp -r "$REPO/p4_proxy/proxy_agent" "$REPO/p4_proxy/tests" "$REPO/p4_proxy/mininet" "$base/"
+mkdir -p "$base/p4_src"; cp -r "$REPO/p4_proxy/p4_src/build" "$base/p4_src/" 2>/dev/null
 find "$base" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
-run_against "$base" | grep -E '^(Ran |OK|FAILED)'
-run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
+base_out=$(run_against "$base"); base_rc=$?
+grep -E '^(Ran |OK|FAILED)' <<<"$base_out"
+[[ "$base_rc" -eq 0 ]] || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
+# [Co-developed with claude code -- Adam] A test the baseline skipped did not run, so a mutation only it
+# catches would be scored SURVIVED: refuse instead (lib_gate_skips.sh).
+source "$HERE/lib_gate_skips.sh"
+gate_baseline_skips <<<"$base_out" || exit 2
 echo
 
 # --- the defect itself: no clock on the P4 plane ---------------------------------------------

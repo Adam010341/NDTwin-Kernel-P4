@@ -29,7 +29,8 @@
 #   tests/shell/mutate_p4_register_thrift.sh --dry-run  anchors only, NOT a gate result
 #   PROXY_PY=/path/to/python tests/shell/mutate_p4_register_thrift.sh
 #
-# Exit: 0 every mutation caught, 1 a mutation survived, 2 refused (harness fault only).
+# Exit: 0 every mutation caught, 1 a mutation survived, 2 refused (harness fault, or the baseline
+#       skipped a test).
 set -uo pipefail
 
 API=p4_proxy/proxy_agent/api_routes.py
@@ -107,6 +108,8 @@ red_proxy() {
     for t in test_register_route.py test_bm_thrift.py test_app_package_proxy.py; do
         out=$(cd p4_proxy/tests && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.. \
                   "$PROXY_PY" "$t" 2>&1); rc=$?
+        # The baseline's transcript, for its skip check below (the file exists only for that run).
+        [[ -f "$BK/proxy_runs.out" ]] && printf '%s\n' "$out" >> "$BK/proxy_runs.out"
         [[ $rc -eq 0 ]] && continue
         all+=" $(sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_0-9]*\) .*/\2/p' <<<"$out" | sort -u | tr '\n' ' ')"
         # a file that failed without naming a test (an import error, a crash) still went red
@@ -572,12 +575,19 @@ fi
 # A red baseline makes every later result meaningless: a test already failing "catches"
 # everything. Refuse rather than report.
 echo "=== baseline (must be green before any mutation) ==="
+: > "$BK/proxy_runs.out"
 BASE=$(red_proxy)
 if [[ -n "$BASE" ]]; then
     echo "REFUSE: baseline is red -- [$BASE]. Nothing this gate reports would mean anything." >&2
     exit 2
 fi
 echo "  ✅ green"
+# [Co-developed with claude code -- Adam] A test the baseline skipped did not run, so a mutation only it
+# catches would be scored SURVIVED: refuse instead (lib_gate_skips.sh). The three files run with
+# verbosity 2, so the transcript names every test.
+source "$(dirname "${BASH_SOURCE[0]}")/lib_gate_skips.sh"
+gate_baseline_skips < "$BK/proxy_runs.out" || exit 2
+rm -f "$BK/proxy_runs.out"
 
 each_mutation mutate
 

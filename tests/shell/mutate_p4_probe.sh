@@ -46,15 +46,25 @@ MODULES="tests.test_p4_client_writes.ProbeTest tests.test_switch_state.ASwitchWi
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives in
 # the main checkout), so the main worktree is asked of git before giving up. Override: PROXY_PY= .
 MAIN_WT="$(git -C "$REPO" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+# [Co-developed with claude code -- Adam] The protobufs too. Without them test_switch_state.py does not
+# import (it imports api_routes and main unguarded), so the baseline errors and the gate refused
+# without saying why; the probe makes that a refusal that names the interpreter.
+PROBE='import fastapi, networkx, grpc; from p4.config.v1 import p4info_pb2'
+# [Co-developed with claude code -- Adam] A PROXY_PY that is set but cannot run the suites is refused by
+# name rather than quietly replaced by the next candidate: whoever set it meant that interpreter.
+if [[ -n "${PROXY_PY:-}" ]] && ! { [[ -x "$PROXY_PY" ]] && "$PROXY_PY" -c "$PROBE" >/dev/null 2>&1; }; then
+    echo "REFUSE: PROXY_PY=$PROXY_PY is not an interpreter with fastapi/networkx/grpc/p4runtime." >&2
+    exit 2
+fi
 PY=""
 for c in "${PROXY_PY:-}" "$REPO/p4_proxy/venv/bin/python" "$REPO/p4_proxy/venv/bin/python3" \
          "${MAIN_WT:-/nonexistent}/p4_proxy/venv/bin/python"; do
     [[ -n "$c" && -x "$c" ]] || continue
-    "$c" -c 'import fastapi, networkx, grpc' >/dev/null 2>&1 || continue
+    "$c" -c "$PROBE" >/dev/null 2>&1 || continue
     PY="$c"; break
 done
 [[ -n "$PY" ]] || {
-    echo "REFUSE: found no interpreter with fastapi/networkx/grpc. Set PROXY_PY=<path>." >&2
+    echo "REFUSE: found no interpreter with fastapi/networkx/grpc/p4runtime. Set PROXY_PY=<path>." >&2
     echo "        A gate that cannot run its tests has not checked anything, so it does not" >&2
     echo "        get to exit 0." >&2
     exit 2
