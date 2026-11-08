@@ -188,15 +188,15 @@ print(len(d["all_destination_paths"] if isinstance(d, dict) else d))' 2>/dev/nul
 # The milestone the user manual actually names ("you will see the 'all-destination paths
 # installed' message"), and a different, much later event than LLDP link discovery:
 #
-#   intelligent_router.py:282   if is_mininet: hub.sleep(60)
-#   intelligent_router.py:284   install_all_pair_paths(...)   <- fills all_destination_paths
+#   intelligent_router.py  load_static_topology: _await_host_discovery(), up to NDTWIN_RYU_SETTLE_S s
+#   intelligent_router.py  then install_all_pair_paths(...)   <- fills all_destination_paths
 #
-# That sleep was a hard-coded 60s until 2026-08-21; it is now NDTWIN_RYU_SETTLE_S, default 10.
+# That wait was a hard-coded 60s until 2026-08-21; it is now NDTWIN_RYU_SETTLE_S, default 40 s.
 # Either way it dominates OVS start-up while link discovery finishes in a couple of seconds, so
-# gating on the link counts alone releases the kernel early -- by ~58s then, ~8s now. The gap
-# shrank but did not close, which is why both conditions below are still required. `all_destination_paths` starts as [] (line 74) and is only
-# assigned in install_all_pair_paths (line 510), so a non-empty list is a direct signal that
-# needs no log scraping.
+# gating on the link counts alone releases the kernel early -- by ~58s then, ~38s now. The gap
+# shrank but did not close, which is why both conditions below are still required.
+# `all_destination_paths` starts as [] in the Ryu app's __init__ and is only assigned in
+# install_all_pair_paths, so a non-empty list is a direct signal that needs no log scraping.
 #
 # P4 mode needs no separate check here: observed_counts already counts the proxy's installed
 # destination paths, so that count *is* this milestone. (An earlier version of this comment
@@ -252,7 +252,7 @@ print(",".join(sorted(str(s) for s in skipped)))' 2>/dev/null)" && { printf '%s'
 #
 # Both conditions are required because they are different events with very different timings:
 # link discovery is LLDP between switches (seconds), while path installation sits behind the
-# Ryu app's settle (NDTWIN_RYU_SETTLE_S, default 10s). See paths_installed().
+# Ryu app's settle (NDTWIN_RYU_SETTLE_S, default 40s). See paths_installed().
 #
 # Falls back to sleeping the whole timeout if the endpoint cannot be read at all: proceeding
 # immediately on an unreadable control plane would reintroduce the race this replaces.
@@ -287,7 +287,7 @@ await_convergence() {
     local want_a="${want% *}" want_b="${want#* }"
     if [[ "$mode" == "ovs" ]]; then
         info "  waiting for ${want_a} switches, ${want_b} links, and all-destination paths"
-        info "  Ryu settles for ${NDTWIN_RYU_SETTLE_S:-10}s before installing paths (NDTWIN_RYU_SETTLE_S)"
+        info "  Ryu settles for ${NDTWIN_RYU_SETTLE_S:-$(grep -m1 -oP 'NDTWIN_RYU_SETTLE_S", "\K[0-9]+' "$RYU_APP" 2>/dev/null || echo '?')}s before installing paths (NDTWIN_RYU_SETTLE_S)"
     else
         info "  waiting for link discovery: want ${want_a} destination paths"
     fi
