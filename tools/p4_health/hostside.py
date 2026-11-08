@@ -106,10 +106,10 @@ def cmd_send(args):
 def record(frame, run, cells, dport, ip):
     """The RX record for a frame that IS one of this window's markers, else None: magic, this
     run's token and one of `cells` in the payload, AND an IPv4/UDP datagram to `dport` addressed
-    to `ip` (the receiver itself). (Cut 2 review MAJOR-2) A host that gets a marker on a closed
-    port answers with an ICMP port unreachable quoting the whole datagram -- marker included --
-    to the sender, which may be sniffing for the same cell; only the UDP/dport/ip_dst test tells
-    that quote from a marker. frames.parse sets `dport` only for UDP."""
+    to `ip` (the receiver itself). A host that gets a marker on a closed port answers with an
+    ICMP port unreachable quoting the whole datagram -- marker included -- to the sender, which
+    may be sniffing for the same cell; only the UDP/dport/ip_dst test tells that quote from a
+    marker. frames.parse sets `dport` only for UDP."""
     p = F.parse(frame)
     mark = p.get("marker")
     if not mark or mark[0] != run[:8] or mark[1] not in cells:

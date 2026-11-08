@@ -5,7 +5,7 @@
 **The first green run, captured live, on the tree that carries the fix.** FIX-NDT-9 (merged as
 `53a62c71`) closes an app's window at its log's last write once the pid is dead
 (`app_window_seal`), so a stale pidfile no longer frames the fabric's own forwarding rules as that
-app's rules-in-window. This directory is the orchestrator's "window 2" run of this one cell:
+app's rules-in-window. This directory is the "window 2" run of this one cell:
 `tools/test_workflow/live_cells/run_cells.sh --cell stale_app_pidfile_does_not_frame_the_fabric`,
 2026-09-12 16:34:52-16:35:47 CST, `CELLS: 1/1 pass, 0 FAIL, 0 SKIP`, 18 assertions ok, restore
 quartet clean (down 0, clean 0, VERDICT: CLEAN before and after, final --check rc 3). The cell

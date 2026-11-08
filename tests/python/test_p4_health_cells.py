@@ -524,7 +524,7 @@ class TestRuleD(unittest.TestCase):
         self.assertEqual(ctx.cells["K1"].verdict, V.PROBE_BROKEN)
 
     def test_alias_only_dimensions_are_marked(self):
-        """r3: a dimension whose only counted evidence is an alias says whose it is."""
+        """A dimension whose only counted evidence is an alias says whose it is."""
         cells, scs = self.base_obs()
         for cid in ("CP2", "CP4"):
             cells.pop(cid)
@@ -634,7 +634,7 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertEqual(decide("V1", obs).verdict, V.NOT_RUN)
 
     def test_the_sample_floor_comes_from_the_sender_not_the_emitter(self):
-        """Review NEW-A: under the floor (19 expected samples at 1/256 = 4864 frames) NOT RUN;
+        """Under the floor (19 expected samples at 1/256 = 4864 frames) NOT RUN;
         at or above it, a twin that saw nothing is RED whatever NDTwin's emitter says."""
         self.assertEqual(T.IDENTITY_MIN_SENT, 4864)
         for cid in ("CH1", "CH3", "CH4", "CH7", "V1", "RC1"):
@@ -652,7 +652,7 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertEqual(decide("HU1", obs).verdict, V.NOT_RUN)
 
     def test_telemetry_none_through_the_real_cells(self):
-        """Review NEW-A: the telemetry-none bring-up's own observations, decided by the real cells,
+        """The telemetry-none bring-up's own observations, decided by the real cells,
         must give the RED that telemetry_none_check asks for: the twin has the path but no usage."""
         quiet = {"on_path": ["s1-s2", "s2-s4"], "main_integral": 0, "off_path_max": 0}
         obs = {"V1": {"answer": {"g1": dict(quiet)}, "sent": 5000},
@@ -698,7 +698,7 @@ class TestNamedFixtures(unittest.TestCase):
         self.assertEqual(T.LINK_DOWN_DEADLINE_S, 20.0)
 
     def test_a_link_that_never_went_down_is_red_not_not_read(self):
-        """Review NEW-B: "watched the whole window, it never went down" is a value, not a missing key."""
+        """That a link watched for the whole window never went down is a value, not a missing key."""
         for cid in ("TP2", "TP4"):
             with self.subTest(cell=cid):
                 obs = copy.deepcopy(FIX[cid][0])

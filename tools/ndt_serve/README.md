@@ -2,10 +2,10 @@
 
 [Co-developed with claude code -- Adam]
 
-First cut (TICKET-ndt-serve, 09-24): backend only, one user, `127.0.0.1` only, no login. Second
-ticket (Adam, 09-24 21:4x): the live_cells grid and a guided walk through one cell. GUI cut
-(Adam's Q2/Q3 rulings, 09-27): the page at `/` -- see "The page" below. v2 (Adam's R1-R3, 09-27):
-the page rebuilt on Web-GUI's stack (React, Vite, Tailwind, i18next), refreshing itself every 10 s.
+It serves one user on `127.0.0.1` only, with no login. Besides the API that drives `ndt` it
+serves the live_cells grid with a guided walk through one cell, and a page at `/` -- see "The
+page" below -- built on Web-GUI's stack (React, Vite, Tailwind, i18next), refreshing itself every
+10 s.
 Standard-library Python and a page that is built ahead of time and committed: running it needs
 nothing installed; rebuilding the page needs Node (see "The page").
 
@@ -56,7 +56,7 @@ other path answers 404 -- `static/BUILD.json` and the page's sources under `web/
 | POST | `/apps/<name>/start` `{}` | `ndt apps <name>` | 202 + job -- **only under your own claim**: inside the slot, `ndt status`'s claim line must be ndt's own form, whole, else 409 `claim` (ndt's apps verbs check no claim, so this server does) |
 | POST | `/apps/<name>/stop` `{}` | `ndt apps stop <name>` | 202 + job -- only under your own claim, as `start` |
 | GET | `/lab` | `ndt status` (plain) | the read, plus the `claim`, `measuring` and `declared` rows verbatim, `claim_is_yours` (ndt's own-claim form, whole), `measuring_is_nothing`, and `busy` (the job holding the slot). What the page confirms every write against |
-| GET | `/measuring` | `ndt status --measuring` | the read, plus `/lab`'s `measuring` and `declared` rows verbatim and `measuring_is_nothing`, read by the same code (no `claim`). The page's probe while a measurement runs: ndt prints plain status's measuring rows alone, from the claim's measuring= and the process table -- no sudo, no request to the kernel, no OVS or bmv2 query (Adam, 10-01) |
+| GET | `/measuring` | `ndt status --measuring` | the read, plus `/lab`'s `measuring` and `declared` rows verbatim and `measuring_is_nothing`, read by the same code (no `claim`). The page's probe while a measurement runs: ndt prints plain status's measuring rows alone, from the claim's measuring= and the process table -- no sudo, no request to the kernel, no OVS or bmv2 query (since 2026-10-01) |
 | GET | `/meta` | nothing | the server's own tables: `up_hosts`, `max_claim_minutes`, `default_claim_minutes`, `max_note_chars`, `apps`, `owner`, `webgui_url` |
 | POST | `/session` `{"nonce":"<key>"}` | nothing | the token, for a one-time key. **No token**; the `Origin` is required and must be this very origin (`http://` + the Host). A key is good once, for `--nonce-ttl` s, and only among the 8 newest |
 | POST | `/session/new` `{}` | nothing | 201 + a new one-time page URL (`ndt serve url` calls this) |
@@ -76,7 +76,7 @@ an `Origin` -- this server's own origin; a POST also needs `Content-Type: applic
 The Host header must be `127.0.0.1:<port>` or `localhost:<port>`. No CORS header is ever sent.
 Reads are gated too because a read is not side-effect free: `ndt status --check` POSTs three
 lock probes to the kernel (ndt: lock_probe), and without the token any page in the browser could
-start one with an `<img>` (judge 09-24, finding 1).
+start one with an `<img>`.
 
 Two read-only ndt calls run at a time; a third waits up to `--read-queue-wait` seconds and then
 gets 503. A read that runs past `--read-timeout` has its process group killed and answers
@@ -100,8 +100,8 @@ curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/release
 
 ### The live_cells grid and the guided walk
 
-Adam's ruling (09-24 21:4x): the regression cells in `tools/test_workflow/live_cells/`, opened so
-he can see a fix's red and green for himself. Everything is read from the tree of the ndt the
+The regression cells in `tools/test_workflow/live_cells/` are shown here so that a fix's red and
+green can be seen directly. Everything is read from the tree of the ndt the
 server drives; the cells are what `run_cells.sh --list` prints.
 
 | method | path | what runs | answer |
@@ -117,7 +117,7 @@ server drives; the cells are what `run_cells.sh --list` prints.
 | POST | `/cells/<name>/guided` `{}` | nothing | 201 + a walk (a shared-state cell needs the same confirmation field) |
 | GET | `/guided`, `/guided/<id>` | nothing | the walks; a walk's state is derived, a GET writes nothing |
 | POST | `/guided/<id>/next` `{}` | the current step | the walk, one step further (or the same step again, if it was blocked) |
-| POST | `/guided/<id>/verdict` `{"verdict":"green"\|"red","note":"..."}` | nothing | Adam's call; `next` refuses to make it |
+| POST | `/guided/<id>/verdict` `{"verdict":"green"\|"red","note":"..."}` | nothing | the operator's call; `next` refuses to make it |
 | POST | `/guided/<id>/abort` `{}` | nothing | stops the walk, and says whether its claim is still held |
 
 A run's `rc` is run_cells.sh's: 0 is PASS **or SKIP**, so the job carries `cell_verdict` (the
@@ -129,9 +129,9 @@ verdict` (no status/claim/release for a `requires none` cell; no `new` where the
 Every step says where to look and what green looks like. The run step reads the claim again
 inside the slot (another tab's walk may have released it). The lab is given back right after the
 run -- judging reads the raw, not the lab. The walk's claim and release are the OWNER's: a walk
-opened while you already hold the lab re-claims it and releases it at the end (next cut). A step that did not come out **blocks** the walk: a
+opened while you already hold the lab re-claims it and releases it at the end, so a claim you already held is not kept. A step that did not come out **blocks** the walk: a
 refused claim never leads to a run, a failed restore never leads to a release. The verdict is
-Adam's.
+the operator's.
 
 ```bash
 G=$(curl -s -H "$H" -H "$T" -H "$J" -d '{}' $U/cells/up_target_names_a_readable_model/guided | jq -r .walk.id)
@@ -142,13 +142,13 @@ curl -s -H "$H" -H "$T" -H "$J" -d '{"verdict":"green","note":"h4nl_* all flippe
 
 ## The page
 
-`http://127.0.0.1:<port>/`, served by the server itself (Adam's Q2 ruling, 09-27): four fixed
+`http://127.0.0.1:<port>/`, served by the server itself: four fixed
 files from `tools/ndt_serve/static/` -- the page, its script, its stylesheet and the manual
 (`/manual.html`, in Chinese) -- read once at start, served with no token and running nothing.
 Every answer carries a Content-Security-Policy that allows no inline script, no other origin and
 no frame.
 
-**Where it comes from** (v2): a React app in `tools/ndt_serve/web/`, built by Vite into
+**Where it comes from**: a React app in `tools/ndt_serve/web/`, built by Vite into
 `static/` and committed, so the server needs no Node. `static/BUILD.json` records the sha256 of
 every source and built file; `tests/python/test_ndt_serve_web.py` checks it without Node, and
 `tests/shell/rebuild_ndt_serve_web.sh` rebuilds from the lockfile and compares byte for byte.
@@ -163,7 +163,7 @@ JOBS=1 LOCK_WAIT=10800 ../../build_guard/guarded_build.sh npm run build         
 Node v24.20.0 / npm 11.19.0 (`BUILD.json` names them; the rebuild gate refuses others).
 `web/THIRD_PARTY.md` lists what was taken from Web-GUI.
 
-**Getting in** (Q3): the URL the server starts with carries a ONE-TIME key in its `#fragment`
+**Getting in**: the URL the server starts with carries a ONE-TIME key in its `#fragment`
 -- never the token. The page wipes the fragment from the address bar first, then trades the key
 for the token (`POST /session`) and keeps the token in memory only: not in storage, a cookie or
 the page. Reloading the page ends the session; for a new URL:
@@ -180,7 +180,7 @@ the pid `serve.json` names is the process listening on its port.
 with a live log while one you opened runs -- re-read every 2 s from its file, never by running
 ndt, and stopped when the job ends, when you close the view, and while the page is hidden; E. the
 cells, old/ and new/, runs and walks.
-**It refreshes itself every 10 s** (R2): one read of `/lab`, `/apps`, `/health` and `/jobs` -- two
+**It refreshes itself every 10 s**: one read of `/lab`, `/apps`, `/health` and `/jobs` -- two
 ndt calls (plain `ndt status`, `ndt apps status`). Measured on this laptop without ptrace (the
 `/proc/stat` process count around a read minus an equal idle window, sudo through a logging shim,
 7 runs; the raw counts are not kept in this repository): with the lab idle a round is about 596
@@ -190,7 +190,7 @@ Every `sudo` is a list or status call. The next read is armed only when the last
 so it is at most six rounds a minute (about five, with a 1-1.9 s round).
 
 While the last read said measuring is not `nothing` or a measurement is declared, it pauses, and a
-probe reads `/measuring` alone once every 60 s (Adam's Q6, 09-28; 10-01: the probe asks only
+probe reads `/measuring` alone once every 60 s (since 2026-09-28; since 2026-10-01 the probe asks only
 whether anyone is measuring). That is `ndt status --measuring`: plain status's `declared` and
 measuring rows alone, printed by the same ndt function, which reads the claim file and the process
 table -- no `sudo`, no request to the kernel, no OVS or bmv2 query. Measured the same way on an

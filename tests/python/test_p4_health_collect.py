@@ -1209,7 +1209,7 @@ class TestLabRound(Sealed):
         self.assertEqual((st["phase"], st["claim_lost"]), ("down-done", True))   # recover.sh's cue
 
     def test_a_successful_down_is_recorded_before_the_knobs_and_the_release(self):
-        """Review NEW-C: a crash after the down leaves phase down-done for recover.sh."""
+        """A crash after the down leaves phase down-done for recover.sh."""
         seen = {}
         r = self.runner()
 
@@ -1391,7 +1391,7 @@ class TestLabRound(Sealed):
 
     def test_a_refused_claim_is_incomplete_and_brings_nothing_up(self):
         # An earlier claim of our own owner is still in the file: it is not what stops the round,
-        # the refusal is (r6: the claim-file check after `ndt claim` would otherwise hide that).
+        # the refusal is (the claim-file check after `ndt claim` would otherwise hide that).
         self.write_claim()
         r = self.runner(claim_rc=1)
         _lr, rec = self.round(r)

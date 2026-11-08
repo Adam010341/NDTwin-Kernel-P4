@@ -1,4 +1,4 @@
-renamed_route -- TICKET-P4-roles section 2.2-6.
+renamed_route -- a fixture for the roles binding of the ipv4 route table.
 [Co-developed with claude code -- Adam]
 
 A tutorials-shaped exercise (pod-topo, four switches, four hosts) whose destination-route table
@@ -24,7 +24,7 @@ the parameter ids are swapped and the port is one byte on the wire, not two.
   pod-topo/topology.json           tutorials' basic pod-topo topology, byte-for-byte
   pod-topo/sN-runtime.json         basic's pod-topo entries with the names renamed, plus one
                                    RouteIngress.proto_tags row whose action (tag_proto) no
-                                   renderer recognises -- the flow-stats half of the ticket
+                                   renderer recognises -- used by the flow-stats tests
 
 The package the tests build from it:
 

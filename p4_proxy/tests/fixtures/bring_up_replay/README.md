@@ -1,10 +1,10 @@
-# bring_up_replay — the byte-identity evidence for TICKET-P1D, regenerable
+# bring_up_replay — the byte-identity evidence for the bring-up merge, regenerable
 
 [Co-developed with claude code -- Adam]
 
 ## What it answers
 
-P1-D merged two copies of the bmv2 bring-up into one function that both entry points call.
+The bring-up merge replaced two copies of the bmv2 bring-up with one function that both entry points call.
 The claim that has to survive that merge is:
 
 > with no app package, `p4_testbed_topo.main()` and `ntg_bmv2_topo.main()` ask the fabric for
@@ -50,7 +50,7 @@ in `replay.py` is why that cannot happen again.
 
 ## Reading the verdict
 
-At **4 hosts** all four recordings are identical, which is the ticket's requirement.
+At **4 hosts** all four recordings are identical, which is what the merge has to preserve.
 
 At **128 hosts** one line differs, deliberately, and it is the merge of a disagreement rather
 than a new decision: the two copies batched the all-pairs ARP differently.

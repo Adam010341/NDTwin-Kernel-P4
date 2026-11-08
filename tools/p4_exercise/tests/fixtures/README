@@ -1,4 +1,4 @@
-Fixtures from p4lang/tutorials (~/tutorials), 2026-09-17 and 2026-09-18.
+Fixtures from p4lang/tutorials (~/tutorials), 2026-09-17 to 2026-09-19.
 
 COPIED VERBATIM (test_convert.FixtureProvenance compares every one of these to
 ~/tutorials/exercises/<same relative path> by sha256, and says so loudly when that tree is
@@ -13,15 +13,15 @@ not on the machine rather than passing silently):
   firewall/pod-topo/{topology,s1-runtime,s2-runtime,s3-runtime,s4-runtime}.json   (2026-09-18)
   firewall/basic.p4                                                              (2026-09-18)
   calc/{topology.json,s1-runtime.json,calc.p4}                                   (2026-09-18)
-  basic_tunnel/s1-runtime.json                                                   (TICKET-P3)
-  multicast/multicast.p4                                                         (TICKET-P3)
-  multicast/sig-topo/{topology,s1-runtime}.json                                  (TICKET-P3)
+  basic_tunnel/s1-runtime.json                                                   (2026-09-19)
+  multicast/multicast.p4                                                         (2026-09-19)
+  multicast/sig-topo/{topology,s1-runtime}.json                                  (2026-09-19)
 
   34 files, and test_convert.FixtureProvenance counts exactly 34: a source quietly dropping out
   of the comparison turns it red. (basic_telemetry/basic_telemetry.p4 is neither copied nor
   compiled -- it is written here; test_convert.AUTHORED_FIXTURES.)
 
-BUILD ARTIFACTS ARE NOT BYTE-COMPARED (Adam's ruling J, 2026-09-27). Every compiler output
+BUILD ARTIFACTS ARE NOT BYTE-COMPARED (since 2026-09-27). Every compiler output
 under a build/ directory (*.json, *.p4info.txtpb) carries the command that produced it instead,
 in test_convert.BUILD_ARTIFACTS, and each bmv2 json's `program` must be the source that command
 names. The reason is the tree they were copied from: the live runs recompile
@@ -29,7 +29,7 @@ names. The reason is the tree they were copied from: the live runs recompile
 name, `make` compiles the skeleton, by an absolute or a relative path -- so byte provenance
 against it measured whichever program was compiled last. The SOURCES above stay byte-compared,
 and a .p4 put under build/ is still a source. Two PAIRS of the build artifacts -- four files --
-are copies of that tree, taken 2026-09-17 and compared by bytes until the ruling:
+are copies of that tree, taken 2026-09-17 and compared by bytes until 2026-09-27:
 
   basic/build/{basic.json,basic.p4.p4info.txtpb}           (skeleton basic.p4, by absolute path)
   p4runtime/build/{advanced_tunnel.json,advanced_tunnel.p4.p4info.txtpb}
@@ -42,12 +42,12 @@ of build artifacts in this tree, so the exemption cannot rot into a silent pass)
   firewall/build/{basic.json,basic.p4.p4info.txtpb}
   firewall/build/{firewall.json,firewall.p4.p4info.txtpb}
   calc/build/{calc.json,calc.p4.p4info.txtpb}
-  basic_telemetry/build/*, multicast/build/*, basic_tunnel/build/*   (TICKET-P3; commands in
+  basic_telemetry/build/*, multicast/build/*, basic_tunnel/build/*   (2026-09-19; commands in
                                                                       BUILD_ARTIFACTS)
 
-  firewall and calc (TICKET-P2) have never been built in this checkout -- there is no build/
-  under either -- and TICKET-P2's G4 means a package names the program each switch runs, so a
-  package that does not carry those artefacts cannot be converted at all. Produced with:
+  firewall and calc have never been built in this checkout -- there is no build/ under either
+  -- and a package names the program each switch runs (`switches[*].pipeline`), so a package
+  that does not carry those artefacts cannot be converted at all. Produced with:
 
     p4c-bm2-ss --p4v 16 --p4runtime-files build/<stem>.p4.p4info.txtpb \
                -o build/<stem>.json <tutorials>/exercises/<exercise>/<stem>.p4
@@ -58,8 +58,8 @@ of build artifacts in this tree, so the exemption cannot rot into a silent pass)
   A bmv2 json's `program` is the source path exactly as its command gave it, so it is ABSOLUTE
   for firewall, calc, basic and basic_tunnel (compiled by absolute path) and RELATIVE for
   p4runtime, basic_telemetry and multicast (compiled from inside their directory). That path is
-  also why a bmv2 json's sha256 is NOT a stable identifier for "this program" (measured in
-  TICKET-P1 B: the same .p4 compiled in two directories gave two shas); the p4info's sha256 is
+  also why a bmv2 json's sha256 is NOT a stable identifier for "this program" (measured: the
+  same .p4 compiled in two directories gave two shas); the p4info's sha256 is
   stable and is the one pre-flight prints and the tests compare. basic_telemetry's json also
   records its include's path in source_info, as `-I` gave it on 2026-09-19 -- so recompiling it
   from another checkout reproduces every byte but that path.
@@ -70,7 +70,7 @@ the Makefile's `DEFAULT_PROG = basic.p4` -- so it is the only fixture that can t
 which reads that field from one which drops it. Its runtime files pair with it: s1-runtime.json
 names firewall's p4info inside the file and s2-s4's name basic's. calc is the single-switch,
 two-host, zero-inter-switch-link shape, which `topo_from_json.switch_links` refused outright
-until TICKET-P2.
+until it was changed to return an empty list for that shape.
 
 SPDX-FileCopyrightText: 2017-2019 Open Networking Foundation, Nate Foster, Stephen Ibanez
 SPDX-License-Identifier: Apache-2.0
@@ -79,7 +79,7 @@ Copied rather than read out of ~/tutorials so the tests describe a fixed input: 
 tree is a working copy somebody edits while doing an exercise, and a test whose subject can be
 edited underneath it reports on whatever was last saved there. The `build/` directories are
 here because a tutorials `sX-runtime.json` names its own p4info and bmv2 json, so a fixture
-without them is a fixture whose entries cannot be checked against anything -- and, since G4,
-because `switches[*].pipeline` names them too.
+without them is a fixture whose entries cannot be checked against anything -- and because
+`switches[*].pipeline` names them too.
 
 [Co-developed with claude code -- Adam]
