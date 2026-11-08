@@ -51,7 +51,7 @@
 #         PROXY_PY=/path/to/python tests/shell/mutate_table_entry.sh
 # Assumes: nothing about the cwd.
 # Exit:    0 every mutation caught, 1 a mutation survived, 2 refused (no interpreter, or the
-#          baseline was red), 3 a source file changed underneath the gate.
+#          baseline was red or skipped a test), 3 a source file changed underneath the gate.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -220,8 +220,13 @@ base="$BK/base"; mkdir -p "$base"
 cp -r "$REPO/p4_proxy/proxy_agent" "$REPO/p4_proxy/tests" "$REPO/p4_proxy/mininet" "$base/"
 mkdir -p "$base/p4_src"; cp -r "$REPO/p4_proxy/p4_src/build" "$base/p4_src/" 2>/dev/null
 find "$base" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
-run_against "$base" | /usr/bin/grep -E '^(Ran |OK|FAILED)'
-run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
+base_out=$(run_against "$base"); base_rc=$?
+/usr/bin/grep -E '^(Ran |OK|FAILED)' <<<"$base_out"
+[[ "$base_rc" -eq 0 ]] || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
+# [Co-developed with claude code -- Adam] A test the baseline skipped did not run, so a mutation only it
+# catches would be scored SURVIVED: refuse instead (lib_gate_skips.sh).
+source "$HERE/lib_gate_skips.sh"
+gate_baseline_skips <<<"$base_out" || exit 2
 echo
 
 # --- what goes on the wire: the value encoder and the entry builder --------------------------

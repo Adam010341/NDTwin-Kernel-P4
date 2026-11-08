@@ -90,6 +90,15 @@ if ! bash -n "${BASH_SOURCE[0]}"; then echo "🔴 this script does not parse" >&
 command -v timeout >/dev/null || { echo "🔴 GNU timeout is required" >&2; exit 2; }
 [[ -f "$SUBJECT" && -f "$SUITE" ]] || { echo "🔴 missing $SUBJECT or $SUITE" >&2; exit 2; }
 [[ -x "$PY" ]] || { echo "🔴 no interpreter at $PY (override with PY=)" >&2; exit 2; }
+# [Co-developed with claude code -- Adam] test_readopt.py's four re-adoption classes skip when
+# proxy_agent.main does not import (its guard at the top of the suite), and a skipped case would score
+# its mutations survivors; so the interpreter must import it, as that guard does. This is stricter than
+# the mutations here need -- none of their named cases is in those classes, so an interpreter lacking
+# only a main-only module (uvicorn) is refused though it could run them -- and it is kept that way: it
+# refuses rather than guesses. Without the protobufs the suite does not import at all (it imports
+# api_routes unguarded); this names that too.
+( cd "$REPO/p4_proxy" && PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 "$PY" -c 'import proxy_agent.main' ) \
+    >/dev/null 2>&1 || { echo "🔴 $PY cannot import proxy_agent.main (override with PY=)" >&2; exit 2; }
 
 BK=$(mktemp -d "${TMPDIR:-/tmp}/startup-clear-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT INT TERM

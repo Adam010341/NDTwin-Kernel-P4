@@ -54,16 +54,26 @@ done
 # has no venv of its own (p4_proxy/venv/ is ignored and lives in the main checkout), so the main
 # worktree is consulted before giving up. Override with PROXY_PY= .
 MAIN_WT="$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+# [Co-developed with claude code -- Adam] The protobufs too: the read and route tests skip without
+# them, and a skipped test would score its mutations survivors.
+PROBE='import fastapi, grpc; from p4.config.v1 import p4info_pb2'
+# [Co-developed with claude code -- Adam] A PROXY_PY that is set but cannot run the suites is refused by
+# name rather than quietly replaced by the next candidate: whoever set it meant that interpreter.
+if [[ "$MODE" != dryrun && -n "${PROXY_PY:-}" ]] \
+        && ! { [[ -x "$PROXY_PY" ]] && "$PROXY_PY" -c "$PROBE" >/dev/null 2>&1; }; then
+    echo "REFUSE: PROXY_PY=$PROXY_PY is not an interpreter with fastapi/grpc/p4runtime." >&2
+    exit 2
+fi
 FOUND_PY=""
 for c in "${PROXY_PY:-}" "p4_proxy/venv/bin/python" "p4_proxy/venv/bin/python3" \
          "${MAIN_WT:-/nonexistent}/p4_proxy/venv/bin/python"; do
     [[ -n "$c" && -x "$c" ]] || continue
-    "$c" -c 'import fastapi, grpc' >/dev/null 2>&1 || continue
+    "$c" -c "$PROBE" >/dev/null 2>&1 || continue
     FOUND_PY="$(cd "$(dirname "$c")" && pwd)/$(basename "$c")"; break
 done
 if [[ -z "$FOUND_PY" ]]; then
     if [[ "$MODE" != dryrun ]]; then
-        echo "REFUSE: found no interpreter with fastapi/grpc. Set PROXY_PY=<path>. A gate that" >&2
+        echo "REFUSE: found no interpreter with fastapi/grpc/p4runtime. Set PROXY_PY=<path>. A gate that" >&2
         echo "        cannot run its tests has not checked anything." >&2
         exit 2
     fi

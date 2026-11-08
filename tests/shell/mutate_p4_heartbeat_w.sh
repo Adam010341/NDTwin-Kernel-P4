@@ -26,7 +26,8 @@
 #
 # Usage:  tests/shell/mutate_p4_heartbeat_w.sh           PROXY_PY=/path/to/python to choose one
 # Exit:   0 every mutation caught, every control green, every new test seen red;
-#         1 otherwise; 2 refused (no interpreter, or a baseline was red); 3 a source changed.
+#         1 otherwise; 2 refused (no interpreter, or a baseline was red or skipped a test);
+#         3 a source changed.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -215,6 +216,10 @@ if ! /usr/bin/grep -qE '^OK' <<<"$base_out"; then
     echo "  proxy baseline is RED -- mutations prove nothing on a red baseline"; exit 2
 fi
 /usr/bin/grep -E '^(Ran |OK)' <<<"$base_out" | sed 's/^/  /'
+# [Co-developed with claude code -- Adam] A test the baseline skipped did not run, so a mutation only it
+# catches would be scored SURVIVED: refuse instead (lib_gate_skips.sh).
+source "$HERE/lib_gate_skips.sh"
+gate_baseline_skips <<<"$base_out" || exit 2
 NEW_IDS="$BK/new_ids.txt"
 ( cd "$base/p4_proxy" && PYTHONPATH="$base/p4_proxy" HOME="$base/home" TMPDIR="$base/tmp" \
     PYTHONDONTWRITEBYTECODE=1 "$PY" - $NEW_CLASSES > "$NEW_IDS.raw" <<'PY'

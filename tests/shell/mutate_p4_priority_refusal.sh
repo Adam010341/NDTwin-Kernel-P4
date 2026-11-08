@@ -59,8 +59,6 @@ FILES=("$API" "$TOPO" "$SLOT" "$CLIENT")
 #: [Co-developed with claude code -- Adam] The two suites every mutation is judged by.
 TEST_FILES=(test_flowentry_endpoints.py test_modify_at_slot_priority.py)
 
-PROXY_PY="${PROXY_PY:-/home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python3}"
-
 MODE=full
 case "${1:-}" in
     --dry-run) MODE=dryrun ;;
@@ -71,10 +69,31 @@ esac
 for f in "${FILES[@]}"; do
     [[ -f "$f" ]] || { echo "REFUSE: $f not found -- run from the repo root." >&2; exit 2; }
 done
+# [Co-developed with claude code -- Adam] The interpreter, found the way the sibling gates find it
+# (PROXY_PY, this checkout's venv, then the main worktree's: a git worktree has no venv of its own),
+# and it must have what the suites import. Both suites import api_routes unguarded, so without the
+# protobufs they crash on import and the baseline is red for a reason it does not name; the probe
+# names it. A PROXY_PY that is set but fails the probe is refused, not replaced.
+PROBE='import fastapi, grpc; from p4.config.v1 import p4info_pb2'
 if [[ "$MODE" != dryrun ]]; then
-    [[ -x "$PROXY_PY" ]] || {
-        echo "REFUSE: proxy interpreter $PROXY_PY not found. Set PROXY_PY." >&2; exit 2; }
+    if [[ -n "${PROXY_PY:-}" ]] && ! { [[ -x "$PROXY_PY" ]] && "$PROXY_PY" -c "$PROBE" >/dev/null 2>&1; }; then
+        echo "REFUSE: PROXY_PY=$PROXY_PY is not an interpreter with fastapi/grpc/p4runtime." >&2
+        exit 2
+    fi
+    MAIN_WT="$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+    FOUND_PY=""
+    for c in "${PROXY_PY:-}" "p4_proxy/venv/bin/python" "p4_proxy/venv/bin/python3" \
+             "${MAIN_WT:-/nonexistent}/p4_proxy/venv/bin/python"; do
+        [[ -n "$c" && -x "$c" ]] || continue
+        "$c" -c "$PROBE" >/dev/null 2>&1 || continue
+        FOUND_PY="$(cd "$(dirname "$c")" && pwd)/$(basename "$c")"; break
+    done
+    [[ -n "$FOUND_PY" ]] || {
+        echo "REFUSE: found no interpreter with fastapi/grpc/p4runtime. Set PROXY_PY=<path>." >&2; exit 2; }
+    PROXY_PY="$FOUND_PY"
+    echo "interpreter: $PROXY_PY"
 fi
+PROXY_PY="${PROXY_PY:-python3}"
 
 BK=$(mktemp -d)
 snap() { echo "$BK/$(basename "$1")"; }

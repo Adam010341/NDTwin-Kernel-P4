@@ -20,7 +20,8 @@
 #
 # Usage:  tests/shell/mutate_p4_one_step.sh          PROXY_PY=/path/to/python tests/shell/...
 # Exit:   0 every mutation caught, every control green, every new test seen red;
-#         1 otherwise; 2 refused (no interpreter, or the baseline was red); 3 a source changed.
+#         1 otherwise; 2 refused (no interpreter, or the baseline was red or skipped a test);
+#         3 a source changed.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -89,6 +90,8 @@ run_tests() {   # run_tests <tree> -> every FAIL/ERROR test name, one per line, 
     local t rc=0 out
     for t in $TEST_FILES; do
         out="$(cd "$1/p4_proxy" && PYTHONPATH=. timeout 600 "$PY" "$1/$t.py" -v 2>&1)" || rc=1
+        # The baseline's transcript, for its skip check below (the file exists only for that run).
+        [[ -f "$BK/base_runs.out" ]] && printf '%s\n' "$out" >> "$BK/base_runs.out"
         printf '%s\n' "$out" | sed -nE 's/^(FAIL|ERROR): (test_[A-Za-z0-9_]+) .*/\2/p'
         grep -qE '^Ran [0-9]+ test' <<<"$out" || echo "__NO_RUN__$t"
     done
@@ -98,12 +101,18 @@ run_tests() {   # run_tests <tree> -> every FAIL/ERROR test name, one per line, 
 tree_copy "$BK/base"
 echo "interpreter: $PY"
 echo "baseline (must be green before any mutation):"
+: > "$BK/base_runs.out"
 BASE_OUT="$(run_tests "$BK/base")"
 if [[ "$(tail -1 <<<"$BASE_OUT")" != "RC=0" ]]; then
     echo "refused: baseline is not green -- mutations would prove nothing"
     sed 's/^/  /' <<<"$BASE_OUT"; exit 2
 fi
 echo "  green"
+# [Co-developed with claude code -- Adam] A test the baseline skipped did not run, so a mutation only it
+# catches would be scored SURVIVED: refuse instead (lib_gate_skips.sh).
+source "$HERE/lib_gate_skips.sh"
+gate_baseline_skips < "$BK/base_runs.out" || exit 2
+rm -f "$BK/base_runs.out"
 
 # The new tests, by the loader, from the unmutated copy.
 NEW_TESTS="$(cd "$BK/base/p4_proxy" && PYTHONPATH="$BK/base/tools/p4_exercise/tests:$BK/base/tests/python" "$PY" - $NEW_TESTS_SPEC <<'PY'
