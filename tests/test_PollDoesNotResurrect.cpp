@@ -269,8 +269,8 @@ class PollDoesNotResurrectTest : public ::testing::Test
         std::remove(m_topoPath.c_str());
     }
 
-    /// The start sequence main.cpp uses -- monitor (main.cpp:409) then power manager
-    /// (main.cpp:432) -- plus the bookkeeping that makes TearDown join both.
+    /// The start sequence main.cpp uses -- monitor (main.cpp:451) then power manager
+    /// (main.cpp:474) -- plus the bookkeeping that makes TearDown join both.
     void startMonitor()
     {
         m_monitor->start();
@@ -1328,7 +1328,7 @@ TEST_F(DeclaredLinkFailureTest, AReportedFailureStillSurvivesATopologyPoll)
 // rule above: /ndt/link_recovery_detected pairs a recovery report with a reported break, finds
 // none, and DECLINES -- it logs "link recovery declined … the declaration was retained". The
 // sentence that names the endpoint which does work (/ndt/inject_link_recovery) is the startup
-// sweep's, and it is printed at ONE call site, src/main.cpp:398, at kernel startup. So the
+// sweep's, and it is printed at ONE call site, src/main.cpp:440, at kernel startup. So the
 // successor is told to use the endpoint that will refuse him, and never shown the one that will
 // not.
 //

@@ -65,7 +65,7 @@ check() {
 yn() { if "$@"; then echo yes; else echo no; fi; }
 has() { case "$2" in *"$1"*) echo yes ;; *) echo no ;; esac; }
 
-# ndt returns early when sourced (same seam as stack.sh:877), so this defines its functions
+# ndt returns early when sourced (same seam as stack.sh:925), so this defines its functions
 # without dispatching on argv.
 # shellcheck source=/dev/null
 source "$NDT" || { echo "  FAILED   could not source $NDT"; echo "Ran 1 checks, 1 failed"; exit 1; }

@@ -261,7 +261,7 @@ echo
 echo "log check (synthetic fixture -- proves the allowlist rule, NOT that the kernel logs it):"
 FIXTURE="$BK/synthetic.log"
 cat > "$FIXTURE" <<'EOF'
-[2026-09-02 12:00:00.000] [info] [main.cpp:430 main] NDTwin kernel starting
+[2026-09-02 12:00:00.000] [info] [main.cpp:472 main] NDTwin kernel starting
 [2026-09-02 12:00:00.001] [warning] [HistoricalDataManager.cpp:64 start] HistoricalDataManager not started: MININET deployments do not run the recorder, so no historical link row will ever be written. /ndt/historical_logging reports this as reason=not-available-in-mininet-mode.
 EOF
 

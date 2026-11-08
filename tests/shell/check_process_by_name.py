@@ -242,7 +242,7 @@ ABOUT_THE_RULE = frozenset((
 #   stack.sh (TEACHES) `err "    pgrep -ax ndtwin_kernel"` -- printed at the operator as the way
 #                   to look, which is G-9's half of the same defect in a different file. Now
 #                   `cat $PID_DIR/*.pid`, beside the `ss -ltnp` line that names the port holder.
-#                   (2026-09-11: run_layers.sh:398, stack.sh:55, stack.sh:1075 are FIXED
+#                   (2026-09-11: run_layers.sh:398, stack.sh:55, stack.sh:1123 are FIXED
 #                   and therefore NOT in the list below.)
 #
 # 🔴 2026-09-11. Widening the surface to python found five more, and the first two

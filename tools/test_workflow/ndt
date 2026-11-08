@@ -11978,7 +11978,7 @@ resolve_up_target() {
 # --- dispatch ---------------------------------------------------------------------
 
 # [Co-developed with claude code -- Adam]
-# Sourced rather than executed: define the functions and stop, exactly as stack.sh:877 does.
+# Sourced rather than executed: define the functions and stop, exactly as stack.sh:925 does.
 # Without this, `source ndt` fell through to the usage block and `exit 2`-ed the sourcing shell,
 # so the only way to test any of these predicates was to copy the expression into the test and
 # assert the copy still appeared in this file (test_ndt_lab_session.sh:29-32). That is a test of

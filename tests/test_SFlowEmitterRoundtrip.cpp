@@ -278,7 +278,7 @@ TEST_F(EmitterRoundtripTest, BatchedSamplesBankEverySampleBytes)
     // emitted_multi.bin the TCP and ICMP samples arrive on ingress port 1 and the UDP sample on
     // port 3, so port 1 must bank the sum of two and port 3 the third.
     // Network byte order, deliberately not converted: the parser stores the agent address as
-    // `uint32_t agentIp = data[2]` straight off the wire (FlowLinkUsageCollector.cpp:960) with
+    // `uint32_t agentIp = data[2]` straight off the wire (FlowLinkUsageCollector.cpp:970) with
     // no ntohl, and keys m_counterReports on that value. Passing host order here finds nothing
     // and the counter reads 0 -- which is why the guards below assert the single-sample credit
     // is non-zero before comparing anything. Without them this test would have "passed" by

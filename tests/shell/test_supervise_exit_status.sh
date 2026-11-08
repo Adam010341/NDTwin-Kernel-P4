@@ -204,7 +204,7 @@ check "🔴 .exit exists in the state .child.pid does not" "yes" \
 
 # 🔴 The control that stops "remove the pidfile" from widening into "remove any pidfile": while
 # the child is RUNNING, .child.pid must be there -- it is the only place the worker's pid is
-# readable before the ending is recorded, and stack.sh:946 reads /proc/<that pid>/comm.
+# readable before the ending is recorded, and stack.sh:994 reads /proc/<that pid>/comm.
 #
 # 🔴 Driven through $SUPERVISE_SH and not through start_bg, which is what this cell was written
 # with first: start_bg finds supervise.sh BESIDE stack.sh, so a mutant is never the file it runs

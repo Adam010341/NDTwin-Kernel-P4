@@ -5,7 +5,7 @@
 # [Co-developed with claude code -- Adam]
 #
 # The defect: `ovs-topo-start` started $HOME/Network-Traffic-Generator/testbed_topo.py, a
-# file in ANOTHER REPO, while components.env:80 (OVS_TOPO_SCRIPT) and stack.sh:775 both name
+# file in ANOTHER REPO, while components.env:80 (OVS_TOPO_SCRIPT) and stack.sh:812 both name
 # THIS repo's copy -- so the path the manual tells an operator to run and the path `ndt up ovs`
 # runs were two different files. A later change fixed this repo's copy so its closing banner is
 # derived from the ping self-test, and an operator running `ndt up ovs` still saw NTG's constant

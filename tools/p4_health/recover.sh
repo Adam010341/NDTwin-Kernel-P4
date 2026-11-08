@@ -307,7 +307,7 @@ if [[ -z "$ov" && "$c_note" == "in use: ndt up p4 "* ]]; then note_ours=0; fi
 measuring_now() {  # a declaration or a measurement in flight, per ndt's own rows; empty if none.
     # Fails CLOSED: an `ndt status --measuring` that does not answer is busy.
     # So is one that answers with neither a `measuring` nor an `orphaned` row: ndt always
-    # prints one of the two (ndt:6897-6909), so their absence is an answer we do not understand.
+    # prints one of the two (ndt:6899-6911), so their absence is an answer we do not understand.
     local out
     if ! out="$(NDT_OWNER="$OWNER" "$NDT" status --measuring 2>/dev/null)"; then
         echo "ndt status --measuring did not answer"; return

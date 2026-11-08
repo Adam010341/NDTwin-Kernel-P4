@@ -910,7 +910,7 @@ TEST_F(FlowKeyFamiliesTest, ANonFirstFragmentBanksItsBytesAndDoesNotEndTheDatagr
     // 🔴 HOW it was lost is not the obvious mechanism, and the difference matters because the
     // wrong mechanism suggests the wrong fix. [Co-developed with claude code -- Adam]
     // The loop's own "read position did not advance" guard did NOT fire: the
-    // MININET index shift (base FlowLinkUsageCollector.cpp:1259,
+    // MININET index shift (base FlowLinkUsageCollector.cpp:1269,
     // `index += flowDataLength / 4 + 2;`) runs BEFORE the `continue` at base :1455, so the read
     // position HAD advanced -- just into the middle of the sample rather than past it. The parser
     // then read the sample's own dropped/ingress words as the next sample's type and length and

@@ -38,7 +38,7 @@ TMP="$(mktemp -d -t ndt_crashpat.XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
 # A line that is unremarkable on its own, so every verdict below is about the injected line.
-NORMAL='[2026-09-02 23:00:00.000] [info] [main.cpp:300 main] Logger Loads Successfully! level'
+NORMAL='[2026-09-02 23:00:00.000] [info] [main.cpp:339 main] Logger Loads Successfully! level'
 
 # must_fail <label> <injected line>
 must_fail() {

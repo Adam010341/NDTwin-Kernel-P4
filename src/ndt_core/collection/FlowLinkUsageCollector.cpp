@@ -2778,7 +2778,7 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter fil
     // call to getFlowInfoJson(), which opens with the same acquisition. Recursively acquiring a
     // std::shared_mutex is undefined behaviour -- [thread.sharedmutex.requirements] says a
     // thread must not own the mutex when it calls lock_shared -- and five writers take
-    // unique_lock on this same mutex (:1486 :1822 :2109 :2272 :2924).
+    // unique_lock on this same mutex (:1496 :1832 :2119 :2282 :2934).
     //
     // It never bit, and the reason it never bit is an implementation detail of this machine's C++
     // library rather than anything the code arranged: glibc's pthread_rwlock defaults to
@@ -2806,7 +2806,7 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter fil
     // whatever survives a predicate applied to an arbitrary prefix.
     //
     // 🔴 Not because dead flows outrank live ones. They do not: their sort key
-    // (estimated_packet_rate_in_the_proceeding_1sec_timeslot) is cleared to 0 at :1911 whenever no
+    // (estimated_packet_rate_in_the_proceeding_1sec_timeslot) is cleared to 0 at :1921 whenever no
     // hop reported traffic, and 3040 measured observations on two arms found zero dead-and-nonzero
     // rows. The measured harm is that they FILL the list from the bottom -- median 4 of the top 10
     // rows were ended flows -- because at the churn working point fewer than ten flows are alive.
@@ -3458,7 +3458,7 @@ FlowLinkUsageCollector::calFlowPathByQueried()
         //
         // WHAT THE 1 kHz WAS BUYING, written down before the wait was touched: exactly one
         // thing, a 1 ms freshness bound on the API's `path` field. flowPath has a single reader
-        // in the whole repo (getFlowInfoJson, :2256) and one writer (:2864); tests/, tools/ and
+        // in the whole repo (getFlowInfoJson, :2266) and one writer (:2874); tests/, tools/ and
         // p4_proxy/ have none. At 1 Hz the bound becomes 1 s.
         //
         // THE RISK IS NOT PERFORMANCE, IT IS SHORT FLOWS. Between a flow appearing and the next

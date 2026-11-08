@@ -124,8 +124,8 @@ class DataPlaneKindOrderingTest : public ::testing::Test
         std::remove(m_topoPath.c_str());
     }
 
-    /// The start sequence main.cpp uses -- monitor (main.cpp:409) then power manager
-    /// (main.cpp:432) -- plus the bookkeeping that makes TearDown join both. The first
+    /// The start sequence main.cpp uses -- monitor (main.cpp:451) then power manager
+    /// (main.cpp:474) -- plus the bookkeeping that makes TearDown join both. The first
     /// draft started only the monitor, and TheStartupSequenceMainUsesYieldsABmv2Verdict was
     /// red for that reason alone: the manager's verdict is taken in its own start(), so a
     /// fixture that never calls it can only observe the lazy re-derive, not the sequence
