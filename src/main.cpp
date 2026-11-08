@@ -19,7 +19,9 @@
 #include <boost/asio/impl/io_context.ipp>
 #include <boost/asio/io_context.hpp>
 #include <chrono>
+#include <cerrno>
 #include <csignal>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -177,10 +179,47 @@ stdinIsInteractive()
 
 } // namespace cli
 
+// [Co-developed with claude code -- Adam]
+// The handler for both stop signals. It only stores to a lock-free atomic, which is
+// async-signal-safe; the loop at the end of main reads the flag and runs the orderly shutdown.
 void
-handleSigint(int)
+handleShutdownSignal(int)
 {
     gShutdownRequested.store(true);
+}
+static_assert(std::atomic<bool>::is_always_lock_free,
+              "the stop-signal handler may only touch a lock-free atomic");
+
+// [Co-developed with claude code -- Adam]
+// SIGINT is Ctrl-C. SIGTERM is what `ndt down` sends: tools/test_workflow/stack.sh (stop_one)
+// signals the kernel's process group, waits, and only then sends SIGKILL. Before SIGTERM was
+// handled here its default action ended the process at once with status 143, so no subsystem
+// was stopped and no destructor ran (the application manager's per-app folders stayed behind).
+//
+// sigaction rather than std::signal, so the semantics are written down instead of left to the
+// C library. Two of them matter:
+//   * no SA_RESETHAND. On the `ndt down` path the kernel receives SIGTERM twice: once through the
+//     process group and once more when supervise.sh forwards it. A one-shot handler would let
+//     the second copy kill the process half-way through its shutdown.
+//   * SA_RESTART, which is what glibc's signal() installs, so SIGINT behaves as it did before.
+void
+installShutdownHandlers()
+{
+    struct sigaction action{};
+    action.sa_handler = handleShutdownSignal;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = SA_RESTART;
+    for (const int signo : {SIGINT, SIGTERM})
+    {
+        if (sigaction(signo, &action, nullptr) != 0)
+        {
+            SPDLOG_LOGGER_ERROR(Logger::instance(),
+                                "cannot install the handler for signal {}: {}. That signal "
+                                "will end the kernel without its orderly shutdown.",
+                                signo,
+                                std::strerror(errno));
+        }
+    }
 }
 
 // [Co-developed with claude code -- Adam]
@@ -341,7 +380,10 @@ main(int argc, char* argv[])
         SPDLOG_LOGGER_INFO(Logger::instance(), "Topology file: {}", topo);
     }
 
-    std::signal(SIGINT, handleSigint);
+    // [Co-developed with claude code -- Adam]
+    // Here and not earlier: the interactive prompts in resolveDeploymentConfig must stay
+    // interruptible by Ctrl-C, which a handler that only sets a flag would prevent.
+    installShutdownHandlers();
 
     net::io_context ioc{1};
 

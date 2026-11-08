@@ -300,7 +300,7 @@ fi
 
 # The driver's own wiring, read from its source (the lane itself builds the kernel).
 probed="$(grep -oE '^L1_NEED_MET\[[a-z0-9-]+\]=' "$DRIVER" | sed -E 's/^L1_NEED_MET\[([^]]*)\]=$/\1/' | sort -u)"
-check "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock)" "bmv2-stock py-plot ryu" \
+check "D18 the lane probes the needs it can excuse (ryu, py-plot, bmv2-stock, kernel-ports)" "bmv2-stock kernel-ports py-plot ryu" \
       "$(tr '\n' ' ' <<<"$probed" | sed 's/ $//')"
 check "D19 the dispatch hands the lane's own excuse and the hosted flag to the verdict" "yes" \
       "$(grep -qF 'l1_lane_verdict "$rc" "${ran:-0}" "${failed:-0}" "${skipped:-0}" "$excuse" "$L1_HOSTED"' "$DRIVER" \

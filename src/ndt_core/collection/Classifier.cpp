@@ -800,7 +800,7 @@ buildMaskAndValueFromMatch(const nlohmann::json& match, KeyBytes& outMaskBytes, 
         // `ndtClassifier::FlowKey fk{}` -- the only hit in the file) and sets no VLAN at all.
         //
         // Located by name, not by line: the first version of that sentence cited
-        // "FlowLinkUsageCollector.cpp:2534" and was already wrong the same hour, because the
+        // "FlowLinkUsageCollector.cpp:2544" and was already wrong the same hour, because the
         // companion comment added to that very function pushed the line to 2542.
         //
         // Today both sides are 0, so they agree and every lookup matches. Populate one side alone and

@@ -582,19 +582,28 @@ FlowLinkUsageCollector::stop()
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "Collector Stops");
 
+    // [Co-developed with claude code -- Adam]
+    // The receive thread FIRST. run() leaves its poll loop within one poll timeout of m_running
+    // going false, then joins the worker pool and closes the socket itself. This function used to
+    // close the socket and join the pool before joining run(), so two threads joined the same
+    // std::thread objects and cleared m_workers under each other. Measured 2026-11-08 (Debug, in a
+    // VM, TERM right after start): 2 of 3 shutdowns aborted with "terminate called after throwing
+    // an instance of 'std::system_error' / No such process", and others were still running 10 s
+    // later. Ctrl-C reached the same race; `ndt down` reaches it now that SIGTERM is handled.
+    if (m_pktRcvThread.joinable())
+    {
+        m_pktRcvThread.join();
+    }
+
+    // With run() gone nothing else touches the socket or the pool, so these are single-threaded.
+    // After a normal run() both are no-ops; they matter when run() never started. stop() is what
+    // the destructor calls, and it used to leave m_workers untouched. Idempotent.
     if (m_sockfd != -1)
     {
         ::close(m_sockfd);
         m_sockfd = -1;
     }
-    // Join the worker pool here as well as in run(): stop() is what the destructor calls, and it
-    // used to leave m_workers untouched. Idempotent. [Co-developed with claude code -- Adam]
     stopAndJoinWorkers();
-
-    if (m_pktRcvThread.joinable())
-    {
-        m_pktRcvThread.join();
-    }
     if (m_calAvgFlowSendingRateThreadPeriodically.joinable())
     {
         m_calAvgFlowSendingRateThreadPeriodically.join();
@@ -622,7 +631,8 @@ FlowLinkUsageCollector::stop()
 
 
 /**
- * @brief Signals the worker pool to finish and joins it. Safe to call more than once.
+ * @brief Signals the worker pool to finish and joins it. Safe to call more than once, but not from
+ * two threads at once: stop() calls it only after the receive thread, which calls it too, is joined.
  *
  * [Co-developed with claude code -- Adam]
  * Extracted because the join used to exist only at the very end of run(), while the workers are
@@ -2768,7 +2778,7 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter fil
     // call to getFlowInfoJson(), which opens with the same acquisition. Recursively acquiring a
     // std::shared_mutex is undefined behaviour -- [thread.sharedmutex.requirements] says a
     // thread must not own the mutex when it calls lock_shared -- and five writers take
-    // unique_lock on this same mutex (:1486 :1822 :2109 :2272 :2924).
+    // unique_lock on this same mutex (:1496 :1832 :2119 :2282 :2934).
     //
     // It never bit, and the reason it never bit is an implementation detail of this machine's C++
     // library rather than anything the code arranged: glibc's pthread_rwlock defaults to
@@ -2796,7 +2806,7 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter fil
     // whatever survives a predicate applied to an arbitrary prefix.
     //
     // 🔴 Not because dead flows outrank live ones. They do not: their sort key
-    // (estimated_packet_rate_in_the_proceeding_1sec_timeslot) is cleared to 0 at :1911 whenever no
+    // (estimated_packet_rate_in_the_proceeding_1sec_timeslot) is cleared to 0 at :1921 whenever no
     // hop reported traffic, and 3040 measured observations on two arms found zero dead-and-nonzero
     // rows. The measured harm is that they FILL the list from the bottom -- median 4 of the top 10
     // rows were ended flows -- because at the churn working point fewer than ten flows are alive.
@@ -3448,7 +3458,7 @@ FlowLinkUsageCollector::calFlowPathByQueried()
         //
         // WHAT THE 1 kHz WAS BUYING, written down before the wait was touched: exactly one
         // thing, a 1 ms freshness bound on the API's `path` field. flowPath has a single reader
-        // in the whole repo (getFlowInfoJson, :2256) and one writer (:2864); tests/, tools/ and
+        // in the whole repo (getFlowInfoJson, :2266) and one writer (:2874); tests/, tools/ and
         // p4_proxy/ have none. At 1 Hz the bound becomes 1 s.
         //
         // THE RISK IS NOT PERFORMANCE, IT IS SHORT FLOWS. Between a flow appearing and the next

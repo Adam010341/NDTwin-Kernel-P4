@@ -18,7 +18,7 @@
 # `ndt up p4 --telemetry cooperative` followed by `ndt up p4 --telemetry link` produces two
 # proxies with identical argv -- one writing clone sessions and registering switches for sFlow,
 # one deliberately doing neither -- and start_bg would REUSE the first. That is the measured
-# 128-vs-4 reuse failure (stack.sh:1052-1078's own note) with a third file behind it, and the
+# 128-vs-4 reuse failure (stack.sh:1100-1126's own note) with a third file behind it, and the
 # fingerprint is the only thing that can see it.
 #
 # The suite is tests/shell/test_ndt_app_package.sh, whose section 18 EVALUATES the production

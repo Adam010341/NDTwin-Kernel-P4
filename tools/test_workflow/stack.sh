@@ -367,10 +367,9 @@ SUPERVISE="$HERE/supervise.sh"
 # is only in a file nobody opens is barely more observable than no exit status at all.
 #
 # [Co-developed with claude code -- Adam]
-# Reporting only. It deliberately does NOT change any exit code, because 143 (SIGTERM's default
-# action) is what the kernel returns on the *normal* `ndt down` path today -- treating non-zero
-# as failure would turn every teardown red tomorrow morning. Whether a crash on shutdown should
-# fail the command is a separate design decision, not a side effect of making it visible.
+# Reporting only: it changes no exit code itself. A FATAL ending is recorded in
+# STACK_FATAL_ENDINGS and cmd_down fails on that; any other non-zero status is a warning, because
+# 143 (SIGTERM's default action) is still how Ryu and the P4 proxy end on a normal `ndt down`.
 # fatal_exit_status <wait-status> -- true when it means the process died of a FAULT.
 #
 # [Co-developed with claude code -- Adam]
@@ -379,10 +378,11 @@ SUPERVISE="$HERE/supervise.sh"
 #
 #   132 SIGILL   134 SIGABRT   135 SIGBUS   136 SIGFPE   137 SIGKILL   139 SIGSEGV
 #
-# 143 (SIGTERM) is deliberately NOT here: it is what `ndt down` produces on every healthy
-# kernel today, because main handles SIGINT only and TERM's default action kills the process.
-# Calling it a failure would turn every teardown red for a defect nobody has. 130 (SIGINT) is
-# out for the same reason -- it is how an operator stops the kernel by hand.
+# 143 (SIGTERM) is deliberately NOT here. A kernel that handles SIGTERM runs its orderly shutdown
+# and ends 0, but Ryu and the P4 proxy have no handler and end 143 on every normal `ndt down`, and
+# so does a kernel binary built before SIGTERM was handled (it had a handler for SIGINT only).
+# Calling 143 a failure would turn those teardowns red for a defect nobody has. 130 (SIGINT) is
+# out for the same reason -- it is how an operator stops a component by hand.
 #
 # 137 is in the list on purpose: systemd-oomd on this laptop kills builds and applications
 # routinely, a killed process prints nothing about itself, and an OOM-killed kernel would
@@ -400,7 +400,7 @@ STACK_FATAL_ENDINGS=""
 # [Co-developed with claude code -- Adam]
 # Which endings this run has already delivered, so sweep_orphan_exits below cannot announce one a
 # second time. It is needed because report_exit removes only a FATAL record ("delivered once");
-# a status 0 or 143 record is deliberately left for the next start_bg to clear, so the file is
+# any other record (0, 143, ...) is deliberately left for the next start_bg to clear, so the file is
 # still there when the sweep walks the directory a moment later.
 STACK_EXITS_REPORTED=""
 
@@ -729,6 +729,37 @@ pidfile_vouches() {
     return 0
 }
 
+# How long stop_one waits after TERM before it sends KILL, in half-second ticks (20 = 10 s).
+# Set STOP_WAIT_TICKS in the environment to change it; a value that is not a whole number of at
+# least 1 is refused (stop_wait_ticks_valid) before anything is stopped.
+#
+# [Co-developed with claude code -- Adam]
+# The kernel handles SIGTERM: it stops its subsystems one by one, logs "All subsystems stopped"
+# and exits 0, and supervise.sh records that before it exits itself. The wait below covers all of
+# it, because the pid polled here is the supervisor's. What bounds the kernel's part:
+#   * the topology monitor and the power manager cancel their in-flight control-plane requests
+#     and wake their sleeping workers (their stop() requests a StopSignal);
+#   * the sFlow collector has no such signal. Its workers sleep in 1 s slices
+#     (refreshDestinationPathsPeriodically, purgeIdleFlows, calAvgFlowSendingRatesPeriodically) and
+#     up to 2 s in testCalAvgFlowSendingRatesRandomly, so it waits up to about 2 s; and a
+#     destination-path request already running (fetchAllDestinationPaths: execCommand, curl
+#     --max-time 10) is not cancelled, so against a controller that accepts and never answers it can
+#     take the whole 10 s. The group TERM usually ends that curl first, since it is in the group;
+#     one started after the TERM is not ended by it.
+# Measured 2026-11-08 on a Debug build in a VM with no fabric, with no controller and with one that
+# accepts and never answers: 1.0 to 2.1 s from TERM to stop_one returning, over 25 stops. A
+# component still running at the end of the window is killed and reported as a fatal ending.
+STOP_WAIT_TICKS="${STOP_WAIT_TICKS:-20}"
+
+# stop_wait_ticks_valid -- true when STOP_WAIT_TICKS is a whole number >= 1. [Co-developed with claude code -- Adam]
+stop_wait_ticks_valid() { [[ "$STOP_WAIT_TICKS" =~ ^[1-9][0-9]*$ ]]; }
+stop_wait_ticks_refusal() {
+    err "STOP_WAIT_TICKS='$STOP_WAIT_TICKS' is not a whole number of half-second ticks of at least 1"
+    err "  (the default is 20, which is 10 s). Nothing was stopped; unset it or set e.g. STOP_WAIT_TICKS=40."
+}
+# stop_wait_seconds -- the window in seconds, for messages: 20 -> 10, 5 -> 2.5.
+stop_wait_seconds() { echo "$(( STOP_WAIT_TICKS / 2 ))$( (( STOP_WAIT_TICKS % 2 )) && echo .5)"; }
+
 stop_one() {
     # [Co-developed with claude code -- Adam]
     # Two statements, not one. `local name="$1" pidfile="$PID_DIR/$name.pid"` expands BOTH
@@ -767,15 +798,32 @@ stop_one() {
     esac
 
     if kill -0 "$pid" 2>/dev/null; then
+        # [Co-developed with claude code -- Adam] Checked before any signal, so a bad override
+        # stops nothing rather than turning the wait into zero.
+        stop_wait_ticks_valid || { stop_wait_ticks_refusal; return 1; }
+        local child
+        child="$(cat "$PID_DIR/$name.child.pid" 2>/dev/null)"
+        [[ "$child" =~ ^[0-9]+$ ]] || child="unknown"
         # Negative pid targets the whole process group (setsid above), so children die too.
         kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
-        for _ in $(seq 1 20); do
+        for _ in $(seq 1 "$STOP_WAIT_TICKS"); do
             kill -0 "$pid" 2>/dev/null || break
             sleep 0.5
         done
         if kill -0 "$pid" 2>/dev/null; then
-            warn "  $name did not exit on TERM; sending KILL"
+            # [Co-developed with claude code -- Adam]
+            # A FATAL ending, not a warning. The KILL goes to the whole group, so supervise.sh
+            # dies with the component and writes nothing. This script therefore appends the
+            # history line itself, in supervise.sh's format: without it the last line of
+            # $name.exit.log is the PREVIOUS run's ending, and that file is where cmd_down sends
+            # the reader. A warning here used to let `down` end 0 over it.
+            err "  🔴 $name did not stop cleanly: still running $(stop_wait_seconds) s after TERM; sending KILL"
+            err "     its own shutdown did not finish; see the tail of $LOG_DIR/$name.log"
             kill -KILL "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null
+            printf '%s\tstatus=%s\tchild=%s\t%s\n' "$(date -Is)" 137 "$child" \
+                "killed by stop_one: still running $(stop_wait_seconds) s after TERM, its own shutdown unfinished" \
+                >>"$PID_DIR/$name.exit.log"
+            STACK_FATAL_ENDINGS="${STACK_FATAL_ENDINGS:+$STACK_FATAL_ENDINGS }$name(KILL)"
         else
             info "  stopped $name"
         fi
@@ -1400,7 +1448,9 @@ cmd_down() {
     fi
 
     if [[ -n "$STACK_FATAL_ENDINGS" ]]; then
-        err "  teardown itself worked, but something crashed rather than stopped:"
+        # [Co-developed with claude code -- Adam] <name>(KILL) is a component stop_one had to
+        # kill after the stop window, not a crash; stop_one appends its line to .exit.log too.
+        err "  teardown itself worked, but something crashed or had to be killed rather than stopping:"
         err "    $STACK_FATAL_ENDINGS"
         err "  Reported once -- the durable record is $PID_DIR/<component>.exit.log."
         return 1
@@ -1431,6 +1481,13 @@ cmd_logs() {
 # only testable if the real function can be called.
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     return 0
+fi
+
+# [Co-developed with claude code -- Adam] Before any command: up restarts components through
+# stop_one too, and a refusal half-way through a teardown would be worse than one at the start.
+if ! stop_wait_ticks_valid; then
+    stop_wait_ticks_refusal
+    exit 2
 fi
 
 case "${1:-}" in

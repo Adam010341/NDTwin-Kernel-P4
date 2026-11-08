@@ -14,7 +14,7 @@
 #                            fabric fail to bind"
 #   ovs_4host_topo.py:31    a no-port RemoteController tries 6653 -> 6633 -> falls back to
 #                            6653, which "silently masks a controller that is not there"
-#   stack.sh:782-798        the same probe order, plus "simple_switch_grpc listens on
+#   stack.sh:830-846        the same probe order, plus "simple_switch_grpc listens on
 #                            0.0.0.0:30051-30060"
 #   ndtwin-lab:141,152      "Ryu must already be listening on 6653"
 #

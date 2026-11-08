@@ -6086,7 +6086,9 @@ cmd_down() {
             err "stack.sh down exited $src -- the kernel/proxy/Ryu half did not end cleanly;"
             err "  what it found is printed above. A component that died of a fatal signal is"
             err "  reported from its .exit record, so this can be an ENDING FROM AN EARLIER ROUND,"
-            err "  reported once. The teardown continues; this is carried to the exit code."
+            err "  reported once. Or, in THIS round, a component was still running when stack.sh's"
+            err "  stop window ended and was killed: [1/3] then says 'still running ... after TERM'."
+            err "  The teardown continues; this is carried to the exit code."
             down_rc=1
         fi
     fi
@@ -11976,7 +11978,7 @@ resolve_up_target() {
 # --- dispatch ---------------------------------------------------------------------
 
 # [Co-developed with claude code -- Adam]
-# Sourced rather than executed: define the functions and stop, exactly as stack.sh:877 does.
+# Sourced rather than executed: define the functions and stop, exactly as stack.sh:925 does.
 # Without this, `source ndt` fell through to the usage block and `exit 2`-ed the sourcing shell,
 # so the only way to test any of these predicates was to copy the expression into the test and
 # assert the copy still appeared in this file (test_ndt_lab_session.sh:29-32). That is a test of
@@ -12258,6 +12260,11 @@ usage: ndt <command>
                   told" are not the same statement: read the [1/3] block, which names
                   the component, before you go looking for a fabric that is gone.
                   (2026-09-12)
+                  rc 1 is also THIS round's when a component was still running when
+                  stack.sh's stop window ended (10 s after SIGTERM; STOP_WAIT_TICKS
+                  changes it) and was killed: [1/3] says '<name> did not stop
+                  cleanly: still running ... after TERM', and the KILL is appended to
+                  .test_run/pids/<name>.exit.log as status 137. (2026-11-08)
                   🔴 A PORT HELD AT [1/3] IS NOT BY ITSELF A FAILED TEARDOWN.
                   [1/3] runs before the data-plane sweep in [3/3], so over a LIVE P4
                   fabric stack.sh's port assertion can only be naming the 20 bmv2

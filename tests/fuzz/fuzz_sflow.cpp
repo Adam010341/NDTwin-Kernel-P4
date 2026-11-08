@@ -86,7 +86,7 @@ constexpr int kInputsPerCollector = 512;
 /// static destruction therefore reaches a spdlog registry that may already be gone -- observed
 /// as a heap-use-after-free at exit on *every* input, including valid ones, which reads like a
 /// parser finding and is not one. Production does not have this shape: main.cpp holds the
-/// collector as a local and calls stop() explicitly before returning (main.cpp:331, :425).
+/// collector as a local and calls stop() explicitly before returning (main.cpp:370, :467).
 /// LeakSanitizer stays quiet because this global still points at the object, so it is reachable
 /// rather than leaked. Collectors replaced mid-run are deleted normally -- the logger is alive
 /// then.

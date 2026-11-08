@@ -21,33 +21,6 @@ defects but are limits of the environment or of the measurement are at the end, 
 
 ## Running a lab with `ndt`
 
-### A-13 The kernel is killed instead of shutting down when `ndt down` stops it
-
-**What you see.** `ndt down` stops the kernel, but the kernel never runs its own orderly shutdown. It
-is killed by the signal, so the "Shutdown requested. Cleaning up" and "All subsystems stopped" lines
-are not written and its subsystems are not stopped one by one.
-
-**When.** Every `ndt down` (and every `stack.sh` stop) of a kernel started by `ndt up`.
-
-**Why.** The kernel installs a handler for `SIGINT` only (`src/main.cpp:344`); nothing in `src/` or
-`include/` handles `SIGTERM`. The orderly path, which stops the subsystems and returns 0, runs only
-after that handler has set a flag (`src/main.cpp:516-529`). The stop script sends `SIGTERM` to the
-kernel's process group (`tools/test_workflow/stack.sh:771`), whose default action ends the process
-at once. The scripts know this: the exit-status check treats 143 as normal for that reason
-(`tools/test_workflow/stack.sh:383-385`). A Ctrl-C in a terminal does reach the orderly path; its
-earlier crash at exit (one worker thread was never joined) is fixed
-(`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:221-247`).
-
-**What to do.** Nothing is needed for the lab itself: `ndt down` goes on to verify that the machine is
-clean. One leftover is known: the kernel removes its per-app folders under `/srv/nfs/sim` in the
-destructor of its application manager, which only the orderly path reaches
-(`src/main.cpp:432`, `src/ndt_core/application_management/ApplicationManager.cpp:27-30`, `:271-294`),
-so after `ndt down` they stay until the next kernel start removes them (`:419-455`). They are
-harmless, and a kernel that does not run as root writes no export lines. If you start the kernel by
-hand and want the orderly shutdown, stop it with `SIGINT` (Ctrl-C). None yet for `ndt down`.
-
-Failure direction: silent.
-
 ### G-33 `ndt check` reports DOUBLE-COUNTING and exits 4 when a link has just failed
 
 **What you see.** While traffic flows and a link is cut (for example with `tc netem loss 100%` on an
@@ -58,9 +31,9 @@ nothing is counted twice: the twin is only lagging behind the measured traffic, 
 fall in the real rate.
 
 **Why.** The verdict is chosen by the ratio alone: above 1.5 it prints DOUBLE-COUNTING and the command
-exits 4 (`tools/test_workflow/ndt:8261-8263`, `:8423`). The verdict word no longer names a mechanism,
+exits 4 (`tools/test_workflow/ndt:8263-8265`, `:8425`). The verdict word no longer names a mechanism,
 and the lines under it list both possible causes (stacked duplicates, or a lagging twin) side by
-side from the per-sub-window ratios (`tools/test_workflow/ndt:8184-8239`); but a lag still produces
+side from the per-sub-window ratios (`tools/test_workflow/ndt:8186-8241`); but a lag still produces
 the same word and the same exit code as a real stack of duplicates.
 
 **What to do.** Read the cause lines under the verdict, not the exit code alone: they say whether every
@@ -79,7 +52,7 @@ and exits 3.
 
 **When.** After every `ndt down` whose own `verify clean` finds none of the fabric itself (no bmv2
 switch, no Mininet host or switch process, no topo session): that `ndt down` clears the recorded
-`ndt up` target, `.test_run/up.target` (`tools/test_workflow/ndt:6243-6244`, `clear_up_target` at
+`ndt up` target, `.test_run/up.target` (`tools/test_workflow/ndt:6245-6246`, `clear_up_target` at
 `:623`). If the fabric is still there the record is kept and `--check` does not answer 3: `ndt down`
 keeps it when `verify clean` still finds bmv2 switches, Mininet hosts or switches, the topo session, or a
 topo session it could not read (for example because the lab helper's sudo grant is missing), and when its
@@ -91,7 +64,7 @@ next `ndt up` that builds a fabric (one that refuses leaves it as it is); once t
 remove it yourself with `rm .test_run/up.target` (`:634-647`; user guide, section 4.9).
 
 **Why.** `--check` compares the running lab with the recorded `up` target; with no target there is
-nothing to compare (`tools/test_workflow/ndt:8082-8089`). It does not fall back to checking that
+nothing to compare (`tools/test_workflow/ndt:8084-8091`). It does not fall back to checking that
 nothing should be running. This is documented behaviour (`doc/2026-11-05_user-guide.md`, section 4.5,
 exit-code table); whether `--check` should do more after `down` is undecided.
 
@@ -99,7 +72,7 @@ exit-code table); whether `--check` should do more after `down` is undecided.
 gone (or, if its own check was refused, was not measured): fix what it says (for a missing sudo grant, the
 line it prints) and run `ndt down` again. To confirm that a lab is down, use `ndt clean` (it asserts that no lab process, topo session or
 listening lab port is left). On a lab that is already down it exits 3, "there was nothing to judge", and both 0 and 3
-mean down (`tools/test_workflow/ndt:12331-12337`; user guide, section 4.10). To compare a state before and after,
+mean down (`tools/test_workflow/ndt:12338-12344`; user guide, section 4.10). To compare a state before and after,
 compare the full `ndt status --check` output (rc 3 and the same list of problems), not the exit code against 0; plain
 `ndt status` always exits 0 (`doc/2026-11-05_user-guide.md`, section 4.5).
 
@@ -154,7 +127,7 @@ longer while the cache is carried forward after failed polls).
 
 **Why.** Two edges of the window are fixed in whole seconds from the clock of a different moment. The
 start is the app's elapsed time in whole seconds (`ps etimes`) turned into an absolute time
-(`tools/test_workflow/ndt:10327-10334`), which can be up to a second late; it is stored when the app
+(`tools/test_workflow/ndt:10329-10336`), which can be up to a second late; it is stored when the app
 is stopped (`:10030`, `app_window_record` at `:8632`). A rule's age is `now - duration_sec`, and the
 table that supplies `duration_sec` is the kernel's cached copy, polled about every 10 seconds
 (`:10822-10834`), so the age can be later than the real install time by the age of the cache.
@@ -164,7 +137,7 @@ Rules outside the window are by design not reported.
 switch tables from the controller's REST API (not from the kernel's cached copy) for the rules the app
 is known to install. Waiting before you run the report does not help: a rule's install time is computed
 from the cached table as it was last polled, and the window's end is fixed when the app is stopped
-(`tools/test_workflow/ndt:8635`, `:10030`), so no amount of waiting closes the gap. This applies to OVS
+(`tools/test_workflow/ndt:8637`, `:10032`), so no amount of waiting closes the gap. This applies to OVS
 only; on P4 the report prints `NOT CHECKED` (see "On P4, `ndt` cannot tell when a rule was installed"
 under Limitations). None yet that makes the window exact.
 
@@ -209,7 +182,7 @@ Failure direction: silent (both clients get 200).
 No historical link data is recorded.
 
 **When.** Whenever the kernel runs in MININET mode, which is how `ndt up` always starts it
-(`tools/test_workflow/stack.sh:1253`). Outside MININET mode, the same reply is given when the recorder
+(`tools/test_workflow/stack.sh:1301`). Outside MININET mode, the same reply is given when the recorder
 thread is not running or when every write to the output directory fails.
 
 **Why.** The recorder is not started in MININET mode, and says so in the kernel log
@@ -228,12 +201,12 @@ overwritten with 0.
 
 **When.** Only in TESTBED mode (real switches), and only for a switch that sends interface speed 0.
 In MININET mode, which is how `ndt up` always starts the kernel, counter samples are discarded before the
-division (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1339-1344`), so no `ndt up` lab can hit it.
+division (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1349-1354`), so no `ndt up` lab can hit it.
 This was found by reading the code and has not been reproduced.
 
 **Why.** The counter-sample handler divides by the reported speed and stores it as the link bandwidth
 without a zero check (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:3245-3258`; the sample is
-passed through unchecked at `src/ndt_core/collection/FlowLinkUsageCollector.cpp:1354-1401`). A topology
+passed through unchecked at `src/ndt_core/collection/FlowLinkUsageCollector.cpp:1364-1411`). A topology
 file that declares a zero bandwidth is refused at load, but a switch can still report one
 (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:277-279`).
 
@@ -279,13 +252,13 @@ has the same convention.
 starts or on an edge nobody samples.
 
 **Why.** Deliberate sentinel: `-1.0` means "never", not "a long time ago"
-(`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2037-2041`, serialised as is at
+(`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2047-2051`, serialised as is at
 `src/ndt_core/http/HttpSession.cpp:1565-1567`). The contract does not bound the value from below.
 
 **What to do.** Treat a negative value as "never sampled" before doing arithmetic on it. Do not use
 `telemetry_status` instead: it is decided per switch, so an edge that was never sampled on a switch that
 is sampling other ports reads `idle` with -1.0, and `unknown` means only that the whole switch has never
-reported (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2041`, `:2044-2050`, `:2059-2066`).
+reported (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2051`, `:2054-2060`, `:2069-2076`).
 
 ### C-9 A link whose telemetry went silent reports usage 0, the same as an idle link
 
@@ -294,7 +267,7 @@ reported (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2041`, `:2044-2050
 no traffic. `telemetry_status` is `silent` then, but `silent` is not a fault test: it means that no
 sample has arrived from that switch on any port within the window, and a switch that is idle on every
 port looks the same. Agents report only for the flows they sample, and MININET mode discards counter
-samples (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1628-1630`, `:1339-1344`); the code
+samples (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1638-1640`, `:1349-1354`); the code
 documents the false positive as deliberate (`include/ndt_core/collection/FlowLinkUsageCollector.hpp:283-286`).
 
 **When.** After traffic stops and the sampling agent goes quiet (the window is 5 seconds,
@@ -303,7 +276,7 @@ graph.
 
 **Why.** The usage fields are always numeric (`src/ndt_core/http/HttpSession.cpp:1581-1582`); the
 silence is carried only by `telemetry_status` (`:1563-1564`;
-`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2043-2063`).
+`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2053-2073`).
 
 **What to do.** Read `silent` as "cannot tell": it covers a broken telemetry path and a switch with
 nothing to report alike. A consumer that acts on low usage (a power-saving decision, a top-k list, a
@@ -581,7 +554,7 @@ mistake for defects.
 
 Link usage comes from 1-in-256 packet sampling, and each sampled packet is credited with
 its length times the sampling rate (256 by default; it can be changed, see the user guide's section 4.6)
-(`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1575`, `:1592`, `:1603`, `:1612`, `:1624`). A link with
+(`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1585`, `:1602`, `:1613`, `:1622`, `:1634`). A link with
 little traffic (roughly under 3 Mbit/s with 1,400-byte frames) therefore shows a reading that is a whole
 multiple of one sample's worth rather than a smooth value. A link that carries traffic was not seen
 reading 0 for this reason.
@@ -616,7 +589,7 @@ check the queueing tree before and after with `tools/test_workflow/qdisc_snapsho
 
 The P4 proxy now stamps every rule it installs, so the flow statistics it serves carry a real age for
 those rules. `ndt` still treats the whole P4 plane as having no time axis
-(`tools/test_workflow/ndt:10558-10560`). On a P4 fabric, `ndt apps stop`, `ndt apps orphans` and
+(`tools/test_workflow/ndt:10560-10562`). On a P4 fabric, `ndt apps stop`, `ndt apps orphans` and
 `ndt status --check` therefore cannot date any rule to an app's time window, and their `rules-in-window`
 row prints `NOT CHECKED`, which is not "clean". To find the rules an app left behind on P4, read the
 switch tables themselves. The user guide describes this in section 4.5 (`doc/2026-11-05_user-guide.md`,

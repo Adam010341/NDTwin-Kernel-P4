@@ -234,11 +234,11 @@ DeviceConfigurationAndPowerManager::stop()
     // destroyed -- which is std::terminate, not a leak: "terminate called without an active
     // exception" and SIGABRT, every time the kernel reached its own shutdown path.
     //
-    // It was invisible because the path that reaches this code is rarely taken: main registers a
-    // handler for SIGINT only (src/main.cpp:314), and `ndt down` sends SIGTERM, whose default
-    // action kills the process outright -- no destructors, no abort, exit status 143. Only an
-    // operator pressing Ctrl-C in a terminal, which is exactly what the manual usertest does,
-    // ever ran the shutdown that crashes.
+    // It was invisible because the path that reaches this code was rarely taken: main then
+    // registered a handler for SIGINT only, and `ndt down` sends SIGTERM, whose default action
+    // killed the process outright -- no destructors, no abort, exit status 143. Only an operator
+    // pressing Ctrl-C in a terminal ever ran the shutdown that crashed. Since FIXED-ISSUES A-13
+    // the kernel handles SIGTERM as well, so every `ndt down` runs it.
     //
     // Any thread added to start() from here on must be joined here too; the shutdown test asserts
     // the shape (nothing joinable survives stop()), not this one member.

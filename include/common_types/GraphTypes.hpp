@@ -401,7 +401,7 @@ to_string(MemberType t)
  * 🔑 `agentIpCidr` is here and is NOT optional. The sFlow row alone is not enough: the agent is
  * the bridge's own internal port, whose IPv4 address `del-br` also takes with it, and that
  * address is what the collector reads as `AgentKey.agentIP` to attribute samples to an edge
- * (FlowLinkUsageCollector.cpp:1442-1447 keys on the agent IP; TopologyAndFlowMonitor.cpp:1571
+ * (FlowLinkUsageCollector.cpp:1452-1457 keys on the agent IP; TopologyAndFlowMonitor.cpp:1571
  * resolves it against `dstIp`). Restoring the record onto an address-less interface would be a
  * restore that runs, succeeds, and lands somewhere the samples cannot be attributed from --
  * the shape of an injection nobody asserted took effect.
