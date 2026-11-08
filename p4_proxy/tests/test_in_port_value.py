@@ -12,9 +12,8 @@ write-refusal errors -- so, unchecked, add, delete and modify all answered **500
 now runs the real encoder over every in_port spelling first, so the answer is a 400 and the
 switch is not written.
 
-The other numeric 5-tuple keys (ip_proto, tp_src, tp_dst) are deliberately NOT covered; their
-500s are the registered family in check_match_values' docstring. The last test only pins that
-check_match_values leaves them alone; it does not pin the 500s themselves.
+The protocol and L4 port keys (ip_proto, tp_src, tp_dst and their spellings) get the same check;
+tests/test_l4_match_values.py covers them.
 
 The check runs ahead of the writer's own refusals, so a read-only client (an `external` fabric,
 409) answers 400 for a bad in_port; a valid in_port there still answers 409.
@@ -139,14 +138,6 @@ class AnInPortTheKeyCannotHoldTest(unittest.TestCase):
                         asyncio.run(getattr(api_routes, handler)(FakeRequest(body)))
                     self.assertEqual(caught.exception.status_code, status)
         self.assertEqual(stub.requests, [])
-
-    def test_the_other_numeric_keys_are_left_alone_by_this_check(self):
-        # Registered 500 family (check_match_values' docstring): not changed by the in_port
-        # check. Pinned so that widening it is a decision and not an accident.
-        from proxy_agent.topology_manager import check_match_values
-        for match in ({"nw_proto": 300}, {"tp_dst": 70000}, {"tp_src": "abc"}):
-            with self.subTest(match=match):
-                self.assertIsNone(check_match_values(match, "installed"))
 
 
 if __name__ == "__main__":

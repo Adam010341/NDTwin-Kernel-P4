@@ -80,13 +80,16 @@ TEST_EXACT="$REPO/p4_proxy/tests/test_exact_one_element_list.py"
 # and the in_port refusal at the three write endpoints (test_in_port_value).
 TEST_FIVE="$REPO/p4_proxy/tests/test_five_tuple_match.py"
 TEST_INPORT="$REPO/p4_proxy/tests/test_in_port_value.py"
+# [Co-developed with claude code -- Adam] The same refusal for the protocol and L4 port keys.
+TEST_L4="$REPO/p4_proxy/tests/test_l4_match_values.py"
 # [Co-developed with claude code -- Adam] The install-time record of an in_port rule (M-B42 turns
 # its test red as well: the record is keyed on the mask the writer sends).
 TEST_TIMES="$REPO/p4_proxy/tests/test_rule_install_times.py"
 
 MODULES="tests.test_p4_client_writes tests.test_table_entry_route tests.test_startup \
 tests.test_readopt tests.test_app_package_proxy tests.test_foreign_pipeline \
-tests.test_exact_one_element_list tests.test_five_tuple_match tests.test_in_port_value tests.test_rule_install_times"
+tests.test_exact_one_element_list tests.test_five_tuple_match tests.test_in_port_value tests.test_l4_match_values \
+tests.test_rule_install_times"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -141,6 +144,7 @@ BASE_TEST_FOREIGN=$(sha256sum "$TEST_FOREIGN" | cut -d' ' -f1)
 BASE_TEST_EXACT=$(sha256sum "$TEST_EXACT" | cut -d' ' -f1)
 BASE_TEST_FIVE=$(sha256sum "$TEST_FIVE" | cut -d' ' -f1)
 BASE_TEST_INPORT=$(sha256sum "$TEST_INPORT" | cut -d' ' -f1)
+BASE_TEST_L4=$(sha256sum "$TEST_L4" | cut -d' ' -f1)
 BASE_TEST_TIMES=$(sha256sum "$TEST_TIMES" | cut -d' ' -f1)
 
 SURVIVORS=0
@@ -351,13 +355,90 @@ report "M-B45: an in_port that does not fit nine bits is not checked before the 
 
 m=$(mutant b46 "$TOPOMGR" \
     '    except (ValueError, OverflowError, TypeError, OSError):
-        raise MalformedMatchValueError(
-            field, value, action,' \
+        bits = P4RuntimeClient._FIVE_TUPLE_KEY_BITS[p4_key]' \
     '    except (ValueError, TypeError, OSError):
-        raise MalformedMatchValueError(
-            field, value, action,')
+        bits = P4RuntimeClient._FIVE_TUPLE_KEY_BITS[p4_key]')
 report "M-B46: the in_port check lets the encoder's OverflowError out, so 512 is a 500" "$m" \
        "test_the_switch_is_not_written_for_any_of_them"
+
+# [Co-developed with claude code -- Adam]
+# M-B47 .. M-B57: the same refusal for the protocol and the two L4 port keys (bit<8>, bit<16>).
+# Without it `int("abc")` and `to_bytes` raise out of the 5-tuple encoder and every verb answers
+# 500. M-B47 skips the check; M-B48 drops one spelling out of the set it covers and M-B49 a whole
+# key; M-B50 widens the protocol key by one bit and M-B51 a port key, so 256 and 65536 are taken;
+# M-B52 lets the encoder's OSError (a dotted string inet_aton cannot read) through the shared
+# helper; M-B53 skips a falsy value, the way a `if value:` guard would; M-B54 reports a range one
+# too wide; and M-B55 .. M-B57 take the
+# check off one verb each (add, delete, modify), so a verb that builds the same keys without it is
+# a 500 again.
+m=$(mutant b47 "$TOPOMGR" \
+    '            _check_l4_value(field, match_dict[field], action)' \
+    '            pass')
+report "M-B47: a protocol or L4 port that does not fit its key is not checked before the writer" "$m" \
+       "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
+
+m=$(mutant b48 "$TOPOMGR" \
+    '    if p4_key in ("hdr.ipv4.protocol", "meta.l4_src_port", "meta.l4_dst_port")' \
+    '    if p4_key in ("hdr.ipv4.protocol", "meta.l4_src_port", "meta.l4_dst_port")
+    and field != "udp_dst"')
+report "M-B48: one spelling of the L4 destination port is left out of the check" "$m" \
+       "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
+
+m=$(mutant b49 "$TOPOMGR" \
+    '    if p4_key in ("hdr.ipv4.protocol", "meta.l4_src_port", "meta.l4_dst_port")' \
+    '    if p4_key in ("hdr.ipv4.protocol", "meta.l4_dst_port")')
+report "M-B49: the L4 source port key is left out of the check" "$m" \
+       "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
+
+m=$(mutant b50 "$CLIENT" \
+    '"hdr.ipv4.protocol": 8,' \
+    '"hdr.ipv4.protocol": 9,')
+report "M-B50: the protocol key is nine bits wide, so 256 is taken" "$m" \
+       "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
+
+m=$(mutant b51 "$CLIENT" \
+    '"meta.l4_dst_port": 16,' \
+    '"meta.l4_dst_port": 17,')
+report "M-B51: the L4 destination port key is seventeen bits wide, so 65536 is taken" "$m" \
+       "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
+
+m=$(mutant b52 "$TOPOMGR" \
+    '    except (ValueError, OverflowError, TypeError, OSError):
+        bits = P4RuntimeClient._FIVE_TUPLE_KEY_BITS[p4_key]' \
+    '    except (ValueError, OverflowError, TypeError):
+        bits = P4RuntimeClient._FIVE_TUPLE_KEY_BITS[p4_key]')
+report "M-B52: the L4 check lets the encoder's OSError out, so \"a.b\" is a 500" "$m" \
+       "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
+
+m=$(mutant b53 "$TOPOMGR" \
+    '        if field in L4_VALUED_MATCH_FIELDS:' \
+    '        if field in L4_VALUED_MATCH_FIELDS and match_dict[field]:')
+report "M-B53: a falsy protocol or port (\"\", null, an empty list) is not checked" "$m" \
+       "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
+
+m=$(mutant b54 "$TOPOMGR" \
+    '            expected=f"{noun} from 0 to {(1 << bits) - 1} (the key is {bits} bits wide)") from None' \
+    '            expected=f"{noun} from 0 to {1 << bits} (the key is {bits} bits wide)") from None')
+report "M-B54: the refusal names a range one too wide" "$m" \
+       "test_the_check_itself_raises_the_proxys_own_refusal_for_each_spelling"
+
+m=$(mutant b55 "$TOPOMGR" \
+    '        check_match_values(match_dict, "installed")' \
+    '        pass')
+report "M-B55: an add does not check its protocol and port values" "$m" \
+       "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
+
+m=$(mutant b56 "$TOPOMGR" \
+    '        check_match_values(match_dict, "deleted")' \
+    '        pass')
+report "M-B56: a delete does not check its protocol and port values" "$m" \
+       "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
+
+m=$(mutant b57 "$TOPOMGR" \
+    '        check_match_values(match_dict, "modified")' \
+    '        pass')
+report "M-B57: a modify does not check its protocol and port values" "$m" \
+       "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
 
 m=$(mutant b16 "$SHAPE" \
     '                return bytes.fromhex("".join(groups))' \
@@ -1005,8 +1086,9 @@ echo
 [[ "$(sha256sum "$TEST_EXACT" | cut -d' ' -f1)" == "$BASE_TEST_EXACT" ]] || { echo "🔴 baseline CHANGED -- test_exact_one_element_list.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_FIVE" | cut -d' ' -f1)" == "$BASE_TEST_FIVE" ]] || { echo "🔴 baseline CHANGED -- test_five_tuple_match.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_INPORT" | cut -d' ' -f1)" == "$BASE_TEST_INPORT" ]] || { echo "🔴 baseline CHANGED -- test_in_port_value.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_L4" | cut -d' ' -f1)" == "$BASE_TEST_L4" ]] || { echo "🔴 baseline CHANGED -- test_l4_match_values.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_TIMES" | cut -d' ' -f1)" == "$BASE_TEST_TIMES" ]] || { echo "🔴 baseline CHANGED -- test_rule_install_times.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (5 sources, 10 test files)"
+echo "baseline byte-identical: yes (5 sources, 11 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else
