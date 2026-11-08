@@ -391,9 +391,10 @@ LINK_FAILURE_REPORTED = Obj({"status": Str(nonempty=True)}, optional={
     "until": Str(nonempty=True),
 })
 
-#: §2 success, both outcomes. `declaration_retained` is present ONLY when the pairing rule
-#: declined; listing it here is what stops it being dropped silently, and Bool() rather than
-#: Any_() is what stops it degrading into a truthy string.
+#: §2 success, both outcomes. `declaration_retained` is present ONLY when the recovery was
+#: declined -- by the pairing rule, or because the link was injected (B-23); listing it here is
+#: what stops it being dropped silently, and Bool() rather than Any_() is what stops it degrading
+#: into a truthy string.
 LINK_RECOVERY_REPORTED = Obj({"status": Str(nonempty=True)}, optional={
     "declaration_retained": Bool(),
     "detail": Str(nonempty=True),
@@ -1607,8 +1608,10 @@ def inv_declared_failure_says_who_can_withdraw_it(data, ctx):
     if data["until"] != "/ndt/link_recovery_detected":
         return [
             f"the reply names {data['until']!r} as what withdraws this declaration, not "
-            "/ndt/link_recovery_detected. A caller pointed at the wrong endpoint leaves the "
-            "link declared down for the rest of the run"
+            "/ndt/link_recovery_detected. This check runs on a link nobody injected, and there "
+            "a caller pointed at the wrong endpoint leaves the link declared down for the rest "
+            "of the run (on an injected link /ndt/inject_link_recovery is the right answer, "
+            "doc/2026-01-02_ndt_api.md §1)"
         ]
     return []
 

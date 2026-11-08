@@ -916,9 +916,9 @@ struct EdgeProperties
      *
      * @warning It is PERMANENT until it is withdrawn -- and only two things withdraw
      *          it: `/ndt/inject_link_recovery`, or a `/ndt/link_recovery_detected` that PAIRS with
-     *          a `failureReported` below. It survives Ryu reconverging and a switch restart, by
-     *          design. That is why it is visible on the wire as `down_reason: "declared"` -- see
-     *          effectiveDownReason below.
+     *          a `failureReported` below on an edge that is not `injected`. It survives Ryu
+     *          reconverging and a switch restart, by design. That is why it is visible on the
+     *          wire as `down_reason: "declared"` -- see effectiveDownReason below.
      */
     bool declaredDown = false;
 
@@ -956,6 +956,29 @@ struct EdgeProperties
      *       is not.
      */
     bool failureReported = false;
+
+    /**
+     * @brief The declaration standing on this edge was made by `/ndt/inject_link_failure`, and
+     *        only `/ndt/inject_link_recovery` may end it.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/FIXED-ISSUES.md B-23. `failureReported` alone could not say this. An injection records
+     * no report, but the control plane DOES report the break it causes: the netem drops LLDP and
+     * the P4 proxy's beacons, so Ryu (after its LLDP timeout) and the proxy's link watchdog both
+     * POST /ndt/link_failure_detected for the injected link. That report, made after the
+     * injection or standing from before it, used to be enough for a later
+     * /ndt/link_recovery_detected to withdraw the injection while its netem stayed attached.
+     *
+     * A separate flag rather than "/ndt/link_failure_detected skips an injected link", because
+     * the report is still true and both orders have to be covered: an injection made on top of a
+     * report, and a report made on top of an injection. One fact read in one place
+     * (applyReportedLinkRecovery) covers both; two writers each refusing half of the sequence
+     * would not.
+     *
+     * @note Set only by setEdgeDownByInjection, cleared only by clearEdgeDeclaredDown. Not read
+     *       back from a file, for the reason `declaredDown` is not.
+     */
+    bool injected = false;
 
     uint64_t leftBandwidth = 0;
     uint64_t linkBandwidth = MININET_INTERFACE_SPEED;
@@ -1022,8 +1045,8 @@ from_json(const json& j, EdgeProperties& e)
     e.isEnabled = j.at("is_enabled").get<bool>();
     e.adminDisabled = j.value("admin_disabled", false);
     // [Co-developed with claude code -- Adam]
-    // `declaredDown` and `failureReported` are deliberately NOT read back, for the reason
-    // `down_reason` is not: no writer puts them in a file, the loader starts every edge down
+    // `declaredDown`, `failureReported` and `injected` are deliberately NOT read back, for the
+    // reason `down_reason` is not: no writer puts them in a file, the loader starts every edge down
     // anyway, and a declaration restored from a payload would be an injection nobody in this
     // process ever made. A kernel restart forgets standing declarations -- which is the honest
     // answer, because the tc netem that may accompany one lives in the machine's qdisc tree and

@@ -51,7 +51,15 @@ enum class LinkRecoveryOutcome
 
     /// A declaration is standing that this report does not pair with -- nothing was reported
     /// broken on this edge -- so it was NOT withdrawn and the edge was NOT marked up.
-    Retained
+    Retained,
+
+    /// [Co-developed with claude code -- Adam]
+    /// doc/FIXED-ISSUES.md B-23. The declaration standing here was injected through
+    /// /ndt/inject_link_failure, and only /ndt/inject_link_recovery ends an injection, so it was
+    /// NOT withdrawn and the edge was NOT marked up -- whatever the control plane reported about
+    /// this link before or after the injection. Separate from Retained because the reply has to
+    /// say which: "nothing ever reported it broken" is false here whenever a report stands.
+    InjectionRetained
 };
 
 /**
@@ -292,13 +300,18 @@ class TopologyAndFlowMonitor
      *
      *   setEdgeDown / setEdgeUp        -- an OBSERVATION. Discovery and the derived-liveness pass.
      *                                     Leaves `declaredDown` alone in both directions.
-     *   setEdgeDownByDeclaration       -- an INTENT that was carried out: an operator asked for
-     *                                     this link to be down (/ndt/inject_link_failure).
-     *                                     `updateLinks` may not overrule it.
+     *   setEdgeDownByDeclaration       -- an INTENT that was carried out: this link is to be down.
+     *                                     `updateLinks` may not overrule it. The two writers below
+     *                                     add the note that says who asked; no endpoint calls
+     *                                     this one directly any more (B-23).
+     *                                     [Co-developed with claude code -- Adam]
      *   setEdgeDownByReportedFailure   -- the same intent, PLUS the note that the control plane
      *                                     said it saw the break (/ndt/link_failure_detected).
+     *   setEdgeDownByInjection         -- the same intent, PLUS the note that it was injected
+     *                                     (/ndt/inject_link_failure), which only
+     *                                     clearEdgeDeclaredDown may end (B-23).
      *   applyReportedLinkRecovery      -- /ndt/link_recovery_detected. Spends that note, and only
-     *                                     then withdraws the declaration.
+     *                                     then withdraws the declaration -- never an injected one.
      *   clearEdgeDeclaredDown          -- the unconditional withdrawal:
      *                                     /ndt/inject_link_recovery.
      *
@@ -320,12 +333,28 @@ class TopologyAndFlowMonitor
      * [Co-developed with claude code -- Adam]
      * doc/FIXED-ISSUES.md B-6. /ndt/link_failure_detected, and nothing else, calls this:
      * it is Ryu's notification endpoint, so a call to it is the twin being TOLD a link broke.
-     * /ndt/inject_link_failure calls setEdgeDownByDeclaration instead -- an operator asking for a
-     * link to be down is not the control plane observing that it is.
+     * /ndt/inject_link_failure calls setEdgeDownByInjection instead -- an operator asking for a
+     * link to be down is not the control plane observing that it is. [Co-developed with claude
+     * code -- Adam]
      *
      * The difference is spent by applyReportedLinkRecovery: one report, one withdrawal.
+     *
+     * On an edge that is `injected` the report is still recorded -- the control plane did see the
+     * break, which the injection's netem caused -- and it buys nothing until
+     * clearEdgeDeclaredDown ends the injection and spends it (B-23).
      */
     void setEdgeDownByReportedFailure(Graph::edge_descriptor e);
+
+    /**
+     * @brief Declares @p e failed AND records that the declaration is an injection.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/FIXED-ISSUES.md B-23. /ndt/inject_link_failure, and nothing else, calls this. The
+     * `injected` note is what makes applyReportedLinkRecovery decline for this edge even when a
+     * control-plane failure report stands for it, and only clearEdgeDeclaredDown
+     * (/ndt/inject_link_recovery) clears it.
+     */
+    void setEdgeDownByInjection(Graph::edge_descriptor e);
 
     /**
      * @brief Applies a control-plane recovery report (/ndt/link_recovery_detected) to @p e.
@@ -334,6 +363,10 @@ class TopologyAndFlowMonitor
      * doc/FIXED-ISSUES.md B-6, and the whole of the rule settled on 2026-09-07 after a live
      * run: **a withdrawal has to pair with a reported break.**
      *
+     *   - `injected` set         -> the declaration is an injection, and only
+     *                               clearEdgeDeclaredDown ends one. Leave everything alone,
+     *                               including any standing report. Returns InjectionRetained
+     *                               (B-23).
      *   - `failureReported` set  -> the report pairs with it. Spend it, withdraw any declaration,
      *                               mark the edge up. Returns Applied.
      *   - nothing reported, but a declaration is standing -> this is a bare rediscovery. Leave the
@@ -359,7 +392,7 @@ class TopologyAndFlowMonitor
      *
      * The withdrawal /ndt/inject_link_recovery makes: an operator who injected a failure is
      * entitled to take it back without the control plane's agreement. Also spends any standing
-     * failure report, because the episode is over either way.
+     * failure report and the `injected` note, because the episode is over either way.
      *
      * Deliberately does NOT touch `isUp`: whether the link is carrying traffic again is discovery's
      * call, and discovery has evidence -- this call answers only "is the twin still holding a
@@ -376,6 +409,10 @@ class TopologyAndFlowMonitor
     /// Whether an unspent control-plane failure report is standing for @p e.
     /// [Co-developed with claude code -- Adam]
     bool getEdgeFailureReported(Graph::edge_descriptor e);
+
+    /// Whether the declaration standing for @p e was injected (B-23).
+    /// [Co-developed with claude code -- Adam]
+    bool getEdgeInjected(Graph::edge_descriptor e);
 
     /**
      * @brief Every `sN-ethM` this twin could have attached netem to: both ends of every
