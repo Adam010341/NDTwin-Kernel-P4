@@ -253,13 +253,13 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     void handleInjectLinkFailure(http::response<http::string_body>& res);
 
     /**
-     * @brief Withdraws a declaration made by handleInjectLinkFailure and removes the netem.
+     * @brief Withdraws a declaration made by handleInjectLinkFailure; removes the recorded netem.
      *
      * [Co-developed with claude code -- Adam]
      * The inverse of the above, and idempotent on the tc half: removing a netem that is not there
      * reports `noop` rather than failing, because a caller must be able to get a fabric back to
-     * health without first knowing exactly what was done to it. The attach point is re-read from
-     * the live qdisc tree rather than remembered, so this still works after a kernel restart.
+     * health without first knowing exactly what was done to it. Only a netem recorded in the
+     * InjectedNetemLedger is removed; after a kernel restart that ledger is empty, so none is.
      */
     void handleInjectLinkRecovery(http::response<http::string_body>& res);
 

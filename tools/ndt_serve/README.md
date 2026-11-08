@@ -183,7 +183,7 @@ cells, old/ and new/, runs and walks.
 **It refreshes itself every 10 s** (R2): one read of `/lab`, `/apps`, `/health` and `/jobs` -- two
 ndt calls (plain `ndt status`, `ndt apps status`). Measured on this laptop without ptrace (the
 `/proc/stat` process count around a read minus an equal idle window, sudo through a logging shim,
-7 runs; `logs/ndt-serve-gui-v2/live-probe-cost/RESULTS.md`): with the lab idle a round is about 596
+7 runs; the raw counts are not kept in this repository): with the lab idle a round is about 596
 tasks and 10 `sudo` (8 + 2); with a P4 fabric up and iperf3 running, about 719 tasks, 8 `sudo`
 (6 + 2) and one `GET /ndt/get_graph_data` to the kernel under test (curl, 5 s cap, about 6 ms).
 Every `sudo` is a list or status call. The next read is armed only when the last one has finished,

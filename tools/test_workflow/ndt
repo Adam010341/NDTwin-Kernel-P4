@@ -5137,15 +5137,15 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
 }
 
 up_ovs() {
-    # $1 = 128 (NTG's own OVS fabric) or 4 (the P4 test bed's layout on OVS, so a P4-vs-OVS
-    # comparison varies the data plane and nothing else -- every such comparison before
+    # $1 = 128 (this repo's testbed_topo.py fabric) or 4 (the P4 test bed's layout on OVS, so a
+    # P4-vs-OVS comparison varies the data plane and nothing else -- every such comparison before
     # 2026-08-17 also changed the topology and could not attribute its difference).
     local ovs_hosts="${1:-128}" ovs_verb=ovs-topo-start
     [[ "$ovs_hosts" == 4 ]] && ovs_verb=ovs-topo-4host
 
     # [Co-developed with claude code -- Adam]
     # The OVS plane has exactly two fabric sizes, and neither is a parameter. `ovs-topo-start`
-    # runs NTG's own testbed_topo.py -- another repo, 128 hosts hard-coded, no host argument --
+    # runs this repo's testbed_topo.py -- 128 hosts hard-coded (HOST_NUM), no host argument --
     # and `ovs-topo-4host` runs ours at 4. Any other N used to pick a *model* of that size and
     # then build 128 hosts anyway, and report success: measured 2026-08-21, `ndt up ovs 16` gave
     # "model matches fabric: 16 hosts" over a 128-host fabric with 160 veths.
@@ -5168,7 +5168,7 @@ up_ovs() {
     # change it -- which remains the right shape even now that the downstream check works.
     if [[ "$ovs_hosts" != 4 && "$ovs_hosts" != 128 ]]; then
         err "OVS can only build 4 or 128 hosts, not $ovs_hosts."
-        err "  128 comes from NTG's testbed_topo.py, 4 from tools/test_workflow/ovs_4host_topo.py;"
+        err "  128 comes from HOST_NUM in the repo-root testbed_topo.py, 4 from tools/test_workflow/ovs_4host_topo.py;"
         err "  neither takes a host count, so 'ndt up ovs $ovs_hosts' would build 128 and a model"
         err "  of $ovs_hosts would be loaded beside it."
         err "  use:  ndt up ovs   (128)   |   ndt up ovs4   (4)   |   ndt up p4 $ovs_hosts"
@@ -5330,7 +5330,7 @@ up_ovs() {
     # nothing makes them move together. Read it from the source of truth instead, so the next
     # change to that default cannot leave this line lying. [Co-developed with claude code -- Adam]
     local settle_default
-    settle_default="$(grep -oP 'NDTWIN_RYU_SETTLE_S", "\K[0-9]+' "$REPO/intelligent_router.py" 2>/dev/null)"
+    settle_default="$(grep -m1 -oP 'NDTWIN_RYU_SETTLE_S", "\K[0-9]+' "$REPO/intelligent_router.py" 2>/dev/null)"
     info "Ryu settles for ${NDTWIN_RYU_SETTLE_S:-${settle_default:-?}}s before installing paths (NDTWIN_RYU_SETTLE_S)"
     echo "" >&3
     wait "$stack_pid"; local rc=$?
@@ -11813,7 +11813,7 @@ cmd_ntg() {
 # 🔴 THE DEFAULT PLANE IS OVS. It was p4 until then. Two consequences that
 # are not visible from the change itself:
 #
-#   * `ndt up` means `ndt up ovs`, i.e. 128 hosts through NTG's testbed_topo.py. up_ovs has
+#   * `ndt up` means `ndt up ovs`, i.e. 128 hosts through testbed_topo.py. up_ovs has
 #     exactly TWO sizes, 128 and 4, because each is a different ndtwin-lab verb
 #     (ovs-topo-start / ovs-topo-4host) -- there is no host_count() override on the OVS side
 #     the way there is on the P4 side, so "the current host count" has no meaning here and a
