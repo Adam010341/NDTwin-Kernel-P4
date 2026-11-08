@@ -1,4 +1,4 @@
-# RETIRED as the cell's `new/` fixture -- 2026-09-12, FIX-NDT-8
+# RETIRED as the cell's `new/` fixture -- 2026-09-12
 
 [Co-developed with claude code -- Adam]
 
@@ -20,5 +20,5 @@ agree with a later contract. The directory is renamed instead, so
 live round under the 09-12 contract was captured it reported the cell as **PENDING** ("no new/ yet").
 
 **What was still needed on 2026-09-12:** one live `run_cells.sh --cell up_refuses_while_a_down_is_in_flight`
-round on a tree carrying the FIX-NDT-8 rc vocabulary, with its raw copied in as `new/`. That
+round on a tree carrying the new rc vocabulary, with its raw copied in as `new/`. That
 round needs the lab, so it was not part of this change; it has since been captured as `../new/`.

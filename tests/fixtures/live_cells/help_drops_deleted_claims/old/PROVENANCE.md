@@ -3,7 +3,8 @@
 [Co-developed with claude code -- Adam]
 
 **Kind: replay of the pre-fix tool.** `ndt help` reads no state, so replaying it at `3259d296^`
-reproduces exactly the text F-OFFLINE-1 §1.12/§1.24 read.
+reproduces exactly the text the offline investigation of 2026-09-11 read (sections 1.12 and 1.24
+of its write-up, kept outside this repository).
 
 | file | where it came from |
 |---|---|
@@ -12,7 +13,7 @@ reproduces exactly the text F-OFFLINE-1 §1.12/§1.24 read.
 
 Checked before replaying: that rev's usage heredoc is the only unquoted one in the file and
 contains **no** backtick and no `$(` (the 09-10 near-miss where an `ndt help` heredoc executed
-`ndt down` was introduced later in FIX-NDT-2 and fixed in `3f393bf2`). Running it was therefore
+`ndt down` was introduced later and fixed in `3f393bf2`). Running it was therefore
 safe; a rev whose heredoc does carry one must not be replayed.
 
 **All four failing assertions carry the finding** -- two are the deleted sentences, two are the

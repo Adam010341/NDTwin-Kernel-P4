@@ -9,16 +9,16 @@ puts the tree's bytes back afterwards, so the raw layout gained `knob.entry` and
 tree happened to hold.
 
 **🔴 NOT A LIVE RUN, and the reason is in the round, not in the cell.** The lab was held by
-another role that night (ROLE-10, P4 128-host traffic), and FIX-NDT-7's ticket forbade touching
-it. This raw comes from running `observe` alone, offline:
+another session that night (P4 128-host traffic), and the work this raw was captured for was not
+allowed to touch it. This raw comes from running `observe` alone, offline:
 
     NDT_ROOT=<worktree> NDT_OWNER=overnight-0905 \
       bash tools/test_workflow/live_cells/up_refuses_a_model_of_another_network.sh observe <dir>
 
-against `scratch/overnight-2026-09-05/wt-ndt7-0912` on branch `fix/ndt-7-0912`. That is the
+against a git worktree on the branch that carried the fix. That is the
 whole cell: this one refuses inside `up_p4` before the claim check, the in-flight check and
-preflight, so it touches no lab even when it is run on one -- the header says so and ROLE-9
-measured it twice at 0.1 s with `[1/3]` zero times. The subject is `ndt` blob
+preflight, so it touches no lab even when it is run on one -- the header says so and another
+session measured it twice at 0.1 s with `[1/3]` zero times. The subject is `ndt` blob
 `b1d02994ff59b72866a3d15acdf2dbda7251e489`, recorded in `ids.txt` beside this file.
 
 `kernel=unknown` in `ids.txt` is correct and not a gap: a worktree has no `build/bin/`, and

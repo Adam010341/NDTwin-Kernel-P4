@@ -9,11 +9,11 @@ defect it shows is the one the tree had on 2026-09-12, before the fix (`../new/`
 | | |
 |---|---|
 | when | 2026-09-12 15:04:29 -> 15:05:14 CST |
-| where | main checkout `/home/adam/Desktop/NDTwin-Kernel`, trunk `af5efa4f` (**before** FIX-NDT-9) |
+| where | main checkout, trunk `af5efa4f` (**before** the fix) |
 | kernel | `build/bin/ndtwin_kernel` sha256[0:16] **`c4c8e50310d7e4a1`** (`ids.txt`) |
 | `ndt` | blob **`54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc`** (`ids.txt`) |
-| driven by | `run_cells.sh --cell stale_app_pidfile_does_not_frame_the_fabric`, window 1 of the CELLS-2 live window (`hunt-0911/CELLS-2-LIVE-WINDOW.txt`), lab claim held by the session that drove the window |
-| runner log | `scratch/overnight-2026-09-05/logs/gates-0910/run_cells_stalepid.cells2-0912-r2.log` |
+| driven by | `run_cells.sh --cell stale_app_pidfile_does_not_frame_the_fabric`, window 1 of the live window (its window file is kept outside this repository), lab claim held by the session that drove the window |
+| runner log | the run's own log, kept outside this repository |
 
 Every file is a byte copy out of
 `.test_run/live_cells/2026-09-12/stale_app_pidfile_does_not_frame_the_fabric/`. Nothing was
@@ -23,7 +23,7 @@ in `flow_entries.count`.
 
 ## 🔴 The judge that produced the 7 ids in EXPECTED-FAILS is NOT the judge that ran live
 
-The live run of 15:04:29 scored **13 ok / 4 FAIL** (`run_cells_stalepid.cells2-0912-r2.log` l.17,
+The live run of 15:04:29 scored **13 ok / 4 FAIL** (line 17 of the runner log,
 and `judge.txt` in the raw). The judge has been changed three times since, twice because a
 read-only audit found it wrong, and those changes are what make the set 7:
 
@@ -36,8 +36,8 @@ read-only audit found it wrong, and those changes are what make the set 7:
 | `stale_own_rule_gone` | *(did not exist)* | FAIL | the after-read really does still contain `10.99.99.99` |
 | `stale_window_has_a_right_edge`, `stale_window_frames_no_rule`, `stale_check_does_not_list_them` | FAIL | FAIL | unchanged |
 
-The replay that produced the current set is
-`logs/gates-0910/run_cells_stalepid_replay.cells2-0912-r3.log`. **The raw was not touched** --
+The replay that produced the current set is logged in a file kept outside
+this repository. **The raw was not touched** --
 `judge` is a pure function of this directory, which is the whole reason a fixture can be re-judged
 at all -- but a reader comparing this file with the runner log must know that the two numbers are
 from two judges.
@@ -48,7 +48,7 @@ from two judges.
 
 | id | what it read here |
 |---|---|
-| `stale_window_has_a_right_edge` | `  te     window 2026-09-05 19:38:31 -> now (588377s)` -- the pidfile's process is dead and the window still runs to `now`. 588377 s is 6 days 19 h, not the 12.3 h of the 09-11 viz case RESIDUE-1 described; this cell's plant is dated from `app_te.log`'s own mtime |
+| `stale_window_has_a_right_edge` | `  te     window 2026-09-05 19:38:31 -> now (588377s)` -- the pidfile's process is dead and the window still runs to `now`. 588377 s is 6 days 19 h, not the 12.3 h of the 09-11 viz case the read-only investigation of 2026-09-12 described; this cell's plant is dated from `app_te.log`'s own mtime |
 | `stale_window_frames_no_rule` | the line under it is `  XX        rule  dpid=1 table=0 pri=65535 ...  installed 14s ago` |
 | `stale_app_block_lists_no_rule` | 62 -- 61 rule lines plus the block's own `61 rule(s) listed:` summary |
 | `stale_check_does_not_list_them` | `--check` printed `residue        122 rule(s) inside an app window, 0 lock(s) HELD` and under it `listed by:  ndt apps orphans` |
@@ -76,7 +76,7 @@ the 09-11 file was still there and untouched.
 
 ## What the first attempt got wrong, and why the premise assertions exist
 
-`run_cells_stalepid.cells2-0912-r1.log`, 15:00:47, is kept and is NOT this fixture. It read the
+The first attempt, 15:00:47 (its runner log is kept outside this repository), is NOT this fixture. It read the
 kernel's flow table straight after `ndt up ovs 4` returned and got `[]`, so the open window framed
 nothing and the assertions passed -- **on the buggy tree**.
 `stale_premise_flow_table_not_empty` is what said so. `flow_poll.log` from this run explains it:
