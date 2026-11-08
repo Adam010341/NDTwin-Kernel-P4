@@ -24,6 +24,8 @@
 # learn everything that is broken in one pass. Exit 1 if any job failed, 2 for a usage error.
 #
 # Mirrors .github/workflows/ci.yml -- when that file changes, change this one.
+# The googletest pre-fetch (tools/ci/fetch_googletest.sh and the FETCHCONTENT_SOURCE_DIR_GOOGLETEST
+# flag) is deliberately CI-only; local runs let FetchContent download as before.
 
 set -uo pipefail
 
