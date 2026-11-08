@@ -185,11 +185,11 @@ sh_add "M5: run_layers carries on when the digest no longer matches" \
 #     offline layer, is taken out of the harness by a check that was supposed to add a question.
 sh_add "M6: WIDENING -- refuse instead of deriving when the kernel does not say" \
     "$RUNLAYERS" \
-    '        echo "before E-2), so the model below is DERIVED from the running fabric -- guessing.${N}" >&2
+    '        echo "before G-15), so the model below is DERIVED from the running fabric -- guessing.${N}" >&2
         return 1' \
-    '        echo "before E-2), so this run refuses to choose a model.${N}" >&2
+    '        echo "before G-15), so this run refuses to choose a model.${N}" >&2
         return 3' \
-    'a pre-E-2 kernel falls back to the derivation and says it is guessing'
+    'a pre-G-15 kernel falls back to the derivation and says it is guessing'
 
 # --- anchor check (never a verdict) -------------------------------------------------------------
 

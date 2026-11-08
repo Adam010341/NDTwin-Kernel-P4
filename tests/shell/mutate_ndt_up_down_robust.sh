@@ -31,7 +31,7 @@
 #
 # 🔴 A mutant directory carries ports.sh, sudo_surface.sh and components.env too. ndt sources
 # the first two from beside itself, so a copy without them exits 2 at source time and every
-# case goes red for a reason that has nothing to do with the mutation (MERGE-LOG.md, 09-03).
+# case goes red for a reason that has nothing to do with the mutation.
 #
 # 🔴 A mutation that will not apply, a non-unique anchor, or the WRONG case going red counts as
 # SURVIVOR -- never as skipped.
@@ -192,7 +192,7 @@ run_against "$base" | tail -1
 run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
 echo
 
-# --- #3, first half: the refusal moves back to before the machine is touched ----------------
+# --- rollback, first half: the refusal moves back to before the machine is touched ----------------
 
 # The defect exactly: the ownership verdict is computed, printed, and not acted on. This is what
 # preflight did on 09-02 -- residue named, bring-up proceeded, stack.sh refused three minutes
@@ -244,7 +244,7 @@ m=$(mutant m5 "$NDT" \
 report "M5: the preflight asks about every plane's ports" "$m" \
        "a P4-only port does not block an OVS bring-up"
 
-# --- #3, second half: the rollback ----------------------------------------------------------
+# --- rollback, second half: the rollback ----------------------------------------------------------
 
 # The measured case, put straight back: stack.sh's kernel step fails and `ndt up` returns,
 # leaving Ryu, the topo session and the data plane behind.
@@ -296,7 +296,7 @@ m=$(mutant m9 "$NDT" \
 report "M9: a stack that failed VERIFICATION is torn down too" "$m" \
        "🔴 and is NOT rolled back"
 
-# --- #21: the sweep's exit status ------------------------------------------------------------
+# --- sweep-rc: the sweep's exit status ------------------------------------------------------------
 
 # Trunk's line, restored verbatim: output to /dev/null, rc dropped, fabric built on top.
 m=$(mutant m10 "$NDT" \
@@ -316,7 +316,7 @@ m=$(mutant m11 "$NDT" \
 report "M11: 'ndt down' ignores a sweep that did not finish" "$m" \
        "🔴 'ndt down' is red when its sweep did not finish"
 
-# --- #49: the teardown verify and the sweep it verifies --------------------------------------
+# --- verify-race: the teardown verify and the sweep it verifies --------------------------------------
 
 # The assertion goes back to being taken at the instant of the sweep: "5 still running / not
 # clean" over a machine that reads 0 a moment later.
@@ -330,7 +330,7 @@ m=$(mutant m12 "$NDT" \
 report "M12: 'ndt down' asserts at the instant of the sweep" "$m" \
        "🔴 processes reaped just after the sweep are not a failure"
 
-# 🔴 #49 with the sign flipped, which is worse: the wait is allowed to decide. When it expires
+# 🔴 The verify-race with the sign flipped, which is worse: the wait is allowed to decide. When it expires
 # the assertion is skipped and the teardown reports success over a live leftover.
 m=$(mutant m13 "$NDT" \
     '    wait_reaped "${NDT_REAP_WAIT:-20}" || true
@@ -354,7 +354,7 @@ m=$(mutant m14 "$NDT" \
 report "M14: 'ndt clean' waits too" "$m" \
        "🔴 'ndt clean' alone does not wait"
 
-# --- #83: the installed helper ---------------------------------------------------------------
+# --- helper-copy: the installed helper ---------------------------------------------------------------
 
 # The comparison is made, printed, and kept out of --check: exactly the state of trunk, one
 # print statement further along. A reader who runs --check is told the lab is fine.
@@ -1542,7 +1542,7 @@ m=$(mutant m119 "$NDT" \
 report "M119: the model comparison no longer comes before the hoisted refusals" "$m" \
        "🔴 a mismatched model beats a live OVS fabric: rc 5"
 
-#   M120-M121  the hoisted refusals lose their reuse condition   M122-M124  #56's fresh/reused assignments
+#   M120-M121  the hoisted refusals lose their reuse condition   M122-M124  the UP_P4_FABRIC fresh/reused assignments
 m=$(mutant m120 "$NDT" \
     '    if (( reuse )) && stale_pipeline; then' \
     '    if stale_pipeline; then')

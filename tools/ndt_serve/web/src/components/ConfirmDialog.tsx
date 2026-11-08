@@ -1,5 +1,5 @@
 // [Co-developed with claude code -- Adam]
-// The one door every write goes through (SCOPE section 2 of the GUI cut; v1's confirmThen, carried
+// The one door every write goes through (v1's confirmThen, carried
 // over rule for rule). This is the ONLY file that calls post, and it does so twice below:
 //
 //   1. a fresh GET /lab, every time the dialog opens;

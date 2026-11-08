@@ -179,7 +179,7 @@ class RoundHarness(unittest.TestCase):
 
 # ------------------------------------------------------------------------------------------
 class TheRunnerRunsBothHalves(RoundHarness):
-    """#75 itself: the round has to CALL the latency check, and its answer has to land in the
+    """The unwired check itself: the round has to CALL the latency check, and its answer has to land in the
     report where a reader can see it."""
 
     def test_the_latency_check_reaches_the_round_report(self):
@@ -190,7 +190,7 @@ class TheRunnerRunsBothHalves(RoundHarness):
         self.assertTrue(self.by_name(r, LATENCY),
                         f"no {LATENCY} row in the round report; the round evaluated "
                         f"{[f['inv'] for f in r['findings']]} -- the latency check has zero "
-                        f"call sites, which is finding #75")
+                        f"call sites, which is how the check went unwired")
         self.assertTrue(fake.power_calls,
                         "the latency row exists but no power-on was ever sent, so whatever it "
                         "reports was not measured from a request")
@@ -207,7 +207,7 @@ class TheRunnerRunsBothHalves(RoundHarness):
 
     def test_the_latency_row_carries_its_measurement_and_its_threshold(self):
         """A duration without the threshold it was judged against is not a result anyone can
-        check, and this threshold has moved once already (#17)."""
+        check, and this threshold has moved once already."""
         self.install(graph(s1_up=False), processes=1, power=(200, '{"x":"Success"}', 0.0))
         ev = self.one(self.null_round(), LATENCY)["evidence"]
         self.assertIn("elapsed_s", ev)
@@ -232,7 +232,7 @@ class TheRunnerRunsBothHalves(RoundHarness):
 
 # ------------------------------------------------------------------------------------------
 class WhenThereIsNothingToTime(RoundHarness):
-    """#17's second half. The precondition is a power-on that OUGHT to do work; without one the
+    """The fast-404 defect's second half. The precondition is a power-on that OUGHT to do work; without one the
     duration measures a correct early return and means nothing."""
 
     def test_a_healthy_fabric_reports_not_measured_and_sends_nothing(self):
@@ -279,7 +279,7 @@ class WhenThereIsNothingToTime(RoundHarness):
 # ------------------------------------------------------------------------------------------
 class ItStillResolves(RoundHarness):
     """🔴 The control block. A wiring that answers NOT-MEASURED every time passes every case
-    above and detects nothing -- the same trade #17's gate caught as a constant SKIPPED."""
+    above and detects nothing -- the same trade the fast-404 gate caught as a constant SKIPPED."""
 
     def test_a_duration_on_the_failing_side_of_the_threshold_fails_the_round(self):
         """s1 is DOWN in the graph, so this power-on must really start a switch; a 200 in ~0 s
@@ -317,7 +317,7 @@ class ItStillResolves(RoundHarness):
                          f"{thr} and was still scored as the defect")
 
     def test_a_refusal_is_not_a_measurement_and_not_a_pass(self):
-        """#17, at the runner. A 404 comes back fast; the round must not read that as either
+        """The fast-404 defect, at the runner. A 404 comes back fast; the round must not read that as either
         the defect or a clean reading."""
         self.install(graph(s1_up=False), processes=2,
                      power=(404, '{"error":"Missing or invalid ip/action"}', 0.0))

@@ -283,7 +283,7 @@ class NonStrictDeleteRouteTest(unittest.TestCase):
 
 class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
     """
-    FINDING-07's residue: `success` was true about the request and false about the consequence.
+    The residue of the ipv4_lpm priority defect: `success` was true about the request and false about the consequence.
 
     [Co-developed with claude code -- Adam]
     Seventeen rules were POSTed at priorities 902 and 910-927 on 2026-08-30 and every one came
@@ -318,7 +318,7 @@ class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
         return call(api_routes.add_flow_entry, json.dumps(body).encode())
 
     def test_a_destination_only_rule_says_its_priority_was_not_honoured(self):
-        # The exact shape of FINDING-07's seventeen: dl_type + nw_dst, priority 915.
+        # The exact shape of the seventeen rules above: dl_type + nw_dst, priority 915.
         out = self._add({"dl_type": 2048, "nw_dst": "10.0.0.240"}, priority=915)
         self.assertEqual(out["status"], "success")
         self.assertEqual(out["table"], "ipv4_lpm")
@@ -368,7 +368,7 @@ class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
 
 class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
     """
-    The half of the ipv4_lpm priority defect (FIXED-ISSUES A-7, FINDING-07) that disclosure cannot
+    The half of the ipv4_lpm priority defect (FIXED-ISSUES A-7) that disclosure cannot
     reach.
 
     [Co-developed with claude code -- Adam]

@@ -158,7 +158,7 @@ check "case 8  the user guide quotes clean's own-fabric sentence" \
 # that works in a file which has no markers.
 #
 # 🔴 THE UNIT IS A BLOCK, NOT A LINE, AND THAT IS LOAD-BEARING. Prose here wraps at ~100 chars,
-# so a sentence such as "§2.8 used to describe this as a current defect, 'FIX-NDT-6 is being fixed'; it now says fixed ... `1656bdba`" (the old manual wrote it in Chinese)
+# so a sentence such as "The section used to describe this as a current defect, 'FIX-NDT-6 is being fixed'; it now says fixed ... `1656bdba`" (the old manual wrote it in Chinese)
 # is three lines: the qualifier is on the first, the ticket on the second, the sha on the third.
 # Line-scoped reading sees the middle line alone and calls a retraction a stale caveat.
 #
@@ -263,7 +263,7 @@ check "case 11b no doc page calls a branch unmerged without naming the merge tha
 # and the FIRST run of this sweep printed `()` on both hits, because the sed wanted a space before
 # `Merge` and a merge subject begins at column 1. Nobody noticed: the only lines that could have
 # shown it were already red for their own reason, which is exactly how an instrument's own defect
-# hides inside the finding it is reporting.
+# hides inside the defect it is reporting.
 #
 # It runs the real printer -- the same function the sweep calls -- on a merge this repository has,
 # so it cannot pass by describing what the printer ought to do. M16 puts the old sed back.

@@ -120,7 +120,7 @@ class TempDir
         // [Co-developed with claude code -- Adam] pid in the name. The names below happen to
         // differ per test, so nothing collides today -- but this constructor calls remove_all,
         // and the day two tests share a name under `ctest -j2` one process deletes the other's
-        // directory out from under it. That is the failure W11's round measured in
+        // directory out from under it. That is the failure measured on 2026-09-06 in
         // test_IntentTaskOutcomes.cpp; one std::to_string is the whole cost of not repeating it.
         : m_path(std::filesystem::temp_directory_path() /
                  (name + "." + std::to_string(::getpid())))

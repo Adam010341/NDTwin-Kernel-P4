@@ -1869,7 +1869,7 @@ class GraphNodePowerPathTest(unittest.TestCase):
 #                graph to the file, so a faithfully served bad file matches by construction.
 #                That is the loader's job -- doors 3a-3e -- and this test says so out loud so
 #                that "the contract test now looks at per-node identity" is never read as
-#                "the contract test now catches #90 and #91".
+#                "the contract test now catches an addressless host or an unknown brand".
 # =============================================================================================
 
 SHIPPED_OVS4 = os.path.join(REPO_ROOT, "setting",
@@ -1929,13 +1929,13 @@ def _edge_to_unknown_dpid(topo):
 BROKEN_MODELS = {
     "a": ("r3-topo-a-host-empty-ip.json",
           "adff4661ccdf59d2cd2b43e25bea1c9e1d25bf565d066fbdc5c837a96ace335a",
-          _add_addressless_host, "accepted (#90)"),
+          _add_addressless_host, "accepted (addressless host)"),
     "b": ("r3-topo-b-switch-empty-ip.json",
           "42a33fc305882ce8b1d9fdb79cf383916500d504746b375f2bc92a5092c420a5",
           _empty_switch_ip, "refused at load (door 3b)"),
     "c": ("r3-topo-c-bad-switch-kind.json",
           "ad2bc613501e8cd5f3788c97cd7cdddd1e661630ae24a260a6086f1df458e920",
-          _unknown_brand, "accepted (#91)"),
+          _unknown_brand, "accepted (unknown brand)"),
     "d": ("r3-topo-d-no-bridge-name.json",
           "f861b517a7ce2ac555f3bf2277123b95b1500ee29e684198c7c1603048ee3a3a",
           _drop_bridge_name, "refused at load (door 3c)"),
@@ -1944,7 +1944,7 @@ BROKEN_MODELS = {
           _negative_ecmp_port, "refused at load"),
     "f": ("r3-topo-f-edge-to-unknown-dpid.json",
           "44b51679af93c18e7a7302ef2c5dabc62588362fe250c2a346841ba43b26d172",
-          _edge_to_unknown_dpid, "refused at load (#61)"),
+          _edge_to_unknown_dpid, "refused at load (edge to unknown dpid)"),
 }
 
 
@@ -2130,7 +2130,7 @@ class PerNodeIdentityAgainstTheBrokenModelsTest(unittest.TestCase):
 class PerNodeIdentityDoesNotCloseTheLoaderDoorsTest(unittest.TestCase):
     """The same-file pairing, and the limit it makes explicit.
 
-    #90 and #91 are files the kernel ACCEPTS and then serves faithfully. This invariant
+    The addressless host and the unknown brand are files the kernel ACCEPTS and then serves faithfully. This invariant
     compares the graph to the file it was handed, so when they are the same file it matches by
     construction -- before this change and after it. The doors in
     validateStaticTopologyJson are what close those, and this test exists so that nobody reads
@@ -2138,14 +2138,14 @@ class PerNodeIdentityDoesNotCloseTheLoaderDoorsTest(unittest.TestCase):
     """
 
     def test_a_faithfully_served_unknown_brand_is_still_green(self):
-        """c / #91: the kernel took the file, mapped NOT_A_REAL_KIND to hardware, and serves
+        """c / unknown brand: the kernel took the file, mapped NOT_A_REAL_KIND to hardware, and serves
         the string back. Graph and file agree, so this invariant has nothing to say."""
         topo = json.loads(broken_model_bytes("c").decode())
         ctx = context_for(broken_model_bytes("c"))
         self.assertEqual(spec.inv_graph_matches_topology(graph_as_served(topo), ctx), [])
 
     def test_a_faithfully_served_addressless_host_is_still_green(self):
-        """a / #90, with R3's mac collision removed so that the collision is not what makes
+        """a / addressless host, with R3's mac collision removed so that the collision is not what makes
         this test pass. `('h9', [])` is served exactly as the file declares it."""
         topo = json.loads(broken_model_bytes("a").decode())
         [h for h in topo["nodes"] if h["device_name"] == "h9"][0]["mac"] = 9
@@ -2300,7 +2300,7 @@ class ModelUnderTestTest(unittest.TestCase):
         out = spec.inv_kernel_serves_the_model_under_test(self._body(), self._ctx())
         self.assertEqual(len(out), 1)
         self.assertTrue(out[0].startswith(TOOL_PRECONDITION),
-                        "a pre-E-2 kernel is not broken, and it is not confirmed either")
+                        "a pre-G-15 kernel is not broken, and it is not confirmed either")
 
     def test_a_file_edited_since_the_load_fails(self):
         ctx = self._ctx()

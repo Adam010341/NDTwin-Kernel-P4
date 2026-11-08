@@ -69,7 +69,7 @@ def default_path(kernel_dir=None, env=None):
     Derived from THIS FILE's location rather than from a variable: the bridge is started as
     `$NTG_PY $KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py` under a root environment that
     carries nothing an operator set, so the file's own path is the only thing that can name the
-    tree it belongs to -- and naming the wrong tree is FINDING-01.
+    tree it belongs to -- and naming the wrong tree runs a round against the wrong checkout.
     """
     env = os.environ if env is None else env
     override = env.get(LOG_ENV)

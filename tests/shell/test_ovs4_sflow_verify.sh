@@ -156,7 +156,7 @@ echo "the defect: bridges that sample nothing"
 # The measured state on 2026-09-02: ten bridges, `sflow=[]` on all of them, and a green
 # bring-up. This is the case the whole change exists for.
 out="$(state "$(for i in $(seq 1 10); do echo "s$i,"; done)" "" "$(healthy_addrs)")"
-has "the fabric from finding #4 is red"                       "rc=1"                  "$out"
+has "the fabric with no sFlow configured is red"                       "rc=1"                  "$out"
 has "  ... and names a bridge that samples nothing"           "s1: no sFlow record"   "$out"
 has "  ... and says what the operator will see instead"       "reads zero"            "$out"
 has "  ... and counts how many are sampling"                  "summary=0/10"          "$out"

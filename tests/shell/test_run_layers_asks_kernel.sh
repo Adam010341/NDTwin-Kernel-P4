@@ -144,9 +144,9 @@ fi
 KERNEL_BODY="$(body "" "")"
 choose p4
 if [[ "$CHOSE_RC" -eq 0 && "$CHOSEN" == "$TOPO_P4" ]] && grep -qi 'guessing' <<<"$CHOSE_ERR"; then
-    t_ok "a pre-E-2 kernel falls back to the derivation and says it is guessing"
+    t_ok "a pre-G-15 kernel falls back to the derivation and says it is guessing"
 else
-    t_bad "a pre-E-2 kernel falls back to the derivation and says it is guessing" \
+    t_bad "a pre-G-15 kernel falls back to the derivation and says it is guessing" \
           "rc=$CHOSE_RC chose [$CHOSEN]; stderr: ${CHOSE_ERR:0:160}"
 fi
 

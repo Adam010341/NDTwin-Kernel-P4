@@ -143,7 +143,7 @@ report "NOT CHECKED prints but exits 0" "  🔴 rc 3 -- zeros nobody could measu
 # 6. A flow table that WAS read for an app's window stops counting as an answer, so the one CLEAN
 #    cell that rests on the rule half rather than the lock half flips to NOT CHECKED.
 perl -0pi -e "s/   \|\| grep -qF -- 'no flow entry arrived during that window' <<<\"\\\$REPORT\" \\\\/   || grep -qF -- 'no flow entry arrived during that WINDOW' <<<\"\$REPORT\" \\\\/" "$V"
-report "a window that was read stops being an answer" "  one window read, three locks blind -> rc 0 (§7-1 is open)"
+report "a window that was read stops being an answer" "  one window read, three locks blind -> rc 0 (undecided, see the fixture)"
 
 # 7. PRE-2026-09-11 BEHAVIOUR: a single dated rule in a window stops being residue. This is the
 #    cell that pins "read the tally, not the rc" -- the whole premise of the file.

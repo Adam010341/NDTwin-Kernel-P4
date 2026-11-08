@@ -35,7 +35,7 @@
  *
  * The power manager is never start()ed -- its ping loop runs `sudo ovs-vsctl` -- and the proxy
  * is a virtual override. The monitor IS started and stopped at once, because only start() marks
- * a topology as loaded and the bmv2 verdict refuses to answer before that (D15); that start does
+ * a topology as loaded and the bmv2 verdict refuses to answer before that; that start does
  * launch its poll thread, whose one round curls a control plane that is not there and changes
  * nothing these cases read.
  *
@@ -439,7 +439,7 @@ class LoadedFabric : public ::testing::Test
 
         m_manager = std::make_shared<ProxyStandIn>(m_monitor, utils::MININET, "127.0.0.1", nullptr);
         // Derived here, as pollP4SwitchState derives it. Without the check that follows, "an OVS
-        // fabric never asks" would also pass on a fabric that had simply not loaded -- the D15
+        // fabric never asks" would also pass on a fabric that had simply not loaded -- the data-plane-kind
         // shape, where an undetermined verdict reads as "not bmv2".
         (void)m_manager->dataPlaneIsBmv2();
         ASSERT_TRUE(m_manager->dataPlaneKindDetermined()) << "the data-plane kind is not known";

@@ -4,7 +4,7 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Each mutation puts back one piece of the finding -- the `ndt status`/`--check` that answered
+# Each mutation puts back one piece of the defect -- the `ndt status`/`--check` that answered
 # "no 'ndt up' has run in this checkout" and named a P4 model file, minutes after an OVS fabric
 # had been built and torn down in that same checkout -- and must turn its NAMED case red. A
 # mutation nobody catches means that case proves nothing.
@@ -12,7 +12,7 @@
 # 🔴 Two directions. The mutations labelled (widening) are the ones that stay GREEN where the
 # suite requires RED: one that claims a `down` happened whether or not anything says so, and
 # one that answers "could not check" to everything. Each satisfies every "did it go red on the
-# broken fixture" question a fires-only gate asks, and each puts back the property the finding
+# broken fixture" question a fires-only gate asks, and each puts back the property the defect
 # is about -- a report that states things it was never told.
 #
 # 🔴 Guards its own baseline: mutations are applied to COPIES in a temp dir and the test is
@@ -22,7 +22,7 @@
 #
 # 🔴 A mutant directory carries ports.sh and sudo_surface.sh too. ndt sources both from beside
 # itself, so a copy without them exits 2 at source time and every case goes red for a reason
-# that has nothing to do with the mutation (MERGE-LOG.md, 09-03).
+# that has nothing to do with the mutation.
 #
 # 🔴 A mutation that will not apply, a non-unique anchor, or the WRONG case going red counts as
 # SURVIVOR -- never as skipped.
@@ -137,7 +137,7 @@ report "M5: an unclassifiable command becomes a plane" "$m" \
 
 # --- I-4: the note outlives the fact it describes ---------------------------------------------
 
-# The repair that caused I-2 residue #1: correcting a sentence through `ndt claim`, which
+# The repair that caused the lease-extension defect: correcting a sentence through `ndt claim`, which
 # rewrites the whole file and pushes the lease out by another window. The note is then true and
 # the expiry is fiction.
 m=$(mutant m6 "$NDT" \
@@ -213,9 +213,9 @@ m=$(mutant m13 "$NDT" \
 report "M13: 'ndt clean' tidies away the rotated kernel logs" "$m" \
        "🔴 every rotated generation is still there"
 
-# --- R4-2 / R4-5: the check that would not run, and the verdict that said too little ----------
+# --- the check that would not run, and the verdict that said too little ----------
 
-# R4-2 verbatim: the refusal goes back to the process table, so any iperf3 client blocks the one
+# The refusal on traffic, verbatim: the refusal goes back to the process table, so any iperf3 client blocks the one
 # command that needs traffic in order to say anything.
 m=$(mutant m14 "$NDT" \
     '    local declared; declared="$(measuring_declared)"
@@ -263,20 +263,20 @@ m=$(mutant m18 "$NDT" \
 report "M18: 'ndt status' renders declarations instead of processes" "$m" \
        "🔴 undeclared traffic is still reported by status"
 
-# R4-5's tempting wrong fix, which was ruled out: narrow the band until the
+# The ratio verdict's tempting wrong fix, which was ruled out: narrow the band until the
 # 12/12 low readings go red. That turns a double-count tripwire into a calibration check it was
 # never designed to be, and the fix chosen instead was to say how big the gap is.
 m=$(mutant m19 "$NDT" \
     '    elif ratio < 0.5:' \
     '    elif ratio < 0.9:')
-report "M19 (wrong fix): the ok band narrowed to catch R4-5" "$m" \
+report "M19 (wrong fix): the ok band narrowed to catch the low readings" "$m" \
        "🔴 the band did not move: 0.85 is still ok"
 
 m=$(mutant m20 "$NDT" \
     '        "  ratio=%.3f           (twin %.1f / ground truth %.1f Mbit/s)"' \
     '        ""')
 report "M20: the ratio and its two sides are not printed" "$m" \
-       "R4-5's own numbers: the ratio is printed as a value"
+       "the measured numbers: the ratio is printed as a value"
 
 m=$(mutant m21 "$NDT" \
     '        % ("under" if ratio < 1.0 else "over", abs(1.0 - ratio) * 100.0,' \
@@ -284,7 +284,7 @@ m=$(mutant m21 "$NDT" \
 report "M21: under-reporting is reported as over-reporting" "$m" \
        "🔴 and the size of the gap in words"
 
-# --- #17: the tripwire named a mechanism it had not observed, and its rc said nothing ---------
+# --- the tripwire named a mechanism it had not observed, and its rc said nothing ---------
 #
 # 🔴 NUMBERED FROM M40, and the gap is deliberate: this gate already had an M22-M28 (the help-text,
 # suite-tree and default-model blocks below, FIXED-ISSUES G-26 and G-22) and the first draft of this block reused those labels. Both sets ran
@@ -301,7 +301,7 @@ m=$(mutant m40 "$NDT" \
     '        verdict = "DOUBLE-COUNTING -- twin is %.2fx ground truth" % ratio' \
     '        verdict = "DOUBLE-COUNTING -- clone replicas stacked"')
 report "M40: the verdict names a mechanism it did not observe" "$m" \
-       "🔴 but it does NOT name clone replicas as the finding"
+       "🔴 but it does NOT name clone replicas as the cause"
 
 m=$(mutant m41 "$NDT" \
     '    ] + (cause_lines(ratio, shape) if ratio > 1.5 else [])' \
@@ -380,7 +380,7 @@ m=$(mutant m22 "$NDT" \
     'message names it); 3 nothing was compared, because no '\''ndt up'\''
                   has run in THIS checkout')
 report "M22: help defines rc 3 by history again (F12)" "$m" \
-       "  🔴 the sentence W12 removed from the output is gone from the help too"
+       "  🔴 the sentence removed from the output is gone from the help too"
 
 # The half of F12 that a "delete the offending words" fix would leave broken: rc 3 has TWO
 # return sites (no record, ndt:2991; a record nobody can read, ndt:3001) and the help has to
@@ -404,7 +404,7 @@ report "M24: the blanket host_count_override claim comes back (B10)" "$m" \
 # The other direction on B10: the scope is right and the counter-example is dropped, so the
 # help says what the knob does not do without saying that it has already been done.
 m=$(mutant m25 "$NDT" \
-    "and on 09-05 setting it built exactly that pair (R3-3)." \
+    "and on 09-05 setting it built exactly that pair." \
     "and nobody has ever done so.")
 report "M25: B10 loses its 09-05 counter-example" "$m" \
        "  with the 09-05 counter-example"
@@ -499,14 +499,14 @@ report 'MC3 (widening): every refusal says somebody just beat you to it' "$m" \
        '🔴 not '"'"'beaten to it'"'"' -- that points the reader at the wrong minute'
 
 
-# R7 I-2: lab.claim was the one state file overwritten with nothing kept, so a claim that changed
+# The lost-copy case: lab.claim was the one state file overwritten with nothing kept, so a claim that changed
 # hands mid-round left no trace in any interface.
 m=$(mutant mc4 "$NDT" \
     '    if [[ -f "$CLAIM" ]]; then
         cp -f "$CLAIM" "$CLAIM.prev" 2>/dev/null \' \
     '    if false; then
         cp -f "$CLAIM" "$CLAIM.prev" 2>/dev/null \')
-report 'MC4: the claim being replaced is overwritten with no copy kept (R7 I-2)' "$m" \
+report 'MC4: the claim being replaced is overwritten with no copy kept' "$m" \
        '🔴 and the claim it replaced is still readable'
 
 

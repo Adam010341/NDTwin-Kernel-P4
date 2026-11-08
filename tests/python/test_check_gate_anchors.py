@@ -165,7 +165,7 @@ done
 #     is a bare `s.replace(old, new)` -- no count, Python's own default -- so it touches EVERY
 #     occurrence of `old` in the file uniformly. 2026-09-04: the checker used to assume every
 #     anchor wants exactly one match and reported that gate DUP:1 against src/zeta.cpp's
-#     equivalent (FINDING-02 Defect B's hidden-owner sentinel, which collapses at two call sites
+#     equivalent (the harness's hidden-owner sentinel, which collapses at two call sites
 #     on purpose). `_replace_call_want` reads a bare two-argument call as "at least one, no upper
 #     bound" instead.
 GATE_REPLACE_ALL = r"""#!/usr/bin/env bash
@@ -903,7 +903,7 @@ class ATargetAtTheRepoRootIsAFile(unittest.TestCase):
     def assert_pinned(self, gate):
         """Which file did the tool decide these anchors live in?
 
-        🔴 The sharpest form of the finding, and the only form that separates the four routes to a
+        🔴 The sharpest form of the defect, and the only form that separates the four routes to a
         file from one another. Reaching the right count through the declared-path UNION is the
         tool's own honest weakening, and it hides a broken route: an anchor the union happens to
         find still reads ok(1). These cases therefore assert the anchor was PINNED -- a single

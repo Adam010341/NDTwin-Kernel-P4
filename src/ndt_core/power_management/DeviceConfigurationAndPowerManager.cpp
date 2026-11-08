@@ -102,7 +102,7 @@ DeviceConfigurationAndPowerManager::getPowerStrategyForDpid(uint64_t dpid) const
     return nullptr;
 }
 
-/** @brief D15. Compute the data-plane kind, but only from a topology that exists.
+/** @brief Compute the data-plane kind, but only from a topology that exists.
  *
  * @details
  * [Co-developed with claude code -- Adam]
@@ -134,7 +134,7 @@ DeviceConfigurationAndPowerManager::refreshDataPlaneKind()
         SPDLOG_LOGGER_ERROR(Logger::instance(),
                             "data-plane kind was asked for before the static topology finished "
                             "loading; refusing to cache 'not bmv2' from an empty switch-kind "
-                            "index (D15). It will be derived again on first use.");
+                            "index. It will be derived again on first use.");
         return;
     }
     const auto groups = m_topologyAndFlowMonitor->getSwitchKindGroups();
@@ -143,7 +143,7 @@ DeviceConfigurationAndPowerManager::refreshDataPlaneKind()
 }
 
 // [Co-developed with claude code -- Adam]
-// D15. The point-of-use read. Same remedy the collector already uses for the identical race
+// The point-of-use read. Same remedy the collector already uses for the identical race
 // (FlowLinkUsageCollector::lookupOfport): decide where the answer is needed, not at start(), so a
 // topology that arrives late still produces the right verdict instead of a latched wrong one.
 bool

@@ -414,7 +414,7 @@ each_mutation() {
 # --- dry run -----------------------------------------------------------------------------------
 
 if [[ "$MODE" == dryrun ]]; then
-    echo "W11 dispatch-status honesty gate -- ANCHOR DRY RUN"
+    echo "dispatch-status honesty gate -- ANCHOR DRY RUN"
     echo
     echo "  🔴 THIS IS NOT A GATE RESULT. Nothing is built, nothing is mutated and no test is"
     echo "     run. It checks only that every anchor still matches its file exactly once, which"
@@ -435,7 +435,7 @@ fi
 
 # --- baseline ----------------------------------------------------------------------------------
 
-echo "W11 dispatch-status honesty gate (#54 / R6 K-4)"
+echo "dispatch-status honesty gate (A-7b / R6 K-4)"
 [[ "$MODE" == python ]] && echo "  🔴 --python-only: PARTIAL RESULT, the cpp lane is skipped entirely"
 echo "  mode      : $MODE"
 echo "  build dir : $BUILD_DIR"

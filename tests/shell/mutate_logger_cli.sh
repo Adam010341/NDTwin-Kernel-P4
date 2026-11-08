@@ -227,14 +227,14 @@ kernel_problem() {
         [[ -e "$NOFILE" ]] && { echo "the --help path reached Logger::init and opened $NOFILE"; return; }
         ;;
 
-    # THE FINDING ITSELF, end to end, on the shipping binary.
+    # THE DEFECT ITSELF, end to end, on the shipping binary.
     #
     # 🔴 EVERY REFUSAL CHECK CARRIES --help, AND EVERY ONE READS THE MESSAGE RATHER THAN JUST rc.
     # Measured on the pristine tree at 431d98a5, before any of this was written:
     #     $ ndtwin_kernel --logfle /tmp/x.log ; echo $?
     #     stdin is not a TTY, so --mode must be given explicitly.
     #     2
-    # The typo was ignored exactly as the finding says, and the process still exited NON-ZERO --
+    # The typo was ignored exactly as reported, and the process still exited NON-ZERO --
     # because --mode was missing and stdin was a pipe. A check written as `rc != 0` would have
     # passed on the defective tree and every catch below would have been worth nothing. --help
     # removes that confound (main answers it and returns 0 before anything is constructed), and
@@ -501,7 +501,7 @@ mutate "the refusal stops naming the accepted options" \
 
 # M7. THE PLAUSIBLE WRONG FIX: the message is printed and the run carries on. This is the version
 #     a hurried reviewer accepts -- something IS printed now -- and it leaves the run doing exactly
-#     what the finding describes, with a warning nobody reads scrolling past.
+#     what was reported, with a warning nobody reads scrolling past.
 mutate "the unknown flag is reported and then tolerated (warn, do not refuse)" \
     "$LOGCPP" \
     '                      << "Run with --help for the full usage.\n";

@@ -418,7 +418,7 @@ check "no pgrep -f inside anything it prints"    0 \
 #
 # 🔴 These run in a SUBSHELL each, because both files are sourced whole: stack.sh and
 # run_layers.sh define `info`, `warn` and friends, and this suite's own `check` must survive.
-echo "the replacements for the two name-based lookups (#16)"
+echo "the replacements for the two name-based lookups"
 
 # Both honour an UNDER_TEST override, the same seam mutate_run_layers_topology_from_fabric.sh
 # already uses: it is how these cases were seen RED (pointed at the pre-fix copies of the two

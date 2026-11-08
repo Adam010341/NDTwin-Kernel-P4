@@ -538,43 +538,43 @@ check_fires "M35 (F5): help claims argv identity for the stack's files" m35 \
 # Third pass (09-25)
 # =============================================================================================
 
-# --- M36 (#1): a recycled stack number is printed but is not a --check problem -------------------
+# --- M36: a recycled stack number is printed but is not a --check problem -------------------
 cat > "$A/m36.old" <<'EOF'
             bad+=("$base: stale pidfile (pid $pid is alive, but that process started ${late}s after this file was written -- a recycled number, not $name)")
 EOF
 cat > "$A/m36.new" <<'EOF'
             live+=("$base: stale pidfile (pid $pid is alive, but that process started ${late}s after this file was written -- a recycled number, not $name)")
 EOF
-check_fires "M36 (#1): printed, but --check stays 0 with a baseline" m36 \
+check_fires "M36: printed, but --check stays 0 with a baseline" m36 \
             "🔴 with a baseline, a recycled kernel.pid makes --check rc 1"
 
-# --- M37 (#1): the status help loses the sentence -------------------------------------------------
+# --- M37: the status help loses the sentence -------------------------------------------------
 cat > "$A/m37.old" <<'EOF'
                   too, and a --check problem: rc 1 while a baseline exists; with none
 EOF
 cat > "$A/m37.new" <<'EOF'
                   too, and a --check problem: always rc 1; with none
 EOF
-check_fires "M37 (#1): help drops the baseline qualifier" m37 \
+check_fires "M37: help drops the baseline qualifier" m37 \
             "🔴 status: a recycled stack pidfile is a --check problem, rc 1 only with a baseline"
 
-# --- M38 (#3): the removal no longer says why stack.sh kept it -----------------------------------
+# --- M38: the removal no longer says why stack.sh kept it -----------------------------------
 cat > "$A/m38.old" <<'EOF'
                     kept="; stack.sh kept it above because the number is somebody else's" ;;
 EOF
 cat > "$A/m38.new" <<'EOF'
                     kept="" ;;
 EOF
-check_fires "M38 (#3): the removal reads as contradicting stop_one" m38 \
+check_fires "M38: the removal reads as contradicting stop_one" m38 \
             "  🔴 and says why stack.sh kept it"
 
-# --- M39 (#4): the kept-pidfile error loses its cure -----------------------------------------------
+# --- M39: the kept-pidfile error loses its cure -----------------------------------------------
 cat > "$A/m39.old" <<'EOF'
                 err "  to recover: make $(dirname "$(app_windowfile "$name")" | sed "s|^$REPO/||") a directory this user can write, then run 'ndt down' again"
 EOF
 cat > "$A/m39.new" <<'EOF'
 EOF
-check_fires "M39 (#4): the F4 error does not say how to recover" m39 "  🔴 and how to recover"
+check_fires "M39: the F4 error does not say how to recover" m39 "  🔴 and how to recover"
 
 # =============================================================================================
 # The controls

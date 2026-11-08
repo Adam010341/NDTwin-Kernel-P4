@@ -266,7 +266,7 @@ check_fires "M3: a baseline 'ndt up p4' keeps somebody's package" m3 \
 # cleared the knob in BOTH cmd_down (before the teardown) and cmd_clean (`verify clean`, its
 # last step). M4 deleted cmd_down's call and the whole suite stayed green -- cmd_clean was
 # doing the same job, and there is no path between the teardown starting and that call that
-# returns early. Two guards over one fact, where deleting either is invisible: P1-A's M19 in
+# returns early. Two guards over one fact, where deleting either is invisible: an M19 in another gate's
 # startup(), the same week. cmd_down's call is gone; this mutation now points at the one that
 # remains, and it takes BOTH verbs' cells down with it, which is the evidence that one call is
 # what serves both.
@@ -401,7 +401,7 @@ check_fires "M13: an empty --app value silently means baseline" m13 \
             "🔴 --app= with an empty value is a usage error"
 
 # --- M14: a proxy that will not start says nothing about why ----------------------------------
-# P1-A §4-11 makes proxy_agent/main.py raise AT IMPORT when a package will not load, and
+# proxy_agent/main.py raises AT IMPORT when a package will not load, and
 # stack.sh can then only report `proxy did not open :8081`, which under a package is true of
 # every possible cause. This puts the silence back.
 cat > "$A/m14.old" <<'EOF'
@@ -611,7 +611,7 @@ EOF
 # with `applied != recorded` still in place, a 5-recorded/4-applied/1-failed switch is caught by
 # the other branch printing word for word the same sentence, so the first draft of this mutation
 # left the whole suite green. Two guards over one fact, where deleting either is invisible --
-# P1-A's M19 again, and the fixture is the fix.
+# That startup() M19 again, and the fixture is the fix.
 check_fires "M25: refused table entries no longer fail the bring-up" m25 \
             "🔴 refusals are red even when the counts add up" \
             "🔴 and not the counts-disagree sentence, which is a different fault"
@@ -686,7 +686,7 @@ check_fires "M28c: a path count on an external plane is not flagged" m28c \
 
 # M29: `up_p4` stops telling verify_p4 whose program is on the switches. Every branch above is
 # then unreachable from the command that matters, while the functions themselves stay perfect --
-# the P1-A M19 shape (a decision that is right and never consulted).
+# the startup() M19 shape (a decision that is right and never consulted).
 cat > "$A/m29.old" <<'EOF'
     verify_p4 "$topo" "$want_paths" "$app_mode" "$app_pipe"
 EOF
@@ -965,8 +965,8 @@ EOF
 check_fires "M46: an uncountable model passes the probe gate" m46 \
             "🔴 a model whose dpids cannot be read is RED too"
 
-# M47: the mode never reaches verify_p4_graph. Every branch of §4.2-3/4 is then unreachable from
-# the command that matters while the function itself stays perfect -- the P1-A M19 shape, and
+# M47: the mode never reaches verify_p4_graph. Every branch of the P4 mode handling is then unreachable from
+# the command that matters while the function itself stays perfect -- the startup() M19 shape, and
 # the same one M29 attacks one argument over.
 cat > "$A/m47.old" <<'EOF'
     verify_p4_graph "$topo" "$mode" || rc=1
@@ -1243,7 +1243,7 @@ check_fires "M63: an unreadable switch_state passes the telemetry gate" m63 \
             "🔴 an unreadable switch_state is red, not a pass"
 
 # --- M64: verify_p4 never runs the telemetry gate -------------------------------------------------------------
-# 🔴 THE P1-A M19 SHAPE. The function stays perfect and becomes unreachable from the one command
+# 🔴 THE STARTUP() M19 SHAPE. The function stays perfect and becomes unreachable from the one command
 # that would have run it, and every unit cell above stays green.
 cat > "$A/m64.old" <<'EOF'
     verify_p4_telemetry "$pipe" "$state" || rc=1
@@ -1272,7 +1272,7 @@ check_fires "M65: the telemetry gate is run and its verdict ignored" m65 \
 # only source while the twin believes there are two.
 # 🔴 THE ANCHOR MOVED WITH THE RULE. `ndt` no longer re-derives the
 # split from `foreign:<dpids>`: it CALLS app_package.telemetry_source once per switch, which is
-# the only implementation of §2.1's three layers on this side of the merge. So the edit that
+# the only implementation of the three telemetry-source layers on this side of the merge. So the edit that
 # reproduces the old defect is the one that asks about ONE switch and prints its answer for all
 # of them -- the same fabric-wide claim, reached the new way.
 cat > "$A/m66.old" <<'EOF'

@@ -1190,7 +1190,7 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
         res.body() = R"({"error":"Invalid link-failure payload"})";
         return;
     }
-    // W8-7. Refused here for the reason the notification endpoint refuses it, and one more: this
+    // Refused here for the reason the notification endpoint refuses it, and one more: this
     // endpoint runs tc, so a dpid-0 payload would attach netem to whichever host-facing interface
     // the arbitrarily-chosen edge named. [Co-developed with claude code -- Adam]
     if (!namesTwoSwitches(data->srcDpid, data->dstDpid))
@@ -1254,7 +1254,7 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     const std::string dstIface = mininetIfaceFor(graph, data->dstDpid, data->dstInterface);
 
     // [Co-developed with claude code -- Adam]
-    // doc/FIXED-ISSUES.md B-16, second finding (2026-09-11, 2 reproductions of 2). This was a loop
+    // doc/FIXED-ISSUES.md B-16, related (2026-09-11, 2 reproductions of 2). This was a loop
     // that called cutInterface once per end and CARRIED ON past a refusal: with somebody else's
     // netem already on s1-eth1, that end was refused, `netem loss 100%` really went onto s5-eth1,
     // and the reply was 200 `"status":"link failure injected"` with both directions declared. Loss

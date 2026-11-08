@@ -422,7 +422,7 @@ shippedTopologies()
 
 TEST(TopologyInputValidationTest, AnEdgeNamingADpidNoSwitchHasIsRefused)
 {
-    // round5 topo/m1_host_edge_ghost_dpid.json, reproduced from the shipped file: one host
+    // the measured topo/m1_host_edge_ghost_dpid.json, reproduced from the shipped file: one host
     // edge's switch side points at dpid 99, which no node declares.
     MutatedTopology topo("ghost_dpid");
     ASSERT_TRUE(topo.usable()) << "could not read " << shippedP4Topology();
@@ -502,7 +502,7 @@ TEST(TopologyInputValidationTest, AHostEdgeWhoseAddressMatchesNoNodeIsRefused)
 
 TEST(TopologyInputValidationTest, AZeroInterfaceOnTheSwitchSideIsRefused)
 {
-    // round5 topo/m4a_port_zero.json: edge #0's src_interface 1 -> 0, on an edge whose
+    // the measured topo/m4a_port_zero.json: edge #0's src_interface 1 -> 0, on an edge whose
     // src_dpid is a real switch. Port 0 is not a switch port in any OpenFlow version this
     // project speaks.
     MutatedTopology topo("port_zero");
@@ -519,7 +519,7 @@ TEST(TopologyInputValidationTest, AZeroInterfaceOnTheSwitchSideIsRefused)
 
 TEST(TopologyInputValidationTest, ASixDigitInterfaceIsRefused)
 {
-    // round5 topo/m4b_port_six_digits.json: src_interface 1 -> 999999.
+    // the measured topo/m4b_port_six_digits.json: src_interface 1 -> 999999.
     MutatedTopology topo("port_six_digits");
     ASSERT_TRUE(topo.usable());
 

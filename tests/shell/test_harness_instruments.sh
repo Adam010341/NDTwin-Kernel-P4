@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 #
-# Regression tests for the T-4 harness's own instruments.
+# Regression tests for the full-stack harness's own instruments.
 #
 # [Co-developed with claude code -- Adam]
 #
-# WHY THIS EXISTS. The T-4 full-stack round's first live run produced five findings, four of
+# WHY THIS EXISTS. The full-stack harness's first live run produced five problems, four of
 # which were defects in the instrument rather than in NDTwin. Three of them are here:
 #
-#   FINDING-02 Defect A  three of the four rows in the R-3 convergence table were `T0 + i`,
+#   Defect A (G-2)  three of the four rows in the convergence table were `T0 + i`,
 #                        where `i` is WHICH ITERATION OF A WAIT LOOP MATCHED and T0 is when
 #                        `ndt up` was invoked. viz printed +5 s against a true ~+229 s.
-#   FINDING-02 Defect B  `port_holder` returned the empty string for a root-owned listener,
+#   Defect B (G-2)  `port_holder` returned the empty string for a root-owned listener,
 #                        which every caller read as "nothing is listening". sim is started as
 #                        root, so sim's liveness check could not succeed by construction.
-#   FINDING-05           a watch window registered as 240 s ran 474 s, and was reported as
+#   Defect C (G-2)  a watch window registered as 240 s ran 474 s, and was reported as
 #                        "in 240s", because the loop counted iterations and the per-sample
 #                        query cost was not counted.
 #
@@ -82,7 +82,7 @@ export PATH="$SANDBOX/bin:$PATH"
 # EXPORTED, and that is not a detail. `ss` is a separate process; a plain `SS_MODE=hidden`
 # assignment would stay in this shell and the shim would answer `free` to every case, so the two
 # rows that matter would have gone green against a shim that never produced their input. Caught by
-# running the suite, not by reading it -- the same way FINDING-02 was found.
+# running the suite, not by reading it -- the same way these defects were found.
 export SS_MODE=free
 
 # Point every lib.sh artefact at the sandbox before sourcing it, so the shared round directory is
@@ -104,7 +104,7 @@ run_rc() {  # run_rc <cmd...> -- echo the rc, never let it abort the suite
 last_out() { cat "$SANDBOX/last.out"; }
 
 echo
-echo "=== group 1: port_holder is three-valued (FINDING-02 Defect B) ==="
+echo "=== group 1: port_holder is three-valued (Defect B) ==="
 
 export SS_MODE=free   ; check "no LISTEN line          -> '' (FREE)"                "" "$(port_holder 9000)"
 export SS_MODE=mine   ; check "LISTEN line with pid=   -> the pid"            "284117" "$(port_holder 9000)"
@@ -157,7 +157,7 @@ run_rc assert_port_is sim 9000 999999 > /dev/null
 check "mine, pid differs  -> FAIL (P-1 orphan)" "FAIL" "$(verdict_of)"
 
 echo
-echo "=== group 4: the registered window is COMPARED to the executed one (FINDING-05) ==="
+echo "=== group 4: the registered window is COMPARED to the executed one (Defect C) ==="
 #
 # The defect this group exists for is not that the 08-30 window was wrong -- it is that nothing
 # in the run compared 240 to 474. The two numbers were printed with info(), which does not count
@@ -226,7 +226,7 @@ check "a GREEN verdict writes it too"            "OK" \
       "$(awk -F'\t' 'NR==2 {print $5}' "$SPAN_TSV")"
 
 echo
-echo "=== group 6: source guards -- the two defect SHAPES stay out (FINDING-02 A, FINDING-05) ==="
+echo "=== group 6: source guards -- the two defect SHAPES stay out (Defects A and C) ==="
 #
 # HONEST LABEL: these are source-shape guards, not behavioural tests. They are here because the
 # behavioural alternative is to extract the loop into a fixture and drive the fixture -- which
@@ -262,9 +262,9 @@ check "25_apps_energy.sh's watch loop is deadline-driven, not iteration-counted"
 check "and it asserts its own span rather than only printing it" "yes" \
       "$(grep -qE '^[[:space:]]*assert_window_span[[:space:]]+[A-Za-z_]' "$ENERGY" && echo yes || echo no)"
 
-# FINDING-05's other half: the degraded banner used to print unconditionally, next to this same
+# Defect C's other half: the degraded banner used to print unconditionally, next to this same
 # script's own "switches powered off by the app: 0", and pointed the operator at the restore route
-# FINDING-04 shows tears a healthy fabric down. Two survivable defects composing into one that is
+# another defect shows tears a healthy fabric down. Two survivable defects composing into one that is
 # not: following it on an undegraded fabric destroys a healthy fabric to fix nothing.
 #
 # The gate must be the line IMMEDIATELY ABOVE the banner. "some POWERED_OFF test appears earlier in

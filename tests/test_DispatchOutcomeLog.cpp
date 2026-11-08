@@ -15,7 +15,7 @@
  *   - it must survive concurrent writers, because the callers are one worker thread per DPID.
  *
  * What is deliberately not asserted here: that the numbers reach HTTP. That is
- * test_HttpSessionRouting's job, and the endpoint is checked live in the evidence file's §5.
+ * test_HttpSessionRouting's job, and the endpoint is checked live.
  */
 
 #include <atomic>
@@ -295,7 +295,7 @@ jobForRequest(uint64_t requestId, uint64_t dpid = 1, FlowOp op = FlowOp::Install
 
 TEST(DispatchOutcomeLogTest, TheSameMatchDispatchedTwentyTimesCountsTwentyDispatches)
 {
-    // #54 pinned as a specification rather than left as a surprise. Measured 2026-09-05: this is
+    // A-7b pinned as a specification rather than left as a surprise. Measured 2026-09-05: this is
     // +20 while the switch gains one row. The number is correct and the old NAME was not, so the
     // assertion here is that dispatch counting is unchanged -- the fix is that nothing now calls
     // this "succeeded", and that the switch-side group answers separately.

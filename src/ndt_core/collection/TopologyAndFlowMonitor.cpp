@@ -1082,7 +1082,7 @@ TopologyAndFlowMonitor::~TopologyAndFlowMonitor()
  *
  * Idempotent: run() calls this too, so a caller that only calls start() still gets a topology,
  * and the second call is a no-op. That matters because it is what lets this compose with the
- * separate D15 change that moves the same three calls into start().
+ * separate data-plane-kind race fix that moves the same three calls into start().
  */
 bool
 TopologyAndFlowMonitor::loadStaticTopology()
@@ -1143,7 +1143,7 @@ TopologyAndFlowMonitor::start()
 {
     // Once, on the caller's thread, and reported. Two fixes met here:
     //
-    //   D15 (the data-plane-kind race fix) moved the load into start() so that it happens-before
+    //   The data-plane-kind race fix moved the load into start() so that it happens-before
     //   every caller main.cpp sequences after start() -- the power manager's bmv2 verdict used
     //   to race it and lose on every shipped topology file.
     //
@@ -1911,7 +1911,7 @@ TopologyAndFlowMonitor::shouldAnnouncePartialRound(PollRoundKind previous, PollR
  *
  * @details
  * [Co-developed with claude code -- Adam]
- * doc/FIXED-ISSUES.md A-2, third uncovered item; 11_behavior-evidence.md §6 open question 3 asked
+ * doc/FIXED-ISSUES.md A-2. A question this raises is
  * whether a round should be all-or-nothing. It should not, and the reasons are worth keeping next
  * to the code that declines to do it:
  *
@@ -2085,7 +2085,7 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
     noteIfSilent(m_ryuUrl[2], linksReply);
 
     // [Co-developed with claude code -- Adam]
-    // A-2's third uncovered item. This changes nothing about what gets applied -- see
+    // A-2, a related gap. This changes nothing about what gets applied -- see
     // noteAndAnnouncePollRound for why all-or-nothing would make this bug worse rather than
     // better -- it only records which kind of round this was and says so once when a round starts
     // producing a mixed-age graph. Called before updateGraph so lastPollRoundKind() describes the
@@ -2839,7 +2839,7 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                                 .second)
                         {
                             // [Co-developed with claude code -- Adam]
-                            // 🔴 doc/FIXED-ISSUES.md B-16, third half. The tail of this sentence
+                            // 🔴 doc/FIXED-ISSUES.md B-16, related. The tail of this sentence
                             // used to be `POST /ndt/link_recovery_detected to clear this` for
                             // BOTH kinds of declaration, and that is wrong for one of
                             // them: a declaration nothing ever reported broken -- an injection --
@@ -2862,7 +2862,7 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                                     ? "POST /ndt/link_recovery_detected to clear this"
                                     : "Nothing ever reported this link broken, so it was injected "
                                       "and /ndt/link_recovery_detected will DECLINE to clear it "
-                                      "(W8b): POST /ndt/inject_link_recovery to withdraw the "
+                                      "(B-6): POST /ndt/inject_link_recovery to withdraw the "
                                       "declaration. On MININET that also removes the netem -- but "
                                       "only one this kernel attached; a netem it did not attach is "
                                       "refused with 409 and has to be removed by whoever left it "
@@ -4851,7 +4851,7 @@ TopologyAndFlowMonitor::runLoop()
     SPDLOG_LOGGER_INFO(Logger::instance(), "TopologyAndFlowMonitor Run");
 
     // [Co-developed with claude code -- Adam]
-    // D15. The static load, initializeMappingsFromGraph and configureTopologyApiUrls used to be
+    // The static load, initializeMappingsFromGraph and configureTopologyApiUrls used to be
     // here, which is what made them race every caller main.cpp sequences after start(). They now
     // run inside start(), on the caller's thread; see the note there. This thread only polls.
 

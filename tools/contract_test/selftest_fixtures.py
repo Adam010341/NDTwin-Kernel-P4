@@ -404,7 +404,7 @@ FIXTURES = {
         spec.DISPATCH_STATUS, DISPATCH_STATUS_OLDER_KERNEL),
     # [Co-developed with claude code -- Adam] A-7b: both sides of the 2026-09-06 rename, because
     # one schema has to describe a deployed kernel as well as a freshly built one.
-    "get_flow_dispatch_status (kernel from before the W11 rename)": (
+    "get_flow_dispatch_status (kernel from before the A-7b rename)": (
         spec.DISPATCH_STATUS, DISPATCH_STATUS_PRE_W11),
     "get_flow_dispatch_status?request_id=<id>": (
         spec.DISPATCH_STATUS_FOR_REQUEST, DISPATCH_STATUS_FOR_REQUEST_SAMPLE),
@@ -495,7 +495,7 @@ FIXTURE_INVARIANT_EXCEPTIONS = {
     ("link_failure_detected (kernel from trunk, no down_reason/until)",
      "inv_declared_failure_says_who_can_withdraw_it"):
         "the fixture IS the trunk kernel's reply -- {\"status\": ...} and nothing else -- and "
-        "the finding that it does not say who can withdraw the declaration is B-6/W8b. The "
+        "the fact that it does not say who can withdraw the declaration is B-6. The "
         "structural check passes it because down_reason and until are optional there; this is "
         "where it is reported",
 }

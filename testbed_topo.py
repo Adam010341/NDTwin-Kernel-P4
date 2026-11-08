@@ -17,7 +17,7 @@
 #    tools/test_workflow/ovs_4host_topo.py -- the sibling this lab already launches under the
 #    same interpreter -- carries the first one and its docstring says "testbed_topo.py already
 #    uses" it. They were lost when this copy was imported into the repo. Nothing noticed,
-#    because until finding #77 nothing in ndt's paths ever executed this copy.
+#    because until ndt was made to launch this file, nothing in ndt's paths ever executed this copy.
 import sys
 
 sys.path.append('/usr/lib/python3/dist-packages')
@@ -167,7 +167,7 @@ def enable_sflow(switch, agent_iface, collector_ip, collector_port=6343):
 #
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 The defect this section replaces (finding #42, measured 2026-09-03). ping_test() printed
+# 🔴 The defect this section replaces (FIXED-ISSUES G-10, measured 2026-09-03). ping_test() printed
 # each ping and returned None; the threads that ran it discarded even that; and the closing
 # banner printed three health claims
 #

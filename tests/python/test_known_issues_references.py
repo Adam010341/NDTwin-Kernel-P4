@@ -190,7 +190,7 @@ FIXED_DOC_NAME_RE = re.compile(r"FIXED[-_]ISSUES(?:\.md)?")
 #: document. 40 characters is about one clause.
 #:
 #: 🔴 The bound is the whole design of this half. A code ANYWHERE on the line would read
-#: `<the document> ... and A-9 of FINDINGS-COVERAGE.md` (Chinese in the fixture) as this document's A-9 -- reporting
+#: `<the document> ... and A-9 of <another document>` (Chinese in the fixture) as this document's A-9 -- reporting
 #: something correct, which this file treats as the worse error (see M4's note in the gate).
 #: The name is written as a placeholder here for the reason cite() gives: this file is inside
 #: the scanned tree, and a literal name-plus-code here would be a citation of its own.
@@ -902,7 +902,7 @@ class TheSpellingOfTheCitationIsNotThePoint(unittest.TestCase):
                 self.assertIn("A-4c", v[0].actual)
 
     def test_two_line_numbers_cited_together_are_both_checked(self):
-        """NDT-HARNESS.md:52's shape: two lines joined by a fullwidth solidus. The near end is
+        """A real citation's shape: two lines joined by a fullwidth solidus. The near end is
         inside the entry claimed and the far end is not, so a scanner that read only the first
         number would call this correct."""
         t = TreeFixture(self, {"doc/x.md": "A-1\uff08`%s`\uff09\n" % cite_as("chinese", 7, 11)})

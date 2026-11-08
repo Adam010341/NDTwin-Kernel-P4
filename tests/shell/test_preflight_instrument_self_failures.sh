@@ -6,7 +6,7 @@
 #
 # (a) The harness ran `ndt` with NDT_OWNER unset. `ndt status` renders the claim line RELATIVE to
 #     that name (ndt:1145), so with it unset EVERY claim -- including the round's own -- prints as
-#     a stranger's, and the §4.1/§4.2 gate reported "the lab is claimed by someone else: <owner>"
+#     a stranger's, and the preflight gate reported "the lab is claimed by someone else: <owner>"
 #     about a lab the round's own owner had correctly claimed. Measured in one second, both ways:
 #     unset -> "claim <owner>", NDT_OWNER=<owner> -> "claim yours".
 #     Two directions matter here and case 3 is the second one: OWNER-UNSET must not become a

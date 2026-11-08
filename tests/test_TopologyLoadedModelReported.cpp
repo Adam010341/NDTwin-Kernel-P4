@@ -1,5 +1,5 @@
 /**
- * E-2 -- the kernel must say WHICH model it loaded, and say it about the bytes it read.
+ * G-15 -- the kernel must say WHICH model it loaded, and say it about the bytes it read.
  *
  * [Co-developed with claude code -- Adam]
  *
@@ -10,7 +10,7 @@
  * so validating fabric A against model B was green **by construction**: every per-node identity
  * check passes because the numbers agree, and nothing in the response could say the twin was
  * describing a different network. The instrument could not know what it was testing
- * (fix/R2-PY-SUMMARY.md §7-3; DECISIONS.md, grill §4E, E-2).
+ * (the loaded-model record is documented in doc/2026-01-02_ndt_api.md section 3.)
  *
  * WHAT IS ASSERTED, AND WHY EACH HALF IS NEEDED
  *   1. the record exists and names the file, the digest of its BYTES, and when it was read;
@@ -22,7 +22,7 @@
  *      request would report the edit as though it were what it is serving -- confidently wrong,
  *      and wrong in the direction that hides the fault;
  *   4. a monitor that has loaded nothing says nothing, and the endpoint then serves exactly the
- *      key set a pre-E-2 kernel serves (baseline `28b8b13`). "Absent" has to keep one meaning:
+ *      key set a pre-G-15 kernel serves (baseline `28b8b13`). "Absent" has to keep one meaning:
  *      the kernel did not say. A consumer meeting it must not guess;
  *   5. the three keys reach the WIRE. 1-4 hold on the monitor; a handler that never asked for
  *      the record would leave every one of them green and serve nothing.

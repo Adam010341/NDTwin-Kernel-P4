@@ -4,7 +4,7 @@ and must never read the resulting 404/405 as a finding about NDTwin.
 
 [Co-developed with claude code -- Adam]
 
-The defect (#17, fourth instance). `harness/invariants.py` inv01_powercycle_latency sent
+The defect (fourth instance of the fast-404 shape). `harness/invariants.py` inv01_powercycle_latency sent
 
     GET /ndt/set_switches_power_state?dpid={dpid}&action=on
 
@@ -35,10 +35,10 @@ sweeping for it (`actions.py:_c01_undo`), and the structural guard that makes a 
                            "Refuse every non-200" is the over-correction, and it breaks
                            INV-03 and the B-3 control, both of which tolerate one on purpose.
 
-`TheWholeHarnessConforms` is the completeness half. #17 named one line; grep for the others
+`TheWholeHarnessConforms` is the completeness half. The report named one line; grep for the others
 misses variable-held paths, f-strings and wrapper functions, so that class re-derives the call
 list by walking every harness module's AST and checks each site against the kernel's real
-dispatch chain. A sixth instance added tomorrow fails here without anyone remembering #17.
+dispatch chain. A sixth instance added tomorrow fails here without anyone remembering this defect.
 
 Stdlib only, no kernel, no fabric, no build: `probes._curl` is the seam its own docstring
 declares for exactly this ("Replaced by the self-tests, so every status-handling branch below
@@ -145,7 +145,7 @@ class TheRouteGuard(unittest.TestCase):
 
 
 class ItMustRefuse(WithFakeKernel):
-    """Every shape #17 names, refused before a byte goes out."""
+    """Every shape the report names, refused before a byte goes out."""
 
     def test_get_at_a_post_only_route_is_refused(self):
         """THE DEFECT. The exact line invariants.py used to carry."""
@@ -204,7 +204,7 @@ class Inv01SendsTheRightRequest(WithFakeKernel):
                          "dpid is not a parameter this handler reads; it answers 400 without ip")
 
     def test_a_refusal_is_never_reported_as_an_early_return(self):
-        """🔴 THE HEART OF #17. 404, 405, 400 and 500 all come back fast. None of them is
+        """🔴 THE HEART OF THE DEFECT. 404, 405, 400 and 500 all come back fast. None of them is
         evidence that the kernel returned early having skipped the work."""
         for status in (404, 405, 400, 500):
             with self.subTest(status=status):
@@ -321,7 +321,7 @@ FIXED_PATH = {
 # the third instance of the family this file exists for.
 KNOWN_UNREGISTERED = {
     ("actions.py", "/ndt/get_all_destination_paths"): (
-        "efd2fe10 (#17, third instance). The kernel exposes no such endpoint at all, so this "
+        "efd2fe10 (third instance). The kernel exposes no such endpoint at all, so this "
         "read always 404'd and `n` fell to 0, and _h23_verify reported 'the path map was "
         "wiped' on every run. It now calls api_get_checked and REFUSES. Naming the route it "
         "should read instead is separate work -- the proxy's "
@@ -427,11 +427,11 @@ def harness_http_calls() -> list[dict]:
 
 
 class TheWholeHarnessConforms(unittest.TestCase):
-    """🔴 #17 named one line. This class is why a sixth instance cannot hide.
+    """🔴 The report named one line. This class is why a sixth instance cannot hide.
 
-    The finding recorded a third and a fourth example of the family. A fifth was sitting in
-    `actions.py:_c01_undo` and no finding mentions it -- it was found by enumerating the call
-    sites rather than by reading the one the finding pointed at. So the enumeration is the
+    The report recorded a third and a fourth example of the family. A fifth was sitting in
+    `actions.py:_c01_undo` and no report mentions it -- it was found by enumerating the call
+    sites rather than by reading the one the report pointed at. So the enumeration is the
     deliverable, and it runs on every invocation of this file.
     """
 

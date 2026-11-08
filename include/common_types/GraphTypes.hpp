@@ -927,7 +927,7 @@ struct EdgeProperties
      *        it yet. The thing a `/ndt/link_recovery_detected` has to pair with.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/FIXED-ISSUES.md **B-6**, second half. A SIXTH flag, and the reason it is not a
+     * doc/FIXED-ISSUES.md **B-6**. A SIXTH flag, and the reason it is not a
      * reuse of `declaredDown` is that the two answer different questions:
      *
      *   - `declaredDown`    -- "the twin is holding this link down because it was told to."

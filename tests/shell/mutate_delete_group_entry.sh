@@ -352,7 +352,7 @@ fi
 # follows; this is the test that keeps the new guard honest about not knowing.
 # =================================================================================================
 
-# Re-pointed with M1 (#87). Same defect from the other side: after #87 the Unknown arm is what
+# Re-pointed with M1 (install/modify read-back). Same defect from the other side: after that fix the Unknown arm is what
 # keeps an unanswerable read-back out of the failure branch, so removing IT is what turns a
 # read-back the kernel could not perform into a 502 about the switch.
 apply_exact "$STRAT" \
@@ -382,7 +382,7 @@ fi
 # =================================================================================================
 # M3 -- the delete forwards the caller's body verbatim.
 #
-# The request-side half of the finding, and the half that is invisible in the response: OpenFlow
+# The request-side half of the defect, and the half that is invisible in the response: OpenFlow
 # 1.3 gives ofp_group_mod's bucket list no meaning for OFPGC_DELETE, Ryu packs whatever the body
 # carries into the message it builds, and a switch that rejects that shape rejects it after Ryu
 # has already answered 200. Nothing in the reply distinguishes the two, so only an assertion on
@@ -492,8 +492,8 @@ else
     widen "W1  '<' becomes '!=' over the same bound (an equivalent loop)"
 fi
 
-# Re-pointed (#87): both verbs now share one construction, `OpResult::failure(502, what)`.
-# 🔴 That is also why the new #87 tests assert the status code at the ENDPOINT layer and not at
+# Re-pointed (install/modify read-back): both verbs now share one construction, `OpResult::failure(502, what)`.
+# 🔴 That is also why the install/modify read-back tests assert the status code at the ENDPOINT layer and not at
 # the strategy -- a strategy-level EXPECT_EQ(httpStatus, 502) would turn this widening red and
 # cost this gate its control.
 apply_exact "$STRAT" \
@@ -538,8 +538,8 @@ fi
 
 printf '\n=== C   CONTROL: comment-only edit, must stay green ===\n'
 apply_exact "$STRAT" \
-'    // [Co-developed with claude code -- Adam] Finding #1, part 2 of 2: what is claimed.' \
-'    // CONTROL EDIT (mutation gate; restored below). Finding #1, part 2 of 2: what is claimed.' \
+'    // [Co-developed with claude code -- Adam] A-10, part 2 of 2: what is claimed.' \
+'    // CONTROL EDIT (mutation gate; restored below). A-10, part 2 of 2: what is claimed.' \
     1
 if [[ $? -ne 0 ]]; then
     echo "  🔴 control anchor moved -- the control did not run"

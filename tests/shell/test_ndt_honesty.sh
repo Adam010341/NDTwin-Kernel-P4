@@ -18,8 +18,8 @@
 #
 # The checkout had run `ndt up` at least seven times that evening and every one of them was
 # OVS. Both sentences are about HISTORY, and `down` had only removed a record about NOW. The
-# second one also changed the PLANE: R0's script grepped the first `setting/*.json` out of
-# `ndt status` and carried the P4 model into an OVS round (R0 instrument error #3).
+# second one also changed the PLANE: an earlier script grepped the first `setting/*.json` out of
+# `ndt status` and carried the P4 model into an OVS round (an instrument error).
 #
 # 🔴 THREE DIRECTIONS, because "print something else" has obvious wrong answers:
 #   * an implementation that always says "cleared by 'ndt down'" invents a teardown that may
@@ -167,7 +167,7 @@ ovs_daemon_running() { [[ "${FX_BRIDGES:-10}" -gt 0 ]]; }
 topo_session() { return 0; }
 port_open() { case "$1" in 8000) [[ -s "$REPO/graph.json" ]] ;; *) return 1 ;; esac; }
 http_get_graph() { [[ -s "$REPO/graph.json" ]] && cat "$REPO/graph.json"; }
-# 09-07: `cmd_status --check` now runs a residue scan (W16-2). Answered from the fixture so
+# 09-07: `cmd_status --check` now runs a residue scan. Answered from the fixture so
 # this suite never reaches :8000 -- with these unstubbed the result would depend on whether a
 # kernel happens to be listening on the machine the suite is run from, which is the kind of
 # hidden input that makes a green run mean nothing. Both answer "nothing there", so the exit
@@ -223,7 +223,7 @@ has   "  the run it names is reported as history, not as a baseline" "NOT a base
 check "rc is still 3 -- not 0 and not 1"                 "3" "$(rc_of "$OUT")"
 has   "  COULD NOT CHECK is still said"                  "COULD NOT CHECK" "$OUT"
 hasnt "  and it is still never 'ok'"                     "check: ok" "$OUT"
-has   "  finding #79's per-checkout note is still there" "per checkout" "$OUT"
+has   "  the per-checkout note is still there" "per checkout" "$OUT"
 has   "  it still says where the record would be"        ".test_run/up.target" "$OUT"
 
 section "1B. I-1: and the plane does not change to P4"
@@ -282,7 +282,7 @@ hasnt "  rather than picking one"                        "last kernel.exit ran" 
 # `ndt up` that did not go through one of them left the previous wrapper's sentence standing.
 #
 # 🔴 THREE DIRECTIONS. A writer that rewrites the whole claim passes every "the note is right"
-# case and fails 2A/2C (it is I-2 residue #1: correcting a sentence silently extended a lease by
+# case and fails 2A/2C (it is the lease-extension defect: correcting a sentence silently extended a lease by
 # three hours). A writer that never refuses passes 2A and fails 2B. A note written only where
 # it is defined and never called passes everything except 2C/2D/2E, which drive `up` and `down`
 # for real -- existence is not wiring.
@@ -440,12 +440,12 @@ check "🔴 and a .prev from the old scheme"               "old scheme" \
       "$(cat "$FIX/.test_run/logs/kernel.log.prev" 2>/dev/null)"
 
 # ==========================================================================================
-# R4-2 (2026-09-05, 100% reproducible on 128 hosts): `ndt check` prints "run this while traffic
+# 2026-09-05, 100% reproducible on 128 hosts: `ndt check` prints "run this while traffic
 # is flowing" when idle, and refuses with rc 1 as soon as traffic exists, because it treated any
 # iperf3 CLIENT as a measurement in flight. The only configuration that produced a meaningful
 # ratio was the one the tool itself labelled "accept the contamination".
 #
-# R4-5, the same evening: against a ground truth stable to 0.27%, the ratio ranged 0.85-0.97 --
+# And, the same evening: against a ground truth stable to 0.27%, the ratio ranged 0.85-0.97 --
 # 12/12 low, a 13% spread -- and printed `ok` every time, because the band is 0.5-1.5.
 #
 # 🔴 THE DIRECTION THAT MATTERS: a `check` that never refuses passes 4B and fails 4A, and it
@@ -476,7 +476,7 @@ echo \"RC=\$?\"" 2>&1
 
 export NDT_OWNER=fixture-owner
 
-section "4A. R4-2: it refuses on a DECLARED measurement -- the guard still guards"
+section "4A. it refuses on a DECLARED measurement -- the guard still guards"
 printf 'owner=fixture-owner\nexpires=%s\nnote=n\nexclusive_cpu=no\nmeasuring=%s\n' \
     "$(( $(date +%s) + 3600 ))" "sampling matrix, poll-off cell 3/8" > "$(claim_file)"
 FX_INFLIGHT="$IPERF_LINES"
@@ -488,7 +488,7 @@ hasnt "🔴 it stopped before sampling anything"           "PYTHON-WOULD-RUN" "$
 OUT="$(run_ndt_check --force)"
 has   "  --force still gets past it"                     "PYTHON-WOULD-RUN" "$OUT"
 
-section "4B. 🔴 R4-2 itself: traffic alone no longer refuses -- traffic is the precondition"
+section "4B. 🔴 the defect itself: traffic alone no longer refuses -- traffic is the precondition"
 printf 'owner=fixture-owner\nexpires=%s\nnote=n\nexclusive_cpu=no\nmeasuring=\n' \
     "$(( $(date +%s) + 3600 ))" > "$(claim_file)"
 OUT="$(run_ndt_check)"
@@ -540,7 +540,7 @@ cmd_status" 2>&1)"
 has   "🔴 undeclared traffic is still reported by status" "iperf3 -c 10.0.0.33" "$STATUS_OUT"
 hasnt "  and no empty 'declared' row is printed"         "declared       " "$STATUS_OUT"
 
-section "4E. R4-5: the verdict says how big the gap is, and what 'ok' does not mean"
+section "4E. the verdict says how big the gap is, and what 'ok' does not mean"
 # verdict_lines is pure and is extracted verbatim from ndt's embedded python block. The rest of
 # that block needs a kernel, a fabric and traffic; this function needs none of them.
 VL="$(python3 - "$NDT" <<'PY'
@@ -557,7 +557,7 @@ for tw, tr in ((3240.1e6, 3829.7e6), (2.0e6, 1.0e6), (0.6e6, 1.0e6)):
 PY
 )"
 hasnt "verdict_lines was found and ran"                  "EXTRACT-FAILED" "$VL"
-has   "R4-5's own numbers: the ratio is printed as a value" "ratio=0.846" "$VL"
+has   "the measured numbers: the ratio is printed as a value" "ratio=0.846" "$VL"
 has   "  with both sides of it"                          "(twin 3240.1 / ground truth 3829.7 Mbit/s)" "$VL"
 has   "🔴 and the size of the gap in words"              "twin under-reports by 15%" "$VL"
 has   "🔴 saying what ok does not mean"                  "accuracy is NOT" "$VL"
@@ -631,7 +631,7 @@ STKBLK="$(sed -n '/^== STACK ==/,/^== NO SHAPE ==/p' <<<"$VL2")"
 NOSHAPE="$(sed -n '/^== NO SHAPE ==/,/^== OK ==/p' <<<"$VL2")"
 OKBLK="$(sed -n '/^== OK ==/,$p' <<<"$VL2")"
 has   "🔴 the measured 1.60 is still over the band"      "1.60   DOUBLE-COUNTING" "$LAGBLK"
-hasnt "🔴 but it does NOT name clone replicas as the finding" \
+hasnt "🔴 but it does NOT name clone replicas as the cause" \
       "DOUBLE-COUNTING -- clone replicas stacked" "$LAGBLK"
 has   "🔴 it names the twin lagging the truth as a cause" "lagging" "$LAGBLK"
 has   "  and stacking as the other one"                   "clone replicas" "$LAGBLK"
@@ -645,7 +645,7 @@ has   "  and it says so"                                  "clone replicas" "$STK
 hasnt "  and does not call the lag the leading cause"     "the leading cause is" "$STKBLK"
 has   "  while still saying what the lag would have looked like" \
       "produces some hot sub-windows and not all of them" "$STKBLK"
-# And with no sub-window evidence at all, neither cause is named as the finding.
+# And with no sub-window evidence at all, neither cause is named as the explanation.
 has   "🔴 no shape: the two causes are printed side by side" "lagging" "$NOSHAPE"
 has   "  saying the window could not tell them apart"     "cannot" "$NOSHAPE"
 has   "  and when the second cause was measured"          "2026-09-11 measured the second one" "$NOSHAPE"
@@ -676,7 +676,7 @@ echo \"RC=\$?\"" 2>&1
 }
 OUT="$(check_run 4)"
 check "🔴 a DOUBLE-COUNTING verdict reaches the caller as rc 4" "4" "$(rc_of "$OUT")"
-has   "  and the rc says where to read the finding"      "read the ratio block above" "$OUT"
+has   "  and the rc says where to read the verdict"      "read the ratio block above" "$OUT"
 has   "  while the rate context still prints under it"   "sample rate" "$OUT"
 hasnt "🔴 it is not reported as the check failing to run" "nothing to check" "$OUT"
 check "  an ok verdict is still rc 0"                    "0" "$(rc_of "$(check_run 0)")"
@@ -750,7 +750,7 @@ has   "  and it is the help"                             "usage: ndt <command>" 
 # check_up_target:2974-2977 removed this sentence from the OUTPUT and says why in its own
 # comment: "is a statement about history and is false after every ordinary up->down". The help
 # went on printing it, in capitals, as the definition of rc 3.
-hasnt "  🔴 the sentence W12 removed from the output is gone from the help too" \
+hasnt "  🔴 the sentence removed from the output is gone from the help too" \
       "has run in THIS checkout" "$HELP"
 check "  🔴 and from the file in that spelling -- the help was its last home" "0" \
       "$(grep -c 'has run in THIS checkout' "$NDT")"
@@ -765,8 +765,8 @@ has   "  and it says what 3 is NOT"                      "it is NOT \"no 'ndt up
 has   "  and points at the file the report reads instead" ".test_run/pids/kernel.exit" "$HELP"
 
 section "5B. B10: help scopes the host_count_override claim to what the code enforces"
-# The 09-05 round (R3-3) recorded this sentence as REFUTED. It was not: read literally it only
-# ever claimed that FORGETTING an environment variable cannot cause the mistake, and R3-3's own
+# The 09-05 run recorded this sentence as REFUTED. It was not: read literally it only
+# ever claimed that FORGETTING an environment variable cannot cause the mistake, and that run's own
 # note says what it did -- it was done by setting one environment variable. What was false is the impression the
 # sentence leaves, so what changes is its SCOPE, and the help now carries both halves.
 hasnt "  🔴 the blanket 'cannot be made' claim is gone"  "mistake cannot be made by forgetting an" "$HELP"
@@ -775,7 +775,7 @@ has   "  and to the failure mode it really covers"       "because an environment
 has   "  🔴 the two-checkout form is named as refused"   "refused before anything is built" "$HELP"
 has   "  and by what"                                    "acts in ONE tree" "$HELP"
 has   "  🔴 and what the knob does NOT prevent is said"  "does NOT make the" "$HELP"
-has   "  with the 09-05 counter-example"                 "setting it built exactly that pair (R3-3)" "$HELP"
+has   "  with the 09-05 counter-example"                 "setting it built exactly that pair." "$HELP"
 has   "  and 'ndt up p4 N' named as the other writer"    "p4 N' rewrites it" "$HELP"
 has   "  OVS is excluded, because it has no such knob"   "OVS has no such knob" "$HELP"
 # 🔴 WIRING, a text check and named as one: the refusal the help now points at is a real
@@ -1064,7 +1064,7 @@ check "  energy still has no evidence log (rc 1)"        "1" \
 # invites ("any script may write .test_run/lab.claim"): that writer takes no lock, so the write
 # is also read back. A refusal that says the same thing either way (6D) sends the loser of a
 # millisecond race to "wait for it to lapse" about a claim one second old. And an overwrite that
-# keeps no copy (6B) is R7 I-2 -- lab.claim was the one state file with no .prev, so a claim that
+# keeps no copy (6B) is the lost-copy case -- lab.claim was the one state file with no .prev, so a claim that
 # changed hands mid-round left no trace in any interface.
 
 cprev() { sed -n "s/^$1=//p" "$(claim_file).prev" 2>/dev/null | head -1; }
@@ -1095,7 +1095,7 @@ check "  the header's field order, in the header's order" "owner expires note ex
 check "  nothing was kept aside -- there was nothing to keep" "gone" \
       "$( [[ -f "$(claim_file).prev" ]] && echo present || echo gone )"
 
-section "6B. 🔴 R7 I-2: the claim an overwrite replaces is kept as .prev"
+section "6B. 🔴 the claim an overwrite replaces is kept as .prev"
 mk_claim old-owner -60 "the round that ended"
 OLD_EXP="$(cf expires)"
 rm -f "$(claim_file).prev"
@@ -1205,10 +1205,10 @@ check "🔴 and writes no .prev"                           "gone" \
 no_claim
 rm -f "$(claim_file).prev"
 
-section "6I. 🔴 R7 I-2 condition 2: 'ndt status' says the claim changed hands"
+section "6I. 🔴 'ndt status' says the claim changed hands"
 # The acceptance run of this fix (2026-09-11 04:29:25): condition 1 PASSED
-# -- `.prev` really is the claim that was replaced, checked field by field against R7's own
-# independent 118-point sampling record -- and CONDITION 2 FAILED. R7 grepped the WHOLE of
+# -- `.prev` really is the claim that was replaced, checked field by field against the
+# independent 118-point sampling record -- and CONDITION 2 FAILED. That run grepped the WHOLE of
 # `ndt status` for prev|changed hands|took|handover|previous|was held: 0 hits. So the evidence
 # was being kept and no interface mentioned it; a session arriving at 04:29 still could not see
 # that the claim had been rewritten two minutes earlier without knowing to cat a file.
@@ -1235,7 +1235,7 @@ has   "  and the file a reader can check for themselves" "lab.claim.prev" "$OUT"
 has   "🔴 and that it CHANGED HANDS, with both names"    "changed hands: first-owner -> second-owner" "$OUT"
 has   "  and when, from the record's own timestamp"      "prev claim" "$OUT"
 # 🔴 The other direction, and it is what stops this row from being noise: the SAME owner
-# re-claiming is a rewrite, not a handover. R7's I-2 residue #1 is a note corrected by
+# re-claiming is a rewrite, not a handover. The lease-extension defect is a note corrected by
 # re-claiming, which moved `expires` three hours out -- that is worth disclosing as a rewrite
 # and calling it a handover would teach the reader to skip the row.
 rm -f "$(claim_file).prev"
@@ -1260,7 +1260,7 @@ section "6J. 🔴 one writer for the claim file, so the field order cannot be a 
 #
 # claim_rewrite fixed the order for the note path (8C). This is the other writer: claim_take's
 # own printf. There is now ONE, and the assertion is on the SOURCE -- a text check, said out
-# loud, because two printfs that agree today are exactly what R7 found and what drifts next.
+# loud, because two printfs that agree today are exactly what that run found and what drifts next.
 check "🔴 exactly one place writes the five fields"      "1" \
       "$(grep -c "printf 'owner=%s" "$NDT")"
 # ...and both paths still produce the documented order, driven rather than read.
@@ -1273,7 +1273,7 @@ claim_run '' 'NDT_OWNER=fixture-owner set_claim_note "corrected"' >/dev/null 2>&
 check "  and a note rewrite keeps it"                    "owner expires note exclusive_cpu measuring" \
       "$(sed 's/=.*//' "$(claim_file)" | tr '\n' ' ' | sed 's/ $//')"
 check "  the declaration survived both"                  "cell 3/8" "$(cf measuring)"
-# 🔴 And the copy kept for the next reader is BYTE-IDENTICAL, which is the check R7 could not
+# 🔴 And the copy kept for the next reader is BYTE-IDENTICAL, which is the check that run could not
 # make that night: with two writers, comparing the files was guaranteed to report a difference.
 # The same owner re-claiming, because a LIVE foreign claim is refused (6D) and this check is
 # about the copy, not about who may take the lab.

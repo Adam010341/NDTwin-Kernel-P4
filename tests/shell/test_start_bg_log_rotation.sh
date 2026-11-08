@@ -16,15 +16,15 @@
 # (3A-3D at its lines 84-122; 3E and 3F at :144-162 -- two restarts inside one second, and start_bg
 # really calling the rotator). This file kept asserting `.prev`/`.prev2` and was red from then on.
 # 13 checks became 5:
-#   - 8 deleted, not replaced here -- the two multi-restart cells: the red #6, #9, #10, #13 (the
-#     older eras in .prev / .prev2, the oldest one dropped), the green #8 and #12 (".prev2 / .prev3
-#     not there yet" -- green only because no .prev file is made any more) and the green #7 and #11
-#     (the newest era in the live log, which #3 below still asserts); the contract they stood for
+#   - 8 deleted, not replaced here -- the two multi-restart cells: the red ones (the
+#     older eras in .prev / .prev2, the oldest one dropped), the green ones (".prev2 / .prev3
+#     not there yet" -- green only because no .prev file is made any more) and the other green ones
+#     (the newest era in the live log, which the live-log check below still asserts); the contract they stood for
 #     is test_stack_log_rotation's, stated once;
-#   - #1 and #2 (the previous log rotated, holding the previous era) kept, RETARGETED from .prev to
+#   - the two checks that the previous log was rotated, holding the previous era, kept, RETARGETED from .prev to
 #     the one stamped generation;
-#   - #3 (the live log is the new era's -- stricter now: its content, not only that it exists),
-#     #4 (no generation on a first start) and #5 (an empty log is not rotated) kept, #4 and #5
+#   - the live log is the new era's (stricter now: its content, not only that it exists),
+#     no generation on a first start and an empty log is not rotated: kept, the last two
 #     retargeted to the stamped names: start_bg's own decision (stack.sh:559-560), which only this
 #     file covers.
 

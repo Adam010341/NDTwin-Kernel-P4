@@ -4684,7 +4684,7 @@ verify_p4_probes() {
     # Bounded re-read, the same shape and the same bound as stack.sh's proxy_skipped_steps: a
     # `probe_ok: null` is "no probe has completed yet", which on a fabric that has just come up
     # is the ordinary first second, and reading it as a verdict either way would be inventing
-    # one. Five attempts, a second apart; after that a still-null probe IS the finding.
+    # one. Five attempts, a second apart; after that a still-null probe IS the result.
     # 🔴 No `nulls` flag. The first draft set one on both exits of this loop and never read it
     # again -- a variable that looks like a decision and is not one is a reader's trap, and the
     # two things that ARE decided below are decided from `rows` itself.
@@ -5098,7 +5098,7 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
     #
     # The fabric-side quantity is fabric_host_count() -- host namespaces counted out of `ps`.
     # Why that one of the three candidate quantities:
-    #   * it is the quantity that was counted BY HAND to establish the finding (128), so the fix
+    #   * it is the quantity that was counted BY HAND to establish the result (128), so the fix
     #     is checked against the same reading that exposed the defect;
     #   * it already decides fabric reuse at up_p4 and gates the OVS build, so this adds no
     #     third opinion about "how big is the fabric" -- a disagreement between two existing
@@ -8201,7 +8201,7 @@ def cause_lines(ratio, shape):
     the band and the ground truth underneath is steady. A lag is a transient: some sub-windows
     are over it, and the ground truth moved. When the sub-windows cannot say which -- too few
     of them, or no ground truth to compare -- BOTH causes are printed and neither is called
-    the finding. The same rule applies to an attribution as to a reading: a check that could
+    the cause. The same rule applies to an attribution as to a reading: a check that could
     not look may stay un-red, but must not look like a check that looked and found nothing.
     """
     lag = "twin telemetry lagging a ground truth that moved inside the window"
@@ -8256,7 +8256,7 @@ def verdict_lines(twin_bps, truth_bps, shape=None):
 
     `shape` is the per-sub-window evidence (see cause_lines) and is None for a caller that has
     none: the verdict is then still DOUBLE-COUNTING, and the causes are named side by side
-    rather than one of them being presented as the finding.
+    rather than one of them being presented as the cause.
     """
     ratio = twin_bps / truth_bps
     if ratio > 1.5:
@@ -11465,7 +11465,7 @@ cmd_apps() {
                 esac
             done
             # G-12. Printed for EVERY outcome of the loop above, including the "nothing
-            # was running" one -- which is the shape the finding was measured in: the app had
+            # was running" one -- which is the shape the defect was measured in: the app had
             # already been killed by pid, `stop` found nothing to stop, and the rule and the
             # lock it left were still on the network. A residue report that only ran when
             # something was stopped would miss the only case that needed it.
@@ -12440,7 +12440,7 @@ usage: ndt <command>
   ndtwin-lab' acts in ONE tree, and 'ndt up' checks it is this one).
   It does NOT make the 4-host-model-against-a-128-host-fabric mistake
   impossible: inside one tree the host count is whatever that file says, 'ndt up
-  p4 N' rewrites it, and on 09-05 setting it built exactly that pair (R3-3).
+  p4 N' rewrites it, and on 09-05 setting it built exactly that pair.
   OVS has no such knob -- there the size is the verb.
 
 repo: $REPO

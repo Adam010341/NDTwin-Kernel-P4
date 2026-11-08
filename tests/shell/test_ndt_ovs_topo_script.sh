@@ -70,7 +70,7 @@ if [[ ! -f "$KERNEL_DIR/p4_proxy/mininet/ntg_bmv2_topo.py" ]]; then
 fi
 
 # The seam itself is the first check, and it is a check rather than a bail-out because its
-# absence IS the finding: with the launch written inline in the root-only dispatch, nothing short
+# absence IS the defect: with the launch written inline in the root-only dispatch, nothing short
 # of root can see which file tmux is handed, and that is how the NTG path survived here.
 echo "the launch is reachable at all"
 for fn in ovs_topo_script ovs_topo_pattern ovs_topo_start; do
@@ -278,7 +278,7 @@ s = mod.PingSummary(expected=4, attempted=4, distinct=4, replied=4, lost=0, unre
 print("\n".join(mod.banner_lines(s)))
 PY
 )"
-    check "  and its banner is finding #42's, not the constant one" yes \
+    check "  and its banner is the measured one, not the constant one" yes \
         "$([[ "$(has 'NOT MEASURED' "$banner")" == yes && "$(has '4/4 pings replied' "$banner")" == yes ]] && echo yes || echo no)"
 fi
 

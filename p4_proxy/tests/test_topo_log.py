@@ -53,7 +53,7 @@ class WhereTheLogGoesTest(unittest.TestCase):
         # 🔴 Derived from __file__, because the bridge is launched by `sudo tmux` under a fixed
         # root environment that carries nothing an operator set -- the same reason
         # host_count_override and app_package_override are files. A tree named by anything else
-        # is FINDING-01: a whole round run against the wrong checkout with nothing saying so.
+        # is a defect: a whole round run against the wrong checkout with nothing saying so.
         got = topo_log.default_path(env={})
         expected = os.path.join(os.path.dirname(PROXY_DIR), ".test_run", "logs", "topo.log")
         self.assertEqual(got, expected)

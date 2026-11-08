@@ -13,7 +13,7 @@ did: `link_blackhole` is `destructive=True`, puts `tc netem loss 100%` on a live
 undo needs a sudoers rule for the `parent` form of `tc qdisc del`, which the User Manual does not
 set up, and that form has never been observed to succeed on a lab machine. It had no opt-in at
 all, and the path that reaches it -- `--dry-run` -- asked no question before running it. Same
-family as #71 and #75: `existence != wiring`. A field declared in one file and enforced in one
+family as other declared-but-unwired code: `existence != wiring`. A field declared in one file and enforced in one
 branch of another is a safety label, not a gate.
 
 🔴 The fix is not "add a flag to the blackhole". A flag added to an action nobody asks about
@@ -32,7 +32,7 @@ halves, and the second is the one that would rot silently:
 Why the dry run is inside the gate, since it looks like the opposite of the rule that
 "the allow path needs a dry run, and the runner exercises it": the blackhole is in no list, so the dry
 run is the ONLY path that reaches it. An opt-in that exempted dry runs would gate nothing at
-all while the report said "gated". `--dry-run --allow-link-blackhole` gets §5.2's exercise back,
+all while the report said "gated". `--dry-run --allow-link-blackhole` gets the dry-run exercise back,
 on purpose and by name.
 
 Stdlib only. No kernel, no fabric, no build, no lab, and no `tc`: `probes.run` is replaced and

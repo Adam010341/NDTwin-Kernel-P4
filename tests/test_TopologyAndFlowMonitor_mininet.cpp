@@ -6,7 +6,7 @@
  * [Co-developed with claude code -- Adam]
  *
  * Expected behaviour is derived from:
- *   1. the P4 support plan, issues #4, #5, #12 (maintainer notes, not in this repository)
+ *   1. the P4 support plan (maintainer notes, not in this repository)
  *   2. include/ndt_core/collection/TopologyAndFlowMonitor.hpp (interface contract)
  *   3. setting/StaticNetworkTopologyMininet_10Switches.json (data)
  *   4. what the external tools that read the topology API expect
@@ -117,7 +117,7 @@ struct MininetTopologyFixture
 } // namespace
 
 // [Co-developed with claude code -- Adam]
-// Spec source: the P4 support plan, issue #4 —
+// Spec source: the P4 support plan —
 // "nodes and edges are all false initially" (originally written in Chinese)
 TEST(MininetTopologyTest, AfterLoadingTopologyAllVerticesAndEdgesAreDisabled)
 {
@@ -139,10 +139,10 @@ TEST(MininetTopologyTest, AfterLoadingTopologyAllVerticesAndEdgesAreDisabled)
         const auto& vp = (*fix.graph)[*v];
         EXPECT_FALSE(vp.isEnabled)
             << "vertex " << vp.deviceName << " (dpid=" << vp.dpid
-            << ") should have isEnabled==false after loading, per issue #4";
+            << ") should have isEnabled==false after loading, per the P4 support plan";
         EXPECT_FALSE(vp.isUp)
             << "vertex " << vp.deviceName << " (dpid=" << vp.dpid
-            << ") should have isUp==false after loading, per issue #4";
+            << ") should have isUp==false after loading, per the P4 support plan";
     }
     EXPECT_EQ(vertsChecked, 138u);
 
@@ -155,17 +155,17 @@ TEST(MininetTopologyTest, AfterLoadingTopologyAllVerticesAndEdgesAreDisabled)
         const auto& ep = (*fix.graph)[*e];
         EXPECT_FALSE(ep.isEnabled)
             << "edge srcDpid=" << ep.srcDpid << " dstDpid=" << ep.dstDpid
-            << " should have isEnabled==false after loading, per issue #4";
+            << " should have isEnabled==false after loading, per the P4 support plan";
         EXPECT_FALSE(ep.isUp)
             << "edge srcDpid=" << ep.srcDpid << " dstDpid=" << ep.dstDpid
-            << " should have isUp==false after loading, per issue #4";
+            << " should have isUp==false after loading, per the P4 support plan";
     }
     // Spec source 4: the topology file has exactly 288 directed edges.
     EXPECT_EQ(edgesChecked, 288u);
 }
 
 // [Co-developed with claude code -- Adam]
-// Spec source: task coverage area #1 — inform_switch_entered should enable
+// Spec source: the task coverage list — inform_switch_entered should enable
 // the switch AND all its adjacent edges (including host edges).
 // Tests enableSwitchAndEdges, which implements this semantic.
 TEST(MininetTopologyTest, EnableSwitchAndEdgesEnablesSwitchAndAllItsAdjacentEdgesButNotOtherSwitches)

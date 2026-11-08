@@ -107,7 +107,7 @@ run_suite() {
 
 # --- baseline ----------------------------------------------------------------------------------
 
-echo "#87 mutation gate -- install and modify are claimed only after the switch is asked"
+echo "Group install/modify read-back mutation gate -- install and modify are claimed only after the switch is asked"
 echo "  build dir : $BUILD_DIR"
 echo "  target    : $TARGET   (tests/test_GroupMeterExistence.cpp compiles into this binary)"
 echo "  filter    : $FILTER"

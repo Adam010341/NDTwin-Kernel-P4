@@ -79,7 +79,7 @@ PY
 }
 
 echo
-echo "=== mutations: FINDING-02 Defect B, port_holder collapses back to two values ==="
+echo "=== mutations: Defect B, port_holder collapses back to two values ==="
 
 mutate "port_holder returns '' for a hidden owner (the 08-30 defect, verbatim)" lib.sh '
 s = s.replace("printf \x27%s\x27 \"$PORT_HOLDER_HIDDEN\"", "printf \x27\x27")
@@ -94,7 +94,7 @@ s = s.replace("        skip \"$label: :$port HAS a listener", "        ok \"$lab
 '
 
 echo
-echo "=== mutations: FINDING-05, the window compares nothing again ==="
+echo "=== mutations: Defect C, the window compares nothing again ==="
 
 mutate "the span gate is removed from the phase (back to info-only)" 25_apps_energy.sh '
 s = s.replace("assert_window_span energy_watch", "info energy_watch_span_was")
@@ -118,7 +118,7 @@ s = s.replace("\"$label\" \"$registered\" \"$actual\"", "\"$label\" \"-\" \"$act
 '
 
 echo
-echo "=== mutations: FINDING-02 Defect A / FINDING-05, the defect SHAPES come back ==="
+echo "=== mutations: Defect A / Defect C, the defect SHAPES come back ==="
 
 mutate "viz uses a loop counter as a clock again (T0 + i)" 20_apps_lifecycle.sh '
 s = s.replace("then VIZ_T=\"$(date +%s)\"; break; fi", "then VIZ_T=$(( T0 + i )); break; fi")

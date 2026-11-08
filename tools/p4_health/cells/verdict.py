@@ -378,7 +378,7 @@ def run_verdict(ctx, bringups_complete=True, stopped=False, see_red=False):
     if not bringups_complete:
         return "INCOMPLETE", 2
     if see_red:
-        # (round 5, #3) a see-red run's pass is PROBE-BROKEN. A complete, clean one in which no cell is
+        # a see-red run's pass is PROBE-BROKEN. A complete, clean one in which no cell is
         # PROBE-BROKEN means the mutant went unnoticed -- the probe cannot see red -- and that must not
         # read COMPLETE rc 0, the status of success. Its own name, and rc 2 (not a verdict on the fabric).
         return "SEE-RED-NOT-SEEN", 2

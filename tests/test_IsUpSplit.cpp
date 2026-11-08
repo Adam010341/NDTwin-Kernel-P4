@@ -237,7 +237,7 @@ TEST_F(IsUpSplitTest, TheIsUpAliasEqualsReachableInBothDirections)
 }
 
 /**
- * 🔴 THE FINDING ITSELF. Two switches, both unreachable, one commanded off and one not. Before
+ * 🔴 THE DEFECT ITSELF. Two switches, both unreachable, one commanded off and one not. Before
  * the split these were the same vertex shape and the same power-state answer; the entire point
  * of the split is that they are now different.
  */
@@ -342,7 +342,7 @@ TEST_F(IsUpSplitTest, FromJsonReadsReachableAndAdminStateWhenBothArePresent)
     EXPECT_TRUE(v.adminPoweredOff) << "admin_state=off did not restore the commanded state";
 }
 
-// --- 3. the endpoint the finding is about ---------------------------------------------------
+// --- 3. the endpoint the defect is about ---------------------------------------------------
 
 /**
  * 🔴 `/ndt/get_switches_power_state` reported the COMMAND while claiming to report the STATE,
@@ -410,7 +410,7 @@ TEST_F(IsUpSplitTest, PowerStateEndpointForOneIpCarriesBothFieldsToo)
  * OBSERVATION going stale, and an observation going stale is not something a timer can know.
  *
  * The window must therefore stay open until something is OBSERVED. Here nothing is: time passes,
- * and the graph is lifted by exactly the writer whose staleness caused the finding.
+ * and the graph is lifted by exactly the writer whose staleness caused the defect.
  *
  * The commanded flag is cleared by hand first, standing in for the one thing that really does
  * clear it without a power-on -- a topology reload rebuilding the graph. That is what leaves the
