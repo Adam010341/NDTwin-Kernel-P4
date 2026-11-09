@@ -2,11 +2,11 @@
 
 [Co-developed with claude code -- Adam]
 
-Cut 1 builds the observers the reading layer's tests need to pin the three rules that are about
+This module holds the observers the reading layer's tests need to pin the three rules that are about
 WHERE a number comes from: `sent` is the sender's own report, the oracle column is
 thrift's and never the proxy's, and a negative read is only "absent" when thrift said so in a
-reply it recognised. The remaining cells' observers are Cut 2-4's, written against the same
-collectors.
+reply it recognised. The observers of bring-up A's other cells are in observe_a.py, written against
+the same collectors; cells whose `cut` is 3 or more are observed by no round yet.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ ROUTE_PREFIXES = {
     "R2": ("/p4/register",), "R3": ("/p4/register",), "P3": ("/p4/packet_out",),
     "AP1": ("/p4/action_profile",), "AS1": ("/p4/action_profile", "/p4/action_selector"),
     "VS1": ("/p4/value_set",),
-    # (Cut 2) the ternary / range / optional / priority writes go to the same endpoint as T3; the
+    # the ternary / range / optional / priority writes go to the same endpoint as T3; the
     # digest and packet-in "exits" are endpoints NDTwin would have to add
     "T4": ("/p4/table_entry",), "T5": ("/p4/table_entry",), "T6": ("/p4/table_entry",),
     "T7": ("/p4/table_entry",), "D1": ("/p4/digest",), "P2": ("/p4/packet_in",),

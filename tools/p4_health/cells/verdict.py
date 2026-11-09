@@ -195,7 +195,7 @@ def decide(spec, obs, ctx):
         attribution  {"bmv2": bool, "wire": bool, "static": bool}
         pre          {"ok": bool, "why": str} -- the cell's stated precondition
     """
-    # (Cut 2) a cell this run never observed -- a later Cut's cell, or one `--only` left out --
+    # a cell this run never observed -- one with a later `cut`, or one `--only` left out --
     # is NOT RUN for that reason, not for an "unreadable" answer nobody asked for
     if obs is None:
         return Verdict(NOT_RUN, "not observed in this run", phase="unobserved")
@@ -338,7 +338,7 @@ SCOPES = ("core", "full", "q3b")
 
 def rollup(table, ctx, scope):
     """{dimension: answer} and the four totals. Three rollups (two for the 16
-    dimensions, one for Q3(b)):
+    dimensions, one for the six categories outside them):
 
       core  the 16 dimensions, core cells only        -- sums to 16
       full  the 16 dimensions, core and ext cells     -- sums to 16

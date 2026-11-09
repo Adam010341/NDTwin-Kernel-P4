@@ -333,7 +333,7 @@ present() { [[ -e "$FIX/.test_run/pids/$1" ]] && echo present || echo absent; }
 section "1. 🔴 'ndt up ovs' under somebody else's claim: rc 5, and nothing is half-built"
 # =============================================================================================
 reset_fix
-write_claim "$THEM" "$FUTURE" "ROLE-x reader running" ""
+write_claim "$THEM" "$FUTURE" "reader running" ""
 BEFORE="$(claim_sum)"
 OUT="$(NDT_OWNER="$US" drive 'up_ovs 4')"
 check "🔴 a foreign claim refuses the OVS bring-up with 5"   "5" "$(rc_of "$OUT")"
@@ -414,7 +414,7 @@ has   "  the bring-up ran"                                   "up ovs" "$(cat "$F
 section "4. 🔴 --force builds, and every use of it is written down"
 # =============================================================================================
 reset_fix; echo "0 14" > "$FIX/mn.seq"
-write_claim "$THEM" "$FUTURE" "ROLE-x reader running" "reader nsr"
+write_claim "$THEM" "$FUTURE" "reader running" "reader nsr"
 OUT="$(NDT_OWNER="$US" drive 'NDT_UP_FORCE=1; up_ovs 4')"
 check "--force is not refused"                               "no" "$([[ "$(rc_of "$OUT")" == 5 ]] && echo yes || echo no)"
 has   "  the fabric was built"                               "ovs-topo-4host" "$(cat "$FIX/sudo.log")"

@@ -1290,16 +1290,17 @@ rm -f "$(claim_file).prev"
 #    command that could not be pasted
 # ==========================================================================================
 # 🔴 T2d, measured 2026-09-11 01:57:27-01:57:54. The claim
-# said `measuring=ROLE-4 reader nsr, do not tear down`. The owner's own `ndt down` tore the
-# fabric out, printed `clean`, exited 0, killed the declared reader, and never mentioned the
-# field -- which then OUTLIVED the teardown that had killed the thing it described. cmd_down read
+# said `measuring=reader nsr, do not tear down` (a work label left out of this and the quote
+# below). The owner's own `ndt down` tore the fabric out, printed `clean`, exited 0, killed the
+# declared reader, and never mentioned the field -- which then OUTLIVED the teardown that had
+# killed the thing it described. cmd_down read
 # foreign_claim and in_flight (iperf3 client, matrix.sh, measure.sh, cpu_probe.py) and nothing
 # else, so the one channel a session has for "you cannot see what I am measuring" was read by
 # `ndt check` alone.
 #
 # 🔴 T2, measured 2026-09-11 01:56:53. The refusal was right and its rescue line
 # could not be used:
-#     NDT_OWNER=overnight-0905 (until 02:36:24, ROLE-4 T2/T3: reader running) ndt down
+#     NDT_OWNER=overnight-0905 (until 02:36:24, reader running) ndt down
 # `$held` is a DESCRIPTION, and bash reads `(until ...)` as a subshell. The same message never
 # quoted the measuring= the claim declared, so the operator being refused could not see why.
 #
@@ -1359,19 +1360,19 @@ echo \"RC=\$?\"" 2>&1
 }
 
 section "7A. 🔴 T2d: the owner's own teardown honours the declaration"
-mk_claim_m fixture-owner 3600 "T2d round" "ROLE-4 reader nsr, do not tear down"
+mk_claim_m fixture-owner 3600 "T2d round" "reader nsr, do not tear down"
 OUT="$(down_run '')"
 check "a declared measurement refuses the teardown, rc 5" "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
-has   "  and the refusal reads the declaration back"     "ROLE-4 reader nsr, do not tear down" "$OUT"
+has   "  and the refusal reads the declaration back"     "reader nsr, do not tear down" "$OUT"
 has   "  naming the field it came from"                  "measuring=" "$OUT"
 hasnt "🔴 and the teardown never started"                "[1/3]" "$OUT"
-check "  the declaration is still there to be read"      "ROLE-4 reader nsr, do not tear down" "$(cf measuring)"
+check "  the declaration is still there to be read"      "reader nsr, do not tear down" "$(cf measuring)"
 
 section "7B. 🔴 --deep is not an override; --force is"
 OUT="$(down_run '--deep')"
 check "🔴 --deep does not override a declaration"        "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 hasnt "  and no deep sweep ran"                          "the deep sweep ran" "$OUT"
-mk_claim_m fixture-owner 3600 "T2d round" "ROLE-4 reader nsr, do not tear down"
+mk_claim_m fixture-owner 3600 "T2d round" "reader nsr, do not tear down"
 OUT="$(down_run '--force')"
 check "--force tears down anyway"                        "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 has   "  and says what it went through"                  "declared" "$OUT"
@@ -1437,7 +1438,7 @@ OUT="$(claim_run '' 'NDT_OWNER=fixture-owner claim_note_up "ovs 4"')"
 hasnt "  and an expired claim holds nothing, so it says nothing" "NOT updated" "$OUT"
 
 section "8B. 🔴 the teardown clears the declaration it tore down"
-mk_claim_m fixture-owner 3600 "in use: ndt up ovs 4" "ROLE-4 reader nsr"
+mk_claim_m fixture-owner 3600 "in use: ndt up ovs 4" "reader nsr"
 OUT="$(down_run '--force')"
 check "the forced teardown succeeds"                     "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 check "🔴 measuring= is empty afterwards"                "" "$(cf measuring)"

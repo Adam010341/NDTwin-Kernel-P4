@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The marker sender and sniffer, run INSIDE a Mininet host's namespace (Cut 2).
+"""The marker sender and sniffer, run INSIDE a Mininet host's namespace.
 
 [Co-developed with claude code -- Adam]
 

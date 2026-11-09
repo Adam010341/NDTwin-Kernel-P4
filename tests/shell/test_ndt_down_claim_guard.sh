@@ -147,7 +147,7 @@ PAST=$(( $(date +%s) - 60 ))
 section "1. an intruder's 'ndt down' is refused by the claim, and the lab is not touched"
 # =============================================================================================
 reset_fix
-write_claim "$THEM" "$FUTURE" "ROLE-4 T2/T3: reader running" ""
+write_claim "$THEM" "$FUTURE" "reader running" ""
 OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
 check "🔴 somebody else's live claim -> rc 5"            "5" "$(rc_of "$OUT")"
 has   "  and it says it is refusing"                     "refusing to tear down: the lab is claimed by" "$OUT"
@@ -168,13 +168,13 @@ hasnt "  🔴 and not the parenthesised description"       "NDT_OWNER=$THEM (unt
 # =============================================================================================
 section "2. an owner who wrote measuring= is told what the teardown would have killed"
 # =============================================================================================
-# The same 2026-09-11 refusal (G-30): the claim said `measuring=ROLE-4 reader nsr, do not tear down` and the refusal never
-# mentioned it -- the one sentence the holder wrote FOR this moment was the one not shown at it.
+# The same 2026-09-11 refusal (G-30): the claim said `measuring=reader nsr, do not tear down` (a work
+# label left out of the quote) and the refusal never mentioned it -- the one sentence the holder wrote FOR this moment was the one not shown at it.
 reset_fix
-write_claim "$THEM" "$FUTURE" "night round" "ROLE-4 reader nsr, do not tear down"
+write_claim "$THEM" "$FUTURE" "night round" "reader nsr, do not tear down"
 OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
 check "  still rc 5"                                     "5" "$(rc_of "$OUT")"
-has   "  🔴 and the declaration is quoted"               "measuring=ROLE-4 reader nsr, do not tear down" "$OUT"
+has   "  🔴 and the declaration is quoted"               "measuring=reader nsr, do not tear down" "$OUT"
 has   "  with what it is"                                "they DECLARED what is running" "$OUT"
 check "  and nothing was touched"                        "sudo=0 stack=0" "$(touched)"
 
@@ -187,11 +187,11 @@ check "  and nothing was touched"                        "sudo=0 stack=0" "$(tou
 # do not tear down`, and the OWNER's own `ndt down` tore the fabric out, printed clean, exited 0
 # and killed the declared reader. The owner is exactly who this guard is for.
 reset_fix
-write_claim "$US" "$FUTURE" "our own round" "ROLE-4 reader nsr, do not tear down"
+write_claim "$US" "$FUTURE" "our own round" "reader nsr, do not tear down"
 OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
 check "🔴 our OWN claim that DECLARES a measurement is refused" "5" "$(rc_of "$OUT")"
 has   "  and it says which guard this is"                "refusing to tear down: this claim DECLARES a measurement in progress." "$OUT"
-has   "  quoting the field"                              "measuring=ROLE-4 reader nsr, do not tear down" "$OUT"
+has   "  quoting the field"                              "measuring=reader nsr, do not tear down" "$OUT"
 has   "  and saying it was declared, not guessed at"     "not guessed from the process table" "$OUT"
 check "  and nothing on the machine was reached"         "sudo=0 stack=0" "$(touched)"
 check "  and no in-flight marker was left"               "0" "$(markers)"
@@ -199,12 +199,12 @@ check "  and no in-flight marker was left"               "0" "$(markers)"
 # The controls for THAT guard: --force is the one override, --deep is not, and a claim of our own
 # with nothing declared still proceeds (or the field would be impossible to leave empty).
 reset_fix
-write_claim "$US" "$FUTURE" "our own round" "ROLE-4 reader nsr"
+write_claim "$US" "$FUTURE" "our own round" "reader nsr"
 OUT="$(NDT_OWNER="$US" drive 'cmd_down --force')"
 check "  --force tears down over our own declaration"    "0" "$(( $(rc_of "$OUT") == 5 ? 1 : 0 ))"
 has   "  and warns that it is doing exactly that"        "--force: tearing down over a declared measurement" "$OUT"
 reset_fix
-write_claim "$US" "$FUTURE" "our own round" "ROLE-4 reader nsr"
+write_claim "$US" "$FUTURE" "our own round" "reader nsr"
 OUT="$(NDT_OWNER="$US" drive 'cmd_down --deep')"
 check "🔴 --deep does not open the measuring guard either" "5" "$(rc_of "$OUT")"
 
@@ -248,7 +248,7 @@ check "  and touched nothing"                            "sudo=0 stack=0" "$(tou
 
 # --force is the one override, and it says that it used it.
 reset_fix
-write_claim "$THEM" "$FUTURE" "night round" "ROLE-4 reader nsr"
+write_claim "$THEM" "$FUTURE" "night round" "reader nsr"
 OUT="$(NDT_OWNER="$US" drive 'cmd_down --force')"
 check "--force tears down over a foreign claim"          "0" "$(( $(rc_of "$OUT") == 5 ? 1 : 0 ))"
 has   "  and warns that it is doing exactly that"        "--force: tearing down over a declared measurement" "$OUT"

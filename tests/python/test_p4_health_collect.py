@@ -1481,7 +1481,7 @@ class TestConfig(Sealed):
         self.assertEqual(self.cfg.thrift_port(3), 9093)
 
 
-# --- Cut 2: a fake fabric behind the one Runner and the two HTTP clients ---------------------------
+# --- a fake fabric behind the one Runner and the two HTTP clients ----------------------------------
 #
 # Everything bring-up A and B read or poke, answered in the formats the real tools print (the
 # thrift fixtures above are captures of them): simple_switch_CLI per Thrift port, `ps`, `ip`,
@@ -2244,7 +2244,7 @@ def expected_rows():
 class TestBringUpAOnTodaysFabric(Cut2):
 
     def test_bring_up_a_reads_as_predicted(self):
-        """Every Cut 2 cell of bring-up A, through the real observers on a fabric that behaves as
+        """Every cell of bring-up A with `cut` 2, through the real observers on a fabric that behaves as
         today's trunk does, gives the verdict expected_today.tsv predicts -- with B's
         attributions confirmed (R3's register write is the one bmv2 refuses: UNATTRIBUTED)."""
         a, _r = self.a_round()

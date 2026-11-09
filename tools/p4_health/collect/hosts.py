@@ -1,4 +1,4 @@
-"""The stimulus side: markers sent from one host's namespace, sniffed in another's. (Cut 2)
+"""The stimulus side: markers sent from one host's namespace, sniffed in another's.
 
 [Co-developed with claude code -- Adam]
 

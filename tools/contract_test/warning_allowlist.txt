@@ -53,7 +53,7 @@ WARNING | acceptor_\.close\(\) error | benign during shutdown when the acceptor 
 # appears on a TESTBED kernel, the pattern is too loose and should be tightened, not widened.
 WARNING | ^HistoricalDataManager not started: MININET | MININET does not run the recorder; stated once at startup so the absence of historical rows is visible without reading the source
 # [Co-developed with claude code -- Adam]
-# E-25, 2026-09-11 (F-OFFLINE-1 G6). src/ndt_core/collection/TopologyAndFlowMonitor.cpp:1354,
+# E-25, 2026-09-11. src/ndt_core/collection/TopologyAndFlowMonitor.cpp:1354,
 # warnAboutSwitchesWithNoBrandPathNoLock, reached from :1297 on every load. Same reasoning as the
 # B-3 entry above: it fires once per startup, it states a permanent designed condition, and the
 # line is the point -- a switch admitted only because its topology node declares an explicit
@@ -222,7 +222,7 @@ WARNING | ^intent_translator requested but the translator is disabled | 503 path
 # [Co-developed with claude code -- Adam]
 #
 # doc/FIXED-ISSUES.md G-32 (option C, 2026-09-11). Measured 2026-09-11
-# 02:01:16-02:02:45 (ROLE-4 T4): a loop writing flow entries every two seconds went
+# 02:01:16-02:02:45: a loop writing flow entries every two seconds went
 # through the second its own claim expired AND through another owner taking the claim,
 # 200 both times, and only found out when that owner tore the kernel down. The kernel
 # now says so once per change. It still refuses nothing -- the refusal is option A and

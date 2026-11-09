@@ -522,9 +522,9 @@ report 'MC5: the write is not read back, so a direct writer wins silently' "$m" 
 
 # --- T2 / T2d: measuring= enforced, and a rescue command that can be pasted ------------------
 
-# 2026-09-11 01:57:27 verbatim: claim says `measuring=ROLE-4 reader nsr, do not tear down`, the
-# owner's own `ndt down` tears the fabric out, prints clean, exits 0, kills the declared reader
-# and never mentions the field.
+# 2026-09-11 01:57:27 (a work label left out of the quote): claim says
+# `measuring=reader nsr, do not tear down`, the owner's own `ndt down` tears the fabric out,
+# prints clean, exits 0, kills the declared reader and never mentions the field.
 m=$(mutant mc6 "$NDT" \
     '    if [[ -n "$declared" && "$force" != "--force" ]]; then
         err "refusing to tear down: this claim DECLARES a measurement in progress."' \
@@ -547,8 +547,8 @@ report 'MC7 (widening): --deep turns the guard off as well as --force' "$m" \
        '🔴 --deep does not override a declaration'
 
 
-# 01:56:53 verbatim: `NDT_OWNER=overnight-0905 (until 02:36:24, ROLE-4 T2/T3: reader running) ndt
-# down`, printed under "set the same owner and retry", which bash reads as a subshell.
+# 01:56:53 (a work label left out of the quote): `NDT_OWNER=overnight-0905 (until 02:36:24, reader
+# running) ndt down`, printed under "set the same owner and retry", which bash reads as a subshell.
 m=$(mutant mc8 "$NDT" \
     '        err "$(printf '"'"'    NDT_OWNER=%q ndt down'"'"' "$holder")"' \
     '        err "    NDT_OWNER=$held ndt down"')
@@ -596,8 +596,9 @@ report 'MC11 (widening): it warns even when there is no claim to narrate' "$m" \
        '🔴 no claim at all: silent, there is nothing to narrate'
 
 
-# 01:57:54 verbatim: `measuring=ROLE-4 reader nsr, do not tear down` still in the claim after the
-# down that killed that reader -- the declaration outlived the teardown that disproved it.
+# 01:57:54 (a work label left out of the quote): `measuring=reader nsr, do not tear down` still in
+# the claim after the down that killed that reader -- the declaration outlived the teardown that
+# disproved it.
 m=$(mutant mc12 "$NDT" \
     '            claim_rewrite measuring "" \' \
     '            true \')
@@ -655,7 +656,7 @@ m=$(mutant md1 "$NDT" \
 # 🔴 The named case is the HEADING cell, repointed 2026-09-12 03:58 after this gate reported
 # MD1 as a survivor twice: the body cells all read sentences this mutation leaves alone, so the
 # only cell that can see it is the one that reads the claim the paragraph is making.
-report 'MD1: the down table drops the port-at-[1/3] paragraph (ROLE-12)' "$m" \
+report 'MD1: the down table drops the port-at-[1/3] paragraph' "$m" \
        '  🔴 the paragraph says its claim in its own heading'
 
 # MD2: the `clean` table stops documenting the refusal. A guard nobody is told about is read as
@@ -664,7 +665,7 @@ report 'MD1: the down table drops the port-at-[1/3] paragraph (ROLE-12)' "$m" \
 m=$(mutant md2 "$NDT" \
     '                  🔴 it REFUSES while an '"'"'ndt down'"'"' from this checkout is running,' \
     '                  it is safe to run at any time,')
-report 'MD2: the clean table drops the refusal (ROLE-12 cell 3)' "$m" \
+report 'MD2: the clean table drops the refusal' "$m" \
        '  🔴 the refusal is documented at all'
 
 # MD3: the --deep line's size is TYPED beside the table instead of read out of it. Every text

@@ -1120,7 +1120,7 @@ class TestRollup(unittest.TestCase):
         self.assertEqual(r["dimensions"]["meters"], V.CAN)
 
     def test_three_rollups_sixteen_sixteen_and_six(self):
-        """Q2(a) keeps core and full at the 16 dimensions; Q3(b)'s six categories are a third
+        """Core and full stay at the 16 dimensions; the six categories outside them are a third
         rollup reported beside them."""
         ctx = self.ctx_of({"MT1": V.RED, "MT2": V.RED, "MT3": V.GREEN, "AP1": V.RED})
         core, full, q3b = (V.rollup(T.TABLE, ctx, s) for s in ("core", "full", "q3b"))
@@ -1499,7 +1499,7 @@ class TestS0Pieces(unittest.TestCase):
             shutil.rmtree(d)
 
 
-# --- Cut 2 -----------------------------------------------------------------------------------------
+# --- the lab run ----------------------------------------------------------------------------------
 
 def _sig_names(sigs):
     return ", ".join(sorted(getattr(x, "name", str(x)) for x in sigs)) or "none"
@@ -1531,7 +1531,7 @@ def _assert_the_signal_mask_is_unchanged_then_put_it_back(mask0, when):
 
 
 class TestSignalMaskHelper(unittest.TestCase):
-    """The end-of-test mask check is what every Cut 2 test relies on to see a block never lifted (or one
+    """The end-of-test mask check is what every test of TestS0Cut2Checks below relies on to see a block never lifted (or one
     lifted that the test did not make), so it is pinned itself. SIGUSR1 stands for the signal: nothing sends it.
     [Co-developed with claude code -- Adam]"""
 
@@ -2020,7 +2020,7 @@ class TestS0Cut2Checks(unittest.TestCase):
 
 
 class TestTheLiveRunsIdentity(unittest.TestCase):
-    """A lab run refuses a dirty probe, and records the Q6(a) fingerprint and the system
+    """A lab run refuses a dirty probe, and records the gate fingerprint and the system
     under test."""
 
     def test_a_dirty_probe_tree_is_refused_before_anything_runs(self):
@@ -3579,7 +3579,7 @@ class TestCut2Decisions(unittest.TestCase):
         self.assertEqual(RA.expand(["CP1"]), {"T1"})
         self.assertEqual(RA.expand(["R2"]), {"R2", "T1", "PL1", "TP1"})
         self.assertEqual(RA.expand(None), set(RA.CUT2_CELLS))
-        self.assertEqual(RA.expand(["CH1"]), set())        # a Cut 3 cell is not this round's
+        self.assertEqual(RA.expand(["CH1"]), set())        # a cell with `cut` 3 is not this round's
         # a self-check named on its own brings the cell whose step takes its readings
         self.assertEqual(RA.expand(["SC-count"]), {"K1", "K1-neg", "PL1", "T1", "TP1"})
         self.assertEqual(RA.expand(["SC-reg"]), {"R2", "PL1", "T1", "TP1"})

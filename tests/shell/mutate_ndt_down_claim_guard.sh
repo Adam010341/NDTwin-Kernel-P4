@@ -179,7 +179,7 @@ check_fires "M4: the refusal sentence loses one word" m4 "  and it says it is re
 
 # --- M5: the other guard, the one a claim DECLARES ---------------------------------------------
 # T2d, 2026-09-11 01:57:27: the owner's own `ndt down` tore out a fabric whose claim said
-# `measuring=ROLE-4 reader nsr, do not tear down`, printed clean, and exited 0.
+# `measuring=reader nsr, do not tear down` (a work label left out of the quote), printed clean, and exited 0.
 cat > "$A/m5.old" <<'EOF'
     if [[ -n "$declared" && "$force" != "--force" ]]; then
 EOF

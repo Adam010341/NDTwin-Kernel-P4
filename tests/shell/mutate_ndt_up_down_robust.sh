@@ -700,7 +700,7 @@ report "M35: a refused teardown still claims to be running" "$m" \
 m=$(mutant m40 "$NDT" \
     '        if [[ "${tif%% *}" != "$$" ]]; then' \
     '        if false; then')
-report "M40: the teardown marker is overwritten again (ROLE-12)" "$m" \
+report "M40: the teardown marker is overwritten again" "$m" \
        "🔴 a second 'ndt down' is refused while one is still running"
 
 # M41 restores the other half, and it is the half that actually removed the guard: an
@@ -709,7 +709,7 @@ report "M40: the teardown marker is overwritten again (ROLE-12)" "$m" \
 m=$(mutant m41 "$NDT" \
     '    if [[ "$pid" == "$$" ]]; then rm -f "$f"; return 0; fi' \
     '    rm -f "$f"; return 0')
-report "M41: mark_teardown_end removes anybody's marker (ROLE-12)" "$m" \
+report "M41: mark_teardown_end removes anybody's marker" "$m" \
        "🔴 mark_teardown_end does not remove a marker that is not its own"
 
 # M42: the refusal is printed and not acted on -- F8's shape, a third time. The operator sees
@@ -736,7 +736,7 @@ report_green "W7 (behaviour-preserving): the second-teardown explanation reworde
 m=$(mutant m43 "$NDT" \
     '        ports_deferred="$(stack_down_deferrable_ports "$out")"' \
     '        ports_deferred=""')
-report "M43: a mid-teardown port reading is the verdict again (ROLE-12)" "$m" \
+report "M43: a mid-teardown port reading is the verdict again" "$m" \
        "🔴 ports [1/3] found open and [3/3] closed are not a failed teardown"
 
 # M44 (widening): the ports are deferred and never re-read, so the half is simply forgiven --
@@ -795,7 +795,7 @@ report_green "W8 (behaviour-preserving): the deferral note reworded" "$m" \
 m=$(mutant m48 "$NDT" \
     '    if tif="$(teardown_in_flight)" && [[ "${tif%% *}" != "$$" ]]; then' \
     '    if false; then')
-report "M48: 'ndt clean' has no guard against a live teardown again (ROLE-12)" "$m" \
+report "M48: 'ndt clean' has no guard against a live teardown again" "$m" \
        "  naming what it is refusing on"
 
 # M49 (widening): the guard reads the FILE instead of its owner, so it also refuses `ndt down`'s
@@ -814,7 +814,7 @@ report "M49 (widening): the clean guard refuses its own teardown too" "$m" \
 m=$(mutant m50 "$NDT" \
     '                if [[ "$(port_owner_local "$cport" "$cproto")" == ours ]]; then' \
     '                if false; then')
-report "M50: 'ndt clean' stops reading .test_run/pids/ (ROLE-11 F5)" "$m" \
+report "M50: 'ndt clean' stops reading .test_run/pids/" "$m" \
        "🔴 a pid in .test_run/pids/ is not 'this stack did not start it'"
 
 # M51 restores the other half: bmv2 is root-owned, so the pidfile test CANNOT answer for its
@@ -895,7 +895,7 @@ m=$(mutant m53 "$NDT" \
     hosts="$(host_count)"
     KNOB_ENTRY="$hosts"
     [[ -n "${1:-}" ]] && { set_host_count "$1" >/dev/null 2>&1; hosts="$(host_count)"; }')
-report "M53: the knob is written before the refusals again (ROLE-9)" "$m" \
+report "M53: the knob is written before the refusals again" "$m" \
        "🔴 and the knob is byte-for-byte what this run found it"
 
 # M54: the refusal goes back to quoting the knob rather than the count it was given. With M53
@@ -960,7 +960,7 @@ report_green "W9 (behaviour-preserving): the rollback's put-back reason reworded
 m=$(mutant m59 "$NDT" \
     '    claim_note_down "$down_rc" "$CLEAN_UNVERIFIED"' \
     '    claim_note_down "$down_rc" "$( (( down_rc == 0 )) || printf "the teardown" )"')
-report "M59: the claim note is written from the rc again (ROLE-11 F6)" "$m" \
+report "M59: the claim note is written from the rc again" "$m" \
        "🔴 a clean machine is not written down as unverified"
 
 # M60: one half stops being recorded. The note then says a teardown that could not finish its
@@ -1104,7 +1104,7 @@ m=$(mutant m73 "$NDT" \
         # machine at all, so it has nothing to report about what is on it. (2026-09-12)
         return 5' \
     '        return 1')
-report "M73: 'ndt clean' refuses with 1 again (ROLE-12 cell 3)" "$m" \
+report "M73: 'ndt clean' refuses with 1 again" "$m" \
        "🔴 'ndt clean' is refused while a teardown is running"
 
 # M74: the defect itself, put back -- an assertion with no subject prints `clean` and exits 0.
@@ -1164,7 +1164,7 @@ report "M77: a foreign claim refuses the teardown with 1 again" "$m" \
 m=$(mutant m78 "$NDT" \
     '    mark_teardown_start || return 5' \
     '    mark_teardown_start || return 1')
-report "M78: a second teardown is refused with 1 again (ROLE-12)" "$m" \
+report "M78: a second teardown is refused with 1 again" "$m" \
        "🔴 a second 'ndt down' is refused while one is still running"
 
 # M79: the defect itself, put back. An already-down lab reports the same byte as a round that
