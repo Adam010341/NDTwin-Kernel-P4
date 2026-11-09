@@ -1,4 +1,4 @@
-"""B's eleven attributions, confirmed: the controller's call AND an independent reading. (Cut 2)
+"""B's eleven attributions, confirmed: the controller's call AND an independent reading.
 
 [Co-developed with claude code -- Adam]
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for tools/p4_health and its offline suites (M1-M18, plus the
-# refinements, the Q3(b) cells, the seal of the reading-layer test, recover.sh, and one
-# mutant for each of the decision branches B1-B15 below).
+# refinements, the q3b rows (the six categories outside the 16 dimensions and the varbit cell), the seal of the
+# reading-layer test, recover.sh, and one mutant for each of the decision branches B1-B15 below).
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -759,7 +759,7 @@ add "H4. a collector dials 127.0.1.1" \
     reply = cfg.proxy.post("/p4/table_entry", entry)' \
     'test_post_table_entry_goes_through_the_config_client'
 
-# The Q3(b) cells and the rollups.
+# The q3b rows (the six categories outside the 16 dimensions and the varbit cell), and the rollups.
 add "Q1. HR1 never compares the twin with netdev" \
     "$TABLE" \
     '    wrong = sorted(u for u in UPLINKS if carried[u] != seen[u])' \
@@ -1628,7 +1628,7 @@ add "R9-5. the second look at the claim reads only the expires" \
     "another owner takes the claim during ndt down (the expires stays): rc 3, nothing released, the knob not written"
 
 
-# --- Cut 2: bring-up A's observers, B's attributions, the lab run ----------------------------------
+# --- bring-up A's observers, B's attributions, the lab run -----------------------------------------
 OBSA="$PKG/observe_a.py"
 ROUNDA="$PKG/round_a.py"
 ROUNDB="$PKG/round_b.py"

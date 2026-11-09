@@ -2,8 +2,8 @@
 
 [Co-developed with claude code -- Adam]
 
-In Cut 1 this is exercised ONLY offline, through a RecordingRunner
-(tests/python/test_p4_health_collect.py); nothing in Cut 1 calls it against the lab.
+The tests exercise it offline, through a RecordingRunner
+(tests/python/test_p4_health_collect.py); against the lab it is driven only by lab.py (`probe.py lab`).
 
   * Before every step that changes the machine, LAB_STATE.json is rewritten (atomically) with
     the probe's pid, the owner, the bring-up, the phase, the knob snapshot, the netem
@@ -70,7 +70,7 @@ class PackageOutsideRunDir(ValueError):
 
 
 class StateInUse(RuntimeError):
-    """(Cut 2) The run dir's LAB_STATE.json belongs to a round that did not finish: it is what
+    """The run dir's LAB_STATE.json belongs to a round that did not finish: it is what
     recover.sh reads, and a new round would overwrite it."""
 
 
@@ -172,7 +172,7 @@ class LabRound(object):
         if not package_inside(package_real, cfg.run_dir):
             raise PackageOutsideRunDir("package_dir %r is not inside the run dir %r: each round's package "
                                        "is its own copy there" % (package_dir, cfg.run_dir))
-        # (Cut 2) Nor over a state file a round that did not finish left for recover.sh.
+        # Nor over a state file a round that did not finish left for recover.sh.
         in_use = state_in_use(cfg.lab_state_path)
         if in_use:
             raise StateInUse("%s: %s; run recover.sh on this run before another round"

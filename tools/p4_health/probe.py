@@ -3,10 +3,10 @@
 
 [Co-developed with claude code -- Adam]
 
-    probe.py s0 --run-dir <dir> [--py-p4 PY]      S0, no lab (Cut 1)
+    probe.py s0 --run-dir <dir> [--py-p4 PY]      S0, no lab
     probe.py judge --observations OBS.json --run-dir DIR           verdicts from recorded readings
     probe.py lab --run-dir DIR --owner O [--bringups A,B] [--only K1,TTL1] [--mutant]
-                                                                   S0, then bring-ups A and B (Cut 2)
+                                                                   S0, then bring-ups A and B
 
 Exit: 0 COMPLETE, 1 PROBE-BROKEN (not publishable), 2 INCOMPLETE / refused. On `lab`, 1 is PROBE-BROKEN and nothing
 else: an S0 that is not whole, a run that cannot start and an exception are all 2, and so is

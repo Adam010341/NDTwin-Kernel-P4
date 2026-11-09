@@ -1,4 +1,4 @@
-"""Bring-up A's observers (Cut 2): one function per cell, readings in, an observation out.
+"""Bring-up A's observers: one function per cell, readings in, an observation out.
 
 [Co-developed with claude code -- Adam]
 
@@ -215,7 +215,7 @@ def observe_t3_neg(cfg):
 #: T4-T7 on s2: the probe's own requested masks and priorities (P4Runtime semantics: a higher
 #: number wins). bmv2's thrift dump prints the priority PI wrote, which is INT32_MAX minus the
 #: P4Runtime one (lower wins there): requested 10 dumps as 2147483637. Seen on throwaway stock
-#: and bmv2-fast simple_switch_grpc switches with controller_ext.py's own writes (Cut 2).
+#: and bmv2-fast simple_switch_grpc switches with controller_ext.py's own writes.
 BMV2_PRIORITY_TOP = 2 ** 31 - 1
 
 
@@ -378,7 +378,7 @@ VS1_VALUE = 40055
 
 
 def observe_vs1(cfg, runner):
-    """VS1 (Q3(b)): a value in the parser value set through NDTwin. Today there is no route, so
+    """VS1 (a q3b cell): a value in the parser value set through NDTwin. Today there is no route, so
     the answer is route False; the before and after reads are thrift's READ-ONLY `pvs_get` (the
     write `pvs_add` aborts the stock bmv2, vs_trial). B makes no ValueSetEntry attribution --
     bmv2's P4Runtime refuses the write (S0's vs_trial) -- so the RED stays UNATTRIBUTED."""

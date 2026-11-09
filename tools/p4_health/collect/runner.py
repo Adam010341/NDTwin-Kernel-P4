@@ -10,7 +10,7 @@ it with fail-loud stubs first on PATH and a refusal of every other spawn.
 The exceptions are outside the reading layer and the lifecycle, and none of them touches the
 lab: probe.py's `git` identity calls, the throwaway switch's own long-lived child (throwaway.py,
 stopped by its pid), and the offline helpers capture_thrift_fixtures.py, vs_trial.py and
-ctrl_trial.py. (Cut 2) Long-lived children of a bring-up -- a sniffer, B's controller -- go through
+ctrl_trial.py. Long-lived children of a bring-up -- a sniffer, B's controller -- go through
 `Runner.spawn`, so they too are seen by a RecordingRunner and refused by the sealed tests.
 """
 from __future__ import annotations
@@ -56,7 +56,7 @@ class Runner(object):
         return Result(argv, proc.returncode, proc.stdout, proc.stderr)
 
     def spawn(self, argv, out_path, env=None, cwd=None):
-        """(Cut 2) Start a long-lived child (a sniffer, B's controller) with stdout and stderr
+        """Start a long-lived child (a sniffer, B's controller) with stdout and stderr
         going to `out_path`, in its own session; returns the Popen, or None when it could not be
         started. The caller records its pid in LAB_STATE.json and stops it by that pid."""
         full_env = None

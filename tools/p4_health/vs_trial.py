@@ -3,8 +3,8 @@
 
 [Co-developed with claude code -- Adam]
 
-VS1 (Q3(b)) would have controller B write a ValueSetEntry on a fabric switch in Cut 2. The thrift
-route (`pvs_add`) aborts the stock bmv2 (parser.cpp:535, seen in Cut 1), so before anything
+VS1 (a q3b cell) would have controller B write a ValueSetEntry on a fabric switch. The thrift
+route (`pvs_add`) aborts the stock bmv2 (parser.cpp:535, observed on the stock build), so before anything
 writes one on the fabric this asks the same question of a throwaway `simple_switch_grpc`, under
 throwaway.py's rules: pcap mode, no root, argv[0] `ndt-hc-vstrial-bmv2`, Thrift 29500-29599, gRPC
 29650-29699 (never the lab's 30051+), stopped by pid.

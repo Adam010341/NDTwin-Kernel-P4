@@ -2503,7 +2503,7 @@ TEST_F(LabClaimOnWriteRepliesTest, EveryWriteEndpointCarriesTheClaimAndTheNotifi
         "/ndt/inject_link_recovery",
     };
 
-    writeClaim("ROLE-4-reader", now() + 600, "an experiment is running");
+    writeClaim("owner-reader", now() + 600, "an experiment is running");
     ::setenv("NDT_LAB_CLAIM_FILE", m_claim.c_str(), 1);
 
     HttpSessionTestPeer peer;
@@ -2514,7 +2514,7 @@ TEST_F(LabClaimOnWriteRepliesTest, EveryWriteEndpointCarriesTheClaimAndTheNotifi
             << target << " answers a write with no word about who holds the lab: " << body.dump();
         const auto& claim = body.at("lab_claim");
         EXPECT_EQ(claim.value("state", std::string()), "active") << target << ": " << body.dump();
-        EXPECT_EQ(claim.value("owner", std::string()), "ROLE-4-reader")
+        EXPECT_EQ(claim.value("owner", std::string()), "owner-reader")
             << target << ": " << body.dump();
         EXPECT_EQ(claim.value("note", std::string()), "an experiment is running")
             << target << ": " << body.dump();
@@ -2566,14 +2566,14 @@ TEST_F(LabClaimOnWriteRepliesTest, AClaimThatHasRunOutIsExpiredAndStillNamesItsO
     // The first half of what was measured: the writer's OWN claim lapsed and it went on writing.
     // The owner is still reported, because "whose claim just ran out" is the question being asked.
     const std::int64_t lapsedAt = now() - 60;
-    writeClaim("ROLE-4-writer", lapsedAt, "finished at 02:01");
+    writeClaim("owner-writer", lapsedAt, "finished at 02:01");
     ::setenv("NDT_LAB_CLAIM_FILE", m_claim.c_str(), 1);
 
     HttpSessionTestPeer peer;
     const auto body = writeReply(peer, "/ndt/install_flow_entry");
     ASSERT_TRUE(body.contains("lab_claim")) << body.dump();
     EXPECT_EQ(body.at("lab_claim").value("state", std::string()), "expired") << body.dump();
-    EXPECT_EQ(body.at("lab_claim").value("owner", std::string()), "ROLE-4-writer") << body.dump();
+    EXPECT_EQ(body.at("lab_claim").value("owner", std::string()), "owner-writer") << body.dump();
     EXPECT_EQ(body.at("lab_claim").value("expires_at", std::int64_t{0}), lapsedAt)
         << "the expiry is not reported, so a caller cannot tell how long ago it lapsed: "
         << body.dump();
@@ -2621,7 +2621,7 @@ TEST_F(LabClaimOnWriteRepliesTest, TheClaimChangingHandsIsLoggedOncePerChangeAnd
 {
     // The second half of what was measured, and the half option C exists for: another owner took
     // the claim while the writes were in flight, and nothing anywhere said so.
-    writeClaim("owner-a", now() + 600, "round A");
+    writeClaim("owner-a", now() + 600, "first claim");
     ::setenv("NDT_LAB_CLAIM_FILE", m_claim.c_str(), 1);
 
     HttpSessionTestPeer peer;
@@ -2643,7 +2643,7 @@ TEST_F(LabClaimOnWriteRepliesTest, TheClaimChangingHandsIsLoggedOncePerChangeAnd
         << log.text();
 
     // It changes hands.
-    writeClaim("owner-b", now() + 900, "round B");
+    writeClaim("owner-b", now() + 900, "second claim");
     const auto afterHandover = writeReply(peer, "/ndt/install_flow_entry");
     EXPECT_EQ(countLogLines(log.text(), "lab claim changed"), 1u)
         << "the lab changed hands under a write endpoint and the kernel's log does not say so:\n"
@@ -2666,7 +2666,7 @@ TEST_F(LabClaimOnWriteRepliesTest, TheClaimChangingHandsIsLoggedOncePerChangeAnd
     // Expiry, which moves NOTHING in the file: the same owner, the same `expires=`, and only the
     // clock crossing it. A ledger watching owner and expires alone -- which is what "owner or
     // expires differs" means literally -- would never report the failure mode measured first.
-    writeClaim("owner-c", now() + 2, "round C, two seconds long");
+    writeClaim("owner-c", now() + 2, "third claim, two seconds long");
     const auto stillActive = writeReply(peer, "/ndt/install_flow_entry");
     EXPECT_EQ(stillActive.at("lab_claim").value("state", std::string()), "active")
         << stillActive.dump();

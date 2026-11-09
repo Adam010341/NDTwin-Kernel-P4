@@ -1,4 +1,4 @@
-"""Bring-up B, minimal (Cut 2): run B's controller and confirm its eleven attributions.
+"""Bring-up B, minimal: run B's controller and confirm its eleven attributions.
 
 [Co-developed with claude code -- Adam]
 
@@ -18,7 +18,7 @@ package). In order:
      result; wait for it to exit (the teardown stops it if it does not);
   5. confirm each attribution from thrift on s2 and the sniffer (attribution.confirm).
 
-B's own cells (PL2, K3, P4, TP4, CP2) are Cut 4's and are not observed here.
+B's own cells (PL2, K3, P4, TP4, CP2) have `cut` 4 and are not observed here.
 """
 from __future__ import annotations
 

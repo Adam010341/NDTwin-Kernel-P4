@@ -81,8 +81,8 @@ CELLS_MD = textwrap.dedent('''\
 
     | name | tag | requires | source | fix | expected verdict | `old/` fixture |
     |---|---|---|---|---|---|---|
-    | `lab_cell` | ndt | ovs4 | ROLE-X, live | `abc` | `ndt up ovs 4` reaches rc 0 and prints no boom | captured log |
-    | `offline_cell` | ndt | none | F-OFFLINE | `def` | the help no longer says the old sentence | replay |
+    | `lab_cell` | ndt | ovs4 | live | `abc` | `ndt up ovs 4` reaches rc 0 and prints no boom | captured log |
+    | `offline_cell` | ndt | none | offline | `def` | the help no longer says the old sentence | replay |
     ''')
 
 OLD_LAB = ("ASSERT ok   a1_log_present                         up.log present\n"
@@ -161,7 +161,7 @@ class GridServe(base.Serve):
             with open(os.path.join(d, "EXPECTED-FAILS"), "w") as f:
                 f.write(expected)
             with open(os.path.join(d, "PROVENANCE.md"), "w") as f:
-                f.write("a3 fails because ROLE-X kept no up.target: a fixture gap.\n")
+                f.write("a3 fails because the captured run kept no up.target: a fixture gap.\n")
 
     def grid_calls(self, role=None):
         p = os.path.join(self.grid_dir, "grid_calls.jsonl")

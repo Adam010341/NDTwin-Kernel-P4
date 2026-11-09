@@ -1,4 +1,4 @@
-"""S0: everything the health check can establish without the lab. (Cut 1)
+"""S0: everything the health check can establish without the lab.
 
 [Co-developed with claude code -- Adam]
 
@@ -53,7 +53,7 @@ ALT_ONLY_TABLE = "HcIngress.alt_port_stamp"
 ROLE_C = ("owner=ndtwin,table=HcIngress.ipv4_lpm,match_field=hdr.ipv4.dstAddr,"
           "action=HcIngress.ipv4_forward,dst_mac=dstAddr,port=port")
 
-#: What the program must carry (the Q3(b) constructs included) -> how S0 sees it.
+#: What the program must carry (the q3b constructs included) -> how S0 sees it.
 INVENTORY = {
     "match_exact": ("p4info", "match_type: EXACT"), "match_lpm": ("p4info", "match_type: LPM"),
     "match_ternary": ("p4info", "match_type: TERNARY"), "match_range": ("p4info", "match_type: RANGE"),
@@ -340,7 +340,7 @@ class S0(object):
             shutil.rmtree(fwd_ex)
         shutil.copytree(self.ex, fwd_ex, ignore=shutil.ignore_patterns("build", "build-mutant"))
         os.rename(os.path.join(fwd_ex, "build-fwd"), os.path.join(fwd_ex, "build"))
-        # (Cut 2) A with the mutant artefact, for the live see-red run (--only
+        # A with the mutant artefact, for the live see-red run (--only
         # K1,TTL1 must give PROBE-BROKEN by SC-count and SC-ttl). Its p4info is the plain one.
         mut_ex = os.path.join(self.run_dir, "exercise-mutant")
         if os.path.exists(mut_ex):
@@ -435,7 +435,7 @@ class S0(object):
         inputs[in_port].append(F.udp_marker(rm, hm, rip, hip, T.DPORTS["TTL1"], cell="TTL1"))
         inputs[in_port].append(F.udp_marker(rm, hm, rip, hip, T.DPORTS["RC1"], cell="RC1"))
         inputs[in_port].append(F.ipv6_marker(rm, hm, 9, local, cell="HU1"))
-        # program probes (not self-checks): custom headers, punt, clone, multicast, Q3(b)
+        # program probes (not self-checks): custom headers, punt, clone, multicast, q3b
         inputs[in_port].append(F.tunnel_frame(rm, hm, local, rip, hip))
         inputs[in_port].append(F.hcl2_frame(rm, hm, local))
         inputs[in_port].append(F.alt6_frame(rm, hm, local))
@@ -644,7 +644,7 @@ class S0(object):
                    " ".join("%s=%s" % (k, (v["sha16"] or "-")) for k, v in sorted(out.items())))
 
     def vs_trial(self):
-        """VS1's Cut 2 safety question, asked of throwaway simple_switch_grpc."""
+        """VS1's safety question, asked of throwaway simple_switch_grpc."""
         try:
             from . import vs_trial as VT
             # the trial runs gRPC in this process, and the threads gRPC starts must not be
@@ -668,10 +668,10 @@ class S0(object):
                                                    r.get("alive_after_write")) for r in results))
 
     def ctrl_trial(self):
-        """(Cut 2) B's controller and attribution.confirm on throwaway simple_switch_grpc
+        """B's controller and attribution.confirm on throwaway simple_switch_grpc
         switches, stock and fabric build: every attribution confirmed except the RegisterEntry
-        write, which bmv2's P4Runtime refuses ("Register writes are not supported yet", seen in
-        Cut 2) -- R3's bmv2 half therefore cannot be established and R3 reads UNATTRIBUTED."""
+        write, which bmv2's P4Runtime refuses ("Register writes are not supported yet") -- R3's
+        bmv2 half therefore cannot be established and R3 reads UNATTRIBUTED."""
         want_false = {"register"}
         try:
             from . import ctrl_trial as CT
