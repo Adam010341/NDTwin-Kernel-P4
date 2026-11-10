@@ -1044,7 +1044,13 @@ check "  🔴 sim's evidence log is inside the fixture"    "$FIX/.test_run/logs/
       "$(_f9 'app_evidence_log sim')"
 check "  and so is an ordinary app's log"                "$FIX/.test_run/logs/app_nsr.log" \
       "$(_f9 'app_logfile nsr')"
-hasnt "  🔴 and no reading of it names the main checkout" "/home/adam/Desktop/NDTwin-Kernel/.test_run" \
+# [Co-developed with claude code -- Adam] The main checkout is what ndt's own lab_kernel_dir answers
+# with no stub in place (the config's KERNEL_DIR, else ndt's built-in default), read here rather
+# than spelled out, so the needle is the tree an unstubbed reading reaches on the machine the suite
+# runs on. Were that reading empty, the needle would be "/.test_run", which the fixture's own
+# paths contain, so the check goes red rather than empty.
+MAIN_READING="$(bash -c "source '$NDT' >/dev/null 2>&1; lab_kernel_dir" 2>/dev/null)"
+hasnt "  🔴 and no reading of it names the main checkout" "$MAIN_READING/.test_run" \
       "$(_f9 'app_evidence_log sim; echo; app_logfile nsr; echo; lab_kernel_dir')"
 # energy has no channel at all, and that has to stay a different answer from "a path".
 check "  energy still has no evidence log (rc 1)"        "1" \

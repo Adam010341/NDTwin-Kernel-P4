@@ -484,7 +484,7 @@ CONVERTER_BASIC = {
     ],
     "name": "basic",
     "source": {"bmv2_json": "build/basic.json", "controller": None,
-               "exercise_dir": "/home/adam/tutorials/exercises/basic", "kind": "p4lang-tutorials",
+               "exercise_dir": "/home/user/tutorials/exercises/basic", "kind": "p4lang-tutorials",
                "p4": "solution/basic.p4", "p4info": "build/basic.p4.p4info.txtpb",
                "topology_json": "pod-topo/topology.json"},
     "switches": {
@@ -522,7 +522,7 @@ CONVERTER_P4RUNTIME = {
     ],
     "name": "p4runtime",
     "source": {"bmv2_json": "build/advanced_tunnel.json", "controller": "mycontroller.py",
-               "exercise_dir": "/home/adam/tutorials/exercises/p4runtime",
+               "exercise_dir": "/home/user/tutorials/exercises/p4runtime",
                "kind": "p4lang-tutorials", "p4": "advanced_tunnel.p4",
                "p4info": "build/advanced_tunnel.p4.p4info.txtpb",
                "topology_json": "topology.json"},

@@ -244,7 +244,8 @@ EOF
 
 # 🔴 THE CONTROL. Verbatim from the live run that found the rc shift: OVS4, 2026-09-10. `ndt`
 # answered rc 5 and the night's probe recorded a FAIL for it. Nothing was running and nothing
-# was on the network.
+# was on the network. Verbatim apart from the checkout in the `log read:` line, which is a
+# neutral path here; the reader does not look at it.
 mk live_a7 <<'EOF'
   ok  no untracked app processes
 
@@ -263,7 +264,7 @@ network residue (nothing below is deleted)
         against it. NOT 'this app left nothing'. (G-12)
   !!        and its log is NOT empty, so it did run here: the window is LOST,
   !!        not absent. rules it installed cannot be found by this tool.
-        (log read: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_sim.log)
+        (log read: /home/user/NDTwin-Kernel/.test_run/logs/app_sim.log)
     nsr: no pidfile and no live process -- no window, so no rule can be dated
         against it. NOT 'this app left nothing'. (G-12)
         (its log is empty or absent too -- no sign it ever ran here)

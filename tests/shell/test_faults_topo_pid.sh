@@ -433,7 +433,7 @@ RUN_LAYERS="${RUN_LAYERS_UNDER_TEST:-$SUITE_DIR/../../tools/test_workflow/run_la
 PS_SHAPE="bash --norc -is mininet:h1
 bash --norc -is mininet:s3
 awk \$NF ~ /^mininet:/{c++} END{print c+0}
-/usr/bin/python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
+/usr/bin/python3 /home/user/NDTwin-Kernel/testbed_topo.py
 bash -c grep mininet: /tmp/somewhere.log"
 check "two host/switch shells are counted" "2" \
     "$(printf '%s\n' "$PS_SHAPE" | ( source "$STACK_SH" >/dev/null 2>&1; mininet_procs_in ))"

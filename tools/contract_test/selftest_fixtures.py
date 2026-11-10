@@ -271,7 +271,7 @@ OPENFLOW_CAPACITY_SAMPLE = {
                 "tables": [{"id": 0, "max_entries": 65535}]},
     "bmv2": {
         "plane": "bmv2",
-        "source": "/home/adam/p4_src/build/ndtwin_switch.json max_size",
+        "source": "/opt/ndtwin/p4_src/build/ndtwin_switch.json max_size",
         "source_kind": "argv of a running bmv2 switch (pid 4242)",
         "flow_entry_table": "MyIngress.ipv4_lpm",
         "max_entries": 512,

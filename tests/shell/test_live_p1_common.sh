@@ -171,7 +171,7 @@ Installed ingress tunnel rule on s1
 TODO Install transit tunnel rule
 LOG
 cat > "$FIX/log_none.txt" <<'LOG'
-[adapter] running          /home/adam/tutorials/exercises/p4runtime/mycontroller.py
+[adapter] running          /home/user/tutorials/exercises/p4runtime/mycontroller.py
 Traceback (most recent call last):
   grpc._channel._InactiveRpcError: failed to connect
 LOG
