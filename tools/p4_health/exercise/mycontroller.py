@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stand-in for bring-up B's controller (tools/p4_health/controller_ext.py, Cut 2).
+"""Stand-in for bring-up B's controller (tools/p4_health/controller_ext.py).
 
 [Co-developed with claude code -- Adam]
 

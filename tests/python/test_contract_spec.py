@@ -2853,7 +2853,7 @@ class LabClaimOnWriteRepliesTest(unittest.TestCase):
     contract run in silence. The same argument GraphNodePowerPathTest makes for power_path.
     """
 
-    GOOD = {"state": "active", "owner": "ROLE-4", "expires_at": 1757000000, "note": "round A"}
+    GOOD = {"state": "active", "owner": "owner-a", "expires_at": 1757000000, "note": "first claim"}
 
     def test_the_three_states_the_kernel_can_emit_conform(self):
         for state in ("none", "active", "expired"):

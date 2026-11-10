@@ -543,9 +543,10 @@ class FlowLinkUsageCollector
     {
         m_controlPlaneForTesting = std::move(hostAndPort);
     }
-    /// [Co-developed with claude code -- Adam] The bound sFlow socket, -1 when there is none. For a
-    /// test that has to make the receive loop fail on its own; nothing in the kernel reads it.
-    int receiveSocketForTesting() const { return m_sockfd.load(); }
+    /// [Co-developed with claude code -- Adam] Makes the receive loop leave as it does on a socket
+    /// error, on its own thread, at its next pass (within one 100 ms poll). For a test of what
+    /// happens when run() ends by itself; nothing in the kernel calls it.
+    void failReceiveLoopForTesting() { m_failReceiveLoopForTesting.store(true); }
 
     /**
      * @brief Re-pulls the destination paths until they arrive, then keeps them fresh.
@@ -816,6 +817,7 @@ class FlowLinkUsageCollector
     // [Co-developed with claude code -- Adam] The two test seams above; production never sets them.
     uint16_t m_receivePort = SFLOW_PORT;
     std::string m_controlPlaneForTesting;
+    std::atomic<bool> m_failReceiveLoopForTesting{false};
 
     // [Co-developed with claude code -- Adam]
     // What stop() requests before it joins anything: it wakes the periodic threads' sleeps and kills

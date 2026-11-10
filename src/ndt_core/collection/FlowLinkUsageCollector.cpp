@@ -781,6 +781,13 @@ FlowLinkUsageCollector::run(size_t numWorkers, size_t queueCapacity)
     const int POLL_TIMEOUT_MS = 100;
     while (m_running.load())
     {
+        // [Co-developed with claude code -- Adam] Test seam (failReceiveLoopForTesting): leave the
+        // way a socket error does. Never set in the kernel.
+        if (m_failReceiveLoopForTesting.load(std::memory_order_relaxed))
+        {
+            SPDLOG_LOGGER_ERROR(Logger::instance(), "receive loop told to fail by a test");
+            break;
+        }
         int ret = poll(&pfd, 1, POLL_TIMEOUT_MS);
         if (ret < 0)
         {
@@ -2737,7 +2744,7 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter fil
     // call to getFlowInfoJson(), which opens with the same acquisition. Recursively acquiring a
     // std::shared_mutex is undefined behaviour -- [thread.sharedmutex.requirements] says a
     // thread must not own the mutex when it calls lock_shared -- and five writers take
-    // unique_lock on this same mutex (:1443 :1779 :2066 :2233 :2893).
+    // unique_lock on this same mutex (:1450 :1786 :2073 :2240 :2900).
     //
     // It never bit, and the reason it never bit is an implementation detail of this machine's C++
     // library rather than anything the code arranged: glibc's pthread_rwlock defaults to
@@ -2765,7 +2772,7 @@ FlowLinkUsageCollector::getTopKFlowInfoJson(int k, sflow::FlowLivenessFilter fil
     // whatever survives a predicate applied to an arbitrary prefix.
     //
     // 🔴 Not because dead flows outrank live ones. They do not: their sort key
-    // (estimated_packet_rate_in_the_proceeding_1sec_timeslot) is cleared to 0 at :1868 whenever no
+    // (estimated_packet_rate_in_the_proceeding_1sec_timeslot) is cleared to 0 at :1875 whenever no
     // hop reported traffic, and 3040 measured observations on two arms found zero dead-and-nonzero
     // rows. The measured harm is that they FILL the list from the bottom -- median 4 of the top 10
     // rows were ended flows -- because at the churn working point fewer than ten flows are alive.
@@ -3422,7 +3429,7 @@ FlowLinkUsageCollector::calFlowPathByQueried()
         //
         // WHAT THE 1 kHz WAS BUYING, written down before the wait was touched: exactly one
         // thing, a 1 ms freshness bound on the API's `path` field. flowPath has a single reader
-        // in the whole repo (getFlowInfoJson, :2217) and one writer (:2833); tests/, tools/ and
+        // in the whole repo (getFlowInfoJson, :2224) and one writer (:2840); tests/, tools/ and
         // p4_proxy/ have none. At 1 Hz the bound becomes 1 s.
         //
         // THE RISK IS NOT PERFORMANCE, IT IS SHORT FLOWS. Between a flow appearing and the next

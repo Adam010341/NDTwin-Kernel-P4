@@ -3,11 +3,11 @@
 [Co-developed with claude code -- Adam]
 
 The oracle: `table_dump`, `show_tables`, `counter_read`, `register_read`,
-`meter_get_rates`, `mc_dump`, `mirroring_get`, `show_ports` -- plus, for the Q3(b) cells,
-`act_prof_dump` and `pvs_get`. Nothing here writes: `check_read_only` admits a command only
-when its first word is one of READ_COMMANDS and it is a single line (a newline would hand the
-CLI a second command on its stdin). The only thrift writes in tools/p4_health go to throwaway
-switches the probe started itself (throwaway.py); a fabric switch is only ever read.
+`meter_get_rates`, `mc_dump`, `mirroring_get`, `show_ports` -- plus, for the cells of the six
+categories outside the 16 dimensions (scope q3b), `act_prof_dump` and `pvs_get`. Nothing here
+writes: `check_read_only` admits a command only when its first word is one of READ_COMMANDS and it
+is a single line (a newline would hand the CLI a second command on its stdin). The only thrift
+writes in tools/p4_health go to throwaway switches the probe started itself (throwaway.py); a fabric switch is only ever read.
 
 🔴 UNREADABLE IS None, AND IS NEVER "PRESENT". Every parser returns None for output it does not
 recognise -- a switch that is not there ("Could not connect"), a name the switch does not have

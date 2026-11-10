@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""B's controller against a throwaway simple_switch_grpc: the eleven attributions, offline. (Cut 2)
+"""B's controller against a throwaway simple_switch_grpc: the eleven attributions, offline.
 
 [Co-developed with claude code -- Adam]
 

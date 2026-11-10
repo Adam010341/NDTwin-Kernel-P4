@@ -3,8 +3,7 @@
 [Co-developed with claude code -- Adam]
 
 The cells, controls, self-checks and rule D's edges of the health check as designed, plus the
-rows marked q3b: the six categories outside the 16 dimensions and the varbit cell, added and
-then reworked in Cut 1.
+rows marked q3b: the six categories outside the 16 dimensions and the varbit cell.
 
 Predictions are NOT here. They live in doc/audit/2026-10-03_p4-health-check/expected_today.tsv,
 committed before any live run, and are read from that file (expected.py) -- a prediction this
@@ -65,8 +64,9 @@ HR_FRAMES = 24000
 HR_FRAME_BYTES = 64
 HR_RATE_KBIT = 800
 #: The order the active cells of bring-up A run in where it matters: (earlier, later).
-#: NOTHING CONSUMES THIS YET. No scheduler for the active cells exists in Cut 1; the Cut 3
-#: scheduler must read it, and the one test that touches it checks only the constant. A run order
+#: NOTHING CONSUMES THIS YET. No code reads it: round_a.py, which runs the active cells that have an
+#: observer, does not, and the scheduler that will run TP2, HR1, HR2 and Q1 (cells whose `cut` is 3) must
+#: read it. The one test that touches it checks only the constant. A run order
 #: that is written down here and enforced nowhere is a promise, not a fact -- do not read the
 #: table as saying the order is kept.
 ORDER = (("TP2", "HR1"), ("TP2", "HR2"), ("HR1", "Q1"), ("HR2", "Q1"), ("TP2", "Q1"))
@@ -80,10 +80,11 @@ CARRY_SHARE = 0.2
 UPLINKS = ("s1-eth4", "s1-eth5")
 #: HR1 sends all of HR_RATE_KBIT on ONE uplink, and HR_RATE_KBIT is above SHAPED_KBIT: its
 #: 5-tuple must hash to the UNSHAPED uplink, or the shaper, not the program, decides how many
-#: frames arrive. The Cut 3 stimulus picks a tuple that hashes there (S0 already finds tuples for
-#: both uplinks); hr_pre(1) makes a wrong pick NOT RUN instead of a verdict.
+#: frames arrive. The stimulus for HR1 (the cell has no observer yet) must pick a tuple that hashes
+#: there (S0 already finds tuples for both uplinks); hr_pre(1) makes a wrong pick NOT RUN instead
+#: of a verdict.
 HR1_UPLINK = [u for u in UPLINKS if u not in SHAPED_IFACES][0]
-#: HU1: the side table holds at most 1024 keys (FlowLinkUsageCollector.hpp:759-766); a window
+#: HU1: the side table holds at most 1024 keys (FlowLinkUsageCollector.hpp:760-767); a window
 #: that starts this close to the cap could lose its row to the cap, not to NDTwin.
 SIDE_TABLE_ROOM = 1000
 DPIDS = ("1", "2", "3", "4")
@@ -96,6 +97,9 @@ Q3B_DIMENSIONS = ("action_profile", "idle_timeout", "value_set", "recirculate", 
 
 
 class Cell(object):
+    # `cut` is the build stage of the cell's observer: 1 = S0's own (PF-T), 2 = observed by round_a.py,
+    # 3 and later = observed by no round yet, so a lab run judges the cell NOT RUN (recorded
+    # observations are judged normally).
     def __init__(self, id, dimension, scope, kind, bringup, cut, compare=None, cannot=None,
                  gates=(), self_checks=(), controls=(), red_attribution=("structural",),
                  negative_read=False, needs_oracle=True, needs_answer=True, need=(),
@@ -576,7 +580,7 @@ def delivered(obs):
 
 
 def p4(obs):
-    """Decided in Cut 1: the controller receiving its packet-in is PARTIAL(b) -- the exercise's own
+    """The controller receiving its packet-in is PARTIAL(b) -- the exercise's own
     controller did NDTwin's half of packet_io. Nothing arriving is RED, attributed ("bmv2" here
     means: B's controller is primary and its own writes take, so the silence is not the
     controller's) only then."""
@@ -924,7 +928,7 @@ def sc_count(obs):
     """The zero-loss form: thrift's delta must equal what was sent, and only
     when the receiver got every marker. With loss on the path the switch may have seen fewer, so
     neither equal nor unequal says anything about the program: not decided (NOT RUN).
-    (The netdev form was dropped in Cut 1: an interface counter includes the
+    (There is no netdev form: an interface counter includes the
     heartbeat's frames and cannot equal a marker count.)"""
     delta = obs.get("thrift_delta")
     sent, got = obs.get("sent"), obs.get("received")
@@ -1011,7 +1015,7 @@ NEG = dict(negative_read=True)
 #: samples 0) -- NEVER None and never a missing key. None or a missing key is "not read": step 4b
 #: turns it into NOT RUN, and (verdict.has) the identity cells' G1 and flow_identity fields count
 #: as missing too. An observer that encodes "looked, nothing there" as None therefore turns the
-#: RED a broken emitter owes into NOT RUN. Cut 2-4 observers must be written to this rule.
+#: RED a broken emitter owes into NOT RUN. Every observer of these cells must be written to this rule.
 IDENT = dict(needs_oracle=False, min_sent=IDENTITY_MIN_SENT)
 BM = ("structural", "bmv2")
 
@@ -1132,7 +1136,7 @@ CELLS = [
     Cell("V1", "verification", "core", "active", "A", 3, identity_cell(None), need=("a:g1",), **IDENT),
     Cell("V2", "verification", "core", "active", "A", 3, v2, needs_oracle=False,
          need=("a:bytes_match", "a:flow_identity")),
-    # Q3(b): the six categories outside the 16 dimensions
+    # the six categories outside the 16 dimensions (q3b)
     Cell("AP1", "action_profile", "ext", "active", "A", 3, cannot=no_route("action-profile member"),
          red_attribution=BM, q3b=True,
          **wtr("AP1", "the action-profile write", ("present_after", "points_to_member"), **NEG)),

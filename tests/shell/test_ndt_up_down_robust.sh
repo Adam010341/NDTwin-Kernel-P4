@@ -715,7 +715,7 @@ reset_fix
 DM="$FIX/.test_run/down.inflight"
 
 # A live teardown: this test's own shell is the pid, so it is certainly alive.
-printf 'pid=%s\nat=2026-09-11T01:26:11+0800\nby=role-2\n' "$$" > "$DM"
+printf 'pid=%s\nat=2026-09-11T01:26:11+0800\nby=owner-a\n' "$$" > "$DM"
 OUT="$(drive 'preflight p4')"
 check "  🔴 P4 preflight refuses while a teardown runs"  "5" "$(rc_of_out "$OUT")"
 has   "  and says what it is refusing"                   "an 'ndt down' from this checkout is still running" "$OUT"
@@ -1018,7 +1018,7 @@ section '14. the teardown marker has an OWNER'
 reset_fix; rm -f "$DM"
 
 # A live teardown that is not this one: the test's own shell, which is certainly alive.
-printf 'pid=%s\nat=2026-09-12T02:07:18+0800\nby=role-12-D1\n' "$$" > "$DM"
+printf 'pid=%s\nat=2026-09-12T02:07:18+0800\nby=other-owner\n' "$$" > "$DM"
 OUT="$(drive 'cmd_down')"
 check "🔴 a second 'ndt down' is refused while one is still running" "5" "$(rc_of_out "$OUT")"
 has   "  naming what it is refusing on"       "an 'ndt down' from this checkout is still running" "$OUT"
@@ -1055,7 +1055,7 @@ check "  and the marker is gone when it finishes" "absent" \
 # never reaches it -- and the second line of a guard is exactly the one that must not depend on
 # the first line holding. It was this `rm -f` that removed the marker of a LIVE teardown.
 reset_fix; rm -f "$DM"
-printf 'pid=%s\nat=2026-09-12T02:07:18+0800\nby=role-12-D1\n' "$$" > "$DM"
+printf 'pid=%s\nat=2026-09-12T02:07:18+0800\nby=other-owner\n' "$$" > "$DM"
 OUT="$(drive 'mark_teardown_end')"
 check "🔴 mark_teardown_end does not remove a marker that is not its own" "present" \
       "$([[ -f "$DM" ]] && echo present || echo absent)"
@@ -1203,7 +1203,7 @@ section "16. 'ndt clean' refuses while a teardown is in flight"
 # operator's processes, arriving through a different door: H3's guard lives in `preflight`, and
 # `preflight` is walked by `ndt up` and by nothing else.
 reset_fix; rm -f "$DM"
-printf 'pid=%s\nat=2026-09-12T02:08:17+0800\nby=role-12-D1\n' "$$" > "$DM"
+printf 'pid=%s\nat=2026-09-12T02:08:17+0800\nby=other-owner\n' "$$" > "$DM"
 # 🔴 The two held ports are the fixture half that makes the two `hasnt` cells below mean
 # something: without residue there is no `--deep` line to suppress, and the cells would pass
 # against a product with no guard at all. 2460143/2459746 are the pids of the 2026-09-12 live run.
@@ -1314,7 +1314,7 @@ has   "  and the stranger still gets --deep"        "to kill it too:  ndt down -
 has   "  which names the port it is about"          "held by nothing this stack registered: :8080" "$OUT"
 
 # ==========================================================================================
-section "18. ROLE-9: a REFUSED 'ndt up p4 <n>' leaves the P4 host knob exactly as it found it"
+section "18. a REFUSED 'ndt up p4 <n>' leaves the P4 host knob exactly as it found it"
 # ==========================================================================================
 # Measured on 2026-09-12, twice and in both directions (cell 4b at 04:14:52 and cell
 # 4c at 04:17:57). `ndt up p4 <n>` wrote <n> into
@@ -1811,10 +1811,10 @@ has   "  and --force is still the way past it"        "ndt down --force" "$OUT"
 check "  🔴 and nothing was swept"                    "absent" \
       "$(grep -qF cleanup "$FIX/sudo.log" && echo present || echo absent)"
 reset_fix; rm -f "$DM"
-OUT="$(drive 'measuring_declared() { echo "ROLE-4 reader nsr, do not tear down"; }
+OUT="$(drive 'measuring_declared() { echo "reader nsr, do not tear down"; }
 cmd_down')"
 check "🔴 a DECLARED measurement refuses with 5"      "5" "$(rc_of_out "$OUT")"
-has   "  quoting the declaration it is protecting"    "ROLE-4 reader nsr" "$OUT"
+has   "  quoting the declaration it is protecting"    "reader nsr" "$OUT"
 reset_fix; rm -f "$DM"
 OUT="$(drive 'in_flight() { echo "iperf3 -c 10.0.0.33 -t 200"; }
 cmd_down')"

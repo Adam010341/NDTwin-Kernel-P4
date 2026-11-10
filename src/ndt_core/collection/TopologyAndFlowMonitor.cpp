@@ -546,7 +546,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         // sixteen `ip.front()` sites so an addressless node cannot crash the process; the
         // inventory then found seven MORE unguarded dereferences written as `ip[0]`, five of
         // them on the HOST side and production-reachable (IntentTranslator.cpp:665,:702,
-        // LLMAgent.cpp:243, FlowLinkUsageCollector.cpp:2960,:2961), and left them unfixed. So the
+        // LLMAgent.cpp:243, FlowLinkUsageCollector.cpp:2967,:2968), and left them unfixed. So the
         // invariant those five assume is true only if the file never declares such a host: this
         // check is what makes it true, and the runtime guards stay as the layer that survives a bug here.
         //

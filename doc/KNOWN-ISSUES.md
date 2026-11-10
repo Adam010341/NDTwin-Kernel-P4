@@ -201,12 +201,12 @@ overwritten with 0.
 
 **When.** Only in TESTBED mode (real switches), and only for a switch that sends interface speed 0.
 In MININET mode, which is how `ndt up` always starts the kernel, counter samples are discarded before the
-division (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1296-1301`), so no `ndt up` lab can hit it.
+division (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1303-1308`), so no `ndt up` lab can hit it.
 This was found by reading the code and has not been reproduced.
 
 **Why.** The counter-sample handler divides by the reported speed and stores it as the link bandwidth
 without a zero check (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:3245-3258`; the sample is
-passed through unchecked at `src/ndt_core/collection/FlowLinkUsageCollector.cpp:1311-1358`). A topology
+passed through unchecked at `src/ndt_core/collection/FlowLinkUsageCollector.cpp:1318-1365`). A topology
 file that declares a zero bandwidth is refused at load, but a switch can still report one
 (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:277-279`).
 
@@ -252,13 +252,13 @@ has the same convention.
 starts or on an edge nobody samples.
 
 **Why.** Deliberate sentinel: `-1.0` means "never", not "a long time ago"
-(`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1994-1998`, serialised as is at
+(`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2001-2005`, serialised as is at
 `src/ndt_core/http/HttpSession.cpp:1565-1567`). The contract does not bound the value from below.
 
 **What to do.** Treat a negative value as "never sampled" before doing arithmetic on it. Do not use
 `telemetry_status` instead: it is decided per switch, so an edge that was never sampled on a switch that
 is sampling other ports reads `idle` with -1.0, and `unknown` means only that the whole switch has never
-reported (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1998`, `:2001-2007`, `:2016-2023`).
+reported (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2005`, `:2008-2014`, `:2023-2030`).
 
 ### C-9 A link whose telemetry went silent reports usage 0, the same as an idle link
 
@@ -267,7 +267,7 @@ reported (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1998`, `:2001-2007
 no traffic. `telemetry_status` is `silent` then, but `silent` is not a fault test: it means that no
 sample has arrived from that switch on any port within the window, and a switch that is idle on every
 port looks the same. Agents report only for the flows they sample, and MININET mode discards counter
-samples (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1585-1587`, `:1296-1301`); the code
+samples (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1592-1594`, `:1303-1308`); the code
 documents the false positive as deliberate (`include/ndt_core/collection/FlowLinkUsageCollector.hpp:284-287`).
 
 **When.** After traffic stops and the sampling agent goes quiet (the window is 5 seconds,
@@ -276,7 +276,7 @@ graph.
 
 **Why.** The usage fields are always numeric (`src/ndt_core/http/HttpSession.cpp:1581-1582`); the
 silence is carried only by `telemetry_status` (`:1563-1564`;
-`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2000-2020`).
+`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2007-2027`).
 
 **What to do.** Read `silent` as "cannot tell": it covers a broken telemetry path and a switch with
 nothing to report alike. A consumer that acts on low usage (a power-saving decision, a top-k list, a
@@ -554,7 +554,7 @@ mistake for defects.
 
 Link usage comes from 1-in-256 packet sampling, and each sampled packet is credited with
 its length times the sampling rate (256 by default; it can be changed, see the user guide's section 4.6)
-(`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1532`, `:1549`, `:1560`, `:1569`, `:1581`). A link with
+(`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1539`, `:1556`, `:1567`, `:1576`, `:1588`). A link with
 little traffic (roughly under 3 Mbit/s with 1,400-byte frames) therefore shows a reading that is a whole
 multiple of one sample's worth rather than a smooth value. A link that carries traffic was not seen
 reading 0 for this reason.

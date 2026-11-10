@@ -1142,7 +1142,7 @@ def inv_no_silent_telemetry(data, ctx):
     pins them.
 
     The raw ages travel alongside the label in the response for the reason the rate-divisor
-    gate logs two numbers instead of a verdict (FlowLinkUsageCollector.cpp:1967-1976): a label
+    gate logs two numbers instead of a verdict (FlowLinkUsageCollector.cpp:1974-1983): a label
     is the code grading its own homework, and a reader who cannot see the inputs cannot tell a
     passing check from a check that never ran.
     """

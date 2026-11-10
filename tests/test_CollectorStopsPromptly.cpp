@@ -58,7 +58,6 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
-#include <fcntl.h>
 #include <filesystem>
 #include <memory>
 #include <netinet/in.h>
@@ -202,7 +201,7 @@ class PromptCollector : public sflow::FlowLinkUsageCollector
         setReceivePortForTesting(0);
     }
 
-    using sflow::FlowLinkUsageCollector::receiveSocketForTesting;
+    using sflow::FlowLinkUsageCollector::failReceiveLoopForTesting;
     using sflow::FlowLinkUsageCollector::setControlPlaneForTesting;
 };
 
@@ -600,25 +599,28 @@ TEST_F(CollectorStopsPromptlyTest, AStoppedCollectorStartedAgainWorksAndStopsWit
 // [Co-developed with claude code -- Adam]
 // The receive loop also ends on its own, on a socket error. The collector has then stopped
 // collecting, and its periodic threads must end with it rather than at their next wake -- the
-// destination-path refresh sleeps 60 s once it has paths. The socket is replaced with /dev/null,
-// so the loop's next poll returns at once and recvmmsg() fails (ENOTSOCK), as on a real error.
+// destination-path refresh sleeps 60 s once it has paths. The seam makes the loop take that exit
+// on its own thread. (An earlier version dup2()ed /dev/null over the socket from this thread; the
+// loop's close() of that descriptor was then ordered after the dup2 only through the kernel, which
+// ThreadSanitizer rightly reports as a race on the descriptor.)
 TEST_F(CollectorStopsPromptlyTest, AReceiveLoopThatFailsOnItsOwnTakesThePeriodicThreadsWithIt)
 {
     auto collector = makeCollector();
     // Paths already known, so the refresh thread sleeps its long interval, not the 5 s retry.
     collector->setAllPaths({sflow::Path{{0x0100000Au, 0u}, {1u, 1u}, {0x0200000Au, 0u}}});
 
+    // [Co-developed with claude code -- Adam]
+    // One thread started and joined first, so that anything a runtime starts on the process's first
+    // pthread_create is already in the baseline. ThreadSanitizer starts a background thread there;
+    // run as the only case in its process (one process per case under ctest), this test otherwise
+    // counted that thread as a collector thread that never ended.
+    std::thread([] {}).join();
     const std::size_t before = threadCount();
     collector->start(2, 64);
     std::this_thread::sleep_for(200ms);
     ASSERT_GT(threadCount(), before) << "start() started no thread this test can count";
 
-    const int fd = collector->receiveSocketForTesting();
-    ASSERT_GE(fd, 0) << "the collector has no receive socket";
-    const int devNull = ::open("/dev/null", O_RDONLY | O_CLOEXEC);
-    ASSERT_GE(devNull, 0);
-    ASSERT_GE(::dup2(devNull, fd), 0);
-    ::close(devNull);
+    collector->failReceiveLoopForTesting();
 
     const auto failedAt = Clock::now();
     while (threadCount() > before && Clock::now() - failedAt < 5s)

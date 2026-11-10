@@ -1,4 +1,4 @@
-"""One lab run of the health check: S0's packages -> bring-up A -> bring-up B -> verdicts. (Cut 2)
+"""One lab run of the health check: S0's packages -> bring-up A -> bring-up B -> verdicts.
 
 [Co-developed with claude code -- Adam]
 

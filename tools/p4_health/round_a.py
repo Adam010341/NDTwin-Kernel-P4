@@ -1,4 +1,4 @@
-"""Bring-up A's cells in one LabRound body: static first, then active. (Cut 2)
+"""Bring-up A's cells in one LabRound body: static first, then active.
 
 [Co-developed with claude code -- Adam]
 
@@ -11,12 +11,12 @@ order is A, then B).
 `only` (`--only`) narrows the round to the named cells plus everything they depend on:
 their controls, their gate cells, the self-checks they need and the cells that produce those
 self-checks' readings -- so `--only K1,TTL1` on the mutant artefact runs PL1, T1, TP1, the marker
-pingall, K1-neg, K1 and TTL1 (Cut 2's see-red run).
+pingall, K1-neg, K1 and TTL1 (the see-red run).
 
-Bring-up A's Cut 2 cells: PL1 T1 T2 T3 T4 T5 T6 T7 T8 M1 M2 C1 C2 K1 K2 MT1 MT2 MT3 R2 R3 D1 P1
-P2 P3 CS1 TTL1 TP1 (CP1 is T1's alias), VS1 (Q3(b); AP1, AS1 and IT1 are cut 3), the controls
-K1-neg and T3-neg, and the self-checks
-SC-fwd SC-count SC-reg SC-ttl. Cut 3-5 cells are not observed here; they judge NOT RUN.
+Bring-up A's cells with `cut` 2: PL1 T1 T2 T3 T4 T5 T6 T7 T8 M1 M2 C1 C2 K1 K2 MT1 MT2 MT3 R2 R3 D1 P1
+P2 P3 CS1 TTL1 TP1 (CP1 is T1's alias), VS1 (a q3b cell; AP1, AS1 and IT1 have `cut` 3); with them, the controls
+K1-neg and T3-neg and the self-checks
+SC-fwd SC-count SC-reg SC-ttl (controls and self-checks have no `cut`). Cells with `cut` 3 or more are not observed here; they judge NOT RUN.
 """
 from __future__ import annotations
 

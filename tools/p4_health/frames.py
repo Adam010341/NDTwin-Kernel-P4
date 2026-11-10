@@ -5,7 +5,7 @@
 The marker: every active stimulus carries the sender's MAC, the cell's own UDP
 dport (40001-40099), and a payload that starts b"NDTHC" + run id + cell id + sequence number.
 S0's offline self-checks run the program on a throwaway bmv2 in pcap mode, and the live sender
-and sniffer (hostside.py, Cut 2, inside a host's namespace) use this same module rather than
+and sniffer (hostside.py, inside a host's namespace) use this same module rather than
 scapy, so the live markers are byte-identical to the offline ones by construction --
 test_p4_health_cells pins the layout.
 """
