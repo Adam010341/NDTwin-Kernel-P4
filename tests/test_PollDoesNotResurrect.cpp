@@ -61,6 +61,7 @@
  * while the suite runs. The concurrency is real; the outcome is not left to it.
  */
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -73,6 +74,7 @@
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <unistd.h> // getpid, for the per-process fixture path
@@ -1458,4 +1460,124 @@ TEST_F(DeclaredLinkFailureTest, ThePollStillPointsAReportedFailureAtTheNotificat
            "endpoint would work, and it would also spend a report the control plane is entitled "
            "to pair with -- and the advice would be wrong on the one axis this fix is about:\n"
         << logged;
+}
+
+// =================================================================================================
+// The note and the declaration are one write
+//
+// [Co-developed with claude code -- Adam]
+//
+// setEdgeDownByInjection and setEdgeDownByReportedFailure each write a note (`injected`,
+// `failureReported`) and the declaration. They used to take the graph lock twice, once for the
+// note and once for the declaration, so another writer could run in between. An
+// /ndt/inject_link_recovery that landed there cleared the note, and the declaration was then made
+// without it: a plain declaration, which a recovery report answers with the wrong reason.
+//
+// That interleaving cannot be scheduled from a test without a seam inside the writer, and such a
+// seam would only exist in the version that has the gap. What a test can see is the gap itself. A
+// reader holding the same lock in shared mode, as every reader in the kernel does, sees the note
+// without the declaration whenever it gets the lock between the two halves. glibc gives the lock
+// to a reader that queued while a writer held it before that writer can take it again, so a reader
+// sampling in a loop lands in the gap often. With one critical section there is no gap and the
+// count below is zero by construction.
+// =================================================================================================
+
+namespace
+{
+
+struct GapSamples
+{
+    long reads = 0;
+    long noteWithoutDeclaration = 0;
+};
+
+/// Runs `write` and then clearEdgeDeclaredDown on @p e @p rounds times, while a second thread
+/// reads (`note`, `declaredDown`) of @p e under a shared lock as fast as it can. Counts the reads
+/// that found the note standing with no declaration.
+GapSamples
+sampleBetweenNoteAndDeclaration(Graph& graph,
+                                std::shared_mutex& mutex,
+                                TopologyAndFlowMonitor& monitor,
+                                Graph::edge_descriptor e,
+                                bool EdgeProperties::*note,
+                                void (TopologyAndFlowMonitor::*write)(Graph::edge_descriptor),
+                                int rounds)
+{
+    std::atomic<bool> done{false};
+    GapSamples seen;
+    std::thread reader(
+        [&]
+        {
+            while (!done.load(std::memory_order_acquire))
+            {
+                std::shared_lock lock(mutex);
+                const auto& ep = graph[e];
+                ++seen.reads;
+                if (ep.*note && !ep.declaredDown)
+                {
+                    ++seen.noteWithoutDeclaration;
+                }
+            }
+        });
+    for (int i = 0; i < rounds; ++i)
+    {
+        (monitor.*write)(e);
+        monitor.clearEdgeDeclaredDown(e);
+    }
+    done.store(true, std::memory_order_release);
+    reader.join();
+    return seen;
+}
+
+constexpr int kGapRounds = 20000;
+
+} // namespace
+
+/**
+ * 🔴 The injection writer. A reader never finds `injected` without the declaration, because no
+ * other writer can either.
+ */
+TEST_F(DeclaredLinkFailureTest, AnInjectionWritesItsNoteAndTheDeclarationUnderOneLock)
+{
+    const auto seen = sampleBetweenNoteAndDeclaration(*m_graph,
+                                                      *m_mutex,
+                                                      *m_monitor,
+                                                      fwd(),
+                                                      &EdgeProperties::injected,
+                                                      &TopologyAndFlowMonitor::setEdgeDownByInjection,
+                                                      kGapRounds);
+
+    ASSERT_GT(seen.reads, 0) << "the reader never took the lock, so this case read nothing";
+    EXPECT_EQ(seen.noteWithoutDeclaration, 0)
+        << seen.noteWithoutDeclaration << " of " << seen.reads
+        << " reads found the edge injected and not declared down. The note and the declaration are "
+           "written under two locks, and an /ndt/inject_link_recovery in that gap leaves a "
+           "declaration with no injection note";
+    EXPECT_FALSE(m_monitor->getEdgeInjected(fwd()));
+    EXPECT_FALSE(m_monitor->getEdgeDeclaredDown(fwd()));
+}
+
+/**
+ * The notification writer, which had the same gap: an /ndt/inject_link_recovery in it leaves a
+ * declaration with no report, which its own recovery report then declines.
+ */
+TEST_F(DeclaredLinkFailureTest, AReportedFailureWritesItsNoteAndTheDeclarationUnderOneLock)
+{
+    const auto seen =
+        sampleBetweenNoteAndDeclaration(*m_graph,
+                                        *m_mutex,
+                                        *m_monitor,
+                                        fwd(),
+                                        &EdgeProperties::failureReported,
+                                        &TopologyAndFlowMonitor::setEdgeDownByReportedFailure,
+                                        kGapRounds);
+
+    ASSERT_GT(seen.reads, 0) << "the reader never took the lock, so this case read nothing";
+    EXPECT_EQ(seen.noteWithoutDeclaration, 0)
+        << seen.noteWithoutDeclaration << " of " << seen.reads
+        << " reads found a failure report with no declaration. The note and the declaration are "
+           "written under two locks, and an /ndt/inject_link_recovery in that gap leaves a "
+           "declaration that its own recovery report declines";
+    EXPECT_FALSE(m_monitor->getEdgeFailureReported(fwd()));
+    EXPECT_FALSE(m_monitor->getEdgeDeclaredDown(fwd()));
 }
