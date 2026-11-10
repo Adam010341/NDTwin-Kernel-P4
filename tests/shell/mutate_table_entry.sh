@@ -35,7 +35,7 @@
 # the tree, and it expires when the tree changes. M-B18 caught this class of rot once already
 # by SURVIVING after its anchor moved out from under it.
 #
-# 🔴 THE TERNARY WRITER (Cut A) MOVED THE SUBJECT. `encode_value`, the exception types and every
+# 🔴 THE TERNARY WRITER MOVED THE SUBJECT. `encode_value`, the exception types and every
 # shape rule (arity, encoding, value & ~mask, low <= high, the second spelling of don't-care, an
 # omitted exact field, lpm host bits, the priority) now live in proxy_agent/match_shape.py, which
 # the pre-flight runs as well. So the anchors M-B1, M-B5, M-B16, M-B40 and M-B41 point at that
@@ -43,9 +43,9 @@
 # refused with 501" -- is gone; what replaces it is "a ternary or range match is built as what
 # the p4info says it is", and the 501 that is left is UNSPECIFIED, guarded by M-J21), and the
 # M-S / M-J7 / M-J8 / M-J9 / M-J21 / M-J24 block before the controls is the new shape rules, one
-# or two mutations per rule. The table-entry journal's mutations are in mutate_table_journal.sh
-# (Cut B and C). M-B7 stays; M-B14 and M-B20, which guarded "nothing claims an entry survives a
-# proxy restart", were retired by Cut C, the change that replays the journal (see where they were).
+# or two mutations per rule. The table-entry journal's mutations are in mutate_table_journal.sh.
+# M-B7 stays; M-B14 and M-B20, which guarded "nothing claims an entry survives a
+# proxy restart", were retired when the proxy began replaying the journal (see where they were).
 #
 # Usage:  tests/shell/mutate_table_entry.sh
 #         PROXY_PY=/path/to/python tests/shell/mutate_table_entry.sh
@@ -504,7 +504,7 @@ m=$(mutant b7 "$ROUTES" \
 report "M-B7: switch_state stops saying what was written to each switch" "$m" \
        "test_every_switch_reports_what_was_written_and_whether_it_is_journaled"
 
-# M-B14 and M-B20 are retired here (Cut C): the journal is replayed, so a recorded entry DOES survive a
+# M-B14 and M-B20 are retired here: the journal is replayed, so a recorded entry DOES survive a
 # restart and `journaled: true` is the truth this gate's suites cannot tell apart from the mutants. What
 # they guarded -- no claim for a record that was lost -- is M-B14b and M-B20b in mutate_table_journal.sh,
 # killed there by a journal that cannot be written. [Co-developed with claude code -- Adam]
@@ -719,16 +719,16 @@ m=$(mutant b35 "$CLIENT" \
 report "M-B35: a table entry carries no election id, so the switch answers PERMISSION_DENIED" "$m" \
        "test_an_insert_is_an_insert_addressed_to_this_device_with_this_election_id"
 
-# --- the ternary writer's shape rules (Cut A), one mutation per rule --------------------------
+# --- the ternary writer's shape rules, one mutation per rule --------------------------
 #
 # [Co-developed with claude code -- Adam]
 # Every rule in proxy_agent/match_shape.py repeats a refusal bmv2 makes itself, which is exactly
 # why it is easy to lose: take the check away and the request still gets refused, one hop later,
 # as a 502 UNKNOWN, and nothing in a happy-path suite notices. Each mutation below deletes or
 # bends ONE rule and names the single test that has to notice. M-J7, M-J8, M-J9, M-J21 and
-# M-J24 carry the numbers DESIGN.md 6.3 gave them (a letter after a number is that mutation's
-# variant); the rest are M-S<rule>, "S" for shape, so they cannot be mistaken for the journal's
-# M-J1..M-J6 and M-J10..M-J29, which belong to a later cut.
+# M-J24 are in the M-J series but not in mutate_table_journal.sh (a letter after a number is that
+# mutation's variant); the rest are M-S<rule>, "S" for shape, so they cannot be mistaken for the
+# journal gate's own M-J mutations.
 #
 # V7 (the owner check) is not here: it has its own gate, tests/shell/mutate_table_entry_owner.sh.
 
@@ -964,7 +964,7 @@ m=$(mutant j6h "$SHAPE" \
 report "M-S6h: a priority that is not an integer reaches the comparison (a TypeError, a 500)" "$m" \
        "test_a_priority_that_is_not_an_integer_is_refused"
 
-# The read side (M-J9 is the design's: an optional match is not read back).
+# The read side (M-J9: an optional match is not read back).
 m=$(mutant j10 "$CLIENT" \
     '            elif m.HasField("optional"):' \
     '            elif False:')

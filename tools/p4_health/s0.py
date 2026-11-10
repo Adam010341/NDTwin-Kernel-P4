@@ -156,7 +156,7 @@ def pft_entries(pkg):
 def classify_pft(stdout, wheres):
     """(FAIL lines that refuse PF-T's ternary entry, refusals of anything else) in pre-flight's table.
 
-    (Cut A + D) The ternary writer took the "G5 not done" sentence out of pre-flight, so a refusal is no longer
+    The ternary writer took the "G5 not done" sentence out of pre-flight, so a refusal is no longer
     known by its words: it is any FAIL line -- a labelled row or a continuation under it -- that names the ternary
     entry where pre-flight names it (`wheres`, from pft_entries: every problem of an entry is written
     "<where>: ..."). Everything else refused counts as other: a labelled FAIL row that is not "entries match
@@ -370,7 +370,7 @@ class S0(object):
                 self.check("pre-flight %s PASS" % name, res.rc == 0 and not fails,
                            "rc %s, %d FAIL row(s)" % (res.rc, len(fails)))
             else:
-                # (Cut A + D) PF-T must PASS now, and a PASS is about the ternary entry only if the package
+                # PF-T must PASS now, and a PASS is about the ternary entry only if the package
                 # carries it: the old FAIL proved that by naming it, a PASS names nothing.
                 wheres = pft_entries(pkg)
                 tern, other = classify_pft(res.stdout, wheres)

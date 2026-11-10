@@ -3907,7 +3907,7 @@ up_p4() {
             # 🔴 rc 5: a GUARD REFUSED and nothing was built -- the same code the two topology
             # refusals below and record_up_target's give. The distinction rc 1 carries is
             # "this command looked at the machine and did not like what it found", and this
-            # refusal never looked at the machine at all. (NDT-8's contract, `ndt help`.)
+            # refusal never looked at the machine at all. (The contract `ndt help` states.)
             return 5
         fi
         echo
@@ -5534,10 +5534,10 @@ teardown_in_flight_refusal() {
 # OWNER: the write was an unconditional `pid=$$` and
 # the removal an unconditional `rm -f`, so two `ndt down`s 3 s apart did this --
 #
-#   02:07:18.107  D1 writes the marker, pid=2455882.
-#   02:07:22.115  D2 overwrites it with ITS pid while D1 is still alive, so for the next 11 s
-#                 every bring-up that was refused named the wrong process.
-#   02:07:32.687  D1 finishes first and removes the marker. The marker was D2's. D2 is alive.
+#   02:07:18.107  the first `ndt down` writes the marker, pid=2455882.
+#   02:07:22.115  a second one overwrites it with ITS pid while the first is still alive, so
+#                 for the next 11 s every bring-up that was refused named the wrong process.
+#   02:07:32.687  The first finishes and removes the marker (the second's); the second is alive.
 #   02:07:32.691  `ndt up p4 4` is NOT refused, exits 0, and reaches [3/3].
 #
 # The in-flight guard, switched off by an overlap -- which is the only situation it exists for. Two

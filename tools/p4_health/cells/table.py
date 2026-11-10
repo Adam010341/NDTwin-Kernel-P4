@@ -410,7 +410,7 @@ def t8(obs):
 
 
 def pft_cannot(obs):
-    """(Cut A + D) Pre-flight refusing the ternary entry and nothing else, in whatever words (s0.classify_pft counts
+    """Pre-flight refusing the ternary entry and nothing else, in whatever words (s0.classify_pft counts
     the FAIL lines that name the entry, and every other refusal): the "G5 not done" sentence it used to be known by
     is gone from pre-flight."""
     a = A(obs)
@@ -506,7 +506,7 @@ def r2_thrift_ev(obs):
 
 
 def r2_cannot(obs):
-    """(C2 thrift cut) No read route, or the route's own structural refusal: 404 (not in this
+    """No read route, or the route's own structural refusal: 404 (not in this
     pipeline, or an unknown switch) or 501 (a register it cannot represent).
     [Co-developed with claude code -- Adam]"""
     if route_missing(obs):
@@ -520,7 +520,7 @@ def r2_cannot(obs):
 
 
 def r2(obs):
-    """(C2 thrift cut) Against the value the marker wrote, not against thrift (observe_r2). A route
+    """Against the value the marker wrote, not against thrift (observe_r2). A route
     that answered but gave no value (a 502, a 503) is a red, as K1's 503 is: a register route that
     fails every read must be able to make R2 red, not leave it NOT RUN for ever."""
     a, o = A(obs), O(obs)

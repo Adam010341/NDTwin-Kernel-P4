@@ -179,7 +179,7 @@ add "M9. journaled is ignored" \
     '    if False:  # MUTANT: journaled ignored' \
     'test_t8_journaled_false_is_red'
 
-# (Cut C) [Co-developed with claude code -- Adam] `journaled` is computed since the proxy replays its journal; the RED
+# [Co-developed with claude code -- Adam] `journaled` is computed since the proxy replays its journal; the RED
 # names why it can be false, not the constant it used to be.
 add "C-T8. T8's RED still says journaled is the constant false" \
     "$TABLE" \
@@ -402,7 +402,7 @@ add "D12. PF-T does not count the other labelled FAIL rows" \
     '            pass  # MUTANT' \
     'test_pft_is_the_ternary_answer_only_when_nothing_else_failed'
 
-# Cut A + D: the ternary writer took "G5 not done" out of pre-flight, and PF-T must PASS now. A refusal of PF-T's
+# The ternary writer took "G5 not done" out of pre-flight, and PF-T must PASS now. A refusal of PF-T's
 # ternary entry is known by where pre-flight names the entry, never by its words, and it is RED only when nothing else
 # was refused; T4's probe body obeys the writer's V3; T6 reads an optional key the way thrift prints it.
 # [Co-developed with claude code -- Adam]
@@ -1637,7 +1637,7 @@ LABPY="$PKG/lab.py"
 HOSTSPY="$PKG/collect/hosts.py"
 FROZENPY="$PKG/frozen.py"
 
-# (Cut A + D) the D mutants whose subjects are named in this section; their label says what each breaks.
+# The ternary-writer mutants (AD8-AD10, AD13) whose subjects are in the files named above; their label says what each breaks.
 # [Co-developed with claude code -- Adam]
 add "AD8. the lab reads S0's PF-T refusal under its old key" \
     "$LABPY" \
@@ -3603,7 +3603,7 @@ add "C2R10-3a. the exercise copy check reads a link among the build outputs as t
     'test_the_exercise_copy_check_refuses_a_link_under_a_build_directory'
 
 
-# C2 thrift cut: the register cell read through GET /p4/register and judged against the marker's value.
+# The register cell is read through GET /p4/register and judged against the marker's value.
 # [Co-developed with claude code -- Adam]
 add "C2T-1. R3 takes any method on /p4/register for its write route" \
     "$OBSERVE" \

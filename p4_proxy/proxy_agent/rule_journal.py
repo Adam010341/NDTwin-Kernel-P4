@@ -1029,8 +1029,8 @@ def cookie_hex(value):
 
 
 def cookie_value(text):
-    """The header's `fabric_cookie` back as an int, or None when it names none (a Cut B file,
-    whose header always said null) or names something that is not one."""
+    """The header's `fabric_cookie` back as an int, or None when it names none (a file from before headers
+    carried one, whose header always said null) or names something that is not one."""
     if not isinstance(text, str):
         return None
     try:

@@ -475,7 +475,7 @@ report "M13 (widen)  H3: the marker stops having to be named" "$m" up_refuses_wh
 m=$(mutant m12b "$CELL_URWADIIF" \
     '    a_eq    h3_up_rc_is_5                    "5"    "$(cat "$d/up.rc" 2>/dev/null)"' \
     '    :')
-report "M13b (delete) H3: the refusal's exit code is not read (FIX-NDT-8)" "$m" up_refuses_while_a_down_is_in_flight
+report "M13b (delete) H3: the refusal's exit code is not read" "$m" up_refuses_while_a_down_is_in_flight
 m=$(mutant m12c "$CELL_URWADIIF" \
     '    a_eq    h3_up_rc_is_5                    "5"    "$(cat "$d/up.rc" 2>/dev/null)"' \
     '    _a_ok   h3_up_rc_is_5 "(widening: any exit code is accepted, including the pre-fix 1)"')

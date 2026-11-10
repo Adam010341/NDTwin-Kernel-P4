@@ -126,14 +126,14 @@ WARNING | ^cannot find graph vertex for switch IP | transient during convergence
 # ============================================================================
 # Known gaps with an owner
 # ----------------------------------------------------------------------------
-# Each line here is a promise to remove it. Keep the phase reference so it is obvious
+# Each line here is a promise to remove it. Say what it waits for, so it is obvious
 # when the entry has outlived its reason.
 #
 # The section is EMPTY, and that is the state of the promises rather than the absence of a
 # mechanism: tests/python/test_warning_allowlist_entries.py requires every entry here to match
 # a string literal this tree still emits, and requires this header to be present, so the next
 # entry cannot outlive its message quietly. The one line that used to be here --
-# `P4 BMv2 Power ON from Kernel is currently a stub`, Phase 7 of the bmv2 support plan -- was
+# `P4 BMv2 Power ON from Kernel is currently a stub`, the stub that real bmv2 power operations replaced -- was
 # removed on 2026-09-11 after
 # `grep -rn 'currently a stub'` and `grep -rn 'P4 BMv2 Power'` over src/, include/ and
 # p4_proxy/ returned zero hits: the message it permitted does not exist any more.

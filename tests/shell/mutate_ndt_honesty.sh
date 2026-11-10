@@ -183,7 +183,7 @@ report "M11: ndt down leaves 'in use' standing over an empty lab" "$m" \
 # verified one. "down" and "down, and something survived" license opposite actions.
 #
 # 🔴 REPOINTED 2026-09-11: this anchor was `set_claim_note "down at $when; claim kept"`, and the
-# T5 commit appended the cleared-measuring suffix to that line. check_gate_anchors.py HEAD read
+# commit that fixed the claim note appended the cleared-measuring suffix to that line. check_gate_anchors.py HEAD read
 # MISSING:1 for it -- which is what the checker is for, and which the gate itself would have
 # reported as a SURVIVOR because an applier that cannot apply is a hole and never a skip.
 # 🔴 REPOINTED AGAIN 2026-09-12: the branch now turns on what `verify clean`
@@ -466,7 +466,7 @@ report "M30: help calls the orphans rc table disjoint again (F4)" "$m" \
        "  🔴 the rc table says it is not disjoint"
 
 
-# --- T1: the claim was a check-then-write two sessions could both win (measured 2026-09-11) ----
+# --- G-28: the claim was a check-then-write two sessions could both win (measured 2026-09-11) ----
 
 # The lock is not taken at all, which is 2026-09-11 01:53 exactly: check, then write, with a
 # window in between that two same-second claims both got through.
@@ -520,7 +520,7 @@ report 'MC5: the write is not read back, so a direct writer wins silently' "$m" 
        'a claim that is not ours after the write is refused'
 
 
-# --- T2 / T2d: measuring= enforced, and a rescue command that can be pasted ------------------
+# --- measuring= enforced, and a rescue command that can be pasted ---------------------------------
 
 # 2026-09-11 01:57:27 (a work label left out of the quote): claim says
 # `measuring=reader nsr, do not tear down`, the owner's own `ndt down` tears the fabric out,
@@ -530,7 +530,7 @@ m=$(mutant mc6 "$NDT" \
         err "refusing to tear down: this claim DECLARES a measurement in progress."' \
     '    if false; then
         err "refusing to tear down: this claim DECLARES a measurement in progress."')
-report 'MC6: the teardown stops reading measuring= (T2d verbatim)' "$m" \
+report 'MC6: the teardown stops reading measuring= (G-29)' "$m" \
        'a declared measurement refuses the teardown, rc 5'
 
 
@@ -552,7 +552,7 @@ report 'MC7 (widening): --deep turns the guard off as well as --force' "$m" \
 m=$(mutant mc8 "$NDT" \
     '        err "$(printf '"'"'    NDT_OWNER=%q ndt down'"'"' "$holder")"' \
     '        err "    NDT_OWNER=$held ndt down"')
-report 'MC8: the rescue line interpolates the description again (T2 verbatim)' "$m" \
+report 'MC8: the rescue line interpolates the description again (G-30)' "$m" \
        '🔴 that line parses as shell -- it is printed to be pasted'
 
 
@@ -569,7 +569,7 @@ report 'MC9: the foreign refusal stops quoting what they declared' "$m" \
        '🔴 and the foreign refusal quotes the declaration'
 
 
-# --- T5: the note that failed silently, the declaration that outlived its teardown -----------
+# --- the note that failed silently (G-31), the declaration that outlived its teardown -----
 
 # 01:55:07 against 01:59:53: the same `ndt up ovs 4`, and with NDT_OWNER unset it built a fabric
 # while the note went on describing the previous round, silently.
@@ -579,7 +579,7 @@ m=$(mutant mc10 "$NDT" \
     'claim_note_unwritten() {
     return 0
     [[ -f "$CLAIM" ]] || return 0')
-report 'MC10: the failed note write is swallowed again (T5 verbatim)' "$m" \
+report 'MC10: the failed note write is swallowed again (the G-31 defect)' "$m" \
        '🔴 a live claim we do not hold: warned, not swallowed'
 
 
@@ -625,23 +625,23 @@ report 'MC14: a field another script wrote is dropped by the rewrite' "$m" \
        '  a field another script wrote is carried through'
 
 
-# --- T3 / T4: two sentences that described the tool wrongly ----------------------------------
+# --- two sentences that described the tool wrongly ------------------------------------------
 
 # The sentence and the code that disproves it were in the same file: cmd_down's [0/3] gate is
 # app_probe, so an untracked app is exactly the one it stops (G-6), measured 01:57:54.
 m=$(mutant mc15 "$NDT" \
     '        printf '"'"'  %-14s %s\n'"'"' "" "'"'"'ndt down'"'"' does stop these -- it scans for them rather than"' \
     '        printf '"'"'  %-14s %s\n'"'"' "" "these survive '"'"'ndt down'"'"'; stop them with '"'"'ndt apps stop <name>'"'"'"')
-report 'MC15: status says untracked apps survive a teardown again (T3)' "$m" \
+report 'MC15: status says untracked apps survive a teardown again' "$m" \
        '🔴 the sentence that round'"'"'s teardown disproved is gone'
 
 
-# T4 is NOT fixed -- whether the API should read the claim is an open question -- so the help
+# Whether the API should read the claim was an open question (2026-09-11), so the help
 # saying so is the whole of the deliverable, and a paragraph with no test could drift unnoticed.
 m=$(mutant mc16 "$NDT" \
     '    a claim only blocks the '"'"'ndt'"'"' verbs. It is not the northbound API and it is not' \
     '    a claim is how sessions keep out of each other'"'"'s way.')
-report 'MC16: the help stops saying what a claim does not cover (T4)' "$m" \
+report 'MC16: the help stops saying what a claim does not cover' "$m" \
        '  the help scopes the claim to this tool'"'"'s own verbs'
 
 
@@ -716,7 +716,7 @@ report 'MD6: the precedence between a refusal and a dirty reading is unwritten' 
 m=$(mutant md7 "$NDT" \
     '                  3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in' \
     '                  (anything else means the machine was not readable): no fabric, nothing in')
-report 'MD7: the clean table drops rc 3 (FIX-NDT-8)' "$m" \
+report 'MD7: the clean table drops rc 3' "$m" \
        '  🔴 3 is in the clean table'
 
 # MD8: the table keeps 3 and calls it clean. This is the sentence, not the code -- and the
@@ -732,7 +732,7 @@ report 'MD8: the clean table says 3 is a clean bill of health' "$m" \
 m=$(mutant md9 "$NDT" \
     '                  3 THERE WAS NOTHING TO TEAR DOWN: no fabric, no registry entry in' \
     '                  (an empty lab answers 0 as usual): no fabric, no registry entry in')
-report 'MD9: the down table drops rc 3 (FIX-NDT-8)' "$m" \
+report 'MD9: the down table drops rc 3' "$m" \
        '  🔴 3 is in the down table'
 
 # --- one word, two findings, and only one of them moved (2026-09-12) ----

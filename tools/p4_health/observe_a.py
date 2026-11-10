@@ -223,7 +223,7 @@ def thrift_priority(p4rt_priority):
     return BMV2_PRIORITY_TOP - int(p4rt_priority)
 
 
-#: (Cut A + D) T4's value is its own network address: the writer refuses a value with a bit outside its mask
+#: T4's value is its own network address: the writer refuses a value with a bit outside its mask
 #: (match_shape V3, "the value is not masked for you"; 400 before the wire), so 10.0.4.4/255.255.255.0 would be a
 #: correct refusal read as T4 RED.
 T4_BODY = {"dpid": 2, "op": "insert", "table": "HcIngress.t_ternary",
@@ -472,7 +472,7 @@ def observe_mt3(cfg, runner):
 def observe_r2(cfg, runner, stimulate, chosen):
     """R2 and SC-reg: the marker writes `chosen` (its sport) into r_mark[0] on s2.
 
-    (C2 thrift cut) [Co-developed with claude code -- Adam] The ORACLE is `chosen` itself -- the
+    [Co-developed with claude code -- Adam] The ORACLE is `chosen` itself -- the
     value this probe picked and put in the marker's sport -- and not thrift: NDTwin's
     GET /p4/register reads through bmv2's thrift service, so a thrift oracle would compare thrift
     with thrift. Thrift's register_read stays where it was, in SC-reg: the probe's own check that

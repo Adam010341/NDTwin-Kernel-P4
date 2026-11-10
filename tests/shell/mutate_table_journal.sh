@@ -3,16 +3,16 @@
 # Mutation gate for the table-entry journal: `rule_journal.TableEntryJournal` / `TableJournals` /
 # `fold_records`, what `POST /p4/table_entry` and `switch_state` say about it, the identity a
 # default entry gets, and the replay: the pipeline cookie, step 0, startup's and readopt's callers,
-# pending/503. DESIGN.md sections 5 and 6.3 (Cut B: M-J1-M-J3, M-J12-M-J14; Cut C: M-J4-M-J6,
-# M-J10, M-J15-M-J20, M-J22, M-J25-M-J28).
+# pending/503. M-J1-M-J3 and M-J12-M-J14 are the recording side; the replay side is M-J4-M-J6,
+# M-J10, M-J15-M-J20, M-J22, M-J25-M-J28.
 #
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 `journaled` IS A CLAIM THAT AN ENTRY SURVIVES A RESTART, and since Cut C it is true for a
+# 🔴 `journaled` IS A CLAIM THAT AN ENTRY SURVIVES A RESTART, and it is now true for a
 # recorded write: startup and readopt replay the journal (tests/test_table_entry_replay.py runs
 # the real startup and readopt against a stub that behaves like the bmv2 ternary-a0 measured).
 # M-J30 sets the constant back to False; M-J30b claims it for a write that was not recorded;
-# M-B14b and M-B20b claim it where a record was lost. Cut B's M-J30a and M-J30e are gone: with the
+# M-B14b and M-B20b claim it where a record was lost. M-J30a and M-J30e are gone: with the
 # constant True each was the code it mutated, not a mutation of it. M-J30c stays, rewritten (the
 # switch's claim ignoring its records).
 #
@@ -20,8 +20,8 @@
 # p4_proxy under a temp dir, nothing under p4_proxy/ is written, and all sources and test files are
 # re-hashed at the end. `setting/`, `tools/` and `p4_proxy/` are linked in as INPUTS.
 #
-# Numbering is the design's where it has one (M-J1, M-J2, M-J3, M-J12, M-J13a-c, M-J14, M-J23);
-# the rest are this cut's own, M-J30 upward, and say what they break.
+# Mutations are numbered M-J1 upward (M-B14b and M-B20b keep their mutate_table_entry.sh ids);
+# the number is an id, not an order, and each label says what the mutation breaks.
 #
 # Mutations that cannot be seen by any test, and are therefore NOT here, on purpose:
 #   * the fsync calls (a test cannot tell a flushed page from one still in the cache);
@@ -912,7 +912,7 @@ report 'M-J90: the owner check is skipped, so a write into a table NDTwin owns r
        'test_a_write_into_a_table_ndtwin_owns_is_a_409_and_leaves_no_record'
 
 # =============================================================================================
-# Cut C: the replay. [Co-developed with claude code -- Adam]
+# The replay. [Co-developed with claude code -- Adam]
 # Killers are in tests/test_table_entry_replay.py (the real startup and readopt against a bmv2-like
 # stub) unless they name a test of test_table_entry_journal.py.
 # =============================================================================================
@@ -1070,8 +1070,8 @@ m=$(mutant g3c "$JOURNAL" \
         reason = "the journal header names no fabric cookie"' \
     '    elif cookie_value(header.get("fabric_cookie")) is None:
         return {"confirmed": True, "cookie": switch, "reason": "confirmed"}')
-report 'M-J22c: a header with no cookie (a Cut B file) confirms the journal' "$m" \
-       'test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed'
+report 'M-J22c: a header with no cookie (a file from before headers carried one) confirms the journal' "$m" \
+       'test_a_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed'
 
 m=$(mutant g3d "$JOURNAL" \
     '    if value is None:

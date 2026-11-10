@@ -33,7 +33,7 @@ ROUTE_PREFIXES = {
 }
 
 
-#: (C2 thrift cut) The methods a cell's endpoint must answer, where the path alone does not tell
+#: The methods a cell's endpoint must answer, where the path alone does not tell
 #: the read from the write: GET /p4/register is R2's read and must not count as R3's write.
 #: A cell not named here takes any method. [Co-developed with claude code -- Adam]
 ROUTE_METHODS = {"R2": frozenset({"GET"}), "R3": frozenset({"POST", "PUT", "PATCH"})}
