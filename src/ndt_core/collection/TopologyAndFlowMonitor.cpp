@@ -4032,6 +4032,13 @@ void
 TopologyAndFlowMonitor::setEdgeDownByDeclaration(Graph::edge_descriptor e)
 {
     std::unique_lock lock(*m_graphMutex);
+    declareEdgeDownNoLock(e);
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::declareEdgeDownNoLock(Graph::edge_descriptor e)
+{
     auto& eprop = (*m_graph)[e];
     eprop.isUp = false;
     eprop.declaredDown = true;
@@ -4050,27 +4057,41 @@ TopologyAndFlowMonitor::setEdgeDownByDeclaration(Graph::edge_descriptor e)
 void
 TopologyAndFlowMonitor::setEdgeDownByReportedFailure(Graph::edge_descriptor e)
 {
-    {
-        std::unique_lock lock(*m_graphMutex);
-        // The note this call adds, and the only thing that separates it from an injection: the
-        // control plane says it SAW this break, so the recovery report that pairs with it is
-        // entitled to withdraw the declaration.
-        (*m_graph)[e].failureReported = true;
-    }
-    setEdgeDownByDeclaration(e);
+    // [Co-developed with claude code -- Adam]
+    // One lock for the note and the declaration. Taken twice, an /ndt/inject_link_recovery
+    // landing between the two cleared the note and left the declaration to be made without it:
+    // a declaration nothing reported, which its own recovery report then declines.
+    std::unique_lock lock(*m_graphMutex);
+    // The note this call adds, and the only thing that separates it from an injection: the
+    // control plane says it SAW this break, so the recovery report that pairs with it is
+    // entitled to withdraw the declaration.
+    (*m_graph)[e].failureReported = true;
+    declareEdgeDownNoLock(e);
 }
 
 /** @brief See the header. [Co-developed with claude code -- Adam] */
 void
 TopologyAndFlowMonitor::setEdgeDownByInjection(Graph::edge_descriptor e)
 {
+    // [Co-developed with claude code -- Adam]
+    // One lock for the note and the declaration, for the reason given in
+    // setEdgeDownByReportedFailure: taken twice, an /ndt/inject_link_recovery between the two left
+    // a plain declaration with no `injected` note. A recovery report then declined it for the
+    // wrong reason, and once the control plane reported the cut, a recovery report ended it with
+    // its netem still attached.
+    std::unique_lock lock(*m_graphMutex);
+    auto& eprop = (*m_graph)[e];
+    // B-23. An injection that begins re-arms the poll's one-line advice for this edge. If the
+    // poll already declined to raise it under a reported failure, the line it printed named
+    // /ndt/link_recovery_detected, which declines an injection; without this the poll stays
+    // silent and that line is the last word. A repeated injection leaves the entry alone, since
+    // the advice has not changed. [Co-developed with claude code -- Adam]
+    if (!eprop.injected)
     {
-        std::unique_lock lock(*m_graphMutex);
-        // B-23. Written before the declaration, so there is no moment at which this edge is
-        // declared down and not yet known to be an injection.
-        (*m_graph)[e].injected = true;
+        m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
     }
-    setEdgeDownByDeclaration(e);
+    eprop.injected = true;
+    declareEdgeDownNoLock(e);
 }
 
 /** @brief See the header. [Co-developed with claude code -- Adam] */

@@ -2324,6 +2324,105 @@ TEST_F(DeclaredLinkFailureWireTest,
     EXPECT_NE(logged.find("POST /ndt/inject_link_recovery"), std::string::npos) << logged;
 }
 
+namespace
+{
+/// How many times @p needle occurs in @p haystack.
+std::size_t
+occurrences(const std::string& haystack, const std::string& needle)
+{
+    std::size_t n = 0;
+    for (auto at = haystack.find(needle); at != std::string::npos;
+         at = haystack.find(needle, at + needle.size()))
+    {
+        ++n;
+    }
+    return n;
+}
+} // namespace
+
+/**
+ * 🔴 The poll's advice in the order report, poll, inject. The poll's line is written once per
+ * episode, and the first poll wrote it for a reported failure: "POST /ndt/link_recovery_detected
+ * to clear this". The injection changes what clears the link, so the next poll has to say so once.
+ * It used to say nothing, which left the recovery-report advice as the last line about this link,
+ * and that endpoint declines an injection.
+ * [Co-developed with claude code -- Adam]
+ */
+TEST_F(DeclaredLinkFailureWireTest, AnInjectionAfterTheReportedAdviceGetsTheInjectionAdviceOnce)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+    ASSERT_EQ(postAndCopy(peer, "/ndt/link_failure_detected", kBody).status, 200u);
+
+    std::string first;
+    {
+        LogCapture log;
+        m_monitor->pollLinks(kLinkListing());
+        first = log.text();
+    }
+    ASSERT_EQ(occurrences(first, "not marking it up"), 2u)
+        << "the first poll did not decline both directions once each, so the order this case is "
+           "about never happened:\n"
+        << first;
+    ASSERT_EQ(occurrences(first, "POST /ndt/link_recovery_detected to clear this"), 2u) << first;
+
+    ASSERT_EQ(postAndCopy(peer, "/ndt/inject_link_failure", kBody).status, 200u);
+
+    std::string second;
+    {
+        LogCapture log;
+        m_monitor->pollLinks(kLinkListing());
+        second = log.text();
+    }
+    EXPECT_EQ(occurrences(second, "not marking it up"), 2u)
+        << "the poll after the injection did not give its advice again, so the last line about "
+           "this link still says POST /ndt/link_recovery_detected, which declines an injection:\n"
+        << second;
+    EXPECT_EQ(occurrences(second, "POST /ndt/inject_link_recovery"), 2u) << second;
+    EXPECT_EQ(second.find("POST /ndt/link_recovery_detected to clear this"), std::string::npos)
+        << second;
+
+    std::string third;
+    {
+        LogCapture log;
+        m_monitor->pollLinks(kLinkListing());
+        third = log.text();
+    }
+    EXPECT_EQ(third.find("not marking it up"), std::string::npos)
+        << "the advice is meant once per change, not once per poll:\n"
+        << third;
+}
+
+/**
+ * Control: injecting a link that is already injected does not change the advice, so the poll
+ * does not repeat it. Without this, re-arming on every injection would pass the case above.
+ * [Co-developed with claude code -- Adam]
+ */
+TEST_F(DeclaredLinkFailureWireTest, ASecondInjectionOfAnInjectedLinkDoesNotRepeatTheAdvice)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+    ASSERT_EQ(postAndCopy(peer, "/ndt/inject_link_failure", kBody).status, 200u);
+
+    std::string first;
+    {
+        LogCapture log;
+        m_monitor->pollLinks(kLinkListing());
+        first = log.text();
+    }
+    ASSERT_EQ(occurrences(first, "POST /ndt/inject_link_recovery"), 2u) << first;
+
+    ASSERT_EQ(postAndCopy(peer, "/ndt/inject_link_failure", kBody).status, 200u);
+
+    std::string second;
+    {
+        LogCapture log;
+        m_monitor->pollLinks(kLinkListing());
+        second = log.text();
+    }
+    EXPECT_EQ(second.find("not marking it up"), std::string::npos)
+        << "a repeated injection made the poll repeat advice that had not changed:\n"
+        << second;
+}
+
 /**
  * Control: a link nobody injected. /ndt/link_failure_detected still names its own sibling, and that
  * sibling still withdraws the declaration and raises the link. A fix that treated every reported

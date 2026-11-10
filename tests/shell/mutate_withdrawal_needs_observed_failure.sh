@@ -19,6 +19,9 @@
 #             nothing else: a recovery report for an injected link is declined even when
 #             /ndt/link_failure_detected reported that link broken, before or after the injection.
 #             M35 .. M43, W8.
+#   one lock  each writer that adds a note to a declaration (the injection, the failure report)
+#             writes the note and the declaration under one lock, and an injection re-arms the
+#             poll's one-line advice when it changes what that advice has to say. M44 .. M47.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -164,7 +167,7 @@ declare -a ANCHOR_FILE ANCHOR_TEXT ANCHOR_NAME
 add_anchor() { ANCHOR_NAME+=("$1"); ANCHOR_FILE+=("$2"); ANCHOR_TEXT+=("$3"); }
 
 add_anchor "pair-rule"     "$TFM" '    if (!eprop.failureReported && eprop.declaredDown)'
-add_anchor "report-write"  "$TFM" '        (*m_graph)[e].failureReported = true;'
+add_anchor "report-write"  "$TFM" '    (*m_graph)[e].failureReported = true;'
 add_anchor "report-spend"  "$TFM" '    eprop.failureReported = false;
     eprop.declaredDown = false;'
 add_anchor "inject-spend"  "$TFM" '    eprop.declaredDown = false;
@@ -307,6 +310,14 @@ add_anchor "report-until"  "$HS"  '    if (m_topologyAndFlowMonitor->getEdgeInje
 add_anchor "log-injection" "$HS"  'injectionRetained ? RecoveryLogOutcome::InjectionRetained'
 add_anchor "inject-reply"  "$HS"  '    if (injectionRetained)
     {'
+add_anchor "inject-one-lock" "$TFM" '    eprop.injected = true;
+    declareEdgeDownNoLock(e);'
+add_anchor "report-one-lock" "$TFM" '    (*m_graph)[e].failureReported = true;
+    declareEdgeDownNoLock(e);'
+add_anchor "inject-rearm"  "$TFM" '    if (!eprop.injected)
+    {
+        m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
+    }'
 add_anchor "log-decline-text" "$HS" '                               "declaration was retained and the link is still down. POST "
                                "/ndt/inject_link_recovery to withdraw it",'
 
@@ -478,8 +489,8 @@ mutate "the defect verbatim: any recovery report withdraws any declaration (= th
 #     own recovery stops working and every real link outage becomes permanent.
 mutate "the notification path never records that the break was reported" \
     "$TFM" \
-    '        (*m_graph)[e].failureReported = true;' \
-    '        // [mutant] the report is never recorded' \
+    '    (*m_graph)[e].failureReported = true;' \
+    '    // [mutant] the report is never recorded' \
     DeclaredLinkFailureTest.AReportedFailureIsWithdrawnByItsMatchingRecovery \
     DeclaredLinkFailureTest.ObservationWritersNeitherSetNorClearTheFailureReport \
     DeclaredLinkFailureWireTest.AReportedFailureIsStillWithdrawnByItsOwnRecovery
@@ -1140,6 +1151,59 @@ mutate "the injection endpoint records a reported failure instead of an injectio
     DeclaredLinkFailureWireTest.ARyuRestartDoesNotWithdrawAnInjectedLinkFailure
 
 # ================================================================================================
+# 5d. one lock per writer, and the advice an injection re-arms
+#   [Co-developed with claude code -- Adam]
+#   Both writers that add a note to a declaration took the graph lock twice, once for the note and
+#   once for the declaration, so an /ndt/inject_link_recovery could run between the two and leave a
+#   declaration without its note. And the poll's advice is written once per episode, so an
+#   injection after the poll had already advised a recovery report left that advice as the last
+#   word about the link.
+# ================================================================================================
+
+# M44. 🔴 The injection writer verbatim as it was: the note under one lock, the declaration under
+#      another. A reader sharing the lock finds `injected` with no declaration.
+mutate "the injection writes its note and the declaration under two locks again" \
+    "$TFM" \
+    '    eprop.injected = true;
+    declareEdgeDownNoLock(e);' \
+    '    eprop.injected = true;
+    lock.unlock();
+    setEdgeDownByDeclaration(e);' \
+    DeclaredLinkFailureTest.AnInjectionWritesItsNoteAndTheDeclarationUnderOneLock
+
+# M45. The same split in the notification writer.
+mutate "the failure report writes its note and the declaration under two locks again" \
+    "$TFM" \
+    '    (*m_graph)[e].failureReported = true;
+    declareEdgeDownNoLock(e);' \
+    '    (*m_graph)[e].failureReported = true;
+    lock.unlock();
+    setEdgeDownByDeclaration(e);' \
+    DeclaredLinkFailureTest.AReportedFailureWritesItsNoteAndTheDeclarationUnderOneLock
+
+# M46. 🔴 The injection no longer re-arms the poll's advice, so in the order report, poll, inject
+#      the last line about the link is still "POST /ndt/link_recovery_detected to clear this".
+mutate "an injection does not re-arm the poll's advice" \
+    "$TFM" \
+    '    if (!eprop.injected)
+    {
+        m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
+    }' \
+    '    // [mutant] an injection leaves the poll'"'"'s advice as it was' \
+    DeclaredLinkFailureWireTest.AnInjectionAfterTheReportedAdviceGetsTheInjectionAdviceOnce
+
+# M47. Direction 2: every injection re-arms the advice, including one on a link that is already
+#      injected, so the poll repeats a line whose advice has not changed.
+mutate "every injection re-arms the poll's advice, even a repeated one" \
+    "$TFM" \
+    '    if (!eprop.injected)
+    {
+        m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
+    }' \
+    '    m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});' \
+    DeclaredLinkFailureWireTest.ASecondInjectionOfAnInjectedLinkDoesNotRepeatTheAdvice
+
+# ================================================================================================
 # 6. the widenings -- these MUST survive
 # ================================================================================================
 
@@ -1279,5 +1343,6 @@ echo "  startup sweep cannot go silent, go blind, shrink back to link ends, drop
 echo "  this topology does not name, call everything a link, or read one device at a time --"
 echo "  and nine ways of over-correcting are caught too. An injection cannot be ended by a"
 echo "  recovery report again, whatever the control plane reported (B-23), and treating every"
-echo "  reported link as injected is caught as well."
+echo "  reported link as injected is caught as well. Neither note can be written apart from its"
+echo "  declaration again, and an injection re-arms the poll's advice exactly when it changes it."
 exit 0
