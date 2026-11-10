@@ -220,7 +220,7 @@ check "the launch this section reads back succeeded" 0 "$s4_rc"
 
 check "cleanup's pattern matches the launched argv" yes "$(yn sweep_matches "$(ovs_topo_pattern)" "${LAUNCHED[@]}")"
 check "🔴 the OLD NTG pattern does not match it"    no  "$(yn sweep_matches "Network-Traffic-Generator/testbed_topo.py" "${LAUNCHED[@]}")"
-check "the NTG pattern still finds an NTG orphan"   yes "$(yn sweep_matches "Network-Traffic-Generator/testbed_topo.py" python /home/adam/Network-Traffic-Generator/testbed_topo.py)"
+check "the NTG pattern still finds an NTG orphan"   yes "$(yn sweep_matches "Network-Traffic-Generator/testbed_topo.py" python /home/user/Network-Traffic-Generator/testbed_topo.py)"
 check "another tree's testbed_topo.py is not it"    no  "$(yn sweep_matches "$(ovs_topo_pattern)" python /nonexistent/NDT-TEST-FIXTURE/other/testbed_topo.py)"
 check "a mention of it is still not a process"      no  "$(yn sweep_matches "$(ovs_topo_pattern)" bash -c "echo restarting $LAUNCHED_SCRIPT now")"
 

@@ -411,14 +411,14 @@ report "M25: B10 loses its 09-05 counter-example" "$m" \
 
 # --- F9: the suite reads its own tree ------------------------------------------------------
 
-# The sim evidence log stops being derived from the tree the LAB acts in and is hard-coded to
-# the main checkout, which is what this suite was reading until 2026-09-11 -- a 148717-byte
-# root-owned file. The F9 cells exist to make that a red rather than a hidden input, and this
-# is the mutation that asks them to prove it.
+# The sim evidence log stops being derived from the tree the LAB acts in and is pinned to the
+# main checkout (ndt's built-in default, whatever a config says), which is what this suite was
+# reading until 2026-09-11 -- a 148717-byte root-owned file. The F9 cells exist to make that a
+# red rather than a hidden input, and this is the mutation that asks them to prove it.
 m=$(mutant m26 "$NDT" \
     '        sim)    printf '"'"'%s/.test_run/logs/app_sim.log'"'"' "$(lab_kernel_dir)" ;;' \
-    '        sim)    printf '"'"'%s/.test_run/logs/app_sim.log'"'"' /home/adam/Desktop/NDTwin-Kernel ;;')
-report "M26: sim's evidence log is hard-coded to the main checkout (F9)" "$m" \
+    '        sim)    printf '"'"'%s/.test_run/logs/app_sim.log'"'"' "$LAB_DEFAULT_KERNEL_DIR" ;;')
+report "M26: sim's evidence log is pinned to ndt's built-in default (F9)" "$m" \
        "  🔴 sim's evidence log is inside the fixture"
 
 

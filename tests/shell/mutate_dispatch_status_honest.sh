@@ -54,7 +54,7 @@ BASE=src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp
 SPC=tools/contract_test/spec.py
 FILES=("$OUT" "$SES" "$BASE" "$SPC")
 
-CONTRACT_PY="${CONTRACT_PY:-/home/adam/miniconda3/bin/python3}"
+CONTRACT_PY="${CONTRACT_PY:-$HOME/miniconda3/bin/python3}"
 
 MODE=full
 case "${1:-}" in

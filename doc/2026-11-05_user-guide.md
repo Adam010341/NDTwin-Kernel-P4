@@ -376,9 +376,9 @@ Three layers decide what the lab looks like, and `ndt up` aligns them from the o
 | the kernel's model | picked from `setting/` by host count; `NDT_TOPO=<file>` forces one |
 | Ryu's model (OVS) | set by `ndt up` to the same file as the kernel's |
 
-Ryu's own default model is a fixed path to the 128-host Mininet model, whatever the fabric size. Only
-`ndt up ovs` sets `NDTWIN_RYU_TOPO_FILE` to the model it gives the kernel; a Ryu you start by hand, or
-with bare `stack.sh`, uses the default, which is a path under one developer's home directory and will not exist on your machine: a Ryu started without `ndt` needs `NDTWIN_RYU_TOPO_FILE` set to your model. Do not export the variable yourself when you use `ndt`.
+Ryu's own default model is `setting/StaticNetworkTopologyMininet_10Switches.json` (the 128-host Mininet model) in the
+checkout that holds the `intelligent_router.py` Ryu loads, whatever the fabric size. Only `ndt up ovs` sets
+`NDTWIN_RYU_TOPO_FILE` to the model it gives the kernel; a Ryu you start by hand, or with bare `stack.sh`, uses that default: set `NDTWIN_RYU_TOPO_FILE` to your model when it is a different one. Do not export the variable yourself when you use `ndt`.
 
 Only `ndt up p4 <n>` and `ndt up p4 --app <dir>` write `host_count_override` (the second sets it to
 the package's host count, and `ndt down` puts the previous value back). It is persistent state: the next bring-up inherits it,

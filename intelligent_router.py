@@ -21,12 +21,12 @@ import threading
 import random
 from ryu.lib import hub
 
-# TODO: Change it
-# (1) Static topology JSON path (update to your local file path)
+# (1) Static topology JSON path: NDTWIN_RYU_TOPO_FILE, or else
+#     setting/StaticNetworkTopologyMininet_10Switches.json beside this file
 #
 # [Co-developed with claude code -- Adam]
-# Overridable via NDTWIN_RYU_TOPO_FILE; the default is unchanged, so the normal OVS round
-# behaves exactly as before. This has to be settable because the kernel takes its model from
+# Overridable via NDTWIN_RYU_TOPO_FILE, which `ndt up ovs` sets; the default is the Mininet
+# model in setting/ beside this file. Settable because the kernel takes its model from
 # --topology while this file took its own from a module-level constant, and nothing checked
 # that the two agreed. Run them against different models and the failure is silent and
 # confusing: Ryu installs routes for the hosts *its* file declares, so on 2026-08-17 a
@@ -35,7 +35,7 @@ from ryu.lib import hub
 # the kernel's graph reported ten switches, forty edges, all up and enabled.
 static_topology_file_path = Path(os.environ.get(
     "NDTWIN_RYU_TOPO_FILE",
-    "/home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json"))
+    Path(__file__).resolve().parent / "setting" / "StaticNetworkTopologyMininet_10Switches.json"))
 
 # (2) Deployment mode
 # [Co-developed with claude code -- Adam]

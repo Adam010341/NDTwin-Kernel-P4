@@ -15,10 +15,15 @@
 #      that holds nothing, so it stops at its first gate (the tree is not there) and the message
 #      names the path it looked at. A shim directory stands in for git, sudo and make so that even
 #      a script that went on would build nothing;
-#   3. two gates' interpreter lookups (mutate_ryu_rest_topology_bounded.sh under a HOME with no
-#      miniconda; mutate_a7_dispatch_status.sh in a real linked worktree whose only venv is in the
-#      main one) -- each refuses before it touches anything, naming the path it looked at;
-#   4. (in test_ndtwin_lab_ntg_dir.sh) the bridge's NTG_DIR fallback.
+#   3. three gates' interpreter lookups (mutate_ryu_rest_topology_bounded.sh and
+#      mutate_dispatch_status_honest.sh under a HOME with no miniconda; mutate_a7_dispatch_status.sh
+#      in a real linked worktree whose only venv is in the main one) -- each refuses before it
+#      touches anything, naming the path it looked at;
+#   4. (in test_ndtwin_lab_ntg_dir.sh) the bridge's NTG_DIR fallback;
+#   5. intelligent_router.py's topology file when NDTWIN_RYU_TOPO_FILE is unset: the setting/ model
+#      beside the file. The module imports Ryu, which a test interpreter need not have, so the one
+#      assignment is read out of a copy of the file by AST and evaluated with that copy as
+#      __file__ (the way tests/python/test_host_discovery_gate.py reads its methods).
 #
 # The last section is a count, not an exercise, and says so: in this change's scope, what is left
 # of that home directory must equal the root helper tools/test_workflow/ndtwin-lab or ndt's copy
@@ -102,8 +107,8 @@ check "  and SRC still overrides it" \
       "  SRC = $TMPROOT/elsewhere   <-- no .git in it (missing, or not a git checkout)" \
       "$(grep -m1 '^  SRC = ' <<<"$out2")"
 
-# --- 3. two gates' interpreter lookups ---------------------------------------------------------
-echo "two gates look for their interpreters under the caller's HOME and the main worktree"
+# --- 3. three gates' interpreter lookups ------------------------------------------------------
+echo "three gates look for their interpreters under the caller's HOME and the main worktree"
 
 # mutate_ryu_rest_topology_bounded.sh: PYTHON defaults to $HOME/miniconda3/bin/python3, and refuses
 # before it touches anything when that is not there. It uses paths relative to its cwd, so it is run
@@ -150,9 +155,74 @@ check "a7 gate: with no venv anywhere it refuses (rc 2)" 2 "$rc"
 check "🔴 a7 gate: and names the main worktree's venv as the proxy interpreter it looked for" \
       "REFUSE: proxy interpreter $A7/main/p4_proxy/venv/bin/python3 not found. Set PROXY_PY." "$(grep -m1 '^REFUSE' <<<"$out")"
 
+# mutate_dispatch_status_honest.sh: CONTRACT_PY defaults to $HOME/miniconda3/bin/python3, checked
+# before the gate snapshots or writes anything. Run as a copy in a temp tree whose four files are
+# empty stubs, with --python-only (no build directory needed): were the default a fixed tree that
+# exists, the gate would go on in that temp tree, never in this checkout.
+DSH="$TMPROOT/dsh"; mkdir -p "$DSH/tests/shell"
+cp "$REPO/tests/shell/mutate_dispatch_status_honest.sh" "$DSH/tests/shell/"
+for f in include/ndt_core/routing_management/DispatchOutcomeLog.hpp src/ndt_core/http/HttpSession.cpp \
+         src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp tools/contract_test/spec.py; do
+    mkdir -p "$DSH/$(dirname "$f")"; : > "$DSH/$f"
+done
+out="$(cd "$DSH" && env -u CONTRACT_PY HOME="$H" timeout 120 bash tests/shell/mutate_dispatch_status_honest.sh --python-only 2>&1 </dev/null)"; rc=$?
+check "dispatch-status gate: refuses (rc 2) when HOME has no miniconda" 2 "$rc"
+check "🔴 dispatch-status gate: and names the contract interpreter it looked for, under that HOME" \
+      "REFUSE: contract interpreter $H/miniconda3/bin/python3 not found. Set CONTRACT_PY." "$(grep -m1 '^REFUSE' <<<"$out")"
+
 # --- (the bridge's NTG_DIR fallback is checked in test_ndtwin_lab_ntg_dir.sh, section 1) ------
 
-# --- 4. what is left, counted ------------------------------------------------------------------
+# --- 5. Ryu's topology file --------------------------------------------------------------------
+echo "Ryu's topology file, with nothing set, is the model in setting/ beside intelligent_router.py"
+
+# topo_default <file> -- evaluates the static_topology_file_path assignment of <file>, with <file>
+# as __file__, and prints the path. Every top-level binding of the name is collected first, because
+# Ryu ends up with the LAST one: with none it prints NOT-FOUND, with more than one MULTIPLE (<n>),
+# so a later reassignment cannot hide behind the first. topo_bindings <file> prints only the count.
+topo_eval() {
+    python3 - "$1" "$2" 2>&1 <<'TOPO'
+import ast, os, sys
+from pathlib import Path
+mode, path = sys.argv[1], sys.argv[2]
+NAME = "static_topology_file_path"
+def binds(target):
+    if isinstance(target, ast.Name):
+        return target.id == NAME
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return any(binds(e) for e in target.elts)
+    return False
+tree = ast.parse(open(path).read(), path)
+found = [n for n in tree.body
+         if (isinstance(n, ast.Assign) and any(binds(t) for t in n.targets))
+         or (isinstance(n, (ast.AnnAssign, ast.AugAssign)) and binds(n.target))]
+if mode == "count":
+    print(len(found))
+elif not found:
+    print("NOT-FOUND")
+elif len(found) > 1:
+    print("MULTIPLE (%d)" % len(found))
+else:
+    ns = {"os": os, "Path": Path, "__file__": path}
+    exec(compile(ast.Module(body=found, type_ignores=[]), path, "exec"), ns)
+    print(ns[NAME])
+TOPO
+}
+topo_default()  { topo_eval value "$1"; }
+topo_bindings() { topo_eval count "$1"; }
+RT="$TMPROOT/router-tree"; mkdir -p "$RT"
+cp "$REPO/intelligent_router.py" "$RT/"
+check "🔴 a copy elsewhere answers the setting/ directory beside it" \
+      "$RT/setting/StaticNetworkTopologyMininet_10Switches.json" \
+      "$(cd / && unset NDTWIN_RYU_TOPO_FILE && topo_default "$RT/intelligent_router.py")"
+check "  and the name is bound exactly once at the top level of the file" 1 \
+      "$(topo_bindings "$RT/intelligent_router.py")"
+check "  NDTWIN_RYU_TOPO_FILE still overrides it" "$TMPROOT/other.json" \
+      "$(cd / && NDTWIN_RYU_TOPO_FILE="$TMPROOT/other.json" topo_default "$RT/intelligent_router.py")"
+here_default="$(cd / && unset NDTWIN_RYU_TOPO_FILE && topo_default "$REPO/intelligent_router.py")"
+check "  in this checkout the default is a file that exists" yes \
+      "$([[ -f "$here_default" ]] && echo yes || echo "no: $here_default")"
+
+# --- 6. what is left, counted ------------------------------------------------------------------
 echo "what remains of that home directory in this change's scope (a count, not an exercise)"
 # The needle is the /home/<name> prefix of the helper's own default tree, read at run time, so this
 # file does not spell it out. No prefix to read means nothing can be counted: refuse.
@@ -180,27 +250,39 @@ tools/p4_exercise/tests/test_convert.py:1
 tools/test_workflow/manifest_backfill.sh:1
 '
 TOUCHED='
+intelligent_router.py
 p4_proxy/mininet/ntg_bmv2_topo.py
 p4_proxy/reference/clone_stack_probe.py
 p4_proxy/reference/p4runtime_mastership_probe.py
+p4_proxy/tests/test_app_package.py
 p4_proxy/tests/test_exact_one_element_list.py
 tests/shell/mutate_a7_dispatch_status.sh
+tests/shell/mutate_dispatch_status_honest.sh
 tests/shell/mutate_drive_exercise.sh
 tests/shell/mutate_g7_ndtwin_lab_config.sh
 tests/shell/mutate_ndt_helper_apps_window.sh
+tests/shell/mutate_ndt_honesty.sh
 tests/shell/mutate_ndt_ntg_mode.sh
 tests/shell/mutate_ndt_ovs_topo_script.sh
+tests/shell/mutate_ndt_status_check.sh
 tests/shell/mutate_ndtwin_lab_ntg_dir.sh
 tests/shell/mutate_ovs4_has_sflow.sh
 tests/shell/mutate_round_env_kernel_dir.sh
 tests/shell/mutate_ryu_rest_topology_bounded.sh
 tests/shell/test_defaults_follow_the_checkout.sh
+tests/shell/test_faults_topo_pid.sh
+tests/shell/test_live_p1_common.sh
+tests/shell/test_ndt_honesty.sh
 tests/shell/test_ndt_ntg_mode.sh
+tests/shell/test_ndt_ovs_topo_script.sh
+tests/shell/test_ndt_status_check_baseline.sh
 tests/shell/test_ndtwin_lab_config.sh
 tests/shell/test_ndtwin_lab_heartbeat.sh
 tests/shell/test_ndtwin_lab_ntg_dir.sh
 tests/shell/test_ndtwin_lab_sweep.sh
+tests/shell/test_orphans_verdict.sh
 tests/test_OpenflowCapacityReport.cpp
+tools/contract_test/selftest_fixtures.py
 tools/p4_exercise/tests/fixtures/README
 tools/p4_exercise/tests/test_convert.py
 tools/test_workflow/build_bmv2_fast.sh
