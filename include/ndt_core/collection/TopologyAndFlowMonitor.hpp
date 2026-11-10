@@ -1160,6 +1160,13 @@ class TopologyAndFlowMonitor
     void initializeMappingsFromGraph();
     void flushEdgeFlowLoop();
 
+    /// The body of setEdgeDownByDeclaration, for a caller that already holds *m_graphMutex
+    /// uniquely. setEdgeDownByReportedFailure and setEdgeDownByInjection write their note and
+    /// the declaration under ONE lock through this, so no other writer (an
+    /// /ndt/inject_link_recovery in particular) can run between the two and leave a declaration
+    /// without its note. [Co-developed with claude code -- Adam]
+    void declareEdgeDownNoLock(Graph::edge_descriptor e);
+
     /// Set by the first loadStaticTopology() call, so run() does not repeat main's work.
     std::atomic<bool> m_staticTopologyLoadAttempted{false};
     /// The verdict of that one attempt, for any later caller.
@@ -1245,8 +1252,10 @@ class TopologyAndFlowMonitor
     /// with a sharper reason for it here. Ryu goes on listing a link that was declared failed for
     /// ever, because a declaration has no LLDP consequence: nothing about the fabric changed, only
     /// what the twin was told. So a line per decline is a line per declared edge every 30 s, with
-    /// no end. Cleared by clearEdgeDeclaredDown, which is the episode ending.
-    /// Written under *m_graphMutex (updateLinks already holds it; the two clear sites take it).
+    /// no end. Cleared by clearEdgeDeclaredDown, which is the episode ending, and by
+    /// setEdgeDownByInjection when it turns a declaration into an injection, which changes the
+    /// advice the line gives. [Co-developed with claude code -- Adam]
+    /// Written under *m_graphMutex (updateLinks already holds it; the other writers take it).
     std::set<std::pair<uint64_t, uint32_t>> m_linkResurrectionDeclined;
 
     /// Switch management addresses this run has already seen offered as hosts, so the warning is

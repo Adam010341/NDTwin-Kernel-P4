@@ -233,7 +233,7 @@ only around 5 pps. `get_num_of_flows_passing_a_switch` was the narrowest: 21 of 
 
 **Why.** A flow is "active" only if a sample for it arrived in the last 3 seconds
 (`include/ndt_core/collection/FlowLinkUsageCollector.hpp:91`), and the per-edge flow sets used by the
-count are emptied after 2 seconds (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:5899-5920`). At
+count are emptied after 2 seconds (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:5920-5941`). At
 1-in-256 sampling a slow flow produces too few samples. The behaviour is documented
 (`doc/2026-01-02_ndt_api.md`, section 4).
 
@@ -297,7 +297,7 @@ link has a reading at all.
 **When.** Always; the average has no idle links in it by construction.
 
 **Why.** Links with `linkBandwidthUsage` 0, links that are not usable, and edges to hosts are skipped,
-and 0 is returned when no link is left (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:5621-5675`).
+and 0 is returned when no link is left (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:5642-5696`).
 The handler is `src/ndt_core/http/HttpSession.cpp:3521-3535`. The endpoint is part of the
 cross-repository `/ndt/` contract, so its meaning is not changed. The P4 energy-saving example uses it
 as a gate and stops its pass when the value is above its limit
