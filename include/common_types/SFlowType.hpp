@@ -1026,7 +1026,7 @@ computeEstimatedRates(uint64_t accumulatedFlowRate,
 // 🔴 What this deliberately does NOT re-assert: the proposed compounding effect where a dead flow
 // keeps a stale non-zero rate and therefore outranks live flows in top-k. It was measured on
 // 2026-08-28 across 3040 observations on two arms and dead-AND-nonzero came back 0 on both --
-// the periodic rates are cleared when no hop reported traffic (FlowLinkUsageCollector.cpp:1921).
+// the periodic rates are cleared when no hop reported traffic (FlowLinkUsageCollector.cpp:1875).
 // The measured harm is the population, not the ordering: dead flows do not beat live ones, they
 // FILL the slots underneath them, because fewer than ten flows are alive at once. Median 4 of the
 // top 10 rows were ended flows on the base arm and 2 of 10 on this branch. Zeroing every rate
@@ -1102,7 +1102,7 @@ toString(FlowLiveness liveness)
  * 🔴 A negative age -- lastSeenMs in the future -- is reported Active, on purpose and not because
  * it is right. `endTime` comes from the system clock, not a steady one, so an NTP step, a VM
  * resume or a hand-set clock can put it ahead of now. purgeIdleFlows already skips exactly this
- * case (`if (now <= info.endTime) continue;`, FlowLinkUsageCollector.cpp:2252), which is the
+ * case (`if (now <= info.endTime) continue;`, FlowLinkUsageCollector.cpp:2210), which is the
  * mechanism behind the 291 s zombie record observed in the 2026-08-13 OVS overnight round -- 19x
  * past the 15 s ceiling this code can produce, which is how that observation was shown to be a
  * DIFFERENT defect and not this one. Agreeing with the purge keeps a zombie visible in the

@@ -1603,7 +1603,7 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
 
         // [Co-developed with claude code -- Adam]
         // A-4f. The sampler for an edge is the switch it ARRIVES at: samples are keyed by the
-        // ingress port of the agent that took them (FlowLinkUsageCollector.cpp:1454) and
+        // ingress port of the agent that took them (FlowLinkUsageCollector.cpp:1408) and
         // resolved to an edge through its `dstIp`/`dstInterface`
         // (TopologyAndFlowMonitor::getAgentKeyFromTheOtherSide). So the agent to ask about this
         // edge is dstIp, not srcIp -- and getting that backwards would produce a status field
@@ -1623,7 +1623,7 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
             {{"is_up", e.isUp},
              {"link_bandwidth_bps", e.linkBandwidth},
              // Label AND the two raw ages it was derived from. The same reasoning as the rate
-             // divisor gate (FlowLinkUsageCollector.cpp:2020-2029): a lone boolean verdict is
+             // divisor gate (FlowLinkUsageCollector.cpp:1974-1983): a lone boolean verdict is
              // the code grading its own homework, and a reader cannot tell a check that passed
              // from a check that never ran. -1 means "never", not "a long time ago".
              {"telemetry_status", telemetry.status},

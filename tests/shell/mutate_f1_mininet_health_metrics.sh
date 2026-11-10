@@ -352,7 +352,7 @@ mutate_must_die \
 #   _GLIBCXX_ASSERTIONS   not defined -- zero hits in CMakeLists.txt, tests/CMakeLists.txt, cmake/
 #   _GLIBCXX_DEBUG        not defined -- likewise zero hits
 #   sanitizers            opt-in only: cmake/sanitizer-flags.cmake:29-31 returns unless
-#                         -DSANITIZER= is passed, and tests/CMakeLists.txt:282 puts -fsanitize
+#                         -DSANITIZER= is passed, and tests/CMakeLists.txt:286 puts -fsanitize
 #                         only on fuzz_sflow, behind FUZZING=ON (clang-only, OFF by default)
 #   the only global define is SPDLOG_ACTIVE_LEVEL (CMakeLists.txt:81)
 #

@@ -84,7 +84,7 @@ UPLINKS = ("s1-eth4", "s1-eth5")
 #: there (S0 already finds tuples for both uplinks); hr_pre(1) makes a wrong pick NOT RUN instead
 #: of a verdict.
 HR1_UPLINK = [u for u in UPLINKS if u not in SHAPED_IFACES][0]
-#: HU1: the side table holds at most 1024 keys (FlowLinkUsageCollector.hpp:740-747); a window
+#: HU1: the side table holds at most 1024 keys (FlowLinkUsageCollector.hpp:760-767); a window
 #: that starts this close to the cap could lose its row to the cap, not to NDTwin.
 SIDE_TABLE_ROOM = 1000
 DPIDS = ("1", "2", "3", "4")

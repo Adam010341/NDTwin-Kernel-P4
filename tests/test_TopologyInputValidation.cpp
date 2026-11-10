@@ -959,7 +959,7 @@ TEST(TopologyInputValidationTest, FromJsonHasNoProductionCallers)
 // Guards on sixteen `ip.front()` sites keep an addressless node from taking the process
 // down. An inventory of the same pattern then found seven more dereferences written `ip[0]`,
 // **five of them on the host side and production-reachable** -- IntentTranslator.cpp:665,:702,
-// LLMAgent.cpp:243, FlowLinkUsageCollector.cpp:2996,:2997 -- and did not fix them. The invariant
+// LLMAgent.cpp:243, FlowLinkUsageCollector.cpp:2967,:2968 -- and did not fix them. The invariant
 // those five assume holds only if no file ever declares such a host. That is this door.
 //
 // 🔴 AN EXISTING GREEN TEST ASSERTED THE OPPOSITE AND WAS DELIBERATELY REVERSED:

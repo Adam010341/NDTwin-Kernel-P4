@@ -645,8 +645,9 @@ qdisc tree came back unchanged.
 - `ndt down` exits 1 also when a component's recorded ending was a fatal signal (SIGKILL, SIGABRT,
   SIGSEGV) from an earlier session. That record is delivered once; the next `ndt down` is green again.
   It exits 1 too when a component it stops is still running 10 s after SIGTERM: that component is
-  killed, and `[1/3]` says it `did not stop cleanly`. Measured 2026-11-08 on a Debug build in a VM
-  with no fabric, `stack.sh` saw the kernel gone 1.0 to 2.1 s after SIGTERM; it was not measured on a fabric.
+  killed, and `[1/3]` says it `did not stop cleanly`. Measured 2026-11-09 on a Debug build in a VM
+  with no fabric, `stack.sh` saw the kernel gone 0.55 to 0.56 s after SIGTERM, with no controller and
+  with one that accepts and never answers (it checks every 0.5 s); it was not measured on a fabric.
   `STOP_WAIT_TICKS` (half-second ticks, default 20) changes the wait; see `tools/test_workflow/README.md`.
   Read the `[1/3]` block, which names the component. A port held at `[1/3]` is not by itself a failed
   teardown: on a live P4 fabric it can only be naming the bmv2 ports about to be removed, so those

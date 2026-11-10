@@ -17,8 +17,9 @@
 #   K5  the handler ends the process with status 0 and skips the orderly path, so the status
 #       alone cannot be what the test reads
 #   K6  the collector's stop() joins its worker pool before its receive thread again, so two
-#       threads join the same workers (an abort or a hang at shutdown). A race: the suite runs
-#       three TERM rounds and a SIGINT one, and it was 2 of 3 per round when measured.
+#       threads join the same workers (an abort or a hang at shutdown). A race, so the suite runs
+#       K6_TERM_ROUNDS TERM rounds for this mutant (see K6_TERM_ROUNDS below for the measured rate),
+#       and only a TERM round whose recorded ending is not a clean exit counts as the catch.
 # stack.sh mutants (no rebuild):
 #   S1  a KILL after the window is not recorded as a fatal ending
 #   S2  no KILL after the window at all
@@ -40,6 +41,11 @@ set -uo pipefail
 BUILD_DIR="${BUILD_DIR:-build}"
 JOBS="${JOBS:-2}"
 TARGET=ndtwin_kernel
+# [Co-developed with claude code -- Adam]
+# TERM rounds the kernel suite runs. Its own default for every mutant but K6, which is a race and
+# gets more rounds; the per-round rate it is sized from is recorded where K6 runs.
+SUITE_TERM_ROUNDS=""
+K6_TERM_ROUNDS="${K6_TERM_ROUNDS:-12}"
 
 MAIN=src/main.cpp
 COLLECTOR=src/ndt_core/collection/FlowLinkUsageCollector.cpp
@@ -99,7 +105,7 @@ build() { cmake --build "$BUILD_DIR" --target "$TARGET" --parallel "$JOBS" >/dev
 # suite passed. A suite that skipped or printed no summary is reported as such, never as green.
 red_checks() {
     local out rc
-    out=$(BUILD_DIR="$BUILD_DIR" bash "$1" 2>&1); rc=$?
+    out=$(BUILD_DIR="$BUILD_DIR" TERM_ROUNDS="${SUITE_TERM_ROUNDS:-3}" bash "$1" 2>&1); rc=$?
     if grep -qE '^SKIP:' <<<"$out"; then echo "SKIPPED: $(grep -E '^SKIP:' <<<"$out" | head -1)"; return; fi
     if [[ $rc -eq 0 ]] && grep -qE '^Ran [0-9]+ checks, all passed' <<<"$out"; then return; fi
     sed -n 's/^  FAILED   //p' <<<"$out"
@@ -297,8 +303,13 @@ run_mutation "K4. the shutdown outlives stop_one's window" "$KERNEL_SUITE" \
     "TERM: stop_one did not have to send KILL" k4 rebuild
 run_mutation "K5. status 0 without the orderly path" "$KERNEL_SUITE" \
     "TERM: the kernel logged that it was asked to stop" k5 rebuild
+# K6 is a race. Measured 2026-11-09 on a Debug build in a VM: 15 of 20 and 9 of 20 TERM rounds
+# caught it in two runs, so one round misses it 25-55% of the time. 12 rounds keep a whole-gate
+# miss below 0.1% at the worse of the two rates (0.55^12 = 0.08%; 8 rounds would be 0.8%).
+SUITE_TERM_ROUNDS="$K6_TERM_ROUNDS"
 run_mutation "K6. the collector joins its pool before its receive thread (the race)" "$KERNEL_SUITE" \
-    "TERM: " k6 rebuild
+    "TERM: the recorded ending is a clean exit" k6 rebuild
+SUITE_TERM_ROUNDS=""
 run_widening "W1. a comment in the handler" "$KERNEL_SUITE" w1 rebuild
 run_widening "W2. the signals registered in the other order" "$KERNEL_SUITE" w2 rebuild
 

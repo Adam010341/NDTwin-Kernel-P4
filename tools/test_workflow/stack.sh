@@ -737,18 +737,18 @@ pidfile_vouches() {
 # The kernel handles SIGTERM: it stops its subsystems one by one, logs "All subsystems stopped"
 # and exits 0, and supervise.sh records that before it exits itself. The wait below covers all of
 # it, because the pid polled here is the supervisor's. What bounds the kernel's part:
-#   * the topology monitor and the power manager cancel their in-flight control-plane requests
-#     and wake their sleeping workers (their stop() requests a StopSignal);
-#   * the sFlow collector has no such signal. Its workers sleep in 1 s slices
-#     (refreshDestinationPathsPeriodically, purgeIdleFlows, calAvgFlowSendingRatesPeriodically) and
-#     up to 2 s in testCalAvgFlowSendingRatesRandomly, so it waits up to about 2 s; and a
-#     destination-path request already running (fetchAllDestinationPaths: execCommand, curl
-#     --max-time 10) is not cancelled, so against a controller that accepts and never answers it can
-#     take the whole 10 s. The group TERM usually ends that curl first, since it is in the group;
-#     one started after the TERM is not ended by it.
-# Measured 2026-11-08 on a Debug build in a VM with no fabric, with no controller and with one that
-# accepts and never answers: 1.0 to 2.1 s from TERM to stop_one returning, over 25 stops. A
-# component still running at the end of the window is killed and reported as a fatal ending.
+#   * the topology monitor, the power manager and the sFlow collector cancel their in-flight
+#     control-plane requests and wake their sleeping workers (their stop() requests a StopSignal).
+#     For the collector that includes its destination-path request (curl --max-time 10), which
+#     used to run to its deadline against a controller that accepts and never answers, and its
+#     periodic threads, which used to sleep out 1 s slices or a random 0.5-2 s; what is left is
+#     its receive thread's 100 ms poll.
+# Measured (Debug, VM, no fabric; no controller, or one that never answers), TERM to stop_one done:
+# 1.0 to 2.1 s over 25 stops on 2026-11-08, before the collector cancelled anything; 0.55 to 0.56 s
+# over 10 stops on 2026-11-09, after (stop_one polls every 0.5 s). The kernel's own shutdown is then
+# up to about 0.1 s, its receive poll; those runs logged 9 to 13 ms (and 0.06 s for a TERM to the
+# kernel's pid alone, 9.7 s before) because each stopped just before a poll boundary. A component
+# still running at the end of the window is killed and reported as a fatal ending.
 STOP_WAIT_TICKS="${STOP_WAIT_TICKS:-20}"
 
 # stop_wait_ticks_valid -- true when STOP_WAIT_TICKS is a whole number >= 1. [Co-developed with claude code -- Adam]

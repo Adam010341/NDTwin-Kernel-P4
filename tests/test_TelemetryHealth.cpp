@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 
 // [Co-developed with claude code -- Adam] The class lives in `namespace
-// sflow` (FlowLinkUsageCollector.hpp:30). Every sibling that compiles qualifies it the same way
+// sflow` (FlowLinkUsageCollector.hpp:31). Every sibling that compiles qualifies it the same way
 // -- e.g. test_SFlowParsing.cpp:140. Unqualified, the whole file fails to name the type.
 using Collector = sflow::FlowLinkUsageCollector;
 using Health = sflow::FlowLinkUsageCollector::IngestHealth;

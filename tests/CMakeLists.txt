@@ -114,6 +114,10 @@ add_executable(
   # workers read their stop flag only between rounds, so a stop waited out one curl per switch
   # (81.09 s measured) or per topology endpoint. Timed against a listener that never answers.
   test_KernelStopIsBounded.cpp
+  # [Co-developed with claude code -- Adam] The sFlow collector's stop(): a lost wakeup in its
+  # worker queue, a destination-path fetch and periodic sleeps nothing could end, and a shutdown
+  # drain outside the worker's try/catch. Ephemeral ports only.
+  test_CollectorStopsPromptly.cpp
   # [Co-developed with claude code -- Adam] 2026-09-03:
   # `is_up` answered two questions at once, so a commanded-off switch and a crashed one were the
   # same shape. Split into admin_state + reachable, is_up kept as a deprecated alias.
