@@ -29,6 +29,7 @@
  * getGraph() and so cannot be reached this way at all.
  */
 
+#include <atomic>
 #include <chrono>
 // [Co-developed with claude code -- Adam] G-32: a claim file under a temp dir,
 // setenv/unsetenv, and the clock the expiry is compared against.
@@ -38,6 +39,7 @@
 #include <fstream>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <unistd.h>
@@ -577,6 +579,12 @@ TEST_F(LinkTransitionEndpointsTest, AFailureWhoseReverseEdgeIsMissingIsNotReport
     EXPECT_EQ(res.result_int(), 500u) << "body: " << res.body();
     EXPECT_NE(res.body().find("reverse edge missing"), std::string::npos) << res.body();
     EXPECT_FALSE(edgeIsUp(1, 5)) << "the reported direction must still be marked down";
+    // [Co-developed with claude code -- Adam] And marked down as REPORTED, not merely declared:
+    // its own recovery report has to be able to pair with it and withdraw it.
+    const auto fwd = m_monitor->findEdgeBySrcAndDstDpid({1, 5});
+    ASSERT_TRUE(fwd.has_value());
+    EXPECT_TRUE(m_monitor->getEdgeFailureReported(*fwd))
+        << "the reported direction was declared down without the report that pairs with it";
 }
 
 TEST_F(LinkTransitionEndpointsTest, ARecoveryWithBothDirectionsPresentBringsBothUpAndAnswers200)
@@ -1255,8 +1263,10 @@ class DeclaredLinkFailureWireTest : public ::testing::Test
     {
         m_graph = std::make_shared<Graph>();
         m_bus = std::make_shared<EventBus>();
-        m_monitor = std::make_shared<PollableMonitor>(
-            m_graph, std::make_shared<std::shared_mutex>(), m_bus, utils::MININET);
+        // Kept, so a case can read the graph under the lock the monitor writes it under.
+        // [Co-developed with claude code -- Adam]
+        m_mutex = std::make_shared<std::shared_mutex>();
+        m_monitor = std::make_shared<PollableMonitor>(m_graph, m_mutex, m_bus, utils::MININET);
 
         const auto s1 = addSwitch(1, "s1");
         const auto s5 = addSwitch(5, "s5");
@@ -1366,8 +1376,23 @@ class DeclaredLinkFailureWireTest : public ::testing::Test
                 "/ndt/inject_link_recovery"};
     }
 
+    /// The (src, dst) edge's properties, copied under the graph lock.
+    /// [Co-developed with claude code -- Adam]
+    EdgeProperties edgeFor(uint64_t src, uint64_t dst)
+    {
+        const auto e = m_monitor->findEdgeBySrcAndDstDpid({src, dst});
+        if (!e.has_value())
+        {
+            throw std::runtime_error("the fixture has no edge " + std::to_string(src) + " -> " +
+                                     std::to_string(dst));
+        }
+        std::shared_lock lock(*m_mutex);
+        return (*m_graph)[*e];
+    }
+
     std::shared_ptr<Graph> m_graph;
     std::shared_ptr<EventBus> m_bus;
+    std::shared_ptr<std::shared_mutex> m_mutex;
     std::shared_ptr<PollableMonitor> m_monitor;
 };
 
@@ -2487,6 +2512,337 @@ TEST_F(DeclaredLinkFailureWireTest, InjectRecoveryEndsAReportedInjectionAndLeave
         << "a real outage reported after the injection ended was declined as if it were the "
            "injection: " << recovery.body;
     EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false));
+}
+
+// =================================================================================================
+// Both directions of a link are one write
+//
+// [Co-developed with claude code -- Adam]
+//
+// Each link endpoint writes both directions of the link it names. The handlers used to write them
+// one at a time, a lock each, and /ndt/inject_link_recovery also took the lock twice per direction,
+// once to withdraw the declaration and once to raise the edge. Another request could run in any of
+// those gaps:
+//
+//   - an /ndt/inject_link_recovery between the two directions of an injection or a failure report
+//     withdrew the first direction and left the second declared, for good;
+//   - an /ndt/inject_link_failure between the withdrawal and the raise was undone by the raise:
+//     the edge stayed injected and declared down with `isUp` true, which no poll lowers.
+//
+// The first is ordered deterministically below through the event each failure endpoint emits per
+// direction: a handler on that event runs between the two directions when they are written apart,
+// and after both when they are one write. The second has no such seam -- nothing runs between the
+// withdrawal and the raise -- so it is caught the way the monitor's own one-lock cases catch
+// theirs: a reader holding the graph lock in shared mode, as every reader in the kernel does,
+// while the real handlers run in a loop, counting the states only a half-done write can leave.
+// =================================================================================================
+
+namespace
+{
+
+/// The four fields a link endpoint writes, for one direction.
+struct EdgeLinkState
+{
+    bool isUp = false;
+    bool declaredDown = false;
+    bool injected = false;
+    bool failureReported = false;
+
+    bool operator==(const EdgeLinkState&) const = default;
+};
+
+EdgeLinkState
+linkStateOf(const EdgeProperties& ep)
+{
+    return EdgeLinkState{ep.isUp, ep.declaredDown, ep.injected, ep.failureReported};
+}
+
+std::string
+describeLinkState(const EdgeLinkState& s)
+{
+    return std::string("is_up=") + (s.isUp ? "true" : "false") +
+           " declared=" + (s.declaredDown ? "true" : "false") +
+           " injected=" + (s.injected ? "true" : "false") +
+           " reported=" + (s.failureReported ? "true" : "false");
+}
+
+struct LinkWriteSamples
+{
+    long reads = 0;
+    /// An edge that is down with no declaration holding it down: the withdrawal written and the
+    /// raise not yet.
+    long downWithoutDeclaration = 0;
+    /// The two directions differ in any of the four fields: one direction written and the other
+    /// not yet.
+    long directionsDisagree = 0;
+    /// Both directions declared and down, and (once a declaration has been seen) both undeclared
+    /// and up: the two states the loop moves between. Each must be seen, or the reader never
+    /// overlapped the writes and the two counts above are zero for a reason that says nothing.
+    long bothDeclared = 0;
+    long bothWithdrawn = 0;
+    long refusedRequests = 0;
+};
+
+constexpr int kLinkWriteRounds = 5000;
+
+/// POSTs @p down and then @p up with @p body, kLinkWriteRounds times, through the real handlers,
+/// while a second thread reads both directions of the s1 <-> s5 link under a shared lock on
+/// @p mutex as fast as it can and counts what it finds.
+LinkWriteSamples
+sampleWhileRequestsAlternate(const std::shared_ptr<PollableMonitor>& monitor,
+                             const std::shared_ptr<EventBus>& bus,
+                             const Graph& graph,
+                             std::shared_mutex& mutex,
+                             const char* down,
+                             const char* up,
+                             const std::string& body)
+{
+    const auto fwd = monitor->findEdgeBySrcAndDstDpid({1, 5});
+    const auto rev = monitor->findEdgeBySrcAndDstDpid({5, 1});
+    if (!fwd.has_value() || !rev.has_value())
+    {
+        throw std::runtime_error("the fixture has no s1 <-> s5 link");
+    }
+
+    HttpSessionTestPeer peer(monitor, bus, utils::TESTBED);
+    std::atomic<bool> done{false};
+    // [Co-developed with claude code -- Adam]
+    // The writer waits for the reader's first read, and the reader says when it has seen both
+    // whole states, so that on a single CPU, where the reader can go unscheduled for a long
+    // stretch, the loop below can be extended until the run has overlapped the writes at all.
+    std::atomic<bool> readerStarted{false};
+    std::atomic<bool> sawDeclared{false};
+    std::atomic<bool> sawWithdrawn{false};
+    LinkWriteSamples seen;
+    std::thread reader(
+        [&]
+        {
+            while (!done.load(std::memory_order_acquire))
+            {
+                {
+                    std::shared_lock lock(mutex);
+                    const auto f = linkStateOf(graph[*fwd]);
+                    const auto r = linkStateOf(graph[*rev]);
+                    ++seen.reads;
+                    if ((!f.isUp && !f.declaredDown) || (!r.isUp && !r.declaredDown))
+                    {
+                        ++seen.downWithoutDeclaration;
+                    }
+                    if (!(f == r))
+                    {
+                        ++seen.directionsDisagree;
+                    }
+                    if (f.declaredDown && !f.isUp && r.declaredDown && !r.isUp)
+                    {
+                        ++seen.bothDeclared;
+                        sawDeclared.store(true, std::memory_order_relaxed);
+                    }
+                    // Counted only after a declaration has been seen: the link starts out
+                    // undeclared and up, and a read of that start says nothing about a recovery.
+                    if (sawDeclared.load(std::memory_order_relaxed) && !f.declaredDown && f.isUp &&
+                        !r.declaredDown && r.isUp)
+                    {
+                        ++seen.bothWithdrawn;
+                        sawWithdrawn.store(true, std::memory_order_relaxed);
+                    }
+                }
+                readerStarted.store(true, std::memory_order_release);
+            }
+        });
+    long refused = 0;
+    const auto sendDown = [&]
+    {
+        if (peer.send(http::verb::post, down, body).result_int() != 200u) ++refused;
+    };
+    const auto sendUp = [&]
+    {
+        if (peer.send(http::verb::post, up, body).result_int() != 200u) ++refused;
+    };
+    while (!readerStarted.load(std::memory_order_acquire))
+    {
+        std::this_thread::yield();
+    }
+    for (int i = 0; i < kLinkWriteRounds; ++i)
+    {
+        sendDown();
+        sendUp();
+    }
+    // Not both states seen yet: keep going, yielding after each request so that a reader sharing
+    // the CPU gets a turn, for at most as many rounds again.
+    for (int i = 0; i < kLinkWriteRounds && !(sawDeclared.load(std::memory_order_relaxed) &&
+                                              sawWithdrawn.load(std::memory_order_relaxed));
+         ++i)
+    {
+        sendDown();
+        std::this_thread::yield();
+        sendUp();
+        std::this_thread::yield();
+    }
+    done.store(true, std::memory_order_release);
+    reader.join();
+    seen.refusedRequests = refused;
+    return seen;
+}
+
+/// The counts, into the test's XML record, so a green run still says how many reads it made and
+/// how often it saw each whole state.
+void
+recordLinkWriteSamples(const LinkWriteSamples& seen)
+{
+    ::testing::Test::RecordProperty("reads", static_cast<int>(seen.reads));
+    ::testing::Test::RecordProperty("down_without_declaration",
+                                    static_cast<int>(seen.downWithoutDeclaration));
+    ::testing::Test::RecordProperty("directions_disagree",
+                                    static_cast<int>(seen.directionsDisagree));
+    ::testing::Test::RecordProperty("both_declared", static_cast<int>(seen.bothDeclared));
+    ::testing::Test::RecordProperty("both_withdrawn", static_cast<int>(seen.bothWithdrawn));
+}
+
+} // namespace
+
+/**
+ * 🔴 An /ndt/inject_link_recovery between the two directions of an /ndt/inject_link_failure. It
+ * used to withdraw the direction already written and leave the other injected, declared and down
+ * for good: a link down one way only, which no sequence of whole requests produces. Written as one,
+ * the recovery lands after both, and the link ends up withdrawn in both directions.
+ */
+TEST_F(DeclaredLinkFailureWireTest, ARecoveryInsideAnInjectionLeavesBothDirectionsAlike)
+{
+    HttpSessionTestPeer injector(m_monitor, m_bus, utils::TESTBED);
+    HttpSessionTestPeer recoverer(m_monitor, m_bus, utils::TESTBED);
+    int emitted = 0;
+    unsigned recoveryStatus = 0;
+    m_bus->registerHandler(EventType::LinkFailureDetected,
+                           [&](const Event&)
+                           {
+                               if (emitted++ == 0)
+                               {
+                                   recoveryStatus =
+                                       postAndCopy(recoverer, "/ndt/inject_link_recovery", kBody)
+                                           .status;
+                               }
+                           });
+
+    const auto injected = postAndCopy(injector, "/ndt/inject_link_failure", kBody);
+    ASSERT_EQ(injected.status, 200u) << injected.body;
+    ASSERT_EQ(emitted, 2) << "the injection did not emit one event per direction";
+    ASSERT_EQ(recoveryStatus, 200u) << "the recovery inside the injection was not carried out";
+
+    const auto fwd = linkStateOf(edgeFor(1, 5));
+    const auto rev = linkStateOf(edgeFor(5, 1));
+    EXPECT_EQ(fwd, rev) << "the two directions of one link disagree after two whole requests:\n"
+                        << "  1 -> 5: " << describeLinkState(fwd)
+                        << "\n  5 -> 1: " << describeLinkState(rev)
+                        << "\nThe injection wrote its directions apart and the recovery ran "
+                           "between them";
+    EXPECT_EQ(rev, (EdgeLinkState{true, false, false, false}))
+        << "the recovery ran last, so the link is withdrawn and up: " << describeLinkState(rev);
+}
+
+/**
+ * The same order for /ndt/link_failure_detected: an /ndt/inject_link_recovery between its two
+ * directions left the second one declared, with a report standing for it alone.
+ */
+TEST_F(DeclaredLinkFailureWireTest, ARecoveryInsideAFailureReportLeavesBothDirectionsAlike)
+{
+    HttpSessionTestPeer reporter(m_monitor, m_bus, utils::TESTBED);
+    HttpSessionTestPeer recoverer(m_monitor, m_bus, utils::TESTBED);
+    int emitted = 0;
+    unsigned recoveryStatus = 0;
+    m_bus->registerHandler(EventType::LinkFailureDetected,
+                           [&](const Event&)
+                           {
+                               if (emitted++ == 0)
+                               {
+                                   recoveryStatus =
+                                       postAndCopy(recoverer, "/ndt/inject_link_recovery", kBody)
+                                           .status;
+                               }
+                           });
+
+    const auto reported = postAndCopy(reporter, "/ndt/link_failure_detected", kBody);
+    ASSERT_EQ(reported.status, 200u) << reported.body;
+    ASSERT_EQ(emitted, 2) << "the report did not emit one event per direction";
+    ASSERT_EQ(recoveryStatus, 200u) << "the recovery inside the report was not carried out";
+
+    const auto fwd = linkStateOf(edgeFor(1, 5));
+    const auto rev = linkStateOf(edgeFor(5, 1));
+    EXPECT_EQ(fwd, rev) << "the two directions of one link disagree after two whole requests:\n"
+                        << "  1 -> 5: " << describeLinkState(fwd)
+                        << "\n  5 -> 1: " << describeLinkState(rev)
+                        << "\nThe report wrote its directions apart and the recovery ran between "
+                           "them";
+    EXPECT_EQ(rev, (EdgeLinkState{true, false, false, false}))
+        << "the recovery ran last, so the link is withdrawn and up: " << describeLinkState(rev);
+}
+
+/**
+ * 🔴 /ndt/inject_link_recovery withdraws the declaration and raises the edge in one write. Taken as
+ * two, an /ndt/inject_link_failure between them was undone by the raise. The reader finds the gap
+ * itself: an edge down with no declaration, which only the withdrawal-without-the-raise can leave.
+ */
+TEST_F(DeclaredLinkFailureWireTest, InjectRecoveryWithdrawsAndRaisesUnderOneLock)
+{
+    const auto seen = sampleWhileRequestsAlternate(m_monitor,
+                                                   m_bus,
+                                                   *m_graph,
+                                                   *m_mutex,
+                                                   "/ndt/inject_link_failure",
+                                                   "/ndt/inject_link_recovery",
+                                                   kBody);
+    recordLinkWriteSamples(seen);
+
+    ASSERT_EQ(seen.refusedRequests, 0) << "a request in the loop was not carried out";
+    ASSERT_GT(seen.bothDeclared, 0) << "the reader never saw the injection, so it never overlapped "
+                                       "the writes and found nothing for that reason";
+    ASSERT_GT(seen.bothWithdrawn, 0) << "the reader never saw the recovery";
+    EXPECT_EQ(seen.downWithoutDeclaration, 0)
+        << seen.downWithoutDeclaration << " of " << seen.reads
+        << " reads found an edge down with no declaration. /ndt/inject_link_recovery withdraws "
+           "and raises under two locks, and an /ndt/inject_link_failure in that gap is undone by "
+           "the raise: injected, declared down and up";
+}
+
+/** The injection and its recovery each write both directions as one. */
+TEST_F(DeclaredLinkFailureWireTest, AnInjectionAndItsRecoveryWriteBothDirectionsUnderOneLock)
+{
+    const auto seen = sampleWhileRequestsAlternate(m_monitor,
+                                                   m_bus,
+                                                   *m_graph,
+                                                   *m_mutex,
+                                                   "/ndt/inject_link_failure",
+                                                   "/ndt/inject_link_recovery",
+                                                   kBody);
+    recordLinkWriteSamples(seen);
+
+    ASSERT_EQ(seen.refusedRequests, 0) << "a request in the loop was not carried out";
+    ASSERT_GT(seen.bothDeclared, 0) << "the reader never saw the injection";
+    ASSERT_GT(seen.bothWithdrawn, 0) << "the reader never saw the recovery";
+    EXPECT_EQ(seen.directionsDisagree, 0)
+        << seen.directionsDisagree << " of " << seen.reads
+        << " reads found the two directions of the link in different states. They are written "
+           "under two locks, and a request between them leaves the link down one way only";
+}
+
+/** A failure report and its recovery report each write both directions as one. */
+TEST_F(DeclaredLinkFailureWireTest, AFailureReportAndItsRecoveryWriteBothDirectionsUnderOneLock)
+{
+    const auto seen = sampleWhileRequestsAlternate(m_monitor,
+                                                   m_bus,
+                                                   *m_graph,
+                                                   *m_mutex,
+                                                   "/ndt/link_failure_detected",
+                                                   "/ndt/link_recovery_detected",
+                                                   kBody);
+    recordLinkWriteSamples(seen);
+
+    ASSERT_EQ(seen.refusedRequests, 0) << "a request in the loop was not carried out";
+    ASSERT_GT(seen.bothDeclared, 0) << "the reader never saw the report";
+    ASSERT_GT(seen.bothWithdrawn, 0) << "the reader never saw the recovery";
+    EXPECT_EQ(seen.directionsDisagree, 0)
+        << seen.directionsDisagree << " of " << seen.reads
+        << " reads found the two directions of the link in different states. They are written "
+           "under two locks, and a request between them leaves the link down one way only";
 }
 
 // --- G-32 option C: the lab claim on a write reply -------------------------------------------

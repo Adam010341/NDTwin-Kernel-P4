@@ -2541,7 +2541,7 @@ ENDPOINTS = [
     # Its sibling parses the body with an unguarded json::parse, so the 400 here comes from
     # buildResponse's `catch (const json::exception&)` rather than from a validator. That is the
     # difference this check exists for: the same malformed body reaches the two endpoints by
-    # different routes, and the other route has answered 500 before (HttpSession.cpp:1865).
+    # different routes, and the other route has answered 500 before (HttpSession.cpp:2760).
     dict(name="link_recovery_detected__malformed_json", method="POST",
          path="/ndt/link_recovery_detected", raw_body="{this is not json",
          category=ERRORPATH, expect_status=[400],

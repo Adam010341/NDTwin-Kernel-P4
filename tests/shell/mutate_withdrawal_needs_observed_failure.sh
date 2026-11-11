@@ -20,8 +20,14 @@
 #             /ndt/link_failure_detected reported that link broken, before or after the injection.
 #             M35 .. M43, W8.
 #   one lock  each writer that adds a note to a declaration (the injection, the failure report)
-#             writes the note and the declaration under one lock, and an injection re-arms the
-#             poll's one-line advice when it changes what that advice has to say. M44 .. M47.
+#             writes the note and the declaration under one lock, and an injection of an edge that
+#             was not injected re-arms the poll's one-line advice. M44 .. M47.
+#   one write each link endpoint writes both directions of its link under one lock, and
+#             /ndt/inject_link_recovery withdraws the declaration and raises the edge under the
+#             same one. M48 .. M56, W9 .. W13. On one CPU a split is found only when a preemption
+#             lands inside it (1 run in 5 measured for the withdrawal), so run this on several CPUs.
+#   lone side the missing-reverse branch of /ndt/link_failure_detected still records the report
+#             with its declaration. M57.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -50,7 +56,7 @@
 # 🔴 TWO DIRECTIONS, AND THE SECOND ONE IS WHY THIS GATE EXISTS AT ALL
 #   1. RESTORING any of the five defects must be caught      (M1 .. M10, M19 .. M24)
 #      -- the unconditional withdrawal, the report that is never recorded or never spent, the
-#         notification path calling the injection writer, dpid 0 let through at the helper or at
+#         notification path recording a plain declaration, dpid 0 let through at the helper or at
 #         one call site, the startup sweep that finds nothing or says nothing, the recovery
 #         log written before the outcome is known or written the same way for all three outcomes,
 #         and the sweep narrowed back to link ends, blind to unfamiliar interfaces, calling
@@ -113,6 +119,8 @@ FILTER='DeclaredLinkFailureTest.*:DeclaredLinkFailureWireTest.*:ResidualNetemSwe
 # [Co-developed with claude code -- Adam] B-16 (2026-09-11) added two suites over the netem
 # helpers themselves: provenance, and both-ends-or-neither. They are in the same binary.
 FILTER="$FILTER:InjectedNetemProvenanceTest.*:AllOrNothingCutTest.*"
+# [Co-developed with claude code -- Adam] The missing-reverse branches of the link endpoints.
+FILTER="$FILTER:LinkTransitionEndpointsTest.*"
 
 TFM=src/ndt_core/collection/TopologyAndFlowMonitor.cpp
 HS=src/ndt_core/http/HttpSession.cpp
@@ -219,7 +227,9 @@ add_anchor "classify"      "$TFM" '        SweptInterface kind = SweptInterface:
         }'
 add_anchor "warn-prose"    "$TFM" '            "topology. Packets there are already being dropped or delayed, and NOTHING IN THE "'
 add_anchor "dpid-guard"    "$HS"  '    return srcDpid != 0 && dstDpid != 0;'
-add_anchor "notify-writer" "$HS"  '    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());'
+# [Co-developed with claude code -- Adam] The notification and injection endpoints write both
+# directions through one link writer each, so the forward direction's writer is named there.
+add_anchor "notify-writer" "$TFM" '    reportEdgeDownNoLock(fwd);'
 add_anchor "inject-door"   "$HS"  'HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Inject Link Failure");
@@ -304,7 +314,7 @@ add_anchor "log-sentences" "$HS"  '    switch (outcome)
     }'
 add_anchor "inject-rule"   "$TFM" '    if (eprop.injected)'
 add_anchor "inject-note-end" "$TFM" '    eprop.injected = false;'
-add_anchor "inject-writer" "$HS"  '    m_topologyAndFlowMonitor->setEdgeDownByInjection(fwdOpt.value());'
+add_anchor "inject-writer" "$TFM" '    injectEdgeDownNoLock(fwd);'
 add_anchor "report-until"  "$HS"  '    if (m_topologyAndFlowMonitor->getEdgeInjected(fwdOpt.value()) ||
         m_topologyAndFlowMonitor->getEdgeInjected(revOpt.value()))'
 add_anchor "log-injection" "$HS"  'injectionRetained ? RecoveryLogOutcome::InjectionRetained'
@@ -318,6 +328,26 @@ add_anchor "inject-rearm"  "$TFM" '    if (!eprop.injected)
     {
         m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
     }'
+add_anchor "withdraw-call" "$HS"  '    m_topologyAndFlowMonitor->withdrawLinkDeclarationAndRaise(fwdOpt.value(), revOpt.value());'
+add_anchor "withdraw-raise" "$TFM" '    clearEdgeDeclaredDownNoLock(fwd);
+    setEdgeUpNoLock(fwd);'
+add_anchor "withdraw-pair" "$TFM" '    setEdgeUpNoLock(fwd);
+    clearEdgeDeclaredDownNoLock(rev);'
+add_anchor "inject-call"   "$HS"  '    m_topologyAndFlowMonitor->setLinkDownByInjection(fwdOpt.value(), revOpt.value());
+    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                           .payload = LinkFailureEventData{fwdOpt.value()}});'
+add_anchor "inject-pair"   "$TFM" '    injectEdgeDownNoLock(fwd);
+    injectEdgeDownNoLock(rev);'
+add_anchor "notify-call"   "$HS"  '    m_topologyAndFlowMonitor->setLinkDownByReportedFailure(fwdOpt.value(), revOpt.value());
+    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                           .payload = LinkFailureEventData{fwdOpt.value()}});'
+add_anchor "notify-pair"   "$TFM" '    reportEdgeDownNoLock(fwd);
+    reportEdgeDownNoLock(rev);'
+add_anchor "recovery-pair" "$TFM" '    const auto fwdOutcome = applyReportedLinkRecoveryNoLock(fwd);
+    const auto revOutcome = applyReportedLinkRecoveryNoLock(rev);'
+add_anchor "recovery-call" "$HS"  '    const auto [fwdOutcome, revOutcome] =
+        m_topologyAndFlowMonitor->applyReportedLinkRecovery(fwdOpt.value(), revOpt.value());'
+add_anchor "notify-lone"   "$HS"  '        m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());'
 add_anchor "log-decline-text" "$HS" '                               "declaration was retained and the link is still down. POST "
                                "/ndt/inject_link_recovery to withdraw it",'
 
@@ -495,13 +525,15 @@ mutate "the notification path never records that the break was reported" \
     DeclaredLinkFailureTest.ObservationWritersNeitherSetNorClearTheFailureReport \
     DeclaredLinkFailureWireTest.AReportedFailureIsStillWithdrawnByItsOwnRecovery
 
-# M3. 🔴 The wire half of the same thing: /ndt/link_failure_detected calls the INJECTION writer, so
-#     a break Ryu reported is indistinguishable from an operator's injection and its own recovery
-#     can no longer withdraw it. This is the call HttpSession made before the fix.
-mutate "the notification endpoint records an injection instead of a reported failure" \
-    "$HS" \
-    '    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());' \
-    '    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(fwdOpt.value());' \
+# M3. 🔴 The wire half of the same thing: /ndt/link_failure_detected records a plain declaration
+#     for the forward direction, so a break Ryu reported is indistinguishable from an operator's
+#     declaration and its own recovery can no longer withdraw it. This is the call HttpSession made
+#     before the fix; the endpoint now writes both directions through setLinkDownByReportedFailure,
+#     so the mutation is made there.
+mutate "the notification endpoint records a plain declaration instead of a reported failure" \
+    "$TFM" \
+    '    reportEdgeDownNoLock(fwd);' \
+    '    declareEdgeDownNoLock(fwd);' \
     DeclaredLinkFailureWireTest.AReportedFailureIsStillWithdrawnByItsOwnRecovery
 
 # M4. The report is not spent by the recovery that pairs with it, so ONE real outage licenses every
@@ -1078,9 +1110,9 @@ mutate "a recovery report can end an injection the control plane reported (= B-2
 #      alone, so the reply still says `declaration_retained`; the red comes from the forward edge
 #      being withdrawn and raised.
 mutate "the injection endpoint records a plain declaration for the forward direction" \
-    "$HS" \
-    '    m_topologyAndFlowMonitor->setEdgeDownByInjection(fwdOpt.value());' \
-    '    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(fwdOpt.value());' \
+    "$TFM" \
+    '    injectEdgeDownNoLock(fwd);' \
+    '    declareEdgeDownNoLock(fwd);' \
     DeclaredLinkFailureWireTest.AnInjectionOutlivesARecoveryReportAfterTheControlPlaneReportedTheCut \
     DeclaredLinkFailureWireTest.AnInjectionOutlivesARecoveryReportWhenTheReportCameFirst
 
@@ -1145,9 +1177,9 @@ mutate "a declined injection is logged with the unpaired-declaration sentence" \
 #      the mutation that turns ARyuRestartDoesNotWithdrawAnInjectedLinkFailure red; neither rule
 #      alone does (see M1).
 mutate "the injection endpoint records a reported failure instead of an injection" \
-    "$HS" \
-    '    m_topologyAndFlowMonitor->setEdgeDownByInjection(fwdOpt.value());' \
-    '    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());' \
+    "$TFM" \
+    '    injectEdgeDownNoLock(fwd);' \
+    '    reportEdgeDownNoLock(fwd);' \
     DeclaredLinkFailureWireTest.ARyuRestartDoesNotWithdrawAnInjectedLinkFailure
 
 # ================================================================================================
@@ -1160,15 +1192,17 @@ mutate "the injection endpoint records a reported failure instead of an injectio
 #   word about the link.
 # ================================================================================================
 
-# M44. 🔴 The injection writer verbatim as it was: the note under one lock, the declaration under
-#      another. A reader sharing the lock finds `injected` with no declaration.
+# M44. 🔴 The injection writer's split as it was: the note under one lock, the declaration under
+#      another. A reader sharing the lock finds `injected` with no declaration. The body is a NoLock
+#      helper now, so the split releases and retakes the caller's lock between the two halves.
 mutate "the injection writes its note and the declaration under two locks again" \
     "$TFM" \
     '    eprop.injected = true;
     declareEdgeDownNoLock(e);' \
     '    eprop.injected = true;
-    lock.unlock();
-    setEdgeDownByDeclaration(e);' \
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    declareEdgeDownNoLock(e);' \
     DeclaredLinkFailureTest.AnInjectionWritesItsNoteAndTheDeclarationUnderOneLock
 
 # M45. The same split in the notification writer.
@@ -1177,8 +1211,9 @@ mutate "the failure report writes its note and the declaration under two locks a
     '    (*m_graph)[e].failureReported = true;
     declareEdgeDownNoLock(e);' \
     '    (*m_graph)[e].failureReported = true;
-    lock.unlock();
-    setEdgeDownByDeclaration(e);' \
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    declareEdgeDownNoLock(e);' \
     DeclaredLinkFailureTest.AReportedFailureWritesItsNoteAndTheDeclarationUnderOneLock
 
 # M46. 🔴 The injection no longer re-arms the poll's advice, so in the order report, poll, inject
@@ -1202,6 +1237,130 @@ mutate "every injection re-arms the poll's advice, even a repeated one" \
     }' \
     '    m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});' \
     DeclaredLinkFailureWireTest.ASecondInjectionOfAnInjectedLinkDoesNotRepeatTheAdvice
+
+# ================================================================================================
+# 5e. both directions of a link in one write, and the withdrawal with its raise
+#   [Co-developed with claude code -- Adam]
+#   The link endpoints wrote the two directions of a link one at a time, a lock each, and
+#   /ndt/inject_link_recovery also withdrew and raised each direction under two locks. A request
+#   between two directions left the link declared one way only, for good; an
+#   /ndt/inject_link_failure between a withdrawal and its raise was undone by the raise and left an
+#   injected, declared edge with `isUp` true, which no poll lowers. Each split below releases the
+#   graph lock where the old code did and takes it again.
+# ================================================================================================
+
+# M48. 🔴 /ndt/inject_link_recovery as it was: per direction, the withdrawal and then the raise,
+#      four lock acquisitions.
+mutate "inject_link_recovery withdraws and raises each direction under its own locks again" \
+    "$HS" \
+    '    m_topologyAndFlowMonitor->withdrawLinkDeclarationAndRaise(fwdOpt.value(), revOpt.value());' \
+    '    for (const auto& e : {fwdOpt.value(), revOpt.value()})
+    {
+        m_topologyAndFlowMonitor->clearEdgeDeclaredDown(e);
+        m_topologyAndFlowMonitor->setEdgeUp(e);
+    }' \
+    DeclaredLinkFailureWireTest.InjectRecoveryWithdrawsAndRaisesUnderOneLock \
+    DeclaredLinkFailureWireTest.AnInjectionAndItsRecoveryWriteBothDirectionsUnderOneLock
+
+# M49. 🔴 The link writer releases the lock between a withdrawal and its raise.
+mutate "the withdrawal and the raise are two writes again" \
+    "$TFM" \
+    '    clearEdgeDeclaredDownNoLock(fwd);
+    setEdgeUpNoLock(fwd);' \
+    '    clearEdgeDeclaredDownNoLock(fwd);
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    setEdgeUpNoLock(fwd);' \
+    DeclaredLinkFailureWireTest.InjectRecoveryWithdrawsAndRaisesUnderOneLock
+
+# M50. The recovery's link writer releases the lock between the two directions.
+mutate "inject_link_recovery writes the two directions apart again" \
+    "$TFM" \
+    '    setEdgeUpNoLock(fwd);
+    clearEdgeDeclaredDownNoLock(rev);' \
+    '    setEdgeUpNoLock(fwd);
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    clearEdgeDeclaredDownNoLock(rev);' \
+    DeclaredLinkFailureWireTest.AnInjectionAndItsRecoveryWriteBothDirectionsUnderOneLock
+
+# M51. 🔴 /ndt/inject_link_failure as it was: a direction, its event, the other direction. A handler
+#      of the first event runs between the two, which is the order the deterministic case builds.
+mutate "inject_link_failure writes a direction, emits, and then writes the other" \
+    "$HS" \
+    '    m_topologyAndFlowMonitor->setLinkDownByInjection(fwdOpt.value(), revOpt.value());
+    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                           .payload = LinkFailureEventData{fwdOpt.value()}});' \
+    '    m_topologyAndFlowMonitor->setEdgeDownByInjection(fwdOpt.value());
+    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                           .payload = LinkFailureEventData{fwdOpt.value()}});
+    m_topologyAndFlowMonitor->setEdgeDownByInjection(revOpt.value());' \
+    DeclaredLinkFailureWireTest.ARecoveryInsideAnInjectionLeavesBothDirectionsAlike \
+    DeclaredLinkFailureWireTest.AnInjectionAndItsRecoveryWriteBothDirectionsUnderOneLock
+
+# M52. The injection's link writer releases the lock between the two directions.
+mutate "the injection writes the two directions apart again" \
+    "$TFM" \
+    '    injectEdgeDownNoLock(fwd);
+    injectEdgeDownNoLock(rev);' \
+    '    injectEdgeDownNoLock(fwd);
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    injectEdgeDownNoLock(rev);' \
+    DeclaredLinkFailureWireTest.AnInjectionAndItsRecoveryWriteBothDirectionsUnderOneLock
+
+# M53. 🔴 /ndt/link_failure_detected as it was: a direction, its event, the other direction.
+mutate "link_failure_detected writes a direction, emits, and then writes the other" \
+    "$HS" \
+    '    m_topologyAndFlowMonitor->setLinkDownByReportedFailure(fwdOpt.value(), revOpt.value());
+    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                           .payload = LinkFailureEventData{fwdOpt.value()}});' \
+    '    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());
+    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                           .payload = LinkFailureEventData{fwdOpt.value()}});
+    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(revOpt.value());' \
+    DeclaredLinkFailureWireTest.ARecoveryInsideAFailureReportLeavesBothDirectionsAlike \
+    DeclaredLinkFailureWireTest.AFailureReportAndItsRecoveryWriteBothDirectionsUnderOneLock
+
+# M54. The failure report's link writer releases the lock between the two directions.
+mutate "the failure report writes the two directions apart again" \
+    "$TFM" \
+    '    reportEdgeDownNoLock(fwd);
+    reportEdgeDownNoLock(rev);' \
+    '    reportEdgeDownNoLock(fwd);
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    reportEdgeDownNoLock(rev);' \
+    DeclaredLinkFailureWireTest.AFailureReportAndItsRecoveryWriteBothDirectionsUnderOneLock
+
+# M55. /ndt/link_recovery_detected as it was: one call per direction.
+mutate "link_recovery_detected applies the two directions in two calls again" \
+    "$HS" \
+    '    const auto [fwdOutcome, revOutcome] =
+        m_topologyAndFlowMonitor->applyReportedLinkRecovery(fwdOpt.value(), revOpt.value());' \
+    '    const auto fwdOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(fwdOpt.value());
+    const auto revOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(revOpt.value());' \
+    DeclaredLinkFailureWireTest.AFailureReportAndItsRecoveryWriteBothDirectionsUnderOneLock
+
+# M56. The recovery report's link writer releases the lock between the two directions.
+mutate "the recovery report applies the two directions apart again" \
+    "$TFM" \
+    '    const auto fwdOutcome = applyReportedLinkRecoveryNoLock(fwd);
+    const auto revOutcome = applyReportedLinkRecoveryNoLock(rev);' \
+    '    const auto fwdOutcome = applyReportedLinkRecoveryNoLock(fwd);
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    const auto revOutcome = applyReportedLinkRecoveryNoLock(rev);' \
+    DeclaredLinkFailureWireTest.AFailureReportAndItsRecoveryWriteBothDirectionsUnderOneLock
+
+# M57. The missing-reverse branch of /ndt/link_failure_detected, the one place that endpoint still
+#      writes a single direction, records a plain declaration instead of a reported failure, so its
+#      own recovery report can no longer withdraw it.
+mutate "link_failure_detected with no reverse edge records a plain declaration" \
+    "$HS" \
+    '        m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());' \
+    '        m_topologyAndFlowMonitor->setEdgeDownByDeclaration(fwdOpt.value());' \
+    LinkTransitionEndpointsTest.AFailureWhoseReverseEdgeIsMissingIsNotReportedAsSuccess
 
 # ================================================================================================
 # 6. the widenings -- these MUST survive
@@ -1289,6 +1448,57 @@ widen "the declined-injection sentence is reworded (it still says the declaratio
     '                               "attached is still in place",' \
     '                               "attached has not been removed",'
 
+# W9. The control for M49 and M50: the recovery's link writer as a loop over the two directions,
+#     still under the one lock. The cases must be catching a released lock, not the shape of the
+#     body. [Co-developed with claude code -- Adam]
+widen "the withdrawal link writer is written as a loop under the same lock" \
+    "$TFM" \
+    '    clearEdgeDeclaredDownNoLock(fwd);
+    setEdgeUpNoLock(fwd);
+    clearEdgeDeclaredDownNoLock(rev);
+    setEdgeUpNoLock(rev);' \
+    '    for (const auto e : {fwd, rev})
+    {
+        clearEdgeDeclaredDownNoLock(e);
+        setEdgeUpNoLock(e);
+    }'
+
+# W10 .. W13. The control for the lock-split mutants: each link writer releases and retakes the
+#     lock right after taking it, where nothing is half-written. The gap cases must be catching a
+#     release in the middle of a write, not lock traffic as such. [Co-developed with claude code -- Adam]
+widen "the withdrawal link writer releases and retakes the lock before writing anything" \
+    "$TFM" \
+    '    std::unique_lock lock(*m_graphMutex);
+    clearEdgeDeclaredDownNoLock(fwd);' \
+    '    std::unique_lock lock(*m_graphMutex);
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    clearEdgeDeclaredDownNoLock(fwd);'
+widen "the injection link writer releases and retakes the lock before writing anything" \
+    "$TFM" \
+    '    std::unique_lock lock(*m_graphMutex);
+    injectEdgeDownNoLock(fwd);' \
+    '    std::unique_lock lock(*m_graphMutex);
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    injectEdgeDownNoLock(fwd);'
+widen "the report link writer releases and retakes the lock before writing anything" \
+    "$TFM" \
+    '    std::unique_lock lock(*m_graphMutex);
+    reportEdgeDownNoLock(fwd);' \
+    '    std::unique_lock lock(*m_graphMutex);
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    reportEdgeDownNoLock(fwd);'
+widen "the recovery link writer releases and retakes the lock before writing anything" \
+    "$TFM" \
+    '    std::unique_lock lock(*m_graphMutex);
+    const auto fwdOutcome = applyReportedLinkRecoveryNoLock(fwd);' \
+    '    std::unique_lock lock(*m_graphMutex);
+    m_graphMutex->unlock();
+    m_graphMutex->lock();
+    const auto fwdOutcome = applyReportedLinkRecoveryNoLock(fwd);'
+
 # ================================================================================================
 # 7. restore and verdict
 # ================================================================================================
@@ -1344,5 +1554,7 @@ echo "  this topology does not name, call everything a link, or read one device 
 echo "  and nine ways of over-correcting are caught too. An injection cannot be ended by a"
 echo "  recovery report again, whatever the control plane reported (B-23), and treating every"
 echo "  reported link as injected is caught as well. Neither note can be written apart from its"
-echo "  declaration again, and an injection re-arms the poll's advice exactly when it changes it."
+echo "  declaration again, an injection of an edge that was not injected re-arms the poll's"
+echo "  advice, no link endpoint can write the two directions of its link apart again, and"
+echo "  inject_link_recovery cannot withdraw a declaration apart from raising the edge again."
 exit 0

@@ -4062,6 +4062,14 @@ TopologyAndFlowMonitor::setEdgeDownByReportedFailure(Graph::edge_descriptor e)
     // landing between the two cleared the note and left the declaration to be made without it:
     // a declaration nothing reported, which its own recovery report then declines.
     std::unique_lock lock(*m_graphMutex);
+    reportEdgeDownNoLock(e);
+}
+
+/** @brief The body of setEdgeDownByReportedFailure, under the caller's lock.
+ *  [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::reportEdgeDownNoLock(Graph::edge_descriptor e)
+{
     // The note this call adds, and the only thing that separates it from an injection: the
     // control plane says it SAW this break, so the recovery report that pairs with it is
     // entitled to withdraw the declaration.
@@ -4080,6 +4088,14 @@ TopologyAndFlowMonitor::setEdgeDownByInjection(Graph::edge_descriptor e)
     // wrong reason, and once the control plane reported the cut, a recovery report ended it with
     // its netem still attached.
     std::unique_lock lock(*m_graphMutex);
+    injectEdgeDownNoLock(e);
+}
+
+/** @brief The body of setEdgeDownByInjection, under the caller's lock.
+ *  [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::injectEdgeDownNoLock(Graph::edge_descriptor e)
+{
     auto& eprop = (*m_graph)[e];
     // B-23. An injection that begins re-arms the poll's one-line advice for this edge. If the
     // poll already declined to raise it under a reported failure, the line it printed named
@@ -4099,6 +4115,14 @@ LinkRecoveryOutcome
 TopologyAndFlowMonitor::applyReportedLinkRecovery(Graph::edge_descriptor e)
 {
     std::unique_lock lock(*m_graphMutex);
+    return applyReportedLinkRecoveryNoLock(e);
+}
+
+/** @brief The body of applyReportedLinkRecovery, under the caller's lock.
+ *  [Co-developed with claude code -- Adam] */
+LinkRecoveryOutcome
+TopologyAndFlowMonitor::applyReportedLinkRecoveryNoLock(Graph::edge_descriptor e)
+{
     auto& eprop = (*m_graph)[e];
 
     // [Co-developed with claude code -- Adam]
@@ -4127,7 +4151,7 @@ TopologyAndFlowMonitor::applyReportedLinkRecovery(Graph::edge_descriptor e)
     // and by nothing else, so an edge that carries a declaration without one was not declared by
     // the control plane -- and Ryu rediscovering the link says nothing about that, because nothing
     // on the fabric had to change for Ryu to list it again. (Since B-23 a declaration from
-    // /ndt/inject_link_failure goes through setEdgeDownByInjection and is declined by the
+    // /ndt/inject_link_failure goes through setEdgeDownByInjection's body and is declined by the
     // injection branch above; this one is reached only through setEdgeDownByDeclaration.)
     //
     // Measured 2026-09-07 00:08 (OVS 4 hosts): Ryu restarted with the same argv POSTed
@@ -4173,6 +4197,14 @@ void
 TopologyAndFlowMonitor::clearEdgeDeclaredDown(Graph::edge_descriptor e)
 {
     std::unique_lock lock(*m_graphMutex);
+    clearEdgeDeclaredDownNoLock(e);
+}
+
+/** @brief The body of clearEdgeDeclaredDown, under the caller's lock.
+ *  [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::clearEdgeDeclaredDownNoLock(Graph::edge_descriptor e)
+{
     auto& eprop = (*m_graph)[e];
     eprop.declaredDown = false;
     // Spent as well: an operator taking an injection back ends the episode, so a recovery report
@@ -4182,6 +4214,57 @@ TopologyAndFlowMonitor::clearEdgeDeclaredDown(Graph::edge_descriptor e)
     eprop.injected = false;
     // The episode is over, so the next decline for this edge is a new one and deserves its line.
     m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
+}
+
+// [Co-developed with claude code -- Adam]
+// The link writers: both directions of one link under one lock. See the header for why a link
+// endpoint may not write its two directions apart.
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::setLinkDownByReportedFailure(Graph::edge_descriptor fwd,
+                                                     Graph::edge_descriptor rev)
+{
+    std::unique_lock lock(*m_graphMutex);
+    reportEdgeDownNoLock(fwd);
+    reportEdgeDownNoLock(rev);
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::setLinkDownByInjection(Graph::edge_descriptor fwd,
+                                               Graph::edge_descriptor rev)
+{
+    std::unique_lock lock(*m_graphMutex);
+    injectEdgeDownNoLock(fwd);
+    injectEdgeDownNoLock(rev);
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+std::pair<LinkRecoveryOutcome, LinkRecoveryOutcome>
+TopologyAndFlowMonitor::applyReportedLinkRecovery(Graph::edge_descriptor fwd,
+                                                  Graph::edge_descriptor rev)
+{
+    std::unique_lock lock(*m_graphMutex);
+    const auto fwdOutcome = applyReportedLinkRecoveryNoLock(fwd);
+    const auto revOutcome = applyReportedLinkRecoveryNoLock(rev);
+    return {fwdOutcome, revOutcome};
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::withdrawLinkDeclarationAndRaise(Graph::edge_descriptor fwd,
+                                                        Graph::edge_descriptor rev)
+{
+    // One lock for the withdrawal and the raise. Taken twice, an /ndt/inject_link_failure landing
+    // between them was undone by the raise: the edge stayed injected and declared down with
+    // `isUp` true, and the topology poll never lowered it, because it only raises the links it
+    // lists.
+    std::unique_lock lock(*m_graphMutex);
+    clearEdgeDeclaredDownNoLock(fwd);
+    setEdgeUpNoLock(fwd);
+    clearEdgeDeclaredDownNoLock(rev);
+    setEdgeUpNoLock(rev);
 }
 
 /** @brief See the header. [Co-developed with claude code -- Adam] */

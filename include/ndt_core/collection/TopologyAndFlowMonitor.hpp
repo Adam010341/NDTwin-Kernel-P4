@@ -308,7 +308,7 @@ class TopologyAndFlowMonitor
      *   setEdgeDownByReportedFailure   -- the same intent, PLUS the note that the control plane
      *                                     said it saw the break (/ndt/link_failure_detected).
      *   setEdgeDownByInjection         -- the same intent, PLUS the note that it was injected
-     *                                     (/ndt/inject_link_failure), which only
+     *                                     (/ndt/inject_link_failure), which only the body of
      *                                     clearEdgeDeclaredDown may end (B-23).
      *   applyReportedLinkRecovery      -- /ndt/link_recovery_detected. Spends that note, and only
      *                                     then withdraws the declaration -- never an injected one.
@@ -331,11 +331,11 @@ class TopologyAndFlowMonitor
      * @brief Declares @p e failed AND records that the control plane reported the break.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/FIXED-ISSUES.md B-6. /ndt/link_failure_detected, and nothing else, calls this:
+     * doc/FIXED-ISSUES.md B-6. /ndt/link_failure_detected, and nothing else, writes this (both
+     * directions through setLinkDownByReportedFailure, one alone when the reverse edge is missing):
      * it is Ryu's notification endpoint, so a call to it is the twin being TOLD a link broke.
-     * /ndt/inject_link_failure calls setEdgeDownByInjection instead -- an operator asking for a
-     * link to be down is not the control plane observing that it is. [Co-developed with claude
-     * code -- Adam]
+     * /ndt/inject_link_failure writes setEdgeDownByInjection's body instead -- an operator asking
+     * for a link to be down is not the control plane observing that it is.
      *
      * The difference is spent by applyReportedLinkRecovery: one report, one withdrawal.
      *
@@ -349,10 +349,10 @@ class TopologyAndFlowMonitor
      * @brief Declares @p e failed AND records that the declaration is an injection.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/FIXED-ISSUES.md B-23. /ndt/inject_link_failure, and nothing else, calls this. The
-     * `injected` note is what makes applyReportedLinkRecovery decline for this edge even when a
-     * control-plane failure report stands for it, and only clearEdgeDeclaredDown
-     * (/ndt/inject_link_recovery) clears it.
+     * doc/FIXED-ISSUES.md B-23. /ndt/inject_link_failure, and nothing else, writes this, through
+     * setLinkDownByInjection. The `injected` note is what makes applyReportedLinkRecovery decline
+     * for this edge even when a control-plane failure report stands for it, and only
+     * clearEdgeDeclaredDown's body (/ndt/inject_link_recovery) clears it.
      */
     void setEdgeDownByInjection(Graph::edge_descriptor e);
 
@@ -396,11 +396,47 @@ class TopologyAndFlowMonitor
      *
      * Deliberately does NOT touch `isUp`: whether the link is carrying traffic again is discovery's
      * call, and discovery has evidence -- this call answers only "is the twin still holding a
-     * declared failure against this edge". /ndt/inject_link_recovery calls setEdgeUp as well,
-     * because a caller saying "it recovered" is itself evidence and the next poll may be 30 s away.
+     * declared failure against this edge". /ndt/inject_link_recovery raises the edge as well,
+     * because a caller saying "it recovered" is itself evidence and the next poll may be 30 s away;
+     * it does both through withdrawLinkDeclarationAndRaise, under one lock.
      * [Co-developed with claude code -- Adam]
      */
     void clearEdgeDeclaredDown(Graph::edge_descriptor e);
+
+    /**
+     * @brief The link writers: both directions of one link, under ONE lock.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Every link endpoint writes both directions of the link it names, and each of these is the
+     * per-edge writer of the same name applied to @p fwd and then @p rev, in one critical section:
+     *
+     *   setLinkDownByReportedFailure     -- /ndt/link_failure_detected
+     *   setLinkDownByInjection           -- /ndt/inject_link_failure
+     *   applyReportedLinkRecovery        -- /ndt/link_recovery_detected; the two outcomes in order
+     *   withdrawLinkDeclarationAndRaise  -- /ndt/inject_link_recovery: clearEdgeDeclaredDown and
+     *                                       setEdgeUp on each direction
+     *
+     * Written apart, the two directions of a link can disagree, and not only while a request is
+     * running. A reader that takes the lock between them sees the link down one way and up the
+     * other, a state no request asked for. Worse, two requests whose directions interleave leave
+     * it that way for good: an /ndt/inject_link_recovery that lands between the two halves of an
+     * /ndt/inject_link_failure withdraws the first direction and leaves the second one injected.
+     *
+     * @warning withdrawLinkDeclarationAndRaise exists for the same reason as the @warning on
+     *          applyReportedLinkRecovery. The handler used to call `clearEdgeDeclaredDown(e);
+     *          setEdgeUp(e);`, two acquisitions, and an /ndt/inject_link_failure that landed
+     *          between them was undone by the raise: the edge stayed injected and declared down
+     *          with `isUp` true, and the topology poll never lowered it, because it only raises
+     *          the links it lists.
+     *
+     * The event an endpoint emits per direction is emitted after the call returns, so a handler
+     * of that event sees both directions written.
+     */
+    void setLinkDownByReportedFailure(Graph::edge_descriptor fwd, Graph::edge_descriptor rev);
+    void setLinkDownByInjection(Graph::edge_descriptor fwd, Graph::edge_descriptor rev);
+    std::pair<LinkRecoveryOutcome, LinkRecoveryOutcome>
+    applyReportedLinkRecovery(Graph::edge_descriptor fwd, Graph::edge_descriptor rev);
+    void withdrawLinkDeclarationAndRaise(Graph::edge_descriptor fwd, Graph::edge_descriptor rev);
 
     /// Whether a declared link failure is still standing for @p e.
     /// [Co-developed with claude code -- Adam]
@@ -1167,6 +1203,15 @@ class TopologyAndFlowMonitor
     /// without its note. [Co-developed with claude code -- Adam]
     void declareEdgeDownNoLock(Graph::edge_descriptor e);
 
+    /// The bodies of setEdgeDownByReportedFailure, setEdgeDownByInjection,
+    /// applyReportedLinkRecovery and clearEdgeDeclaredDown, for a caller that already holds
+    /// *m_graphMutex uniquely: the link writers apply them to both directions under one lock.
+    /// [Co-developed with claude code -- Adam]
+    void reportEdgeDownNoLock(Graph::edge_descriptor e);
+    void injectEdgeDownNoLock(Graph::edge_descriptor e);
+    LinkRecoveryOutcome applyReportedLinkRecoveryNoLock(Graph::edge_descriptor e);
+    void clearEdgeDeclaredDownNoLock(Graph::edge_descriptor e);
+
     /// Set by the first loadStaticTopology() call, so run() does not repeat main's work.
     std::atomic<bool> m_staticTopologyLoadAttempted{false};
     /// The verdict of that one attempt, for any later caller.
@@ -1252,9 +1297,10 @@ class TopologyAndFlowMonitor
     /// with a sharper reason for it here. Ryu goes on listing a link that was declared failed for
     /// ever, because a declaration has no LLDP consequence: nothing about the fabric changed, only
     /// what the twin was told. So a line per decline is a line per declared edge every 30 s, with
-    /// no end. Cleared by clearEdgeDeclaredDown, which is the episode ending, and by
-    /// setEdgeDownByInjection when it turns a declaration into an injection, which changes the
-    /// advice the line gives. [Co-developed with claude code -- Adam]
+    /// no end. Cleared by clearEdgeDeclaredDown and withdrawLinkDeclarationAndRaise, and by
+    /// applyReportedLinkRecovery when it applies a report: the episode ending. Also by
+    /// setEdgeDownByInjection and setLinkDownByInjection when an edge newly becomes injected.
+    /// [Co-developed with claude code -- Adam]
     /// Written under *m_graphMutex (updateLinks already holds it; the other writers take it).
     std::set<std::pair<uint64_t, uint32_t>> m_linkResurrectionDeclined;
 
